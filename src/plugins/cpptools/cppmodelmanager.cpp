@@ -732,7 +732,8 @@ QStringList CppModelManager::internalProjectFiles() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        files += pinfo.sourceFiles;
+        foreach (const ProjectPart &part, pinfo.projectParts)
+            files += part.sourceFiles;
     }
     files.removeDuplicates();
     return files;
@@ -745,7 +746,8 @@ QStringList CppModelManager::internalIncludePaths() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        includePaths += pinfo.includePaths;
+        foreach (const ProjectPart &part, pinfo.projectParts)
+            includePaths += part.includePaths;
     }
     includePaths.removeDuplicates();
     return includePaths;
@@ -758,7 +760,8 @@ QStringList CppModelManager::internalFrameworkPaths() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        frameworkPaths += pinfo.frameworkPaths;
+        foreach (const ProjectPart &part, pinfo.projectParts)
+            frameworkPaths += part.frameworkPaths;
     }
     frameworkPaths.removeDuplicates();
     return frameworkPaths;
@@ -771,7 +774,8 @@ QByteArray CppModelManager::internalDefinedMacros() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        macros += pinfo.defines;
+        foreach (const ProjectPart &part, pinfo.projectParts)
+            macros += part.defines;
     }
     return macros;
 }
@@ -859,12 +863,28 @@ CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Proje
 
 void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 {
+    // Tons of debug output...
+    qDebug()<<"========= CppModelManager::updateProjectInfo ======";
+    qDebug()<<" for project:"<< pinfo.project.data()->file()->fileName();
+    foreach (const ProjectPart &part, pinfo.projectParts) {
+        qDebug() << "=== part ===";
+        qDebug() << "language:" << (part.language == CXX ? "C++" : "ObjC++");
+        qDebug() << "compilerflags:" << part.flags;
+        qDebug() << "precompiled header:" << part.precompiledHeaders;
+        qDebug() << "defines:" << part.defines;
+        qDebug() << "includes:" << part.includePaths;
+        qDebug() << "frameworkPaths:" << part.frameworkPaths;
+        qDebug() << "sources:" << part.sourceFiles;
+        qDebug() << "";
+    }
+
+    qDebug() << "";
     QMutexLocker locker(&mutex);
 
     if (! pinfo.isValid())
         return;
 
-    m_projects.insert(pinfo.project, pinfo);
+    m_projects.insert(pinfo.project.data(), pinfo);
     m_dirty = true;
 }
 

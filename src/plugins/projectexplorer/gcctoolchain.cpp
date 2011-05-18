@@ -343,8 +343,12 @@ bool GccToolChain::isValid() const
     return !m_compilerPath.isNull();
 }
 
-QByteArray GccToolChain::predefinedMacros() const
+QByteArray GccToolChain::predefinedMacros(const QStringList &cxxflags) const
 {
+    // TODO use cxxflags
+    // the defines are different in c++0x mode and we need those defines
+    // to enable the c++0x code in qt
+    Q_UNUSED(cxxflags)
     if (m_predefinedMacros.isEmpty()) {
         // Using a clean environment breaks ccache/distcc/etc.
         Utils::Environment env = Utils::Environment::systemEnvironment();
@@ -352,6 +356,13 @@ QByteArray GccToolChain::predefinedMacros() const
         m_predefinedMacros = gccPredefinedMacros(m_compilerPath, env.toStringList());
     }
     return m_predefinedMacros;
+}
+
+ProjectExplorer::ToolChain::CompilerFlags GccToolChain::compilerFlags(const QStringList &cxxflags) const
+{
+    if (cxxflags.contains("-std=c++0x") || cxxflags.contains("-std=gnu++0x"))
+        return STDC11;
+    return NOFLAGS;
 }
 
 QList<HeaderPath> GccToolChain::systemHeaderPaths() const

@@ -298,22 +298,19 @@ bool CMakeProject::parseCMakeLists()
 
     CPlusPlus::CppModelManagerInterface *modelmanager =
             CPlusPlus::CppModelManagerInterface::instance();
-    if (modelmanager) {
-        CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
-        if (pinfo.includePaths != allIncludePaths
-            || pinfo.sourceFiles != m_files
-            || pinfo.defines != activeBC->toolChain()->predefinedMacros()
-            || pinfo.frameworkPaths != allFrameworkPaths)  {
-            pinfo.includePaths = allIncludePaths;
-            // TODO we only want C++ files, not all other stuff that might be in the project
-            pinfo.sourceFiles = m_files;
-            pinfo.defines = activeBC->toolChain()->predefinedMacros(); // TODO this is to simplistic
-            pinfo.frameworkPaths = allFrameworkPaths;
-            modelmanager->updateProjectInfo(pinfo);
-            m_codeModelFuture.cancel();
-            m_codeModelFuture = modelmanager->updateSourceFiles(pinfo.sourceFiles);
-        }
-    }
+    CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
+    pinfo.projectParts.clear();
+    CPlusPlus::CppModelManagerInterface::ProjectPart part;
+    part.includePaths = allIncludePaths;
+    part.sourceFiles = m_files;
+    part.defines = activeBC->toolChain()->predefinedMacros(QStringList());
+    part.frameworkPaths = allFrameworkPaths;
+    part.language = CPlusPlus::CppModelManagerInterface::CXX;
+    pinfo.projectParts.append(part);
+    modelmanager->updateProjectInfo(pinfo);
+    m_codeModelFuture.cancel();
+    m_codeModelFuture = modelmanager->updateSourceFiles(m_files);
+
     emit buildTargetsChanged();
     emit fileListChanged();
     return true;

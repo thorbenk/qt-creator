@@ -231,30 +231,32 @@ void GenericProject::refresh(RefreshOptions options)
 
     if (modelManager) {
         CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
+        pinfo.projectParts.clear();
+        CPlusPlus::CppModelManagerInterface::ProjectPart part;
 
         if (m_toolChain) {
-            pinfo.defines = m_toolChain->predefinedMacros();
-            pinfo.defines += '\n';
+            part.defines = m_toolChain->predefinedMacros(QStringList());
+            part.defines += '\n';
 
             foreach (const HeaderPath &headerPath, m_toolChain->systemHeaderPaths()) {
                 if (headerPath.kind() == HeaderPath::FrameworkHeaderPath)
-                    pinfo.frameworkPaths.append(headerPath.path());
+                    part.frameworkPaths.append(headerPath.path());
                 else
-                    pinfo.includePaths.append(headerPath.path());
+                    part.includePaths.append(headerPath.path());
             }
         }
 
-        pinfo.includePaths += allIncludePaths();
-        pinfo.defines += m_defines;
+        part.includePaths += allIncludePaths();
+        part.defines += m_defines;
 
         // ### add _defines.
-        pinfo.sourceFiles = files();
-        pinfo.sourceFiles += generated();
+        part.sourceFiles = files();
+        part.sourceFiles += generated();
 
         QStringList filesToUpdate;
 
         if (options & Configuration) {
-            filesToUpdate = pinfo.sourceFiles;
+            filesToUpdate = part.sourceFiles;
             filesToUpdate.append(QLatin1String("<configuration>")); // XXX don't hardcode configuration file name
             // Full update, if there's a code model update, cancel it
             m_codeModelFuture.cancel();
@@ -264,6 +266,8 @@ void GenericProject::refresh(RefreshOptions options)
             newFileList.subtract(oldFileList);
             filesToUpdate.append(newFileList.toList());
         }
+
+        pinfo.projectParts.append(part);
 
         modelManager->updateProjectInfo(pinfo);
         m_codeModelFuture = modelManager->updateSourceFiles(filesToUpdate);

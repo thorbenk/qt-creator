@@ -81,6 +81,9 @@ enum Qt4ProjectType {
 enum Qt4Variable {
     DefinesVar = 1,
     IncludePathVar,
+    CppFlagsVar,
+    CppSourceVar,
+    ObjCSourceVar,
     UiDirVar,
     MocDirVar,
     PkgConfigVar,
@@ -344,6 +347,7 @@ public:
 
     QString makefile() const;
     QStringList symbianCapabilities() const;
+    QByteArray cxxDefines() const;
     bool isDeployable() const;
 
     void update();

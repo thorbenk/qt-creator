@@ -61,7 +61,9 @@ public:
 
     bool isValid() const;
 
-    QByteArray predefinedMacros() const;
+    QByteArray predefinedMacros(const QStringList &cxxflags) const;
+    CompilerFlags compilerFlags(const QStringList &cxxflags) const;
+
     QList<HeaderPath> systemHeaderPaths() const;
     void addToEnvironment(Utils::Environment &env) const;
     QString mkspec() const;

@@ -35,6 +35,9 @@
 
 #include <cplusplus/CppDocument.h>
 #include <languageutils/fakemetaobject.h>
+#include <projectexplorer/project.h>
+#include <projectexplorer/toolchain.h>
+
 #include <QtCore/QObject>
 #include <QtCore/QHash>
 #include <QtCore/QPointer>
@@ -64,13 +67,27 @@ class CPLUSPLUS_EXPORT CppModelManagerInterface : public QObject
     Q_OBJECT
 
 public:
+    enum Language { CXX, OBJC };
+
+    class ProjectPart
+    {
+    public: //attributes
+        QStringList sourceFiles;
+        QByteArray defines;
+        QStringList includePaths;
+        QStringList frameworkPaths;
+        QStringList precompiledHeaders;
+        Language language;
+        ProjectExplorer::ToolChain::CompilerFlags flags;
+    };
+
     class ProjectInfo
     {
     public:
         ProjectInfo()
         { }
 
-        ProjectInfo(QPointer<ProjectExplorer::Project> project)
+        ProjectInfo(QWeakPointer<ProjectExplorer::Project> project)
             : project(project)
         { }
 
@@ -82,15 +99,9 @@ public:
 
         bool isNull() const
         { return project.isNull(); }
-
     public: // attributes
-        QPointer<ProjectExplorer::Project> project;
-        QString projectPath;
-        QByteArray defines;
-        QStringList sourceFiles;
-        QStringList includePaths;
-        QStringList frameworkPaths;
-        QStringList precompiledHeaders;
+        QWeakPointer<ProjectExplorer::Project> project;
+        QList<ProjectPart> projectParts;
     };
 
     class WorkingCopy

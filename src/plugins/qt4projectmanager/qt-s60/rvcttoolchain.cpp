@@ -173,8 +173,9 @@ bool RvctToolChain::isValid() const
     return !m_compilerPath.isEmpty();
 }
 
-QByteArray RvctToolChain::predefinedMacros() const
+QByteArray RvctToolChain::predefinedMacros(const QStringList &cxxflags) const
 {
+    Q_UNUSED(cxxflags);
     // see http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0205f/Babbacdb.html (version 2.2)
     // and http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0491b/BABJFEFG.html (version 4.0)
     QByteArray ba("#define __ARRAY_OPERATORS\n"
@@ -194,6 +195,12 @@ QByteArray RvctToolChain::predefinedMacros() const
                   "#define _WCHAR_T\n"
                   "#define __SYMBIAN32__\n");
     return ba;
+}
+
+ProjectExplorer::ToolChain::CompilerFlags RvctToolChain::compilerFlags(const QStringList &cxxflags) const
+{
+    Q_UNUSED(cxxflags);
+    return NOFLAGS;
 }
 
 QList<ProjectExplorer::HeaderPath> RvctToolChain::systemHeaderPaths() const

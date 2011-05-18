@@ -47,7 +47,7 @@ class GcceToolChain : public ProjectExplorer::GccToolChain
 public:
     QString typeName() const;
 
-    QByteArray predefinedMacros() const;
+    QByteArray predefinedMacros(const QStringList &list) const;
     void addToEnvironment(Utils::Environment &env) const;
     QString makeCommand() const;
     QString mkspec() const;
