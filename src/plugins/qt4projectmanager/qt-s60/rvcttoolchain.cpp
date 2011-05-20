@@ -200,7 +200,7 @@ QByteArray RvctToolChain::predefinedMacros(const QStringList &cxxflags) const
 ProjectExplorer::ToolChain::CompilerFlags RvctToolChain::compilerFlags(const QStringList &cxxflags) const
 {
     Q_UNUSED(cxxflags);
-    return NOFLAGS;
+    return NO_FLAGS;
 }
 
 QList<ProjectExplorer::HeaderPath> RvctToolChain::systemHeaderPaths() const

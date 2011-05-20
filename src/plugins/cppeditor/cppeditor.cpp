@@ -2132,8 +2132,11 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
         QStringList frameworkPaths;
         if (ProjectExplorer::Project *project =
                 ProjectExplorer::ProjectExplorerPlugin::instance()->currentProject()) {
-            includePaths = m_modelManager->projectInfo(project).includePaths;
-            frameworkPaths = m_modelManager->projectInfo(project).frameworkPaths;
+            foreach (const CppModelManagerInterface::ProjectPart &part,
+                     m_modelManager->projectInfo(project).projectParts) {
+                includePaths.append(part.includePaths);
+                frameworkPaths.append(part.frameworkPaths);
+            }
         }
         return new CppTools::Internal::CppCompletionAssistInterface(
                     document(),

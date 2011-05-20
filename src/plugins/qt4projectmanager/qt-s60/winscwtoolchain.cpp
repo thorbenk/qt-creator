@@ -166,7 +166,7 @@ QByteArray WinscwToolChain::predefinedMacros(const QStringList &cxxflags) const
 ProjectExplorer::ToolChain::CompilerFlags WinscwToolChain::compilerFlags(const QStringList &cxxflags) const
 {
     Q_UNUSED(cxxflags);
-    return NOFLAGS;
+    return NO_FLAGS;
 }
 
 QList<ProjectExplorer::HeaderPath> WinscwToolChain::systemHeaderPaths() const
