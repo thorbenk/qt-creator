@@ -96,13 +96,39 @@ static QByteArray runGcc(const QString &gcc, const QStringList &arguments, const
     return cpp.readAllStandardOutput() + '\n' + cpp.readAllStandardError();
 }
 
-static QByteArray gccPredefinedMacros(const QString &gcc, const QStringList &env)
+static QByteArray gccPredefinedMacros(const QString &gcc, const QStringList &args, const QStringList &env)
 {
     QStringList arguments;
     arguments << QLatin1String("-xc++")
               << QLatin1String("-E")
-              << QLatin1String("-dM")
-              << QLatin1String("-");
+              << QLatin1String("-dM");
+    foreach (const QString &a, args) {
+        if (a == QLatin1String("-m128bit-long-double") || a == QLatin1String("-m32")
+                || a == QLatin1String("-m3dnow") || a == QLatin1String("-m3dnowa")
+                || a == QLatin1String("-m64") || a == QLatin1String("-m96bit-long-double")
+                || a == QLatin1String("-mabm") || a == QLatin1String("-maes")
+                || a.startsWith(QLatin1String("-march=")) || a == QLatin1String("-mavx")
+                || a.startsWith(QLatin1String("-masm=")) || a == QLatin1String("-mcx16")
+                || a == QLatin1String("-mfma") || a == QLatin1String("-mfma4")
+                || a == QLatin1String("-mlwp") || a == QLatin1String("-mpclmul")
+                || a == QLatin1String("-mpopcnt") || a == QLatin1String("-msse")
+                || a == QLatin1String("-msse2") || a == QLatin1String("-msse2avx")
+                || a == QLatin1String("-msse3") || a == QLatin1String("-msse4")
+                || a == QLatin1String("-msse4.1") || a == QLatin1String("-msse4.2")
+                || a == QLatin1String("-msse4a") || a == QLatin1String("-mssse3")
+                || a.startsWith(QLatin1String("-mtune=")) || a == QLatin1String("-mxop")
+                || a == QLatin1String("-Os") || a == QLatin1String("-O0") || a == QLatin1String("-O1")
+                || a == QLatin1String("-O2") || a == QLatin1String("-O3")
+                || a == QLatin1String("-ffinite-math-only") || a == QLatin1String("-fshort-double")
+                || a == QLatin1String("-fshort-wchar") || a == QLatin1String("-fsignaling-nans")
+                || a.startsWith(QLatin1String("-std=")) || a.startsWith(QLatin1String("-specs="))
+                || a == QLatin1String("-ansi")
+                || a.startsWith(QLatin1String("-D")) || a.startsWith(QLatin1String("-U"))
+                || a == QLatin1String("-undef"))
+            arguments << a;
+    }
+
+    arguments << QLatin1String("-");
 
     QByteArray predefinedMacros = runGcc(gcc, arguments, env);
 #ifdef Q_OS_MAC
@@ -345,15 +371,11 @@ bool GccToolChain::isValid() const
 
 QByteArray GccToolChain::predefinedMacros(const QStringList &cxxflags) const
 {
-    // TODO use cxxflags
-    // the defines are different in c++0x mode and we need those defines
-    // to enable the c++0x code in qt
-    Q_UNUSED(cxxflags)
     if (m_predefinedMacros.isEmpty()) {
         // Using a clean environment breaks ccache/distcc/etc.
         Utils::Environment env = Utils::Environment::systemEnvironment();
         addToEnvironment(env);
-        m_predefinedMacros = gccPredefinedMacros(m_compilerPath, env.toStringList());
+        m_predefinedMacros = gccPredefinedMacros(m_compilerPath, cxxflags, env.toStringList());
     }
     return m_predefinedMacros;
 }
@@ -361,8 +383,8 @@ QByteArray GccToolChain::predefinedMacros(const QStringList &cxxflags) const
 ProjectExplorer::ToolChain::CompilerFlags GccToolChain::compilerFlags(const QStringList &cxxflags) const
 {
     if (cxxflags.contains("-std=c++0x") || cxxflags.contains("-std=gnu++0x"))
-        return STDC11;
-    return NOFLAGS;
+        return STD_CXX11;
+    return NO_FLAGS;
 }
 
 QList<HeaderPath> GccToolChain::systemHeaderPaths() const
