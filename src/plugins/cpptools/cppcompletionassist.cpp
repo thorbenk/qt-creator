@@ -30,6 +30,7 @@
 **
 **************************************************************************/
 
+#include "clangcompletion.h"
 #include "cppmodelmanager.h"
 #include "cppcompletionassist.h"
 #include "cppdoxygen.h"
@@ -506,7 +507,11 @@ bool CppCompletionAssistProvider::isActivationCharSequence(const QString &sequen
 
 IAssistProcessor *CppCompletionAssistProvider::createProcessor() const
 {
+#if CODE_COMPLETION_WITH_CLANG
+    return new ClangCompletionAssistProcessor;
+#else
     return new CppCompletionAssistProcessor;
+#endif
 }
 
 // -----------------

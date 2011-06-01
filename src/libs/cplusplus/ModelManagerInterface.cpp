@@ -34,6 +34,57 @@
 
 using namespace CPlusPlus;
 
+QStringList CppModelManagerInterface::ProjectPart::createClangOptions() const
+{
+    QStringList result;
+
+    result << QLatin1String("-ObjC++");
+    foreach (const QString &pch, precompiledHeaders) {
+        const QString outFileName = pch + QLatin1String(".out");
+        if (result.contains(outFileName))
+            continue;
+        if (QFile(outFileName).exists())
+            result << QLatin1String("-include-pch") << outFileName;
+    }
+    foreach (QByteArray def, defines.split('\n')) {
+        if (!def.startsWith("#define "))
+            continue;
+        if (def.startsWith("#define _"))
+            continue;
+        QByteArray str = def.mid(8);
+        int spaceIdx = str.indexOf(' ');
+        QString arg;
+        if (spaceIdx != -1) {
+            arg = QLatin1String("-D" + str.left(spaceIdx) + "=" + str.mid(spaceIdx + 1));
+        } else {
+            arg = QLatin1String("-D" + str);
+        }
+        arg = arg.replace("\\\"", "\"");
+        arg = arg.replace("\"", "");
+        if (!result.contains(arg))
+            result.append(arg);
+    }
+    foreach (const QString &frameworkPath, frameworkPaths)
+        result.append(QLatin1String("-F") + frameworkPath);
+    foreach (const QString &inc, includePaths)
+        if (!inc.isEmpty())
+#ifdef Q_OS_MAC
+            if (!inc.contains("i686-apple-darwin"))
+#endif // Q_OS_MAC
+                result << ("-I" + inc);
+
+#if 0
+    qDebug() << "--- m_args:";
+    foreach (const QString &arg, result)
+        qDebug() << "\t" << qPrintable(arg);
+    qDebug() << "---";
+#endif
+
+    return result;
+}
+
+
+
 static CppModelManagerInterface *g_instance = 0;
 
 CppModelManagerInterface::CppModelManagerInterface(QObject *parent)

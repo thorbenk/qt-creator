@@ -490,7 +490,7 @@ void Qt4Project::updateCppCodeModel()
         return;
 
     ToolChain *tc = activeBC->toolChain();
-    BaseQtVersion *version = activeBC->qtVersion();
+    QtSupport::BaseQtVersion *version = activeBC->qtVersion();
 
     FindQt4ProFiles findQt4ProFiles;
     QList<Qt4ProFileNode *> proFiles = findQt4ProFiles(rootProjectNode());

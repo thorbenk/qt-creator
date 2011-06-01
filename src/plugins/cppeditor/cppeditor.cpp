@@ -61,6 +61,8 @@
 #include <cplusplus/BackwardsScanner.h>
 #include <cplusplus/FastPreprocessor.h>
 
+#include <cpptools/clangcompletion.h>
+#include <cpptools/cppcreatemarkers.h>
 #include <cpptools/cpptoolsplugin.h>
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/cppcodeformatter.h>
@@ -414,6 +416,8 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     , m_inRenameChanged(false)
     , m_firstRenameChange(false)
     , m_objcEnabled(false)
+    , m_clangCompletionWrapper(new Clang::ClangWrapper)
+    , m_clangSemanticWrapper(new Clang::ClangWrapper)
 {
     m_initialized = false;
     qRegisterMetaType<CppEditor::Internal::SemanticInfo>("CppEditor::Internal::SemanticInfo");
@@ -1686,15 +1690,15 @@ void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
     m_occurrencesUnusedFormat.clearForeground();
     m_occurrencesUnusedFormat.setToolTip(tr("Unused variable"));
     m_occurrenceRenameFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_OCCURRENCES_RENAME));
-    m_semanticHighlightFormatMap[SemanticInfo::TypeUse] =
+    m_semanticHighlightFormatMap[Clang::SourceMarker::Type] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_TYPE));
-    m_semanticHighlightFormatMap[SemanticInfo::LocalUse] =
+    m_semanticHighlightFormatMap[Clang::SourceMarker::Local] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_LOCAL));
-    m_semanticHighlightFormatMap[SemanticInfo::FieldUse] =
+    m_semanticHighlightFormatMap[Clang::SourceMarker::Field] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_FIELD));
-    m_semanticHighlightFormatMap[SemanticInfo::StaticUse] =
+    m_semanticHighlightFormatMap[Clang::SourceMarker::Static] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_STATIC));
-    m_semanticHighlightFormatMap[SemanticInfo::VirtualMethodUse] =
+    m_semanticHighlightFormatMap[Clang::SourceMarker::VirtualMethod] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_VIRTUAL_METHOD));
     m_keywordFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_KEYWORD));
 
@@ -1823,8 +1827,21 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
 
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
             if (Core::EditorManager::instance()->currentEditor() == editor()) {
+#if 1
+                if (m_clangSemanticWrapper->options().isEmpty()) { //### HACK
+                    const QString fileName = file()->fileName();
+                    m_clangSemanticWrapper->setFileName(fileName);
+                    QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(fileName);
+                    if (!parts.isEmpty())
+                        m_clangSemanticWrapper->setOptions(parts.at(0)->createClangOptions());
+                }
+
+                //### FIXME: the range is way too big.. can't we just update the visible lines?
+                CppTools::CreateMarkers::Future f = CppTools::CreateMarkers::go(m_clangSemanticWrapper, &m_clangSemanticMutex, 1, document()->blockCount() + 1);
+#else
                 LookupContext context(semanticInfo.doc, semanticInfo.snapshot);
                 CheckSymbols::Future f = CheckSymbols::go(semanticInfo.doc, context);
+#endif
                 m_highlighter = f;
                 m_highlightRevision = semanticInfo.revision;
                 m_highlightWatcher.setFuture(m_highlighter);
@@ -2128,6 +2145,21 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
     TextEditor::AssistReason reason) const
 {
     if (kind == TextEditor::Completion) {
+#if 1
+        QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(file()->fileName());
+        QStringList includePaths, frameworkPaths;
+        if (!parts.isEmpty()) {
+            const CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
+            if (m_clangCompletionWrapper->options().isEmpty())
+                m_clangCompletionWrapper->setOptions(part->createClangOptions());
+            includePaths = part->includePaths;
+            frameworkPaths = part->frameworkPaths;
+        }
+        return new CppTools::ClangCompletionAssistInterface(
+                    m_clangCompletionWrapper, &m_clangCompletionMutex,
+                    document(), position(), editor()->file(), reason,
+                    includePaths, frameworkPaths);
+#else
         QStringList includePaths;
         QStringList frameworkPaths;
         if (ProjectExplorer::Project *project =
@@ -2146,6 +2178,7 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
                     m_modelManager->snapshot(),
                     includePaths,
                     frameworkPaths);
+#endif
     } else if (kind == TextEditor::QuickFix) {
         if (!semanticInfo().doc || semanticInfo().revision != editorRevision())
             return 0;

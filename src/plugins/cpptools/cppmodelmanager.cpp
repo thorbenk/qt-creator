@@ -41,6 +41,8 @@
 #  include "cppfindreferences.h"
 #endif
 
+#include <clangwrapper/clangwrapper.h>
+
 #include <functional>
 #include <QtCore/QtConcurrentRun>
 #ifndef ICHECK_BUILD
@@ -863,6 +865,7 @@ CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Proje
 
 void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 {
+#if 0
     // Tons of debug output...
     qDebug()<<"========= CppModelManager::updateProjectInfo ======";
     qDebug()<<" for project:"<< pinfo.project.data()->file()->fileName();
@@ -879,6 +882,7 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     }
 
     qDebug() << "";
+#endif
     QMutexLocker locker(&mutex);
 
     if (! pinfo.isValid())
@@ -886,6 +890,26 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 
     m_projects.insert(pinfo.project.data(), pinfo);
     m_dirty = true;
+
+    //###
+    m_srcToProjectPart.clear();
+    foreach (const ProjectPart &projectPart, pinfo.projectParts) {
+        ProjectPart::Ptr projPtr(new ProjectPart(projectPart));
+
+        // FIXME: compare existing parts to updated ones.
+        foreach (const QString &sourceFile, projectPart.sourceFiles) {
+            m_srcToProjectPart[sourceFile].append(projPtr);
+        }
+
+        foreach (const QString &pch, projPtr->precompiledHeaders)
+            Clang::ClangWrapper::precompile(pch, projPtr->createClangOptions());
+    }
+    //###
+}
+
+QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
+{
+    return m_srcToProjectPart.value(fileName);
 }
 
 QFuture<void> CppModelManager::refreshSourceFiles(const QStringList &sourceFiles)

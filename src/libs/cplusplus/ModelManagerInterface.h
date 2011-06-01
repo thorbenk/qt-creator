@@ -79,6 +79,10 @@ public:
         QStringList precompiledHeaders;
         Language language;
         ProjectExplorer::ToolChain::CompilerFlags flags;
+
+        typedef QSharedPointer<ProjectPart> Ptr;
+
+        QStringList createClangOptions() const;
     };
 
     class ProjectInfo
@@ -119,6 +123,9 @@ public:
         QPair<QString, unsigned> get(const QString &fileName) const
         { return _elements.value(fileName); }
 
+        QHashIterator<QString, QPair<QString, unsigned> > iterator() const
+        { return QHashIterator<QString, QPair<QString, unsigned> >(_elements); }
+
     private:
         typedef QHash<QString, QPair<QString, unsigned> > Table;
         Table _elements;
@@ -144,6 +151,7 @@ public:
     virtual QList<ProjectInfo> projectInfos() const = 0;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const = 0;
     virtual void updateProjectInfo(const ProjectInfo &pinfo) = 0;
+    virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const = 0;
 
     virtual void addEditorSupport(CppTools::AbstractEditorSupport *editorSupport) = 0;
     virtual void removeEditorSupport(CppTools::AbstractEditorSupport *editorSupport) = 0;

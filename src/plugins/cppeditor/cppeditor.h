@@ -37,6 +37,9 @@
 #include "cppsemanticinfo.h"
 #include "cppfunctiondecldeflink.h"
 
+#include <clangwrapper/clangwrapper.h>
+#include <clangwrapper/sourcemarker.h>
+
 #include <cplusplus/ModelManagerInterface.h>
 #include <cplusplus/CppDocument.h>
 #include <cplusplus/LookupContext.h>
@@ -313,8 +316,13 @@ private:
     bool m_objcEnabled;
     bool m_initialized;
 
+#if 1
+    QFuture<TextEditor::SemanticHighlighter::Result> m_highlighter;
+    QFutureWatcher<TextEditor::SemanticHighlighter::Result> m_highlightWatcher;
+#else
     QFuture<SemanticInfo::Use> m_highlighter;
     QFutureWatcher<SemanticInfo::Use> m_highlightWatcher;
+#endif
     unsigned m_highlightRevision; // the editor revision that requested the highlight
 
     QFuture<QList<int> > m_references;
@@ -324,6 +332,13 @@ private:
 
     FunctionDeclDefLinkFinder *m_declDefLinkFinder;
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
+
+#if 1
+    Clang::ClangWrapper::Ptr m_clangCompletionWrapper;
+    mutable QMutex m_clangCompletionMutex;
+    Clang::ClangWrapper::Ptr m_clangSemanticWrapper;
+    mutable QMutex m_clangSemanticMutex;
+#endif
 };
 
 

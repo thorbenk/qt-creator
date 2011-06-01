@@ -66,4 +66,15 @@ SOURCES += completionsettingspage.cpp \
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \
-    cppcodestylesettingspage.ui
+    cppcodestylesettingspage.ui \
+
+# For Clang integration:
+DEFINES += CODE_COMPLETION_WITH_CLANG
+HEADERS += clangcompletion.h \
+    cppcreatemarkers.h \
+    clangutils.h
+SOURCES += clangcompletion.cpp \
+    cppcreatemarkers.cpp \
+    clangutils.cpp
+
+
