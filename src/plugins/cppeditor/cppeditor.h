@@ -335,9 +335,7 @@ private:
 
 #if 1
     Clang::ClangWrapper::Ptr m_clangCompletionWrapper;
-    mutable QMutex m_clangCompletionMutex;
     Clang::ClangWrapper::Ptr m_clangSemanticWrapper;
-    mutable QMutex m_clangSemanticMutex;
 #endif
 };
 

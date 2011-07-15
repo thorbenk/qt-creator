@@ -43,7 +43,6 @@
 
 #include <QSet>
 #include <QFuture>
-#include <QMutex>
 #include <QtConcurrentRun>
 
 namespace CppTools {
@@ -70,17 +69,16 @@ public:
         return future;
     }
 
-    static Future go(Clang::ClangWrapper::Ptr clangWrapper, QMutex *wrapperMutex, unsigned firstLine, unsigned lastLine);
+    static Future go(Clang::ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine);
 
     void addUse(const SourceMarker &marker);
     void flush();
 
 protected:
-    CreateMarkers(Clang::ClangWrapper::Ptr clangWrapper, QMutex *wrapperMutex, unsigned firstLine, unsigned lastLine);
+    CreateMarkers(Clang::ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine);
 
 private:
     Clang::ClangWrapper::Ptr m_clangWrapper;
-    QMutex *m_wrapperMutex;
     unsigned m_firstLine;
     unsigned m_lastLine;
     QString _fileName;

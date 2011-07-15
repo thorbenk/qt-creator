@@ -1837,7 +1837,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
                 }
 
                 //### FIXME: the range is way too big.. can't we just update the visible lines?
-                CppTools::CreateMarkers::Future f = CppTools::CreateMarkers::go(m_clangSemanticWrapper, &m_clangSemanticMutex, 1, document()->blockCount() + 1);
+                CppTools::CreateMarkers::Future f = CppTools::CreateMarkers::go(m_clangSemanticWrapper, 1, document()->blockCount() + 1);
 #else
                 LookupContext context(semanticInfo.doc, semanticInfo.snapshot);
                 CheckSymbols::Future f = CheckSymbols::go(semanticInfo.doc, context);
@@ -2156,7 +2156,7 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
             frameworkPaths = part->frameworkPaths;
         }
         return new CppTools::ClangCompletionAssistInterface(
-                    m_clangCompletionWrapper, &m_clangCompletionMutex,
+                    m_clangCompletionWrapper,
                     document(), position(), editor()->file(), reason,
                     includePaths, frameworkPaths);
 #else

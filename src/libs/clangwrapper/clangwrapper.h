@@ -37,6 +37,7 @@
 #include "clangwrapper_global.h"
 
 #include <QList>
+#include <QMutex>
 #include <QSharedPointer>
 #include <QString>
 #include <QStringList>
@@ -168,8 +169,12 @@ public: // methods
 
     bool objcEnabled() const;
 
+    QMutex *mutex() const
+    { return &m_mutex; }
+
 private: // instance fields
     PrivateData *m_d;
+    mutable QMutex m_mutex;
 };
 
 } // namespace Clang

@@ -46,17 +46,16 @@
 using namespace Clang;
 using namespace CppTools;
 
-CreateMarkers::Future CreateMarkers::go(ClangWrapper::Ptr clangWrapper, QMutex *wrapperMutex, unsigned firstLine, unsigned lastLine)
+CreateMarkers::Future CreateMarkers::go(ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine)
 {
-    if (clangWrapper.isNull() || !wrapperMutex)
+    if (clangWrapper.isNull())
         return CreateMarkers::Future();
     else
-        return (new CreateMarkers(clangWrapper, wrapperMutex, firstLine, lastLine))->start();
+        return (new CreateMarkers(clangWrapper, firstLine, lastLine))->start();
 }
 
-CreateMarkers::CreateMarkers(ClangWrapper::Ptr clangWrapper, QMutex *wrapperMutex, unsigned firstLine, unsigned lastLine)
+CreateMarkers::CreateMarkers(ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine)
     : m_clangWrapper(clangWrapper)
-    , m_wrapperMutex(wrapperMutex)
     , m_firstLine(firstLine)
     , m_lastLine(lastLine)
 {
@@ -72,7 +71,7 @@ CreateMarkers::~CreateMarkers()
 
 void CreateMarkers::run()
 {
-    QMutexLocker lock(m_wrapperMutex);
+    QMutexLocker lock(m_clangWrapper->mutex());
     if (isCanceled())
         return;
 

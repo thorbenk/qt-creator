@@ -110,8 +110,8 @@ int activationSequenceChar(const QChar &ch,
 
 static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAssistInterface* interface, const QString &fileName, unsigned line, unsigned column)
 {
-    QMutexLocker lock(interface->mutex());
     ClangWrapper::Ptr wrapper = interface->clangWrapper();
+    QMutexLocker lock(wrapper->mutex());
     //### TODO: check if we're cancelled after we managed to aquire the mutex
 
     if (fileName != wrapper->fileName())
@@ -258,15 +258,20 @@ bool ClangCompletionAssistInterface::objcEnabled() const
     return m_clangWrapper->objcEnabled();
 }
 
-ClangCompletionAssistInterface::ClangCompletionAssistInterface(ClangWrapper::Ptr clangWrapper, QMutex *wrapperMutex, QTextDocument *document, int position, Core::IFile *file, AssistReason reason, const QStringList &includePaths, const QStringList &frameworkPaths)
+ClangCompletionAssistInterface::ClangCompletionAssistInterface(
+        ClangWrapper::Ptr clangWrapper,
+        QTextDocument *document,
+        int position,
+        Core::IFile *file,
+        AssistReason reason,
+        const QStringList &includePaths,
+        const QStringList &frameworkPaths)
     : DefaultAssistInterface(document, position, file, reason)
     , m_clangWrapper(clangWrapper)
-    , m_mutex(wrapperMutex)
     , m_includePaths(includePaths)
     , m_frameworkPaths(frameworkPaths)
 {
     Q_ASSERT(!clangWrapper.isNull());
-    Q_ASSERT(wrapperMutex);
 
     CppModelManagerInterface *mmi = CppModelManagerInterface::instance();
     Q_ASSERT(mmi);

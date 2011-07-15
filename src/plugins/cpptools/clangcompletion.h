@@ -12,7 +12,6 @@
 #include <texteditor/codeassist/defaultassistinterface.h>
 #include <texteditor/codeassist/iassistprocessor.h>
 
-#include <QMutex>
 #include <QStringList>
 
 namespace CppTools {
@@ -25,7 +24,6 @@ class CPPTOOLS_EXPORT ClangCompletionAssistInterface: public TextEditor::Default
 {
 public:
     ClangCompletionAssistInterface(Clang::ClangWrapper::Ptr clangWrapper,
-                                   QMutex *wrapperMutex,
                                    QTextDocument *document,
                                    int position,
                                    Core::IFile *file,
@@ -35,9 +33,6 @@ public:
 
     Clang::ClangWrapper::Ptr clangWrapper() const
     { return m_clangWrapper; }
-
-    QMutex *mutex() const
-    { return m_mutex; }
 
     const Clang::ClangWrapper::UnsavedFiles &unsavedFiles() const
     { return m_unsavedFiles; }
@@ -52,7 +47,6 @@ public:
 
 private:
     Clang::ClangWrapper::Ptr m_clangWrapper;
-    QMutex *m_mutex;
     Clang::ClangWrapper::UnsavedFiles m_unsavedFiles;
     QStringList m_includePaths, m_frameworkPaths;
 };
