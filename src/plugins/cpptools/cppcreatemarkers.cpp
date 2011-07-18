@@ -59,6 +59,8 @@ CreateMarkers::CreateMarkers(ClangWrapper::Ptr clangWrapper, unsigned firstLine,
     , m_firstLine(firstLine)
     , m_lastLine(lastLine)
 {
+    Q_ASSERT(!clangWrapper.isNull());
+
     _fileName = m_clangWrapper->fileName();
     _flushRequested = false;
     _flushLine = 0;
@@ -71,6 +73,8 @@ CreateMarkers::~CreateMarkers()
 
 void CreateMarkers::run()
 {
+    Q_ASSERT(!m_clangWrapper.isNull());
+
     QMutexLocker lock(m_clangWrapper->mutex());
     if (isCanceled())
         return;

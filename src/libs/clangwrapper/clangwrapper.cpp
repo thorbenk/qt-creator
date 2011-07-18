@@ -271,7 +271,7 @@ public:
             }
 
             Diagnostic d(severity, fileName, line, column, length, spelling);
-#if 0
+#ifdef DEBUG_TIMING
             qDebug() << d.severityAsString() << fileName << line << column << length << spelling;
 #endif
             m_diagnostics.append(d);
@@ -322,34 +322,46 @@ ClangWrapper::ClangWrapper()
 
 ClangWrapper::~ClangWrapper()
 {
+    Q_ASSERT(m_d);
+
     delete m_d;
     m_d = 0;
 }
 
 QString ClangWrapper::fileName() const
 {
+    Q_ASSERT(m_d);
+
     return m_d->m_fileName;
 }
 
 void ClangWrapper::setFileName(const QString &fileName)
 {
+    Q_ASSERT(m_d);
+
     m_d->m_fileName = fileName;
     m_d->invalidateTranslationUnit();
 }
 
 QStringList ClangWrapper::options() const
 {
+    Q_ASSERT(m_d);
+
     return m_d->m_options;
 }
 
 void ClangWrapper::setOptions(const QStringList &options) const
 {
+    Q_ASSERT(m_d);
+
     m_d->m_options = options;
     m_d->invalidateTranslationUnit();
 }
 
 bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
 {
+    Q_ASSERT(m_d);
+
     if (!m_d->m_unit)
         return m_d->parseFromFile(unsavedFiles);
 
@@ -391,6 +403,8 @@ static void add(QList<SourceMarker> &markers,
 QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
                                                        unsigned lastLine)
 {
+    Q_ASSERT(m_d);
+
     QList<SourceMarker> result;
 
     if (firstLine > lastLine || !m_d->m_unit)
@@ -461,7 +475,7 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
             break;
         }
     }
-#if DEBUG_TIMING
+#ifdef DEBUG_TIMING
     qDebug() << "identified ranges in" << t.elapsed()<< "ms.";
 #endif // DEBUG_TIMING
 
@@ -472,6 +486,8 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
 
 QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned column, const UnsavedFiles &unsavedFiles)
 {
+    Q_ASSERT(m_d);
+
     QList<CodeCompletionResult> completions;
 
     if (!m_d->m_unit) {
@@ -577,11 +593,16 @@ QString ClangWrapper::precompile(const QString &headerFileName, const QStringLis
 
 QList<Diagnostic> ClangWrapper::diagnostics() const
 {
+    Q_ASSERT(m_d);
+
     return m_d->m_diagnostics;
 }
 
 bool ClangWrapper::objcEnabled() const
 {
+    Q_ASSERT(m_d);
+
     static const QString objcOption = QLatin1String("-ObjC++");
+
     return m_d->m_options.contains(objcOption);
 }
