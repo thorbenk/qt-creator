@@ -423,7 +423,7 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
     CXSourceLocation endLocation = clang_getLocation(tu, file, lastLine + 1, 1);
     CXSourceRange range = clang_getRange(startLocation, endLocation);
     clang_tokenize(tu, range, &tokens, &tokenCount);
-#if DEBUG_TIMING
+#ifdef DEBUG_TIMING
     qDebug() << tokenCount << "tokens"
              << "for range" << firstLine << "to" << lastLine
              << "in" << t.elapsed() << "ms.";
@@ -431,7 +431,7 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
     for (unsigned i = 0; i < tokenCount; ++i)
         if (CXToken_Identifier == clang_getTokenKind(tokens[i]))
             identifierTokens.append(tokens[i]);
-#if DEBUG_TIMING
+#ifdef DEBUG_TIMING
     qDebug()<<identifierTokens.size()<<"identifier tokens";
 #endif // DEBUG_TIMING
     if (identifierTokens.isEmpty())

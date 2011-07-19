@@ -83,6 +83,10 @@ public:
         typedef QSharedPointer<ProjectPart> Ptr;
 
         QStringList createClangOptions() const;
+        static QStringList createClangOptions(const QStringList &precompiledHeaders,
+                                              const QList<QByteArray> &defines,
+                                              const QStringList &includePaths,
+                                              const QStringList &frameworkPaths);
     };
 
     class ProjectInfo

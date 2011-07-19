@@ -893,17 +893,36 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 
     //###
     m_srcToProjectPart.clear();
+    QSet<QString> includes, frameworks;
+    QMap<QString, QSet<QByteArray> > definesPerPCH;
     foreach (const ProjectPart &projectPart, pinfo.projectParts) {
         ProjectPart::Ptr projPtr(new ProjectPart(projectPart));
+        includes.unite(QSet<QString>::fromList(projectPart.includePaths));
+        frameworks.unite(QSet<QString>::fromList(projectPart.frameworkPaths));
+
+        QSet<QByteArray> projectDefines = QSet<QByteArray>::fromList(projectPart.defines.split('\n'));
+        QMutableSetIterator<QByteArray> iter(projectDefines);
+        while (iter.hasNext()){
+            QByteArray v = iter.next();
+            if (v.startsWith("#define _") || v.isEmpty())
+                iter.remove();
+        }
+        if (!projectDefines.isEmpty() && !projectPart.precompiledHeaders.isEmpty()) {
+            QString pch = projectPart.precompiledHeaders.first();
+            if (definesPerPCH.contains(pch)) {
+                definesPerPCH[pch].intersect(projectDefines);
+            } else {
+                definesPerPCH[pch] = projectDefines;
+            }
+        }
 
         // FIXME: compare existing parts to updated ones.
         foreach (const QString &sourceFile, projectPart.sourceFiles) {
             m_srcToProjectPart[sourceFile].append(projPtr);
         }
-
-        foreach (const QString &pch, projPtr->precompiledHeaders)
-            Clang::ClangWrapper::precompile(pch, projPtr->createClangOptions());
     }
+    foreach (const QString &pch, definesPerPCH.keys())
+        Clang::ClangWrapper::precompile(pch, ProjectPart::createClangOptions(QStringList(), definesPerPCH[pch].toList(), includes.toList(), frameworks.toList()));
     //###
 }
 

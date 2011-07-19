@@ -36,6 +36,14 @@ using namespace CPlusPlus;
 
 QStringList CppModelManagerInterface::ProjectPart::createClangOptions() const
 {
+    return createClangOptions(precompiledHeaders, defines.split('\n'), includePaths, frameworkPaths);
+}
+
+QStringList CppModelManagerInterface::ProjectPart::createClangOptions(const QStringList &precompiledHeaders,
+                                                                      const QList<QByteArray> &defines,
+                                                                      const QStringList &includePaths,
+                                                                      const QStringList &frameworkPaths)
+{
     QStringList result;
 
     result << QLatin1String("-ObjC++");
@@ -46,7 +54,10 @@ QStringList CppModelManagerInterface::ProjectPart::createClangOptions() const
         if (QFile(outFileName).exists())
             result << QLatin1String("-include-pch") << outFileName;
     }
-    foreach (QByteArray def, defines.split('\n')) {
+    foreach (QByteArray def, defines) {
+        if (def.isEmpty())
+            continue;
+
         if (!def.startsWith("#define "))
             continue;
         if (def.startsWith("#define _"))
