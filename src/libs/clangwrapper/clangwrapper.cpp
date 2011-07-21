@@ -420,7 +420,7 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
     CXTranslationUnit tu = m_d->m_unit;
     CXFile file = clang_getFile(tu, m_d->m_fileName.toUtf8().constData());
     CXSourceLocation startLocation = clang_getLocation(tu, file, firstLine, 1);
-    CXSourceLocation endLocation = clang_getLocation(tu, file, lastLine + 1, 1);
+    CXSourceLocation endLocation = clang_getLocation(tu, file, lastLine, 1);
     CXSourceRange range = clang_getRange(startLocation, endLocation);
     clang_tokenize(tu, range, &tokens, &tokenCount);
 #ifdef DEBUG_TIMING

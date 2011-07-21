@@ -345,7 +345,9 @@ int ClangCompletionAssistProcessor::startCompletionHelper()
                                           &m_model->m_completionOperator,
                                           /*want function call =*/ true);
 
-    if (m_model->m_completionOperator == T_DOXY_COMMENT) {
+    if (m_model->m_completionOperator == T_EOF_SYMBOL) {
+        endOfOperator = m_startPosition;
+    } else if (m_model->m_completionOperator == T_DOXY_COMMENT) {
         for (int i = 1; i < T_DOXY_LAST_TAG; ++i)
             addCompletionItem(QString::fromLatin1(doxygenTagSpell(i)),
                               m_icons.keywordIcon());
@@ -649,7 +651,9 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         const QString functionName = tc2.selectedText().trimmed();
         int l = line, c = column;
         Convenience::convertPosition(m_interface->document(), nameStart, &l, &c);
+#ifdef DEBUG_TIMING
         qDebug()<<"complete constructor or function @" << line<<":"<<column << "->"<<l<<":"<<c;
+#endif // DEBUG_TIMING
         const QList<CodeCompletionResult> completions = unfilteredCompletion(m_interface.data(), fileName, l, c);
         QList<CodeCompletionResult> functionCompletions;
         foreach (const CodeCompletionResult &ccr, completions) {
