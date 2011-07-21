@@ -47,6 +47,10 @@ QStringList CppModelManagerInterface::ProjectPart::createClangOptions(const QStr
     QStringList result;
 
     result << QLatin1String("-ObjC++");
+#ifdef Q_OS_WIN
+    result << QLatin1String("-fms-extensions")
+           << QLatin1String("-fdelayed-template-parsing");
+#endif
     foreach (const QString &pch, precompiledHeaders) {
         const QString outFileName = pch + QLatin1String(".out");
         if (result.contains(outFileName))
