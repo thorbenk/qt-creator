@@ -69,7 +69,7 @@ class CPLUSPLUS_EXPORT CppModelManagerInterface : public QObject
 public:
     enum Language { CXX, OBJC };
 
-    class ProjectPart
+    class CPLUSPLUS_EXPORT ProjectPart
     {
     public: //attributes
         QStringList sourceFiles;

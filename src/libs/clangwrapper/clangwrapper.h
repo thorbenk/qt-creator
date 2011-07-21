@@ -129,7 +129,7 @@ class QTCREATOR_CLANGWRAPPER_EXPORT ClangWrapper
 public: // data structures
     typedef QSharedPointer<ClangWrapper> Ptr;
 
-    struct UnsavedFile {
+    struct QTCREATOR_CLANGWRAPPER_EXPORT UnsavedFile {
         UnsavedFile(const QString &fileName, const QByteArray &contents);
 
         QString fileName;
