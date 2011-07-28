@@ -33,6 +33,7 @@
 #include <cplusplus/pp.h>
 #include <cplusplus/Overview.h>
 
+#include "completionprojectsettings.h"
 #include "cppmodelmanager.h"
 #include "abstracteditorsupport.h"
 #ifndef ICHECK_BUILD
@@ -734,8 +735,8 @@ QStringList CppModelManager::internalProjectFiles() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart &part, pinfo.projectParts)
-            files += part.sourceFiles;
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts)
+            files += part->sourceFiles;
     }
     files.removeDuplicates();
     return files;
@@ -748,8 +749,8 @@ QStringList CppModelManager::internalIncludePaths() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart &part, pinfo.projectParts)
-            includePaths += part.includePaths;
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts)
+            includePaths += part->includePaths;
     }
     includePaths.removeDuplicates();
     return includePaths;
@@ -762,8 +763,8 @@ QStringList CppModelManager::internalFrameworkPaths() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart &part, pinfo.projectParts)
-            frameworkPaths += part.frameworkPaths;
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts)
+            frameworkPaths += part->frameworkPaths;
     }
     frameworkPaths.removeDuplicates();
     return frameworkPaths;
@@ -776,8 +777,8 @@ QByteArray CppModelManager::internalDefinedMacros() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart &part, pinfo.projectParts)
-            macros += part.defines;
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts)
+            macros += part->defines;
     }
     return macros;
 }
@@ -849,18 +850,67 @@ CppModelManager::WorkingCopy CppModelManager::workingCopy() const
 QFuture<void> CppModelManager::updateSourceFiles(const QStringList &sourceFiles)
 { return refreshSourceFiles(sourceFiles); }
 
-QList<CppModelManager::ProjectInfo> CppModelManager::projectInfos() const
-{
-    QMutexLocker locker(&mutex);
-
-    return m_projects.values();
-}
-
 CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Project *project) const
 {
     QMutexLocker locker(&mutex);
 
     return m_projects.value(project, ProjectInfo(project));
+}
+
+void CppModelManager::updatePchInfo(CompletionProjectSettings *cps, const QList<ProjectPart::Ptr> &projectParts)
+{
+    if (cps->pchUsage() == CompletionProjectSettings::PchUseNone
+            || (cps->pchUsage() == CompletionProjectSettings::PchUseCustom && cps->customPchFile().isEmpty())) {
+        qDebug() << "updatePchInfo: switching to none";
+        QString noPch;
+        foreach (const ProjectPart::Ptr &projectPart, projectParts) {
+            projectPart->clangPCH = noPch;
+        }
+    } else if (cps->pchUsage() == CompletionProjectSettings::PchUseBuildSystem) {
+        qDebug() << "updatePchInfo: switching to build system";
+        QSet<QString> includes, frameworks;
+        QMap<QString, QSet<QByteArray> > definesPerPCH;
+        foreach (const ProjectPart::Ptr &projectPart, projectParts) {
+            includes.unite(QSet<QString>::fromList(projectPart->includePaths));
+            frameworks.unite(QSet<QString>::fromList(projectPart->frameworkPaths));
+
+            QSet<QByteArray> projectDefines = QSet<QByteArray>::fromList(projectPart->defines.split('\n'));
+            QMutableSetIterator<QByteArray> iter(projectDefines);
+            while (iter.hasNext()){
+                QByteArray v = iter.next();
+                if (v.startsWith("#define _") || v.isEmpty())
+                    iter.remove();
+            }
+            if (!projectDefines.isEmpty() && !projectPart->precompiledHeaders.isEmpty()) {
+                QString pch = projectPart->precompiledHeaders.first();
+                if (definesPerPCH.contains(pch)) {
+                    definesPerPCH[pch].intersect(projectDefines);
+                } else {
+                    definesPerPCH[pch] = projectDefines;
+                }
+
+                projectPart->clangPCH = pch;
+            }
+        }
+
+        QMap<QString, QString> pchToPch;
+        foreach (const QString &pch, definesPerPCH.keys())
+            pchToPch[pch] = Clang::ClangWrapper::precompile(pch, ProjectPart::createClangOptions(QStringList(), definesPerPCH[pch].toList(), includes.toList(), frameworks.toList()));
+        foreach (const ProjectPart::Ptr &projectPart, projectParts)
+            projectPart->clangPCH = pchToPch[projectPart->clangPCH];
+    } else if (cps->pchUsage() == CompletionProjectSettings::PchUseCustom) {
+        qDebug() << "updatePchInfo: switching to custom" << cps->customPchFile();
+        QSet<QString> includes, frameworks;
+        foreach (const ProjectPart::Ptr &projectPart, projectParts) {
+            includes.unite(QSet<QString>::fromList(projectPart->includePaths));
+            frameworks.unite(QSet<QString>::fromList(projectPart->frameworkPaths));
+        }
+
+        QStringList opts = ProjectPart::createClangOptions(QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
+        QString pch = Clang::ClangWrapper::precompile(cps->customPchFile(), opts);
+        foreach (const ProjectPart::Ptr &projectPart, projectParts)
+            projectPart->clangPCH = pch;
+    }
 }
 
 void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
@@ -869,15 +919,15 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     // Tons of debug output...
     qDebug()<<"========= CppModelManager::updateProjectInfo ======";
     qDebug()<<" for project:"<< pinfo.project.data()->file()->fileName();
-    foreach (const ProjectPart &part, pinfo.projectParts) {
+    foreach (const ProjectPart::Ptr &part, pinfo.projectParts) {
         qDebug() << "=== part ===";
-        qDebug() << "language:" << (part.language == CXX ? "C++" : "ObjC++");
-        qDebug() << "compilerflags:" << part.flags;
-        qDebug() << "precompiled header:" << part.precompiledHeaders;
-        qDebug() << "defines:" << part.defines;
-        qDebug() << "includes:" << part.includePaths;
-        qDebug() << "frameworkPaths:" << part.frameworkPaths;
-        qDebug() << "sources:" << part.sourceFiles;
+        qDebug() << "language:" << (part->language == CXX ? "C++" : "ObjC++");
+        qDebug() << "compilerflags:" << part->flags;
+        qDebug() << "precompiled header:" << part->precompiledHeaders;
+        qDebug() << "defines:" << part->defines;
+        qDebug() << "includes:" << part->includePaths;
+        qDebug() << "frameworkPaths:" << part->frameworkPaths;
+        qDebug() << "sources:" << part->sourceFiles;
         qDebug() << "";
     }
 
@@ -888,42 +938,40 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     if (! pinfo.isValid())
         return;
 
-    m_projects.insert(pinfo.project.data(), pinfo);
+    ProjectExplorer::Project *project = pinfo.project.data();
+    m_projects.insert(project, pinfo);
     m_dirty = true;
 
-    //###
+    CompletionProjectSettings *cps = m_cps.value(project, 0);
+    if (!cps) {
+        cps = new CompletionProjectSettings(project);
+        cps->setPchUsage(CompletionProjectSettings::PchUseBuildSystem);
+        m_cps.insert(project, cps); //### FIXME: This should come from the project?
+
+        connect(cps, SIGNAL(pchUsageChanged(int)),
+                this, SLOT(completionProjectSettingsChanged()));
+        connect(cps, SIGNAL(customPchFileChanged(QString)),
+                this, SLOT(completionProjectSettingsChanged()));
+    }
+
     m_srcToProjectPart.clear();
-    QSet<QString> includes, frameworks;
-    QMap<QString, QSet<QByteArray> > definesPerPCH;
-    foreach (const ProjectPart &projectPart, pinfo.projectParts) {
-        ProjectPart::Ptr projPtr(new ProjectPart(projectPart));
-        includes.unite(QSet<QString>::fromList(projectPart.includePaths));
-        frameworks.unite(QSet<QString>::fromList(projectPart.frameworkPaths));
-
-        QSet<QByteArray> projectDefines = QSet<QByteArray>::fromList(projectPart.defines.split('\n'));
-        QMutableSetIterator<QByteArray> iter(projectDefines);
-        while (iter.hasNext()){
-            QByteArray v = iter.next();
-            if (v.startsWith("#define _") || v.isEmpty())
-                iter.remove();
-        }
-        if (!projectDefines.isEmpty() && !projectPart.precompiledHeaders.isEmpty()) {
-            QString pch = projectPart.precompiledHeaders.first();
-            if (definesPerPCH.contains(pch)) {
-                definesPerPCH[pch].intersect(projectDefines);
-            } else {
-                definesPerPCH[pch] = projectDefines;
-            }
-        }
-
+    foreach (const ProjectPart::Ptr &projectPart, pinfo.projectParts) {
         // FIXME: compare existing parts to updated ones.
-        foreach (const QString &sourceFile, projectPart.sourceFiles) {
-            m_srcToProjectPart[sourceFile].append(projPtr);
+        foreach (const QString &sourceFile, projectPart->sourceFiles) {
+            m_srcToProjectPart[sourceFile].append(projectPart);
         }
     }
-    foreach (const QString &pch, definesPerPCH.keys())
-        Clang::ClangWrapper::precompile(pch, ProjectPart::createClangOptions(QStringList(), definesPerPCH[pch].toList(), includes.toList(), frameworks.toList()));
-    //###
+
+    updatePchInfo(cps, pinfo.projectParts);
+}
+
+void CppModelManager::completionProjectSettingsChanged()
+{
+    CompletionProjectSettings *cps = qobject_cast<CompletionProjectSettings *>(sender());
+    if (!cps)
+        return;
+
+    updatePchInfo(cps, m_projects.value(cps->project()).projectParts);
 }
 
 QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
@@ -1383,5 +1431,9 @@ QList<Document::DiagnosticMessage> CppModelManager::extraDiagnostics(const QStri
     return m_extraDiagnostics.value(fileName).value(kind);
 }
 
-#endif
+CompletionProjectSettings *CppModelManager::completionSettingsFromProject(ProjectExplorer::Project *project) const
+{
+    return m_cps.value(project, 0);
+}
 
+#endif

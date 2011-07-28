@@ -499,14 +499,15 @@ void Qt4Project::updateCppCodeModel()
     pinfo.projectParts.clear();
     QStringList allFiles;
     foreach (Qt4ProFileNode *pro, proFiles) {
-        CPlusPlus::CppModelManagerInterface::ProjectPart part;
-        // part.defines
+        CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
+                    new CPlusPlus::CppModelManagerInterface::ProjectPart);
+        // part->defines
         if (tc)
-            part.defines = tc->predefinedMacros(pro->variableValue(CppFlagsVar));
-        part.defines += pro->cxxDefines();
+            part->defines = tc->predefinedMacros(pro->variableValue(CppFlagsVar));
+        part->defines += pro->cxxDefines();
 
-        // part.includePaths
-        part.includePaths.append(pro->variableValue(IncludePathVar));
+        // part->includePaths
+        part->includePaths.append(pro->variableValue(IncludePathVar));
 
         QList<HeaderPath> headers;
         if (tc)
@@ -517,38 +518,39 @@ void Qt4Project::updateCppCodeModel()
 
         foreach (const HeaderPath &headerPath, headers) {
             if (headerPath.kind() == HeaderPath::FrameworkHeaderPath)
-                part.frameworkPaths.append(headerPath.path());
+                part->frameworkPaths.append(headerPath.path());
             else
-                part.includePaths.append(headerPath.path());
+                part->includePaths.append(headerPath.path());
         }
 
         if (version) {
             if (!version->frameworkInstallPath().isEmpty())
-                part.frameworkPaths.append(version->frameworkInstallPath());
-            part.includePaths.append(version->mkspecPath());
+                part->frameworkPaths.append(version->frameworkInstallPath());
+            part->includePaths.append(version->mkspecPath());
         }
 
-        // part.precompiledHeaders
-        part.precompiledHeaders.append(pro->variableValue(PrecompiledHeaderVar));
+        // part->precompiledHeaders
+        part->precompiledHeaders.append(pro->variableValue(PrecompiledHeaderVar));
 
-        // part.language
-        part.language = CPlusPlus::CppModelManagerInterface::CXX;
-        // part.flags
+        // part->language
+        part->language = CPlusPlus::CppModelManagerInterface::CXX;
+        // part->flags
         if (tc)
-            part.flags = tc->compilerFlags(pro->variableValue(CppFlagsVar));
+            part->flags = tc->compilerFlags(pro->variableValue(CppFlagsVar));
 
-        part.sourceFiles = pro->variableValue(CppSourceVar);
+        part->sourceFiles = pro->variableValue(CppSourceVar);
         pinfo.projectParts.append(part);
 
-        allFiles += part.sourceFiles;
+        allFiles += part->sourceFiles;
 
+        part = CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr(new CPlusPlus::CppModelManagerInterface::ProjectPart);
         //  todo objc code?
-        part.language = CPlusPlus::CppModelManagerInterface::OBJC;
-        part.sourceFiles = pro->variableValue(ObjCSourceVar);
-        if (!part.sourceFiles.isEmpty())
+        part->language = CPlusPlus::CppModelManagerInterface::OBJC;
+        part->sourceFiles = pro->variableValue(ObjCSourceVar);
+        if (!part->sourceFiles.isEmpty())
             pinfo.projectParts.append(part);
 
-        allFiles += part.sourceFiles;
+        allFiles += part->sourceFiles;
     }
 
     modelmanager->updateProjectInfo(pinfo);

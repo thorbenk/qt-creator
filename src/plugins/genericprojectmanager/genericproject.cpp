@@ -232,31 +232,32 @@ void GenericProject::refresh(RefreshOptions options)
     if (modelManager) {
         CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
         pinfo.projectParts.clear();
-        CPlusPlus::CppModelManagerInterface::ProjectPart part;
+        CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
+                    new CPlusPlus::CppModelManagerInterface::ProjectPart);
 
         if (m_toolChain) {
-            part.defines = m_toolChain->predefinedMacros(QStringList());
-            part.defines += '\n';
+            part->defines = m_toolChain->predefinedMacros(QStringList());
+            part->defines += '\n';
 
             foreach (const HeaderPath &headerPath, m_toolChain->systemHeaderPaths()) {
                 if (headerPath.kind() == HeaderPath::FrameworkHeaderPath)
-                    part.frameworkPaths.append(headerPath.path());
+                    part->frameworkPaths.append(headerPath.path());
                 else
-                    part.includePaths.append(headerPath.path());
+                    part->includePaths.append(headerPath.path());
             }
         }
 
-        part.includePaths += allIncludePaths();
-        part.defines += m_defines;
+        part->includePaths += allIncludePaths();
+        part->defines += m_defines;
 
         // ### add _defines.
-        part.sourceFiles = files();
-        part.sourceFiles += generated();
+        part->sourceFiles = files();
+        part->sourceFiles += generated();
 
         QStringList filesToUpdate;
 
         if (options & Configuration) {
-            filesToUpdate = part.sourceFiles;
+            filesToUpdate = part->sourceFiles;
             filesToUpdate.append(QLatin1String("<configuration>")); // XXX don't hardcode configuration file name
             // Full update, if there's a code model update, cancel it
             m_codeModelFuture.cancel();

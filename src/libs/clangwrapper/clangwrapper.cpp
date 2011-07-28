@@ -10,7 +10,7 @@
 
 #include <clang-c/Index.h>
 
-#undef DEBUG_TIMING
+#define DEBUG_TIMING
 
 namespace {
 static inline QString toQString(const CXString &str)
@@ -154,7 +154,7 @@ static void initClang()
 class Clang::ClangWrapper::PrivateData
 {
 public:
-    PrivateData()
+    PrivateData(bool useForCodeCompletion)
         : m_unit(0)
     {
         initClang();
@@ -162,6 +162,10 @@ public:
         const int excludeDeclsFromPCH = 1;
         const int displayDiagnostics = 1;
         m_index = clang_createIndex(excludeDeclsFromPCH, displayDiagnostics);
+
+        m_editingOpts = clang_defaultEditingTranslationUnitOptions();
+        if (!useForCodeCompletion)
+            m_editingOpts &= ~CXTranslationUnit_CacheCompletionResults;
     }
 
     ~PrivateData()
@@ -206,13 +210,20 @@ public:
         QTime t;t.start();
 #endif // DEBUG_TIMING
 
-        if (isEditable)
-            m_unit = clang_parseTranslationUnit(m_index, fn.constData(), argv, argc, unsaved.files, unsaved.count, clang_defaultEditingTranslationUnitOptions());
-        else
+        if (isEditable) {
+            unsigned opts = m_editingOpts;
+//            opts = opts & ~CXTranslationUnit_CXXPrecompiledPreamble;
+            m_unit = clang_parseTranslationUnit(m_index, fn.constData(), argv, argc, unsaved.files, unsaved.count, opts);
+        } else {
             m_unit = clang_createTranslationUnitFromSourceFile(m_index, fn.constData(), argc, argv, unsaved.count, unsaved.files);
+        }
 
 #ifdef DEBUG_TIMING
-        qDebug() << "=== Parsing of" << m_fileName << "with args" << m_options << "->" << (m_unit?"SUCCESS":"FAIL") << "in" << t.elapsed() << "ms";
+        qDebug() << "=== Parsing of" << m_fileName
+                 << (isEditable ? "(editable)" : "(not editable")
+                 << "with args" << m_options
+                 << "->" << (m_unit ? "SUCCESS" : "FAIL")
+                 << "in" << t.elapsed() << "ms";
 #endif // DEBUG_TIMING
 
         checkDiagnostics();
@@ -284,6 +295,7 @@ public:
     QString m_fileName;
     QStringList m_options;
     CXIndex m_index;
+    unsigned m_editingOpts;
     CXTranslationUnit m_unit;
     QList<Diagnostic> m_diagnostics;
 
@@ -315,8 +327,9 @@ ClangWrapper::UnsavedFile::UnsavedFile(const QString &fileName,
 {
 }
 
-ClangWrapper::ClangWrapper()
-    : m_d(new PrivateData)
+ClangWrapper::ClangWrapper(bool useForCodeCompletion)
+    : m_d(new PrivateData(useForCodeCompletion))
+    , m_mutex(QMutex::Recursive)
 {
 }
 
@@ -365,14 +378,26 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
     if (!m_d->m_unit)
         return m_d->parseFromFile(unsavedFiles);
 
+#ifdef DEBUG_TIMING
+    QTime t; t.start();
+#endif // DEBUG_TIMING
+
     unsigned opts = clang_defaultReparseOptions(m_d->m_unit);
     UnsavedFileData unsaved(unsavedFiles);
     if (clang_reparseTranslationUnit(m_d->m_unit, unsaved.count, unsaved.files, opts) == 0) {
         // success:
+#ifdef DEBUG_TIMING
+        qDebug() << "-> reparsing successful in" << t.elapsed() << "ms.";
+#endif // DEBUG_TIMING
+
         m_d->checkDiagnostics();
         return true;
     } else {
         // failure:
+#ifdef DEBUG_TIMING
+        qDebug() << "-> reparsing failed in" << t.elapsed() << "ms.";
+#endif // DEBUG_TIMING
+
         m_d->checkDiagnostics();
         m_d->invalidateTranslationUnit();
         return false;
@@ -562,7 +587,7 @@ QString ClangWrapper::precompile(const QString &headerFileName, const QStringLis
 {
     initClang();
 
-    QString outFileName = headerFileName + ".out";
+    QString outFileName = headerFileName + QLatin1String(".out");
     if (QFile(outFileName).exists()) {
         return outFileName;
     }

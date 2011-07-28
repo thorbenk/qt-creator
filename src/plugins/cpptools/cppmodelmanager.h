@@ -77,6 +77,8 @@ namespace CPlusPlus {
 
 namespace CppTools {
 
+class CompletionProjectSettings;
+
 namespace Internal {
 
 class CppEditorSupport;
@@ -97,7 +99,6 @@ public:
     virtual QFuture<void> updateSourceFiles(const QStringList &sourceFiles);
     virtual WorkingCopy workingCopy() const;
 
-    virtual QList<ProjectInfo> projectInfos() const;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const;
     virtual void updateProjectInfo(const ProjectInfo &pinfo);
     virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const;
@@ -138,6 +139,8 @@ public:
 
     void finishedRefreshingSourceFiles(const QStringList &files);
 
+    CompletionProjectSettings *completionSettingsFromProject(ProjectExplorer::Project *project) const;
+
 Q_SIGNALS:
     void projectPathChanged(const QString &projectPath);
 
@@ -147,6 +150,8 @@ public Q_SLOTS:
     void editorOpened(Core::IEditor *editor);
     void editorAboutToClose(Core::IEditor *editor);
     virtual void updateModifiedSourceFiles();
+
+    void completionProjectSettingsChanged();
 
 private Q_SLOTS:
     // this should be executed in the GUI thread.
@@ -194,6 +199,9 @@ private:
                       CppPreprocessor *preproc,
                       QStringList files);
 
+    void updatePchInfo(CompletionProjectSettings *cps,
+                       const QList<ProjectPart::Ptr> &projectParts);
+
 private:
     Core::ICore *m_core;
     CPlusPlus::Snapshot m_snapshot;
@@ -212,6 +220,7 @@ private:
 
     // project integration
     QMap<ProjectExplorer::Project *, ProjectInfo> m_projects;
+    QMap<ProjectExplorer::Project *, CompletionProjectSettings *> m_cps; //### TODO: remove this and put it in the Project.
 
     mutable QMutex mutex;
     mutable QMutex protectSnapshot;

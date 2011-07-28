@@ -35,7 +35,9 @@ HEADERS += completionsettingspage.h \
     cppcodestylesettings.h \
     cppcodestylesettingsfactory.h \
     cppcodestylepreferences.h \
-    cpptoolsreuse.h
+    cpptoolsreuse.h \
+    completionprojectsettingspage.h \
+    completionprojectsettings.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -62,11 +64,14 @@ SOURCES += completionsettingspage.cpp \
     cppcodestylesettings.cpp \
     cppcodestylesettingsfactory.cpp \
     cppcodestylepreferences.cpp \
-    cpptoolsreuse.cpp
+    cpptoolsreuse.cpp \
+    completionprojectsettingspage.cpp \
+    completionprojectsettings.cpp
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \
     cppcodestylesettingspage.ui \
+    completionprojectsettingspage.ui
 
 # For Clang integration:
 DEFINES += CODE_COMPLETION_WITH_CLANG
@@ -76,5 +81,10 @@ HEADERS += clangcompletion.h \
 SOURCES += clangcompletion.cpp \
     cppcreatemarkers.cpp \
     clangutils.cpp
+
+
+
+
+
 
 

@@ -82,6 +82,7 @@ public:
 
         typedef QSharedPointer<ProjectPart> Ptr;
 
+        QString clangPCH;
         QStringList createClangOptions() const;
         static QStringList createClangOptions(const QStringList &precompiledHeaders,
                                               const QList<QByteArray> &defines,
@@ -109,7 +110,7 @@ public:
         { return project.isNull(); }
     public: // attributes
         QWeakPointer<ProjectExplorer::Project> project;
-        QList<ProjectPart> projectParts;
+        QList<ProjectPart::Ptr> projectParts;
     };
 
     class WorkingCopy
@@ -152,7 +153,6 @@ public:
     virtual WorkingCopy workingCopy() const = 0;
     virtual CPlusPlus::Snapshot snapshot() const = 0;
 
-    virtual QList<ProjectInfo> projectInfos() const = 0;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const = 0;
     virtual void updateProjectInfo(const ProjectInfo &pinfo) = 0;
     virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const = 0;

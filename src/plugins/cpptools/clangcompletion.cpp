@@ -631,7 +631,7 @@ IAssistProposal *ClangCompletionAssistProcessor::createContentProposal()
 int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileName,
                                                             unsigned line,
                                                             unsigned column,
-                                                            const QString &expr,
+                                                            const QString &/*expr*/,
                                                             int endOfExpression)
 {
     if (m_model->m_completionOperator == T_LPAREN) {

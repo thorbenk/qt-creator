@@ -45,6 +45,7 @@
 #include "cpptoolssettings.h"
 #include "cppcodestylesettingsfactory.h"
 #include "cppcodestylesettings.h"
+#include "completionprojectsettingspage.h"
 
 #include <extensionsystem/pluginmanager.h>
 
@@ -133,6 +134,7 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     addAutoReleasedObject(new CppFileSettingsPage(m_fileSettings));
     addAutoReleasedObject(new SymbolsFindFilter(m_modelManager));
     addAutoReleasedObject(new CppCodeStyleSettingsPage);
+    addAutoReleasedObject(new CompletionProjectSettingsPanelFactory);
 
     TextEditor::CodeStylePreferencesManager::instance()->registerFactory(
                 new CppTools::CppCodeStylePreferencesFactory());

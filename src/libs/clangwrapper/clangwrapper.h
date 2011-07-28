@@ -138,7 +138,7 @@ public: // data structures
     typedef QList<UnsavedFile> UnsavedFiles;
 
 public: // methods
-    ClangWrapper();
+    ClangWrapper(bool useForCodeCompletion = false);
     ~ClangWrapper();
 
     QString fileName() const;

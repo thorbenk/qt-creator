@@ -416,7 +416,7 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     , m_inRenameChanged(false)
     , m_firstRenameChange(false)
     , m_objcEnabled(false)
-    , m_clangCompletionWrapper(new Clang::ClangWrapper)
+    , m_clangCompletionWrapper(new Clang::ClangWrapper(true))
     , m_clangSemanticWrapper(new Clang::ClangWrapper)
 {
     m_initialized = false;
@@ -1828,6 +1828,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
             if (Core::EditorManager::instance()->currentEditor() == editor()) {
 #if 1
+                QMutexLocker lock(m_clangSemanticWrapper->mutex());
                 if (m_clangSemanticWrapper->options().isEmpty()) { //### HACK
                     const QString fileName = file()->fileName();
                     m_clangSemanticWrapper->setFileName(fileName);
@@ -2146,6 +2147,7 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
 {
     if (kind == TextEditor::Completion) {
 #if 1
+        QMutexLocker lock(m_clangCompletionWrapper->mutex());
         QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(file()->fileName());
         QStringList includePaths, frameworkPaths;
         if (!parts.isEmpty()) {

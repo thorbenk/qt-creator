@@ -36,7 +36,10 @@ using namespace CPlusPlus;
 
 QStringList CppModelManagerInterface::ProjectPart::createClangOptions() const
 {
-    return createClangOptions(precompiledHeaders, defines.split('\n'), includePaths, frameworkPaths);
+    return createClangOptions(QStringList() << clangPCH,
+                              defines.split('\n'),
+                              includePaths,
+                              frameworkPaths);
 }
 
 QStringList CppModelManagerInterface::ProjectPart::createClangOptions(const QStringList &precompiledHeaders,
@@ -52,11 +55,10 @@ QStringList CppModelManagerInterface::ProjectPart::createClangOptions(const QStr
            << QLatin1String("-fdelayed-template-parsing");
 #endif
     foreach (const QString &pch, precompiledHeaders) {
-        const QString outFileName = pch + QLatin1String(".out");
-        if (result.contains(outFileName))
+        if (result.contains(pch))
             continue;
-        if (QFile(outFileName).exists())
-            result << QLatin1String("-include-pch") << outFileName;
+        if (QFile(pch).exists())
+            result << QLatin1String("-include-pch") << pch;
     }
     foreach (QByteArray def, defines) {
         if (def.isEmpty())
@@ -65,6 +67,8 @@ QStringList CppModelManagerInterface::ProjectPart::createClangOptions(const QStr
         if (!def.startsWith("#define "))
             continue;
         if (def.startsWith("#define _"))
+            continue;
+        if (def.startsWith("#define OBJC_NEW_PROPERTIES"))
             continue;
         QByteArray str = def.mid(8);
         int spaceIdx = str.indexOf(' ');

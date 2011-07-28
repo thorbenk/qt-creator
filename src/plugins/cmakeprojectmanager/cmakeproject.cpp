@@ -300,12 +300,13 @@ bool CMakeProject::parseCMakeLists()
             CPlusPlus::CppModelManagerInterface::instance();
     CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
     pinfo.projectParts.clear();
-    CPlusPlus::CppModelManagerInterface::ProjectPart part;
-    part.includePaths = allIncludePaths;
-    part.sourceFiles = m_files;
-    part.defines = activeBC->toolChain()->predefinedMacros(QStringList());
-    part.frameworkPaths = allFrameworkPaths;
-    part.language = CPlusPlus::CppModelManagerInterface::CXX;
+    CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
+                new CPlusPlus::CppModelManagerInterface::ProjectPart);
+    part->includePaths = allIncludePaths;
+    part->sourceFiles = m_files;
+    part->defines = activeBC->toolChain()->predefinedMacros(QStringList());
+    part->frameworkPaths = allFrameworkPaths;
+    part->language = CPlusPlus::CppModelManagerInterface::CXX;
     pinfo.projectParts.append(part);
     modelmanager->updateProjectInfo(pinfo);
     m_codeModelFuture.cancel();
