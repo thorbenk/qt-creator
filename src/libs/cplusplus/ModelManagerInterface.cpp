@@ -50,10 +50,12 @@ QStringList CppModelManagerInterface::ProjectPart::createClangOptions(const QStr
     QStringList result;
 
     result << QLatin1String("-ObjC++");
+    result << QLatin1String("-std=c++0x");
 #ifdef Q_OS_WIN
     result << QLatin1String("-fms-extensions")
            << QLatin1String("-fdelayed-template-parsing");
 #endif
+
     foreach (const QString &pch, precompiledHeaders) {
         if (result.contains(pch))
             continue;

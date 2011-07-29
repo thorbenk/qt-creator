@@ -124,6 +124,7 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
 #endif // DEBUG_TIMING
 
     QList<CodeCompletionResult> result = wrapper->codeCompleteAt(line, column + 1, interface->unsavedFiles());
+    qSort(result);
 
 #ifdef DEBUG_TIMING
     qDebug() << "... Completion done in" << t.elapsed() << "ms, with" << result.count() << "items.";
@@ -670,8 +671,11 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
     }
 
     QList<CodeCompletionResult> completions = unfilteredCompletion(m_interface.data(), fileName, line, column);
+    QSet<QString> alreadySeen;
     foreach (const CodeCompletionResult &ccr, completions) {
         if (!ccr.isValid())
+            continue;
+        if (alreadySeen.contains(ccr.text))
             continue;
 
         BasicProposalItem *item = new BasicProposalItem;
@@ -679,6 +683,7 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         item->setOrder(ccr.priority());
         item->setData(qVariantFromValue(ccr));
         m_completions.append(item);
+        alreadySeen.insert(ccr.text);
     }
 
     return m_startPosition;

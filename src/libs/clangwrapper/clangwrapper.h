@@ -70,6 +70,22 @@ public: //### HACK
     bool isFunctionCompletion;
 };
 
+inline QTCREATOR_CLANGWRAPPER_EXPORT uint qHash(const CodeCompletionResult &ccr)
+{ return qHash(ccr.text); }
+
+inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator==(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
+{ return ccr1.text == ccr2.text; }
+
+inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator<(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
+{
+    if (ccr1.text < ccr2.text)
+        return true;
+    else if (ccr1.text > ccr2.text)
+        return false;
+
+    return ccr1.hint < ccr2.hint;
+}
+
 class QTCREATOR_CLANGWRAPPER_EXPORT Diagnostic
 {
 public:
