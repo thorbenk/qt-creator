@@ -976,7 +976,28 @@ void CppModelManager::completionProjectSettingsChanged()
 
 QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
 {
-    return m_srcToProjectPart.value(fileName);
+    QList<CppModelManager::ProjectPart::Ptr> parts = m_srcToProjectPart.value(fileName);
+    if (!parts.isEmpty())
+        return parts;
+
+    //### FIXME: This is a DIRTY hack!
+    if (fileName.endsWith(".h")) {
+        QString cppFile = fileName.mid(0, fileName.length() - 2) + QLatin1String(".cpp");
+        parts = m_srcToProjectPart.value(cppFile);
+        if (!parts.isEmpty())
+            return parts;
+    }
+
+    DependencyTable table;
+    table.build(snapshot());
+    QStringList deps = table.filesDependingOn(fileName);
+    foreach (const QString &dep, deps) {
+        parts = m_srcToProjectPart.value(dep);
+        if (!parts.isEmpty())
+            return parts;
+    }
+
+    return parts;
 }
 
 QFuture<void> CppModelManager::refreshSourceFiles(const QStringList &sourceFiles)
