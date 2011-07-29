@@ -475,9 +475,12 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
         const CXToken &idToken = identifierTokens[i];
 
         switch (clang_getCursorKind(c)) {
+        case CXCursor_ClassDecl:
+        case CXCursor_Namespace:
+        case CXCursor_NamespaceRef:
+        case CXCursor_NamespaceAlias:
         case CXCursor_TemplateRef:
         case CXCursor_TypeRef:
-        case CXCursor_NamespaceRef:
             add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Type);
             break;
 
