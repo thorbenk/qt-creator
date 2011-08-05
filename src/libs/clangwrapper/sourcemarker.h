@@ -14,7 +14,8 @@ public:
         Local,
         Field,
         Static,
-        VirtualMethod
+        VirtualMethod,
+        Label
     };
 
     SourceMarker(unsigned line = 0,

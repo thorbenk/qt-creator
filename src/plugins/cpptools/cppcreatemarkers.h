@@ -71,6 +71,7 @@ public:
 
     static Future go(Clang::ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine);
 
+    bool warning(unsigned line, unsigned column, const QString &text, unsigned length = 0);
     void addUse(const SourceMarker &marker);
     void flush();
 

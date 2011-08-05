@@ -98,7 +98,7 @@ void CreateMarkers::run()
         return;
 
     foreach (const Clang::SourceMarker &m, m_clangWrapper->sourceMarkersInRange(m_firstLine, m_lastLine))
-        _usages.append(SourceMarker(m.line(), m.column(), m.length(), m.kind()));
+        addUse(SourceMarker(m.line(), m.column(), m.length(), m.kind()));
     if (isCanceled())
         return;
 
@@ -117,21 +117,21 @@ bool CreateMarkers::warning(unsigned line, unsigned column, const QString &text,
     return false;
 }
 
-//void CreateMarkers::addUse(const SourceMarker &marker)
-//{
-////    if (! enclosingFunctionDefinition()) {
-//        if (_usages.size() >= 50) {
-//            if (_flushRequested && marker.line != _flushLine)
-//                flush();
-//            else if (! _flushRequested) {
-//                _flushRequested = true;
-//                _flushLine = marker.line;
-//            }
-//        }
-////    }
+void CreateMarkers::addUse(const SourceMarker &marker)
+{
+//    if (! enclosingFunctionDefinition()) {
+        if (_usages.size() >= 50) {
+            if (_flushRequested && marker.line != _flushLine)
+                flush();
+            else if (! _flushRequested) {
+                _flushRequested = true;
+                _flushLine = marker.line;
+            }
+        }
+//    }
 
-//    _usages.append(marker);
-//}
+    _usages.append(marker);
+}
 
 void CreateMarkers::flush()
 {

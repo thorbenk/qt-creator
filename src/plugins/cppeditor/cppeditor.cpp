@@ -1700,6 +1700,8 @@ void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_STATIC));
     m_semanticHighlightFormatMap[Clang::SourceMarker::VirtualMethod] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_VIRTUAL_METHOD));
+    m_semanticHighlightFormatMap[SemanticInfo::LabelUse] =
+            fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_LABEL));
     m_keywordFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_KEYWORD));
 
     // only set the background, we do not want to modify foreground properties set by the syntax highlighter or the link
@@ -2055,7 +2057,7 @@ SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
 
     m_mutex.lock();
     if (! source.force
-            && m_lastSemanticInfo.revision == source.revision
+            && m_lastSemanticInfo.revision == ((unsigned)(source.revision))
             && m_lastSemanticInfo.doc
             && m_lastSemanticInfo.doc->translationUnit()->ast()
             && m_lastSemanticInfo.doc->fileName() == source.fileName) {
