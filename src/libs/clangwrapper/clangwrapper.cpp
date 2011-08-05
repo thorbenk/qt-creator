@@ -11,6 +11,7 @@
 #include <clang-c/Index.h>
 
 #define DEBUG_TIMING
+#undef NEVER_REPARSE_ALWAYS_PARSE
 
 namespace {
 static inline QString toQString(const CXString &str)
@@ -375,6 +376,14 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
 
+#ifdef NEVER_REPARSE_ALWAYS_PARSE
+    if (m_d->m_unit) {
+        clang_disposeTranslationUnit(m_d->m_unit);
+        m_d->m_unit = 0;
+    }
+
+    return m_d->parseFromFile(unsavedFiles);
+#else // !NEVER_REPARSE_ALWAYS_PARSE
     if (!m_d->m_unit)
         return m_d->parseFromFile(unsavedFiles);
 
@@ -402,6 +411,7 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
         m_d->invalidateTranslationUnit();
         return false;
     }
+#endif // NEVER_REPARSE_ALWAYS_PARSE
 }
 
 namespace {
