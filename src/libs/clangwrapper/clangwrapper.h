@@ -49,8 +49,6 @@ class SourceMarker;
 
 class QTCREATOR_CLANGWRAPPER_EXPORT CodeCompletionResult
 {
-    friend class TranslationUnit;
-
 public:
     CodeCompletionResult() {}
     CodeCompletionResult(unsigned priority);
