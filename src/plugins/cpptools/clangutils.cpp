@@ -1,7 +1,7 @@
 #include "clangutils.h"
 
-#include <editormanager/editormanager.h>
-#include <editormanager/ieditor.h>
+#include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/icore.h>
 
 #include <QFile>

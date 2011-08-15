@@ -4,7 +4,7 @@
 #include "cppcompletionassist.h"
 #include "cpptools_global.h"
 
-#include <clangwrapper/ClangWrapper.h>
+#include <clangwrapper/clangwrapper.h>
 
 #include <cplusplus/Icons.h>
 
