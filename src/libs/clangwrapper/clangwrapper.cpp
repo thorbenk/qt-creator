@@ -513,9 +513,6 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
         } break;
 
         case CXCursor_MemberRefExpr:
-            // either: member_field
-            //     or: member_field.member_field
-            //### So treat this different
         case CXCursor_MemberRef:
             add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Field);
             break;
