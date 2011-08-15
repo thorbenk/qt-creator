@@ -220,11 +220,14 @@ public:
         }
 
 #ifdef DEBUG_TIMING
-        qDebug() << "=== Parsing of" << m_fileName
+        qDebug() << "=== Parsing"
                  << (isEditable ? "(editable)" : "(not editable")
-                 << "with args" << m_options
-                 << "->" << (m_unit ? "SUCCESS" : "FAIL")
+                 << "->" << (m_unit ? "successful" : "failed")
                  << "in" << t.elapsed() << "ms";
+        qDebug() << "Command-line:";
+        qDebug("clang -fsyntax-only %s %c", m_fileName.toUtf8().data(), (m_options.isEmpty() ? ' ' : '\\'));
+        for (int i = 1; i <= m_options.size(); ++i)
+            qDebug("  %s%s", m_options[i - 1].toUtf8().data(), (i == m_options.size() ? "" : " \\"));
 #endif // DEBUG_TIMING
 
         checkDiagnostics();
@@ -387,12 +390,18 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
     if (!m_d->m_unit)
         return m_d->parseFromFile(unsavedFiles);
 
+    UnsavedFileData unsaved(unsavedFiles);
+
 #ifdef DEBUG_TIMING
     QTime t; t.start();
+    qDebug() << "Re-parsring with" << unsaved.count << "unsaved files...";
+    qDebug() << "Command-line:";
+    qDebug("clang -fsyntax-only %s %c", m_d->m_fileName.toUtf8().data(), (m_d->m_options.isEmpty() ? ' ' : '\\'));
+    for (int i = 1; i <= m_d->m_options.size(); ++i)
+        qDebug("  %s%s", m_d->m_options[i - 1].toUtf8().data(), (i == m_d->m_options.size() ? "" : " \\"));
 #endif // DEBUG_TIMING
 
     unsigned opts = clang_defaultReparseOptions(m_d->m_unit);
-    UnsavedFileData unsaved(unsavedFiles);
     if (clang_reparseTranslationUnit(m_d->m_unit, unsaved.count, unsaved.files, opts) == 0) {
         // success:
 #ifdef DEBUG_TIMING
