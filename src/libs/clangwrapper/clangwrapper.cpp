@@ -496,6 +496,7 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
         switch (clang_getCursorKind(c)) {
         case CXCursor_ClassDecl:
         case CXCursor_EnumDecl:
+        case CXCursor_EnumConstantDecl:
         case CXCursor_Namespace:
         case CXCursor_NamespaceRef:
         case CXCursor_NamespaceAlias:
@@ -504,6 +505,12 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_TypeRef:
             add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Type);
             break;
+
+        case CXCursor_DeclRefExpr: {
+            CXCursor referenced = clang_getCursorReferenced(c);
+            if (clang_getCursorKind(referenced) == CXCursor_EnumConstantDecl)
+                add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Type);
+        } break;
 
         case CXCursor_MemberRefExpr:
             // either: member_field
@@ -624,7 +631,6 @@ QString ClangWrapper::precompile(const QString &headerFileName, const QStringLis
 
 #ifdef DEBUG_TIMING
     qDebug() << "** Precompiling" << outFileName << "from" << headerFileName << "...";
-    qDebug() << "** Options:" << options;
 #endif // DEBUG_TIMING
 
     ClangWrapper wrapper;
