@@ -10,7 +10,7 @@
 
 #include <clang-c/Index.h>
 
-#define DEBUG_TIMING
+#undef DEBUG_TIMING
 #undef NEVER_REPARSE_ALWAYS_PARSE
 
 namespace {
