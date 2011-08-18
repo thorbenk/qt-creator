@@ -120,7 +120,7 @@ bool CreateMarkers::warning(unsigned line, unsigned column, const QString &text,
 void CreateMarkers::addUse(const SourceMarker &marker)
 {
 //    if (! enclosingFunctionDefinition()) {
-        if (_usages.size() >= 50) {
+        if (_usages.size() >= 100) {
             if (_flushRequested && marker.line != _flushLine)
                 flush();
             else if (! _flushRequested) {
