@@ -38,7 +38,6 @@
 #include <clangwrapper/clangwrapper.h>
 #include <clangwrapper/sourcemarker.h>
 
-#include <cplusplus/CppDocument.h>
 #include <texteditor/semantichighlighter.h>
 
 #include <QSet>
@@ -48,9 +47,12 @@
 namespace CppTools {
 
 class CPPTOOLS_EXPORT CreateMarkers:
+        public QObject,
         public QRunnable,
         public QFutureInterface<TextEditor::SemanticHighlighter::Result>
 {
+    Q_OBJECT
+
 public:
     virtual ~CreateMarkers();
 
@@ -69,11 +71,13 @@ public:
         return future;
     }
 
-    static Future go(Clang::ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine);
+    static CreateMarkers *create(Clang::ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine);
 
-    bool warning(unsigned line, unsigned column, const QString &text, unsigned length = 0);
     void addUse(const SourceMarker &marker);
     void flush();
+
+signals:
+    void diagnosticsReady(const QList<Clang::Diagnostic> &diagnostics);
 
 protected:
     CreateMarkers(Clang::ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine);
@@ -82,11 +86,10 @@ private:
     Clang::ClangWrapper::Ptr m_clangWrapper;
     unsigned m_firstLine;
     unsigned m_lastLine;
-    QString _fileName;
-    QList<CPlusPlus::Document::DiagnosticMessage> _diagnosticMessages;
-    QVector<SourceMarker> _usages;
-    bool _flushRequested;
-    unsigned _flushLine;
+    QString m_fileName;
+    QVector<SourceMarker> m_usages;
+    bool m_flushRequested;
+    unsigned m_flushLine;
 
     Clang::ClangWrapper::UnsavedFiles m_unsavedFiles;
 };

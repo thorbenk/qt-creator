@@ -88,6 +88,7 @@ class QTCREATOR_CLANGWRAPPER_EXPORT Diagnostic
 {
 public:
     enum Severity {
+        Unknown = -1,
         Ignored = 0,
         Note = 1,
         Warning = 2,
@@ -96,6 +97,13 @@ public:
     };
 
 public:
+    Diagnostic()
+        : m_severity(Unknown)
+        , m_line(0)
+        , m_column(0)
+        , m_length(0)
+    {}
+
     Diagnostic(Severity severity, const QString &fileName, unsigned line, unsigned column, unsigned length, const QString &spelling)
         : m_severity(severity)
         , m_fileName(fileName)
@@ -194,5 +202,7 @@ private: // instance fields
 } // namespace Clang
 
 Q_DECLARE_METATYPE(Clang::CodeCompletionResult)
+Q_DECLARE_METATYPE(Clang::Diagnostic)
+Q_DECLARE_METATYPE(QList<Clang::Diagnostic>)
 
 #endif // CLANGWRAPPER_H

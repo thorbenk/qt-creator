@@ -46,12 +46,12 @@
 using namespace Clang;
 using namespace CppTools;
 
-CreateMarkers::Future CreateMarkers::go(ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine)
+CreateMarkers *CreateMarkers::create(ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine)
 {
     if (clangWrapper.isNull())
-        return CreateMarkers::Future();
+        return 0;
     else
-        return (new CreateMarkers(clangWrapper, firstLine, lastLine))->start();
+        return new CreateMarkers(clangWrapper, firstLine, lastLine);
 }
 
 CreateMarkers::CreateMarkers(ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine)
@@ -61,9 +61,9 @@ CreateMarkers::CreateMarkers(ClangWrapper::Ptr clangWrapper, unsigned firstLine,
 {
     Q_ASSERT(!clangWrapper.isNull());
 
-    _fileName = m_clangWrapper->fileName();
-    _flushRequested = false;
-    _flushLine = 0;
+    m_fileName = m_clangWrapper->fileName();
+    m_flushRequested = false;
+    m_flushLine = 0;
 
     m_unsavedFiles = ClangUtils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::instance()->workingCopy());
 }
@@ -83,17 +83,19 @@ void CreateMarkers::run()
     QTime t; t.start();
 #endif // DEBUG_TIMING
 
-    _diagnosticMessages.clear();
-    _usages.clear();
+    m_usages.clear();
 
     m_clangWrapper->reparse(m_unsavedFiles);
 #ifdef DEBUG_TIMING
     qDebug() << "*** Reparse for highlighting took" << t.elapsed() << "ms.";
 #endif // DEBUG_TIMING
 
+    QList<Clang::Diagnostic> diagnostics;
     foreach (const Clang::Diagnostic &d, m_clangWrapper->diagnostics())
         if (d.fileName() == m_clangWrapper->fileName())
-            warning(d.line(), d.column(), d.spelling(), d.length());
+            diagnostics.append(d);
+    emit diagnosticsReady(diagnostics);
+
     if (isCanceled())
         return;
 
@@ -110,37 +112,30 @@ void CreateMarkers::run()
 #endif // DEBUG_TIMING
 }
 
-bool CreateMarkers::warning(unsigned line, unsigned column, const QString &text, unsigned length)
-{
-    CPlusPlus::Document::DiagnosticMessage m(CPlusPlus::Document::DiagnosticMessage::Warning, _fileName, line, column, text, length);
-    _diagnosticMessages.append(m);
-    return false;
-}
-
 void CreateMarkers::addUse(const SourceMarker &marker)
 {
 //    if (! enclosingFunctionDefinition()) {
-        if (_usages.size() >= 100) {
-            if (_flushRequested && marker.line != _flushLine)
+        if (m_usages.size() >= 100) {
+            if (m_flushRequested && marker.line != m_flushLine)
                 flush();
-            else if (! _flushRequested) {
-                _flushRequested = true;
-                _flushLine = marker.line;
+            else if (! m_flushRequested) {
+                m_flushRequested = true;
+                m_flushLine = marker.line;
             }
         }
 //    }
 
-    _usages.append(marker);
+    m_usages.append(marker);
 }
 
 void CreateMarkers::flush()
 {
-    _flushRequested = false;
-    _flushLine = 0;
+    m_flushRequested = false;
+    m_flushLine = 0;
 
-    if (_usages.isEmpty())
+    if (m_usages.isEmpty())
         return;
 
-    reportResults(_usages);
-    _usages.clear();
+    reportResults(m_usages);
+    m_usages.clear();
 }

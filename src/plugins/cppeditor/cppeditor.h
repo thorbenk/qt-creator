@@ -251,6 +251,8 @@ private Q_SLOTS:
 
     void onRefactorMarkerClicked(const TextEditor::RefactorMarker &marker);
 
+    void setDiagnostics(const QList<Clang::Diagnostic> &diagnostics);
+
 private:
     void markSymbols(const QTextCursor &tc, const SemanticInfo &info);
     bool sortedOutline() const;

@@ -1260,8 +1260,8 @@ void CppModelManager::updateEditorSelections()
         else if (editor->document()->revision() != ed.revision)
             continue; // outdated
 
-        editor->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection,
-                                   ed.selections);
+//        editor->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection,
+//                                   ed.selections);
 
         editor->setIfdefedOutBlocks(ed.ifdefedOutBlocks);
     }

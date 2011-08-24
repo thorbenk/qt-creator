@@ -1840,7 +1840,10 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
                 }
 
                 //### FIXME: the range is way too big.. can't we just update the visible lines?
-                CppTools::CreateMarkers::Future f = CppTools::CreateMarkers::go(m_clangSemanticWrapper, 1, document()->blockCount() + 1);
+                CppTools::CreateMarkers *createMarkers = CppTools::CreateMarkers::create(m_clangSemanticWrapper, 1, document()->blockCount() + 1);
+                connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
+                        this, SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
+                CppTools::CreateMarkers::Future f = createMarkers->start();
 #else
                 LookupContext context(semanticInfo.doc, semanticInfo.snapshot);
                 CheckSymbols::Future f = CheckSymbols::go(semanticInfo.doc, context);
@@ -2195,6 +2198,62 @@ void CPPEditorWidget::onRefactorMarkerClicked(const TextEditor::RefactorMarker &
 {
     if (marker.data.canConvert<FunctionDeclDefLink::Marker>())
         applyDeclDefLinkChanges(true);
+}
+
+void CPPEditorWidget::setDiagnostics(const QList<Clang::Diagnostic> &diagnostics)
+{
+    qDebug() << Q_FUNC_INFO << "received" << diagnostics.size() << "messages";
+
+    // set up the format for the errors
+    QTextCharFormat errorFormat;
+    errorFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+    errorFormat.setUnderlineColor(Qt::red);
+
+    // set up the format for the warnings.
+    QTextCharFormat warningFormat;
+    warningFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+    warningFormat.setUnderlineColor(Qt::darkYellow);
+
+    QList<QTextEdit::ExtraSelection> selections;
+    foreach (const Clang::Diagnostic &m, diagnostics) {
+        QTextEdit::ExtraSelection sel;
+
+        switch (m.severity()) {
+        case Clang::Diagnostic::Error:
+            sel.format = errorFormat;
+            break;
+
+        case Clang::Diagnostic::Warning:
+            sel.format = warningFormat;
+            break;
+
+        default:
+            continue;
+        }
+
+        QTextCursor c(document()->findBlockByNumber(m.line() - 1));
+        const int linePos = c.position();
+        c.setPosition(linePos + m.column() - 1);
+
+        const QString text = c.block().text();
+        if (m.length() == 0) {
+            for (int i = m.column() - 1; i < text.size(); ++i) {
+                if (text.at(i).isSpace()) {
+                    c.setPosition(linePos + i, QTextCursor::KeepAnchor);
+                    break;
+                }
+            }
+        } else {
+            c.setPosition(c.position() + m.length(), QTextCursor::KeepAnchor);
+        }
+
+        sel.cursor = c;
+        sel.format.setToolTip(m.spelling());
+        selections.append(sel);
+    }
+
+    qDebug() << "setting" << selections.size() << "selections";
+    setExtraSelections(BaseTextEditorWidget::CodeWarningsSelection, selections);
 }
 
 void CPPEditorWidget::updateFunctionDeclDefLink()

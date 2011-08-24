@@ -84,7 +84,6 @@ static void getInstantiationLocation(const CXSourceLocation &loc,
     }
 }
 
-#if 0
 static void getSpellingLocation(const CXSourceLocation &loc,
                                 QString *fileName = 0,
                                 unsigned *line = 0,
@@ -99,7 +98,6 @@ static void getSpellingLocation(const CXSourceLocation &loc,
         clang_disposeString(fn);
     }
 }
-#endif
 
 struct UnsavedFileData
 {
@@ -148,6 +146,9 @@ static void initClang()
     clang_toggleCrashRecovery(1);
     clang_enableStackTraces();
     clangInitialised = true;
+
+    qRegisterMetaType<Clang::Diagnostic>();
+    qRegisterMetaType<QList<Clang::Diagnostic> >();
 }
 
 } // Anonymous namespace
@@ -191,6 +192,8 @@ public:
     bool parseFromFile(const UnsavedFiles &unsavedFiles, bool isEditable = true)
     {
         Q_ASSERT(!m_unit);
+
+        m_diagnostics.clear();
 
         if (m_fileName.isEmpty())
             return false;
@@ -239,6 +242,8 @@ public:
     {
         Q_ASSERT(!m_unit);
 
+        m_diagnostics.clear();
+
         if (m_fileName.isEmpty())
             return false;
 
@@ -268,6 +273,16 @@ public:
 #endif // DEBUG_TIMING
         for (unsigned i = 0; i < diagCount; ++i) {
             CXDiagnostic diag = clang_getDiagnostic(m_unit, i);
+#ifdef DEBUG_TIMING
+            unsigned opt = CXDiagnostic_DisplaySourceLocation
+                    | CXDiagnostic_DisplayColumn
+                    | CXDiagnostic_DisplaySourceRanges
+                    | CXDiagnostic_DisplayOption
+                    | CXDiagnostic_DisplayCategoryId
+                    | CXDiagnostic_DisplayCategoryName
+                    ;
+            qDebug() << toQString(clang_formatDiagnostic(diag, opt));
+#endif
 
             Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
             CXSourceLocation loc = clang_getDiagnosticLocation(diag);
@@ -276,20 +291,29 @@ public:
             getInstantiationLocation(loc, &fileName, &line, &column);
             const QString spelling = toQString(clang_getDiagnosticSpelling(diag));
 
-            unsigned length = 1;
-            if (clang_getDiagnosticNumRanges(diag) > 0) {
-                CXSourceRange r = clang_getDiagnosticRange(diag, 0);
-                unsigned begin = 0;
-                getInstantiationLocation(clang_getRangeStart(r), 0, 0, 0, &begin);
-                getInstantiationLocation(clang_getRangeEnd(r), 0, 0, 0, &length);
-                length -= begin;
-            }
+            const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
+            if (rangeCount > 0) {
+                for (unsigned i = 0; i < rangeCount; ++i) {
+                    CXSourceRange r = clang_getDiagnosticRange(diag, 0);
+                    unsigned begin = 0;
+                    unsigned length = 0;
+                    getSpellingLocation(clang_getRangeStart(r), 0, 0, 0, &begin);
+                    getSpellingLocation(clang_getRangeEnd(r), 0, 0, 0, &length);
+                    length -= begin;
 
-            Diagnostic d(severity, fileName, line, column, length, spelling);
+                    Diagnostic d(severity, fileName, line, column, length, spelling);
 #ifdef DEBUG_TIMING
-            qDebug() << d.severityAsString() << fileName << line << column << length << spelling;
+                    qDebug() << d.severityAsString() << fileName << line << column << length << spelling;
 #endif
-            m_diagnostics.append(d);
+                    m_diagnostics.append(d);
+                }
+            } else {
+                Diagnostic d(severity, fileName, line, column, 0, spelling);
+#ifdef DEBUG_TIMING
+                qDebug() << d.severityAsString() << fileName << line << column << 0 << spelling;
+#endif
+                m_diagnostics.append(d);
+            }
 
             clang_disposeDiagnostic(diag);
         }
@@ -378,6 +402,8 @@ void ClangWrapper::setOptions(const QStringList &options) const
 bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
+
+    m_d->m_diagnostics.clear();
 
 #ifdef NEVER_REPARSE_ALWAYS_PARSE
     if (m_d->m_unit) {
@@ -547,6 +573,8 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
 {
     Q_ASSERT(m_d);
 
+    m_d->m_diagnostics.clear();
+
     QList<CodeCompletionResult> completions;
 
     if (!m_d->m_unit) {
@@ -611,7 +639,7 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
 
         clang_disposeCodeCompleteResults(results);
     } else {
-        m_d->checkDiagnostics();
+//        m_d->checkDiagnostics();
     }
 
     return completions;
