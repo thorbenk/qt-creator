@@ -43,12 +43,224 @@
 using namespace CppEditor::Internal;
 using namespace TextEditor;
 using namespace CPlusPlus;
+using namespace Clang;
 
 CppHighlighter::CppHighlighter(QTextDocument *document) :
     TextEditor::SyntaxHighlighter(document)
 {
+    m_lexer.includeC99();
+    m_lexer.includeCpp0x();
+    m_lexer.includeCppOperators();
+    m_lexer.init();
 }
 
+void CppHighlighter::highlightBlock(const QString &text)
+{
+    const int previousState = previousBlockState();
+    int state = 0, initialBraceDepth = 0;
+    if (previousState != -1) {
+        state = previousState & 0xff;
+        initialBraceDepth = previousState >> 8;
+    }
+
+    int braceDepth = initialBraceDepth;
+
+    int initialState = state;
+    const QList<Clang::Token> &tokens = m_lexer.lex(text, &state);
+
+    int foldingIndent = initialBraceDepth;
+    if (TextBlockUserData *userData = BaseTextDocumentLayout::testUserData(currentBlock())) {
+        userData->setFoldingIndent(0);
+        userData->setFoldingStartIncluded(false);
+        userData->setFoldingEndIncluded(false);
+    }
+
+    if (tokens.isEmpty()) {
+        setCurrentBlockState(previousState);
+        BaseTextDocumentLayout::clearParentheses(currentBlock());
+        if (text.length()) // the empty line can still contain whitespace
+            setFormat(0, text.length(), m_formats[CppVisualWhitespace]);
+        BaseTextDocumentLayout::setFoldingIndent(currentBlock(), foldingIndent);
+        return;
+    }
+
+    const unsigned firstNonSpace = tokens.first().begin();
+
+    Parentheses parentheses;
+    parentheses.reserve(20); // assume wizard level ;-)
+
+    bool expectPreprocessorKeyword = false;
+    bool onlyHighlightComments = false;
+
+    for (int i = 0; i < tokens.size(); ++i) {
+        const Clang::Token &tk = tokens.at(i);
+
+        unsigned previousTokenEnd = 0;
+        if (i != 0) {
+            // mark the whitespaces
+            previousTokenEnd = tokens.at(i - 1).begin() +
+                               tokens.at(i - 1).length();
+        }
+
+        if (previousTokenEnd != tk.begin()) {
+            setFormat(previousTokenEnd, tk.begin() - previousTokenEnd,
+                      m_formats[CppVisualWhitespace]);
+        }
+
+        if (tk.is(Clang::Token::Punctuation)) {
+            const QStringRef &punc = text.midRef(tk.begin(), tk.length());
+            if (punc.length() == 1) {
+                if (Clang::Token::isPunctuationLBrace(tk, text)
+                        || Clang::Token::isPunctuationLParen(tk, text)
+                        || Clang::Token::isPunctuationLBracked(tk, text)) {
+                    parentheses.append(Parenthesis(Parenthesis::Opened, punc.at(0), tk.begin()));
+                    if (Clang::Token::isPunctuationLBrace(tk, text)) {
+                        ++braceDepth;
+
+                        // if a folding block opens at the beginning of a line, treat the entire line
+                        // as if it were inside the folding block
+                        if (tk.begin() == firstNonSpace) {
+                            ++foldingIndent;
+                            BaseTextDocumentLayout::userData(currentBlock())->setFoldingStartIncluded(true);
+                        }
+                    }
+                } else if (Clang::Token::isPunctuationRBrace(tk, text)
+                           || Clang::Token::isPunctuationRBracked(tk, text)
+                           || Clang::Token::isPunctuationRParen(tk, text)) {
+                    parentheses.append(Parenthesis(Parenthesis::Closed, punc.at(0), tk.begin()));
+                    if (Clang::Token::isPunctuationRBrace(tk, text)) {
+                        --braceDepth;
+                        if (braceDepth < foldingIndent) {
+                            // unless we are at the end of the block, we reduce the folding indent
+                            if (i == tokens.size()-1
+                                    || (tokens.at(i+1).is(Clang::Token::Punctuation)
+                                        && Clang::Token::isPunctuationSemiColon(tk, text))) {
+                                BaseTextDocumentLayout::userData(currentBlock())->setFoldingEndIncluded(true);
+                            } else {
+                                foldingIndent = qMin(braceDepth, foldingIndent);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        bool highlightCurrentWordAsPreprocessor = expectPreprocessorKeyword;
+
+        if (expectPreprocessorKeyword)
+            expectPreprocessorKeyword = false;
+
+        if (onlyHighlightComments && !tk.is(Clang::Token::Comment))
+            continue;
+
+
+        if (i == 0
+                && tk.is(Clang::Token::Punctuation)
+                && Clang::Token::isPunctuationPound(tk, text)) {
+            highlightLine(text, tk.begin(), tk.length(), m_formats[CppPreprocessorFormat]);
+            expectPreprocessorKeyword = true;
+        } else if (highlightCurrentWordAsPreprocessor
+                   && (tk.is(Clang::Token::Keyword)
+                       || tk.is(Clang::Token::Identifier))
+                   && isPPKeyword(text.midRef(tk.begin(), tk.length()))) {
+            setFormat(tk.begin(), tk.length(), m_formats[CppPreprocessorFormat]);
+            const QStringRef ppKeyword = text.midRef(tk.begin(), tk.length());
+            if (ppKeyword == QLatin1String("error")
+                    || ppKeyword == QLatin1String("warning")
+                    || ppKeyword == QLatin1String("pragma")) {
+                onlyHighlightComments = true;
+            }
+        } else if (tk.is(Clang::Token::Literal)) {
+            if (Clang::Token::isLiteralNumeric(tk, text))
+                setFormat(tk.begin(), tk.length(), m_formats[CppNumberFormat]);
+            else
+                highlightLine(text, tk.begin(), tk.length(), m_formats[CppStringFormat]);
+        } else if (tk.is(Clang::Token::Comment)) {
+            if (tk.isDoxygenComment())
+                highlightDoxygenComment(text, tk.begin(), tk.length());
+            else
+                highlightLine(text, tk.begin(), tk.length(), m_formats[CppCommentFormat]);
+
+            // we need to insert a close comment parenthesis, if
+            //  - the line starts in a C Comment (initalState != 0)
+            //  - the first token of the line is a T_COMMENT (i == 0 && tk.is(T_COMMENT))
+            //  - is not a continuation line (tokens.size() > 1 || ! state)
+            if (initialState && i == 0 && (tokens.size() > 1 || ! state)) {
+                --braceDepth;
+                // unless we are at the end of the block, we reduce the folding indent
+                if (i == tokens.size()-1)
+                    BaseTextDocumentLayout::userData(currentBlock())->setFoldingEndIncluded(true);
+                else
+                    foldingIndent = qMin(braceDepth, foldingIndent);
+                const int tokenEnd = tk.begin() + tk.length() - 1;
+                parentheses.append(Parenthesis(Parenthesis::Closed, QLatin1Char('-'), tokenEnd));
+
+                // clear the initial state.
+                initialState = 0;
+            }
+        } else if (tk.is(Clang::Token::Keyword)) {
+            setFormat(tk.begin(), tk.length(), m_formats[CppKeywordFormat]);
+        } else if (i == 0
+                   && tokens.size() > 1
+                   && tk.is(Clang::Token::Identifier)
+                   && tokens.at(1).is(Clang::Token::Punctuation)
+                   && Clang::Token::isPunctuationColon(tokens.at(1), text)) {
+            setFormat(tk.begin(), tk.length(), m_formats[CppLabelFormat]);
+        } else if (tk.is(Clang::Token::Identifier)) {
+            highlightWord(text.midRef(tk.begin(), tk.length()), tk.begin(), tk.length());
+        } else if (tk.is(Clang::Token::Punctuation)){
+            setFormat(tk.begin(), tk.length(), m_formats[CppOperatorFormat]);
+        }
+    }
+
+    // mark the trailing white spaces
+    {
+        const Clang::Token tk = tokens.last();
+        const int lastTokenEnd = tk.begin() + tk.length();
+        if (text.length() > lastTokenEnd)
+            highlightLine(text, lastTokenEnd, text.length() - lastTokenEnd, QTextCharFormat());
+    }
+
+    if (! initialState && state && ! tokens.isEmpty()) {
+        parentheses.append(Parenthesis(Parenthesis::Opened, QLatin1Char('+'),
+                                       tokens.last().begin()));
+        ++braceDepth;
+    }
+
+    BaseTextDocumentLayout::setParentheses(currentBlock(), parentheses);
+
+    // if the block is ifdefed out, we only store the parentheses, but
+    // do not adjust the brace depth.
+    if (BaseTextDocumentLayout::ifdefedOut(currentBlock())) {
+        braceDepth = initialBraceDepth;
+        foldingIndent = initialBraceDepth;
+    }
+
+    BaseTextDocumentLayout::setFoldingIndent(currentBlock(), foldingIndent);
+
+    // optimization: if only the brace depth changes, we adjust subsequent blocks
+    // to have QSyntaxHighlighter stop the rehighlighting
+    int currentState = currentBlockState();
+    if (currentState != -1) {
+        int oldState = currentState & 0xff;
+        int oldBraceDepth = currentState >> 8;
+
+        ///checar state
+        if (oldState == state && oldBraceDepth != braceDepth) {
+            int delta = braceDepth - oldBraceDepth;
+            QTextBlock block = currentBlock().next();
+            while (block.isValid() && block.userState() != -1) {
+                BaseTextDocumentLayout::changeBraceDepth(block, delta);
+                BaseTextDocumentLayout::changeFoldingIndent(block, delta);
+                block = block.next();
+            }
+        }
+    }
+
+    setCurrentBlockState((braceDepth << 8) | state);
+}
+
+#if 0
 void CppHighlighter::highlightBlock(const QString &text)
 {
     const int previousState = previousBlockState();
@@ -255,7 +467,7 @@ void CppHighlighter::highlightBlock(const QString &text)
 
     setCurrentBlockState((braceDepth << 8) | tokenize.state());
 }
-
+#endif
 
 bool CppHighlighter::isPPKeyword(const QStringRef &text) const
 {

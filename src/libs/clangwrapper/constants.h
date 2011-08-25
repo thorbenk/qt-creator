@@ -30,52 +30,31 @@
 **
 **************************************************************************/
 
-#ifndef CPPHIGHLIGHTER_H
-#define CPPHIGHLIGHTER_H
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
 
-#include "cppeditorenums.h"
-#include <texteditor/syntaxhighlighter.h>
-#include <clangwrapper/rawlexer.h>
-#include <QtGui/QTextCharFormat>
-#include <QtCore/QtAlgorithms>
+#include <QtCore/QLatin1Char>
+#include <QtCore/QLatin1Char>
 
-namespace CppEditor {
+namespace Clang {
+namespace Constants {
 
-namespace Internal {
+static const QLatin1Char kLParen('(');
+static const QLatin1Char kRParen(')');
+static const QLatin1Char kLBrace('{');
+static const QLatin1Char kRBrace('}');
+static const QLatin1Char kLBracked('[');
+static const QLatin1Char kRBracked(']');
+static const QLatin1Char kSemiColon(';');
+static const QLatin1Char kPound('#');
+static const QLatin1Char kColon(':');
+static const QLatin1Char kExclamation('!');
+static const QLatin1Char kSpace(' ');
+static const QLatin1Char kSlash('/');
+static const QLatin1Char kStar('*');
+static const QLatin1Char kDoubleQuote('"');
 
-class CPPEditorWidget;
+}
+}
 
-class CppHighlighter : public TextEditor::SyntaxHighlighter
-{
-    Q_OBJECT
-
-public:
-    CppHighlighter(QTextDocument *document = 0);
-
-    virtual void highlightBlock(const QString &text);
-
-    // Set formats from a sequence of type QTextCharFormat
-    template <class InputIterator>
-        void setFormats(InputIterator begin, InputIterator end) {
-            qCopy(begin, end, m_formats);
-        }
-
-private:
-    void highlightWord(QStringRef word, int position, int length);
-    void highlightLine(const QString &line, int position, int length,
-                       const QTextCharFormat &format);
-
-    void highlightDoxygenComment(const QString &text, int position,
-                                 int length);
-
-    bool isPPKeyword(const QStringRef &text) const;
-    bool isQtKeyword(const QStringRef &text) const;
-
-    QTextCharFormat m_formats[NumCppFormats];
-    Clang::RawLexer m_lexer;
-};
-
-} // namespace Internal
-} // namespace CppEditor
-
-#endif // CPPHIGHLIGHTER_H
+#endif // CONSTANTS_H

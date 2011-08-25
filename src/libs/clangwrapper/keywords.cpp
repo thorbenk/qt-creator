@@ -30,52 +30,34 @@
 **
 **************************************************************************/
 
-#ifndef CPPHIGHLIGHTER_H
-#define CPPHIGHLIGHTER_H
+#include "keywords.h"
 
-#include "cppeditorenums.h"
-#include <texteditor/syntaxhighlighter.h>
-#include <clangwrapper/rawlexer.h>
-#include <QtGui/QTextCharFormat>
-#include <QtCore/QtAlgorithms>
+#include <llvm/ADT/StringRef.h>
+#include <clang/Basic/IdentifierTable.h>
+#include <clang/Basic/LangOptions.h>
 
-namespace CppEditor {
+using namespace Clang;
+using namespace clang;
 
-namespace Internal {
+Keywords::Keywords()
+{}
 
-class CPPEditorWidget;
+Keywords::~Keywords()
+{}
 
-class CppHighlighter : public TextEditor::SyntaxHighlighter
+void Keywords::load(const LangOptions &options)
 {
-    Q_OBJECT
+    if (m_table)
+        return;
 
-public:
-    CppHighlighter(QTextDocument *document = 0);
+    m_table.reset(new IdentifierTable(options));
+}
 
-    virtual void highlightBlock(const QString &text);
-
-    // Set formats from a sequence of type QTextCharFormat
-    template <class InputIterator>
-        void setFormats(InputIterator begin, InputIterator end) {
-            qCopy(begin, end, m_formats);
-        }
-
-private:
-    void highlightWord(QStringRef word, int position, int length);
-    void highlightLine(const QString &line, int position, int length,
-                       const QTextCharFormat &format);
-
-    void highlightDoxygenComment(const QString &text, int position,
-                                 int length);
-
-    bool isPPKeyword(const QStringRef &text) const;
-    bool isQtKeyword(const QStringRef &text) const;
-
-    QTextCharFormat m_formats[NumCppFormats];
-    Clang::RawLexer m_lexer;
-};
-
-} // namespace Internal
-} // namespace CppEditor
-
-#endif // CPPHIGHLIGHTER_H
+bool Keywords::contains(const char *buffer, size_t length) const
+{
+    llvm::StringRef s(buffer, length);
+    IdentifierInfo *info = &m_table->get(s);
+    if (info->getTokenID() == tok::identifier)
+        return false;
+    return true;
+}

@@ -30,52 +30,39 @@
 **
 **************************************************************************/
 
-#ifndef CPPHIGHLIGHTER_H
-#define CPPHIGHLIGHTER_H
+#ifndef KEYWORDS_H
+#define KEYWORDS_H
 
-#include "cppeditorenums.h"
-#include <texteditor/syntaxhighlighter.h>
-#include <clangwrapper/rawlexer.h>
-#include <QtGui/QTextCharFormat>
-#include <QtCore/QtAlgorithms>
+#include "clangwrapper_global.h"
 
-namespace CppEditor {
+#include <clang-c/Index.h>
 
-namespace Internal {
+#include <QtCore/QScopedPointer>
 
-class CPPEditorWidget;
+namespace clang {
+class IdentifierTable;
+class LangOptions;
+}
 
-class CppHighlighter : public TextEditor::SyntaxHighlighter
+namespace Clang {
+
+/*
+ * When lexing in raw mode the identifier table is not looked up. This works as a replacement
+ * for keywords in this case and for any other in which there's no parsing context.
+ */
+class QTCREATOR_CLANGWRAPPER_EXPORT Keywords
 {
-    Q_OBJECT
-
 public:
-    CppHighlighter(QTextDocument *document = 0);
+    Keywords();
+    ~Keywords();
 
-    virtual void highlightBlock(const QString &text);
-
-    // Set formats from a sequence of type QTextCharFormat
-    template <class InputIterator>
-        void setFormats(InputIterator begin, InputIterator end) {
-            qCopy(begin, end, m_formats);
-        }
+    void load(const clang::LangOptions &options);
+    bool contains(const char *buffer, size_t length) const;
 
 private:
-    void highlightWord(QStringRef word, int position, int length);
-    void highlightLine(const QString &line, int position, int length,
-                       const QTextCharFormat &format);
-
-    void highlightDoxygenComment(const QString &text, int position,
-                                 int length);
-
-    bool isPPKeyword(const QStringRef &text) const;
-    bool isQtKeyword(const QStringRef &text) const;
-
-    QTextCharFormat m_formats[NumCppFormats];
-    Clang::RawLexer m_lexer;
+    QScopedPointer<clang::IdentifierTable> m_table;
 };
 
-} // namespace Internal
-} // namespace CppEditor
+} // Clang
 
-#endif // CPPHIGHLIGHTER_H
+#endif // KEYWORDS_H

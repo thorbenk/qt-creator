@@ -30,52 +30,52 @@
 **
 **************************************************************************/
 
-#ifndef CPPHIGHLIGHTER_H
-#define CPPHIGHLIGHTER_H
+#ifndef SIMPLELEXER_H
+#define SIMPLELEXER_H
 
-#include "cppeditorenums.h"
-#include <texteditor/syntaxhighlighter.h>
-#include <clangwrapper/rawlexer.h>
-#include <QtGui/QTextCharFormat>
-#include <QtCore/QtAlgorithms>
+#include "clangwrapper_global.h"
+#include "keywords.h"
+#include "token.h"
 
-namespace CppEditor {
+#include <clang-c/Index.h>
+#include <clang/Basic/LangOptions.h>
 
-namespace Internal {
+#include <QtCore/QString>
+#include <QtCore/QList>
 
-class CPPEditorWidget;
+namespace Clang {
 
-class CppHighlighter : public TextEditor::SyntaxHighlighter
+class QTCREATOR_CLANGWRAPPER_EXPORT RawLexer
 {
-    Q_OBJECT
-
 public:
-    CppHighlighter(QTextDocument *document = 0);
+    RawLexer();
 
-    virtual void highlightBlock(const QString &text);
+    void includeQt();
+    void includeTrigraphs();
+    void includeDigraphs();
+    void includeC99();
+    void includeCpp0x();
+    void includeCppOperators();
 
-    // Set formats from a sequence of type QTextCharFormat
-    template <class InputIterator>
-        void setFormats(InputIterator begin, InputIterator end) {
-            qCopy(begin, end, m_formats);
-        }
+    void init();
+
+    QList<Token> lex(const QString &code, int *state);
 
 private:
-    void highlightWord(QStringRef word, int position, int length);
-    void highlightLine(const QString &line, int position, int length,
-                       const QTextCharFormat &format);
+    enum State {
+        Normal,
+        InComment,
+        InDoxygenComment,
+        InString
+    };
 
-    void highlightDoxygenComment(const QString &text, int position,
-                                 int length);
+    static void checkDoxygenComment(const QString &lexedCode, Token *token);
 
-    bool isPPKeyword(const QStringRef &text) const;
-    bool isQtKeyword(const QStringRef &text) const;
-
-    QTextCharFormat m_formats[NumCppFormats];
-    Clang::RawLexer m_lexer;
+    State m_state;
+    Keywords m_keywords;
+    clang::LangOptions m_langOptions;
 };
 
-} // namespace Internal
-} // namespace CppEditor
+} // Clang
 
-#endif // CPPHIGHLIGHTER_H
+#endif // SIMPLELEXER_H
