@@ -28,7 +28,7 @@ win32 {
     contains(LLVM_BUILD_MODE, ".*\\bDebug\\b.*") {
         message("LLVM was build in debug mode")
         LIBS += -L$$LLVM_LIBDIR \
-            -lclang \
+            -llibclang \
             -lclangLex \
             -lclangBasic \
             -lclangCodeGen \
