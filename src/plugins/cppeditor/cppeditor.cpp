@@ -2202,8 +2202,6 @@ void CPPEditorWidget::onRefactorMarkerClicked(const TextEditor::RefactorMarker &
 
 void CPPEditorWidget::setDiagnostics(const QList<Clang::Diagnostic> &diagnostics)
 {
-    qDebug() << Q_FUNC_INFO << "received" << diagnostics.size() << "messages";
-
     // set up the format for the errors
     QTextCharFormat errorFormat;
     errorFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
@@ -2252,7 +2250,6 @@ void CPPEditorWidget::setDiagnostics(const QList<Clang::Diagnostic> &diagnostics
         selections.append(sel);
     }
 
-    qDebug() << "setting" << selections.size() << "selections";
     setExtraSelections(BaseTextEditorWidget::CodeWarningsSelection, selections);
 }
 
