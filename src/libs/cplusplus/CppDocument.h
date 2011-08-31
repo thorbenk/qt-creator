@@ -128,7 +128,7 @@ public:
 
     static Ptr create(const QString &fileName);
 
-    class DiagnosticMessage
+    class CPLUSPLUS_EXPORT DiagnosticMessage
     {
     public:
         enum Level {
@@ -176,6 +176,9 @@ public:
 
         QString text() const
         { return _text; }
+
+        bool operator==(const DiagnosticMessage &other) const;
+        bool operator!=(const DiagnosticMessage &other) const;
 
     private:
         int _level;
