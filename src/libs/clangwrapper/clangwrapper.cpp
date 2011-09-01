@@ -379,9 +379,10 @@ QString ClangWrapper::fileName() const
 void ClangWrapper::setFileName(const QString &fileName)
 {
     Q_ASSERT(m_d);
-
-    m_d->m_fileName = fileName;
-    m_d->invalidateTranslationUnit();
+    if (m_d->m_fileName != fileName) {
+        m_d->m_fileName = fileName;
+        m_d->invalidateTranslationUnit();
+    }
 }
 
 QStringList ClangWrapper::options() const
@@ -395,8 +396,10 @@ void ClangWrapper::setOptions(const QStringList &options) const
 {
     Q_ASSERT(m_d);
 
-    m_d->m_options = options;
-    m_d->invalidateTranslationUnit();
+    if (m_d->m_options != options) {
+        m_d->m_options = options;
+        m_d->invalidateTranslationUnit();
+    }
 }
 
 bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)

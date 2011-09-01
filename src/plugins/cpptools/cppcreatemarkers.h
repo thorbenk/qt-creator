@@ -71,7 +71,10 @@ public:
         return future;
     }
 
-    static CreateMarkers *create(Clang::ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine);
+    static CreateMarkers *create(Clang::ClangWrapper::Ptr clangWrapper,
+                                 const QString &fileName,
+                                 const QStringList &options,
+                                 unsigned firstLine, unsigned lastLine);
 
     void addUse(const SourceMarker &marker);
     void flush();
@@ -80,13 +83,16 @@ signals:
     void diagnosticsReady(const QList<Clang::Diagnostic> &diagnostics);
 
 protected:
-    CreateMarkers(Clang::ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine);
+    CreateMarkers(Clang::ClangWrapper::Ptr clangWrapper,
+                  const QString &fileName, const QStringList &options,
+                  unsigned firstLine, unsigned lastLine);
 
 private:
     Clang::ClangWrapper::Ptr m_clangWrapper;
+    QString m_fileName;
+    QStringList m_options;
     unsigned m_firstLine;
     unsigned m_lastLine;
-    QString m_fileName;
     QVector<SourceMarker> m_usages;
     bool m_flushRequested;
     unsigned m_flushLine;

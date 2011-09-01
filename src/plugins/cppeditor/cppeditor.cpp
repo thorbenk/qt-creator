@@ -1830,17 +1830,14 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
             if (Core::EditorManager::instance()->currentEditor() == editor()) {
 #if 1
-                QMutexLocker lock(m_clangSemanticWrapper->mutex());
-                if (m_clangSemanticWrapper->options().isEmpty()) { //### HACK
-                    const QString fileName = file()->fileName();
-                    m_clangSemanticWrapper->setFileName(fileName);
-                    QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(fileName);
-                    if (!parts.isEmpty())
-                        m_clangSemanticWrapper->setOptions(parts.at(0)->createClangOptions());
-                }
+                const QString fileName = file()->fileName();
+                QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(fileName);
+                QStringList options;
+                if (!parts.isEmpty())
+                    options = parts.at(0)->createClangOptions();
 
                 //### FIXME: the range is way too big.. can't we just update the visible lines?
-                CppTools::CreateMarkers *createMarkers = CppTools::CreateMarkers::create(m_clangSemanticWrapper, 1, document()->blockCount() + 1);
+                CppTools::CreateMarkers *createMarkers = CppTools::CreateMarkers::create(m_clangSemanticWrapper, fileName, options, 1, document()->blockCount() + 1);
                 connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
                         this, SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
                 CppTools::CreateMarkers::Future f = createMarkers->start();
@@ -2152,20 +2149,18 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
 {
     if (kind == TextEditor::Completion) {
 #if 1
-        QMutexLocker lock(m_clangCompletionWrapper->mutex());
         QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(file()->fileName());
-        QStringList includePaths, frameworkPaths;
+        QStringList includePaths, frameworkPaths, options;
         if (!parts.isEmpty()) {
             const CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
-            if (m_clangCompletionWrapper->options().isEmpty())
-                m_clangCompletionWrapper->setOptions(part->createClangOptions());
+            options = part->createClangOptions();
             includePaths = part->includePaths;
             frameworkPaths = part->frameworkPaths;
         }
         return new CppTools::ClangCompletionAssistInterface(
                     m_clangCompletionWrapper,
                     document(), position(), editor()->file(), reason,
-                    includePaths, frameworkPaths);
+                    options, includePaths, frameworkPaths);
 #else
         QStringList includePaths;
         QStringList frameworkPaths;

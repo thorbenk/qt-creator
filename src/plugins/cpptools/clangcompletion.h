@@ -28,6 +28,7 @@ public:
                                    int position,
                                    Core::IFile *file,
                                    TextEditor::AssistReason reason,
+                                   const QStringList &options,
                                    const QStringList &includePaths,
                                    const QStringList &frameworkPaths);
 
@@ -39,6 +40,9 @@ public:
 
     bool objcEnabled() const;
 
+    const QStringList &options() const
+    { return m_options; }
+
     const QStringList &includePaths() const
     { return m_includePaths; }
 
@@ -48,7 +52,7 @@ public:
 private:
     Clang::ClangWrapper::Ptr m_clangWrapper;
     Clang::ClangWrapper::UnsavedFiles m_unsavedFiles;
-    QStringList m_includePaths, m_frameworkPaths;
+    QStringList m_options, m_includePaths, m_frameworkPaths;
 };
 
 class CPPTOOLS_EXPORT ClangCompletionAssistProcessor : public TextEditor::IAssistProcessor

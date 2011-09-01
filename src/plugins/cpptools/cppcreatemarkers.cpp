@@ -46,22 +46,29 @@
 using namespace Clang;
 using namespace CppTools;
 
-CreateMarkers *CreateMarkers::create(ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine)
+CreateMarkers *CreateMarkers::create(ClangWrapper::Ptr clangWrapper,
+                                     const QString &fileName,
+                                     const QStringList &options,
+                                     unsigned firstLine, unsigned lastLine)
 {
     if (clangWrapper.isNull())
         return 0;
     else
-        return new CreateMarkers(clangWrapper, firstLine, lastLine);
+        return new CreateMarkers(clangWrapper, fileName, options, firstLine, lastLine);
 }
 
-CreateMarkers::CreateMarkers(ClangWrapper::Ptr clangWrapper, unsigned firstLine, unsigned lastLine)
+CreateMarkers::CreateMarkers(ClangWrapper::Ptr clangWrapper,
+                             const QString &fileName,
+                             const QStringList &options,
+                             unsigned firstLine, unsigned lastLine)
     : m_clangWrapper(clangWrapper)
+    , m_fileName(fileName)
+    , m_options(options)
     , m_firstLine(firstLine)
     , m_lastLine(lastLine)
 {
     Q_ASSERT(!clangWrapper.isNull());
 
-    m_fileName = m_clangWrapper->fileName();
     m_flushRequested = false;
     m_flushLine = 0;
 
@@ -84,6 +91,8 @@ void CreateMarkers::run()
 #endif // DEBUG_TIMING
 
     m_usages.clear();
+    m_clangWrapper->setFileName(m_fileName);
+    m_clangWrapper->setOptions(m_options);
 
     m_clangWrapper->reparse(m_unsavedFiles);
 #ifdef DEBUG_TIMING

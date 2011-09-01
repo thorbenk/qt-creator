@@ -114,8 +114,9 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
     QMutexLocker lock(wrapper->mutex());
     //### TODO: check if we're cancelled after we managed to aquire the mutex
 
-    if (fileName != wrapper->fileName())
-        wrapper->setFileName(fileName);
+    wrapper->setFileName(fileName);
+    wrapper->setOptions(interface->options());
+
 
 #if DEBUG_TIMING
     qDebug() << "Here we go with ClangCompletionAssistProcessor....";
@@ -265,10 +266,12 @@ ClangCompletionAssistInterface::ClangCompletionAssistInterface(
         int position,
         Core::IFile *file,
         AssistReason reason,
+        const QStringList &options,
         const QStringList &includePaths,
         const QStringList &frameworkPaths)
     : DefaultAssistInterface(document, position, file, reason)
     , m_clangWrapper(clangWrapper)
+    , m_options(options)
     , m_includePaths(includePaths)
     , m_frameworkPaths(frameworkPaths)
 {
@@ -635,7 +638,13 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
                                                             const QString &/*expr*/,
                                                             int endOfExpression)
 {
-    if (m_model->m_completionOperator == T_LPAREN) {
+    if (m_model->m_completionOperator == T_SIGNAL) {
+        //### TODO
+        return m_startPosition;
+    } else if (m_model->m_completionOperator == T_SLOT) {
+        //### TODO
+        return m_startPosition;
+    } else if (m_model->m_completionOperator == T_LPAREN) {
         // Find the expression that precedes the current name
         int index = endOfExpression;
         while (m_interface->characterAt(index - 1).isSpace())
