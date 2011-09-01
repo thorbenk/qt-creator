@@ -3,6 +3,7 @@
 #include "cppmodelmanager.h"
 
 #include <QButtonGroup>
+#include <QFileDialog>
 
 using namespace CppTools;
 using namespace CppTools::Internal;
@@ -52,12 +53,25 @@ CompletionProjectSettingsWidget::CompletionProjectSettingsWidget(Project *projec
     pchGroup->addButton(m_ui.noPchButton, CompletionProjectSettings::PchUseNone);
     pchGroup->addButton(m_ui.buildSystemPchButton, CompletionProjectSettings::PchUseBuildSystem);
     pchGroup->addButton(m_ui.customPchButton, CompletionProjectSettings::PchUseCustom);
-    pchGroup->button(cps->pchUsage())->setChecked(true);
+    switch (cps->pchUsage()) {
+    case CompletionProjectSettings::PchUseNone:
+    case CompletionProjectSettings::PchUseBuildSystem:
+    case CompletionProjectSettings::PchUseCustom:
+        pchGroup->button(cps->pchUsage())->setChecked(true);
+        break;
+
+    default:
+        break;
+    }
+    pchUsageChanged(cps->pchUsage());
     connect(pchGroup, SIGNAL(buttonClicked(int)),
             this, SLOT(pchUsageChanged(int)));
 
+    m_ui.customHeaderLineEdit->setText(cps->customPchFile());
     connect(m_ui.customHeaderLineEdit, SIGNAL(editingFinished()),
             this, SLOT(customPchFileChanged()));
+    connect(m_ui.customHeaderChooseButton, SIGNAL(clicked()),
+            this, SLOT(customPchButtonClicked()));
 }
 
 void CompletionProjectSettingsWidget::pchUsageChanged(int id)
@@ -94,4 +108,22 @@ void CompletionProjectSettingsWidget::customPchFileChanged()
         return;
 
     cps->setCustomPchFile(fileName);
+}
+
+void CompletionProjectSettingsWidget::customPchButtonClicked()
+{
+    QFileDialog d(this);
+    d.setFilters(QStringList() << tr("Header Files (*.h)")
+                 << tr("All Files (*)"));
+    d.setFileMode(QFileDialog::ExistingFile);
+    d.setDirectory(m_project->projectDirectory());
+    if (!d.exec())
+        return;
+    const QStringList fileNames = d.selectedFiles();
+    if (fileNames.isEmpty() || fileNames.first().isEmpty())
+        return;
+
+    CompletionProjectSettings *cps = CppModelManager::instance()->completionSettingsFromProject(m_project);
+    m_ui.customHeaderLineEdit->setText(fileNames.first());
+    cps->setCustomPchFile(fileNames.first());
 }

@@ -46,6 +46,10 @@ public slots:
     void setPchUsage(PchUsage pchUsage);
     void setCustomPchFile(const QString &fileName);
 
+private slots:
+    void pushSettings();
+    void pullSettings();
+
 private:
     ProjectExplorer::Project *m_project;
     PchUsage m_pchUsage;

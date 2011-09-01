@@ -32,6 +32,7 @@ public:
 private slots:
     void pchUsageChanged(int id);
     void customPchFileChanged();
+    void customPchButtonClicked();
 
 private:
     Ui::CompletionProjectSettingsPage m_ui;
