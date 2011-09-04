@@ -13,7 +13,8 @@ SOURCES += \
     $$PWD/sourcemarker.cpp \
     $$PWD/rawlexer.cpp \
     $$PWD/keywords.cpp \
-    $$PWD/token.cpp
+    $$PWD/token.cpp \
+    $$PWD/reuse.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -22,4 +23,5 @@ HEADERS += \
     $$PWD/rawlexer.h \
     $$PWD/keywords.h \
     $$PWD/token.h \
-    $$PWD/constants.h
+    $$PWD/constants.h \
+    $$PWD/reuse.h

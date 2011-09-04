@@ -1,5 +1,6 @@
 #include "clangwrapper.h"
 #include "sourcemarker.h"
+#include "reuse.h"
 
 #include <QDebug>
 #include <QFile>
@@ -14,10 +15,6 @@
 #undef NEVER_REPARSE_ALWAYS_PARSE
 
 namespace {
-static inline QString toQString(const CXString &str)
-{
-    return QString::fromUtf8(clang_getCString(str));
-}
 
 static inline QString toString(CXCompletionChunkKind kind)
 {
@@ -66,36 +63,6 @@ static inline QString toString(CXCompletionChunkKind kind)
         return QLatin1String("VerticalSpace");
     default:
         return QLatin1String("<UNKNOWN>");
-    }
-}
-
-static void getInstantiationLocation(const CXSourceLocation &loc,
-                                     QString *fileName = 0,
-                                     unsigned *line = 0,
-                                     unsigned *column = 0,
-                                     unsigned *offset = 0)
-{
-    CXFile file;
-    clang_getInstantiationLocation(loc, &file, line, column, offset);
-    if (fileName) {
-        CXString fn = clang_getFileName(file);
-        *fileName = toQString(fn);
-        clang_disposeString(fn);
-    }
-}
-
-static void getSpellingLocation(const CXSourceLocation &loc,
-                                QString *fileName = 0,
-                                unsigned *line = 0,
-                                unsigned *column = 0,
-                                unsigned *offset = 0)
-{
-    CXFile *file = 0;
-    clang_getSpellingLocation(loc, file, line, column, offset);
-    if (fileName) {
-        CXString fn = clang_getFileName(file);
-        *fileName = toQString(fn);
-        clang_disposeString(fn);
     }
 }
 
@@ -281,15 +248,15 @@ public:
                     | CXDiagnostic_DisplayCategoryId
                     | CXDiagnostic_DisplayCategoryName
                     ;
-            qDebug() << toQString(clang_formatDiagnostic(diag, opt));
+            qDebug() << Internal::getQString(clang_formatDiagnostic(diag, opt));
 #endif
 
             Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
             CXSourceLocation loc = clang_getDiagnosticLocation(diag);
             QString fileName;
             unsigned line = 0, column = 0;
-            getInstantiationLocation(loc, &fileName, &line, &column);
-            const QString spelling = toQString(clang_getDiagnosticSpelling(diag));
+            Internal::getInstantiationLocation(loc, &fileName, &line, &column);
+            const QString spelling = Internal::getQString(clang_getDiagnosticSpelling(diag));
 
             const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
             if (rangeCount > 0) {
@@ -297,8 +264,8 @@ public:
                     CXSourceRange r = clang_getDiagnosticRange(diag, 0);
                     unsigned begin = 0;
                     unsigned length = 0;
-                    getSpellingLocation(clang_getRangeStart(r), 0, 0, 0, &begin);
-                    getSpellingLocation(clang_getRangeEnd(r), 0, 0, 0, &length);
+                    Internal::getSpellingLocation(clang_getRangeStart(r), 0, 0, 0, &begin);
+                    Internal::getSpellingLocation(clang_getRangeEnd(r), 0, 0, 0, &length);
                     length -= begin;
 
                     Diagnostic d(severity, fileName, line, column, length, spelling);
@@ -612,14 +579,15 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
 #if 0
             CXCursorKind kind = results->Results[i].CursorKind;
             qDebug() << "--- kind:"
-                     << toQString(clang_getCursorKindSpelling(kind))
+                     << Internal::getQString(clang_getCursorKindSpelling(kind))
                      << "(" << priority << ")";
 #endif
 
             unsigned chunckCount = clang_getNumCompletionChunks(complStr);
             for (unsigned j = 0; j < chunckCount; ++j) {
                 CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(complStr, j);
-                const QString chunkText = toQString(clang_getCompletionChunkText(complStr, j));
+                const QString chunkText =
+                        Internal::getQString(clang_getCompletionChunkText(complStr, j));
 
                 if (chunkKind == CXCompletionChunk_TypedText)
                     ccr.text = chunkText;
