@@ -850,7 +850,11 @@ CppModelManager::WorkingCopy CppModelManager::workingCopy() const
 }
 
 QFuture<void> CppModelManager::updateSourceFiles(const QStringList &sourceFiles)
-{ return refreshSourceFiles(sourceFiles); }
+{
+    refreshSourceFiles_Clang(sourceFiles);
+
+    return refreshSourceFiles(sourceFiles);
+}
 
 CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Project *project) const
 {
@@ -1000,6 +1004,24 @@ QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QStr
     }
 
     return parts;
+}
+
+void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
+{
+    if (m_clangIndexer.isWorking())
+        return;
+
+    foreach (const QString &file, sourceFiles) {
+        const QList<CppModelManagerInterface::ProjectPart::Ptr> &parts = projectPart(file);
+        if (!parts.isEmpty())
+            m_clangIndexer.addFile(file, parts.at(0)->createClangOptions());
+        else
+            m_clangIndexer.addFile(file, QStringList());
+    }
+    m_clangIndexer.regenerate();
+    Core::ICore::instance()->progressManager()->addTask(m_clangIndexer.workingFuture(),
+                                                        tr("Indexing"),
+                                                        "Key.Temp.Indexing");
 }
 
 QFuture<void> CppModelManager::refreshSourceFiles(const QStringList &sourceFiles)
@@ -1469,6 +1491,11 @@ QList<Document::DiagnosticMessage> CppModelManager::extraDiagnostics(const QStri
 CompletionProjectSettings *CppModelManager::completionSettingsFromProject(ProjectExplorer::Project *project) const
 {
     return m_cps.value(project, 0);
+}
+
+const Clang::Indexer &CppModelManager::indexer() const
+{
+    return m_clangIndexer;
 }
 
 #endif

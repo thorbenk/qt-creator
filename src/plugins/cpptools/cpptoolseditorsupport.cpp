@@ -126,5 +126,7 @@ void CppEditorSupport::updateDocumentNow()
         _cachedContents = _textEditor->contents().toUtf8();
         _documentParser = _modelManager->refreshSourceFiles(sourceFiles);
     }
+
+    _modelManager->refreshSourceFiles_Clang(QStringList(_textEditor->file()->fileName()));
 }
 

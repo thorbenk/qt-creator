@@ -33,6 +33,8 @@
 #include "cpplocatorfilter.h"
 #include "cppmodelmanager.h"
 
+#include <clangwrapper/indexedsymbolinfo.h>
+
 #include <texteditor/itexteditor.h>
 #include <texteditor/basetexteditor.h>
 
@@ -59,7 +61,9 @@ CppLocatorFilter::~CppLocatorFilter()
 
 void CppLocatorFilter::onDocumentUpdated(CPlusPlus::Document::Ptr doc)
 {
-    m_searchList[doc->fileName()] = search(doc);
+    // Testing clang indexer, so this is commented out for now...
+    Q_UNUSED(doc);
+    //m_searchList[doc->fileName()] = search(doc);
 }
 
 void CppLocatorFilter::onAboutToRemoveFiles(const QStringList &files)
@@ -91,6 +95,50 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
         return goodEntries;
     bool hasWildcard = (entry.contains(asterisk) || entry.contains('?'));
 
+
+
+    // @TODO: Testing indexing with clang...
+    const QStringList &allFiles = m_manager->indexer().getAllFiles();
+    foreach (const QString &file, allFiles) {
+        if (future.isCanceled())
+            break;
+
+        QList<Clang::IndexedSymbolInfo> infoList;
+        if (shortcutString() == QLatin1String("c"))
+            infoList = m_manager->indexer().getClassesFromFile(file);
+        else if (shortcutString() == QLatin1String("m"))
+            infoList = m_manager->indexer().getFunctionsFromFile(file);
+        foreach (const Clang::IndexedSymbolInfo &symbolInfo, infoList) {
+            // @TODO: Merge ModelItemInfo and IndexedSymbomlInfo since they are pretty much
+            // the same thing.
+            ModelItemInfo info(symbolInfo.m_name,
+                               symbolInfo.m_qualification,
+                               ModelItemInfo::ItemType((int)symbolInfo.m_type),
+                               QStringList(QLatin1String("qual. name")),
+                               symbolInfo.m_fileName,
+                               symbolInfo.m_line,
+                               symbolInfo.m_column,
+                               symbolInfo.m_icon);
+
+            if ((hasWildcard && regexp.exactMatch(info.symbolName))
+                    || (!hasWildcard && matcher.indexIn(info.symbolName) != -1)) {
+
+                QVariant id = qVariantFromValue(info);
+                Locator::FilterEntry filterEntry(this, info.symbolName, id, info.icon);
+                if (! info.symbolType.isEmpty())
+                    filterEntry.extraInfo = info.symbolType;
+                else
+                    filterEntry.extraInfo = info.fileName;
+
+                if (info.symbolName.startsWith(entry))
+                    betterEntries.append(filterEntry);
+                else
+                    goodEntries.append(filterEntry);
+            }
+        }
+    }
+
+#if 0
     QHashIterator<QString, QList<ModelItemInfo> > it(m_searchList);
     while (it.hasNext()) {
         if (future.isCanceled())
@@ -117,6 +165,7 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
             }
         }
     }
+#endif
 
     if (goodEntries.size() < 1000)
         qSort(goodEntries.begin(), goodEntries.end(), compareLexigraphically);

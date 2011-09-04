@@ -57,6 +57,8 @@
 #  include <QtGui/QTextEdit> // for QTextEdit::ExtraSelection
 #endif
 
+#include <clangwrapper/indexer.h>
+
 namespace Core {
 class ICore;
 class IEditor;
@@ -108,6 +110,9 @@ public:
 
     QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
 
+    // Testing...
+    void refreshSourceFiles_Clang(const QStringList &sourceFiles);
+
     inline Core::ICore *core() const { return m_core; }
 
     virtual bool isCppEditor(Core::IEditor *editor) const;
@@ -140,6 +145,8 @@ public:
     void finishedRefreshingSourceFiles(const QStringList &files);
 
     CompletionProjectSettings *completionSettingsFromProject(ProjectExplorer::Project *project) const;
+
+    const Clang::Indexer &indexer() const;
 
 Q_SIGNALS:
     void projectPathChanged(const QString &projectPath);
@@ -251,6 +258,8 @@ private:
     QHash<QString, QHash<int, QList<CPlusPlus::Document::DiagnosticMessage> > > m_extraDiagnostics;
 
     QMap<QString, QList<ProjectPart::Ptr> > m_srcToProjectPart;
+
+    Clang::Indexer m_clangIndexer;
 };
 #endif
 

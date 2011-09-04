@@ -14,7 +14,9 @@ SOURCES += \
     $$PWD/rawlexer.cpp \
     $$PWD/keywords.cpp \
     $$PWD/token.cpp \
-    $$PWD/reuse.cpp
+    $$PWD/reuse.cpp \
+    $$PWD/indexer.cpp \
+    $$PWD/indexedsymbolinfo.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -24,4 +26,7 @@ HEADERS += \
     $$PWD/keywords.h \
     $$PWD/token.h \
     $$PWD/constants.h \
-    $$PWD/reuse.h
+    $$PWD/reuse.h \
+    $$PWD/indexer.h \
+    $$PWD/indexedsymbolinfo.h \
+    $$PWD/database.h
