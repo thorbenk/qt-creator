@@ -111,7 +111,7 @@ private:
         bool m_upToDate;
     };
 
-    friend class AstVisitorData;
+    friend struct AstVisitorData;
     friend void populateFiles(QStringList *all, const QList<Indexer::FileData> &data);
 
     static FileType identifyFileType(const QString &fileName);
