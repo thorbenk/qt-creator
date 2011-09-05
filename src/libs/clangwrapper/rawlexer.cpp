@@ -161,10 +161,11 @@ QList<Token> RawLexer::lex(const QString &code, int *state)
         }
 
         if (artificialOffset) {
-            Q_ASSERT(token.m_length >= artificialOffset);
             token.m_begin = token.m_begin < artificialOffset ? 0u : token.m_begin - artificialOffset;
-            if (tokens.isEmpty())
+            if (tokens.isEmpty()) {
+                Q_ASSERT(token.m_length >= artificialOffset);
                 token.m_length -= artificialOffset;
+            }
         }
 
         if (!token.m_length)
