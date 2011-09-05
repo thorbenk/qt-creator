@@ -36,7 +36,10 @@ using namespace CPlusPlus;
 
 QStringList CppModelManagerInterface::ProjectPart::createClangOptions() const
 {
-    return createClangOptions(QStringList() << clangPCH,
+    QStringList pchs;
+    if (clangPCH)
+        pchs << clangPCH->fileName();
+    return createClangOptions(pchs,
                               defines.split('\n'),
                               includePaths,
                               frameworkPaths);
@@ -66,12 +69,14 @@ QStringList CppModelManagerInterface::ProjectPart::createClangOptions(const QStr
         if (def.isEmpty())
             continue;
 
+        //### FIXME: the next 3 check shouldn't be needed: we probably don't want to get the compiler-defined defines in.
         if (!def.startsWith("#define "))
             continue;
         if (def.startsWith("#define _"))
             continue;
         if (def.startsWith("#define OBJC_NEW_PROPERTIES"))
             continue;
+
         QByteArray str = def.mid(8);
         int spaceIdx = str.indexOf(' ');
         QString arg;

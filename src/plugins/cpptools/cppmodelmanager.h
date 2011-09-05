@@ -36,16 +36,21 @@
 #include "cpptools_global.h"
 #include "cpptoolsconstants.h"
 #include <cplusplus/ModelManagerInterface.h>
+
 #ifndef ICHECK_BUILD
 #  include <projectexplorer/project.h>
 #endif
+
 #include <cplusplus/CppDocument.h>
 #include <cplusplus/PreprocessorClient.h>
+
 #ifndef ICHECK_BUILD
 #  include <texteditor/basetexteditor.h>
 #endif
+
 #include <cplusplus/PreprocessorEnvironment.h>
 #include <cplusplus/pp-engine.h>
+
 #ifdef ICHECK_BUILD
 #  include "parsemanager.h"
 #else
@@ -58,6 +63,7 @@
 #endif
 
 #include <clangwrapper/indexer.h>
+#include "pchmanager.h"
 
 namespace Core {
 class ICore;
@@ -158,8 +164,6 @@ public Q_SLOTS:
     void editorAboutToClose(Core::IEditor *editor);
     virtual void updateModifiedSourceFiles();
 
-    void completionProjectSettingsChanged();
-
 private Q_SLOTS:
     // this should be executed in the GUI thread.
     void onDocumentUpdated(CPlusPlus::Document::Ptr doc);
@@ -209,9 +213,6 @@ private:
                       CppPreprocessor *preproc,
                       QStringList files);
 
-    void updatePchInfo(CompletionProjectSettings *cps,
-                       const QList<ProjectPart::Ptr> &projectParts);
-
 private:
     Core::ICore *m_core;
     CPlusPlus::Snapshot m_snapshot;
@@ -260,6 +261,7 @@ private:
     QMap<QString, QList<ProjectPart::Ptr> > m_srcToProjectPart;
 
     Clang::Indexer m_clangIndexer;
+    PCHManager m_pchManager;
 };
 #endif
 

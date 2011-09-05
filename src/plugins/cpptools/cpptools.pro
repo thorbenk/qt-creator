@@ -37,7 +37,8 @@ HEADERS += completionsettingspage.h \
     cppcodestylepreferences.h \
     cpptoolsreuse.h \
     completionprojectsettingspage.h \
-    completionprojectsettings.h
+    completionprojectsettings.h \
+    pchmanager.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -66,7 +67,8 @@ SOURCES += completionsettingspage.cpp \
     cppcodestylepreferences.cpp \
     cpptoolsreuse.cpp \
     completionprojectsettingspage.cpp \
-    completionprojectsettings.cpp
+    completionprojectsettings.cpp \
+    pchmanager.cpp
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \
@@ -81,6 +83,8 @@ HEADERS += clangcompletion.h \
 SOURCES += clangcompletion.cpp \
     cppcreatemarkers.cpp \
     clangutils.cpp
+
+
 
 
 

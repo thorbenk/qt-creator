@@ -51,11 +51,13 @@ CompletionProjectSettingsWidget::CompletionProjectSettingsWidget(Project *projec
 
     QButtonGroup *pchGroup = new QButtonGroup(this);
     pchGroup->addButton(m_ui.noPchButton, CompletionProjectSettings::PchUseNone);
-    pchGroup->addButton(m_ui.buildSystemPchButton, CompletionProjectSettings::PchUseBuildSystem);
+    pchGroup->addButton(m_ui.buildSystemFastPchButton, CompletionProjectSettings::PchUseBuildSystemFast);
+    pchGroup->addButton(m_ui.buildSystemCorrectPchButton, CompletionProjectSettings::PchUseBuildSystemCorrect);
     pchGroup->addButton(m_ui.customPchButton, CompletionProjectSettings::PchUseCustom);
     switch (cps->pchUsage()) {
     case CompletionProjectSettings::PchUseNone:
-    case CompletionProjectSettings::PchUseBuildSystem:
+    case CompletionProjectSettings::PchUseBuildSystemFast:
+    case CompletionProjectSettings::PchUseBuildSystemCorrect:
     case CompletionProjectSettings::PchUseCustom:
         pchGroup->button(cps->pchUsage())->setChecked(true);
         break;
@@ -81,7 +83,8 @@ void CompletionProjectSettingsWidget::pchUsageChanged(int id)
 
     switch (id) {
     case CompletionProjectSettings::PchUseNone:
-    case CompletionProjectSettings::PchUseBuildSystem:
+    case CompletionProjectSettings::PchUseBuildSystemFast:
+    case CompletionProjectSettings::PchUseBuildSystemCorrect:
         m_ui.customHeaderLabel->setEnabled(false);
         m_ui.customHeaderLineEdit->setEnabled(false);
         m_ui.customHeaderChooseButton->setEnabled(false);

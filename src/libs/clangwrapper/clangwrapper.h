@@ -186,8 +186,9 @@ public: // methods
                                                const UnsavedFiles &unsavedFiles);
     QList<Diagnostic> diagnostics() const;
 
-    static QString precompile(const QString &headerFileName,
-                              const QStringList &options);
+    static void precompile(const QString &headerFileName,
+                           const QStringList &options,
+                           const QString &outFileName);
 
     bool objcEnabled() const;
 

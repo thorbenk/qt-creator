@@ -41,6 +41,7 @@
 #  include "cpptoolseditorsupport.h"
 #  include "cppfindreferences.h"
 #endif
+#include "pchmanager.h"
 
 #include <clangwrapper/clangwrapper.h>
 
@@ -92,6 +93,34 @@
 
 #include <iostream>
 #include <sstream>
+
+namespace CPlusPlus {
+uint qHash(const CppModelManagerInterface::ProjectPart &p)
+{
+    uint h = qHash(p.defines) ^ p.language ^ p.flags;
+
+    foreach (const QString &i, p.includePaths)
+        h ^= qHash(i);
+
+    foreach (const QString &f, p.frameworkPaths)
+        h ^= qHash(f);
+
+    return h;
+}
+bool operator==(const CppModelManagerInterface::ProjectPart &p1,
+                const CppModelManagerInterface::ProjectPart &p2)
+{
+    if (p1.defines != p2.defines)
+        return false;
+    if (p1.language != p2.language)
+        return false;
+    if (p1.flags != p2.flags)
+        return false;
+    if (p1.includePaths != p2.includePaths)
+        return false;
+    return p1.frameworkPaths == p2.frameworkPaths;
+}
+} // namespace CPlusPlus
 
 using namespace CppTools;
 using namespace CppTools::Internal;
@@ -659,6 +688,7 @@ CppModelManager *CppModelManager::instance()
 
 CppModelManager::CppModelManager(QObject *parent)
     : CppModelManagerInterface(parent)
+    , m_pchManager(this)
 {
     m_findReferences = new CppFindReferences(this);
     m_indexerEnabled = qgetenv("QTCREATOR_NO_CODE_INDEXER").isNull();
@@ -863,62 +893,6 @@ CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Proje
     return m_projects.value(project, ProjectInfo(project));
 }
 
-void CppModelManager::updatePchInfo(CompletionProjectSettings *cps, const QList<ProjectPart::Ptr> &projectParts)
-{
-    if (cps->pchUsage() == CompletionProjectSettings::PchUseNone
-            || (cps->pchUsage() == CompletionProjectSettings::PchUseCustom && cps->customPchFile().isEmpty())) {
-        qDebug() << "updatePchInfo: switching to none";
-        QString noPch;
-        foreach (const ProjectPart::Ptr &projectPart, projectParts) {
-            projectPart->clangPCH = noPch;
-        }
-    } else if (cps->pchUsage() == CompletionProjectSettings::PchUseBuildSystem) {
-        qDebug() << "updatePchInfo: switching to build system";
-        QSet<QString> includes, frameworks;
-        QMap<QString, QSet<QByteArray> > definesPerPCH;
-        foreach (const ProjectPart::Ptr &projectPart, projectParts) {
-            includes.unite(QSet<QString>::fromList(projectPart->includePaths));
-            frameworks.unite(QSet<QString>::fromList(projectPart->frameworkPaths));
-
-            QSet<QByteArray> projectDefines = QSet<QByteArray>::fromList(projectPart->defines.split('\n'));
-            QMutableSetIterator<QByteArray> iter(projectDefines);
-            while (iter.hasNext()){
-                QByteArray v = iter.next();
-                if (v.startsWith("#define _") || v.isEmpty())
-                    iter.remove();
-            }
-            if (!projectDefines.isEmpty() && !projectPart->precompiledHeaders.isEmpty()) {
-                QString pch = projectPart->precompiledHeaders.first();
-                if (definesPerPCH.contains(pch)) {
-                    definesPerPCH[pch].intersect(projectDefines);
-                } else {
-                    definesPerPCH[pch] = projectDefines;
-                }
-
-                projectPart->clangPCH = pch;
-            }
-        }
-
-        QMap<QString, QString> pchToPch;
-        foreach (const QString &pch, definesPerPCH.keys())
-            pchToPch[pch] = Clang::ClangWrapper::precompile(pch, ProjectPart::createClangOptions(QStringList(), definesPerPCH[pch].toList(), includes.toList(), frameworks.toList()));
-        foreach (const ProjectPart::Ptr &projectPart, projectParts)
-            projectPart->clangPCH = pchToPch[projectPart->clangPCH];
-    } else if (cps->pchUsage() == CompletionProjectSettings::PchUseCustom) {
-        qDebug() << "updatePchInfo: switching to custom" << cps->customPchFile();
-        QSet<QString> includes, frameworks;
-        foreach (const ProjectPart::Ptr &projectPart, projectParts) {
-            includes.unite(QSet<QString>::fromList(projectPart->includePaths));
-            frameworks.unite(QSet<QString>::fromList(projectPart->frameworkPaths));
-        }
-
-        QStringList opts = ProjectPart::createClangOptions(QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
-        QString pch = Clang::ClangWrapper::precompile(cps->customPchFile(), opts);
-        foreach (const ProjectPart::Ptr &projectPart, projectParts)
-            projectPart->clangPCH = pch;
-    }
-}
-
 void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 {
 #if 0
@@ -944,40 +918,44 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     if (! pinfo.isValid())
         return;
 
+
     ProjectExplorer::Project *project = pinfo.project.data();
+    ProjectInfo oldInfo = m_projects.value(project);
     m_projects.insert(project, pinfo);
     m_dirty = true;
 
     CompletionProjectSettings *cps = m_cps.value(project, 0);
     if (!cps) {
         cps = new CompletionProjectSettings(project);
-        cps->setPchUsage(CompletionProjectSettings::PchUseBuildSystem);
+        cps->setPchUsage(CompletionProjectSettings::PchUseBuildSystemFast);
         m_cps.insert(project, cps); //### FIXME: This should come from the project?
 
         connect(cps, SIGNAL(pchUsageChanged(int)),
-                this, SLOT(completionProjectSettingsChanged()));
+                &m_pchManager, SLOT(completionProjectSettingsChanged()));
         connect(cps, SIGNAL(customPchFileChanged(QString)),
-                this, SLOT(completionProjectSettingsChanged()));
+                &m_pchManager, SLOT(completionProjectSettingsChanged()));
     }
 
     m_srcToProjectPart.clear();
+
+    QHash<ProjectPart, ProjectPart::Ptr> oldProjectParts;
+    foreach (const ProjectPart::Ptr &projectPart, oldInfo.projectParts) {
+        oldProjectParts.insert(*projectPart, projectPart);
+    }
+
     foreach (const ProjectPart::Ptr &projectPart, pinfo.projectParts) {
         // FIXME: compare existing parts to updated ones.
+        // and migrate pch files
+        if (ProjectPart::Ptr oldPart = oldProjectParts.value(*projectPart)) {
+            projectPart->clangPCH = oldPart->clangPCH;
+        }
+
         foreach (const QString &sourceFile, projectPart->sourceFiles) {
             m_srcToProjectPart[sourceFile].append(projectPart);
         }
     }
 
-    updatePchInfo(cps, pinfo.projectParts);
-}
-
-void CppModelManager::completionProjectSettingsChanged()
-{
-    CompletionProjectSettings *cps = qobject_cast<CompletionProjectSettings *>(sender());
-    if (!cps)
-        return;
-
-    updatePchInfo(cps, m_projects.value(cps->project()).projectParts);
+    PCHManager::updatePchInfo(cps, pinfo.projectParts);
 }
 
 QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const

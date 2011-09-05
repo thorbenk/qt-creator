@@ -22,8 +22,9 @@ public:
     enum PchUsage {
         PchUseUnknown = 0,
         PchUseNone = 1,
-        PchUseBuildSystem = 2,
-        PchUseCustom = 3
+        PchUseBuildSystemFast = 2,
+        PchUseBuildSystemCorrect = 3,
+        PchUseCustom = 4
     };
 
 public:
