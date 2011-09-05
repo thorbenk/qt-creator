@@ -209,13 +209,13 @@ public:
     void insert(const DataType &data)
     {
         DataIteratorType it = m_container.insert(m_container.begin(), data);
-        createIndex(it);
+        this->createIndex(it);
     }
 
     template <class Key_T, class Key_ValueType>
     void remove(const Key_T &KeyT, const Key_ValueType &valueT)
     {
-        const QList<DataIteratorType> &iterators = removeIndex(KeyT, valueT);
+        const QList<DataIteratorType> &iterators = this->removeIndex(KeyT, valueT);
         foreach (DataIteratorType it, iterators)
             m_container.erase(it);
     }
