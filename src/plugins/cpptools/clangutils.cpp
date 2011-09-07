@@ -21,13 +21,13 @@ CPPTOOLS_EXPORT ClangWrapper::UnsavedFiles CppTools::ClangUtils::createUnsavedFi
     foreach (IEditor *editor, core->editorManager()->openedEditors())
         openFiles.insert(editor->file()->fileName());
 
-    QList<ClangWrapper::UnsavedFile> result;
+    ClangWrapper::UnsavedFiles result;
     QHashIterator<QString, QPair<QString, unsigned> > wcIter = workingCopy.iterator();
     while (wcIter.hasNext()) {
         wcIter.next();
         const QString &fileName = wcIter.key();
         if (openFiles.contains(fileName) && QFile(fileName).exists())
-            result.append(ClangWrapper::UnsavedFile(fileName, wcIter.value().first.toUtf8()));
+            result.insert(fileName, wcIter.value().first.toUtf8());
     }
 
     return result;

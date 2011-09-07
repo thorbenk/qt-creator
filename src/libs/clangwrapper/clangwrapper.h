@@ -37,6 +37,7 @@
 #include "clangwrapper_global.h"
 
 #include <QList>
+#include <QMap>
 #include <QMutex>
 #include <QSharedPointer>
 #include <QString>
@@ -150,14 +151,7 @@ class QTCREATOR_CLANGWRAPPER_EXPORT ClangWrapper
 
 public: // data structures
     typedef QSharedPointer<ClangWrapper> Ptr;
-
-    struct QTCREATOR_CLANGWRAPPER_EXPORT UnsavedFile {
-        UnsavedFile(const QString &fileName, const QByteArray &contents);
-
-        QString fileName;
-        QByteArray contents;
-    };
-    typedef QList<UnsavedFile> UnsavedFiles;
+    typedef QMap<QString, QByteArray> UnsavedFiles;
 
 public: // methods
     ClangWrapper(bool useForCodeCompletion = false);

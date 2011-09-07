@@ -68,21 +68,21 @@ static inline QString toString(CXCompletionChunkKind kind)
 
 struct UnsavedFileData
 {
-    typedef Clang::ClangWrapper::UnsavedFile UnsavedFile;
+    typedef Clang::ClangWrapper::UnsavedFiles UnsavedFiles;
 
-    UnsavedFileData(const QList<UnsavedFile> &unsavedFiles)
+    UnsavedFileData(const UnsavedFiles &unsavedFiles)
         : count(unsavedFiles.size())
         , files(0)
     {
         if (count) {
             files = new CXUnsavedFile[count];
-            for (unsigned i = 0; i < count; ++i) {
-                const UnsavedFile &unsavedFile = unsavedFiles.at(i);
-                const QByteArray fileName = unsavedFile.fileName.toUtf8();
-                files[i].Contents = unsavedFile.contents.constData();
-                files[i].Length = unsavedFile.contents.size();
+            for (UnsavedFiles::const_iterator i = unsavedFiles.begin(); i != unsavedFiles.end(); ++i) {
+                const QByteArray fileName = i.key().toUtf8();
+                const QByteArray &contents = i.value();
+                files[i].Contents = contents.constData();
+                files[i].Length = contents.size();
                 files[i].Filename = fileName.constData();
-                buffers.append(unsavedFile.contents);
+                buffers.append(contents);
                 buffers.append(fileName);
             }
         }
@@ -319,13 +319,6 @@ const QString &Diagnostic::severityAsString() const
                                             << "error"
                                             << "fatal" ;
     return strs.at(m_severity);
-}
-
-ClangWrapper::UnsavedFile::UnsavedFile(const QString &fileName,
-                                       const QByteArray &contents)
-    : fileName(fileName)
-    , contents(contents)
-{
 }
 
 ClangWrapper::ClangWrapper(bool useForCodeCompletion)
