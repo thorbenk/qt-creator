@@ -160,7 +160,7 @@ public:
     {
         Q_ASSERT(!m_unit);
 
-        m_diagnostics.clear();
+        clearDiagnostics();
 
         if (m_fileName.isEmpty())
             return false;
@@ -209,7 +209,7 @@ public:
     {
         Q_ASSERT(!m_unit);
 
-        m_diagnostics.clear();
+        clearDiagnostics();
 
         if (m_fileName.isEmpty())
             return false;
@@ -240,7 +240,7 @@ public:
 #endif // DEBUG_TIMING
         for (unsigned i = 0; i < diagCount; ++i) {
             CXDiagnostic diag = clang_getDiagnostic(m_unit, i);
-#ifdef DEBUG_TIMING
+
             unsigned opt = CXDiagnostic_DisplaySourceLocation
                     | CXDiagnostic_DisplayColumn
                     | CXDiagnostic_DisplaySourceRanges
@@ -248,8 +248,7 @@ public:
                     | CXDiagnostic_DisplayCategoryId
                     | CXDiagnostic_DisplayCategoryName
                     ;
-            qDebug() << Internal::getQString(clang_formatDiagnostic(diag, opt));
-#endif
+            m_formattedDiagnostics << Internal::getQString(clang_formatDiagnostic(diag, opt));
 
             Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
             CXSourceLocation loc = clang_getDiagnosticLocation(diag);
@@ -286,6 +285,12 @@ public:
         }
     }
 
+    void clearDiagnostics()
+    {
+        m_diagnostics.clear();
+        m_formattedDiagnostics.clear();
+    }
+
 public:
     QString m_fileName;
     QStringList m_options;
@@ -293,6 +298,7 @@ public:
     unsigned m_editingOpts;
     CXTranslationUnit m_unit;
     QList<Diagnostic> m_diagnostics;
+    QStringList m_formattedDiagnostics;
 
 private:
     QList<QByteArray> m_args;
@@ -373,7 +379,7 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
 
-    m_d->m_diagnostics.clear();
+    m_d->clearDiagnostics();
 
 #ifdef NEVER_REPARSE_ALWAYS_PARSE
     if (m_d->m_unit) {
@@ -543,7 +549,7 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
 {
     Q_ASSERT(m_d);
 
-    m_d->m_diagnostics.clear();
+    m_d->clearDiagnostics();
 
     QList<CodeCompletionResult> completions;
 
@@ -616,7 +622,7 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
     return completions;
 }
 
-void ClangWrapper::precompile(const QString &headerFileName, const QStringList &options, const QString &outFileName)
+QStringList ClangWrapper::precompile(const QString &headerFileName, const QStringList &options, const QString &outFileName)
 {
     initClang();
 
@@ -638,6 +644,8 @@ void ClangWrapper::precompile(const QString &headerFileName, const QStringList &
         qWarning() << "** Precompiling failed!";
 #endif // DEBUG_TIMING
     }
+
+    return wrapper.formattedDiagnostics();
 }
 
 QList<Diagnostic> ClangWrapper::diagnostics() const
@@ -645,6 +653,13 @@ QList<Diagnostic> ClangWrapper::diagnostics() const
     Q_ASSERT(m_d);
 
     return m_d->m_diagnostics;
+}
+
+QStringList ClangWrapper::formattedDiagnostics() const
+{
+    Q_ASSERT(m_d);
+
+    return m_d->m_formattedDiagnostics;
 }
 
 bool ClangWrapper::objcEnabled() const

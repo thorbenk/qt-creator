@@ -185,10 +185,11 @@ public: // methods
                                                unsigned column,
                                                const UnsavedFiles &unsavedFiles);
     QList<Diagnostic> diagnostics() const;
+    QStringList formattedDiagnostics() const;
 
-    static void precompile(const QString &headerFileName,
-                           const QStringList &options,
-                           const QString &outFileName);
+    static QStringList precompile(const QString &headerFileName,
+                                  const QStringList &options,
+                                  const QString &outFileName);
 
     bool objcEnabled() const;
 

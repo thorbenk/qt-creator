@@ -1,6 +1,7 @@
 #include "pchmanager.h"
 
 #include <clangwrapper/clangwrapper.h>
+#include <coreplugin/messagemanager.h>
 
 using namespace Clang;
 using namespace CPlusPlus;
@@ -18,15 +19,17 @@ PCHManager::PCHManager(CPlusPlus::CppModelManagerInterface *modelManager)
  */
 void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<ProjectPart::Ptr> &projectParts)
 {
+    Core::MessageManager *msgMgr = Core::MessageManager::instance();
+
     if (cps->pchUsage() == CompletionProjectSettings::PchUseNone
             || (cps->pchUsage() == CompletionProjectSettings::PchUseCustom && cps->customPchFile().isEmpty())) {
-        qDebug() << "updatePchInfo: switching to none";
+        msgMgr->printToOutputPane("updatePchInfo: switching to none");
         PCHInfoPtr sharedPch = PCHInfo::createEmpty();
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             projectPart->clangPCH = sharedPch;
         }
     } else if (cps->pchUsage() == CompletionProjectSettings::PchUseBuildSystemFast) {
-        qDebug() << "updatePchInfo: switching to build system (fast)";
+        msgMgr->printToOutputPane("updatePchInfo: switching to build system (fast)");
         QMap<QString, QSet<QString> > includes, frameworks;
         QMap<QString, QSet<QByteArray> > definesPerPCH;
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
@@ -55,10 +58,13 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
         QMap<QString, PCHInfoPtr> inputToOutput;
         foreach (const QString &pch, definesPerPCH.keys()) {
             PCHInfoPtr ptr = PCHInfo::createWithFileName();
-            ClangWrapper::precompile(pch, ProjectPart::createClangOptions(QStringList(),
-                                                                          definesPerPCH[pch].toList(),
-                                                                          includes[pch].toList(),
-                                                                          frameworks[pch].toList()), ptr->fileName());
+            QStringList options = ProjectPart::createClangOptions(QStringList(),
+                                                                  definesPerPCH[pch].toList(),
+                                                                  includes[pch].toList(),
+                                                                  frameworks[pch].toList());
+            QStringList msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
+            if (!msgs.isEmpty())
+                msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
             inputToOutput[pch] = ptr;
         }
 
@@ -70,23 +76,25 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
         }
 
     } else if (cps->pchUsage() == CompletionProjectSettings::PchUseBuildSystemCorrect) {
-        qDebug() << "updatePchInfo: switching to build system (correct)";
+        msgMgr->printToOutputPane("updatePchInfo: switching to build system (correct)");
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             if (projectPart->precompiledHeaders.isEmpty())
                 continue;
             QString pch = projectPart->precompiledHeaders.first(); //### TODO: support more than 1 PCH file.
 
             PCHInfoPtr ptr = PCHInfo::createWithFileName();
-            ClangWrapper::precompile(pch, ProjectPart::createClangOptions(
-                                         QStringList(),
-                                         projectPart->defines.split('\n'),
-                                         projectPart->includePaths,
-                                         projectPart->frameworkPaths),
-                                     ptr->fileName());
+            QStringList options = ProjectPart::createClangOptions(
+                        QStringList(),
+                        projectPart->defines.split('\n'),
+                        projectPart->includePaths,
+                        projectPart->frameworkPaths);
+            QStringList msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
+            if (!msgs.isEmpty())
+                msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
             projectPart->clangPCH = ptr;
         }
     } else if (cps->pchUsage() == CompletionProjectSettings::PchUseCustom) {
-        qDebug() << "updatePchInfo: switching to custom" << cps->customPchFile();
+        msgMgr->printToOutputPane("updatePchInfo: switching to custom" + cps->customPchFile());
         QSet<QString> includes, frameworks;
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             includes.unite(QSet<QString>::fromList(projectPart->includePaths));
@@ -95,7 +103,9 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
 
         QStringList opts = ProjectPart::createClangOptions(QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
         PCHInfoPtr pch = PCHInfo::createWithFileName();
-        ClangWrapper::precompile(cps->customPchFile(), opts, pch->fileName());  //### FIXME: diagnostics!
+        QStringList msgs = ClangWrapper::precompile(cps->customPchFile(), opts, pch->fileName());
+        if (!msgs.isEmpty())
+            msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
         foreach (const ProjectPart::Ptr &projectPart, projectParts)
             projectPart->clangPCH = pch;
     }
