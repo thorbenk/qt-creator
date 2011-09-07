@@ -93,9 +93,8 @@ using namespace Internal;
 Indexer::Indexer()
     : m_files(TotalFileTypes)
     , m_clangIndex(clang_createIndex(/*excludeDeclsFromPCH*/ 0, /*displayDiagnostics*/ 0))
-    , m_unitManagementOptions(clang_defaultEditingTranslationUnitOptions())
+    , m_unitManagementOptions(CXTranslationUnit_None)
 {
-    m_unitManagementOptions &= ~CXTranslationUnit_CacheCompletionResults;
 }
 
 Indexer::FileType Indexer::identifyFileType(const QString &fileName)
