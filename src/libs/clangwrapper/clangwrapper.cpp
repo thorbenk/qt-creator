@@ -76,14 +76,15 @@ struct UnsavedFileData
     {
         if (count) {
             files = new CXUnsavedFile[count];
-            for (UnsavedFiles::const_iterator i = unsavedFiles.begin(); i != unsavedFiles.end(); ++i) {
-                const QByteArray fileName = i.key().toUtf8();
-                const QByteArray &contents = i.value();
-                files[i].Contents = contents.constData();
-                files[i].Length = contents.size();
-                files[i].Filename = fileName.constData();
+            unsigned idx = 0;
+            for (UnsavedFiles::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it, ++idx) {
+                QByteArray contents = it.value();
                 buffers.append(contents);
-                buffers.append(fileName);
+                files[idx].Contents = contents.constData();
+                files[idx].Length = contents.size();
+
+                buffers.append(it.key().toUtf8());
+                files[idx].Filename = buffers.last().constData();
             }
         }
     }
