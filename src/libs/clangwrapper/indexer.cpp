@@ -33,6 +33,7 @@
 #include "indexer.h"
 #include "reuse.h"
 #include "database.h"
+#include "cxraii.h"
 
 #include <clang-c/Index.h>
 
@@ -54,6 +55,9 @@
     #define BEGIN_PROFILE_SCOPE(ID)
     #define END_PROFILE_SCOPE
 #endif
+
+using namespace Clang;
+using namespace Internal;
 
 namespace Clang {
 
@@ -171,7 +175,7 @@ public:
     void process(QFutureInterface<IndexingResult> &interface);
     void process(QFutureInterface<IndexingResult> &interface, IndexerPrivate::FileData *fileData);
 
-    CXIndex m_clangIndex;
+    ScopedCXIndex m_clangIndex;
     unsigned m_unitManagementOptions;
     QHash<QString, IndexerPrivate::FileData> m_headers;
     QHash<QString, IndexerPrivate::FileData> m_impls;
@@ -190,9 +194,6 @@ struct ScopepTimer
 };
 
 } // Anonymous
-
-using namespace Clang;
-using namespace Internal;
 
 
 IndexerProcessor::IndexerProcessor(const QHash<QString, IndexerPrivate::FileData> &headers,
@@ -351,12 +352,12 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
 
     const QByteArray fileName(fileData->m_fileName.toUtf8());
 
-    CXTranslationUnit tu = clang_parseTranslationUnit(m_clangIndex,
-                                                      fileName.constData(),
-                                                      argv, argc,
-                                                      // @TODO: unsaved.files, unsaved.count,
-                                                      0, 0,
-                                                      m_unitManagementOptions);
+    ScopedCXTranslationUnit tu(clang_parseTranslationUnit(m_clangIndex,
+                                                          fileName.constData(),
+                                                          argv, argc,
+                                                          // @TODO: unsaved.files, unsaved.count,
+                                                          0, 0,
+                                                          m_unitManagementOptions));
     delete[] argv;
 
     // Mark this is file as up-to-date.
@@ -368,13 +369,14 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
 #ifdef DEBUG_DIAGNOSTICS
     unsigned numDiagnostics = clang_getNumDiagnostics(tu);
     for (unsigned i = 0; i < numDiagnostics; ++i) {
-        CXDiagnostic diagnostic = clang_getDiagnostic(tu, i);
+        ScopedCXDiagnostic diagnostic(clang_getDiagnostic(tu, i));
+        if (!diagnostic)
+            continue;
         CXDiagnosticSeverity severity = clang_getDiagnosticSeverity(diagnostic);
         if (severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal) {
             qDebug() << "Error:" << fileName << " - severity:" << severity;
             qDebug() << "\t"<< getQString(clang_getDiagnosticSpelling(diagnostic));
         }
-        clang_disposeDiagnostic(diagnostic);
     }
 #endif
 
@@ -390,8 +392,6 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
                 new InclusionVisitorData(this,
                                          fileData->m_compilationOptions));
     clang_getInclusions(tu, IndexerProcessor::inclusionVisit, inclusionData.data());
-
-    clang_disposeTranslationUnit(tu);
 }
 
 

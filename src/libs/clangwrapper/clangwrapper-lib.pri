@@ -29,4 +29,5 @@ HEADERS += \
     $$PWD/reuse.h \
     $$PWD/indexer.h \
     $$PWD/indexedsymbolinfo.h \
-    $$PWD/database.h
+    $$PWD/database.h \
+    $$PWD/cxraii.h
