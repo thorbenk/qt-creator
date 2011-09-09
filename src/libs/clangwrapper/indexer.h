@@ -35,44 +35,21 @@
 
 #include "clangwrapper_global.h"
 #include "indexedsymbolinfo.h"
-#include "database.h"
-
-#include <clang-c/Index.h>
 
 #include <QtCore/QString>
 #include <QtCore/QStringList>
-#include <QtCore/QVector>
-#include <QtCore/QHash>
+#include <QtCore/QScopedPointer>
 #include <QtCore/QFuture>
-
-QT_BEGIN_NAMESPACE
-template <class> class QFutureInterface;
-QT_END_NAMESPACE
 
 namespace Clang {
 
-// Create tags to map the necessary members of IndexedSymbolInfo usded as keys in the database.
-struct FileNameKey { typedef QString ValueType; };
-struct SymbolTypeKey { typedef IndexedSymbolInfo::SymbolType ValueType; };
+class IndexerPrivate;
 
-// Specialize the required functions for the keys.
-template <>
-inline QString getKey<FileNameKey>(const IndexedSymbolInfo &info)
-{ return info.m_fileName; }
-
-template <>
-inline IndexedSymbolInfo::SymbolType getKey<SymbolTypeKey>(const IndexedSymbolInfo &info)
-{ return info.m_type; }
-
-
-//-----------------------------------------------------------------------------
-// The indexer...
-//  - Not thread-safe
-//-----------------------------------------------------------------------------
 class QTCREATOR_CLANGWRAPPER_EXPORT Indexer
 {
 public:
     Indexer();
+    ~Indexer();
 
     void regenerate();
     bool isWorking() const;
@@ -80,6 +57,7 @@ public:
 
     void addFile(const QString &fileName, const QStringList &compilationOptions);
     QStringList getAllFiles() const;
+
     QList<IndexedSymbolInfo> getAllFunctions() const;
     QList<IndexedSymbolInfo> getAllClasses() const;
     QList<IndexedSymbolInfo> getFunctionsFromFile(const QString &fileName) const;
@@ -87,52 +65,7 @@ public:
     QList<IndexedSymbolInfo> getAllFromFile(const QString &fileName) const;
 
 private:
-    // This is enumeration is used to index a vector. So be careful when changing.
-    enum FileType {
-        ImplementationFile = 0,
-        HeaderFile,
-        UnknownFile,
-        TotalFileTypes
-    };
-
-    struct FileData
-    {
-        FileData() : m_upToDate(false) {}
-        FileData(const QString &fileName,
-                 const QStringList &compilationOptions,
-                 bool upToDate = false)
-            : m_fileName(fileName)
-            , m_compilationOptions(compilationOptions)
-            , m_upToDate(upToDate)
-        {}
-
-        QString m_fileName;
-        QStringList m_compilationOptions;
-        bool m_upToDate;
-    };
-
-    friend struct AstVisitorData;
-    friend void populateFiles(QStringList *all, const QList<Indexer::FileData> &data);
-
-    static FileType identifyFileType(const QString &fileName);
-
-    static void inclusionVisit(CXFile file,
-                               CXSourceLocation *,
-                               unsigned,
-                               CXClientData clientData);
-    static CXChildVisitResult astVisit(CXCursor cursor,
-                                       CXCursor parentCursor,
-                                       CXClientData clientData);
-
-
-    void process(QFutureInterface<void> &futureInterface);
-    void process(FileData *data, bool implementationFile, QStringList *others);
-
-    QVector<QHash<QString, FileData> > m_files;
-    CXIndex m_clangIndex;
-    unsigned m_unitManagementOptions;
-    Database<IndexedSymbolInfo, FileNameKey, SymbolTypeKey> m_database;
-    QFuture<void> m_indexingFuture;
+    QScopedPointer<IndexerPrivate> m_d;
 };
 
 } // Clang

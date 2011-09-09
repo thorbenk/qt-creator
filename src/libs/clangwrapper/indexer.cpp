@@ -32,11 +32,16 @@
 
 #include "indexer.h"
 #include "reuse.h"
+#include "database.h"
+
+#include <clang-c/Index.h>
 
 #include <qtconcurrent/QtConcurrentTools>
 
-#include <QtCore/QScopedPointer>
 #include <QtCore/QDebug>
+#include <QtCore/QVector>
+#include <QtCore/QHash>
+#include <QtCore/QFuture>
 #include <QtCore/QTime>
 
 //#define DEBUG
@@ -52,12 +57,79 @@
 
 namespace Clang {
 
+// Create tags to map the necessary members of IndexedSymbolInfo usded as keys in the database.
+struct FileNameKey { typedef QString ValueType; };
+struct SymbolTypeKey { typedef IndexedSymbolInfo::SymbolType ValueType; };
+
+// Specialize the required functions for the keys.
+template <>
+inline QString getKey<FileNameKey>(const IndexedSymbolInfo &info)
+{ return info.m_fileName; }
+
+template <>
+inline IndexedSymbolInfo::SymbolType getKey<SymbolTypeKey>(const IndexedSymbolInfo &info)
+{ return info.m_type; }
+
+
+class IndexerPrivate
+{
+public:
+    IndexerPrivate();
+
+    // This is enumeration is used to index a vector. So be careful when changing.
+    enum FileType {
+        ImplementationFile = 0,
+        HeaderFile,
+        UnknownFile,
+        TotalFileTypes
+    };
+
+    struct FileData
+    {
+        FileData() : m_upToDate(false) {}
+        FileData(const QString &fileName,
+                 const QStringList &compilationOptions,
+                 bool upToDate = false)
+            : m_fileName(fileName)
+            , m_compilationOptions(compilationOptions)
+            , m_upToDate(upToDate)
+        {}
+
+        QString m_fileName;
+        QStringList m_compilationOptions;
+        bool m_upToDate;
+    };
+
+    void addFile(const QString &fileName, const QStringList &compilationOptions);
+    QStringList getAllFiles() const;
+
+    static FileType identifyFileType(const QString &fileName);
+
+    static void inclusionVisit(CXFile file,
+                               CXSourceLocation *,
+                               unsigned,
+                               CXClientData clientData);
+    static CXChildVisitResult astVisit(CXCursor cursor,
+                                       CXCursor parentCursor,
+                                       CXClientData clientData);
+
+
+    void process(QFutureInterface<void> &futureInterface);
+    void process(FileData *data, bool implementationFile, QStringList *others);
+
+    QVector<QHash<QString, FileData> > m_files;
+    CXIndex m_clangIndex;
+    unsigned m_unitManagementOptions;
+    Database<IndexedSymbolInfo, FileNameKey, SymbolTypeKey> m_database;
+    QFuture<void> m_indexingFuture;
+};
+
 struct AstVisitorData
 {
-    AstVisitorData(const QHash<QString, Indexer::FileData> &headers)
+    AstVisitorData(const QHash<QString, IndexerPrivate::FileData> &headers)
         : m_headerFiles(headers)
     {}
-    const QHash<QString, Indexer::FileData> &m_headerFiles;
+    const QHash<QString, IndexerPrivate::FileData> &m_headerFiles;
     QHash<unsigned, QString> m_qualification;
     QList<IndexedSymbolInfo> m_symbolsInfo;
 };
@@ -67,9 +139,9 @@ struct InclusionVisitorData
     QStringList m_includedFiles;
 };
 
-void populateFiles(QStringList *all, const QList<Indexer::FileData> &data)
+void populateFiles(QStringList *all, const QList<IndexerPrivate::FileData> &data)
 {
-    foreach (const Indexer::FileData &fileData, data)
+    foreach (const IndexerPrivate::FileData &fileData, data)
         all->append(fileData.m_fileName);
 }
 
@@ -90,14 +162,37 @@ struct ScopepTimer
 using namespace Clang;
 using namespace Internal;
 
-Indexer::Indexer()
+
+IndexerPrivate::IndexerPrivate()
     : m_files(TotalFileTypes)
     , m_clangIndex(clang_createIndex(/*excludeDeclsFromPCH*/ 0, /*displayDiagnostics*/ 0))
     , m_unitManagementOptions(CXTranslationUnit_None)
 {
 }
 
-Indexer::FileType Indexer::identifyFileType(const QString &fileName)
+void IndexerPrivate::addFile(const QString &fileName, const QStringList &compilationOptions)
+{
+    if (fileName.trimmed().isEmpty())
+        return;
+
+    FileType fileType = identifyFileType(fileName);
+    if (m_files.at(fileType).contains(fileName)) {
+        m_files[fileType][fileName].m_upToDate = false;
+        m_database.remove(FileNameKey(), fileName);
+    } else {
+        m_files[fileType].insert(fileName, FileData(fileName, compilationOptions));
+    }
+}
+
+QStringList IndexerPrivate::getAllFiles() const
+{
+    QStringList all;
+    populateFiles(&all, m_files.at(ImplementationFile).values());
+    populateFiles(&all, m_files.at(HeaderFile).values());
+    return all;
+}
+
+IndexerPrivate::FileType IndexerPrivate::identifyFileType(const QString &fileName)
 {
     // @TODO: Others
     if (fileName.endsWith(".cpp")
@@ -114,10 +209,10 @@ Indexer::FileType Indexer::identifyFileType(const QString &fileName)
     return UnknownFile;
 }
 
-void Indexer::inclusionVisit(CXFile file,
-                             CXSourceLocation *,
-                             unsigned,
-                             CXClientData clientData)
+void IndexerPrivate::inclusionVisit(CXFile file,
+                                    CXSourceLocation *,
+                                    unsigned,
+                                    CXClientData clientData)
 {
     InclusionVisitorData *inclusionData = static_cast<InclusionVisitorData *>(clientData);
 
@@ -127,9 +222,9 @@ void Indexer::inclusionVisit(CXFile file,
         inclusionData->m_includedFiles.append(fileName);
 }
 
-CXChildVisitResult Indexer::astVisit(CXCursor cursor,
-                                     CXCursor parentCursor,
-                                     CXClientData clientData)
+CXChildVisitResult IndexerPrivate::astVisit(CXCursor cursor,
+                                            CXCursor parentCursor,
+                                            CXClientData clientData)
 {
     AstVisitorData *visitorData = static_cast<AstVisitorData *>(clientData);
 
@@ -203,7 +298,7 @@ CXChildVisitResult Indexer::astVisit(CXCursor cursor,
     return CXChildVisit_Continue;
 }
 
-void Indexer::process(QFutureInterface<void> &futureInterface)
+void IndexerPrivate::process(QFutureInterface<void> &futureInterface)
 {
     // This range is actually just an approximation.
     futureInterface.setProgressRange(0, m_files.value(ImplementationFile).count() + 1);
@@ -242,9 +337,9 @@ void Indexer::process(QFutureInterface<void> &futureInterface)
     futureInterface.reportFinished();
 }
 
-void Indexer::process(FileData *fileData,
-                      bool implementationFile,
-                      QStringList *includedHeaders)
+void IndexerPrivate::process(FileData *fileData,
+                             bool implementationFile,
+                             QStringList *includedHeaders)
 {
     if (fileData->m_upToDate)
         return;
@@ -289,7 +384,7 @@ void Indexer::process(FileData *fileData,
 
     AstVisitorData *visitorData = new AstVisitorData(m_files[HeaderFile]);
     CXCursor tuCursor = clang_getTranslationUnitCursor(tu);
-    clang_visitChildren(tuCursor, Indexer::astVisit, visitorData);
+    clang_visitChildren(tuCursor, IndexerPrivate::astVisit, visitorData);
     foreach (const IndexedSymbolInfo &info, visitorData->m_symbolsInfo)
         m_database.insert(info);
     delete visitorData;
@@ -298,73 +393,68 @@ void Indexer::process(FileData *fileData,
     if (implementationFile) {
         Q_ASSERT(includedHeaders);
         QScopedPointer<InclusionVisitorData> inclusionData(new InclusionVisitorData);
-        clang_getInclusions(tu, Indexer::inclusionVisit, inclusionData.data());
+        clang_getInclusions(tu, IndexerPrivate::inclusionVisit, inclusionData.data());
         includedHeaders->append(inclusionData->m_includedFiles);
     }
 
     clang_disposeTranslationUnit(tu);
 }
 
+Indexer::Indexer()
+    : m_d(new IndexerPrivate)
+{}
+
+Indexer::~Indexer()
+{}
+
 void Indexer::regenerate()
 {
-    m_indexingFuture = QtConcurrent::run(&Indexer::process, this);
+    m_d->m_indexingFuture = QtConcurrent::run(&IndexerPrivate::process, m_d.data());
 }
 
 bool Indexer::isWorking() const
 {
-    return m_indexingFuture.isRunning();
+    return m_d->m_indexingFuture.isRunning();
 }
 
 QFuture<void> Indexer::workingFuture() const
 {
-    return m_indexingFuture;
+    return m_d->m_indexingFuture;
 }
 
 void Indexer::addFile(const QString &fileName, const QStringList &compilationOptions)
 {
-    if (fileName.trimmed().isEmpty())
-        return;
-
-    FileType fileType = identifyFileType(fileName);
-    if (m_files.at(fileType).contains(fileName)) {
-        m_files[fileType][fileName].m_upToDate = false;
-        m_database.remove(FileNameKey(), fileName);
-    } else {
-        m_files[fileType].insert(fileName, FileData(fileName, compilationOptions));
-    }
+    m_d->addFile(fileName, compilationOptions);
 }
 
 QStringList Indexer::getAllFiles() const
 {
-    QStringList all;
-    populateFiles(&all, m_files.at(ImplementationFile).values());
-    populateFiles(&all, m_files.at(HeaderFile).values());
-    return all;
+    return m_d->getAllFiles();
 }
 
 QList<IndexedSymbolInfo> Indexer::getAllFunctions() const
 {
-    return m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method);
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method);
 }
 
 QList<IndexedSymbolInfo> Indexer::getAllClasses() const
 {
-    return m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class);
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class);
 }
 
 QList<IndexedSymbolInfo> Indexer::getFunctionsFromFile(const QString &fileName) const
 {
-    return m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method,
-                             FileNameKey(), fileName);
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method,
+                                  FileNameKey(), fileName);
 }
 
 QList<IndexedSymbolInfo> Indexer::getClassesFromFile(const QString &fileName) const
 {
-    return m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class,
-                             FileNameKey(), fileName);
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class,
+                                  FileNameKey(), fileName);
 }
 
 QList<IndexedSymbolInfo> Indexer::getAllFromFile(const QString &fileName) const
 {
-    return m_database.values(FileNameKey(), fileName);
+    return m_d->m_database.values(FileNameKey(), fileName);
 }
