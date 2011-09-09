@@ -739,7 +739,10 @@ CppModelManager::CppModelManager(QObject *parent)
 }
 
 CppModelManager::~CppModelManager()
-{ }
+{
+    if (m_clangIndexer.isWorking())
+        m_clangIndexer.stopWorking(true);
+}
 
 Snapshot CppModelManager::snapshot() const
 {

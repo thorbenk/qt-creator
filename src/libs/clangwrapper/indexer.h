@@ -54,8 +54,9 @@ public:
     void regenerate();
     bool isWorking() const;
     QFuture<void> workingFuture() const;
+    void stopWorking(bool waitForFinished);
 
-    void addFile(const QString &fileName, const QStringList &compilationOptions);
+    bool addFile(const QString &fileName, const QStringList &compilationOptions);
     QStringList getAllFiles() const;
 
     QList<IndexedSymbolInfo> getAllFunctions() const;
