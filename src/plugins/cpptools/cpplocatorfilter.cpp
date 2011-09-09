@@ -98,16 +98,22 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
 
 
     // @TODO: Testing indexing with clang...
+    const QString &shortcut = shortcutString();
     const QStringList &allFiles = m_manager->indexer().getAllFiles();
     foreach (const QString &file, allFiles) {
         if (future.isCanceled())
             break;
 
         QList<Clang::IndexedSymbolInfo> infoList;
-        if (shortcutString() == QLatin1String("c"))
-            infoList = m_manager->indexer().getClassesFromFile(file);
-        else if (shortcutString() == QLatin1String("m"))
-            infoList = m_manager->indexer().getFunctionsFromFile(file);
+        if (shortcut == QLatin1String("c")) {
+            infoList.append(m_manager->indexer().getClassesFromFile(file));
+        } else if (shortcut == QLatin1String("m")) {
+            infoList.append(m_manager->indexer().getFunctionsFromFile(file));
+            infoList.append(m_manager->indexer().getMethodsFromFile(file));
+        } else if (shortcut == QLatin1String(":")) {
+            infoList.append(m_manager->indexer().getClassesFromFile(file));
+            infoList.append(m_manager->indexer().getMethodsFromFile(file));
+        }
         foreach (const Clang::IndexedSymbolInfo &symbolInfo, infoList) {
             // @TODO: Merge ModelItemInfo and IndexedSymbomlInfo since they are pretty much
             // the same thing.

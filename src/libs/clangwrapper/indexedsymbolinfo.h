@@ -45,7 +45,8 @@ struct IndexedSymbolInfo
     enum SymbolType {
         Enum,
         Class,
-        Method,
+        Method,       // A member-function.
+        Function,     // A free-function (global or within a namespace).
         Declaration,
         Unknown
     };

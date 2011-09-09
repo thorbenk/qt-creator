@@ -61,8 +61,10 @@ public:
 
     QList<IndexedSymbolInfo> getAllFunctions() const;
     QList<IndexedSymbolInfo> getAllClasses() const;
+    QList<IndexedSymbolInfo> getAllMethods() const;
     QList<IndexedSymbolInfo> getFunctionsFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> getClassesFromFile(const QString &fileName) const;
+    QList<IndexedSymbolInfo> getMethodsFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> getAllFromFile(const QString &fileName) const;
 
 private:

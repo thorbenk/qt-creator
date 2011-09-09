@@ -288,7 +288,11 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
                 } else if (cursorKind == CXCursor_FunctionDecl
                            || cursorKind == CXCursor_FunctionTemplate
                            || cursorKind == CXCursor_CXXMethod) {
-                    symbolInfo.m_type = IndexedSymbolInfo::Method;
+                    CXCursorKind parentKind = clang_getCursorKind(parentCursor);
+                    if (parentKind == CXCursor_ClassDecl || parentKind == CXCursor_StructDecl)
+                        symbolInfo.m_type = IndexedSymbolInfo::Method;
+                    else
+                        symbolInfo.m_type = IndexedSymbolInfo::Function;
                 }
                 visitorData->m_symbolsInfo.append(symbolInfo);
             }
@@ -519,7 +523,7 @@ QStringList Indexer::getAllFiles() const
 
 QList<IndexedSymbolInfo> Indexer::getAllFunctions() const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method);
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Function);
 }
 
 QList<IndexedSymbolInfo> Indexer::getAllClasses() const
@@ -527,15 +531,26 @@ QList<IndexedSymbolInfo> Indexer::getAllClasses() const
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class);
 }
 
+QList<IndexedSymbolInfo> Indexer::getAllMethods() const
+{
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method);
+}
+
 QList<IndexedSymbolInfo> Indexer::getFunctionsFromFile(const QString &fileName) const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method,
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Function,
                                   FileNameKey(), fileName);
 }
 
 QList<IndexedSymbolInfo> Indexer::getClassesFromFile(const QString &fileName) const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class,
+                                  FileNameKey(), fileName);
+}
+
+QList<IndexedSymbolInfo> Indexer::getMethodsFromFile(const QString &fileName) const
+{
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method,
                                   FileNameKey(), fileName);
 }
 
