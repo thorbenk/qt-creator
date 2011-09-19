@@ -57,15 +57,15 @@ public:
     void stopWorking(bool waitForFinished);
 
     bool addFile(const QString &fileName, const QStringList &compilationOptions);
-    QStringList getAllFiles() const;
+    QStringList allFiles() const;
 
-    QList<IndexedSymbolInfo> getAllFunctions() const;
-    QList<IndexedSymbolInfo> getAllClasses() const;
-    QList<IndexedSymbolInfo> getAllMethods() const;
-    QList<IndexedSymbolInfo> getFunctionsFromFile(const QString &fileName) const;
-    QList<IndexedSymbolInfo> getClassesFromFile(const QString &fileName) const;
-    QList<IndexedSymbolInfo> getMethodsFromFile(const QString &fileName) const;
-    QList<IndexedSymbolInfo> getAllFromFile(const QString &fileName) const;
+    QList<IndexedSymbolInfo> allFunctions() const;
+    QList<IndexedSymbolInfo> allClasses() const;
+    QList<IndexedSymbolInfo> allMethods() const;
+    QList<IndexedSymbolInfo> functionsFromFile(const QString &fileName) const;
+    QList<IndexedSymbolInfo> classesFromFile(const QString &fileName) const;
+    QList<IndexedSymbolInfo> methodsFromFile(const QString &fileName) const;
+    QList<IndexedSymbolInfo> allFromFile(const QString &fileName) const;
 
 private:
     QScopedPointer<IndexerPrivate> m_d;

@@ -124,7 +124,7 @@ public:
     void cancel(bool wait);
 
     bool addFile(const QString &fileName, const QStringList &compilationOptions);
-    QStringList getAllFiles() const;
+    QStringList allFiles() const;
     static FileType identifyFileType(const QString &fileName);
     static void populateFileNames(QStringList *all, const QList<FileData> &data);
 
@@ -453,7 +453,7 @@ bool IndexerPrivate::addFile(const QString &fileName, const QStringList &compila
     return true;
 }
 
-QStringList IndexerPrivate::getAllFiles() const
+QStringList IndexerPrivate::allFiles() const
 {
     QStringList all;
     populateFileNames(&all, m_files.at(ImplementationFile).values());
@@ -516,45 +516,45 @@ bool Indexer::addFile(const QString &fileName, const QStringList &compilationOpt
     return m_d->addFile(fileName, compilationOptions);
 }
 
-QStringList Indexer::getAllFiles() const
+QStringList Indexer::allFiles() const
 {
-    return m_d->getAllFiles();
+    return m_d->allFiles();
 }
 
-QList<IndexedSymbolInfo> Indexer::getAllFunctions() const
+QList<IndexedSymbolInfo> Indexer::allFunctions() const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Function);
 }
 
-QList<IndexedSymbolInfo> Indexer::getAllClasses() const
+QList<IndexedSymbolInfo> Indexer::allClasses() const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class);
 }
 
-QList<IndexedSymbolInfo> Indexer::getAllMethods() const
+QList<IndexedSymbolInfo> Indexer::allMethods() const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method);
 }
 
-QList<IndexedSymbolInfo> Indexer::getFunctionsFromFile(const QString &fileName) const
+QList<IndexedSymbolInfo> Indexer::functionsFromFile(const QString &fileName) const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Function,
                                   FileNameKey(), fileName);
 }
 
-QList<IndexedSymbolInfo> Indexer::getClassesFromFile(const QString &fileName) const
+QList<IndexedSymbolInfo> Indexer::classesFromFile(const QString &fileName) const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class,
                                   FileNameKey(), fileName);
 }
 
-QList<IndexedSymbolInfo> Indexer::getMethodsFromFile(const QString &fileName) const
+QList<IndexedSymbolInfo> Indexer::methodsFromFile(const QString &fileName) const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method,
                                   FileNameKey(), fileName);
 }
 
-QList<IndexedSymbolInfo> Indexer::getAllFromFile(const QString &fileName) const
+QList<IndexedSymbolInfo> Indexer::allFromFile(const QString &fileName) const
 {
     return m_d->m_database.values(FileNameKey(), fileName);
 }
