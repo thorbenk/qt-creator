@@ -30,46 +30,42 @@
 **
 **************************************************************************/
 
-#include "reuse.h"
+#ifndef SOURCELOCATION_H
+#define SOURCELOCATION_H
+
+#include "clangwrapper_global.h"
+
+#include <QtCore/QString>
+#include <QtCore/QDebug>
 
 namespace Clang {
-namespace Internal {
 
-QString getQString(const CXString &cxString, bool disposeCXString)
+class QTCREATOR_CLANGWRAPPER_EXPORT SourceLocation
 {
-    QString s = QString::fromUtf8(clang_getCString(cxString));
-    if (disposeCXString)
-        clang_disposeString(cxString);
-    return s;
-}
+public:
+    SourceLocation();
+    SourceLocation(unsigned line,
+                   unsigned column,
+                   unsigned offset,
+                   const QString &fileName = QString());
 
-namespace {
+    unsigned line() const { return m_line; }
+    unsigned column() const { return m_column; }
+    unsigned offset() const { return m_offset; }
+    const QString &fileName() const { return m_fileName; }
 
-SourceLocation getLocation(const CXSourceLocation &loc,
-                           void (*clangFunction)(CXSourceLocation,
-                                                 CXFile *,
-                                                 unsigned *,
-                                                 unsigned *,
-                                                 unsigned *))
-{
-    CXFile file;
-    unsigned line, column, offset;
-    (*clangFunction)(loc, &file, &line, &column, &offset);
-    return SourceLocation(line, column, offset, getQString(clang_getFileName(file)));
-}
+private:
+    unsigned m_line;
+    unsigned m_column;
+    unsigned m_offset;
+    QString m_fileName;
+};
 
-} // Anonymous
+bool operator==(const SourceLocation &a, const SourceLocation &b);
+bool operator!=(const SourceLocation &a, const SourceLocation &b);
 
-SourceLocation getInstantiationLocation(const CXSourceLocation &loc)
-{
-    return getLocation(loc, &clang_getInstantiationLocation);
-}
+QDebug operator<<(QDebug dbg, const SourceLocation &location);
 
-SourceLocation getSpellingLocation(const CXSourceLocation &loc)
-{
-    return getLocation(loc, &clang_getSpellingLocation);
-}
-
-} // Internal
 } // Clang
 
+#endif // SOURCELOCATION_H

@@ -2224,13 +2224,13 @@ void CPPEditorWidget::setDiagnostics(const QList<Clang::Diagnostic> &diagnostics
             continue;
         }
 
-        QTextCursor c(document()->findBlockByNumber(m.line() - 1));
+        QTextCursor c(document()->findBlockByNumber(m.location().line() - 1));
         const int linePos = c.position();
-        c.setPosition(linePos + m.column() - 1);
+        c.setPosition(linePos + m.location().column() - 1);
 
         const QString text = c.block().text();
         if (m.length() == 0) {
-            for (int i = m.column() - 1; i < text.size(); ++i) {
+            for (int i = m.location().column() - 1; i < text.size(); ++i) {
                 if (text.at(i).isSpace()) {
                     c.setPosition(linePos + i, QTextCursor::KeepAnchor);
                     break;

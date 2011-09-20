@@ -30,46 +30,53 @@
 **
 **************************************************************************/
 
-#include "reuse.h"
+#include "sourcelocation.h"
+
+using namespace Clang;
+
+SourceLocation::SourceLocation()
+    : m_line(0)
+    , m_column(0)
+    , m_offset(0)
+{}
+
+SourceLocation::SourceLocation(unsigned line,
+                               unsigned column,
+                               unsigned offset,
+                               const QString &fileName)
+    : m_line(line)
+    , m_column(column)
+    , m_offset(offset)
+    , m_fileName(fileName)
+{}
 
 namespace Clang {
-namespace Internal {
 
-QString getQString(const CXString &cxString, bool disposeCXString)
+bool operator==(const SourceLocation &a, const SourceLocation &b)
 {
-    QString s = QString::fromUtf8(clang_getCString(cxString));
-    if (disposeCXString)
-        clang_disposeString(cxString);
-    return s;
+    return a.line() == b.line()
+            && a.column() == b.column()
+            && a.offset() == b.offset()
+            && a.fileName() == b.fileName()
+            ;
 }
 
-namespace {
-
-SourceLocation getLocation(const CXSourceLocation &loc,
-                           void (*clangFunction)(CXSourceLocation,
-                                                 CXFile *,
-                                                 unsigned *,
-                                                 unsigned *,
-                                                 unsigned *))
+bool operator!=(const SourceLocation &a, const SourceLocation &b)
 {
-    CXFile file;
-    unsigned line, column, offset;
-    (*clangFunction)(loc, &file, &line, &column, &offset);
-    return SourceLocation(line, column, offset, getQString(clang_getFileName(file)));
+    return !(a == b);
 }
 
-} // Anonymous
-
-SourceLocation getInstantiationLocation(const CXSourceLocation &loc)
+QDebug operator<<(QDebug dbg, const SourceLocation &location)
 {
-    return getLocation(loc, &clang_getInstantiationLocation);
+    dbg.nospace() << location.fileName()
+                  << " ["
+                  << location.line()
+                  << ":"
+                  << location.column()
+                  << "("
+                  << location.offset()
+                  << ")]";
+    return dbg.space();
 }
 
-SourceLocation getSpellingLocation(const CXSourceLocation &loc)
-{
-    return getLocation(loc, &clang_getSpellingLocation);
-}
-
-} // Internal
 } // Clang
-

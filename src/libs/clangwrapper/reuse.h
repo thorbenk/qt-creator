@@ -33,6 +33,8 @@
 #ifndef CLANG_REUSE_H
 #define CLANG_REUSE_H
 
+#include "sourcelocation.h"
+
 #include <clang-c/Index.h>
 
 #include <QtCore/QString>
@@ -42,17 +44,9 @@ namespace Internal {
 
 QString getQString(const CXString &cxString, bool disposeCXString = true);
 
-void getInstantiationLocation(const CXSourceLocation &loc,
-                              QString *fileName = 0,
-                              unsigned *line = 0,
-                              unsigned *column = 0,
-                              unsigned *offset = 0);
+SourceLocation getInstantiationLocation(const CXSourceLocation &loc);
 
-void getSpellingLocation(const CXSourceLocation &loc,
-                         QString *fileName = 0,
-                         unsigned *line = 0,
-                         unsigned *column = 0,
-                         unsigned *offset = 0);
+SourceLocation getSpellingLocation(const CXSourceLocation &loc);
 
 } // Internal
 } // Clang

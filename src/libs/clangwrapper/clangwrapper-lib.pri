@@ -16,7 +16,8 @@ SOURCES += \
     $$PWD/token.cpp \
     $$PWD/reuse.cpp \
     $$PWD/indexer.cpp \
-    $$PWD/indexedsymbolinfo.cpp
+    $$PWD/indexedsymbolinfo.cpp \
+    $$PWD/sourcelocation.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -30,4 +31,5 @@ HEADERS += \
     $$PWD/indexer.h \
     $$PWD/indexedsymbolinfo.h \
     $$PWD/database.h \
-    $$PWD/cxraii.h
+    $$PWD/cxraii.h \
+    $$PWD/sourcelocation.h

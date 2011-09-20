@@ -101,7 +101,7 @@ void CreateMarkers::run()
 
     QList<Clang::Diagnostic> diagnostics;
     foreach (const Clang::Diagnostic &d, m_clangWrapper->diagnostics())
-        if (d.fileName() == m_clangWrapper->fileName())
+        if (d.location().fileName() == m_clangWrapper->fileName())
             diagnostics.append(d);
     emit diagnosticsReady(diagnostics);
 

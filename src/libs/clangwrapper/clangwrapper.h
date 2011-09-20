@@ -35,6 +35,7 @@
 #define CLANGWRAPPER_H
 
 #include "clangwrapper_global.h"
+#include "sourcelocation.h"
 
 #include <QList>
 #include <QMap>
@@ -100,16 +101,12 @@ public:
 public:
     Diagnostic()
         : m_severity(Unknown)
-        , m_line(0)
-        , m_column(0)
         , m_length(0)
     {}
 
-    Diagnostic(Severity severity, const QString &fileName, unsigned line, unsigned column, unsigned length, const QString &spelling)
+    Diagnostic(Severity severity, const SourceLocation &location, unsigned length, const QString &spelling)
         : m_severity(severity)
-        , m_fileName(fileName)
-        , m_line(line)
-        , m_column(column)
+        , m_loc(location)
         , m_length(length)
         , m_spelling(spelling)
     {}
@@ -119,14 +116,8 @@ public:
 
     const QString &severityAsString() const;
 
-    QString fileName() const
-    { return m_fileName; }
-
-    unsigned line() const
-    { return m_line; }
-
-    unsigned column() const
-    { return m_column; }
+    const SourceLocation &location() const
+    { return m_loc; }
 
     unsigned length() const
     { return m_length; }
@@ -136,9 +127,7 @@ public:
 
 private:
     Severity m_severity;
-    QString m_fileName;
-    unsigned m_line;
-    unsigned m_column;
+    SourceLocation m_loc;
     unsigned m_length;
     QString m_spelling;
 };

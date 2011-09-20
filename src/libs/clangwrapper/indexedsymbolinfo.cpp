@@ -36,23 +36,16 @@ using namespace Clang;
 
 IndexedSymbolInfo::IndexedSymbolInfo()
     : m_type(Unknown)
-    , m_line(0)
-    , m_column(0)
-    , m_offset(0)
 {}
 
 IndexedSymbolInfo::IndexedSymbolInfo(const QString &name,
                                      const QString &qualification,
                                      SymbolType type,
-                                     const QString &fileName,
-                                     unsigned line,
-                                     unsigned column,
+                                     const SourceLocation &location,
                                      const QIcon &icon)
     : m_name(name)
     , m_qualification(qualification)
-    , m_fileName(fileName)
+    , m_location(location)
     , m_icon(icon)
     , m_type(type)
-    , m_line(line)
-    , m_column(column)
 {}

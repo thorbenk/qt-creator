@@ -121,9 +121,9 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
                                symbolInfo.m_qualification,
                                ModelItemInfo::ItemType((int)symbolInfo.m_type),
                                QStringList(QLatin1String("qual. name")),
-                               symbolInfo.m_fileName,
-                               symbolInfo.m_line,
-                               symbolInfo.m_column,
+                               symbolInfo.m_location.fileName(),
+                               symbolInfo.m_location.line(),
+                               symbolInfo.m_location.column() - 1, // @TODO: Column position...
                                symbolInfo.m_icon);
 
             if ((hasWildcard && regexp.exactMatch(info.symbolName))

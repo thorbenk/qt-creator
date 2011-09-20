@@ -2,6 +2,7 @@
 #define CLANG_SOURCEMARKER_H
 
 #include "clangwrapper_global.h"
+#include "sourcelocation.h"
 
 namespace Clang {
 
@@ -24,16 +25,16 @@ public:
                  Kind kind = Unknown);
 
     bool isValid() const
-    { return m_line != 0; }
+    { return m_loc.line() != 0; }
 
     bool isInvalid() const
-    { return m_line == 0; }
+    { return m_loc.line() == 0; }
 
     unsigned line() const
-    { return m_line; }
+    { return m_loc.line(); }
 
     unsigned column() const
-    { return m_column; }
+    { return m_loc.column(); }
 
     unsigned length() const
     { return m_length; }
@@ -43,16 +44,15 @@ public:
 
     bool lessThan(const SourceMarker &other) const
     {
-        if (m_line != other.m_line)
-            return m_line < other.m_line;
-        if (m_column != other.m_column)
-            return m_column < other.m_column;
+        if (m_loc.line() != other.m_loc.line())
+            return m_loc.line() < other.m_loc.line();
+        if (m_loc.column() != other.m_loc.column())
+            return m_loc.column() < other.m_loc.column();
         return m_length < other.m_length;
     }
 
 private:
-    unsigned m_line;
-    unsigned m_column;
+    SourceLocation m_loc;
     unsigned m_length;
     Kind m_kind;
 };

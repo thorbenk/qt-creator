@@ -252,32 +252,28 @@ public:
             m_formattedDiagnostics << Internal::getQString(clang_formatDiagnostic(diag, opt));
 
             Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
-            CXSourceLocation loc = clang_getDiagnosticLocation(diag);
-            QString fileName;
-            unsigned line = 0, column = 0;
-            Internal::getInstantiationLocation(loc, &fileName, &line, &column);
+            CXSourceLocation cxLocation = clang_getDiagnosticLocation(diag);
+            const SourceLocation &location = Internal::getInstantiationLocation(cxLocation);
             const QString spelling = Internal::getQString(clang_getDiagnosticSpelling(diag));
 
             const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
             if (rangeCount > 0) {
                 for (unsigned i = 0; i < rangeCount; ++i) {
                     CXSourceRange r = clang_getDiagnosticRange(diag, 0);
-                    unsigned begin = 0;
-                    unsigned length = 0;
-                    Internal::getSpellingLocation(clang_getRangeStart(r), 0, 0, 0, &begin);
-                    Internal::getSpellingLocation(clang_getRangeEnd(r), 0, 0, 0, &length);
-                    length -= begin;
+                    const SourceLocation &spellBegin = Internal::getSpellingLocation(clang_getRangeStart(r));
+                    const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
+                    unsigned length = spellEnd.offset() - spellBegin.offset();
 
-                    Diagnostic d(severity, fileName, line, column, length, spelling);
+                    Diagnostic d(severity, location, length, spelling);
 #ifdef DEBUG_TIMING
-                    qDebug() << d.severityAsString() << fileName << line << column << length << spelling;
+                    qDebug() << d.severityAsString() << location << length << spelling;
 #endif
                     m_diagnostics.append(d);
                 }
             } else {
-                Diagnostic d(severity, fileName, line, column, 0, spelling);
+                Diagnostic d(severity, location, 0, spelling);
 #ifdef DEBUG_TIMING
-                qDebug() << d.severityAsString() << fileName << line << column << 0 << spelling;
+                qDebug() << d.severityAsString() << location << 0 << spelling;
 #endif
                 m_diagnostics.append(d);
             }

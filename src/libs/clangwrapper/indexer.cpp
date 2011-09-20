@@ -34,6 +34,7 @@
 #include "reuse.h"
 #include "database.h"
 #include "cxraii.h"
+#include "sourcelocation.h"
 
 #include <clang-c/Index.h>
 
@@ -66,7 +67,7 @@ namespace Clang {
 struct FileNameKey { typedef QString ValueType; };
 template <>
 inline QString getKey<FileNameKey>(const IndexedSymbolInfo &info)
-{ return info.m_fileName; }
+{ return info.m_location.fileName(); }
 
 struct SymbolTypeKey { typedef IndexedSymbolInfo::SymbolType ValueType; };
 template <>
@@ -267,18 +268,14 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
                 && !spelling.trimmed().isEmpty()) {
             isDefinition = true;
             IndexedSymbolInfo symbolInfo;
-            getInstantiationLocation(clang_getCursorLocation(cursor),
-                                     &symbolInfo.m_fileName,
-                                     &symbolInfo.m_line,
-                                     &symbolInfo.m_column,
-                                     &symbolInfo.m_offset);
-            --symbolInfo.m_column;
+            symbolInfo.m_location = getInstantiationLocation(clang_getCursorLocation(cursor));
 
             // We don't track symbols found in a previous pass through the same header.
             // More details in the inclusion visit.
-            if (!symbolInfo.m_fileName.trimmed().isEmpty()
-                    && (!visitorData->m_proc->m_headers.contains(symbolInfo.m_fileName)
-                        || !visitorData->m_proc->m_headers.value(symbolInfo.m_fileName).m_upToDate)) {
+            const QString &fileName = symbolInfo.m_location.fileName();
+            if (!fileName.trimmed().isEmpty()
+                    && (!visitorData->m_proc->m_headers.contains(fileName)
+                        || !visitorData->m_proc->m_headers.value(fileName).m_upToDate)) {
                 symbolInfo.m_name = spelling;
                 symbolInfo.m_qualification = currentQualification;
                 //symbolInfo.m_icon
@@ -422,7 +419,7 @@ void IndexerPrivate::synchronize(int resultIndex)
 {
     const IndexingResult &result = m_indexingWatcher.resultAt(resultIndex);
     foreach (const IndexedSymbolInfo &info, result.m_symbolsInfo) {
-        const QString &fileName = info.m_fileName;
+        const QString &fileName = info.m_location.fileName();
         FileType fileType = identifyFileType(fileName);
         if (m_files.value(fileType).contains(fileName)) {
             m_files[fileType][fileName].m_upToDate = true;

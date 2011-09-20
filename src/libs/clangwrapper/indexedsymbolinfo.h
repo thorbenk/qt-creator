@@ -33,6 +33,8 @@
 #ifndef INDEXEDSYMBOLINFO_H
 #define INDEXEDSYMBOLINFO_H
 
+#include "sourcelocation.h"
+
 #include <QtCore/QString>
 #include <QtGui/QIcon>
 
@@ -55,19 +57,14 @@ struct IndexedSymbolInfo
     IndexedSymbolInfo(const QString &name,
                       const QString &qualification,
                       SymbolType type,
-                      const QString &fileName,
-                      unsigned line,
-                      unsigned column,
+                      const SourceLocation &location,
                       const QIcon &icon);
 
     QString m_name;
     QString m_qualification;
-    QString m_fileName;
+    SourceLocation m_location;
     QIcon m_icon;
     SymbolType m_type;
-    unsigned m_line;
-    unsigned m_column;
-    unsigned m_offset;
 };
 
 } // Clang
