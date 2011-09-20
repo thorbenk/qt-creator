@@ -44,21 +44,22 @@ class QTCREATOR_CLANGWRAPPER_EXPORT SourceLocation
 {
 public:
     SourceLocation();
-    SourceLocation(unsigned line,
+    SourceLocation(const QString &fileName,
+                   unsigned line,
                    unsigned column,
-                   unsigned offset,
-                   const QString &fileName = QString());
+                   unsigned offset = 0);
 
+    bool isNull() const { return m_fileName.isEmpty(); }
+    const QString &fileName() const { return m_fileName; }
     unsigned line() const { return m_line; }
     unsigned column() const { return m_column; }
     unsigned offset() const { return m_offset; }
-    const QString &fileName() const { return m_fileName; }
 
 private:
+    QString m_fileName;
     unsigned m_line;
     unsigned m_column;
     unsigned m_offset;
-    QString m_fileName;
 };
 
 bool operator==(const SourceLocation &a, const SourceLocation &b);

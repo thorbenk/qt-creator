@@ -19,10 +19,10 @@ public:
         Label
     };
 
-    SourceMarker(unsigned line = 0,
-                 unsigned column = 0,
-                 unsigned length = 0,
-                 Kind kind = Unknown);
+    SourceMarker();
+    SourceMarker(const SourceLocation &location,
+                 unsigned length,
+                 Kind kind);
 
     bool isValid() const
     { return m_loc.line() != 0; }
@@ -30,11 +30,8 @@ public:
     bool isInvalid() const
     { return m_loc.line() == 0; }
 
-    unsigned line() const
-    { return m_loc.line(); }
-
-    unsigned column() const
-    { return m_loc.column(); }
+    const SourceLocation &location() const
+    { return m_loc; }
 
     unsigned length() const
     { return m_length; }

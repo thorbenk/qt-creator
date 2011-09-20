@@ -40,14 +40,14 @@ SourceLocation::SourceLocation()
     , m_offset(0)
 {}
 
-SourceLocation::SourceLocation(unsigned line,
+SourceLocation::SourceLocation(const QString &fileName,
+                               unsigned line,
                                unsigned column,
-                               unsigned offset,
-                               const QString &fileName)
-    : m_line(line)
+                               unsigned offset)
+    : m_fileName(fileName)
+    , m_line(line)
     , m_column(column)
     , m_offset(offset)
-    , m_fileName(fileName)
 {}
 
 namespace Clang {

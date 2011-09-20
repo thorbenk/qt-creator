@@ -55,7 +55,7 @@ SourceLocation getLocation(const CXSourceLocation &loc,
     CXFile file;
     unsigned line, column, offset;
     (*clangFunction)(loc, &file, &line, &column, &offset);
-    return SourceLocation(line, column, offset, getQString(clang_getFileName(file)));
+    return SourceLocation(getQString(clang_getFileName(file)), line, column, offset);
 }
 
 } // Anonymous

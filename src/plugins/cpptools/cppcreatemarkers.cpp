@@ -109,7 +109,7 @@ void CreateMarkers::run()
         return;
 
     foreach (const Clang::SourceMarker &m, m_clangWrapper->sourceMarkersInRange(m_firstLine, m_lastLine))
-        addUse(SourceMarker(m.line(), m.column(), m.length(), m.kind()));
+        addUse(SourceMarker(m.location().line(), m.location().column(), m.length(), m.kind()));
     if (isCanceled())
         return;
 

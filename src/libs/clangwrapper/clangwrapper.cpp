@@ -420,17 +420,14 @@ static void add(QList<SourceMarker> &markers,
                 const CXSourceRange &extent,
                 SourceMarker::Kind kind)
 {
-    unsigned line = 0, column = 0, startOffset = 0, endOffset = 0;
     CXSourceLocation start = clang_getRangeStart(extent);
     CXSourceLocation end = clang_getRangeEnd(extent);
+    const SourceLocation &location = Internal::getInstantiationLocation(start);
+    const SourceLocation &locationEnd = Internal::getInstantiationLocation(end);
 
-    CXFile file;
-    clang_getInstantiationLocation(start, &file, &line, &column, &startOffset);
-    clang_getInstantiationLocation(end, &file, 0, 0, &endOffset);
-
-    if (startOffset < endOffset) {
-        const unsigned length = endOffset - startOffset;
-        markers.append(SourceMarker(line, column, length, kind));
+    if (location.offset() < locationEnd.offset()) {
+        const unsigned length = locationEnd.offset() - location.offset();
+        markers.append(SourceMarker(location, length, kind));
     }
 }
 
