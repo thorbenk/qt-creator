@@ -63,7 +63,9 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
                                                                   includes[pch].toList(),
                                                                   frameworks[pch].toList());
             QStringList msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
-            if (!msgs.isEmpty())
+            if (msgs.isEmpty())
+                msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
+            else
                 msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
             inputToOutput[pch] = ptr;
         }
@@ -89,7 +91,9 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
                         projectPart->includePaths,
                         projectPart->frameworkPaths);
             QStringList msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
-            if (!msgs.isEmpty())
+            if (msgs.isEmpty())
+                msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
+            else
                 msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
             projectPart->clangPCH = ptr;
         }
@@ -102,12 +106,14 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
         }
 
         QStringList opts = ProjectPart::createClangOptions(QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
-        PCHInfoPtr pch = PCHInfo::createWithFileName();
-        QStringList msgs = ClangWrapper::precompile(cps->customPchFile(), opts, pch->fileName());
-        if (!msgs.isEmpty())
+        PCHInfoPtr ptr = PCHInfo::createWithFileName();
+        QStringList msgs = ClangWrapper::precompile(cps->customPchFile(), opts, ptr->fileName());
+        if (msgs.isEmpty())
+            msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
+        else
             msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
         foreach (const ProjectPart::Ptr &projectPart, projectParts)
-            projectPart->clangPCH = pch;
+            projectPart->clangPCH = ptr;
     }
 }
 
