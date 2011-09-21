@@ -22,7 +22,7 @@ SOURCES += mainwindow.cpp \
     fancytabwidget.cpp \
     generalsettings.cpp \
     filemanager.cpp \
-    uniqueidmanager.cpp \
+    id.cpp \
     messagemanager.cpp \
     messageoutputwindow.cpp \
     outputpane.cpp \
@@ -57,6 +57,7 @@ SOURCES += mainwindow.cpp \
     modemanager.cpp \
     coreimpl.cpp \
     basefilewizard.cpp \
+    generatedfile.cpp \
     plugindialog.cpp \
     inavigationwidgetfactory.cpp \
     navigationwidget.cpp \
@@ -101,7 +102,7 @@ HEADERS += mainwindow.h \
     fancytabwidget.h \
     generalsettings.h \
     filemanager.h \
-    uniqueidmanager.h \
+    id.h \
     messagemanager.h \
     messageoutputwindow.h \
     outputpane.h \
@@ -158,6 +159,7 @@ HEADERS += mainwindow.h \
     modemanager.h \
     coreimpl.h \
     basefilewizard.h \
+    generatedfile.h \
     plugindialog.h \
     inavigationwidgetfactory.h \
     navigationwidget.h \
@@ -187,7 +189,8 @@ HEADERS += mainwindow.h \
     dialogs/promptoverwritedialog.h \
     fileutils.h \
     externaltoolmanager.h \
-    textfile.h
+    textfile.h \
+    generatedfile.h
 
 FORMS += dialogs/newdialog.ui \
     actionmanager/commandmappings.ui \
@@ -223,3 +226,4 @@ else:unix {
     }
 }
 OTHER_FILES += editormanager/BinFiles.mimetypes.xml
+

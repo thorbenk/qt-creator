@@ -51,6 +51,7 @@
 #include <qmljs/qmljscontext.h>
 #include <qmljs/parser/qmljsastvisitor_p.h>
 #include <qmljs/parser/qmljsast_p.h>
+#include <qmljstools/qmljsmodelmanager.h>
 
 #include "qmljseditorconstants.h"
 
@@ -60,6 +61,7 @@
 #include <QtCore/QtConcurrentMap>
 #include <QtCore/QDir>
 #include <QtGui/QApplication>
+#include <QtGui/QLabel>
 #include <qtconcurrent/runextensions.h>
 
 #include <functional>
@@ -102,8 +104,7 @@ protected:
 
     virtual bool visit(AST::UiPublicMember *node)
     {
-        if (node->name
-                && node->name->asString() == _name
+        if (node->name == _name
                 && _scopeChain.qmlScopeObjects().contains(_scope)) {
             _usages.append(node->identifierToken);
         }
@@ -128,7 +129,7 @@ protected:
     {
         if (node->qualifiedId
                 && !node->qualifiedId->next
-                && node->qualifiedId->name->asString() == _name
+                && node->qualifiedId->name == _name
                 && checkQmlScope()) {
             _usages.append(node->qualifiedId->identifierToken);
         }
@@ -143,7 +144,7 @@ protected:
     {
         if (node->qualifiedId
                 && !node->qualifiedId->next
-                && node->qualifiedId->name->asString() == _name
+                && node->qualifiedId->name == _name
                 && checkQmlScope()) {
             _usages.append(node->qualifiedId->identifierToken);
         }
@@ -161,7 +162,7 @@ protected:
     {
         if (node->qualifiedId
                 && !node->qualifiedId->next
-                && node->qualifiedId->name->asString() == _name
+                && node->qualifiedId->name == _name
                 && checkQmlScope()) {
             _usages.append(node->qualifiedId->identifierToken);
         }
@@ -170,7 +171,7 @@ protected:
 
     virtual bool visit(AST::IdentifierExpression *node)
     {
-        if (!node->name || node->name->asString() != _name)
+        if (node->name.isEmpty() || node->name != _name)
             return false;
 
         const ObjectValue *scope;
@@ -201,7 +202,7 @@ protected:
 
     virtual bool visit(AST::FieldMemberExpression *node)
     {
-        if (!node->name || node->name->asString() != _name)
+        if (node->name != _name)
             return true;
 
         Evaluate evaluate(&_scopeChain);
@@ -222,7 +223,7 @@ protected:
 
     virtual bool visit(AST::FunctionExpression *node)
     {
-        if (node->name && node->name->asString() == _name) {
+        if (node->name == _name) {
             if (checkLookup())
                 _usages.append(node->identifierToken);
         }
@@ -235,7 +236,7 @@ protected:
 
     virtual bool visit(AST::VariableDeclaration *node)
     {
-        if (node->name && node->name->asString() == _name) {
+        if (node->name == _name) {
             if (checkLookup())
                 _usages.append(node->identifierToken);
         }
@@ -328,7 +329,7 @@ protected:
 
     virtual bool visit(AST::UiPublicMember *node)
     {
-        if (node->memberType && node->memberType->asString() == _name){
+        if (node->memberType == _name){
             const ObjectValue * tVal = _context->lookupType(_doc.data(), QStringList(_name));
             if (tVal == _typeValue)
                 _usages.append(node->typeToken);
@@ -374,7 +375,7 @@ protected:
 
     virtual bool visit(AST::IdentifierExpression *node)
     {
-        if (!node->name || node->name->asString() != _name)
+        if (node->name != _name)
             return false;
 
         const ObjectValue *scope;
@@ -386,7 +387,7 @@ protected:
 
     virtual bool visit(AST::FieldMemberExpression *node)
     {
-        if (!node->name || node->name->asString() != _name)
+        if (node->name != _name)
             return true;
         Evaluate evaluate(&_scopeChain);
         const Value *lhsValue = evaluate(node->base);
@@ -420,7 +421,7 @@ protected:
 
     virtual bool visit(UiImport *ast)
     {
-        if (ast && ast->importId && ast->importId->asString() == _name) {
+        if (ast && ast->importId == _name) {
             const Imports *imp = _context->imports(_doc.data());
             if (!imp)
                 return false;
@@ -435,7 +436,7 @@ private:
     bool checkTypeName(UiQualifiedId *id)
     {
         for (UiQualifiedId *att = id; att; att = att->next){
-            if (att->name && att->name->asString() == _name) {
+            if (att->name == _name) {
                 const ObjectValue *objectValue = _context->lookupType(_doc.data(), id, att->next);
                 if (_typeValue == objectValue){
                     _usages.append(att->identifierToken);
@@ -520,7 +521,7 @@ protected:
     virtual bool visit(IdentifierExpression *node)
     {
         if (containsOffset(node->identifierToken)) {
-            _name = node->name->asString();
+            _name = node->name.toString();
             if ((!_name.isEmpty()) && _name.at(0).isUpper()) {
                 // a possible type
                 _targetValue = _scopeChain->lookup(_name, &_scope);
@@ -535,7 +536,7 @@ protected:
     {
         if (containsOffset(node->identifierToken)) {
             setScope(node->base);
-            _name = node->name->asString();
+            _name = node->name.toString();
             if ((!_name.isEmpty()) && _name.at(0).isUpper()) {
                 // a possible type
                 Evaluate evaluate(_scopeChain);
@@ -590,8 +591,8 @@ protected:
     virtual bool visit(UiPublicMember *node)
     {
         if (containsOffset(node->typeToken)){
-            if (node->memberType){
-                _name = node->memberType->asString();
+            if (!node->memberType.isEmpty()) {
+                _name = node->memberType.toString();
                 _targetValue = _scopeChain->context()->lookupType(_doc.data(), QStringList(_name));
                 _scope = 0;
                 _typeKind = TypeKind;
@@ -599,7 +600,7 @@ protected:
             return false;
         } else if (containsOffset(node->identifierToken)) {
             _scope = _doc->bind()->findQmlObject(_objectNode);
-            _name = node->name->asString();
+            _name = node->name.toString();
             return false;
         }
         return true;
@@ -613,7 +614,7 @@ protected:
     virtual bool visit(FunctionExpression *node)
     {
         if (containsOffset(node->identifierToken)) {
-            _name = node->name->asString();
+            _name = node->name.toString();
             return false;
         }
         return true;
@@ -622,7 +623,7 @@ protected:
     virtual bool visit(VariableDeclaration *node)
     {
         if (containsOffset(node->identifierToken)) {
-            _name = node->name->asString();
+            _name = node->name.toString();
             return false;
         }
         return true;
@@ -641,9 +642,9 @@ private:
 
     bool checkBindingName(UiQualifiedId *id)
     {
-        if (id && id->name && !id->next && containsOffset(id->identifierToken)) {
+        if (id && !id->name.isEmpty() && !id->next && containsOffset(id->identifierToken)) {
             _scope = _doc->bind()->findQmlObject(_objectNode);
-            _name = id->name->asString();
+            _name = id->name.toString();
             return true;
         }
         return false;
@@ -652,10 +653,10 @@ private:
     bool checkTypeName(UiQualifiedId *id)
     {
         for (UiQualifiedId *att = id; att; att = att->next) {
-            if (att->name && containsOffset(att->identifierToken)) {
+            if (!att->name.isEmpty() && containsOffset(att->identifierToken)) {
                 _targetValue = _scopeChain->context()->lookupType(_doc.data(), id, att->next);
                 _scope = 0;
-                _name = att->name->asString();
+                _name = att->name.toString();
                 _typeKind = TypeKind;
                 return true;
             }
@@ -775,7 +776,6 @@ public:
 
 FindReferences::FindReferences(QObject *parent)
     : QObject(parent)
-    , _resultWindow(Find::SearchResultWindow::instance())
 {
     m_watcher.setPendingResultsLimit(1);
     connect(&m_watcher, SIGNAL(resultsReadyAt(int,int)), this, SLOT(displayResults(int,int)));
@@ -799,11 +799,19 @@ static void find_helper(QFutureInterface<FindReferences::Usage> &future,
     QHashIterator< QString, QPair<QString, int> > it(workingCopy.all());
     while (it.hasNext()) {
         it.next();
-        Document::Ptr oldDoc = snapshot.document(it.key());
+        const QString fileName = it.key();
+        Document::Ptr oldDoc = snapshot.document(fileName);
         if (oldDoc && oldDoc->editorRevision() == it.value().second)
             continue;
 
-        Document::Ptr newDoc = snapshot.documentFromSource(it.key(), it.value().first);
+        Document::Language language;
+        if (oldDoc)
+            language = oldDoc->language();
+        else
+            language = QmlJSTools::languageOfFile(fileName);
+
+        Document::Ptr newDoc = snapshot.documentFromSource(it.value().first, fileName,
+                                                           language);
         newDoc->parse();
         snapshot.insert(newDoc);
     }
@@ -840,7 +848,7 @@ static void find_helper(QFutureInterface<FindReferences::Usage> &future,
     future.setProgressRange(0, files.size());
 
     // report a dummy usage to indicate the search is starting
-    FindReferences::Usage searchStarting(replacement, QString(), 0, 0, 0);
+    FindReferences::Usage searchStarting(replacement, name, 0, 0, 0);
 
     if (findTarget.typeKind() == findTarget.TypeKind){
         const ObjectValue *typeValue = value_cast<const ObjectValue*>(findTarget.targetValue());
@@ -859,6 +867,8 @@ static void find_helper(QFutureInterface<FindReferences::Usage> &future,
         scope->lookupMember(name, context, &scope);
         if (!scope)
             return;
+        if (!scope->className().isEmpty())
+            searchStarting.lineText.prepend(scope->className() + QLatin1Char('.'));
         future.reportResult(searchStarting);
 
         ProcessFile process(context, name, scope);
@@ -902,33 +912,41 @@ void FindReferences::displayResults(int first, int last)
     // the first usage is always a dummy to indicate we now start searching
     if (first == 0) {
         Usage dummy = m_watcher.future().resultAt(0);
-        QString replacement = dummy.path;
+        const QString replacement = dummy.path;
+        const QString symbolName = dummy.lineText;
+        const QString label = tr("QML/JS Usages:");
 
-        Find::SearchResult *search;
         if (replacement.isEmpty()) {
-            search = _resultWindow->startNewSearch(Find::SearchResultWindow::SearchOnly);
+            m_currentSearch = Find::SearchResultWindow::instance()->startNewSearch(
+                        label, QString(), symbolName, Find::SearchResultWindow::SearchOnly);
         } else {
-            search = _resultWindow->startNewSearch(Find::SearchResultWindow::SearchAndReplace);
-            _resultWindow->setTextToReplace(replacement);
-            connect(search, SIGNAL(replaceButtonClicked(QString,QList<Find::SearchResultItem>)),
+            m_currentSearch = Find::SearchResultWindow::instance()->startNewSearch(
+                        label, QString(), symbolName, Find::SearchResultWindow::SearchAndReplace);
+            m_currentSearch->setTextToReplace(replacement);
+            connect(m_currentSearch, SIGNAL(replaceButtonClicked(QString,QList<Find::SearchResultItem>)),
                     SLOT(onReplaceButtonClicked(QString,QList<Find::SearchResultItem>)));
         }
-        connect(search, SIGNAL(activated(Find::SearchResultItem)),
+        connect(m_currentSearch, SIGNAL(activated(Find::SearchResultItem)),
                 this, SLOT(openEditor(Find::SearchResultItem)));
-        _resultWindow->popup(true);
+        connect(m_currentSearch, SIGNAL(cancelled()), this, SLOT(cancel()));
+        Find::SearchResultWindow::instance()->popup(true);
 
         Core::ProgressManager *progressManager = Core::ICore::instance()->progressManager();
         Core::FutureProgress *progress = progressManager->addTask(
                     m_watcher.future(), tr("Searching"),
                     QmlJSEditor::Constants::TASK_SEARCH);
-        connect(progress, SIGNAL(clicked()), _resultWindow, SLOT(popup()));
+        connect(progress, SIGNAL(clicked()), Find::SearchResultWindow::instance(), SLOT(popup()));
 
         ++first;
     }
 
+    if (!m_currentSearch) {
+        m_watcher.cancel();
+        return;
+    }
     for (int index = first; index != last; ++index) {
         Usage result = m_watcher.future().resultAt(index);
-        _resultWindow->addResult(result.path,
+        m_currentSearch->addResult(result.path,
                                  result.line,
                                  result.lineText,
                                  result.col,
@@ -938,8 +956,15 @@ void FindReferences::displayResults(int first, int last)
 
 void FindReferences::searchFinished()
 {
-    _resultWindow->finishSearch();
+    if (m_currentSearch)
+        m_currentSearch->finishSearch();
+    m_currentSearch = 0;
     emit changed();
+}
+
+void FindReferences::cancel()
+{
+    m_watcher.cancel();
 }
 
 void FindReferences::openEditor(const Find::SearchResultItem &item)
@@ -973,5 +998,5 @@ void FindReferences::onReplaceButtonClicked(const QString &text, const QList<Fin
     if (!changedUnsavedEditors.isEmpty())
         QmlJS::ModelManagerInterface::instance()->updateSourceFiles(changedUnsavedEditors, false);
 
-    _resultWindow->hide();
+    Find::SearchResultWindow::instance()->hide();
 }

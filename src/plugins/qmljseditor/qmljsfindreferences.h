@@ -35,17 +35,17 @@
 
 #include <QtCore/QMutex>
 #include <QtCore/QObject>
-#include <QtCore/QPointer>
 #include <QtCore/QFuture>
 #include <QtCore/QFutureWatcher>
+#include <QtCore/QPointer>
 #include <utils/filesearch.h>
 #include <qmljs/qmljsdocument.h>
 
 QT_FORWARD_DECLARE_CLASS(QTimer)
 
 namespace Find {
-    class SearchResultWindow;
     struct SearchResultItem;
+    class SearchResult;
 } // namespace Find
 
 namespace QmlJSEditor {
@@ -86,11 +86,12 @@ public:
 private Q_SLOTS:
     void displayResults(int first, int last);
     void searchFinished();
+    void cancel();
     void openEditor(const Find::SearchResultItem &item);
     void onReplaceButtonClicked(const QString &text, const QList<Find::SearchResultItem> &items);
 
 private:
-    Find::SearchResultWindow *_resultWindow;
+    QPointer<Find::SearchResult> m_currentSearch;
     QFutureWatcher<Usage> m_watcher;
 };
 

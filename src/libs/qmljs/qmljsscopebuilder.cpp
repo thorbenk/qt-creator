@@ -154,8 +154,8 @@ void ScopeBuilder::setQmlScopeObject(Node *node)
         if (const QmlObjectValue *qmlMetaObject = dynamic_cast<const QmlObjectValue *>(prototype)) {
             if ((qmlMetaObject->className() == QLatin1String("ListElement")
                     || qmlMetaObject->className() == QLatin1String("Connections")
-                    ) && (qmlMetaObject->packageName() == QLatin1String("Qt")
-                          || qmlMetaObject->packageName() == QLatin1String("QtQuick"))) {
+                    ) && (qmlMetaObject->moduleName() == QLatin1String("Qt")
+                          || qmlMetaObject->moduleName() == QLatin1String("QtQuick"))) {
                 qmlScopeObjects.clear();
                 break;
             }
@@ -175,8 +175,8 @@ void ScopeBuilder::setQmlScopeObject(Node *node)
         if (initializer) {
             for (UiObjectMemberList *m = initializer->members; m; m = m->next) {
                 if (UiScriptBinding *scriptBinding = cast<UiScriptBinding *>(m->member)) {
-                    if (scriptBinding->qualifiedId && scriptBinding->qualifiedId->name
-                            && scriptBinding->qualifiedId->name->asString() == QLatin1String("target")
+                    if (scriptBinding->qualifiedId
+                            && scriptBinding->qualifiedId->name == QLatin1String("target")
                             && ! scriptBinding->qualifiedId->next) {
                         Evaluate evaluator(_scopeChain);
                         const Value *targetValue = evaluator(scriptBinding->statement);
@@ -202,9 +202,9 @@ const Value *ScopeBuilder::scopeObjectLookup(AST::UiQualifiedId *id)
     foreach (const ObjectValue *scopeObject, _scopeChain->qmlScopeObjects()) {
         const ObjectValue *object = scopeObject;
         for (UiQualifiedId *it = id; it; it = it->next) {
-            if (!it->name)
+            if (it->name.isEmpty())
                 return 0;
-            result = object->lookupMember(it->name->asString(), _scopeChain->context());
+            result = object->lookupMember(it->name.toString(), _scopeChain->context());
             if (!result)
                 break;
             if (it->next) {
@@ -231,8 +231,8 @@ const ObjectValue *ScopeBuilder::isPropertyChangesObject(const ContextPtr &conte
         const ObjectValue *prototype = iter.next();
         if (const QmlObjectValue *qmlMetaObject = dynamic_cast<const QmlObjectValue *>(prototype)) {
             if (qmlMetaObject->className() == QLatin1String("PropertyChanges")
-                    && (qmlMetaObject->packageName() == QLatin1String("Qt")
-                        || qmlMetaObject->packageName() == QLatin1String("QtQuick")))
+                    && (qmlMetaObject->moduleName() == QLatin1String("Qt")
+                        || qmlMetaObject->moduleName() == QLatin1String("QtQuick")))
                 return prototype;
         }
     }

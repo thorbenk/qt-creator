@@ -37,7 +37,6 @@
 #include "qmldebuggerclient.h"
 
 #include <QtCore/QObject>
-#include <QtCore/QScopedPointer>
 #include <QtNetwork/QAbstractSocket>
 
 namespace QmlJsDebugClient {
@@ -57,6 +56,7 @@ class QmlAdapterPrivate;
 class DEBUGGER_EXPORT QmlAdapter : public QObject
 {
     Q_OBJECT
+
 public:
     explicit QmlAdapter(DebuggerEngine *engine, QObject *parent = 0);
     virtual ~QmlAdapter();
@@ -88,16 +88,15 @@ private slots:
     void connectionErrorOccurred(QAbstractSocket::SocketError socketError);
     void clientStatusChanged(QDeclarativeDebugClient::Status status);
     void connectionStateChanged();
-    void pollInferior();
+    void checkConnectionState();
 
 private:
-    void connectToViewer();
     void createDebuggerClients();
     void showConnectionStatusMessage(const QString &message);
     void showConnectionErrorMessage(const QString &message);
 
 private:
-    QScopedPointer<Internal::QmlAdapterPrivate> d;
+    Internal::QmlAdapterPrivate *d;
 };
 
 } // namespace Debugger

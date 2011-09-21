@@ -1274,6 +1274,16 @@ class Dumper:
         type = value.type.unqualified()
         typeName = str(type)
 
+        try:
+            if value.is_optimized_out:
+                self.putValue("<optimized out>")
+                self.putType(typeName)
+                self.putNumChild(0)
+                return
+        except:
+            pass
+
+
         # FIXME: Gui shows references stripped?
         #warn(" ")
         #warn("REAL INAME: %s " % self.currentIName)
@@ -1477,7 +1487,7 @@ class Dumper:
                 self.listAnonymous(value, "#%d" % self.anonNumber, type)
             return
 
-        if type.code != StructCode:
+        if type.code != StructCode and type.code != UnionCode:
             warn("WRONG ASSUMPTION HERE: %s " % type.code)
             check(False)
 

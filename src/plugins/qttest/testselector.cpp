@@ -52,25 +52,14 @@
 #include <extensionsystem/pluginmanager.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/actionmanager/command.h>
-#include <coreplugin/uniqueidmanager.h>
+#include <coreplugin/id.h>
 
-#include <QHeaderView>
 #include <QDir>
 #include <QPixmap>
 #include <QStringList>
-#include <QApplication>
-#include <QMessageBox>
 #include <QMouseEvent>
-#include <QTextStream>
-#include <QKeySequence>
-#include <QMenuBar>
 #include <QMenu>
-#include <QProcess>
 #include <QDebug>
-#include <QLabel>
-#include <QLineEdit>
-#include <QRadioButton>
-#include <QContextMenuEvent>
 
 static const char *childAssigned_xpm[] = {
     "8 8 3 1",
@@ -175,6 +164,11 @@ public:
     bool m_manualTest;
     int m_startLine;
 };
+
+const QPixmap TestViewItem::m_selectpxm(selected_xpm);
+const QPixmap TestViewItem::m_unselectpxm(unselected_xpm);
+const QPixmap TestViewItem::m_parentAssignpxm(parentAssigned_xpm);
+const QPixmap TestViewItem::m_childAssignpxm(childAssigned_xpm);
 
 TestViewItem::TestViewItem(TestViewItem *parent, const QString &name, bool testSuite, int type) :
     QTreeWidgetItem(parent, QStringList() << name, type),
@@ -356,22 +350,17 @@ TestViewItem *TestSelector::recastItem(QTreeWidgetItem *item)
 
 void TestViewItem::updatePixmap()
 {
-    static QPixmap selectpxm = QPixmap(selected_xpm);
-    static QPixmap unselectpxm = QPixmap(unselected_xpm);
-    static QPixmap parentAssignpxm = QPixmap(parentAssigned_xpm);
-    static QPixmap childAssignpxm = QPixmap(childAssigned_xpm);
-
     if (m_errored)
         return;
 
     if (m_assigned)
-        setIcon(0, QIcon(selectpxm));
+        setIcon(0, QIcon(m_selectpxm));
     else if (m_parentAssigned > 0)
-        setIcon(0, QIcon(parentAssignpxm));
+        setIcon(0, QIcon(m_parentAssignpxm));
     else if (m_childAssigned > 0)
-        setIcon(0, QIcon(childAssignpxm));
+        setIcon(0, QIcon(m_childAssignpxm));
     else
-        setIcon(0, QIcon(unselectpxm));
+        setIcon(0, QIcon(m_unselectpxm));
 }
 
 void TestViewItem::removeAllChildren()
@@ -738,8 +727,7 @@ void TestSelector::showSystemTests(bool show)
 
 void TestSelector::init()
 {
-    Core::ICore *core = Core::ICore::instance();
-    Core::ModeManager *mgr = core->modeManager();
+    Core::ModeManager *mgr = Core::ModeManager::instance();
     if (mgr && mgr->currentMode()->id() == "Edit") {
         TestConfigurations *tc = &TestConfigurations::instance();
         if (tc->activeConfiguration()) {
@@ -841,7 +829,7 @@ void TestSelector::updateActions()
 
 void TestSelector::selectGroup()
 {
-    SelectDlg dlg("Select a group",
+    QPointer<SelectDlg> dlg = new SelectDlg("Select a group",
         "Please select the groups that you'd want to test",
         QAbstractItemView::MultiSelection,
         300, 400, QStringList() << "Groups", QByteArray(), this);
@@ -854,7 +842,7 @@ void TestSelector::selectGroup()
                 TestFunctionInfo *inf = tc->testFunction(j);
                 if (inf && (inf->testStartLine() >= 0)) {
                     if (!inf->testGroups().isEmpty()) {
-                        dlg.addSelectableItems(inf->testGroups()
+                        dlg->addSelectableItems(inf->testGroups()
                             .split(QLatin1Char(','), QString::SkipEmptyParts));
                         groupsList.append(tc->testCase() + "::" + inf->functionName()
                             + QLatin1Char('@') + inf->testGroups().split(QLatin1Char(','), QString::SkipEmptyParts).join(QString(QLatin1Char('@'))));
@@ -864,8 +852,8 @@ void TestSelector::selectGroup()
         }
     }
 
-    if (dlg.exec()) {
-        QStringList selectedGroups = dlg.selectedItems();
+    if (dlg->exec()) {
+        QStringList selectedGroups = dlg->selectedItems();
         unassignAll();
         int current = 0;
         while (current < groupsList.count()) {
@@ -885,6 +873,7 @@ void TestSelector::selectGroup()
         }
         setSelectedTests(true, groupsList);
     }
+    delete dlg;
 }
 
 QString TestSelector::curTestSuite(bool fullPath)
@@ -1463,19 +1452,18 @@ void TestSelector::testInsertUnitOrSystemTest()
         if (cfg)
             basePath = cfg->srcPath();
     }
-
-    NewTestCaseDlg dlg(basePath, this);
-    if (dlg.exec() == QDialog::Accepted) {
+    QPointer<NewTestCaseDlg> dlg = new NewTestCaseDlg(basePath, this);
+    if (dlg->exec() == QDialog::Accepted) {
         TestGenerator gen;
         QString classFile;
 
-        gen.enableComponentInTestName(dlg.componentInName());
-        gen.setTestCase(dlg.mode(),
-            dlg.location(),
+        gen.enableComponentInTestName(dlg->componentInName());
+        gen.setTestCase(dlg->mode(),
+            dlg->location(),
             QString(), // use automatic "subdir" selection
-            dlg.testCaseName(),
-            dlg.testedComponent(),
-            dlg.testedClassName(),
+            dlg->testCaseName(),
+            dlg->testedComponent(),
+            dlg->testedClassName(),
             classFile);
 
         if (gen.generateTest()) {
@@ -1487,4 +1475,5 @@ void TestSelector::testInsertUnitOrSystemTest()
             }
         }
     }
+    delete dlg;
 }

@@ -151,8 +151,8 @@ void SymbianQtVersion::restoreLegacySettings(QSettings *s)
 void SymbianQtVersion::fromMap(const QVariantMap &map)
 {
     BaseQtVersion::fromMap(map);
-    setSbsV2Directory(map.value(QLatin1String("SBSv2Directory")).toString());
-    setSystemRoot(map.value(QLatin1String("SystemRoot")).toString());
+    setSbsV2Directory(QDir::fromNativeSeparators(map.value(QLatin1String("SBSv2Directory")).toString()));
+    setSystemRoot(QDir::fromNativeSeparators(map.value(QLatin1String("SystemRoot")).toString()));
 }
 
 QVariantMap SymbianQtVersion::toMap() const
@@ -163,7 +163,7 @@ QVariantMap SymbianQtVersion::toMap() const
     return result;
 }
 
-QList<ProjectExplorer::Abi> SymbianQtVersion::qtAbis() const
+QList<ProjectExplorer::Abi> SymbianQtVersion::detectQtAbis() const
 {
     return QList<ProjectExplorer::Abi>()
             << ProjectExplorer::Abi(ProjectExplorer::Abi::ArmArchitecture, ProjectExplorer::Abi::SymbianOS,

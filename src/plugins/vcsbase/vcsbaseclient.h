@@ -37,14 +37,10 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QStringList>
-#include <QtCore/QPair>
 #include <QtCore/QSharedPointer>
-#include <QtCore/QScopedPointer>
-#include <QtCore/QVariant>
 
 QT_BEGIN_NAMESPACE
 class QFileInfo;
-class QVariant;
 QT_END_NAMESPACE
 
 namespace Utils {
@@ -62,6 +58,7 @@ class VCSBaseEditorParameterWidget;
 class VCSBASE_EXPORT VCSBaseClient : public QObject
 {
     Q_OBJECT
+
 public:
     struct VCSBASE_EXPORT StatusItem
     {
@@ -179,9 +176,11 @@ protected:
                                                   const char *registerDynamicProperty,
                                                   const QString &dynamicPropertyValue) const;
 
+    void resetCachedVcsInfo(const QString &workingDir);
+
 private:
     friend class VCSBaseClientPrivate;
-    QScopedPointer<VCSBaseClientPrivate> d;
+    VCSBaseClientPrivate *d;
 
     Q_PRIVATE_SLOT(d, void statusParser(QByteArray))
     Q_PRIVATE_SLOT(d, void annotateRevision(QString, QString, int))

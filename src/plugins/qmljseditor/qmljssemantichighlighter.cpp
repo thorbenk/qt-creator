@@ -40,6 +40,7 @@
 #include <qmljs/qmljsevaluate.h>
 #include <qmljs/qmljscontext.h>
 #include <qmljs/qmljsbind.h>
+#include <qmljs/qmljscheck.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/parser/qmljsastvisitor_p.h>
 #include <texteditor/syntaxhighlighter.h>
@@ -99,7 +100,7 @@ public:
     CollectStateNames(const ScopeChain &scopeChain)
         : m_scopeChain(scopeChain)
     {
-        m_statePrototype = scopeChain.context()->valueOwner()->cppQmlTypes().typeByCppName(QLatin1String("QDeclarativeState"));
+        m_statePrototype = scopeChain.context()->valueOwner()->cppQmlTypes().objectByCppName(QLatin1String("QDeclarativeState"));
     }
 
     QStringList operator()(Node *ast)
@@ -168,19 +169,19 @@ protected:
     {
         if (!m_inStateType)
             return false;
-        if (!ast->qualifiedId || ! ast->qualifiedId->name || ast->qualifiedId->next)
+        if (!ast->qualifiedId || ast->qualifiedId->name.isEmpty() || ast->qualifiedId->next)
             return false;
-        if (ast->qualifiedId->name->asString() != QLatin1String("name"))
+        if (ast->qualifiedId->name != QLatin1String("name"))
             return false;
 
         ExpressionStatement *expStmt = cast<ExpressionStatement *>(ast->statement);
         if (!expStmt)
             return false;
         StringLiteral *strLit = cast<StringLiteral *>(expStmt->expression);
-        if (!strLit || !strLit->value)
+        if (!strLit || strLit->value.isEmpty())
             return false;
 
-        m_stateNames += strLit->value->asString();
+        m_stateNames += strLit->value.toString();
 
         return false;
     }
@@ -211,12 +212,12 @@ protected:
         m_scopeBuilder.pop();
     }
 
-    void processName(NameId *name, SourceLocation location)
+    void processName(const QStringRef &name, SourceLocation location)
     {
-        if (!name)
+        if (name.isEmpty())
             return;
 
-        const QString nameStr = name->asString();
+        const QString &nameStr = name.toString();
         const ObjectValue *scope = 0;
         const Value *value = m_scopeChain.lookup(nameStr, &scope);
         if (!value || !scope)
@@ -240,34 +241,66 @@ protected:
                 type = SemanticHighlighter::ExternalIdType;
             } else if (scope == chain->rootObjectScope()) {
                 type = SemanticHighlighter::RootObjectPropertyType;
+            } else  { // check for this?
+                type = SemanticHighlighter::ExternalObjectPropertyType;
             }
-        } else { // check for this?
-            type = SemanticHighlighter::ExternalObjectPropertyType;
         }
 
-        addUse(location, type);
+        if (type != SemanticHighlighter::UnknownType)
+            addUse(location, type);
+    }
+
+    void processTypeId(UiQualifiedId *typeId)
+    {
+        if (!typeId)
+            return;
+        if (m_scopeChain.context()->lookupType(m_scopeChain.document().data(), typeId))
+            addUse(fullLocationForQualifiedId(typeId), SemanticHighlighter::QmlTypeType);
+    }
+
+    void processBindingName(UiQualifiedId *localId)
+    {
+        if (!localId)
+            return;
+        addUse(fullLocationForQualifiedId(localId), SemanticHighlighter::BindingNameType);
     }
 
     bool visit(UiObjectDefinition *ast)
     {
+        if (m_scopeChain.document()->bind()->isGroupedPropertyBinding(ast)) {
+            processBindingName(ast->qualifiedTypeNameId);
+        } else {
+            processTypeId(ast->qualifiedTypeNameId);
+        }
         scopedAccept(ast, ast->initializer);
         return false;
     }
 
     bool visit(UiObjectBinding *ast)
     {
+        processTypeId(ast->qualifiedTypeNameId);
+        processBindingName(ast->qualifiedId);
         scopedAccept(ast, ast->initializer);
         return false;
     }
 
     bool visit(UiScriptBinding *ast)
     {
+        processBindingName(ast->qualifiedId);
         scopedAccept(ast, ast->statement);
         return false;
     }
 
+    bool visit(UiArrayBinding *ast)
+    {
+        processBindingName(ast->qualifiedId);
+        return true;
+    }
+
     bool visit(UiPublicMember *ast)
     {
+        if (ast->identifierToken.isValid())
+            addUse(ast->identifierToken, SemanticHighlighter::BindingNameType);
         scopedAccept(ast, ast->statement);
         return false;
     }
@@ -298,10 +331,10 @@ protected:
 
     bool visit(StringLiteral *ast)
     {
-        if (!ast->value)
+        if (ast->value.isEmpty())
             return false;
 
-        const QString value = ast->value->asString();
+        const QString &value = ast->value.toString();
         if (m_stateNames.contains(value)) {
             addUse(ast->literalToken, SemanticHighlighter::LocalStateNameType);
         }
@@ -386,6 +419,11 @@ void SemanticHighlighter::rerun(const ScopeChain &scopeChain)
     m_watcher.setFuture(f);
 }
 
+void SemanticHighlighter::cancel()
+{
+    m_watcher.cancel();
+}
+
 void SemanticHighlighter::applyResults(int from, int to)
 {
     if (m_watcher.isCanceled())
@@ -430,5 +468,11 @@ void SemanticHighlighter::updateFontSettings(const TextEditor::FontSettings &fon
     m_formats[JsImportType] = fontSettings.toTextCharFormat(QLatin1String(TextEditor::Constants::C_JS_IMPORT_VAR));
     m_formats[JsGlobalType] = fontSettings.toTextCharFormat(QLatin1String(TextEditor::Constants::C_JS_GLOBAL_VAR));
     m_formats[LocalStateNameType] = fontSettings.toTextCharFormat(QLatin1String(TextEditor::Constants::C_QML_STATE_NAME));
+    m_formats[BindingNameType] = fontSettings.toTextCharFormat(QLatin1String(TextEditor::Constants::C_BINDING));
+    m_formats[FieldType] = fontSettings.toTextCharFormat(QLatin1String(TextEditor::Constants::C_FIELD));
 }
 
+int SemanticHighlighter::startRevision() const
+{
+    return m_startRevision;
+}

@@ -42,7 +42,7 @@ namespace Internal {
 class RemoteLinuxProcessesDialogPrivate;
 } // namespace Internal
 
-class RemoteLinuxProcessesDialog : public QDialog
+class REMOTELINUX_EXPORT RemoteLinuxProcessesDialog : public QDialog
 {
     Q_OBJECT
 public:
@@ -60,7 +60,7 @@ private slots:
     void handleSelectionChanged();
 
 private:
-    Internal::RemoteLinuxProcessesDialogPrivate * const m_d;
+    Internal::RemoteLinuxProcessesDialogPrivate * const d;
 };
 
 } // namespace RemoteLinux

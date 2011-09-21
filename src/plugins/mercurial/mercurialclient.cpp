@@ -317,7 +317,7 @@ void MercurialClient::commit(const QString &repositoryRoot, const QStringList &f
                              const QStringList &extraOptions)
 {
     QStringList args(extraOptions);
-    args << QLatin1String("--noninteractive") << QLatin1String("-l") << commitMessageFile;
+    args << QLatin1String("--noninteractive") << QLatin1String("-l") << commitMessageFile << QLatin1String("-A");
     VCSBaseClient::commit(repositoryRoot, files, commitMessageFile, args);
 }
 
@@ -423,9 +423,9 @@ public:
         VCSBase::VCSBaseEditorParameterWidget(parent), m_client(client), m_params(p)
     {
         mapSetting(addToggleButton(QLatin1String("-w"), tr("Ignore whitespace")),
-                   &client->settings()->diffIgnoreWhiteSpace);
+                   client->settings()->boolPointer(MercurialSettings::diffIgnoreWhiteSpaceKey));
         mapSetting(addToggleButton(QLatin1String("-B"), tr("Ignore blank lines")),
-                   &client->settings()->diffIgnoreBlankLines);
+                   client->settings()->boolPointer(MercurialSettings::diffIgnoreBlankLinesKey));
     }
 
     void executeCommand()

@@ -88,22 +88,22 @@ struct FileTypeDataStorage {
 
 static const FileTypeDataStorage fileTypeDataStorage[] = {
     { ProjectExplorer::HeaderType,
-      QT_TRANSLATE_NOOP("Qt4ProjectManager::Internal::Qt4PriFileNode", "Headers"),
+      QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "Headers"),
       ":/qt4projectmanager/images/headers.png" },
     { ProjectExplorer::SourceType,
-      QT_TRANSLATE_NOOP("Qt4ProjectManager::Internal::Qt4PriFileNode", "Sources"),
+      QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "Sources"),
       ":/qt4projectmanager/images/sources.png" },
     { ProjectExplorer::FormType,
-      QT_TRANSLATE_NOOP("Qt4ProjectManager::Internal::Qt4PriFileNode", "Forms"),
+      QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "Forms"),
       ":/qt4projectmanager/images/forms.png" },
     { ProjectExplorer::ResourceType,
-      QT_TRANSLATE_NOOP("Qt4ProjectManager::Internal::Qt4PriFileNode", "Resources"),
+      QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "Resources"),
       ":/qt4projectmanager/images/qt_qrc.png" },
     { ProjectExplorer::QMLType,
-      QT_TRANSLATE_NOOP("Qt4ProjectManager::Internal::Qt4PriFileNode", "QML"),
+      QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "QML"),
       ":/qt4projectmanager/images/qml.ico" }, // TODO icon
     { ProjectExplorer::UnknownFileType,
-      QT_TRANSLATE_NOOP("Qt4ProjectManager::Internal::Qt4PriFileNode", "Other files"),
+      QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "Other files"),
       ":/qt4projectmanager/images/unknown.png" }
 };
 
@@ -140,7 +140,7 @@ Q_GLOBAL_STATIC_WITH_INITIALIZER(Qt4NodeStaticData, qt4NodeStaticData, {
                                                     overlayIcon, desiredSize);
         QIcon folderIcon;
         folderIcon.addPixmap(folderPixmap);
-        const QString desc = Qt4ProjectManager::Internal::Qt4PriFileNode::tr(fileTypeDataStorage[i].typeName);
+        const QString desc = Qt4ProjectManager::Qt4PriFileNode::tr(fileTypeDataStorage[i].typeName);
         x->fileTypeData.push_back(Qt4NodeStaticData::FileTypeData(fileTypeDataStorage[i].type,
                                                                   desc, folderIcon));
     }
@@ -162,8 +162,8 @@ static void clearQt4NodeStaticData()
 
 enum { debug = 0 };
 
-namespace Qt4ProjectManager {
-namespace Internal {
+using namespace Qt4ProjectManager;
+using namespace Qt4ProjectManager::Internal;
 
 Qt4PriFile::Qt4PriFile(Qt4PriFileNode *qt4PriFile)
     : IFile(qt4PriFile), m_priFile(qt4PriFile)
@@ -248,7 +248,8 @@ Qt4PriFileNode::Qt4PriFileNode(Qt4Project *project, Qt4ProFileNode* qt4ProFileNo
           m_project(project),
           m_qt4ProFileNode(qt4ProFileNode),
           m_projectFilePath(QDir::fromNativeSeparators(filePath)),
-          m_projectDir(QFileInfo(filePath).absolutePath())
+          m_projectDir(QFileInfo(filePath).absolutePath()),
+          m_includedInExactParse(true)
 {
     Q_ASSERT(project);
     m_qt4PriFile = new Qt4PriFile(this);
@@ -265,6 +266,8 @@ void Qt4PriFileNode::scheduleUpdate()
     m_qt4ProFileNode->scheduleUpdate();
 }
 
+namespace Qt4ProjectManager {
+namespace Internal {
 struct InternalNode
 {
     QMap<QString, InternalNode*> subnodes;
@@ -481,7 +484,8 @@ struct InternalNode
             projectNode->addFileNodes(filesToAdd, folder);
     }
 };
-
+}
+}
 
 QStringList Qt4PriFileNode::baseVPaths(QtSupport::ProFileReader *reader, const QString &projectDir)
 {
@@ -729,6 +733,7 @@ void Qt4PriFileNode::folderChanged(const QString &folder)
 
     contents.updateSubFolders(this, this);
     m_project->updateFileList();
+    m_project->updateCodeModels();
 
     // The files to be packaged are listed inside the symbian build system.
     // We need to regenerate that list by running qmake
@@ -766,6 +771,27 @@ bool Qt4PriFileNode::deploysFolder(const QString &folder) const
 QList<ProjectExplorer::RunConfiguration *> Qt4PriFileNode::runConfigurationsFor(Node *node)
 {
     return m_project->activeTarget()->runConfigurationsForNode(node);
+}
+
+QList<Qt4PriFileNode *> Qt4PriFileNode::subProjectNodesExact() const
+{
+    QList<Qt4PriFileNode *> nodes;
+    foreach (ProjectNode *node, subProjectNodes()) {
+        Qt4PriFileNode *n = qobject_cast<Qt4PriFileNode *>(node);
+        if (n && n->includedInExactParse())
+            nodes << n;
+    }
+    return nodes;
+}
+
+bool Qt4PriFileNode::includedInExactParse() const
+{
+    return m_includedInExactParse;
+}
+
+void Qt4PriFileNode::setIncludedInExactParse(bool b)
+{
+    m_includedInExactParse = b;
 }
 
 QList<ProjectNode::ProjectAction> Qt4PriFileNode::supportedActions(Node *node) const
@@ -1309,9 +1335,6 @@ Qt4NodesWatcher::Qt4NodesWatcher(QObject *parent)
 {
 }
 
-} // namespace Internal
-
-
 const Qt4ProFileNode *Qt4ProFileNode::findProFileFor(const QString &fileName) const
 {
     if (fileName == path())
@@ -1422,7 +1445,6 @@ Qt4ProFileNode::Qt4ProFileNode(Qt4Project *project,
           m_readerExact(0),
           m_readerCumulative(0)
 {
-
     if (parent)
         setParent(parent);
 
@@ -1488,7 +1510,7 @@ QStringList Qt4ProFileNode::variableValue(const Qt4Variable var) const
     return m_varValues.value(var);
 }
 
-void Qt4ProFileNode::emitProFileUpdated()
+void Qt4ProFileNode::emitProFileUpdatedRecursive()
 {
     foreach (ProjectExplorer::NodesWatcher *watcher, watchers())
         if (Internal::Qt4NodesWatcher *qt4Watcher = qobject_cast<Internal::Qt4NodesWatcher*>(watcher))
@@ -1496,24 +1518,34 @@ void Qt4ProFileNode::emitProFileUpdated()
 
     foreach (ProjectNode *subNode, subProjectNodes()) {
         if (Qt4ProFileNode *node = qobject_cast<Qt4ProFileNode *>(subNode)) {
-            node->emitProFileUpdated();
+            node->emitProFileUpdatedRecursive();
         }
     }
+}
+
+void Qt4ProFileNode::setParseInProgressRecursive(bool b)
+{
+    setParseInProgress(b);
+    foreach (ProjectNode *subNode, subProjectNodes()) {
+        if (Qt4ProFileNode *node = qobject_cast<Qt4ProFileNode *>(subNode)) {
+            node->setParseInProgressRecursive(b);
+        }
+    }
+}
+
+void Qt4ProFileNode::setParseInProgress(bool b)
+{
+    if (m_parseInProgress == b)
+        return;
+    m_parseInProgress = b;
+    foreach (ProjectExplorer::NodesWatcher *watcher, watchers())
+        if (Internal::Qt4NodesWatcher *qt4Watcher = qobject_cast<Internal::Qt4NodesWatcher*>(watcher))
+            emit qt4Watcher->proFileUpdated(this, m_validParse, m_parseInProgress);
 }
 
 bool Qt4ProFileNode::validParse() const
 {
     return m_validParse;
-}
-
-void Qt4ProFileNode::setParseInProgressRecursive()
-{
-    m_parseInProgress = true;
-    foreach (ProjectNode *subNode, subProjectNodes()) {
-        if (Qt4ProFileNode *node = qobject_cast<Qt4ProFileNode *>(subNode)) {
-            node->setParseInProgressRecursive();
-        }
-    }
 }
 
 bool Qt4ProFileNode::parseInProgress() const
@@ -1523,8 +1555,7 @@ bool Qt4ProFileNode::parseInProgress() const
 
 void Qt4ProFileNode::scheduleUpdate()
 {
-    setParseInProgressRecursive();
-    emitProFileUpdated();
+    setParseInProgressRecursive(true);
     m_project->scheduleAsyncUpdate(this);
 }
 
@@ -1539,11 +1570,7 @@ void Qt4ProFileNode::asyncUpdate()
 
 void Qt4ProFileNode::update()
 {
-    m_parseInProgress = true;
-    foreach (ProjectExplorer::NodesWatcher *watcher, watchers())
-        if (Internal::Qt4NodesWatcher *qt4Watcher = qobject_cast<Internal::Qt4NodesWatcher*>(watcher))
-            emit qt4Watcher->proFileUpdated(this, m_validParse, m_parseInProgress);
-
+    setParseInProgressRecursive(true);
     setupReader();
     EvalResult evalResult = evaluate();
     applyEvaluate(evalResult, false);
@@ -1599,16 +1626,14 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
             m_project->proFileParseError(tr("Error while parsing file %1. Giving up.").arg(m_projectFilePath));
             invalidate();
         }
-        foreach (ProjectExplorer::NodesWatcher *watcher, watchers())
-            if (Internal::Qt4NodesWatcher *qt4Watcher = qobject_cast<Internal::Qt4NodesWatcher*>(watcher))
-                emit qt4Watcher->proFileUpdated(this, false, false);
+        setParseInProgressRecursive(false);
         return;
     }
 
     if (debug)
         qDebug() << "Qt4ProFileNode - updating files for file " << m_projectFilePath;
 
-    Qt4ProjectType projectType = Internal::proFileTemplateTypeToProjectType(
+    Qt4ProjectType projectType = proFileTemplateTypeToProjectType(
                 (evalResult == EvalOk ? m_readerExact : m_readerCumulative)->templateType());
     if (projectType != m_projectType) {
         Qt4ProjectType oldType = m_projectType;
@@ -1639,10 +1664,13 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
 
     QStringList newProjectFilesExact;
     QHash<QString, ProFile*> includeFilesExact;
+    QSet<QString> exactSubdirs;
     ProFile *fileForCurrentProjectExact = 0;
     if (evalResult == EvalOk) {
-        if (m_projectType == SubDirsTemplate)
+        if (m_projectType == SubDirsTemplate) {
             newProjectFilesExact = subDirsPaths(m_readerExact);
+            exactSubdirs = newProjectFilesExact.toSet();
+        }
         foreach (ProFile *includeFile, m_readerExact->includeFiles()) {
             if (includeFile->fileName() == m_projectFilePath) { // this file
                 fileForCurrentProjectExact = includeFile;
@@ -1739,15 +1767,20 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
             ProFile *fileExact = includeFilesExact.value((*existingIt)->path());
             ProFile *fileCumlative = includeFilesCumlative.value((*existingIt)->path());
             if (fileExact || fileCumlative) {
-                static_cast<Qt4PriFileNode *>(*existingIt)->update(fileExact, m_readerExact, fileCumlative, m_readerCumulative);
+                Qt4PriFileNode *priFileNode = static_cast<Qt4PriFileNode *>(*existingIt);
+                priFileNode->update(fileExact, m_readerExact, fileCumlative, m_readerCumulative);
+                priFileNode->setIncludedInExactParse(fileExact != 0 && includedInExactParse());
             } else {
                 // We always parse exactly, because we later when async parsing don't know whether
                 // the .pro file is included in this .pro file
                 // So to compare that later parse with the sync one
+                Qt4ProFileNode *proFileNode = static_cast<Qt4ProFileNode *>(*existingIt);
+                // TODO that could be made faster...
+                proFileNode->setIncludedInExactParse(exactSubdirs.contains(proFileNode->path()) && includedInExactParse());
                 if (async)
-                    static_cast<Qt4ProFileNode *>(*existingIt)->asyncUpdate();
+                    proFileNode->asyncUpdate();
                 else
-                    static_cast<Qt4ProFileNode *>(*existingIt)->update();
+                    proFileNode->update();
             }
             ++existingIt;
             // newCumalativeIt and newExactIt are already incremented
@@ -1773,11 +1806,13 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
             } else if (fileExact || fileCumlative) {
                 Qt4PriFileNode *qt4PriFileNode = new Qt4PriFileNode(m_project, this, nodeToAdd);
                 qt4PriFileNode->setParentFolderNode(this); // Needed for loop detection
+                qt4PriFileNode->setIncludedInExactParse(fileExact != 0 && includedInExactParse());
                 qt4PriFileNode->update(fileExact, m_readerExact, fileCumlative, m_readerCumulative);
                 toAdd << qt4PriFileNode;
             } else {
                 Qt4ProFileNode *qt4ProFileNode = new Qt4ProFileNode(m_project, nodeToAdd);
                 qt4ProFileNode->setParentFolderNode(this); // Needed for loop detection
+                qt4ProFileNode->setIncludedInExactParse(exactSubdirs.contains(qt4ProFileNode->path()) && includedInExactParse());
                 if (async)
                     qt4ProFileNode->asyncUpdate();
                 else
@@ -1854,14 +1889,10 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
         }
     } // evalResult == EvalOk
 
-    m_parseInProgress = false;
+    setParseInProgress(false);
 
     createUiCodeModelSupport();
     updateUiFiles();
-
-    foreach (ProjectExplorer::NodesWatcher *watcher, watchers())
-        if (Internal::Qt4NodesWatcher *qt4Watcher = qobject_cast<Internal::Qt4NodesWatcher*>(watcher))
-            emit qt4Watcher->proFileUpdated(this, true, false);
 
     m_project->destroyProFileReader(m_readerExact);
     m_project->destroyProFileReader(m_readerCumulative);
@@ -1883,7 +1914,7 @@ QStringList Qt4ProFileNode::updateUiFiles()
         return QStringList();
 
     // Find all ui files
-    Internal::FindUiFileNodesVisitor uiFilesVisitor;
+    FindUiFileNodesVisitor uiFilesVisitor;
     this->accept(&uiFilesVisitor);
     const QList<ProjectExplorer::FileNode*> uiFiles = uiFilesVisitor.uiFileNodes;
 
@@ -2327,7 +2358,7 @@ void Qt4ProFileNode::createUiCodeModelSupport()
     // Only those two project types can have ui files for us
     if (m_projectType == ApplicationTemplate || m_projectType == LibraryTemplate) {
         // Find all ui files
-        Internal::FindUiFileNodesVisitor uiFilesVisitor;
+        FindUiFileNodesVisitor uiFilesVisitor;
         this->accept(&uiFilesVisitor);
         const QList<ProjectExplorer::FileNode*> uiFiles = uiFilesVisitor.uiFileNodes;
 
@@ -2359,5 +2390,3 @@ void Qt4ProFileNode::createUiCodeModelSupport()
         delete it.value();
     }
 }
-
-} // namespace Qt4ProjectManager

@@ -40,6 +40,7 @@
 #include "testcontextmenu.h"
 #include "testsuite.h"
 #include "testoutputwindow.h"
+#include "testconfigurations.h"
 
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
@@ -47,8 +48,7 @@
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/modemanager.h>
-#include <coreplugin/uniqueidmanager.h>
-#include <coreplugin/coreconstants.h>
+#include <coreplugin/id.h>
 #include <coreplugin/mimedatabase.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 
@@ -61,6 +61,7 @@
 #include <utils/linecolumnlabel.h>
 #include <projectexplorer/session.h>
 #include <projectexplorer/project.h>
+#include <projectexplorer/projectexplorer.h>
 #include <debugger/debuggerplugin.h>
 #include <debugger/debuggerrunner.h>
 #include <debugger/debuggerengine.h>
@@ -70,12 +71,9 @@
 # include <debugger/qtuitest/qtuitestengine.h>
 #endif
 
-#include <QtCore/QDebug>
 #include <QtCore/QtPlugin>
-#include <QtGui/QAction>
 #include <QtGui/QMenu>
 #include <QtGui/QMessageBox>
-#include <QtGui/QPushButton>
 #include <QMenuBar>
 #include <QDebug>
 #include <QToolButton>
@@ -306,11 +304,9 @@ void QtTestPlugin::insertTestFunction()
     if (currentTest) {
         QString prompt = QLatin1String("<b>") + currentTest->testTypeString()
             +  QLatin1String(" Test: </b>") + currentTest->testCase();
-        NewTestFunctionDlg dlg(prompt);
-        dlg.exec();
-
-        if (dlg.result() == QDialog::Accepted) {
-            QString testFunc = dlg.testFunctionName->text();
+        QPointer<NewTestFunctionDlg> dlg = new NewTestFunctionDlg(prompt);
+        if (dlg->exec() == QDialog::Accepted) {
+            QString testFunc = dlg->testFunctionName->text();
             // check for duplicate
             if (TestFunctionInfo *functionInfo = currentTest->findFunction(testFunc)) {
                 QMessageBox::critical(0, tr("Error"),
@@ -318,8 +314,9 @@ void QtTestPlugin::insertTestFunction()
                 currentTest->gotoLine(functionInfo->testStartLine());
                 return;
             }
-            currentTest->addTestFunction(testFunc, QString(), dlg.insertAtCursor->isChecked());
+            currentTest->addTestFunction(testFunc, QString(), dlg->insertAtCursor->isChecked());
         }
+        delete dlg;
     }
 }
 

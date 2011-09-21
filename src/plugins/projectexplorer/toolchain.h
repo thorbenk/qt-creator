@@ -119,7 +119,7 @@ protected:
 private:
     void setAutoDetected(bool);
 
-    Internal::ToolChainPrivate *const m_d;
+    Internal::ToolChainPrivate *const d;
 
     friend class ToolChainManager;
     friend class ToolChainFactory;

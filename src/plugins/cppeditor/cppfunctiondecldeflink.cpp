@@ -33,6 +33,7 @@
 #include "cppfunctiondecldeflink.h"
 
 #include "cppeditor.h"
+#include "cppquickfixassistant.h"
 
 #include <cplusplus/CppRewriter.h>
 #include <cplusplus/ASTPath.h>
@@ -47,6 +48,10 @@
 #include <texteditor/tooltip/tooltip.h>
 #include <texteditor/tooltip/tipcontents.h>
 #include <utils/qtcassert.h>
+#include <utils/proxyaction.h>
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/icore.h>
+#include <texteditor/texteditorconstants.h>
 
 #include <QtCore/QtConcurrentRun>
 
@@ -299,8 +304,10 @@ void FunctionDeclDefLink::apply(CPPEditorWidget *editor, bool jumpToMatch)
     if (targetInitial == newTargetFile->textOf(targetStart, targetEnd)) {
         const Utils::ChangeSet changeset = changes(snapshot, targetStart);
         newTargetFile->setChangeSet(changeset);
-        if (jumpToMatch)
-            newTargetFile->setOpenEditor(true, targetStart);
+        if (jumpToMatch) {
+            const int jumpTarget = newTargetFile->position(targetFunction->line(), targetFunction->column());
+            newTargetFile->setOpenEditor(true, jumpTarget);
+        }
         newTargetFile->apply();
     } else {
         TextEditor::ToolTip::instance()->show(
@@ -354,6 +361,12 @@ void FunctionDeclDefLink::showMarker(CPPEditorWidget *editor)
         message = tr("Apply changes to definition");
     else
         message = tr("Apply changes to declaration");
+
+    Core::ActionManager *actionManager = Core::ICore::instance()->actionManager();
+    Core::Command *quickfixCommand = actionManager->command(TextEditor::Constants::QUICKFIX_THIS);
+    if (quickfixCommand)
+        message = Utils::ProxyAction::stringWithAppendedShortcut(message, quickfixCommand->keySequence());
+
     marker.tooltip = message;
     marker.data = QVariant::fromValue(Marker());
     markers += marker;
@@ -427,6 +440,45 @@ static bool hasCommentedName(
     return commentArgNameRegexp()->indexIn(text) != -1;
 }
 
+static bool canReplaceSpecifier(TranslationUnit *translationUnit, SpecifierAST *specifier)
+{
+    if (SimpleSpecifierAST *simple = specifier->asSimpleSpecifier()) {
+        switch (translationUnit->tokenAt(simple->specifier_token).kind()) {
+        case T_CONST:
+        case T_VOLATILE:
+        case T_CHAR:
+        case T_WCHAR_T:
+        case T_BOOL:
+        case T_SHORT:
+        case T_INT:
+        case T_LONG:
+        case T_SIGNED:
+        case T_UNSIGNED:
+        case T_FLOAT:
+        case T_DOUBLE:
+        case T_VOID:
+        case T_AUTO:
+        case T___TYPEOF__:
+        case T___ATTRIBUTE__:
+            return true;
+        default:
+            return false;
+        }
+    }
+    if (specifier->asAttributeSpecifier())
+        return false;
+    return true;
+}
+
+static SpecifierAST *findFirstReplaceableSpecifier(TranslationUnit *translationUnit, SpecifierListAST *list)
+{
+    for (SpecifierListAST *it = list; it; it = it->next) {
+        if (canReplaceSpecifier(translationUnit, it->value))
+            return it->value;
+    }
+    return 0;
+}
+
 Utils::ChangeSet FunctionDeclDefLink::changes(const Snapshot &snapshot, int targetOffset)
 {
     Utils::ChangeSet changes;
@@ -434,10 +486,17 @@ Utils::ChangeSet FunctionDeclDefLink::changes(const Snapshot &snapshot, int targ
     // parse the current source declaration
     TypeOfExpression typeOfExpression; // ### just need to preprocess...
     typeOfExpression.init(sourceDocument, snapshot);
-    const QString newDecl = typeOfExpression.preprocess(
-                linkSelection.selectedText()) + QLatin1String("{}");
+
+    QString newDeclText = linkSelection.selectedText();
+    for (int i = 0; i < newDeclText.size(); ++i) {
+        if (newDeclText.at(i).toAscii() == 0)
+            newDeclText[i] = QLatin1Char('\n');
+    }
+    newDeclText.append(QLatin1String("{}"));
+    const QString newDeclTextPreprocessed = typeOfExpression.preprocess(newDeclText);
+
     Document::Ptr newDeclDoc = Document::create(QLatin1String("<decl>"));
-    newDeclDoc->setSource(newDecl.toUtf8());
+    newDeclDoc->setSource(newDeclTextPreprocessed.toUtf8());
     newDeclDoc->parse(Document::ParseDeclaration);
     newDeclDoc->check();
 
@@ -451,7 +510,7 @@ Utils::ChangeSet FunctionDeclDefLink::changes(const Snapshot &snapshot, int targ
     if (!newFunction)
         return changes;
 
-    const LookupContext &sourceContext = typeOfExpression.context();
+    LookupContext sourceContext(sourceDocument, snapshot);
     LookupContext targetContext(targetFile->cppDocument(), snapshot);
 
     Overview overview;
@@ -474,21 +533,24 @@ Utils::ChangeSet FunctionDeclDefLink::changes(const Snapshot &snapshot, int targ
         Control *control = sourceContext.control().data();
 
         // get return type start position and declarator info from declaration
-        int returnTypeStart = 0;
         DeclaratorAST *declarator = 0;
+        SpecifierAST *firstReplaceableSpecifier = 0;
+        TranslationUnit *targetTranslationUnit = targetFile->cppDocument()->translationUnit();
         if (SimpleDeclarationAST *simple = targetDeclaration->asSimpleDeclaration()) {
             declarator = simple->declarator_list->value;
-            if (simple->decl_specifier_list)
-                returnTypeStart = targetFile->startOf(simple->decl_specifier_list->value);
-            else
-                returnTypeStart = targetFile->startOf(declarator);
+            firstReplaceableSpecifier = findFirstReplaceableSpecifier(
+                        targetTranslationUnit, simple->decl_specifier_list);
         } else if (FunctionDefinitionAST *def = targetDeclaration->asFunctionDefinition()) {
             declarator = def->declarator;
-            if (def->decl_specifier_list)
-                returnTypeStart = targetFile->startOf(def->decl_specifier_list->value);
-            else
-                returnTypeStart = targetFile->startOf(declarator);
+            firstReplaceableSpecifier = findFirstReplaceableSpecifier(
+                        targetTranslationUnit, def->decl_specifier_list);
         }
+
+        int returnTypeStart = 0;
+        if (firstReplaceableSpecifier)
+            returnTypeStart = targetFile->startOf(firstReplaceableSpecifier);
+        else
+            returnTypeStart = targetFile->startOf(declarator);
 
         if (!newFunction->returnType().isEqualTo(sourceFunction->returnType())
                 && !newFunction->returnType().isEqualTo(targetFunction->returnType())) {
@@ -670,4 +732,49 @@ Utils::ChangeSet FunctionDeclDefLink::changes(const Snapshot &snapshot, int targ
     }
 
     return changes;
+}
+
+class ApplyDeclDefLinkOperation : public CppQuickFixOperation
+{
+public:
+    explicit ApplyDeclDefLinkOperation(
+            const QSharedPointer<const Internal::CppQuickFixAssistInterface> &interface,
+            const QSharedPointer<FunctionDeclDefLink> &link,
+            int priority = -1)
+        : CppQuickFixOperation(interface, priority)
+        , m_link(link)
+    {}
+
+    virtual void perform()
+    {
+        CPPEditorWidget *editor = assistInterface()->editor();
+        QSharedPointer<FunctionDeclDefLink> link = editor->declDefLink();
+        if (link != m_link)
+            return;
+
+        return editor->applyDeclDefLinkChanges(/*don't jump*/false);
+    }
+
+protected:
+    virtual void performChanges(const CppTools::CppRefactoringFilePtr &, const CppTools::CppRefactoringChanges &)
+    { /* never called since perform is overridden */ }
+
+private:
+    QSharedPointer<FunctionDeclDefLink> m_link;
+};
+
+QList<CppQuickFixOperation::Ptr> ApplyDeclDefLinkChanges::match(const QSharedPointer<const CppQuickFixAssistInterface> &interface)
+{
+    QList<CppQuickFixOperation::Ptr> results;
+
+    QSharedPointer<FunctionDeclDefLink> link = interface->editor()->declDefLink();
+    if (!link || !link->isMarkerVisible())
+        return results;
+
+    QSharedPointer<ApplyDeclDefLinkOperation> op(new ApplyDeclDefLinkOperation(interface, link));
+    op->setDescription(FunctionDeclDefLink::tr("Apply function signature changes"));
+    op->setPriority(0);
+    results += op;
+
+    return results;
 }

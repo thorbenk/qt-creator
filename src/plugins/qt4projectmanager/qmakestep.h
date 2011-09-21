@@ -114,9 +114,6 @@ signals:
     void userArgumentsChanged();
     void linkQmlDebuggingLibraryChanged();
 
-private slots:
-    void recompileMessageBoxFinished(int button);
-
 protected:
     QMakeStep(ProjectExplorer::BuildStepList *parent, QMakeStep *source);
     QMakeStep(ProjectExplorer::BuildStepList *parent, const QString &id);
@@ -146,6 +143,7 @@ public:
     QMakeStepConfigWidget(QMakeStep *step);
     ~QMakeStepConfigWidget();
     QString summaryText() const;
+    QString additionalSummaryText() const;
     QString displayName() const;
 private slots:
     // slots for handling buildconfiguration/step signals
@@ -163,13 +161,21 @@ private slots:
     // other
     void buildQmlDebuggingHelper();
 
+private slots:
+    void recompileMessageBoxFinished(int button);
+
 private:
     void updateSummaryLabel();
     void updateQmlDebuggingOption();
     void updateEffectiveQMakeCall();
+
+    void setSummaryText(const QString &);
+    void setAdditionalSummaryText(const QString &);
+
     Ui::QMakeStep *m_ui;
     QMakeStep *m_step;
     QString m_summaryText;
+    QString m_additionalSummaryText;
     bool m_ignoreChange;
 };
 

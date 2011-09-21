@@ -48,6 +48,21 @@ class QmlV8DebuggerClient : public QmlDebuggerClient
 {
     Q_OBJECT
 
+    enum Exceptions
+    {
+        NoExceptions,
+        UncaughtExceptions,
+        AllExceptions
+    };
+
+    enum StepAction
+    {
+        Continue,
+        In,
+        Out,
+        Next
+    };
+
 public:
     explicit QmlV8DebuggerClient(QmlJsDebugClient::QDeclarativeDebugConnection *client);
     ~QmlV8DebuggerClient();
@@ -65,13 +80,14 @@ public:
 
     void activateFrame(int index);
 
-    void insertBreakpoint(BreakpointModelId id);
-    void removeBreakpoint(BreakpointModelId id);
-    void changeBreakpoint(BreakpointModelId id);
+    bool acceptsBreakpoint(const BreakpointModelId &id);
+    void insertBreakpoint(const BreakpointModelId &id);
+    void removeBreakpoint(const BreakpointModelId &id);
+    void changeBreakpoint(const BreakpointModelId &id);
     void updateBreakpoints();
 
     void assignValueInDebugger(const QByteArray expr, const quint64 &id,
-                                       const QString &property, const QString value);
+                                       const QString &property, const QString &value);
 
     void updateWatchData(const WatchData *data);
     void executeDebuggerCommand(const QString &command);
@@ -91,14 +107,21 @@ protected:
 private:
     void listBreakpoints();
     void backtrace();
-    void setStackFrames(QByteArray &);
+    void setStackFrames(const QByteArray &message);
     void setLocals(int frameIndex);
-    void setExpression(QByteArray &message);
-    void updateBreakpoints(QByteArray &message);
-    void expandLocal(QByteArray &message);
-    void setPropertyValue(Json::JsonValue &refs, Json::JsonValue &property, QByteArray &prepend);
+    void setExpression(const QByteArray &message);
+    void updateBreakpoints(const QByteArray &message);
+    void expandLocal(const QByteArray &message);
+    void setPropertyValue(const Json::JsonValue &refs, const Json::JsonValue &property, const QByteArray &prepend);
     int indexInRef(const Json::JsonValue &refs, int refIndex);
-    QByteArray packMessage(QByteArray& message);
+    QByteArray packMessage(const QByteArray &message);
+
+    void breakOnException(Exceptions exceptionsType, bool enabled);
+    void storeExceptionInformation(const QByteArray &message);
+    void handleException();
+    void clearExceptionSelection();
+
+    void continueDebugging(StepAction type);
 
 private:
     QmlV8DebuggerClientPrivate *d;

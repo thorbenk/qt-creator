@@ -99,12 +99,12 @@ public:
         const ASTPropertyReference *ref = dynamic_cast<const ASTPropertyReference*>(value);
         if (ref) {
             QString type = "unknown";
-            if (ref->ast()->memberType)
-                type = ref->ast()->memberType->asString();
+            if (!ref->ast()->memberType.isEmpty())
+                type = ref->ast()->memberType.toString();
             m_properties.append(qMakePair(name, type));
         } else {
             if (const QmlObjectValue * ov = dynamic_cast<const QmlObjectValue *>(value)) {
-                QString qualifiedTypeName = ov->packageName().isEmpty() ? ov->className() : ov->packageName() + '.' + ov->className();
+                QString qualifiedTypeName = ov->moduleName().isEmpty() ? ov->className() : ov->moduleName() + '.' + ov->className();
                 m_properties.append(qMakePair(name, qualifiedTypeName));
             } else {
                 TypeId typeId;
@@ -157,11 +157,11 @@ QStringList prototypes(const ObjectValue *ov, const ContextPtr &context, bool ve
         const QmlObjectValue * qmlValue = dynamic_cast<const QmlObjectValue *>(ov);
         if (qmlValue) {
             if (versions) {
-                list << qmlValue->packageName() + '.' + qmlValue->className() +
-                ' ' + QString::number(qmlValue->version().majorVersion()) +
-                '.' + QString::number(qmlValue->version().minorVersion());
+                list << qmlValue->moduleName() + '.' + qmlValue->className() +
+                ' ' + QString::number(qmlValue->componentVersion().majorVersion()) +
+                '.' + QString::number(qmlValue->componentVersion().minorVersion());
             } else {
-                list << qmlValue->packageName() + QLatin1Char('.') + qmlValue->className();
+                list << qmlValue->moduleName() + QLatin1Char('.') + qmlValue->className();
             }
         } else {
             if (versions) {
@@ -436,9 +436,9 @@ NodeMetaInfoPrivate::NodeMetaInfoPrivate(Model *model, QString type, int maj, in
             if (objectValue) {
                 const QmlObjectValue *qmlValue = dynamic_cast<const QmlObjectValue *>(objectValue);
                 if (qmlValue) {
-                    m_majorVersion = qmlValue->version().majorVersion();
-                    m_minorVersion = qmlValue->version().minorVersion();
-                    m_qualfiedTypeName = qmlValue->packageName() + '.' + qmlValue->className();
+                    m_majorVersion = qmlValue->componentVersion().majorVersion();
+                    m_minorVersion = qmlValue->componentVersion().minorVersion();
+                    m_qualfiedTypeName = qmlValue->moduleName() + '.' + qmlValue->className();
                 } else {
                     m_isComponent = true;
                 }
@@ -452,73 +452,35 @@ NodeMetaInfoPrivate::NodeMetaInfoPrivate(Model *model, QString type, int maj, in
     }
 }
 
-static inline QString getUrlFromType(const QString& typeName)
-{
-    QStringList nameComponents = typeName.split('.');
-    QString result;
-
-    for (int i = 0; i < (nameComponents.count() - 1); i++) {
-        result += nameComponents.at(i);
-    }
-
-    return result;
-}
-
 const QmlJS::QmlObjectValue *NodeMetaInfoPrivate::getQmlObjectValue() const
 {
-    QmlJS::QmlObjectValue * value = context()->valueOwner()->cppQmlTypes().typeByQualifiedName(lookupName());
+    const QStringList nameComponents = m_qualfiedTypeName.split('.');
+    if (nameComponents.size() < 2)
+        return 0;
+    const QString type = nameComponents.last();
+
+    // maybe 'type' is a cpp name
+    const QmlJS::QmlObjectValue *value = context()->valueOwner()->cppQmlTypes().objectByCppName(type);
     if (value)
         return value;
 
-    //If no version was specified (-1,-1) the approach above does not work.
-    //But we can look up the value "manually"
-    //This is usefull to make something like QtQuick.Item -1 -1 work in all cases
-    //and fix ambiguities with Qt 4.7.
-
-    if (m_majorVersion != -1 ||   m_minorVersion != -1)
-        return 0;   
-
-    const QString old_qualfiedTypeName =  m_qualfiedTypeName;
-
-    //This makes only sense if a package was specified.
-    if (m_qualfiedTypeName.split(".").count() < 2)
-        return 0;
-
-    const QString package = getUrlFromType(m_qualfiedTypeName);
-    const QString type = m_qualfiedTypeName.split('.').last();
-
-
-    LanguageUtils::ComponentVersion version(9999, 9999);
-    //get the correct version
-    ImportInfo importInfo = context()->imports(document())->info(fullQualifiedImportAliasType(), context().data());
-
-    if (importInfo.isValid())
-        version = importInfo.version();
-
-    QList<QmlObjectValue *> qmlObjectValues = context()->valueOwner()->cppQmlTypes().typesForImport(package, version);
-    const QmlObjectValue *qmlValue = 0;
-    foreach (QmlObjectValue *value, qmlObjectValues) {
-        if (value->className() == type)
-            qmlValue = value;
+    QString module;
+    for (int i = 0; i < nameComponents.size() - 1; ++i) {
+        if (i != 0)
+            module += QLatin1Char('/');
+        module += nameComponents.at(i);
     }
 
-    if (!qmlValue)
-        return 0;
+    // otherwise get the qml object value that's available in the document
+    foreach (const QmlJS::Import &import, context()->imports(document())->all()) {
+        if (import.info.name() != module)
+            continue;
+        const Value *lookupResult = import.object->lookupMember(type, context());
+        if ((value = dynamic_cast<const QmlObjectValue *>(lookupResult)))
+            return value;
+    }
 
-    //Now we have to check the different packages.
-    const LanguageUtils::FakeMetaObject::Export exp =
-            qmlValue->metaObject()->exportInPackage(package);
-    const QString convertedName = exp.type;
-
-    //Not available in the requested package
-    if (convertedName.isNull())
-        return 0;
-
-    //Different name for requested package
-    if (type != convertedName)
-        return 0;
-
-    return qmlValue;
+    return 0;
 }
 
 const QmlJS::ObjectValue *NodeMetaInfoPrivate::getObjectValue() const
@@ -667,18 +629,10 @@ bool NodeMetaInfoPrivate::isPropertyEnum(const QString &propertyName) const
             return false;
     }
 
-    QList<const ObjectValue *> objects;
-    objects = PrototypeIterator(getNearestQmlObjectValue(), context()).all();
-
-    //We have to run the prototype chain
-    foreach (const ObjectValue *ov, objects) {
-        if (const QmlObjectValue * qmlValue = dynamic_cast<const QmlObjectValue *>(ov)) {
-            if (qmlValue->getEnum(propertyType(propertyName)).isValid())
-                return true;
-        }
-    }
-
-    return false;
+    const QmlObjectValue *qmlObjectValue = getNearestQmlObjectValue();
+    if (!qmlObjectValue)
+        return false;
+    return qmlObjectValue->getEnum(propertyType(propertyName)).isValid();
 }
 
 QString NodeMetaInfoPrivate::propertyEnumScope(const QString &propertyName) const
@@ -703,16 +657,13 @@ QString NodeMetaInfoPrivate::propertyEnumScope(const QString &propertyName) cons
             return QString();
     }
 
-    QList<const ObjectValue *> objects;
-    objects = PrototypeIterator(getNearestQmlObjectValue(), context()).all();
-
-    //We have to run the prototype chain
-    foreach (const ObjectValue *ov, objects) {
-        if (const QmlObjectValue * qmlValue = dynamic_cast<const QmlObjectValue *>(ov)) {
-            if (qmlValue->getEnum(propertyType(propertyName)).isValid())
-                return qmlValue->className();
-        }
-    }
+    const QmlObjectValue *qmlObjectValue = getNearestQmlObjectValue();
+    if (!qmlObjectValue)
+        return QString();
+    const QmlObjectValue *definedIn = 0;
+    qmlObjectValue->getEnum(propertyType(propertyName), &definedIn);
+    if (definedIn)
+        return definedIn->className();
 
     return QString();
 }
@@ -735,8 +686,12 @@ bool NodeMetaInfoPrivate::cleverCheckType(const QString &otherType) const
     if (packageName() == package)
         return QString(package + '.' + typeName) == qualfiedTypeName();
 
+    const QmlObjectValue *qmlObjectValue = getQmlObjectValue();
+    if (!qmlObjectValue)
+        return false;
+
     const LanguageUtils::FakeMetaObject::Export exp =
-            getQmlObjectValue()->metaObject()->exportInPackage(package);
+            qmlObjectValue->metaObject()->exportInPackage(package);
     const QString convertedName = exp.type;
 
     return typeName == convertedName;
@@ -784,13 +739,18 @@ QStringList NodeMetaInfoPrivate::keysForEnum(const QString &enumName) const
     if (!isValid())
         return QStringList();
 
-    return getNearestQmlObjectValue()->getEnum(enumName).keys();
+    const QmlObjectValue *qmlObjectValue = getNearestQmlObjectValue();
+    if (!qmlObjectValue)
+        return QStringList();
+    return qmlObjectValue->getEnum(enumName).keys();
 }
 
 QString NodeMetaInfoPrivate::packageName() const
 {
-    if (!isComponent())
-        return getQmlObjectValue()->packageName();
+    if (!isComponent()) {
+        if (const QmlObjectValue *qmlObject = getQmlObjectValue())
+            return qmlObject->moduleName();
+    }
     return QString();
 }
 
@@ -870,10 +830,10 @@ void NodeMetaInfoPrivate::setupPrototypes()
         description.minorVersion = -1;
         description.majorVersion = -1;
         if (const QmlObjectValue * qmlValue = dynamic_cast<const QmlObjectValue *>(ov)) {
-            description.minorVersion = qmlValue->version().minorVersion();
-            description.majorVersion = qmlValue->version().majorVersion();
-            if (!qmlValue->packageName().isEmpty())
-                description.className = qmlValue->packageName() + '.' + description.className;
+            description.minorVersion = qmlValue->componentVersion().minorVersion();
+            description.majorVersion = qmlValue->componentVersion().majorVersion();
+            if (!qmlValue->moduleName().isEmpty())
+                description.className = qmlValue->moduleName() + '.' + description.className;
             m_prototypes.append(description);
         } else {
             if (context()->lookupType(document(), QStringList() << ov->className()))

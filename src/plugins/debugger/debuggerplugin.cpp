@@ -70,7 +70,7 @@
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/command.h>
-#include <coreplugin/uniqueidmanager.h>
+#include <coreplugin/id.h>
 #include <coreplugin/imode.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/dialogs/ioptionspage.h>
@@ -723,6 +723,9 @@ public slots:
     void startExternalApplication();
     void startRemoteCdbSession();
     void startRemoteApplication();
+    bool queryRemoteParameters(DebuggerStartParameters &sp, bool useScript);
+    void attachRemoteApplication();
+    void attachToQmlPort();
     void startRemoteEngine();
     void attachExternalApplication();
     Q_SLOT void attachExternalApplication(ProjectExplorer::RunControl *rc);
@@ -1021,6 +1024,8 @@ public:
     QAction *m_startAction;
     QAction *m_startExternalAction;
     QAction *m_startRemoteAction;
+    QAction *m_attachToQmlPortAction;
+    QAction *m_attachRemoteAction;
     QAction *m_startRemoteCdbAction;
     QAction *m_startRemoteLldbAction;
     QAction *m_attachExternalAction;
@@ -1137,6 +1142,8 @@ DebuggerPluginPrivate::DebuggerPluginPrivate(DebuggerPlugin *plugin) :
     m_startAction = 0;
     m_startExternalAction = 0;
     m_startRemoteAction = 0;
+    m_attachRemoteAction = 0;
+    m_attachToQmlPortAction = 0;
     m_startRemoteCdbAction = 0;
     m_startRemoteLldbAction = 0;
     m_attachExternalAction = 0;
@@ -1208,7 +1215,7 @@ bool DebuggerPluginPrivate::parseArgument(QStringList::const_iterator &it,
             sp.startMessage = tr("Attaching to local process %1.").arg(sp.attachPID);
             sp.toolChainAbi = Abi::hostAbi();
         } else if (port) {
-            sp.startMode = AttachToRemote;
+            sp.startMode = AttachToRemoteServer;
             sp.remoteChannel = remoteChannel;
             sp.executable = it->section('@', 1, 1);
             if (sp.remoteChannel.isEmpty()) {
@@ -1372,7 +1379,9 @@ void DebuggerPluginPrivate::languagesChanged()
     m_attachExternalAction->setVisible(debuggerIsCPP);
     m_attachCoreAction->setVisible(debuggerIsCPP);
     m_startRemoteAction->setVisible(debuggerIsCPP);
+    m_attachRemoteAction->setVisible(debuggerIsCPP);
     m_detachAction->setVisible(debuggerIsCPP);
+    m_attachToQmlPortAction->setVisible(m_mainWindow->activeDebugLanguages() & QmlLanguage);
 }
 
 void DebuggerPluginPrivate::debugProject()
@@ -1512,7 +1521,7 @@ void DebuggerPluginPrivate::attachRemote(const QString &spec)
     sp.executable = spec.section('@', 1, 1);
     sp.remoteArchitecture = spec.section('@', 2, 2);
     sp.displayName = tr("Remote: \"%1\"").arg(sp.remoteChannel);
-    sp.startMode = AttachToRemote;
+    sp.startMode = AttachToRemoteServer;
     sp.toolChainAbi = anyAbiOfBinary(sp.executable);
     if (DebuggerRunControl *rc = createDebugger(sp))
         startDebugger(rc);
@@ -1528,7 +1537,7 @@ void DebuggerPluginPrivate::startRemoteCdbSession()
                                            ProjectExplorer::Abi::WindowsMsvc2010Flavor,
                                            ProjectExplorer::Abi::PEFormat,
                                            hostAbi.wordWidth());
-    sp.startMode = AttachToRemote;
+    sp.startMode = AttachToRemoteServer;
     StartRemoteCdbDialog dlg(mainWindow());
     QString previousConnection = configValue(connectionKey).toString();
     if (previousConnection.isEmpty())
@@ -1542,10 +1551,9 @@ void DebuggerPluginPrivate::startRemoteCdbSession()
         startDebugger(rc);
 }
 
-void DebuggerPluginPrivate::startRemoteApplication()
+bool DebuggerPluginPrivate::queryRemoteParameters(DebuggerStartParameters &sp, bool useScript)
 {
-    DebuggerStartParameters sp;
-    StartRemoteDialog dlg(mainWindow());
+    StartRemoteDialog dlg(mainWindow(), useScript);
     QStringList arches;
     arches.append(_("i386:x86-64:intel"));
     arches.append(_("i386"));
@@ -1577,8 +1585,9 @@ void DebuggerPluginPrivate::startRemoteApplication()
     dlg.setUseServerStartScript(
             configValue(_("LastUseServerStartScript")).toBool());
     dlg.setSysroot(configValue(_("LastSysroot")).toString());
+    dlg.setDebugInfoLocation(configValue(_("LastDebugInfoLocation")).toString());
     if (dlg.exec() != QDialog::Accepted)
-        return;
+        return false;
     setConfigValue(_("LastRemoteChannel"), dlg.remoteChannel());
     setConfigValue(_("LastLocalExecutable"), dlg.localExecutable());
     setConfigValue(_("LastDebugger"), dlg.debugger());
@@ -1588,6 +1597,7 @@ void DebuggerPluginPrivate::startRemoteApplication()
     setConfigValue(_("LastServerStartScript"), dlg.serverStartScript());
     setConfigValue(_("LastUseServerStartScript"), dlg.useServerStartScript());
     setConfigValue(_("LastSysroot"), dlg.sysroot());
+    setConfigValue(_("LastDebugInfoLocation"), dlg.debugInfoLocation());
     sp.remoteChannel = dlg.remoteChannel();
     sp.remoteArchitecture = dlg.remoteArchitecture();
     sp.gnuTarget = dlg.gnuTarget();
@@ -1596,11 +1606,74 @@ void DebuggerPluginPrivate::startRemoteApplication()
     sp.debuggerCommand = dlg.debugger(); // Override toolchain-detection.
     if (!sp.debuggerCommand.isEmpty())
         sp.toolChainAbi = ProjectExplorer::Abi();
-    sp.startMode = AttachToRemote;
     sp.overrideStartScript = dlg.overrideStartScript();
     sp.useServerStartScript = dlg.useServerStartScript();
     sp.serverStartScript = dlg.serverStartScript();
     sp.sysroot = dlg.sysroot();
+    sp.debugInfoLocation = dlg.debugInfoLocation();
+    if (sp.debugInfoLocation.isEmpty())
+        sp.debugInfoLocation = sp.sysroot + "/usr/lib/debug";
+    if (sp.debugSourceLocation.isEmpty()) {
+        QString base = sp.sysroot + "/usr/src/debug/";
+        sp.debugSourceLocation.append(base + "qt5base/src/corelib");
+        sp.debugSourceLocation.append(base + "qt5base/src/gui");
+        sp.debugSourceLocation.append(base + "qt5base/src/network");
+        sp.debugSourceLocation.append(base + "qt5base/src/v8");
+        sp.debugSourceLocation.append(base + "qtdeclarative/src/declarative/qml");
+    }
+    return true;
+}
+
+void DebuggerPluginPrivate::startRemoteApplication()
+{
+    DebuggerStartParameters sp;
+    sp.startMode = StartRemote;
+    if (queryRemoteParameters(sp, true))
+        if (RunControl *rc = createDebugger(sp))
+            startDebugger(rc);
+}
+
+void DebuggerPluginPrivate::attachRemoteApplication()
+{
+    DebuggerStartParameters sp;
+    if (!queryRemoteParameters(sp, false))
+        return;
+    sp.startMode = AttachToRemoteServer;
+    sp.useServerStartScript = false;
+    sp.serverStartScript.clear();
+    if (RunControl *rc = createDebugger(sp))
+        startDebugger(rc);
+}
+
+void DebuggerPluginPrivate::attachToQmlPort()
+{
+    DebuggerStartParameters sp;
+    AttachToQmlPortDialog dlg(mainWindow());
+
+    const QVariant qmlServerAddress = configValue(_("LastQmlServerAddress"));
+    if (qmlServerAddress.isValid()) {
+        dlg.setHost(qmlServerAddress.toString());
+    } else {
+        dlg.setHost(sp.qmlServerAddress);
+    }
+
+    const QVariant qmlServerPort = configValue(_("LastQmlServerPort"));
+    if (qmlServerPort.isValid()) {
+        dlg.setPort(qmlServerPort.toInt());
+    } else {
+        dlg.setPort(sp.qmlServerPort);
+    }
+
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    setConfigValue(_("LastQmlServerAddress"), dlg.host());
+    setConfigValue(_("LastQmlServerPort"), dlg.port());
+
+    sp.qmlServerAddress = dlg.host();
+    sp.qmlServerPort = dlg.port();
+
+    sp.startMode = AttachToQmlPort;
     if (RunControl *rc = createDebugger(sp))
         startDebugger(rc);
 }
@@ -1971,8 +2044,10 @@ void DebuggerPluginPrivate::setInitialState()
 
     m_startExternalAction->setEnabled(true);
     m_attachExternalAction->setEnabled(true);
+    m_attachToQmlPortAction->setEnabled(true);
     m_attachCoreAction->setEnabled(true);
     m_startRemoteAction->setEnabled(true);
+    m_attachRemoteAction->setEnabled(true);
     m_detachAction->setEnabled(false);
 
     m_watchAction1->setEnabled(true);
@@ -2086,9 +2161,11 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
     }
 
     m_startExternalAction->setEnabled(true);
+    m_attachToQmlPortAction->setEnabled(true);
     m_attachExternalAction->setEnabled(true);
     m_attachCoreAction->setEnabled(true);
     m_startRemoteAction->setEnabled(true);
+    m_attachRemoteAction->setEnabled(true);
 
     const bool isCore = engine->startParameters().startMode == AttachCore;
     const bool stopped = state == InferiorStopOk;
@@ -2830,8 +2907,16 @@ void DebuggerPluginPrivate::extensionsInitialized()
     connect(act, SIGNAL(triggered()), SLOT(attachCore()));
 
     act = m_startRemoteAction = new QAction(this);
-    act->setText(tr("Start and Attach to Remote Application..."));
+    act->setText(tr("Start and Debug Remote Application..."));
     connect(act, SIGNAL(triggered()), SLOT(startRemoteApplication()));
+
+    act = m_attachRemoteAction = new QAction(this);
+    act->setText(tr("Attach to Remote Debug Server..."));
+    connect(act, SIGNAL(triggered()), SLOT(attachRemoteApplication()));
+
+    act = m_attachToQmlPortAction = new QAction(this);
+    act->setText(tr("Attach to QML Port..."));
+    connect(act, SIGNAL(triggered()), SLOT(attachToQmlPort()));
 
 #ifdef Q_OS_WIN
     m_startRemoteCdbAction = new QAction(tr("Attach to Remote CDB Session..."), this);
@@ -2878,7 +2963,17 @@ void DebuggerPluginPrivate::extensionsInitialized()
     mstart->addAction(cmd, CC::G_DEFAULT_ONE);
 
     cmd = am->registerAction(m_startRemoteAction,
+        "Debugger.StartRemote", globalcontext);
+    cmd->setAttribute(Command::CA_Hide);
+    mstart->addAction(cmd, CC::G_DEFAULT_ONE);
+
+    cmd = am->registerAction(m_attachRemoteAction,
         "Debugger.AttachRemote", globalcontext);
+    cmd->setAttribute(Command::CA_Hide);
+    mstart->addAction(cmd, CC::G_DEFAULT_ONE);
+
+    cmd = am->registerAction(m_attachToQmlPortAction,
+        "Debugger.AttachToQmlPort", globalcontext);
     cmd->setAttribute(Command::CA_Hide);
     mstart->addAction(cmd, CC::G_DEFAULT_ONE);
 

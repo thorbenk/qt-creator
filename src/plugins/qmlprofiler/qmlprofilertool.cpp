@@ -45,6 +45,7 @@
 
 #include <analyzerbase/analyzermanager.h>
 #include <analyzerbase/analyzerconstants.h>
+#include <analyzerbase/analyzerruncontrol.h>
 
 #include "canvas/qdeclarativecanvas_p.h"
 #include "canvas/qdeclarativecontext2d_p.h"
@@ -64,6 +65,7 @@
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/messagemanager.h>
+#include <coreplugin/helpmanager.h>
 
 #include <qt4projectmanager/qt4buildconfiguration.h>
 #include <qt4projectmanager/qt-s60/s60deployconfiguration.h>
@@ -83,6 +85,7 @@
 using namespace Analyzer;
 using namespace QmlProfiler::Internal;
 using namespace QmlJsDebugClient;
+using namespace ProjectExplorer;
 
 class QmlProfilerTool::QmlProfilerToolPrivate
 {
@@ -99,9 +102,9 @@ public:
     QmlProfilerEventsView *m_eventsView;
     QmlProfilerEventsView *m_calleeView;
     QmlProfilerEventsView *m_callerView;
-    ProjectExplorer::Project *m_project;
+    Project *m_project;
     Utils::FileInProjectFinder m_projectFinder;
-    ProjectExplorer::RunConfiguration *m_runConfiguration;
+    RunConfiguration *m_runConfiguration;
     bool m_isAttached;
     QToolButton *m_recordButton;
     QToolButton *m_clearButton;
@@ -196,35 +199,38 @@ void QmlProfilerTool::showContextMenu(const QPoint &position)
 }
 
 IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp,
-    ProjectExplorer::RunConfiguration *runConfiguration)
+    RunConfiguration *runConfiguration)
 {
-    QmlProfilerEngine *engine = new QmlProfilerEngine(this, runConfiguration);
-
-    // Check minimum Qt Version. We cannot really be sure what the Qt version
-    // at runtime is, but guess that the active build configuraiton has been used.
-    QtSupport::QtVersionNumber minimumVersion(4, 7, 4);
-    if (Qt4ProjectManager::Qt4BuildConfiguration *qt4Config
-            = qobject_cast<Qt4ProjectManager::Qt4BuildConfiguration*>(
-                runConfiguration->target()->activeBuildConfiguration())) {
-        if (qt4Config->qtVersion()->isValid() && qt4Config->qtVersion()->qtVersion() < minimumVersion) {
-            int result = QMessageBox::warning(QApplication::activeWindow(), tr("QML Profiler"),
-                 tr("The QML profiler requires Qt 4.7.4 or newer.\n"
-                 "The Qt version configured in your active build configuration is too old.\n"
-                 "Do you want to continue?"), QMessageBox::Yes, QMessageBox::No);
-            if (result == QMessageBox::No)
-                return 0;
-        }
-    }
+    QmlProfilerEngine *engine = new QmlProfilerEngine(this, sp, runConfiguration);
 
     d->m_connectMode = QmlProfilerToolPrivate::TcpConnection;
 
-    if (Qt4ProjectManager::S60DeployConfiguration *deployConfig
-            = qobject_cast<Qt4ProjectManager::S60DeployConfiguration*>(
-                runConfiguration->target()->activeDeployConfiguration())) {
-        if (deployConfig->communicationChannel()
-                == Qt4ProjectManager::S60DeployConfiguration::CommunicationCodaSerialConnection) {
-            d->m_connectMode = QmlProfilerToolPrivate::OstConnection;
-            d->m_ostDevice = deployConfig->serialPortName();
+    if (runConfiguration) {
+        // Check minimum Qt Version. We cannot really be sure what the Qt version
+        // at runtime is, but guess that the active build configuraiton has been used.
+        QtSupport::QtVersionNumber minimumVersion(4, 7, 4);
+        if (Qt4ProjectManager::Qt4BuildConfiguration *qt4Config
+                = qobject_cast<Qt4ProjectManager::Qt4BuildConfiguration*>(
+                    runConfiguration->target()->activeBuildConfiguration())) {
+            if (qt4Config->qtVersion()->isValid() && qt4Config->qtVersion()->qtVersion() < minimumVersion) {
+                int result = QMessageBox::warning(QApplication::activeWindow(), tr("QML Profiler"),
+                     tr("The QML profiler requires Qt 4.7.4 or newer.\n"
+                     "The Qt version configured in your active build configuration is too old.\n"
+                     "Do you want to continue?"), QMessageBox::Yes, QMessageBox::No);
+                if (result == QMessageBox::No)
+                    return 0;
+            }
+        }
+
+        // Check whether we should use OST instead of TCP
+        if (Qt4ProjectManager::S60DeployConfiguration *deployConfig
+                = qobject_cast<Qt4ProjectManager::S60DeployConfiguration*>(
+                    runConfiguration->target()->activeDeployConfiguration())) {
+            if (deployConfig->communicationChannel()
+                    == Qt4ProjectManager::S60DeployConfiguration::CommunicationCodaSerialConnection) {
+                d->m_connectMode = QmlProfilerToolPrivate::OstConnection;
+                d->m_ostDevice = deployConfig->serialPortName();
+            }
         }
     }
 
@@ -235,7 +241,12 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
     }
 
     d->m_runConfiguration = runConfiguration;
-    d->m_project = runConfiguration->target()->project();
+
+    if (runConfiguration)
+        d->m_project = runConfiguration->target()->project();
+    else
+        d->m_project = ProjectExplorerPlugin::instance()->currentProject();
+
     if (d->m_project) {
         d->m_projectFinder.setProjectDirectory(d->m_project->projectDirectory());
         updateProjectFileList();
@@ -464,7 +475,7 @@ void QmlProfilerTool::updateTimer(qreal elapsedSeconds)
 void QmlProfilerTool::updateProjectFileList()
 {
     d->m_projectFinder.setProjectFiles(
-                d->m_project->files(ProjectExplorer::Project::ExcludeGeneratedFiles));
+                d->m_project->files(Project::ExcludeGeneratedFiles));
 }
 
 void QmlProfilerTool::clearDisplay()
@@ -475,25 +486,23 @@ void QmlProfilerTool::clearDisplay()
     d->m_callerView->clear();
 }
 
-void QmlProfilerTool::attach()
+static void startRemoteTool(IAnalyzerTool *tool, StartMode mode)
 {
-    if (!d->m_isAttached) {
-        QmlProfilerAttachDialog dialog;
-        int result = dialog.exec();
+    Q_UNUSED(tool);
+    QmlProfilerAttachDialog dialog;
+    if (dialog.exec() != QDialog::Accepted)
+        return;
 
-        if (result == QDialog::Rejected)
-            return;
+    AnalyzerStartParameters sp;
+    sp.toolId = tool->id();
+    sp.startMode = mode;
+    sp.connParams.host = dialog.address();
+    sp.connParams.port = dialog.port();
 
-        d->m_tcpPort = dialog.port();
-        d->m_tcpHost = dialog.address();
+    AnalyzerRunControl *rc = new AnalyzerRunControl(tool, sp, 0);
+    QObject::connect(AnalyzerManager::stopAction(), SIGNAL(triggered()), rc, SLOT(stopIt()));
 
-        connectClient(d->m_tcpPort);
-        AnalyzerManager::showMode();
-    } else {
-        stopRecording();
-    }
-
-    d->m_isAttached = !d->m_isAttached;
+    ProjectExplorerPlugin::instance()->startRunControl(rc, tool->id());
 }
 
 void QmlProfilerTool::tryToConnect()
@@ -507,12 +516,20 @@ void QmlProfilerTool::tryToConnect()
         d->m_connectionTimer.stop();
         d->m_connectionAttempts = 0;
 
-        if (d->m_client) {
-            logError("QML Profiler: Failed to connect! " + d->m_client->errorString());
-        } else {
-            logError("QML Profiler: Failed to connect!");
-        }
-        emit connectionFailed();
+        Core::ICore * const core = Core::ICore::instance();
+        QMessageBox *infoBox = new QMessageBox(core->mainWindow());
+        infoBox->setIcon(QMessageBox::Critical);
+        infoBox->setWindowTitle(tr("Qt Creator"));
+        infoBox->setText(tr("Could not connect to the in-process QML profiler.\n"
+                            "Do you want to retry?"));
+        infoBox->setStandardButtons(QMessageBox::Retry | QMessageBox::Cancel | QMessageBox::Help);
+        infoBox->setDefaultButton(QMessageBox::Retry);
+        infoBox->setModal(true);
+
+        connect(infoBox, SIGNAL(finished(int)),
+                this, SLOT(retryMessageBoxFinished(int)));
+
+        infoBox->show();
     } else {
         connectToClient();
     }
@@ -567,17 +584,19 @@ void QmlProfilerTool::updateRecordingState()
 
 void QmlProfilerTool::startTool(StartMode mode)
 {
-    Q_UNUSED(mode);
-
     using namespace ProjectExplorer;
 
     // Make sure mode is shown.
     AnalyzerManager::showMode();
 
-    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
-    // ### not sure if we're supposed to check if the RunConFiguration isEnabled
-    Project *pro = pe->startupProject();
-    pe->runProject(pro, id());
+    if (mode == StartLocal) {
+        ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
+        // ### not sure if we're supposed to check if the RunConFiguration isEnabled
+        Project *pro = pe->startupProject();
+        pe->runProject(pro, id());
+    } else if (mode == StartRemote) {
+        startRemoteTool(this, mode);
+    }
 }
 
 void QmlProfilerTool::logStatus(const QString &msg)
@@ -627,4 +646,30 @@ void QmlProfilerTool::showErrorDialog(const QString &error)
     errorDialog->setDefaultButton(QMessageBox::Ok);
     errorDialog->setModal(false);
     errorDialog->show();
+}
+
+void QmlProfilerTool::retryMessageBoxFinished(int result)
+{
+    switch (result) {
+    case QMessageBox::Retry: {
+        d->m_connectionAttempts = 0;
+        d->m_connectionTimer.start();
+        break;
+    }
+    case QMessageBox::Help: {
+        Core::HelpManager *helpManager = Core::HelpManager::instance();
+        helpManager->handleHelpRequest("qthelp://com.nokia.qtcreator/doc/creator-debugging-qml.html");
+        // fall through
+    }
+    default: {
+        if (d->m_client) {
+            logStatus("QML Profiler: Failed to connect! " + d->m_client->errorString());
+        } else {
+            logStatus("QML Profiler: Failed to connect!");
+        }
+
+        emit connectionFailed();
+        break;
+    }
+    }
 }

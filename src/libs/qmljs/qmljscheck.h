@@ -72,7 +72,10 @@ public:
         WarnDuplicateDeclaration             = 1 << 9,
         WarnDeclarationsNotStartOfFunction   = 1 << 10,
         WarnCaseWithoutFlowControlEnd        = 1 << 11,
-        ErrCheckTypeErrors                   = 1 << 12
+        WarnNonCapitalizedNew                = 1 << 12,
+        WarnCallsOfCapitalizedFunctions      = 1 << 13,
+        WarnUnreachablecode                  = 1 << 14,
+        ErrCheckTypeErrors                   = 1 << 15
     };
     Q_DECLARE_FLAGS(Options, Option)
 
@@ -91,6 +94,7 @@ protected:
     virtual bool visit(AST::UiObjectBinding *ast);
     virtual bool visit(AST::UiScriptBinding *ast);
     virtual bool visit(AST::UiArrayBinding *ast);
+    virtual bool visit(AST::UiPublicMember *ast);
     virtual bool visit(AST::IdentifierExpression *ast);
     virtual bool visit(AST::FieldMemberExpression *ast);
     virtual bool visit(AST::FunctionDeclaration *ast);
@@ -110,6 +114,9 @@ protected:
     virtual bool visit(AST::DoWhileStatement *ast);
     virtual bool visit(AST::CaseClause *ast);
     virtual bool visit(AST::DefaultClause *ast);
+    virtual bool visit(AST::NewExpression *ast);
+    virtual bool visit(AST::NewMemberExpression *ast);
+    virtual bool visit(AST::CallExpression *ast);
 
     virtual void endVisit(QmlJS::AST::UiObjectInitializer *);
 
@@ -120,6 +127,8 @@ private:
     void checkAssignInCondition(AST::ExpressionNode *condition);
     void checkEndsWithControlFlow(AST::StatementList *statements, AST::SourceLocation errorLoc);
     void checkProperty(QmlJS::AST::UiQualifiedId *);
+    void checkNewExpression(AST::ExpressionNode *node);
+    void checkBindingRhs(AST::Statement *statement);
 
     void warning(const AST::SourceLocation &loc, const QString &message);
     void error(const AST::SourceLocation &loc, const QString &message);
@@ -151,6 +160,8 @@ QMLJS_EXPORT AST::SourceLocation fullLocationForQualifiedId(AST::UiQualifiedId *
 
 QMLJS_EXPORT DiagnosticMessage errorMessage(const AST::SourceLocation &loc,
                                             const QString &message);
+
+QMLJS_EXPORT bool isValidBuiltinPropertyType(const QString &name);
 
 template <class T>
 DiagnosticMessage errorMessage(const T *node, const QString &message)

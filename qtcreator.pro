@@ -25,4 +25,6 @@ OTHER_FILES += dist/copyright_template.txt \
     dist/changes-2.0.1 \
     dist/changes-2.1.0 \
     dist/changes-2.2.0 \
-    dist/changes-2.3.0
+    dist/changes-2.3.0 \
+    dist/changes-2.3.1 \
+    dist/changes-2.4.0

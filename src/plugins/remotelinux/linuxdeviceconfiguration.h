@@ -107,7 +107,7 @@ private:
     void setFreePorts(const PortList &freePorts);
     void save(QSettings &settings) const;
 
-    Internal::LinuxDeviceConfigurationPrivate *m_d;
+    Internal::LinuxDeviceConfigurationPrivate *d;
 };
 
 
@@ -125,7 +125,7 @@ class REMOTELINUX_EXPORT ILinuxDeviceConfigurationWizard : public QWizard
     Q_OBJECT
 
 public:
-    virtual LinuxDeviceConfiguration::Ptr deviceConfiguration()=0;
+    virtual LinuxDeviceConfiguration::Ptr deviceConfiguration() = 0;
 
 protected:
     ILinuxDeviceConfigurationWizard(QWidget *parent) : QWizard(parent) {}
@@ -151,36 +151,36 @@ public:
     /*!
       A short, one-line description of what kind of device this factory supports.
     */
-    virtual QString displayName() const=0;
+    virtual QString displayName() const = 0;
 
     /*!
       A wizard that can create the types of device configuration this factory supports.
     */
-    virtual ILinuxDeviceConfigurationWizard *createWizard(QWidget *parent = 0) const=0;
+    virtual ILinuxDeviceConfigurationWizard *createWizard(QWidget *parent = 0) const = 0;
 
 
     /*!
       Returns true iff this factory supports the given device type.
     */
-    virtual bool supportsOsType(const QString &osType) const=0;
+    virtual bool supportsOsType(const QString &osType) const = 0;
 
     /*!
       Returns a human-readable string for the given OS type, if this factory supports that type.
     */
-    virtual QString displayNameForOsType(const QString &osType) const=0;
+    virtual QString displayNameForOsType(const QString &osType) const = 0;
 
     /*!
       Returns a list of ids representing actions that can be run on device configurations
       that this factory supports. These actions will be available in the "Linux Devices"
       options page.
     */
-    virtual QStringList supportedDeviceActionIds() const=0;
+    virtual QStringList supportedDeviceActionIds() const = 0;
 
     /*!
       A human-readable string for the given id. Will be displayed on a button which, when clicked,
       will start the respective action.
     */
-    virtual QString displayNameForActionId(const QString &actionId) const=0;
+    virtual QString displayNameForActionId(const QString &actionId) const = 0;
 
     /*!
       True iff the user should be allowed to edit the device configurations created by this
@@ -195,7 +195,7 @@ public:
       block the UI.
     */
     virtual QDialog *createDeviceAction(const QString &actionId,
-        const LinuxDeviceConfiguration::ConstPtr &deviceConfig, QWidget *parent = 0) const=0;
+        const LinuxDeviceConfiguration::ConstPtr &deviceConfig, QWidget *parent = 0) const = 0;
 
 protected:
     ILinuxDeviceConfigurationFactory(QObject *parent) : QObject(parent) {}

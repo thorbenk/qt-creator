@@ -44,6 +44,7 @@ namespace RemoteLinux {
 namespace Internal {
 namespace {
 enum State { Inactive, Listing, Killing };
+const char Delimiter[] = "-----";
 } // anonymous namespace
 
 class AbstractRemoteLinuxProcessListPrivate
@@ -71,42 +72,42 @@ using namespace Internal;
 
 AbstractRemoteLinuxProcessList::AbstractRemoteLinuxProcessList(const LinuxDeviceConfiguration::ConstPtr &devConfig,
         QObject *parent)
-    : QAbstractTableModel(parent), m_d(new AbstractRemoteLinuxProcessListPrivate(devConfig))
+    : QAbstractTableModel(parent), d(new AbstractRemoteLinuxProcessListPrivate(devConfig))
 {
 }
 
 LinuxDeviceConfiguration::ConstPtr AbstractRemoteLinuxProcessList::deviceConfiguration() const
 {
-    return m_d->deviceConfiguration;
+    return d->deviceConfiguration;
 }
 
 AbstractRemoteLinuxProcessList::~AbstractRemoteLinuxProcessList()
 {
-    delete m_d;
+    delete d;
 }
 
 void AbstractRemoteLinuxProcessList::update()
 {
-    QTC_ASSERT(m_d->state == Inactive, return);
+    QTC_ASSERT(d->state == Inactive, return);
 
     beginResetModel();
-    m_d->remoteProcesses.clear();
-    m_d->state = Listing;
+    d->remoteProcesses.clear();
+    d->state = Listing;
     startProcess(listProcessesCommandLine());
 }
 
 void AbstractRemoteLinuxProcessList::killProcess(int row)
 {
-    QTC_ASSERT(row >= 0 && row < m_d->remoteProcesses.count(), return);
-    QTC_ASSERT(m_d->state == Inactive, return);
+    QTC_ASSERT(row >= 0 && row < d->remoteProcesses.count(), return);
+    QTC_ASSERT(d->state == Inactive, return);
 
-    m_d->state = Killing;
-    startProcess(killProcessCommandLine(m_d->remoteProcesses.at(row)));
+    d->state = Killing;
+    startProcess(killProcessCommandLine(d->remoteProcesses.at(row)));
 }
 
 int AbstractRemoteLinuxProcessList::rowCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : m_d->remoteProcesses.count();
+    return parent.isValid() ? 0 : d->remoteProcesses.count();
 }
 
 int AbstractRemoteLinuxProcessList::columnCount(const QModelIndex &) const { return 2; }
@@ -125,7 +126,7 @@ QVariant AbstractRemoteLinuxProcessList::data(const QModelIndex &index, int role
     if (!index.isValid() || index.row() >= rowCount(index.parent())
             || index.column() >= columnCount() || role != Qt::DisplayRole)
         return QVariant();
-    const RemoteProcess &proc = m_d->remoteProcesses.at(index.row());
+    const RemoteProcess &proc = d->remoteProcesses.at(index.row());
     if (index.column() == 0)
         return proc.pid;
     else
@@ -134,61 +135,61 @@ QVariant AbstractRemoteLinuxProcessList::data(const QModelIndex &index, int role
 
 void AbstractRemoteLinuxProcessList::handleRemoteStdOut(const QByteArray &output)
 {
-    if (m_d->state == Listing)
-        m_d->remoteStdout += output;
+    if (d->state == Listing)
+        d->remoteStdout += output;
 }
 
 void AbstractRemoteLinuxProcessList::handleRemoteStdErr(const QByteArray &output)
 {
-    if (m_d->state != Inactive)
-        m_d->remoteStderr += output;
+    if (d->state != Inactive)
+        d->remoteStderr += output;
 }
 
 void AbstractRemoteLinuxProcessList::handleConnectionError()
 {
-    QTC_ASSERT(m_d->state != Inactive, return);
+    QTC_ASSERT(d->state != Inactive, return);
 
-    emit error(tr("Connection failure: %1").arg(m_d->process->connection()->errorString()));
+    emit error(tr("Connection failure: %1").arg(d->process->connection()->errorString()));
     beginResetModel();
-    m_d->remoteProcesses.clear();
+    d->remoteProcesses.clear();
     endResetModel();
     setFinished();
 }
 
 void AbstractRemoteLinuxProcessList::handleRemoteProcessFinished(int exitStatus)
 {
-    QTC_ASSERT(m_d->state != Inactive, return);
+    QTC_ASSERT(d->state != Inactive, return);
 
     switch (exitStatus) {
     case SshRemoteProcess::FailedToStart:
-        m_d->errorMsg = tr("Error: Remote process failed to start: %1")
-            .arg(m_d->process->process()->errorString());
+        d->errorMsg = tr("Error: Remote process failed to start: %1")
+            .arg(d->process->process()->errorString());
         break;
     case SshRemoteProcess::KilledBySignal:
-        m_d->errorMsg = tr("Error: Remote process crashed: %1")
-            .arg(m_d->process->process()->errorString());
+        d->errorMsg = tr("Error: Remote process crashed: %1")
+            .arg(d->process->process()->errorString());
         break;
     case SshRemoteProcess::ExitedNormally:
-        if (m_d->process->process()->exitCode() == 0) {
-            if (m_d->state == Listing)
-                m_d->remoteProcesses = buildProcessList(QString::fromUtf8(m_d->remoteStdout));
+        if (d->process->process()->exitCode() == 0) {
+            if (d->state == Listing)
+                d->remoteProcesses = buildProcessList(QString::fromUtf8(d->remoteStdout));
         } else {
-            m_d->errorMsg = tr("Remote process failed.");
+            d->errorMsg = tr("Remote process failed.");
         }
         break;
     default:
         Q_ASSERT_X(false, Q_FUNC_INFO, "Invalid exit status");
     }
 
-    if (!m_d->errorMsg.isEmpty()) {
-        if (!m_d->remoteStderr.isEmpty())
-            m_d->errorMsg += tr("\nRemote stderr was: %1").arg(QString::fromUtf8(m_d->remoteStderr));
-        emit error(m_d->errorMsg);
-    } else if (m_d->state == Killing) {
+    if (!d->errorMsg.isEmpty()) {
+        if (!d->remoteStderr.isEmpty())
+            d->errorMsg += tr("\nRemote stderr was: %1").arg(QString::fromUtf8(d->remoteStderr));
+        emit error(d->errorMsg);
+    } else if (d->state == Killing) {
         emit processKilled();
     }
 
-    if (m_d->state == Listing)
+    if (d->state == Listing)
         endResetModel();
 
     setFinished();
@@ -196,24 +197,24 @@ void AbstractRemoteLinuxProcessList::handleRemoteProcessFinished(int exitStatus)
 
 void AbstractRemoteLinuxProcessList::startProcess(const QString &cmdLine)
 {
-    connect(m_d->process.data(), SIGNAL(connectionError(Utils::SshError)),
+    connect(d->process.data(), SIGNAL(connectionError(Utils::SshError)),
         SLOT(handleConnectionError()));
-    connect(m_d->process.data(), SIGNAL(processOutputAvailable(QByteArray)),
+    connect(d->process.data(), SIGNAL(processOutputAvailable(QByteArray)),
         SLOT(handleRemoteStdOut(QByteArray)));
-    connect(m_d->process.data(), SIGNAL(processErrorOutputAvailable(QByteArray)),
+    connect(d->process.data(), SIGNAL(processErrorOutputAvailable(QByteArray)),
         SLOT(handleRemoteStdErr(QByteArray)));
-    connect(m_d->process.data(), SIGNAL(processClosed(int)),
+    connect(d->process.data(), SIGNAL(processClosed(int)),
         SLOT(handleRemoteProcessFinished(int)));
-    m_d->remoteStdout.clear();
-    m_d->remoteStderr.clear();
-    m_d->errorMsg.clear();
-    m_d->process->run(cmdLine.toUtf8());
+    d->remoteStdout.clear();
+    d->remoteStderr.clear();
+    d->errorMsg.clear();
+    d->process->run(cmdLine.toUtf8());
 }
 
 void AbstractRemoteLinuxProcessList::setFinished()
 {
-    disconnect(m_d->process.data(), 0, this, 0);
-    m_d->state = Inactive;
+    disconnect(d->process.data(), 0, this, 0);
+    d->state = Inactive;
 }
 
 
@@ -225,7 +226,8 @@ GenericRemoteLinuxProcessList::GenericRemoteLinuxProcessList(const LinuxDeviceCo
 
 QString GenericRemoteLinuxProcessList::listProcessesCommandLine() const
 {
-    return QLatin1String("ps -eo pid,args");
+    return QString::fromLocal8Bit("for dir in `ls -d /proc/[0123456789]*`; "
+        "do echo $dir%1`cat $dir/cmdline`%1`cat $dir/stat`; done").arg(Delimiter);
 }
 
 QString GenericRemoteLinuxProcessList::killProcessCommandLine(const RemoteProcess &process) const
@@ -236,21 +238,37 @@ QString GenericRemoteLinuxProcessList::killProcessCommandLine(const RemoteProces
 QList<AbstractRemoteLinuxProcessList::RemoteProcess> GenericRemoteLinuxProcessList::buildProcessList(const QString &listProcessesReply) const
 {
     QList<RemoteProcess> processes;
-    QStringList lines = listProcessesReply.split(QLatin1Char('\n'));
-    lines.removeFirst(); // column headers
+    const QStringList &lines = listProcessesReply.split(QLatin1Char('\n'));
     foreach (const QString &line, lines) {
-        const QString &trimmedLine = line.trimmed();
-        const int pidEndPos = trimmedLine.indexOf(QLatin1Char(' '));
-        if (pidEndPos == -1)
-            continue;
-        bool isNumber;
-        const int pid = trimmedLine.left(pidEndPos).toInt(&isNumber);
-        if (!isNumber) {
-            qDebug("%s: Non-integer value where pid was expected. Line was: '%s'",
-                Q_FUNC_INFO, qPrintable(trimmedLine));
+        const QStringList elements = line.split(QString::fromLocal8Bit(Delimiter));
+        if (elements.count() < 3) {
+            qDebug("%s: Expected three list elements, got %d.", Q_FUNC_INFO, elements.count());
             continue;
         }
-        processes << RemoteProcess(pid, trimmedLine.mid(pidEndPos));
+        bool ok;
+        const int pid = elements.first().mid(6).toInt(&ok);
+        if (!ok) {
+            qDebug("%s: Expected number in %s.", Q_FUNC_INFO, qPrintable(elements.first()));
+            continue;
+        }
+        QString command = elements.at(1);
+        if (command.isEmpty()) {
+            const QString &statString = elements.at(2);
+            const int openParenPos = statString.indexOf(QLatin1Char('('));
+            const int closedParenPos = statString.indexOf(QLatin1Char(')'), openParenPos);
+            if (openParenPos == -1 || closedParenPos == -1)
+                continue;
+            command = QLatin1Char('[')
+                + statString.mid(openParenPos + 1, closedParenPos - openParenPos - 1)
+                + QLatin1Char(']');
+        }
+
+        int insertPos;
+        for (insertPos = 0; insertPos < processes.count(); ++insertPos) {
+            if (pid < processes.at(insertPos).pid)
+                break;
+        }
+        processes.insert(insertPos, RemoteProcess(pid, command));
     }
 
     return processes;

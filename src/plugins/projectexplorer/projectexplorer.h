@@ -77,8 +77,9 @@ public:
 
     static ProjectExplorerPlugin *instance();
 
-    Q_SLOT bool openProject(const QString &fileName);
-    QList<Project *> openProjects(const QStringList &fileNames);
+    bool openProject(const QString &fileName, QString *error);
+    QList<Project *> openProjects(const QStringList &fileNames, QString *error);
+    Q_SLOT void openProjectWelcomePage(const QString &fileName);
 
     SessionManager *session() const;
 
@@ -99,7 +100,7 @@ public:
     static void openEditorFromAction(QAction *action, const QString &fileName);
 
     //PluginInterface
-    bool initialize(const QStringList &arguments, QString *error_message);
+    bool initialize(const QStringList &arguments, QString *errorMessage);
     void extensionsInitialized();
     ShutdownFlag aboutToShutdown();
 
@@ -188,6 +189,7 @@ private slots:
     void addNewSubproject();
     void removeProject();
     void openFile();
+    void searchOnFileSystem();
     void showInGraphicalShell();
     void removeFile();
     void deleteFile();

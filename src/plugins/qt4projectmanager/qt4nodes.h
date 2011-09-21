@@ -95,8 +95,6 @@ enum Qt4Variable {
     SymbianCapabilities
 };
 
-namespace Internal {
-
 // Import base classes into namespace
 using ProjectExplorer::Node;
 using ProjectExplorer::FileNode;
@@ -115,12 +113,15 @@ using ProjectExplorer::ProjectFileType;
 
 using ProjectExplorer::FileType;
 
+namespace Internal {
 class Qt4UiCodeModelSupport;
 class ProFileReader;
 class Qt4PriFile;
+struct InternalNode;
+}
 
 // Implements ProjectNode for qt4 pro files
-class Qt4PriFileNode : public ProjectExplorer::ProjectNode
+class QT4PROJECTMANAGER_EXPORT Qt4PriFileNode : public ProjectExplorer::ProjectNode
 {
     Q_OBJECT
 
@@ -154,7 +155,13 @@ public:
     bool deploysFolder(const QString &folder) const;
     QList<ProjectExplorer::RunConfiguration *> runConfigurationsFor(Node *node);
 
+    QList<Qt4PriFileNode*> subProjectNodesExact() const;
+
+    // Set by parent
+    bool includedInExactParse() const;
+
 protected:
+    void setIncludedInExactParse(bool b);
     void clear();
     static QStringList varNames(FileType type);
     static QStringList dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative);
@@ -192,7 +199,7 @@ private:
     QString m_projectFilePath;
     QString m_projectDir;
 
-    QMap<QString, Qt4UiCodeModelSupport *> m_uiCodeModelSupport;
+    QMap<QString, Internal::Qt4UiCodeModelSupport *> m_uiCodeModelSupport;
     Internal::Qt4PriFile *m_qt4PriFile;
 
     // Memory is cheap...
@@ -200,14 +207,16 @@ private:
     QMap<ProjectExplorer::FileType, QSet<QString> > m_files;
     QSet<QString> m_recursiveEnumerateFiles;
     QSet<QString> m_watchedFolders;
+    bool m_includedInExactParse;
 
     // managed by Qt4ProFileNode
     friend class Qt4ProjectManager::Qt4ProFileNode;
-    friend class Qt4PriFile; // for scheduling updates on modified
+    friend class Internal::Qt4PriFile; // for scheduling updates on modified
     // internal temporary subtree representation
-    friend struct InternalNode;
+    friend struct Internal::InternalNode;
 };
 
+namespace Internal {
 class Qt4PriFile : public Core::IFile
 {
     Q_OBJECT
@@ -312,7 +321,7 @@ struct QT4PROJECTMANAGER_EXPORT ProjectVersion {
 };
 
 // Implements ProjectNode for qt4 pro files
-class QT4PROJECTMANAGER_EXPORT Qt4ProFileNode : public Internal::Qt4PriFileNode
+class QT4PROJECTMANAGER_EXPORT Qt4ProFileNode : public Qt4PriFileNode
 {
     Q_OBJECT
 
@@ -353,14 +362,14 @@ public:
     void update();
     void scheduleUpdate();
 
-    void emitProFileUpdated();
-
     bool validParse() const;
     bool parseInProgress() const;
 
     bool hasBuildTargets(Qt4ProjectType projectType) const;
 
-    void setParseInProgressRecursive();
+    void setParseInProgress(bool b);
+    void setParseInProgressRecursive(bool b);
+    void emitProFileUpdatedRecursive();
 public slots:
     void asyncUpdate();
 

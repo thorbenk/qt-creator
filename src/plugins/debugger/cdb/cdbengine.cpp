@@ -741,7 +741,7 @@ bool CdbEngine::launchCDB(const DebuggerStartParameters &sp, QString *errorMessa
     const QString extensionFileName = extensionFi.fileName();
     // Prepare arguments
     QStringList arguments;
-    const bool isRemote = sp.startMode == AttachToRemote;
+    const bool isRemote = sp.startMode == AttachToRemoteServer;
     if (isRemote) { // Must be first
         arguments << QLatin1String("-remote") << sp.remoteChannel;
     } else {
@@ -767,7 +767,7 @@ bool CdbEngine::launchCDB(const DebuggerStartParameters &sp, QString *errorMessa
             nativeArguments.push_back(blank);
         nativeArguments += QDir::toNativeSeparators(sp.executable);
         break;
-    case AttachToRemote:
+    case AttachToRemoteServer:
         break;
     case AttachExternal:
     case AttachCrashedExternal:
@@ -942,7 +942,7 @@ void CdbEngine::shutdownEngine()
         if (startParameters().startMode == AttachExternal || startParameters().startMode == AttachCrashedExternal)
             detachDebugger();
         // Remote requires a bit more force to quit.
-        if (m_effectiveStartMode == AttachToRemote) {
+        if (m_effectiveStartMode == AttachToRemoteServer) {
             postCommand(m_extensionCommandPrefixBA + "shutdownex", 0);
             postCommand("qq", 0);
         } else {
@@ -1152,7 +1152,7 @@ void CdbEngine::doContinueInferior()
 
 bool CdbEngine::canInterruptInferior() const
 {
-    return m_effectiveStartMode != AttachToRemote && inferiorPid();
+    return m_effectiveStartMode != AttachToRemoteServer && inferiorPid();
 }
 
 void CdbEngine::interruptInferior()
@@ -1802,8 +1802,8 @@ void CdbEngine::handlePid(const CdbExtensionCommandPtr &reply)
     }
 }
 
-// Parse CDB gdbmi register syntax
-static inline Register parseRegister(const GdbMi &gdbmiReg)
+// Parse CDB gdbmi register syntax.
+static Register parseRegister(const GdbMi &gdbmiReg)
 {
     Register reg;
     reg.name = gdbmiReg.findChild("name").data();
@@ -1813,7 +1813,7 @@ static inline Register parseRegister(const GdbMi &gdbmiReg)
         reg.name += description.data();
         reg.name += ')';
     }
-    reg.value = QString::fromAscii(gdbmiReg.findChild("value").data());
+    reg.value = gdbmiReg.findChild("value").data();
     return reg;
 }
 
@@ -2552,6 +2552,7 @@ bool CdbEngine::acceptsBreakpoint(BreakpointModelId id) const
     case BreakpointAtFork:
     case WatchpointAtExpression:
     case BreakpointAtSysCall:
+    case BreakpointOnSignalHandler:
         return false;
     case WatchpointAtAddress:
     case BreakpointByFileAndLine:

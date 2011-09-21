@@ -4,18 +4,27 @@ import re;
 SpeedCrunchPath = ""
 buildSucceeded = 0
 buildFinished = False
+refreshFinishedCount = 0
+
+def handleRefreshFinished(object, fileList):
+    global refreshFinishedCount
+    refreshFinishedCount += 1
 
 def main():
+    global buildSucceeded, buildFinished, refreshFinishedCount
     test.verify(os.path.exists(SpeedCrunchPath))
-    global buildSucceeded, buildFinished
     startApplication("qtcreator" + SettingsPath)
+    installLazySignalHandler("{type='CppTools::Internal::CppModelManager'}", "sourceFilesRefreshed(QStringList)", "handleRefreshFinished")
     openQmakeProject(SpeedCrunchPath)
+    waitFor("refreshFinishedCount == 1", 300000)
 
     # Test that some of the expected items are in the navigation tree
     for row, record in enumerate(testData.dataset("speedcrunch_tree.tsv")):
         node = testData.field(record, "node")
         value = testData.field(record, "value")
         test.compare(waitForObject(node).text, value)
+
+    installLazySignalHandler("{type='CppTools::Internal::CppModelManager'}", "sourceFilesRefreshed(QStringList)", "handleRefreshFinished")
 
     clickButton(waitForObject(":*Qt Creator_Core::Internal::FancyToolButton"))
     buildCombo = waitForObject(":Build:_QComboBox")
@@ -24,12 +33,14 @@ def main():
     prog = re.compile("Qt.*Release")
     for row in range(buildCombo.count):
         if prog.match(str(buildCombo.itemText(row))):
+            refreshFinishedCount = 0;
             clickButton(waitForObject(":*Qt Creator_Core::Internal::FancyToolButton"))
             itemText = buildCombo.itemText(row);
             test.log("Testing build configuration: "+str(itemText))
             if str(itemText) != str(buildCombo.currentText):
                 buildCombo.setCurrentIndex(row)
             sendEvent("QMouseEvent", waitForObject(":QtCreator.MenuBar_ProjectExplorer::Internal::MiniProjectTargetSelector"), QEvent.MouseButtonPress, -45, 64, Qt.LeftButton, 0)
+            waitFor("refreshFinishedCount == 1", 300000)
             buildSucceeded = 0
             buildFinished = False
             invokeMenuItem("Build", "Rebuild All")

@@ -1,7 +1,10 @@
 import tempfile, shutil, os
 
 def tempDir():
-    return tempfile.mkdtemp()
+    Result = os.path.abspath(os.getcwd()+"/../../testing")
+    if not os.path.exists(Result):
+        os.mkdir(Result)
+    return tempfile.mkdtemp(prefix="qtcreator_", dir=Result)
 
 def deleteDirIfExists(path):
     shutil.rmtree(path, True)
@@ -61,4 +64,37 @@ def which(program):
                     return exe_file  + ".exe"
 
     return None
+
+def replaceLineEditorContent(lineEditor, newcontent):
+    type(lineEditor, "<Ctrl+A>")
+    type(lineEditor, "<Delete>")
+    type(lineEditor, newcontent)
+
+signalObjects = {}
+
+def callbackFunction(object, *args):
+    global signalObjects
+#    test.log("callbackFunction: "+objectMap.realName(object))
+    signalObjects[objectMap.realName(object)] += 1
+
+def waitForSignal(object, signal, timeout=30000):
+    global signalObjects
+    overrideInstallLazySignalHandler()
+    realName = objectMap.realName(object)
+#    test.log("waitForSignal: "+realName)
+    if not (realName in signalObjects):
+        signalObjects[realName] = 0
+    beforeCount = signalObjects[realName]
+    installLazySignalHandler(object, signal, "callbackFunction")
+    waitFor("signalObjects[realName] > beforeCount", timeout)
+
+def markText(editor, startPosition, endPosition):
+    cursor = editor.textCursor()
+    cursor.setPosition(startPosition)
+    cursor.movePosition(QTextCursor.StartOfLine)
+    editor.setTextCursor(cursor)
+    cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, endPosition-startPosition)
+    cursor.movePosition(QTextCursor.EndOfLine, QTextCursor.KeepAnchor)
+    cursor.setPosition(endPosition, QTextCursor.KeepAnchor)
+    editor.setTextCursor(cursor)
 

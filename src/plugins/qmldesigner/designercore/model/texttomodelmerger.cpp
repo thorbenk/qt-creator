@@ -176,13 +176,13 @@ static QString flatten(UiQualifiedId *qualifiedId)
     QString result;
 
     for (UiQualifiedId *iter = qualifiedId; iter; iter = iter->next) {
-        if (!iter->name)
+        if (iter->name.isEmpty())
             continue;
 
         if (!result.isEmpty())
             result.append(QLatin1Char('.'));
 
-        result.append(iter->name->asString());
+        result.append(iter->name);
     }
 
     return result;
@@ -362,20 +362,20 @@ public:
 
         const QmlObjectValue * qmlValue = dynamic_cast<const QmlObjectValue *>(value);
         if (qmlValue) {
-            typeName = fixUpPackeNameForQt(qmlValue->packageName()) + QLatin1String(".") + qmlValue->className();
+            typeName = fixUpPackeNameForQt(qmlValue->moduleName()) + QLatin1String(".") + qmlValue->className();
 
             //### todo this is just a hack to support QtQuick 1.0
-            majorVersion = fixUpMajorVersionForQt(qmlValue->packageName(), qmlValue->version().majorVersion());
-            minorVersion = fixUpMinorVersionForQt(qmlValue->packageName(), qmlValue->version().minorVersion());
+            majorVersion = fixUpMajorVersionForQt(qmlValue->moduleName(), qmlValue->componentVersion().majorVersion());
+            minorVersion = fixUpMinorVersionForQt(qmlValue->moduleName(), qmlValue->componentVersion().minorVersion());
         } else {
             for (UiQualifiedId *iter = astTypeNode; iter; iter = iter->next)
-                if (!iter->next && iter->name)
-                    typeName = iter->name->asString();
+                if (!iter->next && !iter->name.isEmpty())
+                    typeName = iter->name.toString();
 
             QString fullTypeName;
             for (UiQualifiedId *iter = astTypeNode; iter; iter = iter->next)
-                if (iter->name)
-                    fullTypeName += iter->name->asString() + ".";
+                if (!iter->name.isEmpty())
+                    fullTypeName += iter->name.toString() + ".";
 
             if (fullTypeName.endsWith("."))
                 fullTypeName.chop(1);
@@ -413,12 +413,12 @@ public:
         if (! id)
             return false; // ### error?
 
-        if (! id->name) // possible after error recovery
+        if (id->name.isEmpty()) // possible after error recovery
             return false;
 
         QString propertyName;
         if (prefix.isEmpty())
-            propertyName = id->name->asString();
+            propertyName = id->name.toString();
         else
             propertyName = prefix;
 
@@ -478,13 +478,13 @@ public:
             if (parentObject)
                 *parentObject = objectValue;
 
-            if (! idPart->name) {
+            if (idPart->name.isEmpty()) {
                 // somebody typed "id." and error recovery still gave us a valid tree,
                 // so just bail out here.
                 return false;
             }
 
-            propertyName = idPart->name->asString();
+            propertyName = idPart->name.toString();
             if (name)
                 *name = propertyName;
 
@@ -595,15 +595,15 @@ public:
         if (IdentifierExpression *idExp = cast<IdentifierExpression *>(eStmt->expression)) {
             if (!m_scopeChain.qmlScopeObjects().isEmpty())
                 rhsValueObject = m_scopeChain.qmlScopeObjects().last();
-            if (idExp->name)
-                rhsValueName = idExp->name->asString();
+            if (!idExp->name.isEmpty())
+                rhsValueName = idExp->name.toString();
         } else if (FieldMemberExpression *memberExp = cast<FieldMemberExpression *>(eStmt->expression)) {
             Evaluate evaluate(&m_scopeChain);
             const Value *result = evaluate(memberExp->base);
             rhsValueObject = result->asObjectValue();
 
-            if (memberExp->name)
-                rhsValueName = memberExp->name->asString();
+            if (!memberExp->name.isEmpty())
+                rhsValueName = memberExp->name.toString();
         }
 
         if (rhsValueObject)
@@ -708,12 +708,10 @@ void TextToModelMerger::setupImports(const Document::Ptr &doc,
         QString version;
         if (import->versionToken.isValid())
             version = textAt(doc, import->versionToken);
-        QString as;
-        if (import->importId)
-            as = import->importId->asString();
+        const QString &as = import->importId.toString();
 
-        if (import->fileName) {
-            const QString strippedFileName = stripQuotes(import->fileName->asString());
+        if (!import->fileName.isEmpty()) {
+            const QString strippedFileName = stripQuotes(import->fileName.toString());
             const Import newImport = Import::createFileImport(strippedFileName,
                                                               version, as, m_rewriterView->textModifier()->importPaths());
 
@@ -750,7 +748,7 @@ bool TextToModelMerger::load(const QString &data, DifferenceHandler &differenceH
     try {
         Snapshot snapshot = m_rewriterView->textModifier()->getSnapshot();
         const QString fileName = url.toLocalFile();
-        Document::Ptr doc = Document::create(fileName.isEmpty() ? QLatin1String("<internal>") : fileName);
+        Document::Ptr doc = Document::create(fileName.isEmpty() ? QLatin1String("<internal>") : fileName, Document::QmlLanguage);
         doc->setSource(data);
         doc->parseQml();
 
@@ -910,7 +908,7 @@ void TextToModelMerger::syncNode(ModelNode &modelNode,
                            << "for node type" << modelNode.type();
             }
         } else if (UiObjectDefinition *def = cast<UiObjectDefinition *>(member)) {
-            const QString name = def->qualifiedTypeNameId->name->asString();
+            const QString &name = def->qualifiedTypeNameId->name.toString();
             if (name.isEmpty() || !name.at(0).isUpper()) {
                 QStringList props = syncGroupedProperties(modelNode,
                                                           name,
@@ -949,16 +947,16 @@ void TextToModelMerger::syncNode(ModelNode &modelNode,
             if (property->type == UiPublicMember::Signal)
                 continue; // QML designer doesn't support this yet.
 
-            if (!property->name || !property->memberType)
+            if (property->name.isEmpty() || property->memberType.isEmpty())
                 continue; // better safe than sorry.
 
-            const QString astName = property->name->asString();
+            const QString &astName = property->name.toString();
             QString astValue;
             if (property->statement)
                 astValue = textAt(context->doc(),
                                   property->statement->firstSourceLocation(),
                                   property->statement->lastSourceLocation());
-            const QString astType = property->memberType->asString();
+            const QString &astType = property->memberType.toString();
             AbstractProperty modelProperty = modelNode.property(astName);
             if (!property->statement || isLiteralValue(property->statement)) {
                 const QVariant variantValue = convertDynamicPropertyValueToVariant(astValue, astType);

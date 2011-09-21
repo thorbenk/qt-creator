@@ -388,7 +388,7 @@ def qdump__QHash(d, value):
         innerType = e_ptr.dereference().type
         childType = innerType
         if isSimpleKey and isSimpleValue:
-            childType = isSimpleValue
+            childType = valueType
         with Children(d, size, maxNumChild=1000, childType=childType):
             for i in d.childRange():
                 it = node.dereference().cast(innerType)
@@ -1938,7 +1938,7 @@ def qedit__std__string(expr, value):
     gdb.execute(cmd)
 
 def qedit__string(expr, value):
-    qdump__std__string(expr, value)
+    qedit__std__string(expr, value)
 
 def qdump__string(d, value):
     qdump__std__string(d, value)

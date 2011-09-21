@@ -89,8 +89,8 @@ private:
 
     virtual QString packageFileName() const;
 
-    virtual bool createPackage(QProcess *buildProc, const QFutureInterface<bool> &fi)=0;
-    virtual bool isMetaDataNewerThan(const QDateTime &packageDate) const=0;
+    virtual bool createPackage(QProcess *buildProc, const QFutureInterface<bool> &fi) = 0;
+    virtual bool isMetaDataNewerThan(const QDateTime &packageDate) const = 0;
 
     QString projectName() const;
     static QString nativePath(const QFile &file);

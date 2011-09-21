@@ -299,7 +299,7 @@ bool BaseQtVersion::isValid() const
     return  !qmakeCommand().isEmpty()
             && !m_notInstalled
             && m_versionInfo.contains("QT_INSTALL_BINS")
-            && (!m_mkspecFullPath.isEmpty() || !m_mkspecUpToDate)
+            && !m_mkspecFullPath.isEmpty()
             && m_qmakeIsExecutable;
 }
 
@@ -340,6 +340,15 @@ bool BaseQtVersion::toolChainAvailable(const QString &id) const
         if (!ProjectExplorer::ToolChainManager::instance()->findToolChains(abi).isEmpty())
             return true;
     return false;
+}
+
+QList<ProjectExplorer::Abi> BaseQtVersion::qtAbis() const
+{
+    if (m_qtAbis.isEmpty())
+        m_qtAbis = detectQtAbis();
+    if (m_qtAbis.isEmpty())
+        m_qtAbis.append(ProjectExplorer::Abi()); // add empty ABI by default: This is compatible with all TCs.
+    return m_qtAbis;
 }
 
 bool BaseQtVersion::equals(BaseQtVersion *other)
@@ -542,12 +551,17 @@ QString BaseQtVersion::findQtBinary(BINARIES binary) const
 
     QStringList possibleCommands;
     switch (binary) {
-    case QmlViewer:
-#ifdef Q_OS_MAC
-        possibleCommands << QLatin1String("QMLViewer");
+    case QmlViewer: {
+        if (qtVersion() < QtVersionNumber(5, 0, 0)) {
+            possibleCommands << possibleGuiBinaries(QLatin1String("qmlviewer"));
+        } else {
+#if defined(Q_OS_WIN)
+            possibleCommands << QLatin1String("qmlscene.exe");
 #else
-        possibleCommands << QLatin1String("qmlviewer");
+            possibleCommands << QLatin1String("qmlscene");
 #endif
+        }
+    }
         break;
     case Designer:
         possibleCommands << possibleGuiBinaries(QLatin1String("designer"));
@@ -1197,11 +1211,5 @@ QString BaseQtVersion::qtCorePath(const QHash<QString,QString> &versionInfo, con
 
 QList<ProjectExplorer::Abi> BaseQtVersion::qtAbisFromLibrary(const QString &coreLibrary)
 {
-    QList<ProjectExplorer::Abi> qtAbis = ProjectExplorer::Abi::abisOfBinary(coreLibrary);
-    if (qtAbis.isEmpty() && !coreLibrary.isEmpty()) {
-        qWarning("Warning: Could not find ABI for '%s'"
-                 "Qt Creator does not know about the system includes, "
-                 "nor the system defines.", qPrintable(coreLibrary));
-    }
-    return qtAbis;
+    return ProjectExplorer::Abi::abisOfBinary(coreLibrary);
 }

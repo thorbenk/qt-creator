@@ -37,7 +37,7 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/minisplitter.h>
 #include <coreplugin/sidebar.h>
-#include <coreplugin/uniqueidmanager.h>
+#include <coreplugin/id.h>
 
 #include <coreplugin/editormanager/editorview.h>
 #include <coreplugin/editormanager/editormanager.h>
@@ -179,6 +179,7 @@ EditorToolBar::EditorToolBar(QWidget *parent) :
 
 EditorToolBar::~EditorToolBar()
 {
+    delete d;
 }
 
 void EditorToolBar::removeToolbarForEditor(IEditor *editor)

@@ -256,7 +256,8 @@ Document::Document(const QString &fileName)
     : _fileName(QDir::cleanPath(fileName)),
       _globalNamespace(0),
       _revision(0),
-      _editorRevision(0)
+      _editorRevision(0),
+      _checkMode(0)
 {
     _control = new Control();
 
@@ -569,6 +570,8 @@ void Document::check(CheckMode mode)
 {
     Q_ASSERT(!_globalNamespace);
 
+    _checkMode = mode;
+
     if (! isParsed())
         parse();
 
@@ -841,9 +844,11 @@ Symbol *Snapshot::findMatchingDefinition(Symbol *declaration, bool strict) const
                 }
             }
 
-            if (!strict && ! best)
-                best = viableFunctions.first();
+            if (strict && ! best)
+                continue;
 
+            if (! best)
+                best = viableFunctions.first();
             return best;
         }
     }

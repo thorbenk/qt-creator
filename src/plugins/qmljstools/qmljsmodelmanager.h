@@ -55,6 +55,10 @@ class CppModelManagerInterface;
 }
 
 namespace QmlJSTools {
+
+QMLJSTOOLS_EXPORT QmlJS::Document::Language languageOfFile(const QString &fileName);
+QMLJSTOOLS_EXPORT QStringList qmlAndJsGlobPatterns();
+
 namespace Internal {
 
 class PluginDumper;
@@ -91,7 +95,7 @@ public:
     virtual void loadPluginTypes(const QString &libraryPath, const QString &importPath,
                                  const QString &importUri, const QString &importVersion);
 
-    virtual CppQmlTypeHash cppQmlTypes() const;
+    virtual CppDataHash cppData() const;
 
     virtual QmlJS::LibraryInfo builtins(const QmlJS::Document::Ptr &doc) const;
 
@@ -127,7 +131,7 @@ private:
     static bool matchesMimeType(const Core::MimeType &fileMimeType, const Core::MimeType &knownMimeType);
     static void updateCppQmlTypes(ModelManager *qmlModelManager,
                                   CPlusPlus::CppModelManagerInterface *cppModelManager,
-                                  QMap<QString, QPair<CPlusPlus::Document::Ptr, bool> > documents);
+                                  QHash<QString, QPair<CPlusPlus::Document::Ptr, bool> > documents);
 
     mutable QMutex m_mutex;
     Core::ICore *m_core;
@@ -139,9 +143,10 @@ private:
     QFutureSynchronizer<void> m_synchronizer;
 
     QTimer *m_updateCppQmlTypesTimer;
-    QMap<QString, QPair<CPlusPlus::Document::Ptr, bool> > m_queuedCppDocuments;
-    CppQmlTypeHash m_cppTypes;
-    mutable QMutex m_cppTypesMutex;
+    QHash<QString, QPair<CPlusPlus::Document::Ptr, bool> > m_queuedCppDocuments;
+
+    CppDataHash m_cppDataHash;
+    mutable QMutex m_cppDataMutex;
 
     // project integration
     QMap<ProjectExplorer::Project *, ProjectInfo> m_projects;

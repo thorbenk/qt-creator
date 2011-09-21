@@ -296,7 +296,7 @@ public:
     virtual void accept(ValueVisitor *) const;
 
 private:
-    virtual const Value *value(const ReferenceContext *referenceContext) const;
+    virtual const Value *value(ReferenceContext *referenceContext) const;
 
     ValueOwner *_valueOwner;
     friend class ReferenceContext;
@@ -394,17 +394,21 @@ private:
     Error m_error;
 };
 
+class QmlObjectValue;
+
 class QMLJS_EXPORT QmlEnumValue: public NumberValue
 {
 public:
-    QmlEnumValue(const LanguageUtils::FakeMetaEnum &metaEnum, ValueOwner *valueOwner);
+    QmlEnumValue(const QmlObjectValue *owner, int index);
     virtual ~QmlEnumValue();
 
     QString name() const;
     QStringList keys() const;
+    const QmlObjectValue *owner() const;
 
 private:
-    LanguageUtils::FakeMetaEnum *_metaEnum;
+    const QmlObjectValue *_owner;
+    int _enumIndex;
 };
 
 
@@ -414,7 +418,8 @@ class QMLJS_EXPORT QmlObjectValue: public ObjectValue
 {
 public:
     QmlObjectValue(LanguageUtils::FakeMetaObject::ConstPtr metaObject, const QString &className,
-                   const QString &packageName, const LanguageUtils::ComponentVersion version,
+                   const QString &moduleName, const LanguageUtils::ComponentVersion &componentVersion,
+                   const LanguageUtils::ComponentVersion &importVersion,
                    ValueOwner *valueOwner);
     virtual ~QmlObjectValue();
 
@@ -429,8 +434,9 @@ public:
 
     LanguageUtils::FakeMetaObject::ConstPtr metaObject() const;
 
-    QString packageName() const;
-    LanguageUtils::ComponentVersion version() const;
+    QString moduleName() const;
+    LanguageUtils::ComponentVersion componentVersion() const;
+    LanguageUtils::ComponentVersion importVersion() const;
 
     QString defaultPropertyName() const;
     QString propertyType(const QString &propertyName) const;
@@ -439,10 +445,9 @@ public:
     bool isPointer(const QString &propertyName) const;
     bool hasLocalProperty(const QString &typeName) const;
     bool hasProperty(const QString &typeName) const;
-    bool hasChildInPackage() const;
 
-    LanguageUtils::FakeMetaEnum getEnum(const QString &typeName) const;
-    const QmlEnumValue *getEnumValue(const QString &typeName) const;
+    LanguageUtils::FakeMetaEnum getEnum(const QString &typeName, const QmlObjectValue **foundInScope = 0) const;
+    const QmlEnumValue *getEnumValue(const QString &typeName, const QmlObjectValue **foundInScope = 0) const;
 protected:
     const Value *findOrCreateSignature(int index, const LanguageUtils::FakeMetaMethod &method,
                                        QString *methodName) const;
@@ -451,8 +456,12 @@ protected:
 private:
     QmlObjectValue *_attachedType;
     LanguageUtils::FakeMetaObject::ConstPtr _metaObject;
-    const QString _packageName;
+    const QString _moduleName;
+    // _componentVersion is the version of the export
+    // _importVersion is the version it's imported as, used to find correct prototypes
+    // needed in cases when B 1.0 has A 1.1 as prototype when imported as 1.1
     const LanguageUtils::ComponentVersion _componentVersion;
+    const LanguageUtils::ComponentVersion _importVersion;
     mutable QHash<int, const Value *> _metaSignature;
     QHash<QString, const QmlEnumValue * > _enums;
 };
@@ -567,38 +576,32 @@ public:
 class QMLJS_EXPORT CppQmlTypes
 {
 public:
+    CppQmlTypes(ValueOwner *valueOwner);
+
     // package name for objects that should be always available
     static const QLatin1String defaultPackage;
     // package name for objects with their raw cpp name
     static const QLatin1String cppPackage;
 
     template <typename T>
-    QList<QmlObjectValue *> load(ValueOwner *interpreter, const T &objects);
+    void load(const T &fakeMetaObjects, const QString &overridePackage = QString());
 
-    QList<QmlObjectValue *> typesForImport(const QString &prefix, LanguageUtils::ComponentVersion version) const;
-    QmlObjectValue *typeByCppName(const QString &cppName) const;
+    QList<const QmlObjectValue *> createObjectsForImport(const QString &package, LanguageUtils::ComponentVersion version);
+    bool hasModule(const QString &module) const;
 
-    bool hasPackage(const QString &package) const;
-
-    QHash<QString, QmlObjectValue *> types() const
-    { return _typesByFullyQualifiedName; }
-
-    static QString qualifiedName(const QString &package, const QString &type, LanguageUtils::ComponentVersion version);
-    QmlObjectValue *typeByQualifiedName(const QString &fullyQualifiedName) const;
-    QmlObjectValue *typeByQualifiedName(const QString &package, const QString &type,
-                                        LanguageUtils::ComponentVersion version) const;
+    static QString qualifiedName(const QString &module, const QString &type,
+                                 LanguageUtils::ComponentVersion version);
+    const QmlObjectValue *objectByQualifiedName(const QString &fullyQualifiedName) const;
+    const QmlObjectValue *objectByQualifiedName(
+            const QString &package, const QString &type,
+            LanguageUtils::ComponentVersion version) const;
+    const QmlObjectValue *objectByCppName(const QString &cppName) const;
 
 private:
-    void setPrototypes(QmlObjectValue *object);
-    QmlObjectValue *getOrCreate(ValueOwner *valueOwner,
-                                LanguageUtils::FakeMetaObject::ConstPtr metaObject,
-                                const LanguageUtils::FakeMetaObject::Export &exp,
-                                bool *wasCreated = 0);
-    QmlObjectValue *getOrCreateForPackage(const QString &package, const QString &cppName);
-
-
-    QHash<QString, QList<QmlObjectValue *> > _typesByPackage;
-    QHash<QString, QmlObjectValue *> _typesByFullyQualifiedName;
+    // "Package.CppName ImportVersion" ->  QmlObjectValue
+    QHash<QString, const QmlObjectValue *> _objectsByQualifiedName;
+    QHash<QString, QSet<LanguageUtils::FakeMetaObject::ConstPtr> > _fakeMetaObjectsByPackage;
+    ValueOwner *_valueOwner;
 };
 
 class ConvertToNumber: protected ValueVisitor // ECMAScript ToInt()
@@ -699,7 +702,7 @@ public:
     AST::UiQualifiedId *qmlTypeName() const;
 
 private:    
-    virtual const Value *value(const ReferenceContext *referenceContext) const;
+    virtual const Value *value(ReferenceContext *referenceContext) const;
 
     AST::UiQualifiedId *_qmlTypeName;
     const Document *_doc;
@@ -715,14 +718,15 @@ public:
     virtual ~ASTVariableReference();
 
 private:
-    virtual const Value *value(const ReferenceContext *referenceContext) const;
+    virtual const Value *value(ReferenceContext *referenceContext) const;
+    virtual bool getSourceLocation(QString *fileName, int *line, int *column) const;
 };
 
 class QMLJS_EXPORT ASTFunctionValue: public FunctionValue
 {
     AST::FunctionExpression *_ast;
     const Document *_doc;
-    QList<NameId *> _argumentNames;
+    QList<QString> _argumentNames;
 
 public:
     ASTFunctionValue(AST::FunctionExpression *ast, const Document *doc, ValueOwner *valueOwner);
@@ -755,26 +759,29 @@ public:
     virtual bool getSourceLocation(QString *fileName, int *line, int *column) const;
 
 private:
-    virtual const Value *value(const ReferenceContext *referenceContext) const;
+    virtual const Value *value(ReferenceContext *referenceContext) const;
 };
 
-class QMLJS_EXPORT ASTSignalReference: public Reference
+class QMLJS_EXPORT ASTSignal: public FunctionValue
 {
     AST::UiPublicMember *_ast;
     const Document *_doc;
     QString _slotName;
 
 public:
-    ASTSignalReference(AST::UiPublicMember *ast, const Document *doc, ValueOwner *valueOwner);
-    virtual ~ASTSignalReference();
+    ASTSignal(AST::UiPublicMember *ast, const Document *doc, ValueOwner *valueOwner);
+    virtual ~ASTSignal();
 
     AST::UiPublicMember *ast() const { return _ast; }
     QString slotName() const { return _slotName; }
 
-    virtual bool getSourceLocation(QString *fileName, int *line, int *column) const;
+    // FunctionValue interface
+    virtual int argumentCount() const;
+    virtual const Value *argument(int index) const;
+    virtual QString argumentName(int index) const;
 
-private:
-    virtual const Value *value(const ReferenceContext *referenceContext) const;
+    // Value interface
+    virtual bool getSourceLocation(QString *fileName, int *line, int *column) const;
 };
 
 class QMLJS_EXPORT ASTObjectValue: public ObjectValue
@@ -783,7 +790,7 @@ class QMLJS_EXPORT ASTObjectValue: public ObjectValue
     AST::UiObjectInitializer *_initializer;
     const Document *_doc;
     QList<ASTPropertyReference *> _properties;
-    QList<ASTSignalReference *> _signals;
+    QList<ASTSignal *> _signals;
     ASTPropertyReference *_defaultPropertyRef;
 
 public:
@@ -889,6 +896,7 @@ public:
     void append(const Import &import);
 
     ImportInfo info(const QString &name, const Context *context) const;
+    QString nameForImportedObject(const ObjectValue *value, const Context *context) const;
     QList<Import> all() const;
 
     const TypeScope *typeScope() const;

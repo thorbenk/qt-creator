@@ -65,16 +65,15 @@ public:
     DeployableFilesPerProFile *modelAt(int i) const;
 
 private slots:
-    void startTimer(Qt4ProjectManager::Qt4ProFileNode *, bool success, bool parseInProgress);
+    void createModels();
 
 private:
     virtual int rowCount(const QModelIndex &parent) const;
     virtual QVariant data(const QModelIndex &index, int role) const;
 
-    Q_SLOT void createModels();
     void createModels(const Qt4ProjectManager::Qt4ProFileNode *proFileNode);
 
-    Internal::DeploymentInfoPrivate * const m_d;
+    Internal::DeploymentInfoPrivate * const d;
 };
 
 } // namespace RemoteLinux

@@ -45,7 +45,7 @@
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/command.h>
-#include <coreplugin/uniqueidmanager.h>
+#include <coreplugin/id.h>
 #include <coreplugin/vcsmanager.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/icore.h>
@@ -152,7 +152,7 @@ MercurialPlugin::~MercurialPlugin()
     m_instance = 0;
 }
 
-bool MercurialPlugin::initialize(const QStringList & /* arguments */, QString * /*error_message */)
+bool MercurialPlugin::initialize(const QStringList & /* arguments */, QString * /*errorMessage */)
 {
     typedef VCSBase::VCSEditorFactory<MercurialEditor> MercurialEditorFactory;
 
@@ -201,11 +201,6 @@ void MercurialPlugin::setSettings(const MercurialSettings &settings)
         mercurialSettings = settings;
         static_cast<MercurialControl *>(versionControl())->emitConfigurationChanged();
     }
-}
-
-QStringList MercurialPlugin::standardArguments() const
-{
-    return mercurialSettings.standardArguments();
 }
 
 void MercurialPlugin::createMenu()
@@ -598,7 +593,7 @@ void MercurialPlugin::showCommitWidget(const QList<VCSBase::VCSBaseClient::Statu
     }
 
     Core::IEditor *editor = core->editorManager()->openEditor(changeLog->fileName(),
-                                                              QLatin1String(Constants::COMMIT_ID),
+                                                              Constants::COMMIT_ID,
                                                               Core::EditorManager::ModeSwitch);
     if (!editor) {
         outputWindow->appendError(tr("Unable to create an editor for the commit."));
@@ -614,8 +609,9 @@ void MercurialPlugin::showCommitWidget(const QList<VCSBase::VCSBaseClient::Statu
 
     QString branch = m_client->branchQuerySync(m_submitRepository);
 
-    commitEditor->setFields(m_submitRepository, branch, mercurialSettings.userName(),
-                            mercurialSettings.email(), status);
+    commitEditor->setFields(m_submitRepository, branch,
+                            mercurialSettings.stringValue(MercurialSettings::userNameKey),
+                            mercurialSettings.stringValue(MercurialSettings::userEmailKey), status);
 
     commitEditor->registerActions(editorUndo, editorRedo, editorCommit, editorDiff);
     connect(commitEditor, SIGNAL(diffSelectedFiles(QStringList)),
@@ -646,11 +642,11 @@ bool MercurialPlugin::submitEditorAboutToClose(VCSBase::VCSBaseSubmitEditor *sub
     if (!editorFile || !commitEditor)
         return true;
 
-    bool dummyPrompt = mercurialSettings.prompt();
+    bool dummyPrompt = mercurialSettings.boolValue(MercurialSettings::promptOnSubmitKey);
     const VCSBase::VCSBaseSubmitEditor::PromptSubmitResult response =
             commitEditor->promptSubmit(tr("Close Commit Editor"), tr("Do you want to commit the changes?"),
                                        tr("Message check failed. Do you want to proceed?"),
-                                       &dummyPrompt, mercurialSettings.prompt());
+                                       &dummyPrompt, dummyPrompt);
 
     switch (response) {
     case VCSBase::VCSBaseSubmitEditor::SubmitCanceled:

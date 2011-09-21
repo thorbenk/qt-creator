@@ -36,7 +36,6 @@
 #include "qsystem.h"
 #include "testsuite.h"
 #include "testexecuter.h"
-#include "testcode.h"
 #include "testoutputwindow.h"
 
 #include <coreplugin/icore.h>
@@ -45,13 +44,15 @@
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/editormanager/editormanager.h>
 
-TestContextMenu_p *TestContextMenu::m_instance = 0;
+#include <QDir>
+
+TestContextMenuPrivate *TestContextMenu::m_instance = 0;
 int TestContextMenu::m_refCount = 0;
 
 TestContextMenu::TestContextMenu(QObject *widget)
 {
     if (m_refCount++ == 0)
-        m_instance = new TestContextMenu_p(widget);
+        m_instance = new TestContextMenuPrivate(widget);
 
     connect(m_instance->m_testToggleCurrentSelectAction, SIGNAL(triggered()),
         this, SIGNAL(toggleSelection()));
@@ -100,7 +101,7 @@ void TestContextMenu::updateSingleTestAction(const QString &testName)
         m_instance->updateSingleTestAction(testName);
 }
 
-TestContextMenu_p::TestContextMenu_p(QObject *widget)
+TestContextMenuPrivate::TestContextMenuPrivate(QObject *widget)
 {
     m_testInsertUnitOrSystemTestAction = new QAction(widget);
     m_testInsertUnitOrSystemTestAction->setEnabled(false);
@@ -149,11 +150,11 @@ TestContextMenu_p::TestContextMenu_p(QObject *widget)
          this, SLOT(editorChanged(Core::IEditor*)), Qt::DirectConnection);
 }
 
-TestContextMenu_p::~TestContextMenu_p()
+TestContextMenuPrivate::~TestContextMenuPrivate()
 {
 }
 
-void TestContextMenu_p::init(QMenu *testMenu, int mode, QObject *widget)
+void TestContextMenuPrivate::init(QMenu *testMenu, int mode, QObject *widget)
 {
     if (mode == 0) {
         // menu bar at the top
@@ -219,24 +220,24 @@ void TestContextMenu_p::init(QMenu *testMenu, int mode, QObject *widget)
     }
 }
 
-void TestContextMenu_p::onOpenIncludeFile()
+void TestContextMenuPrivate::onOpenIncludeFile()
 {
     emit openIncludeFile(m_includeFile);
 }
 
-void TestContextMenu_p::updateToggleAction(const QString &testName)
+void TestContextMenuPrivate::updateToggleAction(const QString &testName)
 {
     m_testToggleCurrentSelectAction->setVisible(!testName.isEmpty());
     m_testToggleCurrentSelectAction->setText(testName);
 }
 
-void TestContextMenu_p::updateSingleTestAction(const QString &testName)
+void TestContextMenuPrivate::updateSingleTestAction(const QString &testName)
 {
     m_editorRunSingleTestAction->setVisible(!testName.isEmpty());
     m_editorRunSingleTestAction->setText(tr("Run: '%1'").arg(testName));
 }
 
-void TestContextMenu_p::updateActions(bool testVisible, bool testBusy, bool testStopped)
+void TestContextMenuPrivate::updateActions(bool testVisible, bool testBusy, bool testStopped)
 {
     m_testInsertUnitOrSystemTestAction->setEnabled(testVisible);
     m_editorInsertTestFunctionAction->setEnabled(testVisible);
@@ -248,14 +249,14 @@ void TestContextMenu_p::updateActions(bool testVisible, bool testBusy, bool test
     m_editorStopTestingAction->setEnabled(testBusy && !testStopped);
 }
 
-void TestContextMenu_p::enableIncludeFile(const QString &fileName)
+void TestContextMenuPrivate::enableIncludeFile(const QString &fileName)
 {
     m_includeFile = fileName;
     m_testOpenIncludeFileAction->setText(tr("Open: '%1'").arg(fileName));
     m_testOpenIncludeFileAction->setVisible(!fileName.isEmpty());
 }
 
-void TestContextMenu_p::languageChange()
+void TestContextMenuPrivate::languageChange()
 {
     m_testInsertUnitOrSystemTestAction->setText(tr("New Test..."));
     m_testInsertUnitOrSystemTestAction->setStatusTip(
@@ -310,15 +311,15 @@ void TestContextMenu_p::languageChange()
     m_testOpenIncludeFileAction->setStatusTip(tr("Open the specified include file."));
 }
 
-void TestContextMenu_p::editorChanged(Core::IEditor *iface)
+void TestContextMenuPrivate::editorChanged(Core::IEditor *iface)
 {
     bool isTestcase = false;
 
     if (iface) {
         QString fname = iface->displayName();
-        isTestcase = ((fname.endsWith(".qtt") || fname.endsWith(".cpp"))
-            && (fname.startsWith("tst_") || fname.startsWith("sys_")
-            || fname.startsWith("int_") || fname.startsWith("prf_")));
+        isTestcase = ((fname.endsWith(QLatin1String(".qtt")) || fname.endsWith(QLatin1String(".cpp")))
+            && (fname.startsWith(QLatin1String("tst_")) || fname.startsWith(QLatin1String("sys_"))
+            || fname.startsWith(QLatin1String("int_")) || fname.startsWith(QLatin1String("prf_"))));
     }
 
     if (isTestcase) {
@@ -339,7 +340,7 @@ void TestContextMenu_p::editorChanged(Core::IEditor *iface)
 }
 
 
-void TestContextMenu_p::onLearnChanged()
+void TestContextMenuPrivate::onLearnChanged()
 {
     if (m_testLearnAction->isChecked()) {
         if (m_testLearnAllAction->isChecked())
@@ -350,7 +351,7 @@ void TestContextMenu_p::onLearnChanged()
     }
 }
 
-void TestContextMenu_p::onLearnAllChanged()
+void TestContextMenuPrivate::onLearnAllChanged()
 {
     if (m_testLearnAllAction->isChecked()) {
         if (m_testLearnAction->isChecked())

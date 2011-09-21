@@ -57,10 +57,10 @@ struct
         AppProFile,
         DeploymentPriFile,
         SymbianSvgIconFile,
-        pngIconFile64,
-        pngIconFile80,
-        DesktopFileFremantle,
-        DesktopFileHarmattan,
+        PngIcon64File,
+        PngIcon80File,
+        DesktopFremantleFile,
+        DesktopHarmattanFile,
         ExtendedFile
     };
 
@@ -133,6 +133,10 @@ public:
     QString path(int fileType) const;
     QString error() const;
 
+    bool canSupportMeegoBooster() const;
+    bool supportsMeegoBooster() const;
+    void setSupportsMeegoBooster(bool supportBooster);
+
 #ifndef CREATORLESSTEST
     virtual Core::GeneratedFiles generateFiles(QString *errorMessage) const;
 #else
@@ -168,18 +172,20 @@ protected:
     static const int StubVersion;
 
     QString m_error;
+    bool m_canSupportMeegoBooster;
+
 private:
     QByteArray generateDesktopFile(QString *errorMessage, int fileType) const;
     QByteArray generateMainCpp(QString *errorMessage) const;
     QByteArray generateProFile(QString *errorMessage) const;
 
     virtual QByteArray generateFileExtended(int fileType,
-        bool *versionAndCheckSum, QString *comment, QString *errorMessage) const=0;
-    virtual QString pathExtended(int fileType) const=0;
-    virtual QString originsRoot() const=0;
-    virtual QString mainWindowClassName() const=0;
-    virtual int stubVersionMinor() const=0;
-    virtual bool adaptCurrentMainCppTemplateLine(QString &line) const=0;
+        bool *versionAndCheckSum, QString *comment, QString *errorMessage) const = 0;
+    virtual QString pathExtended(int fileType) const = 0;
+    virtual QString originsRoot() const = 0;
+    virtual QString mainWindowClassName() const = 0;
+    virtual int stubVersionMinor() const = 0;
+    virtual bool adaptCurrentMainCppTemplateLine(QString &line) const = 0;
     virtual void handleCurrentProFileTemplateLine(const QString &line,
         QTextStream &proFileTemplate, QTextStream &proFile,
         bool &commentOutNextLine) const = 0;
@@ -194,6 +200,7 @@ private:
     QString m_symbianTargetUid;
     ScreenOrientation m_orientation;
     bool m_networkEnabled;
+    bool m_supportsMeegoBooster;
 };
 
 } // namespace Qt4ProjectManager

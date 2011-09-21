@@ -59,7 +59,7 @@ class REMOTELINUX_EXPORT AbstractRemoteLinuxDeployService : public QObject
     Q_OBJECT
     Q_DISABLE_COPY(AbstractRemoteLinuxDeployService)
 public:
-    explicit AbstractRemoteLinuxDeployService(QObject *parent);
+    explicit AbstractRemoteLinuxDeployService(QObject *parent = 0);
     ~AbstractRemoteLinuxDeployService();
 
     void setDeviceConfiguration(const QSharedPointer<const LinuxDeviceConfiguration> &deviceConfiguration);
@@ -96,18 +96,18 @@ private slots:
 private:
     Q_SIGNAL void finished();
 
-    virtual bool isDeploymentNecessary() const=0;
+    virtual bool isDeploymentNecessary() const = 0;
 
     // Should do things needed *before* connecting. Call handleDeviceSetupDone() afterwards.
-    virtual void doDeviceSetup()=0;
-    virtual void stopDeviceSetup()=0;
+    virtual void doDeviceSetup() = 0;
+    virtual void stopDeviceSetup() = 0;
 
-    virtual void doDeploy()=0;
-    virtual void stopDeployment()=0;
+    virtual void doDeploy() = 0;
+    virtual void stopDeployment() = 0;
 
     void setFinished();
 
-    Internal::AbstractRemoteLinuxDeployServicePrivate * const m_d;
+    Internal::AbstractRemoteLinuxDeployServicePrivate * const d;
 };
 
 } // namespace RemoteLinux

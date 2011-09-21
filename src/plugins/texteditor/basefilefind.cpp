@@ -52,6 +52,7 @@
 #include <QtGui/QFileDialog>
 #include <QtGui/QCheckBox>
 #include <QtGui/QComboBox>
+#include <QtGui/QHBoxLayout>
 #include <QtGui/QLabel>
 #include <QtGui/QMainWindow>
 #include <QtGui/QPushButton>
@@ -61,15 +62,14 @@ using namespace Utils;
 using namespace Find;
 using namespace TextEditor;
 
-BaseFileFind::BaseFileFind(SearchResultWindow *resultWindow)
-  : m_resultWindow(resultWindow),
+BaseFileFind::BaseFileFind()
+  : m_currentSearch(0),
+    m_currentSearchCount(0),
+    m_watcher(0),
     m_isSearching(false),
     m_resultLabel(0),
     m_filterCombo(0)
 {
-    m_watcher.setPendingResultsLimit(1);
-    connect(&m_watcher, SIGNAL(resultReadyAt(int)), this, SLOT(displayResult(int)));
-    connect(&m_watcher, SIGNAL(finished()), this, SLOT(searchFinished()));
 }
 
 BaseFileFind::~BaseFileFind()
@@ -81,14 +81,10 @@ bool BaseFileFind::isEnabled() const
     return !m_isSearching;
 }
 
-bool BaseFileFind::canCancel() const
-{
-    return m_isSearching;
-}
-
 void BaseFileFind::cancel()
 {
-    m_watcher.cancel();
+    QTC_ASSERT(m_watcher, return);
+    m_watcher->cancel();
 }
 
 QStringList BaseFileFind::fileNameFilters() const
@@ -114,34 +110,40 @@ void BaseFileFind::runNewSearch(const QString &txt, Find::FindFlags findFlags,
     emit changed();
     if (m_filterCombo)
         updateComboEntries(m_filterCombo, true);
-    m_watcher.setFuture(QFuture<FileSearchResultList>());
-    SearchResult *result = m_resultWindow->startNewSearch(searchMode,
-                                                          searchMode == SearchResultWindow::SearchAndReplace
-                                                          ? QString::fromLatin1("TextEditor")
-                                                          : QString());
+    delete m_watcher;
+    m_watcher = new QFutureWatcher<FileSearchResultList>();
+    m_watcher->setPendingResultsLimit(1);
+    connect(m_watcher, SIGNAL(resultReadyAt(int)), this, SLOT(displayResult(int)));
+    connect(m_watcher, SIGNAL(finished()), this, SLOT(searchFinished()));
+    m_currentSearchCount = 0;
+    m_currentSearch = Find::SearchResultWindow::instance()->startNewSearch(label(),
+                           toolTip().arg(Find::IFindFilter::descriptionForFindFlags(findFlags)),
+                           txt, searchMode, QString::fromLatin1("TextEditor"));
+    m_currentSearch->setTextToReplace(txt);
     QVariantList searchParameters;
     searchParameters << qVariantFromValue(txt) << qVariantFromValue(findFlags);
-    result->setUserData(searchParameters);
-    connect(result, SIGNAL(activated(Find::SearchResultItem)), this, SLOT(openEditor(Find::SearchResultItem)));
+    m_currentSearch->setUserData(searchParameters);
+    connect(m_currentSearch, SIGNAL(activated(Find::SearchResultItem)), this, SLOT(openEditor(Find::SearchResultItem)));
     if (searchMode == SearchResultWindow::SearchAndReplace) {
-        connect(result, SIGNAL(replaceButtonClicked(QString,QList<Find::SearchResultItem>)),
+        connect(m_currentSearch, SIGNAL(replaceButtonClicked(QString,QList<Find::SearchResultItem>)),
                 this, SLOT(doReplace(QString,QList<Find::SearchResultItem>)));
     }
-    connect(result, SIGNAL(visibilityChanged(bool)), this, SLOT(hideHighlightAll(bool)));
-    m_resultWindow->popup(true);
+    connect(m_currentSearch, SIGNAL(visibilityChanged(bool)), this, SLOT(hideHighlightAll(bool)));
+    Find::SearchResultWindow::instance()->popup(true);
     if (findFlags & Find::FindRegularExpression) {
-        m_watcher.setFuture(Utils::findInFilesRegExp(txt, files(),
+        m_watcher->setFuture(Utils::findInFilesRegExp(txt, files(),
             textDocumentFlagsForFindFlags(findFlags), ITextEditor::openedTextEditorsContents()));
     } else {
-        m_watcher.setFuture(Utils::findInFiles(txt, files(),
+        m_watcher->setFuture(Utils::findInFiles(txt, files(),
             textDocumentFlagsForFindFlags(findFlags), ITextEditor::openedTextEditorsContents()));
     }
+    connect(m_currentSearch, SIGNAL(cancelled()), this, SLOT(cancel()));
     Core::FutureProgress *progress =
-        Core::ICore::instance()->progressManager()->addTask(m_watcher.future(),
+        Core::ICore::instance()->progressManager()->addTask(m_watcher->future(),
                                                                         tr("Search"),
                                                                         Constants::TASK_SEARCH);
     progress->setWidget(createProgressWidget());
-    connect(progress, SIGNAL(clicked()), m_resultWindow, SLOT(popup()));
+    connect(progress, SIGNAL(clicked()), Find::SearchResultWindow::instance(), SLOT(popup()));
 }
 
 void BaseFileFind::findAll(const QString &txt, Find::FindFlags findFlags)
@@ -161,12 +163,16 @@ void BaseFileFind::doReplace(const QString &text,
     Core::FileManager *fileManager = Core::ICore::instance()->fileManager();
     if (!files.isEmpty()) {
         fileManager->notifyFilesChangedInternally(files);
-        m_resultWindow->hide();
+        Find::SearchResultWindow::instance()->hide();
     }
 }
 
 void BaseFileFind::displayResult(int index) {
-    Utils::FileSearchResultList results = m_watcher.future().resultAt(index);
+    if (!m_currentSearch) {
+        m_watcher->cancel();
+        return;
+    }
+    Utils::FileSearchResultList results = m_watcher->resultAt(index);
     QList<Find::SearchResultItem> items;
     foreach (const Utils::FileSearchResult &result, results) {
         Find::SearchResultItem item;
@@ -179,16 +185,21 @@ void BaseFileFind::displayResult(int index) {
         item.userData = result.regexpCapturedTexts;
         items << item;
     }
-    m_resultWindow->addResults(items, Find::SearchResultWindow::AddOrdered);
+    m_currentSearch->addResults(items, Find::SearchResult::AddOrdered);
+    m_currentSearchCount += items.count();
     if (m_resultLabel)
-        m_resultLabel->setText(tr("%1 found").arg(m_resultWindow->numberOfResults()));
+        m_resultLabel->setText(tr("%1 found").arg(m_currentSearchCount));
 }
 
 void BaseFileFind::searchFinished()
 {
-    m_resultWindow->finishSearch();
+    if (m_currentSearch)
+        m_currentSearch->finishSearch();
+    m_currentSearch = 0;
     m_isSearching = false;
     m_resultLabel = 0;
+    m_watcher->deleteLater();
+    m_watcher = 0;
     emit changed();
 }
 
@@ -202,7 +213,7 @@ QWidget *BaseFileFind::createProgressWidget()
     f.setPointSizeF(StyleHelper::sidebarFontSize());
     m_resultLabel->setFont(f);
     m_resultLabel->setPalette(StyleHelper::sidebarFontPalette(m_resultLabel->palette()));
-    m_resultLabel->setText(tr("%1 found").arg(m_resultWindow->numberOfResults()));
+    m_resultLabel->setText(tr("%1 found").arg(m_currentSearchCount));
     return m_resultLabel;
 }
 

@@ -56,7 +56,7 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/mimedatabase.h>
-#include <coreplugin/uniqueidmanager.h>
+#include <coreplugin/id.h>
 #include <coreplugin/fileiconprovider.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
@@ -122,10 +122,10 @@ Core::Command *createSeparator(Core::ActionManager *am,
     return am->registerAction(separator, Core::Id(id), context);
 }
 
-bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *error_message)
+bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *errorMessage)
 {
     Core::ICore *core = Core::ICore::instance();
-    if (!core->mimeDatabase()->addMimeTypes(QLatin1String(":/qmljseditor/QmlJSEditor.mimetypes.xml"), error_message))
+    if (!core->mimeDatabase()->addMimeTypes(QLatin1String(":/qmljseditor/QmlJSEditor.mimetypes.xml"), errorMessage))
         return false;
 
     m_modelManager = QmlJS::ModelManagerInterface::instance();
@@ -238,7 +238,7 @@ bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *e
 
     addAutoReleasedObject(new HoverHandler);
 
-    error_message->clear();
+    errorMessage->clear();
 
     Core::FileIconProvider *iconProvider = Core::FileIconProvider::instance();
     iconProvider->registerIconOverlayForSuffix(QIcon(QLatin1String(":/qmljseditor/images/qmlfile.png")), "qml");

@@ -212,6 +212,7 @@ DebuggerRunControl::~DebuggerRunControl()
         engine->disconnect();
         delete engine;
     }
+    delete d;
 }
 
 const DebuggerStartParameters &DebuggerRunControl::startParameters() const
@@ -456,10 +457,11 @@ static QList<DebuggerEngineType> enginesForMode(DebuggerStartMode startMode,
 #endif
         result.push_back(GdbEngineType);
         break;
+    case StartRemote:
     case StartRemoteGdb:
         result.push_back(GdbEngineType);
         break;
-    case AttachToRemote:
+    case AttachToRemoteServer:
         if (!hardConstraintsOnly) {
 #ifdef Q_OS_WIN
             result.push_back(CdbEngineType);
@@ -474,6 +476,9 @@ static QList<DebuggerEngineType> enginesForMode(DebuggerStartMode startMode,
         // FIXME: Unclear IPC override. Someone please have a better idea.
         // For now thats the only supported IPC engine.
         result.push_back(LldbEngineType);
+        break;
+    case AttachToQmlPort:
+        result.push_back(QmlEngineType); // Only QML can do this
         break;
     }
     return result;
@@ -506,7 +511,7 @@ static QList<DebuggerEngineType> engineTypes(const DebuggerStartParameters &sp)
         return result;
     }
 
-    if (sp.startMode != AttachToRemote && !sp.executable.isEmpty())
+    if (sp.startMode != AttachToRemoteServer && !sp.executable.isEmpty())
         result = enginesForExecutable(sp.executable);
     if (!result.isEmpty())
         return result;

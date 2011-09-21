@@ -71,6 +71,47 @@ using namespace QmlJSTools::Internal;
 
 static QStringList environmentImportPaths();
 
+QmlJS::Document::Language QmlJSTools::languageOfFile(const QString &fileName)
+{
+    QStringList jsSuffixes("js");
+    QStringList qmlSuffixes("qml");
+
+    if (Core::ICore::instance()) {
+        Core::MimeDatabase *db = Core::ICore::instance()->mimeDatabase();
+        Core::MimeType jsSourceTy = db->findByType(Constants::JS_MIMETYPE);
+        jsSuffixes = jsSourceTy.suffixes();
+        Core::MimeType qmlSourceTy = db->findByType(Constants::QML_MIMETYPE);
+        qmlSuffixes = qmlSourceTy.suffixes();
+    }
+
+    const QFileInfo info(fileName);
+    const QString fileSuffix = info.suffix();
+    if (jsSuffixes.contains(fileSuffix))
+        return QmlJS::Document::JavaScriptLanguage;
+    if (qmlSuffixes.contains(fileSuffix))
+        return QmlJS::Document::QmlLanguage;
+    return QmlJS::Document::UnknownLanguage;
+}
+
+QStringList QmlJSTools::qmlAndJsGlobPatterns()
+{
+    QStringList pattern;
+    if (Core::ICore::instance()) {
+        Core::MimeDatabase *db = Core::ICore::instance()->mimeDatabase();
+        Core::MimeType jsSourceTy = db->findByType(Constants::JS_MIMETYPE);
+        Core::MimeType qmlSourceTy = db->findByType(Constants::QML_MIMETYPE);
+
+        QStringList pattern;
+        foreach (const Core::MimeGlobPattern &glob, jsSourceTy.globPatterns())
+            pattern << glob.regExp().pattern();
+        foreach (const Core::MimeGlobPattern &glob, qmlSourceTy.globPatterns())
+            pattern << glob.regExp().pattern();
+    } else {
+        pattern << "*.qml" << "*.js";
+    }
+    return pattern;
+}
+
 ModelManager::ModelManager(QObject *parent):
         ModelManagerInterface(parent),
         m_core(Core::ICore::instance()),
@@ -349,22 +390,7 @@ void ModelManager::updateLibraryInfo(const QString &path, const LibraryInfo &inf
 
 static QStringList qmlFilesInDirectory(const QString &path)
 {
-    QStringList pattern;
-    if (Core::ICore::instance()) {
-        // ### It would suffice to build pattern once. This function needs to be thread-safe.
-        Core::MimeDatabase *db = Core::ICore::instance()->mimeDatabase();
-        Core::MimeType jsSourceTy = db->findByType(Constants::JS_MIMETYPE);
-        Core::MimeType qmlSourceTy = db->findByType(Constants::QML_MIMETYPE);
-
-        QStringList pattern;
-        foreach (const Core::MimeGlobPattern &glob, jsSourceTy.globPatterns())
-            pattern << glob.regExp().pattern();
-        foreach (const Core::MimeGlobPattern &glob, qmlSourceTy.globPatterns())
-            pattern << glob.regExp().pattern();
-    } else {
-        pattern << "*.qml" << "*.js";
-    }
-
+    const QStringList pattern = qmlAndJsGlobPatterns();
     QStringList files;
 
     const QDir dir(path);
@@ -521,30 +547,12 @@ static void findNewLibraryImports(const Document::Ptr &doc, const Snapshot &snap
     }
 }
 
-static bool suffixMatches(const QString &fileName, const Core::MimeType &mimeType)
-{
-    foreach (const QString &suffix, mimeType.suffixes()) {
-        if (fileName.endsWith(suffix, Qt::CaseInsensitive))
-            return true;
-    }
-    return false;
-}
-
 void ModelManager::parse(QFutureInterface<void> &future,
                             WorkingCopy workingCopy,
                             QStringList files,
                             ModelManager *modelManager,
                             bool emitDocChangedOnDisk)
 {
-    Core::MimeDatabase *db = 0;
-    Core::MimeType jsSourceTy;
-    Core::MimeType qmlSourceTy;
-    if (Core::ICore::instance()) {
-        db = Core::ICore::instance()->mimeDatabase();
-        jsSourceTy = db->findByType(QLatin1String("application/javascript"));
-        qmlSourceTy = db->findByType(QLatin1String("application/x-qml"));
-    }
-
     int progressRange = files.size();
     future.setProgressRange(0, progressRange);
 
@@ -557,6 +565,10 @@ void ModelManager::parse(QFutureInterface<void> &future,
         future.setProgressValue(qreal(i) / files.size() * progressRange);
 
         const QString fileName = files.at(i);
+
+        Document::Language language = languageOfFile(fileName);
+        if (language == Document::UnknownLanguage)
+            continue;
 
         QString contents;
         int documentRevision = 0;
@@ -575,7 +587,7 @@ void ModelManager::parse(QFutureInterface<void> &future,
             }
         }
 
-        Document::Ptr doc = Document::create(fileName);
+        Document::Ptr doc = Document::create(fileName, language);
         doc->setEditorRevision(documentRevision);
         doc->setSource(contents);
         doc->parse();
@@ -724,9 +736,10 @@ void ModelManager::startCppQmlTypeUpdate()
 
 void ModelManager::updateCppQmlTypes(ModelManager *qmlModelManager,
                                      CPlusPlus::CppModelManagerInterface *cppModelManager,
-                                     QMap<QString, QPair<CPlusPlus::Document::Ptr, bool> > documents)
+                                     QHash<QString, QPair<CPlusPlus::Document::Ptr, bool> > documents)
 {
-    CppQmlTypeHash newCppTypes = qmlModelManager->cppQmlTypes();
+    CppDataHash newData = qmlModelManager->cppData();
+
     CPlusPlus::Snapshot snapshot = cppModelManager->snapshot();
     FindExportedCppTypes finder(snapshot);
 
@@ -736,28 +749,33 @@ void ModelManager::updateCppQmlTypes(ModelManager *qmlModelManager,
         const bool scan = pair.second;
         const QString fileName = doc->fileName();
         if (!scan) {
-            newCppTypes.remove(fileName);
+            newData.remove(fileName);
             continue;
         }
 
-        QList<LanguageUtils::FakeMetaObject::ConstPtr> exported = finder(doc);
+        finder(doc);
 
-        if (!exported.isEmpty())
-            newCppTypes[fileName] = exported;
-        else
-            newCppTypes.remove(fileName);
+        QList<LanguageUtils::FakeMetaObject::ConstPtr> exported = finder.exportedTypes();
+        QHash<QString, QString> contextProperties = finder.contextProperties();
+        if (exported.isEmpty() && contextProperties.isEmpty()) {
+            newData.remove(fileName);
+        } else {
+            CppData &data = newData[fileName];
+            data.exportedTypes = exported;
+            data.contextProperties = contextProperties;
+        }
 
         doc->releaseSourceAndAST();
     }
 
-    QMutexLocker locker(&qmlModelManager->m_cppTypesMutex);
-    qmlModelManager->m_cppTypes = newCppTypes;
+    QMutexLocker locker(&qmlModelManager->m_cppDataMutex);
+    qmlModelManager->m_cppDataHash = newData;
 }
 
-ModelManagerInterface::CppQmlTypeHash ModelManager::cppQmlTypes() const
+ModelManager::CppDataHash ModelManager::cppData() const
 {
-    QMutexLocker locker(&m_cppTypesMutex);
-    return m_cppTypes;
+    QMutexLocker locker(&m_cppDataMutex);
+    return m_cppDataHash;
 }
 
 LibraryInfo ModelManager::builtins(const Document::Ptr &doc) const

@@ -39,9 +39,10 @@
 
 using namespace QmlJS;
 
-Evaluate::Evaluate(const ScopeChain *scopeChain)
+Evaluate::Evaluate(const ScopeChain *scopeChain, ReferenceContext *referenceContext)
     : _valueOwner(scopeChain->context()->valueOwner()),
       _context(scopeChain->context()),
+      _referenceContext(referenceContext),
       _scopeChain(scopeChain),
       _scope(_valueOwner->globalObject()),
       _result(0)
@@ -61,8 +62,12 @@ const Value *Evaluate::value(AST::Node *ast)
 {
     const Value *result = reference(ast);
 
-    if (const Reference *ref = value_cast<const Reference *>(result))
-        result = _context->lookupReference(ref);
+    if (const Reference *ref = value_cast<const Reference *>(result)) {
+        if (_referenceContext)
+            result = _referenceContext->lookupReference(ref);
+        else
+            result = _context->lookupReference(ref);
+    }
 
     if (! result)
         result = _valueOwner->undefinedValue();
@@ -163,10 +168,10 @@ bool Evaluate::visit(AST::UiArrayMemberList *)
 
 bool Evaluate::visit(AST::UiQualifiedId *ast)
 {
-    if (! ast->name)
+    if (ast->name.isEmpty())
          return false;
 
-    const Value *value = _scopeChain->lookup(ast->name->asString());
+    const Value *value = _scopeChain->lookup(ast->name.toString());
     if (! ast->next) {
         _result = value;
 
@@ -174,11 +179,11 @@ bool Evaluate::visit(AST::UiQualifiedId *ast)
         const ObjectValue *base = value_cast<const ObjectValue *>(value);
 
         for (AST::UiQualifiedId *it = ast->next; base && it; it = it->next) {
-            NameId *name = it->name;
-            if (! name)
+            const QString &name = it->name.toString();
+            if (name.isEmpty())
                 break;
 
-            const Value *value = base->lookupMember(name->asString(), _context);
+            const Value *value = base->lookupMember(name, _context);
             if (! it->next)
                 _result = value;
             else
@@ -211,10 +216,10 @@ bool Evaluate::visit(AST::ThisExpression *)
 
 bool Evaluate::visit(AST::IdentifierExpression *ast)
 {
-    if (! ast->name)
+    if (ast->name.isEmpty())
         return false;
 
-    _result = _scopeChain->lookup(ast->name->asString());
+    _result = _scopeChain->lookup(ast->name.toString());
     return false;
 }
 
@@ -262,6 +267,8 @@ bool Evaluate::visit(AST::ArrayLiteral *)
 
 bool Evaluate::visit(AST::ObjectLiteral *)
 {
+    // ### properties
+    _result = _valueOwner->newObject();
     return false;
 }
 
@@ -307,12 +314,12 @@ bool Evaluate::visit(AST::ArrayMemberExpression *)
 
 bool Evaluate::visit(AST::FieldMemberExpression *ast)
 {
-    if (! ast->name)
+    if (ast->name.isEmpty())
         return false;
 
     if (const Value *base = _valueOwner->convertToObject(value(ast->base))) {
         if (const ObjectValue *obj = base->asObjectValue()) {
-            _result = obj->lookupMember(ast->name->asString(), _context);
+            _result = obj->lookupMember(ast->name.toString(), _context);
         }
     }
 

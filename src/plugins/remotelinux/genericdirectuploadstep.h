@@ -32,7 +32,8 @@
 #ifndef DIRECTUPLOADSTEP_H
 #define DIRECTUPLOADSTEP_H
 
-#include <abstractremotelinuxdeploystep.h>
+#include "abstractremotelinuxdeploystep.h"
+#include "genericdirectuploadservice.h"
 #include "remotelinux_export.h"
 
 namespace RemoteLinux {
@@ -49,17 +50,23 @@ public:
     GenericDirectUploadStep(ProjectExplorer::BuildStepList *bsl, GenericDirectUploadStep *other);
     ~GenericDirectUploadStep();
 
+    ProjectExplorer::BuildStepConfigWidget *createConfigWidget();
     bool isDeploymentPossible(QString *whyNot = 0) const;
+
+    void setIncrementalDeployment(bool incremental);
+    bool incrementalDeployment() const;
 
     static QString stepId();
     static QString displayName();
 
 private:
-    AbstractRemoteLinuxDeployService *deployService() const;
+    GenericDirectUploadService *deployService() const;
+    bool fromMap(const QVariantMap &map);
+    QVariantMap toMap() const;
 
     void ctor();
 
-    Internal::GenericDirectUploadStepPrivate *m_d;
+    Internal::GenericDirectUploadStepPrivate *d;
 };
 
 } //namespace RemoteLinux

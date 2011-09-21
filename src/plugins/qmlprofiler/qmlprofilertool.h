@@ -91,12 +91,12 @@ signals:
 
 private slots:
     void updateProjectFileList();
-    void attach();
     void tryToConnect();
     void connectionStateChanged();
     void showSaveDialog();
     void showLoadDialog();
     void showErrorDialog(const QString &error);
+    void retryMessageBoxFinished(int result);
 
 private:
     void connectToClient();

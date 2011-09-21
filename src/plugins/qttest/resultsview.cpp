@@ -38,11 +38,10 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/command.h>
-#include <coreplugin/uniqueidmanager.h>
+#include <coreplugin/id.h>
 
 #include <QHeaderView>
 #include <QResizeEvent>
-#include <QSize>
 #include <QTimer>
 #include <QFileInfo>
 #include <QDesktopServices>

@@ -146,8 +146,9 @@ QString QMakeStep::allArguments(bool shorted)
             }
         }
     }
-    if (!userProvidedMkspec)
-        arguments << "-spec" << mkspec();
+    QString specArg = mkspec();
+    if (!userProvidedMkspec && !specArg.isEmpty())
+        arguments << "-spec" << specArg;
 
     // Find out what flags we pass on to qmake
     arguments << bc->configCommandLineArguments();
@@ -179,7 +180,7 @@ QStringList QMakeStep::moreArguments()
         if (!bc->qtVersion()->needsQmlDebuggingLibrary()) {
             // This Qt version has the QML debugging services built in, however
             // they still need to be enabled at compile time
-            arguments << QLatin1String("CONFIG+=declarative_debug");
+            arguments << QLatin1String(Constants::QMAKEVAR_DECLARATIVE_DEBUG);
         } else {
             QString qmlDebuggingHelperLibrary = bc->qtVersion()->qmlDebuggingHelperLibrary(true);
             if (!qmlDebuggingHelperLibrary.isEmpty()) {
@@ -418,15 +419,6 @@ void QMakeStep::setLinkQmlDebuggingLibrary(bool enable)
 
     qt4BuildConfiguration()->emitQMakeBuildConfigurationChanged();
     qt4BuildConfiguration()->emitProFileEvaluateNeeded();
-
-    Core::ICore * const core = Core::ICore::instance();
-    QMessageBox *question = new QMessageBox(core->mainWindow());
-    question->setWindowTitle(tr("QML Debugging"));
-    question->setText(tr("The option will only take effect if the project is recompiled. Do you want to recompile now?"));
-    question->setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-    question->setModal(true);
-    connect(question, SIGNAL(finished(int)), this, SLOT(recompileMessageBoxFinished(int)));
-    question->show();
 }
 
 QStringList QMakeStep::parserArguments()
@@ -454,12 +446,17 @@ QString QMakeStep::mkspec()
         }
     }
 
+    QtSupport::BaseQtVersion *version = bc->qtVersion();
+    // We do not know which abi the Qt version has, so let's stick with the defaults
+    if (version && version->qtAbis().count() == 1 && version->qtAbis().first().isNull())
+        return QString();
+
     const QString tcSpec = bc->toolChain() ? bc->toolChain()->mkspec() : QString();
-    if (!bc->qtVersion())
+    if (!version)
         return tcSpec;
-    if (!tcSpec.isEmpty() && bc->qtVersion()->hasMkspec(tcSpec))
+    if (!tcSpec.isEmpty() && version->hasMkspec(tcSpec))
         return tcSpec;
-    return bc->qtVersion()->mkspec();
+    return version->mkspec();
 }
 
 QVariantMap QMakeStep::toMap() const
@@ -487,20 +484,6 @@ bool QMakeStep::fromMap(const QVariantMap &map)
     }
 
     return BuildStep::fromMap(map);
-}
-
-void QMakeStep::recompileMessageBoxFinished(int button)
-{
-    if (button == QMessageBox::Yes) {
-        Qt4BuildConfiguration *bc = qt4BuildConfiguration();
-        if (!bc)
-            return;
-
-        QList<ProjectExplorer::BuildStepList *> stepLists;
-        stepLists << bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
-        stepLists << bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
-        ProjectExplorerPlugin::instance()->buildManager()->buildLists(stepLists);
-    }
 }
 
 ////
@@ -552,6 +535,11 @@ QMakeStepConfigWidget::~QMakeStepConfigWidget()
 QString QMakeStepConfigWidget::summaryText() const
 {
     return m_summaryText;
+}
+
+QString QMakeStepConfigWidget::additionalSummaryText() const
+{
+    return m_additionalSummaryText;
 }
 
 QString QMakeStepConfigWidget::displayName() const
@@ -645,6 +633,16 @@ void QMakeStepConfigWidget::linkQmlDebuggingLibraryChecked(bool checked)
     updateSummaryLabel();
     updateEffectiveQMakeCall();
     updateQmlDebuggingOption();
+
+
+    Core::ICore * const core = Core::ICore::instance();
+    QMessageBox *question = new QMessageBox(core->mainWindow());
+    question->setWindowTitle(tr("QML Debugging"));
+    question->setText(tr("The option will only take effect if the project is recompiled. Do you want to recompile now?"));
+    question->setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    question->setModal(true);
+    connect(question, SIGNAL(finished(int)), this, SLOT(recompileMessageBoxFinished(int)));
+    question->show();
 }
 
 void QMakeStepConfigWidget::buildQmlDebuggingHelper()
@@ -671,18 +669,24 @@ void QMakeStepConfigWidget::updateSummaryLabel()
     Qt4BuildConfiguration *qt4bc = m_step->qt4BuildConfiguration();
     QtSupport::BaseQtVersion *qtVersion = qt4bc->qtVersion();
     if (!qtVersion) {
-        m_summaryText = tr("<b>qmake:</b> No Qt version set. Cannot run qmake.");
-        emit updateSummary();
+        setSummaryText(tr("<b>qmake:</b> No Qt version set. Cannot run qmake."));
         return;
     }
-
     // We don't want the full path to the .pro file
     QString args = m_step->allArguments(true);
     // And we only use the .pro filename not the full path
     QString program = QFileInfo(qtVersion->qmakeCommand()).fileName();
-    m_summaryText = tr("<b>qmake:</b> %1 %2").arg(program, args);
-    emit updateSummary();
+    setSummaryText(tr("<b>qmake:</b> %1 %2").arg(program, args));
 
+    ToolChain *tc = qt4bc->toolChain();
+    if (!tc)
+        return;
+
+    QString tcSpec = tc->mkspec();
+    if (!tcSpec.isEmpty() && tcSpec != m_step->mkspec())
+        setAdditionalSummaryText(tr("<b>Warning:</b> The tool chain suggested \"%1\" as mkspec.").arg(tcSpec));
+    else
+        setAdditionalSummaryText(QString());
 }
 
 void QMakeStepConfigWidget::updateQmlDebuggingOption()
@@ -714,6 +718,36 @@ void QMakeStepConfigWidget::updateEffectiveQMakeCall()
     if (qtVersion)
         program = QFileInfo(qtVersion->qmakeCommand()).fileName();
     m_ui->qmakeArgumentsEdit->setPlainText(program + QLatin1Char(' ') + m_step->allArguments());
+}
+
+void QMakeStepConfigWidget::recompileMessageBoxFinished(int button)
+{
+    if (button == QMessageBox::Yes) {
+        Qt4BuildConfiguration *bc = m_step->qt4BuildConfiguration();
+        if (!bc)
+            return;
+
+        QList<ProjectExplorer::BuildStepList *> stepLists;
+        stepLists << bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
+        stepLists << bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
+        ProjectExplorerPlugin::instance()->buildManager()->buildLists(stepLists);
+    }
+}
+
+void QMakeStepConfigWidget::setSummaryText(const QString &text)
+{
+    if (text == m_summaryText)
+        return;
+    m_summaryText = text;
+    emit updateSummary();
+}
+
+void QMakeStepConfigWidget::setAdditionalSummaryText(const QString &text)
+{
+    if (text == m_additionalSummaryText)
+        return;
+    m_additionalSummaryText = text;
+    emit updateAdditionalSummary();
 }
 
 ////

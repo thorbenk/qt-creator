@@ -1778,6 +1778,7 @@ bool Bind::visit(SimpleDeclarationAST *ast)
 
         if (Function *fun = decl->type()->asFunctionType()) {
             fun->setScope(_scope);
+            fun->setSourceLocation(sourceLocation, translationUnit());
 
             setDeclSpecifiers(fun, type);
             if (declaratorId && declaratorId->name)
@@ -2007,6 +2008,7 @@ bool Bind::visit(FunctionDefinitionAST *ast)
 
     if (fun) {
         setDeclSpecifiers(fun, declSpecifiers);
+        fun->setEndOffset(tokenAt(ast->lastToken() - 1).end());
 
         if (_scope->isClass()) {
             fun->setVisibility(_visibility);
@@ -2028,12 +2030,6 @@ bool Bind::visit(FunctionDefinitionAST *ast)
         Scope *previousScope = switchScope(fun);
         this->statement(ast->function_body);
         (void) switchScope(previousScope);
-
-        if (CompoundStatementAST *c = ast->function_body->asCompoundStatement()) {
-            if (c->symbol) {
-                fun->setEndOffset(c->symbol->endOffset());
-            }
-        }
     }
 
     return false;

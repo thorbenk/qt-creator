@@ -52,6 +52,7 @@ public:
     GenericDirectUploadService(QObject *parent = 0);
 
     void setDeployableFiles(const QList<DeployableFile> &deployableFiles);
+    void setIncrementalDeployment(bool incremental);
 
 private slots:
     void handleSftpInitialized();
@@ -75,7 +76,7 @@ private:
     void setFinished();
     void uploadNextFile();
 
-    Internal::GenericDirectUploadServicePrivate * const m_d;
+    Internal::GenericDirectUploadServicePrivate * const d;
 };
 
 } //namespace RemoteLinux

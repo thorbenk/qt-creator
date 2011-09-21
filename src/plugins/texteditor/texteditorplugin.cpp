@@ -54,7 +54,7 @@
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/command.h>
 #include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/uniqueidmanager.h>
+#include <coreplugin/id.h>
 #include <coreplugin/externaltoolmanager.h>
 #include <extensionsystem/pluginmanager.h>
 #include <texteditor/texteditoractionhandler.h>
@@ -182,8 +182,8 @@ void TextEditorPlugin::extensionsInitialized()
 
     updateSearchResultsFont(m_settings->fontSettings());
 
-    addAutoReleasedObject(new FindInFiles(Find::SearchResultWindow::instance()));
-    addAutoReleasedObject(new FindInCurrentFile(Find::SearchResultWindow::instance()));
+    addAutoReleasedObject(new FindInFiles);
+    addAutoReleasedObject(new FindInCurrentFile);
 
     Core::VariableManager *vm = Core::VariableManager::instance();
     vm->registerVariable(QLatin1String(kCurrentDocumentSelection),
