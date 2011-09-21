@@ -45,6 +45,7 @@
 #include <QtCore/QHash>
 #include <QtCore/QFuture>
 #include <QtCore/QTime>
+#include <QStringBuilder>
 
 //#define DEBUG
 //#define DEBUG_DIAGNOSTICS
@@ -249,10 +250,11 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
         // @TODO: Treat anonymous...
         QString qualification;
         if (visitorData->m_qualification.contains(parentHash)) {
-            qualification = visitorData->m_qualification.value(parentHash);
-            qualification.append("::");
+            qualification = visitorData->m_qualification.value(parentHash) %
+                    QLatin1String("::") % spelling;
+        } else {
+            qualification = spelling;
         }
-        qualification.append(spelling);
         visitorData->m_qualification[currentHash] = qualification;
     } else {
         visitorData->m_qualification[currentHash] = visitorData->m_qualification.value(parentHash);
