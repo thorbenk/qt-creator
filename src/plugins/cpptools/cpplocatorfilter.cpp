@@ -97,7 +97,7 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
 
 
 
-    // @TODO: Testing indexing with clang...
+    // @TODO: Testing indexing with clang... The locators classes can now be simplified.
     const QString &shortcut = shortcutString();
     const QStringList &allFiles = m_manager->indexer().allFiles();
     foreach (const QString &file, allFiles) {
@@ -113,6 +113,9 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
         } else if (shortcut == QLatin1String(":")) {
             infoList.append(m_manager->indexer().classesFromFile(file));
             infoList.append(m_manager->indexer().methodsFromFile(file));
+        } else if (shortcut == QLatin1String("cd")) {
+            infoList.append(m_manager->indexer().constructorsFromFile(file));
+            infoList.append(m_manager->indexer().destructorsFromFile(file));
         }
         foreach (const Clang::IndexedSymbolInfo &symbolInfo, infoList) {
             // @TODO: Merge ModelItemInfo and IndexedSymbomlInfo since they are pretty much

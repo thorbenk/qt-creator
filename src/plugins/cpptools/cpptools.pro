@@ -38,7 +38,8 @@ HEADERS += completionsettingspage.h \
     cpptoolsreuse.h \
     completionprojectsettingspage.h \
     completionprojectsettings.h \
-    pchmanager.h
+    pchmanager.h \
+    cppctordtorfilter.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -68,7 +69,8 @@ SOURCES += completionsettingspage.cpp \
     cpptoolsreuse.cpp \
     completionprojectsettingspage.cpp \
     completionprojectsettings.cpp \
-    pchmanager.cpp
+    pchmanager.cpp \
+    cppctordtorfilter.cpp
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \
@@ -83,12 +85,3 @@ HEADERS += clangcompletion.h \
 SOURCES += clangcompletion.cpp \
     cppcreatemarkers.cpp \
     clangutils.cpp
-
-
-
-
-
-
-
-
-

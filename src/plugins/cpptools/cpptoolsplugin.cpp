@@ -46,6 +46,7 @@
 #include "cppcodestylesettingsfactory.h"
 #include "cppcodestylesettings.h"
 #include "completionprojectsettingspage.h"
+#include "cppctordtorfilter.h"
 
 #include <extensionsystem/pluginmanager.h>
 
@@ -129,6 +130,7 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     addAutoReleasedObject(new CppLocatorFilter(m_modelManager));
     addAutoReleasedObject(new CppClassesFilter(m_modelManager));
     addAutoReleasedObject(new CppFunctionsFilter(m_modelManager));
+    addAutoReleasedObject(new CppCtorDtorFilter(m_modelManager));
     addAutoReleasedObject(new CppCurrentDocumentFilter(m_modelManager, core->editorManager()));
     addAutoReleasedObject(new CompletionSettingsPage);
     addAutoReleasedObject(new CppFileSettingsPage(m_fileSettings));
