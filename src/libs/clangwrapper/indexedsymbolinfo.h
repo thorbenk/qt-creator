@@ -50,6 +50,8 @@ struct IndexedSymbolInfo
         Method,       // A member-function.
         Function,     // A free-function (global or within a namespace).
         Declaration,
+        Constructor,
+        Destructor,
         Unknown
     };
 

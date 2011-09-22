@@ -293,6 +293,10 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
                         symbolInfo.m_type = IndexedSymbolInfo::Method;
                     else
                         symbolInfo.m_type = IndexedSymbolInfo::Function;
+                } else if (cursorKind == CXCursor_Constructor) {
+                    symbolInfo.m_type = IndexedSymbolInfo::Constructor;
+                } else if (cursorKind == CXCursor_Destructor) {
+                    symbolInfo.m_type = IndexedSymbolInfo::Destructor;
                 }
                 visitorData->m_symbolsInfo.append(symbolInfo);
             }
@@ -535,6 +539,16 @@ QList<IndexedSymbolInfo> Indexer::allMethods() const
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method);
 }
 
+QList<IndexedSymbolInfo> Indexer::allConstructors() const
+{
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Constructor);
+}
+
+QList<IndexedSymbolInfo> Indexer::allDestructors() const
+{
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Destructor);
+}
+
 QList<IndexedSymbolInfo> Indexer::functionsFromFile(const QString &fileName) const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Function,
@@ -550,6 +564,18 @@ QList<IndexedSymbolInfo> Indexer::classesFromFile(const QString &fileName) const
 QList<IndexedSymbolInfo> Indexer::methodsFromFile(const QString &fileName) const
 {
     return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method,
+                                  FileNameKey(), fileName);
+}
+
+QList<IndexedSymbolInfo> Indexer::constructorsFromFile(const QString &fileName) const
+{
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Constructor,
+                                  FileNameKey(), fileName);
+}
+
+QList<IndexedSymbolInfo> Indexer::destructorsFromFile(const QString &fileName) const
+{
+    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Destructor,
                                   FileNameKey(), fileName);
 }
 

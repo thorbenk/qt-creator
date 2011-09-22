@@ -62,9 +62,13 @@ public:
     QList<IndexedSymbolInfo> allFunctions() const;
     QList<IndexedSymbolInfo> allClasses() const;
     QList<IndexedSymbolInfo> allMethods() const;
+    QList<IndexedSymbolInfo> allConstructors() const;
+    QList<IndexedSymbolInfo> allDestructors() const;
     QList<IndexedSymbolInfo> functionsFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> classesFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> methodsFromFile(const QString &fileName) const;
+    QList<IndexedSymbolInfo> constructorsFromFile(const QString &fileName) const;
+    QList<IndexedSymbolInfo> destructorsFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> allFromFile(const QString &fileName) const;
 
 private:
