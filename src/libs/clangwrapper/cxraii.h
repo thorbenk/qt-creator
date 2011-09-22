@@ -46,27 +46,47 @@ struct ScopedCXType
 protected:
     typedef void (*DisposeFunction)(CXType_T);
 
-    ScopedCXType(const CXType_T cx, DisposeFunction f)
+    ScopedCXType(DisposeFunction f)
+        : m_disposeFunction(f)
+    {}
+    ScopedCXType(const CXType_T &cx, DisposeFunction f)
         : m_cx(cx) , m_disposeFunction(f)
     {}
 
 public:
     ~ScopedCXType()
     {
-        if (m_cx)
-            m_disposeFunction(m_cx);
+        dispose();
     }
 
     operator CXType_T() const { return m_cx; }
     bool operator!() const { return !m_cx; }
+    bool isNull() const { return !m_cx; }
+    void reset(const CXType_T &cx)
+    {
+        dispose();
+        m_cx = cx;
+    }
 
 private:
+    ScopedCXType(const ScopedCXType &);
+    const ScopedCXType &operator=(const ScopedCXType &);
+
+    void dispose()
+    {
+        if (m_cx)
+            m_disposeFunction(m_cx);
+    }
+
     CXType_T m_cx;
     DisposeFunction m_disposeFunction;
 };
 
 struct ScopedCXIndex : ScopedCXType<CXIndex>
 {
+    ScopedCXIndex()
+        : ScopedCXType<CXIndex>(&clang_disposeIndex)
+    {}
     ScopedCXIndex(const CXIndex &index)
         : ScopedCXType<CXIndex>(index, &clang_disposeIndex)
     {}
@@ -74,6 +94,9 @@ struct ScopedCXIndex : ScopedCXType<CXIndex>
 
 struct ScopedCXTranslationUnit : ScopedCXType<CXTranslationUnit>
 {
+    ScopedCXTranslationUnit()
+        : ScopedCXType<CXTranslationUnit>(&clang_disposeTranslationUnit)
+    {}
     ScopedCXTranslationUnit(const CXTranslationUnit &unit)
         : ScopedCXType<CXTranslationUnit>(unit, &clang_disposeTranslationUnit)
     {}
@@ -81,6 +104,9 @@ struct ScopedCXTranslationUnit : ScopedCXType<CXTranslationUnit>
 
 struct ScopedCXDiagnostic : ScopedCXType<CXDiagnostic>
 {
+    ScopedCXDiagnostic()
+        : ScopedCXType<CXDiagnostic>(&clang_disposeDiagnostic)
+    {}
     ScopedCXDiagnostic(const CXDiagnostic &diagnostic)
         : ScopedCXType<CXDiagnostic>(diagnostic, &clang_disposeDiagnostic)
     {}
