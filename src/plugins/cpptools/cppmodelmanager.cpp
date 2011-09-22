@@ -1325,6 +1325,8 @@ void CppModelManager::onAboutToUnloadSession()
     } while (0);
 
     GC();
+
+    m_clangIndexer.destroy();
 }
 
 void CppModelManager::parse(QFutureInterface<void> &future,

@@ -124,6 +124,7 @@ public slots:
 public:
     void run();
     void cancel(bool wait);
+    void clear();
 
     bool addFile(const QString &fileName, const QStringList &compilationOptions);
     QStringList allFiles() const;
@@ -421,6 +422,14 @@ void IndexerPrivate::cancel(bool wait)
         m_indexingWatcher.waitForFinished();
 }
 
+void IndexerPrivate::clear()
+{
+    cancel(true);
+    for (int i = 0; i < TotalFileTypes; ++i)
+        m_files[i].clear();
+    m_database.clear();
+}
+
 void IndexerPrivate::synchronize(int resultIndex)
 {
     const IndexingResult &result = m_indexingWatcher.resultAt(resultIndex);
@@ -512,6 +521,11 @@ QFuture<void> Indexer::workingFuture() const
 void Indexer::stopWorking(bool waitForFinished)
 {
     return m_d->cancel(waitForFinished);
+}
+
+void Indexer::destroy()
+{
+    m_d->clear();
 }
 
 bool Indexer::addFile(const QString &fileName, const QStringList &compilationOptions)

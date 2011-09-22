@@ -55,6 +55,7 @@ public:
     bool isWorking() const;
     QFuture<void> workingFuture() const;
     void stopWorking(bool waitForFinished);
+    void destroy();
 
     bool addFile(const QString &fileName, const QStringList &compilationOptions);
     QStringList allFiles() const;
