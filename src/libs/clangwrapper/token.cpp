@@ -77,7 +77,7 @@ bool Token::isPunctuationLBracked(const Token &token, const QString &code)
 
 bool Token::isPunctuationRBracked(const Token &token, const QString &code)
 {
-    return isCharCheck(token, code, Constants::kLBracked);
+    return isCharCheck(token, code, Constants::kRBracked);
 }
 
 bool Token::isPunctuationSemiColon(const Token &token, const QString &code)
