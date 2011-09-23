@@ -17,7 +17,9 @@ SOURCES += \
     $$PWD/reuse.cpp \
     $$PWD/indexer.cpp \
     $$PWD/indexedsymbolinfo.cpp \
-    $$PWD/sourcelocation.cpp
+    $$PWD/sourcelocation.cpp \
+    $$PWD/unit.cpp \
+    $$PWD/liveunitsmanager.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -32,4 +34,7 @@ HEADERS += \
     $$PWD/indexedsymbolinfo.h \
     $$PWD/database.h \
     $$PWD/cxraii.h \
-    $$PWD/sourcelocation.h
+    $$PWD/sourcelocation.h \
+    $$PWD/unit.h \
+    $$PWD/typedefs.h \
+    $$PWD/liveunitsmanager.h
