@@ -128,6 +128,7 @@ public:
 
     bool addFile(const QString &fileName, const QStringList &compilationOptions);
     QStringList allFiles() const;
+    QStringList compilationOptions(const QString &fileName) const;
     static FileType identifyFileType(const QString &fileName);
     static void populateFileNames(QStringList *all, const QList<FileData> &data);
 
@@ -482,6 +483,12 @@ QStringList IndexerPrivate::allFiles() const
     return all;
 }
 
+QStringList IndexerPrivate::compilationOptions(const QString &fileName) const
+{
+    FileType type = identifyFileType(fileName);
+    return m_files.value(type).value(fileName).m_compilationOptions;
+}
+
 IndexerPrivate::FileType IndexerPrivate::identifyFileType(const QString &fileName)
 {
     // @TODO: Others
@@ -545,6 +552,11 @@ bool Indexer::addFile(const QString &fileName, const QStringList &compilationOpt
 QStringList Indexer::allFiles() const
 {
     return m_d->allFiles();
+}
+
+QStringList Indexer::compilationOptions(const QString &fileName) const
+{
+    return m_d->compilationOptions(fileName);
 }
 
 QList<IndexedSymbolInfo> Indexer::allFunctions() const

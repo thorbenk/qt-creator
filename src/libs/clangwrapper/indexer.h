@@ -59,6 +59,7 @@ public:
 
     bool addFile(const QString &fileName, const QStringList &compilationOptions);
     QStringList allFiles() const;
+    QStringList compilationOptions(const QString &fileName) const;
 
     QList<IndexedSymbolInfo> allFunctions() const;
     QList<IndexedSymbolInfo> allClasses() const;
