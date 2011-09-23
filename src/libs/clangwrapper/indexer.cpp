@@ -284,16 +284,25 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
                 //symbolInfo.m_icon
                 if (cursorKind == CXCursor_ClassDecl
                         || cursorKind == CXCursor_StructDecl
-                        || cursorKind == CXCursor_UnionDecl) {
+                        || cursorKind == CXCursor_UnionDecl
+                        || cursorKind == CXCursor_ClassTemplate
+                        || cursorKind == CXCursor_ClassTemplatePartialSpecialization) {
                     symbolInfo.m_type = IndexedSymbolInfo::Class;
-                } else if (cursorKind == CXCursor_FunctionDecl
-                           || cursorKind == CXCursor_FunctionTemplate
-                           || cursorKind == CXCursor_CXXMethod) {
-                    CXCursorKind parentKind = clang_getCursorKind(parentCursor);
-                    if (parentKind == CXCursor_ClassDecl || parentKind == CXCursor_StructDecl)
+                } else if (cursorKind == CXCursor_FunctionDecl) {
+                    symbolInfo.m_type = IndexedSymbolInfo::Function;
+                } else if (cursorKind == CXCursor_CXXMethod) {
+                    symbolInfo.m_type = IndexedSymbolInfo::Method;
+                } else if (cursorKind == CXCursor_FunctionTemplate) {
+                    CXCursor semaParent = clang_getCursorSemanticParent(cursor);
+                    CXCursorKind semaParentKind = clang_getCursorKind(semaParent);
+                    if (semaParentKind == CXCursor_ClassDecl
+                            || semaParentKind == CXCursor_StructDecl
+                            || semaParentKind == CXCursor_ClassTemplate
+                            || semaParentKind == CXCursor_ClassTemplatePartialSpecialization) {
                         symbolInfo.m_type = IndexedSymbolInfo::Method;
-                    else
+                    } else {
                         symbolInfo.m_type = IndexedSymbolInfo::Function;
+                    }
                 } else if (cursorKind == CXCursor_Constructor) {
                     symbolInfo.m_type = IndexedSymbolInfo::Constructor;
                 } else if (cursorKind == CXCursor_Destructor) {
