@@ -94,7 +94,7 @@ class CppPreprocessor;
 class CppFindReferences;
 
 #ifndef ICHECK_BUILD
-class CppModelManager : public CPlusPlus::CppModelManagerInterface
+class CPPTOOLS_EXPORT CppModelManager : public CPlusPlus::CppModelManagerInterface
 {
     Q_OBJECT
 
@@ -152,7 +152,7 @@ public:
 
     CompletionProjectSettings *completionSettingsFromProject(ProjectExplorer::Project *project) const;
 
-    const Clang::Indexer &indexer() const;
+    const Clang::Indexer *indexer() const;
 
 Q_SIGNALS:
     void projectPathChanged(const QString &projectPath);
