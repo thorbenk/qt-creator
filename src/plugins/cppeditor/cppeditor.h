@@ -39,6 +39,7 @@
 
 #include <clangwrapper/clangwrapper.h>
 #include <clangwrapper/sourcemarker.h>
+#include <clangwrapper/codenavigator.h>
 
 #include <cplusplus/ModelManagerInterface.h>
 #include <cplusplus/CppDocument.h>
@@ -341,6 +342,8 @@ private:
     Clang::ClangWrapper::Ptr m_clangCompletionWrapper;
     Clang::ClangWrapper::Ptr m_clangSemanticWrapper;
 #endif
+
+    Clang::CodeNavigator m_codeNavigator;
 };
 
 

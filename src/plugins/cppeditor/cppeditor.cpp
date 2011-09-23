@@ -61,6 +61,8 @@
 #include <cplusplus/BackwardsScanner.h>
 #include <cplusplus/FastPreprocessor.h>
 
+#include <clangwrapper/sourcelocation.h>
+
 #include <cpptools/clangcompletion.h>
 #include <cpptools/cppcreatemarkers.h>
 #include <cpptools/cpptoolsplugin.h>
@@ -70,6 +72,7 @@
 #include <cpptools/cppqtstyleindenter.h>
 #include <cpptools/cppcodestylesettings.h>
 #include <cpptools/cpprefactoringchanges.h>
+#include <cpptools/cppmodelmanager.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/actionmanager/actionmanager.h>
@@ -839,7 +842,11 @@ void CPPEditorWidget::onContentsChanged(int position, int charsRemoved, int char
 }
 
 void CPPEditorWidget::updateFileName()
-{ }
+{
+    CppTools::Internal::CppModelManager *manager =
+            static_cast<CppTools::Internal::CppModelManager *>(CppModelManagerInterface::instance());
+    m_codeNavigator.setup(file()->fileName(), manager->indexer());
+}
 
 void CPPEditorWidget::jumpToOutlineElement(int)
 {
@@ -1424,7 +1431,19 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
 
 void CPPEditorWidget::jumpToDefinition()
 {
+    int line, column;
+    convertPosition(textCursor().position(), &line, &column);
+    ++column;
+
+    const Clang::SourceLocation &location = m_codeNavigator.findDefinition(line, column);
+    if (location.isNull())
+        return;
+
+    openLink(Link(location.fileName(), location.line(), location.column() - 1));
+
+#if 0
     openLink(findLinkAt(textCursor()));
+#endif
 }
 
 Symbol *CPPEditorWidget::findDefinition(Symbol *symbol, const Snapshot &snapshot) const

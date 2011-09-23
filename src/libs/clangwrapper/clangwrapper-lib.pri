@@ -19,7 +19,8 @@ SOURCES += \
     $$PWD/indexedsymbolinfo.cpp \
     $$PWD/sourcelocation.cpp \
     $$PWD/unit.cpp \
-    $$PWD/liveunitsmanager.cpp
+    $$PWD/liveunitsmanager.cpp \
+    $$PWD/codenavigator.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -37,4 +38,5 @@ HEADERS += \
     $$PWD/sourcelocation.h \
     $$PWD/unit.h \
     $$PWD/typedefs.h \
-    $$PWD/liveunitsmanager.h
+    $$PWD/liveunitsmanager.h \
+    $$PWD/codenavigator.h
