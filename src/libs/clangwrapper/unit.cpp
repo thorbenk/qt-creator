@@ -136,6 +136,9 @@ void Unit::parse()
     for (int i = 0; i < m_data->m_compOptions.size(); ++i)
         argv[i] = m_data->m_compOptions.at(i).constData();
 
+    if (m_data->m_tu)
+        clang_disposeTranslationUnit(m_data->m_tu);
+
     m_data->m_tu = clang_parseTranslationUnit(m_data->m_index,
                                               m_data->m_fileName.constData(),
                                               argv, m_data->m_compOptions.size(),
