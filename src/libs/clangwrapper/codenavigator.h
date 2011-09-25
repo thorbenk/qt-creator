@@ -55,12 +55,16 @@ public:
 
     void setup(const QString &fileName, const Indexer *indexer);
 
-    SourceLocation findDefinition(unsigned line, unsigned column) const;
+    SourceLocation followItem(unsigned line, unsigned column) const;
 
 private slots:
     void unitReady();
 
 private:
+    SourceLocation findDefinition(const CXCursor &cursor,
+                                  CXCursorKind cursorKind) const;
+    SourceLocation findInclude(const CXCursor &cursor) const;
+
     QFutureWatcher<Internal::Unit> m_unitWatcher;
     mutable Internal::Unit m_unit;
     const Indexer *m_indexer;

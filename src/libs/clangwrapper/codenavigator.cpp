@@ -73,7 +73,7 @@ void CodeNavigator::setup(const QString &fileName, const Indexer *indexer)
         QFuture<Unit> future = QtConcurrent::run(parseUnit,
                                                  fileName,
                                                  indexer->compilationOptions(fileName),
-                                                 CXTranslationUnit_None);
+                                                 CXTranslationUnit_DetailedPreprocessingRecord);
         m_unitWatcher.setFuture(future);
         connect(&m_unitWatcher, SIGNAL(finished()), this, SLOT(unitReady()));
     }
@@ -89,10 +89,8 @@ void CodeNavigator::unitReady()
     }
 }
 
-SourceLocation CodeNavigator::findDefinition(unsigned line, unsigned column) const
+SourceLocation CodeNavigator::followItem(unsigned line, unsigned column) const
 {
-    // @TODO: Cover includes, macros, etc...
-
     if (m_unit.isNull()) {
         m_unit.parse();
         if (m_unit.isNull())
@@ -108,6 +106,19 @@ SourceLocation CodeNavigator::findDefinition(unsigned line, unsigned column) con
     if (clang_equalCursors(cursor, clang_getNullCursor()))
         return SourceLocation();
 
+    CXCursorKind cursorKind = clang_getCursorKind(cursor);
+
+    // @TODO: Doesn't catch the include when it's in the bracket form and the position is
+    // within the brackets. Expected?
+    if (cursorKind == CXCursor_InclusionDirective)
+        return findInclude(cursor);
+
+    return findDefinition(cursor, cursorKind);
+}
+
+SourceLocation CodeNavigator::findDefinition(const CXCursor &cursor,
+                                             CXCursorKind cursorKind) const
+{
     CXCursor cursorDefinition = clang_getNullCursor();
     if (clang_isCursorDefinition(cursor))
         cursorDefinition = cursor;
@@ -118,7 +129,6 @@ SourceLocation CodeNavigator::findDefinition(unsigned line, unsigned column) con
         return Internal::getInstantiationLocation(clang_getCursorLocation(cursorDefinition));
 
     // Definition is not in the unit, use indexed data to look for it.
-    CXCursorKind cursorKind = clang_getCursorKind(cursor);
     if (clang_isDeclaration(cursorKind)
             || clang_isReference(cursorKind)) {
         QList<IndexedSymbolInfo> indexedInfo;
@@ -149,4 +159,10 @@ SourceLocation CodeNavigator::findDefinition(unsigned line, unsigned column) con
     }
 
     return SourceLocation();
+}
+
+SourceLocation CodeNavigator::findInclude(const CXCursor &cursor) const
+{
+    CXFile includedFile = clang_getIncludedFile(cursor);
+    return SourceLocation(getQString(clang_getFileName(includedFile)));
 }

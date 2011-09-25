@@ -1435,7 +1435,7 @@ void CPPEditorWidget::jumpToDefinition()
     convertPosition(textCursor().position(), &line, &column);
     ++column;
 
-    const Clang::SourceLocation &location = m_codeNavigator.findDefinition(line, column);
+    const Clang::SourceLocation &location = m_codeNavigator.followItem(line, column);
     if (location.isNull())
         return;
 

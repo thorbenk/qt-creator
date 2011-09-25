@@ -45,8 +45,8 @@ class QTCREATOR_CLANGWRAPPER_EXPORT SourceLocation
 public:
     SourceLocation();
     SourceLocation(const QString &fileName,
-                   unsigned line,
-                   unsigned column,
+                   unsigned line = 0,
+                   unsigned column = 0,
                    unsigned offset = 0);
 
     bool isNull() const { return m_fileName.isEmpty(); }
