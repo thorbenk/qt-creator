@@ -149,12 +149,10 @@ public:
 
     struct InclusionVisitorData
     {
-        InclusionVisitorData(IndexerProcessor *proc, const QStringList &options)
+        InclusionVisitorData(IndexerProcessor *proc)
             : m_proc(proc)
-            , m_compilationOptions(options)
         {}
         IndexerProcessor *m_proc;
-        QStringList m_compilationOptions;
     };
     static void inclusionVisit(CXFile file,
                                CXSourceLocation *,
@@ -183,6 +181,7 @@ public:
     unsigned m_unitManagementOptions;
     QHash<QString, IndexerPrivate::FileData> m_headers;
     QHash<QString, IndexerPrivate::FileData> m_impls;
+    QSet<QString> m_newlySeenHeaders;
 };
 
 } // Clang
@@ -223,15 +222,10 @@ void IndexerProcessor::inclusionVisit(CXFile file,
     // might have been affected by content that appears before them. However this
     // significantly improves the indexing and it should be ok to live with that.
     InclusionVisitorData *inclusionData = static_cast<InclusionVisitorData *>(clientData);
-    if (inclusionData->m_proc->m_headers.contains(fileName)) {
+    if (inclusionData->m_proc->m_headers.contains(fileName))
         inclusionData->m_proc->m_headers[fileName].m_upToDate = true;
-    } else {
-        inclusionData->m_proc->m_headers.insert(
-                    fileName,
-                    IndexerPrivate::FileData(fileName,
-                                             inclusionData->m_compilationOptions,
-                                             true));
-    }
+    else
+        inclusionData->m_proc->m_newlySeenHeaders.insert(fileName);
 }
 
 CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
@@ -278,8 +272,8 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
             // More details in the inclusion visit.
             const QString &fileName = symbolInfo.m_location.fileName();
             if (!fileName.trimmed().isEmpty()
-                    && (!visitorData->m_proc->m_headers.contains(fileName)
-                        || !visitorData->m_proc->m_headers.value(fileName).m_upToDate)) {
+                    && !visitorData->m_proc->m_newlySeenHeaders.contains(fileName)
+                    && !visitorData->m_proc->m_headers.value(fileName).m_upToDate) {
                 symbolInfo.m_name = spelling;
                 symbolInfo.m_qualification = currentQualification;
                 //symbolInfo.m_icon
@@ -374,9 +368,6 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
                                                           m_unitManagementOptions));
     delete[] argv;
 
-    // Mark this is file as up-to-date.
-    fileData->m_upToDate = true;
-
     if (!tu)
         return;
 
@@ -398,13 +389,14 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
     CXCursor tuCursor = clang_getTranslationUnitCursor(tu);
     clang_visitChildren(tuCursor, IndexerProcessor::astVisit, visitorData.data());
 
+    // Mark this is file as up-to-date.
+    fileData->m_upToDate = true;
+
     // Make some symbols available.
     interface.reportResult(IndexingResult(visitorData->m_symbolsInfo, fileData->m_compilationOptions));
 
     // Track inclusions.
-    QScopedPointer<InclusionVisitorData> inclusionData(
-                new InclusionVisitorData(this,
-                                         fileData->m_compilationOptions));
+    QScopedPointer<InclusionVisitorData> inclusionData(new InclusionVisitorData(this));
     clang_getInclusions(tu, IndexerProcessor::inclusionVisit, inclusionData.data());
 }
 
