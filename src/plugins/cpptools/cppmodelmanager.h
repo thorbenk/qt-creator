@@ -174,6 +174,9 @@ private Q_SLOTS:
     void postEditorUpdate();
     void updateEditorSelections();
 
+    // Testing clang...
+    void onIndexingStarted_Clang(QFuture<void> indexingFuture);
+
 private:
     void updateEditor(CPlusPlus::Document::Ptr doc);
 

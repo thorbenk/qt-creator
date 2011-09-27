@@ -36,6 +36,7 @@
 #include "clangwrapper_global.h"
 #include "indexedsymbolinfo.h"
 
+#include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
 #include <QtCore/QScopedPointer>
@@ -45,15 +46,15 @@ namespace Clang {
 
 class IndexerPrivate;
 
-class QTCREATOR_CLANGWRAPPER_EXPORT Indexer
+class QTCREATOR_CLANGWRAPPER_EXPORT Indexer : public QObject
 {
+    Q_OBJECT
 public:
     Indexer();
     ~Indexer();
 
     void regenerate();
     bool isWorking() const;
-    QFuture<void> workingFuture() const;
     void stopWorking(bool waitForFinished);
     void destroy();
 
@@ -73,7 +74,11 @@ public:
     QList<IndexedSymbolInfo> destructorsFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> allFromFile(const QString &fileName) const;
 
+signals:
+    void indexingStarted(QFuture<void> future);
+
 private:
+    friend class IndexerPrivate;
     QScopedPointer<IndexerPrivate> m_d;
 };
 

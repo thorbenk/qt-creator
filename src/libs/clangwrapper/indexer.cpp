@@ -92,7 +92,7 @@ class IndexerPrivate : public QObject
 {
     Q_OBJECT
 public:
-    IndexerPrivate();
+    IndexerPrivate(Indexer *indexer);
 
     // This enumeration is used to index a vector. So be careful when changing.
     enum FileType {
@@ -120,6 +120,7 @@ public:
 
 public slots:
     void synchronize(int resultIndex);
+    void indexingFinished();
 
 public:
     void run();
@@ -132,9 +133,11 @@ public:
     static FileType identifyFileType(const QString &fileName);
     static void populateFileNames(QStringList *all, const QList<FileData> &data);
 
+    Indexer *m_q;
     QVector<QHash<QString, FileData> > m_files;
     Database<IndexedSymbolInfo, FileNameKey, SymbolTypeKey> m_database;
     QFutureWatcher<IndexingResult> m_indexingWatcher;
+    bool m_hasQueuedRequest;
 };
 
 
@@ -402,19 +405,28 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
 
 
 
-IndexerPrivate::IndexerPrivate()
-    : m_files(TotalFileTypes)
+IndexerPrivate::IndexerPrivate(Indexer *indexer)
+    : m_q(indexer)
+    , m_files(TotalFileTypes)
+    , m_hasQueuedRequest(false)
 {
     connect(&m_indexingWatcher, SIGNAL(resultReadyAt(int)), this, SLOT(synchronize(int)));
+    connect(&m_indexingWatcher, SIGNAL(finished()), this, SLOT(indexingFinished()));
 }
 
 void IndexerPrivate::run()
 {
-    IndexerProcessor *processor = new IndexerProcessor(m_files.value(HeaderFile),
-                                                       m_files.value(ImplementationFile));
-    QFuture<IndexingResult> future = QtConcurrent::run(&IndexerProcessor::process, processor);
-    m_indexingWatcher.setFuture(future);
-    connect(&m_indexingWatcher, SIGNAL(finished()), processor, SLOT(deleteLater()));
+    if (!m_indexingWatcher.isRunning()) {
+        IndexerProcessor *processor = new IndexerProcessor(m_files.value(HeaderFile),
+                                                           m_files.value(ImplementationFile));
+        QFuture<IndexingResult> future = QtConcurrent::run(&IndexerProcessor::process, processor);
+        connect(&m_indexingWatcher, SIGNAL(finished()), processor, SLOT(deleteLater()));
+        m_indexingWatcher.setFuture(future);
+        emit m_q->indexingStarted(future);
+    } else {
+        m_hasQueuedRequest = true;
+        m_indexingWatcher.cancel();
+    }
 }
 
 void IndexerPrivate::cancel(bool wait)
@@ -448,6 +460,14 @@ void IndexerPrivate::synchronize(int resultIndex)
 
         // Make the symbol info available in the database.
         m_database.insert(info);
+    }
+}
+
+void IndexerPrivate::indexingFinished()
+{
+    if (m_hasQueuedRequest) {
+        m_hasQueuedRequest = false;
+        run();
     }
 }
 
@@ -505,7 +525,7 @@ void IndexerPrivate::populateFileNames(QStringList *all, const QList<FileData> &
 }
 
 Indexer::Indexer()
-    : m_d(new IndexerPrivate)
+    : m_d(new IndexerPrivate(this))
 {}
 
 Indexer::~Indexer()
@@ -519,11 +539,6 @@ void Indexer::regenerate()
 bool Indexer::isWorking() const
 {
     return m_d->m_indexingWatcher.isRunning();
-}
-
-QFuture<void> Indexer::workingFuture() const
-{
-    return m_d->m_indexingWatcher.future();
 }
 
 void Indexer::stopWorking(bool waitForFinished)

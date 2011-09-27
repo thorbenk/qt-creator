@@ -741,6 +741,9 @@ CppModelManager::CppModelManager(QObject *parent)
 
     connect(m_core->editorManager(), SIGNAL(editorAboutToClose(Core::IEditor *)),
         this, SLOT(editorAboutToClose(Core::IEditor *)));
+
+    connect(&m_clangIndexer, SIGNAL(indexingStarted(QFuture<void>)),
+            this, SLOT(onIndexingStarted_Clang(QFuture<void>)));
 }
 
 CppModelManager::~CppModelManager()
@@ -994,9 +997,6 @@ QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QStr
 
 void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
 {
-    if (m_clangIndexer.isWorking())
-        return;
-
     foreach (const QString &file, sourceFiles) {
         const QList<CppModelManagerInterface::ProjectPart::Ptr> &parts = projectPart(file);
         if (!parts.isEmpty())
@@ -1005,7 +1005,11 @@ void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
             m_clangIndexer.addFile(file, QStringList());
     }
     m_clangIndexer.regenerate();
-    Core::ICore::instance()->progressManager()->addTask(m_clangIndexer.workingFuture(),
+}
+
+void CppModelManager::onIndexingStarted_Clang(QFuture<void> indexingFuture)
+{
+    Core::ICore::instance()->progressManager()->addTask(indexingFuture,
                                                         tr("Indexing"),
                                                         "Key.Temp.Indexing");
 }

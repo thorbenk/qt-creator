@@ -127,6 +127,7 @@ void CppEditorSupport::updateDocumentNow()
         _documentParser = _modelManager->refreshSourceFiles(sourceFiles);
     }
 
-    _modelManager->refreshSourceFiles_Clang(QStringList(_textEditor->file()->fileName()));
+    // Temporarily disable this... (until the proper implementation).
+    //_modelManager->refreshSourceFiles_Clang(QStringList(_textEditor->file()->fileName()));
 }
 
