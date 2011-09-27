@@ -1007,6 +1007,11 @@ void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
     m_clangIndexer.regenerate();
 }
 
+void CppModelManager::refreshSourceFile_Clang(const QString &sourceFile)
+{
+    m_clangIndexer.evaluateFile(sourceFile);
+}
+
 void CppModelManager::onIndexingStarted_Clang(QFuture<void> indexingFuture)
 {
     Core::ICore::instance()->progressManager()->addTask(indexingFuture,

@@ -50,7 +50,9 @@ using namespace CPlusPlus;
 CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
     : QObject(modelManager),
       _modelManager(modelManager),
-      _updateDocumentInterval(UPDATE_DOCUMENT_DEFAULT_INTERVAL)
+      _updateDocumentInterval(UPDATE_DOCUMENT_DEFAULT_INTERVAL),
+      m_evaluateFileTimer(new QTimer(this)),
+      m_fileRevision(0)
 {
     _revision = 0;
 
@@ -58,6 +60,11 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
     _updateDocumentTimer->setSingleShot(true);
     _updateDocumentTimer->setInterval(_updateDocumentInterval);
     connect(_updateDocumentTimer, SIGNAL(timeout()), this, SLOT(updateDocumentNow()));
+
+    // Testing clang... See note in header.
+    m_evaluateFileTimer->setSingleShot(true);
+    m_evaluateFileTimer->setInterval(_updateDocumentInterval);
+    connect(m_evaluateFileTimer, SIGNAL(timeout()), this, SLOT(evaluateFileNow()));
 }
 
 CppEditorSupport::~CppEditorSupport()
@@ -75,6 +82,10 @@ void CppEditorSupport::setTextEditor(TextEditor::ITextEditor *textEditor)
         connect(this, SIGNAL(contentsChanged()), this, SLOT(updateDocument()));
 
         updateDocument();
+
+        // Testing clang... See note in header.
+        connect(_textEditor, SIGNAL(contentsChanged()), this, SLOT(evaluateFile()));
+        evaluateFile();
     }
 }
 
@@ -126,8 +137,23 @@ void CppEditorSupport::updateDocumentNow()
         _cachedContents = _textEditor->contents().toUtf8();
         _documentParser = _modelManager->refreshSourceFiles(sourceFiles);
     }
-
-    // Temporarily disable this... (until the proper implementation).
-    //_modelManager->refreshSourceFiles_Clang(QStringList(_textEditor->file()->fileName()));
 }
 
+// Testing clang... See note in header.
+void CppEditorSupport::evaluateFile()
+{
+    m_fileRevision = editorRevision();
+    m_evaluateFileTimer->start(_updateDocumentInterval);
+}
+
+void CppEditorSupport::evaluateFileNow()
+{
+    if (_modelManager->indexer()->isWorking() || m_fileRevision != editorRevision()) {
+        m_evaluateFileTimer->start(_updateDocumentInterval);
+    } else {
+        m_evaluateFileTimer->stop();
+
+        // @TODO: Treat unsaved file...
+        _modelManager->refreshSourceFile_Clang(_textEditor->file()->fileName());
+    }
+}

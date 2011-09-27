@@ -54,6 +54,7 @@ public:
     ~Indexer();
 
     void regenerate();
+    void evaluateFile(const QString &fileName);
     bool isWorking() const;
     void stopWorking(bool waitForFinished);
     void destroy();

@@ -118,6 +118,7 @@ public:
 
     // Testing...
     void refreshSourceFiles_Clang(const QStringList &sourceFiles);
+    void refreshSourceFile_Clang(const QString &sourceFile);
 
     inline Core::ICore *core() const { return m_core; }
 

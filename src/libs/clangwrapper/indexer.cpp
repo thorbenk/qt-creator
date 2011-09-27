@@ -43,6 +43,7 @@
 #include <QtCore/QDebug>
 #include <QtCore/QVector>
 #include <QtCore/QHash>
+#include <QtCore/QSet>
 #include <QtCore/QFuture>
 #include <QtCore/QTime>
 #include <QStringBuilder>
@@ -124,11 +125,15 @@ public slots:
 
 public:
     void run();
+    void run(const QStringList &fileNames);
+    QFuture<IndexingResult> runCore(const QHash<QString, FileData> &headers,
+                                    const QHash<QString, FileData> &impls);
     void cancel(bool wait);
     void clear();
 
     bool addFile(const QString &fileName, const QStringList &compilationOptions);
     QStringList allFiles() const;
+    bool isTrackingFile(const QString &fileName) const;
     QStringList compilationOptions(const QString &fileName) const;
     static FileType identifyFileType(const QString &fileName);
     static void populateFileNames(QStringList *all, const QList<FileData> &data);
@@ -137,7 +142,8 @@ public:
     QVector<QHash<QString, FileData> > m_files;
     Database<IndexedSymbolInfo, FileNameKey, SymbolTypeKey> m_database;
     QFutureWatcher<IndexingResult> m_indexingWatcher;
-    bool m_hasQueuedRequest;
+    bool m_hasQueuedFullRun;
+    QSet<QString> m_queuedFilesRun;
 };
 
 
@@ -419,24 +425,53 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
 IndexerPrivate::IndexerPrivate(Indexer *indexer)
     : m_q(indexer)
     , m_files(TotalFileTypes)
-    , m_hasQueuedRequest(false)
+    , m_hasQueuedFullRun(false)
 {
     connect(&m_indexingWatcher, SIGNAL(resultReadyAt(int)), this, SLOT(synchronize(int)));
     connect(&m_indexingWatcher, SIGNAL(finished()), this, SLOT(indexingFinished()));
 }
 
+QFuture<IndexingResult> IndexerPrivate::runCore(const QHash<QString, FileData> &headers,
+                                                const QHash<QString, FileData> &impls)
+{
+    IndexerProcessor *processor = new IndexerProcessor(headers, impls);
+    QFuture<IndexingResult> future = QtConcurrent::run(&IndexerProcessor::process, processor);
+    connect(&m_indexingWatcher, SIGNAL(finished()), processor, SLOT(deleteLater()));
+    m_indexingWatcher.setFuture(future);
+    return future;
+}
+
 void IndexerPrivate::run()
 {
     if (!m_indexingWatcher.isRunning()) {
-        IndexerProcessor *processor = new IndexerProcessor(m_files.value(HeaderFile),
-                                                           m_files.value(ImplementationFile));
-        QFuture<IndexingResult> future = QtConcurrent::run(&IndexerProcessor::process, processor);
-        connect(&m_indexingWatcher, SIGNAL(finished()), processor, SLOT(deleteLater()));
-        m_indexingWatcher.setFuture(future);
+        QFuture<IndexingResult> future =
+                runCore(m_files.value(HeaderFile), m_files.value(ImplementationFile));
         emit m_q->indexingStarted(future);
     } else {
-        m_hasQueuedRequest = true;
+        m_hasQueuedFullRun = true;
         m_indexingWatcher.cancel();
+    }
+}
+
+void IndexerPrivate::run(const QStringList &fileNames)
+{
+    if (!m_indexingWatcher.isRunning()) {
+        QVector<QHash<QString, FileData> > files(TotalFileTypes);
+        foreach (const QString &fileName, fileNames) {
+            if (!isTrackingFile(fileName)) {
+                // @TODO
+                continue;
+            }
+            m_database.remove(FileNameKey(), fileName);
+            FileType type = identifyFileType(fileName);
+            FileData *data = &m_files[type][fileName];
+            data->m_upToDate = false;
+
+            files[type].insert(fileName, *data);
+        }
+        runCore(files.value(HeaderFile), files.value(ImplementationFile));
+    } else {
+        m_queuedFilesRun.unite(fileNames.toSet());
     }
 }
 
@@ -476,9 +511,13 @@ void IndexerPrivate::synchronize(int resultIndex)
 
 void IndexerPrivate::indexingFinished()
 {
-    if (m_hasQueuedRequest) {
-        m_hasQueuedRequest = false;
+    if (m_hasQueuedFullRun) {
+        m_hasQueuedFullRun = false;
         run();
+    } else if (!m_queuedFilesRun.isEmpty()) {
+        const QStringList &files = m_queuedFilesRun.toList();
+        m_queuedFilesRun.clear();
+        run(files);
     }
 }
 
@@ -504,6 +543,12 @@ QStringList IndexerPrivate::allFiles() const
     populateFileNames(&all, m_files.at(ImplementationFile).values());
     populateFileNames(&all, m_files.at(HeaderFile).values());
     return all;
+}
+
+bool IndexerPrivate::isTrackingFile(const QString &fileName) const
+{
+    FileType type = identifyFileType(fileName);
+    return m_files.value(type).contains(fileName);
 }
 
 QStringList IndexerPrivate::compilationOptions(const QString &fileName) const
@@ -545,6 +590,11 @@ Indexer::~Indexer()
 void Indexer::regenerate()
 {
     m_d->run();
+}
+
+void Indexer::evaluateFile(const QString &fileName)
+{
+    m_d->run(QStringList(fileName));
 }
 
 bool Indexer::isWorking() const
