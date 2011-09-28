@@ -65,7 +65,6 @@ private:
                                   CXCursorKind cursorKind) const;
     SourceLocation findInclude(const CXCursor &cursor) const;
 
-    QFutureWatcher<Internal::Unit> m_unitWatcher;
     mutable Internal::Unit m_unit;
     const Indexer *m_indexer;
 };

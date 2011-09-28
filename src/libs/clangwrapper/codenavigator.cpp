@@ -74,14 +74,17 @@ void CodeNavigator::setup(const QString &fileName, const Indexer *indexer)
                                                  fileName,
                                                  indexer->compilationOptions(fileName),
                                                  CXTranslationUnit_DetailedPreprocessingRecord);
-        m_unitWatcher.setFuture(future);
-        connect(&m_unitWatcher, SIGNAL(finished()), this, SLOT(unitReady()));
+        QFutureWatcher<Unit> *watcher = new QFutureWatcher<Unit>;
+        connect(watcher, SIGNAL(finished()), this, SLOT(unitReady()));
+        connect(watcher, SIGNAL(finished()), watcher, SLOT(deleteLater()));
+        watcher->setFuture(future);
     }
 }
 
 void CodeNavigator::unitReady()
 {
-    const Unit &unit = m_unitWatcher.result();
+    QFutureWatcher<Unit> *watcher = static_cast<QFutureWatcher<Unit> *>(sender());
+    const Unit &unit = watcher->result();
     if (!unit.isNull()) {
         m_unit = unit;
         // Share this TU so it's available for anyone else while the navigator exists.
