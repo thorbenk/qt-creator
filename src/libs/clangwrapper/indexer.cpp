@@ -146,9 +146,12 @@ public:
 class IndexerProcessor : public QObject
 {
     Q_OBJECT
+
 public:
-    IndexerProcessor(const QHash<QString, IndexerPrivate::FileData> &headers,
-                     const QHash<QString, IndexerPrivate::FileData> &impls);
+    typedef QHash<QString, IndexerPrivate::FileData> FileContainer;
+    typedef QHash<QString, IndexerPrivate::FileData>::iterator FileContainerIt;
+
+    IndexerProcessor(const FileContainer &headers, const FileContainer &impls);
 
     struct InclusionVisitorData
     {
@@ -180,10 +183,11 @@ public:
     void process(QFutureInterface<IndexingResult> &interface);
     void process(QFutureInterface<IndexingResult> &interface, IndexerPrivate::FileData *fileData);
 
+
     ScopedCXIndex m_clangIndex;
     unsigned m_unitManagementOptions;
-    QHash<QString, IndexerPrivate::FileData> m_headers;
-    QHash<QString, IndexerPrivate::FileData> m_impls;
+    FileContainer m_allFiles;
+    QHash<QString, FileContainerIt> m_knownHeaders;
     QSet<QString> m_newlySeenHeaders;
 };
 
@@ -202,13 +206,17 @@ struct ScopepTimer
 } // Anonymous
 
 
-IndexerProcessor::IndexerProcessor(const QHash<QString, IndexerPrivate::FileData> &headers,
-                                   const QHash<QString, IndexerPrivate::FileData> &impls)
+IndexerProcessor::IndexerProcessor(const FileContainer &headers, const FileContainer &impls)
     : m_clangIndex(clang_createIndex(/*excludeDeclsFromPCH*/ 0, /*displayDiagnostics*/ 0))
     , m_unitManagementOptions(CXTranslationUnit_None)
-    , m_headers(headers)
-    , m_impls(impls)
-{}
+    , m_allFiles(impls)
+{
+    // Headers are processed later so we keep track of them separately.
+    foreach (const IndexerPrivate::FileData &fileData, headers) {
+        FileContainerIt it = m_allFiles.insert(fileData.m_fileName, fileData);
+        m_knownHeaders.insert(fileData.m_fileName, it);
+    }
+}
 
 void IndexerProcessor::inclusionVisit(CXFile file,
                                       CXSourceLocation *,
@@ -225,8 +233,8 @@ void IndexerProcessor::inclusionVisit(CXFile file,
     // might have been affected by content that appears before them. However this
     // significantly improves the indexing and it should be ok to live with that.
     InclusionVisitorData *inclusionData = static_cast<InclusionVisitorData *>(clientData);
-    if (inclusionData->m_proc->m_headers.contains(fileName))
-        inclusionData->m_proc->m_headers[fileName].m_upToDate = true;
+    if (inclusionData->m_proc->m_allFiles.contains(fileName))
+        inclusionData->m_proc->m_allFiles[fileName].m_upToDate = true;
     else
         inclusionData->m_proc->m_newlySeenHeaders.insert(fileName);
 }
@@ -276,7 +284,8 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
             const QString &fileName = symbolInfo.m_location.fileName();
             if (!fileName.trimmed().isEmpty()
                     && !visitorData->m_proc->m_newlySeenHeaders.contains(fileName)
-                    && !visitorData->m_proc->m_headers.value(fileName).m_upToDate) {
+                    && visitorData->m_proc->m_allFiles.contains(fileName)
+                    && !visitorData->m_proc->m_allFiles.value(fileName).m_upToDate) {
                 symbolInfo.m_name = spelling;
                 symbolInfo.m_qualification = currentQualification;
                 //symbolInfo.m_icon
@@ -324,12 +333,14 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
 void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface)
 {
     // This range is actually just an approximation.
-    interface.setProgressRange(0, m_impls.count() + 1);
+    interface.setProgressRange(0, m_allFiles.count() + 1);
 
-    QHash<QString, IndexerPrivate::FileData>::iterator it = m_impls.begin();
-    QHash<QString, IndexerPrivate::FileData>::iterator eit = m_impls.end();
+    FileContainerIt it = m_allFiles.begin();
+    FileContainerIt eit = m_allFiles.end();
     BEGIN_PROFILE_SCOPE(0);
     for (; it != eit; ++it) {
+        if (m_knownHeaders.contains(it->m_fileName))
+            continue;
         process(interface, &it.value());
         interface.setProgressValue(interface.progressValue() + 1);
         if (interface.isCanceled())
@@ -337,10 +348,10 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface)
     }
     END_PROFILE_SCOPE;
 
-    it = m_headers.begin();
-    eit = m_headers.end();
-    for (; it != eit; ++it) {
-        process(interface, &it.value());
+    QHash<QString, FileContainerIt>::iterator hit = m_knownHeaders.begin();
+    QHash<QString, FileContainerIt>::iterator heit = m_knownHeaders.end();
+    for (; hit != heit; ++hit) {
+        process(interface, &hit.value().value());
         if (interface.isCanceled())
             break;
     }
