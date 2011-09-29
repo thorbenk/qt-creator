@@ -47,6 +47,7 @@
 #include <QtCore/QSet>
 #include <QtCore/QFuture>
 #include <QtCore/QTime>
+#include <QtCore/QtConcurrentMap>
 #include <QStringBuilder>
 
 //#define DEBUG
@@ -113,14 +114,17 @@ public:
         FileData() : m_upToDate(false) {}
         FileData(const QString &fileName,
                  const QStringList &compilationOptions,
+                 unsigned managementOptions = CXTranslationUnit_DetailedPreprocessingRecord,
                  bool upToDate = false)
             : m_fileName(fileName)
             , m_compilationOptions(compilationOptions)
+            , m_managementOptions(managementOptions)
             , m_upToDate(upToDate)
         {}
 
         QString m_fileName;
         QStringList m_compilationOptions;
+        unsigned m_managementOptions;
         bool m_upToDate;
     };
 
@@ -159,45 +163,54 @@ class IndexerProcessor : public QObject
     Q_OBJECT
 
 public:
-    typedef QHash<QString, IndexerPrivate::FileData> FileContainer;
-    typedef QHash<QString, IndexerPrivate::FileData>::iterator FileContainerIt;
+    typedef QHash<QString, IndexerPrivate::FileData> FileCont;
+    typedef QHash<QString, IndexerPrivate::FileData>::iterator FileContIt;
 
-    IndexerProcessor(const FileContainer &headers, const FileContainer &impls);
+    IndexerProcessor(const FileCont &headers, const FileCont &impls);
 
-    struct InclusionVisitorData
-    {
-        InclusionVisitorData(IndexerProcessor *proc)
-            : m_proc(proc)
-        {}
-        IndexerProcessor *m_proc;
-    };
     static void inclusionVisit(CXFile file,
                                CXSourceLocation *,
                                unsigned,
                                CXClientData clientData);
-
-    struct AstVisitorData
-    {
-        AstVisitorData(IndexerProcessor *proc)
-            : m_proc(proc)
-        {
-            m_symbolsInfo.reserve(10); // Reasonable guess...?
-        }
-        IndexerProcessor *m_proc;
-        QHash<unsigned, QString> m_qualification;
-        QVector<IndexedSymbolInfo> m_symbolsInfo;
-    };
     static CXChildVisitResult astVisit(CXCursor cursor,
                                        CXCursor parentCursor,
                                        CXClientData clientData);
 
+    struct ComputeTranslationUnit
+    {
+        typedef Unit result_type;
+
+        ComputeTranslationUnit(QFutureInterface<IndexingResult> *interface)
+            : m_interface(interface)
+        {}
+
+        Unit operator()(FileContIt it);
+
+        QFutureInterface<IndexingResult> *m_interface;
+    };
+
+    struct ComputeIndexingInfo
+    {
+        typedef int result_type;
+
+        ComputeIndexingInfo(QFutureInterface<IndexingResult> *interface,
+                            IndexerProcessor *proc)
+            : m_proc(proc)
+            , m_interface(interface)
+        {}
+
+        void operator()(int, Unit unit);
+
+        QFutureInterface<IndexingResult> *m_interface;
+        IndexerProcessor *m_proc;
+        QHash<unsigned, QString> m_qualification;
+        QVector<IndexedSymbolInfo> m_symbolsInfo;
+    };
+
     void process(QFutureInterface<IndexingResult> &interface);
-    void process(QFutureInterface<IndexingResult> &interface, IndexerPrivate::FileData *fileData);
 
-
-    unsigned m_unitManagementOptions;
-    FileContainer m_allFiles;
-    QHash<QString, FileContainerIt> m_knownHeaders;
+    FileCont m_allFiles;
+    QHash<QString, FileContIt> m_knownHeaders;
     QSet<QString> m_newlySeenHeaders;
 };
 
@@ -216,13 +229,69 @@ struct ScopepTimer
 } // Anonymous
 
 
-IndexerProcessor::IndexerProcessor(const FileContainer &headers, const FileContainer &impls)
-    : m_unitManagementOptions(CXTranslationUnit_DetailedPreprocessingRecord)
-    , m_allFiles(impls)
+Unit IndexerProcessor::ComputeTranslationUnit::operator()(FileContIt it)
+{
+    const IndexerPrivate::FileData &fileData = it.value();
+
+    if (fileData.m_upToDate || m_interface->isCanceled())
+        return Unit();
+
+    Unit unit(fileData.m_fileName);
+    unit.setCompilationOptions(fileData.m_compilationOptions);
+    unit.setManagementOptions(fileData.m_managementOptions);
+    unit.setUnsavedFiles(UnsavedFiles()); // @TODO: Consider unsaved files...
+    unit.parse();
+
+    // Progress values are not really accurate.
+    m_interface->setProgressValue(m_interface->progressValue() + 1);
+
+    return unit;
+}
+
+void IndexerProcessor::ComputeIndexingInfo::operator()(int, Unit unit)
+{
+    if (!unit.isValid() || m_interface->isCanceled())
+        return;
+
+    m_qualification.clear();
+    m_symbolsInfo.clear();
+    m_symbolsInfo.reserve(10); // Reasonable guess...?
+
+#ifdef DEBUG_DIAGNOSTICS
+    unsigned numDiagnostics = unit.getNumDiagnostics();
+    for (unsigned i = 0; i < numDiagnostics; ++i) {
+        ScopedCXDiagnostic diagnostic(unit.getDiagnostic(i));
+        if (!diagnostic)
+            continue;
+        CXDiagnosticSeverity severity = clang_getDiagnosticSeverity(diagnostic);
+        if (severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal) {
+            qDebug() << "Error:" << unit.fileName() << " - severity:" << severity;
+            qDebug() << "\t"<< getQString(clang_getDiagnosticSpelling(diagnostic));
+        }
+    }
+#endif
+
+    // Visit to gather symbol info.
+    clang_visitChildren(unit.getTranslationUnitCursor(), IndexerProcessor::astVisit, this);
+
+    // Mark this is file as up-to-date.
+    m_proc->m_allFiles[unit.fileName()].m_upToDate = true;
+
+    // Track inclusions.
+    unit.getInclusions(IndexerProcessor::inclusionVisit, this);
+
+    // Make symbols available.
+    m_interface->reportResult(IndexingResult(m_symbolsInfo,
+                                             unit.compilationOptions(),
+                                             unit));
+}
+
+IndexerProcessor::IndexerProcessor(const FileCont &headers, const FileCont &impls)
+    : m_allFiles(impls)
 {
     // Headers are processed later so we keep track of them separately.
     foreach (const IndexerPrivate::FileData &fileData, headers) {
-        FileContainerIt it = m_allFiles.insert(fileData.m_fileName, fileData);
+        FileContIt it = m_allFiles.insert(fileData.m_fileName, fileData);
         m_knownHeaders.insert(fileData.m_fileName, it);
     }
 }
@@ -241,7 +310,7 @@ void IndexerProcessor::inclusionVisit(CXFile file,
     // further ast visits. Strictly speaking this would not be correct, since such headers
     // might have been affected by content that appears before them. However this
     // significantly improves the indexing and it should be ok to live with that.
-    InclusionVisitorData *inclusionData = static_cast<InclusionVisitorData *>(clientData);
+    ComputeIndexingInfo *inclusionData = static_cast<ComputeIndexingInfo *>(clientData);
     if (inclusionData->m_proc->m_allFiles.contains(fileName))
         inclusionData->m_proc->m_allFiles[fileName].m_upToDate = true;
     else
@@ -252,7 +321,7 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
                                               CXCursor parentCursor,
                                               CXClientData clientData)
 {
-    AstVisitorData *visitorData = static_cast<AstVisitorData *>(clientData);
+    ComputeIndexingInfo *visitorData = static_cast<ComputeIndexingInfo *>(clientData);
 
     CXCursorKind cursorKind = clang_getCursorKind(cursor);
 
@@ -341,77 +410,37 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
 
 void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface)
 {
+    BEGIN_PROFILE_SCOPE(0);
+
     // This range is actually just an approximation.
     interface.setProgressRange(0, m_allFiles.count() + 1);
 
-    FileContainerIt it = m_allFiles.begin();
-    FileContainerIt eit = m_allFiles.end();
-    BEGIN_PROFILE_SCOPE(0);
+    // First process implementation files and then headers which were not included by any unit.
+    QVector<FileContIt> currentFiles;
+    currentFiles.reserve(m_allFiles.count());
+    FileContIt it = m_allFiles.begin();
+    FileContIt eit = m_allFiles.end();
     for (; it != eit; ++it) {
-        if (m_knownHeaders.contains(it->m_fileName))
-            continue;
-        process(interface, &it.value());
-        interface.setProgressValue(interface.progressValue() + 1);
-        if (interface.isCanceled())
-            return;
+        if (!m_knownHeaders.contains(it->m_fileName))
+            currentFiles.append(it);
     }
+    QtConcurrent::blockingMappedReduced<int>(currentFiles,
+                                             ComputeTranslationUnit(&interface),
+                                             ComputeIndexingInfo(&interface, this),
+                                             QtConcurrent::UnorderedReduce);
+
+    currentFiles.clear();
+    foreach (FileContIt it, m_knownHeaders) {
+        if (!m_allFiles.value(it.value().m_fileName).m_upToDate)
+            currentFiles.append(it);
+    }
+    QtConcurrent::blockingMappedReduced<int>(currentFiles,
+                                             ComputeTranslationUnit(&interface),
+                                             ComputeIndexingInfo(&interface, this),
+                                             QtConcurrent::UnorderedReduce);
+
     END_PROFILE_SCOPE;
-
-    QHash<QString, FileContainerIt>::iterator hit = m_knownHeaders.begin();
-    QHash<QString, FileContainerIt>::iterator heit = m_knownHeaders.end();
-    for (; hit != heit; ++hit) {
-        process(interface, &hit.value().value());
-        if (interface.isCanceled())
-            break;
-    }
 }
-
-void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
-                               IndexerPrivate::FileData *fileData)
-{
-    if (fileData->m_upToDate)
-        return;
-
-    Unit unit(fileData->m_fileName);
-    unit.setCompilationOptions(fileData->m_compilationOptions);
-    unit.setManagementOptions(m_unitManagementOptions);
-    unit.setUnsavedFiles(UnsavedFiles()); // @TODO: Consider unsaved files...
-    unit.parse();
-
-    if (!unit.isValid())
-        return;
-
-#ifdef DEBUG_DIAGNOSTICS
-    unsigned numDiagnostics = unit.getNumDiagnostics();
-    for (unsigned i = 0; i < numDiagnostics; ++i) {
-        ScopedCXDiagnostic diagnostic(unit.getDiagnostic(i));
-        if (!diagnostic)
-            continue;
-        CXDiagnosticSeverity severity = clang_getDiagnosticSeverity(diagnostic);
-        if (severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal) {
-            qDebug() << "Error:" << fileData->m_fileName << " - severity:" << severity;
-            qDebug() << "\t"<< getQString(clang_getDiagnosticSpelling(diagnostic));
-        }
-    }
-#endif
-
-    QScopedPointer<AstVisitorData> visitorData(new AstVisitorData(this));
-    CXCursor tuCursor = unit.getTranslationUnitCursor();
-    clang_visitChildren(tuCursor, IndexerProcessor::astVisit, visitorData.data());
-
-    // Mark this is file as up-to-date.
-    fileData->m_upToDate = true;
-
-    // Track inclusions.
-    QScopedPointer<InclusionVisitorData> inclusionData(new InclusionVisitorData(this));
-    unit.getInclusions(IndexerProcessor::inclusionVisit, inclusionData.data());
-
-    // Make some symbols available.
-    interface.reportResult(IndexingResult(visitorData->m_symbolsInfo,
-                                          fileData->m_compilationOptions,
-                                          unit));
-}
-
 
 
 IndexerPrivate::IndexerPrivate(Indexer *indexer)
