@@ -133,6 +133,14 @@ void Unit::invalidate()
     m_data->unload();
 }
 
+QStringList Unit::compilationOptions() const
+{
+    QStringList options;
+    foreach (const QByteArray &ba, m_data->m_compOptions)
+        options.append(ba);
+    return options;
+}
+
 void Unit::setCompilationOptions(const QStringList &compOptions)
 {
     m_data->m_compOptions.resize(compOptions.size());
@@ -140,9 +148,19 @@ void Unit::setCompilationOptions(const QStringList &compOptions)
         m_data->m_compOptions.append(option.toUtf8());
 }
 
+UnsavedFiles Unit::unsavedFiles() const
+{
+    return m_data->m_unsaved;
+}
+
 void Unit::setUnsavedFiles(const UnsavedFiles &unsavedFiles)
 {
     m_data->m_unsaved = unsavedFiles;
+}
+
+unsigned Unit::managementOptions() const
+{
+    return m_data->m_managOptions;
 }
 
 void Unit::setManagementOptions(unsigned managementOptions)

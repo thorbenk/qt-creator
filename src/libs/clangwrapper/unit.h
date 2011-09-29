@@ -78,13 +78,18 @@ public:
     Unit &operator=(const Unit &unit);
     ~Unit();
 
-    const QString fileName() const;
-
     bool isValid() const;
     void invalidate();
 
+    const QString fileName() const;
+
+    QStringList compilationOptions() const;
     void setCompilationOptions(const QStringList &compOptions);
+
+    UnsavedFiles unsavedFiles() const;
     void setUnsavedFiles(const UnsavedFiles &unsavedFiles);
+
+    unsigned managementOptions() const;
     void setManagementOptions(unsigned managementOptions);
 
     // Methods for generating the TU. Name mappings are direct, for example:
