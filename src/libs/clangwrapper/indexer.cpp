@@ -402,13 +402,14 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
     // Mark this is file as up-to-date.
     fileData->m_upToDate = true;
 
+    // Track inclusions.
+    QScopedPointer<InclusionVisitorData> inclusionData(new InclusionVisitorData(this));
+    unit.getInclusions(IndexerProcessor::inclusionVisit, inclusionData.data());
+
     // Make some symbols available.
     interface.reportResult(IndexingResult(visitorData->m_symbolsInfo,
                                           fileData->m_compilationOptions,
                                           unit));
-    // Track inclusions.
-    QScopedPointer<InclusionVisitorData> inclusionData(new InclusionVisitorData(this));
-    unit.getInclusions(IndexerProcessor::inclusionVisit, inclusionData.data());
 }
 
 
