@@ -79,7 +79,9 @@ public:
     ~Unit();
 
     const QString fileName() const;
-    bool isNull() const;
+
+    bool isValid() const;
+    void invalidate();
 
     void setCompilationOptions(const QStringList &compOptions);
     void setUnsavedFiles(const UnsavedFiles &unsavedFiles);
@@ -88,21 +90,37 @@ public:
     // Methods for generating the TU. Name mappings are direct, for example:
     //   - parse corresponds to clang_parseTranslationUnit
     //   - createFromSourceFile corresponds to clang_createTranslationUnitFromSourceFile
-    //   - etc
     void parse();
     void reparse();
     void create();
     void createFromSourceFile();
 
-    // Simple forwarding methods (the ones that take the TU as a parameter).
-    //   - getFile forwards to clang_getFile
-    //   - getCursor forwards to clang_getCursor
-    //   - etc
-    CXFile getFile() const;
-    CXCursor getCursor(const CXSourceLocation &location) const;
-    CXSourceLocation getLocation(const CXFile &file, unsigned line, unsigned column) const;
-    CXCursor getTranslationUnitCursor() const;
+
+    // Simple forwarding methods, separated by clang categories for convenience.
+    // As above, the names are directly mapped. Separated by categories as clang for convenience.
+    // Note that only methods that take the TU as a parameter should be wrapped.
+
+    // - Diagnostic reporting
+    unsigned getNumDiagnostics() const;
+    CXDiagnostic getDiagnostic(unsigned index) const;
+
+    // - Translation unit manipulation
     CXString getTranslationUnitSpelling() const;
+
+    // - File manipulation routines
+    CXFile getFile() const;
+
+    // - Mapping between cursors and source code
+    CXCursor getCursor(const CXSourceLocation &location) const;
+
+    // - Miscellaneous utility functions
+    void getInclusions(CXInclusionVisitor visitor, CXClientData clientData) const;
+
+    // - Cursor manipulations
+    CXCursor getTranslationUnitCursor() const;
+
+    // - Physical source locations
+    CXSourceLocation getLocation(const CXFile &file, unsigned line, unsigned column) const;
 
 private:
     QExplicitlySharedDataPointer<UnitData> m_data;

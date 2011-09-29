@@ -65,6 +65,7 @@ private:
                                   CXCursorKind cursorKind) const;
     SourceLocation findInclude(const CXCursor &cursor) const;
 
+    QString m_fileName;
     mutable Internal::Unit m_unit;
     const Indexer *m_indexer;
 };

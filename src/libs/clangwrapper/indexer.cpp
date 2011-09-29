@@ -35,6 +35,7 @@
 #include "database.h"
 #include "cxraii.h"
 #include "sourcelocation.h"
+#include "liveunitsmanager.h"
 
 #include <clang-c/Index.h>
 
@@ -80,12 +81,16 @@ inline IndexedSymbolInfo::SymbolType getKey<SymbolTypeKey>(const IndexedSymbolIn
 // The indexing result, containing the symbols found, reported by the indexer processor.
 struct IndexingResult
 {
-    IndexingResult(const QVector<IndexedSymbolInfo> &info, const QStringList &options)
+    IndexingResult(const QVector<IndexedSymbolInfo> &info,
+                   const QStringList &options,
+                   const Unit &unit)
         : m_symbolsInfo(info)
         , m_compilationOptions(options)
+        , m_unit(unit)
     {}
     QVector<IndexedSymbolInfo> m_symbolsInfo;
     QStringList m_compilationOptions;
+    Unit m_unit;
 };
 
 
@@ -190,7 +195,6 @@ public:
     void process(QFutureInterface<IndexingResult> &interface, IndexerPrivate::FileData *fileData);
 
 
-    ScopedCXIndex m_clangIndex;
     unsigned m_unitManagementOptions;
     FileContainer m_allFiles;
     QHash<QString, FileContainerIt> m_knownHeaders;
@@ -213,8 +217,7 @@ struct ScopepTimer
 
 
 IndexerProcessor::IndexerProcessor(const FileContainer &headers, const FileContainer &impls)
-    : m_clangIndex(clang_createIndex(/*excludeDeclsFromPCH*/ 0, /*displayDiagnostics*/ 0))
-    , m_unitManagementOptions(CXTranslationUnit_None)
+    : m_unitManagementOptions(CXTranslationUnit_DetailedPreprocessingRecord)
     , m_allFiles(impls)
 {
     // Headers are processed later so we keep track of them separately.
@@ -369,55 +372,43 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface,
     if (fileData->m_upToDate)
         return;
 
-    // @TODO: This logic should be made reusable somewhere...
-    QVector<QByteArray> args;
-    const int argc = fileData->m_compilationOptions.size();
-    for (int m = 0; m < argc; ++m)
-        args.append(fileData->m_compilationOptions.at(m).toUtf8());
-    const char **argv = new const char*[argc];
-    for (int m = 0; m < argc; ++m)
-        argv[m] = args.at(m).constData();
+    Unit unit(fileData->m_fileName);
+    unit.setCompilationOptions(fileData->m_compilationOptions);
+    unit.setManagementOptions(m_unitManagementOptions);
+    unit.setUnsavedFiles(UnsavedFiles()); // @TODO: Consider unsaved files...
+    unit.parse();
 
-    const QByteArray fileName(fileData->m_fileName.toUtf8());
-
-    ScopedCXTranslationUnit tu(clang_parseTranslationUnit(m_clangIndex,
-                                                          fileName.constData(),
-                                                          argv, argc,
-                                                          // @TODO: unsaved.files, unsaved.count,
-                                                          0, 0,
-                                                          m_unitManagementOptions));
-    delete[] argv;
-
-    if (!tu)
+    if (!unit.isValid())
         return;
 
 #ifdef DEBUG_DIAGNOSTICS
-    unsigned numDiagnostics = clang_getNumDiagnostics(tu);
+    unsigned numDiagnostics = unit.getNumDiagnostics();
     for (unsigned i = 0; i < numDiagnostics; ++i) {
-        ScopedCXDiagnostic diagnostic(clang_getDiagnostic(tu, i));
+        ScopedCXDiagnostic diagnostic(unit.getDiagnostic(i));
         if (!diagnostic)
             continue;
         CXDiagnosticSeverity severity = clang_getDiagnosticSeverity(diagnostic);
         if (severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal) {
-            qDebug() << "Error:" << fileName << " - severity:" << severity;
+            qDebug() << "Error:" << fileData->m_fileName << " - severity:" << severity;
             qDebug() << "\t"<< getQString(clang_getDiagnosticSpelling(diagnostic));
         }
     }
 #endif
 
     QScopedPointer<AstVisitorData> visitorData(new AstVisitorData(this));
-    CXCursor tuCursor = clang_getTranslationUnitCursor(tu);
+    CXCursor tuCursor = unit.getTranslationUnitCursor();
     clang_visitChildren(tuCursor, IndexerProcessor::astVisit, visitorData.data());
 
     // Mark this is file as up-to-date.
     fileData->m_upToDate = true;
 
     // Make some symbols available.
-    interface.reportResult(IndexingResult(visitorData->m_symbolsInfo, fileData->m_compilationOptions));
-
+    interface.reportResult(IndexingResult(visitorData->m_symbolsInfo,
+                                          fileData->m_compilationOptions,
+                                          unit));
     // Track inclusions.
     QScopedPointer<InclusionVisitorData> inclusionData(new InclusionVisitorData(this));
-    clang_getInclusions(tu, IndexerProcessor::inclusionVisit, inclusionData.data());
+    unit.getInclusions(IndexerProcessor::inclusionVisit, inclusionData.data());
 }
 
 
@@ -492,7 +483,7 @@ void IndexerPrivate::clear()
 
 void IndexerPrivate::synchronize(int resultIndex)
 {
-    const IndexingResult &result = m_indexingWatcher.resultAt(resultIndex);
+    IndexingResult result = m_indexingWatcher.resultAt(resultIndex);
     foreach (const IndexedSymbolInfo &info, result.m_symbolsInfo) {
         const QString &fileName = info.m_location.fileName();
         FileType fileType = identifyFileType(fileName);
@@ -507,6 +498,12 @@ void IndexerPrivate::synchronize(int resultIndex)
         // Make the symbol info available in the database.
         m_database.insert(info);
     }
+
+    // If this unit is being kept alive, update the manager. Otherwise invalidate it.
+    if (LiveUnitsManager::instance()->contains(result.m_unit.fileName()))
+        LiveUnitsManager::instance()->insert(result.m_unit);
+    else
+        result.m_unit.invalidate();
 }
 
 void IndexerPrivate::indexingFinished()

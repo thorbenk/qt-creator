@@ -48,6 +48,9 @@ public:
     UnitData(const QString &fileName);
     ~UnitData();
 
+    void unload();
+    bool isLoaded() const;
+
     CXIndex m_index;
     CXTranslationUnit m_tu;
     QByteArray m_fileName;
@@ -77,9 +80,21 @@ UnitData::UnitData(const QString &fileName)
 UnitData::~UnitData()
 {
     clang_disposeIndex(m_index);
-    clang_disposeTranslationUnit(m_tu);
+    unload();
 }
 
+void UnitData::unload()
+{
+    if (m_tu) {
+        clang_disposeTranslationUnit(m_tu);
+        m_tu = 0;
+    }
+}
+
+bool UnitData::isLoaded() const
+{
+    return m_tu && m_index;
+}
 
 Unit::Unit()
     : m_data(new UnitData)
@@ -108,9 +123,14 @@ const QString Unit::fileName() const
     return m_data->m_fileName;
 }
 
-bool Unit::isNull() const
+bool Unit::isValid() const
 {
-    return !m_data->m_tu;
+    return m_data->isLoaded();
+}
+
+void Unit::invalidate()
+{
+    m_data->unload();
 }
 
 void Unit::setCompilationOptions(const QStringList &compOptions)
@@ -132,12 +152,11 @@ void Unit::setManagementOptions(unsigned managementOptions)
 
 void Unit::parse()
 {
+    m_data->unload();
+
     const char **argv = new const char*[m_data->m_compOptions.size()];
     for (int i = 0; i < m_data->m_compOptions.size(); ++i)
         argv[i] = m_data->m_compOptions.at(i).constData();
-
-    if (m_data->m_tu)
-        clang_disposeTranslationUnit(m_data->m_tu);
 
     m_data->m_tu = clang_parseTranslationUnit(m_data->m_index,
                                               m_data->m_fileName.constData(),
@@ -186,4 +205,19 @@ CXCursor Unit::getTranslationUnitCursor() const
 CXString Unit::getTranslationUnitSpelling() const
 {
     return clang_getTranslationUnitSpelling(m_data->m_tu);
+}
+
+void Unit::getInclusions(CXInclusionVisitor visitor, CXClientData clientData) const
+{
+    clang_getInclusions(m_data->m_tu, visitor, clientData);
+}
+
+unsigned Unit::getNumDiagnostics() const
+{
+    return clang_getNumDiagnostics(m_data->m_tu);
+}
+
+CXDiagnostic Unit::getDiagnostic(unsigned index) const
+{
+    return clang_getDiagnostic(m_data->m_tu, index);
 }

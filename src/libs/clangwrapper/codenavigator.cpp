@@ -60,16 +60,14 @@ CodeNavigator::CodeNavigator()
 {}
 
 CodeNavigator::~CodeNavigator()
-{
-    if (!m_unit.isNull())
-        LiveUnitsManager::instance()->remove(m_unit.fileName());
-}
+{}
 
 void CodeNavigator::setup(const QString &fileName, const Indexer *indexer)
 {
+    m_fileName = fileName;
     m_indexer = indexer;
     m_unit = LiveUnitsManager::instance()->find(fileName);
-    if (m_unit.isNull()) {
+    if (!m_unit.isValid()) {
         QFuture<Unit> future = QtConcurrent::run(parseUnit,
                                                  fileName,
                                                  indexer->compilationOptions(fileName),
@@ -85,7 +83,7 @@ void CodeNavigator::unitReady()
 {
     QFutureWatcher<Unit> *watcher = static_cast<QFutureWatcher<Unit> *>(sender());
     const Unit &unit = watcher->result();
-    if (!unit.isNull()) {
+    if (unit.isValid()) {
         m_unit = unit;
         // Share this TU so it's available for anyone else while the navigator exists.
         LiveUnitsManager::instance()->insert(m_unit);
@@ -94,11 +92,14 @@ void CodeNavigator::unitReady()
 
 SourceLocation CodeNavigator::followItem(unsigned line, unsigned column) const
 {
-    if (m_unit.isNull()) {
-        m_unit.parse();
-        if (m_unit.isNull())
-            return SourceLocation();
+    if (LiveUnitsManager::instance()->contains(m_fileName)) {
+        const Unit &unit = LiveUnitsManager::instance()->find(m_fileName);
+        if (unit.isValid())
+            m_unit = unit;
     }
+
+    if (!m_unit.isValid())
+        return SourceLocation();
 
     const CXFile &file = m_unit.getFile();
     const CXSourceLocation &location = m_unit.getLocation(file, line, column);
