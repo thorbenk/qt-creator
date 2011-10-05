@@ -260,6 +260,7 @@ private Q_SLOTS:
 private:
     void markSymbols(const QTextCursor &tc, const SemanticInfo &info);
     bool sortedOutline() const;
+    void codeNavigate(bool jump);
     CPlusPlus::Symbol *findDefinition(CPlusPlus::Symbol *symbol, const CPlusPlus::Snapshot &snapshot) const;
 
     TextEditor::ITextEditor *openCppEditorAt(const QString &fileName, int line,

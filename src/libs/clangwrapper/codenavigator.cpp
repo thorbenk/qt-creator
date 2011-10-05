@@ -92,21 +92,7 @@ void CodeNavigator::unitReady()
 
 SourceLocation CodeNavigator::followItem(unsigned line, unsigned column) const
 {
-    if (LiveUnitsManager::instance()->contains(m_fileName)) {
-        const Unit &unit = LiveUnitsManager::instance()->find(m_fileName);
-        if (unit.isValid())
-            m_unit = unit;
-    }
-
-    if (!m_unit.isValid())
-        return SourceLocation();
-
-    const CXFile &file = m_unit.getFile();
-    const CXSourceLocation &location = m_unit.getLocation(file, line, column);
-    if (clang_equalLocations(location, clang_getNullLocation()))
-        return SourceLocation();
-
-    CXCursor cursor = m_unit.getCursor(location);
+    const CXCursor &cursor = getCursor(line, column);
     if (clang_equalCursors(cursor, clang_getNullCursor()))
         return SourceLocation();
 
@@ -116,6 +102,103 @@ SourceLocation CodeNavigator::followItem(unsigned line, unsigned column) const
     // within the brackets. Expected?
     if (cursorKind == CXCursor_InclusionDirective)
         return findInclude(cursor);
+
+    return findDefinition(cursor, cursorKind);
+}
+
+namespace {
+
+struct FindDeclarationData
+{
+    FindDeclarationData()
+        : m_visitNamespaces(false)
+        , m_declarationCursor(clang_getNullCursor())
+    {}
+
+    bool m_visitNamespaces;
+    CXCursor m_declarationCursor;
+    CXCursor m_canonicalCursor;
+};
+
+CXChildVisitResult findDeclaration(CXCursor cursor,
+                                   CXCursor parentCursor,
+                                   CXClientData clientData)
+{
+    Q_UNUSED(parentCursor);
+
+    FindDeclarationData *data = static_cast<FindDeclarationData *>(clientData);
+
+    if (!clang_isCursorDefinition(cursor)
+            && clang_equalCursors(cursor, data->m_canonicalCursor)) {
+        data->m_declarationCursor = cursor;
+        return CXChildVisit_Break;
+    }
+
+    if (clang_getCursorKind(cursor) == CXCursor_Namespace
+            && data->m_visitNamespaces) {
+        return CXChildVisit_Recurse;
+    }
+
+    return CXChildVisit_Continue;
+}
+
+} // Anonymous
+
+SourceLocation CodeNavigator::switchDeclarationDefinition(unsigned line, unsigned column) const
+{
+    CXCursor cursor = getCursor(line, column);
+    if (clang_equalCursors(cursor, clang_getNullCursor()))
+        return SourceLocation();
+
+    CXCursorKind cursorKind = clang_getCursorKind(cursor);
+    if (clang_isReference(cursorKind)) {
+        cursor = clang_getCursorReferenced(cursor);
+        cursorKind = clang_getCursorKind(cursor);
+    }
+
+    if (!(cursorKind == CXCursor_Constructor
+            || cursorKind == CXCursor_Destructor
+            || cursorKind == CXCursor_CXXMethod
+            || cursorKind == CXCursor_FunctionTemplate
+            || cursorKind == CXCursor_FunctionDecl)) {
+        return SourceLocation();
+    }
+
+    if (clang_isCursorDefinition(cursor)) {
+        FindDeclarationData data;
+
+        CXCursor parent = clang_getNullCursor();
+        if (cursorKind == CXCursor_Constructor
+                || cursorKind == CXCursor_Destructor
+                || cursorKind == CXCursor_CXXMethod) {
+            parent = clang_getCursorSemanticParent(cursor);
+        } else if (cursorKind == CXCursor_FunctionTemplate) {
+            const CXCursor &semaParent = clang_getCursorSemanticParent(cursor);
+            CXCursorKind semaParentKind = clang_getCursorKind(semaParent);
+            if (semaParentKind == CXCursor_ClassDecl
+                    || semaParentKind == CXCursor_StructDecl
+                    || semaParentKind == CXCursor_ClassTemplate
+                    || semaParentKind == CXCursor_ClassTemplatePartialSpecialization) {
+                parent = semaParent;
+            }
+        }
+
+        if (clang_equalCursors(parent, clang_getNullCursor())) {
+            const CXCursor &semaParent = clang_getCursorSemanticParent(cursor);
+            CXCursorKind semaParentKind = clang_getCursorKind(semaParent);
+            if (semaParentKind == CXCursor_Namespace)
+                data.m_visitNamespaces = true;
+            parent = m_unit.getTranslationUnitCursor();
+        }
+
+        data.m_canonicalCursor = clang_getCanonicalCursor(cursor);
+        clang_visitChildren(parent, findDeclaration, &data);
+
+        if (clang_equalCursors(data.m_declarationCursor, clang_getNullCursor()))
+            return SourceLocation();
+
+        return Internal::getInstantiationLocation(clang_getCursorLocation(data.m_declarationCursor));
+    }
 
     return findDefinition(cursor, cursorKind);
 }
@@ -169,4 +252,28 @@ SourceLocation CodeNavigator::findInclude(const CXCursor &cursor) const
 {
     CXFile includedFile = clang_getIncludedFile(cursor);
     return SourceLocation(getQString(clang_getFileName(includedFile)));
+}
+
+CXCursor CodeNavigator::getCursor(unsigned line, unsigned column) const
+{
+    maybeUpdateUnit();
+
+    if (!m_unit.isValid())
+        return clang_getNullCursor();
+
+    const CXFile &file = m_unit.getFile();
+    const CXSourceLocation &location = m_unit.getLocation(file, line, column);
+    if (clang_equalLocations(location, clang_getNullLocation()))
+        return clang_getNullCursor();
+
+    return m_unit.getCursor(location);
+}
+
+void CodeNavigator::maybeUpdateUnit() const
+{
+    if (LiveUnitsManager::instance()->contains(m_fileName)) {
+        const Unit &unit = LiveUnitsManager::instance()->find(m_fileName);
+        if (unit.isValid())
+            m_unit = unit;
+    }
 }

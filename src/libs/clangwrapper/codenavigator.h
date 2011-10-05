@@ -56,6 +56,7 @@ public:
     void setup(const QString &fileName, const Indexer *indexer);
 
     SourceLocation followItem(unsigned line, unsigned column) const;
+    SourceLocation switchDeclarationDefinition(unsigned line, unsigned column) const;
 
 private slots:
     void unitReady();
@@ -64,6 +65,8 @@ private:
     SourceLocation findDefinition(const CXCursor &cursor,
                                   CXCursorKind cursorKind) const;
     SourceLocation findInclude(const CXCursor &cursor) const;
+    CXCursor getCursor(unsigned line, unsigned column) const;
+    void maybeUpdateUnit() const;
 
     QString m_fileName;
     mutable Internal::Unit m_unit;

@@ -73,6 +73,7 @@
 #include <cpptools/cppcodestylesettings.h>
 #include <cpptools/cpprefactoringchanges.h>
 #include <cpptools/cppmodelmanager.h>
+#include <cpptools/cpptoolsreuse.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/actionmanager/actionmanager.h>
@@ -1018,9 +1019,32 @@ void CPPEditorWidget::finishHighlightSymbolUsages()
                 highlighter, m_highlighter);
 }
 
+// @TODO: Clang testing... Lots of code around here will need some refactor.
+void CPPEditorWidget::codeNavigate(bool switchDeclDef)
+{
+    QTextCursor tc = textCursor();
+    CppTools::moveCursorToEndOfIdentifier(&tc);
+
+    int line, column;
+    convertPosition(tc.position(), &line, &column);
+    ++column;
+
+    Clang::SourceLocation location;
+    if (switchDeclDef)
+        location = m_codeNavigator.switchDeclarationDefinition(line, column);
+    else
+        location = m_codeNavigator.followItem(line, column);
+    if (location.isNull())
+        return;
+
+    openLink(Link(location.fileName(), location.line(), location.column() - 1));
+}
 
 void CPPEditorWidget::switchDeclarationDefinition()
 {
+    codeNavigate(true);
+
+#if 0
     if (! m_modelManager)
         return;
 
@@ -1064,6 +1088,7 @@ void CPPEditorWidget::switchDeclarationDefinition()
                 openCppEditorAt(linkToSymbol(def));
         }
     }
+#endif
 }
 
 static inline LookupItem skipForwardDeclarations(const QList<LookupItem> &resolvedSymbols)
@@ -1431,15 +1456,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
 
 void CPPEditorWidget::jumpToDefinition()
 {
-    int line, column;
-    convertPosition(textCursor().position(), &line, &column);
-    ++column;
-
-    const Clang::SourceLocation &location = m_codeNavigator.followItem(line, column);
-    if (location.isNull())
-        return;
-
-    openLink(Link(location.fileName(), location.line(), location.column() - 1));
+    codeNavigate(false);
 
 #if 0
     openLink(findLinkAt(textCursor()));
