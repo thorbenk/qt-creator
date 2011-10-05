@@ -201,8 +201,8 @@ public:
 
         void operator()(int, Unit unit);
 
-        QFutureInterface<IndexingResult> *m_interface;
         IndexerProcessor *m_proc;
+        QFutureInterface<IndexingResult> *m_interface;
         QHash<unsigned, QString> m_qualification;
         QVector<IndexedSymbolInfo> m_symbolsInfo;
     };
