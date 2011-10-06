@@ -30,7 +30,7 @@
 **
 **************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 1.1
 
 Item {
     id: root
@@ -40,44 +40,38 @@ Item {
     property Component delegate
 
     Rectangle {
-        color: "#ececec"
-        anchors.top: parent.top
-        anchors.bottom: dataSection.top
+        id: header
+        color: "#f2f2f2"
         width: parent.width
-    }
-    Text {
-        id: titleText
-        text: root.header
-        width: parent.width
-        font.bold: true
-        font.pointSize: 16
-        color: "#444"
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        elide: Text.ElideRight
-        anchors.topMargin: 10
-        anchors.leftMargin: 10
-    }
-    Rectangle {
-        height: 1
-        color: "#ccc"
-        anchors.bottom: dataSection.top
-        width: parent.width
+        height: 51
+
+        Text {
+            id: titleText
+            x: 10
+            y: 10
+            text: root.header
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width
+            font.bold: true
+            font.pointSize: 14
+            color: "#444"
+            elide: Text.ElideRight
+        }
     }
     Rectangle {
         height: 1
-        color: "#ccc"
-        anchors.top: parent.top
+        color: "#000000"
+        anchors.top: header.bottom
         width: parent.width
     }
 
     Column {
         id: dataSection
-        anchors.topMargin: 10
-        anchors.top: titleText.bottom
+        anchors.top: header.bottom
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.leftMargin: 16
+        anchors.topMargin: 16
 
         Repeater {
             model: root.model

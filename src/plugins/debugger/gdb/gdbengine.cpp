@@ -4504,16 +4504,16 @@ bool checkGdbConfiguration(const DebuggerStartParameters &sp, ConfigurationCheck
     const QString binary = gdbBinary(sp);
     if (gdbBinary(sp).isEmpty()) {
         check->errorDetails.push_back(msgNoGdbBinaryForToolChain(sp.toolChainAbi));
-        check->settingsCategory = _(ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_CATEGORY);
-        check->settingsPage = _(ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_CATEGORY);
+        check->settingsCategory = _(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
+        check->settingsPage = _(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
         return false;
     }
     if (sp.toolChainAbi.os() == Abi::WindowsOS &&  !QFileInfo(binary).isAbsolute()) {
     // See initialization below, we need an absolute path to be able to locate Python on Windows.
         check->errorDetails.push_back(GdbEngine::tr("The gdb location must be given as an "
                 "absolute path in the debugger settings (%1).").arg(binary));
-        check->settingsCategory = _(ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_CATEGORY);
-        check->settingsPage = _(ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_CATEGORY);
+        check->settingsCategory = _(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
+        check->settingsPage = _(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
         return false;
     }
     return true;
@@ -4758,7 +4758,34 @@ void GdbEngine::handleAdapterStarted()
 void GdbEngine::setupInferior()
 {
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << state());
+    typedef GlobalDebuggerOptions::SourcePathMap SourcePathMap;
+    typedef SourcePathMap::const_iterator SourcePathMapIterator;
+
     showStatusMessage(tr("Setting up inferior..."));
+    const DebuggerStartParameters &sp = startParameters();
+
+    // Apply source path mappings from global options.
+    const SourcePathMap sourcePathMap =
+        DebuggerSourcePathMappingWidget::mergePlatformQtPath(sp.qtInstallPath,
+                debuggerCore()->globalDebuggerOptions()->sourcePathMap);
+    const SourcePathMapIterator cend = sourcePathMap.constEnd();
+    SourcePathMapIterator it = sourcePathMap.constBegin();
+    for ( ; it != cend; ++it)
+        postCommand("set substitute-path " + it.key().toLocal8Bit()
+            + " " + it.value().toLocal8Bit());
+
+    const QByteArray debugInfoLocation = sp.debugInfoLocation.toLocal8Bit();
+    if (!debugInfoLocation.isEmpty())
+        postCommand("set debug-file-directory " + debugInfoLocation);
+
+    // Spaces just will not work.
+    foreach (const QString &src, sp.debugSourceLocation)
+        postCommand("directory " + src.toLocal8Bit());
+
+    //QByteArray ba = QFileInfo(sp.dumperLibrary).path().toLocal8Bit();
+    //if (!ba.isEmpty())
+    //    postCommand("set solib-search-path " + ba);
+
     m_gdbAdapter->setupInferior();
 }
 
@@ -4772,31 +4799,12 @@ void GdbEngine::notifyInferiorSetupFailed()
 
 void GdbEngine::handleInferiorPrepared()
 {
-    typedef GlobalDebuggerOptions::SourcePathMap SourcePathMap;
-    typedef SourcePathMap::const_iterator SourcePathMapIterator;
     const DebuggerStartParameters &sp = startParameters();
 
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << state());
 
-    // Apply source path mappings from global options.
-    const SourcePathMap sourcePathMap =
-        DebuggerSourcePathMappingWidget::mergePlatformQtPath(sp.qtInstallPath,
-                debuggerCore()->globalDebuggerOptions()->sourcePathMap);
-    const SourcePathMapIterator cend = sourcePathMap.constEnd();
-    SourcePathMapIterator it = sourcePathMap.constBegin();
-    for ( ; it != cend; ++it) {
-        QByteArray command = "set substitute-path ";
-        command += it.key().toLocal8Bit();
-        command += ' ';
-        command += it.value().toLocal8Bit();
-        postCommand(command);
-    }
-
-    if (!sp.sysroot.isEmpty())
-        postCommand("set substitute-path / " + sp.sysroot.toLocal8Bit());
-
     // Initial attempt to set breakpoints.
-    if (sp.startMode != AttachCore && !isSlaveEngine()) {
+    if (sp.startMode != AttachCore) {
         showStatusMessage(tr("Setting breakpoints..."));
         showMessage(tr("Setting breakpoints..."));
         attemptBreakpointSynchronization();

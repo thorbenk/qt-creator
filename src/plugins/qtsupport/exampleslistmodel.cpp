@@ -73,6 +73,16 @@ ExamplesListModel::ExamplesListModel(QObject *parent) :
             SLOT(helpInitialized()));
 }
 
+static inline QString fixSTringForTags(const QString &string)
+{
+    QString returnString = string;
+    returnString.remove(QLatin1String("<i>"));
+    returnString.remove(QLatin1String("</i>"));
+    returnString.remove(QLatin1String("<tt>"));
+    returnString.remove(QLatin1String("</tt>"));
+    return returnString;
+}
+
 QList<ExampleItem> ExamplesListModel::parseExamples(QXmlStreamReader* reader, const QString& projectsOffset)
 {
     QList<ExampleItem> examples;
@@ -94,7 +104,7 @@ QList<ExampleItem> ExamplesListModel::parseExamples(QXmlStreamReader* reader, co
             } else if (reader->name() == QLatin1String("fileToOpen")) {
                 item.filesToOpen.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("description")) {
-                item.description =  reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement);
+                item.description =  fixSTringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("tags")) {
                 item.tags = reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement).split(",");
                 m_tags.append(item.tags);
@@ -134,7 +144,7 @@ QList<ExampleItem> ExamplesListModel::parseDemos(QXmlStreamReader* reader, const
             } else if (reader->name() == QLatin1String("fileToOpen")) {
                 item.filesToOpen.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("description")) {
-                item.description =  reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement);
+                item.description =  fixSTringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("tags")) {
                 item.tags = reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement).split(",");
             }
@@ -173,7 +183,7 @@ QList<ExampleItem> ExamplesListModel::parseTutorials(QXmlStreamReader* reader, c
             } else if (reader->name() == QLatin1String("fileToOpen")) {
                 item.filesToOpen.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("description")) {
-                item.description =  reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement);
+                item.description =  fixSTringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("tags")) {
                 item.tags = reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement).split(",");
             }

@@ -161,13 +161,15 @@ public:
 
 QmlObjectValue::QmlObjectValue(FakeMetaObject::ConstPtr metaObject, const QString &className,
                                const QString &packageName, const ComponentVersion &componentVersion,
-                               const ComponentVersion &importVersion, ValueOwner *valueOwner)
+                               const ComponentVersion &importVersion, int metaObjectRevision,
+                               ValueOwner *valueOwner)
     : ObjectValue(valueOwner),
       _attachedType(0),
       _metaObject(metaObject),
       _moduleName(packageName),
       _componentVersion(componentVersion),
-      _importVersion(importVersion)
+      _importVersion(importVersion),
+      _metaObjectRevision(metaObjectRevision)
 {
     setClassName(className);
     int nEnums = metaObject->enumeratorCount();
@@ -179,17 +181,6 @@ QmlObjectValue::QmlObjectValue(FakeMetaObject::ConstPtr metaObject, const QStrin
 
 QmlObjectValue::~QmlObjectValue()
 {}
-
-const Value *QmlObjectValue::findOrCreateSignature(int index, const FakeMetaMethod &method, QString *methodName) const
-{
-    *methodName = method.methodName();
-    const Value *value = _metaSignature.value(index);
-    if (! value) {
-        value = new MetaFunction(method, valueOwner());
-        _metaSignature.insert(index, value);
-    }
-    return value;
-}
 
 void QmlObjectValue::processMembers(MemberProcessor *processor) const
 {
@@ -205,14 +196,27 @@ void QmlObjectValue::processMembers(MemberProcessor *processor) const
     // all explicitly defined signal names
     QSet<QString> explicitSignals;
 
+    // make MetaFunction instances lazily when first needed
+    QList<const Value *> *signatures = _metaSignatures;
+    if (!signatures) {
+        signatures = new QList<const Value *>;
+        signatures->reserve(_metaObject->methodCount());
+        for (int index = 0; index < _metaObject->methodCount(); ++index)
+            signatures->append(new MetaFunction(_metaObject->method(index), valueOwner()));
+        if (!_metaSignatures.testAndSetOrdered(0, signatures)) {
+            delete signatures;
+            signatures = _metaSignatures;
+        }
+    }
+
     // process the meta methods
     for (int index = 0; index < _metaObject->methodCount(); ++index) {
         const FakeMetaMethod method = _metaObject->method(index);
-        if (_componentVersion.isValid() && _componentVersion.minorVersion() < method.revision())
+        if (_metaObjectRevision < method.revision())
             continue;
 
-        QString methodName;
-        const Value *signature = findOrCreateSignature(index, method, &methodName);
+        const QString &methodName = _metaObject->method(index).methodName();
+        const Value *signature = signatures->at(index);
 
         if (method.methodType() == FakeMetaMethod::Slot && method.access() == FakeMetaMethod::Public) {
             processor->processSlot(methodName, signature);
@@ -234,7 +238,7 @@ void QmlObjectValue::processMembers(MemberProcessor *processor) const
     // process the meta properties
     for (int index = 0; index < _metaObject->propertyCount(); ++index) {
         const FakeMetaProperty prop = _metaObject->property(index);
-        if (_componentVersion.isValid() && _componentVersion.minorVersion() < prop.revision())
+        if (_metaObjectRevision < prop.revision())
             continue;
 
         const QString propertyName = prop.name();
@@ -1262,8 +1266,9 @@ void CppQmlTypes::load(const T &fakeMetaObjects, const QString &overridePackage)
                 QTC_ASSERT(exp.version == ComponentVersion(), continue);
                 QTC_ASSERT(exp.type == fmo->className(), continue);
                 QmlObjectValue *cppValue = new QmlObjectValue(
-                            fmo, fmo->className(), cppPackage, ComponentVersion(), ComponentVersion(), _valueOwner);
-                _objectsByQualifiedName[exp.packageNameVersion] = cppValue;
+                            fmo, fmo->className(), cppPackage, ComponentVersion(), ComponentVersion(),
+                            ComponentVersion::MaxVersion, _valueOwner);
+                _objectsByQualifiedName[qualifiedName(cppPackage, fmo->className(), ComponentVersion())] = cppValue;
                 newCppTypes += cppValue;
             }
         }
@@ -1284,6 +1289,7 @@ template void CppQmlTypes::load< QHash<QString, FakeMetaObject::ConstPtr> >(cons
 QList<const QmlObjectValue *> CppQmlTypes::createObjectsForImport(const QString &package, ComponentVersion version)
 {
     QList<const QmlObjectValue *> exportedObjects;
+    QList<const QmlObjectValue *> newObjects;
 
     // make new exported objects
     foreach (const FakeMetaObject::ConstPtr &fmo, _fakeMetaObjectsByPackage.value(package)) {
@@ -1303,16 +1309,26 @@ QList<const QmlObjectValue *> CppQmlTypes::createObjectsForImport(const QString 
         if (_objectsByQualifiedName.contains(key))
             continue;
 
+        QString name = bestExport.type;
+        bool exported = true;
+        if (name.isEmpty()) {
+            exported = false;
+            name = fmo->className();
+        }
+
         QmlObjectValue *newObject = new QmlObjectValue(
-                    fmo, bestExport.type, package, bestExport.version, version, _valueOwner);
+                    fmo, name, package, bestExport.version, version,
+                    bestExport.metaObjectRevision, _valueOwner);
 
         // use package.cppname importversion as key
         _objectsByQualifiedName.insert(key, newObject);
-        exportedObjects += newObject;
+        if (exported)
+            exportedObjects += newObject;
+        newObjects += newObject;
     }
 
     // set their prototypes, creating them if necessary
-    foreach (const QmlObjectValue *cobject, exportedObjects) {
+    foreach (const QmlObjectValue *cobject, newObjects) {
         QmlObjectValue *object = const_cast<QmlObjectValue *>(cobject);
         while (!object->prototype()) {
             const QString &protoCppName = object->metaObject()->superclassName();
@@ -1335,7 +1351,7 @@ QList<const QmlObjectValue *> CppQmlTypes::createObjectsForImport(const QString 
             // make a new object
             QmlObjectValue *proto = new QmlObjectValue(
                         protoFmo, protoCppName, object->moduleName(), ComponentVersion(),
-                        object->importVersion(), _valueOwner);
+                        object->importVersion(), ComponentVersion::MaxVersion, _valueOwner);
             _objectsByQualifiedName.insert(key, proto);
             object->setPrototype(proto);
 
@@ -1916,13 +1932,66 @@ ImportInfo::ImportInfo()
 {
 }
 
-ImportInfo::ImportInfo(Type type, const QString &name,
-                       ComponentVersion version, UiImport *ast)
-    : _type(type)
-    , _name(name)
-    , _version(version)
-    , _ast(ast)
+ImportInfo ImportInfo::moduleImport(QString uri, ComponentVersion version,
+                                    const QString &as, UiImport *ast)
 {
+    // treat Qt 4.7 as QtQuick 1.0
+    if (uri == QLatin1String("Qt") && version == ComponentVersion(4, 7)) {
+        uri = QLatin1String("QtQuick");
+        version = ComponentVersion(1, 0);
+    }
+
+    ImportInfo info;
+    info._type = LibraryImport;
+    info._name = uri;
+    info._path = uri;
+    info._path.replace(QLatin1Char('.'), QDir::separator());
+    info._version = version;
+    info._as = as;
+    info._ast = ast;
+    return info;
+}
+
+ImportInfo ImportInfo::pathImport(const QString &docPath, const QString &path,
+                                  ComponentVersion version, const QString &as, UiImport *ast)
+{
+    ImportInfo info;
+    info._name = path;
+
+    QFileInfo importFileInfo(path);
+    if (!importFileInfo.isAbsolute()) {
+        importFileInfo = QFileInfo(docPath + QDir::separator() + path);
+    }
+    info._path = importFileInfo.absoluteFilePath();
+
+    if (importFileInfo.isFile()) {
+        info._type = FileImport;
+    } else if (importFileInfo.isDir()) {
+        info._type = DirectoryImport;
+    } else {
+        info._type = UnknownFileImport;
+    }
+
+    info._version = version;
+    info._as = as;
+    info._ast = ast;
+    return info;
+}
+
+ImportInfo ImportInfo::invalidImport(UiImport *ast)
+{
+    ImportInfo info;
+    info._type = InvalidImport;
+    info._ast = ast;
+    return info;
+}
+
+ImportInfo ImportInfo::implicitDirectoryImport(const QString &directory)
+{
+    ImportInfo info;
+    info._type = ImplicitDirectoryImport;
+    info._path = directory;
+    return info;
 }
 
 bool ImportInfo::isValid() const
@@ -1940,11 +2009,14 @@ QString ImportInfo::name() const
     return _name;
 }
 
-QString ImportInfo::id() const
+QString ImportInfo::path() const
 {
-    if (_ast)
-        return _ast->importId.toString();
-    return QString();
+    return _path;
+}
+
+QString ImportInfo::as() const
+{
+    return _as;
 }
 
 ComponentVersion ImportInfo::version() const
@@ -1981,8 +2053,8 @@ const Value *TypeScope::lookupMember(const QString &name, const Context *context
         if (info.type() == ImportInfo::FileImport)
             continue;
 
-        if (!info.id().isEmpty()) {
-            if (info.id() == name) {
+        if (!info.as().isEmpty()) {
+            if (info.as() == name) {
                 if (foundInObject)
                     *foundInObject = this;
                 return import;
@@ -2011,8 +2083,8 @@ void TypeScope::processMembers(MemberProcessor *processor) const
         if (info.type() == ImportInfo::FileImport)
             continue;
 
-        if (!info.id().isEmpty()) {
-            processor->processProperty(info.id(), import);
+        if (!info.as().isEmpty()) {
+            processor->processProperty(info.as(), import);
         } else {
             import->processMembers(processor);
         }
@@ -2039,7 +2111,7 @@ const Value *JSImportScope::lookupMember(const QString &name, const Context *,
         if (info.type() != ImportInfo::FileImport)
             continue;
 
-        if (info.id() == name) {
+        if (info.as() == name) {
             if (foundInObject)
                 *foundInObject = this;
             return import;
@@ -2060,7 +2132,7 @@ void JSImportScope::processMembers(MemberProcessor *processor) const
         const ImportInfo &info = i.info;
 
         if (info.type() == ImportInfo::FileImport)
-            processor->processProperty(info.id(), import);
+            processor->processProperty(info.as(), import);
     }
 }
 
@@ -2072,12 +2144,12 @@ Imports::Imports(ValueOwner *valueOwner)
 void Imports::append(const Import &import)
 {
     // when doing lookup, imports with 'as' clause are looked at first
-    if (!import.info.id().isEmpty()) {
+    if (!import.info.as().isEmpty()) {
         _imports.append(import);
     } else {
         // find first as-import and prepend
         for (int i = 0; i < _imports.size(); ++i) {
-            if (!_imports.at(i).info.id().isEmpty()) {
+            if (!_imports.at(i).info.as().isEmpty()) {
                 _imports.insert(i, import);
                 return;
             }
@@ -2101,8 +2173,8 @@ ImportInfo Imports::info(const QString &name, const Context *context) const
         const ObjectValue *import = i.object;
         const ImportInfo &info = i.info;
 
-        if (!info.id().isEmpty()) {
-            if (info.id() == firstId)
+        if (!info.as().isEmpty()) {
+            if (info.as() == firstId)
                 return info;
             continue;
         }
@@ -2134,9 +2206,9 @@ QString Imports::nameForImportedObject(const ObjectValue *value, const Context *
             const Value *v = import->lookupMember(value->className(), context);
             if (v == value) {
                 QString result = value->className();
-                if (!info.id().isEmpty()) {
+                if (!info.as().isEmpty()) {
                     result.prepend(QLatin1Char('.'));
-                    result.prepend(info.id());
+                    result.prepend(info.as());
                 }
                 return result;
             }
@@ -2208,7 +2280,7 @@ void Imports::dump() const
         const ObjectValue *import = i.object;
         const ImportInfo &info = i.info;
 
-        qDebug() << "  " << info.name() << " " << info.version().toString() << " as " << info.id() << " : " << import;
+        qDebug() << "  " << info.path() << " " << info.version().toString() << " as " << info.as() << " : " << import;
         MemberDumper dumper;
         import->processMembers(&dumper);
     }

@@ -50,6 +50,7 @@
 #include <utils/pathchooser.h>
 #include <projectexplorer/toolchainmanager.h>
 #include <projectexplorer/toolchain.h>
+#include <projectexplorer/projectexplorerconstants.h>
 #include <qtconcurrent/runextensions.h>
 
 #include <QtCore/QDir>
@@ -84,17 +85,18 @@ QString QtOptionsPage::displayName() const
 
 QString QtOptionsPage::category() const
 {
-    return QLatin1String(Constants::QT_SETTINGS_CATEGORY);
+    return QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
 }
 
 QString QtOptionsPage::displayCategory() const
 {
-    return QCoreApplication::translate("Qt4ProjectManager", Constants::QT_SETTINGS_TR_CATEGORY);
+    return QCoreApplication::translate("ProjectExplorer",
+                                       ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY);
 }
 
 QIcon QtOptionsPage::categoryIcon() const
 {
-    return QIcon(QLatin1String(Constants::QT_SETTINGS_CATEGORY_ICON));
+    return QIcon(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON);
 }
 
 QWidget *QtOptionsPage::createPage(QWidget *parent)
@@ -151,6 +153,8 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent, QList<BaseQtVersion *>
     m_ui->versionInfoWidget->setState(Utils::DetailsWidget::NoSummary);
 
     m_ui->debuggingHelperWidget->setWidget(debuggingHelperDetailsWidget);
+    connect(m_ui->debuggingHelperWidget, SIGNAL(expanded(bool)),
+            this, SLOT(handleDebuggingHelperExpanded(bool)));
 
     // setup parent items for auto-detected and manual versions
     m_ui->qtdirList->header()->setResizeMode(QHeaderView::ResizeToContents);
@@ -367,6 +371,11 @@ void QtOptionsPageWidget::qtVersionsDumpUpdated(const QString &qmakeCommand)
         updateDescriptionLabel();
         updateDebuggingHelperUi();
     }
+}
+
+void QtOptionsPageWidget::handleDebuggingHelperExpanded(bool expanded)
+{
+    m_ui->versionInfoWidget->setVisible(!expanded);
 }
 
 QtOptionsPageWidget::ValidityInfo QtOptionsPageWidget::validInformation(const BaseQtVersion *version)

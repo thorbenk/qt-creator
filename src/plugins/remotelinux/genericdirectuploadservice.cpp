@@ -311,6 +311,14 @@ void GenericDirectUploadService::uploadNextFile()
 
     const DeployableFile &df = d->filesToUpload.first();
     QString dirToCreate = df.remoteDir;
+    if (dirToCreate.isEmpty()) {
+        emit warningMessage(tr("Warning: No remote path set for local file '%1'. Skipping upload.")
+            .arg(QDir::toNativeSeparators(df.localFilePath)));
+        d->filesToUpload.takeFirst();
+        uploadNextFile();
+        return;
+    }
+
     QFileInfo fi(df.localFilePath);
     if (fi.isDir())
         dirToCreate += QLatin1Char('/') + fi.fileName();

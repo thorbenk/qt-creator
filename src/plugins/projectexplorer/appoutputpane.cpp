@@ -280,12 +280,12 @@ void AppOutputPane::visibilityChanged(bool /* b */)
 {
 }
 
-bool AppOutputPane::hasFocus()
+bool AppOutputPane::hasFocus() const
 {
     return m_tabWidget->currentWidget() && m_tabWidget->currentWidget()->hasFocus();
 }
 
-bool AppOutputPane::canFocus()
+bool AppOutputPane::canFocus() const
 {
     return m_tabWidget->currentWidget();
 }
@@ -301,7 +301,7 @@ void AppOutputPane::createNewOutputWindow(RunControl *rc)
     connect(rc, SIGNAL(started()),
             this, SLOT(runControlStarted()));
     connect(rc, SIGNAL(finished()),
-            this, SLOT(runControlFinished()));
+            this, SLOT(runControlFinished()), Qt::QueuedConnection);
     connect(rc, SIGNAL(applicationProcessHandleChanged()),
             this, SLOT(enableButtons()));
     connect(rc, SIGNAL(appendMessage(ProjectExplorer::RunControl*,QString,Utils::OutputFormat)),
@@ -452,11 +452,7 @@ bool AppOutputPane::closeTab(int tabIndex, CloseTabMode closeTabMode)
     }
 
     m_tabWidget->removeTab(tabIndex);
-    if (tab.asyncClosing) { // We were invoked from its finished() signal.
-        tab.runControl->deleteLater();
-    } else {
-        delete tab.runControl;
-    }
+    delete tab.runControl;
     delete tab.window;
     m_runControlTabs.removeAt(index);
     updateCloseActions();
@@ -575,12 +571,12 @@ bool AppOutputPane::isRunning() const
     return false;
 }
 
-bool AppOutputPane::canNext()
+bool AppOutputPane::canNext() const
 {
     return false;
 }
 
-bool AppOutputPane::canPrevious()
+bool AppOutputPane::canPrevious() const
 {
     return false;
 }
@@ -595,7 +591,7 @@ void AppOutputPane::goToPrev()
 
 }
 
-bool AppOutputPane::canNavigate()
+bool AppOutputPane::canNavigate() const
 {
     return false;
 }

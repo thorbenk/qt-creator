@@ -54,6 +54,15 @@ public:
     void setDeployableFiles(const QList<DeployableFile> &deployableFiles);
     void setIncrementalDeployment(bool incremental);
 
+  protected:
+    bool isDeploymentNecessary() const;
+
+    void doDeviceSetup();
+    void stopDeviceSetup();
+
+    void doDeploy();
+    void stopDeployment();
+
 private slots:
     void handleSftpInitialized();
     void handleSftpInitializationFailed(const QString &errorMessage);
@@ -64,14 +73,6 @@ private slots:
     void handleStdErrData(const QByteArray &data);
 
 private:
-    bool isDeploymentNecessary() const;
-
-    void doDeviceSetup();
-    void stopDeviceSetup();
-
-    void doDeploy();
-    void stopDeployment();
-
     void checkDeploymentNeeded(const DeployableFile &file) const;
     void setFinished();
     void uploadNextFile();

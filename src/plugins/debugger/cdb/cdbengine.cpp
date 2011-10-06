@@ -405,8 +405,8 @@ bool checkCdbConfiguration(const DebuggerStartParameters &sp, ConfigurationCheck
 
     if (cdbBinary(sp).isEmpty()) {
         check->errorDetails.push_back(msgNoCdbBinaryForToolChain(sp.toolChainAbi));
-        check->settingsCategory = QLatin1String(ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_CATEGORY);
-        check->settingsPage = QLatin1String(ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_CATEGORY);
+        check->settingsCategory = QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
+        check->settingsPage = QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
         return false;
     }
 
@@ -840,15 +840,13 @@ void CdbEngine::setupInferior()
 {
     if (debug)
         qDebug("setupInferior");
-    if (!isSlaveEngine()) {
-        // QmlCppEngine expects the QML engine to be connected before any breakpoints are hit
-        // (attemptBreakpointSynchronization() will be directly called then)
-        attemptBreakpointSynchronization();
-        if (startParameters().breakOnMain) {
-            const BreakpointParameters bp(BreakpointAtMain);
-            postCommand(cdbAddBreakpointCommand(bp, m_sourcePathMappings,
-                                                BreakpointModelId(-1), true), 0);
-        }
+    // QmlCppEngine expects the QML engine to be connected before any breakpoints are hit
+    // (attemptBreakpointSynchronization() will be directly called then)
+    attemptBreakpointSynchronization();
+    if (startParameters().breakOnMain) {
+        const BreakpointParameters bp(BreakpointAtMain);
+        postCommand(cdbAddBreakpointCommand(bp, m_sourcePathMappings,
+                                            BreakpointModelId(-1), true), 0);
     }
     postCommand("sxn 0x4000001f", 0); // Do not break on WowX86 exceptions.
     postCommand(".asm source_line", 0); // Source line in assembly
@@ -2552,7 +2550,7 @@ bool CdbEngine::acceptsBreakpoint(BreakpointModelId id) const
     case BreakpointAtFork:
     case WatchpointAtExpression:
     case BreakpointAtSysCall:
-    case BreakpointOnSignalHandler:
+    case BreakpointOnQmlSignalHandler:
         return false;
     case WatchpointAtAddress:
     case BreakpointByFileAndLine:
@@ -2688,7 +2686,8 @@ void CdbEngine::attemptBreakpointSynchronization()
         }
         switch (handler->state(id)) {
         case BreakpointInsertRequested:
-            if (parameters.type == BreakpointByFileAndLine) {
+            if (parameters.type == BreakpointByFileAndLine
+                && m_options->breakpointCorrection) {
                 if (lineCorrection.isNull())
                     lineCorrection.reset(new BreakpointCorrectionContext(debuggerCore()->cppCodeModelSnapshot(),
                                                                          CPlusPlus::CppModelManagerInterface::instance()->workingCopy()));

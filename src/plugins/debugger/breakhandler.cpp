@@ -122,8 +122,8 @@ static QString typeToString(BreakpointType type)
             return BreakHandler::tr("Watchpoint at Address");
         case WatchpointAtExpression:
             return BreakHandler::tr("Watchpoint at Expression");
-        case BreakpointOnSignalHandler:
-            return BreakHandler::tr("Breakpoint on Signal Handler");
+        case BreakpointOnQmlSignalHandler:
+            return BreakHandler::tr("Breakpoint on QML Signal Handler");
         case UnknownType:
             break;
     }
@@ -842,7 +842,8 @@ static bool isAllowedTransition(BreakpointState from, BreakpointState to)
     case BreakpointInsertProceeding:
         return to == BreakpointInserted
             || to == BreakpointDead
-            || to == BreakpointChangeRequested;
+            || to == BreakpointChangeRequested
+            || to == BreakpointRemoveRequested;
     case BreakpointChangeRequested:
         return to == BreakpointChangeProceeding;
     case BreakpointChangeProceeding:
@@ -1011,6 +1012,7 @@ void BreakHandler::removeBreakpoint(BreakpointModelId id)
     BREAK_ASSERT(it != m_storage.end(), return);
     switch (it->state) {
     case BreakpointInserted:
+    case BreakpointInsertProceeding:
         setState(id, BreakpointRemoveRequested);
         scheduleSynchronization();
         break;
@@ -1259,6 +1261,19 @@ BreakpointModelIds BreakHandler::engineBreakpointIds(DebuggerEngine *engine) con
     return ids;
 }
 
+QStringList BreakHandler::engineBreakpointPaths(DebuggerEngine *engine) const
+{
+    QSet<QString> set;
+    ConstIterator it = m_storage.constBegin(), et = m_storage.constEnd();
+    for ( ; it != et; ++it) {
+        if (it->engine == engine) {
+            if (it->data.type == BreakpointByFileAndLine)
+                set.insert(QFileInfo(it->data.fileName).dir().path());
+        }
+    }
+    return set.toList();
+}
+
 void BreakHandler::cleanupBreakpoint(BreakpointModelId id)
 {
     QTC_ASSERT(state(id) == BreakpointDead, qDebug() << state(id));
@@ -1429,7 +1444,7 @@ QString BreakHandler::BreakpointItem::toToolTip() const
     QString rc;
     QTextStream str(&rc);
     str << "<html><body><table>"
-        //<< "<tr><td>" << tr("Id:") << "</td><td>" << m_id << "</td></tr>"
+        //<< "<tr><td>" << tr("ID:") << "</td><td>" << m_id << "</td></tr>"
         << "<tr><td>" << tr("State:")
         << "</td><td>" << (data.enabled ? tr("Enabled") : tr("Disabled"));
     if (response.pending)

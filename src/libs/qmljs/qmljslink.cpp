@@ -52,27 +52,27 @@ class ImportCacheKey
 public:
     explicit ImportCacheKey(const ImportInfo &info)
         : type(info.type())
-        , name(info.name())
+        , path(info.path())
         , majorVersion(info.version().majorVersion())
         , minorVersion(info.version().minorVersion())
     {}
 
     int type;
-    QString name;
+    QString path;
     int majorVersion;
     int minorVersion;
 };
 
 uint qHash(const ImportCacheKey &info)
 {
-    return ::qHash(info.type) ^ ::qHash(info.name) ^
+    return ::qHash(info.type) ^ ::qHash(info.path) ^
             ::qHash(info.majorVersion) ^ ::qHash(info.minorVersion);
 }
 
 bool operator==(const ImportCacheKey &i1, const ImportCacheKey &i2)
 {
     return i1.type == i2.type
-            && i1.name == i2.name
+            && i1.path == i2.path
             && i1.majorVersion == i2.majorVersion
             && i1.minorVersion == i2.minorVersion;
 }
@@ -233,15 +233,13 @@ Context::ImportsPerDocument LinkPrivate::linkImports()
 
 void LinkPrivate::populateImportedTypes(Imports *imports, Document::Ptr doc)
 {
-    if (! doc->qmlProgram())
-        return;
-
     // implicit imports: the <default> package is always available
     loadImplicitDefaultImports(imports);
 
     // implicit imports:
     // qml files in the same directory are available without explicit imports
-    loadImplicitDirectoryImports(imports, doc);
+    if (doc->isQmlDocument())
+        loadImplicitDirectoryImports(imports, doc);
 
     // explicit imports, whether directories, files or libraries
     foreach (const ImportInfo &info, doc->bind()->imports()) {
@@ -261,8 +259,10 @@ void LinkPrivate::populateImportedTypes(Imports *imports, Document::Ptr doc)
                 import = importNonFile(doc, info);
                 break;
             case ImportInfo::UnknownFileImport:
-                error(doc, info.ast()->fileNameToken,
-                      Link::tr("file or directory not found"));
+                if (info.ast()) {
+                    error(doc, info.ast()->fileNameToken,
+                          Link::tr("file or directory not found"));
+                }
                 break;
             default:
                 break;
@@ -291,7 +291,7 @@ Import LinkPrivate::importFileOrDirectory(Document::Ptr doc, const ImportInfo &i
     import.info = importInfo;
     import.object = 0;
 
-    const QString &path = importInfo.name();
+    const QString &path = importInfo.path();
 
     if (importInfo.type() == ImportInfo::DirectoryImport
             || importInfo.type() == ImportInfo::ImplicitDirectoryImport) {
@@ -326,12 +326,12 @@ Import LinkPrivate::importNonFile(Document::Ptr doc, const ImportInfo &importInf
     import.info = importInfo;
     import.object = new ObjectValue(valueOwner);
 
-    const QString packageName = Bind::toString(importInfo.ast()->importUri, '.');
+    const QString packageName = importInfo.name();
     const ComponentVersion version = importInfo.version();
 
     bool importFound = false;
 
-    const QString &packagePath = importInfo.name();
+    const QString &packagePath = importInfo.path();
     // check the filesystem with full version
     foreach (const QString &importPath, importPaths) {
         QString libraryPath = QString("%1/%2.%3").arg(importPath, packagePath, version.toString());
@@ -400,9 +400,8 @@ bool LinkPrivate::importLibrary(Document::Ptr doc,
     import->libraryPath = libraryPath;
 
     const ComponentVersion version = importInfo.version();
-    const UiImport *ast = importInfo.ast();
     SourceLocation errorLoc;
-    if (ast)
+    if (const UiImport *ast = importInfo.ast())
         errorLoc = locationFromRange(ast->firstSourceLocation(), ast->lastSourceLocation());
 
     if (!libraryInfo.plugins().isEmpty()) {
@@ -410,8 +409,8 @@ bool LinkPrivate::importLibrary(Document::Ptr doc,
             ModelManagerInterface *modelManager = ModelManagerInterface::instance();
             if (modelManager) {
                 if (importInfo.type() == ImportInfo::LibraryImport) {
-                    if (importInfo.version().isValid()) {
-                        const QString uri = importInfo.name().replace(QDir::separator(), QLatin1Char('.'));
+                    if (version.isValid()) {
+                        const QString uri = importInfo.name();
                         modelManager->loadPluginTypes(
                                     libraryPath, importPath,
                                     uri, version.toString());
@@ -429,14 +428,12 @@ bool LinkPrivate::importLibrary(Document::Ptr doc,
         } else if (libraryInfo.pluginTypeInfoStatus() == LibraryInfo::DumpError
                    || libraryInfo.pluginTypeInfoStatus() == LibraryInfo::TypeInfoFileError) {
             // Only underline import if package isn't described in .qmltypes anyway
-            QString packageName;
-            if (ast && ast->importUri)
-                packageName = Bind::toString(importInfo.ast()->importUri, '.');
+            QString packageName = importInfo.name();
             if (errorLoc.isValid() && (packageName.isEmpty() || !valueOwner->cppQmlTypes().hasModule(packageName))) {
                 error(doc, errorLoc, libraryInfo.pluginTypeInfoError());
             }
-        } else if (ast && ast->importUri) {
-            const QString packageName = Bind::toString(importInfo.ast()->importUri, '.');
+        } else {
+            const QString packageName = importInfo.name();
             valueOwner->cppQmlTypes().load(libraryInfo.metaObjects(), packageName);
             foreach (const QmlObjectValue *object, valueOwner->cppQmlTypes().createObjectsForImport(packageName, version)) {
                 import->object->setMember(object->className(), object);
@@ -507,8 +504,7 @@ void LinkPrivate::loadQmldirComponents(ObjectValue *import, ComponentVersion ver
 
 void LinkPrivate::loadImplicitDirectoryImports(Imports *imports, Document::Ptr doc)
 {
-    ImportInfo implcitDirectoryImportInfo(
-                ImportInfo::ImplicitDirectoryImport, doc->path());
+    ImportInfo implcitDirectoryImportInfo = ImportInfo::implicitDirectoryImport(doc->path());
 
     Import directoryImport = importCache.value(ImportCacheKey(implcitDirectoryImportInfo));
     if (!directoryImport.object) {
@@ -525,15 +521,15 @@ void LinkPrivate::loadImplicitDefaultImports(Imports *imports)
 {
     const QString defaultPackage = CppQmlTypes::defaultPackage;
     if (valueOwner->cppQmlTypes().hasModule(defaultPackage)) {
-        ImportInfo info(ImportInfo::LibraryImport, defaultPackage);
+        const ComponentVersion maxVersion(ComponentVersion::MaxVersion, ComponentVersion::MaxVersion);
+        const ImportInfo info = ImportInfo::moduleImport(defaultPackage, maxVersion, QString());
         Import import = importCache.value(ImportCacheKey(info));
         if (!import.object) {
             import.info = info;
             import.object = new ObjectValue(valueOwner);
             foreach (const QmlObjectValue *object,
                      valueOwner->cppQmlTypes().createObjectsForImport(
-                         defaultPackage,
-                         ComponentVersion(ComponentVersion::MaxVersion, ComponentVersion::MaxVersion))) {
+                         defaultPackage, maxVersion)) {
                 import.object->setMember(object->className(), object);
             }
             importCache.insert(ImportCacheKey(info), import);

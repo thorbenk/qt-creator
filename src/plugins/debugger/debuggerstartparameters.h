@@ -108,8 +108,8 @@ public:
     bool useServerStartScript;
     QString serverStartScript;
     QString sysroot;
-    QString debugInfoLocation;
-    QStringList debugSourceLocation;
+    QString debugInfoLocation; // Gdb "set-debug-file-directory".
+    QStringList debugSourceLocation; // Gdb "directory"
     QByteArray remoteDumperLib;
     QByteArray remoteSourcesDir;
     QString remoteMountPoint;

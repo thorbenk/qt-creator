@@ -1,26 +1,20 @@
 source("../../shared/qtcreator.py")
 
-refreshFinishedCount = 0
 workingDir = None
 
-def handleRefreshFinished(object, fileList):
-    global refreshFinishedCount
-    refreshFinishedCount += 1
-
 def main():
-    global workingDir,buildFinished,buildSucceeded
+    global workingDir
     startApplication("qtcreator" + SettingsPath)
-    installLazySignalHandler("{type='CppTools::Internal::CppModelManager'}", "sourceFilesRefreshed(QStringList)", "handleRefreshFinished")
     # using a temporary directory won't mess up an eventually exisiting
     workingDir = tempDir()
     createNewQmlExtension()
     # wait for parsing to complete
-    waitFor("refreshFinishedCount == 1", 10000)
+    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 30000)
     test.log("Building project")
     invokeMenuItem("Build","Build All")
-    waitForBuildFinished()
-    if buildSucceeded:
-        checkCompile()
+    waitForSignal("{type='ProjectExplorer::BuildManager' unnamed='1'}", "buildQueueFinished(bool)", 300000)
+    checkCompile()
+    checkLastBuild()
     invokeMenuItem("File", "Exit")
 
 def createNewQmlExtension():
@@ -30,7 +24,7 @@ def createNewQmlExtension():
     clickItem(waitForObject("{name='templatesView' type='QListView'}", 20000), "Custom QML Extension Plugin", 5, 5, 0, Qt.LeftButton)
     clickButton(waitForObject("{text='Choose...' type='QPushButton' unnamed='1' visible='1'}", 20000))
     baseLineEd = waitForObject("{type='Utils::BaseValidatingLineEdit' unnamed='1' visible='1'}", 20000)
-    replaceLineEditorContent(baseLineEd, workingDir)
+    replaceEditorContent(baseLineEd, workingDir)
     stateLabel = findObject("{type='QLabel' name='stateLabel'}")
     labelCheck = stateLabel.text=="" and stateLabel.styleSheet == ""
     test.verify(labelCheck, "Project name and base directory without warning or error")
@@ -39,25 +33,24 @@ def createNewQmlExtension():
     if cbDefaultLocation.checked:
         clickButton(cbDefaultLocation)
     # now there's the 'untitled' project inside a temporary directory - step forward...!
-    nextButton = waitForObject("{text='Next' type='QPushButton' visible='1'}", 20000)
+    nextButton = waitForObject("{text?='Next*' type='QPushButton' visible='1'}", 20000)
     clickButton(nextButton)
     chooseDestination()
     clickButton(nextButton)
 #    buddy = waitForObject("{type='QLabel' text='Object Class-name:' unnamed='1' visible='1'}", 20000)
     nameLineEd = waitForObject("{buddy={type='QLabel' text='Object Class-name:' unnamed='1' visible='1'} "
                                "type='QLineEdit' unnamed='1' visible='1'}", 20000)
-    replaceLineEditorContent(nameLineEd, "TestItem")
+    replaceEditorContent(nameLineEd, "TestItem")
     uriLineEd = waitForObject("{buddy={type='QLabel' text='URI:' unnamed='1' visible='1'} "
                               "type='QLineEdit' unnamed='1' visible='1'}", 20000)
-    replaceLineEditorContent(uriLineEd, "com.nokia.test.qmlcomponents")
+    replaceEditorContent(uriLineEd, "com.nokia.test.qmlcomponents")
     clickButton(nextButton)
     clickButton(waitForObject("{type='QPushButton' text='Finish' visible='1'}", 20000))
 
 def cleanup():
     global workingDir
     # waiting for a clean exit - for a full-remove of the temp directory
-    appCtxt = currentApplicationContext()
-    waitFor("appCtxt.isRunning==False")
+    waitForCleanShutdown()
     if workingDir!=None:
         deleteDirIfExists(workingDir)
 

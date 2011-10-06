@@ -61,16 +61,18 @@ public:
     RemoteLinuxDeployConfiguration *deployConfiguration() const;
 
     virtual AbstractRemoteLinuxDeployService *deployService() const = 0;
-    virtual bool isDeploymentPossible(QString *whyNot = 0) const;
 
 protected:
     AbstractRemoteLinuxDeployStep(ProjectExplorer::BuildStepList *bsl, const QString &id);
     AbstractRemoteLinuxDeployStep(ProjectExplorer::BuildStepList *bsl,
         AbstractRemoteLinuxDeployStep *other);
 
+    virtual bool isDeploymentPossible(QString *whyNot = 0) const;
+
 private slots:
     void handleProgressMessage(const QString &message);
     void handleErrorMessage(const QString &message);
+    void handleWarningMessage(const QString &message);
     void handleFinished();
     void handleStdOutData(const QString &data);
     void handleStdErrData(const QString &data);

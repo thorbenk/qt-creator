@@ -79,7 +79,13 @@ bool BuildSettingsPanelFactory::supports(Target *target)
 PropertiesPanel *BuildSettingsPanelFactory::createPanel(Target *target)
 {
     PropertiesPanel *panel = new PropertiesPanel;
-    panel->setWidget(new BuildSettingsWidget(target));
+    QWidget *w = new QWidget();
+    QVBoxLayout *l = new QVBoxLayout(w);
+    QWidget *b = new BuildSettingsWidget(target);
+    l->addWidget(b);
+    l->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    l->setContentsMargins(QMargins());
+    panel->setWidget(w);
     panel->setIcon(QIcon(":/projectexplorer/images/BuildSettings.png"));
     panel->setDisplayName(QCoreApplication::translate("BuildSettingsPanel", "Build Settings"));
     return panel;
@@ -108,13 +114,11 @@ void BuildSettingsWidget::setupUi()
     vbox->setContentsMargins(0, 0, 0, 0);
 
     if (!m_target->buildConfigurationFactory()) {
-        QLabel * noSettingsLabel(new QLabel(this));
+        QLabel *noSettingsLabel = new QLabel(this);
         noSettingsLabel->setText(tr("No build settings available"));
-        {
-            QFont f(noSettingsLabel->font());
-            f.setPointSizeF(f.pointSizeF() * 1.2);
-            noSettingsLabel->setFont(f);
-        }
+        QFont f = noSettingsLabel->font();
+        f.setPointSizeF(f.pointSizeF() * 1.2);
+        noSettingsLabel->setFont(f);
         vbox->addWidget(noSettingsLabel);
         return;
     }
@@ -298,7 +302,7 @@ void BuildSettingsWidget::deleteConfiguration()
                        QMessageBox::Yes|QMessageBox::No, this);
     msgBox.setDefaultButton(QMessageBox::No);
     msgBox.setEscapeButton(QMessageBox::No);
-    if (!this || msgBox.exec() == QMessageBox::No)
+    if (msgBox.exec() == QMessageBox::No)
         return;
 
     deleteConfiguration(m_buildConfiguration);
@@ -327,7 +331,7 @@ void BuildSettingsWidget::renameConfiguration()
                                             arg(m_buildConfiguration->displayName()),
                                          QLineEdit::Normal,
                                          m_buildConfiguration->displayName(), &ok);
-    if (!ok || !this)
+    if (!ok)
         return;
 
     name = uniqueName(name);

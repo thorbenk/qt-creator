@@ -6,14 +6,14 @@ def main():
     if(which("cmake") == None):
         test.fatal("cmake not found")
         return
-
-    test.verify(os.path.exists(SpeedCrunchPath))
+    if not neededFilePresent(SpeedCrunchPath):
+        return
 
     startApplication("qtcreator" + SettingsPath)
 
     openCmakeProject(SpeedCrunchPath)
 
-    waitFor("object.exists(':speedcrunch_QModelIndex')", 20000)
+    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 30000)
 
     # Test that some of the expected items are in the navigation tree
     for row, record in enumerate(testData.dataset("speedcrunch_tree.tsv")):
@@ -25,26 +25,28 @@ def main():
     invokeMenuItem("Build", "Rebuild All")
 
     # Wait for, and test if the build succeeded
-    waitForBuildFinished(300000)
+    waitForSignal("{type='ProjectExplorer::BuildManager' unnamed='1'}", "buildQueueFinished(bool)", 300000)
+    checkCompile()
+    checkLastBuild()
 
     invokeMenuItem("File", "Exit")
+    waitForCleanShutdown()
 
 def init():
     global SpeedCrunchPath
-    SpeedCrunchPath = SDKPath + "/creator-test-data/speedcrunch/src/CMakeLists.txt"
+    SpeedCrunchPath = srcPath + "/creator-test-data/speedcrunch/src/CMakeLists.txt"
     cleanup()
 
 def cleanup():
     # Make sure the .user files are gone
-    if os.access(SpeedCrunchPath + ".user", os.F_OK):
-        os.remove(SpeedCrunchPath + ".user")
+    cleanUpUserFiles(SpeedCrunchPath)
 
-    BuildPath = SDKPath + "/creator-test-data/speedcrunch/src/qtcreator-build"
+    BuildPath = srcPath + "/creator-test-data/speedcrunch/src/qtcreator-build"
 
     if os.access(BuildPath, os.F_OK):
         shutil.rmtree(BuildPath)
     # added because creator uses this one for me
-    BuildPath = SDKPath + "/creator-test-data/speedcrunch/qtcreator-build"
+    BuildPath = srcPath + "/creator-test-data/speedcrunch/qtcreator-build"
 
     if os.access(BuildPath, os.F_OK):
         shutil.rmtree(BuildPath)

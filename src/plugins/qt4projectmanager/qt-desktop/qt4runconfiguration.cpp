@@ -48,13 +48,13 @@
 #include <coreplugin/helpmanager.h>
 #include <projectexplorer/buildstep.h>
 #include <projectexplorer/environmentwidget.h>
-#include <projectexplorer/persistentsettings.h>
 #include <projectexplorer/toolchain.h>
 #include <utils/qtcassert.h>
 #include <utils/qtcprocess.h>
 #include <utils/pathchooser.h>
 #include <utils/detailswidget.h>
 #include <utils/stringutils.h>
+#include <utils/persistentsettings.h>
 #include <utils/debuggerlanguagechooser.h>
 #include <qtsupport/qtoutputformatter.h>
 #include <qtsupport/baseqtversion.h>
@@ -73,8 +73,8 @@
 using namespace Qt4ProjectManager::Internal;
 using namespace Qt4ProjectManager;
 using ProjectExplorer::LocalApplicationRunConfiguration;
-using ProjectExplorer::PersistentSettingsReader;
-using ProjectExplorer::PersistentSettingsWriter;
+using Utils::PersistentSettingsReader;
+using Utils::PersistentSettingsWriter;
 
 namespace {
 const char * const QT4_RC_ID("Qt4ProjectManager.Qt4RunConfiguration");
@@ -153,8 +153,14 @@ QString Qt4RunConfiguration::disabledReason() const
 
 void Qt4RunConfiguration::proFileUpdated(Qt4ProjectManager::Qt4ProFileNode *pro, bool success, bool parseInProgress)
 {
-    if (m_proFilePath != pro->path())
+    if (m_proFilePath != pro->path()) {
+        if (!parseInProgress) {
+            // We depend on all .pro files for the LD_LIBRARY_PATH so we emit a signal for all .pro files
+            // This can be optimized by checking whether LD_LIBRARY_PATH changed
+            emit baseEnvironmentChanged();
+        }
         return;
+    }
 
     bool enabled = isEnabled();
     m_parseSuccess = success;
@@ -511,7 +517,7 @@ bool Qt4RunConfiguration::fromMap(const QVariantMap &map)
 {
     const QDir projectDir = QDir(target()->project()->projectDirectory());
     m_commandLineArguments = map.value(QLatin1String(COMMAND_LINE_ARGUMENTS_KEY)).toString();
-    m_proFilePath = projectDir.filePath(map.value(QLatin1String(PRO_FILE_KEY)).toString());
+    m_proFilePath = QDir::cleanPath(projectDir.filePath(map.value(QLatin1String(PRO_FILE_KEY)).toString()));
     m_runMode = map.value(QLatin1String(USE_TERMINAL_KEY), false).toBool() ? Console : Gui;
     m_isUsingDyldImageSuffix = map.value(QLatin1String(USE_DYLD_IMAGE_SUFFIX_KEY), false).toBool();
 
@@ -613,7 +619,7 @@ Utils::Environment Qt4RunConfiguration::baseEnvironment() const
     if (node) {
         const QStringList libDirectories = node->variableValue(LibDirectoriesVar);
         if (!libDirectories.isEmpty()) {
-            const QString proDirectory = QFileInfo(node->path()).absolutePath();
+            const QString proDirectory = node->buildDir();
             foreach (QString dir, libDirectories) {
                 // Fix up relative entries like "LIBS+=-L.."
                 const QFileInfo fi(dir);

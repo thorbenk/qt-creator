@@ -2,10 +2,6 @@
 installedSignalHandlers = {}
 # flag to indicate whether overrideInstallLazySignalHandler() has been called already
 overridenInstallLazySignalHandlers = False
-# flag to indicate a finished build (has to be resetted before doing another build)
-buildFinished = False
-# flag to indicate a successful build
-buildSucceeded = False
 # flag to indicate whether a tasks file should be created when building ends with errors
 createTasksFileOnError = True
 # currently used directory for tasks files
@@ -20,11 +16,11 @@ def overrideInstallLazySignalHandler():
         return
     overridenInstallLazySignalHandlers = True
     global installLazySignalHandler
-    installLazySignalHandler = addSignalHandlerDict(installLazySignalHandler)
+    installLazySignalHandler = __addSignalHandlerDict__(installLazySignalHandler)
 
 # avoids adding a handler to a signal twice or more often
 # do not call this function directly - use overrideInstallLazySignalHandler() instead
-def addSignalHandlerDict(lazySignalHandlerFunction):
+def __addSignalHandlerDict__(lazySignalHandlerFunction):
     global installedSignalHandlers
     def wrappedFunction(name, signalSignature, handlerFunctionName):
         handlers = installedSignalHandlers.get("%s____%s" % (name,signalSignature))
@@ -69,12 +65,10 @@ def checkLastBuild(expectedToFail=False):
     if warnings == "":
         warnings = "none"
     gotErrors = errors != "none" and errors != "0"
-    if (gotErrors and expectedToFail) or (not expectedToFail and not gotErrors):
-        test.passes("Errors: %s" % errors)
-        test.passes("Warnings: %s" % warnings)
+    if not (gotErrors ^ expectedToFail):
+        test.passes("Errors: %s | Warnings: %s" % (errors, warnings))
     else:
-        test.fail("Errors: %s" % errors)
-        test.fail("Warnings: %s" % warnings)
+        test.fail("Errors: %s | Warnings: %s" % (errors, warnings))
     # additional stuff - could be removed... or improved :)
     toggleBuildIssues = waitForObject("{type='Core::Internal::OutputPaneToggleButton' unnamed='1' "
                                       "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
@@ -87,18 +81,6 @@ def checkLastBuild(expectedToFail=False):
     if gotErrors and createTasksFileOnError:
         createTasksFile(list)
     return not gotErrors
-
-# helper function used as handler for signal buildQueueFinished(bool) - see below
-def handleBuildFinished(object, success):
-    global buildFinished, buildSucceeded
-    buildFinished = True
-    if success:
-        buildSucceeded = checkLastBuild()
-    else:
-        test.fatal("Build failed")
-        buildSucceeded = success
-        checkCompile()
-        checkLastBuild()
 
 # helper function to check the compilation when build wasn't successful
 def checkCompile():
@@ -113,13 +95,6 @@ def checkCompile():
         test.log("Compile Output:\n%s" % output.plainText)
     else:
         test.fatal("Compile Output:\n%s" % output.plainText)
-
-# after starting to build an application this function can be used to synchronize the following tests
-# make sure to set global variable buildFinished to False before starting to build
-def waitForBuildFinished(timeOutMSeconds=30000):
-    overrideInstallLazySignalHandler()
-    installLazySignalHandler("{type='ProjectExplorer::BuildManager'}", "buildQueueFinished(bool)", "handleBuildFinished")
-    waitFor("buildFinished == True", timeOutMSeconds)
 
 # helper method that parses the Build Issues output and writes a tasks file
 def createTasksFile(list):

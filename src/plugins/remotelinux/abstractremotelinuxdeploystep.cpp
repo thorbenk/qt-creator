@@ -78,7 +78,11 @@ QVariantMap AbstractRemoteLinuxDeployStep::toMap() const
 
 bool AbstractRemoteLinuxDeployStep::init()
 {
-    return isDeploymentPossible();
+    QString error;
+    const bool canDeploy = isDeploymentPossible(&error);
+    if (!canDeploy)
+        emit addOutput(tr("Deployment failed: %1").arg(error), ErrorMessageOutput);
+    return canDeploy;
 }
 
 bool AbstractRemoteLinuxDeployStep::isDeploymentPossible(QString *whyNot) const
@@ -91,7 +95,9 @@ bool AbstractRemoteLinuxDeployStep::isDeploymentPossible(QString *whyNot) const
 void AbstractRemoteLinuxDeployStep::run(QFutureInterface<bool> &fi)
 {
     connect(deployService(), SIGNAL(errorMessage(QString)), SLOT(handleErrorMessage(QString)));
-    connect(deployService(), SIGNAL(progressMessage(QString)), SLOT(handleProgressMessage(QString)));
+    connect(deployService(), SIGNAL(progressMessage(QString)),
+        SLOT(handleProgressMessage(QString)));
+    connect(deployService(), SIGNAL(warningMessage(QString)), SLOT(handleWarningMessage(QString)));
     connect(deployService(), SIGNAL(stdOutData(QString)), SLOT(handleStdOutData(QString)));
     connect(deployService(), SIGNAL(stdErrData(QString)), SLOT(handleStdErrData(QString)));
     connect(deployService(), SIGNAL(finished()), SLOT(handleFinished()));
@@ -128,9 +134,17 @@ void AbstractRemoteLinuxDeployStep::handleProgressMessage(const QString &message
 
 void AbstractRemoteLinuxDeployStep::handleErrorMessage(const QString &message)
 {
+    emit addOutput(message, ErrorMessageOutput);
     emit addTask(Task(Task::Error, message, QString(), -1,
         ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
     d->hasError = true;
+}
+
+void AbstractRemoteLinuxDeployStep::handleWarningMessage(const QString &message)
+{
+    emit addOutput(message, ErrorMessageOutput);
+    emit addTask(Task(Task::Warning, message, QString(), -1,
+        ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
 }
 
 void AbstractRemoteLinuxDeployStep::handleFinished()

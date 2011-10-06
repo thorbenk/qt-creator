@@ -1,14 +1,9 @@
 source("../../shared/qtcreator.py")
 
-refreshFinishedCount = 0
 workingDir = None
 
-def handleRefreshFinished(object, fileList):
-    global refreshFinishedCount
-    refreshFinishedCount += 1
-
 def main():
-    global workingDir,buildFinished,buildSucceeded
+    global workingDir
     startApplication("qtcreator" + SettingsPath)
     # using a temporary directory won't mess up an eventually exisiting
     workingDir = tempDir()
@@ -25,7 +20,7 @@ def createNewQtQuickUI():
     clickItem(waitForObject("{name='templatesView' type='QListView'}", 20000), "Qt Quick UI", 5, 5, 0, Qt.LeftButton)
     clickButton(waitForObject("{text='Choose...' type='QPushButton' unnamed='1' visible='1'}", 20000))
     baseLineEd = waitForObject("{type='Utils::BaseValidatingLineEdit' unnamed='1' visible='1'}", 20000)
-    replaceLineEditorContent(baseLineEd, workingDir)
+    replaceEditorContent(baseLineEd, workingDir)
     stateLabel = findObject("{type='QLabel' name='stateLabel'}")
     labelCheck = stateLabel.text=="" and stateLabel.styleSheet == ""
     test.verify(labelCheck, "Project name and base directory without warning or error")
@@ -34,14 +29,13 @@ def createNewQtQuickUI():
     if cbDefaultLocation.checked:
         clickButton(cbDefaultLocation)
     # now there's the 'untitled' project inside a temporary directory - step forward...!
-    clickButton(waitForObject("{text='Next' type='QPushButton' visible='1'}", 20000))
+    clickButton(waitForObject("{text?='Next*' type='QPushButton' visible='1'}", 20000))
     clickButton(waitForObject("{type='QPushButton' text='Finish' visible='1'}", 20000))
 
 def cleanup():
     global workingDir
     # waiting for a clean exit - for a full-remove of the temp directory
-    appCtxt = currentApplicationContext()
-    waitFor("appCtxt.isRunning==False")
+    waitForCleanShutdown()
     if workingDir!=None:
         deleteDirIfExists(workingDir)
 

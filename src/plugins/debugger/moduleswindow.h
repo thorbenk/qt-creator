@@ -33,12 +33,12 @@
 #ifndef DEBUGGER_MODULESWINDOW_H
 #define DEBUGGER_MODULESWINDOW_H
 
-#include <QtGui/QTreeView>
+#include "basewindow.h"
 
 namespace Debugger {
 namespace Internal {
 
-class ModulesWindow : public QTreeView
+class ModulesWindow : public BaseWindow
 {
     Q_OBJECT
 
@@ -46,14 +46,10 @@ public:
     explicit ModulesWindow(QWidget *parent = 0);
 
 private slots:
-    void resizeColumnsToContents();
-    void setAlwaysResizeColumnsToContents(bool on);
     void moduleActivated(const QModelIndex &index);
-    void setAlternatingRowColorsHelper(bool on) { setAlternatingRowColors(on); }
 
 private:
     void contextMenuEvent(QContextMenuEvent *ev);
-    void setModel(QAbstractItemModel *model);
 };
 
 } // namespace Internal

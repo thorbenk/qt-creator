@@ -44,8 +44,8 @@
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/toolchainmanager.h>
-#include <projectexplorer/persistentsettings.h>
 
+#include <utils/persistentsettings.h>
 #include <utils/environment.h>
 #include <utils/synchronousprocess.h>
 
@@ -175,7 +175,7 @@ BaseQtVersion::BaseQtVersion(const QString &qmakeCommand, bool isAutodetected, c
       m_defaultConfigIsDebug(true),
       m_defaultConfigIsDebugAndRelease(true),
       m_versionInfoUpToDate(false),
-      m_notInstalled(false),
+      m_installed(true),
       m_hasExamples(false),
       m_hasDemos(false),
       m_hasDocumentation(false),
@@ -196,7 +196,7 @@ BaseQtVersion::BaseQtVersion()
     m_defaultConfigIsDebug(true),
     m_defaultConfigIsDebugAndRelease(true),
     m_versionInfoUpToDate(false),
-    m_notInstalled(false),
+    m_installed(true),
     m_hasExamples(false),
     m_hasDemos(false),
     m_hasDocumentation(false),
@@ -211,6 +211,8 @@ void BaseQtVersion::ctor(const QString& qmakePath)
 #ifdef Q_OS_WIN
     m_qmakeCommand = m_qmakeCommand.toLower();
 #endif
+    if (m_qmakeCommand.startsWith('~'))
+        m_qmakeCommand.remove(0, 1).prepend(QDir::homePath());
     m_designerCommand.clear();
     m_linguistCommand.clear();
     m_qmlviewerCommand.clear();
@@ -297,7 +299,7 @@ bool BaseQtVersion::isValid() const
     updateMkspec();
 
     return  !qmakeCommand().isEmpty()
-            && !m_notInstalled
+            && m_installed
             && m_versionInfo.contains("QT_INSTALL_BINS")
             && !m_mkspecFullPath.isEmpty()
             && m_qmakeIsExecutable;
@@ -311,7 +313,7 @@ QString BaseQtVersion::invalidReason() const
         return QCoreApplication::translate("QtVersion", "No qmake path set");
     if (!m_qmakeIsExecutable)
         return QCoreApplication::translate("QtVersion", "qmake does not exist or is not executable");
-    if (m_notInstalled)
+    if (!m_installed)
         return QCoreApplication::translate("QtVersion", "Qt version is not properly installed, please run make install");
     if (!m_versionInfo.contains("QT_INSTALL_BINS"))
         return QCoreApplication::translate("QtVersion",
@@ -745,7 +747,7 @@ void BaseQtVersion::updateVersionInfo() const
 
     // extract data from qmake executable
     m_versionInfo.clear();
-    m_notInstalled = false;
+    m_installed = true;
     m_hasExamples = false;
     m_hasDocumentation = false;
     m_hasDebuggingHelper = false;
@@ -777,12 +779,12 @@ void BaseQtVersion::updateVersionInfo() const
     if (m_versionInfo.contains("QT_INSTALL_BINS")) {
         QFileInfo fi(m_versionInfo.value("QT_INSTALL_BINS"));
         if (!fi.exists())
-            m_notInstalled = true;
+            m_installed = false;
     }
     if (m_versionInfo.contains("QT_INSTALL_HEADERS")){
         QFileInfo fi(m_versionInfo.value("QT_INSTALL_HEADERS"));
         if (!fi.exists())
-            m_notInstalled = true;
+            m_installed = false;
     }
     if (m_versionInfo.contains("QT_INSTALL_DOCS")){
         QFileInfo fi(m_versionInfo.value("QT_INSTALL_DOCS"));

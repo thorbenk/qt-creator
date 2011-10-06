@@ -30,11 +30,12 @@
 **
 **************************************************************************/
 
-import QtQuick 1.0
+import QtQuick 1.1
 
 Item {
     id: tabWidget
     property alias model: contentRepeater.model
+    property bool currentHasSearchBar
 
     Item {
         id: stack
@@ -50,8 +51,15 @@ Item {
                 id: pageLoader
                 visible: active
                 anchors.fill: parent
-                anchors.margins: 4
-                onActiveChanged: if (active && source == "") source = model.modelData.pageLocation
+                anchors.margins: 0
+                onActiveChanged: {
+                    if (active && source == "") {
+                        source = model.modelData.pageLocation
+                    }
+                    if (active) {
+                        tabWidget.currentHasSearchBar = model.modelData.hasSearchBar
+                    }
+                }
 
                 onStatusChanged: {
                     if (pageLoader.status == Loader.Error) console.debug(source + ' failed to load')
