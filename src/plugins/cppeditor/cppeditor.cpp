@@ -1855,7 +1855,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
                     options = parts.at(0)->createClangOptions();
 
                 //### FIXME: the range is way too big.. can't we just update the visible lines?
-                CppTools::CreateMarkers *createMarkers = CppTools::CreateMarkers::create(m_clangSemanticWrapper, fileName, options, 1, document()->blockCount() + 1);
+                CppTools::CreateMarkers *createMarkers = CppTools::CreateMarkers::create(m_clangSemanticWrapper, fileName, options, 1, document()->blockCount());
                 connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
                         this, SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
                 CppTools::CreateMarkers::Future f = createMarkers->start();
