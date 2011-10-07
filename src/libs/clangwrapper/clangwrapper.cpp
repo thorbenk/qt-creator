@@ -467,8 +467,11 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
 #ifdef DEBUG_TIMING
     qDebug()<<identifierTokens.size()<<"identifier tokens";
 #endif // DEBUG_TIMING
-    if (identifierTokens.isEmpty())
+    if (identifierTokens.isEmpty()) {
+        if (tokens)
+            clang_disposeTokens(tu, tokens, tokenCount);
         return result;
+    }
 
     // Get the cursors for the tokens:
     CXCursor *idCursors = new CXCursor[identifierTokens.size()];
@@ -528,6 +531,9 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
 #endif // DEBUG_TIMING
 
     delete[] idCursors;
+
+    if (tokens)
+        clang_disposeTokens(tu, tokens, tokenCount);
 
     return result;
 }
