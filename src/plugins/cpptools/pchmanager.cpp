@@ -30,8 +30,9 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
         }
     } else if (cps->pchUsage() == CompletionProjectSettings::PchUseBuildSystemFast) {
         msgMgr->printToOutputPane("updatePchInfo: switching to build system (fast)");
-        QMap<QString, QSet<QString> > includes, frameworks;
-        QMap<QString, QSet<QByteArray> > definesPerPCH;
+        QHash<QString, QSet<QString> > includes, frameworks;
+        QHash<QString, QSet<QByteArray> > definesPerPCH;
+        QHash<QString, bool> cpp0x, objc;
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             if (projectPart->precompiledHeaders.isEmpty())
                 continue;
@@ -39,6 +40,8 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
 
             includes[pch].unite(QSet<QString>::fromList(projectPart->includePaths));
             frameworks[pch].unite(QSet<QString>::fromList(projectPart->frameworkPaths));
+            cpp0x[pch] |= projectPart->cpp0xEnabled();
+            objc[pch] |= projectPart->objcEnabled();
 
             QSet<QByteArray> projectDefines = QSet<QByteArray>::fromList(projectPart->defines.split('\n'));
             QMutableSetIterator<QByteArray> iter(projectDefines);
@@ -57,8 +60,10 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
 
         QMap<QString, PCHInfoPtr> inputToOutput;
         foreach (const QString &pch, definesPerPCH.keys()) {
-            PCHInfoPtr ptr = PCHInfo::createWithFileName();
-            QStringList options = ProjectPart::createClangOptions(QStringList(),
+            PCHInfoPtr ptr = PCHInfo::createWithFileName(cpp0x[pch], objc[pch]);
+            QStringList options = ProjectPart::createClangOptions(cpp0x[pch],
+                                                                  objc[pch],
+                                                                  QStringList(),
                                                                   definesPerPCH[pch].toList(),
                                                                   includes[pch].toList(),
                                                                   frameworks[pch].toList());
@@ -84,8 +89,10 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
                 continue;
             QString pch = projectPart->precompiledHeaders.first(); //### TODO: support more than 1 PCH file.
 
-            PCHInfoPtr ptr = PCHInfo::createWithFileName();
+            PCHInfoPtr ptr = PCHInfo::createWithFileName(projectPart->cpp0xEnabled(), projectPart->objcEnabled());
             QStringList options = ProjectPart::createClangOptions(
+                        projectPart->cpp0xEnabled(),
+                        projectPart->objcEnabled(),
                         QStringList(),
                         projectPart->defines.split('\n'),
                         projectPart->includePaths,
@@ -100,13 +107,16 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
     } else if (cps->pchUsage() == CompletionProjectSettings::PchUseCustom) {
         msgMgr->printToOutputPane("updatePchInfo: switching to custom" + cps->customPchFile());
         QSet<QString> includes, frameworks;
+        bool cpp0x = false, objc = false;
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             includes.unite(QSet<QString>::fromList(projectPart->includePaths));
             frameworks.unite(QSet<QString>::fromList(projectPart->frameworkPaths));
+            cpp0x |= projectPart->cpp0xEnabled();
+            objc |= projectPart->objcEnabled();
         }
 
-        QStringList opts = ProjectPart::createClangOptions(QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
-        PCHInfoPtr ptr = PCHInfo::createWithFileName();
+        QStringList opts = ProjectPart::createClangOptions(cpp0x, objc, QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
+        PCHInfoPtr ptr = PCHInfo::createWithFileName(cpp0x, objc);
         QStringList msgs = ClangWrapper::precompile(cps->customPchFile(), opts, ptr->fileName());
         if (msgs.isEmpty())
             msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));

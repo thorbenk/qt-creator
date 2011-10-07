@@ -19,7 +19,7 @@ public:
     PCHManager(CPlusPlus::CppModelManagerInterface *modelManager);
 
     static void updatePchInfo(CompletionProjectSettings *cps,
-                       const QList<ProjectPart::Ptr> &projectParts);
+                              const QList<ProjectPart::Ptr> &projectParts);
 
 public slots:
     void completionProjectSettingsChanged();

@@ -81,14 +81,20 @@ public:
         Language language;
         ProjectExplorer::ToolChain::CompilerFlags flags;
 
+        bool cpp0xEnabled() const
+        { return flags == ProjectExplorer::ToolChain::STD_CXX11; }
+
+        bool objcEnabled() const
+        { return language == CppModelManagerInterface::OBJC; }
+
         typedef QSharedPointer<ProjectPart> Ptr;
 
         PCHInfoPtr clangPCH;
         QStringList createClangOptions() const;
-        static QStringList createClangOptions(const QStringList &precompiledHeaders,
-                                              const QList<QByteArray> &defines,
-                                              const QStringList &includePaths,
-                                              const QStringList &frameworkPaths);
+        static QStringList createClangOptions(bool useCpp0x,
+                                              bool useObjc,
+                                              const QStringList &precompiledHeaders,
+                                              const QList<QByteArray> &defines, const QStringList &includePaths, const QStringList &frameworkPaths);
     };
 
     class ProjectInfo

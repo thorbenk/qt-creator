@@ -37,23 +37,41 @@ using namespace CPlusPlus;
 QStringList CppModelManagerInterface::ProjectPart::createClangOptions() const
 {
     QStringList pchs;
-    if (clangPCH)
+    bool cpp0x, objc;
+    if (clangPCH && !clangPCH->fileName().isEmpty()) {
         pchs << clangPCH->fileName();
-    return createClangOptions(pchs,
+        cpp0x = clangPCH->cpp0x();
+        objc = clangPCH->objc();
+    } else {
+        cpp0x = cpp0xEnabled();
+        objc = objcEnabled();
+    }
+
+    return createClangOptions(cpp0x,
+                              objc,
+                              pchs,
                               defines.split('\n'),
                               includePaths,
                               frameworkPaths);
 }
 
-QStringList CppModelManagerInterface::ProjectPart::createClangOptions(const QStringList &precompiledHeaders,
+QStringList CppModelManagerInterface::ProjectPart::createClangOptions(bool useCpp0x,
+                                                                      bool useObjc,
+                                                                      const QStringList &precompiledHeaders,
                                                                       const QList<QByteArray> &defines,
                                                                       const QStringList &includePaths,
                                                                       const QStringList &frameworkPaths)
 {
     QStringList result;
 
-    result << QLatin1String("-ObjC++");
-    //result << QLatin1String("-std=c++0x");
+    if (useCpp0x)
+        result << QLatin1String("-std=c++0x");
+
+    if (useObjc)
+        result << QLatin1String("-xobjective-c++");
+    else
+        result << QLatin1String("-xc++");
+
 #ifdef Q_OS_WIN
     result << QLatin1String("-fms-extensions")
            << QLatin1String("-fdelayed-template-parsing");
