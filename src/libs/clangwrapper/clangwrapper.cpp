@@ -586,7 +586,7 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
             for (unsigned j = 0; j < chunckCount; ++j) {
                 CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(complStr, j);
                 const QString chunkText =
-                        Internal::getQString(clang_getCompletionChunkText(complStr, j));
+                        Internal::getQString(clang_getCompletionChunkText(complStr, j), false);
 
                 if (chunkKind == CXCompletionChunk_TypedText)
                     ccr.text = chunkText;
