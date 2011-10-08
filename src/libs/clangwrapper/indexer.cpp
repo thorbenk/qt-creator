@@ -89,8 +89,11 @@ struct IndexingResult
     {}
     QVector<IndexedSymbolInfo> m_symbolsInfo;
     Unit m_unit;
+
+    static const int kMaxPendingResults;
 };
 
+const int IndexingResult::kMaxPendingResults = 8;
 
 class IndexerPrivate : public QObject
 {
@@ -443,6 +446,7 @@ IndexerPrivate::IndexerPrivate(Indexer *indexer)
     , m_files(TotalFileTypes)
     , m_hasQueuedFullRun(false)
 {
+    m_indexingWatcher.setPendingResultsLimit(IndexingResult::kMaxPendingResults);
     connect(&m_indexingWatcher, SIGNAL(resultReadyAt(int)), this, SLOT(synchronize(int)));
     connect(&m_indexingWatcher, SIGNAL(finished()), this, SLOT(indexingFinished()));
 }
