@@ -1015,7 +1015,7 @@ void CppModelManager::refreshSourceFile_Clang(const QString &sourceFile)
 void CppModelManager::onIndexingStarted_Clang(QFuture<void> indexingFuture)
 {
     Core::ICore::instance()->progressManager()->addTask(indexingFuture,
-                                                        tr("Indexing"),
+                                                        tr("C++ Indexing"),
                                                         "Key.Temp.Indexing");
 }
 
