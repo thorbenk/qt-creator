@@ -83,14 +83,11 @@ inline IndexedSymbolInfo::SymbolType getKey<SymbolTypeKey>(const IndexedSymbolIn
 struct IndexingResult
 {
     IndexingResult(const QVector<IndexedSymbolInfo> &info,
-                   const QStringList &options,
                    const Unit &unit)
         : m_symbolsInfo(info)
-        , m_compilationOptions(options)
         , m_unit(unit)
     {}
     QVector<IndexedSymbolInfo> m_symbolsInfo;
-    QStringList m_compilationOptions;
     Unit m_unit;
 };
 
@@ -281,9 +278,7 @@ void IndexerProcessor::ComputeIndexingInfo::operator()(int, Unit unit)
     unit.getInclusions(IndexerProcessor::inclusionVisit, this);
 
     // Make symbols available.
-    m_interface->reportResult(IndexingResult(m_symbolsInfo,
-                                             unit.compilationOptions(),
-                                             unit));
+    m_interface->reportResult(IndexingResult(m_symbolsInfo, unit));
 }
 
 IndexerProcessor::IndexerProcessor(const FileCont &headers, const FileCont &impls)
@@ -521,7 +516,7 @@ void IndexerPrivate::synchronize(int resultIndex)
             m_files[fileType][fileName].m_upToDate = true;
         } else {
             m_files[fileType].insert(fileName, FileData(fileName,
-                                                        result.m_compilationOptions,
+                                                        result.m_unit.compilationOptions(),
                                                         true));
         }
 
