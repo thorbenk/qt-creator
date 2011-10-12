@@ -253,7 +253,6 @@ public:
 
             Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
             CXSourceLocation cxLocation = clang_getDiagnosticLocation(diag);
-            const SourceLocation &location = Internal::getInstantiationLocation(cxLocation);
             const QString spelling = Internal::getQString(clang_getDiagnosticSpelling(diag));
 
             const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
@@ -264,13 +263,14 @@ public:
                     const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
                     unsigned length = spellEnd.offset() - spellBegin.offset();
 
-                    Diagnostic d(severity, location, length, spelling);
+                    Diagnostic d(severity, spellBegin, length, spelling);
 #ifdef DEBUG_TIMING
                     qDebug() << d.severityAsString() << location << length << spelling;
 #endif
                     m_diagnostics.append(d);
                 }
             } else {
+                const SourceLocation &location = Internal::getInstantiationLocation(cxLocation);
                 Diagnostic d(severity, location, 0, spelling);
 #ifdef DEBUG_TIMING
                 qDebug() << d.severityAsString() << location << 0 << spelling;
