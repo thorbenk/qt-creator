@@ -19,6 +19,9 @@ PCHManager::PCHManager(CPlusPlus::CppModelManagerInterface *modelManager)
  */
 void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<ProjectPart::Ptr> &projectParts)
 {
+    int u = cps->pchUsage();
+    qDebug() << "switching to" << u;
+
     Core::MessageManager *msgMgr = Core::MessageManager::instance();
 
     if (cps->pchUsage() == CompletionProjectSettings::PchUseNone
@@ -67,11 +70,13 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
                                                                   definesPerPCH[pch].toList(),
                                                                   includes[pch].toList(),
                                                                   frameworks[pch].toList());
-            QStringList msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
-            if (msgs.isEmpty())
+            QPair<bool, QStringList> msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
+            if (msgs.first)
                 msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
             else
-                msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
+                msgMgr->printToOutputPane(tr("Failed to generate PCH file \"%1\".").arg(ptr->fileName()));
+            if (!msgs.second.isEmpty())
+                msgMgr->printToOutputPanePopup(msgs.second.join(QLatin1String("\n")));
             inputToOutput[pch] = ptr;
         }
 
@@ -97,11 +102,13 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
                         projectPart->defines.split('\n'),
                         projectPart->includePaths,
                         projectPart->frameworkPaths);
-            QStringList msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
-            if (msgs.isEmpty())
+            QPair<bool, QStringList> msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
+            if (msgs.first)
                 msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
             else
-                msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
+                msgMgr->printToOutputPane(tr("Failed to generate PCH file \"%1\".").arg(ptr->fileName()));
+            if (!msgs.second.isEmpty())
+                msgMgr->printToOutputPanePopup(msgs.second.join(QLatin1String("\n")));
             projectPart->clangPCH = ptr;
         }
     } else if (cps->pchUsage() == CompletionProjectSettings::PchUseCustom) {
@@ -117,11 +124,13 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
 
         QStringList opts = ProjectPart::createClangOptions(cpp0x, objc, QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
         PCHInfoPtr ptr = PCHInfo::createWithFileName(cpp0x, objc);
-        QStringList msgs = ClangWrapper::precompile(cps->customPchFile(), opts, ptr->fileName());
-        if (msgs.isEmpty())
+        QPair<bool, QStringList> msgs = ClangWrapper::precompile(cps->customPchFile(), opts, ptr->fileName());
+        if (msgs.first)
             msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
         else
-            msgMgr->printToOutputPanePopup(msgs.join(QLatin1String("\n")));
+            msgMgr->printToOutputPane(tr("Failed to generate PCH file \"%1\".").arg(ptr->fileName()));
+        if (!msgs.second.isEmpty())
+            msgMgr->printToOutputPanePopup(msgs.second.join(QLatin1String("\n")));
         foreach (const ProjectPart::Ptr &projectPart, projectParts)
             projectPart->clangPCH = ptr;
     }
@@ -137,4 +146,5 @@ void PCHManager::completionProjectSettingsChanged()
     foreach (const ProjectPart::Ptr &partPtr, projectParts)
         partPtr->clangPCH.clear();
     updatePchInfo(cps, projectParts);
+    emit pchInfoUpdated();
 }

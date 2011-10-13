@@ -744,6 +744,8 @@ CppModelManager::CppModelManager(QObject *parent)
 
     connect(&m_clangIndexer, SIGNAL(indexingStarted(QFuture<void>)),
             this, SLOT(onIndexingStarted_Clang(QFuture<void>)));
+    connect(&m_pchManager, SIGNAL(pchInfoUpdated()),
+            &m_clangIndexer, SLOT(regenerate()));
 }
 
 CppModelManager::~CppModelManager()
@@ -938,7 +940,6 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     CompletionProjectSettings *cps = m_cps.value(project, 0);
     if (!cps) {
         cps = new CompletionProjectSettings(project);
-        cps->setPchUsage(CompletionProjectSettings::PchUseBuildSystemFast);
         m_cps.insert(project, cps); //### FIXME: This should come from the project?
 
         connect(cps, SIGNAL(pchUsageChanged(int)),
@@ -1000,9 +1001,9 @@ void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
     foreach (const QString &file, sourceFiles) {
         const QList<CppModelManagerInterface::ProjectPart::Ptr> &parts = projectPart(file);
         if (!parts.isEmpty())
-            m_clangIndexer.addFile(file, parts.at(0)->createClangOptions());
+            m_clangIndexer.addFile(file, parts.at(0)->createClangOptions(), parts.at(0)->clangPCH);
         else
-            m_clangIndexer.addFile(file, QStringList());
+            m_clangIndexer.addFile(file, QStringList(), Clang::PCHInfoPtr());
     }
     m_clangIndexer.regenerate();
 }

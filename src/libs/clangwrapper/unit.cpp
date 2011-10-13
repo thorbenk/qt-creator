@@ -38,6 +38,12 @@
 #include <QtCore/QVector>
 #include <QtCore/QSharedData>
 
+#ifdef DEBUG_UNIT_COUNT
+#  include <QAtomicInt>
+#  include <QDebug>
+static QBasicAtomicInt unitDataCount = Q_BASIC_ATOMIC_INITIALIZER(0);
+#endif // DEBUG_UNIT_COUNT
+
 namespace Clang {
 namespace Internal {
 
@@ -55,6 +61,7 @@ public:
     CXTranslationUnit m_tu;
     QByteArray m_fileName;
     QVector<QByteArray> m_compOptions;
+    PCHInfoPtr m_pchInfo;
     unsigned m_managOptions;
     UnsavedFiles m_unsaved;
 };
@@ -62,25 +69,28 @@ public:
 } // Internal
 } // Clang
 
-
 using namespace Clang;
 using namespace Internal;
 
 UnitData::UnitData()
     : m_index(0)
     , m_tu(0)
-{}
+    , m_pchInfo(PCHInfo::createEmpty())
+{
+}
 
 UnitData::UnitData(const QString &fileName)
     : m_index(clang_createIndex(/*excludeDeclsFromPCH*/ 1, /*displayDiagnostics*/ 0))
     , m_tu(0)
     , m_fileName(fileName.toUtf8())
-{}
+    , m_pchInfo(PCHInfo::createEmpty())
+{
+}
 
 UnitData::~UnitData()
 {
-    clang_disposeIndex(m_index);
     unload();
+    clang_disposeIndex(m_index);
 }
 
 void UnitData::unload()
@@ -88,6 +98,9 @@ void UnitData::unload()
     if (m_tu) {
         clang_disposeTranslationUnit(m_tu);
         m_tu = 0;
+#ifdef DEBUG_UNIT_COUNT
+        qDebug()<<"# translation units:"<< (unitDataCount.fetchAndAddOrdered(-1)-1);
+#endif // DEBUG_UNIT_COUNT
     }
 }
 
@@ -148,6 +161,16 @@ void Unit::setCompilationOptions(const QStringList &compOptions)
         m_data->m_compOptions.append(option.toUtf8());
 }
 
+PCHInfoPtr Unit::pchInfo() const
+{
+    return m_data->m_pchInfo;
+}
+
+void Unit::setPchInfo(PCHInfoPtr pchInfo)
+{
+    m_data->m_pchInfo = pchInfo;
+}
+
 UnsavedFiles Unit::unsavedFiles() const
 {
     return m_data->m_unsaved;
@@ -183,6 +206,10 @@ void Unit::parse()
                                               0, 0,
                                               m_data->m_managOptions);
     delete[] argv;
+#ifdef DEBUG_UNIT_COUNT
+    if (m_data->m_tu)
+        qDebug()<<"# translation units:"<< (unitDataCount.fetchAndAddOrdered(1)+1);
+#endif // DEBUG_UNIT_COUNT
 }
 
 void Unit::reparse()
@@ -227,6 +254,7 @@ CXString Unit::getTranslationUnitSpelling() const
 
 void Unit::getInclusions(CXInclusionVisitor visitor, CXClientData clientData) const
 {
+    Q_ASSERT(isValid());
     clang_getInclusions(m_data->m_tu, visitor, clientData);
 }
 

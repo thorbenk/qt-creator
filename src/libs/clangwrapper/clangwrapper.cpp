@@ -615,7 +615,7 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
     return completions;
 }
 
-QStringList ClangWrapper::precompile(const QString &headerFileName, const QStringList &options, const QString &outFileName)
+QPair<bool, QStringList> ClangWrapper::precompile(const QString &headerFileName, const QStringList &options, const QString &outFileName)
 {
     initClang();
 
@@ -623,11 +623,13 @@ QStringList ClangWrapper::precompile(const QString &headerFileName, const QStrin
     qDebug() << "** Precompiling" << outFileName << "from" << headerFileName << "...";
 #endif // DEBUG_TIMING
 
+    bool ok;
+
     ClangWrapper wrapper;
     wrapper.setFileName(headerFileName);
     wrapper.setOptions(options);
     if (wrapper.reparse(UnsavedFiles())) {
-        wrapper.m_d->save(outFileName);
+        ok = wrapper.m_d->save(outFileName);
 
 #ifdef DEBUG_TIMING
         qDebug() << "** Precompiling done.";
@@ -636,9 +638,10 @@ QStringList ClangWrapper::precompile(const QString &headerFileName, const QStrin
 #ifdef DEBUG_TIMING
         qWarning() << "** Precompiling failed!";
 #endif // DEBUG_TIMING
+        ok = false;
     }
 
-    return wrapper.formattedDiagnostics();
+    return qMakePair(ok, wrapper.formattedDiagnostics());
 }
 
 QList<Diagnostic> ClangWrapper::diagnostics() const

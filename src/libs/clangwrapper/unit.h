@@ -33,6 +33,7 @@
 #ifndef UNIT_H
 #define UNIT_H
 
+#include "pchinfo.h"
 #include "typedefs.h"
 
 #include <clang-c/Index.h>
@@ -85,6 +86,9 @@ public:
 
     QStringList compilationOptions() const;
     void setCompilationOptions(const QStringList &compOptions);
+
+    PCHInfoPtr pchInfo() const;
+    void setPchInfo(PCHInfoPtr pchInfo);
 
     UnsavedFiles unsavedFiles() const;
     void setUnsavedFiles(const UnsavedFiles &unsavedFiles);

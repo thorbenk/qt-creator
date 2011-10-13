@@ -82,6 +82,10 @@ QStringList CppModelManagerInterface::ProjectPart::createClangOptions(bool useCp
             continue;
         if (QFile(pch).exists())
             result << QLatin1String("-include-pch") << pch;
+        else
+            qDebug() << "!!! PCH file"
+                     << pch
+                     << "gone while used compilation options !!!";
     }
     foreach (QByteArray def, defines) {
         if (def.isEmpty())

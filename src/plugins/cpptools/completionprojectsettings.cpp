@@ -12,6 +12,8 @@ CompletionProjectSettings::CompletionProjectSettings(ProjectExplorer::Project *p
             this, SLOT(pullSettings()));
     connect(m_project, SIGNAL(aboutToSaveSettings()),
             this, SLOT(pushSettings()));
+
+    pullSettings();
 }
 
 void CompletionProjectSettings::setPchUsage(PchUsage pchUsage)

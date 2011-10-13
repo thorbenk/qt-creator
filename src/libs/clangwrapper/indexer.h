@@ -35,6 +35,7 @@
 
 #include "clangwrapper_global.h"
 #include "indexedsymbolinfo.h"
+#include "pchinfo.h"
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -53,13 +54,12 @@ public:
     Indexer();
     ~Indexer();
 
-    void regenerate();
     void evaluateFile(const QString &fileName);
     bool isWorking() const;
     void stopWorking(bool waitForFinished);
     void destroy();
 
-    bool addFile(const QString &fileName, const QStringList &compilationOptions);
+    bool addFile(const QString &fileName, const QStringList &compilationOptions, PCHInfoPtr pchInfo);
     QStringList allFiles() const;
     QStringList compilationOptions(const QString &fileName) const;
 
@@ -74,6 +74,9 @@ public:
     QList<IndexedSymbolInfo> constructorsFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> destructorsFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> allFromFile(const QString &fileName) const;
+
+public slots:
+    void regenerate();
 
 signals:
     void indexingStarted(QFuture<void> future);

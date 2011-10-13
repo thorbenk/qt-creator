@@ -40,6 +40,7 @@
 #include <QList>
 #include <QMap>
 #include <QMutex>
+#include <QPair>
 #include <QSharedPointer>
 #include <QString>
 #include <QStringList>
@@ -170,9 +171,9 @@ public: // methods
     QList<Diagnostic> diagnostics() const;
     QStringList formattedDiagnostics() const;
 
-    static QStringList precompile(const QString &headerFileName,
-                                  const QStringList &options,
-                                  const QString &outFileName);
+    static QPair<bool, QStringList> precompile(const QString &headerFileName,
+                                               const QStringList &options,
+                                               const QString &outFileName);
 
     bool objcEnabled() const;
 

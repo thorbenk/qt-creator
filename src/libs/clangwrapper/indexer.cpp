@@ -107,19 +107,22 @@ public:
 
     struct FileData
     {
-        FileData() : m_upToDate(false) {}
+        FileData() : m_pchInfo(PCHInfo::createEmpty()), m_upToDate(false) {}
         FileData(const QString &fileName,
                  const QStringList &compilationOptions,
+                 const PCHInfoPtr pchInfo,
                  unsigned managementOptions = CXTranslationUnit_DetailedPreprocessingRecord,
                  bool upToDate = false)
             : m_fileName(fileName)
             , m_compilationOptions(compilationOptions)
+            , m_pchInfo(pchInfo)
             , m_managementOptions(managementOptions)
             , m_upToDate(upToDate)
         {}
 
         QString m_fileName;
         QStringList m_compilationOptions;
+        PCHInfoPtr m_pchInfo;
         unsigned m_managementOptions;
         bool m_upToDate;
     };
@@ -136,7 +139,7 @@ public:
     void cancel(bool wait);
     void clear();
 
-    bool addFile(const QString &fileName, const QStringList &compilationOptions);
+    bool addFile(const QString &fileName, const QStringList &compilationOptions, PCHInfoPtr pchInfo);
     QStringList allFiles() const;
     bool isTrackingFile(const QString &fileName) const;
     QStringList compilationOptions(const QString &fileName) const;
@@ -237,6 +240,7 @@ Unit IndexerProcessor::ComputeTranslationUnit::operator()(FileContIt it)
 
     Unit unit(fileData.m_fileName);
     unit.setCompilationOptions(fileData.m_compilationOptions);
+    unit.setPchInfo(fileData.m_pchInfo);
     unit.setManagementOptions(fileData.m_managementOptions);
     unit.setUnsavedFiles(UnsavedFiles()); // @TODO: Consider unsaved files...
     unit.parse();
@@ -531,6 +535,7 @@ void IndexerPrivate::synchronize(int resultIndex)
         } else {
             m_files[fileType].insert(fileName, FileData(fileName,
                                                         result.m_unit.compilationOptions(),
+                                                        result.m_unit.pchInfo(),
                                                         true));
         }
 
@@ -557,7 +562,7 @@ void IndexerPrivate::indexingFinished()
     }
 }
 
-bool IndexerPrivate::addFile(const QString &fileName, const QStringList &compilationOptions)
+bool IndexerPrivate::addFile(const QString &fileName, const QStringList &compilationOptions, PCHInfoPtr pchInfo)
 {
     if (m_indexingWatcher.isRunning() || fileName.trimmed().isEmpty())
         return false;
@@ -567,7 +572,7 @@ bool IndexerPrivate::addFile(const QString &fileName, const QStringList &compila
         m_files[fileType][fileName].m_upToDate = false;
         m_database.remove(FileNameKey(), fileName);
     } else {
-        m_files[fileType].insert(fileName, FileData(fileName, compilationOptions));
+        m_files[fileType].insert(fileName, FileData(fileName, compilationOptions, pchInfo));
     }
 
     return true;
@@ -648,9 +653,9 @@ void Indexer::destroy()
     m_d->clear();
 }
 
-bool Indexer::addFile(const QString &fileName, const QStringList &compilationOptions)
+bool Indexer::addFile(const QString &fileName, const QStringList &compilationOptions, Clang::PCHInfoPtr pchInfo)
 {
-    return m_d->addFile(fileName, compilationOptions);
+    return m_d->addFile(fileName, compilationOptions, pchInfo);
 }
 
 QStringList Indexer::allFiles() const

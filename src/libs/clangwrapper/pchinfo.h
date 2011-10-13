@@ -1,18 +1,18 @@
-#ifndef CPLUSPLUS_PCHINFO_H
-#define CPLUSPLUS_PCHINFO_H
+#ifndef CLANG_PCHINFO_H
+#define CLANG_PCHINFO_H
 
-#include "CPlusPlusForwardDeclarations.h"
+#include "clangwrapper_global.h"
 
 #include <QString>
 #include <QSharedPointer>
 #include <QTemporaryFile>
 
-namespace CPlusPlus {
+namespace Clang {
 
 class PCHInfo;
 typedef QSharedPointer<PCHInfo> PCHInfoPtr;
 
-class CPLUSPLUS_EXPORT PCHInfo
+class QTCREATOR_CLANGWRAPPER_EXPORT PCHInfo
 {
     PCHInfo();
 
@@ -38,6 +38,6 @@ private:
 
 };
 
-} // namespace CPlusPlus
+} // namespace Clang
 
-#endif // CPLUSPLUS_PCHINFO_H
+#endif // CLANG_PCHINFO_H

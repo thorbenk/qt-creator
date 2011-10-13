@@ -21,6 +21,9 @@ public:
     static void updatePchInfo(CompletionProjectSettings *cps,
                               const QList<ProjectPart::Ptr> &projectParts);
 
+signals:
+    void pchInfoUpdated();
+
 public slots:
     void completionProjectSettingsChanged();
 

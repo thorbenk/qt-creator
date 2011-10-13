@@ -34,7 +34,7 @@
 #define CPPMODELMANAGERINTERFACE_H
 
 #include <cplusplus/CppDocument.h>
-#include <cplusplus/pchinfo.h>
+#include <clangwrapper/pchinfo.h>
 #include <languageutils/fakemetaobject.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/toolchain.h>
@@ -89,7 +89,7 @@ public:
 
         typedef QSharedPointer<ProjectPart> Ptr;
 
-        PCHInfoPtr clangPCH;
+        Clang::PCHInfoPtr clangPCH;
         QStringList createClangOptions() const;
         static QStringList createClangOptions(bool useCpp0x,
                                               bool useObjc,

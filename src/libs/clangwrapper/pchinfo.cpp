@@ -2,7 +2,7 @@
 
 #include <QDir>
 
-using namespace CPlusPlus;
+using namespace Clang;
 
 PCHInfo::PCHInfo()
     : m_cpp0x(false)

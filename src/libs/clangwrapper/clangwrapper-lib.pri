@@ -20,7 +20,8 @@ SOURCES += \
     $$PWD/sourcelocation.cpp \
     $$PWD/unit.cpp \
     $$PWD/liveunitsmanager.cpp \
-    $$PWD/codenavigator.cpp
+    $$PWD/codenavigator.cpp \
+    $$PWD/pchinfo.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -39,4 +40,5 @@ HEADERS += \
     $$PWD/unit.h \
     $$PWD/typedefs.h \
     $$PWD/liveunitsmanager.h \
-    $$PWD/codenavigator.h
+    $$PWD/codenavigator.h \
+    $$PWD/pchinfo.h
