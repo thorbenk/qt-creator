@@ -89,11 +89,7 @@ struct IndexingResult
     {}
     QVector<IndexedSymbolInfo> m_symbolsInfo;
     Unit m_unit;
-
-    static const int kMaxPendingResults;
 };
-
-const int IndexingResult::kMaxPendingResults = 8;
 
 class IndexerPrivate : public QObject
 {
@@ -209,6 +205,8 @@ public:
 
     void process(QFutureInterface<IndexingResult> &interface);
 
+    static const int kProcessingBatchSize;
+
     FileCont m_allFiles;
     QHash<QString, FileContIt> m_knownHeaders;
     QSet<QString> m_newlySeenHeaders;
@@ -228,6 +226,7 @@ struct ScopepTimer
 
 } // Anonymous
 
+const int IndexerProcessor::kProcessingBatchSize = 4;
 
 Unit IndexerProcessor::ComputeTranslationUnit::operator()(FileContIt it)
 {
@@ -415,27 +414,39 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface)
 
     // First process implementation files and then headers which were not included by any unit.
     QVector<FileContIt> currentFiles;
-    currentFiles.reserve(m_allFiles.count());
+    currentFiles.reserve(kProcessingBatchSize);
     FileContIt it = m_allFiles.begin();
     FileContIt eit = m_allFiles.end();
-    for (; it != eit; ++it) {
-        if (!m_knownHeaders.contains(it->m_fileName))
-            currentFiles.append(it);
+    while (it != eit) {
+        FileContIt currentIt = it++;
+        if (!m_knownHeaders.contains(currentIt->m_fileName)) {
+            currentFiles.append(currentIt);
+            if (currentFiles.size() == kProcessingBatchSize || it == eit) {
+                QtConcurrent::blockingMappedReduced<int>(currentFiles,
+                                                         ComputeTranslationUnit(&interface),
+                                                         ComputeIndexingInfo(&interface, this),
+                                                         QtConcurrent::UnorderedReduce);
+                currentFiles.erase(currentFiles.begin(), currentFiles.end()); // Keep the memory.
+            }
+        }
     }
-    QtConcurrent::blockingMappedReduced<int>(currentFiles,
-                                             ComputeTranslationUnit(&interface),
-                                             ComputeIndexingInfo(&interface, this),
-                                             QtConcurrent::UnorderedReduce);
 
-    currentFiles.clear();
-    foreach (FileContIt it, m_knownHeaders) {
-        if (!m_allFiles.value(it.value().m_fileName).m_upToDate)
-            currentFiles.append(it);
+    const QList<FileContIt> &knownHeaders = m_knownHeaders.values();
+    const int total = knownHeaders.size();
+    int current = 0;
+    while (current < total) {
+        FileContIt currentIt = knownHeaders.at(current++);
+        if (!m_allFiles.value(currentIt.value().m_fileName).m_upToDate) {
+            currentFiles.append(currentIt);
+            if (currentFiles.size() > kProcessingBatchSize || current == total) {
+                QtConcurrent::blockingMappedReduced<int>(currentFiles,
+                                                         ComputeTranslationUnit(&interface),
+                                                         ComputeIndexingInfo(&interface, this),
+                                                         QtConcurrent::UnorderedReduce);
+                currentFiles.erase(currentFiles.begin(), currentFiles.end()); // Keep the memory.
+            }
+        }
     }
-    QtConcurrent::blockingMappedReduced<int>(currentFiles,
-                                             ComputeTranslationUnit(&interface),
-                                             ComputeIndexingInfo(&interface, this),
-                                             QtConcurrent::UnorderedReduce);
 
     END_PROFILE_SCOPE;
 }
@@ -446,7 +457,6 @@ IndexerPrivate::IndexerPrivate(Indexer *indexer)
     , m_files(TotalFileTypes)
     , m_hasQueuedFullRun(false)
 {
-    m_indexingWatcher.setPendingResultsLimit(IndexingResult::kMaxPendingResults);
     connect(&m_indexingWatcher, SIGNAL(resultReadyAt(int)), this, SLOT(synchronize(int)));
     connect(&m_indexingWatcher, SIGNAL(finished()), this, SLOT(indexingFinished()));
 }
