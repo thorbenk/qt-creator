@@ -91,6 +91,7 @@ UnitData::~UnitData()
 {
     unload();
     clang_disposeIndex(m_index);
+    m_index = 0;
 }
 
 void UnitData::unload()
@@ -254,7 +255,6 @@ CXString Unit::getTranslationUnitSpelling() const
 
 void Unit::getInclusions(CXInclusionVisitor visitor, CXClientData clientData) const
 {
-    Q_ASSERT(isValid());
     clang_getInclusions(m_data->m_tu, visitor, clientData);
 }
 
