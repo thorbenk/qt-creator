@@ -45,6 +45,7 @@
 #include <QtCore/QVector>
 #include <QtCore/QHash>
 #include <QtCore/QSet>
+#include <QtCore/QFileInfo>
 #include <QtCore/QFuture>
 #include <QtCore/QTime>
 #include <QtCore/QtConcurrentMap>
@@ -581,7 +582,9 @@ void IndexerPrivate::indexingFinished()
 
 bool IndexerPrivate::addFile(const QString &fileName, const QStringList &compilationOptions, PCHInfoPtr pchInfo)
 {
-    if (m_indexingWatcher.isRunning() || fileName.trimmed().isEmpty())
+    if (m_indexingWatcher.isRunning()
+            || fileName.trimmed().isEmpty()
+            || !QFileInfo(fileName).exists())
         return false;
 
     FileType fileType = identifyFileType(fileName);
