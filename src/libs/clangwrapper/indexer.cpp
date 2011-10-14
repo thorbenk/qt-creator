@@ -150,6 +150,7 @@ public:
     QVector<QHash<QString, FileData> > m_files;
     Database<IndexedSymbolInfo, FileNameKey, SymbolTypeKey> m_database;
     QFutureWatcher<IndexingResult> m_indexingWatcher;
+    QSet<int> m_processedResults;
     bool m_hasQueuedFullRun;
     QSet<QString> m_queuedFilesRun;
 };
@@ -253,8 +254,13 @@ Unit IndexerProcessor::ComputeTranslationUnit::operator()(FileContIt it)
 
 void IndexerProcessor::ComputeIndexingInfo::operator()(int, Unit unit)
 {
-    if (!unit.isValid() || m_interface->isCanceled())
+    if (!unit.isValid())
         return;
+
+    if (m_interface->isCanceled()) {
+        unit.invalidate();
+        return;
+    }
 
     m_qualification.clear();
     m_symbolsInfo.clear();
@@ -548,10 +554,21 @@ void IndexerPrivate::synchronize(int resultIndex)
         LiveUnitsManager::instance()->insert(result.m_unit);
     else
         result.m_unit.invalidate();
+
+    m_processedResults.insert(resultIndex);
 }
 
 void IndexerPrivate::indexingFinished()
 {
+    if (m_indexingWatcher.isCanceled()) {
+        // There's no API guarantee that results are reported in order, so we are conservative.
+        for (int i = m_indexingWatcher.future().resultCount() - 1; i >= 0; --i) {
+            if (!m_processedResults.contains(i))
+                synchronize(i);
+        }
+    }
+    m_processedResults.clear();
+
     if (m_hasQueuedFullRun) {
         m_hasQueuedFullRun = false;
         run();
