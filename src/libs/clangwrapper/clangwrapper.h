@@ -53,38 +53,83 @@ class SourceMarker;
 class QTCREATOR_CLANGWRAPPER_EXPORT CodeCompletionResult
 {
 public:
-    CodeCompletionResult() {}
+    enum Type {
+        Other = 0,
+        FunctionCompletionType,
+        VariableCompletionType,
+        ClassCompletionType,
+        EnumCompletionType,
+        EnumeratorCompletionType,
+        NamespaceCompletionType,
+        PreProcessorCompletionType
+    };
+
+public:
+    CodeCompletionResult();
     CodeCompletionResult(unsigned priority);
 
     unsigned priority() const
-    { return _priority; }
+    { return m_priority; }
 
     bool isValid() const
-    { return !text.isEmpty(); }
+    { return !m_text.isEmpty(); }
+
+    QString text() const
+    { return m_text; }
+    void setText(const QString &text)
+    { m_text = text; }
+
+    QString hint() const
+    { return m_hint; }
+    void setHint(const QString &hint)
+    { m_hint = hint; }
+
+    Type completionType() const
+    { return m_completionType; }
+    void setCompletionType(Type type)
+    { m_completionType = type; }
+
+    int compare(const CodeCompletionResult &other) const
+    {
+        if (m_priority < other.m_priority)
+            return -1;
+        else if (m_priority > other.m_priority)
+            return 1;
+
+        if (m_completionType < other.m_completionType)
+            return -1;
+        else if (m_completionType > other.m_completionType)
+            return 1;
+
+        if (m_text < other.m_text)
+            return -1;
+        else if (m_text > other.m_text)
+            return 1;
+
+        if (m_hint < other.m_hint)
+            return -1;
+        else if (m_hint > other.m_hint)
+            return 1;
+
+        return 0;
+    }
 
 private:
-    unsigned _priority;
-
-public: //### HACK
-    QString text;
-    QString hint;
-    bool isFunctionCompletion;
+    unsigned m_priority;
+    Type m_completionType;
+    QString m_text;
+    QString m_hint;
 };
 
 inline QTCREATOR_CLANGWRAPPER_EXPORT uint qHash(const CodeCompletionResult &ccr)
-{ return qHash(ccr.text); }
+{ return ccr.completionType() ^ qHash(ccr.text()); }
 
 inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator==(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
-{ return ccr1.text == ccr2.text; }
+{ return ccr1.compare(ccr2) == 0; }
 
 inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator<(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
 {
-    if (ccr1.text < ccr2.text)
-        return true;
-    else if (ccr1.text > ccr2.text)
-        return false;
-
-    return ccr1.hint < ccr2.hint;
+    return ccr1.compare(ccr2) < 0;
 }
 
 class QTCREATOR_CLANGWRAPPER_EXPORT Diagnostic

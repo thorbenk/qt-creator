@@ -303,8 +303,14 @@ private:
 
 using namespace Clang;
 
+CodeCompletionResult::CodeCompletionResult()
+    : m_priority(0)
+    , m_completionType(Other)
+{}
+
 CodeCompletionResult::CodeCompletionResult(unsigned priority)
-    : _priority(priority)
+    : m_priority(priority)
+    , m_completionType(Other)
 {
 }
 
@@ -495,6 +501,7 @@ QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_StructDecl:
         case CXCursor_TemplateRef:
         case CXCursor_TypeRef:
+        case CXCursor_TypedefDecl:
             add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Type);
             break;
 
@@ -572,8 +579,6 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
             unsigned priority = clang_getCompletionPriority(complStr);
 
             CodeCompletionResult ccr(priority);
-            CXCursorKind kind = results->Results[i].CursorKind;
-            ccr.isFunctionCompletion = (kind == CXCursor_FunctionDecl || kind == CXCursor_CXXMethod);
 
 #if 0
             CXCursorKind kind = results->Results[i].CursorKind;
@@ -589,19 +594,74 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
                         Internal::getQString(clang_getCompletionChunkText(complStr, j), false);
 
                 if (chunkKind == CXCompletionChunk_TypedText)
-                    ccr.text = chunkText;
+                    ccr.setText(chunkText);
 
                 if (!chunkText.isEmpty()) {
-                    if (ccr.hint.size() > 0 && ccr.hint.at(ccr.hint.size() - 1).isLetterOrNumber())
-                        ccr.hint += QLatin1Char(' ');
+                    if (ccr.hint().size() > 0 && ccr.hint().at(ccr.hint().size() - 1).isLetterOrNumber())
+                        ccr.setHint(ccr.hint() + QLatin1Char(' '));
 
-                    ccr.hint += chunkText;
+                    ccr.setHint(ccr.hint() + chunkText);
                 }
 
 #if 0
                 qDebug() << "    chunk" << j << ": kind: " << chunkKind << toString(chunkKind);
                 qDebug() << "              text:" << chunkText;
 #endif
+            }
+
+            switch (results->Results[i].CursorKind) {
+            case CXCursor_FunctionDecl:
+            case CXCursor_CXXMethod:
+            case CXCursor_Constructor:
+            case CXCursor_Destructor:
+            case CXCursor_ConversionFunction:
+            case CXCursor_MemberRef:
+            case CXCursor_MemberRefExpr:
+                ccr.setCompletionType(CodeCompletionResult::FunctionCompletionType);
+                break;
+
+            case CXCursor_FieldDecl:
+            case CXCursor_FunctionTemplate:
+            case CXCursor_VarDecl:
+                ccr.setCompletionType(CodeCompletionResult::VariableCompletionType);
+                break;
+
+            case CXCursor_Namespace:
+            case CXCursor_NamespaceAlias:
+            case CXCursor_NamespaceRef:
+                ccr.setCompletionType(CodeCompletionResult::NamespaceCompletionType);
+                break;
+
+            case CXCursor_StructDecl:
+            case CXCursor_UnionDecl:
+            case CXCursor_ClassDecl:
+            case CXCursor_TypeRef:
+            case CXCursor_TemplateRef:
+            case CXCursor_TypedefDecl:
+            case CXCursor_ClassTemplate:
+            case CXCursor_ClassTemplatePartialSpecialization:
+            // TODO: objc cursors
+                ccr.setCompletionType(CodeCompletionResult::ClassCompletionType);
+                break;
+
+            case CXCursor_EnumConstantDecl:
+                ccr.setCompletionType(CodeCompletionResult::EnumeratorCompletionType);
+                break;
+
+            case CXCursor_EnumDecl:
+                ccr.setCompletionType(CodeCompletionResult::EnumCompletionType);
+                break;
+
+            case CXCursor_PreprocessingDirective:
+            case CXCursor_MacroDefinition:
+            case CXCursor_MacroExpansion:
+            case CXCursor_InclusionDirective:
+                ccr.setCompletionType(CodeCompletionResult::PreProcessorCompletionType);
+                break;
+
+            default:
+//                qDebug() << "cursor kind:" << results->Results[i].CursorKind << "for" << ccr.text();
+                break;
             }
 
             completions.append(ccr);

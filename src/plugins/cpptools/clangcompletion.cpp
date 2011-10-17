@@ -224,7 +224,7 @@ QString ClangFunctionHintModel::text(int index) const
     hintText += Qt::escape(prettyMethod.mid(end));
     return hintText;
 #endif
-    return m_functionSymbols.at(index).hint;
+    return m_functionSymbols.at(index).hint();
 }
 
 int ClangFunctionHintModel::activeArgument(const QString &prefix) const
@@ -642,8 +642,8 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         const QList<CodeCompletionResult> completions = unfilteredCompletion(m_interface.data(), fileName, l, c);
         QList<CodeCompletionResult> functionCompletions;
         foreach (const CodeCompletionResult &ccr, completions) {
-            if (ccr.isFunctionCompletion)
-                if (ccr.text == functionName)
+            if (ccr.completionType() == CodeCompletionResult::FunctionCompletionType)
+                if (ccr.text() == functionName)
                     functionCompletions.append(ccr);
         }
 
@@ -659,15 +659,32 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
     foreach (const CodeCompletionResult &ccr, completions) {
         if (!ccr.isValid())
             continue;
-        if (alreadySeen.contains(ccr.text))
+        const QString txt(ccr.text());
+        if (alreadySeen.contains(txt))
             continue;
 
         BasicProposalItem *item = new BasicProposalItem;
-        item->setText(ccr.text);
+        item->setText(txt);
         item->setOrder(ccr.priority());
         item->setData(qVariantFromValue(ccr));
+
+        switch (ccr.completionType()) {
+        case CodeCompletionResult::ClassCompletionType: item->setIcon(m_icons.iconForType(Icons::ClassIconType)); break;
+        case CodeCompletionResult::EnumCompletionType: item->setIcon(m_icons.iconForType(Icons::EnumIconType)); break;
+        case CodeCompletionResult::EnumeratorCompletionType: item->setIcon(m_icons.iconForType(Icons::EnumeratorIconType)); break;
+        case CodeCompletionResult::FunctionCompletionType: item->setIcon(m_icons.iconForType(Icons::FuncPublicIconType)); // FIXME: show the effective accessebility
+            break;
+        case CodeCompletionResult::NamespaceCompletionType: item->setIcon(m_icons.iconForType(Icons::NamespaceIconType)); break;
+        case CodeCompletionResult::PreProcessorCompletionType: item->setIcon(m_icons.iconForType(Icons::MacroIconType)); break;
+        case CodeCompletionResult::VariableCompletionType: item->setIcon(m_icons.iconForType(Icons::VarPublicIconType));  // FIXME: show the effective accessebility
+            break;
+
+        default:
+            break;
+        }
+
         m_completions.append(item);
-        alreadySeen.insert(ccr.text);
+        alreadySeen.insert(txt);
     }
 
     return m_startPosition;
@@ -743,10 +760,12 @@ void ClangCompletionAssistProcessor::completeInclude(const QString &realPath,
 void ClangCompletionAssistProcessor::completePreprocessor()
 {
     foreach (const QString &preprocessorCompletion, m_preprocessorCompletions)
-        addCompletionItem(preprocessorCompletion);
+        addCompletionItem(preprocessorCompletion,
+                          m_icons.iconForType(Icons::MacroIconType));
 
     if (m_interface->objcEnabled())
-        addCompletionItem(QLatin1String("import"));
+        addCompletionItem(QLatin1String("import"),
+                          m_icons.iconForType(Icons::MacroIconType));
 }
 
 void ClangCompletionAssistProcessor::addCompletionItem(const QString &text,
