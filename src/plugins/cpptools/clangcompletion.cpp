@@ -205,6 +205,7 @@ private:
 QString ClangFunctionHintModel::text(int index) const
 {
 #if 0
+    // TODO: add the boldening to the result
     Overview overview;
     overview.setShowReturnTypes(true);
     overview.setShowArgumentNames(true);
@@ -222,9 +223,8 @@ QString ClangFunctionHintModel::text(int index) const
     hintText += "</b>";
     hintText += Qt::escape(prettyMethod.mid(end));
     return hintText;
-#else
-    return m_functionSymbols.at(index).hint;
 #endif
+    return m_functionSymbols.at(index).hint;
 }
 
 int ClangFunctionHintModel::activeArgument(const QString &prefix) const
@@ -603,31 +603,6 @@ bool ClangCompletionAssistProcessor::accepts() const
 
 IAssistProposal *ClangCompletionAssistProcessor::createContentProposal()
 {
-#if 0
-    // Duplicates are kept only if they are snippets.
-    QSet<QString> processed;
-    QList<BasicProposalItem *>::iterator it = m_completions.begin();
-    while (it != m_completions.end()) {
-        CppAssistProposalItem *item = static_cast<CppAssistProposalItem *>(*it);
-        if (!processed.contains(item->text()) || item->data().canConvert<QString>()) {
-            ++it;
-            if (!item->data().canConvert<QString>()) {
-                processed.insert(item->text());
-                if (!item->isOverloaded()) {
-                    if (Symbol *symbol = qvariant_cast<Symbol *>(item->data())) {
-                        if (Function *funTy = symbol->type()->asFunctionType()) {
-                            if (funTy->hasArguments())
-                                item->markAsOverloaded();
-                        }
-                    }
-                }
-            }
-        } else {
-            it = m_completions.erase(it);
-        }
-    }
-#endif
-
     m_model->loadContent(m_completions);
     return new ClangAssistProposal(m_startPosition, m_model.take());
 }
@@ -696,99 +671,6 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
     }
 
     return m_startPosition;
-#if 0
-    QString expression = expr.trimmed();
-
-    if (expression.isEmpty()) {
-        if (m_model->m_completionOperator == T_SIGNAL || m_model->m_completionOperator == T_SLOT) {
-            // Apply signal/slot completion on 'this'
-            expression = QLatin1String("this");
-        }
-    }
-
-    QList<LookupItem> results =
-            (*m_model->m_typeOfExpression)(expression, scope, TypeOfExpression::Preprocess);
-
-    if (results.isEmpty()) {
-        if (m_model->m_completionOperator == T_SIGNAL || m_model->m_completionOperator == T_SLOT) {
-            if (! (expression.isEmpty() || expression == QLatin1String("this"))) {
-                expression = QLatin1String("this");
-                results = (*m_model->m_typeOfExpression)(expression, scope);
-            }
-
-            if (results.isEmpty())
-                return -1;
-
-        } else if (m_model->m_completionOperator == T_LPAREN) {
-            // Find the expression that precedes the current name
-            int index = endOfExpression;
-            while (m_interface->characterAt(index - 1).isSpace())
-                --index;
-            index = findStartOfName(index);
-
-            QTextCursor tc(m_interface->document());
-            tc.setPosition(index);
-
-            ExpressionUnderCursor expressionUnderCursor;
-            const QString baseExpression = expressionUnderCursor(tc);
-
-            // Resolve the type of this expression
-            const QList<LookupItem> results =
-                    (*m_model->m_typeOfExpression)(baseExpression, scope,
-                                     TypeOfExpression::Preprocess);
-
-            // If it's a class, add completions for the constructors
-            foreach (const LookupItem &result, results) {
-                if (result.type()->isClassType()) {
-                    if (completeConstructorOrFunction(results, endOfExpression, true))
-                        return m_startPosition;
-
-                    break;
-                }
-            }
-            return -1;
-
-        } else {
-            // nothing to do.
-            return -1;
-
-        }
-    }
-
-    switch (m_model->m_completionOperator) {
-    case T_LPAREN:
-        if (completeConstructorOrFunction(results, endOfExpression, false))
-            return m_startPosition;
-        break;
-
-    case T_DOT:
-    case T_ARROW:
-        if (completeMember(results))
-            return m_startPosition;
-        break;
-
-    case T_COLON_COLON:
-        if (completeScope(results))
-            return m_startPosition;
-        break;
-
-    case T_SIGNAL:
-        if (completeSignal(results))
-            return m_startPosition;
-        break;
-
-    case T_SLOT:
-        if (completeSlot(results))
-            return m_startPosition;
-        break;
-
-    default:
-        break;
-    } // end of switch
-
-    // nothing to do.
-    return -1;
-#endif
 }
 
 bool ClangCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
