@@ -30,44 +30,48 @@
 **
 **************************************************************************/
 
-#ifndef CODENAVIGATOR_H
-#define CODENAVIGATOR_H
+#ifndef UNITSETUP_H
+#define UNITSETUP_H
 
 #include "clangwrapper_global.h"
-#include "sourcelocation.h"
+#include "unit.h"
 
-#include <clang-c/Index.h>
-
-#include <QtCore/QScopedPointer>
+#include <QtCore/QObject>
 
 namespace Clang {
 
 class Indexer;
 
 namespace Internal {
-class UnitSetup;
-}
 
-class QTCREATOR_CLANGWRAPPER_EXPORT CodeNavigator
+/*
+ * This is an utility for better control of a Unit's lifecycle. It can be
+ * used by any component which needs to track the latest "live" Unit available
+ * for the corresponding file name.
+ */
+class UnitSetup : public QObject
 {
+    Q_OBJECT
 public:
-    CodeNavigator();
-    ~CodeNavigator();
+    UnitSetup();
+    UnitSetup(const QString &fileName, Indexer *indexer);
 
-    void setup(const QString &fileName, Indexer *indexer);
+    const QString &fileName() const { return m_fileName; }
+    Unit unit() const { return m_unit; }
+    Indexer *indexer() const { return m_indexer; }
 
-    SourceLocation followItem(unsigned line, unsigned column) const;
-    SourceLocation switchDeclarationDefinition(unsigned line, unsigned column) const;
+    void checkForNewerUnit();
+
+private slots:
+    void assignUnit(const Unit &unit);
 
 private:
-    SourceLocation findDefinition(const CXCursor &cursor,
-                                  CXCursorKind cursorKind) const;
-    SourceLocation findInclude(const CXCursor &cursor) const;
-    CXCursor getCursor(unsigned line, unsigned column) const;
-
-    QScopedPointer<Internal::UnitSetup> m_setup;
+    QString m_fileName;
+    mutable Unit m_unit;
+    Indexer *m_indexer;
 };
 
+} // Internal
 } // Clang
 
-#endif // CODENAVIGATOR_H
+#endif // UNITSETUP_H

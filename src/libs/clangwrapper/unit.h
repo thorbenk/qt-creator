@@ -74,7 +74,7 @@ class Unit
 {
 public:
     Unit();
-    Unit(const QString &fileName);
+    explicit Unit(const QString &fileName);
     Unit(const Unit &unit);
     Unit &operator=(const Unit &unit);
     ~Unit();

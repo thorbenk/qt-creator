@@ -153,7 +153,7 @@ public:
 
     CompletionProjectSettings *completionSettingsFromProject(ProjectExplorer::Project *project) const;
 
-    const Clang::Indexer *indexer() const;
+    Clang::Indexer *indexer();
 
 Q_SIGNALS:
     void projectPathChanged(const QString &projectPath);

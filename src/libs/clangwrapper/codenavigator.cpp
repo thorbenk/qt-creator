@@ -31,30 +31,13 @@
 **************************************************************************/
 
 #include "codenavigator.h"
-#include "liveunitsmanager.h"
 #include "reuse.h"
 #include "indexedsymbolinfo.h"
 #include "indexer.h"
-
-#include <QtCore/QtConcurrentRun>
+#include "unitsetup.h"
 
 using namespace Clang;
 using namespace Internal;
-
-namespace {
-
-Unit parseUnit(const QString &fileName,
-               const QStringList &compileOptions,
-               unsigned managmentOptions)
-{
-    Unit unit(fileName);
-    unit.setCompilationOptions(compileOptions);
-    unit.setManagementOptions(managmentOptions);
-    unit.parse();
-    return unit;
-}
-
-} // Anonymous
 
 CodeNavigator::CodeNavigator()
 {}
@@ -62,33 +45,9 @@ CodeNavigator::CodeNavigator()
 CodeNavigator::~CodeNavigator()
 {}
 
-void CodeNavigator::setup(const QString &fileName, const Indexer *indexer)
+void CodeNavigator::setup(const QString &fileName, Indexer *indexer)
 {
-    m_fileName = fileName;
-    m_indexer = indexer;
-    m_unit = LiveUnitsManager::instance()->unit(fileName);
-    if (!m_unit.isValid()) {
-        QFuture<Unit> future = QtConcurrent::run(parseUnit,
-                                                 fileName,
-                                                 indexer->compilationOptions(fileName),
-                                                 CXTranslationUnit_DetailedPreprocessingRecord);
-        QFutureWatcher<Unit> *watcher = new QFutureWatcher<Unit>;
-        connect(watcher, SIGNAL(finished()), this, SLOT(unitReady()));
-        connect(watcher, SIGNAL(finished()), watcher, SLOT(deleteLater()));
-        watcher->setFuture(future);
-    }
-}
-
-void CodeNavigator::unitReady()
-{
-    QFutureWatcher<Unit> *watcher = static_cast<QFutureWatcher<Unit> *>(sender());
-    const Unit &unit = watcher->result();
-    if (unit.isValid()) {
-        m_unit = unit;
-        // Share this TU so it's available for anyone else while the navigator exists.
-        LiveUnitsManager::instance()->startTracking(m_unit.fileName());
-        LiveUnitsManager::instance()->updateUnit(m_unit.fileName(), m_unit);
-    }
+    m_setup.reset(new UnitSetup(fileName, indexer));
 }
 
 SourceLocation CodeNavigator::followItem(unsigned line, unsigned column) const
@@ -189,7 +148,7 @@ SourceLocation CodeNavigator::switchDeclarationDefinition(unsigned line, unsigne
             CXCursorKind semaParentKind = clang_getCursorKind(semaParent);
             if (semaParentKind == CXCursor_Namespace)
                 data.m_visitNamespaces = true;
-            parent = m_unit.getTranslationUnitCursor();
+            parent = m_setup->unit().getTranslationUnitCursor();
         }
 
         data.m_canonicalCursor = clang_getCanonicalCursor(cursor);
@@ -223,16 +182,16 @@ SourceLocation CodeNavigator::findDefinition(const CXCursor &cursor,
         if (cursorKind == CXCursor_ClassDecl
                 || cursorKind == CXCursor_StructDecl
                 || cursorKind == CXCursor_UnionDecl) {
-            indexedInfo = m_indexer->allClasses();
+            indexedInfo = m_setup->indexer()->allClasses();
         } else if (cursorKind == CXCursor_FunctionDecl
                    || cursorKind == CXCursor_FunctionTemplate
                    || cursorKind == CXCursor_CXXMethod) {
-            indexedInfo.append(m_indexer->allFunctions());
-            indexedInfo.append(m_indexer->allMethods());
+            indexedInfo.append(m_setup->indexer()->allFunctions());
+            indexedInfo.append(m_setup->indexer()->allMethods());
         } else if (cursorKind == CXCursor_Constructor) {
-            indexedInfo = m_indexer->allConstructors();
+            indexedInfo = m_setup->indexer()->allConstructors();
         } else if (cursorKind == CXCursor_Destructor) {
-            indexedInfo = m_indexer->allDestructors();
+            indexedInfo = m_setup->indexer()->allDestructors();
         }
 
         if (!indexedInfo.isEmpty()) {
@@ -257,24 +216,15 @@ SourceLocation CodeNavigator::findInclude(const CXCursor &cursor) const
 
 CXCursor CodeNavigator::getCursor(unsigned line, unsigned column) const
 {
-    maybeUpdateUnit();
+    m_setup->checkForNewerUnit();
 
-    if (!m_unit.isValid())
+    if (!m_setup->unit().isValid())
         return clang_getNullCursor();
 
-    const CXFile &file = m_unit.getFile();
-    const CXSourceLocation &location = m_unit.getLocation(file, line, column);
+    const CXFile &file = m_setup->unit().getFile();
+    const CXSourceLocation &location = m_setup->unit().getLocation(file, line, column);
     if (clang_equalLocations(location, clang_getNullLocation()))
         return clang_getNullCursor();
 
-    return m_unit.getCursor(location);
-}
-
-void CodeNavigator::maybeUpdateUnit() const
-{
-    if (LiveUnitsManager::instance()->isTracking(m_fileName)) {
-        const Unit &unit = LiveUnitsManager::instance()->unit(m_fileName);
-        if (unit.isValid())
-            m_unit = unit;
-    }
+    return m_setup->unit().getCursor(location);
 }

@@ -21,7 +21,8 @@ SOURCES += \
     $$PWD/unit.cpp \
     $$PWD/liveunitsmanager.cpp \
     $$PWD/codenavigator.cpp \
-    $$PWD/pchinfo.cpp
+    $$PWD/pchinfo.cpp \
+    $$PWD/unitsetup.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -41,4 +42,5 @@ HEADERS += \
     $$PWD/typedefs.h \
     $$PWD/liveunitsmanager.h \
     $$PWD/codenavigator.h \
-    $$PWD/pchinfo.h
+    $$PWD/pchinfo.h \
+    $$PWD/unitsetup.h

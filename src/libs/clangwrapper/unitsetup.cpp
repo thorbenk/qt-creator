@@ -30,44 +30,45 @@
 **
 **************************************************************************/
 
-#ifndef CODENAVIGATOR_H
-#define CODENAVIGATOR_H
+#include "unitsetup.h"
+#include "liveunitsmanager.h"
+#include "indexer.h"
 
-#include "clangwrapper_global.h"
-#include "sourcelocation.h"
+#include <QtCore/QtConcurrentRun>
+#include <QtCore/QFutureWatcher>
 
-#include <clang-c/Index.h>
+using namespace Clang;
+using namespace Internal;
 
-#include <QtCore/QScopedPointer>
+UnitSetup::UnitSetup()
+{}
 
-namespace Clang {
+UnitSetup::UnitSetup(const QString &fileName, Indexer *indexer)
+    : m_fileName(fileName)
+    , m_unit(LiveUnitsManager::instance()->unit(fileName))
+    , m_indexer(indexer)
+{
+    connect(LiveUnitsManager::instance(), SIGNAL(unitAvailable(Unit)),
+            this, SLOT(assignUnit(Unit)));
 
-class Indexer;
-
-namespace Internal {
-class UnitSetup;
+    if (!m_unit.isValid()) {
+        if (!LiveUnitsManager::instance()->isTracking(fileName)) {
+            // Start tracking this file so the indexer is aware of it and will consequently
+            // update the corresponding unit in the manager.
+            LiveUnitsManager::instance()->startTracking(fileName);
+        }
+        indexer->evaluateFile(fileName);
+    }
 }
 
-class QTCREATOR_CLANGWRAPPER_EXPORT CodeNavigator
+void UnitSetup::assignUnit(const Unit &unit)
 {
-public:
-    CodeNavigator();
-    ~CodeNavigator();
+    if (m_fileName == unit.fileName() && unit.isValid())
+        m_unit = unit;
+}
 
-    void setup(const QString &fileName, Indexer *indexer);
-
-    SourceLocation followItem(unsigned line, unsigned column) const;
-    SourceLocation switchDeclarationDefinition(unsigned line, unsigned column) const;
-
-private:
-    SourceLocation findDefinition(const CXCursor &cursor,
-                                  CXCursorKind cursorKind) const;
-    SourceLocation findInclude(const CXCursor &cursor) const;
-    CXCursor getCursor(unsigned line, unsigned column) const;
-
-    QScopedPointer<Internal::UnitSetup> m_setup;
-};
-
-} // Clang
-
-#endif // CODENAVIGATOR_H
+void UnitSetup::checkForNewerUnit()
+{
+    if (LiveUnitsManager::instance()->isTracking(m_fileName))
+        assignUnit(LiveUnitsManager::instance()->unit(m_fileName));
+}

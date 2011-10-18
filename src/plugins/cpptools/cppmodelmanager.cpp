@@ -1491,7 +1491,7 @@ CompletionProjectSettings *CppModelManager::completionSettingsFromProject(Projec
     return m_cps.value(project, 0);
 }
 
-const Clang::Indexer *CppModelManager::indexer() const
+Clang::Indexer *CppModelManager::indexer()
 {
     return &m_clangIndexer;
 }
