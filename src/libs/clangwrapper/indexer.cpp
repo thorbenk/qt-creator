@@ -578,6 +578,8 @@ void IndexerPrivate::indexingFinished()
         m_queuedFilesRun.clear();
         run(files);
     }
+
+    emit m_q->indexingFinished();
 }
 
 bool IndexerPrivate::addFile(const QString &fileName, const QStringList &compilationOptions, PCHInfoPtr pchInfo)

@@ -54,6 +54,10 @@ public:
     Indexer();
     ~Indexer();
 
+public slots:
+    void regenerate();
+
+public:
     void evaluateFile(const QString &fileName);
     bool isWorking() const;
     void stopWorking(bool waitForFinished);
@@ -75,11 +79,9 @@ public:
     QList<IndexedSymbolInfo> destructorsFromFile(const QString &fileName) const;
     QList<IndexedSymbolInfo> allFromFile(const QString &fileName) const;
 
-public slots:
-    void regenerate();
-
 signals:
     void indexingStarted(QFuture<void> future);
+    void indexingFinished();
 
 private:
     friend class IndexerPrivate;
