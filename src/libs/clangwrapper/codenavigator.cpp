@@ -66,7 +66,7 @@ void CodeNavigator::setup(const QString &fileName, const Indexer *indexer)
 {
     m_fileName = fileName;
     m_indexer = indexer;
-    m_unit = LiveUnitsManager::instance()->find(fileName);
+    m_unit = LiveUnitsManager::instance()->unit(fileName);
     if (!m_unit.isValid()) {
         QFuture<Unit> future = QtConcurrent::run(parseUnit,
                                                  fileName,
@@ -86,7 +86,8 @@ void CodeNavigator::unitReady()
     if (unit.isValid()) {
         m_unit = unit;
         // Share this TU so it's available for anyone else while the navigator exists.
-        LiveUnitsManager::instance()->insert(m_unit);
+        LiveUnitsManager::instance()->startTracking(m_unit.fileName());
+        LiveUnitsManager::instance()->updateUnit(m_unit.fileName(), m_unit);
     }
 }
 
@@ -271,8 +272,8 @@ CXCursor CodeNavigator::getCursor(unsigned line, unsigned column) const
 
 void CodeNavigator::maybeUpdateUnit() const
 {
-    if (LiveUnitsManager::instance()->contains(m_fileName)) {
-        const Unit &unit = LiveUnitsManager::instance()->find(m_fileName);
+    if (LiveUnitsManager::instance()->isTracking(m_fileName)) {
+        const Unit &unit = LiveUnitsManager::instance()->unit(m_fileName);
         if (unit.isValid())
             m_unit = unit;
     }

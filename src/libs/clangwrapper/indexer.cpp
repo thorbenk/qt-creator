@@ -551,8 +551,8 @@ void IndexerPrivate::synchronize(int resultIndex)
     }
 
     // If this unit is being kept alive, update the manager. Otherwise invalidate it.
-    if (LiveUnitsManager::instance()->contains(result.m_unit.fileName()))
-        LiveUnitsManager::instance()->insert(result.m_unit);
+    if (LiveUnitsManager::instance()->isTracking(result.m_unit.fileName()))
+        LiveUnitsManager::instance()->updateUnit(result.m_unit.fileName(), result.m_unit);
     else
         result.m_unit.invalidate();
 

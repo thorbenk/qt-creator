@@ -44,22 +44,32 @@ LiveUnitsManager *LiveUnitsManager::instance()
     return &manager;
 }
 
-void LiveUnitsManager::insert(const Unit &unit)
+void LiveUnitsManager::startTracking(const QString &fileName)
 {
-    m_units.insert(unit.fileName(), unit);
+    m_units.insert(fileName, Unit(fileName));
 }
 
-Unit LiveUnitsManager::find(const QString &fileName)
-{
-    return m_units.value(fileName);
-}
-
-bool LiveUnitsManager::contains(const QString &fileName) const
+bool LiveUnitsManager::isTracking(const QString &fileName) const
 {
     return m_units.contains(fileName);
 }
 
-void LiveUnitsManager::remove(const QString &fileName)
+void LiveUnitsManager::stopTracking(const QString &fileName)
 {
     m_units.remove(fileName);
+}
+
+void LiveUnitsManager::updateUnit(const QString &fileName, const Unit &unit)
+{
+    if (!isTracking(fileName))
+        return;
+
+    m_units[fileName] = unit;
+
+    emit unitAvailable(unit);
+}
+
+Unit LiveUnitsManager::unit(const QString &fileName)
+{
+    return m_units.value(fileName);
 }

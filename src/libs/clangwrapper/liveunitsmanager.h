@@ -35,24 +35,31 @@
 
 #include "unit.h"
 
+#include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtCore/QHash>
 
 namespace Clang {
 namespace Internal {
 
-class LiveUnitsManager
+class LiveUnitsManager : public QObject
 {
+    Q_OBJECT
 private:
     LiveUnitsManager();
 
 public:
     static LiveUnitsManager *instance();
 
-    void insert(const Unit &unit);
-    Unit find(const QString &fileName);
-    bool contains(const QString &fileName) const;
-    void remove(const QString &fileName);
+    void startTracking(const QString &fileName);
+    bool isTracking(const QString &fileName) const;
+    void stopTracking(const QString &fileName);
+
+    void updateUnit(const QString &fileName, const Unit &unit);
+    Unit unit(const QString &fileName);
+
+signals:
+    void unitAvailable(Unit unit);
 
 private:
     QHash<QString, Unit> m_units;
