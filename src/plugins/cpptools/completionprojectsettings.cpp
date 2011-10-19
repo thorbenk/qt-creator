@@ -50,6 +50,8 @@ void CompletionProjectSettings::pullSettings()
     QVariant s = m_project->namedSettings("CompletionProjectSettings");
     QVariantMap settings = s.toMap();
 
-    setPchUsage(static_cast<PchUsage>(settings.value("PchUse", PchUseUnknown).toInt()));
+    const PchUsage storedPchUsage = static_cast<PchUsage>(settings.value("PchUse", PchUseUnknown).toInt());
+    if (storedPchUsage != PchUseUnknown)
+        setPchUsage(storedPchUsage);
     setCustomPchFile(settings.value("CustomPchFile").toString());
 }

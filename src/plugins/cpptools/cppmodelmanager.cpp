@@ -906,6 +906,16 @@ CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Proje
     return m_projects.value(project, ProjectInfo(project));
 }
 
+static bool hasPreCompiledHeader(const CppModelManager::ProjectInfo &pinfo)
+{
+    foreach (const CppModelManager::ProjectPart::Ptr &projectPart, pinfo.projectParts) {
+        if (!projectPart->precompiledHeaders.isEmpty() && QFileInfo(projectPart->precompiledHeaders.first()).exists())
+            return true;
+    }
+
+    return false;
+}
+
 void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 {
 #if 0
@@ -940,6 +950,11 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     CompletionProjectSettings *cps = m_cps.value(project, 0);
     if (!cps) {
         cps = new CompletionProjectSettings(project);
+        if (hasPreCompiledHeader(pinfo))
+            cps->setPchUsage(CompletionProjectSettings::PchUseBuildSystemFast);
+        else
+            cps->setPchUsage(CompletionProjectSettings::PchUseNone);
+
         m_cps.insert(project, cps); //### FIXME: This should come from the project?
 
         connect(cps, SIGNAL(pchUsageChanged(int)),
