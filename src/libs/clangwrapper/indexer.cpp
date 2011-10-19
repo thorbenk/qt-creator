@@ -428,7 +428,7 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface)
     currentFiles.reserve(kProcessingBatchSize);
     FileContIt it = m_allFiles.begin();
     FileContIt eit = m_allFiles.end();
-    while (it != eit) {
+    while (it != eit && !interface.isCanceled()) {
         FileContIt currentIt = it++;
         if (!m_knownHeaders.contains(currentIt->m_fileName)) {
             currentFiles.append(currentIt);
@@ -445,7 +445,7 @@ void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface)
     const QList<FileContIt> &knownHeaders = m_knownHeaders.values();
     const int total = knownHeaders.size();
     int current = 0;
-    while (current < total) {
+    while (current < total && !interface.isCanceled()) {
         FileContIt currentIt = knownHeaders.at(current++);
         if (!m_allFiles.value(currentIt.value().m_fileName).m_upToDate) {
             currentFiles.append(currentIt);
