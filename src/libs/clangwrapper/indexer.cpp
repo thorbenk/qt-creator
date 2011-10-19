@@ -284,8 +284,11 @@ void IndexerProcessor::ComputeIndexingInfo::operator()(int, Unit unit)
     // Visit to gather symbol info.
     clang_visitChildren(unit.getTranslationUnitCursor(), IndexerProcessor::astVisit, this);
 
-    // Mark this is file as up-to-date.
-    m_proc->m_allFiles[unit.fileName()].m_upToDate = true;
+    // Only if this file is already being tracked, mark it as up-to-date. The newly seen headers
+    // don't get inserted into this local/temporary container, but to the original one when
+    // the result is reported.
+    if (m_proc->m_allFiles.contains(unit.fileName()))
+        m_proc->m_allFiles[unit.fileName()].m_upToDate = true;
 
     // Track inclusions.
     unit.getInclusions(IndexerProcessor::inclusionVisit, this);
@@ -370,8 +373,8 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
             const QString &fileName = symbolInfo.m_location.fileName();
             if (!fileName.trimmed().isEmpty()
                     && !visitorData->m_proc->m_newlySeenHeaders.contains(fileName)
-                    && visitorData->m_proc->m_allFiles.contains(fileName)
-                    && !visitorData->m_proc->m_allFiles.value(fileName).m_upToDate) {
+                    && (!visitorData->m_proc->m_allFiles.contains(fileName)
+                        || !visitorData->m_proc->m_allFiles.value(fileName).m_upToDate)) {
                 symbolInfo.m_name = spelling;
                 symbolInfo.m_qualification = currentQualification;
                 //symbolInfo.m_icon
