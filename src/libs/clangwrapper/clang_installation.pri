@@ -1,8 +1,11 @@
 # @TODO...
+
+# prefer qmake variable set on command line over env var
+isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
+
 win32 {
-    LLVM = $$(LLVM_INSTALL_DIR)
-    INCLUDEPATH += $$LLVM/include
-    LIBS += -L$$LLVM/lib \
+    LLVM_INCLUDEPATH = $$LLVM_INSTALL_DIR/include
+    LLVM_LIBS = -L$$LLVM_INSTALL_DIR/lib \
         -llibclang \
         -lclangLex \
         -lclangBasic \
@@ -16,14 +19,17 @@ win32 {
         -lLLVMCore \
         -lLLVMSupport
 
-    LIBS += -ladvapi32 -lshell32
-} else {
-    LLVM_CONFIG=llvm-config
+    LLVM_LIBS += -ladvapi32 -lshell32
+}
 
-    INCLUDEPATH += $$system($$LLVM_CONFIG --includedir)
+unix {
+    LLVM_CONFIG=llvm-config
+    !isEmpty(LLVM_INSTALL_DIR):LLVM_CONFIG=$$LLVM_INSTALL_DIR/bin/llvm-config
+
+    LLVM_INCLUDEPATH = $$system($$LLVM_CONFIG --includedir)
     LLVM_LIBDIR = $$system($$LLVM_CONFIG --libdir)
 
-    LIBS += -L$$LLVM_LIBDIR \
+    LLVM_LIBS = -L$$LLVM_LIBDIR \
         -lclangLex \
         -lclangBasic \
         -lclangCodeGen \
@@ -37,21 +43,19 @@ win32 {
         -lLLVMSupport
 
     exists ($${LLVM_LIBDIR}/libclang.*) {
-        message("LLVM was build with autotools")
+        #message("LLVM was build with autotools")
         CLANG_LIB = clang
     } else {
         exists ($${LLVM_LIBDIR}/liblibclang.*) {
-            message("LLVM was build with CMake")
+            #message("LLVM was build with CMake")
             CLANG_LIB = libclang
         } else {
             error("Cannot find Clang shared library!")
         }
     }
 
-    LIBS += -l$${CLANG_LIB}
+    LLVM_LIBS += -l$${CLANG_LIB}
 
-    macx:QMAKE_POST_LINK=install_name_tool -change @rpath/lib$${CLANG_LIB}.dylib \'$$LLVM_LIBDIR/lib$${CLANG_LIB}.dylib\' -change @executable_path/../lib/lib$${CLANG_LIB}.3.0.dylib \'$$LLVM_LIBDIR/lib$${CLANG_LIB}.dylib\' \'$$IDE_LIBRARY_PATH/libClangWrapper_debug.dylib\'
-
-    DEFINES += __STDC_LIMIT_MACROS __STDC_CONSTANT_MACROS
+    LLVM_DEFINES += __STDC_LIMIT_MACROS __STDC_CONSTANT_MACROS
 }
 
