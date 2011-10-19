@@ -49,6 +49,7 @@
 #include <QtCore/QFuture>
 #include <QtCore/QTime>
 #include <QtCore/QtConcurrentMap>
+#include <QtCore/QThread>
 #include <QStringBuilder>
 
 //#define DEBUG
@@ -231,7 +232,7 @@ struct ScopepTimer
 
 } // Anonymous
 
-const int IndexerProcessor::kProcessingBatchSize = 4;
+const int IndexerProcessor::kProcessingBatchSize = qMax(1, (QThread::idealThreadCount() - 1) * 2);
 
 Unit IndexerProcessor::ComputeTranslationUnit::operator()(FileContIt it)
 {
