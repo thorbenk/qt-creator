@@ -38,6 +38,7 @@
 
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/qmljsdocument.h>
+#include <qmljs/qmljsutils.h>
 #include <qmljstools/qmljsrefactoringchanges.h>
 
 #include <QtCore/QCoreApplication>
@@ -50,43 +51,6 @@ using namespace QmlJSEditor::Internal;
 using namespace QmlJSTools;
 
 namespace {
-
-static QString toString(Statement *statement)
-{
-    ExpressionStatement *expStmt = cast<ExpressionStatement *>(statement);
-    if (!expStmt)
-        return QString();
-    if (IdentifierExpression *idExp = cast<IdentifierExpression *>(expStmt->expression)) {
-        return idExp->name.toString();
-    } else if (StringLiteral *strExp = cast<StringLiteral *>(expStmt->expression)) {
-        return strExp->value.toString();
-    }
-    return QString();
-}
-
-static QString getIdProperty(UiObjectDefinition *def)
-{
-    QString objectName;
-
-    if (def && def->initializer) {
-        for (UiObjectMemberList *iter = def->initializer->members; iter; iter = iter->next) {
-            if (UiScriptBinding *script = cast<UiScriptBinding*>(iter->member)) {
-                if (!script->qualifiedId)
-                    continue;
-                if (script->qualifiedId->next)
-                    continue;
-                if (!script->qualifiedId->name.isEmpty()) {
-                    if (script->qualifiedId->name == QLatin1String("id"))
-                        return toString(script->statement);
-                    if (script->qualifiedId->name == QLatin1String("objectName"))
-                        objectName = toString(script->statement);
-                }
-            }
-        }
-    }
-
-    return objectName;
-}
 
 class Operation: public QmlJSQuickFixOperation
 {
@@ -101,17 +65,14 @@ public:
     {
         Q_ASSERT(m_objDef != 0);
 
-        m_idName = getIdProperty(m_objDef);
-
-        if (m_idName.isEmpty()) {
-            setDescription(QCoreApplication::translate("QmlJSEditor::ComponentFromObjectDef",
-                                                       "Move Component into separate file"));
-        } else {
+        m_idName = idOfObject(m_objDef);
+        if (!m_idName.isEmpty()) {
             m_componentName = m_idName;
             m_componentName[0] = m_componentName.at(0).toUpper();
-            setDescription(QCoreApplication::translate("QmlJSEditor::ComponentFromObjectDef",
-                                                       "Move Component into '%1.qml'").arg(m_componentName));
         }
+
+        setDescription(QCoreApplication::translate("QmlJSEditor::ComponentFromObjectDef",
+                                                   "Move Component into separate file"));
     }
 
     virtual void performChanges(QmlJSRefactoringFilePtr currentFile,
@@ -119,9 +80,7 @@ public:
     {
         QString componentName = m_componentName;
         QString path = QFileInfo(fileName()).path();
-        if (componentName.isEmpty()) {
-            ComponentNameDialog::go(&componentName, &path, assistInterface()->widget());
-        }
+        ComponentNameDialog::go(&componentName, &path, assistInterface()->editor());
 
         if (componentName.isEmpty() || path.isEmpty())
             return;

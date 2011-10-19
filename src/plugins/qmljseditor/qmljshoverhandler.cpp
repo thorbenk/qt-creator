@@ -45,7 +45,7 @@
 #include <qmljs/qmljsinterpreter.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/parser/qmljsastfwd_p.h>
-#include <qmljs/qmljscheck.h>
+#include <qmljs/qmljsutils.h>
 #include <texteditor/itexteditor.h>
 #include <texteditor/basetexteditor.h>
 #include <texteditor/helpitem.h>
@@ -300,7 +300,7 @@ void HoverHandler::prettyPrintTooltip(const QmlJS::Value *value,
             }
         }
     } else if (const QmlEnumValue *enumValue =
-               dynamic_cast<const QmlEnumValue *>(value)) {
+               value_cast<QmlEnumValue>(value)) {
         setToolTip(enumValue->name());
     }
 

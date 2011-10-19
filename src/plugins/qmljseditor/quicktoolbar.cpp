@@ -44,6 +44,7 @@
 #include <qmljs/qmljsbind.h>
 #include <qmljs/qmljsscopebuilder.h>
 #include <qmljs/qmljsevaluate.h>
+#include <qmljs/qmljsutils.h>
 #include <texteditor/basetexteditor.h>
 #include <texteditor/tabsettings.h>
 #include <coreplugin/icore.h>
@@ -66,11 +67,7 @@ static inline QString textAt(const Document* doc,
 
 static inline const ObjectValue * getPropertyChangesTarget(Node *node, const ScopeChain &scopeChain)
 {
-    UiObjectInitializer *initializer = 0;
-    if (UiObjectDefinition *definition = cast<UiObjectDefinition *>(node))
-        initializer = definition->initializer;
-    if (UiObjectBinding *binding = cast<UiObjectBinding *>(node))
-        initializer = binding->initializer;
+    UiObjectInitializer *initializer = initializerOfObject(node);
     if (initializer) {
         for (UiObjectMemberList *members = initializer->members; members; members = members->next) {
             if (UiScriptBinding *scriptBinding = cast<UiScriptBinding *>(members->member)) {
@@ -79,7 +76,7 @@ static inline const ObjectValue * getPropertyChangesTarget(Node *node, const Sco
                         && ! scriptBinding->qualifiedId->next) {
                     Evaluate evaluator(&scopeChain);
                     const Value *targetValue = evaluator(scriptBinding->statement);
-                    if (const ObjectValue *targetObject = value_cast<const ObjectValue *>(targetValue)) {
+                    if (const ObjectValue *targetObject = value_cast<ObjectValue>(targetValue)) {
                         return targetObject;
                     } else {
                         return 0;

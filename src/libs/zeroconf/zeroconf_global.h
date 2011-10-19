@@ -30,47 +30,17 @@
 **
 **************************************************************************/
 
-#ifndef COMMUNITYWELCOMEPAGEWIDGET_H
-#define COMMUNITYWELCOMEPAGEWIDGET_H
+#ifndef ZEROCONF_GLOBAL_H
+#define ZEROCONF_GLOBAL_H
 
-#include <QtGui/QWidget>
+#include <QtCore/qglobal.h>
 
-QT_BEGIN_NAMESPACE
-class QUrl;
-QT_END_NAMESPACE
+#if defined(ZEROCONF_LIBRARY)
+#  define ZEROCONFSHARED_EXPORT Q_DECL_EXPORT
+#else
+#  define ZEROCONFSHARED_EXPORT Q_DECL_IMPORT
+#endif
 
-namespace Core{
-class RssFetcher;
-}
+enum { DEBUG_ZEROCONF = false } ;
 
-namespace Welcome {
-namespace Internal {
-
-namespace Ui {
-    class CommunityWelcomePageWidget;
-}
-
-class CommunityWelcomePageWidget : public QWidget
-{
-    Q_OBJECT
-
-public:
-    explicit CommunityWelcomePageWidget(QWidget *parent = 0);
-    ~CommunityWelcomePageWidget();
-
-signals:
-    void startRssFetching(const QUrl& url);
-
-private slots:
-    void slotUrlClicked(const QString &data);
-
-
-private:
-    Core::RssFetcher *m_rssFetcher;
-    Ui::CommunityWelcomePageWidget *ui;
-};
-
-
-} // namespace Internal
-} // namespace Welcome
-#endif // COMMUNITYWELCOMEPAGEWIDGET_H
+#endif // ZEROCONF_GLOBAL_H

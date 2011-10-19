@@ -37,6 +37,7 @@
 #include <qmljs/qmljscontext.h>
 #include <qmljs/qmljsscopebuilder.h>
 #include <qmljs/qmljsscopechain.h>
+#include <qmljs/qmljsstaticanalysismessage.h>
 #include <qmljs/parser/qmljsastvisitor_p.h>
 
 #include <QtCore/QCoreApplication>
@@ -57,33 +58,10 @@ public:
     Check(Document::Ptr doc, const ContextPtr &context);
     virtual ~Check();
 
-    QList<DiagnosticMessage> operator()();
+    QList<StaticAnalysis::Message> operator()();
 
-    enum Option {
-        WarnDangerousNonStrictEqualityChecks = 1 << 0,
-        WarnAllNonStrictEqualityChecks       = 1 << 1,
-        WarnBlocks                           = 1 << 2,
-        WarnWith                             = 1 << 3,
-        WarnVoid                             = 1 << 4,
-        WarnCommaExpression                  = 1 << 5,
-        WarnExpressionStatement              = 1 << 6,
-        WarnAssignInCondition                = 1 << 7,
-        WarnUseBeforeDeclaration             = 1 << 8,
-        WarnDuplicateDeclaration             = 1 << 9,
-        WarnDeclarationsNotStartOfFunction   = 1 << 10,
-        WarnCaseWithoutFlowControlEnd        = 1 << 11,
-        WarnNonCapitalizedNew                = 1 << 12,
-        WarnCallsOfCapitalizedFunctions      = 1 << 13,
-        WarnUnreachablecode                  = 1 << 14,
-        ErrCheckTypeErrors                   = 1 << 15
-    };
-    Q_DECLARE_FLAGS(Options, Option)
-
-    const Options options() const
-    { return _options; }
-
-    void setOptions(Options options)
-    { _options = options; }
+    void enableMessage(StaticAnalysis::Type type);
+    void disableMessage(StaticAnalysis::Type type);
 
 protected:
     virtual bool preVisit(AST::Node *ast);
@@ -117,6 +95,11 @@ protected:
     virtual bool visit(AST::NewExpression *ast);
     virtual bool visit(AST::NewMemberExpression *ast);
     virtual bool visit(AST::CallExpression *ast);
+    virtual bool visit(AST::StatementList *ast);
+    virtual bool visit(AST::ReturnStatement *ast);
+    virtual bool visit(AST::ThrowStatement *ast);
+    virtual bool visit(AST::DeleteExpression *ast);
+    virtual bool visit(AST::TypeOfExpression *ast);
 
     virtual void endVisit(QmlJS::AST::UiObjectInitializer *);
 
@@ -129,9 +112,12 @@ private:
     void checkProperty(QmlJS::AST::UiQualifiedId *);
     void checkNewExpression(AST::ExpressionNode *node);
     void checkBindingRhs(AST::Statement *statement);
+    void checkExtraParentheses(AST::ExpressionNode *expression);
 
-    void warning(const AST::SourceLocation &loc, const QString &message);
-    void error(const AST::SourceLocation &loc, const QString &message);
+    void addMessages(const QList<StaticAnalysis::Message> &messages);
+    void addMessage(const StaticAnalysis::Message &message);
+    void addMessage(StaticAnalysis::Type type, const AST::SourceLocation &location,
+                    const QString &arg1 = QString(), const QString &arg2 = QString());
 
     AST::Node *parent(int distance = 0);
 
@@ -141,36 +127,16 @@ private:
     ScopeChain _scopeChain;
     ScopeBuilder _scopeBuilder;
 
-    QList<DiagnosticMessage> _messages;
-
-    Options _options;
+    QList<StaticAnalysis::Message> _messages;
+    QSet<StaticAnalysis::Type> _enabledMessages;
 
     const Value *_lastValue;
     QList<AST::Node *> _chain;
     QStack<StringSet> m_idStack;
     QStack<StringSet> m_propertyStack;
+
+    bool _importsOk;
 };
-
-QMLJS_EXPORT QColor toQColor(const QString &qmlColorString);
-
-QMLJS_EXPORT AST::SourceLocation locationFromRange(const AST::SourceLocation &start,
-                                                   const AST::SourceLocation &end);
-
-QMLJS_EXPORT AST::SourceLocation fullLocationForQualifiedId(AST::UiQualifiedId *);
-
-QMLJS_EXPORT DiagnosticMessage errorMessage(const AST::SourceLocation &loc,
-                                            const QString &message);
-
-QMLJS_EXPORT bool isValidBuiltinPropertyType(const QString &name);
-
-template <class T>
-DiagnosticMessage errorMessage(const T *node, const QString &message)
-{
-    return DiagnosticMessage(DiagnosticMessage::Error,
-                             locationFromRange(node->firstSourceLocation(),
-                                               node->lastSourceLocation()),
-                             message);
-}
 
 } // namespace QmlJS
 

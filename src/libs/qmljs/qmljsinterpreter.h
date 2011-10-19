@@ -58,6 +58,7 @@ class ValueOwner;
 class Value;
 class NullValue;
 class UndefinedValue;
+class UnknownValue;
 class NumberValue;
 class IntValue;
 class RealValue;
@@ -75,6 +76,12 @@ class JSImportScope;
 class Context;
 typedef QSharedPointer<const Context> ContextPtr;
 class ReferenceContext;
+class CppComponentValue;
+class ASTObjectValue;
+class QmlEnumValue;
+class QmlPrototypeReference;
+class ASTPropertyReference;
+class ASTSignal;
 
 typedef QList<const Value *> ValueList;
 
@@ -89,6 +96,7 @@ public:
 
     virtual void visit(const NullValue *);
     virtual void visit(const UndefinedValue *);
+    virtual void visit(const UnknownValue *);
     virtual void visit(const NumberValue *);
     virtual void visit(const BooleanValue *);
     virtual void visit(const StringValue *);
@@ -113,6 +121,7 @@ public:
 
     virtual const NullValue *asNullValue() const;
     virtual const UndefinedValue *asUndefinedValue() const;
+    virtual const UnknownValue *asUnknownValue() const;
     virtual const NumberValue *asNumberValue() const;
     virtual const IntValue *asIntValue() const;
     virtual const RealValue *asRealValue() const;
@@ -124,13 +133,24 @@ public:
     virtual const Reference *asReference() const;
     virtual const ColorValue *asColorValue() const;
     virtual const AnchorLineValue *asAnchorLineValue() const;
+    virtual const CppComponentValue *asCppComponentValue() const;
+    virtual const ASTObjectValue *asAstObjectValue() const;
+    virtual const QmlEnumValue *asQmlEnumValue() const;
+    virtual const QmlPrototypeReference *asQmlPrototypeReference() const;
+    virtual const ASTPropertyReference *asAstPropertyReference() const;
+    virtual const ASTSignal *asAstSignal() const;
 
     virtual void accept(ValueVisitor *) const = 0;
 
     virtual bool getSourceLocation(QString *fileName, int *line, int *column) const;
 };
 
-template <typename _RetTy> _RetTy value_cast(const Value *v);
+template <typename _RetTy> const _RetTy *value_cast(const Value *)
+{
+    // Produce a good error message if a specialization is missing.
+    _RetTy::ERROR_MissingValueCastSpecialization();
+    return 0;
+}
 
 template <> Q_INLINE_TEMPLATE const NullValue *value_cast(const Value *v)
 {
@@ -141,6 +161,12 @@ template <> Q_INLINE_TEMPLATE const NullValue *value_cast(const Value *v)
 template <> Q_INLINE_TEMPLATE const UndefinedValue *value_cast(const Value *v)
 {
     if (v) return v->asUndefinedValue();
+    else   return 0;
+}
+
+template <> Q_INLINE_TEMPLATE const UnknownValue *value_cast(const Value *v)
+{
+    if (v) return v->asUnknownValue();
     else   return 0;
 }
 
@@ -210,6 +236,42 @@ template <> Q_INLINE_TEMPLATE const AnchorLineValue *value_cast(const Value *v)
     else   return 0;
 }
 
+template <> Q_INLINE_TEMPLATE const CppComponentValue *value_cast(const Value *v)
+{
+    if (v) return v->asCppComponentValue();
+    else   return 0;
+}
+
+template <> Q_INLINE_TEMPLATE const ASTObjectValue *value_cast(const Value *v)
+{
+    if (v) return v->asAstObjectValue();
+    else   return 0;
+}
+
+template <> Q_INLINE_TEMPLATE const QmlEnumValue *value_cast(const Value *v)
+{
+    if (v) return v->asQmlEnumValue();
+    else   return 0;
+}
+
+template <> Q_INLINE_TEMPLATE const QmlPrototypeReference *value_cast(const Value *v)
+{
+    if (v) return v->asQmlPrototypeReference();
+    else   return 0;
+}
+
+template <> Q_INLINE_TEMPLATE const ASTPropertyReference *value_cast(const Value *v)
+{
+    if (v) return v->asAstPropertyReference();
+    else   return 0;
+}
+
+template <> Q_INLINE_TEMPLATE const ASTSignal *value_cast(const Value *v)
+{
+    if (v) return v->asAstSignal();
+    else   return 0;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Value nodes
 ////////////////////////////////////////////////////////////////////////////////
@@ -225,6 +287,13 @@ class QMLJS_EXPORT UndefinedValue: public Value
 public:
     virtual const UndefinedValue *asUndefinedValue() const;
     virtual void accept(ValueVisitor *visitor) const;
+};
+
+class QMLJS_EXPORT UnknownValue: public Value
+{
+public:
+    virtual const UnknownValue *asUnknownValue() const;
+    virtual void accept(ValueVisitor *) const;
 };
 
 class QMLJS_EXPORT NumberValue: public Value
@@ -394,43 +463,45 @@ private:
     Error m_error;
 };
 
-class QmlObjectValue;
-
 class QMLJS_EXPORT QmlEnumValue: public NumberValue
 {
 public:
-    QmlEnumValue(const QmlObjectValue *owner, int index);
+    QmlEnumValue(const CppComponentValue *owner, int index);
     virtual ~QmlEnumValue();
+
+    virtual const QmlEnumValue *asQmlEnumValue() const;
 
     QString name() const;
     QStringList keys() const;
-    const QmlObjectValue *owner() const;
+    const CppComponentValue *owner() const;
 
 private:
-    const QmlObjectValue *_owner;
+    const CppComponentValue *_owner;
     int _enumIndex;
 };
 
 
 // A ObjectValue based on a FakeMetaObject.
-// May only have other QmlObjectValues as ancestors.
-class QMLJS_EXPORT QmlObjectValue: public ObjectValue
+// May only have other CppComponentValue as ancestors.
+class QMLJS_EXPORT CppComponentValue: public ObjectValue
 {
 public:
-    QmlObjectValue(LanguageUtils::FakeMetaObject::ConstPtr metaObject, const QString &className,
+    CppComponentValue(LanguageUtils::FakeMetaObject::ConstPtr metaObject, const QString &className,
                    const QString &moduleName, const LanguageUtils::ComponentVersion &componentVersion,
                    const LanguageUtils::ComponentVersion &importVersion, int metaObjectRevision,
                    ValueOwner *valueOwner);
-    virtual ~QmlObjectValue();
+    virtual ~CppComponentValue();
+
+    virtual const CppComponentValue *asCppComponentValue() const;
 
     virtual void processMembers(MemberProcessor *processor) const;
-    const Value *propertyValue(const LanguageUtils::FakeMetaProperty &prop) const;
+    const Value *valueForCppName(const QString &typeName) const;
 
     using ObjectValue::prototype;
-    const QmlObjectValue *prototype() const;
+    const CppComponentValue *prototype() const;
 
-    const QmlObjectValue *attachedType() const;
-    void setAttachedType(QmlObjectValue *value);
+    const CppComponentValue *attachedType() const;
+    void setAttachedType(CppComponentValue *value);
 
     LanguageUtils::FakeMetaObject::ConstPtr metaObject() const;
 
@@ -446,13 +517,15 @@ public:
     bool hasLocalProperty(const QString &typeName) const;
     bool hasProperty(const QString &typeName) const;
 
-    LanguageUtils::FakeMetaEnum getEnum(const QString &typeName, const QmlObjectValue **foundInScope = 0) const;
-    const QmlEnumValue *getEnumValue(const QString &typeName, const QmlObjectValue **foundInScope = 0) const;
+    LanguageUtils::FakeMetaEnum getEnum(const QString &typeName, const CppComponentValue **foundInScope = 0) const;
+    const QmlEnumValue *getEnumValue(const QString &typeName, const CppComponentValue **foundInScope = 0) const;
+
+    const ObjectValue *signalScope(const QString &signalName) const;
 protected:
     bool isDerivedFrom(LanguageUtils::FakeMetaObject::ConstPtr base) const;
 
 private:
-    QmlObjectValue *_attachedType;
+    CppComponentValue *_attachedType;
     LanguageUtils::FakeMetaObject::ConstPtr _metaObject;
     const QString _moduleName;
     // _componentVersion is the version of the export
@@ -461,6 +534,7 @@ private:
     const LanguageUtils::ComponentVersion _componentVersion;
     const LanguageUtils::ComponentVersion _importVersion;
     mutable QAtomicPointer< QList<const Value *> > _metaSignatures;
+    mutable QAtomicPointer< QHash<QString, const ObjectValue *> > _signalScopes;
     QHash<QString, const QmlEnumValue * > _enums;
     int _metaObjectRevision;
 };
@@ -585,20 +659,20 @@ public:
     template <typename T>
     void load(const T &fakeMetaObjects, const QString &overridePackage = QString());
 
-    QList<const QmlObjectValue *> createObjectsForImport(const QString &package, LanguageUtils::ComponentVersion version);
+    QList<const CppComponentValue *> createObjectsForImport(const QString &package, LanguageUtils::ComponentVersion version);
     bool hasModule(const QString &module) const;
 
     static QString qualifiedName(const QString &module, const QString &type,
                                  LanguageUtils::ComponentVersion version);
-    const QmlObjectValue *objectByQualifiedName(const QString &fullyQualifiedName) const;
-    const QmlObjectValue *objectByQualifiedName(
+    const CppComponentValue *objectByQualifiedName(const QString &fullyQualifiedName) const;
+    const CppComponentValue *objectByQualifiedName(
             const QString &package, const QString &type,
             LanguageUtils::ComponentVersion version) const;
-    const QmlObjectValue *objectByCppName(const QString &cppName) const;
+    const CppComponentValue *objectByCppName(const QString &cppName) const;
 
 private:
-    // "Package.CppName ImportVersion" ->  QmlObjectValue
-    QHash<QString, const QmlObjectValue *> _objectsByQualifiedName;
+    // "Package.CppName ImportVersion" ->  CppComponentValue
+    QHash<QString, const CppComponentValue *> _objectsByQualifiedName;
     QHash<QString, QSet<LanguageUtils::FakeMetaObject::ConstPtr> > _fakeMetaObjectsByPackage;
     ValueOwner *_valueOwner;
 };
@@ -698,6 +772,8 @@ public:
     QmlPrototypeReference(AST::UiQualifiedId *qmlTypeName, const Document *doc, ValueOwner *valueOwner);
     virtual ~QmlPrototypeReference();
 
+    virtual const QmlPrototypeReference *asQmlPrototypeReference() const;
+
     AST::UiQualifiedId *qmlTypeName() const;
 
 private:    
@@ -733,11 +809,8 @@ public:
 
     AST::FunctionExpression *ast() const;
 
-    virtual const Value *returnValue() const;
     virtual int argumentCount() const;
-    virtual const Value *argument(int) const;
     virtual QString argumentName(int index) const;
-    virtual bool isVariadic() const;
 
     virtual bool getSourceLocation(QString *fileName, int *line, int *column) const;
 };
@@ -751,6 +824,8 @@ class QMLJS_EXPORT ASTPropertyReference: public Reference
 public:
     ASTPropertyReference(AST::UiPublicMember *ast, const Document *doc, ValueOwner *valueOwner);
     virtual ~ASTPropertyReference();
+
+    virtual const ASTPropertyReference *asAstPropertyReference() const;
 
     AST::UiPublicMember *ast() const { return _ast; }
     QString onChangedSlotName() const { return _onChangedSlotName; }
@@ -766,13 +841,17 @@ class QMLJS_EXPORT ASTSignal: public FunctionValue
     AST::UiPublicMember *_ast;
     const Document *_doc;
     QString _slotName;
+    const ObjectValue *_bodyScope;
 
 public:
     ASTSignal(AST::UiPublicMember *ast, const Document *doc, ValueOwner *valueOwner);
     virtual ~ASTSignal();
 
+    virtual const ASTSignal *asAstSignal() const;
+
     AST::UiPublicMember *ast() const { return _ast; }
     QString slotName() const { return _slotName; }
+    const ObjectValue *bodyScope() const { return _bodyScope; }
 
     // FunctionValue interface
     virtual int argumentCount() const;
@@ -798,6 +877,8 @@ public:
                    const Document *doc,
                    ValueOwner *valueOwner);
     virtual ~ASTObjectValue();
+
+    virtual const ASTObjectValue *asAstObjectValue() const;
 
     bool getSourceLocation(QString *fileName, int *line, int *column) const;
     virtual void processMembers(MemberProcessor *processor) const;
@@ -866,6 +947,8 @@ public:
     ImportInfo info;
     // uri imports: path to library, else empty
     QString libraryPath;
+    // whether the import succeeded
+    bool valid;
 };
 
 class Imports;
@@ -904,9 +987,12 @@ public:
     Imports(ValueOwner *valueOwner);
 
     void append(const Import &import);
+    void setImportFailed();
 
     ImportInfo info(const QString &name, const Context *context) const;
     QString nameForImportedObject(const ObjectValue *value, const Context *context) const;
+    bool importFailed() const;
+
     QList<Import> all() const;
 
     const TypeScope *typeScope() const;
@@ -922,6 +1008,7 @@ private:
     QList<Import> _imports;
     TypeScope *_typeScope;
     JSImportScope *_jsImportScope;
+    bool _importFailed;
 };
 
 } // namespace QmlJS

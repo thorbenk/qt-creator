@@ -102,6 +102,7 @@ public:
     QmlProfilerEventsView *m_eventsView;
     QmlProfilerEventsView *m_calleeView;
     QmlProfilerEventsView *m_callerView;
+    QmlProfilerEventsView *m_v8profilerView;
     Project *m_project;
     Utils::FileInProjectFinder m_projectFinder;
     RunConfiguration *m_runConfiguration;
@@ -119,6 +120,7 @@ public:
     QString m_tcpHost;
     quint64 m_tcpPort;
     QString m_ostDevice;
+    QString m_sysroot;
 };
 
 QmlProfilerTool::QmlProfilerTool(QObject *parent)
@@ -253,6 +255,8 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
         connect(d->m_project, SIGNAL(fileListChanged()), this, SLOT(updateProjectFileList()));
     }
 
+    d->m_projectFinder.setSysroot(sp.sysroot);
+
     connect(engine, SIGNAL(processRunning(int)), this, SLOT(connectClient(int)));
     connect(engine, SIGNAL(finished()), this, SLOT(disconnectClient()));
     connect(engine, SIGNAL(finished()), this, SLOT(correctTimer()));
@@ -305,6 +309,11 @@ QWidget *QmlProfilerTool::createWidgets()
             this, SLOT(gotoSourceLocation(QString,int)));
     connect(d->m_callerView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
 
+    d->m_v8profilerView = new QmlProfilerEventsView(mw, d->m_traceWindow->getEventList());
+    d->m_v8profilerView->setViewType(QmlProfilerEventsView::V8ProfileView);
+    connect(d->m_v8profilerView, SIGNAL(gotoSourceLocation(QString,int)), this, SLOT(gotoSourceLocation(QString,int)));
+    connect(d->m_v8profilerView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
+
     QDockWidget *eventsDock = AnalyzerManager::createDockWidget
             (this, tr("Events"), d->m_eventsView, Qt::BottomDockWidgetArea);
     QDockWidget *timelineDock = AnalyzerManager::createDockWidget
@@ -313,16 +322,20 @@ QWidget *QmlProfilerTool::createWidgets()
             (this, tr("Callees"), d->m_calleeView, Qt::BottomDockWidgetArea);
     QDockWidget *callerDock = AnalyzerManager::createDockWidget
             (this, tr("Callers"), d->m_callerView, Qt::BottomDockWidgetArea);
+    QDockWidget *v8profilerDock = AnalyzerManager::createDockWidget
+            (this, tr("JavaScript"), d->m_v8profilerView, Qt::BottomDockWidgetArea);
 
     eventsDock->show();
     timelineDock->show();
     calleeDock->show();
     callerDock->show();
+    v8profilerDock->show();
 
     mw->splitDockWidget(mw->toolBarDockWidget(), eventsDock, Qt::Vertical);
     mw->tabifyDockWidget(eventsDock, timelineDock);
     mw->tabifyDockWidget(timelineDock, calleeDock);
     mw->tabifyDockWidget(calleeDock, callerDock);
+    mw->tabifyDockWidget(callerDock, v8profilerDock);
 
     //
     // Toolbar
@@ -484,20 +497,48 @@ void QmlProfilerTool::clearDisplay()
     d->m_eventsView->clear();
     d->m_calleeView->clear();
     d->m_callerView->clear();
+    d->m_v8profilerView->clear();
 }
 
 static void startRemoteTool(IAnalyzerTool *tool, StartMode mode)
 {
     Q_UNUSED(tool);
-    QmlProfilerAttachDialog dialog;
-    if (dialog.exec() != QDialog::Accepted)
-        return;
+
+    QString host;
+    quint16 port;
+    QString sysroot;
+
+    {
+        QSettings *settings = Core::ICore::instance()->settings();
+
+        host = settings->value(QLatin1String("AnalyzerQmlAttachDialog/host"), QLatin1String("localhost")).toString();
+        port = settings->value(QLatin1String("AnalyzerQmlAttachDialog/port"), 3768).toInt();
+        sysroot = settings->value(QLatin1String("AnalyzerQmlAttachDialog/sysroot")).toString();
+
+        QmlProfilerAttachDialog dialog;
+
+        dialog.setAddress(host);
+        dialog.setPort(port);
+        dialog.setSysroot(sysroot);
+
+        if (dialog.exec() != QDialog::Accepted)
+            return;
+
+        host = dialog.address();
+        port = dialog.port();
+        sysroot = dialog.sysroot();
+
+        settings->setValue(QLatin1String("AnalyzerQmlAttachDialog/host"), host);
+        settings->setValue(QLatin1String("AnalyzerQmlAttachDialog/port"), port);
+        settings->setValue(QLatin1String("AnalyzerQmlAttachDialog/sysroot"), sysroot);
+    }
 
     AnalyzerStartParameters sp;
     sp.toolId = tool->id();
     sp.startMode = mode;
-    sp.connParams.host = dialog.address();
-    sp.connParams.port = dialog.port();
+    sp.connParams.host = host;
+    sp.connParams.port = port;
+    sp.sysroot = sysroot;
 
     AnalyzerRunControl *rc = new AnalyzerRunControl(tool, sp, 0);
     QObject::connect(AnalyzerManager::stopAction(), SIGNAL(triggered()), rc, SLOT(stopIt()));
@@ -615,7 +656,7 @@ void QmlProfilerTool::logError(const QString &msg)
 void QmlProfilerTool::showSaveDialog()
 {
     Core::ICore *core = Core::ICore::instance();
-    QString filename = QFileDialog::getSaveFileName(core->mainWindow(), tr("Save QML Trace"), QString(), tr("QML traces (%1)").arg(TraceFileExtension));
+    QString filename = QFileDialog::getSaveFileName(core->mainWindow(), tr("Save QML Trace"), QString(), tr("QML traces (*%1)").arg(TraceFileExtension));
     if (!filename.isEmpty()) {
         if (!filename.endsWith(QLatin1String(TraceFileExtension)))
             filename += QLatin1String(TraceFileExtension);
@@ -626,7 +667,7 @@ void QmlProfilerTool::showSaveDialog()
 void QmlProfilerTool::showLoadDialog()
 {
     Core::ICore *core = Core::ICore::instance();
-    QString filename = QFileDialog::getOpenFileName(core->mainWindow(), tr("Load QML Trace"), QString(), tr("QML traces (%1)").arg(TraceFileExtension));
+    QString filename = QFileDialog::getOpenFileName(core->mainWindow(), tr("Load QML Trace"), QString(), tr("QML traces (*%1)").arg(TraceFileExtension));
 
     if (!filename.isEmpty()) {
         // delayed load (prevent graphical artifacts due to long load time)

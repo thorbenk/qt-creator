@@ -74,6 +74,7 @@ def which(program):
 
 signalObjects = {}
 
+# do not call this function directly - it's only a helper
 def __callbackFunction__(object, *args):
     global signalObjects
 #    test.log("__callbackFunction__: "+objectMap.realName(object))
@@ -120,3 +121,16 @@ def cleanUpUserFiles(pathsToProFiles=None):
             doneWithoutErrors = False
     return doneWithoutErrors
 
+def invokeMenuItem(menu, item):
+    menuObject = waitForObjectItem("{type='QMenuBar' visible='true'}", menu)
+    activateItem(menuObject)
+    activateItem(waitForObjectItem(objectMap.realName(menuObject), item))
+
+def logApplicationOutput():
+    # make sure application output is shown
+    toggleAppOutput = waitForObject("{type='Core::Internal::OutputPaneToggleButton' unnamed='1' visible='1' "
+                                      "window=':Qt Creator_Core::Internal::MainWindow' occurrence='3'}", 20000)
+    if not toggleAppOutput.checked:
+        clickButton(toggleAppOutput)
+    output = waitForObject("{type='Core::OutputWindow' visible='1' windowTitle='Application Output Window'}", 20000)
+    test.log("Application Output:\n%s" % output.plainText)

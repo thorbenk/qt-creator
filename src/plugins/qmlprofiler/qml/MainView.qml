@@ -41,6 +41,8 @@ Rectangle {
     property int eventCount: 0;
     property real progress: 0;
 
+    property bool mouseOverSelection : true
+
     // move the cursor in the editor
     signal updateCursorPosition
     property string fileName: ""
@@ -58,13 +60,18 @@ Rectangle {
         root.eventCount = 0;
         rangeMover.x = 2
         rangeMover.opacity = 0
+        hideRangeDetails();
     }
 
-    function clearAll() {
+    function clearDisplay() {
         clearData();
         selectedEventIndex = -1;
         canvas.requestPaint();
         view.visible = false;
+    }
+
+    function clearAll() {
+        clearDisplay();
         root.elapsedTime = 0;
         root.updateTimer();
     }
@@ -77,7 +84,7 @@ Rectangle {
                 && selectedEventIndex > -1 && selectedEventIndex < eventCount) {
             // re-center flickable if necessary
             var xs = Plotter.xScale(canvas);
-            var startTime = qmlEventList.firstTimeMark();
+            var startTime = qmlEventList.traceStartTime();
             var eventStartTime = qmlEventList.getStartTime(selectedEventIndex);
             var eventDuration = qmlEventList.getDuration(selectedEventIndex);
             if (rangeMover.value + startTime > eventStartTime) {
@@ -86,6 +93,10 @@ Rectangle {
             } else if (rangeMover.value + startTime + rangeMover.zoomWidth * xs < eventStartTime + eventDuration) {
                 rangeMover.x = Math.floor((eventStartTime + eventDuration - startTime) / xs - canvas.canvasWindow.x - rangeMover.zoomWidth/2);
             }
+        }
+
+        if (selectedEventIndex == -1) {
+            selectionHighlight.visible = false;
         }
     }
 
@@ -111,14 +122,12 @@ Rectangle {
 
         // 0.1 ms minimum zoom
         if (newZoom * Plotter.xScale(canvas) > 100000) {
-            hideRangeDetails();
             rangeMover.zoomWidth =  newZoom
             rangeMover.updateZoomControls();
         }
     }
 
     function zoomOut() {
-        hideRangeDetails();
         // 10%
         var newZoom = rangeMover.zoomWidth * 1.1;
         if (newZoom > canvas.width)
@@ -137,7 +146,7 @@ Rectangle {
                 root.clearAll();
             if (eventCount > 1) {
                 root.progress = Math.min(1.0,
-                    (qmlEventList.lastTimeMark() - qmlEventList.firstTimeMark()) / root.elapsedTime * 1e-9 ) * 0.5;
+                    (qmlEventList.traceEndTime() - qmlEventList.traceStartTime()) / root.elapsedTime * 1e-9 ) * 0.5;
             } else
             root.progress = 0;
         }
@@ -182,8 +191,8 @@ Rectangle {
         height: flick.height + labels.y
         anchors.left: flick.left
         anchors.right: flick.right
-        startTime: rangeMover.x * Plotter.xScale(canvas) + qmlEventList.firstTimeMark();
-        endTime: (rangeMover.x + rangeMover.zoomWidth) * Plotter.xScale(canvas) + qmlEventList.firstTimeMark();
+        startTime: rangeMover.x * Plotter.xScale(canvas) + qmlEventList.traceStartTime();
+        endTime: (rangeMover.x + rangeMover.zoomWidth) * Plotter.xScale(canvas) + qmlEventList.traceStartTime();
     }
 
     function hideRangeDetails() {
@@ -193,6 +202,9 @@ Rectangle {
         rangeDetails.type = ""
         rangeDetails.file = ""
         rangeDetails.line = -1
+
+        root.mouseOverSelection = true;
+        selectionHighlight.visible = false;
     }
 
     //our main interaction view
@@ -208,19 +220,6 @@ Rectangle {
         flickableDirection: Flickable.HorizontalFlick
 
         clip:true
-
-        MouseArea {
-            width: flick.width
-            height: flick.contentHeight
-            x:  flick.contentX
-            onClicked: {
-                root.hideRangeDetails();
-            }
-            hoverEnabled: true
-            onExited: {
-                root.hideRangeDetails();
-            }
-        }
 
         TimelineView {
             id: view
@@ -241,7 +240,18 @@ Rectangle {
             }
             startTime: rangeMover.value
             endTime: startTime + (rangeMover.zoomWidth*Plotter.xScale(canvas))
-            onEndTimeChanged: updateTimeline()
+            onEndTimeChanged: {
+                updateTimeline();
+            }
+
+            property real timeSpan: endTime - startTime
+            onTimeSpanChanged: {
+                if (selectedEventIndex != -1 && selectionHighlight.visible) {
+                    var spacing = flick.width / timeSpan;
+                    selectionHighlight.x = (qmlEventList.getStartTime(selectedEventIndex) - qmlEventList.firstTimeMark()) * spacing;
+                    selectionHighlight.width = qmlEventList.getDuration(selectedEventIndex) * spacing;
+               }
+            }
 
             onCachedProgressChanged: root.progress = 0.5 + cachedProgress * 0.5;
             onCacheReady: {
@@ -259,9 +269,7 @@ Rectangle {
 
             delegate: Rectangle {
                 id: obj
-
-                property color baseColor: Plotter.colors[type]
-                property color myColor: baseColor
+                property color myColor: Plotter.colors[type]
 
                 function conditionalHide() {
                     if (!mouseArea.containsMouse)
@@ -292,52 +300,23 @@ Rectangle {
                         if (isSelected) {
                             enableSelected(0, 0);
                         }
-                        else
-                            disableSelected();
                     }
                 }
 
                 function enableSelected(x,y) {
-                    myColor = Qt.darker(baseColor, 1.2)
                     rangeDetails.duration = qmlEventList.getDuration(index)/1000.0;
                     rangeDetails.label = qmlEventList.getDetails(index);
                     rangeDetails.file = qmlEventList.getFilename(index);
                     rangeDetails.line = qmlEventList.getLine(index);
                     rangeDetails.type = Plotter.names[type]
 
-                    var margin = 10;
-
-                    var pos = mapToItem(rangeDetails.parent , x, y)
-                    var preferredX = pos.x + margin;
-
-                    // if over the right side of the window, render it left to the given pos
-                    if (preferredX + rangeDetails.width + margin > rangeDetails.parent.width)
-                        preferredX = pos.x - rangeDetails.width - margin;
-
-                    // if window too narrow, put it at least in "margin" pixels
-                    if (preferredX < margin)
-                        preferredX = margin;
-
-                    rangeDetails.x = preferredX
-
-                    // center on current item
-                    var preferredY = pos.y + height/2 - rangeDetails.height/2;
-
-                    // if too low, put it over the bottom of the window
-                    if (preferredY + rangeDetails.height - margin > root.height)
-                        preferredY = root.height - rangeDetails.height - margin;
-
-                    // but never above the top of the window
-                    if (preferredY < margin)
-                        preferredY = margin;
-
-                    rangeDetails.y = preferredY;
-
                     rangeDetails.visible = true
-                }
 
-                function disableSelected() {
-                    myColor = baseColor
+                    selectionHighlight.x = obj.x;
+                    selectionHighlight.y = obj.y;
+                    selectionHighlight.width = width;
+                    selectionHighlight.height = height;
+                    selectionHighlight.visible = true;
                 }
 
                 MouseArea {
@@ -345,36 +324,47 @@ Rectangle {
                     anchors.fill: parent
                     hoverEnabled: true
                     onEntered: {
+                        if (root.mouseOverSelection) {
+                            root.mouseTracking = true;
+                            root.selectedEventIndex = index;
+                            enableSelected(mouseX, y);
+                            root.mouseTracking = false;
+                        }
+                    }
+
+                    onPressed: {
                         root.mouseTracking = true;
                         root.selectedEventIndex = index;
                         enableSelected(mouseX, y);
                         root.mouseTracking = false;
-                    }
-                    onExited: {
-                        disableSelected();
-                    }
 
-                    onClicked: root.gotoSourceLocation(rangeDetails.file, rangeDetails.line);
+                        root.mouseOverSelection = false;
+                        root.gotoSourceLocation(rangeDetails.file, rangeDetails.line);
+                    }
                 }
+            }
+
+            Rectangle {
+                id: selectionHighlight
+                color:"transparent"
+                border.width: 2
+                border.color: "blue"
+                radius: 2
+                visible: false
+                z:1
+            }
+
+            MouseArea {
+                width: parent.width
+                height: parent.height
+                x: flick.contentX
+                onClicked: root.hideRangeDetails();
             }
         }
     }
-
     //popup showing the details for the hovered range
     RangeDetails {
         id: rangeDetails
-
-        // follow the flickable
-        property int flickableX: flick.contentX;
-        property int lastFlickableX;
-        onXChanged: lastFlickableX = flickableX;
-        onFlickableXChanged: {
-            x = x - flickableX + lastFlickableX;
-            if (visible && (x + width <= 0 || x > root.width)) {
-                root.hideRangeDetails();
-                visible = false;
-            }
-        }
     }
 
     Rectangle {
@@ -402,12 +392,6 @@ Rectangle {
             height: parent.height
             anchors.right: parent.right
             color: "#cccccc"
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            onEntered: root.hideRangeDetails();
         }
     }
 

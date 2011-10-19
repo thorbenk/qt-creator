@@ -145,6 +145,7 @@ public: // must be public to make Q_GADGET introspection work
         bracket_element_maybe_objectdefinition, // after an identifier in bracket_element_start
 
         ternary_op, // The ? : operator
+        ternary_op_after_colon, // after the : in a ternary
 
         jsblock_open,
 
@@ -312,6 +313,21 @@ private:
     int m_indentDepth;
 
     int m_tabSize;
+};
+
+class QMLJS_EXPORT QtStyleCodeFormatter : public CodeFormatter
+{
+public:
+    QtStyleCodeFormatter();
+
+    void setIndentSize(int size);
+
+protected:
+    virtual void onEnter(int newState, int *indentDepth, int *savedIndentDepth) const;
+    virtual void adjustIndent(const QList<QmlJS::Token> &tokens, int lexerState, int *indentDepth) const;
+
+private:
+    int m_indentSize;
 };
 
 } // namespace QmlJS

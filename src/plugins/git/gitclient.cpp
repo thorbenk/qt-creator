@@ -192,7 +192,7 @@ public:
                       << ComboBoxItem(tr("email"), QLatin1String("email"))
                       << ComboBoxItem(tr("raw"), QLatin1String("raw"));
         mapSetting(addComboBox(QLatin1String("--pretty"), prettyChoices),
-                   m_client->settings()->stringPointer(GitSettings::showPrettyFormatKey));
+                   m_client->settings()->intPointer(GitSettings::showPrettyFormatKey));
     }
 
     void executeCommand()
@@ -1483,11 +1483,11 @@ QStringList GitClient::synchronousRepositoryBranches(const QString &repositoryUR
 
 void GitClient::launchGitK(const QString &workingDirectory)
 {
-    const QString gitBinDirectory = gitBinaryPath();
-    QDir foundBinDir(gitBinDirectory);
+    const QFileInfo binaryInfo(gitBinaryPath());
+    QDir foundBinDir(binaryInfo.dir());
     const bool foundBinDirIsCmdDir = foundBinDir.dirName() == "cmd";
     QProcessEnvironment env = processEnvironment();
-    if (tryLauchingGitK(env, workingDirectory, gitBinDirectory, foundBinDirIsCmdDir))
+    if (tryLauchingGitK(env, workingDirectory, foundBinDir.path(), foundBinDirIsCmdDir))
         return;
     if (!foundBinDirIsCmdDir)
         return;

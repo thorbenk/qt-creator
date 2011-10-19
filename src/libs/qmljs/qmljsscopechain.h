@@ -100,6 +100,7 @@ public:
 
     QList<const ObjectValue *> jsScopes() const;
     void setJsScopes(const QList<const ObjectValue *> &jsScopes);
+    void appendJsScope(const ObjectValue *scope);
 
     QList<const ObjectValue *> all() const;
 
@@ -120,7 +121,7 @@ private:
     const JSImportScope *m_jsImports;
     QList<const ObjectValue *> m_jsScopes;
 
-    bool m_modified;
+    mutable bool m_modified;
     mutable QList<const ObjectValue *> m_all;
 };
 

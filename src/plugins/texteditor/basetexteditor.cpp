@@ -1498,9 +1498,9 @@ bool BaseTextEditorWidget::cursorMoveKeyEvent(QKeyEvent *e)
     bool visualNavigation = cursor.visualNavigation();
     cursor.setVisualNavigation(true);
 
-    if (op == QTextCursor::WordRight) {
+    if (camelCaseNavigationEnabled() && op == QTextCursor::WordRight) {
         camelCaseRight(cursor, mode);
-    } else if (op == QTextCursor::WordLeft) {
+    } else if (camelCaseNavigationEnabled() && op == QTextCursor::WordLeft) {
         camelCaseLeft(cursor, mode);
     } else {
         cursor.movePosition(op, mode);
@@ -1534,6 +1534,7 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
     }
 
     bool ro = isReadOnly();
+    const bool inOverwriteMode = overwriteMode();
 
     if (d->m_inBlockSelectionMode) {
         if (e == QKeySequence::Cut) {
@@ -1643,7 +1644,10 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
         e->accept();
         QTextCursor c = textCursor();
         int pos = c.position();
-        camelCaseLeft(c, QTextCursor::MoveAnchor);
+        if (camelCaseNavigationEnabled())
+            camelCaseLeft(c, QTextCursor::MoveAnchor);
+        else
+            c.movePosition(QTextCursor::StartOfWord, QTextCursor::MoveAnchor);
         int targetpos = c.position();
         forever {
             handleBackspaceKey();
@@ -1656,13 +1660,19 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
     } else if (!ro && e == QKeySequence::DeleteStartOfWord && !textCursor().hasSelection()) {
         e->accept();
         QTextCursor c = textCursor();
-        camelCaseLeft(c, QTextCursor::KeepAnchor);
+        if (camelCaseNavigationEnabled())
+            camelCaseLeft(c, QTextCursor::KeepAnchor);
+        else
+            c.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
         c.removeSelectedText();
         return;
     } else if (!ro && e == QKeySequence::DeleteEndOfWord && !textCursor().hasSelection()) {
         e->accept();
         QTextCursor c = textCursor();
-        camelCaseRight(c, QTextCursor::KeepAnchor);
+        if (camelCaseNavigationEnabled())
+            camelCaseRight(c, QTextCursor::KeepAnchor);
+        else
+            c.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
         c.removeSelectedText();
         return;
     } else switch (e->key()) {
@@ -1759,6 +1769,24 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
             return;
         }
         break;
+    case Qt::Key_Insert:
+        if (ro) break;
+        if (e->modifiers() == Qt::NoModifier) {
+            if (inOverwriteMode) {
+                d->m_autoCompleter->setAutoParenthesesEnabled(d->autoParenthesisOverwriteBackup);
+                d->m_autoCompleter->setSurroundWithEnabled(d->surroundWithEnabledOverwriteBackup);
+                setOverwriteMode(false);
+            } else {
+                d->autoParenthesisOverwriteBackup = d->m_autoCompleter->isAutoParenthesesEnabled();
+                d->surroundWithEnabledOverwriteBackup = d->m_autoCompleter->isSurroundWithEnabled();
+                d->m_autoCompleter->setAutoParenthesesEnabled(false);
+                d->m_autoCompleter->setSurroundWithEnabled(false);
+                setOverwriteMode(true);
+            }
+            e->accept();
+            return;
+        }
+        break;
 
     default:
         break;
@@ -1827,7 +1855,19 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
         if (doEditBlock)
             cursor.beginEditBlock();
 
-        cursor.insertText(text);
+        if (inOverwriteMode) {
+            if (!doEditBlock)
+                cursor.beginEditBlock();
+            QTextBlock block = cursor.block();
+            int eolPos = block.position() + block.length() - 1;
+            int selEndPos = qMin(cursor.position() + text.length(), eolPos);
+            cursor.setPosition(selEndPos, QTextCursor::KeepAnchor);
+            cursor.insertText(text);
+            if (!doEditBlock)
+                cursor.endEditBlock();
+        } else {
+            cursor.insertText(text);
+        }
 
         if (!autoText.isEmpty()) {
             int pos = cursor.position();
@@ -1856,8 +1896,10 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
     if (!ro && e->key() == Qt::Key_Delete && d->m_parenthesesMatchingEnabled)
         d->m_parenthesesMatchingTimer->start(50);
 
-    if (!ro && d->m_contentsChanged && !e->text().isEmpty() && e->text().at(0).isPrint())
+    if (!ro && d->m_contentsChanged && !e->text().isEmpty()
+            && e->text().at(0).isPrint() && !inOverwriteMode) {
         d->m_codeAssistant->process();
+    }
 }
 
 void BaseTextEditorWidget::insertCodeSnippet(const QTextCursor &cursor_arg, const QString &snippet)
@@ -2306,6 +2348,16 @@ void BaseTextEditorWidget::setConstrainTooltips(bool b)
 bool BaseTextEditorWidget::constrainTooltips() const
 {
     return d->m_behaviorSettings.m_constrainTooltips;
+}
+
+void BaseTextEditorWidget::setCamelCaseNavigationEnabled(bool b)
+{
+    d->m_behaviorSettings.m_camelCaseNavigation = b;
+}
+
+bool BaseTextEditorWidget::camelCaseNavigationEnabled() const
+{
+    return d->m_behaviorSettings.m_camelCaseNavigation;
 }
 
 void BaseTextEditorWidget::setRevisionsVisible(bool b)
@@ -6278,6 +6330,8 @@ void BaseTextEditorWidget::inSnippetMode(bool *active)
 
 void BaseTextEditorWidget::invokeAssist(AssistKind kind, IAssistProvider *provider)
 {
+    if (overwriteMode())
+        return;
     d->m_codeAssistant->invoke(kind, provider);
 }
 

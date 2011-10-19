@@ -288,7 +288,9 @@ bool CMakeProject::parseCMakeLists()
     allIncludePaths.append(cbpparser.includeFiles());
 
     QStringList allFrameworkPaths;
-    QList<ProjectExplorer::HeaderPath> allHeaderPaths = activeBC->toolChain()->systemHeaderPaths();
+    QList<ProjectExplorer::HeaderPath> allHeaderPaths;
+    if (activeBC->toolChain())
+        allHeaderPaths = activeBC->toolChain()->systemHeaderPaths();
     foreach (const ProjectExplorer::HeaderPath &headerPath, allHeaderPaths) {
         if (headerPath.kind() == ProjectExplorer::HeaderPath::FrameworkHeaderPath)
             allFrameworkPaths.append(headerPath.path());
@@ -298,19 +300,21 @@ bool CMakeProject::parseCMakeLists()
 
     CPlusPlus::CppModelManagerInterface *modelmanager =
             CPlusPlus::CppModelManagerInterface::instance();
-    CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
-    pinfo.projectParts.clear();
-    CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
-                new CPlusPlus::CppModelManagerInterface::ProjectPart);
-    part->includePaths = allIncludePaths;
-    part->sourceFiles = m_files;
-    part->defines = activeBC->toolChain()->predefinedMacros(QStringList());
-    part->frameworkPaths = allFrameworkPaths;
-    part->language = CPlusPlus::CppModelManagerInterface::CXX;
-    pinfo.projectParts.append(part);
-    modelmanager->updateProjectInfo(pinfo);
-    m_codeModelFuture.cancel();
-    m_codeModelFuture = modelmanager->updateSourceFiles(m_files);
+    if (modelmanager) {
+        CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
+        pinfo.projectParts.clear();
+        CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
+                    new CPlusPlus::CppModelManagerInterface::ProjectPart);
+        part->includePaths = allIncludePaths;
+        part->sourceFiles = m_files;
+        part->defines = (activeBC->toolChain() ? activeBC->toolChain()->predefinedMacros(QStringList()) : QByteArray()); // TODO this is to simplistic
+        part->frameworkPaths = allFrameworkPaths;
+        part->language = CPlusPlus::CppModelManagerInterface::CXX;
+        pinfo.projectParts.append(part);
+        modelmanager->updateProjectInfo(pinfo);
+        m_codeModelFuture.cancel();
+        m_codeModelFuture = modelmanager->updateSourceFiles(m_files);
+    }
 
     emit buildTargetsChanged();
     emit fileListChanged();

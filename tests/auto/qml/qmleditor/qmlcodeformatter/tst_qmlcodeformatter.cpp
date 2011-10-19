@@ -54,7 +54,8 @@ private Q_SLOTS:
     void objectBinding();
     void arrayBinding();
     void functionDeclaration();
-    void functionExpression();
+    void functionExpression1();
+    void functionExpression2();
     void propertyDeclarations();
     void signalDeclarations();
     void ifBinding1();
@@ -94,6 +95,9 @@ private Q_SLOTS:
     void labelledStatements1();
     void labelledStatements2();
     void labelledStatements3();
+    void json1();
+    void multilineTernaryInProperty();
+    void bug1();
 };
 
 struct Line {
@@ -133,7 +137,7 @@ void checkIndent(QList<Line> data, int style = 0)
 
     QString text = concatLines(data);
     QTextDocument document(text);
-    QtStyleCodeFormatter formatter;
+    CreatorCodeFormatter formatter;
 
     int i = 0;
     foreach (const Line &l, data) {
@@ -356,7 +360,7 @@ void tst_QMLCodeFormatter::functionDeclaration()
     checkIndent(data);
 }
 
-void tst_QMLCodeFormatter::functionExpression()
+void tst_QMLCodeFormatter::functionExpression1()
 {
     QList<Line> data;
     data << Line("Rectangle {")
@@ -370,6 +374,32 @@ void tst_QMLCodeFormatter::functionExpression()
          << Line("        return a")
          << Line("    }")
          << Line("}")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::functionExpression2()
+{
+    QList<Line> data;
+    data << Line("Rectangle {")
+         << Line("    function foo(a, b, c) {")
+         << Line("        foo(1, 123456, function() {")
+         << Line("                           b;")
+         << Line("                       })")
+         << Line("        foo(1, 123456, function()")
+         << Line("                       {")
+         << Line("                           b;")
+         << Line("                       })")
+         << Line("        foobar(1, 123456,")
+         << Line("               function () {")
+         << Line("                   b;")
+         << Line("               })")
+         << Line("        var x = doo_foobar(")
+         << Line("                    function () {")
+         << Line("                        b;")
+         << Line("                    })")
+         << Line("    }")
          << Line("}")
          ;
     checkIndent(data);
@@ -1194,6 +1224,70 @@ void tst_QMLCodeFormatter::labelledStatements3()
          << Line("    }")
          << Line("}")
          << Line("var x")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::json1()
+{
+    QList<Line> data;
+    data << Line("{")
+         << Line("    \"lab\": \"abc\",")
+         << Line("    \"foo\": \"baroooo\",")
+         << Line("    \"foo\": [ \"baroooo\", \"foo\" ],")
+         << Line("    \"foo\": [")
+         << Line("        \"baroooo\",")
+         << Line("        \"doo\"")
+         << Line("    ],")
+         << Line("    \"lab\": \"abc\",")
+         << Line("    \"object\": {")
+         << Line("        \"lab\": \"abc\",")
+         << Line("        \"foo\": \"baroooo\",")
+         << Line("        \"foo\": [ \"baroooo\", \"foo\" ],")
+         << Line("        \"foo\": [")
+         << Line("            \"baroooo\",")
+         << Line("            \"doo\"")
+         << Line("        ],")
+         << Line("        \"lab\": \"abc\"")
+         << Line("    }")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::multilineTernaryInProperty()
+{
+    QList<Line> data;
+    data << Line("Item {")
+         << Line("    property int a: 1 ?")
+         << Line("                        2 :")
+         << Line("                        3 +")
+         << Line("                        4")
+         << Line("    property int a: 1 ? 2")
+         << Line("                      : 3 +")
+         << Line("                        4")
+         << Line("    a: 1 ?")
+         << Line("           2 :")
+         << Line("           3")
+         << Line("    a: 1 ? 2")
+         << Line("         : 3 +")
+         << Line("           4")
+         << Line("    ba: 1")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::bug1()
+{
+    QList<Line> data;
+    data << Line("Item {")
+         << Line("    x: {")
+         << Line("        if (a==a) {}")
+         << Line("        else (b==b) {}")
+         << Line("        foo()")
+         << Line("    }")
+         << Line("}")
          ;
     checkIndent(data);
 }

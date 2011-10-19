@@ -8,15 +8,18 @@ HEADERS += \
     $$PWD/qmldebuggerclient.h \
     $$PWD/qmljsprivateapi.h \
     $$PWD/qmlcppengine.h \
-    $$PWD/scriptconsole.h \
+    $$PWD/qmljsscriptconsole.h \
     $$PWD/qscriptdebuggerclient.h \
-    $$PWD/qmlv8debuggerclient.h
+    $$PWD/qmlv8debuggerclient.h \
+    $$PWD/interactiveinterpreter.h
 
 SOURCES += \
     $$PWD/qmlengine.cpp \
     $$PWD/qmladapter.cpp \
     $$PWD/qmldebuggerclient.cpp \
     $$PWD/qmlcppengine.cpp \
-    $$PWD/scriptconsole.cpp \
+    $$PWD/qmljsscriptconsole.cpp \
     $$PWD/qscriptdebuggerclient.cpp \
-    $$PWD/qmlv8debuggerclient.cpp
+    $$PWD/qmlv8debuggerclient.cpp \
+    $$PWD/interactiveinterpreter.cpp
+

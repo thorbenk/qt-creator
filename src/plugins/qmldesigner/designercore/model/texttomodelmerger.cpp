@@ -53,6 +53,7 @@
 #include <qmljs/qmljsscopechain.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/qmljscheck.h>
+#include <qmljs/qmljsutils.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
 
 #include <QtCore/QSet>
@@ -169,23 +170,6 @@ static inline QVariant cleverConvert(const QString &value)
     if (flag)
         return QVariant(d);
     return QVariant(value);
-}
-
-static QString flatten(UiQualifiedId *qualifiedId)
-{
-    QString result;
-
-    for (UiQualifiedId *iter = qualifiedId; iter; iter = iter->next) {
-        if (iter->name.isEmpty())
-            continue;
-
-        if (!result.isEmpty())
-            result.append(QLatin1Char('.'));
-
-        result.append(iter->name);
-    }
-
-    return result;
 }
 
 static bool isLiteralValue(ExpressionNode *expr)
@@ -360,7 +344,7 @@ public:
         const ObjectValue *value = m_context->lookupType(m_doc.data(), astTypeNode);
         defaultPropertyName = m_context->defaultPropertyName(value);
 
-        const QmlObjectValue * qmlValue = dynamic_cast<const QmlObjectValue *>(value);
+        const CppComponentValue * qmlValue = value_cast<CppComponentValue>(value);
         if (qmlValue) {
             typeName = fixUpPackeNameForQt(qmlValue->moduleName()) + QLatin1String(".") + qmlValue->className();
 
@@ -468,7 +452,7 @@ public:
         if (prefix.isEmpty())
             idPart = idPart->next;
         for (; idPart; idPart = idPart->next) {
-            objectValue = value_cast<const ObjectValue *>(value);
+            objectValue = value_cast<ObjectValue>(value);
             if (! objectValue) {
 //                if (idPart->name)
 //                    qDebug() << idPart->name->asString() << "has no property named"
@@ -516,7 +500,7 @@ public:
             const ObjectValue *proto = iter.next();
             if (proto->lookupMember(name, m_context) == m_context->valueOwner()->arrayPrototype())
                 return true;
-            if (const QmlObjectValue *qmlIter = dynamic_cast<const QmlObjectValue *>(proto)) {
+            if (const CppComponentValue *qmlIter = value_cast<CppComponentValue>(proto)) {
                 if (qmlIter->isListProperty(name))
                     return true;
             }
@@ -532,7 +516,7 @@ public:
         const ObjectValue *containingObject = 0;
         QString name;
         if (!lookupProperty(propertyPrefix, propertyId, &property, &containingObject, &name)) {
-            qWarning() << "Unknown property" << propertyPrefix + QLatin1Char('.') + flatten(propertyId)
+            qWarning() << "Unknown property" << propertyPrefix + QLatin1Char('.') + toString(propertyId)
                        << "on line" << propertyId->identifierToken.startLine
                        << "column" << propertyId->identifierToken.startColumn;
             return hasQuotes ? QVariant(cleanedValue) : cleverConvert(cleanedValue);
@@ -541,7 +525,7 @@ public:
         if (containingObject)
             containingObject->lookupMember(name, m_context, &containingObject);
 
-        if (const QmlObjectValue * qmlObject = dynamic_cast<const QmlObjectValue *>(containingObject)) {
+        if (const CppComponentValue * qmlObject = value_cast<CppComponentValue>(containingObject)) {
             const QString typeName = qmlObject->propertyType(name);
             if (qmlObject->getEnum(typeName).isValid()) {
                 return QVariant(cleanedValue);
@@ -585,10 +569,10 @@ public:
 
         if (containingObject)
             containingObject->lookupMember(name, m_context, &containingObject);
-        const QmlObjectValue * lhsQmlObject = dynamic_cast<const QmlObjectValue *>(containingObject);
-        if (!lhsQmlObject)
+        const CppComponentValue * lhsCppComponent = value_cast<CppComponentValue>(containingObject);
+        if (!lhsCppComponent)
             return QVariant();
-        const QString lhsPropertyTypeName = lhsQmlObject->propertyType(name);
+        const QString lhsPropertyTypeName = lhsCppComponent->propertyType(name);
 
         const ObjectValue *rhsValueObject = 0;
         QString rhsValueName;
@@ -609,11 +593,11 @@ public:
         if (rhsValueObject)
             rhsValueObject->lookupMember(rhsValueName, m_context, &rhsValueObject);
 
-        const QmlObjectValue *rhsQmlObjectValue = dynamic_cast<const QmlObjectValue *>(rhsValueObject);
-        if (!rhsQmlObjectValue)
+        const CppComponentValue *rhsCppComponentValue = value_cast<CppComponentValue>(rhsValueObject);
+        if (!rhsCppComponentValue)
             return QVariant();
 
-        if (rhsQmlObjectValue->getEnum(lhsPropertyTypeName).hasKey(rhsValueName))
+        if (rhsCppComponentValue->getEnum(lhsPropertyTypeName).hasKey(rhsValueName))
             return QVariant(rhsValueName);
         else
             return QVariant();
@@ -718,7 +702,7 @@ void TextToModelMerger::setupImports(const Document::Ptr &doc,
             if (!existingImports.removeOne(newImport))
                 differenceHandler.modelMissesImport(newImport);
         } else {
-            QString importUri = flatten(import->importUri);
+            QString importUri = toString(import->importUri);
             if (importUri == QLatin1String("Qt") && version == QLatin1String("4.7")) {
                 importUri = QLatin1String("QtQuick");
                 version = QLatin1String("1.0");
@@ -781,10 +765,13 @@ bool TextToModelMerger::load(const QString &data, DifferenceHandler &differenceH
 
         if (view()->checkSemanticErrors()) {
             Check check(doc, m_scopeChain->context());
-            check.setOptions(check.options() & ~Check::ErrCheckTypeErrors);
-            foreach (const QmlJS::DiagnosticMessage &diagnosticMessage, check()) {
-                if (diagnosticMessage.isError())
-                    errors.append(RewriterView::Error(diagnosticMessage, QUrl::fromLocalFile(doc->fileName())));
+            check.disableMessage(StaticAnalysis::ErrUnknownComponent);
+            check.disableMessage(StaticAnalysis::ErrPrototypeCycle);
+            check.disableMessage(StaticAnalysis::ErrCouldNotResolvePrototype);
+            check.disableMessage(StaticAnalysis::ErrCouldNotResolvePrototypeOf);
+            foreach (const StaticAnalysis::Message &message, check()) {
+                if (message.severity == StaticAnalysis::Error)
+                    errors.append(RewriterView::Error(message.toDiagnosticMessage(), QUrl::fromLocalFile(doc->fileName())));
             }
 
             if (!errors.isEmpty()) {
@@ -824,15 +811,8 @@ void TextToModelMerger::syncNode(ModelNode &modelNode,
                                  ReadingContext *context,
                                  DifferenceHandler &differenceHandler)
 {
-    UiQualifiedId *astObjectType = 0;
-    UiObjectInitializer *astInitializer = 0;
-    if (UiObjectDefinition *def = cast<UiObjectDefinition *>(astNode)) {
-        astObjectType = def->qualifiedTypeNameId;
-        astInitializer = def->initializer;
-    } else if (UiObjectBinding *bin = cast<UiObjectBinding *>(astNode)) {
-        astObjectType = bin->qualifiedTypeNameId;
-        astInitializer = bin->initializer;
-    }
+    UiQualifiedId *astObjectType = qualifiedTypeNameId(astNode);
+    UiObjectInitializer *astInitializer = initializerOfObject(astNode);
 
     if (!astObjectType || !astInitializer)
         return;
@@ -847,7 +827,7 @@ void TextToModelMerger::syncNode(ModelNode &modelNode,
         defaultPropertyName = modelNode.metaInfo().defaultPropertyName();
 
     if (typeName.isEmpty()) {
-        qWarning() << "Skipping node with unknown type" << flatten(astObjectType);
+        qWarning() << "Skipping node with unknown type" << toString(astObjectType);
         return;
     }
 
@@ -893,7 +873,7 @@ void TextToModelMerger::syncNode(ModelNode &modelNode,
             continue;
 
         if (UiArrayBinding *array = cast<UiArrayBinding *>(member)) {
-            const QString astPropertyName = flatten(array->qualifiedId);
+            const QString astPropertyName = toString(array->qualifiedId);
             if (isPropertyChangesType(typeName) || context->lookupProperty(QString(), array->qualifiedId)) {
                 AbstractProperty modelProperty = modelNode.property(astPropertyName);
                 QList<UiObjectMember *> arrayMembers;
@@ -921,7 +901,7 @@ void TextToModelMerger::syncNode(ModelNode &modelNode,
                 defaultPropertyItems.append(member);
             }
         } else if (UiObjectBinding *binding = cast<UiObjectBinding *>(member)) {
-            const QString astPropertyName = flatten(binding->qualifiedId);
+            const QString astPropertyName = toString(binding->qualifiedId);
             if (binding->hasOnToken) {
                 // skip value sources
             } else {
@@ -1009,7 +989,7 @@ QString TextToModelMerger::syncScriptBinding(ModelNode &modelNode,
                                              ReadingContext *context,
                                              DifferenceHandler &differenceHandler)
 {
-    QString astPropertyName = flatten(script->qualifiedId);
+    QString astPropertyName = toString(script->qualifiedId);
     if (!prefix.isEmpty())
         astPropertyName.prepend(prefix + QLatin1Char('.'));
 
@@ -1101,7 +1081,7 @@ void TextToModelMerger::syncNodeProperty(AbstractProperty &modelProperty,
     context->lookup(binding->qualifiedTypeNameId, typeName, majorVersion, minorVersion, dummy);
 
     if (typeName.isEmpty()) {
-        qWarning() << "Skipping node with unknown type" << flatten(binding->qualifiedTypeNameId);
+        qWarning() << "Skipping node with unknown type" << toString(binding->qualifiedTypeNameId);
         return;
     }
 
@@ -1206,12 +1186,7 @@ ModelNode TextToModelMerger::createModelNode(const QString &typeName,
 {
     QString nodeSource;
 
-    UiQualifiedId *astObjectType = 0;
-    if (UiObjectDefinition *def = cast<UiObjectDefinition *>(astNode)) {
-        astObjectType = def->qualifiedTypeNameId;
-    } else if (UiObjectBinding *bin = cast<UiObjectBinding *>(astNode)) {
-        astObjectType = bin->qualifiedTypeNameId;
-    }
+    UiQualifiedId *astObjectType = qualifiedTypeNameId(astNode);
 
     if (isCustomParserType(typeName))
         nodeSource = textAt(context->doc(),
@@ -1525,7 +1500,7 @@ ModelNode ModelAmender::listPropertyMissingModelNode(NodeListProperty &modelProp
     context->lookup(astObjectType, typeName, majorVersion, minorVersion, dummy);
 
     if (typeName.isEmpty()) {
-        qWarning() << "Skipping node with unknown type" << flatten(astObjectType);
+        qWarning() << "Skipping node with unknown type" << toString(astObjectType);
         return ModelNode();
     }
 

@@ -36,6 +36,7 @@
 #include "qmljscontext.h"
 #include "qmljsevaluate.h"
 #include "qmljsscopechain.h"
+#include "qmljsutils.h"
 #include "parser/qmljsast_p.h"
 
 #include <utils/qtcassert.h>
@@ -66,6 +67,35 @@ void ScopeBuilder::push(AST::Node *node)
         setQmlScopeObject(qmlObject);
     }
 
+    // JS signal handler scope
+    if (UiScriptBinding *script = cast<UiScriptBinding *>(node)) {
+        QString name;
+        if (script->qualifiedId)
+            name = script->qualifiedId->name.toString();
+        if (!_scopeChain->qmlScopeObjects().isEmpty()
+                && name.startsWith(QLatin1String("on"))
+                && !script->qualifiedId->next) {
+            const ObjectValue *owner = 0;
+            const Value *value = 0;
+            // try to find the name on the scope objects
+            foreach (const ObjectValue *scope, _scopeChain->qmlScopeObjects()) {
+                value = scope->lookupMember(name, _scopeChain->context(), &owner);
+                if (value)
+                    break;
+            }
+            // signals defined in QML
+            if (const ASTSignal *astsig = value_cast<ASTSignal>(value)) {
+                _scopeChain->appendJsScope(astsig->bodyScope());
+            }
+            // signals defined in C++
+            else if (const CppComponentValue *qmlObject = value_cast<CppComponentValue>(owner)) {
+                if (const ObjectValue *scope = qmlObject->signalScope(name)) {
+                    _scopeChain->appendJsScope(scope);
+                }
+            }
+        }
+    }
+
     // JS scopes
     switch (node->kind) {
     case Node::Kind_UiScriptBinding:
@@ -74,11 +104,8 @@ void ScopeBuilder::push(AST::Node *node)
     case Node::Kind_UiPublicMember:
     {
         ObjectValue *scope = _scopeChain->document()->bind()->findAttachedJSScope(node);
-        if (scope) {
-            QList<const ObjectValue *> jsScopes = _scopeChain->jsScopes();
-            jsScopes += scope;
-            _scopeChain->setJsScopes(jsScopes);
-        }
+        if (scope)
+            _scopeChain->appendJsScope(scope);
         break;
     }
     default:
@@ -158,7 +185,7 @@ void ScopeBuilder::setQmlScopeObject(Node *node)
     iter.next();
     while (iter.hasNext()) {
         const ObjectValue *prototype = iter.next();
-        if (const QmlObjectValue *qmlMetaObject = dynamic_cast<const QmlObjectValue *>(prototype)) {
+        if (const CppComponentValue *qmlMetaObject = value_cast<CppComponentValue>(prototype)) {
             if ((qmlMetaObject->className() == QLatin1String("ListElement")
                     || qmlMetaObject->className() == QLatin1String("Connections")
                     ) && (qmlMetaObject->moduleName() == QLatin1String("Qt")
@@ -174,11 +201,7 @@ void ScopeBuilder::setQmlScopeObject(Node *node)
     prototype = isPropertyChangesObject(_scopeChain->context(), prototype);
     // find the target script binding
     if (prototype) {
-        UiObjectInitializer *initializer = 0;
-        if (UiObjectDefinition *definition = cast<UiObjectDefinition *>(node))
-            initializer = definition->initializer;
-        if (UiObjectBinding *binding = cast<UiObjectBinding *>(node))
-            initializer = binding->initializer;
+        UiObjectInitializer *initializer = initializerOfObject(node);
         if (initializer) {
             for (UiObjectMemberList *m = initializer->members; m; m = m->next) {
                 if (UiScriptBinding *scriptBinding = cast<UiScriptBinding *>(m->member)) {
@@ -188,7 +211,7 @@ void ScopeBuilder::setQmlScopeObject(Node *node)
                         Evaluate evaluator(_scopeChain);
                         const Value *targetValue = evaluator(scriptBinding->statement);
 
-                        if (const ObjectValue *target = value_cast<const ObjectValue *>(targetValue)) {
+                        if (const ObjectValue *target = value_cast<ObjectValue>(targetValue)) {
                             qmlScopeObjects.prepend(target);
                         } else {
                             qmlScopeObjects.clear();
@@ -236,7 +259,7 @@ const ObjectValue *ScopeBuilder::isPropertyChangesObject(const ContextPtr &conte
     PrototypeIterator iter(object, context);
     while (iter.hasNext()) {
         const ObjectValue *prototype = iter.next();
-        if (const QmlObjectValue *qmlMetaObject = dynamic_cast<const QmlObjectValue *>(prototype)) {
+        if (const CppComponentValue *qmlMetaObject = value_cast<CppComponentValue>(prototype)) {
             if (qmlMetaObject->className() == QLatin1String("PropertyChanges")
                     && (qmlMetaObject->moduleName() == QLatin1String("Qt")
                         || qmlMetaObject->moduleName() == QLatin1String("QtQuick")))

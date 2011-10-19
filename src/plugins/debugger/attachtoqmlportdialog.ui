@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>435</width>
-    <height>133</height>
+    <width>212</width>
+    <height>136</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,13 +16,10 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <layout class="QFormLayout" name="formLayout">
-     <property name="fieldGrowthPolicy">
-      <enum>QFormLayout::FieldsStayAtSizeHint</enum>
-     </property>
      <item row="0" column="0">
       <widget class="QLabel" name="hostLabel">
        <property name="text">
-        <string>Host</string>
+        <string>&amp;Host:</string>
        </property>
        <property name="buddy">
         <cstring>hostLineEdit</cstring>
@@ -39,7 +36,10 @@
      <item row="1" column="0">
       <widget class="QLabel" name="portLabel">
        <property name="text">
-        <string>Port</string>
+        <string>&amp;Port:</string>
+       </property>
+       <property name="buddy">
+        <cstring>portSpinBox</cstring>
        </property>
       </widget>
      </item>
@@ -52,6 +52,19 @@
         <number>3768</number>
        </property>
       </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="sysrootLabel">
+       <property name="text">
+        <string>Sys&amp;root:</string>
+       </property>
+       <property name="buddy">
+        <cstring>sysRootChooser</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="Utils::PathChooser" name="sysRootChooser" native="true"/>
      </item>
     </layout>
    </item>
@@ -67,6 +80,14 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>Utils::PathChooser</class>
+   <extends>QWidget</extends>
+   <header location="global">utils/pathchooser.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

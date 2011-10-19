@@ -12,7 +12,7 @@ def main():
     # using a temporary directory won't mess up an eventually exisiting
     workingDir = tempDir()
     prepareTemplate(sourceExample)
-    createNewQtQuickApplication()
+    createNewQtQuickApplication(workingDir, "untitled", templateDir + "/qml/focus.qml")
     # wait for parsing to complete
     waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 30000)
     testRenameId()
@@ -25,39 +25,6 @@ def prepareTemplate(sourceExample):
     templateDir = os.path.abspath(templateDir + "/template")
     shutil.copytree(sourceExample, templateDir)
 
-def createNewQtQuickApplication():
-    global workingDir,templateDir
-    invokeMenuItem("File", "New File or Project...")
-    clickItem(waitForObject("{type='QTreeView' name='templateCategoryView'}", 20000),
-              "Projects.Qt Quick Project", 5, 5, 0, Qt.LeftButton)
-    clickItem(waitForObject("{name='templatesView' type='QListView'}", 20000),
-              "Qt Quick Application", 5, 5, 0, Qt.LeftButton)
-    clickButton(waitForObject("{text='Choose...' type='QPushButton' unnamed='1' visible='1'}", 20000))
-    baseLineEd = waitForObject("{name='nameLineEdit' visible='1' "
-                               "type='Utils::ProjectNameValidatingLineEdit'}", 20000)
-    replaceEditorContent(baseLineEd, "untitled")
-    baseLineEd = waitForObject("{type='Utils::BaseValidatingLineEdit' unnamed='1' visible='1'}", 20000)
-    replaceEditorContent(baseLineEd, workingDir)
-    stateLabel = findObject("{type='QLabel' name='stateLabel'}")
-    labelCheck = stateLabel.text=="" and stateLabel.styleSheet == ""
-    test.verify(labelCheck, "Project name and base directory without warning or error")
-    # make sure this is not set as default location
-    cbDefaultLocation = waitForObject("{type='QCheckBox' name='projectsDirectoryCheckBox' visible='1'}", 20000)
-    if cbDefaultLocation.checked:
-        clickButton(cbDefaultLocation)
-    # now there's the 'untitled' project inside a temporary directory - step forward...!
-    nextButton = waitForObject("{text?='Next*' type='QPushButton' visible='1'}", 20000)
-    clickButton(nextButton)
-    chooseComponents(QtQuickConstants.Components.EXISTING_QML)
-    # define the existing qml file to import
-    baseLineEd = waitForObject("{type='Utils::BaseValidatingLineEdit' unnamed='1' visible='1'}", 20000)
-    type(baseLineEd, templateDir+"/qml/focus.qml")
-    clickButton(nextButton)
-    chooseDestination()
-    snooze(1)
-    clickButton(nextButton)
-    clickButton(waitForObject("{type='QPushButton' text='Finish' visible='1'}", 20000))
-
 def testRenameId():
     test.log("Testing rename of id")
     navTree = waitForObject("{type='Utils::NavigationTreeView' unnamed='1' visible='1' "
@@ -65,11 +32,22 @@ def testRenameId():
     model = navTree.model()
     files = ["Core.ContextMenu\\.qml", "Core.GridMenu\\.qml", "Core.ListMenu\\.qml", "focus\\.qml"]
     originalTexts = {}
+    editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
+                           "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
+    # temporarily store editor content for synchronizing purpose
+    # usage of formerTxt is done because I couldn't get waitForSignal() to work
+    # it always stored a different object into the signalObjects map as it looked up afterwards
+    # although used objectMap.realName() for both
+    formerTxt = editor.plainText
     for file in files:
         doubleClickFile(navTree, file)
-        editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
-                               "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
-        originalTexts.setdefault(file, "%s" % editor.plainText)
+        # wait until editor content switched to the double-clicked file
+        while formerTxt==editor.plainText:
+            editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
+                                   "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
+        # store content for next round
+        formerTxt = editor.plainText
+        originalTexts.setdefault(file, "%s" % formerTxt)
         test.log("stored %s's content" % file.replace("Core.","").replace("\\",""))
     # last opened file is the main file focus.qml
     line = "FocusScope\s*\{"
@@ -78,26 +56,38 @@ def testRenameId():
         return False
     type(editor, "<Down>")
     openContextMenuOnTextCursorPosition(editor)
-    activateItem(waitForObjectItem("{type='QMenu' visible='1' unnamed='1'}", "Rename Symbol Under Cursor"))
+    ctxtMenu = waitForObject("{type='QMenu' visible='1' unnamed='1'}")
+    activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), "Rename Symbol Under Cursor"))
     type(waitForObject("{leftWidget={text='Replace with:' type='QLabel' unnamed='1' visible='1'} "
                        "type='Find::Internal::WideEnoughLineEdit' unnamed='1' visible='1' "
                        "window=':Qt Creator_Core::Internal::MainWindow'}"), "renamedView")
     clickButton(waitForObject("{text='Replace' type='QToolButton' unnamed='1' visible='1' "
                               "window=':Qt Creator_Core::Internal::MainWindow'}"))
+    # store editor content for synchronizing purpose
+    formerTxt = editor.plainText
     for file in files:
         doubleClickFile(navTree, file)
-        editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
-                               "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
-        modifiedText = "%s" % editor.plainText
+        # wait until editor content switched to double-clicked file
+        while formerTxt==editor.plainText:
+            editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
+                                   "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
+        # store content for next round
+        formerTxt = editor.plainText
         originalText = originalTexts.get(file).replace("mainView", "renamedView")
-        test.compare(originalText,modifiedText)
-        type(editor, "<Ctrl+S>")
+        test.compare(originalText,formerTxt, "Comparing %s" % file.replace("Core.","").replace("\\",""))
+    invokeMenuItem("File","Save All")
 
 def doubleClickFile(navTree, file):
     treeElement = ("untitled.QML.%s/qml.%s" %
-                   (templateDir.replace("\\", "/").replace("_", "\\_"),file))
+                   (maskSpecialCharsForProjectTree(templateDir),file))
     waitForObjectItem(navTree, treeElement)
     doubleClickItem(navTree, treeElement, 5, 5, 0, Qt.LeftButton)
+
+def maskSpecialCharsForProjectTree(filename):
+    filename = filename.replace("\\", "/").replace("_", "\\_").replace(".","\\.")
+    # undoing mask operations on chars masked by mistake
+    filename = filename.replace("/?","\\?").replace("/*","\\*")
+    return filename
 
 def cleanup():
     global workingDir, templateDir

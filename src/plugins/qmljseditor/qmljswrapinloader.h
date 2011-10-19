@@ -30,63 +30,22 @@
 **
 **************************************************************************/
 
-#ifndef RSSFETCHER_H
-#define RSSFETCHER_H
+#ifndef QMLJSWRAPINLOADER_H
+#define QMLJSWRAPINLOADER_H
 
-#include "core_global.h"
+#include "qmljsquickfix.h"
 
-#include <QtCore/QThread>
+namespace QmlJSEditor {
+namespace Internal {
 
-QT_BEGIN_NAMESPACE
-class QUrl;
-class QNetworkReply;
-class QNetworkAccessManager;
-class QIODevice;
-QT_END_NAMESPACE
-
-namespace Core {
-
-class CORE_EXPORT RssItem
+class WrapInLoader: public QmlJSQuickFixFactory
 {
 public:
-    QString title;
-    QString description;
-    QString category;
-    QString url;
-    QString imagePath;
-};
-
-class CORE_EXPORT RssFetcher : public QThread
-{
-    Q_OBJECT
-public:
-    explicit RssFetcher(int maxItems = -1);
-    virtual void run();
-    virtual ~RssFetcher();
-
-signals:
-    void newsItemReady(const QString& title, const QString& desciption, const QString& url);
-    void rssItemReady(const Core::RssItem& item);
-    void finished(bool error);
-
-public slots:
-    void fetchingFinished(QNetworkReply *reply);
-    void fetch(const QUrl &url);
-
-private:
-    enum  TagElement { itemElement, titleElement, descriptionElement, linkElement,
-                       imageElement, imageLinkElement, categoryElement, otherElement };
-    static TagElement tagElement(const QStringRef &, TagElement prev);
-    void parseXml(QIODevice *);
-
-    const int m_maxItems;
-    int m_items;
-    int m_requestCount;
-
-    QNetworkAccessManager* m_networkAccessManager;
+    virtual QList<QmlJSQuickFixOperation::Ptr> match(
+        const QSharedPointer<const QmlJSQuickFixAssistInterface> &interface);
 };
 
 } // namespace Internal
+} // namespace QmlJSEditor
 
-#endif // RSSFETCHER_H
-
+#endif // QMLJSWRAPINLOADER_H

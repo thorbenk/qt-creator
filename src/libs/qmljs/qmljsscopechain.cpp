@@ -112,6 +112,8 @@ const Value * ScopeChain::lookup(const QString &name, const ObjectValue **foundI
 
     if (foundInScope)
         *foundInScope = 0;
+
+    // we're confident to implement global lookup correctly, so return 'undefined'
     return m_context->valueOwner()->undefinedValue();
 }
 
@@ -187,6 +189,12 @@ void ScopeChain::setJsScopes(const QList<const ObjectValue *> &jsScopes)
     m_jsScopes = jsScopes;
 }
 
+void ScopeChain::appendJsScope(const ObjectValue *scope)
+{
+    m_modified = true;
+    m_jsScopes += scope;
+}
+
 QList<const ObjectValue *> ScopeChain::all() const
 {
     if (m_modified)
@@ -210,6 +218,7 @@ static void collectScopes(const QmlComponentChain *chain, QList<const ObjectValu
 
 void ScopeChain::update() const
 {
+    m_modified = false;
     m_all.clear();
 
     m_all += m_globalScope;
@@ -281,6 +290,8 @@ void ScopeChain::initializeRootScope()
         if (bind->rootObjectValue())
             m_jsScopes += bind->rootObjectValue();
     }
+
+    m_modified = true;
 }
 
 void ScopeChain::makeComponentChain(

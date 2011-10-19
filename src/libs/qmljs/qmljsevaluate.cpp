@@ -62,15 +62,16 @@ const Value *Evaluate::value(AST::Node *ast)
 {
     const Value *result = reference(ast);
 
-    if (const Reference *ref = value_cast<const Reference *>(result)) {
+    if (const Reference *ref = value_cast<Reference>(result)) {
         if (_referenceContext)
             result = _referenceContext->lookupReference(ref);
         else
             result = _context->lookupReference(ref);
     }
 
+    // if evaluation fails, return an unknown value
     if (! result)
-        result = _valueOwner->undefinedValue();
+        result = _valueOwner->unknownValue();
 
     return result;
 }
@@ -176,7 +177,7 @@ bool Evaluate::visit(AST::UiQualifiedId *ast)
         _result = value;
 
     } else {
-        const ObjectValue *base = value_cast<const ObjectValue *>(value);
+        const ObjectValue *base = value_cast<ObjectValue>(value);
 
         for (AST::UiQualifiedId *it = ast->next; base && it; it = it->next) {
             const QString &name = it->name.toString();
@@ -187,7 +188,7 @@ bool Evaluate::visit(AST::UiQualifiedId *ast)
             if (! it->next)
                 _result = value;
             else
-                base = value_cast<const ObjectValue *>(value);
+                base = value_cast<ObjectValue>(value);
         }
     }
 
@@ -328,7 +329,7 @@ bool Evaluate::visit(AST::FieldMemberExpression *ast)
 
 bool Evaluate::visit(AST::NewMemberExpression *ast)
 {
-    if (const FunctionValue *ctor = value_cast<const FunctionValue *>(value(ast->base))) {
+    if (const FunctionValue *ctor = value_cast<FunctionValue>(value(ast->base))) {
         _result = ctor->construct();
     }
     return false;
@@ -336,7 +337,7 @@ bool Evaluate::visit(AST::NewMemberExpression *ast)
 
 bool Evaluate::visit(AST::NewExpression *ast)
 {
-    if (const FunctionValue *ctor = value_cast<const FunctionValue *>(value(ast->expression))) {
+    if (const FunctionValue *ctor = value_cast<FunctionValue>(value(ast->expression))) {
         _result = ctor->construct();
     }
     return false;

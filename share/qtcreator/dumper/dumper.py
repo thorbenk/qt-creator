@@ -147,6 +147,11 @@ def lookupType(typestring):
         type = gdb.lookup_type(ts)
     except RuntimeError, error:
         #warn("LOOKING UP '%s': %s" % (ts, error))
+        if type is None:
+            pos = typestring.find("<unnamed>")
+            if pos != -1:
+                # See http://sourceware.org/bugzilla/show_bug.cgi?id=13269
+                return lookupType(typestring.replace("<unnamed>", "(anonymous namespace)"))
         # See http://sourceware.org/bugzilla/show_bug.cgi?id=11912
         exp = "(class '%s'*)0" % ts
         try:
@@ -420,7 +425,11 @@ def check(exp):
         raise RuntimeError("Check failed")
 
 def checkRef(ref):
-    count = ref["_q_value"]
+    count = 0
+    if qtMajorVersion() >= 5:
+        count = ref["atomic"]["_q_value"]
+    else:
+        count = ref["_q_value"]
     check(count > 0)
     check(count < 1000000) # assume there aren't a million references to any object
 
@@ -578,8 +587,11 @@ def qtMajorVersion():
         return qqMajorVersion
     try:
         # -- Result is returned as character, need to subtract '0'
-        qqMajorVersion = int(parseAndEvaluate(qtNamespace() + "qVersion()[0]")) - 48
-        return qqMajorVersion
+        v = int(parseAndEvaluate("*(char*)qVersion()"))
+        if v >= 51:
+            qqMajorVersion = v - 48
+            return qqMajorVersion
+        return 0
     except:
         return 0
 

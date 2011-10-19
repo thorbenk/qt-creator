@@ -40,7 +40,7 @@
 #include <qmljs/qmljsevaluate.h>
 #include <qmljs/qmljscontext.h>
 #include <qmljs/qmljsbind.h>
-#include <qmljs/qmljscheck.h>
+#include <qmljs/qmljsutils.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/parser/qmljsastvisitor_p.h>
 #include <texteditor/syntaxhighlighter.h>
@@ -94,7 +94,7 @@ class CollectStateNames : protected Visitor
     QStringList m_stateNames;
     bool m_inStateType;
     ScopeChain m_scopeChain;
-    const QmlObjectValue *m_statePrototype;
+    const CppComponentValue *m_statePrototype;
 
 public:
     CollectStateNames(const ScopeChain &scopeChain)
@@ -138,7 +138,7 @@ protected:
         PrototypeIterator it(v, m_scopeChain.context());
         while (it.hasNext()) {
             const ObjectValue *proto = it.next();
-            const QmlObjectValue *qmlProto = dynamic_cast<const QmlObjectValue *>(proto);
+            const CppComponentValue *qmlProto = value_cast<CppComponentValue>(proto);
             if (!qmlProto)
                 continue;
             if (qmlProto->metaObject() == m_statePrototype->metaObject())
@@ -263,6 +263,12 @@ protected:
         if (!localId)
             return;
         addUse(fullLocationForQualifiedId(localId), SemanticHighlighter::BindingNameType);
+    }
+
+    bool visit(UiImport *ast)
+    {
+        processName(ast->importId, ast->importIdToken);
+        return true;
     }
 
     bool visit(UiObjectDefinition *ast)

@@ -115,7 +115,7 @@ QmlEnginePrivate::QmlEnginePrivate(QmlEngine *q)
 
 QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
         DebuggerEngine *masterEngine)
-  : DebuggerEngine(startParameters, masterEngine),
+  : DebuggerEngine(startParameters, QmlLanguage, masterEngine),
     d(new QmlEnginePrivate(this))
 {
     setObjectName(QLatin1String("QmlEngine"));
@@ -210,6 +210,14 @@ void QmlEngine::beginConnection()
 
 void QmlEngine::connectionStartupFailed()
 {
+    if (isSlaveEngine()) {
+        if (masterEngine()->state() != InferiorRunOk) {
+            // we're right now debugging C++, just try longer ...
+            beginConnection();
+            return;
+        }
+    }
+
     Core::ICore * const core = Core::ICore::instance();
     QMessageBox *infoBox = new QMessageBox(core->mainWindow());
     infoBox->setIcon(QMessageBox::Critical);
@@ -451,7 +459,6 @@ void QmlEngine::executeStep()
         logMessage(LogSend, "STEPINTO");
         d->m_adapter.activeDebuggerClient()->executeStep();
     }
-    resetLocation();
     notifyInferiorRunRequested();
     notifyInferiorRunOk();
 }
@@ -462,7 +469,6 @@ void QmlEngine::executeStepI()
         logMessage(LogSend, "STEPINTO");
         d->m_adapter.activeDebuggerClient()->executeStepI();
     }
-    resetLocation();
     notifyInferiorRunRequested();
     notifyInferiorRunOk();
 }
@@ -473,7 +479,6 @@ void QmlEngine::executeStepOut()
         logMessage(LogSend, "STEPOUT");
         d->m_adapter.activeDebuggerClient()->executeStepOut();
     }
-    resetLocation();
     notifyInferiorRunRequested();
     notifyInferiorRunOk();
 }
@@ -484,14 +489,13 @@ void QmlEngine::executeNext()
         logMessage(LogSend, "STEPOVER");
         d->m_adapter.activeDebuggerClient()->executeNext();
     }
-    resetLocation();
     notifyInferiorRunRequested();
     notifyInferiorRunOk();
 }
 
 void QmlEngine::executeNextI()
 {
-    SDEBUG("QmlEngine::executeNextI()");
+    executeNext();
 }
 
 void QmlEngine::executeRunToLine(const ContextData &data)
@@ -676,7 +680,7 @@ void QmlEngine::requestModuleSymbols(const QString &moduleName)
 bool QmlEngine::setToolTipExpression(const QPoint &mousePos,
     TextEditor::ITextEditor *editor, const DebuggerToolTipContext &ctx)
 {
-    // This is processed by QML inspector, which has dependencies to 
+    // This is processed by QML inspector, which has dependencies to
     // the qml js editor. Makes life easier.
     emit tooltipRequested(mousePos, editor, ctx.position);
     return true;
@@ -755,12 +759,10 @@ unsigned QmlEngine::debuggerCapabilities() const
 
 QString QmlEngine::toFileInProject(const QUrl &fileUrl)
 {
-    if (startParameters().startMode != AttachToQmlPort) {
-        if (d->fileFinder.projectDirectory().isEmpty()) {
-            d->fileFinder.setProjectDirectory(startParameters().projectSourceDirectory);
-            d->fileFinder.setProjectFiles(startParameters().projectSourceFiles);
-        }
-    }
+    // make sure file finder is properly initialized
+    d->fileFinder.setProjectDirectory(startParameters().projectSourceDirectory);
+    d->fileFinder.setProjectFiles(startParameters().projectSourceFiles);
+    d->fileFinder.setSysroot(startParameters().sysroot);
 
     return d->fileFinder.findFile(fileUrl);
 }
@@ -811,6 +813,11 @@ void QmlEngine::logMessage(LogDirection direction, const QString &message)
     }
     msg += message;
     showMessage(msg, LogDebug);
+}
+
+QmlAdapter *QmlEngine::adapter() const
+{
+    return &d->m_adapter;
 }
 
 QmlEngine *createQmlEngine(const DebuggerStartParameters &sp,

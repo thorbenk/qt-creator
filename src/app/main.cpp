@@ -71,7 +71,7 @@ static const char fixedOptionsC[] =
 "    -help                         Display this help\n"
 "    -version                      Display program version\n"
 "    -client                       Attempt to connect to already running instance\n"
-"    -settingspath <path>          Override the default path where user settings are stored.\n";
+"    -settingspath <path>          Override the default path where user settings are stored\n";
 
 static const char HELP_OPTION1[] = "-h";
 static const char HELP_OPTION2[] = "-help";
@@ -155,7 +155,7 @@ static inline int askMsgSendFailed()
                                  QMessageBox::Retry);
 }
 
-static inline QStringList getPluginPaths(QSettings *settings)
+static inline QStringList getPluginPaths()
 {
     QStringList rc;
     // Figure out root:  Up one from 'bin'
@@ -167,27 +167,27 @@ static inline QStringList getPluginPaths(QSettings *settings)
     QString pluginPath = rootDirPath;
     pluginPath += QLatin1Char('/');
     pluginPath += QLatin1String(IDE_LIBRARY_BASENAME);
-    pluginPath += QLatin1Char('/');
-    pluginPath += QLatin1String("qtcreator");
-    pluginPath += QLatin1Char('/');
-    pluginPath += QLatin1String("plugins");
+    pluginPath += QLatin1String("/qtcreator/plugins");
     rc.push_back(pluginPath);
 #else
     // 2) "PlugIns" (OS X)
     QString pluginPath = rootDirPath;
-    pluginPath += QLatin1Char('/');
-    pluginPath += QLatin1String("PlugIns");
+    pluginPath += QLatin1String("/PlugIns");
     rc.push_back(pluginPath);
 #endif
     // 3) <localappdata>/plugins/<ideversion>
     //    where <localappdata> is e.g.
-    //    <drive>:\Users\<username>\AppData\Local\Nokia\QtCreator on Windows Vista and later
-    //    $XDG_DATA_HOME or ~/.local/share/Nokia/QtCreator on Linux
-    //    ~/Library/Application Support/Nokia/QtCreator on Mac
+    //    <drive>:\Users\<username>\AppData\Local\Nokia\qtcreator on Windows Vista and later
+    //    $XDG_DATA_HOME or ~/.local/share/Nokia/qtcreator on Linux
+    //    ~/Library/Application Support/Nokia/Qt Creator on Mac
     pluginPath = QDesktopServices::storageLocation(QDesktopServices::DataLocation);
-    pluginPath += QLatin1Char('/');
-    pluginPath += QLatin1String("plugins");
-    pluginPath += QLatin1Char('/');
+    pluginPath += QLatin1String("/Nokia/");
+#if !defined(Q_OS_MAC)
+    pluginPath += QLatin1String("qtcreator");
+#else
+    pluginPath += QLatin1String("Qt Creator");
+#endif
+    pluginPath += QLatin1String("/plugins/");
     pluginPath += QLatin1String(Core::Constants::IDE_VERSION_LONG);
     rc.push_back(pluginPath);
     return rc;
@@ -289,7 +289,7 @@ int main(int argc, char **argv)
 #endif
 #endif
     // Load
-    const QStringList pluginPaths = getPluginPaths(settings);
+    const QStringList pluginPaths = getPluginPaths();
     pluginManager.setPluginPaths(pluginPaths);
 
     QMap<QString, QString> foundAppOptions;
