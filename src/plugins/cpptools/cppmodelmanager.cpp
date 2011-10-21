@@ -745,7 +745,7 @@ CppModelManager::CppModelManager(QObject *parent)
     connect(&m_clangIndexer, SIGNAL(indexingStarted(QFuture<void>)),
             this, SLOT(onIndexingStarted_Clang(QFuture<void>)));
     connect(&m_pchManager, SIGNAL(pchInfoUpdated()),
-            &m_clangIndexer, SLOT(regenerate()));
+            this, SLOT(updatedPchInfo()));
 }
 
 CppModelManager::~CppModelManager()
@@ -1011,8 +1011,18 @@ QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QStr
     return parts;
 }
 
+void CppModelManager::updatedPchInfo()
+{
+    // FIXME: merge with the method below
+    refreshSourceFiles_Clang(m_srcToProjectPart.keys());
+}
+
+// FIXME: merge with the method above and rename it.
 void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
 {
+    if (m_clangIndexer.isWorking())
+        m_clangIndexer.stopWorking(true);
+
     foreach (const QString &file, sourceFiles) {
         const QList<CppModelManagerInterface::ProjectPart::Ptr> &parts = projectPart(file);
         if (!parts.isEmpty())
