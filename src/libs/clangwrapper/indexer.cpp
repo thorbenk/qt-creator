@@ -134,10 +134,16 @@ public slots:
     void indexingFinished();
 
 public:
+    enum IndexingMode {
+        RelaxedIndexing,        // Index symbols from any file.
+        ConstrainedIndexing     // Index symbols only from the requested files.
+    };
+
     void run();
     void run(const QStringList &fileNames);
     QFuture<IndexingResult> runCore(const QHash<QString, FileData> &headers,
-                                    const QHash<QString, FileData> &impls);
+                                    const QHash<QString, FileData> &impls,
+                                    IndexingMode mode);
     void cancel(bool wait);
     void clear();
 
@@ -168,7 +174,9 @@ public:
     typedef QHash<QString, IndexerPrivate::FileData> FileCont;
     typedef QHash<QString, IndexerPrivate::FileData>::iterator FileContIt;
 
-    IndexerProcessor(const FileCont &headers, const FileCont &impls);
+    IndexerProcessor(const FileCont &headers,
+                     const FileCont &impls,
+                     IndexerPrivate::IndexingMode mode);
 
     static void inclusionVisit(CXFile file,
                                CXSourceLocation *,
@@ -216,6 +224,7 @@ public:
     FileCont m_allFiles;
     QHash<QString, FileContIt> m_knownHeaders;
     QSet<QString> m_newlySeenHeaders;
+    IndexerPrivate::IndexingMode m_mode;
 };
 
 } // Clang
@@ -298,8 +307,11 @@ void IndexerProcessor::ComputeIndexingInfo::operator()(int, Unit unit)
     m_interface->reportResult(IndexingResult(m_symbolsInfo, unit));
 }
 
-IndexerProcessor::IndexerProcessor(const FileCont &headers, const FileCont &impls)
+IndexerProcessor::IndexerProcessor(const FileCont &headers,
+                                   const FileCont &impls,
+                                   IndexerPrivate::IndexingMode mode)
     : m_allFiles(impls)
+    , m_mode(mode)
 {
     // Headers are processed later so we keep track of them separately.
     foreach (const IndexerPrivate::FileData &fileData, headers) {
@@ -374,8 +386,10 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
             const QString &fileName = symbolInfo.m_location.fileName();
             if (!fileName.trimmed().isEmpty()
                     && !visitorData->m_proc->m_newlySeenHeaders.contains(fileName)
-                    && (!visitorData->m_proc->m_allFiles.contains(fileName)
-                        || !visitorData->m_proc->m_allFiles.value(fileName).m_upToDate)) {
+                    && ((!visitorData->m_proc->m_allFiles.contains(fileName)
+                         && visitorData->m_proc->m_mode == IndexerPrivate::RelaxedIndexing)
+                        || (visitorData->m_proc->m_allFiles.contains(fileName)
+                            && !visitorData->m_proc->m_allFiles.value(fileName).m_upToDate))) {
                 symbolInfo.m_name = spelling;
                 symbolInfo.m_qualification = currentQualification;
                 //symbolInfo.m_icon
@@ -477,9 +491,10 @@ IndexerPrivate::IndexerPrivate(Indexer *indexer)
 }
 
 QFuture<IndexingResult> IndexerPrivate::runCore(const QHash<QString, FileData> &headers,
-                                                const QHash<QString, FileData> &impls)
+                                                const QHash<QString, FileData> &impls,
+                                                IndexingMode mode)
 {
-    IndexerProcessor *processor = new IndexerProcessor(headers, impls);
+    IndexerProcessor *processor = new IndexerProcessor(headers, impls, mode);
     QFuture<IndexingResult> future = QtConcurrent::run(&IndexerProcessor::process, processor);
     connect(&m_indexingWatcher, SIGNAL(finished()), processor, SLOT(deleteLater()));
     m_indexingWatcher.setFuture(future);
@@ -490,7 +505,9 @@ void IndexerPrivate::run()
 {
     if (!m_indexingWatcher.isRunning()) {
         QFuture<IndexingResult> future =
-                runCore(m_files.value(HeaderFile), m_files.value(ImplementationFile));
+                runCore(m_files.value(HeaderFile),
+                        m_files.value(ImplementationFile),
+                        RelaxedIndexing);
         emit m_q->indexingStarted(future);
     } else {
         m_hasQueuedFullRun = true;
@@ -514,7 +531,9 @@ void IndexerPrivate::run(const QStringList &fileNames)
 
             files[type].insert(fileName, *data);
         }
-        runCore(files.value(HeaderFile), files.value(ImplementationFile));
+        runCore(files.value(HeaderFile),
+                files.value(ImplementationFile),
+                ConstrainedIndexing);
     } else {
         m_queuedFilesRun.unite(fileNames.toSet());
     }
