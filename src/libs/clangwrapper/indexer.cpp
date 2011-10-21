@@ -596,6 +596,8 @@ bool IndexerPrivate::addFile(const QString &fileName, const QStringList &compila
     FileType fileType = identifyFileType(fileName);
     if (m_files.at(fileType).contains(fileName)) {
         m_files[fileType][fileName].m_upToDate = false;
+        m_files[fileType][fileName].m_compilationOptions = compilationOptions;
+        m_files[fileType][fileName].m_pchInfo = pchInfo;
         m_database.remove(FileNameKey(), fileName);
     } else {
         m_files[fileType].insert(fileName, FileData(fileName, compilationOptions, pchInfo));
