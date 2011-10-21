@@ -305,12 +305,14 @@ using namespace Clang;
 
 CodeCompletionResult::CodeCompletionResult()
     : m_priority(0)
-    , m_completionType(Other)
+    , m_completionKind(Other)
+    , m_hasParameters(false)
 {}
 
 CodeCompletionResult::CodeCompletionResult(unsigned priority)
     : m_priority(priority)
-    , m_completionType(Other)
+    , m_completionKind(Other)
+    , m_hasParameters(false)
 {
 }
 
@@ -587,6 +589,7 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
                      << "(" << priority << ")";
 #endif
 
+            bool previousChunkWasLParen = false;
             unsigned chunckCount = clang_getNumCompletionChunks(complStr);
             for (unsigned j = 0; j < chunckCount; ++j) {
                 CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(complStr, j);
@@ -595,6 +598,16 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
 
                 if (chunkKind == CXCompletionChunk_TypedText)
                     ccr.setText(chunkText);
+
+                if (chunkKind == CXCompletionChunk_RightParen && previousChunkWasLParen)
+                    ccr.setHasParameters(false);
+
+                if (chunkKind == CXCompletionChunk_LeftParen) {
+                    previousChunkWasLParen = true;
+                    ccr.setHasParameters(true);
+                } else {
+                    previousChunkWasLParen = false;
+                }
 
                 if (!chunkText.isEmpty()) {
                     if (ccr.hint().size() > 0 && ccr.hint().at(ccr.hint().size() - 1).isLetterOrNumber())
@@ -610,26 +623,32 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
             }
 
             switch (results->Results[i].CursorKind) {
-            case CXCursor_FunctionDecl:
-            case CXCursor_CXXMethod:
             case CXCursor_Constructor:
+                ccr.setCompletionKind(CodeCompletionResult::ConstructorCompletionKind);
+                break;
+
             case CXCursor_Destructor:
+                ccr.setCompletionKind(CodeCompletionResult::DestructorCompletionKind);
+                break;
+
+            case CXCursor_CXXMethod:
             case CXCursor_ConversionFunction:
+            case CXCursor_FunctionDecl:
+            case CXCursor_FunctionTemplate:
             case CXCursor_MemberRef:
             case CXCursor_MemberRefExpr:
-                ccr.setCompletionType(CodeCompletionResult::FunctionCompletionType);
+                ccr.setCompletionKind(CodeCompletionResult::FunctionCompletionKind);
                 break;
 
             case CXCursor_FieldDecl:
-            case CXCursor_FunctionTemplate:
             case CXCursor_VarDecl:
-                ccr.setCompletionType(CodeCompletionResult::VariableCompletionType);
+                ccr.setCompletionKind(CodeCompletionResult::VariableCompletionKind);
                 break;
 
             case CXCursor_Namespace:
             case CXCursor_NamespaceAlias:
             case CXCursor_NamespaceRef:
-                ccr.setCompletionType(CodeCompletionResult::NamespaceCompletionType);
+                ccr.setCompletionKind(CodeCompletionResult::NamespaceCompletionKind);
                 break;
 
             case CXCursor_StructDecl:
@@ -641,22 +660,22 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
             case CXCursor_ClassTemplate:
             case CXCursor_ClassTemplatePartialSpecialization:
             // TODO: objc cursors
-                ccr.setCompletionType(CodeCompletionResult::ClassCompletionType);
+                ccr.setCompletionKind(CodeCompletionResult::ClassCompletionKind);
                 break;
 
             case CXCursor_EnumConstantDecl:
-                ccr.setCompletionType(CodeCompletionResult::EnumeratorCompletionType);
+                ccr.setCompletionKind(CodeCompletionResult::EnumeratorCompletionKind);
                 break;
 
             case CXCursor_EnumDecl:
-                ccr.setCompletionType(CodeCompletionResult::EnumCompletionType);
+                ccr.setCompletionKind(CodeCompletionResult::EnumCompletionKind);
                 break;
 
             case CXCursor_PreprocessingDirective:
             case CXCursor_MacroDefinition:
             case CXCursor_MacroExpansion:
             case CXCursor_InclusionDirective:
-                ccr.setCompletionType(CodeCompletionResult::PreProcessorCompletionType);
+                ccr.setCompletionKind(CodeCompletionResult::PreProcessorCompletionKind);
                 break;
 
             default:

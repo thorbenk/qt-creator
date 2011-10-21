@@ -53,15 +53,17 @@ class SourceMarker;
 class QTCREATOR_CLANGWRAPPER_EXPORT CodeCompletionResult
 {
 public:
-    enum Type {
+    enum Kind {
         Other = 0,
-        FunctionCompletionType,
-        VariableCompletionType,
-        ClassCompletionType,
-        EnumCompletionType,
-        EnumeratorCompletionType,
-        NamespaceCompletionType,
-        PreProcessorCompletionType
+        FunctionCompletionKind,
+        ConstructorCompletionKind,
+        DestructorCompletionKind,
+        VariableCompletionKind,
+        ClassCompletionKind,
+        EnumCompletionKind,
+        EnumeratorCompletionKind,
+        NamespaceCompletionKind,
+        PreProcessorCompletionKind
     };
 
 public:
@@ -84,10 +86,10 @@ public:
     void setHint(const QString &hint)
     { m_hint = hint; }
 
-    Type completionType() const
-    { return m_completionType; }
-    void setCompletionType(Type type)
-    { m_completionType = type; }
+    Kind completionKind() const
+    { return m_completionKind; }
+    void setCompletionKind(Kind type)
+    { m_completionKind = type; }
 
     int compare(const CodeCompletionResult &other) const
     {
@@ -96,9 +98,9 @@ public:
         else if (m_priority > other.m_priority)
             return 1;
 
-        if (m_completionType < other.m_completionType)
+        if (m_completionKind < other.m_completionKind)
             return -1;
-        else if (m_completionType > other.m_completionType)
+        else if (m_completionKind > other.m_completionKind)
             return 1;
 
         if (m_text < other.m_text)
@@ -111,18 +113,30 @@ public:
         else if (m_hint > other.m_hint)
             return 1;
 
+        if (!m_hasParameters && other.m_hasParameters)
+            return -1;
+        else if (m_hasParameters && !other.m_hasParameters)
+            return 1;
+
         return 0;
     }
 
+    bool hasParameters() const
+    { return m_hasParameters; }
+    void setHasParameters(bool hasParameters)
+    { m_hasParameters = hasParameters; }
+
 private:
     unsigned m_priority;
-    Type m_completionType;
+    Kind m_completionKind;
     QString m_text;
     QString m_hint;
+
+    bool m_hasParameters;
 };
 
 inline QTCREATOR_CLANGWRAPPER_EXPORT uint qHash(const CodeCompletionResult &ccr)
-{ return ccr.completionType() ^ qHash(ccr.text()); }
+{ return ccr.completionKind() ^ qHash(ccr.text()); }
 
 inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator==(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
 { return ccr1.compare(ccr2) == 0; }
