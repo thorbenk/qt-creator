@@ -306,12 +306,14 @@ using namespace Clang;
 CodeCompletionResult::CodeCompletionResult()
     : m_priority(0)
     , m_completionKind(Other)
+    , m_availability(Available)
     , m_hasParameters(false)
 {}
 
 CodeCompletionResult::CodeCompletionResult(unsigned priority)
     : m_priority(priority)
     , m_completionKind(Other)
+    , m_availability(Available)
     , m_hasParameters(false)
 {
 }
@@ -680,6 +682,23 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
 
             default:
 //                qDebug() << "cursor kind:" << results->Results[i].CursorKind << "for" << ccr.text();
+                break;
+            }
+
+            switch (clang_getCompletionAvailability(complStr)) {
+            case CXAvailability_Deprecated:
+                ccr.setAvailability(CodeCompletionResult::Deprecated);
+                break;
+
+            case CXAvailability_NotAvailable:
+                ccr.setAvailability(CodeCompletionResult::NotAvailable);
+                break;
+
+            case CXAvailability_NotAccessible:
+                ccr.setAvailability(CodeCompletionResult::NotAccessible);
+                break;
+
+            default:
                 break;
             }
 

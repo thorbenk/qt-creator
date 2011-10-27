@@ -66,6 +66,13 @@ public:
         PreProcessorCompletionKind
     };
 
+    enum Availability {
+        Available,
+        Deprecated,
+        NotAvailable,
+        NotAccessible
+    };
+
 public:
     CodeCompletionResult();
     CodeCompletionResult(unsigned priority);
@@ -118,6 +125,11 @@ public:
         else if (m_hasParameters && !other.m_hasParameters)
             return 1;
 
+        if (m_availability < other.m_availability)
+            return -1;
+        else if (m_availability > other.m_availability)
+            return 1;
+
         return 0;
     }
 
@@ -126,12 +138,17 @@ public:
     void setHasParameters(bool hasParameters)
     { m_hasParameters = hasParameters; }
 
+    Availability availability() const
+    { return m_availability; }
+    void setAvailability(Availability availability)
+    { m_availability = availability; }
+
 private:
     unsigned m_priority;
     Kind m_completionKind;
     QString m_text;
     QString m_hint;
-
+    Availability m_availability;
     bool m_hasParameters;
 };
 

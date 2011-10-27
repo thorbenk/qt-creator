@@ -22,6 +22,7 @@
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/completionsettings.h>
 
+#include <QCoreApplication>
 #include <QTextCursor>
 #include <QTextDocument>
 
@@ -876,6 +877,21 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
             item->setText(txt);
             item->setOrder(ccr.priority());
             item->setData(qVariantFromValue(ccr));
+
+            switch (ccr.availability()) {
+            case CodeCompletionResult::Deprecated:
+                item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Deprecated"));
+                break;
+            case CodeCompletionResult::NotAccessible:
+                item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Not accessible"));
+                break;
+            case CodeCompletionResult::NotAvailable:
+                item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Not available"));
+                break;
+
+            default:
+                break;
+            }
         }
 
         switch (ccr.completionKind()) {
