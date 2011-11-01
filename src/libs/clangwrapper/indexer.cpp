@@ -379,7 +379,7 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
                 && !spelling.trimmed().isEmpty()) {
             isDefinition = true;
             IndexedSymbolInfo symbolInfo;
-            symbolInfo.m_location = getInstantiationLocation(clang_getCursorLocation(cursor));
+            symbolInfo.m_location = getSpellingLocation(clang_getCursorLocation(cursor));
 
             // We don't track symbols found in a previous pass through the same header.
             // More details in the inclusion visit.
