@@ -218,7 +218,7 @@ CXCursor CodeNavigator::getCursor(unsigned line, unsigned column) const
 {
     m_setup->checkForNewerUnit();
 
-    if (!m_setup->unit().isValid())
+    if (!m_setup->unit().isLoaded())
         return clang_getNullCursor();
 
     const CXFile &file = m_setup->unit().getFile();

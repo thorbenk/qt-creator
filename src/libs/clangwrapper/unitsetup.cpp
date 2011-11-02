@@ -51,19 +51,26 @@ UnitSetup::UnitSetup(const QString &fileName, Indexer *indexer)
     connect(LiveUnitsManager::instance(), SIGNAL(unitAvailable(Unit)),
             this, SLOT(assignUnit(Unit)));
 
-    if (!m_unit.isValid()) {
+    if (!m_unit.isLoaded()) {
         if (!LiveUnitsManager::instance()->isTracking(fileName)) {
             // Start tracking this file so the indexer is aware of it and will consequently
             // update the corresponding unit in the manager.
-            LiveUnitsManager::instance()->startTracking(fileName);
+            LiveUnitsManager::instance()->requestTracking(fileName);
         }
         indexer->evaluateFile(fileName);
     }
 }
 
+UnitSetup::~UnitSetup()
+{
+    m_unit = Unit(); // We want to "release" this unit share so the manager might remove it
+        // in the case no one else is tracking it.
+    LiveUnitsManager::instance()->cancelTrackingRequest(m_fileName);
+}
+
 void UnitSetup::assignUnit(const Unit &unit)
 {
-    if (m_fileName == unit.fileName() && unit.isValid())
+    if (m_fileName == unit.fileName() && unit.isLoaded())
         m_unit = unit;
 }
 

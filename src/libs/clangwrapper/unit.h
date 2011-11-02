@@ -79,8 +79,7 @@ public:
     Unit &operator=(const Unit &unit);
     ~Unit();
 
-    bool isValid() const;
-    void invalidate();
+    bool isLoaded() const;
 
     const QString fileName() const;
 
@@ -95,6 +94,13 @@ public:
 
     unsigned managementOptions() const;
     void setManagementOptions(unsigned managementOptions);
+
+    // Sharing control facilities
+    //   Method isUnique is just like an "isDetached", however makeUnique is mostly some kind
+    //   of "detach" but which actually moves the data to this particular instance, invalidating
+    //   then all the other shares.
+    bool isUnique() const;
+    void makeUnique();
 
     // Methods for generating the TU. Name mappings are direct, for example:
     //   - parse corresponds to clang_parseTranslationUnit

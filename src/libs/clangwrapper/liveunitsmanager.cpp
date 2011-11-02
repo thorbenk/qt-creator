@@ -44,7 +44,7 @@ LiveUnitsManager *LiveUnitsManager::instance()
     return &manager;
 }
 
-void LiveUnitsManager::startTracking(const QString &fileName)
+void LiveUnitsManager::requestTracking(const QString &fileName)
 {
     if (!isTracking(fileName))
         m_units.insert(fileName, Unit(fileName));
@@ -55,9 +55,14 @@ bool LiveUnitsManager::isTracking(const QString &fileName) const
     return m_units.contains(fileName);
 }
 
-void LiveUnitsManager::stopTracking(const QString &fileName)
+void LiveUnitsManager::cancelTrackingRequest(const QString &fileName)
 {
-    m_units.remove(fileName);
+    if (!isTracking(fileName))
+        return;
+
+    // If no one else is tracking this particular unit, we remove it.
+    if (m_units[fileName].isUnique())
+        m_units.remove(fileName);
 }
 
 void LiveUnitsManager::updateUnit(const QString &fileName, const Unit &unit)

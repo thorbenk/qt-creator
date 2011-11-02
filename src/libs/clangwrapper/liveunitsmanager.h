@@ -51,9 +51,9 @@ private:
 public:
     static LiveUnitsManager *instance();
 
-    void startTracking(const QString &fileName);
+    void requestTracking(const QString &fileName);
     bool isTracking(const QString &fileName) const;
-    void stopTracking(const QString &fileName);
+    void cancelTrackingRequest(const QString &fileName);
 
     void updateUnit(const QString &fileName, const Unit &unit);
     Unit unit(const QString &fileName);

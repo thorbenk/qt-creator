@@ -38,6 +38,8 @@
 #include <QtCore/QVector>
 #include <QtCore/QSharedData>
 
+#include <algorithm>
+
 #ifdef DEBUG_UNIT_COUNT
 #  include <QAtomicInt>
 #  include <QDebug>
@@ -53,6 +55,8 @@ public:
     UnitData();
     UnitData(const QString &fileName);
     ~UnitData();
+
+    void swap(UnitData *unitData);
 
     void unload();
     bool isLoaded() const;
@@ -92,6 +96,17 @@ UnitData::~UnitData()
     unload();
     clang_disposeIndex(m_index);
     m_index = 0;
+}
+
+void UnitData::swap(UnitData *other)
+{
+    std::swap(m_index, other->m_index);
+    std::swap(m_tu, other->m_tu);
+    std::swap(m_fileName, other->m_fileName);
+    std::swap(m_compOptions, other->m_compOptions);
+    std::swap(m_pchInfo, other->m_pchInfo);
+    std::swap(m_managOptions, other->m_managOptions);
+    std::swap(m_unsaved, other->m_unsaved);
 }
 
 void UnitData::unload()
@@ -137,14 +152,9 @@ const QString Unit::fileName() const
     return m_data->m_fileName;
 }
 
-bool Unit::isValid() const
+bool Unit::isLoaded() const
 {
     return m_data->isLoaded();
-}
-
-void Unit::invalidate()
-{
-    m_data->unload();
 }
 
 QStringList Unit::compilationOptions() const
@@ -190,6 +200,18 @@ unsigned Unit::managementOptions() const
 void Unit::setManagementOptions(unsigned managementOptions)
 {
     m_data->m_managOptions = managementOptions;
+}
+
+bool Unit::isUnique() const
+{
+    return m_data->ref == 1;
+}
+
+void Unit::makeUnique()
+{
+    UnitData *uniqueData = new UnitData;
+    m_data->swap(uniqueData); // Notice we swap the data itself and not the shared pointer.
+    m_data = QExplicitlySharedDataPointer<UnitData>(uniqueData);
 }
 
 void Unit::parse()

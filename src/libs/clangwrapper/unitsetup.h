@@ -55,6 +55,7 @@ class UnitSetup : public QObject
 public:
     UnitSetup();
     UnitSetup(const QString &fileName, Indexer *indexer);
+    ~UnitSetup();
 
     const QString &fileName() const { return m_fileName; }
     Unit unit() const { return m_unit; }

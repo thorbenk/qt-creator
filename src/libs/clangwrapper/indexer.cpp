@@ -265,11 +265,11 @@ Unit IndexerProcessor::ComputeTranslationUnit::operator()(FileContIt it)
 
 void IndexerProcessor::ComputeIndexingInfo::operator()(int, Unit unit)
 {
-    if (!unit.isValid())
+    if (!unit.isLoaded())
         return;
 
     if (m_interface->isCanceled()) {
-        unit.invalidate();
+        unit.makeUnique();
         return;
     }
 
@@ -557,6 +557,8 @@ void IndexerPrivate::clear()
 void IndexerPrivate::synchronize(int resultIndex)
 {
     IndexingResult result = m_indexingWatcher.resultAt(resultIndex);
+    result.m_unit.makeUnique();
+
     foreach (const IndexedSymbolInfo &info, result.m_symbolsInfo) {
         const QString &fileName = info.m_location.fileName();
         FileType fileType = identifyFileType(fileName);
@@ -573,11 +575,9 @@ void IndexerPrivate::synchronize(int resultIndex)
         m_database.insert(info);
     }
 
-    // If this unit is being kept alive, update the manager. Otherwise invalidate it.
+    // If this unit is being kept alive, update in the manager.
     if (LiveUnitsManager::instance()->isTracking(result.m_unit.fileName()))
         LiveUnitsManager::instance()->updateUnit(result.m_unit.fileName(), result.m_unit);
-    else
-        result.m_unit.invalidate();
 
     m_processedResults.insert(resultIndex);
 }
