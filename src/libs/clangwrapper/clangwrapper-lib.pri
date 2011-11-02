@@ -4,7 +4,7 @@ LIBS += $$LLVM_LIBS
 INCLUDEPATH += $$LLVM_INCLUDEPATH
 DEFINES += $$LLVM_DEFINES
 
-macx:QMAKE_POST_LINK=install_name_tool -change @rpath/lib$${CLANG_LIB}.dylib \'$$LLVM_LIBDIR/lib$${CLANG_LIB}.dylib\' -change @executable_path/../lib/lib$${CLANG_LIB}.3.0.dylib \'$$LLVM_LIBDIR/lib$${CLANG_LIB}.dylib\' \'$$IDE_LIBRARY_PATH/libClangWrapper_debug.dylib\'
+macx: QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
 
 
 dll {
