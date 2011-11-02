@@ -46,7 +46,8 @@ LiveUnitsManager *LiveUnitsManager::instance()
 
 void LiveUnitsManager::startTracking(const QString &fileName)
 {
-    m_units.insert(fileName, Unit(fileName));
+    if (!isTracking(fileName))
+        m_units.insert(fileName, Unit(fileName));
 }
 
 bool LiveUnitsManager::isTracking(const QString &fileName) const
