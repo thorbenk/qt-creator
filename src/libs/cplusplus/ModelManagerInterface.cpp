@@ -72,9 +72,10 @@ QStringList CppModelManagerInterface::ProjectPart::createClangOptions(bool useCp
     else
         result << QLatin1String("-xc++");
 
-#ifdef Q_OS_WIN
+#ifdef _MSC_VER
     result << QLatin1String("-fms-extensions")
-           << QLatin1String("-fdelayed-template-parsing");
+           << QLatin1String("-fdelayed-template-parsing")
+           << QLatin1String("-nobuiltininc");
 #endif
 
     foreach (const QString &pch, precompiledHeaders) {
