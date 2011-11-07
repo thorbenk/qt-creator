@@ -113,20 +113,20 @@ public:
         FileData(const QString &fileName,
                  const QStringList &compilationOptions,
                  const PCHInfoPtr pchInfo,
-                 unsigned managementOptions = CXTranslationUnit_DetailedPreprocessingRecord,
                  bool upToDate = false)
             : m_fileName(fileName)
             , m_compilationOptions(compilationOptions)
             , m_pchInfo(pchInfo)
-            , m_managementOptions(managementOptions)
             , m_upToDate(upToDate)
+            , m_managementOptions(CXTranslationUnit_DetailedPreprocessingRecord
+                                  || CXTranslationUnit_Incomplete)
         {}
 
         QString m_fileName;
         QStringList m_compilationOptions;
         PCHInfoPtr m_pchInfo;
-        unsigned m_managementOptions;
         bool m_upToDate;
+        unsigned m_managementOptions;
     };
 
 public slots:
