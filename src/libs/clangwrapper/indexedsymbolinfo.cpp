@@ -35,17 +35,17 @@
 using namespace Clang;
 
 IndexedSymbolInfo::IndexedSymbolInfo()
-    : m_type(Unknown)
+    : m_kind(Unknown)
 {}
 
 IndexedSymbolInfo::IndexedSymbolInfo(const QString &name,
                                      const QString &qualification,
-                                     SymbolType type,
+                                     Kind type,
                                      const SourceLocation &location,
                                      const QIcon &icon)
     : m_name(name)
     , m_qualification(qualification)
     , m_location(location)
     , m_icon(icon)
-    , m_type(type)
+    , m_kind(type)
 {}

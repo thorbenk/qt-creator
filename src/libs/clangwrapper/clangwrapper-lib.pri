@@ -29,7 +29,8 @@ SOURCES += \
     $$PWD/liveunitsmanager.cpp \
     $$PWD/codenavigator.cpp \
     $$PWD/pchinfo.cpp \
-    $$PWD/unitsetup.cpp
+    $$PWD/unitsetup.cpp \
+    $$PWD/index.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -42,7 +43,6 @@ HEADERS += \
     $$PWD/reuse.h \
     $$PWD/indexer.h \
     $$PWD/indexedsymbolinfo.h \
-    $$PWD/database.h \
     $$PWD/cxraii.h \
     $$PWD/sourcelocation.h \
     $$PWD/unit.h \
@@ -50,4 +50,5 @@ HEADERS += \
     $$PWD/liveunitsmanager.h \
     $$PWD/codenavigator.h \
     $$PWD/pchinfo.h \
-    $$PWD/unitsetup.h
+    $$PWD/unitsetup.h \
+    $$PWD/index.h

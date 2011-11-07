@@ -42,9 +42,10 @@ namespace Clang {
 
 // @TODO: This is pretty similar to CppTools::Internal::ModelItemInfo. Merge/replace these types...
 
-struct IndexedSymbolInfo
+class IndexedSymbolInfo
 {
-    enum SymbolType {
+public:
+    enum Kind {
         Enum,
         Class,
         Method,       // A member-function.
@@ -58,7 +59,7 @@ struct IndexedSymbolInfo
     IndexedSymbolInfo();
     IndexedSymbolInfo(const QString &name,
                       const QString &qualification,
-                      SymbolType type,
+                      Kind type,
                       const SourceLocation &location,
                       const QIcon &icon);
 
@@ -66,7 +67,7 @@ struct IndexedSymbolInfo
     QString m_qualification;
     SourceLocation m_location;
     QIcon m_icon;
-    SymbolType m_type;
+    Kind m_kind;
 };
 
 } // Clang

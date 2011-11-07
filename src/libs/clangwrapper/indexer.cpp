@@ -31,8 +31,8 @@
 **************************************************************************/
 
 #include "indexer.h"
+#include "index.h"
 #include "reuse.h"
-#include "database.h"
 #include "cxraii.h"
 #include "sourcelocation.h"
 #include "liveunitsmanager.h"
@@ -67,19 +67,6 @@ using namespace Clang;
 using namespace Internal;
 
 namespace Clang {
-
-// Create tags and speclizations in order to make IndexedSymbolInfo satisfy
-// the requirements of the database.
-struct FileNameKey { typedef QString ValueType; };
-template <>
-inline QString getKey<FileNameKey>(const IndexedSymbolInfo &info)
-{ return info.m_location.fileName(); }
-
-struct SymbolTypeKey { typedef IndexedSymbolInfo::SymbolType ValueType; };
-template <>
-inline IndexedSymbolInfo::SymbolType getKey<SymbolTypeKey>(const IndexedSymbolInfo &info)
-{ return info.m_type; }
-
 
 // The indexing result, containing the symbols found, reported by the indexer processor.
 struct IndexingResult
@@ -156,7 +143,7 @@ public:
 
     Indexer *m_q;
     QVector<QHash<QString, FileData> > m_files;
-    Database<IndexedSymbolInfo, FileNameKey, SymbolTypeKey> m_database;
+    Index m_index;
     QFutureWatcher<IndexingResult> m_indexingWatcher;
     QSet<int> m_processedResults;
     bool m_hasQueuedFullRun;
@@ -398,11 +385,11 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
                         || cursorKind == CXCursor_UnionDecl
                         || cursorKind == CXCursor_ClassTemplate
                         || cursorKind == CXCursor_ClassTemplatePartialSpecialization) {
-                    symbolInfo.m_type = IndexedSymbolInfo::Class;
+                    symbolInfo.m_kind = IndexedSymbolInfo::Class;
                 } else if (cursorKind == CXCursor_FunctionDecl) {
-                    symbolInfo.m_type = IndexedSymbolInfo::Function;
+                    symbolInfo.m_kind = IndexedSymbolInfo::Function;
                 } else if (cursorKind == CXCursor_CXXMethod) {
-                    symbolInfo.m_type = IndexedSymbolInfo::Method;
+                    symbolInfo.m_kind = IndexedSymbolInfo::Method;
                 } else if (cursorKind == CXCursor_FunctionTemplate) {
                     CXCursor semaParent = clang_getCursorSemanticParent(cursor);
                     CXCursorKind semaParentKind = clang_getCursorKind(semaParent);
@@ -410,14 +397,14 @@ CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
                             || semaParentKind == CXCursor_StructDecl
                             || semaParentKind == CXCursor_ClassTemplate
                             || semaParentKind == CXCursor_ClassTemplatePartialSpecialization) {
-                        symbolInfo.m_type = IndexedSymbolInfo::Method;
+                        symbolInfo.m_kind = IndexedSymbolInfo::Method;
                     } else {
-                        symbolInfo.m_type = IndexedSymbolInfo::Function;
+                        symbolInfo.m_kind = IndexedSymbolInfo::Function;
                     }
                 } else if (cursorKind == CXCursor_Constructor) {
-                    symbolInfo.m_type = IndexedSymbolInfo::Constructor;
+                    symbolInfo.m_kind = IndexedSymbolInfo::Constructor;
                 } else if (cursorKind == CXCursor_Destructor) {
-                    symbolInfo.m_type = IndexedSymbolInfo::Destructor;
+                    symbolInfo.m_kind = IndexedSymbolInfo::Destructor;
                 }
                 visitorData->m_symbolsInfo.append(symbolInfo);
             }
@@ -524,7 +511,7 @@ void IndexerPrivate::run(const QStringList &fileNames)
                 // @TODO
                 continue;
             }
-            m_database.remove(FileNameKey(), fileName);
+            m_index.clear(fileName);
             FileType type = identifyFileType(fileName);
             FileData *data = &m_files[type][fileName];
             data->m_upToDate = false;
@@ -551,7 +538,7 @@ void IndexerPrivate::clear()
     cancel(true);
     for (int i = 0; i < TotalFileTypes; ++i)
         m_files[i].clear();
-    m_database.clear();
+    m_index.clear();
 }
 
 void IndexerPrivate::synchronize(int resultIndex)
@@ -572,7 +559,7 @@ void IndexerPrivate::synchronize(int resultIndex)
         }
 
         // Make the symbol info available in the database.
-        m_database.insert(info);
+        m_index.insert(info);
     }
 
     // If this unit is being kept alive, update in the manager.
@@ -617,7 +604,7 @@ bool IndexerPrivate::addFile(const QString &fileName, const QStringList &compila
         m_files[fileType][fileName].m_upToDate = false;
         m_files[fileType][fileName].m_compilationOptions = compilationOptions;
         m_files[fileType][fileName].m_pchInfo = pchInfo;
-        m_database.remove(FileNameKey(), fileName);
+        m_index.clear(fileName);
     } else {
         m_files[fileType].insert(fileName, FileData(fileName, compilationOptions, pchInfo));
     }
@@ -717,62 +704,57 @@ QStringList Indexer::compilationOptions(const QString &fileName) const
 
 QList<IndexedSymbolInfo> Indexer::allFunctions() const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Function);
+    return m_d->m_index.values(IndexedSymbolInfo::Function);
 }
 
 QList<IndexedSymbolInfo> Indexer::allClasses() const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class);
+    return m_d->m_index.values(IndexedSymbolInfo::Class);
 }
 
 QList<IndexedSymbolInfo> Indexer::allMethods() const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method);
+    return m_d->m_index.values(IndexedSymbolInfo::Method);
 }
 
 QList<IndexedSymbolInfo> Indexer::allConstructors() const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Constructor);
+    return m_d->m_index.values(IndexedSymbolInfo::Constructor);
 }
 
 QList<IndexedSymbolInfo> Indexer::allDestructors() const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Destructor);
+    return m_d->m_index.values(IndexedSymbolInfo::Destructor);
 }
 
 QList<IndexedSymbolInfo> Indexer::functionsFromFile(const QString &fileName) const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Function,
-                                  FileNameKey(), fileName);
+    return m_d->m_index.values(fileName, IndexedSymbolInfo::Function);
 }
 
 QList<IndexedSymbolInfo> Indexer::classesFromFile(const QString &fileName) const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Class,
-                                  FileNameKey(), fileName);
+    return m_d->m_index.values(fileName, IndexedSymbolInfo::Class);
 }
 
 QList<IndexedSymbolInfo> Indexer::methodsFromFile(const QString &fileName) const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Method,
-                                  FileNameKey(), fileName);
+    return m_d->m_index.values(fileName, IndexedSymbolInfo::Method);
 }
 
 QList<IndexedSymbolInfo> Indexer::constructorsFromFile(const QString &fileName) const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Constructor,
-                                  FileNameKey(), fileName);
+    return m_d->m_index.values(fileName, IndexedSymbolInfo::Constructor);
 }
 
 QList<IndexedSymbolInfo> Indexer::destructorsFromFile(const QString &fileName) const
 {
-    return m_d->m_database.values(SymbolTypeKey(), IndexedSymbolInfo::Destructor,
-                                  FileNameKey(), fileName);
+    return m_d->m_index.values(fileName, IndexedSymbolInfo::Destructor);
 }
 
 QList<IndexedSymbolInfo> Indexer::allFromFile(const QString &fileName) const
 {
-    return m_d->m_database.values(FileNameKey(), fileName);
+    return m_d->m_index.values(fileName);
 }
 
 #include "indexer.moc"

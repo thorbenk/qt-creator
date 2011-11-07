@@ -122,7 +122,7 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
             // the same thing.
             ModelItemInfo info(symbolInfo.m_name,
                                symbolInfo.m_qualification,
-                               ModelItemInfo::ItemType((int)symbolInfo.m_type),
+                               ModelItemInfo::ItemType((int)symbolInfo.m_kind),
                                QStringList(QLatin1String("qual. name")),
                                symbolInfo.m_location.fileName(),
                                symbolInfo.m_location.line(),

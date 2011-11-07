@@ -30,29 +30,41 @@
 **
 **************************************************************************/
 
+#ifndef INDEX_H
+#define INDEX_H
+
 #include "indexedsymbolinfo.h"
 
-using namespace Clang;
+#include <QtCore/QString>
+#include <QtCore/QList>
+#include <QtCore/QScopedPointer>
 
-IndexedSymbolInfo::IndexedSymbolInfo()
-    : m_type(Unknown)
-    , m_line(0)
-    , m_column(0)
-    , m_offset(0)
-{}
+namespace Clang {
 
-IndexedSymbolInfo::IndexedSymbolInfo(const QString &name,
-                                     const QString &qualification,
-                                     SymbolType type,
-                                     const QString &fileName,
-                                     unsigned line,
-                                     unsigned column,
-                                     const QIcon &icon)
-    : m_name(name)
-    , m_qualification(qualification)
-    , m_fileName(fileName)
-    , m_icon(icon)
-    , m_type(type)
-    , m_line(line)
-    , m_column(column)
-{}
+class IndexedSymbolInfo;
+
+namespace Internal {
+
+class IndexPrivate;
+
+class Index
+{
+public:
+    Index();
+    ~Index();
+
+    void insert(const IndexedSymbolInfo &info);
+    QList<IndexedSymbolInfo> values(const QString &fileName);
+    QList<IndexedSymbolInfo> values(const QString &fileName, IndexedSymbolInfo::Kind kind);
+    QList<IndexedSymbolInfo> values(IndexedSymbolInfo::Kind kind);
+    void clear(const QString &fileName);
+    void clear();
+
+private:
+    QScopedPointer<IndexPrivate> d;
+};
+
+} // Internal
+} // Clang
+
+#endif // INDEX_H
