@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -61,7 +61,6 @@
 // enabled. You need some eigen headers installed.
 // Default: 0
 #define USE_EIGEN 0
-
 
 ////////////// No further global configuration below ////////////////
 
@@ -131,6 +130,7 @@ void dummyStatement(...) {}
 #include <deque>
 #include <iostream>
 #include <iterator>
+#include <fstream>
 #include <map>
 #include <list>
 #include <set>
@@ -174,7 +174,7 @@ void dummyStatement(...) {}
 #endif
 
 #if USE_AUTOBREAK
-#   if Q_CC_MSVC
+#   ifdef Q_CC_MSVC
 #       define BREAK_HERE __asm { int 3 }; __asm { mov eax, eax }
 #   else
 #       define BREAK_HERE asm("int $3; mov %eax, %eax")
@@ -184,7 +184,7 @@ void dummyStatement(...) {}
 #endif
 
 #if USE_UNINITIALIZED_AUTOBREAK
-#   if Q_CC_MSVC
+#   ifdef Q_CC_MSVC
 #       define BREAK_UNINITIALIZED_HERE __asm { int 3 }; __asm { mov eax, eax }
 #   else
 #       define BREAK_UNINITIALIZED_HERE asm("int $3; mov %eax, %eax")
@@ -917,8 +917,8 @@ namespace qobject {
         parent.setObjectName("A Parent");
         QObject child(&parent);
         child.setObjectName("A Child");
-        QObject::connect(&child, SIGNAL(destroyed()), qApp, SLOT(quit()));
-        QObject::disconnect(&child, SIGNAL(destroyed()), qApp, SLOT(quit()));
+        QObject::connect(&child, SIGNAL(destroyed()), &parent, SLOT(deleteLater()));
+        QObject::disconnect(&child, SIGNAL(destroyed()), &parent, SLOT(deleteLater()));
         child.setObjectName("A renamed Child");
         BREAK_HERE;
         // Expand all.
@@ -1816,6 +1816,23 @@ namespace stdvector {
 } // namespace stdvector
 
 
+namespace stdstream {
+
+    void testStdStream()
+    {
+        using namespace std;
+        ifstream is;
+        BREAK_HERE;
+        is.open("/etc/passwd");
+        BREAK_HERE;
+        bool ok = is.good();
+        BREAK_HERE;
+        dummyStatement(&is, &ok);
+    }
+
+} // namespace stdstream
+
+
 void testQStandardItemModel()
 {
     //char buf[100];
@@ -1979,8 +1996,12 @@ namespace formats {
         // Windows: Select UTF-16 in "Change Format for Type" in L&W context menu.
         // Other: Select UCS-6 in "Change Format for Type" in L&W context menu.
 
+        const unsigned char uu[] = {'a', 'ö', 'a' };
+        const unsigned char *u = uu;
+        BREAK_HERE;
+
         // Make sure to undo "Change Format".
-        dummyStatement(&s, &w, &t);
+        dummyStatement(&s, &w, &t, &u);
     }
 
     void testCharArrays()
@@ -3634,6 +3655,22 @@ namespace cp42895 {
 } // namespace cp
 
 
+namespace bug6465 {
+
+    // https://bugreports.qt.nokia.com/browse/QTCREATORBUG-6465
+
+    void test6465()
+    {
+        typedef char Foo[20];
+        Foo foo = "foo";
+        char bar[20] = "baz";
+        // BREAK HERE
+        dummyStatement(&foo, &bar);
+    }
+
+} // namespace bug6465
+
+
 namespace varargs {
 
     void test(const char *format, ...)
@@ -3652,6 +3689,22 @@ namespace varargs {
     }
 
 } // namespace varargs
+
+
+namespace valgrind {
+
+    void testLeak()
+    {
+        new int[100]; // Leaks intentionally.
+    }
+
+    void testValgrind()
+    {
+        testLeak();
+        //throw 42;   // Uncomment.
+    }
+
+} // namespace valgrind
 
 
 namespace sanity {
@@ -3689,10 +3742,12 @@ namespace sanity {
 
 }
 
+
 int main(int argc, char *argv[])
 {
     // For a very quick check, step into this one.
     sanity::testSanity();
+    //valgrind::testValgrind();
 
     // Check for normal dumpers.
     basic::testBasic();
@@ -3716,6 +3771,7 @@ int main(int argc, char *argv[])
     qfileinfo::testQFileInfo();
     testQFixed();
     stdvector::testStdVector();
+    stdstream::testStdStream();
     testQHash1();
     qobject::testQObject(argc, argv);
 
@@ -3778,6 +3834,7 @@ int main(int argc, char *argv[])
     bug5106::test5106();
     bug5184::test5184();
     bug5799::test5799();
+    bug6465::test6465();
 
     application::testApplicationStart(argc, argv);
 

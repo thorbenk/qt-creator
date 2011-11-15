@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +35,7 @@
 
 #include "qt4projectmanager_global.h"
 
+#include <utils/fileutils.h>
 #include <coreplugin/ifile.h>
 #include <projectexplorer/projectnodes.h>
 
@@ -166,8 +167,8 @@ protected:
     void clear();
     static QStringList varNames(FileType type);
     static QStringList dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative);
-    static QSet<QString> filterFilesProVariables(ProjectExplorer::FileType fileType, const QSet<QString> &files);
-    static QSet<QString> filterFilesRecursiveEnumerata(ProjectExplorer::FileType fileType, const QSet<QString> &files);
+    static QSet<Utils::FileName> filterFilesProVariables(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
+    static QSet<Utils::FileName> filterFilesRecursiveEnumerata(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
 
     enum ChangeType {
         AddToProFile,
@@ -205,8 +206,8 @@ private:
 
     // Memory is cheap...
     // TODO (really that cheap?)
-    QMap<ProjectExplorer::FileType, QSet<QString> > m_files;
-    QSet<QString> m_recursiveEnumerateFiles;
+    QMap<ProjectExplorer::FileType, QSet<Utils::FileName> > m_files;
+    QSet<Utils::FileName> m_recursiveEnumerateFiles;
     QSet<QString> m_watchedFolders;
     bool m_includedInExactParse;
 
@@ -359,6 +360,7 @@ public:
     QStringList symbianCapabilities() const;
     QByteArray cxxDefines() const;
     bool isDeployable() const;
+    QString resolvedMkspecPath() const;
 
     void update();
     void scheduleUpdate();
@@ -408,6 +410,7 @@ private:
 
     QMap<QString, QDateTime> m_uitimestamps;
     TargetInformation m_qt4targetInformation;
+    QString m_resolvedMkspecPath;
     InstallsList m_installsList;
     ProjectVersion m_projectVersion;
     friend class Qt4NodeHierarchy;

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,13 +26,24 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qmljsvalueowner.h"
 
 using namespace QmlJS;
+
+/*!
+    \class QmlJS::ValueOwner
+    \brief Manages the lifetime of \l{QmlJS::Value}s.
+    \sa QmlJS::Value
+
+    Values are usually created on a ValueOwner. When the ValueOwner is destroyed
+    it deletes all values it has registered.
+
+    A ValueOwner also provides access to various default values.
+*/
 
 namespace {
 

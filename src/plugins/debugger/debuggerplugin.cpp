@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -90,14 +90,15 @@
 
 #include <extensionsystem/pluginmanager.h>
 
-#include <projectexplorer/project.h>
-#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/abi.h>
 #include <projectexplorer/projectexplorerconstants.h>
-#include <projectexplorer/toolchainmanager.h>
-#include <projectexplorer/toolchain.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/projectexplorersettings.h>
+#include <projectexplorer/project.h>
 #include <projectexplorer/session.h>
 #include <projectexplorer/target.h>
-#include <projectexplorer/abi.h>
+#include <projectexplorer/toolchain.h>
+#include <projectexplorer/toolchainmanager.h>
 
 #include <qtsupport/qtsupportconstants.h>
 
@@ -393,7 +394,7 @@ const char STEP_KEY[]                     = "F11";
 const char STEPOUT_KEY[]                  = "Shift+F11";
 const char NEXT_KEY[]                     = "F10";
 const char REVERSE_KEY[]                  = "F12";
-const char RUN_TO_LINE_KEY[]              = "";
+const char RUN_TO_LINE_KEY[]              = "Ctrl+F10";
 const char RUN_TO_SELECTED_FUNCTION_KEY[] = "Ctrl+F6";
 const char JUMP_TO_LINE_KEY[]             = "";
 const char TOGGLE_BREAK_KEY[]             = "F9";
@@ -719,8 +720,10 @@ public slots:
     void onModeChanged(Core::IMode *mode);
     void onCoreAboutToOpen();
     void showSettingsDialog();
+    void updateDebugWithoutDeployMenu();
 
     void debugProject();
+    void debugProjectWithoutDeploy();
     void debugProjectBreakMain();
     void startExternalApplication();
     void startRemoteCdbSession();
@@ -809,10 +812,10 @@ public slots:
         currentEngine()->requestInterruptInferior();
     }
 
-    void handleExecReset()
+    void handleAbort()
     {
         currentEngine()->resetLocation();
-        currentEngine()->notifyEngineIll(); // FIXME: Check.
+        currentEngine()->abortDebugger();
     }
 
     void handleExecStep()
@@ -1027,6 +1030,7 @@ public:
     Utils::ProxyAction *m_visibleStartAction;
     Utils::ProxyAction *m_hiddenStopAction;
     QAction *m_startAction;
+    QAction *m_debugWithoutDeployAction;
     QAction *m_startExternalAction;
     QAction *m_startRemoteAction;
     QAction *m_attachToQmlPortAction;
@@ -1040,7 +1044,7 @@ public:
     QAction *m_exitAction; // On application output button if "Stop" is possible
     QAction *m_interruptAction; // On the fat debug button if "Pause" is possible
     QAction *m_undisturbableAction; // On the fat debug button if nothing can be done
-    QAction *m_resetAction;
+    QAction *m_abortAction;
     QAction *m_stepAction;
     QAction *m_stepOutAction;
     QAction *m_runToLineAction; // In the debug menu
@@ -1145,6 +1149,7 @@ DebuggerPluginPrivate::DebuggerPluginPrivate(DebuggerPlugin *plugin) :
 
     m_reverseToolButton = 0;
     m_startAction = 0;
+    m_debugWithoutDeployAction = 0;
     m_startExternalAction = 0;
     m_startRemoteAction = 0;
     m_attachRemoteAction = 0;
@@ -1211,7 +1216,7 @@ void DebuggerPluginPrivate::maybeEnrichParameters(DebuggerStartParameters *sp)
         sp->debugSourceLocation.append(base + "qt5base/src/gui");
         sp->debugSourceLocation.append(base + "qt5base/src/network");
         sp->debugSourceLocation.append(base + "qt5base/src/v8");
-        sp->debugSourceLocation.append(base + "qtdeclarative/src/declarative/qml");
+        sp->debugSourceLocation.append(base + "qt5declarative/src/declarative/qml");
     }
 }
 
@@ -1395,6 +1400,7 @@ void DebuggerPluginPrivate::onCurrentProjectChanged(Project *project)
     m_continueAction->setEnabled(false);
     m_exitAction->setEnabled(false);
     m_startAction->setEnabled(true);
+    m_debugWithoutDeployAction->setEnabled(true);
     m_visibleStartAction->setAction(m_startAction);
 }
 
@@ -1407,6 +1413,13 @@ void DebuggerPluginPrivate::debugProject()
     ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
     if (Project *pro = pe->startupProject())
         pe->runProject(pro, Constants::DEBUGMODE);
+}
+
+void DebuggerPluginPrivate::debugProjectWithoutDeploy()
+{
+    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
+    if (Project *pro = pe->startupProject())
+        pe->runProject(pro, Constants::DEBUGMODE, true);
 }
 
 void DebuggerPluginPrivate::debugProjectBreakMain()
@@ -1689,6 +1702,23 @@ void DebuggerPluginPrivate::attachToQmlPort()
     sp.sysroot = dlg.sysroot();
 
     sp.startMode = AttachToQmlPort;
+
+    //
+    // get files from all the projects in the session
+    //
+    ProjectExplorer::SessionManager *sessionManager = ProjectExplorer::ProjectExplorerPlugin::instance()->session();
+    QList<Project *> projects = sessionManager->projects();
+    if (Project *startupProject = ProjectExplorer::ProjectExplorerPlugin::instance()->startupProject()) {
+        // startup project first
+        projects.removeOne(ProjectExplorer::ProjectExplorerPlugin::instance()->startupProject());
+        projects.insert(0, startupProject);
+    }
+    QStringList sourceFiles;
+    foreach (Project *project, projects)
+        sourceFiles << project->files(Project::ExcludeGeneratedFiles);
+
+    sp.projectSourceFiles = sourceFiles;
+
     if (RunControl *rc = createDebugger(sp))
         startDebugger(rc);
 }
@@ -2085,7 +2115,7 @@ void DebuggerPluginPrivate::setInitialState()
     action(OperateByInstruction)->setEnabled(false);
 
     m_exitAction->setEnabled(false);
-    m_resetAction->setEnabled(false);
+    m_abortAction->setEnabled(false);
 
     m_interruptAction->setEnabled(false);
     m_continueAction->setEnabled(false);
@@ -2141,6 +2171,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_continueAction->setEnabled(false);
         m_exitAction->setEnabled(false);
         m_startAction->setEnabled(true);
+        m_debugWithoutDeployAction->setEnabled(true);
         m_visibleStartAction->setAction(m_startAction);
         m_hiddenStopAction->setAction(m_undisturbableAction);
     } else if (state == InferiorStopOk) {
@@ -2149,6 +2180,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_continueAction->setEnabled(true);
         m_exitAction->setEnabled(true);
         m_startAction->setEnabled(false);
+        m_debugWithoutDeployAction->setEnabled(false);
         m_visibleStartAction->setAction(m_continueAction);
         m_hiddenStopAction->setAction(m_exitAction);
     } else if (state == InferiorRunOk) {
@@ -2157,6 +2189,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_continueAction->setEnabled(false);
         m_exitAction->setEnabled(true);
         m_startAction->setEnabled(false);
+        m_debugWithoutDeployAction->setEnabled(false);
         m_visibleStartAction->setAction(m_interruptAction);
         m_hiddenStopAction->setAction(m_interruptAction);
     } else if (state == DebuggerFinished) {
@@ -2165,6 +2198,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_continueAction->setEnabled(false);
         m_exitAction->setEnabled(false);
         m_startAction->setEnabled(true);
+        m_debugWithoutDeployAction->setEnabled(true);
         m_visibleStartAction->setAction(m_startAction);
         m_hiddenStopAction->setAction(m_undisturbableAction);
         m_codeModelSnapshot = CPlusPlus::Snapshot();
@@ -2176,6 +2210,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_continueAction->setEnabled(false);
         m_exitAction->setEnabled(true);
         m_startAction->setEnabled(false);
+        m_debugWithoutDeployAction->setEnabled(false);
         m_visibleStartAction->setAction(m_startAction);
         m_hiddenStopAction->setAction(m_undisturbableAction);
     } else {
@@ -2184,6 +2219,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_continueAction->setEnabled(false);
         m_exitAction->setEnabled(false);
         m_startAction->setEnabled(false);
+        m_debugWithoutDeployAction->setEnabled(false);
         m_visibleStartAction->setAction(m_undisturbableAction);
         m_hiddenStopAction->setAction(m_undisturbableAction);
     }
@@ -2216,7 +2252,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
             && (stopped || isCore);
     action(OperateByInstruction)->setEnabled(canOperateByInstruction);
 
-    m_resetAction->setEnabled(state != DebuggerNotReady
+    m_abortAction->setEnabled(state != DebuggerNotReady
                                       && state != DebuggerFinished);
 
     m_stepAction->setEnabled(stopped || state == DebuggerNotReady);
@@ -2271,6 +2307,7 @@ void DebuggerPluginPrivate::updateDebugActions()
     const bool canRun = pe->canRun(project, debugMode);
     m_startAction->setEnabled(canRun);
     m_startAction->setToolTip(canRun ? QString() : pe->cannotRunReason(project, debugMode));
+    m_debugWithoutDeployAction->setEnabled(canRun);
 
     // Step into/next: Start and break at 'main' unless a debugger is running.
     if (m_snapshotHandler->currentIndex() < 0) {
@@ -2323,6 +2360,12 @@ void DebuggerPluginPrivate::showSettingsDialog()
     ICore::instance()->showOptionsDialog(
         _(DEBUGGER_SETTINGS_CATEGORY),
         _(DEBUGGER_COMMON_SETTINGS_ID));
+}
+
+void DebuggerPluginPrivate::updateDebugWithoutDeployMenu()
+{
+    const bool state = ProjectExplorerPlugin::instance()->projectExplorerSettings().deployBeforeRun;
+    m_debugWithoutDeployAction->setVisible(state);
 }
 
 void DebuggerPluginPrivate::dumpLog()
@@ -2501,7 +2544,7 @@ void DebuggerPluginPrivate::showMessage(const QString &msg, int channel, int tim
 void DebuggerPluginPrivate::showQtDumperLibraryWarning(const QString &details)
 {
     QMessageBox dialog(mainWindow());
-    QPushButton *qtPref = dialog.addButton(tr("Open Qt4 Options"),
+    QPushButton *qtPref = dialog.addButton(tr("Open Qt Options"),
         QMessageBox::ActionRole);
     QPushButton *helperOff = dialog.addButton(tr("Turn off Helper Usage"),
         QMessageBox::ActionRole);
@@ -2810,10 +2853,10 @@ void DebuggerPluginPrivate::extensionsInitialized()
     act->setIcon(m_interruptIcon);
     act->setEnabled(false);
 
-    act = m_resetAction = new QAction(tr("Abort Debugging"), this);
+    act = m_abortAction = new QAction(tr("Abort Debugging"), this);
     act->setToolTip(tr("Aborts debugging and "
         "resets the debugger to the initial state."));
-    connect(act, SIGNAL(triggered()), SLOT(handleExecReset()));
+    connect(act, SIGNAL(triggered()), SLOT(handleAbort()));
 
     act = m_nextAction = new QAction(tr("Step Over"), this);
     act->setIcon(QIcon(__(":/debugger/images/debugger_stepover_small.png")));
@@ -2935,6 +2978,10 @@ void DebuggerPluginPrivate::extensionsInitialized()
     act->setText(tr("Start Debugging"));
     connect(act, SIGNAL(triggered()), this, SLOT(debugProject()));
 
+    act = m_debugWithoutDeployAction = new QAction(this);
+    act->setText(tr("Debug Without Deployment"));
+    connect(act, SIGNAL(triggered()), this, SLOT(debugProjectWithoutDeploy()));
+
     // Handling of external applications.
     act = m_startExternalAction = new QAction(this);
     act->setText(tr("Start and Debug External Application..."));
@@ -2979,7 +3026,8 @@ void DebuggerPluginPrivate::extensionsInitialized()
     // "Start Debugging" sub-menu
     // groups:
     //   G_DEFAULT_ONE
-    //   G_START_CPP
+    //   G_START_LOCAL
+    //   G_START_REMOTE
     //   G_START_QML
 
     Command *cmd = 0;
@@ -3000,45 +3048,49 @@ void DebuggerPluginPrivate::extensionsInitialized()
     ModeManager *modeManager = ModeManager::instance();
     modeManager->addAction(m_visibleStartAction, Constants::P_ACTION_DEBUG);
 
-    cmd = am->registerAction(m_startExternalAction,
-        "Debugger.StartExternal", globalcontext);
+    cmd = am->registerAction(m_debugWithoutDeployAction,
+        "Debugger.DebugWithoutDeploy", globalcontext);
     cmd->setAttribute(Command::CA_Hide);
-    mstart->addAction(cmd, Constants::G_START_CPP);
+    mstart->addAction(cmd, CC::G_DEFAULT_ONE);
 
     cmd = am->registerAction(m_attachExternalAction,
         "Debugger.AttachExternal", globalcontext);
     cmd->setAttribute(Command::CA_Hide);
-    mstart->addAction(cmd, Constants::G_START_CPP);
+    mstart->addAction(cmd, Constants::G_START_LOCAL);
+
+    cmd = am->registerAction(m_startExternalAction,
+        "Debugger.StartExternal", globalcontext);
+    cmd->setAttribute(Command::CA_Hide);
+    mstart->addAction(cmd, Constants::G_START_LOCAL);
 
     cmd = am->registerAction(m_attachCoreAction,
         "Debugger.AttachCore", globalcontext);
-
     cmd->setAttribute(Command::CA_Hide);
-    mstart->addAction(cmd, Constants::G_START_CPP);
-
-    cmd = am->registerAction(m_startRemoteAction,
-        "Debugger.StartRemote", globalcontext);
-    cmd->setAttribute(Command::CA_Hide);
-    mstart->addAction(cmd, Constants::G_START_CPP);
+    mstart->addAction(cmd, Constants::G_START_LOCAL);
 
     cmd = am->registerAction(m_attachRemoteAction,
         "Debugger.AttachRemote", globalcontext);
     cmd->setAttribute(Command::CA_Hide);
-    mstart->addAction(cmd, Constants::G_START_CPP);
+    mstart->addAction(cmd, Constants::G_START_REMOTE);
+
+    cmd = am->registerAction(m_startRemoteAction,
+        "Debugger.StartRemote", globalcontext);
+    cmd->setAttribute(Command::CA_Hide);
+    mstart->addAction(cmd, Constants::G_START_REMOTE);
 
 
 #ifdef WITH_LLDB
     cmd = am->registerAction(m_startRemoteLldbAction,
         "Debugger.RemoteLldb", globalcontext);
     cmd->setAttribute(Command::CA_Hide);
-    mstart->addAction(cmd, Constants::G_START_CPP);
+    mstart->addAction(cmd, Constants::G_START_REMOTE);
 #endif
 
     if (m_startRemoteCdbAction) {
         cmd = am->registerAction(m_startRemoteCdbAction,
              "Debugger.AttachRemoteCdb", globalcontext);
         cmd->setAttribute(Command::CA_Hide);
-        mstart->addAction(cmd, Constants::G_START_CPP);
+        mstart->addAction(cmd, Constants::G_START_REMOTE);
     }
 
     QAction *sep = new QAction(mstart);
@@ -3081,8 +3133,8 @@ void DebuggerPluginPrivate::extensionsInitialized()
         Constants::HIDDEN_STOP, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence(Constants::STOP_KEY));
 
-    cmd = am->registerAction(m_resetAction,
-        Constants::RESET, globalcontext);
+    cmd = am->registerAction(m_abortAction,
+        Constants::ABORT, globalcontext);
     //cmd->setDefaultKeySequence(QKeySequence(Constants::RESET_KEY));
     cmd->setDefaultText(tr("Reset Debugger"));
     debugMenu->addAction(cmd, CC::G_DEFAULT_ONE);
@@ -3221,7 +3273,8 @@ void DebuggerPluginPrivate::extensionsInitialized()
         SLOT(onModeChanged(Core::IMode*)));
     connect(ICore::instance(), SIGNAL(coreAboutToOpen()),
         SLOT(onCoreAboutToOpen()));
-
+    connect(ProjectExplorer::ProjectExplorerPlugin::instance(), SIGNAL(settingsChanged()),
+            this, SLOT(updateDebugWithoutDeployMenu()));
 
     // Debug mode setup
     DebugMode *debugMode = new DebugMode;
@@ -3409,15 +3462,19 @@ bool DebuggerPlugin::initialize(const QStringList &arguments, QString *errorMess
     Core::ActionManager *am = core->actionManager();
     ActionContainer *mstart = am->actionContainer(PE::M_DEBUG_STARTDEBUGGING);
 
-    mstart->appendGroup(Constants::G_START_CPP);
+    mstart->appendGroup(Constants::G_START_LOCAL);
+    mstart->appendGroup(Constants::G_START_REMOTE);
     mstart->appendGroup(Constants::G_START_QML);
 
-    // add cpp separator
+    // Separators
     QAction *sep = new QAction(mstart);
     sep->setSeparator(true);
-    Command *cmd = am->registerAction(sep,
-        "Debugger.Start.Cpp", globalcontext);
-    mstart->addAction(cmd, Constants::G_START_CPP);
+    Command *cmd = am->registerAction(sep, "Debugger.Local.Cpp", globalcontext);
+    mstart->addAction(cmd, Constants::G_START_LOCAL);
+    sep = new QAction(mstart);
+    sep->setSeparator(true);
+    cmd = am->registerAction(sep, "Debugger.Remote.Cpp", globalcontext);
+    mstart->addAction(cmd, Constants::G_START_REMOTE);
 
     return theDebuggerCore->initialize(arguments, errorMessage);
 }

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,9 +37,8 @@
 #include "bytearrayinputstream.h"
 #include "gdb/gdbmi.h"
 #include "disassemblerlines.h"
-#ifdef Q_OS_WIN
-#    include "shared/dbgwinutils.h"
-#endif
+#include "shared/hostutils.h"
+
 #include <utils/qtcassert.h>
 
 #include <QtCore/QByteArray>

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Free Documentation License
@@ -15,7 +15,7 @@
 ** file.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -54,10 +54,12 @@
 
         \o  Make sure that your device can be reached via an IP address.
 
-        \o  Select \gui {Tools > Options > Qt4 > Add} to add the Qt version
+        \o  Select \gui {Tools > Options > Build & Run > Qt Versions > Add} to
+            add the Qt version
             for the generic Linux.
 
-        \o  Select \gui {Tools > Options > Tool Chains > Add} to add the tool
+        \o  Select \gui {Tools > Options > Build & Run > Tool Chains > Add} to
+            add the tool
             chain for building the applications.
 
         \o  To deploy applications and run them remotely on devices, specify
@@ -66,7 +68,7 @@
             \list 1
 
                 \o  Select \gui {Tools > Options > Linux Devices > Device
-                    Configurations > Add > Generic Linux Device}.
+                    Configurations > Add > Generic Linux Device > Start Wizard}.
 
                     \image qtcreator-screenshot-devconf-linux.png "Connection Data wizard"
 

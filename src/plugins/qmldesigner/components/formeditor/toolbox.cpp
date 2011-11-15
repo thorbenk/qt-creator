@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -49,6 +49,7 @@ ToolBox::ToolBox(QWidget *parentWidget)
   m_leftToolBar(new QToolBar("LeftSidebar", this)),
   m_rightToolBar(new QToolBar("RightSidebar", this))
 {
+    setMaximumHeight(44);
     setSingleRow(false);
     QFrame *frame = new QFrame(this);
     m_crumblePath = new Utils::CrumblePath(frame);
@@ -65,7 +66,7 @@ ToolBox::ToolBox(QWidget *parentWidget)
     verticalLayout->setMargin(0);
     verticalLayout->setSpacing(0);
 
-    QHBoxLayout *horizontalLayout = new QHBoxLayout(this);
+    QHBoxLayout *horizontalLayout = new QHBoxLayout();
     verticalLayout->addLayout(horizontalLayout);
     verticalLayout->addWidget(frame);
     horizontalLayout->setMargin(0);
@@ -96,8 +97,6 @@ ToolBox::ToolBox(QWidget *parentWidget)
     horizontalLayout->addWidget(m_leftToolBar);
     horizontalLayout->addWidget(stretchToolbar);
     horizontalLayout->addWidget(m_rightToolBar);
-
-    setLayout(verticalLayout);
 }
 
 void ToolBox::setLeftSideActions(const QList<QAction*> &actions)

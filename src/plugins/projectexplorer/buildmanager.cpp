@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -42,7 +42,6 @@
 #include "target.h"
 #include "taskwindow.h"
 #include "taskhub.h"
-#include "buildconfiguration.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/progressmanager/progressmanager.h>
@@ -52,6 +51,7 @@
 #include <utils/qtcassert.h>
 
 #include <QtCore/QDir>
+#include <QtCore/QTime>
 #include <QtCore/QTimer>
 #include <QtCore/QMetaType>
 #include <QtCore/QList>
@@ -65,7 +65,7 @@
 
 static inline QString msgProgress(int progress, int total)
 {
-    return ProjectExplorer::BuildManager::tr("Finished %1 of %n build steps", 0, total).arg(progress);
+    return ProjectExplorer::BuildManager::tr("Finished %1 of %n steps", 0, total).arg(progress);
 }
 
 namespace ProjectExplorer {
@@ -80,6 +80,7 @@ struct BuildManagerPrivate {
     Internal::TaskWindow *m_taskWindow;
 
     QList<BuildStep *> m_buildQueue;
+    QStringList m_stepNames;
     QStringList m_configurations; // the corresponding configuration to the m_buildQueue
     ProjectExplorerPlugin *m_projectExplorerPlugin;
     bool m_running;
@@ -89,6 +90,8 @@ struct BuildManagerPrivate {
     QString m_currentConfiguration;
     // used to decide if we are building a project to decide when to emit buildStateChanged(Project *)
     QHash<Project *, int>  m_activeBuildSteps;
+    QHash<Target *, int> m_activeBuildStepsPerTarget;
+    QHash<ProjectConfiguration *, int> m_activeBuildStepsPerProjectConfiguration;
     Project *m_previousBuildStepProject;
     // is set to true while canceling, so that nextBuildStep knows that the BuildStep finished because of canceling
     bool m_canceling;
@@ -100,6 +103,7 @@ struct BuildManagerPrivate {
     int m_maxProgress;
     QFutureInterface<void> *m_progressFutureInterface;
     QFutureWatcher<void> m_progressWatcher;
+    QWeakPointer<Core::FutureProgress> m_futureProgress;
 };
 
 BuildManagerPrivate::BuildManagerPrivate() :
@@ -157,9 +161,9 @@ BuildManager::BuildManager(ProjectExplorerPlugin *parent)
 void BuildManager::extensionsInitialized()
 {
     d->m_taskHub->addCategory(Constants::TASK_CATEGORY_COMPILE,
-        tr("Compile", "Category for compiler isses listened under 'Build Issues'"));
+        tr("Compile", "Category for compiler issues listed under 'Issues'"));
     d->m_taskHub->addCategory(Constants::TASK_CATEGORY_BUILDSYSTEM,
-        tr("Build System", "Category for build system isses listened under 'Build Issues'"));
+        tr("Build System", "Category for build system issues listed under 'Issues'"));
 }
 
 BuildManager::~BuildManager()
@@ -194,6 +198,14 @@ bool BuildManager::isBuilding() const
     return !d->m_buildQueue.isEmpty() || d->m_running;
 }
 
+int BuildManager::getErrorTaskCount() const
+{
+    const int errors =
+            d->m_taskWindow->errorTaskCount(Constants::TASK_CATEGORY_BUILDSYSTEM)
+            + d->m_taskWindow->errorTaskCount(Constants::TASK_CATEGORY_COMPILE);
+    return errors;
+}
+
 void BuildManager::cancel()
 {
     if (d->m_running) {
@@ -221,9 +233,9 @@ void BuildManager::cancel()
         QTimer::singleShot(0, this, SLOT(emitCancelMessage()));
 
         disconnectOutput(d->m_currentBuildStep);
-        decrementActiveBuildSteps(d->m_currentBuildStep->buildConfiguration()->target()->project());
+        decrementActiveBuildSteps(d->m_currentBuildStep);
 
-        d->m_progressFutureInterface->setProgressValueAndText(d->m_progress*100, tr("Build canceled")); //TODO NBS fix in qtconcurrent
+        d->m_progressFutureInterface->setProgressValueAndText(d->m_progress*100, tr("Build/Deployment canceled")); //TODO NBS fix in qtconcurrent
         clearBuildQueue();
     }
     return;
@@ -232,9 +244,7 @@ void BuildManager::cancel()
 void BuildManager::updateTaskCount()
 {
     Core::ProgressManager *progressManager = Core::ICore::instance()->progressManager();
-    const int errors =
-            d->m_taskWindow->errorTaskCount(Constants::TASK_CATEGORY_BUILDSYSTEM)
-            + d->m_taskWindow->errorTaskCount(Constants::TASK_CATEGORY_COMPILE);
+    const int errors = getErrorTaskCount();
     if (errors > 0) {
         progressManager->setApplicationLabel(QString::number(errors));
     } else {
@@ -250,16 +260,17 @@ void BuildManager::finish()
 
 void BuildManager::emitCancelMessage()
 {
-    addToOutputWindow(tr("Canceled build."), BuildStep::ErrorMessageOutput);
+    addToOutputWindow(tr("Canceled build/deployment."), BuildStep::ErrorMessageOutput);
 }
 
 void BuildManager::clearBuildQueue()
 {
     foreach (BuildStep *bs, d->m_buildQueue) {
-        decrementActiveBuildSteps(bs->buildConfiguration()->target()->project());
+        decrementActiveBuildSteps(bs);
         disconnectOutput(bs);
     }
 
+    d->m_stepNames.clear();
     d->m_buildQueue.clear();
     d->m_running = false;
     d->m_previousBuildStepProject = 0;
@@ -270,6 +281,7 @@ void BuildManager::clearBuildQueue()
     d->m_progressWatcher.setFuture(QFuture<void>());
     delete d->m_progressFutureInterface;
     d->m_progressFutureInterface = 0;
+    d->m_futureProgress.clear();
     d->m_maxProgress = 0;
 
     emit buildQueueFinished(false);
@@ -314,12 +326,12 @@ void BuildManager::startBuildQueue()
         d->m_taskHub->clearTasks(Constants::TASK_CATEGORY_COMPILE);
         d->m_taskHub->clearTasks(Constants::TASK_CATEGORY_BUILDSYSTEM);
         progressManager->setApplicationLabel(QString());
-        Core::FutureProgress *progress = progressManager->addTask(d->m_progressFutureInterface->future(),
-              tr("Build"),
+        d->m_futureProgress = QWeakPointer<Core::FutureProgress>(progressManager->addTask(d->m_progressFutureInterface->future(),
+              "",
               Constants::TASK_BUILD,
-              Core::ProgressManager::KeepOnFinish | Core::ProgressManager::ShowInApplicationIcon);
-        connect(progress, SIGNAL(clicked()), this, SLOT(showBuildResults()));
-        progress->setWidget(new Internal::BuildProgress(d->m_taskWindow));
+              Core::ProgressManager::KeepOnFinish | Core::ProgressManager::ShowInApplicationIcon));
+        connect(d->m_futureProgress.data(), SIGNAL(clicked()), this, SLOT(showBuildResults()));
+        d->m_futureProgress.data()->setWidget(new Internal::BuildProgress(d->m_taskWindow));
         d->m_progress = 0;
         d->m_progressFutureInterface->setProgressRange(0, d->m_maxProgress * 100);
 
@@ -353,7 +365,12 @@ void BuildManager::addToTaskWindow(const ProjectExplorer::Task &task)
 void BuildManager::addToOutputWindow(const QString &string, BuildStep::OutputFormat format,
     BuildStep::OutputNewlineSetting newLineSetting)
 {
-    QString stringToWrite = string;
+    QString stringToWrite;
+    if (format == BuildStep::MessageOutput || format == BuildStep::ErrorMessageOutput) {
+        stringToWrite = QTime::currentTime().toString();
+        stringToWrite += QLatin1String(": ");
+    }
+    stringToWrite += string;
     if (newLineSetting == BuildStep::DoAppendNewline)
         stringToWrite += QLatin1Char('\n');
     d->m_outputWindow->appendText(stringToWrite, format);
@@ -382,17 +399,17 @@ void BuildManager::nextBuildQueue()
     disconnectOutput(d->m_currentBuildStep);
     ++d->m_progress;
     d->m_progressFutureInterface->setProgressValueAndText(d->m_progress*100, msgProgress(d->m_progress, d->m_maxProgress));
-    decrementActiveBuildSteps(d->m_currentBuildStep->buildConfiguration()->target()->project());
+    decrementActiveBuildSteps(d->m_currentBuildStep);
 
     bool result = d->m_watcher.result();
     if (!result) {
         // Build Failure
-        const QString projectName = d->m_currentBuildStep->buildConfiguration()->target()->project()->displayName();
-        const QString targetName = d->m_currentBuildStep->buildConfiguration()->target()->displayName();
-        addToOutputWindow(tr("Error while building project %1 (target: %2)").arg(projectName, targetName), BuildStep::ErrorOutput);
-        addToOutputWindow(tr("When executing build step '%1'").arg(d->m_currentBuildStep->displayName()), BuildStep::ErrorOutput);
+        const QString projectName = d->m_currentBuildStep->project()->displayName();
+        const QString targetName = d->m_currentBuildStep->target()->displayName();
+        addToOutputWindow(tr("Error while building/deploying project %1 (target: %2)").arg(projectName, targetName), BuildStep::ErrorOutput);
+        addToOutputWindow(tr("When executing step '%1'").arg(d->m_currentBuildStep->displayName()), BuildStep::ErrorOutput);
         // NBS TODO fix in qtconcurrent
-        d->m_progressFutureInterface->setProgressValueAndText(d->m_progress*100, tr("Error while building project %1 (target: %2)").arg(projectName, targetName));
+        d->m_progressFutureInterface->setProgressValueAndText(d->m_progress*100, tr("Error while building/deploying project %1 (target: %2)").arg(projectName, targetName));
     }
 
     if (result)
@@ -428,12 +445,15 @@ void BuildManager::nextStep()
     if (!d->m_buildQueue.empty()) {
         d->m_currentBuildStep = d->m_buildQueue.front();
         d->m_buildQueue.pop_front();
+        QString name = d->m_stepNames.takeFirst();
+        if (d->m_futureProgress)
+            d->m_futureProgress.data()->setTitle(name);
 
-        if (d->m_currentBuildStep->buildConfiguration()->target()->project() != d->m_previousBuildStepProject) {
-            const QString projectName = d->m_currentBuildStep->buildConfiguration()->target()->project()->displayName();
-            addToOutputWindow(tr("Running build steps for project %1...")
+        if (d->m_currentBuildStep->project() != d->m_previousBuildStepProject) {
+            const QString projectName = d->m_currentBuildStep->project()->displayName();
+            addToOutputWindow(tr("Running steps for project %1...")
                               .arg(projectName), BuildStep::MessageOutput);
-            d->m_previousBuildStepProject = d->m_currentBuildStep->buildConfiguration()->target()->project();
+            d->m_previousBuildStepProject = d->m_currentBuildStep->project();
         }
         if (d->m_currentBuildStep->runInGuiThread()) {
             connect (d->m_currentBuildStep, SIGNAL(finished()),
@@ -456,7 +476,7 @@ void BuildManager::nextStep()
     }
 }
 
-bool BuildManager::buildQueueAppend(QList<BuildStep *> steps)
+bool BuildManager::buildQueueAppend(QList<BuildStep *> steps, const QStringList &names)
 {
     int count = steps.size();
     bool init = true;
@@ -476,10 +496,10 @@ bool BuildManager::buildQueueAppend(QList<BuildStep *> steps)
 
         // cleaning up
         // print something for the user
-        const QString projectName = bs->buildConfiguration()->target()->project()->displayName();
-        const QString targetName = bs->buildConfiguration()->target()->displayName();
-        addToOutputWindow(tr("Error while building project %1 (target: %2)").arg(projectName, targetName), BuildStep::ErrorOutput);
-        addToOutputWindow(tr("When executing build step '%1'").arg(bs->displayName()), BuildStep::ErrorOutput);
+        const QString projectName = bs->project()->displayName();
+        const QString targetName = bs->target()->displayName();
+        addToOutputWindow(tr("Error while building/deploying project %1 (target: %2)").arg(projectName, targetName), BuildStep::ErrorOutput);
+        addToOutputWindow(tr("When executing step '%1'").arg(bs->displayName()), BuildStep::ErrorOutput);
 
         // disconnect the buildsteps again
         for (int j = 0; j <= i; ++j)
@@ -491,23 +511,32 @@ bool BuildManager::buildQueueAppend(QList<BuildStep *> steps)
     for (i = 0; i < count; ++i) {
         ++d->m_maxProgress;
         d->m_buildQueue.append(steps.at(i));
-        incrementActiveBuildSteps(steps.at(i)->buildConfiguration()->target()->project());
+        d->m_stepNames.append(names.at(i));
+        incrementActiveBuildSteps(steps.at(i));
     }
     return true;
 }
 
-bool BuildManager::buildList(BuildStepList *bsl)
+bool BuildManager::buildList(BuildStepList *bsl, const QString &stepListName)
 {
-    return buildLists(QList<BuildStepList *>() << bsl);
+    return buildLists(QList<BuildStepList *>() << bsl, QStringList() << stepListName);
 }
 
-bool BuildManager::buildLists(QList<BuildStepList *> bsls)
+bool BuildManager::buildLists(QList<BuildStepList *> bsls, const QStringList &stepListNames)
 {
     QList<BuildStep *> steps;
     foreach(BuildStepList *list, bsls)
         steps.append(list->steps());
 
-    bool success = buildQueueAppend(steps);
+    QStringList names;
+    names.reserve(steps.size());
+    for (int i = 0; i < bsls.size(); ++i) {
+        for (int j = 0; j < bsls.at(i)->steps().size(); ++j) {
+            names.append(stepListNames.at(i));
+        }
+    }
+
+    bool success = buildQueueAppend(steps, names);
     if (!success) {
         d->m_outputWindow->popup(false);
         return false;
@@ -519,9 +548,9 @@ bool BuildManager::buildLists(QList<BuildStepList *> bsls)
     return true;
 }
 
-void BuildManager::appendStep(BuildStep *step)
+void BuildManager::appendStep(BuildStep *step, const QString &name)
 {
-    bool success = buildQueueAppend(QList<BuildStep *>() << step);
+    bool success = buildQueueAppend(QList<BuildStep *>() << step, QStringList() << name);
     if (!success) {
         d->m_outputWindow->popup(false);
         return;
@@ -531,14 +560,29 @@ void BuildManager::appendStep(BuildStep *step)
     startBuildQueue();
 }
 
+template <class T>
+int count(const QHash<T *, int> &hash, T *key)
+{
+    typename QHash<T *, int>::const_iterator it = hash.find(key);
+    typename QHash<T *, int>::const_iterator end = hash.end();
+    if (it != end)
+        return *it;
+    return 0;
+}
+
 bool BuildManager::isBuilding(Project *pro)
 {
-    QHash<Project *, int>::iterator it = d->m_activeBuildSteps.find(pro);
-    QHash<Project *, int>::iterator end = d->m_activeBuildSteps.end();
-    if (it == end || *it == 0)
-        return false;
-    else
-        return true;
+    return count(d->m_activeBuildSteps, pro) > 0;
+}
+
+bool BuildManager::isBuilding(Target *t)
+{
+    return count(d->m_activeBuildStepsPerTarget, t) > 0;
+}
+
+bool BuildManager::isBuilding(ProjectConfiguration *p)
+{
+    return count(d->m_activeBuildStepsPerProjectConfiguration, p) > 0;
 }
 
 bool BuildManager::isBuilding(BuildStep *step)
@@ -546,33 +590,51 @@ bool BuildManager::isBuilding(BuildStep *step)
     return (d->m_currentBuildStep == step) || d->m_buildQueue.contains(step);
 }
 
-void BuildManager::incrementActiveBuildSteps(Project *pro)
+template <class T> bool increment(QHash<T *, int> &hash, T *key)
 {
-    QHash<Project *, int>::iterator it = d->m_activeBuildSteps.find(pro);
-    QHash<Project *, int>::iterator end = d->m_activeBuildSteps.end();
+    typename QHash<T *, int>::iterator it = hash.find(key);
+    typename QHash<T *, int>::iterator end = hash.end();
     if (it == end) {
-        d->m_activeBuildSteps.insert(pro, 1);
-        emit buildStateChanged(pro);
+        hash.insert(key, 1);
+        return true;
     } else if (*it == 0) {
         ++*it;
-        emit buildStateChanged(pro);
+        return true;
     } else {
         ++*it;
     }
+    return false;
 }
 
-void BuildManager::decrementActiveBuildSteps(Project *pro)
+template <class T> bool decrement(QHash<T *, int> &hash, T *key)
 {
-    QHash<Project *, int>::iterator it = d->m_activeBuildSteps.find(pro);
-    QHash<Project *, int>::iterator end = d->m_activeBuildSteps.end();
+    typename QHash<T *, int>::iterator it = hash.find(key);
+    typename QHash<T *, int>::iterator end = hash.end();
     if (it == end) {
-        Q_ASSERT(false && "BuildManager d->m_activeBuildSteps says project is not building, but apparently a build step was still in the queue.");
+        // Can't happen
     } else if (*it == 1) {
         --*it;
-        emit buildStateChanged(pro);
+        return true;
     } else {
         --*it;
     }
+    return false;
+}
+
+void BuildManager::incrementActiveBuildSteps(BuildStep *bs)
+{
+    increment<ProjectConfiguration>(d->m_activeBuildStepsPerProjectConfiguration, bs->projectConfiguration());
+    increment<Target>(d->m_activeBuildStepsPerTarget, bs->target());
+    if (increment<Project>(d->m_activeBuildSteps, bs->project()))
+        emit buildStateChanged(bs->project());
+}
+
+void BuildManager::decrementActiveBuildSteps(BuildStep *bs)
+{
+    decrement<ProjectConfiguration>(d->m_activeBuildStepsPerProjectConfiguration, bs->projectConfiguration());
+    decrement<Target>(d->m_activeBuildStepsPerTarget, bs->target());
+    if (decrement<Project>(d->m_activeBuildSteps, bs->project()))
+        emit buildStateChanged(bs->project());
 }
 
 void BuildManager::disconnectOutput(BuildStep *bs)

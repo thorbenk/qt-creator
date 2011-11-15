@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,8 +36,6 @@
 #include "qmldebuggerclient.h"
 #include "stackframe.h"
 #include "watchdata.h"
-#include "qmlengine.h"
-#include "json.h"
 
 namespace Debugger {
 namespace Internal {
@@ -63,6 +61,13 @@ class QmlV8DebuggerClient : public QmlDebuggerClient
         Next
     };
 
+    enum V8DebugServiceStates
+    {
+        RunningState,
+        WaitingForRequestState,
+        ProcessingRequestState
+    };
+
 public:
     explicit QmlV8DebuggerClient(QmlJsDebugClient::QDeclarativeDebugConnection *client);
     ~QmlV8DebuggerClient();
@@ -84,12 +89,12 @@ public:
     void insertBreakpoint(const BreakpointModelId &id);
     void removeBreakpoint(const BreakpointModelId &id);
     void changeBreakpoint(const BreakpointModelId &id);
-    void updateBreakpoints();
+    void synchronizeBreakpoints();
 
     void assignValueInDebugger(const QByteArray expr, const quint64 &id,
                                        const QString &property, const QString &value);
 
-    void updateWatchData(const WatchData *data);
+    void updateWatchData(const WatchData &data);
     void executeDebuggerCommand(const QString &command);
 
     void synchronizeWatchers(const QStringList &watchers);
@@ -98,30 +103,31 @@ public:
 
     void setEngine(QmlEngine *engine);
 
-signals:
-    void notifyDebuggerStopped();
-
 protected:
     void messageReceived(const QByteArray &data);
+    void sendMessage(const QByteArray &msg);
 
 private:
-    void listBreakpoints();
-    void backtrace();
-    void setStackFrames(const QByteArray &message);
-    void setLocals(int frameIndex);
-    void setExpression(const QByteArray &message);
-    void updateBreakpoints(const QByteArray &message);
-    void expandLocal(const QByteArray &message);
-    void setPropertyValue(const Json::JsonValue &refs, const Json::JsonValue &property, const QByteArray &prepend);
-    int indexInRef(const Json::JsonValue &refs, int refIndex);
-    QByteArray packMessage(const QByteArray &message);
+    void updateStack(const QVariant &bodyVal, const QVariant &refsVal);
+    StackFrame createStackFrame(const QVariant &bodyVal, const QVariant &refsVal);
+    void updateLocals(const QVariant &localsVal, const QVariant &refsVal);
+    void updateScope(const QVariant &localsVal, const QVariant &refsVal);
 
-    void breakOnException(Exceptions exceptionsType, bool enabled);
-    void storeExceptionInformation(const QByteArray &message);
-    void handleException();
+    void updateEvaluationResult(int sequence, bool success, const QVariant &bodyVal,
+                                const QVariant &refsVal);
+    void updateBreakpoints(const QVariant &bodyVal);
+
+    QVariant valueFromRef(int handle, const QVariant &refsVal);
+
+    void expandLocalsAndWatchers(const QVariant &bodyVal, const QVariant &refsVal);
+
+    void highlightExceptionCode(int lineNumber, const QString &filePath,
+                                const QString &errorMessage);
     void clearExceptionSelection();
 
-    void continueDebugging(StepAction type);
+    void resetDebugger();
+
+    void updateLocalsAndWatchers();
 
 private:
     QmlV8DebuggerClientPrivate *d;

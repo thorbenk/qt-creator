@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,12 +26,13 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "savefile.h"
 #include "qtcassert.h"
+#include "fileutils.h"
 
 namespace Utils {
 
@@ -84,11 +85,12 @@ bool SaveFile::commit()
         return false;
     }
 
-    QString bakname = m_finalFileName + QLatin1Char('~');
+    QString finalFileName = Utils::FileUtils::resolveSymlinks(m_finalFileName);
+    QString bakname = finalFileName + QLatin1Char('~');
     QFile::remove(bakname); // Kill old backup
-    QFile::rename(m_finalFileName, bakname); // Backup current file
-    if (!rename(m_finalFileName)) { // Replace current file
-        QFile::rename(bakname, m_finalFileName); // Rollback to current file
+    QFile::rename(finalFileName, bakname); // Backup current file
+    if (!rename(finalFileName)) { // Replace current file
+        QFile::rename(bakname, finalFileName); // Rollback to current file
         return false;
     }
     if (!m_backup)

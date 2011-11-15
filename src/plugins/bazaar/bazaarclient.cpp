@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Hugues Delorme
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -231,7 +231,7 @@ public:
         const QStringList formatArguments = VCSBaseEditorParameterWidget::arguments();
         if (!formatArguments.isEmpty()) {
             const QString a = QLatin1String("--diff-options=")
-                              + formatArguments.join(QString(QLatin1Char(' ')));
+                    + formatArguments.join(QString(QLatin1Char(' ')));
             args.append(a);
         }
         return args;
@@ -248,7 +248,7 @@ private:
 };
 
 VCSBase::VCSBaseEditorParameterWidget *BazaarClient::createDiffEditor(
-    const QString &workingDir, const QStringList &files, const QStringList &extraOptions)
+        const QString &workingDir, const QStringList &files, const QStringList &extraOptions)
 {
     const BazaarCommandParameters parameters(workingDir, files, extraOptions);
     return new BazaarDiffParameterWidget(this, parameters);
@@ -292,13 +292,13 @@ private:
 };
 
 VCSBase::VCSBaseEditorParameterWidget *BazaarClient::createLogEditor(
-    const QString &workingDir, const QStringList &files, const QStringList &extraOptions)
+        const QString &workingDir, const QStringList &files, const QStringList &extraOptions)
 {
     const BazaarCommandParameters parameters(workingDir, files, extraOptions);
     return new BazaarLogParameterWidget(this, parameters);
 }
 
-} //namespace Internal
+} // namespace Internal
 } // namespace Bazaar
 
 #include "bazaarclient.moc"

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -89,6 +89,8 @@ public:
 
     QHash<ImportCacheKey, Import> importCache;
 
+    QHash<QString, QList<ModuleApiInfo> > importableModuleApis;
+
     Document::Ptr document;
     QList<DiagnosticMessage> *diagnosticMessages;
 
@@ -123,15 +125,13 @@ public:
 
 /*!
     \class QmlJS::Link
-    \brief Initializes the Context for a Document.
-    \sa QmlJS::Document QmlJS::Context
+    \brief Creates a Context for a Snapshot.
+    \sa Context Snapshot
 
-    Initializes a context by resolving imports and building the root scope
-    chain. Currently, this is a expensive operation.
+    Initializes a context by resolving imports. This is an expensive operation.
 
-    It's recommended to use a the \l{LookupContext} returned by
-    \l{QmlJSEditor::SemanticInfo::lookupContext()} instead of building a new
-    \l{Context} with \l{Link}.
+    Instead of making a fresh context, consider reusing the one maintained in the
+    \l{QmlJSEditor::SemanticInfo} of a \l{QmlJSEditor::QmlJSTextEditorWidget}.
 */
 
 Link::Link(const Snapshot &snapshot, const QStringList &importPaths, const LibraryInfo &builtins)
@@ -231,6 +231,8 @@ Context::ImportsPerDocument LinkPrivate::linkImports()
 
 void LinkPrivate::populateImportedTypes(Imports *imports, Document::Ptr doc)
 {
+    importableModuleApis.clear();
+
     // implicit imports: the <default> package is always available
     loadImplicitDefaultImports(imports);
 
@@ -315,6 +317,18 @@ Import LinkPrivate::importFileOrDirectory(Document::Ptr doc, const ImportInfo &i
     return import;
 }
 
+static ModuleApiInfo findBestModuleApi(const QList<ModuleApiInfo> &apis, const ComponentVersion &version)
+{
+    ModuleApiInfo best;
+    foreach (const ModuleApiInfo &moduleApi, apis) {
+        if (moduleApi.version <= version
+                && (!best.version.isValid() || best.version < moduleApi.version)) {
+            best = moduleApi;
+        }
+    }
+    return best;
+}
+
 /*
   import Qt 4.6
   import Qt 4.6 as Xxx
@@ -370,6 +384,13 @@ Import LinkPrivate::importNonFile(Document::Ptr doc, const ImportInfo &importInf
                  valueOwner->cppQmlTypes().createObjectsForImport(packageName, version)) {
             import.object->setMember(object->className(), object);
         }
+    }
+
+    // check module apis that previous imports may have enabled
+    ModuleApiInfo moduleApi = findBestModuleApi(importableModuleApis.value(packageName), version);
+    if (moduleApi.version.isValid()) {
+        importFound = true;
+        import.object->setPrototype(valueOwner->cppQmlTypes().objectByCppName(moduleApi.cppName));
     }
 
     if (!importFound && importInfo.ast()) {
@@ -442,6 +463,21 @@ bool LinkPrivate::importLibrary(Document::Ptr doc,
             foreach (const CppComponentValue *object, valueOwner->cppQmlTypes().createObjectsForImport(packageName, version)) {
                 import->object->setMember(object->className(), object);
             }
+
+            // all but no-uri module apis become available for import
+            QList<ModuleApiInfo> noUriModuleApis;
+            foreach (const ModuleApiInfo &moduleApi, libraryInfo.moduleApis()) {
+                if (moduleApi.uri.isEmpty()) {
+                    noUriModuleApis += moduleApi;
+                } else {
+                    importableModuleApis[moduleApi.uri] += moduleApi;
+                }
+            }
+
+            // if a module api has no uri, it shares the same name
+            ModuleApiInfo sameUriModuleApi = findBestModuleApi(noUriModuleApis, version);
+            if (sameUriModuleApi.version.isValid())
+                import->object->setPrototype(valueOwner->cppQmlTypes().objectByCppName(sameUriModuleApi.cppName));
         }
     }
 

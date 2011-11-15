@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -321,6 +321,17 @@ bool ExCommand::matches(const QString &min, const QString &full) const
     return cmd.startsWith(min) && full.startsWith(cmd);
 }
 
+void ExCommand::setContentsFromLine(const QString &line)
+{
+    cmd = line.section(' ', 0, 0);
+    args = line.mid(cmd.size() + 1).trimmed();
+    while (cmd.startsWith(QLatin1Char(':')))
+        cmd.remove(0, 1);
+    hasBang = cmd.endsWith('!');
+    if (hasBang)
+        cmd.chop(1);
+}
+
 QDebug operator<<(QDebug ts, const ExCommand &cmd)
 {
     return ts << cmd.cmd << ' ' << cmd.args << ' ' << cmd.range;
@@ -436,6 +447,12 @@ public:
     {
         return a.m_key == m_key && a.m_modifiers == m_modifiers
             && m_text == a.m_text;
+    }
+
+    // Ignore e.g. ShiftModifier, which is not available in sourced data.
+    bool matchesForMap(const Input &a) const
+    {
+        return (a.m_key == m_key || a.m_xkey == m_xkey) && m_text == a.m_text;
     }
 
     bool operator!=(const Input &a) const { return !operator==(a); }
@@ -643,7 +660,7 @@ public:
         for (int i = 0; i != size(); ++i) {
             const Inputs &haystack = at(i).first;
             // A mapping
-            if (startsWith(haystack, *inputs)) {
+            if (couldTriggerMap(haystack, *inputs)) {
                 if (haystack.size() != inputs->size())
                     return false; // This can be extended.
                 // Actual mapping.
@@ -656,13 +673,13 @@ public:
     }
 
 private:
-    static bool startsWith(const Inputs &haystack, const Inputs &needle)
+    static bool couldTriggerMap(const Inputs &haystack, const Inputs &needle)
     {
         // Input is already too long.
         if (needle.size() > haystack.size())
             return false;
         for (int i = 0; i != needle.size(); ++i) {
-            if (needle.at(i) != haystack.at(i))
+            if (!needle.at(i).matchesForMap(haystack.at(i)))
                 return false;
         }
         return true;
@@ -998,6 +1015,12 @@ public:
     // number of autoindented characters
     int m_justAutoIndented;
     void handleStartOfLine();
+
+    // register handling
+    QString registerContents(int reg) const;
+    void setRegisterContents(int reg, const QString &contents);
+    RangeMode registerRangeMode(int reg) const;
+    void setRegisterRangeMode(int reg, RangeMode mode);
 
     void recordJump();
     QVector<CursorPosition> m_jumpListUndo;
@@ -1548,7 +1571,7 @@ void FakeVimHandler::Private::finishMovement(const QString &dotCommand)
         if (m_submode != TransformSubMode) {
             yankText(currentRange(), m_register);
             if (m_movetype == MoveLineWise)
-                g.registers[m_register].rangemode = RangeLineMode;
+                setRegisterRangeMode(m_register, RangeLineMode);
         }
 
         m_positionPastEnd = m_anchorPastEnd = false;
@@ -2475,7 +2498,7 @@ EventResult FakeVimHandler::Private::handleCommandMode2(const Input &input)
         beginEditBlock(position());
         moveToFirstNonBlankOnLine();
         moveBehindEndOfLine();
-        insertText(Register("\n"));
+        insertText(QString("\n"));
         insertAutomaticIndentation(true);
         endEditBlock();
     } else if (input.is('O')) {
@@ -2486,7 +2509,7 @@ EventResult FakeVimHandler::Private::handleCommandMode2(const Input &input)
         beginEditBlock(position());
         moveToFirstNonBlankOnLine();
         moveToStartOfLine();
-        insertText(Register("\n"));
+        insertText(QString("\n"));
         moveUp();
         insertAutomaticIndentation(false);
         endEditBlock();
@@ -2895,7 +2918,7 @@ EventResult FakeVimHandler::Private::handleInsertMode(const Input &input)
         m_lastInsertion.clear();
     } else if (input.isReturn()) {
         m_submode = NoSubMode;
-        insertText(Register("\n"));
+        insertText(QString("\n"));
         m_lastInsertion += '\n';
         insertAutomaticIndentation(true);
         setTargetColumn();
@@ -3296,6 +3319,7 @@ bool FakeVimHandler::Private::handleExSubstituteCommand(const ExCommand &cmd)
                     i += caps.at(0).size();
                 }
             }
+            repl.replace("\\&", "&");
             text = text.left(pos) + repl + text.mid(pos + matched.size());
             pos += repl.size();
             if (!global)
@@ -3423,7 +3447,7 @@ bool FakeVimHandler::Private::handleExRegisterCommand(const ExCommand &cmd)
     QString info;
     info += "--- Registers ---\n";
     foreach (char reg, regs) {
-        QString value = quoteUnprintable(g.registers[reg].contents);
+        QString value = quoteUnprintable(registerContents(reg));
         info += QString("\"%1   %2\n").arg(reg).arg(value);
     }
     emit q->extraInformationChanged(info);
@@ -3494,9 +3518,9 @@ bool FakeVimHandler::Private::handleExDeleteCommand(const ExCommand &cmd)
     QString text = selectText(range);
     removeText(currentRange());
     if (!reg.isEmpty()) {
-        Register &r = g.registers[reg.at(0).unicode()];
-        r.contents = text;
-        r.rangemode = RangeLineMode;
+        const int r = reg.at(0).unicode();
+        setRegisterContents(r, text);
+        setRegisterRangeMode(r, RangeLineMode);
     }
     return true;
 }
@@ -3701,7 +3725,9 @@ bool FakeVimHandler::Private::handleExSourceCommand(const ExCommand &cmd)
             // A comment.
         } else if (!line.isEmpty() && !inFunction) {
             //qDebug() << "EXECUTING: " << line;
-            handleExCommandHelper(QString::fromUtf8(line));
+            ExCommand cmd;
+            cmd.setContentsFromLine(QString::fromLocal8Bit(line));
+            handleExCommandHelper(cmd);
         }
     }
     file.close();
@@ -3720,6 +3746,15 @@ bool FakeVimHandler::Private::handleExEchoCommand(const ExCommand &cmd)
 void FakeVimHandler::Private::handleExCommand(const QString &line0)
 {
     QString line = line0; // Make sure we have a copy to prevent aliasing.
+
+    if (line.endsWith(QLatin1Char('%'))) {
+        line.chop(1);
+        int percent = line.toInt();
+        setPosition(firstPositionInLine(percent * linesInDocument() / 100));
+        showBlackMessage(QString());
+        return;
+    }
+
     // FIXME: that seems to be different for %w and %s
     if (line.startsWith(QLatin1Char('%')))
         line = "1,$" + line.mid(1);
@@ -3735,13 +3770,8 @@ void FakeVimHandler::Private::handleExCommand(const QString &line0)
     const int beginPos = firstPositionInLine(beginLine);
     const int endPos = lastPositionInLine(endLine);
     ExCommand cmd;
-    const QString arg0 = line.section(' ', 0, 0);
-    cmd.cmd = arg0;
-    cmd.args = line.mid(arg0.size() + 1).trimmed();
+    cmd.setContentsFromLine(line);
     cmd.range = Range(beginPos, endPos, RangeLineMode);
-    cmd.hasBang = arg0.endsWith('!');
-    if (cmd.hasBang)
-        cmd.cmd.chop(1);
     if (beginLine != -1)
         cmd.count = beginLine;
     //qDebug() << "CMD: " << cmd;
@@ -4400,11 +4430,10 @@ QString FakeVimHandler::Private::selectText(const Range &range) const
     return contents;
 }
 
-void FakeVimHandler::Private::yankText(const Range &range, int toregister)
+void FakeVimHandler::Private::yankText(const Range &range, int reg)
 {
-    Register &reg = g.registers[toregister];
-    reg.contents = selectText(range);
-    reg.rangemode = range.rangemode;
+    setRegisterContents(reg, selectText(range));
+    setRegisterRangeMode(reg, range.rangemode);
 }
 
 void FakeVimHandler::Private::transformText(const Range &range,
@@ -4552,7 +4581,7 @@ void FakeVimHandler::Private::replaceByCharTransform(TransformationData *td)
 
 void FakeVimHandler::Private::pasteText(bool afterCursor)
 {
-    const QString text = g.registers[m_register].contents;
+    const QString text = registerContents(m_register);
     const QStringList lines = text.split(QChar('\n'));
 
     beginEditBlock();
@@ -4575,7 +4604,7 @@ void FakeVimHandler::Private::pasteText(bool afterCursor)
         setPosition(qMin(position(), anchor()));
     }
 
-    switch (g.registers[m_register].rangemode) {
+    switch (registerRangeMode(m_register)) {
         case RangeCharMode: {
             m_targetColumn = 0;
             for (int i = count(); --i >= 0; ) {
@@ -4982,6 +5011,26 @@ void FakeVimHandler::Private::setMark(int code, int position)
     QTextCursor tc = cursor();
     tc.setPosition(position, MoveAnchor);
     m_marks[code] = tc;
+}
+
+void FakeVimHandler::Private::setRegisterRangeMode(int reg, RangeMode mode)
+{
+    g.registers[reg].rangemode = mode;
+}
+
+RangeMode FakeVimHandler::Private::registerRangeMode(int reg) const
+{
+    return g.registers[reg].rangemode;
+}
+
+void FakeVimHandler::Private::setRegisterContents(int reg, const QString &contents)
+{
+    g.registers[reg].contents = contents;
+}
+
+QString FakeVimHandler::Private::registerContents(int reg) const
+{
+    return g.registers[reg].contents;
 }
 
 ///////////////////////////////////////////////////////////////////////

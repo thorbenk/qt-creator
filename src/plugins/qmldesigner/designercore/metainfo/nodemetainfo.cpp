@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -382,7 +382,7 @@ private:
 
     //storing the pointer would not be save
     QmlJS::ContextPtr context() const;
-    QmlJS::Document *document() const;
+    const Document *document() const;
 
     QPointer<Model> m_model;
     static QHash<QString, Pointer> m_nodeMetaInfoCache;
@@ -496,7 +496,7 @@ QmlJS::ContextPtr NodeMetaInfoPrivate::context() const
     return QmlJS::ContextPtr(0);
 }
 
-QmlJS::Document *NodeMetaInfoPrivate::document() const
+const QmlJS::Document *NodeMetaInfoPrivate::document() const
 {
     if (m_model && m_model->rewriterView()) {
         return m_model->rewriterView()->document();
@@ -826,6 +826,7 @@ void NodeMetaInfoPrivate::setupPrototypes()
         objects = PrototypeIterator(getObjectValue(), context()).all();
     else
         objects = PrototypeIterator(getCppComponentValue(), context()).all();
+
     foreach (const ObjectValue *ov, objects) {
         TypeDescription description;
         description.className = ov->className();
@@ -834,8 +835,15 @@ void NodeMetaInfoPrivate::setupPrototypes()
         if (const CppComponentValue * qmlValue = value_cast<CppComponentValue>(ov)) {
             description.minorVersion = qmlValue->componentVersion().minorVersion();
             description.majorVersion = qmlValue->componentVersion().majorVersion();
-            if (!qmlValue->moduleName().isEmpty())
+            LanguageUtils::FakeMetaObject::Export qtquickExport = qmlValue->metaObject()->exportInPackage("QtQuick");
+            LanguageUtils::FakeMetaObject::Export cppExport = qmlValue->metaObject()->exportInPackage("<cpp>");
+            if (qtquickExport.isValid()) {
+                description.className = qtquickExport.package + '.' + qtquickExport.type;
+            } else if (qmlValue->moduleName().isEmpty() && cppExport.isValid()) {
+                description.className = cppExport.package + '.' + cppExport.type;
+            } else if (!qmlValue->moduleName().isEmpty()) {
                 description.className = qmlValue->moduleName() + '.' + description.className;
+            }
             m_prototypes.append(description);
         } else {
             if (context()->lookupType(document(), QStringList() << ov->className()))

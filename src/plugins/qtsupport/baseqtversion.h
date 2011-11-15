@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -229,8 +229,8 @@ private:
     void ctor(const QString &qmakePath);
     void updateSourcePath() const;
     void updateVersionInfo() const;
-    enum BINARIES { QmlViewer, Designer, Linguist, Uic };
-    QString findQtBinary(BINARIES binary) const;
+    enum Binaries { QmlViewer, Designer, Linguist, Uic };
+    QString findQtBinary(Binaries binary) const;
     void updateMkspec() const;
     void setId(int id); // used by the qtversionmanager for legacy restore
                         // and by the qtoptionspage to replace qt versions

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -522,7 +522,7 @@ QString BaseQtVersion::qmlviewerCommand() const
     return m_qmlviewerCommand;
 }
 
-QString BaseQtVersion::findQtBinary(BINARIES binary) const
+QString BaseQtVersion::findQtBinary(Binaries binary) const
 {
     QString baseDir;
     if (qtVersion() < QtVersionNumber(5, 0, 0)) {
@@ -909,10 +909,12 @@ Utils::Environment BaseQtVersion::qmlToolsEnvironment() const
     addToEnvironment(environment);
 
     // add preferred tool chain, as that is how the tools are built, compare QtVersion::buildDebuggingHelperLibrary
-    QList<ProjectExplorer::ToolChain *> alltc =
-            ProjectExplorer::ToolChainManager::instance()->findToolChains(qtAbis().at(0));
-    if (!alltc.isEmpty())
-        alltc.first()->addToEnvironment(environment);
+    if (!qtAbis().isEmpty()) {
+        QList<ProjectExplorer::ToolChain *> alltc =
+                ProjectExplorer::ToolChainManager::instance()->findToolChains(qtAbis().at(0));
+        if (!alltc.isEmpty())
+            alltc.first()->addToEnvironment(environment);
+    }
 
     return environment;
 }
@@ -955,7 +957,7 @@ QStringList BaseQtVersion::debuggingHelperLibraryLocations() const
     QString qtInstallData = versionInfo().value("QT_INSTALL_DATA");
     if (qtInstallData.isEmpty())
         return QStringList();
-    return ProjectExplorer::DebuggingHelperLibrary::locationsByInstallData(qtInstallData);
+    return ProjectExplorer::DebuggingHelperLibrary::debuggingHelperLibraryDirectories(qtInstallData);
 }
 
 bool BaseQtVersion::supportsBinaryDebuggingHelper() const
@@ -1008,7 +1010,7 @@ QList<ProjectExplorer::Task> BaseQtVersion::reportIssuesImpl(const QString &proF
                                                         "Qmake does not support build directories below the source directory.");
         results.append(ProjectExplorer::Task(ProjectExplorer::Task::Warning, msg, QString(), -1,
                                              QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
-    } else if (tmpBuildDir.count(QChar('/')) != sourcePath.count(QChar('/'))) {
+    } else if (tmpBuildDir.count(QChar('/')) != sourcePath.count(QChar('/')) && qtVersion() < QtVersionNumber(4,8, 0)) {
         const QString msg = QCoreApplication::translate("Qt4ProjectManager::QtVersion",
                                                         "The build directory needs to be at the same level as the source directory.");
 
@@ -1199,7 +1201,6 @@ QString BaseQtVersion::qtCorePath(const QHash<QString,QString> &versionInfo, con
                     else if (file.endsWith(QLatin1String(".dll"))
                              || file.endsWith(QString::fromLatin1(".so.") + versionString)
                              || file.endsWith(QLatin1Char('.') + versionString + QLatin1String(".dylib")))
-
                         return info.absoluteFilePath();
                 }
             }

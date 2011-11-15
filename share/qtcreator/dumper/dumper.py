@@ -545,6 +545,18 @@ def makeValue(type, init):
     #warn("  VALUE: %s" % value)
     return value
 
+def makeStdString(init):
+    # Works only for small allocators, but they are usually empty.
+    gdb.execute("set $d=(std::string*)calloc(sizeof(std::string), 2)");
+    gdb.execute("call($d->basic_string(\"" + init +
+        "\",*(std::allocator<char>*)(1+$d)))")
+    value = parseAndEvaluate("$d").dereference()
+    #warn("  TYPE: %s" % value.type)
+    #warn("  ADDR: %s" % value.address)
+    #warn("  VALUE: %s" % value)
+    return value
+
+
 def makeExpression(value):
     type = stripClassTag(str(value.type))
     if type.find(":") >= 0:
@@ -603,14 +615,17 @@ def findFirstZero(p, maximum):
     return maximum + 1
 
 def extractCharArray(p, maxsize):
-    t = lookupType("unsigned char").pointer()
-    p = p.cast(t)
-    limit = findFirstZero(p, maxsize)
+    p = p.cast(lookupType("unsigned char").pointer())
     s = ""
-    for i in xrange(limit):
-        s += "%c" % int(p.dereference())
+    i = 0
+    while i < maxsize:
+        c = int(p.dereference())
+        if c == 0:
+            return s
+        s += "%c" % c
         p += 1
-    if i > maxsize:
+        i += 1
+    if p.dereference() != 0:
         s += "..."
     return s
 
@@ -1209,12 +1224,8 @@ class Dumper:
         self.put('name="%s",' % name)
 
     def isExpanded(self):
-        #warn("IS EXPANDED: %s in %s" % (item.iname, self.expandedINames))
-        #if item.iname is None:
-        #    raise "Illegal iname 'None'"
-        #if item.iname.startswith("None"):
-        #    raise "Illegal iname '%s'" % item.iname
-        #warn("   --> %s" % (item.iname in self.expandedINames))
+        #warn("IS EXPANDED: %s in %s: %s" % (self.currentIName,
+        #    self.expandedINames, self.currentIName in self.expandedINames))
         return self.currentIName in self.expandedINames
 
     def isExpandedSubItem(self, component):
@@ -1334,7 +1345,13 @@ class Dumper:
             return
 
         if type.code == TypedefCode:
-            self.putItem(value.cast(type.strip_typedefs()))
+            type = type.strip_typedefs()
+            # Workaround for http://sourceware.org/bugzilla/show_bug.cgi?id=13380
+            if type.code == ArrayCode:
+                value = parseAndEvaluate("{%s}%s" % (type, value.address))
+            else:
+                value = value.cast(type.strip_typedefs())
+            self.putItem(value)
             self.putBetterType(typeName)
             return
 
@@ -1395,6 +1412,14 @@ class Dumper:
                 self.putAddress(value.address)
                 return
 
+            if format == -1 and innerTypeName == "char":
+                # Use Latin1 as default for char *.
+                self.putAddress(value.address)
+                self.putType(typeName)
+                self.putValue(encodeCharArray(value, 100), Hex2EncodedLatin1)
+                self.putNumChild(0)
+                return
+
             if format == 0:
                 # Explicitly requested bald pointer.
                 self.putAddress(value.address)
@@ -1409,7 +1434,7 @@ class Dumper:
                 return
 
             if format == 1:
-                # Explicityly requested Latin1 formatting.
+                # Explicitly requested Latin1 formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
                 self.putValue(encodeCharArray(value, 100), Hex2EncodedLatin1)
@@ -1417,7 +1442,7 @@ class Dumper:
                 return
 
             if format == 2:
-                # Explicityly requested UTF-8 formatting.
+                # Explicitly requested UTF-8 formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
                 self.putValue(encodeCharArray(value, 100), Hex2EncodedUtf8)
@@ -1425,7 +1450,7 @@ class Dumper:
                 return
 
             if format == 3:
-                # Explicityly requested local 8 bit formatting.
+                # Explicitly requested local 8 bit formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
                 self.putValue(encodeCharArray(value, 100), Hex2EncodedLocal8Bit)
@@ -1433,7 +1458,7 @@ class Dumper:
                 return
 
             if format == 4:
-                # Explitly requested UTF-16 formatting.
+                # Explicitly requested UTF-16 formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
                 self.putValue(encodeChar2Array(value, 100), Hex4EncodedBigEndian)
@@ -1441,7 +1466,7 @@ class Dumper:
                 return
 
             if format == 5:
-                # Explitly requested UCS-4 formatting.
+                # Explicitly requested UCS-4 formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
                 self.putValue(encodeChar4Array(value, 100), Hex8EncodedBigEndian)
@@ -1484,7 +1509,6 @@ class Dumper:
             if self.currentIName in self.expandedINames:
                 with Children(self):
                     with SubItem(self, "*"):
-                        self.put('name="*",')
                         self.putItem(value.dereference())
             self.putPointerValue(value.address)
             return
@@ -1502,6 +1526,16 @@ class Dumper:
         if type.code != StructCode and type.code != UnionCode:
             warn("WRONG ASSUMPTION HERE: %s " % type.code)
             check(False)
+
+        #vtbl = str(parseAndEvaluate("{int(*)(int)}%s" % long(value.address)))
+        vtbl = gdb.execute("info symbol {int*}%s" % long(value.address),
+            to_string = True)
+        pos1 = vtbl.find("vtable ")
+        if pos1 != -1:
+            pos1 += 11
+            pos2 = vtbl.find(" +", pos1)
+            if pos2 != -1:
+                self.putType(vtbl[pos1 : pos2], 1)
 
         if self.useFancy and (format is None or format >= 1):
             self.putAddress(value.address)

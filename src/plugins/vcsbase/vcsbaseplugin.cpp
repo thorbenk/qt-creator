@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -485,12 +485,13 @@ VCSBASE_EXPORT QDebug operator<<(QDebug in, const VCSBasePluginState &state)
     the virtual submitEditorAboutToClose() to trigger the submit process.
 */
 
-struct VCSBasePluginPrivate {
+struct VCSBasePluginPrivate
+{
     explicit VCSBasePluginPrivate(const QString &submitEditorId);
 
     inline bool supportsRepositoryCreation() const;
 
-    const QString m_submitEditorId;
+    const Core::Id m_submitEditorId;
     Core::IVersionControl *m_versionControl;
     VCSBasePluginState m_state;
     int m_actionState;
@@ -557,7 +558,7 @@ void VCSBasePlugin::extensionsInitialized()
 void VCSBasePlugin::slotSubmitEditorAboutToClose(VCSBaseSubmitEditor *submitEditor, bool *result)
 {
     if (debug)
-        qDebug() << this << d->m_submitEditorId << "Closing submit editor" << submitEditor << submitEditor->id();
+        qDebug() << this << d->m_submitEditorId.name() << "Closing submit editor" << submitEditor << submitEditor->id().name();
     if (submitEditor->id() == d->m_submitEditorId)
         *result = submitEditorAboutToClose(submitEditor);
 }

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -98,12 +98,12 @@
 
 using namespace Help::Internal;
 
-const char * const SB_INDEX = QT_TRANSLATE_NOOP("Help::Internal::HelpPlugin", "Index");
-const char * const SB_CONTENTS = QT_TRANSLATE_NOOP("Help::Internal::HelpPlugin", "Contents");
-const char * const SB_BOOKMARKS = QT_TRANSLATE_NOOP("Help::Internal::HelpPlugin", "Bookmarks");
-const char * const SB_SEARCH = QT_TRANSLATE_NOOP("Help::Internal::HelpPlugin", "Search");
+const char SB_INDEX[] = QT_TRANSLATE_NOOP("Help::Internal::HelpPlugin", "Index");
+const char SB_CONTENTS[] = QT_TRANSLATE_NOOP("Help::Internal::HelpPlugin", "Contents");
+const char SB_BOOKMARKS[] = QT_TRANSLATE_NOOP("Help::Internal::HelpPlugin", "Bookmarks");
+const char SB_SEARCH[] = QT_TRANSLATE_NOOP("Help::Internal::HelpPlugin", "Search");
 
-const char * const SB_OPENPAGES = "OpenPages";
+const char SB_OPENPAGES[] = "OpenPages";
 
 #define IMAGEPATH ":/help/images/"
 #if defined(Q_OS_MAC)
@@ -203,12 +203,12 @@ bool HelpPlugin::initialize(const QStringList &arguments, QString *error)
     QAction *action = new QAction(QIcon(QLatin1String(IMAGEPATH "home.png")),
         tr("Home"), this);
     Core::ActionManager *am = m_core->actionManager();
-    Core::Command *cmd = am->registerAction(action, "Help.Home", globalcontext);
+    am->registerAction(action, "Help.Home", globalcontext);
     connect(action, SIGNAL(triggered()), m_centralWidget, SLOT(home()));
 
     action = new QAction(QIcon(QLatin1String(IMAGEPATH "previous.png")),
         tr("Previous Page"), this);
-    cmd = am->registerAction(action, Core::Id("Help.Previous"), modecontext);
+    Core::Command *cmd = am->registerAction(action, Core::Id("Help.Previous"), modecontext);
     cmd->setDefaultKeySequence(QKeySequence::Back);
     action->setEnabled(m_centralWidget->isBackwardAvailable());
     connect(action, SIGNAL(triggered()), m_centralWidget, SLOT(backward()));
@@ -883,6 +883,12 @@ void HelpPlugin::activateContext()
     if (IContext *context = m_core->currentContextObject()) {
         m_idFromContext = context->contextHelpId();
         links = Core::HelpManager::instance()->linksForIdentifier(m_idFromContext);
+        if (links.isEmpty()) {
+            // Maybe this is already an URL...
+            QUrl url(m_idFromContext);
+            if (url.isValid())
+                links.insert(m_idFromContext, m_idFromContext);
+        }
     }
 
     if (HelpViewer* viewer = viewerForContextMode()) {

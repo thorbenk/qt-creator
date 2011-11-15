@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemoremotecopyfacility.h"
@@ -46,7 +46,7 @@ namespace Madde {
 namespace Internal {
 
 MaemoRemoteCopyFacility::MaemoRemoteCopyFacility(QObject *parent) :
-    QObject(parent), m_isCopying(false)
+    QObject(parent), m_copyRunner(0), m_killProcess(0), m_isCopying(false)
 {
 }
 
@@ -63,16 +63,14 @@ void MaemoRemoteCopyFacility::copyFiles(const SshConnection::Ptr &connection,
     m_deployables = deployables;
     m_mountPoint = mountPoint;
 
-    m_copyRunner = SshRemoteProcessRunner::create(connection);
-    connect(m_copyRunner.data(), SIGNAL(connectionError(Utils::SshError)),
-        SLOT(handleConnectionError()));
-    connect(m_copyRunner.data(), SIGNAL(processOutputAvailable(QByteArray)),
+    if (!m_copyRunner)
+        m_copyRunner = new SshRemoteProcessRunner(this);
+    connect(m_copyRunner, SIGNAL(connectionError()), SLOT(handleConnectionError()));
+    connect(m_copyRunner, SIGNAL(processOutputAvailable(QByteArray)),
         SLOT(handleRemoteStdout(QByteArray)));
-    connect(m_copyRunner.data(),
-        SIGNAL(processErrorOutputAvailable(QByteArray)),
+    connect(m_copyRunner, SIGNAL(processErrorOutputAvailable(QByteArray)),
         SLOT(handleRemoteStderr(QByteArray)));
-    connect(m_copyRunner.data(), SIGNAL(processClosed(int)),
-        SLOT(handleCopyFinished(int)));
+    connect(m_copyRunner, SIGNAL(processClosed(int)), SLOT(handleCopyFinished(int)));
 
     m_isCopying = true;
     copyNextFile();
@@ -82,17 +80,16 @@ void MaemoRemoteCopyFacility::cancel()
 {
     Q_ASSERT(m_isCopying);
 
-    SshRemoteProcessRunner::Ptr killProcess
-        = SshRemoteProcessRunner::create(m_copyRunner->connection());
-    killProcess->run("pkill cp");
+    if (!m_killProcess)
+        m_killProcess = new SshRemoteProcessRunner(this);
+    m_killProcess->run("pkill cp", m_devConf->sshParameters());
     setFinished();
 }
 
 void MaemoRemoteCopyFacility::handleConnectionError()
 {
-    const QString errMsg = m_copyRunner->connection()->errorString();
     setFinished();
-    emit finished(tr("Connection failed: %1").arg(errMsg));
+    emit finished(tr("Connection failed: %1").arg(m_copyRunner->lastConnectionErrorString()));
 }
 
 void MaemoRemoteCopyFacility::handleRemoteStdout(const QByteArray &output)
@@ -141,18 +138,16 @@ void MaemoRemoteCopyFacility::copyNextFile()
 #endif
 
     QString command = QString::fromLatin1("%1 mkdir -p %3 && %1 cp -a %2 %3")
-        .arg(MaemoGlobal::remoteSudo(m_devConf->osType(),
-            m_copyRunner->connection()->connectionParameters().userName),
+        .arg(MaemoGlobal::remoteSudo(m_devConf->osType(), m_devConf->sshParameters().userName),
             sourceFilePath, d.remoteDir);
     emit progress(tr("Copying file '%1' to directory '%2' on the device...")
         .arg(d.localFilePath, d.remoteDir));
-    m_copyRunner->run(command.toUtf8());
+    m_copyRunner->run(command.toUtf8(), m_devConf->sshParameters());
 }
 
 void MaemoRemoteCopyFacility::setFinished()
 {
-    disconnect(m_copyRunner.data(), 0, this, 0);
-    m_copyRunner.clear();
+    disconnect(m_copyRunner, 0, this, 0);
     m_deployables.clear();
     m_isCopying = false;
 }

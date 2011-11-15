@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -288,10 +288,10 @@ void BaseFileFind::openEditor(const Find::SearchResultItem &item)
         openedEditor = TextEditor::BaseTextEditorWidget::openEditorAt(QDir::fromNativeSeparators(item.path.first()),
                                                                       item.lineNumber,
                                                                       item.textMarkPos,
-                                                                      QString(),
+                                                                      Core::Id(),
                                                                       Core::EditorManager::ModeSwitch);
     } else {
-        openedEditor = Core::EditorManager::instance()->openEditor(item.text, QString(),
+        openedEditor = Core::EditorManager::instance()->openEditor(item.text, Core::Id(),
                                                                    Core::EditorManager::ModeSwitch);
     }
     if (m_currentFindSupport)

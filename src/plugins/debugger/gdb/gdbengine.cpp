@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -67,10 +67,7 @@
 #include "threadshandler.h"
 #include "watchhandler.h"
 #include "debuggersourcepathmappingwidget.h"
-
-#ifdef Q_OS_WIN
-#    include "dbgwinutils.h"
-#endif
+#include "hostutils.h"
 #include "logwindow.h"
 
 #include <coreplugin/icore.h>
@@ -261,8 +258,11 @@ QString GdbEngine::errorMessage(QProcess::ProcessError error)
                 "permissions to invoke the program.\n%2")
                 .arg(m_gdb, gdbProc()->errorString());
         case QProcess::Crashed:
-            return tr("The gdb process crashed some time after starting "
-                "successfully.");
+            if (targetState() == DebuggerFinished)
+                return tr("The gdb process crashed some time after starting "
+                    "successfully.");
+            else
+                return tr("The gdb process was ended forcefully");
         case QProcess::Timedout:
             return tr("The last waitFor...() function timed out. "
                 "The state of QProcess is unchanged, and you can try calling "
@@ -702,13 +702,11 @@ void GdbEngine::readGdbStandardOutput()
         scan = newstart;
         if (end == start)
             continue;
-#        if defined(Q_OS_WIN)
         if (m_inbuffer.at(end - 1) == '\r') {
             --end;
             if (end == start)
                 continue;
         }
-#        endif
         m_busy = true;
         handleResponse(QByteArray::fromRawData(m_inbuffer.constData() + start, end - start));
         m_busy = false;
@@ -1148,7 +1146,9 @@ bool GdbEngine::acceptsDebuggerCommands() const
 void GdbEngine::executeDebuggerCommand(const QString &command)
 {
     QTC_CHECK(acceptsDebuggerCommands());
-    m_gdbAdapter->write(command.toLatin1() + "\r\n");
+    GdbCommand cmd;
+    cmd.command = command.toLatin1();
+    flushCommand(cmd);
 }
 
 // This is called from CoreAdapter and AttachAdapter.
@@ -2498,6 +2498,18 @@ void GdbEngine::handleBreakInsert1(const GdbResponse &response)
 {
     BreakHandler *handler = breakHandler();
     BreakpointModelId id = response.cookie.value<BreakpointModelId>();
+    if (handler->state(id) == BreakpointRemoveRequested) {
+        if (response.resultClass == GdbResultDone) {
+            // This delete was defered. Act now.
+            const GdbMi mainbkpt = response.data.findChild("bkpt");
+            handler->notifyBreakpointRemoveProceeding(id);
+            QByteArray nr = mainbkpt.findChild("number").data();
+            postCommand("-break-delete " + nr,
+                NeedsStop | RebuildBreakpointModel);
+            handler->notifyBreakpointRemoveOk(id);
+            return;
+        }
+    }
     if (response.resultClass == GdbResultDone) {
         // The result is a list with the first entry marked "bkpt"
         // and "unmarked" rest. The "bkpt" one seems to always be
@@ -2538,7 +2550,8 @@ void GdbEngine::handleBreakInsert1(const GdbResponse &response)
             // Remove if we only support 7.4 or later.
             if (br.multiple && !m_hasBreakpointNotifications)
                 postCommand("info break " + QByteArray::number(br.id.majorPart()),
-                    NeedsStop, CB(handleBreakListMultiple), QVariant::fromValue(id));
+                    NeedsStop, CB(handleBreakListMultiple),
+                    QVariant::fromValue(id));
         }
     } else if (response.data.findChild("msg").data().contains("Unknown option")) {
         // Older version of gdb don't know the -a option to set tracepoints
@@ -2697,6 +2710,18 @@ void GdbEngine::handleBreakThreadSpec(const GdbResponse &response)
     BreakHandler *handler = breakHandler();
     BreakpointResponse br = handler->response(id);
     br.threadSpec = handler->threadSpec(id);
+    handler->setResponse(id, br);
+    handler->notifyBreakpointNeedsReinsertion(id);
+    insertBreakpoint(id);
+}
+
+void GdbEngine::handleBreakLineNumber(const GdbResponse &response)
+{
+    QTC_CHECK(response.resultClass == GdbResultDone)
+    const BreakpointModelId id = response.cookie.value<BreakpointModelId>();
+    BreakHandler *handler = breakHandler();
+    BreakpointResponse br = handler->response(id);
+    br.lineNumber = handler->lineNumber(id);
     handler->setResponse(id, br);
     handler->notifyBreakpointNeedsReinsertion(id);
     insertBreakpoint(id);
@@ -2867,7 +2892,6 @@ void GdbEngine::extractDataFromInfoBreak(const QString &output, BreakpointModelI
             sub.updateLocation(location);
             sub.id = BreakpointResponseId(majorPart, minorPart);
             sub.type = response.type;
-            sub.address = address;
             sub.hitCount = hitCount;
             handler->insertSubBreakpoint(id, sub);
             location.clear();
@@ -3012,6 +3036,13 @@ void GdbEngine::changeBreakpoint(BreakpointModelId id)
             CB(handleBreakThreadSpec), vid);
         return;
     }
+    if (data.lineNumber != response.lineNumber) {
+        // The only way to change this seems to be to re-set the bp completely.
+        postCommand("-break-delete " + bpnr,
+            NeedsStop | RebuildBreakpointModel,
+            CB(handleBreakLineNumber), vid);
+        return;
+    }
     if (data.command != response.command) {
         QByteArray breakCommand = "-break-commands " + bpnr;
         foreach (const QString &command, data.command.split(QLatin1String("\\n"))) {
@@ -3057,15 +3088,21 @@ void GdbEngine::removeBreakpoint(BreakpointModelId id)
 {
     BreakHandler *handler = breakHandler();
     QTC_CHECK(handler->state(id) == BreakpointRemoveRequested);
-    handler->notifyBreakpointRemoveProceeding(id);
     BreakpointResponse br = handler->response(id);
-    showMessage(_("DELETING BP %1 IN %2").arg(br.id.toString())
-        .arg(handler->fileName(id)));
-    postCommand("-break-delete " + br.id.toByteArray(),
-        NeedsStop | RebuildBreakpointModel);
-    // Pretend it succeeds without waiting for response. Feels better.
-    // FIXME: Really?
-    handler->notifyBreakpointRemoveOk(id);
+    if (br.id.isValid()) {
+        // We already have a fully inserted breakpoint.
+        handler->notifyBreakpointRemoveProceeding(id);
+        showMessage(_("DELETING BP %1 IN %2").arg(br.id.toString())
+            .arg(handler->fileName(id)));
+        postCommand("-break-delete " + br.id.toByteArray(),
+            NeedsStop | RebuildBreakpointModel);
+        // Pretend it succeeds without waiting for response. Feels better.
+        // FIXME: Really?
+        handler->notifyBreakpointRemoveOk(id);
+    } else {
+        // Breakpoint was scheduled to be inserted, but we haven't had
+        // an answer so far. Postpone activity by doing nothing.
+    }
 }
 
 
@@ -4645,12 +4682,10 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
 
     loadPythonDumpers();
 
-    QString scriptFileName = sp.overrideStartScript;
-    if (scriptFileName.isEmpty())
-        scriptFileName = debuggerCore()->stringSetting(GdbScriptFile);
-    if (!scriptFileName.isEmpty()) {
-        if (QFileInfo(scriptFileName).isReadable()) {
-            postCommand("source " + scriptFileName.toLocal8Bit());
+    const QString script = sp.overrideStartScript;
+    if (!script.isEmpty()) {
+        if (QFileInfo(script).isReadable()) {
+            postCommand("source " + script.toLocal8Bit());
             // Re-do the setup, as the "source" might have changed something.
             postCommand("bbsetup", ConsoleCommand, CB(handleHasPython));
         } else {
@@ -4659,7 +4694,14 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
             tr("The debugger settings point to a script file at '%1' "
                "which is not accessible. If a script file is not needed, "
                "consider clearing that entry to avoid this warning. "
-              ).arg(scriptFileName));
+              ).arg(script));
+        }
+    } else {
+        const QString commands = debuggerCore()->stringSetting(GdbStartupCommands);
+        if (!commands.isEmpty()) {
+            postCommand(commands.toLocal8Bit());
+            // Re-do the setup, as the "source" might have changed something.
+            postCommand("bbsetup", ConsoleCommand, CB(handleHasPython));
         }
     }
 
@@ -4730,6 +4772,21 @@ void GdbEngine::handleGdbFinished(int code, QProcess::ExitStatus type)
         showMessageBox(QMessageBox::Critical, tr("Unexpected GDB Exit"), msg);
         break;
     }
+    }
+}
+
+void GdbEngine::abortDebugger()
+{
+    if (targetState() == DebuggerFinished) {
+        // We already tried. Try harder.
+        showMessage(_("ABORTING DEBUGGER. SECOND TIME."));
+        QTC_ASSERT(m_gdbAdapter, return);
+        QTC_ASSERT(m_gdbAdapter->gdbProc(), return);
+        m_gdbAdapter->gdbProc()->kill();
+    } else {
+        // Be friendly the first time. This will change targetState().
+        showMessage(_("ABORTING DEBUGGER. FIRST TIME."));
+        quitDebugger();
     }
 }
 

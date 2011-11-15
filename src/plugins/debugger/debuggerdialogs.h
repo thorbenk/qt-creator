@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,14 +26,17 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef DEBUGGER_DIALOGS_H
 #define DEBUGGER_DIALOGS_H
 
+#include <QtCore/QHash>
+#include <QtCore/QStringList>
 #include <QtGui/QDialog>
+#include <QtGui/QVBoxLayout>
 
 QT_BEGIN_NAMESPACE
 
@@ -61,14 +64,6 @@ namespace Debugger {
 namespace Internal {
 
 class ProcessListFilterModel;
-
-struct ProcData
-{
-    QString ppid;
-    QString name;
-    QString image;
-    QString state;
-};
 
 class AttachCoreDialog : public QDialog
 {
@@ -286,6 +281,8 @@ private:
      QDialogButtonBox *m_box;
 };
 
+typedef QHash<QString, QStringList> TypeFormats;
+
 class StartRemoteEngineDialog : public QDialog
 {
     Q_OBJECT
@@ -301,6 +298,24 @@ public:
 
 private:
     Ui::StartRemoteEngineDialog *m_ui;
+};
+
+class TypeFormatsDialogUi;
+
+class TypeFormatsDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit TypeFormatsDialog(QWidget *parent);
+    ~TypeFormatsDialog();
+
+    void addTypeFormats(const QString &type, const QStringList &formats,
+        int currentFormat);
+    TypeFormats typeFormats() const;
+
+private:
+    TypeFormatsDialogUi *m_ui;
 };
 
 } // namespace Debugger

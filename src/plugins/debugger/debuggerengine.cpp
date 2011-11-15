@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -567,7 +567,7 @@ void DebuggerEngine::gotoLocation(const Location &loc)
     QList<IEditor *> editors = editorManager->editorsForFileName(file);
     IEditor *editor = 0;
     if (editors.isEmpty()) {
-        editor = editorManager->openEditor(file, QString(),
+        editor = editorManager->openEditor(file, Core::Id(),
             EditorManager::IgnoreNavigationHistory);
         if (editor) {
             editors.append(editor);
@@ -1209,7 +1209,7 @@ bool DebuggerEngine::isReverseDebugging() const
 // Called by DebuggerRunControl.
 void DebuggerEngine::quitDebugger()
 {
-    showMessage("QUIT DEBUGGER REQUESTED");
+    showMessage(_("QUIT DEBUGGER REQUESTED IN STATE %1").arg(state()));
     d->m_targetState = DebuggerFinished;
     switch (state()) {
     case InferiorStopOk:
@@ -1225,11 +1225,20 @@ void DebuggerEngine::quitDebugger()
     case EngineRunFailed:
     case DebuggerFinished:
         break;
+    case InferiorSetupRequested:
+        notifyInferiorSetupFailed();
+        break;
     default:
         // FIXME: We should disable the actions connected to that.
         notifyInferiorIll();
         break;
     }
+}
+
+void DebuggerEngine::abortDebugger()
+{
+    // Overridden in e.g. GdbEngine.
+    quitDebugger();
 }
 
 void DebuggerEngine::requestInterruptInferior()

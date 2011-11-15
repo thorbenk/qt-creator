@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -332,7 +332,7 @@ QStringList CustomExecutableRunConfiguration::dumperLibraryLocations() const
 {
     QString qmakePath = ProjectExplorer::DebuggingHelperLibrary::findSystemQt(environment());
     QString qtInstallData = ProjectExplorer::DebuggingHelperLibrary::qtInstallDataDir(qmakePath);
-    return ProjectExplorer::DebuggingHelperLibrary::locationsByInstallData(qtInstallData);
+    return ProjectExplorer::DebuggingHelperLibrary::debuggingHelperLibraryDirectories(qtInstallData);
 }
 
 ProjectExplorer::Abi CustomExecutableRunConfiguration::abi() const

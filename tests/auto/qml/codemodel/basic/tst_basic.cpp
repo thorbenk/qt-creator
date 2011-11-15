@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -48,6 +48,7 @@
 #include <qmljstools/qmljsmodelmanager.h>
 #include <qmldesigner/designercore/include/metainfo.h>
 #include <extensionsystem/pluginmanager.h>
+#include <extensionsystem/pluginspec.h>
 
 #include <QtTest>
 
@@ -94,6 +95,13 @@ void tst_Basic::initTestCase()
     pluginManager->setSettings(settings);
     pluginManager->setFileExtension(QLatin1String("pluginspec"));
     pluginManager->setPluginPaths(QStringList() << QLatin1String(Q_PLUGIN_PATH));
+
+    // skip the welcome plugin, it fails to load correctly
+    foreach (ExtensionSystem::PluginSpec *pluginSpec, pluginManager->plugins()) {
+        if (pluginSpec->name() == QLatin1String("Welcome"))
+            pluginSpec->setEnabled(false);
+    }
+
     pluginManager->loadPlugins();
 
     // the resource path is wrong, have to load things manually

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,6 +53,7 @@ struct QMLJSDEBUGCLIENT_EXPORT Location
 class QMLJSDEBUGCLIENT_EXPORT QmlProfilerTraceClient : public QmlJsDebugClient::QDeclarativeDebugClient
 {
     Q_OBJECT
+    Q_PROPERTY(bool enabled READ isEnabled NOTIFY enabled)
     Q_PROPERTY(bool recording READ isRecording WRITE setRecording NOTIFY recordingChanged)
 
     // don't hide by signal
@@ -68,6 +69,7 @@ public:
         Key,
         AnimationFrame,
         EndTrace,
+        StartTrace,
 
         MaximumEventType
     };
@@ -83,6 +85,7 @@ public:
         MaximumMessage
     };
 
+    bool isEnabled() const;
     bool isRecording() const;
 
 public slots:
@@ -94,6 +97,7 @@ signals:
     void gap(qint64 time);
     void event(int event, qint64 time);
     void traceFinished( qint64 time );
+    void traceStarted( qint64 time );
     void range(int type, qint64 startTime, qint64 length,
                const QStringList &data, const QString &fileName, int line);
 

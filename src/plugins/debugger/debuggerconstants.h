@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -47,8 +47,9 @@ const char C_CPPDEBUGGER[]          = "Gdb Debugger";
 const char C_QMLDEBUGGER[]          = "Qml/JavaScript Debugger";
 
 // Menu Groups
-const char G_START_CPP[]            = "Debugger.Group.Start.Cpp";
-const char G_START_QML[]            = "Debugger.Group.Start.Cpp";
+const char G_START_LOCAL[]          = "Debugger.Group.Start.Local";
+const char G_START_REMOTE[]         = "Debugger.Group.Start.Remote";
+const char G_START_QML[]            = "Debugger.Group.Start.Qml";
 
 // Project Explorer run mode (RUN/DEBUG)
 const char DEBUGMODE[]              = "Debugger.DebugMode";
@@ -59,7 +60,7 @@ const char INTERRUPT[]              = "Debugger.Interrupt";
 const char CONTINUE[]               = "Debugger.Continue";
 const char STOP[]                   = "Debugger.Stop";
 const char HIDDEN_STOP[]            = "Debugger.HiddenStop";
-const char RESET[]                  = "Debugger.Reset";
+const char ABORT[]                  = "Debugger.Abort";
 const char STEP[]                   = "Debugger.StepLine";
 const char STEPOUT[]                = "Debugger.StepOut";
 const char NEXT[]                   = "Debugger.NextLine";

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,35 +26,37 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "cdbengine.h"
-#include "debuggerstartparameters.h"
-#include "disassemblerlines.h"
+
+#include "breakhandler.h"
+#include "breakpoint.h"
+#include "bytearrayinputstream.h"
 #include "cdboptions.h"
 #include "cdboptionspage.h"
-#include "bytearrayinputstream.h"
-#include "breakpoint.h"
-#include "breakhandler.h"
+#include "cdbparsehelpers.h"
+#include "debuggeractions.h"
+#include "debuggercore.h"
+#include "debuggerinternalconstants.h"
+#include "debuggerrunner.h"
+#include "debuggerstartparameters.h"
+#include "debuggertooltipmanager.h"
+#include "disassembleragent.h"
+#include "disassemblerlines.h"
+#include "memoryagent.h"
+#include "moduleshandler.h"
+#include "registerhandler.h"
 #include "stackframe.h"
 #include "stackhandler.h"
-#include "watchhandler.h"
 #include "threadshandler.h"
-#include "moduleshandler.h"
-#include "debuggeractions.h"
-#include "debuggerinternalconstants.h"
-#include "debuggercore.h"
-#include "registerhandler.h"
-#include "disassembleragent.h"
-#include "memoryagent.h"
-#include "debuggerrunner.h"
-#include "debuggertooltipmanager.h"
-#include "cdbparsehelpers.h"
+#include "watchhandler.h"
 #include "watchutils.h"
 #include "gdb/gdbmi.h"
 #include "shared/cdbsymbolpathlisteditor.h"
+#include "shared/hostutils.h"
 
 #include <TranslationUnit.h>
 
@@ -83,11 +85,6 @@
 #include <QtGui/QToolTip>
 #include <QtGui/QMainWindow>
 #include <QtGui/QMessageBox>
-
-#ifdef Q_OS_WIN
-#    include <utils/winutils.h>
-#    include "dbgwinutils.h"
-#endif
 
 #include <cctype>
 

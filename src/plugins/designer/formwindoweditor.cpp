@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -164,7 +164,8 @@ bool FormWindowEditor::open(QString *errorString, const QString &fileName, const
     form->setFileName(absfileName);
 #if QT_VERSION >= 0x050000
     const QByteArray contentsBA = contents.toUtf8();
-    QBuffer str(&contentsBA);
+    QBuffer str;
+    str.setData(contentsBA);
     str.open(QIODevice::ReadOnly);
     if (!form->setContents(&str, errorString))
         return false;
@@ -208,9 +209,9 @@ Core::IFile *FormWindowEditor::file()
     return &d->m_file;
 }
 
-QString FormWindowEditor::id() const
+Core::Id FormWindowEditor::id() const
 {
-    return QLatin1String(Designer::Constants::K_DESIGNER_XML_EDITOR_ID);
+    return Designer::Constants::K_DESIGNER_XML_EDITOR_ID;
 }
 
 QString FormWindowEditor::displayName() const

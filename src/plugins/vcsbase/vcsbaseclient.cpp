@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Brian McGillion & Hugues Delorme
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -574,7 +574,7 @@ VCSBase::VCSBaseEditorWidget *VCSBaseClient::createVCSEditor(const QString &kind
         baseEditor = VCSBase::VCSBaseEditorWidget::getVcsBaseEditor(outputEditor);
         QTC_ASSERT(baseEditor, return 0);
     } else {
-        outputEditor = d->m_core->editorManager()->openEditorWithContents(kind, &title, progressMsg);
+        outputEditor = d->m_core->editorManager()->openEditorWithContents(Core::Id(kind), &title, progressMsg);
         outputEditor->file()->setProperty(registerDynamicProperty, dynamicPropertyValue);
         baseEditor = VCSBase::VCSBaseEditorWidget::getVcsBaseEditor(outputEditor);
         connect(baseEditor, SIGNAL(annotateRevisionRequested(QString,QString,int)),

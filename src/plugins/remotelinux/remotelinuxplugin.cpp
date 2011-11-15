@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,12 +26,14 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "remotelinuxplugin.h"
 
+#include "embeddedlinuxqtversionfactory.h"
+#include "embeddedlinuxtargetfactory.h"
 #include "deployablefile.h"
 #include "genericlinuxdeviceconfigurationfactory.h"
 #include "genericremotelinuxdeploystepfactory.h"
@@ -77,6 +79,9 @@ bool RemoteLinuxPlugin::initialize(const QStringList &arguments,
     addAutoReleasedObject(new RemoteLinuxDeployConfigurationFactory);
     addAutoReleasedObject(new GenericRemoteLinuxDeployStepFactory);
 
+    addAutoReleasedObject(new EmbeddedLinuxTargetFactory);
+    addAutoReleasedObject(new EmbeddedLinuxQtVersionFactory);
+
     qRegisterMetaType<RemoteLinux::DeployableFile>("RemoteLinux::DeployableFile");
 
     return true;
@@ -87,14 +92,15 @@ void RemoteLinuxPlugin::extensionsInitialized()
     using namespace Core;
     ICore *core = ICore::instance();
     ActionManager *am = core->actionManager();
-    ActionContainer *mstart = am->actionContainer(ProjectExplorer::Constants::M_DEBUG_STARTDEBUGGING);
+    ActionContainer *mstart =
+        am->actionContainer(ProjectExplorer::Constants::M_DEBUG_STARTDEBUGGING);
 
     const Context globalcontext(Core::Constants::C_GLOBAL);
 
-    QAction *startGdbServerAction = new QAction(tr("Start Remote Debug Server"), 0);
+    QAction *startGdbServerAction = new QAction(tr("Start Remote Debug Server..."), 0);
     Command *cmd = am->registerAction(startGdbServerAction, "StartGdbServer", globalcontext);
     cmd->setDefaultText(tr("Start Gdbserver"));
-    mstart->addAction(cmd, Debugger::Constants::G_START_CPP);
+    mstart->addAction(cmd, Debugger::Constants::G_START_REMOTE);
 
     connect(startGdbServerAction, SIGNAL(triggered()), SLOT(startGdbServer()));
 }

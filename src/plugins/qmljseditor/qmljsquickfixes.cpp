@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -133,6 +133,53 @@ private:
     };
 };
 
+/*
+  Adds a comment to suppress a static analysis message
+*/
+class AddAnalysisMessageSuppressionComment: public QmlJSQuickFixFactory
+{
+public:
+    virtual QList<QmlJSQuickFixOperation::Ptr> match(
+        const QSharedPointer<const QmlJSQuickFixAssistInterface> &interface)
+    {
+        const QList<StaticAnalysis::Message> &messages = interface->semanticInfo().staticAnalysisMessages;
+
+        foreach (const StaticAnalysis::Message &message, messages) {
+            if (interface->currentFile()->isCursorOn(message.location)) {
+                return singleResult(new Operation(interface, message));
+            }
+        }
+
+        return noResult();
+    }
+
+private:
+    class Operation: public QmlJSQuickFixOperation
+    {
+        StaticAnalysis::Message _message;
+
+    public:
+        Operation(const QSharedPointer<const QmlJSQuickFixAssistInterface> &interface,
+                  const StaticAnalysis::Message &message)
+            : QmlJSQuickFixOperation(interface, 0)
+            , _message(message)
+        {
+            setDescription(AddAnalysisMessageSuppressionComment::tr("Add a comment to suppress this message"));
+        }
+
+        virtual void performChanges(QmlJSRefactoringFilePtr currentFile,
+                                    const QmlJSRefactoringChanges &)
+        {
+            Utils::ChangeSet changes;
+            const int insertLoc = _message.location.begin() - _message.location.startColumn + 1;
+            changes.insert(insertLoc, QString("// %1\n").arg(_message.suppressionString()));
+            currentFile->setChangeSet(changes);
+            currentFile->appendIndentRange(Range(insertLoc, insertLoc + 1));
+            currentFile->apply();
+        }
+    };
+};
+
 } // end of anonymous namespace
 
 void registerQuickFixes(ExtensionSystem::IPlugin *plugIn)
@@ -140,4 +187,5 @@ void registerQuickFixes(ExtensionSystem::IPlugin *plugIn)
     plugIn->addAutoReleasedObject(new SplitInitializerOp);
     plugIn->addAutoReleasedObject(new ComponentFromObjectDef);
     plugIn->addAutoReleasedObject(new WrapInLoader);
+    plugIn->addAutoReleasedObject(new AddAnalysisMessageSuppressionComment);
 }

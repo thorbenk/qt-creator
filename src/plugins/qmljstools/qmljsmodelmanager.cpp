@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -136,6 +136,12 @@ ModelManager::ModelManager(QObject *parent):
 
     m_defaultImportPaths << environmentImportPaths();
     updateImportPaths();
+}
+
+ModelManager::~ModelManager()
+{
+    m_cppQmlTypesUpdater.cancel();
+    m_cppQmlTypesUpdater.waitForFinished();
 }
 
 void ModelManager::delayedInitialization()
@@ -592,7 +598,7 @@ void ModelManager::parse(QFutureInterface<void> &future,
             }
         }
 
-        Document::Ptr doc = Document::create(fileName, language);
+        Document::MutablePtr doc = Document::create(fileName, language);
         doc->setEditorRevision(documentRevision);
         doc->setSource(contents);
         doc->parse();
@@ -729,27 +735,37 @@ void ModelManager::queueCppQmlTypeUpdate(const CPlusPlus::Document::Ptr &doc, bo
 
 void ModelManager::startCppQmlTypeUpdate()
 {
+    // if a future is still running, delay
+    if (m_cppQmlTypesUpdater.isRunning()) {
+        m_updateCppQmlTypesTimer->start();
+        return;
+    }
+
     CPlusPlus::CppModelManagerInterface *cppModelManager =
             CPlusPlus::CppModelManagerInterface::instance();
     if (!cppModelManager)
         return;
 
-    QtConcurrent::run(&ModelManager::updateCppQmlTypes,
-                      this, cppModelManager, m_queuedCppDocuments);
+    m_cppQmlTypesUpdater = QtConcurrent::run(
+                &ModelManager::updateCppQmlTypes,
+                this, cppModelManager->snapshot(), m_queuedCppDocuments);
     m_queuedCppDocuments.clear();
 }
 
-void ModelManager::updateCppQmlTypes(ModelManager *qmlModelManager,
-                                     CPlusPlus::CppModelManagerInterface *cppModelManager,
+void ModelManager::updateCppQmlTypes(QFutureInterface<void> &interface,
+                                     ModelManager *qmlModelManager,
+                                     CPlusPlus::Snapshot snapshot,
                                      QHash<QString, QPair<CPlusPlus::Document::Ptr, bool> > documents)
 {
     CppDataHash newData = qmlModelManager->cppData();
 
-    CPlusPlus::Snapshot snapshot = cppModelManager->snapshot();
     FindExportedCppTypes finder(snapshot);
 
     typedef QPair<CPlusPlus::Document::Ptr, bool> DocScanPair;
     foreach (const DocScanPair &pair, documents) {
+        if (interface.isCanceled())
+            return;
+
         CPlusPlus::Document::Ptr doc = pair.first;
         const bool scan = pair.second;
         const QString fileName = doc->fileName();

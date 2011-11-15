@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -77,6 +77,7 @@ private Q_SLOTS:
     void whileStatement();
     void tryStatement();
     void doWhile();
+    void doWhile2();
     void cStyleComments();
     void cppStyleComments();
     void qmlKeywords();
@@ -98,7 +99,10 @@ private Q_SLOTS:
     void json1();
     void multilineTernaryInProperty();
     void bug1();
+    void multilineString();
 };
+
+enum { DontCheck = -2, DontIndent = -1 };
 
 struct Line {
     Line(QString l)
@@ -142,7 +146,7 @@ void checkIndent(QList<Line> data, int style = 0)
     int i = 0;
     foreach (const Line &l, data) {
         QTextBlock b = document.findBlockByLineNumber(i);
-        if (l.expectedIndent != -1) {
+        if (l.expectedIndent != DontCheck) {
             int actualIndent = formatter.indentFor(b);
             if (actualIndent != l.expectedIndent) {
                 QFAIL(QString("Wrong indent in line %1 with text '%2', expected indent %3, got %4").arg(
@@ -756,9 +760,9 @@ void tst_QMLCodeFormatter::strayElse()
     data << Line("Rectangle {")
          << Line("onClicked: {", 4)
          << Line("    while ( true ) {}")
-         << Line("    else", -1)
-         << Line("    else {", -1)
-         << Line("    }", -1)
+         << Line("    else", DontCheck)
+         << Line("    else {", DontCheck)
+         << Line("    }", DontCheck)
          << Line("}");
     checkIndent(data);
 }
@@ -851,6 +855,24 @@ void tst_QMLCodeFormatter::doWhile()
          << Line("    while (a);")
          << Line("    do foo; while (a);")
          << Line("};")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::doWhile2()
+{
+    QList<Line> data;
+    data << Line("function foo() {")
+         << Line("    do { if (c) foo; } while (a)")
+         << Line("    do {")
+         << Line("        if (a);")
+         << Line("    } while (a)")
+         << Line("    do")
+         << Line("        foo;")
+         << Line("    while (a)")
+         << Line("    do foo; while (a)")
+         << Line("}")
+         << Line("var x")
          ;
     checkIndent(data);
 }
@@ -1171,7 +1193,7 @@ void tst_QMLCodeFormatter::labelledStatements1()
          << Line("        while (1) {")
          << Line("            break lab")
          << Line("        }")
-         << Line("    }")
+         << Line("    } while (1)")
          << Line("}")
          << Line("var x = function() {")
          << Line("    x + 1;")
@@ -1287,6 +1309,23 @@ void tst_QMLCodeFormatter::bug1()
          << Line("        else (b==b) {}")
          << Line("        foo()")
          << Line("    }")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::multilineString()
+{
+    QList<Line> data;
+    data << Line("Item {")
+         << Line("    a: 'foo")
+         << Line("  bar", DontIndent)
+         << Line("          boo boo", DontIndent)
+         << Line("   end'", DontIndent)
+         << Line("    a: \"foo")
+         << Line("  bar", DontIndent)
+         << Line("          boo boo", DontIndent)
+         << Line("   end\"", DontIndent)
          << Line("}")
          ;
     checkIndent(data);

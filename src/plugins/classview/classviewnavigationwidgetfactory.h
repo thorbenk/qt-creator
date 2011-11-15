@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Denis Mingulov.
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -69,7 +69,7 @@ public:
     int priority() const;
 
     //! \implements Core::INavigationWidgetFactory::id
-    QString id() const;
+    Core::Id id() const;
 
     //! \implements Core::INavigationWidgetFactory::activationSequence
     QKeySequence activationSequence() const;

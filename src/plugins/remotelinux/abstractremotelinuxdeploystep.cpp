@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "abstractremotelinuxdeploystep.h"
@@ -36,6 +36,7 @@
 #include "remotelinuxdeploystepwidget.h"
 
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/target.h>
 #include <qt4projectmanager/qt4buildconfiguration.h>
 
 using namespace ProjectExplorer;
@@ -88,7 +89,7 @@ bool AbstractRemoteLinuxDeployStep::init()
 bool AbstractRemoteLinuxDeployStep::isDeploymentPossible(QString *whyNot) const
 {
     deployService()->setDeviceConfiguration(deployConfiguration()->deviceConfiguration());
-    deployService()->setBuildConfiguration(qobject_cast<Qt4ProjectManager::Qt4BuildConfiguration *>(buildConfiguration()));
+    deployService()->setBuildConfiguration(qobject_cast<Qt4ProjectManager::Qt4BuildConfiguration *>(target()->activeBuildConfiguration()));
     return deployService()->isDeploymentPossible(whyNot);
 }
 

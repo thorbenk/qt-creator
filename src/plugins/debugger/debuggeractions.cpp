@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -365,9 +365,9 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     insertItem(TargetAsync, item);
 
     item = new SavedAction(this);
-    item->setSettingsKey(debugModeGroup, QLatin1String("ScriptFile"));
+    item->setSettingsKey(debugModeGroup, QLatin1String("GdbStartupCommands"));
     item->setDefaultValue(QString());
-    insertItem(GdbScriptFile, item);
+    insertItem(GdbStartupCommands, item);
 
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("CloseBuffersOnExit"));

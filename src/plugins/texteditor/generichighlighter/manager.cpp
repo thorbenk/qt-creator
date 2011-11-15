@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -61,12 +61,12 @@
 #include <QtCore/QtConcurrentMap>
 #include <QtCore/QUrl>
 #include <QtCore/QSet>
+#include <QtCore/QXmlStreamReader>
+#include <QtCore/QXmlStreamAttributes>
 #include <QtGui/QDesktopServices>
 #include <QtGui/QMessageBox>
 #include <QtXml/QXmlSimpleReader>
 #include <QtXml/QXmlInputSource>
-#include <QtXml/QXmlStreamReader>
-#include <QtXml/QXmlStreamAttributes>
 #include <QtNetwork/QNetworkRequest>
 #include <QtNetwork/QNetworkReply>
 #include <QtAlgorithms>

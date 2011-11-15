@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +35,7 @@
 #include "splitter.h"
 #include "pasteview.h"
 #include "codepasterprotocol.h"
+#include "kdepasteprotocol.h"
 #include "pastebindotcomprotocol.h"
 #include "pastebindotcaprotocol.h"
 #include "fileshareprotocol.h"
@@ -136,6 +137,7 @@ bool CodepasterPlugin::initialize(const QStringList &arguments, QString *errorMe
     const QSharedPointer<NetworkAccessManagerProxy> networkAccessMgrProxy(new NetworkAccessManagerProxy);
     Protocol *protos[] =  { new PasteBinDotComProtocol(networkAccessMgrProxy),
                             new PasteBinDotCaProtocol(networkAccessMgrProxy),
+                            new KdePasteProtocol(networkAccessMgrProxy),
                             new CodePasterProtocol(networkAccessMgrProxy),
                             new FileShareProtocol
                            };
@@ -364,7 +366,7 @@ void CodepasterPlugin::finishFetch(const QString &titleDescription,
     const QString fileName = saver.fileName();
     m_fetchedSnippets.push_back(fileName);
     // Open editor with title.
-    Core::IEditor* editor = EditorManager::instance()->openEditor(fileName, QString(), EditorManager::ModeSwitch);
+    Core::IEditor* editor = EditorManager::instance()->openEditor(fileName, Core::Id(), EditorManager::ModeSwitch);
     QTC_ASSERT(editor, return)
     editor->setDisplayName(titleDescription);
 }

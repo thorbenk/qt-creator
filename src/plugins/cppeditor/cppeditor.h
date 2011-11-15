@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -156,10 +156,10 @@ public:
 
     bool duplicateSupported() const { return true; }
     Core::IEditor *duplicate(QWidget *parent);
-    QString id() const;
+    Core::Id id() const;
 
     bool isTemporary() const { return false; }
-    virtual bool open(QString *errorString, const QString &fileName, const QString &realFileName);
+    bool open(QString *errorString, const QString &fileName, const QString &realFileName);
 };
 
 class CPPEditorWidget : public TextEditor::BaseTextEditorWidget
@@ -215,7 +215,7 @@ public Q_SLOTS:
     void renameUsages();
     void findUsages();
     void renameUsagesNow(const QString &replacement = QString());
-    void rehighlight(bool force = false);
+    void semanticRehighlight(bool force = false);
 
 protected:
     bool event(QEvent *e);
@@ -244,7 +244,6 @@ private Q_SLOTS:
     void onDocumentUpdated(CPlusPlus::Document::Ptr doc);
     void onContentsChanged(int position, int charsRemoved, int charsAdded);
 
-    void semanticRehighlight();
     void updateSemanticInfo(const CppEditor::Internal::SemanticInfo &semanticInfo);
     void highlightSymbolUsages(int from, int to);
     void finishHighlightSymbolUsages();

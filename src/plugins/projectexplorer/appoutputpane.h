@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -88,6 +88,8 @@ public:
 
 signals:
      void allRunControlsFinished();
+     void runControlStarted(ProjectExplorer::RunControl *rc);
+     void runControlFinished(ProjectExplorer::RunControl *rc);
 
 public slots:
     // ApplicationOutput specifics
@@ -103,8 +105,9 @@ private slots:
     bool closeTab(int index);
     void tabChanged(int);
     void contextMenuRequested(const QPoint &pos, int index);
-    void runControlStarted();
-    void runControlFinished();
+    void slotRunControlStarted();
+    void slotRunControlFinished();
+    void slotRunControlFinished2(ProjectExplorer::RunControl *sender);
 
     void aboutToUnloadSession();
     void updateFromSettings();

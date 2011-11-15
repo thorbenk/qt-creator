@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -810,8 +810,8 @@ static void find_helper(QFutureInterface<FindReferences::Usage> &future,
         else
             language = QmlJSTools::languageOfFile(fileName);
 
-        Document::Ptr newDoc = snapshot.documentFromSource(it.value().first, fileName,
-                                                           language);
+        Document::MutablePtr newDoc = snapshot.documentFromSource(
+                    it.value().first, fileName, language);
         newDoc->parse();
         snapshot.insert(newDoc);
     }
@@ -971,10 +971,10 @@ void FindReferences::openEditor(const Find::SearchResultItem &item)
 {
     if (item.path.size() > 0) {
         TextEditor::BaseTextEditorWidget::openEditorAt(item.path.first(), item.lineNumber, item.textMarkPos,
-                                                 QString(),
+                                                 Core::Id(),
                                                  Core::EditorManager::ModeSwitch);
     } else {
-        Core::EditorManager::instance()->openEditor(item.text, QString(), Core::EditorManager::ModeSwitch);
+        Core::EditorManager::instance()->openEditor(item.text, Core::Id(), Core::EditorManager::ModeSwitch);
     }
 }
 

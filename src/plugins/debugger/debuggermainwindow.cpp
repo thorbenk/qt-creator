@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -353,7 +353,8 @@ void DebuggerMainWindowPrivate::activateQmlCppLayout()
     ICore *core = ICore::instance();
     Context qmlCppContext = m_contextsForLanguage.value(QmlLanguage);
     qmlCppContext.add(m_contextsForLanguage.value(CppLanguage));
-    m_toolBarStack->setCurrentWidget(m_toolBars.value(QmlLanguage));
+    if (m_toolBars.contains(QmlLanguage))
+        m_toolBarStack->setCurrentWidget(m_toolBars.value(QmlLanguage));
 
     if (m_previousDebugLanguages & QmlLanguage) {
         m_dockWidgetActiveStateQmlCpp = q->saveSettings();
@@ -426,7 +427,7 @@ QDockWidget *DebuggerMainWindow::createDockWidget(const DebuggerLanguage &langua
     ActionManager *am = ICore::instance()->actionManager();
     QAction *toggleViewAction = dockWidget->toggleViewAction();
     Command *cmd = am->registerAction(toggleViewAction,
-             QString("Debugger." + widget->objectName()), globalContext);
+             Core::Id("Debugger." + widget->objectName()), globalContext);
     cmd->setAttribute(Command::CA_Hide);
     d->m_viewsMenu->addAction(cmd);
 
@@ -694,6 +695,8 @@ void DebuggerMainWindowPrivate::setSimpleDockWidgetArrangement()
     if (m_activeDebugLanguages.testFlag(Debugger::QmlLanguage)) {
         if (qmlInspectorDock)
             qmlInspectorDock->show();
+        if (scriptConsoleDock)
+            scriptConsoleDock->show();
     } else {
         // CPP only
         threadsDock->show();

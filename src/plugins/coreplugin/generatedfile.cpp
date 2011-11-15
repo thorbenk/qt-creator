@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -61,7 +61,7 @@ public:
     explicit GeneratedFilePrivate(const QString &p);
     QString path;
     QByteArray contents;
-    QString editorId;
+    Id editorId;
     bool binary;
     GeneratedFile::Attributes attributes;
 };
@@ -139,14 +139,14 @@ void GeneratedFile::setBinary(bool b)
     m_d->binary = b;
 }
 
-QString GeneratedFile::editorId() const
+Id GeneratedFile::editorId() const
 {
     return m_d->editorId;
 }
 
-void GeneratedFile::setEditorId(const QString &k)
+void GeneratedFile::setEditorId(const Id &id)
 {
-    m_d->editorId = k;
+    m_d->editorId = id;
 }
 
 bool GeneratedFile::write(QString *errorMessage) const

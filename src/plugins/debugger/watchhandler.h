@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -48,6 +48,7 @@ namespace Internal {
 
 class WatchItem;
 class WatchHandler;
+typedef QHash<QString, QStringList> TypeFormats;
 
 enum WatchType
 {
@@ -183,6 +184,9 @@ public:
     int format(const QByteArray &iname) const;
 
     void addTypeFormats(const QByteArray &type, const QStringList &formats);
+    void setTypeFormats(const TypeFormats &typeFormats);
+    TypeFormats typeFormats() const;
+    QStringList typeFormatList(const WatchData &data) const;
 
     void setUnprintableBase(int base);
     static int unprintableBase();
@@ -190,6 +194,7 @@ public:
     QByteArray watcherName(const QByteArray &exp);
     void synchronizeWatchers();
     QString editorContents();
+    void editTypeFormats(bool includeLocals, const QByteArray &iname);
 
 private:
     friend class WatchModel;
@@ -211,7 +216,7 @@ private:
     static QHash<QByteArray, int> m_watcherNames;
     static QHash<QByteArray, int> m_typeFormats;
     QHash<QByteArray, int> m_individualFormats; // Indexed by iname.
-    QHash<QString, QStringList> m_reportedTypeFormats;
+    TypeFormats m_reportedTypeFormats;
 
     // Items expanded in the Locals & Watchers view.
     QSet<QByteArray> m_expandedINames;

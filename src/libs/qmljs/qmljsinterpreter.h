@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -499,9 +499,7 @@ public:
 
     using ObjectValue::prototype;
     const CppComponentValue *prototype() const;
-
-    const CppComponentValue *attachedType() const;
-    void setAttachedType(CppComponentValue *value);
+    QList<const CppComponentValue *> prototypes() const;
 
     LanguageUtils::FakeMetaObject::ConstPtr metaObject() const;
 
@@ -525,7 +523,6 @@ protected:
     bool isDerivedFrom(LanguageUtils::FakeMetaObject::ConstPtr base) const;
 
 private:
-    CppComponentValue *_attachedType;
     LanguageUtils::FakeMetaObject::ConstPtr _metaObject;
     const QString _moduleName;
     // _componentVersion is the version of the export
@@ -643,7 +640,7 @@ public:
     static void parseQmlTypeDescriptions(
         const QByteArray &qmlTypes,
         BuiltinObjects *newObjects,
-        QString *errorMessage, QString *warningMessage);
+        QList<ModuleApiInfo> *newModuleApis, QString *errorMessage, QString *warningMessage);
 };
 
 class QMLJS_EXPORT CppQmlTypes

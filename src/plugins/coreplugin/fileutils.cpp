@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -149,19 +149,19 @@ void FileUtils::openTerminal(const QString &path)
 QString FileUtils::msgGraphicalShellAction()
 {
 #if defined(Q_OS_WIN)
-    return QApplication::translate("Core::Internal", "Show in Explorer...");
+    return QApplication::translate("Core::Internal", "Show in Explorer");
 #elif defined(Q_OS_MAC)
-    return QApplication::translate("Core::Internal", "Show in Finder...");
+    return QApplication::translate("Core::Internal", "Show in Finder");
 #else
-    return QApplication::translate("Core::Internal", "Show Containing Folder...");
+    return QApplication::translate("Core::Internal", "Show Containing Folder");
 #endif
 }
 
 QString FileUtils::msgTerminalAction()
 {
 #ifdef Q_OS_WIN
-    return QApplication::translate("Core::Internal", "Open Command Prompt Here...");
+    return QApplication::translate("Core::Internal", "Open Command Prompt Here");
 #else
-    return QApplication::translate("Core::Internal", "Open Terminal Here...");
+    return QApplication::translate("Core::Internal", "Open Terminal Here");
 #endif
 }

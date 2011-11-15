@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -643,12 +643,6 @@ void CPPEditorWidget::abortRename()
     setExtraSelections(CodeSemanticsSelection, m_renameSelections);
 }
 
-void CPPEditorWidget::rehighlight(bool force)
-{
-    const SemanticHighlighter::Source source = currentSource(force);
-    m_semanticHighlighter->rehighlight(source);
-}
-
 void CPPEditorWidget::onDocumentUpdated(Document::Ptr doc)
 {
     if (doc->fileName() != file()->fileName())
@@ -663,7 +657,7 @@ void CPPEditorWidget::onDocumentUpdated(Document::Ptr doc)
                  || !m_lastSemanticInfo.doc->translationUnit()->ast()
                  || m_lastSemanticInfo.doc->fileName() != file()->fileName()))) {
         m_initialized = true;
-        rehighlight(/* force = */ true);
+        semanticRehighlight(/* force = */ true);
     }
 
     m_updateOutlineTimer->start();
@@ -1261,12 +1255,6 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
         return link;
 
     const Snapshot &snapshot = m_modelManager->snapshot();
-    Document::Ptr doc = m_lastSemanticInfo.doc;
-    if (!doc) {
-        doc = snapshot.document(file()->fileName());
-        if (!doc)
-            return link;
-    }
 
     QTextCursor tc = cursor;
     QChar ch = characterAt(tc.position());
@@ -1275,15 +1263,26 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
         ch = characterAt(tc.position());
     }
 
-    if (doc->translationUnit() && doc->translationUnit()->ast()) {
+    // Initially try to macth decl/def. For this we need the semantic doc with the AST.
+    if (m_lastSemanticInfo.doc
+            && m_lastSemanticInfo.doc->translationUnit()
+            && m_lastSemanticInfo.doc->translationUnit()->ast()) {
         int pos = tc.position();
         while (characterAt(pos).isSpace())
             ++pos;
         if (characterAt(pos) == QLatin1Char('(')) {
-            link = attemptFuncDeclDef(cursor, doc, snapshot);
+            link = attemptFuncDeclDef(cursor, m_lastSemanticInfo.doc, snapshot);
             if (link.isValid())
                 return link;
         }
+    }
+
+    // Now we prefer the doc from the snapshot with macros expanded.
+    Document::Ptr doc = snapshot.document(file()->fileName());
+    if (!doc) {
+        doc = m_lastSemanticInfo.doc;
+        if (!doc)
+            return link;
     }
 
     int lineNumber = 0, positionInBlock = 0;
@@ -1679,9 +1678,9 @@ Core::IEditor *CPPEditor::duplicate(QWidget *parent)
     return newEditor->editor();
 }
 
-QString CPPEditor::id() const
+Core::Id CPPEditor::id() const
 {
-    return QLatin1String(CppEditor::Constants::CPPEDITOR_ID);
+    return CppEditor::Constants::CPPEDITOR_ID;
 }
 
 bool CPPEditor::open(QString *errorString, const QString &fileName, const QString &realFileName)
@@ -1795,9 +1794,9 @@ bool CPPEditorWidget::openCppEditorAt(const Link &link)
                                                     Constants::CPPEDITOR_ID);
 }
 
-void CPPEditorWidget::semanticRehighlight()
+void CPPEditorWidget::semanticRehighlight(bool force)
 {
-    m_semanticHighlighter->rehighlight(currentSource());
+    m_semanticHighlighter->rehighlight(currentSource(force));
 }
 
 void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
@@ -1819,6 +1818,11 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
     m_renameSelections.clear();
     m_currentRenameSelection = NoCurrentRenameSelection;
 
+    // We can use the semanticInfo's snapshot (and avoid locking), but not its
+    // document, since it doesn't contain expanded macros.
+    LookupContext context(semanticInfo.snapshot.document(file()->fileName()),
+                          semanticInfo.snapshot);
+
     SemanticInfo::LocalUseIterator it(semanticInfo.localUses);
     while (it.hasNext()) {
         it.next();
@@ -1834,12 +1838,14 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
             }
         }
 
-        if (uses.size() == 1)
-            // it's an unused declaration
-            highlightUses(uses, semanticInfo, &unusedSelections);
-
-        else if (good && m_renameSelections.isEmpty())
+        if (uses.size() == 1) {
+            if (!CppTools::isOwnershipRAIIType(it.key(), context)) {
+                // it's an unused declaration
+                highlightUses(uses, semanticInfo, &unusedSelections);
+            }
+        } else if (good && m_renameSelections.isEmpty()) {
             highlightUses(uses, semanticInfo, &m_renameSelections);
+        }
     }
 
     if (m_lastSemanticInfo.forced || previousSemanticInfo.revision != semanticInfo.revision) {

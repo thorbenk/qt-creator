@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maddedevicetester.h"
@@ -52,7 +52,8 @@ const char QmlToolingDirectory[] = "/usr/lib/qt4/plugins/qmltooling";
 MaddeDeviceTester::MaddeDeviceTester(QObject *parent)
     : AbstractLinuxDeviceTester(parent),
       m_genericTester(new GenericLinuxDeviceTester(this)),
-      m_state(Inactive)
+      m_state(Inactive),
+      m_processRunner(0)
 {
 }
 
@@ -106,14 +107,14 @@ void MaddeDeviceTester::handleGenericTestFinished(TestResult result)
         return;
     }
 
-    m_processRunner = SshRemoteProcessRunner::create(m_genericTester->connection());
-    connect(m_processRunner.data(), SIGNAL(connectionError(Utils::SshError)),
-        SLOT(handleConnectionError()));
-    connect(m_processRunner.data(), SIGNAL(processOutputAvailable(QByteArray)),
+    if (!m_processRunner)
+        m_processRunner = new SshRemoteProcessRunner(this);
+    connect(m_processRunner, SIGNAL(connectionError()), SLOT(handleConnectionError()));
+    connect(m_processRunner, SIGNAL(processOutputAvailable(QByteArray)),
         SLOT(handleStdout(QByteArray)));
-    connect(m_processRunner.data(), SIGNAL(processErrorOutputAvailable(QByteArray)),
+    connect(m_processRunner, SIGNAL(processErrorOutputAvailable(QByteArray)),
         SLOT(handleStderr(QByteArray)));
-    connect(m_processRunner.data(), SIGNAL(processClosed(int)), SLOT(handleProcessFinished(int)));
+    connect(m_processRunner, SIGNAL(processClosed(int)), SLOT(handleProcessFinished(int)));
 
     QString qtInfoCmd;
     if (m_deviceConfiguration->osType() == QLatin1String(MeeGoOsType)) {
@@ -127,7 +128,7 @@ void MaddeDeviceTester::handleGenericTestFinished(TestResult result)
     m_stdout.clear();
     m_stderr.clear();
     m_state = QtTest;
-    m_processRunner->run(qtInfoCmd.toUtf8());
+    m_processRunner->run(qtInfoCmd.toUtf8(), m_genericTester->connection()->connectionParameters());
 }
 
 void MaddeDeviceTester::handleConnectionError()
@@ -135,7 +136,7 @@ void MaddeDeviceTester::handleConnectionError()
     QTC_ASSERT(m_state != Inactive, return);
 
     emit errorMessage(tr("SSH connection error: %1\n")
-        .arg(m_processRunner->connection()->errorString()));
+        .arg(m_processRunner->lastConnectionErrorString()));
     m_result = TestFailure;
     setFinished();
 }
@@ -194,7 +195,8 @@ void MaddeDeviceTester::handleQtTestFinished(int exitStatus)
 
     emit progressMessage(tr("Checking for connectivity support..."));
     m_state = MadDeveloperTest;
-    m_processRunner->run(QString(QLatin1String("test -x") + MaemoGlobal::devrootshPath()).toUtf8());
+    m_processRunner->run(QString(QLatin1String("test -x") + MaemoGlobal::devrootshPath()).toUtf8(),
+        m_genericTester->connection()->connectionParameters());
 }
 
 void MaddeDeviceTester::handleMadDeveloperTestFinished(int exitStatus)
@@ -231,7 +233,8 @@ void MaddeDeviceTester::handleMadDeveloperTestFinished(int exitStatus)
     emit progressMessage(tr("Checking for QML tooling support..."));
     m_state = QmlToolingTest;
     m_processRunner->run(QString(QLatin1String("test -d ")
-        + QLatin1String(QmlToolingDirectory)).toUtf8());
+        + QLatin1String(QmlToolingDirectory)).toUtf8(),
+        m_genericTester->connection()->connectionParameters());
 }
 
 void MaddeDeviceTester::handleQmlToolingTestFinished(int exitStatus)
@@ -282,8 +285,7 @@ QString MaddeDeviceTester::processedQtLibsList()
     m_state = Inactive;
     disconnect(m_genericTester, 0, this, 0);
     if (m_processRunner)
-        disconnect(m_processRunner.data(), 0, this, 0);
-    m_processRunner.clear();
+        disconnect(m_processRunner, 0, this, 0);
     emit finished(m_result);
 }
 

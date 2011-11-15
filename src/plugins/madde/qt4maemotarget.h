@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,6 +39,7 @@
 #include <QtCore/QSharedPointer>
 #include <QtGui/QIcon>
 
+QT_FORWARD_DECLARE_CLASS(QDateTime)
 QT_FORWARD_DECLARE_CLASS(QFile)
 
 namespace Qt4ProjectManager {
@@ -178,6 +179,8 @@ private:
         QString *error = 0);
     QString defaultPackageFileName() const;
     bool setPackageManagerNameInternal(const QString &name, QString *error = 0);
+    QString shortMonthName(const QDateTime &dt) const;
+    QString shortDayOfWeekName(const QDateTime &dt) const;
 
     WatchableFile *m_controlFile;
     WatchableFile *m_changeLogFile;

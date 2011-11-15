@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "remotelinuxprocesslist.h"
@@ -52,13 +52,13 @@ class AbstractRemoteLinuxProcessListPrivate
 public:
     AbstractRemoteLinuxProcessListPrivate(const LinuxDeviceConfiguration::ConstPtr &devConf)
         : deviceConfiguration(devConf),
-          process(SshRemoteProcessRunner::create(devConf->sshParameters())),
           state(Inactive)
     {
     }
 
+
     const LinuxDeviceConfiguration::ConstPtr deviceConfiguration;
-    const SshRemoteProcessRunner::Ptr process;
+    SshRemoteProcessRunner process;
     QList<AbstractRemoteLinuxProcessList::RemoteProcess> remoteProcesses;
     QByteArray remoteStdout;
     QByteArray remoteStderr;
@@ -154,7 +154,7 @@ void AbstractRemoteLinuxProcessList::handleConnectionError()
 {
     QTC_ASSERT(d->state != Inactive, return);
 
-    emit error(tr("Connection failure: %1").arg(d->process->connection()->errorString()));
+    emit error(tr("Connection failure: %1").arg(d->process.lastConnectionErrorString()));
     beginResetModel();
     d->remoteProcesses.clear();
     endResetModel();
@@ -168,14 +168,14 @@ void AbstractRemoteLinuxProcessList::handleRemoteProcessFinished(int exitStatus)
     switch (exitStatus) {
     case SshRemoteProcess::FailedToStart:
         d->errorMsg = tr("Error: Remote process failed to start: %1")
-            .arg(d->process->process()->errorString());
+            .arg(d->process.process()->errorString());
         break;
     case SshRemoteProcess::KilledBySignal:
         d->errorMsg = tr("Error: Remote process crashed: %1")
-            .arg(d->process->process()->errorString());
+            .arg(d->process.process()->errorString());
         break;
     case SshRemoteProcess::ExitedNormally:
-        if (d->process->process()->exitCode() == 0) {
+        if (d->process.process()->exitCode() == 0) {
             if (d->state == Listing) {
                 d->remoteProcesses = buildProcessList(QString::fromUtf8(d->remoteStdout.data(),
                     d->remoteStdout.count()));
@@ -204,23 +204,22 @@ void AbstractRemoteLinuxProcessList::handleRemoteProcessFinished(int exitStatus)
 
 void AbstractRemoteLinuxProcessList::startProcess(const QString &cmdLine)
 {
-    connect(d->process.data(), SIGNAL(connectionError(Utils::SshError)),
-        SLOT(handleConnectionError()));
-    connect(d->process.data(), SIGNAL(processOutputAvailable(QByteArray)),
+    connect(&d->process, SIGNAL(connectionError()), SLOT(handleConnectionError()));
+    connect(&d->process, SIGNAL(processOutputAvailable(QByteArray)),
         SLOT(handleRemoteStdOut(QByteArray)));
-    connect(d->process.data(), SIGNAL(processErrorOutputAvailable(QByteArray)),
+    connect(&d->process, SIGNAL(processErrorOutputAvailable(QByteArray)),
         SLOT(handleRemoteStdErr(QByteArray)));
-    connect(d->process.data(), SIGNAL(processClosed(int)),
+    connect(&d->process, SIGNAL(processClosed(int)),
         SLOT(handleRemoteProcessFinished(int)));
     d->remoteStdout.clear();
     d->remoteStderr.clear();
     d->errorMsg.clear();
-    d->process->run(cmdLine.toUtf8());
+    d->process.run(cmdLine.toUtf8(), d->deviceConfiguration->sshParameters());
 }
 
 void AbstractRemoteLinuxProcessList::setFinished()
 {
-    disconnect(d->process.data(), 0, this, 0);
+    disconnect(&d->process, 0, this, 0);
     d->state = Inactive;
 }
 

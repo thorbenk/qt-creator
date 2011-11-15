@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -114,40 +114,50 @@ class ZeroConfLib
 {
 public:
     ZeroConfLib();
-    ZConfLib *defaultLib();
-    void setDefaultLib(LibUsage usage, const QString &libName, const QString &daemonPath);
+    ZConfLib::Ptr defaultLib();
+    void setDefaultLib(LibUsage usage, const QString &avahiLibName, const QString &dnsSdLibName,
+                       const QString &dnsSdDaemonPath);
 
 private:
     QMutex m_lock;
-    ZConfLib *m_defaultLib;
+    ZConfLib::Ptr m_defaultLib;
 };
 
 Q_GLOBAL_STATIC(ZeroConfLib, zeroConfLibInstance)
 
 ZeroConfLib::ZeroConfLib(): m_lock(QMutex::Recursive),
     m_defaultLib(ZConfLib::createAvahiLib(QLatin1String("avahi-client"),
-                 ZConfLib::createNativeLib(QLatin1String("dns_sd"),
-                 ZConfLib::createEmbeddedLib(QString("mdnssd"), 0))))
+                 ZConfLib::createDnsSdLib(QLatin1String("dns_sd"),
+                 ZConfLib::createEmbeddedLib(QLatin1String("mdnssd")))))
 {
     qRegisterMetaType<Service::ConstPtr>("ZeroConf::Service::ConstPtr");
 }
 
-ZConfLib *ZeroConfLib::defaultLib(){
+ZConfLib::Ptr ZeroConfLib::defaultLib(){
     QMutexLocker l(&m_lock);
     return m_defaultLib;
 }
 
-void ZeroConfLib::setDefaultLib(LibUsage usage, const QString &libName, const QString &daemonPath){ // leaks... should be ok, switch to shared pointers???
+void ZeroConfLib::setDefaultLib(LibUsage usage, const QString &avahiLibName,
+                                const QString &dnsSdLibName, const QString &dnsSdDaemonPath){
     QMutexLocker l(&m_lock);
     switch (usage){
-    case (UseNativeOnly):
-        m_defaultLib = ZConfLib::createNativeLib(libName, 0);
+    case (UseDnsSdOnly):
+        m_defaultLib = ZConfLib::createDnsSdLib(dnsSdLibName);
         break;
     case (UseEmbeddedOnly):
-        m_defaultLib = ZConfLib::createEmbeddedLib(daemonPath, 0);
+        m_defaultLib = ZConfLib::createEmbeddedLib(dnsSdDaemonPath);
         break;
-    case (UseNativeOrEmbedded):
-        m_defaultLib = ZConfLib::createNativeLib(libName, ZConfLib::createEmbeddedLib(daemonPath, 0));
+    case (UseAvahiOnly):
+        m_defaultLib = ZConfLib::createAvahiLib(avahiLibName);
+        break;
+    case (UseAvahiOrDnsSd):
+        m_defaultLib = ZConfLib::createAvahiLib(avahiLibName, ZConfLib::createDnsSdLib(dnsSdLibName));
+        break;
+    case (UseAvahiOrDnsSdOrEmbedded):
+        m_defaultLib = ZConfLib::createAvahiLib(
+                    avahiLibName, ZConfLib::createDnsSdLib(dnsSdLibName,
+                                                           ZConfLib::createEmbeddedLib(dnsSdDaemonPath)));
         break;
     default:
         qDebug() << "invalid usage " << usage;
@@ -164,7 +174,8 @@ namespace ZeroConf {
 
   \brief class representing a zeroconf service
 
-  Instances of this class are basically constant, but can be outdated. They are normally accessed through a Shared pointer.
+  Instances of this class are basically constant, but can be outdated. They are normally accessed
+  through a Shared pointer.
   This design avoids race conditions when used though multiple threads.
 
   \threadsafe
@@ -197,19 +208,20 @@ QDebug operator<<(QDebug dbg, const Service &service)
                      << "type:" << service.type() << ", domain:" << service.domain() << ", "
                      << " fullName:" << service.fullName() << ", port:" << service.port()
                      << ", txtRecord:{";
-    bool first=true;
-    const ServiceTxtRecord &txtRecord = service.txtRecord();
-    foreach (const QString &k, txtRecord){
+    bool first = true;
+    QHashIterator<QString, QString> i(service.txtRecord());
+    while (i.hasNext()){
+        i.next();
         if (first)
             first = false;
         else
             dbg << ", ";
-        dbg << k << ":" << txtRecord.value(k);
+        dbg << i.key() << ":" << i.value();
     }
     dbg << "}, ";
     if (const QHostInfo *host = service.host()){
         dbg << "host:{" << host->hostName() << ", addresses[";
-        first=true;
+        first = true;
         foreach (const QHostAddress &addr, host->addresses()){
             if (first)
                 first = false;
@@ -292,9 +304,9 @@ QDebug operator<<(QDebug dbg, const Service &service)
  */
 
 /// starts the browsing, return true if successfull
-bool ServiceBrowser::startBrowsing(qint32 interfaceIndex)
+void ServiceBrowser::startBrowsing(qint32 interfaceIndex)
 {
-    return d->startBrowsing(interfaceIndex);
+    d->startBrowsing(interfaceIndex);
 }
 
 /// create a new brower for the given service type
@@ -379,7 +391,8 @@ void ServiceBrowser::reconfirmService(Service::ConstPtr service)
 
 // signals
 /*!
-  \fn void ServiceBrowser::serviceChanged(Service::ConstPtr oldService, Service::ConstPtr newService, ServiceBrowser *browser)
+  \fn void ServiceBrowser::serviceChanged(
+       Service::ConstPtr oldService, Service::ConstPtr newService, ServiceBrowser *browser)
 
    This signal is called when a service is added removed or changes.
    Both oldService or newService might be null (covers both add and remove).
@@ -405,25 +418,27 @@ void ServiceBrowser::reconfirmService(Service::ConstPtr service)
   \fn void ServiceBrowser::servicesUpdated(ServiceBrowser *browser)
 
   This signal is called when the list is updated.
-  It might collect several serviceChanged signals together, if you use the list returned by services(),
-  use this signal, not serviceChanged(), serviceAdded() or serviceRemoved() to know about changes to the list.
+  It might collect several serviceChanged signals together, if you use the list returned by
+  services(), use this signal, not serviceChanged(), serviceAdded() or serviceRemoved() to know
+  about changes to the list.
 */
 
 // ----------------- library initialization impl -----------------
 /*!
-  Intializes the library used for the mdns queries.
-  This changes the default library used by the next MainConnection, it does not change the already instantiated
-  connections.
+  Sets the library used by future Service Browsers to preform the mdns queries.
+  This changes the default library used by the next MainConnection, it does not change the already
+  instantiated connections.
   \a usage can decide which libraries are tried,
   \a libName should be the name (or path) to the libdns library,
-  \a daemonPath is the path to the daemon executable which should be started by the embedded library if no daemon
-  is found.
+  \a daemonPath is the path to the daemon executable which should be started by the embedded library
+                if no daemon is found.
 
   \threadsafe
 */
-void initLib(LibUsage usage, const QString &libName, const QString &daemonPath)
+void setDefaultZConfLib(LibUsage usage, const QString &avahiLibName, const QString &dnsSdLibName,
+                        const QString &dnsSdDaemonPath)
 {
-    zeroConfLibInstance()->setDefaultLib(usage, libName, daemonPath);
+    zeroConfLibInstance()->setDefaultLib(usage, avahiLibName, dnsSdLibName, dnsSdDaemonPath);
 }
 
 namespace Internal {
@@ -435,24 +450,28 @@ extern "C" void DNSSD_API cServiceResolveReply(DNSServiceRef                    
                                                DNSServiceErrorType                 errorCode,
                                                const char                          *fullname,
                                                const char                          *hosttarget,
-                                               uint16_t                            port,        /* In network byte order */
+                                               uint16_t                            port, /* In network byte order */
                                                uint16_t                            txtLen,
                                                const unsigned char                 *txtRecord,
                                                void                                *context)
 {
     if (DEBUG_ZEROCONF)
-        qDebug() << "cServiceResolveReply(" << ((size_t)sdRef) << ", " << ((quint32)flags) << ", " << interfaceIndex
-                 << ", " << ((int)errorCode) << ", " << fullname << ", " << hosttarget << ", " << qFromBigEndian(port) << ", "
-                 << txtLen << ", '" << QString::fromUtf8((const char *)txtRecord, txtLen) << "', " << ((size_t)context);
+        qDebug() << "cServiceResolveReply(" << ((size_t)sdRef) << ", " << ((quint32)flags)
+                 << ", " << interfaceIndex << ", " << ((int)errorCode) << ", " << fullname
+                 << ", " << hosttarget << ", " << qFromBigEndian(port) << ", " << txtLen << ", '"
+                 << QString::fromUtf8((const char *)txtRecord, txtLen) << "', "
+                 << ((size_t)context);
     ServiceGatherer *ctxGatherer = reinterpret_cast<ServiceGatherer *>(context);
     if (ctxGatherer){
         if (ctxGatherer->currentService->fullName() != fullname){
-            qDebug() << "ServiceBrowser " << ctxGatherer->serviceBrowser->serviceType << " for service "
-                     << ctxGatherer->currentService->name() << " ignoring resolve reply for " << fullname << " vs. " << ctxGatherer->currentService->fullName();
+            qDebug() << "ServiceBrowser " << ctxGatherer->serviceBrowser->serviceType
+                     << " for service " << ctxGatherer->currentService->name()
+                     << " ignoring resolve reply for " << fullname << " vs. "
+                     << ctxGatherer->currentService->fullName();
             return;
         }
-        ctxGatherer->serviceResolveReply(flags, interfaceIndex, errorCode, hosttarget, QString::number(qFromBigEndian(port)),
-                                         txtLen, txtRecord);
+        ctxGatherer->serviceResolveReply(flags, interfaceIndex, errorCode, hosttarget,
+                                         QString::number(qFromBigEndian(port)), txtLen, txtRecord);
     }
 }
 
@@ -469,14 +488,17 @@ extern "C" void DNSSD_API cTxtRecordReply(DNSServiceRef                       sd
                                           void                                *context)
 {
     if (DEBUG_ZEROCONF)
-        qDebug() << "cTxtRecordReply(" << ((size_t)sdRef) << ", " << ((int)flags) << ", " << interfaceIndex
-                 << ", " << ((int)errorCode) << ", " << fullname << ", " << rrtype << ", " << rrclass << ", "
-                 << ", " << rdlen << QString::fromUtf8((const char *)rdata, rdlen) << "', " << ttl << ", " << ((size_t)context);
+        qDebug() << "cTxtRecordReply(" << ((size_t)sdRef) << ", " << ((int)flags) << ", "
+                 << interfaceIndex << ", " << ((int)errorCode) << ", " << fullname << ", "
+                 << rrtype << ", " << rrclass << ", " << ", " << rdlen
+                 << QString::fromUtf8((const char *)rdata, rdlen) << "', " << ttl << ", "
+                 << ((size_t)context);
     ServiceGatherer *ctxGatherer = reinterpret_cast<ServiceGatherer *>(context);
     if (ctxGatherer){
         if (rrtype != kDNSServiceType_TXT || rrclass != kDNSServiceClass_IN) {
-            qDebug() << "ServiceBrowser " << ctxGatherer->serviceBrowser->serviceType << " for service "
-                     << ctxGatherer->currentService->fullName() << " received an unexpected rrtype/class:" << rrtype << "/" << rrclass;
+            qDebug() << "ServiceBrowser " << ctxGatherer->serviceBrowser->serviceType
+                     << " for service " << ctxGatherer->currentService->fullName()
+                     << " received an unexpected rrtype/class:" << rrtype << "/" << rrclass;
         }
         ctxGatherer->txtRecordReply(flags, errorCode, rdlen, rdata, ttl);
     }
@@ -492,9 +514,9 @@ extern "C" void DNSSD_API cAddrReply(DNSServiceRef                    sdRef,
                                      void                             *context)
 {
     if (DEBUG_ZEROCONF)
-        qDebug() << "cAddrReply(" << ((size_t)sdRef) << ", " << ((int)flags) << ", " << interfaceIndex
-                 << ", " << ((int)errorCode) << ", " << hostname << ", " << QHostAddress(address).toString() << ", " << ttl << ", "
-                 << ((size_t)context);
+        qDebug() << "cAddrReply(" << ((size_t)sdRef) << ", " << ((int)flags) << ", "
+                 << interfaceIndex << ", " << ((int)errorCode) << ", " << hostname << ", "
+                 << QHostAddress(address).toString() << ", " << ttl << ", " << ((size_t)context);
     ServiceGatherer *ctxGatherer = reinterpret_cast<ServiceGatherer *>(context);
     if (ctxGatherer){
         ctxGatherer->addrReply(flags, errorCode, hostname, address, ttl);
@@ -513,8 +535,8 @@ extern "C" void DNSSD_API cBrowseReply(DNSServiceRef       sdRef,
 {
     if (DEBUG_ZEROCONF)
         qDebug() << "cBrowseReply(" << ((size_t)sdRef) << ", " << flags << ", " << interfaceIndex
-                 << ", " << ((int)errorCode) << ", " << serviceName << ", " << regtype << ", " << replyDomain << ", "
-                 << ((size_t)context);
+                 << ", " << ((int)errorCode) << ", " << serviceName << ", " << regtype << ", "
+                 << replyDomain << ", " << ((size_t)context);
     ServiceBrowserPrivate *sb = (ServiceBrowserPrivate *)(context);
     if (sb == 0){
         qDebug() << "ServiceBrowser ignoring reply because context was null ";
@@ -536,7 +558,7 @@ ConnectionThread::ConnectionThread(MainConnection &mc, QObject *parent):
 
 // ----------------- ServiceGatherer impl -----------------
 
-ZConfLib *ServiceGatherer::lib()
+ZConfLib::Ptr ServiceGatherer::lib()
 {
     return serviceBrowser->mainConnection->lib;
 }
@@ -548,7 +570,8 @@ QString ServiceGatherer::fullName(){
 void ServiceGatherer::enactServiceChange()
 {
     if (DEBUG_ZEROCONF)
-        qDebug() << "ServiceGatherer::enactServiceChange() for service " << currentService->fullName();
+        qDebug() << "ServiceGatherer::enactServiceChange() for service "
+                 << currentService->fullName();
     if (currentServiceCanBePublished()) {
         Service::Ptr nService = Service::Ptr(currentService);
         serviceBrowser->serviceChanged(publishedService, nService, serviceBrowser->q);
@@ -591,9 +614,11 @@ void ServiceGatherer::restartResolve()
                 serviceBrowser->mainRef(),
                 &resolveConnection,
                 currentService->interfaceNr(), currentService->name().toUtf8().constData(),
-                currentService->type().toUtf8().constData(), currentService->domain().toUtf8().constData(), this);
+                currentService->type().toUtf8().constData(),
+                currentService->domain().toUtf8().constData(), this);
     if (err != kDNSServiceErr_NoError) {
-        qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed discovery of service " << currentService->fullName()
+        qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                 << " failed discovery of service " << currentService->fullName()
                  << " due to error " << err;
         status = status | ResolveConnectionFailed;
     } else {
@@ -613,10 +638,13 @@ void ServiceGatherer::restartTxt()
 {
     stopTxt();
     DNSServiceErrorType err = lib()->queryRecord(serviceBrowser->mainRef(), &txtConnection,
-                                                 currentService->interfaceNr(), currentService->fullName().toUtf8().constData(), this);
+                                                 currentService->interfaceNr(),
+                                                 currentService->fullName().toUtf8().constData(),
+                                                 this);
 
     if (err != kDNSServiceErr_NoError) {
-        qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed query of TXT record of service " << currentService->fullName()
+        qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                 << " failed query of TXT record of service " << currentService->fullName()
                  << " due to error " << err;
         status = status | TxtConnectionFailed;
     } else {
@@ -636,18 +664,22 @@ void ServiceGatherer::restartHostResolution()
 {
     stopHostResolution();
     if (DEBUG_ZEROCONF)
-        qDebug() << "ServiceGatherer::restartHostResolution for host " << hostName << " service " << currentService->fullName();
+        qDebug() << "ServiceGatherer::restartHostResolution for host " << hostName << " service "
+                 << currentService->fullName();
     if (hostName.isEmpty()){
-        qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " cannot start host resolution without hostname for service "
+        qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                 << " cannot start host resolution without hostname for service "
                  << currentService->fullName();
     }
     DNSServiceErrorType err = lib()->getAddrInfo(serviceBrowser->mainRef(), &addrConnection,
-                                                 currentService->interfaceNr(), 0 /* kDNSServiceProtocol_IPv4 | kDNSServiceProtocol_IPv6 */,
+                                                 currentService->interfaceNr(),
+                                                 0 /* kDNSServiceProtocol_IPv4 | kDNSServiceProtocol_IPv6 */,
                                                  hostName.toUtf8().constData(), this);
 
     if (err != kDNSServiceErr_NoError) {
-        qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed starting resolution of host "
-                 << hostName << " for service " << currentService->fullName() << " due to error " << err;
+        qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                 << " failed starting resolution of host " << hostName << " for service "
+                 << currentService->fullName() << " due to error " << err;
         status = status | AddrConnectionFailed;
     } else {
         status = ((status & ~AddrConnectionFailed) | AddrConnectionActive);
@@ -657,23 +689,28 @@ void ServiceGatherer::restartHostResolution()
 /// if the current service can be added
 bool ServiceGatherer::currentServiceCanBePublished()
 {
-    return (currentService->host() && !currentService->host()->addresses().isEmpty()) || !serviceBrowser->requireAddresses;
+    return (currentService->host() && !currentService->host()->addresses().isEmpty())
+            || !serviceBrowser->requireAddresses;
 }
 
-ServiceGatherer::ServiceGatherer(const QString &newServiceName, const QString &newType, const QString &newDomain,
-                                 const QString &fullName, uint32_t interfaceIndex, ServiceBrowserPrivate *serviceBrowser):
+ServiceGatherer::ServiceGatherer(const QString &newServiceName, const QString &newType,
+                                 const QString &newDomain, const QString &fullName,
+                                 uint32_t interfaceIndex, ServiceBrowserPrivate *serviceBrowser):
     serviceBrowser(serviceBrowser), publishedService(0), currentService(new Service()), status(0)
 {
     if (DEBUG_ZEROCONF)
-        qDebug() << " creating ServiceGatherer(" << newServiceName << ", " << newType << ", " << newDomain << ", "
-                 << fullName << ", " << interfaceIndex << ", " << ((size_t) serviceBrowser);
+        qDebug() << " creating ServiceGatherer(" << newServiceName << ", " << newType << ", "
+                 << newDomain << ", " << fullName << ", " << interfaceIndex << ", "
+                 << ((size_t) serviceBrowser);
     currentService->m_name = newServiceName;
     currentService->m_type = newType;
     currentService->m_domain = newDomain;
     currentService->m_fullName = fullName;
     currentService->m_interfaceNr = interfaceIndex;
     if (fullName.isEmpty())
-        currentService->m_fullName = toFullNameC(currentService->name().toUtf8().data(), currentService->type().toUtf8().data(), currentService->domain().toUtf8().data());
+        currentService->m_fullName = toFullNameC(currentService->name().toUtf8().data(),
+                                                 currentService->type().toUtf8().data(),
+                                                 currentService->domain().toUtf8().data());
     restartResolve();
     restartTxt();
 }
@@ -686,11 +723,12 @@ ServiceGatherer::~ServiceGatherer()
     delete currentService;
 }
 
-ServiceGatherer::Ptr ServiceGatherer::createGatherer(const QString &newServiceName, const QString &newType,
-                                                     const QString &newDomain, const QString &fullName,
-                                                     uint32_t interfaceIndex, ServiceBrowserPrivate *serviceBrowser)
+ServiceGatherer::Ptr ServiceGatherer::createGatherer(
+        const QString &newServiceName, const QString &newType, const QString &newDomain,
+        const QString &fullName, uint32_t interfaceIndex, ServiceBrowserPrivate *serviceBrowser)
 {
-    Ptr res(new ServiceGatherer(newServiceName, newType, newDomain, fullName, interfaceIndex, serviceBrowser));
+    Ptr res(new ServiceGatherer(newServiceName, newType, newDomain, fullName, interfaceIndex,
+                                serviceBrowser));
     res->self = res.toWeakRef();
     return res;
 }
@@ -710,13 +748,15 @@ void ServiceGatherer::serviceResolveReply(DNSServiceFlags                     fl
     if (errorCode != kDNSServiceErr_NoError){
         if (errorCode == kDNSServiceErr_Timeout){
             if ((status & ResolveConnectionSuccess) == 0){
-                qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed service resolution for service "
+                qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                         << " failed service resolution for service "
                          << currentService->fullName() << " as it did timeout";
                 status |= ResolveConnectionFailed;
             }
         } else {
-            qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed service resolution for service "
-                     << currentService->fullName() << " with error " << errorCode;
+            qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                     << " failed service resolution for service " << currentService->fullName()
+                     << " with error " << errorCode;
             status |= ResolveConnectionFailed;
         }
         if (status & ResolveConnectionActive) {
@@ -728,26 +768,22 @@ void ServiceGatherer::serviceResolveReply(DNSServiceFlags                     fl
     }
     if (publishedService) publishedService->invalidate(); // delay this to enactServiceChange?
     serviceBrowser->updateFlowStatusForFlags(flags);
-
     uint16_t nKeys = txtRecordGetCount(txtLen, rawTxtRecord);
     for (uint16_t i = 0; i < nKeys; ++i){
         enum { maxTxtLen= 256 };
         char keyBuf[maxTxtLen];
         uint8_t valLen;
         const char *valueCStr;
-        DNSServiceErrorType txtErr = txtRecordGetItemAtIndex(txtLen, rawTxtRecord, i, maxTxtLen,
-                                                                    keyBuf, &valLen, (const void **)&valueCStr);
+        DNSServiceErrorType txtErr = txtRecordGetItemAtIndex(
+                    txtLen, rawTxtRecord, i, maxTxtLen, keyBuf, &valLen, (const void **)&valueCStr);
         if (txtErr != kDNSServiceErr_NoError){
             qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " error " << txtErr
                      << " decoding txt record of service " << currentService->fullName();
             break;
         }
         keyBuf[maxTxtLen-1] = 0; // just to be sure
-        if (flags & kDNSServiceFlagsAdd) {
-            txtRecord[QString::fromUtf8(keyBuf)] = QString::fromUtf8(valueCStr, valLen);
-        } else {
-            txtRecord.remove(QString::fromUtf8(keyBuf)); // check value???
-        }
+        currentService->m_txtRecord.insert(QString::fromUtf8(keyBuf),
+                                           QString::fromUtf8(valueCStr, valLen));
     }
     currentService->m_interfaceNr = interfaceIndex;
     currentService->m_port = port;
@@ -775,13 +811,15 @@ void ServiceGatherer::txtRecordReply(DNSServiceFlags                     flags,
     if (errorCode != kDNSServiceErr_NoError){
         if (errorCode == kDNSServiceErr_Timeout){
             if ((status & TxtConnectionSuccess) == 0){
-                qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed txt gathering for service "
-                         << currentService->fullName() << " as it did timeout";
+                qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                         << " failed txt gathering for service " << currentService->fullName()
+                         << " as it did timeout";
                 status |= TxtConnectionFailed;
             }
         } else {
-            qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed txt gathering for service "
-                     << currentService->fullName() << " with error " << errorCode;
+            qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                     << " failed txt gathering for service " << currentService->fullName()
+                     << " with error " << errorCode;
             status |= TxtConnectionFailed;
         }
         if (status & TxtConnectionActive) {
@@ -798,26 +836,72 @@ void ServiceGatherer::txtRecordReply(DNSServiceFlags                     flags,
         char keyBuf[256];
         uint8_t valLen;
         const char *valueCStr;
-        DNSServiceErrorType txtErr = txtRecordGetItemAtIndex(txtLen, rawTxtRecord, i, 256, keyBuf, &valLen, (const void **)&valueCStr);
+        DNSServiceErrorType txtErr = txtRecordGetItemAtIndex(txtLen, rawTxtRecord, i, 256, keyBuf,
+                                                             &valLen, (const void **)&valueCStr);
         if (txtErr != kDNSServiceErr_NoError){
             qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " error " << txtErr
                      << " decoding txt record of service " << currentService->fullName();
             if ((flags & kDNSServiceFlagsAdd) == 0)
-                txtRecord.clear();
+                currentService->m_txtRecord.clear();
             break;
         }
         keyBuf[255] = 0; // just to be sure
         if (flags & kDNSServiceFlagsAdd) {
-            txtRecord[QString::fromUtf8(keyBuf)] = QString::fromUtf8(valueCStr, valLen);
+            currentService->m_txtRecord.insert(QString::fromUtf8(keyBuf),
+                                               QString::fromUtf8(valueCStr, valLen));
         } else {
-            txtRecord.remove(QString::fromUtf8(keyBuf)); // check value???
+            currentService->m_txtRecord.remove(QString::fromUtf8(keyBuf)); // check value???
         }
     }
     if ((flags & kDNSServiceFlagsAdd) != 0) {
         status |= TxtConnectionSuccess;
     }
-    if (txtRecord.count() != 0 && currentServiceCanBePublished())
+    if (currentService->m_txtRecord.count() != 0 && currentServiceCanBePublished())
         serviceBrowser->pendingGathererAdd(gatherer());
+}
+
+void ServiceGatherer::txtFieldReply(DNSServiceFlags                     flags,
+                                    DNSServiceErrorType                 errorCode,
+                                    uint16_t                            txtLen,
+                                    const void                          *rawTxtRecord,
+                                    uint32_t                            /*ttl*/){
+    if (errorCode != kDNSServiceErr_NoError){
+        if (errorCode == kDNSServiceErr_Timeout){
+            if ((status & TxtConnectionSuccess) == 0){
+                qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                         << " failed txt gathering for service " << currentService->fullName()
+                         << " as it did timeout";
+                status |= TxtConnectionFailed;
+            }
+        } else {
+            qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                     << " failed txt gathering for service " << currentService->fullName()
+                     << " with error " << errorCode;
+            status |= TxtConnectionFailed;
+        }
+        if (status & TxtConnectionActive) {
+            status &= ~TxtConnectionActive;
+            lib()->refDeallocate(txtConnection);
+            serviceBrowser->updateFlowStatusForCancel();
+        }
+        return;
+    }
+    serviceBrowser->updateFlowStatusForFlags(flags);
+    uint16_t keyLen = 0;
+    const char *txt = reinterpret_cast<const char *>(rawTxtRecord);
+    while (keyLen < txtLen) {
+        if (txt[keyLen]=='=')
+            break;
+        ++keyLen;
+    }
+    if (flags & kDNSServiceFlagsAdd) {
+        currentService->m_txtRecord.insert(
+                    QString::fromUtf8(txt, keyLen),
+                    QString::fromUtf8(txt + keyLen + 1, ((txtLen > keyLen)?txtLen - keyLen - 1:0)));
+    } else {
+        currentService->m_txtRecord.remove(QString::fromUtf8(txt, keyLen)); // check value???
+    }
+
 }
 
 void ServiceGatherer::addrReply(DNSServiceFlags                  flags,
@@ -829,12 +913,14 @@ void ServiceGatherer::addrReply(DNSServiceFlags                  flags,
     if (errorCode != kDNSServiceErr_NoError){
         if (errorCode == kDNSServiceErr_Timeout){
             if ((status & AddrConnectionSuccess) == 0){
-                qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed address resolve for service "
-                         << currentService->fullName() << " as it did timeout";
+                qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                         << " failed address resolve for service " << currentService->fullName()
+                         << " as it did timeout";
                 status |= AddrConnectionFailed;
             }
-            qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " failed addr resolve for service "
-                     << currentService->fullName() << " with error " << errorCode;
+            qDebug() << "ServiceBrowser " << serviceBrowser->serviceType
+                     << " failed addr resolve for service " << currentService->fullName()
+                     << " with error " << errorCode;
             status |= AddrConnectionFailed;
         }
         if (status & AddrConnectionActive){
@@ -846,20 +932,21 @@ void ServiceGatherer::addrReply(DNSServiceFlags                  flags,
     }
     serviceBrowser->updateFlowStatusForFlags(flags);
     if (!currentService->host())
-        currentService->m_host=new QHostInfo();
+        currentService->m_host = new QHostInfo();
     if (currentService->host()->hostName() != hostname) {
         if ((flags & kDNSServiceFlagsAdd) == 1)
             currentService->m_host->setHostName(QString::fromUtf8(hostname));
         if (currentService->host()->addresses().isEmpty()) {
             qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " for service "
-                     << currentService->fullName() << " add with name " << hostname << " while old name "
-                     << currentService->host()->hostName() << " has still adresses, removing them";
+                     << currentService->fullName() << " add with name " << hostname
+                     << " while old name " << currentService->host()->hostName()
+                     << " has still adresses, removing them";
             currentService->m_host->setAddresses(QList<QHostAddress>());
         }
         else{
             qDebug() << "ServiceBrowser " << serviceBrowser->serviceType << " for service "
-                     << currentService->fullName() << " ignoring remove for " << hostname << " as current hostname is "
-                     << currentService->host()->hostName();
+                     << currentService->fullName() << " ignoring remove for " << hostname
+                     << " as current hostname is " << currentService->host()->hostName();
             return;
         }
     }
@@ -914,8 +1001,11 @@ void ServiceGatherer::reload(qint32 interfaceIndex)
 void ServiceGatherer::remove()
 {
     stop();
-    if (serviceBrowser->gatherers.contains(currentService->fullName()) && serviceBrowser->gatherers[currentService->fullName()] == this)
+    if (serviceBrowser->gatherers.contains(currentService->fullName()) &&
+            serviceBrowser->gatherers[currentService->fullName()] == this)
+    {
         serviceBrowser->gatherers.remove(currentService->fullName());
+    }
 }
 /// forces a full reload of the record
 void ServiceGatherer::reconfirm()
@@ -951,7 +1041,7 @@ void ServiceBrowserPrivate::pendingGathererAdd(ServiceGatherer::Ptr gatherer)
 {
     int ng = pendingGatherers.count();
     for (int i = 0; i < ng; ++i){
-        const ServiceGatherer::Ptr &g=pendingGatherers.at(i);
+        const ServiceGatherer::Ptr &g = pendingGatherers.at(i);
         if (g->fullName() == gatherer->fullName()){
             if (g != gatherer){
                 gatherer->publishedService = g->publishedService;
@@ -963,7 +1053,8 @@ void ServiceBrowserPrivate::pendingGathererAdd(ServiceGatherer::Ptr gatherer)
     pendingGatherers.append(gatherer);
 }
 
-ServiceBrowserPrivate::ServiceBrowserPrivate(const QString &serviceType, const QString &domain, bool requireAddresses, MainConnectionPtr mconn):
+ServiceBrowserPrivate::ServiceBrowserPrivate(const QString &serviceType, const QString &domain,
+                                             bool requireAddresses, MainConnectionPtr mconn):
     q(0), serviceType(serviceType), domain(domain), mainConnection(mconn), serviceConnection(0), flags(0), interfaceIndex(0),
     failed(false), browsing(false), autoResolveAddresses(requireAddresses), requireAddresses(requireAddresses)
 {
@@ -971,7 +1062,8 @@ ServiceBrowserPrivate::ServiceBrowserPrivate(const QString &serviceType, const Q
 
 ServiceBrowserPrivate::~ServiceBrowserPrivate()
 {
-    qDebug() << "destroying ServiceBrowserPrivate " << serviceType;
+    if (DEBUG_ZEROCONF)
+        qDebug() << "destroying ServiceBrowserPrivate " << serviceType;
     if (browsing){
         stopBrowsing();
     }
@@ -987,7 +1079,8 @@ void ServiceBrowserPrivate::insertGatherer(const QString &fullName)
         if (fromFullNameC(fullName.toUtf8().data(), *&newServiceName, *&newType, *&newDomain)){
             qDebug() << "Error unescaping fullname " << fullName;
         } else {
-            ServiceGatherer::Ptr serviceGatherer = ServiceGatherer::createGatherer(newServiceName, newType, newDomain, fullName, 0, this);
+            ServiceGatherer::Ptr serviceGatherer = ServiceGatherer::createGatherer(
+                        newServiceName, newType, newDomain, fullName, 0, this);
             gatherers[fullName] = serviceGatherer;
         }
     }
@@ -1025,7 +1118,7 @@ void ServiceBrowserPrivate::maybeUpdateLists()
             g->enactServiceChange();
         {
             QMutexLocker l(mainConnection->lock());
-            activeServices=nextActiveServices;
+            activeServices = nextActiveServices;
         }
         emit q->servicesUpdated(q);
     }
@@ -1040,8 +1133,9 @@ void ServiceBrowserPrivate::browseReply(DNSServiceFlags                     flag
                                         const char                          *replyDomain)
 {
     if (DEBUG_ZEROCONF)
-        qDebug() << "browseReply(" << ((int)flags) << ", " << interfaceIndex << ", " << ((int)errorCode) << ", " << serviceName << ", "
-                 << regtype << ", " << replyDomain << ")";
+        qDebug() << "browseReply(" << ((int)flags) << ", " << interfaceIndex << ", "
+                 << ((int)errorCode) << ", " << serviceName << ", " << regtype << ", "
+                 << replyDomain << ")";
     if (errorCode != kDNSServiceErr_NoError){
         qDebug() << "ServiceBrowser " << serviceType << " ignoring reply due to error " << errorCode;
         return;
@@ -1058,13 +1152,15 @@ void ServiceBrowserPrivate::browseReply(DNSServiceFlags                     flag
     if (flags & kDNSServiceFlagsAdd){
         ServiceGatherer::Ptr serviceGatherer;
         if (!gatherers.contains(fullName)){
-            serviceGatherer = ServiceGatherer::createGatherer(newServiceName, newType, newDomain, fullName, interfaceIndex, this);
+            serviceGatherer = ServiceGatherer::createGatherer(newServiceName, newType, newDomain,
+                                                              fullName, interfaceIndex, this);
             gatherers[fullName] = serviceGatherer;
         } else {
             serviceGatherer = gatherers[fullName];
             serviceGatherer->reload(interfaceIndex);
         }
-        QList<QString>::iterator pos = std::lower_bound(knownServices.begin(), knownServices.end(), fullName);
+        QList<QString>::iterator pos = std::lower_bound(knownServices.begin(), knownServices.end(),
+                                                        fullName);
         // could order later (more efficient, but then we have to handle eventual duplicates)
         if (pos == knownServices.end() || *pos != fullName)
             knownServices.insert(pos, fullName);
@@ -1077,22 +1173,32 @@ void ServiceBrowserPrivate::browseReply(DNSServiceFlags                     flag
     maybeUpdateLists();
 }
 
-bool ServiceBrowserPrivate::startBrowsing(quint32 interfaceIndex)
+void ServiceBrowserPrivate::startBrowsing(quint32 interfaceIndex)
 {
-    if (failed || browsing) return false;
+    this->interfaceIndex = interfaceIndex;
+    if (failed || browsing)
+        return;
     if (mainConnection.isNull())
         mainConnection = MainConnectionPtr(new MainConnection());
     mainConnection->addBrowser(this);
+}
+
+bool ServiceBrowserPrivate::internalStartBrowsing()
+{
+    if (failed || browsing)
+        return false;
     DNSServiceErrorType err;
     err = mainConnection->lib->browse(mainRef(), &serviceConnection, interfaceIndex,
-                                      serviceType.toUtf8().constData(), ((domain.isEmpty()) ? 0 : (domain.toUtf8().constData())), this);
+                                      serviceType.toUtf8().constData(),
+                                      ((domain.isEmpty()) ? 0 : (domain.toUtf8().constData())), this);
     if (err != kDNSServiceErr_NoError){
         qDebug() << "ServiceBrowser " << serviceType << " failed initializing serviceConnection";
         return false;
     }
     browsing = true;
     if (DEBUG_ZEROCONF)
-        qDebug() << "startBrowsing(" << interfaceIndex << ") for serviceType:" << serviceType << " domain:" << domain;
+        qDebug() << "startBrowsing(" << interfaceIndex << ") for serviceType:" << serviceType
+                 << " domain:" << domain;
     return true;
 }
 
@@ -1103,7 +1209,7 @@ void ServiceBrowserPrivate::stopBrowsing()
         if (serviceConnection) {
             mainConnection->lib->browserDeallocate(&serviceConnection);
             updateFlowStatusForCancel();
-            serviceConnection=0;
+            serviceConnection = 0;
         }
     }
 }
@@ -1111,12 +1217,17 @@ void ServiceBrowserPrivate::stopBrowsing()
 void ServiceBrowserPrivate::reconfirmService(Service::ConstPtr s)
 {
     if (!s->outdated())
-        mainConnection->lib->reconfirmRecord(mainRef(), s->interfaceNr(), s->name().toUtf8().data(), s->type().toUtf8().data(),
-                                             s->domain().toUtf8().data(), s->fullName().toUtf8().data());
+        mainConnection->lib->reconfirmRecord(
+                    mainRef(), s->interfaceNr(), s->name().toUtf8().data(),
+                    s->type().toUtf8().data(), s->domain().toUtf8().data(),
+                    s->fullName().toUtf8().data());
 }
 
-/// called when a service is added removed or changes. oldService or newService might be null (covers both add and remove)
-void ServiceBrowserPrivate::serviceChanged(const Service::ConstPtr &oldService, const Service::ConstPtr &newService, ServiceBrowser *browser)
+/// called when a service is added removed or changes. oldService or newService might be null
+/// (covers both add and remove)
+void ServiceBrowserPrivate::serviceChanged(const Service::ConstPtr &oldService,
+                                           const Service::ConstPtr &newService,
+                                           ServiceBrowser *browser)
 {
     emit q->serviceChanged(oldService, newService, browser);
 }
@@ -1143,8 +1254,8 @@ void ServiceBrowserPrivate::servicesUpdated(ServiceBrowser *browser)
 void ServiceBrowserPrivate::hadError(QStringList errorMsgs, bool completeFailure)
 {
     if (completeFailure)
-        this->failed=true;
-    emit q->hadError(errorMsgs,completeFailure);
+        this->failed = true;
+    emit q->hadError(errorMsgs, completeFailure);
 }
 
 // ----------------- MainConnection impl -----------------
@@ -1162,9 +1273,10 @@ void MainConnection::stop(bool wait)
 }
 
 MainConnection::MainConnection():
-    lib(zeroConfLibInstance()->defaultLib()), m_lock(QMutex::Recursive), m_mainRef(0), m_failed(false), m_status(Starting), m_nErrs(0)
+    lib(zeroConfLibInstance()->defaultLib()), m_lock(QMutex::Recursive), m_mainRef(0),
+    m_failed(false), m_status(Starting), m_nErrs(0)
 {
-    if (lib == 0){
+    if (lib.isNull()){
         qDebug() << "could not load a valid library for ZeroConf::MainConnection, failing";
     } else {
         m_thread = new ConnectionThread(*this);
@@ -1211,14 +1323,18 @@ void MainConnection::waitStartup()
 
 void MainConnection::addBrowser(ServiceBrowserPrivate *browser)
 {
-    waitStartup();
+    int actualStatus;
     QStringList errs;
     bool didFail;
     {
         QMutexLocker l(lock());
+        actualStatus = m_status;
         m_browsers.append(browser);
-        errs=m_errors;
-        didFail=m_failed;
+        errs = m_errors;
+        didFail = m_failed;
+    }
+    if (actualStatus == Running) {
+        browser->internalStartBrowsing();
     }
     if (didFail || !errs.isEmpty())
         browser->hadError(errs, didFail);
@@ -1271,8 +1387,8 @@ void MainConnection::abortLib(){
     } else if (lib->fallbackLib){
         appendError(QStringList(tr("MainConnection giving up on lib %1, switching to lib %2")
                                 .arg(lib->name()).arg(lib->fallbackLib->name())), false);
-        lib=lib->fallbackLib;
-        m_nErrs=0;
+        lib = lib->fallbackLib;
+        m_nErrs = 0;
         gotoValidLib();
     } else {
         appendError(QStringList(tr("MainConnection giving up on lib %1, no fallback provided, aborting connection")
@@ -1291,39 +1407,46 @@ void MainConnection::createConnection()
         }
         uint32_t version;
         uint32_t size=(uint32_t)sizeof(uint32_t);
-        DNSServiceErrorType err=lib->getProperty(kDNSServiceProperty_DaemonVersion, &version, &size);
+        DNSServiceErrorType err = lib->getProperty(kDNSServiceProperty_DaemonVersion, &version, &size);
         if (err == kDNSServiceErr_NoError){
             DNSServiceErrorType error = lib->createConnection(&m_mainRef);
             if (error != kDNSServiceErr_NoError){
                 appendError(QStringList(tr("MainConnection using lib %1 failed the initialization of mainRef with error %2")
-                                        .arg(lib->name()).arg(error)),false);
+                                        .arg(lib->name()).arg(error)), false);
                 ++m_nErrs;
                 if (m_nErrs > 10 || !lib->isOk())
                     abortLib();
             } else {
-                increaseStatusTo(Running);
-                // multithreading issues if we support multiple cycles of createConnection/destroyConnection
-                for (int i = m_browsers.count(); i-- != 0; ){
-                    ServiceBrowserPrivate *bAtt=m_browsers[i];
-                    if (bAtt && !bAtt->browsing)
-                        bAtt->startBrowsing(bAtt->interfaceIndex);
+                QList<ServiceBrowserPrivate *> waitingBrowsers;
+                {
+                    QMutexLocker l(lock());
+                    waitingBrowsers = m_browsers;
+                    increaseStatusTo(Running);
+                }
+                for (int i = waitingBrowsers.count(); i-- != 0; ){
+                    ServiceBrowserPrivate *actualBrowser = waitingBrowsers[i];
+                    if (actualBrowser && !actualBrowser->browsing)
+                        actualBrowser->internalStartBrowsing();
                 }
                 break;
             }
         } else if (err == kDNSServiceErr_ServiceNotRunning) {
             appendError(QStringList(tr("MainConnection using lib %1 failed because no daemon is running")
-                                    .arg(lib->name())),false);
-            if (lib->tryStartDaemon()) {
+                                    .arg(lib->name())), false);
+            if (m_nErrs > 5 || !lib->isOk()) {
+                abortLib();
+            } else if (lib->tryStartDaemon()) {
+                ++m_nErrs;
                 appendError(QStringList(tr("MainConnection using lib %1 daemon starting seem successful, continuing")
-                                        .arg(lib->name())),false);
+                                        .arg(lib->name())), false);
             } else {
                 appendError(QStringList(tr("MainConnection using lib %1 failed because no daemon is running")
-                                        .arg(lib->name())),false);
+                                        .arg(lib->name())), false);
                 abortLib();
             }
         } else {
             appendError(QStringList(tr("MainConnection using lib %1 failed getProperty call with error %2")
-                                    .arg(lib->name()).arg(err)),false);
+                                    .arg(lib->name()).arg(err)), false);
             abortLib();
         }
     }
@@ -1336,7 +1459,7 @@ ZConfLib::ProcessStatus MainConnection::handleEvent()
         qDebug() << "processResult returned " << err;
         ++m_nErrs;
     } else {
-        m_nErrs=0;
+        m_nErrs = 0;
         maybeUpdateLists();
     }
     return err;
@@ -1346,19 +1469,20 @@ void MainConnection::destroyConnection()
 {
     // multithreading issues if we support multiple cycles of createConnection/destroyConnection
     for (int i = m_browsers.count(); i-- != 0;){
-        ServiceBrowserPrivate *bAtt=m_browsers[i];
+        ServiceBrowserPrivate *bAtt = m_browsers[i];
         if (bAtt->browsing)
             bAtt->stopBrowsing();
     }
     if (m_mainRef != 0)
         lib->destroyConnection(&m_mainRef);
-    m_mainRef=0;
+    m_mainRef = 0;
 }
 
 void  MainConnection::handleEvents()
 {
     if (!m_status.testAndSetAcquire(Starting, Started)){
-        appendError(QStringList(tr("MainConnection::handleEvents called with m_status != Starting, aborting")),true);
+        appendError(QStringList(tr("MainConnection::handleEvents called with m_status != Starting, aborting")),
+                    true);
         increaseStatusTo(Stopped);
         return;
     }
@@ -1382,15 +1506,18 @@ void  MainConnection::handleEvents()
             increaseStatusTo(Stopping);
             break;
         default:
-            appendError(QStringList(tr("MainConnection::handleEvents unexpected return status of handleEvent")),true);
+            appendError(QStringList(tr("MainConnection::handleEvents unexpected return status of handleEvent")),
+                        true);
             increaseStatusTo(Stopping);
             break;
         }
     }
     destroyConnection();
     if (m_nErrs > 0){
-        QString browsersNames=(m_browsers.isEmpty()?QString():m_browsers.at(0)->serviceType)+((m_browsers.count()>1)?QString::fromLatin1(",..."):QString());
-        appendError(QStringList(tr("MainConnection for [%1] accumulated %2 consecutive errors, aborting").arg(browsersNames).arg(m_nErrs)),true);
+        QString browsersNames=(m_browsers.isEmpty()?QString():m_browsers.at(0)->serviceType)
+                + ((m_browsers.count()>1)?QString::fromLatin1(",..."):QString());
+        appendError(QStringList(tr("MainConnection for [%1] accumulated %2 consecutive errors, aborting")
+                                .arg(browsersNames).arg(m_nErrs)), true);
     }
     increaseStatusTo(Stopped);
 }
@@ -1415,19 +1542,19 @@ void MainConnection::clearErrors()
     m_errors.clear();
 }
 
-void MainConnection::appendError(const QStringList &s,bool failure)
+void MainConnection::appendError(const QStringList &s, bool failure)
 {
     QList<ServiceBrowserPrivate *> browsersAtt;
     bool didFail;
     {
         QMutexLocker l(lock());
         m_errors.append(s);
-        browsersAtt=m_browsers;
+        browsersAtt = m_browsers;
         m_failed= failure || m_failed;
-        didFail=m_failed;
+        didFail = m_failed;
     }
-    foreach (ServiceBrowserPrivate *b,browsersAtt)
-        b->hadError(s,didFail);
+    foreach (ServiceBrowserPrivate *b, browsersAtt)
+        b->hadError(s, didFail);
 }
 
 bool MainConnection::isOk()
@@ -1443,10 +1570,10 @@ bool ZConfLib::tryStartDaemon()
 }
 
 QString ZConfLib::name(){
-    return QString::fromUtf8("ZeroConfLib@%1").arg(size_t(this),0,16);
+    return QString::fromUtf8("ZeroConfLib@%1").arg(size_t(this), 0, 16);
 }
 
-ZConfLib::ZConfLib(ZConfLib * f) : fallbackLib(f), m_isOk(true)
+ZConfLib::ZConfLib(ZConfLib::Ptr f) : fallbackLib(f), m_isOk(true)
 { }
 
 ZConfLib::~ZConfLib()

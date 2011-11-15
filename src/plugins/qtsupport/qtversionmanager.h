@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -95,7 +95,9 @@ public:
     // This returns a list of versions that support the target with the given id.
     // @return A list of QtVersions that supports a target. This list may be empty!
 
-    QList<BaseQtVersion *> versionsForTargetId(const QString &id, const QtVersionNumber &minimumQtVersion = QtVersionNumber()) const;
+    QList<BaseQtVersion *> versionsForTargetId(const QString &id,
+                                               const QtVersionNumber &minimumQtVersion = QtVersionNumber(),
+                                               const QtVersionNumber &maximumQtVersion = QtVersionNumber(INT_MAX, INT_MAX, INT_MAX)) const;
     QSet<QString> supportedTargetIds() const;
 
     // Static Methods

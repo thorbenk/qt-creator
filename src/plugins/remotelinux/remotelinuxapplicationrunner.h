@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef REMOTELINUXAPPLICATIONRUNNER_H
@@ -102,10 +102,12 @@ private slots:
     void handleRemoteProcessFinished(int exitStatus);
     void handlePortsGathererError(const QString &errorMsg);
     void handleUsedPortsAvailable();
+    void handleRemoteStdout();
+    void handleRemoteStderr();
 
 private:
 
-    virtual QString killApplicationCommandLine() const = 0;
+    virtual QString killApplicationCommandLine() const;
 
     // Implement to do custom setup of the device *before* connecting.
     // Call handleDeviceSetupDone() afterwards.
@@ -145,9 +147,6 @@ protected:
     void doAdditionalInitializations();
     void doPostRunCleanup();
     void doAdditionalConnectionErrorHandling();
-
-private:
-    QString killApplicationCommandLine() const;
 };
 
 } // namespace RemoteLinux

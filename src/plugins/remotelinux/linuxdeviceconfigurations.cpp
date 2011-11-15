@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "linuxdeviceconfigurations.h"
@@ -131,7 +131,7 @@ void LinuxDeviceConfigurations::save()
     settings->beginGroup(SettingsGroup);
     settings->setValue(IdCounterKey, d->nextId);
     settings->setValue(DefaultKeyFilePathKey, d->defaultSshKeyFilePath);
-    settings->beginWriteArray(ConfigListKey, d->devConfigs.count());
+    settings->beginWriteArray(ConfigListKey);
     int skippedCount = 0;
     for (int i = 0; i < d->devConfigs.count(); ++i) {
         const LinuxDeviceConfiguration::ConstPtr &devConf = d->devConfigs.at(i);

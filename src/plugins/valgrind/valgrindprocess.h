@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -28,7 +28,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -146,9 +146,9 @@ private slots:
     void connected();
     void error(Utils::SshError error);
     void processStarted();
-    void findPIDOutputReceived(const QByteArray &output);
-    void standardOutput(const QByteArray &output);
-    void standardError(const QByteArray &output);
+    void findPIDOutputReceived();
+    void standardOutput();
+    void standardError();
 
 private:
     Utils::SshConnectionParameters m_params;

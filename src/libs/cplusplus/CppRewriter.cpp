@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "CppRewriter.h"
@@ -151,6 +151,9 @@ public:
                 newArg->setName(rewrite->rewriteName(arg->name()));
                 newArg->setType(rewrite->rewriteType(arg->type()));
 
+                // the copy() call above set the scope to 'type'
+                // reset it to 0 before adding addMember to avoid assert
+                newArg->resetScope();
                 funTy->addMember(newArg);
             }
 
@@ -384,18 +387,6 @@ UseMinimalNames::~UseMinimalNames()
 
 }
 
-static bool symbolIdentical(Symbol *s1, Symbol *s2)
-{
-    if (!s1 || !s2)
-        return false;
-    if (s1->line() != s2->line())
-        return false;
-    if (s1->column() != s2->column())
-        return false;
-
-    return QByteArray(s1->fileName()) == QByteArray(s2->fileName());
-}
-
 FullySpecifiedType UseMinimalNames::apply(const Name *name, Rewrite *rewrite) const
 {
     SubstitutionEnvironment *env = rewrite->env;
@@ -413,26 +404,7 @@ FullySpecifiedType UseMinimalNames::apply(const Name *name, Rewrite *rewrite) co
     const QList<LookupItem> results = context.lookup(name, scope);
     foreach (const LookupItem &r, results) {
         if (Symbol *d = r.declaration()) {
-            const Name *n = 0;
-            QList<const Name *> names = LookupContext::fullyQualifiedName(d);
-            for (int i = names.size() - 1; i >= 0; --i) {
-                if (! n)
-                    n = names.at(i);
-                else
-                    n = control->qualifiedNameId(names.at(i), n);
-                if (_target) {
-                    // minimize the qualifications
-                    const QList<LookupItem> tresults = _target->lookup(n);
-                    foreach (const LookupItem &tr, tresults) {
-                        if (symbolIdentical(tr.declaration(), d)) {
-                            i = 0; // break outer
-                            break;
-                        }
-                    }
-                }
-            }
-
-            return control->namedType(n);
+            return control->namedType(LookupContext::minimalName(d, _target, control));
         }
 
         return r.type();

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -43,6 +43,7 @@ namespace QmlJsDebugClient {
 
 struct QMLJSDEBUGCLIENT_EXPORT QmlEventData
 {
+    QmlEventData():line(-1),cumulatedDuration(0),calls(0),eventId(-1){}
     QString displayname;
     QString filename;
     QString location;
@@ -58,6 +59,7 @@ struct QMLJSDEBUGCLIENT_EXPORT QmlEventData
     double timePerCall;
     double percentOfTime;
     qint64 medianTime;
+    int eventId;
 };
 
 struct QMLJSDEBUGCLIENT_EXPORT QV8EventData
@@ -72,20 +74,12 @@ struct QMLJSDEBUGCLIENT_EXPORT QV8EventData
     double selfPercent;
     QList< QV8EventData *> parentList;
     QList< QV8EventData *> childrenList;
+    int eventId;
 };
 
 typedef QHash<QString, QmlEventData *> QmlEventHash;
 typedef QList<QmlEventData *> QmlEventDescriptions;
 typedef QList<QV8EventData *> QV8EventDescriptions;
-
-enum ParsingStatus {
-    GettingDataStatus = 0,
-    SortingListsStatus = 1,
-    SortingEndsStatus = 2,
-    ComputingLevelsStatus = 3,
-    CompilingStatisticsStatus = 4,
-    DoneStatus = 5
-};
 
 class QMLJSDEBUGCLIENT_EXPORT QmlProfilerEventList : public QObject
 {
@@ -96,16 +90,17 @@ public:
     ~QmlProfilerEventList();
 
     QmlEventDescriptions getEventDescriptions() const;
+    QmlEventData *eventDescription(int eventId) const;
     const QV8EventDescriptions& getV8Events() const;
+    QV8EventData *v8EventDescription(int eventId) const;
 
     int findFirstIndex(qint64 startTime) const;
+    int findFirstIndexNoParents(qint64 startTime) const;
     int findLastIndex(qint64 endTime) const;
     Q_INVOKABLE qint64 firstTimeMark() const;
     Q_INVOKABLE qint64 lastTimeMark() const;
 
     Q_INVOKABLE int count() const;
-    void setParsingStatus(ParsingStatus ps);
-    Q_INVOKABLE ParsingStatus getParsingStatus() const;
 
     // data access
     Q_INVOKABLE qint64 getStartTime(int index) const;
@@ -117,16 +112,26 @@ public:
     Q_INVOKABLE QString getFilename(int index) const;
     Q_INVOKABLE int getLine(int index) const;
     Q_INVOKABLE QString getDetails(int index) const;
+    Q_INVOKABLE int getEventId(int index) const;
+
+    // per-type data
+    Q_INVOKABLE int uniqueEventsOfType(int type) const;
+    Q_INVOKABLE int maxNestingForType(int type) const;
+    Q_INVOKABLE QString eventTextForType(int type, int index) const;
+    Q_INVOKABLE int eventPosInType(int index) const;
 
     Q_INVOKABLE qint64 traceStartTime() const;
     Q_INVOKABLE qint64 traceEndTime() const;
+    Q_INVOKABLE qint64 traceDuration() const;
 
     void showErrorDialog(const QString &st ) const;
+    void compileStatistics(qint64 startTime, qint64 endTime);
 signals:
     void dataReady();
     void countChanged();
-    void parsingStatusChanged();
     void error(const QString &error);
+    void dataClear();
+    void processingData();
 
 public slots:
     void clear();
@@ -141,15 +146,16 @@ public slots:
     void load();
 
     void setTraceEndTime( qint64 time );
+    void setTraceStartTime( qint64 time );
 
-private slots:
+private:
     void postProcess();
     void sortEndTimes();
     void sortStartTimes();
     void computeLevels();
     void computeNestingLevels();
     void computeNestingDepth();
-    void compileStatistics();
+    void prepareForDisplay();
     void linkEndsToStarts();
 
 private:

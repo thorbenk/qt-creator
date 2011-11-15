@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -154,7 +154,7 @@ BaseTextEditorWidget *RefactoringChanges::openEditor(const QString &fileName, bo
         column -= 1;
     }
     Core::IEditor *editor = BaseTextEditorWidget::openEditorAt(
-                fileName, line, column, QString(), flags);
+                fileName, line, column, Core::Id(), flags);
     return qobject_cast<BaseTextEditorWidget *>(editor->widget());
 }
 
@@ -339,7 +339,7 @@ void RefactoringFile::apply()
             return;
 
         {
-            QTextCursor c(doc);
+            QTextCursor c = cursor();
             c.beginEditBlock();
 
             // build indent selections now, applying the changeset will change locations

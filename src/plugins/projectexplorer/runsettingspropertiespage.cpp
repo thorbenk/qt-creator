@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -42,6 +42,8 @@
 
 #include <coreplugin/coreconstants.h>
 #include <extensionsystem/pluginmanager.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/buildmanager.h>
 #include <utils/qtcassert.h>
 
 #include <QtCore/QPair>
@@ -133,7 +135,7 @@ RunSettingsWidget::RunSettingsWidget(Target *target)
     m_deployConfigurationCombo = new QComboBox(this);
     m_addDeployToolButton = new QPushButton(tr("Add"), this);
     m_removeDeployToolButton = new QPushButton(tr("Remove"), this);
-    m_renameDeployButton = new QPushButton(tr("Rename"), this);
+    m_renameDeployButton = new QPushButton(tr("Rename..."), this);
 
     QWidget *deployWidget = new QWidget(this);
 
@@ -143,35 +145,50 @@ RunSettingsWidget::RunSettingsWidget(Target *target)
 
     m_addRunToolButton = new QPushButton(tr("Add"), this);
     m_removeRunToolButton = new QPushButton(tr("Remove"), this);
-    m_renameRunButton = new QPushButton(tr("Rename"), this);
+    m_renameRunButton = new QPushButton(tr("Rename..."), this);
 
-    QSpacerItem *runHorizontalSpacer =
-        new QSpacerItem(17, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    QSpacerItem *spacer1 =
+        new QSpacerItem(10, 10, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    QSpacerItem *spacer2 =
+        new QSpacerItem(10, 10, QSizePolicy::Minimum, QSizePolicy::Expanding);
 
     QWidget *runWidget = new QWidget(this);
 
+    QLabel *deployTitle = new QLabel(tr("Deployment"), this);
+    QLabel *deployLabel = new QLabel(tr("Method:"), this);
+    QLabel *runTitle = new QLabel(tr("Run"), this);
     QLabel *runLabel = new QLabel(tr("Run configuration:"), this);
+
     runLabel->setBuddy(m_runConfigurationCombo);
 
-    QLabel *deployLabel = new QLabel(tr("Deployment:"), this);
+    QFont f = runLabel->font();
+    f.setBold(true);
+    f.setPointSizeF(f.pointSizeF() * 1.2);
+
+    runTitle->setFont(f);
+    deployTitle->setFont(f);
 
     m_gridLayout = new QGridLayout(this);
-    m_gridLayout->setSpacing(0);
-    m_gridLayout->setContentsMargins(0, 0, 0, 0);
+    m_gridLayout->setContentsMargins(0, 20, 0, 0);
     m_gridLayout->setHorizontalSpacing(6);
-    m_gridLayout->addWidget(deployLabel, 0, 0, 1, 1);
-    m_gridLayout->addWidget(m_deployConfigurationCombo, 0, 1, 1, 1);
-    m_gridLayout->addWidget(m_addDeployToolButton, 0, 2, 1, 1);
-    m_gridLayout->addWidget(m_removeDeployToolButton, 0, 3, 1, 1);
-    m_gridLayout->addWidget(m_renameDeployButton, 0, 4, 1, 1);
-    m_gridLayout->addWidget(deployWidget, 1, 0, 1, 6);
-    m_gridLayout->addWidget(runLabel, 2, 0, 1, 1);
-    m_gridLayout->addWidget(m_runConfigurationCombo, 2, 1, 1, 1);
-    m_gridLayout->addWidget(m_addRunToolButton, 2, 2, 1, 1);
-    m_gridLayout->addWidget(m_removeRunToolButton, 2, 3, 1, 1);
-    m_gridLayout->addWidget(m_renameRunButton, 2, 4, 1, 1);
-    m_gridLayout->addItem(runHorizontalSpacer, 2, 5, 1, 1);
-    m_gridLayout->addWidget(runWidget, 3, 0, 1, 6);
+    m_gridLayout->setVerticalSpacing(8);
+    m_gridLayout->addWidget(deployTitle, 0, 0, 1, 6);
+    m_gridLayout->addWidget(deployLabel, 1, 0, 1, 1);
+    m_gridLayout->addWidget(m_deployConfigurationCombo, 1, 1, 1, 1);
+    m_gridLayout->addWidget(m_addDeployToolButton, 1, 2, 1, 1);
+    m_gridLayout->addWidget(m_removeDeployToolButton, 1, 3, 1, 1);
+    m_gridLayout->addWidget(m_renameDeployButton, 1, 4, 1, 1);
+    m_gridLayout->addWidget(deployWidget, 2, 0, 1, 6);
+
+    m_gridLayout->addWidget(runTitle, 3, 0, 1, 6);
+    m_gridLayout->addWidget(runLabel, 4, 0, 1, 1);
+    m_gridLayout->addWidget(m_runConfigurationCombo, 4, 1, 1, 1);
+    m_gridLayout->addWidget(m_addRunToolButton, 4, 2, 1, 1);
+    m_gridLayout->addWidget(m_removeRunToolButton, 4, 3, 1, 1);
+    m_gridLayout->addWidget(m_renameRunButton, 4, 4, 1, 1);
+    m_gridLayout->addItem(spacer1, 4, 5, 1, 1);
+    m_gridLayout->addWidget(runWidget, 5, 0, 1, 6);
+    m_gridLayout->addItem(spacer2, 6, 0, 1, 1);
 
     // deploy part
     deployWidget->setContentsMargins(0, 10, 0, 25);
@@ -374,15 +391,31 @@ void RunSettingsWidget::addDeployConfiguration()
 void RunSettingsWidget::removeDeployConfiguration()
 {
     DeployConfiguration *dc = m_target->activeDeployConfiguration();
-    QMessageBox msgBox(QMessageBox::Question, tr("Remove Deploy Configuration?"),
-                       tr("Do you really want to delete deploy configuration <b>%1</b>?").arg(dc->displayName()),
-                       QMessageBox::Yes|QMessageBox::No, this);
-    msgBox.setDefaultButton(QMessageBox::No);
-    msgBox.setEscapeButton(QMessageBox::No);
-    if (msgBox.exec() == QMessageBox::No)
-        return;
+    ProjectExplorer::BuildManager *bm = ProjectExplorerPlugin::instance()->buildManager();
+    if (bm->isBuilding(dc)) {
+        QMessageBox box;
+        QPushButton *closeAnyway = box.addButton(tr("Cancel Build && Remove Deploy Configuration"), QMessageBox::AcceptRole);
+        QPushButton *cancelClose = box.addButton(tr("Do Not Remove"), QMessageBox::RejectRole);
+        box.setDefaultButton(cancelClose);
+        box.setWindowTitle(tr("Remove Deploy Configuration %1?").arg(dc->displayName()));
+        box.setText(tr("The deploy configuration <b>%1</b> is currently being built.").arg(dc->displayName()));
+        box.setInformativeText(tr("Do you want to cancel the build process and remove the Deploy Configuration anyway?"));
+        box.exec();
+        if (box.clickedButton() != closeAnyway)
+            return;
+        bm->cancel();
+    } else {
+        QMessageBox msgBox(QMessageBox::Question, tr("Remove Deploy Configuration?"),
+                           tr("Do you really want to delete deploy configuration <b>%1</b>?").arg(dc->displayName()),
+                           QMessageBox::Yes|QMessageBox::No, this);
+        msgBox.setDefaultButton(QMessageBox::No);
+        msgBox.setEscapeButton(QMessageBox::No);
+        if (msgBox.exec() == QMessageBox::No)
+            return;
+    }
 
     m_target->removeDeployConfiguration(dc);
+
     m_removeDeployToolButton->setEnabled(m_target->deployConfigurations().size() > 1);
 }
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -118,6 +118,8 @@ StaticAnalysisMessages::StaticAnalysisMessages()
            tr("do not use comma expressions"));
     newMsg(WarnAlreadyFormalParameter, Warning,
            tr("'%1' is already a formal parameter"), 1);
+    newMsg(WarnUnnecessaryMessageSuppression, Warning,
+           tr("unnecessary message suppression"));
     newMsg(WarnAlreadyFunction, Warning,
            tr("'%1' is already a function"), 1);
     newMsg(WarnVarUsedBeforeDeclaration, Warning,
@@ -156,9 +158,9 @@ StaticAnalysisMessages::StaticAnalysisMessages()
            tr("== and != may perform type coercion, use === or !== to avoid"));
     newMsg(WarnConfusingExpressionStatement, Warning,
            tr("expression statements should be assignments, calls or delete expressions only"));
-    newMsg(HintDeclarationsShouldBeAtStartOfFunction, Error,
+    newMsg(HintDeclarationsShouldBeAtStartOfFunction, Hint,
            tr("var declarations should be at the start of a function"));
-    newMsg(HintOneStatementPerLine, Error,
+    newMsg(HintOneStatementPerLine, Hint,
            tr("only use one statement per line"));
     newMsg(ErrUnknownComponent, Error,
            tr("unknown component"));
@@ -218,6 +220,7 @@ Message::Message(Type type, AST::SourceLocation location, const QString &arg1, c
             qWarning() << "StaticAnalysis message" << type << "expects exactly two arguments";
         message = message.arg(arg1, arg2);
     }
+    message.append(QString(" (M%1)").arg(QString::number(prototype.type)));
 }
 
 bool Message::isValid() const
@@ -241,4 +244,14 @@ DiagnosticMessage Message::toDiagnosticMessage() const
     diagnostic.loc = location;
     diagnostic.message = message;
     return diagnostic;
+}
+
+QString Message::suppressionString() const
+{
+    return QString("@disable-check M%1").arg(QString::number(type));
+}
+
+QRegExp Message::suppressionPattern()
+{
+    return QRegExp(QLatin1String("@disable-check M(\\d+)"));
 }

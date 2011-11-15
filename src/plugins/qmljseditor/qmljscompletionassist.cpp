@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -429,9 +429,9 @@ int FunctionHintProposalModel::activeArgument(const QString &prefix) const
 // -----------------------------
 // QmlJSCompletionAssistProvider
 // -----------------------------
-bool QmlJSCompletionAssistProvider::supportsEditor(const QString &editorId) const
+bool QmlJSCompletionAssistProvider::supportsEditor(const Core::Id &editorId) const
 {
-    return editorId == QLatin1String(Constants::C_QMLJSEDITOR_ID);
+    return editorId == Core::Id(Constants::C_QMLJSEDITOR_ID);
 }
 
 int QmlJSCompletionAssistProvider::activationCharSequenceLength() const
@@ -571,9 +571,15 @@ IAssistProposal *QmlJSCompletionAssistProcessor::perform(const IAssistInterface 
         QmlExpressionUnderCursor expressionUnderCursor;
         expressionUnderCursor(tc);
         QString literalText = expressionUnderCursor.text();
-        QTC_ASSERT(!literalText.isEmpty() && (
-                       literalText.at(0) == QLatin1Char('"')
-                       || literalText.at(0) == QLatin1Char('\'')), return 0);
+
+        // expression under cursor only looks at one line, so multi-line strings
+        // are handled incorrectly and are recognizable by don't starting with ' or "
+        if (!literalText.isEmpty()
+                && literalText.at(0) != QLatin1Char('"')
+                && literalText.at(0) != QLatin1Char('\'')) {
+            return 0;
+        }
+
         literalText = literalText.mid(1);
 
         if (contextFinder.isInImport()) {

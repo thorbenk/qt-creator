@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef QMLDOCUMENT_H
@@ -43,8 +43,6 @@
 #include "parser/qmljsengine_p.h"
 #include "qmljs_global.h"
 
-QT_QML_BEGIN_NAMESPACE
-
 namespace QmlJS {
 
 class Bind;
@@ -53,7 +51,8 @@ class Snapshot;
 class QMLJS_EXPORT Document
 {
 public:
-    typedef QSharedPointer<Document> Ptr;
+    typedef QSharedPointer<const Document> Ptr;
+    typedef QSharedPointer<Document> MutablePtr;
 
     // used in a 3-bit bitfield
     enum Language
@@ -70,7 +69,8 @@ protected:
 public:
     ~Document();
 
-    static Document::Ptr create(const QString &fileName, Language language);
+    static MutablePtr create(const QString &fileName, Language language);
+    static Language guessLanguageFromSuffix(const QString &fileName);
 
     Document::Ptr ptr() const;
 
@@ -127,6 +127,14 @@ private:
     friend class Snapshot;
 };
 
+class QMLJS_EXPORT ModuleApiInfo
+{
+public:
+    QString uri;
+    LanguageUtils::ComponentVersion version;
+    QString cppName;
+};
+
 class QMLJS_EXPORT LibraryInfo
 {
 public:
@@ -151,6 +159,7 @@ private:
     QList<QmlDirParser::TypeInfo> _typeinfos;
     typedef QList<LanguageUtils::FakeMetaObject::ConstPtr> FakeMetaObjectList;
     FakeMetaObjectList _metaObjects;
+    QList<ModuleApiInfo> _moduleApis;
 
     PluginTypeInfoStatus _dumpStatus;
     QString _dumpError;
@@ -174,6 +183,12 @@ public:
 
     void setMetaObjects(const FakeMetaObjectList &objects)
     { _metaObjects = objects; }
+
+    QList<ModuleApiInfo> moduleApis() const
+    { return _moduleApis; }
+
+    void setModuleApis(const QList<ModuleApiInfo> &apis)
+    { _moduleApis = apis; }
 
     bool isValid() const
     { return _status == Found; }
@@ -216,13 +231,11 @@ public:
     QList<Document::Ptr> documentsInDirectory(const QString &path) const;
     LibraryInfo libraryInfo(const QString &path) const;
 
-    Document::Ptr documentFromSource(const QString &code,
+    Document::MutablePtr documentFromSource(const QString &code,
                                      const QString &fileName,
                                      Document::Language language) const;
 };
 
 } // namespace QmlJS
-
-QT_QML_END_NAMESPACE
 
 #endif // QMLDOCUMENT_H

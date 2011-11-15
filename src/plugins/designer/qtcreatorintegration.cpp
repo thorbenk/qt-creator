@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -68,6 +68,7 @@
 #include <QtGui/QMessageBox>
 
 #include <QtCore/QFileInfo>
+#include <QtCore/QDir>
 #include <QtCore/QDebug>
 #include <QtCore/QUrl>
 
@@ -81,11 +82,13 @@ static QString msgClassNotFound(const QString &uiClassName, const QList<Document
 {
     QString files;
     foreach (const Document::Ptr &doc, docList) {
-        if (!files.isEmpty())
-            files += QLatin1String(", ");
-        files += doc->fileName();
+        files += QLatin1Char('\n');
+        files += QDir::toNativeSeparators(doc->fileName());
     }
-    return QtCreatorIntegration::tr("The class definition of '%1' could not be found in %2.").arg(uiClassName, files);
+    return QtCreatorIntegration::tr(
+        "The class containing '%1' could not be found in %2.\n"
+        "Please verify the #include-directives.")
+        .arg(uiClassName, files);
 }
 
 QtCreatorIntegration::QtCreatorIntegration(QDesignerFormEditorInterface *core, FormEditorW *parent) :

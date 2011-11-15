@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef TARPACKAGECREATIONSTEP_H
@@ -33,6 +33,7 @@
 
 #include "abstractpackagingstep.h"
 #include "remotelinux_export.h"
+#include "deployablefile.h"
 
 QT_BEGIN_NAMESPACE
 class QFile;
@@ -51,6 +52,7 @@ public:
     static QString stepId();
     static QString displayName();
 
+    bool init();
     void run(QFutureInterface<bool> &fi);
 private:
     ProjectExplorer::BuildStepConfigWidget *createConfigWidget();
@@ -63,6 +65,9 @@ private:
         const QString &remoteFilePath, const QFutureInterface<bool> &fi);
     bool writeHeader(QFile &tarFile, const QFileInfo &fileInfo,
         const QString &remoteFilePath);
+
+    bool m_packagingNeeded;
+    QList<DeployableFile> m_files;
 };
 
 } // namespace RemoteLinux

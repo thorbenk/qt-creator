@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +36,20 @@
 
 using namespace QmlJS;
 using namespace QmlJS::AST;
+
+/*!
+    \class QmlJS::Context
+    \brief Holds information about relationships between documents in a Snapshot.
+    \sa Document Link Snapshot
+
+    Contexts are usually created through Link.
+
+    Once created, a Context is immutable and can be freely shared between threads.
+
+    Their main purpose is to allow lookup of types with lookupType() and resolving
+    of references through lookupReference(). Information about the imports of
+    a QmlJS::Document can be accessed with imports().
+*/
 
 ContextPtr Context::create(const QmlJS::Snapshot &snapshot, ValueOwner *valueOwner, const ImportsPerDocument &imports)
 {

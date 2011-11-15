@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +35,7 @@
 #include "maemoglobal.h"
 #include "maemopackagecreationstep.h"
 #include "maemoqtversion.h"
+#include "qt4maemotarget.h"
 
 #include <utils/fileutils.h>
 
@@ -247,8 +248,12 @@ BuildStepConfigWidget *MaemoInstallDebianPackageToSysrootStep::createConfigWidge
 
 QStringList MaemoInstallDebianPackageToSysrootStep::madArguments() const
 {
-    return QStringList() << QLatin1String("xdpkg") << QLatin1String("--no-force-downgrade")
-        << QLatin1String("-i");
+    QStringList args;
+    args << QLatin1String("xdpkg");
+    if (qobject_cast<Qt4HarmattanTarget *>(target()))
+        args << QLatin1String("--no-force-downgrade");
+    args << QLatin1String("-i");
+    return args;
 }
 
 const QString MaemoInstallDebianPackageToSysrootStep::Id

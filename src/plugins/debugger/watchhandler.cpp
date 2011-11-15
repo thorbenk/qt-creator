@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,6 +37,7 @@
 #include "debuggeractions.h"
 #include "debuggercore.h"
 #include "debuggerengine.h"
+#include "debuggerdialogs.h"
 #include "watchutils.h"
 
 #if USE_WATCH_MODEL_TEST
@@ -427,7 +428,7 @@ QString WatchModel::formattedValue(const WatchData &data) const
     if (data.type == "va_list")
         return value;
 
-    if (!isPointerType(data.type) && !isVTablePointer(data.type)) {
+    if (!isPointerType(data.type) && !data.isVTablePointer()) {
         bool ok = false;
         qulonglong integer = value.toULongLong(&ok, 0);
         if (ok)
@@ -758,43 +759,15 @@ QVariant WatchModel::data(const QModelIndex &idx, int role) const
         case LocalsExpandedRole:
             return m_handler->m_expandedINames.contains(data.iname);
 
-        case LocalsTypeFormatListRole: {
-            if (data.referencingAddress || isPointerType(data.type))
-                return QStringList()
-                    << tr("Raw pointer")
-                    << tr("Latin1 string")
-                    << tr("UTF8 string")
-                    << tr("Local 8bit string")
-                    << tr("UTF16 string")
-                    << tr("UCS4 string");
-            if (data.type.contains("char[") || data.type.contains("char ["))
-                return QStringList()
-                    << tr("Latin1 string")
-                    << tr("UTF8 string")
-                    << tr("Local 8bit string");
-            bool ok = false;
-            (void)data.value.toULongLong(&ok, 0);
-            if ((isIntType(data.type) && data.type != "bool") || ok)
-                return QStringList()
-                    << tr("Decimal")
-                    << tr("Hexadecimal")
-                    << tr("Binary")
-                    << tr("Octal");
-            // Hack: Compensate for namespaces.
-            QString type = stripTemplate(data.type);
-            int pos = type.indexOf("::Q");
-            if (pos >= 0 && type.count(':') == 2)
-                type = type.mid(pos + 2);
-            pos = type.indexOf('<');
-            if (pos >= 0)
-                type = type.left(pos);
-            type.replace(':', '_');
-            return m_handler->m_reportedTypeFormats.value(type);
-        }
+        case LocalsTypeFormatListRole:
+            return m_handler->typeFormatList(data);
+
         case LocalsTypeRole:
-           return removeNamespaces(displayType(data));
+            return removeNamespaces(displayType(data));
+
         case LocalsRawTypeRole:
-           return QString::fromLatin1(data.type);
+            return QString::fromLatin1(data.type);
+
         case LocalsTypeFormatRole:
             return m_handler->m_typeFormats.value(stripTemplate(data.type), -1);
 
@@ -931,6 +904,41 @@ QVariant WatchModel::headerData(int section, Qt::Orientation orientation, int ro
         }
     }
     return QVariant();
+}
+
+QStringList WatchHandler::typeFormatList(const WatchData &data) const
+{
+    if (data.referencingAddress || isPointerType(data.type))
+        return QStringList()
+            << tr("Raw pointer")
+            << tr("Latin1 string")
+            << tr("UTF8 string")
+            << tr("Local 8bit string")
+            << tr("UTF16 string")
+            << tr("UCS4 string");
+    if (data.type.contains("char[") || data.type.contains("char ["))
+        return QStringList()
+            << tr("Latin1 string")
+            << tr("UTF8 string")
+            << tr("Local 8bit string");
+    bool ok = false;
+    (void)data.value.toULongLong(&ok, 0);
+    if ((isIntType(data.type) && data.type != "bool") || ok)
+        return QStringList()
+            << tr("Decimal")
+            << tr("Hexadecimal")
+            << tr("Binary")
+            << tr("Octal");
+    // Hack: Compensate for namespaces.
+    QString type = stripTemplate(data.type);
+    int pos = type.indexOf("::Q");
+    if (pos >= 0 && type.count(':') == 2)
+        type = type.mid(pos + 2);
+    pos = type.indexOf('<');
+    if (pos >= 0)
+        type = type.left(pos);
+    type.replace(':', '_');
+    return m_reportedTypeFormats.value(type);
 }
 
 // Determine sort order of watch items by sort order or alphabetical inames
@@ -1185,10 +1193,11 @@ void WatchModel::formatRequests(QByteArray *out, const WatchItem *item) const
 ///////////////////////////////////////////////////////////////////////
 
 WatchHandler::WatchHandler(DebuggerEngine *engine)
-    : m_watcherCounter(0)
 {
     m_engine = engine;
     m_inChange = false;
+    m_watcherCounter = debuggerCore()->sessionValue("Watchers")
+            .toStringList().count();
 
     m_return = new WatchModel(this, ReturnWatch);
     m_locals = new WatchModel(this, LocalsWatch);
@@ -1223,6 +1232,7 @@ void WatchHandler::endCycle()
 void WatchHandler::cleanup()
 {
     m_expandedINames.clear();
+    m_watcherNames.remove(QByteArray());
     m_return->reinitialize();
     m_locals->reinitialize();
     m_tooltips->reinitialize();
@@ -1554,6 +1564,7 @@ void WatchHandler::loadSessionData()
 {
     loadTypeFormats();
     m_watcherNames.clear();
+    m_watcherCounter = 0;
     QVariant value = debuggerCore()->sessionValue("Watchers");
     foreach (WatchItem *item, m_watchers->rootItem()->children)
         m_watchers->destroyItem(item);
@@ -1754,6 +1765,32 @@ void WatchHandler::rebuildModel()
     }
 
     endCycle();
+}
+
+void WatchHandler::setTypeFormats(const TypeFormats &typeFormats)
+{
+    m_reportedTypeFormats = typeFormats;
+}
+
+TypeFormats WatchHandler::typeFormats() const
+{
+    return m_reportedTypeFormats;
+}
+
+void WatchHandler::editTypeFormats(bool includeLocals, const QByteArray &iname)
+{
+    Q_UNUSED(includeLocals);
+    TypeFormatsDialog dlg(0);
+
+    //QHashIterator<QString, QStringList> it(m_reportedTypeFormats);
+    QList<QString> l = m_reportedTypeFormats.keys();
+    qSort(l.begin(), l.end());
+    foreach (const QString &ba, l) {
+        int f = iname.isEmpty() ? -1 : format(iname);
+        dlg.addTypeFormats(ba, m_reportedTypeFormats.value(ba), f);
+    }
+    if (dlg.exec())
+        setTypeFormats(dlg.typeFormats());
 }
 
 } // namespace Internal

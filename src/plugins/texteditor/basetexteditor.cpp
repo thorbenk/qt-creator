@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -78,6 +78,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QTimeLine>
 #include <QtCore/QTime>
+#include <QtCore/QMimeData>
 #include <QtGui/QAbstractTextDocumentLayout>
 #include <QtGui/QApplication>
 #include <QtGui/QKeyEvent>
@@ -160,7 +161,7 @@ protected:
 } // namespace TextEditor
 
 Core::IEditor *BaseTextEditorWidget::openEditorAt(const QString &fileName, int line, int column,
-                                 const QString &editorKind,
+                                 const Core::Id &editorKind,
                                  Core::EditorManager::OpenEditorFlags flags,
                                  bool *newEditor)
 {
@@ -865,7 +866,7 @@ static QTextCursor flippedCursor(const QTextCursor &cursor)
     return flipped;
 }
 
-void BaseTextEditorWidget::selectBlockUp()
+bool BaseTextEditorWidget::selectBlockUp()
 {
     QTextCursor cursor = textCursor();
     if (!cursor.hasSelection())
@@ -873,22 +874,23 @@ void BaseTextEditorWidget::selectBlockUp()
     else
         cursor.setPosition(cursor.selectionStart());
 
-
     if (!TextBlockUserData::findPreviousOpenParenthesis(&cursor, false))
-        return;
+        return false;
     if (!TextBlockUserData::findNextClosingParenthesis(&cursor, true))
-        return;
+        return false;
+
     setTextCursor(flippedCursor(cursor));
     _q_matchParentheses();
+    return true;
 }
 
-void BaseTextEditorWidget::selectBlockDown()
+bool BaseTextEditorWidget::selectBlockDown()
 {
     QTextCursor tc = textCursor();
     QTextCursor cursor = d->m_selectBlockAnchor;
 
     if (!tc.hasSelection() || cursor.isNull())
-        return;
+        return false;
     tc.setPosition(tc.selectionStart());
 
     forever {
@@ -904,6 +906,7 @@ void BaseTextEditorWidget::selectBlockDown()
 
     setTextCursor(flippedCursor(cursor));
     _q_matchParentheses();
+    return true;
 }
 
 void BaseTextEditorWidget::copyLineUp()
@@ -2657,9 +2660,12 @@ QTextBlock BaseTextEditorWidget::foldedBlockAt(const QPoint &pos, QRect *box) co
                 QRectF lineRect = line.naturalTextRect().translated(offset.x(), top);
                 lineRect.adjust(0, 0, -1, -1);
 
+                QString replacement = QLatin1String(" {") + foldReplacementText(block)
+                        + QLatin1String("}; ");
+
                 QRectF collapseRect(lineRect.right() + 12,
                                     lineRect.top(),
-                                    fontMetrics().width(QLatin1String(" {...}; ")),
+                                    fontMetrics().width(replacement),
                                     lineRect.height());
                 if (collapseRect.contains(pos)) {
                     QTextBlock result = block;
@@ -3453,17 +3459,18 @@ void BaseTextEditorWidget::paintEvent(QPaintEvent *e)
                 QRectF lineRect = line.naturalTextRect().translated(offset.x(), top);
                 lineRect.adjust(0, 0, -1, -1);
 
+                QString replacement = foldReplacementText(block);
+                QString rectReplacement = QLatin1String(" {") + replacement + QLatin1String("}; ");
+
                 QRectF collapseRect(lineRect.right() + 12,
                                     lineRect.top(),
-                                    fontMetrics().width(QLatin1String(" {...}; ")),
+                                    fontMetrics().width(rectReplacement),
                                     lineRect.height());
                 painter.setRenderHint(QPainter::Antialiasing, true);
                 painter.translate(.5, .5);
                 painter.drawRoundedRect(collapseRect.adjusted(0, 0, 0, -1), 3, 3);
                 painter.setRenderHint(QPainter::Antialiasing, false);
                 painter.translate(-.5, -.5);
-
-                QString replacement = QLatin1String("...");
 
                 if (TextBlockUserData *nextBlockUserData = BaseTextDocumentLayout::testUserData(nextBlock)) {
                     if (nextBlockUserData->foldingStartIncluded())
@@ -3740,24 +3747,6 @@ void BaseTextEditorWidget::extraAreaPaintEvent(QPaintEvent *e)
         if (d->m_codeFoldingVisible || d->m_marksVisible) {
             painter.save();
             painter.setRenderHint(QPainter::Antialiasing, false);
-
-            int previousBraceDepth = block.previous().userState();
-            if (previousBraceDepth >= 0)
-                previousBraceDepth >>= 8;
-            else
-                previousBraceDepth = 0;
-
-            int braceDepth = block.userState();
-            if (!nextBlock.isVisible()) {
-                QTextBlock lastInvisibleBlock = nextVisibleBlock.previous();
-                if (!lastInvisibleBlock.isValid())
-                    lastInvisibleBlock = doc->lastBlock();
-                braceDepth = lastInvisibleBlock.userState();
-            }
-            if (braceDepth >= 0)
-                braceDepth >>= 8;
-            else
-                braceDepth = 0;
 
             if (TextBlockUserData *userData = static_cast<TextBlockUserData*>(block.userData())) {
                 if (d->m_marksVisible) {
@@ -4226,6 +4215,18 @@ void BaseTextEditorWidget::mouseReleaseEvent(QMouseEvent *e)
 #endif
 
     QPlainTextEdit::mouseReleaseEvent(e);
+}
+
+void BaseTextEditorWidget::mouseDoubleClickEvent(QMouseEvent *e)
+{
+    QTextCursor cursor = textCursor();
+    const int position = cursor.position();
+    if (TextBlockUserData::findPreviousOpenParenthesis(&cursor, false, true)) {
+        if (position - cursor.position() == 1 && selectBlockUp())
+            return;
+    }
+
+    QPlainTextEdit::mouseDoubleClickEvent(e);
 }
 
 void BaseTextEditorWidget::leaveEvent(QEvent *e)
@@ -4699,7 +4700,7 @@ bool BaseTextEditorWidget::openLink(const Link &link)
         return true;
     }
 
-    return openEditorAt(link.fileName, link.line, link.column, QString(),
+    return openEditorAt(link.fileName, link.line, link.column, Core::Id(),
                           Core::EditorManager::IgnoreNavigationHistory
                         | Core::EditorManager::ModeSwitch);
 }
@@ -5552,8 +5553,13 @@ void BaseTextEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
 void BaseTextEditorWidget::setTabSettings(const TabSettings &ts)
 {
     d->m_document->setTabSettings(ts);
-    int charWidth = QFontMetrics(font()).width(QChar(' '));
-    setTabStopWidth(charWidth * ts.m_tabSize);
+
+    // Although the tab stop is stored as qreal the API from QPlainTextEdit only allows it
+    // to be set as an int. A work around is to access directly the QTextOption.
+    qreal charWidth = QFontMetricsF(font()).width(QChar(' '));
+    QTextOption option = document()->defaultTextOption();
+    option.setTabStop(charWidth * ts.m_tabSize);
+    document()->setDefaultTextOption(option);
 }
 
 void BaseTextEditorWidget::setDisplaySettings(const DisplaySettings &ds)
@@ -6340,4 +6346,9 @@ IAssistInterface *BaseTextEditorWidget::createAssistInterface(AssistKind kind,
 {
     Q_UNUSED(kind);
     return new DefaultAssistInterface(document(), position(), d->m_document, reason);
+}
+
+QString TextEditor::BaseTextEditorWidget::foldReplacementText(const QTextBlock &) const
+{
+    return QLatin1String("...");
 }

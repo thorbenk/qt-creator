@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -104,7 +104,6 @@ QmlProfilerApplication::QmlProfilerApplication(int &argc, char **argv) :
 
     connect(&m_eventList, SIGNAL(error(QString)), this, SLOT(logError(QString)));
     connect(&m_eventList, SIGNAL(dataReady()), this, SLOT(traceFinished()));
-    connect(&m_eventList, SIGNAL(parsingStatusChanged()), this, SLOT(parsingStatusChanged()));
     connect(this, SIGNAL(done()), &m_eventList, SLOT(complete()));
 }
 
@@ -337,32 +336,6 @@ void QmlProfilerApplication::traceFinished()
     m_eventList.save(fileName);
     if (m_quitAfterSave)
         quit();
-}
-
-void QmlProfilerApplication::parsingStatusChanged()
-{
-    if (m_verbose) {
-        switch (m_eventList.getParsingStatus()) {
-        case GettingDataStatus:
-            logStatus("Parsing - Getting data ...");
-            break;
-        case SortingListsStatus:
-            logStatus("Parsing - Sorting ...");
-            break;
-        case SortingEndsStatus:
-            logStatus("Parsing - Sorting done");
-            break;
-        case ComputingLevelsStatus:
-            logStatus("Parsing - Computing levels ...");
-            break;
-        case CompilingStatisticsStatus:
-            logStatus("Parsing - Computing statistics ...");
-            break;
-        case DoneStatus:
-            logStatus("Parsing - Done.");
-            break;
-        }
-    }
 }
 
 void QmlProfilerApplication::recordingChanged()

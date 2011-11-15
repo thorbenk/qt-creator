@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -187,6 +187,11 @@ void MakeStep::stdOutput(const QString &line)
     AbstractProcessStep::stdOutput(line);
 }
 
+QStringList MakeStep::buildTargets() const
+{
+    return m_buildTargets;
+}
+
 bool MakeStep::buildsBuildTarget(const QString &target) const
 {
     return m_buildTargets.contains(target);
@@ -200,6 +205,16 @@ void MakeStep::setBuildTarget(const QString &buildTarget, bool on)
     else if(!on && old.contains(buildTarget))
         old.removeOne(buildTarget);
     m_buildTargets = old;
+}
+
+void MakeStep::setBuildTargets(const QStringList &targets)
+{
+    m_buildTargets = targets;
+}
+
+void MakeStep::clearBuildTargets()
+{
+    m_buildTargets.clear();
 }
 
 QString MakeStep::additionalArguments() const

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -240,12 +240,11 @@ void GLSLEditorPlugin::initializeEditor(GLSLEditor::GLSLTextEditorWidget *editor
     TextEditor::TextEditorSettings::instance()->initializeEditor(editor);
 }
 
-
 Core::Command *GLSLEditorPlugin::addToolAction(QAction *a, Core::ActionManager *am,
-                                               Core::Context &context, const QString &name,
+                                               Core::Context &context, const Core::Id &id,
                                                Core::ActionContainer *c1, const QString &keySequence)
 {
-    Core::Command *command = am->registerAction(a, name, context);
+    Core::Command *command = am->registerAction(a, id, context);
     if (!keySequence.isEmpty())
         command->setDefaultKeySequence(QKeySequence(keySequence));
     c1->addAction(command);

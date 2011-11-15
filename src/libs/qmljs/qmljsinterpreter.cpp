@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -60,6 +60,35 @@
 using namespace LanguageUtils;
 using namespace QmlJS;
 using namespace QmlJS::AST;
+
+/*!
+    \class QmlJS::Value
+    \brief Abstract base class for the result of a JS expression.
+    \sa Evaluate ValueOwner ValueVisitor
+
+    A Value represents a category of JavaScript values, such as number
+    (NumberValue), string (StringValue) or functions with a
+    specific signature (FunctionValue). It can also represent internal
+    categories such as "a QML component instantiation defined in a file"
+    (ASTObjectValue), "a QML component defined in C++"
+    (CppComponentValue) or "no specific information is available"
+    (UnknownValue).
+
+    The Value class itself provides accept() for admitting
+    \l{ValueVisitor}s and a do-nothing getSourceLocation().
+
+    Value instances should be cast to a derived type either through the
+    asXXX() helper functions such as asNumberValue() or via the
+    value_cast() template function.
+
+    Values are the result of many operations in the QmlJS code model:
+    \list
+    \o \l{Evaluate}
+    \o Context::lookupType() and Context::lookupReference()
+    \o ScopeChain::lookup()
+    \o ObjectValue::lookupMember()
+    \endlist
+*/
 
 namespace {
 
@@ -154,7 +183,6 @@ CppComponentValue::CppComponentValue(FakeMetaObject::ConstPtr metaObject, const 
                                const ComponentVersion &importVersion, int metaObjectRevision,
                                ValueOwner *valueOwner)
     : ObjectValue(valueOwner),
-      _attachedType(0),
       _metaObject(metaObject),
       _moduleName(packageName),
       _componentVersion(componentVersion),
@@ -258,8 +286,13 @@ void CppComponentValue::processMembers(MemberProcessor *processor) const
         }
     }
 
-    if (_attachedType)
-        _attachedType->processMembers(processor);
+    // look into attached types
+    const QString &attachedTypeName = _metaObject->attachedTypeName();
+    if (!attachedTypeName.isEmpty()) {
+        const CppComponentValue *attachedType = valueOwner()->cppQmlTypes().objectByCppName(attachedTypeName);
+        if (attachedType)
+            attachedType->processMembers(processor);
+    }
 
     ObjectValue::processMembers(processor);
 }
@@ -337,14 +370,20 @@ const CppComponentValue *CppComponentValue::prototype() const
     return static_cast<const CppComponentValue *>(_prototype);
 }
 
-const CppComponentValue *CppComponentValue::attachedType() const
-{
-    return _attachedType;
-}
+/*!
+  \returns a list started by this object and followed by all its prototypes
 
-void CppComponentValue::setAttachedType(CppComponentValue *value)
+  Prefer to use this over calling prototype() in a loop, as it avoids cycles.
+*/
+QList<const CppComponentValue *> CppComponentValue::prototypes() const
 {
-    _attachedType = value;
+    QList<const CppComponentValue *> protos;
+    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+        if (protos.contains(it))
+            break;
+        protos += it;
+    }
+    return protos;
 }
 
 FakeMetaObject::ConstPtr CppComponentValue::metaObject() const
@@ -366,7 +405,7 @@ QString CppComponentValue::defaultPropertyName() const
 
 QString CppComponentValue::propertyType(const QString &propertyName) const
 {
-    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+    foreach (const CppComponentValue *it, prototypes()) {
         FakeMetaObject::ConstPtr iter = it->_metaObject;
         int propIdx = iter->propertyIndex(propertyName);
         if (propIdx != -1) {
@@ -378,7 +417,7 @@ QString CppComponentValue::propertyType(const QString &propertyName) const
 
 bool CppComponentValue::isListProperty(const QString &propertyName) const
 {
-    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+    foreach (const CppComponentValue *it, prototypes()) {
         FakeMetaObject::ConstPtr iter = it->_metaObject;
         int propIdx = iter->propertyIndex(propertyName);
         if (propIdx != -1) {
@@ -390,7 +429,7 @@ bool CppComponentValue::isListProperty(const QString &propertyName) const
 
 FakeMetaEnum CppComponentValue::getEnum(const QString &typeName, const CppComponentValue **foundInScope) const
 {
-    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+    foreach (const CppComponentValue *it, prototypes()) {
         FakeMetaObject::ConstPtr iter = it->_metaObject;
         const int index = iter->enumeratorIndex(typeName);
         if (index != -1) {
@@ -406,7 +445,7 @@ FakeMetaEnum CppComponentValue::getEnum(const QString &typeName, const CppCompon
 
 const QmlEnumValue *CppComponentValue::getEnumValue(const QString &typeName, const CppComponentValue **foundInScope) const
 {
-    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+    foreach (const CppComponentValue *it, prototypes()) {
         if (const QmlEnumValue *e = it->_enums.value(typeName)) {
             if (foundInScope)
                 *foundInScope = it;
@@ -455,7 +494,7 @@ const ObjectValue *CppComponentValue::signalScope(const QString &signalName) con
 
 bool CppComponentValue::isWritable(const QString &propertyName) const
 {
-    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+    foreach (const CppComponentValue *it, prototypes()) {
         FakeMetaObject::ConstPtr iter = it->_metaObject;
         int propIdx = iter->propertyIndex(propertyName);
         if (propIdx != -1) {
@@ -467,7 +506,7 @@ bool CppComponentValue::isWritable(const QString &propertyName) const
 
 bool CppComponentValue::isPointer(const QString &propertyName) const
 {
-    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+    foreach (const CppComponentValue *it, prototypes()) {
         FakeMetaObject::ConstPtr iter = it->_metaObject;
         int propIdx = iter->propertyIndex(propertyName);
         if (propIdx != -1) {
@@ -487,7 +526,7 @@ bool CppComponentValue::hasLocalProperty(const QString &typeName) const
 
 bool CppComponentValue::hasProperty(const QString &propertyName) const
 {
-    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+    foreach (const CppComponentValue *it, prototypes()) {
         FakeMetaObject::ConstPtr iter = it->_metaObject;
         int propIdx = iter->propertyIndex(propertyName);
         if (propIdx != -1) {
@@ -499,7 +538,7 @@ bool CppComponentValue::hasProperty(const QString &propertyName) const
 
 bool CppComponentValue::isDerivedFrom(FakeMetaObject::ConstPtr base) const
 {
-    for (const CppComponentValue *it = this; it; it = it->prototype()) {
+    foreach (const CppComponentValue *it, prototypes()) {
         FakeMetaObject::ConstPtr iter = it->_metaObject;
         if (iter == base)
             return true;
@@ -1285,13 +1324,10 @@ CppQmlTypesLoader::BuiltinObjects CppQmlTypesLoader::loadQmlTypes(const QFileInf
         QString error, warning;
         QFile file(qmlTypeFile.absoluteFilePath());
         if (file.open(QIODevice::ReadOnly)) {
-            QString contents = QString::fromUtf8(file.readAll());
+            QByteArray contents = file.readAll();
             file.close();
 
-            TypeDescriptionReader reader(contents);
-            if (!reader(&newObjects))
-                error = reader.errorMessage();
-            warning = reader.warningMessage();
+            parseQmlTypeDescriptions(contents, &newObjects, 0, &error, &warning);
         } else {
             error = file.errorString();
         }
@@ -1312,13 +1348,14 @@ CppQmlTypesLoader::BuiltinObjects CppQmlTypesLoader::loadQmlTypes(const QFileInf
 
 void CppQmlTypesLoader::parseQmlTypeDescriptions(const QByteArray &xml,
                                                  BuiltinObjects *newObjects,
+                                                 QList<ModuleApiInfo> *newModuleApis,
                                                  QString *errorMessage,
                                                  QString *warningMessage)
 {
     errorMessage->clear();
     warningMessage->clear();
     TypeDescriptionReader reader(QString::fromUtf8(xml));
-    if (!reader(newObjects)) {
+    if (!reader(newObjects, newModuleApis)) {
         if (reader.errorMessage().isEmpty()) {
             *errorMessage = QLatin1String("unknown error");
         } else {

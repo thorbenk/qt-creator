@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -69,6 +69,9 @@ CodeStyleEditor::CodeStyleEditor(ICodeStylePreferencesFactory *factory,
                 tr("Edit preview contents to see how the current settings "
                 "are applied to custom code snippets. Changes in the preview "
                 "do not affect the current settings."), this);
+    QFont font = label->font();
+    font.setItalic(true);
+    label->setFont(font);
     label->setWordWrap(true);
     m_layout->addWidget(selector);
     m_layout->addWidget(m_preview);

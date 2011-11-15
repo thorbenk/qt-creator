@@ -18,11 +18,10 @@ QMLJS_EXPORT AST::SourceLocation locationFromRange(const AST::SourceLocation &st
 
 QMLJS_EXPORT AST::SourceLocation fullLocationForQualifiedId(AST::UiQualifiedId *);
 
-QMLJS_EXPORT QString idOfObject(AST::UiObjectDefinition *object, AST::UiScriptBinding **idBinding = 0);
-QMLJS_EXPORT QString idOfObject(AST::UiObjectBinding *object, AST::UiScriptBinding **idBinding = 0);
-QMLJS_EXPORT QString idOfObject(AST::UiObjectInitializer *initializer, AST::UiScriptBinding **idBinding = 0);
+QMLJS_EXPORT QString idOfObject(AST::Node *object, AST::UiScriptBinding **idBinding = 0);
 
-QMLJS_EXPORT AST::UiObjectInitializer *initializerOfObject(AST::Node *node);
+QMLJS_EXPORT AST::UiObjectInitializer *initializerOfObject(AST::Node *object);
+
 QMLJS_EXPORT AST::UiQualifiedId *qualifiedTypeNameId(AST::Node *node);
 
 QMLJS_EXPORT bool isValidBuiltinPropertyType(const QString &name);
@@ -31,11 +30,16 @@ QMLJS_EXPORT DiagnosticMessage errorMessage(const AST::SourceLocation &loc,
                                             const QString &message);
 
 template <class T>
+AST::SourceLocation locationFromRange(const T *node)
+{
+    return locationFromRange(node->firstSourceLocation(), node->lastSourceLocation());
+}
+
+template <class T>
 DiagnosticMessage errorMessage(const T *node, const QString &message)
 {
     return DiagnosticMessage(DiagnosticMessage::Error,
-                             locationFromRange(node->firstSourceLocation(),
-                                               node->lastSourceLocation()),
+                             locationFromRange(node),
                              message);
 }
 

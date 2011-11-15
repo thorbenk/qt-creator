@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -49,7 +49,9 @@
 
 namespace Qt4ProjectManager {
 
-AbstractMobileAppWizardDialog::AbstractMobileAppWizardDialog(QWidget *parent, const QtSupport::QtVersionNumber &minimumQtVersionNumber)
+AbstractMobileAppWizardDialog::AbstractMobileAppWizardDialog(QWidget *parent,
+                                                             const QtSupport::QtVersionNumber &minimumQtVersionNumber,
+                                                             const QtSupport::QtVersionNumber &maximumQtVersionNumber)
     : ProjectExplorer::BaseProjectWizardDialog(parent)
     , m_genericOptionsPageId(-1)
     , m_symbianOptionsPageId(-1)
@@ -66,6 +68,7 @@ AbstractMobileAppWizardDialog::AbstractMobileAppWizardDialog(QWidget *parent, co
     m_targetsPage = new TargetSetupPage;
     m_targetsPage->setPreferredFeatures(QSet<QString>() << Constants::MOBILE_TARGETFEATURE_ID);
     m_targetsPage->setMinimumQtVersion(minimumQtVersionNumber);
+    m_targetsPage->setMaximumQtVersion(maximumQtVersionNumber);
     resize(900, 450);
 
     m_genericOptionsPage = new Internal::MobileAppWizardGenericOptionsPage;
@@ -83,7 +86,7 @@ void AbstractMobileAppWizardDialog::addMobilePages()
     m_symbianOptionsPageId = addPageWithTitle(m_symbianOptionsPage,
         QLatin1String("    ") + tr("Symbian Specific"));
     m_maemoOptionsPageId = addPageWithTitle(m_maemoOptionsPage,
-        QLatin1String("    ") + tr("Maemo5 And Meego Specific"));
+        QLatin1String("    ") + tr("Maemo5 And MeeGo Specific"));
     m_harmattanOptionsPageId = addPageWithTitle(m_harmattanOptionsPage,
         QLatin1String("    ") + tr("Harmattan Specific"));
 
@@ -278,7 +281,7 @@ bool AbstractMobileAppWizard::postGenerateFiles(const QWizard *w,
         if (success) {
             const QString fileToOpen = fileToOpenPostGeneration();
             if (!fileToOpen.isEmpty()) {
-                Core::EditorManager::instance()->openEditor(fileToOpen, QString(), Core::EditorManager::ModeSwitch);
+                Core::EditorManager::instance()->openEditor(fileToOpen, Core::Id(), Core::EditorManager::ModeSwitch);
                 ProjectExplorer::ProjectExplorerPlugin::instance()->setCurrentFile(0, fileToOpen);
             }
         }

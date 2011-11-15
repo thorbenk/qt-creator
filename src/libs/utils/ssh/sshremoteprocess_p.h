@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -60,10 +60,13 @@ public:
 
     virtual void closeHook();
 
+    QByteArray readAllStandardOutput();
+    QByteArray readAllStandardError();
+
 signals:
     void started();
-    void outputAvailable(const QByteArray &output);
-    void errorOutputAvailable(const QByteArray &output);
+    void readyReadStandardOutput();
+    void readyReadStandardError();
     void closed(int exitStatus);
 
 private:
@@ -95,6 +98,9 @@ private:
     QList<EnvVar> m_env;
     bool m_useTerminal;
     SshPseudoTerminal m_terminal;
+
+    QByteArray m_stdout;
+    QByteArray m_stderr;
 
     SshRemoteProcess *m_proc;
 };

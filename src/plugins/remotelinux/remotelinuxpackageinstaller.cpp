@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,16 +26,17 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "remotelinuxpackageinstaller.h"
 
-#include <QtCore/QByteArray>
+#include "linuxdeviceconfiguration.h"
 
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshconnection.h>
 #include <utils/ssh/sshremoteprocessrunner.h>
+
+#include <QtCore/QByteArray>
 
 using namespace Utils;
 
@@ -45,10 +46,12 @@ namespace Internal {
 class AbstractRemoteLinuxPackageInstallerPrivate
 {
 public:
-    AbstractRemoteLinuxPackageInstallerPrivate() : isRunning(false) {}
+    AbstractRemoteLinuxPackageInstallerPrivate() : isRunning(false), installer(0), killProcess(0) {}
 
     bool isRunning;
-    Utils::SshRemoteProcessRunner::Ptr installer;
+    LinuxDeviceConfiguration::ConstPtr deviceConfig;
+    Utils::SshRemoteProcessRunner *installer;
+    Utils::SshRemoteProcessRunner *killProcess;
 };
 
 } // namespace Internal
@@ -63,37 +66,36 @@ AbstractRemoteLinuxPackageInstaller::~AbstractRemoteLinuxPackageInstaller()
     delete d;
 }
 
-void AbstractRemoteLinuxPackageInstaller::installPackage(const SshConnection::Ptr &connection,
+void AbstractRemoteLinuxPackageInstaller::installPackage(const LinuxDeviceConfiguration::ConstPtr &deviceConfig,
     const QString &packageFilePath, bool removePackageFile)
 {
-    QTC_ASSERT(connection && connection->state() == SshConnection::Connected
-        && !d->isRunning, return);
+    QTC_ASSERT(!d->isRunning, return);
 
+    d->deviceConfig = deviceConfig;
     prepareInstallation();
-    d->installer = SshRemoteProcessRunner::create(connection);
-    connect(d->installer.data(), SIGNAL(connectionError(Utils::SshError)),
-        SLOT(handleConnectionError()));
-    connect(d->installer.data(), SIGNAL(processOutputAvailable(QByteArray)),
+    if (!d->installer)
+        d->installer = new SshRemoteProcessRunner(this);
+    connect(d->installer, SIGNAL(connectionError()), SLOT(handleConnectionError()));
+    connect(d->installer, SIGNAL(processOutputAvailable(QByteArray)),
         SLOT(handleInstallerOutput(QByteArray)));
-    connect(d->installer.data(), SIGNAL(processErrorOutputAvailable(QByteArray)),
+    connect(d->installer, SIGNAL(processErrorOutputAvailable(QByteArray)),
         SLOT(handleInstallerErrorOutput(QByteArray)));
-    connect(d->installer.data(), SIGNAL(processClosed(int)), SLOT(handleInstallationFinished(int)));
+    connect(d->installer, SIGNAL(processClosed(int)), SLOT(handleInstallationFinished(int)));
 
     QString cmdLine = installCommandLine(packageFilePath);
     if (removePackageFile)
         cmdLine += QLatin1String(" && (rm ") + packageFilePath + QLatin1String(" || :)");
-    d->installer->run(cmdLine.toUtf8());
+    d->installer->run(cmdLine.toUtf8(), deviceConfig->sshParameters());
     d->isRunning = true;
 }
 
 void AbstractRemoteLinuxPackageInstaller::cancelInstallation()
 {
-    QTC_ASSERT(d->installer && d->installer->connection()->state() == SshConnection::Connected
-        && d->isRunning, return);
+    QTC_ASSERT(d->installer && d->isRunning, return);
 
-    const SshRemoteProcessRunner::Ptr killProcess
-        = SshRemoteProcessRunner::create(d->installer->connection());
-    killProcess->run(cancelInstallationCommandLine().toUtf8());
+    if (!d->killProcess)
+        d->killProcess = new SshRemoteProcessRunner(this);
+    d->killProcess->run(cancelInstallationCommandLine().toUtf8(), d->deviceConfig->sshParameters());
     setFinished();
 }
 
@@ -101,7 +103,7 @@ void AbstractRemoteLinuxPackageInstaller::handleConnectionError()
 {
     if (!d->isRunning)
         return;
-    emit finished(tr("Connection failure: %1").arg(d->installer->connection()->errorString()));
+    emit finished(tr("Connection failure: %1").arg(d->installer->lastConnectionErrorString()));
     setFinished();
 }
 
@@ -134,8 +136,7 @@ void AbstractRemoteLinuxPackageInstaller::handleInstallerErrorOutput(const QByte
 
 void AbstractRemoteLinuxPackageInstaller::setFinished()
 {
-    disconnect(d->installer.data(), 0, this, 0);
-    d->installer.clear();
+    disconnect(d->installer, 0, this, 0);
     d->isRunning = false;
 }
 

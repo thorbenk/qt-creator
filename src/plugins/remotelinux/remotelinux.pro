@@ -5,6 +5,10 @@ include(../../qtcreatorplugin.pri)
 include(remotelinux_dependencies.pri)
 
 HEADERS += \
+    embeddedlinuxtarget.h \
+    embeddedlinuxtargetfactory.h \
+    embeddedlinuxqtversion.h \
+    embeddedlinuxqtversionfactory.h \
     remotelinuxplugin.h \
     remotelinux_export.h \
     linuxdeviceconfiguration.h \
@@ -60,6 +64,10 @@ HEADERS += \
     remotelinuxcustomcommanddeploymentstep.h
 
 SOURCES += \
+    embeddedlinuxtarget.cpp \
+    embeddedlinuxtargetfactory.cpp \
+    embeddedlinuxqtversion.cpp \
+    embeddedlinuxqtversionfactory.cpp \
     remotelinuxplugin.cpp \
     linuxdeviceconfiguration.cpp \
     linuxdeviceconfigurations.cpp \
@@ -121,6 +129,8 @@ FORMS += \
     remotelinuxdeployconfigurationwidget.ui \
     profilesupdatedialog.ui \
     startgdbserverdialog.ui
+
+RESOURCES += remotelinux.qrc
 
 DEFINES += QT_NO_CAST_TO_ASCII
 DEFINES += REMOTELINUX_LIBRARY

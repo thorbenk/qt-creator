@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "shell.h"
@@ -83,10 +83,8 @@ void Shell::handleConnected()
 {
     m_shell = m_connection->createRemoteShell();
     connect(m_shell.data(), SIGNAL(started()), SLOT(handleShellStarted()));
-    connect(m_shell.data(), SIGNAL(outputAvailable(QByteArray)),
-        SLOT(handleRemoteStdout(QByteArray)));
-    connect(m_shell.data(), SIGNAL(errorOutputAvailable(QByteArray)),
-        SLOT(handleRemoteStderr(QByteArray)));
+    connect(m_shell.data(), SIGNAL(readyReadStandardOutput()), SLOT(handleRemoteStdout()));
+    connect(m_shell.data(), SIGNAL(readyReadStandardError()), SLOT(handleRemoteStderr()));
     connect(m_shell.data(), SIGNAL(closed(int)), SLOT(handleChannelClosed(int)));
     m_shell->start();
 }
@@ -97,14 +95,14 @@ void Shell::handleShellStarted()
     connect(notifier, SIGNAL(activated(int)), SLOT(handleStdin()));
 }
 
-void Shell::handleRemoteStdout(const QByteArray &output)
+void Shell::handleRemoteStdout()
 {
-    std::cout << output.data() << std::flush;
+    std::cout << m_shell->readAllStandardOutput().data() << std::flush;
 }
 
-void Shell::handleRemoteStderr(const QByteArray &output)
+void Shell::handleRemoteStderr()
 {
-    std::cerr << output.data() << std::flush;
+    std::cerr << m_shell->readAllStandardError().data() << std::flush;
 }
 
 void Shell::handleChannelClosed(int exitStatus)

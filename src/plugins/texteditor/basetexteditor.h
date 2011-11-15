@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -132,7 +132,7 @@ public:
     ~BaseTextEditorWidget();
 
     static Core::IEditor *openEditorAt(const QString &fileName, int line, int column = 0,
-                                     const QString &editorId =  QString(),
+                                     const Core::Id &editorId =  Core::Id(),
                                      Core::EditorManager::OpenEditorFlags flags = Core::EditorManager::IgnoreNavigationHistory,
                                      bool *newEditor = 0);
 
@@ -298,8 +298,8 @@ public slots:
     void gotoNextWordCamelCase();
     void gotoNextWordCamelCaseWithSelection();
 
-    void selectBlockUp();
-    void selectBlockDown();
+    bool selectBlockUp();
+    bool selectBlockDown();
 
     void moveLineUp();
     void moveLineDown();
@@ -454,6 +454,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *);
     void mousePressEvent(QMouseEvent *);
     void mouseReleaseEvent(QMouseEvent *);
+    void mouseDoubleClickEvent(QMouseEvent *);
     void leaveEvent(QEvent *);
     void keyReleaseEvent(QKeyEvent *);
 
@@ -506,6 +507,11 @@ protected:
     virtual bool openLink(const Link &link);
 
     void maybeClearSomeExtraSelections(const QTextCursor &cursor);
+
+    /*!
+      Reimplement this function to change the default replacement text.
+      */
+    virtual QString foldReplacementText(const QTextBlock &block) const;
 
 protected slots:
     virtual void slotUpdateExtraAreaWidth();

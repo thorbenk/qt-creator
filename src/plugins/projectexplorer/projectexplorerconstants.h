@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -67,6 +67,7 @@ const char CLEANCM[]              = "ProjectExplorer.CleanCM";
 const char CLEANSESSION[]         = "ProjectExplorer.CleanSession";
 const char CANCELBUILD[]          = "ProjectExplorer.CancelBuild";
 const char RUN[]                  = "ProjectExplorer.Run";
+const char RUNWITHOUTDEPLOY[]     = "ProjectExplorer.RunWithoutDeploy";
 const char RUNCONTEXTMENU[]       = "ProjectExplorer.RunContextMenu";
 const char STOP[]                 = "ProjectExplorer.Stop";
 const char ADDNEWFILE[]           = "ProjectExplorer.AddNewFile";
@@ -90,6 +91,7 @@ const char SHOW_TASK_OUTPUT[]     = "ProjectExplorer.ShowTaskOutput";
 // Run modes
 const char RUNMODE[]              = "ProjectExplorer.RunMode";
 const char SELECTTARGET[]         = "ProjectExplorer.SelectTarget";
+const char SELECTTARGETQUICK[]    = "ProjectExplorer.SelectTargetQuick";
 
 // Action priorities
 const int  P_ACTION_RUN            = 100;

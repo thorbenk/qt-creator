@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,7 +57,7 @@ public:
     void start(const QString &environmentSetupCommand);
     void stop();
 
-    Utils::Environment deviceEnvironment() const { return m_env; }
+    Utils::Environment remoteEnvironment() const { return m_env; }
 
 signals:
     void finished();
@@ -80,7 +80,7 @@ private:
     Utils::Environment m_env;
     QSharedPointer<const LinuxDeviceConfiguration> m_devConfig;
     RemoteLinuxRunConfiguration *m_runConfig;
-    QSharedPointer<Utils::SshRemoteProcessRunner> m_remoteProcessRunner;
+    Utils::SshRemoteProcessRunner *m_remoteProcessRunner;
 };
 
 } // namespace Internal

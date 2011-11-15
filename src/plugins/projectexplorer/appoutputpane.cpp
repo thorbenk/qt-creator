@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -299,9 +299,9 @@ void AppOutputPane::setFocus()
 void AppOutputPane::createNewOutputWindow(RunControl *rc)
 {
     connect(rc, SIGNAL(started()),
-            this, SLOT(runControlStarted()));
+            this, SLOT(slotRunControlStarted()));
     connect(rc, SIGNAL(finished()),
-            this, SLOT(runControlFinished()), Qt::QueuedConnection);
+            this, SLOT(slotRunControlFinished()));
     connect(rc, SIGNAL(applicationProcessHandleChanged()),
             this, SLOT(enableButtons()));
     connect(rc, SIGNAL(appendMessage(ProjectExplorer::RunControl*,QString,Utils::OutputFormat)),
@@ -531,17 +531,24 @@ void AppOutputPane::contextMenuRequested(const QPoint &pos, int index)
     }
 }
 
-void AppOutputPane::runControlStarted()
+void AppOutputPane::slotRunControlStarted()
 {
     RunControl *current = currentRunControl();
     if (current && current == sender())
         enableButtons(current, true); // RunControl::isRunning() cannot be trusted in signal handler.
+    emit runControlStarted(current);
 }
 
-void AppOutputPane::runControlFinished()
+void AppOutputPane::slotRunControlFinished()
 {
-    RunControl *senderRunControl = qobject_cast<RunControl *>(sender());
-    const int senderIndex = indexOf(senderRunControl);
+    ProjectExplorer::RunControl *rc = qobject_cast<RunControl *>(sender());
+    QMetaObject::invokeMethod(this, "slotRunControlFinished2", Qt::QueuedConnection,
+                              Q_ARG(ProjectExplorer::RunControl *, rc));
+}
+
+void AppOutputPane::slotRunControlFinished2(RunControl *sender)
+{
+    const int senderIndex = indexOf(sender);
 
     QTC_ASSERT(senderIndex != -1, return; )
 
@@ -549,15 +556,17 @@ void AppOutputPane::runControlFinished()
     RunControl *current = currentRunControl();
 
     if (debug)
-        qDebug() << "OutputPane::runControlFinished"  << senderRunControl << senderIndex
+        qDebug() << "OutputPane::runControlFinished"  << sender << senderIndex
                     << " current " << current << m_runControlTabs.size();
 
-    if (current && current == sender())
+    if (current && current == sender)
         enableButtons(current, false); // RunControl::isRunning() cannot be trusted in signal handler.
 
     // Check for asynchronous close. Close the tab.
     if (m_runControlTabs.at(senderIndex).asyncClosing)
         closeTab(tabWidgetIndexOf(senderIndex), CloseTabNoPrompt);
+
+    emit runControlFinished(sender);
 
     if (!isRunning())
         emit allRunControlsFinished();

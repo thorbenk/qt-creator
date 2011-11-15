@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -862,7 +862,7 @@ void parseWatchData(const QSet<QByteArray> &expandedINames,
 
     bool ok = false;
     qulonglong addressBase = item.findChild("addrbase").data().toULongLong(&ok, 0);
-    qulonglong addressStep = item.findChild("addrstep").data().toULongLong();
+    qulonglong addressStep = item.findChild("addrstep").data().toULongLong(&ok, 0);
 
     // Try not to repeat data too often.
     WatchData childtemplate;

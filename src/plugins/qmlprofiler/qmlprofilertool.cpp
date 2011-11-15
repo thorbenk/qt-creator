@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -48,8 +48,8 @@
 #include <analyzerbase/analyzerruncontrol.h>
 
 #include "canvas/qdeclarativecanvas_p.h"
-#include "canvas/qdeclarativecontext2d_p.h"
-#include "canvas/qdeclarativetiledcanvas_p.h"
+#include "canvas/qdeclarativecanvastimer_p.h"
+#include "canvas/qmlprofilercanvas.h"
 
 #include <qmlprojectmanager/qmlprojectrunconfiguration.h>
 #include <utils/fancymainwindow.h>
@@ -59,6 +59,7 @@
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/target.h>
+#include <projectexplorer/session.h>
 
 #include <texteditor/itexteditor.h>
 #include <coreplugin/coreconstants.h>
@@ -99,11 +100,8 @@ public:
     QTimer m_connectionTimer;
     int m_connectionAttempts;
     TraceWindow *m_traceWindow;
-    QmlProfilerEventsView *m_eventsView;
-    QmlProfilerEventsView *m_calleeView;
-    QmlProfilerEventsView *m_callerView;
-    QmlProfilerEventsView *m_v8profilerView;
-    Project *m_project;
+    QmlProfilerEventsWidget *m_eventsView;
+    QmlProfilerEventsWidget *m_v8profilerView;
     Utils::FileInProjectFinder m_projectFinder;
     RunConfiguration *m_runConfiguration;
     bool m_isAttached;
@@ -130,7 +128,6 @@ QmlProfilerTool::QmlProfilerTool(QObject *parent)
     d->m_client = 0;
     d->m_connectionAttempts = 0;
     d->m_traceWindow = 0;
-    d->m_project = 0;
     d->m_runConfiguration = 0;
     d->m_isAttached = false;
     d->m_recordingEnabled = true;
@@ -140,7 +137,7 @@ QmlProfilerTool::QmlProfilerTool(QObject *parent)
     connect(&d->m_connectionTimer, SIGNAL(timeout()), SLOT(tryToConnect()));
 
     qmlRegisterType<Canvas>("Monitor", 1, 0, "Canvas");
-    qmlRegisterType<TiledCanvas>("Monitor", 1, 0, "TiledCanvas");
+    qmlRegisterType<QmlProfilerCanvas>("Monitor", 1, 0, "Canvas2D");
     qmlRegisterType<Context2D>();
     qmlRegisterType<CanvasImage>();
     qmlRegisterType<CanvasGradient>();
@@ -176,28 +173,66 @@ IAnalyzerTool::ToolMode QmlProfilerTool::toolMode() const
 
 void QmlProfilerTool::showContextMenu(const QPoint &position)
 {
-    QmlProfilerEventsView *senderView = qobject_cast<QmlProfilerEventsView *>(sender());
+    QmlProfilerEventsWidget *eventView = qobject_cast<QmlProfilerEventsWidget *>(sender());
+    TraceWindow *traceView = qobject_cast<TraceWindow *>(sender());
 
     QMenu menu;
     QAction *loadAction = menu.addAction(tr("Load QML Trace"));
     QAction *saveAction = menu.addAction(tr("Save QML Trace"));
-    QAction *copyRowAction;
-    QAction *copyTableAction;
-    if (senderView) {
-        if (senderView->selectedItem().isValid())
+    QAction *copyRowAction = 0;
+    QAction *copyTableAction = 0;
+    QAction *viewAllAction = 0;
+    QAction *getLocalStatsAction = 0;
+    QAction *getGlobalStatsAction = 0;
+
+    if (eventView && eventView->mouseOnTable(position)) {
+        menu.addSeparator();
+        if (eventView->selectedItem().isValid())
             copyRowAction = menu.addAction(tr("Copy Row"));
         copyTableAction = menu.addAction(tr("Copy Table"));
     }
 
+    if (sender() == d->m_traceWindow || sender() == d->m_eventsView) {
+        menu.addSeparator();
+        getLocalStatsAction = menu.addAction(tr("Limit Events Pane to Current Range"));
+        if (!d->m_traceWindow->hasValidSelection())
+            getLocalStatsAction->setEnabled(false);
+        getGlobalStatsAction = menu.addAction(tr("Reset Events Pane"));
+        if (d->m_eventsView->hasGlobalStats())
+            getGlobalStatsAction->setEnabled(false);
+    }
+
+    if (traceView) {
+        if (traceView->getEventList()->count() > 0) {
+            menu.addSeparator();
+            viewAllAction = menu.addAction(tr("Reset Zoom"));
+        }
+    }
+
     QAction *selectedAction = menu.exec(position);
-    if (selectedAction == loadAction)
-        showLoadDialog();
-    if (selectedAction == saveAction)
-        showSaveDialog();
-    if (selectedAction == copyRowAction)
-        senderView->copyRowToClipboard();
-    if (selectedAction == copyTableAction)
-        senderView->copyTableToClipboard();
+
+    if (selectedAction) {
+        if (selectedAction == loadAction)
+            showLoadDialog();
+        if (selectedAction == saveAction)
+            showSaveDialog();
+        if (selectedAction == copyRowAction)
+            eventView->copyRowToClipboard();
+        if (selectedAction == copyTableAction)
+            eventView->copyTableToClipboard();
+        if (selectedAction == viewAllAction)
+            traceView->viewAll();
+        if (selectedAction == getLocalStatsAction) {
+            d->m_eventsView->getStatisticsInRange(
+                        d->m_traceWindow->selectionStart(),
+                        d->m_traceWindow->selectionEnd());
+        }
+        if (selectedAction == getGlobalStatsAction) {
+            d->m_eventsView->getStatisticsInRange(
+                        d->m_traceWindow->getEventList()->traceStartTime(),
+                        d->m_traceWindow->getEventList()->traceEndTime());
+        }
+    }
 }
 
 IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp,
@@ -244,17 +279,30 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
 
     d->m_runConfiguration = runConfiguration;
 
-    if (runConfiguration)
-        d->m_project = runConfiguration->target()->project();
-    else
-        d->m_project = ProjectExplorerPlugin::instance()->currentProject();
+    //
+    // Initialize m_projectFinder
+    //
 
-    if (d->m_project) {
-        d->m_projectFinder.setProjectDirectory(d->m_project->projectDirectory());
-        updateProjectFileList();
-        connect(d->m_project, SIGNAL(fileListChanged()), this, SLOT(updateProjectFileList()));
+    QString projectDirectory;
+    if (d->m_runConfiguration) {
+        Project *project = d->m_runConfiguration->target()->project();
+        projectDirectory = project->projectDirectory();
     }
 
+    // get files from all the projects in the session
+    QStringList sourceFiles;
+    SessionManager *sessionManager = ProjectExplorerPlugin::instance()->session();
+    QList<Project *> projects = sessionManager->projects();
+    if (Project *startupProject = ProjectExplorerPlugin::instance()->startupProject()) {
+        // startup project first
+        projects.removeOne(ProjectExplorerPlugin::instance()->startupProject());
+        projects.insert(0, startupProject);
+    }
+    foreach (Project *project, projects)
+        sourceFiles << project->files(Project::ExcludeGeneratedFiles);
+
+    d->m_projectFinder.setProjectDirectory(projectDirectory);
+    d->m_projectFinder.setProjectFiles(sourceFiles);
     d->m_projectFinder.setSysroot(sp.sysroot);
 
     connect(engine, SIGNAL(processRunning(int)), this, SLOT(connectClient(int)));
@@ -290,27 +338,14 @@ QWidget *QmlProfilerTool::createWidgets()
     connect(d->m_traceWindow, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
     connect(d->m_traceWindow->getEventList(), SIGNAL(error(QString)), this, SLOT(showErrorDialog(QString)));
 
-    d->m_eventsView = new QmlProfilerEventsView(mw, d->m_traceWindow->getEventList());
-    d->m_eventsView->setViewType(QmlProfilerEventsView::EventsView);
-
-    connect(d->m_eventsView, SIGNAL(gotoSourceLocation(QString,int)),
-            this, SLOT(gotoSourceLocation(QString,int)));
+    d->m_eventsView = new QmlProfilerEventsWidget(d->m_traceWindow->getEventList(), mw);
+    connect(d->m_eventsView, SIGNAL(gotoSourceLocation(QString,int)), this, SLOT(gotoSourceLocation(QString,int)));
     connect(d->m_eventsView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
+    connect(d->m_eventsView, SIGNAL(showEventInTimeline(int)), d->m_traceWindow, SLOT(selectNextEvent(int)));
+    connect(d->m_traceWindow, SIGNAL(selectedEventIdChanged(int)), d->m_eventsView, SLOT(updateSelectedEvent(int)));
 
-    d->m_calleeView = new QmlProfilerEventsView(mw, d->m_traceWindow->getEventList());
-    d->m_calleeView->setViewType(QmlProfilerEventsView::CalleesView);
-    connect(d->m_calleeView, SIGNAL(gotoSourceLocation(QString,int)),
-            this, SLOT(gotoSourceLocation(QString,int)));
-    connect(d->m_calleeView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
-
-    d->m_callerView = new QmlProfilerEventsView(mw, d->m_traceWindow->getEventList());
-    d->m_callerView->setViewType(QmlProfilerEventsView::CallersView);
-    connect(d->m_callerView, SIGNAL(gotoSourceLocation(QString,int)),
-            this, SLOT(gotoSourceLocation(QString,int)));
-    connect(d->m_callerView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
-
-    d->m_v8profilerView = new QmlProfilerEventsView(mw, d->m_traceWindow->getEventList());
-    d->m_v8profilerView->setViewType(QmlProfilerEventsView::V8ProfileView);
+    d->m_v8profilerView = new QmlProfilerEventsWidget(d->m_traceWindow->getEventList(), mw);
+    d->m_v8profilerView->switchToV8View();
     connect(d->m_v8profilerView, SIGNAL(gotoSourceLocation(QString,int)), this, SLOT(gotoSourceLocation(QString,int)));
     connect(d->m_v8profilerView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
 
@@ -318,24 +353,16 @@ QWidget *QmlProfilerTool::createWidgets()
             (this, tr("Events"), d->m_eventsView, Qt::BottomDockWidgetArea);
     QDockWidget *timelineDock = AnalyzerManager::createDockWidget
             (this, tr("Timeline"), d->m_traceWindow, Qt::BottomDockWidgetArea);
-    QDockWidget *calleeDock = AnalyzerManager::createDockWidget
-            (this, tr("Callees"), d->m_calleeView, Qt::BottomDockWidgetArea);
-    QDockWidget *callerDock = AnalyzerManager::createDockWidget
-            (this, tr("Callers"), d->m_callerView, Qt::BottomDockWidgetArea);
     QDockWidget *v8profilerDock = AnalyzerManager::createDockWidget
             (this, tr("JavaScript"), d->m_v8profilerView, Qt::BottomDockWidgetArea);
 
     eventsDock->show();
     timelineDock->show();
-    calleeDock->show();
-    callerDock->show();
     v8profilerDock->show();
 
     mw->splitDockWidget(mw->toolBarDockWidget(), eventsDock, Qt::Vertical);
     mw->tabifyDockWidget(eventsDock, timelineDock);
-    mw->tabifyDockWidget(timelineDock, calleeDock);
-    mw->tabifyDockWidget(calleeDock, callerDock);
-    mw->tabifyDockWidget(callerDock, v8profilerDock);
+    mw->tabifyDockWidget(timelineDock, v8profilerDock);
 
     //
     // Toolbar
@@ -462,6 +489,10 @@ void QmlProfilerTool::gotoSourceLocation(const QString &fileUrl, int lineNumber)
 
     const QString projectFileName = d->m_projectFinder.findFile(fileUrl);
 
+    QFileInfo fileInfo(projectFileName);
+    if (!fileInfo.exists() || !fileInfo.isReadable())
+        return;
+
     Core::EditorManager *editorManager = Core::EditorManager::instance();
     Core::IEditor *editor = editorManager->openEditor(projectFileName);
     TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor*>(editor);
@@ -485,18 +516,10 @@ void QmlProfilerTool::updateTimer(qreal elapsedSeconds)
     emit setTimeLabel(tr("Elapsed: %1 s").arg(timeString));
 }
 
-void QmlProfilerTool::updateProjectFileList()
-{
-    d->m_projectFinder.setProjectFiles(
-                d->m_project->files(Project::ExcludeGeneratedFiles));
-}
-
 void QmlProfilerTool::clearDisplay()
 {
     d->m_traceWindow->clearDisplay();
     d->m_eventsView->clear();
-    d->m_calleeView->clear();
-    d->m_callerView->clear();
     d->m_v8profilerView->clear();
 }
 

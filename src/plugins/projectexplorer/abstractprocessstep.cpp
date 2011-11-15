@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -381,7 +381,7 @@ void AbstractProcessStep::taskAdded(const ProjectExplorer::Task &task)
 
         QList<QFileInfo> possibleFiles;
         QString fileName = QFileInfo(filePath).fileName();
-        foreach (const QString &file, buildConfiguration()->target()->project()->files(ProjectExplorer::Project::AllFiles)) {
+        foreach (const QString &file, project()->files(ProjectExplorer::Project::AllFiles)) {
             QFileInfo candidate(file);
             if (candidate.fileName() == fileName)
                 possibleFiles << candidate;

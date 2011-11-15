@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -67,6 +67,8 @@
 #include <QtGui/QApplication>
 #include <QtGui/QTextBlock>
 #include <QtGui/QTextCursor>
+
+#include <cctype>
 
 using namespace CppEditor;
 using namespace CppEditor::Internal;
@@ -1283,7 +1285,7 @@ public:
         // remove trailing L or U and stuff
         const char * const spell = numeric->chars();
         int numberLength = numeric->size();
-        while (numberLength > 0 && !isHexadecimal(spell[numberLength - 1]))
+        while (numberLength > 0 && !std::isxdigit(spell[numberLength - 1]))
             --numberLength;
         if (numberLength < 1)
             return result;

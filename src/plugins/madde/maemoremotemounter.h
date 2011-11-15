@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -91,9 +91,7 @@ signals:
 private slots:
     void handleUtfsClientsStarted();
     void handleUtfsClientsFinished(int exitStatus);
-    void handleUtfsClientStderr(const QByteArray &output);
     void handleUnmountProcessFinished(int exitStatus);
-    void handleUmountStderr(const QByteArray &output);
     void handleUtfsServerError(QProcess::ProcessError procError);
     void handleUtfsServerFinished(int exitCode,
         QProcess::ExitStatus exitStatus);
@@ -134,8 +132,6 @@ private:
     typedef QSharedPointer<QProcess> ProcPtr;
     QList<ProcPtr> m_utfsServers;
 
-    QByteArray m_utfsClientStderr;
-    QByteArray m_umountStderr;
     RemoteLinux::PortList *m_freePorts;
     const RemoteLinux::RemoteLinuxUsedPortsGatherer *m_portsGatherer;
     bool m_remoteMountsAllowed;

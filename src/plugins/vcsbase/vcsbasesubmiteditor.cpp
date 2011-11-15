@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -385,7 +385,7 @@ Core::IEditor *VCSBaseSubmitEditor::duplicate(QWidget * /*parent*/)
     return 0;
 }
 
-QString VCSBaseSubmitEditor::id() const
+Core::Id VCSBaseSubmitEditor::id() const
 {
     return d->m_parameters->id;
 }
@@ -456,7 +456,7 @@ bool VCSBaseSubmitEditor::save(QString *errorString, const QString &fileName, bo
 {
     const QString fName = fileName.isEmpty() ? d->m_file->fileName() : fileName;
     Utils::FileSaver saver(fName, QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text);
-    saver.write(fileContents().toLocal8Bit());
+    saver.write(fileContents());
     if (!saver.finalize(errorString))
         return false;
     if (autoSave)
@@ -467,9 +467,9 @@ bool VCSBaseSubmitEditor::save(QString *errorString, const QString &fileName, bo
     return true;
 }
 
-QString VCSBaseSubmitEditor::fileContents() const
+QByteArray VCSBaseSubmitEditor::fileContents() const
 {
-    return d->m_widget->descriptionText();
+    return d->m_widget->descriptionText().toLocal8Bit();
 }
 
 bool VCSBaseSubmitEditor::setFileContents(const QString &contents)
@@ -616,7 +616,7 @@ bool VCSBaseSubmitEditor::runSubmitMessageCheckScript(const QString &checkScript
         tempFilePattern += QDir::separator();
     tempFilePattern += QLatin1String("msgXXXXXX.txt");
     Utils::TempFileSaver saver(tempFilePattern);
-    saver.write(fileContents().toUtf8());
+    saver.write(fileContents());
     if (!saver.finalize(errorMessage))
         return false;
     // Run check process

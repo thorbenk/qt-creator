@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "remotelinuxrunconfigurationwidget.h"
@@ -84,6 +84,7 @@ public:
     QLabel disabledIcon;
     QLabel disabledReason;
     QLineEdit argsLineEdit;
+    QLineEdit workingDirLineEdit;
     QLabel localExecutableLabel;
     QLabel remoteExecutableLabel;
     QCheckBox useAlternateCommandBox;
@@ -198,6 +199,10 @@ void RemoteLinuxRunConfigurationWidget::addGenericWidgets(QVBoxLayout *mainLayou
     d->argsLineEdit.setText(d->runConfiguration->arguments());
     d->genericWidgetsLayout.addRow(tr("Arguments:"), &d->argsLineEdit);
 
+    d->workingDirLineEdit.setPlaceholderText(tr("<default>"));
+    d->workingDirLineEdit.setText(d->runConfiguration->workingDirectory());
+    d->genericWidgetsLayout.addRow(tr("Working directory:"), &d->workingDirLineEdit);
+
     QHBoxLayout * const debugButtonsLayout = new QHBoxLayout;
     d->debugCppOnlyButton.setText(tr("C++ only"));
     d->debugQmlOnlyButton.setText(tr("QML only"));
@@ -236,6 +241,8 @@ void RemoteLinuxRunConfigurationWidget::addGenericWidgets(QVBoxLayout *mainLayou
         SLOT(handleUseAlternateCommandChanged()));
     connect(&d->alternateCommand, SIGNAL(textEdited(QString)),
         SLOT(handleAlternateCommandChanged()));
+    connect(&d->workingDirLineEdit, SIGNAL(textEdited(QString)),
+        SLOT(handleWorkingDirectoryChanged()));
     handleDeploySpecsChanged();
     handleUseAlternateCommandChanged();
 }
@@ -257,7 +264,7 @@ void RemoteLinuxRunConfigurationWidget::addEnvironmentWidgets(QVBoxLayout *mainL
     baseEnvironmentLayout->addStretch(10);
 
     d->environmentWidget = new ProjectExplorer::EnvironmentWidget(this, baseEnvironmentWidget);
-    d->environmentWidget->setBaseEnvironment(d->deviceEnvReader.deviceEnvironment());
+    d->environmentWidget->setBaseEnvironment(d->deviceEnvReader.remoteEnvironment());
     d->environmentWidget->setBaseEnvironmentText(d->runConfiguration->baseEnvironmentText());
     d->environmentWidget->setUserChanges(d->runConfiguration->userEnvironmentChanges());
     mainLayout->addWidget(d->environmentWidget);
@@ -267,8 +274,8 @@ void RemoteLinuxRunConfigurationWidget::addEnvironmentWidgets(QVBoxLayout *mainL
         this, SLOT(baseEnvironmentSelected(int)));
     connect(d->runConfiguration, SIGNAL(baseEnvironmentChanged()),
         this, SLOT(baseEnvironmentChanged()));
-    connect(d->runConfiguration, SIGNAL(systemEnvironmentChanged()),
-        this, SLOT(systemEnvironmentChanged()));
+    connect(d->runConfiguration, SIGNAL(remoteEnvironmentChanged()),
+        this, SLOT(remoteEnvironmentChanged()));
     connect(d->runConfiguration,
         SIGNAL(userEnvironmentChangesChanged(QList<Utils::EnvironmentItem>)),
         SLOT(userEnvironmentChangesChanged(QList<Utils::EnvironmentItem>)));
@@ -306,6 +313,11 @@ void RemoteLinuxRunConfigurationWidget::handleAlternateCommandChanged()
     d->runConfiguration->setAlternateRemoteExecutable(d->alternateCommand.text().trimmed());
 }
 
+void RemoteLinuxRunConfigurationWidget::handleWorkingDirectoryChanged()
+{
+    d->runConfiguration->setWorkingDirectory(d->workingDirLineEdit.text().trimmed());
+}
+
 void RemoteLinuxRunConfigurationWidget::showDeviceConfigurationsDialog(const QString &link)
 {
     if (link == QLatin1String("deviceconfig")) {
@@ -341,7 +353,7 @@ void RemoteLinuxRunConfigurationWidget::fetchEnvironmentFinished()
     disconnect(&d->fetchEnvButton, SIGNAL(clicked()), this, SLOT(stopFetchEnvironment()));
     connect(&d->fetchEnvButton, SIGNAL(clicked()), this, SLOT(fetchEnvironment()));
     d->fetchEnvButton.setText(FetchEnvButtonText);
-    d->runConfiguration->setSystemEnvironment(d->deviceEnvReader.deviceEnvironment());
+    d->runConfiguration->setRemoteEnvironment(d->deviceEnvReader.remoteEnvironment());
 }
 
 void RemoteLinuxRunConfigurationWidget::fetchEnvironmentError(const QString &error)
@@ -376,9 +388,9 @@ void RemoteLinuxRunConfigurationWidget::baseEnvironmentChanged()
     d->environmentWidget->setBaseEnvironmentText(d->runConfiguration->baseEnvironmentText());
 }
 
-void RemoteLinuxRunConfigurationWidget::systemEnvironmentChanged()
+void RemoteLinuxRunConfigurationWidget::remoteEnvironmentChanged()
 {
-    d->environmentWidget->setBaseEnvironment(d->runConfiguration->systemEnvironment());
+    d->environmentWidget->setBaseEnvironment(d->runConfiguration->remoteEnvironment());
 }
 
 void RemoteLinuxRunConfigurationWidget::userEnvironmentChangesChanged(const QList<Utils::EnvironmentItem> &userChanges)

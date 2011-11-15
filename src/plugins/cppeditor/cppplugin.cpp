@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -406,7 +406,7 @@ void CppPlugin::currentEditorChanged(Core::IEditor *editor)
         return;
 
     else if (CPPEditorWidget *textEditor = qobject_cast<CPPEditorWidget *>(editor->widget())) {
-        textEditor->rehighlight(/*force = */ true);
+        textEditor->semanticRehighlight(/*force = */ true);
     }
 }
 
@@ -416,7 +416,7 @@ void CppPlugin::openTypeHierarchy()
     CPPEditorWidget *editor = qobject_cast<CPPEditorWidget*>(em->currentEditor()->widget());
     if (editor) {
         Core::NavigationWidget *navigation = Core::NavigationWidget::instance();
-        navigation->activateSubWidget(QLatin1String(Constants::TYPE_HIERARCHY_ID));
+        navigation->activateSubWidget(Core::Id(Constants::TYPE_HIERARCHY_ID));
         emit typeHierarchyRequested();
     }
 }

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Free Documentation License
@@ -15,7 +15,7 @@
 ** file.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -83,7 +83,8 @@
 
     \list 1
 
-        \o  Select \gui {Tools > Options Tool Chains > Add} and select a
+        \o  Select \gui {Tools > Options > Build & Run > Tool Chains > Add} and
+            select a
             compiler in the list.
 
             \image qtcreator-toolchains.png
@@ -103,7 +104,7 @@
 
         \if defined(qcmanual)
         \o  For RVCT, select the ARM version to use in the \gui {ARM version}
-            field. RVCT 2.2 is supported on Symbian^3 and earlier. RVCT 4.0 b902
+            field. RVCT 2.2 is supported on Symbian Anna and earlier. RVCT 4.0 b902
             or later is required for Symbian Belle.
         \endif
 

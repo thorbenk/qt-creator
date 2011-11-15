@@ -5,6 +5,11 @@
 using namespace QmlJS;
 using namespace QmlJS::AST;
 
+/*!
+  \namespace QmlJS
+  QML and JavaScript language support library
+*/
+
 namespace {
 class SharedData
 {
@@ -96,31 +101,21 @@ SourceLocation QmlJS::fullLocationForQualifiedId(AST::UiQualifiedId *qualifiedId
     return locationFromRange(start, end);
 }
 
-QString QmlJS::idOfObject(UiObjectDefinition *object, UiScriptBinding **idBinding)
-{
-    if (!object) {
-        if (idBinding)
-            *idBinding = 0;
-        return QString();
-    }
-    return idOfObject(object->initializer, idBinding);
-}
-QString QmlJS::idOfObject(UiObjectBinding *object, UiScriptBinding **idBinding)
-{
-    if (!object) {
-        if (idBinding)
-            *idBinding = 0;
-        return QString();
-    }
-    return idOfObject(object->initializer, idBinding);
-}
-QString QmlJS::idOfObject(UiObjectInitializer *initializer, UiScriptBinding **idBinding)
+/*!
+    \returns the value of the 'id:' binding in \a object
+    \param idBinding optional out parameter to get the UiScriptBinding for the id binding
+*/
+QString QmlJS::idOfObject(Node *object, UiScriptBinding **idBinding)
 {
     if (idBinding)
         *idBinding = 0;
 
-    if (!initializer)
-        return QString();
+    UiObjectInitializer *initializer = initializerOfObject(object);
+    if (!initializer) {
+        initializer = cast<UiObjectInitializer *>(object);
+        if (!initializer)
+            return QString();
+    }
 
     for (UiObjectMemberList *iter = initializer->members; iter; iter = iter->next) {
         if (UiScriptBinding *script = cast<UiScriptBinding*>(iter->member)) {
@@ -143,11 +138,14 @@ QString QmlJS::idOfObject(UiObjectInitializer *initializer, UiScriptBinding **id
     return QString();
 }
 
-UiObjectInitializer *QmlJS::initializerOfObject(Node *node)
+/*!
+    \returns the UiObjectInitializer if \a object is a UiObjectDefinition or UiObjectBinding, otherwise 0
+*/
+UiObjectInitializer *QmlJS::initializerOfObject(Node *object)
 {
-    if (UiObjectDefinition *definition = cast<UiObjectDefinition *>(node))
+    if (UiObjectDefinition *definition = cast<UiObjectDefinition *>(object))
         return definition->initializer;
-    if (UiObjectBinding *binding = cast<UiObjectBinding *>(node))
+    if (UiObjectBinding *binding = cast<UiObjectBinding *>(object))
         return binding->initializer;
     return 0;
 }

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -48,16 +48,17 @@ using namespace QmlJS::AST;
 /*!
     \class QmlJS::Bind
     \brief Collected information about a single Document.
-    \sa QmlJS::Document QmlJS::Link
+    \sa Document Context
 
-    Each QmlJS::Document owns a instance of Bind. It provides access to data
+    Each Document owns an instance of Bind. It provides access to data
     that can be derived by looking at the document in isolation. If you need
-    information that goes beyond that, you need to create a
-    \l{QmlJS::Context} using \l{QmlJS::Link}.
+    information that goes beyond that, you need to use a Context.
 
     The document's imports are classified and available through imports().
 
-    It allows AST to code model lookup through findQmlObject() and findFunctionScope().
+    This class makes the structural information found in the AST available
+    for analysis through Value instances. See findQmlObject(),
+    idEnvironment(), rootObjectValue() and findAttachedJSScope().
 */
 
 Bind::Bind(Document *doc, QList<DiagnosticMessage> *messages, bool isJsLibrary, const QList<ImportInfo> &jsImports)

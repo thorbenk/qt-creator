@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,45 +53,12 @@ namespace Utils {
 */
 
 /*!
-  \fn Utils::FileUtils::removeRecursively(const QString &filePath, QString *error)
-
   Removes the directory \a filePath and its subdirectories recursively.
 
   \note The \a error parameter is optional.
 
   \return Whether the operation succeeded.
 */
-
-/*!
-  \fn Utils::FileUtils::copyRecursively(const QString &srcFilePath, const QString &tgtFilePath, QString *error)
-
-  Copies the directory specified by \a srcFilePath recursively to \a tgtFilePath. \a tgtFilePath will contain
-  the target directory, which will be created. Example usage:
-
-  \code
-    QString error;
-    book ok = Utils::FileUtils::copyRecursively("/foo/bar", "/foo/baz", &error);
-    if (!ok)
-      qDebug() << error;
-  \endcode
-
-  This will copy the contents of /foo/bar into to the baz directory under /foo, which will be created in the process.
-
-  \note The \a error parameter is optional.
-
-  \return Whether the operation succeeded.
-*/
-
-/*!
-  \fn Utils::FileUtils::isFileNewerThan(const QString &filePath, const QDateTime &timeStamp)
-
-  If \a filePath is a directory, the function will recursively check all files and return
-  true if one of them is newer than \a timeStamp. If \a filePath is a single file, true will
-  be returned if the file is newer than \timeStamp.
-
-  \return Whether at least one file in \a filePath has a newer date than \a timeStamp.
-*/
-
 bool FileUtils::removeRecursively(const QString &filePath, QString *error)
 {
     QFileInfo fileInfo(filePath);
@@ -141,6 +108,23 @@ bool FileUtils::removeRecursively(const QString &filePath, QString *error)
     return true;
 }
 
+/*!
+  Copies the directory specified by \a srcFilePath recursively to \a tgtFilePath. \a tgtFilePath will contain
+  the target directory, which will be created. Example usage:
+
+  \code
+    QString error;
+    book ok = Utils::FileUtils::copyRecursively("/foo/bar", "/foo/baz", &error);
+    if (!ok)
+      qDebug() << error;
+  \endcode
+
+  This will copy the contents of /foo/bar into to the baz directory under /foo, which will be created in the process.
+
+  \note The \a error parameter is optional.
+
+  \return Whether the operation succeeded.
+*/
 bool FileUtils::copyRecursively(const QString &srcFilePath,
                      const QString &tgtFilePath, QString *error)
 {
@@ -178,6 +162,13 @@ bool FileUtils::copyRecursively(const QString &srcFilePath,
     return true;
 }
 
+/*!
+  If \a filePath is a directory, the function will recursively check all files and return
+  true if one of them is newer than \a timeStamp. If \a filePath is a single file, true will
+  be returned if the file is newer than \timeStamp.
+
+  \return Whether at least one file in \a filePath has a newer date than \a timeStamp.
+*/
 bool FileUtils::isFileNewerThan(const QString &filePath,
     const QDateTime &timeStamp)
 {
@@ -197,6 +188,25 @@ bool FileUtils::isFileNewerThan(const QString &filePath,
     return false;
 }
 
+/*!
+  Recursively resolve possibly present symlinks in \a filePath.
+  Unlike QFileInfo::canonicalFilePath(), this function will still return the expected target file
+  even if the symlink is dangling.
+
+  \note Maximum recursion depth == 16.
+
+  return Symlink target file path.
+*/
+QString FileUtils::resolveSymlinks(const QString &path)
+{
+    QFileInfo f(path);
+    int links = 16;
+    while (links-- && f.isSymLink())
+        f.setFile(f.symLinkTarget());
+    if (links <= 0)
+        return QString();
+    return f.filePath();
+}
 
 
 QByteArray FileReader::fetchQrc(const QString &fileName)
@@ -397,4 +407,97 @@ TempFileSaver::~TempFileSaver()
         QFile::remove(m_fileName);
 }
 
+#ifdef Q_OS_WIN
+Qt::CaseSensitivity FileName::cs = Qt::CaseInsensitive;
+#else
+Qt::CaseSensitivity FileName::cs = Qt::CaseSensitive;
+#endif
+
+FileName::FileName()
+    : QString()
+{
+
+}
+
+FileName::FileName(const QFileInfo &info)
+    : QString(info.absoluteFilePath())
+{
+}
+
+QString FileName::toString() const
+{
+    return QString(*this);
+}
+
+FileName FileName::fromString(const QString &filename)
+{
+    return FileName(filename);
+}
+
+FileName::FileName(const QString &string)
+    : QString(string)
+{
+
+}
+bool FileName::operator==(const FileName &other) const
+{
+    return QString::compare(*this, other, cs) == 0;
+}
+
+bool FileName::operator<(const FileName &other) const
+{
+    return QString::compare(*this, other, cs) < 0;
+}
+
+bool FileName::operator<=(const FileName &other) const
+{
+    return QString::compare(*this, other, cs) <= 0;
+}
+
+bool FileName::operator>(const FileName &other) const
+{
+    return other < *this;
+}
+
+bool FileName::operator>=(const FileName &other) const
+{
+    return other <= *this;
+}
+
+bool FileName::startsWith(const QString &s) const
+{
+    return QString::startsWith(s, cs);
+}
+
+bool FileName::endsWith(const QString &s) const
+{
+    return QString::endsWith(s, cs);
+}
+
+FileName FileName::left(int n) const
+{
+    return FileName(QString::left(n));
+}
+
+FileName FileName::mid(int position, int n) const
+{
+    return FileName(QString::mid(position, n));
+}
+
+FileName FileName::right(int n) const
+{
+    return FileName(QString::right(n));
+}
+
 } // namespace Utils
+
+QT_BEGIN_NAMESPACE
+uint qHash(const Utils::FileName &a)
+{
+#ifdef Q_OS_WIN
+    return qHash(a.toString().toUpper());
+#else
+    return qHash(a.toString());
+#endif
+}
+QT_END_NAMESPACE

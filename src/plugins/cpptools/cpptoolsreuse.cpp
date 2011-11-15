@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,16 +26,22 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "cpptoolsreuse.h"
 
+#include <Symbols.h>
+#include <CoreTypes.h>
+#include <cplusplus/Overview.h>
+#include <cplusplus/LookupContext.h>
+
+#include <QtCore/QSet>
 #include <QtGui/QTextDocument>
 #include <QtGui/QTextCursor>
 
-#include <cctype>
+using namespace CPlusPlus;
 
 namespace CppTools {
 
@@ -51,11 +57,50 @@ void moveCursorToEndOfIdentifier(QTextCursor *tc) {
     }
 }
 
-bool isHexadecimal(char c)
+static bool isOwnershipRAIIName(const QString &name)
 {
-    return std::isdigit(c)
-            || (c >= 'a' && c <= 'f')
-            || (c >= 'A' && c <= 'F');
+    static QSet<QString> knownNames;
+    if (knownNames.isEmpty()) {
+        // Qt
+        knownNames.insert(QLatin1String("QScopedPointer"));
+        knownNames.insert(QLatin1String("QScopedArrayPointer"));
+        knownNames.insert(QLatin1String("QMutexLocker"));
+        knownNames.insert(QLatin1String("QReadLocker"));
+        knownNames.insert(QLatin1String("QWriteLocker"));
+        // Standard C++
+        knownNames.insert(QLatin1String("auto_ptr"));
+        knownNames.insert(QLatin1String("unique_ptr"));
+        // Boost
+        knownNames.insert(QLatin1String("scoped_ptr"));
+        knownNames.insert(QLatin1String("scoped_array"));
+    }
+
+    return knownNames.contains(name);
 }
+
+bool isOwnershipRAIIType(CPlusPlus::Symbol *symbol, const LookupContext &context)
+{
+    if (!symbol)
+        return false;
+
+    // This is not a "real" comparison of types. What we do is to resolve the symbol
+    // in question and then try to match its name with already known ones.
+    if (symbol->isDeclaration()) {
+        Declaration *declaration = symbol->asDeclaration();
+        const NamedType *namedType = declaration->type()->asNamedType();
+        if (namedType) {
+            ClassOrNamespace *clazz = context.lookupType(namedType->name(),
+                                                         declaration->enclosingScope());
+            if (clazz && !clazz->symbols().isEmpty()) {
+                Overview overview;
+                Symbol *symbol = clazz->symbols().at(0);
+                return isOwnershipRAIIName(overview.prettyName(symbol->name()));
+            }
+        }
+    }
+
+    return false;
+}
+
 
 } // CppTools

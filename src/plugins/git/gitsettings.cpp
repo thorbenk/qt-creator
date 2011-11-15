@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -69,7 +69,7 @@ GitSettings::GitSettings()
     declareKey(diffPatienceKey, true);
     declareKey(winSetHomeEnvironmentKey, false);
     declareKey(gitkOptionsKey, QString());
-    declareKey(showPrettyFormatKey, 5);
+    declareKey(showPrettyFormatKey, 2);
 }
 
 QString GitSettings::gitBinaryPath(bool *ok, QString *errorMessage) const

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -294,32 +294,34 @@ void FormEditorItem::paintPlaceHolderForInvisbleItem(QPainter *painter) const
         displayText = qmlItemNode().simplifiedTypeName();
 
     QTextOption textOption;
-    textOption.setAlignment(Qt::AlignCenter);
+    textOption.setAlignment(Qt::AlignTop);
     textOption.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
 
-    if (boundingRect().width() > 60) {
+    if (boundingRect().height() > 60) {
         painter->save();
 
         QFont font;
         font.setStyleHint(QFont::SansSerif);
         font.setBold(true);
-        font.setPixelSize(14);
+        font.setPixelSize(12);
         painter->setFont(font);
 
         QFontMetrics fm(font);
-        if (fm.width(displayText) > (boundingRect().width() - 22) && displayText.length() > 4) {
+        painter->rotate(90);
+        if (fm.width(displayText) > (boundingRect().height() - 32) && displayText.length() > 4) {
 
-            displayText = fm.elidedText(displayText, Qt::ElideRight, boundingRect().width() - 22, Qt::TextShowMnemonic);
+            displayText = fm.elidedText(displayText, Qt::ElideRight, boundingRect().height() - 32, Qt::TextShowMnemonic);
         }
 
-        painter->setPen(QColor(255, 255, 255, 128));
-        painter->setCompositionMode(QPainter::CompositionMode_Exclusion);
-
-        painter->drawText(boundingRect().adjusted(-2, -2, 0,0), displayText, textOption);
+        QRectF rotatedBoundingBox;
+        rotatedBoundingBox.setWidth(boundingRect().height());
+        rotatedBoundingBox.setHeight(12);
+        rotatedBoundingBox.setY(-boundingRect().width() + 12);
+        rotatedBoundingBox.setX(20);
 
         painter->setFont(font);
-        painter->setPen(QColor(0, 0, 0, 255));
-        painter->drawText(boundingRect(), displayText, textOption);
+        painter->setPen(QColor(48, 48, 96, 255));
+        painter->drawText(rotatedBoundingBox, displayText, textOption);
 
         painter->restore();
     }

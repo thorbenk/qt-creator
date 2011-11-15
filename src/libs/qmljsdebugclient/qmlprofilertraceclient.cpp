@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -88,6 +88,11 @@ void QmlProfilerTraceClient::clearData()
     emit cleared();
 }
 
+bool QmlProfilerTraceClient::isEnabled() const
+{
+    return status() == Enabled;
+}
+
 bool QmlProfilerTraceClient::isRecording() const
 {
     return d->recording;
@@ -139,6 +144,9 @@ void QmlProfilerTraceClient::messageReceived(const QByteArray &data)
 
         if (event == EndTrace) {
             emit this->traceFinished(time);
+            d->maximumTime = time;
+        } else if (event == StartTrace) {
+            emit this->traceStarted(time);
             d->maximumTime = time;
         } else if (event < MaximumEventType) {
             emit this->event((EventType)event, time);

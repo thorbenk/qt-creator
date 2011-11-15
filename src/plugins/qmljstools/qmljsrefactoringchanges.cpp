@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -69,7 +69,9 @@ public:
         codeFormatter.updateStateUntil(block);
 
         do {
-            tabSettings.indentLine(block, codeFormatter.indentFor(block));
+            const int depth = codeFormatter.indentFor(block);
+            if (depth != -1)
+                tabSettings.indentLine(block, depth);
             codeFormatter.updateLineStateChange(block);
             block = block.next();
         } while (block.isValid() && block != end);
@@ -133,8 +135,9 @@ Document::Ptr QmlJSRefactoringFile::qmljsDocument() const
         const QString name = fileName();
         const Snapshot &snapshot = data()->m_snapshot;
 
-        m_qmljsDocument = snapshot.documentFromSource(source, name, languageOfFile(name));
-        m_qmljsDocument->parse();
+        Document::MutablePtr newDoc = snapshot.documentFromSource(source, name, languageOfFile(name));
+        newDoc->parse();
+        m_qmljsDocument = newDoc;
     }
 
     return m_qmljsDocument;
@@ -165,6 +168,12 @@ bool QmlJSRefactoringFile::isCursorOn(AST::UiQualifiedId *ast) const
         last = last->next;
 
     return pos <= ast->identifierToken.end();
+}
+
+bool QmlJSRefactoringFile::isCursorOn(AST::SourceLocation loc) const
+{
+    const unsigned pos = cursor().position();
+    return pos >= loc.begin() && pos <= loc.end();
 }
 
 QmlJSRefactoringChangesData *QmlJSRefactoringFile::data() const

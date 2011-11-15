@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,7 +53,12 @@ ProjectLoadWizard::ProjectLoadWizard(Qt4Project *project, QWidget *parent, Qt::W
 
     setWindowTitle(tr("Project Setup"));
 
-    setupTargetPage();
+    m_targetSetupPage = new TargetSetupPage(this);
+    m_targetSetupPage->setProFilePath(m_project->file()->fileName());
+    m_targetSetupPage->setImportSearch(true);
+    resize(900, 450);
+
+    addPage(m_targetSetupPage);
 
     setOption(QWizard::NoCancelButton, false);
     setOption(QWizard::NoDefaultButton, false);
@@ -69,16 +74,6 @@ ProjectLoadWizard::ProjectLoadWizard(Qt4Project *project, QWidget *parent, Qt::W
 #endif
 }
 
-// We don't want to actually show the dialog if we don't show the import page
-// We used to simply call ::exec() on the dialog
-void ProjectLoadWizard::execDialog()
-{
-    if (!pageIds().isEmpty())
-        exec();
-    else
-        done(QDialog::Accepted);
-}
-
 ProjectLoadWizard::~ProjectLoadWizard()
 {
 }
@@ -86,28 +81,12 @@ ProjectLoadWizard::~ProjectLoadWizard()
 void ProjectLoadWizard::done(int result)
 {
     QWizard::done(result);
-    // This normally happens on showing the final page, but since we
-    // don't show it anymore, do it here
 
     if (result == Accepted)
         applySettings();
 }
 
-void ProjectLoadWizard::setupTargetPage()
-{
-    if (m_targetSetupPage)
-        return;
-
-    m_targetSetupPage = new TargetSetupPage(this);
-    m_targetSetupPage->setProFilePath(m_project->file()->fileName());
-    m_targetSetupPage->setImportSearch(true);
-    resize(900, 450);
-
-    addPage(m_targetSetupPage);
-}
-
 void ProjectLoadWizard::applySettings()
 {
-    Q_ASSERT(m_targetSetupPage);
     m_targetSetupPage->setupProject(m_project);
 }

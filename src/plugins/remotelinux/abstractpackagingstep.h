@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef ABSTRACTPACKAGINGSTEP_H
@@ -36,7 +36,8 @@
 #include <projectexplorer/buildstep.h>
 
 namespace RemoteLinux {
-class  RemoteLinuxDeployConfiguration;
+class RemoteLinuxDeployConfiguration;
+class DeploymentInfo;
 
 namespace Internal {
 class AbstractPackagingStepPrivate;
@@ -52,10 +53,12 @@ public:
     ~AbstractPackagingStep();
 
     QString packageFilePath() const;
+    QString cachedPackageFilePath() const;
     bool init();
 
 signals:
     void packageFilePathChanged();
+    void unmodifyDeploymentInfo();
 
 protected:
     void setPackagingStarted();
@@ -63,12 +66,14 @@ protected:
 
     void raiseError(const QString &errorMessage);
     RemoteLinuxDeployConfiguration *deployConfiguration() const;
+    QString cachedPackageDirectory() const;
     QString packageDirectory() const;
 
     virtual bool isPackagingNeeded() const;
 
 private slots:
     void handleBuildConfigurationChanged();
+    void setDeploymentInfoUnmodified();
 
 private:
     virtual QString packageFileName() const = 0;

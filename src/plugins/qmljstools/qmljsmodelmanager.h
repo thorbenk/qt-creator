@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -69,6 +69,7 @@ class QMLJSTOOLS_EXPORT ModelManager: public QmlJS::ModelManagerInterface
 
 public:
     ModelManager(QObject *parent = 0);
+    ~ModelManager();
 
     void delayedInitialization();
 
@@ -129,8 +130,9 @@ private slots:
 
 private:
     static bool matchesMimeType(const Core::MimeType &fileMimeType, const Core::MimeType &knownMimeType);
-    static void updateCppQmlTypes(ModelManager *qmlModelManager,
-                                  CPlusPlus::CppModelManagerInterface *cppModelManager,
+    static void updateCppQmlTypes(QFutureInterface<void> &interface,
+                                  ModelManager *qmlModelManager,
+                                  CPlusPlus::Snapshot snapshot,
                                   QHash<QString, QPair<CPlusPlus::Document::Ptr, bool> > documents);
 
     mutable QMutex m_mutex;
@@ -144,6 +146,7 @@ private:
 
     QTimer *m_updateCppQmlTypesTimer;
     QHash<QString, QPair<CPlusPlus::Document::Ptr, bool> > m_queuedCppDocuments;
+    QFuture<void> m_cppQmlTypesUpdater;
 
     CppDataHash m_cppDataHash;
     mutable QMutex m_cppDataMutex;

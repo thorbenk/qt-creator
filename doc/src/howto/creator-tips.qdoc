@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Free Documentation License
@@ -15,7 +15,7 @@
 ** file.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -45,7 +45,8 @@
         \o  \gui Design mode \key Ctrl+3
         \o  \gui Debug mode \key Ctrl+4
         \o  \gui Projects mode \key Ctrl+5
-        \o  \gui Help mode \key Ctrl+6
+        \o  \gui Analyze mode \key Ctrl+6
+        \o  \gui Help mode \key Ctrl+7
 
     \endlist
 
@@ -146,7 +147,7 @@
     To jump to a symbol in the current file, press \key {Ctrl+K} to open the
     \gui Locator, enter a period (.), and start typing the symbol name. Then
     select the symbol in the list. For more information on using the locator,
-    see \l{Searching With the Locator}.
+    see \l{Searching with the Locator}.
 
     Press \key Ctrl (\key Cmd on Mac OS) and click a symbol to move directly to
     the definition or the declaration of the symbol. You can also move the

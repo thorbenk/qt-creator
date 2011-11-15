@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -50,11 +50,16 @@ namespace TextEditor {
 class ICodeStylePreferences;
 class ICodeStylePreferencesFactory;
 
+namespace Ui {
+class CodeStyleSelectorWidget;
+}
+
 class TEXTEDITOR_EXPORT CodeStyleSelectorWidget : public QWidget
 {
     Q_OBJECT
 public:
     explicit CodeStyleSelectorWidget(ICodeStylePreferencesFactory *factory, QWidget *parent = 0);
+    ~CodeStyleSelectorWidget();
 
     void setCodeStyle(TextEditor::ICodeStylePreferences *codeStyle);
     QString searchKeywords() const;
@@ -80,15 +85,7 @@ private:
 
     QString displayName(ICodeStylePreferences *codeStyle) const;
 
-    QHBoxLayout *m_layout;
-
-    QComboBox *m_comboBox;
-    QLabel *m_comboBoxLabel;
-    QPushButton *m_copyButton;
-    QPushButton *m_editButton;
-    QPushButton *m_removeButton;
-    QPushButton *m_importButton;
-    QPushButton *m_exportButton;
+    Ui::CodeStyleSelectorWidget *m_ui;
 
     bool m_ignoreGuiSignals;
 };

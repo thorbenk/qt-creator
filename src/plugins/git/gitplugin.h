@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -143,35 +143,35 @@ private:
     inline ParameterActionCommandPair
             createParameterAction(Core::ActionManager *am, Core::ActionContainer *ac,
                                   const QString &defaultText, const QString &parameterText,
-                                  const QString &id, const Core::Context &context, bool addToLocator);
+                                  const Core::Id &id, const Core::Context &context, bool addToLocator);
 
     inline ParameterActionCommandPair
             createFileAction(Core::ActionManager *am, Core::ActionContainer *ac,
                              const QString &defaultText, const QString &parameterText,
-                             const QString &id, const Core::Context &context, bool addToLocator,
+                             const Core::Id &id, const Core::Context &context, bool addToLocator,
                              const char *pluginSlot);
 
     inline ParameterActionCommandPair
             createProjectAction(Core::ActionManager *am, Core::ActionContainer *ac,
                                 const QString &defaultText, const QString &parameterText,
-                                const QString &id, const Core::Context &context, bool addToLocator);
+                                const Core::Id &id, const Core::Context &context, bool addToLocator);
 
     inline ParameterActionCommandPair
                 createProjectAction(Core::ActionManager *am, Core::ActionContainer *ac,
                                     const QString &defaultText, const QString &parameterText,
-                                    const QString &id, const Core::Context &context, bool addToLocator,
+                                    const Core::Id &id, const Core::Context &context, bool addToLocator,
                                     const char *pluginSlot);
 
 
     inline ActionCommandPair createRepositoryAction(Core::ActionManager *am, Core::ActionContainer *ac,
-                                           const QString &text, const QString &id,
+                                           const QString &text, const Core::Id &id,
                                            const Core::Context &context, bool addToLocator);
     inline ActionCommandPair createRepositoryAction(Core::ActionManager *am, Core::ActionContainer *ac,
-                                           const QString &text, const QString &id,
+                                           const QString &text, const Core::Id &id,
                                            const Core::Context &context,
                                            bool addToLocator, const char *pluginSlot);
     inline ActionCommandPair createRepositoryAction(Core::ActionManager *am, Core::ActionContainer *ac,
-                                           const QString &text, const QString &id,
+                                           const QString &text, const Core::Id &id,
                                            const Core::Context &context,
                                            bool addToLocator, GitClientMemberFunc);
 
@@ -206,8 +206,6 @@ private:
     QPointer<BranchDialog>      m_branchDialog;
     QPointer<RemoteDialog>      m_remoteDialog;
     QString                     m_submitRepository;
-    QStringList                 m_submitOrigCommitFiles;
-    QStringList                 m_submitOrigDeleteFiles;
     QString                     m_commitMessageFileName;
     QString                     m_commitAmendSHA1;
     bool                        m_submitActionTriggered;

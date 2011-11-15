@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -128,10 +128,12 @@ SemanticInfo SemanticInfoUpdater::semanticInfo(const SemanticInfoUpdaterSource &
             language = m_lastSemanticInfo.document->language();
         else
             language = QmlJSTools::languageOfFile(source.fileName);
-        doc = snapshot.documentFromSource(source.code, source.fileName, language);
-        doc->setEditorRevision(source.revision);
-        doc->parse();
-        snapshot.insert(doc);
+        QmlJS::Document::MutablePtr newDoc = snapshot.documentFromSource(
+                    source.code, source.fileName, language);
+        newDoc->setEditorRevision(source.revision);
+        newDoc->parse();
+        snapshot.insert(newDoc);
+        doc = newDoc;
     }
 
     SemanticInfo semanticInfo;
@@ -148,9 +150,7 @@ SemanticInfo SemanticInfoUpdater::semanticInfo(const SemanticInfoUpdaterSource &
 
     if (doc->language() != QmlJS::Document::JsonLanguage) {
         QmlJS::Check checker(doc, semanticInfo.context);
-        foreach (const QmlJS::StaticAnalysis::Message &msg, checker()) {
-            semanticInfo.semanticMessages += msg.toDiagnosticMessage();
-        }
+        semanticInfo.staticAnalysisMessages = checker();
     }
 
     return semanticInfo;

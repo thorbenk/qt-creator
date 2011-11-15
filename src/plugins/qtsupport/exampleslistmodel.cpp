@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -219,10 +219,8 @@ void ExamplesListModel::readNewsItems(const QString &examplesPath, const QString
         if (offsetPath.startsWith(Core::ICore::instance()->resourcePath())) {
             // Try to get dir from first Qt Version, based on the Qt source directory
             // at first, since examplesPath / demosPath points at the build directory
-            QString sourceBasedExamplesPath = sourcePath + QLatin1String("/examples");
-            QString sourceBasedDemosPath = sourcePath + QLatin1String("/demos");
-            examplesDir = sourceBasedExamplesPath;
-            demosDir = sourceBasedDemosPath;
+            examplesDir = sourcePath + QLatin1String("/examples");
+            demosDir = sourcePath + QLatin1String("/demos");
             // SDK case, folders might be called sth else (e.g. 'Examples' with uppercase E)
             // but examplesPath / demosPath is correct
             if (!examplesDir.exists() || !demosDir.exists()) {
@@ -269,14 +267,21 @@ QStringList ExamplesListModel::exampleSources() const
     }
     settings->endArray();
 
+
+    bool anyQtVersionHasExamplesFolder = false;
     if (sources.isEmpty()) {
         // Try to get dir from first Qt Version
         QtVersionManager *versionManager = QtVersionManager::instance();
         foreach (BaseQtVersion *version, versionManager->validVersions()) {
+            // There is no good solution for Qt 5 yet
+            if (version->qtVersion().majorVersion != 4)
+                continue;
 
             QDir examplesDir(version->examplesPath());
-            if (examplesDir.exists())
+            if (examplesDir.exists()) {
                 sources << examplesDir.entryInfoList(pattern);
+                anyQtVersionHasExamplesFolder = true;
+            }
 
             QDir demosDir(version->demosPath());
             if (demosDir.exists())
@@ -290,7 +295,7 @@ QStringList ExamplesListModel::exampleSources() const
     QString resourceDir = Core::ICore::instance()->resourcePath() + QLatin1String("/welcomescreen/");
 
     // Try Creator-provided XML file only
-    if (sources.isEmpty()) {
+    if (sources.isEmpty() && anyQtVersionHasExamplesFolder) {
         // qDebug() << Q_FUNC_INFO << "falling through to Creator-provided XML file";
         sources << QString(resourceDir + QLatin1String("/examples_fallback.xml"));
     }

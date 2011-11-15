@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "qscriptdebuggerclient.h"
@@ -236,11 +236,20 @@ void QScriptDebuggerClient::removeBreakpoint(const BreakpointModelId &id)
     d->breakpoints.remove(bp);
 }
 
-void QScriptDebuggerClient::changeBreakpoint(const BreakpointModelId &/*id*/)
+void QScriptDebuggerClient::changeBreakpoint(const BreakpointModelId &id)
 {
+    BreakHandler *handler = d->engine->breakHandler();
+    if (handler->isEnabled(id)) {
+        insertBreakpoint(id);
+    } else {
+        removeBreakpoint(id);
+    }
+    BreakpointResponse br = handler->response(id);
+    br.enabled = handler->isEnabled(id);
+    handler->setResponse(id, br);
 }
 
-void QScriptDebuggerClient::updateBreakpoints()
+void QScriptDebuggerClient::synchronizeBreakpoints()
 {
     QByteArray reply;
     QDataStream rs(&reply, QIODevice::WriteOnly);
@@ -261,13 +270,13 @@ void QScriptDebuggerClient::assignValueInDebugger(const QByteArray expr, const q
     sendMessage(reply);
 }
 
-void QScriptDebuggerClient::updateWatchData(const WatchData *data)
+void QScriptDebuggerClient::updateWatchData(const WatchData &data)
 {
     QByteArray reply;
     QDataStream rs(&reply, QIODevice::WriteOnly);
     QByteArray cmd = "EXEC";
     rs << cmd;
-    rs << data->iname << data->name;
+    rs << data.iname << data.name;
     sendMessage(reply);
 }
 

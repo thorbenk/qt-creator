@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -271,10 +271,8 @@ void AbstractRemoteLinuxApplicationRunner::startExecution(const QByteArray &remo
     d->runner = d->connection->createRemoteProcess(remoteCall);
     connect(d->runner.data(), SIGNAL(started()), SLOT(handleRemoteProcessStarted()));
     connect(d->runner.data(), SIGNAL(closed(int)), SLOT(handleRemoteProcessFinished(int)));
-    connect(d->runner.data(), SIGNAL(outputAvailable(QByteArray)),
-        SIGNAL(remoteOutput(QByteArray)));
-    connect(d->runner.data(), SIGNAL(errorOutputAvailable(QByteArray)),
-        SIGNAL(remoteErrorOutput(QByteArray)));
+    connect(d->runner.data(), SIGNAL(readyReadStandardOutput()), SLOT(handleRemoteStdout()));
+    connect(d->runner.data(), SIGNAL(readyReadStandardError()), SLOT(handleRemoteStderr()));
     d->state = ProcessStarting;
     d->runner->start();
 }
@@ -355,6 +353,16 @@ void AbstractRemoteLinuxApplicationRunner::handleUsedPortsAvailable()
 
     d->state = AdditionalInitializing;
     doAdditionalInitializations();
+}
+
+void AbstractRemoteLinuxApplicationRunner::handleRemoteStdout()
+{
+    emit remoteOutput(d->runner->readAllStandardOutput());
+}
+
+void AbstractRemoteLinuxApplicationRunner::handleRemoteStderr()
+{
+    emit remoteErrorOutput(d->runner->readAllStandardError());
 }
 
 bool AbstractRemoteLinuxApplicationRunner::canRun(QString &whyNot) const
@@ -450,6 +458,17 @@ void AbstractRemoteLinuxApplicationRunner::handlePostRunCleanupDone()
         emit error(tr("Error running remote process: %1").arg(d->runner->errorString()));
 }
 
+QString AbstractRemoteLinuxApplicationRunner::killApplicationCommandLine() const
+{
+    return QString::fromLocal8Bit("cd /proc; for pid in `ls -d [0123456789]*`; "
+        "do "
+            "if [ \"`readlink /proc/$pid/exe`\" = \"%1\" ]; then "
+            "    kill $pid; sleep 1; kill -9 $pid; "
+            "fi; "
+        "done").arg(remoteExecutable());
+}
+
+
 const qint64 AbstractRemoteLinuxApplicationRunner::InvalidExitCode = std::numeric_limits<qint64>::min();
 
 
@@ -486,19 +505,6 @@ void GenericRemoteLinuxApplicationRunner::doPostRunCleanup()
 
 void GenericRemoteLinuxApplicationRunner::doAdditionalConnectionErrorHandling()
 {
-}
-
-QString GenericRemoteLinuxApplicationRunner::killApplicationCommandLine() const
-{
-    // Prevent pkill from matching our own pkill call.
-    QString pkillArg = remoteExecutable();
-    const int lastPos = pkillArg.count() - 1;
-    pkillArg.replace(lastPos, 1, QLatin1Char('[') + pkillArg.at(lastPos) + QLatin1Char(']'));
-
-    const char * const killTemplate = "pkill -%2 -f %1";
-    const QString niceKill = QString::fromLocal8Bit(killTemplate).arg(pkillArg).arg("SIGTERM");
-    const QString brutalKill = QString::fromLocal8Bit(killTemplate).arg(pkillArg).arg("SIGKILL");
-    return niceKill + QLatin1String("; sleep 1; ") + brutalKill;
 }
 
 } // namespace RemoteLinux

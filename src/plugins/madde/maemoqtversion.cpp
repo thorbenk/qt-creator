@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemoqtversion.h"
@@ -159,7 +159,7 @@ QString MaemoQtVersion::description() const
     else if (m_osType == QLatin1String(HarmattanOsType))
         return QCoreApplication::translate("QtVersion", "Harmattan ", "Qt Version is meant for Harmattan");
     else if (m_osType == QLatin1String(MeeGoOsType))
-        return QCoreApplication::translate("QtVersion", "Meego", "Qt Version is meant for Meego");
+        return QCoreApplication::translate("QtVersion", "MeeGo", "Qt Version is meant for MeeGo");
     return QString();
 }
 

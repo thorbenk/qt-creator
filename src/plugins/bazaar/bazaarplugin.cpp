@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Hugues Delorme
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -120,16 +120,16 @@ static const VCSBase::VCSBaseSubmitEditorParameters submitEditorParameters = {
 
 BazaarPlugin *BazaarPlugin::m_instance = 0;
 
-BazaarPlugin::BazaarPlugin() :
-    VCSBase::VCSBasePlugin(QLatin1String(Constants::COMMIT_ID)),
-    m_optionsPage(0),
-    m_client(0),
-    m_core(0),
-    m_commandLocator(0),
-    m_changeLog(0),
-    m_addAction(0),
-    m_deleteAction(0),
-    m_menuAction(0)
+BazaarPlugin::BazaarPlugin()
+    : VCSBase::VCSBasePlugin(QLatin1String(Constants::COMMIT_ID)),
+      m_optionsPage(0),
+      m_client(0),
+      m_core(0),
+      m_commandLocator(0),
+      m_changeLog(0),
+      m_addAction(0),
+      m_deleteAction(0),
+      m_menuAction(0)
 {
     m_instance = this;
 }
@@ -561,11 +561,11 @@ void BazaarPlugin::showCommitWidget(const QList<VCSBase::VCSBaseClient::StatusIt
     deleteCommitLog();
 
     // Open commit log
-    QString m_changeLogPattern = QDir::tempPath();
-    if (!m_changeLogPattern.endsWith(QLatin1Char('/')))
-        m_changeLogPattern += QLatin1Char('/');
-    m_changeLogPattern += QLatin1String("qtcreator-bzr-XXXXXX.msg");
-    m_changeLog = new QTemporaryFile(m_changeLogPattern, this);
+    QString changeLogPattern = QDir::tempPath();
+    if (!changeLogPattern.endsWith(QLatin1Char('/')))
+        changeLogPattern += QLatin1Char('/');
+    changeLogPattern += QLatin1String("qtcreator-bzr-XXXXXX.msg");
+    m_changeLog = new QTemporaryFile(changeLogPattern, this);
     if (!m_changeLog->open()) {
         outputWindow->appendError(tr("Unable to generate a temporary file for the commit editor."));
         return;

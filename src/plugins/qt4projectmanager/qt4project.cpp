@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -371,12 +371,15 @@ bool Qt4Project::fromMap(const QVariantMap &map)
         if (t->buildConfigurations().isEmpty()) {
             qWarning() << "Removing" << t->id() << "since it has no buildconfigurations!";
             removeTarget(t);
+            delete t;
         }
     }
 
     // Add buildconfigurations so we can parse the pro-files.
-    if (targets().isEmpty())
-        addDefaultBuild();
+    if (targets().isEmpty()) {
+        ProjectLoadWizard wizard(this);
+        wizard.exec();
+    }
 
     if (targets().isEmpty()) {
         qWarning() << "Unable to create targets!";
@@ -889,16 +892,6 @@ QList<ProjectExplorer::Project*> Qt4Project::dependsOn()
     return QList<Project *>();
 }
 
-void Qt4Project::addDefaultBuild()
-{
-    // TODO this could probably refactored
-    // That is the ProjectLoadWizard divided into useful bits
-    // and this code then called here, instead of that strange forwarding
-    // to a wizard, which doesn't even show up
-    ProjectLoadWizard wizard(this);
-    wizard.execDialog();
-}
-
 void Qt4Project::proFileParseError(const QString &errorMessage)
 {
     Core::ICore::instance()->messageManager()->printToOutputPanePopup(errorMessage);
@@ -927,10 +920,12 @@ QtSupport::ProFileReader *Qt4Project::createProFileReader(Qt4ProFileNode *qt4Pro
                 m_proFileOption->environment.insert(env.key(eit), env.value(eit));
 
             QStringList args;
-            if (QMakeStep *qs = bc->qmakeStep())
+            if (QMakeStep *qs = bc->qmakeStep()) {
                 args = qs->parserArguments();
-            else
+                m_proFileOption->qmakespec = qs->mkspec();
+            } else {
                 args = bc->configCommandLineArguments();
+            }
             m_proFileOption->setCommandLineArguments(args);
         }
 
@@ -943,6 +938,11 @@ QtSupport::ProFileReader *Qt4Project::createProFileReader(Qt4ProFileNode *qt4Pro
     reader->setOutputDir(qt4ProFileNode->buildDir());
 
     return reader;
+}
+
+ProFileOption *Qt4Project::proFileOption()
+{
+    return m_proFileOption;
 }
 
 void Qt4Project::destroyProFileReader(QtSupport::ProFileReader *reader)

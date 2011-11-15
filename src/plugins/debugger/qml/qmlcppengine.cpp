@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -149,9 +149,9 @@ QmlCppEngine::QmlCppEngine(const DebuggerStartParameters &sp,
     }
     d->m_activeEngine = d->m_cppEngine;
 
-    connect(d->m_cppEngine->stackHandler()->model(), SIGNAL(modelReset()),
+    connect(d->m_cppEngine->stackHandler(), SIGNAL(stackChanged()),
             d, SLOT(cppStackChanged()), Qt::QueuedConnection);
-    connect(d->m_qmlEngine->stackHandler()->model(), SIGNAL(modelReset()),
+    connect(d->m_qmlEngine->stackHandler(), SIGNAL(stackChanged()),
             d, SLOT(qmlStackChanged()), Qt::QueuedConnection);
     connect(d->m_cppEngine, SIGNAL(stackFrameCompleted()), this, SIGNAL(stackFrameCompleted()));
     connect(d->m_cppEngine, SIGNAL(requestRemoteSetup()), this, SIGNAL(requestRemoteSetup()));
@@ -195,6 +195,9 @@ void QmlCppEngine::fetchDisassembler(DisassemblerAgent *da)
 
 void QmlCppEngine::activateFrame(int index)
 {
+    if (state() != InferiorStopOk && state() != InferiorUnrunnable)
+        return;
+
     if (index >= d->m_stackBoundary)
         d->m_qmlEngine->activateFrame(index - d->m_stackBoundary);
     else
@@ -498,13 +501,14 @@ void QmlCppEngine::setState(DebuggerState newState, bool forced)
 void QmlCppEngine::slaveEngineStateChanged
     (DebuggerEngine *slaveEngine, const DebuggerState newState)
 {
-    DebuggerEngine *otherEngine = slaveEngine == d->m_cppEngine
-         ? d->m_qmlEngine : d->m_cppEngine;
+    if (debug) {
+        DebuggerEngine *otherEngine = slaveEngine == d->m_cppEngine
+             ? d->m_qmlEngine : d->m_cppEngine;
 
-    EDEBUG("GOT SLAVE STATE: " << slaveEngine << newState);
-    EDEBUG("  OTHER ENGINE: " << otherEngine << otherEngine->state());
-    EDEBUG("  COMBINED ENGINE: " << this << state() << isDying());
-
+        EDEBUG("GOT SLAVE STATE: " << slaveEngine << newState);
+        EDEBUG("  OTHER ENGINE: " << otherEngine << otherEngine->state());
+        EDEBUG("  COMBINED ENGINE: " << this << state() << isDying());
+    }
     // Idea is to follow the state of the cpp engine,
     // except where we are stepping in QML
 
@@ -681,6 +685,8 @@ void QmlCppEngine::resetLocation()
         d->m_qmlEngine->resetLocation();
     if (d->m_cppEngine)
         d->m_cppEngine->resetLocation();
+
+    DebuggerEngine::resetLocation();
 }
 
 DebuggerEngine *QmlCppEngine::cppEngine() const

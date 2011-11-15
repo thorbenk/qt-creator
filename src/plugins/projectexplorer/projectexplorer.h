@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -117,8 +117,9 @@ public:
 
     bool canRun(Project *pro, const QString &runMode);
     QString cannotRunReason(Project *project, const QString &runMode);
-    void runProject(Project *pro, const QString &mode);
-    void runRunConfiguration(ProjectExplorer::RunConfiguration *rc, const QString &mode);
+    void runProject(Project *pro, const QString &mode, const bool forceSkipDeploy = false);
+    void runRunConfiguration(ProjectExplorer::RunConfiguration *rc, const QString &mode,
+                             const bool forceSkipDeploy = false);
 
     void addExistingFiles(ProjectExplorer::ProjectNode *projectNode, const QStringList &filePaths);
     void addExistingFiles(const QStringList &filePaths);
@@ -127,7 +128,11 @@ public:
 
     QList<RunControl *> runControls() const;
 
+    static QString displayNameForStepId(const QString &stepId);
+
 signals:
+    void runControlStarted(ProjectExplorer::RunControl *rc);
+    void runControlFinished(ProjectExplorer::RunControl *rc);
     void aboutToShowContextMenu(ProjectExplorer::Project *project,
                                 ProjectExplorer::Node *node);
 
@@ -181,6 +186,7 @@ private slots:
     void restoreSession();
     void loadSession(const QString &session);
     void runProject();
+    void runProjectWithoutDeploy();
     void runProjectContextMenu();
     void savePersistentSettings();
 
@@ -221,6 +227,7 @@ private slots:
     void updateActions();
     void loadCustomWizards();
     void updateVariable(const QString &variable);
+    void updateRunWithoutDeployMenu();
 
     void publishProject();
     void updateWelcomePage();

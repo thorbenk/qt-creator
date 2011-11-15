@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,7 +34,7 @@
 #ifndef CORE_GENERATEDFILE_H
 #define CORE_GENERATEDFILE_H
 
-#include "core_global.h"
+#include "coreplugin/id.h"
 
 #include <QtCore/QSharedDataPointer>
 #include <QtCore/QList>
@@ -79,8 +79,8 @@ public:
     void setBinary(bool b);
 
     // Id of editor to open the file with
-    QString editorId() const;
-    void setEditorId(const QString &k);
+    Id editorId() const;
+    void setEditorId(const Id &id);
 
     bool write(QString *errorMessage) const;
 

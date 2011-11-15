@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "tarpackagecreationstep.h"
@@ -114,6 +114,22 @@ void TarPackageCreationStep::ctor()
     setDefaultDisplayName(displayName());
 }
 
+bool TarPackageCreationStep::init()
+{
+    if (!AbstractPackagingStep::init())
+        return false;
+    m_packagingNeeded = isPackagingNeeded();
+    if (!m_packagingNeeded)
+        return true;
+
+    const QSharedPointer<DeploymentInfo> deploymentInfo = deployConfiguration()->deploymentInfo();
+    for (int i = 0; i < deploymentInfo->deployableCount(); ++i) {
+        m_files.append(deploymentInfo->deployableAt(i));
+    }
+
+    return true;
+}
+
 void TarPackageCreationStep::run(QFutureInterface<bool> &fi)
 {
     setPackagingStarted();
@@ -129,23 +145,26 @@ void TarPackageCreationStep::run(QFutureInterface<bool> &fi)
 bool TarPackageCreationStep::doPackage(QFutureInterface<bool> &fi)
 {
     emit addOutput(tr("Creating tarball..."), MessageOutput);
-    if (!isPackagingNeeded()) {
+    if (!m_packagingNeeded) {
         emit addOutput(tr("Tarball up to date, skipping packaging."), MessageOutput);
         return true;
     }
 
     // TODO: Optimization: Only package changed files
-    QFile tarFile(packageFilePath());
+    QFile tarFile(cachedPackageFilePath());
 
     if (!tarFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         raiseError(tr("Error: tar file %1 cannot be opened (%2).")
-            .arg(QDir::toNativeSeparators(packageFilePath()), tarFile.errorString()));
+            .arg(QDir::toNativeSeparators(cachedPackageFilePath()), tarFile.errorString()));
         return false;
     }
 
-    const QSharedPointer<DeploymentInfo> deploymentInfo = deployConfiguration()->deploymentInfo();
-    for (int i = 0; i < deploymentInfo->deployableCount(); ++i) {
-        const DeployableFile &d = deploymentInfo->deployableAt(i);
+    foreach (const DeployableFile &d, m_files) {
+        if (d.remoteDir.isEmpty()) {
+            emit addOutput(tr("No remote path specified for file '%1', skipping.")
+                .arg(QDir::toNativeSeparators(d.localFilePath)), ErrorMessageOutput);
+            continue;
+        }
         QFileInfo fileInfo(d.localFilePath);
         if (!appendFile(tarFile, fileInfo, d.remoteDir + QLatin1Char('/')
                 + fileInfo.fileName(), fi)) {
@@ -275,7 +294,7 @@ bool TarPackageCreationStep::writeHeader(QFile &tarFile, const QFileInfo &fileIn
     header.chksum[sizeof header.chksum-1] = 0;
     if (!tarFile.write(reinterpret_cast<char *>(&header), sizeof header)) {
         raiseError(tr("Error writing tar file '%1': %2")
-           .arg(QDir::toNativeSeparators(packageFilePath()), tarFile.errorString()));
+           .arg(QDir::toNativeSeparators(cachedPackageFilePath()), tarFile.errorString()));
         return false;
     }
     return true;
@@ -283,7 +302,7 @@ bool TarPackageCreationStep::writeHeader(QFile &tarFile, const QFileInfo &fileIn
 
 QString TarPackageCreationStep::packageFileName() const
 {
-    return target()->project()->displayName() + QLatin1String(".tar");
+    return project()->displayName() + QLatin1String(".tar");
 }
 
 BuildStepConfigWidget *TarPackageCreationStep::createConfigWidget()

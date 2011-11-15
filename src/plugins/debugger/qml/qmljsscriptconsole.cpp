@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,7 +55,7 @@ class QmlJSScriptConsolePrivate
 {
 public:
     QmlJSScriptConsolePrivate()
-        : prompt(QLatin1String("> ")),
+        : prompt(_("> ")),
           startOfEditableArea(-1),
           lastKnownPosition(0),
           inferiorStopped(false)
@@ -85,7 +85,7 @@ public:
 void QmlJSScriptConsolePrivate::resetCache()
 {
     scriptHistory.clear();
-    scriptHistory.append(QLatin1String(""));
+    scriptHistory.append(QString());
     scriptHistoryIndex = scriptHistory.count();
 
     selections.clear();
@@ -95,7 +95,7 @@ void QmlJSScriptConsolePrivate::appendToHistory(const QString &script)
 {
     scriptHistoryIndex = scriptHistory.count();
     scriptHistory.replace(scriptHistoryIndex - 1,script);
-    scriptHistory.append(QLatin1String(""));
+    scriptHistory.append(QString());
     scriptHistoryIndex = scriptHistory.count();
 }
 
@@ -218,11 +218,11 @@ void QmlJSScriptConsole::appendResult(const QString &result)
     d->appendToHistory(currentScript);
 
     QTextCursor cur = textCursor();
-    cur.movePosition(QTextCursor::EndOfLine);
-    cur.insertText(QLatin1String("\n"));
+    cur.movePosition(QTextCursor::End);
+    cur.insertText(_("\n"));
     cur.insertText(result);
     cur.movePosition(QTextCursor::EndOfLine);
-    cur.insertText(QLatin1String("\n"));
+    cur.insertText(_("\n"));
     setTextCursor(cur);
     displayPrompt();
 
@@ -254,23 +254,18 @@ void QmlJSScriptConsole::clear()
 void QmlJSScriptConsole::onStateChanged(QmlJsDebugClient::QDeclarativeDebugQuery::State state)
 {
     QDeclarativeDebugExpressionQuery *query = qobject_cast<QDeclarativeDebugExpressionQuery *>(sender());
-    bool gotResult = false;
+
     if (query && state != QDeclarativeDebugQuery::Error) {
         QString result(query->result().toString());
-        if (result != QLatin1String("<undefined>")) {
-            appendResult(result);
-            gotResult = true;
-        }
-    }
-
-    if (!gotResult) {
-        QString currentScript = getCurrentScript();
-        if (d->canEvaluateScript(currentScript)) {
-            emit evaluateExpression(currentScript);
+        if (result == _("<undefined>") && d->inferiorStopped) {
+            //don't give up. check if we can still evaluate using javascript engine
+            emit evaluateExpression(getCurrentScript());
         } else {
-            QPlainTextEdit::appendPlainText(QLatin1String(""));
-            moveCursor(QTextCursor::EndOfLine);
+            appendResult(result);
         }
+    } else {
+        QPlainTextEdit::appendPlainText(QString());
+        moveCursor(QTextCursor::EndOfLine);
     }
     delete query;
 }
@@ -452,40 +447,49 @@ void QmlJSScriptConsole::displayPrompt()
 void QmlJSScriptConsole::handleReturnKey()
 {
     QString currentScript = getCurrentScript();
-    bool evaluateScript = false;
+    bool scriptEvaluated = false;
 
     //Check if string is only white spaces
     if (currentScript.trimmed().isEmpty()) {
         QTextCursor cur = textCursor();
         cur.movePosition(QTextCursor::EndOfLine);
-        cur.insertText(QLatin1String("\n"));
+        cur.insertText(_("\n"));
         setTextCursor(cur);
         displayPrompt();
-        evaluateScript = true;
+        scriptEvaluated = true;
     }
 
-    if (!evaluateScript && !d->inferiorStopped) {
-        if (!d->adapter.isNull()) {
-            QDeclarativeEngineDebug *engineDebug = d->adapter.data()->engineDebugClient();
-            int id = d->adapter.data()->currentSelectedDebugId();
-            if (engineDebug && id != -1) {
-                QDeclarativeDebugExpressionQuery *query =
-                        engineDebug->queryExpressionResult(id, currentScript, this);
-                connect(query, SIGNAL(stateChanged(QmlJsDebugClient::QDeclarativeDebugQuery::State)),
-                        this, SLOT(onStateChanged(QmlJsDebugClient::QDeclarativeDebugQuery::State)));
-                evaluateScript = true;
+    if (!scriptEvaluated) {
+        //check if it can be evaluated
+        if (d->canEvaluateScript(currentScript)) {
+
+            //Select the engine for evaluation based on
+            //inferior state
+            if (!d->inferiorStopped) {
+                if (!d->adapter.isNull()) {
+                    QDeclarativeEngineDebug *engineDebug = d->adapter.data()->engineDebugClient();
+                    int id = d->adapter.data()->currentSelectedDebugId();
+                    if (engineDebug && id != -1) {
+                        QDeclarativeDebugExpressionQuery *query =
+                                engineDebug->queryExpressionResult(id, currentScript, this);
+                        connect(query, SIGNAL(stateChanged(QmlJsDebugClient::QDeclarativeDebugQuery::State)),
+                                this, SLOT(onStateChanged(QmlJsDebugClient::QDeclarativeDebugQuery::State)));
+                        scriptEvaluated = true;
+                    }
+                }
+            }
+
+            if (!scriptEvaluated) {
+                emit evaluateExpression(currentScript);
+                scriptEvaluated = true;
             }
         }
     }
-
-    if (!evaluateScript) {
-        if (d->canEvaluateScript(currentScript)) {
-            emit evaluateExpression(currentScript);
-        } else {
-            QPlainTextEdit::appendPlainText(QLatin1String(""));
-            moveCursor(QTextCursor::EndOfLine);
-        }
+    if (!scriptEvaluated) {
+        QPlainTextEdit::appendPlainText(QString());
+        moveCursor(QTextCursor::EndOfLine);
     }
+
 }
 
 void QmlJSScriptConsole::handleUpKey()
@@ -523,7 +527,7 @@ QString QmlJSScriptConsole::getCurrentScript() const
 {
     QTextCursor cursor = textCursor();
     cursor.setPosition(d->startOfEditableArea);
-    while (cursor.movePosition(QTextCursor::NextWord, QTextCursor::KeepAnchor)) ;
+    while (cursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor)) ;
     QString script = cursor.selectedText();
     cursor.clearSelection();
     //remove trailing white space
@@ -537,7 +541,7 @@ void QmlJSScriptConsole::replaceCurrentScript(const QString &script)
 {
     QTextCursor cursor = textCursor();
     cursor.setPosition(d->startOfEditableArea);
-    while (cursor.movePosition(QTextCursor::NextWord, QTextCursor::KeepAnchor)) ;
+    while (cursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor)) ;
     cursor.deleteChar();
     cursor.insertText(script);
     setTextCursor(cursor);

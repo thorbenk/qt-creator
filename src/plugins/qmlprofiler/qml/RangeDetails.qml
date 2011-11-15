@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,26 +26,25 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 import QtQuick 1.0
 import Monitor 1.0
-import "MainView.js" as Plotter
 
 BorderImage {
     id: rangeDetails
 
-    property string duration    //###int?
+    property string duration
     property string label
     property string type
     property string file
     property int line
 
-    property bool locked: !root.mouseOverSelection
+    property bool locked: view.selectionLocked
 
-    source: "popup.png"
+    source: "popup_green.png"
     border {
         left: 10; top: 10
         right: 20; bottom: 20
@@ -56,7 +55,7 @@ BorderImage {
     z: 1
     visible: false
     x: 200
-    y: 200
+    y: 25
 
     //title
     Text {
@@ -99,13 +98,22 @@ BorderImage {
             opacity: content.length !== 0 ? 1 : 0
             label: qsTr("Location")
             content: {
-                var file = rangeDetails.file
-                var pos = file.lastIndexOf("/")
+                var file = rangeDetails.file;
+                var pos = file.lastIndexOf("/");
                 if (pos != -1)
-                    file = file.substr(pos+1)
+                    file = file.substr(pos+1);
                 return (file.length !== 0) ? (file + ":" + rangeDetails.line) : "";
             }
-            onLinkActivated: Qt.openUrlExternally(url)
+        }
+    }
+
+    MouseArea {
+        width: col.width + 30
+        height: col.height + typeTitle.height + 30
+        drag.target: parent
+        onClicked: {
+            root.gotoSourceLocation(file, line);
+            root.recenterOnItem(view.selectedItem);
         }
     }
 
@@ -119,7 +127,9 @@ BorderImage {
         height: 12
         MouseArea {
             anchors.fill: parent
-            onClicked: root.mouseOverSelection = !root.mouseOverSelection;
+            onClicked: {
+                root.selectionLocked = !root.selectionLocked;
+            }
         }
     }
 
@@ -130,20 +140,12 @@ BorderImage {
         text:"X"
         MouseArea {
             anchors.fill: parent
-            onClicked: root.hideRangeDetails();
+            onClicked: {
+                root.hideRangeDetails();
+                view.selectedItem = -1;
+            }
         }
     }
 
-    MouseArea {
-        width: col.width
-        height: col.height + typeTitle.height + 30
-        drag.target: parent
-        onClicked: {
-            // force reload of selected item
-            var selectedItem = root.selectedEventIndex;
-            root.selectedEventIndex = -1;
-            root.selectedEventIndex = selectedItem;
-            root.gotoSourceLocation(file, line);
-        }
-    }
+
 }

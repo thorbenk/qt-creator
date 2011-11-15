@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -409,7 +409,7 @@ void Qt4ProjectConfigWidget::updateImportLabel()
         m_ui->problemLabel->setVisible(true);
         m_ui->warningLabel->setVisible(true);
         m_ui->importLabel->setVisible(false);
-        m_ui->problemLabel->setText(tr("An build for a different project exists in %1, which will be overwritten.",
+        m_ui->problemLabel->setText(tr("A build for a different project exists in %1, which will be overwritten.",
                                        "%1 build directory").
                                     arg(m_ui->shadowBuildDirEdit->path()));
     } else if (!issues.isEmpty()) {

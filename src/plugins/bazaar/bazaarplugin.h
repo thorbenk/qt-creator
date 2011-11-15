@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Hugues Delorme
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -68,7 +68,7 @@ class VCSBaseSubmitEditor;
 }
 
 namespace Locator {
-    class CommandLocator;
+class CommandLocator;
 }
 
 namespace Bazaar {
@@ -119,8 +119,8 @@ private slots:
     void diffFromEditorSelected(const QStringList &files);
 
 protected:
-    virtual void updateActions(VCSBase::VCSBasePlugin::ActionState);
-    virtual bool submitEditorAboutToClose(VCSBase::VCSBaseSubmitEditor *submitEditor);
+    void updateActions(VCSBase::VCSBasePlugin::ActionState);
+    bool submitEditorAboutToClose(VCSBase::VCSBaseSubmitEditor *submitEditor);
 
 private:
     // Methods
@@ -166,7 +166,7 @@ private:
     QString m_submitRepository;
 };
 
-} //namespace Internal
-} //namespace Bazaar
+} // namespace Internal
+} // namespace Bazaar
 
 #endif // BAZAARPLUGIN_H

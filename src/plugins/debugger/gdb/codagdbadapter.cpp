@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +36,8 @@
 #include "codadevice.h"
 #include "codautils.h"
 #include "gdbmi.h"
+#include "hostutils.h"
+
 #include "symbiandevicemanager.h"
 
 #include "registerhandler.h"
@@ -57,9 +59,7 @@
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
 
-#ifdef Q_OS_WIN
-#  include "dbgwinutils.h"
-#else
+#ifndef Q_OS_WIN
 #  include <sys/types.h>
 #  include <unistd.h>
 #endif

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -90,17 +90,18 @@ Qt4BaseTargetFactory::~Qt4BaseTargetFactory()
 
 Qt4TargetSetupWidget *Qt4BaseTargetFactory::createTargetSetupWidget(const QString &id,
                                                                     const QString &proFilePath,
-                                                                    const QtSupport::QtVersionNumber &number,
+                                                                    const QtSupport::QtVersionNumber &minimumQtVersion,
+                                                                    const QtSupport::QtVersionNumber &maximumQtVersion,
                                                                     bool importEnabled,
                                                                     QList<BuildConfigurationInfo> importInfos)
 {
-    QList<BuildConfigurationInfo> infos = this->availableBuildConfigurations(id, proFilePath, number);
+    QList<BuildConfigurationInfo> infos = this->availableBuildConfigurations(id, proFilePath, minimumQtVersion, maximumQtVersion);
     if (infos.isEmpty())
         return 0;
     const bool supportsShadowBuilds
             = targetFeatures(id).contains(Constants::SHADOWBUILD_TARGETFEATURE_ID);
     Qt4DefaultTargetSetupWidget *widget
-            = new Qt4DefaultTargetSetupWidget(this, id, proFilePath, infos, number,
+            = new Qt4DefaultTargetSetupWidget(this, id, proFilePath, infos, minimumQtVersion, maximumQtVersion,
                                               importEnabled && supportsShadowBuilds, importInfos,
                                               (supportsShadowBuilds
                                                ? Qt4DefaultTargetSetupWidget::ENABLE
@@ -118,10 +119,13 @@ ProjectExplorer::Target *Qt4BaseTargetFactory::create(ProjectExplorer::Project *
     return create(parent, id, w->buildConfigurationInfos());
 }
 
-QList<BuildConfigurationInfo> Qt4BaseTargetFactory::availableBuildConfigurations(const QString &id, const QString &proFilePath, const QtSupport::QtVersionNumber &minimumQtVersion)
+QList<BuildConfigurationInfo> Qt4BaseTargetFactory::availableBuildConfigurations(const QString &id, const QString &proFilePath,
+                                                                                 const QtSupport::QtVersionNumber &minimumQtVersion,
+                                                                                 const QtSupport::QtVersionNumber &maximumQtVersion)
 {
     QList<BuildConfigurationInfo> infoList;
-    QList<QtSupport::BaseQtVersion *> knownVersions = QtSupport::QtVersionManager::instance()->versionsForTargetId(id, minimumQtVersion);
+    QList<QtSupport::BaseQtVersion *> knownVersions
+            = QtSupport::QtVersionManager::instance()->versionsForTargetId(id, minimumQtVersion, maximumQtVersion);
 
     foreach (QtSupport::BaseQtVersion *version, knownVersions) {
         if (!version->isValid() || !version->toolChainAvailable(id))
@@ -292,6 +296,35 @@ QList<ProjectExplorer::ToolChain *> Qt4BaseTarget::possibleToolChains(ProjectExp
     return result;
 }
 
+ProjectExplorer::ToolChain *Qt4BaseTarget::preferredToolChain(ProjectExplorer::BuildConfiguration *bc) const
+{
+    Qt4BuildConfiguration *qtBc = qobject_cast<Qt4BuildConfiguration *>(bc);
+    if (!qtBc || !qtBc->qtVersion())
+        return Target::preferredToolChain(bc);
+
+    QList<ProjectExplorer::ToolChain *> tcs = possibleToolChains(bc);
+    const QString mkspec = qtBc->qtVersion()->mkspec();
+    foreach (ProjectExplorer::ToolChain *tc, tcs)
+        if (tc->mkspec() == mkspec)
+            return tc;
+    return tcs.isEmpty() ? 0 : tcs.at(0);
+}
+
+QString Qt4BaseTarget::mkspec(const Qt4BuildConfiguration *bc) const
+{
+    QtSupport::BaseQtVersion *version = bc->qtVersion();
+    // We do not know which abi the Qt version has, so let's stick with the defaults
+    if (version && version->qtAbis().count() == 1 && version->qtAbis().first().isNull())
+        return QString();
+
+    const QString tcSpec = bc->toolChain() ? bc->toolChain()->mkspec() : QString();
+    if (!version)
+        return tcSpec;
+    if (!tcSpec.isEmpty() && version->hasMkspec(tcSpec))
+        return tcSpec;
+    return version->mkspec();
+}
+
 void Qt4BaseTarget::removeUnconfiguredCustomExectutableRunConfigurations()
 {
     if (runConfigurations().count()) {
@@ -422,6 +455,7 @@ Qt4DefaultTargetSetupWidget::Qt4DefaultTargetSetupWidget(Qt4BaseTargetFactory *f
                                                          const QString &proFilePath,
                                                          const QList<BuildConfigurationInfo> &infos,
                                                          const QtSupport::QtVersionNumber &minimumQtVersion,
+                                                         const QtSupport::QtVersionNumber &maximumQtVersion,
                                                          bool importEnabled,
                                                          const QList<BuildConfigurationInfo> &importInfos,
                                                          ShadowBuildOption shadowBuild)
@@ -430,6 +464,7 @@ Qt4DefaultTargetSetupWidget::Qt4DefaultTargetSetupWidget(Qt4BaseTargetFactory *f
       m_factory(factory),
       m_proFilePath(proFilePath),
       m_minimumQtVersion(minimumQtVersion),
+      m_maximumQtVersion(maximumQtVersion),
       m_importInfos(importInfos),
       m_directoriesEnabled(true),
       m_hasInSourceBuild(false),
@@ -652,7 +687,7 @@ void Qt4DefaultTargetSetupWidget::setProFilePath(const QString &proFilePath)
 {
     m_proFilePath = proFilePath;
     m_detailsWidget->setAdditionalSummaryText(issuesListToString(m_factory->reportIssues(m_proFilePath)));
-    setBuildConfigurationInfos(m_factory->availableBuildConfigurations(m_id, proFilePath, m_minimumQtVersion), false);
+    setBuildConfigurationInfos(m_factory->availableBuildConfigurations(m_id, proFilePath, m_minimumQtVersion, m_maximumQtVersion), false);
 }
 
 void Qt4DefaultTargetSetupWidget::setBuildConfiguraionComboBoxVisible(bool b)

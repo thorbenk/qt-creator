@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -267,6 +267,7 @@ public:
     virtual void resetLocation();
     virtual void gotoLocation(const Internal::Location &location);
     virtual void quitDebugger(); // called by DebuggerRunControl
+    virtual void abortDebugger(); // called by DebuggerPlugin
 
     virtual void updateViews();
     bool isSlaveEngine() const;
@@ -342,7 +343,7 @@ protected:
     virtual void detachDebugger();
     virtual void exitDebugger();
     virtual void executeStep();
-    virtual void executeStepOut() ;
+    virtual void executeStepOut();
     virtual void executeNext();
     virtual void executeStepI();
     virtual void executeNextI();

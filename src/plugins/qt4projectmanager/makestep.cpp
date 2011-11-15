@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -243,7 +243,7 @@ void MakeStep::run(QFutureInterface<bool> & fi)
             canContinue = false;
     }
     if (!canContinue) {
-        emit addOutput(tr("Configuration is faulty. Check the Build Issues view for details."), BuildStep::MessageOutput);
+        emit addOutput(tr("Configuration is faulty. Check the Issues view for details."), BuildStep::MessageOutput);
         fi.reportResult(false);
         return;
     }
@@ -346,11 +346,6 @@ void MakeStepConfigWidget::updateDetails()
     if (!m_makeStep->m_makeCmd.isEmpty())
         makeCmd = m_makeStep->m_makeCmd;
     param.setCommand(makeCmd);
-    if (param.commandMissing()) {
-        m_summaryText = tr("<b>Make:</b> %1 not found in the environment.").arg(makeCmd);
-        emit updateSummary();
-        return;
-    }
 
     QString args = m_makeStep->userArguments();
     if (!m_makeStep->isClean()) {
@@ -377,6 +372,9 @@ void MakeStepConfigWidget::updateDetails()
     param.setArguments(args);
     param.setEnvironment(env);
     m_summaryText = param.summaryInWorkdir(displayName());
+
+    if (param.commandMissing())
+        m_summaryText = tr("<b>Make:</b> %1 not found in the environment.").arg(makeCmd); // Override display text
     emit updateSummary();
 }
 

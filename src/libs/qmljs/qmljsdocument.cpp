@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -44,23 +44,27 @@ using namespace QmlJS::AST;
 /*!
     \class QmlJS::Document
     \brief A Qml or JavaScript document.
-    \sa QmlJS::Snapshot
+    \sa Snapshot
 
-    Documents are usually created by the \l{QmlJSEditor::Internal::ModelManager}
-    and stored in a \l{QmlJS::Snapshot}. They allow access to data such as
-    the file path, source code, abstract syntax tree and the \l{QmlJS::Bind}
+    Documents are usually created by the ModelManagerInterface
+    and stored in a Snapshot. They allow access to data such as
+    the file path, source code, abstract syntax tree and the Bind
     instance for the document.
 
     To make sure unused and outdated documents are removed correctly, Document
-    instances are usually accessed through a shared pointer, see \l{Document::Ptr}.
+    instances are usually accessed through a shared pointer, see Document::Ptr.
+
+    Documents in a Snapshot are immutable: They, or anything reachable through them,
+    must not be changed. This allows Documents to be shared freely among threads
+    without extra synchronization.
 */
 
 /*!
     \class QmlJS::LibraryInfo
     \brief A Qml library.
-    \sa QmlJS::Snapshot
+    \sa Snapshot
 
-    A LibraryInfo is created when the \l{QmlJSEditor::Internal::ModelManager} finds
+    A LibraryInfo is created when the ModelManagerInterface finds
     a Qml library and parses the qmldir file. The instance holds information about
     which Components the library provides and which plugins to load.
 
@@ -72,12 +76,12 @@ using namespace QmlJS::AST;
 /*!
     \class QmlJS::Snapshot
     \brief A set of Document::Ptr and LibraryInfo instances.
-    \sa QmlJS::Document QmlJS::LibraryInfo
+    \sa Document LibraryInfo
 
     A Snapshot holds and offers access to a set of Document and LibraryInfo instances.
 
     Usually Snapshots are copies of the snapshot maintained and updated by the
-    \l{QmlJSEditor::Internal::ModelManager} that updates its instance as parsing
+    ModelManagerInterface that updates its instance as parsing
     threads finish and new information becomes available.
 */
 
@@ -115,11 +119,22 @@ Document::~Document()
         delete _engine;
 }
 
-Document::Ptr Document::create(const QString &fileName, Language language)
+Document::MutablePtr Document::create(const QString &fileName, Language language)
 {
-    Document::Ptr doc(new Document(fileName, language));
+    Document::MutablePtr doc(new Document(fileName, language));
     doc->_ptr = doc;
     return doc;
+}
+
+Document::Language Document::guessLanguageFromSuffix(const QString &fileName)
+{
+    if (fileName.endsWith(".qml", Qt::CaseInsensitive))
+        return QmlLanguage;
+    if (fileName.endsWith(".js", Qt::CaseInsensitive))
+        return JavaScriptLanguage;
+    if (fileName.endsWith(".json", Qt::CaseInsensitive))
+        return JsonLanguage;
+    return UnknownLanguage;
 }
 
 Document::Ptr Document::ptr() const
@@ -360,11 +375,11 @@ void Snapshot::remove(const QString &fileName)
     }
 }
 
-Document::Ptr Snapshot::documentFromSource(const QString &code,
-                                           const QString &fileName,
-                                           Document::Language language) const
+Document::MutablePtr Snapshot::documentFromSource(
+        const QString &code, const QString &fileName,
+        Document::Language language) const
 {
-    Document::Ptr newDoc = Document::create(fileName, language);
+    Document::MutablePtr newDoc = Document::create(fileName, language);
 
     if (Document::Ptr thisDocument = document(fileName)) {
         newDoc->_editorRevision = thisDocument->_editorRevision;

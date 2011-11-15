@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -125,15 +125,18 @@ ProjectExplorer::Target  *Qt4DesktopTargetFactory::restore(ProjectExplorer::Proj
     return 0;
 }
 
-Qt4TargetSetupWidget *Qt4DesktopTargetFactory::createTargetSetupWidget(const QString &id, const QString &proFilePath, const QtSupport::QtVersionNumber &number, bool importEnabled, QList<BuildConfigurationInfo> importInfos)
+Qt4TargetSetupWidget *Qt4DesktopTargetFactory::createTargetSetupWidget(const QString &id, const QString &proFilePath,
+                                                                       const QtSupport::QtVersionNumber &minimumQtVersion,
+                                                                       const QtSupport::QtVersionNumber &maximumQtVersion,
+                                                                       bool importEnabled, QList<BuildConfigurationInfo> importInfos)
 {
 
-    QList<BuildConfigurationInfo> infos = this->availableBuildConfigurations(id, proFilePath, number);
+    QList<BuildConfigurationInfo> infos = this->availableBuildConfigurations(id, proFilePath, minimumQtVersion, maximumQtVersion);
     if (infos.isEmpty())
         return 0;
     Qt4DefaultTargetSetupWidget *widget = new Qt4DefaultTargetSetupWidget(this, id, proFilePath,  infos,
-                                                                          number,  importEnabled,
-                                                                          importInfos,
+                                                                          minimumQtVersion, maximumQtVersion,
+                                                                          importEnabled, importInfos,
                                                                           Qt4DefaultTargetSetupWidget::USER);
     widget->setBuildConfiguraionComboBoxVisible(true);
     return widget;

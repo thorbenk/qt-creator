@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -554,6 +554,9 @@ bool SessionManager::createImpl(const QString &fileName)
         emit aboutToUnloadSession();
         delete m_file;
         m_file = new SessionFile;
+        const QString &sessionName = sessionNameFromFileName(fileName);
+        emit aboutToLoadSession(sessionName);
+        updateName(sessionName);
         m_file->setFileName(fileName);
         setStartupProject(0);
 
@@ -561,6 +564,8 @@ bool SessionManager::createImpl(const QString &fileName)
             ModeManager::instance()->activateMode(Core::Constants::MODE_EDIT);
             ModeManager::instance()->setFocusToCurrentMode();
         }
+
+        emit sessionLoaded();
     }
 
     m_virginSession = true;
@@ -594,6 +599,9 @@ bool SessionManager::loadImpl(const QString &fileName)
         emit aboutToUnloadSession();
         delete m_file;
         m_file = new SessionFile;
+        const QString &sessionName = sessionNameFromFileName(fileName);
+        emit aboutToLoadSession(sessionName);
+        updateName(sessionName);
         if (!m_file->load(fileName)) {
             QMessageBox::warning(0, tr("Error while restoring session"),
                                     tr("Could not restore session %1").arg(fileName));
@@ -631,6 +639,8 @@ bool SessionManager::loadImpl(const QString &fileName)
 
         ModeManager::instance()->activateMode(modeIdentifier);
         ModeManager::instance()->setFocusToCurrentMode();
+
+        emit sessionLoaded();
     }
 
     if (debug)
@@ -862,11 +872,6 @@ void SessionManager::updateWindowTitle()
 void SessionManager::updateName(const QString &session)
 {
     m_sessionName = session;
-    QString sessionName = m_sessionName;
-
-    if (sessionName.isEmpty())
-        sessionName = tr("Untitled");
-
     updateWindowTitle();
 }
 
@@ -977,16 +982,20 @@ QString SessionManager::sessionNameToFileName(const QString &session) const
     return m_core->userResourcePath() + '/' + session + ".qws";
 }
 
+QString SessionManager::sessionNameFromFileName(const QString &fileName) const
+{
+    const int slash = fileName.lastIndexOf('/');
+    Q_ASSERT(slash != -1 && fileName.endsWith(".qws"));
+    return fileName.mid(slash + 1, fileName.length() - slash - 5); // Exclude .qws
+}
+
 /*!
     \brief Creates a new default session and switches to it.
 */
 
 void SessionManager::createAndLoadNewDefaultSession()
 {
-    emit aboutToLoadSession();
-    updateName("default");
-    createImpl(sessionNameToFileName(m_sessionName));
-    emit sessionLoaded();
+    createImpl(sessionNameToFileName("default"));
 }
 
 /*!
@@ -1055,23 +1064,13 @@ bool SessionManager::loadSession(const QString &session)
 
     if (!sessions().contains(session))
         return false;
-    emit aboutToLoadSession();
+
     QString fileName = sessionNameToFileName(session);
-    if (QFileInfo(fileName).exists()) {
-        if (loadImpl(fileName)) {
-            updateName(session);
-            emit sessionLoaded();
-            return true;
-        }
-    } else {
-        // Create a new session with that name
-        if (!createImpl(sessionNameToFileName(session)))
-            return false;
-        updateName(session);
-        emit sessionLoaded();
-        return true;
-    }
-    return false;
+    if (QFileInfo(fileName).exists())
+        return loadImpl(fileName);
+
+    // Create a new session with that name
+    return createImpl(sessionNameToFileName(session));
 }
 
 QString SessionManager::lastSession() const

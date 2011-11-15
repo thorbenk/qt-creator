@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,12 +34,53 @@ import QtQuick 1.0
 
 Item {
     property alias text: txt.text
+    property bool expanded: false
+    property int typeIndex: index
 
-    height: 50
-    width: 150    //### required, or ignored by positioner
+    property variant descriptions: [text]
+
+    height: root.singleRowHeight
+    width: 150
+
+    onExpandedChanged: {
+        var rE = labels.rowExpanded;
+        rE[typeIndex] = expanded;
+        labels.rowExpanded = rE;
+        backgroundMarks.requestRedraw();
+        view.rowExpanded(typeIndex, expanded);
+        updateHeight();
+    }
+
+    Component.onCompleted: {
+        updateHeight();
+    }
+
+    function updateHeight() {
+        height = root.singleRowHeight *
+            (expanded ? qmlEventList.uniqueEventsOfType(typeIndex) : qmlEventList.maxNestingForType(typeIndex));
+    }
+
+    Connections {
+        target: qmlEventList
+        onDataReady: {
+            var desc=[];
+            for (var i=0; i<qmlEventList.uniqueEventsOfType(typeIndex); i++)
+                desc[i] = qmlEventList.eventTextForType(typeIndex, i);
+            // special case: empty
+            if (desc.length == 1 && desc[0]=="")
+                desc[0] = text;
+            descriptions = desc;
+            updateHeight();
+        }
+        onDataClear: {
+            descriptions = [text];
+            updateHeight();
+        }
+    }
 
     Text {
-        id: txt;
+        id: txt
+        visible: !expanded
         x: 5
         font.pixelSize: 12
         color: "#232323"
@@ -51,5 +92,32 @@ Item {
         width: parent.width
         color: "#cccccc"
         anchors.bottom: parent.bottom
+    }
+
+    Column {
+        visible: expanded
+        Repeater {
+            model: descriptions.length
+            Text {
+                height: root.singleRowHeight
+                x: 5
+                width: 140
+                text: descriptions[index]
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+    }
+
+    Image {
+        source: expanded ? "arrow_down.png" : "arrow_right.png"
+        x: parent.width - 12
+        y: 2
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                expanded = !expanded;
+            }
+        }
     }
 }

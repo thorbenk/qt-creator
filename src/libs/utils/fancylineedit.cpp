@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -299,11 +299,6 @@ IconButton::IconButton(QWidget *parent)
 void IconButton::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
-    // Note isDown should really use the active state but in most styles
-    // this has no proper feedback
-    QIcon::Mode state = QIcon::Disabled;
-    if (isEnabled())
-        state = isDown() ? QIcon::Selected : QIcon::Normal;
     QRect pixmapRect = QRect(0, 0, m_pixmap.width(), m_pixmap.height());
     pixmapRect.moveCenter(rect().center());
 

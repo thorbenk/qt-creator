@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,6 +51,31 @@ using namespace QmlJSEditor::Internal;
 using namespace QmlJSTools;
 
 namespace {
+
+class FindIds : protected Visitor
+{
+public:
+    typedef QHash<QString, SourceLocation> Result;
+
+    Result operator()(Node *node)
+    {
+        result.clear();
+        Node::accept(node, this);
+        return result;
+    }
+
+protected:
+    virtual bool visit(UiObjectInitializer *ast)
+    {
+        UiScriptBinding *idBinding;
+        QString id = idOfObject(ast, &idBinding);
+        if (!id.isEmpty())
+            result[id] = locationFromRange(idBinding->statement);
+        return true;
+    }
+
+    Result result;
+};
 
 class Operation: public QmlJSQuickFixOperation
 {
@@ -100,8 +125,10 @@ public:
         const QString loaderId = findFreeName(QLatin1String("loader_") + baseName);
 
         Utils::ChangeSet changes;
-        int objDefStart = m_objDef->firstSourceLocation().begin();
-        int objDefEnd = m_objDef->lastSourceLocation().end();
+
+        FindIds::Result innerIds = FindIds()(m_objDef);
+        innerIds.remove(id);
+
         QString comment = WrapInLoader::tr(
                     "// TODO: Move position bindings from the component to the Loader.\n"
                     "//       Check all uses of 'parent' inside the root element of the component.\n");
@@ -110,6 +137,27 @@ public:
                         "//       Rename all outer uses of the id '%1' to '%2.item'.\n").arg(
                         id, loaderId);
         }
+
+        // handle inner ids
+        QString innerIdForwarders;
+        QHashIterator<QString, SourceLocation> it(innerIds);
+        while (it.hasNext()) {
+            it.next();
+            const QString innerId = it.key();
+            comment += WrapInLoader::tr(
+                        "//       Rename all outer uses of the id '%1' to '%2.item.%1'.\n").arg(
+                        innerId, loaderId);
+            changes.replace(it.value().begin(), it.value().end(), QString("inner_%1").arg(innerId));
+            innerIdForwarders += QString("\nproperty alias %1: inner_%1").arg(innerId);
+        }
+        if (!innerIdForwarders.isEmpty()) {
+            innerIdForwarders.append(QLatin1Char('\n'));
+            const int afterOpenBrace = m_objDef->initializer->lbraceToken.end();
+            changes.insert(afterOpenBrace, innerIdForwarders);
+        }
+
+        const int objDefStart = m_objDef->firstSourceLocation().begin();
+        const int objDefEnd = m_objDef->lastSourceLocation().end();
         changes.insert(objDefStart, comment +
                        QString("Component {\n"
                                "    id: %1\n").arg(componentId));

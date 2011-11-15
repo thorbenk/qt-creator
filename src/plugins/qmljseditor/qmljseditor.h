@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,6 +38,7 @@
 #include <qmljs/qmljsdocument.h>
 #include <qmljs/qmljsscanner.h>
 #include <qmljs/qmljsscopechain.h>
+#include <qmljs/qmljsstaticanalysismessage.h>
 #include <texteditor/basetexteditor.h>
 #include <texteditor/quickfix.h>
 
@@ -136,6 +137,7 @@ public: // attributes
 
     // these are in addition to the parser messages in the document
     QList<QmlJS::DiagnosticMessage> semanticMessages;
+    QList<QmlJS::StaticAnalysis::Message> staticAnalysisMessages;
 
 private:
     QSharedPointer<const QmlJS::ScopeChain> m_rootScopeChain;
@@ -214,6 +216,7 @@ protected:
     TextEditor::BaseTextEditor *createEditor();
     void createToolBar(QmlJSEditorEditable *editable);
     TextEditor::BaseTextEditorWidget::Link findLinkAt(const QTextCursor &cursor, bool resolveTarget = true);
+    QString foldReplacementText(const QTextBlock &block) const;
 
 private:
     bool isClosingBrace(const QList<QmlJS::Token> &tokens) const;

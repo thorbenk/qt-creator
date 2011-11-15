@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -65,7 +65,7 @@ class REMOTELINUX_EXPORT RemoteLinuxRunConfiguration : public ProjectExplorer::R
 public:
     enum BaseEnvironmentType {
         CleanBaseEnvironment = 0,
-        SystemBaseEnvironment = 1
+        RemoteBaseEnvironment = 1
     };
 
     enum DebuggingType { DebugCppOnly, DebugQmlOnly, DebugCppAndQml };
@@ -93,6 +93,8 @@ public:
     QString remoteExecutableFilePath() const;
     QString arguments() const;
     void setArguments(const QString &args);
+    QString workingDirectory() const;
+    void setWorkingDirectory(const QString &wd);
     void setAlternateRemoteExecutable(const QString &exe);
     QString alternateRemoteExecutable() const;
     void setUseAlternateExecutable(bool useAlternate);
@@ -107,7 +109,7 @@ public:
     Utils::Environment environment() const;
     Utils::Environment baseEnvironment() const;
     QList<Utils::EnvironmentItem> userEnvironmentChanges() const;
-    Utils::Environment systemEnvironment() const;
+    Utils::Environment remoteEnvironment() const;
 
     int portsUsedByDebuggers() const;
 
@@ -120,7 +122,7 @@ signals:
     void deploySpecsChanged();
     void targetInformationChanged() const;
     void baseEnvironmentChanged();
-    void systemEnvironmentChanged();
+    void remoteEnvironmentChanged();
     void userEnvironmentChangesChanged(const QList<Utils::EnvironmentItem> &diff);
 
 protected:
@@ -143,7 +145,7 @@ private:
 
     void setBaseEnvironmentType(BaseEnvironmentType env);
     void setUserEnvironmentChanges(const QList<Utils::EnvironmentItem> &diff);
-    void setSystemEnvironment(const Utils::Environment &environment);
+    void setRemoteEnvironment(const Utils::Environment &environment);
 
     Internal::RemoteLinuxRunConfigurationPrivate * const d;
 };

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,7 +25,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "remotelinuxusedportsgatherer.h"
@@ -47,12 +47,12 @@ class RemoteLinuxUsedPortsGathererPrivate
  public:
     RemoteLinuxUsedPortsGathererPrivate() : running(false) {}
 
-    SshRemoteProcessRunner::Ptr procRunner;
+    SshRemoteProcessRunner procRunner;
     PortList portsToCheck;
     QList<int> usedPorts;
     QByteArray remoteStdout;
     QByteArray remoteStderr;
-    bool running;
+    bool running; // TODO: Redundant due to being in sync with procRunner?
 };
 
 } // namespace Internal
@@ -78,14 +78,11 @@ void RemoteLinuxUsedPortsGatherer::start(const Utils::SshConnection::Ptr &connec
     d->usedPorts.clear();
     d->remoteStdout.clear();
     d->remoteStderr.clear();
-    d->procRunner = SshRemoteProcessRunner::create(connection);
-    connect(d->procRunner.data(), SIGNAL(connectionError(Utils::SshError)),
-        SLOT(handleConnectionError()));
-    connect(d->procRunner.data(), SIGNAL(processClosed(int)),
-        SLOT(handleProcessClosed(int)));
-    connect(d->procRunner.data(), SIGNAL(processOutputAvailable(QByteArray)),
+    connect(&d->procRunner, SIGNAL(connectionError()), SLOT(handleConnectionError()));
+    connect(&d->procRunner, SIGNAL(processClosed(int)), SLOT(handleProcessClosed(int)));
+    connect(&d->procRunner, SIGNAL(processOutputAvailable(QByteArray)),
         SLOT(handleRemoteStdOut(QByteArray)));
-    connect(d->procRunner.data(), SIGNAL(processErrorOutputAvailable(QByteArray)),
+    connect(&d->procRunner, SIGNAL(processErrorOutputAvailable(QByteArray)),
         SLOT(handleRemoteStdErr(QByteArray)));
     QString procFilePath;
     int addressLength;
@@ -99,7 +96,10 @@ void RemoteLinuxUsedPortsGatherer::start(const Utils::SshConnection::Ptr &connec
     const QString command = QString::fromLocal8Bit("sed "
         "'s/.*: [[:xdigit:]]\\{%1\\}:\\([[:xdigit:]]\\{4\\}\\).*/\\1/g' %2")
         .arg(addressLength).arg(procFilePath);
-    d->procRunner->run(command.toUtf8());
+
+    // TODO: We should not use an SshRemoteProcessRunner here, because we have to check
+    // for the type of the connection before we can say what the exact command line is.
+    d->procRunner.run(command.toUtf8(), connection->connectionParameters());
     d->running = true;
 }
 
@@ -108,9 +108,7 @@ void RemoteLinuxUsedPortsGatherer::stop()
     if (!d->running)
         return;
     d->running = false;
-    disconnect(d->procRunner->connection().data(), 0, this, 0);
-    if (d->procRunner->process())
-        d->procRunner->process()->closeChannel();
+    disconnect(&d->procRunner, 0, this, 0);
 }
 
 int RemoteLinuxUsedPortsGatherer::getNextFreePort(PortList *freePorts) const
@@ -152,8 +150,7 @@ void RemoteLinuxUsedPortsGatherer::handleConnectionError()
 {
     if (!d->running)
         return;
-    emit error(tr("Connection error: %1").
-        arg(d->procRunner->connection()->errorString()));
+    emit error(tr("Connection error: %1").arg(d->procRunner.lastConnectionErrorString()));
     stop();
 }
 
@@ -165,18 +162,18 @@ void RemoteLinuxUsedPortsGatherer::handleProcessClosed(int exitStatus)
     switch (exitStatus) {
     case SshRemoteProcess::FailedToStart:
         errMsg = tr("Could not start remote process: %1")
-            .arg(d->procRunner->process()->errorString());
+            .arg(d->procRunner.process()->errorString());
         break;
     case SshRemoteProcess::KilledBySignal:
         errMsg = tr("Remote process crashed: %1")
-            .arg(d->procRunner->process()->errorString());
+            .arg(d->procRunner.process()->errorString());
         break;
     case SshRemoteProcess::ExitedNormally:
-        if (d->procRunner->process()->exitCode() == 0) {
+        if (d->procRunner.process()->exitCode() == 0) {
             setupUsedPorts();
         } else {
             errMsg = tr("Remote process failed; exit code was %1.")
-                .arg(d->procRunner->process()->exitCode());
+                .arg(d->procRunner.process()->exitCode());
         }
         break;
     default:

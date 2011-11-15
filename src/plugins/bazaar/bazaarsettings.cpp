@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Hugues Delorme
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -60,8 +60,8 @@ BazaarSettings::BazaarSettings()
 
 bool BazaarSettings::sameUserId(const BazaarSettings &other) const
 {
-    return stringValue(userNameKey) == other.stringValue(userNameKey) &&
-            stringValue(userEmailKey) == other.stringValue(userEmailKey);
+    return stringValue(userNameKey) == other.stringValue(userNameKey)
+            && stringValue(userEmailKey) == other.stringValue(userEmailKey);
 }
 
 } // namespace Internal

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -118,6 +118,8 @@ public:
     /// \internal
     QtSupport::ProFileReader *createProFileReader(Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc = 0);
     /// \internal
+    ProFileOption *proFileOption();
+    /// \internal
     void destroyProFileReader(QtSupport::ProFileReader *reader);
 
     /// \internal
@@ -170,8 +172,6 @@ private:
     static bool hasSubNode(Qt4PriFileNode *root, const QString &path);
 
     static bool equalFileList(const QStringList &a, const QStringList &b);
-
-    void addDefaultBuild();
 
     static QString qmakeVarName(ProjectExplorer::FileType type);
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -92,6 +92,9 @@ public:
     int exitCode() const;
     QByteArray exitSignal() const;
 
+    QByteArray readAllStandardOutput();
+    QByteArray readAllStandardError();
+
     // Note: This is ignored by the OpenSSH server.
     void sendSignal(const QByteArray &signal);
     void kill() { sendSignal(KillSignal); }
@@ -100,8 +103,9 @@ public:
 
 signals:
     void started();
-    void outputAvailable(const QByteArray &output);
-    void errorOutputAvailable(const QByteArray &output);
+
+    void readyReadStandardOutput();
+    void readyReadStandardError();
 
     /*
      * Parameter is of type ExitStatus, but we use int because of

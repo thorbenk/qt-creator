@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -448,9 +448,10 @@ void DesignDocumentController::changeCurrentModelTo(const ModelNode &node)
     if (Internal::DesignModeWidget::instance()->currentDesignDocumentController() != this)
         return;
     DesignDocumentControllerPrivate::clearCrumblePath = false;
-    while (!d->formEditorView->crumblePath()->dataForLastIndex().value<CrumbleBarInfo>().modelNode.isRootNode())
+    while (d->formEditorView->crumblePath()->dataForLastIndex().value<CrumbleBarInfo>().modelNode.isValid() &&
+        !d->formEditorView->crumblePath()->dataForLastIndex().value<CrumbleBarInfo>().modelNode.isRootNode())
         d->formEditorView->crumblePath()->popElement();
-    if (node.isRootNode())
+    if (node.isRootNode() && d->formEditorView->crumblePath()->dataForLastIndex().isValid())
         d->formEditorView->crumblePath()->popElement();
     changeToSubComponent(node);
     DesignDocumentControllerPrivate::clearCrumblePath = true;
@@ -537,8 +538,10 @@ void DesignDocumentController::goIntoComponent()
     if (d->formEditorView)
         selectedNodes = d->formEditorView->selectedModelNodes();
 
+    DesignDocumentControllerPrivate::clearCrumblePath = false;
     if (selectedNodes.count() == 1)
         ModelNodeAction::goIntoComponent(selectedNodes.first());
+    DesignDocumentControllerPrivate::clearCrumblePath = true;
 }
 
 void DesignDocumentController::loadCurrentModel()

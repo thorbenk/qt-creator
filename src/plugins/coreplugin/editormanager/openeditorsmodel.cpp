@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -131,7 +131,7 @@ void OpenEditorsModel::addEditor(IEditor *editor, bool isDuplicate)
     addEntry(entry);
 }
 
-void OpenEditorsModel::addRestoredEditor(const QString &fileName, const QString &displayName, const QString &id)
+void OpenEditorsModel::addRestoredEditor(const QString &fileName, const QString &displayName, const Id &id)
 {
     Entry entry;
     entry.m_fileName = fileName;
@@ -321,7 +321,7 @@ QVariant OpenEditorsModel::data(const QModelIndex &index, int role) const
     case Qt::UserRole + 1:
         return e.fileName();
     case Qt::UserRole + 2:
-        return QVariant::fromValue(e.editor ? e.editor->id() : e.id());
+        return QVariant::fromValue(e.editor ? Core::Id(e.editor->id()) : e.id());
     default:
         return QVariant();
     }

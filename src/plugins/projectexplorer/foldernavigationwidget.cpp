@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -272,7 +272,7 @@ void FolderNavigationWidget::openItem(const QModelIndex &srcIndex)
     }
     // Open file.
     Core::EditorManager *editorManager = Core::EditorManager::instance();
-    editorManager->openEditor(m_fileSystemModel->filePath(srcIndex), QString(), Core::EditorManager::ModeSwitch);
+    editorManager->openEditor(m_fileSystemModel->filePath(srcIndex), Core::Id(), Core::EditorManager::ModeSwitch);
 }
 
 void FolderNavigationWidget::setCurrentTitle(QString dirName, const QString &fullPath)
@@ -404,9 +404,9 @@ int FolderNavigationWidgetFactory::priority() const
     return 400;
 }
 
-QString FolderNavigationWidgetFactory::id() const
+Core::Id FolderNavigationWidgetFactory::id() const
 {
-    return QLatin1String("File System");
+    return "File System";
 }
 
 QKeySequence FolderNavigationWidgetFactory::activationSequence() const

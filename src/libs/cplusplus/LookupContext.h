@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -235,8 +235,7 @@ public:
     static QList<const Name *> fullyQualifiedName(Symbol *symbol);
     static QList<const Name *> path(Symbol *symbol);
 
-    const Name *minimalName(const Name *name, Scope *source,
-                            ClassOrNamespace *target) const;
+    static const Name *minimalName(Symbol *symbol, ClassOrNamespace *target, Control *control);
 
 private:
     // The current expression.

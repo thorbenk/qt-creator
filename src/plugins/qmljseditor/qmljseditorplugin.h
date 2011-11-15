@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,10 +35,10 @@
 
 #include <extensionsystem/iplugin.h>
 #include <coreplugin/icontext.h>
+#include <coreplugin/id.h>
 #include <QtCore/QPointer>
 
 QT_FORWARD_DECLARE_CLASS(QAction)
-QT_FORWARD_DECLARE_CLASS(QTimer)
 
 namespace TextEditor {
 class TextEditorActionHandler;
@@ -102,7 +102,7 @@ private Q_SLOTS:
     void runSemanticScan();
 
 private:
-    Core::Command *addToolAction(QAction *a, Core::ActionManager *am, Core::Context &context, const QString &name,
+    Core::Command *addToolAction(QAction *a, Core::ActionManager *am, Core::Context &context, const Core::Id &id,
                                  Core::ActionContainer *c1, const QString &keySequence);
 
     static QmlJSEditorPlugin *m_instance;

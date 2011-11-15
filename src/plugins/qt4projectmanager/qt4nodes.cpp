@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -305,13 +305,13 @@ struct InternalNode
     // ...
     // and afterwards calls compress() which merges directory nodes with single children, i.e. to
     //    * /absolute/path
-    void create(const QString &projectDir, const QStringList &newFilePaths, ProjectExplorer::FileType type)
+    void create(const QString &projectDir, const QSet<Utils::FileName> &newFilePaths, ProjectExplorer::FileType type)
     {
         static const QChar separator = QChar('/');
         const QString projectDirWithSeparator = projectDir + separator;
         int projectDirWithSeparatorLength = projectDirWithSeparator.length();
-        foreach (const QString &file, newFilePaths) {
-            QString fileWithoutPrefix;
+        foreach (const Utils::FileName &file, newFilePaths) {
+            Utils::FileName fileWithoutPrefix;
             bool isRelative;
             if (file.startsWith(projectDirWithSeparator)) {
                 isRelative = true;
@@ -320,7 +320,7 @@ struct InternalNode
                 isRelative = false;
                 fileWithoutPrefix = file;
             }
-            QStringList parts = fileWithoutPrefix.split(separator, QString::SkipEmptyParts);
+            QStringList parts = fileWithoutPrefix.toString().split(separator, QString::SkipEmptyParts);
 #ifndef Q_OS_WIN
             if (!isRelative && parts.count() > 0)
                 parts[0].prepend(separator);
@@ -344,7 +344,7 @@ struct InternalNode
                     }
                     path += separator;
                 } else { // key is filename
-                    currentNode->files.append(file);
+                    currentNode->files.append(file.toString());
                 }
             }
         }
@@ -513,9 +513,9 @@ QStringList Qt4PriFileNode::fullVPaths(const QStringList &baseVPaths, QtSupport:
     return vPaths;
 }
 
-static QSet<QString> recursiveEnumerate(const QString &folder)
+static QSet<Utils::FileName> recursiveEnumerate(const QString &folder)
 {
-    QSet<QString> result;
+    QSet<Utils::FileName> result;
     QFileInfo fi(folder);
     if (fi.isDir()) {
         QDir dir(folder);
@@ -525,10 +525,10 @@ static QSet<QString> recursiveEnumerate(const QString &folder)
             if (file.isDir())
                 result += recursiveEnumerate(file.absoluteFilePath());
             else
-                result += file.absoluteFilePath();
+                result += Utils::FileName(file);
         }
     } else if (fi.exists()) {
-        result << folder;
+        result << Utils::FileName(fi);
     }
     return result;
 }
@@ -575,7 +575,7 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
                 ++it;
             } else {
                 // move files directly to m_recursiveEnumerateFiles
-                m_recursiveEnumerateFiles << *it;
+                m_recursiveEnumerateFiles << Utils::FileName::fromString(*it);
                 it = folders.erase(it);
             }
         } else {
@@ -590,9 +590,7 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
     foreach (const QString &folder, folders) {
         m_recursiveEnumerateFiles += recursiveEnumerate(folder);
     }
-
-
-    QMap<FileType, QSet<QString> > foundFiles;
+    QMap<FileType, QSet<Utils::FileName> > foundFiles;
 
     QStringList baseVPathsExact;
     if (includeFileExact)
@@ -608,15 +606,19 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
         FileType type = fileTypes.at(i).type;
         QStringList qmakeVariables = varNames(type);
 
-        QSet<QString> newFilePaths;
+        QSet<Utils::FileName> newFilePaths;
         foreach (const QString &qmakeVariable, qmakeVariables) {
             if (includeFileExact) {
                 QStringList vPathsExact = fullVPaths(baseVPathsExact, readerExact, type, qmakeVariable, projectDir);
-                newFilePaths += readerExact->absoluteFileValues(qmakeVariable, projectDir, vPathsExact, includeFileExact).toSet();
+                QStringList tmp = readerExact->absoluteFileValues(qmakeVariable, projectDir, vPathsExact, includeFileExact);
+                foreach (const QString &t, tmp)
+                    newFilePaths += Utils::FileName::fromString(t);
             }
             if (includeFileCumlative) {
                 QStringList vPathsCumulative = fullVPaths(baseVPathsCumulative, readerCumulative, type, qmakeVariable, projectDir);
-                newFilePaths += readerCumulative->absoluteFileValues(qmakeVariable, projectDir, vPathsCumulative, includeFileCumlative).toSet();
+                QStringList tmp = readerCumulative->absoluteFileValues(qmakeVariable, projectDir, vPathsCumulative, includeFileCumlative);
+                foreach (const QString &t, tmp)
+                    newFilePaths += Utils::FileName::fromString(t);
             }
         }
 
@@ -626,7 +628,7 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
 
     for (int i = 0; i < fileTypes.size(); ++i) {
         FileType type = fileTypes.at(i).type;
-        QSet<QString> newFilePaths = filterFilesProVariables(type, foundFiles[type]);
+        QSet<Utils::FileName> newFilePaths = filterFilesProVariables(type, foundFiles[type]);
         newFilePaths += filterFilesRecursiveEnumerata(type, m_recursiveEnumerateFiles);
 
         // We only need to save this information if
@@ -644,7 +646,7 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
             subfolder->displayName = fileTypes.at(i).typeName;
             contents.subnodes.insert(subfolder->fullPath, subfolder);
             // create the hierarchy with subdirectories
-            subfolder->create(m_projectDir, newFilePaths.toList(), type);
+            subfolder->create(m_projectDir, newFilePaths, type);
         }
     }
 
@@ -677,18 +679,18 @@ void Qt4PriFileNode::folderChanged(const QString &folder)
         changedFolder.append(QLatin1Char('/'));
 
     // Collect all the files
-    QSet<QString> newFiles;
+    QSet<Utils::FileName> newFiles;
     newFiles += recursiveEnumerate(changedFolder);
 
-    foreach (const QString &file, m_recursiveEnumerateFiles) {
+    foreach (const Utils::FileName &file, m_recursiveEnumerateFiles) {
         if (!file.startsWith(changedFolder))
             newFiles.insert(file);
     }
 
-    QSet<QString> addedFiles = newFiles;
+    QSet<Utils::FileName> addedFiles = newFiles;
     addedFiles.subtract(m_recursiveEnumerateFiles);
 
-    QSet<QString> removedFiles = m_recursiveEnumerateFiles;
+    QSet<Utils::FileName> removedFiles = m_recursiveEnumerateFiles;
     removedFiles.subtract(newFiles);
 
     if (addedFiles.isEmpty() && removedFiles.isEmpty())
@@ -701,8 +703,8 @@ void Qt4PriFileNode::folderChanged(const QString &folder)
     const QVector<Qt4NodeStaticData::FileTypeData> &fileTypes = qt4NodeStaticData()->fileTypeData;
     for (int i = 0; i < fileTypes.size(); ++i) {
         FileType type = fileTypes.at(i).type;
-        QSet<QString> add = filterFilesRecursiveEnumerata(type, addedFiles);
-        QSet<QString> remove = filterFilesRecursiveEnumerata(type, removedFiles);
+        QSet<Utils::FileName> add = filterFilesRecursiveEnumerata(type, addedFiles);
+        QSet<Utils::FileName> remove = filterFilesRecursiveEnumerata(type, removedFiles);
 
         if (!add.isEmpty() || !remove.isEmpty()) {
             // Scream :)
@@ -727,7 +729,7 @@ void Qt4PriFileNode::folderChanged(const QString &folder)
             subfolder->displayName = fileTypes.at(i).typeName;
             contents.subnodes.insert(subfolder->fullPath, subfolder);
             // create the hierarchy with subdirectories
-            subfolder->create(m_projectDir, m_files[type].toList(), type);
+            subfolder->create(m_projectDir, m_files[type], type);
         }
     }
 
@@ -813,7 +815,7 @@ QList<ProjectNode::ProjectAction> Qt4PriFileNode::supportedActions(Node *node) c
         // work on a subset of the file types according to project type.
 
         actions << AddNewFile;
-        if (m_recursiveEnumerateFiles.contains(node->path())) {
+        if (m_recursiveEnumerateFiles.contains(Utils::FileName::fromString(node->path()))) {
             actions << EraseFile;
         } else {
             actions << RemoveFile;
@@ -1004,7 +1006,7 @@ bool Qt4PriFileNode::priFileWritable(const QString &path)
     switch (Core::FileManager::promptReadOnlyFile(path, versionControl, core->mainWindow(), false)) {
     case Core::FileManager::RO_OpenVCS:
         if (!versionControl->vcsOpen(path)) {
-            QMessageBox::warning(core->mainWindow(), tr("Cannot Open File"), tr("Cannot open the file for edit with VCS."));
+            QMessageBox::warning(core->mainWindow(), tr("Cannot Open File"), tr("Cannot open the file for editing with VCS."));
             return false;
         }
         break;
@@ -1172,10 +1174,7 @@ void Qt4PriFileNode::changeFiles(const FileType fileType,
 void Qt4PriFileNode::save(const QStringList &lines)
 {
     Utils::FileSaver saver(m_projectFilePath, QIODevice::Text);
-    foreach (const QString &str, lines) {
-        saver.write(str.toLocal8Bit());
-        saver.write("\n", 1);
-    }
+    saver.write(lines.join(QLatin1String("\n")).toLocal8Bit());
     saver.finalize(Core::ICore::instance()->mainWindow());
 
     m_project->qt4ProjectManager()->notifyChanged(m_projectFilePath);
@@ -1256,36 +1255,36 @@ QStringList Qt4PriFileNode::dynamicVarNames(QtSupport::ProFileReader *readerExac
     return result;
 }
 
-QSet<QString> Qt4PriFileNode::filterFilesProVariables(ProjectExplorer::FileType fileType, const QSet<QString> &files)
+QSet<Utils::FileName> Qt4PriFileNode::filterFilesProVariables(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files)
 {
     if (fileType != ProjectExplorer::QMLType && fileType != ProjectExplorer::UnknownFileType)
         return files;
-    QSet<QString> result;
+    QSet<Utils::FileName> result;
     if (fileType != ProjectExplorer::QMLType && fileType != ProjectExplorer::UnknownFileType)
         return result;
     if (fileType == ProjectExplorer::QMLType) {
-        foreach (const QString &file, files)
+        foreach (const Utils::FileName &file, files)
             if (file.endsWith(".qml"))
                 result << file;
     } else {
-        foreach (const QString &file, files)
+        foreach (const Utils::FileName &file, files)
             if (!file.endsWith(".qml"))
                 result << file;
     }
     return result;
 }
 
-QSet<QString> Qt4PriFileNode::filterFilesRecursiveEnumerata(ProjectExplorer::FileType fileType, const QSet<QString> &files)
+QSet<Utils::FileName> Qt4PriFileNode::filterFilesRecursiveEnumerata(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files)
 {
-    QSet<QString> result;
+    QSet<Utils::FileName> result;
     if (fileType != ProjectExplorer::QMLType && fileType != ProjectExplorer::UnknownFileType)
         return result;
     if(fileType == ProjectExplorer::QMLType) {
-        foreach (const QString &file, files)
+        foreach (const Utils::FileName &file, files)
             if (file.endsWith(".qml"))
                 result << file;
     } else {
-        foreach (const QString &file, files)
+        foreach (const Utils::FileName &file, files)
             if (!file.endsWith(".qml"))
                 result << file;
     }
@@ -1834,6 +1833,7 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
 
         // update TargetInformation
         m_qt4targetInformation = targetInformation(m_readerExact);
+        m_resolvedMkspecPath = m_project->proFileOption()->qmakespec;
 
         setupInstallsList(m_readerExact);
         setupProjectVersion(m_readerExact);
@@ -2092,7 +2092,7 @@ QStringList Qt4ProFileNode::subDirsPaths(QtSupport::ProFileReader *reader) const
         }
 
         if (QFile::exists(realFile)) {
-            subProjectPaths << realFile;
+            subProjectPaths << QDir::cleanPath(realFile);
         } else {
             m_project->proFileParseError(tr("Could not find .pro file for sub dir '%1' in '%2'")
                                          .arg(subDirVar).arg(realDir));
@@ -2169,6 +2169,11 @@ TargetInformation Qt4ProFileNode::targetInformation(QtSupport::ProFileReader *re
 TargetInformation Qt4ProFileNode::targetInformation() const
 {
     return m_qt4targetInformation;
+}
+
+QString Qt4ProFileNode::resolvedMkspecPath() const
+{
+    return m_resolvedMkspecPath;
 }
 
 void Qt4ProFileNode::setupInstallsList(const QtSupport::ProFileReader *reader)

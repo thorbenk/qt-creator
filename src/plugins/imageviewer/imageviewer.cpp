@@ -5,7 +5,7 @@
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** Copyright (c) 2010 Denis Mingulov.
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,7 +27,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -136,9 +136,9 @@ Core::IFile *ImageViewer::file()
     return d->file;
 }
 
-QString ImageViewer::id() const
+Core::Id ImageViewer::id() const
 {
-    return QLatin1String(Constants::IMAGEVIEWER_ID);
+    return Core::Id(Constants::IMAGEVIEWER_ID);
 }
 
 QString ImageViewer::displayName() const

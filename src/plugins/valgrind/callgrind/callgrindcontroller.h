@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -87,7 +87,7 @@ private Q_SLOTS:
     void processError(QProcess::ProcessError);
     void processFinished(int, QProcess::ExitStatus);
 
-    void foundRemoteFile(const QByteArray &file);
+    void foundRemoteFile();
     void sftpInitialized();
     void sftpJobFinished(Utils::SftpJobId job, const QString &error);
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -378,9 +378,9 @@ void FunctionDeclDefLink::showMarker(CPPEditorWidget *editor)
 // does consider foo(void) to have one argument
 static int declaredArgumentCount(Function *function)
 {
-    int c = function->memberCount();
-    if (c > 0 && function->memberAt(c - 1)->isBlock())
-        return c - 1;
+    int c = function->argumentCount();
+    if (c == 0 && function->memberCount() > 0 && function->memberAt(0)->type().type()->isVoidType())
+        return 1;
     return c;
 }
 
@@ -746,9 +746,8 @@ class ApplyDeclDefLinkOperation : public CppQuickFixOperation
 public:
     explicit ApplyDeclDefLinkOperation(
             const QSharedPointer<const Internal::CppQuickFixAssistInterface> &interface,
-            const QSharedPointer<FunctionDeclDefLink> &link,
-            int priority = -1)
-        : CppQuickFixOperation(interface, priority)
+            const QSharedPointer<FunctionDeclDefLink> &link)
+        : CppQuickFixOperation(interface, 10)
         , m_link(link)
     {}
 
@@ -780,7 +779,6 @@ QList<CppQuickFixOperation::Ptr> ApplyDeclDefLinkChanges::match(const QSharedPoi
 
     QSharedPointer<ApplyDeclDefLinkOperation> op(new ApplyDeclDefLinkOperation(interface, link));
     op->setDescription(FunctionDeclDefLink::tr("Apply function signature changes"));
-    op->setPriority(0);
     results += op;
 
     return results;

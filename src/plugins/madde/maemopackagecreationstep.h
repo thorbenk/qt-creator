@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 ** GNU Lesser General Public License Usage
 **
@@ -25,14 +25,15 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef MAEMOPACKAGECREATIONSTEP_H
 #define MAEMOPACKAGECREATIONSTEP_H
 
-#include<remotelinux/abstractpackagingstep.h>
+#include <remotelinux/abstractpackagingstep.h>
+#include <utils/environment.h>
 
 QT_BEGIN_NAMESPACE
 class QDateTime;
@@ -81,6 +82,7 @@ protected:
 
     bool callPackagingCommand(QProcess *proc, const QStringList &arguments);
     QString replaceDots(const QString &name) const;
+    virtual bool init();
 
 private slots:
     void handleBuildOutput();
@@ -94,11 +96,13 @@ private:
     virtual bool createPackage(QProcess *buildProc, const QFutureInterface<bool> &fi) = 0;
     virtual bool isMetaDataNewerThan(const QDateTime &packageDate) const = 0;
 
-    QString projectName() const;
     static QString nativePath(const QFile &file);
     bool isPackagingNeeded() const;
 
     const Qt4ProjectManager::Qt4BuildConfiguration *m_lastBuildConfig;
+    bool m_packagingNeeded;
+    Utils::Environment m_environment;
+    QString m_qmakeCommand;
 };
 
 
@@ -115,15 +119,22 @@ private:
     MaemoDebianPackageCreationStep(ProjectExplorer::BuildStepList *buildConfig,
         MaemoDebianPackageCreationStep *other);
 
+    virtual bool init();
     virtual bool createPackage(QProcess *buildProc, const QFutureInterface<bool> &fi);
     virtual bool isMetaDataNewerThan(const QDateTime &packageDate) const;
 
     void ctor();
-    static QString packagingCommand(const Qt4ProjectManager::Qt4BuildConfiguration *bc,
-        const QString &commandName);
+    static QString packagingCommand(const QString &maddeRoot, const QString &commandName);
     bool copyDebianFiles(bool inSourceBuild);
     void checkProjectName();
     bool adaptRulesFile(const QString &templatePath, const QString &rulesFilePath);
+
+    QString m_maddeRoot;
+    QString m_projectDirectory;
+    QString m_pkgFileName;
+    QString m_packageName;
+    QString m_templatesDirPath;
+    bool m_debugBuild;
 
     static const QString CreatePackageId;
 };
@@ -136,6 +147,7 @@ public:
     MaemoRpmPackageCreationStep(ProjectExplorer::BuildStepList *bsl);
 
 private:
+    bool init();
     virtual bool createPackage(QProcess *buildProc, const QFutureInterface<bool> &fi);
     virtual bool isMetaDataNewerThan(const QDateTime &packageDate) const;
 
@@ -144,6 +156,9 @@ private:
 
     void ctor();
     QString rpmBuildDir() const;
+
+    QString m_specFile;
+    QString m_packageFileName;
 
     static const QString CreatePackageId;
 };

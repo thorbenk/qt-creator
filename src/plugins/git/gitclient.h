@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,6 +57,7 @@ namespace Core {
 
 namespace VCSBase {
     class VCSBaseEditorWidget;
+    class SubmitFileModel;
 }
 
 namespace Utils {
@@ -187,9 +188,9 @@ public:
                               const QString &messge, QString *name,
                               QString *errorMessage = 0);
 
-    QString readConfig(const QString &workingDirectory, const QStringList &configVar);
+    QString readConfig(const QString &workingDirectory, const QStringList &configVar) const;
 
-    QString readConfigValue(const QString &workingDirectory, const QString &configVar);
+    QString readConfigValue(const QString &workingDirectory, const QString &configVar) const;
 
     enum StashResult { StashUnchanged, StashCanceled, StashFailed,
                        Stashed, NotStashed /* User did not want it */ };
@@ -204,16 +205,13 @@ public:
                       const GitSubmitEditorPanelData &data,
                       const QString &amendSHA1,
                       const QString &messageFile,
-                      const QStringList &checkedFiles,
-                      const QStringList &origCommitFiles,
-                      const QStringList &origDeletedFiles);
+                      VCSBase::SubmitFileModel *model);
 
     enum StatusResult { StatusChanged, StatusUnchanged, StatusFailed };
     StatusResult gitStatus(const QString &workingDirectory,
                            bool untracked = false,
                            QString *output = 0,
-                           QString *errorMessage = 0,
-                           bool *onBranch = 0);
+                           QString *errorMessage = 0, bool *onBranch = 0);
 
     void launchGitK(const QString &workingDirectory);
     QStringList synchronousRepositoryBranches(const QString &repositoryURL);
@@ -237,10 +235,11 @@ private slots:
 private:
     VCSBase::VCSBaseEditorWidget *findExistingVCSEditor(const char *registerDynamicProperty,
                                                   const QString &dynamicPropertyValue) const;
-    VCSBase::VCSBaseEditorWidget *createVCSEditor(const QString &kind,
+    enum CodecType { CodecSource, CodecLogOutput, CodecNone };
+    VCSBase::VCSBaseEditorWidget *createVCSEditor(const Core::Id &kind,
                                             QString title,
                                             const QString &source,
-                                            bool setSourceCodec,
+                                            CodecType codecType,
                                             const char *registerDynamicProperty,
                                             const QString &dynamicPropertyValue,
                                             QWidget *configWidget) const;

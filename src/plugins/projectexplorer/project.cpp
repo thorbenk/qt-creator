@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -43,6 +43,7 @@
 #include <coreplugin/ifile.h>
 #include <coreplugin/icontext.h>
 #include <extensionsystem/pluginmanager.h>
+#include <projectexplorer/buildmanager.h>
 #include <limits>
 #include <utils/qtcassert.h>
 
@@ -166,9 +167,15 @@ void Project::addTarget(Target *t)
         setActiveTarget(t);
 }
 
-void Project::removeTarget(Target *target)
+bool Project::removeTarget(Target *target)
 {
-    QTC_ASSERT(target && d->m_targets.contains(target), return);
+    if (!target || !d->m_targets.contains(target))
+        return false;
+
+    ProjectExplorer::BuildManager *bm =
+            ProjectExplorer::ProjectExplorerPlugin::instance()->buildManager();
+    if (bm->isBuilding(target))
+        return false;
 
     emit aboutToRemoveTarget(target);
 
@@ -182,6 +189,7 @@ void Project::removeTarget(Target *target)
             setActiveTarget(d->m_targets.at(0));
     }
     delete target;
+    return true;
 }
 
 QList<Target *> Project::targets() const

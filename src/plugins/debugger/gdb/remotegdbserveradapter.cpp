@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -274,14 +274,17 @@ void RemoteGdbServerAdapter::runEngine()
 void RemoteGdbServerAdapter::interruptInferior()
 {
     QTC_ASSERT(state() == InferiorStopRequested, qDebug() << state());
-    //m_engine->postCommand("-exec-interrupt", GdbEngine::Immediate,
-    //    CB(handleInterruptInferior));
-    bool ok = m_gdbProc.interrupt();
-    if (!ok) {
-        // FIXME: Extra state needed?
-        m_engine->showMessage(_("NOTE: INFERIOR STOP NOT POSSIBLE"));
-        m_engine->showStatusMessage(tr("Interrupting not possible"));
-        m_engine->notifyInferiorRunOk();
+    if (debuggerCore()->boolSetting(TargetAsync)) {
+        m_engine->postCommand("-exec-interrupt", GdbEngine::Immediate,
+            CB(handleInterruptInferior));
+    } else {
+        bool ok = m_gdbProc.interrupt();
+        if (!ok) {
+            // FIXME: Extra state needed?
+            m_engine->showMessage(_("NOTE: INFERIOR STOP NOT POSSIBLE"));
+            m_engine->showStatusMessage(tr("Interrupting not possible"));
+            m_engine->notifyInferiorRunOk();
+        }
     }
 }
 

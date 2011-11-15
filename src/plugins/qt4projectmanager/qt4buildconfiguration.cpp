@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -494,7 +494,7 @@ bool Qt4BuildConfiguration::compareToImportFrom(const QString &makefile)
                 // This copies the settings from userArgs to actualArgs (minus some we
                 // are not interested in), splitting them up into individual strings:
                 extractSpecFromArguments(&userArgs, workingDirectory, version, &actualArgs),
-                actualArgs += qs->moreArguments();
+                actualArgs = qs->moreArguments() + actualArgs + qs->moreArgumentsAfter();
                 QString actualSpec = qs->mkspec();
 
                 QString qmakeArgs = result.second;

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -239,7 +239,8 @@ void ActionContainerPrivate::addAction(Command *command, const QString &groupId)
         actualGroupId = groupId;
 
     QList<Group>::const_iterator groupIt = findGroup(actualGroupId);
-    QTC_ASSERT(groupIt != m_groups.constEnd(), return);
+    QTC_ASSERT(groupIt != m_groups.constEnd(), qDebug() << "Can't find group" << groupId
+               << "in container" << id(); return);
     QAction *beforeAction = insertLocation(groupIt);
     m_groups[groupIt-m_groups.constBegin()].items.append(command);
 

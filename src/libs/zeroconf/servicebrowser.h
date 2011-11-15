@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -108,7 +108,7 @@ public:
 
     MainConnectionPtr mainConnection() const;
 
-    bool startBrowsing(qint32 interfaceIndex = 0);
+    void startBrowsing(qint32 interfaceIndex = 0);
     void stopBrowsing();
     bool isBrowsing() const;
     bool didFail() const;
@@ -135,12 +135,15 @@ private:
 };
 
 enum LibUsage {
-    UseNativeOnly = 1,
+    UseDnsSdOnly = 1,
     UseEmbeddedOnly,
-    UseNativeOrEmbedded
+    UseAvahiOnly,
+    UseAvahiOrDnsSd,
+    UseAvahiOrDnsSdOrEmbedded
 };
 
-void initLib(LibUsage usage, const QString &libName, const QString & daemonPaths);
+void setDefaultZConfLib(LibUsage usage, const QString &avahiLibName, const QString &dnsSdLibName,
+                        const QString & dnsSdDaemonPath);
 
 }
 

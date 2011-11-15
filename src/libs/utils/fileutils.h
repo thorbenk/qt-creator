@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,6 +38,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QIODevice>
 #include <QtCore/QXmlStreamWriter> // Mac.
+#include <QtCore/QFileInfo>
 
 QT_BEGIN_NAMESPACE
 class QFile;
@@ -57,6 +58,7 @@ public:
                          const QString &tgtFilePath, QString *error = 0);
     static bool isFileNewerThan(const QString &filePath,
                             const QDateTime &timeStamp);
+    static QString resolveSymlinks(const QString &path);
 };
 
 class QTCREATOR_UTILS_EXPORT FileReader
@@ -138,6 +140,40 @@ private:
     bool m_autoRemove;
 };
 
+class QTCREATOR_UTILS_EXPORT FileName : private QString
+{
+public:
+    FileName();
+    explicit FileName(const QFileInfo &info);
+    QString toString() const;
+    static FileName fromString(const QString &filename);
+
+    bool operator==(const FileName &other) const;
+    bool operator<(const FileName &other) const;
+    bool operator<=(const FileName &other) const;
+    bool operator>(const FileName &other) const;
+    bool operator>=(const FileName &other) const;
+
+    bool startsWith(const QString &s) const;
+    bool endsWith(const QString &s) const;
+
+    FileName left(int n) const Q_REQUIRED_RESULT;
+    FileName mid(int position, int n = -1) const Q_REQUIRED_RESULT;
+    FileName right(int n) const Q_REQUIRED_RESULT;
+
+    using QString::size;
+    using QString::count;
+    using QString::length;
+    using QString::isEmpty;
+private:
+    static Qt::CaseSensitivity cs;
+    FileName(const QString &string);
+};
+
 } // namespace Utils
+
+QT_BEGIN_NAMESPACE
+QTCREATOR_UTILS_EXPORT uint qHash(const Utils::FileName &a);
+QT_END_NAMESPACE
 
 #endif // FILEUTILS_H

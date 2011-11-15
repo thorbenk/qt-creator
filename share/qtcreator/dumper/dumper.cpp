@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -1569,8 +1569,6 @@ static void qDumpQHash(QDumper &d)
     d.putItem("numchild", n);
 
     if (d.dumpChildren) {
-        if (n > 1000)
-            n = 1000;
         const bool isSimpleKey = isSimpleType(keyType);
         const bool isSimpleValue = isSimpleType(valueType);
         const bool opt = isOptimizedIntKey(keyType);
@@ -1922,9 +1920,6 @@ static void qDumpQMap(QDumper &d)
     d.putItemCount("value", n);
     d.putItem("numchild", n);
     if (d.dumpChildren) {
-        if (n > 1000)
-            n = 1000;
-
         //unsigned keySize = d.extraInt[0];
         //unsigned valueSize = d.extraInt[1];
         unsigned mapnodesize = d.extraInt[2];
@@ -2850,8 +2845,6 @@ static void qDumpQSet(QDumper &d)
     d.putItem("valueeditable", "false");
     d.putItem("numchild", 2 * n);
     if (d.dumpChildren) {
-        if (n > 100)
-            n = 100;
         d.beginChildren();
         int i = 0;
         for (int bucket = 0; bucket != hd->numBuckets && i <= 10000; ++bucket) {

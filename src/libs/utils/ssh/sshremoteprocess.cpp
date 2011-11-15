@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -103,12 +103,11 @@ void SshRemoteProcess::init()
 {
     connect(d, SIGNAL(started()), this, SIGNAL(started()),
         Qt::QueuedConnection);
-    connect(d, SIGNAL(outputAvailable(QByteArray)), this,
-        SIGNAL(outputAvailable(QByteArray)), Qt::QueuedConnection);
-    connect(d, SIGNAL(errorOutputAvailable(QByteArray)), this,
-        SIGNAL(errorOutputAvailable(QByteArray)), Qt::QueuedConnection);
-    connect(d, SIGNAL(closed(int)), this, SIGNAL(closed(int)),
+    connect(d, SIGNAL(readyReadStandardOutput()), this, SIGNAL(readyReadStandardOutput()),
         Qt::QueuedConnection);
+    connect(d, SIGNAL(readyReadStandardError()), this,
+        SIGNAL(readyReadStandardError()), Qt::QueuedConnection);
+    connect(d, SIGNAL(closed(int)), this, SIGNAL(closed(int)), Qt::QueuedConnection);
 }
 
 void SshRemoteProcess::addToEnvironment(const QByteArray &var, const QByteArray &value)
@@ -168,6 +167,9 @@ int SshRemoteProcess::exitCode() const { return d->m_exitCode; }
 
 QByteArray SshRemoteProcess::exitSignal() const { return d->m_signal; }
 
+QByteArray SshRemoteProcess::readAllStandardOutput() { return d->readAllStandardOutput(); }
+QByteArray SshRemoteProcess::readAllStandardError() { return d->readAllStandardError(); }
+
 namespace Internal {
 
 SshRemoteProcessPrivate::SshRemoteProcessPrivate(const QByteArray &command,
@@ -210,6 +212,20 @@ void SshRemoteProcessPrivate::setProcState(ProcessState newState)
         m_wasRunning = true;
         emit started();
     }
+}
+
+QByteArray SshRemoteProcessPrivate::readAllStandardOutput()
+{
+    const QByteArray data = m_stdout;
+    m_stdout.clear();
+    return data;
+}
+
+QByteArray SshRemoteProcessPrivate::readAllStandardError()
+{
+    const QByteArray data = m_stderr;
+    m_stderr.clear();
+    return data;
 }
 
 void SshRemoteProcessPrivate::closeHook()
@@ -268,16 +284,19 @@ void SshRemoteProcessPrivate::handleChannelFailure()
 
 void SshRemoteProcessPrivate::handleChannelDataInternal(const QByteArray &data)
 {
-    emit outputAvailable(data);
+    m_stdout += data;
+    emit readyReadStandardOutput();
 }
 
 void SshRemoteProcessPrivate::handleChannelExtendedDataInternal(quint32 type,
     const QByteArray &data)
 {
-    if (type != SSH_EXTENDED_DATA_STDERR)
+    if (type != SSH_EXTENDED_DATA_STDERR) {
         qWarning("Unknown extended data type %u", type);
-    else
-        emit errorOutputAvailable(data);
+    } else {
+        m_stderr += data;
+        emit readyReadStandardError();
+    }
 }
 
 void SshRemoteProcessPrivate::handleExitStatus(const SshChannelExitStatus &exitStatus)

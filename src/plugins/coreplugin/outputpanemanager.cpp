@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -274,7 +274,7 @@ void OutputPaneManager::init()
         actionId.remove(QLatin1Char(' '));
         QAction *action = new QAction(outPane->displayName(), this);
 
-        Command *cmd = am->registerAction(action, actionId, Context(Constants::C_GLOBAL));
+        Command *cmd = am->registerAction(action, Id(actionId), Context(Constants::C_GLOBAL));
 
         mpanes->addAction(cmd, "Coreplugin.OutputPane.PanesGroup");
         m_actions.insert(cmd->action(), idx);

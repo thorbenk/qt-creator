@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,10 +26,12 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "remotelinuxcustomcommanddeployservice.h"
+
+#include "linuxdeviceconfiguration.h"
 
 #include <utils/qtcassert.h>
 #include <utils/ssh/sshremoteprocessrunner.h>
@@ -47,11 +49,11 @@ enum State { Inactive, Running };
 class RemoteLinuxCustomCommandDeployservicePrivate
 {
 public:
-    RemoteLinuxCustomCommandDeployservicePrivate() : state(Inactive) { }
+    RemoteLinuxCustomCommandDeployservicePrivate() : state(Inactive), runner(0) { }
 
     QString commandLine;
     State state;
-    SshRemoteProcessRunner::Ptr runner;
+    SshRemoteProcessRunner *runner;
 };
 
 } // namespace Internal
@@ -95,25 +97,25 @@ void RemoteLinuxCustomCommandDeployService::doDeploy()
 {
     QTC_ASSERT(d->state == Inactive, handleDeploymentDone());
 
-    d->runner = SshRemoteProcessRunner::create(connection());
-    connect(d->runner.data(), SIGNAL(processOutputAvailable(QByteArray)),
+    if (!d->runner)
+        d->runner = new SshRemoteProcessRunner(this);
+    connect(d->runner, SIGNAL(processOutputAvailable(QByteArray)),
         SLOT(handleStdout(QByteArray)));
-    connect(d->runner.data(), SIGNAL(processErrorOutputAvailable(QByteArray)),
+    connect(d->runner, SIGNAL(processErrorOutputAvailable(QByteArray)),
         SLOT(handleStderr(QByteArray)));
-    connect(d->runner.data(), SIGNAL(processClosed(int)), SLOT(handleProcessClosed(int)));
+    connect(d->runner, SIGNAL(processClosed(int)), SLOT(handleProcessClosed(int)));
 
     emit progressMessage(tr("Starting remote command '%1'...").arg(d->commandLine));
     d->state = Running;
-    d->runner->run(d->commandLine.toUtf8());
+    d->runner->run(d->commandLine.toUtf8(), deviceConfiguration()->sshParameters());
 }
 
 void RemoteLinuxCustomCommandDeployService::stopDeployment()
 {
     QTC_ASSERT(d->state == Running, return);
 
-    disconnect(d->runner.data(), 0, this, 0);
+    disconnect(d->runner, 0, this, 0);
     d->runner->process()->closeChannel();
-    d->runner = SshRemoteProcessRunner::Ptr();
     d->state = Inactive;
     handleDeploymentDone();
 }

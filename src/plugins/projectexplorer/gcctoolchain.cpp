@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -72,8 +72,7 @@ static QByteArray runGcc(const QString &gcc, const QStringList &arguments, const
     QProcess cpp;
     // Force locale: This function is used only to detect settings inside the tool chain, so this is save.
     QStringList environment(env);
-    environment.append(QLatin1String("LC_ALL"));
-    environment.append(QLatin1String("C"));
+    environment.append(QLatin1String("LC_ALL=C"));
 
     cpp.setEnvironment(environment);
     cpp.start(gcc, arguments);
@@ -368,6 +367,7 @@ void GccToolChain::setTargetAbi(const Abi &abi)
 
     updateSupportedAbis();
     m_targetAbi = abi;
+    updateId();
     toolChainUpdated();
 }
 
@@ -615,7 +615,13 @@ QList<ToolChain *> Internal::GccToolChainFactory::autoDetect()
     // Fixme Prefer lldb once it is implemented: debuggers.push_back(QLatin1String("lldb"));
 #endif
     debuggers.push_back(QLatin1String("gdb"));
-    return autoDetectToolchains(QLatin1String("g++"), debuggers, Abi::hostAbi());
+    QList<ToolChain *> tcs = autoDetectToolchains(QLatin1String("g++"), debuggers, Abi::hostAbi());
+
+    // Old mac compilers needed to support macx-gccXY mkspecs:
+    tcs.append(autoDetectToolchains(QLatin1String("g++-4.0"), debuggers, Abi::hostAbi()));
+    tcs.append(autoDetectToolchains(QLatin1String("g++-4.2"), debuggers, Abi::hostAbi()));
+
+    return tcs;
 }
 
 // Used by the ToolChainManager to restore user-generated tool chains

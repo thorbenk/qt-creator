@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -132,10 +132,9 @@ QString QMakeStep::allArguments(bool shorted)
     if (bc->subNodeBuild())
         arguments << QDir::toNativeSeparators(bc->subNodeBuild()->path());
     else if (shorted)
-        arguments << QDir::toNativeSeparators(QFileInfo(
-                buildConfiguration()->target()->project()->file()->fileName()).fileName());
+        arguments << QDir::toNativeSeparators(QFileInfo(project()->file()->fileName()).fileName());
     else
-        arguments << QDir::toNativeSeparators(buildConfiguration()->target()->project()->file()->fileName());
+        arguments << QDir::toNativeSeparators(project()->file()->fileName());
 
     arguments << "-r";
     bool userProvidedMkspec = false;
@@ -157,7 +156,11 @@ QString QMakeStep::allArguments(bool shorted)
     arguments << moreArguments();
 
     QString args = Utils::QtcProcess::joinArgs(arguments);
+    // User arguments
     Utils::QtcProcess::addArgs(&args, m_userArgs);
+    // moreArgumentsAfter
+    foreach (const QString &arg, moreArgumentsAfter())
+        Utils::QtcProcess::addArg(&args, arg);
     return args;
 }
 
@@ -195,19 +198,26 @@ QStringList QMakeStep::moreArguments()
         }
     }
 
+
+    return arguments;
+}
+
+QStringList QMakeStep::moreArgumentsAfter()
+{
+    Qt4BuildConfiguration *bc = qt4BuildConfiguration();
     if (bc->qtVersion() && !bc->qtVersion()->supportsShadowBuilds()) {
         // We have a target which does not allow shadow building.
         // But we really don't want to have the build artefacts in the source dir
         // so we try to hack around it, to make the common cases work.
         // This is a HACK, remove once the symbian make generator supports
         // shadow building
-        arguments << QLatin1String("-after")
-                  << QLatin1String("OBJECTS_DIR=obj")
-                  << QLatin1String("MOC_DIR=moc")
-                  << QLatin1String("UI_DIR=ui")
-                  << QLatin1String("RCC_DIR=rcc");
+        return QStringList() << QLatin1String("-after")
+                             << QLatin1String("OBJECTS_DIR=obj")
+                             << QLatin1String("MOC_DIR=moc")
+                             << QLatin1String("UI_DIR=ui")
+                             << QLatin1String("RCC_DIR=rcc");
     }
-    return arguments;
+    return QStringList();
 }
 
 bool QMakeStep::init()
@@ -298,7 +308,7 @@ void QMakeStep::run(QFutureInterface<bool> &fi)
             canContinue = false;
     }
     if (!canContinue) {
-        emit addOutput(tr("Configuration is faulty, please check the Build Issues view for details."), BuildStep::MessageOutput);
+        emit addOutput(tr("Configuration is faulty, please check the Issues view for details."), BuildStep::MessageOutput);
         fi.reportResult(false);
         return;
     }
@@ -447,17 +457,7 @@ QString QMakeStep::mkspec()
         }
     }
 
-    QtSupport::BaseQtVersion *version = bc->qtVersion();
-    // We do not know which abi the Qt version has, so let's stick with the defaults
-    if (version && version->qtAbis().count() == 1 && version->qtAbis().first().isNull())
-        return QString();
-
-    const QString tcSpec = bc->toolChain() ? bc->toolChain()->mkspec() : QString();
-    if (!version)
-        return tcSpec;
-    if (!tcSpec.isEmpty() && version->hasMkspec(tcSpec))
-        return tcSpec;
-    return version->mkspec();
+    return static_cast<Qt4BaseTarget *>(target())->mkspec(bc);
 }
 
 QVariantMap QMakeStep::toMap() const
@@ -731,7 +731,9 @@ void QMakeStepConfigWidget::recompileMessageBoxFinished(int button)
         QList<ProjectExplorer::BuildStepList *> stepLists;
         stepLists << bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
         stepLists << bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
-        ProjectExplorerPlugin::instance()->buildManager()->buildLists(stepLists);
+        ProjectExplorer::BuildManager *bm = ProjectExplorerPlugin::instance()->buildManager();
+        bm->buildLists(stepLists, QStringList() << ProjectExplorerPlugin::displayNameForStepId(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)
+                       << ProjectExplorerPlugin::displayNameForStepId(ProjectExplorer::Constants::BUILDSTEPS_BUILD));
     }
 }
 

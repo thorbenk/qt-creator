@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,7 +26,7 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +35,10 @@
 
 #include "qmljs_global.h"
 #include "parser/qmljsengine_p.h"
+
+#include <QtCore/QRegExp>
+#include <QtCore/QString>
+#include <QtCore/QList>
 
 namespace QmlJS {
 namespace StaticAnalysis {
@@ -73,6 +77,7 @@ enum Type
     WarnUnreachable = 28,
     WarnWith = 29,
     WarnComma = 30,
+    WarnUnnecessaryMessageSuppression = 31,
     WarnAlreadyFormalParameter = 103,
     WarnAlreadyFunction = 104,
     WarnVarUsedBeforeDeclaration = 105,
@@ -121,6 +126,9 @@ public:
 
     bool isValid() const;
     DiagnosticMessage toDiagnosticMessage() const;
+
+    QString suppressionString() const;
+    static QRegExp suppressionPattern();
 
     AST::SourceLocation location;
     QString message;
