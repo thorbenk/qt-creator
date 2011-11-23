@@ -30,22 +30,70 @@
 **
 **************************************************************************/
 
-#include "indexedsymbolinfo.h"
+#include "symbol.h"
 
 using namespace Clang;
 
-IndexedSymbolInfo::IndexedSymbolInfo()
+Symbol::Symbol()
     : m_kind(Unknown)
 {}
 
-IndexedSymbolInfo::IndexedSymbolInfo(const QString &name,
-                                     const QString &qualification,
-                                     Kind type,
-                                     const SourceLocation &location,
-                                     const QIcon &icon)
+Symbol::Symbol(const QString &name,
+               const QString &qualification,
+               Kind type,
+               const SourceLocation &location)
     : m_name(name)
     , m_qualification(qualification)
     , m_location(location)
-    , m_icon(icon)
     , m_kind(type)
 {}
+
+namespace Clang {
+
+QDataStream &operator<<(QDataStream &stream, const Symbol &symbol)
+{
+    stream << symbol.m_name
+           << symbol.m_qualification
+           << symbol.m_location.fileName()
+           << (quint32)symbol.m_location.line()
+           << (quint16)symbol.m_location.column()
+           << (quint32)symbol.m_location.offset()
+           << (qint8)symbol.m_kind;
+
+    return stream;
+}
+
+QDataStream &operator>>(QDataStream &stream, Symbol &symbol)
+{
+    QString fileName;
+    quint32 line;
+    quint16 column;
+    quint32 offset;
+    quint8 kind;
+    stream >> symbol.m_name
+           >> symbol.m_qualification
+           >> fileName
+           >> line
+           >> column
+           >> offset
+           >> kind;
+    symbol.m_location = SourceLocation(fileName, line, column, offset);
+    symbol.m_kind = Symbol::Kind(kind);
+
+    return stream;
+}
+
+bool operator==(const Symbol &a, const Symbol &b)
+{
+    return a.m_name == b.m_name
+            && a.m_qualification == b.m_qualification
+            && a.m_location == b.m_location
+            && a.m_kind == b.m_kind;
+}
+
+bool operator!=(const Symbol &a, const Symbol &b)
+{
+    return !(a == b);
+}
+
+} // Clang

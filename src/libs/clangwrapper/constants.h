@@ -43,8 +43,10 @@ static const QLatin1Char kLParen('(');
 static const QLatin1Char kRParen(')');
 static const QLatin1Char kLBrace('{');
 static const QLatin1Char kRBrace('}');
-static const QLatin1Char kLBracked('[');
-static const QLatin1Char kRBracked(']');
+static const QLatin1Char kLBracket('[');
+static const QLatin1Char kRBracket(']');
+static const QLatin1Char kLABracket('<');
+static const QLatin1Char kRABracket('>');
 static const QLatin1Char kSemiColon(';');
 static const QLatin1Char kPound('#');
 static const QLatin1Char kColon(':');
@@ -53,6 +55,8 @@ static const QLatin1Char kSpace(' ');
 static const QLatin1Char kSlash('/');
 static const QLatin1Char kStar('*');
 static const QLatin1Char kDoubleQuote('"');
+static const QLatin1Char kNewLine('\n');
+static const QLatin1Char kHorizontalTab('\t');
 
 }
 }

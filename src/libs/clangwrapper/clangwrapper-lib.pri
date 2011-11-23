@@ -23,14 +23,16 @@ SOURCES += \
     $$PWD/token.cpp \
     $$PWD/reuse.cpp \
     $$PWD/indexer.cpp \
-    $$PWD/indexedsymbolinfo.cpp \
+    $$PWD/symbol.cpp \
     $$PWD/sourcelocation.cpp \
     $$PWD/unit.cpp \
     $$PWD/liveunitsmanager.cpp \
     $$PWD/codenavigator.cpp \
     $$PWD/pchinfo.cpp \
     $$PWD/unitsetup.cpp \
-    $$PWD/index.cpp
+    $$PWD/index.cpp \
+    $$PWD/includetracker.cpp \
+    $$PWD/dependencygraph.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -42,7 +44,7 @@ HEADERS += \
     $$PWD/constants.h \
     $$PWD/reuse.h \
     $$PWD/indexer.h \
-    $$PWD/indexedsymbolinfo.h \
+    $$PWD/symbol.h \
     $$PWD/cxraii.h \
     $$PWD/sourcelocation.h \
     $$PWD/unit.h \
@@ -51,4 +53,6 @@ HEADERS += \
     $$PWD/codenavigator.h \
     $$PWD/pchinfo.h \
     $$PWD/unitsetup.h \
-    $$PWD/index.h
+    $$PWD/index.h \
+    $$PWD/includetracker.h \
+    $$PWD/dependencygraph.h

@@ -170,6 +170,8 @@ private Q_SLOTS:
     void onDocumentUpdated(CPlusPlus::Document::Ptr doc);
     void onExtraDiagnosticsUpdated(const QString &fileName);
     void onAboutToRemoveProject(ProjectExplorer::Project *project);
+    void onAboutToLoadSession(const QString &sessionName);
+    void onSessionLoaded();
     void onAboutToUnloadSession();
     void onProjectAdded(ProjectExplorer::Project *project);
     void postEditorUpdate();
@@ -267,6 +269,7 @@ private:
 
     Clang::Indexer m_clangIndexer;
     PCHManager m_pchManager;
+    bool m_isLoadingSession;
 };
 #endif
 

@@ -34,7 +34,7 @@
 #define INDEXER_H
 
 #include "clangwrapper_global.h"
-#include "indexedsymbolinfo.h"
+#include "symbol.h"
 #include "pchinfo.h"
 
 #include <QtCore/QObject>
@@ -54,30 +54,29 @@ public:
     Indexer();
     ~Indexer();
 
-public slots:
-    void regenerate();
+    void initialize(const QString &storagePath);
+    void finalize();
 
-public:
+    void regenerate();
     void evaluateFile(const QString &fileName);
-    bool isWorking() const;
-    void stopWorking(bool waitForFinished);
-    void destroy();
+    bool isBusy() const;
+    void cancel(bool waitForFinished);
 
     bool addFile(const QString &fileName, const QStringList &compilationOptions, PCHInfoPtr pchInfo);
     QStringList allFiles() const;
     QStringList compilationOptions(const QString &fileName) const;
 
-    QList<IndexedSymbolInfo> allFunctions() const;
-    QList<IndexedSymbolInfo> allClasses() const;
-    QList<IndexedSymbolInfo> allMethods() const;
-    QList<IndexedSymbolInfo> allConstructors() const;
-    QList<IndexedSymbolInfo> allDestructors() const;
-    QList<IndexedSymbolInfo> functionsFromFile(const QString &fileName) const;
-    QList<IndexedSymbolInfo> classesFromFile(const QString &fileName) const;
-    QList<IndexedSymbolInfo> methodsFromFile(const QString &fileName) const;
-    QList<IndexedSymbolInfo> constructorsFromFile(const QString &fileName) const;
-    QList<IndexedSymbolInfo> destructorsFromFile(const QString &fileName) const;
-    QList<IndexedSymbolInfo> allFromFile(const QString &fileName) const;
+    QList<Symbol> allFunctions() const;
+    QList<Symbol> allClasses() const;
+    QList<Symbol> allMethods() const;
+    QList<Symbol> allConstructors() const;
+    QList<Symbol> allDestructors() const;
+    QList<Symbol> functionsFromFile(const QString &fileName) const;
+    QList<Symbol> classesFromFile(const QString &fileName) const;
+    QList<Symbol> methodsFromFile(const QString &fileName) const;
+    QList<Symbol> constructorsFromFile(const QString &fileName) const;
+    QList<Symbol> destructorsFromFile(const QString &fileName) const;
+    QList<Symbol> allFromFile(const QString &fileName) const;
 
 signals:
     void indexingStarted(QFuture<void> future);

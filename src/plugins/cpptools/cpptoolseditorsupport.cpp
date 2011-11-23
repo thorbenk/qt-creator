@@ -148,7 +148,7 @@ void CppEditorSupport::evaluateFile()
 
 void CppEditorSupport::evaluateFileNow()
 {
-    if (_modelManager->indexer()->isWorking() || m_fileRevision != editorRevision()) {
+    if (_modelManager->indexer()->isBusy() || m_fileRevision != editorRevision()) {
         m_evaluateFileTimer->start(_updateDocumentInterval);
     } else {
         m_evaluateFileTimer->stop();

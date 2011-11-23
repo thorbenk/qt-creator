@@ -39,6 +39,10 @@
 
 #include <QtCore/QString>
 
+QT_BEGIN_NAMESPACE
+class QFileInfo;
+QT_END_NAMESPACE
+
 namespace Clang {
 namespace Internal {
 
@@ -47,6 +51,13 @@ QString getQString(const CXString &cxString, bool disposeCXString = true);
 SourceLocation getInstantiationLocation(const CXSourceLocation &loc);
 
 SourceLocation getSpellingLocation(const CXSourceLocation &loc);
+
+// There are slight differences of behavior from apparently similar Qt file processing functions.
+// For instance, QFileInfo::absoluteFilePath will uppercase driver letters, while the corresponding
+// QDir function will not do so. Besides, we need to keep paths clean. So in order to avoid
+// inconsistencies the functions below should be used for any indexing related task.
+QString normalizeFileName(const QString &fileName);
+QString normalizeFileName(const QFileInfo &fileInfo);
 
 } // Internal
 } // Clang

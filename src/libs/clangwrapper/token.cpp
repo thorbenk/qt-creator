@@ -70,14 +70,24 @@ bool Token::isPunctuationRBrace(const Token &token, const QString &code)
     return isCharCheck(token, code, Constants::kRBrace);
 }
 
-bool Token::isPunctuationLBracked(const Token &token, const QString &code)
+bool Token::isPunctuationLBracket(const Token &token, const QString &code)
 {
-    return isCharCheck(token, code, Constants::kLBracked);
+    return isCharCheck(token, code, Constants::kLBracket);
 }
 
-bool Token::isPunctuationRBracked(const Token &token, const QString &code)
+bool Token::isPunctuationRBracket(const Token &token, const QString &code)
 {
-    return isCharCheck(token, code, Constants::kRBracked);
+    return isCharCheck(token, code, Constants::kRBracket);
+}
+
+bool Token::isPunctuationLABracket(const Token &token, const QString &code)
+{
+    return isCharCheck(token, code, Constants::kLABracket);
+}
+
+bool Token::isPunctuationRABracket(const Token &token, const QString &code)
+{
+    return isCharCheck(token, code, Constants::kRABracket);
 }
 
 bool Token::isPunctuationSemiColon(const Token &token, const QString &code)
@@ -93,6 +103,16 @@ bool Token::isPunctuationPound(const Token &token, const QString &code)
 bool Token::isPunctuationColon(const Token &token, const QString &code)
 {
     return isCharCheck(token, code, Constants::kColon);
+}
+
+bool Token::isPunctuationSpace(const Token &token, const QString &code)
+{
+    return isCharCheck(token, code, Constants::kSpace);
+}
+
+bool Token::isPunctuationNewLine(const Token &token, const QString &code)
+{
+    return isCharCheck(token, code, Constants::kNewLine);
 }
 
 bool Token::isLiteralNumeric(const Token &token, const QString &code)

@@ -32,7 +32,7 @@
 
 #include "codenavigator.h"
 #include "reuse.h"
-#include "indexedsymbolinfo.h"
+#include "symbol.h"
 #include "indexer.h"
 #include "unitsetup.h"
 
@@ -178,28 +178,28 @@ SourceLocation CodeNavigator::findDefinition(const CXCursor &cursor,
     // Definition is not in the unit, use indexed data to look for it.
     if (clang_isDeclaration(cursorKind)
             || clang_isReference(cursorKind)) {
-        QList<IndexedSymbolInfo> indexedInfo;
+        QList<Symbol> indexedSymbol;
         if (cursorKind == CXCursor_ClassDecl
                 || cursorKind == CXCursor_StructDecl
                 || cursorKind == CXCursor_UnionDecl) {
-            indexedInfo = m_setup->indexer()->allClasses();
+            indexedSymbol = m_setup->indexer()->allClasses();
         } else if (cursorKind == CXCursor_FunctionDecl
                    || cursorKind == CXCursor_FunctionTemplate
                    || cursorKind == CXCursor_CXXMethod) {
-            indexedInfo.append(m_setup->indexer()->allFunctions());
-            indexedInfo.append(m_setup->indexer()->allMethods());
+            indexedSymbol.append(m_setup->indexer()->allFunctions());
+            indexedSymbol.append(m_setup->indexer()->allMethods());
         } else if (cursorKind == CXCursor_Constructor) {
-            indexedInfo = m_setup->indexer()->allConstructors();
+            indexedSymbol = m_setup->indexer()->allConstructors();
         } else if (cursorKind == CXCursor_Destructor) {
-            indexedInfo = m_setup->indexer()->allDestructors();
+            indexedSymbol = m_setup->indexer()->allDestructors();
         }
 
-        if (!indexedInfo.isEmpty()) {
+        if (!indexedSymbol.isEmpty()) {
             const QString &spelling = Internal::getQString(clang_getCursorSpelling(cursor));
             // @TODO: Take qualification into consideration.
-            foreach (const IndexedSymbolInfo &info, indexedInfo) {
-                if (info.m_name == spelling) {
-                    return info.m_location;
+            foreach (const Symbol &symbol, indexedSymbol) {
+                if (symbol.m_name == spelling) {
+                    return symbol.m_location;
                 }
             }
         }

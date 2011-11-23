@@ -36,13 +36,11 @@
 #include "sourcelocation.h"
 
 #include <QtCore/QString>
-#include <QtGui/QIcon>
+#include <QtCore/QDataStream>
 
 namespace Clang {
 
-// @TODO: This is pretty similar to CppTools::Internal::ModelItemInfo. Merge/replace these types...
-
-class IndexedSymbolInfo
+class Symbol
 {
 public:
     enum Kind {
@@ -56,19 +54,23 @@ public:
         Unknown
     };
 
-    IndexedSymbolInfo();
-    IndexedSymbolInfo(const QString &name,
-                      const QString &qualification,
-                      Kind type,
-                      const SourceLocation &location,
-                      const QIcon &icon);
+    Symbol();
+    Symbol(const QString &name,
+           const QString &qualification,
+           Kind type,
+           const SourceLocation &location);
 
     QString m_name;
     QString m_qualification;
     SourceLocation m_location;
-    QIcon m_icon;
     Kind m_kind;
 };
+
+QDataStream &operator<<(QDataStream &stream, const Symbol &symbol);
+QDataStream &operator>>(QDataStream &stream, Symbol &symbol);
+
+bool operator==(const Symbol &a, const Symbol &b);
+bool operator!=(const Symbol &a, const Symbol &b);
 
 } // Clang
 

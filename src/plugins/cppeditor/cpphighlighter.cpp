@@ -112,7 +112,7 @@ void CppHighlighter::highlightBlock(const QString &text)
             if (punc.length() == 1) {
                 if (Clang::Token::isPunctuationLBrace(tk, text)
                         || Clang::Token::isPunctuationLParen(tk, text)
-                        || Clang::Token::isPunctuationLBracked(tk, text)) {
+                        || Clang::Token::isPunctuationLBracket(tk, text)) {
                     parentheses.append(Parenthesis(Parenthesis::Opened, punc.at(0), tk.begin()));
                     if (Clang::Token::isPunctuationLBrace(tk, text)) {
                         ++braceDepth;
@@ -125,7 +125,7 @@ void CppHighlighter::highlightBlock(const QString &text)
                         }
                     }
                 } else if (Clang::Token::isPunctuationRBrace(tk, text)
-                           || Clang::Token::isPunctuationRBracked(tk, text)
+                           || Clang::Token::isPunctuationRBracket(tk, text)
                            || Clang::Token::isPunctuationRParen(tk, text)) {
                     parentheses.append(Parenthesis(Parenthesis::Closed, punc.at(0), tk.begin()));
                     if (Clang::Token::isPunctuationRBrace(tk, text)) {

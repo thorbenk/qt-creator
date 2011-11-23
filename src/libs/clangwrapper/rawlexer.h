@@ -59,7 +59,7 @@ public:
 
     void init();
 
-    QList<Token> lex(const QString &code, int *state);
+    QList<Token> lex(const QString &code, int *state = 0);
 
 private:
     enum State {

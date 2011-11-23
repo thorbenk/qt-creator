@@ -40,7 +40,8 @@ unix {
         -lclangAST \
         -lclangParse \
         -lLLVMCore \
-        -lLLVMSupport
+        -lLLVMSupport \
+        -lLLVMMC
 
     exists ($${LLVM_LIBDIR}/libclang.*) {
         #message("LLVM was build with autotools")

@@ -42,6 +42,10 @@
 #include <QtCore/QStringList>
 #include <QtCore/QExplicitlySharedDataPointer>
 
+QT_BEGIN_NAMESPACE
+class QDateTime;
+QT_END_NAMESPACE
+
 namespace Clang {
 namespace Internal {
 
@@ -82,6 +86,8 @@ public:
     bool isLoaded() const;
 
     const QString fileName() const;
+
+    const QDateTime &timeStamp() const;
 
     QStringList compilationOptions() const;
     void setCompilationOptions(const QStringList &compOptions);

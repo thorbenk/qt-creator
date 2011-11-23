@@ -32,6 +32,9 @@
 
 #include "reuse.h"
 
+#include <QtCore/QDir>
+#include <QtCore/QFileInfo>
+
 namespace Clang {
 namespace Internal {
 
@@ -55,7 +58,10 @@ SourceLocation getLocation(const CXSourceLocation &loc,
     CXFile file;
     unsigned line, column, offset;
     (*clangFunction)(loc, &file, &line, &column, &offset);
-    return SourceLocation(getQString(clang_getFileName(file)), line, column, offset);
+    return SourceLocation(normalizeFileName(getQString(clang_getFileName(file))),
+                          line,
+                          column,
+                          offset);
 }
 
 } // Anonymous
@@ -70,6 +76,15 @@ SourceLocation getSpellingLocation(const CXSourceLocation &loc)
     return getLocation(loc, &clang_getSpellingLocation);
 }
 
+QString normalizeFileName(const QString &fileName)
+{
+    return normalizeFileName(QFileInfo(fileName));
+}
+
+QString normalizeFileName(const QFileInfo &fileInfo)
+{
+    return QDir::cleanPath(fileInfo.absoluteFilePath());
+}
+
 } // Internal
 } // Clang
-

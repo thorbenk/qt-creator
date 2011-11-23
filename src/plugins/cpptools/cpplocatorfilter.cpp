@@ -33,7 +33,7 @@
 #include "cpplocatorfilter.h"
 #include "cppmodelmanager.h"
 
-#include <clangwrapper/indexedsymbolinfo.h>
+#include <clangwrapper/symbol.h>
 
 #include <texteditor/itexteditor.h>
 #include <texteditor/basetexteditor.h>
@@ -104,22 +104,20 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
         if (future.isCanceled())
             break;
 
-        QList<Clang::IndexedSymbolInfo> infoList;
+        QList<Clang::Symbol> symbolList;
         if (shortcut == QLatin1String("c")) {
-            infoList.append(m_manager->indexer()->classesFromFile(file));
+            symbolList.append(m_manager->indexer()->classesFromFile(file));
         } else if (shortcut == QLatin1String("m")) {
-            infoList.append(m_manager->indexer()->functionsFromFile(file));
-            infoList.append(m_manager->indexer()->methodsFromFile(file));
+            symbolList.append(m_manager->indexer()->functionsFromFile(file));
+            symbolList.append(m_manager->indexer()->methodsFromFile(file));
         } else if (shortcut == QLatin1String(":")) {
-            infoList.append(m_manager->indexer()->classesFromFile(file));
-            infoList.append(m_manager->indexer()->methodsFromFile(file));
+            symbolList.append(m_manager->indexer()->classesFromFile(file));
+            symbolList.append(m_manager->indexer()->methodsFromFile(file));
         } else if (shortcut == QLatin1String("cd")) {
-            infoList.append(m_manager->indexer()->constructorsFromFile(file));
-            infoList.append(m_manager->indexer()->destructorsFromFile(file));
+            symbolList.append(m_manager->indexer()->constructorsFromFile(file));
+            symbolList.append(m_manager->indexer()->destructorsFromFile(file));
         }
-        foreach (const Clang::IndexedSymbolInfo &symbolInfo, infoList) {
-            // @TODO: Merge ModelItemInfo and IndexedSymbomlInfo since they are pretty much
-            // the same thing.
+        foreach (const Clang::Symbol &symbolInfo, symbolList) {
             ModelItemInfo info(symbolInfo.m_name,
                                symbolInfo.m_qualification,
                                ModelItemInfo::ItemType((int)symbolInfo.m_kind),
@@ -127,7 +125,7 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
                                symbolInfo.m_location.fileName(),
                                symbolInfo.m_location.line(),
                                symbolInfo.m_location.column() - 1, // @TODO: Column position...
-                               symbolInfo.m_icon);
+                               QIcon()); // TODO: Icon...
 
             if ((hasWildcard && regexp.exactMatch(info.symbolName))
                     || (!hasWildcard && matcher.indexIn(info.symbolName) != -1)) {

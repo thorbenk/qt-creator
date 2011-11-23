@@ -37,8 +37,8 @@
 #include <QtCore/QByteArray>
 #include <QtCore/QVector>
 #include <QtCore/QSharedData>
-
-#include <algorithm>
+#include <QtCore/QDateTime>
+#include <QtAlgorithms>
 
 #ifdef DEBUG_UNIT_COUNT
 #  include <QAtomicInt>
@@ -61,13 +61,19 @@ public:
     void unload();
     bool isLoaded() const;
 
+    void updateTimeStamp();
+
+    void releaseRawOptions();
+
     CXIndex m_index;
     CXTranslationUnit m_tu;
     QByteArray m_fileName;
-    QVector<QByteArray> m_compOptions;
+    QStringList m_compOptions;
+    QVector<const char *> m_rawCompOptions;
     PCHInfoPtr m_pchInfo;
     unsigned m_managOptions;
     UnsavedFiles m_unsaved;
+    QDateTime m_timeStamp;
 };
 
 } // Internal
@@ -96,17 +102,20 @@ UnitData::~UnitData()
     unload();
     clang_disposeIndex(m_index);
     m_index = 0;
+    releaseRawOptions();
 }
 
 void UnitData::swap(UnitData *other)
 {
-    std::swap(m_index, other->m_index);
-    std::swap(m_tu, other->m_tu);
-    std::swap(m_fileName, other->m_fileName);
-    std::swap(m_compOptions, other->m_compOptions);
-    std::swap(m_pchInfo, other->m_pchInfo);
-    std::swap(m_managOptions, other->m_managOptions);
-    std::swap(m_unsaved, other->m_unsaved);
+    qSwap(m_index, other->m_index);
+    qSwap(m_tu, other->m_tu);
+    qSwap(m_fileName, other->m_fileName);
+    qSwap(m_compOptions, other->m_compOptions);
+    qSwap(m_rawCompOptions, other->m_rawCompOptions);
+    qSwap(m_pchInfo, other->m_pchInfo);
+    qSwap(m_managOptions, other->m_managOptions);
+    qSwap(m_unsaved, other->m_unsaved);
+    qSwap(m_timeStamp, other->m_timeStamp);
 }
 
 void UnitData::unload()
@@ -124,6 +133,18 @@ bool UnitData::isLoaded() const
 {
     return m_tu && m_index;
 }
+
+void UnitData::updateTimeStamp()
+{
+    m_timeStamp = QDateTime::currentDateTime();
+}
+
+void UnitData::releaseRawOptions()
+{
+    foreach (const char *s, m_rawCompOptions)
+        delete[] s;
+}
+
 
 Unit::Unit()
     : m_data(new UnitData)
@@ -157,19 +178,24 @@ bool Unit::isLoaded() const
     return m_data->isLoaded();
 }
 
+const QDateTime &Unit::timeStamp() const
+{
+    return m_data->m_timeStamp;
+}
+
 QStringList Unit::compilationOptions() const
 {
-    QStringList options;
-    foreach (const QByteArray &ba, m_data->m_compOptions)
-        options.append(ba);
-    return options;
+    return m_data->m_compOptions;
 }
 
 void Unit::setCompilationOptions(const QStringList &compOptions)
 {
-    m_data->m_compOptions.resize(compOptions.size());
-    foreach (const QString &option, compOptions)
-        m_data->m_compOptions.append(option.toUtf8());
+    m_data->m_compOptions = compOptions;
+
+    m_data->releaseRawOptions();
+    m_data->m_rawCompOptions.resize(compOptions.size());
+    for (int i = 0; i < compOptions.size(); ++i)
+        m_data->m_rawCompOptions[i] = qstrdup(compOptions[i].toUtf8());
 }
 
 PCHInfoPtr Unit::pchInfo() const
@@ -218,17 +244,18 @@ void Unit::parse()
 {
     m_data->unload();
 
-    const char **argv = new const char*[m_data->m_compOptions.size()];
-    for (int i = 0; i < m_data->m_compOptions.size(); ++i)
-        argv[i] = m_data->m_compOptions.at(i).constData();
+    const char **arguments = 0;
+    if (!m_data->m_rawCompOptions.isEmpty())
+        arguments = &m_data->m_rawCompOptions[0];
+
+    m_data->updateTimeStamp();
 
     m_data->m_tu = clang_parseTranslationUnit(m_data->m_index,
                                               m_data->m_fileName.constData(),
-                                              argv, m_data->m_compOptions.size(),
+                                              arguments, m_data->m_compOptions.size(),
                                               // @TODO: Extract UnsavedFileData...
                                               0, 0,
                                               m_data->m_managOptions);
-    delete[] argv;
 #ifdef DEBUG_UNIT_COUNT
     if (m_data->m_tu)
         qDebug()<<"# translation units:"<< (unitDataCount.fetchAndAddOrdered(1)+1);

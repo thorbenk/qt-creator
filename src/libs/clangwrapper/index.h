@@ -33,15 +33,18 @@
 #ifndef INDEX_H
 #define INDEX_H
 
-#include "indexedsymbolinfo.h"
+#include "symbol.h"
 
+#include <QtCore/QByteArray>
 #include <QtCore/QString>
 #include <QtCore/QList>
 #include <QtCore/QScopedPointer>
+#include <QtCore/QDateTime>
+#include <QStringList>
 
 namespace Clang {
 
-class IndexedSymbolInfo;
+class Symbol;
 
 namespace Internal {
 
@@ -53,12 +56,26 @@ public:
     Index();
     ~Index();
 
-    void insert(const IndexedSymbolInfo &info);
-    QList<IndexedSymbolInfo> values(const QString &fileName);
-    QList<IndexedSymbolInfo> values(const QString &fileName, IndexedSymbolInfo::Kind kind);
-    QList<IndexedSymbolInfo> values(IndexedSymbolInfo::Kind kind);
-    void clear(const QString &fileName);
+    void insertSymbol(const Symbol &symbol, const QDateTime &timeStamp);
+    QList<Symbol> symbols(const QString &fileName) const;
+    QList<Symbol> symbols(const QString &fileName, Symbol::Kind kind) const;
+    QList<Symbol> symbols(const QString &fileName, Symbol::Kind kind, const QString &uqName) const;
+    QList<Symbol> symbols(Symbol::Kind kind) const;
+
+    void insertFile(const QString &fileName, const QDateTime &timeStamp);
+    void removeFile(const QString &fileName);
+    void removeFiles(const QStringList &fileNames);
+    bool containsFile(const QString &fileName) const;
+    QStringList files() const;
+
+    bool validate(const QString &fileName) const;
+
     void clear();
+
+    bool isEmpty() const;
+
+    QByteArray serialize() const;
+    void deserialize(const QByteArray &data);
 
 private:
     QScopedPointer<IndexPrivate> d;

@@ -35,6 +35,8 @@
 
 #include <clang/Lex/Lexer.h>
 
+#include <QtCore/QDebug>
+
 using namespace Clang;
 
 RawLexer::RawLexer()
@@ -83,9 +85,13 @@ QList<Token> RawLexer::lex(const QString &code, int *state)
     if (code.isEmpty())
         return QList<Token>();
 
-    if (*state == -1)
-        *state = Normal;
-    m_state = State(*state);
+    if (state) {
+        if (*state == -1)
+            *state = Normal;
+        m_state = State(*state);
+    } else {
+        m_state = Normal;
+    }
 
     unsigned artificialOffset = 0;
     QString lexedCode = code;
@@ -101,7 +107,7 @@ QList<Token> RawLexer::lex(const QString &code, int *state)
     }
 
     // Encoding?
-    QByteArray rawCode = lexedCode.toLocal8Bit();
+    QByteArray rawCode = lexedCode.toLatin1();
 
     const char *begin = rawCode.constData();
     const char *end = begin + rawCode.length();
@@ -172,9 +178,10 @@ QList<Token> RawLexer::lex(const QString &code, int *state)
             break;
 
         tokens.push_back(token);
-    } while (lexer.getBufferLocation() <= end);
+    } while (lexer.getBufferLocation() < end);
 
-    *state = m_state;
+    if (state)
+        *state = m_state;
 
     return tokens;
 }

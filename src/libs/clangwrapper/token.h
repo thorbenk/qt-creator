@@ -68,11 +68,15 @@ public:
     static bool isPunctuationRParen(const Token &token, const QString &code);
     static bool isPunctuationLBrace(const Token &token, const QString &code);
     static bool isPunctuationRBrace(const Token &token, const QString &code);
-    static bool isPunctuationLBracked(const Token &token, const QString &code);
-    static bool isPunctuationRBracked(const Token &token, const QString &code);
+    static bool isPunctuationLBracket(const Token &token, const QString &code);
+    static bool isPunctuationRBracket(const Token &token, const QString &code);
+    static bool isPunctuationLABracket(const Token &token, const QString &code);
+    static bool isPunctuationRABracket(const Token &token, const QString &code);
     static bool isPunctuationSemiColon(const Token &token, const QString &code);
     static bool isPunctuationPound(const Token &token, const QString &code);
     static bool isPunctuationColon(const Token &token, const QString &code);
+    static bool isPunctuationSpace(const Token &token, const QString &code);
+    static bool isPunctuationNewLine(const Token &token, const QString &code);
     static bool isLiteralNumeric(const Token &token, const QString &code);
     static bool isLiteralText(const Token &token, const QString &code);
 
