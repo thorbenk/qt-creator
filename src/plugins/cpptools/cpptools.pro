@@ -85,3 +85,8 @@ HEADERS += clangcompletion.h \
 SOURCES += clangcompletion.cpp \
     cppcreatemarkers.cpp \
     clangutils.cpp
+
+equals(TEST, 1) {
+    SOURCES += \
+        cppcodegen_test.cpp
+}

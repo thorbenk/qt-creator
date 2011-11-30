@@ -51,16 +51,17 @@
     \endraw
 
     \list
-       \o \l{IDE Overview}
-       \o \l{User Interface}
        \o \l{Getting Started}
            \list
+               \o \l{IDE Overview}
+               \o \l{User Interface}
                \o \l{Building and Running an Example Application}
+               \o \l{Tutorials}
+               \list
                \o \l{Creating a Qt Quick Application}
                \o \l{Creating a Qt Quick Application Using Qt Quick Components}
                \o \l{Creating a Qt Widget Based Application}
-               \o \l{Creating a Qt Widget Based Mobile Application}
-
+               \endlist
            \endlist
        \o \l{Managing Projects}
             \list
@@ -162,6 +163,7 @@
                \o \l{Supported Platforms}
                \o \l{Adding New Custom Wizards}
                \o \l{Setting Up a CMake Project}
+               \o \l{Setting Up an Autotools Project}
                \o \l{Setting Up a Generic Project}
                \o \l{Using Version Control Systems}
                \o \l{Adding Qt Designer Plugins}

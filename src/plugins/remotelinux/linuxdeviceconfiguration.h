@@ -37,6 +37,7 @@
 #include <QtCore/QSharedPointer>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
+#include <QtCore/QVariantHash>
 #include <QtGui/QWizard>
 
 QT_BEGIN_NAMESPACE
@@ -72,12 +73,13 @@ public:
 
     PortList freePorts() const;
     Utils::SshConnectionParameters sshParameters() const;
-    QString name() const;
+    QString displayName() const;
     QString osType() const;
     DeviceType deviceType() const;
     Id internalId() const;
     bool isDefault() const;
     bool isAutoDetected() const;
+    QVariantHash attributes() const;
 
     static QString defaultPrivateKeyFilePath();
     static QString defaultPublicKeyFilePath();
@@ -86,11 +88,11 @@ public:
 
     static Ptr create(const QString &name, const QString &osType, DeviceType deviceType,
         const PortList &freePorts, const Utils::SshConnectionParameters &sshParams,
-        Origin origin = ManuallyAdded);
+        const QVariantHash &attributes = QVariantHash(), Origin origin = ManuallyAdded);
 private:
     LinuxDeviceConfiguration(const QString &name, const QString &osType, DeviceType deviceType,
         const PortList &freePorts, const Utils::SshConnectionParameters &sshParams,
-        Origin origin);
+        const QVariantHash &attributes, Origin origin);
     LinuxDeviceConfiguration(const QSettings &settings, Id &nextId);
     LinuxDeviceConfiguration(const ConstPtr &other);
 
@@ -100,7 +102,7 @@ private:
     static Ptr create(const QSettings &settings, Id &nextId);
     static Ptr create(const ConstPtr &other);
 
-    void setName(const QString &name);
+    void setDisplayName(const QString &name);
     void setInternalId(Id id);
     void setDefault(bool isDefault);
     void setSshParameters(const Utils::SshConnectionParameters &sshParameters);

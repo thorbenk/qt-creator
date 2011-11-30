@@ -36,9 +36,6 @@
 #include <QtGui/QDialog>
 
 QT_BEGIN_NAMESPACE
-namespace Ui {
-    class NickNameDialog;
-}
 class QSortFilterProxyModel;
 class QStandardItemModel;
 class QModelIndex;
@@ -48,8 +45,12 @@ QT_END_NAMESPACE
 namespace VCSBase {
 namespace Internal {
 
-class NickNameDialog : public QDialog {
+namespace Ui { class NickNameDialog; }
+
+class NickNameDialog : public QDialog
+{
     Q_OBJECT
+
 public:
     explicit NickNameDialog(QStandardItemModel *model, QWidget *parent = 0);
     virtual ~NickNameDialog();
@@ -75,7 +76,6 @@ private:
     Ui::NickNameDialog *m_ui;
     QStandardItemModel *m_model;
     QSortFilterProxyModel *m_filterModel;
-
 };
 
 } // namespace Internal

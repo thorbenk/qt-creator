@@ -390,7 +390,7 @@ void FakeVimExCommandsPage::initialize()
             continue;
 
         QTreeWidgetItem *item = new QTreeWidgetItem;
-        const QString name = Id::fromUniqueIdentifier(c->id()).toString();
+        const QString name = c->id().toString();
         const int pos = name.indexOf(QLatin1Char('.'));
         const QString section = name.left(pos);
         const QString subId = name.mid(pos + 1);
@@ -991,7 +991,7 @@ bool FakeVimPluginPrivate::initialize()
 
     for (int i = 1; i < 10; ++i) {
         QAction *act = new QAction(this);
-        act->setText(QString("Execute User Action #%1").arg(i));
+        act->setText(tr("Execute User Action #%1").arg(i));
         act->setData(i);
         QString id = QString("FakeVim.UserAction%1").arg(i);
         QString keys = QString("Alt+V,%1").arg(i);

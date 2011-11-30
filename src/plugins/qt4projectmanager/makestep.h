@@ -39,12 +39,6 @@
 #include <projectexplorer/buildstep.h>
 #include <projectexplorer/task.h>
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
-class MakeStep;
-}
-QT_END_NAMESPACE
-
 namespace ProjectExplorer {
 class BuildStep;
 class GnuMakeParser;
@@ -53,9 +47,12 @@ class Project;
 }
 
 namespace Qt4ProjectManager {
+
 class Qt4BuildConfiguration;
 
 namespace Internal {
+
+namespace Ui { class MakeStep; }
 
 class MakeStepFactory : public ProjectExplorer::IBuildStepFactory
 {
@@ -141,7 +138,7 @@ private slots:
     void userArgumentsChanged();
     void qtVersionChanged();
 private:
-    Ui::MakeStep *m_ui;
+    Internal::Ui::MakeStep *m_ui;
     MakeStep *m_makeStep;
     QString m_summaryText;
     bool m_ignoreChange;

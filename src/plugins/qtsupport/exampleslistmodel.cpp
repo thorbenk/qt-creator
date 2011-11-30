@@ -65,6 +65,10 @@ ExamplesListModel::ExamplesListModel(QObject *parent) :
     roleNames[Difficulty] = "difficulty";
     roleNames[Type] = "type";
     roleNames[HasSourceCode] = "hasSourceCode";
+    roleNames[Dependencies] = "dependencies";
+    roleNames[IsVideo] = "isVideo";
+    roleNames[VideoUrl] = "videoUrl";
+    roleNames[VideoLength] = "videoLength";
     setRoleNames(roleNames);
 
     connect(QtVersionManager::instance(), SIGNAL(updateExamples(QString,QString,QString)),
@@ -73,7 +77,7 @@ ExamplesListModel::ExamplesListModel(QObject *parent) :
             SLOT(helpInitialized()));
 }
 
-static inline QString fixSTringForTags(const QString &string)
+static inline QString fixStringForTags(const QString &string)
 {
     QString returnString = string;
     returnString.remove(QLatin1String("<i>"));
@@ -104,7 +108,9 @@ QList<ExampleItem> ExamplesListModel::parseExamples(QXmlStreamReader* reader, co
             } else if (reader->name() == QLatin1String("fileToOpen")) {
                 item.filesToOpen.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("description")) {
-                item.description =  fixSTringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
+                item.description =  fixStringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
+            } else if (reader->name() == QLatin1String("dependency")) {
+                item.dependencies.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("tags")) {
                 item.tags = reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement).split(",");
                 m_tags.append(item.tags);
@@ -144,7 +150,9 @@ QList<ExampleItem> ExamplesListModel::parseDemos(QXmlStreamReader* reader, const
             } else if (reader->name() == QLatin1String("fileToOpen")) {
                 item.filesToOpen.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("description")) {
-                item.description =  fixSTringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
+                item.description =  fixStringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
+            } else if (reader->name() == QLatin1String("dependency")) {
+                item.dependencies.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("tags")) {
                 item.tags = reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement).split(",");
             }
@@ -178,12 +186,22 @@ QList<ExampleItem> ExamplesListModel::parseTutorials(QXmlStreamReader* reader, c
                 item.hasSourceCode = !item.projectPath.isEmpty();
                 item.projectPath.prepend('/');
                 item.projectPath.prepend(projectsOffset);
-                item.imageUrl = attributes.value(QLatin1String("imageUrl")).toString();
-                item.docUrl = attributes.value(QLatin1String("docUrl")).toString();
+                if (attributes.hasAttribute(QLatin1String("imageUrl")))
+                    item.imageUrl = attributes.value(QLatin1String("imageUrl")).toString();
+                if (attributes.hasAttribute(QLatin1String("docUrl")))
+                    item.docUrl = attributes.value(QLatin1String("docUrl")).toString();
+                if (attributes.hasAttribute(QLatin1String("isVideo")))
+                    item.isVideo = attributes.value(QLatin1String("isVideo")).toString() == QLatin1String("true");
+                if (attributes.hasAttribute(QLatin1String("videoUrl")))
+                    item.videoUrl = attributes.value(QLatin1String("videoUrl")).toString();
+                if (attributes.hasAttribute(QLatin1String("videoLength")))
+                    item.videoLength = attributes.value(QLatin1String("videoLength")).toString();
             } else if (reader->name() == QLatin1String("fileToOpen")) {
                 item.filesToOpen.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("description")) {
-                item.description =  fixSTringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
+                item.description =  fixStringForTags(reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
+            } else if (reader->name() == QLatin1String("dependency")) {
+                item.dependencies.append(projectsOffset + '/' + reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement));
             } else if (reader->name() == QLatin1String("tags")) {
                 item.tags = reader->readElementText(QXmlStreamReader::ErrorOnUnexpectedElement).split(",");
             }
@@ -360,10 +378,18 @@ QVariant ExamplesListModel::data(const QModelIndex &index, int role) const
         return item.tags;
     case Difficulty:
         return item.difficulty;
+    case Dependencies:
+        return item.dependencies;
     case HasSourceCode:
         return item.hasSourceCode;
     case Type:
         return item.type;
+    case IsVideo:
+        return item.isVideo;
+    case VideoUrl:
+        return item.videoUrl;
+    case VideoLength:
+        return item.videoLength;
     default:
         qDebug() << Q_FUNC_INFO << "role type not supported";
         return QVariant();
@@ -411,6 +437,12 @@ bool ExamplesListModelFilter::filterAcceptsRow(int sourceRow, const QModelIndex 
     if (m_showTutorialsOnly) {
         int type = sourceModel()->index(sourceRow, 0, sourceParent).data(Type).toInt();
         if (type != Tutorial)
+            return false;
+    }
+
+    if (!m_showTutorialsOnly) {
+        int type = sourceModel()->index(sourceRow, 0, sourceParent).data(Type).toInt();
+        if (type != Example)
             return false;
     }
 

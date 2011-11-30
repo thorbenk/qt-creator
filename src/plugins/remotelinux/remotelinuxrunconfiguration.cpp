@@ -127,8 +127,6 @@ RemoteLinuxRunConfiguration::RemoteLinuxRunConfiguration(Qt4BaseTarget *parent,
 void RemoteLinuxRunConfiguration::init()
 {
     setDefaultDisplayName(defaultDisplayName());
-    setUseCppDebugger(true);
-    setUseQmlDebugger(false);
 
     connect(target(),
         SIGNAL(activeDeployConfigurationChanged(ProjectExplorer::DeployConfiguration*)),
@@ -162,10 +160,6 @@ bool RemoteLinuxRunConfiguration::isEnabled() const
     }
     if (!d->validParse) {
         d->disabledReason = tr("The .pro file could not be parsed.");
-        return false;
-    }
-    if (!deviceConfig()) {
-        d->disabledReason = tr("No device configuration set.");
         return false;
     }
     if (!activeQt4BuildConfiguration()) {
@@ -364,26 +358,15 @@ QString RemoteLinuxRunConfiguration::alternateRemoteExecutable() const
     return d->alternateRemoteExecutable;
 }
 
-RemoteLinuxRunConfiguration::DebuggingType RemoteLinuxRunConfiguration::debuggingType() const
-{
-    if (useCppDebugger()) {
-        if (useQmlDebugger())
-            return DebugCppAndQml;
-        return DebugCppOnly;
-    }
-    return DebugQmlOnly;
-}
-
 int RemoteLinuxRunConfiguration::portsUsedByDebuggers() const
 {
-    switch (debuggingType()) {
-    case DebugCppOnly:
-    case DebugQmlOnly:
-        return 1;
-    case DebugCppAndQml:
-    default:
-        return 2;
-    }
+    int ports = 0;
+    if (useQmlDebugger())
+        ++ports;
+    if (useCppDebugger())
+        ++ports;
+
+    return ports;
 }
 
 void RemoteLinuxRunConfiguration::updateDeviceConfigurations()

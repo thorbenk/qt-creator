@@ -29,20 +29,17 @@
 ** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #ifndef MAEMOPUBLISHINGUPLOADSETTINGSWIZARDPAGE_H
 #define MAEMOPUBLISHINGUPLOADSETTINGSWIZARDPAGE_H
 
 #include <QtGui/QWizardPage>
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
-    class MaemoPublishingUploadSettingsPageFremantleFree;
-}
-QT_END_NAMESPACE
-
 namespace Madde {
 namespace Internal {
+
 class MaemoPublisherFremantleFree;
+namespace Ui { class MaemoPublishingUploadSettingsPageFremantleFree; }
 
 class MaemoPublishingUploadSettingsPageFremantleFree : public QWizardPage
 {

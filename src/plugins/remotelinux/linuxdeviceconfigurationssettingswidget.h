@@ -41,8 +41,6 @@
 QT_BEGIN_NAMESPACE
 class QLineEdit;
 class QSignalMapper;
-
-class Ui_LinuxDeviceConfigurationsSettingsWidget;
 QT_END_NAMESPACE
 
 namespace RemoteLinux {
@@ -51,6 +49,7 @@ class LinuxDeviceConfiguration;
 class LinuxDeviceConfigurations;
 
 namespace Internal {
+namespace Ui { class LinuxDeviceConfigurationsSettingsWidget; }
 class NameValidator;
 
 class LinuxDeviceConfigurationsSettingsWidget : public QWidget
@@ -96,7 +95,7 @@ private:
     void updatePortsWarningLabel();
     const ILinuxDeviceConfigurationFactory *factoryForCurrentConfig() const;
 
-    Ui_LinuxDeviceConfigurationsSettingsWidget *m_ui;
+    Ui::LinuxDeviceConfigurationsSettingsWidget *m_ui;
     const QScopedPointer<LinuxDeviceConfigurations> m_devConfigs;
     NameValidator * const m_nameValidator;
     bool m_saveSettingsRequested;

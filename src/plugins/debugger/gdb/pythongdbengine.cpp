@@ -93,12 +93,14 @@ void GdbEngine::updateLocalsPython(const UpdateParameters &params)
 
     const static bool alwaysVerbose = !qgetenv("QTC_DEBUGGER_PYTHON_VERBOSE").isEmpty();
     QByteArray options;
+    if (alwaysVerbose)
+        options += "pe,";
     if (debuggerCore()->boolSetting(UseDebuggingHelpers))
         options += "fancy,";
     if (debuggerCore()->boolSetting(AutoDerefPointers))
         options += "autoderef,";
-    if (alwaysVerbose)
-        options += "pe,";
+    if (debuggerCore()->boolSetting(UseDynamicType))
+        options += "dyntype,";
     if (options.isEmpty())
         options += "defaults,";
     if (params.tryPartial)
@@ -191,6 +193,7 @@ void GdbEngine::handleStackFramePython(const GdbResponse &response)
         }
         if (!partial)
             emit stackFrameCompleted();
+        handleAutoTests();
     } else {
         showMessage(_("DUMPER FAILED: " + response.toString()));
     }

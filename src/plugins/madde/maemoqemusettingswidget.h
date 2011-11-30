@@ -34,14 +34,10 @@
 
 #include <QtGui/QWidget>
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
-    class MaemoQemuSettingsWidget;
-}
-QT_END_NAMESPACE
-
 namespace Madde {
 namespace Internal {
+
+namespace Ui { class MaemoQemuSettingsWidget; }
 
 class MaemoQemuSettingsWidget : public QWidget
 {

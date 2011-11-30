@@ -42,6 +42,8 @@
 
 #include <QtCore/QTimer>
 
+#include <cstring>
+
 /*!
     \class Utils::SshRemoteProcess
 
@@ -49,17 +51,10 @@
 
     Objects are created via SshConnection::createRemoteProcess.
     The process is started via the start() member function.
-    A closeChannel() function is provided, but rarely useful, because
-
-    \list
-    \i  a) when the process ends, the channel is closed automatically, and
-    \i  b) closing a channel will not necessarily kill the remote process.
-    \endlist
-
-    Therefore, the only sensible use case for calling closeChannel() is to
-    get rid of an SshRemoteProces object before the process is actually started.
     If the process needs a pseudo terminal, you can request one
     via requestTerminal() before calling start().
+    Note that this class does not support QIODevice's waitFor*() functions, i.e. it has
+    no synchronous mode.
  */
 
 namespace Utils {
@@ -99,12 +94,80 @@ SshRemoteProcess::~SshRemoteProcess()
     delete d;
 }
 
+bool SshRemoteProcess::atEnd() const
+{
+    return QIODevice::atEnd() && d->data().isEmpty();
+}
+
+qint64 SshRemoteProcess::bytesAvailable() const
+{
+    return QIODevice::bytesAvailable() + d->data().count();
+}
+
+bool SshRemoteProcess::canReadLine() const
+{
+    return QIODevice::canReadLine() || d->data().contains('\n');
+}
+
+QByteArray SshRemoteProcess::readAllStandardOutput()
+{
+    return readAllFromChannel(QProcess::StandardOutput);
+}
+
+QByteArray SshRemoteProcess::readAllStandardError()
+{
+    return readAllFromChannel(QProcess::StandardError);
+}
+
+QByteArray SshRemoteProcess::readAllFromChannel(QProcess::ProcessChannel channel)
+{
+    const QProcess::ProcessChannel currentReadChannel = readChannel();
+    setReadChannel(channel);
+    const QByteArray &data = readAll();
+    setReadChannel(currentReadChannel);
+    return data;
+}
+
+void SshRemoteProcess::close()
+{
+    d->closeChannel();
+    QIODevice::close();
+}
+
+qint64 SshRemoteProcess::readData(char *data, qint64 maxlen)
+{
+    const qint64 bytesRead = qMin(qint64(d->data().count()), maxlen);
+    memcpy(data, d->data().constData(), bytesRead);
+    d->data().remove(0, bytesRead);
+    return bytesRead;
+}
+
+qint64 SshRemoteProcess::writeData(const char *data, qint64 len)
+{
+    if (isRunning()) {
+        d->sendData(QByteArray(data, len));
+        return len;
+    }
+    return 0;
+}
+
+QProcess::ProcessChannel SshRemoteProcess::readChannel() const
+{
+    return d->m_readChannel;
+}
+
+void SshRemoteProcess::setReadChannel(QProcess::ProcessChannel channel)
+{
+    d->m_readChannel = channel;
+}
+
 void SshRemoteProcess::init()
 {
     connect(d, SIGNAL(started()), this, SIGNAL(started()),
         Qt::QueuedConnection);
     connect(d, SIGNAL(readyReadStandardOutput()), this, SIGNAL(readyReadStandardOutput()),
         Qt::QueuedConnection);
+    connect(d, SIGNAL(readyRead()), this, SIGNAL(readyRead()), Qt::QueuedConnection);
     connect(d, SIGNAL(readyReadStandardError()), this,
         SIGNAL(readyReadStandardError()), Qt::QueuedConnection);
     connect(d, SIGNAL(closed(int)), this, SIGNAL(closed(int)), Qt::QueuedConnection);
@@ -129,6 +192,7 @@ void SshRemoteProcess::start()
 #ifdef CREATOR_SSH_DEBUG
         qDebug("process start requested, channel id = %u", d->localChannelId());
 #endif
+        QIODevice::open(QIODevice::ReadWrite);
         d->requestSessionStart();
     }
 }
@@ -140,20 +204,9 @@ void SshRemoteProcess::sendSignal(const QByteArray &signal)
             d->m_sendFacility.sendChannelSignalPacket(d->remoteChannel(),
                 signal);
     }  catch (Botan::Exception &e) {
-        d->setError(QString::fromAscii(e.what()));
+        setErrorString(QString::fromAscii(e.what()));
         d->closeChannel();
     }
-}
-
-void SshRemoteProcess::closeChannel()
-{
-    d->closeChannel();
-}
-
-void SshRemoteProcess::sendInput(const QByteArray &data)
-{
-    if (isRunning())
-        d->sendData(data);
 }
 
 bool SshRemoteProcess::isRunning() const
@@ -161,14 +214,8 @@ bool SshRemoteProcess::isRunning() const
     return d->m_procState == Internal::SshRemoteProcessPrivate::Running;
 }
 
-QString SshRemoteProcess::errorString() const { return d->errorString(); }
-
 int SshRemoteProcess::exitCode() const { return d->m_exitCode; }
-
 QByteArray SshRemoteProcess::exitSignal() const { return d->m_signal; }
-
-QByteArray SshRemoteProcess::readAllStandardOutput() { return d->readAllStandardOutput(); }
-QByteArray SshRemoteProcess::readAllStandardError() { return d->readAllStandardError(); }
 
 namespace Internal {
 
@@ -198,6 +245,7 @@ void SshRemoteProcessPrivate::init()
     m_procState = NotYetStarted;
     m_wasRunning = false;
     m_exitCode = 0;
+    m_readChannel = QProcess::StandardOutput;
 }
 
 void SshRemoteProcessPrivate::setProcState(ProcessState newState)
@@ -214,18 +262,9 @@ void SshRemoteProcessPrivate::setProcState(ProcessState newState)
     }
 }
 
-QByteArray SshRemoteProcessPrivate::readAllStandardOutput()
+QByteArray &SshRemoteProcessPrivate::data()
 {
-    const QByteArray data = m_stdout;
-    m_stdout.clear();
-    return data;
-}
-
-QByteArray SshRemoteProcessPrivate::readAllStandardError()
-{
-    const QByteArray data = m_stderr;
-    m_stderr.clear();
-    return data;
+    return m_readChannel == QProcess::StandardOutput ? m_stdout : m_stderr;
 }
 
 void SshRemoteProcessPrivate::closeHook()
@@ -256,9 +295,10 @@ void SshRemoteProcessPrivate::handleOpenSuccessInternal()
    m_timeoutTimer->start(ReplyTimeout);
 }
 
-void SshRemoteProcessPrivate::handleOpenFailureInternal()
+void SshRemoteProcessPrivate::handleOpenFailureInternal(const QString &reason)
 {
    setProcState(StartFailed);
+   m_proc->setErrorString(reason);
 }
 
 void SshRemoteProcessPrivate::handleChannelSuccess()
@@ -286,6 +326,8 @@ void SshRemoteProcessPrivate::handleChannelDataInternal(const QByteArray &data)
 {
     m_stdout += data;
     emit readyReadStandardOutput();
+    if (m_readChannel == QProcess::StandardOutput)
+        emit readyRead();
 }
 
 void SshRemoteProcessPrivate::handleChannelExtendedDataInternal(quint32 type,
@@ -296,6 +338,8 @@ void SshRemoteProcessPrivate::handleChannelExtendedDataInternal(quint32 type,
     } else {
         m_stderr += data;
         emit readyReadStandardError();
+        if (m_readChannel == QProcess::StandardError)
+            emit readyRead();
     }
 }
 
@@ -313,9 +357,9 @@ void SshRemoteProcessPrivate::handleExitSignal(const SshChannelExitSignal &signa
 #ifdef CREATOR_SSH_DEBUG
     qDebug("Exit due to signal %s", signal.signal.data());
 #endif
-    setError(signal.error);
     m_signal = signal.signal;
     m_procState = Exited;
+    m_proc->setErrorString(tr("Process killed by signal"));
 }
 
 } // namespace Internal

@@ -29,24 +29,21 @@
 ** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #ifndef MAEMOPUBLISHINGBUILDSETTINGSPAGEFREMANTLEFREE_H
 #define MAEMOPUBLISHINGBUILDSETTINGSPAGEFREMANTLEFREE_H
 
 #include <QtCore/QList>
 #include <QtGui/QWizardPage>
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
-    class MaemoPublishingWizardPageFremantleFree;
-}
-QT_END_NAMESPACE
-
 namespace ProjectExplorer { class Project; }
 namespace Qt4ProjectManager { class Qt4BuildConfiguration; }
 
 namespace Madde {
 namespace Internal {
+
 class MaemoPublisherFremantleFree;
+namespace Ui { class MaemoPublishingWizardPageFremantleFree; }
 
 class MaemoPublishingBuildSettingsPageFremantleFree : public QWizardPage
 {

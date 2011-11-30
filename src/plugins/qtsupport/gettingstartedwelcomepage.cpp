@@ -33,6 +33,7 @@
 #include "gettingstartedwelcomepage.h"
 
 #include "exampleslistmodel.h"
+#include "screenshotcropper.h"
 
 #include <utils/pathchooser.h>
 #include <utils/fileutils.h>
@@ -47,12 +48,27 @@
 #include <QtCore/QMutexLocker>
 #include <QtCore/QWeakPointer>
 #include <QtCore/QWaitCondition>
+#include <QtCore/QDir>
+#include <QtCore/QBuffer>
 #include <QtGui/QGraphicsProxyWidget>
 #include <QtGui/QScrollBar>
 #include <QtGui/QSortFilterProxyModel>
+#include <QtGui/QImage>
+#include <QtGui/QImageReader>
+#include <QtGui/QGridLayout>
+#include <QtGui/QLabel>
+#include <QtGui/QDialogButtonBox>
+#include <QtGui/QPushButton>
+#include <QtGui/QMessageBox>
+#include <QtGui/QApplication>
+#include <QtGui/QMainWindow>
 #include <QtSql/QSqlQueryModel>
 #include <QtSql/QSqlQuery>
+#include <QtDeclarative/QDeclarativeImageProvider>
+#include <QtDeclarative/QDeclarativeEngine>
+#include <QtDeclarative/QDeclarativeContext>
 #include <QtDeclarative>
+#include <QtGui/QDesktopServices>
 
 namespace QtSupport {
 namespace Internal {
@@ -155,12 +171,13 @@ public:
     // gets called by declarative in separate thread
     QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize)
     {
+        Q_UNUSED(size)
         QMutexLocker lock(&m_mutex);
 
         QUrl url = QUrl::fromEncoded(id.toAscii());
 
-         if (!m_fetcher.asynchronousFetchData(url))
-             return QImage();
+        if (!m_fetcher.asynchronousFetchData(url))
+            return QImage();
 
         if (m_fetcher.data().isEmpty())
             return QImage();
@@ -169,44 +186,67 @@ public:
         imgBuffer.open(QIODevice::ReadOnly);
         QImageReader reader(&imgBuffer);
         QImage img = reader.read();
-        if (size && requestedSize != *size)
-            img = img.scaled(requestedSize);
 
         m_fetcher.clearData();
-        return img;
+        return ScreenshotCropper::croppedImage(img, id, requestedSize);
     }
 private:
     Fetcher m_fetcher;
     QMutex m_mutex;
 };
 
-GettingStartedWelcomePage::GettingStartedWelcomePage()
-    : m_engine(0),  m_showExamples(false)
+GettingStartedWelcomePage::GettingStartedWelcomePage() : m_engine(0)
 {
+
 }
 
-void GettingStartedWelcomePage::setShowExamples(bool showExamples)
+QUrl GettingStartedWelcomePage::pageLocation() const
 {
-    m_showExamples = showExamples;
+    return QUrl::fromLocalFile(Core::ICore::instance()->resourcePath() + QLatin1String("/welcomescreen/gettingstarted.qml"));
 }
 
 QString GettingStartedWelcomePage::title() const
 {
-    if (m_showExamples)
-        return tr("Demos and Examples");
-    else
-        return tr("Getting Started");
+    return tr("Getting Started");
 }
 
- int GettingStartedWelcomePage::priority() const
+int GettingStartedWelcomePage::priority() const
+{
+    return 0;
+}
+
+void GettingStartedWelcomePage::facilitateQml(QDeclarativeEngine *engine)
+{
+    m_engine = engine;
+}
+
+ExamplesWelcomePage::ExamplesWelcomePage()
+    : m_engine(0),  m_showExamples(false)
+{
+}
+
+void ExamplesWelcomePage::setShowExamples(bool showExamples)
+{
+    m_showExamples = showExamples;
+}
+
+QString ExamplesWelcomePage::title() const
+{
+    if (m_showExamples)
+        return tr("Examples");
+    else
+        return tr("Tutorials");
+}
+
+ int ExamplesWelcomePage::priority() const
  {
      if (m_showExamples)
          return 30;
      else
-         return 10;
+         return 40;
  }
 
- bool GettingStartedWelcomePage::hasSearchBar() const
+ bool ExamplesWelcomePage::hasSearchBar() const
  {
      if (m_showExamples)
          return true;
@@ -214,15 +254,15 @@ QString GettingStartedWelcomePage::title() const
          return false;
  }
 
-QUrl GettingStartedWelcomePage::pageLocation() const
+QUrl ExamplesWelcomePage::pageLocation() const
 {
     if (m_showExamples)
         return QUrl::fromLocalFile(Core::ICore::instance()->resourcePath() + QLatin1String("/welcomescreen/examples.qml"));
     else
-        return QUrl::fromLocalFile(Core::ICore::instance()->resourcePath() + QLatin1String("/welcomescreen/gettingstarted.qml"));
+        return QUrl::fromLocalFile(Core::ICore::instance()->resourcePath() + QLatin1String("/welcomescreen/tutorials.qml"));
 }
 
-void GettingStartedWelcomePage::facilitateQml(QDeclarativeEngine *engine)
+void ExamplesWelcomePage::facilitateQml(QDeclarativeEngine *engine)
 {
     m_engine = engine;
     m_engine->addImageProvider(QLatin1String("helpimage"), new HelpImageProvider);
@@ -244,17 +284,27 @@ void GettingStartedWelcomePage::facilitateQml(QDeclarativeEngine *engine)
     rootContenxt->setContextProperty(QLatin1String("gettingStarted"), this);
 }
 
-void GettingStartedWelcomePage::openSplitHelp(const QUrl &help)
+void ExamplesWelcomePage::openSplitHelp(const QUrl &help)
 {
     Core::ICore::instance()->helpManager()->handleHelpRequest(help.toString()+QLatin1String("?view=split"));
 }
 
-QStringList GettingStartedWelcomePage::tagList() const
+void ExamplesWelcomePage::openHelp(const QUrl &help)
+{
+    Core::ICore::instance()->helpManager()->handleHelpRequest(help.toString());
+}
+
+void ExamplesWelcomePage::openUrl(const QUrl &url)
+{
+    QDesktopServices::openUrl(url);
+}
+
+QStringList ExamplesWelcomePage::tagList() const
 {
     return examplesModel()->tags();
 }
 
-QString GettingStartedWelcomePage::copyToAlternativeLocation(const QFileInfo& proFileInfo, QStringList &filesToOpen)
+QString ExamplesWelcomePage::copyToAlternativeLocation(const QFileInfo& proFileInfo, QStringList &filesToOpen, const QStringList& dependencies)
 {
     const QString projectDir = proFileInfo.canonicalPath();
     QDialog d(Core::ICore::instance()->mainWindow());
@@ -309,6 +359,15 @@ QString GettingStartedWelcomePage::copyToAlternativeLocation(const QFileInfo& pr
                 for (it = filesToOpen.begin(); it != filesToOpen.end(); ++it)
                     it->replace(projectDir, targetDir);
 
+                foreach (const QString &dependency, dependencies) {
+                    QString dirName = QDir(dependency).dirName();
+                    if (!Utils::FileUtils::copyRecursively(dependency, targetDir + QDir::separator()+ dirName, &error)) {
+                        QMessageBox::warning(Core::ICore::instance()->mainWindow(), tr("Cannot Copy Project"), error);
+                        // do not fail, just warn;
+                    }
+                }
+
+
                 return targetDir+ '/' + proFileInfo.fileName();
             } else {
                 QMessageBox::warning(Core::ICore::instance()->mainWindow(), tr("Cannot Copy Project"), error);
@@ -320,7 +379,8 @@ QString GettingStartedWelcomePage::copyToAlternativeLocation(const QFileInfo& pr
 
 }
 
-void GettingStartedWelcomePage::openProject(const QString &projectFile, const QStringList &additionalFilesToOpen, const QUrl &help)
+void ExamplesWelcomePage::openProject(const QString &projectFile, const QStringList &additionalFilesToOpen,
+                                            const QUrl &help, const QStringList &dependencies)
 {
     QString proFile = projectFile;
     if (proFile.isEmpty())
@@ -330,7 +390,7 @@ void GettingStartedWelcomePage::openProject(const QString &projectFile, const QS
     QFileInfo proFileInfo(proFile);
     // If the Qt is a distro Qt on Linux, it will not be writable, hence compilation will fail
     if (!proFileInfo.isWritable())
-        proFile = copyToAlternativeLocation(proFileInfo, filesToOpen);
+        proFile = copyToAlternativeLocation(proFileInfo, filesToOpen, dependencies);
 
     // don't try to load help and files if loading the help request is being cancelled
     QString errorMessage;
@@ -342,18 +402,18 @@ void GettingStartedWelcomePage::openProject(const QString &projectFile, const QS
         QMessageBox::critical(Core::ICore::instance()->mainWindow(), tr("Failed to open project"), errorMessage);
 }
 
-void GettingStartedWelcomePage::updateTagsModel()
+void ExamplesWelcomePage::updateTagsModel()
 {
     m_engine->rootContext()->setContextProperty(QLatin1String("tagsList"), examplesModel()->tags());
     emit tagsUpdated();
 }
 
-ExamplesListModel *GettingStartedWelcomePage::examplesModel() const
+ExamplesListModel *ExamplesWelcomePage::examplesModel() const
 {
     if (examplesModelStatic())
         return examplesModelStatic().data();
 
-    examplesModelStatic() = new ExamplesListModel(const_cast<GettingStartedWelcomePage*>(this));
+    examplesModelStatic() = new ExamplesListModel(const_cast<ExamplesWelcomePage*>(this));
     return examplesModelStatic().data();
 }
 

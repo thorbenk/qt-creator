@@ -36,12 +36,10 @@
 #include <texteditor/completionsettings.h>
 #include <texteditor/texteditoroptionspage.h>
 
-QT_BEGIN_NAMESPACE
-class Ui_CompletionSettingsPage;
-QT_END_NAMESPACE
-
 namespace CppTools {
 namespace Internal {
+
+namespace Ui { class CompletionSettingsPage; }
 
 // TODO: Move this class to the text editor plugin
 
@@ -65,7 +63,7 @@ private:
     TextEditor::CaseSensitivity caseSensitivity() const;
     TextEditor::CompletionTrigger completionTrigger() const;
 
-    Ui_CompletionSettingsPage *m_page;
+    Ui::CompletionSettingsPage *m_page;
     QString m_searchKeywords;
 };
 

@@ -45,15 +45,11 @@ class QPlainTextEdit;
 class QListWidgetItem;
 QT_END_NAMESPACE
 
-namespace Utils {
-class IconButton;
-} // namespace Utils
+namespace Utils { class IconButton; }
 
 namespace Core {
 
-namespace Ui {
-    class VariableChooser;
-}
+namespace Internal { namespace Ui { class VariableChooser; } }
 
 class CORE_EXPORT VariableChooser : public QWidget
 {
@@ -76,7 +72,7 @@ private slots:
 private:
     void createIconButton();
 
-    Ui::VariableChooser *ui;
+    Internal::Ui::VariableChooser *ui;
     QString m_defaultDescription;
     QPointer<QLineEdit> m_lineEdit;
     QPointer<QTextEdit> m_textEdit;
@@ -85,4 +81,5 @@ private:
 };
 
 } // namespace Core
+
 #endif // VARIABLECHOOSER_H

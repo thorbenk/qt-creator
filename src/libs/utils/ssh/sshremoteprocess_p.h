@@ -39,6 +39,7 @@
 
 #include <QtCore/QList>
 #include <QtCore/QPair>
+#include <QtCore/QProcess>
 
 namespace Utils {
 class SshRemoteProcess;
@@ -52,7 +53,7 @@ class SshRemoteProcessPrivate : public AbstractSshChannel
     friend class Utils::SshRemoteProcess;
 public:
     enum ProcessState {
-        NotYetStarted, ExecRequested, StartFailed,Running, Exited
+        NotYetStarted, ExecRequested, StartFailed, Running, Exited
     };
 
     virtual void handleChannelSuccess();
@@ -60,11 +61,11 @@ public:
 
     virtual void closeHook();
 
-    QByteArray readAllStandardOutput();
-    QByteArray readAllStandardError();
+    QByteArray &data();
 
 signals:
     void started();
+    void readyRead();
     void readyReadStandardOutput();
     void readyReadStandardError();
     void closed(int exitStatus);
@@ -76,7 +77,7 @@ private:
         SshRemoteProcess *proc);
 
     virtual void handleOpenSuccessInternal();
-    virtual void handleOpenFailureInternal();
+    virtual void handleOpenFailureInternal(const QString &reason);
     virtual void handleChannelDataInternal(const QByteArray &data);
     virtual void handleChannelExtendedDataInternal(quint32 type,
         const QByteArray &data);
@@ -85,6 +86,8 @@ private:
 
     void init();
     void setProcState(ProcessState newState);
+
+    QProcess::ProcessChannel m_readChannel;
 
     ProcessState m_procState;
     bool m_wasRunning;

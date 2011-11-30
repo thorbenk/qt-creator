@@ -40,14 +40,10 @@
 #include <QtCore/QPointer>
 #include <QtGui/QWidget>
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
-class CommonSettingsPage;
-}
-QT_END_NAMESPACE
-
 namespace VCSBase {
 namespace Internal {
+
+namespace Ui { class CommonSettingsPage; }
 
 class CommonSettingsWidget : public QWidget
 {
@@ -90,7 +86,7 @@ signals:
 private:
     void updateNickNames();
 
-    CommonSettingsWidget* m_widget;
+    CommonSettingsWidget *m_widget;
     CommonVcsSettings m_settings;
     QString m_searchKeyWords;
 };

@@ -34,17 +34,16 @@
 
 #include <projectexplorer/buildstep.h>
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class MaemoPackageCreationWidget; }
-QT_END_NAMESPACE
-
 namespace Madde {
 namespace Internal {
+
+namespace Ui { class MaemoPackageCreationWidget; }
 class AbstractMaemoPackageCreationStep;
 
 class MaemoPackageCreationWidget : public ProjectExplorer::BuildStepConfigWidget
 {
     Q_OBJECT
+
 public:
     MaemoPackageCreationWidget(AbstractMaemoPackageCreationStep *step);
     ~MaemoPackageCreationWidget();

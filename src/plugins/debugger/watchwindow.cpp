@@ -45,6 +45,7 @@
 #include "watchhandler.h"
 #include "debuggertooltipmanager.h"
 #include "memoryagent.h"
+
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
 
@@ -62,7 +63,6 @@
 #include <QtGui/QItemDelegate>
 #include <QtGui/QMenu>
 #include <QtGui/QPainter>
-#include <QtGui/QResizeEvent>
 #include <QtGui/QInputDialog>
 #include <QtGui/QMessageBox>
 
@@ -736,9 +736,17 @@ void WatchWindow::contextMenuEvent(QContextMenuEvent *ev)
         tr("Setting a data breakpoint on an address will cause the program "
            "to stop when the data at the address is modified."));
 
-    QAction *actSetWatchpointAtExpression =
+    QAction *actSetWatchpointAtExpression = 0;
+    if (name.isEmpty()) {
+        actSetWatchpointAtExpression =
+            new QAction(tr("Add Data Breakpoint at Expression"),
+                &breakpointMenu);
+        actSetWatchpointAtExpression->setEnabled(false);
+    } else {
+        actSetWatchpointAtExpression =
             new QAction(tr("Add Data Breakpoint at Expression \"%1\"").arg(name),
                 &breakpointMenu);
+    }
     actSetWatchpointAtExpression->setToolTip(
         tr("Setting a data breakpoint on an expression will cause the program "
            "to stop when the data at the address given by the expression "
@@ -856,6 +864,7 @@ void WatchWindow::contextMenuEvent(QContextMenuEvent *ev)
     menu.addAction(debuggerCore()->action(ShowStdNamespace));
     menu.addAction(debuggerCore()->action(ShowQtNamespace));
     menu.addAction(debuggerCore()->action(SortStructMembers));
+    menu.addAction(debuggerCore()->action(UseDynamicType));
 
     QAction *actClearCodeModelSnapshot
         = new QAction(tr("Refresh Code Model Snapshot"), &menu);

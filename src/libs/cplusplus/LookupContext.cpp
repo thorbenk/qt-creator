@@ -485,8 +485,6 @@ void CreateBindings::lookupInScope(const Name *name, Scope *scope,
                                    const TemplateNameId *templateId,
                                    ClassOrNamespace *binding)
 {
-    Q_UNUSED(templateId);
-
     if (! name) {
         return;
 
@@ -519,6 +517,14 @@ void CreateBindings::lookupInScope(const Name *name, Scope *scope,
             LookupItem item;
             item.setDeclaration(s);
             item.setBinding(binding);
+
+            if (s->asNamespaceAlias() && binding) {
+                ClassOrNamespace *targetNamespaceBinding = binding->lookupType(name);
+                if (targetNamespaceBinding && targetNamespaceBinding->symbols().size() == 1) {
+                    Symbol *resolvedSymbol = targetNamespaceBinding->symbols().first();
+                    item.setType(resolvedSymbol->type()); // override the type
+                }
+            }
 
             if (templateId && (s->isDeclaration() || s->isFunction())) {
                 FullySpecifiedType ty = DeprecatedGenTemplateInstance::instantiate(templateId, s, _control);

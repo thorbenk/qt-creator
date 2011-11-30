@@ -36,6 +36,7 @@
 #include "maemopackageinstaller.h"
 #include "maemoqemumanager.h"
 #include "qt4maemodeployconfiguration.h"
+#include "qt4maemotarget.h"
 
 #include <qt4projectmanager/qt4buildconfiguration.h>
 #include <qtsupport/baseqtversion.h>
@@ -102,6 +103,23 @@ private:
     MaemoDebianPackageInstaller * const m_installer;
 };
 
+class HarmattanUploadAndInstallPackageAction : public AbstractMaddeUploadAndInstallPackageAction
+{
+    Q_OBJECT
+
+public:
+    HarmattanUploadAndInstallPackageAction(AbstractRemoteLinuxDeployStep *step)
+        : AbstractMaddeUploadAndInstallPackageAction(step),
+          m_installer(new HarmattanPackageInstaller(this))
+    {
+    }
+
+    AbstractRemoteLinuxPackageInstaller *packageInstaller() const { return m_installer; }
+
+private:
+    HarmattanPackageInstaller * const m_installer;
+};
+
 class MeegoUploadAndInstallPackageAction : public AbstractMaddeUploadAndInstallPackageAction
 {
     Q_OBJECT
@@ -137,7 +155,10 @@ MaemoUploadAndInstallPackageStep::MaemoUploadAndInstallPackageStep(ProjectExplor
 void MaemoUploadAndInstallPackageStep::ctor()
 {
     setDefaultDisplayName(displayName());
-    m_deployService = new MaemoUploadAndInstallPackageAction(this);
+    if (qobject_cast<Qt4HarmattanTarget *>(target()))
+        m_deployService = new HarmattanUploadAndInstallPackageAction(this);
+    else
+        m_deployService = new MaemoUploadAndInstallPackageAction(this);
 }
 
 AbstractRemoteLinuxDeployService *MaemoUploadAndInstallPackageStep::deployService() const
@@ -145,17 +166,17 @@ AbstractRemoteLinuxDeployService *MaemoUploadAndInstallPackageStep::deployServic
     return m_deployService;
 }
 
-bool MaemoUploadAndInstallPackageStep::isDeploymentPossible(QString *whyNot) const
+bool MaemoUploadAndInstallPackageStep::initInternal(QString *error)
 {
     const AbstractMaemoPackageCreationStep * const pStep
         = deployConfiguration()->earlierBuildStep<MaemoDebianPackageCreationStep>(this);
     if (!pStep) {
-        if (whyNot)
-            *whyNot = tr("No Debian package creation step found.");
+        if (error)
+            *error = tr("No Debian package creation step found.");
         return false;
     }
     m_deployService->setPackageFilePath(pStep->packageFilePath());
-    return AbstractRemoteLinuxDeployStep::isDeploymentPossible(whyNot);
+    return deployService()->isDeploymentPossible(error);
 }
 
 QString MaemoUploadAndInstallPackageStep::stepId()
@@ -192,17 +213,17 @@ AbstractRemoteLinuxDeployService *MeegoUploadAndInstallPackageStep::deployServic
     return m_deployService;
 }
 
-bool MeegoUploadAndInstallPackageStep::isDeploymentPossible(QString *whyNot) const
+bool MeegoUploadAndInstallPackageStep::initInternal(QString *error)
 {
     const AbstractMaemoPackageCreationStep * const pStep
         = deployConfiguration()->earlierBuildStep<MaemoRpmPackageCreationStep>(this);
     if (!pStep) {
-        if (whyNot)
-            *whyNot = tr("No RPM package creation step found.");
+        if (error)
+            *error = tr("No RPM package creation step found.");
         return false;
     }
     m_deployService->setPackageFilePath(pStep->packageFilePath());
-    return AbstractRemoteLinuxDeployStep::isDeploymentPossible(whyNot);
+    return deployService()->isDeploymentPossible(error);
 }
 
 QString MeegoUploadAndInstallPackageStep::stepId()

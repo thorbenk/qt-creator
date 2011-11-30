@@ -91,17 +91,19 @@ public:
         emit eventListChanged(m_eventList);
     }
 
-    Q_INVOKABLE void selectNext();
-    Q_INVOKABLE void selectPrev();
-
-    Q_INVOKABLE void rowExpanded(int rowIndex, bool expanded);
-
     Q_INVOKABLE qint64 getDuration(int index) const;
     Q_INVOKABLE QString getFilename(int index) const;
     Q_INVOKABLE int getLine(int index) const;
     Q_INVOKABLE QString getDetails(int index) const;
 
+    Q_INVOKABLE void setRowExpanded(int rowIndex, bool expanded);
+
+    Q_INVOKABLE void selectNext();
+    Q_INVOKABLE void selectPrev();
     Q_INVOKABLE int nextItemFromId(int eventId) const;
+    Q_INVOKABLE int prevItemFromId(int eventId) const;
+    Q_INVOKABLE void selectNextFromId(int eventId);
+    Q_INVOKABLE void selectPrevFromId(int eventId);
 
 signals:
     void startTimeChanged(qint64 arg);
@@ -138,6 +140,7 @@ public slots:
     {
         if (m_selectionLocked != locked) {
             m_selectionLocked = locked;
+            update();
             emit selectionLockedChanged(locked);
         }
     }
@@ -177,7 +180,6 @@ protected:
 
 private:
     QColor colorForItem(int itemIndex);
-    QLinearGradient *gradientForItem(int itemIndex);
     void drawItemsToPainter(QPainter *p, int fromIndex, int toIndex);
     void drawSelectionBoxes(QPainter *p);
 
@@ -192,7 +194,6 @@ private:
     qint64 m_lastEndTime;
 
     QmlJsDebugClient::QmlProfilerEventList *m_eventList;
-    QHash<int, QLinearGradient*> m_hashedGradients;
 
     QList<int> m_rowLastX;
     QList<int> m_rowStarts;

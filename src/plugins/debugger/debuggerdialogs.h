@@ -39,11 +39,16 @@
 #include <QtGui/QVBoxLayout>
 
 QT_BEGIN_NAMESPACE
-
 class QModelIndex;
 class QPushButton;
 class QLineEdit;
 class QDialogButtonBox;
+QT_END_NAMESPACE
+
+namespace ProjectExplorer { class Abi; }
+
+namespace Debugger {
+namespace Internal {
 
 namespace Ui {
 class AttachCoreDialog;
@@ -53,15 +58,6 @@ class StartRemoteDialog;
 class AttachToQmlPortDialog;
 class StartRemoteEngineDialog;
 } // namespace Ui
-
-QT_END_NAMESPACE
-
-namespace ProjectExplorer {
-class Abi;
-}
-
-namespace Debugger {
-namespace Internal {
 
 class ProcessListFilterModel;
 

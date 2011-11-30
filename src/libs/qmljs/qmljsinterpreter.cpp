@@ -152,7 +152,7 @@ public:
     {
     }
 
-    virtual int argumentCount() const
+    virtual int namedArgumentCount() const
     {
         return _method.parameterNames().size();
     }
@@ -168,11 +168,6 @@ public:
     virtual bool isVariadic() const
     {
         return false;
-    }
-
-    virtual const Value *invoke(const Activation *) const
-    {
-        return valueOwner()->unknownValue();
     }
 };
 
@@ -290,7 +285,7 @@ void CppComponentValue::processMembers(MemberProcessor *processor) const
     const QString &attachedTypeName = _metaObject->attachedTypeName();
     if (!attachedTypeName.isEmpty()) {
         const CppComponentValue *attachedType = valueOwner()->cppQmlTypes().objectByCppName(attachedTypeName);
-        if (attachedType)
+        if (attachedType && attachedType != this) // ### only weak protection against infinite loops
             attachedType->processMembers(processor);
     }
 
@@ -484,7 +479,7 @@ const ObjectValue *CppComponentValue::signalScope(const QString &signalName) con
             scopes->insert(generatedSlotName(method.methodName()), scope);
         }
         if (!_signalScopes.testAndSetOrdered(0, scopes)) {
-            delete _signalScopes;
+            delete scopes;
             scopes = _signalScopes;
         }
     }
@@ -1115,103 +1110,16 @@ QList<const ObjectValue *> PrototypeIterator::all()
     return m_prototypes;
 }
 
-Activation::Activation(Context *parentContext)
-    : _thisObject(0),
-      _calledAsFunction(true),
-      _parentContext(parentContext)
-{
-}
-
-Activation::~Activation()
-{
-}
-
-Context *Activation::parentContext() const
-{
-    return _parentContext;
-}
-
-Context *Activation::context() const
-{
-    // ### FIXME: Real context for activations.
-    return 0;
-}
-
-bool Activation::calledAsConstructor() const
-{
-    return ! _calledAsFunction;
-}
-
-void Activation::setCalledAsConstructor(bool calledAsConstructor)
-{
-    _calledAsFunction = ! calledAsConstructor;
-}
-
-bool Activation::calledAsFunction() const
-{
-    return _calledAsFunction;
-}
-
-void Activation::setCalledAsFunction(bool calledAsFunction)
-{
-    _calledAsFunction = calledAsFunction;
-}
-
-ObjectValue *Activation::thisObject() const
-{
-    return _thisObject;
-}
-
-void Activation::setThisObject(ObjectValue *thisObject)
-{
-    _thisObject = thisObject;
-}
-
-ValueList Activation::arguments() const
-{
-    return _arguments;
-}
-
-void Activation::setArguments(const ValueList &arguments)
-{
-    _arguments = arguments;
-}
-
 FunctionValue::FunctionValue(ValueOwner *valueOwner)
     : ObjectValue(valueOwner)
 {
+    setClassName("Function");
     setMember(QLatin1String("length"), valueOwner->numberValue());
+    setPrototype(valueOwner->functionPrototype());
 }
 
 FunctionValue::~FunctionValue()
 {
-}
-
-const Value *FunctionValue::construct(const ValueList &actuals) const
-{
-    Activation activation;
-    activation.setCalledAsConstructor(true);
-    activation.setThisObject(valueOwner()->newObject());
-    activation.setArguments(actuals);
-    return invoke(&activation);
-}
-
-const Value *FunctionValue::call(const ValueList &actuals) const
-{
-    Activation activation;
-    activation.setCalledAsFunction(true);
-    activation.setThisObject(valueOwner()->globalObject()); // ### FIXME: it should be `null'
-    activation.setArguments(actuals);
-    return invoke(&activation);
-}
-
-const Value *FunctionValue::call(const ObjectValue *thisObject, const ValueList &actuals) const
-{
-    Activation activation;
-    activation.setCalledAsFunction(true);
-    activation.setThisObject(const_cast<ObjectValue *>(thisObject)); // ### FIXME: remove the const_cast
-    activation.setArguments(actuals);
-    return invoke(&activation);
 }
 
 const Value *FunctionValue::returnValue() const
@@ -1219,7 +1127,7 @@ const Value *FunctionValue::returnValue() const
     return valueOwner()->unknownValue();
 }
 
-int FunctionValue::argumentCount() const
+int FunctionValue::namedArgumentCount() const
 {
     return 0;
 }
@@ -1234,14 +1142,14 @@ QString FunctionValue::argumentName(int index) const
     return QString::fromLatin1("arg%1").arg(index + 1);
 }
 
+int FunctionValue::optionalNamedArgumentCount() const
+{
+    return 0;
+}
+
 bool FunctionValue::isVariadic() const
 {
     return true;
-}
-
-const Value *FunctionValue::invoke(const Activation *activation) const
-{
-    return activation->thisObject(); // ### FIXME: it should return undefined
 }
 
 const FunctionValue *FunctionValue::asFunctionValue() const
@@ -1255,9 +1163,11 @@ void FunctionValue::accept(ValueVisitor *visitor) const
 }
 
 Function::Function(ValueOwner *valueOwner)
-    : FunctionValue(valueOwner), _returnValue(0)
+    : FunctionValue(valueOwner)
+    , _returnValue(0)
+    , _optionalNamedArgumentCount(0)
+    , _isVariadic(false)
 {
-    setClassName("Function");
 }
 
 Function::~Function()
@@ -1284,9 +1194,24 @@ void Function::setReturnValue(const Value *returnValue)
     _returnValue = returnValue;
 }
 
-int Function::argumentCount() const
+void Function::setVariadic(bool variadic)
+{
+    _isVariadic = variadic;
+}
+
+void Function::setOptionalNamedArgumentCount(int count)
+{
+    _optionalNamedArgumentCount = count;
+}
+
+int Function::namedArgumentCount() const
 {
     return _arguments.size();
+}
+
+int Function::optionalNamedArgumentCount() const
+{
+    return _optionalNamedArgumentCount;
 }
 
 const Value *Function::argument(int index) const
@@ -1304,9 +1229,9 @@ QString Function::argumentName(int index) const
     return FunctionValue::argumentName(index);
 }
 
-const Value *Function::invoke(const Activation *) const
+bool Function::isVariadic() const
 {
-    return _returnValue;
+    return _isVariadic;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1366,7 +1291,9 @@ void CppQmlTypesLoader::parseQmlTypeDescriptions(const QByteArray &xml,
 }
 
 CppQmlTypes::CppQmlTypes(ValueOwner *valueOwner)
-    : _valueOwner(valueOwner)
+    : _cppContextProperties(0)
+    , _valueOwner(valueOwner)
+
 {
 }
 
@@ -1516,6 +1443,16 @@ const CppComponentValue *CppQmlTypes::objectByCppName(const QString &cppName) co
     return objectByQualifiedName(qualifiedName(cppPackage, cppName, ComponentVersion()));
 }
 
+void CppQmlTypes::setCppContextProperties(const ObjectValue *contextProperties)
+{
+    _cppContextProperties = contextProperties;
+}
+
+const ObjectValue *CppQmlTypes::cppContextProperties() const
+{
+    return _cppContextProperties;
+}
+
 
 ConvertToNumber::ConvertToNumber(ValueOwner *valueOwner)
     : _valueOwner(valueOwner), _result(0)
@@ -1567,14 +1504,14 @@ void ConvertToNumber::visit(const StringValue *)
 void ConvertToNumber::visit(const ObjectValue *object)
 {
     if (const FunctionValue *valueOfMember = value_cast<FunctionValue>(object->lookupMember("valueOf", ContextPtr()))) {
-        _result = value_cast<NumberValue>(valueOfMember->call(object)); // ### invoke convert-to-number?
+        _result = value_cast<NumberValue>(valueOfMember->returnValue());
     }
 }
 
 void ConvertToNumber::visit(const FunctionValue *object)
 {
     if (const FunctionValue *valueOfMember = value_cast<FunctionValue>(object->lookupMember("valueOf", ContextPtr()))) {
-        _result = value_cast<NumberValue>(valueOfMember->call(object)); // ### invoke convert-to-number?
+        _result = value_cast<NumberValue>(valueOfMember->returnValue());
     }
 }
 
@@ -1628,14 +1565,14 @@ void ConvertToString::visit(const StringValue *value)
 void ConvertToString::visit(const ObjectValue *object)
 {
     if (const FunctionValue *toStringMember = value_cast<FunctionValue>(object->lookupMember("toString", ContextPtr()))) {
-        _result = value_cast<StringValue>(toStringMember->call(object)); // ### invoke convert-to-string?
+        _result = value_cast<StringValue>(toStringMember->returnValue());
     }
 }
 
 void ConvertToString::visit(const FunctionValue *object)
 {
     if (const FunctionValue *toStringMember = value_cast<FunctionValue>(object->lookupMember("toString", ContextPtr()))) {
-        _result = value_cast<StringValue>(toStringMember->call(object)); // ### invoke convert-to-string?
+        _result = value_cast<StringValue>(toStringMember->returnValue());
     }
 }
 
@@ -1671,25 +1608,19 @@ void ConvertToObject::visit(const UndefinedValue *)
     _result = _valueOwner->nullValue();
 }
 
-void ConvertToObject::visit(const NumberValue *value)
+void ConvertToObject::visit(const NumberValue *)
 {
-    ValueList actuals;
-    actuals.append(value);
-    _result = _valueOwner->numberCtor()->construct(actuals);
+    _result = _valueOwner->numberCtor()->returnValue();
 }
 
-void ConvertToObject::visit(const BooleanValue *value)
+void ConvertToObject::visit(const BooleanValue *)
 {
-    ValueList actuals;
-    actuals.append(value);
-    _result = _valueOwner->booleanCtor()->construct(actuals);
+    _result = _valueOwner->booleanCtor()->returnValue();
 }
 
-void ConvertToObject::visit(const StringValue *value)
+void ConvertToObject::visit(const StringValue *)
 {
-    ValueList actuals;
-    actuals.append(value);
-    _result = _valueOwner->stringCtor()->construct(actuals);
+    _result = _valueOwner->stringCtor()->returnValue();
 }
 
 void ConvertToObject::visit(const ObjectValue *object)
@@ -1879,13 +1810,47 @@ bool ASTVariableReference::getSourceLocation(QString *fileName, int *line, int *
     return true;
 }
 
+namespace {
+class UsesArgumentsArray : protected Visitor
+{
+    bool _usesArgumentsArray;
+
+public:
+    bool operator()(FunctionBody *ast)
+    {
+        if (!ast || !ast->elements)
+            return false;
+        _usesArgumentsArray = false;
+        Node::accept(ast->elements, this);
+        return _usesArgumentsArray;
+    }
+
+protected:
+    bool visit(ArrayMemberExpression *ast)
+    {
+        if (IdentifierExpression *idExp = cast<IdentifierExpression *>(ast->base)) {
+            if (idExp->name == QLatin1String("arguments"))
+                _usesArgumentsArray = true;
+        }
+        return true;
+    }
+
+    // don't go into nested functions
+    bool visit(FunctionBody *) { return false; }
+};
+} // anonymous namespace
+
 ASTFunctionValue::ASTFunctionValue(FunctionExpression *ast, const Document *doc, ValueOwner *valueOwner)
-    : FunctionValue(valueOwner), _ast(ast), _doc(doc)
+    : FunctionValue(valueOwner)
+    , _ast(ast)
+    , _doc(doc)
 {
     setPrototype(valueOwner->functionPrototype());
 
     for (FormalParameterList *it = ast->formals; it; it = it->next)
         _argumentNames.append(it->name.toString());
+
+    _isVariadic = UsesArgumentsArray()(ast->body);
 }
 
 ASTFunctionValue::~ASTFunctionValue()
@@ -1897,7 +1862,7 @@ FunctionExpression *ASTFunctionValue::ast() const
     return _ast;
 }
 
-int ASTFunctionValue::argumentCount() const
+int ASTFunctionValue::namedArgumentCount() const
 {
     return _argumentNames.size();
 }
@@ -1911,6 +1876,11 @@ QString ASTFunctionValue::argumentName(int index) const
     }
 
     return FunctionValue::argumentName(index);
+}
+
+bool ASTFunctionValue::isVariadic() const
+{
+    return _isVariadic;
 }
 
 bool ASTFunctionValue::getSourceLocation(QString *fileName, int *line, int *column) const
@@ -2021,7 +1991,7 @@ const ASTSignal *ASTSignal::asAstSignal() const
     return this;
 }
 
-int ASTSignal::argumentCount() const
+int ASTSignal::namedArgumentCount() const
 {
     int count = 0;
     for (UiParameterList *it = _ast->parameters; it; it = it->next)

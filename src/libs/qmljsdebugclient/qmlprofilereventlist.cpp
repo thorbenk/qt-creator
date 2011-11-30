@@ -1184,13 +1184,13 @@ int QmlProfilerEventList::getEventId(int index) const {
 
 int QmlProfilerEventList::uniqueEventsOfType(int type) const {
     if (!d->m_typeCounts.contains(type))
-        return 1;
+        return 0;
     return d->m_typeCounts[type]->eventIds.count();
 }
 
 int QmlProfilerEventList::maxNestingForType(int type) const {
     if (!d->m_typeCounts.contains(type))
-        return 1;
+        return 0;
     return d->m_typeCounts[type]->nestingCount;
 }
 
@@ -1198,6 +1198,12 @@ QString QmlProfilerEventList::eventTextForType(int type, int index) const {
     if (!d->m_typeCounts.contains(type))
         return QString();
     return d->m_eventDescriptions.values().at(d->m_typeCounts[type]->eventIds[index])->details;
+}
+
+int QmlProfilerEventList::eventIdForType(int type, int index) const {
+    if (!d->m_typeCounts.contains(type))
+        return -1;
+    return d->m_typeCounts[type]->eventIds[index];
 }
 
 int QmlProfilerEventList::eventPosInType(int index) const {

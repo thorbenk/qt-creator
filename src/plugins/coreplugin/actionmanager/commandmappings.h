@@ -41,7 +41,6 @@ QT_BEGIN_NAMESPACE
 class QLineEdit;
 class QTreeWidget;
 class QTreeWidgetItem;
-class Ui_CommandMappings;
 QT_END_NAMESPACE
 
 namespace Core {
@@ -49,6 +48,8 @@ namespace Core {
 class Command;
 
 namespace Internal {
+
+namespace Ui { class CommandMappings; }
 
 class ActionManagerPrivate;
 class MainWindow;
@@ -92,7 +93,7 @@ protected:
     virtual void markPossibleCollisions(QTreeWidgetItem *) {}
     virtual void resetCollisionMarkers() {}
 private:
-    Ui_CommandMappings *m_page;
+    Internal::Ui::CommandMappings *m_page;
 };
 
 } // namespace Core

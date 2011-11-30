@@ -98,7 +98,7 @@ private:
 
 LinuxDeviceConfigurationsSettingsWidget::LinuxDeviceConfigurationsSettingsWidget(QWidget *parent)
     : QWidget(parent),
-      m_ui(new Ui_LinuxDeviceConfigurationsSettingsWidget),
+      m_ui(new Ui::LinuxDeviceConfigurationsSettingsWidget),
       m_devConfigs(LinuxDeviceConfigurations::cloneInstance()),
       m_nameValidator(new NameValidator(m_devConfigs.data(), this)),
       m_saveSettingsRequested(false),
@@ -216,7 +216,7 @@ void LinuxDeviceConfigurationsSettingsWidget::displayCurrent()
         m_ui->passwordButton->setChecked(true);
     else
         m_ui->keyButton->setChecked(true);
-    m_nameValidator->setDisplayName(current->name());
+    m_nameValidator->setDisplayName(current->displayName());
     m_ui->timeoutSpinBox->setValue(sshParams.timeout);
     m_ui->removeConfigButton->setEnabled(!current->isAutoDetected());
     m_ui->hostLineEdit->setEnabled(!current->isAutoDetected());
@@ -227,7 +227,7 @@ void LinuxDeviceConfigurationsSettingsWidget::displayCurrent()
 void LinuxDeviceConfigurationsSettingsWidget::fillInValues()
 {
     const LinuxDeviceConfiguration::ConstPtr &current = currentConfig();
-    m_ui->nameLineEdit->setText(current->name());
+    m_ui->nameLineEdit->setText(current->displayName());
     const SshConnectionParameters &sshParams = current->sshParameters();
     m_ui->hostLineEdit->setText(sshParams.host);
     m_ui->sshPortSpinBox->setValue(sshParams.port);
@@ -426,8 +426,8 @@ void LinuxDeviceConfigurationsSettingsWidget::handleAdditionalActionRequest(cons
     const ILinuxDeviceConfigurationFactory * const factory = factoryForCurrentConfig();
     Q_ASSERT(factory);
     QDialog * const action = factory->createDeviceAction(actionId, currentConfig(), this);
-    Q_ASSERT(action);
-    action->exec();
+    if (action)
+        action->exec();
     delete action;
 }
 

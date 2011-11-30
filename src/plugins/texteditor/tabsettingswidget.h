@@ -39,11 +39,9 @@
 
 namespace TextEditor {
 
-class TabSettings;
+namespace Internal { namespace Ui { class TabSettingsWidget; } }
 
-namespace Ui {
-    class TabSettingsWidget;
-}
+class TabSettings;
 
 class TEXTEDITOR_EXPORT TabSettingsWidget : public QWidget
 {
@@ -71,7 +69,7 @@ private slots:
     void slotSettingsChanged();
 
 private:
-    Ui::TabSettingsWidget *ui;
+    Internal::Ui::TabSettingsWidget *ui;
 };
 
 } // namespace TextEditor

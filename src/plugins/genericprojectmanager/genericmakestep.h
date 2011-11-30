@@ -37,10 +37,6 @@
 
 QT_BEGIN_NAMESPACE
 class QListWidgetItem;
-
-namespace Ui {
-class GenericMakeStep;
-}
 QT_END_NAMESPACE
 
 namespace GenericProjectManager {
@@ -49,10 +45,12 @@ namespace Internal {
 class GenericBuildConfiguration;
 class GenericMakeStepConfigWidget;
 class GenericMakeStepFactory;
+namespace Ui { class GenericMakeStep; }
 
 class GenericMakeStep : public ProjectExplorer::AbstractProcessStep
 {
     Q_OBJECT
+
     friend class GenericMakeStepConfigWidget; // TODO remove again?
     friend class GenericMakeStepFactory;
 
@@ -73,6 +71,9 @@ public:
     QString allArguments() const;
     QString makeCommand() const;
 
+    void setClean(bool clean);
+    bool isClean() const;
+
     QVariantMap toMap() const;
 
 protected:
@@ -86,6 +87,7 @@ private:
     QStringList m_buildTargets;
     QString m_makeArguments;
     QString m_makeCommand;
+    bool m_clean;
 };
 
 class GenericMakeStepConfigWidget :public ProjectExplorer::BuildStepConfigWidget

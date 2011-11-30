@@ -47,12 +47,10 @@ QT_END_NAMESPACE
 
 namespace TextEditor {
 
+namespace Internal { namespace Ui { class CodeStyleSelectorWidget; } }
+
 class ICodeStylePreferences;
 class ICodeStylePreferencesFactory;
-
-namespace Ui {
-class CodeStyleSelectorWidget;
-}
 
 class TEXTEDITOR_EXPORT CodeStyleSelectorWidget : public QWidget
 {
@@ -63,8 +61,6 @@ public:
 
     void setCodeStyle(TextEditor::ICodeStylePreferences *codeStyle);
     QString searchKeywords() const;
-
-signals:
 
 private slots:
     void slotComboBoxActivated(int index);
@@ -85,7 +81,7 @@ private:
 
     QString displayName(ICodeStylePreferences *codeStyle) const;
 
-    Ui::CodeStyleSelectorWidget *m_ui;
+    Internal::Ui::CodeStyleSelectorWidget *m_ui;
 
     bool m_ignoreGuiSignals;
 };

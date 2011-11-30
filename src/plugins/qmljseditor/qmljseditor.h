@@ -156,8 +156,8 @@ public:
     virtual void unCommentSelection();
 
     SemanticInfo semanticInfo() const;
+    bool isSemanticInfoOutdated() const;
     int editorRevision() const;
-    bool isOutdated() const;
 
     Internal::QmlOutlineModel *outlineModel() const;
     QModelIndex outlineModelIndex();
@@ -172,7 +172,10 @@ public:
 
 public slots:
     virtual void setTabSettings(const TextEditor::TabSettings &ts);
-    void forceReparse();
+    void reparseDocument();
+    void reparseDocumentNow();
+    void updateSemanticInfo();
+    void updateSemanticInfoNow();
     void followSymbolUnderCursor();
     void findUsages();
     void renameUsages();
@@ -182,13 +185,12 @@ public slots:
 signals:
     void outlineModelIndexChanged(const QModelIndex &index);
     void selectedElementsChanged(QList<int> offsets, const QString &wordAtCursor);
+    void semanticInfoUpdated();
 
 private slots:
     void onDocumentUpdated(QmlJS::Document::Ptr doc);
     void modificationChanged(bool);
 
-    void updateDocument();
-    void updateDocumentNow();
     void jumpToOutlineElement(int index);
     void updateOutlineNow();
     void updateOutlineIndexNow();
@@ -199,9 +201,7 @@ private slots:
     void updateUses();
     void updateUsesNow();
 
-    void reparse();
-    void forceReparseIfCurrentEditor();
-    void updateSemanticInfo(const QmlJSEditor::SemanticInfo &semanticInfo);
+    void acceptNewSemanticInfo(const QmlJSEditor::SemanticInfo &semanticInfo);
     void onCursorPositionChanged();
     void onRefactorMarkerClicked(const TextEditor::RefactorMarker &marker);
 
@@ -224,7 +224,6 @@ private:
     void setSelectedElements();
     QString wordUnderCursor() const;
 
-    Internal::SemanticInfoUpdaterSource currentSource(bool force = false);
     QModelIndex indexForPosition(unsigned cursorPosition, const QModelIndex &rootIndex = QModelIndex()) const;
     bool hideContextPane();
 
@@ -232,7 +231,7 @@ private:
 
     QTimer *m_updateDocumentTimer;
     QTimer *m_updateUsesTimer;
-    QTimer *m_localReparseTimer;
+    QTimer *m_updateSemanticInfoTimer;
     QTimer *m_updateOutlineTimer;
     QTimer *m_updateOutlineIndexTimer;
     QTimer *m_cursorPositionTimer;

@@ -38,10 +38,6 @@
 
 #include <QtCore/QStringList>
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class QMakeStep; }
-QT_END_NAMESPACE
-
 namespace ProjectExplorer {
 class BuildStep;
 class IBuildStepFactory;
@@ -53,6 +49,8 @@ class Qt4BuildConfiguration;
 class Qt4Project;
 
 namespace Internal {
+
+namespace Ui { class QMakeStep; }
 
 class QMakeStepFactory : public ProjectExplorer::IBuildStepFactory
 {
@@ -172,7 +170,7 @@ private:
     void setSummaryText(const QString &);
     void setAdditionalSummaryText(const QString &);
 
-    Ui::QMakeStep *m_ui;
+    Internal::Ui::QMakeStep *m_ui;
     QMakeStep *m_step;
     QString m_summaryText;
     QString m_additionalSummaryText;

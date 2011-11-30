@@ -142,9 +142,6 @@ bool MakeStep::init()
     ProjectExplorer::ProcessParameters *pp = processParameters();
     pp->setMacroExpander(bc->macroExpander());
 
-    Utils::Environment environment = bc->environment();
-    pp->setEnvironment(environment);
-
     QString workingDirectory;
     if (bc->subNodeBuild())
         workingDirectory = bc->subNodeBuild()->buildDir();
@@ -191,15 +188,28 @@ bool MakeStep::init()
         if (!bc->defaultMakeTarget().isEmpty())
             Utils::QtcProcess::addArg(&args, bc->defaultMakeTarget());
     }
+
+    Utils::Environment env = bc->environment();
+    // Force output to english for the parsers. Do this here and not in the toolchain's
+    // addToEnvironment() to not screw up the users run environment.
+    env.set(QLatin1String("LC_ALL"), QLatin1String("C"));
     // -w option enables "Enter"/"Leaving directory" messages, which we need for detecting the
     // absolute file path
     // FIXME doing this without the user having a way to override this is rather bad
     // so we only do it for unix and if the user didn't override the make command
     // but for now this is the least invasive change
-    if (toolchain
-            && toolchain->targetAbi().binaryFormat() != ProjectExplorer::Abi::PEFormat
-            && m_makeCmd.isEmpty())
-        Utils::QtcProcess::addArg(&args, QLatin1String("-w"));
+    // We also prepend "L" to the MAKEFLAGS, so that nmake / jom are less verbose
+    ProjectExplorer::ToolChain *toolChain = bc->toolChain();
+    if (toolChain && m_makeCmd.isEmpty()) {
+        if (toolChain->targetAbi().binaryFormat() != ProjectExplorer::Abi::PEFormat )
+            Utils::QtcProcess::addArg(&args, QLatin1String("-w"));
+        if (toolChain->targetAbi().os() == ProjectExplorer::Abi::WindowsOS
+                && toolChain->targetAbi().osFlavor() != ProjectExplorer::Abi::WindowsMSysFlavor) {
+            env.set("MAKEFLAGS", env.value("MAKEFLAGS").prepend("L"));
+        }
+    }
+
+    pp->setEnvironment(env);
 
     setEnabled(true);
     pp->setArguments(args);
@@ -282,7 +292,7 @@ void MakeStep::setUserArguments(const QString &arguments)
 }
 
 MakeStepConfigWidget::MakeStepConfigWidget(MakeStep *makeStep)
-    : BuildStepConfigWidget(), m_ui(new Ui::MakeStep), m_makeStep(makeStep), m_ignoreChange(false)
+    : BuildStepConfigWidget(), m_ui(new Internal::Ui::MakeStep), m_makeStep(makeStep), m_ignoreChange(false)
 {
     m_ui->setupUi(this);
 
@@ -354,6 +364,9 @@ void MakeStepConfigWidget::updateDetails()
     }
 
     Utils::Environment env = bc->environment();
+    // Force output to english for the parsers. Do this here and not in the toolchain's
+    // addToEnvironment() to not screw up the users run environment.
+    env.set(QLatin1String("LC_ALL"), QLatin1String("C"));
     // -w option enables "Enter"/"Leaving directory" messages, which we need for detecting the
     // absolute file path
     // FIXME doing this without the user having a way to override this is rather bad
@@ -434,7 +447,12 @@ ProjectExplorer::BuildStep *MakeStepFactory::create(ProjectExplorer::BuildStepLi
 {
     if (!canCreate(parent, id))
         return 0;
-    return new MakeStep(parent);
+    MakeStep *step = new MakeStep(parent);
+    if (parent->id() == ProjectExplorer::Constants::BUILDSTEPS_CLEAN) {
+        step->setClean(true);
+        step->setUserArguments("clean");
+    }
+    return step;
 }
 
 bool MakeStepFactory::canClone(ProjectExplorer::BuildStepList *parent, ProjectExplorer::BuildStep *source) const

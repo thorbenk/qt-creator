@@ -641,6 +641,8 @@ void CPPEditorWidget::abortRename()
     m_currentRenameSelectionBegin = QTextCursor();
     m_currentRenameSelectionEnd = QTextCursor();
     setExtraSelections(CodeSemanticsSelection, m_renameSelections);
+
+    semanticRehighlight(/* force = */ true);
 }
 
 void CPPEditorWidget::onDocumentUpdated(Document::Ptr doc)
@@ -2206,7 +2208,7 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
                     frameworkPaths);
 #endif
     } else if (kind == TextEditor::QuickFix) {
-        if (!semanticInfo().doc || semanticInfo().revision != editorRevision())
+        if (!semanticInfo().doc || isOutdated())
             return 0;
         return new CppQuickFixAssistInterface(const_cast<CPPEditorWidget *>(this), reason);
     }

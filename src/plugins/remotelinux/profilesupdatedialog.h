@@ -29,6 +29,7 @@
 ** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #ifndef PROFILESUPDATEDIALOG_H
 #define PROFILESUPDATEDIALOG_H
 
@@ -37,16 +38,11 @@
 #include <QtCore/QString>
 #include <QtGui/QDialog>
 
-QT_BEGIN_NAMESPACE
-namespace Ui {
-class ProFilesUpdateDialog;
-}
-QT_END_NAMESPACE
-
 namespace RemoteLinux {
 class DeployableFilesPerProFile;
 
 namespace Internal {
+namespace Ui { class ProFilesUpdateDialog; }
 
 class ProFilesUpdateDialog : public QDialog
 {

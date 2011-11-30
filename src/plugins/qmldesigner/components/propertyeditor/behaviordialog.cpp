@@ -49,13 +49,7 @@ void BehaviorDialog::registerDeclarativeType()
     qmlRegisterType<QmlDesigner::BehaviorWidget>("Bauhaus",1,0,"BehaviorWidget");
 }
 
-BehaviorWidget::BehaviorWidget() : QPushButton(), m_BehaviorDialog(new BehaviorDialog(0))
-{
-    setCheckable(true);
-    connect(this, SIGNAL(toggled(bool)), this, SLOT(buttonPressed(bool)));
-
-}
-BehaviorWidget::BehaviorWidget(QWidget *parent) : QPushButton(parent), m_BehaviorDialog(new BehaviorDialog(0))
+BehaviorWidget::BehaviorWidget(QWidget *parent) : QPushButton(parent), m_BehaviorDialog(new BehaviorDialog)
 {
     setCheckable(true);
     connect(this, SIGNAL(toggled(bool)), this, SLOT(buttonPressed(bool)));
@@ -92,7 +86,7 @@ void BehaviorWidget::buttonPressed(bool show)
     }
 }
 
-BehaviorDialog::BehaviorDialog(QWidget *parent) : QDialog(parent), m_ui(new Ui_BehaviorDialog)
+BehaviorDialog::BehaviorDialog(QWidget *parent) : QDialog(parent), m_ui(new Internal::Ui::BehaviorDialog)
 {
     m_ui->setupUi(this);
     setModal(true);

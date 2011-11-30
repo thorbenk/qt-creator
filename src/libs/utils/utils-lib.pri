@@ -7,7 +7,6 @@ dll {
 INCLUDEPATH += $$PWD
 QT += network
 
-
 win32-msvc* {
     # disable warnings caused by botan headers
     QMAKE_CXXFLAGS += -wd4250 -wd4290
@@ -17,6 +16,7 @@ SOURCES += $$PWD/environment.cpp \
     $$PWD/environmentmodel.cpp \
     $$PWD/qtcprocess.cpp \
     $$PWD/reloadpromptutils.cpp \
+    $$PWD/settingsselector.cpp \
     $$PWD/stringutils.cpp \
     $$PWD/filesearch.cpp \
     $$PWD/pathchooser.cpp \
@@ -111,6 +111,7 @@ HEADERS += \
     $$PWD/qtcprocess.h \
     $$PWD/utils_global.h \
     $$PWD/reloadpromptutils.h \
+    $$PWD/settingsselector.h \
     $$PWD/stringutils.h \
     $$PWD/filesearch.h \
     $$PWD/listutils.h \

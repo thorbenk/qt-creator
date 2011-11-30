@@ -77,7 +77,7 @@ def __createProjectSetNameAndPath__(path, projectName = None, checks = True):
     # make sure this is not set as default location
     ensureChecked("{type='QCheckBox' name='projectsDirectoryCheckBox' visible='1'}", False)
     clickButton(waitForObject(":Next_QPushButton"))
-    return projectName
+    return str(projectName)
 
 def __createProjectHandleLastPage__(expectedFiles = None):
     if expectedFiles != None:
@@ -91,7 +91,7 @@ def __createProjectHandleLastPage__(expectedFiles = None):
     clickButton(waitForObject("{type='QPushButton' text~='(Finish|Done)' visible='1'}", 20000))
 
 def createProject_Qt_GUI(path, projectName, qtVersion, checks):
-    __createProjectSelectType__("Qt Widget Project", "Qt Gui Application")
+    __createProjectSelectType__("Other Qt Project", "Qt Gui Application")
     __createProjectSetNameAndPath__(path, projectName, checks)
     __chooseTargets__()
     selectFromCombo(":scrollArea.Create Build Configurations:_QComboBox_2", "For One Qt Version One Debug And One Release")
@@ -156,6 +156,7 @@ def createNewQtQuickApplication(workingDir, projectName = None, templateFile = N
     snooze(1)
     clickButton(nextButton)
     __createProjectHandleLastPage__()
+    return projectName
 
 def createNewQtQuickUI(workingDir):
     __createProjectSelectType__("Qt Quick Project", "Qt Quick UI")

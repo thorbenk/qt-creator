@@ -32,43 +32,43 @@
 
 #include <qglobal.h>
 
-#include <QtCore/QDateTime>
-#include <QtCore/QDebug>
-#include <QtCore/QDir>
-#include <QtCore/QFile>
-#include <QtCore/QFileInfo>
-#include <QtCore/QHash>
-#include <QtCore/QLinkedList>
-#include <QtCore/QList>
-#include <QtCore/QQueue>
-#include <QtCore/QLocale>
-#include <QtCore/QMap>
-#include <QtCore/QMetaEnum>
-#include <QtCore/QMetaObject>
-#include <QtCore/QMetaProperty>
-#include <QtCore/QPoint>
-#include <QtCore/QPointF>
-#include <QtCore/QPointer>
-#include <QtCore/QRect>
-#include <QtCore/QRectF>
-#include <QtCore/QStack>
-#include <QtCore/QSize>
-#include <QtCore/QSizeF>
-#include <QtCore/QString>
-#include <QtCore/QStringList>
-#include <QtCore/QTextCodec>
-#include <QtCore/QTextStream>
-#include <QtCore/QVector>
+#include <QDateTime>
+#include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QHash>
+#include <QLinkedList>
+#include <QList>
+#include <QQueue>
+#include <QLocale>
+#include <QMap>
+#include <QMetaEnum>
+#include <QMetaObject>
+#include <QMetaProperty>
+#include <QPoint>
+#include <QPointF>
+#include <QPointer>
+#include <QRect>
+#include <QRectF>
+#include <QStack>
+#include <QSize>
+#include <QSizeF>
+#include <QString>
+#include <QStringList>
+#include <QTextCodec>
+#include <QTextStream>
+#include <QVector>
 
 #ifndef QT_BOOTSTRAPPED
 
-#include <QtCore/QModelIndex>
+#include <QModelIndex>
 
 #if QT_VERSION >= 0x040500
-#include <QtCore/QSharedPointer>
-#include <QtCore/QSharedDataPointer>
-#include <QtCore/QSharedData>
-#include <QtCore/QWeakPointer>
+#include <QSharedPointer>
+#include <QSharedDataPointer>
+#include <QSharedData>
+#include <QWeakPointer>
 #endif
 
 #ifndef USE_QT_GUI
@@ -84,18 +84,18 @@
 #endif
 
 #ifdef USE_QT_GUI
-#   include <QtGui/QImage>
-#   include <QtGui/QRegion>
-#   include <QtGui/QPixmap>
-#   include <QtGui/QFont>
-#   include <QtGui/QColor>
-#   include <QtGui/QKeySequence>
+#   include <QImage>
+#   include <QRegion>
+#   include <QPixmap>
+#   include <QFont>
+#   include <QColor>
+#   include <QKeySequence>
 #endif
 
 #ifdef USE_QT_WIDGETS
-#   include <QtGui/QSizePolicy>
-#   include <QtGui/QWidget>
-#   include <QtGui/QApplication>
+#   include <QSizePolicy>
+#   include <QWidget>
+#   include <QApplication>
 #endif
 
 #endif // QT_BOOTSTRAPPED
@@ -1336,8 +1336,8 @@ static void qDumpQDateTime(QDumper &d)
 #        if 0
         d.beginHash();
         d.putItem("name", "toUTC");
-        d.putItem("exp", "(("NSX"QDateTime"NSY"*)").put(d.data).put(")"
-                    "->toTimeSpec('"NS"Qt::UTC')");
+        d.putItem("exp", "((" NSX "QDateTime" NSY "*)").put(d.data).put(")"
+                    "->toTimeSpec('" NS "Qt::UTC')");
         d.putItem("type", NS"QDateTime");
         d.putItem("numchild", "1");
         d.endHash();
@@ -1346,8 +1346,8 @@ static void qDumpQDateTime(QDumper &d)
 #        if 0
         d.beginHash();
         d.putItem("name", "toLocalTime");
-        d.putItem("exp", "(("NSX"QDateTime"NSY"*)").put(d.data).put(")"
-                    "->toTimeSpec('"NS"Qt::LocalTime')");
+        d.putItem("exp", "((" NSX "QDateTime" NSY "*)").put(d.data).put(")"
+                    "->toTimeSpec('" NS "Qt::LocalTime')");
         d.putItem("type", NS"QDateTime");
         d.putItem("numchild", "1");
         d.endHash();
@@ -1461,7 +1461,7 @@ static void qDumpQFileInfo(QDumper &d)
         d.putItem("value", info.created().toString());
         d.putItem("valueencoded", "2");
         d.beginItem("exp");
-            d.put("(("NSX"QFileInfo"NSY"*)").put(d.data).put(")->created()");
+            d.put("((" NSX "QFileInfo" NSY "*)").put(d.data).put(")->created()");
         d.endItem();
         d.putItem("type", NS"QDateTime");
         d.putItem("numchild", "1");
@@ -1472,7 +1472,7 @@ static void qDumpQFileInfo(QDumper &d)
         d.putItem("value", info.lastModified().toString());
         d.putItem("valueencoded", "2");
         d.beginItem("exp");
-            d.put("(("NSX"QFileInfo"NSY"*)").put(d.data).put(")->lastModified()");
+            d.put("((" NSX "QFileInfo" NSY "*)").put(d.data).put(")->lastModified()");
         d.endItem();
         d.putItem("type", NS"QDateTime");
         d.putItem("numchild", "1");
@@ -1483,7 +1483,7 @@ static void qDumpQFileInfo(QDumper &d)
         d.putItem("value", info.lastRead().toString());
         d.putItem("valueencoded", "2");
         d.beginItem("exp");
-            d.put("(("NSX"QFileInfo"NSY"*)").put(d.data).put(")->lastRead()");
+            d.put("((" NSX "QFileInfo" NSY "*)").put(d.data).put(")->lastRead()");
         d.endItem();
         d.putItem("type", NS"QDateTime");
         d.putItem("numchild", "1");
@@ -1826,28 +1826,28 @@ static void qDumpQLocale(QDumper &d)
         d.beginHash();
         d.putItem("name", "country");
         d.beginItem("exp");
-        d.put("(("NSX"QLocale"NSY"*)").put(d.data).put(")->country()");
+        d.put("((" NSX "QLocale" NSY "*)").put(d.data).put(")->country()");
         d.endItem();
         d.endHash();
 
         d.beginHash();
         d.putItem("name", "language");
         d.beginItem("exp");
-        d.put("(("NSX"QLocale"NSY"*)").put(d.data).put(")->language()");
+        d.put("((" NSX "QLocale" NSY "*)").put(d.data).put(")->language()");
         d.endItem();
         d.endHash();
 
         d.beginHash();
         d.putItem("name", "measurementSystem");
         d.beginItem("exp");
-        d.put("(("NSX"QLocale"NSY"*)").put(d.data).put(")->measurementSystem()");
+        d.put("((" NSX "QLocale" NSY "*)").put(d.data).put(")->measurementSystem()");
         d.endItem();
         d.endHash();
 
         d.beginHash();
         d.putItem("name", "numberOptions");
         d.beginItem("exp");
-        d.put("(("NSX"QLocale"NSY"*)").put(d.data).put(")->numberOptions()");
+        d.put("((" NSX "QLocale" NSY "*)").put(d.data).put(")->numberOptions()");
         d.endItem();
         d.endHash();
 
@@ -1963,7 +1963,7 @@ static void qDumpQMap(QDumper &d)
                         d.put(valueType).put(" >");
                     d.endItem();
                     d.beginItem("exp");
-                        d.put("*('"NS"QMapData::Node<").put(keyType).put(",");
+                        d.put("*('" NS "QMapData::Node<").put(keyType).put(",");
                         d.put(valueType).put(" >'*)").put(node);
                     d.endItem();
 #endif
@@ -2010,7 +2010,7 @@ static void qDumpQModelIndex(QDumper &d)
                 d.put("<invalid>");
             d.endItem();
             d.beginItem("exp");
-                d.put("(("NSX"QModelIndex"NSY"*)").put(d.data).put(")->parent()");
+                d.put("((" NSX "QModelIndex" NSY "*)").put(d.data).put(")->parent()");
             d.endItem();
             d.putItem("type", NS"QModelIndex");
             d.putItem("numchild", "1");
@@ -2154,7 +2154,7 @@ static void qDumpQVariantHelper(const QVariant *v, QString *value,
         break;
 #    if QT_VERSION >= 0x040500
     case QVariant::StringList:
-        *exp = QString(QLatin1String("(*('"NS"QStringList'*)%1)"))
+        *exp = QString(QLatin1String("(*('" NS "QStringList'*)%1)"))
                     .arg((quintptr)v);
         *numchild = v->toStringList().size();
         break;
@@ -2232,11 +2232,11 @@ static void qDumpQVariantHelper(const QVariant *v, QString *value,
 #    endif
     default: {
         static const char *qTypeFormat = sizeof(void *) == sizeof(long)
-            ? "'"NS"%s "NS"qVariantValue<"NS"%s >'(*('"NS"QVariant'*)0x%lx)"
-            : "'"NS"%s "NS"qVariantValue<"NS"%s >'(*('"NS"QVariant'*)0x%llx)";
+            ? "'" NS "%s " NS "qVariantValue<" NS "%s >'(*('" NS "QVariant'*)0x%lx)"
+            : "'" NS "%s " NS "qVariantValue<" NS "%s >'(*('" NS "QVariant'*)0x%llx)";
         static const char *nonQTypeFormat = sizeof(void *) == sizeof(long)
-            ? "'%s "NS"qVariantValue<%s >'(*('"NS"QVariant'*)0x%lx)"
-            : "'%s "NS"qVariantValue<%s >'(*('"NS"QVariant'*)0x%llx)";
+            ? "'%s " NS "qVariantValue<%s >'(*('" NS "QVariant'*)0x%lx)"
+            : "'%s " NS "qVariantValue<%s >'(*('" NS "QVariant'*)0x%llx)";
         char buf[1000];
         const char *format = (v->typeName()[0] == 'Q') ? qTypeFormat : nonQTypeFormat;
         qsnprintf(buf, sizeof(buf) - 1, format, v->typeName(), v->typeName(), v);
@@ -2852,8 +2852,8 @@ static void qDumpQSet(QDumper &d)
                 d.beginHash();
                 d.putItem("type", d.innerType);
                 d.beginItem("exp");
-                    d.put("(('"NS"QHashNode<").put(d.innerType
-                   ).put(","NS"QHashDummyValue>'*)"
+                    d.put("(('" NS "QHashNode<").put(d.innerType
+                   ).put("," NS "QHashDummyValue>'*)"
                    ).put(static_cast<const void*>(node)).put(")->key");
                 d.endItem();
                 d.endHash();
@@ -3646,58 +3646,58 @@ void *qDumpObjectData440(
         // They are mentioned here nevertheless. For types that are not listed
         // here, dumpers won't be used.
         d.put("dumpers=["
-            "\""NS"QAbstractItem\","
-            "\""NS"QAbstractItemModel\","
-            "\""NS"QByteArray\","
-            "\""NS"QChar\","
-            "\""NS"QDate\","
-            "\""NS"QDateTime\","
-            "\""NS"QDir\","
-            "\""NS"QFile\","
-            "\""NS"QFileInfo\","
-            "\""NS"QHash\","
-            "\""NS"QHashNode\","
-            "\""NS"QImage\","
-            //"\""NS"QImageData\","
-            "\""NS"QLinkedList\","
-            "\""NS"QList\","
-            "\""NS"QLocale\","
-            "\""NS"QMap\","
-            "\""NS"QMapNode\","
-            "\""NS"QModelIndex\","
-            "\""NS"QObject\","
-            "\""NS"QObjectMethodList\","   // hack to get nested properties display
-            "\""NS"QObjectProperty\","
-            "\""NS"QObjectPropertyList\","
-            "\""NS"QObjectSignal\","
-            "\""NS"QObjectSignalList\","
-            "\""NS"QObjectSlot\","
-            "\""NS"QObjectSlotList\","
-            "\""NS"QObjectChildList\","
-            "\""NS"QPoint\","
-            "\""NS"QPointF\","
-            "\""NS"QRect\","
-            "\""NS"QRectF\","
-            //"\""NS"QRegion\","
-            "\""NS"QSet\","
-            "\""NS"QSize\","
-            "\""NS"QSizeF\","
-            "\""NS"QStack\","
-            "\""NS"QString\","
-            "\""NS"QStringList\","
-            "\""NS"QTextCodec\","
-            "\""NS"QTime\","
-            "\""NS"QVariant\","
-            "\""NS"QVariantList\","
-            "\""NS"QVector\","
+            "\"" NS "QAbstractItem\","
+            "\"" NS "QAbstractItemModel\","
+            "\"" NS "QByteArray\","
+            "\"" NS "QChar\","
+            "\"" NS "QDate\","
+            "\"" NS "QDateTime\","
+            "\"" NS "QDir\","
+            "\"" NS "QFile\","
+            "\"" NS "QFileInfo\","
+            "\"" NS "QHash\","
+            "\"" NS "QHashNode\","
+            "\"" NS "QImage\","
+            //"\"" NS "QImageData\","
+            "\"" NS "QLinkedList\","
+            "\"" NS "QList\","
+            "\"" NS "QLocale\","
+            "\"" NS "QMap\","
+            "\"" NS "QMapNode\","
+            "\"" NS "QModelIndex\","
+            "\"" NS "QObject\","
+            "\"" NS "QObjectMethodList\","   // hack to get nested properties display
+            "\"" NS "QObjectProperty\","
+            "\"" NS "QObjectPropertyList\","
+            "\"" NS "QObjectSignal\","
+            "\"" NS "QObjectSignalList\","
+            "\"" NS "QObjectSlot\","
+            "\"" NS "QObjectSlotList\","
+            "\"" NS "QObjectChildList\","
+            "\"" NS "QPoint\","
+            "\"" NS "QPointF\","
+            "\"" NS "QRect\","
+            "\"" NS "QRectF\","
+            //"\"" NS "QRegion\","
+            "\"" NS "QSet\","
+            "\"" NS "QSize\","
+            "\"" NS "QSizeF\","
+            "\"" NS "QStack\","
+            "\"" NS "QString\","
+            "\"" NS "QStringList\","
+            "\"" NS "QTextCodec\","
+            "\"" NS "QTime\","
+            "\"" NS "QVariant\","
+            "\"" NS "QVariantList\","
+            "\"" NS "QVector\","
 #if QT_VERSION >= 0x040500
-            "\""NS"QMultiMap\","
-            "\""NS"QSharedPointer\","
-            "\""NS"QWeakPointer\","
+            "\"" NS "QMultiMap\","
+            "\"" NS "QSharedPointer\","
+            "\"" NS "QWeakPointer\","
 #endif
 #if USE_QT_GUI
-            "\""NS"QPixmap\","
-            "\""NS"QWidget\","
+            "\"" NS "QPixmap\","
+            "\"" NS "QWidget\","
 #endif
 #ifdef Q_OS_WIN
             "\"basic_string\","
@@ -3720,7 +3720,7 @@ void *qDumpObjectData440(
             "\"").put(((QT_VERSION >> 16) & 255)).put("\","
             "\"").put(((QT_VERSION >> 8)  & 255)).put("\","
             "\"").put(((QT_VERSION)       & 255)).put("\"]");
-        d.put(",namespace=\""NS"\",");
+        d.put(",namespace=\"" NS "\",");
         d.put("dumperversion=\"1.3\",");
         d.disarm();
     }

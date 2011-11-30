@@ -33,7 +33,7 @@
 #ifndef MSVCTOOLCHAIN_H
 #define MSVCTOOLCHAIN_H
 
-#include "toolchain.h"
+#include "abstractmsvctoolchain.h"
 #include "abi.h"
 #include "toolchainconfigwidget.h"
 
@@ -48,7 +48,7 @@ namespace Internal {
 // MsvcToolChain
 // --------------------------------------------------------------------------
 
-class MsvcToolChain : public ToolChain
+class MsvcToolChain : public AbstractMsvcToolChain
 {
 public:
     enum Type { WindowsSDK, VS };
@@ -60,45 +60,30 @@ public:
     static MsvcToolChain *readFromMap(const QVariantMap &data);
 
     QString typeName() const;
-    Abi targetAbi() const;
 
-    bool isValid() const;
-
-    QByteArray predefinedMacros(const QStringList &cxxflags) const;
-    CompilerFlags compilerFlags(const QStringList &cxxflags) const;
-    QList<HeaderPath> systemHeaderPaths() const;
-    void addToEnvironment(Utils::Environment &env) const;
     QString mkspec() const;
-    QString makeCommand() const;
-    void setDebuggerCommand(const QString &d);
-    virtual QString debuggerCommand() const;
-    IOutputParser *outputParser() const;
 
-    virtual QVariantMap toMap() const;
-    virtual bool fromMap(const QVariantMap &data);
+    QVariantMap toMap() const;
+    bool fromMap(const QVariantMap &data);
 
     ToolChainConfigWidget *configurationWidget();
 
-    bool canClone() const;
     ToolChain *clone() const;
 
-    QString varsBat() const { return m_varsBat; }
     QString varsBatArg() const { return m_varsBatArg; }
 
     static QPair<QString, QString> autoDetectCdbDebugger();
+
+protected:
+    Utils::Environment readEnvironmentSetting(Utils::Environment& env) const;
+    QByteArray msvcPredefinedMacros(const QStringList cxxflags,
+                                    const Utils::Environment &env) const;
 
 private:
     MsvcToolChain();
     void updateId();
 
-    QString m_varsBat; // Script to setup environment
     QString m_varsBatArg; // Argument
-    QString m_debuggerCommand;
-    mutable QByteArray m_predefinedMacros;
-    mutable Utils::Environment m_lastEnvironment;   // Last checked 'incoming' environment.
-    mutable Utils::Environment m_resultEnvironment; // Resulting environment for VC
-    mutable QList<HeaderPath> m_headerPaths;
-    Abi m_abi;
 };
 
 // --------------------------------------------------------------------------

@@ -85,6 +85,7 @@
 #ifdef Q_OS_WIN
 #    include "windebuginterface.h"
 #    include "msvctoolchain.h"
+#    include "wincetoolchain.h"
 #endif
 
 #include <extensionsystem/pluginspec.h>
@@ -318,6 +319,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
 
     addAutoReleasedObject(new Internal::MingwToolChainFactory);
     addAutoReleasedObject(new Internal::MsvcToolChainFactory);
+    addAutoReleasedObject(new Internal::WinCEToolChainFactory);
 #else
     addAutoReleasedObject(new Internal::GccToolChainFactory);
     addAutoReleasedObject(new Internal::LinuxIccToolChainFactory);
@@ -870,7 +872,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     d->m_projectTreeCollapseAllAction = new QAction(tr("Collapse All"), this);
     cmd = am->registerAction(d->m_projectTreeCollapseAllAction, Constants::PROJECTTREE_COLLAPSE_ALL,
                              projecTreeContext);
-    const QString treeGroup = QLatin1String(Constants::G_PROJECT_TREE);
+    const Core::Id treeGroup = Constants::G_PROJECT_TREE;
     mfileContextMenu->addAction(treeSpacer, treeGroup);
     mfileContextMenu->addAction(cmd, treeGroup);
     msubProjectContextMenu->addAction(treeSpacer, treeGroup);
@@ -1176,7 +1178,7 @@ void ProjectExplorerPlugin::showSessionManager()
     } else {
         d->m_session->save();
     }
-    SessionDialog sessionDialog(d->m_session);
+    SessionDialog sessionDialog(d->m_session, Core::ICore::instance()->mainWindow());
     sessionDialog.setAutoLoadSession(d->m_projectExplorerSettings.autorestoreLastSession);
     sessionDialog.exec();
     d->m_projectExplorerSettings.autorestoreLastSession = sessionDialog.autoLoadSession();
@@ -1843,7 +1845,7 @@ void ProjectExplorerPlugin::buildProject()
 
 void ProjectExplorerPlugin::buildProjectContextMenu()
 {
-    queue(d->m_session->projectOrder(d->m_currentProject),
+    queue(QList<Project *>() <<  d->m_currentProject,
           QStringList() << Constants::BUILDSTEPS_BUILD);
 }
 
@@ -1867,7 +1869,7 @@ void ProjectExplorerPlugin::rebuildProject()
 
 void ProjectExplorerPlugin::rebuildProjectContextMenu()
 {
-    queue(d->m_session->projectOrder(d->m_currentProject),
+    queue(QList<Project *>() <<  d->m_currentProject,
           QStringList() << Constants::BUILDSTEPS_CLEAN << Constants::BUILDSTEPS_BUILD);
 }
 
@@ -1889,7 +1891,7 @@ void ProjectExplorerPlugin::deployProject()
 
 void ProjectExplorerPlugin::deployProjectContextMenu()
 {
-    deploy(d->m_session->projectOrder(d->m_currentProject));
+    deploy(QList<Project *>() << d->m_currentProject);
 }
 
 void ProjectExplorerPlugin::deploySession()
@@ -1911,7 +1913,7 @@ void ProjectExplorerPlugin::cleanProject()
 
 void ProjectExplorerPlugin::cleanProjectContextMenu()
 {
-    queue(d->m_session->projectOrder(d->m_currentProject),
+    queue(QList<Project *>() <<  d->m_currentProject,
           QStringList() << Constants::BUILDSTEPS_CLEAN);
 }
 

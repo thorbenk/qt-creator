@@ -42,12 +42,13 @@ namespace QtSupport {
 namespace Internal {
 
 enum ExampleRoles { Name=Qt::UserRole, ProjectPath, Description, ImageUrl,
-                    DocUrl,  FilesToOpen, Tags, Difficulty, HasSourceCode, Type };
+                    DocUrl,  FilesToOpen, Tags, Difficulty, HasSourceCode,
+                    Type, Dependencies, IsVideo, VideoUrl, VideoLength };
 
 enum InstructionalType { Example=0, Demo, Tutorial };
 
 struct ExampleItem {
-    ExampleItem(): difficulty(0) {}
+    ExampleItem(): difficulty(0), isVideo(false) {}
     InstructionalType type;
     QString name;
     QString projectPath;
@@ -56,8 +57,12 @@ struct ExampleItem {
     QString docUrl;
     QStringList filesToOpen;
     QStringList tags;
+    QStringList dependencies;
     int difficulty;
     bool hasSourceCode;
+    bool isVideo;
+    QString videoUrl;
+    QString videoLength;
 };
 
 struct QMakePathCache {

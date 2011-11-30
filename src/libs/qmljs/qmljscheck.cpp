@@ -768,10 +768,21 @@ bool Check::visit(UiPublicMember *ast)
                 QString preferedType;
                 if (init->asNumberValue())
                     preferedType = tr("'int' or 'real'");
-                if (init->asStringValue())
+                else if (init->asStringValue())
                     preferedType = QLatin1String("'string'");
-                if (init->asBooleanValue())
+                else if (init->asBooleanValue())
                     preferedType = QLatin1String("'bool'");
+                else if (init->asColorValue())
+                    preferedType = QLatin1String("'color'");
+                else if (init == _context->valueOwner()->qmlPointObject())
+                    preferedType = QLatin1String("'point'");
+                else if (init == _context->valueOwner()->qmlRectObject())
+                    preferedType = QLatin1String("'rect'");
+                else if (init == _context->valueOwner()->qmlSizeObject())
+                    preferedType = QLatin1String("'size'");
+                else if (init == _context->valueOwner()->qmlVector3DObject())
+                    preferedType = QLatin1String("'vector3d'");
+
                 if (!preferedType.isEmpty())
                     addMessage(HintPreferNonVarPropertyType, ast->typeToken, preferedType);
             }
@@ -1075,15 +1086,21 @@ bool Check::visit(DoWhileStatement *ast)
     return true;
 }
 
-bool Check::visit(CaseClause *ast)
+bool Check::visit(CaseBlock *ast)
 {
-    checkEndsWithControlFlow(ast->statements, ast->caseToken);
-    return true;
-}
+    QList< QPair<SourceLocation, StatementList *> > clauses;
+    for (CaseClauses *it = ast->clauses; it; it = it->next)
+        clauses += qMakePair(it->clause->caseToken, it->clause->statements);
+    if (ast->defaultClause)
+        clauses += qMakePair(ast->defaultClause->defaultToken, ast->defaultClause->statements);
+    for (CaseClauses *it = ast->moreClauses; it; it = it->next)
+        clauses += qMakePair(it->clause->caseToken, it->clause->statements);
 
-bool Check::visit(DefaultClause *ast)
-{
-    checkEndsWithControlFlow(ast->statements, ast->defaultToken);
+    // check all but the last clause for fallthrough
+    for (int i = 0; i < clauses.size() - 1; ++i) {
+        const SourceLocation nextToken = clauses[i + 1].first;
+        checkCaseFallthrough(clauses[i].second, clauses[i].first, nextToken);
+    }
     return true;
 }
 
@@ -1424,13 +1441,35 @@ void Check::checkAssignInCondition(AST::ExpressionNode *condition)
     }
 }
 
-void Check::checkEndsWithControlFlow(StatementList *statements, SourceLocation errorLoc)
+void Check::checkCaseFallthrough(StatementList *statements, SourceLocation errorLoc, SourceLocation nextLoc)
 {
     if (!statements)
         return;
 
     ReachesEndCheck check;
     if (check(statements)) {
+        // check for fallthrough comments
+        if (nextLoc.isValid()) {
+            quint32 afterLastStatement = 0;
+            for (StatementList *it = statements; it; it = it->next) {
+                if (!it->next)
+                    afterLastStatement = it->statement->lastSourceLocation().end();
+            }
+
+            foreach (const SourceLocation &comment, _doc->engine()->comments()) {
+                if (comment.begin() < afterLastStatement
+                        || comment.end() > nextLoc.begin())
+                    continue;
+
+                const QString &commentText = _doc->source().mid(comment.begin(), comment.length);
+                if (commentText.contains(QLatin1String("fall through"))
+                        || commentText.contains(QLatin1String("fall-through"))
+                        || commentText.contains(QLatin1String("fallthrough"))) {
+                    return;
+                }
+            }
+        }
+
         addMessage(WarnCaseWithoutFlowControl, errorLoc);
     }
 }

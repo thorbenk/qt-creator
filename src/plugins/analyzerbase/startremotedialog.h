@@ -37,15 +37,12 @@
 
 #include <QtGui/QDialog>
 
-namespace Utils {
-class SshConnectionParameters;
-}
+namespace Utils { class SshConnectionParameters; }
 
 namespace Analyzer {
 
-namespace Ui {
-class StartRemoteDialog;
-}
+namespace Internal { namespace Ui { class StartRemoteDialog; } }
+
 
 class ANALYZER_EXPORT StartRemoteDialog : public QDialog
 {
@@ -65,7 +62,7 @@ private slots:
     virtual void accept();
 
 private:
-    Ui::StartRemoteDialog *m_ui;
+    Internal::Ui::StartRemoteDialog *m_ui;
 };
 
 } // namespace Analyzer

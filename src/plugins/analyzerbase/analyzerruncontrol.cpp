@@ -80,7 +80,7 @@ AnalyzerRunControl::Private::Private()
 
 AnalyzerRunControl::AnalyzerRunControl(IAnalyzerTool *tool,
         const AnalyzerStartParameters &sp, RunConfiguration *runConfiguration)
-    : RunControl(runConfiguration, tool->id()),
+    : RunControl(runConfiguration, tool->id().toString()),
       d(new Private)
 {
     d->m_engine = tool->createEngine(sp, runConfiguration);
@@ -94,7 +94,6 @@ AnalyzerRunControl::AnalyzerRunControl(IAnalyzerTool *tool,
             SLOT(addTask(ProjectExplorer::Task::TaskType,QString,QString,int)));
     connect(d->m_engine, SIGNAL(finished()),
             SLOT(engineFinished()));
-    connect(this, SIGNAL(finished()), SLOT(runControlFinished()), Qt::QueuedConnection);
 }
 
 AnalyzerRunControl::~AnalyzerRunControl()
@@ -113,6 +112,8 @@ void AnalyzerRunControl::start()
         emit finished();
         return;
     }
+
+    AnalyzerManager::handleToolStarted();
 
     // clear about-to-be-outdated tasks
     ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
@@ -145,12 +146,8 @@ void AnalyzerRunControl::stopIt()
 void AnalyzerRunControl::engineFinished()
 {
     d->m_isRunning = false;
-    emit finished();
-}
-
-void AnalyzerRunControl::runControlFinished()
-{
     AnalyzerManager::handleToolFinished();
+    emit finished();
 }
 
 bool AnalyzerRunControl::isRunning() const

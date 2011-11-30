@@ -56,7 +56,7 @@ using namespace Bazaar;
 BazaarEditor::BazaarEditor(const VCSBase::VCSBaseEditorParameters *type, QWidget *parent)
     : VCSBase::VCSBaseEditorWidget(type, parent),
       m_exactChangesetId(QLatin1String(Constants::CHANGESET_ID_EXACT)),
-      m_diffFileId(QLatin1String("^=== modified file '(.*)'\\s*$"))
+      m_diffFileId(QLatin1String("^=== [a-z]+ [a-z]+ '(.*)'\\s*"))
 {
     setAnnotateRevisionTextFormat(tr("Annotate %1"));
     setAnnotatePreviousRevisionTextFormat(tr("Annotate parent revision %1"));
@@ -69,11 +69,11 @@ QSet<QString> BazaarEditor::annotationChanges() const
     if (txt.isEmpty())
         return changes;
 
-    QRegExp changeNumRx(QLatin1String("^("BZR_CHANGE_PATTERN") "));
+    QRegExp changeNumRx(QLatin1String("^(" BZR_CHANGE_PATTERN ") "));
     QTC_ASSERT(changeNumRx.isValid(), return changes);
     if (changeNumRx.indexIn(txt) != -1) {
         changes.insert(changeNumRx.cap(1));
-        changeNumRx.setPattern(QLatin1String("\n("BZR_CHANGE_PATTERN") "));
+        changeNumRx.setPattern(QLatin1String("\n(" BZR_CHANGE_PATTERN ") "));
         QTC_ASSERT(changeNumRx.isValid(), return changes);
         int pos = 0;
         while ((pos = changeNumRx.indexIn(txt, pos)) != -1) {
@@ -109,7 +109,7 @@ VCSBase::BaseAnnotationHighlighter *BazaarEditor::createAnnotationHighlighter(co
 QString BazaarEditor::fileNameFromDiffSpecification(const QTextBlock &inBlock) const
 {
     // Check for:
-    // === modified file 'mainwindow.cpp'
+    // === <change> <file|dir> 'mainwindow.cpp'
     for (QTextBlock  block = inBlock; block.isValid(); block = block.previous()) {
         const QString line = block.text();
         if (m_diffFileId.indexIn(line) != -1)
