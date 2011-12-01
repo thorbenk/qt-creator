@@ -169,7 +169,7 @@ static QByteArray msvcCompilationFile()
 QByteArray MsvcToolChain::msvcPredefinedMacros(const QStringList cxxflags,
                                                const Utils::Environment &env) const
 {
-    QByteArray predefinedMacros = AbstractMsvcToolChain::msvcPredefinedMacros(env);
+    QByteArray predefinedMacros = AbstractMsvcToolChain::msvcPredefinedMacros(cxxflags, env);
 
     QStringList toProcess;
     foreach (const QString &arg, cxxflags) {

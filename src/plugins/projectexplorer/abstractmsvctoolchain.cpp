@@ -79,11 +79,6 @@ Abi AbstractMsvcToolChain::targetAbi() const
     return m_abi;
 }
 
-Abi MsvcToolChain::targetAbi() const
-{
-    return m_abi;
-}
-
 bool AbstractMsvcToolChain::isValid() const
 {
     return !m_vcvarsBat.isEmpty();
