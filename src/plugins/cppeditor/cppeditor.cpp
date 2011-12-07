@@ -1023,6 +1023,7 @@ void CPPEditorWidget::codeNavigate(bool switchDeclDef)
 
     int line, column;
     convertPosition(tc.position(), &line, &column);
+    ++column;
 
     Clang::SourceLocation location;
     if (switchDeclDef)
