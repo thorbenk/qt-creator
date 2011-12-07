@@ -78,11 +78,17 @@ SourceLocation getSpellingLocation(const CXSourceLocation &loc)
 
 QString normalizeFileName(const QString &fileName)
 {
+    if (fileName.isEmpty())
+        return fileName;
+
     return normalizeFileName(QFileInfo(fileName));
 }
 
 QString normalizeFileName(const QFileInfo &fileInfo)
 {
+    if (!fileInfo.isFile())
+        return QString();
+
     return QDir::cleanPath(fileInfo.absoluteFilePath());
 }
 
