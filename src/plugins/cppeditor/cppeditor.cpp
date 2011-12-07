@@ -1019,7 +1019,7 @@ void CPPEditorWidget::finishHighlightSymbolUsages()
 void CPPEditorWidget::codeNavigate(bool switchDeclDef)
 {
     QTextCursor tc = textCursor();
-    CppTools::moveCursorToEndOfIdentifier(&tc);
+    CppTools::moveCursorToStartOfIdentifier(&tc);
 
     int line, column;
     convertPosition(tc.position(), &line, &column);

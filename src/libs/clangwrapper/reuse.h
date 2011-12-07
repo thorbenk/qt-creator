@@ -48,9 +48,9 @@ namespace Internal {
 
 QString getQString(const CXString &cxString, bool disposeCXString = true);
 
-SourceLocation getInstantiationLocation(const CXSourceLocation &loc);
-
+SourceLocation getInstantiatonLocation(const CXSourceLocation &loc); // Deprecated
 SourceLocation getSpellingLocation(const CXSourceLocation &loc);
+SourceLocation getExpansionLocation(const CXSourceLocation &loc);
 
 // There are slight differences of behavior from apparently similar Qt file processing functions.
 // For instance, QFileInfo::absoluteFilePath will uppercase driver letters, while the corresponding

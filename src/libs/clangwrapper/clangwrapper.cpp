@@ -270,7 +270,7 @@ public:
                     m_diagnostics.append(d);
                 }
             } else {
-                const SourceLocation &location = Internal::getInstantiationLocation(cxLocation);
+                const SourceLocation &location = Internal::getExpansionLocation(cxLocation);
                 Diagnostic d(severity, location, 0, spelling);
 #ifdef DEBUG_TIMING
                 qDebug() << d.severityAsString() << location << 0 << spelling;
@@ -432,8 +432,8 @@ static void add(QList<SourceMarker> &markers,
 {
     CXSourceLocation start = clang_getRangeStart(extent);
     CXSourceLocation end = clang_getRangeEnd(extent);
-    const SourceLocation &location = Internal::getInstantiationLocation(start);
-    const SourceLocation &locationEnd = Internal::getInstantiationLocation(end);
+    const SourceLocation &location = Internal::getExpansionLocation(start);
+    const SourceLocation &locationEnd = Internal::getExpansionLocation(end);
 
     if (location.offset() < locationEnd.offset()) {
         const unsigned length = locationEnd.offset() - location.offset();

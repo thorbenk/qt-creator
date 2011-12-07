@@ -157,7 +157,7 @@ SourceLocation CodeNavigator::switchDeclarationDefinition(unsigned line, unsigne
         if (clang_equalCursors(data.m_declarationCursor, clang_getNullCursor()))
             return SourceLocation();
 
-        return Internal::getInstantiationLocation(clang_getCursorLocation(data.m_declarationCursor));
+        return Internal::getSpellingLocation(clang_getCursorLocation(data.m_declarationCursor));
     }
 
     return findDefinition(cursor, cursorKind);
@@ -173,7 +173,7 @@ SourceLocation CodeNavigator::findDefinition(const CXCursor &cursor,
         cursorDefinition = clang_getCursorDefinition(cursor);
 
     if (!clang_equalCursors(cursorDefinition, clang_getNullCursor()))
-        return Internal::getInstantiationLocation(clang_getCursorLocation(cursorDefinition));
+        return Internal::getSpellingLocation(clang_getCursorLocation(cursorDefinition));
 
     // Definition is not in the unit, use indexed data to look for it.
     if (clang_isDeclaration(cursorKind)

@@ -76,6 +76,11 @@ SourceLocation getSpellingLocation(const CXSourceLocation &loc)
     return getLocation(loc, &clang_getSpellingLocation);
 }
 
+SourceLocation getExpansionLocation(const CXSourceLocation &loc)
+{
+    return getLocation(loc, &clang_getExpansionLocation);
+}
+
 QString normalizeFileName(const QString &fileName)
 {
     if (fileName.isEmpty())
