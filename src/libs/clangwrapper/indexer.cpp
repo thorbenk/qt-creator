@@ -114,7 +114,7 @@ public:
             , m_pchInfo(pchInfo)
             , m_upToDate(upToDate)
             , m_managementOptions(CXTranslationUnit_DetailedPreprocessingRecord
-                                  || CXTranslationUnit_Incomplete)
+                                  | CXTranslationUnit_Incomplete)
         {}
 
         QString m_fileName;
