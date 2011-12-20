@@ -43,6 +43,7 @@ RawLexer::RawLexer()
     : m_state(Normal)
 {
     m_langOptions.CPlusPlus = 1;
+    m_langOptions.Bool = 1;
 }
 
 void RawLexer::init()
