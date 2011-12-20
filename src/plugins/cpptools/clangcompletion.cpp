@@ -144,9 +144,9 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
 namespace CppTools {
 namespace Internal {
 
-// ----------------------
-// CppAssistProposalModel
-// ----------------------
+// ------------------------
+// ClangAssistProposalModel
+// ------------------------
 class ClangAssistProposalModel : public TextEditor::BasicProposalItemListModel
 {
 public:
@@ -163,9 +163,9 @@ public:
     bool m_replaceDotForArrow;
 };
 
-// -----------------
-// CppAssistProposal
-// -----------------
+// -------------------
+// ClangAssistProposal
+// -------------------
 class ClangAssistProposal : public TextEditor::GenericProposal
 {
 public:
@@ -186,9 +186,9 @@ private:
     bool m_replaceDotForArrow;
 };
 
-// --------------------
-// CppFunctionHintModel
-// --------------------
+// ----------------------
+// ClangFunctionHintModel
+// ----------------------
 class ClangFunctionHintModel : public TextEditor::IFunctionHintProposalModel
 {
 public:
@@ -334,19 +334,17 @@ void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor 
 {
     const CodeCompletionResult ccr = originalItem();
 
-    QString toInsert;
+    QString toInsert = text();
     QString extraChars;
     int extraLength = 0;
     int cursorOffset = 0;
 
     bool autoParenthesesEnabled = true;
     if (m_completionOperator == T_SIGNAL || m_completionOperator == T_SLOT) {
-        toInsert = text();
         extraChars += QLatin1Char(')');
         if (m_typedChar == QLatin1Char('(')) // Eat the opening parenthesis
             m_typedChar = QChar();
     } else if (m_completionOperator == T_STRING_LITERAL || m_completionOperator == T_ANGLE_STRING_LITERAL) {
-        toInsert = text();
         if (!toInsert.endsWith(QLatin1Char('/'))) {
             extraChars += QLatin1Char((m_completionOperator == T_ANGLE_STRING_LITERAL) ? '>' : '"');
         } else {
@@ -354,8 +352,6 @@ void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor 
                 m_typedChar = QChar();
         }
     } else if (ccr.isValid()) {
-        toInsert = text();
-
         const CompletionSettings &completionSettings =
                 TextEditorSettings::instance()->completionSettings();
         const bool autoInsertBrackets = completionSettings.m_autoInsertBrackets;
@@ -432,12 +428,12 @@ void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor 
 
     // Avoid inserting characters that are already there
     const int endsPosition = editor->position(TextEditor::ITextEditor::EndOfLine);
-    const QString text = editor->textAt(editor->position(), endsPosition - editor->position());
+    const QString existingText = editor->textAt(editor->position(), endsPosition - editor->position());
     int existLength = 0;
-    if (!text.isEmpty()) {
+    if (!existingText.isEmpty()) {
         // Calculate the exist length in front of the extra chars
         existLength = toInsert.length() - (editor->position() - basePosition);
-        while (!text.startsWith(toInsert.right(existLength))) {
+        while (!existingText.startsWith(toInsert.right(existLength))) {
             if (--existLength == 0)
                 break;
         }
