@@ -1719,7 +1719,7 @@ void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_STATIC));
     m_semanticHighlightFormatMap[Clang::SourceMarker::VirtualMethod] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_VIRTUAL_METHOD));
-    m_semanticHighlightFormatMap[SemanticInfo::LabelUse] =
+    m_semanticHighlightFormatMap[Clang::SourceMarker::Label] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_LABEL));
     m_keywordFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_KEYWORD));
 
