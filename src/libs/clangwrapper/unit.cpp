@@ -123,8 +123,9 @@ void UnitData::unload()
     if (m_tu) {
         clang_disposeTranslationUnit(m_tu);
         m_tu = 0;
+
 #ifdef DEBUG_UNIT_COUNT
-        qDebug()<<"# translation units:"<< (unitDataCount.fetchAndAddOrdered(-1)-1);
+        qDebug() << "# translation units:" << (unitDataCount.fetchAndAddOrdered(-1) - 1);
 #endif // DEBUG_UNIT_COUNT
     }
 }
@@ -256,9 +257,10 @@ void Unit::parse()
                                               // @TODO: Extract UnsavedFileData...
                                               0, 0,
                                               m_data->m_managOptions);
+
 #ifdef DEBUG_UNIT_COUNT
     if (m_data->m_tu)
-        qDebug()<<"# translation units:"<< (unitDataCount.fetchAndAddOrdered(1)+1);
+        qDebug() << "# translation units:" << (unitDataCount.fetchAndAddOrdered(1) + 1);
 #endif // DEBUG_UNIT_COUNT
 }
 
