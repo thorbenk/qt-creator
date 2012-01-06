@@ -289,8 +289,7 @@ void Unit::createFromSourceFile()
 
 int Unit::save(const QString &unitFileName)
 {
-    if (!isLoaded())
-        return CXSaveError_InvalidTU;
+    Q_ASSERT(isLoaded());
 
     return clang_saveTranslationUnit(m_data->m_tu,
                                      unitFileName.toUtf8().constData(),
@@ -299,21 +298,28 @@ int Unit::save(const QString &unitFileName)
 
 CXFile Unit::getFile() const
 {
+    Q_ASSERT(isLoaded());
+
     return clang_getFile(m_data->m_tu, m_data->m_fileName.constData());
 }
 
 CXCursor Unit::getCursor(const CXSourceLocation &location) const
 {
+    Q_ASSERT(isLoaded());
+
     return clang_getCursor(m_data->m_tu, location);
 }
 
 CXSourceLocation Unit::getLocation(const CXFile &file, unsigned line, unsigned column) const
 {
+    Q_ASSERT(isLoaded());
+
     return clang_getLocation(m_data->m_tu, file, line, column);
 }
 
 void Unit::tokenize(CXSourceRange range, CXToken **tokens, unsigned *tokenCount) const
 {
+    Q_ASSERT(isLoaded());
     Q_ASSERT(tokens);
     Q_ASSERT(tokenCount);
     Q_ASSERT(!clang_Range_isNull(range));
@@ -323,16 +329,21 @@ void Unit::tokenize(CXSourceRange range, CXToken **tokens, unsigned *tokenCount)
 
 void Unit::disposeTokens(CXToken *tokens, unsigned tokenCount) const
 {
+    Q_ASSERT(isLoaded());
+
     clang_disposeTokens(m_data->m_tu, tokens, tokenCount);
 }
 
 CXSourceRange Unit::getTokenExtent(const CXToken &token) const
 {
+    Q_ASSERT(isLoaded());
+
     return clang_getTokenExtent(m_data->m_tu, token);
 }
 
 void Unit::annotateTokens(CXToken *tokens, unsigned tokenCount, CXCursor *cursors) const
 {
+    Q_ASSERT(isLoaded());
     Q_ASSERT(tokens);
     Q_ASSERT(cursors);
 
@@ -341,16 +352,22 @@ void Unit::annotateTokens(CXToken *tokens, unsigned tokenCount, CXCursor *cursor
 
 CXCursor Unit::getTranslationUnitCursor() const
 {
+    Q_ASSERT(isLoaded());
+
     return clang_getTranslationUnitCursor(m_data->m_tu);
 }
 
 CXString Unit::getTranslationUnitSpelling() const
 {
+    Q_ASSERT(isLoaded());
+
     return clang_getTranslationUnitSpelling(m_data->m_tu);
 }
 
 void Unit::getInclusions(CXInclusionVisitor visitor, CXClientData clientData) const
 {
+    Q_ASSERT(isLoaded());
+
     clang_getInclusions(m_data->m_tu, visitor, clientData);
 }
 
@@ -363,6 +380,8 @@ unsigned Unit::getNumDiagnostics() const
 
 CXDiagnostic Unit::getDiagnostic(unsigned index) const
 {
+    Q_ASSERT(isLoaded());
+
     return clang_getDiagnostic(m_data->m_tu, index);
 }
 
@@ -373,6 +392,8 @@ IdentifierTokens::IdentifierTokens(const Unit &unit, unsigned firstLine, unsigne
     , m_cursors(0)
     , m_extents(0)
 {
+    Q_ASSERT(unit.isLoaded());
+
     // Calculate the range:
     CXFile file = unit.getFile();
     CXSourceLocation startLocation = unit.getLocation(file, firstLine, 1);
