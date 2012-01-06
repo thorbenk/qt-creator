@@ -32,11 +32,11 @@
 
 #include "indexer.h"
 #include "index.h"
-#include "reuse.h"
 #include "cxraii.h"
 #include "sourcelocation.h"
 #include "liveunitsmanager.h"
 #include "dependencygraph.h"
+#include "utils_p.h"
 
 #include <clang-c/Index.h>
 

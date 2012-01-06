@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: Nokia Corporation (info@qt.nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,43 +26,42 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Nokia at info@qt.nokia.com.
 **
 **************************************************************************/
 
-#ifndef CLANG_INTERNAL_UNSAVEDFILEDATA_H
-#define CLANG_INTERNAL_UNSAVEDFILEDATA_H
+#ifndef UTILS_H
+#define UTILS_H
 
-#include "utils.h"
+#include "clangwrapper_global.h"
 
-#include <clang-c/Index.h>
+#include <QString>
+#include <QStringList>
+#include <QByteArray>
+#include <QMap>
+#include <QPair>
 
+/*
+ * A header for globally visible typedefs. This is particularly useful
+ * so we don't have to #include files simply because of a typedef. Still,
+ * not every typedef should go in here, only the minimal subset of the
+ * ones which are needed quite often.
+ */
 namespace Clang {
-namespace Internal {
 
-class UnsavedFileData
-{
-    UnsavedFileData(const UnsavedFileData &);
-    UnsavedFileData &operator=(const UnsavedFileData &);
+typedef QMap<QString, QByteArray> UnsavedFiles;
 
-    typedef Clang::UnsavedFiles UnsavedFiles;
+/**
+ * Utility method to create a PCH file from a header file.
+ *
+ * \returns a boolean indicating success (true) or failure (false), and a
+ *          list of diagnostic messages.
+ */
+QPair<bool, QStringList> QTCREATOR_CLANGWRAPPER_EXPORT precompile(
+        const QString &headerFileName,
+        const QStringList &options,
+        const QString &outFileName);
 
-public:
-    UnsavedFileData(const UnsavedFiles &unsavedFiles);
-    ~UnsavedFileData();
+} // Clang
 
-    unsigned count() const
-    { return m_count; }
-
-    CXUnsavedFile *files() const
-    { return m_files; }
-
-private:
-    unsigned m_count;
-    CXUnsavedFile *m_files;
-};
-
-} // namespace Internal
-} // namespace Clang
-
-#endif // CLANG_INTERNAL_UNSAVEDFILEDATA_H
+#endif // UTILS_H

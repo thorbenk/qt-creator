@@ -30,9 +30,9 @@
 **
 **************************************************************************/
 
-#include "reuse.h"
 #include "semanticmarker.h"
 #include "unit.h"
+#include "utils_p.h"
 
 using namespace Clang;
 using namespace Clang::Internal;

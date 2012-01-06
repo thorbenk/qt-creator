@@ -46,6 +46,8 @@ QT_END_NAMESPACE
 namespace Clang {
 namespace Internal {
 
+class Unit;
+
 QString getQString(const CXString &cxString, bool disposeCXString = true);
 
 SourceLocation getInstantiatonLocation(const CXSourceLocation &loc); // Deprecated
@@ -58,6 +60,8 @@ SourceLocation getExpansionLocation(const CXSourceLocation &loc);
 // inconsistencies the functions below should be used for any indexing related task.
 QString normalizeFileName(const QString &fileName);
 QString normalizeFileName(const QFileInfo &fileInfo);
+
+QStringList formattedDiagnostics(const Unit &unit);
 
 } // Internal
 } // Clang

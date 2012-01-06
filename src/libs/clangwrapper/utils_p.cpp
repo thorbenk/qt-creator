@@ -30,7 +30,8 @@
 **
 **************************************************************************/
 
-#include "reuse.h"
+#include "unit.h"
+#include "utils_p.h"
 
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
@@ -95,6 +96,30 @@ QString normalizeFileName(const QFileInfo &fileInfo)
         return QString();
 
     return QDir::cleanPath(fileInfo.absoluteFilePath());
+}
+
+QStringList formattedDiagnostics(const Unit &unit)
+{
+    QStringList diags;
+    if (!unit.isLoaded())
+        return diags;
+
+    const unsigned count = unit.getNumDiagnostics();
+    for (unsigned i = 0; i < count; ++i) {
+        CXDiagnostic diag = unit.getDiagnostic(i);
+
+        unsigned opt = CXDiagnostic_DisplaySourceLocation
+                | CXDiagnostic_DisplayColumn
+                | CXDiagnostic_DisplaySourceRanges
+                | CXDiagnostic_DisplayOption
+                | CXDiagnostic_DisplayCategoryId
+                | CXDiagnostic_DisplayCategoryName
+                ;
+        diags << Internal::getQString(clang_formatDiagnostic(diag, opt));
+        clang_disposeDiagnostic(diag);
+    }
+
+    return diags;
 }
 
 } // Internal

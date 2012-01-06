@@ -1,6 +1,7 @@
 #include "pchmanager.h"
 
-#include <clangwrapper/clangwrapper.h>
+#include <clangwrapper/utils.h>
+
 #include <coreplugin/messagemanager.h>
 
 using namespace Clang;
@@ -70,7 +71,7 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
                                                                   definesPerPCH[pch].toList(),
                                                                   includes[pch].toList(),
                                                                   frameworks[pch].toList());
-            QPair<bool, QStringList> msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
+            QPair<bool, QStringList> msgs = precompile(pch, options, ptr->fileName());
             if (msgs.first)
                 msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
             else
@@ -102,7 +103,7 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
                         projectPart->defines.split('\n'),
                         projectPart->includePaths,
                         projectPart->frameworkPaths);
-            QPair<bool, QStringList> msgs = ClangWrapper::precompile(pch, options, ptr->fileName());
+            QPair<bool, QStringList> msgs = precompile(pch, options, ptr->fileName());
             if (msgs.first)
                 msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
             else
@@ -124,7 +125,7 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
 
         QStringList opts = ProjectPart::createClangOptions(cpp0x, objc, QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
         PCHInfoPtr ptr = PCHInfo::createWithFileName(cpp0x, objc);
-        QPair<bool, QStringList> msgs = ClangWrapper::precompile(cps->customPchFile(), opts, ptr->fileName());
+        QPair<bool, QStringList> msgs = precompile(cps->customPchFile(), opts, ptr->fileName());
         if (msgs.first)
             msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
         else

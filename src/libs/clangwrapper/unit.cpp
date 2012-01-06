@@ -32,6 +32,7 @@
 
 #include "unit.h"
 #include "unsavedfiledata.h"
+#include "utils_p.h"
 
 #include <clang-c/Index.h>
 
@@ -81,7 +82,7 @@ public:
 } // Clang
 
 using namespace Clang;
-using namespace Internal;
+using namespace Clang::Internal;
 
 UnitData::UnitData()
     : m_index(0)
@@ -284,6 +285,16 @@ void Unit::create()
 void Unit::createFromSourceFile()
 {
     // @TODO
+}
+
+int Unit::save(const QString &unitFileName)
+{
+    if (!isLoaded())
+        return CXSaveError_InvalidTU;
+
+    return clang_saveTranslationUnit(m_data->m_tu,
+                                     unitFileName.toUtf8().constData(),
+                                     clang_defaultSaveOptions(m_data->m_tu));
 }
 
 CXFile Unit::getFile() const

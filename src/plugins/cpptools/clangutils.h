@@ -3,7 +3,7 @@
 
 #include "cpptools_global.h"
 
-#include <clangwrapper/typedefs.h>
+#include <clangwrapper/utils.h>
 
 #include <cplusplus/ModelManagerInterface.h>
 

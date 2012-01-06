@@ -1,7 +1,7 @@
-#include "clangwrapper.h"
-#include "reuse.h"
+#include "clangcompleter.h"
 #include "sourcemarker.h"
 #include "unsavedfiledata.h"
+#include "utils_p.h"
 
 #include <QDebug>
 #include <QFile>
@@ -125,8 +125,6 @@ public:
     {
         Q_ASSERT(!m_unit);
 
-        clearDiagnostics();
-
         if (m_fileName.isEmpty())
             return false;
 
@@ -149,59 +147,8 @@ public:
             m_unit = clang_createTranslationUnitFromSourceFile(m_index, fn.constData(), argc, argv, unsaved.count(), unsaved.files());
         }
 
-        checkDiagnostics();
         delete[] argv;
         return m_unit != 0;
-    }
-
-    bool parseFromPCH()
-    {
-        Q_ASSERT(!m_unit);
-
-        clearDiagnostics();
-
-        if (m_fileName.isEmpty())
-            return false;
-
-        m_unit = clang_createTranslationUnit(m_index,
-                                             m_fileName.toUtf8().constData());
-        checkDiagnostics();
-        return m_unit != 0;
-    }
-
-    bool save(const QString &fileName) const
-    {
-        if (!m_unit)
-            return false;
-
-        const QByteArray fn(fileName.toUtf8());
-        return 0 == clang_saveTranslationUnit(m_unit, fn.constData(), clang_defaultSaveOptions(m_unit));
-    }
-
-    void checkDiagnostics()
-    {
-        if (!m_unit)
-            return;
-
-        const unsigned diagCount = clang_getNumDiagnostics(m_unit);
-        for (unsigned i = 0; i < diagCount; ++i) {
-            CXDiagnostic diag = clang_getDiagnostic(m_unit, i);
-
-            unsigned opt = CXDiagnostic_DisplaySourceLocation
-                    | CXDiagnostic_DisplayColumn
-                    | CXDiagnostic_DisplaySourceRanges
-                    | CXDiagnostic_DisplayOption
-                    | CXDiagnostic_DisplayCategoryId
-                    | CXDiagnostic_DisplayCategoryName
-                    ;
-            m_formattedDiagnostics << Internal::getQString(clang_formatDiagnostic(diag, opt));
-            clang_disposeDiagnostic(diag);
-        }
-    }
-
-    void clearDiagnostics()
-    {
-        m_formattedDiagnostics.clear();
     }
 
 public:
@@ -210,7 +157,6 @@ public:
     CXIndex m_index;
     unsigned m_editingOpts;
     CXTranslationUnit m_unit;
-    QStringList m_formattedDiagnostics;
 
 private:
     QList<QByteArray> m_args;
@@ -295,32 +241,22 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
 
-    m_d->clearDiagnostics();
-
     if (!m_d->m_unit)
         return m_d->parseFromFile(unsavedFiles);
 
     UnsavedFileData unsaved(unsavedFiles);
 
     unsigned opts = clang_defaultReparseOptions(m_d->m_unit);
-    if (clang_reparseTranslationUnit(m_d->m_unit, unsaved.count(), unsaved.files(), opts) == 0) {
-        // success:
-        m_d->checkDiagnostics();
+    if (clang_reparseTranslationUnit(m_d->m_unit, unsaved.count(), unsaved.files(), opts) == 0)
         return true;
-    } else {
-        // failure:
 
-        m_d->checkDiagnostics();
-        m_d->invalidateTranslationUnit();
-        return false;
-    }
+    m_d->invalidateTranslationUnit();
+    return false;
 }
 
 QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned column, const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
-
-    m_d->clearDiagnostics();
 
     QList<CodeCompletionResult> completions;
 
@@ -456,29 +392,6 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
     }
 
     return completions;
-}
-
-QPair<bool, QStringList> ClangWrapper::precompile(const QString &headerFileName, const QStringList &options, const QString &outFileName)
-{
-    initClang();
-
-    bool ok = false;
-
-    ClangWrapper wrapper;
-    wrapper.setFileName(headerFileName);
-    wrapper.setOptions(options);
-    if (wrapper.reparse(UnsavedFiles())) {
-        ok = wrapper.m_d->save(outFileName);
-    }
-
-    return qMakePair(ok, wrapper.formattedDiagnostics());
-}
-
-QStringList ClangWrapper::formattedDiagnostics() const
-{
-    Q_ASSERT(m_d);
-
-    return m_d->m_formattedDiagnostics;
 }
 
 bool ClangWrapper::objcEnabled() const

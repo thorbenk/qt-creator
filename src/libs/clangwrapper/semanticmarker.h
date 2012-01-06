@@ -36,7 +36,7 @@
 #include "clangwrapper_global.h"
 #include "diagnostic.h"
 #include "sourcemarker.h"
-#include "typedefs.h"
+#include "utils.h"
 
 #include <QMutex>
 #include <QScopedPointer>

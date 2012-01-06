@@ -30,24 +30,59 @@
 **
 **************************************************************************/
 
-#ifndef TYPEDEFS_H
-#define TYPEDEFS_H
+#include "unit.h"
+#include "utils.h"
+#include "utils_p.h"
 
-#include <QtCore/QString>
-#include <QtCore/QByteArray>
-#include <QtCore/QMap>
+#include <clang-c/Index.h>
 
-/*
- * A header for globally visible typedefs. This is particularly useful
- * so we don't have to #include files simply because of a typedef. Still,
- * not every typedef should go in here, only the minimal subset of the
- * ones which are needed quite often.
- */
+#include <QMutex>
+#include <QMutexLocker>
+
 namespace Clang {
 
-typedef QMap<QString, QByteArray> UnsavedFiles;
+QPair<bool, QStringList> precompile(const QString &headerFileName,
+                                    const QStringList &options,
+                                    const QString &outFileName)
+{
+    bool ok = false;
 
+    Internal::Unit unit(headerFileName);
+    unit.setCompilationOptions(options);
 
-} // Clang
+    unsigned parseOpts = clang_defaultEditingTranslationUnitOptions();
+    parseOpts |= CXTranslationUnit_Incomplete;
+    parseOpts &= ~CXTranslationUnit_CacheCompletionResults;
+    unit.setManagementOptions(parseOpts);
 
-#endif // TYPEDEFS_H
+    unit.parse();
+    if (unit.isLoaded())
+        ok = CXSaveError_None == unit.save(outFileName);
+
+    return qMakePair(ok, Internal::formattedDiagnostics(unit));
+}
+
+namespace {
+static bool clangInitialised = false;
+static QMutex initialisationMutex;
+}
+
+void initializeClang()
+{
+    if (clangInitialised)
+        return;
+
+    QMutexLocker locker(&initialisationMutex);
+    if (clangInitialised)
+        return;
+
+    clang_toggleCrashRecovery(1);
+    clang_enableStackTraces();
+    clangInitialised = true;
+
+    qRegisterMetaType<Clang::Diagnostic>();
+    qRegisterMetaType<QList<Clang::Diagnostic> >();
+}
+
+} // namespace Clang
+

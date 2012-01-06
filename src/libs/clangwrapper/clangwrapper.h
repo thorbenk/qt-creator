@@ -37,7 +37,7 @@
 #include "clangwrapper_global.h"
 #include "diagnostic.h"
 #include "sourcelocation.h"
-#include "typedefs.h"
+#include "utils.h"
 
 #include <QList>
 #include <QMap>
@@ -197,7 +197,6 @@ public: // methods
     QList<CodeCompletionResult> codeCompleteAt(unsigned line,
                                                unsigned column,
                                                const UnsavedFiles &unsavedFiles);
-    QStringList formattedDiagnostics() const;
 
     static QPair<bool, QStringList> precompile(const QString &headerFileName,
                                                const QStringList &options,

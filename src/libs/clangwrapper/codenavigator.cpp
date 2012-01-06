@@ -31,10 +31,10 @@
 **************************************************************************/
 
 #include "codenavigator.h"
-#include "reuse.h"
 #include "symbol.h"
 #include "indexer.h"
 #include "unitsetup.h"
+#include "utils_p.h"
 
 using namespace Clang;
 using namespace Internal;

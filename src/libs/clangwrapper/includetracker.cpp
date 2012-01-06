@@ -33,7 +33,7 @@
 #include "includetracker.h"
 #include "rawlexer.h"
 #include "constants.h"
-#include "reuse.h"
+#include "utils_p.h"
 
 #include <utils/fileutils.h>
 

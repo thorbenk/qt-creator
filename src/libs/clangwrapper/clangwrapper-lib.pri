@@ -21,11 +21,12 @@ SOURCES += \
     $$PWD/rawlexer.cpp \
     $$PWD/keywords.cpp \
     $$PWD/token.cpp \
-    $$PWD/reuse.cpp \
     $$PWD/indexer.cpp \
     $$PWD/symbol.cpp \
     $$PWD/sourcelocation.cpp \
     $$PWD/unit.cpp \
+    $$PWD/utils.cpp \
+    $$PWD/utils_p.cpp \
     $$PWD/liveunitsmanager.cpp \
     $$PWD/codenavigator.cpp \
     $$PWD/pchinfo.cpp \
@@ -45,13 +46,13 @@ HEADERS += \
     $$PWD/keywords.h \
     $$PWD/token.h \
     $$PWD/constants.h \
-    $$PWD/reuse.h \
     $$PWD/indexer.h \
     $$PWD/symbol.h \
     $$PWD/cxraii.h \
     $$PWD/sourcelocation.h \
     $$PWD/unit.h \
-    $$PWD/typedefs.h \
+    $$PWD/utils.h \
+    $$PWD/utils_p.h \
     $$PWD/liveunitsmanager.h \
     $$PWD/codenavigator.h \
     $$PWD/pchinfo.h \
