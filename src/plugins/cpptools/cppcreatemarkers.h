@@ -37,6 +37,7 @@
 
 #include <clangwrapper/clangwrapper.h>
 #include <clangwrapper/sourcemarker.h>
+#include <clangwrapper/semanticmarker.h>
 
 #include <texteditor/semantichighlighter.h>
 
@@ -71,7 +72,7 @@ public:
         return future;
     }
 
-    static CreateMarkers *create(Clang::ClangWrapper::Ptr clangWrapper,
+    static CreateMarkers *create(Clang::SemanticMarker::Ptr semanticMarker,
                                  const QString &fileName,
                                  const QStringList &options,
                                  unsigned firstLine, unsigned lastLine);
@@ -83,12 +84,12 @@ signals:
     void diagnosticsReady(const QList<Clang::Diagnostic> &diagnostics);
 
 protected:
-    CreateMarkers(Clang::ClangWrapper::Ptr clangWrapper,
+    CreateMarkers(Clang::SemanticMarker::Ptr semanticMarker,
                   const QString &fileName, const QStringList &options,
                   unsigned firstLine, unsigned lastLine);
 
 private:
-    Clang::ClangWrapper::Ptr m_clangWrapper;
+    Clang::SemanticMarker::Ptr m_marker;
     QString m_fileName;
     QStringList m_options;
     unsigned m_firstLine;
@@ -97,7 +98,7 @@ private:
     bool m_flushRequested;
     unsigned m_flushLine;
 
-    Clang::ClangWrapper::UnsavedFiles m_unsavedFiles;
+    Clang::UnsavedFiles m_unsavedFiles;
 };
 
 } // namespace CppTools

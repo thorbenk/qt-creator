@@ -35,7 +35,9 @@
 #define CLANGWRAPPER_H
 
 #include "clangwrapper_global.h"
+#include "diagnostic.h"
 #include "sourcelocation.h"
+#include "typedefs.h"
 
 #include <QList>
 #include <QMap>
@@ -163,52 +165,6 @@ inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator<(const CodeCompletionResult &
     return ccr1.compare(ccr2) < 0;
 }
 
-class QTCREATOR_CLANGWRAPPER_EXPORT Diagnostic
-{
-public:
-    enum Severity {
-        Unknown = -1,
-        Ignored = 0,
-        Note = 1,
-        Warning = 2,
-        Error = 3,
-        Fatal = 4
-    };
-
-public:
-    Diagnostic()
-        : m_severity(Unknown)
-        , m_length(0)
-    {}
-
-    Diagnostic(Severity severity, const SourceLocation &location, unsigned length, const QString &spelling)
-        : m_severity(severity)
-        , m_loc(location)
-        , m_length(length)
-        , m_spelling(spelling)
-    {}
-
-    Severity severity() const
-    { return m_severity; }
-
-    const QString &severityAsString() const;
-
-    const SourceLocation &location() const
-    { return m_loc; }
-
-    unsigned length() const
-    { return m_length; }
-
-    const QString &spelling() const
-    { return m_spelling; }
-
-private:
-    Severity m_severity;
-    SourceLocation m_loc;
-    unsigned m_length;
-    QString m_spelling;
-};
-
 class QTCREATOR_CLANGWRAPPER_EXPORT ClangWrapper
 {
     Q_DISABLE_COPY(ClangWrapper)
@@ -217,7 +173,6 @@ class QTCREATOR_CLANGWRAPPER_EXPORT ClangWrapper
 
 public: // data structures
     typedef QSharedPointer<ClangWrapper> Ptr;
-    typedef QMap<QString, QByteArray> UnsavedFiles;
 
 public: // methods
     ClangWrapper(bool useForCodeCompletion = false);
@@ -230,8 +185,6 @@ public: // methods
     void setOptions(const QStringList &options) const;
 
     bool reparse(const UnsavedFiles &unsavedFiles);
-    QList<SourceMarker> sourceMarkersInRange(unsigned firstLine,
-                                             unsigned lastLine);
 
     /**
      * Do code-completion at the specified position.
@@ -244,7 +197,6 @@ public: // methods
     QList<CodeCompletionResult> codeCompleteAt(unsigned line,
                                                unsigned column,
                                                const UnsavedFiles &unsavedFiles);
-    QList<Diagnostic> diagnostics() const;
     QStringList formattedDiagnostics() const;
 
     static QPair<bool, QStringList> precompile(const QString &headerFileName,

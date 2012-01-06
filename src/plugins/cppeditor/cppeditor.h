@@ -38,6 +38,7 @@
 #include "cppfunctiondecldeflink.h"
 
 #include <clangwrapper/clangwrapper.h>
+#include <clangwrapper/semanticmarker.h>
 #include <clangwrapper/sourcemarker.h>
 #include <clangwrapper/codenavigator.h>
 
@@ -321,13 +322,8 @@ private:
     bool m_objcEnabled;
     bool m_initialized;
 
-#if 1
     QFuture<TextEditor::SemanticHighlighter::Result> m_highlighter;
     QFutureWatcher<TextEditor::SemanticHighlighter::Result> m_highlightWatcher;
-#else
-    QFuture<SemanticInfo::Use> m_highlighter;
-    QFutureWatcher<SemanticInfo::Use> m_highlightWatcher;
-#endif
     unsigned m_highlightRevision; // the editor revision that requested the highlight
 
     QFuture<QList<int> > m_references;
@@ -338,12 +334,9 @@ private:
     FunctionDeclDefLinkFinder *m_declDefLinkFinder;
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
 
-#if 1
     Clang::ClangWrapper::Ptr m_clangCompletionWrapper;
-    Clang::ClangWrapper::Ptr m_clangSemanticWrapper;
-#endif
-
     Clang::CodeNavigator m_codeNavigator;
+    Clang::SemanticMarker::Ptr m_semanticMarker;
 };
 
 

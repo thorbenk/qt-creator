@@ -46,28 +46,28 @@
 using namespace Clang;
 using namespace CppTools;
 
-CreateMarkers *CreateMarkers::create(ClangWrapper::Ptr clangWrapper,
+CreateMarkers *CreateMarkers::create(SemanticMarker::Ptr semanticMarker,
                                      const QString &fileName,
                                      const QStringList &options,
                                      unsigned firstLine, unsigned lastLine)
 {
-    if (clangWrapper.isNull())
+    if (semanticMarker.isNull())
         return 0;
     else
-        return new CreateMarkers(clangWrapper, fileName, options, firstLine, lastLine);
+        return new CreateMarkers(semanticMarker, fileName, options, firstLine, lastLine);
 }
 
-CreateMarkers::CreateMarkers(ClangWrapper::Ptr clangWrapper,
+CreateMarkers::CreateMarkers(SemanticMarker::Ptr semanticMarker,
                              const QString &fileName,
                              const QStringList &options,
                              unsigned firstLine, unsigned lastLine)
-    : m_clangWrapper(clangWrapper)
+    : m_marker(semanticMarker)
     , m_fileName(fileName)
     , m_options(options)
     , m_firstLine(firstLine)
     , m_lastLine(lastLine)
 {
-    Q_ASSERT(!clangWrapper.isNull());
+    Q_ASSERT(!semanticMarker.isNull());
 
     m_flushRequested = false;
     m_flushLine = 0;
@@ -80,9 +80,7 @@ CreateMarkers::~CreateMarkers()
 
 void CreateMarkers::run()
 {
-    Q_ASSERT(!m_clangWrapper.isNull());
-
-    QMutexLocker lock(m_clangWrapper->mutex());
+    QMutexLocker lock(m_marker->mutex());
     if (isCanceled())
         return;
 
@@ -91,24 +89,24 @@ void CreateMarkers::run()
 #endif // DEBUG_TIMING
 
     m_usages.clear();
-    m_clangWrapper->setFileName(m_fileName);
-    m_clangWrapper->setOptions(m_options);
+    m_marker->setFileName(m_fileName);
+    m_marker->setCompilationOptions(m_options);
 
-    m_clangWrapper->reparse(m_unsavedFiles);
+    m_marker->reparse(m_unsavedFiles);
 #ifdef DEBUG_TIMING
     qDebug() << "*** Reparse for highlighting took" << t.elapsed() << "ms.";
 #endif // DEBUG_TIMING
 
     QList<Clang::Diagnostic> diagnostics;
-    foreach (const Clang::Diagnostic &d, m_clangWrapper->diagnostics())
-        if (d.location().fileName() == m_clangWrapper->fileName())
+    foreach (const Clang::Diagnostic &d, m_marker->diagnostics())
+        if (d.location().fileName() == m_marker->fileName())
             diagnostics.append(d);
     emit diagnosticsReady(diagnostics);
 
     if (isCanceled())
         return;
 
-    foreach (const Clang::SourceMarker &m, m_clangWrapper->sourceMarkersInRange(m_firstLine, m_lastLine))
+    foreach (const Clang::SourceMarker &m, m_marker->sourceMarkersInRange(m_firstLine, m_lastLine))
         addUse(SourceMarker(m.location().line(), m.location().column(), m.length(), m.kind()));
     if (isCanceled())
         return;

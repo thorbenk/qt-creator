@@ -38,9 +38,10 @@
 
 #include <clang-c/Index.h>
 
-#include <QtCore/QString>
-#include <QtCore/QStringList>
-#include <QtCore/QExplicitlySharedDataPointer>
+#include <QExplicitlySharedDataPointer>
+#include <QString>
+#include <QStringList>
+#include <QVarLengthArray>
 
 QT_BEGIN_NAMESPACE
 class QDateTime;
@@ -143,8 +144,43 @@ public:
     // - Physical source locations
     CXSourceLocation getLocation(const CXFile &file, unsigned line, unsigned column) const;
 
+    void tokenize(CXSourceRange range, CXToken **tokens, unsigned *tokenCount) const;
+    void disposeTokens(CXToken *tokens, unsigned tokenCount) const;
+    CXSourceRange getTokenExtent(const CXToken &token) const;
+    void annotateTokens(CXToken *tokens, unsigned tokenCount, CXCursor *cursors) const;
+
 private:
     QExplicitlySharedDataPointer<UnitData> m_data;
+};
+
+class IdentifierTokens
+{
+    Q_DISABLE_COPY(IdentifierTokens)
+
+public:
+    IdentifierTokens(const Unit &m_unit, unsigned firstLine, unsigned lastLine);
+    ~IdentifierTokens();
+
+    unsigned count() const
+    { return m_identifierTokens.count(); }
+
+    const CXCursor &cursor(unsigned nr) const
+    { Q_ASSERT(nr < count()); return m_cursors[nr]; }
+
+    const CXSourceRange &extent(unsigned nr) const
+    { Q_ASSERT(nr < count()); return m_extents[nr]; }
+
+private:
+    void dispose();
+
+private:
+    const Unit &m_unit;
+    unsigned m_tokenCount;
+    CXToken *m_tokens;
+
+    QVarLengthArray<CXToken> m_identifierTokens;
+    CXCursor *m_cursors;
+    CXSourceRange *m_extents;
 };
 
 } // Internal

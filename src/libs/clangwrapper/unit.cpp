@@ -31,6 +31,7 @@
 **************************************************************************/
 
 #include "unit.h"
+#include "unsavedfiledata.h"
 
 #include <clang-c/Index.h>
 
@@ -251,11 +252,12 @@ void Unit::parse()
 
     m_data->updateTimeStamp();
 
+    UnsavedFileData unsaved(m_data->m_unsaved);
     m_data->m_tu = clang_parseTranslationUnit(m_data->m_index,
                                               m_data->m_fileName.constData(),
                                               arguments, m_data->m_compOptions.size(),
-                                              // @TODO: Extract UnsavedFileData...
-                                              0, 0,
+                                              unsaved.files(),
+                                              unsaved.count(),
                                               m_data->m_managOptions);
 
 #ifdef DEBUG_UNIT_COUNT
@@ -266,7 +268,12 @@ void Unit::parse()
 
 void Unit::reparse()
 {
-    // @TODO
+    Q_ASSERT(isLoaded());
+
+    UnsavedFileData unsaved(m_data->m_unsaved);
+    const unsigned opts = clang_defaultReparseOptions(m_data->m_tu);
+    if (clang_reparseTranslationUnit(m_data->m_tu, unsaved.count(), unsaved.files(), opts) != 0)
+        m_data->unload();
 }
 
 void Unit::create()
@@ -294,6 +301,33 @@ CXSourceLocation Unit::getLocation(const CXFile &file, unsigned line, unsigned c
     return clang_getLocation(m_data->m_tu, file, line, column);
 }
 
+void Unit::tokenize(CXSourceRange range, CXToken **tokens, unsigned *tokenCount) const
+{
+    Q_ASSERT(tokens);
+    Q_ASSERT(tokenCount);
+    Q_ASSERT(!clang_Range_isNull(range));
+
+    clang_tokenize(m_data->m_tu, range, tokens, tokenCount);
+}
+
+void Unit::disposeTokens(CXToken *tokens, unsigned tokenCount) const
+{
+    clang_disposeTokens(m_data->m_tu, tokens, tokenCount);
+}
+
+CXSourceRange Unit::getTokenExtent(const CXToken &token) const
+{
+    return clang_getTokenExtent(m_data->m_tu, token);
+}
+
+void Unit::annotateTokens(CXToken *tokens, unsigned tokenCount, CXCursor *cursors) const
+{
+    Q_ASSERT(tokens);
+    Q_ASSERT(cursors);
+
+    clang_annotateTokens(m_data->m_tu, tokens, tokenCount, cursors);
+}
+
 CXCursor Unit::getTranslationUnitCursor() const
 {
     return clang_getTranslationUnitCursor(m_data->m_tu);
@@ -317,4 +351,68 @@ unsigned Unit::getNumDiagnostics() const
 CXDiagnostic Unit::getDiagnostic(unsigned index) const
 {
     return clang_getDiagnostic(m_data->m_tu, index);
+}
+
+IdentifierTokens::IdentifierTokens(const Unit &unit, unsigned firstLine, unsigned lastLine)
+    : m_unit(unit)
+    , m_tokenCount(0)
+    , m_tokens(0)
+    , m_cursors(0)
+    , m_extents(0)
+{
+    // Calculate the range:
+    CXFile file = unit.getFile();
+    CXSourceLocation startLocation = unit.getLocation(file, firstLine, 1);
+    CXSourceLocation endLocation = unit.getLocation(file, lastLine, 1);
+    CXSourceRange range = clang_getRange(startLocation, endLocation);
+
+    // Retrieve all identifier tokens:
+    unit.tokenize(range, &m_tokens, &m_tokenCount);
+
+    for (unsigned i = 0; i < m_tokenCount; ++i)
+        if (CXToken_Identifier == clang_getTokenKind(m_tokens[i]))
+            m_identifierTokens.append(m_tokens[i]);
+
+    const unsigned idCount = m_identifierTokens.count();
+    if (idCount == 0)
+        return;
+
+    // Get the cursors for the tokens:
+    m_cursors = new CXCursor[idCount];
+    unit.annotateTokens(m_identifierTokens.data(),
+                        m_identifierTokens.count(),
+                        m_cursors);
+
+    m_extents = new CXSourceRange[idCount];
+    // Create the markers using the cursor to check the types:
+    for (unsigned i = 0; i < idCount; ++i) {
+        const CXToken &idToken = m_identifierTokens[i];
+        m_extents[i] = unit.getTokenExtent(idToken);
+    }
+}
+
+IdentifierTokens::~IdentifierTokens()
+{
+    dispose();
+}
+
+void IdentifierTokens::dispose()
+{
+    if (!m_unit.isLoaded())
+        return;
+
+    if (m_tokenCount && m_tokens) {
+        m_unit.disposeTokens(m_tokens, m_tokenCount);
+        m_tokenCount = 0;
+    }
+
+    if (m_cursors) {
+        delete[] m_cursors;
+        m_cursors = 0;
+    }
+
+    if (m_extents) {
+        delete[] m_extents;
+        m_extents = 0;
+    }
 }

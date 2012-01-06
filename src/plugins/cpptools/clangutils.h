@@ -3,14 +3,14 @@
 
 #include "cpptools_global.h"
 
-#include <clangwrapper/clangwrapper.h>
+#include <clangwrapper/typedefs.h>
 
 #include <cplusplus/ModelManagerInterface.h>
 
 namespace CppTools {
 namespace ClangUtils {
 
-CPPTOOLS_EXPORT Clang::ClangWrapper::UnsavedFiles createUnsavedFiles(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy);
+CPPTOOLS_EXPORT Clang::UnsavedFiles createUnsavedFiles(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy);
 
 } // namespace ClangUtils
 } // namespace CppTools

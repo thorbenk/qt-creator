@@ -32,7 +32,10 @@ SOURCES += \
     $$PWD/unitsetup.cpp \
     $$PWD/index.cpp \
     $$PWD/includetracker.cpp \
-    $$PWD/dependencygraph.cpp
+    $$PWD/dependencygraph.cpp \
+    $$PWD/semanticmarker.cpp \
+    $$PWD/diagnostic.cpp \
+    $$PWD/unsavedfiledata.cpp
 
 HEADERS += \
     clangwrapper_global.h \
@@ -55,4 +58,7 @@ HEADERS += \
     $$PWD/unitsetup.h \
     $$PWD/index.h \
     $$PWD/includetracker.h \
-    $$PWD/dependencygraph.h
+    $$PWD/dependencygraph.h \
+    $$PWD/semanticmarker.h \
+    $$PWD/diagnostic.h \
+    $$PWD/unsavedfiledata.h

@@ -11,7 +11,7 @@
 using namespace Clang;
 using namespace Core;
 
-CPPTOOLS_EXPORT ClangWrapper::UnsavedFiles CppTools::ClangUtils::createUnsavedFiles(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy)
+CPPTOOLS_EXPORT UnsavedFiles CppTools::ClangUtils::createUnsavedFiles(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy)
 {
     // TODO: change the modelmanager to hold one working copy, and amend it every time we ask for one.
     // TODO: Reason: the UnsavedFile needs a QByteArray.
@@ -21,7 +21,7 @@ CPPTOOLS_EXPORT ClangWrapper::UnsavedFiles CppTools::ClangUtils::createUnsavedFi
     foreach (IEditor *editor, core->editorManager()->openedEditors())
         openFiles.insert(editor->file()->fileName());
 
-    ClangWrapper::UnsavedFiles result;
+    UnsavedFiles result;
     QHashIterator<QString, QPair<QString, unsigned> > wcIter = workingCopy.iterator();
     while (wcIter.hasNext()) {
         wcIter.next();

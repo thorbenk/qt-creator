@@ -1,13 +1,13 @@
 #include "clangwrapper.h"
-#include "sourcemarker.h"
 #include "reuse.h"
+#include "sourcemarker.h"
+#include "unsavedfiledata.h"
 
 #include <QDebug>
 #include <QFile>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QTime>
-#include <QVarLengthArray>
 
 #include <clang-c/Index.h>
 
@@ -65,39 +65,6 @@ static inline QString toString(CXCompletionChunkKind kind)
         return QLatin1String("<UNKNOWN>");
     }
 }
-
-struct UnsavedFileData
-{
-    typedef Clang::ClangWrapper::UnsavedFiles UnsavedFiles;
-
-    UnsavedFileData(const UnsavedFiles &unsavedFiles)
-        : count(unsavedFiles.size())
-        , files(0)
-    {
-        if (count) {
-            files = new CXUnsavedFile[count];
-            unsigned idx = 0;
-            for (UnsavedFiles::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it, ++idx) {
-                QByteArray contents = it.value();
-                buffers.append(contents);
-                files[idx].Contents = contents.constData();
-                files[idx].Length = contents.size();
-
-                buffers.append(it.key().toUtf8());
-                files[idx].Filename = buffers.last().constData();
-            }
-        }
-    }
-
-    ~UnsavedFileData()
-    {
-        delete[] files;
-    }
-
-    unsigned count;
-    CXUnsavedFile *files;
-    QList<QByteArray> buffers;
-};
 
 static bool clangInitialised = false;
 static QMutex initialisationMutex;
@@ -176,7 +143,7 @@ public:
         }
 
         const QByteArray fn(m_fileName.toUtf8());
-        UnsavedFileData unsaved(unsavedFiles);
+        Clang::Internal::UnsavedFileData unsaved(unsavedFiles);
 
 #ifdef DEBUG_TIMING
         QTime t;t.start();
@@ -185,9 +152,9 @@ public:
         if (isEditable) {
             unsigned opts = m_editingOpts;
 //            opts = opts & ~CXTranslationUnit_CXXPrecompiledPreamble;
-            m_unit = clang_parseTranslationUnit(m_index, fn.constData(), argv, argc, unsaved.files, unsaved.count, opts);
+            m_unit = clang_parseTranslationUnit(m_index, fn.constData(), argv, argc, unsaved.files(), unsaved.count(), opts);
         } else {
-            m_unit = clang_createTranslationUnitFromSourceFile(m_index, fn.constData(), argc, argv, unsaved.count, unsaved.files);
+            m_unit = clang_createTranslationUnitFromSourceFile(m_index, fn.constData(), argc, argv, unsaved.count(), unsaved.files());
         }
 
 #ifdef DEBUG_TIMING
@@ -250,41 +217,12 @@ public:
                     | CXDiagnostic_DisplayCategoryName
                     ;
             m_formattedDiagnostics << Internal::getQString(clang_formatDiagnostic(diag, opt));
-
-            Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
-            CXSourceLocation cxLocation = clang_getDiagnosticLocation(diag);
-            const QString spelling = Internal::getQString(clang_getDiagnosticSpelling(diag));
-
-            const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
-            if (rangeCount > 0) {
-                for (unsigned i = 0; i < rangeCount; ++i) {
-                    CXSourceRange r = clang_getDiagnosticRange(diag, 0);
-                    const SourceLocation &spellBegin = Internal::getSpellingLocation(clang_getRangeStart(r));
-                    const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
-                    unsigned length = spellEnd.offset() - spellBegin.offset();
-
-                    Diagnostic d(severity, spellBegin, length, spelling);
-#ifdef DEBUG_TIMING
-                    qDebug() << d.severityAsString() << location << length << spelling;
-#endif
-                    m_diagnostics.append(d);
-                }
-            } else {
-                const SourceLocation &location = Internal::getExpansionLocation(cxLocation);
-                Diagnostic d(severity, location, 0, spelling);
-#ifdef DEBUG_TIMING
-                qDebug() << d.severityAsString() << location << 0 << spelling;
-#endif
-                m_diagnostics.append(d);
-            }
-
             clang_disposeDiagnostic(diag);
         }
     }
 
     void clearDiagnostics()
     {
-        m_diagnostics.clear();
         m_formattedDiagnostics.clear();
     }
 
@@ -294,7 +232,6 @@ public:
     CXIndex m_index;
     unsigned m_editingOpts;
     CXTranslationUnit m_unit;
-    QList<Diagnostic> m_diagnostics;
     QStringList m_formattedDiagnostics;
 
 private:
@@ -302,6 +239,7 @@ private:
 };
 
 using namespace Clang;
+using namespace Clang::Internal;
 
 CodeCompletionResult::CodeCompletionResult()
     : m_priority(0)
@@ -404,7 +342,7 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
 #endif // DEBUG_TIMING
 
     unsigned opts = clang_defaultReparseOptions(m_d->m_unit);
-    if (clang_reparseTranslationUnit(m_d->m_unit, unsaved.count, unsaved.files, opts) == 0) {
+    if (clang_reparseTranslationUnit(m_d->m_unit, unsaved.count(), unsaved.files(), opts) == 0) {
         // success:
 #ifdef DEBUG_TIMING
         qDebug() << "-> reparsing successful in" << t.elapsed() << "ms.";
@@ -423,130 +361,6 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
         return false;
     }
 #endif // NEVER_REPARSE_ALWAYS_PARSE
-}
-
-namespace {
-static void add(QList<SourceMarker> &markers,
-                const CXSourceRange &extent,
-                SourceMarker::Kind kind)
-{
-    CXSourceLocation start = clang_getRangeStart(extent);
-    CXSourceLocation end = clang_getRangeEnd(extent);
-    const SourceLocation &location = Internal::getExpansionLocation(start);
-    const SourceLocation &locationEnd = Internal::getExpansionLocation(end);
-
-    if (location.offset() < locationEnd.offset()) {
-        const unsigned length = locationEnd.offset() - location.offset();
-        markers.append(SourceMarker(location, length, kind));
-    }
-}
-
-} // Anonymous namespace
-
-QList<SourceMarker> ClangWrapper::sourceMarkersInRange(unsigned firstLine,
-                                                       unsigned lastLine)
-{
-    Q_ASSERT(m_d);
-
-    QList<SourceMarker> result;
-
-    if (firstLine > lastLine || !m_d->m_unit)
-        return result;
-
-    QVarLengthArray<CXToken> identifierTokens;
-
-    QTime t;t.start();
-
-    // Retrieve all identifier tokens:
-    CXToken *tokens = 0;
-    unsigned tokenCount = 0;
-    CXTranslationUnit tu = m_d->m_unit;
-    CXFile file = clang_getFile(tu, m_d->m_fileName.toUtf8().constData());
-    CXSourceLocation startLocation = clang_getLocation(tu, file, firstLine, 1);
-    CXSourceLocation endLocation = clang_getLocation(tu, file, lastLine, 1);
-    CXSourceRange range = clang_getRange(startLocation, endLocation);
-    clang_tokenize(tu, range, &tokens, &tokenCount);
-#ifdef DEBUG_TIMING
-    qDebug() << tokenCount << "tokens"
-             << "for range" << firstLine << "to" << lastLine
-             << "in" << t.elapsed() << "ms.";
-#endif // DEBUG_TIMING
-    for (unsigned i = 0; i < tokenCount; ++i)
-        if (CXToken_Identifier == clang_getTokenKind(tokens[i]))
-            identifierTokens.append(tokens[i]);
-#ifdef DEBUG_TIMING
-    qDebug()<<identifierTokens.size()<<"identifier tokens";
-#endif // DEBUG_TIMING
-    if (identifierTokens.isEmpty()) {
-        if (tokens)
-            clang_disposeTokens(tu, tokens, tokenCount);
-        return result;
-    }
-
-    // Get the cursors for the tokens:
-    CXCursor *idCursors = new CXCursor[identifierTokens.size()];
-    clang_annotateTokens(tu,
-                         identifierTokens.data(),
-                         identifierTokens.size(),
-                         idCursors);
-
-    // Create the markers using the cursor to check the types:
-    for (int i = 0; i < identifierTokens.size(); ++i) {
-        CXCursor &c = idCursors[i];
-        const CXToken &idToken = identifierTokens[i];
-
-        switch (clang_getCursorKind(c)) {
-        case CXCursor_ClassDecl:
-        case CXCursor_EnumDecl:
-        case CXCursor_EnumConstantDecl:
-        case CXCursor_Namespace:
-        case CXCursor_NamespaceRef:
-        case CXCursor_NamespaceAlias:
-        case CXCursor_StructDecl:
-        case CXCursor_TemplateRef:
-        case CXCursor_TypeRef:
-        case CXCursor_TypedefDecl:
-            add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Type);
-            break;
-
-        case CXCursor_DeclRefExpr: {
-            CXCursor referenced = clang_getCursorReferenced(c);
-            if (clang_getCursorKind(referenced) == CXCursor_EnumConstantDecl)
-                add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Type);
-        } break;
-
-        case CXCursor_MemberRefExpr:
-        case CXCursor_MemberRef:
-            add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Field);
-            break;
-
-        case CXCursor_Destructor:
-        case CXCursor_CXXMethod:
-            if (clang_CXXMethod_isVirtual(c))
-                add(result,
-                    clang_getTokenExtent(tu, idToken),
-                    SourceMarker::VirtualMethod);
-            break;
-
-        case CXCursor_LabelRef:
-        case CXCursor_LabelStmt:
-            add(result, clang_getTokenExtent(tu, idToken), SourceMarker::Label);
-            break;
-
-        default:
-            break;
-        }
-    }
-#ifdef DEBUG_TIMING
-    qDebug() << "identified ranges in" << t.elapsed()<< "ms.";
-#endif // DEBUG_TIMING
-
-    delete[] idCursors;
-
-    if (tokens)
-        clang_disposeTokens(tu, tokens, tokenCount);
-
-    return result;
 }
 
 QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned column, const UnsavedFiles &unsavedFiles)
@@ -576,7 +390,7 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
     const QByteArray fn(m_d->m_fileName.toUtf8());
     UnsavedFileData unsaved(unsavedFiles);
     unsigned opts = clang_defaultCodeCompleteOptions();
-    CXCodeCompleteResults *results = clang_codeCompleteAt(m_d->m_unit, fn.constData(), line, column, unsaved.files, unsaved.count, opts);
+    CXCodeCompleteResults *results = clang_codeCompleteAt(m_d->m_unit, fn.constData(), line, column, unsaved.files(), unsaved.count(), opts);
     if (results) {
         for (unsigned i = 0; i < results->NumResults; ++i) {
             CXCompletionString complStr = results->Results[i].CompletionString;
@@ -740,13 +554,6 @@ QPair<bool, QStringList> ClangWrapper::precompile(const QString &headerFileName,
     }
 
     return qMakePair(ok, wrapper.formattedDiagnostics());
-}
-
-QList<Diagnostic> ClangWrapper::diagnostics() const
-{
-    Q_ASSERT(m_d);
-
-    return m_d->m_diagnostics;
 }
 
 QStringList ClangWrapper::formattedDiagnostics() const
