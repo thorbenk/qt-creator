@@ -180,16 +180,6 @@ CodeCompletionResult::CodeCompletionResult(unsigned priority)
 {
 }
 
-const QString &Diagnostic::severityAsString() const
-{
-    static QStringList strs = QStringList() << "ignored"
-                                            << "note"
-                                            << "warning"
-                                            << "error"
-                                            << "fatal" ;
-    return strs.at(m_severity);
-}
-
 ClangWrapper::ClangWrapper(bool useForCodeCompletion)
     : m_d(new PrivateData(useForCodeCompletion))
     , m_mutex(QMutex::Recursive)

@@ -32,6 +32,9 @@
 
 #include "diagnostic.h"
 
+#include <QtCore/QCoreApplication>
+#include <QtCore/QStringList>
+
 using namespace Clang;
 
 Diagnostic::Diagnostic()
@@ -45,3 +48,19 @@ Diagnostic::Diagnostic(Severity severity, const SourceLocation &location, unsign
     , m_length(length)
     , m_spelling(spelling)
 {}
+
+const QString Diagnostic::severityAsString() const
+{
+    if (m_severity == Unknown)
+        return QString();
+
+    static QStringList strs = QStringList()
+            << QCoreApplication::translate("Diagnostic", "ignored")
+            << QCoreApplication::translate("Diagnostic", "note")
+            << QCoreApplication::translate("Diagnostic", "warning")
+            << QCoreApplication::translate("Diagnostic", "error")
+            << QCoreApplication::translate("Diagnostic", "fatal")
+               ;
+
+    return strs.at(m_severity);
+}

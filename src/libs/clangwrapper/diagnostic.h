@@ -57,7 +57,7 @@ public:
     Severity severity() const
     { return m_severity; }
 
-    const QString &severityAsString() const;
+    const QString severityAsString() const;
 
     const SourceLocation &location() const
     { return m_loc; }
