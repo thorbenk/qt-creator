@@ -43,7 +43,7 @@
 #endif
 #include "pchmanager.h"
 
-#include <clangwrapper/clangwrapper.h>
+#include <clangwrapper/clangcompleter.h>
 
 #include <functional>
 #include <QtCore/QtConcurrentRun>

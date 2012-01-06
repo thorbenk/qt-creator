@@ -115,7 +115,7 @@ int activationSequenceChar(const QChar &ch,
 
 static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAssistInterface* interface, const QString &fileName, unsigned line, unsigned column)
 {
-    ClangWrapper::Ptr wrapper = interface->clangWrapper();
+    ClangCompleter::Ptr wrapper = interface->clangWrapper();
     QMutexLocker lock(wrapper->mutex());
     //### TODO: check if we're cancelled after we managed to aquire the mutex
 
@@ -462,7 +462,7 @@ bool ClangCompletionAssistInterface::objcEnabled() const
 }
 
 ClangCompletionAssistInterface::ClangCompletionAssistInterface(
-        ClangWrapper::Ptr clangWrapper,
+        ClangCompleter::Ptr clangWrapper,
         QTextDocument *document,
         int position,
         Core::IFile *file,

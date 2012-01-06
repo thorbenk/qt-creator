@@ -35,7 +35,6 @@
 
 #include "cpptools_global.h"
 
-#include <clangwrapper/clangwrapper.h>
 #include <clangwrapper/sourcemarker.h>
 #include <clangwrapper/semanticmarker.h>
 

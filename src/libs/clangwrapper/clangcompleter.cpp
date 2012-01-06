@@ -65,7 +65,7 @@ static inline QString toString(CXCompletionChunkKind kind)
 
 } // Anonymous namespace
 
-class Clang::ClangWrapper::PrivateData
+class Clang::ClangCompleter::PrivateData
 {
 public:
     PrivateData(bool useForCodeCompletion)
@@ -158,13 +158,13 @@ CodeCompletionResult::CodeCompletionResult(unsigned priority)
 {
 }
 
-ClangWrapper::ClangWrapper(bool useForCodeCompletion)
+ClangCompleter::ClangCompleter(bool useForCodeCompletion)
     : m_d(new PrivateData(useForCodeCompletion))
     , m_mutex(QMutex::Recursive)
 {
 }
 
-ClangWrapper::~ClangWrapper()
+ClangCompleter::~ClangCompleter()
 {
     Q_ASSERT(m_d);
 
@@ -172,14 +172,14 @@ ClangWrapper::~ClangWrapper()
     m_d = 0;
 }
 
-QString ClangWrapper::fileName() const
+QString ClangCompleter::fileName() const
 {
     Q_ASSERT(m_d);
 
     return m_d->m_fileName;
 }
 
-void ClangWrapper::setFileName(const QString &fileName)
+void ClangCompleter::setFileName(const QString &fileName)
 {
     Q_ASSERT(m_d);
     if (m_d->m_fileName != fileName) {
@@ -188,14 +188,14 @@ void ClangWrapper::setFileName(const QString &fileName)
     }
 }
 
-QStringList ClangWrapper::options() const
+QStringList ClangCompleter::options() const
 {
     Q_ASSERT(m_d);
 
     return m_d->m_options;
 }
 
-void ClangWrapper::setOptions(const QStringList &options) const
+void ClangCompleter::setOptions(const QStringList &options) const
 {
     Q_ASSERT(m_d);
 
@@ -205,7 +205,7 @@ void ClangWrapper::setOptions(const QStringList &options) const
     }
 }
 
-bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
+bool ClangCompleter::reparse(const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
 
@@ -222,7 +222,7 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
     return false;
 }
 
-QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned column, const UnsavedFiles &unsavedFiles)
+QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line, unsigned column, const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
 
@@ -362,7 +362,7 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
     return completions;
 }
 
-bool ClangWrapper::objcEnabled() const
+bool ClangCompleter::objcEnabled() const
 {
     Q_ASSERT(m_d);
 

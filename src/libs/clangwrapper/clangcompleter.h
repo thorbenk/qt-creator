@@ -31,8 +31,8 @@
 **
 **************************************************************************/
 
-#ifndef CLANGWRAPPER_H
-#define CLANGWRAPPER_H
+#ifndef CLANGCOMPLETER_H
+#define CLANGCOMPLETER_H
 
 #include "clangwrapper_global.h"
 #include "diagnostic.h"
@@ -165,18 +165,18 @@ inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator<(const CodeCompletionResult &
     return ccr1.compare(ccr2) < 0;
 }
 
-class QTCREATOR_CLANGWRAPPER_EXPORT ClangWrapper
+class QTCREATOR_CLANGWRAPPER_EXPORT ClangCompleter
 {
-    Q_DISABLE_COPY(ClangWrapper)
+    Q_DISABLE_COPY(ClangCompleter)
 
     class PrivateData;
 
 public: // data structures
-    typedef QSharedPointer<ClangWrapper> Ptr;
+    typedef QSharedPointer<ClangCompleter> Ptr;
 
 public: // methods
-    ClangWrapper(bool useForCodeCompletion = false);
-    ~ClangWrapper();
+    ClangCompleter(bool useForCodeCompletion = false);
+    ~ClangCompleter();
 
     QString fileName() const;
     void setFileName(const QString &fileName);
@@ -216,4 +216,4 @@ private: // instance fields
 
 Q_DECLARE_METATYPE(Clang::CodeCompletionResult)
 
-#endif // CLANGWRAPPER_H
+#endif // CLANGCOMPLETER_H

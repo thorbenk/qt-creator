@@ -16,7 +16,7 @@ dll {
 INCLUDEPATH += $$PWD/..
 
 SOURCES += \
-    $$PWD/clangwrapper.cpp \
+    $$PWD/clangcompleter.cpp \
     $$PWD/sourcemarker.cpp \
     $$PWD/rawlexer.cpp \
     $$PWD/keywords.cpp \
@@ -39,8 +39,8 @@ SOURCES += \
     $$PWD/unsavedfiledata.cpp
 
 HEADERS += \
-    clangwrapper_global.h \
-    $$PWD/clangwrapper.h \
+    $$PWD/clangwrapper_global.h \
+    $$PWD/clangcompleter.h \
     $$PWD/sourcemarker.h \
     $$PWD/rawlexer.h \
     $$PWD/keywords.h \

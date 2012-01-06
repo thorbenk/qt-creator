@@ -37,7 +37,7 @@
 #include "cppsemanticinfo.h"
 #include "cppfunctiondecldeflink.h"
 
-#include <clangwrapper/clangwrapper.h>
+#include <clangwrapper/clangcompleter.h>
 #include <clangwrapper/semanticmarker.h>
 #include <clangwrapper/sourcemarker.h>
 #include <clangwrapper/codenavigator.h>
@@ -334,7 +334,7 @@ private:
     FunctionDeclDefLinkFinder *m_declDefLinkFinder;
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
 
-    Clang::ClangWrapper::Ptr m_clangCompletionWrapper;
+    Clang::ClangCompleter::Ptr m_clangCompletionWrapper;
     Clang::CodeNavigator m_codeNavigator;
     Clang::SemanticMarker::Ptr m_semanticMarker;
 };

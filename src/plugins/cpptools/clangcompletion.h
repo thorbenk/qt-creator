@@ -4,7 +4,7 @@
 #include "cppcompletionassist.h"
 #include "cpptools_global.h"
 
-#include <clangwrapper/clangwrapper.h>
+#include <clangwrapper/clangcompleter.h>
 
 #include <cplusplus/Icons.h>
 
@@ -23,7 +23,7 @@ class ClangAssistProposalModel;
 class CPPTOOLS_EXPORT ClangCompletionAssistInterface: public TextEditor::DefaultAssistInterface
 {
 public:
-    ClangCompletionAssistInterface(Clang::ClangWrapper::Ptr clangWrapper,
+    ClangCompletionAssistInterface(Clang::ClangCompleter::Ptr clangWrapper,
                                    QTextDocument *document,
                                    int position,
                                    Core::IFile *file,
@@ -32,7 +32,7 @@ public:
                                    const QStringList &includePaths,
                                    const QStringList &frameworkPaths);
 
-    Clang::ClangWrapper::Ptr clangWrapper() const
+    Clang::ClangCompleter::Ptr clangWrapper() const
     { return m_clangWrapper; }
 
     const Clang::UnsavedFiles &unsavedFiles() const
@@ -50,7 +50,7 @@ public:
     { return m_frameworkPaths; }
 
 private:
-    Clang::ClangWrapper::Ptr m_clangWrapper;
+    Clang::ClangCompleter::Ptr m_clangWrapper;
     Clang::UnsavedFiles m_unsavedFiles;
     QStringList m_options, m_includePaths, m_frameworkPaths;
 };
