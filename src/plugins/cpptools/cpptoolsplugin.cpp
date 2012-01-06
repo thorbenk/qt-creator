@@ -46,6 +46,8 @@
 #include "completionprojectsettingspage.h"
 #include "cppctordtorfilter.h"
 
+#include <clangwrapper/utils.h>
+
 #include <extensionsystem/pluginmanager.h>
 
 #include <coreplugin/icore.h>
@@ -103,6 +105,8 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
 {
     Q_UNUSED(arguments)
     Q_UNUSED(error)
+
+    Clang::initializeClang();
 
     Core::ICore *core = Core::ICore::instance();
     Core::ActionManager *am = core->actionManager();

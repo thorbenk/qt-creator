@@ -36,6 +36,8 @@
 #include "clangwrapper_global.h"
 #include "sourcelocation.h"
 
+#include <QMetaType>
+
 namespace Clang {
 
 class QTCREATOR_CLANGWRAPPER_EXPORT Diagnostic
@@ -76,5 +78,8 @@ private:
 };
 
 } // namespace Clang
+
+Q_DECLARE_METATYPE(Clang::Diagnostic)
+Q_DECLARE_METATYPE(QList<Clang::Diagnostic>)
 
 #endif // CLANG_DIAGNOSTIC_H

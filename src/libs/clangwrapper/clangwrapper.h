@@ -215,7 +215,5 @@ private: // instance fields
 } // namespace Clang
 
 Q_DECLARE_METATYPE(Clang::CodeCompletionResult)
-Q_DECLARE_METATYPE(Clang::Diagnostic)
-Q_DECLARE_METATYPE(QList<Clang::Diagnostic>)
 
 #endif // CLANGWRAPPER_H

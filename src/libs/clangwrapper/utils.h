@@ -57,10 +57,12 @@ typedef QMap<QString, QByteArray> UnsavedFiles;
  * \returns a boolean indicating success (true) or failure (false), and a
  *          list of diagnostic messages.
  */
-QPair<bool, QStringList> QTCREATOR_CLANGWRAPPER_EXPORT precompile(
+QTCREATOR_CLANGWRAPPER_EXPORT QPair<bool, QStringList> precompile(
         const QString &headerFileName,
         const QStringList &options,
         const QString &outFileName);
+
+QTCREATOR_CLANGWRAPPER_EXPORT void initializeClang();
 
 } // Clang
 

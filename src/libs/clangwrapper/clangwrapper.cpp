@@ -63,26 +63,6 @@ static inline QString toString(CXCompletionChunkKind kind)
     }
 }
 
-static bool clangInitialised = false;
-static QMutex initialisationMutex;
-
-static void initClang()
-{
-    if (clangInitialised)
-        return;
-
-    QMutexLocker locker(&initialisationMutex);
-    if (clangInitialised)
-        return;
-
-    clang_toggleCrashRecovery(1);
-    clang_enableStackTraces();
-    clangInitialised = true;
-
-    qRegisterMetaType<Clang::Diagnostic>();
-    qRegisterMetaType<QList<Clang::Diagnostic> >();
-}
-
 } // Anonymous namespace
 
 class Clang::ClangWrapper::PrivateData
@@ -91,8 +71,6 @@ public:
     PrivateData(bool useForCodeCompletion)
         : m_unit(0)
     {
-        initClang();
-
         const int excludeDeclsFromPCH = 1;
         const int displayDiagnostics = 1;
         m_index = clang_createIndex(excludeDeclsFromPCH, displayDiagnostics);

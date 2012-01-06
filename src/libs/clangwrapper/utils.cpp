@@ -30,6 +30,7 @@
 **
 **************************************************************************/
 
+#include "diagnostic.h"
 #include "unit.h"
 #include "utils.h"
 #include "utils_p.h"
