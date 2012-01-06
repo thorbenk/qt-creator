@@ -29,7 +29,6 @@ HEADERS += completionsettingspage.h \
     insertionpointlocator.h \
     cpprefactoringchanges.h \
     abstracteditorsupport.h \
-    cppcompletionassist.h \
     cppcodestylesettingspage.h \
     cpptoolssettings.h \
     cppcodestylesettings.h \
@@ -60,7 +59,6 @@ SOURCES += completionsettingspage.cpp \
     uicodecompletionsupport.cpp \
     insertionpointlocator.cpp \
     cpprefactoringchanges.cpp \
-    cppcompletionassist.cpp \
     cppcodestylesettingspage.cpp \
     cpptoolssettings.cpp \
     cppcodestylesettings.cpp \

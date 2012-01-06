@@ -493,38 +493,6 @@ int CppFunctionHintModel::activeArgument(const QString &prefix) const
     return argnr;
 }
 
-// ---------------------------
-// CppCompletionAssistProvider
-// ---------------------------
-bool CppCompletionAssistProvider::supportsEditor(const Core::Id &editorId) const
-{
-    return editorId == Core::Id(CppEditor::Constants::CPPEDITOR_ID);
-}
-
-int CppCompletionAssistProvider::activationCharSequenceLength() const
-{
-    return 3;
-}
-
-bool CppCompletionAssistProvider::isActivationCharSequence(const QString &sequence) const
-{
-    const QChar &ch  = sequence.at(2);
-    const QChar &ch2 = sequence.at(1);
-    const QChar &ch3 = sequence.at(0);
-    if (activationSequenceChar(ch, ch2, ch3, 0, true) != 0)
-        return true;
-    return false;
-}
-
-IAssistProcessor *CppCompletionAssistProvider::createProcessor() const
-{
-#if CODE_COMPLETION_WITH_CLANG
-    return new ClangCompletionAssistProcessor;
-#else
-    return new CppCompletionAssistProcessor;
-#endif
-}
-
 // -----------------
 // CppAssistProposal
 // -----------------

@@ -12,6 +12,8 @@
 #include <cplusplus/Token.h>
 #include <cplusplus/MatchingText.h>
 
+#include <cppeditor/cppeditorconstants.h>
+
 #include <texteditor/basetexteditor.h>
 #include <texteditor/convenience.h>
 #include <texteditor/codeassist/basicproposalitemlistmodel.h>
@@ -144,6 +146,38 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
 namespace CppTools {
 namespace Internal {
 
+// -----------------------------
+// ClangCompletionAssistProvider
+// -----------------------------
+bool ClangCompletionAssistProvider::supportsEditor(const Core::Id &editorId) const
+{
+    return editorId == Core::Id(CppEditor::Constants::CPPEDITOR_ID);
+}
+
+int ClangCompletionAssistProvider::activationCharSequenceLength() const
+{
+    return 3;
+}
+
+bool ClangCompletionAssistProvider::isActivationCharSequence(const QString &sequence) const
+{
+    const QChar &ch  = sequence.at(2);
+    const QChar &ch2 = sequence.at(1);
+    const QChar &ch3 = sequence.at(0);
+    if (activationSequenceChar(ch, ch2, ch3, 0, true) != 0)
+        return true;
+    return false;
+}
+
+IAssistProcessor *ClangCompletionAssistProvider::createProcessor() const
+{
+#if CODE_COMPLETION_WITH_CLANG
+    return new ClangCompletionAssistProcessor;
+#else
+    return new CppCompletionAssistProcessor;
+#endif
+}
+
 // ------------------------
 // ClangAssistProposalModel
 // ------------------------
@@ -267,8 +301,6 @@ public:
                                         int basePosition) const;
 
     void keepCompletionOperator(unsigned compOp) { m_completionOperator = compOp; }
-    void keepTypeOfExpression(const QSharedPointer<TypeOfExpression> &typeOfExp)
-    { m_typeOfExpression = typeOfExp; }
 
     bool isOverloaded() const
     { return !m_overloads.isEmpty(); }
@@ -290,7 +322,6 @@ public:
 private:
     unsigned m_completionOperator;
     mutable QChar m_typedChar;
-    QSharedPointer<TypeOfExpression> m_typeOfExpression;
     QList<CodeCompletionResult> m_overloads;
 };
 

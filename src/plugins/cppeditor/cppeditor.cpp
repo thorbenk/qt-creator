@@ -68,7 +68,6 @@
 #include <cpptools/cpptoolsplugin.h>
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/cppcodeformatter.h>
-#include <cpptools/cppcompletionassist.h>
 #include <cpptools/cppqtstyleindenter.h>
 #include <cpptools/cppcodestylesettings.h>
 #include <cpptools/cpprefactoringchanges.h>
@@ -1039,52 +1038,6 @@ void CPPEditorWidget::codeNavigate(bool switchDeclDef)
 void CPPEditorWidget::switchDeclarationDefinition()
 {
     codeNavigate(true);
-
-#if 0
-    if (! m_modelManager)
-        return;
-
-    const Snapshot snapshot = m_modelManager->snapshot();
-
-    if (Document::Ptr thisDocument = snapshot.document(file()->fileName())) {
-        int line = 0, positionInBlock = 0;
-        convertPosition(position(), &line, &positionInBlock);
-
-        Symbol *lastVisibleSymbol = thisDocument->lastVisibleSymbolAt(line, positionInBlock + 1);
-        if (! lastVisibleSymbol)
-            return;
-
-        Function *function = lastVisibleSymbol->asFunction();
-        if (! function)
-            function = lastVisibleSymbol->enclosingFunction();
-
-        if (function) {
-            LookupContext context(thisDocument, snapshot);
-
-            Function *functionDefinition = function->asFunction();
-            ClassOrNamespace *binding = context.lookupType(functionDefinition);
-
-            const QList<LookupItem> declarations = context.lookup(functionDefinition->name(), functionDefinition->enclosingScope());
-            QList<Symbol *> best;
-            foreach (const LookupItem &r, declarations) {
-                if (Symbol *decl = r.declaration()) {
-                    if (Function *funTy = decl->type()->asFunctionType()) {
-                        if (funTy->isEqualTo(function) && decl != function && binding == r.binding())
-                            best.prepend(decl);
-                        else
-                            best.append(decl);
-                    }
-                }
-            }
-            if (! best.isEmpty())
-                openCppEditorAt(linkToSymbol(best.first()));
-
-        } else if (lastVisibleSymbol && lastVisibleSymbol->isDeclaration() && lastVisibleSymbol->type()->isFunctionType()) {
-            if (Symbol *def = snapshot.findMatchingDefinition(lastVisibleSymbol))
-                openCppEditorAt(linkToSymbol(def));
-        }
-    }
-#endif
 }
 
 static inline LookupItem skipForwardDeclarations(const QList<LookupItem> &resolvedSymbols)
@@ -1458,10 +1411,6 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
 void CPPEditorWidget::jumpToDefinition()
 {
     codeNavigate(false);
-
-#if 0
-    openLink(findLinkAt(textCursor()));
-#endif
 }
 
 Symbol *CPPEditorWidget::findDefinition(Symbol *symbol, const Snapshot &snapshot) const
@@ -1855,7 +1804,6 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
 
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
             if (Core::EditorManager::instance()->currentEditor() == editor()) {
-#if 1
                 const QString fileName = file()->fileName();
                 QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(fileName);
                 QStringList options;
@@ -1867,24 +1815,12 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
                 connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
                         this, SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
                 CppTools::CreateMarkers::Future f = createMarkers->start();
-#else
-                LookupContext context(semanticInfo.doc, semanticInfo.snapshot);
-                CheckSymbols::Future f = CheckSymbols::go(semanticInfo.doc, context);
-#endif
                 m_highlighter = f;
                 m_highlightRevision = semanticInfo.revision;
                 m_highlightWatcher.setFuture(m_highlighter);
             }
         }
-
-#if 0 // ### TODO: enable objc semantic highlighting
-        setExtraSelections(ObjCSelection, createSelections(document(),
-                                                           semanticInfo.objcKeywords,
-                                                           m_keywordFormat));
-#endif
     }
-
-
 
     setExtraSelections(UnusedSymbolSelection, unusedSelections);
 
@@ -2103,13 +2039,6 @@ SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
             doc->control()->setTopLevelDeclarationProcessor(this);
             doc->check();
             semanticInfo.doc = doc;
-
-#if 0
-            if (TranslationUnit *unit = doc->translationUnit()) {
-                FindObjCKeywords findObjCKeywords(unit); // ### remove me
-                objcKeywords = findObjCKeywords();
-            }
-#endif
         }
     }
 
@@ -2174,7 +2103,6 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
     TextEditor::AssistReason reason) const
 {
     if (kind == TextEditor::Completion) {
-#if 1
         QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(file()->fileName());
         QStringList includePaths, frameworkPaths, options;
         if (!parts.isEmpty()) {
@@ -2187,26 +2115,6 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
                     m_clangCompletionWrapper,
                     document(), position(), editor()->file(), reason,
                     options, includePaths, frameworkPaths);
-#else
-        QStringList includePaths;
-        QStringList frameworkPaths;
-        if (ProjectExplorer::Project *project =
-                ProjectExplorer::ProjectExplorerPlugin::instance()->currentProject()) {
-            foreach (const CppModelManagerInterface::ProjectPart &part,
-                     m_modelManager->projectInfo(project).projectParts) {
-                includePaths.append(part.includePaths);
-                frameworkPaths.append(part.frameworkPaths);
-            }
-        }
-        return new CppTools::Internal::CppCompletionAssistInterface(
-                    document(),
-                    position(),
-                    editor()->file(),
-                    reason,
-                    m_modelManager->snapshot(),
-                    includePaths,
-                    frameworkPaths);
-#endif
     } else if (kind == TextEditor::QuickFix) {
         if (!semanticInfo().doc || isOutdated())
             return 0;

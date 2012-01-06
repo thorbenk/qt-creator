@@ -1,7 +1,6 @@
 #ifndef CPPEDITOR_INTERNAL_CLANGCOMPLETION_H
 #define CPPEDITOR_INTERNAL_CLANGCOMPLETION_H
 
-#include "cppcompletionassist.h"
 #include "cpptools_global.h"
 
 #include <clangwrapper/clangcompleter.h>
@@ -9,15 +8,27 @@
 #include <cplusplus/Icons.h>
 
 #include <texteditor/codeassist/basicproposalitem.h>
+#include <texteditor/codeassist/completionassistprovider.h>
 #include <texteditor/codeassist/defaultassistinterface.h>
 #include <texteditor/codeassist/iassistprocessor.h>
 
 #include <QStringList>
+#include <QTextCursor>
 
 namespace CppTools {
 
 namespace Internal {
 class ClangAssistProposalModel;
+
+class ClangCompletionAssistProvider : public TextEditor::CompletionAssistProvider
+{
+public:
+    virtual bool supportsEditor(const Core::Id &editorId) const;
+    virtual int activationCharSequenceLength() const;
+    virtual bool isActivationCharSequence(const QString &sequence) const;
+    virtual TextEditor::IAssistProcessor *createProcessor() const;
+};
+
 } // namespace Internal
 
 class CPPTOOLS_EXPORT ClangCompletionAssistInterface: public TextEditor::DefaultAssistInterface

@@ -41,7 +41,7 @@
 #include "cpptoolsconstants.h"
 #include "cpplocatorfilter.h"
 #include "symbolsfindfilter.h"
-#include "cppcompletionassist.h"
+#include "clangcompletion.h"
 #include "cpptoolssettings.h"
 #include "completionprojectsettingspage.h"
 #include "cppctordtorfilter.h"
@@ -123,7 +123,7 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
             m_modelManager, SLOT(updateSourceFiles(QStringList)));
     addAutoReleasedObject(m_modelManager);
 
-    addAutoReleasedObject(new CppCompletionAssistProvider);
+    addAutoReleasedObject(new ClangCompletionAssistProvider);
     addAutoReleasedObject(new CppLocatorFilter(m_modelManager));
     addAutoReleasedObject(new CppClassesFilter(m_modelManager));
     addAutoReleasedObject(new CppFunctionsFilter(m_modelManager));
