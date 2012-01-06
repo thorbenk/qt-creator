@@ -11,9 +11,6 @@
 
 #include <clang-c/Index.h>
 
-#undef DEBUG_TIMING
-#undef NEVER_REPARSE_ALWAYS_PARSE
-
 namespace {
 
 static inline QString toString(CXCompletionChunkKind kind)
@@ -145,28 +142,12 @@ public:
         const QByteArray fn(m_fileName.toUtf8());
         Clang::Internal::UnsavedFileData unsaved(unsavedFiles);
 
-#ifdef DEBUG_TIMING
-        QTime t;t.start();
-#endif // DEBUG_TIMING
-
         if (isEditable) {
             unsigned opts = m_editingOpts;
-//            opts = opts & ~CXTranslationUnit_CXXPrecompiledPreamble;
             m_unit = clang_parseTranslationUnit(m_index, fn.constData(), argv, argc, unsaved.files(), unsaved.count(), opts);
         } else {
             m_unit = clang_createTranslationUnitFromSourceFile(m_index, fn.constData(), argc, argv, unsaved.count(), unsaved.files());
         }
-
-#ifdef DEBUG_TIMING
-        qDebug() << "=== Parsing"
-                 << (isEditable ? "(editable)" : "(not editable")
-                 << "->" << (m_unit ? "successful" : "failed")
-                 << "in" << t.elapsed() << "ms";
-        qDebug() << "Command-line:";
-        qDebug("clang -fsyntax-only %s %c", m_fileName.toUtf8().data(), (m_options.isEmpty() ? ' ' : '\\'));
-        for (int i = 1; i <= m_options.size(); ++i)
-            qDebug("  %s%s", m_options[i - 1].toUtf8().data(), (i == m_options.size() ? "" : " \\"));
-#endif // DEBUG_TIMING
 
         checkDiagnostics();
         delete[] argv;
@@ -203,9 +184,6 @@ public:
             return;
 
         const unsigned diagCount = clang_getNumDiagnostics(m_unit);
-#ifdef DEBUG_TIMING
-        qDebug() <<"..." << diagCount << "diagnostics.";
-#endif // DEBUG_TIMING
         for (unsigned i = 0; i < diagCount; ++i) {
             CXDiagnostic diag = clang_getDiagnostic(m_unit, i);
 
@@ -319,48 +297,23 @@ bool ClangWrapper::reparse(const UnsavedFiles &unsavedFiles)
 
     m_d->clearDiagnostics();
 
-#ifdef NEVER_REPARSE_ALWAYS_PARSE
-    if (m_d->m_unit) {
-        clang_disposeTranslationUnit(m_d->m_unit);
-        m_d->m_unit = 0;
-    }
-
-    return m_d->parseFromFile(unsavedFiles);
-#else // !NEVER_REPARSE_ALWAYS_PARSE
     if (!m_d->m_unit)
         return m_d->parseFromFile(unsavedFiles);
 
     UnsavedFileData unsaved(unsavedFiles);
 
-#ifdef DEBUG_TIMING
-    QTime t; t.start();
-    qDebug() << "Re-parsring with" << unsaved.count << "unsaved files...";
-    qDebug() << "Command-line:";
-    qDebug("clang -fsyntax-only %s %c", m_d->m_fileName.toUtf8().data(), (m_d->m_options.isEmpty() ? ' ' : '\\'));
-    for (int i = 1; i <= m_d->m_options.size(); ++i)
-        qDebug("  %s%s", m_d->m_options[i - 1].toUtf8().data(), (i == m_d->m_options.size() ? "" : " \\"));
-#endif // DEBUG_TIMING
-
     unsigned opts = clang_defaultReparseOptions(m_d->m_unit);
     if (clang_reparseTranslationUnit(m_d->m_unit, unsaved.count(), unsaved.files(), opts) == 0) {
         // success:
-#ifdef DEBUG_TIMING
-        qDebug() << "-> reparsing successful in" << t.elapsed() << "ms.";
-#endif // DEBUG_TIMING
-
         m_d->checkDiagnostics();
         return true;
     } else {
         // failure:
-#ifdef DEBUG_TIMING
-        qDebug() << "-> reparsing failed in" << t.elapsed() << "ms.";
-#endif // DEBUG_TIMING
 
         m_d->checkDiagnostics();
         m_d->invalidateTranslationUnit();
         return false;
     }
-#endif // NEVER_REPARSE_ALWAYS_PARSE
 }
 
 QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned column, const UnsavedFiles &unsavedFiles)
@@ -375,17 +328,10 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
         QTime t;
         t.start();
         m_d->parseFromFile(unsavedFiles);
-#ifdef DEBUG_TIMING
-        qDebug() << "Initial parse done in" << t.elapsed() << "ms.";
-#endif // DEBUG_TIMING
     }
 
     if (!m_d->m_unit)
         return completions;
-
-#ifdef DEBUG_TIMING
-    qDebug() << "codeCompleteAt line" << line << "column" << column;
-#endif // DEBUG_TIMING
 
     const QByteArray fn(m_d->m_fileName.toUtf8());
     UnsavedFileData unsaved(unsavedFiles);
@@ -397,13 +343,6 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
             unsigned priority = clang_getCompletionPriority(complStr);
 
             CodeCompletionResult ccr(priority);
-
-#if 0
-            CXCursorKind kind = results->Results[i].CursorKind;
-            qDebug() << "--- kind:"
-                     << Internal::getQString(clang_getCursorKindSpelling(kind))
-                     << "(" << priority << ")";
-#endif
 
             bool previousChunkWasLParen = false;
             unsigned chunckCount = clang_getNumCompletionChunks(complStr);
@@ -431,11 +370,6 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
 
                     ccr.setHint(ccr.hint() + chunkText);
                 }
-
-#if 0
-                qDebug() << "    chunk" << j << ": kind: " << chunkKind << toString(chunkKind);
-                qDebug() << "              text:" << chunkText;
-#endif
             }
 
             switch (results->Results[i].CursorKind) {
@@ -495,7 +429,6 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
                 break;
 
             default:
-//                qDebug() << "cursor kind:" << results->Results[i].CursorKind << "for" << ccr.text();
                 break;
             }
 
@@ -520,8 +453,6 @@ QList<CodeCompletionResult> ClangWrapper::codeCompleteAt(unsigned line, unsigned
         }
 
         clang_disposeCodeCompleteResults(results);
-    } else {
-//        m_d->checkDiagnostics();
     }
 
     return completions;
@@ -531,26 +462,13 @@ QPair<bool, QStringList> ClangWrapper::precompile(const QString &headerFileName,
 {
     initClang();
 
-#ifdef DEBUG_TIMING
-    qDebug() << "** Precompiling" << outFileName << "from" << headerFileName << "...";
-#endif // DEBUG_TIMING
-
-    bool ok;
+    bool ok = false;
 
     ClangWrapper wrapper;
     wrapper.setFileName(headerFileName);
     wrapper.setOptions(options);
     if (wrapper.reparse(UnsavedFiles())) {
         ok = wrapper.m_d->save(outFileName);
-
-#ifdef DEBUG_TIMING
-        qDebug() << "** Precompiling done.";
-#endif // DEBUG_TIMING
-    } else {
-#ifdef DEBUG_TIMING
-        qWarning() << "** Precompiling failed!";
-#endif // DEBUG_TIMING
-        ok = false;
     }
 
     return qMakePair(ok, wrapper.formattedDiagnostics());
