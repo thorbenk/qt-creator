@@ -420,7 +420,7 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     , m_inRenameChanged(false)
     , m_firstRenameChange(false)
     , m_objcEnabled(false)
-    , m_clangCompletionWrapper(new Clang::ClangCompleter(true))
+    , m_clangCompletionWrapper(new Clang::ClangCompleter)
     , m_semanticMarker(new Clang::SemanticMarker)
 {
     m_initialized = false;

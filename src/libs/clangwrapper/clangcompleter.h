@@ -175,7 +175,7 @@ public: // data structures
     typedef QSharedPointer<ClangCompleter> Ptr;
 
 public: // methods
-    ClangCompleter(bool useForCodeCompletion = false);
+    ClangCompleter();
     ~ClangCompleter();
 
     QString fileName() const;

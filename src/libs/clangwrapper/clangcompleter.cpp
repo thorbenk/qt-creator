@@ -68,7 +68,7 @@ static inline QString toString(CXCompletionChunkKind kind)
 class Clang::ClangCompleter::PrivateData
 {
 public:
-    PrivateData(bool useForCodeCompletion)
+    PrivateData()
         : m_unit(0)
     {
         const int excludeDeclsFromPCH = 1;
@@ -76,8 +76,6 @@ public:
         m_index = clang_createIndex(excludeDeclsFromPCH, displayDiagnostics);
 
         m_editingOpts = clang_defaultEditingTranslationUnitOptions();
-        if (!useForCodeCompletion)
-            m_editingOpts &= ~CXTranslationUnit_CacheCompletionResults;
     }
 
     ~PrivateData()
@@ -99,7 +97,7 @@ public:
         }
     }
 
-    bool parseFromFile(const UnsavedFiles &unsavedFiles, bool isEditable = true)
+    bool parseFromFile(const UnsavedFiles &unsavedFiles)
     {
         Q_ASSERT(!m_unit);
 
@@ -118,12 +116,7 @@ public:
         const QByteArray fn(m_fileName.toUtf8());
         Clang::Internal::UnsavedFileData unsaved(unsavedFiles);
 
-        if (isEditable) {
-            unsigned opts = m_editingOpts;
-            m_unit = clang_parseTranslationUnit(m_index, fn.constData(), argv, argc, unsaved.files(), unsaved.count(), opts);
-        } else {
-            m_unit = clang_createTranslationUnitFromSourceFile(m_index, fn.constData(), argc, argv, unsaved.count(), unsaved.files());
-        }
+        m_unit = clang_parseTranslationUnit(m_index, fn.constData(), argv, argc, unsaved.files(), unsaved.count(), m_editingOpts);
 
         delete[] argv;
         return m_unit != 0;
@@ -158,8 +151,8 @@ CodeCompletionResult::CodeCompletionResult(unsigned priority)
 {
 }
 
-ClangCompleter::ClangCompleter(bool useForCodeCompletion)
-    : m_d(new PrivateData(useForCodeCompletion))
+ClangCompleter::ClangCompleter()
+    : m_d(new PrivateData)
     , m_mutex(QMutex::Recursive)
 {
 }
