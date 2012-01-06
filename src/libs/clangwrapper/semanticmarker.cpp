@@ -95,7 +95,7 @@ void SemanticMarker::reparse(const UnsavedFiles &unsavedFiles)
 QList<Diagnostic> SemanticMarker::diagnostics() const
 {
     QList<Diagnostic> diagnostics;
-    if (!m_unit)
+    if (!m_unit || !m_unit->isLoaded())
         return diagnostics;
 
     const unsigned diagCount = m_unit->getNumDiagnostics();

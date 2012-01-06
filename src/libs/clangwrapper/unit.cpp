@@ -356,6 +356,8 @@ void Unit::getInclusions(CXInclusionVisitor visitor, CXClientData clientData) co
 
 unsigned Unit::getNumDiagnostics() const
 {
+    Q_ASSERT(isLoaded());
+
     return clang_getNumDiagnostics(m_data->m_tu);
 }
 
