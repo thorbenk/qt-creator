@@ -185,7 +185,7 @@ DebuggerRunControlPrivate::DebuggerRunControlPrivate(DebuggerRunControl *parent,
 DebuggerRunControl::DebuggerRunControl(RunConfiguration *runConfiguration,
                                        const DebuggerStartParameters &sp,
                                        const QPair<DebuggerEngineType, DebuggerEngineType> &masterSlaveEngineTypes)
-    : RunControl(runConfiguration, Constants::DEBUGMODE),
+    : RunControl(runConfiguration, ProjectExplorer::DebugRunMode),
       d(new DebuggerRunControlPrivate(this, runConfiguration))
 {
     connect(this, SIGNAL(finished()), SLOT(handleFinished()));
@@ -229,7 +229,7 @@ QString DebuggerRunControl::displayName() const
 
 QIcon DebuggerRunControl::icon() const
 {
-    return QIcon(ProjectExplorer::Constants::ICON_DEBUG_SMALL);
+    return QIcon(QLatin1String(ProjectExplorer::Constants::ICON_DEBUG_SMALL));
 }
 
 void DebuggerRunControl::setCustomEnvironment(Utils::Environment env)
@@ -457,10 +457,11 @@ static QList<DebuggerEngineType> enginesForMode(DebuggerStartMode startMode,
 #endif
         result.push_back(GdbEngineType);
         break;
-    case StartRemote:
+    case StartRemoteProcess:
     case StartRemoteGdb:
         result.push_back(GdbEngineType);
         break;
+    case AttachToRemoteProcess:
     case AttachToRemoteServer:
         if (!hardConstraintsOnly) {
 #ifdef Q_OS_WIN
@@ -511,7 +512,9 @@ static QList<DebuggerEngineType> engineTypes(const DebuggerStartParameters &sp)
         return result;
     }
 
-    if (sp.startMode != AttachToRemoteServer && !sp.executable.isEmpty())
+    if (sp.startMode != AttachToRemoteServer
+            && sp.startMode != AttachToRemoteProcess
+            && !sp.executable.isEmpty())
         result = enginesForExecutable(sp.executable);
     if (!result.isEmpty())
         return result;
@@ -548,7 +551,7 @@ static inline bool canUseEngine(DebuggerEngineType et,
     // Enabled?
     if ((et & cmdLineEnabledEngines) == 0) {
         result->errorDetails.push_back(DebuggerPlugin::tr("The debugger engine '%1' is disabled.").
-                                       arg(engineTypeName(et)));
+                                       arg(QLatin1String(engineTypeName(et))));
         return false;
     }
     // Configured.
@@ -633,7 +636,7 @@ DEBUGGER_EXPORT ConfigurationCheck checkDebugConfiguration(const DebuggerStartPa
         const QString msg = DebuggerPlugin::tr(
             "The preferred debugger engine for debugging binaries of type '%1' is not available.\n"
             "The debugger engine '%2' will be used as a fallback.\nDetails: %3").
-                arg(sp.toolChainAbi.toString(), engineTypeName(usableType),
+                arg(sp.toolChainAbi.toString(), QLatin1String(engineTypeName(usableType)),
                     result.errorDetails.join(QString(QLatin1Char('\n'))));
         debuggerCore()->showMessage(msg, LogWarning);
         showMessageBox(QMessageBox::Warning, DebuggerPlugin::tr("Warning"), msg);
@@ -664,10 +667,9 @@ DebuggerRunControlFactory::DebuggerRunControlFactory(QObject *parent,
     : IRunControlFactory(parent), m_enabledEngines(enabledEngines)
 {}
 
-bool DebuggerRunControlFactory::canRun(RunConfiguration *runConfiguration, const QString &mode) const
+bool DebuggerRunControlFactory::canRun(RunConfiguration *runConfiguration, RunMode mode) const
 {
-//    return mode == ProjectExplorer::Constants::DEBUGMODE;
-    return (mode == Constants::DEBUGMODE || mode == Constants::DEBUGMODE2)
+    return (mode == DebugRunMode || mode == DebugRunModeWithBreakOnMain)
             && qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration);
 }
 
@@ -677,26 +679,26 @@ QString DebuggerRunControlFactory::displayName() const
 }
 
 // Find Qt installation by running qmake
-static inline QString findQtInstallPath(const QString &qmakePath)
+static inline QString findQtInstallPath(const Utils::FileName &qmakePath)
 {
     QProcess proc;
     QStringList args;
     args.append(_("-query"));
     args.append(_("QT_INSTALL_HEADERS"));
-    proc.start(qmakePath, args);
+    proc.start(qmakePath.toString(), args);
     if (!proc.waitForStarted()) {
-        qWarning("%s: Cannot start '%s': %s", Q_FUNC_INFO, qPrintable(qmakePath),
+        qWarning("%s: Cannot start '%s': %s", Q_FUNC_INFO, qPrintable(qmakePath.toString()),
            qPrintable(proc.errorString()));
         return QString();
     }
     proc.closeWriteChannel();
     if (!proc.waitForFinished()) {
         Utils::SynchronousProcess::stopProcess(proc);
-        qWarning("%s: Timeout running '%s'.", Q_FUNC_INFO, qPrintable(qmakePath));
+        qWarning("%s: Timeout running '%s'.", Q_FUNC_INFO, qPrintable(qmakePath.toString()));
         return QString();
     }
     if (proc.exitStatus() != QProcess::NormalExit) {
-        qWarning("%s: '%s' crashed.", Q_FUNC_INFO, qPrintable(qmakePath));
+        qWarning("%s: '%s' crashed.", Q_FUNC_INFO, qPrintable(qmakePath.toString()));
         return QString();
     }
     const QByteArray ba = proc.readAllStandardOutput().trimmed();
@@ -714,7 +716,6 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
             qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration);
     QTC_ASSERT(rc, return sp);
 
-    sp.startMode = StartInternal;
     sp.environment = rc->environment();
     sp.workingDirectory = rc->workingDirectory();
 
@@ -724,10 +725,13 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
 #endif
 
     sp.executable = rc->executable();
+    if (sp.executable.isEmpty())
+        return sp;
+    sp.startMode = StartInternal;
     sp.processArgs = rc->commandLineArguments();
     sp.toolChainAbi = rc->abi();
     if (!sp.toolChainAbi.isValid()) {
-        QList<Abi> abis = Abi::abisOfBinary(sp.executable);
+        QList<Abi> abis = Abi::abisOfBinary(Utils::FileName::fromString(sp.executable));
         if (!abis.isEmpty())
             sp.toolChainAbi = abis.at(0);
     }
@@ -737,7 +741,7 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
 
     if (const ProjectExplorer::Target *target = runConfiguration->target()) {
         if (QByteArray(target->metaObject()->className()).contains("Qt4")) {
-            const QString qmake = Utils::BuildableHelperLibrary::findSystemQt(sp.environment);
+            const Utils::FileName qmake = Utils::BuildableHelperLibrary::findSystemQt(sp.environment);
             if (!qmake.isEmpty())
                 sp.qtInstallPath = findQtInstallPath(qmake);
         }
@@ -763,8 +767,8 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
             sp.environment.set(optimizerKey, _("1"));
         }
 
-        Utils::QtcProcess::addArg(&sp.processArgs, QString("-qmljsdebugger=port:%1,block").arg(
-                                      sp.qmlServerPort));
+        Utils::QtcProcess::addArg(&sp.processArgs,
+                                  QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(sp.qmlServerPort));
     }
 
     // FIXME: If it's not yet build this will be empty and not filled
@@ -777,11 +781,13 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
 }
 
 RunControl *DebuggerRunControlFactory::create
-    (RunConfiguration *runConfiguration, const QString &mode)
+    (RunConfiguration *runConfiguration, RunMode mode)
 {
-    QTC_ASSERT(mode == Constants::DEBUGMODE || mode == Constants::DEBUGMODE2, return 0);
+    QTC_ASSERT(mode == DebugRunMode || mode == DebugRunModeWithBreakOnMain, return 0);
     DebuggerStartParameters sp = localStartParameters(runConfiguration);
-    if (mode == Constants::DEBUGMODE2)
+    if (sp.startMode == NoStartMode)
+        return 0;
+    if (mode == DebugRunModeWithBreakOnMain)
         sp.breakOnMain = true;
     return create(sp, runConfiguration);
 }

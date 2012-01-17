@@ -77,7 +77,7 @@ class ToolChainManagerPrivate
 {
 public:
     QList<ToolChain *> m_toolChains;
-    QMap<QString, QString> m_abiToDebugger;
+    QMap<QString, Utils::FileName> m_abiToDebugger;
 };
 
 } // namespace Internal
@@ -111,8 +111,8 @@ ToolChainManager::ToolChainManager(QObject *parent) :
 void ToolChainManager::restoreToolChains()
 {
     // Restore SDK settings first
-    restoreToolChains(Core::ICore::instance()->resourcePath()
-                      + QLatin1String("/Nokia") + QLatin1String(TOOLCHAIN_FILENAME), true);
+    QFileInfo systemSettingsFile(Core::ICore::instance()->settings(QSettings::SystemScope)->fileName());
+    restoreToolChains(systemSettingsFile.absolutePath() + QLatin1String(TOOLCHAIN_FILENAME), true);
 
     // Then auto detect
     ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
@@ -155,7 +155,7 @@ void ToolChainManager::saveToolChains()
         }
     }
     writer.saveValue(QLatin1String(TOOLCHAIN_COUNT_KEY), count);
-    writer.save(settingsFileName(), "QtCreatorToolChains", Core::ICore::instance()->mainWindow());
+    writer.save(settingsFileName(), QLatin1String("QtCreatorToolChains"), Core::ICore::instance()->mainWindow());
 
     // Do not save default debuggers! Those are set by the SDK!
 }
@@ -181,7 +181,8 @@ void ToolChainManager::restoreToolChains(const QString &fileName, bool autoDetec
         const QString pathKey = QString::fromLatin1(DEFAULT_DEBUGGER_PATH_KEY) + QString::number(i);
         if (!data.contains(pathKey))
             continue;
-        d->m_abiToDebugger.insert(data.value(abiKey).toString(), data.value(pathKey).toString());
+        d->m_abiToDebugger.insert(data.value(abiKey).toString(),
+                                  Utils::FileName::fromString(data.value(pathKey).toString()));
     }
 
     ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
@@ -239,7 +240,7 @@ ToolChain *ToolChainManager::findToolChain(const QString &id) const
     return 0;
 }
 
-QString ToolChainManager::defaultDebugger(const Abi &abi) const
+Utils::FileName ToolChainManager::defaultDebugger(const Abi &abi) const
 {
     return d->m_abiToDebugger.value(abi.toString());
 }

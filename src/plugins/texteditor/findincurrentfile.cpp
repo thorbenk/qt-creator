@@ -58,7 +58,7 @@ FindInCurrentFile::FindInCurrentFile()
 
 QString FindInCurrentFile::id() const
 {
-    return "Current File";
+    return QLatin1String("Current File");
 }
 
 QString FindInCurrentFile::displayName() const
@@ -66,15 +66,21 @@ QString FindInCurrentFile::displayName() const
     return tr("Current File");
 }
 
-Utils::FileIterator *FindInCurrentFile::files() const
+Utils::FileIterator *FindInCurrentFile::files(const QStringList &nameFilters,
+                                              const QVariant &additionalParameters) const
 {
-    Q_ASSERT(isEnabled());
-    QString fileName = m_currentFile->fileName();
+    Q_UNUSED(nameFilters)
+    QString fileName = additionalParameters.toString();
     QMap<QString, QTextCodec *> openEditorEncodings = ITextEditor::openedTextEditorsEncodings();
     QTextCodec *codec = openEditorEncodings.value(fileName);
     if (!codec)
         codec = Core::EditorManager::instance()->defaultTextCodec();
     return new Utils::FileIterator(QStringList() << fileName, QList<QTextCodec *>() << codec);
+}
+
+QVariant FindInCurrentFile::additionalParameters() const
+{
+    return qVariantFromValue(m_currentFile->fileName());
 }
 
 QString FindInCurrentFile::label() const
@@ -98,13 +104,13 @@ void FindInCurrentFile::handleFileChange(Core::IEditor *editor)
     if (!editor) {
         if (m_currentFile) {
             m_currentFile = 0;
-            emit changed();
+            emit enabledChanged(isEnabled());
         }
     } else {
         Core::IFile *file = editor->file();
         if (file != m_currentFile) {
             m_currentFile = file;
-            emit changed();
+            emit enabledChanged(isEnabled());
         }
     }
 }
@@ -128,14 +134,14 @@ QWidget *FindInCurrentFile::createConfigWidget()
 
 void FindInCurrentFile::writeSettings(QSettings *settings)
 {
-    settings->beginGroup("FindInCurrentFile");
+    settings->beginGroup(QLatin1String("FindInCurrentFile"));
     writeCommonSettings(settings);
     settings->endGroup();
 }
 
 void FindInCurrentFile::readSettings(QSettings *settings)
 {
-    settings->beginGroup("FindInCurrentFile");
-    readCommonSettings(settings, "*.cpp,*.h");
+    settings->beginGroup(QLatin1String("FindInCurrentFile"));
+    readCommonSettings(settings, QLatin1String("*.cpp,*.h"));
     settings->endGroup();
 }

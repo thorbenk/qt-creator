@@ -39,7 +39,9 @@ HEADERS += completionsettingspage.h \
     completionprojectsettingspage.h \
     completionprojectsettings.h \
     pchmanager.h \
-    cppctordtorfilter.h
+    cppctordtorfilter.h \
+    doxygengenerator.h \
+    commentssettings.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -70,7 +72,9 @@ SOURCES += completionsettingspage.cpp \
     completionprojectsettingspage.cpp \
     completionprojectsettings.cpp \
     pchmanager.cpp \
-    cppctordtorfilter.cpp
+    cppctordtorfilter.cpp \
+    doxygengenerator.cpp \
+    commentssettings.cpp
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \

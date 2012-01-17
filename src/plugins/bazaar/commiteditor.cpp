@@ -42,8 +42,8 @@
 
 using namespace Bazaar::Internal;
 
-CommitEditor::CommitEditor(const VCSBase::VCSBaseSubmitEditorParameters *parameters, QWidget *parent)
-    : VCSBase::VCSBaseSubmitEditor(parameters, new BazaarCommitWidget(parent)),
+CommitEditor::CommitEditor(const VcsBase::VcsBaseSubmitEditorParameters *parameters, QWidget *parent)
+    : VcsBase::VcsBaseSubmitEditor(parameters, new BazaarCommitWidget(parent)),
       m_fileModel(0)
 {
     setDisplayName(tr("Commit Editor"));
@@ -60,9 +60,9 @@ BazaarCommitWidget *CommitEditor::commitWidget()
     return static_cast<BazaarCommitWidget *>(widget());
 }
 
-void CommitEditor::setFields(const BranchInfo &branch,
-                             const QString &userName, const QString &email,
-                             const QList<VCSBase::VCSBaseClient::StatusItem> &repoStatus)
+void CommitEditor::setFields(const QString &repositoryRoot,
+                             const BranchInfo &branch, const QString &userName,
+                             const QString &email, const QList<VcsBase::VcsBaseClient::StatusItem> &repoStatus)
 {
     BazaarCommitWidget *bazaarWidget = commitWidget();
     if (!bazaarWidget)
@@ -70,9 +70,9 @@ void CommitEditor::setFields(const BranchInfo &branch,
 
     bazaarWidget->setFields(branch, userName, email);
 
-    m_fileModel = new VCSBase::SubmitFileModel(this);
-    foreach (const VCSBase::VCSBaseClient::StatusItem &item, repoStatus)
+    m_fileModel = new VcsBase::SubmitFileModel(this);
+    foreach (const VcsBase::VcsBaseClient::StatusItem &item, repoStatus)
         if (item.flags != QLatin1String("Unknown"))
             m_fileModel->addFile(item.file, item.flags, true);
-    setFileModel(m_fileModel);
+    setFileModel(m_fileModel, repositoryRoot);
 }

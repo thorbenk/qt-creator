@@ -33,6 +33,8 @@
 #ifndef DEBUGGER_LOGWINDOW_H
 #define DEBUGGER_LOGWINDOW_H
 
+#include "debuggerconstants.h"
+
 #include <QtGui/QWidget>
 
 QT_BEGIN_NAMESPACE
@@ -61,9 +63,13 @@ public:
 
     static bool writeLogContents(const QPlainTextEdit *editor, QWidget *parent = 0);
 
+    static QChar charForChannel(int channel);
+    static LogChannel channelForChar(QChar c);
+
 public slots:
     void clearContents();
     void sendCommand();
+    void executeLine();
     void showOutput(int channel, const QString &output);
     void showInput(int channel, const QString &input);
 
@@ -76,6 +82,7 @@ private:
     QPlainTextEdit *m_inputText;     // scriptable input alone
     QLineEdit *m_commandEdit;
     QLabel *m_commandLabel;
+    bool m_ignoreNextInputEcho;
 };
 
 

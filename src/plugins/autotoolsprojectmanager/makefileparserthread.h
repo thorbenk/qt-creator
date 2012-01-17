@@ -35,7 +35,7 @@
 #ifndef MAKEFILEPARSERTHREAD_H
 #define MAKEFILEPARSERTHREAD_H
 
-#include <makefileparser.h>
+#include "makefileparser.h"
 
 #include <QtCore/QMutex>
 #include <QtCore/QString>
@@ -57,7 +57,6 @@ class MakefileParserThread : public QThread
 
 public:
     MakefileParserThread(const QString &makefile);
-    ~MakefileParserThread();
 
     /** @see QThread::run() */
     void run();
@@ -91,7 +90,7 @@ public:
     QStringList includePaths() const;
 
     /**
-     * @return True, if an error occured during the parsing. Should be invoked,
+     * @return True, if an error occurred during the parsing. Should be invoked,
      *         after the signal finished() has been emitted.
      */
     bool hasError() const;

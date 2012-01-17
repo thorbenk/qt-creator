@@ -36,9 +36,10 @@ import "widgets"
 Rectangle {
     width: 920
     height: 600
+    color: "#edf0f2"
     id: root
 
-    Item {
+    Rectangle {
         id: canvas
 
 
@@ -53,31 +54,55 @@ Rectangle {
         }
 
         width: Math.min(1024, parent.width)
-        anchors.topMargin: (root.height > 700) ? 32 : 0
+        anchors.topMargin: 0
 
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
 
-        CustomTab {
-            id: tab
-            x: 578
-            y: 64
-            anchors.right: parent.right
-            anchors.rightMargin: 36
-            model: pagesModel
-
-        }
         PageLoader {
             anchors.fill: parent
             anchors.topMargin: 100
             model: pagesModel
         }
-        Logo {
-            id: logo
-            x: 4
-            y: 10
+
+        CustomTab {
+            id: tab
+            x: 578
+            y: 120
+            anchors.right: parent.right
+            anchors.rightMargin: 36
+            model: pagesModel
+
         }
 
+        Logo {
+            x: 25
+            y: 38
+        }
+
+        Rectangle {
+            width: 2
+            color: "#919191"
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+        }
+
+        Rectangle {
+            width: 2
+            color: "#919191"
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+        }
+
+    }
+
+    BorderImage {
+        anchors.right: parent.right
+        anchors.left: parent.left
+        border.right: 1
+        source: "widgets/images/creatorbar.png"
     }
 }

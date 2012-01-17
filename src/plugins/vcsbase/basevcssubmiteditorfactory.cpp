@@ -35,19 +35,22 @@
 
 #include <coreplugin/editormanager/editormanager.h>
 
-namespace VCSBase {
+namespace VcsBase {
 
-struct BaseVCSSubmitEditorFactoryPrivate
+namespace Internal {
+
+class BaseVcsSubmitEditorFactoryPrivate
 {
-    BaseVCSSubmitEditorFactoryPrivate(const VCSBaseSubmitEditorParameters *parameters);
+public:
+    BaseVcsSubmitEditorFactoryPrivate(const VcsBaseSubmitEditorParameters *parameters);
 
-    const VCSBaseSubmitEditorParameters *m_parameters;
+    const VcsBaseSubmitEditorParameters *m_parameters;
     const Core::Id m_id;
     const QString m_displayName;
     const QStringList m_mimeTypes;
 };
 
-BaseVCSSubmitEditorFactoryPrivate::BaseVCSSubmitEditorFactoryPrivate(const VCSBaseSubmitEditorParameters *parameters) :
+BaseVcsSubmitEditorFactoryPrivate::BaseVcsSubmitEditorFactoryPrivate(const VcsBaseSubmitEditorParameters *parameters) :
     m_parameters(parameters),
     m_id(parameters->id),
     m_displayName(parameters->displayName),
@@ -55,42 +58,44 @@ BaseVCSSubmitEditorFactoryPrivate::BaseVCSSubmitEditorFactoryPrivate(const VCSBa
 {
 }
 
-BaseVCSSubmitEditorFactory::BaseVCSSubmitEditorFactory(const VCSBaseSubmitEditorParameters *parameters) :
-    d(new BaseVCSSubmitEditorFactoryPrivate(parameters))
+} // namespace Internal
+
+BaseVcsSubmitEditorFactory::BaseVcsSubmitEditorFactory(const VcsBaseSubmitEditorParameters *parameters) :
+    d(new Internal::BaseVcsSubmitEditorFactoryPrivate(parameters))
 {
 }
 
-BaseVCSSubmitEditorFactory::~BaseVCSSubmitEditorFactory()
+BaseVcsSubmitEditorFactory::~BaseVcsSubmitEditorFactory()
 {
     delete d;
 }
 
-Core::IEditor *BaseVCSSubmitEditorFactory::createEditor(QWidget *parent)
+Core::IEditor *BaseVcsSubmitEditorFactory::createEditor(QWidget *parent)
 {
     return createBaseSubmitEditor(d->m_parameters, parent);
 }
 
-Core::Id BaseVCSSubmitEditorFactory::id() const
+Core::Id BaseVcsSubmitEditorFactory::id() const
 {
     return d->m_id;
 }
 
-QString BaseVCSSubmitEditorFactory::displayName() const
+QString BaseVcsSubmitEditorFactory::displayName() const
 {
     return d->m_displayName;
 }
 
 
-QStringList BaseVCSSubmitEditorFactory::mimeTypes() const
+QStringList BaseVcsSubmitEditorFactory::mimeTypes() const
 {
     return d->m_mimeTypes;
 }
 
-Core::IFile *BaseVCSSubmitEditorFactory::open(const QString &fileName)
+Core::IFile *BaseVcsSubmitEditorFactory::open(const QString &fileName)
 {
     if (Core::IEditor *iface = Core::EditorManager::instance()->openEditor(fileName, id()))
         return iface->file();
     return 0;
 }
 
-} // namespace VCSBase
+} // namespace VcsBase

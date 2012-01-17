@@ -80,9 +80,7 @@ public:
         q(q),
         sequence(-1),
         engine(0),
-        debugServiceState(QmlV8DebuggerClient::RunningState),
-        requestListBreakpoints(false),
-        requestBacktrace(true)
+        isOldService(false)
     {
         parser = m_scriptEngine.evaluate(_("JSON.parse"));
         stringifier = m_scriptEngine.evaluate(_("JSON.stringify"));
@@ -122,9 +120,16 @@ public:
     QmlV8ObjectData extractData(const QVariant &data);
     void clearCache();
 
+    void logSendMessage(const QString &msg) const;
+    void logReceiveMessage(const QString &msg) const;
+
+    //TODO:: remove this method
+    void reformatRequest(QByteArray &request);
+
 private:
-    QByteArray packMessage(const QByteArray &message);
+    QByteArray packMessage(const QByteArray &type, const QByteArray &message = QByteArray());
     QScriptValue initObject();
+
 
 public:
     QmlV8DebuggerClient *q;
@@ -133,28 +138,22 @@ public:
     QmlEngine *engine;
     QHash<BreakpointModelId, int> breakpoints;
     QHash<int, BreakpointModelId> breakpointsSync;
+    QList<int> breakpointsTemp;
 
     QScriptValue parser;
     QScriptValue stringifier;
+    QStringList scriptSourceRequests;
 
-    //State Information
-    QmlV8DebuggerClient::V8DebugServiceStates debugServiceState;
-    int currentFrameIndex;
-    QStringList watchedExpressions;
-
-    //Flags
-    bool requestListBreakpoints;
-    bool requestBacktrace;
+    QHash<int, QString> evaluatingExpression;
+    QHash<int, QByteArray> localsAndWatchers;
 
     //Cache
-    QHash<int, QByteArray> localsAndWatchers;
-    QHash<int, QString> evaluatingWatches;
-    QStack<QString> watchesToEvaluate;
-    QStack<int> currentFrameScopes;
-    QList<WatchData> localDataList;
+    QStringList watchedExpressions;
     QVariant refsVal;
-    QHash<int, QString> evaluatingExpression;
-    QQueue<QByteArray> requestQueue;
+    QList<int> currentFrameScopes;
+
+    //TODO: remove this flag
+    bool isOldService;
 private:
     QScriptEngine m_scriptEngine;
 };
@@ -167,15 +166,19 @@ private:
 
 void QmlV8DebuggerClientPrivate::connect()
 {
-    //    { "seq"     : <number>,
-    //      "type"    : "request",
-    //      "command" : "connect",
-    //    }
-    QScriptValue jsonVal = initObject();
-    jsonVal.setProperty(_(COMMAND), QScriptValue(_(CONNECT)));
-
-    const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2")).arg(_(V8DEBUG), _(CONNECT)));
+    if (isOldService) {
+        //    { "seq"     : <number>,
+        //      "type"    : "request",
+        //      "command" : "connect",
+        //    }
+        QScriptValue jsonVal = initObject();
+        jsonVal.setProperty(_(COMMAND), QScriptValue(_(CONNECT)));
+        const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
+        q->sendMessage(packMessage(QByteArray(), jsonMessage.toString().toUtf8()));
+    } else {
+        q->sendMessage(packMessage(CONNECT));
+    }
 }
 
 void QmlV8DebuggerClientPrivate::disconnect()
@@ -188,28 +191,31 @@ void QmlV8DebuggerClientPrivate::disconnect()
     jsonVal.setProperty(_(COMMAND), QScriptValue(_(DISCONNECT)));
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2")).arg(_(V8DEBUG), jsonMessage.toString()));
+    q->sendMessage(packMessage(DISCONNECT, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::interrupt()
 {
-    //    { "seq"     : <number>,
-    //      "type"    : "request",
-    //      "command" : "interrupt",
-    //    }
-    QScriptValue jsonVal = initObject();
-    jsonVal.setProperty(_(COMMAND), QScriptValue(_(INTERRUPT)));
+    logSendMessage(QString(_("%1 %2")).arg(_(V8DEBUG), _(INTERRUPT)));
+    if (isOldService) {
+        //    { "seq"     : <number>,
+        //      "type"    : "request",
+        //      "command" : "interrupt",
+        //    }
+        QScriptValue jsonVal = initObject();
+        jsonVal.setProperty(_(COMMAND), QScriptValue(_(INTERRUPT)));
+        const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
+        q->sendMessage(packMessage(QByteArray(), jsonMessage.toString().toUtf8()));
 
-    const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    } else {
+        q->sendMessage(packMessage(INTERRUPT));
+    }
 }
 
 void QmlV8DebuggerClientPrivate::continueDebugging(QmlV8DebuggerClient::StepAction action,
                                                    int count)
 {
-    //First reset
-    q->resetDebugger();
-
     //    { "seq"       : <number>,
     //      "type"      : "request",
     //      "command"   : "continue",
@@ -241,7 +247,8 @@ void QmlV8DebuggerClientPrivate::continueDebugging(QmlV8DebuggerClient::StepActi
 
     }
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::evaluate(const QString expr, bool global,
@@ -298,7 +305,8 @@ void QmlV8DebuggerClientPrivate::evaluate(const QString expr, bool global,
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::lookup(QList<int> handles, bool includeSource)
@@ -330,7 +338,8 @@ void QmlV8DebuggerClientPrivate::lookup(QList<int> handles, bool includeSource)
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::backtrace(int fromFrame, int toFrame, bool bottom)
@@ -361,7 +370,8 @@ void QmlV8DebuggerClientPrivate::backtrace(int fromFrame, int toFrame, bool bott
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::frame(int number)
@@ -383,7 +393,8 @@ void QmlV8DebuggerClientPrivate::frame(int number)
     }
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::scope(int number, int frameNumber)
@@ -410,7 +421,8 @@ void QmlV8DebuggerClientPrivate::scope(int number, int frameNumber)
     }
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::scopes(int frameNumber)
@@ -433,11 +445,12 @@ void QmlV8DebuggerClientPrivate::scopes(int frameNumber)
     }
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::scripts(int types, const QList<int> ids, bool includeSource,
-                                         const QVariant /*filter*/)
+                                         const QVariant filter)
 {
     //    { "seq"       : <number>,
     //      "type"      : "request",
@@ -472,10 +485,21 @@ void QmlV8DebuggerClientPrivate::scripts(int types, const QList<int> ids, bool i
     if (includeSource)
         args.setProperty(_(INCLUDESOURCE), QScriptValue(includeSource));
 
+    QScriptValue filterValue;
+    if (filter.type() == QVariant::String)
+        filterValue = QScriptValue(filter.toString());
+    else if (filter.type() == QVariant::Int)
+        filterValue = QScriptValue(filter.toInt());
+    else
+        QTC_CHECK(!filter.isValid());
+
+    args.setProperty(_(FILTER), filterValue);
+
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::source(int frame, int fromLine, int toLine)
@@ -506,7 +530,8 @@ void QmlV8DebuggerClientPrivate::source(int frame, int fromLine, int toLine)
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::setBreakpoint(const QString type, const QString target,
@@ -525,32 +550,42 @@ void QmlV8DebuggerClientPrivate::setBreakpoint(const QString type, const QString
     //                      "ignoreCount" : <number specifying the number of break point hits to ignore, default value is 0>
     //                    }
     //    }
-    QScriptValue jsonVal = initObject();
-    jsonVal.setProperty(_(COMMAND), QScriptValue(_(SETBREAKPOINT)));
+    if (type == _(EVENT) && !isOldService) {
+        QByteArray params;
+        QDataStream rs(&params, QIODevice::WriteOnly);
+        rs <<  target.toUtf8() << enabled;
+        logSendMessage(QString(_("%1 %2 %3 %4")).arg(_(V8DEBUG), _(SIGNALHANDLER), target, enabled?_("enabled"):_("disabled")));
+        q->sendMessage(packMessage(SIGNALHANDLER, params));
 
-    QScriptValue args = parser.call(QScriptValue(), QScriptValueList() << QScriptValue(_(OBJECT)));
+    } else {
+        QScriptValue jsonVal = initObject();
+        jsonVal.setProperty(_(COMMAND), QScriptValue(_(SETBREAKPOINT)));
 
-    args.setProperty(_(TYPE), QScriptValue(type));
-    args.setProperty(_(TARGET), QScriptValue(target));
+        QScriptValue args = parser.call(QScriptValue(), QScriptValueList() << QScriptValue(_(OBJECT)));
 
-    if (line != -1)
-        args.setProperty(_(LINE), QScriptValue(line));
+        args.setProperty(_(TYPE), QScriptValue(type));
+        args.setProperty(_(TARGET), QScriptValue(target));
 
-    if (column != -1)
-        args.setProperty(_(COLUMN), QScriptValue(column));
+        if (line != -1)
+            args.setProperty(_(LINE), QScriptValue(line));
 
-    args.setProperty(_(ENABLED), QScriptValue(enabled));
+        if (column != -1)
+            args.setProperty(_(COLUMN), QScriptValue(column));
 
-    if (!condition.isEmpty())
-        args.setProperty(_(CONDITION), QScriptValue(condition));
+        args.setProperty(_(ENABLED), QScriptValue(enabled));
 
-    if (ignoreCount != -1)
-        args.setProperty(_(IGNORECOUNT), QScriptValue(ignoreCount));
+        if (!condition.isEmpty())
+            args.setProperty(_(CONDITION), QScriptValue(condition));
 
-    jsonVal.setProperty(_(ARGUMENTS), args);
+        if (ignoreCount != -1)
+            args.setProperty(_(IGNORECOUNT), QScriptValue(ignoreCount));
 
-    const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+        jsonVal.setProperty(_(ARGUMENTS), args);
+
+        const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
+        logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+        q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
+    }
 }
 
 void QmlV8DebuggerClientPrivate::changeBreakpoint(int breakpoint, bool enabled,
@@ -584,7 +619,8 @@ void QmlV8DebuggerClientPrivate::changeBreakpoint(int breakpoint, bool enabled,
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::clearBreakpoint(int breakpoint)
@@ -606,7 +642,8 @@ void QmlV8DebuggerClientPrivate::clearBreakpoint(int breakpoint)
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::setExceptionBreak(QmlV8DebuggerClient::Exceptions type,
@@ -638,7 +675,8 @@ void QmlV8DebuggerClientPrivate::setExceptionBreak(QmlV8DebuggerClient::Exceptio
 
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::listBreakpoints()
@@ -652,7 +690,8 @@ void QmlV8DebuggerClientPrivate::listBreakpoints()
                         QScriptValue(_(LISTBREAKPOINTS)));
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::v8flags(const QString flags)
@@ -674,7 +713,8 @@ void QmlV8DebuggerClientPrivate::v8flags(const QString flags)
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 void QmlV8DebuggerClientPrivate::version()
@@ -687,7 +727,8 @@ void QmlV8DebuggerClientPrivate::version()
     jsonVal.setProperty(_(COMMAND), QScriptValue(_(VERSION)));
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 //void QmlV8DebuggerClientPrivate::profile(ProfileCommand command)
@@ -711,7 +752,8 @@ void QmlV8DebuggerClientPrivate::version()
 //    jsonVal.setProperty(_(ARGUMENTS), args);
 
 //    const QScriptValue jsonMessage = m_stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-//    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+//    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+//    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 //}
 
 void QmlV8DebuggerClientPrivate::gc()
@@ -733,7 +775,8 @@ void QmlV8DebuggerClientPrivate::gc()
     jsonVal.setProperty(_(ARGUMENTS), args);
 
     const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-    q->sendMessage(packMessage(jsonMessage.toString().toUtf8()));
+    logSendMessage(QString(_("%1 %2 %3")).arg(_(V8DEBUG), _(V8REQUEST), jsonMessage.toString()));
+    q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
 QmlV8ObjectData QmlV8DebuggerClientPrivate::extractData(const QVariant &data)
@@ -833,22 +876,22 @@ QmlV8ObjectData QmlV8DebuggerClientPrivate::extractData(const QVariant &data)
 
 void QmlV8DebuggerClientPrivate::clearCache()
 {
-    localsAndWatchers.clear();
-    evaluatingWatches.clear();
-    watchesToEvaluate.clear();
-    currentFrameScopes.clear();
-    localDataList.clear();
+    watchedExpressions.clear();
     refsVal.clear();
+    currentFrameScopes.clear();
 }
 
-QByteArray QmlV8DebuggerClientPrivate::packMessage(const QByteArray &message)
+QByteArray QmlV8DebuggerClientPrivate::packMessage(const QByteArray &type, const QByteArray &message)
 {
     SDEBUG(message);
-    QByteArray reply;
-    QDataStream rs(&reply, QIODevice::WriteOnly);
+    QByteArray request;
+    QDataStream rs(&request, QIODevice::WriteOnly);
     QByteArray cmd = V8DEBUG;
-    rs << cmd << message;
-    return reply;
+    rs << cmd;
+    if (!isOldService)
+        rs << type;
+    rs << message;
+    return request;
 }
 
 QScriptValue QmlV8DebuggerClientPrivate::initObject()
@@ -858,6 +901,59 @@ QScriptValue QmlV8DebuggerClientPrivate::initObject()
     jsonVal.setProperty(_(SEQ), QScriptValue(++sequence));
     jsonVal.setProperty(_(TYPE), _(REQUEST));
     return jsonVal;
+}
+
+void QmlV8DebuggerClientPrivate::logSendMessage(const QString &msg) const
+{
+    if (engine)
+        engine->logMessage(QLatin1String("V8DebuggerClient"), QmlEngine::LogSend, msg);
+}
+
+void QmlV8DebuggerClientPrivate::logReceiveMessage(const QString &msg) const
+{
+    if (engine)
+        engine->logMessage(QLatin1String("V8DebuggerClient"), QmlEngine::LogReceive, msg);
+}
+
+//TODO::remove this method
+void QmlV8DebuggerClientPrivate::reformatRequest(QByteArray &request)
+{
+    QDataStream ds(request);
+    QByteArray header;
+    ds >> header;
+
+    if (header == "V8DEBUG") {
+        QByteArray command;
+        QByteArray data;
+        ds >> command >> data;
+
+        if (command == INTERRUPT) {
+            interrupt();
+
+        } else if (command == V8REQUEST) {
+            const QString requestString = QLatin1String(data);
+            const QVariantMap reqMap = parser.call(QScriptValue(),
+                                                    QScriptValueList() <<
+                                                    QScriptValue(requestString)).toVariant().toMap();
+            const QString debugCommand(reqMap.value(_(COMMAND)).toString());
+            if (debugCommand == _(SETBREAKPOINT)) {
+                QVariantMap arguments = reqMap.value(_(ARGUMENTS)).toMap();
+                QString type(arguments.value(_(TYPE)).toString());
+                if (type == _(SCRIPTREGEXP)) {
+                    data.replace(SCRIPTREGEXP, SCRIPT);
+                }
+            }
+            q->sendMessage(packMessage(QByteArray(), data));
+
+        } else if (command == SIGNALHANDLER) {
+            QDataStream rs(data);
+            QByteArray signalHandler;
+            bool enabled;
+            rs >> signalHandler >> enabled;
+
+            setBreakpoint(_(EVENT), QString::fromUtf8(signalHandler), -1, -1, enabled);
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -870,7 +966,6 @@ QmlV8DebuggerClient::QmlV8DebuggerClient(QmlJsDebugClient::QDeclarativeDebugConn
     : QmlDebuggerClient(client, QLatin1String("V8Debugger")),
       d(new QmlV8DebuggerClientPrivate(this))
 {
-    resetDebugger();
 }
 
 QmlV8DebuggerClient::~QmlV8DebuggerClient()
@@ -880,9 +975,22 @@ QmlV8DebuggerClient::~QmlV8DebuggerClient()
 
 void QmlV8DebuggerClient::startSession()
 {
-    resetDebugger();
-    d->debugServiceState = QmlV8DebuggerClient::RunningState;
+    //TODO:: remove this check.
+    //Modify messages to align with the older protocol
+    if (serviceVersion() < CURRENT_SUPPORTED_VERSION) {
+        d->isOldService = true;
+        //Modify cached messages
+        QList<QByteArray> buffer = cachedMessages();
+        clearCachedMessages();
+        foreach (QByteArray msg, buffer) {
+            d->reformatRequest(msg);
+        }
+    }
+    flushSendBuffer();
     d->connect();
+    //Query for the V8 version. This is
+    //only for logging to the debuggerlog
+    d->version();
 }
 
 void QmlV8DebuggerClient::endSession()
@@ -892,26 +1000,44 @@ void QmlV8DebuggerClient::endSession()
 
 void QmlV8DebuggerClient::executeStep()
 {
+    clearExceptionSelection();
     d->continueDebugging(In);
 }
 
 void QmlV8DebuggerClient::executeStepOut()
 {
+    clearExceptionSelection();
     d->continueDebugging(Out);
 }
 
 void QmlV8DebuggerClient::executeNext()
 {
+    clearExceptionSelection();
     d->continueDebugging(Next);
 }
 
 void QmlV8DebuggerClient::executeStepI()
 {
+    clearExceptionSelection();
     d->continueDebugging(In);
+}
+
+void QmlV8DebuggerClient::executeRunToLine(const ContextData &data)
+{
+    if (d->isOldService) {
+        d->setBreakpoint(QString(_(SCRIPT)), QFileInfo(data.fileName).fileName(),
+                         data.lineNumber - 1);
+    } else {
+        d->setBreakpoint(QString(_(SCRIPTREGEXP)), QFileInfo(data.fileName).fileName(),
+                         data.lineNumber - 1);
+    }
+    clearExceptionSelection();
+    d->continueDebugging(Continue);
 }
 
 void QmlV8DebuggerClient::continueInferior()
 {
+    clearExceptionSelection();
     d->continueDebugging(Continue);
 }
 
@@ -922,14 +1048,15 @@ void QmlV8DebuggerClient::interruptInferior()
 
 void QmlV8DebuggerClient::activateFrame(int index)
 {
-    d->backtrace(index);
+    if (index != d->engine->stackHandler()->currentIndex())
+        d->frame(index);
 }
 
 bool QmlV8DebuggerClient::acceptsBreakpoint(const BreakpointModelId &id)
 {
     BreakpointType type = d->engine->breakHandler()->breakpointData(id).type;
     return (type == BreakpointOnQmlSignalHandler
-            || type == BreakpointByFunction
+            || type == BreakpointByFileAndLine
             || type == BreakpointAtJavaScriptThrow);
 }
 
@@ -943,18 +1070,20 @@ void QmlV8DebuggerClient::insertBreakpoint(const BreakpointModelId &id)
         d->setExceptionBreak(AllExceptions, params.enabled);
 
     } else if (params.type == BreakpointByFileAndLine) {
-        d->setBreakpoint(QString(_(SCRIPT)), QFileInfo(params.fileName).fileName(),
-                         params.lineNumber - 1, -1, params.enabled,
-                         QString(params.condition), params.ignoreCount);
-
-    } else if (params.type == BreakpointByFunction) {
-        d->setBreakpoint(QString(_(FUNCTION)), params.functionName,
-                         -1, -1, params.enabled, QString(params.condition),
-                         params.ignoreCount);
+        if (d->isOldService) {
+            d->setBreakpoint(QString(_(SCRIPT)), QFileInfo(params.fileName).fileName(),
+                             params.lineNumber - 1, -1, params.enabled,
+                             QLatin1String(params.condition), params.ignoreCount);
+        } else {
+            d->setBreakpoint(QString(_(SCRIPTREGEXP)), QFileInfo(params.fileName).fileName(),
+                             params.lineNumber - 1, -1, params.enabled,
+                             QLatin1String(params.condition), params.ignoreCount);
+        }
 
     } else if (params.type == BreakpointOnQmlSignalHandler) {
         d->setBreakpoint(QString(_(EVENT)), params.functionName,
                          -1, -1, params.enabled);
+        d->engine->breakHandler()->notifyBreakpointInsertOk(id);
     }
 
     d->breakpointsSync.insert(d->sequence, id);
@@ -969,6 +1098,11 @@ void QmlV8DebuggerClient::removeBreakpoint(const BreakpointModelId &id)
 
     if (handler->breakpointData(id).type == BreakpointAtJavaScriptThrow) {
         d->setExceptionBreak(AllExceptions);
+
+    } else if (handler->breakpointData(id).type == BreakpointOnQmlSignalHandler) {
+        d->setBreakpoint(QString(_(EVENT)), handler->breakpointData(id).functionName,
+                         -1, -1, false);
+
     } else {
         d->clearBreakpoint(breakpoint);
     }
@@ -981,11 +1115,16 @@ void QmlV8DebuggerClient::changeBreakpoint(const BreakpointModelId &id)
 
     if (params.type == BreakpointAtJavaScriptThrow) {
         d->setExceptionBreak(AllExceptions, params.enabled);
-    }
 
-    int breakpoint = d->breakpoints.value(id);
-    d->changeBreakpoint(breakpoint, params.enabled, QString(params.condition),
-                        params.ignoreCount);
+    } else if (handler->breakpointData(id).type == BreakpointOnQmlSignalHandler) {
+        d->setBreakpoint(QString(_(EVENT)), params.functionName,
+                         -1, -1, params.enabled);
+
+    } else {
+        int breakpoint = d->breakpoints.value(id);
+        d->changeBreakpoint(breakpoint, params.enabled, QLatin1String(params.condition),
+                            params.ignoreCount);
+    }
 
     BreakpointResponse br = handler->response(id);
     br.enabled = params.enabled;
@@ -1004,31 +1143,27 @@ void QmlV8DebuggerClient::assignValueInDebugger(const QByteArray /*expr*/, const
 {
     StackHandler *stackHandler = d->engine->stackHandler();
     QString expression = QString(_("%1 = %2;")).arg(property).arg(value);
-    if (stackHandler->isContentsValid()) {
+    if (stackHandler->isContentsValid() && stackHandler->currentFrame().isUsable()) {
         d->evaluate(expression, false, false, stackHandler->currentIndex());
+    } else {
+        d->engine->showMessage(QString(_("Cannot evaluate %1 in current stack frame")).arg(expression), ScriptConsoleOutput);
     }
 }
 
-void QmlV8DebuggerClient::updateWatchData(const WatchData &data)
+void QmlV8DebuggerClient::updateWatchData(const WatchData &/*data*/)
 {
-    if (data.isWatcher()) {
-        QString exp(data.exp);
-        if (!d->watchedExpressions.contains(exp)) {
-            //Push new expression to the stack
-            d->watchesToEvaluate.push(exp);
-        }
-    }
+    //NOT USED
 }
 
 void QmlV8DebuggerClient::executeDebuggerCommand(const QString &command)
 {
     StackHandler *stackHandler = d->engine->stackHandler();
-    if (stackHandler->isContentsValid()) {
+    if (stackHandler->isContentsValid() && stackHandler->currentFrame().isUsable()) {
         d->evaluate(command, false, false, stackHandler->currentIndex());
         d->evaluatingExpression.insert(d->sequence, command);
     } else {
         //Currently cannot evaluate if not in a javascript break
-        d->engine->showMessage(_("Request Was Unsuccessful"), ScriptConsoleOutput);
+        d->engine->showMessage(QString(_("Cannot evaluate %1 in current stack frame")).arg(command), ScriptConsoleOutput);
         //        d->evaluate(command);
     }
 }
@@ -1036,34 +1171,32 @@ void QmlV8DebuggerClient::executeDebuggerCommand(const QString &command)
 void QmlV8DebuggerClient::synchronizeWatchers(const QStringList &watchers)
 {
     SDEBUG(watchers);
-    //Cache the watched expression List
-    d->watchedExpressions = watchers;
-    //Evaluate new expressions one at a time.
-    if (!d->watchesToEvaluate.isEmpty()) {
-        StackHandler *stackHandler = d->engine->stackHandler();
-        const QString exp = d->watchesToEvaluate.pop();
-        if (stackHandler->isContentsValid()) {
-            d->evaluate(exp, false, false, stackHandler->currentIndex());
-        } else {
-            d->evaluate(exp);
+    foreach (const QString &exp, watchers) {
+        if (!d->watchedExpressions.contains(exp)) {
+            d->watchedExpressions << exp;
+            StackHandler *stackHandler = d->engine->stackHandler();
+            if (stackHandler->isContentsValid() && stackHandler->currentFrame().isUsable()) {
+                d->evaluate(exp, false, false, stackHandler->currentIndex());
+                d->evaluatingExpression.insert(d->sequence, exp);
+            }
         }
-        d->evaluatingWatches.insert(d->sequence, exp);
     }
 }
 
 void QmlV8DebuggerClient::expandObject(const QByteArray &iname, quint64 objectId)
 {
-    if (d->debugServiceState != QmlV8DebuggerClient::RunningState) {
-        if (!d->localsAndWatchers.contains(objectId)) {
-            d->lookup(QList<int>() << objectId);
-            d->localsAndWatchers.insert(objectId, iname);
-        }
-    }
+    d->localsAndWatchers.insert(objectId, iname);
+    d->lookup(QList<int>() << objectId);
 }
 
 void QmlV8DebuggerClient::setEngine(QmlEngine *engine)
 {
     d->engine = engine;
+}
+
+void QmlV8DebuggerClient::getSourceFiles()
+{
+    d->scripts(4, QList<int>(), true, QVariant());
 }
 
 void QmlV8DebuggerClient::messageReceived(const QByteArray &data)
@@ -1073,230 +1206,322 @@ void QmlV8DebuggerClient::messageReceived(const QByteArray &data)
     ds >> command;
 
     if (command == V8DEBUG) {
+        QByteArray type;
         QByteArray response;
-        ds >> response;
-        QString responseString(response);
+        ds >> type >> response;
 
-        SDEBUG(responseString);
+        if (d->isOldService) {
+            response = type;
+            type = QByteArray(V8MESSAGE);
+        }
 
-        const QVariantMap resp = d->parser.call(QScriptValue(),
-                                                QScriptValueList() <<
-                                                QScriptValue(responseString)).toVariant().toMap();
-        bool isV8Running = resp.value(_("running")).toBool();
-        const QString type(resp.value(_(TYPE)).toString());
+        d->logReceiveMessage(_(V8DEBUG) + QLatin1Char(' ') +  QLatin1String(type));
+        if (type == CONNECT) {
+            //debugging session started
 
-        if (type == _("response")) {
+        } else if (type == INTERRUPT) {
+            //debug break requested
 
-            bool success = resp.value(_("success")).toBool();
-            if (!success) {
-                SDEBUG("Request was unsuccessful");
-                d->engine->logMessage(QmlEngine::LogReceive,
-                                      QString(_("V8 Response Error: %1")).arg(
-                                          resp.value(_("message")).toString()));
-            }
+        } else if (type == SIGNALHANDLER) {
+            //break on signal handler requested
 
-            const QString debugCommand(resp.value(_(COMMAND)).toString());
+        } else if (type == V8MESSAGE) {
+            const QString responseString = QLatin1String(response);
+            SDEBUG(responseString);
+            d->logReceiveMessage(QLatin1String(V8MESSAGE) + QLatin1Char(' ') + responseString);
 
-            if (debugCommand == _(CONNECT)) {
-                //debugging session started
+            const QVariantMap resp = d->parser.call(QScriptValue(),
+                                                    QScriptValueList() <<
+                                                    QScriptValue(responseString)).toVariant().toMap();
+            const QString type(resp.value(_(TYPE)).toString());
 
-            } else if (debugCommand == _(DISCONNECT)) {
-                //debugging session ended
+            if (type == _("response")) {
 
-            } else if (debugCommand == _(CONTINEDEBUGGING)) {
-                d->requestBacktrace = true;
-
-            } else if (debugCommand == _(BACKTRACE)) {
-                if (success && d->debugServiceState != QmlV8DebuggerClient::RunningState) {
-                    updateStack(resp.value(_(BODY)), resp.value(_(REFS)));
+                bool success = resp.value(_("success")).toBool();
+                if (!success) {
+                    SDEBUG("Request was unsuccessful");
                 }
 
-            } else if (debugCommand == _(LOOKUP)) {
-                if (success && d->debugServiceState != QmlV8DebuggerClient::RunningState) {
-                    expandLocalsAndWatchers(resp.value(_(BODY)), resp.value(_(REFS)));
-                }
+                const QString debugCommand(resp.value(_(COMMAND)).toString());
 
-            } else if (debugCommand == _(EVALUATE)) {
-                int seq = resp.value(_("request_seq")).toInt();
-                if (success) {
-                    d->requestBacktrace = true;
-                    updateEvaluationResult(seq, success, resp.value(_(BODY)), resp.value(_(REFS)));
+                if (debugCommand == _(DISCONNECT)) {
+                    //debugging session ended
+
+                } else if (debugCommand == _(CONTINEDEBUGGING)) {
+                    //do nothing, wait for next break
+
+                } else if (debugCommand == _(BACKTRACE)) {
+                    if (success) {
+                        updateStack(resp.value(_(BODY)), resp.value(_(REFS)));
+                    }
+
+                } else if (debugCommand == _(LOOKUP)) {
+                    if (success) {
+                        expandLocalsAndWatchers(resp.value(_(BODY)), resp.value(_(REFS)));
+                    }
+
+                } else if (debugCommand == _(EVALUATE)) {
+                    int seq = resp.value(_("request_seq")).toInt();
+                    if (success) {
+                        updateEvaluationResult(seq, success, resp.value(_(BODY)), resp.value(_(REFS)));
+                    } else {
+                        QVariantMap map;
+                        map.insert(_(TYPE), QVariant(_("string")));
+                        map.insert(_(VALUE), resp.value(_("message")));
+                        updateEvaluationResult(seq, success, QVariant(map), QVariant());
+                    }
+
+                } else if (debugCommand == _(LISTBREAKPOINTS)) {
+                    if (success) {
+                        updateBreakpoints(resp.value(_(BODY)));
+                    }
+
+                } else if (debugCommand == _(SETBREAKPOINT)) {
+                    //                { "seq"         : <number>,
+                    //                  "type"        : "response",
+                    //                  "request_seq" : <number>,
+                    //                  "command"     : "setbreakpoint",
+                    //                  "body"        : { "type"       : <"function" or "script">
+                    //                                    "breakpoint" : <break point number of the new break point>
+                    //                                  }
+                    //                  "running"     : <is the VM running after sending this response>
+                    //                  "success"     : true
+                    //                }
+
+                    int seq = resp.value(_("request_seq")).toInt();
+                    const QVariantMap breakpointData = resp.value(_(BODY)).toMap();
+                    int index = breakpointData.value(_("breakpoint")).toInt();
+
+                    if (d->breakpointsSync.contains(seq)) {
+                        BreakpointModelId id = d->breakpointsSync.take(seq);
+                        d->breakpoints.insert(id, index);
+
+                        if (d->engine->breakHandler()->state(id) != BreakpointInserted)
+                            d->engine->breakHandler()->notifyBreakpointInsertOk(id);
+
+                    } else {
+                        d->breakpointsTemp.append(index);
+                    }
+
+
+                } else if (debugCommand == _(CHANGEBREAKPOINT)) {
+                    // DO NOTHING
+
+                } else if (debugCommand == _(CLEARBREAKPOINT)) {
+                    // DO NOTHING
+
+                } else if (debugCommand == _(SETEXCEPTIONBREAK)) {
+                    //                { "seq"               : <number>,
+                    //                  "type"              : "response",
+                    //                  "request_seq" : <number>,
+                    //                  "command"     : "setexceptionbreak",
+                    //                  "body"        : { "type"    : <string: "all" or "uncaught" corresponding to the request.>,
+                    //                                    "enabled" : <bool: true if the break type is currently enabled as a result of the request>
+                    //                                  }
+                    //                  "running"     : true
+                    //                  "success"     : true
+                    //                }
+
+
+                } else if (debugCommand == _(FRAME)) {
+                    if (success) {
+                        setCurrentFrameDetails(resp.value(_(BODY)), resp.value(_(REFS)));
+                    }
+
+                } else if (debugCommand == _(SCOPE)) {
+                    if (success) {
+                        updateScope(resp.value(_(BODY)), resp.value(_(REFS)));
+                    }
+
+                } else if (debugCommand == _(SCOPES)) {
+                } else if (debugCommand == _(SOURCE)) {
+                } else if (debugCommand == _(SCRIPTS)) {
+                    //                { "seq"         : <number>,
+                    //                  "type"        : "response",
+                    //                  "request_seq" : <number>,
+                    //                  "command"     : "scripts",
+                    //                  "body"        : [ { "name"             : <name of the script>,
+                    //                                      "id"               : <id of the script>
+                    //                                      "lineOffset"       : <line offset within the containing resource>
+                    //                                      "columnOffset"     : <column offset within the containing resource>
+                    //                                      "lineCount"        : <number of lines in the script>
+                    //                                      "data"             : <optional data object added through the API>
+                    //                                      "source"           : <source of the script if includeSource was specified in the request>
+                    //                                      "sourceStart"      : <first 80 characters of the script if includeSource was not specified in the request>
+                    //                                      "sourceLength"     : <total length of the script in characters>
+                    //                                      "scriptType"       : <script type (see request for values)>
+                    //                                      "compilationType"  : < How was this script compiled:
+                    //                                                               0 if script was compiled through the API
+                    //                                                               1 if script was compiled through eval
+                    //                                                            >
+                    //                                      "evalFromScript"   : <if "compilationType" is 1 this is the script from where eval was called>
+                    //                                      "evalFromLocation" : { line   : < if "compilationType" is 1 this is the line in the script from where eval was called>
+                    //                                                             column : < if "compilationType" is 1 this is the column in the script from where eval was called>
+                    //                                  ]
+                    //                  "running"     : <is the VM running after sending this response>
+                    //                  "success"     : true
+                    //                }
+
+                    if (success) {
+                        const QVariantList body = resp.value(_(BODY)).toList();
+
+                        QStringList sourceFiles;
+                        for (int i = 0; i < body.size(); ++i) {
+                            const QVariantMap entryMap = body.at(i).toMap();
+                            const int lineOffset = entryMap.value(QLatin1String("lineOffset")).toInt();
+                            const int columnOffset = entryMap.value(QLatin1String("columnOffset")).toInt();
+                            const QString name = entryMap.value(QLatin1String("name")).toString();
+                            const QString source = entryMap.value(QLatin1String("source")).toString();
+
+                            if (name.isEmpty())
+                                continue;
+
+                            if (!sourceFiles.contains(name))
+                                sourceFiles << name;
+
+                            d->engine->updateScriptSource(name, lineOffset, columnOffset, source);
+                        }
+                        d->engine->setSourceFiles(sourceFiles);
+                    }
+                } else if (debugCommand == _(VERSION)) {
+                    d->logReceiveMessage(QString(_("Using V8 Version: %1")).arg(
+                                             resp.value(_(BODY)).toMap().
+                                             value(_("V8Version")).toString()));
+
+                } else if (debugCommand == _(V8FLAGS)) {
+                } else if (debugCommand == _(GARBAGECOLLECTOR)) {
                 } else {
-                    QVariantMap map;
-                    map.insert(_(TYPE), QVariant(_("string")));
-                    map.insert(_(VALUE), resp.value(_("message")));
-                    updateEvaluationResult(seq, success, QVariant(map), QVariant());
+                    // DO NOTHING
                 }
 
-            } else if (debugCommand == _(LISTBREAKPOINTS)) {
-                if (success && d->debugServiceState != QmlV8DebuggerClient::RunningState) {
-                    updateBreakpoints(resp.value(_(BODY)));
+            } else if (type == _(EVENT)) {
+                const QString eventType(resp.value(_(EVENT)).toString());
+
+                if (eventType == _("break")) {
+                    const QVariantMap breakData = resp.value(_(BODY)).toMap();
+                    const QString invocationText = breakData.value(_("invocationText")).toString();
+                    const QString scriptUrl = breakData.value(_("script")).toMap().value(_("name")).toString();
+                    const QString sourceLineText = breakData.value("sourceLineText").toString();
+
+                    bool inferiorStop = true;
+
+                    QList<int> v8BreakpointIds;
+                    {
+                        const QVariantList v8BreakpointIdList = breakData.value(_("breakpoints")).toList();
+                        foreach (const QVariant &breakpointId, v8BreakpointIdList)
+                            v8BreakpointIds << breakpointId.toInt();
+                    }
+
+                    if (!v8BreakpointIds.isEmpty() && invocationText.startsWith(_("[anonymous]()"))
+                            && scriptUrl.endsWith(_(".qml"))
+                            && sourceLineText.trimmed().startsWith(QLatin1Char('('))) {
+
+                        // we hit most likely the anonymous wrapper function automatically generated for bindings
+                        // -> relocate the breakpoint to column: 1 and continue
+
+                        int newColumn = sourceLineText.indexOf(QLatin1Char('(')) + 1;
+                        BreakHandler *handler = d->engine->breakHandler();
+
+                        foreach (int v8Id, v8BreakpointIds) {
+                            BreakpointModelId internalId;
+                            foreach (const BreakpointModelId &id, d->breakpoints.keys()) {
+                                if (d->breakpoints.value(id) == v8Id) {
+                                    internalId = id;
+                                    break;
+                                }
+                            }
+
+                            if (internalId.isValid()) {
+                                const BreakpointParameters &params = handler->breakpointData(internalId);
+
+                                d->clearBreakpoint(v8Id);
+                                const QString type = d->isOldService ? QString(_(SCRIPT)) :QString(_(SCRIPTREGEXP));
+                                d->setBreakpoint(type, QFileInfo(params.fileName).fileName(),
+                                                 params.lineNumber - 1, newColumn, params.enabled,
+                                                 QString(params.condition), params.ignoreCount);
+                                d->breakpointsSync.insert(d->sequence, internalId);
+                            }
+                        }
+                        d->continueDebugging(Continue);
+                        inferiorStop = false;
+                    }
+
+                    if (inferiorStop) {
+                        //Update breakpoint data
+                        BreakHandler *handler = d->engine->breakHandler();
+                        foreach (int v8Id, v8BreakpointIds) {
+                            foreach (const BreakpointModelId &id, d->breakpoints.keys()) {
+                                if (d->breakpoints.value(id) == v8Id) {
+                                    BreakpointResponse br = handler->response(id);
+                                    if (br.functionName.isEmpty()) {
+                                        br.functionName = invocationText;
+                                        handler->setResponse(id, br);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (d->engine->state() == InferiorRunOk) {
+                            foreach (const QVariant &breakpointId, v8BreakpointIds) {
+                                if (d->breakpointsTemp.contains(breakpointId.toInt()))
+                                    d->clearBreakpoint(breakpointId.toInt());
+                            }
+                            d->engine->inferiorSpontaneousStop();
+                            d->backtrace();
+                        } else if (d->engine->state() == InferiorStopOk) {
+                            d->backtrace();
+                        }
+                    }
+
+                } else if (eventType == _("exception")) {
+                    const QVariantMap body = resp.value(_(BODY)).toMap();
+                    int lineNumber = body.value(_("sourceLine")).toInt() + 1;
+
+                    const QVariantMap script = body.value(_("script")).toMap();
+                    QUrl fileUrl(script.value(_(NAME)).toString());
+                    QString filePath = d->engine->toFileInProject(fileUrl);
+
+                    const QVariantMap exception = body.value(_("exception")).toMap();
+                    QString errorMessage = exception.value(_("text")).toString();
+
+                    highlightExceptionCode(lineNumber, filePath, errorMessage);
+
+                    if (d->engine->state() == InferiorRunOk) {
+                        d->engine->inferiorSpontaneousStop();
+                        d->backtrace();
+                    }
+
+                    if (d->engine->state() == InferiorStopOk) {
+                        d->backtrace();
+                    }
+
+                } else if (eventType == _("afterCompile")) {
+                    //Currently break point relocation is disabled.
+                    //Uncomment the line below when it will be enabled.
+//                    d->listBreakpoints();
                 }
 
-            } else if (debugCommand == _(SETBREAKPOINT)) {
-                //                { "seq"         : <number>,
-                //                  "type"        : "response",
-                //                  "request_seq" : <number>,
-                //                  "command"     : "setbreakpoint",
-                //                  "body"        : { "type"       : <"function" or "script">
-                //                                    "breakpoint" : <break point number of the new break point>
-                //                                  }
-                //                  "running"     : <is the VM running after sending this response>
-                //                  "success"     : true
-                //                }
-
-                int seq = resp.value(_("request_seq")).toInt();
-                const QVariantMap breakpointData = resp.value(_(BODY)).toMap();
-                int index = breakpointData.value(_("breakpoint")).toInt();
-
-                BreakpointModelId id = d->breakpointsSync.take(seq);
-                d->breakpoints.insert(id, index);
-
-                d->engine->breakHandler()->notifyBreakpointInsertOk(id);
-
-
-            } else if (debugCommand == _(CHANGEBREAKPOINT)) {
-                // DO NOTHING
-
-            } else if (debugCommand == _(CLEARBREAKPOINT)) {
-                // DO NOTHING
-
-            } else if (debugCommand == _(SETEXCEPTIONBREAK)) {
-                //                { "seq"               : <number>,
-                //                  "type"              : "response",
-                //                  "request_seq" : <number>,
-                //                  "command"     : "setexceptionbreak",
-                //                  “body”        : { "type"    : <string: "all" or "uncaught" corresponding to the request.>,
-                //                                    "enabled" : <bool: true if the break type is currently enabled as a result of the request>
-                //                                  }
-                //                  "running"     : true
-                //                  "success"     : true
-                //                }
-                //TODO::
-
-            } else if (debugCommand == _(FRAME)) {
-                if (success && d->debugServiceState != QmlV8DebuggerClient::RunningState) {
-                    const QVariant body = resp.value(_(BODY));
-                    const QVariant refs = resp.value(_(REFS));
-                    const QVariant locals = body.toMap().value(_("locals"));
-                    StackFrame frame = createStackFrame(body, refs);
-                    updateLocals(locals, refs);
-                    d->engine->stackHandler()->setCurrentIndex(frame.level);
+                //Sometimes we do not get event type!
+                //This is most probably due to a wrong eval expression.
+                //Redirect output to console.
+                if (eventType.isEmpty()) {
+                     bool success = resp.value(_("success")).toBool();
+                     QVariantMap map;
+                     map.insert(_(TYPE), QVariant(_("string")));
+                     map.insert(_(VALUE), resp.value(_("message")));
+                     //Since there is no sequence value, best estimate is
+                     //last sequence value
+                     updateEvaluationResult(d->sequence, success, QVariant(map), QVariant());
                 }
 
-            } else if (debugCommand == _(SCOPE)) {
-                if (success && d->debugServiceState != QmlV8DebuggerClient::RunningState) {
-                    const QVariant body = resp.value(_(BODY)).toMap().value(_("object"));
-                    const QVariant refs = resp.value(_(REFS));
-                    updateScope(body, refs);
-                }
-
-            } else if (debugCommand == _(SCOPES)) {
-            } else if (debugCommand == _(SOURCE)) {
-            } else if (debugCommand == _(SCRIPTS)) {
-            } else if (debugCommand == _(VERSION)) {
-            } else if (debugCommand == _(V8FLAGS)) {
-            } else if (debugCommand == _(GARBAGECOLLECTOR)) {
-            } else {
-                // DO NOTHING
-            }
-
-            if (!isV8Running
-                    && d->debugServiceState == QmlV8DebuggerClient::ProcessingRequestState)
-                d->debugServiceState = QmlV8DebuggerClient::WaitingForRequestState;
-
-        } else if (type == _(EVENT)) {
-            const QString eventType(resp.value(_(EVENT)).toString());
-
-            if (eventType == _("break")) {
-                if (d->engine->state() == InferiorRunOk)
-                    d->engine->inferiorSpontaneousStop();
-                isV8Running = false;
-
-            } else if (eventType == _("exception")) {
-                const QVariantMap body = resp.value(_(BODY)).toMap();
-                int lineNumber = body.value(_("sourceLine")).toInt() + 1;
-
-                const QVariantMap script = body.value(_("script")).toMap();
-                QUrl fileUrl(script.value(_(NAME)).toString());
-                QString filePath = d->engine->toFileInProject(fileUrl);
-
-                const QVariantMap exception = body.value(_("exception")).toMap();
-                QString errorMessage = exception.value(_("text")).toString();
-
-                highlightExceptionCode(lineNumber, filePath, errorMessage);
-
-                if (d->engine->state() == InferiorRunOk)
-                    d->engine->inferiorSpontaneousStop();
-                isV8Running = false;
-                d->requestBacktrace = true;
-
-            } else if (eventType == _("afterCompile")) {
-                d->requestListBreakpoints = true;
-            }
-
-            //Sometimes we do not get event type!
-            //This is most probably due to a wrong eval expression.
-            //Redirect output to console.
-            if (eventType.isEmpty()) {
-                 bool success = resp.value(_("success")).toBool();
-                 QVariantMap map;
-                 map.insert(_(TYPE), QVariant(_("string")));
-                 map.insert(_(VALUE), resp.value(_("message")));
-                 //Since there is no sequence value, best estimate is
-                 //last sequence value
-                 updateEvaluationResult(d->sequence, success, QVariant(map), QVariant());
-                 if (!isV8Running
-                         && d->debugServiceState == QmlV8DebuggerClient::ProcessingRequestState)
-                     d->debugServiceState = QmlV8DebuggerClient::WaitingForRequestState;
-            }
-
-            if (!isV8Running
-                    && d->debugServiceState == QmlV8DebuggerClient::RunningState)
-                d->debugServiceState = QmlV8DebuggerClient::WaitingForRequestState;
-        }
-
-        if (isV8Running) {
-            resetDebugger();
-            d->debugServiceState = QmlV8DebuggerClient::RunningState;
-
-        } else {
-            if (d->requestListBreakpoints) {
-                d->listBreakpoints();
-                d->requestListBreakpoints = false;
-            }
-
-            if (d->requestBacktrace) {
-                d->backtrace(d->currentFrameIndex);
-                d->requestBacktrace = false;
-            }
-
-            if (d->debugServiceState == QmlV8DebuggerClient::WaitingForRequestState
-                    && !d->requestQueue.isEmpty()) {
-                QmlDebuggerClient::sendMessage(d->requestQueue.dequeue());
-                d->debugServiceState = QmlV8DebuggerClient::ProcessingRequestState;
-            }
-
-        }
+            } //EVENT
+        } //V8MESSAGE
 
     } else {
         //DO NOTHING
     }
-    SDEBUG(QString(_("State: %1")).arg(d->debugServiceState));
 }
 
-void QmlV8DebuggerClient::sendMessage(const QByteArray &msg)
-{
-    if (d->debugServiceState == QmlV8DebuggerClient::RunningState) {
-        QmlDebuggerClient::sendMessage(msg);
-    } else if (d->debugServiceState == QmlV8DebuggerClient::WaitingForRequestState) {
-        QmlDebuggerClient::sendMessage(msg);
-        d->debugServiceState = QmlV8DebuggerClient::ProcessingRequestState;
-    } else {
-         d->requestQueue.enqueue(msg);
-    }
-
-}
 
 void QmlV8DebuggerClient::updateStack(const QVariant &bodyVal, const QVariant &refsVal)
 {
@@ -1318,62 +1543,23 @@ void QmlV8DebuggerClient::updateStack(const QVariant &bodyVal, const QVariant &r
 
     int fromFrameIndex = body.value(_("fromFrame")).toInt();
 
+    QTC_ASSERT(0 == fromFrameIndex, return);
 
-    if (0 == fromFrameIndex) {
-        StackFrames stackFrames;
-        foreach (const QVariant &frame, frames) {
-            stackFrames << createStackFrame(frame, refsVal);
-        }
-        d->engine->stackHandler()->setFrames(stackFrames);
+    StackHandler *stackHandler = d->engine->stackHandler();
+    StackFrames stackFrames;
+    foreach (const QVariant &frame, frames) {
+        stackFrames << insertStackFrame(frame, refsVal);
     }
+    stackHandler->setFrames(stackFrames);
 
-    if (d->currentFrameIndex != fromFrameIndex) {
-        StackHandler *stackHandler = d->engine->stackHandler();
-        stackHandler->setCurrentIndex(fromFrameIndex);
-        d->engine->gotoLocation(stackHandler->currentFrame());
-        d->currentFrameIndex = fromFrameIndex;
-    }
-
+    //Populate locals and watchers wrt top frame
     //Update all Locals visible in current scope
     //Traverse the scope chain and store the local properties
     //in a list and show them in the Locals Window.
-    const QVariantMap currentFrame = frames.value(0).toMap();
-    d->clearCache();
-    d->refsVal = refsVal;
-    //Set "this" variable
-    {
-        WatchData data;
-        data.exp = QByteArray("this");
-        data.name = QString(data.exp);
-        data.iname = QByteArray("local.") + data.exp;
-        QVariantMap receiver = currentFrame.value(_("receiver")).toMap();
-        if (receiver.contains(_(REF))) {
-            receiver = valueFromRef(receiver.value(_(REF)).toInt(), refsVal).toMap();
-        }
-        data.id = receiver.value(_("handle")).toInt();
-        QmlV8ObjectData receiverData = d->extractData(QVariant(receiver));
-        data.type = receiverData.type;
-        data.value = receiverData.value.toString();
-        data.setHasChildren(receiverData.properties.toList().count());
-        d->localDataList << data;
-    }
-
-    const QVariantList currentFrameScopes = currentFrame.value(_("scopes")).toList();
-    foreach (const QVariant &scope, currentFrameScopes) {
-        //Do not query for global types (0)
-        //Showing global properties increases clutter.
-        if (scope.toMap().value(_("type")).toInt() == 0)
-            continue;
-        d->currentFrameScopes.push(scope.toMap().value(_("index")).toInt());
-    }
-    if (!d->currentFrameScopes.isEmpty()) {
-        d->scope(d->currentFrameScopes.pop(), d->currentFrameIndex);
-    } else {
-        updateLocalsAndWatchers();
-    }
+    setCurrentFrameDetails(frames.value(0), refsVal);
 }
 
-StackFrame QmlV8DebuggerClient::createStackFrame(const QVariant &bodyVal, const QVariant &refsVal)
+StackFrame QmlV8DebuggerClient::insertStackFrame(const QVariant &bodyVal, const QVariant &refsVal)
 {
     //    { "seq"         : <number>,
     //      "type"        : "response",
@@ -1415,7 +1601,10 @@ StackFrame QmlV8DebuggerClient::createStackFrame(const QVariant &bodyVal, const 
     if (func.contains(_(REF))) {
         func = valueFromRef(func.value(_(REF)).toInt(), refsVal).toMap();
     }
-    stackFrame.function = d->extractData(QVariant(func)).value.toString();
+    QString functionName = d->extractData(QVariant(func)).value.toString();
+    if (functionName.isEmpty())
+        functionName = tr("anonymous function");
+    stackFrame.function = functionName;
 
     QVariantMap file = body.value(_("script")).toMap();
     if (file.contains(_(REF))) {
@@ -1435,37 +1624,77 @@ StackFrame QmlV8DebuggerClient::createStackFrame(const QVariant &bodyVal, const 
     return stackFrame;
 }
 
-void QmlV8DebuggerClient::updateLocals(const QVariant &localsVal, const QVariant &refsVal)
+void QmlV8DebuggerClient::setCurrentFrameDetails(const QVariant &bodyVal, const QVariant &refsVal)
 {
-    //Add Locals
-    const QVariantList locals = localsVal.toList();
-    QList<WatchData> localDataList;
-    foreach (const QVariant &localValue, locals) {
-        QVariantMap localData = localValue.toMap();
+    //    { "seq"         : <number>,
+    //      "type"        : "response",
+    //      "request_seq" : <number>,
+    //      "command"     : "frame",
+    //      "body"        : { "index"          : <frame number>,
+    //                        "receiver"       : <frame receiver>,
+    //                        "func"           : <function invoked>,
+    //                        "script"         : <script for the function>,
+    //                        "constructCall"  : <boolean indicating whether the function was called as constructor>,
+    //                        "debuggerFrame"  : <boolean indicating whether this is an internal debugger frame>,
+    //                        "arguments"      : [ { name: <name of the argument - missing of anonymous argument>,
+    //                                               value: <value of the argument>
+    //                                             },
+    //                                             ... <the array contains all the arguments>
+    //                                           ],
+    //                        "locals"         : [ { name: <name of the local variable>,
+    //                                               value: <value of the local variable>
+    //                                             },
+    //                                             ... <the array contains all the locals>
+    //                                           ],
+    //                        "position"       : <source position>,
+    //                        "line"           : <source line>,
+    //                        "column"         : <source column within the line>,
+    //                        "sourceLineText" : <text for current source line>,
+    //                        "scopes"         : [ <array of scopes, see scope request below for format> ],
+
+    //                      }
+    //      "running"     : <is the VM running after sending this response>
+    //      "success"     : true
+    //    }
+    QVariantMap currentFrame = bodyVal.toMap();
+
+    StackHandler *stackHandler = d->engine->stackHandler();
+    int frameIndex = currentFrame.value(QLatin1String("index")).toInt();
+
+    d->clearCache();
+    d->refsVal = refsVal;
+    //Set "this" variable
+    {
         WatchData data;
-        data.exp = localData.value(_(NAME)).toByteArray();
-        //Check for v8 specific local data
-        if (data.exp.startsWith(".") || data.exp.isEmpty())
-            continue;
-
-        data.name = QString(data.exp);
+        data.exp = QByteArray("this");
+        data.name = QLatin1String(data.exp);
         data.iname = QByteArray("local.") + data.exp;
-
-        localData = valueFromRef(localData.value(_(VALUE)).toMap()
-                                 .value(_(REF)).toInt(), refsVal).toMap();
-        data.id = localData.value(_(HANDLE)).toInt();
-
-        QmlV8ObjectData objectData = d->extractData(QVariant(localData));
-        data.type = objectData.type;
-        data.value = objectData.value.toString();
-
-        data.setHasChildren(objectData.properties.toList().count());
-
-        localDataList << data;
+        QVariantMap receiver = currentFrame.value(_("receiver")).toMap();
+        if (receiver.contains(_(REF))) {
+            receiver = valueFromRef(receiver.value(_(REF)).toInt(), refsVal).toMap();
+        }
+        data.id = receiver.value(_("handle")).toInt();
+        QmlV8ObjectData receiverData = d->extractData(QVariant(receiver));
+        data.type = receiverData.type;
+        data.value = receiverData.value.toString();
+        data.setHasChildren(receiverData.properties.toList().count());
+        d->engine->watchHandler()->beginCycle();
+        d->engine->watchHandler()->insertData(data);
+        d->engine->watchHandler()->endCycle();
     }
 
-    d->engine->watchHandler()->insertBulkData(localDataList);
-
+    const QVariantList currentFrameScopes = currentFrame.value(_("scopes")).toList();
+    foreach (const QVariant &scope, currentFrameScopes) {
+        //Do not query for global types (0)
+        //Showing global properties increases clutter.
+        if (scope.toMap().value(_("type")).toInt() == 0)
+            continue;
+        int scopeIndex = scope.toMap().value(_("index")).toInt();
+        d->currentFrameScopes.append(scopeIndex);
+        d->scope(scopeIndex);
+    }
+    stackHandler->setCurrentIndex(frameIndex);
+    d->engine->gotoLocation(stackHandler->currentFrame());
 }
 
 void QmlV8DebuggerClient::updateScope(const QVariant &bodyVal, const QVariant &refsVal)
@@ -1492,33 +1721,38 @@ void QmlV8DebuggerClient::updateScope(const QVariant &bodyVal, const QVariant &r
 //      "success"     : true
 //    }
     QVariantMap bodyMap = bodyVal.toMap();
-    if (bodyMap.contains(_(REF))) {
-        bodyMap = valueFromRef(bodyMap.value(_(REF)).toInt(),
+
+    //Check if the frameIndex is same as current Stack Index
+    StackHandler *stackHandler = d->engine->stackHandler();
+    if (bodyMap.value(_("frameIndex")).toInt() != stackHandler->currentIndex())
+        return;
+
+    QVariantMap object = bodyMap.value(_("object")).toMap();
+    if (object.contains(_(REF))) {
+        object = valueFromRef(object.value(_(REF)).toInt(),
                                refsVal).toMap();
     }
 
-    const QVariantList properties = bodyMap.value(_("properties")).toList();
+    const QVariantList properties = object.value(_("properties")).toList();
 
+    QList<int> handlesToLookup;
+    QList<WatchData> locals;
     foreach (const QVariant &property, properties) {
         QVariantMap localData = property.toMap();
         WatchData data;
         data.exp = localData.value(_(NAME)).toByteArray();
         //Check for v8 specific local data
-        if (data.exp.startsWith(".") || data.exp.isEmpty())
+        if (data.exp.startsWith('.') || data.exp.isEmpty())
             continue;
 
-        data.name = QString(data.exp);
+        data.name = QLatin1String(data.exp);
         data.iname = QByteArray("local.") + data.exp;
 
         int handle = localData.value(_(REF)).toInt();
         localData = valueFromRef(handle, d->refsVal).toMap();
         if (localData.isEmpty()) {
-            //Fetch Data asynchronously and insert later
-            // see expandLocalsAndWatchers()
-            if (!d->localsAndWatchers.contains(handle)) {
-                d->lookup(QList<int>() << handle);
-                d->localsAndWatchers.insert(handle, data.exp);
-            }
+            handlesToLookup << handle;
+            d->localsAndWatchers.insert(handle, data.exp);
 
         } else {
             data.id = localData.value(_(HANDLE)).toInt();
@@ -1529,14 +1763,17 @@ void QmlV8DebuggerClient::updateScope(const QVariant &bodyVal, const QVariant &r
 
             data.setHasChildren(objectData.properties.toList().count());
 
-            d->localDataList << data;
+            locals << data;
         }
     }
 
-    if (!d->currentFrameScopes.isEmpty()) {
-        d->scope(d->currentFrameScopes.pop(), d->currentFrameIndex);
-    } else {
-        updateLocalsAndWatchers();
+    if (!handlesToLookup.isEmpty())
+        d->lookup(handlesToLookup);
+
+    if (!locals.isEmpty()) {
+        d->engine->watchHandler()->beginCycle(false);
+        d->engine->watchHandler()->insertBulkData(locals);
+        d->engine->watchHandler()->endCycle();
     }
 }
 
@@ -1551,83 +1788,48 @@ void QmlV8DebuggerClient::updateEvaluationResult(int sequence, bool success, con
     //      "running"     : <is the VM running after sending this response>
     //      "success"     : true
     //    }
-    QVariantMap bodyMap = bodyVal.toMap();
-    if (bodyMap.contains(_(REF))) {
-        bodyMap = valueFromRef(bodyMap.value(_(REF)).toInt(),
-                               refsVal).toMap();
-    }
+    if (!d->evaluatingExpression.contains(sequence)) {
+        //Update the locals
+        foreach (int index, d->currentFrameScopes)
+            d->scope(index);
 
-    QmlV8ObjectData body = d->extractData(QVariant(bodyMap));
-
-    if (d->evaluatingExpression.contains(sequence)) {
-        d->evaluatingExpression.take(sequence);
-        //Console
-        d->engine->showMessage(body.value.toString(), ScriptConsoleOutput);
-
-    } else if (d->evaluatingWatches.contains(sequence)) {
-        d->requestBacktrace = false;
-        QString exp = d->evaluatingWatches.take(sequence);
-        QByteArray iname = d->engine->watchHandler()->watcherName(exp.toLatin1());
-        SDEBUG(QString(iname));
-        WatchData data;
-        data.exp = exp.toLatin1();
-        data.name = exp;
-        data.iname = iname;
-        data.id = bodyMap.value(_(HANDLE)).toInt();
-        if (success) {
-            data.type = body.type;
-            data.value = body.value.toString();
-        } else {
-            //Do not set type since it is unkown
-            data.setError(body.value.toString());
+    } else {
+        QVariantMap bodyMap = bodyVal.toMap();
+        if (bodyMap.contains(_(REF))) {
+            bodyMap = valueFromRef(bodyMap.value(_(REF)).toInt(),
+                                   refsVal).toMap();
         }
 
-        //TODO:: Fix expanding watched objects/expressions
-//        const QVariantList properties = body.properties.toList();
-//        data.setHasChildren(properties.count());
-
-        //Insert the newly evaluated expression to the Watchers Window
-        d->engine->watchHandler()->beginCycle(false);
-        d->engine->watchHandler()->insertData(data);
-        d->engine->watchHandler()->endCycle();
-
-        //Check if there are more expressions to be evaluated
-        //Evaluate one at a time.
-        if (!d->watchesToEvaluate.isEmpty()) {
-            StackHandler *stackHandler = d->engine->stackHandler();
-            const QString exp = d->watchesToEvaluate.pop();
-            if (stackHandler->isContentsValid()) {
-                d->evaluate(exp, false, false, stackHandler->currentIndex());
+        QmlV8ObjectData body = d->extractData(QVariant(bodyMap));
+        QString exp =  d->evaluatingExpression.take(sequence);
+        if (d->watchedExpressions.contains(exp)) {
+            QByteArray iname = d->engine->watchHandler()->watcherName(exp.toLatin1());
+            SDEBUG(QString(iname));
+            WatchData data;
+            data.exp = exp.toLatin1();
+            data.name = exp;
+            data.iname = iname;
+            data.id = bodyMap.value(_(HANDLE)).toInt();
+            if (success) {
+                data.type = body.type;
+                data.value = body.value.toString();
+                data.hasChildren = body.properties.toList().count();
             } else {
-                d->evaluate(exp);
+                //Do not set type since it is unknown
+                data.setError(body.value.toString());
             }
-            d->evaluatingWatches.insert(d->sequence, exp);
 
+            //Insert the newly evaluated expression to the Watchers Window
+            d->engine->watchHandler()->beginCycle(false);
+            d->engine->watchHandler()->insertData(data);
+            d->engine->watchHandler()->endCycle();
+
+        } else {
+            d->engine->showMessage(body.value.toString(), ScriptConsoleOutput);
+            //Update the locals
+            foreach (int index, d->currentFrameScopes)
+                d->scope(index);
         }
-
-
-        //        foreach (const QVariant &property, properties) {
-        //            QVariantMap propertyData = property.toMap();
-        //            WatchData data;
-        //            data.exp = propertyData.value(_(NAME)).toByteArray();
-
-        //            //Check for v8 specific local data
-        //            if (data.exp.startsWith(".") || data.exp.isEmpty())
-        //                continue;
-
-        //            data.name = data.exp;
-        //            data.iname = prepend + '.' + data.exp;
-        //            propertyData = valueFromRef(propertyData.value(_(REF)).toInt(),
-        //                                        refsVal).toMap();
-        //            data.id = propertyData.value(_(HANDLE)).toInt();
-
-        //            QmlV8ObjectData objectData = d->extractData(QVariant(propertyData));
-        //            data.type = objectData.type;
-        //            data.value = objectData.value.toString();
-
-        //            data.setHasChildren(objectData.properties.toList().count());
-        //            d->engine->watchHandler()->insertData(data);
-        //        }
     }
 }
 
@@ -1715,50 +1917,47 @@ void QmlV8DebuggerClient::expandLocalsAndWatchers(const QVariant &bodyVal, const
         QByteArray prepend = d->localsAndWatchers.take(handle.toInt());
 
 
-        if (prepend.isEmpty())
-            return;
+        if (prepend.startsWith("local.") || prepend.startsWith("watch.")) {
+            //Data for expanded local/watch
+            if (bodyObjectData.properties.isValid()) {
+                //Could be an object or function
+                const WatchData *parent = d->engine->watchHandler()->findItem(prepend);
+                const QVariantList properties = bodyObjectData.properties.toList();
+                foreach (const QVariant &property, properties) {
+                    QVariantMap propertyData = property.toMap();
+                    WatchData data;
+                    data.name = propertyData.value(_(NAME)).toString();
 
-        if (bodyObjectData.properties.isValid()) {
-            //Could be an object or function
-            const WatchData *parent = d->engine->watchHandler()->findItem(prepend);
-            const QVariantList properties = bodyObjectData.properties.toList();
-            foreach (const QVariant &property, properties) {
-                QVariantMap propertyData = property.toMap();
-                WatchData data;
-                data.name = propertyData.value(_(NAME)).toString();
+                    //Check for v8 specific local data
+                    if (data.name.startsWith(QLatin1Char('.')) || data.name.isEmpty())
+                        continue;
+                    if (parent && parent->type == "object") {
+                        if (parent->value == _("Array"))
+                            data.exp = parent->exp + QByteArray("[") + data.name.toLatin1() + QByteArray("]");
+                        else if (parent->value == _("Object"))
+                            data.exp = parent->exp + QByteArray(".") + data.name.toLatin1();
+                    } else {
+                        data.exp = data.name.toLatin1();
+                    }
 
-                //Check for v8 specific local data
-                if (data.name.startsWith(".") || data.name.isEmpty())
-                    continue;
-                if (parent && parent->type == "object") {
-                    if (parent->value == _("Array"))
-                        data.exp = parent->exp + QByteArray("[") + data.name.toLatin1() + QByteArray("]");
-                    else if (parent->value == _("Object"))
-                        data.exp = parent->exp + QByteArray(".") + data.name.toLatin1();
-                } else {
-                    data.exp = data.name.toLatin1();
-                }
-
-                if (prepend.startsWith("local."))
                     data.iname = prepend + '.' + data.name.toLatin1();
-                if (prepend.startsWith("watch."))
-                    data.iname = prepend;
-                propertyData = valueFromRef(propertyData.value(_(REF)).toInt(),
-                                            refsVal).toMap();
-                data.id = propertyData.value(_(HANDLE)).toInt();
+                    propertyData = valueFromRef(propertyData.value(_(REF)).toInt(),
+                                                refsVal).toMap();
+                    data.id = propertyData.value(_(HANDLE)).toInt();
 
-                QmlV8ObjectData objectData = d->extractData(QVariant(propertyData));
-                data.type = objectData.type;
-                data.value = objectData.value.toString();
+                    QmlV8ObjectData objectData = d->extractData(QVariant(propertyData));
+                    data.type = objectData.type;
+                    data.value = objectData.value.toString();
 
-                data.setHasChildren(objectData.properties.toList().count());
-                watchDataList << data;
+                    data.setHasChildren(objectData.properties.toList().count());
+                    watchDataList << data;
+                }
             }
         } else {
             //rest
             WatchData data;
             data.exp = prepend;
-            data.name = data.exp;
+            data.name = QLatin1String(data.exp);
             data.iname = QByteArray("local.") + data.exp;
             data.id = handle.toInt();
 
@@ -1774,7 +1973,6 @@ void QmlV8DebuggerClient::expandLocalsAndWatchers(const QVariant &bodyVal, const
     d->engine->watchHandler()->beginCycle(false);
     d->engine->watchHandler()->insertBulkData(watchDataList);
     d->engine->watchHandler()->endCycle();
-    d->localDataList << watchDataList;
 }
 
 void QmlV8DebuggerClient::highlightExceptionCode(int lineNumber,
@@ -1835,38 +2033,6 @@ void QmlV8DebuggerClient::clearExceptionSelection()
         ed->setExtraSelections(TextEditor::BaseTextEditorWidget::DebuggerExceptionSelection, selections);
     }
 
-}
-
-void QmlV8DebuggerClient::resetDebugger()
-{
-    clearExceptionSelection();
-    d->currentFrameIndex = -1;
-    SDEBUG(QString(_("State: %1")).arg(d->debugServiceState));
-}
-
-void QmlV8DebuggerClient::updateLocalsAndWatchers()
-{
-    d->engine->watchHandler()->beginCycle();
-    d->engine->watchHandler()->insertBulkData(d->localDataList);
-    d->engine->watchHandler()->endCycle();
-
-    //Push all Watched expressions to a stack.
-    //Evaluate the expressions one at a time
-    //and append the evaluated result to the watchers
-    //window (see updateEvaluationResult())
-    foreach (const QString &expr, d->watchedExpressions)
-        d->watchesToEvaluate.push(expr);
-
-    if (!d->watchesToEvaluate.isEmpty()) {
-        StackHandler *stackHandler = d->engine->stackHandler();
-        const QString exp = d->watchesToEvaluate.pop();
-        if (stackHandler->isContentsValid()) {
-            d->evaluate(exp, false, false, stackHandler->currentIndex());
-        } else {
-            d->evaluate(exp);
-        }
-        d->evaluatingWatches.insert(d->sequence, exp);
-    }
 }
 
 } // Internal

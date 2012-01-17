@@ -123,7 +123,7 @@ Qt4ProjectConfigWidget::Qt4ProjectConfigWidget(Qt4BaseTarget *target)
             this, SLOT(updateImportLabel()));
 
     connect(target->qt4Project(), SIGNAL(proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)),
-            this, SLOT(updateToolChainCombo()));
+            this, SLOT(proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)));
 
     connect(ProjectExplorer::ToolChainManager::instance(), SIGNAL(toolChainsChanged()),
             this, SLOT(updateToolChainCombo()));
@@ -180,14 +180,15 @@ void Qt4ProjectConfigWidget::updateShadowBuildUi()
 void Qt4ProjectConfigWidget::manageQtVersions()
 {
     Core::ICore *core = Core::ICore::instance();
-    core->showOptionsDialog(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY, QtSupport::Constants::QTVERSION_SETTINGS_PAGE_ID);
+    core->showOptionsDialog(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
+                            QLatin1String(QtSupport::Constants::QTVERSION_SETTINGS_PAGE_ID));
 }
 
 void Qt4ProjectConfigWidget::manageToolChains()
 {
     Core::ICore *core = Core::ICore::instance();
-    core->showOptionsDialog(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY,
-                            ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_PAGE_ID);
+    core->showOptionsDialog(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
+                            QLatin1String(ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_PAGE_ID));
 }
 
 QString Qt4ProjectConfigWidget::displayName() const
@@ -353,11 +354,11 @@ void Qt4ProjectConfigWidget::updateImportLabel()
     if (m_buildConfiguration->qmakeStep() && m_buildConfiguration->makeStep()) {
         QString makefile = m_buildConfiguration->buildDirectory();
         if (m_buildConfiguration->makefile().isEmpty())
-            makefile.append("/Makefile");
+            makefile.append(QLatin1String("/Makefile"));
         else
             makefile.append(m_buildConfiguration->makefile());
 
-        QString qmakePath = QtSupport::QtVersionManager::findQMakeBinaryFromMakefile(makefile);
+        Utils::FileName qmakePath = QtSupport::QtVersionManager::findQMakeBinaryFromMakefile(makefile);
         QtSupport::BaseQtVersion *version = m_buildConfiguration->qtVersion();
         // check that there's a makefile
         if (!qmakePath.isEmpty()) {
@@ -367,7 +368,7 @@ void Qt4ProjectConfigWidget::updateImportLabel()
             if (mc == QtSupport::QtVersionManager::DifferentProject) {
                 incompatibleBuild = true;
             } else if (mc == QtSupport::QtVersionManager::SameProject) {
-                if (qmakePath != (version ? version->qmakeCommand() : QString())) {
+                if (qmakePath != (version ? version->qmakeCommand() : Utils::FileName())) {
                     // and that the qmake path is different from the current version
                     // import enable
                     visible = true;
@@ -416,7 +417,7 @@ void Qt4ProjectConfigWidget::updateImportLabel()
         m_ui->problemLabel->setVisible(true);
         m_ui->warningLabel->setVisible(true);
         m_ui->importLabel->setVisible(visible);
-        QString text = "<nobr>";
+        QString text = QLatin1String("<nobr>");
         foreach (const ProjectExplorer::Task &task, issues) {
             QString type;
             switch (task.type) {
@@ -537,6 +538,13 @@ void Qt4ProjectConfigWidget::toolChainChanged()
         m_ui->toolChainComboBox->setCurrentIndex(m_ui->toolChainComboBox->count() - 1);
         m_ignoreChange = false;
     }
+}
+
+void Qt4ProjectConfigWidget::proFileUpdated(Qt4ProjectManager::Qt4ProFileNode * /*node*/, bool success, bool parseInProgress)
+{
+    if (!success || parseInProgress)
+        return;
+    updateToolChainCombo();
 }
 
 void Qt4ProjectConfigWidget::updateToolChainCombo()

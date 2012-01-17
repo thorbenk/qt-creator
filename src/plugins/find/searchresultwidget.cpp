@@ -117,7 +117,7 @@ public:
         }
         m_view->setCurrentIndex(m_incrementalFindStart);
         bool wrapped = false;
-        IFindSupport::Result result = find(txt, findFlags, &wrapped);
+        IFindSupport::Result result = find(txt, findFlags, true/*startFromCurrent*/, &wrapped);
         if (wrapped != m_incrementalWrappedState) {
             m_incrementalWrappedState = wrapped;
             showWrapIndicator(m_view);
@@ -128,7 +128,7 @@ public:
     IFindSupport::Result findStep(const QString &txt, Find::FindFlags findFlags)
     {
         bool wrapped = false;
-        IFindSupport::Result result = find(txt, findFlags, &wrapped);
+        IFindSupport::Result result = find(txt, findFlags, false/*startFromNext*/, &wrapped);
         if (wrapped)
             showWrapIndicator(m_view);
         if (result == IFindSupport::Found) {
@@ -138,7 +138,8 @@ public:
         return result;
     }
 
-    IFindSupport::Result find(const QString &txt, Find::FindFlags findFlags, bool *wrapped)
+    IFindSupport::Result find(const QString &txt, Find::FindFlags findFlags,
+                              bool startFromCurrentIndex, bool *wrapped)
     {
         if (wrapped)
             *wrapped = false;
@@ -150,11 +151,13 @@ public:
             index = m_view->model()->find(QRegExp(txt, (sensitive ? Qt::CaseSensitive : Qt::CaseInsensitive)),
                                           m_view->currentIndex(),
                                           Find::textDocumentFlagsForFindFlags(findFlags),
+                                          startFromCurrentIndex,
                                           wrapped);
         } else {
             index = m_view->model()->find(txt,
                                           m_view->currentIndex(),
                                           Find::textDocumentFlagsForFindFlags(findFlags),
+                                          startFromCurrentIndex,
                                           wrapped);
         }
         if (index.isValid()) {
@@ -208,7 +211,8 @@ using namespace Find::Internal;
 SearchResultWidget::SearchResultWidget(QWidget *parent) :
     QWidget(parent),
     m_count(0),
-    m_isShowingReplaceUI(false)
+    m_isShowingReplaceUI(false),
+    m_searchAgainSupported(false)
 {
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setMargin(0);
@@ -256,21 +260,30 @@ SearchResultWidget::SearchResultWidget(QWidget *parent) :
     m_cancelButton->setText(tr("Cancel"));
     m_cancelButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
     connect(m_cancelButton, SIGNAL(clicked()), this, SLOT(cancel()));
+    m_searchAgainButton = new QToolButton(topWidget);
+    m_searchAgainButton->setToolTip(tr("Repeat the search with same parameters"));
+    m_searchAgainButton->setText(tr("Search again"));
+    m_searchAgainButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_searchAgainButton->setVisible(false);
+    connect(m_searchAgainButton, SIGNAL(clicked()), this, SLOT(searchAgain()));
 
     m_replaceLabel = new QLabel(tr("Replace with:"), topWidget);
     m_replaceTextEdit = new WideEnoughLineEdit(topWidget);
     m_replaceTextEdit->setMinimumWidth(120);
+    m_replaceTextEdit->setEnabled(false);
+    m_replaceTextEdit->setTabOrder(m_replaceTextEdit, m_searchResultTreeView);
     m_replaceButton = new QToolButton(topWidget);
     m_replaceButton->setToolTip(tr("Replace all occurrences"));
     m_replaceButton->setText(tr("Replace"));
     m_replaceButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
-    m_replaceTextEdit->setTabOrder(m_replaceTextEdit, m_searchResultTreeView);
+    m_replaceButton->setEnabled(false);
 
     m_matchesFoundLabel = new QLabel(topWidget);
     updateMatchesFoundLabel();
 
     topLayout->addWidget(m_descriptionContainer);
     topLayout->addWidget(m_cancelButton);
+    topLayout->addWidget(m_searchAgainButton);
     topLayout->addWidget(m_replaceLabel);
     topLayout->addWidget(m_replaceTextEdit);
     topLayout->addWidget(m_replaceButton);
@@ -444,25 +457,34 @@ void SearchResultWidget::goToPrevious()
     }
 }
 
+void SearchResultWidget::reset()
+{
+    m_replaceTextEdit->setEnabled(false);
+    m_replaceButton->setEnabled(false);
+    m_searchResultTreeView->clear();
+    m_count = 0;
+    m_cancelButton->setVisible(true);
+    m_searchAgainButton->setVisible(false);
+    updateMatchesFoundLabel();
+}
+
+void SearchResultWidget::setSearchAgainSupported(bool supported)
+{
+    m_searchAgainSupported = supported;
+    m_searchAgainButton->setVisible(supported && !m_cancelButton->isVisible());
+}
+
+void SearchResultWidget::setSearchAgainEnabled(bool enabled)
+{
+    m_searchAgainButton->setEnabled(enabled);
+}
+
 void SearchResultWidget::finishSearch()
 {
     m_replaceTextEdit->setEnabled(m_count > 0);
     m_replaceButton->setEnabled(m_count > 0);
     m_cancelButton->setVisible(false);
-}
-
-void SearchResultWidget::clear()
-{
-    m_replaceTextEdit->setEnabled(false);
-    m_replaceButton->setEnabled(false);
-    m_replaceTextEdit->clear();
-    m_searchResultTreeView->clear();
-    m_count = 0;
-    m_label->setVisible(false);
-    m_searchTerm->setVisible(false);
-    m_cancelButton->setVisible(false);
-    updateMatchesFoundLabel();
-    m_infoBar.clear();
+    m_searchAgainButton->setVisible(m_searchAgainSupported);
 }
 
 void SearchResultWidget::hideNoUndoWarning()
@@ -490,6 +512,11 @@ void SearchResultWidget::cancel()
 {
     m_cancelButton->setVisible(false);
     emit cancelled();
+}
+
+void SearchResultWidget::searchAgain()
+{
+    emit searchAgainRequested();
 }
 
 bool SearchResultWidget::showWarningMessage() const

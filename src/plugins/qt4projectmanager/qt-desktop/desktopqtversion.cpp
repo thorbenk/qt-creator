@@ -49,7 +49,7 @@ DesktopQtVersion::DesktopQtVersion()
 
 }
 
-DesktopQtVersion::DesktopQtVersion(const QString &path, bool isAutodetected, const QString &autodetectionSource)
+DesktopQtVersion::DesktopQtVersion(const Utils::FileName &path, bool isAutodetected, const QString &autodetectionSource)
     : BaseQtVersion(path, isAutodetected, autodetectionSource)
 {
 
@@ -67,7 +67,7 @@ DesktopQtVersion *DesktopQtVersion::clone() const
 
 QString DesktopQtVersion::type() const
 {
-    return QtSupport::Constants::DESKTOPQT;
+    return QLatin1String(QtSupport::Constants::DESKTOPQT);
 }
 
 QString DesktopQtVersion::warningReason() const

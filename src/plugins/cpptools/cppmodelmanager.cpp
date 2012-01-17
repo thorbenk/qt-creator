@@ -621,7 +621,7 @@ void CppPreprocessor::sourceNeeded(QString &fileName, IncludeType type, unsigned
 
     const QByteArray preprocessedCode = preprocess(fileName, contents);
 
-    doc->setSource(preprocessedCode);
+    doc->setUtf8Source(preprocessedCode);
     doc->keepSourceAndAST();
     doc->tokenize();
 
@@ -901,6 +901,13 @@ QFuture<void> CppModelManager::updateSourceFiles(const QStringList &sourceFiles)
     refreshSourceFiles_Clang(sourceFiles);
 
     return refreshSourceFiles(sourceFiles);
+}
+
+QList<CppModelManager::ProjectInfo> CppModelManager::projectInfos() const
+{
+    QMutexLocker locker(&mutex);
+
+    return m_projects.values();
 }
 
 CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Project *project) const

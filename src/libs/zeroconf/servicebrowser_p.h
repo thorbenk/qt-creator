@@ -56,7 +56,7 @@ class ServiceBrowserPrivate;
 
 // represents a zero conf library exposing the dns-sd interface
 class ZConfLib {
-    Q_DECLARE_TR_FUNCTIONS(ZeroConf)
+    Q_DECLARE_TR_FUNCTIONS(ZeroConf::Internal::ZConfLib)
 public:
     typedef QSharedPointer<ZConfLib> Ptr;
     typedef void *ConnectionRef;
@@ -248,7 +248,7 @@ private:
 class ServiceBrowserPrivate {
     friend class ServiceBrowser;
 public:
-    ServiceBrowser *q;
+    ZeroConf::ServiceBrowser *q;
     QString         serviceType;
     QString         domain;
     MainConnectionPtr    mainConnection;
@@ -287,10 +287,10 @@ public:
                      uint32_t interfaceIndex, DNSServiceErrorType errorCode,
                      const char *serviceName, const char *regtype, const char *replyDomain);
     void serviceChanged(const Service::ConstPtr &oldService, const Service::ConstPtr &newService,
-                        ServiceBrowser *browser);
-    void serviceAdded(const Service::ConstPtr &service, ServiceBrowser *browser);
-    void serviceRemoved(const Service::ConstPtr &service, ServiceBrowser *browser);
-    void servicesUpdated(ServiceBrowser *browser);
+                        ZeroConf::ServiceBrowser *browser);
+    void serviceAdded(const Service::ConstPtr &service, ZeroConf::ServiceBrowser *browser);
+    void serviceRemoved(const Service::ConstPtr &service, ZeroConf::ServiceBrowser *browser);
+    void servicesUpdated(ZeroConf::ServiceBrowser *browser);
     void hadError(QStringList errorMsgs, bool completeFailure);
 };
 

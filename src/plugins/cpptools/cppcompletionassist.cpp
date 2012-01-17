@@ -1056,7 +1056,7 @@ bool CppCompletionAssistProcessor::tryObjCCompletion()
     if (!scope)
         return false;
 
-    const QList<LookupItem> items = (*m_model->m_typeOfExpression)(expr, scope);
+    const QList<LookupItem> items = (*m_model->m_typeOfExpression)(expr.toUtf8(), scope);
     LookupContext lookupContext(thisDocument, m_interface->snapshot());
 
     foreach (const LookupItem &item, items) {
@@ -1259,7 +1259,7 @@ int CppCompletionAssistProcessor::startCompletionInternal(const QString fileName
 
     if (expression.isEmpty()) {
         if (m_model->m_completionOperator == T_EOF_SYMBOL || m_model->m_completionOperator == T_COLON_COLON) {
-            (void) (*m_model->m_typeOfExpression)(expression, scope);
+            (void) (*m_model->m_typeOfExpression)(expression.toUtf8(), scope);
             globalCompletion(scope);
             if (m_completions.isEmpty())
                 return -1;
@@ -1272,14 +1272,15 @@ int CppCompletionAssistProcessor::startCompletionInternal(const QString fileName
         }
     }
 
+    QByteArray utf8Exp = expression.toUtf8();
     QList<LookupItem> results =
-            (*m_model->m_typeOfExpression)(expression, scope, TypeOfExpression::Preprocess);
+            (*m_model->m_typeOfExpression)(utf8Exp, scope, TypeOfExpression::Preprocess);
 
     if (results.isEmpty()) {
         if (m_model->m_completionOperator == T_SIGNAL || m_model->m_completionOperator == T_SLOT) {
             if (! (expression.isEmpty() || expression == QLatin1String("this"))) {
                 expression = QLatin1String("this");
-                results = (*m_model->m_typeOfExpression)(expression, scope);
+                results = (*m_model->m_typeOfExpression)(utf8Exp, scope);
             }
 
             if (results.isEmpty())
@@ -1300,7 +1301,7 @@ int CppCompletionAssistProcessor::startCompletionInternal(const QString fileName
 
             // Resolve the type of this expression
             const QList<LookupItem> results =
-                    (*m_model->m_typeOfExpression)(baseExpression, scope,
+                    (*m_model->m_typeOfExpression)(baseExpression.toUtf8(), scope,
                                      TypeOfExpression::Preprocess);
 
             // If it's a class, add completions for the constructors
@@ -1848,7 +1849,7 @@ bool CppCompletionAssistProcessor::completeConstructorOrFunction(const QList<CPl
             QString possibleDecl = bs.mid(lineStartToken).trimmed().append("();");
 
             Document::Ptr doc = Document::create(QLatin1String("<completion>"));
-            doc->setSource(possibleDecl.toLatin1());
+            doc->setUtf8Source(possibleDecl.toLatin1());
             if (doc->parse(Document::ParseDeclaration)) {
                 doc->check();
                 if (SimpleDeclarationAST *sd = doc->translationUnit()->ast()->asSimpleDeclaration()) {

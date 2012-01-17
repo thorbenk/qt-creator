@@ -54,7 +54,7 @@ FindInFiles::FindInFiles()
 
 QString FindInFiles::id() const
 {
-    return "Files on Disk";
+    return QLatin1String("Files on Disk");
 }
 
 QString FindInFiles::displayName() const
@@ -68,24 +68,31 @@ void FindInFiles::findAll(const QString &txt, Find::FindFlags findFlags)
     BaseFileFind::findAll(txt, findFlags);
 }
 
-Utils::FileIterator *FindInFiles::files() const
+Utils::FileIterator *FindInFiles::files(const QStringList &nameFilters,
+                                        const QVariant &additionalParameters) const
 {
-    return new Utils::SubDirFileIterator(QStringList() << QDir::fromNativeSeparators(m_directory->currentText()),
-                                         fileNameFilters(),
+    return new Utils::SubDirFileIterator(QStringList() << additionalParameters.toString(),
+                                         nameFilters,
                                          Core::EditorManager::instance()->defaultTextCodec());
+}
+
+QVariant FindInFiles::additionalParameters() const
+{
+    return qVariantFromValue(QDir::fromNativeSeparators(m_directory->currentText()));
 }
 
 QString FindInFiles::label() const
 {
+    const QChar slash = QLatin1Char('/');
     const QStringList &nonEmptyComponents = QDir::cleanPath(
                 QFileInfo(QDir::fromNativeSeparators(m_directory->currentText())).absoluteFilePath())
-            .split(QLatin1Char('/'), QString::SkipEmptyParts);
-    return tr("Directory '%1':").arg(nonEmptyComponents.isEmpty() ? "/" : nonEmptyComponents.last());
+            .split(slash, QString::SkipEmptyParts);
+    return tr("Directory '%1':").arg(nonEmptyComponents.isEmpty() ? QString(slash) : nonEmptyComponents.last());
 }
 
 QString FindInFiles::toolTip() const
 {
-    // %3 is filled by BaseFileFind::runNewSearch
+    //: %3 is filled by BaseFileFind::runNewSearch
     return tr("Path: %1\nFilter: %2\n%3")
             .arg(QDir::toNativeSeparators(QFileInfo(m_directory->currentText()).absoluteFilePath()))
             .arg(fileNameFilters().join(QLatin1String(",")));
@@ -139,25 +146,25 @@ void FindInFiles::openFileBrowser()
     QString dir = QFileDialog::getExistingDirectory(m_configWidget,
         tr("Directory to search"), oldDir);
     if (!dir.isEmpty())
-        m_directory->setEditText(dir);
+        m_directory->setEditText(QDir::toNativeSeparators(dir));
 }
 
 void FindInFiles::writeSettings(QSettings *settings)
 {
-    settings->beginGroup("FindInFiles");
+    settings->beginGroup(QLatin1String("FindInFiles"));
     writeCommonSettings(settings);
-    settings->setValue("directories", m_directoryStrings.stringList());
+    settings->setValue(QLatin1String("directories"), m_directoryStrings.stringList());
     if (m_directory)
-        settings->setValue("currentDirectory", m_directory->currentText());
+        settings->setValue(QLatin1String("currentDirectory"), m_directory->currentText());
     settings->endGroup();
 }
 
 void FindInFiles::readSettings(QSettings *settings)
 {
-    settings->beginGroup("FindInFiles");
-    readCommonSettings(settings, "*.cpp,*.h");
-    m_directoryStrings.setStringList(settings->value("directories").toStringList());
-    m_directorySetting = settings->value("currentDirectory").toString();
+    settings->beginGroup(QLatin1String("FindInFiles"));
+    readCommonSettings(settings, QLatin1String("*.cpp,*.h"));
+    m_directoryStrings.setStringList(settings->value(QLatin1String("directories")).toStringList());
+    m_directorySetting = settings->value(QLatin1String("currentDirectory")).toString();
     settings->endGroup();
     syncComboWithSettings(m_directory, m_directorySetting);
 }

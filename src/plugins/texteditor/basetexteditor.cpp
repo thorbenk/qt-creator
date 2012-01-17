@@ -54,6 +54,7 @@
 #include "convenience.h"
 #include "texteditorsettings.h"
 #include "texteditoroverlay.h"
+#include "circularclipboard.h"
 
 #include <aggregation/aggregate.h>
 #include <coreplugin/actionmanager/actionmanager.h>
@@ -99,6 +100,7 @@
 #include <QtGui/QInputDialog>
 #include <QtGui/QMenu>
 #include <QtGui/QMessageBox>
+#include <QtGui/QClipboard>
 
 //#define DO_FOO
 
@@ -200,6 +202,18 @@ static void convertToPlainText(QString &txt)
         }
     }
 }
+
+static bool isModifierKey(int key)
+{
+    return key == Qt::Key_Shift
+            || key == Qt::Key_Control
+            || key == Qt::Key_Alt
+            || key == Qt::Key_Meta;
+}
+
+static const char kTextBlockMimeType[] = "application/vnd.nokia.qtcreator.blocktext";
+static const char kVerticalTextBlockMimeType[] = "application/vnd.nokia.qtcreator.vblocktext";
+
 
 BaseTextEditorWidget::BaseTextEditorWidget(QWidget *parent)
     : QPlainTextEdit(parent)
@@ -991,7 +1005,7 @@ void BaseTextEditorWidget::joinLines()
         QString cutLine = cursor.selectedText();
 
         // Collapse leading whitespaces to one or insert whitespace
-        cutLine.replace(QRegExp("^\\s*"), " ");
+        cutLine.replace(QRegExp(QLatin1String("^\\s*")), QLatin1String(" "));
         cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);
         cursor.removeSelectedText();
 
@@ -1524,8 +1538,18 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
     d->m_moveLineUndoHack = false;
     d->clearVisibleFoldedBlock();
 
-    if (e->key() == Qt::Key_Escape) {
-        if (d->m_snippetOverlay->isVisible()) {
+    if (d->m_isCirculatingClipboard
+            && !isModifierKey(e->key())) {
+        d->m_isCirculatingClipboard = false;
+    }
+
+    if (e->key() == Qt::Key_Alt
+            && d->m_behaviorSettings.m_keyboardTooltips) {
+        d->m_maybeFakeTooltipEvent = true;
+    } else {
+        d->m_maybeFakeTooltipEvent = false;
+        if (e->key() == Qt::Key_Escape
+                && d->m_snippetOverlay->isVisible()) {
             e->accept();
             d->m_snippetOverlay->hide();
             d->m_snippetOverlay->clear();
@@ -2201,10 +2225,20 @@ bool BaseTextEditorWidget::restoreState(const QByteArray &state)
         QList<int> collapsedBlocks;
         stream >> collapsedBlocks;
         QTextDocument *doc = document();
+        bool layoutChanged = false;
         foreach(int blockNumber, collapsedBlocks) {
             QTextBlock block = doc->findBlockByNumber(qMax(0, blockNumber));
-            if (block.isValid())
+            if (block.isValid()) {
                 BaseTextDocumentLayout::doFoldOrUnfold(block, false);
+                layoutChanged = true;
+            }
+        }
+        if (layoutChanged) {
+            BaseTextDocumentLayout *documentLayout =
+                    qobject_cast<BaseTextDocumentLayout*>(doc->documentLayout());
+            QTC_ASSERT(documentLayout, return false);
+            documentLayout->requestUpdate();
+            documentLayout->emitDocumentSizeChanged();
         }
     } else {
         if (d->m_displaySettings.m_autoFoldFirstComment)
@@ -2345,12 +2379,12 @@ bool BaseTextEditorWidget::scrollWheelZoomingEnabled() const
 
 void BaseTextEditorWidget::setConstrainTooltips(bool b)
 {
-    d->m_behaviorSettings.m_constrainTooltips = b;
+    d->m_behaviorSettings.m_constrainHoverTooltips = b;
 }
 
 bool BaseTextEditorWidget::constrainTooltips() const
 {
-    return d->m_behaviorSettings.m_constrainTooltips;
+    return d->m_behaviorSettings.m_constrainHoverTooltips;
 }
 
 void BaseTextEditorWidget::setCamelCaseNavigationEnabled(bool b)
@@ -2445,6 +2479,8 @@ BaseTextEditorPrivate::BaseTextEditorPrivate()
     m_highlightCurrentLine(true),
     m_requestMarkEnabled(true),
     m_lineSeparatorsAllowed(false),
+    m_maybeFakeTooltipEvent(false),
+    m_isCirculatingClipboard(false),
     m_visibleWrapColumn(0),
     m_linkPressed(false),
     m_delayedUpdateTimer(0),
@@ -2573,6 +2609,16 @@ QPoint BaseTextEditorWidget::toolTipPosition(const QTextCursor &c) const
     );
 }
 
+void BaseTextEditorWidget::processTooltipRequest(const QTextCursor &c)
+{
+    const QPoint toolTipPoint = toolTipPosition(c);
+    bool handled = false;
+    BaseTextEditor *ed = editor();
+    emit ed->tooltipOverrideRequested(ed, toolTipPoint, c.position(), &handled);
+    if (!handled)
+        emit ed->tooltipRequested(ed, toolTipPoint, c.position());
+}
+
 bool BaseTextEditorWidget::viewportEvent(QEvent *event)
 {
     d->m_contentsChanged = false;
@@ -2583,7 +2629,7 @@ bool BaseTextEditorWidget::viewportEvent(QEvent *event)
     } else if (event->type() == QEvent::ToolTip) {
         if (QApplication::keyboardModifiers() & Qt::ControlModifier
                 || (!(QApplication::keyboardModifiers() & Qt::ShiftModifier)
-                    && d->m_behaviorSettings.m_constrainTooltips)) {
+                    && d->m_behaviorSettings.m_constrainHoverTooltips)) {
             // Tooltips should be eaten when either control is pressed (so they don't get in the
             // way of code navigation) or if they are in constrained mode and shift is not pressed.
             return true;
@@ -2600,14 +2646,7 @@ bool BaseTextEditorWidget::viewportEvent(QEvent *event)
             return true;
         }
 
-        // Allow plugins to show tooltips
-        const QTextCursor c = cursorForPosition(pos);
-        const QPoint toolTipPoint = toolTipPosition(c);
-        bool handled = false;
-        BaseTextEditor *ed = editor();
-        emit ed->tooltipOverrideRequested(ed, toolTipPoint, c.position(), &handled);
-        if (!handled)
-            emit ed->tooltipRequested(ed, toolTipPoint, c.position());
+        processTooltipRequest(cursorForPosition(pos));
         return true;
     }
     return QPlainTextEdit::viewportEvent(event);
@@ -4241,9 +4280,13 @@ void BaseTextEditorWidget::keyReleaseEvent(QKeyEvent *e)
     if (e->key() == Qt::Key_Control) {
         clearLink();
     } else if (e->key() == Qt::Key_Shift
-             && d->m_behaviorSettings.m_constrainTooltips
+             && d->m_behaviorSettings.m_constrainHoverTooltips
              && ToolTip::instance()->isVisible()) {
         ToolTip::instance()->hide();
+    } else if (e->key() == Qt::Key_Alt
+               && d->m_maybeFakeTooltipEvent) {
+        d->m_maybeFakeTooltipEvent = false;
+        processTooltipRequest(textCursor());
     }
 
     QPlainTextEdit::keyReleaseEvent(e);
@@ -4370,7 +4413,12 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
             d->extraAreaToggleMarkBlockNumber = -1;
             if (cursor.blockNumber() == n) {
                 int line = n + 1;
-                emit editor()->markRequested(editor(), line);
+                ITextEditor::MarkRequestKind kind;
+                if (QApplication::keyboardModifiers() & Qt::ShiftModifier)
+                    kind = ITextEditor::BookmarkRequest;
+                else
+                    kind = ITextEditor::BreakpointRequest;
+                emit editor()->markRequested(editor(), line, kind);
             }
         }
     }
@@ -4802,8 +4850,9 @@ void BaseTextEditorWidget::markBlocksAsChanged(QList<int> blockNumbers)
 void BaseTextEditorWidget::highlightSearchResults(const QString &txt, Find::FindFlags findFlags)
 {
     QString pattern = txt;
-    if (pattern.size() < 2)
-        pattern.clear(); // highlighting single characters is a bit pointless
+    // highlighting single characters only if you're searching for whole words
+    if (pattern.size() < 2 && !(findFlags & Find::FindWholeWords))
+        pattern.clear();
 
     if (d->m_searchExpr.pattern() == pattern)
         return;
@@ -5348,7 +5397,7 @@ void BaseTextEditorWidget::format()
 void BaseTextEditorWidget::rewrapParagraph()
 {
     const int paragraphWidth = displaySettings().m_wrapColumn;
-    const QRegExp anyLettersOrNumbers = QRegExp("\\w");
+    const QRegExp anyLettersOrNumbers = QRegExp(QLatin1String("\\w"));
     const int tabSize = tabSettings().m_tabSize;
 
     QTextCursor cursor = textCursor();
@@ -5556,7 +5605,7 @@ void BaseTextEditorWidget::setTabSettings(const TabSettings &ts)
 
     // Although the tab stop is stored as qreal the API from QPlainTextEdit only allows it
     // to be set as an int. A work around is to access directly the QTextOption.
-    qreal charWidth = QFontMetricsF(font()).width(QChar(' '));
+    qreal charWidth = QFontMetricsF(font()).width(QLatin1Char(' '));
     QTextOption option = document()->defaultTextOption();
     option.setTabStop(charWidth * ts.m_tabSize);
     document()->setDefaultTextOption(option);
@@ -5714,6 +5763,22 @@ void BaseTextEditorWidget::cut()
     QPlainTextEdit::cut();
 }
 
+void BaseTextEditorWidget::copy()
+{
+    if (!textCursor().hasSelection())
+        return;
+
+    QPlainTextEdit::copy();
+
+    const QMimeData *mimeData = QApplication::clipboard()->mimeData();
+    if (mimeData) {
+        CircularClipboard *circularClipBoard = CircularClipboard::instance();
+        circularClipBoard->collect(duplicateMimeData(mimeData));
+        // We want the latest copied content to be the first one to appear on circular paste.
+        circularClipBoard->toLastCollect();
+    }
+}
+
 void BaseTextEditorWidget::paste()
 {
     if (d->m_inBlockSelectionMode) {
@@ -5722,12 +5787,36 @@ void BaseTextEditorWidget::paste()
     QPlainTextEdit::paste();
 }
 
+void BaseTextEditorWidget::circularPaste()
+{
+    const QMimeData *mimeData = CircularClipboard::instance()->next();
+    if (!mimeData)
+        return;
+
+    QTextCursor cursor = textCursor();
+    if (!d->m_isCirculatingClipboard) {
+        cursor.beginEditBlock();
+        d->m_isCirculatingClipboard = true;
+    } else {
+        cursor.joinPreviousEditBlock();
+    }
+    const int selectionStart = qMin(cursor.position(), cursor.anchor());
+    insertFromMimeData(mimeData);
+    cursor.setPosition(selectionStart, QTextCursor::KeepAnchor);
+    cursor.endEditBlock();
+
+    setTextCursor(flippedCursor(cursor));
+
+    // We want to latest pasted content to replace the system's current clipboard.
+    QPlainTextEdit::copy();
+}
+
 QMimeData *BaseTextEditorWidget::createMimeDataFromSelection() const
 {
     if (d->m_inBlockSelectionMode) {
         QMimeData *mimeData = new QMimeData;
         QString text = d->copyBlockSelection();
-        mimeData->setData(QLatin1String("application/vnd.nokia.qtcreator.vblocktext"), text.toUtf8());
+        mimeData->setData(QLatin1String(kVerticalTextBlockMimeType), text.toUtf8());
         mimeData->setText(text); // for exchangeability
         return mimeData;
     } else if (textCursor().hasSelection()) {
@@ -5801,7 +5890,7 @@ QMimeData *BaseTextEditorWidget::createMimeDataFromSelection() const
             cursor.setPosition(selstart.position());
             cursor.setPosition(selend.position(), QTextCursor::KeepAnchor);
             text = cursor.selectedText();
-            mimeData->setData(QLatin1String("application/vnd.nokia.qtcreator.blocktext"), text.toUtf8());
+            mimeData->setData(QLatin1String(kTextBlockMimeType), text.toUtf8());
         }
         return mimeData;
     }
@@ -5818,8 +5907,8 @@ void BaseTextEditorWidget::insertFromMimeData(const QMimeData *source)
     if (isReadOnly())
         return;
 
-    if (source->hasFormat(QLatin1String("application/vnd.nokia.qtcreator.vblocktext"))) {
-        QString text = QString::fromUtf8(source->data(QLatin1String("application/vnd.nokia.qtcreator.vblocktext")));
+    if (source->hasFormat(QLatin1String(kVerticalTextBlockMimeType))) {
+        QString text = QString::fromUtf8(source->data(QLatin1String(kVerticalTextBlockMimeType)));
         if (text.isEmpty())
             return;
 
@@ -5895,8 +5984,8 @@ void BaseTextEditorWidget::insertFromMimeData(const QMimeData *source)
     bool insertAtBeginningOfLine = ts.cursorIsAtBeginningOfLine(cursor);
 
     if (insertAtBeginningOfLine
-        && source->hasFormat(QLatin1String("application/vnd.nokia.qtcreator.blocktext"))) {
-        text = QString::fromUtf8(source->data(QLatin1String("application/vnd.nokia.qtcreator.blocktext")));
+        && source->hasFormat(QLatin1String(kTextBlockMimeType))) {
+        text = QString::fromUtf8(source->data(QLatin1String(kTextBlockMimeType)));
         if (text.isEmpty())
             return;
     }
@@ -5936,6 +6025,24 @@ void BaseTextEditorWidget::insertFromMimeData(const QMimeData *source)
     setTextCursor(cursor);
 }
 
+QMimeData *BaseTextEditorWidget::duplicateMimeData(const QMimeData *source) const
+{
+    Q_ASSERT(source);
+
+    QMimeData *mimeData = new QMimeData;
+    mimeData->setText(source->text());
+    mimeData->setHtml(source->html());
+    if (source->hasFormat(QLatin1String(kVerticalTextBlockMimeType))) {
+        mimeData->setData(QLatin1String(kVerticalTextBlockMimeType),
+                          source->data(QLatin1String(kVerticalTextBlockMimeType)));
+    } else if (source->hasFormat(QLatin1String(kTextBlockMimeType))) {
+        mimeData->setData(QLatin1String(kTextBlockMimeType),
+                          source->data(QLatin1String(kTextBlockMimeType)));
+    }
+
+    return mimeData;
+}
+
 void BaseTextEditorWidget::appendStandardContextMenuActions(QMenu *menu)
 {
     menu->addSeparator();
@@ -5948,6 +6055,9 @@ void BaseTextEditorWidget::appendStandardContextMenuActions(QMenu *menu)
     if (a && a->isEnabled())
         menu->addAction(a);
     a = am->command(Core::Constants::PASTE)->action();
+    if (a && a->isEnabled())
+        menu->addAction(a);
+    a = am->command(Constants::CIRCULAR_PASTE)->action();
     if (a && a->isEnabled())
         menu->addAction(a);
 }

@@ -58,7 +58,28 @@ namespace Find {
 
 namespace Internal {
 
-    class SearchResultWindowPrivate : public QObject {
+    class InternalScrollArea : public QScrollArea
+    {
+        Q_OBJECT
+    public:
+        explicit InternalScrollArea(QWidget *parent)
+            : QScrollArea(parent)
+        {
+            setFrameStyle(QFrame::NoFrame);
+            setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        }
+
+        QSize sizeHint() const
+        {
+            if (widget())
+                return widget()->size();
+            return QScrollArea::sizeHint();
+        }
+    };
+
+    class SearchResultWindowPrivate : public QObject
+    {
         Q_OBJECT
     public:
         SearchResultWindowPrivate(SearchResultWindow *window);
@@ -210,8 +231,7 @@ SearchResultWindow::SearchResultWindow(QWidget *newSearchPanel)
     d->m_widget = new QStackedWidget;
     d->m_widget->setWindowTitle(displayName());
 
-    QScrollArea *newSearchArea = new QScrollArea(d->m_widget);
-    newSearchArea->setFrameStyle(QFrame::NoFrame);
+    InternalScrollArea *newSearchArea = new InternalScrollArea(d->m_widget);
     newSearchArea->setWidget(newSearchPanel);
     newSearchArea->setFocusProxy(newSearchPanel);
     d->m_widget->addWidget(newSearchArea);
@@ -529,6 +549,8 @@ SearchResult::SearchResult(SearchResultWidget *widget)
             this, SIGNAL(cancelled()));
     connect(widget, SIGNAL(visibilityChanged(bool)),
             this, SIGNAL(visibilityChanged(bool)));
+    connect(widget, SIGNAL(searchAgainRequested()),
+            this, SIGNAL(searchAgainRequested()));
 }
 
 /*!
@@ -562,6 +584,16 @@ QString SearchResult::textToReplace() const
     return m_widget->textToReplace();
 }
 
+int SearchResult::count() const
+{
+    return m_widget->count();
+}
+
+void SearchResult::setSearchAgainSupported(bool supported)
+{
+    m_widget->setSearchAgainSupported(supported);
+}
+
 /*!
     \fn void SearchResult::addResult(const QString &fileName, int lineNumber, const QString &rowText, int searchTermStart, int searchTermLength, const QVariant &userData)
     \brief Adds a single result line to the search results.
@@ -579,6 +611,7 @@ void SearchResult::addResult(const QString &fileName, int lineNumber, const QStr
 {
     m_widget->addResult(fileName, lineNumber, lineText,
                         searchTermStart, searchTermLength, userData);
+    emit countChanged(m_widget->count());
 }
 
 /*!
@@ -591,6 +624,7 @@ void SearchResult::addResult(const QString &fileName, int lineNumber, const QStr
 void SearchResult::addResults(const QList<SearchResultItem> &items, AddMode mode)
 {
     m_widget->addResults(items, mode);
+    emit countChanged(m_widget->count());
 }
 
 /*!
@@ -611,6 +645,19 @@ void SearchResult::finishSearch()
 void SearchResult::setTextToReplace(const QString &textToReplace)
 {
     m_widget->setTextToReplace(textToReplace);
+}
+
+/*!
+ * \brief Removes all search results.
+ */
+void SearchResult::reset()
+{
+    m_widget->reset();
+}
+
+void SearchResult::setSearchAgainEnabled(bool enabled)
+{
+    m_widget->setSearchAgainEnabled(enabled);
 }
 
 } // namespace Find

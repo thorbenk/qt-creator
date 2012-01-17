@@ -15,16 +15,24 @@ SUBDIRS = src share lib/qtcreator/qtcomponents
 unix:!macx:!isEmpty(copydata):SUBDIRS += bin
 
 OTHER_FILES += dist/copyright_template.txt \
-    dist/changes-1.1.0 \
-    dist/changes-1.1.1 \
-    dist/changes-1.2.0 \
-    dist/changes-1.2.1 \
-    dist/changes-1.3.0 \
-    dist/changes-1.3.1 \
-    dist/changes-2.0.0 \
-    dist/changes-2.0.1 \
-    dist/changes-2.1.0 \
-    dist/changes-2.2.0 \
-    dist/changes-2.3.0 \
-    dist/changes-2.3.1 \
-    dist/changes-2.4.0
+    $$files(dist/changes-*)
+
+macx {
+    APPBUNDLE = "$$OUT_PWD/bin/Qt Creator.app"
+    deployqt.commands = macdeployqt "$${APPBUNDLE}" \
+        -executable="$${APPBUNDLE}/Contents/MacOS/qmlpuppet.app/Contents/MacOS/qmlpuppet" \
+        -executable="$${APPBUNDLE}/Contents/Resources/qtpromaker" \
+        -executable="$${APPBUNDLE}/Contents/MacOS/qmlprofiler"
+    deployqt.depends = default
+    bindist.commands = 7z a -mx9 $$OUT_PWD/qtcreator$(INSTALL_POSTFIX).7z "$$OUT_PWD/bin/Qt Creator.app/"
+    dmg.commands = $$PWD/scripts/makedmg.sh $$OUT_PWD/bin qt-creator$(INSTALL_POSTFIX).dmg
+    QMAKE_EXTRA_TARGETS += dmg
+} else {
+    deployqt.commands = $$PWD/scripts/deployqt.py -i $(INSTALL_ROOT)
+    win32:deployqt.commands ~= s,/,\\\\,g
+    deployqt.depends = install
+    bindist.commands = 7z a -mx9 $$OUT_PWD/qtcreator$(INSTALL_POSTFIX).7z $(INSTALL_ROOT)
+    win32:bindist.commands ~= s,/,\\\\,g
+}
+bindist.depends = deployqt
+QMAKE_EXTRA_TARGETS += deployqt bindist

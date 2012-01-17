@@ -96,12 +96,9 @@ public:
     bool isDirty() const;
     void setDirty(bool dirty);
 
-    void enableContextMenu(bool enable);
-
     void addFiles(QStringList fileList, const QModelIndex &index);
 
     void addFile(const QString &prefix, const QString &file);
-//    void removeFile(const QString &prefix, const QString &file);
 
     bool isPrefix(const QModelIndex &index) const;
 
@@ -111,9 +108,6 @@ public:
 
     void setResourceDragEnabled(bool e);
     bool resourceDragEnabled() const;
-
-    void setDefaultAddFileEnabled(bool enable);
-    bool defaultAddFileEnabled() const;
 
     void findSamePlacePostDeletionModelIndex(int &row, QModelIndex &parent) const;
     EntryBackup *removeEntry(const QModelIndex &index);
@@ -125,54 +119,33 @@ public:
     QModelIndex addPrefix();
 
 public slots:
-    void onAddFiles();
     void setCurrentAlias(const QString &before, const QString &after);
     void setCurrentPrefix(const QString &before, const QString &after);
     void setCurrentLanguage(const QString &before, const QString &after);
     void advanceMergeId();
 
 protected:
-    void setupMenu();
-    void changePrefix(const QModelIndex &index);
-    void changeLang(const QModelIndex &index);
-    void changeAlias(const QModelIndex &index);
-    void mouseReleaseEvent(QMouseEvent *e);
     void keyPressEvent(QKeyEvent *e);
 
 signals:
     void removeItem();
     void dirtyChanged(bool b);
-
-    void addFilesTriggered(const QString &prefix);
-    void addPrefixTriggered();
-
-private slots:
-    void onEditAlias();
-    void onEditPrefix();
-    void onEditLang();
-    void popupMenu(const QModelIndex &index);
+    void showContextMenu(const QPoint &globalPos, const QString &fileName);
 
 public:
     QString getCurrentValue(NodeProperty property) const;
     void changeValue(const QModelIndex &nodeIndex, NodeProperty property, const QString &value);
 
+private slots:
+    void showContextMenu(const QPoint &pos);
+
 private:
     void addUndoCommand(const QModelIndex &nodeIndex, NodeProperty property,
                         const QString &before, const QString &after);
 
-    QPoint m_releasePos;
-
     qdesigner_internal::ResourceFile m_qrcFile;
     Internal::RelativeResourceModel *m_qrcModel;
 
-    QAction *m_addFile;
-    QAction *m_editAlias;
-    QAction *m_removeItem;
-    QAction *m_addPrefix;
-    QAction *m_editPrefix;
-    QAction *m_editLang;
-    QMenu *m_viewMenu;
-    bool m_defaultAddFile;
     QUndoStack *m_history;
     int m_mergeId;
 };

@@ -110,6 +110,11 @@ int AbstractRemoteLinuxProcessList::pidAt(int row) const
     return d->remoteProcesses.at(row).pid;
 }
 
+QString AbstractRemoteLinuxProcessList::commandLineAt(int row) const
+{
+    return d->remoteProcesses.at(row).cmdLine;
+}
+
 int AbstractRemoteLinuxProcessList::rowCount(const QModelIndex &parent) const
 {
     return parent.isValid() ? 0 : d->remoteProcesses.count();
@@ -168,14 +173,14 @@ void AbstractRemoteLinuxProcessList::handleRemoteProcessFinished(int exitStatus)
     switch (exitStatus) {
     case SshRemoteProcess::FailedToStart:
         d->errorMsg = tr("Error: Remote process failed to start: %1")
-            .arg(d->process.process()->errorString());
+            .arg(d->process.processErrorString());
         break;
     case SshRemoteProcess::KilledBySignal:
         d->errorMsg = tr("Error: Remote process crashed: %1")
-            .arg(d->process.process()->errorString());
+            .arg(d->process.processErrorString());
         break;
     case SshRemoteProcess::ExitedNormally:
-        if (d->process.process()->exitCode() == 0) {
+        if (d->process.processExitCode() == 0) {
             if (d->state == Listing) {
                 d->remoteProcesses = buildProcessList(QString::fromUtf8(d->remoteStdout.data(),
                     d->remoteStdout.count()));

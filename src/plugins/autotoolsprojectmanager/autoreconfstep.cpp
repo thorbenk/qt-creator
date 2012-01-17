@@ -53,20 +53,14 @@ using namespace AutotoolsProjectManager;
 using namespace AutotoolsProjectManager::Internal;
 using namespace ProjectExplorer;
 
-namespace {
 const char AUTORECONF_STEP_ID[] = "AutotoolsProjectManager.AutoreconfStep";
 const char AUTORECONF_ADDITIONAL_ARGUMENTS_KEY[] = "AutotoolsProjectManager.AutoreconfStep.AdditionalArguments";
-}
 
 ////////////////////////////////
 // AutoreconfStepFactory class
 ////////////////////////////////
 AutoreconfStepFactory::AutoreconfStepFactory(QObject *parent) :
-    ProjectExplorer::IBuildStepFactory(parent)
-{
-}
-
-AutoreconfStepFactory::~AutoreconfStepFactory()
+    IBuildStepFactory(parent)
 {
 }
 
@@ -114,9 +108,9 @@ BuildStep *AutoreconfStepFactory::clone(BuildStepList *parent, BuildStep *source
     return new AutoreconfStep(parent, static_cast<AutoreconfStep *>(source));
 }
 
-bool AutoreconfStepFactory::canRestore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map) const
+bool AutoreconfStepFactory::canRestore(BuildStepList *parent, const QVariantMap &map) const
 {
-    QString id(ProjectExplorer::idFromMap(map));
+    QString id = idFromMap(map);
     return canCreate(parent, id);
 }
 
@@ -134,20 +128,20 @@ BuildStep *AutoreconfStepFactory::restore(BuildStepList *parent, const QVariantM
 /////////////////////////
 // AutoreconfStep class
 /////////////////////////
-AutoreconfStep::AutoreconfStep(ProjectExplorer::BuildStepList *bsl) :
+AutoreconfStep::AutoreconfStep(BuildStepList *bsl) :
     AbstractProcessStep(bsl, QLatin1String(AUTORECONF_STEP_ID)),
     m_runAutoreconf(false)
 {
     ctor();
 }
 
-AutoreconfStep::AutoreconfStep(ProjectExplorer::BuildStepList *bsl, const QString &id) :
+AutoreconfStep::AutoreconfStep(BuildStepList *bsl, const QString &id) :
     AbstractProcessStep(bsl, id)
 {
     ctor();
 }
 
-AutoreconfStep::AutoreconfStep(ProjectExplorer::BuildStepList *bsl, AutoreconfStep *bs) :
+AutoreconfStep::AutoreconfStep(BuildStepList *bsl, AutoreconfStep *bs) :
     AbstractProcessStep(bsl, bs),
     m_additionalArguments(bs->additionalArguments())
 {
@@ -157,10 +151,6 @@ AutoreconfStep::AutoreconfStep(ProjectExplorer::BuildStepList *bsl, AutoreconfSt
 void AutoreconfStep::ctor()
 {
     setDefaultDisplayName(tr("Autoreconf"));
-}
-
-AutoreconfStep::~AutoreconfStep()
-{
 }
 
 AutotoolsBuildConfiguration *AutoreconfStep::autotoolsBuildConfiguration() const
@@ -188,7 +178,7 @@ void AutoreconfStep::run(QFutureInterface<bool> &interface)
 {
     AutotoolsBuildConfiguration *bc = autotoolsBuildConfiguration();
 
-    // Check wether we need to run autoreconf
+    // Check whether we need to run autoreconf
     const QFileInfo configureInfo(bc->buildDirectory() + QLatin1String("/configure"));
 
     if (!configureInfo.exists())
@@ -204,7 +194,7 @@ void AutoreconfStep::run(QFutureInterface<bool> &interface)
     AbstractProcessStep::run(interface);
 }
 
-ProjectExplorer::BuildStepConfigWidget* AutoreconfStep::createConfigWidget()
+BuildStepConfigWidget *AutoreconfStep::createConfigWidget()
 {
     return new AutoreconfStepConfigWidget(this);
 }
@@ -232,7 +222,7 @@ QString AutoreconfStep::additionalArguments() const
 
 QVariantMap AutoreconfStep::toMap() const
 {
-    QVariantMap map(AbstractProcessStep::toMap());
+    QVariantMap map = AbstractProcessStep::toMap();
 
     map.insert(QLatin1String(AUTORECONF_ADDITIONAL_ARGUMENTS_KEY), m_additionalArguments);
     return map;
@@ -268,10 +258,6 @@ AutoreconfStepConfigWidget::AutoreconfStepConfigWidget(AutoreconfStep *autorecon
             autoreconfStep, SLOT(setAdditionalArguments(QString)));
     connect(autoreconfStep, SIGNAL(additionalArgumentsChanged(QString)),
             this, SLOT(updateDetails()));
-}
-
-AutoreconfStepConfigWidget::~AutoreconfStepConfigWidget()
-{
 }
 
 QString AutoreconfStepConfigWidget::displayName() const

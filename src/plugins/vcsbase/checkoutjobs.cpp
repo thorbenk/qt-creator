@@ -44,23 +44,30 @@
 enum { debug = 0 };
 
 /*!
-    \class  VCSBase::AbstractCheckoutJob
+    \class  VcsBase::AbstractCheckoutJob
 
     \brief Abstract base class for a job creating an initial project checkout.
            It should be something that runs in the background producing log messages.
 
-    \sa VCSBase::BaseCheckoutWizard
+    \sa VcsBase::BaseCheckoutWizard
 */
 
-namespace VCSBase {
+namespace VcsBase {
 
-AbstractCheckoutJob::AbstractCheckoutJob(QObject *parent) :
-    QObject(parent)
+namespace Internal {
+
+// Use a terminal-less process to suppress SSH prompts.
+static inline QSharedPointer<QProcess> createProcess()
 {
+    unsigned flags = 0;
+    if (VcsBasePlugin::isSshPromptConfigured())
+        flags = Utils::SynchronousProcess::UnixTerminalDisabled;
+    return Utils::SynchronousProcess::createProcess(flags);
 }
 
-struct ProcessCheckoutJobStep
+class ProcessCheckoutJobStep
 {
+public:
     ProcessCheckoutJobStep() {}
     explicit ProcessCheckoutJobStep(const QString &bin,
                                     const QStringList &args,
@@ -74,7 +81,9 @@ struct ProcessCheckoutJobStep
     QProcessEnvironment environment;
 };
 
-struct ProcessCheckoutJobPrivate {
+class ProcessCheckoutJobPrivate
+{
+public:
     ProcessCheckoutJobPrivate();
 
     QSharedPointer<QProcess> process;
@@ -82,29 +91,27 @@ struct ProcessCheckoutJobPrivate {
     QString binary;
 };
 
-// Use a terminal-less process to suppress SSH prompts.
-static inline QSharedPointer<QProcess> createProcess()
+ProcessCheckoutJobPrivate::ProcessCheckoutJobPrivate() :
+    process(createProcess())
 {
-    unsigned flags = 0;
-    if (VCSBasePlugin::isSshPromptConfigured())
-        flags = Utils::SynchronousProcess::UnixTerminalDisabled;
-    return Utils::SynchronousProcess::createProcess(flags);
+}
+
+} // namespace Internal
+
+AbstractCheckoutJob::AbstractCheckoutJob(QObject *parent) :
+    QObject(parent)
+{
 }
 
 /*!
-    \class VCSBase::ProcessCheckoutJob
+    \class VcsBase::ProcessCheckoutJob
 
-    \brief Convenience implementation of a VCSBase::AbstractCheckoutJob using a QProcess.
+    \brief Convenience implementation of a VcsBase::AbstractCheckoutJob using a QProcess.
 */
-
-ProcessCheckoutJobPrivate::ProcessCheckoutJobPrivate() :
-    process(createProcess())
-{    
-}
 
 ProcessCheckoutJob::ProcessCheckoutJob(QObject *parent) :
     AbstractCheckoutJob(parent),
-    d(new ProcessCheckoutJobPrivate)
+    d(new Internal::ProcessCheckoutJobPrivate)
 {
     connect(d->process.data(), SIGNAL(error(QProcess::ProcessError)), this, SLOT(slotError(QProcess::ProcessError)));
     connect(d->process.data(), SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(slotFinished(int,QProcess::ExitStatus)));
@@ -125,7 +132,7 @@ void ProcessCheckoutJob::addStep(const QString &binary,
 {
     if (debug)
         qDebug() << "ProcessCheckoutJob::addStep" << binary << args << workingDirectory;
-    d->stepQueue.enqueue(ProcessCheckoutJobStep(binary, args, workingDirectory, env));
+    d->stepQueue.enqueue(Internal::ProcessCheckoutJobStep(binary, args, workingDirectory, env));
 }
 
 void ProcessCheckoutJob::slotOutput()
@@ -183,16 +190,16 @@ void ProcessCheckoutJob::slotNext()
         return;
     }
     // Launch next
-    const ProcessCheckoutJobStep step = d->stepQueue.dequeue();
+    const Internal::ProcessCheckoutJobStep step = d->stepQueue.dequeue();
     d->process->setWorkingDirectory(step.workingDirectory);
 
     // Set up SSH correctly.
     QProcessEnvironment processEnv = step.environment;
-    VCSBasePlugin::setProcessEnvironment(&processEnv, false);
+    VcsBasePlugin::setProcessEnvironment(&processEnv, false);
     d->process->setProcessEnvironment(processEnv);
 
     d->binary = step.binary;
-    emit output(VCSBaseOutputWindow::msgExecutionLogEntry(step.workingDirectory, d->binary, step.arguments));
+    emit output(VcsBaseOutputWindow::msgExecutionLogEntry(step.workingDirectory, d->binary, step.arguments));
     d->process->start(d->binary, step.arguments);
 }
 
@@ -205,4 +212,4 @@ void ProcessCheckoutJob::cancel()
     Utils::SynchronousProcess::stopProcess(*d->process);
 }
 
-} // namespace VCSBase
+} // namespace VcsBase

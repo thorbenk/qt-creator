@@ -160,6 +160,7 @@ public:
     virtual WorkingCopy workingCopy() const = 0;
     virtual CPlusPlus::Snapshot snapshot() const = 0;
 
+    virtual QList<ProjectInfo> projectInfos() const = 0;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const = 0;
     virtual void updateProjectInfo(const ProjectInfo &pinfo) = 0;
     virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const = 0;

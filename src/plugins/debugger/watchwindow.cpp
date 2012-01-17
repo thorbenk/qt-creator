@@ -512,10 +512,16 @@ void WatchWindow::collapseNode(const QModelIndex &idx)
 void WatchWindow::keyPressEvent(QKeyEvent *ev)
 {
     if (ev->key() == Qt::Key_Delete && m_type == WatchersType) {
-        QModelIndex idx = currentIndex();
-        QModelIndex idx1 = idx.sibling(idx.row(), 0);
-        QString exp = idx1.data(LocalsRawExpressionRole).toString();
-        removeWatchExpression(exp);
+        QModelIndexList indices = selectionModel()->selectedRows();
+        if (indices.isEmpty() && selectionModel()->currentIndex().isValid())
+            indices.append(selectionModel()->currentIndex());
+        QStringList exps;
+        foreach (const QModelIndex &idx, indices) {
+            QModelIndex idx1 = idx.sibling(idx.row(), 0);
+            exps.append(idx1.data(LocalsRawExpressionRole).toString());
+        }
+        foreach (const QString &exp, exps)
+            removeWatchExpression(exp);
     } else if (ev->key() == Qt::Key_Return
             && ev->modifiers() == Qt::ControlModifier
             && m_type == LocalsType) {
@@ -530,7 +536,7 @@ void WatchWindow::keyPressEvent(QKeyEvent *ev)
 void WatchWindow::dragEnterEvent(QDragEnterEvent *ev)
 {
     //QTreeView::dragEnterEvent(ev);
-    if (ev->mimeData()->hasFormat("text/plain")) {
+    if (ev->mimeData()->hasText()) {
         ev->setDropAction(Qt::CopyAction);
         ev->accept();
     }
@@ -539,7 +545,7 @@ void WatchWindow::dragEnterEvent(QDragEnterEvent *ev)
 void WatchWindow::dragMoveEvent(QDragMoveEvent *ev)
 {
     //QTreeView::dragMoveEvent(ev);
-    if (ev->mimeData()->hasFormat("text/plain")) {
+    if (ev->mimeData()->hasText()) {
         ev->setDropAction(Qt::CopyAction);
         ev->accept();
     }
@@ -547,7 +553,7 @@ void WatchWindow::dragMoveEvent(QDragMoveEvent *ev)
 
 void WatchWindow::dropEvent(QDropEvent *ev)
 {
-    if (ev->mimeData()->hasFormat("text/plain")) {
+    if (ev->mimeData()->hasText()) {
         watchExpression(ev->mimeData()->text());
         //ev->acceptProposedAction();
         ev->setDropAction(Qt::CopyAction);
@@ -701,18 +707,18 @@ void WatchWindow::contextMenuEvent(QContextMenuEvent *ev)
     }
 
     const bool actionsEnabled = engine->debuggerActionsEnabled();
-    const unsigned engineCapabilities = engine->debuggerCapabilities();
-    const bool canHandleWatches = engineCapabilities & AddWatcherCapability;
+    const bool canHandleWatches = engine->hasCapability(AddWatcherCapability);
     const DebuggerState state = engine->state();
     const bool canInsertWatches = state == InferiorStopOk
+        || state == DebuggerNotReady
         || state == InferiorUnrunnable
-        || (state == InferiorRunOk && (engineCapabilities & AddWatcherWhileRunningCapability));
+        || (state == InferiorRunOk && engine->hasCapability(AddWatcherWhileRunningCapability));
 
     QMenu breakpointMenu;
     breakpointMenu.setTitle(tr("Add Data Breakpoint..."));
     QAction *actSetWatchpointAtVariableAddress = 0;
     QAction *actSetWatchpointAtPointerValue = 0;
-    const bool canSetWatchpoint = engineCapabilities & WatchpointByAddressCapability;
+    const bool canSetWatchpoint = engine->hasCapability(WatchpointByAddressCapability);
     if (canSetWatchpoint && address) {
         actSetWatchpointAtVariableAddress =
             new QAction(tr("Add Data Breakpoint at Object's Address (0x%1)")
@@ -737,7 +743,8 @@ void WatchWindow::contextMenuEvent(QContextMenuEvent *ev)
            "to stop when the data at the address is modified."));
 
     QAction *actSetWatchpointAtExpression = 0;
-    if (name.isEmpty()) {
+    const bool canSetWatchpointAtExpression = engine->hasCapability(WatchpointByExpressionCapability);
+    if (name.isEmpty() || !canSetWatchpointAtExpression) {
         actSetWatchpointAtExpression =
             new QAction(tr("Add Data Breakpoint at Expression"),
                 &breakpointMenu);
@@ -763,7 +770,7 @@ void WatchWindow::contextMenuEvent(QContextMenuEvent *ev)
     actInsertNewWatchItem->setEnabled(canHandleWatches && canInsertWatches);
     QAction *actSelectWidgetToWatch = menu.addAction(tr("Select Widget to Watch"));
     actSelectWidgetToWatch->setEnabled(canHandleWatches
-           && (engine->debuggerCapabilities() & WatchWidgetsCapability));
+           && engine->hasCapability(WatchWidgetsCapability));
     QAction *actEditTypeFormats = menu.addAction(tr("Change Global Display Formats..."));
     actEditTypeFormats->setEnabled(true);
     menu.addSeparator();
@@ -798,7 +805,7 @@ void WatchWindow::contextMenuEvent(QContextMenuEvent *ev)
     QAction *actOpenMemoryEditorStackLayout = new QAction(&memoryMenu);
     QAction *actOpenMemoryViewAtVariableAddress = new QAction(&memoryMenu);
     QAction *actOpenMemoryViewAtPointerValue = new QAction(&memoryMenu);
-    if (engineCapabilities & ShowMemoryCapability) {
+    if (engine->hasCapability(ShowMemoryCapability)) {
         actOpenMemoryEditor->setText(tr("Open Memory Editor..."));
         if (address) {
             actOpenMemoryEditAtVariableAddress->setText(

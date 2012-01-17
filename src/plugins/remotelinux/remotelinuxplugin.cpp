@@ -62,6 +62,7 @@ namespace Internal {
 
 RemoteLinuxPlugin::RemoteLinuxPlugin()
 {
+    setObjectName(QLatin1String("RemoteLinuxPlugin"));
 }
 
 bool RemoteLinuxPlugin::initialize(const QStringList &arguments,
@@ -72,6 +73,7 @@ bool RemoteLinuxPlugin::initialize(const QStringList &arguments,
 
     LinuxDeviceConfigurations::instance(this);
 
+    addObject(this);
     addAutoReleasedObject(new LinuxDeviceConfigurationsSettingsPage);
     addAutoReleasedObject(new GenericLinuxDeviceConfigurationFactory);
     addAutoReleasedObject(new RemoteLinuxRunConfigurationFactory);
@@ -87,8 +89,14 @@ bool RemoteLinuxPlugin::initialize(const QStringList &arguments,
     return true;
 }
 
+RemoteLinuxPlugin::~RemoteLinuxPlugin()
+{
+    removeObject(this);
+}
+
 void RemoteLinuxPlugin::extensionsInitialized()
 {
+    /*
     using namespace Core;
     ICore *core = ICore::instance();
     ActionManager *am = core->actionManager();
@@ -97,12 +105,21 @@ void RemoteLinuxPlugin::extensionsInitialized()
 
     const Context globalcontext(Core::Constants::C_GLOBAL);
 
-    QAction *startGdbServerAction = new QAction(tr("Start Remote Debug Server..."), 0);
-    Command *cmd = am->registerAction(startGdbServerAction, "StartGdbServer", globalcontext);
-    cmd->setDefaultText(tr("Start Gdbserver"));
-    mstart->addAction(cmd, Debugger::Constants::G_START_REMOTE);
+    QAction *act = 0;
+    Command *cmd = 0;
 
-    connect(startGdbServerAction, SIGNAL(triggered()), SLOT(startGdbServer()));
+    act = new QAction(tr("Start Remote Debug Server..."), 0);
+    cmd = am->registerAction(act, "StartGdbServer", globalcontext);
+    cmd->setDescription(tr("Start Gdbserver"));
+    mstart->addAction(cmd, Debugger::Constants::G_MANUAL_REMOTE);
+    connect(act, SIGNAL(triggered()), SLOT(startGdbServer()));
+
+    act = new QAction(tr("Attach to Running Remote Process..."), 0);
+    cmd = am->registerAction(act, "AttachRemoteProcess", globalcontext);
+    cmd->setDescription(tr("Attach to Remote Process"));
+    mstart->addAction(cmd, Debugger::Constants::G_AUTOMATIC_REMOTE);
+    connect(act, SIGNAL(triggered()), SLOT(startGdbServer()));
+    */
 }
 
 void RemoteLinuxPlugin::startGdbServer()

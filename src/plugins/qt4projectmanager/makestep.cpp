@@ -130,8 +130,18 @@ bool MakeStep::fromMap(const QVariantMap &map)
 bool MakeStep::init()
 {
     Qt4BuildConfiguration *bc = qt4BuildConfiguration();
+    if (!bc)
+        bc = qobject_cast<Qt4BuildConfiguration *>(target()->activeBuildConfiguration());
 
     m_tasks.clear();
+    if (!bc) {
+        m_tasks.append(ProjectExplorer::Task(ProjectExplorer::Task::Error,
+                                             tr("Qt Creator needs a buildconfiguration set up to build. Configure a tool chain in Project mode."),
+                                             QString(), -1,
+                                             QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+        return false;
+    }
+
     if (!bc->toolChain()) {
         m_tasks.append(ProjectExplorer::Task(ProjectExplorer::Task::Error,
                                              tr("Qt Creator needs a tool chain set up to build. Configure a tool chain in Project mode."),
@@ -170,7 +180,7 @@ bool MakeStep::init()
             Utils::QtcProcess::addArg(&args, makefile);
             m_makeFileToCheck = QDir(workingDirectory).filePath(makefile);
         } else {
-            m_makeFileToCheck = QDir(workingDirectory).filePath("Makefile");
+            m_makeFileToCheck = QDir(workingDirectory).filePath(QLatin1String("Makefile"));
         }
     } else {
         if (!bc->makefile().isEmpty()) {
@@ -178,7 +188,7 @@ bool MakeStep::init()
             Utils::QtcProcess::addArg(&args, bc->makefile());
             m_makeFileToCheck = QDir(workingDirectory).filePath(bc->makefile());
         } else {
-            m_makeFileToCheck = QDir(workingDirectory).filePath("Makefile");
+            m_makeFileToCheck = QDir(workingDirectory).filePath(QLatin1String("Makefile"));
         }
     }
 
@@ -205,7 +215,8 @@ bool MakeStep::init()
             Utils::QtcProcess::addArg(&args, QLatin1String("-w"));
         if (toolChain->targetAbi().os() == ProjectExplorer::Abi::WindowsOS
                 && toolChain->targetAbi().osFlavor() != ProjectExplorer::Abi::WindowsMSysFlavor) {
-            env.set("MAKEFLAGS", env.value("MAKEFLAGS").prepend("L"));
+            const QString makeFlags = QLatin1String("MAKEFLAGS");
+            env.set(makeFlags, QLatin1Char('L') + env.value(makeFlags));
         }
     }
 
@@ -228,12 +239,14 @@ bool MakeStep::init()
 
     setOutputParser(parser);
 
+    m_scriptTarget = (bc->qt4Target()->qt4Project()->rootQt4ProjectNode()->projectType() == ScriptTemplate);
+
     return AbstractProcessStep::init();
 }
 
 void MakeStep::run(QFutureInterface<bool> & fi)
 {
-    if (qt4BuildConfiguration()->qt4Target()->qt4Project()->rootQt4ProjectNode()->projectType() == ScriptTemplate) {
+    if (m_scriptTarget) {
         fi.reportResult(true);
         return;
     }
@@ -341,13 +354,22 @@ void MakeStepConfigWidget::qtVersionChanged()
 
 void MakeStepConfigWidget::updateMakeOverrideLabel()
 {
-    Qt4BuildConfiguration *qt4bc = m_makeStep->qt4BuildConfiguration();
-    m_ui->makeLabel->setText(tr("Override %1:").arg(qt4bc->makeCommand()));
+    Qt4BuildConfiguration *bc = m_makeStep->qt4BuildConfiguration();
+    if (!bc)
+        bc = qobject_cast<Qt4BuildConfiguration *>(m_makeStep->target()->activeBuildConfiguration());
+    if (bc)
+        m_ui->makeLabel->setText(tr("Override %1:").arg(bc->makeCommand()));
+    else
+        m_ui->makeLabel->setText(tr("Make:"));
 }
 
 void MakeStepConfigWidget::updateDetails()
 {
     Qt4BuildConfiguration *bc = m_makeStep->qt4BuildConfiguration();
+    if (!bc)
+        bc = qobject_cast<Qt4BuildConfiguration *>(m_makeStep->target()->activeBuildConfiguration());
+    if (!bc)
+        m_summaryText = tr("No qt4 buildconfiguration."); // Can't happen
 
     ProjectExplorer::ProcessParameters param;
     param.setMacroExpander(bc->macroExpander());
@@ -379,7 +401,8 @@ void MakeStepConfigWidget::updateDetails()
             Utils::QtcProcess::addArg(&args, QLatin1String("-w"));
         if (toolChain->targetAbi().os() == ProjectExplorer::Abi::WindowsOS
                 && toolChain->targetAbi().osFlavor() != ProjectExplorer::Abi::WindowsMSysFlavor) {
-            env.set("MAKEFLAGS", env.value("MAKEFLAGS").prepend("L"));
+            const QString makeFlags = QLatin1String("MAKEFLAGS");
+            env.set(makeFlags, QLatin1Char('L') + env.value(makeFlags));
         }
     }
     param.setArguments(args);
@@ -448,9 +471,9 @@ ProjectExplorer::BuildStep *MakeStepFactory::create(ProjectExplorer::BuildStepLi
     if (!canCreate(parent, id))
         return 0;
     MakeStep *step = new MakeStep(parent);
-    if (parent->id() == ProjectExplorer::Constants::BUILDSTEPS_CLEAN) {
+    if (parent->id() == QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)) {
         step->setClean(true);
-        step->setUserArguments("clean");
+        step->setUserArguments(QLatin1String("clean"));
     }
     return step;
 }

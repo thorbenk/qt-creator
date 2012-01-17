@@ -34,6 +34,7 @@
 #define QMLDEBUGGERCLIENT_H
 
 #include "qmljsprivateapi.h"
+#include "debuggerengine.h"
 
 namespace Debugger {
 namespace Internal {
@@ -60,6 +61,8 @@ public:
     virtual void executeNext() = 0;
     virtual void executeStepI() = 0;
 
+    virtual void executeRunToLine(const ContextData &data) = 0;
+
     virtual void continueInferior() = 0;
     virtual void interruptInferior() = 0;
 
@@ -83,6 +86,8 @@ public:
 
     virtual void setEngine(QmlEngine *engine) = 0;
 
+    virtual void getSourceFiles() {}
+
     void flushSendBuffer();
 
 signals:
@@ -91,6 +96,9 @@ signals:
 protected:
     virtual void statusChanged(Status status);
     void sendMessage(const QByteArray &msg);
+
+    QList<QByteArray> cachedMessages();
+    void clearCachedMessages();
 
 private:
     QmlDebuggerClientPrivate *d;

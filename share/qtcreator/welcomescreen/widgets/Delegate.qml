@@ -173,7 +173,7 @@ Rectangle {
     }
 
     Text {
-        id: text3
+        id: tags
         x: 16
         y: 198
         text: qsTr("Tags:")
@@ -235,7 +235,7 @@ Rectangle {
             if (model.isVideo)
                 gettingStarted.openUrl(model.videoUrl);
             else if (model.hasSourceCode)
-                gettingStarted.openProject(model.projectPath, model.filesToOpen, model.docUrl)
+                gettingStarted.openProject(model.projectPath, model.filesToOpen, model.docUrl, model.dependencies)
             else
                 gettingStarted.openSplitHelp(model.docUrl);
         }
@@ -334,10 +334,11 @@ Rectangle {
         }
     ]
     Flow {
-        x: 47
         y: 198
         width: 159
         height: 32
+        anchors.left: tags.right
+        anchors.leftMargin: 6
         clip: true
 
         spacing: 4

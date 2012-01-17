@@ -47,6 +47,7 @@
 #include <cplusplus/LookupContext.h>
 #include <texteditor/basetexteditor.h>
 #include <texteditor/quickfix.h>
+#include <cpptools/commentssettings.h>
 
 #include <QtCore/QThread>
 #include <QtCore/QMutex>
@@ -63,10 +64,10 @@ QT_END_NAMESPACE
 namespace CPlusPlus {
 class OverviewModel;
 class Symbol;
+class CppModelManagerInterface;
 }
 
 namespace CppTools {
-class CppModelManagerInterface;
 class CppCodeStyleSettings;
 class CppRefactoringFile;
 }
@@ -257,6 +258,8 @@ private Q_SLOTS:
 
     void setDiagnostics(const QList<Clang::Diagnostic> &diagnostics);
 
+    void onCommentsSettingsChanged(const CppTools::CommentsSettings &settings);
+
 private:
     void markSymbols(const QTextCursor &tc, const SemanticInfo &info);
     bool sortedOutline() const;
@@ -291,6 +294,8 @@ private:
     bool openCppEditorAt(const Link &);
 
     QModelIndex indexForPosition(int line, int column, const QModelIndex &rootIndex = QModelIndex()) const;
+
+    bool handleDocumentationComment(QKeyEvent *e);
 
     CPlusPlus::CppModelManagerInterface *m_modelManager;
 
@@ -337,6 +342,8 @@ private:
     Clang::ClangCompleter::Ptr m_clangCompletionWrapper;
     Clang::CodeNavigator m_codeNavigator;
     Clang::SemanticMarker::Ptr m_semanticMarker;
+
+    CppTools::CommentsSettings m_commentsSettings;
 };
 
 

@@ -73,13 +73,13 @@ int SymbianQtVersionFactory::priority() const
     return 50;
 }
 
-QtSupport::BaseQtVersion *SymbianQtVersionFactory::create(const QString &qmakePath, ProFileEvaluator *evaluator, bool isAutoDetected, const QString &autoDetectionSource)
+QtSupport::BaseQtVersion *SymbianQtVersionFactory::create(const Utils::FileName &qmakePath, ProFileEvaluator *evaluator, bool isAutoDetected, const QString &autoDetectionSource)
 {
-    QFileInfo fi(qmakePath);
+    QFileInfo fi = qmakePath.toFileInfo();
     if (!fi.exists() || !fi.isExecutable() || !fi.isFile())
         return 0;
 
-    QString makefileGenerator = evaluator->value("MAKEFILE_GENERATOR");
+    QString makefileGenerator = evaluator->value(QLatin1String("MAKEFILE_GENERATOR"));
     if (makefileGenerator == QLatin1String("SYMBIAN_ABLD") ||
             makefileGenerator == QLatin1String("SYMBIAN_SBSV2") ||
             makefileGenerator == QLatin1String("SYMBIAN_UNIX")) {

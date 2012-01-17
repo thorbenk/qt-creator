@@ -171,7 +171,7 @@ static QList<HeaderPath> gccHeaderPathes(const QString &gcc, const QStringList &
             line = cpp.readLine();
             if (line.startsWith("#include")) {
                 kind = HeaderPath::GlobalHeaderPath;
-            } else if (! line.isEmpty() && QChar(line.at(0)).isSpace()) {
+            } else if (! line.isEmpty() && QChar(QLatin1Char(line.at(0))).isSpace()) {
                 HeaderPath::Kind thisHeaderKind = kind;
 
                 line = line.trimmed();
@@ -186,7 +186,7 @@ static QList<HeaderPath> gccHeaderPathes(const QString &gcc, const QStringList &
             } else if (line.startsWith("End of search list.")) {
                 break;
             } else {
-                qWarning() << "ignore line:" << line;
+                qWarning("%s: Ignoring line: %s", __FUNCTION__, line.constData());
             }
         }
     }
@@ -201,7 +201,7 @@ static QList<ProjectExplorer::Abi> guessGccAbi(const QString &m)
     if (machine.isEmpty())
         return abiList;
 
-    QStringList parts = machine.split(QRegExp("[ /-]"));
+    QStringList parts = machine.split(QRegExp(QLatin1String("[ /-]")));
 
     ProjectExplorer::Abi::Architecture arch = ProjectExplorer::Abi::UnknownArchitecture;
     ProjectExplorer::Abi::OS os = ProjectExplorer::Abi::UnknownOS;
@@ -237,7 +237,7 @@ static QList<ProjectExplorer::Abi> guessGccAbi(const QString &m)
             if (flavor == Abi::UnknownFlavor)
                 flavor = ProjectExplorer::Abi::GenericLinuxFlavor;
             format = ProjectExplorer::Abi::ElfFormat;
-        } else if (p.startsWith("freebsd")) {
+        } else if (p.startsWith(QLatin1String("freebsd"))) {
             os = ProjectExplorer::Abi::BsdOS;
             if (flavor == Abi::UnknownFlavor)
                 flavor = ProjectExplorer::Abi::FreeBsdFlavor;
@@ -431,20 +431,20 @@ QString GccToolChain::debuggerCommand() const
     return m_debuggerCommand;
 }
 
-QString GccToolChain::mkspec() const
+Utils::FileName GccToolChain::mkspec() const
 {
     Abi abi = targetAbi();
     if (abi.os() == Abi::MacOS) {
         QString v = version();
         // prefer versioned g++ on mac. This is required to enable building for older Mac OS versions
-        if (v.startsWith(QLatin1String("4.0")))
-            return QLatin1String("macx-g++40");
-        if (v.startsWith(QLatin1String("4.2")))
-            return QLatin1String("macx-g++42");
-        return QLatin1String("macx-g++");
+        if (v.startsWith(QLatin1String("4.0")) && m_compilerPath.endsWith(QLatin1String("-4.0")))
+            return Utils::FileName::fromString(QLatin1String("macx-g++40"));
+        if (v.startsWith(QLatin1String("4.2")) && m_compilerPath.endsWith(QLatin1String("-4.2")))
+            return Utils::FileName::fromString(QLatin1String("macx-g++42"));
+        return Utils::FileName::fromString(QLatin1String("macx-g++"));
     }
 
-    QList<Abi> gccAbiList = Abi::abisOfBinary(m_compilerPath);
+    QList<Abi> gccAbiList = Abi::abisOfBinary(Utils::FileName::fromString(m_compilerPath));
     Abi gccAbi;
     if (!gccAbiList.isEmpty())
         gccAbi  = gccAbiList.first();
@@ -453,18 +453,18 @@ QString GccToolChain::mkspec() const
                 || gccAbi.os() != abi.os()
                 || gccAbi.osFlavor() != abi.osFlavor())) {
         // Note: This can fail:-(
-        return QString(); // this is a cross-compiler, leave the mkspec alone!
+        return Utils::FileName(); // this is a cross-compiler, leave the mkspec alone!
     }
     if (abi.os() == Abi::LinuxOS) {
         if (abi.osFlavor() != Abi::GenericLinuxFlavor)
-            return QString(); // most likely not a desktop, so leave the mkspec alone.
+            return Utils::FileName(); // most likely not a desktop, so leave the mkspec alone.
         if (abi.wordWidth() == gccAbi.wordWidth())
-            return QLatin1String("linux-g++"); // no need to explicitly set the word width
-        return QLatin1String("linux-g++-") + QString::number(m_targetAbi.wordWidth());
+            return Utils::FileName::fromString(QLatin1String("linux-g++")); // no need to explicitly set the word width
+        return Utils::FileName::fromString(QLatin1String("linux-g++-") + QString::number(m_targetAbi.wordWidth()));
     }
     if (abi.os() == Abi::BsdOS && abi.osFlavor() == Abi::FreeBsdFlavor)
-        return QLatin1String("freebsd-g++");
-    return QString();
+        return Utils::FileName::fromString(QLatin1String("freebsd-g++"));
+    return Utils::FileName();
 }
 
 QString GccToolChain::makeCommand() const
@@ -663,7 +663,7 @@ QList<ToolChain *> Internal::GccToolChainFactory::autoDetectToolchains(const QSt
             return result;
     }
 
-    QString debuggerPath = ToolChainManager::instance()->defaultDebugger(requiredAbi); // Find the first debugger
+    QString debuggerPath = ToolChainManager::instance()->defaultDebugger(requiredAbi).toString(); // Find the first debugger
     if (debuggerPath.isEmpty()) {
         foreach (const QString &debugger, debuggers) {
             debuggerPath = systemEnvironment.searchInPath(debugger);
@@ -786,7 +786,7 @@ void Internal::GccToolChainConfigWidget::handleAbiChange()
 {
     if (m_autoDebuggerCommand == debuggerCommand()) {
         ProjectExplorer::Abi abi = m_abiWidget->currentAbi();
-        m_autoDebuggerCommand = ToolChainManager::instance()->defaultDebugger(abi);
+        m_autoDebuggerCommand = ToolChainManager::instance()->defaultDebugger(abi).toString();
         setDebuggerCommand(m_autoDebuggerCommand);
     }
     emit dirty(toolChain());
@@ -814,14 +814,14 @@ QString ClangToolChain::makeCommand() const
 #endif
 }
 
-QString ClangToolChain::mkspec() const
+Utils::FileName ClangToolChain::mkspec() const
 {
     Abi abi = targetAbi();
     if (abi.os() == Abi::MacOS)
-        return QLatin1String("unsupported/macx-clang");
+        return Utils::FileName::fromString(QLatin1String("unsupported/macx-clang"));
     else if (abi.os() == Abi::LinuxOS)
-        return QLatin1String("unsupported/linux-clang");
-    return QString(); // Note: Not supported by Qt yet, so default to the mkspec the Qt was build with
+        return Utils::FileName::fromString(QLatin1String("unsupported/linux-clang"));
+    return Utils::FileName(); // Note: Not supported by Qt yet, so default to the mkspec the Qt was build with
 }
 
 IOutputParser *ClangToolChain::outputParser() const
@@ -897,14 +897,31 @@ QString MingwToolChain::typeName() const
     return Internal::MingwToolChainFactory::tr("MinGW");
 }
 
-QString MingwToolChain::mkspec() const
+Utils::FileName MingwToolChain::mkspec() const
 {
-    return QLatin1String("win32-g++");
+    return Utils::FileName::fromString(QLatin1String("win32-g++"));
 }
 
 QString MingwToolChain::makeCommand() const
 {
     return QLatin1String("mingw32-make.exe");
+}
+
+QString MingwToolChain::findInstalledJom()
+{
+    if (Abi::hostAbi().os() != Abi::WindowsOS) {
+        qWarning() << "Jom can only be used on Windows";
+        return QString();
+    }
+
+    // We want jom! Try to find it.
+    const QString jom = QLatin1String("jom.exe");
+    const QFileInfo installedJom = QFileInfo(QCoreApplication::applicationDirPath()
+                                             + QLatin1Char('/') + jom);
+    if (installedJom.isFile() && installedJom.isExecutable())
+        return installedJom.absoluteFilePath();
+    else
+        return jom;
 }
 
 ToolChain *MingwToolChain::clone() const
@@ -935,7 +952,7 @@ QList<ToolChain *> Internal::MingwToolChainFactory::autoDetect()
     foreach (ToolChain *tc, ToolChainManager::instance()->toolChains()) {
         if (tc->debuggerCommand().isEmpty() && tc->id().startsWith(QLatin1String(Constants::MINGW_TOOLCHAIN_ID)))
             static_cast<MingwToolChain *>(tc)
-                ->setDebuggerCommand(ToolChainManager::instance()->defaultDebugger(tc->targetAbi()));
+                ->setDebuggerCommand(ToolChainManager::instance()->defaultDebugger(tc->targetAbi()).toString());
     }
 
     Abi ha = Abi::hostAbi();
@@ -991,9 +1008,9 @@ IOutputParser *LinuxIccToolChain::outputParser() const
     return new LinuxIccParser;
 }
 
-QString LinuxIccToolChain::mkspec() const
+Utils::FileName LinuxIccToolChain::mkspec() const
 {
-    return QLatin1String("linux-icc-") + QString::number(targetAbi().wordWidth());
+    return Utils::FileName::fromString(QLatin1String("linux-icc-") + QString::number(targetAbi().wordWidth()));
 }
 
 ToolChain *LinuxIccToolChain::clone() const

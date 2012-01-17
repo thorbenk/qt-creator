@@ -39,6 +39,14 @@
 
 #include <QtNetwork/QAbstractSocket>
 
+QT_BEGIN_NAMESPACE
+class QTextDocument;
+QT_END_NAMESPACE
+
+namespace Core {
+class IEditor;
+}
+
 namespace Debugger {
 
 class QmlAdapter;
@@ -68,11 +76,16 @@ public:
 
     void showMessage(const QString &msg, int channel = LogDebug,
                      int timeout = -1) const;
+    void gotoLocation(const Internal::Location &location);
+
     void filterApplicationMessage(const QString &msg, int channel);
     QString toFileInProject(const QUrl &fileUrl);
     void inferiorSpontaneousStop();
 
-    void logMessage(LogDirection direction, const QString &str);
+    void logMessage(const QString &service, LogDirection direction, const QString &str);
+
+    void setSourceFiles(const QStringList &fileNames);
+    void updateScriptSource(const QString &fileName, int lineOffset, int columnOffset, const QString &source);
 
     QmlAdapter *adapter() const;
 
@@ -120,12 +133,14 @@ private:
 
     void assignValueInDebugger(const WatchData *data,
         const QString &expr, const QVariant &value);
+
+
     void loadSymbols(const QString &moduleName);
     void loadAllSymbols();
     void requestModuleSymbols(const QString &moduleName);
     void reloadModules();
     void reloadRegisters() {}
-    void reloadSourceFiles() {}
+    void reloadSourceFiles();
     void reloadFullStack() {}
 
     bool supportsThreads() const { return false; }
@@ -133,7 +148,7 @@ private:
         const WatchUpdateFlags &flags);
     void executeDebuggerCommand(const QString &command);
 
-    unsigned int debuggerCapabilities() const;
+    bool hasCapability(unsigned) const;
 
 signals:
     void tooltipRequested(const QPoint &mousePos,
@@ -159,6 +174,8 @@ private:
     QString mangleFilenamePaths(const QString &filename,
         const QString &oldBasePath, const QString &newBasePath) const;
     QString qmlImportPath() const;
+
+    void updateEditor(Core::IEditor *editor, const QTextDocument *document);
 
 private:
     friend class QmlCppEngine;

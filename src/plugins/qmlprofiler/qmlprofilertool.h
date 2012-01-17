@@ -52,6 +52,7 @@ public:
     ~QmlProfilerTool();
 
     Core::Id id() const;
+    ProjectExplorer::RunMode runMode() const;
     QString displayName() const;
     QString description() const;
     ToolMode toolMode() const;
@@ -60,6 +61,13 @@ public:
 
     Analyzer::IAnalyzerEngine *createEngine(const Analyzer::AnalyzerStartParameters &sp,
         ProjectExplorer::RunConfiguration *runConfiguration = 0);
+
+    bool canRun(ProjectExplorer::RunConfiguration *runConfiguration,
+                ProjectExplorer::RunMode mode) const;
+
+    Analyzer::AnalyzerStartParameters createStartParameters(
+            ProjectExplorer::RunConfiguration *runConfiguration,
+            ProjectExplorer::RunMode mode) const;
 
     QWidget *createWidgets();
     void startTool(Analyzer::StartMode mode);
@@ -76,8 +84,8 @@ public slots:
     void setAppIsStopped();
 
     void gotoSourceLocation(const QString &fileUrl, int lineNumber);
-    void updateTimer(qreal elapsedSeconds);
-    void correctTimer();
+    void updateTimers();
+    void profilerStateChanged(bool qmlActive, bool v8active);
 
     void clearDisplay();
 
@@ -85,6 +93,7 @@ public slots:
 
 signals:
     void setTimeLabel(const QString &);
+    void setStatusLabel(const QString &);
     void fetchingData(bool);
     void connectionFailed();
     void cancelRun();

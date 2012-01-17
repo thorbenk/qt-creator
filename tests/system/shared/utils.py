@@ -54,13 +54,15 @@ def verifyEnabled(objectSpec, expectedState = True):
 # param itemName is the item to be selected in the combo box
 def selectFromCombo(objectSpec, itemName):
     object = verifyEnabled(objectSpec)
-    mouseClick(object, 5, 5, 0, Qt.LeftButton)
-    mouseClick(waitForObjectItem(object, itemName), 5, 5, 0, Qt.LeftButton)
+    if itemName != str(object.currentText):
+        mouseClick(object, 5, 5, 0, Qt.LeftButton)
+        mouseClick(waitForObjectItem(object, itemName.replace(".", "\\.")), 5, 5, 0, Qt.LeftButton)
+        waitFor("str(object.currentText)==itemName", 5000)
 
 def selectFromLocator(filter, itemName = None):
     if itemName == None:
         itemName = filter
-    itemName = itemName.replace(".", "\\.")
+    itemName = itemName.replace(".", "\\.").replace("_", "\\_")
     locator = waitForObject(":*Qt Creator_Utils::FilterLineEdit", 20000)
     mouseClick(locator, 5, 5, 0, Qt.LeftButton)
     replaceEditorContent(locator, filter)
@@ -160,10 +162,13 @@ def cleanUpUserFiles(pathsToProFiles=None):
             doneWithoutErrors = False
     return doneWithoutErrors
 
-def invokeMenuItem(menu, item):
+def invokeMenuItem(menu, item, subItem = None):
     menuObject = waitForObjectItem("{type='QMenuBar' visible='true'}", menu)
     activateItem(menuObject)
-    activateItem(waitForObjectItem(objectMap.realName(menuObject), item))
+    itemObject = waitForObjectItem(objectMap.realName(menuObject), item)
+    activateItem(itemObject)
+    if subItem != None:
+        activateItem(waitForObjectItem("{type='QMenu' visible='1' title='%s'}" % item, subItem))
 
 def logApplicationOutput():
     # make sure application output is shown
@@ -178,3 +183,37 @@ def getOutputFromCmdline(cmdline):
     result = versCall.communicate()[0]
     versCall.stdout.close()
     return result
+
+def selectFromFileDialog(fileName):
+    if platform.system() == "Darwin":
+        snooze(1)
+        nativeType("<Command+Shift+g>")
+        snooze(1)
+        nativeType(fileName)
+        snooze(1)
+        nativeType("<Return>")
+        snooze(2)
+        nativeType("<Return>")
+    else:
+        waitForObject("{name='QFileDialog' type='QFileDialog' visible='1'}")
+        pathLine = waitForObject("{name='fileNameEdit' type='QLineEdit' visible='1'}")
+        replaceEditorContent(pathLine, os.path.abspath(fileName))
+        clickButton(findObject("{text='Open' type='QPushButton'}"))
+
+# add qt.qch from SDK path
+def addHelpDocumentationFromSDK():
+    global sdkPath
+    invokeMenuItem("Tools", "Options...")
+    waitForObjectItem(":Options_QListView", "Help")
+    clickItem(":Options_QListView", "Help", 14, 15, 0, Qt.LeftButton)
+    waitForObject("{container=':Options.qt_tabwidget_tabbar_QTabBar' type='TabItem' text='Documentation'}")
+    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Documentation")
+    # get rid of all docs already registered
+    listWidget = waitForObject("{type='QListWidget' name='docsListWidget' visible='1'}")
+    for i in range(listWidget.count):
+        rect = listWidget.visualItemRect(listWidget.item(0))
+        mouseClick(listWidget, rect.x+5, rect.y+5, 0, Qt.LeftButton)
+        mouseClick(waitForObject("{type='QPushButton' name='removeButton' visible='1'}"), 5, 5, 0, Qt.LeftButton)
+    clickButton(waitForObject("{type='QPushButton' name='addButton' visible='1' text='Add...'}"))
+    selectFromFileDialog("%s/Documentation/qt.qch" % sdkPath)
+    clickButton(waitForObject(":Options.OK_QPushButton"))

@@ -40,12 +40,13 @@ class QSettings;
 class QDebug;
 QT_END_NAMESPACE
 
-namespace VCSBase {
+namespace VcsBase {
 namespace Internal {
 
 // Common VCS settings, message check script and user nick names.
-struct CommonVcsSettings
+class CommonVcsSettings
 {
+public:
     CommonVcsSettings();
 
     QString nickNameMailMap;
@@ -73,6 +74,6 @@ inline bool operator!=(const CommonVcsSettings &s1, const CommonVcsSettings &s2)
 QDebug operator<<(QDebug, const CommonVcsSettings &);
 
 } // namespace Internal
-} // namespace VCSBase
+} // namespace VcsBase
 
 #endif // COMMONVCSSETTINGS_H

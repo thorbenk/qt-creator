@@ -41,7 +41,9 @@
 #include <QtCore/QVariant>
 
 QT_BEGIN_NAMESPACE
+class QAction;
 class QMainWindow;
+class QMenu;
 QT_END_NAMESPACE
 
 namespace Core {
@@ -135,10 +137,14 @@ public:
     QString projectsDirectory() const;
     void setProjectsDirectory(const QString &);
 
+    static void populateOpenWithMenu(QMenu *menu, const QString &fileName);
+
 public slots:
     /* Used to notify e.g. the code model to update the given files. Does *not*
        lead to any editors to reload or any other editor manager actions. */
     void notifyFilesChangedInternally(const QStringList &files);
+
+    void executeOpenWithMenuAction(QAction *action);
 
 signals:
     void currentFileChanged(const QString &filePath);

@@ -344,7 +344,11 @@ Qt4Project::~Qt4Project()
     m_manager->unregisterProject(this);
     delete m_projectFiles;
     m_cancelEvaluate = true;
-    delete m_rootProjectNode;
+    // Deleting the root node triggers a few things, make sure rootProjectNode
+    // returns 0 already
+    Qt4ProFileNode *root = m_rootProjectNode;
+    m_rootProjectNode = 0;
+    delete root;
 }
 
 void Qt4Project::updateFileList()
@@ -530,7 +534,7 @@ void Qt4Project::updateCppCodeModel()
         if (version) {
             if (!version->frameworkInstallPath().isEmpty())
                 part->frameworkPaths.append(version->frameworkInstallPath());
-            part->includePaths.append(version->mkspecPath());
+            part->includePaths.append(version->mkspecPath().toString());
         }
 
         // part->precompiledHeaders
@@ -584,9 +588,9 @@ void Qt4Project::updateQmlJSCodeModel()
         preferDebugDump = activeTarget()->activeQt4BuildConfiguration()->qmakeBuildConfiguration() & QtSupport::BaseQtVersion::DebugBuild;
         QtSupport::BaseQtVersion *qtVersion = activeTarget()->activeQt4BuildConfiguration()->qtVersion();
         if (qtVersion && qtVersion->isValid()) {
-            projectInfo.tryQmlDump = qtVersion->type() == QtSupport::Constants::DESKTOPQT
-                    || qtVersion->type() == QtSupport::Constants::SIMULATORQT;
-            projectInfo.qtImportsPath = qtVersion->versionInfo().value("QT_INSTALL_IMPORTS");
+            projectInfo.tryQmlDump = qtVersion->type() == QLatin1String(QtSupport::Constants::DESKTOPQT)
+                    || qtVersion->type() == QLatin1String(QtSupport::Constants::SIMULATORQT);
+            projectInfo.qtImportsPath = qtVersion->versionInfo().value(QLatin1String("QT_INSTALL_IMPORTS"));
             if (!projectInfo.qtImportsPath.isEmpty())
                 projectInfo.importPaths += projectInfo.qtImportsPath;
             projectInfo.qtVersionString = qtVersion->qtVersionString();
@@ -795,7 +799,8 @@ void Qt4Project::asyncUpdate()
     Core::ProgressManager *progressManager = Core::ICore::instance()->progressManager();
 
     m_asyncUpdateFutureInterface->setProgressRange(0, 0);
-    progressManager->addTask(m_asyncUpdateFutureInterface->future(), tr("Evaluating"), Constants::PROFILE_EVALUATE);
+    progressManager->addTask(m_asyncUpdateFutureInterface->future(), tr("Evaluating"),
+                             QLatin1String(Constants::PROFILE_EVALUATE));
     if (debug)
         qDebug()<<"  adding task";
 
@@ -922,7 +927,7 @@ QtSupport::ProFileReader *Qt4Project::createProFileReader(Qt4ProFileNode *qt4Pro
             QStringList args;
             if (QMakeStep *qs = bc->qmakeStep()) {
                 args = qs->parserArguments();
-                m_proFileOption->qmakespec = qs->mkspec();
+                m_proFileOption->qmakespec = qs->mkspec().toString();
             } else {
                 args = bc->configCommandLineArguments();
             }
@@ -1147,7 +1152,7 @@ QSet<QString> CentralizedFolderWatcher::recursiveDirs(const QString &folder)
     QDir dir(folder);
     QStringList list = dir.entryList(QDir::Dirs | QDir::NoSymLinks | QDir::NoDotAndDotDot);
     foreach (const QString &f, list) {
-        const QString a = folder + f + '/';
+        const QString a = folder + f + QLatin1Char('/');
         result.insert(a);
         result += recursiveDirs(a);
     }
@@ -1160,10 +1165,11 @@ void CentralizedFolderWatcher::watchFolders(const QList<QString> &folders, Qt4Pr
         qDebug()<<"CFW::watchFolders()"<<folders<<"for node"<<node->path();
     m_watcher.addPaths(folders);
 
+    const QChar slash = QLatin1Char('/');
     foreach (const QString &f, folders) {
         QString folder = f;
-        if (!folder.endsWith('/'))
-            folder.append('/');
+        if (!folder.endsWith(slash))
+            folder.append(slash);
         m_map.insert(folder, node);
 
         // Support for recursive watching
@@ -1182,10 +1188,11 @@ void CentralizedFolderWatcher::unwatchFolders(const QList<QString> &folders, Qt4
 {
     if (debugCFW)
         qDebug()<<"CFW::unwatchFolders()"<<folders<<"for node"<<node->path();
+    const QChar slash = QLatin1Char('/');
     foreach (const QString &f, folders) {
         QString folder = f;
-        if (!folder.endsWith('/'))
-            folder.append('/');
+        if (!folder.endsWith(slash))
+            folder.append(slash);
         m_map.remove(folder, node);
         if (!m_map.contains(folder)) {
             m_watcher.removePath(folder);
@@ -1246,9 +1253,10 @@ void CentralizedFolderWatcher::delayedFolderChanged(const QString &folder)
     // Figure out whom to inform
 
     QString dir = folder;
+    const QChar slash = QLatin1Char('/');
     while (true) {
-        if (!dir.endsWith('/'))
-            dir.append('/');
+        if (!dir.endsWith(slash))
+            dir.append(slash);
         QList<Qt4ProjectManager::Qt4PriFileNode *> nodes = m_map.values(dir);
         foreach (Qt4ProjectManager::Qt4PriFileNode *node, nodes) {
             node->folderChanged(folder);
@@ -1260,16 +1268,16 @@ void CentralizedFolderWatcher::delayedFolderChanged(const QString &folder)
             break;
 
         // We start before the last slash
-        int index = dir.lastIndexOf('/', dir.length() - 2);
+        const int index = dir.lastIndexOf(slash, dir.length() - 2);
         if (index == -1)
             break;
-        dir = dir.left(index + 1);
+        dir.truncate(index + 1);
     }
 
 
     QString folderWithSlash = folder;
-    if (!folder.endsWith('/'))
-        folderWithSlash.append('/');
+    if (!folder.endsWith(slash))
+        folderWithSlash.append(slash);
 
     // If a subdirectory was added, watch it too
     QSet<QString> tmp = recursiveDirs(folderWithSlash);

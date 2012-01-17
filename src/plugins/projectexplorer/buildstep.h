@@ -140,10 +140,33 @@ public:
     virtual QString summaryText() const = 0;
     virtual QString additionalSummaryText() const { return QString(); }
     virtual QString displayName() const = 0;
+    virtual bool showWidget() const { return true; }
 
 signals:
     void updateSummary();
     void updateAdditionalSummary();
+};
+
+class PROJECTEXPLORER_EXPORT SimpleBuildStepConfigWidget
+    : public BuildStepConfigWidget
+{
+    Q_OBJECT
+public:
+    SimpleBuildStepConfigWidget(BuildStep *step)
+        : m_step(step)
+    {
+        connect(m_step, SIGNAL(displayNameChanged()), SIGNAL(updateSummary()));
+    }
+
+    ~SimpleBuildStepConfigWidget() {}
+
+    QString summaryText() const { return QLatin1String("<b>") + displayName() + QLatin1String("</b>"); }
+    QString displayName() const { return m_step->displayName(); }
+    bool showWidget() const { return false; }
+    BuildStep *step() const { return m_step; }
+
+private:
+    BuildStep *m_step;
 };
 
 } // namespace ProjectExplorer

@@ -560,7 +560,6 @@ bool CdbEngine::setToolTipExpression(const QPoint &mousePos,
     }
     DebuggerToolTipWidget *tw = new DebuggerToolTipWidget;
     tw->setContext(context);
-    tw->setDebuggerModel(LocalsWatch);
     tw->setExpression(exp);
     tw->acquireEngine(this);
     DebuggerToolTipManager::instance()->showToolTip(mousePos, editor, tw);
@@ -1050,7 +1049,7 @@ void CdbEngine::handleAddWatch(const CdbExtensionCommandPtr &reply)
         watchHandler()->insertData(item);
         showMessage(QString::fromLatin1("Unable to add watch item '%1'/'%2': %3").
                     arg(QString::fromAscii(item.iname), QString::fromAscii(item.exp),
-                        reply->errorMessage), LogError);
+                        QString::fromLocal8Bit(reply->errorMessage)), LogError);
     }
 }
 
@@ -1088,16 +1087,18 @@ void CdbEngine::updateLocalVariable(const QByteArray &iname)
     postExtensionCommand(isWatch ? "watches" : "locals", localsArguments, 0, &CdbEngine::handleLocals);
 }
 
-unsigned CdbEngine::debuggerCapabilities() const
+bool CdbEngine::hasCapability(unsigned cap) const
 {
-    return DisassemblerCapability | RegisterCapability | ShowMemoryCapability
+    return cap & (DisassemblerCapability | RegisterCapability
+           | ShowMemoryCapability
            |WatchpointByAddressCapability|JumpToLineCapability|AddWatcherCapability|WatchWidgetsCapability
            |ReloadModuleCapability
            |BreakOnThrowAndCatchCapability // Sort-of: Can break on throw().
            |BreakConditionCapability|TracePointCapability
            |BreakModuleCapability
            |OperateByInstructionCapability
-           |RunToLineCapability;
+           |RunToLineCapability
+           |MemoryAddressCapability);
 }
 
 void CdbEngine::executeStep()
@@ -1263,12 +1264,14 @@ void CdbEngine::handleJumpToLineAddressResolution(const CdbBuiltinCommandPtr &cm
         return;
     // Evaluate expression: 5365511549 = 00000001`3fcf357d
     // Set register 'rip' to hex address and goto lcoation
-    QString answer = QString::fromAscii(cmd->reply.front()).trimmed();
+    QByteArray answer = cmd->reply.front().trimmed();
     const int equalPos = answer.indexOf(" = ");
     if (equalPos == -1)
         return;
     answer.remove(0, equalPos + 3);
-    answer.remove(QLatin1Char('`'));
+    const int apPos = answer.indexOf('`');
+    if (apPos != -1)
+        answer.remove(apPos, 1);
     bool ok;
     const quint64 address = answer.toLongLong(&ok, 16);
     if (ok && address) {
@@ -1542,7 +1545,6 @@ void CdbEngine::selectThread(int index)
     if (index < 0 || index == threadsHandler()->currentThread())
         return;
 
-    resetLocation();
     const int newThreadId = threadsHandler()->threads().at(index).id;
     threadsHandler()->setCurrentThread(index);
 
@@ -2844,7 +2846,7 @@ void CdbEngine::handleStackTrace(const CdbExtensionCommandPtr &command)
         parseStackTrace(data, false);
         postCommandSequence(command->commandSequence);
     } else {
-        showMessage(command->errorMessage, LogError);
+        showMessage(QString::fromLocal8Bit(command->errorMessage), LogError);
     }
 }
 
@@ -2854,7 +2856,7 @@ void CdbEngine::handleExpression(const CdbExtensionCommandPtr &command)
     if (command->success) {
         value = command->reply.toInt();
     } else {
-        showMessage(command->errorMessage, LogError);
+        showMessage(QString::fromLocal8Bit(command->errorMessage), LogError);
     }
     // Is this a conditional breakpoint?
     if (command->cookie.isValid() && qVariantCanConvert<ConditionalBreakPointCookie>(command->cookie)) {

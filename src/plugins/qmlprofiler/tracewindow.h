@@ -107,6 +107,7 @@ public:
     bool hasValidSelection() const;
     qint64 selectionStart() const;
     qint64 selectionEnd() const;
+    double profiledTime() const;
 
 public slots:
     void updateCursorPosition();
@@ -124,16 +125,19 @@ public slots:
     void qmlComplete();
     void v8Complete();
     void selectNextEvent(int eventId);
+    void updateProfilerState();
+    void updateToolTip(const QString &text);
 
 signals:
     void viewUpdated();
+    void profilerStateChanged(bool qmlActive, bool v8active);
     void gotoSourceLocation(const QString &fileUrl, int lineNumber);
-    void timeChanged(qreal newTime);
     void range(int type, qint64 startTime, qint64 length, const QStringList &data, const QString &fileName, int line);
     void v8range(int depth,const QString &function,const QString &filename,
                int lineNumber, double totalTime, double selfTime);
     void traceFinished(qint64);
     void traceStarted(qint64);
+    void frameEvent(qint64, int, int);
 
     void internalClearDisplay();
     void jumpToPrev();
@@ -154,6 +158,8 @@ private:
     void contextMenuEvent(QContextMenuEvent *);
     QWidget *createToolbar();
     QWidget *createZoomToolbar();
+    void connectClientSignals();
+    void disconnectClientSignals();
 
 protected:
     virtual void resizeEvent(QResizeEvent *event);
@@ -169,6 +175,7 @@ private:
     QmlJsDebugClient::QmlProfilerEventList *m_eventList;
     bool m_qmlDataReady;
     bool m_v8DataReady;
+    double m_profiledTime;
 
     QWeakPointer<ZoomControl> m_zoomControl;
 

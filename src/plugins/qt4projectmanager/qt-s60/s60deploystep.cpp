@@ -135,7 +135,7 @@ S60DeployStep::S60DeployStep(ProjectExplorer::BuildStepList *bc):
 void S60DeployStep::ctor()
 {
     //: Qt4 Deploystep display name
-    setDefaultDisplayName(tr("Deploy"));
+    setDefaultDisplayName(tr("Deploy SIS Package"));
     m_timeoutTimer->setSingleShot(true);
     m_timeoutTimer->setInterval(10000);
     connect(m_timeoutTimer, SIGNAL(timeout()), this, SLOT(timeout()));
@@ -196,7 +196,7 @@ void S60DeployStep::reportError(const QString &error)
     emit addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error,
                                        error,
                                        QString(), -1,
-                                       ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
+                                       QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     emit finished(false);
 }
 
@@ -605,7 +605,7 @@ void S60DeployStep::checkForCancel()
         emit addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error,
                                            canceledText,
                                            QString(), -1,
-                                           ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
+                                           QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
         emit finishNow(false);
     }
 }
@@ -657,25 +657,9 @@ void S60DeployStep::timeout()
     reportError(tr("A timeout while deploying has occurred. CODA might not be responding. Try reconnecting the device."));
 }
 
-// #pragma mark -- S60DeployStepWidget
-
 BuildStepConfigWidget *S60DeployStep::createConfigWidget()
 {
-    return new S60DeployStepWidget();
-}
-
-S60DeployStepWidget::S60DeployStepWidget() : ProjectExplorer::BuildStepConfigWidget()
-{
-}
-
-QString S60DeployStepWidget::summaryText() const
-{
-    return QString("<b>%1</b>").arg(displayName());
-}
-
-QString S60DeployStepWidget::displayName() const
-{
-    return tr("Deploy SIS Package");
+    return new SimpleBuildStepConfigWidget(this);
 }
 
 // #pragma mark -- S60DeployStepFactory

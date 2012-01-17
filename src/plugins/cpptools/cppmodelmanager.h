@@ -107,6 +107,7 @@ public:
     virtual QFuture<void> updateSourceFiles(const QStringList &sourceFiles);
     virtual WorkingCopy workingCopy() const;
 
+    virtual QList<ProjectInfo> projectInfos() const;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const;
     virtual void updateProjectInfo(const ProjectInfo &pinfo);
     virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const;

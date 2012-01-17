@@ -43,10 +43,12 @@ QT_BEGIN_NAMESPACE
 class QWizardPage;
 QT_END_NAMESPACE
 
-namespace VCSBase {
+namespace VcsBase {
+namespace Internal {
+class BaseCheckoutWizardPrivate;
+}
 
 class AbstractCheckoutJob;
-struct BaseCheckoutWizardPrivate;
 
 class VCSBASE_EXPORT BaseCheckoutWizard : public Core::IWizard
 {
@@ -78,9 +80,9 @@ private slots:
     void slotProgressPageShown();
 
 private:
-    BaseCheckoutWizardPrivate *d;
+    Internal::BaseCheckoutWizardPrivate *const d;
 };
 
-} // namespace VCSBase
+} // namespace VcsBase
 
 #endif // BASECHECKOUTWIZARD_H

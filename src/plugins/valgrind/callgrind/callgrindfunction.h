@@ -34,12 +34,7 @@
 #define LIBVALGRIND_CALLGRIND_FUNCTION_H
 
 #include <QtCore/QMetaType>
-
-QT_BEGIN_NAMESPACE
-class QString;
-template <typename T> class QVector;
-template <typename T> class QSet;
-QT_END_NAMESPACE
+#include <QtCore/QVector>
 
 namespace Valgrind {
 namespace Callgrind {

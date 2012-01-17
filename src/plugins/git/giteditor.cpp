@@ -61,9 +61,9 @@ namespace Git {
 namespace Internal {
 
 // ------------ GitEditor
-GitEditor::GitEditor(const VCSBase::VCSBaseEditorParameters *type,
+GitEditor::GitEditor(const VcsBase::VcsBaseEditorParameters *type,
                      QWidget *parent)  :
-    VCSBase::VCSBaseEditorWidget(type, parent),
+    VcsBase::VcsBaseEditorWidget(type, parent),
     m_changeNumberPattern8(QLatin1String(CHANGE_PATTERN_8C)),
     m_changeNumberPattern40(QLatin1String(CHANGE_PATTERN_40C))
 {
@@ -110,13 +110,13 @@ QString GitEditor::changeUnderCursor(const QTextCursor &c) const
     return QString();
 }
 
-VCSBase::DiffHighlighter *GitEditor::createDiffHighlighter() const
+VcsBase::DiffHighlighter *GitEditor::createDiffHighlighter() const
 {
     const QRegExp filePattern(QLatin1String("^(diff --git a/|index |[+-][+-][+-] [ab]).*$"));
-    return new VCSBase::DiffHighlighter(filePattern);
+    return new VcsBase::DiffHighlighter(filePattern);
 }
 
-VCSBase::BaseAnnotationHighlighter *GitEditor::createAnnotationHighlighter(const QSet<QString> &changes) const
+VcsBase::BaseAnnotationHighlighter *GitEditor::createAnnotationHighlighter(const QSet<QString> &changes) const
 {
     return new GitAnnotationHighlighter(changes);
 }
@@ -171,17 +171,17 @@ static QByteArray removeAnnotationDate(const QByteArray &b)
         return QByteArray(b);
 
     // Copy over the parts that have not changed into a new byte array
-    Q_ASSERT(b.size() >= parenPos);
     QByteArray result;
+    QTC_ASSERT(b.size() >= parenPos, return result);
     int prevPos = 0;
     int pos = b.indexOf('\n', 0) + 1;
     forever {
-        Q_ASSERT(prevPos < pos);
+        QTC_CHECK(prevPos < pos);
         int afterParen = prevPos + parenPos;
         result.append(b.constData() + prevPos, datePos);
         result.append(b.constData() + afterParen, pos - afterParen);
         prevPos = pos;
-        Q_ASSERT(prevPos != 0);
+        QTC_CHECK(prevPos != 0);
         if (pos == b.size())
             break;
 
@@ -196,7 +196,7 @@ void GitEditor::setPlainTextDataFiltered(const QByteArray &a)
 {
     QByteArray array = a;
     // If desired, filter out the date from annotation
-    const bool omitAnnotationDate = contentType() == VCSBase::AnnotateOutput
+    const bool omitAnnotationDate = contentType() == VcsBase::AnnotateOutput
                                     && GitPlugin::instance()->settings().boolValue(GitSettings::omitAnnotationDateKey);
     if (omitAnnotationDate)
         array = removeAnnotationDate(a);
@@ -222,13 +222,13 @@ QStringList GitEditor::annotationPreviousVersions(const QString &revision) const
     // Get the SHA1's of the file.
     if (!client->synchronousParentRevisions(workingDirectory, QStringList(fi.fileName()),
                                             revision, &revisions, &errorMessage)) {
-        VCSBase::VCSBaseOutputWindow::instance()->appendSilently(errorMessage);
+        VcsBase::VcsBaseOutputWindow::instance()->appendSilently(errorMessage);
         return QStringList();
     }
     // Format verbose, SHA1 being first token
     QStringList descriptions;
     if (!client->synchronousShortDescriptions(workingDirectory, revisions, &descriptions, &errorMessage)) {
-        VCSBase::VCSBaseOutputWindow::instance()->appendSilently(errorMessage);
+        VcsBase::VcsBaseOutputWindow::instance()->appendSilently(errorMessage);
         return QStringList();
     }
     return descriptions;

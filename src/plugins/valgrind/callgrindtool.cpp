@@ -156,7 +156,7 @@ public slots:
     void stackBrowserChanged();
 
     /// If \param busy is true, all widgets get a busy cursor when hovered
-    void setBusy(bool busy);
+    void setBusyCursor(bool busy);
 
     void dataFunctionSelected(const QModelIndex &index);
     void calleeFunctionSelected(const QModelIndex &index);
@@ -285,7 +285,7 @@ void CallgrindToolPrivate::doClear(bool clearParseData)
     m_proxyModel->setFilterFixedString(QString());
 }
 
-void CallgrindToolPrivate::setBusy(bool busy)
+void CallgrindToolPrivate::setBusyCursor(bool busy)
 {
     QCursor cursor(busy ? Qt::BusyCursor : Qt::ArrowCursor);
     m_flatView->setCursor(cursor);
@@ -468,7 +468,7 @@ void CallgrindToolPrivate::setParseData(ParseData *data)
     m_stackBrowser->clear();
 
     // unset busy state
-    setBusy(false);
+    //setBusy(false);
 }
 
 void CallgrindToolPrivate::updateEventCombo()
@@ -497,7 +497,7 @@ static QToolButton *createToolButton(QAction *action)
 }
 
 CallgrindTool::CallgrindTool(QObject *parent)
-    : Analyzer::IAnalyzerTool(parent)
+    : ValgrindTool(parent)
 {
     d = new CallgrindToolPrivate(this);
     setObjectName(QLatin1String("CallgrindTool"));
@@ -516,6 +516,11 @@ CallgrindTool::~CallgrindTool()
 Core::Id CallgrindTool::id() const
 {
     return "Callgrind";
+}
+
+ProjectExplorer::RunMode CallgrindTool::runMode() const
+{
+    return ProjectExplorer::CallgrindRunMode;
 }
 
 QString CallgrindTool::displayName() const
@@ -614,6 +619,7 @@ IAnalyzerEngine *CallgrindToolPrivate::createEngine(const AnalyzerStartParameter
 void CallgrindTool::startTool(StartMode mode)
 {
     ValgrindPlugin::startValgrindTool(this, mode);
+    d->setBusyCursor(true);
 }
 
 QWidget *CallgrindTool::createWidgets()
@@ -737,7 +743,7 @@ QWidget *CallgrindToolPrivate::createWidgets()
     // go back
     action = new QAction(this);
     action->setDisabled(true);
-    action->setIcon(QIcon(QLatin1String(":core/images/prev.png")));
+    action->setIcon(QIcon(QLatin1String(Core::Constants::ICON_PREV)));
     action->setToolTip(tr("Go back one step in history. This will select the previously selected item."));
     connect(action, SIGNAL(triggered(bool)), m_stackBrowser, SLOT(goBack()));
     layout->addWidget(createToolButton(action));
@@ -746,7 +752,7 @@ QWidget *CallgrindToolPrivate::createWidgets()
     // go forward
     action = new QAction(this);
     action->setDisabled(true);
-    action->setIcon(QIcon(QLatin1String(":core/images/next.png")));
+    action->setIcon(QIcon(QLatin1String(Core::Constants::ICON_NEXT)));
     action->setToolTip(tr("Go forward one step in history."));
     connect(action, SIGNAL(triggered(bool)), m_stackBrowser, SLOT(goNext()));
     layout->addWidget(createToolButton(action));
@@ -863,6 +869,8 @@ void CallgrindToolPrivate::engineFinished()
         showParserResults(data);
     else
         AnalyzerManager::showStatusMessage(tr("Profiling aborted."));
+
+    setBusyCursor(false);
 }
 
 void CallgrindToolPrivate::showParserResults(const ParseData *data)
@@ -944,7 +952,7 @@ void CallgrindToolPrivate::handleShowCostsOfFunction()
 
 void CallgrindToolPrivate::slotRequestDump()
 {
-    setBusy(true);
+    //setBusy(true);
     m_visualisation->setText(tr("Populating..."));
     dumpRequested();
 }

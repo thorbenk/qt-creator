@@ -41,11 +41,13 @@ using namespace ProjectExplorer;
 
 namespace RemoteLinux {
 namespace Internal {
+
 class UploadAndInstallTarPackageServicePrivate
 {
 public:
     RemoteLinuxTarPackageInstaller installer;
 };
+
 } // namespace Internal
 
 using namespace Internal;
@@ -97,6 +99,11 @@ bool UploadAndInstallTarPackageStep::initInternal(QString *error)
     }
     m_deployService->setPackageFilePath(pStep->packageFilePath());
     return m_deployService->isDeploymentPossible(error);
+}
+
+BuildStepConfigWidget *UploadAndInstallTarPackageStep::createConfigWidget()
+{
+    return new SimpleBuildStepConfigWidget(this);
 }
 
 QString UploadAndInstallTarPackageStep::stepId()

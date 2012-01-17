@@ -73,7 +73,8 @@ QString S60RunControlBase::msgListFile(const QString &file)
     return rc;
 }
 
-S60RunControlBase::S60RunControlBase(RunConfiguration *runConfiguration, const QString &mode) :
+S60RunControlBase::S60RunControlBase(RunConfiguration *runConfiguration,
+                                     RunMode mode) :
     RunControl(runConfiguration, mode),
     m_launchProgress(0)
 {
@@ -91,14 +92,12 @@ S60RunControlBase::S60RunControlBase(RunConfiguration *runConfiguration, const Q
     m_targetName = s60runConfig->targetName();
     m_commandLineArguments = s60runConfig->commandLineArguments();
     QString qmlArgs = s60runConfig->qmlCommandLineArguments();
-    if (((mode == Debugger::Constants::DEBUGMODE)
-            || (mode == Analyzer::Constants::MODE_ANALYZE))
-            && !qmlArgs.isEmpty()) {
-        m_commandLineArguments.prepend(' ');
+    if ((mode == DebugRunMode || mode == QmlProfilerRunMode) && !qmlArgs.isEmpty()) {
+        m_commandLineArguments.prepend(QLatin1Char(' '));
         m_commandLineArguments.prepend(qmlArgs);
     }
     if (const QtSupport::BaseQtVersion *qtv = activeBuildConf->qtVersion()) {
-        m_qtDir = qtv->versionInfo().value("QT_INSTALL_DATA");
+        m_qtDir = qtv->versionInfo().value(QLatin1String("QT_INSTALL_DATA"));
         m_qtBinPath = qtv->versionInfo().value(QLatin1String("QT_INSTALL_BINS"));
     }
     m_installationDrive = activeDeployConf->installationDrive();
