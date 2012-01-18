@@ -64,36 +64,6 @@
 namespace Debugger {
 namespace Internal {
 
-static QChar charForChannel(int channel)
-{
-    switch (channel) {
-        case LogDebug: return 'd';
-        case LogWarning: return 'w';
-        case LogError: return 'e';
-        case LogInput: return '<';
-        case LogOutput: return '>';
-        case LogStatus: return 's';
-        case LogTime: return 't';
-        case LogMisc:
-        default: return ' ';
-    }
-}
-
-static LogChannel channelForChar(QChar c)
-{
-    switch (c.unicode()) {
-        case 'd': return LogDebug;
-        case 'w': return LogWarning;
-        case 'e': return LogError;
-        case '<': return LogInput;
-        case '>': return LogOutput;
-        case 's': return LogStatus;
-        case 't': return LogTime;
-        default: return LogMisc;
-    }
-}
-
-
 /////////////////////////////////////////////////////////////////////
 //
 // OutputHighlighter
@@ -111,7 +81,7 @@ private:
     void highlightBlock(const QString &text)
     {
         QTextCharFormat format;
-        switch (channelForChar(text.isEmpty() ? QChar() : text.at(0))) {
+        switch (LogWindow::channelForChar(text.isEmpty() ? QChar() : text.at(0))) {
             case LogInput:
                 format.setForeground(Qt::blue);
                 setFormat(1, text.size(), format);
@@ -244,6 +214,7 @@ public:
     }
 
 signals:
+    void executeLineRequested();
     void clearContentsRequested();
     void statusMessageRequested(const QString &, int);
     void commandSelected(int);
@@ -252,7 +223,7 @@ private:
     void keyPressEvent(QKeyEvent *ev)
     {
         if (ev->modifiers() == Qt::ControlModifier && ev->key() == Qt::Key_Return)
-            debuggerCore()->executeDebuggerCommand(textCursor().block().text());
+            emit executeLineRequested();
         else if (ev->modifiers() == Qt::ControlModifier && ev->key() == Qt::Key_R)
             emit clearContentsRequested();
         else
@@ -265,7 +236,7 @@ private:
         int n = 0;
 
         // cut time string
-        if (line.size() > 18 && line.at(0) == '[')
+        if (line.size() > 18 && line.at(0) == QLatin1Char('['))
             line = line.mid(18);
         //qDebug() << line;
 
@@ -311,7 +282,7 @@ public:
 public slots:
     void gotoResult(int i)
     {
-        QString needle = QString::number(i) + '^';
+        QString needle = QString::number(i) + QLatin1Char('^');
         QString needle2 = QLatin1Char('>') + needle;
         QTextCursor cursor(document());
         do {
@@ -342,7 +313,9 @@ LogWindow::LogWindow(QWidget *parent)
   : QWidget(parent)
 {
     setWindowTitle(tr("Debugger Log"));
-    setObjectName("Log");
+    setObjectName(QLatin1String("Log"));
+
+    m_ignoreNextInputEcho = false;
 
     QSplitter *m_splitter = new Core::MiniSplitter(Qt::Horizontal);
     m_splitter->setParent(this);
@@ -363,7 +336,7 @@ LogWindow::LogWindow(QWidget *parent)
     m_commandLabel = new QLabel(tr("Command:"), this);
     m_commandEdit = new QLineEdit(this);
     m_commandEdit->setFrame(false);
-    m_commandEdit->setObjectName("DebuggerInput");
+    m_commandEdit->setObjectName(QLatin1String("DebuggerInput"));
     m_commandEdit->setCompleter(new Utils::HistoryCompleter(
                                     Core::ICore::instance()->settings(), m_commandEdit));
     QHBoxLayout *commandBox = new QHBoxLayout;
@@ -407,8 +380,16 @@ LogWindow::LogWindow(QWidget *parent)
         m_combinedText, SLOT(gotoResult(int)));
     connect(m_commandEdit, SIGNAL(returnPressed()),
         SLOT(sendCommand()));
+    connect(m_inputText, SIGNAL(executeLineRequested()),
+        SLOT(executeLine()));
 
     setMinimumHeight(60);
+}
+
+void LogWindow::executeLine()
+{
+    m_ignoreNextInputEcho = true;
+    debuggerCore()->executeDebuggerCommand(m_inputText->textCursor().block().text());
 }
 
 void LogWindow::sendCommand()
@@ -427,7 +408,7 @@ void LogWindow::showOutput(int channel, const QString &output)
 
     if (debuggerCore()->boolSetting(LogTimeStamps))
         m_combinedText->appendPlainText(charForChannel(LogTime) + logTimeStamp());
-    foreach (QString line, output.split('\n')) {
+    foreach (QString line, output.split(QLatin1Char('\n'))) {
         // FIXME: QTextEdit asserts on really long lines...
         const int n = 30000;
         if (line.size() > n) {
@@ -447,6 +428,14 @@ void LogWindow::showOutput(int channel, const QString &output)
 void LogWindow::showInput(int channel, const QString &input)
 {
     Q_UNUSED(channel)
+    if (m_ignoreNextInputEcho) {
+        m_ignoreNextInputEcho = false;
+        QTextCursor cursor = m_inputText->textCursor();
+        cursor.movePosition(QTextCursor::Down);
+        cursor.movePosition(QTextCursor::EndOfLine);
+        m_inputText->setTextCursor(cursor);
+        return;
+    }
     if (debuggerCore()->boolSetting(LogTimeStamps))
         m_inputText->appendPlainText(logTimeStamp());
     m_inputText->appendPlainText(input);
@@ -515,6 +504,35 @@ bool LogWindow::writeLogContents(const QPlainTextEdit *editor, QWidget *parent)
             success = true;
     }
     return success;
+}
+
+QChar LogWindow::charForChannel(int channel)
+{
+    switch (channel) {
+        case LogDebug: return QLatin1Char('d');
+        case LogWarning: return QLatin1Char('w');
+        case LogError: return QLatin1Char('e');
+        case LogInput: return QLatin1Char('<');
+        case LogOutput: return QLatin1Char('>');
+        case LogStatus: return QLatin1Char('s');
+        case LogTime: return QLatin1Char('t');
+        case LogMisc:
+        default: return QLatin1Char(' ');
+    }
+}
+
+LogChannel LogWindow::channelForChar(QChar c)
+{
+    switch (c.unicode()) {
+        case 'd': return LogDebug;
+        case 'w': return LogWarning;
+        case 'e': return LogError;
+        case '<': return LogInput;
+        case '>': return LogOutput;
+        case 's': return LogStatus;
+        case 't': return LogTime;
+        default: return LogMisc;
+    }
 }
 
 } // namespace Internal

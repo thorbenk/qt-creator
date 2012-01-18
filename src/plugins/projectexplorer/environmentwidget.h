@@ -70,6 +70,7 @@ private slots:
     void addEnvironmentButtonClicked();
     void removeEnvironmentButtonClicked();
     void unsetEnvironmentButtonClicked();
+    void batchEditEnvironmentButtonClicked();
     void environmentCurrentIndexChanged(const QModelIndex &current);
     void invalidateCurrentIndex();
     void updateSummaryText();

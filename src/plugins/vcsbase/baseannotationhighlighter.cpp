@@ -43,7 +43,7 @@
 typedef QMap<QString, QTextCharFormat> ChangeNumberFormatMap;
 
 /*!
-    \class VCSBase::BaseAnnotationHighlighter
+    \class VcsBase::BaseAnnotationHighlighter
 
     \brief Base for a highlighter for annotation lines of the form 'changenumber:XXXX'.
 
@@ -55,16 +55,21 @@ typedef QMap<QString, QTextCharFormat> ChangeNumberFormatMap;
     \endcode
 */
 
-namespace VCSBase {
+namespace VcsBase {
+namespace Internal {
 
-struct BaseAnnotationHighlighterPrivate {
+class BaseAnnotationHighlighterPrivate
+{
+public:
     ChangeNumberFormatMap m_changeNumberMap;
 };
+
+} // namespace Internal
 
 BaseAnnotationHighlighter::BaseAnnotationHighlighter(const ChangeNumbers &changeNumbers,
                                              QTextDocument *document) :
     TextEditor::SyntaxHighlighter(document),
-    d(new BaseAnnotationHighlighterPrivate)
+    d(new Internal::BaseAnnotationHighlighterPrivate)
 {
     setChangeNumbers(changeNumbers);
 }
@@ -111,4 +116,4 @@ void BaseAnnotationHighlighter::highlightBlock(const QString &text)
         setFormat(0, text.length(), it.value());
 }
 
-} // namespace VCSBase
+} // namespace VcsBase

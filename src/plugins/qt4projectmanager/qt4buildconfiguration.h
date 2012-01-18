@@ -108,7 +108,7 @@ public:
 
     bool compareToImportFrom(const QString &makefile);
     static bool removeQMLInspectorFromArguments(QString *args);
-    static QString extractSpecFromArguments(QString *arguments,
+    static Utils::FileName extractSpecFromArguments(QString *arguments,
                                             const QString &directory, const QtSupport::BaseQtVersion *version,
                                             QStringList *outArgs = 0);
 
@@ -146,7 +146,7 @@ signals:
 private slots:
     void qtVersionsChanged(const QList<int> &changedVersions);
     void emitBuildDirectoryChanged();
-    void proFileUpdated();
+    void proFileUpdated(Qt4ProjectManager::Qt4ProFileNode *, bool, bool parseInProgress);
 
 protected:
     Qt4BuildConfiguration(Qt4BaseTarget *target, Qt4BuildConfiguration *source);

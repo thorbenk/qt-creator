@@ -185,7 +185,7 @@ static void initKindFilterAction(QAction *action, const QList<int> &kinds)
 }
 
 MemcheckTool::MemcheckTool(QObject *parent)
-  : Analyzer::IAnalyzerTool(parent)
+  : ValgrindTool(parent)
 {
     m_settings = 0;
     m_errorModel = 0;
@@ -290,6 +290,11 @@ Core::Id MemcheckTool::id() const
     return "Memcheck";
 }
 
+ProjectExplorer::RunMode MemcheckTool::runMode() const
+{
+    return ProjectExplorer::MemcheckRunMode;
+}
+
 QString MemcheckTool::displayName() const
 {
     return tr("Valgrind Memory Analyzer");
@@ -298,7 +303,17 @@ QString MemcheckTool::displayName() const
 QString MemcheckTool::description() const
 {
     return tr("Valgrind Analyze Memory uses the \"memcheck\" tool to find "
-        "memory leaks");
+              "memory leaks");
+}
+
+AbstractAnalyzerSubConfig *MemcheckTool::createGlobalSettings()
+{
+    return new ValgrindGlobalSettings();
+}
+
+AbstractAnalyzerSubConfig *MemcheckTool::createProjectSettings()
+{
+    return new ValgrindProjectSettings();
 }
 
 IAnalyzerTool::ToolMode MemcheckTool::toolMode() const
@@ -398,7 +413,7 @@ QWidget *MemcheckTool::createWidgets()
     // Go to previous leak.
     action = new QAction(this);
     action->setDisabled(true);
-    action->setIcon(QIcon(QLatin1String(":core/images/prev.png")));
+    action->setIcon(QIcon(QLatin1String(Core::Constants::ICON_PREV)));
     action->setToolTip(tr("Go to previous leak."));
     connect(action, SIGNAL(triggered(bool)), m_errorView, SLOT(goBack()));
     button = new QToolButton;
@@ -409,7 +424,7 @@ QWidget *MemcheckTool::createWidgets()
     // Go to next leak.
     action = new QAction(this);
     action->setDisabled(true);
-    action->setIcon(QIcon(QLatin1String(":core/images/next.png")));
+    action->setIcon(QIcon(QLatin1String(Core::Constants::ICON_NEXT)));
     action->setToolTip(tr("Go to next leak."));
     connect(action, SIGNAL(triggered(bool)), m_errorView, SLOT(goNext()));
     button = new QToolButton;
@@ -465,6 +480,7 @@ void MemcheckTool::startTool(StartMode mode)
 
 void MemcheckTool::engineStarting(const IAnalyzerEngine *engine)
 {
+    setBusyCursor(true);
     clearErrorView();
 
     QString dir;
@@ -548,6 +564,13 @@ void MemcheckTool::finished()
     m_goNext->setEnabled(n > 1);
     const QString msg = AnalyzerManager::msgToolFinished(displayName(), n);
     AnalyzerManager::showStatusMessage(msg);
+    setBusyCursor(false);
+}
+
+void MemcheckTool::setBusyCursor(bool busy)
+{
+    QCursor cursor(busy ? Qt::BusyCursor : Qt::ArrowCursor);
+    m_errorView->setCursor(cursor);
 }
 
 } // namespace Internal

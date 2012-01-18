@@ -127,7 +127,7 @@ RvctToolChain::RvctVersion RvctToolChain::version(const QString &rvctPath)
 
     QProcess armcc;
     const QString binary = rvctPath;
-    armcc.start(binary, QStringList() << "--version_number");
+    armcc.start(binary, QStringList(QLatin1String("--version_number")));
     if (!armcc.waitForStarted()) {
         qWarning("Unable to run rvct binary '%s' when trying to determine version.", qPrintable(binary));
         return v;
@@ -232,9 +232,9 @@ void RvctToolChain::addToEnvironment(Utils::Environment &env) const
     env.set(QLatin1String("LANG"), QString(QLatin1Char('C')));
 }
 
-QString RvctToolChain::mkspec() const
+Utils::FileName RvctToolChain::mkspec() const
 {
-    return QString(); // Always use default from Qt version
+    return Utils::FileName(); // Always use default from Qt version
 }
 
 QString RvctToolChain::makeCommand() const
@@ -374,8 +374,9 @@ bool RvctToolChain::fromMap(const QVariantMap &data)
 
 void RvctToolChain::updateId()
 {
-    setId(QString::fromLatin1("%1:%2.%3.%4").arg(Constants::RVCT_TOOLCHAIN_ID)
-          .arg(m_compilerPath).arg(toString(m_armVersion)).arg(m_debuggerCommand));
+    const QChar dot = QLatin1Char('.');
+    setId(QLatin1String(Constants::RVCT_TOOLCHAIN_ID) + QLatin1Char(':')
+          + m_compilerPath + dot + toString(m_armVersion) + dot + m_debuggerCommand);
 }
 
 QString RvctToolChain::varName(const QString &postFix) const
@@ -534,7 +535,7 @@ QList<ProjectExplorer::ToolChain *> RvctToolChainFactory::autoDetect()
         QString binary = QDir::fromNativeSeparators(valueOf(changes, QLatin1String("BIN")));
         if (binary.isEmpty())
             continue;
-        binary = binary + QLatin1Char('/') + RVCT_BINARY;
+        binary = binary + QLatin1Char('/') + QLatin1String(RVCT_BINARY);
         QFileInfo fi(binary);
         if (!fi.exists() || !fi.isExecutable())
             continue;
@@ -561,7 +562,7 @@ QList<ProjectExplorer::ToolChain *> RvctToolChainFactory::autoDetect()
         tc->setDisplayName(name.arg(armVersionString(tc->armVersion()))
                            .arg(v.majorVersion).arg(v.minorVersion).arg(v.build));
         tc->setVersion(v);
-        tc->setDebuggerCommand(ProjectExplorer::ToolChainManager::instance()->defaultDebugger(tc->targetAbi()));
+        tc->setDebuggerCommand(ProjectExplorer::ToolChainManager::instance()->defaultDebugger(tc->targetAbi()).toString());
         result.append(tc);
     }
 

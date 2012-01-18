@@ -54,20 +54,14 @@ using namespace AutotoolsProjectManager;
 using namespace AutotoolsProjectManager::Internal;
 using namespace ProjectExplorer;
 
-namespace {
 const char AUTOGEN_ADDITIONAL_ARGUMENTS_KEY[] = "AutotoolsProjectManager.AutogenStep.AdditionalArguments";
 const char AUTOGEN_STEP_ID[] = "AutotoolsProjectManager.AutogenStep";
-}
 
 /////////////////////////////
 // AutogenStepFactory class
 /////////////////////////////
 AutogenStepFactory::AutogenStepFactory(QObject *parent) :
-    ProjectExplorer::IBuildStepFactory(parent)
-{
-}
-
-AutogenStepFactory::~AutogenStepFactory()
+    IBuildStepFactory(parent)
 {
 }
 
@@ -115,9 +109,9 @@ BuildStep *AutogenStepFactory::clone(BuildStepList *parent, BuildStep *source)
     return new AutogenStep(parent, static_cast<AutogenStep *>(source));
 }
 
-bool AutogenStepFactory::canRestore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map) const
+bool AutogenStepFactory::canRestore(BuildStepList *parent, const QVariantMap &map) const
 {
-    QString id(ProjectExplorer::idFromMap(map));
+    QString id = idFromMap(map);
     return canCreate(parent, id);
 }
 
@@ -135,20 +129,20 @@ BuildStep *AutogenStepFactory::restore(BuildStepList *parent, const QVariantMap 
 ////////////////////////
 // AutogenStep class
 ////////////////////////
-AutogenStep::AutogenStep(ProjectExplorer::BuildStepList *bsl) :
+AutogenStep::AutogenStep(BuildStepList *bsl) :
     AbstractProcessStep(bsl, QLatin1String(AUTOGEN_STEP_ID)),
     m_runAutogen(false)
 {
     ctor();
 }
 
-AutogenStep::AutogenStep(ProjectExplorer::BuildStepList *bsl, const QString &id) :
+AutogenStep::AutogenStep(BuildStepList *bsl, const QString &id) :
     AbstractProcessStep(bsl, id)
 {
     ctor();
 }
 
-AutogenStep::AutogenStep(ProjectExplorer::BuildStepList *bsl, AutogenStep *bs) :
+AutogenStep::AutogenStep(BuildStepList *bsl, AutogenStep *bs) :
     AbstractProcessStep(bsl, bs),
     m_additionalArguments(bs->additionalArguments())
 {
@@ -158,10 +152,6 @@ AutogenStep::AutogenStep(ProjectExplorer::BuildStepList *bsl, AutogenStep *bs) :
 void AutogenStep::ctor()
 {
     setDefaultDisplayName(tr("Autogen"));
-}
-
-AutogenStep::~AutogenStep()
-{
 }
 
 AutotoolsBuildConfiguration *AutogenStep::autotoolsBuildConfiguration() const
@@ -189,7 +179,7 @@ void AutogenStep::run(QFutureInterface<bool> &interface)
 {
     AutotoolsBuildConfiguration *bc = autotoolsBuildConfiguration();
 
-    // Check wether we need to run autogen.sh
+    // Check whether we need to run autogen.sh
     const QFileInfo configureInfo(bc->buildDirectory() + QLatin1String("/configure"));
     const QFileInfo configureAcInfo(bc->buildDirectory() + QLatin1String("/configure.ac"));
     const QFileInfo makefileAmInfo(bc->buildDirectory() + QLatin1String("/Makefile.am"));
@@ -210,7 +200,7 @@ void AutogenStep::run(QFutureInterface<bool> &interface)
     AbstractProcessStep::run(interface);
 }
 
-ProjectExplorer::BuildStepConfigWidget* AutogenStep::createConfigWidget()
+BuildStepConfigWidget *AutogenStep::createConfigWidget()
 {
     return new AutogenStepConfigWidget(this);
 }
@@ -274,10 +264,6 @@ AutogenStepConfigWidget::AutogenStepConfigWidget(AutogenStep *autogenStep) :
             autogenStep, SLOT(setAdditionalArguments(QString)));
     connect(autogenStep, SIGNAL(additionalArgumentsChanged(QString)),
             this, SLOT(updateDetails()));
-}
-
-AutogenStepConfigWidget::~AutogenStepConfigWidget()
-{
 }
 
 QString AutogenStepConfigWidget::displayName() const

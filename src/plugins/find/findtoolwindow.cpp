@@ -40,6 +40,7 @@
 #include <QtGui/QStringListModel>
 #include <QtGui/QCompleter>
 #include <QtGui/QKeyEvent>
+#include <QtGui/QScrollArea>
 
 using namespace Find;
 using namespace Find::Internal;
@@ -174,9 +175,9 @@ void FindToolWindow::setCurrentFilter(int index)
         if (i == index) {
             m_configWidget = configWidget;
             if (m_currentFilter)
-                disconnect(m_currentFilter, SIGNAL(changed()), this, SLOT(updateButtonStates()));
+                disconnect(m_currentFilter, SIGNAL(enabledChanged(bool)), this, SLOT(updateButtonStates()));
             m_currentFilter = m_filters.at(i);
-            connect(m_currentFilter, SIGNAL(changed()), this, SLOT(updateButtonStates()));
+            connect(m_currentFilter, SIGNAL(enabledChanged(bool)), this, SLOT(updateButtonStates()));
             updateButtonStates();
             if (m_configWidget) {
                 m_ui.configWidget->layout()->addWidget(m_configWidget);
@@ -185,6 +186,19 @@ void FindToolWindow::setCurrentFilter(int index)
             if (configWidget)
                 configWidget->setParent(0);
         }
+    }
+    QWidget *w = m_ui.configWidget;
+    while (w) {
+        QScrollArea *sa = qobject_cast<QScrollArea *>(w);
+        if (sa) {
+            sa->updateGeometry();
+            break;
+        }
+        w = w->parentWidget();
+    }
+    for (w = m_configWidget ? m_configWidget : m_ui.configWidget; w; w = w->parentWidget()) {
+        if (w->layout())
+            w->layout()->activate();
     }
 }
 

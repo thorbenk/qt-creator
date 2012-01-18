@@ -44,21 +44,21 @@
 #include "tabpositionindicator.h"
 #include "vcsmanager.h"
 
-#include <coreplugin/editortoolbar.h>
-#include <coreplugin/coreconstants.h>
-#include <coreplugin/modemanager.h>
-#include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
+#include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/command.h>
+#include <coreplugin/coreconstants.h>
 #include <coreplugin/editormanager/ieditorfactory.h>
 #include <coreplugin/editormanager/iexternaleditor.h>
+#include <coreplugin/editortoolbar.h>
+#include <coreplugin/fileutils.h>
 #include <coreplugin/icorelistener.h>
-#include <coreplugin/infobar.h>
+#include <coreplugin/id.h>
 #include <coreplugin/imode.h>
+#include <coreplugin/infobar.h>
+#include <coreplugin/modemanager.h>
 #include <coreplugin/settingsdatabase.h>
 #include <coreplugin/variablemanager.h>
-#include <coreplugin/id.h>
-#include <coreplugin/fileutils.h>
 
 #include <extensionsystem/pluginmanager.h>
 
@@ -307,7 +307,7 @@ EditorManager::EditorManager(ICore *core, QWidget *parent) :
     Command *cmd = am->registerAction(d->m_revertToSavedAction,
                                        Constants::REVERTTOSAVED, editManagerContext);
     cmd->setAttribute(Command::CA_UpdateText);
-    cmd->setDefaultText(tr("Revert File to Saved"));
+    cmd->setDescription(tr("Revert File to Saved"));
     mfile->addAction(cmd, Constants::G_FILE_SAVE);
     connect(d->m_revertToSavedAction, SIGNAL(triggered()), this, SLOT(revertToSaved()));
 
@@ -337,7 +337,7 @@ EditorManager::EditorManager(ICore *core, QWidget *parent) :
     cmd = am->registerAction(d->m_closeCurrentEditorAction, Constants::CLOSE, editManagerContext, true);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+W")));
     cmd->setAttribute(Core::Command::CA_UpdateText);
-    cmd->setDefaultText(d->m_closeCurrentEditorAction->text());
+    cmd->setDescription(d->m_closeCurrentEditorAction->text());
     mfile->addAction(cmd, Constants::G_FILE_CLOSE);
     connect(d->m_closeCurrentEditorAction, SIGNAL(triggered()), this, SLOT(closeEditor()));
 
@@ -346,7 +346,7 @@ EditorManager::EditorManager(ICore *core, QWidget *parent) :
     QShortcut *sc = new QShortcut(parent);
     cmd = am->registerShortcut(sc, Constants::CLOSE_ALTERNATIVE, editManagerContext);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+F4")));
-    cmd->setDefaultText(EditorManager::tr("Close"));
+    cmd->setDescription(EditorManager::tr("Close"));
     connect(sc, SIGNAL(activated()), this, SLOT(closeEditor()));
 #endif
 
@@ -509,16 +509,16 @@ void EditorManager::init()
     pluginManager()->addObject(d->m_openEditorsFactory);
 
     VariableManager *vm = VariableManager::instance();
-    vm->registerVariable(QLatin1String(kCurrentDocumentFilePath),
+    vm->registerVariable(kCurrentDocumentFilePath,
         tr("Full path of the current document including file name."));
-    vm->registerVariable(QLatin1String(kCurrentDocumentPath),
+    vm->registerVariable(kCurrentDocumentPath,
         tr("Full path of the current document excluding file name."));
-    vm->registerVariable(QLatin1String(kCurrentDocumentXPos),
+    vm->registerVariable(kCurrentDocumentXPos,
         tr("X-coordinate of the current editor's upper left corner, relative to screen."));
-    vm->registerVariable(QLatin1String(kCurrentDocumentYPos),
+    vm->registerVariable(kCurrentDocumentYPos,
         tr("Y-coordinate of the current editor's upper left corner, relative to screen."));
-    connect(vm, SIGNAL(variableUpdateRequested(QString)),
-            this, SLOT(updateVariable(QString)));
+    connect(vm, SIGNAL(variableUpdateRequested(QByteArray)),
+            this, SLOT(updateVariable(QByteArray)));
 }
 
 void EditorManager::updateAutoSave()
@@ -604,6 +604,11 @@ Core::Internal::SplitterOrView *EditorManager::currentSplitterOrView() const
     if (!view)
         return d->m_splitter;
     return view;
+}
+
+Core::Internal::SplitterOrView *EditorManager::topSplitterOrView() const
+{
+    return d->m_splitter;
 }
 
 Core::Internal::EditorView *EditorManager::currentEditorView() const
@@ -1265,10 +1270,10 @@ int extractLineNumber(QString *fileName)
     }
     if (i == -1)
         return -1;
-    if (fileName->at(i) == ':' || fileName->at(i) == '+') {
-        int result = fileName->mid(i+1).toInt();
-        if (result) {
-            *fileName = fileName->left(i);
+    const QChar c = fileName->at(i);
+    if (c == QLatin1Char(':') || c == QLatin1Char('+')) {
+        if (const int result = fileName->mid(i + 1).toInt()) {
+            fileName->truncate(i);
             return result;
         }
     }
@@ -1381,7 +1386,7 @@ void EditorManager::switchToPreferedMode()
         preferedMode = d->m_currentEditor->preferredModeType();
 
     if (preferedMode.isEmpty())
-        preferedMode = Constants::MODE_EDIT_TYPE;
+        preferedMode = QLatin1String(Constants::MODE_EDIT_TYPE);
 
     ModeManager::instance()->activateModeType(preferedMode);
 }
@@ -1524,8 +1529,7 @@ void EditorManager::autoSave()
                               errors.join(QLatin1String("\n")));
 }
 
-MakeWritableResult
-EditorManager::makeFileWritable(IFile *file)
+MakeWritableResult EditorManager::makeFileWritable(IFile *file)
 {
     if (!file)
         return Failed;
@@ -1592,9 +1596,9 @@ bool EditorManager::saveFileAs(IFile *fileParam)
     // a good way out either (also the undo stack would be lost). Perhaps the best is to
     // re-think part of the editors design.
 
-    if (success) {
+    if (success)
         addFileToRecentFiles(file);
-    }
+
     updateActions();
     return success;
 }
@@ -1668,14 +1672,15 @@ void EditorManager::vcsOpenCurrentEditor()
 void EditorManager::updateWindowTitle()
 {
     QString windowTitle = tr("Qt Creator");
+    const QString dashSep = QLatin1String(" - ");
     if (!d->m_titleAddition.isEmpty()) {
-        windowTitle.prepend(d->m_titleAddition + " - ");
+        windowTitle.prepend(d->m_titleAddition + dashSep);
     }
     IEditor *curEditor = currentEditor();
     if (curEditor) {
         QString editorName = curEditor->displayName();
         if (!editorName.isEmpty())
-            windowTitle.prepend(editorName + " - ");
+            windowTitle.prepend(editorName + dashSep);
         QString filePath = QFileInfo(curEditor->file()->fileName()).absoluteFilePath();
         if (!filePath.isEmpty())
             d->m_core->mainWindow()->setWindowFilePath(filePath);
@@ -1745,7 +1750,7 @@ void EditorManager::updateActions()
                 } else {
                     InfoBarEntry info(QLatin1String("Core.EditorManager.MakeWritable"),
                                       tr("<b>Warning:</b> You are changing a read-only file."));
-                    info.setCustomButtonInfo(tr("Make writable"), this, SLOT(makeCurrentEditorWritable()));
+                    info.setCustomButtonInfo(tr("Make Writable"), this, SLOT(makeCurrentEditorWritable()));
                     curEditor->file()->infoBar()->addInfo(info);
                 }
             } else {
@@ -1758,6 +1763,8 @@ void EditorManager::updateActions()
 #endif
     }
 
+    setCloseSplitEnabled(d->m_splitter, d->m_splitter->isSplitter());
+
     d->m_saveAction->setEnabled(curEditor != 0 && curEditor->file()->isModified());
     d->m_saveAsAction->setEnabled(curEditor != 0 && curEditor->file()->isSaveAsAllowed());
     d->m_revertToSavedAction->setEnabled(curEditor != 0
@@ -1765,7 +1772,7 @@ void EditorManager::updateActions()
 
     QString quotedName;
     if (!fName.isEmpty())
-        quotedName = '"' + fName + '"';
+        quotedName = QLatin1Char('"') + fName + QLatin1Char('"');
 
     d->m_saveAsAction->setText(tr("Save %1 &As...").arg(quotedName));
     d->m_saveAction->setText(tr("&Save %1").arg(quotedName));
@@ -1787,6 +1794,19 @@ void EditorManager::updateActions()
     d->m_removeCurrentSplitAction->setEnabled(hasSplitter);
     d->m_removeAllSplitsAction->setEnabled(hasSplitter);
     d->m_gotoOtherSplitAction->setEnabled(hasSplitter);
+}
+
+void EditorManager::setCloseSplitEnabled(SplitterOrView *splitterOrView, bool enable)
+{
+    if (splitterOrView->isView())
+        splitterOrView->view()->setCloseSplitEnabled(enable);
+    QSplitter *splitter = splitterOrView->splitter();
+    if (splitter) {
+        for (int i = 0; i < splitter->count(); ++i) {
+            if (SplitterOrView *subSplitterOrView = qobject_cast<SplitterOrView*>(splitter->widget(i)))
+                setCloseSplitEnabled(subSplitterOrView, enable);
+        }
+    }
 }
 
 bool EditorManager::hasSplitter() const
@@ -2104,12 +2124,14 @@ Core::IEditor *EditorManager::duplicateEditor(Core::IEditor *editor)
 void EditorManager::split(Qt::Orientation orientation)
 {
     SplitterOrView *view = d->m_currentView;
+
     if (!view)
-            view = d->m_currentEditor ? d->m_splitter->findView(d->m_currentEditor)
+        view = d->m_currentEditor ? d->m_splitter->findView(d->m_currentEditor)
                        : d->m_splitter->findFirstView();
-    if (view && !view->splitter()) {
+
+    if (view && !view->splitter())
         view->split(orientation);
-    }
+
     updateActions();
 }
 
@@ -2175,7 +2197,7 @@ void EditorManager::gotoOtherSplit()
 
 qint64 EditorManager::maxTextFileSize()
 {
-    return (qint64(3) << 24);
+    return qint64(3) << 24;
 }
 
 void EditorManager::setWindowTitleAddition(const QString &addition)
@@ -2189,35 +2211,32 @@ QString EditorManager::windowTitleAddition() const
     return d->m_titleAddition;
 }
 
-void EditorManager::updateVariable(const QString &variable)
+void EditorManager::updateVariable(const QByteArray &variable)
 {
-    if (variable == QLatin1String(kCurrentDocumentFilePath)
-            || variable == QLatin1String(kCurrentDocumentPath)) {
+    if (variable == kCurrentDocumentFilePath || variable == kCurrentDocumentPath) {
         QString value;
         IEditor *curEditor = currentEditor();
         if (curEditor) {
             QString fileName = curEditor->file()->fileName();
             if (!fileName.isEmpty()) {
-                if (variable == QLatin1String(kCurrentDocumentFilePath))
+                if (variable == kCurrentDocumentFilePath)
                     value = QFileInfo(fileName).filePath();
-                else if (variable == QLatin1String(kCurrentDocumentPath))
+                else if (variable == kCurrentDocumentPath)
                     value = QFileInfo(fileName).path();
             }
         }
         VariableManager::instance()->insert(variable, value);
-    } else if (variable == QLatin1String(kCurrentDocumentXPos)) {
+    } else if (variable == kCurrentDocumentXPos) {
         QString value;
         IEditor *curEditor = currentEditor();
-        if (curEditor) {
+        if (curEditor)
             value = QString::number(curEditor->widget()->mapToGlobal(QPoint(0,0)).x());
-        }
         VariableManager::instance()->insert(variable, value);
-    } else if (variable == QLatin1String(kCurrentDocumentYPos)) {
+    } else if (variable == kCurrentDocumentYPos) {
         QString value;
         IEditor *curEditor = currentEditor();
-        if (curEditor) {
+        if (curEditor)
             value = QString::number(curEditor->widget()->mapToGlobal(QPoint(0,0)).y());
-        }
         VariableManager::instance()->insert(variable, value);
     }
 }

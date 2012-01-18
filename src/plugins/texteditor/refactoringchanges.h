@@ -40,6 +40,7 @@
 #include <QtCore/QList>
 #include <QtCore/QString>
 #include <QtCore/QSharedPointer>
+#include <QtCore/QPair>
 
 QT_BEGIN_NAMESPACE
 class QTextDocument;
@@ -80,6 +81,7 @@ public:
 
     void setChangeSet(const Utils::ChangeSet &changeSet);
     void appendIndentRange(const Range &range);
+    void appendReindentRange(const Range &range);
     void setOpenEditor(bool activate = false, int pos = -1);
     void apply();
 
@@ -95,6 +97,11 @@ protected:
     // derived classes may want to clear language specific extra data
     virtual void fileChanged();
 
+    void indentOrReindent(void (RefactoringChangesData::*mf)(const QTextCursor &,
+                                                             const QString &,
+                                                             const BaseTextEditorWidget *) const,
+                          const QList<QPair<QTextCursor, QTextCursor> > &ranges);
+
 protected:
     QString m_fileName;
     QSharedPointer<RefactoringChangesData> m_data;
@@ -103,9 +110,11 @@ protected:
     BaseTextEditorWidget *m_editor;
     Utils::ChangeSet m_changes;
     QList<Range> m_indentRanges;
+    QList<Range> m_reindentRanges;
     bool m_openEditor;
     bool m_activateEditor;
     int m_editorCursorPosition;
+    bool m_appliedOnce;
 
     friend class RefactoringChanges; // access to constructor
 };
@@ -135,7 +144,8 @@ protected:
 
     static BaseTextEditorWidget *openEditor(const QString &fileName, bool activate, int line, int column);
 
-    static QList<QTextCursor> rangesToSelections(QTextDocument *document, const QList<Range> &ranges);
+    static QList<QPair<QTextCursor, QTextCursor> > rangesToSelections(QTextDocument *document,
+                                                                      const QList<Range> &ranges);
 
 protected:
     QSharedPointer<RefactoringChangesData> m_data;
@@ -154,6 +164,9 @@ public:
     virtual void indentSelection(const QTextCursor &selection,
                                  const QString &fileName,
                                  const BaseTextEditorWidget *textEditor) const;
+    virtual void reindentSelection(const QTextCursor &selection,
+                                   const QString &fileName,
+                                   const BaseTextEditorWidget *textEditor) const;
     virtual void fileChanged(const QString &fileName);
 };
 

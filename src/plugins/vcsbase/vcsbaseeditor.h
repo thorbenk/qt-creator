@@ -45,26 +45,27 @@ class QTextCodec;
 class QTextCursor;
 QT_END_NAMESPACE
 
-namespace Core {
-    class IVersionControl;
-}
+namespace Core { class IVersionControl; }
 
-namespace VCSBase {
+namespace VcsBase {
 
-struct VCSBaseEditorWidgetPrivate;
+namespace Internal { class VcsBaseEditorWidgetPrivate; }
+
 class DiffHighlighter;
 class BaseAnnotationHighlighter;
 
 // Documentation inside
-enum EditorContentType {
+enum EditorContentType
+{
     RegularCommandOutput,
     LogOutput,
     AnnotateOutput,
     DiffOutput
 };
 
-struct VCSBASE_EXPORT VCSBaseEditorParameters
+class VCSBASE_EXPORT VcsBaseEditorParameters
 {
+public:
     EditorContentType type;
     const char *id;
     const char *displayName;
@@ -83,7 +84,7 @@ public:
     QByteArray chunk;
 };
 
-class VCSBASE_EXPORT VCSBaseEditorWidget : public TextEditor::BaseTextEditorWidget
+class VCSBASE_EXPORT VcsBaseEditorWidget : public TextEditor::BaseTextEditorWidget
 {
     Q_PROPERTY(QString source READ source WRITE setSource)
     Q_PROPERTY(QString diffBaseDirectory READ diffBaseDirectory WRITE setDiffBaseDirectory)
@@ -97,12 +98,12 @@ class VCSBASE_EXPORT VCSBaseEditorWidget : public TextEditor::BaseTextEditorWidg
 protected:
     // Initialization requires calling init() (which in turns calls
     // virtual functions).
-    explicit VCSBaseEditorWidget(const VCSBaseEditorParameters *type,
+    explicit VcsBaseEditorWidget(const VcsBaseEditorParameters *type,
                            QWidget *parent);
 public:
     void init();
 
-    virtual ~VCSBaseEditorWidget();
+    ~VcsBaseEditorWidget();
 
     /* Force read-only: Make it a read-only, temporary file.
      * Should be set to true by version control views. It is not on
@@ -148,8 +149,8 @@ public:
     EditorContentType contentType() const;
 
     // Utility to find a parameter set by type in an array.
-    static  const VCSBaseEditorParameters *
-        findType(const VCSBaseEditorParameters *array, int arraySize, EditorContentType et);
+    static  const VcsBaseEditorParameters *
+        findType(const VcsBaseEditorParameters *array, int arraySize, EditorContentType et);
 
     // Utility to find the codec for a source (file or directory), querying
     // the editor manager and the project managers (defaults to system codec).
@@ -160,7 +161,7 @@ public:
 
     // Utility to return the widget from the IEditor returned by the editor
     // manager which is a BaseTextEditor.
-    static VCSBaseEditorWidget *getVcsBaseEditor(const Core::IEditor *editor);
+    static VcsBaseEditorWidget *getVcsBaseEditor(const Core::IEditor *editor);
 
     // Utility to find the line number of the current editor. Optionally,
     // pass in the file name to match it. To be used when jumping to current
@@ -199,8 +200,8 @@ signals:
     // for LogOutput/AnnotateOutput content types.
     void describeRequested(const QString &source, const QString &change);
     void annotateRevisionRequested(const QString &source, const QString &change, int lineNumber);
-    void diffChunkApplied(const VCSBase::DiffChunk &dc);
-    void diffChunkReverted(const VCSBase::DiffChunk &dc);
+    void diffChunkApplied(const VcsBase::DiffChunk &dc);
+    void diffChunkReverted(const VcsBase::DiffChunk &dc);
 
 public slots:
     // Convenience slot to set data read from stdout, will use the
@@ -263,11 +264,11 @@ private:
     QAction *createAnnotateAction(const QString &change, bool previous = false);
     QAction *createCopyRevisionAction(const QString &change);
 
-    VCSBaseEditorWidgetPrivate *d;
+    Internal::VcsBaseEditorWidgetPrivate *const d;
 };
 
-} // namespace VCSBase
+} // namespace VcsBase
 
-Q_DECLARE_METATYPE(VCSBase::DiffChunk)
+Q_DECLARE_METATYPE(VcsBase::DiffChunk)
 
 #endif // VCSBASE_BASEEDITOR_H

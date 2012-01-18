@@ -123,9 +123,10 @@ QColor TimelineView::colorForItem(int itemIndex)
 
 void TimelineView::drawItemsToPainter(QPainter *p, int fromIndex, int toIndex)
 {
-    int x,y,width,rowNumber, eventType;
+    int x, y, width, height, rowNumber, eventType;
     for (int i = fromIndex; i <= toIndex; i++) {
         x = (m_eventList->getStartTime(i) - m_startTime) * m_spacing;
+
         eventType = m_eventList->getType(i);
         if (m_rowsExpanded[eventType])
             y = m_rowStarts[eventType] + DefaultRowHeight*(m_eventList->eventPosInType(i) + 1);
@@ -141,8 +142,27 @@ void TimelineView::drawItemsToPainter(QPainter *p, int fromIndex, int toIndex)
             continue;
         m_rowLastX[rowNumber] = x+width;
 
-        p->setBrush(colorForItem(i));
-        p->drawRect(x,y,width,DefaultRowHeight);
+        // special: animations
+        if (eventType == 0 && m_eventList->getAnimationCount(i) >= 0) {
+            double scale = m_eventList->getMaximumAnimationCount() - m_eventList->getMinimumAnimationCount();
+            double fraction;
+            if (scale > 1)
+                fraction = (double)(m_eventList->getAnimationCount(i) - m_eventList->getMinimumAnimationCount()) / scale;
+            else
+                fraction = 1.0;
+            height = DefaultRowHeight * (fraction * 0.85 + 0.15);
+            y += DefaultRowHeight - height;
+
+            double fpsFraction = m_eventList->getFramerate(i) / 60.0;
+            if (fpsFraction > 1.0)
+                fpsFraction = 1.0;
+            p->setBrush(QColor::fromHsl((fpsFraction*96)+10, 76, 166));
+            p->drawRect(x, y, width, height);
+        } else {
+            // normal events
+            p->setBrush(colorForItem(i));
+            p->drawRect(x, y, width, DefaultRowHeight);
+        }
     }
 }
 
@@ -161,6 +181,7 @@ void TimelineView::drawSelectionBoxes(QPainter *p)
         selectionColor = QColor(96,0,255);
     QPen strongPen(selectionColor, 3);
     QPen lightPen(QBrush(selectionColor.lighter(130)), 2);
+    lightPen.setJoinStyle(Qt::MiterJoin);
     p->setPen(lightPen);
 
     int x, y, width, eventType;
@@ -183,7 +204,7 @@ void TimelineView::drawSelectionBoxes(QPainter *p)
             width = 1;
 
         if (i == m_selectedItem)
-            selectedItemRect = QRect(x,y,width,DefaultRowHeight);
+            selectedItemRect = QRect(x, y-1, width, DefaultRowHeight+1);
         else
             p->drawRect(x,y,width,DefaultRowHeight);
     }

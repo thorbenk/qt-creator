@@ -56,8 +56,6 @@ static inline VersionControlList allVersionControls()
     return ExtensionSystem::PluginManager::instance()->getObjects<IVersionControl>();
 }
 
-static const QChar SLASH('/');
-
 // ---- VCSManagerPrivate:
 // Maintains a cache of top-level directory->version control.
 
@@ -87,9 +85,9 @@ public:
 
     VcsInfo *findInCache(const QString &dir)
     {
-        Q_ASSERT(QDir(dir).isAbsolute());
-        Q_ASSERT(!dir.endsWith(QLatin1Char('/')));
-        Q_ASSERT(QDir::fromNativeSeparators(dir) == dir);
+        QTC_ASSERT(QDir(dir).isAbsolute(), return 0);
+        QTC_ASSERT(!dir.endsWith(QLatin1Char('/')), return 0);
+        QTC_ASSERT(QDir::fromNativeSeparators(dir) == dir, return 0);
 
         const QMap<QString, VcsInfo *>::const_iterator it = m_cachedMatches.constFind(dir);
         if (it != m_cachedMatches.constEnd())
@@ -100,10 +98,10 @@ public:
     VcsInfo *findUpInCache(const QString &directory)
     {
         VcsInfo *result = 0;
-
+        const QChar slash = QLatin1Char('/');
         // Split the path, trying to find the matching repository. We start from the reverse
         // in order to detected nested repositories correctly (say, a git checkout under SVN).
-        for (int pos = directory.size() - 1; pos >= 0; pos = directory.lastIndexOf(SLASH, pos) - 1) {
+        for (int pos = directory.size() - 1; pos >= 0; pos = directory.lastIndexOf(slash, pos) - 1) {
             const QString directoryPart = directory.left(pos);
             result = findInCache(directoryPart);
             if (result != 0)
@@ -114,9 +112,9 @@ public:
 
     void resetCache(const QString &dir)
     {
-        Q_ASSERT(QDir(dir).isAbsolute());
-        Q_ASSERT(!dir.endsWith(QLatin1Char('/')));
-        Q_ASSERT(QDir::fromNativeSeparators(dir) == dir);
+        QTC_ASSERT(QDir(dir).isAbsolute(), return);
+        QTC_ASSERT(!dir.endsWith(QLatin1Char('/')), return);
+        QTC_ASSERT(QDir::fromNativeSeparators(dir) == dir, return);
 
         const QString dirSlash = dir + QLatin1Char('/');
         foreach (const QString &key, m_cachedMatches.keys()) {
@@ -125,12 +123,14 @@ public:
         }
     }
 
-    void cache(IVersionControl *vc, const QString topLevel, const QString dir)
+    void cache(IVersionControl *vc, const QString &topLevel, const QString &dir)
     {
-        Q_ASSERT(QDir(dir).isAbsolute());
-        Q_ASSERT(!dir.endsWith(QLatin1Char('/')));
-        Q_ASSERT(QDir::fromNativeSeparators(dir) == dir);
-        Q_ASSERT(dir.startsWith(topLevel));
+        QTC_ASSERT(QDir(dir).isAbsolute(), return);
+        QTC_ASSERT(!dir.endsWith(QLatin1Char('/')), return);
+        QTC_ASSERT(QDir::fromNativeSeparators(dir) == dir, return);
+        QTC_ASSERT(dir.startsWith(topLevel + QLatin1Char('/'))
+                   || topLevel == dir || topLevel.isEmpty(), return);
+        QTC_ASSERT((topLevel.isEmpty() && !vc) || (!topLevel.isEmpty() && vc), return);
 
         VcsInfo *newInfo = new VcsInfo(vc, topLevel);
         bool createdNewInfo(true);
@@ -147,10 +147,15 @@ public:
             m_vcsInfoList.append(newInfo);
 
         QString tmpDir = dir;
+        const QChar slash = QLatin1Char('/');
         while (tmpDir.count() >= topLevel.count() && tmpDir.count() > 0) {
             m_cachedMatches.insert(tmpDir, newInfo);
-            int slashPos = tmpDir.lastIndexOf(SLASH);
-            tmpDir = slashPos >= 0 ? tmpDir.left(tmpDir.lastIndexOf(SLASH)) : QString();
+            const int slashPos = tmpDir.lastIndexOf(slash);
+            if (slashPos >= 0) {
+                tmpDir.truncate(slashPos);
+            } else {
+                tmpDir.clear();
+            }
         }
     }
 
@@ -202,6 +207,8 @@ void VcsManager::resetVersionControlForDirectory(const QString &inputDirectory)
 IVersionControl* VcsManager::findVersionControlForDirectory(const QString &inputDirectory,
                                                             QString *topLevelDirectory)
 {
+    typedef QPair<QString, IVersionControl *> StringVersionControlPair;
+    typedef QList<StringVersionControlPair> StringVersionControlPairs;
     if (inputDirectory.isEmpty())
         return 0;
 
@@ -217,12 +224,12 @@ IVersionControl* VcsManager::findVersionControlForDirectory(const QString &input
 
     // Nothing: ask the IVersionControls directly.
     const VersionControlList versionControls = allVersionControls();
-    QList<QPair<QString, IVersionControl *> > allThatCanManage;
+    StringVersionControlPairs allThatCanManage;
 
     foreach (IVersionControl * versionControl, versionControls) {
         QString topLevel;
         if (versionControl->managesDirectory(directory, &topLevel))
-            allThatCanManage.push_back(qMakePair(topLevel, versionControl));
+            allThatCanManage.push_back(StringVersionControlPair(topLevel, versionControl));
     }
 
     // To properly find a nested repository (say, git checkout inside SVN),
@@ -240,11 +247,14 @@ IVersionControl* VcsManager::findVersionControlForDirectory(const QString &input
 
     // Register Vcs(s) with the cache
     QString tmpDir = directory;
-    for (QList<QPair<QString, IVersionControl *> >::const_iterator i = allThatCanManage.constBegin();
-         i != allThatCanManage.constEnd(); ++i) {
+    const QChar slash = QLatin1Char('/');
+    const StringVersionControlPairs::const_iterator cend = allThatCanManage.constEnd();
+    for (StringVersionControlPairs::const_iterator i = allThatCanManage.constBegin(); i != cend; ++i) {
         d->cache(i->second, i->first, tmpDir);
         tmpDir = i->first;
-        tmpDir = tmpDir.left(tmpDir.lastIndexOf(SLASH));
+        const int slashPos = tmpDir.lastIndexOf(slash);
+        if (slashPos >= 0)
+            tmpDir.truncate(slashPos);
     }
 
     // return result

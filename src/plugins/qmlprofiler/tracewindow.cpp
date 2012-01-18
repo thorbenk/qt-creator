@@ -137,6 +137,7 @@ TraceWindow::TraceWindow(QWidget *parent)
     connect(this,SIGNAL(range(int,qint64,qint64,QStringList,QString,int)), m_eventList, SLOT(addRangedEvent(int,qint64,qint64,QStringList,QString,int)));
     connect(this, SIGNAL(traceFinished(qint64)), m_eventList, SLOT(setTraceEndTime(qint64)));
     connect(this, SIGNAL(traceStarted(qint64)), m_eventList, SLOT(setTraceStartTime(qint64)));
+    connect(this, SIGNAL(frameEvent(qint64,int,int)), m_eventList, SLOT(addFrameEvent(qint64,int,int)));
     connect(this,SIGNAL(viewUpdated()), m_eventList, SLOT(complete()));
     m_mainView->rootContext()->setContextProperty("qmlEventList", m_eventList);
     m_overview->rootContext()->setContextProperty("qmlEventList", m_eventList);
@@ -146,10 +147,12 @@ TraceWindow::TraceWindow(QWidget *parent)
     // Minimum height: 5 rows of 20 pixels + scrollbar of 50 pixels + 20 pixels margin
     setMinimumHeight(170);
     m_currentZoomLevel = 0;
+    m_profiledTime = 0;
 }
 
 TraceWindow::~TraceWindow()
 {
+    disconnectClientSignals();
     delete m_plugin.data();
     delete m_v8plugin.data();
 }
@@ -258,24 +261,14 @@ QWidget *TraceWindow::createZoomToolbar()
 
 void TraceWindow::reset(QDeclarativeDebugConnection *conn)
 {
-    if (m_plugin)
-        disconnect(m_plugin.data(), SIGNAL(complete()), this, SLOT(qmlComplete()));
+    disconnectClientSignals();
+
     delete m_plugin.data();
     m_plugin = new QmlProfilerTraceClient(conn);
-    connect(m_plugin.data(), SIGNAL(complete()), this, SLOT(qmlComplete()));
-    connect(m_plugin.data(), SIGNAL(range(int,qint64,qint64,QStringList,QString,int)),
-            this, SIGNAL(range(int,qint64,qint64,QStringList,QString,int)));
-
-    if (m_v8plugin) {
-        disconnect(m_v8plugin.data(), SIGNAL(complete()), this, SLOT(v8Complete()));
-        disconnect(m_v8plugin.data(), SIGNAL(v8range(int,QString,QString,int,double,double)), this, SIGNAL(v8range(int,QString,QString,int,double,double)));
-    }
     delete m_v8plugin.data();
     m_v8plugin = new QV8ProfilerClient(conn);
-    connect(m_v8plugin.data(), SIGNAL(complete()), this, SLOT(v8Complete()));
-    connect(m_v8plugin.data(), SIGNAL(v8range(int,QString,QString,int,double,double)), this, SIGNAL(v8range(int,QString,QString,int,double,double)));
-    connect(m_plugin.data(), SIGNAL(traceFinished(qint64)), this, SIGNAL(traceFinished(qint64)));
-    connect(m_plugin.data(), SIGNAL(traceStarted(qint64)), this, SIGNAL(traceStarted(qint64)));
+
+    connectClientSignals();
 
     m_mainView->rootContext()->setContextProperty("connection", m_plugin.data());
     m_mainView->rootContext()->setContextProperty("zoomControl", m_zoomControl.data());
@@ -303,12 +296,52 @@ void TraceWindow::reset(QDeclarativeDebugConnection *conn)
     connect(this, SIGNAL(globalZoom()), m_mainView->rootObject(), SLOT(globalZoom()));
     connect(this, SIGNAL(selectNextEventInDisplay(QVariant)), m_mainView->rootObject(), SLOT(selectNextWithId(QVariant)));
     connect(m_mainView->rootObject(), SIGNAL(selectedEventIdChanged(int)), this, SIGNAL(selectedEventIdChanged(int)));
+    connect(m_mainView->rootObject(), SIGNAL(changeToolTip(QString)), this, SLOT(updateToolTip(QString)));
 
     connect(this, SIGNAL(internalClearDisplay()), m_mainView->rootObject(), SLOT(clearAll()));
     connect(this,SIGNAL(internalClearDisplay()), m_overview->rootObject(), SLOT(clearDisplay()));
 
     m_v8DataReady = false;
     m_qmlDataReady = false;
+}
+
+void TraceWindow::connectClientSignals()
+{
+    if (m_plugin) {
+        connect(m_plugin.data(), SIGNAL(complete()), this, SLOT(qmlComplete()));
+        connect(m_plugin.data(), SIGNAL(range(int,qint64,qint64,QStringList,QString,int)),
+                this, SIGNAL(range(int,qint64,qint64,QStringList,QString,int)));
+        connect(m_plugin.data(), SIGNAL(traceFinished(qint64)), this, SIGNAL(traceFinished(qint64)));
+        connect(m_plugin.data(), SIGNAL(traceStarted(qint64)), this, SIGNAL(traceStarted(qint64)));
+        connect(m_plugin.data(), SIGNAL(frame(qint64,int,int)), this, SIGNAL(frameEvent(qint64,int,int)));
+        connect(m_plugin.data(), SIGNAL(enabledChanged()), this, SLOT(updateProfilerState()));
+        connect(m_plugin.data(), SIGNAL(enabledChanged()), m_plugin.data(), SLOT(sendRecordingStatus()));
+    }
+    if (m_v8plugin) {
+        connect(m_v8plugin.data(), SIGNAL(complete()), this, SLOT(v8Complete()));
+        connect(m_v8plugin.data(), SIGNAL(v8range(int,QString,QString,int,double,double)), this, SIGNAL(v8range(int,QString,QString,int,double,double)));
+        connect(m_v8plugin.data(), SIGNAL(enabledChanged()), this, SLOT(updateProfilerState()));
+        connect(m_v8plugin.data(), SIGNAL(enabledChanged()), m_v8plugin.data(), SLOT(sendRecordingStatus()));
+    }
+}
+
+void TraceWindow::disconnectClientSignals()
+{
+    if (m_plugin) {
+        disconnect(m_plugin.data(), SIGNAL(complete()), this, SLOT(qmlComplete()));
+        disconnect(m_plugin.data(), SIGNAL(range(int,qint64,qint64,QStringList,QString,int)),
+                this, SIGNAL(range(int,qint64,qint64,QStringList,QString,int)));
+        disconnect(m_plugin.data(), SIGNAL(traceFinished(qint64)), this, SIGNAL(traceFinished(qint64)));
+        disconnect(m_plugin.data(), SIGNAL(traceStarted(qint64)), this, SIGNAL(traceStarted(qint64)));
+        disconnect(m_plugin.data(), SIGNAL(enabledChanged()), this, SLOT(updateProfilerState()));
+        disconnect(m_plugin.data(), SIGNAL(enabledChanged()), m_plugin.data(), SLOT(sendRecordingStatus()));
+    }
+    if (m_v8plugin) {
+        disconnect(m_v8plugin.data(), SIGNAL(complete()), this, SLOT(v8Complete()));
+        disconnect(m_v8plugin.data(), SIGNAL(v8range(int,QString,QString,int,double,double)), this, SIGNAL(v8range(int,QString,QString,int,double,double)));
+        disconnect(m_v8plugin.data(), SIGNAL(enabledChanged()), this, SLOT(updateProfilerState()));
+        disconnect(m_v8plugin.data(), SIGNAL(enabledChanged()), m_v8plugin.data(), SLOT(sendRecordingStatus()));
+    }
 }
 
 QmlProfilerEventList *TraceWindow::getEventList() const
@@ -334,7 +367,12 @@ void TraceWindow::updateCursorPosition()
 
 void TraceWindow::updateTimer()
 {
-    emit timeChanged(m_mainView->rootObject()->property("elapsedTime").toDouble());
+    m_profiledTime = m_mainView->rootObject()->property("elapsedTime").toDouble();
+}
+
+double TraceWindow::profiledTime() const
+{
+    return m_profiledTime;
 }
 
 void TraceWindow::clearDisplay()
@@ -347,6 +385,7 @@ void TraceWindow::clearDisplay()
         m_v8plugin.data()->clearData();
 
     m_zoomControl.data()->setRange(0,0);
+    m_profiledTime = 0;
 
     emit internalClearDisplay();
 }
@@ -511,6 +550,23 @@ void TraceWindow::updateRange()
 void TraceWindow::selectNextEvent(int eventId)
 {
     emit selectNextEventInDisplay(QVariant(eventId));
+}
+
+void TraceWindow::updateProfilerState()
+{
+    bool qmlActive = false;
+    bool v8Active = false;
+    if (m_plugin)
+        qmlActive = m_plugin.data()->isEnabled();
+    if (m_v8plugin)
+        v8Active = m_v8plugin.data()->isEnabled();
+
+    emit profilerStateChanged(qmlActive, v8Active);
+}
+
+void TraceWindow::updateToolTip(const QString &text)
+{
+    setToolTip(text);
 }
 
 } // namespace Internal

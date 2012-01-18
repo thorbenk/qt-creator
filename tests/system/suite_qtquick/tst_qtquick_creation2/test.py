@@ -28,9 +28,9 @@ def main():
             result = addExecutableAsAttachableAUT(projectName, 11223)
             allowAppThroughWinFW(workingDir, projectName)
             if result:
-                result = runAndCloseApp(True, projectName, 11223, subprocessFunction)
+                result = runAndCloseApp(True, projectName, 11223, subprocessFunction, SubprocessType.QT_QUICK_APPLICATION)
             else:
-                result = runAndCloseApp()
+                result = runAndCloseApp(sType=SubprocessType.QT_QUICK_APPLICATION)
             removeExecutableAsAttachableAUT(projectName, 11223)
             deleteAppFromWinFW(workingDir, projectName)
         else:
@@ -46,8 +46,7 @@ def subprocessFunction():
     dragItemBy(textEdit, 30, 30, 50, 50, 0, Qt.LeftButton)
     test.log("Test editing")
     textEdit.cursorPosition = 0
-    type(textEdit, "This text is entered by Squish...")
-    type(textEdit, "<Return>")
+    typeLines(textEdit, "This text is entered by Squish...")
     test.log("Closing QmlApplicationViewer")
     sendEvent("QCloseEvent", "{type='QmlApplicationViewer' unnamed='1' visible='1'}")
 

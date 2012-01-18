@@ -202,6 +202,7 @@ GdbEngine::GdbEngine(const DebuggerStartParameters &startParameters,
     m_hasInferiorThreadList = false;
     m_sourcesListUpdating = false;
     m_oldestAcceptableToken = -1;
+    m_nonDiscardableCount = 0;
     m_outputCodec = QTextCodec::codecForLocale();
     m_pendingWatchRequests = 0;
     m_pendingBreakpointRequests = 0;
@@ -808,6 +809,9 @@ void GdbEngine::postCommandHelper(const GdbCommand &cmd)
                       << "LEAVES PENDING BREAKPOINT AT" << m_pendingBreakpointRequests);
     }
 
+    if (!(cmd.flags & Discardable))
+        ++m_nonDiscardableCount;
+
     // FIXME: clean up logic below
     if (cmd.flags & Immediate) {
         // This should always be sent.
@@ -1077,6 +1081,9 @@ void GdbEngine::handleResultRecord(GdbResponse *response)
             showMessage(_(rsp));
         }
     }
+
+    if (!(cmd.flags & Discardable))
+        --m_nonDiscardableCount;
 
     if (cmd.callback)
         (this->*cmd.callback)(*response);
@@ -1365,28 +1372,6 @@ void GdbEngine::handleStopResponse(const GdbMi &data)
         notifyInferiorStopOk();
     }
 
-    if (startParameters().toolChainAbi.os() == Abi::LinuxOS && !m_entryPoint.isEmpty()) {
-        // This is needed as long as we support stock gdb 6.8.
-        if (frame.findChild("addr").data() == m_entryPoint) {
-            // There are two expected reasons for getting here:
-            // 1) For some reason, attaching to a stopped process causes *two*
-            // SIGSTOPs
-            //    when trying to continue (kernel i386 2.6.24-23-ubuntu, gdb 6.8).
-            //    Interestingly enough, on MacOSX no signal is delivered at all.
-            // 2) The explicit tbreak at the entry point we set to query the PID.
-            //    Gdb <= 6.8 reports a frame but no reason, 6.8.50+ reports
-            //    everything.
-            // The case of the user really setting a breakpoint at _start is simply
-            // unsupported.
-            if (!inferiorPid()) // For programs without -pthread under gdb <= 6.8.
-                postCommand("info proc", CB(handleInfoProc));
-            continueInferiorInternal();
-            return;
-        }
-        // We are past the initial stop(s). No need to waste time on further checks.
-        m_entryPoint.clear();
-    }
-
     if (isQmlStepBreakpoint1(rid))
         return;
 
@@ -1629,7 +1614,7 @@ void GdbEngine::handleStop1(const GdbMi &data)
             if (name == stopSignal(sp.toolChainAbi)) {
                 showMessage(_(name + " CONSIDERED HARMLESS. CONTINUING."));
             } else {
-                showMessage(_("HANDLING SIGNAL" + name));
+                showMessage(_("HANDLING SIGNAL " + name));
                 if (debuggerCore()->boolSetting(UseMessageBoxForSignals)
                         && !isStopperThread)
                     showStoppedBySignalMessageBox(_(meaning), _(name));
@@ -1694,7 +1679,14 @@ void GdbEngine::handleShowVersion(const GdbResponse &response)
         QString msg = QString::fromLocal8Bit(response.consoleStreamOutput);
         extractGdbVersion(msg,
               &m_gdbVersion, &m_gdbBuildVersion, &m_isMacGdb);
-        if (m_gdbVersion > 60500 && m_gdbVersion < 200000)
+
+        // On Mac, fsf gdb does not work sufficiently well,
+        // and on Linux and Windows we require at least 7.2.
+        // Older versions with python still work, but can
+        // be significantly slower.
+        bool isSupported = m_isMacGdb ? m_gdbVersion < 70000
+            : (m_gdbVersion > 70200 && m_gdbVersion < 200000);
+        if (isSupported)
             showMessage(_("SUPPORTED GDB VERSION ") + msg);
         else
             showMessage(_("UNSUPPORTED GDB VERSION ") + msg);
@@ -1977,9 +1969,9 @@ void GdbEngine::setupEngine()
     m_gdbAdapter->startAdapter();
 }
 
-unsigned GdbEngine::debuggerCapabilities() const
+bool GdbEngine::hasCapability(unsigned cap) const
 {
-    unsigned caps = ReverseSteppingCapability
+    if (cap & (ReverseSteppingCapability
         | AutoDerefPointersCapability
         | DisassemblerCapability
         | RegisterCapability
@@ -1999,16 +1991,18 @@ unsigned GdbEngine::debuggerCapabilities() const
         | ShowModuleSymbolsCapability
         | CatchCapability
         | OperateByInstructionCapability
-        | RunToLineCapability;
+        | RunToLineCapability
+        | MemoryAddressCapability))
+        return true;
 
     if (startParameters().startMode == AttachCore)
-        return caps;
+        return false;
 
     // FIXME: Remove in case we have gdb 7.x on Mac.
     if (startParameters().toolChainAbi.os() == Abi::MacOS)
-        return caps;
+        return false;
 
-    return caps | SnapshotCapability;
+    return cap == SnapshotCapability;
 }
 
 
@@ -2102,7 +2096,7 @@ void GdbEngine::executeStepI()
 void GdbEngine::executeStepOut()
 {
     QTC_ASSERT(state() == InferiorStopOk, qDebug() << state());
-    postCommand("-stack-select-frame 0");
+    postCommand("-stack-select-frame 0", Discardable);
     setTokenBarrier();
     notifyInferiorRunRequested();
     showStatusMessage(tr("Finish function requested..."), 5000);
@@ -2270,14 +2264,20 @@ void GdbEngine::handleExecuteReturn(const GdbResponse &response)
 
 void GdbEngine::setTokenBarrier()
 {
-    foreach (const GdbCommand &cookie, m_cookieForToken) {
-        QTC_ASSERT(!cookie.callback || (cookie.flags & Discardable),
-            qDebug() << "CMD:" << cookie.command
-                << " FLAGS:" << cookie.flags
-                << " CALLBACK:" << cookie.callbackName;
-            return
-        );
+    QTC_ASSERT(m_nonDiscardableCount == 0, /**/);
+    bool good = true;
+    QHashIterator<int, GdbCommand> it(m_cookieForToken);
+    while (it.hasNext()) {
+        it.next();
+        if (!(it.value().flags & Discardable)) {
+            qDebug() << "TOKEN: " << it.key()
+                << "CMD:" << it.value().command
+                << " FLAGS:" << it.value().flags
+                << " CALLBACK:" << it.value().callbackName;
+            good = false;
+        }
     }
+    QTC_ASSERT(good, return);
     PENDING_DEBUG("\n--- token barrier ---\n");
     showMessage(_("--- token barrier ---"), LogMiscInput);
     if (debuggerCore()->boolSetting(LogTimeStamps))
@@ -3726,7 +3726,6 @@ bool GdbEngine::showToolTip()
         return false;
     }
     DebuggerToolTipWidget *tw = new DebuggerToolTipWidget;
-    tw->setDebuggerModel(TooltipsWatch);
     tw->setExpression(expression);
     tw->setContext(*m_toolTipContext);
     tw->acquireEngine(this);
@@ -3953,6 +3952,7 @@ void GdbEngine::rebuildWatchModel()
     showStatusMessage(tr("Finished retrieving data"), 400);
     watchHandler()->endCycle();
     showToolTip();
+    handleAutoTests();
 }
 
 static QByteArray arrayFillCommand(const char *array, const QByteArray &params)
@@ -4676,12 +4676,15 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
 
     loadPythonDumpers();
 
-    const QString script = sp.overrideStartScript;
+    return true;
+}
+
+void GdbEngine::loadInitScript()
+{
+    const QString script = startParameters().overrideStartScript;
     if (!script.isEmpty()) {
         if (QFileInfo(script).isReadable()) {
             postCommand("source " + script.toLocal8Bit());
-            // Re-do the setup, as the "source" might have changed something.
-            postCommand("bbsetup", ConsoleCommand, CB(handleHasPython));
         } else {
             showMessageBox(QMessageBox::Warning,
             tr("Cannot find debugger initialization script"),
@@ -4692,14 +4695,9 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
         }
     } else {
         const QString commands = debuggerCore()->stringSetting(GdbStartupCommands);
-        if (!commands.isEmpty()) {
+        if (!commands.isEmpty())
             postCommand(commands.toLocal8Bit());
-            // Re-do the setup, as the "source" might have changed something.
-            postCommand("bbsetup", ConsoleCommand, CB(handleHasPython));
-        }
     }
-
-    return true;
 }
 
 void GdbEngine::loadPythonDumpers()
@@ -4713,6 +4711,9 @@ void GdbEngine::loadPythonDumpers()
         ConsoleCommand|NonCriticalResponse);
     postCommand("python execfile('" + dumperSourcePath + "qttypes.py')",
         ConsoleCommand|NonCriticalResponse);
+
+    loadInitScript();
+
     postCommand("bbsetup",
         ConsoleCommand, CB(handleHasPython));
 }

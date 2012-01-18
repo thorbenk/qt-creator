@@ -83,13 +83,18 @@ public:
     void goToNext();
     void goToPrevious();
 
+    void reset();
+
+    void setSearchAgainSupported(bool supported);
+    void setSearchAgainEnabled(bool enabled);
+
 public slots:
     void finishSearch();
-    void clear();
 
 signals:
     void activated(const Find::SearchResultItem &item);
     void replaceButtonClicked(const QString &replaceText, const QList<Find::SearchResultItem> &checkedItems);
+    void searchAgainRequested();
     void cancelled();
     void visibilityChanged(bool visible);
 
@@ -100,6 +105,7 @@ private slots:
     void handleJumpToSearchResult(const SearchResultItem &item);
     void handleReplaceButton();
     void cancel();
+    void searchAgain();
 
 private:
     bool showWarningMessage() const;
@@ -116,6 +122,8 @@ private:
     QLabel *m_replaceLabel;
     QLineEdit *m_replaceTextEdit;
     QToolButton *m_replaceButton;
+    QToolButton *m_searchAgainButton;
+    bool m_searchAgainSupported;
     QWidget *m_descriptionContainer;
     QLabel *m_label;
     QLabel *m_searchTerm;

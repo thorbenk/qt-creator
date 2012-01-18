@@ -38,6 +38,7 @@
 #include "debuggerconstants.h"
 #include "debuggercore.h"
 #include "debuggerdialogs.h"
+#include "debuggerinternalconstants.h"
 #include "debuggermainwindow.h"
 #include "debuggerrunner.h"
 #include "debuggerstringutils.h"
@@ -48,18 +49,24 @@
 #include "registerhandler.h"
 #include "stackhandler.h"
 #include "watchhandler.h"
+#include "sourcefileshandler.h"
 #include "watchutils.h"
 
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/applicationlauncher.h>
 #include <qmljsdebugclient/qdeclarativeoutputparser.h>
+#include <qmljseditor/qmljseditorconstants.h>
 
 #include <utils/environment.h>
 #include <utils/qtcassert.h>
 #include <utils/fileinprojectfinder.h>
 
-#include <coreplugin/icore.h>
+#include <coreplugin/coreconstants.h>
+#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/helpmanager.h>
+#include <coreplugin/icore.h>
+
+#include <texteditor/itexteditor.h>
 
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>
@@ -71,6 +78,7 @@
 #include <QtGui/QApplication>
 #include <QtGui/QMainWindow>
 #include <QtGui/QMessageBox>
+#include <QtGui/QPlainTextEdit>
 #include <QtGui/QToolTip>
 #include <QtGui/QTextDocument>
 
@@ -102,6 +110,8 @@ private:
     Utils::FileInProjectFinder fileFinder;
     QTimer m_noDebugOutputTimer;
     QmlJsDebugClient::QDeclarativeOutputParser m_outputParser;
+    QHash<QString, QTextDocument*> m_sourceDocuments;
+    QHash<QString, QWeakPointer<TextEditor::ITextEditor> > m_sourceEditors;
 };
 
 QmlEnginePrivate::QmlEnginePrivate(QmlEngine *q)
@@ -170,6 +180,16 @@ QmlEngine::~QmlEngine()
         pluginManager->removeObject(this);
     }
 
+    QList<Core::IEditor *> editorsToClose;
+
+    QHash<QString, QWeakPointer<TextEditor::ITextEditor> >::iterator iter;
+    for (iter = d->m_sourceEditors.begin(); iter != d->m_sourceEditors.end(); ++iter) {
+        QWeakPointer<TextEditor::ITextEditor> textEditPtr = iter.value();
+        if (textEditPtr)
+            editorsToClose << textEditPtr.data();
+    }
+    Core::EditorManager::instance()->closeEditors(editorsToClose);
+
     delete d;
 }
 
@@ -177,19 +197,7 @@ void QmlEngine::setupInferior()
 {
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << state());
 
-    if (startParameters().startMode == AttachToRemoteServer) {
-        emit requestRemoteSetup();
-        if (startParameters().qmlServerPort != quint16(-1))
-            notifyInferiorSetupOk();
-    } if (startParameters().startMode == AttachToQmlPort) {
-            notifyInferiorSetupOk();
-
-    } else {
-        d->m_applicationLauncher.setEnvironment(startParameters().environment);
-        d->m_applicationLauncher.setWorkingDirectory(startParameters().workingDirectory);
-
-        notifyInferiorSetupOk();
-    }
+    notifyInferiorSetupOk();
 }
 
 void QmlEngine::appendMessage(const QString &msg, Utils::OutputFormat /* format */)
@@ -200,8 +208,6 @@ void QmlEngine::appendMessage(const QString &msg, Utils::OutputFormat /* format 
 void QmlEngine::connectionEstablished()
 {
     attemptBreakpointSynchronization();
-
-    showMessage(tr("QML Debugger connected."), StatusBar);
 
     if (!watchHandler()->watcherNames().isEmpty()) {
         synchronizeWatchers();
@@ -215,7 +221,6 @@ void QmlEngine::connectionEstablished()
 void QmlEngine::beginConnection()
 {
     d->m_noDebugOutputTimer.stop();
-    showMessage(tr("QML Debugger connecting..."), StatusBar);
     d->m_adapter.beginConnection();
 }
 
@@ -254,7 +259,7 @@ void QmlEngine::retryMessageBoxFinished(int result)
     }
     case QMessageBox::Help: {
         Core::HelpManager *helpManager = Core::HelpManager::instance();
-        helpManager->handleHelpRequest("qthelp://com.nokia.qtcreator/doc/creator-debugging-qml.html");
+        helpManager->handleHelpRequest(QLatin1String("qthelp://com.nokia.qtcreator/doc/creator-debugging-qml.html"));
         // fall through
     }
     default:
@@ -325,6 +330,41 @@ void QmlEngine::showMessage(const QString &msg, int channel, int timeout) const
     DebuggerEngine::showMessage(msg, channel, timeout);
 }
 
+void QmlEngine::gotoLocation(const Location &location)
+{
+    const QString fileName = location.fileName();
+    // TODO: QUrl::isLocalFile() once we depend on Qt 4.8
+    if (QUrl(fileName).scheme().compare(QLatin1String("file"), Qt::CaseInsensitive) == 0) {
+        // internal file from source files -> show generated .js
+        QTC_ASSERT(d->m_sourceDocuments.contains(fileName), return);
+        Core::IEditor *editor = 0;
+
+        Core::EditorManager *editorManager = Core::EditorManager::instance();
+        QString titlePattern = tr("JS Source for %1").arg(fileName);
+        //Check if there are open editors with the same title
+        QList<Core::IEditor *> editors = editorManager->openedEditors();
+        foreach (Core::IEditor *ed, editors) {
+            if (ed->displayName() == titlePattern) {
+                editor = ed;
+                break;
+            }
+        }
+        if (!editor) {
+            editor = editorManager->openEditorWithContents(QmlJSEditor::Constants::C_QMLJSEDITOR_ID,
+                                                           &titlePattern);
+            if (editor) {
+                editor->setProperty(Constants::OPENED_BY_DEBUGGER, true);
+            }
+
+            updateEditor(editor, d->m_sourceDocuments.value(fileName));
+        }
+        editorManager->activateEditor(editor);
+
+    } else {
+        DebuggerEngine::gotoLocation(location);
+    }
+}
+
 void QmlEngine::closeConnection()
 {
     disconnect(watchersModel(),SIGNAL(layoutChanged()),this,SLOT(synchronizeWatchers()));
@@ -370,14 +410,15 @@ void QmlEngine::handleRemoteSetupDone(int gdbServerPort, int qmlPort)
     Q_UNUSED(gdbServerPort);
     if (qmlPort != -1)
         startParameters().qmlServerPort = qmlPort;
-    notifyInferiorSetupOk();
+    notifyEngineSetupOk();
 }
 
 void QmlEngine::handleRemoteSetupFailed(const QString &message)
 {
-    QMessageBox::critical(0,tr("Failed to start application"),
-        tr("Application startup failed: %1").arg(message));
-    notifyInferiorSetupFailed();
+    if (isMasterEngine())
+        QMessageBox::critical(0,tr("Failed to start application"),
+            tr("Application startup failed: %1").arg(message));
+    notifyEngineSetupFailed();
 }
 
 void QmlEngine::shutdownInferior()
@@ -409,18 +450,27 @@ void QmlEngine::shutdownEngine()
 
 void QmlEngine::setupEngine()
 {
-    connect(&d->m_applicationLauncher, SIGNAL(bringToForegroundRequested(qint64)),
-            runControl(), SLOT(bringApplicationToForeground(qint64)),
-            Qt::UniqueConnection);
+    if (startParameters().startMode == AttachToQmlPort
+             || startParameters().startMode == AttachToRemoteServer) {
+        // we need to get the port first
+        emit requestRemoteSetup();
+    } else {
+        d->m_applicationLauncher.setEnvironment(startParameters().environment);
+        d->m_applicationLauncher.setWorkingDirectory(startParameters().workingDirectory);
 
-    notifyEngineSetupOk();
+        // We can't do this in the constructore because runControl() isn't yet defined
+        connect(&d->m_applicationLauncher, SIGNAL(bringToForegroundRequested(qint64)),
+                runControl(), SLOT(bringApplicationToForeground(qint64)),
+                Qt::UniqueConnection);
+
+        notifyEngineSetupOk();
+    }
 }
 
 void QmlEngine::continueInferior()
 {
     QTC_ASSERT(state() == InferiorStopOk, qDebug() << state());
     if (d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, "CONTINUE");
         d->m_adapter.activeDebuggerClient()->continueInferior();
     }
     resetLocation();
@@ -431,7 +481,6 @@ void QmlEngine::continueInferior()
 void QmlEngine::interruptInferior()
 {
     if (d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, "INTERRUPT");
         d->m_adapter.activeDebuggerClient()->interruptInferior();
     }
     notifyInferiorStopOk();
@@ -440,7 +489,6 @@ void QmlEngine::interruptInferior()
 void QmlEngine::executeStep()
 {
     if (d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, "STEPINTO");
         d->m_adapter.activeDebuggerClient()->executeStep();
     }
     notifyInferiorRunRequested();
@@ -450,7 +498,6 @@ void QmlEngine::executeStep()
 void QmlEngine::executeStepI()
 {
     if (d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, "STEPINTO");
         d->m_adapter.activeDebuggerClient()->executeStepI();
     }
     notifyInferiorRunRequested();
@@ -460,7 +507,6 @@ void QmlEngine::executeStepI()
 void QmlEngine::executeStepOut()
 {
     if (d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, "STEPOUT");
         d->m_adapter.activeDebuggerClient()->executeStepOut();
     }
     notifyInferiorRunRequested();
@@ -470,7 +516,6 @@ void QmlEngine::executeStepOut()
 void QmlEngine::executeNext()
 {
     if (d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, "STEPOVER");
         d->m_adapter.activeDebuggerClient()->executeNext();
     }
     notifyInferiorRunRequested();
@@ -484,8 +529,13 @@ void QmlEngine::executeNextI()
 
 void QmlEngine::executeRunToLine(const ContextData &data)
 {
-    Q_UNUSED(data)
-    SDEBUG("FIXME:  QmlEngine::executeRunToLine()");
+    QTC_ASSERT(state() == InferiorStopOk, qDebug() << state());
+    showStatusMessage(tr("Run to line  %1 (%2) requested...").arg(data.lineNumber).arg(data.fileName), 5000);
+    resetLocation();
+    if (d->m_adapter.activeDebuggerClient())
+        d->m_adapter.activeDebuggerClient()->executeRunToLine(data);
+    notifyInferiorRunRequested();
+    notifyInferiorRunOk();
 }
 
 void QmlEngine::executeRunToFunction(const QString &functionName)
@@ -506,7 +556,6 @@ void QmlEngine::activateFrame(int index)
         return;
 
     if (d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, QString("%1 %2").arg(QString("ACTIVATE_FRAME"), QString::number(index)));
         d->m_adapter.activeDebuggerClient()->activateFrame(index);
     }
     gotoLocation(stackHandler()->frames().value(index));
@@ -653,6 +702,13 @@ void QmlEngine::reloadModules()
 {
 }
 
+void QmlEngine::reloadSourceFiles()
+{
+    if (d->m_adapter.activeDebuggerClient()) {
+        d->m_adapter.activeDebuggerClient()->getSourceFiles();
+    }
+}
+
 void QmlEngine::requestModuleSymbols(const QString &moduleName)
 {
     Q_UNUSED(moduleName)
@@ -684,9 +740,6 @@ void QmlEngine::assignValueInDebugger(const WatchData *data,
 {
     quint64 objectId =  data->id;
     if (objectId > 0 && !expression.isEmpty() && d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, QString("%1 %2 %3 %4 %5").arg(
-                       QString("SET_PROPERTY"), QString::number(objectId), QString(expression),
-                       valueV.toString()));
         d->m_adapter.activeDebuggerClient()->assignValueInDebugger(expression.toUtf8(), objectId, expression, valueV.toString());
     }
 }
@@ -700,8 +753,6 @@ void QmlEngine::updateWatchData(const WatchData &data,
 
     if (!data.name.isEmpty() && d->m_adapter.activeDebuggerClient()) {
         if (data.isValueNeeded()) {
-            logMessage(LogSend, QString("%1 %2 %3").arg(QString("EXEC"), QString(data.iname),
-                                                        QString(data.name)));
             d->m_adapter.activeDebuggerClient()->updateWatchData(data);
         }
         if (data.isChildrenNeeded()
@@ -720,8 +771,6 @@ void QmlEngine::synchronizeWatchers()
 {
     QStringList watchedExpressions = watchHandler()->watchedExpressions();
     // send watchers list
-    logMessage(LogSend, QString("%1 %2").arg(
-                   QString("WATCH_EXPRESSIONS"), watchedExpressions.join(", ")));
     if (d->m_adapter.activeDebuggerClient()) {
         d->m_adapter.activeDebuggerClient()->synchronizeWatchers(watchedExpressions);
     } else {
@@ -730,9 +779,11 @@ void QmlEngine::synchronizeWatchers()
     }
 }
 
-unsigned QmlEngine::debuggerCapabilities() const
+bool QmlEngine::hasCapability(unsigned cap) const
 {
-    return AddWatcherCapability|AddWatcherWhileRunningCapability;
+    return cap & (AddWatcherCapability
+            | AddWatcherWhileRunningCapability
+            | RunToLineCapability);
     /*ReverseSteppingCapability | SnapshotCapability
         | AutoDerefPointersCapability | DisassemblerCapability
         | RegisterCapability | ShowMemoryCapability
@@ -778,8 +829,6 @@ void QmlEngine::wrongSetupMessageBoxFinished(int result)
 void QmlEngine::executeDebuggerCommand(const QString& command)
 {
     if (d->m_adapter.activeDebuggerClient()) {
-        logMessage(LogSend, QString("%1 %2 %3").arg(QString("EXEC"), QString("console"),
-                                                          QString(command)));
         d->m_adapter.activeDebuggerClient()->executeDebuggerCommand(command);
     }
 }
@@ -787,19 +836,97 @@ void QmlEngine::executeDebuggerCommand(const QString& command)
 
 QString QmlEngine::qmlImportPath() const
 {
-    return startParameters().environment.value("QML_IMPORT_PATH");
+    return startParameters().environment.value(QLatin1String("QML_IMPORT_PATH"));
 }
 
-void QmlEngine::logMessage(LogDirection direction, const QString &message)
+void QmlEngine::logMessage(const QString &service, LogDirection direction, const QString &message)
 {
-    QString msg = "QmlDebugger";
-    if (direction == LogSend) {
-        msg += " sending ";
-    } else {
-        msg += " receiving ";
-    }
+    QString msg = service;
+    msg += direction == LogSend ? QLatin1String(": sending ") : QLatin1String(": receiving ");
     msg += message;
     showMessage(msg, LogDebug);
+}
+
+void QmlEngine::setSourceFiles(const QStringList &fileNames)
+{
+    QMap<QString,QString> files;
+    foreach (const QString &file, fileNames) {
+        QString shortName = file;
+        QString fullName = d->fileFinder.findFile(file);
+        files.insert(shortName, fullName);
+    }
+
+    sourceFilesHandler()->setSourceFiles(files);
+    //update open editors
+
+}
+
+void QmlEngine::updateScriptSource(const QString &fileName, int lineOffset, int columnOffset,
+                                   const QString &source)
+{
+    QTextDocument *document = 0;
+    if (d->m_sourceDocuments.contains(fileName)) {
+        document = d->m_sourceDocuments.value(fileName);
+    } else {
+        document = new QTextDocument(this);
+        d->m_sourceDocuments.insert(fileName, document);
+    }
+
+    // We're getting an unordered set of snippets that can even interleave
+    // Therefore we've to carefully update the existing document
+
+    QTextCursor cursor(document);
+    for (int i = 0; i < lineOffset; ++i) {
+        if (!cursor.movePosition(QTextCursor::NextBlock))
+            cursor.insertBlock();
+    }
+    QTC_CHECK(cursor.blockNumber() == lineOffset);
+
+    for (int i = 0; i < columnOffset; ++i) {
+        if (!cursor.movePosition(QTextCursor::NextCharacter))
+            cursor.insertText(QLatin1String(" "));
+    }
+    QTC_CHECK(cursor.positionInBlock() == columnOffset);
+
+    QStringList lines = source.split(QLatin1Char('\n'));
+    foreach (QString line, lines) {
+        if (line.endsWith(QLatin1Char('\r')))
+            line.remove(line.size() -1, 1);
+
+        // line already there?
+        QTextCursor existingCursor(cursor);
+        existingCursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+        if (existingCursor.selectedText() != line)
+            cursor.insertText(line);
+
+        if (!cursor.movePosition(QTextCursor::NextBlock))
+            cursor.insertBlock();
+    }
+
+    //update open editors
+    QString titlePattern = tr("JS Source for %1").arg(fileName);
+    //Check if there are open editors with the same title
+    QList<Core::IEditor *> editors = Core::EditorManager::instance()->openedEditors();
+    foreach (Core::IEditor *editor, editors) {
+        if (editor->displayName() == titlePattern) {
+            updateEditor(editor, document);
+            break;
+        }
+    }
+}
+
+void QmlEngine::updateEditor(Core::IEditor *editor, const QTextDocument *document)
+{
+    TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor*>(editor);
+    if (!textEditor)
+        return;
+
+    QPlainTextEdit *plainTextEdit =
+            qobject_cast<QPlainTextEdit *>(editor->widget());
+    if (!plainTextEdit)
+        return;
+    plainTextEdit->setPlainText(document->toPlainText());
+    plainTextEdit->setReadOnly(true);
 }
 
 QmlAdapter *QmlEngine::adapter() const

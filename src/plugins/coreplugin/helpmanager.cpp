@@ -437,9 +437,9 @@ void HelpManager::verifyDocumenation()
 
 QStringList HelpManagerPrivate::documentationFromInstaller()
 {
-    QSettings *installSettings = Core::ICore::instance()->settings(QSettings::SystemScope);
+    QSettings *installSettings = Core::ICore::instance()->settings();
     QStringList documentationPaths = installSettings->value(QLatin1String("Help/InstalledDocumentation"))
-            .toString().split(QLatin1Char(';'), QString::SkipEmptyParts);
+            .toStringList();
     QStringList documentationFiles;
     foreach (const QString &path, documentationPaths) {
         QFileInfo pathInfo(path);
@@ -447,7 +447,7 @@ QStringList HelpManagerPrivate::documentationFromInstaller()
             documentationFiles << pathInfo.absoluteFilePath();
         } else if (pathInfo.isDir()) {
             QDir dir(path);
-            foreach (const QFileInfo &fileInfo, dir.entryInfoList(QStringList() << "*.qch",
+            foreach (const QFileInfo &fileInfo, dir.entryInfoList(QStringList(QLatin1String("*.qch")),
                                                               QDir::Files | QDir::Readable)) {
                 documentationFiles << fileInfo.absoluteFilePath();
             }

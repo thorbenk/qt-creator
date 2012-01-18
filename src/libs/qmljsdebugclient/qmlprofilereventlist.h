@@ -41,18 +41,23 @@
 
 namespace QmlJsDebugClient {
 
+struct QmlEventSub;
+struct QV8EventSub;
+
 struct QMLJSDEBUGCLIENT_EXPORT QmlEventData
 {
-    QmlEventData():line(-1),cumulatedDuration(0),calls(0),eventId(-1){}
+    QmlEventData();
+    ~QmlEventData();
+
     QString displayname;
     QString filename;
-    QString location;
+    QString eventHashStr;
     QString details;
     int line;
     QmlJsDebugClient::QmlEventType eventType;
-    QList< QmlEventData *> parentList;
-    QList< QmlEventData *> childrenList;
-    qint64 cumulatedDuration;
+    QHash <QString, QmlEventSub *> parentHash;
+    QHash <QString, QmlEventSub *> childrenHash;
+    qint64 duration;
     qint64 calls;
     qint64 minTime;
     qint64 maxTime;
@@ -60,10 +65,23 @@ struct QMLJSDEBUGCLIENT_EXPORT QmlEventData
     double percentOfTime;
     qint64 medianTime;
     int eventId;
+
+    QmlEventData &operator=(const QmlEventData &ref);
+};
+
+struct QMLJSDEBUGCLIENT_EXPORT QmlEventSub {
+    QmlEventSub(QmlEventData *from) : reference(from), duration(0), calls(0) {}
+    QmlEventSub(QmlEventSub *from) : reference(from->reference), duration(from->duration), calls(from->calls) {}
+    QmlEventData *reference;
+    qint64 duration;
+    qint64 calls;
 };
 
 struct QMLJSDEBUGCLIENT_EXPORT QV8EventData
 {
+    QV8EventData();
+    ~QV8EventData();
+
     QString displayName;
     QString filename;
     QString functionName;
@@ -72,9 +90,19 @@ struct QMLJSDEBUGCLIENT_EXPORT QV8EventData
     double totalPercent;
     double selfTime;
     double selfPercent;
-    QList< QV8EventData *> parentList;
-    QList< QV8EventData *> childrenList;
+    QHash <QString, QV8EventSub *> parentHash;
+    QHash <QString, QV8EventSub *> childrenHash;
     int eventId;
+
+    QV8EventData &operator=(const QV8EventData &ref);
+};
+
+struct QMLJSDEBUGCLIENT_EXPORT QV8EventSub {
+    QV8EventSub(QV8EventData *from) : reference(from), totalTime(0) {}
+    QV8EventSub(QV8EventSub *from) : reference(from->reference), totalTime(from->totalTime) {}
+
+    QV8EventData *reference;
+    qint64 totalTime;
 };
 
 typedef QHash<QString, QmlEventData *> QmlEventHash;
@@ -113,17 +141,24 @@ public:
     Q_INVOKABLE int getLine(int index) const;
     Q_INVOKABLE QString getDetails(int index) const;
     Q_INVOKABLE int getEventId(int index) const;
+    Q_INVOKABLE int getFramerate(int index) const;
+    Q_INVOKABLE int getAnimationCount(int index) const;
+    Q_INVOKABLE int getMaximumAnimationCount() const;
+    Q_INVOKABLE int getMinimumAnimationCount() const;
 
     // per-type data
     Q_INVOKABLE int uniqueEventsOfType(int type) const;
     Q_INVOKABLE int maxNestingForType(int type) const;
     Q_INVOKABLE QString eventTextForType(int type, int index) const;
+    Q_INVOKABLE QString eventDisplayNameForType(int type, int index) const;
     Q_INVOKABLE int eventIdForType(int type, int index) const;
     Q_INVOKABLE int eventPosInType(int index) const;
 
     Q_INVOKABLE qint64 traceStartTime() const;
     Q_INVOKABLE qint64 traceEndTime() const;
     Q_INVOKABLE qint64 traceDuration() const;
+    Q_INVOKABLE qint64 qmlMeasuredTime() const;
+    Q_INVOKABLE qint64 v8MeasuredTime() const;
 
     void showErrorDialog(const QString &st ) const;
     void compileStatistics(qint64 startTime, qint64 endTime);
@@ -133,6 +168,7 @@ signals:
     void error(const QString &error);
     void dataClear();
     void processingData();
+    void postProcessing();
 
 public slots:
     void clear();
@@ -141,7 +177,8 @@ public slots:
     void complete();
 
     void addV8Event(int depth,const QString &function,const QString &filename, int lineNumber, double totalTime, double selfTime);
-    void save(const QString &filename);
+    void addFrameEvent(qint64 time, int framerate, int animationcount);
+    bool save(const QString &filename);
     void load(const QString &filename);
     void setFilename(const QString &filename);
     void load();
@@ -152,6 +189,7 @@ public slots:
 private:
     void postProcess();
     void sortEndTimes();
+    void findAnimationLimits();
     void sortStartTimes();
     void computeLevels();
     void computeNestingLevels();

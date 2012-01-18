@@ -39,6 +39,8 @@
 #include <projectexplorer/target.h>
 #include <projectexplorer/task.h>
 
+#include <QtGui/QSpacerItem>
+
 namespace Utils {
 class DetailsWidget;
 class PathChooser;
@@ -92,7 +94,7 @@ public:
     QList<ProjectExplorer::ToolChain *> possibleToolChains(ProjectExplorer::BuildConfiguration *bc) const;
     ProjectExplorer::ToolChain *preferredToolChain(ProjectExplorer::BuildConfiguration *) const;
 
-    virtual QString mkspec(const Qt4BuildConfiguration *bc) const;
+    virtual Utils::FileName mkspec(const Qt4BuildConfiguration *bc) const;
 
 signals:
     void buildDirectoryInitialized();
@@ -177,6 +179,7 @@ private:
     QLabel *m_importLineLabel;
     Utils::PathChooser *m_importLinePath;
     QPushButton *m_importLineButton;
+    QSpacerItem *m_importLineStretch;
 
     void setupWidgets();
     void clearWidgets();

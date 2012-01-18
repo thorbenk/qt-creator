@@ -45,6 +45,7 @@
 #include <utils/qtcassert.h>
 
 #include <QtCore/QDebug>
+#include <QtCore/QDir>
 #include <QtCore/QFileInfo>
 
 #include <QtGui/QAction>
@@ -381,7 +382,7 @@ QVariant BookmarkManager::data(const QModelIndex &index, int role) const
     else if (role == BookmarkManager::LineText)
         return m_bookmarksList.at(index.row())->lineText();
     else if (role == Qt::ToolTipRole)
-        return m_bookmarksList.at(index.row())->filePath();
+        return QDir::toNativeSeparators(m_bookmarksList.at(index.row())->filePath());
 
     return QVariant();
 }
@@ -758,6 +759,14 @@ void BookmarkManager::loadBookmarks()
         addBookmark(bookmarkString);
 
     updateActionStatus();
+}
+
+void BookmarkManager::handleBookmarkRequest(TextEditor::ITextEditor *textEditor,
+                                            int line,
+                                            TextEditor::ITextEditor::MarkRequestKind kind)
+{
+    if (kind == TextEditor::ITextEditor::BookmarkRequest && textEditor->file())
+        toggleBookmark(textEditor->file()->fileName(), line);
 }
 
 // BookmarkViewFactory

@@ -96,7 +96,7 @@ QString QtOptionsPage::displayCategory() const
 
 QIcon QtOptionsPage::categoryIcon() const
 {
-    return QIcon(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON);
+    return QIcon(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
 }
 
 QWidget *QtOptionsPage::createPage(QWidget *parent)
@@ -132,8 +132,8 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent, QList<BaseQtVersion *>
     , m_ui(new Internal::Ui::QtVersionManager())
     , m_versionUi(new Internal::Ui::QtVersionInfo())
     , m_debuggingHelperUi(new Internal::Ui::DebuggingHelper())
-    , m_invalidVersionIcon(":/projectexplorer/images/compile_error.png")
-    , m_warningVersionIcon(":/projectexplorer/images/compile_warning.png")
+    , m_invalidVersionIcon(QLatin1String(":/projectexplorer/images/compile_error.png"))
+    , m_warningVersionIcon(QLatin1String(":/projectexplorer/images/compile_warning.png"))
     , m_configurationWidget(0)
 {
     // Initialize m_versions
@@ -174,7 +174,7 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent, QList<BaseQtVersion *>
         BaseQtVersion *version = m_versions.at(i);
         QTreeWidgetItem *item = new QTreeWidgetItem(version->isAutodetected()? autoItem : manualItem);
         item->setText(0, version->displayName());
-        item->setText(1, QDir::toNativeSeparators(version->qmakeCommand()));
+        item->setText(1, version->qmakeCommand().toUserOutput());
         item->setData(0, VersionIdRole, version->uniqueId());
         item->setData(0, ToolChainIdRole, defaultToolChainId(version));
         const ValidityInfo info = validInformation(version);
@@ -216,8 +216,8 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent, QList<BaseQtVersion *>
     userChangedCurrentVersion();
     updateCleanUpButton();
 
-    connect(QtVersionManager::instance(), SIGNAL(dumpUpdatedFor(QString)),
-            this, SLOT(qtVersionsDumpUpdated(QString)));
+    connect(QtVersionManager::instance(), SIGNAL(dumpUpdatedFor(Utils::FileName)),
+            this, SLOT(qtVersionsDumpUpdated(Utils::FileName)));
 
     connect(ProjectExplorer::ToolChainManager::instance(), SIGNAL(toolChainsChanged()),
             this, SLOT(toolChainsUpdated()));
@@ -359,7 +359,7 @@ void QtOptionsPageWidget::selectedToolChainChanged(int comboIndex)
     item->setData(0, ToolChainIdRole, toolChainId);
 }
 
-void QtOptionsPageWidget::qtVersionsDumpUpdated(const QString &qmakeCommand)
+void QtOptionsPageWidget::qtVersionsDumpUpdated(const Utils::FileName &qmakeCommand)
 {
     foreach (BaseQtVersion *version, m_versions) {
         if (version->qmakeCommand() == qmakeCommand)
@@ -425,7 +425,7 @@ QtOptionsPageWidget::ValidityInfo QtOptionsPageWidget::validInformation(const Ba
         QString warning = version->warningReason();
         if (!warning.isEmpty()) {
             if (!info.message.isEmpty())
-                info.message.append('\n');
+                info.message.append(QLatin1Char('\n'));
             info.message += warning;
             info.icon = m_warningVersionIcon;
         }
@@ -578,7 +578,7 @@ QtOptionsPageWidget::~QtOptionsPageWidget()
 
 static QString filterForQmakeFileDialog()
 {
-    QString filter("qmake (");
+    QString filter = QLatin1String("qmake (");
     foreach (const QString &s, Utils::BuildableHelperLibrary::possibleQMakeCommands()) {
 #ifdef Q_WS_MAC
         // work around QTBUG-7739 that prohibits filters that don't start with *
@@ -592,9 +592,11 @@ static QString filterForQmakeFileDialog()
 
 void QtOptionsPageWidget::addQtDir()
 {
-    QString qtVersion = QFileDialog::getOpenFileName(this,
-                                                     tr("Select a qmake executable"),
-                                                     QString(), filterForQmakeFileDialog());
+    Utils::FileName qtVersion = Utils::FileName::fromString(
+                QFileDialog::getOpenFileName(this,
+                                             tr("Select a qmake executable"),
+                                             QString(),
+                                             filterForQmakeFileDialog()));
     if (qtVersion.isNull())
         return;
     if (QtVersionManager::instance()->qtVersionForQMakeBinary(qtVersion)) {
@@ -607,7 +609,7 @@ void QtOptionsPageWidget::addQtDir()
 
         QTreeWidgetItem *item = new QTreeWidgetItem(m_ui->qtdirList->topLevelItem(1));
         item->setText(0, version->displayName());
-        item->setText(1, QDir::toNativeSeparators(version->qmakeCommand()));
+        item->setText(1, version->qmakeCommand().toUserOutput());
         item->setData(0, VersionIdRole, version->uniqueId());
         item->setData(0, ToolChainIdRole, defaultToolChainId(version));
         item->setIcon(0, version->isValid()? m_validVersionIcon : m_invalidVersionIcon);
@@ -636,10 +638,11 @@ void QtOptionsPageWidget::removeQtDir()
 void QtOptionsPageWidget::editPath()
 {
     BaseQtVersion *current = currentVersion();
-    QString dir = QFileInfo(currentVersion()->qmakeCommand()).absolutePath();
-    QString qtVersion = QFileDialog::getOpenFileName(this,
-                                                     tr("Select a qmake executable"),
-                                                     dir, filterForQmakeFileDialog());
+    QString dir = currentVersion()->qmakeCommand().toFileInfo().absolutePath();
+    Utils::FileName qtVersion = Utils::FileName::fromString(
+                QFileDialog::getOpenFileName(this,
+                                             tr("Select a qmake executable"),
+                                             dir, filterForQmakeFileDialog()));
     if (qtVersion.isNull())
         return;
     BaseQtVersion *version = QtVersionFactory::createQtVersionFromQMakePath(qtVersion);
@@ -665,7 +668,7 @@ void QtOptionsPageWidget::editPath()
     userChangedCurrentVersion();
     QTreeWidgetItem *item = m_ui->qtdirList->currentItem();
     item->setText(0, version->displayName());
-    item->setText(1, QDir::toNativeSeparators(version->qmakeCommand()));
+    item->setText(1, version->qmakeCommand().toUserOutput());
     item->setData(0, VersionIdRole, version->uniqueId());
     item->setData(0, ToolChainIdRole, defaultToolChainId(version));
     item->setIcon(0, version->isValid()? m_validVersionIcon : m_invalidVersionIcon);
@@ -689,6 +692,7 @@ void QtOptionsPageWidget::updateDebuggingHelperUi()
 
         const bool hasGdbHelper = !version->gdbDebuggingHelperLibrary().isEmpty();
         const bool hasQmlDumper = version->hasQmlDump();
+        const bool needsQmlDumper = version->needsQmlDump();
         const bool hasQmlDebuggingLib = version->hasQmlDebuggingLibrary();
         const bool needsQmlDebuggingLib = version->needsQmlDebuggingLibrary();
         const bool hasQmlObserver = !version->qmlObserverTool().isEmpty();
@@ -709,14 +713,15 @@ void QtOptionsPageWidget::updateDebuggingHelperUi()
 
         // get names of tools from labels
         QStringList helperNames;
+        const QChar colon = QLatin1Char(':');
         if (hasGdbHelper)
-            helperNames << m_debuggingHelperUi->gdbHelperLabel->text().remove(':');
+            helperNames << m_debuggingHelperUi->gdbHelperLabel->text().remove(colon);
         if (hasQmlDumper)
-            helperNames << m_debuggingHelperUi->qmlDumpLabel->text().remove(':');
+            helperNames << m_debuggingHelperUi->qmlDumpLabel->text().remove(colon);
         if (hasQmlDebuggingLib)
-            helperNames << m_debuggingHelperUi->qmlDebuggingLibLabel->text().remove(':');
+            helperNames << m_debuggingHelperUi->qmlDebuggingLibLabel->text().remove(colon);
         if (hasQmlObserver)
-            helperNames << m_debuggingHelperUi->qmlObserverLabel->text().remove(':');
+            helperNames << m_debuggingHelperUi->qmlObserverLabel->text().remove(colon);
 
         QString status;
         if (helperNames.isEmpty()) {
@@ -757,7 +762,9 @@ void QtOptionsPageWidget::updateDebuggingHelperUi()
             }
             qmlDumpStatusTextFlags = Qt::TextSelectableByMouse;
         } else {
-            if (canBuildQmlDumper) {
+            if (!needsQmlDumper) {
+                qmlDumpStatusText = tr("<i>Not needed.</i>");
+            } else if (canBuildQmlDumper) {
                 qmlDumpStatusText = tr("<i>Not yet built.</i>");
             } else {
                 qmlDumpStatusText = tr("<i>Cannot be compiled.</i>");
@@ -934,7 +941,7 @@ void QtOptionsPageWidget::updateWidgets()
     BaseQtVersion *version = currentVersion();
     if (version) {
         m_versionUi->nameEdit->setText(version->displayName());
-        m_versionUi->qmakePath->setText(QDir::toNativeSeparators(version->qmakeCommand()));
+        m_versionUi->qmakePath->setText(version->qmakeCommand().toUserOutput());
         m_configurationWidget = version->createConfigurationWidget();
         if (m_configurationWidget) {
             m_versionUi->formLayout->addRow(m_configurationWidget);
@@ -989,7 +996,7 @@ void QtOptionsPageWidget::fixQtVersionName(int index)
         if (i != index) {
             if (m_versions.at(i)->displayName() == m_versions.at(index)->displayName()) {
                 // Same name, find new name
-                QRegExp regexp("^(.*)\\((\\d)\\)$");
+                QRegExp regexp(QLatin1String("^(.*)\\((\\d)\\)$"));
                 if (regexp.exactMatch(name)) {
                     // Already in Name (#) format
                     name = regexp.cap(1);

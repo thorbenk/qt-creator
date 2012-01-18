@@ -53,10 +53,9 @@ LocalApplicationRunControlFactory::~LocalApplicationRunControlFactory()
 {
 }
 
-bool LocalApplicationRunControlFactory::canRun(ProjectExplorer::RunConfiguration *runConfiguration, const QString &mode) const
+bool LocalApplicationRunControlFactory::canRun(RunConfiguration *runConfiguration, RunMode mode) const
 {
-    return (mode == ProjectExplorer::Constants::RUNMODE)
-            && (qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration) != 0);
+    return mode == NormalRunMode && qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration);
 }
 
 QString LocalApplicationRunControlFactory::displayName() const
@@ -64,10 +63,14 @@ QString LocalApplicationRunControlFactory::displayName() const
     return tr("Run");
 }
 
-RunControl *LocalApplicationRunControlFactory::create(ProjectExplorer::RunConfiguration *runConfiguration, const QString &mode)
+RunControl *LocalApplicationRunControlFactory::create(RunConfiguration *runConfiguration, RunMode mode)
 {
     QTC_ASSERT(canRun(runConfiguration, mode), return 0);
-    return new LocalApplicationRunControl(qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration), mode);
+    LocalApplicationRunConfiguration *localRunConfiguration = qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration);
+    // Force the dialog about executables at this point and fail if there is none
+    if (localRunConfiguration->executable().isEmpty())
+        return 0;
+    return new LocalApplicationRunControl(localRunConfiguration, mode);
 }
 
 RunConfigWidget *LocalApplicationRunControlFactory::createConfigurationWidget(RunConfiguration *runConfiguration)
@@ -78,7 +81,7 @@ RunConfigWidget *LocalApplicationRunControlFactory::createConfigurationWidget(Ru
 
 // ApplicationRunControl
 
-LocalApplicationRunControl::LocalApplicationRunControl(LocalApplicationRunConfiguration *rc, QString mode)
+LocalApplicationRunControl::LocalApplicationRunControl(LocalApplicationRunConfiguration *rc, RunMode mode)
     : RunControl(rc, mode)
 {
     Utils::Environment env = rc->environment();
@@ -131,7 +134,7 @@ bool LocalApplicationRunControl::isRunning() const
 
 QIcon LocalApplicationRunControl::icon() const
 {
-    return QIcon(ProjectExplorer::Constants::ICON_RUN_SMALL);
+    return QIcon(QLatin1String(ProjectExplorer::Constants::ICON_RUN_SMALL));
 }
 
 void LocalApplicationRunControl::slotAppendMessage(const QString &err,

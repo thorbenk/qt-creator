@@ -73,6 +73,8 @@ Rectangle {
     property variant selectionRangeStart: selectionRange.startTime
     property variant selectionRangeEnd: selectionRange.startTime + selectionRange.duration
 
+    signal changeToolTip(string text)
+
     // ***** connections with external objects
     Connections {
         target: zoomControl
@@ -102,7 +104,7 @@ Rectangle {
                 root.clearAll();
             if (eventCount > 1) {
                 root.progress = Math.min(1.0,
-                    (qmlEventList.lastTimeMark() - qmlEventList.traceStartTime()) / root.elapsedTime * 1e-9 ) * 0.5;
+                    (qmlEventList.lastTimeMark() - qmlEventList.traceStartTime()) / root.elapsedTime * 1e-9 );
             } else {
                 root.progress = 0;
             }
@@ -110,6 +112,10 @@ Rectangle {
 
         onProcessingData: {
             root.dataAvailable = false;
+        }
+
+        onPostProcessing: {
+            root.progress = 0.9; // jump to 90%
         }
 
         onDataReady: {
@@ -526,8 +532,8 @@ Rectangle {
             width: parent.height
             height: parent.width
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#00A0A0A0"; }
-                GradientStop { position: 1.0; color: "#FFA0A0A0"; }
+                GradientStop { position: 0.0; color: "#00000000"; }
+                GradientStop { position: 1.0; color: "#86000000"; }
             }
         }
     }
@@ -544,8 +550,8 @@ Rectangle {
             width: parent.height
             height: parent.width
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#FFA0A0A0"; }
-                GradientStop { position: 1.0; color: "#00A0A0A0"; }
+                GradientStop { position: 0.0; color: "#86000000"; }
+                GradientStop { position: 1.0; color: "#00000000"; }
             }
         }
     }
@@ -556,8 +562,8 @@ Rectangle {
         width: root.width
         x: 0
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#00A0A0A0"; }
-            GradientStop { position: 1.0; color: "#FFA0A0A0"; }
+            GradientStop { position: 0.0; color: "#00000000"; }
+            GradientStop { position: 1.0; color: "#86000000"; }
         }
     }
 }

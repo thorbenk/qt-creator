@@ -48,12 +48,9 @@ const char C_QMLDEBUGGER[]          = "Qml/JavaScript Debugger";
 
 // Menu Groups
 const char G_START_LOCAL[]          = "Debugger.Group.Start.Local";
-const char G_START_REMOTE[]         = "Debugger.Group.Start.Remote";
+const char G_MANUAL_REMOTE[]        = "Debugger.Group.Manual.Remote";
+const char G_AUTOMATIC_REMOTE[]     = "Debugger.Group.Automatic.Remote";
 const char G_START_QML[]            = "Debugger.Group.Start.Qml";
-
-// Project Explorer run mode (RUN/DEBUG)
-const char DEBUGMODE[]              = "Debugger.DebugMode";
-const char DEBUGMODE2[]             = "Debugger.DebugMode2"; // Breaks on main.
 
 // Common actions (accessed by QML inspector)
 const char INTERRUPT[]              = "Debugger.Interrupt";
@@ -130,8 +127,9 @@ enum DebuggerStartMode
     AttachExternal,        // Attach to running process by process id
     AttachCrashedExternal, // Attach to crashed process by process id
     AttachCore,            // Attach to a core file
-    AttachToRemoteServer,  // Attach to a running remote server
-    StartRemote,           // Start and attach to a remote process
+    AttachToRemoteServer,  // Attach to a running gdbserver
+    AttachToRemoteProcess, // Attach to a running remote process
+    StartRemoteProcess,    // Start and attach to a remote process
     AttachToQmlPort,       // Attach to QML debugging port
     StartRemoteGdb,        // Start gdb itself remotely
     StartRemoteEngine      // Start ipc guest engine on other machine
@@ -163,7 +161,7 @@ enum DebuggerCapabilities
     CatchCapability = 0x200000, //!< fork, vfork, syscall
     OperateByInstructionCapability = 0x400000,
     RunToLineCapability = 0x800000,
-    AllDebuggerCapabilities = 0xFFFFFFFF
+    MemoryAddressCapability = 0x1000000
 };
 
 enum LogChannel

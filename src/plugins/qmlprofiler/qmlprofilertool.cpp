@@ -60,6 +60,10 @@
 #include <projectexplorer/project.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/session.h>
+#include <projectexplorer/applicationrunconfiguration.h>
+
+#include <remotelinux/remotelinuxrunconfiguration.h>
+#include <remotelinux/linuxdeviceconfiguration.h>
 
 #include <texteditor/itexteditor.h>
 #include <coreplugin/coreconstants.h>
@@ -74,6 +78,8 @@
 #include <coreplugin/actionmanager/actioncontainer.h>
 
 #include <qt4projectmanager/qt4buildconfiguration.h>
+#include <qt4projectmanager/qt-s60/s60devicedebugruncontrol.h>
+#include <qt4projectmanager/qt-s60/s60devicerunconfiguration.h>
 #include <qt4projectmanager/qt-s60/s60deployconfiguration.h>
 
 #include <QtCore/QFile>
@@ -95,6 +101,8 @@ using namespace Analyzer::Constants;
 using namespace QmlProfiler::Internal;
 using namespace QmlJsDebugClient;
 using namespace ProjectExplorer;
+using namespace QmlProjectManager;
+using namespace RemoteLinux;
 
 class QmlProfilerTool::QmlProfilerToolPrivate
 {
@@ -117,6 +125,10 @@ public:
     QToolButton *m_clearButton;
     bool m_recordingEnabled;
     bool m_appIsRunning;
+    bool m_qmlActive;
+    bool m_v8Active;
+    QTime m_appTimer;
+    qint64 m_appRunningTime;
 
     enum ConnectMode {
         TcpConnection, OstConnection
@@ -141,6 +153,8 @@ QmlProfilerTool::QmlProfilerTool(QObject *parent)
     d->m_isAttached = false;
     d->m_recordingEnabled = true;
     d->m_appIsRunning = false;
+    d->m_appTimer.start();
+    d->m_appRunningTime = 0;
 
     d->m_connectionTimer.setInterval(200);
     connect(&d->m_connectionTimer, SIGNAL(timeout()), SLOT(tryToConnect()));
@@ -183,6 +197,11 @@ QmlProfilerTool::~QmlProfilerTool()
 Core::Id QmlProfilerTool::id() const
 {
     return "QmlProfiler";
+}
+
+RunMode QmlProfilerTool::runMode() const
+{
+    return QmlProfilerRunMode;
 }
 
 QString QmlProfilerTool::displayName() const
@@ -337,8 +356,9 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
 
     connect(engine, SIGNAL(processRunning(int)), this, SLOT(connectClient(int)));
     connect(engine, SIGNAL(finished()), this, SLOT(disconnectClient()));
-    connect(engine, SIGNAL(finished()), this, SLOT(correctTimer()));
+    connect(engine, SIGNAL(finished()), this, SLOT(updateTimers()));
     connect(engine, SIGNAL(stopRecording()), this, SLOT(stopRecording()));
+    connect(engine, SIGNAL(timeUpdate()), this, SLOT(updateTimers()));
     connect(d->m_traceWindow, SIGNAL(viewUpdated()), engine, SLOT(dataReceived()));
     connect(this, SIGNAL(connectionFailed()), engine, SLOT(finishProcess()));
     connect(this, SIGNAL(fetchingData(bool)), engine, SLOT(setFetchingData(bool)));
@@ -348,6 +368,66 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
     emit fetchingData(d->m_recordButton->isChecked());
 
     return engine;
+}
+
+bool QmlProfilerTool::canRun(RunConfiguration *runConfiguration, RunMode mode) const
+{
+    if (qobject_cast<QmlProjectRunConfiguration *>(runConfiguration)
+            || qobject_cast<RemoteLinuxRunConfiguration *>(runConfiguration)
+            || qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)
+            || qobject_cast<Qt4ProjectManager::S60DeviceRunConfiguration *>(runConfiguration))
+        return mode == runMode();
+    return false;
+}
+
+AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration *runConfiguration, RunMode mode) const
+{
+    Q_UNUSED(mode);
+
+    AnalyzerStartParameters sp;
+    sp.startMode = StartQml; // FIXME: The parameter struct is not needed/not used.
+
+    // FIXME: This is only used to communicate the connParams settings.
+    if (QmlProjectRunConfiguration *rc1 =
+            qobject_cast<QmlProjectRunConfiguration *>(runConfiguration)) {
+        // This is a "plain" .qmlproject.
+        sp.environment = rc1->environment();
+        sp.workingDirectory = rc1->workingDirectory();
+        sp.debuggee = rc1->observerPath();
+        sp.debuggeeArgs = rc1->viewerArguments();
+        sp.displayName = rc1->displayName();
+        sp.connParams.host = QLatin1String("localhost");
+        sp.connParams.port = rc1->qmlDebugServerPort();
+    } else if (LocalApplicationRunConfiguration *rc2 =
+            qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)) {
+        sp.environment = rc2->environment();
+        sp.workingDirectory = rc2->workingDirectory();
+        sp.debuggee = rc2->executable();
+        sp.debuggeeArgs = rc2->commandLineArguments();
+        sp.displayName = rc2->displayName();
+        sp.connParams.host = QLatin1String("localhost");
+        sp.connParams.port = rc2->qmlDebugServerPort();
+    } else if (RemoteLinux::RemoteLinuxRunConfiguration *rc3 =
+            qobject_cast<RemoteLinux::RemoteLinuxRunConfiguration *>(runConfiguration)) {
+        sp.debuggee = rc3->remoteExecutableFilePath();
+        sp.debuggeeArgs = rc3->arguments();
+        sp.connParams = rc3->deviceConfig()->sshParameters();
+        sp.analyzerCmdPrefix = rc3->commandPrefix();
+        sp.displayName = rc3->displayName();
+    } else if (Qt4ProjectManager::S60DeviceRunConfiguration *rc4 =
+        qobject_cast<Qt4ProjectManager::S60DeviceRunConfiguration *>(runConfiguration)) {
+        Qt4ProjectManager::S60DeployConfiguration *deployConf =
+                qobject_cast<Qt4ProjectManager::S60DeployConfiguration *>(runConfiguration->target()->activeDeployConfiguration());
+
+        sp.debuggeeArgs = rc4->commandLineArguments();
+        sp.displayName = rc4->displayName();
+        sp.connParams.host = deployConf->deviceAddress();
+        sp.connParams.port = rc4->qmlDebugServerPort();
+    } else {
+        // What could that be?
+        QTC_ASSERT(false, return sp);
+    }
+    return sp;
 }
 
 QWidget *QmlProfilerTool::createWidgets()
@@ -364,10 +444,11 @@ QWidget *QmlProfilerTool::createWidgets()
     d->m_traceWindow->reset(d->m_client);
 
     connect(d->m_traceWindow, SIGNAL(gotoSourceLocation(QString,int)),this, SLOT(gotoSourceLocation(QString,int)));
-    connect(d->m_traceWindow, SIGNAL(timeChanged(qreal)), this, SLOT(updateTimer(qreal)));
     connect(d->m_traceWindow, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
     connect(d->m_traceWindow->getEventList(), SIGNAL(error(QString)), this, SLOT(showErrorDialog(QString)));
     connect(d->m_traceWindow->getEventList(), SIGNAL(dataReady()), this, SLOT(showSaveOption()));
+    connect(d->m_traceWindow->getEventList(), SIGNAL(dataReady()), this, SLOT(updateTimers()));
+    connect(d->m_traceWindow, SIGNAL(profilerStateChanged(bool,bool)), this, SLOT(profilerStateChanged(bool,bool)));
 
     d->m_eventsView = new QmlProfilerEventsWidget(d->m_traceWindow->getEventList(), mw);
     connect(d->m_eventsView, SIGNAL(gotoSourceLocation(QString,int)), this, SLOT(gotoSourceLocation(QString,int)));
@@ -379,6 +460,9 @@ QWidget *QmlProfilerTool::createWidgets()
     d->m_v8profilerView->switchToV8View();
     connect(d->m_v8profilerView, SIGNAL(gotoSourceLocation(QString,int)), this, SLOT(gotoSourceLocation(QString,int)));
     connect(d->m_v8profilerView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
+
+    connect(d->m_v8profilerView, SIGNAL(gotoSourceLocation(QString,int)), d->m_eventsView, SLOT(selectBySourceLocation(QString,int)));
+    connect(d->m_eventsView, SIGNAL(gotoSourceLocation(QString,int)), d->m_v8profilerView, SLOT(selectBySourceLocation(QString,int)));
 
     QDockWidget *eventsDock = AnalyzerManager::createDockWidget
             (this, tr("Events"), d->m_eventsView, Qt::BottomDockWidgetArea);
@@ -419,14 +503,14 @@ QWidget *QmlProfilerTool::createWidgets()
     connect(d->m_clearButton,SIGNAL(clicked()), this, SLOT(clearDisplay()));
     layout->addWidget(d->m_clearButton);
 
-    QLabel *timeLabel = new QLabel(tr("Elapsed:      0 s"));
+    QLabel *timeLabel = new QLabel();
     QPalette palette = timeLabel->palette();
     palette.setColor(QPalette::WindowText, Qt::white);
     timeLabel->setPalette(palette);
     timeLabel->setIndent(10);
-    connect(d->m_traceWindow, SIGNAL(viewUpdated()), this, SLOT(correctTimer()));
+    connect(d->m_traceWindow, SIGNAL(viewUpdated()), this, SLOT(updateTimers()));
     connect(this, SIGNAL(setTimeLabel(QString)), timeLabel, SLOT(setText(QString)));
-    correctTimer();
+    updateTimers();
     layout->addWidget(timeLabel);
 
     toolbarWidget->setLayout(layout);
@@ -442,6 +526,7 @@ void QmlProfilerTool::connectClient(int port)
     connect(d->m_client, SIGNAL(stateChanged(QAbstractSocket::SocketState)),
             this, SLOT(connectionStateChanged()));
     d->m_connectionTimer.start();
+    d->m_appTimer.start();
     d->m_tcpPort = port;
 }
 
@@ -501,16 +586,20 @@ void QmlProfilerTool::setRecording(bool recording)
         startRecording();
     else
         stopRecording();
+
+    updateTimers();
 }
 
 void QmlProfilerTool::setAppIsRunning()
 {
     d->m_appIsRunning = true;
+    updateTimers();
 }
 
 void QmlProfilerTool::setAppIsStopped()
 {
     d->m_appIsRunning = false;
+    updateTimers();
 }
 
 void QmlProfilerTool::gotoSourceLocation(const QString &fileUrl, int lineNumber)
@@ -535,23 +624,33 @@ void QmlProfilerTool::gotoSourceLocation(const QString &fileUrl, int lineNumber)
     }
 }
 
-void QmlProfilerTool::correctTimer() {
-    if (d->m_traceWindow->getEventList()->count() == 0)
-        updateTimer(0);
+inline QString stringifyTime(double seconds)
+{
+    QString timeString = QString::number(seconds,'f',1);
+    return QmlProfilerTool::tr("%1 s").arg(timeString, 6);
 }
 
-void QmlProfilerTool::updateTimer(qreal elapsedSeconds)
+void QmlProfilerTool::updateTimers()
 {
-    QString timeString = QString::number(elapsedSeconds,'f',1);
-    timeString = QString("      ").left(6-timeString.length()) + timeString;
-    emit setTimeLabel(tr("Elapsed: %1 s").arg(timeString));
+    // prof time
+    QString profilerTimeStr = stringifyTime(d->m_traceWindow->profiledTime());
+    emit setTimeLabel(tr("Elapsed: %1").arg(profilerTimeStr));
+}
+
+void QmlProfilerTool::profilerStateChanged(bool qmlActive, bool v8active)
+{
+    d->m_v8Active = v8active;
+    d->m_qmlActive = qmlActive;
+    updateTimers();
 }
 
 void QmlProfilerTool::clearDisplay()
 {
+    d->m_appRunningTime = 0;
     d->m_traceWindow->clearDisplay();
     d->m_eventsView->clear();
     d->m_v8profilerView->clear();
+    updateTimers();
 }
 
 static void startRemoteTool(IAnalyzerTool *tool, StartMode mode)
@@ -597,7 +696,7 @@ static void startRemoteTool(IAnalyzerTool *tool, StartMode mode)
     AnalyzerRunControl *rc = new AnalyzerRunControl(tool, sp, 0);
     QObject::connect(AnalyzerManager::stopAction(), SIGNAL(triggered()), rc, SLOT(stopIt()));
 
-    ProjectExplorerPlugin::instance()->startRunControl(rc, tool->id().toString());
+    ProjectExplorerPlugin::instance()->startRunControl(rc, tool->runMode());
 }
 
 void QmlProfilerTool::tryToConnect()
@@ -675,6 +774,8 @@ void QmlProfilerTool::updateRecordingState()
 
     if (d->m_traceWindow->isRecording())
         clearDisplay();
+
+    updateTimers();
 }
 
 void QmlProfilerTool::startTool(StartMode mode)
@@ -688,7 +789,7 @@ void QmlProfilerTool::startTool(StartMode mode)
         ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
         // ### not sure if we're supposed to check if the RunConFiguration isEnabled
         Project *pro = pe->startupProject();
-        pe->runProject(pro, id().toString());
+        pe->runProject(pro, runMode());
     } else if (mode == StartRemote) {
         startRemoteTool(this, mode);
     }
@@ -736,7 +837,7 @@ void QmlProfilerTool::showLoadDialog()
 
     if (!filename.isEmpty()) {
         // delayed load (prevent graphical artifacts due to long load time)
-        d->m_traceWindow->getEventList()->load(filename);
+        d->m_traceWindow->getEventList()->setFilename(filename);
         QTimer::singleShot(100, d->m_traceWindow->getEventList(), SLOT(load()));
     }
 }

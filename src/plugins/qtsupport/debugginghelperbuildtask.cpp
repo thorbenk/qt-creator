@@ -75,7 +75,7 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
     // of the version pointer while compiling
     //
     m_qtId = version->uniqueId();
-    m_qtInstallData = version->versionInfo().value("QT_INSTALL_DATA");
+    m_qtInstallData = version->versionInfo().value(QLatin1String("QT_INSTALL_DATA"));
     if (m_qtInstallData.isEmpty()) {
         const QString error
                 = QCoreApplication::translate(
@@ -111,8 +111,8 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
     m_mkspec = version->mkspec();
 
     // Make sure QtVersion cache is invalidated
-    connect(this, SIGNAL(updateQtVersions(QString)),
-            QtVersionManager::instance(), SLOT(updateDumpFor(QString)),
+    connect(this, SIGNAL(updateQtVersions(Utils::FileName)),
+            QtVersionManager::instance(), SLOT(updateDumpFor(Utils::FileName)),
             Qt::QueuedConnection);
 }
 
@@ -235,8 +235,12 @@ bool DebuggingHelperBuildTask::buildDebuggingHelper(QFutureInterface<void> &futu
         bool success = true;
 
         arguments.directory = QmlObserverTool::copy(m_qtInstallData, &error);
-        arguments.qmakeArguments << QLatin1String("INCLUDEPATH+=\"\\\"") + qmlDebuggingDirectory + "include\\\"\"";
-        arguments.qmakeArguments << QLatin1String("LIBS+=-L\"\\\"") + qmlDebuggingDirectory + QLatin1String("\\\"\"");
+        arguments.qmakeArguments << QLatin1String("INCLUDEPATH+=\"\\\"")
+                                    + qmlDebuggingDirectory
+                                    + QLatin1String("include\\\"\"");
+        arguments.qmakeArguments << QLatin1String("LIBS+=-L\"\\\"")
+                                    + qmlDebuggingDirectory
+                                    + QLatin1String("\\\"\"");
 
         if (arguments.directory.isEmpty()
                 || !QmlObserverTool::build(arguments, &output, &error)) {

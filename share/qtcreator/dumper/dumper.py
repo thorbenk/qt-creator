@@ -91,14 +91,18 @@ def hasInferiorThreadList():
 
 def dynamicTypeName(value):
     #vtbl = str(parseAndEvaluate("{int(*)(int)}%s" % long(value.address)))
-    vtbl = gdb.execute("info symbol {int*}%s" % long(value.address),
-        to_string = True)
-    pos1 = vtbl.find("vtable ")
-    if pos1 != -1:
-        pos1 += 11
-        pos2 = vtbl.find(" +", pos1)
-        if pos2 != -1:
-            return vtbl[pos1 : pos2]
+    try:
+        # Fails on 7.1 due to the missing to_string.
+        vtbl = gdb.execute("info symbol {int*}%s" % long(value.address),
+            to_string = True)
+        pos1 = vtbl.find("vtable ")
+        if pos1 != -1:
+            pos1 += 11
+            pos2 = vtbl.find(" +", pos1)
+            if pos2 != -1:
+                return vtbl[pos1 : pos2]
+    except:
+        pass
     return str(value.type)
 
 def upcast(value):
@@ -138,9 +142,34 @@ def lookupType(typestring):
     if not type is None:
         return type
 
+    if typestring == "void":
+        type = gdb.lookup_type(typestring)
+        typeCache[typestring] = type
+        return type
+
+    if typestring.find("(anon") != -1:
+        # gdb doesn't like
+        # '(anonymous namespace)::AddAnalysisMessageSuppressionComment'
+        typeCache[typestring] = None
+        return None
+
+    try:
+        type = gdb.parse_and_eval("{%s}&main" % typestring).type
+        typeCache[typestring] = type
+        return type
+    except:
+        pass
+
+    #warn(" RESULT FOR 7.2: '%s': %s" % (typestring, type))
+    #typeCache[typestring] = type
+    #return None
+
+    # This part should only trigger for
+    # gdb 7.1 for types with namespace separators.
+
     ts = typestring
     while True:
-        #WARN("ts: '%s'" % ts)
+        #warn("TS: '%s'" % ts)
         if ts.startswith("class "):
             ts = ts[6:]
         elif ts.startswith("struct "):
@@ -832,7 +861,32 @@ qqEditable = {}
 # derived.
 qqQObjectCache = {}
 
+# This keeps canonical forms of the typenames, without array indices etc.
+qqStripForFormat = {}
+
+def stripForFormat(typeName):
+    if typeName in qqStripForFormat:
+        return qqStripForFormat[typeName]
+    stripped = ""
+    inArray = 0
+    for c in stripClassTag(typeName):
+        if c == '<':
+            break
+        if c == ' ':
+            continue
+        if c == '[':
+            inArray += 1
+        elif c == ']':
+            inArray -= 1
+        if inArray and ord(c) >= 48 and ord(c) <= 57:
+            continue
+        stripped +=  c
+    qqStripForFormat[typeName] = stripped
+    return stripped
+
 def bbsetup(args):
+    typeInfoCache = {}
+    typeCache = {}
     module = sys.modules[__name__]
     for key, value in module.__dict__.items():
         if key.startswith("qdump__"):
@@ -889,6 +943,8 @@ def bbedit(args):
     #warn("EDIT: %s %s %s %s: " % (pos, type, expr, value))
     if qqEditable.has_key(type):
         qqEditable[type](expr, value)
+    else:
+        gdb.execute("set (%s)=%s" % (expr, value))
 
 registerCommand("bbedit", bbedit)
 
@@ -1306,12 +1362,7 @@ class Dumper:
     def currentItemFormat(self):
         format = self.formats.get(self.currentIName)
         if format is None:
-            type = stripClassTag(str(self.currentType))
-            pos = type.find('<')
-            if pos == -1:
-                format = self.typeformats.get(type)
-            else:
-                format = self.typeformats.get(type[0:pos])
+            format = self.typeformats.get(stripForFormat(str(self.currentType)))
         return format
 
     def putSubItem(self, component, value):
@@ -1340,16 +1391,6 @@ class Dumper:
         type = value.type.unqualified()
         typeName = str(type)
 
-        try:
-            if value.is_optimized_out:
-                self.putValue("<optimized out>")
-                self.putType(typeName)
-                self.putNumChild(0)
-                return
-        except:
-            pass
-
-
         # FIXME: Gui shows references stripped?
         #warn(" ")
         #warn("REAL INAME: %s " % self.currentIName)
@@ -1358,42 +1399,65 @@ class Dumper:
         #warn("REAL VALUE: %s " % value)
 
         if type.code == ReferenceCode:
-            #try:
-                # This throws "RuntimeError: Attempt to dereference a
+            try:
+                # FIXME: This throws "RuntimeError: Attempt to dereference a
                 # generic pointer." with MinGW's gcc 4.5 when it "identifies"
-                # a "QWidget &" as "void &".
-                self.putItem(value.cast(type.target()))
+                # a "QWidget &" as "void &" and with optimized out code.
+                self.putItem(value.cast(type.target().unqualified()))
                 return
-            #except RuntimeError:
-            #    pass
+            except RuntimeError:
+                self.putValue("<optimized out reference>")
+                self.putType(typeName)
+                self.putNumChild(0)
+                return
 
         if type.code == IntCode or type.code == CharCode:
             self.putAddress(value.address)
             self.putType(typeName)
-            self.putValue(int(value))
+            if value.is_optimized_out:
+                self.putValue("<optimized out>")
+            else:
+                self.putValue(int(value))
             self.putNumChild(0)
             return
 
         if type.code == FloatCode or type.code == BoolCode:
             self.putAddress(value.address)
             self.putType(typeName)
-            self.putValue(value)
+            if value.is_optimized_out:
+                self.putValue("<optimized out>")
+            else:
+                self.putValue(value)
             self.putNumChild(0)
             return
 
         if type.code == EnumCode:
+            self.putAddress(value.address)
             self.putType(typeName)
-            self.putValue("%s (%d)" % (value, value))
+            if value.is_optimized_out:
+                self.putValue("<optimized out>")
+            else:
+                self.putValue("%s (%d)" % (value, value))
             self.putNumChild(0)
             return
 
         if type.code == TypedefCode:
-            type = type.strip_typedefs()
+            type = stripTypedefs(type)
+            # The cast can destroy the address?
+            self.putAddress(value.address)
             # Workaround for http://sourceware.org/bugzilla/show_bug.cgi?id=13380
             if type.code == ArrayCode:
                 value = parseAndEvaluate("{%s}%s" % (type, value.address))
             else:
-                value = value.cast(type.strip_typedefs())
+                try:
+                    value = value.cast(type)
+                    self.putItem(value)
+                except:
+                    self.putValue("<optimized out typedef>")
+                    self.putType(typeName)
+                    self.putNumChild(0)
+                    return
+
             self.putItem(value)
             self.putBetterType(typeName)
             return
@@ -1431,8 +1495,16 @@ class Dumper:
         if type.code == PointerCode:
             #warn("POINTER: %s" % value)
 
-            if not isAccessible(value):
-                self.currentValue = None
+            # This could still be stored in a register and
+            # potentially dereferencable.
+            if value.is_optimized_out:
+                self.putValue("<optimized out>")
+
+            try:
+                value.dereference()
+            except:
+                self.putValue("<optimized out>")
+                self.putType(typeName)
                 self.putNumChild(0)
                 return
 
@@ -1541,7 +1613,7 @@ class Dumper:
                     self.putItem(value.dereference())
                     self.currentChildType = savedCurrentChildType
                     self.putPointerValue(value.address)
-                    self.put('origaddr="%s",' % value)
+                    self.put('origaddr="%s",' % cleanAddress(value.address))
                     return
 
             # Fall back to plain pointer printing.
@@ -1572,7 +1644,8 @@ class Dumper:
 
 
         if self.useDynamicType:
-            dtypeName = dynamicTypeName(value)
+            dtypeName = dynamicTypeName(value.cast(type))
+            #dtypeName = str(lookupType(dtypeName)) # Strip const etc. FIXME
         else:
             dtypeName = typeName
 

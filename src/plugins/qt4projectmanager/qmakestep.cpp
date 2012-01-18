@@ -135,7 +135,7 @@ QString QMakeStep::allArguments(bool shorted)
     else
         arguments << QDir::toNativeSeparators(project()->file()->fileName());
 
-    arguments << "-r";
+    arguments << QLatin1String("-r");
     bool userProvidedMkspec = false;
     for (Utils::QtcProcess::ConstArgIterator ait(m_userArgs); ait.next(); ) {
         if (ait.value() == QLatin1String("-spec")) {
@@ -145,9 +145,9 @@ QString QMakeStep::allArguments(bool shorted)
             }
         }
     }
-    QString specArg = mkspec();
+    Utils::FileName specArg = mkspec();
     if (!userProvidedMkspec && !specArg.isEmpty())
-        arguments << "-spec" << specArg;
+        arguments << QLatin1String("-spec") << specArg.toUserOutput();
 
     // Find out what flags we pass on to qmake
     arguments << bc->configCommandLineArguments();
@@ -235,7 +235,7 @@ bool QMakeStep::init()
     else
         workingDirectory = qt4bc->buildDirectory();
 
-    QString program = qtVersion->qmakeCommand();
+    Utils::FileName program = qtVersion->qmakeCommand();
 
     QString makefile = workingDirectory;
 
@@ -243,19 +243,19 @@ bool QMakeStep::init()
         if (!qt4bc->subNodeBuild()->makefile().isEmpty()) {
             makefile.append(qt4bc->subNodeBuild()->makefile());
         } else {
-            makefile.append("/Makefile");
+            makefile.append(QLatin1String("/Makefile"));
         }
     } else if (!qt4bc->makefile().isEmpty()) {
-        makefile.append("/");
+        makefile.append(QLatin1Char('/'));
         makefile.append(qt4bc->makefile());
     } else {
-        makefile.append("/Makefile");
+        makefile.append(QLatin1String("/Makefile"));
     }
 
     // Check whether we need to run qmake
     bool makefileOutDated = true;
     if (QFileInfo(makefile).exists()) {
-        QString qmakePath = QtSupport::QtVersionManager::findQMakeBinaryFromMakefile(makefile);
+        Utils::FileName qmakePath = QtSupport::QtVersionManager::findQMakeBinaryFromMakefile(makefile);
         if (qtVersion->qmakeCommand() == qmakePath) {
             makefileOutDated = !qt4bc->compareToImportFrom(makefile);
         }
@@ -269,7 +269,7 @@ bool QMakeStep::init()
     ProcessParameters *pp = processParameters();
     pp->setMacroExpander(qt4bc->macroExpander());
     pp->setWorkingDirectory(workingDirectory);
-    pp->setCommand(program);
+    pp->setCommand(program.toString());
     pp->setArguments(args);
     pp->setEnvironment(qt4bc->environment());
 
@@ -445,14 +445,14 @@ QString QMakeStep::userArguments()
     return m_userArgs;
 }
 
-QString QMakeStep::mkspec()
+Utils::FileName QMakeStep::mkspec()
 {
     Qt4BuildConfiguration *bc = qt4BuildConfiguration();
     QString additionalArguments = m_userArgs;
     for (Utils::QtcProcess::ArgIterator ait(&additionalArguments); ait.next(); ) {
         if (ait.value() == QLatin1String("-spec")) {
             if (ait.next())
-                return ait.value();
+                return Utils::FileName::fromUserInput(ait.value());
         }
     }
 
@@ -523,8 +523,8 @@ QMakeStepConfigWidget::QMakeStepConfigWidget(QMakeStep *step)
             this, SLOT(qtVersionChanged()));
     connect(step->qt4BuildConfiguration(), SIGNAL(qmakeBuildConfigurationChanged()),
             this, SLOT(qmakeBuildConfigChanged()));
-    connect(QtSupport::QtVersionManager::instance(), SIGNAL(dumpUpdatedFor(QString)),
-            this, SLOT(qtVersionsDumpUpdated(QString)));
+    connect(QtSupport::QtVersionManager::instance(), SIGNAL(dumpUpdatedFor(Utils::FileName)),
+            this, SLOT(qtVersionsDumpUpdated(Utils::FileName)));
 }
 
 QMakeStepConfigWidget::~QMakeStepConfigWidget()
@@ -554,7 +554,7 @@ void QMakeStepConfigWidget::qtVersionChanged()
     updateQmlDebuggingOption();
 }
 
-void QMakeStepConfigWidget::qtVersionsDumpUpdated(const QString &qmakeCommand)
+void QMakeStepConfigWidget::qtVersionsDumpUpdated(const Utils::FileName &qmakeCommand)
 {
     QtSupport::BaseQtVersion *version = m_step->qt4BuildConfiguration()->qtVersion();
     if (version && version->qmakeCommand() == qmakeCommand)
@@ -675,16 +675,16 @@ void QMakeStepConfigWidget::updateSummaryLabel()
     // We don't want the full path to the .pro file
     QString args = m_step->allArguments(true);
     // And we only use the .pro filename not the full path
-    QString program = QFileInfo(qtVersion->qmakeCommand()).fileName();
+    QString program = qtVersion->qmakeCommand().toFileInfo().fileName();
     setSummaryText(tr("<b>qmake:</b> %1 %2").arg(program, args));
 
     ToolChain *tc = qt4bc->toolChain();
     if (!tc)
         return;
 
-    QString tcSpec = tc->mkspec();
+    Utils::FileName tcSpec = tc->mkspec();
     if (!tcSpec.isEmpty() && tcSpec != m_step->mkspec())
-        setAdditionalSummaryText(tr("<b>Warning:</b> The tool chain suggested \"%1\" as mkspec.").arg(tcSpec));
+        setAdditionalSummaryText(tr("<b>Warning:</b> The tool chain suggested \"%1\" as mkspec.").arg(tcSpec.toUserOutput()));
     else
         setAdditionalSummaryText(QString());
 }
@@ -692,7 +692,6 @@ void QMakeStepConfigWidget::updateSummaryLabel()
 void QMakeStepConfigWidget::updateQmlDebuggingOption()
 {
     m_ui->qmlDebuggingLibraryCheckBox->setEnabled(m_step->isQmlDebuggingLibrarySupported());
-
     m_ui->debuggingLibraryLabel->setText(tr("Enable QML debugging:"));
 
     QString warningText;
@@ -712,7 +711,7 @@ void QMakeStepConfigWidget::updateEffectiveQMakeCall()
     QtSupport::BaseQtVersion *qtVersion = qt4bc->qtVersion();
     QString program = tr("<No Qt version>");
     if (qtVersion)
-        program = QFileInfo(qtVersion->qmakeCommand()).fileName();
+        program = qtVersion->qmakeCommand().toFileInfo().fileName();
     m_ui->qmakeArgumentsEdit->setPlainText(program + QLatin1Char(' ') + m_step->allArguments());
 }
 
@@ -724,11 +723,12 @@ void QMakeStepConfigWidget::recompileMessageBoxFinished(int button)
             return;
 
         QList<ProjectExplorer::BuildStepList *> stepLists;
-        stepLists << bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
-        stepLists << bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
+        const QString clean = QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
+        const QString build = QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
+        stepLists << bc->stepList(clean) << bc->stepList(build);
         ProjectExplorer::BuildManager *bm = ProjectExplorerPlugin::instance()->buildManager();
-        bm->buildLists(stepLists, QStringList() << ProjectExplorerPlugin::displayNameForStepId(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)
-                       << ProjectExplorerPlugin::displayNameForStepId(ProjectExplorer::Constants::BUILDSTEPS_BUILD));
+        bm->buildLists(stepLists, QStringList() << ProjectExplorerPlugin::displayNameForStepId(clean)
+                       << ProjectExplorerPlugin::displayNameForStepId(build));
     }
 }
 

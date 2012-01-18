@@ -669,13 +669,13 @@ Abi Abi::hostAbi()
     return Abi(arch, os, subos, format, QSysInfo::WordSize);
 }
 
-QList<Abi> Abi::abisOfBinary(const QString &path)
+QList<Abi> Abi::abisOfBinary(const Utils::FileName &path)
 {
     QList<Abi> tmp;
     if (path.isEmpty())
         return tmp;
 
-    QFile f(path);
+    QFile f(path.toString());
     if (!f.exists())
         return tmp;
 
@@ -692,7 +692,7 @@ QList<Abi> Abi::abisOfBinary(const QString &path)
 
         while (!data.isEmpty()) {
             if ((getUint8(data, 58) != 0x60 || getUint8(data, 59) != 0x0a)) {
-                qWarning() << path << ": Thought it was an ar-file, but it is not!";
+                qWarning() << path.toString() << ": Thought it was an ar-file, but it is not!";
                 break;
             }
 
@@ -754,10 +754,10 @@ void ProjectExplorer::ProjectExplorerPlugin::testAbiOfBinary_data()
             << (QStringList());
 
     // Set up prefix for test data now that we can be sure to have some tests to run:
-    QString prefix = qgetenv("QTC_TEST_EXTRADATALOCATION");
+    QString prefix = QString::fromLocal8Bit(qgetenv("QTC_TEST_EXTRADATALOCATION"));
     if (prefix.isEmpty())
         return;
-    prefix += "/projectexplorer/abi";
+    prefix += QLatin1String("/projectexplorer/abi");
 
     QFileInfo fi(prefix);
     if (!fi.exists() || !fi.isDir())
@@ -857,7 +857,7 @@ void ProjectExplorer::ProjectExplorerPlugin::testAbiOfBinary()
     QFETCH(QString, file);
     QFETCH(QStringList, abis);
 
-    QList<ProjectExplorer::Abi> result = Abi::abisOfBinary(file);
+    QList<ProjectExplorer::Abi> result = Abi::abisOfBinary(Utils::FileName::fromString(file));
     QCOMPARE(result.count(), abis.count());
     for (int i = 0; i < abis.count(); ++i)
         QCOMPARE(result.at(i).toString(), abis.at(i));

@@ -38,6 +38,16 @@
 
 namespace Utils {
 
+static bool sortEnvironmentItem(const EnvironmentItem &a, const EnvironmentItem &b)
+{
+    return a.name < b.name;
+}
+
+void EnvironmentItem::sort(QList<EnvironmentItem> *list)
+{
+    qSort(list->begin(), list->end(), &sortEnvironmentItem);
+}
+
 QList<EnvironmentItem> EnvironmentItem::fromStringList(const QStringList &list)
 {
     QList<EnvironmentItem> result;
@@ -62,7 +72,7 @@ QStringList EnvironmentItem::toStringList(const QList<EnvironmentItem> &list)
         if (item.unset)
             result << QString(item.name);
         else
-            result << QString(item.name + '=' + item.value);
+            result << QString(item.name + QLatin1Char('=') + item.value);
     }
     return result;
 }
@@ -313,10 +323,10 @@ void Environment::modify(const QList<EnvironmentItem> & list)
                     if ((i + 1) < value.size()) {
                         const QChar &c = value.at(i+1);
                         int end = -1;
-                        if (c == '(')
-                            end = value.indexOf(')', i);
-                        else if (c == '{')
-                            end = value.indexOf('}', i);
+                        if (c == QLatin1Char('('))
+                            end = value.indexOf(QLatin1Char(')'), i);
+                        else if (c == QLatin1Char('{'))
+                            end = value.indexOf(QLatin1Char('}'), i);
                         if (end != -1) {
                             const QString &name = value.mid(i+2, end-i-2);
                             Environment::const_iterator it = constFind(name);

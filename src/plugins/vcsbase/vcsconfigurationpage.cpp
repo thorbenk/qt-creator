@@ -40,7 +40,9 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/iversioncontrol.h>
 
-namespace VCSBase {
+#include <utils/qtcassert.h>
+
+namespace VcsBase {
 namespace Internal {
 
 class VcsConfigurationPagePrivate
@@ -65,7 +67,7 @@ VcsConfigurationPage::VcsConfigurationPage(const Core::IVersionControl *vc, QWid
     QWizardPage(parent),
     d(new Internal::VcsConfigurationPagePrivate)
 {
-    Q_ASSERT(vc);
+    QTC_CHECK(vc);
     setTitle(tr("Configuration"));
     setSubTitle(tr("Please configure <b>%1</b> now.").arg(vc->displayName()));
 
@@ -93,7 +95,7 @@ bool VcsConfigurationPage::isComplete() const
 void VcsConfigurationPage::openConfiguration()
 {
     Core::ICore *core = Core::ICore::instance();
-    core->showOptionsDialog(VCSBase::Constants::VCS_SETTINGS_CATEGORY, d->m_versionControl->id());
+    core->showOptionsDialog(VcsBase::Constants::VCS_SETTINGS_CATEGORY, d->m_versionControl->id().toString());
 }
 
-} // namespace VCSBase
+} // namespace VcsBase

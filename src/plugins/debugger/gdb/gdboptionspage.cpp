@@ -176,7 +176,7 @@ public:
         groupBoxStartupCommands->setTitle(GdbOptionsPage::tr("Additional Startup Commands"));
 
         textEditStartupCommands = new QTextEdit(groupBoxStartupCommands);
-
+        textEditStartupCommands->setAcceptRichText(false);
 
         /*
         groupBoxPluginDebugging = new QGroupBox(q);
@@ -211,6 +211,7 @@ public:
         formLayout->addRow(checkBoxAdjustBreakpointLocations);
         formLayout->addRow(checkBoxUseDynamicType);
         formLayout->addRow(checkBoxLoadGdbInit);
+        formLayout->addRow(new QLabel(QString()));
         formLayout->addRow(labelDangerous);
         formLayout->addRow(checkBoxTargetAsync);
         formLayout->addRow(checkBoxAutoEnrichParameters);

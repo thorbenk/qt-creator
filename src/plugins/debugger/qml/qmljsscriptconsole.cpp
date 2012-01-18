@@ -41,12 +41,26 @@
 #include <extensionsystem/pluginmanager.h>
 #include <coreplugin/coreconstants.h>
 #include <utils/statuslabel.h>
+#include <utils/styledbar.h>
+
+#include <coreplugin/icore.h>
+#include <utils/qtcassert.h>
+
+#include <qmljsdebugclient/qdebugmessageclient.h>
+#include <debugger/qml/qmlcppengine.h>
+#include <debugger/qml/qmlengine.h>
 
 #include <QtGui/QMenu>
 #include <QtGui/QTextBlock>
 #include <QtGui/QHBoxLayout>
 #include <QtGui/QVBoxLayout>
 #include <QtGui/QToolButton>
+#include <QtGui/QCheckBox>
+
+static const char SCRIPT_CONSOLE[] = "ScriptConsole";
+static const char SHOW_LOG[] = "showLog";
+static const char SHOW_WARNING[] = "showWarning";
+static const char SHOW_ERROR[] = "showError";
 
 namespace Debugger {
 namespace Internal {
@@ -55,7 +69,8 @@ class QmlJSScriptConsolePrivate
 {
 public:
     QmlJSScriptConsolePrivate()
-        : prompt(_("> ")),
+        : adapter(0),
+          prompt(_("> ")),
           startOfEditableArea(-1),
           lastKnownPosition(0),
           inferiorStopped(false)
@@ -67,7 +82,7 @@ public:
     void appendToHistory(const QString &script);
     bool canEvaluateScript(const QString &script);
 
-    QWeakPointer<QmlAdapter> adapter;
+    QmlAdapter *adapter;
 
     QString prompt;
     int startOfEditableArea;
@@ -80,6 +95,8 @@ public:
 
     bool inferiorStopped;
     QList<QTextEdit::ExtraSelection> selections;
+
+    QFlags<QmlJSScriptConsole::DebugLevelFlag> debugLevel;
 };
 
 void QmlJSScriptConsolePrivate::resetCache()
@@ -136,9 +153,20 @@ QmlJSScriptConsoleWidget::QmlJSScriptConsoleWidget(QWidget *parent)
     m_statusLabel = new Utils::StatusLabel;
 
     hbox->addWidget(m_statusLabel, 20, Qt::AlignLeft);
+    hbox->addWidget(new Utils::StyledSeparator);
+    m_showLog = new QCheckBox(tr("Log"), this);
+    m_showWarning = new QCheckBox(tr("Warning"), this);
+    m_showError = new QCheckBox(tr("Error"), this);
+    connect(m_showLog, SIGNAL(stateChanged(int)), this, SLOT(setDebugLevel()));
+    connect(m_showWarning, SIGNAL(stateChanged(int)), this, SLOT(setDebugLevel()));
+    connect(m_showError, SIGNAL(stateChanged(int)), this, SLOT(setDebugLevel()));
+    hbox->addWidget(m_showLog);
+    hbox->addWidget(m_showWarning);
+    hbox->addWidget(m_showError);
+    hbox->addWidget(new Utils::StyledSeparator);
     hbox->addWidget(clearButton, 0, Qt::AlignRight);
 
-    m_console = new QmlJSScriptConsole;
+    m_console = new QmlJSScriptConsole(this);
     connect(m_console, SIGNAL(evaluateExpression(QString)), this,
             SIGNAL(evaluateExpression(QString)));
     connect(m_console, SIGNAL(updateStatusMessage(const QString &, int)), m_statusLabel,
@@ -147,21 +175,79 @@ QmlJSScriptConsoleWidget::QmlJSScriptConsoleWidget(QWidget *parent)
     vbox->addWidget(statusbarContainer);
     vbox->addWidget(m_console);
 
+    Core::ICore *core = Core::ICore::instance();
+    QTC_ASSERT(core, return);
+    QSettings *settings = core->settings();
+    settings->beginGroup(_(SCRIPT_CONSOLE));
+    m_showLog->setChecked(settings->value(_(SHOW_LOG), true).toBool());
+    m_showWarning->setChecked(settings->value(_(SHOW_WARNING), true).toBool());
+    m_showError->setChecked(settings->value(_(SHOW_ERROR), true).toBool());
+    settings->endGroup();
 }
 
-void QmlJSScriptConsoleWidget::setQmlAdapter(QmlAdapter *adapter)
+QmlJSScriptConsoleWidget::~QmlJSScriptConsoleWidget()
 {
-    m_console->setQmlAdapter(adapter);
+    Core::ICore *core = Core::ICore::instance();
+    QTC_ASSERT(core, return);
+    QSettings *settings = core->settings();
+    settings->beginGroup(_(SCRIPT_CONSOLE));
+    settings->setValue(_(SHOW_LOG), QVariant(m_showLog->isChecked()));
+    settings->setValue(_(SHOW_WARNING), QVariant(m_showWarning->isChecked()));
+    settings->setValue(_(SHOW_ERROR), QVariant(m_showError->isChecked()));
+    settings->endGroup();
 }
 
-void QmlJSScriptConsoleWidget::setInferiorStopped(bool inferiorStopped)
+void QmlJSScriptConsoleWidget::setEngine(DebuggerEngine *engine)
 {
-    m_console->setInferiorStopped(inferiorStopped);
+    if (m_console->engine())
+        disconnect(m_console->engine(), SIGNAL(stateChanged(Debugger::DebuggerState)),
+                   this, SLOT(engineStateChanged(Debugger::DebuggerState)));
+
+    QmlEngine *qmlEngine = qobject_cast<QmlEngine *>(engine);
+    QmlCppEngine *qmlCppEngine = qobject_cast<QmlCppEngine *>(engine);
+    if (qmlCppEngine)
+        qmlEngine = qobject_cast<QmlEngine *>(qmlCppEngine->qmlEngine());
+
+    //Supports only QML Engine
+    if (qmlEngine) {
+        connect(qmlEngine, SIGNAL(stateChanged(Debugger::DebuggerState)),
+                this, SLOT(engineStateChanged(Debugger::DebuggerState)));
+
+        engineStateChanged(qmlEngine->state());
+    }
+
+    m_console->setEngine(qmlEngine);
 }
 
 void QmlJSScriptConsoleWidget::appendResult(const QString &result)
 {
     m_console->appendResult(result);
+}
+
+void QmlJSScriptConsoleWidget::setDebugLevel()
+{
+    QFlags<QmlJSScriptConsole::DebugLevelFlag> level;
+
+    if (m_showLog->isChecked())
+        level |= QmlJSScriptConsole::Log;
+
+    if (m_showWarning->isChecked())
+        level |= QmlJSScriptConsole::Warning;
+
+    if (m_showError->isChecked())
+        level |= QmlJSScriptConsole::Error;
+
+    m_console->setDebugLevel(level);
+}
+
+void QmlJSScriptConsoleWidget::engineStateChanged(Debugger::DebuggerState state)
+{
+    if (state == InferiorRunOk || state == InferiorStopOk) {
+        setEnabled(true);
+        m_console->setInferiorStopped(state == InferiorStopOk);
+    } else {
+        setEnabled(false);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -206,10 +292,31 @@ void QmlJSScriptConsole::setInferiorStopped(bool inferiorStopped)
     onSelectionChanged();
 }
 
-void QmlJSScriptConsole::setQmlAdapter(QmlAdapter *adapter)
+void QmlJSScriptConsole::setEngine(QmlEngine *engine)
 {
-    d->adapter = adapter;
+    if (d->adapter) {
+        disconnect(d->adapter, SIGNAL(selectionChanged()), this, SLOT(onSelectionChanged()));
+        disconnect(d->adapter->messageClient(), SIGNAL(message(QtMsgType,QString)),
+                this, SLOT(insertDebugOutput(QtMsgType,QString)));
+        d->adapter = 0;
+    }
+
+    if (engine) {
+        d->adapter = engine->adapter();
+        connect(d->adapter, SIGNAL(selectionChanged()), this, SLOT(onSelectionChanged()));
+        connect(d->adapter->messageClient(), SIGNAL(message(QtMsgType,QString)),
+                this, SLOT(insertDebugOutput(QtMsgType,QString)));
+    }
+
     clear();
+}
+
+DebuggerEngine * QmlJSScriptConsole::engine()
+{
+    if (d->adapter) {
+        return d->adapter->debuggerEngine();
+    }
+    return 0;
 }
 
 void QmlJSScriptConsole::appendResult(const QString &result)
@@ -220,27 +327,26 @@ void QmlJSScriptConsole::appendResult(const QString &result)
     QTextCursor cur = textCursor();
     cur.movePosition(QTextCursor::End);
     cur.insertText(_("\n"));
+
     cur.insertText(result);
-    cur.movePosition(QTextCursor::EndOfLine);
     cur.insertText(_("\n"));
-    setTextCursor(cur);
-    displayPrompt();
 
     QTextEdit::ExtraSelection sel;
-
     QTextCharFormat resultFormat;
     resultFormat.setForeground(QBrush(QColor(Qt::darkGray)));
-
-    QTextCursor c(document()->findBlockByNumber(cur.blockNumber()-1));
-    c.movePosition(QTextCursor::StartOfBlock);
-    c.movePosition(QTextCursor::NextBlock, QTextCursor::KeepAnchor);
-
+    cur.movePosition(QTextCursor::PreviousBlock);
+    cur.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
     sel.format = resultFormat;
-    sel.cursor = c;
-
+    sel.cursor = cur;
     d->selections.append(sel);
 
     setExtraSelections(d->selections);
+    displayPrompt();
+}
+
+void QmlJSScriptConsole::setDebugLevel(QFlags<DebugLevelFlag> level)
+{
+    d->debugLevel = level;
 }
 
 void QmlJSScriptConsole::clear()
@@ -272,14 +378,55 @@ void QmlJSScriptConsole::onStateChanged(QmlJsDebugClient::QDeclarativeDebugQuery
 
 void QmlJSScriptConsole::onSelectionChanged()
 {
-    if (!d->adapter.isNull()) {
+    if (d->adapter) {
         QString status;
         if (!d->inferiorStopped) {
             status.append(tr("Current Selected Object: "));
-            status.append(d->adapter.data()->currentSelectedDisplayName());
+            status.append(d->adapter->currentSelectedDisplayName());
         }
         emit updateStatusMessage(status, 0);
     }
+}
+
+void QmlJSScriptConsole::insertDebugOutput(QtMsgType type, const QString &debugMsg)
+{
+    QTextCharFormat resultFormat;
+    switch (type) {
+    case QtDebugMsg:
+        if (!(d->debugLevel & Log))
+            return;
+        resultFormat.setForeground(QColor(Qt::darkBlue));
+        break;
+    case QtWarningMsg:
+        if (!(d->debugLevel & Warning))
+            return;
+        resultFormat.setForeground(QColor(Qt::darkYellow));
+        break;
+    case QtCriticalMsg:
+        if (!(d->debugLevel & Error))
+            return;
+        resultFormat.setForeground(QColor(Qt::darkRed));
+        break;
+    default:
+        resultFormat.setForeground(QColor(Qt::black));
+    }
+
+    QTextCursor cursor = textCursor();
+
+    cursor.setPosition(d->startOfEditableArea - d->prompt.length());
+    cursor.insertText(debugMsg);
+    cursor.insertText(_("\n"));
+
+    QTextEdit::ExtraSelection sel;
+    cursor.movePosition(QTextCursor::PreviousBlock);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    sel.format = resultFormat;
+    sel.cursor = cursor;
+
+    d->selections.append(sel);
+
+    setExtraSelections(d->selections);
+    d->startOfEditableArea += debugMsg.length() + 1; //1 for new line character
 }
 
 void QmlJSScriptConsole::keyPressEvent(QKeyEvent *e)
@@ -466,9 +613,9 @@ void QmlJSScriptConsole::handleReturnKey()
             //Select the engine for evaluation based on
             //inferior state
             if (!d->inferiorStopped) {
-                if (!d->adapter.isNull()) {
-                    QDeclarativeEngineDebug *engineDebug = d->adapter.data()->engineDebugClient();
-                    int id = d->adapter.data()->currentSelectedDebugId();
+                if (d->adapter) {
+                    QDeclarativeEngineDebug *engineDebug = d->adapter->engineDebugClient();
+                    int id = d->adapter->currentSelectedDebugId();
                     if (engineDebug && id != -1) {
                         QDeclarativeDebugExpressionQuery *query =
                                 engineDebug->queryExpressionResult(id, currentScript, this);

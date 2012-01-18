@@ -55,8 +55,8 @@ namespace Core {
     class ICore;
 }
 
-namespace VCSBase {
-    class VCSBaseEditorWidget;
+namespace VcsBase {
+    class VcsBaseEditorWidget;
     class SubmitFileModel;
 }
 
@@ -87,7 +87,7 @@ public:
     unsigned gitVersion(bool silent, QString *errorMessage = 0) const;
     QString gitVersionString(bool silent, QString *errorMessage = 0) const;
 
-    static QString findRepositoryForDirectory(const QString &dir);
+    QString findRepositoryForDirectory(const QString &dir);
 
     void diff(const QString &workingDirectory, const QStringList &diffArgs, const QString &fileName);
     void diff(const QString &workingDirectory, const QStringList &diffArgs,
@@ -100,7 +100,7 @@ public:
     void graphLog(const QString &workingDirectory) { graphLog(workingDirectory, QString()); }
     void graphLog(const QString &workingDirectory, const QString &branch);
     void log(const QString &workingDirectory, const QStringList &fileNames = QStringList(),
-             bool enableAnnotationContextMenu = false);
+             bool enableAnnotationContextMenu = false, const QStringList &args = QStringList());
     void blame(const QString &workingDirectory, const QStringList &args, const QString &fileName,
                const QString &revision = QString(), int lineNumber = -1);
     void checkout(const QString &workingDirectory, const QString &file);
@@ -170,7 +170,7 @@ public:
     QString vcsGetRepositoryURL(const QString &directory);
     bool synchronousFetch(const QString &workingDirectory, const QString &remote);
     bool synchronousPull(const QString &workingDirectory);
-    bool synchronousPush(const QString &workingDirectory);
+    bool synchronousPush(const QString &workingDirectory, const QString &remote = QString());
 
     // git svn support (asynchronous).
     void synchronousSubversionFetch(const QString &workingDirectory);
@@ -205,7 +205,7 @@ public:
                       const GitSubmitEditorPanelData &data,
                       const QString &amendSHA1,
                       const QString &messageFile,
-                      VCSBase::SubmitFileModel *model);
+                      VcsBase::SubmitFileModel *model);
 
     enum StatusResult { StatusChanged, StatusUnchanged, StatusFailed };
     StatusResult gitStatus(const QString &workingDirectory,
@@ -231,12 +231,15 @@ public slots:
 
 private slots:
     void slotBlameRevisionRequested(const QString &source, QString change, int lineNumber);
+    void appendOutputData(const QByteArray &data) const;
+    void appendOutputDataSilently(const QByteArray &data) const;
 
 private:
-    VCSBase::VCSBaseEditorWidget *findExistingVCSEditor(const char *registerDynamicProperty,
+    QTextCodec *getSourceCodec(const QString &file) const;
+    VcsBase::VcsBaseEditorWidget *findExistingVCSEditor(const char *registerDynamicProperty,
                                                   const QString &dynamicPropertyValue) const;
     enum CodecType { CodecSource, CodecLogOutput, CodecNone };
-    VCSBase::VCSBaseEditorWidget *createVCSEditor(const Core::Id &kind,
+    VcsBase::VcsBaseEditorWidget *createVcsEditor(const Core::Id &kind,
                                             QString title,
                                             const QString &source,
                                             CodecType codecType,
@@ -244,16 +247,16 @@ private:
                                             const QString &dynamicPropertyValue,
                                             QWidget *configWidget) const;
 
-    VCSBase::Command *createCommand(const QString &workingDirectory,
-                             VCSBase::VCSBaseEditorWidget* editor = 0,
+    VcsBase::Command *createCommand(const QString &workingDirectory,
+                             VcsBase::VcsBaseEditorWidget* editor = 0,
                              bool useOutputToWindow = false,
                              int editorLineNumber = -1);
 
-    VCSBase::Command *executeGit(const QString &workingDirectory,
+    VcsBase::Command *executeGit(const QString &workingDirectory,
                            const QStringList &arguments,
-                           VCSBase::VCSBaseEditorWidget* editor = 0,
+                           VcsBase::VcsBaseEditorWidget* editor = 0,
                            bool useOutputToWindow = false,
-                           VCSBase::Command::TerminationReportMode tm = VCSBase::Command::NoReport,
+                           VcsBase::Command::TerminationReportMode tm = VcsBase::Command::NoReport,
                            int editorLineNumber = -1,
                            bool unixTerminalDisabled = false);
 
@@ -265,7 +268,7 @@ private:
                         bool logCommandToWindow = true) const;
 
     // Synchronous git execution using Utils::SynchronousProcess, with
-    // log windows updating (using VCSBasePlugin::runVCS with flags).
+    // log windows updating (using VcsBasePlugin::runVcs with flags).
     inline Utils::SynchronousProcessResponse
             synchronousGit(const QString &workingDirectory, const QStringList &arguments,
                            unsigned flags = 0, QTextCodec *outputCodec = 0);
@@ -278,7 +281,7 @@ private:
                          bool *isDirectory,
                          QString *errorMessage,
                          bool revertStaging);
-    void connectRepositoryChanged(const QString & repository, VCSBase::Command *cmd);
+    void connectRepositoryChanged(const QString & repository, VcsBase::Command *cmd);
     bool synchronousPull(const QString &workingDirectory, bool rebase);
     void syncAbortPullRebase(const QString &workingDir);
     bool tryLauchingGitK(const QProcessEnvironment &env,

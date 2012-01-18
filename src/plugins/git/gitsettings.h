@@ -41,7 +41,7 @@ namespace Git {
 namespace Internal {
 
 // Todo: Add user name and password?
-class GitSettings : public VCSBase::VCSBaseClientSettings
+class GitSettings : public VcsBase::VcsBaseClientSettings
 {
 public:
     GitSettings();
@@ -56,6 +56,7 @@ public:
     static const QLatin1String winSetHomeEnvironmentKey;
     static const QLatin1String showPrettyFormatKey;
     static const QLatin1String gitkOptionsKey;
+    static const QLatin1String logDiffKey;
 
     QString gitBinaryPath(bool *ok = 0, QString *errorMessage = 0) const;
 

@@ -40,66 +40,67 @@
 
 #include <QtCore/QStringList>
 
-namespace VCSBase {
+namespace VcsBase {
+namespace Internal {
+class BaseVcsEditorFactoryPrivate;
+} // namespace Internal
 
-struct BaseVCSEditorFactoryPrivate;
-
-class VCSBASE_EXPORT BaseVCSEditorFactory : public Core::IEditorFactory
+class VCSBASE_EXPORT BaseVcsEditorFactory : public Core::IEditorFactory
 {
     Q_OBJECT
 public:
-    explicit BaseVCSEditorFactory(const VCSBaseEditorParameters *type);
-    virtual ~BaseVCSEditorFactory();
+    explicit BaseVcsEditorFactory(const VcsBaseEditorParameters *type);
+    ~BaseVcsEditorFactory();
 
-    virtual QStringList mimeTypes() const;
+    QStringList mimeTypes() const;
     // IEditorFactory
 
-    virtual Core::Id id() const;
-    virtual QString displayName() const;
+    Core::Id id() const;
+    QString displayName() const;
 
-    virtual Core::IFile *open(const QString &fileName);
-    virtual Core::IEditor *createEditor(QWidget *parent);
+    Core::IFile *open(const QString &fileName);
+    Core::IEditor *createEditor(QWidget *parent);
 
 private:
     // Implement to create and initialize (call init()) a
-    // VCSBaseEditor subclass
-    virtual VCSBaseEditorWidget *createVCSBaseEditor(const VCSBaseEditorParameters *type,
+    // VcsBaseEditor subclass
+    virtual VcsBaseEditorWidget *createVcsBaseEditor(const VcsBaseEditorParameters *type,
                                                QWidget *parent) = 0;
 
-    BaseVCSEditorFactoryPrivate *d;
+    Internal::BaseVcsEditorFactoryPrivate *const d;
 };
 
 // Utility template to create an editor.
 template <class Editor>
-class VCSEditorFactory : public BaseVCSEditorFactory
+class VcsEditorFactory : public BaseVcsEditorFactory
 {
 public:
-    explicit VCSEditorFactory(const VCSBaseEditorParameters *type,
+    explicit VcsEditorFactory(const VcsBaseEditorParameters *type,
                               QObject *describeReceiver = 0,
                               const char *describeSlot = 0);
 
 private:
-    virtual VCSBaseEditorWidget *createVCSBaseEditor(const VCSBaseEditorParameters *type,
-                                               QWidget *parent);
+    VcsBaseEditorWidget *createVcsBaseEditor(const VcsBaseEditorParameters *type,
+                                             QWidget *parent);
     QObject *m_describeReceiver;
     const char *m_describeSlot;
 };
 
 template <class Editor>
-VCSEditorFactory<Editor>::VCSEditorFactory(const VCSBaseEditorParameters *type,
+VcsEditorFactory<Editor>::VcsEditorFactory(const VcsBaseEditorParameters *type,
                                            QObject *describeReceiver,
                                            const char *describeSlot) :
-    BaseVCSEditorFactory(type),
+    BaseVcsEditorFactory(type),
     m_describeReceiver(describeReceiver),
     m_describeSlot(describeSlot)
 {
 }
 
 template <class Editor>
-VCSBaseEditorWidget *VCSEditorFactory<Editor>::createVCSBaseEditor(const VCSBaseEditorParameters *type,
+VcsBaseEditorWidget *VcsEditorFactory<Editor>::createVcsBaseEditor(const VcsBaseEditorParameters *type,
                                                              QWidget *parent)
 {
-    VCSBaseEditorWidget *rc = new Editor(type, parent);
+    VcsBaseEditorWidget *rc = new Editor(type, parent);
     rc->init();
     if (m_describeReceiver)
         connect(rc, SIGNAL(describeRequested(QString,QString)), m_describeReceiver, m_describeSlot);
@@ -107,7 +108,7 @@ VCSBaseEditorWidget *VCSEditorFactory<Editor>::createVCSBaseEditor(const VCSBase
 
 }
 
-} // namespace VCSBase
+} // namespace VcsBase
 
 #endif // BASEVCSEDITORFACTORY_H
 

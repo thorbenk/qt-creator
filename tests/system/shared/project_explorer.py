@@ -1,44 +1,5 @@
 import re;
 
-# this class holds some constants for easier usage inside the Projects view
-class ProjectSettings:
-    BUILD = 1
-    RUN = 2
-
-# this class defines some constants for the views of the creator's MainWindow
-class ViewConstants:
-    WELCOME = 0
-    EDIT = 1
-    DESIGN = 2
-    DEBUG = 3
-    PROJECTS = 4
-    ANALYZE = 5
-    HELP = 6
-    # always adjust the following to the highest value of the available ViewConstants when adding new
-    LAST_AVAILABLE = HELP
-
-    # this function returns a regex of the tooltip of the FancyTabBar elements
-    # this is needed because the keyboard shortcut is OS specific
-    # if the provided argument does not match any of the ViewConstants it returns None
-    @staticmethod
-    def getToolTipForViewTab(viewTab):
-        if viewTab == ViewConstants.WELCOME:
-            return ur'Switch to <b>Welcome</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)1</span>'
-        elif viewTab == ViewConstants.EDIT:
-            return ur'Switch to <b>Edit</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)2</span>'
-        elif viewTab == ViewConstants.DESIGN:
-            return ur'Switch to <b>Design</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)3</span>'
-        elif viewTab == ViewConstants.DEBUG:
-            return ur'Switch to <b>Debug</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)4</span>'
-        elif viewTab == ViewConstants.PROJECTS:
-            return ur'Switch to <b>Projects</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)5</span>'
-        elif viewTab == ViewConstants.ANALYZE:
-            return ur'Switch to <b>Analyze</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)6</span>'
-        elif viewTab == ViewConstants.HELP:
-            return ur'Switch to <b>Help</b> mode <span style="color: gray; font-size: small">(Ctrl\+|\u2303)7</span>'
-        else:
-            return None
-
 # this function switches the MainWindow of creator to the specified view
 def switchViewTo(view):
     if view < ViewConstants.WELCOME or view > ViewConstants.LAST_AVAILABLE:
@@ -46,8 +7,11 @@ def switchViewTo(view):
     tabBar = waitForObject("{type='Core::Internal::FancyTabBar' unnamed='1' visible='1' "
                            "window=':Qt Creator_Core::Internal::MainWindow'}")
     mouseMove(tabBar, 10, 10 + 52 * view)
-    snooze(2)
-    text = str(QToolTip.text())
+    if waitFor("QToolTip.isVisible()", 10000):
+        text = str(QToolTip.text())
+    else:
+        test.warning("Waiting for ToolTip timed out.")
+        text = ""
     pattern = ViewConstants.getToolTipForViewTab(view)
     if re.match(pattern, unicode(text), re.UNICODE):
        test.passes("ToolTip verified")
@@ -73,7 +37,7 @@ def prepareBuildSettings(targetCount, currentTarget, setReleaseBuild=True, disab
             wait = False
             try:
                 if qtCombo.currentText != defaultQtVersion:
-                    selectFromCombo(qtCombo, defaultQtVersion.replace(".", "\\."))
+                    selectFromCombo(qtCombo, defaultQtVersion)
                 if setReleaseBuild:
                     chooseThis = "%s Release" % defaultQtVersion
                 else:
@@ -106,11 +70,14 @@ def prepareBuildSettings(targetCount, currentTarget, setReleaseBuild=True, disab
 # param currentTarget specifies the target for which to switch into the specified settings (zero based index)
 # param targetCount specifies the number of targets currently defined (must be correct!)
 # param projectSettings specifies where to switch to (must be one of ProjectSettings.BUILD or ProjectSettings.RUN)
-def switchToBuildOrRunSettingsFor(targetCount, currentTarget, projectSettings):
+def switchToBuildOrRunSettingsFor(targetCount, currentTarget, projectSettings, isQtQuickUI=False):
     try:
         targetSel = waitForObject("{type='ProjectExplorer::Internal::TargetSelector' unnamed='1' "
                                   "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
     except LookupError:
+        # if it's a QtQuick UI - this depends on the creator version - so better not fatal
+        if isQtQuickUI:
+            return True
         test.fatal("Wrong (time of) call - must be already at Projects view")
         return False
     ADD_BUTTON_WIDTH = 27 # bad... (taken from source)
@@ -126,3 +93,13 @@ def switchToBuildOrRunSettingsFor(targetCount, currentTarget, projectSettings):
     mouseClick(targetSel, xToClick, yToClick, 0, Qt.LeftButton)
     return True
 
+# this function switches "Run in terminal" on or off in a project's run settings
+# param targetCount specifies the number of targets currently defined (must be correct!)
+# param currentTarget specifies the target for which to switch into the specified settings (zero based index)
+# param runInTerminal specifies if "Run in terminal should be turned on (True) or off (False)
+def setRunInTerminal(targetCount, currentTarget, runInTerminal=True):
+    switchViewTo(ViewConstants.PROJECTS)
+    switchToBuildOrRunSettingsFor(targetCount, currentTarget, ProjectSettings.RUN)
+    ensureChecked("{container=':Qt Creator.scrollArea_QScrollArea' text='Run in terminal'\
+                    type='QCheckBox' unnamed='1' visible='1'}", runInTerminal)
+    switchViewTo(ViewConstants.EDIT)

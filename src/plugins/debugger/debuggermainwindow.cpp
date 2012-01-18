@@ -110,7 +110,6 @@ public slots:
     void updateUiForRunConfiguration(ProjectExplorer::RunConfiguration *rc);
     void updateUiForCurrentRunConfiguration();
     void updateActiveLanguages();
-    void updateUiOnFileListChange();
     void updateDockWidgetSettings();
     void openMemoryEditor() { debuggerCore()->openMemoryEditor(); }
 
@@ -137,10 +136,11 @@ public:
     DebuggerLanguages m_engineDebugLanguages;
 
     ActionContainer *m_viewsMenu;
+    QList<Command *> m_menuCommandsToAdd;
 
-    QWeakPointer<Project> m_previousProject;
-    QWeakPointer<Target> m_previousTarget;
-    QWeakPointer<RunConfiguration> m_previousRunConfiguration;
+    Project *m_previousProject;
+    Target *m_previousTarget;
+    RunConfiguration *m_previousRunConfiguration;
 };
 
 DebuggerMainWindowPrivate::DebuggerMainWindowPrivate(DebuggerMainWindow *mw)
@@ -154,30 +154,27 @@ DebuggerMainWindowPrivate::DebuggerMainWindowPrivate(DebuggerMainWindow *mw)
     , m_activeDebugLanguages(AnyLanguage)
     , m_engineDebugLanguages(AnyLanguage)
     , m_viewsMenu(0)
+    , m_previousProject(0)
+    , m_previousTarget(0)
+    , m_previousRunConfiguration(0)
 {
     createViewsMenuItems();
     addLanguage(CppLanguage, Context(C_CPPDEBUGGER));
     addLanguage(QmlLanguage, Context(C_QMLDEBUGGER));
 }
 
-void DebuggerMainWindowPrivate::updateUiOnFileListChange()
-{
-    if (m_previousProject)
-        updateUiForTarget(m_previousProject.data()->activeTarget());
-}
-
 void DebuggerMainWindowPrivate::updateUiForProject(Project *project)
 {
-    if (!project)
-        return;
     if (m_previousProject) {
-        disconnect(m_previousProject.data(),
+        disconnect(m_previousProject,
             SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
             this, SLOT(updateUiForTarget(ProjectExplorer::Target*)));
     }
     m_previousProject = project;
-    connect(project, SIGNAL(fileListChanged()),
-        SLOT(updateUiOnFileListChange()));
+    if (!project) {
+        updateUiForTarget(0);
+        return;
+    }
     connect(project, SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
         SLOT(updateUiForTarget(ProjectExplorer::Target*)));
     updateUiForTarget(project->activeTarget());
@@ -185,15 +182,19 @@ void DebuggerMainWindowPrivate::updateUiForProject(Project *project)
 
 void DebuggerMainWindowPrivate::updateUiForTarget(Target *target)
 {
-    if (!target)
-        return;
-
     if (m_previousTarget) {
-         disconnect(m_previousTarget.data(),
+         disconnect(m_previousTarget,
             SIGNAL(activeRunConfigurationChanged(ProjectExplorer::RunConfiguration*)),
             this, SLOT(updateUiForRunConfiguration(ProjectExplorer::RunConfiguration*)));
     }
+
     m_previousTarget = target;
+
+    if (!target) {
+        updateUiForRunConfiguration(0);
+        return;
+    }
+
     connect(target,
         SIGNAL(activeRunConfigurationChanged(ProjectExplorer::RunConfiguration*)),
         SLOT(updateUiForRunConfiguration(ProjectExplorer::RunConfiguration*)));
@@ -203,16 +204,16 @@ void DebuggerMainWindowPrivate::updateUiForTarget(Target *target)
 // updates default debug language settings per run config.
 void DebuggerMainWindowPrivate::updateUiForRunConfiguration(RunConfiguration *rc)
 {
-    if (!rc)
-        return;
     if (m_previousRunConfiguration)
-        disconnect(m_previousRunConfiguration.data(), SIGNAL(debuggersChanged()),
+        disconnect(m_previousRunConfiguration, SIGNAL(debuggersChanged()),
                    this, SLOT(updateUiForCurrentRunConfiguration()));
     m_previousRunConfiguration = rc;
-    connect(m_previousRunConfiguration.data(),
+    updateUiForCurrentRunConfiguration();
+    if (!rc)
+        return;
+    connect(m_previousRunConfiguration,
             SIGNAL(debuggersChanged()),
             SLOT(updateUiForCurrentRunConfiguration()));
-    updateUiForCurrentRunConfiguration();
 }
 
 void DebuggerMainWindowPrivate::updateUiForCurrentRunConfiguration()
@@ -228,9 +229,9 @@ void DebuggerMainWindowPrivate::updateActiveLanguages()
         newLanguages = m_engineDebugLanguages;
     else {
         if (m_previousRunConfiguration) {
-            if (m_previousRunConfiguration.data()->useCppDebugger())
+            if (m_previousRunConfiguration->useCppDebugger())
                 newLanguages |= CppLanguage;
-            if (m_previousRunConfiguration.data()->useQmlDebugger())
+            if (m_previousRunConfiguration->useQmlDebugger())
                 newLanguages |= QmlLanguage;
         }
     }
@@ -286,7 +287,7 @@ void DebuggerMainWindow::setEngineDebugLanguages(DebuggerLanguages languages)
 
 void DebuggerMainWindow::onModeChanged(IMode *mode)
 {
-    d->m_inDebugMode = (mode && mode->id() == Constants::MODE_DEBUG);
+    d->m_inDebugMode = (mode && mode->id() == QLatin1String(Constants::MODE_DEBUG));
     setDockActionsVisible(d->m_inDebugMode);
 
     // Hide all the debugger windows if mode is different.
@@ -321,7 +322,8 @@ void DebuggerMainWindowPrivate::createViewsMenuItems()
         Core::Id("Debugger.Views.OpenMemoryEditor"),
         debugcontext);
     cmd->setAttribute(Command::CA_Hide);
-    m_viewsMenu->addAction(cmd);
+    m_viewsMenu->addAction(cmd, Core::Constants::G_DEFAULT_THREE);
+
     cmd = am->registerAction(q->menuSeparator1(),
         Core::Id("Debugger.Views.Separator1"), debugcontext);
     cmd->setAttribute(Command::CA_Hide);
@@ -427,9 +429,9 @@ QDockWidget *DebuggerMainWindow::createDockWidget(const DebuggerLanguage &langua
     ActionManager *am = ICore::instance()->actionManager();
     QAction *toggleViewAction = dockWidget->toggleViewAction();
     Command *cmd = am->registerAction(toggleViewAction,
-             Core::Id("Debugger." + widget->objectName()), globalContext);
+             Core::Id(QLatin1String("Debugger.") + widget->objectName()), globalContext);
     cmd->setAttribute(Command::CA_Hide);
-    d->m_viewsMenu->addAction(cmd);
+    d->m_menuCommandsToAdd.append(cmd);
 
     dockWidget->installEventFilter(&d->m_resizeEventFilter);
 
@@ -441,6 +443,19 @@ QDockWidget *DebuggerMainWindow::createDockWidget(const DebuggerLanguage &langua
         d, SLOT(updateDockWidgetSettings()));
 
     return dockWidget;
+}
+
+static bool sortCommands(Command *cmd1, Command *cmd2)
+{
+    return cmd1->action()->text() < cmd2->action()->text();
+}
+
+void DebuggerMainWindow::addStagedMenuEntries()
+{
+    qSort(d->m_menuCommandsToAdd.begin(), d->m_menuCommandsToAdd.end(), &sortCommands);
+    foreach (Command *cmd, d->m_menuCommandsToAdd)
+        d->m_viewsMenu->addAction(cmd);
+    d->m_menuCommandsToAdd.clear();
 }
 
 QWidget *DebuggerMainWindow::createContents(IMode *mode)
@@ -646,17 +661,17 @@ void DebuggerMainWindowPrivate::setSimpleDockWidgetArrangement()
     }
 
     QDockWidget *toolBarDock = q->toolBarDockWidget();
-    QDockWidget *breakDock = q->dockWidget(DOCKWIDGET_BREAK);
-    QDockWidget *stackDock = q->dockWidget(DOCKWIDGET_STACK);
-    QDockWidget *watchDock = q->dockWidget(DOCKWIDGET_WATCHERS);
-    QDockWidget *snapshotsDock = q->dockWidget(DOCKWIDGET_SNAPSHOTS);
-    QDockWidget *threadsDock = q->dockWidget(DOCKWIDGET_THREADS);
-    QDockWidget *outputDock = q->dockWidget(DOCKWIDGET_OUTPUT);
-    QDockWidget *qmlInspectorDock = q->dockWidget(DOCKWIDGET_QML_INSPECTOR);
-    QDockWidget *scriptConsoleDock = q->dockWidget(DOCKWIDGET_QML_SCRIPTCONSOLE);
-    QDockWidget *modulesDock = q->dockWidget(DOCKWIDGET_MODULES);
-    QDockWidget *registerDock = q->dockWidget(DOCKWIDGET_REGISTER);
-    QDockWidget *sourceFilesDock = q->dockWidget(DOCKWIDGET_SOURCE_FILES);
+    QDockWidget *breakDock = q->dockWidget(QLatin1String(DOCKWIDGET_BREAK));
+    QDockWidget *stackDock = q->dockWidget(QLatin1String(DOCKWIDGET_STACK));
+    QDockWidget *watchDock = q->dockWidget(QLatin1String(DOCKWIDGET_WATCHERS));
+    QDockWidget *snapshotsDock = q->dockWidget(QLatin1String(DOCKWIDGET_SNAPSHOTS));
+    QDockWidget *threadsDock = q->dockWidget(QLatin1String(DOCKWIDGET_THREADS));
+    QDockWidget *outputDock = q->dockWidget(QLatin1String(DOCKWIDGET_OUTPUT));
+    QDockWidget *qmlInspectorDock = q->dockWidget(QLatin1String(DOCKWIDGET_QML_INSPECTOR));
+    QDockWidget *scriptConsoleDock = q->dockWidget(QLatin1String(DOCKWIDGET_QML_SCRIPTCONSOLE));
+    QDockWidget *modulesDock = q->dockWidget(QLatin1String(DOCKWIDGET_MODULES));
+    QDockWidget *registerDock = q->dockWidget(QLatin1String(DOCKWIDGET_REGISTER));
+    QDockWidget *sourceFilesDock = q->dockWidget(QLatin1String(DOCKWIDGET_SOURCE_FILES));
 
     QTC_ASSERT(breakDock, return);
     QTC_ASSERT(stackDock, return);

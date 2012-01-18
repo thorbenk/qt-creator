@@ -57,24 +57,24 @@ bool sortByPriority(QtVersionFactory *a, QtVersionFactory *b)
     return a->priority() > b->priority();
 }
 
-BaseQtVersion *QtVersionFactory::createQtVersionFromLegacySettings(const QString &qmakePath, int id, QSettings *s)
+BaseQtVersion *QtVersionFactory::createQtVersionFromLegacySettings(const Utils::FileName &qmakePath, int id, QSettings *s)
 {
     BaseQtVersion *v = createQtVersionFromQMakePath(qmakePath);
     if (!v)
         return 0;
     v->setId(id);
-    v->setDisplayName(s->value("Name").toString());
+    v->setDisplayName(s->value(QLatin1String("Name")).toString());
     v->restoreLegacySettings(s);
     return v;
 }
 
-BaseQtVersion *QtVersionFactory::createQtVersionFromQMakePath(const QString &qmakePath, bool isAutoDetected, const QString &autoDetectionSource)
+BaseQtVersion *QtVersionFactory::createQtVersionFromQMakePath(const Utils::FileName &qmakePath, bool isAutoDetected, const QString &autoDetectionSource)
 {
     QHash<QString, QString> versionInfo;
     bool success = BaseQtVersion::queryQMakeVariables(qmakePath, &versionInfo);
     if (!success)
         return 0;
-    QString mkspec = BaseQtVersion::mkspecFromVersionInfo(versionInfo);
+    Utils::FileName mkspec = BaseQtVersion::mkspecFromVersionInfo(versionInfo);
 
     ProFileOption option;
     option.properties = versionInfo;
@@ -82,7 +82,7 @@ BaseQtVersion *QtVersionFactory::createQtVersionFromQMakePath(const QString &qma
     ProFileCacheManager::instance()->incRefCount();
     ProFileParser parser(ProFileCacheManager::instance()->cache(), &msgHandler);
     ProFileEvaluator evaluator(&option, &parser, &msgHandler);
-    if (ProFile *pro = parser.parsedProFile(mkspec + "/qmake.conf")) {
+    if (ProFile *pro = parser.parsedProFile(mkspec.toString() + QLatin1String("/qmake.conf"))) {
         evaluator.setCumulative(false);
         evaluator.accept(pro, ProFileEvaluator::LoadProOnly);
         pro->deref();

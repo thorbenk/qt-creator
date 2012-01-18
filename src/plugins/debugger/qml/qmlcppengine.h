@@ -71,7 +71,7 @@ public:
     void reloadFullStack();
 
     void setRegisterValue(int regnr, const QString &value);
-    unsigned debuggerCapabilities() const;
+    bool hasCapability(unsigned cap) const;
 
     bool isSynchronous() const;
     QByteArray qtNamespace() const;
@@ -123,6 +123,9 @@ protected:
     void notifyInferiorSpontaneousStop();
     void notifyEngineRunAndInferiorRunOk();
     void notifyInferiorShutdownOk();
+
+private slots:
+    void slaveEngineRequestedRemoteSetup();
 
 private:
     void engineStateChanged(DebuggerState newState);

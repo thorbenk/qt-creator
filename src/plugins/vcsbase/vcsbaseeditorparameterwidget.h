@@ -35,30 +35,31 @@
 
 #include "vcsbase_global.h"
 
-#include <QtGui/QWidget>
 #include <QtCore/QStringList>
 #include <QtCore/QVariant>
+#include <QtGui/QWidget>
 
 QT_BEGIN_NAMESPACE
 class QComboBox;
 class QToolButton;
 QT_END_NAMESPACE
 
-namespace VCSBase {
-class VCSBaseEditorParameterWidgetPrivate;
+namespace VcsBase {
+
+namespace Internal { class VcsBaseEditorParameterWidgetPrivate; }
 
 // Documentation->inside.
-class VCSBASE_EXPORT VCSBaseEditorParameterWidget : public QWidget
+class VCSBASE_EXPORT VcsBaseEditorParameterWidget : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit VCSBaseEditorParameterWidget(QWidget *parent = 0);
-    ~VCSBaseEditorParameterWidget();
+    explicit VcsBaseEditorParameterWidget(QWidget *parent = 0);
+    ~VcsBaseEditorParameterWidget();
 
     struct VCSBASE_EXPORT ComboBoxItem
     {
-        ComboBoxItem();
+        ComboBoxItem() {}
         ComboBoxItem(const QString &text, const QVariant &val);
         QString displayText;
         QVariant value;
@@ -103,10 +104,10 @@ protected:
     void updateMappedSettings();
 
 private:
-    friend class VCSBaseEditorParameterWidgetPrivate;
-    VCSBaseEditorParameterWidgetPrivate *d;
+    friend class Internal::VcsBaseEditorParameterWidgetPrivate;
+    Internal::VcsBaseEditorParameterWidgetPrivate *const d;
 };
 
-} // namespace VCSBase
+} // namespace VcsBase
 
 #endif // VCSBASE_VCSBASEEDITORPARAMETERWIDGET_H

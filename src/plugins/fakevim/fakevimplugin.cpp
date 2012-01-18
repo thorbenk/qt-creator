@@ -408,16 +408,7 @@ void FakeVimExCommandsPage::initialize()
         sections[section]->addChild(item);
 
         item->setText(0, subId);
-
-        if (c->action()) {
-            QString text = c->hasAttribute(Command::CA_UpdateText)
-                    && !c->defaultText().isNull()
-                ? c->defaultText() : c->action()->text();
-            text.remove(QRegExp("&(?!&)"));
-            item->setText(1, text);
-        } else {
-            item->setText(1, c->shortcut()->whatsThis());
-        }
+        item->setText(1, c->description());
 
         QString regex;
         if (exCommandMap().contains(name))
@@ -1575,6 +1566,12 @@ void FakeVimPluginPrivate::handleExCommand(bool *handled, const ExCommand &cmd)
         // :on[ly]
         //triggerAction(Core::Constants::REMOVE_ALL_SPLITS);
         triggerAction(Core::Constants::REMOVE_CURRENT_SPLIT);
+    } else if (cmd.cmd == "AS") {
+        triggerAction(Core::Constants::SPLIT);
+        triggerAction(CppTools::Constants::SWITCH_HEADER_SOURCE);
+    } else if (cmd.cmd == "AV") {
+        triggerAction(Core::Constants::SPLIT_SIDE_BY_SIDE);
+        triggerAction(CppTools::Constants::SWITCH_HEADER_SOURCE);
     } else {
         // Check whether one of the configure commands matches.
         typedef ExCommandMap::const_iterator Iterator;

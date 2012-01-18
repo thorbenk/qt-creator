@@ -36,6 +36,7 @@
 
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorersettings.h>
+#include <projectexplorer/gcctoolchain.h>
 
 
 #include <utils/fileutils.h>
@@ -105,7 +106,7 @@ QList<HeaderPath> AbstractMsvcToolChain::systemHeaderPaths() const
     if (m_headerPaths.isEmpty()) {
         Utils::Environment env(m_lastEnvironment);
         addToEnvironment(env);
-        foreach (const QString &path, env.value("INCLUDE").split(QLatin1Char(';')))
+        foreach (const QString &path, env.value(QLatin1String("INCLUDE")).split(QLatin1Char(';')))
             m_headerPaths.append(HeaderPath(path, HeaderPath::GlobalHeaderPath));
     }
     return m_headerPaths;
@@ -126,15 +127,7 @@ void AbstractMsvcToolChain::addToEnvironment(Utils::Environment &env) const
 QString AbstractMsvcToolChain::makeCommand() const
 {
     if (ProjectExplorerPlugin::instance()->projectExplorerSettings().useJom) {
-        // We want jom! Try to find it.
-        const QString jom = QLatin1String("jom.exe");
-        const QFileInfo installedJom = QFileInfo(QCoreApplication::applicationDirPath()
-                                                 + QLatin1Char('/') + jom);
-        if (installedJom.isFile() && installedJom.isExecutable()) {
-            return installedJom.absoluteFilePath();
-        } else {
-            return jom;
-        }
+        return MingwToolChain::findInstalledJom();
     }
     return QLatin1String("nmake.exe");
 }
@@ -193,7 +186,7 @@ bool AbstractMsvcToolChain::generateEnvironmentSettings(Utils::Environment &env,
     // Note, can't just use a QTemporaryFile all the way through as it remains open
     // internally so it can't be streamed to later.
     QString tempOutFile;
-    QTemporaryFile* pVarsTempFile = new QTemporaryFile(QDir::tempPath() + "/XXXXXX.txt");
+    QTemporaryFile* pVarsTempFile = new QTemporaryFile(QDir::tempPath() + QLatin1String("/XXXXXX.txt"));
     pVarsTempFile->setAutoRemove(false);
     pVarsTempFile->open();
     pVarsTempFile->close();
@@ -201,7 +194,7 @@ bool AbstractMsvcToolChain::generateEnvironmentSettings(Utils::Environment &env,
     delete pVarsTempFile;
 
     // Create a batch file to create and save the env settings
-    Utils::TempFileSaver saver(QDir::tempPath() + "/XXXXXX.bat");
+    Utils::TempFileSaver saver(QDir::tempPath() + QLatin1String("/XXXXXX.bat"));
 
     QByteArray call = "call ";
     call += Utils::QtcProcess::quoteArg(batchFile).toLocal8Bit() + "\r\n";

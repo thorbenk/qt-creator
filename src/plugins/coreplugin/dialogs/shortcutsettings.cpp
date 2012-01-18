@@ -219,7 +219,7 @@ void ShortcutSettings::removeTargetIdentifier()
 void ShortcutSettings::importAction()
 {
     QString fileName = QFileDialog::getOpenFileName(0, tr("Import Keyboard Mapping Scheme"),
-        ICore::instance()->resourcePath() + "/schemes/",
+        ICore::instance()->resourcePath() + QLatin1String("/schemes/"),
         tr("Keyboard Mapping Scheme (*.kms)"));
     if (!fileName.isEmpty()) {
 
@@ -268,7 +268,7 @@ void ShortcutSettings::exportAction()
 {
     QString fileName = FileManager::instance()->getSaveFileNameWithExtension(
         tr("Export Keyboard Mapping Scheme"),
-        ICore::instance()->resourcePath() + "/schemes/",
+        ICore::instance()->resourcePath() + QLatin1String("/schemes/"),
         tr("Keyboard Mapping Scheme (*.kms)"));
     if (!fileName.isEmpty()) {
         CommandsFile cf(fileName);
@@ -321,18 +321,9 @@ void ShortcutSettings::initialize()
         }
         sections[section]->addChild(item);
 
+        s->m_key = c->keySequence();
         item->setText(0, subId);
-
-        if (c->action()) {
-            QString text = c->hasAttribute(Command::CA_UpdateText) && !c->defaultText().isNull() ? c->defaultText() : c->action()->text();
-            text.remove(QRegExp("&(?!&)"));
-            s->m_key = c->action()->shortcut();
-            item->setText(1, text);
-        } else {
-            s->m_key = c->shortcut()->key();
-            item->setText(1, c->shortcut()->whatsThis());
-        }
-
+        item->setText(1, c->description());
         item->setText(2, s->m_key);
         if (s->m_cmd->defaultKeySequence() != s->m_key)
             setModified(item, true);

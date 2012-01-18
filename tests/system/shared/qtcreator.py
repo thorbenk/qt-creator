@@ -12,10 +12,11 @@ srcPath = ''
 SettingsPath = ''
 tmpSettingsDir = ''
 testSettings.logScreenshotOnFail = True
+testSettings.logScreenshotOnError = True
 
+source("../../shared/classes.py")
 source("../../shared/utils.py")
 source("../../shared/build_utils.py")
-source("../../shared/qtquick.py")
 source("../../shared/project.py")
 source("../../shared/editor_utils.py")
 source("../../shared/project_explorer.py")
@@ -63,13 +64,13 @@ else:
     cwd = os.getcwd()       # current dir is directory holding qtcreator.py
     cwd+="/../../settings/unix"
     defaultQtVersion = "Desktop Qt 4.7.4 for GCC (Qt SDK)"
-srcPath = sdkPath + "/src"
+srcPath = os.getenv("SYSTEST_SRCPATH", sdkPath + "/src")
 
-cwd = os.path.abspath(cwd)
-tmpSettingsDir = tempDir()
-tmpSettingsDir = os.path.abspath(tmpSettingsDir+"/settings")
-shutil.copytree(cwd, tmpSettingsDir)
 # the following only doesn't work if the test ends in an exception
-atexit.register(__removeTmpSettingsDir__)
-SettingsPath = ' -settingspath "%s"' % tmpSettingsDir
-
+if os.getenv("SYSTEST_NOSETTINGSPATH") != "1":
+    cwd = os.path.abspath(cwd)
+    tmpSettingsDir = tempDir()
+    tmpSettingsDir = os.path.abspath(tmpSettingsDir+"/settings")
+    shutil.copytree(cwd, tmpSettingsDir)
+    atexit.register(__removeTmpSettingsDir__)
+    SettingsPath = ' -settingspath "%s"' % tmpSettingsDir

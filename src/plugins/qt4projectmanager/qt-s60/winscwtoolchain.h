@@ -61,7 +61,7 @@ public:
     ProjectExplorer::ToolChain::CompilerFlags compilerFlags(const QStringList &cxxflags) const;
     QList<ProjectExplorer::HeaderPath> systemHeaderPaths() const;
     void addToEnvironment(Utils::Environment &env) const;
-    QString mkspec() const;
+    Utils::FileName mkspec() const;
     QString makeCommand() const;
     virtual QString debuggerCommand() const;
     QString defaultMakeTarget() const;

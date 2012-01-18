@@ -167,9 +167,10 @@ public:
     QString toString(bool debug = false) const;
 
     static QString msgDumperOutdated(double requiredVersion, double currentVersion);
+    static QString msgPtraceError(DebuggerStartMode sm);
 
 private:
-    typedef QMap<QString, Type> NameTypeMap;
+    typedef QMap<QByteArray, Type> NameTypeMap;
     typedef QMap<QByteArray, int> SizeCache;
 
     // Look up a simple (namespace) type
@@ -237,7 +238,7 @@ private: ////////// General Interface //////////
     virtual void setupInferior();
     virtual void runEngine();
 
-    virtual unsigned debuggerCapabilities() const;
+    virtual bool hasCapability(unsigned) const;
     virtual void detachDebugger();
     virtual void shutdownEngine();
     virtual void shutdownInferior();
@@ -270,6 +271,7 @@ private: ////////// Gdb Process Management //////////
 
     void handleAdapterStarted();
     void defaultInferiorShutdown(const char *cmd);
+    void loadInitScript();
     void loadPythonDumpers();
     void pythonDumpersFailed();
 
@@ -406,6 +408,7 @@ private: ////////// Gdb Command Management //////////
     // of evaluation. Responses with older tokens are considers
     // out of date and discarded.
     int m_oldestAcceptableToken;
+    int m_nonDiscardableCount;
 
     int m_pendingWatchRequests; // Watch updating commands in flight
     int m_pendingBreakpointRequests; // Watch updating commands in flight
@@ -481,8 +484,6 @@ private: ////////// Inferior Management //////////
 
     void maybeHandleInferiorPidChanged(const QString &pid);
     void handleInfoProc(const GdbResponse &response);
-
-    QByteArray m_entryPoint;
 
 private: ////////// View & Data Stuff //////////
 

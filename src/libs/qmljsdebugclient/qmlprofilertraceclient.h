@@ -53,7 +53,7 @@ struct QMLJSDEBUGCLIENT_EXPORT Location
 class QMLJSDEBUGCLIENT_EXPORT QmlProfilerTraceClient : public QmlJsDebugClient::QDeclarativeDebugClient
 {
     Q_OBJECT
-    Q_PROPERTY(bool enabled READ isEnabled NOTIFY enabled)
+    Q_PROPERTY(bool enabled READ isEnabled NOTIFY enabledChanged)
     Q_PROPERTY(bool recording READ isRecording WRITE setRecording NOTIFY recordingChanged)
 
     // don't hide by signal
@@ -91,6 +91,7 @@ public:
 public slots:
     void setRecording(bool);
     void clearData();
+    void sendRecordingStatus();
 
 signals:
     void complete();
@@ -100,10 +101,11 @@ signals:
     void traceStarted( qint64 time );
     void range(int type, qint64 startTime, qint64 length,
                const QStringList &data, const QString &fileName, int line);
+    void frame(qint64 time, int frameRate, int animationCount);
 
     void recordingChanged(bool arg);
 
-    void enabled();
+    void enabledChanged();
     void cleared();
 
 protected:
