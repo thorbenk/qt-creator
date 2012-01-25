@@ -65,7 +65,9 @@ public:
         EnumCompletionKind,
         EnumeratorCompletionKind,
         NamespaceCompletionKind,
-        PreProcessorCompletionKind
+        PreProcessorCompletionKind,
+        SignalCompletionKind,
+        SlotCompletionKind
     };
 
     enum Availability {

@@ -389,7 +389,9 @@ void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor 
 
         if (autoInsertBrackets &&
                 (ccr.completionKind() == CodeCompletionResult::FunctionCompletionKind
-                 || ccr.completionKind() == CodeCompletionResult::DestructorCompletionKind)) {
+                 || ccr.completionKind() == CodeCompletionResult::DestructorCompletionKind
+                 || ccr.completionKind() == CodeCompletionResult::SignalCompletionKind
+                 || ccr.completionKind() == CodeCompletionResult::SlotCompletionKind)) {
             // When the user typed the opening parenthesis, he'll likely also type the closing one,
             // in which case it would be annoying if we put the cursor after the already automatically
             // inserted closing parenthesis.
@@ -876,7 +878,9 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         foreach (const CodeCompletionResult &ccr, completions) {
             if (ccr.completionKind() == CodeCompletionResult::FunctionCompletionKind
                     || ccr.completionKind() == CodeCompletionResult::ConstructorCompletionKind
-                    || ccr.completionKind() == CodeCompletionResult::DestructorCompletionKind)
+                    || ccr.completionKind() == CodeCompletionResult::DestructorCompletionKind
+                    || ccr.completionKind() == CodeCompletionResult::SignalCompletionKind
+                    || ccr.completionKind() == CodeCompletionResult::SlotCompletionKind)
                 if (ccr.text() == functionName)
                     functionCompletions.append(ccr);
         }
@@ -930,6 +934,14 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         case CodeCompletionResult::DestructorCompletionKind: // fall through
         case CodeCompletionResult::FunctionCompletionKind:
             item->setIcon(m_icons.iconForType(Icons::FuncPublicIconType)); // FIXME: show the effective accessebility
+            break;
+
+        case CodeCompletionResult::SignalCompletionKind:
+            item->setIcon(m_icons.iconForType(Icons::SignalIconType)); // FIXME: show the effective accessebility
+            break;
+
+        case CodeCompletionResult::SlotCompletionKind:
+            item->setIcon(m_icons.iconForType(Icons::SlotPublicIconType)); // FIXME: show the effective accessebility
             break;
 
         case CodeCompletionResult::NamespaceCompletionKind: item->setIcon(m_icons.iconForType(Icons::NamespaceIconType)); break;

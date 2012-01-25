@@ -1,8 +1,8 @@
 #include "pchmanager.h"
 
 #include <clangwrapper/utils.h>
-
 #include <coreplugin/messagemanager.h>
+#include <cpptools/clangutils.h>
 
 using namespace Clang;
 using namespace CPlusPlus;
@@ -37,6 +37,7 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
         QHash<QString, QSet<QString> > includes, frameworks;
         QHash<QString, QSet<QByteArray> > definesPerPCH;
         QHash<QString, bool> cpp0x, objc;
+        QHash<QString, CppModelManagerInterface::ProjectPart::QtVersion> qtVersions;
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             if (projectPart->precompiledHeaders.isEmpty())
                 continue;
@@ -60,17 +61,20 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
             } else {
                 definesPerPCH[pch] = projectDefines;
             }
+
+            qtVersions[pch] = projectPart->qtVersion;
         }
 
         QMap<QString, PCHInfoPtr> inputToOutput;
         foreach (const QString &pch, definesPerPCH.keys()) {
             PCHInfoPtr ptr = PCHInfo::createWithFileName(cpp0x[pch], objc[pch]);
-            QStringList options = ProjectPart::createClangOptions(cpp0x[pch],
-                                                                  objc[pch],
-                                                                  QStringList(),
-                                                                  definesPerPCH[pch].toList(),
-                                                                  includes[pch].toList(),
-                                                                  frameworks[pch].toList());
+            QStringList options = ClangUtils::createClangOptions(cpp0x[pch],
+                                                                 objc[pch],
+                                                                 qtVersions[pch],
+                                                                 QStringList(),
+                                                                 definesPerPCH[pch].toList(),
+                                                                 includes[pch].toList(),
+                                                                 frameworks[pch].toList());
             QPair<bool, QStringList> msgs = precompile(pch, options, ptr->fileName());
             if (msgs.first)
                 msgMgr->printToOutputPane(tr("Successfully generated PCH file \"%1\".").arg(ptr->fileName()));
@@ -96,9 +100,10 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
             QString pch = projectPart->precompiledHeaders.first(); //### TODO: support more than 1 PCH file.
 
             PCHInfoPtr ptr = PCHInfo::createWithFileName(projectPart->cpp0xEnabled(), projectPart->objcEnabled());
-            QStringList options = ProjectPart::createClangOptions(
+            QStringList options = ClangUtils::createClangOptions(
                         projectPart->cpp0xEnabled(),
                         projectPart->objcEnabled(),
+                        projectPart->qtVersion,
                         QStringList(),
                         projectPart->defines.split('\n'),
                         projectPart->includePaths,
@@ -123,7 +128,8 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
             objc |= projectPart->objcEnabled();
         }
 
-        QStringList opts = ProjectPart::createClangOptions(cpp0x, objc, QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
+        CppModelManagerInterface::ProjectPart::QtVersion qtVersion = CppModelManagerInterface::ProjectPart::NoQtVersion; //### FIXME!
+        QStringList opts = ClangUtils::createClangOptions(cpp0x, objc, qtVersion, QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
         PCHInfoPtr ptr = PCHInfo::createWithFileName(cpp0x, objc);
         QPair<bool, QStringList> msgs = precompile(cps->customPchFile(), opts, ptr->fileName());
         if (msgs.first)

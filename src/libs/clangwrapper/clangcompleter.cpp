@@ -43,6 +43,8 @@
 
 #include <clang-c/Index.h>
 
+//#define TIME_COMPLETION
+
 namespace {
 
 static inline QString toString(CXCompletionChunkKind kind)
@@ -253,9 +255,11 @@ QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line, unsign
 
     QList<CodeCompletionResult> completions;
 
+#ifdef TIME_COMPLETION
+    QTime t;t.start();
+#endif // TIME_COMPLETION
+
     if (!m_d->m_unit) {
-        QTime t;
-        t.start();
         m_d->parseFromFile(unsavedFiles);
     }
 
@@ -310,7 +314,24 @@ QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line, unsign
                 ccr.setCompletionKind(CodeCompletionResult::DestructorCompletionKind);
                 break;
 
-            case CXCursor_CXXMethod:
+            case CXCursor_CXXMethod: {
+                const unsigned numAnnotations = clang_getCompletionNumAnnotations(complStr);
+                bool isSignal = false, isSlot = false;
+                for (unsigned i = 0; i < numAnnotations && !isSignal && !isSlot; ++i) {
+                    CXString cxAnn = clang_getCompletionAnnotation(complStr, i);
+                    QString ann = Internal::getQString(cxAnn);
+                    isSignal = ann == QLatin1String("qt_signal");
+                    isSlot = ann == QLatin1String("qt_slot");
+                }
+                if (isSignal) {
+                    ccr.setCompletionKind(CodeCompletionResult::SignalCompletionKind);
+                    break;
+                }
+                if (isSlot) {
+                    ccr.setCompletionKind(CodeCompletionResult::SlotCompletionKind);
+                    break;
+                }
+            } // intentional fall-through!
             case CXCursor_ConversionFunction:
             case CXCursor_FunctionDecl:
             case CXCursor_FunctionTemplate:
@@ -383,6 +404,10 @@ QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line, unsign
 
         clang_disposeCodeCompleteResults(results);
     }
+
+#ifdef TIME_COMPLETION
+    qDebug() << "Completion timing:" << completions.size() << "results in" << t.elapsed() << "ms.";
+#endif // TIME_COMPLETION
 
     return completions;
 }

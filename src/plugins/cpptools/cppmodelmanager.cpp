@@ -44,6 +44,7 @@
 #include "pchmanager.h"
 
 #include <clangwrapper/clangcompleter.h>
+#include <cpptools/clangutils.h>
 
 #include <functional>
 #include <QtCore/QtConcurrentRun>
@@ -1037,7 +1038,7 @@ void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
     foreach (const QString &file, sourceFiles) {
         const QList<CppModelManagerInterface::ProjectPart::Ptr> &parts = projectPart(file);
         if (!parts.isEmpty())
-            m_clangIndexer.addFile(file, parts.at(0)->createClangOptions(), parts.at(0)->clangPCH);
+            m_clangIndexer.addFile(file, ClangUtils::createClangOptions(parts.at(0)), parts.at(0)->clangPCH);
         else
             m_clangIndexer.addFile(file, QStringList(), Clang::PCHInfoPtr());
     }

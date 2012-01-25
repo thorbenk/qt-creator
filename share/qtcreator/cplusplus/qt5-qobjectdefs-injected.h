@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: Nokia Corporation (info@qt.nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,31 +26,38 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
+** Nokia at info@qt.nokia.com.
 **
 **************************************************************************/
 
-#include "ModelManagerInterface.h"
+#define QT_NO_META_MACROS
 
-using namespace CPlusPlus;
+#define signals public __attribute__((annotate("qt_signal")))
+#define slots __attribute__((annotate("qt_slot")))
+#define Q_SIGNALS signals
+#define Q_SLOTS slots
+#define Q_SIGNAL __attribute__((annotate("qt_signal")))
+#define Q_SLOT __attribute__((annotate("qt_slot")))
+# define Q_PRIVATE_SLOT(d, signature)
 
-static CppModelManagerInterface *g_instance = 0;
+#define Q_EMIT
+#define emit
+#define Q_CLASSINFO(name, value)
+#define Q_INTERFACES(x)
+#define Q_PROPERTY(text)
+#define Q_PRIVATE_PROPERTY(d, text)
+#define Q_REVISION(v)
+#define Q_OVERRIDE(text)
+#define Q_ENUMS(x)
+#define Q_FLAGS(x)
+#define Q_SCRIPTABLE
+#define Q_INVOKABLE
 
-CppModelManagerInterface::CppModelManagerInterface(QObject *parent)
-    : QObject(parent)
-{
-    Q_ASSERT(! g_instance);
-    g_instance = this;
-}
+#define Q_GADGET \
+public: \
+    static const QMetaObject staticMetaObject; \
+private:
 
-CppModelManagerInterface::~CppModelManagerInterface()
-{
-    Q_ASSERT(g_instance == this);
-    g_instance = 0;
-}
-
-CppModelManagerInterface *CppModelManagerInterface::instance()
-{
-    return g_instance;
-}
-
+#define METHOD(a) a
+#define SIGNAL(a) a
+#define SLOT(a) a

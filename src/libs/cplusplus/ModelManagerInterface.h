@@ -80,6 +80,13 @@ public:
         QStringList precompiledHeaders;
         Language language;
         ProjectExplorer::ToolChain::CompilerFlags flags;
+        enum QtVersion {
+            UnknownQtVersion = -1,
+            NoQtVersion = 0,
+            Qt4Version = 1,
+            Qt5Version = 2
+        };
+        QtVersion qtVersion;
 
         bool cpp0xEnabled() const
         { return flags == ProjectExplorer::ToolChain::STD_CXX11; }
@@ -90,11 +97,6 @@ public:
         typedef QSharedPointer<ProjectPart> Ptr;
 
         Clang::PCHInfoPtr clangPCH;
-        QStringList createClangOptions() const;
-        static QStringList createClangOptions(bool useCpp0x,
-                                              bool useObjc,
-                                              const QStringList &precompiledHeaders,
-                                              const QList<QByteArray> &defines, const QStringList &includePaths, const QStringList &frameworkPaths);
     };
 
     class ProjectInfo

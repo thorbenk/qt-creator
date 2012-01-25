@@ -64,6 +64,7 @@
 #include <clangwrapper/sourcelocation.h>
 
 #include <cpptools/clangcompletion.h>
+#include <cpptools/clangutils.h>
 #include <cpptools/cppcreatemarkers.h>
 #include <cpptools/cpptoolsplugin.h>
 #include <cpptools/cpptoolsconstants.h>
@@ -1819,7 +1820,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
                 QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(fileName);
                 QStringList options;
                 if (!parts.isEmpty())
-                    options = parts.at(0)->createClangOptions();
+                    options = CppTools::ClangUtils::createClangOptions(parts.at(0));
 
                 //### FIXME: the range is way too big.. can't we just update the visible lines?
                 CppTools::CreateMarkers *createMarkers = CppTools::CreateMarkers::create(m_semanticMarker, fileName, options, 1, document()->blockCount());
@@ -2118,7 +2119,7 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
         QStringList includePaths, frameworkPaths, options;
         if (!parts.isEmpty()) {
             const CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
-            options = part->createClangOptions();
+            options = CppTools::ClangUtils::createClangOptions(part);
             includePaths = part->includePaths;
             frameworkPaths = part->frameworkPaths;
         }
