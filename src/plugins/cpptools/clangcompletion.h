@@ -83,7 +83,6 @@ private:
 
     int startCompletionInternal(const QString fileName,
                                 unsigned line, unsigned column,
-                                const QString &expression,
                                 int endOfExpression);
 
     bool completeInclude(const QTextCursor &cursor);

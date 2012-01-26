@@ -115,7 +115,7 @@ int activationSequenceChar(const QChar &ch,
     return referencePosition;
 }
 
-static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAssistInterface* interface, const QString &fileName, unsigned line, unsigned column)
+static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAssistInterface* interface, const QString &fileName, unsigned line, unsigned column, QByteArray modifiedInput = QByteArray())
 {
     ClangCompleter::Ptr wrapper = interface->clangWrapper();
     QMutexLocker lock(wrapper->mutex());
@@ -123,15 +123,17 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
 
     wrapper->setFileName(fileName);
     wrapper->setOptions(interface->options());
+    UnsavedFiles unsavedFiles = interface->unsavedFiles();
+    if (!modifiedInput.isEmpty())
+        unsavedFiles.insert(fileName, modifiedInput);
 
-
-#if DEBUG_TIMING
+#ifdef DEBUG_TIMING
     qDebug() << "Here we go with ClangCompletionAssistProcessor....";
     QTime t;
     t.start();
 #endif // DEBUG_TIMING
 
-    QList<CodeCompletionResult> result = wrapper->codeCompleteAt(line, column + 1, interface->unsavedFiles());
+    QList<CodeCompletionResult> result = wrapper->codeCompleteAt(line, column + 1, unsavedFiles);
     qSort(result);
 
 #ifdef DEBUG_TIMING
@@ -564,6 +566,8 @@ IAssistProposal *ClangCompletionAssistProcessor::perform(const IAssistInterface 
 
 int ClangCompletionAssistProcessor::startCompletionHelper()
 {
+    //### TODO: clean-up this method, some calculated values might not be used anymore.
+
     Q_ASSERT(m_model);
 
     const int startOfName = findStartOfName();
@@ -659,7 +663,7 @@ int ClangCompletionAssistProcessor::startCompletionHelper()
     int line = 0, column = 0;
 //    Convenience::convertPosition(m_interface->document(), startOfExpression, &line, &column);
     Convenience::convertPosition(m_interface->document(), endOfOperator, &line, &column);
-    return startCompletionInternal(fileName, line, column, expression, endOfOperator);
+    return startCompletionInternal(fileName, line, column, endOfOperator);
 }
 
 int ClangCompletionAssistProcessor::startOfOperator(int pos,
@@ -841,18 +845,68 @@ IAssistProposal *ClangCompletionAssistProcessor::createContentProposal()
     return new ClangAssistProposal(m_startPosition, m_model.take());
 }
 
+/// Seach backwards in the document starting from pos to find the first opening
+/// parenthesis. Nested parenthesis are skipped.
+static int findOpenParen(QTextDocument *doc, int start)
+{
+    unsigned parenCount = 1;
+    for (int pos = start; pos >= 0; --pos) {
+        const QChar ch = doc->characterAt(pos);
+        if (ch == QLatin1Char('(')) {
+            --parenCount;
+            if (parenCount == 0)
+                return pos;
+        } else if (ch == QLatin1Char(')')) {
+            ++parenCount;
+        }
+    }
+    return -1;
+}
+
+static QByteArray modifyInput(QTextDocument *doc, int endOfExpression) {
+    int comma = endOfExpression;
+    while (comma > 0) {
+        const QChar ch = doc->characterAt(comma);
+        if (ch == QLatin1Char(','))
+            break;
+        if (ch == QLatin1Char(';') || ch == QLatin1Char('{') || ch == QLatin1Char('}')) {
+            // Safety net: we don't seem to have "connect(pointer, SIGNAL(" as
+            // input, so stop searching.
+            comma = -1;
+            break;
+        }
+        --comma;
+    }
+    if (comma < 0)
+        return QByteArray();
+    const int openBrace = findOpenParen(doc, comma);
+    if (openBrace < 0)
+        return QByteArray();
+
+    QByteArray modifiedInput = doc->toPlainText().toUtf8();
+    const int len = endOfExpression - comma;
+    QByteArray replacement(len - 4, ' ');
+    replacement.append(")->");
+    modifiedInput.replace(comma, len, replacement);
+    modifiedInput.insert(openBrace, '(');
+    return modifiedInput;
+}
+
 int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileName,
                                                             unsigned line,
                                                             unsigned column,
-                                                            const QString &/*expr*/,
                                                             int endOfExpression)
 {
+    bool signalCompletion = false;
+    bool slotCompletion = false;
+    QByteArray modifiedInput;
+
     if (m_model->m_completionOperator == T_SIGNAL) {
-        //### TODO
-        return m_startPosition;
+        signalCompletion = true;
+        modifiedInput = modifyInput(m_interface->document(), endOfExpression);
     } else if (m_model->m_completionOperator == T_SLOT) {
-        //### TODO
-        return m_startPosition;
+        slotCompletion = true;
+        modifiedInput = modifyInput(m_interface->document(), endOfExpression);
     } else if (m_model->m_completionOperator == T_LPAREN) {
         // Find the expression that precedes the current name
         int index = endOfExpression;
@@ -892,13 +946,17 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         }
     }
 
-    QList<CodeCompletionResult> completions = unfilteredCompletion(m_interface.data(), fileName, line, column);
+    QList<CodeCompletionResult> completions = unfilteredCompletion(m_interface.data(), fileName, line, column, modifiedInput);
     QHash<QString, ClangAssistProposalItem *> items;
     foreach (const CodeCompletionResult &ccr, completions) {
         if (!ccr.isValid())
             continue;
-        const QString txt(ccr.text());
+        if (signalCompletion && ccr.completionKind() != CodeCompletionResult::SignalCompletionKind)
+            continue;
+        if (slotCompletion && ccr.completionKind() != CodeCompletionResult::SlotCompletionKind)
+            continue;
 
+        const QString txt(ccr.text());
         ClangAssistProposalItem *item = items.value(txt, 0);
         if (item) {
             item->addOverload(ccr);
@@ -909,19 +967,21 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
             item->setOrder(ccr.priority());
             item->setData(qVariantFromValue(ccr));
 
-            switch (ccr.availability()) {
-            case CodeCompletionResult::Deprecated:
-                item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Deprecated"));
-                break;
-            case CodeCompletionResult::NotAccessible:
-                item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Not accessible"));
-                break;
-            case CodeCompletionResult::NotAvailable:
-                item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Not available"));
-                break;
+            if (!signalCompletion && !slotCompletion) {
+                switch (ccr.availability()) {
+                case CodeCompletionResult::Deprecated:
+                    item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Deprecated"));
+                    break;
+                case CodeCompletionResult::NotAccessible:
+                    item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Not accessible"));
+                    break;
+                case CodeCompletionResult::NotAvailable:
+                    item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Not available"));
+                    break;
 
-            default:
-                break;
+                default:
+                    break;
+                }
             }
         }
 
