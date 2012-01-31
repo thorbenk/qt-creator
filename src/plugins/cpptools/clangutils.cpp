@@ -84,9 +84,10 @@ QStringList CppTools::ClangUtils::createClangOptions(bool useCpp0x,
 
 #ifdef _MSC_VER
     result << QLatin1String("-fms-extensions")
-           << QLatin1String("-fdelayed-template-parsing")
-           << QLatin1String("-nobuiltininc");
+           << QLatin1String("-fdelayed-template-parsing");
 #endif
+
+    result << QLatin1String("-nobuiltininc");
 
     foreach (const QString &pch, precompiledHeaders) {
         if (result.contains(pch))
@@ -123,10 +124,7 @@ QStringList CppTools::ClangUtils::createClangOptions(bool useCpp0x,
         result.append(QLatin1String("-F") + frameworkPath);
     foreach (const QString &inc, includePaths)
         if (!inc.isEmpty())
-#ifdef Q_OS_MAC
-            if (!inc.contains("i686-apple-darwin"))
-#endif // Q_OS_MAC
-                result << ("-I" + inc);
+            result << ("-I" + inc);
 
 #if 0
     qDebug() << "--- m_args:";
