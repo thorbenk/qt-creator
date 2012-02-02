@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -69,7 +69,6 @@ namespace Core {
 class ActionManager;
 class ActionContainer;
 class Command;
-class ICore;
 class IEditor;
 class Id;
 class DesignMode;
@@ -183,7 +182,6 @@ private:
 #else
     qdesigner_internal::QDesignerFormWindowManager *m_fwm;
 #endif
-    Core::ICore *m_core;
     InitializationStage m_initStage;
 
     QWidget *m_designerSubWindows[Designer::Constants::DesignerSubWindowCount];

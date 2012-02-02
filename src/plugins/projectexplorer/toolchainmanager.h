@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -90,16 +90,16 @@ private:
     // Make sure the this is only called after all
     // Tool chain Factories are registered!
     void restoreToolChains();
-    void restoreToolChains(const QString &fileName, bool autoDetected = false);
+    QList<ToolChain *> restoreToolChains(const QString &fileName);
 
     void notifyAboutUpdate(ProjectExplorer::ToolChain *);
-
 
     Internal::ToolChainManagerPrivate *const d;
 
     static ToolChainManager *m_instance;
 
-    friend class ProjectExplorerPlugin;
+    friend class Internal::ToolChainManagerPrivate; // for the restoreToolChains methods
+    friend class ProjectExplorerPlugin; // for constructor
     friend class ToolChain;
 };
 

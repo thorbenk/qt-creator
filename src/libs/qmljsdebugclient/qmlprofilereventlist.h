@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -34,6 +34,7 @@
 #define QMLPROFILEREVENTLIST_H
 
 #include "qmlprofilereventtypes.h"
+#include "qmlprofilereventlocation.h"
 #include "qmljsdebugclient_global.h"
 
 #include <QtCore/QHash>
@@ -50,10 +51,9 @@ struct QMLJSDEBUGCLIENT_EXPORT QmlEventData
     ~QmlEventData();
 
     QString displayname;
-    QString filename;
     QString eventHashStr;
     QString details;
-    int line;
+    QmlEventLocation location;
     QmlJsDebugClient::QmlEventType eventType;
     QHash <QString, QmlEventSub *> parentHash;
     QHash <QString, QmlEventSub *> childrenHash;
@@ -139,6 +139,7 @@ public:
     Q_INVOKABLE int getNestingDepth(int index) const;
     Q_INVOKABLE QString getFilename(int index) const;
     Q_INVOKABLE int getLine(int index) const;
+    Q_INVOKABLE int getColumn(int index) const;
     Q_INVOKABLE QString getDetails(int index) const;
     Q_INVOKABLE int getEventId(int index) const;
     Q_INVOKABLE int getFramerate(int index) const;
@@ -170,10 +171,15 @@ signals:
     void processingData();
     void postProcessing();
 
+    void requestDetailsForLocation(int eventType, const QmlJsDebugClient::QmlEventLocation &location);
+    void detailsChanged(int eventId, const QString &newString);
+    void reloadDetailLabels();
+    void reloadDocumentsForDetails();
+
 public slots:
     void clear();
     void addRangedEvent(int type, qint64 startTime, qint64 length,
-                        const QStringList &data, const QString &fileName, int line);
+                        const QStringList &data, const QmlJsDebugClient::QmlEventLocation &location);
     void complete();
 
     void addV8Event(int depth,const QString &function,const QString &filename, int lineNumber, double totalTime, double selfTime);
@@ -186,6 +192,9 @@ public slots:
     void setTraceEndTime( qint64 time );
     void setTraceStartTime( qint64 time );
 
+    void rewriteDetailsString(int eventType, const QmlJsDebugClient::QmlEventLocation &location, const QString &newString);
+    void finishedRewritingDetails();
+
 private:
     void postProcess();
     void sortEndTimes();
@@ -196,6 +205,7 @@ private:
     void computeNestingDepth();
     void prepareForDisplay();
     void linkEndsToStarts();
+    void reloadDetails();
 
 private:
     class QmlProfilerEventListPrivate;

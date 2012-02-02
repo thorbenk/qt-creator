@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -138,7 +138,7 @@ void Qt4Manager::init()
 
     Core::VariableManager *vm = Core::VariableManager::instance();
     vm->registerVariable(kInstallBins,
-        tr("Full path to the bin/ install directory of the current project's Qt version."));
+        tr("Full path to the bin directory of the current project's Qt version."));
     connect(vm, SIGNAL(variableUpdateRequested(QByteArray)),
             this, SLOT(updateVariable(QByteArray)));
 }
@@ -185,7 +185,7 @@ void Qt4Manager::editorAboutToClose(Core::IEditor *editor)
 void Qt4Manager::updateVariable(const QByteArray &variable)
 {
     if (variable == kInstallBins) {
-        Qt4Project *qt4pro = qobject_cast<Qt4Project *>(projectExplorer()->currentProject());
+        Qt4Project *qt4pro = qobject_cast<Qt4Project *>(ProjectExplorer::ProjectExplorerPlugin::currentProject());
         if (!qt4pro) {
             Core::VariableManager::instance()->remove(kInstallBins);
             return;
@@ -352,7 +352,7 @@ void Qt4Manager::runQMake(ProjectExplorer::Project *p, ProjectExplorer::Node *no
 
     if (!qt4pro->activeTarget() ||
         !qt4pro->activeTarget()->activeBuildConfiguration())
-    return;
+        return;
 
     Qt4BuildConfiguration *bc = qt4pro->activeTarget()->activeQt4BuildConfiguration();
     QMakeStep *qs = bc->qmakeStep();

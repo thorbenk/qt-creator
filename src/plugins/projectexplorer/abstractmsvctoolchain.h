@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (info@qt.nokia.com)
 **
@@ -41,7 +41,7 @@
 namespace ProjectExplorer {
 namespace Internal {
 
-class AbstractMsvcToolChain : public ToolChain
+class PROJECTEXPLORER_EXPORT AbstractMsvcToolChain : public ToolChain
 {
 public:
     AbstractMsvcToolChain(const QString &id, bool autodetect, const Abi &abi, const QString& vcvarsBat);
@@ -57,26 +57,30 @@ public:
     void addToEnvironment(Utils::Environment &env) const;
 
     QString makeCommand() const;
-    void setDebuggerCommand(const QString &d);
+    void setDebuggerCommand(const Utils::FileName &d);
 
-    QString debuggerCommand() const;
+    Utils::FileName compilerCommand() const;
+    Utils::FileName debuggerCommand() const;
     IOutputParser *outputParser() const;
 
     bool canClone() const;
 
     QString varsBat() const { return m_vcvarsBat; }
+    static QString findInstalledJom();
+
+    bool operator ==(const ToolChain &) const;
+
 protected:
     virtual Utils::Environment readEnvironmentSetting(Utils::Environment& env) const = 0;
     virtual QByteArray msvcPredefinedMacros(const QStringList cxxflags,
                                             const Utils::Environment& env) const;
-    virtual void updateId() = 0;
 
     bool generateEnvironmentSettings(Utils::Environment &env,
                                      const QString& batchFile,
                                      const QString& batchArgs,
                                      QMap<QString, QString>& envPairs) const;
 
-    QString m_debuggerCommand;
+    Utils::FileName m_debuggerCommand;
     mutable QByteArray m_predefinedMacros;
     mutable Utils::Environment m_lastEnvironment;   // Last checked 'incoming' environment.
     mutable Utils::Environment m_resultEnvironment; // Resulting environment for VC

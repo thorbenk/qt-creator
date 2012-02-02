@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -31,9 +31,11 @@
 **************************************************************************/
 
 #include "iwizard.h"
-#include "coreimpl.h"
+#include "icore.h"
 
 #include <extensionsystem/pluginmanager.h>
+
+#include <QtCore/QStringList>
 
 /*!
     \class Core::IWizard
@@ -143,8 +145,7 @@ template <class Predicate>
     QList<IWizard*> findWizards(Predicate predicate)
 {
     // Hack: Trigger delayed creation of wizards
-    if (Core::Internal::CoreImpl *ci = qobject_cast<Core::Internal::CoreImpl*>(ICore::instance()))
-        ci->emitNewItemsDialogRequested();
+    ICore::emitNewItemsDialogRequested();
     // Filter all wizards
     const QList<IWizard*> allWizards = IWizard::allWizards();
     QList<IWizard*> rc;
@@ -158,8 +159,7 @@ template <class Predicate>
 QList<IWizard*> IWizard::allWizards()
 {
     // Hack: Trigger delayed creation of wizards
-    if (Core::Internal::CoreImpl *ci = qobject_cast<Core::Internal::CoreImpl*>(ICore::instance()))
-        ci->emitNewItemsDialogRequested();
+    ICore::emitNewItemsDialogRequested();
     return ExtensionSystem::PluginManager::instance()->getObjects<IWizard>();
 }
 
@@ -178,3 +178,14 @@ QList<IWizard*> IWizard::wizardsOfKind(WizardKind kind)
     return findWizards(WizardKindPredicate(kind));
 }
 
+bool IWizard::isAvailable() const
+{
+    FeatureSet availableFeatures;
+
+    const QList<Core::IFeatureProvider*> featureManagers = ExtensionSystem::PluginManager::instance()->getObjects<Core::IFeatureProvider>();
+
+    foreach (const Core::IFeatureProvider *featureManager, featureManagers)
+        availableFeatures |= featureManager->availableFeatures();
+
+    return availableFeatures.contains(requiredFeatures());
+}

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -70,7 +70,6 @@ class VcsManager;
 namespace Internal {
 
 class ActionManagerPrivate;
-class CoreImpl;
 class FancyTabWidget;
 class GeneralSettings;
 class ProgressManagerPrivate;
@@ -180,7 +179,7 @@ private:
     void readSettings();
     void writeSettings();
 
-    CoreImpl *m_coreImpl;
+    ICore *m_coreImpl;
     Context m_additionalContexts;
     QSettings *m_settings;
     QSettings *m_globalSettings;
@@ -189,7 +188,6 @@ private:
     ActionManagerPrivate *m_actionManager;
     EditorManager *m_editorManager;
     ExternalToolManager *m_externalToolManager;
-    FileManager *m_fileManager;
     MessageManager *m_messageManager;
     ProgressManagerPrivate *m_progressManager;
     ScriptManager *m_scriptManager;
@@ -225,7 +223,7 @@ private:
     QAction *m_optionsAction;
     QAction *m_toggleSideBarAction;
     QAction *m_toggleFullScreenAction;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     QAction *m_minimizeAction;
     QAction *m_zoomAction;
 #endif

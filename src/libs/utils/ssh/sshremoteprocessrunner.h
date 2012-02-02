@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -59,10 +59,10 @@ public:
 
     bool isProcessRunning() const;
     void writeDataToProcess(const QByteArray &data);
-    void sendSignalToProcess(const QByteArray &signal); // No effect with OpenSSH server.
+    void sendSignalToProcess(SshRemoteProcess::Signal signal); // No effect with OpenSSH server.
     void cancel(); // Does not stop remote process, just frees SSH-related process resources.
     SshRemoteProcess::ExitStatus processExitStatus() const;
-    QByteArray processExitSignal() const;
+    SshRemoteProcess::Signal processExitSignal() const;
     int processExitCode() const;
     QString processErrorString() const;
 

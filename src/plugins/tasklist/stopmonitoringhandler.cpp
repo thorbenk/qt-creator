@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -57,7 +57,7 @@ StopMonitoringHandler::~StopMonitoringHandler()
 
 bool StopMonitoringHandler::canHandle(const ProjectExplorer::Task &task)
 {
-    return task.category == QLatin1String(Constants::TASKLISTTASK_ID);
+    return task.category == Core::Id(Constants::TASKLISTTASK_ID);
 }
 
 void StopMonitoringHandler::handle(const ProjectExplorer::Task &task)

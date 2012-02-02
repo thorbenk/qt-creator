@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -62,10 +62,7 @@ void AllProjectsFilter::updateFiles()
         return;
     m_filesUpToDate = true;
     files().clear();
-    SessionManager *session = m_projectExplorer->session();
-    if (!session)
-        return;
-    foreach (Project *project, session->projects())
+    foreach (Project *project, m_projectExplorer->session()->projects())
         files().append(project->files(Project::AllFiles));
     qSort(files());
     generateFileNames();

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -168,7 +168,7 @@ QmlProfilerTool::QmlProfilerTool(QObject *parent)
 
     Command *command = 0;
     const Context globalContext(C_GLOBAL);
-    ActionManager *am = ICore::instance()->actionManager();
+    ActionManager *am = ICore::actionManager();
 
     ActionContainer *menu = am->actionContainer(M_DEBUG_ANALYZER);
     ActionContainer *options = am->createMenu(M_DEBUG_ANALYZER_QML_OPTIONS);
@@ -443,7 +443,7 @@ QWidget *QmlProfilerTool::createWidgets()
     d->m_traceWindow = new TraceWindow(mw);
     d->m_traceWindow->reset(d->m_client);
 
-    connect(d->m_traceWindow, SIGNAL(gotoSourceLocation(QString,int)),this, SLOT(gotoSourceLocation(QString,int)));
+    connect(d->m_traceWindow, SIGNAL(gotoSourceLocation(QString,int,int)),this, SLOT(gotoSourceLocation(QString,int,int)));
     connect(d->m_traceWindow, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
     connect(d->m_traceWindow->getEventList(), SIGNAL(error(QString)), this, SLOT(showErrorDialog(QString)));
     connect(d->m_traceWindow->getEventList(), SIGNAL(dataReady()), this, SLOT(showSaveOption()));
@@ -451,18 +451,18 @@ QWidget *QmlProfilerTool::createWidgets()
     connect(d->m_traceWindow, SIGNAL(profilerStateChanged(bool,bool)), this, SLOT(profilerStateChanged(bool,bool)));
 
     d->m_eventsView = new QmlProfilerEventsWidget(d->m_traceWindow->getEventList(), mw);
-    connect(d->m_eventsView, SIGNAL(gotoSourceLocation(QString,int)), this, SLOT(gotoSourceLocation(QString,int)));
+    connect(d->m_eventsView, SIGNAL(gotoSourceLocation(QString,int,int)), this, SLOT(gotoSourceLocation(QString,int,int)));
     connect(d->m_eventsView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
     connect(d->m_eventsView, SIGNAL(showEventInTimeline(int)), d->m_traceWindow, SLOT(selectNextEvent(int)));
     connect(d->m_traceWindow, SIGNAL(selectedEventIdChanged(int)), d->m_eventsView, SLOT(updateSelectedEvent(int)));
 
     d->m_v8profilerView = new QmlProfilerEventsWidget(d->m_traceWindow->getEventList(), mw);
     d->m_v8profilerView->switchToV8View();
-    connect(d->m_v8profilerView, SIGNAL(gotoSourceLocation(QString,int)), this, SLOT(gotoSourceLocation(QString,int)));
+    connect(d->m_v8profilerView, SIGNAL(gotoSourceLocation(QString,int,int)), this, SLOT(gotoSourceLocation(QString,int,int)));
     connect(d->m_v8profilerView, SIGNAL(contextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
 
-    connect(d->m_v8profilerView, SIGNAL(gotoSourceLocation(QString,int)), d->m_eventsView, SLOT(selectBySourceLocation(QString,int)));
-    connect(d->m_eventsView, SIGNAL(gotoSourceLocation(QString,int)), d->m_v8profilerView, SLOT(selectBySourceLocation(QString,int)));
+    connect(d->m_v8profilerView, SIGNAL(gotoSourceLocation(QString,int,int)), d->m_eventsView, SLOT(selectBySourceLocation(QString,int,int)));
+    connect(d->m_eventsView, SIGNAL(gotoSourceLocation(QString,int,int)), d->m_v8profilerView, SLOT(selectBySourceLocation(QString,int,int)));
 
     QDockWidget *eventsDock = AnalyzerManager::createDockWidget
             (this, tr("Events"), d->m_eventsView, Qt::BottomDockWidgetArea);
@@ -602,7 +602,7 @@ void QmlProfilerTool::setAppIsStopped()
     updateTimers();
 }
 
-void QmlProfilerTool::gotoSourceLocation(const QString &fileUrl, int lineNumber)
+void QmlProfilerTool::gotoSourceLocation(const QString &fileUrl, int lineNumber, int columnNumber)
 {
     if (lineNumber < 0 || fileUrl.isEmpty())
         return;
@@ -619,7 +619,7 @@ void QmlProfilerTool::gotoSourceLocation(const QString &fileUrl, int lineNumber)
 
     if (textEditor) {
         editorManager->addCurrentPositionToNavigationHistory();
-        textEditor->gotoLine(lineNumber);
+        textEditor->gotoLine(lineNumber, columnNumber);
         textEditor->widget()->setFocus();
     }
 }
@@ -662,7 +662,7 @@ static void startRemoteTool(IAnalyzerTool *tool, StartMode mode)
     QString sysroot;
 
     {
-        QSettings *settings = ICore::instance()->settings();
+        QSettings *settings = ICore::settings();
 
         host = settings->value(QLatin1String("AnalyzerQmlAttachDialog/host"), QLatin1String("localhost")).toString();
         port = settings->value(QLatin1String("AnalyzerQmlAttachDialog/port"), 3768).toInt();
@@ -710,8 +710,7 @@ void QmlProfilerTool::tryToConnect()
         d->m_connectionTimer.stop();
         d->m_connectionAttempts = 0;
 
-        ICore * const core = ICore::instance();
-        QMessageBox *infoBox = new QMessageBox(core->mainWindow());
+        QMessageBox *infoBox = new QMessageBox(Core::ICore::mainWindow());
         infoBox->setIcon(QMessageBox::Critical);
         infoBox->setWindowTitle(tr("Qt Creator"));
         infoBox->setText(tr("Could not connect to the in-process QML profiler.\n"
@@ -815,8 +814,7 @@ void QmlProfilerTool::showSaveOption()
 
 void QmlProfilerTool::showSaveDialog()
 {
-    ICore *core = ICore::instance();
-    QString filename = QFileDialog::getSaveFileName(core->mainWindow(), tr("Save QML Trace"), QString(), tr("QML traces (*%1)").arg(TraceFileExtension));
+    QString filename = QFileDialog::getSaveFileName(Core::ICore::mainWindow(), tr("Save QML Trace"), QString(), tr("QML traces (*%1)").arg(TraceFileExtension));
     if (!filename.isEmpty()) {
         if (!filename.endsWith(QLatin1String(TraceFileExtension)))
             filename += QLatin1String(TraceFileExtension);
@@ -826,14 +824,13 @@ void QmlProfilerTool::showSaveDialog()
 
 void QmlProfilerTool::showLoadDialog()
 {
-    if (ModeManager::instance()->currentMode()->id() != QLatin1String(MODE_ANALYZE))
+    if (ModeManager::currentMode()->id() != QLatin1String(MODE_ANALYZE))
         AnalyzerManager::showMode();
 
     if (AnalyzerManager::currentSelectedTool() != this)
         AnalyzerManager::selectTool(this, StartRemote);
 
-    ICore *core = ICore::instance();
-    QString filename = QFileDialog::getOpenFileName(core->mainWindow(), tr("Load QML Trace"), QString(), tr("QML traces (*%1)").arg(TraceFileExtension));
+    QString filename = QFileDialog::getOpenFileName(Core::ICore::mainWindow(), tr("Load QML Trace"), QString(), tr("QML traces (*%1)").arg(TraceFileExtension));
 
     if (!filename.isEmpty()) {
         // delayed load (prevent graphical artifacts due to long load time)
@@ -844,8 +841,7 @@ void QmlProfilerTool::showLoadDialog()
 
 void QmlProfilerTool::showErrorDialog(const QString &error)
 {
-    ICore *core = ICore::instance();
-    QMessageBox *errorDialog = new QMessageBox(core->mainWindow());
+    QMessageBox *errorDialog = new QMessageBox(Core::ICore::mainWindow());
     errorDialog->setIcon(QMessageBox::Warning);
     errorDialog->setWindowTitle(tr("QML Profiler"));
     errorDialog->setText(error);

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -84,13 +84,18 @@ bool SubdirsProjectWizard::postGenerateFiles(const QWizard *w, const Core::Gener
 {
     const SubdirsProjectWizardDialog *wizard = qobject_cast< const SubdirsProjectWizardDialog *>(w);
     if (QtWizard::qt4ProjectPostGenerateFiles(wizard, files, errorMessage)) {
-        Core::ICore::instance()->showNewItemDialog(tr("New Subproject", "Title of dialog"),
+        Core::ICore::showNewItemDialog(tr("New Subproject", "Title of dialog"),
                               Core::IWizard::wizardsOfKind(Core::IWizard::ProjectWizard),
                               wizard->parameters().projectPath());
     } else {
         return false;
     }
     return true;
+}
+
+Core::FeatureSet SubdirsProjectWizard::requiredFeatures() const
+{
+    return Core::FeatureSet();
 }
 
 } // namespace Internal

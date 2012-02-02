@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
@@ -83,7 +83,7 @@ public:
 
     QString errorString() const;
 
-    virtual void start();
+    virtual bool start();
     virtual void stop();
 
     ValgrindProcess *valgrindProcess() const;

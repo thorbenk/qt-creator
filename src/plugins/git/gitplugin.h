@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -55,7 +55,6 @@ QT_END_NAMESPACE
 
 namespace Core {
 class IEditorFactory;
-class ICore;
 class Command;
 class Context;
 class ActionManager;
@@ -183,7 +182,6 @@ private:
     void startCommit(bool amend);
 
     static GitPlugin *m_instance;
-    Core::ICore *m_core;
     Locator::CommandLocator *m_commandLocator;
     QAction *m_createRepositoryAction;
 

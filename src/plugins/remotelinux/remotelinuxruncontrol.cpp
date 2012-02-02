@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -91,7 +91,7 @@ void AbstractRemoteLinuxRunControl::handleSshError(const QString &error)
 void AbstractRemoteLinuxRunControl::startExecution()
 {
     appendMessage(tr("Starting remote process ...\n"), Utils::NormalMessageFormat);
-    runner()->startExecution(QString::fromLocal8Bit("%1 %2 %3")
+    runner()->startExecution(QString::fromLatin1("%1 %2 %3")
         .arg(runner()->commandPrefix())
         .arg(runner()->remoteExecutable())
         .arg(runner()->arguments()).toUtf8());

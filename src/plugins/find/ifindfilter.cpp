@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -225,9 +225,9 @@ Find::FindFlags Find::IFindFilter::supportedFindFlags() const
 
 QPixmap Find::IFindFilter::pixmapForFindFlags(Find::FindFlags flags)
 {
-    static const QPixmap casesensitiveIcon(":/find/images/casesensitively.png");
-    static const QPixmap regexpIcon(":/find/images/regexp.png");
-    static const QPixmap wholewordsIcon(":/find/images/wholewords.png");
+    static const QPixmap casesensitiveIcon = QPixmap(QLatin1String(":/find/images/casesensitively.png"));
+    static const QPixmap regexpIcon = QPixmap(QLatin1String(":/find/images/regexp.png"));
+    static const QPixmap wholewordsIcon = QPixmap(QLatin1String(":/find/images/wholewords.png"));
     bool casesensitive = flags & Find::FindCaseSensitively;
     bool wholewords = flags & Find::FindWholeWords;
     bool regexp = flags & Find::FindRegularExpression;

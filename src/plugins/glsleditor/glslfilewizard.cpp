@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -61,6 +61,11 @@ GLSLFileWizard::GLSLFileWizard(const BaseFileWizardParameters &parameters,
     Core::BaseFileWizard(parameters, parent),
     m_shaderType(shaderType)
 {
+}
+
+Core::FeatureSet GLSLFileWizard::requiredFeatures() const
+{
+    return Core::FeatureSet();
 }
 
 Core::GeneratedFiles GLSLFileWizard::generateFiles(const QWizard *w,

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -53,7 +53,7 @@ static const char schemeFileNameKey[] = "ColorScheme";
 namespace {
 static const bool DEFAULT_ANTIALIAS = true;
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     enum { DEFAULT_FONT_SIZE = 12 };
     static const char *DEFAULT_FONT_FAMILY = "Monaco";
 #else
@@ -316,7 +316,7 @@ bool FontSettings::loadColorScheme(const QString &fileName,
 
 bool FontSettings::saveColorScheme(const QString &fileName)
 {
-    const bool saved = m_scheme.save(fileName, Core::ICore::instance()->mainWindow());
+    const bool saved = m_scheme.save(fileName, Core::ICore::mainWindow());
     if (saved)
         m_schemeFileName = fileName;
     return saved;
@@ -357,7 +357,7 @@ int FontSettings::defaultFontSize()
  */
 QString FontSettings::defaultSchemeFileName(const QString &fileName)
 {
-    QString defaultScheme = Core::ICore::instance()->resourcePath();
+    QString defaultScheme = Core::ICore::resourcePath();
     defaultScheme += QLatin1String("/styles/");
 
     if (!fileName.isEmpty() && QFile::exists(defaultScheme + fileName))

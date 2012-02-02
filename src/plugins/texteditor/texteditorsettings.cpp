@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -232,7 +232,7 @@ TextEditorSettings::TextEditorSettings(QObject *parent)
             this, SIGNAL(displaySettingsChanged(TextEditor::DisplaySettings)));
 
     // TODO: Move these settings to TextEditor category
-    if (QSettings *s = Core::ICore::instance()->settings())
+    if (QSettings *s = Core::ICore::settings())
         m_d->m_completionSettings.fromSettings(QLatin1String("CppTools/"), s);
 }
 
@@ -340,7 +340,7 @@ void TextEditorSettings::setCompletionSettings(const TextEditor::CompletionSetti
         return;
 
     m_d->m_completionSettings = settings;
-    if (QSettings *s = Core::ICore::instance()->settings())
+    if (QSettings *s = Core::ICore::settings())
         m_d->m_completionSettings.toSettings(QLatin1String("CppTools/"), s);
 
     emit completionSettingsChanged(m_d->m_completionSettings);

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -121,7 +121,8 @@
                 Tracker, select \gui {Help > Report Bug}.
 
                 You can also join the \QC mailing list at:
-                \l{http://lists.qt.nokia.com}{http://lists.qt.nokia.com}.
+                \l{http://lists.qt-project.org/mailman/listinfo/}
+                {lists.qt-project.org Mailing Lists}.
     \endtable
 
     \section1 Table Of Contents

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -41,6 +41,8 @@
 #include <cpptools/cpprefactoringchanges.h>
 #include <cppeditor/cppquickfix.h>
 #include <coreplugin/ifile.h>
+
+#include <utils/qtcassert.h>
 
 #include <QtCore/QTextStream>
 
@@ -159,7 +161,7 @@ void InsertQtPropertyMembers::Operation::performChanges(const CppRefactoringFile
         const QString getterDeclaration = typeName + QLatin1Char(' ') + m_getterName +
                 QLatin1String("() const\n{\nreturn ") + m_storageName + QLatin1String(";\n}\n");
         InsertionLocation getterLoc = locator.methodDeclarationInClass(file->fileName(), m_class, InsertionPointLocator::Public);
-        Q_ASSERT(getterLoc.isValid());
+        QTC_ASSERT(getterLoc.isValid(), return);
         insertAndIndent(file, &declarations, getterLoc, getterDeclaration);
     }
 
@@ -176,7 +178,7 @@ void InsertQtPropertyMembers::Operation::performChanges(const CppRefactoringFile
                    << " = arg;\nemit " << m_signalName << "(arg);\n}\n}\n";
         }
         InsertionLocation setterLoc = locator.methodDeclarationInClass(file->fileName(), m_class, InsertionPointLocator::PublicSlot);
-        Q_ASSERT(setterLoc.isValid());
+        QTC_ASSERT(setterLoc.isValid(), return);
         insertAndIndent(file, &declarations, setterLoc, setterDeclaration);
     }
 
@@ -185,7 +187,7 @@ void InsertQtPropertyMembers::Operation::performChanges(const CppRefactoringFile
         const QString declaration = QLatin1String("void ") + m_signalName + QLatin1Char('(')
                                     + typeName + QLatin1String(" arg);\n");
         InsertionLocation loc = locator.methodDeclarationInClass(file->fileName(), m_class, InsertionPointLocator::Signals);
-        Q_ASSERT(loc.isValid());
+        QTC_ASSERT(loc.isValid(), return);
         insertAndIndent(file, &declarations, loc, declaration);
     }
 
@@ -194,7 +196,7 @@ void InsertQtPropertyMembers::Operation::performChanges(const CppRefactoringFile
         const QString storageDeclaration = typeName  + QLatin1String(" m_")
                                            + propertyName + QLatin1String(";\n");
         InsertionLocation storageLoc = locator.methodDeclarationInClass(file->fileName(), m_class, InsertionPointLocator::Private);
-        Q_ASSERT(storageLoc.isValid());
+        QTC_ASSERT(storageLoc.isValid(), return);
         insertAndIndent(file, &declarations, storageLoc, storageDeclaration);
     }
 

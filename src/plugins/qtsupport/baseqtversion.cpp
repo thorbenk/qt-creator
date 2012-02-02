@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -44,6 +44,7 @@
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/toolchainmanager.h>
+#include <qtsupport/qtsupportconstants.h>
 
 #include <utils/persistentsettings.h>
 #include <utils/environment.h>
@@ -250,6 +251,20 @@ QString BaseQtVersion::defaultDisplayName(const QString &versionString, const Ut
     return fromPath ?
         QCoreApplication::translate("QtVersion", "Qt %1 in PATH (%2)").arg(versionString, location) :
         QCoreApplication::translate("QtVersion", "Qt %1 (%2)").arg(versionString, location);
+}
+
+Core::FeatureSet BaseQtVersion::availableFeatures() const
+{
+    Core::FeatureSet features = Core::FeatureSet(QtSupport::Constants::FEATURE_GENERIC_CPP_ENTRY_POINT) |
+            Core::FeatureSet(QtSupport::Constants::FEATURE_QWIDGETS)
+            | Core::FeatureSet(QtSupport::Constants::FEATURE_QT)
+            | Core::FeatureSet(QtSupport::Constants::FEATURE_QT_WEBKIT)
+            | Core::FeatureSet(QtSupport::Constants::FEATURE_QT_CONSOLE);
+
+     if (qtVersion() >= QtSupport::QtVersionNumber(4, 7, 0))
+         features |= Core::FeatureSet(QtSupport::Constants::FEATURE_QT_QUICK);
+
+     return features;
 }
 
 void BaseQtVersion::setId(int id)
@@ -875,7 +890,6 @@ void BaseQtVersion::addToEnvironment(Utils::Environment &env) const
 {
     env.set(QLatin1String("QTDIR"), QDir::toNativeSeparators(versionInfo().value(QLatin1String("QT_INSTALL_DATA"))));
     env.prependOrSetPath(versionInfo().value(QLatin1String("QT_INSTALL_BINS")));
-    env.prependOrSetLibrarySearchPath(versionInfo().value(QLatin1String("QT_INSTALL_LIBS")));
 }
 
 bool BaseQtVersion::hasGdbDebuggingHelper() const
@@ -1002,8 +1016,8 @@ QList<ProjectExplorer::Task> BaseQtVersion::reportIssuesImpl(const QString &proF
     if (!isValid()) {
         //: %1: Reason for being invalid
         const QString msg = QCoreApplication::translate("Qt4ProjectManager::QtVersion", "The Qt version is invalid: %1").arg(invalidReason());
-        results.append(ProjectExplorer::Task(ProjectExplorer::Task::Error, msg, QString(), -1,
-                                             QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+        results.append(ProjectExplorer::Task(ProjectExplorer::Task::Error, msg, Utils::FileName(), -1,
+                                             Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     }
 
     QFileInfo qmakeInfo = qmakeCommand().toFileInfo();
@@ -1012,8 +1026,8 @@ QList<ProjectExplorer::Task> BaseQtVersion::reportIssuesImpl(const QString &proF
         //: %1: Path to qmake executable
         const QString msg = QCoreApplication::translate("Qt4ProjectManager::QtVersion",
                                                         "The qmake command \"%1\" was not found or is not executable.").arg(qmakeCommand().toUserOutput());
-        results.append(ProjectExplorer::Task(ProjectExplorer::Task::Error, msg, QString(), -1,
-                                             QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+        results.append(ProjectExplorer::Task(ProjectExplorer::Task::Error, msg, Utils::FileName(), -1,
+                                             Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     }
 
     QString sourcePath = QFileInfo(proFile).absolutePath();
@@ -1023,14 +1037,14 @@ QList<ProjectExplorer::Task> BaseQtVersion::reportIssuesImpl(const QString &proF
     if ((tmpBuildDir.startsWith(sourcePath)) && (tmpBuildDir != sourcePath)) {
         const QString msg = QCoreApplication::translate("Qt4ProjectManager::QtVersion",
                                                         "Qmake does not support build directories below the source directory.");
-        results.append(ProjectExplorer::Task(ProjectExplorer::Task::Warning, msg, QString(), -1,
-                                             QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+        results.append(ProjectExplorer::Task(ProjectExplorer::Task::Warning, msg, Utils::FileName(), -1,
+                                             Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     } else if (tmpBuildDir.count(slash) != sourcePath.count(slash) && qtVersion() < QtVersionNumber(4,8, 0)) {
         const QString msg = QCoreApplication::translate("Qt4ProjectManager::QtVersion",
                                                         "The build directory needs to be at the same level as the source directory.");
 
-        results.append(ProjectExplorer::Task(ProjectExplorer::Task::Warning, msg, QString(), -1,
-                                             QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+        results.append(ProjectExplorer::Task(ProjectExplorer::Task::Warning, msg, Utils::FileName(), -1,
+                                             Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     }
 
     return results;

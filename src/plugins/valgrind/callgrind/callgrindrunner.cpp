@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -70,10 +70,11 @@ CallgrindController *CallgrindRunner::controller() const
     return m_controller;
 }
 
-void CallgrindRunner::start()
+bool CallgrindRunner::start()
 {
     ValgrindRunner::start();
     m_controller->setValgrindProcess(valgrindProcess());
+    return true;
 }
 
 void CallgrindRunner::processFinished(int ret, QProcess::ExitStatus status)

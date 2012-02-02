@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -34,7 +34,7 @@
     \title Running on Multiple Targets
 
     By default, running an application also builds it and deploys it to a
-    location from where it can be run on the desktop, in Qt Simulator, or
+    location from where it can be run on the desktop, in \QS, or
     on a mobile device that is connected to the development PC.
 
     To run executable files without deploying them first, deselect the

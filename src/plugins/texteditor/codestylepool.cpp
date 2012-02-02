@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -93,7 +93,7 @@ QString CodeStylePoolPrivate::generateUniqueId(const QString &id) const
 
 static QString customCodeStylesPath()
 {
-    QString path = Core::ICore::instance()->userResourcePath();
+    QString path = Core::ICore::userResourcePath();
     path.append(QLatin1String("/codestyles/"));
     return path;
 }

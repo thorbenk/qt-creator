@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -62,7 +62,7 @@ StackHandler::StackHandler()
 {
     m_resetLocationScheduled = false;
     m_contentsValid = false;
-    m_currentIndex = 0;
+    m_currentIndex = -1;
     m_canExpand = false;
     connect(debuggerCore()->action(OperateByInstruction), SIGNAL(triggered()),
         this, SLOT(resetModel()));
@@ -155,11 +155,13 @@ Qt::ItemFlags StackHandler::flags(const QModelIndex &index) const
     const bool isValid = frame.isUsable()
         || debuggerCore()->boolSetting(OperateByInstruction);
     return isValid && m_contentsValid
-        ? QAbstractTableModel::flags(index) : Qt::ItemFlags(0);
+        ? QAbstractTableModel::flags(index) : Qt::ItemFlags();
 }
 
 StackFrame StackHandler::currentFrame() const
 {
+    if (m_currentIndex == -1)
+        return StackFrame();
     QTC_ASSERT(m_currentIndex >= 0, return StackFrame());
     QTC_ASSERT(m_currentIndex < m_stackFrames.size(), return StackFrame());
     return m_stackFrames.at(m_currentIndex);
@@ -167,7 +169,7 @@ StackFrame StackHandler::currentFrame() const
 
 void StackHandler::setCurrentIndex(int level)
 {
-    if (level == m_currentIndex)
+    if (level == -1 || level == m_currentIndex)
         return;
 
     // Emit changed for previous frame
@@ -175,6 +177,7 @@ void StackHandler::setCurrentIndex(int level)
     emit dataChanged(i, i);
 
     m_currentIndex = level;
+    emit currentIndexChanged();
 
     // Emit changed for new frame
     i = index(m_currentIndex, 0);
@@ -184,7 +187,7 @@ void StackHandler::setCurrentIndex(int level)
 void StackHandler::removeAll()
 {
     m_stackFrames.clear();
-    m_currentIndex = 0;
+    setCurrentIndex(-1);
     reset();
 }
 
@@ -195,7 +198,7 @@ void StackHandler::setFrames(const StackFrames &frames, bool canExpand)
     m_canExpand = canExpand;
     m_stackFrames = frames;
     if (m_currentIndex >= m_stackFrames.size())
-        m_currentIndex = m_stackFrames.size() - 1;
+        setCurrentIndex(m_stackFrames.size() - 1);
     reset();
     emit stackChanged();
 }

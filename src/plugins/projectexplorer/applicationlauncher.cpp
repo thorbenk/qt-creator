@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -111,7 +111,7 @@ ApplicationLauncher::ApplicationLauncher(QObject *parent)
             this, SLOT(bringToForeground()));
 
 #ifdef Q_OS_UNIX
-    d->m_consoleProcess.setSettings(Core::ICore::instance()->settings());
+    d->m_consoleProcess.setSettings(Core::ICore::settings());
 #endif
     connect(&d->m_consoleProcess, SIGNAL(processStarted()),
             this, SIGNAL(processStarted()));

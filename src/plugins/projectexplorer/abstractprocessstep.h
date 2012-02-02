@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -64,8 +64,6 @@ public:
     virtual BuildStepConfigWidget *createConfigWidget() = 0;
     virtual bool immutable() const = 0;
 
-    void setEnabled(bool b) { m_enabled = b; }
-
     ProcessParameters *processParameters() { return &m_param; }
 
     bool ignoreReturnValue();
@@ -99,7 +97,6 @@ private:
     QTimer *m_timer;
     QFutureInterface<bool> *m_futureInterface;
     ProcessParameters m_param;
-    bool m_enabled;
     bool m_ignoreReturnValue;
     Utils::QtcProcess *m_process;
     QEventLoop *m_eventLoop;

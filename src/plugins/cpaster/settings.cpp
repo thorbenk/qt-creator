@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -68,9 +68,9 @@ void Settings::fromSettings(const QSettings *settings)
 {
     const QString rootKey = QLatin1String(groupC) + QLatin1Char('/');
 #ifdef Q_OS_WIN
-    const QString defaultUser = qgetenv("USERNAME");
+    const QString defaultUser = QString::fromLocal8Bit(qgetenv("USERNAME"));
 #else
-    const QString defaultUser = qgetenv("USER");
+    const QString defaultUser = QString::fromLocal8Bit(qgetenv("USER"));
 #endif
     username = settings->value(rootKey + QLatin1String(userNameKeyC), defaultUser).toString();
     protocol = settings->value(rootKey + QLatin1String(defaultProtocolKeyC), PasteBinDotComProtocol::protocolName()).toString();

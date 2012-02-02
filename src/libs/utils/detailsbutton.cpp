@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -34,41 +34,12 @@
 
 #include <utils/stylehelper.h>
 
+#include <QtCore/QPropertyAnimation>
 #include <QtGui/QPaintEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QStyleOption>
-#include <QtGui/QGraphicsOpacityEffect>
-#include <QtCore/QPropertyAnimation>
 
 using namespace Utils;
-
-FadingPanel::FadingPanel(QWidget *parent) :
-    QWidget(parent),
-    m_opacityEffect(new QGraphicsOpacityEffect)
-{
-    m_opacityEffect->setOpacity(0);
-    setGraphicsEffect(m_opacityEffect);
-
-    // Workaround for issue with QGraphicsEffect. GraphicsEffect
-    // currently clears with Window color. Remove if flickering
-    // no longer occurs on fade-in
-    QPalette pal;
-    pal.setBrush(QPalette::All, QPalette::Window, Qt::transparent);
-    setPalette(pal);
-}
-
-void FadingPanel::setOpacity(qreal value)
-{
-    m_opacityEffect->setOpacity(value);
-}
-
-void FadingPanel::fadeTo(float value)
-{
-    QPropertyAnimation *animation = new QPropertyAnimation(m_opacityEffect, "opacity");
-    animation->setDuration(200);
-    animation->setEndValue(value);
-    animation->start(QAbstractAnimation::DeleteWhenStopped);
-}
 
 DetailsButton::DetailsButton(QWidget *parent) : QAbstractButton(parent), m_fader(0)
 {
@@ -81,7 +52,7 @@ QSize DetailsButton::sizeHint() const
 {
     // TODO: Adjust this when icons become available!
     const int w = fontMetrics().width(text()) + 32;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     return QSize(w, 34);
 #else
     return QSize(w, 22);
@@ -118,7 +89,7 @@ void DetailsButton::paintEvent(QPaintEvent *e)
     QWidget::paintEvent(e);
 
     QPainter p(this);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     // draw hover animation
     if (!isDown() && m_fader > 0)
         p.fillRect(rect().adjusted(1, 1, -2, -2), QColor(255, 255, 255, int(m_fader*180)));

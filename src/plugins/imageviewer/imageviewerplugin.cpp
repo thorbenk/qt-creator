@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 ** Copyright (c) 2010 Denis Mingulov.
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
@@ -67,8 +67,7 @@ bool ImageViewerPlugin::initialize(const QStringList &arguments, QString *errorM
 {
     Q_UNUSED(arguments)
 
-    Core::ICore *core = Core::ICore::instance();
-    if (!core->mimeDatabase()->addMimeTypes(QLatin1String(":/imageviewer/ImageViewer.mimetypes.xml"), errorMessage))
+    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/imageviewer/ImageViewer.mimetypes.xml"), errorMessage))
         return false;
 
     d->factory = new ImageViewerFactory(this);

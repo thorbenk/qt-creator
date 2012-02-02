@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -264,7 +264,7 @@ bool CleanDialog::promptToDelete()
     QFuture<void> task = QtConcurrent::run(cleanTask, &Internal::CleanFilesTask::run);
     const QString taskName = tr("Cleaning %1").
                              arg(QDir::toNativeSeparators(d->m_workingDirectory));
-    Core::ICore::instance()->progressManager()->addTask(task, taskName,
+    Core::ICore::progressManager()->addTask(task, taskName,
                                                         QLatin1String("VcsBase.cleanRepository"));
     return true;
 }

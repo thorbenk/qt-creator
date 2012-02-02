@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -65,6 +65,7 @@ signals:
     void closed();
     void finished(Utils::SftpJobId job, const QString &error = QString());
     void dataAvailable(Utils::SftpJobId job, const QString &data);
+    void fileInfoAvailable(Utils::SftpJobId job, const QList<Utils::SftpFileInfo> &fileInfoList);
 
 private:
     typedef QMap<SftpJobId, AbstractSftpOperation::Ptr> JobMap;
@@ -115,6 +116,8 @@ private:
         const QString &error);
     void sendTransferCloseHandle(const AbstractSftpTransfer::Ptr &job,
         quint32 requestId);
+
+    void attributesToFileInfo(const SftpFileAttributes &attributes, SftpFileInfo &fileInfo) const;
 
     JobMap::Iterator lookupJob(SftpJobId id);
     JobMap m_jobs;

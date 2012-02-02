@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -151,6 +151,8 @@ public:
     static FileName fromUserInput(const QString &filename);
     QString toString() const;
     QString toUserOutput() const;
+
+    FileName parentDir() const;
 
     bool operator==(const FileName &other) const;
     bool operator!=(const FileName &other) const;

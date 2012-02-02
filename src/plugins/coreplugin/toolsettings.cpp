@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -108,12 +108,12 @@ QWidget *ToolSettings::createPage(QWidget *parent)
 static QString getUserFilePath(const QString &proposalFileName)
 {
     static bool seeded = false;
-    QDir resourceDir(ICore::instance()->userResourcePath());
+    QDir resourceDir(ICore::userResourcePath());
     if (!resourceDir.exists(QLatin1String("externaltools")))
         resourceDir.mkpath(QLatin1String("externaltools"));
     QFileInfo fi(proposalFileName);
     const QString &suffix = QLatin1String(".") + fi.completeSuffix();
-    const QString &newFilePath = ICore::instance()->userResourcePath()
+    const QString &newFilePath = ICore::userResourcePath()
             + QLatin1String("/externaltools/") + fi.baseName();
     int count = 0;
     QString tryPath = newFilePath + suffix;

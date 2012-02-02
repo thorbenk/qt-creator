@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -374,15 +374,15 @@ void CppHighlighter::highlightBlock(const QString &text)
 
         else if (tk.is(T_STRING_LITERAL) || tk.is(T_CHAR_LITERAL) || tk.is(T_ANGLE_STRING_LITERAL) ||
                  tk.is(T_AT_STRING_LITERAL))
-            highlightLine(text, tk.begin(), tk.length(), m_formats[CppStringFormat]);
+            setFormat(tk.begin(), tk.length(), m_formats[CppStringFormat]);
 
         else if (tk.is(T_WIDE_STRING_LITERAL) || tk.is(T_WIDE_CHAR_LITERAL))
-            highlightLine(text, tk.begin(), tk.length(), m_formats[CppStringFormat]);
+            setFormat(tk.begin(), tk.length(), m_formats[CppStringFormat]);
 
         else if (tk.isComment()) {
 
             if (tk.is(T_COMMENT) || tk.is(T_CPP_COMMENT))
-                highlightLine(text, tk.begin(), tk.length(), m_formats[CppCommentFormat]);
+                setFormat(tk.begin(), tk.length(), m_formats[CppCommentFormat]);
 
             else // a doxygen comment
                 highlightDoxygenComment(text, tk.begin(), tk.length());
@@ -424,7 +424,7 @@ void CppHighlighter::highlightBlock(const QString &text)
         const Token tk = tokens.last();
         const int lastTokenEnd = tk.begin() + tk.length();
         if (text.length() > lastTokenEnd)
-            highlightLine(text, lastTokenEnd, text.length() - lastTokenEnd, QTextCharFormat());
+            setFormat(lastTokenEnd, text.length() - lastTokenEnd, QTextCharFormat());
     }
 
     if (! initialState && state && ! tokens.isEmpty()) {
@@ -651,7 +651,7 @@ void CppHighlighter::highlightDoxygenComment(const QString &text, int position, 
 
             int k = CppTools::classifyDoxygenTag(start, it - start);
             if (k != CppTools::T_DOXY_IDENTIFIER) {
-                highlightLine(text, initial, start - uc - initial, format);
+                setFormat(initial, start - uc - initial, format);
                 setFormat(start - uc - 1, it - start + 1, kwFormat);
                 initial = it - uc;
             }
@@ -659,6 +659,6 @@ void CppHighlighter::highlightDoxygenComment(const QString &text, int position, 
             ++it;
     }
 
-    highlightLine(text, initial, it - uc - initial, format);
+    setFormat(initial, it - uc - initial, format);
 }
 

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -136,17 +136,17 @@ bool MakeStep::init()
     m_tasks.clear();
     if (!bc) {
         m_tasks.append(ProjectExplorer::Task(ProjectExplorer::Task::Error,
-                                             tr("Qt Creator needs a buildconfiguration set up to build. Configure a tool chain in Project mode."),
-                                             QString(), -1,
-                                             QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                                             tr("Qt Creator needs a build configuration set up to build. Configure a tool chain in Project mode."),
+                                             Utils::FileName(), -1,
+                                             Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
         return false;
     }
 
     if (!bc->toolChain()) {
         m_tasks.append(ProjectExplorer::Task(ProjectExplorer::Task::Error,
                                              tr("Qt Creator needs a tool chain set up to build. Configure a tool chain in Project mode."),
-                                             QString(), -1,
-                                             QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                                             Utils::FileName(), -1,
+                                             Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     }
 
     ProjectExplorer::ProcessParameters *pp = processParameters();
@@ -221,8 +221,6 @@ bool MakeStep::init()
     }
 
     pp->setEnvironment(env);
-
-    setEnabled(true);
     pp->setArguments(args);
 
     ProjectExplorer::IOutputParser *parser = 0;
@@ -305,7 +303,7 @@ void MakeStep::setUserArguments(const QString &arguments)
 }
 
 MakeStepConfigWidget::MakeStepConfigWidget(MakeStep *makeStep)
-    : BuildStepConfigWidget(), m_ui(new Internal::Ui::MakeStep), m_makeStep(makeStep), m_ignoreChange(false)
+    : BuildStepConfigWidget(), m_ui(new Internal::Ui::MakeStep), m_makeStep(makeStep), m_bc(0), m_ignoreChange(false)
 {
     m_ui->setupUi(this);
 
@@ -327,18 +325,58 @@ MakeStepConfigWidget::MakeStepConfigWidget(MakeStep *makeStep)
 
     connect(makeStep, SIGNAL(userArgumentsChanged()),
             this, SLOT(userArgumentsChanged()));
-    connect(makeStep->buildConfiguration(), SIGNAL(buildDirectoryChanged()),
-            this, SLOT(updateDetails()));
-    connect(makeStep->buildConfiguration(), SIGNAL(toolChainChanged()),
-            this, SLOT(updateDetails()));
 
-    connect(makeStep->qt4BuildConfiguration(), SIGNAL(qtVersionChanged()),
-            this, SLOT(qtVersionChanged()));
+    ProjectExplorer::BuildConfiguration *bc = makeStep->buildConfiguration();
+    if (!bc) {
+        // That means the step is in the deploylist, so we listen to the active build config
+        // changed signal and update various things in return
+        bc = makeStep->target()->activeBuildConfiguration();
+        m_bc = bc;
+        connect (makeStep->target(), SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
+                 this, SLOT(activeBuildConfigurationChanged()));
+    }
+
+    if (bc) {
+        connect(bc, SIGNAL(buildDirectoryChanged()),
+                this, SLOT(updateDetails()));
+        connect(bc, SIGNAL(toolChainChanged()),
+                this, SLOT(updateDetails()));
+
+        connect(bc, SIGNAL(qtVersionChanged()),
+                this, SLOT(qtVersionChanged()));
+    }
 
     connect(ProjectExplorer::ProjectExplorerPlugin::instance(), SIGNAL(settingsChanged()),
             this, SLOT(updateMakeOverrideLabel()));
     connect(ProjectExplorer::ProjectExplorerPlugin::instance(), SIGNAL(settingsChanged()),
             this, SLOT(updateDetails()));
+}
+
+void MakeStepConfigWidget::activeBuildConfigurationChanged()
+{
+    if (m_bc) {
+        disconnect(m_bc, SIGNAL(buildDirectoryChanged()),
+                this, SLOT(updateDetails()));
+        disconnect(m_bc, SIGNAL(toolChainChanged()),
+                this, SLOT(updateDetails()));
+
+        disconnect(m_bc, SIGNAL(qtVersionChanged()),
+                this, SLOT(qtVersionChanged()));
+    }
+
+    m_bc = m_makeStep->target()->activeBuildConfiguration();
+    updateMakeOverrideLabel();
+    updateDetails();
+
+    if (m_bc) {
+        connect(m_bc, SIGNAL(buildDirectoryChanged()),
+                this, SLOT(updateDetails()));
+        connect(m_bc, SIGNAL(toolChainChanged()),
+                this, SLOT(updateDetails()));
+
+        connect(m_bc, SIGNAL(qtVersionChanged()),
+                this, SLOT(qtVersionChanged()));
+    }
 }
 
 MakeStepConfigWidget::~MakeStepConfigWidget()
@@ -369,7 +407,7 @@ void MakeStepConfigWidget::updateDetails()
     if (!bc)
         bc = qobject_cast<Qt4BuildConfiguration *>(m_makeStep->target()->activeBuildConfiguration());
     if (!bc)
-        m_summaryText = tr("No qt4 buildconfiguration."); // Can't happen
+        m_summaryText = tr("No Qt4 build configuration."); // Can't happen
 
     ProjectExplorer::ProcessParameters param;
     param.setMacroExpander(bc->macroExpander());

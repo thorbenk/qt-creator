@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -107,12 +107,11 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
     const Core::Context projectContext(Qt4ProjectManager::Constants::PROJECT_ID);
     Core::Context projecTreeContext(ProjectExplorer::Constants::C_PROJECT_TREE);
 
-    Core::ICore *core = Core::ICore::instance();
-    if (!core->mimeDatabase()->addMimeTypes(QLatin1String(":qt4projectmanager/Qt4ProjectManager.mimetypes.xml"), errorMessage))
+    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":qt4projectmanager/Qt4ProjectManager.mimetypes.xml"), errorMessage))
         return false;
 
     m_projectExplorer = ProjectExplorer::ProjectExplorerPlugin::instance();
-    Core::ActionManager *am = core->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     //create and register objects
     m_qt4ProjectManager = new Qt4Manager(this);
@@ -161,10 +160,6 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
 
     addAutoReleasedObject(new ProFileCompletionAssistProvider);
     addAutoReleasedObject(new ProFileHoverHandler(this));
-
-    // TODO reenable
-    //m_embeddedPropertiesPage = new EmbeddedPropertiesPage;
-    //addObject(m_embeddedPropertiesPage);
 
     //menus
     Core::ActionContainer *mbuild =

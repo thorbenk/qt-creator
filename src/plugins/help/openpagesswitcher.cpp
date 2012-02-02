@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -56,7 +56,7 @@ OpenPagesSwitcher::OpenPagesSwitcher(OpenPagesModel *model)
 
     // We disable the frame on this list view and use a QFrame around it instead.
     // This improves the look with QGTKStyle.
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     setFrameStyle(m_openPagesWidget->frameStyle());
 #endif
     m_openPagesWidget->setFrameStyle(QFrame::NoFrame);
@@ -127,7 +127,7 @@ bool OpenPagesSwitcher::eventFilter(QObject *object, QEvent *event)
                 emit setCurrentPage(m_openPagesWidget->currentIndex());
                 return true;
             }
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
             const Qt::KeyboardModifier modifier = Qt::AltModifier;
 #else
             const Qt::KeyboardModifier modifier = Qt::ControlModifier;

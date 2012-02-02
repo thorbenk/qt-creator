@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -57,7 +57,7 @@ class ExecuteFilter : public Locator::ILocatorFilter
 public:
     ExecuteFilter();
     QString displayName() const { return tr("Execute Custom Commands"); }
-    QString id() const { return "Execute custom commands"; }
+    QString id() const { return QLatin1String("Execute custom commands"); }
     Locator::ILocatorFilter::Priority priority() const { return Locator::ILocatorFilter::Medium; }
     QList<Locator::FilterEntry> matchesFor(QFutureInterface<Locator::FilterEntry> &future,
                                            const QString &entry);

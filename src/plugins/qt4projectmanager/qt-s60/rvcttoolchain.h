@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -77,12 +77,15 @@ public:
         int build;
     };
 
-    static RvctVersion version(const QString &rvctPath);
+    static RvctVersion version(const Utils::FileName &rvctPath);
 
     enum ArmVersion { ARMv5, ARMv6 };
 
-    QString typeName() const;
+    QString type() const;
+    QString typeDisplayName() const;
     ProjectExplorer::Abi targetAbi() const;
+
+    QString legacyId() const;
 
     bool isValid() const;
 
@@ -100,11 +103,11 @@ public:
     void setEnvironmentChanges(const QList<Utils::EnvironmentItem> &changes);
     QList<Utils::EnvironmentItem> environmentChanges() const;
 
-    void setCompilerPath(const QString &path);
-    QString compilerPath() const;
+    void setCompilerCommand(const Utils::FileName &path);
+    Utils::FileName compilerCommand() const;
 
-    void setDebuggerCommand(const QString &d);
-    virtual QString debuggerCommand() const;
+    void setDebuggerCommand(const Utils::FileName &d);
+    Utils::FileName debuggerCommand() const;
 
     void setArmVersion(ArmVersion);
     ArmVersion armVersion() const;
@@ -116,7 +119,6 @@ public:
     bool fromMap(const QVariantMap &data);
 
 private:
-    void updateId();
     void setVersion(const RvctVersion &v) const;
 
     explicit RvctToolChain(bool autodetected = false);
@@ -125,11 +127,11 @@ private:
     QString varName(const QString &postFix) const;
 
     QList<ProjectExplorer::HeaderPath> m_systemHeaderPaths;
-    QString m_compilerPath;
+    Utils::FileName m_compilerCommand;
     QList<Utils::EnvironmentItem> m_environmentChanges;
     ArmVersion m_armVersion;
     mutable RvctVersion m_version;
-    QString m_debuggerCommand;
+    Utils::FileName m_debuggerCommand;
 
     friend class RvctToolChainFactory;
 };

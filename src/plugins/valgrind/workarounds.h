@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -39,7 +39,7 @@ QT_BEGIN_NAMESPACE
 class QPalette;
 QT_END_NAMESPACE
 
-///FIXME: remove this once https://bugreports.qt.nokia.com/browse/QTCREATORBUG-3247 gets fixed
+///FIXME: remove this once https://bugreports.qt-project.org/browse/QTCREATORBUG-3247 gets fixed
 QPalette panelPalette(const QPalette &oldPalette, bool lightColored = false);
 
 #endif // WORKAROUNDS_H

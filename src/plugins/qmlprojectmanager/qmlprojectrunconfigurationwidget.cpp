@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -269,8 +269,7 @@ void QmlProjectRunConfigurationWidget::qmlDebugServerPortChanged(uint port)
 
 void QmlProjectRunConfigurationWidget::manageQtVersions()
 {
-    ICore *core = ICore::instance();
-    core->showOptionsDialog(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY,
+    ICore::showOptionsDialog(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY,
                             QtSupport::Constants::QTVERSION_SETTINGS_PAGE_ID);
 }
 

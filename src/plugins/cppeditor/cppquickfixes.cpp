@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -64,6 +64,7 @@
 #include <cpptools/cpptoolsreuse.h>
 #include <cpptools/cppclassesfilter.h>
 #include <cpptools/searchsymbols.h>
+#include <cpptools/symbolfinder.h>
 #include <extensionsystem/iplugin.h>
 #include <extensionsystem/pluginmanager.h>
 
@@ -1550,9 +1551,12 @@ private:
         virtual void performChanges(const CppRefactoringFilePtr &currentFile,
                                     const CppRefactoringChanges &)
         {
-            Q_ASSERT(fwdClass != 0);
+            QTC_ASSERT(fwdClass != 0, return);
 
-            if (Class *k = assistInterface()->snapshot().findMatchingClassDeclaration(fwdClass)) {
+            CppTools::SymbolFinder symbolFinder;
+            if (Class *k =
+                    symbolFinder.findMatchingClassDeclaration(fwdClass,
+                                                              assistInterface()->snapshot())) {
                 const QString headerFile = QString::fromUtf8(k->fileName(), k->fileNameLength());
 
                 // collect the fwd headers

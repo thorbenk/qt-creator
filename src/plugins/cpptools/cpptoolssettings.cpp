@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -173,7 +173,7 @@ CppToolsSettings::CppToolsSettings(QObject *parent)
     pool->loadCustomCodeStyles();
 
     // load global settings (after built-in settings are added to the pool)
-    if (QSettings *s = Core::ICore::instance()->settings()) {
+    if (QSettings *s = Core::ICore::settings()) {
         d->m_globalCodeStyle->fromSettings(CppTools::Constants::CPP_SETTINGS_ID, s);
 
         // legacy handling start (Qt Creator Version < 2.4)

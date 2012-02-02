@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -1575,7 +1575,7 @@ void QDeclarativeViewer::setUseGL(bool useGL)
 #ifdef GL_SUPPORTED
     if (useGL) {
         QGLFormat format = QGLFormat::defaultFormat();
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
         format.setSampleBuffers(true);
 #else
         format.setSampleBuffers(false);

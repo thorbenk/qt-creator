@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -304,7 +304,7 @@
 
     The \QC installation program asks you whether you want to
     register \QC as a post-mortem debugger. To change the setting, select
-    \gui{Tools > Options  > Debugger > Common > Use Creator for post-mortem
+    \gui{Tools > Options  > Debugger > Common > Use Qt Creator for post-mortem
     debugging}.
 
     You can launch the debugger in the post-mortem mode if an application
@@ -548,7 +548,7 @@
 
               \note The Mac OS X Snow Leopard (10.6) has a bug that might cause the
               application to crash. For a workaround, see:
-              \l{https://bugreports.qt.nokia.com/browse/QTBUG-4962}{QTBUG-4962}.
+              \l{https://bugreports.qt-project.org/browse/QTBUG-4962}{QTBUG-4962}.
 
     \endtable
 
@@ -978,7 +978,7 @@
     applications on the Mac OS desktop, the release version of Frameworks is used
     by default. To step into Frameworks, select the \gui {Use debug versions of
     Frameworks} option in the project run settings for \gui Desktop and
-    \gui {Qt Simulator} targets.
+    \gui {\QS} targets.
 
     \section2 Viewing Threads
 

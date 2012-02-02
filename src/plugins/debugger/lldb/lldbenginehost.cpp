@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -165,7 +165,7 @@ LldbEngineHost::LldbEngineHost(const DebuggerStartParameters &startParameters)
                 SLOT(stderrReady()));
 
 
-        QString a = Core::ICore::instance()->resourcePath() + QLatin1String("/qtcreator-lldb");
+        QString a = Core::ICore::resourcePath() + QLatin1String("/qtcreator-lldb");
         if(getenv("QTC_LLDB_GUEST") != 0)
             a = QString::fromLocal8Bit(getenv("QTC_LLDB_GUEST"));
 

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -89,8 +89,7 @@ EditMode::EditMode() :
     m_splitter->setStretchFactor(0, 0);
     m_splitter->setStretchFactor(1, 1);
 
-    ModeManager *modeManager = ModeManager::instance();
-    connect(modeManager, SIGNAL(currentModeChanged(Core::IMode*)),
+    connect(ModeManager::instance(), SIGNAL(currentModeChanged(Core::IMode*)),
             this, SLOT(grabEditorManager(Core::IMode*)));
     m_splitter->setFocusProxy(m_editorManager);
 

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -795,7 +795,7 @@ Core::Id QmlJSEditorEditable::id() const
 bool QmlJSEditorEditable::open(QString *errorString, const QString &fileName, const QString &realFileName)
 {
     bool b = TextEditor::BaseTextEditor::open(errorString, fileName, realFileName);
-    editorWidget()->setMimeType(Core::ICore::instance()->mimeDatabase()->findByFile(QFileInfo(fileName)).type());
+    editorWidget()->setMimeType(Core::ICore::mimeDatabase()->findByFile(QFileInfo(fileName)).type());
     return b;
 }
 
@@ -1456,7 +1456,7 @@ void QmlJSTextEditorWidget::contextMenuEvent(QContextMenuEvent *e)
 
     refactoringMenu->setEnabled(!refactoringMenu->isEmpty());
 
-    if (Core::ActionContainer *mcontext = Core::ICore::instance()->actionManager()->actionContainer(QmlJSEditor::Constants::M_CONTEXT)) {
+    if (Core::ActionContainer *mcontext = Core::ICore::actionManager()->actionContainer(QmlJSEditor::Constants::M_CONTEXT)) {
         QMenu *contextMenu = mcontext->menu();
         foreach (QAction *action, contextMenu->actions()) {
             menu->addAction(action);

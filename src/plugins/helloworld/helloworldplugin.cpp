@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -96,9 +96,6 @@ bool HelloWorldPlugin::initialize(const QStringList &arguments, QString *errorMe
     Q_UNUSED(arguments)
     Q_UNUSED(errorMessage)
 
-    // Get the primary access point to the workbench.
-    Core::ICore *core = Core::ICore::instance();
-
     // Create a unique context for our own view, that will be used for the
     // menu entry later.
     Core::Context context("HelloWorld.MainView");
@@ -108,7 +105,7 @@ bool HelloWorldPlugin::initialize(const QStringList &arguments, QString *errorMe
     connect(helloWorldAction, SIGNAL(triggered()), SLOT(sayHelloWorld()));
 
     // Register the action with the action manager
-    Core::ActionManager *actionManager = core->actionManager();
+    Core::ActionManager *actionManager = Core::ICore::actionManager();
     Core::Command *command =
             actionManager->registerAction(
                     helloWorldAction, "HelloWorld.HelloWorldAction", context);

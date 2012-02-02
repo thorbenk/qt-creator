@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -57,7 +57,7 @@ class FileSystemFilter : public Locator::ILocatorFilter
 public:
     FileSystemFilter(Core::EditorManager *editorManager, LocatorWidget *locatorWidget);
     QString displayName() const { return tr("Files in File System"); }
-    QString id() const { return "Files in file system"; }
+    QString id() const { return QLatin1String("Files in file system"); }
     Locator::ILocatorFilter::Priority priority() const { return Locator::ILocatorFilter::Medium; }
     QList<Locator::FilterEntry> matchesFor(QFutureInterface<Locator::FilterEntry> &future, const QString &entry);
     void accept(Locator::FilterEntry selection) const;

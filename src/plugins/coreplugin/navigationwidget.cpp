@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -187,8 +187,7 @@ NavigationWidget *NavigationWidget::instance()
 
 void NavigationWidget::setFactories(const QList<INavigationWidgetFactory *> factories)
 {
-    ICore *core = ICore::instance();
-    ActionManager *am = core->actionManager();
+    ActionManager *am = ICore::actionManager();
     Context navicontext(Core::Constants::C_NAVIGATION_PANE);
 
     foreach (INavigationWidgetFactory *factory, factories) {

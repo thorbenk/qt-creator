@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -52,7 +52,7 @@ ProMessageHandler::ProMessageHandler(bool verbose)
     : m_verbose(verbose)
 {
     QObject::connect(this, SIGNAL(errorFound(QString)),
-                     Core::ICore::instance()->messageManager(), SLOT(printToOutputPane(QString)),
+                     Core::ICore::messageManager(), SLOT(printToOutputPane(QString)),
                      Qt::QueuedConnection);
 }
 

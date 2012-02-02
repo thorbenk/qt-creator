@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -96,6 +96,11 @@ JsFileWizard::JsFileWizard(const BaseFileWizardParameters &parameters,
                            QObject *parent):
     Core::BaseFileWizard(parameters, parent)
 {
+}
+
+Core::FeatureSet JsFileWizard::requiredFeatures() const
+{
+    return Core::FeatureSet();
 }
 
 Core::GeneratedFiles JsFileWizard::generateFiles(const QWizard *w,

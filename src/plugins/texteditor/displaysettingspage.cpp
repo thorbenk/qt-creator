@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -55,7 +55,7 @@ DisplaySettingsPage::DisplaySettingsPagePrivate::DisplaySettingsPagePrivate
     (const DisplaySettingsPageParameters &p)
     : m_parameters(p), m_page(0)
 {
-    if (const QSettings *s = Core::ICore::instance()->settings()) {
+    if (const QSettings *s = Core::ICore::settings()) {
         m_displaySettings.fromSettings(m_parameters.settingsPrefix, s);
     }
 }
@@ -163,8 +163,7 @@ void DisplaySettingsPage::setDisplaySettings(const DisplaySettings &newDisplaySe
 {
     if (newDisplaySettings != d->m_displaySettings) {
         d->m_displaySettings = newDisplaySettings;
-        Core::ICore *core = Core::ICore::instance();
-        if (QSettings *s = core->settings())
+        if (QSettings *s = Core::ICore::settings())
             d->m_displaySettings.toSettings(d->m_parameters.settingsPrefix, s);
 
         emit displaySettingsChanged(newDisplaySettings);

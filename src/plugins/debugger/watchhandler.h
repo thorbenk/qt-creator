@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -90,6 +90,8 @@ private:
     bool canFetchMore(const QModelIndex &parent) const;
     void fetchMore(const QModelIndex &parent);
 
+    void invalidateAll(const QModelIndex &parentIndex = QModelIndex());
+
     friend class WatchHandler;
 
     WatchItem *watchItem(const QModelIndex &) const;
@@ -119,9 +121,6 @@ private:
     void dump();
     void dumpHelper(WatchItem *item);
     void emitAllChanged();
-
-signals:
-    void enableUpdates(bool);
 
 private:
     QString displayType(const WatchData &typeIn) const;
@@ -202,6 +201,9 @@ public:
     QString editorContents();
     void editTypeFormats(bool includeLocals, const QByteArray &iname);
 
+    void scheduleResetLocation();
+    void resetLocation();
+
 private:
     friend class WatchModel;
 
@@ -234,6 +236,9 @@ private:
     DebuggerEngine *m_engine;
 
     int m_watcherCounter;
+
+    bool m_contentsValid;
+    bool m_resetLocationScheduled;
 };
 
 } // namespace Internal

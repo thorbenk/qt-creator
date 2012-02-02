@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -62,25 +62,26 @@ MaemoToolChain::MaemoToolChain(bool autodetected) :
     ProjectExplorer::GccToolChain(QLatin1String(Constants::MAEMO_TOOLCHAIN_ID), autodetected),
     m_qtVersionId(-1)
 {
-    updateId();
+    setQtVersionId(-1);
 }
 
 MaemoToolChain::MaemoToolChain(const MaemoToolChain &tc) :
-    ProjectExplorer::GccToolChain(tc),
-    m_qtVersionId(tc.m_qtVersionId)
-{ }
+    ProjectExplorer::GccToolChain(tc)
+{
+    setQtVersionId(tc.m_qtVersionId);
+}
 
 MaemoToolChain::~MaemoToolChain()
 { }
 
-QString MaemoToolChain::typeName() const
+QString MaemoToolChain::type() const
 {
-    return MaemoToolChainFactory::tr("Maemo GCC");
+    return QLatin1String("maemogcc");
 }
 
-ProjectExplorer::Abi MaemoToolChain::targetAbi() const
+QString MaemoToolChain::typeDisplayName() const
 {
-    return m_targetAbi;
+    return MaemoToolChainFactory::tr("Maemo GCC");
 }
 
 Utils::FileName MaemoToolChain::mkspec() const
@@ -90,7 +91,7 @@ Utils::FileName MaemoToolChain::mkspec() const
 
 bool MaemoToolChain::isValid() const
 {
-    return GccToolChain::isValid() && m_qtVersionId >= 0 && m_targetAbi.isValid();
+    return GccToolChain::isValid() && m_qtVersionId >= 0 && targetAbi().isValid();
 }
 
 bool MaemoToolChain::canClone() const
@@ -144,9 +145,9 @@ bool MaemoToolChain::fromMap(const QVariantMap &data)
 void MaemoToolChain::setQtVersionId(int id)
 {
     if (id < 0) {
-        m_targetAbi = ProjectExplorer::Abi();
+        setTargetAbi(ProjectExplorer::Abi());
         m_qtVersionId = -1;
-        updateId(); // Will trigger toolChainUpdated()!
+        toolChainUpdated();
         return;
     }
 
@@ -157,9 +158,10 @@ void MaemoToolChain::setQtVersionId(int id)
     Q_ASSERT(version->qtAbis().count() == 1);
 
     m_qtVersionId = id;
-    m_targetAbi = version->qtAbis().at(0);
+    setTargetAbi(version->qtAbis().at(0));
 
-    updateId(); // Will trigger toolChainUpdated()!
+    toolChainUpdated();
+
     setDisplayName(MaemoToolChainFactory::tr("Maemo GCC for %1").arg(version->displayName()));
 }
 
@@ -168,10 +170,24 @@ int MaemoToolChain::qtVersionId() const
     return m_qtVersionId;
 }
 
-void MaemoToolChain::updateId()
+QString MaemoToolChain::legacyId() const
 {
-    setId(QString::fromLatin1("%1:%2.%3").arg(Constants::MAEMO_TOOLCHAIN_ID)
-          .arg(m_qtVersionId).arg(debuggerCommand()));
+    return QString::fromLatin1("%1:%2.%3").arg(Constants::MAEMO_TOOLCHAIN_ID)
+                                          .arg(m_qtVersionId)
+                                          .arg(debuggerCommand().toString());
+}
+
+QList<ProjectExplorer::Abi> MaemoToolChain::findAbiForCompilerPath(const QString &path)
+{
+    Q_UNUSED(path);
+    if (m_qtVersionId < 0)
+        return QList<ProjectExplorer::Abi>();
+
+    MaemoQtVersion *mqv = dynamic_cast<MaemoQtVersion *>(QtSupport::QtVersionManager::instance()->version(m_qtVersionId));
+    if (!mqv)
+        return QList<ProjectExplorer::Abi>();
+
+    return mqv->qtAbis();
 }
 
 // --------------------------------------------------------------------------
@@ -191,7 +207,7 @@ MaemoToolChainConfigWidget::MaemoToolChainConfigWidget(MaemoToolChain *tc) :
                       "<tr><td>Debugger:</td/><td>%3</td></tr></body></html>")
                    .arg(QDir::toNativeSeparators(MaemoGlobal::maddeRoot(v->qmakeCommand().toString())),
                         QDir::toNativeSeparators(MaemoGlobal::targetRoot(v->qmakeCommand().toString())),
-                        QDir::toNativeSeparators(tc->debuggerCommand())));
+                        tc->debuggerCommand().toUserOutput()));
     layout->addWidget(label);
 }
 
@@ -241,6 +257,21 @@ QList<ProjectExplorer::ToolChain *> MaemoToolChainFactory::autoDetect()
     return createToolChainList(versionList);
 }
 
+bool MaemoToolChainFactory::canRestore(const QVariantMap &data)
+{
+    return idFromMap(data).startsWith(QLatin1String(Constants::MAEMO_TOOLCHAIN_ID) + QLatin1Char(':'));
+}
+
+ProjectExplorer::ToolChain *MaemoToolChainFactory::restore(const QVariantMap &data)
+{
+    MaemoToolChain *tc = new MaemoToolChain(false);
+    if (tc->fromMap(data))
+        return tc;
+
+    delete tc;
+    return 0;
+}
+
 void MaemoToolChainFactory::handleQtVersionChanges(const QList<int> &changes)
 {
     ProjectExplorer::ToolChainManager *tcm = ProjectExplorer::ToolChainManager::instance();
@@ -270,7 +301,7 @@ QList<ProjectExplorer::ToolChain *> MaemoToolChainFactory::createToolChainList(c
             tcm->deregisterToolChain(tc);
 
         const MaemoQtVersion * const mqv = dynamic_cast<MaemoQtVersion *>(v);
-        if (!mqv || !mqv->isValid())
+        if (!mqv || !mqv->isValid() || mqv->qtAbis().isEmpty())
             continue;
 
         // (Re-)add toolchain:
@@ -283,10 +314,10 @@ QList<ProjectExplorer::ToolChain *> MaemoToolChainFactory::createToolChainList(c
         else if (v->supportsTargetId(Constants::MEEGO_DEVICE_TARGET_ID))
             target = "Meego";
         mTc->setDisplayName(tr("%1 GCC (%2)").arg(target).arg(MaemoGlobal::maddeRoot(mqv->qmakeCommand().toString())));
-        mTc->setCompilerPath(MaemoGlobal::targetRoot(mqv->qmakeCommand().toString()) + QLatin1String("/bin/gcc"));
-        mTc->setDebuggerCommand(ProjectExplorer::ToolChainManager::instance()->defaultDebugger(mqv->qtAbis().at(0)).toString());
+        mTc->setCompilerCommand(Utils::FileName::fromString(MaemoGlobal::targetRoot(mqv->qmakeCommand().toString()) + QLatin1String("/bin/gcc")));
+        mTc->setDebuggerCommand(ProjectExplorer::ToolChainManager::instance()->defaultDebugger(mqv->qtAbis().at(0)));
         if (mTc->debuggerCommand().isEmpty())
-            mTc->setDebuggerCommand(MaemoGlobal::targetRoot(mqv->qmakeCommand().toString()) + QLatin1String("/bin/gdb"));
+            mTc->setDebuggerCommand(Utils::FileName::fromString(MaemoGlobal::targetRoot(mqv->qmakeCommand().toString()) + QLatin1String("/bin/gdb")));
         result.append(mTc);
     }
     return result;

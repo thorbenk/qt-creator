@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -94,8 +94,8 @@ bool VcsConfigurationPage::isComplete() const
 
 void VcsConfigurationPage::openConfiguration()
 {
-    Core::ICore *core = Core::ICore::instance();
-    core->showOptionsDialog(VcsBase::Constants::VCS_SETTINGS_CATEGORY, d->m_versionControl->id().toString());
+    Core::ICore::showOptionsDialog(QLatin1String(VcsBase::Constants::VCS_SETTINGS_CATEGORY),
+                                   d->m_versionControl->id().toString());
 }
 
 } // namespace VcsBase

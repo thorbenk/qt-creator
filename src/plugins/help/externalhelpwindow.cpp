@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -50,7 +50,7 @@ using namespace Help::Internal;
 ExternalHelpWindow::ExternalHelpWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(Help::Constants::ID_MODE_HELP);
 
     const QVariant geometry = settings->value(QLatin1String("geometry"));
@@ -145,7 +145,7 @@ ExternalHelpWindow::ExternalHelpWindow(QWidget *parent)
         tr("Show Sidebar"), this);
     connect(action, SIGNAL(triggered()), this, SIGNAL(showHideSidebar()));
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     reset->setShortcut(QKeySequence(Qt::ALT + Qt::Key_0));
     action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_0));
     ctrlTab->setShortcut(QKeySequence(Qt::ALT + Qt::Key_Tab));
@@ -180,7 +180,7 @@ ExternalHelpWindow::~ExternalHelpWindow()
 
 void ExternalHelpWindow::closeEvent(QCloseEvent *event)
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(Help::Constants::ID_MODE_HELP);
     settings->setValue(QLatin1String("geometry"), saveGeometry());
     settings->endGroup();
@@ -195,7 +195,7 @@ bool ExternalHelpWindow::eventFilter(QObject *obj, QEvent *event)
             QKeyEvent *keyEvent = static_cast<QKeyEvent*> (event);
             switch (keyEvent->key()) {
                 case Qt::Key_Escape:
-                    Core::ICore::instance()->mainWindow()->activateWindow();
+                    Core::ICore::mainWindow()->activateWindow();
                 default:
                     break;
             }

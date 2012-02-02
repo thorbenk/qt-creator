@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -118,7 +118,7 @@ bool QtDesignerFormClassCodeGenerator::generateCpp(const FormClassWizardParamete
                                                    QString *header, QString *source, int indentation)
 {
     Internal::FormClassWizardGenerationParameters generationParameters;
-    generationParameters.fromSettings(Core::ICore::instance()->settings());
+    generationParameters.fromSettings(Core::ICore::settings());
 
     const QString indent = QString(indentation, QLatin1Char(' '));
     QString formBaseClass;

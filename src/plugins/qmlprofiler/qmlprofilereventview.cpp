@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -86,7 +86,7 @@ QmlProfilerEventsWidget::QmlProfilerEventsWidget(QmlJsDebugClient::QmlProfilerEv
 
     m_eventTree = new QmlProfilerEventsMainView(model, this);
     m_eventTree->setViewType(QmlProfilerEventsMainView::EventsView);
-    connect(m_eventTree, SIGNAL(gotoSourceLocation(QString,int)), this, SIGNAL(gotoSourceLocation(QString,int)));
+    connect(m_eventTree, SIGNAL(gotoSourceLocation(QString,int,int)), this, SIGNAL(gotoSourceLocation(QString,int,int)));
     connect(m_eventTree, SIGNAL(showEventInTimeline(int)), this, SIGNAL(showEventInTimeline(int)));
 
     m_eventChildren = new QmlProfilerEventsParentsAndChildrenView(model, QmlProfilerEventsParentsAndChildrenView::ChildrenView, this);
@@ -181,8 +181,12 @@ void QmlProfilerEventsWidget::updateSelectedEvent(int eventId) const
         m_eventTree->selectEvent(eventId);
 }
 
-void QmlProfilerEventsWidget::selectBySourceLocation(const QString &filename, int line)
+void QmlProfilerEventsWidget::selectBySourceLocation(const QString &filename, int line, int column)
 {
+    // This slot is used to connect the javascript pane with the qml events pane
+    // Our javascript trace data does not store column information
+    // thus we ignore it here
+    Q_UNUSED(column);
     m_eventTree->selectEventByLocation(filename, line);
 }
 
@@ -212,6 +216,8 @@ public:
     QStandardItemModel *m_model;
     QList<bool> m_fieldShown;
     int m_firstNumericColumn;
+    int m_detailsColumn;
+    bool m_preventSelectBounce;
 };
 
 
@@ -235,6 +241,8 @@ QmlProfilerEventsMainView::QmlProfilerEventsMainView(QmlProfilerEventList *model
     setEventStatisticsModel(model);
 
     d->m_firstNumericColumn = 0;
+    d->m_detailsColumn = 0;
+    d->m_preventSelectBounce = false;
 
     // default view
     setViewType(EventsView);
@@ -248,11 +256,15 @@ QmlProfilerEventsMainView::~QmlProfilerEventsMainView()
 
 void QmlProfilerEventsMainView::setEventStatisticsModel( QmlProfilerEventList *model )
 {
-    if (d->m_eventStatistics)
+    if (d->m_eventStatistics) {
         disconnect(d->m_eventStatistics,SIGNAL(dataReady()),this,SLOT(buildModel()));
+        disconnect(d->m_eventStatistics,SIGNAL(detailsChanged(int,QString)),this,SLOT(changeDetailsForEvent(int,QString)));
+    }
     d->m_eventStatistics = model;
-    if (model)
+    if (model) {
         connect(d->m_eventStatistics,SIGNAL(dataReady()),this,SLOT(buildModel()));
+        connect(d->m_eventStatistics,SIGNAL(detailsChanged(int,QString)),this,SLOT(changeDetailsForEvent(int,QString)));
+    }
 }
 
 void QmlProfilerEventsMainView::setFieldViewable(Fields field, bool show)
@@ -340,8 +352,10 @@ void QmlProfilerEventsMainView::setHeaderLabels()
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Longest Time")));
     if (d->m_fieldShown[MinTime])
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Shortest Time")));
-    if (d->m_fieldShown[Details])
+    if (d->m_fieldShown[Details]) {
+        d->m_detailsColumn = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Details")));
+    }
 }
 
 void QmlProfilerEventsMainView::clear()
@@ -453,8 +467,9 @@ void QmlProfilerEventsMainView::QmlProfilerEventsMainViewPrivate::buildModelFrom
 
             // metadata
             newRow.at(0)->setData(QVariant(binding->eventHashStr),EventHashStrRole);
-            newRow.at(0)->setData(QVariant(binding->filename),FilenameRole);
-            newRow.at(0)->setData(QVariant(binding->line),LineRole);
+            newRow.at(0)->setData(QVariant(binding->location.filename),FilenameRole);
+            newRow.at(0)->setData(QVariant(binding->location.line),LineRole);
+            newRow.at(0)->setData(QVariant(binding->location.column),ColumnRole);
             newRow.at(0)->setData(QVariant(binding->eventId),EventIdRole);
 
             // append
@@ -507,6 +522,7 @@ void QmlProfilerEventsMainView::QmlProfilerEventsMainViewPrivate::buildV8ModelFr
             newRow.at(0)->setData(QString("%1:%2").arg(v8event->filename, QString::number(v8event->line)), EventHashStrRole);
             newRow.at(0)->setData(QVariant(v8event->filename), FilenameRole);
             newRow.at(0)->setData(QVariant(v8event->line), LineRole);
+            newRow.at(0)->setData(QVariant(0),ColumnRole); // v8 events have no column info
             newRow.at(0)->setData(QVariant(v8event->eventId), EventIdRole);
 
             // append
@@ -560,6 +576,10 @@ int QmlProfilerEventsMainView::selectedEventId() const
 
 void QmlProfilerEventsMainView::jumpToItem(const QModelIndex &index)
 {
+    if (d->m_preventSelectBounce)
+        return;
+
+    d->m_preventSelectBounce = true;
     QStandardItem *clickedItem = d->m_model->itemFromIndex(index);
     QStandardItem *infoItem;
     if (clickedItem->parent())
@@ -569,9 +589,10 @@ void QmlProfilerEventsMainView::jumpToItem(const QModelIndex &index)
 
     // show in editor
     int line = infoItem->data(LineRole).toInt();
+    int column = infoItem->data(ColumnRole).toInt();
     QString fileName = infoItem->data(FilenameRole).toString();
     if (line!=-1 && !fileName.isEmpty())
-        emit gotoSourceLocation(fileName, line);
+        emit gotoSourceLocation(fileName, line, column);
 
     // show in callers/callees subwindow
     emit eventSelected(infoItem->data(EventIdRole).toInt());
@@ -580,6 +601,8 @@ void QmlProfilerEventsMainView::jumpToItem(const QModelIndex &index)
     if (d->m_viewType == EventsView) {
         emit showEventInTimeline(infoItem->data(EventIdRole).toInt());
     }
+
+    d->m_preventSelectBounce = false;
 }
 
 void QmlProfilerEventsMainView::selectEvent(int eventId)
@@ -596,6 +619,9 @@ void QmlProfilerEventsMainView::selectEvent(int eventId)
 
 void QmlProfilerEventsMainView::selectEventByLocation(const QString &filename, int line)
 {
+    if (d->m_preventSelectBounce)
+        return;
+
     for (int i=0; i<d->m_model->rowCount(); i++) {
         QStandardItem *infoItem = d->m_model->item(i, 0);
         if (currentIndex() != d->m_model->indexFromItem(infoItem) && infoItem->data(FilenameRole).toString() == filename && infoItem->data(LineRole).toInt() == line) {
@@ -613,6 +639,22 @@ QModelIndex QmlProfilerEventsMainView::selectedItem() const
         return QModelIndex();
     else
         return sel.first();
+}
+
+void QmlProfilerEventsMainView::changeDetailsForEvent(int eventId, const QString &newString)
+{
+    // available only for QML
+    if (d->m_viewType != EventsView)
+        return;
+
+    for (int i=0; i<d->m_model->rowCount(); i++) {
+        QStandardItem *infoItem = d->m_model->item(i, 0);
+        if (infoItem->data(EventIdRole).toInt() == eventId) {
+            d->m_model->item(i,d->m_detailsColumn)->setData(QVariant(newString),Qt::DisplayRole);
+            d->m_model->item(i,d->m_detailsColumn)->setData(QVariant(newString));
+            return;
+        }
+    }
 }
 
 QString QmlProfilerEventsMainView::QmlProfilerEventsMainViewPrivate::textForItem(QStandardItem *item, bool recursive = true) const

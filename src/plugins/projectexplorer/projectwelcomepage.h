@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -94,7 +94,7 @@ public:
     ProjectWelcomePage();
 
     void facilitateQml(QDeclarativeEngine *engine);
-    QUrl pageLocation() const { return QUrl::fromLocalFile(Core::ICore::instance()->resourcePath() + QLatin1String("/welcomescreen/develop.qml")); }
+    QUrl pageLocation() const { return QUrl::fromLocalFile(Core::ICore::resourcePath() + QLatin1String("/welcomescreen/develop.qml")); }
     QWidget *page() { return 0; }
     QString title() const { return tr("Develop"); }
     int priority() const { return 20; }

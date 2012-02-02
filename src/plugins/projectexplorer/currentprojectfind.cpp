@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -69,20 +69,20 @@ QString CurrentProjectFind::displayName() const
 
 bool CurrentProjectFind::isEnabled() const
 {
-    return m_plugin->currentProject() != 0 && BaseFileFind::isEnabled();
+    return ProjectExplorerPlugin::currentProject() != 0 && BaseFileFind::isEnabled();
 }
 
 QVariant CurrentProjectFind::additionalParameters() const
 {
-    if (m_plugin->currentProject() && m_plugin->currentProject()->file())
-        return qVariantFromValue(m_plugin->currentProject()->file()->fileName());
+    Project *project = ProjectExplorerPlugin::currentProject();
+    if (project && project->file())
+        return qVariantFromValue(project->file()->fileName());
     return QVariant();
 }
 
 Utils::FileIterator *CurrentProjectFind::files(const QStringList &nameFilters,
                            const QVariant &additionalParameters) const
 {
-    QTC_ASSERT(m_plugin->session(), return new Utils::FileIterator());
     QTC_ASSERT(additionalParameters.isValid(), return new Utils::FileIterator());
     QList<Project *> allProjects = m_plugin->session()->projects();
     QString projectFile = additionalParameters.toString();
@@ -95,8 +95,8 @@ Utils::FileIterator *CurrentProjectFind::files(const QStringList &nameFilters,
 
 QString CurrentProjectFind::label() const
 {
-    QTC_ASSERT(m_plugin->currentProject(), return QString());
-    return tr("Project '%1':").arg(m_plugin->currentProject()->displayName());
+    QTC_ASSERT(ProjectExplorerPlugin::currentProject(), return QString());
+    return tr("Project '%1':").arg(ProjectExplorerPlugin::currentProject()->displayName());
 }
 
 void CurrentProjectFind::handleProjectChanged()

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -77,7 +77,7 @@ Core::IFile *FormEditorFactory::open(const QString &fileName)
     if (!iface)
         return 0;
     if (qobject_cast<FormWindowEditor *>(iface)) {
-        Core::InfoBarEntry info(Constants::INFO_READ_ONLY,
+        Core::InfoBarEntry info(QLatin1String(Constants::INFO_READ_ONLY),
                                 tr("This file can only be edited in <b>Design</b> mode."));
         info.setCustomButtonInfo(tr("Switch mode"), this, SLOT(designerModeClicked()));
         iface->file()->infoBar()->addInfo(info);
@@ -98,7 +98,7 @@ QStringList FormEditorFactory::mimeTypes() const
 
 void FormEditorFactory::designerModeClicked()
 {
-    Core::ModeManager::instance()->activateMode(QLatin1String(Core::Constants::MODE_DESIGN));
+    Core::ModeManager::activateMode(QLatin1String(Core::Constants::MODE_DESIGN));
 }
 
 } // namespace Internal

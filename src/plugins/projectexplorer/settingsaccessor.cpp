@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -323,6 +323,22 @@ public:
     QVariantMap update(Project *project, const QVariantMap &map);
 };
 
+// Version 10 introduces disabling buildsteps, and handles upgrading custom process steps
+class Version10Handler : public UserFileVersionHandler
+{
+public:
+    int userFileVersion() const
+    {
+        return 10;
+    }
+
+    QString displayUserFileVersion() const
+    {
+        return QLatin1String("2.5pre1");
+    }
+
+    QVariantMap update(Project *project, const QVariantMap &map);
+};
 
 } // namespace
 
@@ -411,6 +427,7 @@ SettingsAccessor::SettingsAccessor() :
     addVersionHandler(new Version7Handler);
     addVersionHandler(new Version8Handler);
     addVersionHandler(new Version9Handler);
+    addVersionHandler(new Version10Handler);
 }
 
 SettingsAccessor::~SettingsAccessor()
@@ -536,7 +553,7 @@ QVariantMap SettingsAccessor::restoreSettings(Project *project) const
     if (settings.isValid()) {
         if (settings.m_version > SettingsAccessor::instance()->m_lastVersion + 1) {
             QMessageBox::information(
-                Core::ICore::instance()->mainWindow(),
+                Core::ICore::mainWindow(),
                 QApplication::translate("ProjectExplorer::SettingsAccessor",
                                         "Using Old Project Settings File"),
                 QApplication::translate("ProjectExplorer::SettingsAccessor",
@@ -567,7 +584,7 @@ QVariantMap SettingsAccessor::restoreSettings(Project *project) const
                                         "environment. \n\n"
                                         "Do you still want to load the settings file?"),
                 QMessageBox::Yes | QMessageBox::No,
-                Core::ICore::instance()->mainWindow());
+                Core::ICore::mainWindow());
             msgBox.setDefaultButton(QMessageBox::No);
             msgBox.setEscapeButton(QMessageBox::No);
             if (msgBox.exec() == QMessageBox::No)
@@ -613,7 +630,7 @@ QVariantMap SettingsAccessor::restoreSettings(Project *project) const
                                                     "If you choose not to continue Qt Creator will "
                                                     "not try to load the .shared file."),
                             QMessageBox::Yes | QMessageBox::No,
-                            Core::ICore::instance()->mainWindow());
+                            Core::ICore::mainWindow());
                 msgBox.setDefaultButton(QMessageBox::No);
                 msgBox.setEscapeButton(QMessageBox::No);
                 if (msgBox.exec() == QMessageBox::No)
@@ -875,7 +892,7 @@ bool SettingsAccessor::FileAccessor::writeFile(const Project *project,
     const QString &fileName = project->property(m_id).toString();
     return writer.save(fileName.isEmpty() ? assembleFileName(project) : fileName,
                        QLatin1String("QtCreatorProject"),
-                       Core::ICore::instance()->mainWindow());
+                       Core::ICore::mainWindow());
 }
 
 // -------------------------------------------------------------------------
@@ -2249,4 +2266,13 @@ QVariantMap Version9Handler::update(Project *project, const QVariantMap &map)
         result.insert(globalKey, newTargetMap);
     }
     return result;
+}
+
+QVariantMap Version10Handler::update(Project *project, const QVariantMap &map)
+{
+    Q_UNUSED(project);
+    QList<Change> changes;
+    changes.append(qMakePair(QLatin1String("ProjectExplorer.ProcessStep.Enabled"),
+                             QLatin1String("ProjectExplorer.BuildStep.Enabled")));
+    return renameKeys(changes, QVariantMap(map));
 }

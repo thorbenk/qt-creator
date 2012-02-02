@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (info@qt.nokia.com)
 **
@@ -261,7 +261,6 @@ WinCEToolChain::WinCEToolChain(const QString &name,
     Q_ASSERT(!m_includePath.isEmpty());
     Q_ASSERT(!m_libPath.isEmpty());
 
-    updateId();
     setDisplayName(name);
 }
 
@@ -279,7 +278,7 @@ WinCEToolChain *WinCEToolChain::readFromMap(const QVariantMap &data)
     return 0;
 }
 
-void WinCEToolChain::updateId()
+QString WinCEToolChain::legacyId() const
 {
     const QChar colon = QLatin1Char(':');
     QString id = QLatin1String(Constants::WINCE_TOOLCHAIN_ID);
@@ -292,11 +291,16 @@ void WinCEToolChain::updateId()
     id += colon;
     id += m_libPath;
     id += colon;
-    id += m_debuggerCommand;
-    setId(id);
+    id += m_debuggerCommand.toString();
+    return id;
 }
 
-QString WinCEToolChain::typeName() const
+QString WinCEToolChain::type() const
+{
+    return QLatin1String("wince");
+}
+
+QString WinCEToolChain::typeDisplayName() const
 {
     return WinCEToolChainFactory::tr("WinCE");
 }
@@ -327,7 +331,7 @@ QVariantMap WinCEToolChain::toMap() const
 {
     QVariantMap data = ToolChain::toMap();
     if (!m_debuggerCommand.isEmpty())
-        data.insert(QLatin1String(debuggerCommandKeyC), m_debuggerCommand);
+        data.insert(QLatin1String(debuggerCommandKeyC), m_debuggerCommand.toString());
 
     data.insert(QLatin1String(msvcVerKeyC), m_msvcVer);
     data.insert(QLatin1String(ceVerKeyC), m_ceVer);
@@ -352,10 +356,9 @@ bool WinCEToolChain::fromMap(const QVariantMap &data)
     m_libPath = data.value(QLatin1String(libPathKeyC)).toString();
     m_vcvarsBat = data.value(QLatin1String(vcVarsKeyC)).toString();
 
-    m_debuggerCommand = data.value(QLatin1String(debuggerCommandKeyC)).toString();
+    m_debuggerCommand = Utils::FileName::fromString(data.value(QLatin1String(debuggerCommandKeyC)).toString());
     const QString abiString = data.value(QLatin1String(supportedAbiKeyC)).toString();
     m_abi = Abi(abiString);
-    updateId();
 
     return isValid();
 }
@@ -461,6 +464,15 @@ QString WinCEToolChain::autoDetectCdbDebugger(QStringList *checkedDirectories /*
 bool WinCEToolChainFactory::canRestore(const QVariantMap &data)
 {
     return idFromMap(data).startsWith(QLatin1String(Constants::WINCE_TOOLCHAIN_ID) + QLatin1Char(':'));
+}
+
+bool WinCEToolChain::operator ==(const ToolChain &other) const
+{
+    if (!AbstractMsvcToolChain::operator ==(other))
+        return false;
+
+    const WinCEToolChain *ceTc = static_cast<const WinCEToolChain *>(&other);
+    return m_ceVer == ceTc->m_ceVer;
 }
 
 ToolChain *WinCEToolChainFactory::restore(const QVariantMap &data)

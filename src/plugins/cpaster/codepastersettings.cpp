@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -54,7 +54,7 @@ namespace CodePaster {
 
 CodePasterSettingsPage::CodePasterSettingsPage()
 {
-    m_settings = Core::ICore::instance()->settings();
+    m_settings = Core::ICore::settings();
     if (m_settings) {
         const QString keyRoot = QLatin1String(settingsGroupC) + QLatin1Char('/');
         m_host = m_settings->value(keyRoot + QLatin1String(serverKeyC), QString()).toString();

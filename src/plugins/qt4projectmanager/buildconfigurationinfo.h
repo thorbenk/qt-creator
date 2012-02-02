@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -34,6 +34,7 @@
 #define BUILDCONFIGURATIONINFO_H
 
 #include "qt4projectmanager_global.h"
+#include <coreplugin/featureprovider.h>
 #include <qtsupport/baseqtversion.h>
 
 namespace Qt4ProjectManager {
@@ -72,6 +73,7 @@ struct QT4PROJECTMANAGER_EXPORT BuildConfigurationInfo {
     static QList<BuildConfigurationInfo> importBuildConfigurations(const QString &proFilePath);
     static QList<BuildConfigurationInfo> checkForBuild(const QString &directory, const QString &proFilePath);
     static QList<BuildConfigurationInfo> filterBuildConfigurationInfos(const QList<BuildConfigurationInfo> &infos, const QString &id);
+    static QList<BuildConfigurationInfo> filterBuildConfigurationInfos(const QList<BuildConfigurationInfo> &infos, Core::FeatureSet features);
 };
 
 } // namespace Qt4ProjectManager

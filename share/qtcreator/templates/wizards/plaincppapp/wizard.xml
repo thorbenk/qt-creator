@@ -4,7 +4,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -39,7 +39,8 @@ leave room for the Qt 4 target page.
 -->
 <wizard version="1" kind="project"
         class="qt4project" firstpage="10"
-        id="R.Plain C++" category="I.Projects">
+        id="R.Plain C++" category="I.Projects"
+        featuresRequired="QtSupport.Wizards.FeatureGenericCppEntryPoint">
     <icon>console.png</icon>
     <description>Creates a plain C++ project using qmake, not using the Qt library.</description>
     <displayname>Plain C++ Project</displayname>;

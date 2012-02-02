@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -109,7 +109,7 @@ BauhausPlugin::BauhausPlugin() :
 BauhausPlugin::~BauhausPlugin()
 {
     delete m_designerCore;
-    Core::ICore::instance()->removeContextObject(m_context);
+    Core::ICore::removeContextObject(m_context);
 }
 
 ////////////////////////////////////////////////////
@@ -119,12 +119,10 @@ BauhausPlugin::~BauhausPlugin()
 ////////////////////////////////////////////////////
 bool BauhausPlugin::initialize(const QStringList & /*arguments*/, QString *errorMessage/* = 0*/) // =0;
 {
-    Core::ICore *core = Core::ICore::instance();
-
     const Core::Context switchContext(QmlDesigner::Constants::C_QMLDESIGNER,
         QmlJSEditor::Constants::C_QMLJSEDITOR_ID);
 
-    Core::ActionManager *am = core->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     QAction *switchAction = new QAction(tr("Switch Text/Design"), this);
     Core::Command *command = am->registerAction(switchAction, QmlDesigner::Constants::SWITCH_TEXT_DESIGN, switchContext);
@@ -148,7 +146,7 @@ bool BauhausPlugin::initialize(const QStringList & /*arguments*/, QString *error
     addAutoReleasedObject(new SettingsPage);
 
 
-    m_settings.fromSettings(core->settings());
+    m_settings.fromSettings(Core::ICore::settings());
 
     errorMessage->clear();
 
@@ -157,15 +155,14 @@ bool BauhausPlugin::initialize(const QStringList & /*arguments*/, QString *error
 
 void BauhausPlugin::createDesignModeWidget()
 {
-    Core::ICore *creatorCore = Core::ICore::instance();
-    Core::ActionManager *actionManager = creatorCore->actionManager();
-    m_editorManager = creatorCore->editorManager();
+    Core::ActionManager *actionManager = Core::ICore::actionManager();
+    m_editorManager = Core::ICore::editorManager();
     Core::ActionContainer *editMenu = actionManager->actionContainer(Core::Constants::M_EDIT);
 
     m_mainWidget = new DesignModeWidget;
 
     m_context = new DesignModeContext(m_mainWidget);
-    creatorCore->addContextObject(m_context);
+    Core::ICore::addContextObject(m_context);
     Core::Context qmlDesignerMainContext(Constants::C_QMLDESIGNER);
     Core::Context qmlDesignerFormEditorContext(Constants::C_QMLFORMEDITOR);
     Core::Context qmlDesignerNavigatorContext(Constants::C_QMLNAVIGATOR);
@@ -283,7 +280,7 @@ void BauhausPlugin::createDesignModeWidget()
     connect(m_editorManager, SIGNAL(editorsClosed(QList<Core::IEditor*>)),
             this, SLOT(textEditorsClosed(QList<Core::IEditor*>)));
 
-    connect(creatorCore, SIGNAL(contextChanged(Core::IContext*,Core::Context)),
+    connect(Core::ICore::instance(), SIGNAL(contextChanged(Core::IContext*,Core::Context)),
             this, SLOT(contextChanged(Core::IContext*,Core::Context)));
 
 }
@@ -291,7 +288,7 @@ void BauhausPlugin::createDesignModeWidget()
 void BauhausPlugin::updateEditor(Core::IEditor *editor)
 {
     if (editor && editor->id() == QmlJSEditor::Constants::C_QMLJSEDITOR_ID
-        && Core::ModeManager::instance()->currentMode() == m_designMode)
+        && Core::ModeManager::currentMode() == m_designMode)
     {
         m_mainWidget->showEditor(editor);
     }
@@ -374,18 +371,16 @@ BauhausPlugin *BauhausPlugin::pluginInstance()
 
 void BauhausPlugin::switchTextDesign()
 {
-    Core::ModeManager *modeManager = Core::ModeManager::instance();
     Core::EditorManager *editorManager = Core::EditorManager::instance();
     Core::IEditor *editor = editorManager->currentEditor();
 
-
-    if (modeManager->currentMode()->id() == Core::Constants::MODE_EDIT) {
+    if (Core::ModeManager::currentMode()->id() == Core::Constants::MODE_EDIT) {
         if (editor->id() == QmlJSEditor::Constants::C_QMLJSEDITOR_ID) {
-            modeManager->activateMode(Core::Constants::MODE_DESIGN);
+            Core::ModeManager::activateMode(Core::Constants::MODE_DESIGN);
             m_mainWidget->setFocus();
         }
-    } else if (modeManager->currentMode()->id() == Core::Constants::MODE_DESIGN) {
-        modeManager->activateMode(Core::Constants::MODE_EDIT);
+    } else if (Core::ModeManager::currentMode()->id() == Core::Constants::MODE_DESIGN) {
+        Core::ModeManager::activateMode(Core::Constants::MODE_EDIT);
     }
 }
 
@@ -398,7 +393,7 @@ void BauhausPlugin::setSettings(const DesignerSettings &s)
 {
     if (s != m_settings) {
         m_settings = s;
-        if (QSettings *settings = Core::ICore::instance()->settings())
+        if (QSettings *settings = Core::ICore::settings())
             m_settings.toSettings(settings);
     }
 }

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -41,6 +41,7 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/helpmanager.h>
 #include <qtsupport/qtversionmanager.h>
+#include <utils/qtcassert.h>
 
 #include <algorithm>
 
@@ -52,7 +53,10 @@ namespace QtSupport {
 namespace Internal {
 
 ExamplesListModel::ExamplesListModel(QObject *parent) :
-    QAbstractListModel(parent)
+    QAbstractListModel(parent),
+    m_updateOnQtVersionsChanged(false),
+    m_initialized(false),
+    m_helpInitialized(false)
 {
     QHash<int, QByteArray> roleNames;
     roleNames[Name] = "name";
@@ -71,10 +75,10 @@ ExamplesListModel::ExamplesListModel(QObject *parent) :
     roleNames[VideoLength] = "videoLength";
     setRoleNames(roleNames);
 
-    connect(QtVersionManager::instance(), SIGNAL(updateExamples(QString,QString,QString)),
-            SLOT(cacheExamplesPath(QString,QString,QString)));
     connect(Core::HelpManager::instance(), SIGNAL(setupFinished()),
             SLOT(helpInitialized()));
+    connect(QtVersionManager::instance(), SIGNAL(qtVersionsChanged(QList<int>)),
+            this, SLOT(handleQtVersionsChanged()));
 }
 
 static inline QString fixStringForTags(const QString &string)
@@ -223,30 +227,40 @@ QList<ExampleItem> ExamplesListModel::parseTutorials(QXmlStreamReader* reader, c
     return tutorials;
 }
 
-void ExamplesListModel::readNewsItems(const QString &examplesPath, const QString &demosPath, const QString & sourcePath)
+void ExamplesListModel::handleQtVersionsChanged()
+{
+    if (m_updateOnQtVersionsChanged)
+        updateExamples();
+}
+
+void ExamplesListModel::updateExamples()
 {
     clear();
-    foreach (const QString exampleSource, exampleSources()) {
+    QString examplesFallback;
+    QString demosFallback;
+    QString sourceFallback;
+    foreach (const QString &exampleSource,
+             exampleSources(&examplesFallback, &demosFallback, &sourceFallback)) {
         QFile exampleFile(exampleSource);
         if (!exampleFile.open(QIODevice::ReadOnly)) {
             qDebug() << Q_FUNC_INFO << "Could not open file" << exampleSource;
-            return;
+            continue;
         }
 
         QFileInfo fi(exampleSource);
         QString offsetPath = fi.path();
         QDir examplesDir(offsetPath);
         QDir demosDir(offsetPath);
-        if (offsetPath.startsWith(Core::ICore::instance()->resourcePath())) {
-            // Try to get dir from first Qt Version, based on the Qt source directory
-            // at first, since examplesPath / demosPath points at the build directory
-            examplesDir = sourcePath + QLatin1String("/examples");
-            demosDir = sourcePath + QLatin1String("/demos");
-            // SDK case, folders might be called sth else (e.g. 'Examples' with uppercase E)
-            // but examplesPath / demosPath is correct
+        if (!examplesFallback.isEmpty()) {
+            // Look at Qt source directory at first,
+            // since examplesPath() / demosPath() points at the build directory
+            examplesDir = sourceFallback + QLatin1String("/examples");
+            demosDir = sourceFallback + QLatin1String("/demos");
+            // if examples or demos don't exist in source, try the directories
+            // that qmake -query gave (i.e. in the build directory)
             if (!examplesDir.exists() || !demosDir.exists()) {
-                examplesDir = examplesPath;
-                demosDir = demosPath;
+                examplesDir = examplesFallback;
+                demosDir = demosFallback;
             }
         }
 
@@ -274,60 +288,81 @@ void ExamplesListModel::readNewsItems(const QString &examplesPath, const QString
     emit tagsUpdated();
 }
 
-QStringList ExamplesListModel::exampleSources() const
+QStringList ExamplesListModel::exampleSources(QString *examplesFallback, QString *demosFallback,
+                                              QString *sourceFallback)
 {
-    QFileInfoList sources;
-    const QStringList pattern(QLatin1String("*.xml"));
+    QTC_CHECK(examplesFallback);
+    QTC_CHECK(demosFallback);
+    QTC_CHECK(sourceFallback);
+    QStringList sources;
+    QString resourceDir = Core::ICore::resourcePath() + QLatin1String("/welcomescreen/");
+
+    // Qt Creator shipped tutorials
+    sources << (resourceDir + QLatin1String("/qtcreator_tutorials.xml"));
 
     // Read keys from SDK installer
-    QSettings *settings = Core::ICore::instance()->settings(QSettings::SystemScope);
+    QSettings *settings = Core::ICore::settings(QSettings::SystemScope);
     int size = settings->beginReadArray(QLatin1String("ExampleManifests"));
     for (int i = 0; i < size; ++i) {
         settings->setArrayIndex(i);
         sources.append(settings->value(QLatin1String("Location")).toString());
     }
     settings->endArray();
+    // if the installer set something, that's enough for us
+    if (size > 0)
+        return sources;
 
+    // try to find a suitable Qt version
+    m_updateOnQtVersionsChanged = true; // this must be updated when the qt versions change
+    // fallbacks are passed back if no example manifest is found
+    // and we fallback to Qt Creator's shipped manifest (e.g. only old Qt Versions found)
+    QString potentialExamplesFallback;
+    QString potentialDemosFallback;
+    QString potentialSourceFallback;
+    bool potentialFallbackHasDeclarative = false; // we prefer Qt's with declarative as fallback
+    const QStringList pattern(QLatin1String("*.xml"));
 
-    bool anyQtVersionHasExamplesFolder = false;
-    if (sources.isEmpty()) {
-        // Try to get dir from first Qt Version
-        QtVersionManager *versionManager = QtVersionManager::instance();
-        foreach (BaseQtVersion *version, versionManager->validVersions()) {
-            // There is no good solution for Qt 5 yet
-            if (version->qtVersion().majorVersion != 4)
-                continue;
+    QtVersionManager *versionManager = QtVersionManager::instance();
+    foreach (BaseQtVersion *version, versionManager->validVersions()) {
+        // There is no good solution for Qt 5 yet
+        if (version->qtVersion().majorVersion != 4)
+            continue;
 
-            QDir examplesDir(version->examplesPath());
-            if (examplesDir.exists()) {
-                sources << examplesDir.entryInfoList(pattern);
-                anyQtVersionHasExamplesFolder = true;
+        QFileInfoList fis;
+        if (version->hasExamples())
+            fis << QDir(version->examplesPath()).entryInfoList(pattern);
+        if (version->hasDemos())
+            fis << QDir(version->demosPath()).entryInfoList(pattern);
+        if (!fis.isEmpty()) {
+            foreach (const QFileInfo &fi, fis)
+                sources.append(fi.filePath());
+            return sources;
+        }
+        // check if this Qt version would be the preferred fallback
+        if (version->hasExamples() && version->hasDemos()) { // cached, so no performance hit
+            bool hasDeclarative = QDir(version->examplesPath() + QLatin1String("/declarative")).exists();
+            if (potentialExamplesFallback.isEmpty()
+                    || (!potentialFallbackHasDeclarative && hasDeclarative)) {
+                potentialFallbackHasDeclarative = hasDeclarative;
+                potentialExamplesFallback = version->examplesPath();
+                potentialDemosFallback = version->demosPath();
+                potentialSourceFallback = version->sourcePath().toString();
             }
-
-            QDir demosDir(version->demosPath());
-            if (demosDir.exists())
-                sources << demosDir.entryInfoList(pattern);
-
-            if (!sources.isEmpty())
-                break;
         }
     }
 
-    QString resourceDir = Core::ICore::instance()->resourcePath() + QLatin1String("/welcomescreen/");
-
-    // Try Creator-provided XML file only
-    if (sources.isEmpty() && anyQtVersionHasExamplesFolder) {
+    if (!potentialExamplesFallback.isEmpty()) {
+        // We didn't find a manifest, use Creator-provided XML file with fall back Qt version
         // qDebug() << Q_FUNC_INFO << "falling through to Creator-provided XML file";
         sources << QString(resourceDir + QLatin1String("/examples_fallback.xml"));
+        if (examplesFallback)
+            *examplesFallback = potentialExamplesFallback;
+        if (demosFallback)
+            *demosFallback = potentialDemosFallback;
+        if (sourceFallback)
+            *sourceFallback = potentialSourceFallback;
     }
-
-    sources <<  QString(resourceDir + QLatin1String("/qtcreator_tutorials.xml"));
-
-    QStringList ret;
-    foreach (const QFileInfo& source, sources)
-        ret.append(source.filePath());
-
-    return ret;
+    return sources;
 }
 
 void ExamplesListModel::clear()
@@ -349,12 +384,13 @@ void ExamplesListModel::addItems(const QList<ExampleItem> &newItems)
 
 int ExamplesListModel::rowCount(const QModelIndex &) const
 {
+    ensureInitialized();
     return exampleItems.size();
 }
 
 QVariant ExamplesListModel::data(const QModelIndex &index, int role) const
 {
-
+    ensureInitialized();
     if (!index.isValid() || index.row()+1 > exampleItems.count()) {
         qDebug() << Q_FUNC_INFO << "invalid index requested";
         return QVariant();
@@ -400,24 +436,33 @@ QVariant ExamplesListModel::data(const QModelIndex &index, int role) const
 
 }
 
-void ExamplesListModel::cacheExamplesPath(const QString &examplesPath, const QString &demosPath, const QString &sourcePath)
+QStringList ExamplesListModel::tags() const
 {
-    m_cache = QMakePathCache(examplesPath, demosPath, sourcePath);
+    ensureInitialized();
+    return m_tags;
 }
 
 void ExamplesListModel::helpInitialized()
 {
-    disconnect(this, SLOT(cacheExamplesPath(QString, QString, QString)));
-    connect(QtVersionManager::instance(), SIGNAL(updateExamples(QString,QString,QString)),
-            SLOT(readNewsItems(QString,QString,QString)));
-    readNewsItems(m_cache.examplesPath, m_cache.demosPath, m_cache.sourcePath);
+    m_helpInitialized = true;
+    if (m_initialized) // if we are already initialized we need to update nevertheless
+        updateExamples();
 }
 
+void ExamplesListModel::ensureInitialized() const
+{
+    if (m_initialized || !m_helpInitialized)
+        return;
+    ExamplesListModel *that = const_cast<ExamplesListModel *>(this);
+    that->m_initialized = true;
+    that->updateExamples();
+}
 
-ExamplesListModelFilter::ExamplesListModelFilter(QObject *parent) :
-    QSortFilterProxyModel(parent), m_showTutorialsOnly(true)
+ExamplesListModelFilter::ExamplesListModelFilter(ExamplesListModel *sourceModel, QObject *parent) :
+    QSortFilterProxyModel(parent), m_showTutorialsOnly(true), m_sourceModel(sourceModel)
 {
     connect(this, SIGNAL(showTutorialsOnlyChanged()), SLOT(updateFilter()));
+    setSourceModel(m_sourceModel);
 }
 
 void ExamplesListModelFilter::updateFilter()
@@ -483,6 +528,18 @@ bool ExamplesListModelFilter::filterAcceptsRow(int sourceRow, const QModelIndex 
         return false;
 
     return true;
+}
+
+int ExamplesListModelFilter::rowCount(const QModelIndex &parent) const
+{
+    m_sourceModel->ensureInitialized();
+    return QSortFilterProxyModel::rowCount(parent);
+}
+
+QVariant ExamplesListModelFilter::data(const QModelIndex &index, int role) const
+{
+    m_sourceModel->ensureInitialized();
+    return QSortFilterProxyModel::data(index, role);
 }
 
 void ExamplesListModelFilter::setShowTutorialsOnly(bool showTutorialsOnly)

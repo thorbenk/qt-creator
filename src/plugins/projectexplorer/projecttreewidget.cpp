@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -77,11 +77,11 @@ public:
         m_context = new Core::IContext(this);
         m_context->setContext(Core::Context(Constants::C_PROJECT_TREE));
         m_context->setWidget(this);
-        Core::ICore::instance()->addContextObject(m_context);
+        Core::ICore::addContextObject(m_context);
     }
     ~ProjectTreeView()
     {
-        Core::ICore::instance()->removeContextObject(m_context);
+        Core::ICore::removeContextObject(m_context);
         delete m_context;
     }
 
@@ -263,7 +263,7 @@ void ProjectTreeWidget::setAutoSynchronization(bool sync, bool syncNow)
         connect(m_explorer, SIGNAL(currentNodeChanged(ProjectExplorer::Node*, ProjectExplorer::Project*)),
                 this, SLOT(setCurrentItem(ProjectExplorer::Node*, ProjectExplorer::Project*)));
         if (syncNow)
-            setCurrentItem(m_explorer->currentNode(), m_explorer->currentProject());
+            setCurrentItem(m_explorer->currentNode(), ProjectExplorerPlugin::currentProject());
     } else {
         disconnect(m_explorer, SIGNAL(currentNodeChanged(ProjectExplorer::Node*, ProjectExplorer::Project*)),
                 this, SLOT(setCurrentItem(ProjectExplorer::Node*, ProjectExplorer::Project*)));
@@ -354,7 +354,7 @@ void ProjectTreeWidget::initView()
     for (int i = 0; i < m_model->rowCount(sessionIndex); ++i)
         m_view->expand(m_model->index(i, 0, sessionIndex));
 
-    setCurrentItem(m_explorer->currentNode(), m_explorer->currentProject());
+    setCurrentItem(m_explorer->currentNode(), ProjectExplorerPlugin::currentProject());
 }
 
 void ProjectTreeWidget::openItem(const QModelIndex &mainIndex)
@@ -440,7 +440,7 @@ void ProjectTreeWidgetFactory::saveSettings(int position, QWidget *widget)
 {
     ProjectTreeWidget *ptw = qobject_cast<ProjectTreeWidget *>(widget);
     Q_ASSERT(ptw);
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     const QString baseKey = QLatin1String("ProjectTreeWidget.") + QString::number(position);
     settings->setValue(baseKey + QLatin1String(".ProjectFilter"), ptw->projectFilter());
     settings->setValue(baseKey + QLatin1String(".GeneratedFilter"), ptw->generatedFilesFilter());
@@ -451,7 +451,7 @@ void ProjectTreeWidgetFactory::restoreSettings(int position, QWidget *widget)
 {
     ProjectTreeWidget *ptw = qobject_cast<ProjectTreeWidget *>(widget);
     Q_ASSERT(ptw);
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     const QString baseKey = QLatin1String("ProjectTreeWidget.") + QString::number(position);
     ptw->setProjectFilter(settings->value(baseKey + QLatin1String(".ProjectFilter"), false).toBool());
     ptw->setGeneratedFilesFilter(settings->value(baseKey + QLatin1String(".GeneratedFilter"), true).toBool());

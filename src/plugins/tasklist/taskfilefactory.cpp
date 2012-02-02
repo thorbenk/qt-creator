@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -73,8 +73,7 @@ QString TaskFileFactory::displayName() const
 
 Core::IFile *TaskFileFactory::open(const QString &fileName)
 {
-    ProjectExplorer::Project * context =
-        ProjectExplorer::ProjectExplorerPlugin::instance()->currentProject();
+    ProjectExplorer::Project *context = ProjectExplorer::ProjectExplorerPlugin::currentProject();
     return open(context, fileName);
 }
 
@@ -85,7 +84,7 @@ Core::IFile *TaskFileFactory::open(ProjectExplorer::Project *context, const QStr
 
     QString errorString;
     if (!file->open(&errorString, fileName)) {
-        QMessageBox::critical(Core::ICore::instance()->mainWindow(), tr("File Error"), errorString);
+        QMessageBox::critical(Core::ICore::mainWindow(), tr("File Error"), errorString);
         delete file;
         return 0;
     }
@@ -93,7 +92,7 @@ Core::IFile *TaskFileFactory::open(ProjectExplorer::Project *context, const QStr
     m_openFiles.append(file);
 
     // Register with filemanager:
-    Core::ICore::instance()->fileManager()->addFile(file);
+    Core::FileManager::addFile(file);
 
     return file;
 }

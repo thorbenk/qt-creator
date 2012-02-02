@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -160,9 +160,10 @@ ProjectExplorer::IBuildConfigurationFactory *AbstractQt4MaemoTarget::buildConfig
     return m_buildConfigurationFactory;
 }
 
-void AbstractQt4MaemoTarget::createApplicationProFiles()
+void AbstractQt4MaemoTarget::createApplicationProFiles(bool reparse)
 {
-    removeUnconfiguredCustomExectutableRunConfigurations();
+    if (!reparse)
+        removeUnconfiguredCustomExectutableRunConfigurations();
 
     QList<Qt4ProFileNode *> profiles = qt4Project()->applicationProFiles();
     QSet<QString> paths;
@@ -284,7 +285,7 @@ void AbstractQt4MaemoTarget::handleTargetAdded(ProjectExplorer::Target *target)
         if (!files.isEmpty()) {
             const QString list = QLatin1String("<ul><li>") + files.join(QLatin1String("</li><li>"))
                 + QLatin1String("</li></ul>");
-            QMessageBox::StandardButton button = QMessageBox::question(Core::ICore::instance()->mainWindow(),
+            QMessageBox::StandardButton button = QMessageBox::question(Core::ICore::mainWindow(),
                 tr("Add Packaging Files to Project"),
                 tr("<html>Qt Creator has set up the following files to enable "
                    "packaging:\n   %1\nDo you want to add them to the project?</html>")
@@ -306,8 +307,7 @@ void AbstractQt4MaemoTarget::handleTargetToBeRemoved(ProjectExplorer::Target *ta
     if (!targetCanBeRemoved())
         return;
 
-    Core::ICore * const core = Core::ICore::instance();
-    const int answer = QMessageBox::warning(core->mainWindow(),
+    const int answer = QMessageBox::warning(Core::ICore::mainWindow(),
         tr("Qt Creator"), tr("Do you want to remove the packaging file(s) "
            "associated with the target '%1'?").arg(displayName()),
         QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
@@ -317,7 +317,7 @@ void AbstractQt4MaemoTarget::handleTargetToBeRemoved(ProjectExplorer::Target *ta
     if (!pkgFilePaths.isEmpty()) {
         project()->rootProjectNode()->removeFiles(ProjectExplorer::UnknownFileType,
             pkgFilePaths);
-        Core::IVersionControl * const vcs = core->vcsManager()
+        Core::IVersionControl * const vcs = Core::ICore::vcsManager()
             ->findVersionControlForDirectory(QFileInfo(pkgFilePaths.first()).dir().path());
         if (vcs && vcs->supportsOperation(Core::IVersionControl::DeleteOperation)) {
             foreach (const QString &filePath, pkgFilePaths)
@@ -456,7 +456,7 @@ bool AbstractDebBasedQt4MaemoTarget::setProjectVersionInternal(const QString &ve
         .arg(utcOffsetMinutes, 2, 10, QLatin1Char('0'));
     const QString maintainerLine = content.mid(maintainerOffset, eolOffset - maintainerOffset + 1)
         .replace(QRegExp(QLatin1String(">  [^\\n]*\n")),
-                 QString::fromLocal8Bit(">  %1").arg(dateString));
+                 QString::fromLatin1(">  %1").arg(dateString));
     QString versionLine = content.left(content.indexOf(QLatin1Char('\n')))
         .replace(QRegExp(QLatin1String("\\([a-zA-Z0-9_\\.]+\\)")),
                  QLatin1Char('(') + version + QLatin1Char(')'));
@@ -719,7 +719,7 @@ void AbstractDebBasedQt4MaemoTarget::handleTargetAddedSpecial()
     connect(m_controlFile, SIGNAL(modified()), SIGNAL(controlChanged()));
     m_changeLogFile = new WatchableFile(changeLogFilePath(), this);
     connect(m_changeLogFile, SIGNAL(modified()), SIGNAL(changeLogChanged()));
-    Core::FileManager::instance()->addFiles(QList<Core::IFile *>()
+    Core::FileManager::addFiles(QList<Core::IFile *>()
         << m_controlFile << m_changeLogFile);
     connect(m_filesWatcher, SIGNAL(directoryChanged(QString)), this,
         SLOT(handleDebianDirContentsChanged()));
@@ -1068,7 +1068,7 @@ void AbstractRpmBasedQt4MaemoTarget::handleTargetAddedSpecial()
 {
     m_specFile = new WatchableFile(specFilePath(), this);
     connect(m_specFile, SIGNAL(modified()), SIGNAL(specFileChanged()));
-    Core::FileManager::instance()->addFile(m_specFile);
+    Core::FileManager::addFile(m_specFile);
     emit specFileChanged();
 }
 
@@ -1187,7 +1187,7 @@ void Qt4HarmattanTarget::handleTargetAddedSpecial()
         return;
 
     Utils::FileReader reader;
-    if (!reader.fetch(Core::ICore::instance()->resourcePath()
+    if (!reader.fetch(Core::ICore::resourcePath()
             + QLatin1String("/templates/shared/") + aegisManifestFileName())) {
         qDebug("Reading manifest template failed.");
         return;

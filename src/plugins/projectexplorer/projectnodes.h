@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -77,6 +77,7 @@ class FolderNode;
 class ProjectNode;
 class NodesWatcher;
 class NodesVisitor;
+class SessionManager;
 
 // Documentation inside.
 class PROJECTEXPLORER_EXPORT Node : public QObject {
@@ -245,8 +246,9 @@ private:
 // Documentation inside.
 class PROJECTEXPLORER_EXPORT SessionNode : public FolderNode {
     Q_OBJECT
+    friend class SessionManager;
 public:
-    SessionNode(const QString &sessionFilePath, QObject *parentObject);
+    SessionNode(QObject *parentObject);
 
     QList<ProjectNode*> projectNodes() const;
 

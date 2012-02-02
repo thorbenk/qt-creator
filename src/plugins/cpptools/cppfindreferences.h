@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -43,6 +43,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QFuture>
 #include <QtCore/QFutureWatcher>
+#include <QtCore/QMetaType>
 
 QT_FORWARD_DECLARE_CLASS(QTimer)
 
@@ -57,6 +58,13 @@ class CppModelManagerInterface;
 
 namespace CppTools {
 namespace Internal {
+
+class CppFindReferencesParameters
+{
+public:
+    CPlusPlus::LookupContext context;
+    CPlusPlus::Symbol *symbol;
+};
 
 class CppFindReferences: public QObject
 {
@@ -83,13 +91,17 @@ private Q_SLOTS:
     void cancel();
     void openEditor(const Find::SearchResultItem &item);
     void onReplaceButtonClicked(const QString &text, const QList<Find::SearchResultItem> &items);
+    void searchAgain();
 
 private:
-    void findAll_helper(Find::SearchResult *search,
-                        CPlusPlus::Symbol *symbol, const CPlusPlus::LookupContext &context);
+    void findUsages(CPlusPlus::Symbol *symbol, const CPlusPlus::LookupContext &context,
+                    const QString &replacement, bool replace);
+    void findAll_helper(Find::SearchResult *search);
     CPlusPlus::DependencyTable dependencyTable() const;
     void setDependencyTable(const CPlusPlus::DependencyTable &newTable);
     void createWatcher(const QFuture<CPlusPlus::Usage> &future, Find::SearchResult *search);
+    bool findSymbol(CppFindReferencesParameters *parameters,
+                    const CPlusPlus::Snapshot &snapshot);
 
 private:
     QPointer<CPlusPlus::CppModelManagerInterface> _modelManager;
@@ -101,5 +113,7 @@ private:
 
 } // namespace Internal
 } // namespace CppTools
+
+Q_DECLARE_METATYPE(CppTools::Internal::CppFindReferencesParameters)
 
 #endif // CPPFINDREFERENCES_H

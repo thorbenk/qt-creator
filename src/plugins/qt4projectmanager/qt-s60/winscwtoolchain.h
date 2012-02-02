@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -52,8 +52,10 @@ public:
     WinscwToolChain(const WinscwToolChain &);
     ~WinscwToolChain();
 
-    QString typeName() const;
+    QString type() const;
+    QString typeDisplayName() const;
     ProjectExplorer::Abi targetAbi() const;
+    QString legacyId() const;
 
     bool isValid() const;
 
@@ -63,7 +65,8 @@ public:
     void addToEnvironment(Utils::Environment &env) const;
     Utils::FileName mkspec() const;
     QString makeCommand() const;
-    virtual QString debuggerCommand() const;
+    Utils::FileName compilerCommand() const;
+    Utils::FileName debuggerCommand() const;
     QString defaultMakeTarget() const;
     ProjectExplorer::IOutputParser *outputParser() const;
 
@@ -81,17 +84,14 @@ public:
     void setSystemLibraryPathes(const QStringList &);
     QStringList systemLibraryPathes() const;
 
-    void setCompilerPath(const QString &);
-    QString compilerPath() const;
+    void setCompilerCommand(const Utils::FileName &);
 
 private:
-    void updateId();
-
     explicit WinscwToolChain(bool);
 
     QStringList m_systemIncludePathes;
     QStringList m_systemLibraryPathes;
-    QString m_compilerPath;
+    Utils::FileName m_compilerPath;
 
     friend class WinscwToolChainFactory;
 };

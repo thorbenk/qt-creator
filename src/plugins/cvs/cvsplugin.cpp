@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -246,12 +246,11 @@ bool CvsPlugin::initialize(const QStringList &arguments, QString *errorMessage)
     initializeVcs(new CvsControl(this));
 
     m_cvsPluginInstance = this;
-    ICore *core = ICore::instance();
 
-    if (!core->mimeDatabase()->addMimeTypes(QLatin1String(":/trolltech.cvs/CVS.mimetypes.xml"), errorMessage))
+    if (!ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/trolltech.cvs/CVS.mimetypes.xml"), errorMessage))
         return false;
 
-    if (QSettings *settings = core->settings())
+    if (QSettings *settings = ICore::settings())
         m_settings.fromSettings(settings);
 
     addAutoReleasedObject(new SettingsPage);
@@ -270,7 +269,7 @@ bool CvsPlugin::initialize(const QStringList &arguments, QString *errorMessage)
     addAutoReleasedObject(m_commandLocator);
 
     // Register actions
-    ActionManager *ami = core->actionManager();
+    ActionManager *ami = ICore::actionManager();
     ActionContainer *toolsContainer = ami->actionContainer(M_TOOLS);
 
     ActionContainer *cvsMenu = ami->createMenu(Id(CMD_ID_CVS_MENU));
@@ -505,7 +504,7 @@ bool CvsPlugin::submitEditorAboutToClose(VcsBaseSubmitEditor *submitEditor)
     bool closeEditor = true;
     if (!fileList.empty()) {
         // get message & commit
-        closeEditor = ICore::instance()->fileManager()->saveFile(fileIFace);
+        closeEditor = FileManager::saveFile(fileIFace);
         if (closeEditor)
             closeEditor = commit(m_commitMessageFileName, fileList);
     }
@@ -1294,7 +1293,7 @@ IEditor *CvsPlugin::showOutputInEditor(const QString& title, const QString &outp
         qDebug() << "CVSPlugin::showOutputInEditor" << title << id.name()
                  <<  "source=" << source << "Size= " << output.size() <<  " Type=" << editorType << debugCodec(codec);
     QString s = title;
-    IEditor *editor = EditorManager::instance()->openEditorWithContents(id, &s, output.toLocal8Bit());
+    IEditor *editor = EditorManager::instance()->openEditorWithContents(id, &s, output);
     connect(editor, SIGNAL(annotateRevisionRequested(QString,QString,int)),
             this, SLOT(vcsAnnotate(QString,QString,int)));
     CvsEditor *e = qobject_cast<CvsEditor*>(editor->widget());
@@ -1321,7 +1320,7 @@ void CvsPlugin::setSettings(const CvsSettings &s)
 {
     if (s != m_settings) {
         m_settings = s;
-        if (QSettings *settings = ICore::instance()->settings())
+        if (QSettings *settings = ICore::settings())
             m_settings.toSettings(settings);
         cvsVersionControl()->emitConfigurationChanged();
     }

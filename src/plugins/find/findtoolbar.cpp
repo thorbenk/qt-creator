@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -121,23 +121,23 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
     connect(m_ui.replaceEdit, SIGNAL(returnPressed()), this, SLOT(invokeReplaceEnter()));
 
     QAction *shiftEnterAction = new QAction(m_ui.findEdit);
-    shiftEnterAction->setShortcut(QKeySequence("Shift+Enter"));
+    shiftEnterAction->setShortcut(QKeySequence(tr("Shift+Enter")));
     shiftEnterAction->setShortcutContext(Qt::WidgetShortcut);
     connect(shiftEnterAction, SIGNAL(triggered()), this, SLOT(invokeFindPrevious()));
     m_ui.findEdit->addAction(shiftEnterAction);
     QAction *shiftReturnAction = new QAction(m_ui.findEdit);
-    shiftReturnAction->setShortcut(QKeySequence("Shift+Return"));
+    shiftReturnAction->setShortcut(QKeySequence(tr("Shift+Return")));
     shiftReturnAction->setShortcutContext(Qt::WidgetShortcut);
     connect(shiftReturnAction, SIGNAL(triggered()), this, SLOT(invokeFindPrevious()));
     m_ui.findEdit->addAction(shiftReturnAction);
 
     QAction *shiftEnterReplaceAction = new QAction(m_ui.replaceEdit);
-    shiftEnterReplaceAction->setShortcut(QKeySequence("Shift+Enter"));
+    shiftEnterReplaceAction->setShortcut(QKeySequence(tr("Shift+Enter")));
     shiftEnterReplaceAction->setShortcutContext(Qt::WidgetShortcut);
     connect(shiftEnterReplaceAction, SIGNAL(triggered()), this, SLOT(invokeReplacePrevious()));
     m_ui.replaceEdit->addAction(shiftEnterReplaceAction);
     QAction *shiftReturnReplaceAction = new QAction(m_ui.replaceEdit);
-    shiftReturnReplaceAction->setShortcut(QKeySequence("Shift+Return"));
+    shiftReturnReplaceAction->setShortcut(QKeySequence(tr("Shift+Return")));
     shiftReturnReplaceAction->setShortcutContext(Qt::WidgetShortcut);
     connect(shiftReturnReplaceAction, SIGNAL(triggered()), this, SLOT(invokeReplacePrevious()));
     m_ui.replaceEdit->addAction(shiftReturnReplaceAction);
@@ -147,7 +147,7 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
 
     // register actions
     Core::Context globalcontext(Core::Constants::C_GLOBAL);
-    Core::ActionManager *am = Core::ICore::instance()->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
     Core::ActionContainer *mfind = am->actionContainer(Constants::M_FIND);
     Core::Command *cmd;
 
@@ -279,7 +279,7 @@ bool FindToolBar::eventFilter(QObject *obj, QEvent *event)
     if ((obj == m_ui.findEdit || obj == m_findCompleter->popup())
                && event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
         if (ke->key() == Qt::Key_Space && (ke->modifiers() & Qt::MetaModifier)) {
 #else
         if (ke->key() == Qt::Key_Space && (ke->modifiers() & Qt::ControlModifier)) {
@@ -300,7 +300,7 @@ bool FindToolBar::eventFilter(QObject *obj, QEvent *event)
                 event->accept();
                 return true;
             }
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
         } else if (ke->key() == Qt::Key_Space && (ke->modifiers() & Qt::MetaModifier)) {
 #else
         } else if (ke->key() == Qt::Key_Space && (ke->modifiers() & Qt::ControlModifier)) {
@@ -541,7 +541,7 @@ void FindToolBar::updateIcons()
         QPixmap pixmap(17, 17);
         pixmap.fill(Qt::transparent);
         QPainter painter(&pixmap);
-        QPixmap mag(Core::Constants::ICON_MAGNIFIER);
+        const QPixmap mag = QPixmap(QLatin1String(Core::Constants::ICON_MAGNIFIER));
         painter.drawPixmap(0, (pixmap.height() - mag.height()) / 2, mag);
         m_ui.findEdit->setButtonPixmap(Utils::FancyLineEdit::Left, pixmap);
     } else {
@@ -650,30 +650,30 @@ bool FindToolBar::focusNextPrevChild(bool next)
 
 void FindToolBar::writeSettings()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
-    settings->beginGroup("Find");
-    settings->beginGroup("FindToolBar");
-    settings->setValue("Backward", QVariant((m_findFlags & Find::FindBackward) != 0));
-    settings->setValue("CaseSensitively", QVariant((m_findFlags & Find::FindCaseSensitively) != 0));
-    settings->setValue("WholeWords", QVariant((m_findFlags & Find::FindWholeWords) != 0));
-    settings->setValue("RegularExpression", QVariant((m_findFlags & Find::FindRegularExpression) != 0));
+    QSettings *settings = Core::ICore::settings();
+    settings->beginGroup(QLatin1String("Find"));
+    settings->beginGroup(QLatin1String("FindToolBar"));
+    settings->setValue(QLatin1String("Backward"), QVariant((m_findFlags & Find::FindBackward) != 0));
+    settings->setValue(QLatin1String("CaseSensitively"), QVariant((m_findFlags & Find::FindCaseSensitively) != 0));
+    settings->setValue(QLatin1String("WholeWords"), QVariant((m_findFlags & Find::FindWholeWords) != 0));
+    settings->setValue(QLatin1String("RegularExpression"), QVariant((m_findFlags & Find::FindRegularExpression) != 0));
     settings->endGroup();
     settings->endGroup();
 }
 
 void FindToolBar::readSettings()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
-    settings->beginGroup("Find");
-    settings->beginGroup("FindToolBar");
+    QSettings *settings = Core::ICore::settings();
+    settings->beginGroup(QLatin1String("Find"));
+    settings->beginGroup(QLatin1String("FindToolBar"));
     Find::FindFlags flags;
-    if (settings->value("Backward", false).toBool())
+    if (settings->value(QLatin1String("Backward"), false).toBool())
         flags |= Find::FindBackward;
-    if (settings->value("CaseSensitively", false).toBool())
+    if (settings->value(QLatin1String("CaseSensitively"), false).toBool())
         flags |= Find::FindCaseSensitively;
-    if (settings->value("WholeWords", false).toBool())
+    if (settings->value(QLatin1String("WholeWords"), false).toBool())
         flags |= Find::FindWholeWords;
-    if (settings->value("RegularExpression", false).toBool())
+    if (settings->value(QLatin1String("RegularExpression"), false).toBool())
         flags |= Find::FindRegularExpression;
     settings->endGroup();
     settings->endGroup();

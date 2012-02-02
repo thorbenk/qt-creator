@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -195,8 +195,10 @@ public:
     QString sysroot() const;
     void setSysroot(const QString &sysroot);
 
-    QString debugger() const;
-    void setDebugger(const QString &debugger);
+    int abiIndex() const;
+    void setAbiIndex(int);
+    ProjectExplorer::Abi abi() const;
+    QString debuggerCommand() const;
 
     void setDebugInfoLocation(const QString &location);
     QString debugInfoLocation() const;

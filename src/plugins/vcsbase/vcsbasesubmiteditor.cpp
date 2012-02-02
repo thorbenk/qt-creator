@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -278,7 +278,7 @@ static inline QStringList fieldTexts(const QString &fileContents)
 void VcsBaseSubmitEditor::createUserFields(const QString &fieldConfigFile)
 {
     Utils::FileReader reader;
-    if (!reader.fetch(fieldConfigFile, QIODevice::Text, Core::ICore::instance()->mainWindow()))
+    if (!reader.fetch(fieldConfigFile, QIODevice::Text, Core::ICore::mainWindow()))
         return;
     // Parse into fields
     const QStringList fields = fieldTexts(QString::fromUtf8(reader.data()));
@@ -510,14 +510,14 @@ void VcsBaseSubmitEditor::setFileModel(QAbstractItemModel *m, const QString &rep
                 if ((sym->isClass() || sym->isFunction() || sym->isNamespace())
                         && (symId != 0 && acceptsWordForCompletion(symId->chars())))
                 {
-                    uniqueSymbols.insert(symId->chars());
+                    uniqueSymbols.insert(QString::fromUtf8(symId->chars()));
                 }
 
                 // Handle specific case : get "Foo" in "void Foo::function() {}"
                 if (sym->isFunction() && !sym->asFunction()->isDeclaration()) {
                     const char *className = belongingClassName(sym->asFunction());
                     if (acceptsWordForCompletion(className))
-                        uniqueSymbols.insert(className);
+                        uniqueSymbols.insert(QString::fromUtf8(className));
                 }
 
                 ++symPtr;
@@ -590,7 +590,7 @@ VcsBaseSubmitEditor::PromptSubmitResult
 
     const bool prompt = forcePrompt || *promptSetting;
 
-    QWidget *parent = Core::ICore::instance()->mainWindow();
+    QWidget *parent = Core::ICore::mainWindow();
     // Pop up a message depending on whether the check succeeded and the
     // user wants to be prompted
     bool canCommit = checkSubmitMessage(&errorMessage) && submitWidget->canSubmit();
@@ -770,18 +770,16 @@ QStringList VcsBaseSubmitEditor::currentProjectFiles(bool nativeSeparators, QStr
     if (name)
         name->clear();
 
-    if (ProjectExplorer::ProjectExplorerPlugin *pe = ProjectExplorer::ProjectExplorerPlugin::instance()) {
-        if (const ProjectExplorer::Project *currentProject = pe->currentProject()) {
-            QStringList files = currentProject->files(ProjectExplorer::Project::ExcludeGeneratedFiles);
-            if (name)
-                *name = currentProject->displayName();
-            if (nativeSeparators && !files.empty()) {
-                const QStringList::iterator end = files.end();
-                for (QStringList::iterator it = files.begin(); it != end; ++it)
-                    *it = QDir::toNativeSeparators(*it);
-            }
-            return files;
+    if (const ProjectExplorer::Project *currentProject = ProjectExplorer::ProjectExplorerPlugin::currentProject()) {
+        QStringList files = currentProject->files(ProjectExplorer::Project::ExcludeGeneratedFiles);
+        if (name)
+            *name = currentProject->displayName();
+        if (nativeSeparators && !files.empty()) {
+            const QStringList::iterator end = files.end();
+            for (QStringList::iterator it = files.begin(); it != end; ++it)
+                *it = QDir::toNativeSeparators(*it);
         }
+        return files;
     }
     return QStringList();
 }

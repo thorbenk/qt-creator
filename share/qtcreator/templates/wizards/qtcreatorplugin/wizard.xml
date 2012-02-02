@@ -4,7 +4,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -39,7 +39,8 @@ leave room for the Qt 4 target page.
 -->
 <wizard version="1" kind="project"
         class="qt4project" firstpage="10"
-        id="R.QtCreatorPlugin" category="F.QtProjects">
+        id="R.QtCreatorPlugin" category="F.QtProjects"
+        featuresRequired="QtSupport.Wizards.FeatureGenericCppEntryPoint,QtSupport.Wizards.FeatureQt">
     <icon>qtcreator_logo_24.png</icon>
     <description>Creates a custom Qt Creator plugin.</description>
     <displayname>Qt Creator Plugin</displayname>;

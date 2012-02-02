@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -83,9 +83,7 @@ CMakeOpenProjectWizard::CMakeOpenProjectWizard(CMakeManager *cmakeManager, const
         m_buildDirectory = m_sourceDirectory;
     } else {
         startid = ShadowBuildPageId;
-        QDir dir(m_sourceDirectory);
-        dir.cdUp();
-        m_buildDirectory = dir.absolutePath() + "/qtcreator-build";
+        m_buildDirectory = m_sourceDirectory + QLatin1String("-build");
     }
 
     setPage(InSourcePageId, new InSourceBuildPage(this));

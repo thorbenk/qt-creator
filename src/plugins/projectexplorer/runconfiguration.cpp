@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -583,7 +583,7 @@ bool RunControl::showPromptToStopDialog(const QString &title,
     QTC_ASSERT(isRunning(), return true;)
     // Show a question message box where user can uncheck this
     // question for this class.
-    Utils::CheckableMessageBox messageBox(Core::ICore::instance()->mainWindow());
+    Utils::CheckableMessageBox messageBox(Core::ICore::mainWindow());
     messageBox.setWindowTitle(title);
     messageBox.setText(text);
     messageBox.setStandardButtons(QDialogButtonBox::Yes|QDialogButtonBox::Cancel);

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -236,8 +236,8 @@ void DesignMode::currentEditorChanged(Core::IEditor *editor)
 
     if (!mimeEditorAvailable) {
         setActiveContext(Context());
-        if (ModeManager::instance()->currentMode() == this)
-            ModeManager::instance()->activateMode(QLatin1String(Core::Constants::MODE_EDIT));
+        if (ModeManager::currentMode() == this)
+            ModeManager::activateMode(QLatin1String(Core::Constants::MODE_EDIT));
         setEnabled(false);
         d->m_currentEditor = QWeakPointer<Core::IEditor>();
         emit actionsUpdated(d->m_currentEditor.data());
@@ -260,10 +260,10 @@ void DesignMode::updateContext(Core::IMode *newMode, Core::IMode *oldMode)
 {
     if (newMode == this) {
         // Apply active context
-        Core::ICore::instance()->updateAdditionalContexts(Context(), d->m_activeContext);
+        Core::ICore::updateAdditionalContexts(Context(), d->m_activeContext);
     } else if (oldMode == this) {
         // Remove active context
-        Core::ICore::instance()->updateAdditionalContexts(d->m_activeContext, Context());
+        Core::ICore::updateAdditionalContexts(d->m_activeContext, Context());
     }
 }
 
@@ -272,8 +272,8 @@ void DesignMode::setActiveContext(const Context &context)
     if (d->m_activeContext == context)
         return;
 
-    if (ModeManager::instance()->currentMode() == this)
-        Core::ICore::instance()->updateAdditionalContexts(d->m_activeContext, context);
+    if (ModeManager::currentMode() == this)
+        Core::ICore::updateAdditionalContexts(d->m_activeContext, context);
 
     d->m_activeContext = context;
 }

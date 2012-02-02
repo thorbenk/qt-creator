@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -215,7 +215,7 @@ BookmarkView::BookmarkView(QWidget *parent)  :
     connect(this, SIGNAL(clicked(const QModelIndex &)),
             this, SLOT(gotoBookmark(const QModelIndex &)));
 
-    ICore::instance()->addContextObject(m_bookmarkContext);
+    ICore::addContextObject(m_bookmarkContext);
 
     setItemDelegate(new BookmarkDelegate(this));
     setFrameStyle(QFrame::NoFrame);
@@ -225,7 +225,7 @@ BookmarkView::BookmarkView(QWidget *parent)  :
 
 BookmarkView::~BookmarkView()
 {
-    ICore::instance()->removeContextObject(m_bookmarkContext);
+    ICore::removeContextObject(m_bookmarkContext);
 }
 
 void BookmarkView::contextMenuEvent(QContextMenuEvent *event)
@@ -734,27 +734,19 @@ QString BookmarkManager::bookmarkToString(const Bookmark *b)
 /* Saves the bookmarks to the session settings. */
 void BookmarkManager::saveBookmarks()
 {
-    SessionManager *s = sessionManager();
-    if (!s)
-        return;
-
     QStringList list;
     foreach (const FileNameBookmarksMap *bookmarksMap, m_bookmarksMap)
         foreach (const Bookmark *bookmark, *bookmarksMap)
             list << bookmarkToString(bookmark);
 
-    s->setValue("Bookmarks", list);
+    sessionManager()->setValue("Bookmarks", list);
 }
 
 /* Loads the bookmarks from the session settings. */
 void BookmarkManager::loadBookmarks()
 {
     removeAllBookmarks();
-    SessionManager *s = sessionManager();
-    if (!s)
-        return;
-
-    const QStringList &list = s->value("Bookmarks").toStringList();
+    const QStringList &list = sessionManager()->value("Bookmarks").toStringList();
     foreach (const QString &bookmarkString, list)
         addBookmark(bookmarkString);
 

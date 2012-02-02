@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -330,7 +330,7 @@ QMenuBar *ActionContainerPrivate::menuBar() const
 
 bool ActionContainerPrivate::canAddAction(Command *action) const
 {
-    return (action->action() != 0);
+    return action && action->action();
 }
 
 void ActionContainerPrivate::scheduleUpdate()

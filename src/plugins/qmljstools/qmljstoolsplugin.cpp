@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -77,8 +77,7 @@ bool QmlJSToolsPlugin::initialize(const QStringList &arguments, QString *error)
     Q_UNUSED(arguments)
     Q_UNUSED(error)
 
-    Core::ICore *core = Core::ICore::instance();
-    Core::ActionManager *am = core->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     m_settings = new QmlJSToolsSettings(this); // force registration of qmljstools settings
 
@@ -113,9 +112,9 @@ bool QmlJSToolsPlugin::initialize(const QStringList &arguments, QString *error)
     mqmljstools->addAction(cmd);
 
     // watch task progress
-    connect(core->progressManager(), SIGNAL(taskStarted(QString)),
+    connect(Core::ICore::progressManager(), SIGNAL(taskStarted(QString)),
             this, SLOT(onTaskStarted(QString)));
-    connect(core->progressManager(), SIGNAL(allTasksFinished(QString)),
+    connect(Core::ICore::progressManager(), SIGNAL(allTasksFinished(QString)),
             this, SLOT(onAllTasksFinished(QString)));
 
     return true;

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -45,6 +45,16 @@ AbstractSftpOperation::AbstractSftpOperation(SftpJobId jobId) : jobId(jobId)
 
 AbstractSftpOperation::~AbstractSftpOperation() { }
 
+
+SftpStatFile::SftpStatFile(SftpJobId jobId, const QString &path)
+    : AbstractSftpOperation(jobId), path(path)
+{
+}
+
+SftpOutgoingPacket &SftpStatFile::initialPacket(SftpOutgoingPacket &packet)
+{
+    return packet.generateStat(path, jobId);
+}
 
 SftpMakeDir::SftpMakeDir(SftpJobId jobId, const QString &path,
     const SftpUploadDir::Ptr &parentJob)

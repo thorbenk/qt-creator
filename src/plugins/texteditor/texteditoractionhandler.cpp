@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -107,7 +107,7 @@ TextEditorActionHandler::TextEditorActionHandler(const char *context,
     m_contextId(context),
     m_initialized(false)
 {
-    connect(Core::ICore::instance()->editorManager(), SIGNAL(currentEditorChanged(Core::IEditor*)),
+    connect(Core::ICore::editorManager(), SIGNAL(currentEditorChanged(Core::IEditor*)),
         this, SLOT(updateCurrentEditor(Core::IEditor*)));
 }
 
@@ -147,7 +147,7 @@ void TextEditorActionHandler::createActions()
     m_gotoAction      = registerNewAction(Core::Constants::GOTO,      this, SLOT(gotoAction()));
     m_printAction     = registerNewAction(Core::Constants::PRINT,     this, SLOT(printAction()));
 
-    Core::ActionManager *am = Core::ICore::instance()->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     Core::ActionContainer *medit = am->actionContainer(Core::Constants::M_EDIT);
     Core::ActionContainer *advancedMenu = am->actionContainer(Core::Constants::M_EDIT_ADVANCED);
@@ -165,7 +165,7 @@ void TextEditorActionHandler::createActions()
     advancedMenu->addAction(command, Core::Constants::G_EDIT_FORMAT);
     connect(m_formatAction, SIGNAL(triggered(bool)), this, SLOT(formatAction()));
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     QString modifier = tr("Meta");
 #else
     QString modifier = tr("Ctrl");
@@ -277,7 +277,7 @@ void TextEditorActionHandler::createActions()
 
     m_resetFontSizeAction = new QAction(tr("Reset Font Size"), this);
     command = am->registerAction(m_resetFontSizeAction, Constants::RESET_FONT_SIZE, m_contextId);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     command->setDefaultKeySequence(QKeySequence(tr("Ctrl+0")));
 #endif
     connect(m_resetFontSizeAction, SIGNAL(triggered()), this, SLOT(resetFontSize()));
@@ -453,7 +453,7 @@ QAction *TextEditorActionHandler::registerNewAction(const Core::Id &id, bool scr
         return 0;
 
     QAction *result = new QAction(title, this);
-    Core::ICore::instance()->actionManager()->registerAction(result, id, m_contextId, scriptable);
+    Core::ICore::actionManager()->registerAction(result, id, m_contextId, scriptable);
     return result;
 }
 
@@ -538,7 +538,7 @@ void TextEditorActionHandler::gotoAction()
 void TextEditorActionHandler::printAction()
 {
     if (m_currentEditor)
-        m_currentEditor->print(Core::ICore::instance()->printer());
+        m_currentEditor->print(Core::ICore::printer());
 }
 
 void TextEditorActionHandler::setVisualizeWhitespace(bool checked)

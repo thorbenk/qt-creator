@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -1933,9 +1933,7 @@ AbstractGdbAdapter *GdbEngine::createAdapter()
     const DebuggerStartParameters &sp = startParameters();
     if (sp.toolChainAbi.os() == Abi::SymbianOS) {
         // FIXME: 1 of 3 testing hacks.
-        if (sp.debugClient == DebuggerStartParameters::SymbianDebugClientCoda)
-            return new CodaGdbAdapter(this);
-        return 0;
+        return new CodaGdbAdapter(this);
     }
 
     switch (sp.startMode) {
@@ -1962,7 +1960,10 @@ void GdbEngine::setupEngine()
     if (m_gdbAdapter->dumperHandling() != AbstractGdbAdapter::DumperNotAvailable) {
         connect(debuggerCore()->action(UseDebuggingHelpers),
             SIGNAL(valueChanged(QVariant)),
-            SLOT(setUseDebuggingHelpers(QVariant)));
+            SLOT(reloadLocals()));
+        connect(debuggerCore()->action(UseDynamicType),
+            SIGNAL(valueChanged(QVariant)),
+            SLOT(reloadLocals()));
     }
 
     QTC_CHECK(state() == EngineSetupRequested);
@@ -2114,7 +2115,7 @@ void GdbEngine::executeNext()
     if (isReverseDebugging()) {
         postCommand("reverse-next", RunRequest, CB(handleExecuteNext));
     } else {
-        scheduleTestResponse(GdbTestNoBoundsOfCurrentFunction,
+        scheduleTestResponse(TestNoBoundsOfCurrentFunction,
             "@TOKEN@^error,msg=\"Warning:\\nCannot insert breakpoint -39.\\n"
             " Error accessing memory address 0x11673fc: Input/output error.\\n\"");
         postCommand("-exec-next", RunRequest, CB(handleExecuteNext));
@@ -2934,7 +2935,7 @@ bool GdbEngine::stateAcceptsBreakpointChanges() const
 
 bool GdbEngine::acceptsBreakpoint(BreakpointModelId id) const
 {
-    return DebuggerEngine::isCppBreakpoint(breakHandler()->breakpointData(id))
+    return breakHandler()->breakpointData(id).isCppBreakpoint()
         && startParameters().startMode != AttachCore;
 }
 
@@ -4324,13 +4325,28 @@ void GdbEngine::fetchDisassemblerByMiRangePlain(const DisassemblerAgentCookie &a
 }
 #endif
 
+static inline QByteArray disassemblerCommand(const Location &location, bool mixed)
+{
+    QByteArray command = "disassemble ";
+    if (mixed)
+        command += "/m ";
+    if (const quint64 address = location.address()) {
+        command += "0x";
+        command += QByteArray::number(address, 16);
+    } else if (!location.functionName().isEmpty()) {
+        command += location.functionName().toLatin1();
+    } else {
+        QTC_ASSERT(false, return QByteArray(); );
+    }
+    return command;
+}
+
 void GdbEngine::fetchDisassemblerByCliPointMixed(const DisassemblerAgentCookie &ac0)
 {
     DisassemblerAgentCookie ac = ac0;
     QTC_ASSERT(ac.agent, return);
-    const quint64 address = ac.agent->address();
-    QByteArray cmd = "disassemble /m 0x" + QByteArray::number(address, 16);
-    postCommand(cmd, Discardable, CB(handleFetchDisassemblerByCliPointMixed),
+    postCommand(disassemblerCommand(ac.agent->location(), true), Discardable,
+        CB(handleFetchDisassemblerByCliPointMixed),
         QVariant::fromValue(ac));
 }
 
@@ -4338,9 +4354,8 @@ void GdbEngine::fetchDisassemblerByCliPointPlain(const DisassemblerAgentCookie &
 {
     DisassemblerAgentCookie ac = ac0;
     QTC_ASSERT(ac.agent, return);
-    const quint64 address = ac.agent->address();
-    QByteArray cmd = "disassemble 0x" + QByteArray::number(address, 16);
-    postCommand(cmd, Discardable, CB(handleFetchDisassemblerByCliPointPlain),
+    postCommand(disassemblerCommand(ac.agent->location(), false), Discardable,
+        CB(handleFetchDisassemblerByCliPointPlain),
         QVariant::fromValue(ac));
 }
 
@@ -4462,18 +4477,21 @@ void GdbEngine::handleFetchDisassemblerByCliPointPlain(const GdbResponse &respon
 {
     DisassemblerAgentCookie ac = response.cookie.value<DisassemblerAgentCookie>();
     QTC_ASSERT(ac.agent, return);
-
+    // Agent address is 0 when disassembling a function name only
+    const quint64 agentAddress = ac.agent->address();
     if (response.resultClass == GdbResultDone) {
         DisassemblerLines dlines = parseDisassembler(response);
-        if (dlines.coversAddress(ac.agent->address())) {
+        if (!agentAddress || dlines.coversAddress(agentAddress)) {
             ac.agent->setContents(dlines);
             return;
         }
     }
-    if (ac.agent->isMixed())
-        fetchDisassemblerByCliRangeMixed(ac);
-    else
-        fetchDisassemblerByCliRangePlain(ac);
+    if (agentAddress) {
+        if (ac.agent->isMixed())
+            fetchDisassemblerByCliRangeMixed(ac);
+        else
+            fetchDisassemblerByCliRangePlain(ac);
+    }
 }
 
 void GdbEngine::handleFetchDisassemblerByCliRangeMixed(const GdbResponse &response)
@@ -4655,14 +4673,19 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
     postCommand("pwd");
     postCommand("set width 0");
     postCommand("set height 0");
-    postCommand("set auto-solib-add on");
+
+    postCommand("set breakpoint always-inserted on", ConsoleCommand);
+    // displaced-stepping does not work in Thumb mode.
+    //postCommand("set displaced-stepping on");
+    postCommand("set trust-readonly-sections on", ConsoleCommand);
+    postCommand("set auto-solib-add on", ConsoleCommand);
 
     if (0 && debuggerCore()->boolSetting(TargetAsync)) {
-        postCommand("set target-async on");
-        postCommand("set non-stop on");
+        postCommand("set target-async on", ConsoleCommand);
+        postCommand("set non-stop on", ConsoleCommand);
     }
 
-    // Work around https://bugreports.qt.nokia.com/browse/QTCREATORBUG-2004
+    // Work around https://bugreports.qt-project.org/browse/QTCREATORBUG-2004
     postCommand("maintenance set internal-warning quit no", ConsoleCommand);
     postCommand("maintenance set internal-error quit no", ConsoleCommand);
 
@@ -4703,7 +4726,7 @@ void GdbEngine::loadInitScript()
 void GdbEngine::loadPythonDumpers()
 {
     const QByteArray dumperSourcePath =
-        Core::ICore::instance()->resourcePath().toLocal8Bit() + "/dumper/";
+        Core::ICore::resourcePath().toLocal8Bit() + "/dumper/";
 
     postCommand("python execfile('" + dumperSourcePath + "bridge.py')",
         ConsoleCommand|NonCriticalResponse);
@@ -4793,9 +4816,9 @@ void GdbEngine::handleAdapterStartFailed(const QString &msg,
     if (!msg.isEmpty()) {
         const QString title = tr("Adapter start failed");
         if (settingsIdHint.isEmpty()) {
-            Core::ICore::instance()->showWarningWithOptions(title, msg);
+            Core::ICore::showWarningWithOptions(title, msg);
         } else {
-            Core::ICore::instance()->showWarningWithOptions(title, msg, QString(),
+            Core::ICore::showWarningWithOptions(title, msg, QString(),
                 _(Debugger::Constants::DEBUGGER_SETTINGS_CATEGORY), settingsIdHint);
         }
     }
@@ -4909,6 +4932,9 @@ void GdbEngine::handleNamespaceExtraction(const GdbResponse &response)
     if (startParameters().startMode == AttachCore) {
         notifyInferiorSetupOk(); // No breakpoints in core files.
     } else {
+        if (debuggerCore()->boolSetting(BreakOnAbort)
+                && startParameters().toolChainAbi.os() == Abi::WindowsOS)
+            postCommand("-break-insert -f raise");
         if (debuggerCore()->boolSetting(BreakOnWarning))
             postCommand("-break-insert -f '" + qtNamespace() + "qWarning'");
         if (debuggerCore()->boolSetting(BreakOnFatal))
@@ -4974,12 +5000,6 @@ void GdbEngine::handleAdapterCrashed(const QString &msg)
         showMessageBox(QMessageBox::Critical, tr("Adapter crashed"), msg);
 }
 
-void GdbEngine::setUseDebuggingHelpers(const QVariant &)
-{
-    setTokenBarrier();
-    updateLocals();
-}
-
 bool GdbEngine::hasPython() const
 {
     return m_hasPython;
@@ -5015,11 +5035,13 @@ void GdbEngine::resetCommandQueue()
 
 void GdbEngine::handleRemoteSetupDone(int gdbServerPort, int qmlPort)
 {
+    notifyEngineRemoteSetupDone();
     m_gdbAdapter->handleRemoteSetupDone(gdbServerPort, qmlPort);
 }
 
 void GdbEngine::handleRemoteSetupFailed(const QString &message)
 {
+    notifyEngineRemoteSetupFailed();
     m_gdbAdapter->handleRemoteSetupFailed(message);
 }
 
@@ -5083,7 +5105,7 @@ bool GdbEngine::isHiddenBreakpoint(const BreakpointResponseId &id) const
 
 void GdbEngine::scheduleTestResponse(int testCase, const QByteArray &response)
 {
-    if (!m_testCases.contains(testCase))
+    if (!m_testCases.contains(testCase) && startParameters().testCase != testCase)
         return;
 
     int token = currentToken() + 1;

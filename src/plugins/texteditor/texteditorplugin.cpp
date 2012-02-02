@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -34,6 +34,7 @@
 
 #include "findinfiles.h"
 #include "findincurrentfile.h"
+#include "findinopenfiles.h"
 #include "fontsettings.h"
 #include "linenumberfilter.h"
 #include "texteditorconstants.h"
@@ -78,7 +79,6 @@ TextEditorPlugin *TextEditorPlugin::m_instance = 0;
 
 TextEditorPlugin::TextEditorPlugin()
   : m_settings(0),
-    m_wizard(0),
     m_editorFactory(0),
     m_lineNumberFilter(0),
     m_searchResultWindow(0)
@@ -102,7 +102,7 @@ bool TextEditorPlugin::initialize(const QStringList &arguments, QString *errorMe
 {
     Q_UNUSED(arguments)
 
-    if (!Core::ICore::instance()->mimeDatabase()->addMimeTypes(QLatin1String(":/texteditor/TextEditor.mimetypes.xml"), errorMessage))
+    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/texteditor/TextEditor.mimetypes.xml"), errorMessage))
         return false;
 
     Core::BaseFileWizardParameters wizardParameters(Core::IWizard::FileWizard);
@@ -111,11 +111,11 @@ bool TextEditorPlugin::initialize(const QStringList &arguments, QString *errorMe
     wizardParameters.setDisplayName(tr("Text File"));
     wizardParameters.setCategory(QLatin1String("U.General"));
     wizardParameters.setDisplayCategory(tr("General"));
-    m_wizard = new TextFileWizard(QLatin1String(TextEditor::Constants::C_TEXTEDITOR_MIMETYPE_TEXT),
-                                  QLatin1String("text$"),
-                                  wizardParameters);
+    TextFileWizard *wizard = new TextFileWizard(QLatin1String(Constants::C_TEXTEDITOR_MIMETYPE_TEXT),
+                                                QLatin1String("text$"),
+                                                wizardParameters);
     // Add text file wizard
-    addAutoReleasedObject(m_wizard);
+    addAutoReleasedObject(wizard);
 
     m_settings = new TextEditorSettings(this);
 
@@ -124,20 +124,19 @@ bool TextEditorPlugin::initialize(const QStringList &arguments, QString *errorMe
     addAutoReleasedObject(m_editorFactory);
 
     // Goto line functionality for quick open
-    Core::ICore *core = Core::ICore::instance();
     m_lineNumberFilter = new LineNumberFilter;
     addAutoReleasedObject(m_lineNumberFilter);
 
     Core::Context context(TextEditor::Constants::C_TEXTEDITOR);
-    Core::ActionManager *am = core->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     // Add shortcut for invoking automatic completion
-    QShortcut *completionShortcut = new QShortcut(core->mainWindow());
+    QShortcut *completionShortcut = new QShortcut(Core::ICore::mainWindow());
     completionShortcut->setWhatsThis(tr("Triggers a completion in this scope"));
     // Make sure the shortcut still works when the completion widget is active
     completionShortcut->setContext(Qt::ApplicationShortcut);
     Core::Command *command = am->registerShortcut(completionShortcut, Constants::COMPLETE_THIS, context);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     command->setDefaultKeySequence(QKeySequence(tr("Ctrl+Space")));
 #else
     command->setDefaultKeySequence(QKeySequence(tr("Meta+Space")));
@@ -145,7 +144,7 @@ bool TextEditorPlugin::initialize(const QStringList &arguments, QString *errorMe
     connect(completionShortcut, SIGNAL(activated()), this, SLOT(invokeCompletion()));
 
     // Add shortcut for invoking quick fix options
-    QShortcut *quickFixShortcut = new QShortcut(core->mainWindow());
+    QShortcut *quickFixShortcut = new QShortcut(Core::ICore::mainWindow());
     quickFixShortcut->setWhatsThis(tr("Triggers a quick fix in this scope"));
     // Make sure the shortcut still works when the quick fix widget is active
     quickFixShortcut->setContext(Qt::ApplicationShortcut);
@@ -163,13 +162,16 @@ bool TextEditorPlugin::initialize(const QStringList &arguments, QString *errorMe
     m_outlineFactory = new OutlineFactory;
     addAutoReleasedObject(m_outlineFactory);
 
+    // We have to initialize the actions because other plugins that
+    // depend upon the texteditorplugin expect that actions will be
+    // registered in the action manager at plugin initialization time.
+    m_editorFactory->actionHandler()->initializeActions();
+
     return true;
 }
 
 void TextEditorPlugin::extensionsInitialized()
 {
-    m_editorFactory->actionHandler()->initializeActions();
-
     ExtensionSystem::PluginManager *pluginManager = ExtensionSystem::PluginManager::instance();
 
     m_searchResultWindow = Find::SearchResultWindow::instance();
@@ -183,6 +185,7 @@ void TextEditorPlugin::extensionsInitialized()
 
     addAutoReleasedObject(new FindInFiles);
     addAutoReleasedObject(new FindInCurrentFile);
+    addAutoReleasedObject(new FindInOpenFiles);
 
     Core::VariableManager *vm = Core::VariableManager::instance();
     vm->registerVariable(kCurrentDocumentSelection,

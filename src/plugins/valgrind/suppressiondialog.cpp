@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator Instrumentation Tools
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
@@ -142,7 +142,7 @@ SuppressionDialog::SuppressionDialog(MemcheckErrorView *view, const QList<Error>
     suppressionsLabel->setBuddy(m_suppressionEdit);
 
     QFont font;
-    font.setFamily(QString::fromUtf8("Monospace"));
+    font.setFamily(QLatin1String("Monospace"));
     m_suppressionEdit->setFont(font);
 
     m_buttonBox = new QDialogButtonBox(this);

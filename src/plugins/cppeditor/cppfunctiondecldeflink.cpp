@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -45,6 +45,7 @@
 #include <cplusplus/LookupContext.h>
 #include <cplusplus/Overview.h>
 #include <cpptools/cpprefactoringchanges.h>
+#include <cpptools/symbolfinder.h>
 #include <texteditor/refactoroverlay.h>
 #include <texteditor/tooltip/tooltip.h>
 #include <texteditor/tooltip/tipcontents.h>
@@ -163,15 +164,16 @@ static QSharedPointer<FunctionDeclDefLink> findLinkHelper(QSharedPointer<Functio
 
     // find the matching decl/def symbol
     Symbol *target = 0;
+    CppTools::SymbolFinder finder;
     if (FunctionDefinitionAST *funcDef = link->sourceDeclaration->asFunctionDefinition()) {
         QList<Declaration *> nameMatch, argumentCountMatch, typeMatch;
-        findMatchingDeclaration(LookupContext(link->sourceDocument, snapshot),
-                                funcDef->symbol,
-                                &typeMatch, &argumentCountMatch, &nameMatch);
+        finder.findMatchingDeclaration(LookupContext(link->sourceDocument, snapshot),
+                                       funcDef->symbol,
+                                       &typeMatch, &argumentCountMatch, &nameMatch);
         if (!typeMatch.isEmpty())
             target = typeMatch.first();
     } else if (link->sourceDeclaration->asSimpleDeclaration()) {
-        target = snapshot.findMatchingDefinition(link->sourceFunctionDeclarator->symbol, true);
+        target = finder.findMatchingDefinition(link->sourceFunctionDeclarator->symbol, snapshot, true);
     }
     if (!target) {
         return noResult;
@@ -366,7 +368,7 @@ void FunctionDeclDefLink::showMarker(CPPEditorWidget *editor)
     else
         message = tr("Apply changes to declaration");
 
-    Core::ActionManager *actionManager = Core::ICore::instance()->actionManager();
+    Core::ActionManager *actionManager = Core::ICore::actionManager();
     Core::Command *quickfixCommand = actionManager->command(TextEditor::Constants::QUICKFIX_THIS);
     if (quickfixCommand)
         message = Utils::ProxyAction::stringWithAppendedShortcut(message, quickfixCommand->keySequence());

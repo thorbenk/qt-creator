@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -74,6 +74,13 @@ private:
     void remoteCommand(const QStringList &options, const QStringList &arguments);
     ShutdownFlag aboutToShutdown();
     void extensionsInitialized();
+
+#ifdef WITH_TESTS
+private slots:
+    void testBenchmark();
+    void testPythonDumpers();
+    void testStateMachine();
+#endif
 };
 
 } // namespace Debugger

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -66,7 +66,6 @@
 #include "pchmanager.h"
 
 namespace Core {
-class ICore;
 class IEditor;
 }
 
@@ -120,8 +119,6 @@ public:
     // Testing...
     void refreshSourceFiles_Clang(const QStringList &sourceFiles);
     void refreshSourceFile_Clang(const QString &sourceFile);
-
-    inline Core::ICore *core() const { return m_core; }
 
     virtual bool isCppEditor(Core::IEditor *editor) const;
 
@@ -222,7 +219,6 @@ private:
                       QStringList files);
 
 private:
-    Core::ICore *m_core;
     CPlusPlus::Snapshot m_snapshot;
 
     // cache

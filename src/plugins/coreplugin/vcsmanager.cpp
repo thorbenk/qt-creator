@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -179,10 +179,9 @@ VcsManager::~VcsManager()
 void VcsManager::extensionsInitialized()
 {
     // Change signal connections
-    FileManager *fileManager = ICore::instance()->fileManager();
     foreach (IVersionControl *versionControl, allVersionControls()) {
         connect(versionControl, SIGNAL(filesChanged(QStringList)),
-                fileManager, SIGNAL(filesChangedInternally(QStringList)));
+                FileManager::instance(), SIGNAL(filesChangedInternally(QStringList)));
         connect(versionControl, SIGNAL(repositoryChanged(QString)),
                 this, SIGNAL(repositoryChanged(QString)));
     }

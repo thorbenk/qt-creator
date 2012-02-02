@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -398,8 +398,7 @@ void CallgrindToolPrivate::updateCostFormat()
 
 void CallgrindToolPrivate::handleFilterProjectCosts()
 {
-    ProjectExplorer::ProjectExplorerPlugin *pe = ProjectExplorer::ProjectExplorerPlugin::instance();
-    ProjectExplorer::Project *pro = pe->currentProject();
+    ProjectExplorer::Project *pro = ProjectExplorer::ProjectExplorerPlugin::currentProject();
     QTC_ASSERT(pro, return)
 
     if (m_filterProjectCosts->isChecked()) {
@@ -502,9 +501,7 @@ CallgrindTool::CallgrindTool(QObject *parent)
     d = new CallgrindToolPrivate(this);
     setObjectName(QLatin1String("CallgrindTool"));
 
-    Core::ICore *core = Core::ICore::instance();
-    QObject *editorManager = core->editorManager();
-    connect(editorManager, SIGNAL(editorOpened(Core::IEditor*)),
+    connect(Core::ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor*)),
         d, SLOT(editorOpened(Core::IEditor*)));
 }
 
@@ -541,8 +538,7 @@ IAnalyzerTool::ToolMode CallgrindTool::toolMode() const
 
 void CallgrindTool::extensionsInitialized()
 {
-    Core::ICore *core = Core::ICore::instance();
-    Core::ActionManager *actionManager = core->actionManager();
+    Core::ActionManager *actionManager = Core::ICore::actionManager();
 
     Core::Context analyzerContext = Core::Context(Analyzer::Constants::C_ANALYZEMODE);
 
@@ -827,7 +823,7 @@ QWidget *CallgrindToolPrivate::createWidgets()
     m_filterProjectCosts = action;
 
     // filter
-    ///FIXME: find workaround for https://bugreports.qt.nokia.com/browse/QTCREATORBUG-3247
+    ///FIXME: find workaround for https://bugreports.qt-project.org/browse/QTCREATORBUG-3247
     QLineEdit *filter = new QLineEdit;
     filter->setPlaceholderText(tr("Filter..."));
     connect(filter, SIGNAL(textChanged(QString)), m_updateTimer, SLOT(start()));

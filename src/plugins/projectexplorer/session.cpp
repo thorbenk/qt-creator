@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -31,13 +31,13 @@
 **************************************************************************/
 
 #include "session.h"
-#include "sessionnodeimpl.h"
 
 #include "project.h"
 #include "projectexplorer.h"
 #include "projectexplorerconstants.h"
 #include "nodesvisitor.h"
 #include "editorconfiguration.h"
+#include "projectnodes.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/imode.h>
@@ -99,8 +99,6 @@ public slots:
     void sessionLoadingProgress();
 
 private:
-    Core::ICore *m_core;
-
     QString m_fileName;
     QList<Project *> m_projects;
     Project *m_startupProject;
@@ -126,8 +124,7 @@ void SessionFile::sessionLoadingProgress()
 }
 
 SessionFile::SessionFile()
-  : m_core(Core::ICore::instance()),
-    m_startupProject(0)
+  :  m_startupProject(0)
 {
 }
 
@@ -149,7 +146,7 @@ bool SessionFile::load(const QString &fileName)
         return false;
     }
 
-    m_core->progressManager()->addTask(future.future(), tr("Session"),
+    ICore::progressManager()->addTask(future.future(), tr("Session"),
        QLatin1String("ProjectExplorer.SessionFile.Load"));
 
     const QStringList &keys = reader.restoreValue(QLatin1String("valueKeys")).toStringList();
@@ -172,7 +169,7 @@ bool SessionFile::load(const QString &fileName)
         QString errors;
         QList<Project *> projects = ProjectExplorerPlugin::instance()->openProjects(fileList, &errors);
         if (!errors.isEmpty())
-            QMessageBox::critical(Core::ICore::instance()->mainWindow(), tr("Failed to open project"), errors);
+            QMessageBox::critical(Core::ICore::mainWindow(), tr("Failed to open project"), errors);
         foreach (Project *p, projects)
             m_failedProjects.removeAll(p->file()->fileName());
     }
@@ -211,11 +208,11 @@ bool SessionFile::load(const QString &fileName)
 
     const QVariant &editorsettings = reader.restoreValue(QLatin1String("EditorSettings"));
     if (editorsettings.isValid()) {
-        connect(m_core->editorManager(), SIGNAL(editorOpened(Core::IEditor *)),
+        connect(ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor *)),
                 this, SLOT(sessionLoadingProgress()));
-        m_core->editorManager()->restoreState(
+        ICore::editorManager()->restoreState(
             QByteArray::fromBase64(editorsettings.toByteArray()));
-        disconnect(m_core->editorManager(), SIGNAL(editorOpened(Core::IEditor *)),
+        disconnect(ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor *)),
                    this, SLOT(sessionLoadingProgress()));
     }
 
@@ -265,7 +262,7 @@ bool SessionFile::save()
 
 
     int editorCount = 0;
-    QList<Core::IEditor *> editors = m_core->editorManager()->openedEditors();
+    QList<Core::IEditor *> editors = ICore::editorManager()->openedEditors();
     foreach (Core::IEditor *editor, editors) {
         Q_ASSERT(editor);
         if (!editor->isTemporary())
@@ -273,7 +270,7 @@ bool SessionFile::save()
     }
     writer.saveValue(QLatin1String("OpenEditors"), editorCount);
     writer.saveValue(QLatin1String("EditorSettings"),
-                     m_core->editorManager()->saveState().toBase64());
+                     ICore::editorManager()->saveState().toBase64());
 
     QMap<QString, QVariant>::const_iterator it, end;
     end = m_values.constEnd();
@@ -286,7 +283,7 @@ bool SessionFile::save()
     writer.saveValue(QLatin1String("valueKeys"), keys);
 
 
-    if (writer.save(m_fileName, QLatin1String("QtCreatorSession"), Core::ICore::instance()->mainWindow()))
+    if (writer.save(m_fileName, QLatin1String("QtCreatorSession"), Core::ICore::mainWindow()))
         return true;
 
     return false;
@@ -325,15 +322,14 @@ void SessionFile::clearFailedProjectFileNames()
 
 SessionManager::SessionManager(QObject *parent)
   : QObject(parent),
-    m_core(Core::ICore::instance()),
     m_file(new SessionFile),
-    m_sessionNode(new Internal::SessionNodeImpl(this)),
+    m_sessionNode(new SessionNode(this)),
     m_virginSession(true)
 {
     connect(ModeManager::instance(), SIGNAL(currentModeChanged(Core::IMode*)),
             this, SLOT(saveActiveMode(Core::IMode*)));
 
-    Core::EditorManager *em = m_core->editorManager();
+    EditorManager *em = ICore::editorManager();
 
     connect(em, SIGNAL(editorCreated(Core::IEditor *, QString)),
             this, SLOT(configureEditor(Core::IEditor *, QString)));
@@ -349,7 +345,7 @@ SessionManager::SessionManager(QObject *parent)
     m_autoSaveSessionTimer->setSingleShot(true);
     m_autoSaveSessionTimer->setInterval(10000);
     connect(m_autoSaveSessionTimer, SIGNAL(timeout()),
-            m_core, SIGNAL(saveSettingsRequested()));
+            ICore::instance(), SIGNAL(saveSettingsRequested()));
 }
 
 SessionManager::~SessionManager()
@@ -506,7 +502,7 @@ void SessionManager::addProjects(const QList<Project*> &projects)
         if (!m_file->m_projects.contains(pro)) {
             clearedList.append(pro);
             m_file->m_projects.append(pro);
-            m_sessionNode->addProjectNode(pro->rootProjectNode());
+            m_sessionNode->addProjectNodes(QList<ProjectNode *>() << pro->rootProjectNode());
 
             connect(pro, SIGNAL(fileListChanged()),
                     this, SLOT(clearProjectFileCache()));
@@ -564,8 +560,8 @@ bool SessionManager::createImpl(const QString &fileName)
         setStartupProject(0);
 
         if (!isDefaultVirgin()) {
-            ModeManager::instance()->activateMode(QLatin1String(Core::Constants::MODE_EDIT));
-            ModeManager::instance()->setFocusToCurrentMode();
+            ModeManager::activateMode(QLatin1String(Core::Constants::MODE_EDIT));
+            ModeManager::setFocusToCurrentMode();
         }
 
         emit sessionLoaded();
@@ -640,8 +636,8 @@ bool SessionManager::loadImpl(const QString &fileName)
         if (modeIdentifier.isEmpty())
             modeIdentifier = QLatin1String(Core::Constants::MODE_EDIT);
 
-        ModeManager::instance()->activateMode(modeIdentifier);
-        ModeManager::instance()->setFocusToCurrentMode();
+        ModeManager::activateMode(modeIdentifier);
+        ModeManager::setFocusToCurrentMode();
 
         emit sessionLoaded();
     }
@@ -683,7 +679,7 @@ bool SessionManager::clear()
     if (debug)
         qDebug() << "SessionManager - clearing session ...";
 
-    bool success = m_core->editorManager()->closeAllEditors();
+    bool success = ICore::editorManager()->closeAllEditors();
 
     if (success) {
         if (debug)
@@ -824,7 +820,7 @@ Project *SessionManager::projectForFile(const QString &fileName) const
     const QList<Project *> &projectList = projects();
 
     // Check current project first
-    Project *currentProject = ProjectExplorerPlugin::instance()->currentProject();
+    Project *currentProject = ProjectExplorerPlugin::currentProject();
     if (currentProject && projectContainsFile(currentProject, fileName))
         return currentProject;
 
@@ -852,23 +848,18 @@ void SessionManager::configureEditor(Core::IEditor *editor, const QString &fileN
     }
 }
 
-QString SessionManager::currentSession() const
-{
-    return QFileInfo(m_file->fileName()).completeBaseName();
-}
-
 void SessionManager::updateWindowTitle()
 {
     if (isDefaultSession(m_sessionName)) {
-        if (Project *currentProject = ProjectExplorerPlugin::instance()->currentProject())
-            m_core->editorManager()->setWindowTitleAddition(currentProject->displayName());
+        if (Project *currentProject = ProjectExplorerPlugin::currentProject())
+            ICore::editorManager()->setWindowTitleAddition(currentProject->displayName());
         else
-            m_core->editorManager()->setWindowTitleAddition(QString());
+            ICore::editorManager()->setWindowTitleAddition(QString());
     } else {
         QString sessionName = m_sessionName;
         if (sessionName.isEmpty())
             sessionName = tr("Untitled");
-        m_core->editorManager()->setWindowTitleAddition(sessionName);
+        ICore::editorManager()->setWindowTitleAddition(sessionName);
     }
 }
 
@@ -927,7 +918,7 @@ void SessionManager::removeProjects(QList<Project *> remove)
 
         if (debug)
             qDebug() << "SessionManager - emitting projectRemoved(" << pro->displayName() << ")";
-        m_sessionNode->removeProjectNode(pro->rootProjectNode());
+        m_sessionNode->removeProjectNodes(QList<ProjectNode *>() << pro->rootProjectNode());
         emit projectRemoved(pro);
         delete pro;
     }
@@ -969,7 +960,7 @@ QStringList SessionManager::sessions() const
 {
     if (m_sessions.isEmpty()) {
         // We are not initialized yet, so do that now
-        QDir sessionDir(Core::ICore::instance()->userResourcePath());
+        QDir sessionDir(Core::ICore::userResourcePath());
         QList<QFileInfo> sessionFiles = sessionDir.entryInfoList(QStringList() << QLatin1String("*.qws"), QDir::NoFilter, QDir::Time);
         Q_FOREACH(const QFileInfo& fileInfo, sessionFiles) {
             if (fileInfo.completeBaseName() != QLatin1String("default"))
@@ -982,7 +973,7 @@ QStringList SessionManager::sessions() const
 
 QString SessionManager::sessionNameToFileName(const QString &session) const
 {
-    return m_core->userResourcePath() + QLatin1Char('/') + session + QLatin1String(".qws");
+    return ICore::userResourcePath() + QLatin1Char('/') + session + QLatin1String(".qws");
 }
 
 QString SessionManager::sessionNameFromFileName(const QString &fileName) const
@@ -1078,8 +1069,7 @@ bool SessionManager::loadSession(const QString &session)
 
 QString SessionManager::lastSession() const
 {
-    QSettings *settings = m_core->settings();
-    QString fileName = settings->value(QLatin1String("ProjectExplorer/StartupSession")).toString();
+    QString fileName = ICore::settings()->value(QLatin1String("ProjectExplorer/StartupSession")).toString();
     return QFileInfo(fileName).completeBaseName();
 }
 

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -93,12 +93,12 @@ QString PasteView::comment() const
     return comment;
 }
 
-QByteArray PasteView::content() const
+QString PasteView::content() const
 {
     if (m_mode == PlainTextMode)
-        return m_ui.plainTextEdit->toPlainText().toUtf8();
+        return m_ui.plainTextEdit->toPlainText();
 
-    QByteArray newContent;
+    QString newContent;
     for (int i = 0; i < m_ui.uiPatchList->count(); ++i) {
         QListWidgetItem *item = m_ui.uiPatchList->item(i);
         if (item->checkState() != Qt::Unchecked)
@@ -137,7 +137,7 @@ int PasteView::showDialog()
     m_ui.uiDescription->selectAll();
 
     // (Re)store dialog size
-    const QSettings *settings = Core::ICore::instance()->settings();
+    const QSettings *settings = Core::ICore::settings();
     const QString rootKey = QLatin1String(groupC) + QLatin1Char('/');
     const int h = settings->value(rootKey + QLatin1String(heightKeyC), height()).toInt();
     const int defaultWidth = m_ui.uiPatchView->columnIndicator() + 50;
@@ -157,7 +157,7 @@ int PasteView::show(const QString &user, const QString &description,
     m_ui.uiPatchList->clear();
     m_parts = parts;
     m_mode = DiffChunkMode;
-    QByteArray content;
+    QString content;
     foreach (const FileData &part, parts) {
         QListWidgetItem *itm = new QListWidgetItem(part.filename, m_ui.uiPatchList);
         itm->setCheckState(Qt::Checked);
@@ -191,14 +191,14 @@ void PasteView::accept()
     if (!Protocol::ensureConfiguration(protocol, this))
         return;
 
-    const QByteArray data = content();
+    const QString data = content();
     if (data.isEmpty())
         return;
 
     const Protocol::ContentType ct = Protocol::contentType(m_mimeType);
     protocol->paste(data, ct, user(), comment(), description());
     // Store settings and close
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(QLatin1String(groupC));
     settings->setValue(QLatin1String(heightKeyC), height());
     settings->setValue(QLatin1String(widthKeyC), width());

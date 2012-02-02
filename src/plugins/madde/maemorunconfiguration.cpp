@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -128,7 +128,7 @@ QString MaemoRunConfiguration::commandPrefix() const
     if (deviceConfig()->osType() == QLatin1String(MeeGoOsType))
         prefix += QLatin1String("DISPLAY=:0.0 ");
 
-    return QString::fromLocal8Bit("%1 %2").arg(prefix, userEnvironmentChangesAsString());
+    return QString::fromLatin1("%1 %2").arg(prefix, userEnvironmentChangesAsString());
 }
 
 PortList MaemoRunConfiguration::freePorts() const

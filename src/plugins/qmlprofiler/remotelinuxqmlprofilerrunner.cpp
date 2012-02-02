@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -115,9 +115,9 @@ void RemoteLinuxQmlProfilerRunner::getPorts()
         QString arguments = runner()->arguments();
         if (!arguments.isEmpty())
             arguments.append(QLatin1Char(' '));
-        arguments.append(QString(QLatin1String("-qmljsdebugger=port:%1,block")).arg(m_port));
+        arguments.append(QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(m_port));
 
-        runner()->startExecution(QString::fromLocal8Bit("%1 %2 %3")
+        runner()->startExecution(QString::fromLatin1("%1 %2 %3")
                                  .arg(runner()->commandPrefix())
                                  .arg(runner()->remoteExecutable())
                                  .arg(arguments).toUtf8());

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -91,7 +91,7 @@ private:
 
     ProcessState m_procState;
     bool m_wasRunning;
-    QByteArray m_signal;
+    int m_signal;
     int m_exitCode;
 
     const QByteArray m_command;

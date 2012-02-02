@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -39,15 +39,15 @@
 
 struct FileData
 {
-    FileData(const QString &f, const QByteArray &c)
+    FileData(const QString &f, const QString &c)
     { filename = f; content = c; }
 
     QString filename;
-    QByteArray content;
+    QString content;
 };
 
 typedef QList<FileData> FileDataList;
 
-FileDataList splitDiffToFiles(const QByteArray &data);
+FileDataList splitDiffToFiles(const QString &data);
 
 #endif // SPLITTER_H

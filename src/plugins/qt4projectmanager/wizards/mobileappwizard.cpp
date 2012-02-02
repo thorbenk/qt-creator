@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -39,6 +39,8 @@
 
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/task.h>
+
+#include <qtsupport/qtsupportconstants.h>
 
 #include <QtCore/QCoreApplication>
 #include <QtGui/QIcon>
@@ -87,6 +89,12 @@ MobileAppWizard::~MobileAppWizard()
 {
     delete d->mobileApp;
     delete d;
+}
+
+Core::FeatureSet MobileAppWizard::requiredFeatures() const
+{
+    return Core::Feature(QtSupport::Constants::FEATURE_GENERIC_CPP_ENTRY_POINT)
+            | Core::Feature(QtSupport::Constants::FEATURE_QWIDGETS);
 }
 
 Core::BaseFileWizardParameters MobileAppWizard::parameters()

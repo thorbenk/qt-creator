@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -150,13 +150,13 @@ void PlainTextEditorWidget::configure()
 {
     Core::MimeType mimeType;
     if (file())
-        mimeType = Core::ICore::instance()->mimeDatabase()->findByFile(file()->fileName());
+        mimeType = Core::ICore::mimeDatabase()->findByFile(file()->fileName());
     configure(mimeType);
 }
 
 void PlainTextEditorWidget::configure(const QString &mimeType)
 {
-    configure(Core::ICore::instance()->mimeDatabase()->findByType(mimeType));
+    configure(Core::ICore::mimeDatabase()->findByType(mimeType));
 }
 
 void PlainTextEditorWidget::configure(const Core::MimeType &mimeType)
@@ -221,7 +221,7 @@ QString PlainTextEditorWidget::findDefinitionId(const Core::MimeType &mimeType,
         if (definitionId.isEmpty()) {
             foreach (const QString &parent, mimeType.subClassesOf()) {
                 const Core::MimeType &parentMimeType =
-                    Core::ICore::instance()->mimeDatabase()->findByType(parent);
+                    Core::ICore::mimeDatabase()->findByType(parent);
                 definitionId = findDefinitionId(parentMimeType, considerParents);
             }
         }
@@ -231,7 +231,7 @@ QString PlainTextEditorWidget::findDefinitionId(const Core::MimeType &mimeType,
 
 void PlainTextEditorWidget::acceptMissingSyntaxDefinitionInfo()
 {
-    Core::ICore::instance()->showOptionsDialog(QLatin1String(Constants::TEXT_EDITOR_SETTINGS_CATEGORY),
+    Core::ICore::showOptionsDialog(QLatin1String(Constants::TEXT_EDITOR_SETTINGS_CATEGORY),
                                                QLatin1String(Constants::TEXT_EDITOR_HIGHLIGHTER_SETTINGS));
 }
 

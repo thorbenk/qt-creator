@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -56,7 +56,7 @@
 // Margin from hardcoded value in:
 // QGraphicsView::fitInView(const QRectF &rect,
 //                          Qt::AspectRatioMode aspectRatioMode)
-// Bug report here: https://bugreports.qt.nokia.com/browse/QTBUG-11945
+// Bug report here: https://bugreports.qt-project.org/browse/QTBUG-11945
 static const int FIT_IN_VIEW_MARGIN = 2;
 
 using namespace Valgrind::Callgrind;

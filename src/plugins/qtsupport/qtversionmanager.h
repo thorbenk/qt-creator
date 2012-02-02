@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -39,19 +39,8 @@
 #include <QtCore/QSet>
 #include <QtCore/QStringList>
 
-namespace Utils {
-class Environment;
-}
-
-namespace ProjectExplorer {
-class HeaderPath;
-class IOutputParser;
-class Task;
-}
-
 namespace QtSupport {
 namespace Internal {
-class QtOptionsPageWidget;
 class QtOptionsPage;
 }
 
@@ -111,17 +100,20 @@ public:
     // Compatibility with pre-2.2:
     QString popPendingMwcUpdate();
     QString popPendingGcceUpdate();
+
+    Core::FeatureSet availableFeatures() const;
+
 signals:
     // content of BaseQtVersion objects with qmake path might have changed
     void dumpUpdatedFor(const Utils::FileName &qmakeCommand);
     void qtVersionsChanged(const QList<int> &uniqueIds);
-    void updateExamples(QString, QString, QString);
 
 public slots:
     void updateDumpFor(const Utils::FileName &qmakeCommand);
 
 private slots:
-    void updateSettings();
+    void delayedUpdateDocumentation();
+    void updateDocumentation();
 
 private:
     // This function is really simplistic...
@@ -144,7 +136,6 @@ private:
     // Used by QtVersion
     int getUniqueId();
     void addNewVersionsFromInstaller();
-    void updateDocumentation();
 
     static int indexOfVersionInList(const BaseQtVersion * const version, const QList<BaseQtVersion *> &list);
     void updateUniqueIdToIndexMap();
@@ -158,6 +149,19 @@ private:
     QStringList m_pendingMwcUpdates;
     QStringList m_pendingGcceUpdates;
 };
+
+namespace Internal {
+
+class QTSUPPORT_EXPORT QtFeatureProvider : public Core::IFeatureProvider
+{
+    Q_OBJECT
+
+public:
+    QtFeatureProvider() {}
+    virtual Core::FeatureSet availableFeatures() const;
+};
+
+}
 
 } // namespace Qt4ProjectManager
 

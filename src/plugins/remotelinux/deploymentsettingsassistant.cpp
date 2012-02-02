@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -110,7 +110,7 @@ bool DeploymentSettingsAssistant::addLinesToProFile(const DeployableFilesPerProF
         + separator + lines.join(separator) + QLatin1String("\n}\n");
     Utils::FileSaver saver(proFileInfo->proFilePath(), QIODevice::Append);
     saver.write(proFileString.toLocal8Bit());
-    return saver.finalize(Core::ICore::instance()->mainWindow());
+    return saver.finalize(Core::ICore::mainWindow());
 }
 
 void DeploymentSettingsAssistant::handleDeploymentInfoUpdated()

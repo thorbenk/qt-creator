@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -70,6 +70,7 @@
 #include <texteditor/snippets/snippet.h>
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/completionsettings.h>
+#include <utils/qtcassert.h>
 
 #include <QtCore/QLatin1String>
 #include <QtGui/QTextCursor>
@@ -1146,7 +1147,7 @@ bool CppCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
         includePaths.append(currentFilePath);
 
     const Core::MimeType mimeType =
-            Core::ICore::instance()->mimeDatabase()->findByType(QLatin1String("text/x-c++hdr"));
+            Core::ICore::mimeDatabase()->findByType(QLatin1String("text/x-c++hdr"));
     const QStringList suffixes = mimeType.suffixes();
 
     foreach (const QString &includePath, includePaths) {
@@ -1205,7 +1206,7 @@ bool CppCompletionAssistProcessor::objcKeywordsWanted() const
     const Core::IFile *file = m_interface->file();
     QString fileName = file->fileName();
 
-    const Core::MimeDatabase *mdb = Core::ICore::instance()->mimeDatabase();
+    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
     return mdb->findByFile(fileName).type() == CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE;
 }
 
@@ -1223,7 +1224,7 @@ int CppCompletionAssistProcessor::startCompletionInternal(const QString fileName
     m_model->m_typeOfExpression->init(thisDocument, m_interface->snapshot());
 
     Scope *scope = thisDocument->scopeAt(line, column);
-    Q_ASSERT(scope != 0);
+    QTC_ASSERT(scope != 0, return -1);
 
     if (expression.isEmpty()) {
         if (m_model->m_completionOperator == T_EOF_SYMBOL || m_model->m_completionOperator == T_COLON_COLON) {

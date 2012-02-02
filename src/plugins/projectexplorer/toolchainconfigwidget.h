@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -34,6 +34,8 @@
 #define TOOLCHAINCONFIGWIDGET_H
 
 #include "projectexplorer_export.h"
+
+#include <utils/fileutils.h>
 
 #include <QtGui/QWidget>
 
@@ -86,8 +88,8 @@ protected:
     void addErrorLabel(QFormLayout *lt);
     void addErrorLabel(QGridLayout *lt, int row = 0, int column = 0, int colSpan = 1);
 
-    QString debuggerCommand() const;
-    void setDebuggerCommand(const QString &debugger);
+    Utils::FileName debuggerCommand() const;
+    void setDebuggerCommand(const Utils::FileName &debugger);
 
 private:
     void ensureDebuggerPathChooser(const QStringList &versionArguments);

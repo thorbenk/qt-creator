@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -176,12 +176,12 @@ void InspectorUi::setupUi()
 
 void InspectorUi::saveSettings() const
 {
-    m_settings->saveSettings(Core::ICore::instance()->settings());
+    m_settings->saveSettings(Core::ICore::settings());
 }
 
 void InspectorUi::restoreSettings()
 {
-    m_settings->restoreSettings(Core::ICore::instance()->settings());
+    m_settings->restoreSettings(Core::ICore::settings());
 }
 
 void InspectorUi::setDebuggerEngine(QObject *qmlEngine)

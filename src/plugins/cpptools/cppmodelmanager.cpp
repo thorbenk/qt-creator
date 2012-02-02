@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -700,7 +700,6 @@ CppModelManager::CppModelManager(QObject *parent)
     m_revision = 0;
     m_synchronizer.setCancelOnWait(true);
 
-    m_core = Core::ICore::instance(); // FIXME
     m_dirty = true;
 
     ProjectExplorer::ProjectExplorerPlugin *pe =
@@ -709,8 +708,6 @@ CppModelManager::CppModelManager(QObject *parent)
     QTC_ASSERT(pe, return);
 
     ProjectExplorer::SessionManager *session = pe->session();
-    QTC_ASSERT(session, return);
-
     m_updateEditorSelectionsTimer = new QTimer(this);
     m_updateEditorSelectionsTimer->setInterval(500);
     m_updateEditorSelectionsTimer->setSingleShot(true);
@@ -739,10 +736,10 @@ CppModelManager::CppModelManager(QObject *parent)
             this, SLOT(onExtraDiagnosticsUpdated(QString)));
 
     // Listen for editor closed and opened events so that we can keep track of changing files
-    connect(m_core->editorManager(), SIGNAL(editorOpened(Core::IEditor *)),
+    connect(Core::ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor *)),
         this, SLOT(editorOpened(Core::IEditor *)));
 
-    connect(m_core->editorManager(), SIGNAL(editorAboutToClose(Core::IEditor *)),
+    connect(Core::ICore::editorManager(), SIGNAL(editorAboutToClose(Core::IEditor *)),
         this, SLOT(editorAboutToClose(Core::IEditor *)));
 
     connect(&m_clangIndexer, SIGNAL(indexingStarted(QFuture<void>)),
@@ -1088,8 +1085,8 @@ QFuture<void> CppModelManager::refreshSourceFiles(const QStringList &sourceFiles
         m_synchronizer.addFuture(result);
 
         if (sourceFiles.count() > 1) {
-            m_core->progressManager()->addTask(result, tr("Parsing"),
-                            CppTools::Constants::TASK_INDEX);
+            Core::ICore::progressManager()->addTask(result, tr("Parsing"),
+                                                    CppTools::Constants::TASK_INDEX);
         }
 
         return result;
@@ -1175,7 +1172,7 @@ void CppModelManager::updateEditor(Document::Ptr doc)
 {
     const QString fileName = doc->fileName();
 
-    QList<Core::IEditor *> openedEditors = m_core->editorManager()->openedEditors();
+    QList<Core::IEditor *> openedEditors = Core::ICore::editorManager()->openedEditors();
     foreach (Core::IEditor *editor, openedEditors) {
         if (editor->file()->fileName() == fileName) {
             TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor *>(editor);
@@ -1382,8 +1379,8 @@ void CppModelManager::onSessionLoaded()
 
 void CppModelManager::onAboutToUnloadSession()
 {
-    if (m_core->progressManager()) {
-        m_core->progressManager()->cancelTasks(CppTools::Constants::TASK_INDEX);
+    if (Core::ProgressManager *pm = Core::ICore::progressManager()) {
+        pm->cancelTasks(CppTools::Constants::TASK_INDEX);
     }
     do {
         QMutexLocker locker(&mutex);
@@ -1403,7 +1400,7 @@ void CppModelManager::parse(QFutureInterface<void> &future,
     if (files.isEmpty())
         return;
 
-    const Core::MimeDatabase *mimeDb = Core::ICore::instance()->mimeDatabase();
+    const Core::MimeDatabase *mimeDb = Core::ICore::mimeDatabase();
     Core::MimeType cSourceTy = mimeDb->findByType(QLatin1String("text/x-csrc"));
     Core::MimeType cppSourceTy = mimeDb->findByType(QLatin1String("text/x-c++src"));
     Core::MimeType mSourceTy = mimeDb->findByType(QLatin1String("text/x-objcsrc"));

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -56,24 +56,24 @@ public:
         CommunicationChannelUsb
     };
 
-    enum SymbianDebugClient {
-        SymbianDebugClientCoda
-    };
-
     DebuggerStartParameters()
       : isSnapshot(false),
         attachPID(-1),
         useTerminal(false),
         breakOnMain(false),
+        languages(AnyLanguage),
         qmlServerAddress(QLatin1String("127.0.0.1")),
         qmlServerPort(ProjectExplorer::Constants::QML_DEFAULT_DEBUG_SERVER_PORT),
         useServerStartScript(false),
         connParams(Utils::SshConnectionParameters::NoProxy),
+        requestRemoteSetup(false),
         startMode(NoStartMode),
         executableUid(0),
         communicationChannel(CommunicationChannelTcpIp),
         serverPort(0),
-        debugClient(SymbianDebugClientCoda)
+        testReceiver(0),
+        testCallback(0),
+        testCase(0)
     {}
 
     QString executable;
@@ -88,6 +88,7 @@ public:
     qint64 attachPID;
     bool useTerminal;
     bool breakOnMain;
+    DebuggerLanguages languages;
 
     // Used by AttachCrashedExternal.
     QString crashParameter;
@@ -98,6 +99,7 @@ public:
     QString projectSourceDirectory;
     QString projectBuildDirectory;
     QStringList projectSourceFiles;
+
 
     QString qtInstallPath;
     // Used by remote debugging.
@@ -115,6 +117,7 @@ public:
     QString remoteMountPoint;
     QString localMountDir;
     Utils::SshConnectionParameters connParams;
+    bool requestRemoteSetup;
 
     QString debuggerCommand;
     ProjectExplorer::Abi toolChainAbi;
@@ -128,7 +131,11 @@ public:
     CommunicationChannel communicationChannel;
     QString serverAddress;
     quint16 serverPort;
-    SymbianDebugClient debugClient;
+
+    // For Debugger testing.
+    QObject *testReceiver;
+    const char *testCallback;
+    int testCase;
 };
 
 } // namespace Debugger

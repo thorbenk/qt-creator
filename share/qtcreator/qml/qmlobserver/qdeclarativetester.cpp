@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -274,12 +274,12 @@ void QDeclarativeTester::updateCurrentTime(int msec)
     if (options & QDeclarativeViewer::TestImages) {
         img.fill(qRgb(255,255,255));
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
         bool oldSmooth = qt_applefontsmoothing_enabled;
         qt_applefontsmoothing_enabled = false;
 #endif
         QPainter p(&img);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
         qt_applefontsmoothing_enabled = oldSmooth;
 #endif
 

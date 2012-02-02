@@ -16,18 +16,39 @@ def openQmakeProject(projectPath):
     selectFromCombo(":scrollArea.Create Build Configurations:_QComboBox", "For Each Qt Version One Debug And One Release")
     clickButton(waitForObject("{text~='(Finish|Done)' type='QPushButton'}"))
 
-def openCmakeProject(projectPath):
+def openCmakeProject(projectPath, buildDir):
     invokeMenuItem("File", "Open File or Project...")
     selectFromFileDialog(projectPath)
+    replaceEditorContent("{type='Utils::BaseValidatingLineEdit' unnamed='1' visible='1'"
+                         "window=':CMake Wizard_CMakeProjectManager::Internal::CMakeOpenProjectWizard'}", buildDir)
     clickButton(waitForObject(":CMake Wizard.Next_QPushButton", 20000))
     generatorCombo = waitForObject(":Generator:_QComboBox")
-    index = generatorCombo.findText("MinGW Generator (MinGW from SDK)")
-    if index == -1:
-        index = generatorCombo.findText("NMake Generator (Microsoft Visual C++ Compiler 9.0 (x86))")
-    if index != -1:
-        generatorCombo.setCurrentIndex(index)
+    mkspec = __getMkspecFromQmake__("qmake")
+    test.log("Using mkspec '%s'" % mkspec)
+
+    if "win32-" in mkspec:
+        generatorName = {"win32-g++" : "MinGW Generator (MinGW from SDK)",
+                         "win32-msvc2008" : "NMake Generator (Microsoft Visual C++ Compiler 9.0 (x86))",
+                         "win32-msvc2010" : "NMake Generator (Microsoft Visual C++ Compiler 10.0 (x86))"}
+        index = -1
+        if mkspec in generatorName:
+            index = generatorCombo.findText(generatorName[mkspec])
+        if index == -1:
+            test.warning("No matching CMake generator for mkspec '%s' found." % mkspec)
+        else:
+            generatorCombo.setCurrentIndex(index)
+
     clickButton(waitForObject(":CMake Wizard.Run CMake_QPushButton", 20000))
-    clickButton(waitForObject(":CMake Wizard.Finish_QPushButton", 60000))
+    try:
+        clickButton(waitForObject(":CMake Wizard.Finish_QPushButton", 60000))
+    except LookupError:
+        cmakeOutput = waitForObject("{type='QPlainTextEdit' unnamed='1' visible='1' "
+                                    "window=':CMake Wizard_CMakeProjectManager::Internal::CMakeOpenProjectWizard'}")
+        test.warning("Error while executing cmake - see details for cmake output.",
+                     str(cmakeOutput.plainText))
+        clickButton(waitForObject(":CMake Wizard.Cancel_QPushButton"))
+        return False
+    return True
 
 def shadowBuildDir(path, project, qtVersion, debugVersion):
     qtVersion = qtVersion.replace(" ", "_")
@@ -66,15 +87,24 @@ def __createProjectSetNameAndPath__(path, projectName = None, checks = True):
     clickButton(waitForObject(":Next_QPushButton"))
     return str(projectName)
 
+# Selects the Qt versions for a project
+# param qtVersion is the name of a Qt version. In the project, build configurations will be
+#                 created for this version. If it is None, all Qt versions will be used
+# param checks turns tests in the function on if set to True
 def __selectQtVersionDesktop__(qtVersion, checks):
     __chooseTargets__()
-    selectFromCombo(":scrollArea.Create Build Configurations:_QComboBox_2",
-                    "For One Qt Version One Debug And One Release")
-    ensureChecked(":scrollArea.Use Shadow Building_QCheckBox")
-    selectFromCombo(":scrollArea.Qt Version:_QComboBox", qtVersion)
-    if checks:
-        verifyChecked(":scrollArea.Qt 4 for Desktop - (Qt SDK) debug_QCheckBox")
-        verifyChecked(":scrollArea.Qt 4 for Desktop - (Qt SDK) release_QCheckBox")
+    if qtVersion == None:
+        selectFromCombo(":scrollArea.Create Build Configurations:_QComboBox_2",
+                        "For Each Qt Version One Debug And One Release")
+        ensureChecked(":scrollArea.Use Shadow Building_QCheckBox")
+    else:
+        selectFromCombo(":scrollArea.Create Build Configurations:_QComboBox_2",
+                        "For One Qt Version One Debug And One Release")
+        ensureChecked(":scrollArea.Use Shadow Building_QCheckBox")
+        selectFromCombo(":scrollArea.Qt Version:_QComboBox", qtVersion)
+        if checks:
+            verifyChecked(":scrollArea.Qt 4 for Desktop - (Qt SDK) debug_QCheckBox")
+            verifyChecked(":scrollArea.Qt 4 for Desktop - (Qt SDK) release_QCheckBox")
     clickButton(waitForObject(":Next_QPushButton"))
 
 def __createProjectHandleLastPage__(expectedFiles = None):
@@ -95,7 +125,13 @@ def __verifyFileCreation__(path, expectedFiles):
             filename = os.path.join(path, filename)
         test.verify(os.path.exists(filename), "Checking if '" + filename + "' was created")
 
-def createProject_Qt_GUI(path, projectName, qtVersion, checks):
+# Creates a Qt GUI project
+# param path specifies where to create the project
+# param projectName is the name for the new project
+# param qtVersion is the name of a Qt version. In the project, build configurations will be
+#                 created for this version. If it is None, all Qt versions will be used
+# param checks turns tests in the function on if set to True
+def createProject_Qt_GUI(path, projectName, qtVersion = None, checks = True):
     __createProjectSelectType__("Other Qt Project", "Qt Gui Application")
     __createProjectSetNameAndPath__(path, projectName, checks)
     __selectQtVersionDesktop__(qtVersion, checks)
@@ -128,7 +164,13 @@ def createProject_Qt_GUI(path, projectName, qtVersion, checks):
     waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 20000)
     __verifyFileCreation__(path, expectedFiles)
 
-def createProject_Qt_Console(path, projectName, qtVersion, checks):
+# Creates a Qt Console project
+# param path specifies where to create the project
+# param projectName is the name for the new project
+# param qtVersion is the name of a Qt version. In the project, build configurations will be
+#                 created for this version. If it is None, all Qt versions will be used
+# param checks turns tests in the function on if set to True
+def createProject_Qt_Console(path, projectName, qtVersion = None, checks = True):
     __createProjectSelectType__("Other Qt Project", "Qt Console Application")
     __createProjectSetNameAndPath__(path, projectName, checks)
     __selectQtVersionDesktop__(qtVersion, checks)
@@ -218,7 +260,9 @@ def __chooseTargets__(targets=QtQuickConstants.Targets.DESKTOP):
                           mustCheck)
         except LookupError:
             if mustCheck:
-                test.fail("Failed to check target '%s'" % QtQuickConstants.getStringForTarget(current))
+                test.fail("Failed to check target '%s'." % QtQuickConstants.getStringForTarget(current))
+            else:
+                test.warning("Target '%s' is not set up correctly." % QtQuickConstants.getStringForTarget(current))
 
 # run and close an application
 # withHookInto - if set to True the function tries to attach to the sub-process instead of simply pressing Stop inside Creator
@@ -249,6 +293,8 @@ def runAndCloseApp(withHookInto=False, executable=None, port=None, function=None
         test.fatal("Couldn't start application - leaving test")
         invokeMenuItem("File", "Exit")
         return False
+    if os.getenv("SYSTEST_QMLVIEWER_NO_HOOK_INTO", "0") == "1":
+        withHookInto = False
     if withHookInto and not validType(sType, userDefinedType):
         if function != None:
             test.warning("You did not provide a valid value for the SubprocessType value - sType, but you have "
@@ -297,7 +343,7 @@ def __closeSubprocessByHookingInto__(executable, port, function, sType, userDefT
     try:
         attachToApplication(executable)
     except:
-        test.fatal("Could not attach to '%s' - using fallback of pushing STOP inside Creator." % executable)
+        test.warning("Could not attach to '%s' - using fallback of pushing STOP inside Creator." % executable)
         resetApplicationContextToCreator()
         __closeSubprocessByPushingStop__(sType)
         return False

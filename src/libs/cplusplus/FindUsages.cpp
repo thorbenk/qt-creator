@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -50,17 +50,21 @@ QString fetchLine(const QByteArray &bytes, const int line)
 {
     int current = 0;
     const char *s = bytes.constData();
-    while (*s) {
-        if (*s == '\n') {
-            ++current;
-            if (current == line)
-                break;
+
+    if (line) {
+        while (*s) {
+            if (*s == '\n') {
+                ++current;
+                if (line == current) {
+                    ++s;
+                    break;
+                }
+            }
+            ++s;
         }
-        ++s;
     }
 
     if (current == line) {
-        ++s;
         const char *e = s;
         while (*e && *e != '\n')
             ++e;
@@ -507,7 +511,7 @@ void FindUsages::enumerator(EnumeratorAST *ast)
     this->expression(ast->expression);
 }
 
-bool FindUsages::visit(ExceptionSpecificationAST *ast)
+bool FindUsages::visit(DynamicExceptionSpecificationAST *ast)
 {
     (void) ast;
     Q_ASSERT(!"unreachable");
@@ -519,13 +523,17 @@ void FindUsages::exceptionSpecification(ExceptionSpecificationAST *ast)
     if (! ast)
         return;
 
-    // unsigned throw_token = ast->throw_token;
-    // unsigned lparen_token = ast->lparen_token;
-    // unsigned dot_dot_dot_token = ast->dot_dot_dot_token;
-    for (ExpressionListAST *it = ast->type_id_list; it; it = it->next) {
-        this->expression(it->value);
+    if (DynamicExceptionSpecificationAST *dyn = ast->asDynamicExceptionSpecification()) {
+        // unsigned throw_token = ast->throw_token;
+        // unsigned lparen_token = ast->lparen_token;
+        // unsigned dot_dot_dot_token = ast->dot_dot_dot_token;
+        for (ExpressionListAST *it = dyn->type_id_list; it; it = it->next) {
+            this->expression(it->value);
+        }
+        // unsigned rparen_token = ast->rparen_token;
+    } else if (NoExceptSpecificationAST *no = ast->asNoExceptSpecification()) {
+        this->expression(no->expression);
     }
-    // unsigned rparen_token = ast->rparen_token;
 }
 
 bool FindUsages::visit(MemInitializerAST *ast)
@@ -1663,6 +1671,12 @@ bool FindUsages::visit(ParameterDeclarationAST *ast)
     // unsigned equal_token = ast->equal_token;
     this->expression(ast->expression);
     // Argument *symbol = ast->symbol;
+    return false;
+}
+
+bool FindUsages::visit(StaticAssertDeclarationAST *ast)
+{
+    this->expression(ast->expression);
     return false;
 }
 

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -403,7 +403,7 @@ void CodaRunControl::checkForTimeout()
     if (m_state != StateConnecting)
         return;
 
-    QMessageBox *mb = createCodaWaitingMessageBox(Core::ICore::instance()->mainWindow());
+    QMessageBox *mb = createCodaWaitingMessageBox(Core::ICore::mainWindow());
     connect(this, SIGNAL(finished()), mb, SLOT(close()));
     connect(mb, SIGNAL(finished(int)), this, SLOT(cancelConnection()));
     mb->open();

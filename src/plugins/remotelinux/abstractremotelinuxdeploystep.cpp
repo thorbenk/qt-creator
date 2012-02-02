@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -83,7 +83,7 @@ bool AbstractRemoteLinuxDeployStep::init()
     deployService()->setBuildConfiguration(qobject_cast<Qt4ProjectManager::Qt4BuildConfiguration *>(target()->activeBuildConfiguration()));
     const bool canDeploy = initInternal(&error);
     if (!canDeploy)
-        emit addOutput(tr("Deployment failed: %1").arg(error), ErrorMessageOutput);
+        emit addOutput(tr("Cannot deploy: %1").arg(error), ErrorMessageOutput);
     return canDeploy;
 }
 
@@ -130,16 +130,16 @@ void AbstractRemoteLinuxDeployStep::handleProgressMessage(const QString &message
 void AbstractRemoteLinuxDeployStep::handleErrorMessage(const QString &message)
 {
     emit addOutput(message, ErrorMessageOutput);
-    emit addTask(Task(Task::Error, message, QString(), -1,
-        ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
+    emit addTask(Task(Task::Error, message, Utils::FileName(), -1,
+                      Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     d->hasError = true;
 }
 
 void AbstractRemoteLinuxDeployStep::handleWarningMessage(const QString &message)
 {
     emit addOutput(message, ErrorMessageOutput);
-    emit addTask(Task(Task::Warning, message, QString(), -1,
-        ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
+    emit addTask(Task(Task::Warning, message, Utils::FileName(), -1,
+                      Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
 }
 
 void AbstractRemoteLinuxDeployStep::handleFinished()

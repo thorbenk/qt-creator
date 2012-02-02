@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -34,6 +34,8 @@
 
 #include "qtversionfactory.h"
 
+#include "qtsupportconstants.h"
+
 #include <projectexplorer/debugginghelper.h>
 // only for legay restore
 #include <projectexplorer/projectexplorerconstants.h>
@@ -57,6 +59,7 @@
 #include <QtCore/QSettings>
 #include <QtCore/QTextStream>
 #include <QtCore/QDir>
+#include <QtCore/QTimer>
 #include <QtGui/QMainWindow>
 
 #include <algorithm>
@@ -135,7 +138,7 @@ void QtVersionManager::extensionsInitialized()
         findSystemQt();
     }
 
-    updateSettings();
+    connect(Core::ICore::instance(), SIGNAL(coreOpened()), this, SLOT(delayedUpdateDocumentation()));
     saveQtVersions();
 }
 
@@ -357,7 +360,7 @@ void QtVersionManager::saveQtVersions()
 
     }
     writer.saveValue(QLatin1String(QTVERSION_COUNT_KEY), count);
-    writer.save(settingsFileName(), QLatin1String("QtCreatorQtVersions"), Core::ICore::instance()->mainWindow());
+    writer.save(settingsFileName(), QLatin1String("QtCreatorQtVersions"), Core::ICore::mainWindow());
 }
 
 void QtVersionManager::findSystemQt()
@@ -373,7 +376,7 @@ void QtVersionManager::findSystemQt()
 
 bool QtVersionManager::legacyRestore()
 {
-    QSettings *s = Core::ICore::instance()->settings();
+    QSettings *s = Core::ICore::settings();
     const QString qtVersionSection = QLatin1String(QtVersionsSectionName);
     if (!s->contains(qtVersionSection + QLatin1String("/size")))
         return false;
@@ -411,7 +414,7 @@ bool QtVersionManager::legacyRestore()
             if (fi.exists() && fi.isExecutable()) {
                 ProjectExplorer::MingwToolChain *tc = createToolChain<ProjectExplorer::MingwToolChain>(QLatin1String(ProjectExplorer::Constants::MINGW_TOOLCHAIN_ID));
                 if (tc) {
-                    tc->setCompilerPath(fi.absoluteFilePath());
+                    tc->setCompilerCommand(Utils::FileName(fi));
                     tc->setDisplayName(tr("MinGW from %1").arg(version->displayName()));
                     // The debugger is set later in the autoDetect method of the MinGw tool chain factory
                     // as the default debuggers are not yet registered.
@@ -510,50 +513,9 @@ void QtVersionManager::updateDumpFor(const Utils::FileName &qmakeCommand)
     emit dumpUpdatedFor(qmakeCommand);
 }
 
-void QtVersionManager::updateSettings()
+void QtVersionManager::delayedUpdateDocumentation()
 {
-    updateDocumentation();
-
-    BaseQtVersion *version = 0;
-    QList<BaseQtVersion *> candidates;
-
-    // try to find a version which has both, demos and examples
-    foreach (BaseQtVersion *version, m_versions) {
-        if (version && version->hasExamples() && version->hasDemos())
-            candidates.append(version);
-    }
-
-    // in SDKs, we want to prefer the Qt version shipping with the SDK
-    QSettings *settings = Core::ICore::instance()->settings();
-    Utils::FileName preferred = Utils::FileName::fromUserInput(settings->value(QLatin1String("PreferredQMakePath")).toString());
-    if (!preferred.isEmpty()) {
-#ifdef Q_OS_WIN
-        if (!preferred.endsWith(".exe"))
-            preferred.append(".exe");
-#endif
-        foreach (version, candidates) {
-            if (version->qmakeCommand() == preferred) {
-                emit updateExamples(version->examplesPath(), version->demosPath(), version->sourcePath().toString());
-                return;
-            }
-        }
-    }
-
-    // prefer versions with declarative examples
-    foreach (version, candidates) {
-        if (QDir(version->examplesPath() + QLatin1String("/declarative")).exists()) {
-            emit updateExamples(version->examplesPath(), version->demosPath(), version->sourcePath().toString());
-            return;
-        }
-    }
-
-    if (!candidates.isEmpty()) {
-        version = candidates.first();
-        emit updateExamples(version->examplesPath(), version->demosPath(), version->sourcePath().toString());
-        return;
-    }
-    return;
-
+    QTimer::singleShot(100, this, SLOT(updateDocumentation()));
 }
 
 int QtVersionManager::getUniqueId()
@@ -598,6 +560,18 @@ QString QtVersionManager::popPendingGcceUpdate()
     if (m_pendingGcceUpdates.isEmpty())
         return QString();
     return m_pendingGcceUpdates.takeFirst();
+}
+
+Core::FeatureSet QtVersionManager::availableFeatures() const
+{
+    Core::FeatureSet features;
+    foreach (BaseQtVersion *const qtVersion, validVersions()) {
+        if (qtVersion->isValid())
+            features |= qtVersion->availableFeatures();
+    }
+    if (validVersions().empty())
+        features |= Constants::FEATURE_GENERIC_CPP_ENTRY_POINT;
+    return features;
 }
 
 BaseQtVersion *QtVersionManager::version(int id) const
@@ -677,7 +651,6 @@ void QtVersionManager::setNewQtVersions(QList<BaseQtVersion *> newVersions)
     if (!changedVersions.isEmpty())
         updateDocumentation();
 
-    updateSettings();
     saveQtVersions();
 
     if (!changedVersions.isEmpty())
@@ -918,4 +891,9 @@ BaseQtVersion::QmakeBuildConfigs QtVersionManager::qmakeBuildConfigFromCmdArgs(Q
         }
     }
     return result;
+}
+
+Core::FeatureSet QtFeatureProvider::availableFeatures() const
+{
+     return QtVersionManager::instance()->availableFeatures();
 }

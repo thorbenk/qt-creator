@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -206,7 +206,7 @@ QModelIndex DataModel::indexForObject(const Function *function) const
 }
 
 /**
- * Evil workaround for https://bugreports.qt.nokia.com/browse/QTBUG-1135
+ * Evil workaround for https://bugreports.qt-project.org/browse/QTBUG-1135
  * Just replace the bad hyphens by a 'NON-BREAKING HYPHEN' unicode char
  */
 static QString noWrap(const QString &str)

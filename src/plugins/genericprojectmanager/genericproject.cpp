@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -91,11 +91,10 @@ GenericProject::GenericProject(Manager *manager, const QString &fileName)
     m_includesIFile = new GenericProjectFile(this, m_includesFileName, GenericProject::Configuration);
     m_configIFile   = new GenericProjectFile(this, m_configFileName, GenericProject::Configuration);
 
-    Core::FileManager *fm = Core::FileManager::instance();
-    fm->addFile(m_creatorIFile);
-    fm->addFile(m_filesIFile);
-    fm->addFile(m_includesIFile);
-    fm->addFile(m_configIFile);
+    Core::FileManager::addFile(m_creatorIFile);
+    Core::FileManager::addFile(m_filesIFile);
+    Core::FileManager::addFile(m_includesIFile);
+    Core::FileManager::addFile(m_configIFile);
 
     m_rootNode = new GenericProjectNode(this, m_creatorIFile);
 
@@ -161,7 +160,7 @@ bool GenericProject::saveRawFileList(const QStringList &rawFileList)
             stream << filePath << QLatin1Char('\n');
         saver.setResult(&stream);
     }
-    if (!saver.finalize(Core::ICore::instance()->mainWindow()))
+    if (!saver.finalize(Core::ICore::mainWindow()))
         return false;
     refresh(GenericProject::Files);
     return true;

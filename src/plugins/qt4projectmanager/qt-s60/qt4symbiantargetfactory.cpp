@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -153,7 +153,7 @@ QList<ProjectExplorer::Task> Qt4SymbianTargetFactory::reportIssues(const QString
                             QCoreApplication::translate("ProjectExplorer::Internal::S60ProjectChecker",
                                                         "The Symbian tool chain does not handle spaces "
                                                         "in the project path '%1'.").arg(projectPath),
-                            QString(), -1, QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                            Utils::FileName(), -1, Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     }
     if (projectName.contains(QRegExp(QLatin1String("[^a-zA-Z0-9.-]")))) {
         results.append(Task(Task::Warning,
@@ -161,7 +161,7 @@ QList<ProjectExplorer::Task> Qt4SymbianTargetFactory::reportIssues(const QString
                                                         "The Symbian tool chain does not handle special "
                                                         "characters in the project name '%1' well.")
                             .arg(projectName),
-                            QString(), -1, QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                            Utils::FileName(), -1, Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     }
     return results;
 }
@@ -190,9 +190,8 @@ bool Qt4SymbianTargetFactory::selectByDefault(const QString &id) const
 QSet<QString> Qt4SymbianTargetFactory::targetFeatures(const QString & /*id*/) const
 {
     QSet<QString> features;
-    features << QLatin1String(Constants::MOBILE_TARGETFEATURE_ID)
-    // ideally we should check whether they're really installed
-             << QLatin1String(Constants::QTQUICKCOMPONENTS_SYMBIAN_TARGETFEATURE_ID);
+    features << QLatin1String(Constants::MOBILE_TARGETFEATURE_ID);
+
     return features;
 }
 
@@ -234,7 +233,7 @@ ProjectExplorer::Target *Qt4SymbianTargetFactory::create(ProjectExplorer::Projec
 
     t->addDeployConfiguration(t->createDeployConfiguration(QLatin1String(S60_DEPLOYCONFIGURATION_ID)));
 
-    t->createApplicationProFiles();
+    t->createApplicationProFiles(false);
 
     if (t->runConfigurations().isEmpty())
         t->addRunConfiguration(new ProjectExplorer::CustomExecutableRunConfiguration(t));

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -42,6 +42,7 @@
 #include <cpptools/cpprefactoringchanges.h>
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/insertionpointlocator.h>
+#include <cpptools/symbolfinder.h>
 #include <cplusplus/ModelManagerInterface.h>
 #include <cplusplus/Symbols.h>
 #include <cplusplus/Overview.h>
@@ -273,8 +274,8 @@ static Document::Ptr findDefinition(Function *functionDeclaration, int *line)
 {
     if (CppModelManagerInterface *cppModelManager = CppModelManagerInterface::instance()) {
         const Snapshot snapshot = cppModelManager->snapshot();
-
-        if (Symbol *def = snapshot.findMatchingDefinition(functionDeclaration)) {
+        CppTools::SymbolFinder symbolFinder;
+        if (Symbol *def = symbolFinder.findMatchingDefinition(functionDeclaration, snapshot)) {
             if (line)
                 *line = def->line();
 
@@ -653,7 +654,7 @@ void QtCreatorIntegration::slotSyncSettingsToDesigner()
 {
 #if QT_VERSION > 0x040800
     // Set promotion-relevant parameters on integration.
-    const Core::MimeDatabase *mdb = Core::ICore::instance()->mimeDatabase();
+    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
     setHeaderSuffix(mdb->preferredSuffixByType(QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE)));
     setHeaderLowercase(FormClassWizardPage::lowercaseHeaderFiles());
 #endif

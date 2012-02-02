@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -207,14 +207,14 @@ void WatchModel::beginCycle(bool fullCycle)
     if (fullCycle)
         m_generationCounter++;
 
-    emit enableUpdates(false);
+    //emit enableUpdates(false);
 }
 
 void WatchModel::endCycle()
 {
     removeOutdated();
     m_fetchTriggered.clear();
-    emit enableUpdates(true);
+    //emit enableUpdates(true);
 }
 
 DebuggerEngine *WatchModel::engine() const
@@ -564,7 +564,7 @@ bool WatchModel::canFetchMore(const QModelIndex &index) const
 {
     WatchItem *item = watchItem(index);
     QTC_ASSERT(item, return false);
-    return index.isValid() && !m_fetchTriggered.contains(item->iname);
+    return index.isValid() && m_handler->m_contentsValid && !m_fetchTriggered.contains(item->iname);
 }
 
 void WatchModel::fetchMore(const QModelIndex &index)
@@ -671,6 +671,14 @@ void WatchModel::emitDataChanged(int column, const QModelIndex &parentIndex)
     //    << data(parentIndex, INameRole).toString();
     for (int i = rowCount(parentIndex); --i >= 0; )
         emitDataChanged(column, index(i, 0, parentIndex));
+}
+
+void WatchModel::invalidateAll(const QModelIndex &parentIndex)
+{
+    QModelIndex idx1 = index(0, 0, parentIndex);
+    QModelIndex idx2 = index(rowCount(parentIndex) - 1, columnCount(parentIndex) - 1, parentIndex);
+    if (idx1.isValid() && idx2.isValid())
+        emit dataChanged(idx1, idx2);
 }
 
 // Truncate value for item view, maintaining quotes.
@@ -790,7 +798,7 @@ QVariant WatchModel::data(const QModelIndex &idx, int role) const
             static const QVariant red(QColor(200, 0, 0));
             static const QVariant gray(QColor(140, 140, 140));
             switch (idx.column()) {
-                case 1: return !data.valueEnabled ? gray
+                case 1: return (!data.valueEnabled || !m_handler->m_contentsValid) ? gray
                             : data.changed ? red : QVariant();
             }
             break;
@@ -907,6 +915,9 @@ bool WatchModel::setData(const QModelIndex &index, const QVariant &value, int ro
 
 Qt::ItemFlags WatchModel::flags(const QModelIndex &idx) const
 {
+    if (!m_handler->m_contentsValid)
+        return Qt::ItemFlags();
+
     if (!idx.isValid())
         return Qt::ItemFlags();
 
@@ -1073,7 +1084,7 @@ void WatchModel::insertData(const WatchData &data)
         QModelIndex idx = watchIndex(oldItem);
         emit dataChanged(idx, idx.sibling(idx.row(), 2));
 
-        // This works around https://bugreports.qt.nokia.com/browse/QTBUG-7115
+        // This works around https://bugreports.qt-project.org/browse/QTBUG-7115
         // by creating and destroying a dummy child item.
         if (!hadChildren && oldItem->hasChildren) {
             WatchData dummy = data;
@@ -1253,6 +1264,9 @@ WatchHandler::WatchHandler(DebuggerEngine *engine)
     m_watchers = new WatchModel(this, WatchersWatch);
     m_tooltips = new WatchModel(this, TooltipsWatch);
 
+    m_contentsValid = false;
+    m_resetLocationScheduled = false;
+
     connect(debuggerCore()->action(SortStructMembers), SIGNAL(valueChanged(QVariant)),
            SLOT(reinsertAllData()));
     connect(debuggerCore()->action(ShowStdNamespace), SIGNAL(valueChanged(QVariant)),
@@ -1275,6 +1289,10 @@ void WatchHandler::endCycle()
     m_locals->endCycle();
     m_watchers->endCycle();
     m_tooltips->endCycle();
+
+    m_contentsValid = true;
+    m_resetLocationScheduled = false;
+
     updateWatchersWindow();
 }
 
@@ -1856,6 +1874,23 @@ void WatchHandler::editTypeFormats(bool includeLocals, const QByteArray &iname)
     }
     if (dlg.exec())
         setTypeFormats(dlg.typeFormats());
+}
+
+void WatchHandler::scheduleResetLocation()
+{
+    m_contentsValid = false;
+    m_resetLocationScheduled = true;
+}
+
+void WatchHandler::resetLocation()
+{
+    if (m_resetLocationScheduled) {
+        m_resetLocationScheduled = false;
+        m_return->invalidateAll();
+        m_locals->invalidateAll();
+        m_watchers->invalidateAll();
+        m_tooltips->invalidateAll();
+    }
 }
 
 } // namespace Internal

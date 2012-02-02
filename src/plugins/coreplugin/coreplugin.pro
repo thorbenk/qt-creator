@@ -57,7 +57,6 @@ SOURCES += mainwindow.cpp \
     coreplugin.cpp \
     variablemanager.cpp \
     modemanager.cpp \
-    coreimpl.cpp \
     basefilewizard.cpp \
     generatedfile.cpp \
     plugindialog.cpp \
@@ -95,7 +94,8 @@ SOURCES += mainwindow.cpp \
     mimetypesettings.cpp \
     dialogs/promptoverwritedialog.cpp \
     fileutils.cpp \
-    textfile.cpp
+    textfile.cpp \
+    featureprovider.cpp
 
 HEADERS += mainwindow.h \
     editmode.h \
@@ -159,7 +159,6 @@ HEADERS += mainwindow.h \
     coreplugin.h \
     variablemanager.h \
     modemanager.h \
-    coreimpl.h \
     basefilewizard.h \
     generatedfile.h \
     plugindialog.h \
@@ -192,7 +191,8 @@ HEADERS += mainwindow.h \
     fileutils.h \
     externaltoolmanager.h \
     textfile.h \
-    generatedfile.h
+    generatedfile.h \
+    featureprovider.h
 
 FORMS += dialogs/newdialog.ui \
     actionmanager/commandmappings.ui \

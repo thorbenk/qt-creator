@@ -269,6 +269,8 @@ void Parser::skipUntilDeclaration()
         // declarations
         case T_ENUM:
         case T_NAMESPACE:
+        case T_INLINE:
+        case T_STATIC_ASSERT:
         case T_ASM:
         case T_EXPORT:
         case T_AT_CLASS:
@@ -621,6 +623,12 @@ bool Parser::parseDeclaration(DeclarationAST *&node)
         consumeToken();
         break;
 
+    // C++11
+    case T_INLINE:
+        if (_cxx0xEnabled && LA(2) == T_NAMESPACE)
+            return parseNamespace(node);
+        // else: intentionally fall-through
+
     default: {
         if (_objCEnabled && LA() == T___ATTRIBUTE__) {
             const unsigned start = cursor();
@@ -702,16 +710,41 @@ bool Parser::parseLinkageBody(DeclarationAST *&node)
     return false;
 }
 
+bool Parser::parseStaticAssertDeclaration(DeclarationAST *&node)
+{
+    DEBUG_THIS_RULE();
+    if (LA() != T_STATIC_ASSERT)
+        return false;
+
+    StaticAssertDeclarationAST *ast = new (_pool) StaticAssertDeclarationAST;
+    ast->static_assert_token = consumeToken();
+    match(T_LPAREN, &ast->lparen_token);
+    parseConstantExpression(ast->expression);
+    match(T_COMMA, &ast->comma_token);
+    parseStringLiteral(ast->string_literal);
+    match(T_RPAREN, &ast->rparen_token);
+    match(T_SEMICOLON, &ast->semicolon_token);
+
+    node = ast;
+    return true;
+}
+
 // ### rename parseNamespaceAliarOrDeclaration?
 bool Parser::parseNamespace(DeclarationAST *&node)
 {
     DEBUG_THIS_RULE();
-    if (LA() != T_NAMESPACE)
+    if (LA() != T_NAMESPACE && !(_cxx0xEnabled && LA() == T_INLINE && LA(2) == T_NAMESPACE))
         return false;
+
+    unsigned inline_token = 0;
+    if (cxx0xEnabled() && LA() == T_INLINE)
+        inline_token = consumeToken();
 
     unsigned namespace_token = consumeToken();
 
     if (LA() == T_IDENTIFIER && LA(2) == T_EQUAL) {
+        if (inline_token)
+            warning(inline_token, "namespace alias cannot be inline");
         NamespaceAliasDefinitionAST *ast =
                 new (_pool) NamespaceAliasDefinitionAST;
         ast->namespace_token = namespace_token;
@@ -724,6 +757,7 @@ bool Parser::parseNamespace(DeclarationAST *&node)
     }
 
     NamespaceAST *ast = new (_pool) NamespaceAST;
+    ast->inline_token = inline_token;
     ast->namespace_token = namespace_token;
     if (LA() == T_IDENTIFIER)
         ast->identifier_token = consumeToken();
@@ -2247,6 +2281,10 @@ bool Parser::parseMemberSpecification(DeclarationAST *&node, ClassSpecifierAST *
     case T_Q_INTERFACES:
         return parseQtInterfaces(node);
 
+    // C++11
+    case T_STATIC_ASSERT:
+        return parseStaticAssertDeclaration(node);
+
     default:
         return parseSimpleDeclaration(node, declaringClass);
     } // switch
@@ -2301,7 +2339,7 @@ bool Parser::parseExceptionSpecification(ExceptionSpecificationAST *&node)
 {
     DEBUG_THIS_RULE();
     if (LA() == T_THROW) {
-        ExceptionSpecificationAST *ast = new (_pool) ExceptionSpecificationAST;
+        DynamicExceptionSpecificationAST *ast = new (_pool) DynamicExceptionSpecificationAST;
         ast->throw_token = consumeToken();
         if (LA() == T_LPAREN)
             ast->lparen_token = consumeToken();
@@ -2311,6 +2349,14 @@ bool Parser::parseExceptionSpecification(ExceptionSpecificationAST *&node)
             parseTypeIdList(ast->type_id_list);
         if (LA() == T_RPAREN)
             ast->rparen_token = consumeToken();
+        node = ast;
+        return true;
+    } else if (_cxx0xEnabled && LA() == T_NOEXCEPT) {
+        NoExceptSpecificationAST *ast = new (_pool) NoExceptSpecificationAST;
+        ast->noexcept_token = consumeToken();
+        if (LA() == T_LPAREN && parseConstantExpression(ast->expression)) {
+            match(T_RPAREN, &ast->rparen_token);
+        }
         node = ast;
         return true;
     }

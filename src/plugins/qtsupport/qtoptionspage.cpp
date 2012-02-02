@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -501,7 +501,7 @@ void QtOptionsPageWidget::buildDebuggingHelper(DebuggingHelperBuildTask::Tools t
     QFuture<void> task = QtConcurrent::run(&DebuggingHelperBuildTask::run, buildTask);
     const QString taskName = tr("Building helpers");
 
-    Core::ICore::instance()->progressManager()->addTask(task, taskName,
+    Core::ICore::progressManager()->addTask(task, taskName,
                                                         QLatin1String("Qt4ProjectManager::BuildHelpers"));
 }
 void QtOptionsPageWidget::buildGdbHelper()
@@ -580,7 +580,7 @@ static QString filterForQmakeFileDialog()
 {
     QString filter = QLatin1String("qmake (");
     foreach (const QString &s, Utils::BuildableHelperLibrary::possibleQMakeCommands()) {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
         // work around QTBUG-7739 that prohibits filters that don't start with *
         filter += QLatin1Char('*');
 #endif

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -141,7 +141,7 @@ QIcon FileIconProvider::icon(const QFileInfo &fileInfo) const
         }
     }
     // Get icon from OS.
-#if defined(Q_WS_WIN) || defined(Q_WS_MAC)
+#if defined(Q_WS_WIN) || defined(Q_OS_MAC)
     return QFileIconProvider::icon(fileInfo);
 #else
     // File icons are unknown on linux systems.

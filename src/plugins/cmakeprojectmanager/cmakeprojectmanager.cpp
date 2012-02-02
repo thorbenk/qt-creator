@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -67,7 +67,7 @@ CMakeManager::CMakeManager(CMakeSettingsPage *cmakeSettingsPage)
     connect(projectExplorer, SIGNAL(aboutToShowContextMenu(ProjectExplorer::Project*, ProjectExplorer::Node*)),
             this, SLOT(updateContextMenu(ProjectExplorer::Project*, ProjectExplorer::Node*)));
 
-    Core::ActionManager *am = Core::ICore::instance()->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     Core::ActionContainer *mbuild =
             am->actionContainer(ProjectExplorer::Constants::M_BUILDPROJECT);
@@ -101,7 +101,7 @@ void CMakeManager::updateContextMenu(ProjectExplorer::Project *project, ProjectE
 
 void CMakeManager::runCMake()
 {
-    runCMake(ProjectExplorer::ProjectExplorerPlugin::instance()->currentProject());
+    runCMake(ProjectExplorer::ProjectExplorerPlugin::currentProject());
 }
 
 void CMakeManager::runCMakeContextMenu()
@@ -252,8 +252,7 @@ CMakeSettingsPage::CMakeSettingsPage()
     m_pathCmake.process = 0;
     m_userCmake.hasCodeBlocksMsvcGenerator = false;
     m_pathCmake.hasCodeBlocksMsvcGenerator = false;
-    Core::ICore *core = Core::ICore::instance();
-    QSettings * settings = core->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(QLatin1String("CMakeSettings"));
     m_userCmake.executable = settings->value(QLatin1String("cmakeExecutable")).toString();
     settings->endGroup();
@@ -404,7 +403,7 @@ void CMakeSettingsPage::updateInfo(CMakeValidator *cmakeValidator)
 
 void CMakeSettingsPage::saveSettings() const
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(QLatin1String("CMakeSettings"));
     settings->setValue(QLatin1String("cmakeExecutable"), m_userCmake.executable);
     settings->endGroup();

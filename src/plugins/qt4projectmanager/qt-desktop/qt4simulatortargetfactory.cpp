@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -129,10 +129,8 @@ QSet<QString> Qt4SimulatorTargetFactory::targetFeatures(const QString & /*id*/) 
     QSet<QString> features;
 
     features << QLatin1String(Constants::MOBILE_TARGETFEATURE_ID)
-             << QLatin1String(Constants::SHADOWBUILD_TARGETFEATURE_ID)
-    // how to check check whether the component set is really installed?
-             << QLatin1String(Constants::QTQUICKCOMPONENTS_SYMBIAN_TARGETFEATURE_ID)
-             << QLatin1String(Constants::QTQUICKCOMPONENTS_MEEGO_TARGETFEATURE_ID);
+             << QLatin1String(Constants::SHADOWBUILD_TARGETFEATURE_ID);
+
     return features;
 }
 
@@ -168,7 +166,7 @@ ProjectExplorer::Target *Qt4SimulatorTargetFactory::create(ProjectExplorer::Proj
 
     t->addDeployConfiguration(t->createDeployConfiguration(QLatin1String(ProjectExplorer::Constants::DEFAULT_DEPLOYCONFIGURATION_ID)));
 
-    t->createApplicationProFiles();
+    t->createApplicationProFiles(false);
 
     if (t->runConfigurations().isEmpty())
         t->addRunConfiguration(new ProjectExplorer::CustomExecutableRunConfiguration(t));

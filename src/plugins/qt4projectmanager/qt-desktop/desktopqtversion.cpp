@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -98,4 +98,13 @@ QSet<QString> DesktopQtVersion::supportedTargetIds() const
 QString DesktopQtVersion::description() const
 {
     return QCoreApplication::translate("QtVersion", "Desktop", "Qt Version is meant for the desktop");
+}
+
+Core::FeatureSet DesktopQtVersion::availableFeatures() const
+{
+    Core::FeatureSet features = QtSupport::BaseQtVersion::availableFeatures();
+    if (qtVersion() >= QtSupport::QtVersionNumber(4, 7, 4)) //no reliable test for components, yet.
+        features |= Core::FeatureSet(QtSupport::Constants::FEATURE_QTQUICK_COMPONENTS_MEEGO)
+                | Core::FeatureSet(QtSupport::Constants::FEATURE_QTQUICK_COMPONENTS_SYMBIAN);
+    return features;
 }

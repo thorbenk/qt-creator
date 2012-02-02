@@ -337,8 +337,14 @@ FullySpecifiedType Bind::declarator(DeclaratorAST *ast, const FullySpecifiedType
         return type;
 
     std::swap(_declaratorId, declaratorId);
+    bool isAuto = false;
+    if (translationUnit()->cxx0xEnabled())
+        isAuto = type.isAuto();
+
     for (SpecifierListAST *it = ast->attribute_list; it; it = it->next) {
         type = this->specifier(it->value, type);
+        if (type.isAuto())
+            isAuto = true;
     }
     for (PtrOperatorListAST *it = ast->ptr_operator_list; it; it = it->next) {
         type = this->ptrOperator(it->value, type);
@@ -349,9 +355,17 @@ FullySpecifiedType Bind::declarator(DeclaratorAST *ast, const FullySpecifiedType
     type = this->coreDeclarator(ast->core_declarator, type);
     for (SpecifierListAST *it = ast->post_attribute_list; it; it = it->next) {
         type = this->specifier(it->value, type);
+        if (type.isAuto())
+            isAuto = true;
     }
     // unsigned equals_token = ast->equals_token;
     ExpressionTy initializer = this->expression(ast->initializer);
+    if (translationUnit()->cxx0xEnabled() && isAuto) {
+
+        type = initializer;
+        type.setAuto(true);
+    }
+
     std::swap(_declaratorId, declaratorId);
     return type;
 }
@@ -459,7 +473,7 @@ void Bind::enumerator(EnumeratorAST *ast, Enum *symbol)
     }
 }
 
-bool Bind::visit(ExceptionSpecificationAST *ast)
+bool Bind::visit(DynamicExceptionSpecificationAST *ast)
 {
     (void) ast;
     assert(!"unreachable");
@@ -473,11 +487,15 @@ FullySpecifiedType Bind::exceptionSpecification(ExceptionSpecificationAST *ast, 
     if (! ast)
         return type;
 
-    // unsigned throw_token = ast->throw_token;
-    // unsigned lparen_token = ast->lparen_token;
-    // unsigned dot_dot_dot_token = ast->dot_dot_dot_token;
-    for (ExpressionListAST *it = ast->type_id_list; it; it = it->next) {
-        ExpressionTy value = this->expression(it->value);
+    if (DynamicExceptionSpecificationAST *dyn = ast->asDynamicExceptionSpecification()) {
+        // unsigned throw_token = ast->throw_token;
+        // unsigned lparen_token = ast->lparen_token;
+        // unsigned dot_dot_dot_token = ast->dot_dot_dot_token;
+        for (ExpressionListAST *it = dyn->type_id_list; it; it = it->next) {
+            /*ExpressionTy value =*/ this->expression(it->value);
+        }
+    } else if (NoExceptSpecificationAST *no = ast->asNoExceptSpecification()) {
+        /*ExpressionTy value =*/ this->expression(no->expression);
     }
     // unsigned rparen_token = ast->rparen_token;
     return type;
@@ -1231,11 +1249,29 @@ bool Bind::visit(ForeachStatementAST *ast)
     }
     DeclaratorIdAST *declaratorId = 0;
     type = this->declarator(ast->declarator, type, &declaratorId);
+    const StringLiteral *initializer = 0;
+    if (type.isAuto() && translationUnit()->cxx0xEnabled()) {
+        ExpressionTy exprType = this->expression(ast->expression);
+
+        ArrayType* arrayType = 0;
+        arrayType = exprType->asArrayType();
+
+        if (arrayType != 0)
+            type = arrayType->elementType();
+        else if (ast->expression != 0) {
+            unsigned startOfExpression = ast->expression->firstToken();
+            unsigned endOfExpression = ast->expression->lastToken();
+            const StringLiteral *sl = asStringLiteral(startOfExpression, endOfExpression);
+            const std::string buff = std::string("*") + sl->chars() + ".begin()";
+            initializer = control()->stringLiteral(buff.c_str(), buff.size());
+        }
+    }
 
     if (declaratorId && declaratorId->name) {
         unsigned sourceLocation = location(declaratorId->name, ast->firstToken());
         Declaration *decl = control()->newDeclaration(sourceLocation, declaratorId->name->name);
         decl->setType(type);
+        decl->setInitializer(initializer);
         block->addMember(decl);
     }
 
@@ -1791,6 +1827,16 @@ bool Bind::visit(SimpleDeclarationAST *ast)
             if (declaratorId && declaratorId->name)
                 fun->setName(declaratorId->name->name); // update the function name
         }
+        else if (declTy.isAuto()) {
+            const ExpressionAST *initializer = it->value->initializer;
+            if (!initializer)
+                translationUnit()->error(location(declaratorId->name, ast->firstToken()), "auto-initialized variable must have an initializer");
+            else {
+                unsigned startOfExpression = initializer->firstToken();
+                unsigned endOfExpression = initializer->lastToken();
+                decl->setInitializer(asStringLiteral(startOfExpression, endOfExpression));
+            }
+        }
 
         if (_scope->isClass()) {
             decl->setVisibility(_visibility);
@@ -2081,6 +2127,7 @@ bool Bind::visit(NamespaceAST *ast)
     Namespace *ns = control()->newNamespace(sourceLocation, namespaceName);
     ns->setStartOffset(tokenAt(sourceLocation).end()); // the scope starts after the namespace or the identifier token.
     ns->setEndOffset(tokenAt(ast->lastToken() - 1).end());
+    ns->setInline(ast->inline_token != 0);
     ast->symbol = ns;
     _scope->addMember(ns);
 
@@ -2576,8 +2623,10 @@ bool Bind::visit(SimpleSpecifierAST *ast)
             break;
 
         case T_AUTO:
-            if (_type.isAuto())
-                translationUnit()->error(ast->specifier_token, "duplicate `%s'", spell(ast->specifier_token));
+            if (!translationUnit()->cxx0xEnabled()) {
+                if (_type.isAuto())
+                    translationUnit()->error(ast->specifier_token, "duplicate `%s'", spell(ast->specifier_token));
+            }
             _type.setAuto(true);
             break;
 

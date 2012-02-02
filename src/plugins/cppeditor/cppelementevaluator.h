@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -36,7 +36,7 @@
 #include "cppeditor.h"
 
 #include <texteditor/helpitem.h>
-
+#include <cpptools/symbolfinder.h>
 #include <cplusplus/CppDocument.h>
 #include <cplusplus/Overview.h>
 
@@ -92,6 +92,7 @@ private:
     bool m_lookupDerivedClasses;
     QSharedPointer<CppElement> m_element;
     QString m_diagnosis;
+    CppTools::SymbolFinder m_symbolFinder;
 };
 
 class CppElement

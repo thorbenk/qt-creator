@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -57,6 +57,10 @@ bool QtSupportPlugin::initialize(const QStringList &arguments, QString *errorMes
 
     QtVersionManager *mgr = new QtVersionManager;
     addAutoReleasedObject(mgr);
+
+    QtFeatureProvider *featureMgr = new QtFeatureProvider;
+    addAutoReleasedObject(featureMgr);
+
     addAutoReleasedObject(new QtOptionsPage);
 
     ExamplesWelcomePage *welcomePage;

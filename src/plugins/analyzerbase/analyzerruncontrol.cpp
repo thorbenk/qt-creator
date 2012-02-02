@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Author: Andreas Hartmetz, KDAB (andreas.hartmetz@kdab.com)
 **
@@ -118,13 +118,12 @@ void AnalyzerRunControl::start()
     // clear about-to-be-outdated tasks
     ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
     TaskHub *hub = pm->getObject<TaskHub>();
-    hub->clearTasks(Constants::ANALYZERTASK_ID);
+    hub->clearTasks(Core::Id(Constants::ANALYZERTASK_ID));
 
     if (d->m_engine->start()) {
         d->m_isRunning = true;
         emit started();
     }
-
 }
 
 RunControl::StopResult AnalyzerRunControl::stop()
@@ -180,7 +179,8 @@ void AnalyzerRunControl::addTask(Task::TaskType type, const QString &description
 {
     ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
     TaskHub *hub = pm->getObject<TaskHub>();
-    hub->addTask(Task(type, description, file, line, Constants::ANALYZERTASK_ID));
+    hub->addTask(Task(type, description, Utils::FileName::fromUserInput(file), line,
+                      Core::Id(Constants::ANALYZERTASK_ID)));
     hub->popup(false);
 }
 

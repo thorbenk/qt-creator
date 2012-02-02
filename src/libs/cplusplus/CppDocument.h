@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -381,24 +381,12 @@ public:
     Document::Ptr documentFromSource(const QByteArray &preprocessedCode,
                                      const QString &fileName) const;
 
-    Symbol *findMatchingDefinition(Symbol *symbol, bool strict = false) const;
-    Class *findMatchingClassDeclaration(Symbol *symbol) const;
-
 private:
     void simplified_helper(Document::Ptr doc, Snapshot *snapshot) const;
 
 private:
     _Base _documents;
 };
-
-void CPLUSPLUS_EXPORT findMatchingDeclaration(
-        const LookupContext &context,
-        Function *functionType,
-        QList<Declaration *> *typeMatch,
-        QList<Declaration *> *argumentCountMatch,
-        QList<Declaration *> *nameMatch);
-QList<Declaration *> CPLUSPLUS_EXPORT findMatchingDeclaration(
-        const LookupContext &context, Function *functionType);
 
 } // namespace CPlusPlus
 

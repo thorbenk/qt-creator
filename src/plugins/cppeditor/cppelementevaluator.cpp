@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -184,8 +184,10 @@ void CppElementEvaluator::handleLookupItemMatch(const Snapshot &snapshot,
                        && (declaration->asTemplate()->declaration()->isClass()
                            || declaration->asTemplate()->declaration()->isForwardClassDeclaration()))) {
             if (declaration->isForwardClassDeclaration())
-                if (Symbol *classDeclaration = snapshot.findMatchingClassDeclaration(declaration))
+                if (Symbol *classDeclaration =
+                        m_symbolFinder.findMatchingClassDeclaration(declaration, snapshot)) {
                     declaration = classDeclaration;
+                }
             CppClass *cppClass = new CppClass(declaration);
             if (m_lookupBaseClasses)
                 cppClass->lookupBases(declaration, context);

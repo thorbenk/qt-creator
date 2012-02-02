@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -81,7 +81,7 @@ void FilesSelectionWizardPage::initializePage()
 {
     m_view->setModel(0);
     delete m_model;
-    Core::MimeDatabase *mimeDatabase = Core::ICore::instance()->mimeDatabase();
+    Core::MimeDatabase *mimeDatabase = Core::ICore::mimeDatabase();
     m_model = new SelectableFilesModel(m_genericProjectWizardDialog->path(), this);
     m_model->setSuffixes(mimeDatabase->suffixes().toSet());
     connect(m_model, SIGNAL(parsingProgress(QString)),

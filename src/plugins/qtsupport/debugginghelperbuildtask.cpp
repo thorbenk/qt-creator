@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -48,10 +48,11 @@
 
 using namespace QtSupport;
 using namespace QtSupport::Internal;
-using ProjectExplorer::DebuggingHelperLibrary;
+using namespace QtSupport::Internal;
+using namespace ProjectExplorer;
 
 DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
-                                                   ProjectExplorer::ToolChain *toolChain,
+                                                   ToolChain *toolChain,
                                                    Tools tools) :
     m_tools(tools & availableTools(version)),
     m_invalidQt(false),
@@ -65,9 +66,8 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
     qRegisterMetaType<DebuggingHelperBuildTask::Tools>("DebuggingHelperBuildTask::Tools");
 
     // Print result in application ouptut
-    Core::MessageManager *messageManager = Core::MessageManager::instance();
     connect(this, SIGNAL(logOutput(QString,bool)),
-            messageManager, SLOT(printToOutputPane(QString,bool)),
+            Core::MessageManager::instance(), SLOT(printToOutputPane(QString,bool)),
             Qt::QueuedConnection);
 
     //
@@ -95,10 +95,10 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
     log(QCoreApplication::translate("QtVersion", "Building helper(s) with toolchain '%1' ...\n"
                                     ).arg(toolChain->displayName()), QString());
 
-    if (toolChain->targetAbi().os() == ProjectExplorer::Abi::LinuxOS
-        && ProjectExplorer::Abi::hostAbi().os() == ProjectExplorer::Abi::WindowsOS)
+    if (toolChain->targetAbi().os() == Abi::LinuxOS
+        && Abi::hostAbi().os() == Abi::WindowsOS)
         m_target = QLatin1String("-unix");
-    if (toolChain->targetAbi().os() == ProjectExplorer::Abi::SymbianOS) {
+    if (toolChain->targetAbi().os() == Abi::SymbianOS) {
         m_makeArguments << QLatin1String("debug-") + toolChain->defaultMakeTarget();
         m_makeArguments << QLatin1String("release-") + toolChain->defaultMakeTarget();
         m_makeArguments << QLatin1String("-k");
@@ -107,6 +107,16 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
                         << QLatin1String("-k");
     }
     m_qmakeCommand = version->qmakeCommand();
+    m_qmakeArguments = QStringList() << QLatin1String("-nocache");
+    if (toolChain->targetAbi().os() == Abi::MacOS
+            && toolChain->targetAbi().architecture() == Abi::X86Architecture) {
+        // explicitly set 32 or 64 bit in case Qt is compiled with both
+        if (toolChain->targetAbi().wordWidth() == 32)
+            m_qmakeArguments << QLatin1String("CONFIG+=x86");
+        else if (toolChain->targetAbi().wordWidth() == 64) {
+            m_qmakeArguments << QLatin1String("CONFIG+=x86_64");
+        }
+    }
     m_makeCommand = toolChain->makeCommand();
     m_mkspec = version->mkspec();
 
@@ -116,9 +126,6 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
             Qt::QueuedConnection);
 }
 
-DebuggingHelperBuildTask::~DebuggingHelperBuildTask()
-{
-}
 
 DebuggingHelperBuildTask::Tools DebuggingHelperBuildTask::availableTools(const BaseQtVersion *version)
 {
@@ -126,8 +133,8 @@ DebuggingHelperBuildTask::Tools DebuggingHelperBuildTask::availableTools(const B
     // Check the build requirements of the tools
     DebuggingHelperBuildTask::Tools tools = 0;
     // Gdb helpers are needed on Mac/gdb only.
-    foreach (const ProjectExplorer::Abi &abi, version->qtAbis()) {
-        if (abi.os() == ProjectExplorer::Abi::MacOS) {
+    foreach (const Abi &abi, version->qtAbis()) {
+        if (abi.os() == Abi::MacOS) {
             tools |= DebuggingHelperBuildTask::GdbDebugging;
             break;
         }
@@ -177,7 +184,7 @@ bool DebuggingHelperBuildTask::buildDebuggingHelper(QFutureInterface<void> &futu
     arguments.makeCommand = m_makeCommand;
     arguments.makeArguments = m_makeArguments;
     arguments.qmakeCommand = m_qmakeCommand;
-    arguments.qmakeArguments = QStringList() << QLatin1String("-nocache");
+    arguments.qmakeArguments = m_qmakeArguments;
     arguments.targetMode = m_target;
     arguments.mkspec = m_mkspec;
     arguments.environment = m_environment;

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -172,7 +172,7 @@ void SearchWidget::indexingStarted()
 {
     Q_ASSERT(!m_progress);
     m_progress = new QFutureInterface<void>();
-    Core::ICore::instance()->progressManager() ->addTask(m_progress->future(),
+    Core::ICore::progressManager() ->addTask(m_progress->future(),
         tr("Indexing"), QLatin1String("Help.Indexer"));
     m_progress->setProgressRange(0, 2);
     m_progress->setProgressValueAndText(1, tr("Indexing Documentation..."));

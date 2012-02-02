@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -76,6 +76,7 @@
 #include <cpptools/cpptoolsreuse.h>
 #include <cpptools/doxygengenerator.h>
 #include <cpptools/cpptoolssettings.h>
+#include <cpptools/symbolfinder.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/actionmanager/actionmanager.h>
@@ -153,7 +154,7 @@ public:
 
     void adjustWidth()
     {
-        const int w = Core::ICore::instance()->mainWindow()->geometry().width();
+        const int w = Core::ICore::mainWindow()->geometry().width();
         setMaximumWidth(w);
         setMinimumWidth(qMin(qMax(sizeHintForColumn(0), minimumSizeHint().width()), w));
     }
@@ -416,6 +417,8 @@ CPPEditor::CPPEditor(CPPEditorWidget *editor)
     m_context.add(TextEditor::Constants::C_TEXTEDITOR);
 }
 
+Q_GLOBAL_STATIC(CppTools::SymbolFinder, symbolFinder)
+
 CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     : TextEditor::BaseTextEditorWidget(parent)
     , m_currentRenameSelection(NoCurrentRenameSelection)
@@ -584,6 +587,27 @@ void CPPEditorWidget::cut()
     startRename();
     BaseTextEditorWidget::cut();
     finishRename();
+}
+
+void CPPEditorWidget::selectAll()
+{
+    // if we are currently renaming a symbol
+    // and the cursor is over that symbol, select just that symbol
+    if (m_currentRenameSelection != NoCurrentRenameSelection) {
+        QTextCursor cursor = textCursor();
+        int selectionBegin = m_currentRenameSelectionBegin.position();
+        int selectionEnd = m_currentRenameSelectionEnd.position();
+
+        if (cursor.position() >= selectionBegin
+                && cursor.position() <= selectionEnd) {
+            cursor.setPosition(selectionBegin);
+            cursor.setPosition(selectionEnd, QTextCursor::KeepAnchor);
+            setTextCursor(cursor);
+            return;
+        }
+    }
+
+    BaseTextEditorWidget::selectAll();
 }
 
 CppModelManagerInterface *CPPEditorWidget::modelManager() const
@@ -1139,12 +1163,13 @@ CPPEditorWidget::Link CPPEditorWidget::attemptFuncDeclDef(const QTextCursor &cur
 
     Symbol *target = 0;
     if (FunctionDefinitionAST *funDef = declParent->asFunctionDefinition()) {
-        QList<Declaration *> candidates = findMatchingDeclaration(LookupContext(doc, snapshot),
-                                                                  funDef->symbol);
+        QList<Declaration *> candidates =
+                symbolFinder()->findMatchingDeclaration(LookupContext(doc, snapshot),
+                                                        funDef->symbol);
         if (!candidates.isEmpty()) // TODO: improve disambiguation
             target = candidates.first();
     } else if (declParent->asSimpleDeclaration()) {
-        target = snapshot.findMatchingDefinition(funcDecl->symbol);
+        target = symbolFinder()->findMatchingDefinition(funcDecl->symbol, snapshot);
     }
 
     if (target) {
@@ -1394,9 +1419,8 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
                 if (def == lastVisibleSymbol)
                     def = 0; // jump to declaration then.
 
-                if (symbol->isForwardClassDeclaration()) {
-                    def = snapshot.findMatchingClassDeclaration(symbol);
-                }
+                if (symbol->isForwardClassDeclaration())
+                    def = symbolFinder()->findMatchingClassDeclaration(symbol, snapshot);
             }
 
             link = linkToSymbol(def ? def : symbol);
@@ -1432,7 +1456,7 @@ Symbol *CPPEditorWidget::findDefinition(Symbol *symbol, const Snapshot &snapshot
     else if (! symbol->type()->isFunctionType())
         return 0; // not a function declaration
 
-    return snapshot.findMatchingDefinition(symbol);
+    return symbolFinder()->findMatchingDefinition(symbol, snapshot);
 }
 
 unsigned CPPEditorWidget::editorRevision() const
@@ -1501,7 +1525,7 @@ void CPPEditorWidget::contextMenuEvent(QContextMenuEvent *e)
 
     QMenu *menu = new QMenu;
 
-    Core::ActionManager *am = Core::ICore::instance()->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
     Core::ActionContainer *mcontext = am->actionContainer(Constants::M_CONTEXT);
     QMenu *contextMenu = mcontext->menu();
 
@@ -1649,7 +1673,7 @@ Core::Id CPPEditor::id() const
 bool CPPEditor::open(QString *errorString, const QString &fileName, const QString &realFileName)
 {
     bool b = TextEditor::BaseTextEditor::open(errorString, fileName, realFileName);
-    editorWidget()->setMimeType(Core::ICore::instance()->mimeDatabase()->findByFile(QFileInfo(fileName)).type());
+    editorWidget()->setMimeType(Core::ICore::mimeDatabase()->findByFile(QFileInfo(fileName)).type());
     return b;
 }
 
@@ -2343,32 +2367,43 @@ bool CPPEditorWidget::handleDocumentationComment(QKeyEvent *e)
         if (!m_commentsSettings.m_leadingAsterisks)
             return false;
 
-        const QString &text = cursor.block().text();
-        const int length = text.length();
+        // We continue the comment if the cursor is after a comment's line asterisk and if
+        // there's no asterisk immediately after the cursor (that would already be considered
+        // a leading asterisk).
         int offset = 0;
-        for (; offset < length; ++offset) {
-            const QChar &current = text.at(offset);
-            if (!current.isSpace())
+        const int blockPos = cursor.positionInBlock();
+        const QString &text = cursor.block().text();
+        for (; offset < blockPos; ++offset) {
+            if (!text.at(offset).isSpace())
                 break;
         }
-        if (offset < length
+
+        if (offset < blockPos
                 && (text.at(offset) == QLatin1Char('*')
-                    || (offset < length - 1
+                    || (offset < blockPos - 1
                         && text.at(offset) == QLatin1Char('/')
                         && text.at(offset + 1) == QLatin1Char('*')))) {
-            QString newLine(QLatin1Char('\n'));
-            newLine.append(QString(offset, QLatin1Char(' ')));
-            if (text.at(offset) == QLatin1Char('/')) {
-                newLine.append(QLatin1String(" *"));
-            } else {
-                int start = offset;
-                while (offset < length && text.at(offset) == QLatin1Char('*'))
-                    ++offset;
-                newLine.append(QString(offset - start, QLatin1Char('*')));
+            int followinPos = blockPos;
+            for (; followinPos < text.length(); ++followinPos) {
+                if (!text.at(followinPos).isSpace())
+                    break;
             }
-            cursor.insertText(newLine);
-            e->accept();
-            return true;
+            if (followinPos == text.length()
+                    || text.at(followinPos) != QLatin1Char('*')) {
+                QString newLine(QLatin1Char('\n'));
+                newLine.append(QString(offset, QLatin1Char(' ')));
+                if (text.at(offset) == QLatin1Char('/')) {
+                    newLine.append(QLatin1String(" *"));
+                } else {
+                    int start = offset;
+                    while (offset < blockPos && text.at(offset) == QLatin1Char('*'))
+                        ++offset;
+                    newLine.append(QString(offset - start, QLatin1Char('*')));
+                }
+                cursor.insertText(newLine);
+                e->accept();
+                return true;
+            }
         }
     }
 

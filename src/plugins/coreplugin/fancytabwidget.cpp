@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -291,7 +291,7 @@ void FancyTabBar::paintTab(QPainter *painter, int tabIndex) const
     } else {
         painter->setPen(selected ? Utils::StyleHelper::panelTextColor() : QColor(255, 255, 255, 120));
     }
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     if (!selected && enabled) {
         painter->save();
         int fader = int(m_tabs[tabIndex]->fader());

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -116,6 +116,11 @@ GenericProjectWizard::GenericProjectWizard()
 GenericProjectWizard::~GenericProjectWizard()
 { }
 
+Core::FeatureSet GenericProjectWizard::requiredFeatures() const
+{
+    return Core::FeatureSet();
+}
+
 Core::BaseFileWizardParameters GenericProjectWizard::parameters()
 {
     Core::BaseFileWizardParameters parameters(ProjectWizard);
@@ -166,8 +171,7 @@ Core::GeneratedFiles GenericProjectWizard::generateFiles(const QWizard *w,
     const QString configFileName = QFileInfo(dir, projectName + QLatin1String(".config")).absoluteFilePath();
     const QStringList paths = wizard->selectedPaths();
 
-    Core::ICore *core = Core::ICore::instance();
-    Core::MimeDatabase *mimeDatabase = core->mimeDatabase();
+    Core::MimeDatabase *mimeDatabase = Core::ICore::mimeDatabase();
 
     Core::MimeType headerTy = mimeDatabase->findByType(QLatin1String("text/x-chdr"));
 

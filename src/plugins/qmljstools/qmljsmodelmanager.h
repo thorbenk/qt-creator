@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -46,7 +46,6 @@
 QT_FORWARD_DECLARE_CLASS(QTimer)
 
 namespace Core {
-class ICore;
 class MimeType;
 }
 
@@ -136,7 +135,6 @@ private:
                                   QHash<QString, QPair<CPlusPlus::Document::Ptr, bool> > documents);
 
     mutable QMutex m_mutex;
-    Core::ICore *m_core;
     QmlJS::Snapshot _validSnapshot;
     QmlJS::Snapshot _newestSnapshot;
     QStringList m_allImportPaths;

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -44,7 +44,7 @@ static const char prefixKeyC[] = "Prefix";
 namespace CodePaster {
 PasteBinDotComSettings::PasteBinDotComSettings()
 {
-    m_settings = Core::ICore::instance()->settings();
+    m_settings = Core::ICore::settings();
     if (m_settings) {
         const QString rootKey = QLatin1String(groupC) + QLatin1Char('/');
         m_hostPrefix = m_settings->value(rootKey + QLatin1String(prefixKeyC), QString()).toString();

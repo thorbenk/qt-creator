@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -87,7 +87,7 @@ public:
                                                     QString directory,
                                                     bool importing);
 
-    virtual void createApplicationProFiles() = 0;
+    virtual void createApplicationProFiles(bool reparse) = 0;
 
     virtual QList<ProjectExplorer::RunConfiguration *> runConfigurationsForNode(ProjectExplorer::Node *n) = 0;
 

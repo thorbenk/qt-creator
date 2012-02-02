@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (info@qt.nokia.com)
 **
@@ -57,9 +57,12 @@ public:
                    const QString &libPath,
                    bool autodetect = false);
 
+    QString legacyId() const;
+
     static WinCEToolChain *readFromMap(const QVariantMap &data);
 
-    QString typeName() const;
+    QString type() const;
+    QString typeDisplayName() const;
 
     Utils::FileName mkspec() const;
 
@@ -74,12 +77,12 @@ public:
 
     static QString autoDetectCdbDebugger(QStringList *checkedDirectories = 0);
 
+    bool operator ==(const ToolChain &other) const;
 protected:
     Utils::Environment readEnvironmentSetting(Utils::Environment& env) const;
 
 private:
     WinCEToolChain();
-    void updateId();
 
     QString m_msvcVer;
     QString m_ceVer;

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -71,7 +71,7 @@ QColor StyleHelper::mergedColors(const QColor &colorA, const QColor &colorB, int
 
 qreal StyleHelper::sidebarFontSize()
 {
-#if defined(Q_WS_MAC)
+#if defined(Q_OS_MAC)
     return 10;
 #else
     return 7.5;

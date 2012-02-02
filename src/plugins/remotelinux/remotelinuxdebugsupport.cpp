@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -97,10 +97,12 @@ DebuggerStartParameters AbstractRemoteLinuxDebugSupport::startParameters(const R
     DebuggerStartParameters params;
     const LinuxDeviceConfiguration::ConstPtr &devConf = runConfig->deviceConfig();
     if (runConfig->useQmlDebugger()) {
+        params.languages |= QmlLanguage;
         params.qmlServerAddress = runConfig->deviceConfig()->sshParameters().host;
         params.qmlServerPort = -1;
     }
     if (runConfig->useCppDebugger()) {
+        params.languages |= CppLanguage;
         params.processArgs = runConfig->arguments();
         if (runConfig->activeQt4BuildConfiguration()->qtVersion())
             params.sysroot = runConfig->activeQt4BuildConfiguration()->qtVersion()->systemRoot();
@@ -109,7 +111,7 @@ DebuggerStartParameters AbstractRemoteLinuxDebugSupport::startParameters(const R
         params.executable = runConfig->localExecutableFilePath();
         params.debuggerCommand = runConfig->gdbCmd();
         params.remoteChannel = devConf->sshParameters().host + QLatin1String(":-1");
-        params.useServerStartScript = true;
+        params.requestRemoteSetup = true;
 
         // TODO: This functionality should be inside the debugger.
         const ProjectExplorer::Abi &abi = runConfig->target()
@@ -201,13 +203,13 @@ void AbstractRemoteLinuxDebugSupport::startExecution()
     const QString &remoteExe = runner()->remoteExecutable();
     QString args = runner()->arguments();
     if (d->qmlDebugging) {
-        args += QString(QLatin1String(" -qmljsdebugger=port:%1,block"))
+        args += QString::fromLatin1(" -qmljsdebugger=port:%1,block")
             .arg(d->qmlPort);
     }
 
     const QString remoteCommandLine = (d->qmlDebugging && !d->cppDebugging)
-        ? QString::fromLocal8Bit("%1 %2 %3").arg(runner()->commandPrefix()).arg(remoteExe).arg(args)
-        : QString::fromLocal8Bit("%1 gdbserver :%2 %3 %4").arg(runner()->commandPrefix())
+        ? QString::fromLatin1("%1 %2 %3").arg(runner()->commandPrefix()).arg(remoteExe).arg(args)
+        : QString::fromLatin1("%1 gdbserver :%2 %3 %4").arg(runner()->commandPrefix())
               .arg(d->gdbServerPort).arg(remoteExe).arg(args);
     connect(runner(), SIGNAL(remoteProcessFinished(qint64)),
         SLOT(handleRemoteProcessFinished(qint64)));

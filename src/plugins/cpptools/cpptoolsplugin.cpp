@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -70,6 +70,7 @@
 #include <find/ifindfilter.h>
 #include <find/searchresultwindow.h>
 #include <utils/filesearch.h>
+#include <utils/qtcassert.h>
 
 #include <QtCore/QtPlugin>
 #include <QtCore/QFileInfo>
@@ -108,18 +109,16 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
 
     Clang::initializeClang();
 
-    Core::ICore *core = Core::ICore::instance();
-    Core::ActionManager *am = core->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     m_settings = new CppToolsSettings(this); // force registration of cpp tools settings
 
     // Objects
     m_modelManager = new CppModelManager(this);
-    Core::VcsManager *vcsManager = core->vcsManager();
-    Core::FileManager *fileManager = core->fileManager();
+    Core::VcsManager *vcsManager = Core::ICore::vcsManager();
     connect(vcsManager, SIGNAL(repositoryChanged(QString)),
             m_modelManager, SLOT(updateModifiedSourceFiles()));
-    connect(fileManager, SIGNAL(filesChangedInternally(QStringList)),
+    connect(Core::FileManager::instance(), SIGNAL(filesChangedInternally(QStringList)),
             m_modelManager, SLOT(updateSourceFiles(QStringList)));
     addAutoReleasedObject(m_modelManager);
 
@@ -128,7 +127,7 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     addAutoReleasedObject(new CppClassesFilter(m_modelManager));
     addAutoReleasedObject(new CppFunctionsFilter(m_modelManager));
     addAutoReleasedObject(new CppCtorDtorFilter(m_modelManager));
-    addAutoReleasedObject(new CppCurrentDocumentFilter(m_modelManager, core->editorManager()));
+    addAutoReleasedObject(new CppCurrentDocumentFilter(m_modelManager, Core::ICore::editorManager()));
     addAutoReleasedObject(new CppFileSettingsPage(m_fileSettings));
     addAutoReleasedObject(new SymbolsFindFilter(m_modelManager));
     addAutoReleasedObject(new CppCodeStyleSettingsPage);
@@ -158,7 +157,7 @@ void CppToolsPlugin::extensionsInitialized()
 {
     // The Cpp editor plugin, which is loaded later on, registers the Cpp mime types,
     // so, apply settings here
-    m_fileSettings->fromSettings(Core::ICore::instance()->settings());
+    m_fileSettings->fromSettings(Core::ICore::settings());
     if (!m_fileSettings->applySuffixesToMimeDB())
         qWarning("Unable to apply cpp suffixes to mime database (cpp mime types not found).\n");
 }
@@ -273,11 +272,8 @@ QString CppToolsPlugin::correspondingHeaderOrSourceI(const QString &fileName) co
     if (m_headerSourceMapping.contains(fi.absoluteFilePath()))
         return m_headerSourceMapping.value(fi.absoluteFilePath());
 
-    const Core::ICore *core = Core::ICore::instance();
-    const Core::MimeDatabase *mimeDatase = core->mimeDatabase();
-    ProjectExplorer::ProjectExplorerPlugin *explorer =
-       ProjectExplorer::ProjectExplorerPlugin::instance();
-    ProjectExplorer::Project *project = (explorer ? explorer->currentProject() : 0);
+    const Core::MimeDatabase *mimeDatase = Core::ICore::mimeDatabase();
+    ProjectExplorer::Project *project = ProjectExplorer::ProjectExplorerPlugin::currentProject();
 
     const FileType type = fileType(mimeDatase, fi);
 
@@ -333,7 +329,7 @@ QString CppToolsPlugin::correspondingHeaderOrSourceI(const QString &fileName) co
         }
         if (!bestFileName.isEmpty()) {
             const QFileInfo candidateFi(bestFileName);
-            Q_ASSERT(candidateFi.isFile());
+            QTC_ASSERT(candidateFi.isFile(), return QString());
             m_headerSourceMapping[fi.absoluteFilePath()] = candidateFi.absoluteFilePath();
             m_headerSourceMapping[candidateFi.absoluteFilePath()] = fi.absoluteFilePath();
             return candidateFi.absoluteFilePath();

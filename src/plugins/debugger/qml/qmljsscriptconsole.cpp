@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -49,6 +49,8 @@
 #include <qmljsdebugclient/qdebugmessageclient.h>
 #include <debugger/qml/qmlcppengine.h>
 #include <debugger/qml/qmlengine.h>
+#include <debugger/stackhandler.h>
+#include <debugger/stackframe.h>
 
 #include <QtGui/QMenu>
 #include <QtGui/QTextBlock>
@@ -75,10 +77,10 @@ public:
           lastKnownPosition(0),
           inferiorStopped(false)
     {
-        resetCache();
+        scriptHistory.append(QString());
+        scriptHistoryIndex = scriptHistory.count();
     }
 
-    void resetCache();
     void appendToHistory(const QString &script);
     bool canEvaluateScript(const QString &script);
 
@@ -94,19 +96,9 @@ public:
     InteractiveInterpreter interpreter;
 
     bool inferiorStopped;
-    QList<QTextEdit::ExtraSelection> selections;
 
     QFlags<QmlJSScriptConsole::DebugLevelFlag> debugLevel;
 };
-
-void QmlJSScriptConsolePrivate::resetCache()
-{
-    scriptHistory.clear();
-    scriptHistory.append(QString());
-    scriptHistoryIndex = scriptHistory.count();
-
-    selections.clear();
-}
 
 void QmlJSScriptConsolePrivate::appendToHistory(const QString &script)
 {
@@ -175,9 +167,7 @@ QmlJSScriptConsoleWidget::QmlJSScriptConsoleWidget(QWidget *parent)
     vbox->addWidget(statusbarContainer);
     vbox->addWidget(m_console);
 
-    Core::ICore *core = Core::ICore::instance();
-    QTC_ASSERT(core, return);
-    QSettings *settings = core->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(_(SCRIPT_CONSOLE));
     m_showLog->setChecked(settings->value(_(SHOW_LOG), true).toBool());
     m_showWarning->setChecked(settings->value(_(SHOW_WARNING), true).toBool());
@@ -187,9 +177,7 @@ QmlJSScriptConsoleWidget::QmlJSScriptConsoleWidget(QWidget *parent)
 
 QmlJSScriptConsoleWidget::~QmlJSScriptConsoleWidget()
 {
-    Core::ICore *core = Core::ICore::instance();
-    QTC_ASSERT(core, return);
-    QSettings *settings = core->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(_(SCRIPT_CONSOLE));
     settings->setValue(_(SHOW_LOG), QVariant(m_showLog->isChecked()));
     settings->setValue(_(SHOW_WARNING), QVariant(m_showWarning->isChecked()));
@@ -292,17 +280,19 @@ void QmlJSScriptConsole::setInferiorStopped(bool inferiorStopped)
     onSelectionChanged();
 }
 
-void QmlJSScriptConsole::setEngine(QmlEngine *engine)
+void QmlJSScriptConsole::setEngine(QmlEngine *eng)
 {
     if (d->adapter) {
+        disconnect(engine()->stackHandler(), SIGNAL(currentIndexChanged()), this, SLOT(onSelectionChanged()));
         disconnect(d->adapter, SIGNAL(selectionChanged()), this, SLOT(onSelectionChanged()));
         disconnect(d->adapter->messageClient(), SIGNAL(message(QtMsgType,QString)),
                 this, SLOT(insertDebugOutput(QtMsgType,QString)));
         d->adapter = 0;
     }
 
-    if (engine) {
-        d->adapter = engine->adapter();
+    if (eng) {
+        d->adapter = eng->adapter();
+        connect(eng->stackHandler(), SIGNAL(currentIndexChanged()), this, SLOT(onSelectionChanged()));
         connect(d->adapter, SIGNAL(selectionChanged()), this, SLOT(onSelectionChanged()));
         connect(d->adapter->messageClient(), SIGNAL(message(QtMsgType,QString)),
                 this, SLOT(insertDebugOutput(QtMsgType,QString)));
@@ -311,7 +301,7 @@ void QmlJSScriptConsole::setEngine(QmlEngine *engine)
     clear();
 }
 
-DebuggerEngine * QmlJSScriptConsole::engine()
+DebuggerEngine *QmlJSScriptConsole::engine()
 {
     if (d->adapter) {
         return d->adapter->debuggerEngine();
@@ -319,29 +309,25 @@ DebuggerEngine * QmlJSScriptConsole::engine()
     return 0;
 }
 
-void QmlJSScriptConsole::appendResult(const QString &result)
+void QmlJSScriptConsole::appendResult(const QString &message, const QColor &color)
 {
-    QString currentScript = getCurrentScript();
-    d->appendToHistory(currentScript);
-
-    QTextCursor cur = textCursor();
-    cur.movePosition(QTextCursor::End);
-    cur.insertText(_("\n"));
-
-    cur.insertText(result);
-    cur.insertText(_("\n"));
-
-    QTextEdit::ExtraSelection sel;
     QTextCharFormat resultFormat;
-    resultFormat.setForeground(QBrush(QColor(Qt::darkGray)));
-    cur.movePosition(QTextCursor::PreviousBlock);
-    cur.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    resultFormat.setForeground(color);
+    QTextCursor cur = textCursor();
+
+    cur.setPosition(d->startOfEditableArea - d->prompt.length());
+    cur.insertText(message, resultFormat);
+    cur.insertText(_("\n"));
+
+    QList<QTextEdit::ExtraSelection> selections = extraSelections();
+    QTextEdit::ExtraSelection sel;
     sel.format = resultFormat;
     sel.cursor = cur;
-    d->selections.append(sel);
+    selections.append(sel);
 
-    setExtraSelections(d->selections);
-    displayPrompt();
+    setExtraSelections(selections);
+
+    d->startOfEditableArea += message.length() + 1; //1 for new line character
 }
 
 void QmlJSScriptConsole::setDebugLevel(QFlags<DebugLevelFlag> level)
@@ -351,8 +337,6 @@ void QmlJSScriptConsole::setDebugLevel(QFlags<DebugLevelFlag> level)
 
 void QmlJSScriptConsole::clear()
 {
-    d->resetCache();
-
     QPlainTextEdit::clear();
     displayPrompt();
 }
@@ -379,54 +363,36 @@ void QmlJSScriptConsole::onStateChanged(QmlJsDebugClient::QDeclarativeDebugQuery
 void QmlJSScriptConsole::onSelectionChanged()
 {
     if (d->adapter) {
-        QString status;
-        if (!d->inferiorStopped) {
-            status.append(tr("Current Selected Object: "));
-            status.append(d->adapter->currentSelectedDisplayName());
-        }
-        emit updateStatusMessage(status, 0);
+        const QString context = d->inferiorStopped ?
+            engine()->stackHandler()->currentFrame().function :
+            d->adapter->currentSelectedDisplayName();
+        emit updateStatusMessage(tr("Context: %1").arg(context), 0);
     }
 }
 
 void QmlJSScriptConsole::insertDebugOutput(QtMsgType type, const QString &debugMsg)
 {
-    QTextCharFormat resultFormat;
+    QColor color;
     switch (type) {
     case QtDebugMsg:
         if (!(d->debugLevel & Log))
             return;
-        resultFormat.setForeground(QColor(Qt::darkBlue));
+        color = QColor(Qt::darkBlue);
         break;
     case QtWarningMsg:
         if (!(d->debugLevel & Warning))
             return;
-        resultFormat.setForeground(QColor(Qt::darkYellow));
+        color = QColor(Qt::darkYellow);
         break;
     case QtCriticalMsg:
         if (!(d->debugLevel & Error))
             return;
-        resultFormat.setForeground(QColor(Qt::darkRed));
+        color = QColor(Qt::darkRed);
         break;
     default:
-        resultFormat.setForeground(QColor(Qt::black));
+        color = QColor(Qt::black);
     }
-
-    QTextCursor cursor = textCursor();
-
-    cursor.setPosition(d->startOfEditableArea - d->prompt.length());
-    cursor.insertText(debugMsg);
-    cursor.insertText(_("\n"));
-
-    QTextEdit::ExtraSelection sel;
-    cursor.movePosition(QTextCursor::PreviousBlock);
-    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-    sel.format = resultFormat;
-    sel.cursor = cursor;
-
-    d->selections.append(sel);
-
-    setExtraSelections(d->selections);
-    d->startOfEditableArea += debugMsg.length() + 1; //1 for new line character
+    appendResult(debugMsg, color);
 }
 
 void QmlJSScriptConsole::keyPressEvent(QKeyEvent *e)
@@ -542,6 +508,7 @@ void QmlJSScriptConsole::contextMenuEvent(QContextMenuEvent *event)
         a->setEnabled(cursor.hasSelection());
     }
 
+
     a = menu->addAction(tr("Copy"), this, SLOT(copy()));
     a->setEnabled(cursor.hasSelection());
 
@@ -558,6 +525,7 @@ void QmlJSScriptConsole::contextMenuEvent(QContextMenuEvent *event)
     menu->addAction(tr("Clear"), this, SLOT(clear()));
 
     menu->exec(event->globalPos());
+
 
     delete menu;
 }
@@ -598,11 +566,6 @@ void QmlJSScriptConsole::handleReturnKey()
 
     //Check if string is only white spaces
     if (currentScript.trimmed().isEmpty()) {
-        QTextCursor cur = textCursor();
-        cur.movePosition(QTextCursor::EndOfLine);
-        cur.insertText(_("\n"));
-        setTextCursor(cur);
-        displayPrompt();
         scriptEvaluated = true;
     }
 
@@ -613,6 +576,7 @@ void QmlJSScriptConsole::handleReturnKey()
             //Select the engine for evaluation based on
             //inferior state
             if (!d->inferiorStopped) {
+
                 if (d->adapter) {
                     QDeclarativeEngineDebug *engineDebug = d->adapter->engineDebugClient();
                     int id = d->adapter->currentSelectedDebugId();
@@ -630,11 +594,22 @@ void QmlJSScriptConsole::handleReturnKey()
                 emit evaluateExpression(currentScript);
                 scriptEvaluated = true;
             }
+
+            if (scriptEvaluated) {
+                d->appendToHistory(currentScript);
+            }
         }
     }
+
     if (!scriptEvaluated) {
         QPlainTextEdit::appendPlainText(QString());
         moveCursor(QTextCursor::EndOfLine);
+    } else {
+        QTextCursor cur = textCursor();
+        cur.movePosition(QTextCursor::End);
+        cur.insertText(_("\n"));
+        setTextCursor(cur);
+        displayPrompt();
     }
 
 }

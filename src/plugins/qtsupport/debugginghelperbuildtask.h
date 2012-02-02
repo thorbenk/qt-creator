@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -42,11 +42,8 @@
 #include <QtCore/QFutureInterface>
 #include <QtCore/QMetaType>
 
-namespace ProjectExplorer {
-class ToolChain;
-} // namespace ProjectExplorer
-
 namespace QtSupport {
+
 class BaseQtVersion;
 
 class QTSUPPORT_EXPORT DebuggingHelperBuildTask : public QObject
@@ -66,7 +63,6 @@ public:
     explicit DebuggingHelperBuildTask(const BaseQtVersion *version,
                                       ProjectExplorer::ToolChain *toolChain,
                                       Tools tools = AllTools);
-    virtual ~DebuggingHelperBuildTask();
 
     void showOutputOnError(bool show);
     void run(QFutureInterface<void> &future);
@@ -90,6 +86,7 @@ private:
     QString m_qtInstallData;
     QString m_target;
     Utils::FileName m_qmakeCommand;
+    QStringList m_qmakeArguments;
     QString m_makeCommand;
     QStringList m_makeArguments;
     Utils::FileName m_mkspec;
@@ -99,7 +96,7 @@ private:
     bool m_showErrors;
 };
 
-} // namespace Qt4ProjectManager
+} // namespace QtSupport
 
 Q_DECLARE_METATYPE(QtSupport::DebuggingHelperBuildTask::Tools)
 

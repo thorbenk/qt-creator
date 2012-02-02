@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -92,7 +92,7 @@ ResourceEditorW::ResourceEditorW(const Core::Context &context,
     // (That is because this editor instance is deleted in executeOpenWithMenuAction
     // in that case.)
     connect(m_openWithMenu, SIGNAL(triggered(QAction*)),
-            Core::FileManager::instance(), SLOT(executeOpenWithMenuAction(QAction*)),
+            Core::FileManager::instance(), SLOT(slotExecuteOpenWithMenuAction(QAction*)),
             Qt::QueuedConnection);
 
     connect(m_resourceEditor, SIGNAL(dirtyChanged(bool)), this, SLOT(dirtyChanged(bool)));
@@ -118,7 +118,7 @@ bool ResourceEditorW::createNew(const QString &contents)
 {
     Utils::TempFileSaver saver;
     saver.write(contents.toUtf8());
-    if (!saver.finalize(Core::ICore::instance()->mainWindow()))
+    if (!saver.finalize(Core::ICore::mainWindow()))
         return false;
 
     const bool rc = m_resourceEditor->load(saver.fileName());

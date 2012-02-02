@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -70,8 +70,7 @@ void BookmarksPlugin::extensionsInitialized()
 
 bool BookmarksPlugin::initialize(const QStringList & /*arguments*/, QString *)
 {
-    Core::ICore *core = Core::ICore::instance();
-    Core::ActionManager *am = core->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
     Core::Context textcontext(TextEditor::Constants::C_TEXTEDITOR);
     Core::Context globalcontext(Core::Constants::C_GLOBAL);
 
@@ -84,7 +83,7 @@ bool BookmarksPlugin::initialize(const QStringList & /*arguments*/, QString *)
     m_toggleAction = new QAction(tr("Toggle Bookmark"), this);
     Core::Command *cmd =
         am->registerAction(m_toggleAction, BOOKMARKS_TOGGLE_ACTION, textcontext);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+M")));
 #else
     cmd->setDefaultKeySequence(QKeySequence(tr("Meta+M")));
@@ -99,7 +98,7 @@ bool BookmarksPlugin::initialize(const QStringList & /*arguments*/, QString *)
     //Previous
     m_prevAction = new QAction(tr("Previous Bookmark"), this);
     cmd = am->registerAction(m_prevAction, BOOKMARKS_PREV_ACTION, globalcontext);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+,")));
 #else
     cmd->setDefaultKeySequence(QKeySequence(tr("Meta+,")));
@@ -109,7 +108,7 @@ bool BookmarksPlugin::initialize(const QStringList & /*arguments*/, QString *)
     //Next
     m_nextAction = new QAction(tr("Next Bookmark"), this);
     cmd = am->registerAction(m_nextAction, BOOKMARKS_NEXT_ACTION, globalcontext);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+.")));
 #else
     cmd->setDefaultKeySequence(QKeySequence(tr("Meta+.")));
@@ -148,7 +147,7 @@ bool BookmarksPlugin::initialize(const QStringList & /*arguments*/, QString *)
         this, SLOT(bookmarkMarginActionTriggered()));
 
     // EditorManager
-    QObject *editorManager = core->editorManager();
+    QObject *editorManager = Core::ICore::editorManager();
     connect(editorManager, SIGNAL(editorAboutToClose(Core::IEditor*)),
         this, SLOT(editorAboutToClose(Core::IEditor*)));
     connect(editorManager, SIGNAL(editorOpened(Core::IEditor*)),

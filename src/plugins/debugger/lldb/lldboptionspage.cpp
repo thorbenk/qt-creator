@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -32,6 +32,7 @@
 
 #include "lldboptionspage.h"
 #include "debuggerconstants.h"
+#include "debuggerinternalconstants.h"
 
 #include <coreplugin/icore.h>
 
@@ -71,7 +72,7 @@ void LldbOptionsPageWidget::load()
 // ---------- LldbOptionsPage
 LldbOptionsPage::LldbOptionsPage()
 {
-//    m_options->fromSettings(Core::ICore::instance()->settings());
+//    m_options->fromSettings(Core::ICore::settings());
 }
 
 LldbOptionsPage::~LldbOptionsPage()
@@ -105,7 +106,7 @@ QIcon LldbOptionsPage::categoryIcon() const
 
 QWidget *LldbOptionsPage::createPage(QWidget *parent)
 {
-    m_widget = new LldbOptionsPageWidget(parent, Core::ICore::instance()->settings());
+    m_widget = new LldbOptionsPageWidget(parent, Core::ICore::settings());
     return m_widget;
 }
 

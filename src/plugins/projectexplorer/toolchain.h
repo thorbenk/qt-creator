@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -72,8 +72,11 @@ public:
 
     bool isAutoDetected() const;
     QString id() const;
+    // No need to implement this for new tool chains:
+    virtual QString legacyId() const { return QString(); }
 
-    virtual QString typeName() const = 0;
+    virtual QString type() const = 0;
+    virtual QString typeDisplayName() const = 0;
     virtual Abi targetAbi() const = 0;
 
     virtual bool isValid() const = 0;
@@ -93,7 +96,8 @@ public:
 
     virtual Utils::FileName mkspec() const = 0;
 
-    virtual QString debuggerCommand() const = 0;
+    virtual Utils::FileName compilerCommand() const = 0;
+    virtual Utils::FileName debuggerCommand() const = 0;
     virtual QString defaultMakeTarget() const;
     virtual IOutputParser *outputParser() const = 0;
 
@@ -110,8 +114,6 @@ public:
 protected:
     ToolChain(const QString &id, bool autoDetect);
     explicit ToolChain(const ToolChain &);
-
-    void setId(const QString &id);
 
     void toolChainUpdated();
 

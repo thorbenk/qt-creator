@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -293,7 +293,6 @@ private:
     mutable unsigned m_cachedGitVersion;
 
     const QString m_msgWait;
-    Core::ICore *m_core;
     QSignalMapper *m_repositoryChangedSignalMapper;
     GitSettings *m_settings;
 };

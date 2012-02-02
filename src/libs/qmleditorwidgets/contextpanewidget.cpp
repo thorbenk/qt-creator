@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -171,14 +171,14 @@ void DragWidget::protectedMoved()
 
 void DragWidget::leaveEvent(QEvent *)
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     unsetCursor();
 #endif
 }
 
 void DragWidget::enterEvent(QEvent *)
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     setCursor(Qt::ArrowCursor);
 #endif
 }
@@ -226,7 +226,7 @@ ContextPaneWidget::ContextPaneWidget(QWidget *parent) : DragWidget(parent), m_cu
     m_disableAction->setCheckable(true);
     connect(m_disableAction.data(), SIGNAL(toggled(bool)), this, SLOT(onDisable(bool)));
     m_pinned = false;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     setCursor(Qt::ArrowCursor);
 #endif
 }

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -145,7 +145,7 @@ QPixmap DetailsWidgetPrivate::cacheBackground(const QSize &size, bool expanded)
 
     QRect topRect(0, 0, size.width(), topHeight);
     QRect fullRect(0, 0, size.width(), size.height());
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     p.fillRect(fullRect, qApp->palette().window().color());
 #endif
     p.fillRect(fullRect, QColor(255, 255, 255, 40));
@@ -196,7 +196,7 @@ void DetailsWidgetPrivate::changeHoverState(bool hovered)
     if (!m_toolWidget)
         return;
 #ifdef Q_OS_MAC
-    m_toolWidget->setVisible(hovered);
+    m_toolWidget->setOpacity(hovered ? 1.0 : 0);
 #else
     m_toolWidget->fadeTo(hovered ? 1.0 : 0);
 #endif
@@ -378,7 +378,7 @@ void DetailsWidget::setToolWidget(Utils::FadingPanel *widget)
     d->m_toolWidget->adjustSize();
     d->m_grid->addWidget(d->m_toolWidget, 0, 1, 1, 1, Qt::AlignRight);
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     d->m_toolWidget->setOpacity(1.0);
 #endif
     d->changeHoverState(d->m_hovered);

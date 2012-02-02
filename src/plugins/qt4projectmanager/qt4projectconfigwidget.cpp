@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -179,15 +179,13 @@ void Qt4ProjectConfigWidget::updateShadowBuildUi()
 
 void Qt4ProjectConfigWidget::manageQtVersions()
 {
-    Core::ICore *core = Core::ICore::instance();
-    core->showOptionsDialog(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
+    Core::ICore::showOptionsDialog(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
                             QLatin1String(QtSupport::Constants::QTVERSION_SETTINGS_PAGE_ID));
 }
 
 void Qt4ProjectConfigWidget::manageToolChains()
 {
-    Core::ICore *core = Core::ICore::instance();
-    core->showOptionsDialog(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
+    Core::ICore::showOptionsDialog(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
                             QLatin1String(ProjectExplorer::Constants::TOOLCHAIN_SETTINGS_PAGE_ID));
 }
 

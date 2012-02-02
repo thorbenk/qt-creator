@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -997,23 +997,11 @@ void WatchWindow::setModel(QAbstractItemModel *model)
     }
 
     connect(model, SIGNAL(layoutChanged()), SLOT(resetHelper()));
-    connect(model, SIGNAL(enableUpdates(bool)), SLOT(setUpdatesEnabled(bool)));
-    // Potentially left in disabled state in case engine crashes when expanding.
-    setUpdatesEnabled(true);
-}
-
-void WatchWindow::setUpdatesEnabled(bool enable)
-{
-    //qDebug() << "ENABLING UPDATES: " << enable;
-    QTreeView::setUpdatesEnabled(enable);
 }
 
 void WatchWindow::resetHelper()
 {
-    bool old = updatesEnabled();
-    setUpdatesEnabled(false);
     resetHelper(model()->index(0, 0));
-    setUpdatesEnabled(old);
 }
 
 void WatchWindow::resetHelper(const QModelIndex &idx)

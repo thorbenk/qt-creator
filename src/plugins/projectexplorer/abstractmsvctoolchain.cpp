@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (info@qt.nokia.com)
 **
@@ -127,21 +127,27 @@ void AbstractMsvcToolChain::addToEnvironment(Utils::Environment &env) const
 QString AbstractMsvcToolChain::makeCommand() const
 {
     if (ProjectExplorerPlugin::instance()->projectExplorerSettings().useJom) {
-        return MingwToolChain::findInstalledJom();
+        return findInstalledJom();
     }
     return QLatin1String("nmake.exe");
 }
 
-void AbstractMsvcToolChain::setDebuggerCommand(const QString &d)
+void AbstractMsvcToolChain::setDebuggerCommand(const Utils::FileName &d)
 {
     if (m_debuggerCommand == d)
         return;
     m_debuggerCommand = d;
-    updateId();
     toolChainUpdated();
 }
 
-QString AbstractMsvcToolChain::debuggerCommand() const
+Utils::FileName AbstractMsvcToolChain::compilerCommand() const
+{
+    Utils::Environment env;
+    addToEnvironment(env);
+    return Utils::FileName::fromString(env.searchInPath("cl.exe"));
+}
+
+Utils::FileName AbstractMsvcToolChain::debuggerCommand() const
 {
     return m_debuggerCommand;
 }
@@ -265,6 +271,35 @@ bool AbstractMsvcToolChain::generateEnvironmentSettings(Utils::Environment &env,
 
     return true;
 }
+
+QString AbstractMsvcToolChain::findInstalledJom()
+{
+    if (Abi::hostAbi().os() != Abi::WindowsOS) {
+        qWarning() << "Jom can only be used on Windows";
+        return QString();
+    }
+
+    // We want jom! Try to find it.
+    const QString jom = QLatin1String("jom.exe");
+    const QFileInfo installedJom = QFileInfo(QCoreApplication::applicationDirPath()
+                                             + QLatin1Char('/') + jom);
+    if (installedJom.isFile() && installedJom.isExecutable())
+        return installedJom.absoluteFilePath();
+    else
+        return jom;
+}
+
+bool AbstractMsvcToolChain::operator ==(const ToolChain &other) const
+{
+    if (!ToolChain::operator ==(other))
+        return false;
+
+    const AbstractMsvcToolChain *msvcTc = static_cast<const AbstractMsvcToolChain *>(&other);
+    return targetAbi() == msvcTc->targetAbi()
+            && m_debuggerCommand == msvcTc->m_debuggerCommand
+            && m_vcvarsBat == msvcTc->m_vcvarsBat;
+}
+
 
 } // namespace Internal
 } // namespace ProjectExplorer

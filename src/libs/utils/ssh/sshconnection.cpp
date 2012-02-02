@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -76,6 +76,8 @@ namespace {
             Botan::LibraryInitializer::initialize("thread_safe=true");
             qRegisterMetaType<Utils::SshError>("Utils::SshError");
             qRegisterMetaType<Utils::SftpJobId>("Utils::SftpJobId");
+            qRegisterMetaType<Utils::SftpFileInfo>("Utils::SftpFileInfo");
+            qRegisterMetaType<QList <Utils::SftpFileInfo> >("QList<Utils::SftpFileInfo>");
             staticInitializationsDone = true;
         }
     }

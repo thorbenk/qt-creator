@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -107,7 +107,7 @@ bool ToolTip::acceptShow(const TipContent &content,
         }
         hideTipImmediately();
     }
-#if !defined(QT_NO_EFFECTS) && !defined(Q_WS_MAC)
+#if !defined(QT_NO_EFFECTS) && !defined(Q_OS_MAC)
     // While the effect takes places it might be that although the widget is actually on
     // screen the isVisible method doesn't return true.
     else if (m_tip
@@ -168,7 +168,7 @@ bool ToolTip::isVisible() const
 
 void ToolTip::showTip()
 {
-#if !defined(QT_NO_EFFECTS) && !defined(Q_WS_MAC)
+#if !defined(QT_NO_EFFECTS) && !defined(Q_OS_MAC)
     if (QApplication::isEffectEnabled(Qt::UI_FadeTooltip))
         qFadeEffect(m_tip);
     else if (QApplication::isEffectEnabled(Qt::UI_AnimateTooltip))
@@ -237,7 +237,7 @@ bool ToolTip::eventFilter(QObject *o, QEvent *event)
         return false;
 
     switch (event->type()) {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     case QEvent::KeyPress:
     case QEvent::KeyRelease: {
         int key = static_cast<QKeyEvent *>(event)->key();

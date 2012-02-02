@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -245,7 +245,7 @@ public:
         if (errorString)
             *errorString = errStr;
         else
-            QMessageBox::critical(Core::ICore::instance()->mainWindow(), tr("File Error"), errStr);
+            QMessageBox::critical(Core::ICore::mainWindow(), tr("File Error"), errStr);
         return false;
     }
 
@@ -264,7 +264,7 @@ private slots:
             m_editor->addData(block, data);
             file.close();
         } else {
-            QMessageBox::critical(Core::ICore::instance()->mainWindow(), tr("File Error"),
+            QMessageBox::critical(Core::ICore::mainWindow(), tr("File Error"),
                                   tr("Cannot open %1: %2").arg(
                                         QDir::toNativeSeparators(m_fileName), file.errorString()));
         }
@@ -477,7 +477,7 @@ BinEditorPlugin::~BinEditorPlugin()
 QAction *BinEditorPlugin::registerNewAction(const QString &id, const QString &title)
 {
     QAction *result = new QAction(title, this);
-    Core::ICore::instance()->actionManager()->registerAction(result, Core::Id(id), m_context);
+    Core::ICore::actionManager()->registerAction(result, Core::Id(id), m_context);
     return result;
 }
 
@@ -535,8 +535,7 @@ bool BinEditorPlugin::initialize(const QStringList &arguments, QString *errorMes
     Q_UNUSED(arguments)
     Q_UNUSED(errorMessage)
 
-    Core::ICore *core = Core::ICore::instance();
-    connect(core, SIGNAL(contextAboutToChange(Core::IContext *)),
+    connect(Core::ICore::instance(), SIGNAL(contextAboutToChange(Core::IContext *)),
         this, SLOT(updateCurrentEditor(Core::IContext *)));
 
     addAutoReleasedObject(new BinEditorFactory(this));

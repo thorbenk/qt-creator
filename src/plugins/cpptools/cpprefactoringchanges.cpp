@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -43,6 +43,7 @@
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/tabsettings.h>
 #include <projectexplorer/editorconfiguration.h>
+#include <utils/qtcassert.h>
 
 #include <QtGui/QTextBlock>
 
@@ -242,7 +243,7 @@ int CppRefactoringFile::endOf(unsigned index) const
 int CppRefactoringFile::endOf(const AST *ast) const
 {
     unsigned end = ast->lastToken();
-    Q_ASSERT(end > 0);
+    QTC_ASSERT(end > 0, return -1);
     return endOf(end - 1);
 }
 

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -49,7 +49,6 @@ QT_END_NAMESPACE
 namespace Core {
 
 class IContext;
-class ICore;
 class IEditor;
 class IEditorFactory;
 class IExternalEditor;
@@ -103,7 +102,7 @@ public:
     typedef QList<IEditorFactory *> EditorFactoryList;
     typedef QList<IExternalEditor *> ExternalEditorList;
 
-    explicit EditorManager(ICore *core, QWidget *parent);
+    explicit EditorManager(QWidget *parent);
     virtual ~EditorManager();
     void init();
     static EditorManager *instance();

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -164,11 +164,9 @@ ProjectExplorer::Target *Qt4DesktopTargetFactory::create(ProjectExplorer::Projec
 QSet<QString> Qt4DesktopTargetFactory::targetFeatures(const QString & /*id*/) const
 {
     QSet<QString> features;
-    features << QLatin1String(Constants::DESKTOP_TARGETFEATURE_ID)
-             << QLatin1String(Constants::SHADOWBUILD_TARGETFEATURE_ID)
-    // how to check check whether they component set is really installed?
-             << QLatin1String(Constants::QTQUICKCOMPONENTS_SYMBIAN_TARGETFEATURE_ID)
-             << QLatin1String(Constants::QTQUICKCOMPONENTS_MEEGO_TARGETFEATURE_ID);
+    features << QLatin1String(Constants::DESKTOP_TARGETFEATURE_ID);
+    features << QLatin1String(Constants::SHADOWBUILD_TARGETFEATURE_ID);
+
     return features;
 }
 
@@ -187,7 +185,7 @@ ProjectExplorer::Target *Qt4DesktopTargetFactory::create(ProjectExplorer::Projec
 
     t->addDeployConfiguration(t->createDeployConfiguration(QLatin1String(ProjectExplorer::Constants::DEFAULT_DEPLOYCONFIGURATION_ID)));
 
-    t->createApplicationProFiles();
+    t->createApplicationProFiles(false);
 
     if (t->runConfigurations().isEmpty())
         t->addRunConfiguration(new ProjectExplorer::CustomExecutableRunConfiguration(t));

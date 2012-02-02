@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Author: Nicolas Arnaud-Cormos, KDAB (nicolas.arnaud-cormos@kdab.com)
 **
@@ -63,7 +63,7 @@ class AbstractAnalyzerSubConfig;
  * @code
  * bool YourPlugin::initialize(const QStringList &arguments, QString *errorString)
  * {
- *    AnalyzerManager::instance()->addTool(new MemcheckTool(this));
+ *    AnalyzerManager::addTool(new MemcheckTool(this));
  *    return true;
  * }
  * @endcode

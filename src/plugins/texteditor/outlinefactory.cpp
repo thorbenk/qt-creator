@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -104,7 +104,7 @@ void OutlineWidgetStack::restoreSettings(int position)
 {
     m_position = position; // save it so that we can save/restore in updateCurrentEditor
 
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     const bool toggleSync = settings->value(outLineKey(position), true).toBool();
     toggleSyncButton()->setChecked(toggleSync);
 
@@ -117,7 +117,7 @@ void OutlineWidgetStack::saveSettings(int position)
 {
     Q_ASSERT(position == m_position);
 
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->setValue(outLineKey(position), toggleSyncButton()->isEnabled());
 
     if (IOutlineWidget *outlineWidget = qobject_cast<IOutlineWidget*>(currentWidget())) {

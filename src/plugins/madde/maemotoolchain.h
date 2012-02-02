@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -48,8 +48,8 @@ class MaemoToolChain : public ProjectExplorer::GccToolChain
 public:
     ~MaemoToolChain();
 
-    QString typeName() const;
-    ProjectExplorer::Abi targetAbi() const;
+    QString type() const;
+    QString typeDisplayName() const;
     Utils::FileName mkspec() const;
 
     bool isValid() const;
@@ -67,15 +67,17 @@ public:
     void setQtVersionId(int);
     int qtVersionId() const;
 
-private:
-    void updateId();
+    QString legacyId() const;
 
+protected:
+    QList<ProjectExplorer::Abi> findAbiForCompilerPath(const QString &path);
+
+private:
     explicit MaemoToolChain(bool);
     MaemoToolChain(const MaemoToolChain &);
 
     int m_qtVersionId;
     mutable QString m_sysroot;
-    ProjectExplorer::Abi m_targetAbi;
 
     friend class MaemoToolChainFactory;
 };
@@ -111,6 +113,9 @@ public:
     QString id() const;
 
     QList<ProjectExplorer::ToolChain *> autoDetect();
+
+    bool canRestore(const QVariantMap &data);
+    ProjectExplorer::ToolChain *restore(const QVariantMap &data);
 
 private slots:
     void handleQtVersionChanges(const QList<int> &);

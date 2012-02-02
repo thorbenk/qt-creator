@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -113,7 +113,7 @@ LinuxDeviceConfigurationsSettingsWidget::LinuxDeviceConfigurationsSettingsWidget
 LinuxDeviceConfigurationsSettingsWidget::~LinuxDeviceConfigurationsSettingsWidget()
 {
     if (m_saveSettingsRequested) {
-        Core::ICore::instance()->settings()->setValue(LastDeviceConfigIndexKey,
+        Core::ICore::settings()->setValue(LastDeviceConfigIndexKey,
             currentIndex());
         LinuxDeviceConfigurations::replaceInstance(m_devConfigs.data());
     }
@@ -161,7 +161,7 @@ void LinuxDeviceConfigurationsSettingsWidget::initGui()
     m_ui->portsLineEdit->setValidator(portsValidator);
     connect(m_ui->makeKeyFileDefaultButton, SIGNAL(clicked()),
         SLOT(setDefaultKeyFilePath()));
-    int lastIndex = Core::ICore::instance()->settings()
+    int lastIndex = Core::ICore::settings()
         ->value(LastDeviceConfigIndexKey, 0).toInt();
     if (lastIndex == -1)
         lastIndex = 0;

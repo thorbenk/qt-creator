@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -51,7 +51,7 @@ using namespace Core;
 BaseHoverHandler::BaseHoverHandler(QObject *parent) : QObject(parent), m_diagnosticTooltip(false)
 {
     // Listen for editor opened events in order to connect to tooltip/helpid requests
-    connect(ICore::instance()->editorManager(), SIGNAL(editorOpened(Core::IEditor *)),
+    connect(ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor *)),
             this, SLOT(editorOpened(Core::IEditor *)));
 }
 
@@ -113,7 +113,7 @@ void BaseHoverHandler::appendToolTip(const QString &extension)
 void BaseHoverHandler::addF1ToToolTip()
 {
     m_toolTip = QString(QLatin1String("<table><tr><td valign=middle>%1</td><td>&nbsp;&nbsp;"
-                                      "<img src=\":/cppeditor/images/f1.png\"></td>"
+                                      "<img src=\":/texteditor/images/f1.png\"></td>"
                                       "</tr></table>")).arg(m_toolTip);
 }
 

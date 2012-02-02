@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -133,7 +133,7 @@ AppOutputPane::AppOutputPane() :
             this, SLOT(reRunRunControl()));
 
     // Stop
-    Core::ActionManager *am = Core::ICore::instance()->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
     Core::Context globalcontext(Core::Constants::C_GLOBAL);
 
     QIcon stopIcon = QIcon(QLatin1String(Constants::ICON_STOP));

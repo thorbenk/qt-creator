@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -44,7 +44,6 @@ namespace TextEditor {
 class FontSettings;
 class PlainTextEditorWidget;
 class TextEditorSettings;
-class TextFileWizard;
 
 namespace Internal {
 
@@ -81,7 +80,6 @@ private slots:
 private:
     static TextEditorPlugin *m_instance;
     TextEditorSettings *m_settings;
-    TextFileWizard *m_wizard;
     PlainTextEditorFactory *m_editorFactory;
     LineNumberFilter *m_lineNumberFilter;
     Find::SearchResultWindow *m_searchResultWindow;

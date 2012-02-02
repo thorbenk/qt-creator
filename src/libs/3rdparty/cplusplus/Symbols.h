@@ -104,9 +104,11 @@ public:
     virtual ~Declaration();
 
     void setType(const FullySpecifiedType &type);
+    void setInitializer(StringLiteral const* initializer);
 
     // Symbol's interface
     virtual FullySpecifiedType type() const;
+    const StringLiteral *getInitializer() const;
 
     virtual const Declaration *asDeclaration() const
     { return this; }
@@ -125,6 +127,7 @@ protected:
 
 private:
     FullySpecifiedType _type;
+    const StringLiteral *_initializer;
 };
 
 class CPLUSPLUS_EXPORT EnumeratorDeclaration: public Declaration
@@ -442,10 +445,19 @@ public:
     virtual Namespace *asNamespaceType()
     { return this; }
 
+    bool isInline() const
+    { return _isInline; }
+
+    void setInline(bool onoff)
+    { _isInline = onoff; }
+
 protected:
     virtual void visitSymbol0(SymbolVisitor *visitor);
     virtual void accept0(TypeVisitor *visitor);
     virtual bool matchType0(const Type *otherType, TypeMatcher *matcher) const;
+
+private:
+    bool _isInline;
 };
 
 class CPLUSPLUS_EXPORT BaseClass: public Symbol

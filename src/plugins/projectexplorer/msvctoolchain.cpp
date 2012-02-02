@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -314,7 +314,6 @@ MsvcToolChain::MsvcToolChain(const QString &name, const Abi &abi,
 {
     Q_ASSERT(!name.isEmpty());
 
-    updateId();
     setDisplayName(name);
 }
 
@@ -332,7 +331,7 @@ MsvcToolChain *MsvcToolChain::readFromMap(const QVariantMap &data)
     return 0;
 }
 
-void MsvcToolChain::updateId()
+QString MsvcToolChain::legacyId() const
 {
     const QChar colon = QLatin1Char(':');
     QString id = QLatin1String(Constants::MSVC_TOOLCHAIN_ID);
@@ -341,11 +340,16 @@ void MsvcToolChain::updateId()
     id += colon;
     id += m_varsBatArg;
     id += colon;
-    id += m_debuggerCommand;
-    setId(id);
+    id += m_debuggerCommand.toString();
+    return id;
 }
 
-QString MsvcToolChain::typeName() const
+QString MsvcToolChain::type() const
+{
+    return QLatin1String("msvc");
+}
+
+QString MsvcToolChain::typeDisplayName() const
 {
     return MsvcToolChainFactory::tr("MSVC");
 }
@@ -365,7 +369,7 @@ QVariantMap MsvcToolChain::toMap() const
 {
     QVariantMap data = ToolChain::toMap();
     if (!m_debuggerCommand.isEmpty())
-        data.insert(QLatin1String(debuggerCommandKeyC), m_debuggerCommand);
+        data.insert(QLatin1String(debuggerCommandKeyC), m_debuggerCommand.toString());
     data.insert(QLatin1String(varsBatKeyC), m_vcvarsBat);
     if (!m_varsBatArg.isEmpty())
         data.insert(QLatin1String(varsBatArgKeyC), m_varsBatArg);
@@ -379,10 +383,9 @@ bool MsvcToolChain::fromMap(const QVariantMap &data)
         return false;
     m_vcvarsBat = data.value(QLatin1String(varsBatKeyC)).toString();
     m_varsBatArg = data.value(QLatin1String(varsBatArgKeyC)).toString();
-    m_debuggerCommand = data.value(QLatin1String(debuggerCommandKeyC)).toString();
+    m_debuggerCommand = Utils::FileName::fromString(data.value(QLatin1String(debuggerCommandKeyC)).toString());
     const QString abiString = data.value(QLatin1String(supportedAbiKeyC)).toString();
     m_abi = Abi(abiString);
-    updateId();
 
     return !m_vcvarsBat.isEmpty() && m_abi.isValid();
 }
@@ -488,8 +491,8 @@ void MsvcToolChainConfigWidget::autoDetectDebugger()
     QTC_ASSERT(tc, return);
     ProjectExplorer::Abi abi = tc->targetAbi();
 
-    const QPair<QString, QString> cdbExecutables = MsvcToolChain::autoDetectCdbDebugger();
-    QString debugger;
+    const QPair<Utils::FileName, Utils::FileName> cdbExecutables = MsvcToolChain::autoDetectCdbDebugger();
+    Utils::FileName debugger;
     if (abi.wordWidth() == 32) {
         if (cdbExecutables.first.isEmpty()) {
             setErrorMessage(tr("No CDB debugger detected (neither 32bit nor 64bit)."));
@@ -628,7 +631,7 @@ QList<ToolChain *> MsvcToolChainFactory::autoDetect()
         }
     }
     if (!results.isEmpty()) { // Detect debugger
-        const QPair<QString, QString> cdbDebugger = MsvcToolChain::autoDetectCdbDebugger();
+        const QPair<Utils::FileName, Utils::FileName> cdbDebugger = MsvcToolChain::autoDetectCdbDebugger();
         foreach (ToolChain *tc, results)
             static_cast<MsvcToolChain *>(tc)->setDebuggerCommand(tc->targetAbi().wordWidth() == 32 ? cdbDebugger.first : cdbDebugger.second);
     }
@@ -636,10 +639,10 @@ QList<ToolChain *> MsvcToolChainFactory::autoDetect()
     return results;
 }
 
-QPair<QString, QString> MsvcToolChain::autoDetectCdbDebugger()
+QPair<Utils::FileName, Utils::FileName> MsvcToolChain::autoDetectCdbDebugger()
 {
-    QPair<QString, QString> result;
-    QStringList cdbs;
+    QPair<Utils::FileName, Utils::FileName> result;
+    QList<Utils::FileName> cdbs;
 
     QStringList programDirs;
     programDirs.append(QString::fromLocal8Bit(qgetenv("ProgramFiles")));
@@ -652,14 +655,15 @@ QPair<QString, QString> MsvcToolChain::autoDetectCdbDebugger()
         QDir dir(dirName);
         foreach (const QFileInfo &fi, dir.entryInfoList(QStringList(QLatin1String("Debugging Tools for Windows*")),
                                                         QDir::Dirs | QDir::NoDotAndDotDot)) {
-            const QString filePath = fi.absoluteFilePath() + QLatin1String("/cdb.exe");
+            Utils::FileName filePath(fi);
+            filePath.appendPath(QLatin1String("cdb.exe"));
             if (!cdbs.contains(filePath))
-                cdbs.append(fi.absoluteFilePath() + QLatin1String("/cdb.exe"));
+                cdbs.append(filePath);
         }
     }
 
-    foreach (const QString &cdb, cdbs) {
-        QList<ProjectExplorer::Abi> abis = ProjectExplorer::Abi::abisOfBinary(Utils::FileName::fromString(cdb));
+    foreach (const Utils::FileName &cdb, cdbs) {
+        QList<ProjectExplorer::Abi> abis = ProjectExplorer::Abi::abisOfBinary(cdb);
         if (abis.isEmpty())
             continue;
         if (abis.first().wordWidth() == 32)
@@ -673,6 +677,14 @@ QPair<QString, QString> MsvcToolChain::autoDetectCdbDebugger()
         result.first = result.second;
 
     return result;
+}
+
+bool MsvcToolChain::operator ==(const ToolChain &other) const
+{
+    if (!AbstractMsvcToolChain::operator ==(other))
+        return false;
+    const MsvcToolChain *msvcTc = static_cast<const MsvcToolChain *>(&other);
+    return m_varsBatArg == msvcTc->m_varsBatArg;
 }
 
 bool MsvcToolChainFactory::canRestore(const QVariantMap &data)

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -62,7 +62,6 @@ private:
     Q_SLOT void resetHelper();
     Q_SLOT void expandNode(const QModelIndex &idx);
     Q_SLOT void collapseNode(const QModelIndex &idx);
-    Q_SLOT void setUpdatesEnabled(bool enable);
 
     void setModel(QAbstractItemModel *model);
     void keyPressEvent(QKeyEvent *ev);

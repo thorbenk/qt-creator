@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -57,7 +57,7 @@ PublicKeyDeploymentDialog *PublicKeyDeploymentDialog::createDialog(const LinuxDe
 {
     const QString &dir = QFileInfo(deviceConfig->sshParameters().privateKeyFile).path();
     const QString publicKeyFileName = QFileDialog::getOpenFileName(parent
-            ? parent : Core::ICore::instance()->mainWindow(),
+            ? parent : Core::ICore::mainWindow(),
         tr("Choose Public Key File"), dir,
         tr("Public Key Files (*.pub);;All Files (*)"));
     if (publicKeyFileName.isEmpty())
@@ -111,7 +111,7 @@ void PublicKeyDeploymentDialog::handleDeploymentFinished(const QString &errorMsg
         buttonText = errorMsg;
         textColor = "red";
     }
-    setLabelText(QString::fromLocal8Bit("<font color=\"%1\">%2</font>").arg(textColor, buttonText));
+    setLabelText(QString::fromLatin1("<font color=\"%1\">%2</font>").arg(textColor, buttonText));
     setCancelButtonText(tr("Close"));
 }
 

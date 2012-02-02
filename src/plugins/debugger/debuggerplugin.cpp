@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -87,8 +87,11 @@
 #include <cplusplus/ModelManagerInterface.h>
 
 #include <extensionsystem/pluginmanager.h>
+#include <extensionsystem/invoker.h>
 
 #include <projectexplorer/abi.h>
+#include <projectexplorer/applicationrunconfiguration.h>
+#include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorersettings.h>
@@ -126,6 +129,18 @@
 #include <QtGui/QToolButton>
 #include <QtGui/QTreeWidget>
 #include <QtGui/QInputDialog>
+
+#ifdef WITH_TESTS
+#include <QtTest/QTest>
+#include <QtTest/QSignalSpy>
+#include <QtTest/QTestEventLoop>
+
+//#define WITH_BENCHMARK
+#ifdef WITH_BENCHMARK
+#include <valgrind/callgrind.h>
+#endif
+
+#endif // WITH_TESTS
 
 #include <climits>
 
@@ -371,7 +386,7 @@ namespace PE = ProjectExplorer::Constants;
 namespace Debugger {
 namespace Constants {
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
 const char STOP_KEY[]                     = "Shift+Ctrl+Y";
 const char RESET_KEY[]                    = "Ctrl+Shift+F5";
 const char STEP_KEY[]                     = "Ctrl+Shift+I";
@@ -421,10 +436,23 @@ struct BreakpointMenuContextData : public ContextData
     Mode mode;
 };
 
+struct TestCallBack
+{
+    TestCallBack() : receiver(0), slot(0) {}
+    TestCallBack(QObject *ob, const char *s) : receiver(ob), slot(s) {}
+
+    QObject *receiver;
+    const char *slot;
+    QVariant cookie;
+};
+
+
 } // namespace Internal
 } // namespace Debugger
 
 Q_DECLARE_METATYPE(Debugger::Internal::BreakpointMenuContextData)
+Q_DECLARE_METATYPE(Debugger::Internal::TestCallBack)
+
 
 namespace Debugger {
 namespace Internal {
@@ -491,7 +519,7 @@ public:
 bool DummyEngine::hasCapability(unsigned cap) const
 {
     // This can only be a first approximation of what to expect when running.
-    Project *project = ProjectExplorerPlugin::instance()->currentProject();
+    Project *project = ProjectExplorerPlugin::currentProject();
     if (!project)
         return 0;
     Target *target = project->activeTarget();
@@ -554,14 +582,21 @@ static TextEditor::ITextEditor *currentTextEditor()
 
 static bool currentTextEditorPosition(ContextData *data)
 {
-    if (TextEditor::ITextEditor *textEditor = currentTextEditor()) {
-        if (const Core::IFile *file = textEditor->file()) {
-            data->fileName = file->fileName();
-            data->lineNumber = textEditor->currentLine();
-            return true;
-        }
+    TextEditor::ITextEditor *textEditor = currentTextEditor();
+    if (!textEditor)
+        return false;
+    const Core::IFile *file = textEditor->file();
+    QTC_ASSERT(file, return false);
+    data->fileName = file->fileName();
+    if (textEditor->property("DisassemblerView").toBool()) {
+        int lineNumber = textEditor->currentLine();
+        QString line = textEditor->contents()
+            .section(QLatin1Char('\n'), lineNumber - 1, lineNumber - 1);
+        data->address = DisassemblerLine::addressFromDisassemblyLine(line);
+    } else {
+        data->lineNumber = textEditor->currentLine();
     }
-    return false;
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -817,6 +852,32 @@ public slots:
     void evaluateExpression(const QString &expression);
     void coreShutdown();
 
+#ifdef WITH_TESTS
+public slots:
+    void testLoadProject(const QString &proFile, const TestCallBack &cb);
+    void testProjectLoaded(ProjectExplorer::Project *project);
+    void testUnloadProject();
+    void testFinished();
+
+    void testRunProject(const DebuggerStartParameters &sp, const TestCallBack &cb);
+    void testRunControlFinished();
+
+    void testPythonDumpers1();
+    void testPythonDumpers2();
+    void testPythonDumpers3();
+
+    void testStateMachine1();
+    void testStateMachine2();
+    void testStateMachine3();
+
+    void testBenchmark1();
+
+public:
+    bool m_testSuccess;
+    QList<TestCallBack> m_testCallbacks;
+
+#endif
+
 public slots:
     void updateDebugActions();
 
@@ -959,6 +1020,15 @@ public slots:
         QTC_ASSERT(action, return);
         const BreakpointMenuContextData data = action->data().value<BreakpointMenuContextData>();
         currentEngine()->executeJumpToLine(data);
+    }
+
+    void slotDisassembleFunction()
+    {
+        const QAction *action = qobject_cast<const QAction *>(sender());
+        QTC_ASSERT(action, return);
+        const StackFrame frame = action->data().value<StackFrame>();
+        QTC_ASSERT(!frame.function.isEmpty(), return);
+        currentEngine()->openDisassemblerView(Location(frame));
     }
 
     void handleAddToWatchWindow()
@@ -1553,7 +1623,7 @@ void DebuggerPluginPrivate::attachCore()
     AttachCoreDialog dlg(mainWindow());
     dlg.setExecutableFile(configValue(_("LastExternalExecutableFile")).toString());
     dlg.setCoreFile(configValue(_("LastExternalCoreFile")).toString());
-    dlg.setAbiIndex(configValue(_("LastExternalCoreAbiIndex")).toInt());
+    dlg.setAbiIndex(configValue(_("LastExternalAbiIndex")).toInt());
     dlg.setSysroot(configValue(_("LastSysroot")).toString());
     dlg.setOverrideStartScript(configValue(_("LastExternalStartScript")).toString());
 
@@ -1562,7 +1632,7 @@ void DebuggerPluginPrivate::attachCore()
 
     setConfigValue(_("LastExternalExecutableFile"), dlg.executableFile());
     setConfigValue(_("LastExternalCoreFile"), dlg.coreFile());
-    setConfigValue(_("LastExternalCoreAbiIndex"), QVariant(dlg.abiIndex()));
+    setConfigValue(_("LastExternalAbiIndex"), QVariant(dlg.abiIndex()));
     setConfigValue(_("LastSysroot"), dlg.sysroot());
     setConfigValue(_("LastExternalStartScript"), dlg.overrideStartScript());
 
@@ -1629,7 +1699,7 @@ bool DebuggerPluginPrivate::queryRemoteParameters(DebuggerStartParameters &sp, b
             configValue(_("LastRemoteChannel")).toString());
     dlg.setLocalExecutable(
             configValue(_("LastLocalExecutable")).toString());
-    dlg.setDebugger(configValue(_("LastDebugger")).toString());
+    dlg.setAbiIndex(configValue(_("LastExternalAbiIndex")).toInt());
     dlg.setRemoteArchitecture(lastUsed);
     dlg.setOverrideStartScript(configValue(_("LastRemoteStartScript")).toString());
     dlg.setServerStartScript(
@@ -1642,7 +1712,7 @@ bool DebuggerPluginPrivate::queryRemoteParameters(DebuggerStartParameters &sp, b
         return false;
     setConfigValue(_("LastRemoteChannel"), dlg.remoteChannel());
     setConfigValue(_("LastLocalExecutable"), dlg.localExecutable());
-    setConfigValue(_("LastDebugger"), dlg.debugger());
+    setConfigValue(_("LastExternalAbiIndex"), QVariant(dlg.abiIndex()));
     setConfigValue(_("LastRemoteArchitecture"), dlg.remoteArchitecture());
     setConfigValue(_("LastRemoteStartScript"), dlg.overrideStartScript());
     setConfigValue(_("LastServerStartScript"), dlg.serverStartScript());
@@ -1653,9 +1723,8 @@ bool DebuggerPluginPrivate::queryRemoteParameters(DebuggerStartParameters &sp, b
     sp.remoteArchitecture = dlg.remoteArchitecture();
     sp.executable = dlg.localExecutable();
     sp.displayName = tr("Remote: \"%1\"").arg(sp.remoteChannel);
-    sp.debuggerCommand = dlg.debugger(); // Override toolchain-detection.
-    if (!sp.debuggerCommand.isEmpty())
-        sp.toolChainAbi = Abi();
+    sp.debuggerCommand = dlg.debuggerCommand();
+    sp.toolChainAbi = dlg.abi();
     sp.overrideStartScript = dlg.overrideStartScript();
     sp.useServerStartScript = dlg.useServerStartScript();
     sp.serverStartScript = dlg.serverStartScript();
@@ -1742,8 +1811,6 @@ void DebuggerPluginPrivate::gdbServerStarted(const QString &channel,
     sp.sysroot = sysroot;
     sp.executable = localExecutable;
     sp.startMode = AttachToRemoteServer;
-    sp.useServerStartScript = false;
-    sp.serverStartScript.clear();
     sp.overrideStartScript.clear();
     sp.useServerStartScript = false;
     sp.serverStartScript.clear();
@@ -1786,7 +1853,7 @@ void DebuggerPluginPrivate::attachToQmlPort()
     sp.qmlServerPort = dlg.port();
     sp.sysroot = dlg.sysroot();
 
-    sp.startMode = AttachToQmlPort;
+    sp.startMode = AttachToRemoteServer;
 
     //
     // get files from all the projects in the session
@@ -1881,8 +1948,9 @@ void DebuggerPluginPrivate::requestContextMenu(ITextEditor *editor,
     bool contextUsable = true;
 
     BreakpointModelId id = BreakpointModelId();
+    const QString fileName = editor->file()->fileName();
     if (editor->property("DisassemblerView").toBool()) {
-        args.fileName = editor->file()->fileName();
+        args.fileName = fileName;
         QString line = editor->contents()
             .section(QLatin1Char('\n'), lineNumber - 1, lineNumber - 1);
         BreakpointResponse needle;
@@ -1972,6 +2040,20 @@ void DebuggerPluginPrivate::requestContextMenu(ITextEditor *editor,
             jumpToLineAction->setData(QVariant::fromValue(args));
             connect(jumpToLineAction, SIGNAL(triggered()), SLOT(slotJumpToLine()));
             menu->addAction(jumpToLineAction);
+        }
+        // Disassemble current function in stopped state.
+        if (currentEngine()->state() == InferiorStopOk
+            && currentEngine()->hasCapability(DisassemblerCapability)) {
+            StackFrame frame;
+            frame.function = cppFunctionAt(fileName, lineNumber);
+            frame.line = 42; // trick gdb into mixed mode.
+            if (!frame.function.isEmpty()) {
+                const QString text = tr("Disassemble '%1()'").arg(frame.function);
+                QAction *disassembleAction = new QAction(text, menu);
+                disassembleAction->setData(QVariant::fromValue(frame));
+                connect(disassembleAction, SIGNAL(triggered()), SLOT(slotDisassembleFunction()));
+                menu->addAction(disassembleAction );
+            }
         }
     }
 }
@@ -2404,7 +2486,7 @@ void DebuggerPluginPrivate::updateDebugActions()
 
 void DebuggerPluginPrivate::onCoreAboutToOpen()
 {
-    m_mainWindow->onModeChanged(ModeManager::instance()->currentMode());
+    m_mainWindow->onModeChanged(ModeManager::currentMode());
 }
 
 void DebuggerPluginPrivate::onModeChanged(IMode *mode)
@@ -2428,7 +2510,7 @@ void DebuggerPluginPrivate::onModeChanged(IMode *mode)
 
 void DebuggerPluginPrivate::showSettingsDialog()
 {
-    ICore::instance()->showOptionsDialog(
+    ICore::showOptionsDialog(
         _(DEBUGGER_SETTINGS_CATEGORY),
         _(DEBUGGER_COMMON_SETTINGS_ID));
 }
@@ -2459,10 +2541,9 @@ void DebuggerPluginPrivate::dumpLog()
 /*! Activates the previous mode when the current mode is the debug mode. */
 void DebuggerPluginPrivate::activatePreviousMode()
 {
-    ModeManager *modeManager = ModeManager::instance();
-    if (modeManager->currentMode() == modeManager->mode(QLatin1String(MODE_DEBUG))
+    if (ModeManager::currentMode() == ModeManager::mode(QLatin1String(MODE_DEBUG))
             && !m_previousMode.isEmpty()) {
-        modeManager->activateMode(m_previousMode);
+        ModeManager::activateMode(m_previousMode);
         m_previousMode.clear();
     }
 }
@@ -2471,9 +2552,8 @@ void DebuggerPluginPrivate::activateDebugMode()
 {
     m_reverseDirectionAction->setChecked(false);
     m_reverseDirectionAction->setEnabled(false);
-    ModeManager *modeManager = ModeManager::instance();
-    m_previousMode = modeManager->currentMode()->id();
-    modeManager->activateMode(_(MODE_DEBUG));
+    m_previousMode = ModeManager::currentMode()->id();
+    ModeManager::activateMode(_(MODE_DEBUG));
 }
 
 void DebuggerPluginPrivate::sessionLoaded()
@@ -2634,7 +2714,7 @@ void DebuggerPluginPrivate::showQtDumperLibraryWarning(const QString &details)
         dialog.setDetailedText(details);
     dialog.exec();
     if (dialog.clickedButton() == qtPref) {
-        ICore::instance()->showOptionsDialog(
+        ICore::showOptionsDialog(
             _(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
             _(QtSupport::Constants::QTVERSION_SETTINGS_PAGE_ID));
     } else if (dialog.clickedButton() == helperOff) {
@@ -2657,6 +2737,14 @@ static QString formatStartParameters(DebuggerStartParameters &sp)
     QTextStream str(&rc);
     str << "Start parameters: '" << sp.displayName << "' mode: " << sp.startMode
         << "\nABI: " << sp.toolChainAbi.toString() << '\n';
+    str << "Languages: ";
+    if (sp.languages == AnyLanguage)
+        str << "any";
+    if (sp.languages & CppLanguage)
+        str << "c++ ";
+    if (sp.languages & QmlLanguage)
+        str << "qml";
+    str << '\n';
     if (!sp.executable.isEmpty()) {
         str << "Executable: " << QDir::toNativeSeparators(sp.executable)
             << ' ' << sp.processArgs;
@@ -2797,7 +2885,7 @@ QString DebuggerPluginPrivate::debuggerForAbi(const Abi &abi, DebuggerEngineType
             ToolChainManager::instance()->findToolChains(searchAbi);
         // Find manually configured ones first
         for (int i = toolchains.size() - 1; i >= 0; i--) {
-            const QString debugger = toolchains.at(i)->debuggerCommand();
+            const QString debugger = toolchains.at(i)->debuggerCommand().toString();
             if (debug)
                 qDebug() << i << toolchains.at(i)->displayName() << debugger;
             if (!debugger.isEmpty())
@@ -2831,16 +2919,14 @@ QMessageBox *showMessageBox(int icon, const QString &title,
 
 void DebuggerPluginPrivate::extensionsInitialized()
 {
-    ICore *core = ICore::instance();
-    QTC_ASSERT(core, return);
-    m_coreSettings = core->settings();
+    m_coreSettings = ICore::settings();
 
     m_debuggerSettings = new DebuggerSettings(m_coreSettings);
     m_debuggerSettings->readSettings();
 
-    connect(core, SIGNAL(coreAboutToClose()), this, SLOT(coreShutdown()));
+    connect(ICore::instance(), SIGNAL(coreAboutToClose()), this, SLOT(coreShutdown()));
 
-    ActionManager *am = core->actionManager();
+    ActionManager *am = ICore::actionManager();
     QTC_ASSERT(am, return);
 
     m_plugin->addObject(this);
@@ -3122,8 +3208,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
     m_visibleStartAction->setAttribute(Utils::ProxyAction::UpdateIcon);
     m_visibleStartAction->setAction(cmd->action());
 
-    ModeManager *modeManager = ModeManager::instance();
-    modeManager->addAction(m_visibleStartAction, Constants::P_ACTION_DEBUG);
+    ModeManager::addAction(m_visibleStartAction, Constants::P_ACTION_DEBUG);
 
     cmd = am->registerAction(m_debugWithoutDeployAction,
         "Debugger.DebugWithoutDeploy", globalcontext);
@@ -3176,7 +3261,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
     cmd = am->registerAction(m_startRemoteLldbAction,
         "Debugger.RemoteLldb", globalcontext);
     cmd->setAttribute(Command::CA_Hide);
-    mstart->addAction(cmd, Constants::G_START_REMOTE);
+    mstart->addAction(cmd, Constants::G_MANUAL_REMOTE);
 #endif
 
     if (m_startRemoteCdbAction) {
@@ -3383,7 +3468,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
     //
 
     // Core
-    connect(core, SIGNAL(saveSettingsRequested()), SLOT(writeSettings()));
+    connect(ICore::instance(), SIGNAL(saveSettingsRequested()), SLOT(writeSettings()));
 
     // TextEditor
     connect(TextEditorSettings::instance(),
@@ -3401,7 +3486,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
         SLOT(updateDebugActions()));
 
     // EditorManager
-    QObject *editorManager = core->editorManager();
+    QObject *editorManager = ICore::editorManager();
     connect(editorManager, SIGNAL(editorOpened(Core::IEditor*)),
         SLOT(editorOpened(Core::IEditor*)));
     connect(editorManager, SIGNAL(currentEditorChanged(Core::IEditor*)),
@@ -3551,13 +3636,10 @@ DebuggerPlugin::~DebuggerPlugin()
 
 bool DebuggerPlugin::initialize(const QStringList &arguments, QString *errorMessage)
 {
-    ICore *core = ICore::instance();
-    QTC_ASSERT(core, return false);
-
     // Menu groups
     const Context globalcontext(CC::C_GLOBAL);
 
-    ActionManager *am = core->actionManager();
+    ActionManager *am = ICore::actionManager();
     ActionContainer *mstart = am->actionContainer(PE::M_DEBUG_STARTDEBUGGING);
 
     mstart->appendGroup(Constants::G_START_LOCAL);
@@ -3626,6 +3708,196 @@ QAction *DebuggerPlugin::visibleDebugAction()
 {
     return theDebuggerCore->m_visibleStartAction;
 }
+
+
+#ifdef WITH_TESTS
+
+void DebuggerPluginPrivate::testLoadProject(const QString &proFile, const TestCallBack &cb)
+{
+    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
+    connect(pe, SIGNAL(currentProjectChanged(ProjectExplorer::Project*)),
+            this, SLOT(testProjectLoaded(ProjectExplorer::Project*)));
+
+    m_testCallbacks.append(cb);
+    QString error;
+    if (pe->openProject(proFile, &error))
+        return; // Will end up in callback.
+
+    // Eat the unused callback.
+    qWarning("Cannot open %s: %s", qPrintable(proFile), qPrintable(error));
+    QVERIFY(false);
+    m_testCallbacks.pop_back();
+}
+
+void DebuggerPluginPrivate::testProjectLoaded(Project *project)
+{
+    if (!project) {
+        qWarning("Changed to null project.");
+        return;
+    }
+    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
+    disconnect(pe, SIGNAL(currentProjectChanged(ProjectExplorer::Project*)),
+            this, SLOT(testProjectLoaded(ProjectExplorer::Project*)));
+
+    QString fileName = project->file()->fileName();
+    QVERIFY(!fileName.isEmpty());
+    qWarning("Project %s loaded", qPrintable(fileName));
+
+    QVERIFY(!m_testCallbacks.isEmpty());
+    TestCallBack cb = m_testCallbacks.takeLast();
+    invoke<void>(cb.receiver, cb.slot);
+}
+
+void DebuggerPluginPrivate::testUnloadProject()
+{
+    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
+    invoke<void>(pe, "unloadProject");
+}
+
+static Project *currentProject()
+{
+    return ProjectExplorerPlugin::instance()->currentProject();
+}
+
+static Target *activeTarget()
+{
+    Project *project = currentProject();
+    return project->activeTarget();
+}
+
+static BuildConfiguration *activeBuildConfiguration()
+{
+    return activeTarget()->activeBuildConfiguration();
+}
+
+static RunConfiguration *activeRunConfiguration()
+{
+    return activeTarget()->activeRunConfiguration();
+}
+
+static ToolChain *currentToolChain()
+{
+    return activeBuildConfiguration()->toolChain();
+}
+
+static LocalApplicationRunConfiguration *activeLocalRunConfiguration()
+{
+    return qobject_cast<LocalApplicationRunConfiguration *>(activeRunConfiguration());
+}
+
+void DebuggerPluginPrivate::testRunProject(const DebuggerStartParameters &sp, const TestCallBack &cb)
+{
+    m_testCallbacks.append(cb);
+    RunControl *rctl = createDebugger(sp);
+    QVERIFY(rctl);
+    connect(rctl, SIGNAL(finished()), this, SLOT(testRunControlFinished()));
+    ProjectExplorerPlugin::instance()->startRunControl(rctl, DebugRunMode);
+}
+
+void DebuggerPluginPrivate::testRunControlFinished()
+{
+    QVERIFY(!m_testCallbacks.isEmpty());
+    TestCallBack cb = m_testCallbacks.takeLast();
+    ExtensionSystem::invoke<void>(cb.receiver, cb.slot);
+}
+
+void DebuggerPluginPrivate::testFinished()
+{
+    QTestEventLoop::instance().exitLoop();
+    QVERIFY(m_testSuccess);
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+void DebuggerPlugin::testPythonDumpers()
+{
+    theDebuggerCore->testPythonDumpers1();
+}
+
+void DebuggerPluginPrivate::testPythonDumpers1()
+{
+    m_testSuccess = true;
+    QString proFile = ICore::resourcePath()
+        + "/../../tests/manual/debugger/simple/simple.pro";
+    testLoadProject(proFile, TestCallBack(this,  "testPythonDumpers2"));
+    QVERIFY(m_testSuccess);
+    QTestEventLoop::instance().enterLoop(20);
+}
+
+void DebuggerPluginPrivate::testPythonDumpers2()
+{
+    DebuggerStartParameters sp;
+    sp.toolChainAbi = currentToolChain()->targetAbi();
+    sp.executable = activeLocalRunConfiguration()->executable();
+    testRunProject(sp, TestCallBack(this, "testPythonDumpers3"));
+}
+
+void DebuggerPluginPrivate::testPythonDumpers3()
+{
+    testUnloadProject();
+    testFinished();
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+
+void DebuggerPlugin::testStateMachine()
+{
+    theDebuggerCore->testStateMachine1();
+}
+
+void DebuggerPluginPrivate::testStateMachine1()
+{
+    m_testSuccess = true;
+    QString proFile = ICore::resourcePath()
+        + "/../../tests/manual/debugger/simple/simple.pro";
+    testLoadProject(proFile, TestCallBack(this,  "testStateMachine2"));
+    QVERIFY(m_testSuccess);
+    QTestEventLoop::instance().enterLoop(20);
+}
+
+void DebuggerPluginPrivate::testStateMachine2()
+{
+    DebuggerStartParameters sp;
+    sp.toolChainAbi = currentToolChain()->targetAbi();
+    sp.executable = activeLocalRunConfiguration()->executable();
+    sp.testCase = TestNoBoundsOfCurrentFunction;
+    testRunProject(sp, TestCallBack(this, "testStateMachine3"));
+}
+
+void DebuggerPluginPrivate::testStateMachine3()
+{
+    testUnloadProject();
+    testFinished();
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+
+void DebuggerPlugin::testBenchmark()
+{
+    theDebuggerCore->testBenchmark1();
+}
+
+enum FakeEnum { FakeDebuggerCommonSettingsId };
+
+void DebuggerPluginPrivate::testBenchmark1()
+{
+#ifdef WITH_BENCHMARK
+    CALLGRIND_START_INSTRUMENTATION;
+    volatile Core::Id id1 = Core::Id(DEBUGGER_COMMON_SETTINGS_ID);
+    CALLGRIND_STOP_INSTRUMENTATION;
+    CALLGRIND_DUMP_STATS;
+
+    CALLGRIND_START_INSTRUMENTATION;
+    volatile FakeEnum id2 = FakeDebuggerCommonSettingsId;
+    CALLGRIND_STOP_INSTRUMENTATION;
+    CALLGRIND_DUMP_STATS;
+#endif
+}
+
+
+#endif // if  WITH_TESTS
 
 } // namespace Debugger
 

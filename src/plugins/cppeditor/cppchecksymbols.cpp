@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -42,6 +42,8 @@
 #include <Scope.h>
 #include <AST.h>
 #include <SymbolVisitor.h>
+
+#include <utils/qtcassert.h>
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QThreadPool>
@@ -284,7 +286,7 @@ protected:
 
 CheckSymbols::Future CheckSymbols::go(Document::Ptr doc, const LookupContext &context)
 {
-    Q_ASSERT(doc);
+    QTC_ASSERT(doc, return Future());
 
     return (new CheckSymbols(doc, context))->start();
 }

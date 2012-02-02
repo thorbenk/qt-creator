@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -131,7 +131,7 @@ S60Manager::S60Manager(QObject *parent) : QObject(parent)
     addAutoReleasedObject(new S60PublishingWizardFactoryOvi);
     addAutoReleasedObject(new SymbianQtVersionFactory);
 
-    connect(Core::ICore::instance()->mainWindow(), SIGNAL(deviceChange()),
+    connect(Core::ICore::mainWindow(), SIGNAL(deviceChange()),
             SymbianUtils::SymbianDeviceManager::instance(), SLOT(update()));
 }
 

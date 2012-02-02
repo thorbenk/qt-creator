@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -1296,7 +1296,7 @@ MimeDatabasePrivate::MimeDatabasePrivate() :
     m_maxLevel(-1)
 {
     // Assign here to avoid non-local static data initialization issues.
-    kModifiedMimeTypesPath = ICore::instance()->userResourcePath() + QLatin1String("/mimetypes/");
+    kModifiedMimeTypesPath = ICore::userResourcePath() + QLatin1String("/mimetypes/");
 }
 
 /*!

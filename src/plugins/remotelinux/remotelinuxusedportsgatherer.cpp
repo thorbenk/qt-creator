@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -93,7 +93,7 @@ void RemoteLinuxUsedPortsGatherer::start(const Utils::SshConnection::Ptr &connec
         procFilePath = QLatin1String("/proc/net/tcp6");
         addressLength = 32;
     }
-    const QString command = QString::fromLocal8Bit("sed "
+    const QString command = QString::fromLatin1("sed "
         "'s/.*: [[:xdigit:]]\\{%1\\}:\\([[:xdigit:]]\\{4\\}\\).*/\\1/g' %2")
         .arg(addressLength).arg(procFilePath);
 

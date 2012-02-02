@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -62,7 +62,7 @@ FileShareProtocol::FileShareProtocol() :
     m_settings(new FileShareProtocolSettings),
     m_settingsPage(new FileShareProtocolSettingsPage(m_settings))
 {
-    m_settings->fromSettings(Core::ICore::instance()->settings());
+    m_settings->fromSettings(Core::ICore::settings());
 }
 
 FileShareProtocol::~FileShareProtocol()
@@ -214,11 +214,11 @@ void FileShareProtocol::paste(const QString &text,
         saver.setResult(&writer);
     }
     if (!saver.finalize()) {
-        Core::ICore::instance()->messageManager()->printToOutputPanePopup(saver.errorString());
+        Core::ICore::messageManager()->printToOutputPanePopup(saver.errorString());
         return;
     }
 
     const QString msg = tr("Pasted: %1").arg(saver.fileName());
-    Core::ICore::instance()->messageManager()->printToOutputPanePopup(msg);
+    Core::ICore::messageManager()->printToOutputPanePopup(msg);
 }
 } // namespace CodePaster

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -42,6 +42,7 @@
 #include <qtsupport/baseqtversion.h>
 #include <remotelinux/abstractuploadandinstallpackageservice.h>
 #include <remotelinux/linuxdeviceconfiguration.h>
+#include <utils/ssh/sshconnection.h>
 
 using namespace RemoteLinux;
 
@@ -83,6 +84,14 @@ protected:
                 "for this Qt version."));
         }
         handleDeviceSetupDone(false);
+    }
+
+private:
+    QString uploadDir() const
+    {
+        const QString uname = deviceConfiguration()->sshParameters().userName;
+        return uname == QLatin1String("root")
+            ? QString::fromLatin1("/root") : QLatin1String("/home/") + uname;
     }
 };
 

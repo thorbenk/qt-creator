@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -259,7 +259,7 @@ void DisassemblerAgentPrivate::configureMimeType()
         qobject_cast<TextEditor::PlainTextEditorWidget *>(editor->widget());
     QTC_ASSERT(pe, return);
 
-    MimeType mtype = ICore::instance()->mimeDatabase()->findByType(mimeType);
+    MimeType mtype = ICore::mimeDatabase()->findByType(mimeType);
     if (mtype)
         pe->configure(mtype);
     else

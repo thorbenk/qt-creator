@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -38,6 +38,8 @@
 
 #include <projectexplorer/projectexplorerconstants.h>
 
+#include <qtsupport/qtsupportconstants.h>
+
 #include <QtGui/QIcon>
 
 namespace Qt4ProjectManager {
@@ -51,6 +53,11 @@ CustomWidgetWizard::CustomWidgetWizard() :
              tr("Creates a Qt Custom Designer Widget or a Custom Widget Collection."),
              QIcon(QLatin1String(":/wizards/images/gui.png")))
 {
+}
+
+Core::FeatureSet CustomWidgetWizard::requiredFeatures() const
+{
+    return Core::Feature(QtSupport::Constants::FEATURE_QWIDGETS);
 }
 
 QWizard *CustomWidgetWizard::createWizardDialog(QWidget *parent,

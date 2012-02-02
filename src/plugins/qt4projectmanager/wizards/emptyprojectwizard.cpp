@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -50,6 +50,11 @@ EmptyProjectWizard::EmptyProjectWizard()
                 "an application without any default classes."),
              QIcon(QLatin1String(":/wizards/images/gui.png")))
 {
+}
+
+Core::FeatureSet EmptyProjectWizard::requiredFeatures() const
+{
+    return Core::FeatureSet();
 }
 
 QWizard *EmptyProjectWizard::createWizardDialog(QWidget *parent,

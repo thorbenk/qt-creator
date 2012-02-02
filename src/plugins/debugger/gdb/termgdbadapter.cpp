@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -70,7 +70,7 @@ TermGdbAdapter::TermGdbAdapter(GdbEngine *engine)
     }
 #else
     m_stubProc.setMode(Utils::ConsoleProcess::Debug);
-    m_stubProc.setSettings(Core::ICore::instance()->settings());
+    m_stubProc.setSettings(Core::ICore::settings());
 #endif
 
     connect(&m_stubProc, SIGNAL(processError(QString)), SLOT(stubError(QString)));

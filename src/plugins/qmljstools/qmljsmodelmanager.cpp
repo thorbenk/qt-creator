@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -78,7 +78,7 @@ QmlJS::Document::Language QmlJSTools::languageOfFile(const QString &fileName)
     QStringList jsonSuffixes("json");
 
     if (Core::ICore::instance()) {
-        Core::MimeDatabase *db = Core::ICore::instance()->mimeDatabase();
+        Core::MimeDatabase *db = Core::ICore::mimeDatabase();
         Core::MimeType jsSourceTy = db->findByType(Constants::JS_MIMETYPE);
         jsSuffixes = jsSourceTy.suffixes();
         Core::MimeType qmlSourceTy = db->findByType(Constants::QML_MIMETYPE);
@@ -102,7 +102,7 @@ QStringList QmlJSTools::qmlAndJsGlobPatterns()
 {
     QStringList pattern;
     if (Core::ICore::instance()) {
-        Core::MimeDatabase *db = Core::ICore::instance()->mimeDatabase();
+        Core::MimeDatabase *db = Core::ICore::mimeDatabase();
         Core::MimeType jsSourceTy = db->findByType(Constants::JS_MIMETYPE);
         Core::MimeType qmlSourceTy = db->findByType(Constants::QML_MIMETYPE);
 
@@ -119,7 +119,6 @@ QStringList QmlJSTools::qmlAndJsGlobPatterns()
 
 ModelManager::ModelManager(QObject *parent):
         ModelManagerInterface(parent),
-        m_core(Core::ICore::instance()),
         m_pluginDumper(new PluginDumper(this))
 {
     m_synchronizer.setCancelOnWait(true);
@@ -156,17 +155,15 @@ void ModelManager::delayedInitialization()
     }
 
     ProjectExplorer::SessionManager *sessionManager = ProjectExplorer::ProjectExplorerPlugin::instance()->session();
-    if (sessionManager) {
-        connect(sessionManager, SIGNAL(projectRemoved(ProjectExplorer::Project*)),
-                this, SLOT(removeProjectInfo(ProjectExplorer::Project*)));
-    }
+    connect(sessionManager, SIGNAL(projectRemoved(ProjectExplorer::Project*)),
+            this, SLOT(removeProjectInfo(ProjectExplorer::Project*)));
 }
 
 void ModelManager::loadQmlTypeDescriptions()
 {
     if (Core::ICore::instance()) {
-        loadQmlTypeDescriptions(Core::ICore::instance()->resourcePath());
-        loadQmlTypeDescriptions(Core::ICore::instance()->userResourcePath());
+        loadQmlTypeDescriptions(Core::ICore::resourcePath());
+        loadQmlTypeDescriptions(Core::ICore::userResourcePath());
     }
 }
 
@@ -208,12 +205,10 @@ void ModelManager::loadQmlTypeDescriptions(const QString &resourcePath)
 ModelManagerInterface::WorkingCopy ModelManager::workingCopy() const
 {
     WorkingCopy workingCopy;
-    if (!m_core)
+    if (!Core::ICore::instance())
         return workingCopy;
 
-    Core::EditorManager *editorManager = m_core->editorManager();
-
-    foreach (Core::IEditor *editor, editorManager->openedEditors()) {
+    foreach (Core::IEditor *editor, Core::ICore::editorManager()->openedEditors()) {
         const QString key = editor->file()->fileName();
 
         if (TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor*>(editor)) {
@@ -272,7 +267,7 @@ QFuture<void> ModelManager::refreshSourceFiles(const QStringList &sourceFiles,
     m_synchronizer.addFuture(result);
 
     if (sourceFiles.count() > 1) {
-        m_core->progressManager()->addTask(result, tr("Indexing"),
+        Core::ICore::progressManager()->addTask(result, tr("Indexing"),
                         Constants::TASK_INDEX);
     }
 
@@ -631,7 +626,7 @@ void ModelManager::parse(QFutureInterface<void> &future,
 // Check whether fileMimeType is the same or extends knownMimeType
 bool ModelManager::matchesMimeType(const Core::MimeType &fileMimeType, const Core::MimeType &knownMimeType)
 {
-    Core::MimeDatabase *db = Core::ICore::instance()->mimeDatabase();
+    Core::MimeDatabase *db = Core::ICore::mimeDatabase();
 
     const QStringList knownTypeNames = QStringList(knownMimeType.type()) + knownMimeType.aliases();
 
@@ -810,8 +805,6 @@ ModelManager::CppDataHash ModelManager::cppData() const
 LibraryInfo ModelManager::builtins(const Document::Ptr &doc) const
 {
     ProjectExplorer::SessionManager *sessionManager = ProjectExplorer::ProjectExplorerPlugin::instance()->session();
-    if (!sessionManager)
-        return LibraryInfo();
     ProjectExplorer::Project *project = sessionManager->projectForFile(doc->fileName());
     if (!project)
         return LibraryInfo();

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -63,7 +63,7 @@
     specifies the correct category settings by default when it creates the
     Debian directory and the necessary files.
 
-    You can test the application on Qt Simulator and Maemo emulator to make
+    You can test the application on \QS and Maemo emulator to make
     sure that it does not crash or hang and to check how it handles different
     memory situations. Before you submit the application to Nokia Publish, you
     must also fully test it on a Maemo device.

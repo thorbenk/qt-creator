@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -127,7 +127,7 @@ void LinuxDeviceConfigurations::copy(const LinuxDeviceConfigurations *source,
 
 void LinuxDeviceConfigurations::save()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(SettingsGroup);
     settings->setValue(IdCounterKey, d->nextId);
     settings->setValue(DefaultKeyFilePathKey, d->defaultSshKeyFilePath);
@@ -280,7 +280,7 @@ LinuxDeviceConfigurations::~LinuxDeviceConfigurations()
 
 void LinuxDeviceConfigurations::load()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(SettingsGroup);
     d->nextId = settings->value(IdCounterKey, 1).toULongLong();
     d->defaultSshKeyFilePath = settings->value(DefaultKeyFilePathKey,

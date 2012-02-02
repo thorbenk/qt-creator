@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -40,6 +40,7 @@
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
 #include <QtCore/QStringList>
+#include <QtCore/QTimer>
 
 #include <QtHelp/QHelpEngineCore>
 
@@ -90,7 +91,7 @@ HelpManager::HelpManager(QObject *parent) :
 {
     Q_ASSERT(!m_instance);
     m_instance = this;
-    connect(Core::ICore::instance(), SIGNAL(coreOpened()), SLOT(setupHelpManager()));
+    connect(Core::ICore::instance(), SIGNAL(coreOpened()), SLOT(delayedSetupHelpManager()));
 }
 
 HelpManager::~HelpManager()
@@ -101,6 +102,11 @@ HelpManager::~HelpManager()
     delete d;
 }
 
+void HelpManager::delayedSetupHelpManager()
+{
+    QTimer::singleShot(100, this, SLOT(setupHelpManager()));
+}
+
 HelpManager *HelpManager::instance()
 {
     Q_ASSERT(m_instance);
@@ -109,7 +115,7 @@ HelpManager *HelpManager::instance()
 
 QString HelpManager::collectionFilePath()
 {
-    return QDir::cleanPath(Core::ICore::instance()->userResourcePath()
+    return QDir::cleanPath(Core::ICore::userResourcePath()
         + QLatin1String("/helpcollection.qhc"));
 }
 
@@ -402,7 +408,6 @@ void HelpManager::setupHelpManager()
     d->m_helpEngine->setAutoSaveFilter(false);
     d->m_helpEngine->setCurrentFilter(tr("Unfiltered"));
     d->m_helpEngine->setupData();
-
     verifyDocumenation();
 
     if (!d->m_nameSpacesToUnregister.isEmpty()) {
@@ -437,7 +442,7 @@ void HelpManager::verifyDocumenation()
 
 QStringList HelpManagerPrivate::documentationFromInstaller()
 {
-    QSettings *installSettings = Core::ICore::instance()->settings();
+    QSettings *installSettings = Core::ICore::settings();
     QStringList documentationPaths = installSettings->value(QLatin1String("Help/InstalledDocumentation"))
             .toStringList();
     QStringList documentationFiles;

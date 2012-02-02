@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -63,22 +63,25 @@ Item {
             (expanded ? qmlEventList.uniqueEventsOfType(typeIndex) : qmlEventList.maxNestingForType(typeIndex)));
     }
 
+    function getDescriptions() {
+        var desc=[];
+        var ids=[];
+        var extdesc=[];
+        for (var i=0; i<qmlEventList.uniqueEventsOfType(typeIndex); i++) {
+            desc[i] = qmlEventList.eventTextForType(typeIndex, i);
+            ids[i] = qmlEventList.eventIdForType(typeIndex, i);
+            extdesc[i] = qmlEventList.eventDisplayNameForType(typeIndex, i) + " : " + desc[i];
+        }
+        descriptions = desc;
+        eventIds = ids;
+        extdescriptions = extdesc;
+        updateHeight();
+    }
+
     Connections {
         target: qmlEventList
-        onDataReady: {
-            var desc=[];
-            var ids=[];
-            var extdesc=[];
-            for (var i=0; i<qmlEventList.uniqueEventsOfType(typeIndex); i++) {
-                desc[i] = qmlEventList.eventTextForType(typeIndex, i);
-                ids[i] = qmlEventList.eventIdForType(typeIndex, i);
-                extdesc[i] = qmlEventList.eventDisplayNameForType(typeIndex, i) + " : " + desc[i];
-            }
-            descriptions = desc;
-            eventIds = ids;
-            extdescriptions = extdesc;
-            updateHeight();
-        }
+        onReloadDetailLabels: getDescriptions();
+        onDataReady: getDescriptions();
         onDataClear: {
             descriptions = [];
             eventIds = [];

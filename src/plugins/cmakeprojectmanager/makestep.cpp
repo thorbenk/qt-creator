@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -136,7 +136,6 @@ bool MakeStep::init()
     QString arguments = Utils::QtcProcess::joinArgs(m_buildTargets);
     Utils::QtcProcess::addArgs(&arguments, additionalArguments());
 
-    setEnabled(true);
     setIgnoreReturnValue(m_clean);
 
     ProcessParameters *pp = processParameters();

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Author: Nicolas Arnaud-Cormos, KDAB (nicolas.arnaud-cormos@kdab.com)
 **
@@ -83,7 +83,7 @@ bool ValgrindEngine::start()
 {
     emit starting(this);
 
-    Core::FutureProgress *fp = Core::ICore::instance()->progressManager()->addTask(m_progress->future(),
+    Core::FutureProgress *fp = Core::ICore::progressManager()->addTask(m_progress->future(),
                                                         progressTitle(), "valgrind");
     fp->setKeepOnFinish(Core::FutureProgress::HideOnFinish);
     m_progress->setProgressRange(0, progressMaximum);
@@ -117,8 +117,10 @@ bool ValgrindEngine::start()
     connect(runner(), SIGNAL(finished()),
             SLOT(runnerFinished()));
 
-    runner()->start();
-
+    if (!runner()->start()) {
+        m_progress->cancel();
+        return false;
+    }
     return true;
 }
 
@@ -136,11 +138,13 @@ QString ValgrindEngine::executable() const
 void ValgrindEngine::handleProgressCanceled()
 {
     AnalyzerManager::stopTool();
+    m_progress->reportCanceled();
+    m_progress->reportFinished();
 }
 
 void ValgrindEngine::handleProgressFinished()
 {
-    QApplication::alert(Core::ICore::instance()->mainWindow(), 3000);
+    QApplication::alert(Core::ICore::mainWindow(), 3000);
 }
 
 void ValgrindEngine::runnerFinished()

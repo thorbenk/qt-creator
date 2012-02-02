@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -201,7 +201,7 @@ void GeneralSettingsPage::apply()
         m_contextOption = helpOption;
         manager->setCustomValue(QLatin1String("ContextHelpOption"), helpOption);
 
-        QSettings *settings = Core::ICore::instance()->settings();
+        QSettings *settings = Core::ICore::settings();
         settings->beginGroup(Help::Constants::ID_MODE_HELP);
         settings->setValue(QLatin1String("ContextHelpOption"), helpOption);
         settings->endGroup();

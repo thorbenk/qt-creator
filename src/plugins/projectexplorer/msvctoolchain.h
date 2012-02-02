@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -56,10 +56,12 @@ public:
 
     MsvcToolChain(const QString &name, const Abi &abi,
                   const QString &varsBat, const QString &varsBatArg, bool autodetect = false);
+    QString legacyId() const;
 
     static MsvcToolChain *readFromMap(const QVariantMap &data);
 
-    QString typeName() const;
+    QString type() const;
+    QString typeDisplayName() const;
     Utils::FileName mkspec() const;
 
     QVariantMap toMap() const;
@@ -71,7 +73,9 @@ public:
 
     QString varsBatArg() const { return m_varsBatArg; }
 
-    static QPair<QString, QString> autoDetectCdbDebugger();
+    static QPair<Utils::FileName, Utils::FileName> autoDetectCdbDebugger();
+
+    bool operator == (const ToolChain &) const;
 
 protected:
     Utils::Environment readEnvironmentSetting(Utils::Environment& env) const;
@@ -80,7 +84,6 @@ protected:
 
 private:
     MsvcToolChain();
-    void updateId();
 
     QString m_varsBatArg; // Argument
 };

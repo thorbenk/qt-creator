@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -163,8 +163,10 @@ private:
     {
         QString text;
         foreach (QFutureWatcher<R> *watcher, watchers) {
-            if (!watcher->progressText().isEmpty())
-                text += watcher->progressText() + "\n";
+            if (!watcher->progressText().isEmpty()) {
+                text += watcher->progressText();
+                text += QLatin1Char('\n');
+            }
         }
         text = text.trimmed();
         futureInterface.setProgressValueAndText(futureInterface.progressValue(), text);

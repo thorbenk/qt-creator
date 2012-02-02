@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -53,7 +53,7 @@ public:
 BaseVcsSubmitEditorFactoryPrivate::BaseVcsSubmitEditorFactoryPrivate(const VcsBaseSubmitEditorParameters *parameters) :
     m_parameters(parameters),
     m_id(parameters->id),
-    m_displayName(parameters->displayName),
+    m_displayName(QLatin1String(parameters->displayName)),
     m_mimeTypes(QLatin1String(parameters->mimeType))
 {
 }

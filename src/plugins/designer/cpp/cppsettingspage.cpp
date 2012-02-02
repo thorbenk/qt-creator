@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -103,7 +103,7 @@ QString CppSettingsPageWidget::searchKeywords() const
 // ---------- CppSettingsPage
 CppSettingsPage::CppSettingsPage(QObject *parent) : Core::IOptionsPage(parent)
 {
-    m_parameters.fromSettings(Core::ICore::instance()->settings());
+    m_parameters.fromSettings(Core::ICore::settings());
 }
 
 QString CppSettingsPage::id() const
@@ -146,7 +146,7 @@ void CppSettingsPage::apply()
         const FormClassWizardGenerationParameters newParameters = m_widget->parameters();
         if (newParameters != m_parameters) {
             m_parameters = newParameters;
-            m_parameters.toSettings(Core::ICore::instance()->settings());
+            m_parameters.toSettings(Core::ICore::settings());
         }
     }
 }

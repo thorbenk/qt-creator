@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -93,6 +93,8 @@ public:
                                         const WizardPageList &extensionPages) const;
 
     virtual Core::GeneratedFiles generateFiles(const QWizard *w, QString *errorMessage) const;
+
+    virtual Core::FeatureSet requiredFeatures() const;
 
 
     // Register a factory for a derived custom widget

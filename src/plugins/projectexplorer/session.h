@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -46,7 +46,6 @@ class QTimer;
 QT_END_NAMESPACE
 
 namespace Core {
-class ICore;
 class IMode;
 class IEditor;
 class IFile;
@@ -103,7 +102,6 @@ public:
     bool addDependency(Project *project, Project *depProject);
     void removeDependency(Project *project, Project *depProject);
 
-    QString currentSession() const;
     QString sessionNameToFileName(const QString &session) const;
     QString sessionNameFromFileName(const QString &fileName) const;
     Project *startupProject() const;
@@ -119,7 +117,6 @@ public:
 
     // NBS rewrite projectOrder (dependency management)
     QList<Project *> projectOrder(Project *project = 0) const;
-    QAbstractItemModel *model(const QString &modelId) const;
 
     SessionNode *sessionNode() const;
 
@@ -164,10 +161,8 @@ private:
 
     void updateName(const QString &session);
 
-    Core::ICore *m_core;
-
     Internal::SessionFile *m_file;
-    Internal::SessionNodeImpl *m_sessionNode;
+    SessionNode *m_sessionNode;
     QString m_sessionName;
     bool m_virginSession;
 

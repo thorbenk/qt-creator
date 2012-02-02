@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -63,6 +63,11 @@ QmlProjectApplicationWizard::QmlProjectApplicationWizard()
 
 QmlProjectApplicationWizard::~QmlProjectApplicationWizard()
 { }
+
+Core::FeatureSet QmlProjectApplicationWizard::requiredFeatures() const
+{
+    return Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK);
+}
 
 Core::BaseFileWizardParameters QmlProjectApplicationWizard::parameters()
 {

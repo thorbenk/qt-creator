@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -101,7 +101,7 @@
     \bold {Has a reported issue been addressed?}
 
     You can look up any issue in the
-    \l{https://bugreports.qt.nokia.com/}{Qt bug tracker}.
+    \l{https://bugreports.qt-project.org/}{Qt bug tracker}.
 
     \if defined(qcmanual)
     \input widgets/creator-faq-qtdesigner.qdocinc

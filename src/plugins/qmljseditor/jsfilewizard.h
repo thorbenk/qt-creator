@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -46,6 +46,8 @@ public:
 
     explicit JsFileWizard(const BaseFileWizardParameters &parameters,
                           QObject *parent = 0);
+
+    virtual Core::FeatureSet requiredFeatures() const;
 
 protected:
     QString fileContents(const QString &baseName, bool statelessLibrary) const;

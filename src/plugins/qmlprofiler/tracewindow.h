@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -35,7 +35,7 @@
 
 #include <qmljsdebugclient/qmlprofilertraceclient.h>
 #include <qmljsdebugclient/qmlprofilereventlist.h>
-
+#include "qmlprofilerdetailsrewriter.h"
 #include <qmljsdebugclient/qv8profilerclient.h>
 
 #include <QtCore/QPointer>
@@ -131,8 +131,8 @@ public slots:
 signals:
     void viewUpdated();
     void profilerStateChanged(bool qmlActive, bool v8active);
-    void gotoSourceLocation(const QString &fileUrl, int lineNumber);
-    void range(int type, qint64 startTime, qint64 length, const QStringList &data, const QString &fileName, int line);
+    void gotoSourceLocation(const QString &fileUrl, int lineNumber, int columNumber);
+    void range(int type, qint64 startTime, qint64 length, const QStringList &data, const QmlJsDebugClient::QmlEventLocation &location);
     void v8range(int depth,const QString &function,const QString &filename,
                int lineNumber, double totalTime, double selfTime);
     void traceFinished(qint64);
@@ -173,6 +173,7 @@ private:
     QDeclarativeView *m_timebar;
     QDeclarativeView *m_overview;
     QmlJsDebugClient::QmlProfilerEventList *m_eventList;
+    QmlProfilerDetailsRewriter *m_rewriter;
     bool m_qmlDataReady;
     bool m_v8DataReady;
     double m_profiledTime;

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -104,9 +104,7 @@ void ResourceHandler::ensureInitialized()
     if (m_sessionNode)
         return;
     ProjectExplorer::ProjectExplorerPlugin *pe = ProjectExplorer::ProjectExplorerPlugin::instance();
-    ProjectExplorer::SessionManager *session = pe->session();
-
-    m_sessionNode = session->sessionNode();
+    m_sessionNode = pe->session()->sessionNode();
     m_sessionWatcher = new ProjectExplorer::NodesWatcher();
 
     connect(m_sessionWatcher, SIGNAL(filesAdded()), this, SLOT(updateResources()));

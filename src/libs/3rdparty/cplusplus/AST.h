@@ -159,6 +159,7 @@ public:
     virtual DeleteExpressionAST *asDeleteExpression() { return 0; }
     virtual DestructorNameAST *asDestructorName() { return 0; }
     virtual DoStatementAST *asDoStatement() { return 0; }
+    virtual DynamicExceptionSpecificationAST *asDynamicExceptionSpecification() { return 0; }
     virtual ElaboratedTypeSpecifierAST *asElaboratedTypeSpecifier() { return 0; }
     virtual EmptyDeclarationAST *asEmptyDeclaration() { return 0; }
     virtual EnumSpecifierAST *asEnumSpecifier() { return 0; }
@@ -196,6 +197,7 @@ public:
     virtual NewInitializerAST *asNewInitializer() { return 0; }
     virtual NewPlacementAST *asNewPlacement() { return 0; }
     virtual NewTypeIdAST *asNewTypeId() { return 0; }
+    virtual NoExceptSpecificationAST *asNoExceptSpecification() { return 0; }
     virtual NumericLiteralAST *asNumericLiteral() { return 0; }
     virtual ObjCClassDeclarationAST *asObjCClassDeclaration() { return 0; }
     virtual ObjCClassForwardDeclarationAST *asObjCClassForwardDeclaration() { return 0; }
@@ -252,6 +254,7 @@ public:
     virtual SizeofExpressionAST *asSizeofExpression() { return 0; }
     virtual SpecifierAST *asSpecifier() { return 0; }
     virtual StatementAST *asStatement() { return 0; }
+    virtual StaticAssertDeclarationAST *asStaticAssertDeclaration() { return 0; }
     virtual StringLiteralAST *asStringLiteral() { return 0; }
     virtual SwitchStatementAST *asSwitchStatement() { return 0; }
     virtual TemplateDeclarationAST *asTemplateDeclaration() { return 0; }
@@ -1682,6 +1685,17 @@ protected:
 class CPLUSPLUS_EXPORT ExceptionSpecificationAST: public AST
 {
 public:
+    ExceptionSpecificationAST()
+    {}
+
+    virtual ExceptionSpecificationAST *asExceptionSpecification() { return this; }
+
+    virtual ExceptionSpecificationAST *clone(MemoryPool *pool) const = 0;
+};
+
+class CPLUSPLUS_EXPORT DynamicExceptionSpecificationAST: public ExceptionSpecificationAST
+{
+public:
     unsigned throw_token;
     unsigned lparen_token;
     unsigned dot_dot_dot_token;
@@ -1689,7 +1703,7 @@ public:
     unsigned rparen_token;
 
 public:
-    ExceptionSpecificationAST()
+    DynamicExceptionSpecificationAST()
         : throw_token(0)
         , lparen_token(0)
         , dot_dot_dot_token(0)
@@ -1697,12 +1711,40 @@ public:
         , rparen_token(0)
     {}
 
-    virtual ExceptionSpecificationAST *asExceptionSpecification() { return this; }
+    virtual DynamicExceptionSpecificationAST *asDynamicExceptionSpecification() { return this; }
 
     virtual unsigned firstToken() const;
     virtual unsigned lastToken() const;
 
-    virtual ExceptionSpecificationAST *clone(MemoryPool *pool) const;
+    virtual DynamicExceptionSpecificationAST *clone(MemoryPool *pool) const;
+
+protected:
+    virtual void accept0(ASTVisitor *visitor);
+    virtual bool match0(AST *, ASTMatcher *);
+};
+
+class CPLUSPLUS_EXPORT NoExceptSpecificationAST: public ExceptionSpecificationAST
+{
+public:
+    unsigned noexcept_token;
+    unsigned lparen_token;
+    ExpressionAST *expression;
+    unsigned rparen_token;
+
+public:
+    NoExceptSpecificationAST()
+        : noexcept_token(0)
+        , lparen_token(0)
+        , expression(0)
+        , rparen_token(0)
+    {}
+
+    virtual NoExceptSpecificationAST *asNoExceptSpecification() { return this; }
+
+    virtual unsigned firstToken() const;
+    virtual unsigned lastToken() const;
+
+    virtual NoExceptSpecificationAST *clone(MemoryPool *pool) const;
 
 protected:
     virtual void accept0(ASTVisitor *visitor);
@@ -2223,6 +2265,7 @@ protected:
 class CPLUSPLUS_EXPORT NamespaceAST: public DeclarationAST
 {
 public:
+    unsigned inline_token;
     unsigned namespace_token;
     unsigned identifier_token;
     SpecifierListAST *attribute_list;
@@ -2233,7 +2276,8 @@ public: // annotations
 
 public:
     NamespaceAST()
-        : namespace_token(0)
+        : inline_token(0)
+        , namespace_token(0)
         , identifier_token(0)
         , attribute_list(0)
         , linkage_body(0)
@@ -3013,6 +3057,40 @@ public:
     virtual unsigned lastToken() const;
 
     virtual NestedExpressionAST *clone(MemoryPool *pool) const;
+
+protected:
+    virtual void accept0(ASTVisitor *visitor);
+    virtual bool match0(AST *, ASTMatcher *);
+};
+
+class CPLUSPLUS_EXPORT StaticAssertDeclarationAST: public DeclarationAST
+{
+public:
+    unsigned static_assert_token;
+    unsigned lparen_token;
+    ExpressionAST *expression;
+    unsigned comma_token;
+    ExpressionAST *string_literal;
+    unsigned rparen_token;
+    unsigned semicolon_token;
+
+public:
+    StaticAssertDeclarationAST()
+        : static_assert_token(0)
+        , lparen_token(0)
+        , expression(0)
+        , comma_token(0)
+        , string_literal(0)
+        , rparen_token(0)
+        , semicolon_token(0)
+    {}
+
+    virtual StaticAssertDeclarationAST *asStaticAssertDeclaration() { return this; }
+
+    virtual unsigned firstToken() const;
+    virtual unsigned lastToken() const;
+
+    virtual StaticAssertDeclarationAST *clone(MemoryPool *pool) const;
 
 protected:
     virtual void accept0(ASTVisitor *visitor);

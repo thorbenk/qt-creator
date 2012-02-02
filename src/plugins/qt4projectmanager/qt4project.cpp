@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -404,7 +404,7 @@ bool Qt4Project::fromMap(const QVariantMap &map)
     updateCodeModels();
 
     foreach (Target *t, targets())
-        static_cast<Qt4BaseTarget *>(t)->createApplicationProFiles();
+        static_cast<Qt4BaseTarget *>(t)->createApplicationProFiles(false);
 
     foreach (Target *t, targets())
         onAddedTarget(t);
@@ -774,7 +774,7 @@ void Qt4Project::decrementPendingEvaluateFutures()
             m_asyncUpdateState = Base;
             activeTarget()->activeQt4BuildConfiguration()->setEnabled(true);
             foreach (Target *t, targets())
-                static_cast<Qt4BaseTarget *>(t)->createApplicationProFiles();
+                static_cast<Qt4BaseTarget *>(t)->createApplicationProFiles(true);
             updateFileList();
             updateCodeModels();
             emit proParsingDone();
@@ -796,7 +796,7 @@ void Qt4Project::asyncUpdate()
     Q_ASSERT(!m_asyncUpdateFutureInterface);
     m_asyncUpdateFutureInterface = new QFutureInterface<void>();
 
-    Core::ProgressManager *progressManager = Core::ICore::instance()->progressManager();
+    Core::ProgressManager *progressManager = Core::ICore::progressManager();
 
     m_asyncUpdateFutureInterface->setProgressRange(0, 0);
     progressManager->addTask(m_asyncUpdateFutureInterface->future(), tr("Evaluating"),
@@ -899,7 +899,7 @@ QList<ProjectExplorer::Project*> Qt4Project::dependsOn()
 
 void Qt4Project::proFileParseError(const QString &errorMessage)
 {
-    Core::ICore::instance()->messageManager()->printToOutputPanePopup(errorMessage);
+    Core::ICore::messageManager()->printToOutputPanePopup(errorMessage);
 }
 
 QtSupport::ProFileReader *Qt4Project::createProFileReader(Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc)

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
@@ -54,7 +54,7 @@ public:
     ~MemcheckRunner();
 
     void setParser(XmlProtocol::ThreadedParser *parser);
-    void start();
+    bool start();
 
 signals:
     void logMessageReceived(const QByteArray &);

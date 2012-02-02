@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -58,7 +58,7 @@ void QmlJSTools::Internal::QmlJSToolsPlugin::test_basic()
 {
     QmlJS::ModelManagerInterface *modelManager = QmlJS::ModelManagerInterface::instance();
 
-    const QString welcomescreenRootPath = Core::ICore::instance()->resourcePath() + "/welcomescreen/welcomescreen.qml";
+    const QString welcomescreenRootPath = Core::ICore::resourcePath() + "/welcomescreen/welcomescreen.qml";
     modelManager->updateSourceFiles(QStringList(welcomescreenRootPath), false);
     modelManager->joinAllThreads();
 

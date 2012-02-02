@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -50,13 +50,13 @@ bool ShowInEditorTaskHandler::canHandle(const ProjectExplorer::Task &task)
 {
     if (task.file.isEmpty())
         return false;
-    QFileInfo fi(task.file);
+    QFileInfo fi(task.file.toFileInfo());
     return fi.exists() && fi.isFile() && fi.isReadable();
 }
 
 void ShowInEditorTaskHandler::handle(const ProjectExplorer::Task &task)
 {
-    QFileInfo fi(task.file);
+    QFileInfo fi(task.file.toFileInfo());
     TextEditor::BaseTextEditorWidget::openEditorAt(fi.canonicalFilePath(), task.line);
 }
 

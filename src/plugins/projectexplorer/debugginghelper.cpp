@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -70,7 +70,7 @@ QStringList DebuggingHelperLibrary::debuggingHelperLibraryDirectories(const QStr
 
 static QString sourcePath()
 {
-    return Core::ICore::instance()->resourcePath() + QLatin1String("/dumper/");
+    return Core::ICore::resourcePath() + QLatin1String("/dumper/");
 }
 
 static QStringList sourceFileNames()

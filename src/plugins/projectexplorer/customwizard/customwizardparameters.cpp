@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -67,6 +67,7 @@ static const char firstPageAttributeC[] = "firstpage";
 static const char langAttributeC[] = "xml:lang";
 static const char categoryAttributeC[] = "category";
 static const char displayCategoryElementC[] = "displaycategory";
+static const char featuresRequiredC[] = "featuresRequired";
 static const char fieldPageTitleElementC[] = "fieldpagetitle";
 static const char fieldsElementC[] = "fields";
 static const char fieldElementC[] = "field";
@@ -486,6 +487,19 @@ static inline Core::IWizard::WizardKind kindAttribute(const QXmlStreamReader &r)
     return Core::IWizard::ProjectWizard;
 }
 
+static inline Core::FeatureSet requiredFeatures(const QXmlStreamReader &reader)
+{
+    Core::FeatureSet r;
+    QString value = reader.attributes().value(QLatin1String(featuresRequiredC)).toString();
+    QStringList stringList = value.split(QLatin1Char(','), QString::SkipEmptyParts);
+    Core::FeatureSet features;
+    foreach (const QString &string, stringList) {
+        Core::Feature feature(string);
+        features |= feature;
+    }
+    return features;
+}
+
 static inline QString msgError(const QXmlStreamReader &reader,
                                const QString &fileName,
                                const QString &what)
@@ -526,7 +540,7 @@ static inline QString attributeValue(const QXmlStreamReader &r, const char *name
 // Return locale language attribute "de_UTF8" -> "de", empty string for "C"
 static inline QString languageSetting()
 {
-    QString name = Core::ICore::instance()->userInterfaceLanguage();
+    QString name = Core::ICore::userInterfaceLanguage();
     const int underScorePos = name.indexOf(QLatin1Char('_'));
     if (underScorePos != -1)
         name.truncate(underScorePos);
@@ -591,6 +605,7 @@ CustomWizardParameters::ParseResult
                     bp->setId(attributeValue(reader, idAttributeC));
                     bp->setCategory(attributeValue(reader, categoryAttributeC));
                     bp->setKind(kindAttribute(reader));
+                    bp->setRequiredFeatures(requiredFeatures(reader));
                     klass = attributeValue(reader, klassAttributeC);
                     firstPageId = integerAttributeValue(reader, firstPageAttributeC, -1);
                     break;
@@ -970,7 +985,7 @@ void CustomWizardContext::reset()
 {
     // Basic replacement fields: Suffixes.
     baseReplacements.clear();
-    const Core::MimeDatabase *mdb = Core::ICore::instance()->mimeDatabase();
+    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
     baseReplacements.insert(QLatin1String("CppSourceSuffix"),
                             mdb->preferredSuffixByType(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE)));
     baseReplacements.insert(QLatin1String("CppHeaderSuffix"),

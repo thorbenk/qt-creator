@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -128,16 +128,16 @@ void ToolChainConfigWidget::addDebuggerAutoDetection(QObject *receiver, const ch
     d->m_debuggerPathChooser->addButton(tr("Autodetect"), receiver, autoDetectSlot);
 }
 
-QString ToolChainConfigWidget::debuggerCommand() const
+Utils::FileName ToolChainConfigWidget::debuggerCommand() const
 {
-    QTC_ASSERT(d->m_debuggerPathChooser, return QString(); )
-    return d->m_debuggerPathChooser->path();
+    QTC_ASSERT(d->m_debuggerPathChooser, return Utils::FileName(); )
+    return d->m_debuggerPathChooser->fileName();
 }
 
-void ToolChainConfigWidget::setDebuggerCommand(const QString &debugger)
+void ToolChainConfigWidget::setDebuggerCommand(const Utils::FileName &debugger)
 {
     QTC_ASSERT(d->m_debuggerPathChooser, return; )
-    d->m_debuggerPathChooser->setPath(debugger);
+    d->m_debuggerPathChooser->setFileName(debugger);
 }
 
 void ToolChainConfigWidget::addErrorLabel(QFormLayout *lt)

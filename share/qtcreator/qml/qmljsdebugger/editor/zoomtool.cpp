@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -141,7 +141,7 @@ void ZoomTool::mouseReleaseEvent(QMouseEvent *event)
         view()->setSceneRect(sceneArea);
     } else {
         Qt::KeyboardModifier modifierKey = Qt::ControlModifier;
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
         modifierKey = Qt::AltModifier;
 #endif
         if (event->modifiers() & modifierKey) {

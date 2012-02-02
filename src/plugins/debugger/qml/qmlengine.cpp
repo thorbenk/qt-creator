@@ -234,8 +234,7 @@ void QmlEngine::connectionStartupFailed()
         }
     }
 
-    Core::ICore * const core = Core::ICore::instance();
-    QMessageBox *infoBox = new QMessageBox(core->mainWindow());
+    QMessageBox *infoBox = new QMessageBox(Core::ICore::mainWindow());
     infoBox->setIcon(QMessageBox::Critical);
     infoBox->setWindowTitle(tr("Qt Creator"));
     infoBox->setText(tr("Could not connect to the in-process QML debugger.\n"
@@ -278,8 +277,7 @@ void QmlEngine::wrongSetupMessageBox(const QString &errorMessage)
     d->m_noDebugOutputTimer.stop();
     notifyEngineRunFailed();
 
-    Core::ICore * const core = Core::ICore::instance();
-    QMessageBox *infoBox = new QMessageBox(core->mainWindow());
+    QMessageBox *infoBox = new QMessageBox(Core::ICore::mainWindow());
     infoBox->setIcon(QMessageBox::Critical);
     infoBox->setWindowTitle(tr("Qt Creator"));
     //: %1 is detailed error message
@@ -375,12 +373,12 @@ void QmlEngine::runEngine()
 {
     QTC_ASSERT(state() == EngineRunRequested, qDebug() << state());
 
-    if (!isSlaveEngine() && startParameters().startMode != AttachToRemoteServer
-            && startParameters().startMode != AttachToQmlPort)
-        startApplicationLauncher();
-
-    if (startParameters().startMode == AttachToQmlPort)
-        beginConnection();
+    if (!isSlaveEngine()) {
+        if (startParameters().startMode != AttachToRemoteServer)
+            startApplicationLauncher();
+        else
+            beginConnection();
+    }
 }
 
 void QmlEngine::startApplicationLauncher()
@@ -408,8 +406,11 @@ void QmlEngine::stopApplicationLauncher()
 void QmlEngine::handleRemoteSetupDone(int gdbServerPort, int qmlPort)
 {
     Q_UNUSED(gdbServerPort);
+
     if (qmlPort != -1)
         startParameters().qmlServerPort = qmlPort;
+
+    notifyEngineRemoteSetupDone();
     notifyEngineSetupOk();
 }
 
@@ -418,6 +419,8 @@ void QmlEngine::handleRemoteSetupFailed(const QString &message)
     if (isMasterEngine())
         QMessageBox::critical(0,tr("Failed to start application"),
             tr("Application startup failed: %1").arg(message));
+
+    notifyEngineRemoteSetupFailed();
     notifyEngineSetupFailed();
 }
 
@@ -450,10 +453,9 @@ void QmlEngine::shutdownEngine()
 
 void QmlEngine::setupEngine()
 {
-    if (startParameters().startMode == AttachToQmlPort
-             || startParameters().startMode == AttachToRemoteServer) {
+    if (startParameters().requestRemoteSetup) {
         // we need to get the port first
-        emit requestRemoteSetup();
+        notifyEngineRequestRemoteSetup();
     } else {
         d->m_applicationLauncher.setEnvironment(startParameters().environment);
         d->m_applicationLauncher.setWorkingDirectory(startParameters().workingDirectory);
@@ -675,7 +677,7 @@ void QmlEngine::attemptBreakpointSynchronization()
 
 bool QmlEngine::acceptsBreakpoint(BreakpointModelId id) const
 {
-    if (!DebuggerEngine::isCppBreakpoint(breakHandler()->breakpointData(id)))
+    if (!breakHandler()->breakpointData(id).isCppBreakpoint())
             return true;
 
     //If it is a Cpp Breakpoint query if the type can be also handled by the debugger client

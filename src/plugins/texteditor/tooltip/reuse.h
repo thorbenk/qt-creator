@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -52,7 +52,7 @@ inline int screenNumber(const QPoint &pos, QWidget *w)
 
 inline QRect screenGeometry(const QPoint &pos, QWidget *w)
 {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     return QApplication::desktop()->availableGeometry(screenNumber(pos, w));
 #else
     return QApplication::desktop()->screenGeometry(screenNumber(pos, w));

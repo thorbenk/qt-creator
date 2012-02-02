@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -44,7 +44,6 @@ QT_FORWARD_DECLARE_CLASS(QToolButton)
 QT_FORWARD_DECLARE_CLASS(QUrl)
 
 namespace Core {
-class ICore;
 class IMode;
 class MiniSplitter;
 class SideBar;
@@ -140,7 +139,6 @@ private:
 
 private:
     HelpMode *m_mode;
-    Core::ICore *m_core;
     CentralWidget *m_centralWidget;
     QWidget *m_rightPaneSideBarWidget;
     HelpViewer *m_helpViewerForSideBar;

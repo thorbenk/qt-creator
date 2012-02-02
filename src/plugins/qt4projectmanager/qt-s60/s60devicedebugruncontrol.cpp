@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -84,10 +84,12 @@ static Debugger::DebuggerStartParameters s60DebuggerStartParams(const S60DeviceR
 
     sp.remoteChannel = activeDeployConf->serialPortName();
     sp.processArgs = rc->commandLineArguments();
-    if (rc->useQmlDebugger() && !rc->useCppDebugger())
+    if (rc->useQmlDebugger() && !rc->useCppDebugger()) {
+        sp.requestRemoteSetup = true;
         sp.startMode = Debugger::AttachToRemoteServer;
-    else
+    } else {
         sp.startMode = Debugger::StartInternal;
+    }
 
     sp.toolChainAbi = rc->abi();
     sp.executable = debugFileName;
@@ -98,17 +100,18 @@ static Debugger::DebuggerStartParameters s60DebuggerStartParams(const S60DeviceR
     sp.qmlServerAddress = activeDeployConf->deviceAddress();
     sp.qmlServerPort = rc->qmlDebugServerPort();
     if (rc->useQmlDebugger()) {
+        sp.languages |= Debugger::QmlLanguage;
         QString qmlArgs = rc->qmlCommandLineArguments();
         if (sp.processArgs.length())
             sp.processArgs.prepend(QLatin1Char(' '));
         sp.processArgs.prepend(qmlArgs);
     }
+    if (rc->useCppDebugger())
+        sp.languages |= Debugger::CppLanguage;
 
     sp.communicationChannel = activeDeployConf->communicationChannel() == S60DeployConfiguration::CommunicationCodaTcpConnection?
                 Debugger::DebuggerStartParameters::CommunicationChannelTcpIp:
                 Debugger::DebuggerStartParameters::CommunicationChannelUsb;
-
-    sp.debugClient = Debugger::DebuggerStartParameters::SymbianDebugClientCoda;
 
     if (const ProjectExplorer::Project *project = rc->target()->project()) {
         sp.projectSourceDirectory = project->projectDirectory();
@@ -230,7 +233,7 @@ ProjectExplorer::RunControl* S60DeviceDebugRunControlFactory::create(RunConfigur
     const Debugger::DebuggerStartParameters startParameters = s60DebuggerStartParams(rc);
     const Debugger::ConfigurationCheck check = Debugger::checkDebugConfiguration(startParameters);
     if (!check) {
-        Core::ICore::instance()->showWarningWithOptions(S60DeviceDebugRunControl::tr("Debugger for Symbian Platform"),
+        Core::ICore::showWarningWithOptions(S60DeviceDebugRunControl::tr("Debugger for Symbian Platform"),
             check.errorMessage, check.errorDetailsString(), check.settingsCategory, check.settingsPage);
         return 0;
     }

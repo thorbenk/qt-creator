@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -95,7 +95,7 @@ public:
         InsertionPointLocator locator(refactoring);
         const InsertionLocation loc = locator.methodDeclarationInClass(
                     m_targetFileName, m_targetSymbol, m_xsSpec);
-        Q_ASSERT(loc.isValid());
+        QTC_ASSERT(loc.isValid(), return);
 
         CppRefactoringFilePtr targetFile = refactoring.file(m_targetFileName);
         int targetPosition1 = targetFile->position(loc.line(), loc.column());
@@ -120,12 +120,12 @@ private:
 
 Class *isMemberFunction(const LookupContext &context, Function *function)
 {
-    Q_ASSERT(function);
+    QTC_ASSERT(function, return 0);
 
     Scope *enclosingScope = function->enclosingScope();
     while (! (enclosingScope->isNamespace() || enclosingScope->isClass()))
         enclosingScope = enclosingScope->enclosingScope();
-    Q_ASSERT(enclosingScope != 0);
+    QTC_ASSERT(enclosingScope != 0, return 0);
 
     const Name *functionName = function->name();
     if (! functionName)
@@ -245,7 +245,7 @@ public:
     void performChanges(const CppRefactoringFilePtr &,
                         const CppRefactoringChanges &refactoring)
     {
-        Q_ASSERT(m_loc.isValid());
+        QTC_ASSERT(m_loc.isValid(), return);
 
         CppRefactoringFilePtr targetFile = refactoring.file(m_loc.fileName());
 

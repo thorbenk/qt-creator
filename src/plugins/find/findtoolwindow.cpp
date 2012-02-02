@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -236,9 +236,9 @@ void FindToolWindow::replace()
 
 void FindToolWindow::writeSettings()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
-    settings->beginGroup("Find");
-    settings->setValue("CurrentFilter", m_currentFilter ? m_currentFilter->id() : 0);
+    QSettings *settings = Core::ICore::settings();
+    settings->beginGroup(QLatin1String("Find"));
+    settings->setValue(QLatin1String("CurrentFilter"), m_currentFilter ?  m_currentFilter->id() : QString());
     foreach (IFindFilter *filter, m_filters)
         filter->writeSettings(settings);
     settings->endGroup();
@@ -246,9 +246,9 @@ void FindToolWindow::writeSettings()
 
 void FindToolWindow::readSettings()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
-    settings->beginGroup("Find");
-    const QString currentFilter = settings->value("CurrentFilter").toString();
+    QSettings *settings = Core::ICore::settings();
+    settings->beginGroup(QLatin1String("Find"));
+    const QString currentFilter = settings->value(QLatin1String("CurrentFilter")).toString();
     for (int i = 0; i < m_filters.size(); ++i) {
         IFindFilter *filter = m_filters.at(i);
         filter->readSettings(settings);

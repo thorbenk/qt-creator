@@ -63,12 +63,8 @@ def testRenameId():
         return False
     type(editor, "<Down>")
     searchFinished = False
-    if platform.system() == "Darwin":
-        invokeMenuItem("Tools", "QML/JS", "Rename Symbol Under Cursor")
-    else:
-        openContextMenuOnTextCursorPosition(editor)
-        ctxtMenu = waitForObject("{type='QMenu' visible='1' unnamed='1'}")
-        activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), "Rename Symbol Under Cursor"))
+    ctxtMenu = openContextMenuOnTextCursorPosition(editor)
+    activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), "Rename Symbol Under Cursor"))
     waitFor("searchFinished")
     type(waitForObject("{leftWidget={text='Replace with:' type='QLabel' unnamed='1' visible='1'} "
                        "type='Find::Internal::WideEnoughLineEdit' unnamed='1' visible='1' "
@@ -100,12 +96,8 @@ def __invokeFindUsage__(treeView, filename, line, additionalKeyPresses, expected
     for ty in additionalKeyPresses:
         type(editor, ty)
     searchFinished = False
-    if platform.system() == "Darwin":
-        invokeMenuItem("Tools", "QML/JS", "Find Usages")
-    else:
-        openContextMenuOnTextCursorPosition(editor)
-        ctxtMenu = waitForObject("{type='QMenu' visible='1' unnamed='1'}")
-        activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), "Find Usages"))
+    ctxtMenu = openContextMenuOnTextCursorPosition(editor)
+    activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), "Find Usages"))
     waitFor("searchFinished")
     validateSearchResult(expectedCount)
 
@@ -145,8 +137,8 @@ def validateSearchResult(expectedCount):
             doubleClick(resultTreeView, rect.x+5, rect.y+5, 0, Qt.LeftButton)
             editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
                        "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
-            line = lineUnderCursor(editor)
-            test.compare(line, text)
+            waitFor("lineUnderCursor(editor) == text", 2000)
+            test.compare(lineUnderCursor(editor), text)
 
 def testHovering():
     navTree = waitForObject("{type='Utils::NavigationTreeView' unnamed='1' visible='1' "
@@ -164,9 +156,9 @@ def testHovering():
     expectedTypes = ["TextTip", "TextTip"]
     expectedValues = [
                       {'text':'<table><tr><td valign=middle>FocusScope\n<p>The FocusScope object explicitly '
-                       'creates a focus scope.</p></td><td>&nbsp;&nbsp;<img src=":/cppeditor/images/f1.png"></td></tr></table>'},
+                       'creates a focus scope.</p></td><td>&nbsp;&nbsp;<img src=":/texteditor/images/f1.png"></td></tr></table>'},
                       {'text':'<table><tr><td valign=middle>Rectangle\n<p>The Rectangle item provides a filled rectangle with an '
-                       'optional border.</p></td><td>&nbsp;&nbsp;<img src=":/cppeditor/images/f1.png"></td></tr></table>'}
+                       'optional border.</p></td><td>&nbsp;&nbsp;<img src=":/texteditor/images/f1.png"></td></tr></table>'}
                       ]
     alternativeValues = [{"text":"FocusScope"}, {"text":"Rectangle"}]
     verifyHoveringOnEditor(editor, lines, additionalKeyPresses, expectedTypes, expectedValues, alternativeValues)
@@ -175,20 +167,19 @@ def testHovering():
     editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
                        "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
     lines = ['focus:\s*true', 'color:\s*"black"', 'states:\s*State\s*\{', 'transitions:\s*Transition\s*\{']
-    additionalKeyPresses = [home, "<Right>"]
     expectedTypes = ["TextTip", "TextTip", "TextTip", "TextTip"]
     expectedValues = [
                       {'text':'<table><tr><td valign=middle>boolean<p>This property indicates whether the item has focus '
                        'within the enclosing focus scope. If true, this item will gain active focus when the enclosing '
                        'focus scope gains active focus. In the following example, <tt>input</tt> will be given active focus '
-                       'when <tt>scope</tt> gains active focus.</p></td><td>&nbsp;&nbsp;<img src=":/cppeditor/images/f1.png"'
+                       'when <tt>scope</tt> gains active focus.</p></td><td>&nbsp;&nbsp;<img src=":/texteditor/images/f1.png"'
                        '></td></tr></table>'},
                       {'text':'<table><tr><td valign=middle>string<p>This property holds the color used to fill the rectangle.'
-                       '</p></td><td>&nbsp;&nbsp;<img src=":/cppeditor/images/f1.png"></td></tr></table>'},
+                       '</p></td><td>&nbsp;&nbsp;<img src=":/texteditor/images/f1.png"></td></tr></table>'},
                       {'text':'<table><tr><td valign=middle>State<p>This property holds a list of states defined by the item.'
-                       '</p></td><td>&nbsp;&nbsp;<img src=":/cppeditor/images/f1.png"></td></tr></table>'},
+                       '</p></td><td>&nbsp;&nbsp;<img src=":/texteditor/images/f1.png"></td></tr></table>'},
                       {'text':'<table><tr><td valign=middle>Transition<p>This property holds a list of transitions defined by '
-                       'the item.</p></td><td>&nbsp;&nbsp;<img src=":/cppeditor/images/f1.png"></td></tr></table>'}
+                       'the item.</p></td><td>&nbsp;&nbsp;<img src=":/texteditor/images/f1.png"></td></tr></table>'}
                       ]
     alternativeValues = [{"text":"boolean"}, {"text":"string"}, {"text":"State"}, {"text":"Transition"}]
     verifyHoveringOnEditor(editor, lines, additionalKeyPresses, expectedTypes, expectedValues, alternativeValues)
@@ -197,9 +188,9 @@ def testHovering():
     editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
                        "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
     lines=['color:\s*"black"', 'color:\s*"#3E606F"']
+    additionalKeyPresses = ["<Left>"]
     expectedValues = ["black", "#3E606F"]
     expectedTypes = ["ColorTip", "ColorTip"]
-    additionalKeyPresses = ["<Left>"]
     verifyHoveringOnEditor(editor, lines, additionalKeyPresses, expectedTypes, expectedValues)
     doubleClickFile(navTree, "Core.ListMenu\\.qml")
     editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' visible='1' "
@@ -216,6 +207,17 @@ def doubleClickFile(navTree, file):
                    (maskSpecialCharsForProjectTree(templateDir),file))
     waitForObjectItem(navTree, treeElement)
     doubleClickItem(navTree, treeElement, 5, 5, 0, Qt.LeftButton)
+    mainWindow = waitForObject(":Qt Creator_Core::Internal::MainWindow")
+    name = __getUnmaskedFilename__(file)
+    waitFor("name in str(mainWindow.windowTitle)")
+
+def __getUnmaskedFilename__(maskedFilename):
+    name = maskedFilename.split("\\.")
+    path = name[0].rsplit(".", 1)
+    if len(path) < 2:
+        return ".".join(name)
+    else:
+        return ".".join((path[1], ".".join(name[1:])))
 
 def maskSpecialCharsForProjectTree(filename):
     filename = filename.replace("\\", "/").replace("_", "\\_").replace(".","\\.")

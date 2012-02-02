@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -165,8 +165,6 @@ QSet<QString> Qt4MaemoTargetFactory::targetFeatures(const QString & /*id*/) cons
 #ifndef Q_OS_WIN
     features << Qt4ProjectManager::Constants::SHADOWBUILD_TARGETFEATURE_ID;
 #endif
-    // how to check check whether the component set is really installed?
-    features << Qt4ProjectManager::Constants::QTQUICKCOMPONENTS_MEEGO_TARGETFEATURE_ID;
     return features;
 }
 
@@ -218,7 +216,7 @@ ProjectExplorer::Target *Qt4MaemoTargetFactory::create(ProjectExplorer::Project 
     foreach (const QString &deployConfigId, deployConfigIds) {
         target->addDeployConfiguration(target->createDeployConfiguration(deployConfigId));
     }
-    target->createApplicationProFiles();
+    target->createApplicationProFiles(false);
     if (target->runConfigurations().isEmpty())
         target->addRunConfiguration(new ProjectExplorer::CustomExecutableRunConfiguration(target));
     return target;

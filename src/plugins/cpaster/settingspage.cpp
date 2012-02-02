@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -129,7 +129,7 @@ void SettingsPage::apply()
     const Settings newSettings = m_widget->settings();
     if (newSettings != *m_settings) {
         *m_settings = newSettings;
-        m_settings->toSettings(Core::ICore::instance()->settings());
+        m_settings->toSettings(Core::ICore::settings());
     }
 }
 

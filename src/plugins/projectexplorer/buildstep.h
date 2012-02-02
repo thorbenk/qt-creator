@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -70,6 +70,12 @@ public:
     virtual bool runInGuiThread() const;
     virtual void cancel();
 
+    virtual bool fromMap(const QVariantMap &map);
+    virtual QVariantMap toMap() const;
+
+    bool enabled() const;
+    void setEnabled(bool b);
+
     BuildConfiguration *buildConfiguration() const;
     DeployConfiguration *deployConfiguration() const;
     ProjectConfiguration *projectConfiguration() const;
@@ -86,6 +92,10 @@ signals:
         ProjectExplorer::BuildStep::OutputNewlineSetting newlineSetting = DoAppendNewline) const;
 
     void finished();
+
+    void enabledChanged();
+private:
+    bool m_enabled;
 };
 
 class PROJECTEXPLORER_EXPORT IBuildStepFactory :

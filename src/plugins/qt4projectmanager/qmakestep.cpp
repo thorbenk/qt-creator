@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -166,18 +166,36 @@ QString QMakeStep::allArguments(bool shorted)
 ///
 /// moreArguments,
 /// -unix for Maemo
-/// -after OBJECTS_DIR, MOC_DIR, UI_DIR, RCC_DIR
 /// QMAKE_VAR_QMLJSDEBUGGER_PATH
 QStringList QMakeStep::moreArguments()
 {
     Qt4BuildConfiguration *bc = qt4BuildConfiguration();
     QStringList arguments;
-#if defined(Q_OS_WIN) || defined(Q_OS_MAC)
     ProjectExplorer::ToolChain *tc = bc->toolChain();
-    if (tc && (tc->targetAbi().osFlavor() == ProjectExplorer::Abi::HarmattanLinuxFlavor
-               || tc->targetAbi().osFlavor() == ProjectExplorer::Abi::MaemoLinuxFlavor))
+    ProjectExplorer::Abi targetAbi;
+    if (tc)
+        targetAbi = tc->targetAbi();
+#if defined(Q_OS_WIN) || defined(Q_OS_MAC)
+    if ((targetAbi.osFlavor() == ProjectExplorer::Abi::HarmattanLinuxFlavor
+               || targetAbi.osFlavor() == ProjectExplorer::Abi::MaemoLinuxFlavor))
         arguments << QLatin1String("-unix");
 #endif
+
+    // explicitly add architecture to CONFIG
+    if ((targetAbi.os() == ProjectExplorer::Abi::MacOS)
+            && (targetAbi.binaryFormat() == ProjectExplorer::Abi::MachOFormat)) {
+        if (targetAbi.architecture() == ProjectExplorer::Abi::X86Architecture) {
+            if (targetAbi.wordWidth() == 32)
+                arguments << QLatin1String("CONFIG+=x86");
+            else if (targetAbi.wordWidth() == 64)
+                arguments << QLatin1String("CONFIG+=x86_64");
+        } else if (targetAbi.architecture() == ProjectExplorer::Abi::PowerPCArchitecture) {
+            if (targetAbi.wordWidth() == 32)
+                arguments << QLatin1String("CONFIG+=ppc");
+            else if (targetAbi.wordWidth() == 64)
+                arguments << QLatin1String("CONFIG+=ppc64");
+        }
+    }
 
     if (linkQmlDebuggingLibrary() && bc->qtVersion()) {
         if (!bc->qtVersion()->needsQmlDebuggingLibrary()) {
@@ -201,6 +219,7 @@ QStringList QMakeStep::moreArguments()
     return arguments;
 }
 
+/// -after OBJECTS_DIR, MOC_DIR, UI_DIR, RCC_DIR
 QStringList QMakeStep::moreArgumentsAfter()
 {
     Qt4BuildConfiguration *bc = qt4BuildConfiguration();
@@ -265,7 +284,6 @@ bool QMakeStep::init()
         m_needToRunQMake = true;
     m_forced = false;
 
-    setEnabled(m_needToRunQMake);
     ProcessParameters *pp = processParameters();
     pp->setMacroExpander(qt4bc->macroExpander());
     pp->setWorkingDirectory(workingDirectory);
@@ -634,9 +652,7 @@ void QMakeStepConfigWidget::linkQmlDebuggingLibraryChecked(bool checked)
     updateEffectiveQMakeCall();
     updateQmlDebuggingOption();
 
-
-    Core::ICore * const core = Core::ICore::instance();
-    QMessageBox *question = new QMessageBox(core->mainWindow());
+    QMessageBox *question = new QMessageBox(Core::ICore::mainWindow());
     question->setWindowTitle(tr("QML Debugging"));
     question->setText(tr("The option will only take effect if the project is recompiled. Do you want to recompile now?"));
     question->setStandardButtons(QMessageBox::Yes | QMessageBox::No);
@@ -660,7 +676,7 @@ void QMakeStepConfigWidget::buildQmlDebuggingHelper()
 
     QFuture<void> task = QtConcurrent::run(&QtSupport::DebuggingHelperBuildTask::run, buildTask);
     const QString taskName = tr("Building helpers");
-    Core::ICore::instance()->progressManager()->addTask(task, taskName,
+    Core::ICore::progressManager()->addTask(task, taskName,
                                                         QLatin1String("Qt4ProjectManager::BuildHelpers"));
 }
 

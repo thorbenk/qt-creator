@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -60,7 +60,7 @@ QList<ProcData> hostProcessList();
 bool winResumeThread(unsigned long dwThreadId, QString *errorMessage);
 
 // Open a process by PID and break into it.
-bool winDebugBreakProcess(unsigned long  pid, QString *errorMessage);
+bool winDebugBreakProcess(unsigned long  pid, QString *errorMessage, bool isCdb64bit);
 
 unsigned long winGetCurrentProcessId();
 

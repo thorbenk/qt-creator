@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -206,7 +206,7 @@ QString MaemoDeployConfigurationWidget::remoteIconFilePath(const DeployableFiles
 
 QString MaemoDeployConfigurationWidget::remoteIconDir() const
 {
-    return QString::fromLocal8Bit("/usr/share/icons/hicolor/%1x%1/apps")
+    return QString::fromLatin1("/usr/share/icons/hicolor/%1x%1/apps")
         .arg(MaemoGlobal::applicationIconSize(deployConfiguration()->supportedOsType()));
 }
 

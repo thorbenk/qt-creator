@@ -400,9 +400,17 @@ bool ExceptionDeclarationAST::match0(AST *pattern, ASTMatcher *matcher)
     return false;
 }
 
-bool ExceptionSpecificationAST::match0(AST *pattern, ASTMatcher *matcher)
+bool DynamicExceptionSpecificationAST::match0(AST *pattern, ASTMatcher *matcher)
 {
-    if (ExceptionSpecificationAST *_other = pattern->asExceptionSpecification())
+    if (DynamicExceptionSpecificationAST *_other = pattern->asDynamicExceptionSpecification())
+        return matcher->match(this, _other);
+
+    return false;
+}
+
+bool NoExceptSpecificationAST::match0(AST *pattern, ASTMatcher *matcher)
+{
+    if (NoExceptSpecificationAST *_other = pattern->asNoExceptSpecification())
         return matcher->match(this, _other);
 
     return false;
@@ -787,6 +795,14 @@ bool ThisExpressionAST::match0(AST *pattern, ASTMatcher *matcher)
 bool NestedExpressionAST::match0(AST *pattern, ASTMatcher *matcher)
 {
     if (NestedExpressionAST *_other = pattern->asNestedExpression())
+        return matcher->match(this, _other);
+
+    return false;
+}
+
+bool StaticAssertDeclarationAST::match0(AST *pattern, ASTMatcher *matcher)
+{
+    if (StaticAssertDeclarationAST *_other = pattern->asStaticAssertDeclaration())
         return matcher->match(this, _other);
 
     return false;

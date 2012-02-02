@@ -13,14 +13,13 @@ def placeCursorToLine(editor,line,isRegex=False):
     found = False
     if isRegex:
         regex = re.compile(line)
-    editorRealName = objectMap.realName(editor)
     while not found:
         currentLine = str(lineUnderCursor(editor)).strip()
         if isRegex:
             if regex.match(currentLine):
                 found = True
             else:
-                type(editor, "<Down>")
+                moveTextCursor(editor, QTextCursor.Down, QTextCursor.MoveAnchor)
                 if oldPosition==editor.textCursor().position():
                     break
                 oldPosition = editor.textCursor().position()
@@ -28,7 +27,7 @@ def placeCursorToLine(editor,line,isRegex=False):
             if currentLine==line:
                 found = True
             else:
-                type(editorRealName, "<Down>")
+                moveTextCursor(editor, QTextCursor.Down, QTextCursor.MoveAnchor)
                 if oldPosition==editor.textCursor().position():
                     break
                 oldPosition = editor.textCursor().position()
@@ -40,11 +39,50 @@ def placeCursorToLine(editor,line,isRegex=False):
     editor.setTextCursor(cursor)
     return True
 
+# this function moves the text cursor of an editor by using Qt internal functions
+# this is more reliable (especially on Mac) than the type() approach
+# param editor an editor object
+# param moveOperation a value of enum MoveOperation (of QTextCursor)
+# param moveAnchor a value of enum MoveMode (of QTextCursor)
+# param n how often repeat the move operation?
+def moveTextCursor(editor, moveOperation, moveAnchor, n=1):
+    if not editor or isinstance(editor, (str,unicode)):
+        test.fatal("Either got a NoneType or a string instead of an editor object")
+        return False
+    textCursor = editor.textCursor()
+    result = textCursor.movePosition(moveOperation, moveAnchor, n)
+    editor.setTextCursor(textCursor)
+    return result
+
+# this function returns True if a QMenu is
+# popped up above the given editor
+# param editor is the editor where the menu should appear
+# param menuInList is a list containing one item. This item will be assigned the menu if there is one.
+#                  THIS IS A HACK to get a pass-by-reference
+def menuVisibleAtEditor(editor, menuInList):
+    menuInList[0] = None
+    try:
+        menu = waitForObject("{type='QMenu' unnamed='1' visible='1'}", 200)
+        success = menu.visible and widgetContainsPoint(editor, menu.mapToGlobal(QPoint(0, 0)))
+        if success:
+            menuInList[0] = menu
+        return success
+    except:
+        return False
+
+# this function checks whether the given global point (QPoint)
+# is contained in the given widget
+def widgetContainsPoint(widget, point):
+    return QRect(widget.mapToGlobal(QPoint(0, 0)), widget.size).contains(point)
+
 # this function simply opens the context menu inside the given editor
 # at the same position where the text cursor is located at
 def openContextMenuOnTextCursorPosition(editor):
     rect = editor.cursorRect(editor.textCursor())
     openContextMenu(editor, rect.x+rect.width/2, rect.y+rect.height/2, 0)
+    menuInList = [None]
+    waitFor("menuVisibleAtEditor(editor, menuInList)", 5000)
+    return menuInList[0]
 
 # this function marks/selects the text inside the given editor from position
 # startPosition to endPosition (both inclusive)

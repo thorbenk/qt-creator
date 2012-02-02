@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -63,8 +63,8 @@ bool S60CreatePackageParser::parseLine(const QString &line)
                              "Use a developer certificate or any other signing option to prevent "
                              "this patching from happening.").
                 arg(m_packageName, lines);
-        ProjectExplorer::Task task(ProjectExplorer::Task::Warning, message, QString(), -1,
-                                   QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
+        ProjectExplorer::Task task(ProjectExplorer::Task::Warning, message, Utils::FileName(), -1,
+                                   Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
 
         QTextLayout::FormatRange fr;
         fr.start = message.indexOf(lines);
@@ -86,11 +86,11 @@ bool S60CreatePackageParser::parseLine(const QString &line)
                                                tr("Cannot create Smart Installer package "
                                                   "as the Smart Installer's base file is missing. "
                                                   "Please ensure that it is located in the SDK."),
-                                               QString(), -1,
-                                               QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                                               Utils::FileName(), -1,
+                                               Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
         else
-            emit addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error, errorMessage, QString(), -1,
-                                               QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+            emit addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error, errorMessage, Utils::FileName(), -1,
+                                               Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
         return true;
     }
     return false;

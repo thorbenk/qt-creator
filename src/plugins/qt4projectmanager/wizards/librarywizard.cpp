@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -141,6 +141,11 @@ Core::GeneratedFiles LibraryWizard::generateFiles(const QWizard *w,
     profile.setContents(profileContents);
     rc.push_back(profile);
     return rc;
+}
+
+Core::FeatureSet LibraryWizard::requiredFeatures() const
+{
+    return Core::FeatureSet();
 }
 
 } // namespace Internal

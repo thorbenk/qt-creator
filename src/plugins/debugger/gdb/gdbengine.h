@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -76,12 +76,6 @@ enum DebuggingHelperState
     DebuggingHelperLoadTried,
     DebuggingHelperAvailable,
     DebuggingHelperUnavailable
-};
-
-
-enum GdbTestCase
-{
-    GdbTestNoBoundsOfCurrentFunction = 1
 };
 
 class UpdateParameters
@@ -695,7 +689,6 @@ private: ////////// View & Data Stuff //////////
     void setDebuggingHelperStateClassic(DebuggingHelperState);
     void tryLoadDebuggingHelpersClassic();
     void tryQueryDebuggingHelpersClassic();
-    Q_SLOT void setUseDebuggingHelpers(const QVariant &on);
 
     DebuggingHelperState m_debuggingHelperState;
     DumperHelper m_dumperHelper;

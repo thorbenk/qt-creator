@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -33,7 +33,7 @@
 #include "projectwizardpage.h"
 #include "ui_projectwizardpage.h"
 
-#include <coreplugin/coreimpl.h>
+#include <coreplugin/icore.h>
 #include <vcsbase/vcsbaseconstants.h>
 
 #include <QtCore/QDir>
@@ -171,7 +171,6 @@ void ProjectWizardPage::slotProjectChanged(int index)
 
 void ProjectWizardPage::slotManageVcs()
 {
-    Core::ICore *core = Core::ICore::instance();
-    core->showOptionsDialog(QLatin1String(VcsBase::Constants::VCS_SETTINGS_CATEGORY),
+    Core::ICore::showOptionsDialog(QLatin1String(VcsBase::Constants::VCS_SETTINGS_CATEGORY),
                             QLatin1String(VcsBase::Constants::VCS_COMMON_SETTINGS_ID));
 }

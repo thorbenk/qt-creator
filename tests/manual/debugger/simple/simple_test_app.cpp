@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -163,6 +163,7 @@ void dummyStatement(...) {}
 #include <iterator>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <list>
 #include <limits>
 #include <set>
@@ -178,7 +179,9 @@ void dummyStatement(...) {}
 #if USE_BOOST
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/date_time.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #endif
 
 #if USE_EIGEN
@@ -629,13 +632,13 @@ namespace qdatetime {
     {
         QTime time;
         BREAK_HERE;
-        // Expand date.
-        // CheckType date QDateTime.
-        // Check date.(ISO) "" QString.
-        // Check date.(Locale) "" QString.
-        // Check date.(SystemLocale) "" QString.
-        // CheckType date.toLocalTime QDateTime.
-        // Check date.toString "" QString.
+        // Expand time.
+        // CheckType time QTime.
+        // Check time.(ISO) "" QString.
+        // Check time.(Locale) "" QString.
+        // Check time.(SystemLocale) "" QString.
+        // CheckType time.toLocalTime QDateTime.
+        // Check time.toString "" QString.
         // Continue.
 
         // Step, check display.
@@ -650,7 +653,7 @@ namespace qdatetime {
         QDateTime date;
         BREAK_HERE;
         // Expand date.
-        // CheckType date QTime.
+        // CheckType date QDateTime.
         // Check date.(ISO) "" QString.
         // Check date.(Locale) "" QString.
         // Check date.(SystemLocale) "" QString.
@@ -2645,6 +2648,27 @@ namespace stdmap {
 } // namespace stdmap
 
 
+namespace stdptr {
+
+    void testStdUniquePtr()
+    {
+        #ifdef USE_CXX11
+        std::unique_ptr<int> p(new 32);
+        BREAK_HERE;
+        // Check p 32 std::unique_ptr<int>.
+        // Continue.
+        dummyStatement(&p);
+        #endif
+    }
+
+    void testStdPtr()
+    {
+        testStdUniquePtr();
+    }
+
+} // namespace stdptr
+
+
 namespace stdset {
 
     void testStdSetInt()
@@ -4171,7 +4195,7 @@ namespace basic {
         dummyStatement(&foo);
     }
 
-    // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-5326
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-5326
 
     void testChar()
     {
@@ -4861,8 +4885,8 @@ namespace sse {
         sseB = _mm_loadu_ps(b);
         BREAK_HERE;
         // Expand a b.
-        // Check sseA FIXME
-        // Check sseB FIXME
+        // CheckType sseA __m128.
+        // CheckType sseB __m128.
         // Continue.
         dummyStatement(&i, &sseA, &sseB);
     #endif
@@ -4906,7 +4930,7 @@ namespace qscript {
         // Check s <not accessible> QScriptValue (JSCoreValue).
         // Check d (invalid) QScriptValue.
         // Check v 43 QVariant (int).
-        // Check x 507002817 int.
+        // Check x 33 int.
         // Check x1 "34" QString.
         // Continue.
         dummyStatement(&x1, &v, &s, &d);
@@ -5003,11 +5027,52 @@ namespace boost {
         dummyStatement(&d);
     }
 
+    void testBoostPosixTimeTimeDuration()
+    {
+        using namespace boost;
+        using namespace posix_time;
+        time_duration d1(1, 0, 0);
+        BREAK_HERE;
+        // Check d1 01:00:00  boost::posix_time::time_duration.
+        // Continue.
+        time_duration d2(0, 1, 0);
+        BREAK_HERE;
+        // Check d2 00:01:00  boost::posix_time::time_duration.
+        // Continue.
+        time_duration d3(0, 0, 1);
+        BREAK_HERE;
+        // Check d3 00:00:01  boost::posix_time::time_duration.
+        // Continue.
+        dummyStatement(&d1, &d2, &d3);
+    }
+
+    void testBoostPosixTimePtime()
+    {
+        using namespace boost;
+        using namespace gregorian;
+        using namespace posix_time;
+        ptime p1(date(2002, 1, 10), time_duration(1, 0, 0));
+        BREAK_HERE;
+        // Check p1 Thu Jan 10 01:00:00 2002  boost::posix_time::ptime.
+        // Continue.
+        ptime p2(date(2002, 1, 10), time_duration(0, 0, 0));
+        BREAK_HERE;
+        // Check p2 Thu Jan 10 00:00:00 2002  boost::posix_time::ptime.
+        // Continue.
+        ptime p3(date(1970, 1, 1), time_duration(0, 0, 0));
+        BREAK_HERE;
+        // Check p3 Thu Jan 1 00:00:00 1970  boost::posix_time::ptime.
+        // Continue.
+        dummyStatement(&p1, &p2, &p3);
+    }
+
     void testBoost()
     {
         testBoostOptional1();
         testBoostOptional2();
         testBoostSharedPtr();
+        testBoostPosixTimeTimeDuration();
+        testBoostPosixTimePtime();
         testBoostGregorianDate();
     }
 
@@ -5194,7 +5259,7 @@ namespace bug842 {
 
     void test842()
     {
-        // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-842
+        // https://bugreports.qt-project.org/browse/QTCREATORBUG-842
         qWarning("Test");
         BREAK_HERE;
         // Continue.
@@ -5209,7 +5274,7 @@ namespace bug3611 {
 
     void test3611()
     {
-        // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-3611
+        // https://bugreports.qt-project.org/browse/QTCREATORBUG-3611
         typedef unsigned char byte;
         byte f = '2';
         int *x = (int*)&f;
@@ -5231,7 +5296,7 @@ namespace bug3611 {
 
 namespace bug4019 {
 
-    // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-4019
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-4019
 
     class A4019
     {
@@ -5257,7 +5322,7 @@ namespace bug4019 {
 
 namespace bug4997 {
 
-    // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-4997
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-4997
 
     void test4997()
     {
@@ -5271,7 +5336,7 @@ namespace bug4997 {
 
 namespace bug4904 {
 
-    // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-4904
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-4904
 
     struct CustomStruct {
         int id;
@@ -5306,7 +5371,7 @@ namespace bug4904 {
 
 namespace bug5046 {
 
-    // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-5046
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-5046
 
     struct Foo { int a, b, c; };
 
@@ -5335,7 +5400,7 @@ namespace bug5046 {
 
 namespace bug5106 {
 
-    // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-5106
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-5106
 
     class A5106
     {
@@ -5367,7 +5432,7 @@ namespace bug5106 {
 
 namespace bug5184 {
 
-    // http://bugreports.qt.nokia.com/browse/QTCREATORBUG-5184
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-5184
 
     // Note: The report there shows type field "QUrl &" instead of QUrl.
     // It's unclear how this can happen. It should never have been like
@@ -5440,7 +5505,7 @@ namespace qc42170 {
 
 namespace bug5799 {
 
-    // https://bugreports.qt.nokia.com/browse/QTCREATORBUG-5799
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-5799
 
     typedef struct { int m1; int m2; } S1;
 
@@ -5480,7 +5545,7 @@ namespace bug5799 {
 
 namespace bug6813 {
 
-    // https://bugreports.qt.nokia.com/browse/QTCREATORBUG-6813
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-6813
     void test6813()
     {
       int foo = 0;
@@ -5560,7 +5625,7 @@ namespace cp42895 {
 
 namespace bug6465 {
 
-    // https://bugreports.qt.nokia.com/browse/QTCREATORBUG-6465
+    // https://bugreports.qt-project.org/browse/QTCREATORBUG-6465
 
     void test6465()
     {
@@ -5572,6 +5637,48 @@ namespace bug6465 {
     }
 
 } // namespace bug6465
+
+
+namespace bug6857 {
+
+    class MyFile : public QFile
+    {
+    public:
+        MyFile(const QString &fileName)
+            : QFile(fileName) {}
+    };
+
+    void test6857()
+    {
+        MyFile file("/tmp/tt");
+        BREAK_HERE;
+        // Expand file.
+        // Check file.QFile "/tmp/tt" QFile.
+        // Continue.
+        dummyStatement(&file);
+    }
+}
+
+
+namespace bug6858 {
+
+    class MyFile : public QFile
+    {
+    public:
+        MyFile(const QString &fileName)
+            : QFile(fileName) {}
+    };
+
+    void test6858()
+    {
+        MyFile file("/tmp/tt");
+        QFile *pfile = &file;
+        BREAK_HERE;
+        // Check pfile "/tmp/tt" bug6858::MyFile.
+        // Continue.
+        dummyStatement(&file, pfile);
+    }
+}
 
 
 namespace varargs {
@@ -5683,7 +5790,7 @@ namespace gdb10586 {
         BREAK_HERE;
         // Expand v.
         // Check v  gdb10586::test.
-        // Check a 1 int.
+        // Check v.a 1 int.
         // Continue.
         dummyStatement(&v);
     }
@@ -5693,11 +5800,12 @@ namespace gdb10586 {
         struct { int x; struct { int a; }; struct { int b; }; } v = {1, {2}, {3}};
         struct s { int x, y; } n = {10, 20};
         BREAK_HERE;
-        // Expand v n.
-        // Check v {...}.
-        // Check n gdb10586::s.
-        // Check v.a 2.
-        // Check s.x 1.
+        // Expand v.
+        // Expand n.
+        // CheckType v {...}.
+        // CheckType n gdb10586::s.
+        // Check v.a 2 int.
+        // Check s.x 1 int.
         // Continue.
         dummyStatement(&v, &n);
     }
@@ -5811,6 +5919,7 @@ int main(int argc, char *argv[])
     stdstream::testStdStream();
     stdstring::testStdString();
     stdvector::testStdVector();
+    stdptr::testStdPointer();
 
     qbytearray::testQByteArray();
     qdatetime::testDateTime();
@@ -5860,6 +5969,8 @@ int main(int argc, char *argv[])
     bug5799::test5799();
     bug6813::test6813();
     bug6465::test6465();
+    bug6857::test6857();
+    bug6858::test6858();
     gdb13393::test13393();
     gdb10586::test10586();
 

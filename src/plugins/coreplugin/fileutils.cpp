@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -72,7 +72,7 @@ static inline void showGraphicalShellError(QWidget *parent,
                                                      QMessageBox::ActionRole);
     mbox.exec();
     if (mbox.clickedButton() == settingsButton)
-        Core::ICore::instance()->showOptionsDialog(QLatin1String(Core::Constants::SETTINGS_CATEGORY_CORE),
+        Core::ICore::showOptionsDialog(QLatin1String(Core::Constants::SETTINGS_CATEGORY_CORE),
                                                    QLatin1String(Core::Constants::SETTINGS_ID_ENVIRONMENT));
 }
 #endif
@@ -110,7 +110,7 @@ void FileUtils::showInGraphicalShell(QWidget *parent, const QString &pathIn)
     // we cannot select a file here, because no file browser really supports it...
     const QFileInfo fileInfo(pathIn);
     const QString folder = fileInfo.isDir() ? fileInfo.absoluteFilePath() : fileInfo.filePath();
-    const QString app = Utils::UnixUtils::fileBrowser(Core::ICore::instance()->settings());
+    const QString app = Utils::UnixUtils::fileBrowser(Core::ICore::settings());
     QProcess browserProc;
     const QString browserArgs = Utils::UnixUtils::substituteFileBrowserParameters(app, folder);
     bool success = browserProc.startDetached(browserArgs);
@@ -127,13 +127,13 @@ void FileUtils::openTerminal(const QString &path)
 #ifdef Q_OS_WIN
     const QString terminalEmulator = QString::fromLocal8Bit(qgetenv("COMSPEC"));
     const QStringList args; // none
-#elif defined(Q_WS_MAC)
-    const QString terminalEmulator = Core::ICore::instance()->resourcePath()
+#elif defined(Q_OS_MAC)
+    const QString terminalEmulator = Core::ICore::resourcePath()
             + QLatin1String("/scripts/openTerminal.command");
     QStringList args;
 #else
     QStringList args = Utils::QtcProcess::splitArgs(
-        Utils::ConsoleProcess::terminalEmulator(Core::ICore::instance()->settings()));
+        Utils::ConsoleProcess::terminalEmulator(Core::ICore::settings()));
     const QString terminalEmulator = args.takeFirst();
     const QString shell = QString::fromLocal8Bit(qgetenv("SHELL"));
     args.append(shell);

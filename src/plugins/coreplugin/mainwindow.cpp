@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -34,7 +34,7 @@
 #include "actioncontainer.h"
 #include "command.h"
 #include "actionmanager_p.h"
-#include "coreimpl.h"
+#include "icore.h"
 #include "coreconstants.h"
 #include "editormanager.h"
 #include "externaltool.h"
@@ -114,7 +114,7 @@
 extern "C" void handleSigInt(int sig)
 {
     Q_UNUSED(sig)
-    Core::ICore::instance()->exit();
+    Core::ICore::exit();
     qDebug() << "SIGINT caught. Shutting down.";
 }
 #endif
@@ -127,7 +127,7 @@ enum { debugMainWindow = 0 };
 
 MainWindow::MainWindow() :
     EventFilteringMainWindow(),
-    m_coreImpl(new CoreImpl(this)),
+    m_coreImpl(new ICore(this)),
     m_additionalContexts(Constants::C_GLOBAL),
     m_settings(ExtensionSystem::PluginManager::instance()->settings()),
     m_globalSettings(ExtensionSystem::PluginManager::instance()->globalSettings()),
@@ -138,7 +138,6 @@ MainWindow::MainWindow() :
     m_actionManager(new ActionManagerPrivate(this)),
     m_editorManager(0),
     m_externalToolManager(0),
-    m_fileManager(new FileManager(this)),
     m_progressManager(new ProgressManagerPrivate()),
     m_scriptManager(new ScriptManagerPrivate(this)),
     m_variableManager(new VariableManager),
@@ -165,16 +164,17 @@ MainWindow::MainWindow() :
     m_optionsAction(0),
     m_toggleSideBarAction(0),
     m_toggleFullScreenAction(0),
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     m_minimizeAction(0),
     m_zoomAction(0),
 #endif
     m_toggleSideBarButton(new QToolButton)
 {
+    (void) new FileManager(this);
     OutputPaneManager::create();
 
     setWindowTitle(tr("Qt Creator"));
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     QApplication::setWindowIcon(QIcon(QLatin1String(Constants::ICON_QTLOGO_128)));
 #endif
     QCoreApplication::setApplicationName(QLatin1String("QtCreator"));
@@ -210,9 +210,9 @@ MainWindow::MainWindow() :
     m_modeManager->addWidget(m_progressManager->progressView());
     m_statusBarManager = new StatusBarManager(this);
     m_messageManager = new MessageManager;
-    m_editorManager = new EditorManager(m_coreImpl, this);
+    m_editorManager = new EditorManager(this);
     m_editorManager->hide();
-    m_externalToolManager = new ExternalToolManager(m_coreImpl);
+    m_externalToolManager = new ExternalToolManager();
     setCentralWidget(m_modeStack);
 
     connect(QApplication::instance(), SIGNAL(focusChanged(QWidget*,QWidget*)),
@@ -376,7 +376,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
     // Save opened files
     bool cancelled;
-    QList<IFile*> notSaved = fileManager()->saveModifiedFiles(fileManager()->modifiedFiles(), &cancelled);
+    QList<IFile*> notSaved = FileManager::saveModifiedFiles(FileManager::modifiedFiles(), &cancelled);
     if (cancelled || !notSaved.isEmpty()) {
         event->ignore();
         return;
@@ -476,7 +476,7 @@ void MainWindow::registerDefaultContainers()
 
     ActionContainer *menubar = am->createMenuBar(Constants::MENU_BAR);
 
-#ifndef Q_WS_MAC // System menu bar on Mac
+#ifndef Q_OS_MAC // System menu bar on Mac
     setMenuBar(menubar->menuBar());
 #endif
     menubar->appendGroup(Constants::G_FILE);
@@ -632,7 +632,7 @@ void MainWindow::registerDefaultActions()
     tmpaction = new QAction(icon, tr("Save &As..."), this);
     tmpaction->setEnabled(false);
     cmd = am->registerAction(tmpaction, Constants::SAVEAS, globalContext);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+S")));
 #endif
     cmd->setAttribute(Command::CA_UpdateText);
@@ -642,7 +642,7 @@ void MainWindow::registerDefaultActions()
     // SaveAll Action
     m_saveAllAction = new QAction(tr("Save A&ll"), this);
     cmd = am->registerAction(m_saveAllAction, Constants::SAVEALL, globalContext);
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+S")));
 #endif
     mfile->addAction(cmd, Constants::G_FILE_SAVE);
@@ -730,14 +730,14 @@ void MainWindow::registerDefaultActions()
     mtools->addAction(cmd, Constants::G_TOOLS_OPTIONS);
     m_optionsAction = new QAction(tr("&Options..."), this);
     cmd = am->registerAction(m_optionsAction, Constants::OPTIONS, globalContext);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+,")));
     cmd->action()->setMenuRole(QAction::PreferencesRole);
 #endif
     mtools->addAction(cmd, Constants::G_TOOLS_OPTIONS);
     connect(m_optionsAction, SIGNAL(triggered()), this, SLOT(showOptionsDialog()));
 
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     // Minimize Action
     m_minimizeAction = new QAction(tr("Minimize"), this);
     cmd = am->registerAction(m_minimizeAction, Constants::MINIMIZE_WINDOW, globalContext);
@@ -762,7 +762,7 @@ void MainWindow::registerDefaultActions()
     m_toggleSideBarAction->setCheckable(true);
     cmd = am->registerAction(m_toggleSideBarAction, Constants::TOGGLE_SIDEBAR, globalContext);
     cmd->setAttribute(Command::CA_UpdateText);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+0")));
 #else
     cmd->setDefaultKeySequence(QKeySequence(tr("Alt+0")));
@@ -772,7 +772,7 @@ void MainWindow::registerDefaultActions()
     mwindow->addAction(cmd, Constants::G_WINDOW_VIEWS);
     m_toggleSideBarAction->setEnabled(false);
 
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
     // Full Screen Action
     m_toggleFullScreenAction = new QAction(tr("Full Screen"), this);
     m_toggleFullScreenAction->setCheckable(true);
@@ -789,7 +789,7 @@ void MainWindow::registerDefaultActions()
 
     // About IDE Action
     icon = QIcon::fromTheme(QLatin1String("help-about"));
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     tmpaction = new QAction(icon, tr("About &Qt Creator"), this); // it's convention not to add dots to the about menu
 #else
     tmpaction = new QAction(icon, tr("About &Qt Creator..."), this);
@@ -797,7 +797,7 @@ void MainWindow::registerDefaultActions()
     cmd = am->registerAction(tmpaction, Constants::ABOUT_QTCREATOR, globalContext);
     mhelp->addAction(cmd, Constants::G_HELP_ABOUT);
     tmpaction->setEnabled(true);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     cmd->action()->setMenuRole(QAction::ApplicationSpecificRole);
 #endif
     connect(tmpaction, SIGNAL(triggered()), this,  SLOT(aboutQtCreator()));
@@ -807,7 +807,7 @@ void MainWindow::registerDefaultActions()
     cmd = am->registerAction(tmpaction, Constants::ABOUT_PLUGINS, globalContext);
     mhelp->addAction(cmd, Constants::G_HELP_ABOUT);
     tmpaction->setEnabled(true);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     cmd->action()->setMenuRole(QAction::ApplicationSpecificRole);
 #endif
     connect(tmpaction, SIGNAL(triggered()), this,  SLOT(aboutPlugins()));
@@ -818,7 +818,7 @@ void MainWindow::registerDefaultActions()
 //    tmpaction->setEnabled(true);
 //    connect(tmpaction, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
     // About sep
-#ifndef Q_WS_MAC // doesn't have the "About" actions in the Help menu
+#ifndef Q_OS_MAC // doesn't have the "About" actions in the Help menu
     tmpaction = new QAction(this);
     tmpaction->setSeparator(true);
     cmd = am->registerAction(tmpaction, "QtCreator.Help.Sep.About", globalContext);
@@ -875,7 +875,7 @@ void MainWindow::openFiles(const QStringList &fileNames, ICore::OpenFilesFlags f
             if (!file && (flags & ICore::StopOnLoadFail))
                 return;
             if (file && (flags & ICore::SwitchMode))
-                Core::ModeManager::instance()->activateMode(QLatin1String(Core::Constants::MODE_EDIT));
+                ModeManager::activateMode(QLatin1String(Core::Constants::MODE_EDIT));
         } else {
             QFlags<EditorManager::OpenEditorFlag> emFlags;
             if (flags & ICore::SwitchMode)
@@ -932,7 +932,7 @@ void MainWindow::setFocusToEditor()
     }
 
     // switch to edit mode if necessary
-    m_coreImpl->modeManager()->activateMode(QLatin1String(Constants::MODE_EDIT));
+    ModeManager::activateMode(QLatin1String(Constants::MODE_EDIT));
 }
 
 void MainWindow::showNewItemDialog(const QString &title,
@@ -962,18 +962,17 @@ void MainWindow::showNewItemDialog(const QString &title,
 
     QString path = defaultLocation;
     if (path.isEmpty()) {
-        const FileManager *fm = m_coreImpl->fileManager();
         switch (wizard->kind()) {
         case IWizard::ProjectWizard:
             // Project wizards: Check for projects directory or
             // use last visited directory of file dialog. Never start
             // at current.
-            path = fm->useProjectsDirectory() ?
-                       fm->projectsDirectory() :
-                       fm->fileDialogLastVisitedDirectory();
+            path = FileManager::useProjectsDirectory() ?
+                       FileManager::projectsDirectory() :
+                       FileManager::fileDialogLastVisitedDirectory();
             break;
         default:
-            path = fm->fileDialogInitialDirectory();
+            path = FileManager::fileDialogInitialDirectory();
             break;
         }
     }
@@ -993,7 +992,7 @@ bool MainWindow::showOptionsDialog(const QString &category,
 
 void MainWindow::saveAll()
 {
-    m_fileManager->saveModifiedFilesSilently(m_fileManager->modifiedFiles());
+    FileManager::saveModifiedFilesSilently(FileManager::modifiedFiles());
     emit m_coreImpl->saveSettingsRequested();
 }
 
@@ -1030,7 +1029,7 @@ ActionManager *MainWindow::actionManager() const
 
 FileManager *MainWindow::fileManager() const
 {
-    return m_fileManager;
+    return FileManager::instance();
 }
 
 MessageManager *MainWindow::messageManager() const
@@ -1126,7 +1125,7 @@ void MainWindow::changeEvent(QEvent *e)
             emit windowActivated();
         }
     } else if (e->type() == QEvent::WindowStateChange) {
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
         bool minimized = isMinimized();
         if (debugMainWindow)
             qDebug() << "main window state changed to minimized=" << minimized;
@@ -1236,7 +1235,7 @@ void MainWindow::writeSettings()
 
     m_settings->endGroup();
 
-    m_fileManager->saveSettings();
+    FileManager::saveSettings();
     m_actionManager->saveSettings(m_settings);
     m_editorManager->saveSettings();
     m_navigationWidget->saveSettings(m_settings);
@@ -1296,7 +1295,7 @@ void MainWindow::aboutToShowRecentFiles()
     aci->menu()->clear();
 
     bool hasRecentFiles = false;
-    foreach (const FileManager::RecentFile &file, m_fileManager->recentFiles()) {
+    foreach (const FileManager::RecentFile &file, FileManager::recentFiles()) {
         hasRecentFiles = true;
         QAction *action = aci->menu()->addAction(
                     QDir::toNativeSeparators(Utils::withTildeHomePath(file.first)));
@@ -1310,7 +1309,7 @@ void MainWindow::aboutToShowRecentFiles()
         aci->menu()->addSeparator();
         QAction *action = aci->menu()->addAction(QCoreApplication::translate(
                                                      "Core", Core::Constants::TR_CLEAR_MENU));
-        connect(action, SIGNAL(triggered()), m_fileManager, SLOT(clearRecentFiles()));
+        connect(action, SIGNAL(triggered()), FileManager::instance(), SLOT(clearRecentFiles()));
     }
 }
 

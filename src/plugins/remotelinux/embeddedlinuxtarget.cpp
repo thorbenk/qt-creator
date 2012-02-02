@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -81,9 +81,10 @@ Utils::FileName EmbeddedLinuxTarget::mkspec(const Qt4ProjectManager::Qt4BuildCon
    return version->mkspec();
 }
 
-void EmbeddedLinuxTarget::createApplicationProFiles()
+void EmbeddedLinuxTarget::createApplicationProFiles(bool reparse)
 {
-    removeUnconfiguredCustomExectutableRunConfigurations();
+    if (!reparse)
+        removeUnconfiguredCustomExectutableRunConfigurations();
 
     // We use the list twice
     QList<Qt4ProjectManager::Qt4ProFileNode *> profiles = qt4Project()->applicationProFiles();

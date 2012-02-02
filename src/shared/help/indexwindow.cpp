@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -167,7 +167,7 @@ bool IndexWindow::eventFilter(QObject *obj, QEvent *e)
             }
         }
     }
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     else if (obj == m_indexWidget && e->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent*>(e);
         if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -148,7 +148,7 @@ void FancyToolButton::paintEvent(QPaintEvent *event)
     // draw borders
     bool isTitledAction = defaultAction()->property("titledAction").toBool();
 
-#ifndef Q_WS_MAC // Mac UIs usually don't hover
+#ifndef Q_OS_MAC // Mac UIs usually don't hover
     if (m_fader > 0 && isEnabled() && !isDown() && !isChecked()) {
         painter.save();
         int fader = int(40 * m_fader);
@@ -200,9 +200,7 @@ void FancyToolButton::paintEvent(QPaintEvent *event)
         if (!projectName.isNull())
             centerRect.adjust(0, lineHeight + 4, 0, 0);
 
-        const QString buildConfiguration = defaultAction()->property("subtitle").toString();
-        if (!buildConfiguration.isNull())
-            centerRect.adjust(0, 0, 0, -lineHeight*2 - 4);
+        centerRect.adjust(0, 0, 0, -lineHeight*2 - 4);
 
         iconRect.moveCenter(centerRect.center());
         Utils::StyleHelper::drawIconWithShadow(icon(), iconRect, &painter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
@@ -237,6 +235,7 @@ void FancyToolButton::paintEvent(QPaintEvent *event)
         buildConfigRect[1] = QRectF(0, textOffset.y() + 5 + lineHeight, rect().width(), lineHeight);
         painter.setFont(boldFont);
         QVector<QString> splitBuildConfiguration(2);
+        const QString buildConfiguration = defaultAction()->property("subtitle").toString();
         if (boldFm.width(buildConfiguration) <= availableWidth) {
             // text fits in one line
             splitBuildConfiguration[0] = buildConfiguration;
@@ -295,9 +294,7 @@ QSize FancyToolButton::sizeHint() const
         if (!projectName.isEmpty())
             buttonSize += QSizeF(0, lineHeight + 2);
 
-        const QString buildConfiguration = defaultAction()->property("subtitle").toString();
-        if (!buildConfiguration.isEmpty())
-            buttonSize += QSizeF(0, lineHeight*2 + 2);
+        buttonSize += QSizeF(0, lineHeight*2 + 2);
     }
     return buttonSize.toSize();
 }
@@ -320,7 +317,7 @@ void FancyToolButton::actionChanged()
 FancyActionBar::FancyActionBar(QWidget *parent)
     : QWidget(parent)
 {
-    setObjectName(QString::fromUtf8("actionbar"));
+    setObjectName(QLatin1String("actionbar"));
     m_actionsLayout = new QVBoxLayout;
     QVBoxLayout *spacerLayout = new QVBoxLayout;
     spacerLayout->addLayout(m_actionsLayout);

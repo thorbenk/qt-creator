@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -145,6 +145,11 @@ void BaseCheckoutWizard::runWizard(const QString &path, QWidget *parent)
         msgBox.setDetailedText(errorMessage);
         msgBox.exec();
     }
+}
+
+Core::FeatureSet BaseCheckoutWizard::requiredFeatures() const
+{
+    return Core::FeatureSet();
 }
 
 static inline QString msgNoProjectFiles(const QDir &dir, const QStringList &patterns)

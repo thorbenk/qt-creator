@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -38,6 +38,7 @@
 #include <coreplugin/ifile.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <cplusplus/OverviewModel.h>
+#include <utils/qtcassert.h>
 
 #include <QtCore/QDebug>
 #include <QtCore/QTimer>
@@ -206,7 +207,7 @@ TextEditor::IOutlineWidget *CppOutlineWidgetFactory::createWidget(Core::IEditor 
 {
     CPPEditor *cppEditor = qobject_cast<CPPEditor*>(editor);
     CPPEditorWidget *cppEditorWidget = qobject_cast<CPPEditorWidget*>(cppEditor->widget());
-    Q_ASSERT(cppEditorWidget);
+    QTC_ASSERT(cppEditorWidget, return 0);
 
     CppOutlineWidget *widget = new CppOutlineWidget(cppEditorWidget);
 

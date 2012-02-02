@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -31,7 +31,6 @@
 **************************************************************************/
 
 #include "welcomeplugin.h"
-#include "multifeedrssmodel.h"
 
 #include <extensionsystem/pluginmanager.h>
 
@@ -161,8 +160,7 @@ WelcomeMode::WelcomeMode() :
     PluginManager *pluginManager = PluginManager::instance();
     connect(pluginManager, SIGNAL(objectAdded(QObject*)), SLOT(welcomePluginAdded(QObject*)));
 
-    Core::ModeManager *modeManager = Core::ModeManager::instance();
-    connect(modeManager, SIGNAL(currentModeChanged(Core::IMode*)), SLOT(modeChanged(Core::IMode*)));
+    connect(Core::ModeManager::instance(), SIGNAL(currentModeChanged(Core::IMode*)), SLOT(modeChanged(Core::IMode*)));
 
     setWidget(m_modeWidget);
 }
@@ -178,7 +176,7 @@ bool WelcomeMode::eventFilter(QObject *, QEvent *e)
 
 WelcomeMode::~WelcomeMode()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->setValue(QLatin1String(currentPageSettingsKeyC), activePlugin());
     delete m_modeWidget;
 }
@@ -188,35 +186,18 @@ bool sortFunction(Utils::IWelcomePage * a, Utils::IWelcomePage *b)
     return a->priority() < b->priority();
 }
 
-void WelcomeMode::facilitateQml(QDeclarativeEngine *engine)
+void WelcomeMode::facilitateQml(QDeclarativeEngine * /*engine*/)
 {
-    const QString feedGroupName = QLatin1String("Feeds");
-
-    MultiFeedRssModel *rssModel = new MultiFeedRssModel(this);
-    QSettings *settings = Core::ICore::instance()->settings();
-    if (settings->childGroups().contains(feedGroupName)) {
-        int size = settings->beginReadArray(feedGroupName);
-        const QString url = QLatin1String("url");
-        for (int i = 0; i < size; ++i) {
-            settings->setArrayIndex(i);
-            rssModel->addFeed(settings->value(url).toString());
-        }
-        settings->endArray();
-    } else {
-        rssModel->addFeed(QLatin1String("http://labs.trolltech.com/blogs/feed"));
-        rssModel->addFeed(QLatin1String("http://feeds.feedburner.com/TheQtBlog?format=xml"));
-    }
-
-    engine->rootContext()->setContextProperty(QLatin1String("aggregatedFeedsModel"), rssModel);
 }
 
 void WelcomeMode::initPlugins()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     setActivePlugin(settings->value(QLatin1String(currentPageSettingsKeyC)).toInt());
 
     // TODO: re-enable reading from Settings when possible. See QTCREATORBUG-6803
-    setActivePlugin(1);
+    if (activePlugin() > 1)
+        setActivePlugin(1);
 
     QDeclarativeContext *ctx = m_welcomePage->rootContext();
     ctx->setContextProperty(QLatin1String("welcomeMode"), this);
@@ -245,7 +226,7 @@ void WelcomeMode::initPlugins()
 
     // finally, load the root page
     m_welcomePage->setSource(
-            QUrl::fromLocalFile(Core::ICore::instance()->resourcePath() + QLatin1String("/welcomescreen/welcomescreen.qml")));
+            QUrl::fromLocalFile(Core::ICore::resourcePath() + QLatin1String("/welcomescreen/welcomescreen.qml")));
 }
 
 QString WelcomeMode::platform() const
@@ -288,7 +269,7 @@ void WelcomeMode::sendFeedback()
 
 void WelcomeMode::newProject()
 {
-    Core::ICore::instance()->showNewItemDialog(tr("New Project"),
+    Core::ICore::showNewItemDialog(tr("New Project"),
                                                Core::IWizard::wizardsOfKind(Core::IWizard::ProjectWizard));
 }
 
@@ -304,12 +285,11 @@ void WelcomeMode::modeChanged(Core::IMode *mode)
 // Eike doesn't like this, but I do...
 
 //    ProjectExplorer::ProjectExplorerPlugin *projectExplorer = ProjectExplorer::ProjectExplorerPlugin::instance();
-//    Core::ModeManager *modeManager = Core::ICore::instance()->modeManager();
-//    Core::EditorManager *editorManager = Core::ICore::instance()->editorManager();
+//    Core::EditorManager *editorManager = Core::ICore::editorManager();
 //    if (mode->id() == id() && (!projectExplorer->currentProject() && editorManager->openedEditors().isEmpty()))
-//        modeManager->setModeBarHidden(true);
+//        ModeManager::setModeBarHidden(true);
 //    else
-//        modeManager->setModeBarHidden(false);
+//        ModeManager::setModeBarHidden(false);
 }
 
 //
@@ -347,7 +327,7 @@ bool WelcomePlugin::initialize(const QStringList & /* arguments */, QString * /*
 void WelcomePlugin::extensionsInitialized()
 {
     m_welcomeMode->initPlugins();
-    Core::ModeManager::instance()->activateMode(m_welcomeMode->id());
+    Core::ModeManager::activateMode(m_welcomeMode->id());
 }
 
 } // namespace Internal

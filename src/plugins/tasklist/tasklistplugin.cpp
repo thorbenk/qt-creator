@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -122,7 +122,9 @@ public:
             }
             description = unescape(description);
 
-            hub->addTask(ProjectExplorer::Task(type, description, file, line, QLatin1String(Constants::TASKLISTTASK_ID)));
+            hub->addTask(ProjectExplorer::Task(type, description,
+                                               Utils::FileName::fromUserInput(file), line,
+                                               Core::Id(Constants::TASKLISTTASK_ID)));
         }
         return true;
     }
@@ -196,10 +198,9 @@ bool TaskListPlugin::initialize(const QStringList &arguments, QString *errorMess
     d->hub = pm->getObject<ProjectExplorer::TaskHub>();
 
     //: Category under which tasklist tasks are listed in Issues view
-    d->hub->addCategory(QLatin1String(Constants::TASKLISTTASK_ID), tr("My Tasks"));
+    d->hub->addCategory(Core::Id(Constants::TASKLISTTASK_ID), tr("My Tasks"));
 
-    Core::ICore *core = Core::ICore::instance();
-    if (!core->mimeDatabase()->addMimeTypes(QLatin1String(":tasklist/TaskList.mimetypes.xml"), errorMessage))
+    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":tasklist/TaskList.mimetypes.xml"), errorMessage))
         return false;
 
     d->fileFactory = new Internal::TaskFileFactory(this);
@@ -229,7 +230,7 @@ void TaskListPlugin::stopMonitoring()
 
 void TaskListPlugin::clearTasks()
 {
-    d->hub->clearTasks(QLatin1String(Constants::TASKLISTTASK_ID));
+    d->hub->clearTasks(Core::Id(Constants::TASKLISTTASK_ID));
 }
 
 Q_EXPORT_PLUGIN(TaskListPlugin)

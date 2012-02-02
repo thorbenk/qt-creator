@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -35,6 +35,7 @@
 #include "designerconstants.h"
 #include "formwindoweditor.h"
 #include "qtdesignerformclasscodegenerator.h"
+#include <qtsupport/qtsupportconstants.h>
 
 #include <coreplugin/icore.h>
 #include <cppeditor/cppeditorconstants.h>
@@ -63,6 +64,11 @@ QString FormClassWizard::sourceSuffix() const
 QString FormClassWizard::formSuffix() const
 {
     return preferredSuffix(QLatin1String(Constants::FORM_MIMETYPE));
+}
+
+Core::FeatureSet FormClassWizard::requiredFeatures() const
+{
+    return Core::Feature(QtSupport::Constants::FEATURE_QWIDGETS);
 }
 
 QWizard *FormClassWizard::createWizardDialog(QWidget *parent,

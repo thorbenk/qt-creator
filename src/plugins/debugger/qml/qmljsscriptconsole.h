@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -112,7 +112,7 @@ public:
     void setEngine(QmlEngine *engine);
     DebuggerEngine *engine();
 
-    void appendResult(const QString &result);
+    void appendResult(const QString &message, const QColor &color = QColor(Qt::darkGray));
 
     void setDebugLevel(QFlags<DebugLevelFlag> level);
 

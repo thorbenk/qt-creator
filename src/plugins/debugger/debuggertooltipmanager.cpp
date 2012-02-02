@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -1394,7 +1394,7 @@ void DebuggerToolTipManager::debugModeEntered()
     // Hook up all signals in debug mode.
     if (!m_debugModeActive) {
         m_debugModeActive = true;
-        QWidget *topLevel = ICore::instance()->mainWindow()->topLevelWidget();
+        QWidget *topLevel = ICore::mainWindow()->topLevelWidget();
         topLevel->installEventFilter(this);
         EditorManager *em = EditorManager::instance();
         connect(em, SIGNAL(currentEditorChanged(Core::IEditor*)),
@@ -1418,7 +1418,7 @@ void DebuggerToolTipManager::leavingDebugMode()
     if (m_debugModeActive) {
         m_debugModeActive = false;
         hide();
-        if (QWidget *topLevel = ICore::instance()->mainWindow()->topLevelWidget())
+        if (QWidget *topLevel = ICore::mainWindow()->topLevelWidget())
             topLevel->removeEventFilter(this);
         if (EditorManager *em = EditorManager::instance()) {
             foreach (IEditor *e, em->openedEditors()) {

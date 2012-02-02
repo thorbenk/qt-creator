@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -89,8 +89,8 @@ void BuildProgress::updateState()
 {
     if (!m_taskWindow)
         return;
-    int errors = m_taskWindow->errorTaskCount(QLatin1String(Constants::TASK_CATEGORY_BUILDSYSTEM))
-            + m_taskWindow->errorTaskCount(QLatin1String(Constants::TASK_CATEGORY_COMPILE));
+    int errors = m_taskWindow->errorTaskCount(Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM))
+            + m_taskWindow->errorTaskCount(Core::Id(Constants::TASK_CATEGORY_COMPILE));
     bool haveErrors = (errors > 0);
     m_errorIcon->setEnabled(haveErrors);
     m_errorLabel->setEnabled(haveErrors);

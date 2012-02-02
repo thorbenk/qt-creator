@@ -424,10 +424,18 @@ void ExceptionDeclarationAST::accept0(ASTVisitor *visitor)
     visitor->endVisit(this);
 }
 
-void ExceptionSpecificationAST::accept0(ASTVisitor *visitor)
+void DynamicExceptionSpecificationAST::accept0(ASTVisitor *visitor)
 {
     if (visitor->visit(this)) {
         accept(type_id_list, visitor);
+    }
+    visitor->endVisit(this);
+}
+
+void NoExceptSpecificationAST::accept0(ASTVisitor *visitor)
+{
+    if (visitor->visit(this)) {
+        accept(expression, visitor);
     }
     visitor->endVisit(this);
 }
@@ -831,6 +839,15 @@ void NestedExpressionAST::accept0(ASTVisitor *visitor)
 {
     if (visitor->visit(this)) {
         accept(expression, visitor);
+    }
+    visitor->endVisit(this);
+}
+
+void StaticAssertDeclarationAST::accept0(ASTVisitor *visitor)
+{
+    if (visitor->visit(this)) {
+        accept(expression, visitor);
+        accept(string_literal, visitor);
     }
     visitor->endVisit(this);
 }

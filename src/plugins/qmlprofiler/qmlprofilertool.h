@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -83,7 +83,7 @@ public slots:
     void setAppIsRunning();
     void setAppIsStopped();
 
-    void gotoSourceLocation(const QString &fileUrl, int lineNumber);
+    void gotoSourceLocation(const QString &fileUrl, int lineNumber, int columnNumber);
     void updateTimers();
     void profilerStateChanged(bool qmlActive, bool v8active);
 

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -51,10 +51,10 @@ VcsAnnotateTaskHandler::VcsAnnotateTaskHandler() :
 
 bool VcsAnnotateTaskHandler::canHandle(const ProjectExplorer::Task &task)
 {
-    QFileInfo fi(task.file);
+    QFileInfo fi(task.file.toFileInfo());
     if (!fi.exists() || !fi.isFile() || !fi.isReadable())
         return false;
-    Core::IVersionControl *vc = Core::ICore::instance()->vcsManager()->findVersionControlForDirectory(fi.absolutePath());
+    Core::IVersionControl *vc = Core::ICore::vcsManager()->findVersionControlForDirectory(fi.absolutePath());
     if (!vc)
         return false;
     return vc->supportsOperation(Core::IVersionControl::AnnotateOperation);
@@ -62,8 +62,8 @@ bool VcsAnnotateTaskHandler::canHandle(const ProjectExplorer::Task &task)
 
 void VcsAnnotateTaskHandler::handle(const ProjectExplorer::Task &task)
 {
-    QFileInfo fi(task.file);
-    Core::IVersionControl *vc = Core::ICore::instance()->vcsManager()->findVersionControlForDirectory(fi.absolutePath());
+    QFileInfo fi(task.file.toFileInfo());
+    Core::IVersionControl *vc = Core::ICore::vcsManager()->findVersionControlForDirectory(fi.absolutePath());
     Q_ASSERT(vc);
     Q_ASSERT(vc->supportsOperation(Core::IVersionControl::AnnotateOperation));
     vc->vcsAnnotate(fi.absoluteFilePath(), task.line);

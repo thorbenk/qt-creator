@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -172,8 +172,8 @@ void AbstractPackagingStep::setDeploymentInfoUnmodified()
 void AbstractPackagingStep::raiseError(const QString &errorMessage)
 {
     emit addOutput(errorMessage, BuildStep::ErrorOutput);
-    emit addTask(Task(Task::Error, errorMessage, QString(), -1,
-        Constants::TASK_CATEGORY_BUILDSYSTEM));
+    emit addTask(Task(Task::Error, errorMessage, Utils::FileName(), -1,
+                      Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM)));
 }
 
 } // namespace RemoteLinux

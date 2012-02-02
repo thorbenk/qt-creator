@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -175,8 +175,7 @@ void QmlJsInspectorToolBar::setShowAppOnTop(bool showAppOnTop)
 void QmlJsInspectorToolBar::createActions()
 {
     Core::Context context(Debugger::Constants::C_QMLDEBUGGER);
-    Core::ICore *core = Core::ICore::instance();
-    Core::ActionManager *am = core->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     m_fromQmlAction =
             new QAction(QIcon(QLatin1String(":/qml/images/from-qml-small.png")),

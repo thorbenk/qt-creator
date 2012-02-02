@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -82,6 +82,8 @@ public:
     void setSbsV2Directory(const QString &directory);
 
     QtSupport::QtConfigWidget *createConfigurationWidget() const;
+
+    Core::FeatureSet availableFeatures() const;
 
 protected:
     QList<ProjectExplorer::Task> reportIssuesImpl(const QString &proFile, const QString &buildDir);

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -275,7 +275,7 @@ QList<ProjectExplorer::ToolChain *> Qt4BaseTarget::possibleToolChains(ProjectExp
     QList<Qt4ProFileNode *> profiles = qt4Project()->allProFiles();
     bool qtUsed = false;
     foreach (Qt4ProFileNode *pro, profiles) {
-        if (!pro->variableValue(QtVar).isEmpty()) {
+        if (pro->variableValue(ConfigVar).contains(QLatin1String("qt")) && !pro->variableValue(QtVar).isEmpty()) {
             qtUsed = true;
             break;
         }
@@ -478,7 +478,7 @@ Qt4DefaultTargetSetupWidget::Qt4DefaultTargetSetupWidget(Qt4BaseTargetFactory *f
       m_selected(0),
       m_qtVersionId(-1)
 {
-    QSettings *s = Core::ICore::instance()->settings();
+    QSettings *s = Core::ICore::settings();
     QString sourceDir = QFileInfo(m_proFilePath).absolutePath();
 
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -577,7 +577,7 @@ Qt4DefaultTargetSetupWidget::Qt4DefaultTargetSetupWidget(Qt4BaseTargetFactory *f
     w = new QWidget;
     m_newBuildsLayout = new QGridLayout;
     m_newBuildsLayout->setMargin(0);
-#ifdef Q_WS_MAC
+#ifdef Q_OS_MAC
     m_newBuildsLayout->setSpacing(0);
 #endif
     w->setLayout(m_newBuildsLayout);
@@ -726,7 +726,7 @@ void Qt4DefaultTargetSetupWidget::storeSettings() const
         }
     }
 
-    QSettings *s = Core::ICore::instance()->settings();
+    QSettings *s = Core::ICore::settings();
     s->setValue(QLatin1String("Qt4ProjectManager.TargetSetupPage.ShadowBuilding"), m_shadowBuildEnabled->isChecked());
     int id = -1;
     int ci = m_versionComboBox->currentIndex();
@@ -1172,6 +1172,15 @@ QList<BuildConfigurationInfo> BuildConfigurationInfo::filterBuildConfigurationIn
     QList<BuildConfigurationInfo> result;
     foreach (const BuildConfigurationInfo &info, infos)
         if (info.version->supportsTargetId(id))
+            result.append(info);
+    return result;
+}
+
+QList<BuildConfigurationInfo> BuildConfigurationInfo::filterBuildConfigurationInfos(const QList<BuildConfigurationInfo> &infos, Core::FeatureSet features)
+{
+    QList<BuildConfigurationInfo> result;
+    foreach (const BuildConfigurationInfo &info, infos)
+        if (info.version->availableFeatures().contains(features))
             result.append(info);
     return result;
 }

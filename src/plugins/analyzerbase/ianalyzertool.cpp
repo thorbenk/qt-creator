@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Author: Nicolas Arnaud-Cormos, KDAB (nicolas.arnaud-cormos@kdab.com)
 **
@@ -35,31 +35,33 @@
 #include "ianalyzertool.h"
 #include "analyzermanager.h"
 
+using namespace Core;
+
 namespace Analyzer {
 
 IAnalyzerTool::IAnalyzerTool(QObject *parent)
     : QObject(parent)
 {}
 
-Core::Id IAnalyzerTool::defaultMenuGroup(StartMode mode)
+Id IAnalyzerTool::defaultMenuGroup(StartMode mode)
 {
     if (mode == StartRemote)
-        return Analyzer::Constants::G_ANALYZER_REMOTE_TOOLS;
-    return Analyzer::Constants::G_ANALYZER_TOOLS;
+        return Constants::G_ANALYZER_REMOTE_TOOLS;
+    return Constants::G_ANALYZER_TOOLS;
 }
 
-Core::Id IAnalyzerTool::defaultActionId(const IAnalyzerTool *tool, StartMode mode)
+Id IAnalyzerTool::defaultActionId(const IAnalyzerTool *tool, StartMode mode)
 {
-    Core::Id id = tool->id();
+    Id id = tool->id();
     switch (mode) {
-    case Analyzer::StartLocal:
-        return Core::Id(QLatin1String("Analyzer.") + id.name() + QLatin1String(".Local"));
-    case Analyzer::StartRemote:
-        return Core::Id(QLatin1String("Analyzer.") + id.name() + QLatin1String(".Remote"));
-    case Analyzer::StartQml:
-        return Core::Id(QLatin1String("Analyzer.") + id.name() + QLatin1String(".Qml"));
+    case StartLocal:
+        return Id(QByteArray("Analyzer." + id.name() + ".Local").data());
+    case StartRemote:
+        return Id(QByteArray("Analyzer." + id.name() + ".Remote").data());
+    case StartQml:
+        return Id(QByteArray("Analyzer." + id.name() + ".Qml").data());
     }
-    return Core::Id();
+    return Id();
 }
 
 QString IAnalyzerTool::defaultActionName(const IAnalyzerTool *tool, StartMode mode)

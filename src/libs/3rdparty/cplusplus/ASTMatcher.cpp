@@ -968,7 +968,7 @@ bool ASTMatcher::match(ExceptionDeclarationAST *node, ExceptionDeclarationAST *p
     return true;
 }
 
-bool ASTMatcher::match(ExceptionSpecificationAST *node, ExceptionSpecificationAST *pattern)
+bool ASTMatcher::match(DynamicExceptionSpecificationAST *node, DynamicExceptionSpecificationAST *pattern)
 {
     (void) node;
     (void) pattern;
@@ -982,6 +982,25 @@ bool ASTMatcher::match(ExceptionSpecificationAST *node, ExceptionSpecificationAS
     if (! pattern->type_id_list)
         pattern->type_id_list = node->type_id_list;
     else if (! AST::match(node->type_id_list, pattern->type_id_list, this))
+        return false;
+
+    pattern->rparen_token = node->rparen_token;
+
+    return true;
+}
+
+bool ASTMatcher::match(NoExceptSpecificationAST *node, NoExceptSpecificationAST *pattern)
+{
+    (void) node;
+    (void) pattern;
+
+    pattern->noexcept_token = node->noexcept_token;
+
+    pattern->lparen_token = node->lparen_token;
+
+    if (! pattern->expression)
+        pattern->expression = node->expression;
+    else if (! AST::match(node->expression, pattern->expression, this))
         return false;
 
     pattern->rparen_token = node->rparen_token;
@@ -1367,6 +1386,8 @@ bool ASTMatcher::match(NamespaceAST *node, NamespaceAST *pattern)
 {
     (void) node;
     (void) pattern;
+
+    pattern->inline_token = node->inline_token;
 
     pattern->namespace_token = node->namespace_token;
 
@@ -1892,6 +1913,34 @@ bool ASTMatcher::match(NestedExpressionAST *node, NestedExpressionAST *pattern)
         return false;
 
     pattern->rparen_token = node->rparen_token;
+
+    return true;
+}
+
+bool ASTMatcher::match(StaticAssertDeclarationAST *node, StaticAssertDeclarationAST *pattern)
+{
+    (void) node;
+    (void) pattern;
+
+    pattern->static_assert_token = node->static_assert_token;
+
+    pattern->lparen_token = node->lparen_token;
+
+    if (! pattern->expression)
+        pattern->expression = node->expression;
+    else if (! AST::match(node->expression, pattern->expression, this))
+        return false;
+
+    pattern->comma_token = node->comma_token;
+
+    if (! pattern->string_literal)
+        pattern->string_literal = node->string_literal;
+    else if (! AST::match(node->string_literal, pattern->string_literal, this))
+        return false;
+
+    pattern->rparen_token = node->rparen_token;
+
+    pattern->semicolon_token = node->semicolon_token;
 
     return true;
 }

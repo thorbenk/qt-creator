@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -54,7 +54,10 @@ class LinuxIccToolChainFactory;
 class PROJECTEXPLORER_EXPORT GccToolChain : public ToolChain
 {
 public:
-    QString typeName() const;
+    QString legacyId() const;
+
+    QString type() const;
+    QString typeDisplayName() const;
     Abi targetAbi() const;
     QString version() const;
     QList<Abi> supportedAbis() const;
@@ -69,8 +72,8 @@ public:
     void addToEnvironment(Utils::Environment &env) const;
     Utils::FileName mkspec() const;
     QString makeCommand() const;
-    void setDebuggerCommand(const QString &);
-    QString debuggerCommand() const;
+    void setDebuggerCommand(const Utils::FileName &);
+    Utils::FileName debuggerCommand() const;
     IOutputParser *outputParser() const;
 
     QVariantMap toMap() const;
@@ -80,8 +83,8 @@ public:
 
     bool operator ==(const ToolChain &) const;
 
-    virtual void setCompilerPath(const QString &);
-    QString compilerPath() const;
+    void setCompilerCommand(const Utils::FileName &);
+    Utils::FileName compilerCommand() const;
 
     ToolChain *clone() const;
 
@@ -89,9 +92,8 @@ protected:
     GccToolChain(const QString &id, bool autodetect);
     GccToolChain(const GccToolChain &);
 
-    QString defaultDisplayName() const;
-
-    void updateId();
+    virtual QString defaultDisplayName() const;
+    virtual QList<Abi> findAbiForCompilerPath(const QString &path);
 
     virtual QList<Abi> detectSupportedAbis() const;
     virtual QString detectVersion() const;
@@ -103,8 +105,8 @@ private:
 
     void updateSupportedAbis() const;
 
-    QString m_compilerPath;
-    QString m_debuggerCommand;
+    Utils::FileName m_compilerCommand;
+    Utils::FileName m_debuggerCommand;
 
     Abi m_targetAbi;
     mutable QList<Abi> m_supportedAbis;
@@ -122,7 +124,8 @@ private:
 class PROJECTEXPLORER_EXPORT ClangToolChain : public GccToolChain
 {
 public:
-    QString typeName() const;
+    QString type() const;
+    QString typeDisplayName() const;
     QString makeCommand() const;
     Utils::FileName mkspec() const;
 
@@ -144,10 +147,10 @@ private:
 class PROJECTEXPLORER_EXPORT MingwToolChain : public GccToolChain
 {
 public:
-    QString typeName() const;
+    QString type() const;
+    QString typeDisplayName() const;
     Utils::FileName mkspec() const;
     QString makeCommand() const;
-    static QString findInstalledJom();
 
     ToolChain *clone() const;
 
@@ -165,8 +168,8 @@ private:
 class PROJECTEXPLORER_EXPORT LinuxIccToolChain : public GccToolChain
 {
 public:
-
-    QString typeName() const;
+    QString type() const;
+    QString typeDisplayName() const;
 
     IOutputParser *outputParser() const;
 

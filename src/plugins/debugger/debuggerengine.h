@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -306,6 +306,10 @@ protected:
     virtual void notifyEngineSetupFailed();
     virtual void notifyEngineRunFailed();
 
+    virtual void notifyEngineRequestRemoteSetup();
+    virtual void notifyEngineRemoteSetupDone();
+    virtual void notifyEngineRemoteSetupFailed();
+
     virtual void notifyInferiorSetupOk();
     virtual void notifyInferiorSetupFailed();
 
@@ -361,6 +365,8 @@ protected:
     virtual void frameUp();
     virtual void frameDown();
 
+    void setTargetState(DebuggerState state);
+
     DebuggerRunControl *runControl() const;
 
     static QString msgWatchpointByAddressTriggered(BreakpointModelId id,
@@ -380,8 +386,6 @@ protected:
     static QString msgInterrupted();
     void showStoppedBySignalMessageBox(const QString meaning, QString name);
     void showStoppedByExceptionMessageBox(const QString &description);
-
-    static bool isCppBreakpoint(const Internal::BreakpointParameters &p);
 
     bool isStateDebugging() const;
     void setStateDebugging(bool on);

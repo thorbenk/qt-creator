@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -97,14 +97,13 @@ MaemoQemuManager::MaemoQemuManager(QObject *parent)
     m_qemuAction->setToolTip(tr("Start MeeGo Emulator"));
     connect(m_qemuAction, SIGNAL(triggered()), this, SLOT(startRuntime()));
 
-    Core::ICore *core = Core::ICore::instance();
-    Core::ActionManager *actionManager = core->actionManager();
+    Core::ActionManager *actionManager = Core::ICore::actionManager();
     Core::Command *qemuCommand = actionManager->registerAction(m_qemuAction,
         "MaemoEmulator", Core::Context(Core::Constants::C_GLOBAL));
     qemuCommand->setAttribute(Core::Command::CA_UpdateText);
     qemuCommand->setAttribute(Core::Command::CA_UpdateIcon);
 
-    Core::ModeManager::instance()->addAction(qemuCommand->action(), 1);
+    Core::ModeManager::addAction(qemuCommand->action(), 1);
     m_qemuAction->setEnabled(false);
     m_qemuAction->setVisible(false);
 

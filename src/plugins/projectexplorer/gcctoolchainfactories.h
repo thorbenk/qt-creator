@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -94,15 +94,15 @@ public:
     void makeReadOnly();
 
 private slots:
-    void handlePathChange();
+    void handleCompilerCommandChange();
     void handleAbiChange();
 
 private:
     void setFromToolchain();
 
-    Utils::PathChooser *m_compilerPath;
+    Utils::PathChooser *m_compilerCommand;
     AbiWidget *m_abiWidget;
-    QString m_autoDebuggerCommand;
+    Utils::FileName m_autoDebuggerCommand;
 
     QList<Abi> m_abiList;
     bool m_isReadOnly;

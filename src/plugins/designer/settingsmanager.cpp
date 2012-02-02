@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -43,8 +43,8 @@ using namespace Designer::Internal;
 
 static inline QSettings *coreSettings()
 {
-    if (const Core::ICore *core = Core::ICore::instance())
-        return core->settings();
+    if (Core::ICore::instance())
+        return Core::ICore::settings();
     return 0;
 }
 

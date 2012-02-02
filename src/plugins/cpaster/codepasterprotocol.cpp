@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -102,7 +102,7 @@ void CodePasterProtocol::fetch(const QString &id)
     QTC_ASSERT(!m_fetchReply, return; )
 
     QString hostName = m_page->hostName();
-    const QString httpPrefix = "http://";
+    const QString httpPrefix = QLatin1String("http://");
     QString link;
     // Did the user enter a complete URL instead of an id?
     if (id.startsWith(httpPrefix)) {
@@ -114,7 +114,7 @@ void CodePasterProtocol::fetch(const QString &id)
     } else {
         link = httpPrefix;
         link.append(hostName);
-        link.append("/?format=raw&id=");
+        link.append(QLatin1String("/?format=raw&id="));
         link.append(id);
         m_fetchId = id;
     }
@@ -193,10 +193,10 @@ void CodePasterProtocol::fetchFinished()
     if (error) {
         content = m_fetchReply->errorString();
     } else {
-        content = m_fetchReply->readAll();
+        content = QString::fromAscii(m_fetchReply->readAll()); // Codepaster does not support special characters.
         if (debug)
             qDebug() << content;
-        if (content.contains("<B>No such paste!</B>")) {
+        if (content.contains(QLatin1String("<B>No such paste!</B>"))) {
             content = tr("No such paste");
             error = true;
         }
@@ -210,7 +210,7 @@ void CodePasterProtocol::fetchFinished()
 void CodePasterProtocol::listFinished()
 {
     if (m_listReply->error()) {
-        Core::ICore::instance()->messageManager()->printToOutputPane(m_listReply->errorString(), true);
+        Core::ICore::messageManager()->printToOutputPane(m_listReply->errorString(), true);
     } else {
         const QByteArray data = m_listReply->readAll();
         const QStringList lines = QString::fromAscii(data).split(QLatin1Char('\n'));

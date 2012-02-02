@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -48,22 +48,22 @@ public:
     TaskHub();
     virtual ~TaskHub();
 
-    void addCategory(const QString &categoryId, const QString &displayName, bool visible = true);
+    void addCategory(const Core::Id &categoryId, const QString &displayName, bool visible = true);
     void addTask(const Task &task);
-    void clearTasks(const QString &categoryId = QString());
+    void clearTasks(const Core::Id &categoryId = Core::Id());
     void removeTask(const Task &task);
-    void setCategoryVisibility(const QString &categoryId, bool visible);
+    void setCategoryVisibility(const Core::Id &categoryId, bool visible);
 
     void popup(bool withFocus);
 
     // TODO now there are two places for icons
     QIcon taskTypeIcon(ProjectExplorer::Task::TaskType t) const;
 signals:
-    void categoryAdded(const QString &categoryId, const QString &displayName, bool visible);
+    void categoryAdded(const Core::Id &categoryId, const QString &displayName, bool visible);
     void taskAdded(const ProjectExplorer::Task &task);
     void taskRemoved(const ProjectExplorer::Task &task);
-    void tasksCleared(const QString &categoryId);
-    void categoryVisibilityChanged(const QString &categoryId, bool visible);
+    void tasksCleared(const Core::Id &categoryId);
+    void categoryVisibilityChanged(const Core::Id &categoryId, bool visible);
     void popupRequested(bool withFocus);
 private:
     const QIcon m_errorIcon;

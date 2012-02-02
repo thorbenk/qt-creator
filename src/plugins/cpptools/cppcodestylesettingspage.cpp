@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -535,7 +535,7 @@ QWidget *CppCodeStyleSettingsPage::createPage(QWidget *parent)
 void CppCodeStyleSettingsPage::apply()
 {
     if (m_widget) {
-        QSettings *s = Core::ICore::instance()->settings();
+        QSettings *s = Core::ICore::settings();
 
         CppCodeStylePreferences *originalCppCodeStylePreferences = CppToolsSettings::instance()->cppCodeStyle();
         if (originalCppCodeStylePreferences->codeStyleSettings() != m_pageCppCodeStylePreferences->codeStyleSettings()) {

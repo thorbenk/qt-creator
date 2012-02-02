@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -159,14 +159,14 @@ void QmlJSOutlineWidget::setCursorSynchronization(bool syncWithCursor)
 
 void QmlJSOutlineWidget::restoreSettings(int position)
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     bool showBindings = settings->value("QmlJSOutline."+QString::number(position)+".ShowBindings", true).toBool();
     m_showBindingsAction->setChecked(showBindings);
 }
 
 void QmlJSOutlineWidget::saveSettings(int position)
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->setValue("QmlJSOutline."+QString::number(position)+".ShowBindings",
                        m_showBindingsAction->isChecked());
 }
@@ -229,6 +229,7 @@ void QmlJSOutlineWidget::updateTextCursor(const QModelIndex &index)
     textCursor.setPosition(location.offset);
     m_editor->setTextCursor(textCursor);
     m_editor->centerCursor();
+    m_editor->setFocus();
     m_blockCursorSync = false;
 }
 

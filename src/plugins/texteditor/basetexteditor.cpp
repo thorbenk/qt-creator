@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -1519,8 +1519,8 @@ bool BaseTextEditorWidget::cursorMoveKeyEvent(QKeyEvent *e)
         camelCaseRight(cursor, mode);
     } else if (camelCaseNavigationEnabled() && op == QTextCursor::WordLeft) {
         camelCaseLeft(cursor, mode);
-    } else {
-        cursor.movePosition(op, mode);
+    } else if (!cursor.movePosition(op, mode) && mode == QTextCursor::MoveAnchor) {
+        cursor.clearSelection();
     }
     cursor.setVisualNavigation(visualNavigation);
 
@@ -1760,7 +1760,7 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
         // fall through
     case Qt::Key_Right:
     case Qt::Key_Left:
-#ifndef Q_WS_MAC
+#ifndef Q_OS_MAC
         if ((e->modifiers()
              & (Qt::AltModifier | Qt::ShiftModifier)) == (Qt::AltModifier | Qt::ShiftModifier)) {
             int diff_row = 0;
@@ -1819,7 +1819,7 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
         break;
     }
 
-    if (d->m_inBlockSelectionMode) {
+    if (!ro && d->m_inBlockSelectionMode) {
         QString text = e->text();
         if (!text.isEmpty() && (text.at(0).isPrint() || text.at(0) == QLatin1Char('\t'))) {
             d->removeBlockSelection(text);
@@ -3392,7 +3392,7 @@ void BaseTextEditorWidget::paintEvent(QPaintEvent *e)
                 cursor_pen = painter.pen();
             }
 
-#ifndef Q_WS_MAC // no visible cursor on mac
+#ifndef Q_OS_MAC // no visible cursor on mac
             if (blockSelectionCursorRect.isValid())
                 painter.fillRect(blockSelectionCursorRect, palette().text());
 #endif
@@ -5763,6 +5763,12 @@ void BaseTextEditorWidget::cut()
     QPlainTextEdit::cut();
 }
 
+void BaseTextEditorWidget::selectAll()
+{
+    d->clearBlockSelection();
+    QPlainTextEdit::selectAll();
+}
+
 void BaseTextEditorWidget::copy()
 {
     if (!textCursor().hasSelection())
@@ -6046,7 +6052,7 @@ QMimeData *BaseTextEditorWidget::duplicateMimeData(const QMimeData *source) cons
 void BaseTextEditorWidget::appendStandardContextMenuActions(QMenu *menu)
 {
     menu->addSeparator();
-    Core::ActionManager *am = Core::ICore::instance()->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
 
     QAction *a = am->command(Core::Constants::CUT)->action();
     if (a && a->isEnabled())
@@ -6448,6 +6454,7 @@ void BaseTextEditorWidget::invokeAssist(AssistKind kind, IAssistProvider *provid
 {
     if (overwriteMode())
         return;
+    ensureCursorVisible();
     d->m_codeAssistant->invoke(kind, provider);
 }
 

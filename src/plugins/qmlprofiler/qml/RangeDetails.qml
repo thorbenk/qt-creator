@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -41,6 +41,7 @@ Item {
     property string type
     property string file
     property int line
+    property int column
 
     property bool locked: view.selectionLocked
 
@@ -155,7 +156,7 @@ Item {
         height: col.height + 30
         drag.target: parent
         onClicked: {
-            root.gotoSourceLocation(file, line);
+            root.gotoSourceLocation(file, line, column);
             root.recenterOnItem(view.selectedItem);
         }
     }

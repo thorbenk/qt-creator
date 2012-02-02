@@ -16,8 +16,6 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 #unix: QMAKE_CXXFLAGS += -msse2
 #DEFINES += USE_BOOST=1
 
-message("this says <foo & bar>")
-
 maemo5 {
     target.path = /opt/usr/lib
     target.path = /opt
@@ -27,6 +25,7 @@ maemo5 {
 exists($$QMAKE_INCDIR_QT/QtCore/private/qobject_p.h):DEFINES += USE_PRIVATE
 exists(/usr/include/boost/optional.hpp): DEFINES += USE_BOOST
 exists(/usr/include/eigen2/Eigen/Core): DEFINES += USE_EIGEN
+false: DEFINES += USE_CXX11
 
 # Use for semi-automated testing
 #DEFINES += USE_AUTORUN=1

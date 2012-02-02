@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -58,9 +58,6 @@ public:
     void setSettings(const GitSettings &);
 
     QString searchKeywords() const;
-
-private slots:
-    void setSystemPath();
 
 private:
     Ui::SettingsPage m_ui;

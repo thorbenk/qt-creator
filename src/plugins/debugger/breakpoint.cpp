@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -274,6 +274,21 @@ void BreakpointParameters::updateLocation(const QByteArray &location)
         if (fi.isReadable())
             fileName = fi.absoluteFilePath();
     }
+}
+
+bool BreakpointParameters::isCppBreakpoint() const
+{
+    // Qml specific breakpoint types.
+    if (type == BreakpointAtJavaScriptThrow
+            || type == BreakpointOnQmlSignalHandler)
+        return false;
+
+    // Qml is currently only file.
+    if (type == BreakpointByFileAndLine)
+        return !fileName.endsWith(QLatin1String(".qml"), Qt::CaseInsensitive)
+                && !fileName.endsWith(QLatin1String(".js"), Qt::CaseInsensitive);
+
+    return true;
 }
 
 QString BreakpointParameters::toString() const

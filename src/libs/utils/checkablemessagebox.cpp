@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -91,7 +91,7 @@ public:
             new QSpacerItem(0, 1, QSizePolicy::Minimum, QSizePolicy::Minimum);
 
         checkBox = new QCheckBox(q);
-        checkBox->setText(q->tr("Do not ask again"));
+        checkBox->setText(CheckableMessageBox::tr("Do not ask again"));
 
         buttonBox = new QDialogButtonBox(q);
         buttonBox->setOrientation(Qt::Horizontal);

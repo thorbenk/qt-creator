@@ -153,8 +153,7 @@ bool MercurialPlugin::initialize(const QStringList & /* arguments */, QString * 
     m_client = new MercurialClient(&mercurialSettings);
     initializeVcs(new MercurialControl(m_client));
 
-    core = Core::ICore::instance();
-    actionManager = core->actionManager();
+    actionManager = Core::ICore::actionManager();
 
     optionsPage = new OptionsPage();
     addAutoReleasedObject(optionsPage);
@@ -652,7 +651,7 @@ bool MercurialPlugin::submitEditorAboutToClose(VcsBaseSubmitEditor *submitEditor
     const QStringList files = commitEditor->checkedFiles();
     if (!files.empty()) {
         //save the commit message
-        if (!core->fileManager()->saveFile(editorFile))
+        if (!Core::FileManager::saveFile(editorFile))
             return false;
 
         QStringList extraOptions;

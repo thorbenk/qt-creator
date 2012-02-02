@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -138,10 +138,12 @@ private slots:
     void updateDetails();
     void userArgumentsChanged();
     void qtVersionChanged();
+    void activeBuildConfigurationChanged();
 private:
     Internal::Ui::MakeStep *m_ui;
     MakeStep *m_makeStep;
     QString m_summaryText;
+    ProjectExplorer::BuildConfiguration *m_bc;
     bool m_ignoreChange;
 };
 

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -119,6 +119,7 @@ public:
 
     virtual bool validatePage();
     virtual void initializePage();
+    virtual void cleanupPage();
 
     static QMap<QString, QString> replacementMap(const QWizard *w,
                                                  const QSharedPointer<CustomWizardContext> &ctx,
@@ -133,11 +134,13 @@ private:
         explicit LineEditData(QLineEdit* le = 0, const QString &defText = QString());
         QLineEdit* lineEdit;
         QString defaultText;
+        QString userChange;
     };
     struct TextEditData {
         explicit TextEditData(QTextEdit* le = 0, const QString &defText = QString());
         QTextEdit* textEdit;
         QString defaultText;
+        QString userChange;
     };
     typedef QList<LineEditData> LineEditDataList;
     typedef QList<TextEditData> TextEditDataList;

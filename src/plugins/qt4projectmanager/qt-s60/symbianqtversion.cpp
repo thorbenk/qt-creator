@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -344,7 +344,7 @@ QList<ProjectExplorer::Task> SymbianQtVersion::reportIssuesImpl(const QString &p
         results.append(ProjectExplorer::Task(ProjectExplorer::Task::Error,
                                              QCoreApplication::translate("ProjectExplorer::Internal::S60ProjectChecker",
                                                                          "The Symbian SDK and the project sources must reside on the same drive."),
-                                             QString(), -1, QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                                             Utils::FileName(), -1, Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     }
     return results;
 }
@@ -362,6 +362,16 @@ void SymbianQtVersion::setSystemRoot(const QString &root)
         QFileInfo cppheader(m_systemRoot + QLatin1String("epoc32/include/stdapis/string.h"));
         m_validSystemRoot = cppheader.exists();
     }
+}
+
+Core::FeatureSet SymbianQtVersion::availableFeatures() const
+{
+    Core::FeatureSet features = QtSupport::BaseQtVersion::availableFeatures();
+    if (qtVersion() >= QtSupport::QtVersionNumber(4, 7, 4)) //no reliable test for components, yet.
+        features |= Core::FeatureSet(QtSupport::Constants::FEATURE_QTQUICK_COMPONENTS_SYMBIAN);
+    features.remove(Core::Feature(QtSupport::Constants::FEATURE_QT_CONSOLE));
+
+    return features;
 }
 
 QString SymbianQtVersion::systemRoot() const

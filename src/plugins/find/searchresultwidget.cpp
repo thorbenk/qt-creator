@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -330,7 +330,7 @@ void SearchResultWidget::addResults(const QList<SearchResultItem> &items, Search
     m_searchResultTreeView->addResults(items, mode);
     if (firstItems) {
         if (showWarningMessage()) {
-            Core::InfoBarEntry info("warninglabel", tr("This change cannot be undone."));
+            Core::InfoBarEntry info(QLatin1String("warninglabel"), tr("This change cannot be undone."));
             info.setCustomButtonInfo(tr("Do not warn again"), this, SLOT(hideNoUndoWarning()));
             m_infoBar.addInfo(info);
         }
@@ -524,7 +524,7 @@ bool SearchResultWidget::showWarningMessage() const
     if (m_dontAskAgainGroup.isEmpty())
         return false;
     // read settings
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(m_dontAskAgainGroup);
     settings->beginGroup(QLatin1String("Rename"));
     const bool showWarningMessage = settings->value(QLatin1String("ShowWarningMessage"), true).toBool();
@@ -536,7 +536,7 @@ bool SearchResultWidget::showWarningMessage() const
 void SearchResultWidget::setShowWarningMessage(bool showWarningMessage)
 {
     // write to settings
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(m_dontAskAgainGroup);
     settings->beginGroup(QLatin1String("Rename"));
     settings->setValue(QLatin1String("ShowWarningMessage"), showWarningMessage);

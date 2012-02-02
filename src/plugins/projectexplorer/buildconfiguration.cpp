@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -43,6 +43,7 @@
 
 #include <coreplugin/variablemanager.h>
 
+#include <utils/qtcassert.h>
 #include <utils/stringutils.h>
 
 #include <QtCore/QProcess>
@@ -194,12 +195,13 @@ bool BuildConfiguration::fromMap(const QVariantMap &map)
         m_stepLists.append(list);
     }
 
-    QString id = map.value(QLatin1String(TOOLCHAIN_KEY)).toString();
-    m_toolChain = ToolChainManager::instance()->findToolChain(id);
+    const QString id = map.value(QLatin1String(TOOLCHAIN_KEY)).toString();
+    setToolChain(ToolChainManager::instance()->findToolChain(id)); // Do not validate the tool chain as
+                                                                   // the BC is not completely set up yet!
 
     // TODO: We currently assume there to be at least a clean and build list!
-    Q_ASSERT(knownStepLists().contains(QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_BUILD)));
-    Q_ASSERT(knownStepLists().contains(QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)));
+    QTC_CHECK(knownStepLists().contains(QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_BUILD)));
+    QTC_CHECK(knownStepLists().contains(QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)));
 
     return ProjectConfiguration::fromMap(map);
 }

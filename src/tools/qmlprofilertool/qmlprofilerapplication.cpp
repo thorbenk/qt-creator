@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -96,7 +96,7 @@ QmlProfilerApplication::QmlProfilerApplication(int &argc, char **argv) :
 
     connect(&m_qmlProfilerClient, SIGNAL(enabled()), this, SLOT(traceClientEnabled()));
     connect(&m_qmlProfilerClient, SIGNAL(recordingChanged(bool)), this, SLOT(recordingChanged()));
-    connect(&m_qmlProfilerClient, SIGNAL(range(int,qint64,qint64,QStringList,QString,int)), &m_eventList, SLOT(addRangedEvent(int,qint64,qint64,QStringList,QString,int)));
+    connect(&m_qmlProfilerClient, SIGNAL(range(int,qint64,qint64,QStringList,QString,int,int)), &m_eventList, SLOT(addRangedEvent(int,qint64,qint64,QStringList,QString,int,int)));
     connect(&m_qmlProfilerClient, SIGNAL(complete()), this, SLOT(qmlComplete()));
 
     connect(&m_v8profilerClient, SIGNAL(enabled()), this, SLOT(profilerClientEnabled()));
@@ -281,9 +281,9 @@ void QmlProfilerApplication::connected()
     print(QString(QLatin1String("Connected to host:port %1:%2. Wait for profile data or type a command (type 'help'' to show list of commands).")).arg(m_hostName).arg((m_port)));
     QString recordingStatus(QLatin1String("Recording Status: %1"));
     if (!m_qmlProfilerClient.isRecording() && !m_v8profilerClient.isRecording())
-        recordingStatus.arg(QLatin1String("Off"));
+        recordingStatus = recordingStatus.arg(QLatin1String("Off"));
     else
-        recordingStatus.arg(QLatin1String("On"));
+        recordingStatus = recordingStatus.arg(QLatin1String("On"));
     print(recordingStatus);
 }
 

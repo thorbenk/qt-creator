@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -116,7 +116,7 @@ static bool checkLine(const QString &stateInfo, const QString &file, QList<Commi
     QTC_ASSERT(stateInfo.count() == 2, return false);
     QTC_ASSERT(files, return false);
 
-    if (stateInfo == "??") {
+    if (stateInfo == QLatin1String("??")) {
         files->append(qMakePair(CommitData::UntrackedFile, file));
         return true;
     }
@@ -157,12 +157,12 @@ bool CommitData::parseFilesFromStatus(const QString &output)
         if (line.isEmpty())
             continue;
 
-        if (line.startsWith("## ")) {
+        if (line.startsWith(QLatin1String("## "))) {
             // Branch indication:
             panelInfo.branch = line.mid(3);
             continue;
         }
-        QTC_ASSERT(line.at(2) == ' ', continue);
+        QTC_ASSERT(line.at(2) == QLatin1Char(' '), continue);
         if (!checkLine(line.mid(0, 2), line.mid(3), &files))
             return false;
     }

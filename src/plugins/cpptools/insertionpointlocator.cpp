@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -33,6 +33,7 @@
 #include "cpptoolsplugin.h"
 #include "cpprefactoringchanges.h"
 #include "insertionpointlocator.h"
+#include "symbolfinder.h"
 
 #include <AST.h>
 #include <ASTVisitor.h>
@@ -42,6 +43,8 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/mimedatabase.h>
+
+#include <utils/qtcassert.h>
 
 using namespace CPlusPlus;
 using namespace CppTools;
@@ -172,7 +175,7 @@ protected:
                           bool &needsPrefix,
                           bool &needsSuffix)
     {
-        Q_ASSERT(!ranges.isEmpty());
+        QTC_ASSERT(!ranges.isEmpty(), return);
         const int lastIndex = ranges.size() - 1;
 
         // try an exact match, and ignore the first (default) access spec:
@@ -308,7 +311,7 @@ InsertionLocation InsertionPointLocator::methodDeclarationInClass(
 
 static bool isSourceFile(const QString &fileName)
 {
-    const Core::MimeDatabase *mimeDb = Core::ICore::instance()->mimeDatabase();
+    const Core::MimeDatabase *mimeDb = Core::ICore::mimeDatabase();
     Core::MimeType cSourceTy = mimeDb->findByType(QLatin1String("text/x-csrc"));
     Core::MimeType cppSourceTy = mimeDb->findByType(QLatin1String("text/x-c++src"));
     Core::MimeType mSourceTy = mimeDb->findByType(QLatin1String("text/x-objcsrc"));
@@ -328,7 +331,7 @@ class HighestValue
     bool _set;
 public:
     HighestValue()
-        : _set(false)
+        : _key(), _set(false)
     {}
 
     HighestValue(const Key &initialKey, const Value &initialValue)
@@ -348,7 +351,7 @@ public:
 
     const Value &get() const
     {
-        Q_ASSERT(_set);
+        QTC_CHECK(_set);
         return _value;
     }
 };
@@ -366,22 +369,22 @@ public:
 
     void operator()(Declaration *decl, unsigned *line, unsigned *column)
     {
-        *line = *column = 0;
-        if (translationUnit()->ast()->lastToken() < 2)
-            return;
-
-        QList<const Name *> names = LookupContext::fullyQualifiedName(decl);
-        foreach (const Name *name, names) {
-            const Identifier *id = name->asNameId();
-            if (!id)
-                break;
-            _namespaceNames += id;
-        }
-        _currentDepth = 0;
-
         // default to end of file
-        _bestToken.maybeSet(-1, translationUnit()->ast()->lastToken() - 1);
-        accept(translationUnit()->ast());
+        _bestToken.maybeSet(-1, translationUnit()->ast()->lastToken());
+
+        if (translationUnit()->ast()->lastToken() >= 2) {
+
+            QList<const Name *> names = LookupContext::fullyQualifiedName(decl);
+            foreach (const Name *name, names) {
+                const Identifier *id = name->asNameId();
+                if (!id)
+                    break;
+                _namespaceNames += id;
+            }
+            _currentDepth = 0;
+
+            accept(translationUnit()->ast());
+        }
         translationUnit()->getTokenEndPosition(_bestToken.get(), line, column);
     }
 
@@ -516,7 +519,9 @@ static InsertionLocation nextToSurroundingDefinitions(Declaration *declaration, 
     }
 
     // find the declaration's definition
-    Symbol *definition = changes.snapshot().findMatchingDefinition(surroundingFunctionDecl);
+    CppTools::SymbolFinder symbolFinder;
+    Symbol *definition = symbolFinder.findMatchingDefinition(surroundingFunctionDecl,
+                                                             changes.snapshot());
     if (!definition)
         return noResult;
 
@@ -555,7 +560,10 @@ QList<InsertionLocation> InsertionPointLocator::methodDefinition(
     if (!declaration)
         return result;
 
-    if (Symbol *s = m_refactoringChanges.snapshot().findMatchingDefinition(declaration, true)) {
+    CppTools::SymbolFinder symbolFinder;
+    if (Symbol *s = symbolFinder.findMatchingDefinition(declaration,
+                                                        m_refactoringChanges.snapshot(),
+                                                        true)) {
         if (Function *f = s->asFunction()) {
             if (f->isConst() == declaration->type().isConst()
                     && f->isVolatile() == declaration->type().isVolatile())
@@ -578,7 +586,8 @@ QList<InsertionLocation> InsertionPointLocator::methodDefinition(
             target = candidate;
     }
 
-    Document::Ptr doc = m_refactoringChanges.file(target)->cppDocument();
+    CppRefactoringFilePtr targetFile = m_refactoringChanges.file(target);
+    Document::Ptr doc = targetFile->cppDocument();
     if (doc.isNull())
         return result;
 
@@ -586,8 +595,24 @@ QList<InsertionLocation> InsertionPointLocator::methodDefinition(
     FindMethodDefinitionInsertPoint finder(doc->translationUnit());
     finder(declaration, &line, &column);
 
+    // Make sure we have a line before and after the new definition.
     const QLatin1String prefix("\n\n");
-    result.append(InsertionLocation(target, prefix, QString(), line, column));
+    QString suffix;
+    int firstNonSpace = targetFile->position(line, column);
+    QChar c = targetFile->charAt(firstNonSpace);
+    while (c == QLatin1Char(' ') || c == QLatin1Char('\t')) {
+        ++firstNonSpace;
+        c = targetFile->charAt(firstNonSpace);
+    }
+    if (targetFile->charAt(firstNonSpace) != QChar::ParagraphSeparator) {
+        suffix.append(QLatin1String("\n\n"));
+    } else {
+        ++firstNonSpace;
+        if (targetFile->charAt(firstNonSpace) != QChar::ParagraphSeparator)
+            suffix.append(QLatin1Char('\n'));
+    }
+
+    result += InsertionLocation(target, prefix, suffix, line, column);
 
     return result;
 }

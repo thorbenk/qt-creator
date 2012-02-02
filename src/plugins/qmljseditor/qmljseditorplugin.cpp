@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -124,8 +124,7 @@ Core::Command *createSeparator(Core::ActionManager *am,
 
 bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *errorMessage)
 {
-    Core::ICore *core = Core::ICore::instance();
-    if (!core->mimeDatabase()->addMimeTypes(QLatin1String(":/qmljseditor/QmlJSEditor.mimetypes.xml"), errorMessage))
+    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/qmljseditor/QmlJSEditor.mimetypes.xml"), errorMessage))
         return false;
 
     m_modelManager = QmlJS::ModelManagerInterface::instance();
@@ -150,6 +149,7 @@ bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *e
     m_editor = new QmlJSEditorFactory(this);
     addObject(m_editor);
 
+    QObject *core = Core::ICore::instance();
     Core::BaseFileWizardParameters qmlWizardParameters(Core::IWizard::FileWizard);
     qmlWizardParameters.setCategory(QLatin1String(Constants::WIZARD_CATEGORY_QML));
     qmlWizardParameters.setDisplayCategory(QCoreApplication::translate("QmlJsEditor", Constants::WIZARD_TR_CATEGORY_QML));
@@ -172,7 +172,7 @@ bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *e
         | TextEditor::TextEditorActionHandler::UnCollapseAll);
     m_actionHandler->initializeActions();
 
-    Core::ActionManager *am =  core->actionManager();
+    Core::ActionManager *am = Core::ICore::actionManager();
     Core::ActionContainer *contextMenu = am->createMenu(QmlJSEditor::Constants::M_CONTEXT);
     Core::ActionContainer *qmlToolsMenu = am->actionContainer(Core::Id(QmlJSTools::Constants::M_TOOLS_QMLJS));
 
@@ -208,13 +208,13 @@ bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *e
     qmlToolsMenu->addAction(cmd);
 
     m_reformatFileAction = new QAction(tr("Reformat File"), this);
-    cmd = am->registerAction(m_reformatFileAction, Core::Id(Constants::REFORMAT_FILE), globalContext);
+    cmd = am->registerAction(m_reformatFileAction, Core::Id(Constants::REFORMAT_FILE), context);
     connect(m_reformatFileAction, SIGNAL(triggered()), this, SLOT(reformatFile()));
     qmlToolsMenu->addAction(cmd);
 
     QAction *showQuickToolbar = new QAction(tr("Show Qt Quick Toolbar"), this);
     cmd = am->registerAction(showQuickToolbar, Constants::SHOW_QT_QUICK_HELPER, context);
-#ifdef Q_WS_MACX
+#ifdef Q_OS_MACX
     cmd->setDefaultKeySequence(QKeySequence(Qt::META + Qt::ALT + Qt::Key_Space));
 #else
     cmd->setDefaultKeySequence(QKeySequence(Qt::CTRL + Qt::ALT + Qt::Key_Space));
@@ -255,7 +255,7 @@ bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *e
     addAutoReleasedObject(new QuickToolBar);
     addAutoReleasedObject(new Internal::QuickToolBarSettingsPage);
 
-    connect(core->editorManager(), SIGNAL(currentEditorChanged(Core::IEditor*)), SLOT(currentEditorChanged(Core::IEditor*)));
+    connect(Core::ICore::editorManager(), SIGNAL(currentEditorChanged(Core::IEditor*)), SLOT(currentEditorChanged(Core::IEditor*)));
 
     return true;
 }

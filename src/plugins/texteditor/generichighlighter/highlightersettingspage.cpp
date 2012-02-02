@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -72,7 +72,7 @@ HighlighterSettingsPage::HighlighterSettingsPage(const QString &id, QObject *par
     m_requestMimeTypeRegistration(false),
     m_d(new HighlighterSettingsPagePrivate(id))
 {
-    if (QSettings *s = Core::ICore::instance()->settings())
+    if (QSettings *s = Core::ICore::settings())
         m_d->m_settings.fromSettings(m_d->m_settingsPrefix, s);
 }
 
@@ -168,7 +168,7 @@ void HighlighterSettingsPage::settingsFromUI()
     m_d->m_settings.setAlertWhenNoDefinition(m_d->m_page->alertWhenNoDefinition->isChecked());
     m_d->m_settings.setUseFallbackLocation(m_d->m_page->useFallbackLocation->isChecked());
     m_d->m_settings.setIgnoredFilesPatterns(m_d->m_page->ignoreEdit->text());
-    if (QSettings *s = Core::ICore::instance()->settings())
+    if (QSettings *s = Core::ICore::settings())
         m_d->m_settings.toSettings(m_d->m_settingsPrefix, s);
 }
 

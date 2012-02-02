@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -195,8 +195,8 @@ void S60DeployStep::reportError(const QString &error)
     emit addOutput(error, ProjectExplorer::BuildStep::ErrorMessageOutput);
     emit addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error,
                                        error,
-                                       QString(), -1,
-                                       QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                                       Utils::FileName(), -1,
+                                       Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
     emit finished(false);
 }
 
@@ -575,7 +575,7 @@ void S60DeployStep::checkForTimeout()
 {
     if (state() != StateConnecting)
         return;
-    QMessageBox *mb = CodaRunControl::createCodaWaitingMessageBox(Core::ICore::instance()->mainWindow());
+    QMessageBox *mb = CodaRunControl::createCodaWaitingMessageBox(Core::ICore::mainWindow());
     connect(this, SIGNAL(codaConnected()), mb, SLOT(close()));
     connect(this, SIGNAL(finished()), mb, SLOT(close()));
     connect(this, SIGNAL(finishNow()), mb, SLOT(close()));
@@ -588,7 +588,7 @@ void S60DeployStep::showManualInstallationInfo()
     const QString title  = tr("Installation");
     const QString text = tr("Continue the installation on your device.");
     QMessageBox *mb = new QMessageBox(QMessageBox::Information, title, text,
-                                      QMessageBox::Ok, Core::ICore::instance()->mainWindow());
+                                      QMessageBox::Ok, Core::ICore::mainWindow());
     connect(this, SIGNAL(allFilesInstalled()), mb, SLOT(close()));
     connect(this, SIGNAL(finished()), mb, SLOT(close()));
     connect(this, SIGNAL(finishNow()), mb, SLOT(close()));
@@ -604,8 +604,8 @@ void S60DeployStep::checkForCancel()
         appendMessage(canceledText, true);
         emit addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error,
                                            canceledText,
-                                           QString(), -1,
-                                           QLatin1String(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                                           Utils::FileName(), -1,
+                                           Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
         emit finishNow(false);
     }
 }

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -136,7 +136,7 @@ void RemoteLinuxRunConfigurationWidget::addDisabledLabel(QVBoxLayout *topLayout)
 {
     QHBoxLayout * const hl = new QHBoxLayout;
     hl->addStretch();
-    d->disabledIcon.setPixmap(QPixmap(QString::fromUtf8(":/projectexplorer/images/compile_warning.png")));
+    d->disabledIcon.setPixmap(QPixmap(QLatin1String(":/projectexplorer/images/compile_warning.png")));
     hl->addWidget(&d->disabledIcon);
     d->disabledReason.setVisible(false);
     hl->addWidget(&d->disabledReason);
@@ -312,10 +312,10 @@ void RemoteLinuxRunConfigurationWidget::handleWorkingDirectoryChanged()
 void RemoteLinuxRunConfigurationWidget::showDeviceConfigurationsDialog(const QString &link)
 {
     if (link == QLatin1String("deviceconfig")) {
-        Core::ICore::instance()->showOptionsDialog(LinuxDeviceConfigurationsSettingsPage::pageCategory(),
+        Core::ICore::showOptionsDialog(LinuxDeviceConfigurationsSettingsPage::pageCategory(),
             LinuxDeviceConfigurationsSettingsPage::pageId());
     } else if (link == QLatin1String("debugger")) {
-        Core::ICore::instance()->showOptionsDialog(QLatin1String("O.Debugger"),
+        Core::ICore::showOptionsDialog(QLatin1String("O.Debugger"),
             QLatin1String("M.Gdb"));
     }
 }

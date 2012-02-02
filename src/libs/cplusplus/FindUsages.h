@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -138,7 +138,7 @@ protected:
     virtual bool visit(BaseSpecifierAST *ast);
     virtual bool visit(CtorInitializerAST *ast);
     virtual bool visit(EnumeratorAST *ast);
-    virtual bool visit(ExceptionSpecificationAST *ast);
+    virtual bool visit(DynamicExceptionSpecificationAST *ast);
     virtual bool visit(MemInitializerAST *ast);
     virtual bool visit(NestedNameSpecifierAST *ast);
     virtual bool visit(NewPlacementAST *ast);
@@ -236,6 +236,7 @@ protected:
     virtual bool visit(NamespaceAST *ast);
     virtual bool visit(NamespaceAliasDefinitionAST *ast);
     virtual bool visit(ParameterDeclarationAST *ast);
+    virtual bool visit(StaticAssertDeclarationAST *ast);
     virtual bool visit(TemplateDeclarationAST *ast);
     virtual bool visit(TypenameTypeParameterAST *ast);
     virtual bool visit(TemplateTypeParameterAST *ast);

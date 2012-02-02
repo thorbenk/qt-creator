@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator Instrumentation Tools
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
@@ -119,7 +119,7 @@ AnalyzerGlobalSettings::~AnalyzerGlobalSettings()
 
 void AnalyzerGlobalSettings::readSettings()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
 
     QVariantMap map;
 
@@ -136,7 +136,7 @@ void AnalyzerGlobalSettings::readSettings()
 
 void AnalyzerGlobalSettings::writeSettings() const
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(QLatin1String(groupC));
     const QVariantMap map = toMap();
     for (QVariantMap::ConstIterator it = map.begin(); it != map.end(); ++it)

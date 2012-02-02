@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -58,6 +58,11 @@ SftpOutgoingPacket::SftpOutgoingPacket()
 SftpOutgoingPacket &SftpOutgoingPacket::generateInit(quint32 version)
 {
     return init(SSH_FXP_INIT, 0).appendInt(version).finalize();
+}
+
+SftpOutgoingPacket &SftpOutgoingPacket::generateStat(const QString &path, quint32 requestId)
+{
+    return init(SSH_FXP_LSTAT, requestId).appendString(path).finalize();
 }
 
 SftpOutgoingPacket &SftpOutgoingPacket::generateOpenDir(const QString &path,

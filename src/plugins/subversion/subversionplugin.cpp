@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -270,12 +270,11 @@ bool SubversionPlugin::initialize(const QStringList & /*arguments */, QString *e
     initializeVcs(new SubversionControl(this));
 
     m_subversionPluginInstance = this;
-    Core::ICore *core = Core::ICore::instance();
 
-    if (!core->mimeDatabase()->addMimeTypes(QLatin1String(":/trolltech.subversion/Subversion.mimetypes.xml"), errorMessage))
+    if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/trolltech.subversion/Subversion.mimetypes.xml"), errorMessage))
         return false;
 
-    if (QSettings *settings = core->settings())
+    if (QSettings *settings = Core::ICore::settings())
         m_settings.fromSettings(settings);
 
     addAutoReleasedObject(new SettingsPage);
@@ -295,7 +294,7 @@ bool SubversionPlugin::initialize(const QStringList & /*arguments */, QString *e
     addAutoReleasedObject(m_commandLocator);
 
     //register actions
-    Core::ActionManager *ami = core->actionManager();
+    Core::ActionManager *ami = Core::ICore::actionManager();
     Core::ActionContainer *toolsContainer = ami->actionContainer(M_TOOLS);
 
     Core::ActionContainer *subversionMenu =
@@ -513,7 +512,7 @@ bool SubversionPlugin::submitEditorAboutToClose(VcsBase::VcsBaseSubmitEditor *su
     bool closeEditor = true;
     if (!fileList.empty()) {
         // get message & commit
-        closeEditor = Core::ICore::instance()->fileManager()->saveFile(fileIFace);
+        closeEditor = Core::FileManager::saveFile(fileIFace);
         if (closeEditor)
             closeEditor = commit(m_commitMessageFileName, fileList);
     }
@@ -1080,7 +1079,7 @@ void SubversionPlugin::slotDescribe()
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasTopLevel(), return);
 
-    QInputDialog inputDialog(Core::ICore::instance()->mainWindow());
+    QInputDialog inputDialog(Core::ICore::mainWindow());
     inputDialog.setWindowFlags(inputDialog.windowFlags() & ~Qt::WindowContextHelpButtonHint);
     inputDialog.setInputMode(QInputDialog::IntInput);
     inputDialog.setIntRange(2, INT_MAX);
@@ -1200,7 +1199,7 @@ void SubversionPlugin::setSettings(const SubversionSettings &s)
 {
     if (s != m_settings) {
         m_settings = s;
-        if (QSettings *settings = Core::ICore::instance()->settings())
+        if (QSettings *settings = Core::ICore::settings())
             m_settings.toSettings(settings);
         subVersionControl()->emitConfigurationChanged();
     }
@@ -1305,14 +1304,14 @@ bool SubversionPlugin::vcsCheckout(const QString &directory, const QByteArray &u
         // authentication will always fail (if the username and password data are not stored locally),
         // if for example we are logging into a new host for the first time using svn. There seems to
         // be a bug in subversion, so this might get fixed in the future.
-        tempUrl.setUserInfo("");
-        args << tempUrl.toEncoded() << directory;
+        tempUrl.setUserInfo(QString());
+        args << QLatin1String(tempUrl.toEncoded()) << directory;
         const SubversionResponse response = runSvn(directory, username, password, args,
                                                    m_settings.longTimeOutMS(),
                                                    VcsBase::VcsBasePlugin::SshPasswordPrompt);
         return !response.error;
     } else {
-        args << url << directory;
+        args << QLatin1String(url) << directory;
         const SubversionResponse response = runSvn(directory, args, m_settings.longTimeOutMS(),
                                                    VcsBase::VcsBasePlugin::SshPasswordPrompt);
         return !response.error;

@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -72,8 +72,7 @@ bool QmlProjectPlugin::initialize(const QStringList &, QString *errorMessage)
 {
     using namespace Core;
 
-    ICore *core = ICore::instance();
-    Core::MimeDatabase *mimeDB = core->mimeDatabase();
+    Core::MimeDatabase *mimeDB = Core::ICore::mimeDatabase();
 
     const QLatin1String mimetypesXml(":/qmlproject/QmlProject.mimetypes.xml");
 
@@ -116,7 +115,7 @@ void QmlProjectPlugin::showQmlObserverToolWarning()
                                   "and click Rebuild."));
     dialog.exec();
     if (dialog.clickedButton() == qtPref) {
-        Core::ICore::instance()->showOptionsDialog(
+        Core::ICore::showOptionsDialog(
                     ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY,
                     QtSupport::Constants::QTVERSION_SETTINGS_PAGE_ID);
     }
