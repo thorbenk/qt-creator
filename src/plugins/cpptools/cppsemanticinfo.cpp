@@ -30,5 +30,11 @@
 **
 **************************************************************************/
 
-#include "qtconcurrent/multitask.h"
-#include "qtconcurrent/runextensions.h"
+#include "cppsemanticinfo.h"
+
+using namespace CppTools;
+
+SemanticInfo::SemanticInfo()
+    : revision(0), hasQ(false), hasD(false), forced(false)
+{
+}

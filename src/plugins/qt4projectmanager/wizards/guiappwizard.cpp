@@ -85,8 +85,8 @@ namespace Internal {
 
 GuiAppWizard::GuiAppWizard()
     : QtWizard(QLatin1String("C.Qt4Gui"),
-               QLatin1String(ProjectExplorer::Constants::QT_PROJECT_WIZARD_CATEGORY),
-               QLatin1String(ProjectExplorer::Constants::QT_PROJECT_WIZARD_CATEGORY_DISPLAY),
+               QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY),
+               QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY_DISPLAY),
                tr("Qt Gui Application"),
                tr("Creates a Qt application for the desktop. "
                   "Includes a Qt Designer-based main window.\n\n"
@@ -114,15 +114,14 @@ GuiAppWizard::GuiAppWizard(const QString &id,
 }
 
 QWizard *GuiAppWizard::createWizardDialog(QWidget *parent,
-                                          const QString &defaultPath,
-                                          const WizardPageList &extensionPages) const
+                                          const Core::WizardDialogParameters &wizardDialogParameters) const
 {
-    GuiAppWizardDialog *dialog = new GuiAppWizardDialog(displayName(), icon(), extensionPages,
+    GuiAppWizardDialog *dialog = new GuiAppWizardDialog(displayName(), icon(),
                                                         showModulesPageForApplications(),
                                                         m_createMobileProject,
-                                                        parent);
-    dialog->setPath(defaultPath);
-    dialog->setProjectName(GuiAppWizardDialog::uniqueProjectName(defaultPath));
+                                                        parent, wizardDialogParameters);
+    dialog->setPath(wizardDialogParameters.defaultPath());
+    dialog->setProjectName(GuiAppWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     // Order! suffixes first to generate files correctly
     dialog->setLowerCaseFiles(QtWizard::lowerCaseFiles());
     dialog->setSuffixes(headerSuffix(), sourceSuffix(), formSuffix());

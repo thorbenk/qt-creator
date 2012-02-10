@@ -55,8 +55,12 @@
 //           FIXME: Not implemented yet.
 
 
+// Value: 1
 // If the line after a BREAK_HERE line does not contain one of the
 // supported commands, the test stops.
+// Value: 2
+// Same as 1, except that the debugger will stop automatically when
+// a test after a BREAK_HERE failed
 // Default: 0
 #ifndef USE_AUTORUN
 #define USE_AUTORUN 0
@@ -158,6 +162,10 @@ void dummyStatement(...) {}
 #include <QStandardItemModel>
 #include <QLabel>
 
+#if USE_CXX11
+#include <array>
+#endif
+#include <complex>
 #include <deque>
 #include <iostream>
 #include <iterator>
@@ -2258,6 +2266,40 @@ namespace qxml {
 } // namespace qxml
 
 
+namespace stdarray {
+
+    void testStdArray()
+    {
+        #if USE_CXX11
+        std::array<int, 4> a = { { 1, 2, 3, 4} };
+        BREAK_HERE;
+        // Expand a.
+        // Check a <4 items> std::array<int>.
+        // Check [0] 1 int.
+        // Continue.
+        dummyStatement(&a);
+        #endif
+    }
+
+} // namespace stdcomplex
+
+
+
+namespace stdcomplex {
+
+    void testStdComplex()
+    {
+        std::complex<double> c(1, 2);
+        BREAK_HERE;
+        // Expand c.
+        // Check c (1.000000, 2.000000) std::complex<double>.
+        // Continue.
+        dummyStatement(&c);
+    }
+
+} // namespace stdcomplex
+
+
 namespace stddeque {
 
     void testStdDequeInt()
@@ -2653,7 +2695,7 @@ namespace stdptr {
     void testStdUniquePtr()
     {
         #ifdef USE_CXX11
-        std::unique_ptr<int> p(new 32);
+        std::unique_ptr<int> p(new int(32));
         BREAK_HERE;
         // Check p 32 std::unique_ptr<int>.
         // Continue.
@@ -2978,7 +3020,6 @@ namespace stdvector {
 
     void testStdVector3()
     {
-        Foo f;
         std::vector<Foo *> v;
         v.push_back(new Foo(1));
         v.push_back(0);
@@ -3012,7 +3053,7 @@ namespace stdvector {
         dummyStatement(&v);
     }
 
-    void testStdVector5()
+    void testStdVectorBool1()
     {
         std::vector<bool> v;
         v.push_back(true);
@@ -3030,6 +3071,24 @@ namespace stdvector {
         // Check v.4 0 bool.
         // Continue.
         dummyStatement(&v);
+    }
+
+    void testStdVectorBool2()
+    {
+        std::vector<bool> v1(50, true);
+        std::vector<bool> v2(65);
+        BREAK_HERE;
+        // Expand v1.
+        // Expand v2.
+        // Check v1 <50 items> std::vector<bool>.
+        // Check v2 <65 items> std::vector<bool>.
+        // Check v.0 1 bool.
+        // Check v.1 0 bool.
+        // Check v.2 0 bool.
+        // Check v.3 1 bool.
+        // Check v.4 0 bool.
+        // Continue.
+        dummyStatement(&v1, &v2);
     }
 
     void testStdVector6()
@@ -3060,7 +3119,8 @@ namespace stdvector {
         testStdVector2();
         testStdVector3();
         testStdVector4();
-        testStdVector5();
+        testStdVectorBool1();
+        testStdVectorBool2();
         testStdVector6();
     }
 
@@ -4097,6 +4157,7 @@ void testMemoryView()
     int a[20];
     for (int i = 0; i != 20; ++i)
         a[i] = i;
+    dummyStatement(&a);
 }
 
 QString fooxx()
@@ -4588,6 +4649,19 @@ namespace basic {
         dummyStatement(&a, &b, &c, &d);
     }
 
+    void testReference3(const QString &a)
+    {
+        const QString &b = a;
+        typedef QString &Ref;
+        const Ref d = const_cast<Ref>(a);
+        BREAK_HERE;
+        // Check a "hello" QString.
+        // Check b "hello" QString.
+        // Check d "hello" basic::Ref.
+        // Continue.
+        dummyStatement(&a, &b, &d);
+    }
+
     void testLongEvaluation1()
     {
         QDateTime time = QDateTime::currentDateTime();
@@ -4744,10 +4818,44 @@ namespace basic {
         dummyStatement(&n);
     }
 
+    int testReturnInt()
+    {
+        return 1;
+    }
+
+    bool testReturnBool()
+    {
+        return true;
+    }
+
+    QString testReturnQString()
+    {
+        return "string";
+    }
+
+    void testReturn()
+    {
+        bool b = testReturnBool();
+        BREAK_HERE;
+        // Check b true bool.
+        // Continue.
+        int i = testReturnInt();
+        BREAK_HERE;
+        // Check i 1 int.
+        // Continue.
+        QString s = testReturnQString();
+        BREAK_HERE;
+        // Check s "string" QString.
+        // Continue.
+        dummyStatement(&i, &b, &s);
+    }
+
     void testBasic()
     {
         testReference1();
         testReference2();
+        testReference3("hello");
+        testReturn();
         testArray1();
         testArray2();
         testArray3();
@@ -4933,7 +5041,7 @@ namespace qscript {
         // Check x 33 int.
         // Check x1 "34" QString.
         // Continue.
-        dummyStatement(&x1, &v, &s, &d);
+        dummyStatement(&x1, &v, &s, &d, &x);
     #else
         dummyStatement();
     #endif
@@ -5910,6 +6018,8 @@ int main(int argc, char *argv[])
     namespc::testNamespace();
     painting::testPainting();
 
+    stdarray::testStdArray();
+    stdcomplex::testStdComplex();
     stddeque::testStdDeque();
     stdlist::testStdList();
     stdhashset::testStdHashSet();
@@ -5919,7 +6029,7 @@ int main(int argc, char *argv[])
     stdstream::testStdStream();
     stdstring::testStdString();
     stdvector::testStdVector();
-    stdptr::testStdPointer();
+    stdptr::testStdPtr();
 
     qbytearray::testQByteArray();
     qdatetime::testDateTime();

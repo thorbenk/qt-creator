@@ -36,6 +36,7 @@
 
 #include <app/app_version.h>
 #include <projectexplorer/customwizard/customwizard.h>
+#include <projectexplorer/projectexplorerconstants.h>
 #include <qtsupport/qtsupportconstants.h>
 
 #include <QtGui/QIcon>
@@ -50,8 +51,9 @@
 namespace QmlProjectManager {
 namespace Internal {
 
-QmlProjectApplicationWizardDialog::QmlProjectApplicationWizardDialog(QWidget *parent) :
-    ProjectExplorer::BaseProjectWizardDialog(parent)
+QmlProjectApplicationWizardDialog::QmlProjectApplicationWizardDialog(QWidget *parent,
+                                                                     const Core::WizardDialogParameters &parameters) :
+    ProjectExplorer::BaseProjectWizardDialog(parent, parameters)
 {
     setWindowTitle(tr("New Qt Quick UI Project"));
     setIntroDescription(tr("This wizard generates a Qt Quick UI project."));
@@ -81,22 +83,20 @@ Core::BaseFileWizardParameters QmlProjectApplicationWizard::parameters()
         "You can review Qt Quick UI projects in the QML Viewer and you need not build them. "
         "You do not need to have the development environment installed "
         "on your computer to create and run this type of projects."));
-    parameters.setCategory(QLatin1String(QtSupport::Constants::QML_WIZARD_CATEGORY));
-    parameters.setDisplayCategory(QCoreApplication::translate(QtSupport::Constants::QML_WIZARD_TR_SCOPE,
-                                                              QtSupport::Constants::QML_WIZARD_TR_CATEGORY));
+    parameters.setCategory(QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY));
+    parameters.setDisplayCategory(QT_TRANSLATE_NOOP("ProjectExplorer", "Qt Application"));
     return parameters;
 }
 
 QWizard *QmlProjectApplicationWizard::createWizardDialog(QWidget *parent,
-                                                  const QString &defaultPath,
-                                                  const WizardPageList &extensionPages) const
+                                                         const Core::WizardDialogParameters &wizardDialogParameters) const
 {
-    QmlProjectApplicationWizardDialog *wizard = new QmlProjectApplicationWizardDialog(parent);
+    QmlProjectApplicationWizardDialog *wizard = new QmlProjectApplicationWizardDialog(parent, wizardDialogParameters);
 
-    wizard->setPath(defaultPath);
-    wizard->setProjectName(QmlProjectApplicationWizardDialog::uniqueProjectName(defaultPath));
+    wizard->setPath(wizardDialogParameters.defaultPath());
+    wizard->setProjectName(QmlProjectApplicationWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
 
-    foreach (QWizardPage *p, extensionPages)
+    foreach (QWizardPage *p, wizardDialogParameters.extensionPages())
         BaseFileWizard::applyExtensionPageShortTitle(wizard, wizard->addPage(p));
 
     return wizard;

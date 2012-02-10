@@ -303,6 +303,7 @@ void TraceWindow::reset(QDeclarativeDebugConnection *conn)
     connect(this, SIGNAL(selectNextEventInDisplay(QVariant)), m_mainView->rootObject(), SLOT(selectNextWithId(QVariant)));
     connect(m_mainView->rootObject(), SIGNAL(selectedEventIdChanged(int)), this, SIGNAL(selectedEventIdChanged(int)));
     connect(m_mainView->rootObject(), SIGNAL(changeToolTip(QString)), this, SLOT(updateToolTip(QString)));
+    connect(m_mainView->rootObject(), SIGNAL(updateVerticalScroll(int)), this, SLOT(updateVerticalScroll(int)));
 
     connect(this, SIGNAL(internalClearDisplay()), m_mainView->rootObject(), SLOT(clearAll()));
     connect(this,SIGNAL(internalClearDisplay()), m_overview->rootObject(), SLOT(clearDisplay()));
@@ -394,6 +395,9 @@ void TraceWindow::clearDisplay()
     m_zoomControl.data()->setRange(0,0);
     m_profiledTime = 0;
 
+    updateVerticalScroll(0);
+    m_mainView->rootObject()->setProperty("scrollY", QVariant(0));
+
     emit internalClearDisplay();
 }
 
@@ -460,15 +464,21 @@ void TraceWindow::qmlComplete()
 {
     m_qmlDataReady = true;
 
-    if (!m_v8plugin || m_v8plugin.data()->status() != QDeclarativeDebugClient::Enabled || m_v8DataReady)
+    if (!m_v8plugin || m_v8plugin.data()->status() != QDeclarativeDebugClient::Enabled || m_v8DataReady) {
         emit viewUpdated();
+        // once complete is sent, reset the flag
+        m_qmlDataReady = false;
+    }
 }
 
 void TraceWindow::v8Complete()
 {
     m_v8DataReady = true;
-    if (!m_plugin || m_plugin.data()->status() != QDeclarativeDebugClient::Enabled || m_qmlDataReady)
+    if (!m_plugin || m_plugin.data()->status() != QDeclarativeDebugClient::Enabled || m_qmlDataReady) {
         emit viewUpdated();
+        // once complete is sent, reset the flag
+        m_v8DataReady = false;
+    }
 }
 
 void TraceWindow::resizeEvent(QResizeEvent *event)
@@ -574,6 +584,11 @@ void TraceWindow::updateProfilerState()
 void TraceWindow::updateToolTip(const QString &text)
 {
     setToolTip(text);
+}
+
+void TraceWindow::updateVerticalScroll(int newPosition)
+{
+    m_mainView->verticalScrollBar()->setValue(newPosition);
 }
 
 } // namespace Internal

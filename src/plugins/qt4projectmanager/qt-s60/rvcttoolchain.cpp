@@ -223,11 +223,6 @@ void RvctToolChain::addToEnvironment(Utils::Environment &env) const
     env.set(QLatin1String("LANG"), QString(QLatin1Char('C')));
 }
 
-Utils::FileName RvctToolChain::mkspec() const
-{
-    return Utils::FileName(); // Always use default from Qt version
-}
-
 QString RvctToolChain::makeCommand() const
 {
 #if defined(Q_OS_WIN)
@@ -405,6 +400,8 @@ RvctToolChainConfigWidget::RvctToolChainConfigWidget(RvctToolChain *tc) :
     m_ui->versionComboBox->setCurrentIndex(static_cast<int>(tc->armVersion()));
     connect(m_ui->versionComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(emitDirty()));
 
+    addMkspecControls(m_ui->formLayout);
+
     setFromToolChain();
 }
 
@@ -423,6 +420,7 @@ void RvctToolChainConfigWidget::apply()
     tc->setArmVersion(static_cast<RvctToolChain::ArmVersion>(m_ui->versionComboBox->currentIndex()));
     tc->setEnvironmentChanges(changes);
     tc->setDebuggerCommand(debuggerCommand());
+    tc->setMkspecList(mkspecList());
 
     m_model->setUserChanges(changes);
 }
@@ -437,6 +435,7 @@ void RvctToolChainConfigWidget::setFromToolChain()
     m_ui->compilerPath->setFileName(tc->compilerCommand());
     m_ui->versionComboBox->setCurrentIndex(static_cast<int>(tc->armVersion()));
     setDebuggerCommand(tc->debuggerCommand());
+    setMkspecList(tc->mkspecList());
 }
 
 bool RvctToolChainConfigWidget::isDirty() const
@@ -447,7 +446,8 @@ bool RvctToolChainConfigWidget::isDirty() const
     return tc->compilerCommand() != m_ui->compilerPath->fileName()
             || tc->armVersion() != static_cast<RvctToolChain::ArmVersion>(m_ui->versionComboBox->currentIndex())
             || tc->environmentChanges() != environmentChanges()
-            || tc->debuggerCommand() != debuggerCommand();
+            || tc->debuggerCommand() != debuggerCommand()
+            || tc->mkspecList() != mkspecList();
 }
 
 void RvctToolChainConfigWidget::makeReadOnly()

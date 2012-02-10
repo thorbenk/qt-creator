@@ -39,6 +39,7 @@
 #include "qt4projectmanagerconstants.h"
 
 #include <qtsupport/qtsupportconstants.h>
+#include <projectexplorer/projectexplorerconstants.h>
 #include <coreplugin/dialogs/iwizard.h>
 
 #include <QtCore/QCoreApplication>
@@ -52,7 +53,7 @@ class QtQuickAppWizardDialog : public AbstractMobileAppWizardDialog
     Q_OBJECT
 
 public:
-    explicit QtQuickAppWizardDialog(QWidget *parent = 0);
+    explicit QtQuickAppWizardDialog(QWidget *parent, const Core::WizardDialogParameters &parameters);
 
 protected:
     bool validateCurrentPage();
@@ -66,8 +67,11 @@ private:
     friend class QtQuickAppWizard;
 };
 
-QtQuickAppWizardDialog::QtQuickAppWizardDialog(QWidget *parent)
-    : AbstractMobileAppWizardDialog(parent, QtSupport::QtVersionNumber(4, 7, 0), QtSupport::QtVersionNumber(4, INT_MAX, INT_MAX))
+QtQuickAppWizardDialog::QtQuickAppWizardDialog(QWidget *parent,
+                                               const Core::WizardDialogParameters &parameters)
+    : AbstractMobileAppWizardDialog(parent,
+                                    QtSupport::QtVersionNumber(4, 7, 0),
+                                    QtSupport::QtVersionNumber(4, INT_MAX, INT_MAX), parameters)
 {
     setWindowTitle(tr("New Qt Quick Application"));
     setIntroDescription(tr("This wizard generates a Qt Quick application project."));
@@ -141,15 +145,15 @@ Core::BaseFileWizardParameters QtQuickAppWizard::parameters()
                                  "projects. Moreover, you can select to use a set of premade "
                                  "UI components in your Qt Quick application. "
                                  "To utilize the components, Qt 4.7.4 or newer is required."));
-    parameters.setCategory(QLatin1String(QtSupport::Constants::QML_WIZARD_CATEGORY));
-    parameters.setDisplayCategory(QCoreApplication::translate(QtSupport::Constants::QML_WIZARD_TR_SCOPE,
-                                                              QtSupport::Constants::QML_WIZARD_TR_CATEGORY));
+    parameters.setCategory(QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY));
+    parameters.setDisplayCategory(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY_DISPLAY);
     return parameters;
 }
 
-AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWidget *parent) const
+AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWidget *parent,
+                                                                            const Core::WizardDialogParameters &parameters) const
 {
-    d->wizardDialog = new QtQuickAppWizardDialog(parent);
+    d->wizardDialog = new QtQuickAppWizardDialog(parent, parameters);
     d->wizardDialog->m_componentOptionsPage->setComponentSet(d->app->componentSet());
     return d->wizardDialog;
 }

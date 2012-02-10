@@ -95,6 +95,7 @@ public:
     Q_INVOKABLE QString getFilename(int index) const;
     Q_INVOKABLE int getLine(int index) const;
     Q_INVOKABLE QString getDetails(int index) const;
+    Q_INVOKABLE int getYPosition(int index) const;
 
     Q_INVOKABLE void setRowExpanded(int rowIndex, bool expanded);
 
@@ -181,7 +182,8 @@ protected:
 private:
     QColor colorForItem(int itemIndex);
     void drawItemsToPainter(QPainter *p, int fromIndex, int toIndex);
-    void drawSelectionBoxes(QPainter *p);
+    void drawSelectionBoxes(QPainter *p, int fromIndex, int toIndex);
+    void drawBindingLoopMarkers(QPainter *p, int fromIndex, int toIndex);
 
     void manageClicked();
     void manageHovered(int x, int y);

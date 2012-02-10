@@ -43,6 +43,7 @@
 #include "qt4buildconfiguration.h"
 
 #include <coreplugin/icore.h>
+#include <coreplugin/featureprovider.h>
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/runconfiguration.h>
@@ -92,10 +93,15 @@ Qt4TargetSetupWidget *Qt4BaseTargetFactory::createTargetSetupWidget(const QStrin
                                                                     const QString &proFilePath,
                                                                     const QtSupport::QtVersionNumber &minimumQtVersion,
                                                                     const QtSupport::QtVersionNumber &maximumQtVersion,
+                                                                    const Core::FeatureSet &requiredFeatures,
                                                                     bool importEnabled,
                                                                     QList<BuildConfigurationInfo> importInfos)
 {
-    QList<BuildConfigurationInfo> infos = this->availableBuildConfigurations(id, proFilePath, minimumQtVersion, maximumQtVersion);
+    QList<BuildConfigurationInfo> infos = this->availableBuildConfigurations(id,
+                                                                             proFilePath,
+                                                                             minimumQtVersion,
+                                                                             maximumQtVersion,
+                                                                             requiredFeatures);
     if (infos.isEmpty())
         return 0;
     const bool supportsShadowBuilds
@@ -121,7 +127,8 @@ ProjectExplorer::Target *Qt4BaseTargetFactory::create(ProjectExplorer::Project *
 
 QList<BuildConfigurationInfo> Qt4BaseTargetFactory::availableBuildConfigurations(const QString &id, const QString &proFilePath,
                                                                                  const QtSupport::QtVersionNumber &minimumQtVersion,
-                                                                                 const QtSupport::QtVersionNumber &maximumQtVersion)
+                                                                                 const QtSupport::QtVersionNumber &maximumQtVersion,
+                                                                                 const Core::FeatureSet &requiredFeatures)
 {
     QList<BuildConfigurationInfo> infoList;
     QList<QtSupport::BaseQtVersion *> knownVersions
@@ -139,6 +146,9 @@ QList<BuildConfigurationInfo> Qt4BaseTargetFactory::availableBuildConfigurations
         info.directory = shadowBuildDirectory(proFilePath, id, msgBuildConfigurationName(info));
         infoList.append(info);
     }
+
+    infoList = BuildConfigurationInfo::filterBuildConfigurationInfos(infoList, requiredFeatures);
+
     return infoList;
 }
 
@@ -306,7 +316,7 @@ ProjectExplorer::ToolChain *Qt4BaseTarget::preferredToolChain(ProjectExplorer::B
     QList<ProjectExplorer::ToolChain *> tcs = possibleToolChains(bc);
     const Utils::FileName mkspec = qtBc->qtVersion()->mkspec();
     foreach (ProjectExplorer::ToolChain *tc, tcs)
-        if (tc->mkspec() == mkspec)
+        if (tc->mkspecList().contains(mkspec))
             return tc;
     return tcs.isEmpty() ? 0 : tcs.at(0);
 }
@@ -318,11 +328,14 @@ Utils::FileName Qt4BaseTarget::mkspec(const Qt4BuildConfiguration *bc) const
     if (version && version->qtAbis().count() == 1 && version->qtAbis().first().isNull())
         return Utils::FileName();
 
-    const Utils::FileName tcSpec = bc->toolChain() ? bc->toolChain()->mkspec() : Utils::FileName();
+    const QList<Utils::FileName> tcSpecList
+            = bc->toolChain() ? bc->toolChain()->mkspecList() : QList<Utils::FileName>();
     if (!version)
-        return tcSpec;
-    if (!tcSpec.isEmpty() && version->hasMkspec(tcSpec))
-        return tcSpec;
+        return Utils::FileName(); // No Qt version, so no qmake either...
+    foreach (const Utils::FileName &tcSpec, tcSpecList) {
+        if (version->hasMkspec(tcSpec))
+            return tcSpec;
+    }
     return version->mkspec();
 }
 
@@ -392,7 +405,25 @@ Qt4BuildConfiguration *Qt4BaseTarget::addQt4BuildConfiguration(QString defaultDi
     bc->setQtVersion(qtversion);
     if (!directory.isEmpty())
         bc->setShadowBuildAndDirectory(directory != project()->projectDirectory(), directory);
+
     addBuildConfiguration(bc);
+
+    Utils::FileName extractedMkspec
+            = Qt4BuildConfiguration::extractSpecFromArguments(&additionalArguments,
+                                                              directory, qtversion);
+    // Find a good tool chain for the mkspec we extracted from the build (rely on default behavior
+    // if no -spec argument was given or it is the default).
+    if (!extractedMkspec.isEmpty()
+            && extractedMkspec != Utils::FileName::fromString(QLatin1String("default"))
+            && extractedMkspec != qtversion->mkspec()) {
+        QList<ProjectExplorer::ToolChain *> tcList = bc->target()->possibleToolChains(bc);
+        foreach (ProjectExplorer::ToolChain *tc, tcList) {
+            if (tc->mkspecList().contains(extractedMkspec)) {
+                bc->setToolChain(tc);
+                qmakeStep->setUserArguments(additionalArguments); // remove unnecessary -spec
+            }
+        }
+    }
 
     return bc;
 }
@@ -692,7 +723,12 @@ void Qt4DefaultTargetSetupWidget::setProFilePath(const QString &proFilePath)
 {
     m_proFilePath = proFilePath;
     m_detailsWidget->setAdditionalSummaryText(issuesListToString(m_factory->reportIssues(m_proFilePath)));
-    setBuildConfigurationInfos(m_factory->availableBuildConfigurations(m_id, proFilePath, m_minimumQtVersion, m_maximumQtVersion), false);
+    setBuildConfigurationInfos(m_factory->availableBuildConfigurations(m_id,
+                                                                       proFilePath,
+                                                                       m_minimumQtVersion,
+                                                                       m_maximumQtVersion,
+                                                                       Core::FeatureSet()),
+                                                                       false);
 }
 
 void Qt4DefaultTargetSetupWidget::setBuildConfiguraionComboBoxVisible(bool b)
@@ -1172,6 +1208,18 @@ QList<BuildConfigurationInfo> BuildConfigurationInfo::filterBuildConfigurationIn
     QList<BuildConfigurationInfo> result;
     foreach (const BuildConfigurationInfo &info, infos)
         if (info.version->supportsTargetId(id))
+            result.append(info);
+    return result;
+}
+
+QList<BuildConfigurationInfo> BuildConfigurationInfo::filterBuildConfigurationInfosByPlatform(const QList<BuildConfigurationInfo> &infos,
+                                                                                              const QString &platform)
+{
+    if (platform.isEmpty()) // empty target == target independent
+        return infos;
+    QList<BuildConfigurationInfo> result;
+    foreach (const BuildConfigurationInfo &info, infos)
+        if (info.version->supportsPlatform(platform))
             result.append(info);
     return result;
 }

@@ -50,7 +50,6 @@ public:
 
     QString type() const;
     QString typeDisplayName() const;
-    Utils::FileName mkspec() const;
 
     bool isValid() const;
     bool canClone() const;
@@ -70,7 +69,7 @@ public:
     QString legacyId() const;
 
 protected:
-    QList<ProjectExplorer::Abi> findAbiForCompilerPath(const QString &path);
+    QList<ProjectExplorer::Abi> detectSupportedAbis() const;
 
 private:
     explicit MaemoToolChain(bool);

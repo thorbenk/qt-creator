@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
@@ -30,40 +30,53 @@
 **
 **************************************************************************/
 
-#ifndef EMBEDDEDLINUXTARGET_H
-#define EMBEDDEDLINUXTARGET_H
+#ifndef UNCONFIGUREDSETTINGSOPTIONPAGE_H
+#define UNCONFIGUREDSETTINGSOPTIONPAGE_H
 
-#include <qt4projectmanager/qt4target.h>
-#include <qt4projectmanager/qt4buildconfiguration.h>
+#include <coreplugin/dialogs/ioptionspage.h>
+#include <QtGui/QWidget>
 
-namespace RemoteLinux {
+QT_BEGIN_NAMESPACE
+class QComboBox;
+class QCheckBox;
+QT_END_NAMESPACE
+
+namespace Qt4ProjectManager {
 namespace Internal {
 
-class EmbeddedLinuxTargetFactory;
-
-class EmbeddedLinuxTarget : public Qt4ProjectManager::Qt4BaseTarget
+class UnConfiguredSettingsWidget : public QWidget
 {
-    Q_OBJECT
-
+   Q_OBJECT
 public:
-    EmbeddedLinuxTarget(Qt4ProjectManager::Qt4Project *parent, const QString &id);
-    ~EmbeddedLinuxTarget();
-
-    ProjectExplorer::IBuildConfigurationFactory *buildConfigurationFactory() const;
-
-    void createApplicationProFiles(bool reparse);
-
-    QList<ProjectExplorer::RunConfiguration *> runConfigurationsForNode(ProjectExplorer::Node *n);
-
-    Utils::FileName mkspec(const Qt4ProjectManager::Qt4BuildConfiguration *bc) const;
-
+    UnConfiguredSettingsWidget(QWidget *parent);
+    void apply();
+    bool matches(const QString &searchKeyword);
 private:
-    Qt4ProjectManager::Qt4BuildConfigurationFactory *m_buildConfigurationFactory;
+    QComboBox *m_qtVersionComboBox;
+    QComboBox *m_toolchainComboBox;
+    QCheckBox *m_alwaysSkipCheckBox;
+};
 
-    friend class EmbeddedLinuxTargetFactory;
+class UnConfiguredSettingsOptionPage : public Core::IOptionsPage
+{
+public:
+    UnConfiguredSettingsOptionPage();
+
+    QString id() const;
+    QString displayName() const;
+    QString category() const;
+    QString displayCategory() const;
+    QIcon categoryIcon() const;
+    bool matches(const QString &searcKeyword) const;
+
+    QWidget *createPage(QWidget *parent);
+    void apply();
+    void finish();
+private:
+    UnConfiguredSettingsWidget *m_widget;
 };
 
 } // namespace Internal
-} // namespace RemoteLinux
+} // namespace Qt4ProjectManager
 
-#endif // EMBEDDEDLINUXTARGET_H
+#endif // UNCONFIGUREDSETTINGSOPTIONPAGE_H

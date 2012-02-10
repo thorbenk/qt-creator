@@ -291,8 +291,12 @@ void CppHighlighter::highlightBlock(const QString &text)
     if (tokens.isEmpty()) {
         setCurrentBlockState(previousState);
         BaseTextDocumentLayout::clearParentheses(currentBlock());
-        if (text.length()) // the empty line can still contain whitespace
-            setFormat(0, text.length(), m_formats[CppVisualWhitespace]);
+        if (text.length())  {// the empty line can still contain whitespace
+            if (!initialState)
+                setFormat(0, text.length(), m_formats[CppVisualWhitespace]);
+            else
+                setFormat(0, text.length(), m_formats[CppCommentFormat]);
+        }
         BaseTextDocumentLayout::setFoldingIndent(currentBlock(), foldingIndent);
         return;
     }
@@ -316,8 +320,10 @@ void CppHighlighter::highlightBlock(const QString &text)
         }
 
         if (previousTokenEnd != tk.begin()) {
-            setFormat(previousTokenEnd, tk.begin() - previousTokenEnd,
-                      m_formats[CppVisualWhitespace]);
+            if (initialState && tk.isComment())
+                setFormat(previousTokenEnd, tk.begin() - previousTokenEnd, m_formats[CppCommentFormat]);
+            else
+                setFormat(previousTokenEnd, tk.begin() - previousTokenEnd, m_formats[CppVisualWhitespace]);
         }
 
         if (tk.is(T_LPAREN) || tk.is(T_LBRACE) || tk.is(T_LBRACKET)) {
@@ -424,7 +430,7 @@ void CppHighlighter::highlightBlock(const QString &text)
         const Token tk = tokens.last();
         const int lastTokenEnd = tk.begin() + tk.length();
         if (text.length() > lastTokenEnd)
-            setFormat(lastTokenEnd, text.length() - lastTokenEnd, QTextCharFormat());
+            highlightLine(text, lastTokenEnd, text.length() - lastTokenEnd, QTextCharFormat());
     }
 
     if (! initialState && state && ! tokens.isEmpty()) {
@@ -651,7 +657,7 @@ void CppHighlighter::highlightDoxygenComment(const QString &text, int position, 
 
             int k = CppTools::classifyDoxygenTag(start, it - start);
             if (k != CppTools::T_DOXY_IDENTIFIER) {
-                setFormat(initial, start - uc - initial, format);
+                highlightLine(text, initial, start - uc - initial, format);
                 setFormat(start - uc - 1, it - start + 1, kwFormat);
                 initial = it - uc;
             }
@@ -659,6 +665,6 @@ void CppHighlighter::highlightDoxygenComment(const QString &text, int position, 
             ++it;
     }
 
-    setFormat(initial, it - uc - initial, format);
+    highlightLine(text, initial, it - uc - initial, format);
 }
 

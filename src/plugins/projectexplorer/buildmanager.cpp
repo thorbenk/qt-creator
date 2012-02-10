@@ -58,7 +58,7 @@
 #include <QtCore/QHash>
 #include <QtCore/QFutureWatcher>
 
-#include <qtconcurrent/QtConcurrentTools>
+#include <utils/QtConcurrentTools>
 
 #include <QtGui/QApplication>
 #include <QtGui/QMainWindow>
@@ -314,7 +314,7 @@ bool BuildManager::tasksAvailable() const
     return count > 0;
 }
 
-void BuildManager::startBuildQueue()
+void BuildManager::startBuildQueue(const QStringList &preambleMessage)
 {
     if (d->m_buildQueue.isEmpty()) {
         emit buildQueueFinished(true);
@@ -326,6 +326,8 @@ void BuildManager::startBuildQueue()
         d->m_progressFutureInterface = new QFutureInterface<void>;
         d->m_progressWatcher.setFuture(d->m_progressFutureInterface->future());
         d->m_outputWindow->clearContents();
+        foreach (const QString &str, preambleMessage)
+            addToOutputWindow(str, BuildStep::MessageOutput, BuildStep::DontAppendNewline);
         d->m_taskHub->clearTasks(Core::Id(Constants::TASK_CATEGORY_COMPILE));
         d->m_taskHub->clearTasks(Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM));
         progressManager->setApplicationLabel(QString());
@@ -537,7 +539,7 @@ bool BuildManager::buildList(BuildStepList *bsl, const QString &stepListName)
     return buildLists(QList<BuildStepList *>() << bsl, QStringList() << stepListName);
 }
 
-bool BuildManager::buildLists(QList<BuildStepList *> bsls, const QStringList &stepListNames)
+bool BuildManager::buildLists(QList<BuildStepList *> bsls, const QStringList &stepListNames, const QStringList &preambelMessage)
 {
     QList<BuildStep *> steps;
     foreach(BuildStepList *list, bsls)
@@ -559,7 +561,7 @@ bool BuildManager::buildLists(QList<BuildStepList *> bsls, const QStringList &st
 
     if (ProjectExplorerPlugin::instance()->projectExplorerSettings().showCompilerOutput)
         d->m_outputWindow->popup(false);
-    startBuildQueue();
+    startBuildQueue(preambelMessage);
     return true;
 }
 

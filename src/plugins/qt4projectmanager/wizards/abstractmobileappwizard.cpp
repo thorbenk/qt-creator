@@ -51,8 +51,9 @@ namespace Qt4ProjectManager {
 
 AbstractMobileAppWizardDialog::AbstractMobileAppWizardDialog(QWidget *parent,
                                                              const QtSupport::QtVersionNumber &minimumQtVersionNumber,
-                                                             const QtSupport::QtVersionNumber &maximumQtVersionNumber)
-    : ProjectExplorer::BaseProjectWizardDialog(parent)
+                                                             const QtSupport::QtVersionNumber &maximumQtVersionNumber,
+                                                             const Core::WizardDialogParameters &parameters)
+    : ProjectExplorer::BaseProjectWizardDialog(parent, parameters)
     , m_genericOptionsPageId(-1)
     , m_symbianOptionsPageId(-1)
     , m_maemoOptionsPageId(-1)
@@ -69,6 +70,8 @@ AbstractMobileAppWizardDialog::AbstractMobileAppWizardDialog(QWidget *parent,
     m_targetsPage->setPreferredFeatures(QSet<QString>() << QLatin1String(Constants::MOBILE_TARGETFEATURE_ID));
     m_targetsPage->setMinimumQtVersion(minimumQtVersionNumber);
     m_targetsPage->setMaximumQtVersion(maximumQtVersionNumber);
+    m_targetsPage->setSelectedPlatform(selectedPlatform());
+    m_targetsPage->setRequiredQtFeatures(requiredFeatures());
     resize(900, 450);
 
     m_genericOptionsPage = new Internal::MobileAppWizardGenericOptionsPage;
@@ -227,12 +230,12 @@ AbstractMobileAppWizard::AbstractMobileAppWizard(const Core::BaseFileWizardParam
 }
 
 QWizard *AbstractMobileAppWizard::createWizardDialog(QWidget *parent,
-    const QString &defaultPath, const WizardPageList &extensionPages) const
+                                                     const Core::WizardDialogParameters &wizardDialogParameters) const
 {
     AbstractMobileAppWizardDialog * const wdlg
-        = createWizardDialogInternal(parent);
-    wdlg->setPath(defaultPath);
-    wdlg->setProjectName(ProjectExplorer::BaseProjectWizardDialog::uniqueProjectName(defaultPath));
+        = createWizardDialogInternal(parent, wizardDialogParameters);
+    wdlg->setPath(wizardDialogParameters.defaultPath());
+    wdlg->setProjectName(ProjectExplorer::BaseProjectWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     wdlg->m_genericOptionsPage->setOrientation(app()->orientation());
     wdlg->m_symbianOptionsPage->setSvgIcon(app()->symbianSvgIcon());
     wdlg->m_symbianOptionsPage->setNetworkEnabled(app()->networkEnabled());
@@ -241,7 +244,7 @@ QWizard *AbstractMobileAppWizard::createWizardDialog(QWidget *parent,
     wdlg->m_harmattanOptionsPage->setBoosterOptionEnabled(app()->canSupportMeegoBooster());
     connect(wdlg, SIGNAL(projectParametersChanged(QString, QString)),
         SLOT(useProjectPath(QString, QString)));
-    foreach (QWizardPage *p, extensionPages)
+    foreach (QWizardPage *p, wizardDialogParameters.extensionPages())
         BaseFileWizard::applyExtensionPageShortTitle(wdlg, wdlg->addPage(p));
     return wdlg;
 }

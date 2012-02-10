@@ -21,6 +21,11 @@ QString CompletionProjectSettingsPanelFactory::displayName() const
                                        "Code Completion Settings");
 }
 
+int CompletionProjectSettingsPanelFactory::priority() const
+{
+    return 60;
+}
+
 bool CompletionProjectSettingsPanelFactory::supports(Project *project)
 {
     //### TODO

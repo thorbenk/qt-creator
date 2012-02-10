@@ -69,9 +69,6 @@ public slots:
     void setToggleCollectFunction(const QString &toggleCollectFunction);
 
 protected:
-    void setExtraArguments(const QStringList &extraArguments);
-    inline QStringList extraArguments() const { return m_extraArguments; }
-
     virtual QStringList toolArguments() const;
     virtual QString progressTitle() const;
     virtual Valgrind::ValgrindRunner *runner();
@@ -88,7 +85,7 @@ private:
     Valgrind::Callgrind::CallgrindRunner m_runner;
     bool m_markAsPaused;
 
-    QStringList m_extraArguments;
+    QString m_argumentForToggleCollect;
 };
 
 } // namespace Internal

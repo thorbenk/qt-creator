@@ -87,6 +87,7 @@ public:
     QString category;
     QString displayCategory;
     Core::FeatureSet requiredFeatures;
+    Core::IWizard::WizardFlags flags;
 };
 
 BaseFileWizardParameterData::BaseFileWizardParameterData(IWizard::WizardKind k) :
@@ -232,6 +233,15 @@ void BaseFileWizardParameters::setDisplayCategory(const QString &v)
     m_d->displayCategory = v;
 }
 
+Core::IWizard::WizardFlags BaseFileWizardParameters::flags() const
+{
+    return m_d->flags;
+}
+
+void BaseFileWizardParameters::setFlags(Core::IWizard::WizardFlags flags)
+{
+    m_d->flags = flags;
+}
 /*!
     \class Core::Internal::WizardEventLoop
     \brief Special event loop that runs a QWizard and terminates if the page changes.
@@ -407,7 +417,7 @@ QString BaseFileWizard::displayCategory() const
     return d->m_parameters.displayCategory();
 }
 
-void BaseFileWizard::runWizard(const QString &path, QWidget *parent)
+void BaseFileWizard::runWizard(const QString &path, QWidget *parent, const QString &platform)
 {
     QTC_ASSERT(!path.isEmpty(), return);
 
@@ -437,7 +447,10 @@ void BaseFileWizard::runWizard(const QString &path, QWidget *parent)
     // Create dialog and run it. Ensure that the dialog is deleted when
     // leaving the func, but not before the IFileWizardExtension::process
     // has been called
-    const QScopedPointer<QWizard> wizard(createWizardDialog(parent, path, allExtensionPages));
+    const QScopedPointer<QWizard> wizard(createWizardDialog(parent, WizardDialogParameters(path,
+                                                                                           allExtensionPages,
+                                                                                           platform,
+                                                                                           requiredFeatures())));
     QTC_ASSERT(!wizard.isNull(), return);
 
     GeneratedFiles files;
@@ -519,6 +532,11 @@ void BaseFileWizard::runWizard(const QString &path, QWidget *parent)
 Core::FeatureSet BaseFileWizard::requiredFeatures() const
 {
     return d->m_parameters.requiredFeatures();
+}
+
+Core::IWizard::WizardFlags BaseFileWizard::flags() const
+{
+    return d->m_parameters.flags();
 }
 
 /*!
@@ -773,14 +791,13 @@ StandardFileWizard::StandardFileWizard(const BaseFileWizardParameters &parameter
 */
 
 QWizard *StandardFileWizard::createWizardDialog(QWidget *parent,
-                                                const QString &defaultPath,
-                                                const WizardPageList &extensionPages) const
+                                                const WizardDialogParameters &wizardDialogParameters) const
 {
     Utils::FileWizardDialog *standardWizardDialog = new Utils::FileWizardDialog(parent);
     standardWizardDialog->setWindowTitle(tr("New %1").arg(displayName()));
     setupWizard(standardWizardDialog);
-    standardWizardDialog->setPath(defaultPath);
-    foreach (QWizardPage *p, extensionPages)
+    standardWizardDialog->setPath(wizardDialogParameters.defaultPath());
+    foreach (QWizardPage *p, wizardDialogParameters.extensionPages())
         BaseFileWizard::applyExtensionPageShortTitle(standardWizardDialog, standardWizardDialog->addPage(p));
     return standardWizardDialog;
 }

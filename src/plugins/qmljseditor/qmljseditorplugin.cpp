@@ -70,6 +70,7 @@
 #include <texteditor/textfilewizard.h>
 #include <texteditor/texteditoractionhandler.h>
 #include <utils/qtcassert.h>
+#include <utils/json.h>
 
 #include <QtCore/QtPlugin>
 #include <QtCore/QDebug>
@@ -98,7 +99,10 @@ QmlJSEditorPlugin::QmlJSEditorPlugin() :
     m_actionHandler(0),
     m_quickFixAssistProvider(0),
     m_reformatFileAction(0),
-    m_currentEditor(0)
+    m_currentEditor(0),
+    m_jsonManager(new Utils::JsonSchemaManager(
+            QStringList() << Core::ICore::instance()->userResourcePath() + QLatin1String("/json/")
+                          << Core::ICore::instance()->resourcePath() + QLatin1String("/json/")))
 {
     m_instance = this;
 }
@@ -151,16 +155,16 @@ bool QmlJSEditorPlugin::initialize(const QStringList & /*arguments*/, QString *e
 
     QObject *core = Core::ICore::instance();
     Core::BaseFileWizardParameters qmlWizardParameters(Core::IWizard::FileWizard);
-    qmlWizardParameters.setCategory(QLatin1String(Constants::WIZARD_CATEGORY_QML));
-    qmlWizardParameters.setDisplayCategory(QCoreApplication::translate("QmlJsEditor", Constants::WIZARD_TR_CATEGORY_QML));
+    qmlWizardParameters.setCategory(QLatin1String(Core::Constants::WIZARD_CATEGORY_QT));
+    qmlWizardParameters.setDisplayCategory(QCoreApplication::translate("QmlJsEditor", Core::Constants::WIZARD_TR_CATEGORY_QT));
     qmlWizardParameters.setDescription(tr("Creates a QML file."));
     qmlWizardParameters.setDisplayName(tr("QML File"));
     qmlWizardParameters.setId(QLatin1String("Q.Qml"));
     addAutoReleasedObject(new QmlFileWizard(qmlWizardParameters, core));
 
     Core::BaseFileWizardParameters jsWizardParameters(Core::IWizard::FileWizard);
-    jsWizardParameters.setCategory(QLatin1String(Constants::WIZARD_CATEGORY_QML));
-    jsWizardParameters.setDisplayCategory(QCoreApplication::translate("QmlJsEditor", Constants::WIZARD_TR_CATEGORY_QML));
+    jsWizardParameters.setCategory(QLatin1String(Core::Constants::WIZARD_CATEGORY_QT));
+    jsWizardParameters.setDisplayCategory(QCoreApplication::translate("QmlJsEditor", Core::Constants::WIZARD_TR_CATEGORY_QT));
     jsWizardParameters.setDescription(tr("Creates a JavaScript file."));
     jsWizardParameters.setDisplayName(tr("JS File"));
     jsWizardParameters.setId(QLatin1String("Z.Js"));
@@ -283,6 +287,11 @@ void QmlJSEditorPlugin::initializeEditor(QmlJSEditor::QmlJSTextEditorWidget *edi
 
     editor->setLanguageSettingsId(QmlJSTools::Constants::QML_JS_SETTINGS_ID);
     TextEditor::TextEditorSettings::instance()->initializeEditor(editor);
+}
+
+Utils::JsonSchemaManager *QmlJSEditorPlugin::jsonManager() const
+{
+    return m_jsonManager.data();
 }
 
 void QmlJSEditorPlugin::followSymbolUnderCursor()

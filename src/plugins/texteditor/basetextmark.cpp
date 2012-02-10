@@ -43,7 +43,7 @@
 namespace TextEditor {
 
 BaseTextMark::BaseTextMark()
-    : m_markableInterface(0), m_init(false)
+    : m_markableInterface(0)
 {}
 
 BaseTextMark::~BaseTextMark()
@@ -65,7 +65,6 @@ void BaseTextMark::setLocation(const QString &fileName, int line)
 
 void BaseTextMark::init()
 {
-    m_init = true;
     Core::EditorManager *em = Core::EditorManager::instance();
     connect(em, SIGNAL(editorOpened(Core::IEditor *)),
         SLOT(editorOpened(Core::IEditor *)));
@@ -122,22 +121,6 @@ void BaseTextMark::updateMarker()
     //qDebug()<<"BaseTextMark::updateMarker()"<<m_markableInterface<<this;
     if (m_markableInterface)
         m_markableInterface->updateMark(this);
-}
-
-void BaseTextMark::moveMark(const QString & /* filename */, int /* line */)
-{
-    Core::EditorManager *em = Core::EditorManager::instance();
-    if (!m_init) {
-        connect(em, SIGNAL(editorOpened(Core::IEditor *)),
-            SLOT(editorOpened(Core::IEditor *)));
-        m_init = true;
-    }
-
-    if (m_markableInterface)
-        m_markableInterface->removeMark(this);
-
-    foreach (Core::IEditor *editor, em->openedEditors())
-        editorOpened(editor);
 }
 
 } // namespace TextEditor

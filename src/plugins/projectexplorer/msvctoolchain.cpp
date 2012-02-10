@@ -354,15 +354,15 @@ QString MsvcToolChain::typeDisplayName() const
     return MsvcToolChainFactory::tr("MSVC");
 }
 
-Utils::FileName MsvcToolChain::mkspec() const
+QList<Utils::FileName> MsvcToolChain::suggestedMkspecList() const
 {
     if (m_abi.osFlavor() == Abi::WindowsMsvc2005Flavor)
-        return Utils::FileName::fromString(QLatin1String("win32-msvc2005"));
+        return QList<Utils::FileName>() << Utils::FileName::fromString(QLatin1String("win32-msvc2005"));
     if (m_abi.osFlavor() == Abi::WindowsMsvc2008Flavor)
-        return Utils::FileName::fromString(QLatin1String("win32-msvc2008"));
+        return QList<Utils::FileName>() << Utils::FileName::fromString(QLatin1String("win32-msvc2008"));
     if (m_abi.osFlavor() == Abi::WindowsMsvc2010Flavor)
-        return Utils::FileName::fromString(QLatin1String("win32-msvc2010"));
-    return Utils::FileName();
+        return QList<Utils::FileName>() << Utils::FileName::fromString(QLatin1String("win32-msvc2010"));
+    return QList<Utils::FileName>();
 }
 
 QVariantMap MsvcToolChain::toMap() const
@@ -452,6 +452,7 @@ MsvcToolChainConfigWidget::MsvcToolChainConfigWidget(ToolChain *tc) :
     formLayout->addRow(new MsvcDebuggerConfigLabel);
     addDebuggerCommandControls(formLayout, QStringList(QLatin1String("-version")));
     addDebuggerAutoDetection(this, SLOT(autoDetectDebugger()));
+    addMkspecControls(formLayout);
     addErrorLabel(formLayout);
     setFromToolChain();
 }
@@ -461,6 +462,7 @@ void MsvcToolChainConfigWidget::apply()
     MsvcToolChain *tc = static_cast<MsvcToolChain *>(toolChain());
     QTC_ASSERT(tc, return; );
     tc->setDebuggerCommand(debuggerCommand());
+    tc->setMkspecList(mkspecList());
 }
 
 void MsvcToolChainConfigWidget::setFromToolChain()
@@ -474,13 +476,15 @@ void MsvcToolChainConfigWidget::setFromToolChain()
     }
     m_varsBatDisplayLabel->setText(varsBatDisplay);
     setDebuggerCommand(tc->debuggerCommand());
+    setMkspecList(tc->mkspecList());
 }
 
 bool MsvcToolChainConfigWidget::isDirty() const
 {
     MsvcToolChain *tc = static_cast<MsvcToolChain *>(toolChain());
     QTC_ASSERT(tc, return false);
-    return debuggerCommand() != tc->debuggerCommand();
+    return debuggerCommand() != tc->debuggerCommand()
+            || mkspecList() != tc->mkspecList();
 }
 
 void MsvcToolChainConfigWidget::autoDetectDebugger()

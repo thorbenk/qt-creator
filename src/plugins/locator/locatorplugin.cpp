@@ -49,7 +49,7 @@
 #include <coreplugin/progressmanager/futureprogress.h>
 #include <coreplugin/id.h>
 #include <extensionsystem/pluginmanager.h>
-#include <qtconcurrent/QtConcurrentTools>
+#include <utils/QtConcurrentTools>
 #include <utils/qtcassert.h>
 
 #include <QtCore/QSettings>
@@ -84,6 +84,7 @@ namespace {
 }
 
 LocatorPlugin::LocatorPlugin()
+    : m_settingsInitialized(false)
 {
     m_refreshTimer.setSingleShot(false);
     connect(&m_refreshTimer, SIGNAL(timeout()), this, SLOT(refresh()));
@@ -139,7 +140,6 @@ bool LocatorPlugin::initialize(const QStringList &, QString *)
 
     addAutoReleasedObject(new LocatorFiltersFilter(this, m_locatorWidget));
 
-    connect(Core::ICore::instance(), SIGNAL(coreOpened()), this, SLOT(startSettingsLoad()));
     return true;
 }
 
@@ -167,10 +167,10 @@ void LocatorPlugin::extensionsInitialized()
     setFilters(m_filters);
 }
 
-void LocatorPlugin::startSettingsLoad()
+bool LocatorPlugin::delayedInitialize()
 {
-    connect(&m_loadWatcher, SIGNAL(finished()), this, SLOT(settingsLoaded()));
-    m_loadWatcher.setFuture(QtConcurrent::run(this, &LocatorPlugin::loadSettings));
+    loadSettings();
+    return true;
 }
 
 void LocatorPlugin::loadSettings()
@@ -186,19 +186,17 @@ void LocatorPlugin::loadSettings()
     }
 
     qs->remove(QLatin1String("QuickOpen"));
-}
 
-void LocatorPlugin::settingsLoaded()
-{
     m_locatorWidget->updateFilterList();
     m_locatorWidget->setEnabled(true);
     if (m_refreshTimer.interval() > 0)
         m_refreshTimer.start();
+    m_settingsInitialized = true;
 }
 
 void LocatorPlugin::saveSettings()
 {
-    if (Core::ICore::instance() && Core::ICore::settingsDatabase()) {
+    if (m_settingsInitialized) {
         Core::SettingsDatabase *s = Core::ICore::settingsDatabase();
         s->beginGroup(QLatin1String("QuickOpen"));
         s->remove(QString());

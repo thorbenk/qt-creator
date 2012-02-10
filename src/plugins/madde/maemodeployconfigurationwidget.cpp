@@ -87,7 +87,7 @@ void MaemoDeployConfigurationWidget::init(DeployConfiguration *dc)
     m_remoteLinuxWidget->init(dc);
     connect(ui->addDesktopFileButton, SIGNAL(clicked()), SLOT(addDesktopFile()));
     connect(ui->addIconButton, SIGNAL(clicked()), SLOT(addIcon()));
-    connect(deployConfiguration()->deploymentInfo().data(), SIGNAL(modelAboutToBeReset()),
+    connect(deployConfiguration()->deploymentInfo(), SIGNAL(modelAboutToBeReset()),
         SLOT(handleDeploymentInfoToBeReset()));
 }
 
@@ -132,7 +132,9 @@ void MaemoDeployConfigurationWidget::addDesktopFile()
     if (qobject_cast<Qt4Maemo5Target *>(deployConfiguration()->target()))
         d.remoteDir += QLatin1String("/hildon");
     d.localFilePath = desktopFilePath;
-    if (!deployConfiguration()->deploymentSettingsAssistant()->addDeployableToProFile(proFileInfo,
+    const AbstractQt4MaemoTarget * const target
+        = qobject_cast<AbstractQt4MaemoTarget *>(deployConfiguration()->target());
+    if (!target->deploymentSettingsAssistant()->addDeployableToProFile(proFileInfo,
         QLatin1String("desktopfile"), d)) {
         QMessageBox::critical(this, tr("Project File Update Failed"),
             tr("Could not update the project file."));
@@ -144,7 +146,8 @@ void MaemoDeployConfigurationWidget::addDesktopFile()
 void MaemoDeployConfigurationWidget::addIcon()
 {
     DeployableFilesPerProFile * const proFileInfo = m_remoteLinuxWidget->currentModel();
-    const int iconDim = MaemoGlobal::applicationIconSize(deployConfiguration()->supportedOsType());
+    const int iconDim
+        = MaemoGlobal::applicationIconSize(deployConfiguration()->target()->supportedOsType());
     const QString origFilePath = QFileDialog::getOpenFileName(this,
         tr("Choose Icon (will be scaled to %1x%1 pixels, if necessary)").arg(iconDim),
         proFileInfo->projectDir(), QLatin1String("(*.png)"));
@@ -168,7 +171,9 @@ void MaemoDeployConfigurationWidget::addIcon()
         return;
     }
 
-    if (!deployConfiguration()->deploymentSettingsAssistant()->addDeployableToProFile(proFileInfo,
+    const AbstractQt4MaemoTarget * const target
+        = qobject_cast<AbstractQt4MaemoTarget *>(deployConfiguration()->target());
+    if (!target->deploymentSettingsAssistant()->addDeployableToProFile(proFileInfo,
         QLatin1String("icon"), DeployableFile(newFilePath, remoteIconDir()))) {
         QMessageBox::critical(this, tr("Project File Update Failed"),
             tr("Could not update the project file."));
@@ -207,7 +212,7 @@ QString MaemoDeployConfigurationWidget::remoteIconFilePath(const DeployableFiles
 QString MaemoDeployConfigurationWidget::remoteIconDir() const
 {
     return QString::fromLatin1("/usr/share/icons/hicolor/%1x%1/apps")
-        .arg(MaemoGlobal::applicationIconSize(deployConfiguration()->supportedOsType()));
+        .arg(MaemoGlobal::applicationIconSize(deployConfiguration()->target()->supportedOsType()));
 }
 
 } // namespace Internal

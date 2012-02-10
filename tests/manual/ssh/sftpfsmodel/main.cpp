@@ -29,16 +29,20 @@
 ** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+#include "window.h"
 
-#ifndef QTCONCURRENT_GLOBAL_H
-#define QTCONCURRENT_GLOBAL_H
+#include <utils/ssh/sftpfilesystemmodel.h>
+#include <utils/ssh/sshconnection.h>
 
-#include <QtCore/qglobal.h>
+#include <QApplication>
+#include <QTreeView>
 
-#if defined(BUILD_QTCONCURRENT)
-#  define QTCONCURRENT_EXPORT Q_DECL_EXPORT
-#else
-#  define QTCONCURRENT_EXPORT Q_DECL_IMPORT
-#endif
+using namespace Utils;
 
-#endif // QTCONCURRENT_GLOBAL_H
+int main(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
+    SftpFsWindow w;
+    w.show();
+    return app.exec();
+}

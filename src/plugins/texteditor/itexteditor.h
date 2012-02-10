@@ -59,7 +59,7 @@ class TEXTEDITOR_EXPORT ITextMark : public QObject
 {
     Q_OBJECT
 public:
-    ITextMark(QObject *parent = 0) : QObject(parent) {}
+    ITextMark() : m_priority(NormalPriority) {}
 
     // determine order on markers on the same line.
     enum Priority
@@ -74,9 +74,9 @@ public:
     virtual void updateBlock(const QTextBlock &block);
     virtual void removedFromEditor();
     virtual void documentClosing();
-    virtual void setIcon(const QIcon &icon);
-    virtual Priority priority() const;
-    virtual void setPriority(Priority prioriy);
+    void setIcon(const QIcon &icon);
+    Priority priority() const;
+    void setPriority(Priority prioriy);
     virtual double widthFactor() const;
 
 private:

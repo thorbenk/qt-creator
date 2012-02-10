@@ -30,33 +30,23 @@
 **
 **************************************************************************/
 
-#ifndef PROJECTLOADWIZARD_H
-#define PROJECTLOADWIZARD_H
+#include "cppchecksymbols.h"
+#include "cpphighlightingsupport.h"
+#include "cpptoolseditorsupport.h"
 
-#include <QtGui/QWizard>
+#include <cplusplus/LookupContext.h>
 
-namespace Qt4ProjectManager {
-class Qt4Project;
-class TargetSetupPage;
+using namespace CPlusPlus;
+using namespace CppTools;
+using namespace CppTools::Internal;
 
-namespace Internal {
-
-class ProjectLoadWizard : public QWizard
+CppHighlightingSupport::CppHighlightingSupport()
 {
-    Q_OBJECT
-public:
-    explicit ProjectLoadWizard(Qt4Project *project, QWidget * parent = 0, Qt::WindowFlags flags = 0);
-    virtual ~ProjectLoadWizard();
-    virtual void done(int result);
+}
 
-private:
-    void applySettings();
-
-    Qt4Project *m_project;
-    TargetSetupPage *m_targetSetupPage;
-};
-
-} // namespace Internal
-} // namespace Qt4ProjectManager
-
-#endif // PROJECTLOADWIZARD_H
+QFuture<CppHighlightingSupport::Use> CppHighlightingSupport::highlightingFuture(
+        const Document::Ptr &doc, const Snapshot &snapshot) const
+{
+    LookupContext context(doc, snapshot);
+    return CheckSymbols::go(doc, context);
+}

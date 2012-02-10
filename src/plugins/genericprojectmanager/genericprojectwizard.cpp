@@ -138,19 +138,19 @@ Core::BaseFileWizardParameters GenericProjectWizard::parameters()
                                  "This allows you to use Qt Creator as a code editor."));
     parameters.setCategory(QLatin1String(ProjectExplorer::Constants::IMPORT_WIZARD_CATEGORY));
     parameters.setDisplayCategory(QLatin1String(ProjectExplorer::Constants::IMPORT_WIZARD_CATEGORY_DISPLAY));
+    parameters.setFlags(Core::IWizard::PlatformIndependent);
     return parameters;
 }
 
 QWizard *GenericProjectWizard::createWizardDialog(QWidget *parent,
-                                                  const QString &defaultPath,
-                                                  const WizardPageList &extensionPages) const
+                                                  const Core::WizardDialogParameters &wizardDialogParameters) const
 {
     GenericProjectWizardDialog *wizard = new GenericProjectWizardDialog(parent);
     setupWizard(wizard);
 
-    wizard->setPath(defaultPath);
+    wizard->setPath(wizardDialogParameters.defaultPath());
 
-    foreach (QWizardPage *p, extensionPages)
+    foreach (QWizardPage *p, wizardDialogParameters.extensionPages())
         BaseFileWizard::applyExtensionPageShortTitle(wizard, wizard->addPage(p));
 
     return wizard;

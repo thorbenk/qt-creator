@@ -30,48 +30,32 @@
 **
 **************************************************************************/
 
-#ifndef CPPSEMANTICINFO_H
-#define CPPSEMANTICINFO_H
+#ifndef EMBEDDEDLINUXTARGET_H
+#define EMBEDDEDLINUXTARGET_H
 
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/LookupContext.h>
-#include <texteditor/semantichighlighter.h>
-#include <QtCore/QHash>
+#include "abstractembeddedlinuxtarget.h"
 
-namespace CppEditor {
+namespace RemoteLinux {
 namespace Internal {
 
-class CPPEditorWidget;
+class EmbeddedLinuxTargetFactory;
 
-class SemanticInfo
+class GenericEmbeddedLinuxTarget : public AbstractEmbeddedLinuxTarget
 {
+    Q_OBJECT
+
 public:
-    typedef TextEditor::SemanticHighlighter::Result Use;
-    enum UseKind {
-        TypeUse = 0,
-        LocalUse,
-        FieldUse,
-        StaticUse,
-        VirtualMethodUse,
-        LabelUse
-    };
+    GenericEmbeddedLinuxTarget(Qt4ProjectManager::Qt4Project *parent, const QString &id);
 
-    typedef QHash<CPlusPlus::Symbol *, QList<Use> > LocalUseMap;
-    typedef QHashIterator<CPlusPlus::Symbol *, QList<Use> > LocalUseIterator;
+    void createApplicationProFiles(bool reparse);
+    QList<ProjectExplorer::RunConfiguration *> runConfigurationsForNode(ProjectExplorer::Node *n);
+    Utils::FileName mkspec(const Qt4ProjectManager::Qt4BuildConfiguration *bc) const;
 
-    SemanticInfo();
-
-    unsigned revision;
-    bool hasQ: 1;
-    bool hasD: 1;
-    bool forced: 1;
-    CPlusPlus::Snapshot snapshot;
-    CPlusPlus::Document::Ptr doc;
-    LocalUseMap localUses;
-    QList<Use> objcKeywords;
+private:
+    friend class EmbeddedLinuxTargetFactory;
 };
 
 } // namespace Internal
-} // namespace CppEditor;
+} // namespace RemoteLinux
 
-#endif // CPPSEMANTICINFO_H
+#endif // EMBEDDEDLINUXTARGET_H

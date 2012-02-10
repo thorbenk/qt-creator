@@ -42,6 +42,7 @@ Item {
     property string file
     property int line
     property int column
+    property bool isBindingLoop
 
     property bool locked: view.selectionLocked
 
@@ -51,6 +52,11 @@ Item {
     visible: false
     x: 200
     y: 25
+
+    property int yoffset: root.scrollY
+    onYoffsetChanged: y = relativey + yoffset
+    property int relativey : y - yoffset
+    onYChanged: relativey = y - yoffset
 
     // shadow
     BorderImage {
@@ -147,6 +153,11 @@ Item {
                         file = file.substr(pos+1);
                     return (file.length !== 0) ? (file + ":" + rangeDetails.line) : "";
                 }
+            }
+            Detail {
+                visible: isBindingLoop
+                opacity: content.length != 0 ? 1 : 0
+                label: qsTr("Binding loop detected")
             }
         }
     }

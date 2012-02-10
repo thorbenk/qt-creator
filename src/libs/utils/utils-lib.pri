@@ -5,7 +5,7 @@ dll {
 }
 
 INCLUDEPATH += $$PWD
-QT += network
+QT += network script
 
 win32-msvc* {
     # disable warnings caused by botan headers
@@ -88,11 +88,13 @@ SOURCES += $$PWD/environment.cpp \
     $$PWD/ssh/sshremoteprocessrunner.cpp \
     $$PWD/ssh/sshconnectionmanager.cpp \
     $$PWD/ssh/sshkeypasswordretriever.cpp \
+    $$PWD/ssh/sftpfilesystemmodel.cpp \
     $$PWD/outputformatter.cpp \
     $$PWD/flowlayout.cpp \
     $$PWD/networkaccessmanager.cpp \
     $$PWD/persistentsettings.cpp \
-    $$PWD/completingtextedit.cpp
+    $$PWD/completingtextedit.cpp \
+    $$PWD/json.cpp
 
 win32 {
     SOURCES += \
@@ -193,13 +195,17 @@ HEADERS += \
     $$PWD/ssh/sshconnectionmanager.h \
     $$PWD/ssh/sshpseudoterminal.h \
     $$PWD/ssh/sshkeypasswordretriever_p.h \
+    $$PWD/ssh/sftpfilesystemmodel.h \
     $$PWD/statuslabel.h \
     $$PWD/outputformatter.h \
     $$PWD/outputformat.h \
     $$PWD/flowlayout.h \
     $$PWD/networkaccessmanager.h \
     $$PWD/persistentsettings.h \
-    $$PWD/completingtextedit.h
+    $$PWD/completingtextedit.h \
+    $$PWD/json.h \
+    $$PWD/multitask.h \
+    $$PWD/runextensions.h
 
 FORMS += $$PWD/filewizardpage.ui \
     $$PWD/projectintropage.ui \

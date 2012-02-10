@@ -44,8 +44,8 @@ namespace Internal {
 
 SubdirsProjectWizard::SubdirsProjectWizard()
   : QtWizard(QLatin1String("U.Qt4Subdirs"),
-             QLatin1String(ProjectExplorer::Constants::PROJECT_WIZARD_CATEGORY),
-             QLatin1String(ProjectExplorer::Constants::PROJECT_WIZARD_CATEGORY_DISPLAY),
+             QLatin1String(ProjectExplorer::Constants::QT_PROJECT_WIZARD_CATEGORY),
+             QLatin1String(ProjectExplorer::Constants::QT_PROJECT_WIZARD_CATEGORY_DISPLAY),
              tr("Subdirs Project"),
              tr("Creates a qmake-based subdirs project. This allows you to group "
                 "your projects in a tree structure."),
@@ -54,12 +54,11 @@ SubdirsProjectWizard::SubdirsProjectWizard()
 }
 
 QWizard *SubdirsProjectWizard::createWizardDialog(QWidget *parent,
-                                              const QString &defaultPath,
-                                              const WizardPageList &extensionPages) const
+                                                  const Core::WizardDialogParameters &wizardDialogParameters) const
 {
-    SubdirsProjectWizardDialog *dialog = new SubdirsProjectWizardDialog(displayName(), icon(), extensionPages, parent);
-    dialog->setPath(defaultPath);
-    dialog->setProjectName(SubdirsProjectWizardDialog::uniqueProjectName(defaultPath));
+    SubdirsProjectWizardDialog *dialog = new SubdirsProjectWizardDialog(displayName(), icon(), parent, wizardDialogParameters);
+    dialog->setPath(wizardDialogParameters.defaultPath());
+    dialog->setProjectName(SubdirsProjectWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     const QString buttonText = dialog->wizardStyle() == QWizard::MacStyle
             ? tr("Done && Add Subproject") : tr("Finish && Add Subproject");
     dialog->setButtonText(QWizard::FinishButton, buttonText);

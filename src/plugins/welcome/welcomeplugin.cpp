@@ -153,10 +153,15 @@ WelcomeMode::WelcomeMode() :
     QVBoxLayout *layout = new QVBoxLayout;
     layout->setMargin(0);
     layout->setSpacing(0);
-//    layout->addWidget(new Utils::StyledBar);
-    layout->addWidget(m_welcomePage);
     m_modeWidget->setLayout(layout);
 
+    Utils::StyledBar* styledBar = new Utils::StyledBar(m_modeWidget);
+    layout->addWidget(styledBar);
+    QScrollArea *scrollArea = new QScrollArea(m_modeWidget);
+    layout->addWidget(scrollArea);
+    scrollArea->setWidget(m_welcomePage);
+    scrollArea->setWidgetResizable(true);
+    m_welcomePage->setMinimumWidth(960);
     PluginManager *pluginManager = PluginManager::instance();
     connect(pluginManager, SIGNAL(objectAdded(QObject*)), SLOT(welcomePluginAdded(QObject*)));
 

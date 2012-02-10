@@ -18,6 +18,7 @@ class CompletionProjectSettingsPanelFactory: public ProjectExplorer::IProjectPan
 public:
     QString id() const;
     QString displayName() const;
+    virtual int priority() const;
     ProjectExplorer::PropertiesPanel *createPanel(ProjectExplorer::Project *project);
     bool supports(ProjectExplorer::Project *project);
 };

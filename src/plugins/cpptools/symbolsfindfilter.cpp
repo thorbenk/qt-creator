@@ -38,7 +38,7 @@
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <coreplugin/icore.h>
 #include <find/textfindconstants.h>
-#include <qtconcurrent/runextensions.h>
+#include <utils/runextensions.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/session.h>
 #include <projectexplorer/project.h>
@@ -276,7 +276,7 @@ void SymbolsFindFilter::searchAgain()
 {
     Find::SearchResult *search = qobject_cast<Find::SearchResult *>(sender());
     QTC_ASSERT(search, return);
-    search->reset();
+    search->restart();
     startSearch(search);
 }
 

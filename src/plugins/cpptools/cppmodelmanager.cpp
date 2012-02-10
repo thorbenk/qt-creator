@@ -50,7 +50,7 @@
 #include <QtCore/QtConcurrentRun>
 #ifndef ICHECK_BUILD
 #  include <QtCore/QFutureSynchronizer>
-#  include <qtconcurrent/runextensions.h>
+#  include <utils/runextensions.h>
 #  include <texteditor/itexteditor.h>
 #  include <texteditor/basetexteditor.h>
 #  include <projectexplorer/project.h>
@@ -1515,6 +1515,21 @@ void CppModelManager::finishedRefreshingSourceFiles(const QStringList &files)
     emit sourceFilesRefreshed(files);
 }
 
+CppCompletionSupport *CppModelManager::completionSupport(Core::IEditor *editor) const
+{
+    if (CppEditorSupport *es = editorSupport(qobject_cast<TextEditor::ITextEditor *>(editor)))
+        return es->completionSupport();
+    else
+        return 0;
+}
+
+CppHighlightingSupport *CppModelManager::highlightingSupport(Core::IEditor *editor) const
+{
+    if (CppEditorSupport *es = editorSupport(qobject_cast<TextEditor::ITextEditor *>(editor)))
+        return es->highlightingSupport();
+    else
+        return 0;
+}
 
 void CppModelManager::setExtraDiagnostics(const QString &fileName, int kind,
                                           const QList<Document::DiagnosticMessage> &diagnostics)

@@ -2,7 +2,9 @@ import tempfile
 
 def neededFilePresent(path):
     found = os.path.exists(path)
-    if not found:
+    if os.getenv("SYSTEST_DEBUG") == "1":
+        checkAccess(path)
+    elif not found:
         test.fatal("Missing file or directory: " + path)
     return found
 
@@ -199,9 +201,14 @@ def selectFromFileDialog(fileName):
         snooze(2)
         nativeType("<Return>")
     else:
+        fName = os.path.basename(os.path.abspath(fileName))
+        pName = os.path.dirname(os.path.abspath(fileName)) + os.sep
         waitForObject("{name='QFileDialog' type='QFileDialog' visible='1'}")
         pathLine = waitForObject("{name='fileNameEdit' type='QLineEdit' visible='1'}")
-        replaceEditorContent(pathLine, os.path.abspath(fileName))
+        replaceEditorContent(pathLine, pName)
+        clickButton(findObject("{text='Open' type='QPushButton'}"))
+        waitFor("str(pathLine.text)==''")
+        replaceEditorContent(pathLine, fName)
         clickButton(findObject("{text='Open' type='QPushButton'}"))
 
 # add qt.qch from SDK path
@@ -228,3 +235,28 @@ def verifyOutput(string, substring, outputFrom, outputIn):
         test.fail("Output from " + outputFrom + " could not be found in " + outputIn)
     else:
         test.passes("Output from " + outputFrom + " found at position " + str(index) + " of " + outputIn)
+
+# function that verifies the existance and the read permissions
+# of the given file path
+# if the executing user hasn't the read permission it checks
+# the parent folders for their execute permission
+def checkAccess(pathToFile):
+    if os.path.exists(pathToFile):
+        test.log("Path '%s' exists" % pathToFile)
+        if os.access(pathToFile, os.R_OK):
+            test.log("Got read access on '%s'" % pathToFile)
+        else:
+            test.fail("No read permission on '%s'" % pathToFile)
+    else:
+        test.fatal("Path '%s' does not exist or cannot be accessed" % pathToFile)
+        __checkParentAccess__(pathToFile)
+
+# helper function for checking the execute rights of all
+# parents of filePath
+def __checkParentAccess__(filePath):
+    for i in range(1, filePath.count(os.sep)):
+        tmp = filePath.rsplit(os.sep, i)[0]
+        if os.access(tmp, os.X_OK):
+            test.log("Got execute permission on '%s'" % tmp)
+        else:
+            test.fail("No execute permission on '%s'" % tmp)

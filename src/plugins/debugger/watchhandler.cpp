@@ -463,10 +463,19 @@ static QString translate(const QString &str)
 
 QString WatchModel::formattedValue(const WatchData &data) const
 {
-    const QByteArray qtNamespace = engine()->qtNamespace();
     const QString &value = data.value;
 
+    if (data.type == "bool") {
+        if (value == QLatin1String("0"))
+            return QLatin1String("false");
+        if (value == QLatin1String("1"))
+            return QLatin1String("true");
+        return value;
+    }
+
+    const QByteArray qtNamespace = engine()->qtNamespace();
     int format = itemFormat(data);
+
     if (isIntType(data.type)) {
         if (value.isEmpty())
             return value;
@@ -1891,6 +1900,12 @@ void WatchHandler::resetLocation()
         m_watchers->invalidateAll();
         m_tooltips->invalidateAll();
     }
+}
+
+bool WatchHandler::isValidToolTip(const QByteArray &iname) const
+{
+    WatchItem *item = m_tooltips->findItem(iname, m_tooltips->m_root);
+    return item && !item->type.trimmed().isEmpty();
 }
 
 } // namespace Internal

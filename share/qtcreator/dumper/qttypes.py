@@ -1692,11 +1692,38 @@ def qdump__QWeakPointer(d, value):
 def qdump__QxXmlAttributes(d, value):
     pass
 
+
 #######################################################################
 #
 # Standard Library dumper
 #
 #######################################################################
+
+def qdump__std__array(d, value):
+    size = numericTemplateArgument(value.type, 1)
+    d.putItemCount(size)
+    d.putNumChild(size)
+    if d.isExpanded():
+        innerType = templateArgument(value.type, 0)
+        with Children(d, size, childType=innerType):
+            pcur = value.address.cast(innerType.pointer())
+            for i in d.childRange():
+                d.putSubItem(i, pcur.dereference())
+                pcur += 1
+
+
+def qdump__std__complex(d, value):
+    innerType = templateArgument(value.type, 0)
+    base = value.address.cast(innerType.pointer())
+    real = base.dereference()
+    imag = (base + 1).dereference()
+    d.putValue("(%f, %f)" % (real, imag));
+    d.putNumChild(2)
+    if d.isExpanded():
+        with Children(d, 2, childType=innerType):
+            d.putSubItem("real", real)
+            d.putSubItem("imag", imag)
+
 
 def qdump__std__deque(d, value):
     innerType = templateArgument(value.type, 0)
@@ -1900,14 +1927,16 @@ def qdump__std__string(d, value):
 def qdump__std__unique_ptr(d, value):
     i = value["_M_t"]["_M_head_impl"]
     if isNull(i):
-        d.putValue( "(null)" )
+        d.putValue("(null)")
         d.putNumChild(0)
         return
 
+    i = expensiveUpcast(i)
+
     d.putValue( "@0x%x" % long(i) )
     d.putNumChild(1)
-    with Children(d,1):
-        d.putSubItem("data", i.dereference())
+    with Children(d, 1):
+        d.putSubItem("data", i)
 
 
 def qedit__std__vector(expr, value):
@@ -1930,8 +1959,9 @@ def qdump__std__vector(d, value):
     if isBool:
         start = impl["_M_start"]["_M_p"]
         finish = impl["_M_finish"]["_M_p"]
-        # FIXME: 32 is sizeof(unsigned long) * CHAR_BIT
-        storagesize = 32
+        # FIXME: 8 is CHAR_BIT
+        storage = lookupType("unsigned long")
+        storagesize = storage.sizeof * 8
         size = (finish - start) * storagesize
         size += impl["_M_finish"]["_M_offset"]
         size -= impl["_M_start"]["_M_offset"]

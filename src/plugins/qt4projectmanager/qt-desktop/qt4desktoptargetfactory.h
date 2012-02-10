@@ -57,6 +57,7 @@ public:
     Qt4TargetSetupWidget *createTargetSetupWidget(const QString &id, const QString &proFilePath,
                                                   const QtSupport::QtVersionNumber &minimumQtVersion,
                                                   const QtSupport::QtVersionNumber &maximumQtVersion,
+                                                  const Core::FeatureSet &requiredFeatures,
                                                   bool importEnabled, QList<BuildConfigurationInfo> importInfos);
     QString buildNameForId(const QString &id) const;
     QSet<QString> targetFeatures(const QString &id) const;

@@ -656,7 +656,7 @@ void GdbEngine::handleResponse(const QByteArray &buff)
             break;
         }
         default: {
-            qDebug() << "UNKNOWN RESPONSE TYPE" << c;
+            qDebug() << "UNKNOWN RESPONSE TYPE '" << c << "'. REST: " << from;
             break;
         }
     }
@@ -1535,10 +1535,23 @@ void GdbEngine::handleStop1(const GdbMi &data)
     // dState changed from InferiorStopRequested(13) to InferiorStopOk(14).
 
     const QByteArray reason = data.findChild("reason").data();
+    const QByteArray func = data.findChild("frame").findChild("from").data();
     const DebuggerStartParameters &sp = startParameters();
     const Abi abi = sp.toolChainAbi;
 
     bool isStopperThread = false;
+
+    if (sp.useTerminal
+            && reason == "signal-received"
+            && data.findChild("signal-name").data() == "SIGSTOP"
+            && (func.endsWith("/ld-linux.so.2")
+                || func.endsWith("/ld-linux-x86-64.so.2")))
+    {
+        // Ignore signals from the process stub.
+        showMessage(_("INTERNAL CONTINUE AFTER SIGSTOP FROM STUB"), LogMisc);
+        continueInferiorInternal();
+        return;
+    }
 
     if (abi.os() == Abi::WindowsOS
             && sp.useTerminal
@@ -1547,7 +1560,7 @@ void GdbEngine::handleStop1(const GdbMi &data)
     {
         if (!m_actingOnExpectedStop) {
             // Ignore signals from command line start up traps.
-            showMessage(_("INTERNAL CONTINUE"), LogMisc);
+            showMessage(_("INTERNAL CONTINUE AFTER SIGTRAP"), LogMisc);
             continueInferiorInternal();
             return;
         }
@@ -3721,10 +3734,9 @@ bool GdbEngine::showToolTip()
         return true;
     }
 
-    const QModelIndex index = watchHandler()->itemIndex(iname);
-    if (!index.isValid()) {
+    if (!watchHandler()->isValidToolTip(iname)) {
         watchHandler()->removeData(iname);
-        return false;
+        return true;
     }
     DebuggerToolTipWidget *tw = new DebuggerToolTipWidget;
     tw->setExpression(expression);
@@ -4679,6 +4691,7 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
     //postCommand("set displaced-stepping on");
     postCommand("set trust-readonly-sections on", ConsoleCommand);
     postCommand("set auto-solib-add on", ConsoleCommand);
+    postCommand("set remotecache on", ConsoleCommand);
 
     if (0 && debuggerCore()->boolSetting(TargetAsync)) {
         postCommand("set target-async on", ConsoleCommand);

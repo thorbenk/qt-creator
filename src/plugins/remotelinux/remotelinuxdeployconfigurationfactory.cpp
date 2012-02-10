@@ -31,10 +31,9 @@
 **************************************************************************/
 #include "remotelinuxdeployconfigurationfactory.h"
 
+#include "genericembeddedlinuxtarget.h"
 #include "genericdirectuploadstep.h"
 #include "remotelinuxdeployconfiguration.h"
-#include "remotelinuxutils.h"
-#include "remotelinux_constants.h"
 
 #include <QtCore/QCoreApplication>
 
@@ -55,7 +54,7 @@ RemoteLinuxDeployConfigurationFactory::RemoteLinuxDeployConfigurationFactory(QOb
 QStringList RemoteLinuxDeployConfigurationFactory::availableCreationIds(Target *parent) const
 {
     QStringList ids;
-    if (RemoteLinuxUtils::hasUnixQt(parent))
+    if (qobject_cast<GenericEmbeddedLinuxTarget *>(parent))
         ids << genericDeployConfigurationId();
     return ids;
 }
@@ -78,7 +77,7 @@ DeployConfiguration *RemoteLinuxDeployConfigurationFactory::create(Target *paren
     Q_ASSERT(canCreate(parent, id));
 
     DeployConfiguration * const dc = new RemoteLinuxDeployConfiguration(parent, id,
-        genericLinuxDisplayName(), QLatin1String(Constants::GenericLinuxOsType));
+        genericLinuxDisplayName());
     dc->stepList()->insertStep(0, new GenericDirectUploadStep(dc->stepList(),
         GenericDirectUploadStep::stepId()));
     return dc;
@@ -96,7 +95,7 @@ DeployConfiguration *RemoteLinuxDeployConfigurationFactory::restore(Target *pare
         return 0;
     QString id = idFromMap(map);
     RemoteLinuxDeployConfiguration * const dc = new RemoteLinuxDeployConfiguration(parent, id,
-        genericLinuxDisplayName(), QLatin1String(Constants::GenericLinuxOsType));
+        genericLinuxDisplayName());
     if (!dc->fromMap(map)) {
         delete dc;
         return 0;

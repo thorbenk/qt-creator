@@ -49,10 +49,10 @@
 #include <QtCore/QThreadPool>
 #include <QtCore/QDebug>
 
-#include <qtconcurrent/runextensions.h>
+#include <utils/runextensions.h>
 
 using namespace CPlusPlus;
-using namespace CppEditor::Internal;
+using namespace CppTools;
 
 namespace {
 
@@ -762,6 +762,23 @@ bool CheckSymbols::visit(MemInitializerAST *ast)
         accept(ast->expression_list);
     }
 
+    return false;
+}
+
+bool CheckSymbols::visit(GotoStatementAST *ast)
+{
+    if (ast->identifier_token)
+        addUse(ast->identifier_token, SemanticInfo::LabelUse);
+
+    return false;
+}
+
+bool CheckSymbols::visit(LabeledStatementAST *ast)
+{
+    if (ast->label_token)
+        addUse(ast->label_token, SemanticInfo::LabelUse);
+
+    accept(ast->statement);
     return false;
 }
 

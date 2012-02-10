@@ -55,7 +55,7 @@ const char *const TYPE_COMPILING_STR = "Compiling";
 const char *const TYPE_CREATING_STR = "Creating";
 const char *const TYPE_BINDING_STR = "Binding";
 const char *const TYPE_HANDLINGSIGNAL_STR = "HandlingSignal";
-const char *const PROFILER_FILE_VERSION = "1.01";
+const char *const PROFILER_FILE_VERSION = "1.02";
 }
 
 #define MIN_LEVEL 1
@@ -71,6 +71,7 @@ QmlEventData::QmlEventData()
     timePerCall = 0;
     percentOfTime = 0;
     medianTime = 0;
+    isBindingLoop = false;
 }
 
 QmlEventData::~QmlEventData()
@@ -99,6 +100,7 @@ QmlEventData &QmlEventData::operator=(const QmlEventData &ref)
     percentOfTime = ref.percentOfTime;
     medianTime = ref.medianTime;
     eventId = ref.eventId;
+    isBindingLoop = ref.isBindingLoop;
 
     qDeleteAll(parentHash.values());
     parentHash.clear();
@@ -182,6 +184,8 @@ struct QmlEventStartTimeData {
     // animation-related data
     int frameRate;
     int animationCount;
+
+    int bindingLoopHead;
 };
 
 struct QmlEventTypeCount {
@@ -249,6 +253,11 @@ QmlEventType qmlEventType(const QString &typeString)
             return MaximumQmlEventType;
         }
     }
+}
+
+QString getHashStringForQmlEvent(QmlEventLocation location, int eventType)
+{
+    return QString("%1:%2:%3:%4").arg(location.filename, QString::number(location.line), QString::number(location.column), QString::number(eventType));
 }
 
 class QmlProfilerEventList::QmlProfilerEventListPrivate
@@ -384,6 +393,7 @@ void QmlProfilerEventList::addRangedEvent(int type, qint64 startTime, qint64 len
 {
     const QChar colon = QLatin1Char(':');
     QString displayName, eventHashStr, details;
+    QmlJsDebugClient::QmlEventLocation eventLocation = location;
 
     emit processingData();
 
@@ -401,14 +411,22 @@ void QmlProfilerEventList::addRangedEvent(int type, qint64 startTime, qint64 len
             details = details.mid(details.lastIndexOf(QChar('/')) + 1);
     }
 
+    // backwards compatibility: "compiling" events don't have a proper location in older
+    // version of the protocol, but the filename is passed in the details string
+    if (type == QmlJsDebugClient::Compiling && eventLocation.filename.isEmpty()) {
+        eventLocation.filename = details;
+        eventLocation.line = 1;
+        eventLocation.column = 1;
+    }
+
     // generate hash
-    if (location.filename.isEmpty()) {
+    if (eventLocation.filename.isEmpty()) {
         displayName = tr("<bytecode>");
-        eventHashStr = QString("--:%1:%2").arg(QString::number(type), details);
+        eventHashStr = getHashStringForQmlEvent(eventLocation, type);
     } else {
-        const QString filePath = QUrl(location.filename).path();
-        displayName = filePath.mid(filePath.lastIndexOf(QChar('/')) + 1) + colon + QString::number(location.line);
-        eventHashStr = QString("%1:%2:%3:%4").arg(location.filename, QString::number(location.line), QString::number(location.column), QString::number(type));
+        const QString filePath = QUrl(eventLocation.filename).path();
+        displayName = filePath.mid(filePath.lastIndexOf(QChar('/')) + 1) + colon + QString::number(eventLocation.line);
+        eventHashStr = getHashStringForQmlEvent(eventLocation, type);
     }
 
     QmlEventData *newEvent;
@@ -417,7 +435,7 @@ void QmlProfilerEventList::addRangedEvent(int type, qint64 startTime, qint64 len
     } else {
         newEvent = new QmlEventData;
         newEvent->displayname = displayName;
-        newEvent->location = location;
+        newEvent->location = eventLocation;
         newEvent->eventHashStr = eventHashStr;
         newEvent->eventType = (QmlJsDebugClient::QmlEventType)type;
         newEvent->details = details;
@@ -785,6 +803,9 @@ void QmlProfilerEventList::compileStatistics(qint64 startTime, qint64 endTime)
             iter.key()->medianTime = iter.value().at(iter.value().count()/2);
         }
     }
+
+    // find binding loops
+    findBindingLoops(startTime, endTime);
 }
 
 void QmlProfilerEventList::prepareForDisplay()
@@ -1047,7 +1068,7 @@ void QmlProfilerEventList::reloadDetails()
 
 void QmlProfilerEventList::rewriteDetailsString(int eventType, const QmlJsDebugClient::QmlEventLocation &location, const QString &newString)
 {
-    QString eventHashStr = QString("%1:%2:%3:%4").arg(location.filename, QString::number(location.line), QString::number(location.column), QString::number(eventType));
+    QString eventHashStr = getHashStringForQmlEvent(location, eventType);
     QTC_ASSERT(d->m_eventDescriptions.contains(eventHashStr), return);
     d->m_eventDescriptions.value(eventHashStr)->details = newString;
     emit detailsChanged(d->m_eventDescriptions.value(eventHashStr)->eventId, newString);
@@ -1056,6 +1077,59 @@ void QmlProfilerEventList::rewriteDetailsString(int eventType, const QmlJsDebugC
 void QmlProfilerEventList::finishedRewritingDetails()
 {
     emit reloadDetailLabels();
+}
+
+void QmlProfilerEventList::findBindingLoops(qint64 startTime, qint64 endTime)
+{
+    // first clear existing data
+    foreach (QmlEventData *event, d->m_eventDescriptions.values()) {
+        event->isBindingLoop = false;
+        foreach (QmlEventSub *parentEvent, event->parentHash.values())
+            parentEvent->inLoopPath = false;
+        foreach (QmlEventSub *childEvent, event->childrenHash.values())
+            childEvent->inLoopPath = false;
+    }
+
+    QList <QmlEventData *> stackRefs;
+    QList <QmlEventStartTimeData *> stack;
+    int fromIndex = findFirstIndex(startTime);
+    int toIndex = findLastIndex(endTime);
+
+    for (int i = 0; i < d->m_startTimeSortedList.count(); i++) {
+        QmlEventData *currentEvent = d->m_startTimeSortedList[i].description;
+        QmlEventStartTimeData *inTimeEvent = &d->m_startTimeSortedList[i];
+        inTimeEvent->bindingLoopHead = -1;
+
+        // managing call stack
+        for (int j = stack.count() - 1; j >= 0; j--) {
+            if (stack[j]->startTime + stack[j]->length <= inTimeEvent->startTime) {
+                stack.removeAt(j);
+                stackRefs.removeAt(j);
+            }
+        }
+
+        bool loopDetected = stackRefs.contains(currentEvent);
+        stack << inTimeEvent;
+        stackRefs << currentEvent;
+
+        if (loopDetected) {
+            if (i >= fromIndex && i <= toIndex) {
+                // for the statistics
+                currentEvent->isBindingLoop = true;
+                for (int j = stackRefs.indexOf(currentEvent); j < stackRefs.count()-1; j++) {
+                    QmlEventSub *nextEventSub = stackRefs[j]->childrenHash.value(stackRefs[j+1]->eventHashStr);
+                    nextEventSub->inLoopPath = true;
+                    QmlEventSub *prevEventSub = stackRefs[j+1]->parentHash.value(stackRefs[j]->eventHashStr);
+                    prevEventSub->inLoopPath = true;
+                }
+            }
+
+            // use crossed references to find index in starttimesortedlist
+            QmlEventStartTimeData *head = stack[stackRefs.indexOf(currentEvent)];
+            inTimeEvent->bindingLoopHead = d->m_endTimeSortedList[head->endTimeIndex].startTimeIndex;
+            d->m_startTimeSortedList[inTimeEvent->bindingLoopHead].bindingLoopHead = i;
+        }
+    }
 }
 
 // get list of events between A and B:
@@ -1582,9 +1656,8 @@ void QmlProfilerEventList::load()
 
     // move the buffered data to the details cache
     foreach (QmlEventData *desc, descriptionBuffer.values()) {
-        QString location = QString("%1:%2:%3").arg(QString::number(desc->eventType), desc->displayname, desc->details);
-        desc->eventHashStr = location;
-        d->m_eventDescriptions[location] = desc;
+        desc->eventHashStr = getHashStringForQmlEvent(desc->location, desc->eventType);;
+        d->m_eventDescriptions[desc->eventHashStr] = desc;
     }
 
     // sort startTimeSortedList
@@ -1685,8 +1758,14 @@ QString QmlProfilerEventList::getDetails(int index) const
     return d->m_startTimeSortedList[index].description->details;
 }
 
-int QmlProfilerEventList::getEventId(int index) const {
+int QmlProfilerEventList::getEventId(int index) const
+{
     return d->m_startTimeSortedList[index].description->eventId;
+}
+
+int QmlProfilerEventList::getBindingLoopDest(int index) const
+{
+    return d->m_startTimeSortedList[index].bindingLoopHead;
 }
 
 int QmlProfilerEventList::getFramerate(int index) const

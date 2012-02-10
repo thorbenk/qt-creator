@@ -61,8 +61,10 @@ class MobileAppWizardDialog : public AbstractMobileAppWizardDialog
 {
     Q_OBJECT
 public:
-    explicit MobileAppWizardDialog(QWidget *parent = 0)
-        : AbstractMobileAppWizardDialog(parent, QtSupport::QtVersionNumber(), QtSupport::QtVersionNumber(4, INT_MAX, INT_MAX))
+    explicit MobileAppWizardDialog(QWidget *parent, const Core::WizardDialogParameters &parameters)
+        : AbstractMobileAppWizardDialog(parent,
+                                        QtSupport::QtVersionNumber(),
+                                        QtSupport::QtVersionNumber(4, INT_MAX, INT_MAX), parameters)
     {
         setWindowTitle(DisplayName);
         setIntroDescription(Description);
@@ -94,6 +96,7 @@ MobileAppWizard::~MobileAppWizard()
 Core::FeatureSet MobileAppWizard::requiredFeatures() const
 {
     return Core::Feature(QtSupport::Constants::FEATURE_GENERIC_CPP_ENTRY_POINT)
+            | Core::FeatureSet(QtSupport::Constants::FEATURE_MOBILE)
             | Core::Feature(QtSupport::Constants::FEATURE_QWIDGETS);
 }
 
@@ -104,14 +107,15 @@ Core::BaseFileWizardParameters MobileAppWizard::parameters()
     parameters.setDisplayName(DisplayName);
     parameters.setId(QLatin1String("C.Qt4GuiMobile"));
     parameters.setDescription(Description);
-    parameters.setCategory(QLatin1String(ProjectExplorer::Constants::QT_PROJECT_WIZARD_CATEGORY));
-    parameters.setDisplayCategory(QLatin1String(ProjectExplorer::Constants::QT_PROJECT_WIZARD_CATEGORY_DISPLAY));
+    parameters.setCategory(QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY));
+    parameters.setDisplayCategory(QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY_DISPLAY));
     return parameters;
 }
 
-AbstractMobileAppWizardDialog *MobileAppWizard::createWizardDialogInternal(QWidget *parent) const
+AbstractMobileAppWizardDialog *MobileAppWizard::createWizardDialogInternal(QWidget *parent,
+                                                                           const Core::WizardDialogParameters &parameters) const
 {
-    d->wizardDialog = new MobileAppWizardDialog(parent);
+    d->wizardDialog = new MobileAppWizardDialog(parent, parameters);
     return d->wizardDialog;
 }
 

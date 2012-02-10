@@ -44,7 +44,6 @@
 #include <remotelinux/deployablefile.h>
 #include <remotelinux/deployablefilesperprofile.h>
 #include <remotelinux/deploymentinfo.h>
-#include <remotelinux/deploymentsettingsassistant.h>
 #include <utils/qtcassert.h>
 
 #include <QtCore/QFileInfo>
@@ -61,43 +60,15 @@ const QString OldDeployConfigId = QLatin1String("2.2MaemoDeployConfig");
 } // namespace
 
 Qt4MaemoDeployConfiguration::Qt4MaemoDeployConfiguration(ProjectExplorer::Target *target,
-        const QString &id, const QString &displayName, const QString &supportedOsType)
-    : RemoteLinuxDeployConfiguration(target, id, displayName, supportedOsType)
+        const QString &id, const QString &displayName)
+    : RemoteLinuxDeployConfiguration(target, id, displayName)
 {
-    const QList<DeployConfiguration *> &deployConfigs = target->deployConfigurations();
-    foreach (const DeployConfiguration * const dc, deployConfigs) {
-        const Qt4MaemoDeployConfiguration * const mdc
-            = qobject_cast<const Qt4MaemoDeployConfiguration *>(dc);
-        if (mdc) {
-            m_deploymentSettingsAssistant = mdc->deploymentSettingsAssistant();
-            break;
-        }
-    }
-    if (!m_deploymentSettingsAssistant) {
-        QString qmakeScope;
-        if (supportedOsType == QLatin1String(Maemo5OsType))
-            qmakeScope = QLatin1String("maemo5");
-        else if (supportedOsType == QLatin1String(HarmattanOsType))
-            qmakeScope = QLatin1String("contains(MEEGO_EDITION,harmattan)");
-        else if (supportedOsType == QLatin1String(MeeGoOsType))
-            qmakeScope = QLatin1String("!isEmpty(MEEGO_VERSION_MAJOR):!contains(MEEGO_EDITION,harmattan)");
-        else
-            qDebug("%s: Unexpected OS type %s", Q_FUNC_INFO, qPrintable(supportedOsType));
-        m_deploymentSettingsAssistant = QSharedPointer<DeploymentSettingsAssistant>
-            (new DeploymentSettingsAssistant(qmakeScope, QLatin1String("/opt"), deploymentInfo()));
-    }
 }
 
 Qt4MaemoDeployConfiguration::Qt4MaemoDeployConfiguration(ProjectExplorer::Target *target,
         Qt4MaemoDeployConfiguration *source)
     : RemoteLinuxDeployConfiguration(target, source)
 {
-    m_deploymentSettingsAssistant = source->deploymentSettingsAssistant();
-}
-
-QSharedPointer<DeploymentSettingsAssistant> Qt4MaemoDeployConfiguration::deploymentSettingsAssistant() const
-{
-    return m_deploymentSettingsAssistant;
 }
 
 QString Qt4MaemoDeployConfiguration::localDesktopFilePath(const DeployableFilesPerProFile *proFileInfo) const
@@ -184,25 +155,20 @@ DeployConfiguration *Qt4MaemoDeployConfigurationFactory::create(Target *parent,
 {
     Q_ASSERT(canCreate(parent, id));
 
-    DeployConfiguration *dc = 0;
     const QString displayName = displayNameForId(id);
+    DeployConfiguration * const dc = new Qt4MaemoDeployConfiguration(parent, id, displayName);
     if (id == Qt4MaemoDeployConfiguration::fremantleWithoutPackagingId()) {
-        dc = new Qt4MaemoDeployConfiguration(parent, id, displayName, QLatin1String(Maemo5OsType));
         dc->stepList()->insertStep(0, new MaemoMakeInstallToSysrootStep(dc->stepList()));
         dc->stepList()->insertStep(1, new MaemoCopyFilesViaMountStep(dc->stepList()));
     } else if (id == Qt4MaemoDeployConfiguration::fremantleWithPackagingId()) {
-        dc = new Qt4MaemoDeployConfiguration(parent, id, displayName, QLatin1String(Maemo5OsType));
         dc->stepList()->insertStep(0, new MaemoDebianPackageCreationStep(dc->stepList()));
         dc->stepList()->insertStep(1, new MaemoInstallDebianPackageToSysrootStep(dc->stepList()));
         dc->stepList()->insertStep(2, new MaemoInstallPackageViaMountStep(dc->stepList()));
     } else if (id == Qt4MaemoDeployConfiguration::harmattanId()) {
-        dc = new Qt4MaemoDeployConfiguration(parent, id, displayName,
-            QLatin1String(HarmattanOsType));
         dc->stepList()->insertStep(0, new MaemoDebianPackageCreationStep(dc->stepList()));
         dc->stepList()->insertStep(1, new MaemoInstallDebianPackageToSysrootStep(dc->stepList()));
         dc->stepList()->insertStep(2, new MaemoUploadAndInstallPackageStep(dc->stepList()));
     } else if (id == Qt4MaemoDeployConfiguration::meegoId()) {
-        dc = new Qt4MaemoDeployConfiguration(parent, id, displayName, QLatin1String(MeeGoOsType));
         dc->stepList()->insertStep(0, new MaemoRpmPackageCreationStep(dc->stepList()));
         dc->stepList()->insertStep(1, new MaemoInstallRpmPackageToSysrootStep(dc->stepList()));
         dc->stepList()->insertStep(2, new MeegoUploadAndInstallPackageStep(dc->stepList()));

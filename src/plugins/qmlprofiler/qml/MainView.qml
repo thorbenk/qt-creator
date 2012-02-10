@@ -75,6 +75,7 @@ Rectangle {
     property variant selectionRangeEnd: selectionRange.startTime + selectionRange.duration
 
     signal changeToolTip(string text)
+    signal updateVerticalScroll(int newPosition)
 
     // ***** connections with external objects
     Connections {
@@ -268,6 +269,7 @@ Rectangle {
         rangeDetails.file = "";
         rangeDetails.line = -1;
         rangeDetails.column = 0;
+        rangeDetails.isBindingLoop = false;
     }
 
     function selectNextWithId( eventId )
@@ -423,10 +425,11 @@ Rectangle {
                     rangeDetails.line = qmlEventList.getLine(selectedItem);
                     rangeDetails.column = qmlEventList.getColumn(selectedItem);
                     rangeDetails.type = root.names[qmlEventList.getType(selectedItem)];
+                    rangeDetails.isBindingLoop = qmlEventList.getBindingLoopDest(selectedItem)!==-1;
 
                     rangeDetails.visible = true;
 
-                    // center view
+                    // center view (horizontally)
                     var windowLength = view.endTime - view.startTime;
                     var eventStartTime = qmlEventList.getStartTime(selectedItem);
                     var eventEndTime = eventStartTime + qmlEventList.getDuration(selectedItem);
@@ -437,6 +440,15 @@ Rectangle {
                                             Math.max(0, Math.floor(center - windowLength/2)));
 
                         zoomControl.setRange(from, from + windowLength);
+                    }
+
+                    // center view (vertically)
+                    var itemY = view.getYPosition(selectedItem);
+                    if (itemY < root.scrollY) {
+                        root.updateVerticalScroll(itemY);
+                    } else
+                        if (itemY + root.singleRowHeight > root.scrollY + root.candidateHeight) {
+                            root.updateVerticalScroll(itemY + root.singleRowHeight - root.candidateHeight);
                     }
                 } else {
                     root.hideRangeDetails();

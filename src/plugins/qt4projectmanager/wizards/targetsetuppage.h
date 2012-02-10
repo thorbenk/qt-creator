@@ -82,6 +82,8 @@ public:
     /// Sets the features a qt version must support
     /// call this before \sa initializePage()
     void setRequiredQtFeatures(const Core::FeatureSet &features);
+    /// Sets the platform that was selected in the wizard
+    void setSelectedPlatform(const QString &platform);
     /// Sets the minimum qt version
     /// calls this before \sa initializePage()
     void setMinimumQtVersion(const QtSupport::QtVersionNumber &number);
@@ -91,10 +93,21 @@ public:
     /// Sets whether the TargetSetupPage looks on disk for builds of this project
     /// call this before \sa initializePage()
     void setImportSearch(bool b);
+
+    /// Sets whether the targetsetupage uses a scrollarea
+    /// to host the widgets from the factories
+    /// call this before \sa initializePage()
+    void setUseScrollArea(bool b);
+
     bool isComplete() const;
     bool setupProject(Qt4ProjectManager::Qt4Project *project);
     bool isTargetSelected(const QString &id) const;
     void setProFilePath(const QString &dir);
+
+    /// Overrides the summary text of the targetsetuppage
+    void setNoteText(const QString &text);
+signals:
+    void noteTextLinkActivated();
 
 private slots:
     void newImportBuildConfiguration(const BuildConfigurationInfo &info);
@@ -108,7 +121,9 @@ private:
     QSet<QString> m_preferredFeatures;
     QSet<QString> m_requiredTargetFeatures;
     Core::FeatureSet m_requiredQtFeatures;
+    QString m_selectedPlatform;
     bool m_importSearch;
+    bool m_useScrollArea;
     QtSupport::QtVersionNumber m_minimumQtVersionNumber;
     QtSupport::QtVersionNumber m_maximumQtVersionNumber;
     QString m_proFilePath;
@@ -116,7 +131,6 @@ private:
     QMap<QString, Qt4TargetSetupWidget *> m_widgets;
     QHash<Qt4TargetSetupWidget *, Qt4BaseTargetFactory *> m_factories;
 
-    QVBoxLayout *m_layout;
     QSpacerItem *m_spacer;
     Internal::Ui::TargetSetupPage *m_ui;
     QList<BuildConfigurationInfo> m_importInfos;

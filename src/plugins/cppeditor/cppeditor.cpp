@@ -34,8 +34,6 @@
 #include "cppeditorconstants.h"
 #include "cppplugin.h"
 #include "cpphighlighter.h"
-#include "cppchecksymbols.h"
-#include "cpplocalsymbols.h"
 #include "cppautocompleter.h"
 #include "cppquickfixassistant.h"
 
@@ -68,7 +66,14 @@
 #include <cpptools/cppcreatemarkers.h>
 #include <cpptools/cpptoolsplugin.h>
 #include <cpptools/cpptoolsconstants.h>
+#include <cpptools/cppchecksymbols.h>
 #include <cpptools/cppcodeformatter.h>
+#if 0
+#include <cpptools/cppcompletionsupport.h>
+#include <cpptools/cpphighlightingsupport.h>
+#else
+#include <cpptools/cpplocalsymbols.h>
+#endif
 #include <cpptools/cppqtstyleindenter.h>
 #include <cpptools/cppcodestylesettings.h>
 #include <cpptools/cpprefactoringchanges.h>
@@ -129,6 +134,7 @@ enum {
 };
 
 using namespace CPlusPlus;
+using namespace CppTools;
 using namespace CppEditor::Internal;
 
 namespace {
@@ -431,7 +437,7 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     , m_commentsSettings(CppTools::CppToolsSettings::instance()->commentsSettings())
 {
     m_initialized = false;
-    qRegisterMetaType<CppEditor::Internal::SemanticInfo>("CppEditor::Internal::SemanticInfo");
+    qRegisterMetaType<SemanticInfo>("CppTools::SemanticInfo");
 
     m_semanticHighlighter = new SemanticHighlighter(this);
     m_semanticHighlighter->start();
@@ -559,8 +565,8 @@ void CPPEditorWidget::createToolBar(CPPEditor *editor)
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(updateUses()));
     connect(this, SIGNAL(textChanged()), this, SLOT(updateUses()));
 
-    connect(m_semanticHighlighter, SIGNAL(changed(CppEditor::Internal::SemanticInfo)),
-            this, SLOT(updateSemanticInfo(CppEditor::Internal::SemanticInfo)));
+    connect(m_semanticHighlighter, SIGNAL(changed(CppTools::SemanticInfo)),
+            this, SLOT(updateSemanticInfo(CppTools::SemanticInfo)));
 
     editor->insertExtraToolBarWidget(TextEditor::BaseTextEditor::Left, m_outlineCombo);
 }
@@ -1704,7 +1710,11 @@ void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_STATIC));
     m_semanticHighlightFormatMap[Clang::SourceMarker::VirtualMethod] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_VIRTUAL_METHOD));
+#if 1
     m_semanticHighlightFormatMap[Clang::SourceMarker::Label] =
+#else
+    m_semanticHighlightFormatMap[SemanticInfo::LabelUse] =
+#endif
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_LABEL));
     m_keywordFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_KEYWORD));
 
@@ -1840,6 +1850,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
 
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
             if (Core::EditorManager::instance()->currentEditor() == editor()) {
+#if 1
                 const QString fileName = file()->fileName();
                 QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(fileName);
                 QStringList options;
@@ -1854,6 +1865,13 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
                 m_highlighter = f;
                 m_highlightRevision = semanticInfo.revision;
                 m_highlightWatcher.setFuture(m_highlighter);
+#else
+                if (CppTools::CppHighlightingSupport *hs = modelManager()->highlightingSupport(editor())) {
+                    m_highlighter = hs->highlightingFuture(semanticInfo.doc, semanticInfo.snapshot);
+                    m_highlightRevision = semanticInfo.revision;
+                    m_highlightWatcher.setFuture(m_highlighter);
+                }
+#endif
             }
         }
     }
@@ -2139,6 +2157,7 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
     TextEditor::AssistReason reason) const
 {
     if (kind == TextEditor::Completion) {
+#if 1
         QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(file()->fileName());
         QStringList includePaths, frameworkPaths, options;
         if (!parts.isEmpty()) {
@@ -2151,6 +2170,11 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
                     m_clangCompletionWrapper,
                     document(), position(), editor()->file(), reason,
                     options, includePaths, frameworkPaths);
+#else
+        if (CppTools::CppCompletionSupport *cs = m_modelManager->completionSupport(editor()))
+            return cs->createAssistInterface(ProjectExplorer::ProjectExplorerPlugin::currentProject(),
+                                             document(), position(), reason);
+#endif
     } else if (kind == TextEditor::QuickFix) {
         if (!semanticInfo().doc || isOutdated())
             return 0;

@@ -33,7 +33,7 @@
 #ifndef QT4MAEMOTARGET_H
 #define QT4MAEMOTARGET_H
 
-#include <qt4projectmanager/qt4target.h>
+#include <remotelinux/abstractembeddedlinuxtarget.h>
 
 #include <QtCore/QIODevice>
 #include <QtCore/QSharedPointer>
@@ -42,10 +42,8 @@
 QT_FORWARD_DECLARE_CLASS(QDateTime)
 QT_FORWARD_DECLARE_CLASS(QFile)
 
-namespace Qt4ProjectManager {
-class Qt4Project;
-class Qt4BuildConfigurationFactory;
-}
+namespace Qt4ProjectManager { class Qt4Project; }
+namespace RemoteLinux { class DeploymentSettingsAssistant; }
 namespace Utils { class FileSystemWatcher; }
 
 namespace Madde {
@@ -53,16 +51,15 @@ namespace Internal {
 class Qt4MaemoDeployConfigurationFactory;
 class WatchableFile;
 
-class AbstractQt4MaemoTarget : public Qt4ProjectManager::Qt4BaseTarget
+class AbstractQt4MaemoTarget : public RemoteLinux::AbstractEmbeddedLinuxTarget
 {
     friend class Qt4MaemoTargetFactory;
     Q_OBJECT
 public:
-    explicit AbstractQt4MaemoTarget(Qt4ProjectManager::Qt4Project *parent,
-        const QString &id);
+    explicit AbstractQt4MaemoTarget(Qt4ProjectManager::Qt4Project *parent, const QString &id,
+        const QString &supportedOsType, const QString &qmakeScope);
     virtual ~AbstractQt4MaemoTarget();
 
-    ProjectExplorer::IBuildConfigurationFactory *buildConfigurationFactory() const;
     void createApplicationProFiles(bool reparse);
     QList<ProjectExplorer::RunConfiguration *> runConfigurationsForNode(ProjectExplorer::Node *n);
     QList<ProjectExplorer::ToolChain *> possibleToolChains(ProjectExplorer::BuildConfiguration *bc) const;
@@ -79,6 +76,10 @@ public:
     bool setProjectVersion(const QString &version, QString *error = 0);
     bool setPackageName(const QString &packageName);
     bool setShortDescription(const QString &description);
+
+    RemoteLinux::DeploymentSettingsAssistant *deploymentSettingsAssistant() const {
+        return m_deploymentSettingsAssistant;
+    }
 
 protected:
     enum ActionStatus { NoActionRequired, ActionSuccessful, ActionFailed };
@@ -109,7 +110,7 @@ private:
     bool initPackagingSettingsFromOtherTarget();
     virtual bool initAdditionalPackagingSettingsFromOtherTarget() = 0;
 
-    Qt4ProjectManager::Qt4BuildConfigurationFactory *m_buildConfigurationFactory;
+    RemoteLinux::DeploymentSettingsAssistant * const m_deploymentSettingsAssistant;
     bool m_isInitialized;
 };
 
@@ -118,8 +119,8 @@ class AbstractDebBasedQt4MaemoTarget : public AbstractQt4MaemoTarget
 {
     Q_OBJECT
 public:
-    AbstractDebBasedQt4MaemoTarget(Qt4ProjectManager::Qt4Project *parent,
-        const QString &id);
+    AbstractDebBasedQt4MaemoTarget(Qt4ProjectManager::Qt4Project *parent, const QString &id,
+        const QString &supportedOsType, const QString &qmakeScope);
     ~AbstractDebBasedQt4MaemoTarget();
 
     QString debianDirPath() const;
@@ -191,8 +192,8 @@ class AbstractRpmBasedQt4MaemoTarget : public AbstractQt4MaemoTarget
 {
     Q_OBJECT
 public:
-    AbstractRpmBasedQt4MaemoTarget(Qt4ProjectManager::Qt4Project *parent,
-        const QString &id);
+    AbstractRpmBasedQt4MaemoTarget(Qt4ProjectManager::Qt4Project *parent, const QString &id,
+        const QString &supportedOsType, const QString &qmakeScope);
     ~AbstractRpmBasedQt4MaemoTarget();
 
     virtual bool allowsRemoteMounts() const { return false; }

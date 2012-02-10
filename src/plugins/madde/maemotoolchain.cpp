@@ -84,11 +84,6 @@ QString MaemoToolChain::typeDisplayName() const
     return MaemoToolChainFactory::tr("Maemo GCC");
 }
 
-Utils::FileName MaemoToolChain::mkspec() const
-{
-    return Utils::FileName(); // always use default
-}
-
 bool MaemoToolChain::isValid() const
 {
     return GccToolChain::isValid() && m_qtVersionId >= 0 && targetAbi().isValid();
@@ -177,9 +172,8 @@ QString MaemoToolChain::legacyId() const
                                           .arg(debuggerCommand().toString());
 }
 
-QList<ProjectExplorer::Abi> MaemoToolChain::findAbiForCompilerPath(const QString &path)
+QList<ProjectExplorer::Abi> MaemoToolChain::detectSupportedAbis() const
 {
-    Q_UNUSED(path);
     if (m_qtVersionId < 0)
         return QList<ProjectExplorer::Abi>();
 

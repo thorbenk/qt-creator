@@ -38,7 +38,8 @@
 #include <QtCore/QHash>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
-#include <QtCore/QPointer>
+#include <QtCore/QMap>
+#include <QtCore/QFutureInterface>
 
 QT_BEGIN_NAMESPACE
 class QAbstractItemModel;
@@ -58,11 +59,6 @@ class Node;
 class SessionNode;
 class SessionManager;
 
-namespace Internal {
-class SessionFile;
-class SessionNodeImpl;
-} // namespace Internal
-
 class PROJECTEXPLORER_EXPORT SessionManager : public QObject
 {
     Q_OBJECT
@@ -76,7 +72,6 @@ public:
     QString lastSession() const;
     QStringList sessions() const;
 
-    void createAndLoadNewDefaultSession();
     bool createSession(const QString &session);
 
     bool deleteSession(const QString &session);
@@ -149,6 +144,7 @@ private slots:
     void updateWindowTitle();
 
     void markSessionFileDirty(bool makeDefaultVirginDirty = true);
+    void sessionLoadingProgress();
 
 private:
     bool loadImpl(const QString &fileName);
@@ -159,9 +155,6 @@ private:
     QStringList dependencies(const QString &proName) const;
     QStringList dependenciesOrder() const;
 
-    void updateName(const QString &session);
-
-    Internal::SessionFile *m_file;
     SessionNode *m_sessionNode;
     QString m_sessionName;
     bool m_virginSession;
@@ -170,6 +163,13 @@ private:
 
     mutable QHash<Project *, QStringList> m_projectFileCache;
     QTimer *m_autoSaveSessionTimer;
+
+    Project *m_startupProject;
+    QList<Project *> m_projects;
+    QStringList m_failedProjects;
+    QMap<QString, QStringList> m_depMap;
+    QMap<QString, QVariant> m_values;
+    QFutureInterface<void> m_future;
 };
 
 } // namespace ProjectExplorer

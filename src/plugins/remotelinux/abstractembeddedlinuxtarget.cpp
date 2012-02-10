@@ -29,30 +29,31 @@
 ** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+#include "abstractembeddedlinuxtarget.h"
 
-#ifndef CPPLOCALSYMBOLS_H
-#define CPPLOCALSYMBOLS_H
+#include "deploymentinfo.h"
+#include "typespecificdeviceconfigurationlistmodel.h"
 
-#include "cppsemanticinfo.h"
-#include <cplusplus/CppDocument.h>
-#include <ASTfwd.h>
+#include <qt4projectmanager/qt4buildconfiguration.h>
 
-namespace CppEditor {
-namespace Internal {
+using namespace ProjectExplorer;
+using namespace Qt4ProjectManager;
 
-class LocalSymbols
+namespace RemoteLinux {
+
+AbstractEmbeddedLinuxTarget::AbstractEmbeddedLinuxTarget(Qt4Project *parent, const QString &id,
+        const QString &supportedOsType) :
+    Qt4BaseTarget(parent, id),
+    m_buildConfigurationFactory(new Qt4BuildConfigurationFactory(this)),
+    m_supportedOsType(supportedOsType),
+    m_deploymentInfo(new DeploymentInfo(this)),
+    m_deviceConfigModel(new Internal::TypeSpecificDeviceConfigurationListModel(supportedOsType, this))
 {
-    Q_DISABLE_COPY(LocalSymbols)
+}
 
-public:
-    LocalSymbols(CPlusPlus::Document::Ptr doc, CPlusPlus::DeclarationAST *ast);
+IBuildConfigurationFactory *AbstractEmbeddedLinuxTarget::buildConfigurationFactory() const
+{
+    return m_buildConfigurationFactory;
+}
 
-    bool hasD;
-    bool hasQ;
-    SemanticInfo::LocalUseMap uses;
-};
-
-} // namespace Internal
-} // namespace CppEditor
-
-#endif // CPPLOCALSYMBOLS_H
+} // namespace RemoteLinux

@@ -62,6 +62,7 @@ public:
     QtVersionManager();
     ~QtVersionManager();
     void extensionsInitialized();
+    bool delayedInitialize();
 
     // This will *always* return at least one (Qt in Path), even if that is
     // unconfigured.
@@ -75,7 +76,6 @@ public:
 
     BaseQtVersion *qtVersionForQMakeBinary(const Utils::FileName &qmakePath);
 
-    // Used by the projectloadwizard
     void addVersion(BaseQtVersion *version);
     void removeVersion(BaseQtVersion *version);
 
@@ -101,7 +101,9 @@ public:
     QString popPendingMwcUpdate();
     QString popPendingGcceUpdate();
 
-    Core::FeatureSet availableFeatures() const;
+    Core::FeatureSet availableFeatures(const QString &platformName) const;
+    QStringList availablePlatforms() const;
+    QString displayNameForPlatform(const QString &string) const;
 
 signals:
     // content of BaseQtVersion objects with qmake path might have changed
@@ -110,10 +112,6 @@ signals:
 
 public slots:
     void updateDumpFor(const Utils::FileName &qmakeCommand);
-
-private slots:
-    void delayedUpdateDocumentation();
-    void updateDocumentation();
 
 private:
     // This function is really simplistic...
@@ -131,6 +129,7 @@ private:
     void findSystemQt();
     void updateFromInstaller();
     void saveQtVersions();
+    void updateDocumentation();
     // Used by QtOptionsPage
     void setNewQtVersions(QList<BaseQtVersion *> newVersions);
     // Used by QtVersion
@@ -158,7 +157,9 @@ class QTSUPPORT_EXPORT QtFeatureProvider : public Core::IFeatureProvider
 
 public:
     QtFeatureProvider() {}
-    virtual Core::FeatureSet availableFeatures() const;
+    Core::FeatureSet availableFeatures(const QString &platformName) const;
+    QStringList availablePlatforms() const;
+    QString displayNameForPlatform(const QString &string) const;
 };
 
 }

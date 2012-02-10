@@ -33,7 +33,7 @@
 #include "clangutils.h"
 #include "cppcreatemarkers.h"
 
-#include <qtconcurrent/runextensions.h>
+#include <utils/runextensions.h>
 
 #include <QCoreApplication>
 #include <QMutexLocker>

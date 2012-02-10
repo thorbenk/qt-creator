@@ -59,7 +59,7 @@
 
 #include <QtCore/QDir>
 #include <QtCore/QFile>
-#include <qtconcurrent/runextensions.h>
+#include <utils/runextensions.h>
 #include <QtCore/QtConcurrentRun>
 #include <QtGui/QMessageBox>
 
@@ -697,10 +697,9 @@ void QMakeStepConfigWidget::updateSummaryLabel()
     ToolChain *tc = qt4bc->toolChain();
     if (!tc)
         return;
-
-    Utils::FileName tcSpec = tc->mkspec();
-    if (!tcSpec.isEmpty() && tcSpec != m_step->mkspec())
-        setAdditionalSummaryText(tr("<b>Warning:</b> The tool chain suggested \"%1\" as mkspec.").arg(tcSpec.toUserOutput()));
+    QList<Utils::FileName> tcSpecList = tc->mkspecList();
+    if (!tcSpecList.isEmpty() && !tcSpecList.contains(m_step->mkspec()))
+        setAdditionalSummaryText(tr("<b>Warning:</b> The tool chain suggests using another mkspec."));
     else
         setAdditionalSummaryText(QString());
 }

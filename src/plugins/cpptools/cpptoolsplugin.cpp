@@ -65,7 +65,7 @@
 
 #include <QtCore/QtConcurrentRun>
 #include <QtCore/QFutureSynchronizer>
-#include <qtconcurrent/runextensions.h>
+#include <utils/runextensions.h>
 
 #include <find/ifindfilter.h>
 #include <find/searchresultwindow.h>

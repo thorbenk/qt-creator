@@ -70,10 +70,10 @@ public:
 
     QList<HeaderPath> systemHeaderPaths() const;
     void addToEnvironment(Utils::Environment &env) const;
-    Utils::FileName mkspec() const;
     QString makeCommand() const;
     void setDebuggerCommand(const Utils::FileName &);
     Utils::FileName debuggerCommand() const;
+    QList<Utils::FileName> suggestedMkspecList() const;
     IOutputParser *outputParser() const;
 
     QVariantMap toMap() const;
@@ -93,7 +93,6 @@ protected:
     GccToolChain(const GccToolChain &);
 
     virtual QString defaultDisplayName() const;
-    virtual QList<Abi> findAbiForCompilerPath(const QString &path);
 
     virtual QList<Abi> detectSupportedAbis() const;
     virtual QString detectVersion() const;
@@ -127,11 +126,12 @@ public:
     QString type() const;
     QString typeDisplayName() const;
     QString makeCommand() const;
-    Utils::FileName mkspec() const;
 
     IOutputParser *outputParser() const;
 
     ToolChain *clone() const;
+
+    QList<Utils::FileName> suggestedMkspecList() const;
 
 private:
     ClangToolChain(bool autodetect);
@@ -149,10 +149,11 @@ class PROJECTEXPLORER_EXPORT MingwToolChain : public GccToolChain
 public:
     QString type() const;
     QString typeDisplayName() const;
-    Utils::FileName mkspec() const;
     QString makeCommand() const;
 
     ToolChain *clone() const;
+
+    QList<Utils::FileName> suggestedMkspecList() const;
 
 private:
     MingwToolChain(bool autodetect);
@@ -173,9 +174,9 @@ public:
 
     IOutputParser *outputParser() const;
 
-    Utils::FileName mkspec() const;
-
     ToolChain *clone() const;
+
+    QList<Utils::FileName> suggestedMkspecList() const;
 
 private:
     LinuxIccToolChain(bool autodetect);

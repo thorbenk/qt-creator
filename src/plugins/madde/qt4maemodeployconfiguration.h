@@ -71,7 +71,6 @@ public:
 
     ProjectExplorer::DeployConfigurationWidget *configurationWidget() const;
 
-    QSharedPointer<RemoteLinux::DeploymentSettingsAssistant> deploymentSettingsAssistant() const;
     QString localDesktopFilePath(const RemoteLinux::DeployableFilesPerProFile *proFileInfo) const;
 
     static QString fremantleWithPackagingId();
@@ -83,11 +82,9 @@ private:
     friend class Internal::Qt4MaemoDeployConfigurationFactory;
 
     Qt4MaemoDeployConfiguration(ProjectExplorer::Target *target, const QString &id,
-        const QString &displayName, const QString &supportedOsType);
+        const QString &displayName);
     Qt4MaemoDeployConfiguration(ProjectExplorer::Target *target,
         Qt4MaemoDeployConfiguration *source);
-
-    QSharedPointer<RemoteLinux::DeploymentSettingsAssistant> m_deploymentSettingsAssistant;
 };
 
 } // namespace Internal

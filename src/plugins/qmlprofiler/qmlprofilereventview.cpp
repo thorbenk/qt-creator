@@ -54,6 +54,16 @@ using namespace QmlJsDebugClient;
 namespace QmlProfiler {
 namespace Internal {
 
+struct Colors {
+    Colors () {
+        this->bindingLoopBackground = QColor("orange").lighter();
+    }
+
+    QColor bindingLoopBackground;
+};
+
+Q_GLOBAL_STATIC(Colors, colors)
+
 ////////////////////////////////////////////////////////////////////////////////////
 
 class EventsViewItem : public QStandardItem
@@ -195,6 +205,16 @@ bool QmlProfilerEventsWidget::hasGlobalStats() const
     return m_globalStatsEnabled;
 }
 
+void QmlProfilerEventsWidget::setShowExtendedStatistics(bool show)
+{
+    m_eventTree->setShowExtendedStatistics(show);
+}
+
+bool QmlProfilerEventsWidget::showExtendedStatistics() const
+{
+    return m_eventTree->showExtendedStatistics();
+}
+
 ////////////////////////////////////////////////////////////////////////////////////
 
 class QmlProfilerEventsMainView::QmlProfilerEventsMainViewPrivate
@@ -215,8 +235,9 @@ public:
     QmlProfilerEventList *m_eventStatistics;
     QStandardItemModel *m_model;
     QList<bool> m_fieldShown;
+    QHash<int, int> m_columnIndex; // maps field enum to column index
+    bool m_showExtendedStatistics;
     int m_firstNumericColumn;
-    int m_detailsColumn;
     bool m_preventSelectBounce;
 };
 
@@ -241,8 +262,8 @@ QmlProfilerEventsMainView::QmlProfilerEventsMainView(QmlProfilerEventList *model
     setEventStatisticsModel(model);
 
     d->m_firstNumericColumn = 0;
-    d->m_detailsColumn = 0;
     d->m_preventSelectBounce = false;
+    d->m_showExtendedStatistics = false;
 
     // default view
     setViewType(EventsView);
@@ -326,36 +347,83 @@ void QmlProfilerEventsMainView::setHeaderLabels()
     int fieldIndex = 0;
     d->m_firstNumericColumn = 0;
 
+    d->m_columnIndex.clear();
     if (d->m_fieldShown[Name]) {
+        d->m_columnIndex[Name] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Location")));
         d->m_firstNumericColumn++;
     }
     if (d->m_fieldShown[Type]) {
+        d->m_columnIndex[Type] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Type")));
         d->m_firstNumericColumn++;
     }
-    if (d->m_fieldShown[Percent])
+    if (d->m_fieldShown[Percent]) {
+        d->m_columnIndex[Percent] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Time in Percent")));
-    if (d->m_fieldShown[TotalDuration])
+    }
+    if (d->m_fieldShown[TotalDuration]) {
+        d->m_columnIndex[TotalDuration] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Total Time")));
-    if (d->m_fieldShown[SelfPercent])
+    }
+    if (d->m_fieldShown[SelfPercent]) {
+        d->m_columnIndex[Type] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Self Time in Percent")));
-    if (d->m_fieldShown[SelfDuration])
+    }
+    if (d->m_fieldShown[SelfDuration]) {
+        d->m_columnIndex[SelfDuration] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Self Time")));
-    if (d->m_fieldShown[CallCount])
+    }
+    if (d->m_fieldShown[CallCount]) {
+        d->m_columnIndex[CallCount] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Calls")));
-    if (d->m_fieldShown[TimePerCall])
+    }
+    if (d->m_fieldShown[TimePerCall]) {
+        d->m_columnIndex[TimePerCall] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Mean Time")));
-    if (d->m_fieldShown[MedianTime])
+    }
+    if (d->m_fieldShown[MedianTime]) {
+        d->m_columnIndex[MedianTime] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Median Time")));
-    if (d->m_fieldShown[MaxTime])
+    }
+    if (d->m_fieldShown[MaxTime]) {
+        d->m_columnIndex[MaxTime] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Longest Time")));
-    if (d->m_fieldShown[MinTime])
+    }
+    if (d->m_fieldShown[MinTime]) {
+        d->m_columnIndex[MinTime] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Shortest Time")));
+    }
     if (d->m_fieldShown[Details]) {
-        d->m_detailsColumn = fieldIndex;
+        d->m_columnIndex[Details] = fieldIndex;
         d->m_model->setHeaderData(fieldIndex++, Qt::Horizontal, QVariant(tr("Details")));
     }
+}
+
+void QmlProfilerEventsMainView::setShowExtendedStatistics(bool show)
+{
+    // Not checking if already set because we don't want the first call to skip
+    d->m_showExtendedStatistics = show;
+    if (show) {
+        if (d->m_fieldShown[MedianTime])
+            showColumn(d->m_columnIndex[MedianTime]);
+        if (d->m_fieldShown[MaxTime])
+            showColumn(d->m_columnIndex[MaxTime]);
+        if (d->m_fieldShown[MinTime])
+            showColumn(d->m_columnIndex[MinTime]);
+    } else{
+        if (d->m_fieldShown[MedianTime])
+            hideColumn(d->m_columnIndex[MedianTime]);
+        if (d->m_fieldShown[MaxTime])
+            hideColumn(d->m_columnIndex[MaxTime]);
+        if (d->m_fieldShown[MinTime])
+            hideColumn(d->m_columnIndex[MinTime]);
+    }
+}
+
+bool QmlProfilerEventsMainView::showExtendedStatistics() const
+{
+    return d->m_showExtendedStatistics;
 }
 
 void QmlProfilerEventsMainView::clear()
@@ -384,6 +452,8 @@ void QmlProfilerEventsMainView::buildModel()
             d->buildV8ModelFromList( d->m_eventStatistics->getV8Events() );
         else
             d->buildModelFromList( d->m_eventStatistics->getEventDescriptions(), d->m_model->invisibleRootItem() );
+
+        setShowExtendedStatistics(d->m_showExtendedStatistics);
 
         setRootIsDecorated(false);
         setSortingEnabled(true);
@@ -471,6 +541,11 @@ void QmlProfilerEventsMainView::QmlProfilerEventsMainViewPrivate::buildModelFrom
             newRow.at(0)->setData(QVariant(binding->location.line),LineRole);
             newRow.at(0)->setData(QVariant(binding->location.column),ColumnRole);
             newRow.at(0)->setData(QVariant(binding->eventId),EventIdRole);
+            if (binding->isBindingLoop)
+                foreach (QStandardItem *item, newRow) {
+                    item->setBackground(colors()->bindingLoopBackground);
+                    item->setToolTip(tr("Binding loop detected"));
+                }
 
             // append
             parentItem->appendRow(newRow);
@@ -650,8 +725,8 @@ void QmlProfilerEventsMainView::changeDetailsForEvent(int eventId, const QString
     for (int i=0; i<d->m_model->rowCount(); i++) {
         QStandardItem *infoItem = d->m_model->item(i, 0);
         if (infoItem->data(EventIdRole).toInt() == eventId) {
-            d->m_model->item(i,d->m_detailsColumn)->setData(QVariant(newString),Qt::DisplayRole);
-            d->m_model->item(i,d->m_detailsColumn)->setData(QVariant(newString));
+            d->m_model->item(i,d->m_columnIndex[Details])->setData(QVariant(newString),Qt::DisplayRole);
+            d->m_model->item(i,d->m_columnIndex[Details])->setData(QVariant(newString));
             return;
         }
     }
@@ -817,6 +892,11 @@ void QmlProfilerEventsParentsAndChildrenView::rebuildTree(void *eventList)
             newRow.at(0)->setData(QVariant(event->reference->eventId), EventIdRole);
             newRow.at(2)->setData(QVariant(event->duration));
             newRow.at(3)->setData(QVariant(event->calls));
+            if (event->inLoopPath)
+                foreach (QStandardItem *item, newRow) {
+                    item->setBackground(colors()->bindingLoopBackground);
+                    item->setToolTip(tr("Part of binding loop"));
+                }
         } else {
             QV8EventSub *event = v8List->at(index);
             newRow << new EventsViewItem(event->reference->displayName);
