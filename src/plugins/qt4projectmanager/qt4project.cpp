@@ -476,6 +476,8 @@ void Qt4Project::updateCodeModels()
 
 void Qt4Project::updateCppCodeModel()
 {
+    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+
     QtSupport::BaseQtVersion *qtVersion = 0;
     ToolChain *tc = 0;
     if (Qt4BaseTarget *target = activeTarget()) {
@@ -497,10 +499,19 @@ void Qt4Project::updateCppCodeModel()
 
     CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
     pinfo.projectParts.clear();
+    ProjectPart::QtVersion qtVersionForPart = ProjectPart::NoQt;
+    if (qtVersion) {
+        if (qtVersion->qtVersion() < QtSupport::QtVersionNumber(5,0,0))
+            qtVersionForPart = ProjectPart::Qt4;
+        else
+            qtVersionForPart = ProjectPart::Qt5;
+    }
+
     QStringList allFiles;
     foreach (Qt4ProFileNode *pro, proFiles) {
-        CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
-                    new CPlusPlus::CppModelManagerInterface::ProjectPart);
+        ProjectPart::Ptr part(new ProjectPart);
+        part->qtVersion = qtVersionForPart;
+
         // part->defines
         if (tc)
             part->defines = tc->predefinedMacros(pro->variableValue(CppFlagsVar));
@@ -543,7 +554,7 @@ void Qt4Project::updateCppCodeModel()
 
         allFiles += part->sourceFiles;
 
-        part = CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr(new CPlusPlus::CppModelManagerInterface::ProjectPart);
+        part = ProjectPart::Ptr(new ProjectPart);
         //  todo objc code?
         part->language = CPlusPlus::CppModelManagerInterface::OBJC;
         part->sourceFiles = pro->variableValue(ObjCSourceVar);

@@ -74,6 +74,11 @@ public:
 
     class CPLUSPLUS_EXPORT ProjectPart
     {
+    public:
+        ProjectPart()
+            : qtVersion(UnknownQt)
+        {}
+
     public: //attributes
         QStringList sourceFiles;
         QByteArray defines;
@@ -83,10 +88,10 @@ public:
         Language language;
         ProjectExplorer::ToolChain::CompilerFlags flags;
         enum QtVersion {
-            UnknownQtVersion = -1,
-            NoQtVersion = 0,
-            Qt4Version = 1,
-            Qt5Version = 2
+            UnknownQt = -1,
+            NoQt = 0,
+            Qt4 = 1,
+            Qt5 = 2
         };
         QtVersion qtVersion;
 

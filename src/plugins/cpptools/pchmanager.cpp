@@ -128,7 +128,7 @@ void PCHManager::updatePchInfo(CompletionProjectSettings *cps, const QList<Proje
             objc |= projectPart->objcEnabled();
         }
 
-        CppModelManagerInterface::ProjectPart::QtVersion qtVersion = CppModelManagerInterface::ProjectPart::NoQtVersion; //### FIXME!
+        CppModelManagerInterface::ProjectPart::QtVersion qtVersion = CppModelManagerInterface::ProjectPart::NoQt; //### FIXME!
         QStringList opts = ClangUtils::createClangOptions(cpp0x, objc, qtVersion, QStringList(), QList<QByteArray>(), includes.toList(), frameworks.toList());
         PCHInfoPtr ptr = PCHInfo::createWithFileName(cpp0x, objc);
         QPair<bool, QStringList> msgs = precompile(cps->customPchFile(), opts, ptr->fileName());

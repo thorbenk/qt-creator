@@ -76,11 +76,10 @@ QStringList CppTools::ClangUtils::createClangOptions(bool useCpp0x,
         result << QLatin1String("-xc++");
 
     static const QString injectedHeader(Core::ICore::instance()->resourcePath() + QLatin1String("/cplusplus/qt%1-qobjectdefs-injected.h"));
-    //### TODO: we don't get this information yet from the project manager, so for now we always assume Qt4:
-//    if (qtVersion == CPlusPlus::CppModelManagerInterface::ProjectPart::Qt4Version)
+    if (qtVersion == CPlusPlus::CppModelManagerInterface::ProjectPart::Qt4)
         result << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('4'));
-//    if (qtVersion == CPlusPlus::CppModelManagerInterface::ProjectPart::Qt5Version)
-//        result << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('5'));
+    if (qtVersion == CPlusPlus::CppModelManagerInterface::ProjectPart::Qt5)
+        result << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('5'));
 
 #ifdef _MSC_VER
     result << QLatin1String("-fms-extensions")
