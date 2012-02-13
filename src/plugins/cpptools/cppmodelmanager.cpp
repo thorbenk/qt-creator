@@ -782,7 +782,7 @@ QStringList CppModelManager::internalProjectFiles() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart::Ptr &part, pinfo.projectParts)
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts())
             files += part->sourceFiles;
     }
     files.removeDuplicates();
@@ -796,7 +796,7 @@ QStringList CppModelManager::internalIncludePaths() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart::Ptr &part, pinfo.projectParts)
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts())
             includePaths += part->includePaths;
     }
     includePaths.removeDuplicates();
@@ -810,7 +810,7 @@ QStringList CppModelManager::internalFrameworkPaths() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart::Ptr &part, pinfo.projectParts)
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts())
             frameworkPaths += part->frameworkPaths;
     }
     frameworkPaths.removeDuplicates();
@@ -824,7 +824,7 @@ QByteArray CppModelManager::internalDefinedMacros() const
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart::Ptr &part, pinfo.projectParts)
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts())
             macros += part->defines;
     }
     return macros;
@@ -917,7 +917,7 @@ CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Proje
 
 static bool hasPreCompiledHeader(const CppModelManager::ProjectInfo &pinfo)
 {
-    foreach (const CppModelManager::ProjectPart::Ptr &projectPart, pinfo.projectParts) {
+    foreach (const CppModelManager::ProjectPart::Ptr &projectPart, pinfo.projectParts()) {
         if (!projectPart->precompiledHeaders.isEmpty() && QFileInfo(projectPart->precompiledHeaders.first()).exists())
             return true;
     }
@@ -950,8 +950,7 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     if (! pinfo.isValid())
         return;
 
-
-    ProjectExplorer::Project *project = pinfo.project.data();
+    ProjectExplorer::Project *project = pinfo.project().data();
     ProjectInfo oldInfo = m_projects.value(project);
     m_projects.insert(project, pinfo);
     m_dirty = true;
@@ -975,11 +974,11 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     m_srcToProjectPart.clear();
 
     QHash<ProjectPart, ProjectPart::Ptr> oldProjectParts;
-    foreach (const ProjectPart::Ptr &projectPart, oldInfo.projectParts) {
+    foreach (const ProjectPart::Ptr &projectPart, oldInfo.projectParts()) {
         oldProjectParts.insert(*projectPart, projectPart);
     }
 
-    foreach (const ProjectPart::Ptr &projectPart, pinfo.projectParts) {
+    foreach (const ProjectPart::Ptr &projectPart, pinfo.projectParts()) {
         // FIXME: compare existing parts to updated ones.
         // and migrate pch files
         if (ProjectPart::Ptr oldPart = oldProjectParts.value(*projectPart)) {
@@ -991,7 +990,7 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
         }
     }
 
-    PCHManager::updatePchInfo(cps, pinfo.projectParts);
+    PCHManager::updatePchInfo(cps, pinfo.projectParts());
 }
 
 QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const

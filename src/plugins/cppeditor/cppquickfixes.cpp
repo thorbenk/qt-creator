@@ -1863,7 +1863,7 @@ public:
         QList<CppModelManagerInterface::ProjectInfo> projectInfos = modelManager->projectInfos();
         bool inProject = false;
         foreach (const CppModelManagerInterface::ProjectInfo &info, projectInfos) {
-            foreach (CppModelManagerInterface::ProjectPart::Ptr part, info.projectParts) {
+            foreach (CppModelManagerInterface::ProjectPart::Ptr part, info.projectParts()) {
                 if (part->sourceFiles.contains(doc->fileName())) {
                     inProject = true;
                     includePaths += part->includePaths;
@@ -1873,7 +1873,7 @@ public:
         if (!inProject) {
             // better use all include paths than none
             foreach (const CppModelManagerInterface::ProjectInfo &info, projectInfos) {
-                foreach (CppModelManagerInterface::ProjectPart::Ptr part, info.projectParts)
+                foreach (CppModelManagerInterface::ProjectPart::Ptr part, info.projectParts())
                     includePaths += part->includePaths;
             }
         }

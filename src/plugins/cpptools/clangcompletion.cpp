@@ -173,11 +173,7 @@ bool ClangCompletionAssistProvider::isActivationCharSequence(const QString &sequ
 
 IAssistProcessor *ClangCompletionAssistProvider::createProcessor() const
 {
-#if CODE_COMPLETION_WITH_CLANG
     return new ClangCompletionAssistProcessor;
-#else
-    return new CppCompletionAssistProcessor;
-#endif
 }
 
 // ------------------------

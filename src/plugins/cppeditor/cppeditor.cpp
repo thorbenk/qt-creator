@@ -68,12 +68,9 @@
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/cppchecksymbols.h>
 #include <cpptools/cppcodeformatter.h>
-#if 0
 #include <cpptools/cppcompletionsupport.h>
 #include <cpptools/cpphighlightingsupport.h>
-#else
 #include <cpptools/cpplocalsymbols.h>
-#endif
 #include <cpptools/cppqtstyleindenter.h>
 #include <cpptools/cppcodestylesettings.h>
 #include <cpptools/cpprefactoringchanges.h>
@@ -432,8 +429,6 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     , m_inRenameChanged(false)
     , m_firstRenameChange(false)
     , m_objcEnabled(false)
-    , m_clangCompletionWrapper(new Clang::ClangCompleter)
-    , m_semanticMarker(new Clang::SemanticMarker)
     , m_commentsSettings(CppTools::CppToolsSettings::instance()->commentsSettings())
 {
     m_initialized = false;
@@ -1700,21 +1695,17 @@ void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
     m_occurrencesUnusedFormat.clearForeground();
     m_occurrencesUnusedFormat.setToolTip(tr("Unused variable"));
     m_occurrenceRenameFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_OCCURRENCES_RENAME));
-    m_semanticHighlightFormatMap[Clang::SourceMarker::Type] =
+    m_semanticHighlightFormatMap[SemanticInfo::TypeUse] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_TYPE));
-    m_semanticHighlightFormatMap[Clang::SourceMarker::Local] =
+    m_semanticHighlightFormatMap[SemanticInfo::LocalUse] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_LOCAL));
-    m_semanticHighlightFormatMap[Clang::SourceMarker::Field] =
+    m_semanticHighlightFormatMap[SemanticInfo::FieldUse] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_FIELD));
-    m_semanticHighlightFormatMap[Clang::SourceMarker::Static] =
+    m_semanticHighlightFormatMap[SemanticInfo::StaticUse] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_STATIC));
-    m_semanticHighlightFormatMap[Clang::SourceMarker::VirtualMethod] =
+    m_semanticHighlightFormatMap[SemanticInfo::VirtualMethodUse] =
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_VIRTUAL_METHOD));
-#if 1
-    m_semanticHighlightFormatMap[Clang::SourceMarker::Label] =
-#else
     m_semanticHighlightFormatMap[SemanticInfo::LabelUse] =
-#endif
             fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_LABEL));
     m_keywordFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_KEYWORD));
 
@@ -1850,28 +1841,11 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
 
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
             if (Core::EditorManager::instance()->currentEditor() == editor()) {
-#if 1
-                const QString fileName = file()->fileName();
-                QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(fileName);
-                QStringList options;
-                if (!parts.isEmpty())
-                    options = CppTools::ClangUtils::createClangOptions(parts.at(0));
-
-                //### FIXME: the range is way too big.. can't we just update the visible lines?
-                CppTools::CreateMarkers *createMarkers = CppTools::CreateMarkers::create(m_semanticMarker, fileName, options, 1, document()->blockCount());
-                connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
-                        this, SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
-                CppTools::CreateMarkers::Future f = createMarkers->start();
-                m_highlighter = f;
-                m_highlightRevision = semanticInfo.revision;
-                m_highlightWatcher.setFuture(m_highlighter);
-#else
                 if (CppTools::CppHighlightingSupport *hs = modelManager()->highlightingSupport(editor())) {
-                    m_highlighter = hs->highlightingFuture(semanticInfo.doc, semanticInfo.snapshot);
+                    m_highlighter = hs->highlightingFuture(semanticInfo.doc, semanticInfo.snapshot, 1, document()->blockCount());
                     m_highlightRevision = semanticInfo.revision;
                     m_highlightWatcher.setFuture(m_highlighter);
                 }
-#endif
             }
         }
     }
@@ -2157,24 +2131,9 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
     TextEditor::AssistReason reason) const
 {
     if (kind == TextEditor::Completion) {
-#if 1
-        QList<CppModelManagerInterface::ProjectPart::Ptr> parts = m_modelManager->projectPart(file()->fileName());
-        QStringList includePaths, frameworkPaths, options;
-        if (!parts.isEmpty()) {
-            const CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
-            options = CppTools::ClangUtils::createClangOptions(part);
-            includePaths = part->includePaths;
-            frameworkPaths = part->frameworkPaths;
-        }
-        return new CppTools::ClangCompletionAssistInterface(
-                    m_clangCompletionWrapper,
-                    document(), position(), editor()->file(), reason,
-                    options, includePaths, frameworkPaths);
-#else
         if (CppTools::CppCompletionSupport *cs = m_modelManager->completionSupport(editor()))
             return cs->createAssistInterface(ProjectExplorer::ProjectExplorerPlugin::currentProject(),
                                              document(), position(), reason);
-#endif
     } else if (kind == TextEditor::QuickFix) {
         if (!semanticInfo().doc || isOutdated())
             return 0;
@@ -2192,59 +2151,6 @@ void CPPEditorWidget::onRefactorMarkerClicked(const TextEditor::RefactorMarker &
 {
     if (marker.data.canConvert<FunctionDeclDefLink::Marker>())
         applyDeclDefLinkChanges(true);
-}
-
-void CPPEditorWidget::setDiagnostics(const QList<Clang::Diagnostic> &diagnostics)
-{
-    // set up the format for the errors
-    QTextCharFormat errorFormat;
-    errorFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-    errorFormat.setUnderlineColor(Qt::red);
-
-    // set up the format for the warnings.
-    QTextCharFormat warningFormat;
-    warningFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-    warningFormat.setUnderlineColor(Qt::darkYellow);
-
-    QList<QTextEdit::ExtraSelection> selections;
-    foreach (const Clang::Diagnostic &m, diagnostics) {
-        QTextEdit::ExtraSelection sel;
-
-        switch (m.severity()) {
-        case Clang::Diagnostic::Error:
-            sel.format = errorFormat;
-            break;
-
-        case Clang::Diagnostic::Warning:
-            sel.format = warningFormat;
-            break;
-
-        default:
-            continue;
-        }
-
-        QTextCursor c(document()->findBlockByNumber(m.location().line() - 1));
-        const int linePos = c.position();
-        c.setPosition(linePos + m.location().column() - 1);
-
-        const QString text = c.block().text();
-        if (m.length() == 0) {
-            for (int i = m.location().column() - 1; i < text.size(); ++i) {
-                if (text.at(i).isSpace()) {
-                    c.setPosition(linePos + i, QTextCursor::KeepAnchor);
-                    break;
-                }
-            }
-        } else {
-            c.setPosition(c.position() + m.length(), QTextCursor::KeepAnchor);
-        }
-
-        sel.cursor = c;
-        sel.format.setToolTip(m.spelling());
-        selections.append(sel);
-    }
-
-    setExtraSelections(BaseTextEditorWidget::CodeWarningsSelection, selections);
 }
 
 void CPPEditorWidget::updateFunctionDeclDefLink()

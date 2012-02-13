@@ -34,6 +34,7 @@
 #include "completionsettingspage.h"
 #include "cppfilesettingspage.h"
 #include "cppcodestylesettingspage.h"
+#include "cppcompletionassist.h"
 #include "cppclassesfilter.h"
 #include "cppfunctionsfilter.h"
 #include "cppcurrentdocumentfilter.h"
@@ -41,10 +42,13 @@
 #include "cpptoolsconstants.h"
 #include "cpplocatorfilter.h"
 #include "symbolsfindfilter.h"
-#include "clangcompletion.h"
 #include "cpptoolssettings.h"
 #include "completionprojectsettingspage.h"
 #include "cppctordtorfilter.h"
+
+#ifdef CLANG_COMPLETION
+#  include "clangcompletion.h"
+#endif // CLANG_COMPLETION
 
 #include <clangwrapper/utils.h>
 
@@ -122,7 +126,11 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
             m_modelManager, SLOT(updateSourceFiles(QStringList)));
     addAutoReleasedObject(m_modelManager);
 
+#ifdef CLANG_COMPLETION
     addAutoReleasedObject(new ClangCompletionAssistProvider);
+#endif // CLANG_COMPLETION
+
+    addAutoReleasedObject(new CppCompletionAssistProvider);
     addAutoReleasedObject(new CppLocatorFilter(m_modelManager));
     addAutoReleasedObject(new CppClassesFilter(m_modelManager));
     addAutoReleasedObject(new CppFunctionsFilter(m_modelManager));

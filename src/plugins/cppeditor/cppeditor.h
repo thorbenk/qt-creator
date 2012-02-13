@@ -257,8 +257,6 @@ private Q_SLOTS:
 
     void onRefactorMarkerClicked(const TextEditor::RefactorMarker &marker);
 
-    void setDiagnostics(const QList<Clang::Diagnostic> &diagnostics);
-
     void onCommentsSettingsChanged(const CppTools::CommentsSettings &settings);
 
 private:
@@ -340,9 +338,7 @@ private:
     FunctionDeclDefLinkFinder *m_declDefLinkFinder;
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
 
-    Clang::ClangCompleter::Ptr m_clangCompletionWrapper;
     Clang::CodeNavigator m_codeNavigator;
-    Clang::SemanticMarker::Ptr m_semanticMarker;
 
     CppTools::CommentsSettings m_commentsSettings;
 };

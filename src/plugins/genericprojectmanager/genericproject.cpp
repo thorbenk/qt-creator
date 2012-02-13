@@ -257,7 +257,7 @@ void GenericProject::refresh(RefreshOptions options)
 
     if (modelManager) {
         CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
-        pinfo.projectParts.clear();
+        pinfo.clearProjectParts();
         CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
                     new CPlusPlus::CppModelManagerInterface::ProjectPart);
 
@@ -294,7 +294,7 @@ void GenericProject::refresh(RefreshOptions options)
             filesToUpdate.append(newFileList.toList());
         }
 
-        pinfo.projectParts.append(part);
+        pinfo.appendProjectPart(part);
 
         modelManager->updateProjectInfo(pinfo);
         m_codeModelFuture = modelManager->updateSourceFiles(filesToUpdate);

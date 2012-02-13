@@ -1,3 +1,6 @@
 include(clang_installation.pri)
-INCLUDEPATH += $$LLVM_INCLUDEPATH $$PWD/..
-LIBS *= -l$$qtLibraryName(ClangWrapper)
+
+!isEmpty(LLVM_INSTALL_DIR) {
+    INCLUDEPATH += $$LLVM_INCLUDEPATH $$PWD/..
+    LIBS *= -l$$qtLibraryName(ClangWrapper)
+}

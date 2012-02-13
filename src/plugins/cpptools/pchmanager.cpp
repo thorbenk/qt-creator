@@ -149,7 +149,7 @@ void PCHManager::completionProjectSettingsChanged()
     if (!cps)
         return;
 
-    const QList<ProjectPart::Ptr> projectParts = m_modelManager->projectInfo(cps->project()).projectParts;
+    const QList<ProjectPart::Ptr> projectParts = m_modelManager->projectInfo(cps->project()).projectParts();
     foreach (const ProjectPart::Ptr &partPtr, projectParts)
         partPtr->clangPCH.clear();
     updatePchInfo(cps, projectParts);

@@ -512,7 +512,7 @@ void AutotoolsProject::updateCppCodeModel()
     }
 
     CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
-    pinfo.projectParts.clear();
+    pinfo.clearProjectParts();
     CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
                 new CPlusPlus::CppModelManagerInterface::ProjectPart);
     part->includePaths = allIncludePaths;
@@ -521,7 +521,7 @@ void AutotoolsProject::updateCppCodeModel()
         part->defines = m_toolChain->predefinedMacros(QStringList());
     part->frameworkPaths = allFrameworkPaths;
     part->language = CPlusPlus::CppModelManagerInterface::CXX;
-    pinfo.projectParts.append(part);
+    pinfo.appendProjectPart(part);
     modelManager->updateProjectInfo(pinfo);
     modelManager->updateSourceFiles(m_files);
 }

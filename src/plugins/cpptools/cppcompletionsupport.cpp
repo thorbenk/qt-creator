@@ -35,40 +35,133 @@
 #include "cppmodelmanager.h"
 #include "cpptoolseditorsupport.h"
 
+#ifdef CLANG_COMPLETION
+#  include "clangcompletion.h"
+#  include "clangutils.h"
+#endif // CLANG_COMPLETION
+
 #include <coreplugin/ifile.h>
 #include <projectexplorer/project.h>
 #include <texteditor/codeassist/iassistinterface.h>
 
-using namespace CPlusPlus;
+namespace CppTools {
+namespace Internal {
+
+class CompletionImpl
+{
+public:
+    virtual ~CompletionImpl() = 0;
+
+    virtual TextEditor::IAssistInterface *createAssistInterface(CppEditorSupport *editorSupport,
+                                                                ProjectExplorer::Project *project,
+                                                                QTextDocument *document,
+                                                                int position,
+                                                                TextEditor::AssistReason reason) const = 0;
+};
+
+CompletionImpl::~CompletionImpl()
+{}
+
+class InternalCodeModelCompletionImpl: public CompletionImpl
+{
+public:
+    virtual ~InternalCodeModelCompletionImpl()
+    {}
+
+    virtual TextEditor::IAssistInterface *createAssistInterface(CppEditorSupport *editorSupport,
+                                                                ProjectExplorer::Project *project,
+                                                                QTextDocument *document,
+                                                                int position,
+                                                                TextEditor::AssistReason reason) const
+    {
+        CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
+        QStringList includePaths;
+        QStringList frameworkPaths;
+        if (project) {
+            includePaths = modelManager->projectInfo(project).includePaths();
+            frameworkPaths = modelManager->projectInfo(project).frameworkPaths();
+        }
+        return new CppTools::Internal::CppCompletionAssistInterface(
+                    document,
+                    position,
+                    editorSupport->textEditor()->file(),
+                    reason,
+                    modelManager->snapshot(),
+                    includePaths,
+                    frameworkPaths);
+    }
+};
+
+#ifdef CLANG_COMPLETION
+class ClangCompletionImpl: public CompletionImpl
+{
+public:
+    ClangCompletionImpl()
+        : m_clangCompletionWrapper(new Clang::ClangCompleter)
+    {}
+
+    virtual ~ClangCompletionImpl()
+    {}
+
+    virtual TextEditor::IAssistInterface *createAssistInterface(CppEditorSupport *editorSupport,
+                                                                ProjectExplorer::Project *project,
+                                                                QTextDocument *document,
+                                                                int position,
+                                                                TextEditor::AssistReason reason) const
+    {
+        CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
+        Core::IFile *file = editorSupport->textEditor()->file();
+        QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(file->fileName());
+        QStringList includePaths, frameworkPaths, options;
+        if (!parts.isEmpty()) {
+            const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
+            options = CppTools::ClangUtils::createClangOptions(part);
+            includePaths = part->includePaths;
+            frameworkPaths = part->frameworkPaths;
+        }
+        return new CppTools::ClangCompletionAssistInterface(
+                    m_clangCompletionWrapper,
+                    document, position, file, reason,
+                    options, includePaths, frameworkPaths);
+    }
+
+private:
+    Clang::ClangCompleter::Ptr m_clangCompletionWrapper;
+};
+#endif // CLANG_COMPLETION
+
+}
+}
+
 using namespace CppTools;
 using namespace CppTools::Internal;
 
 CppCompletionSupport::CppCompletionSupport(CppEditorSupport *editorSupport)
     : m_editorSupport(editorSupport)
-{
-    Q_ASSERT(editorSupport);
-}
+//    , m_impl(new InternalCodeModelCompletionImpl)
+    , m_impl(new ClangCompletionImpl)
+{}
 
 TextEditor::IAssistInterface *CppCompletionSupport::createAssistInterface(ProjectExplorer::Project *project,
                                                                           QTextDocument *document,
                                                                           int position,
                                                                           TextEditor::AssistReason reason) const
 {
-    CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
-    QStringList includePaths;
-    QStringList frameworkPaths;
-#if 0
-    if (project) {
-        includePaths = modelManager->projectInfo(project).includePaths;
-        frameworkPaths = modelManager->projectInfo(project).frameworkPaths;
+    return m_impl->createAssistInterface(m_editorSupport, project, document,
+                                         position, reason);
+}
+
+void CppCompletionSupport::setUseClang(bool useClang)
+{
+#ifdef CLANG_HIGHLIGHTING
+    if (useClang && dynamic_cast<InternalCodeModelCompletionImpl *>(m_impl)) {
+        delete m_impl;
+        m_impl = new ClangCompletionImpl;
+    } else if (!useClang && dynamic_cast<ClangCompletionImpl *>(m_impl)) {
+        delete m_impl;
+        m_impl = new InternalCodeModelCompletionImpl;
     }
-#endif
-    return new CppTools::Internal::CppCompletionAssistInterface(
-                document,
-                position,
-                m_editorSupport->textEditor()->file(),
-                reason,
-                modelManager->snapshot(),
-                includePaths,
-                frameworkPaths);
+#else // !CLANG_HIGHLIGHTING
+    Q_UNUSED(useClang);
+#endif // CLANG_HIGHLIGHTING
 }

@@ -39,11 +39,13 @@
 #include <texteditor/semantichighlighter.h>
 
 #include <QtCore/QFuture>
+#include <QtCore/QObject>
 
 namespace CppTools {
 namespace Internal {
 class CppEditorSupport;
-}
+class HighlightingImpl;
+} // namespace Internal
 
 class CPPTOOLS_EXPORT CppHighlightingSupport
 {
@@ -51,10 +53,18 @@ public:
     typedef TextEditor::SemanticHighlighter::Result Use;
 
 public:
-    CppHighlightingSupport();
+    CppHighlightingSupport(Internal::CppEditorSupport *editorSupport);
+    ~CppHighlightingSupport();
 
     QFuture<Use> highlightingFuture(const CPlusPlus::Document::Ptr &doc,
-                                    const CPlusPlus::Snapshot &snapshot) const;
+                                    const CPlusPlus::Snapshot &snapshot,
+                                    int firstLine, int lastLine) const;
+
+    void setUseClang(bool useClang);
+
+private:
+    Internal::CppEditorSupport *m_editorSupport;
+    Internal::HighlightingImpl *m_impl;
 };
 
 } // namespace CppTools

@@ -113,20 +113,38 @@ public:
         { }
 
         ProjectInfo(QWeakPointer<ProjectExplorer::Project> project)
-            : project(project)
+            : m_project(project)
         { }
 
         operator bool() const
-        { return ! project.isNull(); }
+        { return ! m_project.isNull(); }
 
         bool isValid() const
-        { return ! project.isNull(); }
+        { return ! m_project.isNull(); }
 
         bool isNull() const
-        { return project.isNull(); }
-    public: // attributes
-        QWeakPointer<ProjectExplorer::Project> project;
-        QList<ProjectPart::Ptr> projectParts;
+        { return m_project.isNull(); }
+
+        QWeakPointer<ProjectExplorer::Project> project() const
+        { return m_project; }
+
+        const QList<ProjectPart::Ptr> projectParts() const
+        { return m_projectParts; }
+
+        void clearProjectParts();
+        void appendProjectPart(const ProjectPart::Ptr &part);
+
+        const QStringList includePaths() const
+        { return m_includePaths; }
+
+        const QStringList frameworkPaths() const
+        { return m_frameworkPaths; }
+
+    private: // attributes
+        QWeakPointer<ProjectExplorer::Project> m_project;
+        QList<ProjectPart::Ptr> m_projectParts;
+        QStringList m_includePaths;
+        QStringList m_frameworkPaths;
     };
 
     class WorkingCopy

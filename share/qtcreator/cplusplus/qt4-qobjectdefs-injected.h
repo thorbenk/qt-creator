@@ -223,8 +223,8 @@ Q_CORE_EXPORT const char *qFlagLocation(const char *method);
 # ifndef QT_NO_KEYWORDS
 #  define METHOD(a)   qFlagLocation("0"#a QLOCATION)
 # endif
-# define SLOT(a)     a
-# define SIGNAL(a)   a
+# define SLOT(a)     #a
+# define SIGNAL(a)   #a
 #else
 # ifndef QT_NO_KEYWORDS
 #  define METHOD(a)   "0"#a

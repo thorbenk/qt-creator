@@ -498,7 +498,7 @@ void Qt4Project::updateCppCodeModel()
     QList<Qt4ProFileNode *> proFiles = findQt4ProFiles(rootProjectNode());
 
     CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
-    pinfo.projectParts.clear();
+    pinfo.clearProjectParts();
     ProjectPart::QtVersion qtVersionForPart = ProjectPart::NoQt;
     if (qtVersion) {
         if (qtVersion->qtVersion() < QtSupport::QtVersionNumber(5,0,0))
@@ -550,7 +550,7 @@ void Qt4Project::updateCppCodeModel()
             part->flags = tc->compilerFlags(pro->variableValue(CppFlagsVar));
 
         part->sourceFiles = pro->variableValue(CppSourceVar);
-        pinfo.projectParts.append(part);
+        pinfo.appendProjectPart(part);
 
         allFiles += part->sourceFiles;
 
@@ -559,7 +559,7 @@ void Qt4Project::updateCppCodeModel()
         part->language = CPlusPlus::CppModelManagerInterface::OBJC;
         part->sourceFiles = pro->variableValue(ObjCSourceVar);
         if (!part->sourceFiles.isEmpty())
-            pinfo.projectParts.append(part);
+            pinfo.appendProjectPart(part);
 
         allFiles += part->sourceFiles;
     }

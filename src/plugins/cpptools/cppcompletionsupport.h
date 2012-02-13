@@ -56,6 +56,7 @@ class IAssistInterface;
 namespace CppTools {
 namespace Internal {
 class CppEditorSupport;
+class CompletionImpl;
 }
 
 class CPPTOOLS_EXPORT CppCompletionSupport
@@ -68,8 +69,11 @@ public:
                                                         int position,
                                                         TextEditor::AssistReason reason) const;
 
+    void setUseClang(bool useClang);
+
 private:
     Internal::CppEditorSupport *m_editorSupport;
+    Internal::CompletionImpl *m_impl;
 };
 
 } // namespace CppTools

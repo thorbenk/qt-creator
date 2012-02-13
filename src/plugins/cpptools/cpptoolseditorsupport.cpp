@@ -57,7 +57,7 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
       m_evaluateFileTimer(new QTimer(this)),
       m_fileRevision(0),
       m_completionSupport(new CppCompletionSupport(this)),
-      m_highlightingSupport(new CppHighlightingSupport)
+      m_highlightingSupport(new CppHighlightingSupport(this))
 {
     _revision = 0;
 
@@ -70,6 +70,9 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
     m_evaluateFileTimer->setSingleShot(true);
     m_evaluateFileTimer->setInterval(_updateDocumentInterval);
     connect(m_evaluateFileTimer, SIGNAL(timeout()), this, SLOT(evaluateFileNow()));
+
+    m_completionSupport->setUseClang(true);
+    m_highlightingSupport->setUseClang(true);
 }
 
 CppEditorSupport::~CppEditorSupport()

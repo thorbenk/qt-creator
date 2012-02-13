@@ -29,6 +29,7 @@ HEADERS += completionsettingspage.h \
     insertionpointlocator.h \
     cpprefactoringchanges.h \
     abstracteditorsupport.h \
+    cppcompletionassist.h \
     cppcodestylesettingspage.h \
     cpptoolssettings.h \
     cppcodestylesettings.h \
@@ -46,7 +47,8 @@ HEADERS += completionsettingspage.h \
     cpphighlightingsupport.h \
     cppchecksymbols.h \
     cpplocalsymbols.h \
-    cppsemanticinfo.h
+    cppsemanticinfo.h \
+    cpphighlightingsupport_p.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -67,6 +69,7 @@ SOURCES += completionsettingspage.cpp \
     uicodecompletionsupport.cpp \
     insertionpointlocator.cpp \
     cpprefactoringchanges.cpp \
+    cppcompletionassist.cpp \
     cppcodestylesettingspage.cpp \
     cpptoolssettings.cpp \
     cppcodestylesettings.cpp \
@@ -92,13 +95,18 @@ FORMS += completionsettingspage.ui \
     completionprojectsettingspage.ui
 
 # For Clang integration:
-DEFINES += CODE_COMPLETION_WITH_CLANG
-HEADERS += clangcompletion.h \
-    cppcreatemarkers.h \
-    clangutils.h
-SOURCES += clangcompletion.cpp \
-    cppcreatemarkers.cpp \
-    clangutils.cpp
+contains(DEFINES, CLANG_COMPLETION) {
+    HEADERS += clangcompletion.h
+    SOURCES += clangcompletion.cpp
+}
+
+contains(DEFINES, CLANG_HIGHLIGHTING) {
+    HEADERS += cppcreatemarkers.h
+    SOURCES += cppcreatemarkers.cpp
+}
+
+HEADERS += clangutils.h
+SOURCES += clangutils.cpp
 
 equals(TEST, 1) {
     SOURCES += \
