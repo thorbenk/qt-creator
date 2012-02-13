@@ -140,9 +140,13 @@ using namespace CppTools::Internal;
 
 CppCompletionSupport::CppCompletionSupport(CppEditorSupport *editorSupport)
     : m_editorSupport(editorSupport)
-//    , m_impl(new InternalCodeModelCompletionImpl)
-    , m_impl(new ClangCompletionImpl)
-{}
+{
+#ifdef CLANG_HIGHLIGHTING
+    m_impl = new ClangCompletionImpl;
+#else // !CLANG_HIGHLIGHTING
+    m_impl = new InternalCodeModelCompletionImpl;
+#endif // CLANG_HIGHLIGHTING
+}
 
 TextEditor::IAssistInterface *CppCompletionSupport::createAssistInterface(ProjectExplorer::Project *project,
                                                                           QTextDocument *document,

@@ -35,9 +35,12 @@
 
 #include "cppeditorenums.h"
 #include <texteditor/syntaxhighlighter.h>
-#include <clangwrapper/rawlexer.h>
 #include <QtGui/QTextCharFormat>
 #include <QtCore/QtAlgorithms>
+
+#ifdef CLANG_LEXER
+#  include <clangwrapper/rawlexer.h>
+#endif // CLANG_LEXER
 
 namespace CppEditor {
 
@@ -72,7 +75,10 @@ private:
     bool isQtKeyword(const QStringRef &text) const;
 
     QTextCharFormat m_formats[NumCppFormats];
+
+#ifdef CLANG_LEXER
     Clang::RawLexer m_lexer;
+#endif // CLANG_LEXER
 };
 
 } // namespace Internal

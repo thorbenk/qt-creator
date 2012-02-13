@@ -43,17 +43,22 @@
 using namespace CppEditor::Internal;
 using namespace TextEditor;
 using namespace CPlusPlus;
+#ifdef CLANG_LEXER
 using namespace Clang;
+#endif // CLANG_LEXER
 
 CppHighlighter::CppHighlighter(QTextDocument *document) :
     TextEditor::SyntaxHighlighter(document)
 {
+#ifdef CLANG_LEXER
     m_lexer.includeC99();
     m_lexer.includeCpp0x();
     m_lexer.includeCppOperators();
     m_lexer.init();
+#endif // CLANG_LEXER
 }
 
+#ifdef CLANG_LEXER
 void CppHighlighter::highlightBlock(const QString &text)
 {
     const int previousState = previousBlockState();
@@ -260,7 +265,8 @@ void CppHighlighter::highlightBlock(const QString &text)
     setCurrentBlockState((braceDepth << 8) | state);
 }
 
-#if 0
+#else // !CLANG_LEXER
+
 void CppHighlighter::highlightBlock(const QString &text)
 {
     const int previousState = previousBlockState();
@@ -474,7 +480,8 @@ void CppHighlighter::highlightBlock(const QString &text)
 
     setCurrentBlockState((braceDepth << 8) | tokenize.state());
 }
-#endif
+
+#endif // CLANG_LEXER
 
 bool CppHighlighter::isPPKeyword(const QStringRef &text) const
 {

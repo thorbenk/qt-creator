@@ -110,7 +110,9 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     Q_UNUSED(arguments)
     Q_UNUSED(error)
 
+#if defined(CLANG_COMPLETION) || defined(CLANG_HIGHLIGHTING) || defined(CLANG_INDEXING) || defined(CLANG_LEXER)
     Clang::initializeClang();
+#endif
 
     Core::ActionManager *am = Core::ICore::actionManager();
 

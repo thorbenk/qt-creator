@@ -1,6 +1,8 @@
 include(clang_installation.pri)
 
 !isEmpty(LLVM_INSTALL_DIR) {
+    message("Building with Clang from $$LLVM_INSTALL_DIR")
+
     LIBS += $$LLVM_LIBS
     INCLUDEPATH += $$LLVM_INCLUDEPATH
     DEFINES += $$LLVM_DEFINES

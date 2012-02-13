@@ -36,10 +36,10 @@
 #include "cppeditorenums.h"
 #include "cppfunctiondecldeflink.h"
 
-#include <clangwrapper/clangcompleter.h>
-#include <clangwrapper/semanticmarker.h>
-#include <clangwrapper/sourcemarker.h>
-#include <clangwrapper/codenavigator.h>
+#ifdef CLANG_INDEXING
+#  include <clangwrapper/sourcemarker.h>
+#  include <clangwrapper/codenavigator.h>
+#endif // CLANG_INDEXING
 
 #include <cplusplus/ModelManagerInterface.h>
 #include <cplusplus/CppDocument.h>

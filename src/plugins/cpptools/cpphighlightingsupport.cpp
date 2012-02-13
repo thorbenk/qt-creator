@@ -159,9 +159,12 @@ using namespace CppTools::Internal;
 
 CppHighlightingSupport::CppHighlightingSupport(CppEditorSupport *editorSupport)
     : m_editorSupport(editorSupport)
-//    , m_impl(new InternalCodeModelHighlightingImpl)
-    , m_impl(new ClangHighlightingImpl(editorSupport))
 {
+#ifdef CLANG_HIGHLIGHTING
+    m_impl = new ClangHighlightingImpl(editorSupport);
+#else // !CLANG_HIGHLIGHTING
+    m_impl = new InternalCodeModelHighlightingImpl;
+#endif // CLANG_HIGHLIGHTING
 }
 
 CppHighlightingSupport::~CppHighlightingSupport()
