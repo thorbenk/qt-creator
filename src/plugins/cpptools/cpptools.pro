@@ -36,7 +36,6 @@ HEADERS += completionsettingspage.h \
     cppcodestylepreferencesfactory.h \
     cppcodestylepreferences.h \
     cpptoolsreuse.h \
-    completionprojectsettings.h \
     cppctordtorfilter.h \
     doxygengenerator.h \
     commentssettings.h \
@@ -74,7 +73,6 @@ SOURCES += completionsettingspage.cpp \
     cppcodestylepreferencesfactory.cpp \
     cppcodestylepreferences.cpp \
     cpptoolsreuse.cpp \
-    completionprojectsettings.cpp \
     cppctordtorfilter.cpp \
     doxygengenerator.cpp \
     commentssettings.cpp \

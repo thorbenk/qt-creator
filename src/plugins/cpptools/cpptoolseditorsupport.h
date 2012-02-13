@@ -65,10 +65,6 @@ namespace Internal {
 
 class CppModelManager;
 
-
-// @TODO: Testing clang, but still leaving the "old" model stuff working for now.
-// So there's a lot of duplicate code here, but it will evenatually be removed.
-
 class CppEditorSupport: public QObject
 {
     Q_OBJECT
@@ -95,8 +91,11 @@ Q_SIGNALS:
 private Q_SLOTS:
     void updateDocument();
     void updateDocumentNow();
+
+#ifdef CLANG_INDEXING
     void evaluateFile();
     void evaluateFileNow();
+#endif // CLANG_INDEXING
 
 private:
     enum { UPDATE_DOCUMENT_DEFAULT_INTERVAL = 150 };
@@ -109,9 +108,11 @@ private:
     QString _cachedContents;
     unsigned _revision;
 
+#ifdef CLANG_INDEXING
     // Temp clang...
     QTimer *m_evaluateFileTimer;
     unsigned m_fileRevision;
+#endif // CLANG_INDEXING
 
     QScopedPointer<CppCompletionSupport> m_completionSupport;
     QScopedPointer<CppHighlightingSupport> m_highlightingSupport;

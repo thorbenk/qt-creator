@@ -59,7 +59,9 @@
 #include <cplusplus/BackwardsScanner.h>
 #include <cplusplus/FastPreprocessor.h>
 
-#include <clangwrapper/sourcelocation.h>
+#ifdef CLANG_INDEXING
+#  include <clangwrapper/sourcelocation.h>
+#endif // CLANG_INDEXING
 
 #include <cpptools/cpptoolsplugin.h>
 #include <cpptools/cpptoolsconstants.h>
@@ -871,9 +873,11 @@ void CPPEditorWidget::onContentsChanged(int position, int charsRemoved, int char
 
 void CPPEditorWidget::updateFileName()
 {
+#ifdef CLANG_INDEXING
     CppTools::Internal::CppModelManager *manager =
             static_cast<CppTools::Internal::CppModelManager *>(CppModelManagerInterface::instance());
     m_codeNavigator.setup(file()->fileName(), manager->indexer());
+#endif // CLANG_INDEXING
 }
 
 void CPPEditorWidget::jumpToOutlineElement(int)
@@ -1049,6 +1053,8 @@ void CPPEditorWidget::finishHighlightSymbolUsages()
 // @TODO: Clang testing... Lots of code around here will need some refactor.
 void CPPEditorWidget::codeNavigate(bool switchDeclDef)
 {
+#ifdef CLANG_INDEXING
+
     QTextCursor tc = textCursor();
     CppTools::moveCursorToStartOfIdentifier(&tc);
 
@@ -1065,6 +1071,59 @@ void CPPEditorWidget::codeNavigate(bool switchDeclDef)
         return;
 
     openLink(Link(location.fileName(), location.line(), location.column() - 1));
+
+#else // !CLANG_INDEXING
+
+    if (!switchDeclDef) {
+        openLink(findLinkAt(textCursor()));
+        return;
+    }
+
+    if (! m_modelManager)
+        return;
+
+    const Snapshot snapshot = m_modelManager->snapshot();
+
+    if (Document::Ptr thisDocument = snapshot.document(file()->fileName())) {
+        int line = 0, positionInBlock = 0;
+        convertPosition(position(), &line, &positionInBlock);
+
+        Symbol *lastVisibleSymbol = thisDocument->lastVisibleSymbolAt(line, positionInBlock + 1);
+        if (! lastVisibleSymbol)
+            return;
+
+        Function *function = lastVisibleSymbol->asFunction();
+        if (! function)
+            function = lastVisibleSymbol->enclosingFunction();
+
+        if (function) {
+            LookupContext context(thisDocument, snapshot);
+
+            Function *functionDefinition = function->asFunction();
+            ClassOrNamespace *binding = context.lookupType(functionDefinition);
+
+            const QList<LookupItem> declarations = context.lookup(functionDefinition->name(), functionDefinition->enclosingScope());
+            QList<Symbol *> best;
+            foreach (const LookupItem &r, declarations) {
+                if (Symbol *decl = r.declaration()) {
+                    if (Function *funTy = decl->type()->asFunctionType()) {
+                        if (funTy->isEqualTo(function) && decl != function && binding == r.binding())
+                            best.prepend(decl);
+                        else
+                            best.append(decl);
+                    }
+                }
+            }
+            if (! best.isEmpty())
+                openCppEditorAt(linkToSymbol(best.first()));
+
+        } else if (lastVisibleSymbol && lastVisibleSymbol->isDeclaration() && lastVisibleSymbol->type()->isFunctionType()) {
+            if (Symbol *def = symbolFinder()->findMatchingDefinition(lastVisibleSymbol, snapshot))
+                openCppEditorAt(linkToSymbol(def));
+        }
+    }
+
+#endif // CLANG_INDEXING
 }
 
 void CPPEditorWidget::switchDeclarationDefinition()

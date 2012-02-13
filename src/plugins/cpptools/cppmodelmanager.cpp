@@ -33,7 +33,6 @@
 #include <cplusplus/pp.h>
 #include <cplusplus/Overview.h>
 
-#include "completionprojectsettings.h"
 #include "cppmodelmanager.h"
 #include "abstracteditorsupport.h"
 #ifndef ICHECK_BUILD
@@ -42,7 +41,6 @@
 #  include "cppfindreferences.h"
 #endif
 
-#include <clangwrapper/clangcompleter.h>
 #include <cpptools/clangutils.h>
 
 #include <functional>
@@ -690,7 +688,9 @@ CppModelManager *CppModelManager::instance()
 
 CppModelManager::CppModelManager(QObject *parent)
     : CppModelManagerInterface(parent)
+#ifdef CLANG_INDEXING
     , m_isLoadingSession(false)
+#endif // CLANG_INDEXING
 {
     m_findReferences = new CppFindReferences(this);
     m_indexerEnabled = qgetenv("QTCREATOR_NO_CODE_INDEXER").isNull();
@@ -740,16 +740,20 @@ CppModelManager::CppModelManager(QObject *parent)
     connect(Core::ICore::editorManager(), SIGNAL(editorAboutToClose(Core::IEditor *)),
         this, SLOT(editorAboutToClose(Core::IEditor *)));
 
+#ifdef CLANG_INDEXING
     connect(&m_clangIndexer, SIGNAL(indexingStarted(QFuture<void>)),
             this, SLOT(onIndexingStarted_Clang(QFuture<void>)));
+#endif // CLANG_INDEXING
 }
 
 CppModelManager::~CppModelManager()
 {
+#ifdef CLANG_INDEXING
     if (m_clangIndexer.isBusy())
         m_clangIndexer.cancel(true);
 
     m_clangIndexer.finalize();
+#endif // CLANG_INDEXING
 }
 
 Snapshot CppModelManager::snapshot() const
@@ -892,7 +896,9 @@ CppModelManager::WorkingCopy CppModelManager::workingCopy() const
 
 QFuture<void> CppModelManager::updateSourceFiles(const QStringList &sourceFiles)
 {
+#ifdef CLANG_INDEXING
     refreshSourceFiles_Clang(sourceFiles);
+#endif // CLANG_INDEXING
 
     return refreshSourceFiles(sourceFiles);
 }
@@ -909,16 +915,6 @@ CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Proje
     QMutexLocker locker(&mutex);
 
     return m_projects.value(project, ProjectInfo(project));
-}
-
-static bool hasPreCompiledHeader(const CppModelManager::ProjectInfo &pinfo)
-{
-    foreach (const CppModelManager::ProjectPart::Ptr &projectPart, pinfo.projectParts()) {
-        if (!projectPart->precompiledHeaders.isEmpty() && QFileInfo(projectPart->precompiledHeaders.first()).exists())
-            return true;
-    }
-
-    return false;
 }
 
 void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
@@ -985,6 +981,7 @@ QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QStr
     return parts;
 }
 
+#ifdef CLANG_INDEXING
 // FIXME: merge with the method above and rename it.
 void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
 {
@@ -1014,6 +1011,7 @@ void CppModelManager::onIndexingStarted_Clang(QFuture<void> indexingFuture)
                                                         tr("C++ Indexing"),
                                                         "Key.Temp.Indexing");
 }
+#endif // CLANG_INDEXING
 
 QFuture<void> CppModelManager::refreshSourceFiles(const QStringList &sourceFiles)
 {
@@ -1320,6 +1318,7 @@ void CppModelManager::onAboutToRemoveProject(ProjectExplorer::Project *project)
 
 void CppModelManager::onAboutToLoadSession(const QString &sessionName)
 {
+#ifdef CLANG_INDEXING
     m_isLoadingSession = true;
 
     if (sessionName == QLatin1String("default"))
@@ -1328,12 +1327,17 @@ void CppModelManager::onAboutToLoadSession(const QString &sessionName)
     QString path = Core::ICore::instance()->userResourcePath() + QLatin1String("/codemodel/");
     if (QFile::exists(path) || QDir().mkpath(path))
         m_clangIndexer.initialize(path + sessionName + QLatin1String(".qci"));
+#else // !CLANG_INDEXING
+    Q_UNUSED(sessionName);
+#endif // CLANG_INDEXING
 }
 
 void CppModelManager::onSessionLoaded()
 {
+#ifdef CLANG_INDEXING
     m_isLoadingSession = false;
     m_clangIndexer.regenerate();
+#endif // CLANG_INDEXING
 }
 
 void CppModelManager::onAboutToUnloadSession()
@@ -1349,7 +1353,9 @@ void CppModelManager::onAboutToUnloadSession()
 
     GC();
 
+#ifdef CLANG_INDEXING
     m_clangIndexer.finalize();
+#endif // CLANG_INDEXING
 }
 
 void CppModelManager::parse(QFutureInterface<void> &future,
@@ -1514,14 +1520,11 @@ QList<Document::DiagnosticMessage> CppModelManager::extraDiagnostics(const QStri
     return m_extraDiagnostics.value(fileName).value(kind);
 }
 
-CompletionProjectSettings *CppModelManager::completionSettingsFromProject(ProjectExplorer::Project *project) const
-{
-    return m_cps.value(project, 0);
-}
-
+#ifdef CLANG_INDEXING
 Clang::Indexer *CppModelManager::indexer()
 {
     return &m_clangIndexer;
 }
+#endif // CLANG_INDEXING
 
 #endif

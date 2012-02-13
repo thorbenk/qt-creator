@@ -54,8 +54,10 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
     : QObject(modelManager),
       _modelManager(modelManager),
       _updateDocumentInterval(UPDATE_DOCUMENT_DEFAULT_INTERVAL),
+#ifdef CLANG_INDEXING
       m_evaluateFileTimer(new QTimer(this)),
       m_fileRevision(0),
+#endif // CLANG_INDEXING
       m_completionSupport(new CppCompletionSupport(this)),
       m_highlightingSupport(new CppHighlightingSupport(this))
 {
@@ -66,10 +68,12 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
     _updateDocumentTimer->setInterval(_updateDocumentInterval);
     connect(_updateDocumentTimer, SIGNAL(timeout()), this, SLOT(updateDocumentNow()));
 
+#ifdef CLANG_INDEXING
     // Testing clang... See note in header.
     m_evaluateFileTimer->setSingleShot(true);
     m_evaluateFileTimer->setInterval(_updateDocumentInterval);
     connect(m_evaluateFileTimer, SIGNAL(timeout()), this, SLOT(evaluateFileNow()));
+#endif // CLANG_INDEXING
 
     m_completionSupport->setUseClang(true);
     m_highlightingSupport->setUseClang(true);
@@ -91,9 +95,11 @@ void CppEditorSupport::setTextEditor(TextEditor::ITextEditor *textEditor)
 
         updateDocument();
 
+#ifdef CLANG_INDEXING
         // Testing clang... See note in header.
         connect(_textEditor, SIGNAL(contentsChanged()), this, SLOT(evaluateFile()));
         evaluateFile();
+#endif
     }
 }
 
@@ -157,6 +163,7 @@ void CppEditorSupport::updateDocumentNow()
     }
 }
 
+#ifdef CLANG_INDEXING
 // Testing clang... See note in header.
 void CppEditorSupport::evaluateFile()
 {
@@ -175,3 +182,4 @@ void CppEditorSupport::evaluateFileNow()
         _modelManager->refreshSourceFile_Clang(_textEditor->file()->fileName());
     }
 }
+#endif // CLANG_INDEXING

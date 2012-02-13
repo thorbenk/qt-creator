@@ -62,7 +62,9 @@
 #  include <QtGui/QTextEdit> // for QTextEdit::ExtraSelection
 #endif
 
-#include <clangwrapper/indexer.h>
+#ifdef CLANG_INDEXING
+#  include <clangwrapper/indexer.h>
+#endif // CLANG_INDEXING
 
 namespace Core {
 class IEditor;
@@ -82,9 +84,6 @@ namespace CPlusPlus {
 }
 
 namespace CppTools {
-
-class CompletionProjectSettings;
-
 namespace Internal {
 
 class CppEditorSupport;
@@ -115,9 +114,11 @@ public:
 
     QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
 
+#ifdef CLANG_INDEXING
     // Testing...
     void refreshSourceFiles_Clang(const QStringList &sourceFiles);
     void refreshSourceFile_Clang(const QString &sourceFile);
+#endif // CLANG_INDEXING
 
     virtual bool isCppEditor(Core::IEditor *editor) const;
 
@@ -147,9 +148,9 @@ public:
 
     void finishedRefreshingSourceFiles(const QStringList &files);
 
-    CompletionProjectSettings *completionSettingsFromProject(ProjectExplorer::Project *project) const;
-
+#ifdef CLANG_INDEXING
     Clang::Indexer *indexer();
+#endif // CLANG_INDEXING
 
     virtual CppCompletionSupport *completionSupport(Core::IEditor *editor) const;
     virtual CppHighlightingSupport *highlightingSupport(Core::IEditor *editor) const;
@@ -176,8 +177,10 @@ private Q_SLOTS:
     void postEditorUpdate();
     void updateEditorSelections();
 
+#ifdef CLANG_INDEXING
     // Testing clang...
     void onIndexingStarted_Clang(QFuture<void> indexingFuture);
+#endif // CLANG_INDEXING
 
 private:
     void updateEditor(CPlusPlus::Document::Ptr doc);
@@ -235,7 +238,6 @@ private:
 
     // project integration
     QMap<ProjectExplorer::Project *, ProjectInfo> m_projects;
-    QMap<ProjectExplorer::Project *, CompletionProjectSettings *> m_cps; //### TODO: remove this and put it in the Project.
 
     mutable QMutex mutex;
     mutable QMutex protectSnapshot;
@@ -264,8 +266,10 @@ private:
 
     QMap<QString, QList<ProjectPart::Ptr> > m_srcToProjectPart;
 
+#ifdef CLANG_INDEXING
     Clang::Indexer m_clangIndexer;
     bool m_isLoadingSession;
+#endif // CLANG_INDEXING
 };
 #endif
 

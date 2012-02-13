@@ -338,7 +338,9 @@ private:
     FunctionDeclDefLinkFinder *m_declDefLinkFinder;
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
 
+#ifdef CLANG_INDEXING
     Clang::CodeNavigator m_codeNavigator;
+#endif // CLANG_INDEXING
 
     CppTools::CommentsSettings m_commentsSettings;
 };

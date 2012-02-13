@@ -33,7 +33,9 @@
 #include "cpplocatorfilter.h"
 #include "cppmodelmanager.h"
 
-#include <clangwrapper/symbol.h>
+#ifdef CLANG_INDEXING
+#  include <clangwrapper/symbol.h>
+#endif // CLANG_INDEXING
 
 #include <texteditor/itexteditor.h>
 #include <texteditor/basetexteditor.h>
@@ -61,9 +63,11 @@ CppLocatorFilter::~CppLocatorFilter()
 
 void CppLocatorFilter::onDocumentUpdated(CPlusPlus::Document::Ptr doc)
 {
-    // Testing clang indexer, so this is commented out for now...
+#ifdef CLANG_INDEXING
     Q_UNUSED(doc);
-    //m_searchList[doc->fileName()] = search(doc);
+#else // !CLANG_INDEXING
+    m_searchList[doc->fileName()] = search(doc);
+#endif // CLANG_INDEXING
 }
 
 void CppLocatorFilter::onAboutToRemoveFiles(const QStringList &files)
@@ -95,7 +99,7 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
         return goodEntries;
     bool hasWildcard = (entry.contains(asterisk) || entry.contains('?'));
 
-
+#ifdef CLANG_INDEXING
 
     // @TODO: Testing indexing with clang... The locators classes can now be simplified.
     const QString &shortcut = shortcutString();
@@ -145,7 +149,8 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
         }
     }
 
-#if 0
+#else // !CLANG_INDEXING
+
     QHashIterator<QString, QList<ModelItemInfo> > it(m_searchList);
     while (it.hasNext()) {
         if (future.isCanceled())
@@ -172,7 +177,8 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
             }
         }
     }
-#endif
+
+#endif // CLANG_INDEXING
 
     if (goodEntries.size() < 1000)
         qSort(goodEntries.begin(), goodEntries.end(), compareLexigraphically);
