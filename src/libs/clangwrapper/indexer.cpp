@@ -40,7 +40,7 @@
 
 #include <clang-c/Index.h>
 
-#include <qtconcurrent/QtConcurrentTools>
+#include <utils/QtConcurrentTools>
 
 #include <utils/fileutils.h>
 
@@ -104,14 +104,12 @@ public:
 
     struct FileData
     {
-        FileData() : m_pchInfo(PCHInfo::createEmpty()), m_upToDate(false) {}
+        FileData() : m_upToDate(false) {}
         FileData(const QString &fileName,
                  const QStringList &compilationOptions,
-                 const PCHInfoPtr pchInfo,
                  bool upToDate = false)
             : m_fileName(fileName)
             , m_compilationOptions(compilationOptions)
-            , m_pchInfo(pchInfo)
             , m_upToDate(upToDate)
             , m_managementOptions(CXTranslationUnit_DetailedPreprocessingRecord
                                   | CXTranslationUnit_Incomplete)
@@ -119,7 +117,6 @@ public:
 
         QString m_fileName;
         QStringList m_compilationOptions;
-        PCHInfoPtr m_pchInfo;
         bool m_upToDate;
         unsigned m_managementOptions;
     };
@@ -152,11 +149,9 @@ public:
     void reset();
 
     bool addFile(const QString &fileName,
-                 const QStringList &compilationOptions,
-                 PCHInfoPtr pchInfo);
+                 const QStringList &compilationOptions);
     void addOrUpdateFileData(const QString &fileName,
                              const QStringList &compilationOptions,
-                             PCHInfoPtr pchInfo,
                              bool upToDate);
     QStringList allFiles() const;
     bool isTrackingFile(const QString &fileName, FileType type) const;
@@ -273,7 +268,6 @@ Unit IndexerProcessor::ComputeTranslationUnit::operator()(FileContIt it)
 
     Unit unit(fileData.m_fileName);
     unit.setCompilationOptions(fileData.m_compilationOptions);
-    unit.setPchInfo(fileData.m_pchInfo);
     unit.setManagementOptions(fileData.m_managementOptions);
     unit.setUnsavedFiles(UnsavedFiles()); // @TODO: Consider unsaved files...
     unit.parse();
@@ -617,7 +611,6 @@ void IndexerPrivate::synchronize(int resultIndex)
     foreach (const Symbol &symbol, result.m_symbolsInfo) {
         addOrUpdateFileData(symbol.m_location.fileName(),
                     result.m_unit.compilationOptions(),
-                    result.m_unit.pchInfo(),
                     true);
 
         // Make the symbol available in the database.
@@ -664,7 +657,6 @@ void IndexerPrivate::indexingFinished()
 
 void IndexerPrivate::addOrUpdateFileData(const QString &fileName,
                                  const QStringList &compilationOptions,
-                                 PCHInfoPtr pchInfo,
                                  bool upToDate)
 {
     Q_ASSERT(QDir::isAbsolutePath(fileName));
@@ -674,11 +666,10 @@ void IndexerPrivate::addOrUpdateFileData(const QString &fileName,
     FileType fileType = identifyFileType(cleanFileName);
     if (isTrackingFile(cleanFileName, fileType)) {
         m_files[fileType][cleanFileName].m_compilationOptions = compilationOptions;
-        m_files[fileType][cleanFileName].m_pchInfo = pchInfo;
         m_files[fileType][cleanFileName].m_upToDate = upToDate;
     } else {
         m_files[fileType].insert(cleanFileName,
-                                 FileData(cleanFileName, compilationOptions, pchInfo, upToDate));
+                                 FileData(cleanFileName, compilationOptions, upToDate));
     }
 
     if (!upToDate)
@@ -686,15 +677,14 @@ void IndexerPrivate::addOrUpdateFileData(const QString &fileName,
 }
 
 bool IndexerPrivate::addFile(const QString &fileName,
-                             const QStringList &compilationOptions,
-                             PCHInfoPtr pchInfo)
+                             const QStringList &compilationOptions)
 {
     if (isBusy()
             || fileName.trimmed().isEmpty()
             || !QFileInfo(fileName).isFile())
         return false;
 
-    addOrUpdateFileData(fileName, compilationOptions, pchInfo, false);
+    addOrUpdateFileData(fileName, compilationOptions, false);
 
     return true;
 }
@@ -827,7 +817,6 @@ void IndexerPrivate::analyzeRestoredSymbols()
             if (!visitor.m_match.m_fileName.isEmpty()) {
                 addOrUpdateFileData(fileName,
                                     visitor.m_match.m_compilationOptions,
-                                    visitor.m_match.m_pchInfo,
                                     upToDate);
             } else {
                 m_index.removeFile(fileName);
@@ -940,9 +929,9 @@ void Indexer::finalize()
     m_d->reset();
 }
 
-bool Indexer::addFile(const QString &fileName, const QStringList &compilationOptions, Clang::PCHInfoPtr pchInfo)
+bool Indexer::addFile(const QString &fileName, const QStringList &compilationOptions)
 {
-    return m_d->addFile(fileName, compilationOptions, pchInfo);
+    return m_d->addFile(fileName, compilationOptions);
 }
 
 QStringList Indexer::allFiles() const

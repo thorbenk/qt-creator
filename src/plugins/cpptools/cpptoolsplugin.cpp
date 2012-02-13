@@ -43,7 +43,6 @@
 #include "cpplocatorfilter.h"
 #include "symbolsfindfilter.h"
 #include "cpptoolssettings.h"
-#include "completionprojectsettingspage.h"
 #include "cppctordtorfilter.h"
 
 #ifdef CLANG_COMPLETION
@@ -139,7 +138,6 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     addAutoReleasedObject(new CppFileSettingsPage(m_fileSettings));
     addAutoReleasedObject(new SymbolsFindFilter(m_modelManager));
     addAutoReleasedObject(new CppCodeStyleSettingsPage);
-    addAutoReleasedObject(new CompletionProjectSettingsPanelFactory);
 
     // Menus
     Core::ActionContainer *mtools = am->actionContainer(Core::Constants::M_TOOLS);

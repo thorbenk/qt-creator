@@ -30,7 +30,6 @@ include(clang_installation.pri)
         $$PWD/utils_p.cpp \
         $$PWD/liveunitsmanager.cpp \
         $$PWD/codenavigator.cpp \
-        $$PWD/pchinfo.cpp \
         $$PWD/unitsetup.cpp \
         $$PWD/index.cpp \
         $$PWD/includetracker.cpp \
@@ -56,7 +55,6 @@ include(clang_installation.pri)
         $$PWD/utils_p.h \
         $$PWD/liveunitsmanager.h \
         $$PWD/codenavigator.h \
-        $$PWD/pchinfo.h \
         $$PWD/unitsetup.h \
         $$PWD/index.h \
         $$PWD/includetracker.h \

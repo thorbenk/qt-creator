@@ -109,6 +109,8 @@ public:
                                                                 int position,
                                                                 TextEditor::AssistReason reason) const
     {
+        Q_UNUSED(project);
+
         CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
         Core::IFile *file = editorSupport->textEditor()->file();
         QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(file->fileName());

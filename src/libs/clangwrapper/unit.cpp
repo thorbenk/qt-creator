@@ -72,7 +72,6 @@ public:
     QByteArray m_fileName;
     QStringList m_compOptions;
     QVector<const char *> m_rawCompOptions;
-    PCHInfoPtr m_pchInfo;
     unsigned m_managOptions;
     UnsavedFiles m_unsaved;
     QDateTime m_timeStamp;
@@ -87,7 +86,6 @@ using namespace Clang::Internal;
 UnitData::UnitData()
     : m_index(0)
     , m_tu(0)
-    , m_pchInfo(PCHInfo::createEmpty())
 {
 }
 
@@ -95,7 +93,6 @@ UnitData::UnitData(const QString &fileName)
     : m_index(clang_createIndex(/*excludeDeclsFromPCH*/ 1, /*displayDiagnostics*/ 0))
     , m_tu(0)
     , m_fileName(fileName.toUtf8())
-    , m_pchInfo(PCHInfo::createEmpty())
 {
 }
 
@@ -114,7 +111,6 @@ void UnitData::swap(UnitData *other)
     qSwap(m_fileName, other->m_fileName);
     qSwap(m_compOptions, other->m_compOptions);
     qSwap(m_rawCompOptions, other->m_rawCompOptions);
-    qSwap(m_pchInfo, other->m_pchInfo);
     qSwap(m_managOptions, other->m_managOptions);
     qSwap(m_unsaved, other->m_unsaved);
     qSwap(m_timeStamp, other->m_timeStamp);
@@ -199,16 +195,6 @@ void Unit::setCompilationOptions(const QStringList &compOptions)
     m_data->m_rawCompOptions.resize(compOptions.size());
     for (int i = 0; i < compOptions.size(); ++i)
         m_data->m_rawCompOptions[i] = qstrdup(compOptions[i].toUtf8());
-}
-
-PCHInfoPtr Unit::pchInfo() const
-{
-    return m_data->m_pchInfo;
-}
-
-void Unit::setPchInfo(PCHInfoPtr pchInfo)
-{
-    m_data->m_pchInfo = pchInfo;
 }
 
 UnsavedFiles Unit::unsavedFiles() const

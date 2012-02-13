@@ -41,7 +41,6 @@
 #  include "cpptoolseditorsupport.h"
 #  include "cppfindreferences.h"
 #endif
-#include "pchmanager.h"
 
 #include <clangwrapper/clangcompleter.h>
 #include <cpptools/clangutils.h>
@@ -691,7 +690,6 @@ CppModelManager *CppModelManager::instance()
 
 CppModelManager::CppModelManager(QObject *parent)
     : CppModelManagerInterface(parent)
-    , m_pchManager(this)
     , m_isLoadingSession(false)
 {
     m_findReferences = new CppFindReferences(this);
@@ -744,8 +742,6 @@ CppModelManager::CppModelManager(QObject *parent)
 
     connect(&m_clangIndexer, SIGNAL(indexingStarted(QFuture<void>)),
             this, SLOT(onIndexingStarted_Clang(QFuture<void>)));
-    connect(&m_pchManager, SIGNAL(pchInfoUpdated()),
-            this, SLOT(updatedPchInfo()));
 }
 
 CppModelManager::~CppModelManager()
@@ -951,46 +947,16 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
         return;
 
     ProjectExplorer::Project *project = pinfo.project().data();
-    ProjectInfo oldInfo = m_projects.value(project);
     m_projects.insert(project, pinfo);
     m_dirty = true;
 
-    CompletionProjectSettings *cps = m_cps.value(project, 0);
-    if (!cps) {
-        cps = new CompletionProjectSettings(project);
-        if (hasPreCompiledHeader(pinfo))
-            cps->setPchUsage(CompletionProjectSettings::PchUseBuildSystemFast);
-        else
-            cps->setPchUsage(CompletionProjectSettings::PchUseNone);
-
-        m_cps.insert(project, cps); //### FIXME: This should come from the project?
-
-        connect(cps, SIGNAL(pchUsageChanged(int)),
-                &m_pchManager, SLOT(completionProjectSettingsChanged()));
-        connect(cps, SIGNAL(customPchFileChanged(QString)),
-                &m_pchManager, SLOT(completionProjectSettingsChanged()));
-    }
-
     m_srcToProjectPart.clear();
 
-    QHash<ProjectPart, ProjectPart::Ptr> oldProjectParts;
-    foreach (const ProjectPart::Ptr &projectPart, oldInfo.projectParts()) {
-        oldProjectParts.insert(*projectPart, projectPart);
-    }
-
     foreach (const ProjectPart::Ptr &projectPart, pinfo.projectParts()) {
-        // FIXME: compare existing parts to updated ones.
-        // and migrate pch files
-        if (ProjectPart::Ptr oldPart = oldProjectParts.value(*projectPart)) {
-            projectPart->clangPCH = oldPart->clangPCH;
-        }
-
         foreach (const QString &sourceFile, projectPart->sourceFiles) {
             m_srcToProjectPart[sourceFile].append(projectPart);
         }
     }
-
-    PCHManager::updatePchInfo(cps, pinfo.projectParts());
 }
 
 QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
@@ -1019,12 +985,6 @@ QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QStr
     return parts;
 }
 
-void CppModelManager::updatedPchInfo()
-{
-    // FIXME: merge with the method below
-    refreshSourceFiles_Clang(m_srcToProjectPart.keys());
-}
-
 // FIXME: merge with the method above and rename it.
 void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
 {
@@ -1034,9 +994,9 @@ void CppModelManager::refreshSourceFiles_Clang(const QStringList &sourceFiles)
     foreach (const QString &file, sourceFiles) {
         const QList<CppModelManagerInterface::ProjectPart::Ptr> &parts = projectPart(file);
         if (!parts.isEmpty())
-            m_clangIndexer.addFile(file, ClangUtils::createClangOptions(parts.at(0)), parts.at(0)->clangPCH);
+            m_clangIndexer.addFile(file, ClangUtils::createClangOptions(parts.at(0)));
         else
-            m_clangIndexer.addFile(file, QStringList(), Clang::PCHInfoPtr());
+            m_clangIndexer.addFile(file, QStringList());
     }
 
     if (!m_isLoadingSession)

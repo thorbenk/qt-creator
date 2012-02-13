@@ -35,7 +35,6 @@
 
 #include "clangwrapper_global.h"
 #include "symbol.h"
-#include "pchinfo.h"
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -62,7 +61,7 @@ public:
     bool isBusy() const;
     void cancel(bool waitForFinished);
 
-    bool addFile(const QString &fileName, const QStringList &compilationOptions, PCHInfoPtr pchInfo);
+    bool addFile(const QString &fileName, const QStringList &compilationOptions);
     QStringList allFiles() const;
     QStringList compilationOptions(const QString &fileName) const;
 

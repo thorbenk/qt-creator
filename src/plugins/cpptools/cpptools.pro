@@ -36,9 +36,7 @@ HEADERS += completionsettingspage.h \
     cppcodestylepreferencesfactory.h \
     cppcodestylepreferences.h \
     cpptoolsreuse.h \
-    completionprojectsettingspage.h \
     completionprojectsettings.h \
-    pchmanager.h \
     cppctordtorfilter.h \
     doxygengenerator.h \
     commentssettings.h \
@@ -76,9 +74,7 @@ SOURCES += completionsettingspage.cpp \
     cppcodestylepreferencesfactory.cpp \
     cppcodestylepreferences.cpp \
     cpptoolsreuse.cpp \
-    completionprojectsettingspage.cpp \
     completionprojectsettings.cpp \
-    pchmanager.cpp \
     cppctordtorfilter.cpp \
     doxygengenerator.cpp \
     commentssettings.cpp \
@@ -91,8 +87,7 @@ SOURCES += completionsettingspage.cpp \
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \
-    cppcodestylesettingspage.ui \
-    completionprojectsettingspage.ui
+    cppcodestylesettingspage.ui
 
 # For Clang integration:
 contains(DEFINES, CLANG_COMPLETION) {

@@ -63,7 +63,6 @@
 #endif
 
 #include <clangwrapper/indexer.h>
-#include "pchmanager.h"
 
 namespace Core {
 class IEditor;
@@ -179,7 +178,6 @@ private Q_SLOTS:
 
     // Testing clang...
     void onIndexingStarted_Clang(QFuture<void> indexingFuture);
-    void updatedPchInfo();
 
 private:
     void updateEditor(CPlusPlus::Document::Ptr doc);
@@ -267,7 +265,6 @@ private:
     QMap<QString, QList<ProjectPart::Ptr> > m_srcToProjectPart;
 
     Clang::Indexer m_clangIndexer;
-    PCHManager m_pchManager;
     bool m_isLoadingSession;
 };
 #endif

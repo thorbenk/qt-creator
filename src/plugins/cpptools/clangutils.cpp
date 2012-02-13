@@ -37,21 +37,9 @@ QStringList CppTools::ClangUtils::createClangOptions(const CPlusPlus::CppModelMa
 {
     Q_ASSERT(pPart);
 
-    QStringList pchs;
-    bool cpp0x, objc;
-    if (pPart->clangPCH && !pPart->clangPCH->fileName().isEmpty()) {
-        pchs << pPart->clangPCH->fileName();
-        cpp0x = pPart->clangPCH->cpp0x();
-        objc = pPart->clangPCH->objc();
-    } else {
-        cpp0x = pPart->cpp0xEnabled();
-        objc = pPart->objcEnabled();
-    }
-
-    return createClangOptions(cpp0x,
-                              objc,
+    return createClangOptions(pPart->cpp0xEnabled(),
+                              pPart->objcEnabled(),
                               pPart->qtVersion,
-                              pchs,
                               pPart->defines.split('\n'),
                               pPart->includePaths,
                               pPart->frameworkPaths);
@@ -60,7 +48,6 @@ QStringList CppTools::ClangUtils::createClangOptions(const CPlusPlus::CppModelMa
 QStringList CppTools::ClangUtils::createClangOptions(bool useCpp0x,
                                                      bool useObjc,
                                                      CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
-                                                     const QStringList &precompiledHeaders,
                                                      const QList<QByteArray> &defines,
                                                      const QStringList &includePaths,
                                                      const QStringList &frameworkPaths)
@@ -88,12 +75,6 @@ QStringList CppTools::ClangUtils::createClangOptions(bool useCpp0x,
 
     result << QLatin1String("-nobuiltininc");
 
-    foreach (const QString &pch, precompiledHeaders) {
-        if (result.contains(pch))
-            continue;
-        if (QFile(pch).exists())
-            result << QLatin1String("-include-pch") << pch;
-    }
     foreach (QByteArray def, defines) {
         if (def.isEmpty())
             continue;

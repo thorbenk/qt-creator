@@ -16,7 +16,6 @@ CPPTOOLS_EXPORT QStringList createClangOptions(const CPlusPlus::CppModelManagerI
 CPPTOOLS_EXPORT QStringList createClangOptions(bool useCpp0x,
                                                bool useObjc,
                                                CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
-                                               const QStringList &precompiledHeaders,
                                                const QList<QByteArray> &defines,
                                                const QStringList &includePaths,
                                                const QStringList &frameworkPaths);

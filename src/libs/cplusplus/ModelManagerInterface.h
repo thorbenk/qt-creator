@@ -34,7 +34,6 @@
 #define CPPMODELMANAGERINTERFACE_H
 
 #include <cplusplus/CppDocument.h>
-#include <clangwrapper/pchinfo.h>
 #include <languageutils/fakemetaobject.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/toolchain.h>
@@ -102,8 +101,6 @@ public:
         { return language == CppModelManagerInterface::OBJC; }
 
         typedef QSharedPointer<ProjectPart> Ptr;
-
-        Clang::PCHInfoPtr clangPCH;
     };
 
     class ProjectInfo

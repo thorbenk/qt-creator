@@ -61,9 +61,6 @@
 
 #include <clangwrapper/sourcelocation.h>
 
-#include <cpptools/clangcompletion.h>
-#include <cpptools/clangutils.h>
-#include <cpptools/cppcreatemarkers.h>
 #include <cpptools/cpptoolsplugin.h>
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/cppchecksymbols.h>
