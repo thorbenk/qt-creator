@@ -2998,7 +2998,7 @@ bool Parser::parseExpressionOrDeclarationStatement(StatementAST *&node)
 
     const unsigned start = cursor();
 
-    if (lookAtCVQualifier() || lookAtStorageClassSpecifier() || lookAtBuiltinTypeSpecifier() || LA() == T_TYPENAME || LA() == T_ENUM || lookAtClassKey())
+    if (lookAtCVQualifier() || lookAtStorageClassSpecifier() || lookAtBuiltinTypeSpecifier() || LA() == T_TYPENAME || LA() == T_ENUM || lookAtClassKey() || LA() == T_STATIC_ASSERT)
         return parseDeclarationStatement(node);
 
     if (LA() == T_IDENTIFIER || (LA() == T_COLON_COLON && LA(2) == T_IDENTIFIER)) {
@@ -3383,6 +3383,9 @@ bool Parser::parseBlockDeclaration(DeclarationAST *&node)
     case T_NAMESPACE:
         return parseNamespaceAliasDefinition(node);
 
+    case T_STATIC_ASSERT:
+        return parseStaticAssertDeclaration(node);
+
     default:
         return parseSimpleDeclaration(node);
     } // switch
@@ -3483,6 +3486,7 @@ bool Parser::lookAtBuiltinTypeSpecifier() const
     case T_DOUBLE:
     case T_VOID:
     case T_AUTO:
+    case T_DECLTYPE:
         return true;
     // [gcc] extensions
     case T___TYPEOF__:
@@ -3578,6 +3582,17 @@ bool Parser::parseBuiltinTypeSpecifier(SpecifierListAST *&node)
         }
         parseUnaryExpression(ast->expression);
         node = new (_pool) SpecifierListAST(ast);
+        return true;
+    } else if (LA() == T_DECLTYPE) {
+        DecltypeSpecifierAST *ast = new (_pool) DecltypeSpecifierAST;
+        ast->decltype_token = consumeToken();
+        match(T_LPAREN, &ast->lparen_token);
+        if (parseExpression(ast->expression)) {
+            match(T_RPAREN, &ast->rparen_token);
+            node = new (_pool) SpecifierListAST(ast);
+            return true;
+        }
+        skipUntilDeclaration();
         return true;
     } else if (lookAtBuiltinTypeSpecifier()) {
         SimpleSpecifierAST *ast = new (_pool) SimpleSpecifierAST;

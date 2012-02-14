@@ -63,7 +63,7 @@
 // a test after a BREAK_HERE failed
 // Default: 0
 #ifndef USE_AUTORUN
-#define USE_AUTORUN 0
+#define USE_AUTORUN 2
 #endif
 
 // With USE_AUTOBREAK, the debugger will stop automatically on all
@@ -112,6 +112,10 @@
 #endif
 
 void dummyStatement(...) {}
+
+#if USE_CXX11 && defined(__GNUC__) && defined(__STRICT_ANSI__)
+#undef __STRICT_ANSI__ // working around compile error with MinGW
+#endif
 
 #include <QtCore/QDebug>
 #include <QtCore/QDateTime>
@@ -2274,8 +2278,7 @@ namespace stdarray {
         std::array<int, 4> a = { { 1, 2, 3, 4} };
         BREAK_HERE;
         // Expand a.
-        // Check a <4 items> std::array<int>.
-        // Check [0] 1 int.
+        // Check a <4 items> std::array<int, 4u>.
         // Continue.
         dummyStatement(&a);
         #endif
@@ -2697,7 +2700,7 @@ namespace stdptr {
         #ifdef USE_CXX11
         std::unique_ptr<int> p(new int(32));
         BREAK_HERE;
-        // Check p 32 std::unique_ptr<int>.
+        // Check p 32 std::unique_ptr<int, std::default_delete<int> >.
         // Continue.
         dummyStatement(&p);
         #endif
@@ -5035,7 +5038,7 @@ namespace qscript {
         s.setProperty("a", QScriptValue());
         QScriptValue d = s.data();
         BREAK_HERE;
-        // Check s <not accessible> QScriptValue (JSCoreValue).
+        // Check s <native> QScriptValue (JSCoreValue).
         // Check d (invalid) QScriptValue.
         // Check v 43 QVariant (int).
         // Check x 33 int.

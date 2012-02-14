@@ -722,7 +722,7 @@ CppModelManager::CppModelManager(QObject *parent)
             this, SLOT(onAboutToLoadSession(QString)));
     connect(session, SIGNAL(sessionLoaded()),
             this, SLOT(onSessionLoaded()));
-    connect(session, SIGNAL(aboutToUnloadSession()),
+    connect(session, SIGNAL(aboutToUnloadSession(QString)),
             this, SLOT(onAboutToUnloadSession()));
 
     qRegisterMetaType<CPlusPlus::Document::Ptr>("CPlusPlus::Document::Ptr");

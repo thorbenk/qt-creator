@@ -41,7 +41,7 @@
 
 #include <QDebug>
 
-#undef DEBUG_TIMING
+//#define DEBUG_TIMING
 
 using namespace Clang;
 using namespace CppTools;
@@ -85,6 +85,7 @@ void CreateMarkers::run()
         return;
 
 #ifdef DEBUG_TIMING
+    qDebug() << "*** Highlighting from" << m_firstLine << "to" << m_lastLine;
     QTime t; t.start();
 #endif // DEBUG_TIMING
 
@@ -106,7 +107,8 @@ void CreateMarkers::run()
     if (isCanceled())
         return;
 
-    foreach (const Clang::SourceMarker &m, m_marker->sourceMarkersInRange(m_firstLine, m_lastLine))
+    QList<Clang::SourceMarker> markers = m_marker->sourceMarkersInRange(m_firstLine, m_lastLine);
+    foreach (const Clang::SourceMarker &m, markers)
         addUse(SourceMarker(m.location().line(), m.location().column(), m.length(), m.kind()));
     if (isCanceled())
         return;

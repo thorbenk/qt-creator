@@ -159,9 +159,13 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
 
     for (unsigned i = 0; i < idTokens.count(); ++i) {
         const CXCursor &cursor = idTokens.cursor(i);
+        const CXCursorKind cursorKind = clang_getCursorKind(cursor);
+        if (clang_isInvalid(cursorKind))
+            continue;
+
         const CXSourceRange &tokenExtent = idTokens.extent(i);
 
-        switch (clang_getCursorKind(cursor)) {
+        switch (cursorKind) {
         case CXCursor_ClassDecl:
         case CXCursor_EnumDecl:
         case CXCursor_EnumConstantDecl:

@@ -151,7 +151,7 @@ ProjectTreeWidget::ProjectTreeWidget(QWidget *parent)
 
     connect(m_explorer->session(), SIGNAL(aboutToLoadSession(QString)),
             this, SLOT(disableAutoExpand()));
-    connect(m_explorer->session(), SIGNAL(sessionLoaded()),
+    connect(m_explorer->session(), SIGNAL(sessionLoaded(QString)),
             this, SLOT(loadExpandData()));
     connect(m_explorer->session(), SIGNAL(aboutToSaveSession()),
             this, SLOT(saveExpandData()));
@@ -427,6 +427,7 @@ Core::NavigationView ProjectTreeWidgetFactory::createWidget()
     filter->setIcon(QIcon(QLatin1String(Core::Constants::ICON_FILTER)));
     filter->setToolTip(tr("Filter Tree"));
     filter->setPopupMode(QToolButton::InstantPopup);
+    filter->setProperty("noArrow", true);
     QMenu *filterMenu = new QMenu(filter);
     filterMenu->addAction(ptw->m_filterProjectsAction);
     filterMenu->addAction(ptw->m_filterGeneratedFilesAction);

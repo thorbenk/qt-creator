@@ -172,7 +172,7 @@ struct ProjectExplorerPluginPrivate {
     QAction *m_newAction;
     QAction *m_loadAction;
     Utils::ParameterAction *m_unloadAction;
-    QAction *m_clearSession;
+    QAction *m_closeAllProjects;
     QAction *m_buildProjectOnlyAction;
     Utils::ParameterAction *m_buildAction;
     Utils::ParameterAction *m_buildActionContextMenu;
@@ -239,6 +239,7 @@ struct ProjectExplorerPluginPrivate {
     Core::IMode *m_projectsMode;
 
     ToolChainManager *m_toolChainManager;
+    TaskHub *m_taskHub;
 };
 
 ProjectExplorerPluginPrivate::ProjectExplorerPluginPrivate() :
@@ -328,7 +329,8 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
 
     addAutoReleasedObject(new Internal::ToolChainOptionsPage);
 
-    addAutoReleasedObject(new TaskHub);
+    d->m_taskHub = new TaskHub;
+    addAutoReleasedObject(d->m_taskHub);
 
     Core::ActionManager *am = Core::ICore::actionManager();
     connect(Core::ICore::instance(), SIGNAL(newItemsDialogRequested()), this, SLOT(loadCustomWizards()));
@@ -356,9 +358,9 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
             this, SLOT(startupProjectChanged()));
     connect(d->m_session, SIGNAL(dependencyChanged(ProjectExplorer::Project*,ProjectExplorer::Project*)),
             this, SLOT(updateActions()));
-    connect(d->m_session, SIGNAL(sessionLoaded()),
+    connect(d->m_session, SIGNAL(sessionLoaded(QString)),
             this, SLOT(updateActions()));
-    connect(d->m_session, SIGNAL(sessionLoaded()),
+    connect(d->m_session, SIGNAL(sessionLoaded(QString)),
             this, SLOT(updateWelcomePage()));
 
     d->m_proWindow = new ProjectWindow;
@@ -645,8 +647,8 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     mfile->addAction(cmd, Core::Constants::G_FILE_PROJECT);
 
     // unload session action
-    d->m_clearSession = new QAction(tr("Close All Projects"), this);
-    cmd = am->registerAction(d->m_clearSession, Constants::CLEARSESSION, globalcontext);
+    d->m_closeAllProjects = new QAction(tr("Close All Projects"), this);
+    cmd = am->registerAction(d->m_closeAllProjects, Constants::CLEARSESSION, globalcontext);
     mfile->addAction(cmd, Core::Constants::G_FILE_PROJECT);
     msessionContextMenu->addAction(cmd, Constants::G_SESSION_FILES);
 
@@ -983,7 +985,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     connect(d->m_runWithoutDeployAction, SIGNAL(triggered()), this, SLOT(runProjectWithoutDeploy()));
     connect(d->m_cancelBuildAction, SIGNAL(triggered()), this, SLOT(cancelBuild()));
     connect(d->m_unloadAction, SIGNAL(triggered()), this, SLOT(unloadProject()));
-    connect(d->m_clearSession, SIGNAL(triggered()), this, SLOT(clearSession()));
+    connect(d->m_closeAllProjects, SIGNAL(triggered()), this, SLOT(closeAllProjects()));
     connect(d->m_addNewFileAction, SIGNAL(triggered()), this, SLOT(addNewFile()));
     connect(d->m_addExistingFilesAction, SIGNAL(triggered()), this, SLOT(addExistingFiles()));
     connect(d->m_addNewSubprojectAction, SIGNAL(triggered()), this, SLOT(addNewSubproject()));
@@ -1098,13 +1100,15 @@ void ProjectExplorerPlugin::unloadProject()
     updateActions();
 }
 
-void ProjectExplorerPlugin::clearSession()
+void ProjectExplorerPlugin::closeAllProjects()
 {
     if (debug)
-        qDebug() << "ProjectExplorerPlugin::clearSession";
+        qDebug() << "ProjectExplorerPlugin::closeAllProject";
 
-    if (!d->m_session->clear())
+    if (!Core::ICore::editorManager()->closeAllEditors())
         return; // Action has been cancelled
+
+    d->m_session->closeAllProjects();
     updateActions();
 }
 
@@ -1158,7 +1162,7 @@ void ProjectExplorerPlugin::updateRunWithoutDeployMenu()
 ExtensionSystem::IPlugin::ShutdownFlag ProjectExplorerPlugin::aboutToShutdown()
 {
     d->m_proWindow->aboutToShutdown(); // disconnect from session
-    d->m_session->clear();
+    d->m_session->closeAllProjects();
     d->m_projectsMode = 0;
     // Attempt to synchronously shutdown all run controls.
     // If that fails, fall back to asynchronous shutdown (Debugger run controls
@@ -1551,6 +1555,11 @@ BuildManager *ProjectExplorerPlugin::buildManager() const
     return d->m_buildManager;
 }
 
+TaskHub *ProjectExplorerPlugin::taskHub() const
+{
+    return d->m_taskHub;
+}
+
 void ProjectExplorerPlugin::buildStateChanged(Project * pro)
 {
     if (debug) {
@@ -1719,7 +1728,7 @@ void ProjectExplorerPlugin::updateActions()
     d->m_cleanProjectOnlyAction->setToolTip(buildActionState.second);
 
     // Session actions
-    d->m_clearSession->setEnabled(!d->m_session->projects().isEmpty());
+    d->m_closeAllProjects->setEnabled(!d->m_session->projects().isEmpty());
 
     d->m_buildSessionAction->setEnabled(buildSessionState.first);
     d->m_rebuildSessionAction->setEnabled(buildSessionState.first);

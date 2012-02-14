@@ -2332,19 +2332,22 @@ bool CPPEditorWidget::handleDocumentationComment(QKeyEvent *e)
                     doxygen.setStyle(CppTools::DoxygenGenerator::JavaStyle);
 
                 // Move until we reach any possibly meaningful content.
-                while (document()->characterAt(cursor.position()).isSpace())
-                    cursor.movePosition(QTextCursor::NextCharacter);
+                while (document()->characterAt(cursor.position()).isSpace()
+                       && cursor.movePosition(QTextCursor::NextCharacter)) {
+                }
 
-                const QString &comment = doxygen.generate(cursor);
-                if (!comment.isEmpty()) {
-                    cursor.beginEditBlock();
-                    cursor.setPosition(pos);
-                    cursor.insertText(comment);
-                    cursor.setPosition(pos - 3, QTextCursor::KeepAnchor);
-                    indent(document(), cursor, QChar::Null);
-                    cursor.endEditBlock();
-                    e->accept();
-                    return true;
+                if (!cursor.atEnd()) {
+                    const QString &comment = doxygen.generate(cursor);
+                    if (!comment.isEmpty()) {
+                        cursor.beginEditBlock();
+                        cursor.setPosition(pos);
+                        cursor.insertText(comment);
+                        cursor.setPosition(pos - 3, QTextCursor::KeepAnchor);
+                        indent(document(), cursor, QChar::Null);
+                        cursor.endEditBlock();
+                        e->accept();
+                        return true;
+                    }
                 }
                 cursor.setPosition(pos);
             }
