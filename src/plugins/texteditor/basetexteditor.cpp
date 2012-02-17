@@ -72,35 +72,35 @@
 #include <utils/qtcassert.h>
 #include <utils/stylehelper.h>
 
-#include <QtCore/QCoreApplication>
-#include <QtCore/QTextCodec>
-#include <QtCore/QFile>
-#include <QtCore/QDebug>
-#include <QtCore/QTimer>
-#include <QtCore/QTimeLine>
-#include <QtCore/QTime>
-#include <QtCore/QMimeData>
-#include <QtGui/QAbstractTextDocumentLayout>
-#include <QtGui/QApplication>
-#include <QtGui/QKeyEvent>
-#include <QtGui/QLabel>
-#include <QtGui/QLayout>
-#include <QtGui/QPainter>
-#include <QtGui/QPrinter>
-#include <QtGui/QPrintDialog>
-#include <QtGui/QScrollBar>
-#include <QtGui/QShortcut>
-#include <QtGui/QStyle>
-#include <QtGui/QSyntaxHighlighter>
-#include <QtGui/QTextCursor>
-#include <QtGui/QTextDocumentFragment>
-#include <QtGui/QTextBlock>
-#include <QtGui/QTextLayout>
-#include <QtGui/QToolBar>
-#include <QtGui/QInputDialog>
-#include <QtGui/QMenu>
-#include <QtGui/QMessageBox>
-#include <QtGui/QClipboard>
+#include <QCoreApplication>
+#include <QTextCodec>
+#include <QFile>
+#include <QDebug>
+#include <QTimer>
+#include <QTimeLine>
+#include <QTime>
+#include <QMimeData>
+#include <QAbstractTextDocumentLayout>
+#include <QApplication>
+#include <QKeyEvent>
+#include <QLabel>
+#include <QLayout>
+#include <QPainter>
+#include <QPrinter>
+#include <QPrintDialog>
+#include <QScrollBar>
+#include <QShortcut>
+#include <QStyle>
+#include <QSyntaxHighlighter>
+#include <QTextCursor>
+#include <QTextDocumentFragment>
+#include <QTextBlock>
+#include <QTextLayout>
+#include <QToolBar>
+#include <QInputDialog>
+#include <QMenu>
+#include <QMessageBox>
+#include <QClipboard>
 
 //#define DO_FOO
 
@@ -218,7 +218,7 @@ static const char kVerticalTextBlockMimeType[] = "application/vnd.nokia.qtcreato
 BaseTextEditorWidget::BaseTextEditorWidget(QWidget *parent)
     : QPlainTextEdit(parent)
 {
-    d = new BaseTextEditorPrivate;
+    d = new BaseTextEditorWidgetPrivate;
     d->q = this;
     d->m_extraArea = new TextEditExtraArea(this);
     d->m_extraArea->setMouseTracking(true);
@@ -358,7 +358,7 @@ static void printPage(int index, QPainter *painter, const QTextDocument *doc,
     painter->restore();
 }
 
-void BaseTextEditorPrivate::print(QPrinter *printer)
+void BaseTextEditorWidgetPrivate::print(QPrinter *printer)
 {
     QTextDocument *doc = q->document();
 
@@ -495,7 +495,7 @@ UserCanceled:
 }
 
 
-int BaseTextEditorPrivate::visualIndent(const QTextBlock &block) const
+int BaseTextEditorWidgetPrivate::visualIndent(const QTextBlock &block) const
 {
     if (!block.isValid())
         return 0;
@@ -600,7 +600,7 @@ bool BaseTextEditorWidget::open(QString *errorString, const QString &fileName, c
 /*
   Collapses the first comment in a file, if there is only whitespace above
   */
-void BaseTextEditorPrivate::foldLicenseHeader()
+void BaseTextEditorWidgetPrivate::foldLicenseHeader()
 {
     QTextDocument *doc = q->document();
     BaseTextDocumentLayout *documentLayout = qobject_cast<BaseTextDocumentLayout*>(doc->documentLayout());
@@ -675,20 +675,21 @@ void BaseTextEditorWidget::editorContentsChange(int position, int charsRemoved, 
 
     d->m_contentsChanged = true;
     QTextDocument *doc = document();
+    BaseTextDocumentLayout *documentLayout = static_cast<BaseTextDocumentLayout*>(doc->documentLayout());
 
     // Keep the line numbers and the block information for the text marks updated
     if (charsRemoved != 0) {
-        d->updateMarksLineNumber();
-        d->updateMarksBlock(document()->findBlock(position));
+        documentLayout->updateMarksLineNumber();
+        documentLayout->updateMarksBlock(document()->findBlock(position));
     } else {
         const QTextBlock posBlock = doc->findBlock(position);
         const QTextBlock nextBlock = doc->findBlock(position + charsAdded);
         if (posBlock != nextBlock) {
-            d->updateMarksLineNumber();
-            d->updateMarksBlock(posBlock);
-            d->updateMarksBlock(nextBlock);
+            documentLayout->updateMarksLineNumber();
+            documentLayout->updateMarksBlock(posBlock);
+            documentLayout->updateMarksBlock(nextBlock);
         } else {
-            d->updateMarksBlock(posBlock);
+            documentLayout->updateMarksBlock(posBlock);
         }
     }
 
@@ -2457,7 +2458,7 @@ AutoCompleter *BaseTextEditorWidget::autoCompleter() const
 
 //--------- BaseTextEditorPrivate -----------
 
-BaseTextEditorPrivate::BaseTextEditorPrivate()
+BaseTextEditorWidgetPrivate::BaseTextEditorWidgetPrivate()
     :
     m_lastScrollPos(-1),
     m_lineNumber(-1),
@@ -2509,11 +2510,11 @@ BaseTextEditorPrivate::BaseTextEditorPrivate()
 {
 }
 
-BaseTextEditorPrivate::~BaseTextEditorPrivate()
+BaseTextEditorWidgetPrivate::~BaseTextEditorWidgetPrivate()
 {
 }
 
-void BaseTextEditorPrivate::setupDocumentSignals(BaseTextDocument *document)
+void BaseTextEditorWidgetPrivate::setupDocumentSignals(BaseTextDocument *document)
 {
     BaseTextDocument *oldDocument = q->baseTextDocument();
     if (oldDocument) {
@@ -2550,7 +2551,7 @@ void BaseTextEditorPrivate::setupDocumentSignals(BaseTextDocument *document)
 }
 
 
-bool BaseTextEditorPrivate::snippetCheckCursor(const QTextCursor &cursor)
+bool BaseTextEditorWidgetPrivate::snippetCheckCursor(const QTextCursor &cursor)
 {
     if (!m_snippetOverlay->isVisible() || m_snippetOverlay->isEmpty())
         return false;
@@ -2569,7 +2570,7 @@ bool BaseTextEditorPrivate::snippetCheckCursor(const QTextCursor &cursor)
     return true;
 }
 
-void BaseTextEditorPrivate::snippetTabOrBacktab(bool forward)
+void BaseTextEditorWidgetPrivate::snippetTabOrBacktab(bool forward)
 {
     if (!m_snippetOverlay->isVisible() || m_snippetOverlay->isEmpty())
         return;
@@ -2734,7 +2735,7 @@ QTextBlock BaseTextEditorWidget::foldedBlockAt(const QPoint &pos, QRect *box) co
     return QTextBlock();
 }
 
-void BaseTextEditorPrivate::highlightSearchResults(const QTextBlock &block,
+void BaseTextEditorWidgetPrivate::highlightSearchResults(const QTextBlock &block,
                                                    TextEditorOverlay *overlay)
 {
     if (m_searchExpr.isEmpty())
@@ -2787,7 +2788,7 @@ namespace TextEditor {
     }
 }
 
-void BaseTextEditorPrivate::clearBlockSelection()
+void BaseTextEditorWidgetPrivate::clearBlockSelection()
 {
     if (m_inBlockSelectionMode) {
         m_inBlockSelectionMode = false;
@@ -2798,7 +2799,7 @@ void BaseTextEditorPrivate::clearBlockSelection()
     }
 }
 
-QString BaseTextEditorPrivate::copyBlockSelection()
+QString BaseTextEditorWidgetPrivate::copyBlockSelection()
 {
     QString selection;
     QTextCursor cursor = q->textCursor();
@@ -2836,7 +2837,7 @@ QString BaseTextEditorPrivate::copyBlockSelection()
     return selection;
 }
 
-void BaseTextEditorPrivate::removeBlockSelection(const QString &text)
+void BaseTextEditorWidgetPrivate::removeBlockSelection(const QString &text)
 {
     QTextCursor cursor = q->textCursor();
     if (!cursor.hasSelection() || !m_inBlockSelectionMode)
@@ -2877,7 +2878,7 @@ void BaseTextEditorPrivate::removeBlockSelection(const QString &text)
     q->setTextCursor(cursor);
 }
 
-void BaseTextEditorPrivate::moveCursorVisible(bool ensureVisible)
+void BaseTextEditorWidgetPrivate::moveCursorVisible(bool ensureVisible)
 {
     QTextCursor cursor = q->textCursor();
     if (!cursor.block().isVisible()) {
@@ -3797,6 +3798,8 @@ void BaseTextEditorWidget::extraAreaPaintEvent(QPaintEvent *e)
                 if (d->m_marksVisible) {
                     int xoffset = 0;
                     foreach (ITextMark *mark, userData->marks()) {
+                        if (!mark->visible())
+                            continue;
                         const int height = fmLineSpacing - 1;
                         const int width = int(.5 + height * mark->widthFactor());
                         const QRect r(xoffset, top, width, height);
@@ -4134,7 +4137,7 @@ void BaseTextEditorWidget::timerEvent(QTimerEvent *e)
 }
 
 
-void BaseTextEditorPrivate::clearVisibleFoldedBlock()
+void BaseTextEditorWidgetPrivate::clearVisibleFoldedBlock()
 {
     if (suggestedVisibleFoldedBlockNumber) {
         suggestedVisibleFoldedBlockNumber = -1;
@@ -4819,28 +4822,6 @@ void BaseTextEditorWidget::clearLink()
     viewport()->setCursor(Qt::IBeamCursor);
     d->m_currentLink = Link();
     d->m_linkPressed = false;
-}
-
-void BaseTextEditorPrivate::updateMarksBlock(const QTextBlock &block)
-{
-    if (const TextBlockUserData *userData = BaseTextDocumentLayout::testUserData(block))
-        foreach (ITextMark *mrk, userData->marks())
-            mrk->updateBlock(block);
-}
-
-void BaseTextEditorPrivate::updateMarksLineNumber()
-{
-    QTextDocument *doc = q->document();
-    QTextBlock block = doc->begin();
-    int blockNumber = 0;
-    while (block.isValid()) {
-        if (const TextBlockUserData *userData = BaseTextDocumentLayout::testUserData(block))
-            foreach (ITextMark *mrk, userData->marks()) {
-                mrk->updateLineNumber(blockNumber + 1);
-            }
-        block = block.next();
-        ++blockNumber;
-    }
 }
 
 void BaseTextEditorWidget::markBlocksAsChanged(QList<int> blockNumbers)

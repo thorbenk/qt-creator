@@ -43,13 +43,13 @@
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/buildmanager.h>
 
-#include <QtCore/QCoreApplication>
-#include <QtGui/QLabel>
-#include <QtGui/QMenu>
-#include <QtGui/QMessageBox>
-#include <QtGui/QVBoxLayout>
-#include <QtGui/QStackedWidget>
-#include <QtGui/QPushButton>
+#include <QCoreApplication>
+#include <QLabel>
+#include <QMenu>
+#include <QMessageBox>
+#include <QVBoxLayout>
+#include <QStackedWidget>
+#include <QPushButton>
 
 using namespace ProjectExplorer;
 using namespace ProjectExplorer::Internal;
@@ -71,6 +71,8 @@ TargetSettingsPanelWidget::TargetSettingsPanelWidget(Project *project) :
     m_panelWidgets[1] = 0;
 
     m_addMenu = new QMenu(this);
+
+    setFocusPolicy(Qt::NoFocus);
 
     setupUi();
 

@@ -40,7 +40,7 @@
 
 #include <qtsupport/qtsupportconstants.h>
 
-#include <QtGui/QIcon>
+#include <QIcon>
 
 namespace Qt4ProjectManager {
 namespace Internal {
@@ -67,7 +67,6 @@ QWizard *CustomWidgetWizard::createWizardDialog(QWidget *parent,
                                                                 icon(),
                                                                 parent,
                                                                 wizardDialogParameters);
-    rc->setPath(wizardDialogParameters.defaultPath());
     rc->setProjectName(CustomWidgetWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     rc->setFileNamingParameters(FileNamingParameters(headerSuffix(), sourceSuffix(), QtWizard::lowerCaseFiles()));
     return rc;

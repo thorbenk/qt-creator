@@ -35,8 +35,8 @@
 
 #include "cppeditorenums.h"
 #include <texteditor/syntaxhighlighter.h>
-#include <QtGui/QTextCharFormat>
-#include <QtCore/QtAlgorithms>
+#include <QTextCharFormat>
+#include <QtAlgorithms>
 
 #ifdef CLANG_LEXER
 #  include <clangwrapper/rawlexer.h>

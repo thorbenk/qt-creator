@@ -36,7 +36,7 @@
 
 #include <projectexplorer/projectexplorerconstants.h>
 
-#include <QtGui/QIcon>
+#include <QIcon>
 
 namespace Qt4ProjectManager {
 namespace Internal {
@@ -61,7 +61,6 @@ QWizard *EmptyProjectWizard::createWizardDialog(QWidget *parent,
                                                 const Core::WizardDialogParameters &wizardDialogParameters) const
 {
     EmptyProjectWizardDialog *dialog = new EmptyProjectWizardDialog(displayName(), icon(), parent, wizardDialogParameters);
-    dialog->setPath(wizardDialogParameters.defaultPath());
     dialog->setProjectName(EmptyProjectWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     return dialog;
 }

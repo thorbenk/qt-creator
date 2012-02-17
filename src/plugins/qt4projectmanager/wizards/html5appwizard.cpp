@@ -42,8 +42,8 @@
 #include <qtsupport/qtsupportconstants.h>
 #include <limits>
 
-#include <QtCore/QCoreApplication>
-#include <QtGui/QIcon>
+#include <QCoreApplication>
+#include <QIcon>
 
 namespace Qt4ProjectManager {
 namespace Internal {
@@ -98,7 +98,7 @@ Html5AppWizard::~Html5AppWizard()
 
 Core::FeatureSet Html5AppWizard::requiredFeatures() const
 {
-    return Core::Feature(QtSupport::Constants::FEATURE_GENERIC_CPP_ENTRY_POINT);
+    return Core::Feature(QtSupport::Constants::FEATURE_QT_WEBKIT);
 }
 
 Core::BaseFileWizardParameters Html5AppWizard::parameters()

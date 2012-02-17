@@ -77,22 +77,22 @@
 #include <texteditor/itexteditor.h>
 #include <utils/qtcassert.h>
 
-#include <QtCore/QCoreApplication>
-#include <QtCore/QDebug>
-#include <QtCore/QDir>
-#include <QtCore/QFileInfo>
-#include <QtCore/QMetaObject>
-#include <QtCore/QTime>
-#include <QtCore/QTimer>
-#include <QtCore/QTemporaryFile>
-#include <QtCore/QTextStream>
+#include <QCoreApplication>
+#include <QDebug>
+#include <QDir>
+#include <QFileInfo>
+#include <QMetaObject>
+#include <QTime>
+#include <QTimer>
+#include <QTemporaryFile>
+#include <QTextStream>
 
-#include <QtGui/QAction>
-#include <QtGui/QDialogButtonBox>
-#include <QtGui/QLabel>
-#include <QtGui/QMainWindow>
-#include <QtGui/QMessageBox>
-#include <QtGui/QPushButton>
+#include <QAction>
+#include <QDialogButtonBox>
+#include <QLabel>
+#include <QMainWindow>
+#include <QMessageBox>
+#include <QPushButton>
 
 #ifdef Q_OS_UNIX
 #include <unistd.h>
@@ -970,7 +970,7 @@ void GdbEngine::handleResultRecord(GdbResponse *response)
         // Ideally, this code should not be present at all.
         showMessage(_("COOKIE FOR TOKEN %1 ALREADY EATEN (%2). "
                       "TWO RESPONSES FOR ONE COMMAND?").arg(token).
-                    arg(QString::fromAscii(stateName(state()))));
+                    arg(QString::fromLatin1(stateName(state()))));
         if (response->resultClass == GdbResultError) {
             QByteArray msg = response->data.findChild("msg").data();
             if (msg == "Cannot find new threads: generic error") {
@@ -3265,16 +3265,16 @@ void GdbEngine::handleModulesList(const GdbResponse &response)
             Module module;
             QString symbolsRead;
             QTextStream ts(&line, QIODevice::ReadOnly);
-            if (line.startsWith(__("0x"))) {
+            if (line.startsWith(QLatin1String("0x"))) {
                 ts >> module.startAddress >> module.endAddress >> symbolsRead;
                 module.moduleName = ts.readLine().trimmed();
                 module.symbolsRead =
-                    (symbolsRead == __("Yes") ? Module::ReadOk : Module::ReadFailed);
+                    (symbolsRead == QLatin1String("Yes") ? Module::ReadOk : Module::ReadFailed);
                 modules.append(module);
-            } else if (line.trimmed().startsWith(__("No"))) {
+            } else if (line.trimmed().startsWith(QLatin1String("No"))) {
                 // gdb 6.4 symbianelf
                 ts >> symbolsRead;
-                QTC_ASSERT(symbolsRead == __("No"), continue);
+                QTC_ASSERT(symbolsRead == QLatin1String("No"), continue);
                 module.startAddress = 0;
                 module.endAddress = 0;
                 module.moduleName = ts.readLine().trimmed();
@@ -3796,19 +3796,19 @@ bool GdbEngine::setToolTipExpression(const QPoint &mousePos,
     }
     exp = exp.mid(pos1, pos2 - pos1);
 
-    if (exp.isEmpty() || exp.startsWith(_c('#')) || !hasLetterOrNumber(exp) || isKeyWord(exp))
+    if (exp.isEmpty() || exp.startsWith(QLatin1Char('#')) || !hasLetterOrNumber(exp) || isKeyWord(exp))
         return false;
 
-    if (exp.startsWith(_c('"')) && exp.endsWith(_c('"')))
+    if (exp.startsWith(QLatin1Char('"')) && exp.endsWith(QLatin1Char('"')))
         return false;
 
-    if (exp.startsWith(__("++")) || exp.startsWith(__("--")))
+    if (exp.startsWith(QLatin1String("++")) || exp.startsWith(QLatin1String("--")))
         exp = exp.mid(2);
 
-    if (exp.endsWith(__("++")) || exp.endsWith(__("--")))
+    if (exp.endsWith(QLatin1String("++")) || exp.endsWith(QLatin1String("--")))
         exp = exp.mid(2);
 
-    if (exp.startsWith(_c('<')) || exp.startsWith(_c('[')))
+    if (exp.startsWith(QLatin1Char('<')) || exp.startsWith(QLatin1Char('[')))
         return false;
 
     if (hasSideEffects(exp) || exp.isEmpty())
@@ -4130,7 +4130,7 @@ WatchData GdbEngine::localVariable(const GdbMi &item,
     GdbMi t = item.findChild("numchild");
     if (t.isValid())
         data.setHasChildren(t.data().toInt() > 0);
-    else if (isPointerType(data.type) || data.name == __("this"))
+    else if (isPointerType(data.type) || data.name == QLatin1String("this"))
         data.setHasChildren(true);
     return data;
 }
@@ -4139,7 +4139,7 @@ void GdbEngine::insertData(const WatchData &data0)
 {
     PENDING_DEBUG("INSERT DATA" << data0.toString());
     WatchData data = data0;
-    if (data.value.startsWith(__("mi_cmd_var_create:"))) {
+    if (data.value.startsWith(QLatin1String("mi_cmd_var_create:"))) {
         qDebug() << "BOGUS VALUE:" << data.toString();
         return;
     }

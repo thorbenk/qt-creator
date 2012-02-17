@@ -33,7 +33,6 @@
 #include "vcsbaseeditor.h"
 #include "diffhighlighter.h"
 #include "baseannotationhighlighter.h"
-#include "vcsbasetextdocument.h"
 #include "vcsbaseconstants.h"
 #include "vcsbaseoutputwindow.h"
 #include "vcsbaseplugin.h"
@@ -50,6 +49,7 @@
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/session.h>
+#include <texteditor/basetextdocument.h>
 #include <texteditor/basetextdocumentlayout.h>
 #include <texteditor/fontsettings.h>
 #include <texteditor/texteditorconstants.h>
@@ -58,28 +58,28 @@
 #include <extensionsystem/invoker.h>
 #include <extensionsystem/pluginmanager.h>
 
-#include <QtCore/QDebug>
-#include <QtCore/QFileInfo>
-#include <QtCore/QFile>
-#include <QtCore/QProcess>
-#include <QtCore/QRegExp>
-#include <QtCore/QSet>
-#include <QtCore/QTextCodec>
-#include <QtCore/QTextStream>
-#include <QtCore/QUrl>
-#include <QtGui/QTextBlock>
-#include <QtGui/QDesktopServices>
-#include <QtGui/QAction>
-#include <QtGui/QKeyEvent>
-#include <QtGui/QLayout>
-#include <QtGui/QMenu>
-#include <QtGui/QTextCursor>
-#include <QtGui/QTextEdit>
-#include <QtGui/QComboBox>
-#include <QtGui/QToolBar>
-#include <QtGui/QClipboard>
-#include <QtGui/QApplication>
-#include <QtGui/QMessageBox>
+#include <QDebug>
+#include <QFileInfo>
+#include <QFile>
+#include <QProcess>
+#include <QRegExp>
+#include <QSet>
+#include <QTextCodec>
+#include <QTextStream>
+#include <QUrl>
+#include <QTextBlock>
+#include <QDesktopServices>
+#include <QAction>
+#include <QKeyEvent>
+#include <QLayout>
+#include <QMenu>
+#include <QTextCursor>
+#include <QTextEdit>
+#include <QComboBox>
+#include <QToolBar>
+#include <QClipboard>
+#include <QApplication>
+#include <QMessageBox>
 
 /*!
     \enum VcsBase::EditorContentType
@@ -663,7 +663,6 @@ VcsBaseEditorWidget::VcsBaseEditorWidget(const VcsBaseEditorParameters *type, QW
     d(new Internal::VcsBaseEditorWidgetPrivate(this, type))
 {
     viewport()->setMouseTracking(true);
-    setBaseTextDocument(new Internal::VcsBaseTextDocument);
     setMimeType(QLatin1String(d->m_parameters->mimeType));
 }
 
@@ -696,19 +695,10 @@ VcsBaseEditorWidget::~VcsBaseEditorWidget()
 
 void VcsBaseEditorWidget::setForceReadOnly(bool b)
 {
-    Internal::VcsBaseTextDocument *vbd = qobject_cast<Internal::VcsBaseTextDocument*>(baseTextDocument());
     VcsBaseEditor *eda = qobject_cast<VcsBaseEditor *>(editor());
-    QTC_ASSERT(vbd != 0 && eda != 0, return);
+    QTC_ASSERT(eda != 0, return);
     setReadOnly(b);
-    vbd->setForceReadOnly(b);
     eda->setTemporary(b);
-}
-
-bool VcsBaseEditorWidget::isForceReadOnly() const
-{
-    const Internal::VcsBaseTextDocument *vbd = qobject_cast<const Internal::VcsBaseTextDocument*>(baseTextDocument());
-    QTC_ASSERT(vbd, return false);
-    return vbd->isForceReadOnly();
 }
 
 QString VcsBaseEditorWidget::source() const

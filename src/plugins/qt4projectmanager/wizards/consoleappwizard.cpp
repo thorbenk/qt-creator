@@ -39,12 +39,12 @@
 #include <cpptools/abstracteditorsupport.h>
 #include <qtsupport/qtsupportconstants.h>
 
-#include <QtGui/QIcon>
-#include <QtCore/QFileInfo>
-#include <QtCore/QTextStream>
+#include <QIcon>
+#include <QFileInfo>
+#include <QTextStream>
 
 static const char mainCppC[] =
-"#include <QtCore/QCoreApplication>\n\n"
+"#include <QCoreApplication>\n\n"
 "int main(int argc, char *argv[])\n"
 "{\n"
 "    QCoreApplication a(argc, argv);\n\n"
@@ -72,7 +72,6 @@ QWizard *ConsoleAppWizard::createWizardDialog(QWidget *parent,
 {
     ConsoleAppWizardDialog *dialog = new ConsoleAppWizardDialog(displayName(), icon(),
                                                                 showModulesPageForApplications(), parent, wizardDialogParameters);
-    dialog->setPath(wizardDialogParameters.defaultPath());
     dialog->setProjectName(ConsoleAppWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     return dialog;
 }
@@ -109,7 +108,7 @@ Core::GeneratedFiles
 
 Core::FeatureSet ConsoleAppWizard::requiredFeatures() const
 {
-    return Core::Feature(QtSupport::Constants::FEATURE_GENERIC_CPP_ENTRY_POINT);
+    return Core::Feature(QtSupport::Constants::FEATURE_QT_CONSOLE);
 }
 
 } // namespace Internal

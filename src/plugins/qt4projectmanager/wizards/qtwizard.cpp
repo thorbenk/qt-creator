@@ -49,8 +49,8 @@
 
 #include <extensionsystem/pluginmanager.h>
 
-#include <QtCore/QCoreApplication>
-#include <QtCore/QVariant>
+#include <QCoreApplication>
+#include <QVariant>
 
 using namespace Qt4ProjectManager;
 using namespace Qt4ProjectManager::Internal;
@@ -318,6 +318,12 @@ bool BaseQt4ProjectWizardDialog::setupProject(Qt4Project *project) const
 bool BaseQt4ProjectWizardDialog::isTargetSelected(const QString &targetid) const
 {
     return m_targetSetupPage->isTargetSelected(targetid);
+}
+
+void BaseQt4ProjectWizardDialog::addExtensionPages(const QList<QWizardPage *> &wizardPageList)
+{
+    foreach (QWizardPage *p,wizardPageList)
+        Core::BaseFileWizard::applyExtensionPageShortTitle(this, addPage(p));
 }
 
 void BaseQt4ProjectWizardDialog::generateProfileName(const QString &name, const QString &path)

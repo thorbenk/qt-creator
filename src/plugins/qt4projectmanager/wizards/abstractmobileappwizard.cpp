@@ -45,7 +45,7 @@
 #include <coreplugin/editormanager/editormanager.h>
 #include <utils/qtcassert.h>
 
-#include <QtGui/QIcon>
+#include <QIcon>
 
 namespace Qt4ProjectManager {
 
@@ -234,7 +234,6 @@ QWizard *AbstractMobileAppWizard::createWizardDialog(QWidget *parent,
 {
     AbstractMobileAppWizardDialog * const wdlg
         = createWizardDialogInternal(parent, wizardDialogParameters);
-    wdlg->setPath(wizardDialogParameters.defaultPath());
     wdlg->setProjectName(ProjectExplorer::BaseProjectWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     wdlg->m_genericOptionsPage->setOrientation(app()->orientation());
     wdlg->m_symbianOptionsPage->setSvgIcon(app()->symbianSvgIcon());
@@ -244,8 +243,8 @@ QWizard *AbstractMobileAppWizard::createWizardDialog(QWidget *parent,
     wdlg->m_harmattanOptionsPage->setBoosterOptionEnabled(app()->canSupportMeegoBooster());
     connect(wdlg, SIGNAL(projectParametersChanged(QString, QString)),
         SLOT(useProjectPath(QString, QString)));
-    foreach (QWizardPage *p, wizardDialogParameters.extensionPages())
-        BaseFileWizard::applyExtensionPageShortTitle(wdlg, wdlg->addPage(p));
+    wdlg->addExtensionPages(wizardDialogParameters.extensionPages());
+
     return wdlg;
 }
 

@@ -41,11 +41,11 @@
 
 #include <utils/projectintropage.h>
 
-#include <QtCore/QDebug>
-#include <QtCore/QDir>
+#include <QDebug>
+#include <QDir>
 
-#include <QtGui/QComboBox>
-#include <QtGui/QLabel>
+#include <QComboBox>
+#include <QLabel>
 
 enum { debugLibWizard = 0 };
 
@@ -191,8 +191,7 @@ LibraryWizardDialog::LibraryWizardDialog(const QString &templateName,
 
     connect(this, SIGNAL(currentIdChanged(int)), this, SLOT(slotCurrentIdChanged(int)));
 
-    foreach (QWizardPage *p, parameters.extensionPages())
-        Core::BaseFileWizard::applyExtensionPageShortTitle(this, addPage(p));
+    addExtensionPages(parameters.extensionPages());
 }
 
 void LibraryWizardDialog::setSuffixes(const QString &header, const QString &source,  const QString &form)

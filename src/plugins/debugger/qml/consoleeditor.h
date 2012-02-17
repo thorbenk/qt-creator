@@ -30,33 +30,52 @@
 **
 **************************************************************************/
 
-#ifndef VCSBASETEXTDOCUMENT_H
-#define VCSBASETEXTDOCUMENT_H
+#ifndef CONSOLEEDITOR_H
+#define CONSOLEEDITOR_H
 
-#include <texteditor/basetextdocument.h>
+#include "consoleitemmodel.h"
 
-namespace VcsBase {
+#include <QtGui/QTextEdit>
+#include <QtCore/QModelIndex>
+
+namespace Debugger {
 namespace Internal {
 
-// A read-only text document.
-class VcsBaseTextDocument : public TextEditor::BaseTextDocument
+class ConsoleBackend;
+class ConsoleEditor : public QTextEdit
 {
     Q_OBJECT
-
 public:
-    VcsBaseTextDocument();
+    explicit ConsoleEditor(const QModelIndex &index,
+                           ConsoleBackend *backend = 0,
+                           QWidget *parent = 0);
 
-    bool isReadOnly() const;
-    bool isModified() const;
+    QString getCurrentScript() const;
 
-    void setForceReadOnly(bool b);
-    bool isForceReadOnly() const;
+protected:
+    void keyPressEvent(QKeyEvent *e);
+    void contextMenuEvent(QContextMenuEvent *event);
+    void focusOutEvent(QFocusEvent *e);
+
+signals:
+    void editingFinished();
+    void appendEditableRow();
+
+protected:
+    void handleUpKey();
+    void handleDownKey();
+
+    void replaceCurrentScript(const QString &script);
 
 private:
-    bool m_forceReadOnly;
+    ConsoleBackend *m_consoleBackend;
+    QModelIndex m_historyIndex;
+    QString m_cachedScript;
+    QImage m_prompt;
+    int m_startOfEditableArea;
 };
 
-} // namespace Internal
-} // namespace VcsBase
+} //Internal
+} //Debugger
 
-#endif // VCSBASETEXTDOCUMENT_H
+#endif // CONSOLEEDITOR_H

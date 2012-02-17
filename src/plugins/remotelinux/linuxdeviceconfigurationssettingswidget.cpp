@@ -42,15 +42,15 @@
 #include <extensionsystem/pluginmanager.h>
 #include <utils/ssh/sshremoteprocessrunner.h>
 
-#include <QtCore/QFileInfo>
-#include <QtCore/QRegExp>
-#include <QtCore/QSettings>
-#include <QtCore/QSignalMapper>
-#include <QtCore/QTextStream>
+#include <QFileInfo>
+#include <QRegExp>
+#include <QSettings>
+#include <QSignalMapper>
+#include <QTextStream>
 
-#include <QtGui/QFileDialog>
-#include <QtGui/QMessageBox>
-#include <QtGui/QIntValidator>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QIntValidator>
 
 #include <algorithm>
 
@@ -219,7 +219,7 @@ void LinuxDeviceConfigurationsSettingsWidget::displayCurrent()
     m_nameValidator->setDisplayName(current->displayName());
     m_ui->timeoutSpinBox->setValue(sshParams.timeout);
     m_ui->removeConfigButton->setEnabled(!current->isAutoDetected());
-    m_ui->hostLineEdit->setEnabled(!current->isAutoDetected());
+    m_ui->hostLineEdit->setReadOnly(current->isAutoDetected());
     m_ui->sshPortSpinBox->setEnabled(!current->isAutoDetected());
     fillInValues();
 }

@@ -67,10 +67,10 @@
 #include <coreplugin/icore.h>
 #include <utils/buildablehelperlibrary.h>
 
-#include <QtCore/QDir>
-#include <QtCore/QDebug>
-#include <QtGui/QMessageBox>
-#include <QtGui/QErrorMessage>
+#include <QDir>
+#include <QDebug>
+#include <QMessageBox>
+#include <QErrorMessage>
 
 using namespace ProjectExplorer;
 using namespace Debugger::Internal;
@@ -530,7 +530,7 @@ static QList<DebuggerEngineType> engineTypes(const DebuggerStartParameters &sp)
     }
 
     // FIXME: 1 of 3 testing hacks.
-    if (sp.processArgs.startsWith(__("@tcf@ "))) {
+    if (sp.processArgs.startsWith(QLatin1String("@tcf@ "))) {
         result.push_back(GdbEngineType);
         return result;
     }

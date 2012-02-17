@@ -33,12 +33,13 @@
 #include "bookmark.h"
 #include "bookmarkmanager.h"
 
-#include <QtCore/QDebug>
-#include <QtGui/QTextBlock>
+#include <QDebug>
+#include <QTextBlock>
 
 using namespace Bookmarks::Internal;
 
 Bookmark::Bookmark(const QString& fileName, int lineNumber, BookmarkManager *manager) :
+    BaseTextMark(fileName, lineNumber),
     m_manager(manager),
     m_fileInfo(fileName),
     m_fileName(fileName),
@@ -46,7 +47,6 @@ Bookmark::Bookmark(const QString& fileName, int lineNumber, BookmarkManager *man
     m_path(m_fileInfo.path()),
     m_lineNumber(lineNumber)
 {
-    setLocation(fileName, lineNumber),
     setPriority(TextEditor::ITextMark::LowPriority);
     setIcon(m_manager->bookmarkIcon());
 }
@@ -62,6 +62,7 @@ void Bookmark::updateLineNumber(int lineNumber)
         m_lineNumber = lineNumber;
         m_manager->updateBookmark(this);
     }
+    BaseTextMark::updateLineNumber(lineNumber);
 }
 
 void Bookmark::updateBlock(const QTextBlock &block)

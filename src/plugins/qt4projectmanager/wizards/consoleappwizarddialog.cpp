@@ -34,7 +34,7 @@
 #include "consoleappwizard.h"
 #include <coreplugin/basefilewizard.h>
 
-#include <QtCore/QDebug>
+#include <QDebug>
 
 namespace Qt4ProjectManager {
 namespace Internal {
@@ -57,8 +57,7 @@ ConsoleAppWizardDialog::ConsoleAppWizardDialog(const QString &templateName,
     addModulesPage();
     addTargetSetupPage();
 
-    foreach (QWizardPage *p, parameters.extensionPages())
-        Core::BaseFileWizard::applyExtensionPageShortTitle(this, addPage(p));
+    addExtensionPages(parameters.extensionPages());
 }
 
 QtProjectParameters ConsoleAppWizardDialog::parameters() const

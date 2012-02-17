@@ -37,8 +37,8 @@
 #include "callgrind/callgrinddatamodel.h"
 #include "callgrind/callgrindfunction.h"
 
-#include <QtCore/QDebug>
-#include <QtGui/QPainter>
+#include <QDebug>
+#include <QPainter>
 
 #include <utils/qtcassert.h>
 
@@ -47,9 +47,8 @@ using namespace Valgrind::Callgrind;
 
 CallgrindTextMark::CallgrindTextMark(const QPersistentModelIndex &index,
                                      const QString &fileName, int lineNumber)
-    : m_modelIndex(index)
+    : TextEditor::BaseTextMark(fileName, lineNumber), m_modelIndex(index)
 {
-    setLocation(fileName, lineNumber);
     setPriority(TextEditor::ITextMark::HighPriority);
 }
 

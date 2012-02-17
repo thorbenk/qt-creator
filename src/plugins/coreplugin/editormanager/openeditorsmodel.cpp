@@ -34,8 +34,8 @@
 #include "ieditor.h"
 #include "ifile.h"
 
-#include <QtCore/QDir>
-#include <QtGui/QIcon>
+#include <QDir>
+#include <QIcon>
 
 namespace Core {
 
@@ -311,12 +311,15 @@ QVariant OpenEditorsModel::data(const QModelIndex &index, int role) const
                 : e.displayName();
     case Qt::DecorationRole:
     {
-        bool readOnly = false;
-        if (e.editor)
-            readOnly = e.editor->file()->isReadOnly();
-        else
-            readOnly = !QFileInfo(e.m_fileName).isWritable();
-        return readOnly ? d->m_lockedIcon : QIcon();
+        bool showLock = false;
+        if (e.editor) {
+            showLock = e.editor->file()->fileName().isEmpty()
+                    ? false
+                    : e.editor->file()->isReadOnly();
+        } else {
+            showLock = !QFileInfo(e.m_fileName).isWritable();
+        }
+        return showLock ? d->m_lockedIcon : QIcon();
     }
     case Qt::ToolTipRole:
         return e.fileName().isEmpty()

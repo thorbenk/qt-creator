@@ -33,9 +33,9 @@
 #ifndef QTDESIGNERFORMCLASSCODEGENERATOR_H
 #define QTDESIGNERFORMCLASSCODEGENERATOR_H
 
-#include <QtCore/QString>
-#include <QtCore/QVariant>
-#include <QtCore/QObject>
+#include <QString>
+#include <QVariant>
+#include <QObject>
 
 QT_BEGIN_NAMESPACE
 class QSettings;
@@ -65,6 +65,7 @@ struct FormClassWizardGenerationParameters
     UiClassEmbedding embedding;
     bool retranslationSupport; // Add handling for language change events
     bool includeQtModule; // Include "<QtGui/[Class]>" or just "<[Class]>"
+    bool addQtVersionCheck; // Include #ifdef when using "#include <QtGui/..."
     bool indentNamespace;
 };
 

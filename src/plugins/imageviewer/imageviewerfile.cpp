@@ -39,9 +39,9 @@
 
 #include <utils/reloadpromptutils.h>
 
-#include <QtCore/QMap>
-#include <QtCore/QFileInfo>
-#include <QtCore/QtDebug>
+#include <QMap>
+#include <QFileInfo>
+#include <QtDebug>
 
 namespace ImageViewer {
 namespace Internal {
@@ -114,11 +114,6 @@ QString ImageViewerFile::mimeType() const
 bool ImageViewerFile::isModified() const
 {
     return false;
-}
-
-bool ImageViewerFile::isReadOnly() const
-{
-    return true;
 }
 
 bool ImageViewerFile::isSaveAsAllowed() const

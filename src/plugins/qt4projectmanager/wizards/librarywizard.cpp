@@ -40,10 +40,10 @@
 #include <cpptools/abstracteditorsupport.h>
 #include <projectexplorer/projectexplorerconstants.h>
 
-#include <QtCore/QDir>
-#include <QtCore/QFileInfo>
-#include <QtCore/QTextStream>
-#include <QtGui/QIcon>
+#include <QDir>
+#include <QFileInfo>
+#include <QTextStream>
+#include <QIcon>
 
 static const char sharedHeaderPostfixC[] = "_global";
 
@@ -71,7 +71,6 @@ QWizard *LibraryWizard::createWizardDialog(QWidget *parent, const Core::WizardDi
                                                            parent,
                                                            wizardDialogParameters);
     dialog->setLowerCaseFiles(QtWizard::lowerCaseFiles());
-    dialog->setPath(wizardDialogParameters.defaultPath());
     dialog->setProjectName(LibraryWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     dialog->setSuffixes(headerSuffix(), sourceSuffix(), formSuffix());
     return dialog;

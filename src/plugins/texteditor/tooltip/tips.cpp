@@ -36,19 +36,19 @@
 
 #include <utils/qtcassert.h>
 
-#include <QtCore/QRect>
-#include <QtGui/QColor>
-#include <QtGui/QPainter>
-#include <QtGui/QPen>
-#include <QtGui/QPixmap>
-#include <QtGui/QStyle>
-#include <QtGui/QFontMetrics>
-#include <QtGui/QTextDocument>
-#include <QtGui/QStylePainter>
-#include <QtGui/QStyleOptionFrame>
-#include <QtGui/QResizeEvent>
-#include <QtGui/QPaintEvent>
-#include <QtGui/QVBoxLayout>
+#include <QRect>
+#include <QColor>
+#include <QPainter>
+#include <QPen>
+#include <QPixmap>
+#include <QStyle>
+#include <QFontMetrics>
+#include <QTextDocument>
+#include <QStylePainter>
+#include <QStyleOptionFrame>
+#include <QResizeEvent>
+#include <QPaintEvent>
+#include <QVBoxLayout>
 
 namespace TextEditor {
     namespace Internal {
@@ -75,8 +75,7 @@ QTipLabel::QTipLabel(QWidget *parent) :
 
 QTipLabel::~QTipLabel()
 {
-    if (m_tipContent)
-        delete m_tipContent;
+    delete m_tipContent;
 }
 
 bool QTipLabel::isInteractive() const
@@ -86,9 +85,9 @@ bool QTipLabel::isInteractive() const
 
 void QTipLabel::setContent(const TipContent &content)
 {
-    if (m_tipContent)
-        delete m_tipContent;
+    TextEditor::TipContent *tmpTipContent = m_tipContent;
     m_tipContent = content.clone();
+    delete tmpTipContent;
 }
 
 const TipContent &QTipLabel::content() const

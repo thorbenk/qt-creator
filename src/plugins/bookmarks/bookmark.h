@@ -40,7 +40,7 @@ QT_BEGIN_NAMESPACE
 class QTreeWidgetItem;
 QT_END_NAMESPACE
 
-#include <QtCore/QFileInfo>
+#include <QFileInfo>
 
 namespace Bookmarks {
 namespace Internal {
@@ -49,7 +49,6 @@ class BookmarkManager;
 
 class Bookmark : public TextEditor::BaseTextMark
 {
-    Q_OBJECT
 public:
     Bookmark(const QString &fileName, int lineNumber, BookmarkManager *manager);
 

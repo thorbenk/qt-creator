@@ -52,29 +52,29 @@
 
 #include <utils/qtcassert.h>
 
-#include <QtGui/QToolButton>
-#include <QtGui/QToolBar>
-#include <QtGui/QVBoxLayout>
-#include <QtGui/QStyle>
-#include <QtGui/QIcon>
-#include <QtGui/QApplication>
-#include <QtGui/QMainWindow>
-#include <QtGui/QMoveEvent>
-#include <QtGui/QDesktopWidget>
-#include <QtGui/QScrollBar>
-#include <QtGui/QSortFilterProxyModel>
-#include <QtGui/QStandardItemModel>
-#include <QtGui/QStandardItem>
-#include <QtGui/QPlainTextEdit>
-#include <QtGui/QTextCursor>
-#include <QtGui/QTextDocument>
-#include <QtGui/QLabel>
-#include <QtGui/QClipboard>
+#include <QToolButton>
+#include <QToolBar>
+#include <QVBoxLayout>
+#include <QStyle>
+#include <QIcon>
+#include <QApplication>
+#include <QMainWindow>
+#include <QMoveEvent>
+#include <QDesktopWidget>
+#include <QScrollBar>
+#include <QSortFilterProxyModel>
+#include <QStandardItemModel>
+#include <QStandardItem>
+#include <QPlainTextEdit>
+#include <QTextCursor>
+#include <QTextDocument>
+#include <QLabel>
+#include <QClipboard>
 
-#include <QtCore/QVariant>
-#include <QtCore/QStack>
-#include <QtCore/QDebug>
-#include <QtCore/QTimer>
+#include <QVariant>
+#include <QStack>
+#include <QDebug>
+#include <QTimer>
 
 using namespace Core;
 using namespace TextEditor;
@@ -816,7 +816,7 @@ void DebuggerToolTipWidget::saveSessionData(QXmlStreamWriter &w) const
 {
     w.writeStartElement(QLatin1String(toolTipElementC));
     QXmlStreamAttributes attributes;
-    attributes.append(QLatin1String(toolTipClassAttributeC), QString::fromAscii(metaObject()->className()));
+    attributes.append(QLatin1String(toolTipClassAttributeC), QString::fromLatin1(metaObject()->className()));
     attributes.append(QLatin1String(fileNameAttributeC), m_context.fileName);
     if (!m_context.function.isEmpty())
         attributes.append(QLatin1String(functionAttributeC), m_context.function);

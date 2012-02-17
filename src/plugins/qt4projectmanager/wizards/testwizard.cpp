@@ -39,10 +39,10 @@
 
 #include <utils/qtcassert.h>
 
-#include <QtCore/QTextStream>
-#include <QtCore/QFileInfo>
+#include <QTextStream>
+#include <QFileInfo>
 
-#include <QtGui/QIcon>
+#include <QIcon>
 
 namespace Qt4ProjectManager {
 namespace Internal {
@@ -63,7 +63,6 @@ QWizard *TestWizard::createWizardDialog(QWidget *parent,
                                         const Core::WizardDialogParameters &wizardDialogParameters) const
 {
     TestWizardDialog *dialog = new TestWizardDialog(displayName(), icon(), parent, wizardDialogParameters);
-    dialog->setPath(wizardDialogParameters.defaultPath());
     dialog->setProjectName(TestWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
     return dialog;
 }
@@ -99,9 +98,9 @@ static QString generateTestCode(const TestWizardParameters &testParams,
     QTextStream str(&rc);
     // Includes
     str << CppTools::AbstractEditorSupport::licenseTemplate(testParams.fileName, testParams.className)
-        << "#include <QtCore/QString>\n#include <QtTest/QtTest>\n";
+        << "#include <QString>\n#include <QtTest>\n";
     if (testParams.requiresQApplication)
-        str << "#include <QtCore/QCoreApplication>\n";
+        str << "#include <QCoreApplication>\n";
     // Class declaration
     str  << "\nclass " << testParams.className << " : public QObject\n"
         "{\n" << indent << "Q_OBJECT\n\npublic:\n"
@@ -188,7 +187,7 @@ Core::GeneratedFiles TestWizard::generateFiles(const QWizard *w, QString *errorM
 
 Core::FeatureSet TestWizard::requiredFeatures() const
 {
-    return Core::Feature(QtSupport::Constants::FEATURE_GENERIC_CPP_ENTRY_POINT) |
+    return Core::Feature(QtSupport::Constants::FEATURE_QT_CONSOLE) |
             Core::Feature(QtSupport::Constants::FEATURE_QT);
 }
 

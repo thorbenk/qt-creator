@@ -38,11 +38,11 @@
 #include <projectexplorer/project.h>
 #include <projectexplorer/toolchain.h>
 
-#include <QtCore/QObject>
-#include <QtCore/QHash>
-#include <QtCore/QPointer>
-#include <QtCore/QStringList>
-#include <QtCore/QFuture>
+#include <QObject>
+#include <QHash>
+#include <QPointer>
+#include <QStringList>
+#include <QFuture>
 
 namespace Core {
     class IEditor;
@@ -103,7 +103,7 @@ public:
         typedef QSharedPointer<ProjectPart> Ptr;
     };
 
-    class ProjectInfo
+    class CPLUSPLUS_EXPORT ProjectInfo
     {
     public:
         ProjectInfo()
@@ -137,14 +137,23 @@ public:
         const QStringList frameworkPaths() const
         { return m_frameworkPaths; }
 
+        const QStringList sourceFiles() const
+        { return m_sourceFiles; }
+
+        const QByteArray defines() const
+        { return m_defines; }
+
     private: // attributes
         QWeakPointer<ProjectExplorer::Project> m_project;
         QList<ProjectPart::Ptr> m_projectParts;
+        // the attributes below are calculated from the project parts.
         QStringList m_includePaths;
         QStringList m_frameworkPaths;
+        QStringList m_sourceFiles;
+        QByteArray m_defines;
     };
 
-    class WorkingCopy
+    class CPLUSPLUS_EXPORT WorkingCopy
     {
     public:
         void insert(const QString &fileName, const QString &source, unsigned revision = 0)

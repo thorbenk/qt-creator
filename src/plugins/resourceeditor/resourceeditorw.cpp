@@ -42,13 +42,13 @@
 #include <utils/reloadpromptutils.h>
 #include <utils/fileutils.h>
 
-#include <QtCore/QTemporaryFile>
-#include <QtCore/QFileInfo>
-#include <QtCore/QDir>
-#include <QtCore/qdebug.h>
-#include <QtGui/QHBoxLayout>
-#include <QtGui/QMainWindow>
-#include <QtGui/QMenu>
+#include <QTemporaryFile>
+#include <QFileInfo>
+#include <QDir>
+#include <qdebug.h>
+#include <QHBoxLayout>
+#include <QMainWindow>
+#include <QMenu>
 
 namespace ResourceEditor {
 namespace Internal {
@@ -216,15 +216,6 @@ bool ResourceEditorFile::shouldAutoSave() const
 bool ResourceEditorFile::isModified() const
 {
     return m_parent->m_resourceEditor->isDirty();
-}
-
-bool ResourceEditorFile::isReadOnly() const
-{
-    const QString fileName = m_parent->m_resourceEditor->fileName();
-    if (fileName.isEmpty())
-        return false;
-    const QFileInfo fi(fileName);
-    return !fi.isWritable();
 }
 
 bool ResourceEditorFile::isSaveAsAllowed() const

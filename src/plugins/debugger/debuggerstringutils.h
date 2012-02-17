@@ -35,13 +35,11 @@
 
 #ifndef qdoc
 
-#include <QtCore/QString>
+#include <QString>
 
 namespace Debugger {
 namespace Internal {
 
-typedef QLatin1Char _c;
-typedef QLatin1String __;
 inline QString _(const char *s) { return QString::fromLatin1(s); }
 inline QString _(const QByteArray &ba) { return QString::fromLatin1(ba, ba.size()); }
 

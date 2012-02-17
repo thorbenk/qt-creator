@@ -36,7 +36,7 @@
 #include <coreplugin/ifile.h>
 #include <coreplugin/editormanager/ieditor.h>
 
-#include <QtCore/QPointer>
+#include <QPointer>
 
 QT_BEGIN_NAMESPACE
 class QMenu;
@@ -65,7 +65,6 @@ public:
     QString fileName() const;
     bool shouldAutoSave() const;
     bool isModified() const;
-    bool isReadOnly() const;
     bool isSaveAsAllowed() const;
     bool reload(QString *errorString, ReloadFlag flag, ChangeType type);
     QString defaultPath() const;

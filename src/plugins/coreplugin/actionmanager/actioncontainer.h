@@ -35,7 +35,7 @@
 
 #include "coreplugin/id.h"
 
-#include <QtCore/QObject>
+#include <QObject>
 
 QT_BEGIN_NAMESPACE
 class QMenu;
@@ -68,6 +68,7 @@ public:
 
     virtual QAction *insertLocation(const Id &group) const = 0;
     virtual void appendGroup(const Id &group) = 0;
+    virtual void insertGroup(const Id &before, const Id &group) = 0;
     virtual void addAction(Command *action, const Id &group = Id()) = 0;
     virtual void addMenu(ActionContainer *menu, const Id &group = Id()) = 0;
     virtual void addMenu(ActionContainer *before, ActionContainer *menu, const Id &group = Id()) = 0;

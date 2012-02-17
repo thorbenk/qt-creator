@@ -32,9 +32,9 @@
 
 #include "codegeneration.h"
 
-#include <QtCore/QTextStream>
-#include <QtCore/QStringList>
-#include <QtCore/QFileInfo>
+#include <QTextStream>
+#include <QStringList>
+#include <QFileInfo>
 
 namespace Utils {
 
@@ -79,6 +79,11 @@ void writeIncludeFileDirective(const QString &file, bool globalInclude,
     const QChar opening = globalInclude ?  QLatin1Char('<') : QLatin1Char('"');
     const QChar closing = globalInclude ?  QLatin1Char('>') : QLatin1Char('"');
     str << QLatin1String("#include ") << opening << file <<  closing << QLatin1Char('\n');
+}
+
+QTCREATOR_UTILS_EXPORT void writeBeginQtVersionCheck(QTextStream &str)
+{
+    str << QLatin1String("#if QT_VERSION >= 0x050000\n");
 }
 
 QTCREATOR_UTILS_EXPORT

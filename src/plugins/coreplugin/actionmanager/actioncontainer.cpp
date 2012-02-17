@@ -40,10 +40,10 @@
 
 #include <utils/qtcassert.h>
 
-#include <QtCore/QDebug>
-#include <QtCore/QTimer>
-#include <QtGui/QAction>
-#include <QtGui/QMenuBar>
+#include <QDebug>
+#include <QTimer>
+#include <QAction>
+#include <QMenuBar>
 
 Q_DECLARE_METATYPE(Core::Internal::MenuActionContainer*)
 
@@ -185,6 +185,18 @@ ActionContainer::OnAllDisabledBehavior ActionContainerPrivate::onAllDisabledBeha
 void ActionContainerPrivate::appendGroup(const Id &groupId)
 {
     m_groups.append(Group(groupId));
+}
+
+void ActionContainerPrivate::insertGroup(const Id &before, const Id &groupId)
+{
+    QList<Group>::iterator it = m_groups.begin();
+    while (it != m_groups.end()) {
+        if (it->id == before) {
+            m_groups.insert(it, Group(groupId));
+            break;
+        }
+        ++it;
+    }
 }
 
 QList<Group>::const_iterator ActionContainerPrivate::findGroup(const Id &groupId) const

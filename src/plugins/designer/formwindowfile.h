@@ -35,7 +35,7 @@
 
 #include <coreplugin/textfile.h>
 
-#include <QtCore/QPointer>
+#include <QPointer>
 
 QT_BEGIN_NAMESPACE
 class QDesignerFormWindowInterface;
@@ -57,7 +57,6 @@ public:
     virtual QString fileName() const;
     virtual bool shouldAutoSave() const;
     virtual bool isModified() const;
-    virtual bool isReadOnly() const;
     virtual bool isSaveAsAllowed() const;
     bool reload(QString *errorString, ReloadFlag flag, ChangeType type);
     virtual QString defaultPath() const;

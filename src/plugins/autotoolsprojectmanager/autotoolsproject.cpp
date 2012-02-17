@@ -52,14 +52,14 @@
 #include <coreplugin/icore.h>
 #include <utils/qtcassert.h>
 
-#include <QtCore/QFileInfo>
-#include <QtCore/QTimer>
-#include <QtCore/QPointer>
-#include <QtGui/QApplication>
-#include <QtGui/QCursor>
-#include <QtGui/QLabel>
-#include <QtGui/QPushButton>
-#include <QtGui/QVBoxLayout>
+#include <QFileInfo>
+#include <QTimer>
+#include <QPointer>
+#include <QApplication>
+#include <QCursor>
+#include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
 
 using namespace AutotoolsProjectManager;
 using namespace AutotoolsProjectManager::Internal;
@@ -512,16 +512,24 @@ void AutotoolsProject::updateCppCodeModel()
     }
 
     CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
-    pinfo.clearProjectParts();
-    CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
-                new CPlusPlus::CppModelManagerInterface::ProjectPart);
-    part->includePaths = allIncludePaths;
-    part->sourceFiles = m_files;
-    if (m_toolChain)
-        part->defines = m_toolChain->predefinedMacros(QStringList());
-    part->frameworkPaths = allFrameworkPaths;
-    part->language = CPlusPlus::CppModelManagerInterface::CXX;
-    pinfo.appendProjectPart(part);
-    modelManager->updateProjectInfo(pinfo);
-    modelManager->updateSourceFiles(m_files);
+
+    const bool update = (pinfo.includePaths() != allIncludePaths)
+            || (pinfo.sourceFiles() != m_files)
+            || (pinfo.defines() != m_toolChain->predefinedMacros(QStringList()))
+            || (pinfo.frameworkPaths() != allFrameworkPaths);
+    if (update) {
+        pinfo.clearProjectParts();
+        CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
+                    new CPlusPlus::CppModelManagerInterface::ProjectPart);
+        part->includePaths = allIncludePaths;
+        part->sourceFiles = m_files;
+        if (m_toolChain)
+            part->defines = m_toolChain->predefinedMacros(QStringList());
+        part->frameworkPaths = allFrameworkPaths;
+        part->language = CPlusPlus::CppModelManagerInterface::CXX;
+        pinfo.appendProjectPart(part);
+
+        modelManager->updateProjectInfo(pinfo);
+        modelManager->updateSourceFiles(m_files);
+    }
 }

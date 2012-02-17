@@ -51,12 +51,12 @@
 #include <coreplugin/icontext.h>
 #include <coreplugin/filemanager.h>
 
-#include <QtCore/QDir>
-#include <QtCore/QProcessEnvironment>
+#include <QDir>
+#include <QProcessEnvironment>
 
-#include <QtGui/QFormLayout>
-#include <QtGui/QMainWindow>
-#include <QtGui/QComboBox>
+#include <QFormLayout>
+#include <QMainWindow>
+#include <QComboBox>
 
 using namespace GenericProjectManager;
 using namespace GenericProjectManager::Internal;
@@ -642,11 +642,6 @@ QString GenericProjectFile::mimeType() const
 bool GenericProjectFile::isModified() const
 {
     return false;
-}
-
-bool GenericProjectFile::isReadOnly() const
-{
-    return true;
 }
 
 bool GenericProjectFile::isSaveAsAllowed() const

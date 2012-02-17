@@ -44,11 +44,11 @@
 #include <utils/environment.h>
 #include <proparser/profileevaluator.h>
 
-#include <QtCore/QCoreApplication>
-#include <QtCore/QDir>
-#include <QtCore/QSettings>
-#include <QtGui/QLabel>
-#include <QtGui/QFormLayout>
+#include <QCoreApplication>
+#include <QDir>
+#include <QSettings>
+#include <QLabel>
+#include <QFormLayout>
 
 using namespace Qt4ProjectManager;
 using namespace Qt4ProjectManager::Internal;
@@ -369,7 +369,6 @@ Core::FeatureSet SymbianQtVersion::availableFeatures() const
     Core::FeatureSet features = QtSupport::BaseQtVersion::availableFeatures();
     if (qtVersion() >= QtSupport::QtVersionNumber(4, 7, 4)) //no reliable test for components, yet.
         features |= Core::FeatureSet(QtSupport::Constants::FEATURE_QTQUICK_COMPONENTS_SYMBIAN);
-    features.remove(Core::Feature(QtSupport::Constants::FEATURE_QT_CONSOLE));
     features |= Core::FeatureSet(QtSupport::Constants::FEATURE_MOBILE);
 
     return features;

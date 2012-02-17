@@ -39,14 +39,14 @@
 #include <projectexplorer/projectexplorerconstants.h>
 #include <qtsupport/qtsupportconstants.h>
 
-#include <QtGui/QIcon>
+#include <QIcon>
 
-#include <QtGui/QPainter>
-#include <QtGui/QPixmap>
+#include <QPainter>
+#include <QPixmap>
 
-#include <QtCore/QDir>
-#include <QtCore/QTextStream>
-#include <QtCore/QCoreApplication>
+#include <QDir>
+#include <QTextStream>
+#include <QCoreApplication>
 
 namespace QmlProjectManager {
 namespace Internal {
@@ -93,11 +93,9 @@ QWizard *QmlProjectApplicationWizard::createWizardDialog(QWidget *parent,
 {
     QmlProjectApplicationWizardDialog *wizard = new QmlProjectApplicationWizardDialog(parent, wizardDialogParameters);
 
-    wizard->setPath(wizardDialogParameters.defaultPath());
     wizard->setProjectName(QmlProjectApplicationWizardDialog::uniqueProjectName(wizardDialogParameters.defaultPath()));
 
-    foreach (QWizardPage *p, wizardDialogParameters.extensionPages())
-        BaseFileWizard::applyExtensionPageShortTitle(wizard, wizard->addPage(p));
+    wizard->addExtensionPages(wizardDialogParameters.extensionPages());
 
     return wizard;
 }

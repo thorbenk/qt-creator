@@ -38,7 +38,7 @@
 #include <coreplugin/basefilewizard.h>
 #include <utils/wizard.h>
 
-#include <QtGui/QWizard>
+#include <QWizard>
 
 namespace Utils {
     class ProjectIntroPage;
@@ -68,6 +68,7 @@ public:
 
     // Generate a new project name (untitled<n>) in path.
     static QString uniqueProjectName(const QString &path);
+    void addExtensionPages(const QList<QWizardPage *> &wizardPageList);
 
 public slots:
     void setIntroDescription(const QString &d);

@@ -37,10 +37,10 @@
 
 #include <coreplugin/editormanager/ieditor.h>
 
-#include <QtCore/QObject>
-#include <QtCore/QList>
-#include <QtCore/QMap>
-#include <QtGui/QIcon>
+#include <QObject>
+#include <QList>
+#include <QMap>
+#include <QIcon>
 
 QT_BEGIN_NAMESPACE
 class QIcon;
@@ -55,11 +55,11 @@ namespace TextEditor {
 
 class ITextEditor;
 
-class TEXTEDITOR_EXPORT ITextMark : public QObject
+class TEXTEDITOR_EXPORT ITextMark
 {
-    Q_OBJECT
 public:
     ITextMark() : m_priority(NormalPriority) {}
+    virtual ~ITextMark();
 
     // determine order on markers on the same line.
     enum Priority
@@ -73,10 +73,10 @@ public:
     virtual void updateLineNumber(int lineNumber);
     virtual void updateBlock(const QTextBlock &block);
     virtual void removedFromEditor();
-    virtual void documentClosing();
     void setIcon(const QIcon &icon);
     Priority priority() const;
     void setPriority(Priority prioriy);
+    virtual bool visible() const;
     virtual double widthFactor() const;
 
 private:
@@ -96,7 +96,6 @@ public:
     virtual bool addMark(ITextMark *mark, int line) = 0;
     virtual TextMarks marksAt(int line) const = 0;
     virtual void removeMark(ITextMark *mark) = 0;
-    virtual bool hasMark(ITextMark *mark) const = 0;
     virtual void updateMark(ITextMark *mark) = 0;
 };
 

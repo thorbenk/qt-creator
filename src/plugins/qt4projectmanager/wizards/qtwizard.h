@@ -39,7 +39,7 @@
 
 #include <coreplugin/basefilewizard.h>
 
-#include <QtCore/QSet>
+#include <QSet>
 
 namespace Qt4ProjectManager {
 
@@ -143,6 +143,8 @@ public:
     bool writeUserFile(const QString &proFileName) const;
     bool setupProject(Qt4Project *project) const;
     bool isTargetSelected(const QString &targetid) const;
+
+    void addExtensionPages(const QList<QWizardPage *> &wizardPageList);
 
 private slots:
     void generateProfileName(const QString &name, const QString &path);

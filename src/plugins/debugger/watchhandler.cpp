@@ -49,15 +49,15 @@
 
 #include <cplusplus/CppRewriter.h>
 
-#include <QtCore/QDebug>
-#include <QtCore/QEvent>
-#include <QtCore/QFile>
-#include <QtCore/QProcess>
-#include <QtCore/QTextStream>
-#include <QtCore/QtAlgorithms>
+#include <QDebug>
+#include <QEvent>
+#include <QFile>
+#include <QProcess>
+#include <QTextStream>
+#include <QtAlgorithms>
 
-#include <QtGui/QLabel>
-#include <QtGui/QTextEdit>
+#include <QLabel>
+#include <QTextEdit>
 
 #include <ctype.h>
 #include <utils/qtcassert.h>
@@ -713,14 +713,14 @@ int WatchModel::itemFormat(const WatchData &data) const
 static inline QString expression(const WatchItem *item)
 {
     if (!item->exp.isEmpty())
-         return QString::fromAscii(item->exp);
+         return QString::fromLatin1(item->exp);
     if (item->address && !item->type.isEmpty()) {
-        return QString::fromAscii("*(%1*)%2").
+        return QString::fromLatin1("*(%1*)%2").
                 arg(QLatin1String(item->type), QLatin1String(item->hexAddress()));
     }
     if (const WatchItem *parent = item->parent) {
         if (!parent->exp.isEmpty())
-           return QString::fromAscii("(%1).%2")
+           return QString::fromLatin1("(%1).%2")
             .arg(QString::fromLatin1(parent->exp), item->name);
     }
     return QString();

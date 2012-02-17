@@ -34,7 +34,8 @@
 
 #include "infobar.h"
 
-#include <QtCore/QFile>
+#include <QFile>
+#include <QFileInfo>
 
 namespace Core {
 
@@ -64,6 +65,13 @@ void IFile::checkPermissions()
 bool IFile::shouldAutoSave() const
 {
     return false;
+}
+
+bool IFile::isReadOnly() const
+{
+    if (fileName().isEmpty())
+        return false;
+    return !QFileInfo(fileName()).isWritable();
 }
 
 bool IFile::autoSave(QString *errorString, const QString &fileName)

@@ -38,8 +38,10 @@
 
 #include <coreplugin/dialogs/iwizard.h>
 
-#include <QtCore/QSharedDataPointer>
-#include <QtCore/QList>
+#include <extensionsystem/iplugin.h>
+
+#include <QSharedDataPointer>
+#include <QList>
 
 QT_BEGIN_NAMESPACE
 class QIcon;
@@ -203,6 +205,18 @@ protected:
     virtual GeneratedFiles generateFilesFromPath(const QString &path, const QString &name,
                                                  QString *errorMessage) const = 0;
 };
+
+template <class WizardClass>
+QList<WizardClass*> createMultipleBaseFileWizardInstances(const QList<BaseFileWizardParameters> &parametersList, ExtensionSystem::IPlugin *plugin)
+{
+    QList<WizardClass*> list;
+    foreach (const BaseFileWizardParameters &parameters, parametersList) {
+        WizardClass *wc = new WizardClass(parameters, 0);
+        plugin->addAutoReleasedObject(wc);
+        list << wc;
+    }
+    return list;
+}
 
 } // namespace Core
 

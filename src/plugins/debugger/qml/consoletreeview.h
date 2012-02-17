@@ -30,35 +30,30 @@
 **
 **************************************************************************/
 
-#include "vcsbasetextdocument.h"
+#ifndef CONSOLETREEVIEW_H
+#define CONSOLETREEVIEW_H
 
-using namespace VcsBase::Internal;
+#include <QtGui/QTreeView>
 
-VcsBaseTextDocument::VcsBaseTextDocument() :
-    m_forceReadOnly(false)
+namespace Debugger {
+namespace Internal {
+
+class ConsoleTreeView : public QTreeView
 {
-}
+    Q_OBJECT
+public:
+    explicit ConsoleTreeView(QWidget *parent = 0);
 
-bool VcsBaseTextDocument::isReadOnly() const
-{
-    return m_forceReadOnly ?
-            true :
-            TextEditor::BaseTextDocument::isReadOnly();
-}
+    void setItemDelegate(QAbstractItemDelegate *delegate);
 
-bool VcsBaseTextDocument::isModified() const
-{
-    return m_forceReadOnly ?
-            false :
-            TextEditor::BaseTextDocument::isModified();
-}
+protected:
+    void mousePressEvent(QMouseEvent *event);
+    void resizeEvent(QResizeEvent *e);
+    void drawBranches(QPainter *painter, const QRect &rect,
+                      const QModelIndex &index) const;
+};
 
-void VcsBaseTextDocument::setForceReadOnly(bool b)
-{
-    m_forceReadOnly = b;
-}
+} //Internal
+} //Debugger
 
-bool VcsBaseTextDocument::isForceReadOnly() const
-{
-    return m_forceReadOnly;
-}
+#endif // CONSOLETREEVIEW_H

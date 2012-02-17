@@ -37,11 +37,10 @@
 
 #include "itexteditor.h"
 
-#include <QtGui/QTextBlockUserData>
-#include <QtGui/QPlainTextDocumentLayout>
+#include <QTextBlockUserData>
+#include <QPlainTextDocumentLayout>
 
 namespace TextEditor {
-
 struct Parenthesis;
 typedef QVector<Parenthesis> Parentheses;
 
@@ -81,9 +80,8 @@ public:
     inline TextMarks marks() const { return m_marks; }
     void addMark(ITextMark *mark);
     inline bool removeMark(ITextMark *mark) { return m_marks.removeAll(mark); }
-    inline bool hasMark(ITextMark *mark) const { return m_marks.contains(mark); }
-    inline void clearMarks() { m_marks.clear(); }
-    inline void documentClosing() { Q_FOREACH(ITextMark *tm, m_marks) { tm->documentClosing(); } m_marks.clear();}
+
+    inline void documentClosing() { m_marks.clear(); }
 
     inline void setFolded(bool b) { m_folded = b; }
     inline bool folded() const { return m_folded; }
@@ -203,15 +201,22 @@ public:
 
 
     void emitDocumentSizeChanged() { emit documentSizeChanged(documentSize()); }
+    ITextMarkable *markableInterface();
+
     int lastSaveRevision;
     bool hasMarks;
     double maxMarkWidthFactor;
 
     int m_requiredWidth;
+    ITextMarkable *m_documentMarker;
+
     void setRequiredWidth(int width);
 
     QSizeF documentSize() const;
 
+    void documentClosing();
+    void updateMarksLineNumber();
+    void updateMarksBlock(const QTextBlock &block);
 };
 
 } // namespace TextEditor

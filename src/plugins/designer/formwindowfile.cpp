@@ -38,22 +38,22 @@
 #include <utils/fileutils.h>
 #include <utils/qtcassert.h>
 
-#include <QtDesigner/QDesignerFormWindowInterface>
-#include <QtDesigner/QDesignerFormWindowManagerInterface>
-#include <QtDesigner/QDesignerFormEditorInterface>
+#include <QDesignerFormWindowInterface>
+#include <QDesignerFormWindowManagerInterface>
+#include <QDesignerFormEditorInterface>
 #if QT_VERSION < 0x050000
 #    include "qt_private/qsimpleresource_p.h"
 #endif
 
-#include <QtGui/QMessageBox>
-#include <QtGui/QMainWindow>
-#include <QtGui/QUndoStack>
+#include <QMessageBox>
+#include <QMainWindow>
+#include <QUndoStack>
 
-#include <QtCore/QFile>
-#include <QtCore/QFileInfo>
-#include <QtCore/QByteArray>
-#include <QtCore/QDebug>
-#include <QtCore/QTextCodec>
+#include <QFile>
+#include <QFileInfo>
+#include <QByteArray>
+#include <QDebug>
+#include <QTextCodec>
 
 namespace Designer {
 namespace Internal {
@@ -135,14 +135,6 @@ bool FormWindowFile::shouldAutoSave() const
 bool FormWindowFile::isModified() const
 {
     return m_formWindow && m_formWindow->isDirty();
-}
-
-bool FormWindowFile::isReadOnly() const
-{
-    if (m_fileName.isEmpty())
-        return false;
-    const QFileInfo fi(m_fileName);
-    return !fi.isWritable();
 }
 
 bool FormWindowFile::isSaveAsAllowed() const

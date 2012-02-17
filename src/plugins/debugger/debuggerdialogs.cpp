@@ -51,22 +51,22 @@
 #include <utils/qtcassert.h>
 #include <utils/synchronousprocess.h>
 
-#include <QtCore/QCoreApplication>
-#include <QtCore/QDebug>
-#include <QtCore/QDir>
-#include <QtCore/QRegExp>
+#include <QCoreApplication>
+#include <QDebug>
+#include <QDir>
+#include <QRegExp>
 
-#include <QtGui/QButtonGroup>
-#include <QtGui/QFileDialog>
-#include <QtGui/QGroupBox>
-#include <QtGui/QHeaderView>
-#include <QtGui/QMessageBox>
-#include <QtGui/QPushButton>
-#include <QtGui/QRadioButton>
-#include <QtGui/QScrollArea>
-#include <QtGui/QSortFilterProxyModel>
-#include <QtGui/QStandardItemModel>
-#include <QtGui/QGridLayout>
+#include <QButtonGroup>
+#include <QFileDialog>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QRadioButton>
+#include <QScrollArea>
+#include <QSortFilterProxyModel>
+#include <QStandardItemModel>
+#include <QGridLayout>
 
 using namespace Utils;
 
@@ -705,7 +705,7 @@ bool StartExternalDialog::run(QWidget *parent,
     if (!newParameters.arguments.isEmpty())
         sp->processArgs = newParameters.arguments;
     // Fixme: 1 of 3 testing hacks.
-    if (sp->processArgs.startsWith(__("@tcf@ ")) || sp->processArgs.startsWith(__("@sym@ ")))
+    if (sp->processArgs.startsWith(QLatin1String("@tcf@ ")) || sp->processArgs.startsWith(QLatin1String("@sym@ ")))
         // Set up an ARM Symbian Abi
         sp->toolChainAbi = ProjectExplorer::Abi(ProjectExplorer::Abi::ArmArchitecture,
                                                 ProjectExplorer::Abi::SymbianOS,
@@ -1093,7 +1093,7 @@ QString StartRemoteCdbDialog::connection() const
     QRegExp ipRegexp(QLatin1String("([\\w\\.\\-_]+):([0-9]{1,4})"));
     QTC_ASSERT(ipRegexp.isValid(), return QString());
     if (ipRegexp.exactMatch(rc))
-        return QString::fromAscii("tcp:server=%1,port=%2").arg(ipRegexp.cap(1), ipRegexp.cap(2));
+        return QString::fromLatin1("tcp:server=%1,port=%2").arg(ipRegexp.cap(1), ipRegexp.cap(2));
     return rc;
 }
 

@@ -2375,6 +2375,50 @@ def qdump__Eigen__Matrix(d, value):
 
 #######################################################################
 #
+# D
+#
+#######################################################################
+
+def cleanDType(type):
+    return stripClassTag(str(type)).replace("uns long long", "string")
+
+def qdump_Array(d, value):
+    n = value["length"]
+    p = value["ptr"]
+    t = cleanDType(value.type)[7:]
+    d.putAddress(value.address)
+    d.putType("%s[%d]" % (t, n))
+    if t == "char":
+        d.putValue(encodeCharArray(p, 100), Hex2EncodedLocal8Bit)
+        d.putNumChild(0)
+    else:
+        d.putValue(" ")
+        d.putNumChild(n)
+        innerType = p.type
+        if d.isExpanded():
+            with Children(d, n, childType=innerType):
+                for i in range(0, n):
+                    d.putSubItem(i, p.dereference())
+                    p = p + 1
+
+
+def qdump_AArray(d, value):
+    #n = value["length"]
+    # This ends up as _AArray_<key>_<value> with a single .ptr
+    # member of type void *. Not much that can be done here.
+    p = value["ptr"]
+    t = cleanDType(value.type)[8:]
+    d.putAddress(value.address)
+    d.putType("%s]" % t.replace("_", "["))
+    d.putValue(" ")
+    d.putNumChild(1)
+    if d.isExpanded():
+        with Children(d, 1):
+                d.putSubItem("ptr", p)
+
+
+#######################################################################
+#
 # Display Test
 #
 #######################################################################

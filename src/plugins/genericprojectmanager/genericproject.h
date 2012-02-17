@@ -45,7 +45,7 @@
 #include <projectexplorer/buildconfiguration.h>
 #include <coreplugin/ifile.h>
 
-#include <QtCore/QFuture>
+#include <QFuture>
 
 QT_BEGIN_NAMESPACE
 class QComboBox;
@@ -172,7 +172,6 @@ public:
     virtual QString mimeType() const;
 
     virtual bool isModified() const;
-    virtual bool isReadOnly() const;
     virtual bool isSaveAsAllowed() const;
     virtual void rename(const QString &newName);
 

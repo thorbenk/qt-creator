@@ -34,9 +34,14 @@
 
 #include <coreplugin/editormanager/editormanager.h>
 
-#include <QtCore/QTextCodec>
+#include <QTextCodec>
 
 using namespace TextEditor;
+
+ITextMark::~ITextMark()
+{
+
+}
 
 void ITextMark::paint(QPainter *painter, const QRect &rect) const
 {
@@ -54,9 +59,6 @@ void ITextMark::updateBlock(const QTextBlock &)
 void ITextMark::removedFromEditor()
 {}
 
-void ITextMark::documentClosing()
-{}
-
 void ITextMark::setIcon(const QIcon &icon)
 {
     m_icon = icon;
@@ -72,6 +74,10 @@ ITextMark::Priority ITextMark::priority() const
     return m_priority;
 }
 
+bool ITextMark::visible() const
+{
+    return true;
+}
 
 double ITextMark::widthFactor() const
 {

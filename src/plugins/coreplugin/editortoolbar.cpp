@@ -50,21 +50,21 @@
 #include <utils/qtcassert.h>
 #include <utils/styledbar.h>
 
-#include <QtCore/QSettings>
-#include <QtCore/QEvent>
-#include <QtCore/QDir>
-#include <QtCore/QPointer>
-#include <QtGui/QApplication>
-#include <QtGui/QComboBox>
-#include <QtGui/QPlainTextEdit>
-#include <QtGui/QVBoxLayout>
-#include <QtGui/QScrollArea>
-#include <QtGui/QTabWidget>
-#include <QtGui/QToolButton>
-#include <QtGui/QMenu>
-#include <QtGui/QClipboard>
-#include <QtGui/QLabel>
-#include <QtGui/QToolBar>
+#include <QSettings>
+#include <QEvent>
+#include <QDir>
+#include <QPointer>
+#include <QApplication>
+#include <QComboBox>
+#include <QPlainTextEdit>
+#include <QVBoxLayout>
+#include <QScrollArea>
+#include <QTabWidget>
+#include <QToolButton>
+#include <QMenu>
+#include <QClipboard>
+#include <QLabel>
+#include <QToolBar>
 
 enum {
     debug = false
@@ -400,9 +400,13 @@ void EditorToolBar::updateEditorStatus(IEditor *editor)
 
     d->m_editorList->setCurrentIndex(d->m_editorsListModel->indexOf(editor).row());
 
-    if (editor->file()->isReadOnly()) {
+    if (editor->file()->fileName().isEmpty()) {
+        d->m_lockButton->setIcon(QIcon());
+        d->m_lockButton->setEnabled(false);
+        d->m_lockButton->setToolTip(QString());
+    } else if (editor->file()->isReadOnly()) {
         d->m_lockButton->setIcon(QIcon(d->m_editorsListModel->lockedIcon()));
-        d->m_lockButton->setEnabled(!editor->file()->fileName().isEmpty());
+        d->m_lockButton->setEnabled(true);
         d->m_lockButton->setToolTip(tr("Make Writable"));
     } else {
         d->m_lockButton->setIcon(QIcon(d->m_editorsListModel->unlockedIcon()));

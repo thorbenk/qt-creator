@@ -34,7 +34,7 @@
 #define IFILE_H
 
 #include "core_global.h"
-#include <QtCore/QObject>
+#include <QObject>
 
 namespace Core {
 
@@ -93,7 +93,7 @@ public:
 
     virtual bool shouldAutoSave() const;
     virtual bool isModified() const = 0;
-    virtual bool isReadOnly() const = 0;
+    virtual bool isReadOnly() const;
     virtual bool isSaveAsAllowed() const = 0;
 
     virtual ReloadBehavior reloadBehavior(ChangeTrigger state, ChangeType type) const;

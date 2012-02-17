@@ -115,19 +115,19 @@
 #include <utils/stringutils.h>
 #include <utils/persistentsettings.h>
 
-#include <QtCore/QtPlugin>
-#include <QtCore/QDateTime>
-#include <QtCore/QDebug>
-#include <QtCore/QSettings>
-#include <QtCore/QAbstractFileEngine>
+#include <QtPlugin>
+#include <QDateTime>
+#include <QDebug>
+#include <QSettings>
+#include <QAbstractFileEngine>
 
-#include <QtGui/QAction>
-#include <QtGui/QApplication>
-#include <QtGui/QFileDialog>
-#include <QtGui/QMenu>
-#include <QtGui/QMessageBox>
-#include <QtGui/QMainWindow>
-#include <QtGui/QWizard>
+#include <QAction>
+#include <QApplication>
+#include <QFileDialog>
+#include <QMenu>
+#include <QMessageBox>
+#include <QMainWindow>
+#include <QWizard>
 
 /*!
     \namespace ProjectExplorer
@@ -1078,16 +1078,8 @@ void ProjectExplorerPlugin::unloadProject()
 
     QList<Core::IFile*> filesToSave;
     filesToSave << fi;
-
-    // check the number of modified files
-    int readonlycount = 0;
-    foreach (const Core::IFile *file, filesToSave) {
-        if (file->isReadOnly())
-            ++readonlycount;
-    }
-
     bool success = false;
-    if (readonlycount > 0)
+    if (fi->isReadOnly())
         success = Core::FileManager::saveModifiedFiles(filesToSave).isEmpty();
     else
         success = Core::FileManager::saveModifiedFilesSilently(filesToSave).isEmpty();
@@ -2785,6 +2777,18 @@ void ProjectExplorerPlugin::renameFile()
     }
 }
 
+static inline bool fileSystemRenameFile(const QString &orgFilePath,
+                                        const QString &newFilePath)
+{
+#if QT_VERSION < 0x050000 // ### fixme: QTBUG-3570 might be fixed in Qt 5?
+    QFile f(orgFilePath); // Due to QTBUG-3570
+    QAbstractFileEngine *fileEngine = f.fileEngine();
+    if (!fileEngine->caseSensitive() && orgFilePath.compare(newFilePath, Qt::CaseInsensitive) == 0)
+        return fileEngine->rename(newFilePath);
+#endif
+    return QFile::rename(orgFilePath, newFilePath);
+}
+
 void ProjectExplorerPlugin::renameFile(Node *node, const QString &to)
 {
     FileNode *fileNode = qobject_cast<FileNode *>(node);
@@ -2802,16 +2806,8 @@ void ProjectExplorerPlugin::renameFile(Node *node, const QString &to)
     bool result = false;
     if (vc && vc->supportsOperation(Core::IVersionControl::MoveOperation))
         result = vc->vcsMove(orgFilePath, newFilePath);
-    if (!result) { // The moving via vcs failed or the vcs does not support moving, fall back
-        QFile f(orgFilePath);
-        if (!f.fileEngine()->caseSensitive()
-                && orgFilePath.compare(newFilePath, Qt::CaseInsensitive) == 0) {
-            // Due to QTBUG-3570
-            result = f.fileEngine()->rename(newFilePath);
-        } else {
-            result = QFile::rename(orgFilePath, newFilePath);
-        }
-    }
+    if (!result) // The moving via vcs failed or the vcs does not support moving, fall back
+        result = fileSystemRenameFile(orgFilePath, newFilePath);
     if (result) {
         // yeah we moved, tell the filemanager about it
         Core::FileManager::renamedFile(orgFilePath, newFilePath);

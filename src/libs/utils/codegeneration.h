@@ -34,7 +34,7 @@
 #define CODEGENERATION_H
 
 #include "utils_global.h"
-#include <QtCore/QString>
+#include <QString>
 
 QT_BEGIN_NAMESPACE
 class QTextStream;
@@ -54,6 +54,8 @@ QTCREATOR_UTILS_EXPORT
 void writeIncludeFileDirective(const QString &file,
                                bool globalInclude,
                                QTextStream &str);
+
+QTCREATOR_UTILS_EXPORT void writeBeginQtVersionCheck(QTextStream &str);
 
 // Write opening namespaces and return an indentation string to be used
 // in the following code if there are any.

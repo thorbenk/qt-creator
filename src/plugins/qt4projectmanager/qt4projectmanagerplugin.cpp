@@ -87,8 +87,8 @@
 #    include <QTest>
 #endif
 
-#include <QtCore/QtPlugin>
-#include <QtGui/QMenu>
+#include <QtPlugin>
+#include <QMenu>
 
 using namespace Qt4ProjectManager::Internal;
 using namespace Qt4ProjectManager;
@@ -139,7 +139,7 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
     addAutoReleasedObject(new GuiAppWizard);
     addAutoReleasedObject(new ConsoleAppWizard);
     addAutoReleasedObject(new MobileAppWizard);
-    addAutoReleasedObject(new QtQuickAppWizard);
+    QtQuickAppWizard::createInstances(this); //creates several instances with different options
     addAutoReleasedObject(new Html5AppWizard);
     addAutoReleasedObject(new LibraryWizard);
     addAutoReleasedObject(new TestWizard);

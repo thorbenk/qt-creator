@@ -31,9 +31,43 @@
 **************************************************************************/
 
 #include "taskhub.h"
-#include <QtCore/QMetaType>
+#include "extensionsystem/pluginmanager.h"
+#include "projectexplorer.h"
+#include <texteditor/basetextmark.h>
+#include <QMetaType>
 
 using namespace ProjectExplorer;
+
+class TaskMark : public TextEditor::BaseTextMark
+{
+public:
+    TaskMark(unsigned int id, const QString &fileName, int lineNumber, bool visible)
+        : BaseTextMark(fileName, lineNumber), m_id(id), m_visible(visible)
+    {}
+
+    void updateLineNumber(int lineNumber);
+    void removedFromEditor();
+    bool visible() const;
+private:
+    unsigned int m_id;
+    bool m_visible;
+};
+
+void TaskMark::updateLineNumber(int lineNumber)
+{
+    ProjectExplorerPlugin::instance()->taskHub()->updateTaskLineNumber(m_id, lineNumber);
+    BaseTextMark::updateLineNumber(lineNumber);
+}
+
+void TaskMark::removedFromEditor()
+{
+    ProjectExplorerPlugin::instance()->taskHub()->updateTaskLineNumber(m_id, -1);
+}
+
+bool TaskMark::visible() const
+{
+    return m_visible;
+}
 
 TaskHub::TaskHub()
     : m_errorIcon(QLatin1String(":/projectexplorer/images/compile_error.png")),
@@ -53,8 +87,15 @@ void TaskHub::addCategory(const Core::Id &categoryId, const QString &displayName
     emit categoryAdded(categoryId, displayName, visible);
 }
 
-void TaskHub::addTask(const Task &task)
+void TaskHub::addTask(Task task)
 {
+    if (task.line != -1 && !task.file.isEmpty()) {
+        bool visible = (task.type == Task::Warning || task.type == Task::Error);
+        TaskMark *mark = new TaskMark(task.taskId, task.file.toString(), task.line, visible);
+        mark->setIcon(taskTypeIcon(task.type));
+        mark->setPriority(TextEditor::ITextMark::HighPriority);
+        task.addMark(mark);
+    }
     emit taskAdded(task);
 }
 
@@ -66,6 +107,11 @@ void TaskHub::clearTasks(const Core::Id &categoryId)
 void TaskHub::removeTask(const Task &task)
 {
     emit taskRemoved(task);
+}
+
+void TaskHub::updateTaskLineNumber(unsigned int id, int line)
+{
+    emit taskLineNumberUpdated(id, line);
 }
 
 void TaskHub::setCategoryVisibility(const Core::Id &categoryId, bool visible)

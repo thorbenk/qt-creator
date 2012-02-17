@@ -55,16 +55,16 @@
 
 #include <extensionsystem/pluginmanager.h>
 
-#include <QtCore/QCoreApplication>
-#include <QtCore/QDateTime>
-#include <QtCore/QDebug>
-#include <QtCore/QHash>
-#include <QtCore/QStringList>
-#include <QtCore/QTextStream>
-#include <QtCore/QTime>
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QDebug>
+#include <QHash>
+#include <QStringList>
+#include <QTextStream>
+#include <QTime>
 
-#include <QtGui/QTextCursor>
-#include <QtGui/QPlainTextEdit>
+#include <QTextCursor>
+#include <QPlainTextEdit>
 
 #include <string.h>
 #include <ctype.h>
@@ -888,7 +888,7 @@ void parseWatchData(const QSet<QByteArray> &expandedINames,
             data1.iname += data1.name.toLatin1();
         }
         if (!data1.name.isEmpty() && data1.name.at(0).isDigit())
-            data1.name = _c('[') + data1.name + _c(']');
+            data1.name = QLatin1Char('[') + data1.name + QLatin1Char(']');
         if (addressStep) {
             setWatchDataAddress(data1, addressBase);
             addressBase += addressStep;

@@ -36,7 +36,10 @@
 #include "texteditor_global.h"
 #include "itexteditor.h"
 
-#include <QtCore/QPointer>
+#include <utils/fileutils.h>
+
+#include <QWeakPointer>
+#include <QHash>
 
 QT_BEGIN_NAMESPACE
 class QTextBlock;
@@ -44,19 +47,21 @@ class QPainter;
 QT_END_NAMESPACE
 
 namespace TextEditor {
+namespace Internal {
+class BaseTextMarkRegistry;
+}
 
 class ITextMarkable;
 
 class TEXTEDITOR_EXPORT BaseTextMark : public TextEditor::ITextMark
 {
-    Q_OBJECT
+    friend class Internal::BaseTextMarkRegistry;
 
 public:
-    BaseTextMark();
+    BaseTextMark(const QString &fileName, int lineNumber);
     virtual ~BaseTextMark();
 
-    // our location in the "owning" edtitor
-    void setLocation(const QString &fileName, int lineNumber);
+    void updateLineNumber(int lineNumber);
 
     // call this if the icon has changed.
     void updateMarker();
@@ -65,18 +70,28 @@ public:
     QString fileName() const { return m_fileName; }
     int lineNumber() const { return m_line; }
 
-private slots:
-    void init();
-    void editorOpened(Core::IEditor *editor);
-    void documentReloaded();
-
 private:
-    void removeInternalMark();
-
-    QPointer<ITextMarkable> m_markableInterface;
+    QWeakPointer<ITextMarkable> m_markableInterface;
     QString m_fileName;
     int m_line;
 };
+
+namespace Internal {
+class BaseTextMarkRegistry : public QObject
+{
+    Q_OBJECT
+public:
+    BaseTextMarkRegistry(QObject *parent);
+
+    void add(BaseTextMark *mark);
+    void remove(BaseTextMark *mark);
+private slots:
+    void editorOpened(Core::IEditor *editor);
+    void documentReloaded();
+private:
+    QHash<Utils::FileName, QList<BaseTextMark *> > m_marks;
+};
+}
 
 } // namespace TextEditor
 

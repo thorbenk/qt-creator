@@ -41,10 +41,10 @@
 
 #include <utils/changeset.h>
 
-#include <QtCore/QBasicTimer>
-#include <QtCore/QSharedData>
-#include <QtCore/QPointer>
-#include <QtCore/QScopedPointer>
+#include <QBasicTimer>
+#include <QSharedData>
+#include <QPointer>
+#include <QScopedPointer>
 
 namespace TextEditor {
 
@@ -159,14 +159,14 @@ struct BaseTextEditorPrivateHighlightBlocks
 };
 
 
-class BaseTextEditorPrivate
+class BaseTextEditorWidgetPrivate
 {
-    BaseTextEditorPrivate(const BaseTextEditorPrivate &);
-    BaseTextEditorPrivate &operator=(const BaseTextEditorPrivate &);
+    BaseTextEditorWidgetPrivate(const BaseTextEditorWidgetPrivate &);
+    BaseTextEditorWidgetPrivate &operator=(const BaseTextEditorWidgetPrivate &);
 
 public:
-    BaseTextEditorPrivate();
-    ~BaseTextEditorPrivate();
+    BaseTextEditorWidgetPrivate();
+    ~BaseTextEditorWidgetPrivate();
 
     void setupBasicEditActions(TextEditorActionHandler *actionHandler);
     void setupDocumentSignals(BaseTextDocument *document);
@@ -233,8 +233,6 @@ public:
     void foldLicenseHeader();
 
     QBasicTimer autoScrollTimer;
-    void updateMarksLineNumber();
-    void updateMarksBlock(const QTextBlock &block);
     uint m_marksVisible : 1;
     uint m_codeFoldingVisible : 1;
     uint m_codeFoldingSupported : 1;

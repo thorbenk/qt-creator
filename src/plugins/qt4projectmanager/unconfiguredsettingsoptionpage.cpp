@@ -40,11 +40,11 @@
 #include <qtsupport/qtversionmanager.h>
 #include <qt4projectmanager/qt4projectmanager.h>
 
-#include <QtCore/QCoreApplication>
-#include <QtGui/QIcon>
-#include <QtGui/QComboBox>
-#include <QtGui/QLabel>
-#include <QtGui/QCheckBox>
+#include <QCoreApplication>
+#include <QIcon>
+#include <QComboBox>
+#include <QLabel>
+#include <QCheckBox>
 #include <QFormLayout>
 
 using namespace Qt4ProjectManager;
@@ -58,6 +58,12 @@ UnConfiguredSettingsWidget::UnConfiguredSettingsWidget(QWidget *parent)
     : QWidget(parent)
 {
     QFormLayout *layout = new QFormLayout(this);
+
+    QLabel *descriptionLabel = new QLabel;
+    descriptionLabel->setWordWrap(true);
+    descriptionLabel->setText(tr("Qt Creator can open qmake projects without configuring them for building.\n"
+                                 "The C++ and QML code models need a Qt version and tool chain to offer code completion.\n"));
+    layout->addRow(descriptionLabel);
 
     m_qtVersionComboBox = new QComboBox;
     layout->addRow(tr("Qt Version:"), m_qtVersionComboBox);

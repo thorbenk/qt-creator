@@ -34,7 +34,7 @@
 #include "breakhandler.h"
 #include "debuggercore.h"
 
-#include <QtGui/QIcon>
+#include <QIcon>
 
 //////////////////////////////////////////////////////////////////
 //
@@ -48,9 +48,8 @@ namespace Internal {
 
 BreakpointMarker::BreakpointMarker(BreakpointModelId id,
         const QString &fileName, int lineNumber)
-  : m_id(id)
+    : BaseTextMark(fileName, lineNumber), m_id(id)
 {
-    setLocation(fileName, lineNumber);
     setIcon(breakHandler()->icon(m_id));
     setPriority(TextEditor::ITextMark::NormalPriority);
     //qDebug() << "CREATE MARKER " << fileName << lineNumber;
@@ -69,6 +68,7 @@ void BreakpointMarker::removedFromEditor()
 void BreakpointMarker::updateLineNumber(int lineNumber)
 {
     breakHandler()->updateLineNumberFromMarker(m_id, lineNumber);
+    BaseTextMark::updateLineNumber(lineNumber);
 }
 
 } // namespace Internal

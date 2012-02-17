@@ -33,16 +33,17 @@
 #ifndef QMLJSSCRIPTCONSOLE_H
 #define QMLJSSCRIPTCONSOLE_H
 
-#include <qmljsdebugclient/qdeclarativeenginedebug.h>
+#include "consoleitemmodel.h"
 #include <debugger/debuggerconstants.h>
-#include <QtGui/QPlainTextEdit>
+#include <QtGui/QWidget>
 
 QT_BEGIN_NAMESPACE
-class QCheckBox;
+class QToolButton;
 QT_END_NAMESPACE
 
 namespace Utils {
 class StatusLabel;
+class SavedAction;
 }
 
 namespace Debugger {
@@ -51,10 +52,9 @@ class DebuggerEngine;
 
 namespace Internal {
 
-class QmlJSScriptConsolePrivate;
-class QmlJSScriptConsole;
-class QmlEngine;
-
+class ConsoleTreeView;
+class ConsoleItemDelegate;
+class QmlJSConsoleBackend;
 class QmlJSScriptConsoleWidget : public QWidget
 {
     Q_OBJECT
@@ -63,90 +63,33 @@ public:
     ~QmlJSScriptConsoleWidget();
 
     void setEngine(DebuggerEngine *engine);
+    void readSettings();
 
 public slots:
+    void writeSettings() const;
     void appendResult(const QString &result);
+    void appendOutput(ConsoleItemModel::ItemType, const QString &message);
+    void appendMessage(QtMsgType type, const QString &message);
 
 signals:
     void evaluateExpression(const QString &expr);
 
 private slots:
-    void setDebugLevel();
     void onEngineStateChanged(Debugger::DebuggerState state);
-
-private:
-    QmlJSScriptConsole *m_console;
-    Utils::StatusLabel *m_statusLabel;
-    QCheckBox *m_showLog;
-    QCheckBox *m_showWarning;
-    QCheckBox *m_showError;
-
-};
-
-class QmlJSScriptConsole : public QPlainTextEdit
-{
-    Q_OBJECT
-
-public:
-    enum DebugLevelFlag {
-        None = 0,
-        Log = 1,
-        Warning = 2,
-        Error = 4
-    };
-
-    explicit QmlJSScriptConsole(QWidget *parent = 0);
-    ~QmlJSScriptConsole();
-
-    inline void setTitle(const QString &title)
-    { setDocumentTitle(title); }
-
-    inline QString title() const
-    { return documentTitle(); }
-
-    void setPrompt(const QString &prompt);
-    QString prompt() const;
-
-    void setInferiorStopped(bool inferiorStopped);
-
-    void setEngine(QmlEngine *engine);
-    DebuggerEngine *engine() const;
-
-    void appendResult(const QString &message, const QColor &color = QColor(Qt::darkGray));
-
-    void setDebugLevel(QFlags<DebugLevelFlag> level);
-
-public slots:
-    void clear();
-    void onStateChanged(QmlJsDebugClient::QDeclarativeDebugQuery::State);
-    void insertDebugOutput(QtMsgType type, const QString &debugMsg);
-
-protected:
-    void keyPressEvent(QKeyEvent *e);
-    void contextMenuEvent(QContextMenuEvent *event);
-    void mouseReleaseEvent(QMouseEvent *e);
-
-signals:
-    void evaluateExpression(const QString &expr);
-    void updateStatusMessage(const QString &message, int timeoutMS);
-
-private slots:
     void onSelectionChanged();
-    void onCursorPositionChanged();
 
 private:
-    void displayPrompt();
-    void handleReturnKey();
-    void handleUpKey();
-    void handleDownKey();
-    void handleHomeKey();
-    QString getCurrentScript() const;
-    void replaceCurrentScript(const QString &script);
-    bool isEditableArea() const;
-
-private:
-    QmlJSScriptConsolePrivate *d;
-    friend class QmlJSScriptConsolePrivate;
+    ConsoleTreeView *m_consoleView;
+    ConsoleItemModel *m_model;
+    ConsoleItemDelegate *m_itemDelegate;
+    QmlJSConsoleBackend *m_consoleBackend;
+    Utils::StatusLabel *m_statusLabel;
+    QToolButton *m_showLog;
+    QToolButton *m_showWarning;
+    QToolButton *m_showError;
+    Utils::SavedAction *m_showLogAction;
+    Utils::SavedAction *m_showWarningAction;
+    Utils::SavedAction *m_showErrorAction;
 };
 
 } //Internal
