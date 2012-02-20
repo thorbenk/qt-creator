@@ -46,8 +46,7 @@ HEADERS += completionsettingspage.h \
     cpphighlightingsupportinternal.h \
     cppchecksymbols.h \
     cpplocalsymbols.h \
-    cppsemanticinfo.h \
-    cpphighlightingsupport_p.h
+    cppsemanticinfo.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -90,20 +89,6 @@ SOURCES += completionsettingspage.cpp \
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \
     cppcodestylesettingspage.ui
-
-# For Clang integration:
-contains(DEFINES, CLANG_COMPLETION) {
-    HEADERS += clangcompletion.h
-    SOURCES += clangcompletion.cpp
-}
-
-contains(DEFINES, CLANG_HIGHLIGHTING) {
-    HEADERS += cppcreatemarkers.h
-    SOURCES += cppcreatemarkers.cpp
-}
-
-HEADERS += clangutils.h
-SOURCES += clangutils.cpp
 
 equals(TEST, 1) {
     SOURCES += \

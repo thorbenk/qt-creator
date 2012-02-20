@@ -34,7 +34,7 @@
 #ifndef CLANGCOMPLETER_H
 #define CLANGCOMPLETER_H
 
-#include "clangwrapper_global.h"
+#include "clang_global.h"
 #include "diagnostic.h"
 #include "sourcelocation.h"
 #include "utils.h"
@@ -52,7 +52,7 @@ namespace Clang {
 
 class SourceMarker;
 
-class QTCREATOR_CLANGWRAPPER_EXPORT CodeCompletionResult
+class CLANG_EXPORT CodeCompletionResult
 {
 public:
     enum Kind {
@@ -156,18 +156,18 @@ private:
     bool m_hasParameters;
 };
 
-inline QTCREATOR_CLANGWRAPPER_EXPORT uint qHash(const CodeCompletionResult &ccr)
+inline CLANG_EXPORT uint qHash(const CodeCompletionResult &ccr)
 { return ccr.completionKind() ^ qHash(ccr.text()); }
 
-inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator==(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
+inline CLANG_EXPORT bool operator==(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
 { return ccr1.compare(ccr2) == 0; }
 
-inline QTCREATOR_CLANGWRAPPER_EXPORT bool operator<(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
+inline CLANG_EXPORT bool operator<(const CodeCompletionResult &ccr1, const CodeCompletionResult &ccr2)
 {
     return ccr1.compare(ccr2) < 0;
 }
 
-class QTCREATOR_CLANGWRAPPER_EXPORT ClangCompleter
+class CLANG_EXPORT ClangCompleter
 {
     Q_DISABLE_COPY(ClangCompleter)
 

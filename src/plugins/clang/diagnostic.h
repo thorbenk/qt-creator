@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,41 +26,40 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
-#ifndef CLANG_SOURCEMARKER_H
-#define CLANG_SOURCEMARKER_H
+#ifndef CLANG_DIAGNOSTIC_H
+#define CLANG_DIAGNOSTIC_H
 
-#include "clangwrapper_global.h"
+#include "clang_global.h"
 #include "sourcelocation.h"
+
+#include <QMetaType>
 
 namespace Clang {
 
-class QTCREATOR_CLANGWRAPPER_EXPORT SourceMarker
+class CLANG_EXPORT Diagnostic
 {
 public:
-    enum Kind {
-        Unknown = 0,
-        Type = 1,
-        Local,
-        Field,
-        Static,
-        VirtualMethod,
-        Label
+    enum Severity {
+        Unknown = -1,
+        Ignored = 0,
+        Note = 1,
+        Warning = 2,
+        Error = 3,
+        Fatal = 4
     };
 
-    SourceMarker();
-    SourceMarker(const SourceLocation &location,
-                 unsigned length,
-                 Kind kind);
+public:
+    Diagnostic();
+    Diagnostic(Severity severity, const SourceLocation &location, unsigned length, const QString &spelling);
 
-    bool isValid() const
-    { return m_loc.line() != 0; }
+    Severity severity() const
+    { return m_severity; }
 
-    bool isInvalid() const
-    { return m_loc.line() == 0; }
+    const QString severityAsString() const;
 
     const SourceLocation &location() const
     { return m_loc; }
@@ -68,27 +67,19 @@ public:
     unsigned length() const
     { return m_length; }
 
-    Kind kind() const
-    { return m_kind; }
-
-    bool lessThan(const SourceMarker &other) const
-    {
-        if (m_loc.line() != other.m_loc.line())
-            return m_loc.line() < other.m_loc.line();
-        if (m_loc.column() != other.m_loc.column())
-            return m_loc.column() < other.m_loc.column();
-        return m_length < other.m_length;
-    }
+    const QString &spelling() const
+    { return m_spelling; }
 
 private:
+    Severity m_severity;
     SourceLocation m_loc;
     unsigned m_length;
-    Kind m_kind;
+    QString m_spelling;
 };
-
-QTCREATOR_CLANGWRAPPER_EXPORT inline bool operator<(const SourceMarker &one, const SourceMarker &two)
-{ return one.lessThan(two); }
 
 } // namespace Clang
 
-#endif // CLANG_SOURCEMARKER_H
+Q_DECLARE_METATYPE(Clang::Diagnostic)
+Q_DECLARE_METATYPE(QList<Clang::Diagnostic>)
+
+#endif // CLANG_DIAGNOSTIC_H

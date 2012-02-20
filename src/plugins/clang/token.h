@@ -33,7 +33,7 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include "clangwrapper_global.h"
+#include "clang_global.h"
 
 #include <QtCore/QString>
 
@@ -44,7 +44,7 @@ namespace Clang {
  * structure, still map the kinds from CXToken, and provide other information
  * (lazily when possible) we frequently use.
  */
-class QTCREATOR_CLANGWRAPPER_EXPORT Token
+class CLANG_EXPORT Token
 {
 public:
     Token();

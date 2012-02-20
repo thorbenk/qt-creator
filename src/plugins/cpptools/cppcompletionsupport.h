@@ -37,6 +37,8 @@
 
 #include <texteditor/codeassist/assistenums.h>
 
+#include <QObject>
+
 QT_BEGIN_NAMESPACE
 class QTextDocument;
 QT_END_NAMESPACE

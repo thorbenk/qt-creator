@@ -30,17 +30,39 @@
 **
 **************************************************************************/
 
-#ifndef CLANGWRAPPER_GLOBAL_H
-#define CLANGWRAPPER_GLOBAL_H
+#ifndef KEYWORDS_H
+#define KEYWORDS_H
 
-#include <qglobal.h>
+#include "clang_global.h"
 
-#if defined(QTCREATOR_CLANGWRAPPER_LIB)
-#  define QTCREATOR_CLANGWRAPPER_EXPORT Q_DECL_EXPORT
-#elif  defined(QTCREATOR_CLANGWRAPPER_STATIC_LIB) // Use single files for manual tests
-#  define QTCREATOR_CLANGWRAPPER_EXPORT
-#else
-#  define QTCREATOR_CLANGWRAPPER_EXPORT Q_DECL_IMPORT
-#endif
+#include <clang-c/Index.h>
 
-#endif // CLANGWRAPPER_GLOBAL_H
+#include <QtCore/QScopedPointer>
+
+namespace clang {
+class IdentifierTable;
+class LangOptions;
+}
+
+namespace Clang {
+
+/*
+ * When lexing in raw mode the identifier table is not looked up. This works as a replacement
+ * for keywords in this case and for any other in which there's no parsing context.
+ */
+class CLANG_EXPORT Keywords
+{
+public:
+    Keywords();
+    ~Keywords();
+
+    void load(const clang::LangOptions &options);
+    bool contains(const char *buffer, size_t length) const;
+
+private:
+    QScopedPointer<clang::IdentifierTable> m_table;
+};
+
+} // Clang
+
+#endif // KEYWORDS_H

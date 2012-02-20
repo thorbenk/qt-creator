@@ -33,7 +33,7 @@
 #ifndef INCLUDETRACKER_H
 #define INCLUDETRACKER_H
 
-#include "clangwrapper_global.h"
+#include "clang_global.h"
 
 #include <QtCore/QStringList>
 #include <QtCore/QHash>
@@ -41,7 +41,7 @@
 namespace Clang {
 namespace Internal {
 
-class QTCREATOR_CLANGWRAPPER_EXPORT IncludeTracker
+class CLANG_EXPORT IncludeTracker
 {
 public:
     IncludeTracker();

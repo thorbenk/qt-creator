@@ -30,43 +30,16 @@
 **
 **************************************************************************/
 
-#ifndef SOURCELOCATION_H
-#define SOURCELOCATION_H
+#ifndef CLANG_GLOBAL_H
+#define CLANG_GLOBAL_H
 
-#include "clangwrapper_global.h"
+#include <qglobal.h>
 
-#include <QtCore/QString>
-#include <QtCore/QDebug>
+#if defined(CLANG_LIBRARY)
+#  define CLANG_EXPORT Q_DECL_EXPORT
+#else
+#  define CLANG_EXPORT Q_DECL_IMPORT
+#endif
 
-namespace Clang {
 
-class QTCREATOR_CLANGWRAPPER_EXPORT SourceLocation
-{
-public:
-    SourceLocation();
-    SourceLocation(const QString &fileName,
-                   unsigned line = 0,
-                   unsigned column = 0,
-                   unsigned offset = 0);
-
-    bool isNull() const { return m_fileName.isEmpty(); }
-    const QString &fileName() const { return m_fileName; }
-    unsigned line() const { return m_line; }
-    unsigned column() const { return m_column; }
-    unsigned offset() const { return m_offset; }
-
-private:
-    QString m_fileName;
-    unsigned m_line;
-    unsigned m_column;
-    unsigned m_offset;
-};
-
-bool operator==(const SourceLocation &a, const SourceLocation &b);
-bool operator!=(const SourceLocation &a, const SourceLocation &b);
-
-QDebug operator<<(QDebug dbg, const SourceLocation &location);
-
-} // Clang
-
-#endif // SOURCELOCATION_H
+#endif // CLANG_GLOBAL_H

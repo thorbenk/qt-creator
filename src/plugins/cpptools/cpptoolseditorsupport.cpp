@@ -68,9 +68,6 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
     m_evaluateFileTimer->setInterval(_updateDocumentInterval);
     connect(m_evaluateFileTimer, SIGNAL(timeout()), this, SLOT(evaluateFileNow()));
 #endif // CLANG_INDEXING
-
-    m_completionSupport->setUseClang(true);
-    m_highlightingSupport->setUseClang(true);
 }
 
 CppEditorSupport::~CppEditorSupport()

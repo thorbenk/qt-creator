@@ -33,7 +33,7 @@
 #ifndef INDEXER_H
 #define INDEXER_H
 
-#include "clangwrapper_global.h"
+#include "clang_global.h"
 #include "symbol.h"
 
 #include <QtCore/QObject>
@@ -46,7 +46,7 @@ namespace Clang {
 
 class IndexerPrivate;
 
-class QTCREATOR_CLANGWRAPPER_EXPORT Indexer : public QObject
+class CLANG_EXPORT Indexer : public QObject
 {
     Q_OBJECT
 public:

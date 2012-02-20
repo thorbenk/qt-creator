@@ -33,7 +33,7 @@
 #ifndef CODENAVIGATOR_H
 #define CODENAVIGATOR_H
 
-#include "clangwrapper_global.h"
+#include "clang_global.h"
 #include "sourcelocation.h"
 
 #include <clang-c/Index.h>
@@ -48,7 +48,7 @@ namespace Internal {
 class UnitSetup;
 }
 
-class QTCREATOR_CLANGWRAPPER_EXPORT CodeNavigator
+class CLANG_EXPORT CodeNavigator
 {
 public:
     CodeNavigator();

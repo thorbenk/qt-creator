@@ -30,52 +30,43 @@
 **
 **************************************************************************/
 
-#ifndef SIMPLELEXER_H
-#define SIMPLELEXER_H
+#ifndef SOURCELOCATION_H
+#define SOURCELOCATION_H
 
-#include "clangwrapper_global.h"
-#include "keywords.h"
-#include "token.h"
-
-#include <clang-c/Index.h>
-#include <clang/Basic/LangOptions.h>
+#include "clang_global.h"
 
 #include <QtCore/QString>
-#include <QtCore/QList>
+#include <QtCore/QDebug>
 
 namespace Clang {
 
-class QTCREATOR_CLANGWRAPPER_EXPORT RawLexer
+class CLANG_EXPORT SourceLocation
 {
 public:
-    RawLexer();
+    SourceLocation();
+    SourceLocation(const QString &fileName,
+                   unsigned line = 0,
+                   unsigned column = 0,
+                   unsigned offset = 0);
 
-    void includeQt();
-    void includeTrigraphs();
-    void includeDigraphs();
-    void includeC99();
-    void includeCpp0x();
-    void includeCppOperators();
-
-    void init();
-
-    QList<Token> lex(const QString &code, int *state = 0);
+    bool isNull() const { return m_fileName.isEmpty(); }
+    const QString &fileName() const { return m_fileName; }
+    unsigned line() const { return m_line; }
+    unsigned column() const { return m_column; }
+    unsigned offset() const { return m_offset; }
 
 private:
-    enum State {
-        Normal,
-        InComment,
-        InDoxygenComment,
-        InString
-    };
-
-    static void checkDoxygenComment(const QString &lexedCode, Token *token);
-
-    State m_state;
-    Keywords m_keywords;
-    clang::LangOptions m_langOptions;
+    QString m_fileName;
+    unsigned m_line;
+    unsigned m_column;
+    unsigned m_offset;
 };
+
+bool operator==(const SourceLocation &a, const SourceLocation &b);
+bool operator!=(const SourceLocation &a, const SourceLocation &b);
+
+QDebug operator<<(QDebug dbg, const SourceLocation &location);
 
 } // Clang
 
-#endif // SIMPLELEXER_H
+#endif // SOURCELOCATION_H

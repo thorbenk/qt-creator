@@ -45,8 +45,6 @@
 #  include "cppfindreferences.h"
 #endif
 
-#include <cpptools/clangutils.h>
-
 #include <functional>
 #include <QtConcurrentRun>
 #ifndef ICHECK_BUILD
@@ -724,8 +722,10 @@ CppModelManager::CppModelManager(QObject *parent)
 
     connect(session, SIGNAL(aboutToLoadSession(QString)),
             this, SLOT(onAboutToLoadSession(QString)));
+#ifdef CLANG_INDEXING
     connect(session, SIGNAL(sessionLoaded()),
             this, SLOT(onSessionLoaded()));
+#endif // CLANG_INDEXING
     connect(session, SIGNAL(aboutToUnloadSession(QString)),
             this, SLOT(onAboutToUnloadSession()));
 
@@ -1289,8 +1289,8 @@ void CppModelManager::updateEditorSelections()
         else if (editor->document()->revision() != ed.revision)
             continue; // outdated
 
-//        editor->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection,
-//                                   ed.selections);
+        editor->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection,
+                                   ed.selections);
 
         editor->setIfdefedOutBlocks(ed.ifdefedOutBlocks);
     }

@@ -30,39 +30,52 @@
 **
 **************************************************************************/
 
-#ifndef KEYWORDS_H
-#define KEYWORDS_H
+#ifndef SIMPLELEXER_H
+#define SIMPLELEXER_H
 
-#include "clangwrapper_global.h"
+#include "clang_global.h"
+#include "keywords.h"
+#include "token.h"
 
 #include <clang-c/Index.h>
+#include <clang/Basic/LangOptions.h>
 
-#include <QtCore/QScopedPointer>
-
-namespace clang {
-class IdentifierTable;
-class LangOptions;
-}
+#include <QtCore/QString>
+#include <QtCore/QList>
 
 namespace Clang {
 
-/*
- * When lexing in raw mode the identifier table is not looked up. This works as a replacement
- * for keywords in this case and for any other in which there's no parsing context.
- */
-class QTCREATOR_CLANGWRAPPER_EXPORT Keywords
+class CLANG_EXPORT RawLexer
 {
 public:
-    Keywords();
-    ~Keywords();
+    RawLexer();
 
-    void load(const clang::LangOptions &options);
-    bool contains(const char *buffer, size_t length) const;
+    void includeQt();
+    void includeTrigraphs();
+    void includeDigraphs();
+    void includeC99();
+    void includeCpp0x();
+    void includeCppOperators();
+
+    void init();
+
+    QList<Token> lex(const QString &code, int *state = 0);
 
 private:
-    QScopedPointer<clang::IdentifierTable> m_table;
+    enum State {
+        Normal,
+        InComment,
+        InDoxygenComment,
+        InString
+    };
+
+    static void checkDoxygenComment(const QString &lexedCode, Token *token);
+
+    State m_state;
+    Keywords m_keywords;
+    clang::LangOptions m_langOptions;
 };
 
 } // Clang
 
-#endif // KEYWORDS_H
+#endif // SIMPLELEXER_H

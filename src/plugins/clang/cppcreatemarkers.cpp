@@ -72,7 +72,7 @@ CreateMarkers::CreateMarkers(SemanticMarker::Ptr semanticMarker,
     m_flushRequested = false;
     m_flushLine = 0;
 
-    m_unsavedFiles = ClangUtils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::instance()->workingCopy());
+    m_unsavedFiles = Utils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::instance()->workingCopy());
 }
 
 CreateMarkers::~CreateMarkers()

@@ -2,9 +2,9 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,53 +26,40 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
-#ifndef UNITSETUP_H
-#define UNITSETUP_H
+#ifndef CLANGPLUGIN_H
+#define CLANGPLUGIN_H
 
-#include "clangwrapper_global.h"
-#include "unit.h"
-
-#include <QtCore/QObject>
+#include <extensionsystem/iplugin.h>
 
 namespace Clang {
 
-class Indexer;
+class ClangCompletionSupportFactory;
+class ClangHighlightingSupportFactory;
 
 namespace Internal {
 
-/*
- * This is an utility for better control of a Unit's lifecycle. It can be
- * used by any component which needs to track the latest "live" Unit available
- * for the corresponding file name.
- */
-class UnitSetup : public QObject
+class ClangPlugin: public ExtensionSystem::IPlugin
 {
     Q_OBJECT
+
 public:
-    UnitSetup();
-    UnitSetup(const QString &fileName, Indexer *indexer);
-    ~UnitSetup();
+    ClangPlugin();
+    ~ClangPlugin();
 
-    const QString &fileName() const { return m_fileName; }
-    Unit unit() const { return m_unit; }
-    Indexer *indexer() const { return m_indexer; }
+    bool initialize(const QStringList &arguments, QString *errorMessage);
 
-    void checkForNewerUnit();
-
-private slots:
-    void assignUnit(const Unit &unit);
+    void extensionsInitialized();
 
 private:
-    QString m_fileName;
-    mutable Unit m_unit;
-    Indexer *m_indexer;
+    ClangCompletionSupportFactory *m_completionFactory;
+    ClangHighlightingSupportFactory *m_highlightingFactory;
 };
 
-} // Internal
-} // Clang
+} // namespace Internal
+} // namespace Clang
 
-#endif // UNITSETUP_H
+#endif // CLANGPLUGIN_H

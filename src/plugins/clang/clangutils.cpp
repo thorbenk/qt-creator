@@ -11,7 +11,7 @@
 using namespace Clang;
 using namespace Core;
 
-CPPTOOLS_EXPORT UnsavedFiles CppTools::ClangUtils::createUnsavedFiles(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy)
+CLANG_EXPORT UnsavedFiles Clang::Utils::createUnsavedFiles(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy)
 {
     // TODO: change the modelmanager to hold one working copy, and amend it every time we ask for one.
     // TODO: Reason: the UnsavedFile needs a QByteArray.
@@ -19,7 +19,7 @@ CPPTOOLS_EXPORT UnsavedFiles CppTools::ClangUtils::createUnsavedFiles(const CPlu
     ICore *core = ICore::instance(); // FIXME
     QSet<QString> openFiles;
     foreach (IEditor *editor, core->editorManager()->openedEditors())
-        openFiles.insert(editor->file()->fileName());
+        openFiles.insert(editor->document()->fileName());
 
     UnsavedFiles result;
     QHashIterator<QString, QPair<QString, unsigned> > wcIter = workingCopy.iterator();
@@ -33,7 +33,7 @@ CPPTOOLS_EXPORT UnsavedFiles CppTools::ClangUtils::createUnsavedFiles(const CPlu
     return result;
 }
 
-QStringList CppTools::ClangUtils::createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart)
+QStringList Clang::Utils::createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart)
 {
     Q_ASSERT(pPart);
 
@@ -45,7 +45,7 @@ QStringList CppTools::ClangUtils::createClangOptions(const CPlusPlus::CppModelMa
                               pPart->frameworkPaths);
 }
 
-QStringList CppTools::ClangUtils::createClangOptions(bool useCpp0x,
+QStringList Clang::Utils::createClangOptions(bool useCpp0x,
                                                      bool useObjc,
                                                      CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
                                                      const QList<QByteArray> &defines,

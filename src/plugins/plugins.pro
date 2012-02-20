@@ -306,3 +306,12 @@ plugin_macros.depends = plugin_texteditor
 plugin_macros.depends += plugin_find
 plugin_macros.depends += plugin_locator
 plugin_macros.depends += plugin_coreplugin
+
+# prefer qmake variable set on command line over env var
+isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
+!isEmpty(LLVM_INSTALL_DIR) {
+    SUBDIRS += plugin_clang
+    plugin_clang.subdir = clang
+    plugin_clang.depends = plugin_coreplugin
+    plugin_clang.depends += plugin_cpptools
+}

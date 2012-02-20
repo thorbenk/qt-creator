@@ -1,10 +1,9 @@
 #include "clangcompletion.h"
 #include "clangutils.h"
-#include "cppdoxygen.h"
 #include "ModelManagerInterface.h"
 
 #include <coreplugin/icore.h>
-#include <coreplugin/ifile.h>
+#include <coreplugin/idocument.h>
 #include <coreplugin/mimedatabase.h>
 
 #include <cplusplus/BackwardsScanner.h>
@@ -13,6 +12,8 @@
 #include <cplusplus/MatchingText.h>
 
 #include <cppeditor/cppeditorconstants.h>
+
+#include <cpptools/cppdoxygen.h>
 
 #include <texteditor/basetexteditor.h>
 #include <texteditor/convenience.h>
@@ -31,9 +32,9 @@
 #undef DEBUG_TIMING
 
 using namespace Clang;
+using namespace Clang::Internal;
 using namespace CPlusPlus;
 using namespace CppTools;
-using namespace CppTools::Internal;
 using namespace TextEditor;
 
 namespace {
@@ -145,7 +146,7 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
 
 } // Anonymous
 
-namespace CppTools {
+namespace Clang {
 namespace Internal {
 
 // -----------------------------
@@ -189,7 +190,7 @@ public:
         , m_replaceDotForArrow(false)
     {}
 
-    virtual bool isSortable() const { return m_sortable; }
+    virtual bool isSortable(const QString &prefix) const;
     bool m_sortable;
     unsigned m_completionOperator;
     bool m_replaceDotForArrow;
@@ -323,8 +324,16 @@ private:
     QList<CodeCompletionResult> m_overloads;
 };
 
+bool ClangAssistProposalModel::isSortable(const QString &prefix) const
+{
+    if (m_completionOperator != T_EOF_SYMBOL)
+        return true;
+
+    return !prefix.isEmpty();
+}
+
 } // namespace Internal
-} // namespace CppTools
+} // namespace Clang
 
 bool ClangAssistProposalItem::prematurelyApplies(const QChar &typedChar) const
 {
@@ -492,16 +501,15 @@ bool ClangCompletionAssistInterface::objcEnabled() const
     return m_clangWrapper->objcEnabled();
 }
 
-ClangCompletionAssistInterface::ClangCompletionAssistInterface(
-        ClangCompleter::Ptr clangWrapper,
+ClangCompletionAssistInterface::ClangCompletionAssistInterface(ClangCompleter::Ptr clangWrapper,
         QTextDocument *document,
         int position,
-        Core::IFile *file,
+        Core::IDocument *doc,
         AssistReason reason,
         const QStringList &options,
         const QStringList &includePaths,
         const QStringList &frameworkPaths)
-    : DefaultAssistInterface(document, position, file, reason)
+    : DefaultAssistInterface(document, position, doc, reason)
     , m_clangWrapper(clangWrapper)
     , m_options(options)
     , m_includePaths(includePaths)
@@ -511,7 +519,7 @@ ClangCompletionAssistInterface::ClangCompletionAssistInterface(
 
     CppModelManagerInterface *mmi = CppModelManagerInterface::instance();
     Q_ASSERT(mmi);
-    m_unsavedFiles = ClangUtils::createUnsavedFiles(mmi->workingCopy());
+    m_unsavedFiles = Utils::createUnsavedFiles(mmi->workingCopy());
 }
 
 ClangCompletionAssistProcessor::ClangCompletionAssistProcessor()
@@ -576,7 +584,7 @@ int ClangCompletionAssistProcessor::startCompletionHelper()
     while (m_interface->characterAt(endOfOperator - 1).isSpace())
         --endOfOperator;
 
-    const Core::IFile *file = m_interface->file();
+    const Core::IDocument *file = m_interface->document();
     const QString fileName = file->fileName();
 
     int endOfExpression = startOfOperator(endOfOperator,
@@ -605,7 +613,7 @@ int ClangCompletionAssistProcessor::startCompletionHelper()
             || m_model->m_completionOperator == T_ANGLE_STRING_LITERAL
             || m_model->m_completionOperator == T_SLASH) {
 
-        QTextCursor c(m_interface->document());
+        QTextCursor c(m_interface->textDocument());
         c.setPosition(endOfExpression);
         if (completeInclude(c))
             m_startPosition = startOfName;
@@ -613,7 +621,7 @@ int ClangCompletionAssistProcessor::startCompletionHelper()
     }
 
     ExpressionUnderCursor expressionUnderCursor;
-    QTextCursor tc(m_interface->document());
+    QTextCursor tc(m_interface->textDocument());
 
     if (m_model->m_completionOperator == T_COMMA) {
         tc.setPosition(endOfExpression);
@@ -658,7 +666,7 @@ int ClangCompletionAssistProcessor::startCompletionHelper()
 
     int line = 0, column = 0;
 //    Convenience::convertPosition(m_interface->document(), startOfExpression, &line, &column);
-    Convenience::convertPosition(m_interface->document(), endOfOperator, &line, &column);
+    Convenience::convertPosition(m_interface->textDocument(), endOfOperator, &line, &column);
     return startCompletionInternal(fileName, line, column, endOfOperator);
 }
 
@@ -672,7 +680,7 @@ int ClangCompletionAssistProcessor::startOfOperator(int pos,
 
     int start = pos - activationSequenceChar(ch, ch2, ch3, kind, wantFunctionCall);
     if (start != pos) {
-        QTextCursor tc(m_interface->document());
+        QTextCursor tc(m_interface->textDocument());
         tc.setPosition(pos);
 
         // Include completion: make sure the quote character is the first one on the line
@@ -785,7 +793,7 @@ bool ClangCompletionAssistProcessor::accepts() const
     const int start = startOfOperator(pos, &token, /*want function call=*/ true);
     if (start != pos) {
         if (token == T_POUND) {
-            const int column = pos - m_interface->document()->findBlock(start).position();
+            const int column = pos - m_interface->textDocument()->findBlock(start).position();
             if (column != 1)
                 return false;
         }
@@ -800,7 +808,7 @@ bool ClangCompletionAssistProcessor::accepts() const
                 const QChar firstCharacter = m_interface->characterAt(startOfName);
                 if (firstCharacter.isLetter() || firstCharacter == QLatin1Char('_')) {
                     // Finally check that we're not inside a comment or string (code copied from startOfOperator)
-                    QTextCursor tc(m_interface->document());
+                    QTextCursor tc(m_interface->textDocument());
                     tc.setPosition(pos);
 
                     SimpleLexer tokenize;
@@ -899,27 +907,27 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
 
     if (m_model->m_completionOperator == T_SIGNAL) {
         signalCompletion = true;
-        modifiedInput = modifyInput(m_interface->document(), endOfExpression);
+        modifiedInput = modifyInput(m_interface->textDocument(), endOfExpression);
     } else if (m_model->m_completionOperator == T_SLOT) {
         slotCompletion = true;
-        modifiedInput = modifyInput(m_interface->document(), endOfExpression);
+        modifiedInput = modifyInput(m_interface->textDocument(), endOfExpression);
     } else if (m_model->m_completionOperator == T_LPAREN) {
         // Find the expression that precedes the current name
         int index = endOfExpression;
         while (m_interface->characterAt(index - 1).isSpace())
             --index;
 
-        QTextCursor tc(m_interface->document());
+        QTextCursor tc(m_interface->textDocument());
         tc.setPosition(index);
         ExpressionUnderCursor euc;
         index = euc.startOfFunctionCall(tc);
         int nameStart = findStartOfName(index);
-        QTextCursor tc2(m_interface->document());
+        QTextCursor tc2(m_interface->textDocument());
         tc2.setPosition(nameStart);
         tc2.setPosition(index, QTextCursor::KeepAnchor);
         const QString functionName = tc2.selectedText().trimmed();
         int l = line, c = column;
-        Convenience::convertPosition(m_interface->document(), nameStart, &l, &c);
+        Convenience::convertPosition(m_interface->textDocument(), nameStart, &l, &c);
 #ifdef DEBUG_TIMING
         qDebug()<<"complete constructor or function @" << line<<":"<<column << "->"<<l<<":"<<c;
 #endif // DEBUG_TIMING
@@ -1037,7 +1045,7 @@ bool ClangCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
 
     // Make completion for all relevant includes
     QStringList includePaths = m_interface->includePaths();
-    const QString &currentFilePath = QFileInfo(m_interface->file()->fileName()).path();
+    const QString &currentFilePath = QFileInfo(m_interface->document()->fileName()).path();
     if (!includePaths.contains(currentFilePath))
         includePaths.append(currentFilePath);
 

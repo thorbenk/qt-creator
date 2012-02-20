@@ -1,9 +1,7 @@
 #ifndef CPPEDITOR_INTERNAL_CLANGCOMPLETION_H
 #define CPPEDITOR_INTERNAL_CLANGCOMPLETION_H
 
-#include "cpptools_global.h"
-
-#include <clangwrapper/clangcompleter.h>
+#include "clangcompleter.h"
 
 #include <cplusplus/Icons.h>
 
@@ -15,7 +13,7 @@
 #include <QStringList>
 #include <QTextCursor>
 
-namespace CppTools {
+namespace Clang {
 
 namespace Internal {
 class ClangAssistProposalModel;
@@ -31,13 +29,13 @@ public:
 
 } // namespace Internal
 
-class CPPTOOLS_EXPORT ClangCompletionAssistInterface: public TextEditor::DefaultAssistInterface
+class CLANG_EXPORT ClangCompletionAssistInterface: public TextEditor::DefaultAssistInterface
 {
 public:
     ClangCompletionAssistInterface(Clang::ClangCompleter::Ptr clangWrapper,
                                    QTextDocument *document,
                                    int position,
-                                   Core::IFile *file,
+                                   Core::IDocument *doc,
                                    TextEditor::AssistReason reason,
                                    const QStringList &options,
                                    const QStringList &includePaths,
@@ -66,7 +64,7 @@ private:
     QStringList m_options, m_includePaths, m_frameworkPaths;
 };
 
-class CPPTOOLS_EXPORT ClangCompletionAssistProcessor : public TextEditor::IAssistProcessor
+class CLANG_EXPORT ClangCompletionAssistProcessor : public TextEditor::IAssistProcessor
 {
 public:
     ClangCompletionAssistProcessor();
@@ -97,14 +95,12 @@ private:
     int m_startPosition;
     QScopedPointer<const ClangCompletionAssistInterface> m_interface;
     QList<TextEditor::BasicProposalItem *> m_completions;
-//    TextEditor::SnippetAssistCollector m_snippetCollector;
-//    const CppCompletionAssistProvider *m_provider;
     CPlusPlus::Icons m_icons;
     QStringList m_preprocessorCompletions;
     QScopedPointer<Internal::ClangAssistProposalModel> m_model;
     TextEditor::IAssistProposal *m_hintProposal;
 };
 
-} // namespace CppTools
+} // namespace Clang
 
 #endif // CPPEDITOR_INTERNAL_CLANGCOMPLETION_H

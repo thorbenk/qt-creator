@@ -33,10 +33,8 @@
 #ifndef CPPCREATEMARKERS_H
 #define CPPCREATEMARKERS_H
 
-#include "cpptools_global.h"
-
-#include <clangwrapper/sourcemarker.h>
-#include <clangwrapper/semanticmarker.h>
+#include "sourcemarker.h"
+#include "semanticmarker.h"
 
 #include <texteditor/semantichighlighter.h>
 
@@ -44,9 +42,9 @@
 #include <QFuture>
 #include <QtConcurrentRun>
 
-namespace CppTools {
+namespace Clang {
 
-class CPPTOOLS_EXPORT CreateMarkers:
+class CreateMarkers:
         public QObject,
         public QRunnable,
         public QFutureInterface<TextEditor::SemanticHighlighter::Result>
@@ -100,6 +98,6 @@ private:
     Clang::UnsavedFiles m_unsavedFiles;
 };
 
-} // namespace CppTools
+} // namespace Clang
 
 #endif // CPPCREATEMARKERS_H

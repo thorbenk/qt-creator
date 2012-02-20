@@ -45,12 +45,6 @@
 #include "cpptoolssettings.h"
 #include "cppctordtorfilter.h"
 
-#ifdef CLANG_COMPLETION
-#  include "clangcompletion.h"
-#endif // CLANG_COMPLETION
-
-#include <clangwrapper/utils.h>
-
 #include <extensionsystem/pluginmanager.h>
 
 #include <coreplugin/icore.h>
@@ -110,10 +104,6 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     Q_UNUSED(arguments)
     Q_UNUSED(error)
 
-#if defined(CLANG_COMPLETION) || defined(CLANG_HIGHLIGHTING) || defined(CLANG_INDEXING) || defined(CLANG_LEXER)
-    Clang::initializeClang();
-#endif
-
     Core::ActionManager *am = Core::ICore::actionManager();
 
     m_settings = new CppToolsSettings(this); // force registration of cpp tools settings
@@ -126,10 +116,6 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     connect(Core::DocumentManager::instance(), SIGNAL(filesChangedInternally(QStringList)),
             m_modelManager, SLOT(updateSourceFiles(QStringList)));
     addAutoReleasedObject(m_modelManager);
-
-#ifdef CLANG_COMPLETION
-    addAutoReleasedObject(new ClangCompletionAssistProvider);
-#endif // CLANG_COMPLETION
 
     addAutoReleasedObject(new CppCompletionAssistProvider);
     addAutoReleasedObject(new CppLocatorFilter(m_modelManager));

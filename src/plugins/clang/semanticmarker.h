@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (info@qt.nokia.com)
+** Contact: Nokia Corporation (qt-info@nokia.com)
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,44 +26,61 @@
 ** conditions contained in a signed written agreement between you and Nokia.
 **
 ** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
+** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef CLANG_SEMANTICMARKER_H
+#define CLANG_SEMANTICMARKER_H
 
-#include "clangwrapper_global.h"
+#include "clang_global.h"
+#include "diagnostic.h"
+#include "sourcemarker.h"
+#include "utils.h"
 
+#include <QMutex>
+#include <QScopedPointer>
+#include <QSharedPointer>
 #include <QString>
 #include <QStringList>
-#include <QByteArray>
-#include <QMap>
-#include <QPair>
 
-/*
- * A header for globally visible typedefs. This is particularly useful
- * so we don't have to #include files simply because of a typedef. Still,
- * not every typedef should go in here, only the minimal subset of the
- * ones which are needed quite often.
- */
 namespace Clang {
 
-typedef QMap<QString, QByteArray> UnsavedFiles;
+namespace Internal {
+class Unit;
+}
 
-/**
- * Utility method to create a PCH file from a header file.
- *
- * \returns a boolean indicating success (true) or failure (false), and a
- *          list of diagnostic messages.
- */
-QTCREATOR_CLANGWRAPPER_EXPORT QPair<bool, QStringList> precompile(
-        const QString &headerFileName,
-        const QStringList &options,
-        const QString &outFileName);
+class CLANG_EXPORT SemanticMarker
+{
+    Q_DISABLE_COPY(SemanticMarker)
 
-QTCREATOR_CLANGWRAPPER_EXPORT void initializeClang();
+public:
+    typedef QSharedPointer<SemanticMarker> Ptr;
 
-} // Clang
+public:
+    SemanticMarker();
+    ~SemanticMarker();
 
-#endif // UTILS_H
+    QMutex *mutex() const
+    { return &m_mutex; }
+
+    QString fileName() const;
+    void setFileName(const QString &fileName);
+
+    void setCompilationOptions(const QStringList &options);
+
+    void reparse(const UnsavedFiles &unsavedFiles);
+
+    QList<Diagnostic> diagnostics() const;
+
+    QList<SourceMarker> sourceMarkersInRange(unsigned firstLine,
+                                             unsigned lastLine);
+
+private:
+    mutable QMutex m_mutex;
+    QScopedPointer<Internal::Unit> m_unit;
+};
+
+} // namespace clang
+
+#endif // CLANG_SEMANTICMARKER_H
