@@ -429,6 +429,8 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     , m_firstRenameChange(false)
     , m_objcEnabled(false)
     , m_commentsSettings(CppTools::CppToolsSettings::instance()->commentsSettings())
+    , m_completionSupport(0)
+    , m_highlightingSupport(0)
 {
     m_initialized = false;
     qRegisterMetaType<SemanticInfo>("CppTools::SemanticInfo");
@@ -445,10 +447,11 @@ CPPEditorWidget::CPPEditorWidget(QWidget *parent)
     baseTextDocument()->setSyntaxHighlighter(new CppHighlighter);
 
     m_modelManager = CppModelManagerInterface::instance();
-
     if (m_modelManager) {
         connect(m_modelManager, SIGNAL(documentUpdated(CPlusPlus::Document::Ptr)),
                 this, SLOT(onDocumentUpdated(CPlusPlus::Document::Ptr)));
+        m_completionSupport = m_modelManager->completionSupport(editor());
+        m_highlightingSupport = m_modelManager->highlightingSupport(editor());
     }
 
     m_highlightRevision = 0;
@@ -482,6 +485,9 @@ CPPEditorWidget::~CPPEditorWidget()
         m_modelManager->GC();
         numberOfClosedEditors = 0;
     }
+
+    delete m_highlightingSupport;
+    delete m_completionSupport;
 }
 
 TextEditor::BaseTextEditor *CPPEditorWidget::createEditor()
@@ -549,7 +555,7 @@ void CPPEditorWidget::createToolBar(CPPEditor *editor)
     connect(m_outlineCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(updateOutlineToolTip()));
     connect(document(), SIGNAL(contentsChange(int,int,int)), this, SLOT(onContentsChanged(int,int,int)));
 
-    connect(file(), SIGNAL(changed()), this, SLOT(updateFileName()));
+    connect(editorDocument(), SIGNAL(changed()), this, SLOT(updateFileName()));
 
     // set up function declaration - definition link
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(updateFunctionDeclDefLink()));
@@ -680,7 +686,7 @@ void CPPEditorWidget::abortRename()
 
 void CPPEditorWidget::onDocumentUpdated(Document::Ptr doc)
 {
-    if (doc->fileName() != file()->fileName())
+    if (doc->fileName() != editorDocument()->fileName())
         return;
 
     if (doc->editorRevision() != editorRevision())
@@ -690,7 +696,7 @@ void CPPEditorWidget::onDocumentUpdated(Document::Ptr doc)
             (Core::EditorManager::instance()->currentEditor() == editor()
              && (!m_lastSemanticInfo.doc
                  || !m_lastSemanticInfo.doc->translationUnit()->ast()
-                 || m_lastSemanticInfo.doc->fileName() != file()->fileName()))) {
+                 || m_lastSemanticInfo.doc->fileName() != editorDocument()->fileName()))) {
         m_initialized = true;
         semanticRehighlight(/* force = */ true);
     }
@@ -912,7 +918,7 @@ bool CPPEditorWidget::sortedOutline() const
 void CPPEditorWidget::updateOutlineNow()
 {
     const Snapshot snapshot = m_modelManager->snapshot();
-    Document::Ptr document = snapshot.document(file()->fileName());
+    Document::Ptr document = snapshot.document(editorDocument()->fileName());
 
     if (!document)
         return;
@@ -1084,7 +1090,7 @@ void CPPEditorWidget::codeNavigate(bool switchDeclDef)
 
     const Snapshot snapshot = m_modelManager->snapshot();
 
-    if (Document::Ptr thisDocument = snapshot.document(file()->fileName())) {
+    if (Document::Ptr thisDocument = snapshot.document(editorDocument()->fileName())) {
         int line = 0, positionInBlock = 0;
         convertPosition(position(), &line, &positionInBlock);
 
@@ -1325,7 +1331,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
     }
 
     // Now we prefer the doc from the snapshot with macros expanded.
-    Document::Ptr doc = snapshot.document(file()->fileName());
+    Document::Ptr doc = snapshot.document(editorDocument()->fileName());
     if (!doc) {
         doc = m_lastSemanticInfo.doc;
         if (!doc)
@@ -1455,7 +1461,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
         foreach (const LookupItem &r, resolvedSymbols) {
             if (Symbol *d = r.declaration()) {
                 if (d->isDeclaration() || d->isFunction()) {
-                    if (file()->fileName() == QString::fromUtf8(d->fileName(), d->fileNameLength())) {
+                    if (editorDocument()->fileName() == QString::fromUtf8(d->fileName(), d->fileNameLength())) {
                         if (unsigned(lineNumber) == d->line() && unsigned(positionInBlock) >= d->column()) { // ### TODO: check the end
                             result = r; // take the symbol under cursor.
                             break;
@@ -1864,7 +1870,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
 
     // We can use the semanticInfo's snapshot (and avoid locking), but not its
     // document, since it doesn't contain expanded macros.
-    LookupContext context(semanticInfo.snapshot.document(file()->fileName()),
+    LookupContext context(semanticInfo.snapshot.document(editorDocument()->fileName()),
                           semanticInfo.snapshot);
 
     SemanticInfo::LocalUseIterator it(semanticInfo.localUses);
@@ -1897,8 +1903,8 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
 
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
             if (Core::EditorManager::instance()->currentEditor() == editor()) {
-                if (CppTools::CppHighlightingSupport *hs = modelManager()->highlightingSupport(editor())) {
-                    m_highlighter = hs->highlightingFuture(semanticInfo.doc, semanticInfo.snapshot, 1, document()->blockCount());
+                if (m_highlightingSupport) {
+                    m_highlighter = m_highlightingSupport->highlightingFuture(semanticInfo.doc, semanticInfo.snapshot);
                     m_highlightRevision = semanticInfo.revision;
                     m_highlightWatcher.setFuture(m_highlighter);
                 }
@@ -2020,7 +2026,7 @@ SemanticHighlighter::Source CPPEditorWidget::currentSource(bool force)
     convertPosition(position(), &line, &column);
 
     const Snapshot snapshot = m_modelManager->snapshot();
-    const QString fileName = file()->fileName();
+    const QString fileName = editorDocument()->fileName();
 
     QString code;
     if (force || m_lastSemanticInfo.revision != editorRevision())
@@ -2187,9 +2193,10 @@ TextEditor::IAssistInterface *CPPEditorWidget::createAssistInterface(
     TextEditor::AssistReason reason) const
 {
     if (kind == TextEditor::Completion) {
-        if (CppTools::CppCompletionSupport *cs = m_modelManager->completionSupport(editor()))
-            return cs->createAssistInterface(ProjectExplorer::ProjectExplorerPlugin::currentProject(),
-                                             document(), position(), reason);
+        if (m_completionSupport)
+            return m_completionSupport->createAssistInterface(
+                        ProjectExplorer::ProjectExplorerPlugin::currentProject(),
+                        document(), position(), reason);
     } else if (kind == TextEditor::QuickFix) {
         if (!semanticInfo().doc || isOutdated())
             return 0;

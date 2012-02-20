@@ -40,11 +40,11 @@
 
 #include <QFuture>
 
+namespace TextEditor {
+class ITextEditor;
+}
+
 namespace CppTools {
-namespace Internal {
-class CppEditorSupport;
-class HighlightingImpl;
-} // namespace Internal
 
 class CPPTOOLS_EXPORT CppHighlightingSupport
 {
@@ -52,18 +52,26 @@ public:
     typedef TextEditor::SemanticHighlighter::Result Use;
 
 public:
-    CppHighlightingSupport(Internal::CppEditorSupport *editorSupport);
-    ~CppHighlightingSupport();
+    CppHighlightingSupport(TextEditor::ITextEditor *editor);
+    virtual ~CppHighlightingSupport() = 0;
 
-    QFuture<Use> highlightingFuture(const CPlusPlus::Document::Ptr &doc,
-                                    const CPlusPlus::Snapshot &snapshot,
-                                    int firstLine, int lastLine) const;
+    virtual QFuture<Use> highlightingFuture(const CPlusPlus::Document::Ptr &doc,
+                                            const CPlusPlus::Snapshot &snapshot) const = 0;
 
-    void setUseClang(bool useClang);
+protected:
+    TextEditor::ITextEditor *editor() const
+    { return m_editor; }
 
 private:
-    Internal::CppEditorSupport *m_editorSupport;
-    Internal::HighlightingImpl *m_impl;
+    TextEditor::ITextEditor *m_editor;
+};
+
+class CPPTOOLS_EXPORT CppHighlightingSupportFactory
+{
+public:
+    virtual ~CppHighlightingSupportFactory() = 0;
+
+    virtual CppHighlightingSupport *highlightingSupport(TextEditor::ITextEditor *editor) = 0;
 };
 
 } // namespace CppTools

@@ -57,10 +57,6 @@ namespace TextEditor {
 } // namespace TextEditor
 
 namespace CppTools {
-
-class CppCompletionSupport;
-class CppHighlightingSupport;
-
 namespace Internal {
 
 class CppModelManager;
@@ -81,9 +77,6 @@ public:
 
     QString contents();
     unsigned editorRevision() const;
-
-    CppCompletionSupport *completionSupport() const;
-    CppHighlightingSupport *highlightingSupport() const;
 
 Q_SIGNALS:
     void contentsChanged();
@@ -107,15 +100,6 @@ private:
     QFuture<void> _documentParser;
     QString _cachedContents;
     unsigned _revision;
-
-#ifdef CLANG_INDEXING
-    // Temp clang...
-    QTimer *m_evaluateFileTimer;
-    unsigned m_fileRevision;
-#endif // CLANG_INDEXING
-
-    QScopedPointer<CppCompletionSupport> m_completionSupport;
-    QScopedPointer<CppHighlightingSupport> m_highlightingSupport;
 };
 
 } // namespace Internal

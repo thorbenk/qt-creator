@@ -30,47 +30,37 @@
 **
 **************************************************************************/
 
-#ifndef FINDINCURRENTFILE_H
-#define FINDINCURRENTFILE_H
+#include "cppchecksymbols.h"
+#include "cpphighlightingsupportinternal.h"
 
-#include "basefilefind.h"
+#include <cplusplus/LookupContext.h>
 
-#include <coreplugin/idocument.h>
-#include <coreplugin/editormanager/ieditor.h>
+using namespace CPlusPlus;
+using namespace CppTools;
+using namespace CppTools::Internal;
 
-#include <QPointer>
-
-namespace TextEditor {
-namespace Internal {
-
-class FindInCurrentFile : public BaseFileFind
+CppHighlightingSupportInternal::CppHighlightingSupportInternal(TextEditor::ITextEditor *editor)
+    : CppHighlightingSupport(editor)
 {
-    Q_OBJECT
+}
 
-public:
-    FindInCurrentFile();
+CppHighlightingSupportInternal::~CppHighlightingSupportInternal()
+{
+}
 
-    QString id() const;
-    QString displayName() const;
-    bool isEnabled() const;
-    void writeSettings(QSettings *settings);
-    void readSettings(QSettings *settings);
+QFuture<CppHighlightingSupport::Use> CppHighlightingSupportInternal::highlightingFuture(
+        const Document::Ptr &doc,
+        const Snapshot &snapshot) const
+{
+    LookupContext context(doc, snapshot);
+    return CheckSymbols::go(doc, context);
+}
 
-protected:
-    Utils::FileIterator *files(const QStringList &nameFilters,
-                               const QVariant &additionalParameters) const;
-    QVariant additionalParameters() const;
-    QString label() const;
-    QString toolTip() const;
+CppHighlightingSupportInternalFactory::~CppHighlightingSupportInternalFactory()
+{
+}
 
-private slots:
-    void handleFileChange(Core::IEditor *editor);
-
-private:
-    QPointer<Core::IDocument> m_currentDocument;
-};
-
-} // namespace Internal
-} // namespace TextEditor
-
-#endif // FINDINCURRENTFILE_H
+CppHighlightingSupport *CppHighlightingSupportInternalFactory::highlightingSupport(TextEditor::ITextEditor *editor)
+{
+    return new CppHighlightingSupportInternal(editor);
+}

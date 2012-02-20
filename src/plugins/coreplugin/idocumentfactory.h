@@ -30,56 +30,35 @@
 **
 **************************************************************************/
 
-#ifndef IEDITOR_H
-#define IEDITOR_H
+#ifndef IDOCUMENTFACTORY_H
+#define IDOCUMENTFACTORY_H
 
-#include <coreplugin/core_global.h>
-#include <coreplugin/icontext.h>
-#include <coreplugin/id.h>
+#include "core_global.h"
 
-#include <QMetaType>
+#include <QObject>
+
+QT_BEGIN_NAMESPACE
+class QStringList;
+QT_END_NAMESPACE
 
 namespace Core {
 
 class IDocument;
+class Id;
 
-class CORE_EXPORT IEditor : public IContext
+class CORE_EXPORT IDocumentFactory : public QObject
 {
     Q_OBJECT
+
 public:
+    IDocumentFactory(QObject *parent = 0) : QObject(parent) {}
 
-    IEditor(QObject *parent = 0) : IContext(parent) {}
-    virtual ~IEditor() {}
-
-    virtual bool createNew(const QString &contents = QString()) = 0;
-    virtual bool open(QString *errorString, const QString &fileName, const QString &realFileName) = 0;
-    virtual IDocument *document() = 0;
-    virtual Core::Id id() const = 0;
+    virtual QStringList mimeTypes() const = 0;
+    virtual Id id() const = 0;
     virtual QString displayName() const = 0;
-    virtual void setDisplayName(const QString &title) = 0;
-
-    virtual bool duplicateSupported() const = 0;
-    virtual IEditor *duplicate(QWidget *parent) = 0;
-
-    virtual QByteArray saveState() const = 0;
-    virtual bool restoreState(const QByteArray &state) = 0;
-
-    virtual int currentLine() const { return 0; }
-    virtual int currentColumn() const { return 0; }
-    virtual void gotoLine(int line, int column = 0) { Q_UNUSED(line) Q_UNUSED(column) }
-
-    virtual bool isTemporary() const = 0;
-
-    virtual QWidget *toolBar() = 0;
-
-    virtual QString preferredModeType() const { return QString(); }
-
-signals:
-    void changed();
+    virtual IDocument *open(const QString &fileName) = 0;
 };
 
 } // namespace Core
 
-Q_DECLARE_METATYPE(Core::IEditor*)
-
-#endif // IEDITOR_H
+#endif // IDOCUMENTFACTORY_H

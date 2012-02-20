@@ -41,7 +41,9 @@ HEADERS += completionsettingspage.h \
     commentssettings.h \
     symbolfinder.h \
     cppcompletionsupport.h \
+    cppcompletionsupportinternal.h \
     cpphighlightingsupport.h \
+    cpphighlightingsupportinternal.h \
     cppchecksymbols.h \
     cpplocalsymbols.h \
     cppsemanticinfo.h \
@@ -78,7 +80,9 @@ SOURCES += completionsettingspage.cpp \
     commentssettings.cpp \
     symbolfinder.cpp \
     cppcompletionsupport.cpp \
+    cppcompletionsupportinternal.cpp \
     cpphighlightingsupport.cpp \
+    cpphighlightingsupportinternal.cpp \
     cppchecksymbols.cpp \
     cpplocalsymbols.cpp \
     cppsemanticinfo.cpp

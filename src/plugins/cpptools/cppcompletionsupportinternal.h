@@ -30,35 +30,35 @@
 **
 **************************************************************************/
 
-#ifndef IFILEFACTORY_H
-#define IFILEFACTORY_H
+#ifndef CPPTOOLS_CPPCOMPLETIONSUPPORTINTERNAL_H
+#define CPPTOOLS_CPPCOMPLETIONSUPPORTINTERNAL_H
 
-#include "core_global.h"
+#include "cppcompletionsupport.h"
 
-#include <QObject>
+namespace CppTools {
+namespace Internal {
 
-QT_BEGIN_NAMESPACE
-class QStringList;
-QT_END_NAMESPACE
-
-namespace Core {
-
-class IFile;
-class Id;
-
-class CORE_EXPORT IFileFactory : public QObject
+class CppCompletionSupportInternal: public CppCompletionSupport
 {
-    Q_OBJECT
-
 public:
-    IFileFactory(QObject *parent = 0) : QObject(parent) {}
+    CppCompletionSupportInternal(TextEditor::ITextEditor *editor);
+    virtual ~CppCompletionSupportInternal();
 
-    virtual QStringList mimeTypes() const = 0;
-    virtual Id id() const = 0;
-    virtual QString displayName() const = 0;
-    virtual IFile *open(const QString &fileName) = 0;
+    virtual TextEditor::IAssistInterface *createAssistInterface(ProjectExplorer::Project *project,
+                                                                QTextDocument *document,
+                                                                int position,
+                                                                TextEditor::AssistReason reason) const;
 };
 
-} // namespace Core
+class CppCompletionSupportInternalFactory: public CppCompletionSupportFactory
+{
+public:
+    virtual ~CppCompletionSupportInternalFactory();
 
-#endif // IFILEFACTORY_H
+    virtual CppCompletionSupport *completionSupport(TextEditor::ITextEditor *editor);
+};
+
+} // namespace Internal
+} // namespace CppTools
+
+#endif // CPPTOOLS_CPPCOMPLETIONSUPPORTINTERNAL_H

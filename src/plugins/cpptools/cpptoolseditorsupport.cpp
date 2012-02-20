@@ -35,7 +35,7 @@
 #include "cpptoolseditorsupport.h"
 #include "cppmodelmanager.h"
 
-#include <coreplugin/ifile.h>
+#include <coreplugin/idocument.h>
 
 #include <texteditor/itexteditor.h>
 #include <texteditor/basetexteditor.h>
@@ -53,13 +53,7 @@ using namespace CPlusPlus;
 CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
     : QObject(modelManager),
       _modelManager(modelManager),
-      _updateDocumentInterval(UPDATE_DOCUMENT_DEFAULT_INTERVAL),
-#ifdef CLANG_INDEXING
-      m_evaluateFileTimer(new QTimer(this)),
-      m_fileRevision(0),
-#endif // CLANG_INDEXING
-      m_completionSupport(new CppCompletionSupport(this)),
-      m_highlightingSupport(new CppHighlightingSupport(this))
+      _updateDocumentInterval(UPDATE_DOCUMENT_DEFAULT_INTERVAL)
 {
     _revision = 0;
 
@@ -123,16 +117,6 @@ unsigned CppEditorSupport::editorRevision() const
     return 0;
 }
 
-CppTools::CppCompletionSupport *CppEditorSupport::completionSupport() const
-{
-    return m_completionSupport.data();
-}
-
-CppHighlightingSupport *CppEditorSupport::highlightingSupport() const
-{
-    return m_highlightingSupport.data();
-}
-
 int CppEditorSupport::updateDocumentInterval() const
 { return _updateDocumentInterval; }
 
@@ -157,7 +141,7 @@ void CppEditorSupport::updateDocumentNow()
     } else {
         _updateDocumentTimer->stop();
 
-        QStringList sourceFiles(_textEditor->file()->fileName());
+        QStringList sourceFiles(_textEditor->document()->fileName());
         _cachedContents = _textEditor->contents().toUtf8();
         _documentParser = _modelManager->refreshSourceFiles(sourceFiles);
     }

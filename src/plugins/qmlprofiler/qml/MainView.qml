@@ -77,6 +77,8 @@ Rectangle {
     signal changeToolTip(string text)
     signal updateVerticalScroll(int newPosition)
 
+    property bool applicationDied : false
+
     // ***** connections with external objects
     Connections {
         target: zoomControl
@@ -111,23 +113,29 @@ Rectangle {
                 root.progress = 0;
             }
         }
-
-        onProcessingData: {
-            root.dataAvailable = false;
-        }
-
-        onPostProcessing: {
-            root.progress = 0.9; // jump to 90%
-        }
-
-        onDataReady: {
-            if (eventCount > 0) {
+        onStateChanged: {
+            switch (qmlEventList.getCurrentStateFromQml()) {
+            case 0: {
+                root.clearAll();
+                break;
+            }
+            case 1: {
+                root.dataAvailable = false;
+                break;
+            }
+            case 2: {
+                root.progress = 0.9; // jump to 90%
+                break;
+            }
+            case 3: {
                 view.clearData();
                 progress = 1.0;
                 dataAvailable = true;
                 view.visible = true;
                 view.requestPaint();
                 zoomControl.setRange(qmlEventList.traceStartTime(), qmlEventList.traceStartTime() + qmlEventList.traceDuration()/10);
+                break;
+            }
             }
         }
     }
@@ -143,6 +151,7 @@ Rectangle {
     function clearData() {
         view.clearData();
         dataAvailable = false;
+        applicationDied = false;
         eventCount = 0;
         hideRangeDetails();
         selectionRangeMode = false;

@@ -80,6 +80,7 @@ public:
     AbstractQmlProfilerRunner *m_runner;
     bool m_running;
     bool m_fetchingData;
+    bool m_hasData;
     bool m_fetchDataFromStart;
     bool m_delayedDelete;
     QTimer m_noDebugOutputTimer;
@@ -209,6 +210,7 @@ bool QmlProfilerEngine::start()
 
     if (d->m_fetchDataFromStart) {
         d->m_fetchingData = true;
+        d->m_hasData = false;
     }
 
     emit starting(this);
@@ -217,15 +219,15 @@ bool QmlProfilerEngine::start()
 
 void QmlProfilerEngine::stop()
 {
-    // keep the flag for the next restart
-    d->m_fetchDataFromStart = d->m_fetchingData;
     if (d->m_fetchingData) {
         if (d->m_running)
             d->m_delayedDelete = true;
         // will result in dataReceived() call
         emit stopRecording();
+        d->m_fetchDataFromStart = true;
     } else {
         finishProcess();
+        d->m_fetchDataFromStart = false;
     }
 }
 
@@ -236,19 +238,23 @@ void QmlProfilerEngine::stopped()
         d->m_fetchDataFromStart = d->m_fetchingData;
 
     // user feedback
-    if (d->m_running && d->m_fetchingData) {
+    if (d->m_running && d->m_fetchingData && !d->m_hasData) {
         showNonmodalWarning(tr("Application finished before loading profiled data.\n Please use the stop button instead."));
+        emit applicationDied();
     }
 
     d->m_running = false;
     d->m_runningTimer.stop();
-    AnalyzerManager::stopTool(); // FIXME: Needed?
+    AnalyzerManager::stopTool();
     emit finished();
+    emit recordingChanged(d->m_fetchDataFromStart);
 }
 
 void QmlProfilerEngine::setFetchingData(bool b)
 {
     d->m_fetchingData = b;
+    if (d->m_running && b)
+        d->m_hasData = false;
     if (!d->m_running)
         d->m_fetchDataFromStart = b;
 }
@@ -258,6 +264,7 @@ void QmlProfilerEngine::dataReceived()
     if (d->m_delayedDelete)
         finishProcess();
     d->m_delayedDelete = false;
+    d->m_hasData = true;
 }
 
 void QmlProfilerEngine::finishProcess()
@@ -269,6 +276,7 @@ void QmlProfilerEngine::finishProcess()
         if (d->m_runner)
             d->m_runner->stop();
         emit finished();
+        emit recordingChanged(d->m_fetchDataFromStart);
     }
 }
 
@@ -299,6 +307,7 @@ void QmlProfilerEngine::wrongSetupMessageBox(const QString &errorMessage)
     d->m_runningTimer.stop();
     AnalyzerManager::stopTool();
     emit finished();
+    emit recordingChanged(d->m_fetchDataFromStart);
 }
 
 void QmlProfilerEngine::wrongSetupMessageBoxFinished(int button)

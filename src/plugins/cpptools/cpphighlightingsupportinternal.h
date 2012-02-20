@@ -30,45 +30,41 @@
 **
 **************************************************************************/
 
-#ifndef CORE_TEXTFILE_H
-#define CORE_TEXTFILE_H
+#ifndef CPPTOOLS_CPPHIGHLIGHTINGSUPPORTINTERNAL_H
+#define CPPTOOLS_CPPHIGHLIGHTINGSUPPORTINTERNAL_H
 
-#include "ifile.h"
+#include "cpphighlightingsupport.h"
 
-#include <utils/textfileformat.h>
+#include <cplusplus/CppDocument.h>
+#include <texteditor/semantichighlighter.h>
 
-namespace Core {
+#include <QFuture>
 
+namespace CppTools {
 namespace Internal {
-class TextFilePrivate;
-}
 
-class CORE_EXPORT TextFile : public IFile
+class CppHighlightingSupportInternal: public CppHighlightingSupport
 {
-    Q_OBJECT
 public:
-    typedef Utils::TextFileFormat::ReadResult ReadResult;
+    typedef TextEditor::SemanticHighlighter::Result Use;
 
-    explicit TextFile(QObject *parent = 0);
-    virtual ~TextFile();
+public:
+    CppHighlightingSupportInternal(TextEditor::ITextEditor *editor);
+    virtual ~CppHighlightingSupportInternal();
 
-    Utils::TextFileFormat format() const;
-    const QTextCodec *codec() const;
-    void setCodec(const QTextCodec *);
-
-    ReadResult read(const QString &fileName, QStringList *plainTextList, QString *errorString);
-    ReadResult read(const QString &fileName, QString *plainText, QString *errorString);
-
-    bool hasDecodingError() const;
-    QByteArray decodingErrorSample() const;
-
-    bool write(const QString &fileName, const QString &data, QString *errorMessage) const;
-    bool write(const QString &fileName, const Utils::TextFileFormat &format, const QString &data, QString *errorMessage) const;
-
-private:
-    Internal::TextFilePrivate *d;
+    virtual QFuture<Use> highlightingFuture(const CPlusPlus::Document::Ptr &doc,
+                                            const CPlusPlus::Snapshot &snapshot) const;
 };
 
-} // namespace Core
+class CppHighlightingSupportInternalFactory: public CppHighlightingSupportFactory
+{
+public:
+    virtual ~CppHighlightingSupportInternalFactory();
 
-#endif // CORE_TEXTFILE_H
+    virtual CppHighlightingSupport *highlightingSupport(TextEditor::ITextEditor *editor);
+};
+
+} // namespace Internal
+} // namespace CppTools
+
+#endif // CPPTOOLS_CPPHIGHLIGHTINGSUPPORTINTERNAL_H

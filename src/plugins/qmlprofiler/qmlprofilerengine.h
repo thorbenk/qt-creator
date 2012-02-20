@@ -54,6 +54,8 @@ signals:
     void processRunning(int port);
     void stopRecording();
     void timeUpdate();
+    void recordingChanged(bool recording);
+    void applicationDied();
 
 public slots:
     bool start();

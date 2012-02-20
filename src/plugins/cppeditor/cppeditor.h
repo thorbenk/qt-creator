@@ -343,6 +343,9 @@ private:
 #endif // CLANG_INDEXING
 
     CppTools::CommentsSettings m_commentsSettings;
+
+    CppTools::CppCompletionSupport *m_completionSupport;
+    CppTools::CppHighlightingSupport *m_highlightingSupport;
 };
 
 

@@ -30,56 +30,45 @@
 **
 **************************************************************************/
 
-#ifndef IEDITOR_H
-#define IEDITOR_H
+#ifndef CORE_TEXTDOCUMENT_H
+#define CORE_TEXTDOCUMENT_H
 
-#include <coreplugin/core_global.h>
-#include <coreplugin/icontext.h>
-#include <coreplugin/id.h>
+#include "idocument.h"
 
-#include <QMetaType>
+#include <utils/textfileformat.h>
 
 namespace Core {
 
-class IDocument;
+namespace Internal {
+class TextDocumentPrivate;
+}
 
-class CORE_EXPORT IEditor : public IContext
+class CORE_EXPORT TextDocument : public IDocument
 {
     Q_OBJECT
 public:
+    typedef Utils::TextFileFormat::ReadResult ReadResult;
 
-    IEditor(QObject *parent = 0) : IContext(parent) {}
-    virtual ~IEditor() {}
+    explicit TextDocument(QObject *parent = 0);
+    virtual ~TextDocument();
 
-    virtual bool createNew(const QString &contents = QString()) = 0;
-    virtual bool open(QString *errorString, const QString &fileName, const QString &realFileName) = 0;
-    virtual IDocument *document() = 0;
-    virtual Core::Id id() const = 0;
-    virtual QString displayName() const = 0;
-    virtual void setDisplayName(const QString &title) = 0;
+    Utils::TextFileFormat format() const;
+    const QTextCodec *codec() const;
+    void setCodec(const QTextCodec *);
 
-    virtual bool duplicateSupported() const = 0;
-    virtual IEditor *duplicate(QWidget *parent) = 0;
+    ReadResult read(const QString &fileName, QStringList *plainTextList, QString *errorString);
+    ReadResult read(const QString &fileName, QString *plainText, QString *errorString);
 
-    virtual QByteArray saveState() const = 0;
-    virtual bool restoreState(const QByteArray &state) = 0;
+    bool hasDecodingError() const;
+    QByteArray decodingErrorSample() const;
 
-    virtual int currentLine() const { return 0; }
-    virtual int currentColumn() const { return 0; }
-    virtual void gotoLine(int line, int column = 0) { Q_UNUSED(line) Q_UNUSED(column) }
+    bool write(const QString &fileName, const QString &data, QString *errorMessage) const;
+    bool write(const QString &fileName, const Utils::TextFileFormat &format, const QString &data, QString *errorMessage) const;
 
-    virtual bool isTemporary() const = 0;
-
-    virtual QWidget *toolBar() = 0;
-
-    virtual QString preferredModeType() const { return QString(); }
-
-signals:
-    void changed();
+private:
+    Internal::TextDocumentPrivate *d;
 };
 
 } // namespace Core
 
-Q_DECLARE_METATYPE(Core::IEditor*)
-
-#endif // IEDITOR_H
+#endif // CORE_TEXTDOCUMENT_H

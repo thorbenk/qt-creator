@@ -34,6 +34,10 @@
 #include <cplusplus/Overview.h>
 
 #include "cppmodelmanager.h"
+#include "cppcompletionsupport.h"
+#include "cppcompletionsupportinternal.h"
+#include "cpphighlightingsupport.h"
+#include "cpphighlightingsupportinternal.h"
 #include "abstracteditorsupport.h"
 #ifndef ICHECK_BUILD
 #  include "cpptoolsconstants.h"
@@ -740,20 +744,16 @@ CppModelManager::CppModelManager(QObject *parent)
     connect(Core::ICore::editorManager(), SIGNAL(editorAboutToClose(Core::IEditor *)),
         this, SLOT(editorAboutToClose(Core::IEditor *)));
 
-#ifdef CLANG_INDEXING
-    connect(&m_clangIndexer, SIGNAL(indexingStarted(QFuture<void>)),
-            this, SLOT(onIndexingStarted_Clang(QFuture<void>)));
-#endif // CLANG_INDEXING
+    m_completionFallback = new CppCompletionSupportInternalFactory;
+    m_completionFactory = m_completionFallback;
+    m_highlightingFallback = new CppHighlightingSupportInternalFactory;
+    m_highlightingFactory = m_highlightingFallback;
 }
 
 CppModelManager::~CppModelManager()
 {
-#ifdef CLANG_INDEXING
-    if (m_clangIndexer.isBusy())
-        m_clangIndexer.cancel(true);
-
-    m_clangIndexer.finalize();
-#endif // CLANG_INDEXING
+    delete m_completionFallback;
+    delete m_highlightingFallback;
 }
 
 Snapshot CppModelManager::snapshot() const
@@ -871,7 +871,7 @@ CppModelManager::WorkingCopy CppModelManager::buildWorkingCopyList()
         it.next();
         TextEditor::ITextEditor *textEditor = it.key();
         CppEditorSupport *editorSupport = it.value();
-        QString fileName = textEditor->file()->fileName();
+        QString fileName = textEditor->document()->fileName();
         workingCopy.insert(fileName, editorSupport->contents(), editorSupport->editorRevision());
     }
 
@@ -1131,7 +1131,7 @@ void CppModelManager::updateEditor(Document::Ptr doc)
 
     QList<Core::IEditor *> openedEditors = Core::ICore::editorManager()->openedEditors();
     foreach (Core::IEditor *editor, openedEditors) {
-        if (editor->file()->fileName() == fileName) {
+        if (editor->document()->fileName() == fileName) {
             TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor *>(editor);
             if (! textEditor)
                 continue;
@@ -1482,18 +1482,34 @@ void CppModelManager::finishedRefreshingSourceFiles(const QStringList &files)
 
 CppCompletionSupport *CppModelManager::completionSupport(Core::IEditor *editor) const
 {
-    if (CppEditorSupport *es = editorSupport(qobject_cast<TextEditor::ITextEditor *>(editor)))
-        return es->completionSupport();
+    if (TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor *>(editor))
+        return m_completionFactory->completionSupport(textEditor);
     else
         return 0;
 }
 
+void CppModelManager::setCompletionSupportFactory(CppCompletionSupportFactory *completionFactory)
+{
+    if (completionFactory)
+        m_completionFactory = completionFactory;
+    else
+        m_completionFactory = m_completionFallback;
+}
+
 CppHighlightingSupport *CppModelManager::highlightingSupport(Core::IEditor *editor) const
 {
-    if (CppEditorSupport *es = editorSupport(qobject_cast<TextEditor::ITextEditor *>(editor)))
-        return es->highlightingSupport();
+    if (TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor *>(editor))
+        return m_highlightingFactory->highlightingSupport(textEditor);
     else
         return 0;
+}
+
+void CppModelManager::setHighlightingSupportFactory(CppHighlightingSupportFactory *highlightingFactory)
+{
+    if (highlightingFactory)
+        m_highlightingFactory = highlightingFactory;
+    else
+        m_highlightingFactory = m_highlightingFallback;
 }
 
 void CppModelManager::setExtraDiagnostics(const QString &fileName, int kind,

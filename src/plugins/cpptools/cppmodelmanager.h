@@ -84,6 +84,10 @@ namespace CPlusPlus {
 }
 
 namespace CppTools {
+
+class CppCompletionSupportFactory;
+class CppHighlightingSupportFactory;
+
 namespace Internal {
 
 class CppEditorSupport;
@@ -153,7 +157,10 @@ public:
 #endif // CLANG_INDEXING
 
     virtual CppCompletionSupport *completionSupport(Core::IEditor *editor) const;
+    void setCompletionSupportFactory(CppCompletionSupportFactory *completionFactory);
+
     virtual CppHighlightingSupport *highlightingSupport(Core::IEditor *editor) const;
+    void setHighlightingSupportFactory(CppHighlightingSupportFactory *highlightingFactory);
 
 Q_SIGNALS:
     void projectPathChanged(const QString &projectPath);
@@ -266,10 +273,10 @@ private:
 
     QMap<QString, QList<ProjectPart::Ptr> > m_srcToProjectPart;
 
-#ifdef CLANG_INDEXING
-    Clang::Indexer m_clangIndexer;
-    bool m_isLoadingSession;
-#endif // CLANG_INDEXING
+    CppCompletionSupportFactory *m_completionFactory;
+    CppCompletionSupportFactory *m_completionFallback;
+    CppHighlightingSupportFactory *m_highlightingFactory;
+    CppHighlightingSupportFactory *m_highlightingFallback;
 };
 #endif
 
