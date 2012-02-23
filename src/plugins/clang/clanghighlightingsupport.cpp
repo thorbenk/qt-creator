@@ -35,13 +35,16 @@ QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFutur
     CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
     QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
     QStringList options;
-    if (!parts.isEmpty())
-        options = Utils::createClangOptions(parts.at(0));
+    foreach (const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part, parts) {
+        options = Utils::createClangOptions(part);
+        if (!options.isEmpty())
+            break;
+    }
 
     //### FIXME: the range is way too big.. can't we just update the visible lines?
     CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker, fileName, options, firstLine, lastLine);
-//    connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
-//            this, SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
+    connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
+            this, SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
     return createMarkers->start();
 }
 

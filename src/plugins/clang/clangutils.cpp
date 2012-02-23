@@ -11,7 +11,7 @@
 using namespace Clang;
 using namespace Core;
 
-CLANG_EXPORT UnsavedFiles Clang::Utils::createUnsavedFiles(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy)
+CLANG_EXPORT UnsavedFiles Clang::Utils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy)
 {
     // TODO: change the modelmanager to hold one working copy, and amend it every time we ask for one.
     // TODO: Reason: the UnsavedFile needs a QByteArray.

@@ -85,7 +85,8 @@ void CreateMarkers::run()
         return;
 
 #ifdef DEBUG_TIMING
-    qDebug() << "*** Highlighting from" << m_firstLine << "to" << m_lastLine;
+    qDebug() << "*** Highlighting from" << m_firstLine << "to" << m_lastLine << "of" << m_fileName;
+    qDebug() << "***** Options: " << m_options.join(" ");
     QTime t; t.start();
 #endif // DEBUG_TIMING
 
@@ -99,9 +100,13 @@ void CreateMarkers::run()
 #endif // DEBUG_TIMING
 
     QList<Clang::Diagnostic> diagnostics;
-    foreach (const Clang::Diagnostic &d, m_marker->diagnostics())
+    foreach (const Clang::Diagnostic &d, m_marker->diagnostics()) {
+#ifdef DEBUG_TIMING
+        qDebug() << d.severityAsString() << d.location() << d.spelling();
+#endif // DEBUG_TIMING
         if (d.location().fileName() == m_marker->fileName())
             diagnostics.append(d);
+    }
     emit diagnosticsReady(diagnostics);
 
     if (isCanceled())
@@ -117,7 +122,7 @@ void CreateMarkers::run()
     reportFinished();
 
 #ifdef DEBUG_TIMING
-    qDebug() << "*** Highlighting took" << t.elapsed() << "ms.";
+    qDebug() << "*** Highlighting took" << t.elapsed() << "ms in total.";
 #endif // DEBUG_TIMING
 }
 

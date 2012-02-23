@@ -9,7 +9,7 @@
 namespace Clang {
 namespace Utils {
 
-CLANG_EXPORT Clang::UnsavedFiles createUnsavedFiles(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy);
+CLANG_EXPORT Clang::UnsavedFiles createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy);
 
 CLANG_EXPORT QStringList createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart);
 CLANG_EXPORT QStringList createClangOptions(bool useCpp0x,

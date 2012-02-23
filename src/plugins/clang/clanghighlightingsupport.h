@@ -10,6 +10,8 @@ namespace Clang {
 
 class ClangHighlightingSupport: public CppTools::CppHighlightingSupport
 {
+    Q_OBJECT
+
 public:
     ClangHighlightingSupport(TextEditor::ITextEditor *textEditor);
     ~ClangHighlightingSupport();
