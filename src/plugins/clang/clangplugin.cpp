@@ -35,7 +35,6 @@
 
 #ifdef CLANG_COMPLETION
 #  include "clangcompletion.h"
-#  include "clangcompletionsupport.h"
 #endif // CLANG_COMPLETION
 
 #ifdef CLANG_HIGHLIGHTING
@@ -56,7 +55,7 @@ namespace Clang {
 namespace Internal {
 
 ClangPlugin::ClangPlugin()
-    : m_completionFactory(0)
+    : m_completionAssistProvider(0)
     , m_highlightingFactory(0)
 {
 }
@@ -73,10 +72,8 @@ bool ClangPlugin::initialize(const QStringList &arguments, QString *errorMessage
     Clang::initializeClang();
 
 #ifdef CLANG_COMPLETION
-    addAutoReleasedObject(new ClangCompletionAssistProvider);
-
-    m_completionFactory = new ClangCompletionSupportFactory;
-    CPlusPlus::CppModelManagerInterface::instance()->setCompletionSupportFactory(m_completionFactory);
+    m_completionAssistProvider = new ClangCompletionAssistProvider;
+    CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(m_completionAssistProvider);
 #endif // CLANG_COMPLETION
 
 #ifdef CLANG_HIGHLIGHTING

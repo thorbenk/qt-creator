@@ -5,6 +5,8 @@
 
 #include <cplusplus/Icons.h>
 
+#include <cpptools/cppcompletionassistprovider.h>
+
 #include <texteditor/codeassist/basicproposalitem.h>
 #include <texteditor/codeassist/completionassistprovider.h>
 #include <texteditor/codeassist/defaultassistinterface.h>
@@ -18,13 +20,11 @@ namespace Clang {
 namespace Internal {
 class ClangAssistProposalModel;
 
-class ClangCompletionAssistProvider : public TextEditor::CompletionAssistProvider
+class ClangCompletionAssistProvider : public CppTools::CppCompletionAssistProvider
 {
 public:
-    virtual bool supportsEditor(const Core::Id &editorId) const;
-    virtual int activationCharSequenceLength() const;
-    virtual bool isActivationCharSequence(const QString &sequence) const;
     virtual TextEditor::IAssistProcessor *createProcessor() const;
+    virtual CppTools::CppCompletionSupport *completionSupport(TextEditor::ITextEditor *editor);
 };
 
 } // namespace Internal

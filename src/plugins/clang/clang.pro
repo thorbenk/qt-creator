@@ -18,8 +18,8 @@ DEFINES += CLANG_LIBRARY
 macx: QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
 
 contains(DEFINES, CLANG_COMPLETION) {
-    HEADERS += clangcompletion.h clangcompletionsupport.h clangcompleter.h
-    SOURCES += clangcompletion.cpp clangcompletionsupport.cpp clangcompleter.cpp
+    HEADERS += clangcompletion.h clangcompleter.h
+    SOURCES += clangcompletion.cpp clangcompleter.cpp
 }
 
 contains(DEFINES, CLANG_HIGHLIGHTING) {

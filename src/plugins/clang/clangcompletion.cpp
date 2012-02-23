@@ -144,6 +144,42 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
     return result;
 }
 
+class ClangCompletionSupport: public CppTools::CppCompletionSupport
+{
+public:
+    ClangCompletionSupport(TextEditor::ITextEditor *editor)
+        : CppCompletionSupport(editor)
+        , m_clangCompletionWrapper(new Clang::ClangCompleter)
+    {}
+
+    ~ClangCompletionSupport()
+    {}
+
+    virtual TextEditor::IAssistInterface *createAssistInterface(
+            ProjectExplorer::Project *project, QTextDocument *document,
+            int position, TextEditor::AssistReason reason) const {
+        Q_UNUSED(project);
+
+        CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
+        QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(editor()->document()->fileName());
+        QStringList includePaths, frameworkPaths, options;
+        if (!parts.isEmpty()) {
+            const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
+            options = Clang::Utils::createClangOptions(part);
+            includePaths = part->includePaths;
+            frameworkPaths = part->frameworkPaths;
+        }
+
+        return new Clang::ClangCompletionAssistInterface(
+                    m_clangCompletionWrapper,
+                    document, position, editor()->document(), reason,
+                    options, includePaths, frameworkPaths);
+    }
+
+private:
+    Clang::ClangCompleter::Ptr m_clangCompletionWrapper;
+};
+
 } // Anonymous
 
 namespace Clang {
@@ -152,29 +188,14 @@ namespace Internal {
 // -----------------------------
 // ClangCompletionAssistProvider
 // -----------------------------
-bool ClangCompletionAssistProvider::supportsEditor(const Core::Id &editorId) const
-{
-    return editorId == Core::Id(CppEditor::Constants::CPPEDITOR_ID);
-}
-
-int ClangCompletionAssistProvider::activationCharSequenceLength() const
-{
-    return 3;
-}
-
-bool ClangCompletionAssistProvider::isActivationCharSequence(const QString &sequence) const
-{
-    const QChar &ch  = sequence.at(2);
-    const QChar &ch2 = sequence.at(1);
-    const QChar &ch3 = sequence.at(0);
-    if (activationSequenceChar(ch, ch2, ch3, 0, true) != 0)
-        return true;
-    return false;
-}
-
 IAssistProcessor *ClangCompletionAssistProvider::createProcessor() const
 {
     return new ClangCompletionAssistProcessor;
+}
+
+CppCompletionSupport *ClangCompletionAssistProvider::completionSupport(ITextEditor *editor)
+{
+    return new ClangCompletionSupport(editor);
 }
 
 // ------------------------

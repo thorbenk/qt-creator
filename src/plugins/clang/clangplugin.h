@@ -37,10 +37,11 @@
 
 namespace Clang {
 
-class ClangCompletionSupportFactory;
 class ClangHighlightingSupportFactory;
 
 namespace Internal {
+
+class ClangCompletionAssistProvider;
 
 class ClangPlugin: public ExtensionSystem::IPlugin
 {
@@ -55,7 +56,7 @@ public:
     void extensionsInitialized();
 
 private:
-    ClangCompletionSupportFactory *m_completionFactory;
+    ClangCompletionAssistProvider *m_completionAssistProvider;
     ClangHighlightingSupportFactory *m_highlightingFactory;
 };
 
