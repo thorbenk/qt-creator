@@ -65,12 +65,17 @@
 #include <utils/fancymainwindow.h>
 #include <utils/qtcprocess.h>
 #include <coreplugin/icore.h>
+#include <coreplugin/helpmanager.h>
 #include <utils/buildablehelperlibrary.h>
 
 #include <QDir>
+#include <QCheckBox>
+#include <QSpinBox>
 #include <QDebug>
-#include <QMessageBox>
 #include <QErrorMessage>
+#include <QFormLayout>
+#include <QLabel>
+#include <QMessageBox>
 
 using namespace ProjectExplorer;
 using namespace Debugger::Internal;
@@ -145,6 +150,111 @@ static QString msgEngineNotAvailable(const char *engine)
 static inline QString msgEngineNotAvailable(DebuggerEngineType et)
 {
     return msgEngineNotAvailable(engineTypeName(et));
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+// DebuggerRunConfigWidget
+//
+////////////////////////////////////////////////////////////////////////
+
+class DebuggerRunConfigWidget : public ProjectExplorer::RunConfigWidget
+{
+    Q_OBJECT
+
+public:
+    explicit DebuggerRunConfigWidget(RunConfiguration *runConfiguration);
+    QString displayName() const { return tr("Debugger Settings"); }
+
+private slots:
+    void useCppDebuggerToggled(bool toggled);
+    void useQmlDebuggerToggled(bool toggled);
+    void qmlDebugServerPortChanged(int port);
+
+public:
+    DebuggerRunConfigurationAspect *m_aspect; // not owned
+
+    QCheckBox *m_useCppDebugger;
+    QCheckBox *m_useQmlDebugger;
+    QSpinBox *m_debugServerPort;
+    QLabel *m_debugServerPortLabel;
+    QLabel *m_qmlDebuggerInfoLabel;
+};
+
+DebuggerRunConfigWidget::DebuggerRunConfigWidget(RunConfiguration *runConfiguration)
+{
+    m_aspect = runConfiguration->debuggerAspect();
+
+    m_useCppDebugger = new QCheckBox(tr("Enable C++"), this);
+    m_useQmlDebugger = new QCheckBox(tr("Enable QML"), this);
+
+    m_debugServerPort = new QSpinBox(this);
+    m_debugServerPort->setMinimum(1);
+    m_debugServerPort->setMaximum(65535);
+
+    m_debugServerPortLabel = new QLabel(tr("Debug port:"), this);
+    m_debugServerPortLabel->setBuddy(m_debugServerPort);
+
+    m_qmlDebuggerInfoLabel = new QLabel(tr("<a href=\""
+        "qthelp://com.nokia.qtcreator/doc/creator-debugging-qml.html"
+        "\">What are the prerequisites?</a>"));
+
+    useCppDebuggerToggled(m_aspect->useCppDebugger());
+    useQmlDebuggerToggled(m_aspect->useQmlDebugger());
+    m_debugServerPort->setValue(m_aspect->qmlDebugServerPort());
+
+    connect(m_qmlDebuggerInfoLabel, SIGNAL(linkActivated(QString)),
+            Core::HelpManager::instance(), SLOT(handleHelpRequest(QString)));
+    connect(m_useQmlDebugger, SIGNAL(toggled(bool)),
+            SLOT(useQmlDebuggerToggled(bool)));
+    connect(m_useCppDebugger, SIGNAL(toggled(bool)),
+            SLOT(useCppDebuggerToggled(bool)));
+    connect(m_debugServerPort, SIGNAL(valueChanged(int)),
+            SLOT(qmlDebugServerPortChanged(int)));
+
+    if (m_aspect->areQmlDebuggingOptionsSuppressed()) {
+        m_debugServerPortLabel->hide();
+        m_debugServerPort->hide();
+        m_useQmlDebugger->hide();
+    }
+
+    QHBoxLayout *qmlLayout = new QHBoxLayout;
+    qmlLayout->setMargin(0);
+    qmlLayout->addWidget(m_useQmlDebugger);
+    qmlLayout->addWidget(m_debugServerPortLabel);
+    qmlLayout->addWidget(m_debugServerPort);
+    qmlLayout->addWidget(m_qmlDebuggerInfoLabel);
+    qmlLayout->addStretch();
+
+    QVBoxLayout *layout = new QVBoxLayout;
+    layout->setMargin(0);
+    layout->addWidget(m_useCppDebugger);
+    layout->addLayout(qmlLayout);
+    setLayout(layout);
+}
+
+void DebuggerRunConfigWidget::qmlDebugServerPortChanged(int port)
+{
+    m_aspect->m_qmlDebugServerPort = port;
+}
+
+void DebuggerRunConfigWidget::useCppDebuggerToggled(bool toggled)
+{
+    m_aspect->m_useCppDebugger = toggled;
+    if (!toggled && !m_useQmlDebugger->isChecked())
+        m_useQmlDebugger->setChecked(true);
+}
+
+void DebuggerRunConfigWidget::useQmlDebuggerToggled(bool toggled)
+{
+    m_debugServerPort->setEnabled(toggled);
+    m_debugServerPortLabel->setEnabled(toggled);
+
+    m_aspect->m_useQmlDebugger = toggled
+            ? DebuggerRunConfigurationAspect::EnableQmlDebugger
+            : DebuggerRunConfigurationAspect::DisableQmlDebugger;
+    if (!toggled && !m_useCppDebugger->isChecked())
+        m_useCppDebugger->setChecked(true);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -777,12 +887,12 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
         }
     }
 
-    if (runConfiguration->useCppDebugger())
+    if (runConfiguration->debuggerAspect()->useCppDebugger())
         sp.languages |= CppLanguage;
 
-    if (runConfiguration->useQmlDebugger()) {
+    if (runConfiguration->debuggerAspect()->useQmlDebugger()) {
         sp.qmlServerAddress = _("127.0.0.1");
-        sp.qmlServerPort = runConfiguration->qmlDebugServerPort();
+        sp.qmlServerPort = runConfiguration->debuggerAspect()->qmlDebugServerPort();
         sp.languages |= QmlLanguage;
 
         // Makes sure that all bindings go through the JavaScript engine, so that
@@ -820,9 +930,7 @@ RunControl *DebuggerRunControlFactory::create
 RunConfigWidget *DebuggerRunControlFactory::createConfigurationWidget
     (RunConfiguration *runConfiguration)
 {
-    // NBS TODO: Add GDB-specific configuration widget
-    Q_UNUSED(runConfiguration)
-    return 0;
+    return new DebuggerRunConfigWidget(runConfiguration);
 }
 
 DebuggerRunControl *DebuggerRunControlFactory::create
@@ -867,5 +975,6 @@ DebuggerEngine *DebuggerRunControlFactory::createEngine
     return 0;
 }
 
-
 } // namespace Debugger
+
+#include "debuggerrunner.moc"

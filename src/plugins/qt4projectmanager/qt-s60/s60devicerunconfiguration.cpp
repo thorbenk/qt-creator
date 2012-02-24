@@ -286,13 +286,13 @@ void S60DeviceRunConfiguration::setCommandLineArguments(const QString &args)
 QString S60DeviceRunConfiguration::qmlCommandLineArguments() const
 {
     QString args;
-    if (useQmlDebugger()) {
+    if (debuggerAspect()->useQmlDebugger()) {
         const S60DeployConfiguration *activeDeployConf =
             qobject_cast<S60DeployConfiguration *>(qt4Target()->activeDeployConfiguration());
         QTC_ASSERT(activeDeployConf, return args);
 
         if (activeDeployConf->communicationChannel() == S60DeployConfiguration::CommunicationCodaTcpConnection)
-            args = QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(qmlDebugServerPort());
+            args = QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(debuggerAspect()->qmlDebugServerPort());
         else
             args = QLatin1String("-qmljsdebugger=ost");
     }

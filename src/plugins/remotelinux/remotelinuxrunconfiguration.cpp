@@ -361,9 +361,9 @@ QString RemoteLinuxRunConfiguration::alternateRemoteExecutable() const
 int RemoteLinuxRunConfiguration::portsUsedByDebuggers() const
 {
     int ports = 0;
-    if (useQmlDebugger())
+    if (debuggerAspect()->useQmlDebugger())
         ++ports;
-    if (useCppDebugger())
+    if (debuggerAspect()->useCppDebugger())
         ++ports;
 
     return ports;

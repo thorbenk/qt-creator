@@ -45,14 +45,13 @@
 
 QT_FORWARD_DECLARE_CLASS(QIcon)
 
-namespace Utils {
-class OutputFormatter;
-}
+namespace Utils { class OutputFormatter; }
 
 namespace ProjectExplorer {
 class Abi;
 class BuildConfiguration;
-class IRunConfigurationAspect;
+class DebuggerRunConfigurationAspect;
+class RunConfiguration;
 class RunControl;
 class Target;
 
@@ -76,6 +75,59 @@ private:
 inline bool operator==(const ProcessHandle &p1, const ProcessHandle &p2) { return p1.equals(p2); }
 inline bool operator!=(const ProcessHandle &p1, const ProcessHandle &p2) { return !p1.equals(p2); }
 
+class PROJECTEXPLORER_EXPORT IRunConfigurationAspect
+{
+public:
+    virtual ~IRunConfigurationAspect() {}
+    virtual QVariantMap toMap() const = 0;
+    virtual QString displayName() const = 0;
+protected:
+    friend class RunConfiguration;
+    virtual void fromMap(const QVariantMap &map) = 0;
+};
+
+class PROJECTEXPLORER_EXPORT DebuggerRunConfigurationAspect
+    : public QObject, public ProjectExplorer::IRunConfigurationAspect
+{
+    Q_OBJECT
+
+public:
+    DebuggerRunConfigurationAspect(RunConfiguration *runConfiguration);
+    DebuggerRunConfigurationAspect(DebuggerRunConfigurationAspect *other);
+
+    enum QmlDebuggerStatus {
+        DisableQmlDebugger = 0,
+        EnableQmlDebugger,
+        AutoEnableQmlDebugger
+    };
+
+    QVariantMap toMap() const;
+    void fromMap(const QVariantMap &map);
+
+    QString displayName() const;
+
+    void setUseQmlDebugger(bool value);
+    void setUseCppDebugger(bool value);
+    bool useCppDebugger() const;
+    bool useQmlDebugger() const;
+    uint qmlDebugServerPort() const;
+    void setQmllDebugServerPort(uint port);
+    void suppressQmlDebuggingOptions();
+    bool areQmlDebuggingOptionsSuppressed() const;
+    RunConfiguration *runConfiguration();
+
+signals:
+    void debuggersChanged();
+
+public:
+    RunConfiguration *m_runConfiguration;
+    bool m_useCppDebugger;
+    QmlDebuggerStatus m_useQmlDebugger;
+    uint m_qmlDebugServerPort;
+    bool m_suppressQmlDebuggingOptions;
+};
+
+
 // Documentation inside.
 class PROJECTEXPLORER_EXPORT RunConfiguration : public ProjectConfiguration
 {
@@ -92,16 +144,10 @@ public:
 
     virtual Utils::OutputFormatter *createOutputFormatter() const;
 
-    void setUseQmlDebugger(bool value);
-    void setUseCppDebugger(bool value);
-    bool useQmlDebugger() const;
-    bool useCppDebugger() const;
-
-    uint qmlDebugServerPort() const;
-    void setQmlDebugServerPort(uint port);
-
     virtual bool fromMap(const QVariantMap &map);
     virtual QVariantMap toMap() const;
+
+    DebuggerRunConfigurationAspect *debuggerAspect() const { return m_debuggerAspect; }
 
     QList<IRunConfigurationAspect *> extraAspects() const;
     template <typename T> T *extraAspect() const
@@ -120,8 +166,6 @@ public:
 
 signals:
     void isEnabledChanged(bool value);
-    void debuggersChanged();
-    void qmlDebugServerPortChanged(uint port);
 
 protected:
     RunConfiguration(Target *parent, const QString &id);
@@ -133,27 +177,8 @@ protected:
 private:
     void addExtraAspects();
 
-    enum QmlDebuggerStatus {
-        DisableQmlDebugger = 0,
-        EnableQmlDebugger,
-        AutoEnableQmlDebugger
-    };
-
-    bool m_useCppDebugger;
-    mutable QmlDebuggerStatus m_useQmlDebugger;
-    uint m_qmlDebugServerPort;
     QList<IRunConfigurationAspect *> m_aspects;
-};
-
-class PROJECTEXPLORER_EXPORT IRunConfigurationAspect
-{
-public:
-    virtual ~IRunConfigurationAspect() {}
-    virtual QVariantMap toMap() const = 0;
-    virtual QString displayName() const = 0;
-protected:
-    friend class RunConfiguration;
-    virtual bool fromMap(const QVariantMap &map) = 0;
+    DebuggerRunConfigurationAspect *m_debuggerAspect;
 };
 
 class PROJECTEXPLORER_EXPORT IRunConfigurationFactory : public QObject

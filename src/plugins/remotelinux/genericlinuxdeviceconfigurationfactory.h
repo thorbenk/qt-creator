@@ -47,6 +47,9 @@ public:
 
     QString displayName() const;
     ILinuxDeviceConfigurationWizard *createWizard(QWidget *parent) const;
+    ILinuxDeviceConfigurationWidget *createWidget(
+            const LinuxDeviceConfiguration::Ptr &deviceConfig,
+            QWidget *parent = 0) const;
     bool supportsOsType(const QString &osType) const;
     QString displayNameForOsType(const QString &osType) const;
     QStringList supportedDeviceActionIds() const;

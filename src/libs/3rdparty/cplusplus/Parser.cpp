@@ -2740,7 +2740,7 @@ bool Parser::parseUnqualifiedName(NameAST *&node, bool acceptTemplateId)
     if (LA() == T_TILDE && LA(2) == T_IDENTIFIER) {
         DestructorNameAST *ast = new (_pool) DestructorNameAST;
         ast->tilde_token = consumeToken();
-        ast->identifier_token = consumeToken();
+        parseUnqualifiedName(ast->unqualified_name);
         node = ast;
         return true;
     } else if (LA() == T_OPERATOR) {
@@ -3230,6 +3230,32 @@ bool Parser::parseForStatement(StatementAST *&node)
         rewind(startOfTypeSpecifier);
     }
 
+    if (cxx0xEnabled()) {
+        RangeBasedForStatementAST *ast = new (_pool) RangeBasedForStatementAST;
+        ast->for_token = for_token;
+        ast->lparen_token = lparen_token;
+
+        if (parseTypeSpecifier(ast->type_specifier_list))
+            parseDeclarator(ast->declarator, ast->type_specifier_list);
+
+        if ((ast->type_specifier_list || ast->declarator) && LA() == T_COLON) {
+            ast->colon_token = consumeToken();
+            blockErrors(blocked);
+
+            parseExpression(ast->expression);
+            match(T_RPAREN, &ast->rparen_token);
+            parseStatement(ast->statement);
+
+            // We need both type specifier and declarator for C++11 range-based for
+            if (!ast->type_specifier_list || !ast->declarator)
+               error(for_token, "expected declaration with type specifier");
+
+            node = ast;
+            return true;
+        }
+        rewind(startOfTypeSpecifier);
+    }
+
     blockErrors(blocked);
 
     // Normal C/C++ for-statement parsing
@@ -3701,7 +3727,8 @@ bool Parser::parseSimpleDeclaration(DeclarationAST *&node, ClassSpecifierAST *de
 
     if (LA() != T_SEMICOLON) {
         const bool maybeCtor = (LA() == T_LPAREN && named_type_specifier);
-        if (! parseInitDeclarator(declarator, decl_specifier_seq, declaringClass) && maybeCtor) {
+        bool didParseInitDeclarator = parseInitDeclarator(declarator, decl_specifier_seq, declaringClass);
+        if ((! didParseInitDeclarator && maybeCtor) || (didParseInitDeclarator && maybeCtor && LA() == T_COLON)){
             rewind(startOfNamedTypeSpecifier);
             named_type_specifier = 0;
             // pop the named type specifier from the decl-specifier-seq
@@ -6108,4 +6135,3 @@ void Parser::fatal(unsigned index, const char *format, ...)
     va_end(ap);
     va_end(args);
 }
-

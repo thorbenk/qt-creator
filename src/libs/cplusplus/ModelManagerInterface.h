@@ -59,7 +59,7 @@ namespace ProjectExplorer {
 namespace CppTools {
     class AbstractEditorSupport;
     class CppCompletionSupport;
-    class CppCompletionSupportFactory;
+    class CppCompletionAssistProvider;
     class CppHighlightingSupport;
     class CppHighlightingSupportFactory;
 }
@@ -218,7 +218,7 @@ public:
             const QString &fileName, int key = AllExtraDiagnostics) const = 0;
 
     virtual CppTools::CppCompletionSupport *completionSupport(Core::IEditor *editor) const = 0;
-    virtual void setCompletionSupportFactory(CppTools::CppCompletionSupportFactory *completionFactory) = 0;
+    virtual void setCppCompletionAssistProvider(CppTools::CppCompletionAssistProvider *completionAssistProvider) = 0;
 
     virtual CppTools::CppHighlightingSupport *highlightingSupport(Core::IEditor *editor) const = 0;
     virtual void setHighlightingSupportFactory(CppTools::CppHighlightingSupportFactory *highlightingFactory) = 0;

@@ -208,17 +208,17 @@ RunControl *QmlProjectRunControlFactory::createDebugRunControl(QmlProjectRunConf
     params.startMode = Debugger::StartInternal;
     params.executable = runConfig->observerPath();
     params.qmlServerAddress = "127.0.0.1";
-    params.qmlServerPort = runConfig->qmlDebugServerPort();
-    params.processArgs = QString("-qmljsdebugger=port:%1,block").arg(runConfig->qmlDebugServerPort());
+    params.qmlServerPort = runConfig->debuggerAspect()->qmlDebugServerPort();
+    params.processArgs = QString("-qmljsdebugger=port:%1,block").arg(params.qmlServerPort);
     params.processArgs += QLatin1Char(' ') + runConfig->viewerArguments();
     params.workingDirectory = runConfig->workingDirectory();
     params.environment = runConfig->environment();
     params.displayName = runConfig->displayName();
     params.projectSourceDirectory = runConfig->target()->project()->projectDirectory();
     params.projectSourceFiles = runConfig->target()->project()->files(Project::ExcludeGeneratedFiles);
-    if (runConfig->useQmlDebugger())
+    if (runConfig->debuggerAspect()->useQmlDebugger())
         params.languages |= Debugger::QmlLanguage;
-    if (runConfig->useCppDebugger())
+    if (runConfig->debuggerAspect()->useCppDebugger())
         params.languages |= Debugger::CppLanguage;
 
     if (!runConfig->qtVersion()->qtAbis().isEmpty())

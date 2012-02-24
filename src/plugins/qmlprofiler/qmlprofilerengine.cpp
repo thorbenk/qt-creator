@@ -103,7 +103,7 @@ QmlProfilerEngine::QmlProfilerEnginePrivate::createRunner(ProjectExplorer::RunCo
         conf.executableArguments = rc1->viewerArguments();
         conf.workingDirectory = rc1->workingDirectory();
         conf.environment = rc1->environment();
-        conf.port = rc1->qmlDebugServerPort();
+        conf.port = rc1->debuggerAspect()->qmlDebugServerPort();
         runner = new LocalQmlProfilerRunner(conf, parent);
     } else if (LocalApplicationRunConfiguration *rc2 =
             qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)) {
@@ -113,7 +113,7 @@ QmlProfilerEngine::QmlProfilerEnginePrivate::createRunner(ProjectExplorer::RunCo
         conf.executableArguments = rc2->commandLineArguments();
         conf.workingDirectory = rc2->workingDirectory();
         conf.environment = rc2->environment();
-        conf.port = rc2->qmlDebugServerPort();
+        conf.port = rc2->debuggerAspect()->qmlDebugServerPort();
         runner = new LocalQmlProfilerRunner(conf, parent);
     } else if (Qt4ProjectManager::S60DeviceRunConfiguration *s60Config =
             qobject_cast<Qt4ProjectManager::S60DeviceRunConfiguration*>(runConfiguration)) {
@@ -149,7 +149,9 @@ QmlProfilerEngine::QmlProfilerEngine(IAnalyzerTool *tool,
     connect(&d->m_noDebugOutputTimer, SIGNAL(timeout()), this, SLOT(processIsRunning()));
 
     d->m_outputParser.setNoOutputText(ApplicationLauncher::msgWinCannotRetrieveDebuggingOutput());
-    connect(&d->m_outputParser, SIGNAL(waitingForConnectionMessage()),
+    connect(&d->m_outputParser, SIGNAL(waitingForConnectionOnPort(quint16)),
+            this, SLOT(processIsRunning(quint16)));
+    connect(&d->m_outputParser, SIGNAL(waitingForConnectionViaOst()),
             this, SLOT(processIsRunning()));
     connect(&d->m_outputParser, SIGNAL(noOutputMessage()),
             this, SLOT(processIsRunning()));
@@ -331,10 +333,19 @@ void QmlProfilerEngine::showNonmodalWarning(const QString &warningMsg)
     noExecWarning->show();
 }
 
-void QmlProfilerEngine::processIsRunning()
+void QmlProfilerEngine::processIsRunning(quint16 port)
 {
     d->m_noDebugOutputTimer.stop();
-    emit processRunning(d->m_runner->debugPort());
+
+    QTC_ASSERT(port == 0
+               || port == d->m_runner->debugPort(),
+               qWarning() << "Port " << port << "from application output does not match"
+               << startParameters().connParams.port << "from start parameters.");
+
+    if (port > 0)
+        emit processRunning(port);
+    else
+        emit processRunning(d->m_runner->debugPort());
 }
 
 } // namespace Internal

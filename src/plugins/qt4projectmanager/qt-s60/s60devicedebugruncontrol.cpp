@@ -84,7 +84,7 @@ static Debugger::DebuggerStartParameters s60DebuggerStartParams(const S60DeviceR
 
     sp.remoteChannel = activeDeployConf->serialPortName();
     sp.processArgs = rc->commandLineArguments();
-    if (rc->useQmlDebugger() && !rc->useCppDebugger()) {
+    if (rc->debuggerAspect()->useQmlDebugger() && !rc->debuggerAspect()->useCppDebugger()) {
         sp.requestRemoteSetup = true;
         sp.startMode = Debugger::AttachToRemoteServer;
     } else {
@@ -98,15 +98,15 @@ static Debugger::DebuggerStartParameters s60DebuggerStartParams(const S60DeviceR
     sp.serverPort = activeDeployConf->devicePort().toInt();
     sp.displayName = rc->displayName();
     sp.qmlServerAddress = activeDeployConf->deviceAddress();
-    sp.qmlServerPort = rc->qmlDebugServerPort();
-    if (rc->useQmlDebugger()) {
+    sp.qmlServerPort = rc->debuggerAspect()->qmlDebugServerPort();
+    if (rc->debuggerAspect()->useQmlDebugger()) {
         sp.languages |= Debugger::QmlLanguage;
         QString qmlArgs = rc->qmlCommandLineArguments();
         if (sp.processArgs.length())
             sp.processArgs.prepend(QLatin1Char(' '));
         sp.processArgs.prepend(qmlArgs);
     }
-    if (rc->useCppDebugger())
+    if (rc->debuggerAspect()->useCppDebugger())
         sp.languages |= Debugger::CppLanguage;
 
     sp.communicationChannel = activeDeployConf->communicationChannel() == S60DeployConfiguration::CommunicationCodaTcpConnection?
@@ -162,7 +162,7 @@ bool S60DeviceDebugRunControl::promptToStop(bool *) const
 void S60DeviceDebugRunControl::remoteSetupRequested()
 {
     // This is called from Engine->setupInferior(), ie InferiorSetupRequested state
-    QTC_ASSERT(runConfiguration()->useQmlDebugger() && !runConfiguration()->useCppDebugger(), return);
+    QTC_CHECK(runConfiguration()->debuggerAspect()->useQmlDebugger() && !runConfiguration()->debuggerAspect()->useCppDebugger());
     m_codaRunControl = new CodaRunControl(runConfiguration(), DebugRunMode);
     connect(m_codaRunControl, SIGNAL(connected()), this, SLOT(codaConnected()));
     connect(m_codaRunControl, SIGNAL(finished()), this, SLOT(codaFinished()));

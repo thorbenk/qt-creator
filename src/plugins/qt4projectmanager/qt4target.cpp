@@ -102,7 +102,7 @@ Qt4TargetSetupWidget *Qt4BaseTargetFactory::createTargetSetupWidget(const QStrin
                                                                              minimumQtVersion,
                                                                              maximumQtVersion,
                                                                              requiredFeatures);
-    if (infos.isEmpty())
+    if (infos.isEmpty() && importInfos.isEmpty())
         return 0;
     const bool supportsShadowBuilds
             = targetFeatures(id).contains(QLatin1String(Constants::SHADOWBUILD_TARGETFEATURE_ID));
@@ -1251,7 +1251,7 @@ QList<BuildConfigurationInfo> BuildConfigurationInfo::importBuildConfigurations(
     QList<Qt4BaseTargetFactory *> factories =
             ExtensionSystem::PluginManager::instance()->getObjects<Qt4BaseTargetFactory>();
     foreach (Qt4BaseTargetFactory *factory, factories) {
-        foreach (const QString &id, factory->supportedTargetIds(0)) {
+        foreach (const QString &id, factory->supportedTargetIds()) {
             QString expectedBuildprefix = factory->shadowBuildDirectory(proFilePath, id, QString());
             QString baseDir = QFileInfo(expectedBuildprefix).absolutePath();
             foreach (const QString &dir, QDir(baseDir).entryList()) {

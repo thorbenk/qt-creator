@@ -67,18 +67,15 @@ QVariantMap AnalyzerSettings::defaults() const
     return map;
 }
 
-bool AnalyzerSettings::fromMap(const QVariantMap &map)
+void AnalyzerSettings::fromMap(const QVariantMap &map)
 {
-    return fromMap(map, &m_subConfigs);
+    fromMap(map, &m_subConfigs);
 }
 
-bool AnalyzerSettings::fromMap(const QVariantMap &map, QList<AbstractAnalyzerSubConfig *> *subConfigs)
+void AnalyzerSettings::fromMap(const QVariantMap &map, QList<AbstractAnalyzerSubConfig *> *subConfigs)
 {
-    bool ret = true;
-    foreach (AbstractAnalyzerSubConfig *config, *subConfigs) {
-        ret = ret && config->fromMap(map);
-    }
-    return ret;
+    foreach (AbstractAnalyzerSubConfig *config, *subConfigs)
+        config->fromMap(map);
 }
 
 QVariantMap AnalyzerSettings::toMap() const
@@ -155,7 +152,7 @@ void AnalyzerGlobalSettings::registerTool(IAnalyzerTool *tool)
 }
 
 
-AnalyzerProjectSettings::AnalyzerProjectSettings(QObject *parent)
+AnalyzerRunConfigurationAspect::AnalyzerRunConfigurationAspect(QObject *parent)
     : AnalyzerSettings(parent), m_useGlobalSettings(true)
 {
     QList<IAnalyzerTool*> tools = AnalyzerManager::tools();
@@ -170,32 +167,30 @@ AnalyzerProjectSettings::AnalyzerProjectSettings(QObject *parent)
     resetCustomToGlobalSettings();
 }
 
-AnalyzerProjectSettings::~AnalyzerProjectSettings()
+AnalyzerRunConfigurationAspect::~AnalyzerRunConfigurationAspect()
 {
     qDeleteAll(m_customConfigurations);
 }
 
-QString AnalyzerProjectSettings::displayName() const
+QString AnalyzerRunConfigurationAspect::displayName() const
 {
     return tr("Analyzer Settings");
 }
 
-bool AnalyzerProjectSettings::fromMap(const QVariantMap &map)
+void AnalyzerRunConfigurationAspect::fromMap(const QVariantMap &map)
 {
-    if (!AnalyzerSettings::fromMap(map, &m_customConfigurations))
-        return false;
+    AnalyzerSettings::fromMap(map, &m_customConfigurations);
     m_useGlobalSettings = map.value(QLatin1String(useGlobalC), true).toBool();
-    return true;
 }
 
-QVariantMap AnalyzerProjectSettings::toMap() const
+QVariantMap AnalyzerRunConfigurationAspect::toMap() const
 {
     QVariantMap map = AnalyzerSettings::toMap(m_customConfigurations);
     map.insert(QLatin1String(useGlobalC), m_useGlobalSettings);
     return map;
 }
 
-void AnalyzerProjectSettings::setUsingGlobalSettings(bool value)
+void AnalyzerRunConfigurationAspect::setUsingGlobalSettings(bool value)
 {
     if (value == m_useGlobalSettings)
         return;
@@ -207,7 +202,7 @@ void AnalyzerProjectSettings::setUsingGlobalSettings(bool value)
     }
 }
 
-void AnalyzerProjectSettings::resetCustomToGlobalSettings()
+void AnalyzerRunConfigurationAspect::resetCustomToGlobalSettings()
 {
     AnalyzerGlobalSettings *gs = AnalyzerGlobalSettings::instance();
     AnalyzerSettings::fromMap(gs->toMap(), &m_customConfigurations);

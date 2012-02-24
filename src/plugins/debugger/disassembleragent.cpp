@@ -122,13 +122,12 @@ public:
 
 DisassemblerAgentPrivate::DisassemblerAgentPrivate()
   : editor(0),
+    locationMark(0),
     mimeType(_("text/x-qtcreator-generic-asm")),
     tryMixed(true),
     resetLocationScheduled(false)
 {
-    locationMark = new ITextMark;
-    locationMark->setIcon(debuggerCore()->locationMarkIcon());
-    locationMark->setPriority(TextEditor::ITextMark::HighPriority);
+
 }
 
 DisassemblerAgentPrivate::~DisassemblerAgentPrivate()
@@ -139,6 +138,7 @@ DisassemblerAgentPrivate::~DisassemblerAgentPrivate()
     }
     editor = 0;
     delete locationMark;
+    qDeleteAll(breakpointMarks);
 }
 
 DisassemblerLines DisassemblerAgentPrivate::contentsAtCurrentLocation() const
@@ -349,9 +349,16 @@ void DisassemblerAgent::updateLocationMarker()
     const DisassemblerLines contents = d->contentsAtCurrentLocation();
     int lineNumber = contents.lineForAddress(d->location.address());
     if (d->location.needsMarker()) {
-        d->editor->markableInterface()->removeMark(d->locationMark);
-        if (lineNumber)
-            d->editor->markableInterface()->addMark(d->locationMark, lineNumber);
+        if (d->locationMark)
+            d->editor->markableInterface()->removeMark(d->locationMark);
+        delete d->locationMark;
+        d->locationMark = 0;
+        if (lineNumber) {
+            d->locationMark = new ITextMark(lineNumber);
+            d->locationMark->setIcon(debuggerCore()->locationMarkIcon());
+            d->locationMark->setPriority(TextEditor::ITextMark::HighPriority);
+            d->editor->markableInterface()->addMark(d->locationMark);
+        }
     }
 
     QPlainTextEdit *plainTextEdit =
@@ -377,6 +384,7 @@ void DisassemblerAgent::updateBreakpointMarkers()
     const DisassemblerLines contents = d->contentsAtCurrentLocation();
     foreach (TextEditor::ITextMark *marker, d->breakpointMarks)
         d->editor->markableInterface()->removeMark(marker);
+    qDeleteAll(d->breakpointMarks);
     d->breakpointMarks.clear();
     foreach (BreakpointModelId id, ids) {
         const quint64 address = handler->response(id).address;
@@ -385,11 +393,11 @@ void DisassemblerAgent::updateBreakpointMarkers()
         const int lineNumber = contents.lineForAddress(address);
         if (!lineNumber)
             continue;
-        ITextMark *marker = new ITextMark;
+        ITextMark *marker = new ITextMark(lineNumber);
         marker->setIcon(handler->icon(id));
         marker->setPriority(ITextMark::NormalPriority);
         d->breakpointMarks.append(marker);
-        d->editor->markableInterface()->addMark(marker, lineNumber);
+        d->editor->markableInterface()->addMark(marker);
     }
 }
 

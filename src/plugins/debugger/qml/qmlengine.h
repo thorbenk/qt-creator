@@ -34,7 +34,7 @@
 #define DEBUGGER_QMLENGINE_H
 
 #include "debuggerengine.h"
-
+#include <qmljsdebugclient/qdeclarativeenginedebug.h>
 #include <utils/outputformat.h>
 
 #include <QAbstractSocket>
@@ -53,6 +53,7 @@ class QmlAdapter;
 
 namespace Internal {
 
+class QtMessageLogItem;
 class QmlEnginePrivate;
 
 class QmlEngine : public DebuggerEngine
@@ -96,6 +97,8 @@ private slots:
     void retryMessageBoxFinished(int result);
     void wrongSetupMessageBox(const QString &errorMessage);
     void wrongSetupMessageBoxFinished(int result);
+    void updateCurrentContext();
+    void appendDebugOutput(QtMsgType type, const QString &message);
 
 private:
     // DebuggerEngine implementation.
@@ -147,6 +150,7 @@ private:
     void updateWatchData(const WatchData &data,
         const WatchUpdateFlags &flags);
     void executeDebuggerCommand(const QString &command);
+    bool evaluateScriptExpression(const QString &expression);
 
     bool hasCapability(unsigned) const;
 
@@ -155,7 +159,7 @@ signals:
         TextEditor::ITextEditor *editor, int cursorPos);
 
 private slots:
-    void beginConnection();
+    void beginConnection(quint16 port = 0);
     void connectionEstablished();
     void connectionStartupFailed();
     void connectionError(QAbstractSocket::SocketError error);
@@ -163,6 +167,8 @@ private slots:
     void appendMessage(const QString &msg, Utils::OutputFormat);
 
     void synchronizeWatchers();
+    void onDebugQueryStateChanged(
+            QmlJsDebugClient::QDeclarativeDebugQuery::State state);
 
 private:
     void closeConnection();
@@ -176,6 +182,9 @@ private:
     QString qmlImportPath() const;
 
     void updateEditor(Core::IEditor *editor, const QTextDocument *document);
+    bool canEvaluateScript(const QString &script);
+    QtMessageLogItem *constructLogItemTree(const QVariant &result,
+                                           const QString &key = QString());
 
 private:
     friend class QmlCppEngine;

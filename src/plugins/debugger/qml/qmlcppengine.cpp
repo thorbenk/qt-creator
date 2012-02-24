@@ -36,6 +36,7 @@
 #include "debuggerstartparameters.h"
 #include "stackhandler.h"
 #include "qmlengine.h"
+#include "qtmessageloghandler.h"
 
 #include <coreplugin/icore.h>
 #include <utils/qtcassert.h>
@@ -316,6 +317,19 @@ void QmlCppEngine::assignValueInDebugger(const WatchData *data,
     d->m_activeEngine->assignValueInDebugger(data, expr, value);
 }
 
+void QmlCppEngine::notifyInferiorIll()
+{
+    //This will eventually shutdown the engine
+    //Set final state to avoid quitDebugger() being called
+    //after this call
+    setTargetState(DebuggerFinished);
+
+    //Call notifyInferiorIll of cpp engine
+    //as qml engine will follow state transitions
+    //of cpp engine
+    d->m_cppEngine->notifyInferiorIll();
+}
+
 void QmlCppEngine::detachDebugger()
 {
     d->m_qmlEngine->detachDebugger();
@@ -424,6 +438,11 @@ void QmlCppEngine::executeDebuggerCommand(const QString &command)
     } else {
         d->m_cppEngine->executeDebuggerCommand(command);
     }
+}
+
+bool QmlCppEngine::evaluateScriptExpression(const QString &expression)
+{
+    return d->m_qmlEngine->evaluateScriptExpression(expression);
 }
 
 /////////////////////////////////////////////////////////
@@ -809,6 +828,11 @@ void QmlCppEngine::resetLocation()
         d->m_cppEngine->resetLocation();
 
     DebuggerEngine::resetLocation();
+}
+
+Internal::QtMessageLogHandler *QmlCppEngine::qtMessageLogHandler() const
+{
+    return d->m_qmlEngine->qtMessageLogHandler();
 }
 
 DebuggerEngine *QmlCppEngine::cppEngine() const

@@ -39,7 +39,6 @@
 #include <texteditor/semantichighlighter.h>
 
 #include <QFuture>
-#include <QObject>
 
 namespace TextEditor {
 class ITextEditor;
@@ -47,10 +46,8 @@ class ITextEditor;
 
 namespace CppTools {
 
-class CPPTOOLS_EXPORT CppHighlightingSupport: public QObject
+class CPPTOOLS_EXPORT CppHighlightingSupport
 {
-    Q_OBJECT
-
 public:
     typedef TextEditor::SemanticHighlighter::Result Use;
 

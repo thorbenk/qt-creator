@@ -85,14 +85,13 @@ MaemoRunConfigurationWidget::MaemoRunConfigurationWidget(
     addMountWidgets(subLayout);
     connect(m_runConfiguration, SIGNAL(deviceConfigurationChanged(ProjectExplorer::Target*)),
         this, SLOT(updateMountWarning()));
-    connect(m_runConfiguration, SIGNAL(debuggersChanged()), SLOT(updateMountWarning()));
+    connect(m_runConfiguration->debuggerAspect(), SIGNAL(debuggersChanged()),
+            SLOT(updateMountWarning()));
     updateMountWarning();
 
     const AbstractQt4MaemoTarget * const maemoTarget
         = qobject_cast<AbstractQt4MaemoTarget *>(runConfiguration->target());
     m_mountDetailsContainer->setVisible(maemoTarget->allowsRemoteMounts());
-    if (!maemoTarget->allowsQmlDebugging())
-        m_remoteLinuxRunConfigWidget->suppressQmlDebuggingOptions();
 
     connect(m_runConfiguration, SIGNAL(isEnabledChanged(bool)),
             this, SLOT(runConfigurationEnabledChange(bool)));

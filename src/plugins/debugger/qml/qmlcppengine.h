@@ -96,6 +96,10 @@ public:
         int timeout = -1) const;
     void resetLocation();
 
+    Internal::QtMessageLogHandler *qtMessageLogHandler() const;
+
+    void notifyInferiorIll();
+
 protected:
     void detachDebugger();
     void executeStep();
@@ -112,6 +116,7 @@ protected:
     void executeRunToFunction(const QString &functionName);
     void executeJumpToLine(const ContextData &data);
     void executeDebuggerCommand(const QString &command);
+    bool evaluateScriptExpression(const QString &expression);
 
     void setupEngine();
     void setupInferior();

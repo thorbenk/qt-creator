@@ -114,14 +114,21 @@ QList<Task> TaskModel::tasks(const Core::Id &categoryId) const
     return taskList;
 }
 
+bool sortById(const Task &task, unsigned int id)
+{
+    return task.taskId < id;
+}
+
 void TaskModel::addTask(const Task &task)
 {
     Q_ASSERT(m_categories.keys().contains(task.category));
     CategoryData &data = m_categories[task.category];
     CategoryData &global = m_categories[Core::Id()];
 
-    beginInsertRows(QModelIndex(), m_tasks.count(), m_tasks.count());
-    m_tasks.append(task);
+    QList<Task>::iterator it = qLowerBound(m_tasks.begin(), m_tasks.end(),task.taskId, sortById);
+    int i = it - m_tasks.begin();
+    beginInsertRows(QModelIndex(), i, i);
+    m_tasks.insert(it, task);
     data.addTask(task);
     global.addTask(task);
     endInsertRows();
@@ -143,12 +150,13 @@ void TaskModel::removeTask(const Task &task)
 
 void TaskModel::updateTaskLineNumber(unsigned int id, int line)
 {
-    for (int i = 0; i < m_tasks.count(); ++i) {
-        if (m_tasks.at(i).taskId == id) {
-            m_tasks[i].movedLine = line;
-            emit dataChanged(index(i, 0), index(i, 0));
-            return;
-        }
+    QList<Task>::iterator it = qLowerBound(m_tasks.begin(), m_tasks.end(), id, sortById);
+    QTC_ASSERT(it != m_tasks.end(), return)
+    int i = it - m_tasks.begin();
+    if (m_tasks.at(i).taskId == id) {
+        m_tasks[i].movedLine = line;
+        emit dataChanged(index(i, 0), index(i, 0));
+        return;
     }
 }
 
@@ -311,7 +319,7 @@ void TaskModel::setFileNotFound(const QModelIndex &idx, bool b)
 // TaskFilterModel
 /////
 
-TaskFilterModel::TaskFilterModel(TaskModel *sourceModel, QObject *parent) : TaskModel(parent),
+TaskFilterModel::TaskFilterModel(TaskModel *sourceModel, QObject *parent) : QAbstractItemModel(parent),
     m_sourceModel(sourceModel)
 {
     Q_ASSERT(m_sourceModel);

@@ -91,7 +91,7 @@ unsigned Bind::location(NameAST *name, unsigned defaultLocation) const
         return defaultLocation;
 
     else if (DestructorNameAST *dtor = name->asDestructorName())
-        return dtor->identifier_token;
+        return location(dtor->unqualified_name, defaultLocation);
 
     else if (TemplateIdAST *templId = name->asTemplateId())
         return templId->identifier_token;
@@ -358,12 +358,13 @@ FullySpecifiedType Bind::declarator(DeclaratorAST *ast, const FullySpecifiedType
         if (type.isAuto())
             isAuto = true;
     }
-    // unsigned equals_token = ast->equals_token;
-    ExpressionTy initializer = this->expression(ast->initializer);
-    if (translationUnit()->cxx0xEnabled() && isAuto) {
+    if (!type->isFunctionType()) {
+        ExpressionTy initializer = this->expression(ast->initializer);
+        if (translationUnit()->cxx0xEnabled() && isAuto) {
 
-        type = initializer;
-        type.setAuto(true);
+            type = initializer;
+            type.setAuto(true);
+        }
     }
 
     std::swap(_declaratorId, declaratorId);
@@ -1233,6 +1234,56 @@ bool Bind::visit(ExpressionStatementAST *ast)
 }
 
 bool Bind::visit(ForeachStatementAST *ast)
+{
+    Block *block = control()->newBlock(ast->firstToken());
+    const unsigned startScopeToken = ast->lparen_token ? ast->lparen_token : ast->firstToken();
+    block->setStartOffset(tokenAt(startScopeToken).end());
+    block->setEndOffset(tokenAt(ast->lastToken()).begin());
+    _scope->addMember(block);
+    ast->symbol = block;
+
+    Scope *previousScope = switchScope(block);
+
+    FullySpecifiedType type;
+    for (SpecifierListAST *it = ast->type_specifier_list; it; it = it->next) {
+        type = this->specifier(it->value, type);
+    }
+    DeclaratorIdAST *declaratorId = 0;
+    type = this->declarator(ast->declarator, type, &declaratorId);
+    const StringLiteral *initializer = 0;
+    if (type.isAuto() && translationUnit()->cxx0xEnabled()) {
+        ExpressionTy exprType = this->expression(ast->expression);
+
+        ArrayType* arrayType = 0;
+        arrayType = exprType->asArrayType();
+
+        if (arrayType != 0)
+            type = arrayType->elementType();
+        else if (ast->expression != 0) {
+            unsigned startOfExpression = ast->expression->firstToken();
+            unsigned endOfExpression = ast->expression->lastToken();
+            const StringLiteral *sl = asStringLiteral(startOfExpression, endOfExpression);
+            const std::string buff = std::string("*") + sl->chars() + ".begin()";
+            initializer = control()->stringLiteral(buff.c_str(), buff.size());
+        }
+    }
+
+    if (declaratorId && declaratorId->name) {
+        unsigned sourceLocation = location(declaratorId->name, ast->firstToken());
+        Declaration *decl = control()->newDeclaration(sourceLocation, declaratorId->name->name);
+        decl->setType(type);
+        decl->setInitializer(initializer);
+        block->addMember(decl);
+    }
+
+    /*ExpressionTy initializer =*/ this->expression(ast->initializer);
+    /*ExpressionTy expression =*/ this->expression(ast->expression);
+    this->statement(ast->statement);
+    (void) switchScope(previousScope);
+    return false;
+}
+
+bool Bind::visit(RangeBasedForStatementAST *ast)
 {
     Block *block = control()->newBlock(ast->firstToken());
     const unsigned startScopeToken = ast->lparen_token ? ast->lparen_token : ast->firstToken();
@@ -2574,8 +2625,7 @@ bool Bind::visit(SimpleNameAST *ast)
 
 bool Bind::visit(DestructorNameAST *ast)
 {
-    const Identifier *id = identifier(ast->identifier_token);
-    _name = control()->destructorNameId(id);
+    _name = control()->destructorNameId(name(ast->unqualified_name));
     ast->name = _name;
     return false;
 }
@@ -3036,6 +3086,8 @@ bool Bind::visit(FunctionDeclaratorAST *ast)
     Function *fun = control()->newFunction(0, 0);
     fun->setStartOffset(tokenAt(ast->firstToken()).begin());
     fun->setEndOffset(tokenAt(ast->lastToken() - 1).end());
+    if (ast->trailing_return_type)
+        _type = this->trailingReturnType(ast->trailing_return_type, _type);
     fun->setReturnType(_type);
 
     // unsigned lparen_token = ast->lparen_token;
@@ -3051,7 +3103,6 @@ bool Bind::visit(FunctionDeclaratorAST *ast)
     fun->setVolatile(type.isVolatile());
 
     this->exceptionSpecification(ast->exception_specification, type);
-    this->trailingReturnType(ast->trailing_return_type, type);
     if (ast->as_cpp_initializer != 0) {
         fun->setAmbiguous(true);
         /*ExpressionTy as_cpp_initializer =*/ this->expression(ast->as_cpp_initializer);

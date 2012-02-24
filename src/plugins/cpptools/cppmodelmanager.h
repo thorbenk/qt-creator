@@ -157,10 +157,10 @@ public:
 #endif // CLANG_INDEXING
 
     virtual CppCompletionSupport *completionSupport(Core::IEditor *editor) const;
-    void setCompletionSupportFactory(CppCompletionSupportFactory *completionFactory);
+    virtual void setCppCompletionAssistProvider(CppCompletionAssistProvider *completionAssistProvider);
 
     virtual CppHighlightingSupport *highlightingSupport(Core::IEditor *editor) const;
-    void setHighlightingSupportFactory(CppHighlightingSupportFactory *highlightingFactory);
+    virtual void setHighlightingSupportFactory(CppHighlightingSupportFactory *highlightingFactory);
 
 Q_SIGNALS:
     void projectPathChanged(const QString &projectPath);
@@ -273,8 +273,8 @@ private:
 
     QMap<QString, QList<ProjectPart::Ptr> > m_srcToProjectPart;
 
-    CppCompletionSupportFactory *m_completionFactory;
-    CppCompletionSupportFactory *m_completionFallback;
+    CppCompletionAssistProvider *m_completionAssistProvider;
+    CppCompletionAssistProvider *m_completionFallback;
     CppHighlightingSupportFactory *m_highlightingFactory;
     CppHighlightingSupportFactory *m_highlightingFallback;
 };

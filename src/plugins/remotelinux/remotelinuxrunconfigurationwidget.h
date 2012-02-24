@@ -60,7 +60,6 @@ public:
     void addFormLayoutRow(QWidget *label, QWidget *field);
 
     void addDisabledLabel(QVBoxLayout *topLayout);
-    void suppressQmlDebuggingOptions();
     Q_SLOT void runConfigurationEnabledChange(bool enabled);
 
 private slots:
@@ -77,7 +76,6 @@ private slots:
     void baseEnvironmentChanged();
     void remoteEnvironmentChanged();
     void userEnvironmentChangesChanged(const QList<Utils::EnvironmentItem> &userChanges);
-    void handleDebuggingTypeChanged();
     void handleDeploySpecsChanged();
     void handleUseAlternateCommandChanged();
     void handleAlternateCommandChanged();

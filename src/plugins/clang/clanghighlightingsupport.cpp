@@ -7,50 +7,19 @@
 #include <QTextBlock>
 #include <QTextEdit>
 
+
 using namespace Clang;
+using namespace Clang::Internal;
 using namespace CppTools;
 
-ClangHighlightingSupport::ClangHighlightingSupport(TextEditor::ITextEditor *textEditor)
-    : CppHighlightingSupport(textEditor)
-    , m_semanticMarker(new Clang::SemanticMarker)
+DiagnosticsHandler::DiagnosticsHandler(TextEditor::ITextEditor *textEditor)
+    : m_editor(textEditor)
 {
 }
 
-ClangHighlightingSupport::~ClangHighlightingSupport()
+void DiagnosticsHandler::setDiagnostics(const QList<Clang::Diagnostic> &diagnostics)
 {
-}
-
-QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFuture(
-        const CPlusPlus::Document::Ptr &doc,
-        const CPlusPlus::Snapshot &snapshot) const
-{
-    Q_UNUSED(doc);
-    Q_UNUSED(snapshot);
-
-    TextEditor::BaseTextEditorWidget *ed = qobject_cast<TextEditor::BaseTextEditorWidget *>(editor()->widget());
-    int firstLine = 1;
-    int lastLine = ed->document()->blockCount();
-
-    const QString fileName = editor()->document()->fileName();
-    CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
-    QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
-    QStringList options;
-    foreach (const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part, parts) {
-        options = Utils::createClangOptions(part);
-        if (!options.isEmpty())
-            break;
-    }
-
-    //### FIXME: the range is way too big.. can't we just update the visible lines?
-    CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker, fileName, options, firstLine, lastLine);
-    connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
-            this, SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
-    return createMarkers->start();
-}
-
-void ClangHighlightingSupport::setDiagnostics(const QList<Clang::Diagnostic> &diagnostics)
-{
-    TextEditor::BaseTextEditorWidget *ed = qobject_cast<TextEditor::BaseTextEditorWidget *>(editor()->widget());
+    TextEditor::BaseTextEditorWidget *ed = qobject_cast<TextEditor::BaseTextEditorWidget *>(m_editor->widget());
     // set up the format for the errors
     QTextCharFormat errorFormat;
     errorFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
@@ -102,7 +71,44 @@ void ClangHighlightingSupport::setDiagnostics(const QList<Clang::Diagnostic> &di
     ed->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection, selections);
 }
 
+ClangHighlightingSupport::ClangHighlightingSupport(TextEditor::ITextEditor *textEditor)
+    : CppHighlightingSupport(textEditor)
+    , m_semanticMarker(new Clang::SemanticMarker)
+    , m_diagnosticsHandler(new DiagnosticsHandler(textEditor))
+{
+}
 
+ClangHighlightingSupport::~ClangHighlightingSupport()
+{
+}
+
+QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFuture(
+        const CPlusPlus::Document::Ptr &doc,
+        const CPlusPlus::Snapshot &snapshot) const
+{
+    Q_UNUSED(doc);
+    Q_UNUSED(snapshot);
+
+    TextEditor::BaseTextEditorWidget *ed = qobject_cast<TextEditor::BaseTextEditorWidget *>(editor()->widget());
+    int firstLine = 1;
+    int lastLine = ed->document()->blockCount();
+
+    const QString fileName = editor()->document()->fileName();
+    CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
+    QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+    QStringList options;
+    foreach (const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part, parts) {
+        options = Utils::createClangOptions(part);
+        if (!options.isEmpty())
+            break;
+    }
+
+    //### FIXME: the range is way too big.. can't we just update the visible lines?
+    CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker, fileName, options, firstLine, lastLine);
+    QObject::connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
+                     m_diagnosticsHandler.data(), SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
+    return createMarkers->start();
+}
 
 ClangHighlightingSupportFactory::~ClangHighlightingSupportFactory()
 {

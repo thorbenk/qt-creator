@@ -171,6 +171,7 @@ protected:
     virtual bool visit(ExpressionOrDeclarationStatementAST *ast);
     virtual bool visit(ExpressionStatementAST *ast);
     virtual bool visit(ForeachStatementAST *ast);
+    virtual bool visit(RangeBasedForStatementAST *ast);
     virtual bool visit(ForStatementAST *ast);
     virtual bool visit(IfStatementAST *ast);
     virtual bool visit(LabeledStatementAST *ast);
@@ -258,7 +259,6 @@ protected:
     virtual bool visit(OperatorFunctionIdAST *ast);
     virtual bool visit(ConversionFunctionIdAST *ast);
     virtual bool visit(SimpleNameAST *ast);
-    virtual bool visit(DestructorNameAST *ast);
     virtual bool visit(TemplateIdAST *ast);
 
     // SpecifierAST

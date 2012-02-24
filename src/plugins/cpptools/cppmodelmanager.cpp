@@ -34,8 +34,7 @@
 #include <cplusplus/Overview.h>
 
 #include "cppmodelmanager.h"
-#include "cppcompletionsupport.h"
-#include "cppcompletionsupportinternal.h"
+#include "cppcompletionassist.h"
 #include "cpphighlightingsupport.h"
 #include "cpphighlightingsupportinternal.h"
 #include "abstracteditorsupport.h"
@@ -744,14 +743,16 @@ CppModelManager::CppModelManager(QObject *parent)
     connect(Core::ICore::editorManager(), SIGNAL(editorAboutToClose(Core::IEditor *)),
         this, SLOT(editorAboutToClose(Core::IEditor *)));
 
-    m_completionFallback = new CppCompletionSupportInternalFactory;
-    m_completionFactory = m_completionFallback;
+    m_completionFallback = new InternalCompletionAssistProvider;
+    m_completionAssistProvider = m_completionFallback;
+    ExtensionSystem::PluginManager::instance()->addObject(m_completionAssistProvider);
     m_highlightingFallback = new CppHighlightingSupportInternalFactory;
     m_highlightingFactory = m_highlightingFallback;
 }
 
 CppModelManager::~CppModelManager()
 {
+    ExtensionSystem::PluginManager::instance()->removeObject(m_completionAssistProvider);
     delete m_completionFallback;
     delete m_highlightingFallback;
 }
@@ -948,13 +949,10 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 
     m_srcToProjectPart.clear();
 
-    foreach (const ProjectInfo &projectInfo, m_projects.values()) {
-        foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts()) {
-            foreach (const QString &sourceFile, projectPart->sourceFiles) {
+    foreach (const ProjectInfo &projectInfo, m_projects.values())
+        foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts())
+            foreach (const QString &sourceFile, projectPart->sourceFiles)
                 m_srcToProjectPart[sourceFile].append(projectPart);
-            }
-        }
-    }
 }
 
 QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
@@ -1150,22 +1148,6 @@ void CppModelManager::updateEditor(Document::Ptr doc)
 
             QList<QTextEdit::ExtraSelection> selections;
 
-#ifdef QTCREATOR_WITH_MACRO_HIGHLIGHTING
-            // set up the format for the macros
-            QTextCharFormat macroFormat;
-            macroFormat.setUnderlineStyle(QTextCharFormat::SingleUnderline);
-
-            QTextCursor c = ed->textCursor();
-            foreach (const Document::MacroUse &block, doc->macroUses()) {
-                QTextEdit::ExtraSelection sel;
-                sel.cursor = c;
-                sel.cursor.setPosition(block.begin());
-                sel.cursor.setPosition(block.end(), QTextCursor::KeepAnchor);
-                sel.format = macroFormat;
-                selections.append(sel);
-            }
-#endif // QTCREATOR_WITH_MACRO_HIGHLIGHTING
-
             // set up the format for the errors
             QTextCharFormat errorFormat;
             errorFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
@@ -1176,52 +1158,6 @@ void CppModelManager::updateEditor(Document::Ptr doc)
             warningFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
             warningFormat.setUnderlineColor(Qt::darkYellow);
 
-#ifdef QTCREATOR_WITH_ADVANCED_HIGHLIGHTER
-            QSet<QPair<unsigned, unsigned> > lines;
-            foreach (const Document::DiagnosticMessage &m, doc->diagnosticMessages()) {
-                if (m.fileName() != fileName)
-                    continue;
-
-                const QPair<unsigned, unsigned> coordinates = qMakePair(m.line(), m.column());
-
-                if (lines.contains(coordinates))
-                    continue;
-
-                lines.insert(coordinates);
-
-                QTextEdit::ExtraSelection sel;
-                if (m.isWarning())
-                    sel.format = warningFormat;
-                else
-                    sel.format = errorFormat;
-
-                QTextCursor c(ed->document()->findBlockByNumber(m.line() - 1));
-
-                // ### check for generated tokens.
-
-                int column = m.column();
-
-                if (column > c.block().length()) {
-                    column = 0;
-
-                    const QString text = c.block().text();
-                    for (int i = 0; i < text.size(); ++i) {
-                        if (! text.at(i).isSpace()) {
-                            ++column;
-                            break;
-                        }
-                    }
-                }
-
-                if (column != 0)
-                    --column;
-
-                c.setPosition(c.position() + column);
-                c.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
-                sel.cursor = c;
-                selections.append(sel);
-            }
-#else
             QSet<int> lines;
             QList<Document::DiagnosticMessage> messages = doc->diagnosticMessages();
             messages += extraDiagnostics(doc->fileName());
@@ -1252,7 +1188,7 @@ void CppModelManager::updateEditor(Document::Ptr doc)
                 sel.format.setToolTip(m.text());
                 selections.append(sel);
             }
-#endif
+
             QList<Editor> todo;
             foreach (const Editor &e, todo) {
                 if (e.textEditor != textEditor)
@@ -1484,17 +1420,19 @@ void CppModelManager::finishedRefreshingSourceFiles(const QStringList &files)
 CppCompletionSupport *CppModelManager::completionSupport(Core::IEditor *editor) const
 {
     if (TextEditor::ITextEditor *textEditor = qobject_cast<TextEditor::ITextEditor *>(editor))
-        return m_completionFactory->completionSupport(textEditor);
+        return m_completionAssistProvider->completionSupport(textEditor);
     else
         return 0;
 }
 
-void CppModelManager::setCompletionSupportFactory(CppCompletionSupportFactory *completionFactory)
+void CppModelManager::setCppCompletionAssistProvider(CppCompletionAssistProvider *completionAssistProvider)
 {
-    if (completionFactory)
-        m_completionFactory = completionFactory;
+    ExtensionSystem::PluginManager::instance()->removeObject(m_completionAssistProvider);
+    if (completionAssistProvider)
+        m_completionAssistProvider = completionAssistProvider;
     else
-        m_completionFactory = m_completionFallback;
+        m_completionAssistProvider = m_completionFallback;
+    ExtensionSystem::PluginManager::instance()->addObject(m_completionAssistProvider);
 }
 
 CppHighlightingSupport *CppModelManager::highlightingSupport(Core::IEditor *editor) const

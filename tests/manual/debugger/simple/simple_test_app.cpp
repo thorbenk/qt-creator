@@ -2706,9 +2706,21 @@ namespace stdptr {
         #endif
     }
 
+    void testStdSharedPtr()
+    {
+        #ifdef USE_CXX11
+        std::shared_ptr<int> p(new int(32));
+        BREAK_HERE;
+        // Check p 32 std::shared_ptr<int, std::default_delete<int> >.
+        // Continue.
+        dummyStatement(&p);
+        #endif
+    }
+
     void testStdPtr()
     {
         testStdUniquePtr();
+        testStdSharedPtr();
     }
 
 } // namespace stdptr
@@ -5283,7 +5295,7 @@ namespace mpi {
                 >     }}
                 > }
         */
-
+        dummyStatement(&i);
     }
 
 } // namespace mpi
@@ -5791,6 +5803,29 @@ namespace bug6858 {
     }
 }
 
+namespace bug6933 {
+
+    class Base
+    {
+    public:
+        virtual ~Base() {}
+        int a;
+    };
+
+    class Derived : public Base
+    {
+    };
+
+    void test6933()
+    {
+        Derived d;
+        Base *b = &d;
+        BREAK_HERE;
+        // Expand b b.bug6933::Base
+        // Check b.bug6933::Base.[vptr]
+        dummyStatement(&d, b);
+    }
+}
 
 namespace varargs {
 
@@ -6084,6 +6119,7 @@ int main(int argc, char *argv[])
     bug6465::test6465();
     bug6857::test6857();
     bug6858::test6858();
+    bug6933::test6933();
     gdb13393::test13393();
     gdb10586::test10586();
 
