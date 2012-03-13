@@ -136,7 +136,7 @@ public:
 
     ConnectMode m_connectMode;
     QString m_tcpHost;
-    quint64 m_tcpPort;
+    quint16 m_tcpPort;
     QString m_ostDevice;
     QString m_sysroot;
     QAction *m_saveQmlTrace;
@@ -364,7 +364,7 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
     d->m_projectFinder.setProjectFiles(sourceFiles);
     d->m_projectFinder.setSysroot(sp.sysroot);
 
-    connect(engine, SIGNAL(processRunning(int)), this, SLOT(connectClient(int)));
+    connect(engine, SIGNAL(processRunning(quint16)), this, SLOT(connectClient(quint16)));
     connect(engine, SIGNAL(finished()), this, SLOT(disconnectClient()));
     connect(engine, SIGNAL(finished()), this, SLOT(updateTimers()));
     connect(engine, SIGNAL(stopRecording()), this, SLOT(stopRecording()));
@@ -531,9 +531,10 @@ QWidget *QmlProfilerTool::createWidgets()
     return toolbarWidget;
 }
 
-void QmlProfilerTool::connectClient(int port)
+void QmlProfilerTool::connectClient(quint16 port)
 {
-    QTC_ASSERT(!d->m_client, return;)
+    if (d->m_client)
+        delete d->m_client;
     d->m_client = new QDeclarativeDebugConnection;
     d->m_traceWindow->reset(d->m_client);
     connect(d->m_client, SIGNAL(stateChanged(QAbstractSocket::SocketState)),
@@ -549,10 +550,10 @@ void QmlProfilerTool::connectToClient()
         return;
 
     if (d->m_connectMode == QmlProfilerToolPrivate::TcpConnection) {
-        logStatus(QString("QML Profiler: Connecting to %1:%2 ...").arg(d->m_tcpHost, QString::number(d->m_tcpPort)));
+        logStatus(QString("QML Profiler: Connecting to %1:%2...").arg(d->m_tcpHost, QString::number(d->m_tcpPort)));
         d->m_client->connectToHost(d->m_tcpHost, d->m_tcpPort);
     } else {
-        logStatus(QString("QML Profiler: Connecting to %1 ...").arg(d->m_tcpHost));
+        logStatus(QString("QML Profiler: Connecting to %1...").arg(d->m_tcpHost));
         d->m_client->connectToOst(d->m_ostDevice);
     }
 }

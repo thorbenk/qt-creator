@@ -286,6 +286,8 @@ public:
 
     virtual void notifyInferiorIll();
 
+    QString toFileInProject(const QUrl &fileUrl);
+
 signals:
     void stateChanged(const Debugger::DebuggerState &state);
     // A new stack frame is on display including locals.
@@ -403,6 +405,7 @@ protected:
         DebuggerState state);
 
     virtual void handleAutoTests();
+    virtual bool isAutoTestRunning() const;
 
 private:
     // Wrapper engine needs access to state of its subengines.

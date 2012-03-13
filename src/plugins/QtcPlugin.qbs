@@ -7,7 +7,7 @@ Product {
 
     Depends { name: "pluginspec" }
     Depends { name: 'cpp' }
-    cpp.defines: [ name.toUpperCase() + "_LIBRARY" ]
+    cpp.defines: [name.toUpperCase() + "_LIBRARY"]
     cpp.rpaths: ["$ORIGIN/../../.."]
 
     Group {

@@ -43,6 +43,7 @@
 #include <remotelinux/genericlinuxdeviceconfigurationwidget.h>
 #include <utils/qtcassert.h>
 
+using namespace ProjectExplorer;
 using namespace RemoteLinux;
 
 namespace Madde {
@@ -53,7 +54,7 @@ const char MaddeRemoteProcessesActionId[] = "Madde.RemoteProcessesAction";
 } // anonymous namespace
 
 MaddeDeviceConfigurationFactory::MaddeDeviceConfigurationFactory(QObject *parent)
-    : ILinuxDeviceConfigurationFactory(parent)
+    : IDeviceFactory(parent)
 {
 }
 
@@ -62,30 +63,39 @@ QString MaddeDeviceConfigurationFactory::displayName() const
     return tr("Device with MADDE support (Fremantle, Harmattan, MeeGo)");
 }
 
-ILinuxDeviceConfigurationWizard *MaddeDeviceConfigurationFactory::createWizard(QWidget *parent) const
+IDeviceWizard *MaddeDeviceConfigurationFactory::createWizard(QWidget *parent) const
 {
     return new MaemoDeviceConfigWizard(parent);
 }
 
-ILinuxDeviceConfigurationWidget *MaddeDeviceConfigurationFactory::createWidget(
-        const LinuxDeviceConfiguration::Ptr &deviceConfig,
+IDeviceWidget *MaddeDeviceConfigurationFactory::createWidget(const IDevice::Ptr &device,
         QWidget *parent) const
 {
-    return new GenericLinuxDeviceConfigurationWidget(deviceConfig, parent);
+    return new GenericLinuxDeviceConfigurationWidget(device.staticCast<LinuxDeviceConfiguration>(),
+        parent);
 }
 
-bool MaddeDeviceConfigurationFactory::supportsOsType(const QString &osType) const
+IDevice::Ptr MaddeDeviceConfigurationFactory::loadDevice(const QVariantMap &map) const
 {
-    return osType == QLatin1String(Maemo5OsType) || osType == QLatin1String(HarmattanOsType)
-        || osType == QLatin1String(MeeGoOsType);
+    QTC_ASSERT(supportsDeviceType(IDevice::typeFromMap(map)),
+        return LinuxDeviceConfiguration::Ptr());
+    LinuxDeviceConfiguration::Ptr device = LinuxDeviceConfiguration::create();
+    device->fromMap(map);
+    return device;
 }
 
-QString MaddeDeviceConfigurationFactory::displayNameForOsType(const QString &osType) const
+bool MaddeDeviceConfigurationFactory::supportsDeviceType(const QString &type) const
 {
-    QTC_ASSERT(supportsOsType(osType), return QString());
-    if (osType == QLatin1String(Maemo5OsType))
+    return type == QLatin1String(Maemo5OsType) || type == QLatin1String(HarmattanOsType)
+        || type == QLatin1String(MeeGoOsType);
+}
+
+QString MaddeDeviceConfigurationFactory::displayNameForDeviceType(const QString &deviceType) const
+{
+    QTC_ASSERT(supportsDeviceType(deviceType), return QString());
+    if (deviceType == QLatin1String(Maemo5OsType))
         return tr("Maemo5/Fremantle");
-    if (osType == QLatin1String(HarmattanOsType))
+    if (deviceType == QLatin1String(HarmattanOsType))
         return tr("MeeGo 1.2 Harmattan");
     return tr("Other MeeGo OS");
 }
@@ -111,16 +121,18 @@ QString MaddeDeviceConfigurationFactory::displayNameForActionId(const QString &a
 }
 
 QDialog *MaddeDeviceConfigurationFactory::createDeviceAction(const QString &actionId,
-    const LinuxDeviceConfiguration::ConstPtr &deviceConfig, QWidget *parent) const
+    const IDevice::ConstPtr &device, QWidget *parent) const
 {
     Q_ASSERT(supportedDeviceActionIds().contains(actionId));
 
+    const LinuxDeviceConfiguration::ConstPtr lDevice
+        = device.staticCast<const LinuxDeviceConfiguration>();
     if (actionId == QLatin1String(MaddeDeviceTestActionId))
-        return new LinuxDeviceTestDialog(deviceConfig, new MaddeDeviceTester, parent);
+        return new LinuxDeviceTestDialog(lDevice, new MaddeDeviceTester, parent);
     if (actionId == QLatin1String(MaddeRemoteProcessesActionId))
-        return new RemoteLinuxProcessesDialog(new GenericRemoteLinuxProcessList(deviceConfig), parent);
+        return new RemoteLinuxProcessesDialog(new GenericRemoteLinuxProcessList(lDevice), parent);
     if (actionId == QLatin1String(Constants::GenericDeployKeyToDeviceActionId))
-        return PublicKeyDeploymentDialog::createDialog(deviceConfig, parent);
+        return PublicKeyDeploymentDialog::createDialog(lDevice, parent);
     return 0; // Can't happen.
 }
 

@@ -31,11 +31,13 @@
 #include "genericlinuxdeviceconfigurationwizard.h"
 
 #include "genericlinuxdeviceconfigurationwizardpages.h"
+#include "linuxdeviceconfiguration.h"
 #include "linuxdevicetestdialog.h"
 #include "linuxdevicetester.h"
-#include "portlist.h"
 #include "remotelinux_constants.h"
+#include <utils/portlist.h>
 
+using namespace ProjectExplorer;
 using namespace Utils;
 
 namespace RemoteLinux {
@@ -58,7 +60,7 @@ public:
 } // namespace Internal
 
 GenericLinuxDeviceConfigurationWizard::GenericLinuxDeviceConfigurationWizard(QWidget *parent)
-    : ILinuxDeviceConfigurationWizard(parent),
+    : IDeviceWizard(parent),
       d(new Internal::GenericLinuxDeviceConfigurationWizardPrivate(this))
 {
     setWindowTitle(tr("New Generic Linux Device Configuration Setup"));
@@ -72,9 +74,9 @@ GenericLinuxDeviceConfigurationWizard::~GenericLinuxDeviceConfigurationWizard()
     delete d;
 }
 
-LinuxDeviceConfiguration::Ptr GenericLinuxDeviceConfigurationWizard::deviceConfiguration()
+IDevice::Ptr GenericLinuxDeviceConfigurationWizard::device()
 {
-    Utils::SshConnectionParameters sshParams(SshConnectionParameters::NoProxy);
+    Utils::SshConnectionParameters sshParams;
     sshParams.host = d->setupPage.hostName();
     sshParams.userName = d->setupPage.userName();
     sshParams.port = 22;
@@ -85,8 +87,9 @@ LinuxDeviceConfiguration::Ptr GenericLinuxDeviceConfigurationWizard::deviceConfi
     else
         sshParams.privateKeyFile = d->setupPage.privateKeyFilePath();
     LinuxDeviceConfiguration::Ptr devConf = LinuxDeviceConfiguration::create(d->setupPage.configurationName(),
-        QLatin1String(Constants::GenericLinuxOsType), LinuxDeviceConfiguration::Hardware,
-        PortList::fromString(QLatin1String("10000-10100")), sshParams);
+        QLatin1String(Constants::GenericLinuxOsType), LinuxDeviceConfiguration::Hardware);
+    devConf->setFreePorts(Utils::PortList::fromString(QLatin1String("10000-10100")));
+    devConf->setSshParameters(sshParams);
     LinuxDeviceTestDialog dlg(devConf, new GenericLinuxDeviceTester(this), this);
     dlg.exec();
     return devConf;

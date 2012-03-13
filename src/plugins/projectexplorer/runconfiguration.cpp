@@ -203,14 +203,21 @@ DebuggerRunConfigurationAspect::DebuggerRunConfigurationAspect(RunConfiguration 
     m_useCppDebugger(true),
     m_useQmlDebugger(AutoEnableQmlDebugger),
     m_qmlDebugServerPort(Constants::QML_DEFAULT_DEBUG_SERVER_PORT),
-    m_suppressQmlDebuggingOptions(false)
+    m_suppressDisplay(false),
+    m_suppressQmlDebuggingOptions(false),
+    m_suppressCppDebuggingOptions(false),
+    m_suppressQmlDebuggingSpinbox(false)
 {}
 
 DebuggerRunConfigurationAspect::DebuggerRunConfigurationAspect(DebuggerRunConfigurationAspect *other) :
     m_runConfiguration(other->m_runConfiguration),
     m_useCppDebugger(other->m_useCppDebugger),
     m_useQmlDebugger(other->m_useQmlDebugger),
-    m_qmlDebugServerPort(other->m_qmlDebugServerPort)
+    m_qmlDebugServerPort(other->m_qmlDebugServerPort),
+    m_suppressDisplay(other->m_suppressDisplay),
+    m_suppressQmlDebuggingOptions(other->m_suppressQmlDebuggingOptions),
+    m_suppressCppDebuggingOptions(other->m_suppressCppDebuggingOptions),
+    m_suppressQmlDebuggingSpinbox(other->m_suppressQmlDebuggingSpinbox)
 {}
 
 RunConfiguration *DebuggerRunConfigurationAspect::runConfiguration()
@@ -259,14 +266,44 @@ void DebuggerRunConfigurationAspect::setQmllDebugServerPort(uint port)
     m_qmlDebugServerPort = port;
 }
 
+void DebuggerRunConfigurationAspect::suppressDisplay()
+{
+    m_suppressDisplay = true;
+}
+
 void DebuggerRunConfigurationAspect::suppressQmlDebuggingOptions()
 {
     m_suppressQmlDebuggingOptions = true;
 }
 
+void DebuggerRunConfigurationAspect::suppressCppDebuggingOptions()
+{
+    m_suppressCppDebuggingOptions = true;
+}
+
+void DebuggerRunConfigurationAspect::suppressQmlDebuggingSpinbox()
+{
+    m_suppressQmlDebuggingSpinbox = true;
+}
+
+bool DebuggerRunConfigurationAspect::isDisplaySuppressed() const
+{
+    return m_suppressDisplay;
+}
+
 bool DebuggerRunConfigurationAspect::areQmlDebuggingOptionsSuppressed() const
 {
     return m_suppressQmlDebuggingOptions;
+}
+
+bool DebuggerRunConfigurationAspect::areCppDebuggingOptionsSuppressed() const
+{
+    return m_suppressCppDebuggingOptions;
+}
+
+bool DebuggerRunConfigurationAspect::isQmlDebuggingSpinboxSuppressed() const
+{
+    return m_suppressQmlDebuggingSpinbox;
 }
 
 QString DebuggerRunConfigurationAspect::displayName() const

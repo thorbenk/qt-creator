@@ -10,19 +10,19 @@ def main():
     prepareTemplate(sourceExample)
     startApplication("qtcreator" + SettingsPath)
     overrideInstallLazySignalHandler()
-    installLazySignalHandler("{type='QTextBrowser' name='templateDescription' visible='1'}",
+    installLazySignalHandler(":frame.templateDescription_QTextBrowser",
                              "textChanged()","__handleTextChanged__")
     targets = getCorrectlyConfiguredTargets()
     test.log("Collecting potential project types...")
     availableProjectTypes = []
     invokeMenuItem("File", "New File or Project...")
-    categoriesView = waitForObject("{type='QTreeView' name='templateCategoryView' visible='1'}", 20000)
+    categoriesView = waitForObject(":New.templateCategoryView_QTreeView", 20000)
     catModel = categoriesView.model()
     projects = catModel.index(0, 0)
     test.compare("Projects", str(projects.data()))
     comboBox = waitForObject("{name='comboBox' type='QComboBox' visible='1' "
                              "window=':New_Core::Internal::NewDialog'}")
-    test.compare(comboBox.currentText, "All templates")
+    test.compare(comboBox.currentText, "All Templates")
     for row in range(catModel.rowCount(projects)):
         index = catModel.index(row, 0, projects)
         category = str(index.data()).replace(".", "\\.")
@@ -46,14 +46,14 @@ def main():
         category = current.keys()[0]
         template = current.values()[0]
         invokeMenuItem("File", "New File or Project...")
-        categoriesView = waitForObject("{type='QTreeView' name='templateCategoryView' visible='1'}", 20000)
+        categoriesView = waitForObject(":New.templateCategoryView_QTreeView", 20000)
         clickItem(categoriesView, "Projects." + category, 5, 5, 0, Qt.LeftButton)
         templatesView = waitForObject("{name='templatesView' type='QListView' visible='1'}", 20000)
         test.log("Verifying '%s' -> '%s'" % (category.replace("\\.", "."), template.replace("\\.", ".")))
         textChanged = False
         clickItem(templatesView, template, 5, 5, 0, Qt.LeftButton)
         waitFor("textChanged", 2000)
-        text = waitForObject("{type='QTextBrowser' name='templateDescription' visible='1'}").plainText
+        text = waitForObject(":frame.templateDescription_QTextBrowser").plainText
         displayedPlatforms, requiredVersion = __getSupportedPlatforms__(str(text), True)
         clickButton(waitForObject("{text='Choose...' type='QPushButton' unnamed='1' visible='1'}", 20000))
         # don't check because project could exist
@@ -79,6 +79,7 @@ def main():
                     if t in availableCheckboxes:
                         test.fail("Target '%s' found as checkbox, but required version (%s) is higher "
                                   "than configured version(s) (%s)!" % (t, requiredVersion, str(targets[t])))
+                        availableCheckboxes.remove(t)
                     else:
                         test.passes("Irrelevant target '%s' not found on 'Target setup' page - "
                                     "required version is '%s', current version(s) are '%s'." %
@@ -88,6 +89,7 @@ def main():
             if t in displayedPlatforms:
                 if t in availableCheckboxes:
                     test.passes("Found expected target '%s' on 'Target setup' page." % t)
+                    availableCheckboxes.remove(t)
                 else:
                     test.fail("Expected target '%s' missing on 'Target setup' page." % t)
             else:
@@ -95,6 +97,8 @@ def main():
                     test.fail("Target '%s' found on 'Target setup' page - but has not been expected!" % t)
                 else:
                     test.passes("Irrelevant target '%s' not found on 'Target setup' page." % t)
+        if len(availableCheckboxes) != 0:
+            test.fail("Found unexpected additional target(s) %s on 'Target setup' page." % str(availableCheckboxes))
         clickButton(waitForObject("{text='Cancel' type='QPushButton' unnamed='1' visible='1'}", 20000))
     invokeMenuItem("File", "Exit")
 

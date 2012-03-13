@@ -53,8 +53,7 @@ public:
           process(0),
           channelMode(QProcess::SeparateChannels),
           finished(false),
-          startMode(Analyzer::StartLocal),
-          connParams(Utils::SshConnectionParameters::DefaultProxy)
+          startMode(Analyzer::StartLocal)
     {
     }
 
@@ -105,8 +104,8 @@ void ValgrindRunner::Private::run(ValgrindProcess *_process)
             q, SIGNAL(processOutputReceived(QByteArray,Utils::OutputFormat)));
     QObject::connect(process, SIGNAL(started()),
             q, SLOT(processStarted()));
-    QObject::connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
-            q, SLOT(processFinished(int, QProcess::ExitStatus)));
+    QObject::connect(process, SIGNAL(finished(int,QProcess::ExitStatus)),
+            q, SLOT(processFinished(int,QProcess::ExitStatus)));
     QObject::connect(process, SIGNAL(error(QProcess::ProcessError)),
             q, SLOT(processError(QProcess::ProcessError)));
 

@@ -167,6 +167,11 @@ void CodeFormatter::recalculateStateAfter(const QTextBlock &block)
             case Signal:
             case Property:
             case Identifier:    enter(expression_or_objectdefinition); break;
+
+            // error recovery
+            case RightBracket:
+            case RightParenthesis:  leave(true); break;
+
             default:            enter(expression); continue;
             } break;
 
@@ -251,9 +256,14 @@ void CodeFormatter::recalculateStateAfter(const QTextBlock &block)
         case expression_or_objectdefinition:
             switch (kind) {
             case Dot:
-            case Identifier:    break; // need to become an objectdefinition_open in cases like "width: Qt.Foo {"
-            case LeftBrace:     turnInto(objectdefinition_open); break;
-            default:            enter(expression); continue; // really? identifier and more tokens might already be gone
+            case Identifier:        break; // need to become an objectdefinition_open in cases like "width: Qt.Foo {"
+            case LeftBrace:         turnInto(objectdefinition_open); break;
+
+            // propagate 'leave' from expression state
+            case RightBracket:
+            case RightParenthesis:  leave(); continue;
+
+            default:                enter(expression); continue; // really? identifier and more tokens might already be gone
             } break;
 
         case expression_or_label:
@@ -386,7 +396,6 @@ void CodeFormatter::recalculateStateAfter(const QTextBlock &block)
             } break;
 
         case maybe_catch_or_finally:
-            dump();
             switch (kind) {
             case Catch:             turnInto(catch_statement); break;
             case Finally:           turnInto(finally_statement); break;
@@ -1116,15 +1125,8 @@ void QtStyleCodeFormatter::onEnter(int newState, int *indentDepth, int *savedInd
         break;
 
     case function_start:
-        if (parentState.type == expression) {
-            // undo the continuation indent of the expression
-            *indentDepth = parentState.savedIndentDepth;
-            *savedIndentDepth = *indentDepth;
-        } else {
-            // always align to function keyword
-            *indentDepth = tokenPosition;
-            *savedIndentDepth = *indentDepth;
-        }
+        // align to the beginning of the line
+        *savedIndentDepth = *indentDepth = column(tokenAt(0).begin());
         break;
 
     case do_statement_while_paren_open:

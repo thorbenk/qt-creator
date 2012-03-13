@@ -61,11 +61,12 @@
 #include <texteditor/itexteditor.h>
 #include <texteditor/basetextmark.h>
 
+#include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/taskhub.h>
-#include <extensionsystem/pluginmanager.h>
 
 #include <utils/savedaction.h>
 #include <utils/qtcassert.h>
+#include <utils/fileinprojectfinder.h>
 
 #include <QDebug>
 #include <QTimer>
@@ -176,6 +177,7 @@ public:
         m_memoryAgent(engine),
         m_isStateDebugging(false),
         m_testsPossible(true),
+        m_testsRunning(false),
         m_taskHub(0)
     {
         connect(&m_locationTimer, SIGNAL(timeout()), SLOT(resetLocation()));
@@ -312,11 +314,13 @@ public:
 
     bool m_isStateDebugging;
 
+    Utils::FileInProjectFinder m_fileFinder;
     // Testing
     void handleAutoTests();
     void handleAutoTestLine(int line);
     void reportTestError(const QString &msg, int line);
     bool m_testsPossible;
+    bool m_testsRunning;
     bool m_breakOnError;
     bool m_foundError;
     QStringList m_testContents;
@@ -416,10 +420,9 @@ RegisterHandler *DebuggerEngine::registerHandler() const
 
 StackHandler *DebuggerEngine::stackHandler() const
 {
-    //return d->m_masterEngine
-    //    ? d->m_masterEngine->stackHandler()
-    //    : &d->m_stackHandler;
-    return &d->m_stackHandler;
+    return d->m_masterEngine
+        ? d->m_masterEngine->stackHandler()
+        : &d->m_stackHandler;
 }
 
 ThreadsHandler *DebuggerEngine::threadsHandler() const
@@ -864,6 +867,7 @@ void DebuggerEngine::notifyInferiorSetupFailed()
 {
     showMessage(_("NOTE: INFERIOR SETUP FAILED"));
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << this << state());
+    showStatusMessage(tr("Setup failed."));
     setState(InferiorSetupFailed);
     if (isMasterEngine())
         d->queueShutdownEngine();
@@ -899,6 +903,7 @@ void DebuggerEngine::notifyInferiorUnrunnable()
     d->m_progress.setProgressValue(1000);
     d->m_progress.reportFinished();
     QTC_ASSERT(state() == EngineRunRequested, qDebug() << this << state());
+    showStatusMessage(tr("Loading finished."));
     setState(InferiorUnrunnable);
 }
 
@@ -909,6 +914,7 @@ void DebuggerEngine::notifyEngineRunFailed()
     d->m_progress.setProgressValue(900);
     d->m_progress.reportCanceled();
     d->m_progress.reportFinished();
+    showStatusMessage(tr("Run failed."));
     setState(EngineRunFailed);
     if (isMasterEngine())
         d->queueShutdownEngine();
@@ -960,6 +966,7 @@ void DebuggerEngine::notifyEngineRunAndInferiorRunOk()
     d->m_progress.setProgressValue(1000);
     d->m_progress.reportFinished();
     QTC_ASSERT(state() == EngineRunRequested, qDebug() << this << state());
+    showStatusMessage(tr("Running."));
     setState(InferiorRunOk);
 }
 
@@ -969,6 +976,7 @@ void DebuggerEngine::notifyEngineRunAndInferiorStopOk()
     d->m_progress.setProgressValue(1000);
     d->m_progress.reportFinished();
     QTC_ASSERT(state() == EngineRunRequested, qDebug() << this << state());
+    showStatusMessage(tr("Stopped."));
     setState(InferiorStopOk);
 }
 
@@ -976,12 +984,14 @@ void DebuggerEngine::notifyInferiorRunRequested()
 {
     showMessage(_("NOTE: INFERIOR RUN REQUESTED"));
     QTC_ASSERT(state() == InferiorStopOk, qDebug() << this << state());
+    showStatusMessage(tr("Run requested..."));
     setState(InferiorRunRequested);
 }
 
 void DebuggerEngine::notifyInferiorRunOk()
 {
     showMessage(_("NOTE: INFERIOR RUN OK"));
+    showStatusMessage(tr("Running."));
     // Transition from StopRequested can happen sin remotegdbadapter.
     QTC_ASSERT(state() == InferiorRunRequested
         || state() == InferiorStopRequested, qDebug() << this << state());
@@ -1018,6 +1028,7 @@ void DebuggerEngine::notifyInferiorStopOk()
         return;
     }
     QTC_ASSERT(state() == InferiorStopRequested, qDebug() << this << state());
+    showStatusMessage(tr("Stopped."));
     setState(InferiorStopOk);
 }
 
@@ -1025,6 +1036,7 @@ void DebuggerEngine::notifyInferiorSpontaneousStop()
 {
     showMessage(_("NOTE: INFERIOR SPONTANEOUS STOP"));
     QTC_ASSERT(state() == InferiorRunOk, qDebug() << this << state());
+    showStatusMessage(tr("Stopped."));
     setState(InferiorStopOk);
 }
 
@@ -1043,6 +1055,7 @@ void DebuggerEnginePrivate::doInterruptInferior()
     QTC_ASSERT(state() == InferiorRunOk, qDebug() << m_engine << state());
     m_engine->setState(InferiorStopRequested);
     m_engine->showMessage(_("CALL: INTERRUPT INFERIOR"));
+    m_engine->showStatusMessage(tr("Attempting to interrupt."));
     m_engine->interruptInferior();
 }
 
@@ -1280,6 +1293,16 @@ DebuggerEngine *DebuggerEngine::masterEngine() const
 DebuggerLanguages DebuggerEngine::languages() const
 {
     return d->m_languages;
+}
+
+QString DebuggerEngine::toFileInProject(const QUrl &fileUrl)
+{
+    // make sure file finder is properly initialized
+    d->m_fileFinder.setProjectDirectory(startParameters().projectSourceDirectory);
+    d->m_fileFinder.setProjectFiles(startParameters().projectSourceFiles);
+    d->m_fileFinder.setSysroot(startParameters().sysroot);
+
+    return d->m_fileFinder.findFile(fileUrl);
 }
 
 bool DebuggerEngine::debuggerActionsEnabled() const
@@ -1791,6 +1814,11 @@ void DebuggerEngine::handleAutoTests()
     d->handleAutoTests();
 }
 
+bool DebuggerEngine::isAutoTestRunning() const
+{
+    return d->m_testsRunning;
+}
+
 void DebuggerEnginePrivate::handleAutoTests()
 {
     if (!m_testsPossible)
@@ -1815,9 +1843,15 @@ void DebuggerEnginePrivate::handleAutoTests()
                 if (s.startsWith(QLatin1String("#define USE_AUTORUN 1"))) {
                     m_testsPossible = true;
                     m_breakOnError = false;
+                    m_testsRunning = true;
                 } else if (s.startsWith(QLatin1String("#define USE_AUTORUN 2"))) {
                     m_testsPossible = true;
+                    m_testsRunning = true;
                     m_breakOnError = true;
+                } else {
+                    m_testsPossible = false;
+                    m_testsRunning = false;
+                    m_breakOnError = false;
                 }
                 break;
             }
@@ -1842,15 +1876,20 @@ void DebuggerEnginePrivate::handleAutoTestLine(int line)
         return;
     s = s.mid(pos + 2).trimmed();
     QString cmd = s.section(QLatin1Char(' '), 0, 0);
-    if (cmd == QLatin1String("Expand")) {
-        m_engine->showMessage(_("'Expand' found in line %1, but not implemented yet.").arg(line));
+    if (cmd == QLatin1String("Skip")) {
+        m_engine->showMessage(_("Skipping test %1").arg(line));
+        handleAutoTestLine(line + 1);
+    } else if (cmd == QLatin1String("Expand")) {
+        m_engine->showMessage(_("'Expand' found in line %1, "
+            "but is not implemented yet.").arg(line));
         handleAutoTestLine(line + 1);
     } else if (cmd == QLatin1String("Check")) {
         QString name = s.section(QLatin1Char(' '), 1, 1);
         if (name.isEmpty()) {
-            reportTestError(_("'Check'  needs arguments."), line);
-        } else if (name.contains(QLatin1Char('.'))) {
-            m_engine->showMessage(_("variable %1 found in line %2 contains '.', but 'Expand' is not implemented yet.").arg(name).arg(line));
+            reportTestError(_("'Check' needs arguments."), line);
+        } else if (name.count(QLatin1Char('.')) >= 2) {
+            m_engine->showMessage(_("Variable %1 found in line %2 is nested "
+                "too deeply for the current implementation.").arg(name).arg(line));
         } else {
             QByteArray iname = "local." + name.toLatin1();
             QString found = m_engine->watchHandler()->displayForAutoTest(iname);
@@ -1872,9 +1911,10 @@ void DebuggerEnginePrivate::handleAutoTestLine(int line)
     } else if (cmd == QLatin1String("CheckType")) {
         QString name = s.section(QLatin1Char(' '), 1, 1);
         if (name.isEmpty()) {
-            reportTestError(_("'CheckType'  needs arguments."), line);
-        } else if (name.contains(QLatin1Char('.'))) {
-            m_engine->showMessage(_("variable %1 found in line %2 contains '.', but 'Expand' is not implemented yet.").arg(name).arg(line));
+            reportTestError(_("'CheckType' needs arguments."), line);
+        } else if (name.count(QLatin1Char('.')) >= 2) {
+            m_engine->showMessage(_("Variable %1 found in line %2 is nested "
+                "too deeply for the current implementation.").arg(name).arg(line));
         } else {
             QByteArray iname = "local." + name.toLatin1();
             QString found = m_engine->watchHandler()->displayForAutoTest(iname);
@@ -1894,11 +1934,16 @@ void DebuggerEnginePrivate::handleAutoTestLine(int line)
         }
         handleAutoTestLine(line + 1);
     } else if (cmd == QLatin1String("Continue")) {
-        m_engine->showMessage(_("Continue in line %1 processed.").arg(line));
-        if (!m_breakOnError || !m_foundError)
-            m_engine->continueInferior();
-        else
-            m_foundError = false;
+        if (state() == InferiorStopOk) {
+            m_engine->showMessage(_("Continue in line %1 processed.").arg(line));
+            if (!m_breakOnError || !m_foundError)
+                m_engine->continueInferior();
+            else
+                m_foundError = false;
+        } else {
+            m_engine->showMessage(_("Auto-run aborted in line %1. State is %2.")
+                .arg(line).arg(state()));
+        }
     }
 }
 
@@ -1908,8 +1953,7 @@ void DebuggerEnginePrivate::reportTestError(const QString &msg, int line)
     m_foundError = true;
 
     if (!m_taskHub) {
-        ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-        m_taskHub = pm->getObject<TaskHub>();
+        m_taskHub = ProjectExplorerPlugin::instance()->taskHub();
         m_taskHub->addCategory(Core::Id("DebuggerTest"), tr("Debugger Test"));
     }
 

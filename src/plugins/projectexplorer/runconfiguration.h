@@ -112,8 +112,14 @@ public:
     bool useQmlDebugger() const;
     uint qmlDebugServerPort() const;
     void setQmllDebugServerPort(uint port);
+    void suppressDisplay();
     void suppressQmlDebuggingOptions();
+    void suppressCppDebuggingOptions();
+    void suppressQmlDebuggingSpinbox();
+    bool isDisplaySuppressed() const;
     bool areQmlDebuggingOptionsSuppressed() const;
+    bool areCppDebuggingOptionsSuppressed() const;
+    bool isQmlDebuggingSpinboxSuppressed() const;
     RunConfiguration *runConfiguration();
 
 signals:
@@ -124,7 +130,10 @@ public:
     bool m_useCppDebugger;
     QmlDebuggerStatus m_useQmlDebugger;
     uint m_qmlDebugServerPort;
+    bool m_suppressDisplay;
     bool m_suppressQmlDebuggingOptions;
+    bool m_suppressCppDebuggingOptions;
+    bool m_suppressQmlDebuggingSpinbox;
 };
 
 

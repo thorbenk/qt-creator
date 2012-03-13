@@ -86,6 +86,7 @@ typedef QPair<Utils::ParameterAction *, Core::Command* > ParameterActionCommandP
 class GitPlugin : public VcsBase::VcsBasePlugin
 {
     Q_OBJECT
+    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtCreatorPlugin" FILE "Git.json")
 
 public:
     GitPlugin();
@@ -174,6 +175,7 @@ private:
                                            const Core::Context &context,
                                            bool addToLocator, GitClientMemberFunc);
 
+    void updateRepositoryBrowserAction();
     bool isCommitEditorOpen() const;
     Core::IEditor *openSubmitEditor(const QString &fileName, const CommitData &cd, bool amend);
     void cleanCommitMessageFile();
@@ -192,6 +194,7 @@ private:
     QAction *m_undoAction;
     QAction *m_redoAction;
     QAction *m_menuAction;
+    QAction *m_repositoryBrowserAction;
 
     QVector<Utils::ParameterAction *> m_fileActions;
     QVector<Utils::ParameterAction *> m_projectActions;

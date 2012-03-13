@@ -56,6 +56,10 @@ private Q_SLOTS:
     void functionDeclaration();
     void functionExpression1();
     void functionExpression2();
+    void functionExpression3();
+    void functionExpression4();
+    void functionExpression5();
+    void functionExpression6();
     void propertyDeclarations();
     void signalDeclarations();
     void ifBinding1();
@@ -105,6 +109,7 @@ private Q_SLOTS:
     void multilineTernaryInProperty();
     void multilineString();
     void bug1();
+    void bug2();
 };
 
 enum { DontCheck = -2, DontIndent = -1 };
@@ -394,12 +399,12 @@ void tst_QMLCodeFormatter::functionExpression2()
     data << Line("Rectangle {")
          << Line("    function foo(a, b, c) {")
          << Line("        foo(1, 123456, function() {")
-         << Line("                           b;")
-         << Line("                       })")
+         << Line("            b;")
+         << Line("        })")
          << Line("        foo(1, 123456, function()")
-         << Line("                       {")
-         << Line("                           b;")
-         << Line("                       })")
+         << Line("        {")
+         << Line("            b;")
+         << Line("        })")
          << Line("        foobar(1, 123456,")
          << Line("               function () {")
          << Line("                   b;")
@@ -408,6 +413,100 @@ void tst_QMLCodeFormatter::functionExpression2()
          << Line("                    function () {")
          << Line("                        b;")
          << Line("                    })")
+         << Line("    }")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::functionExpression3()
+{
+    QList<Line> data;
+    data << Line("Rectangle {")
+         << Line("    function foo(a, b, c) {")
+         << Line("        var foo = {")
+         << Line("            bar: function() {")
+         << Line("                bar = 2")
+         << Line("            },")
+         << Line("            bar2: function()")
+         << Line("            {")
+         << Line("                bar = 2")
+         << Line("            }")
+         << Line("        }")
+         << Line("        Foo.proto.bar = function() {")
+         << Line("            bar = 2")
+         << Line("        }")
+         << Line("        Foo.proto.bar = function()")
+         << Line("        {")
+         << Line("            bar = 2")
+         << Line("        }")
+         << Line("    }")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::functionExpression4()
+{
+    QList<Line> data;
+    data << Line("Rectangle {")
+         << Line("    function foo(a, b, c) {")
+         << Line("        baz = function() {")
+         << Line("            bar = 2")
+         << Line("        }")
+         << Line("        baz = function()")
+         << Line("        {")
+         << Line("            bar = 2")
+         << Line("        }")
+         << Line("        var buz = new function() {")
+         << Line("            this.bar = function() {")
+         << Line("                bar = 2")
+         << Line("            }")
+         << Line("            this.bar = function()")
+         << Line("            {")
+         << Line("                bar = 2")
+         << Line("            }")
+         << Line("        }")
+         << Line("    }")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::functionExpression5()
+{
+    QList<Line> data;
+    data << Line("Rectangle {")
+         << Line("    property var foo: function() {")
+         << Line("        bar = 2")
+         << Line("    }")
+         << Line("    property var foo: function()")
+         << Line("    {")
+         << Line("        bar = 2")
+         << Line("    }")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::functionExpression6()
+{
+    QList<Line> data;
+    data << Line("Rectangle {")
+         << Line("    property var foo: {")
+         << Line("        functioncall(1, 2, function() {")
+         << Line("            a()")
+         << Line("        }, function() {")
+         << Line("            a()")
+         << Line("        }, 6,")
+         << Line("        7)")
+         << Line("        functioncall(1, 2,")
+         << Line("                     function() {")
+         << Line("                         a()")
+         << Line("                     }, 3, function() {")
+         << Line("                         a()")
+         << Line("                     }, 6,")
+         << Line("                     7)")
          << Line("    }")
          << Line("}")
          ;
@@ -1433,6 +1532,28 @@ void tst_QMLCodeFormatter::bug1()
          << Line("        else (b==b) {}")
          << Line("        foo()")
          << Line("    }")
+         << Line("}")
+         ;
+    checkIndent(data);
+}
+
+void tst_QMLCodeFormatter::bug2()
+{
+    QList<Line> data;
+    data << Line("Item {")
+         << Line("    x: a)")
+         << Line("    x: a) + 2")
+         << Line("    x: a == b)")
+         << Line("    x: a == b) + 5")
+         << Line("    x: a == b) ? c : d")
+
+         << Line("    x: 1)")
+         << Line("    x: 1) + 2")
+         << Line("    x: 1 == 2)")
+         << Line("    x: 1 == 2) + 5")
+         << Line("    x: 1 == 2) ? c : d")
+
+         << Line("    x: 1")
          << Line("}")
          ;
     checkIndent(data);

@@ -199,8 +199,9 @@ DebuggerRunConfigWidget::DebuggerRunConfigWidget(RunConfiguration *runConfigurat
         "qthelp://com.nokia.qtcreator/doc/creator-debugging-qml.html"
         "\">What are the prerequisites?</a>"));
 
-    useCppDebuggerToggled(m_aspect->useCppDebugger());
-    useQmlDebuggerToggled(m_aspect->useQmlDebugger());
+    m_useCppDebugger->setChecked(m_aspect->useCppDebugger());
+    m_useQmlDebugger->setChecked(m_aspect->useQmlDebugger());
+
     m_debugServerPort->setValue(m_aspect->qmlDebugServerPort());
 
     connect(m_qmlDebuggerInfoLabel, SIGNAL(linkActivated(QString)),
@@ -212,10 +213,21 @@ DebuggerRunConfigWidget::DebuggerRunConfigWidget(RunConfiguration *runConfigurat
     connect(m_debugServerPort, SIGNAL(valueChanged(int)),
             SLOT(qmlDebugServerPortChanged(int)));
 
+    if (m_aspect->isDisplaySuppressed())
+        hide();
+
     if (m_aspect->areQmlDebuggingOptionsSuppressed()) {
         m_debugServerPortLabel->hide();
         m_debugServerPort->hide();
         m_useQmlDebugger->hide();
+    }
+
+    if (m_aspect->areCppDebuggingOptionsSuppressed())
+        m_useCppDebugger->hide();
+
+    if (m_aspect->isQmlDebuggingSpinboxSuppressed()) {
+        m_debugServerPort->hide();
+        m_debugServerPortLabel->hide();
     }
 
     QHBoxLayout *qmlLayout = new QHBoxLayout;

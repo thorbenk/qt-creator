@@ -58,11 +58,11 @@
 #include <projectexplorer/applicationlauncher.h>
 #include <qmljsdebugclient/qdeclarativeoutputparser.h>
 #include <qmljseditor/qmljseditorconstants.h>
-#include <qmljsdebugclient/qdebugmessageclient.h>
+#include <qmljs/parser/qmljsast_p.h>
+#include <qmljs/qmljsmodelmanagerinterface.h>
 
 #include <utils/environment.h>
 #include <utils/qtcassert.h>
-#include <utils/fileinprojectfinder.h>
 
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/editormanager/editormanager.h>
@@ -97,6 +97,8 @@
 # define XSDEBUG(s) qDebug() << s
 
 using namespace ProjectExplorer;
+using namespace QmlJS;
+using namespace AST;
 
 namespace Debugger {
 namespace Internal {
@@ -110,13 +112,13 @@ private:
     friend class QmlEngine;
     QmlAdapter m_adapter;
     ApplicationLauncher m_applicationLauncher;
-    Utils::FileInProjectFinder fileFinder;
     QTimer m_noDebugOutputTimer;
     QmlJsDebugClient::QDeclarativeOutputParser m_outputParser;
     QHash<QString, QTextDocument*> m_sourceDocuments;
     QHash<QString, QWeakPointer<TextEditor::ITextEditor> > m_sourceEditors;
     InteractiveInterpreter m_interpreter;
     bool m_validContext;
+    QHash<QString,BreakpointModelId> pendingBreakpoints;
 };
 
 QmlEnginePrivate::QmlEnginePrivate(QmlEngine *q)
@@ -124,6 +126,168 @@ QmlEnginePrivate::QmlEnginePrivate(QmlEngine *q)
       m_validContext(false)
 {}
 
+class ASTWalker: public Visitor
+{
+public:
+    void operator()(Node *ast, quint32 *l, quint32 *c)
+    {
+        done = false;
+        line = l;
+        column = c;
+        Node::accept(ast, this);
+    }
+
+    bool preVisit(Node *ast)
+    {
+        return ast->lastSourceLocation().startLine >= *line && !done;
+    }
+
+    //Case 1: Breakpoint is between sourceStart(exclusive) and
+    //        sourceEnd(inclusive) --> End tree walk.
+    //Case 2: Breakpoint is on sourceStart --> Check for the start
+    //        of the first executable code. Set the line number and
+    //        column number. End tree walk.
+    //Case 3: Breakpoint is on "unbreakable" code --> Find the next "breakable"
+    //        code and check for Case 2. End tree walk.
+
+    //Add more types when suitable.
+
+    bool visit(UiScriptBinding *ast)
+    {
+        if (!ast->statement)
+            return true;
+
+        quint32 sourceStartLine = ast->firstSourceLocation().startLine;
+        quint32 statementStartLine;
+        quint32 statementColumn;
+
+        if (ast->statement->kind == Node::Kind_ExpressionStatement) {
+            statementStartLine = ast->statement->firstSourceLocation().
+                    startLine;
+            statementColumn = ast->statement->firstSourceLocation().startColumn;
+
+        } else if (ast->statement->kind == Node::Kind_Block) {
+            Block *block = static_cast<Block *>(ast->statement);
+            if (!block || !block->statements)
+                return true;
+            statementStartLine = block->statements->firstSourceLocation().
+                    startLine;
+            statementColumn = block->statements->firstSourceLocation().
+                    startColumn;
+
+        } else {
+            return true;
+        }
+
+
+        //Case 1
+        //Check for possible relocation within the binding statement
+
+        //Rewritten to (function <token>() { { }})
+        //The offset 16 is position of inner lbrace without token length.
+        const int offset = 16;
+
+        //Case 2
+        if (statementStartLine == *line) {
+            if (sourceStartLine == *line)
+                *column = offset + ast->qualifiedId->identifierToken.length;
+            done = true;
+        }
+
+        //Case 3
+        if (statementStartLine > *line) {
+            *line = statementStartLine;
+            if (sourceStartLine == *line)
+                *column = offset + ast->qualifiedId->identifierToken.length;
+            else
+                *column = statementColumn;
+            done = true;
+        }
+        return true;
+    }
+
+    bool visit(FunctionDeclaration *ast) {
+        quint32 sourceStartLine = ast->firstSourceLocation().startLine;
+        quint32 sourceStartColumn = ast->firstSourceLocation().startColumn;
+        quint32 statementStartLine = ast->body->firstSourceLocation().startLine;
+        quint32 statementColumn = ast->body->firstSourceLocation().startColumn;
+
+        //Case 1
+        //Check for possible relocation within the function declaration
+
+        //Case 2
+        if (statementStartLine == *line) {
+            if (sourceStartLine == *line)
+                *column = statementColumn - sourceStartColumn + 1;
+            done = true;
+        }
+
+        //Case 3
+        if (statementStartLine > *line) {
+            *line = statementStartLine;
+            if (sourceStartLine == *line)
+                *column = statementColumn - sourceStartColumn + 1;
+            else
+                *column = statementColumn;
+            done = true;
+        }
+        return true;
+    }
+
+    bool visit(EmptyStatement *ast)
+    {
+        *line = ast->lastSourceLocation().startLine + 1;
+        return true;
+    }
+
+    bool visit(VariableStatement *ast) { test(ast); return true; }
+    bool visit(VariableDeclarationList *ast) { test(ast); return true; }
+    bool visit(VariableDeclaration *ast) { test(ast); return true; }
+    bool visit(ExpressionStatement *ast) { test(ast); return true; }
+    bool visit(IfStatement *ast) { test(ast); return true; }
+    bool visit(DoWhileStatement *ast) { test(ast); return true; }
+    bool visit(WhileStatement *ast) { test(ast); return true; }
+    bool visit(ForStatement *ast) { test(ast); return true; }
+    bool visit(LocalForStatement *ast) { test(ast); return true; }
+    bool visit(ForEachStatement *ast) { test(ast); return true; }
+    bool visit(LocalForEachStatement *ast) { test(ast); return true; }
+    bool visit(ContinueStatement *ast) { test(ast); return true; }
+    bool visit(BreakStatement *ast) { test(ast); return true; }
+    bool visit(ReturnStatement *ast) { test(ast); return true; }
+    bool visit(WithStatement *ast) { test(ast); return true; }
+    bool visit(SwitchStatement *ast) { test(ast); return true; }
+    bool visit(CaseBlock *ast) { test(ast); return true; }
+    bool visit(CaseClauses *ast) { test(ast); return true; }
+    bool visit(CaseClause *ast) { test(ast); return true; }
+    bool visit(DefaultClause *ast) { test(ast); return true; }
+    bool visit(LabelledStatement *ast) { test(ast); return true; }
+    bool visit(ThrowStatement *ast) { test(ast); return true; }
+    bool visit(TryStatement *ast) { test(ast); return true; }
+    bool visit(Catch *ast) { test(ast); return true; }
+    bool visit(Finally *ast) { test(ast); return true; }
+    bool visit(FunctionExpression *ast) { test(ast); return true; }
+    bool visit(DebuggerStatement *ast) { test(ast); return true; }
+
+    void test(Node *ast)
+    {
+        quint32 statementStartLine = ast->firstSourceLocation().startLine;
+        //Case 1/2
+        if (statementStartLine <= *line &&
+                *line <= ast->lastSourceLocation().startLine)
+            done = true;
+
+        //Case 3
+        if (statementStartLine > *line) {
+            *line = statementStartLine;
+            *column = ast->firstSourceLocation().startColumn;
+            done = true;
+        }
+    }
+
+    bool done;
+    quint32 *line;
+    quint32 *column;
+};
 
 ///////////////////////////////////////////////////////////////////////
 //
@@ -157,15 +321,18 @@ QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
             SLOT(updateCurrentContext()));
     connect(&d->m_adapter, SIGNAL(selectionChanged()),
             SLOT(updateCurrentContext()));
-    connect(d->m_adapter.messageClient(), SIGNAL(message(QtMsgType,QString)),
-            SLOT(appendDebugOutput(QtMsgType,QString)));
+    connect(d->m_adapter.messageClient(),
+            SIGNAL(message(QtMsgType,QString,
+                           QmlJsDebugClient::QDebugContextInfo)),
+            SLOT(appendDebugOutput(QtMsgType,QString,
+                                   QmlJsDebugClient::QDebugContextInfo)));
 
     connect(&d->m_applicationLauncher,
         SIGNAL(processExited(int)),
         SLOT(disconnected()));
     connect(&d->m_applicationLauncher,
-        SIGNAL(appendMessage(QString, Utils::OutputFormat)),
-        SLOT(appendMessage(QString, Utils::OutputFormat)));
+        SIGNAL(appendMessage(QString,Utils::OutputFormat)),
+        SLOT(appendMessage(QString,Utils::OutputFormat)));
     connect(&d->m_applicationLauncher,
             SIGNAL(processStarted()),
             &d->m_noDebugOutputTimer,
@@ -179,7 +346,7 @@ QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
     connect(&d->m_outputParser, SIGNAL(noOutputMessage()),
             this, SLOT(beginConnection()));
     connect(&d->m_outputParser, SIGNAL(errorMessage(QString)),
-            this, SLOT(wrongSetupMessageBox(QString)));
+            this, SLOT(connectionStartupFailed(QString)));
 
     // Only wait 8 seconds for the 'Waiting for connection' on application ouput, then just try to connect
     // (application output might be redirected / blocked)
@@ -188,6 +355,11 @@ QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
     connect(&d->m_noDebugOutputTimer, SIGNAL(timeout()), this, SLOT(beginConnection()));
 
     qtMessageLogHandler()->setHasEditableRow(true);
+
+    connect(ModelManagerInterface::instance(),
+            SIGNAL(documentUpdated(QmlJS::Document::Ptr)),
+            this,
+            SLOT(documentUpdated(QmlJS::Document::Ptr)));
 }
 
 QmlEngine::~QmlEngine()
@@ -262,7 +434,7 @@ void QmlEngine::beginConnection(quint16 port)
     }
 }
 
-void QmlEngine::connectionStartupFailed()
+void QmlEngine::connectionStartupFailed(const QString &errorMessage)
 {
     if (isSlaveEngine()) {
         if (masterEngine()->state() != InferiorRunOk) {
@@ -275,19 +447,28 @@ void QmlEngine::connectionStartupFailed()
     QMessageBox *infoBox = new QMessageBox(Core::ICore::mainWindow());
     infoBox->setIcon(QMessageBox::Critical);
     infoBox->setWindowTitle(tr("Qt Creator"));
-    infoBox->setText(tr("Could not connect to the in-process QML debugger.\n"
-                        "Do you want to retry?"));
-    infoBox->setStandardButtons(QMessageBox::Retry | QMessageBox::Cancel | QMessageBox::Help);
-    infoBox->setDefaultButton(QMessageBox::Retry);
+    if (qobject_cast<QmlAdapter *>(sender())) {
+        infoBox->setText(tr("Could not connect to the in-process QML debugger."
+                            "\nDo you want to retry?"));
+        infoBox->setStandardButtons(QMessageBox::Retry | QMessageBox::Cancel |
+                                    QMessageBox::Help);
+        infoBox->setDefaultButton(QMessageBox::Retry);
+    }
+    if (qobject_cast<QmlJsDebugClient::QDeclarativeOutputParser *>(sender())) {
+        infoBox->setText(tr("Could not connect to the in-process QML debugger."
+                            "\n%1").arg(errorMessage));
+        infoBox->setStandardButtons(QMessageBox::Ok | QMessageBox::Help);
+        infoBox->setDefaultButton(QMessageBox::Ok);
+    }
     infoBox->setModal(true);
 
     connect(infoBox, SIGNAL(finished(int)),
-            this, SLOT(retryMessageBoxFinished(int)));
+            this, SLOT(errorMessageBoxFinished(int)));
 
     infoBox->show();
 }
 
-void QmlEngine::retryMessageBoxFinished(int result)
+void QmlEngine::errorMessageBoxFinished(int result)
 {
     switch (result) {
     case QMessageBox::Retry: {
@@ -304,31 +485,10 @@ void QmlEngine::retryMessageBoxFinished(int result)
             notifyInferiorSpontaneousStop();
             notifyInferiorIll();
         } else {
-        notifyEngineRunFailed();
+            notifyEngineRunFailed();
         }
         break;
     }
-}
-
-void QmlEngine::wrongSetupMessageBox(const QString &errorMessage)
-{
-    d->m_noDebugOutputTimer.stop();
-    notifyEngineRunFailed();
-
-    QMessageBox *infoBox = new QMessageBox(Core::ICore::mainWindow());
-    infoBox->setIcon(QMessageBox::Critical);
-    infoBox->setWindowTitle(tr("Qt Creator"));
-    //: %1 is detailed error message
-    infoBox->setText(tr("Could not connect to the in-process QML debugger:\n%1")
-                     .arg(errorMessage));
-    infoBox->setStandardButtons(QMessageBox::Ok | QMessageBox::Help);
-    infoBox->setDefaultButton(QMessageBox::Ok);
-    infoBox->setModal(true);
-
-    connect(infoBox, SIGNAL(finished(int)),
-            this, SLOT(wrongSetupMessageBoxFinished(int)));
-
-    infoBox->show();
 }
 
 void QmlEngine::connectionError(QAbstractSocket::SocketError socketError)
@@ -412,7 +572,9 @@ void QmlEngine::runEngine()
     QTC_ASSERT(state() == EngineRunRequested, qDebug() << state());
 
     if (!isSlaveEngine()) {
-        if (startParameters().startMode != AttachToRemoteServer)
+        if (startParameters().startMode == AttachToRemoteServer)
+            beginConnection();
+        else
             startApplicationLauncher();
     }
 }
@@ -471,14 +633,13 @@ void QmlEngine::shutdownInferior()
         resetLocation();
     }
     stopApplicationLauncher();
+    closeConnection();
 
     notifyInferiorShutdownOk();
 }
 
 void QmlEngine::shutdownEngine()
 {
-    closeConnection();
-
     // double check (ill engine?):
     stopApplicationLauncher();
 
@@ -570,8 +731,14 @@ void QmlEngine::executeRunToLine(const ContextData &data)
     QTC_ASSERT(state() == InferiorStopOk, qDebug() << state());
     showStatusMessage(tr("Run to line  %1 (%2) requested...").arg(data.lineNumber).arg(data.fileName), 5000);
     resetLocation();
+    ContextData modifiedData = data;
+    quint32 line = data.lineNumber;
+    quint32 column;
+    bool valid;
+    if (adjustBreakpointLineAndColumn(data.fileName, &line, &column, &valid))
+        modifiedData.lineNumber = line;
     if (d->m_adapter.activeDebuggerClient())
-        d->m_adapter.activeDebuggerClient()->executeRunToLine(data);
+        d->m_adapter.activeDebuggerClient()->executeRunToLine(modifiedData);
     notifyInferiorRunRequested();
     notifyInferiorRunOk();
 }
@@ -611,11 +778,25 @@ void QmlEngine::insertBreakpoint(BreakpointModelId id)
     QTC_ASSERT(state == BreakpointInsertRequested, qDebug() << id << this << state);
     handler->notifyBreakpointInsertProceeding(id);
 
+    const BreakpointParameters &params = handler->breakpointData(id);
+    quint32 line = params.lineNumber;
+    quint32 column = 0;
+    if (params.type == BreakpointByFileAndLine) {
+        bool valid = false;
+        if (!adjustBreakpointLineAndColumn(params.fileName, &line, &column,
+                                           &valid)) {
+            d->pendingBreakpoints.insertMulti(params.fileName, id);
+            return;
+        }
+        if (!valid)
+            return;
+    }
+
     if (d->m_adapter.activeDebuggerClient()) {
-        d->m_adapter.activeDebuggerClient()->insertBreakpoint(id);
+        d->m_adapter.activeDebuggerClient()->insertBreakpoint(id, line, column);
     } else {
         foreach (QmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
-            client->insertBreakpoint(id);
+            client->insertBreakpoint(id, line, column);
         }
     }
 }
@@ -623,6 +804,21 @@ void QmlEngine::insertBreakpoint(BreakpointModelId id)
 void QmlEngine::removeBreakpoint(BreakpointModelId id)
 {
     BreakHandler *handler = breakHandler();
+
+    const BreakpointParameters &params = handler->breakpointData(id);
+    if (params.type == BreakpointByFileAndLine &&
+            d->pendingBreakpoints.contains(params.fileName)) {
+        QHash<QString, BreakpointModelId>::iterator i =
+                d->pendingBreakpoints.find(params.fileName);
+        while (i != d->pendingBreakpoints.end() && i.key() == params.fileName) {
+            if (i.value() == id) {
+                d->pendingBreakpoints.erase(i);
+                return;
+            }
+            ++i;
+        }
+    }
+
     BreakpointState state = handler->state(id);
     QTC_ASSERT(state == BreakpointRemoveRequested, qDebug() << id << this << state);
     handler->notifyBreakpointRemoveProceeding(id);
@@ -669,13 +865,14 @@ void QmlEngine::attemptBreakpointSynchronization()
 
     BreakHandler *handler = breakHandler();
 
+    DebuggerEngine *bpOwner = isSlaveEngine() ? masterEngine() : this;
     foreach (BreakpointModelId id, handler->unclaimedBreakpointIds()) {
         // Take ownership of the breakpoint. Requests insertion.
         if (acceptsBreakpoint(id))
-            handler->setEngine(id, this);
+            handler->setEngine(id, bpOwner);
     }
 
-    foreach (BreakpointModelId id, handler->engineBreakpointIds(this)) {
+    foreach (BreakpointModelId id, handler->engineBreakpointIds(bpOwner)) {
         switch (handler->state(id)) {
         case BreakpointNew:
             // Should not happen once claimed.
@@ -850,16 +1047,6 @@ bool QmlEngine::hasCapability(unsigned cap) const
         | AddWatcherCapability;*/
 }
 
-QString QmlEngine::toFileInProject(const QUrl &fileUrl)
-{
-    // make sure file finder is properly initialized
-    d->fileFinder.setProjectDirectory(startParameters().projectSourceDirectory);
-    d->fileFinder.setProjectFiles(startParameters().projectSourceFiles);
-    d->fileFinder.setSysroot(startParameters().sysroot);
-
-    return d->fileFinder.findFile(fileUrl);
-}
-
 void QmlEngine::inferiorSpontaneousStop()
 {
     if (state() == InferiorRunOk)
@@ -872,12 +1059,14 @@ void QmlEngine::disconnected()
     notifyInferiorExited();
 }
 
-void QmlEngine::wrongSetupMessageBoxFinished(int result)
+void QmlEngine::documentUpdated(QmlJS::Document::Ptr doc)
 {
-    if (result == QMessageBox::Help) {
-        Core::HelpManager *helpManager = Core::HelpManager::instance();
-        helpManager->handleHelpRequest(
-                    QLatin1String("qthelp://com.nokia.qtcreator/doc/creator-debugging-qml.html"));
+    QString fileName = doc->fileName();
+    if (d->pendingBreakpoints.contains(fileName)) {
+        QList<BreakpointModelId> ids = d->pendingBreakpoints.values(fileName);
+        d->pendingBreakpoints.remove(fileName);
+        foreach (const BreakpointModelId &id, ids)
+            insertBreakpoint(id);
     }
 }
 
@@ -890,7 +1079,8 @@ void QmlEngine::updateCurrentContext()
     showMessage(tr("Context: ").append(context), QtMessageLogStatus);
 }
 
-void QmlEngine::appendDebugOutput(QtMsgType type, const QString &message)
+void QmlEngine::appendDebugOutput(QtMsgType type, const QString &message,
+                                  const QmlJsDebugClient::QDebugContextInfo &info)
 {
     QtMessageLogHandler::ItemType itemType;
     switch (type) {
@@ -908,7 +1098,10 @@ void QmlEngine::appendDebugOutput(QtMsgType type, const QString &message)
         //This case is not possible
         return;
     }
-    qtMessageLogHandler()->appendItem(new QtMessageLogItem(itemType, message));
+    QtMessageLogItem *item = new QtMessageLogItem(itemType, message);
+    item->file = info.file;
+    item->line = info.line;
+    qtMessageLogHandler()->appendItem(item);
 }
 
 void QmlEngine::executeDebuggerCommand(const QString& command)
@@ -985,7 +1178,7 @@ void QmlEngine::setSourceFiles(const QStringList &fileNames)
     QMap<QString,QString> files;
     foreach (const QString &file, fileNames) {
         QString shortName = file;
-        QString fullName = d->fileFinder.findFile(file);
+        QString fullName = toFileInProject(file);
         files.insert(shortName, fullName);
     }
 
@@ -1078,9 +1271,9 @@ QtMessageLogItem *QmlEngine::constructLogItemTree(
     QtMessageLogItem *item = new QtMessageLogItem();
     if (result.type() == QVariant::Map) {
         if (key.isEmpty())
-            item->setText(_("Object"));
+            item->text = _("Object");
         else
-            item->setText(QString(_("%1: Object")).arg(key));
+            item->text = QString(_("%1: Object")).arg(key);
 
         QMapIterator<QString, QVariant> i(result.toMap());
         while (i.hasNext()) {
@@ -1091,9 +1284,9 @@ QtMessageLogItem *QmlEngine::constructLogItemTree(
         }
     } else if (result.type() == QVariant::List) {
         if (key.isEmpty())
-            item->setText(_("List"));
+            item->text = _("List");
         else
-            item->setText(QString(_("[%1] : List")).arg(key));
+            item->text = QString(_("[%1] : List")).arg(key);
         QVariantList resultList = result.toList();
         for (int i = 0; i < resultList.count(); i++) {
             QtMessageLogItem *child = constructLogItemTree(resultList.at(i),
@@ -1102,12 +1295,33 @@ QtMessageLogItem *QmlEngine::constructLogItemTree(
                 item->insertChild(item->childCount(), child);
         }
     } else if (result.canConvert(QVariant::String)) {
-        item->setText(result.toString());
+        item->text = result.toString();
     } else {
-        item->setText(_("Unknown Value"));
+        item->text = _("Unknown Value");
     }
 
     return item;
+}
+
+bool QmlEngine::adjustBreakpointLineAndColumn(
+        const QString &filePath, quint32 *line, quint32 *column, bool *valid)
+{
+    bool success = true;
+    //check if file is in the latest snapshot
+    //ignoring documentChangedOnDisk
+    //TODO:: update breakpoints if document is changed.
+    Document::Ptr doc = ModelManagerInterface::instance()->newestSnapshot().
+            document(filePath);
+    if (doc.isNull()) {
+        ModelManagerInterface::instance()->updateSourceFiles(
+                    QStringList() << filePath, false);
+        success = false;
+    } else {
+        ASTWalker walker;
+        walker(doc->ast(), line, column);
+        *valid = walker.done;
+    }
+    return success;
 }
 
 QmlAdapter *QmlEngine::adapter() const

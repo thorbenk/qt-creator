@@ -430,6 +430,11 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
                            tr("Launch gitk"), Core::Id("Git.LaunchGitK"),
                            globalcontext, true, &GitClient::launchGitK);
 
+    m_repositoryBrowserAction
+            = createRepositoryAction(actionManager, gitContainer,
+                                     tr("Launch repository browser"), Core::Id("Git.LaunchRepositoryBrowser"),
+                                     globalcontext, true, &GitClient::launchRepositoryBrowser).first;
+
     createRepositoryAction(actionManager, gitContainer,
                            tr("Branches..."), Core::Id("Git.BranchList"),
                            globalcontext, true, SLOT(branchList()));
@@ -793,14 +798,19 @@ void GitPlugin::fetch()
 void GitPlugin::pull()
 {
     const VcsBase::VcsBasePluginState state = currentState();
-    QTC_ASSERT(state.hasTopLevel(), return)
+    QTC_ASSERT(state.hasTopLevel(), return);
+    const bool rebase = m_gitClient->settings()->boolValue(GitSettings::pullRebaseKey);
 
     switch (m_gitClient->ensureStash(state.topLevel())) {
-        case GitClient::StashUnchanged:
-        case GitClient::Stashed:
-        case GitClient::NotStashed:
-            m_gitClient->synchronousPull(state.topLevel());
-        default:
+    case GitClient::StashUnchanged:
+    case GitClient::Stashed:
+        m_gitClient->synchronousPull(state.topLevel(), rebase);
+        break;
+    case GitClient::NotStashed:
+        if (!rebase)
+            m_gitClient->synchronousPull(state.topLevel(), false);
+        break;
+    default:
         break;
     }
 }
@@ -1026,9 +1036,17 @@ void GitPlugin::updateActions(VcsBase::VcsBasePlugin::ActionState as)
 
     foreach (QAction *repositoryAction, m_repositoryActions)
         repositoryAction->setEnabled(repositoryEnabled);
+    updateRepositoryBrowserAction();
 
     // Prompts for repo.
     m_showAction->setEnabled(true);
+}
+
+void GitPlugin::updateRepositoryBrowserAction()
+{
+    const bool repositoryEnabled = currentState().hasTopLevel();
+    const bool hasRepositoryBrowserCmd = !settings().stringValue(GitSettings::repositoryBrowserCmd).isEmpty();
+    m_repositoryBrowserAction->setEnabled(repositoryEnabled && hasRepositoryBrowserCmd);
 }
 
 void GitPlugin::showCommit()
@@ -1065,6 +1083,7 @@ void GitPlugin::setSettings(const GitSettings &s)
     m_settings = s;
     m_gitClient->saveSettings();
     static_cast<GitVersionControl *>(versionControl())->emitConfigurationChanged();
+    updateRepositoryBrowserAction();
 }
 
 GitClient *GitPlugin::gitClient() const

@@ -53,6 +53,8 @@ public:
     void clearTasks(const Core::Id &categoryId = Core::Id());
     void removeTask(const Task &task);
     void updateTaskLineNumber(unsigned int id, int line);
+    void taskMarkClicked(unsigned int id);
+    void showTaskInEditor(unsigned int id);
     void setCategoryVisibility(const Core::Id &categoryId, bool visible);
 
     void popup(bool withFocus);
@@ -67,6 +69,8 @@ signals:
     void taskLineNumberUpdated(unsigned int id, int line);
     void categoryVisibilityChanged(const Core::Id &categoryId, bool visible);
     void popupRequested(bool withFocus);
+    void showTask(unsigned int id);
+    void openTask(unsigned int id);
 private:
     const QIcon m_errorIcon;
     const QIcon m_warningIcon;

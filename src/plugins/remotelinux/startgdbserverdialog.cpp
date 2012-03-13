@@ -34,15 +34,14 @@
 
 #include "remotelinuxprocesslist.h"
 #include "linuxdeviceconfiguration.h"
-#include "linuxdeviceconfigurations.h"
 #include "remotelinuxusedportsgatherer.h"
-#include "portlist.h"
 
 #include <coreplugin/icore.h>
-
 #include <extensionsystem/pluginmanager.h>
-
+#include <projectexplorer/devicesupport/devicemanager.h>
+#include <projectexplorer/devicesupport/devicemanagermodel.h>
 #include <utils/pathchooser.h>
+#include <utils/portlist.h>
 #include <utils/qtcassert.h>
 #include <utils/ssh/sshconnection.h>
 #include <utils/ssh/sshremoteprocessrunner.h>
@@ -70,6 +69,7 @@
 #include <QVBoxLayout>
 
 using namespace Core;
+using namespace ProjectExplorer;
 using namespace Utils;
 
 const char LastSysroot[] = "RemoteLinux/LastSysroot";
@@ -87,8 +87,9 @@ public:
 
     LinuxDeviceConfiguration::ConstPtr currentDevice() const
     {
-        LinuxDeviceConfigurations *devices = LinuxDeviceConfigurations::instance();
-        return devices->deviceAt(deviceComboBox->currentIndex());
+        DeviceManager *devices = DeviceManager::instance();
+        return devices->deviceAt(deviceComboBox->currentIndex())
+            .dynamicCast<const LinuxDeviceConfiguration>();
     }
 
     StartGdbServerDialog *q;
@@ -173,15 +174,16 @@ StartGdbServerDialog::StartGdbServerDialog(QWidget *parent) :
 {
     setWindowTitle(tr("List of Remote Processes"));
 
-    LinuxDeviceConfigurations *devices = LinuxDeviceConfigurations::instance();
+    DeviceManager *devices = DeviceManager::instance();
+    DeviceManagerModel * const model = new DeviceManagerModel(devices, this);
 
     QObject::connect(d->closeButton, SIGNAL(clicked()), this, SLOT(reject()));
 
-    d->deviceComboBox->setModel(devices);
+    d->deviceComboBox->setModel(model);
     d->deviceComboBox->setCurrentIndex(d->settings->value(LastDevice).toInt());
     connect(&d->gatherer, SIGNAL(error(QString)), SLOT(portGathererError(QString)));
     connect(&d->gatherer, SIGNAL(portListReady()), SLOT(portListReady()));
-    if (devices->rowCount() == 0) {
+    if (devices->deviceCount() == 0) {
         d->tableView->setEnabled(false);
     } else {
         d->tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -216,9 +218,13 @@ StartGdbServerDialog::~StartGdbServerDialog()
 
 void StartGdbServerDialog::attachToDevice(int index)
 {
-    LinuxDeviceConfigurations *devices = LinuxDeviceConfigurations::instance();
+    DeviceManager *devices = DeviceManager::instance();
+    LinuxDeviceConfiguration::ConstPtr device
+        = devices->deviceAt(index).dynamicCast<const LinuxDeviceConfiguration>();
+    if (!device)
+        return;
     delete d->processList;
-    d->processList = new GenericRemoteLinuxProcessList(devices->deviceAt(index));
+    d->processList = new GenericRemoteLinuxProcessList(device);
     d->proxyModel.setSourceModel(d->processList);
     connect(d->processList, SIGNAL(error(QString)),
         SLOT(handleRemoteError(QString)));
@@ -259,6 +265,8 @@ void StartGdbServerDialog::attachToProcess()
     d->attachProcessButton->setEnabled(false);
 
     LinuxDeviceConfiguration::ConstPtr device = d->currentDevice();
+    if (!device)
+        return;
     PortList ports = device->freePorts();
     const int port = d->gatherer.getNextFreePort(&ports);
     const int row = d->proxyModel.mapToSource(indexes.first()).row();
@@ -359,12 +367,7 @@ void StartGdbServerDialog::reportOpenPort(int port)
         return;
 
     LinuxDeviceConfiguration::ConstPtr device = d->currentDevice();
-    QString host = device->sshParameters().host;
-    QString channel;
-    if (host.contains(QLatin1Char(':')))
-        channel = QString::fromLatin1("[%1]:%2").arg(host).arg(port);
-    else
-        channel = QString::fromLatin1("%1:%2").arg(host).arg(port);
+    QString channel = QString("%1:%2").arg(device->sshParameters().host).arg(port);
     logMessage(tr("Server started on %1").arg(channel));
 
     QMetaObject::invokeMethod(ob, "gdbServerStarted", Qt::QueuedConnection,
@@ -389,7 +392,7 @@ void StartGdbServerDialog::startGdbServerOnPort(int port, int pid)
         SLOT(handleProcessErrorOutput(QByteArray)));
     connect(&d->runner, SIGNAL(processClosed(int)), SLOT(handleProcessClosed(int)));
 
-    QByteArray cmd = "/usr/bin/gdbserver --attach localhost:"
+    QByteArray cmd = "/usr/bin/gdbserver --attach :"
         + QByteArray::number(port) + " " + QByteArray::number(pid);
     logMessage(tr("Running command: %1").arg(QString::fromLatin1(cmd)));
     d->runner.run(cmd, device->sshParameters());

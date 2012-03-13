@@ -44,11 +44,23 @@ class QtMessageLogView : public QTreeView
 public:
     explicit QtMessageLogView(QWidget *parent = 0);
 
+public slots:
+    void onScrollToBottom();
+
 protected:
     void mousePressEvent(QMouseEvent *event);
+    void keyPressEvent(QKeyEvent *e);
     void resizeEvent(QResizeEvent *e);
     void drawBranches(QPainter *painter, const QRect &rect,
                       const QModelIndex &index) const;
+    void contextMenuEvent(QContextMenuEvent *event);
+
+private slots:
+    void onRowActivated(const QModelIndex &index);
+
+private:
+    void copyToClipboard(const QModelIndex &index);
+    bool canShowItemInTextEditor(const QModelIndex &index);
 };
 
 } //Internal

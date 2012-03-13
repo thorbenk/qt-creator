@@ -56,8 +56,8 @@ using ProjectExplorer::idFromMap;
 Qt4DesktopTargetFactory::Qt4DesktopTargetFactory(QObject *parent) :
     Qt4BaseTargetFactory(parent)
 {
-    connect(QtSupport::QtVersionManager::instance(), SIGNAL(qtVersionsChanged(QList<int>)),
-            this, SIGNAL(supportedTargetIdsChanged()));
+    connect(QtSupport::QtVersionManager::instance(), SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
+            this, SIGNAL(canCreateTargetIdsChanged()));
 }
 
 Qt4DesktopTargetFactory::~Qt4DesktopTargetFactory()
@@ -138,6 +138,7 @@ Qt4TargetSetupWidget *Qt4DesktopTargetFactory::createTargetSetupWidget(const QSt
         return 0;
     Qt4DefaultTargetSetupWidget *widget = new Qt4DefaultTargetSetupWidget(this, id, proFilePath,  infos,
                                                                           minimumQtVersion, maximumQtVersion,
+                                                                          requiredFeatures,
                                                                           importEnabled, importInfos,
                                                                           Qt4DefaultTargetSetupWidget::USER);
     widget->setBuildConfiguraionComboBoxVisible(true);
@@ -157,8 +158,8 @@ ProjectExplorer::Target *Qt4DesktopTargetFactory::create(ProjectExplorer::Projec
     QtSupport::BaseQtVersion::QmakeBuildConfigs config = qtVersion->defaultBuildConfig();
 
     QList<BuildConfigurationInfo> infos;
-    infos.append(BuildConfigurationInfo(qtVersion, config, QString(), QString()));
-    infos.append(BuildConfigurationInfo(qtVersion, config ^ QtSupport::BaseQtVersion::DebugBuild, QString(), QString()));
+    infos.append(BuildConfigurationInfo(qtVersion->uniqueId(), config, QString(), QString()));
+    infos.append(BuildConfigurationInfo(qtVersion->uniqueId(), config ^ QtSupport::BaseQtVersion::DebugBuild, QString(), QString()));
 
     return create(parent, id, infos);
 }
@@ -182,7 +183,7 @@ ProjectExplorer::Target *Qt4DesktopTargetFactory::create(ProjectExplorer::Projec
 
     foreach (const BuildConfigurationInfo &info, infos)
         t->addQt4BuildConfiguration(msgBuildConfigurationName(info), QString(),
-                                    info.version, info.buildConfig,
+                                    info.version(), info.buildConfig,
                                     info.additionalArguments, info.directory, info.importing);
 
     t->addDeployConfiguration(t->createDeployConfiguration(QLatin1String(ProjectExplorer::Constants::DEFAULT_DEPLOYCONFIGURATION_ID)));

@@ -40,9 +40,10 @@
 #include "maemoconstants.h"
 #include "maemoglobal.h"
 
+#include <projectexplorer/devicesupport/devicemanager.h>
 #include <remotelinux/genericlinuxdeviceconfigurationwizardpages.h>
+#include <remotelinux/linuxdeviceconfiguration.h>
 #include <remotelinux/linuxdevicetestdialog.h>
-#include <remotelinux/remotelinuxutils.h>
 #include <remotelinux/sshkeydeployer.h>
 #include <utils/fileutils.h>
 #include <utils/ssh/sshkeygenerator.h>
@@ -54,6 +55,7 @@
 #include <QMessageBox>
 #include <QWizardPage>
 
+using namespace ProjectExplorer;
 using namespace RemoteLinux;
 using namespace Utils;
 
@@ -61,14 +63,14 @@ namespace Madde {
 namespace Internal {
 namespace {
 
-QString defaultUser(const QString &osType)
+QString defaultUser(const QString &deviceType)
 {
-    if (osType == QLatin1String(MeeGoOsType))
+    if (deviceType == QLatin1String(MeeGoOsType))
         return QLatin1String("meego");
     return QLatin1String("developer");
 }
 
-QString defaultHost(LinuxDeviceConfiguration::DeviceType type)
+QString defaultHost(LinuxDeviceConfiguration::MachineType type)
 {
     return QLatin1String(type == LinuxDeviceConfiguration::Hardware ? "192.168.2.15" : "localhost");
 }
@@ -77,9 +79,9 @@ struct WizardData
 {
     QString configName;
     QString hostName;
-    QString osType;
+    QString deviceType;
     SshConnectionParameters::AuthenticationType authType;
-    LinuxDeviceConfiguration::DeviceType deviceType;
+    LinuxDeviceConfiguration::MachineType machineType;
     QString privateKeyFilePath;
     QString publicKeyFilePath;
     QString userName;
@@ -104,25 +106,24 @@ public:
         setTitle(tr("General Information"));
         setSubTitle(QLatin1String(" ")); // For Qt bug (background color)
 
-        m_ui->osTypeComboBox->addItem(RemoteLinuxUtils::osTypeToString(QLatin1String(Maemo5OsType)),
+        m_ui->osTypeComboBox->addItem(DeviceManager::displayNameForDeviceType(QLatin1String(Maemo5OsType)),
             QLatin1String(Maemo5OsType));
-        m_ui->osTypeComboBox->addItem(RemoteLinuxUtils::osTypeToString(QLatin1String(HarmattanOsType)),
+        m_ui->osTypeComboBox->addItem(DeviceManager::displayNameForDeviceType(QLatin1String(HarmattanOsType)),
             QLatin1String(HarmattanOsType));
-        m_ui->osTypeComboBox->addItem(RemoteLinuxUtils::osTypeToString(QLatin1String(MeeGoOsType)),
+        m_ui->osTypeComboBox->addItem(DeviceManager::displayNameForDeviceType(QLatin1String(MeeGoOsType)),
             QLatin1String(MeeGoOsType));
 
         QButtonGroup *buttonGroup = new QButtonGroup(this);
         buttonGroup->setExclusive(true);
         buttonGroup->addButton(m_ui->hwButton);
         buttonGroup->addButton(m_ui->emulatorButton);
-        connect(buttonGroup, SIGNAL(buttonClicked(int)),
-           SLOT(handleDeviceTypeChanged()));
+        connect(buttonGroup, SIGNAL(buttonClicked(int)), SLOT(handleMachineTypeChanged()));
 
         m_ui->nameLineEdit->setText(tr("MeeGo Device"));
         m_ui->osTypeComboBox->setCurrentIndex(m_ui->osTypeComboBox->findData(QLatin1String(HarmattanOsType)));
         m_ui->hwButton->setChecked(true);
-        handleDeviceTypeChanged();
-        m_ui->hostNameLineEdit->setText(defaultHost(deviceType()));
+        handleMachineTypeChanged();
+        m_ui->hostNameLineEdit->setText(defaultHost(machineType()));
         m_ui->sshPortSpinBox->setMinimum(1);
         m_ui->sshPortSpinBox->setMaximum(65535);
         m_ui->sshPortSpinBox->setValue(22);
@@ -141,17 +142,17 @@ public:
 
     QString hostName() const
     {
-        return deviceType() == LinuxDeviceConfiguration::Emulator
+        return machineType() == LinuxDeviceConfiguration::Emulator
             ? defaultHost(LinuxDeviceConfiguration::Emulator)
             : m_ui->hostNameLineEdit->text().trimmed();
     }
 
-    QString osType() const
+    QString deviceType() const
     {
         return m_ui->osTypeComboBox->itemData(m_ui->osTypeComboBox->currentIndex()).toString();
     }
 
-    LinuxDeviceConfiguration::DeviceType deviceType() const
+    LinuxDeviceConfiguration::MachineType machineType() const
     {
         return m_ui->hwButton->isChecked()
             ? LinuxDeviceConfiguration::Hardware : LinuxDeviceConfiguration::Emulator;
@@ -159,14 +160,14 @@ public:
 
     int sshPort() const
     {
-        return deviceType() == LinuxDeviceConfiguration::Emulator
+        return machineType() == LinuxDeviceConfiguration::Emulator
             ? 6666 : m_ui->sshPortSpinBox->value();
     }
 
 private slots:
-    void handleDeviceTypeChanged()
+    void handleMachineTypeChanged()
     {
-        const bool enable = deviceType() == LinuxDeviceConfiguration::Hardware;
+        const bool enable = machineType() == LinuxDeviceConfiguration::Hardware;
         m_ui->hostNameLabel->setEnabled(enable);
         m_ui->hostNameLineEdit->setEnabled(enable);
         m_ui->sshPortLabel->setEnabled(enable);
@@ -345,7 +346,7 @@ private:
 
         m_ui->keyDirPathChooser->setEnabled(false);
         m_ui->createKeysButton->setEnabled(false);
-        m_ui->statusLabel->setText(tr("Creating keys ... "));
+        m_ui->statusLabel->setText(tr("Creating keys... "));
         SshKeyGenerator keyGenerator;
         if (!keyGenerator.generateKeys(SshKeyGenerator::Rsa,
              SshKeyGenerator::Mixed, 1024)) {
@@ -422,7 +423,7 @@ public:
         m_ui->deviceAddressLineEdit->setText(m_wizardData.hostName);
         m_ui->instructionLabel->setText(QString(m_instructionTextTemplate)
             .replace(QLatin1String("%%%maddev%%%"),
-                MaemoGlobal::madDeveloperUiName(m_wizardData.osType)));
+                MaemoGlobal::madDeveloperUiName(m_wizardData.deviceType)));
         m_ui->passwordLineEdit->clear();
         enableInput();
     }
@@ -446,18 +447,18 @@ private:
         m_ui->deviceAddressLineEdit->setEnabled(false);
         m_ui->passwordLineEdit->setEnabled(false);
         m_ui->deployButton->setEnabled(false);
-        SshConnectionParameters sshParams(SshConnectionParameters::NoProxy);
+        SshConnectionParameters sshParams;
         sshParams.authenticationType = SshConnectionParameters::AuthenticationByPassword;
         sshParams.host = hostAddress();
         sshParams.port = m_wizardData.sshPort;
         sshParams.password = password();
         sshParams.timeout = 10;
-        sshParams.userName = defaultUser(m_wizardData.osType);
+        sshParams.userName = defaultUser(m_wizardData.deviceType);
         m_ui->statusLabel->setText(tr("Deploying... "));
         m_keyDeployer->deployPublicKey(sshParams, m_wizardData.publicKeyFilePath);
     }
 
-    Q_SLOT void handleKeyDeploymentError(const QString &errorMsg)
+    Q_SLOT void handleKeyDeploymentError(const QString&errorMsg)
     {
         QMessageBox::critical(this, tr("Key Deployment Failure"), errorMsg);
         enableInput();
@@ -468,7 +469,7 @@ private:
         QMessageBox::information(this, tr("Key Deployment Success"),
             tr("The key was successfully deployed. You may now close "
                "the \"%1\" application and continue.")
-               .arg(MaemoGlobal::madDeveloperUiName(m_wizardData.osType)));
+               .arg(MaemoGlobal::madDeveloperUiName(m_wizardData.deviceType)));
         m_ui->statusLabel->setText(m_ui->statusLabel->text() + tr("Done."));
         m_isComplete = true;
         emit completeChanged();
@@ -506,7 +507,7 @@ public:
 private:
     QString infoText() const
     {
-        if (m_wizardData.deviceType == LinuxDeviceConfiguration::Emulator)
+        if (m_wizardData.machineType == LinuxDeviceConfiguration::Emulator)
             return tr("The new device configuration will now be created.");
         return GenericLinuxDeviceConfigurationWizardFinalPage::infoText();
     }
@@ -539,7 +540,7 @@ struct MaemoDeviceConfigWizardPrivate
 
 
 MaemoDeviceConfigWizard::MaemoDeviceConfigWizard(QWidget *parent)
-    : ILinuxDeviceConfigurationWizard(parent), d(new MaemoDeviceConfigWizardPrivate(this))
+    : IDeviceWizard(parent), d(new MaemoDeviceConfigWizardPrivate(this))
 {
     setWindowTitle(tr("New Device Configuration Setup"));
     setPage(StartPageId, &d->startPage);
@@ -556,17 +557,17 @@ MaemoDeviceConfigWizard::~MaemoDeviceConfigWizard()
     delete d;
 }
 
-LinuxDeviceConfiguration::Ptr MaemoDeviceConfigWizard::deviceConfiguration()
+IDevice::Ptr MaemoDeviceConfigWizard::device()
 {
     bool doTest;
     QString freePortsSpec;
-    Utils::SshConnectionParameters sshParams(Utils::SshConnectionParameters::NoProxy);
-    sshParams.userName = defaultUser(d->wizardData.osType);
+    Utils::SshConnectionParameters sshParams;
+    sshParams.userName = defaultUser(d->wizardData.deviceType);
     sshParams.host = d->wizardData.hostName;
     sshParams.port = d->wizardData.sshPort;
-    if (d->wizardData.deviceType == LinuxDeviceConfiguration::Emulator) {
+    if (d->wizardData.machineType == LinuxDeviceConfiguration::Emulator) {
         sshParams.authenticationType = Utils::SshConnectionParameters::AuthenticationByPassword;
-        sshParams.password = d->wizardData.osType == QLatin1String(MeeGoOsType)
+        sshParams.password = d->wizardData.deviceType == QLatin1String(MeeGoOsType)
             ? QLatin1String("meego") : QString();
         sshParams.timeout = 30;
         freePortsSpec = QLatin1String("13219,14168");
@@ -579,8 +580,9 @@ LinuxDeviceConfiguration::Ptr MaemoDeviceConfigWizard::deviceConfiguration()
         doTest = true;
     }
     const LinuxDeviceConfiguration::Ptr devConf = LinuxDeviceConfiguration::create(d->wizardData.configName,
-        d->wizardData.osType, d->wizardData.deviceType, PortList::fromString(freePortsSpec),
-        sshParams);
+        d->wizardData.deviceType, d->wizardData.machineType);
+    devConf->setFreePorts(PortList::fromString(freePortsSpec));
+    devConf->setSshParameters(sshParams);
     if (doTest) {
         LinuxDeviceTestDialog dlg(devConf, new MaddeDeviceTester(this), this);
         dlg.exec();
@@ -593,11 +595,11 @@ int MaemoDeviceConfigWizard::nextId() const
     switch (currentId()) {
     case StartPageId:
         d->wizardData.configName = d->startPage.configName();
-        d->wizardData.osType = d->startPage.osType();
         d->wizardData.deviceType = d->startPage.deviceType();
+        d->wizardData.machineType = d->startPage.machineType();
         d->wizardData.hostName = d->startPage.hostName();
         d->wizardData.sshPort = d->startPage.sshPort();
-        if (d->wizardData.deviceType == LinuxDeviceConfiguration::Emulator)
+        if (d->wizardData.machineType == LinuxDeviceConfiguration::Emulator)
             return FinalPageId;
         return PreviousKeySetupCheckPageId;
     case PreviousKeySetupCheckPageId:

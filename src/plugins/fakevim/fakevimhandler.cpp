@@ -418,7 +418,7 @@ public:
 
     bool isReturn() const
     {
-        return m_key == Key_Return;
+        return m_key == Key_Return || m_key == Key_Enter;
     }
 
     bool isEscape() const
@@ -3323,7 +3323,7 @@ bool FakeVimHandler::Private::handleExSubstituteCommand(const ExCommand &cmd)
         pattern = m_lastSubstitutePattern;
         replacement = m_lastSubstituteReplacement;
         count = cmd.args.section(QLatin1Char(' '), 1, 1).toInt();
-    } else if (cmd.cmd.startsWith("&")) {
+    } else if (cmd.cmd.startsWith(QLatin1Char('&'))) {
         flags = cmd.cmd.mid(1);
         if (flags.isEmpty())
             flags = m_lastSubstituteFlags;

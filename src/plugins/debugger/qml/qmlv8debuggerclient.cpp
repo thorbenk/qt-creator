@@ -82,8 +82,7 @@ public:
     explicit QmlV8DebuggerClientPrivate(QmlV8DebuggerClient *q) :
         q(q),
         sequence(-1),
-        engine(0),
-        isOldService(false)
+        engine(0)
     {
         parser = m_scriptEngine.evaluate(_("JSON.parse"));
         stringifier = m_scriptEngine.evaluate(_("JSON.stringify"));
@@ -106,8 +105,8 @@ public:
                  bool includeSource = false, const QVariant filter = QVariant());
     void source(int frame = -1, int fromLine = -1, int toLine = -1);
 
-    void setBreakpoint(const QString type, const QString target, int line = -1,
-                       int column = -1, bool enabled = true,
+    void setBreakpoint(const QString type, const QString target,
+                       bool enabled = true,int line = 0, int column = 0,
                        const QString condition = QString(), int ignoreCount = -1);
     void changeBreakpoint(int breakpoint, bool enabled = true,
                           const QString condition = QString(), int ignoreCount = -1);
@@ -156,8 +155,6 @@ public:
     QStringList watchedExpressions;
     QList<int> currentFrameScopes;
 
-    //TODO: remove this flag
-    bool isOldService;
 private:
     QScriptEngine m_scriptEngine;
 };
@@ -171,18 +168,7 @@ private:
 void QmlV8DebuggerClientPrivate::connect()
 {
     logSendMessage(QString(_("%1 %2")).arg(_(V8DEBUG), _(CONNECT)));
-    if (isOldService) {
-        //    { "seq"     : <number>,
-        //      "type"    : "request",
-        //      "command" : "connect",
-        //    }
-        QScriptValue jsonVal = initObject();
-        jsonVal.setProperty(_(COMMAND), QScriptValue(_(CONNECT)));
-        const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-        q->sendMessage(packMessage(QByteArray(), jsonMessage.toString().toUtf8()));
-    } else {
-        q->sendMessage(packMessage(CONNECT));
-    }
+    q->sendMessage(packMessage(CONNECT));
 }
 
 void QmlV8DebuggerClientPrivate::disconnect()
@@ -202,19 +188,7 @@ void QmlV8DebuggerClientPrivate::disconnect()
 void QmlV8DebuggerClientPrivate::interrupt()
 {
     logSendMessage(QString(_("%1 %2")).arg(_(V8DEBUG), _(INTERRUPT)));
-    if (isOldService) {
-        //    { "seq"     : <number>,
-        //      "type"    : "request",
-        //      "command" : "interrupt",
-        //    }
-        QScriptValue jsonVal = initObject();
-        jsonVal.setProperty(_(COMMAND), QScriptValue(_(INTERRUPT)));
-        const QScriptValue jsonMessage = stringifier.call(QScriptValue(), QScriptValueList() << jsonVal);
-        q->sendMessage(packMessage(QByteArray(), jsonMessage.toString().toUtf8()));
-
-    } else {
-        q->sendMessage(packMessage(INTERRUPT));
-    }
+    q->sendMessage(packMessage(INTERRUPT));
 }
 
 void QmlV8DebuggerClientPrivate::continueDebugging(QmlV8DebuggerClient::StepAction action,
@@ -539,7 +513,7 @@ void QmlV8DebuggerClientPrivate::source(int frame, int fromLine, int toLine)
 }
 
 void QmlV8DebuggerClientPrivate::setBreakpoint(const QString type, const QString target,
-                                               int line, int column, bool enabled,
+                                               bool enabled, int line, int column,
                                                const QString condition, int ignoreCount)
 {
     //    { "seq"       : <number>,
@@ -554,7 +528,7 @@ void QmlV8DebuggerClientPrivate::setBreakpoint(const QString type, const QString
     //                      "ignoreCount" : <number specifying the number of break point hits to ignore, default value is 0>
     //                    }
     //    }
-    if (type == _(EVENT) && !isOldService) {
+    if (type == _(EVENT)) {
         QByteArray params;
         QDataStream rs(&params, QIODevice::WriteOnly);
         rs <<  target.toUtf8() << enabled;
@@ -568,13 +542,17 @@ void QmlV8DebuggerClientPrivate::setBreakpoint(const QString type, const QString
         QScriptValue args = parser.call(QScriptValue(), QScriptValueList() << QScriptValue(_(OBJECT)));
 
         args.setProperty(_(TYPE), QScriptValue(type));
-        args.setProperty(_(TARGET), QScriptValue(target));
+        if (type == _(SCRIPTREGEXP))
+            args.setProperty(_(TARGET),
+                             QScriptValue(QFileInfo(target).fileName()));
+        else
+            args.setProperty(_(TARGET), QScriptValue(target));
 
-        if (line != -1)
-            args.setProperty(_(LINE), QScriptValue(line));
+        if (line)
+            args.setProperty(_(LINE), QScriptValue(line - 1));
 
-        if (column != -1)
-            args.setProperty(_(COLUMN), QScriptValue(column));
+        if (column)
+            args.setProperty(_(COLUMN), QScriptValue(column - 1));
 
         args.setProperty(_(ENABLED), QScriptValue(enabled));
 
@@ -906,10 +884,7 @@ QByteArray QmlV8DebuggerClientPrivate::packMessage(const QByteArray &type, const
     QByteArray request;
     QDataStream rs(&request, QIODevice::WriteOnly);
     QByteArray cmd = V8DEBUG;
-    rs << cmd;
-    if (!isOldService)
-        rs << type;
-    rs << message;
+    rs << cmd << type << message;
     return request;
 }
 
@@ -988,7 +963,7 @@ void QmlV8DebuggerClientPrivate::reformatRequest(QByteArray &request)
             bool enabled;
             rs >> signalHandler >> enabled;
 
-            setBreakpoint(_(EVENT), QString::fromUtf8(signalHandler), -1, -1, enabled);
+            setBreakpoint(_(EVENT), QString::fromUtf8(signalHandler), enabled);
         }
     }
 }
@@ -1039,17 +1014,8 @@ QmlV8DebuggerClient::~QmlV8DebuggerClient()
 
 void QmlV8DebuggerClient::startSession()
 {
-    //TODO:: remove this check.
-    //Modify messages to align with the older protocol
-    if (serviceVersion() < CURRENT_SUPPORTED_VERSION) {
-        d->isOldService = true;
-        //Modify cached messages
-        QList<QByteArray> buffer = cachedMessages();
-        clearCachedMessages();
-        foreach (QByteArray msg, buffer) {
-            d->reformatRequest(msg);
-        }
-    }
+    //Supports v2.0 and above
+    QTC_ASSERT(serviceVersion() >= CURRENT_SUPPORTED_VERSION, return);
     flushSendBuffer();
     d->connect();
     //Query for the V8 version. This is
@@ -1088,13 +1054,8 @@ void QmlV8DebuggerClient::executeStepI()
 
 void QmlV8DebuggerClient::executeRunToLine(const ContextData &data)
 {
-    if (d->isOldService) {
-        d->setBreakpoint(QString(_(SCRIPT)), QFileInfo(data.fileName).fileName(),
-                         data.lineNumber - 1);
-    } else {
-        d->setBreakpoint(QString(_(SCRIPTREGEXP)), QFileInfo(data.fileName).fileName(),
-                         data.lineNumber - 1);
-    }
+    d->setBreakpoint(QString(_(SCRIPTREGEXP)), data.fileName,
+                     true, data.lineNumber);
     clearExceptionSelection();
     d->continueDebugging(Continue);
 }
@@ -1114,6 +1075,7 @@ void QmlV8DebuggerClient::activateFrame(int index)
 {
     if (index != d->engine->stackHandler()->currentIndex())
         d->frame(index);
+    d->engine->stackHandler()->setCurrentIndex(index);
 }
 
 bool QmlV8DebuggerClient::acceptsBreakpoint(const BreakpointModelId &id)
@@ -1124,7 +1086,9 @@ bool QmlV8DebuggerClient::acceptsBreakpoint(const BreakpointModelId &id)
             || type == BreakpointAtJavaScriptThrow);
 }
 
-void QmlV8DebuggerClient::insertBreakpoint(const BreakpointModelId &id)
+void QmlV8DebuggerClient::insertBreakpoint(const BreakpointModelId &id,
+                                           int adjustedLine,
+                                           int adjustedColumn)
 {
     BreakHandler *handler = d->engine->breakHandler();
     const BreakpointParameters &params = handler->breakpointData(id);
@@ -1134,19 +1098,12 @@ void QmlV8DebuggerClient::insertBreakpoint(const BreakpointModelId &id)
         d->setExceptionBreak(AllExceptions, params.enabled);
 
     } else if (params.type == BreakpointByFileAndLine) {
-        if (d->isOldService) {
-            d->setBreakpoint(QString(_(SCRIPT)), QFileInfo(params.fileName).fileName(),
-                             params.lineNumber - 1, -1, params.enabled,
-                             QLatin1String(params.condition), params.ignoreCount);
-        } else {
-            d->setBreakpoint(QString(_(SCRIPTREGEXP)), QFileInfo(params.fileName).fileName(),
-                             params.lineNumber - 1, -1, params.enabled,
-                             QLatin1String(params.condition), params.ignoreCount);
-        }
+        d->setBreakpoint(QString(_(SCRIPTREGEXP)), params.fileName,
+                         params.enabled, adjustedLine, adjustedColumn,
+                         QLatin1String(params.condition), params.ignoreCount);
 
     } else if (params.type == BreakpointOnQmlSignalHandler) {
-        d->setBreakpoint(QString(_(EVENT)), params.functionName,
-                         -1, -1, params.enabled);
+        d->setBreakpoint(QString(_(EVENT)), params.functionName, params.enabled);
         d->engine->breakHandler()->notifyBreakpointInsertOk(id);
     }
 
@@ -1156,20 +1113,17 @@ void QmlV8DebuggerClient::insertBreakpoint(const BreakpointModelId &id)
 void QmlV8DebuggerClient::removeBreakpoint(const BreakpointModelId &id)
 {
     BreakHandler *handler = d->engine->breakHandler();
+    const BreakpointParameters &params = handler->breakpointData(id);
 
     int breakpoint = d->breakpoints.value(id);
     d->breakpoints.remove(id);
 
-    if (handler->breakpointData(id).type == BreakpointAtJavaScriptThrow) {
+    if (params.type == BreakpointAtJavaScriptThrow)
         d->setExceptionBreak(AllExceptions);
-
-    } else if (handler->breakpointData(id).type == BreakpointOnQmlSignalHandler) {
-        d->setBreakpoint(QString(_(EVENT)), handler->breakpointData(id).functionName,
-                         -1, -1, false);
-
-    } else {
+    else if (params.type == BreakpointOnQmlSignalHandler)
+        d->setBreakpoint(QString(_(EVENT)), params.functionName, false);
+    else
         d->clearBreakpoint(breakpoint);
-    }
 }
 
 void QmlV8DebuggerClient::changeBreakpoint(const BreakpointModelId &id)
@@ -1177,24 +1131,21 @@ void QmlV8DebuggerClient::changeBreakpoint(const BreakpointModelId &id)
     BreakHandler *handler = d->engine->breakHandler();
     const BreakpointParameters &params = handler->breakpointData(id);
 
+    BreakpointResponse br = handler->response(id);
     if (params.type == BreakpointAtJavaScriptThrow) {
         d->setExceptionBreak(AllExceptions, params.enabled);
-
-    } else if (handler->breakpointData(id).type == BreakpointOnQmlSignalHandler) {
-        d->setBreakpoint(QString(_(EVENT)), params.functionName,
-                         -1, -1, params.enabled);
-
+        br.enabled = params.enabled;
+        handler->setResponse(id, br);
+    } else if (params.type == BreakpointOnQmlSignalHandler) {
+        d->setBreakpoint(QString(_(EVENT)), params.functionName, params.enabled);
+        br.enabled = params.enabled;
+        handler->setResponse(id, br);
     } else {
-        int breakpoint = d->breakpoints.value(id);
-        d->changeBreakpoint(breakpoint, params.enabled, QLatin1String(params.condition),
-                            params.ignoreCount);
+        //V8 supports only minimalistic changes in breakpoint
+        //Remove the breakpoint and add again
+        removeBreakpoint(id);
+        d->engine->insertBreakpoint(id);
     }
-
-    BreakpointResponse br = handler->response(id);
-    br.enabled = params.enabled;
-    br.condition = params.condition;
-    br.ignoreCount = params.ignoreCount;
-    handler->setResponse(id, br);
 }
 
 void QmlV8DebuggerClient::synchronizeBreakpoints()
@@ -1277,11 +1228,6 @@ void QmlV8DebuggerClient::messageReceived(const QByteArray &data)
         QByteArray response;
         ds >> type >> response;
 
-        if (d->isOldService) {
-            response = type;
-            type = QByteArray(V8MESSAGE);
-        }
-
         d->logReceiveMessage(_(V8DEBUG) + QLatin1Char(' ') +  QLatin1String(type));
         if (type == CONNECT) {
             //debugging session started
@@ -1363,8 +1309,15 @@ void QmlV8DebuggerClient::messageReceived(const QByteArray &data)
                         BreakpointModelId id = d->breakpointsSync.take(seq);
                         d->breakpoints.insert(id, index);
 
-                        if (d->engine->breakHandler()->state(id) != BreakpointInserted)
-                            d->engine->breakHandler()->notifyBreakpointInsertOk(id);
+                        BreakHandler *handler = d->engine->breakHandler();
+                        if (handler->state(id) != BreakpointInserted) {
+                            BreakpointResponse br = handler->response(id);
+                            br.lineNumber = breakpointData.value(_("line")
+                                                                 ).toInt() + 1;
+                            handler->setResponse(id, br);
+                            handler->notifyBreakpointInsertOk(id);
+                        }
+
 
                     } else {
                         d->breakpointsTemp.append(index);
@@ -1502,10 +1455,13 @@ void QmlV8DebuggerClient::messageReceived(const QByteArray &data)
                                 const BreakpointParameters &params = handler->breakpointData(internalId);
 
                                 d->clearBreakpoint(v8Id);
-                                const QString type = d->isOldService ? QString(_(SCRIPT)) :QString(_(SCRIPTREGEXP));
-                                d->setBreakpoint(type, QFileInfo(params.fileName).fileName(),
-                                                 params.lineNumber - 1, newColumn, params.enabled,
-                                                 QString(params.condition), params.ignoreCount);
+                                d->setBreakpoint(QString(_(SCRIPTREGEXP)),
+                                                 params.fileName,
+                                                 params.enabled,
+                                                 params.lineNumber,
+                                                 newColumn,
+                                                 QString(params.condition),
+                                                 params.ignoreCount);
                                 d->breakpointsSync.insert(d->sequence, internalId);
                             }
                         }
@@ -1716,7 +1672,6 @@ void QmlV8DebuggerClient::setCurrentFrameDetails(const QVariant &bodyVal, const 
     QVariantMap currentFrame = bodyVal.toMap();
 
     StackHandler *stackHandler = d->engine->stackHandler();
-    int frameIndex = currentFrame.value(QLatin1String("index")).toInt();
 
     d->clearCache();
     //Set "this" variable
@@ -1746,7 +1701,6 @@ void QmlV8DebuggerClient::setCurrentFrameDetails(const QVariant &bodyVal, const 
         d->currentFrameScopes.append(scopeIndex);
         d->scope(scopeIndex);
     }
-    stackHandler->setCurrentIndex(frameIndex);
     d->engine->gotoLocation(stackHandler->currentFrame());
 }
 

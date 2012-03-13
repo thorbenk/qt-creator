@@ -115,7 +115,7 @@ void StartRemoteDialog::validate()
 
 Utils::SshConnectionParameters StartRemoteDialog::sshParams() const
 {
-    Utils::SshConnectionParameters params(Utils::SshConnectionParameters::NoProxy);
+    Utils::SshConnectionParameters params;
     params.host = m_ui->host->text();
     params.userName = m_ui->user->text();
     if (m_ui->keyFile->isValid()) {
@@ -126,7 +126,7 @@ Utils::SshConnectionParameters StartRemoteDialog::sshParams() const
         params.password = m_ui->password->text();
     }
     params.port = m_ui->port->value();
-    params.timeout = 1;
+    params.timeout = 10;
     return params;
 }
 

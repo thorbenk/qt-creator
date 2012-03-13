@@ -169,7 +169,13 @@ def createProject_Qt_GUI(path, projectName, qtVersion = None, checks = True):
         if platform.system() in ('Windows', 'Microsoft'):
             path = os.path.abspath(path)
         path = os.path.join(path, projectName)
-        expectedFiles = [path, cpp_file, h_file, ui_file, pro_file]
+        expectedFiles = [path]
+        tmpList = ["main.cpp", cpp_file, h_file, ui_file, pro_file]
+        if platform.system() in ('Windows', 'Microsoft'):
+            tmpList.sort(key=str.lower)
+        else:
+            tmpList.sort()
+        expectedFiles.extend(tmpList)
     __createProjectHandleLastPage__(expectedFiles)
 
     waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 20000)
@@ -201,12 +207,9 @@ def createProject_Qt_Console(path, projectName, qtVersion = None, checks = True)
 
 def createNewQtQuickApplication(workingDir, projectName = None, templateFile = None, targets = QtQuickConstants.Targets.DESKTOP):
     if templateFile:
-        available = __createProjectSelectType__("  Applications", "Qt Quick Application (from existing \.qml file)")
+        available = __createProjectSelectType__("  Applications", "Qt Quick Application (from Existing QML File)")
     else:
-        available = __createProjectSelectType__("  Applications", "Qt Quick Application (Built-in elements)")
-    # This needs Qt 4.7 - a version we don't have for Maemo
-    if QtQuickConstants.Targets.MAEMO5 in available:
-        available.remove(QtQuickConstants.Targets.MAEMO5)
+        available = __createProjectSelectType__("  Applications", "Qt Quick Application (Built-in Elements)")
     projectName = __createProjectSetNameAndPath__(workingDir, projectName)
     if templateFile:
         baseLineEd = waitForObject("{type='Utils::BaseValidatingLineEdit' unnamed='1' visible='1'}", 20000)
@@ -264,7 +267,7 @@ def __chooseTargets__(targets=QtQuickConstants.Targets.DESKTOP, availableTargets
         available = availableTargets
     else:
         # following targets depend on the build environment - added for further/later tests
-        available = [QtQuickConstants.Targets.MAEMO5,
+        available = [QtQuickConstants.Targets.MAEMO5, QtQuickConstants.Targets.EMBEDDED_LINUX,
                      QtQuickConstants.Targets.SIMULATOR, QtQuickConstants.Targets.HARMATTAN]
         if platform.system() in ('Windows', 'Microsoft'):
             available += [QtQuickConstants.Targets.SYMBIAN]
@@ -418,6 +421,8 @@ def __getSupportedPlatforms__(text, getAsStrings=False):
         addSimulator = False
         if 'Desktop' in supports:
             result.append(QtQuickConstants.Targets.DESKTOP)
+            if platform.system() in ("Linux", "Darwin"):
+                result.append(QtQuickConstants.Targets.EMBEDDED_LINUX)
         if 'MeeGo/Harmattan' in supports:
             result.append(QtQuickConstants.Targets.HARMATTAN)
             result.append(QtQuickConstants.Targets.MAEMO5)

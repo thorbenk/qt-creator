@@ -32,9 +32,10 @@
 #ifndef REMOTELINUX_GENERICLINUXDEVICECONFIGURATIONWIDGET_H
 #define REMOTELINUX_GENERICLINUXDEVICECONFIGURATIONWIDGET_H
 
-#include "remotelinux_export.h"
+#include <projectexplorer/devicesupport/idevicewidget.h>
 
 #include "linuxdeviceconfiguration.h"
+#include "remotelinux_export.h"
 
 namespace RemoteLinux {
 
@@ -42,14 +43,14 @@ namespace Ui {
 class GenericLinuxDeviceConfigurationWidget;
 }
 
-class REMOTELINUX_EXPORT GenericLinuxDeviceConfigurationWidget : public ILinuxDeviceConfigurationWidget
+class REMOTELINUX_EXPORT GenericLinuxDeviceConfigurationWidget
+        : public ProjectExplorer::IDeviceWidget
 {
     Q_OBJECT
 
 public:
     explicit GenericLinuxDeviceConfigurationWidget(
-            const LinuxDeviceConfiguration::Ptr &deviceConfig,
-            QWidget *parent = 0);
+        const LinuxDeviceConfiguration::Ptr &deviceConfig, QWidget *parent = 0);
     ~GenericLinuxDeviceConfigurationWidget();
 
 private slots:
@@ -62,12 +63,13 @@ private slots:
     void keyFileEditingFinished();
     void showPassword(bool showClearText);
     void handleFreePortsChanged();
-    void setDefaultKeyFilePath();
     void setPrivateKey(const QString &path);
+    void createNewKey();
 
 private:
     void updatePortsWarningLabel();
     void initGui();
+    LinuxDeviceConfiguration::Ptr deviceConfiguration() const;
 
     Ui::GenericLinuxDeviceConfigurationWidget *m_ui;
 };

@@ -79,6 +79,8 @@
 #include "buildconfiguration.h"
 #include "miniprojecttargetselector.h"
 #include "taskhub.h"
+#include "devicesupport/devicemanager.h"
+#include "devicesupport/devicesettingspage.h"
 #include "publishing/ipublishingwizardfactory.h"
 #include "publishing/publishingwizardselectiondialog.h"
 
@@ -119,7 +121,10 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QSettings>
+
+#if QT_VERSION < 0x050000
 #include <QAbstractFileEngine>
+#endif
 
 #include <QAction>
 #include <QApplication>
@@ -282,6 +287,7 @@ ProjectExplorerPlugin::ProjectExplorerPlugin()
 
 ProjectExplorerPlugin::~ProjectExplorerPlugin()
 {
+    DeviceManager::deleteInstance();
     removeObject(d->m_welcomePage);
     delete d->m_welcomePage;
     removeObject(this);
@@ -340,17 +346,17 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
 
     d->m_session = new SessionManager(this);
 
-    connect(d->m_session, SIGNAL(projectAdded(ProjectExplorer::Project *)),
+    connect(d->m_session, SIGNAL(projectAdded(ProjectExplorer::Project*)),
             this, SIGNAL(fileListChanged()));
-    connect(d->m_session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project *)),
-            this, SLOT(invalidateProject(ProjectExplorer::Project *)));
-    connect(d->m_session, SIGNAL(projectRemoved(ProjectExplorer::Project *)),
+    connect(d->m_session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
+            this, SLOT(invalidateProject(ProjectExplorer::Project*)));
+    connect(d->m_session, SIGNAL(projectRemoved(ProjectExplorer::Project*)),
             this, SIGNAL(fileListChanged()));
     connect(d->m_session, SIGNAL(projectAdded(ProjectExplorer::Project*)),
             this, SLOT(projectAdded(ProjectExplorer::Project*)));
     connect(d->m_session, SIGNAL(projectRemoved(ProjectExplorer::Project*)),
             this, SLOT(projectRemoved(ProjectExplorer::Project*)));
-    connect(d->m_session, SIGNAL(startupProjectChanged(ProjectExplorer::Project *)),
+    connect(d->m_session, SIGNAL(startupProjectChanged(ProjectExplorer::Project*)),
             this, SLOT(startupProjectChanged()));
     connect(d->m_session, SIGNAL(dependencyChanged(ProjectExplorer::Project*,ProjectExplorer::Project*)),
             this, SLOT(updateActions()));
@@ -374,8 +380,8 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     addAutoReleasedObject(new VcsAnnotateTaskHandler);
 
     d->m_buildManager = new BuildManager(this);
-    connect(d->m_buildManager, SIGNAL(buildStateChanged(ProjectExplorer::Project *)),
-            this, SLOT(buildStateChanged(ProjectExplorer::Project *)));
+    connect(d->m_buildManager, SIGNAL(buildStateChanged(ProjectExplorer::Project*)),
+            this, SLOT(buildStateChanged(ProjectExplorer::Project*)));
     connect(d->m_buildManager, SIGNAL(buildQueueFinished(bool)),
             this, SLOT(buildQueueFinished(bool)));
 
@@ -383,7 +389,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
 
     d->m_outputPane = new AppOutputPane;
     addAutoReleasedObject(d->m_outputPane);
-    connect(d->m_session, SIGNAL(projectRemoved(ProjectExplorer::Project *)),
+    connect(d->m_session, SIGNAL(projectRemoved(ProjectExplorer::Project*)),
             d->m_outputPane, SLOT(projectRemoved()));
 
     connect(d->m_outputPane, SIGNAL(runControlStarted(ProjectExplorer::RunControl*)),
@@ -417,8 +423,9 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
 
     addAutoReleasedObject(new ProjectFileWizardExtension);
 
-    // Settings page
+    // Settings pages
     addAutoReleasedObject(new ProjectExplorerSettingsPage);
+    addAutoReleasedObject(new DeviceSettingsPage);
 
     // context menus
     Core::ActionContainer *msessionContextMenu =
@@ -514,7 +521,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     d->m_openWithMenu = openWith->menu();
     d->m_openWithMenu->setTitle(tr("Open With"));
 
-    connect(d->m_openWithMenu, SIGNAL(triggered(QAction *)),
+    connect(d->m_openWithMenu, SIGNAL(triggered(QAction*)),
             Core::DocumentManager::instance(), SLOT(slotExecuteOpenWithMenuAction(QAction*)));
 
     //
@@ -617,9 +624,9 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     connect(mfile->menu(), SIGNAL(aboutToShow()),
         this, SLOT(updateRecentProjectMenu()));
 
-    // recent session menu
+    // session menu
     Core::ActionContainer *msession = am->createMenu(Constants::M_SESSION);
-    msession->menu()->setTitle(tr("Recent Sessions"));
+    msession->menu()->setTitle(tr("Sessions"));
     msession->setOnAllDisabledBehavior(Core::ActionContainer::Show);
     mfile->addMenu(msession, Core::Constants::G_FILE_OPEN);
     d->m_sessionMenu = msession->menu();
@@ -1465,8 +1472,8 @@ void ProjectExplorerPlugin::restoreSession()
 
     // update welcome page
     connect(Core::ModeManager::instance(),
-            SIGNAL(currentModeChanged(Core::IMode*, Core::IMode*)),
-            SLOT(currentModeChanged(Core::IMode*, Core::IMode*)));
+            SIGNAL(currentModeChanged(Core::IMode*,Core::IMode*)),
+            SLOT(currentModeChanged(Core::IMode*,Core::IMode*)));
     connect(d->m_welcomePage, SIGNAL(requestSession(QString)), this, SLOT(loadSession(QString)));
     connect(d->m_welcomePage, SIGNAL(requestProject(QString)), this, SLOT(openProjectWelcomePage(QString)));
 
@@ -1860,6 +1867,11 @@ void ProjectExplorerPlugin::buildProject(ProjectExplorer::Project *p)
 {
     queue(d->m_session->projectOrder(p),
           QStringList(QLatin1String(Constants::BUILDSTEPS_BUILD)));
+}
+
+void ProjectExplorerPlugin::requestProjectModeUpdate(Project *p)
+{
+    d->m_proWindow->projectUpdated(p);
 }
 
 void ProjectExplorerPlugin::buildProject()
@@ -2828,7 +2840,7 @@ void ProjectExplorerPlugin::updateSessionMenu()
 {
     d->m_sessionMenu->clear();
     QActionGroup *ag = new QActionGroup(d->m_sessionMenu);
-    connect(ag, SIGNAL(triggered(QAction *)), this, SLOT(setSession(QAction *)));
+    connect(ag, SIGNAL(triggered(QAction*)), this, SLOT(setSession(QAction*)));
     const QString &activeSession = d->m_session->activeSession();
     foreach (const QString &session, d->m_session->sessions()) {
         QAction *act = ag->addAction(session);

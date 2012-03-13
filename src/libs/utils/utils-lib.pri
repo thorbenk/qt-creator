@@ -88,12 +88,15 @@ SOURCES += $$PWD/environment.cpp \
     $$PWD/ssh/sshconnectionmanager.cpp \
     $$PWD/ssh/sshkeypasswordretriever.cpp \
     $$PWD/ssh/sftpfilesystemmodel.cpp \
+    $$PWD/ssh/sshkeycreationdialog.cpp \
     $$PWD/outputformatter.cpp \
     $$PWD/flowlayout.cpp \
     $$PWD/networkaccessmanager.cpp \
     $$PWD/persistentsettings.cpp \
     $$PWD/completingtextedit.cpp \
-    $$PWD/json.cpp
+    $$PWD/json.cpp \
+    $$PWD/portlist.cpp \
+    $$PWD/tcpportsgatherer.cpp
 
 win32 {
     SOURCES += \
@@ -194,6 +197,7 @@ HEADERS += \
     $$PWD/ssh/sshpseudoterminal.h \
     $$PWD/ssh/sshkeypasswordretriever_p.h \
     $$PWD/ssh/sftpfilesystemmodel.h \
+    $$PWD/ssh/sshkeycreationdialog.h \
     $$PWD/statuslabel.h \
     $$PWD/outputformatter.h \
     $$PWD/outputformat.h \
@@ -203,11 +207,14 @@ HEADERS += \
     $$PWD/completingtextedit.h \
     $$PWD/json.h \
     $$PWD/multitask.h \
-    $$PWD/runextensions.h
+    $$PWD/runextensions.h \
+    $$PWD/portlist.h \
+    $$PWD/tcpportsgatherer.h
 
 FORMS += $$PWD/filewizardpage.ui \
     $$PWD/projectintropage.ui \
     $$PWD/newclasswidget.ui \
-    $$PWD/submiteditorwidget.ui
+    $$PWD/submiteditorwidget.ui \
+    $$PWD/ssh/sshkeycreationdialog.ui
 
 RESOURCES += $$PWD/utils.qrc

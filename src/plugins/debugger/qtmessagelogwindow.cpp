@@ -43,6 +43,10 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/coreconstants.h>
+#include <coreplugin/findplaceholder.h>
+
+#include <aggregation/aggregate.h>
+#include <find/treeviewfind.h>
 
 #include <QSettings>
 #include <QHBoxLayout>
@@ -159,19 +163,24 @@ QtMessageLogWindow::QtMessageLogWindow(QWidget *parent)
     connect(m_proxyModel,
             SIGNAL(scrollToBottom()),
             m_treeView,
-            SLOT(scrollToBottom()));
+            SLOT(onScrollToBottom()));
 
-    QtMessageLogItemDelegate *itemDelegate = new QtMessageLogItemDelegate(this);
+    m_itemDelegate = new QtMessageLogItemDelegate(this);
     connect(m_treeView->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)),
-            itemDelegate, SLOT(currentChanged(QModelIndex,QModelIndex)));
-    m_treeView->setItemDelegate(itemDelegate);
+            m_itemDelegate, SLOT(currentChanged(QModelIndex,QModelIndex)));
+    m_treeView->setItemDelegate(m_itemDelegate);
 
     vbox->addWidget(statusbarContainer);
     vbox->addWidget(m_treeView);
+    vbox->addWidget(new Core::FindToolBarPlaceHolder(this));
 
     readSettings();
     connect(Core::ICore::instance(),
             SIGNAL(saveSettingsRequested()), SLOT(writeSettings()));
+
+    Aggregation::Aggregate *aggregate = new Aggregation::Aggregate();
+    aggregate->add(m_treeView);
+    aggregate->add(new Find::TreeViewFind(m_treeView));
 }
 
 QtMessageLogWindow::~QtMessageLogWindow()
@@ -202,21 +211,43 @@ void QtMessageLogWindow::writeSettings() const
 
 void QtMessageLogWindow::setModel(QAbstractItemModel *model)
 {
-    m_proxyModel->setSourceModel(model);
-    QtMessageLogHandler *handler = qobject_cast<QtMessageLogHandler *>(model);
-    connect(m_clearAction, SIGNAL(triggered()), handler, SLOT(clear()));
-    connect(handler,
-            SIGNAL(selectEditableRow(QModelIndex,QItemSelectionModel::SelectionFlags)),
-            m_proxyModel,
-            SLOT(selectEditableRow(QModelIndex,QItemSelectionModel::SelectionFlags)));
+    QtMessageLogHandler *oldHandler = qobject_cast<QtMessageLogHandler *>(
+                m_proxyModel->sourceModel());
+    if (oldHandler) {
+        disconnect(m_clearAction, SIGNAL(triggered()), oldHandler, SLOT(clear()));
+        disconnect(oldHandler,
+                SIGNAL(selectEditableRow(
+                           QModelIndex,QItemSelectionModel::SelectionFlags)),
+                m_proxyModel,
+                SLOT(selectEditableRow(
+                         QModelIndex,QItemSelectionModel::SelectionFlags)));
+        disconnect(oldHandler,
+                SIGNAL(rowsInserted(QModelIndex,int,int)),
+                m_proxyModel,
+                SLOT(onRowsInserted(QModelIndex,int,int)));
+    }
 
-    //Scroll to bottom when rows matching current filter settings are inserted
-    //Not connecting rowsRemoved as the only way to remove rows is to clear the
-    //model which will automatically reset the view.
-    connect(handler,
-            SIGNAL(rowsInserted(QModelIndex,int,int)),
-            m_proxyModel,
-            SLOT(onRowsInserted(QModelIndex,int,int)));
+    QtMessageLogHandler *newHandler = qobject_cast<QtMessageLogHandler *>(model);
+    m_proxyModel->setSourceModel(newHandler);
+    m_itemDelegate->setItemModel(newHandler);
+
+    if (newHandler) {
+        connect(m_clearAction, SIGNAL(triggered()), newHandler, SLOT(clear()));
+        connect(newHandler,
+                SIGNAL(selectEditableRow(
+                           QModelIndex,QItemSelectionModel::SelectionFlags)),
+                m_proxyModel,
+                SLOT(selectEditableRow(
+                         QModelIndex,QItemSelectionModel::SelectionFlags)));
+
+        //Scroll to bottom when rows matching current filter settings are inserted
+        //Not connecting rowsRemoved as the only way to remove rows is to clear the
+        //model which will automatically reset the view.
+        connect(newHandler,
+                SIGNAL(rowsInserted(QModelIndex,int,int)),
+                m_proxyModel,
+                SLOT(onRowsInserted(QModelIndex,int,int)));
+    }
 }
 
 } // namespace Internal

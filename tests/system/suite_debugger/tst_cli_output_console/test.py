@@ -8,6 +8,9 @@ def __handlerunControlFinished__(object, runControlP):
     runControlFinished = True
 
 def main():
+    if platform.system() == "Darwin" and JIRA.isBugStillOpen(6853, JIRA.Bug.CREATOR):
+        test.xverify(False, "This test is unstable on Mac, see QTCREATORBUG-6853.")
+        return
     global runControlFinished
     outputQDebug = "Output from qDebug()."
     outputStdOut = "Output from std::cout."
@@ -55,7 +58,7 @@ def main():
         invokeMenuItem("Debug", "Start Debugging", "Start Debugging")
         JIRA.performWorkaroundIfStillOpen(6853, JIRA.Bug.CREATOR, config)
         handleDebuggerWarnings(config)
-        waitFor("runControlFinished==True", 60000)
+        waitFor("runControlFinished==True", 20000)
         if not runControlFinished:
             test.warning("Waiting for runControlFinished timed out")
         try:

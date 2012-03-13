@@ -6,9 +6,6 @@ QtcPlugin {
     name: "CodePaster"
 
     Depends { name: "qt"; submodules: ['gui'] }
-    Depends { name: "utils" }
-    Depends { name: "extensionsystem" }
-    Depends { name: "aggregation" }
     Depends { name: "Core" }
     Depends { name: "TextEditor" }
 
@@ -41,8 +38,6 @@ QtcPlugin {
         "pastebindotcaprotocol.h",
         "pastebindotcomprotocol.cpp",
         "pastebindotcomprotocol.h",
-        "pastebindotcomsettings.cpp",
-        "pastebindotcomsettings.h",
         "pastebindotcomsettings.ui",
         "pasteselect.ui",
         "pasteselectdialog.cpp",

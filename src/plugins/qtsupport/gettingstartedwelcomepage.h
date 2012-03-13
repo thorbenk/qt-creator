@@ -58,6 +58,7 @@ public:
     QString title() const;
     int priority() const;
     void facilitateQml(QDeclarativeEngine *);
+    Id id() const;
 
 private:
     QDeclarativeEngine *m_engine;
@@ -76,6 +77,7 @@ public:
     int priority() const;
     bool hasSearchBar() const;
     void facilitateQml(QDeclarativeEngine *);
+    Id id() const;
     Q_INVOKABLE QStringList tagList() const;
     Q_INVOKABLE void openUrl(const QUrl &url);
 
@@ -86,7 +88,7 @@ public slots:
     void openSplitHelp(const QUrl &help);
     void openHelp(const QUrl &help);
     void openProject(const QString& projectFile, const QStringList& additionalFilesToOpen,
-                     const QUrl& help, const QStringList &dependencies);
+                     const QUrl& help, const QStringList &dependencies, const QStringList &platforms);
     void updateTagsModel();
 
 private:

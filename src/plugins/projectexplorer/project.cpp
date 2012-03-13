@@ -388,4 +388,9 @@ bool Project::needsConfiguration() const
     return false;
 }
 
+void Project::configureAsExampleProject(const QStringList &platforms)
+{
+    Q_UNUSED(platforms);
+}
+
 } // namespace ProjectExplorer

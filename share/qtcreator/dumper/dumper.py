@@ -89,20 +89,29 @@ def hasInferiorThreadList():
     except:
         return False
 
+def hasVTable(type):
+    fields = type.fields()
+    if len(fields) == 0:
+        return False
+    if fields[0].is_base_class:
+        return hasVTable(fields[0].type)
+    return str(fields[0].type) ==  "int (**)(void)"
+
 def dynamicTypeName(value):
-    #vtbl = str(parseAndEvaluate("{int(*)(int)}%s" % long(value.address)))
-    try:
-        # Fails on 7.1 due to the missing to_string.
-        vtbl = gdb.execute("info symbol {int*}%s" % long(value.address),
-            to_string = True)
-        pos1 = vtbl.find("vtable ")
-        if pos1 != -1:
-            pos1 += 11
-            pos2 = vtbl.find(" +", pos1)
-            if pos2 != -1:
-                return vtbl[pos1 : pos2]
-    except:
-        pass
+    if hasVTable(value.type):
+        #vtbl = str(parseAndEvaluate("{int(*)(int)}%s" % long(value.address)))
+        try:
+            # Fails on 7.1 due to the missing to_string.
+            vtbl = gdb.execute("info symbol {int*}%s" % long(value.address),
+                to_string = True)
+            pos1 = vtbl.find("vtable ")
+            if pos1 != -1:
+                pos1 += 11
+                pos2 = vtbl.find(" +", pos1)
+                if pos2 != -1:
+                    return vtbl[pos1 : pos2]
+        except:
+            pass
     return str(value.type)
 
 def upcast(value):
@@ -1097,6 +1106,12 @@ class Dumper:
         if fullUpdateNeeded and not self.tooltipOnly and not self.noLocals:
             locals = listOfLocals(varList)
 
+        if "autotest" in options:
+            for item in listOfLocals([]):
+                self.expandedINames.add(item.iname)
+                self.expandedINames.discard("")
+                warn("EXPANDED: %s" % self.expandedINames)
+
         # Take care of the return value of the last function call.
         if len(resultVarName) > 0:
             try:
@@ -1541,7 +1556,7 @@ class Dumper:
                 self.putAddress(value.address)
                 return
 
-            if format == -1 and innerTypeName == "char":
+            if format == None and innerTypeName == "char":
                 # Use Latin1 as default for char *.
                 self.putAddress(value.address)
                 self.putType(typeName)
@@ -1795,7 +1810,7 @@ class Dumper:
                         baseNumber += 1
                         with UnnamedSubItem(self, "@%d" % baseNumber):
                             self.put('iname="%s",' % self.currentIName)
-                            self.put('name="%s",' % field.name)
+                            self.put('name="[%s]",' % field.name)
                             self.putItem(value.cast(field.type), False)
                 elif len(field.name) == 0:
                     # Anonymous union. We need a dummy name to distinguish

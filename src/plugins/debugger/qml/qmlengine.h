@@ -35,7 +35,9 @@
 
 #include "debuggerengine.h"
 #include <qmljsdebugclient/qdeclarativeenginedebug.h>
+#include <qmljsdebugclient/qdebugmessageclient.h>
 #include <utils/outputformat.h>
+#include <qmljs/qmljsdocument.h>
 
 #include <QAbstractSocket>
 
@@ -80,7 +82,6 @@ public:
     void gotoLocation(const Internal::Location &location);
 
     void filterApplicationMessage(const QString &msg, int channel);
-    QString toFileInProject(const QUrl &fileUrl);
     void inferiorSpontaneousStop();
 
     void logMessage(const QString &service, LogDirection direction, const QString &str);
@@ -90,15 +91,17 @@ public:
 
     QmlAdapter *adapter() const;
 
+    void insertBreakpoint(BreakpointModelId id);
+
 public slots:
     void disconnected();
+    void documentUpdated(QmlJS::Document::Ptr doc);
 
 private slots:
-    void retryMessageBoxFinished(int result);
-    void wrongSetupMessageBox(const QString &errorMessage);
-    void wrongSetupMessageBoxFinished(int result);
+    void errorMessageBoxFinished(int result);
     void updateCurrentContext();
-    void appendDebugOutput(QtMsgType type, const QString &message);
+    void appendDebugOutput(QtMsgType type, const QString &message,
+                           const QmlJsDebugClient::QDebugContextInfo &info);
 
 private:
     // DebuggerEngine implementation.
@@ -129,7 +132,6 @@ private:
     void selectThread(int index);
 
     void attemptBreakpointSynchronization();
-    void insertBreakpoint(BreakpointModelId id);
     void removeBreakpoint(BreakpointModelId id);
     void changeBreakpoint(BreakpointModelId id);
     bool acceptsBreakpoint(BreakpointModelId id) const;
@@ -161,7 +163,7 @@ signals:
 private slots:
     void beginConnection(quint16 port = 0);
     void connectionEstablished();
-    void connectionStartupFailed();
+    void connectionStartupFailed(const QString &errorMessage = QString());
     void connectionError(QAbstractSocket::SocketError error);
     void serviceConnectionError(const QString &service);
     void appendMessage(const QString &msg, Utils::OutputFormat);
@@ -185,6 +187,8 @@ private:
     bool canEvaluateScript(const QString &script);
     QtMessageLogItem *constructLogItemTree(const QVariant &result,
                                            const QString &key = QString());
+    bool adjustBreakpointLineAndColumn(const QString &filePath, quint32 *line,
+                                       quint32 *column, bool *valid);
 
 private:
     friend class QmlCppEngine;

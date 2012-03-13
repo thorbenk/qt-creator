@@ -41,12 +41,12 @@ using namespace Bookmarks::Internal;
 Bookmark::Bookmark(const QString& fileName, int lineNumber, BookmarkManager *manager) :
     BaseTextMark(fileName, lineNumber),
     m_manager(manager),
-    m_fileInfo(fileName),
-    m_fileName(fileName),
-    m_onlyFile(m_fileInfo.fileName()),
-    m_path(m_fileInfo.path())
+    m_fileName(fileName)
 {
-    setPriority(TextEditor::ITextMark::LowPriority);
+    QFileInfo fi(fileName);
+    m_onlyFile = fi.fileName();
+    m_path = fi.path();
+    setPriority(TextEditor::ITextMark::NormalPriority);
     setIcon(m_manager->bookmarkIcon());
 }
 

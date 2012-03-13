@@ -484,7 +484,7 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 const int pos1 = ba.indexOf(",original-location");
                 const int pos2 = ba.indexOf("\":", pos1 + 2);
                 const int pos3 = ba.indexOf('"', pos2 + 2);
-                ba.replace(pos1, pos3 - pos1 + 1, "");
+                ba.remove(pos1, pos3 - pos1 + 1);
                 result = GdbMi();
                 result.fromString(ba);
                 BreakHandler *handler = breakHandler();
@@ -715,7 +715,7 @@ void GdbEngine::interruptInferior()
     QTC_ASSERT(state() == InferiorStopRequested,
         qDebug() << "INTERRUPT INFERIOR: " << state(); return);
 
-    if (0 && debuggerCore()->boolSetting(TargetAsync)) {
+    if (usesExecInterrupt()) {
         postCommand("-exec-interrupt");
     } else {
         showStatusMessage(tr("Stop requested..."), 5000);
@@ -1023,6 +1023,10 @@ void GdbEngine::handleResultRecord(GdbResponse *response)
                 QTC_CHECK(state() == InferiorRunOk);
                 notifyInferiorSpontaneousStop();
                 notifyEngineIll();
+            } else if (msg.startsWith("Remote connection closed")
+                       || msg.startsWith("Quit")) {
+                // Can happen when the target exits (gdbserver)
+                notifyInferiorExited();
             } else {
                 // Windows: Some DLL or some function not found. Report
                 // the exception now in a box.
@@ -1630,7 +1634,7 @@ void GdbEngine::handleStop1(const GdbMi &data)
             } else {
                 showMessage(_("HANDLING SIGNAL " + name));
                 if (debuggerCore()->boolSetting(UseMessageBoxForSignals)
-                        && !isStopperThread)
+                        && !isStopperThread && !isAutoTestRunning())
                     showStoppedBySignalMessageBox(_(meaning), _(name));
                 if (!name.isEmpty() && !meaning.isEmpty())
                     reasontr = msgStoppedBySignal(_(meaning), _(name));
@@ -1663,7 +1667,7 @@ void GdbEngine::handleStop2()
     if (supportsThreads()) {
         if (m_gdbAdapter->isCodaAdapter()) {
             m_gdbAdapter->codaReloadThreads();
-        } else if (m_isMacGdb) {
+        } else if (m_isMacGdb || m_gdbVersion < 70100) {
             postCommand("-thread-list-ids", Discardable, CB(handleThreadListIds));
         } else {
             // This is only available in gdb 7.1+.
@@ -1711,6 +1715,11 @@ void GdbEngine::handleShowVersion(const GdbResponse &response)
 
         if (m_gdbVersion > 70300)
             m_hasBreakpointNotifications = true;
+
+        if (usesExecInterrupt())
+            postCommand("set target-async on", ConsoleCommand);
+        else
+            postCommand("set target-async off", ConsoleCommand);
     }
 }
 
@@ -1801,6 +1810,9 @@ void GdbEngine::handleExecuteContinue(const GdbResponse &response)
         // FIXME: Fix translation in master.
         showStatusMessage(QString::fromLocal8Bit(msg), 5000);
         gotoLocation(stackHandler()->currentFrame());
+    } else if (msg.startsWith("Cannot execute this command while the selected thread is running.")) {
+        showExecutionError(QString::fromLocal8Bit(msg));
+        notifyInferiorRunFailed() ;
     } else {
         showExecutionError(QString::fromLocal8Bit(msg));
         notifyInferiorIll();
@@ -2091,6 +2103,9 @@ void GdbEngine::handleExecuteStep(const GdbResponse &response)
         if (!m_commandsToRunOnTemporaryBreak.isEmpty())
             flushQueuedCommands();
         executeStepI(); // Fall back to instruction-wise stepping.
+    } else if (msg.startsWith("Cannot execute this command while the selected thread is running.")) {
+        showExecutionError(QString::fromLocal8Bit(msg));
+        notifyInferiorRunFailed();
     } else {
         showExecutionError(QString::fromLocal8Bit(msg));
         notifyInferiorIll();
@@ -2159,6 +2174,9 @@ void GdbEngine::handleExecuteNext(const GdbResponse &response)
         notifyInferiorRunFailed();
         if (!isDying())
             executeNextI(); // Fall back to instruction-wise stepping.
+    } else if (msg.startsWith("Cannot execute this command while the selected thread is running.")) {
+        showExecutionError(QString::fromLocal8Bit(msg));
+        notifyInferiorRunFailed();
     } else {
         showMessageBox(QMessageBox::Critical, tr("Execution Error"),
            tr("Cannot continue debugged process:\n") + QString::fromLocal8Bit(msg));
@@ -2280,7 +2298,7 @@ void GdbEngine::handleExecuteReturn(const GdbResponse &response)
 
 void GdbEngine::setTokenBarrier()
 {
-    QTC_ASSERT(m_nonDiscardableCount == 0, /**/);
+    //QTC_ASSERT(m_nonDiscardableCount == 0, /**/);
     bool good = true;
     QHashIterator<int, GdbCommand> it(m_cookieForToken);
     while (it.hasNext()) {
@@ -4615,8 +4633,8 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
 
     connect(gdbProc(), SIGNAL(error(QProcess::ProcessError)),
         SLOT(handleGdbError(QProcess::ProcessError)));
-    connect(gdbProc(), SIGNAL(finished(int, QProcess::ExitStatus)),
-        SLOT(handleGdbFinished(int, QProcess::ExitStatus)));
+    connect(gdbProc(), SIGNAL(finished(int,QProcess::ExitStatus)),
+        SLOT(handleGdbFinished(int,QProcess::ExitStatus)));
     connect(gdbProc(), SIGNAL(readyReadStandardOutput()),
         SLOT(readGdbStandardOutput()));
     connect(gdbProc(), SIGNAL(readyReadStandardError()),
@@ -4694,11 +4712,7 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
     postCommand("set trust-readonly-sections on", ConsoleCommand);
     postCommand("set auto-solib-add on", ConsoleCommand);
     postCommand("set remotecache on", ConsoleCommand);
-
-    if (0 && debuggerCore()->boolSetting(TargetAsync)) {
-        postCommand("set target-async on", ConsoleCommand);
-        postCommand("set non-stop on", ConsoleCommand);
-    }
+    //postCommand("set non-stop on", ConsoleCommand);
 
     // Work around https://bugreports.qt-project.org/browse/QTCREATORBUG-2004
     postCommand("maintenance set internal-warning quit no", ConsoleCommand);
@@ -5115,6 +5129,17 @@ bool GdbEngine::isQFatalBreakpoint(const BreakpointResponseId &id) const
 bool GdbEngine::isHiddenBreakpoint(const BreakpointResponseId &id) const
 {
     return isQFatalBreakpoint(id) || isQmlStepBreakpoint(id);
+}
+
+bool GdbEngine::usesExecInterrupt() const
+{
+    if (m_gdbVersion < 70000)
+        return false;
+
+    // debuggerCore()->boolSetting(TargetAsync)
+    DebuggerStartMode mode = startParameters().startMode;
+    return mode == AttachToRemoteServer
+        || mode == AttachToRemoteProcess;
 }
 
 void GdbEngine::scheduleTestResponse(int testCase, const QByteArray &response)

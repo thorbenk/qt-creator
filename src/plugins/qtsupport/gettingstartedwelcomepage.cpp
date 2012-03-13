@@ -35,6 +35,8 @@
 #include "exampleslistmodel.h"
 #include "screenshotcropper.h"
 
+#include "qtsupportconstants.h"
+
 #include <utils/pathchooser.h>
 #include <utils/fileutils.h>
 
@@ -42,6 +44,9 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/helpmanager.h>
 #include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/session.h>
+#include <projectexplorer/project.h>
+#include <projectexplorer/projectnodes.h>
 
 #include <QMutex>
 #include <QThread>
@@ -210,12 +215,17 @@ QString GettingStartedWelcomePage::title() const
 
 int GettingStartedWelcomePage::priority() const
 {
-    return 0;
+    return 4;
 }
 
 void GettingStartedWelcomePage::facilitateQml(QDeclarativeEngine *engine)
 {
     m_engine = engine;
+}
+
+GettingStartedWelcomePage::Id GettingStartedWelcomePage::id() const
+{
+    return GettingStarted;
 }
 
 ExamplesWelcomePage::ExamplesWelcomePage()
@@ -279,6 +289,11 @@ void ExamplesWelcomePage::facilitateQml(QDeclarativeEngine *engine)
         rootContenxt->setContextProperty(QLatin1String("tutorialsModel"), proxy);
     }
     rootContenxt->setContextProperty(QLatin1String("gettingStarted"), this);
+}
+
+ExamplesWelcomePage::Id ExamplesWelcomePage::id() const
+{
+    return m_showExamples ? Examples : Tutorials;
 }
 
 void ExamplesWelcomePage::openSplitHelp(const QUrl &help)
@@ -377,7 +392,7 @@ QString ExamplesWelcomePage::copyToAlternativeLocation(const QFileInfo& proFileI
 }
 
 void ExamplesWelcomePage::openProject(const QString &projectFile, const QStringList &additionalFilesToOpen,
-                                            const QUrl &help, const QStringList &dependencies)
+                                            const QUrl &help, const QStringList &dependencies, const QStringList &platforms)
 {
     QString proFile = projectFile;
     if (proFile.isEmpty())
@@ -391,12 +406,24 @@ void ExamplesWelcomePage::openProject(const QString &projectFile, const QStringL
 
     // don't try to load help and files if loading the help request is being cancelled
     QString errorMessage;
-    if (!proFile.isEmpty() && ProjectExplorer::ProjectExplorerPlugin::instance()->openProject(proFile, &errorMessage)) {
+    ProjectExplorer::ProjectExplorerPlugin *peplugin = ProjectExplorer::ProjectExplorerPlugin::instance();
+    if (!proFile.isEmpty() && peplugin->openProject(proFile, &errorMessage)) {
         Core::ICore::openFiles(filesToOpen);
         Core::ICore::helpManager()->handleHelpRequest(help.toString()+QLatin1String("?view=split"));
     }
     if (!errorMessage.isEmpty())
         QMessageBox::critical(Core::ICore::mainWindow(), tr("Failed to open project"), errorMessage);
+    // Configure project for building
+    ProjectExplorer::Project *project = 0;
+    foreach (ProjectExplorer::Project *pro, peplugin->session()->projects()) {
+        if (pro->rootProjectNode()->path() == proFile) {
+            project = pro;
+            break;
+        }
+    }
+    if (project && project->needsConfiguration())
+        project->configureAsExampleProject(platforms);
+
 }
 
 void ExamplesWelcomePage::updateTagsModel()

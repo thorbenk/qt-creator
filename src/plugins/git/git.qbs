@@ -3,16 +3,13 @@ import qbs.base 1.0
 import "../QtcPlugin.qbs" as QtcPlugin
 
 QtcPlugin {
-    name: "ScmGit"
+    name: "Git"
 
     Depends { name: "qt"; submodules: ['gui'] }
-    Depends { name: "utils" }
-    Depends { name: "extensionsystem" }
-    Depends { name: "aggregation" }
     Depends { name: "Core" }
     Depends { name: "TextEditor" }
-    Depends { name: "find" }
-    Depends { name: "VCSBase" }
+    Depends { name: "Find" }
+    Depends { name: "VcsBase" }
     Depends { name: "Locator" }
 
     Depends { name: "cpp" }

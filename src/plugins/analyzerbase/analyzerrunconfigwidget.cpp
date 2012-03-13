@@ -68,7 +68,7 @@ AnalyzerRunConfigWidget::AnalyzerRunConfigWidget()
     QHBoxLayout *globalSettingLayout = new QHBoxLayout(globalSetting);
     globalSettingLayout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(globalSetting);
-    QLabel *label = new QLabel(tr("Analyzer Settings:"), globalSetting);
+    QLabel *label = new QLabel(tr("Analyzer settings:"), globalSetting);
     globalSettingLayout->addWidget(label);
     m_settingsCombo = new QComboBox(globalSetting);
     m_settingsCombo->addItems(QStringList()
@@ -85,7 +85,8 @@ AnalyzerRunConfigWidget::AnalyzerRunConfigWidget()
     globalSettingLayout->addStretch(2);
 
     m_subConfigWidget = new QWidget(this);
-    new QVBoxLayout(m_subConfigWidget);
+    QVBoxLayout *subConfigLayout = new QVBoxLayout(m_subConfigWidget);
+    subConfigLayout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_subConfigWidget);
 }
 

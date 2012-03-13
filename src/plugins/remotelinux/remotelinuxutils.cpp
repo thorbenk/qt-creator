@@ -34,60 +34,14 @@
 #include "linuxdeviceconfiguration.h"
 
 #include <extensionsystem/pluginmanager.h>
-#include <projectexplorer/abi.h>
-#include <qt4projectmanager/qt4buildconfiguration.h>
-#include <qt4projectmanager/qt4target.h>
-#include <qtsupport/baseqtversion.h>
 
 #include <QCoreApplication>
 #include <QList>
 #include <QString>
 
 using namespace ExtensionSystem;
-using namespace ProjectExplorer;
-using namespace Qt4ProjectManager;
-using namespace QtSupport;
 
 namespace RemoteLinux {
-namespace Internal {
-namespace {
-
-bool isUnixQt(const BaseQtVersion *qtVersion)
-{
-    if (!qtVersion)
-        return false;
-    const QList<Abi> &abis = qtVersion->qtAbis();
-    foreach (const Abi &abi, abis) {
-        switch (abi.os()) {
-        case Abi::UnixOS: case Abi::BsdOS: case Abi::LinuxOS: case Abi::MacOS: return true;
-        default: continue;
-        }
-    }
-    return false;
-}
-
-} // anonymous namespace
-} // namespace Internal
-
-bool RemoteLinuxUtils::hasUnixQt(const Target *target)
-{
-    const Qt4BaseTarget * const qtTarget = qobject_cast<const Qt4BaseTarget *>(target);
-    if (!qtTarget)
-        return false;
-    const Qt4BuildConfiguration * const bc = qtTarget->activeQt4BuildConfiguration();
-    return bc && Internal::isUnixQt(bc->qtVersion());
-}
-
-QString RemoteLinuxUtils::osTypeToString(const QString &osType)
-{
-    const QList<ILinuxDeviceConfigurationFactory *> &factories
-        = PluginManager::instance()->getObjects<ILinuxDeviceConfigurationFactory>();
-    foreach (const ILinuxDeviceConfigurationFactory * const factory, factories) {
-        if (factory->supportsOsType(osType))
-            return factory->displayNameForOsType(osType);
-    }
-    return QCoreApplication::translate("RemoteLinux", "Unknown OS");
-}
 
 QString RemoteLinuxUtils::deviceConfigurationName(const LinuxDeviceConfiguration::ConstPtr &devConf)
 {

@@ -4,7 +4,7 @@ DynamicLibrary {
     name: "utils"
     destination: "lib"
 
-    cpp.defines: [ "QTCREATOR_UTILS_LIB" ]
+    cpp.defines: ["QTCREATOR_UTILS_LIB"]
     cpp.includePaths: [ ".", "..",
         "../..",
         "../3rdparty/botan/build",
@@ -14,7 +14,7 @@ DynamicLibrary {
 
     Properties {
         condition: qbs.targetOS == "windows"
-        cpp.dynamicLibraries: ["User32.lib"]
+        cpp.dynamicLibraries: ["User32.lib", "iphlpapi.lib", "Ws2_32.lib"]
     }
 
     Depends { name: "cpp" }
@@ -127,6 +127,8 @@ DynamicLibrary {
         "submitfieldwidget.h",
         "synchronousprocess.cpp",
         "synchronousprocess.h",
+        "tcpportsgatherer.cpp",
+        "tcpportsgatherer.h",
         "textfileformat.cpp",
         "textfileformat.h",
         "treewidgetcolumnstretcher.cpp",
@@ -150,6 +152,8 @@ DynamicLibrary {
         "networkaccessmanager.cpp",
         "pathlisteditor.cpp",
         "persistentsettings.cpp",
+        "portlist.cpp",
+        "portlist.h",
         "proxyaction.cpp",
         "qtcprocess.cpp",
         "savedaction.cpp",
@@ -215,7 +219,10 @@ DynamicLibrary {
         "ssh/sshconnection.cpp",
         "ssh/sshincomingpacket.cpp",
         "ssh/sshkeygenerator.cpp",
-        "ssh/sshkeygenerator.h"
+        "ssh/sshkeygenerator.h",
+        "ssh/sshkeycreationdialog.cpp",
+        "ssh/sshkeycreationdialog.h",
+        "ssh/sshkeycreationdialog.ui"
     ]
 
     Group {

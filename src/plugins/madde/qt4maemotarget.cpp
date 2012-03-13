@@ -122,8 +122,8 @@ bool adaptTagValue(QByteArray &document, const QByteArray &fieldName,
 
 
 AbstractQt4MaemoTarget::AbstractQt4MaemoTarget(Qt4Project *parent, const QString &id,
-        const QString &supportedOsType, const QString &qmakeScope) :
-    AbstractEmbeddedLinuxTarget(parent, id, supportedOsType),
+        const QString &supportedDeviceType, const QString &qmakeScope) :
+    AbstractEmbeddedLinuxTarget(parent, id, supportedDeviceType),
     m_filesWatcher(new Utils::FileSystemWatcher(this)),
     m_deploymentSettingsAssistant(new DeploymentSettingsAssistant(qmakeScope,
         QLatin1String("/opt"), deploymentInfo())),
@@ -308,7 +308,7 @@ void AbstractQt4MaemoTarget::handleTargetToBeRemoved(ProjectExplorer::Target *ta
         return;
 
     const int answer = QMessageBox::warning(Core::ICore::mainWindow(),
-        tr("Qt Creator"), tr("Do you want to remove the packaging file(s) "
+        tr("Qt Creator"), tr("Do you want to remove the packaging files "
            "associated with the target '%1'?").arg(displayName()),
         QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
     if (answer == QMessageBox::No)
@@ -375,8 +375,8 @@ void AbstractQt4MaemoTarget::raiseError(const QString &reason)
 }
 
 AbstractDebBasedQt4MaemoTarget::AbstractDebBasedQt4MaemoTarget(Qt4Project *parent,
-        const QString &id, const QString &supportedOsType, const QString &qmakeScope)
-    : AbstractQt4MaemoTarget(parent, id, supportedOsType, qmakeScope)
+        const QString &id, const QString &supportedDeviceType, const QString &qmakeScope)
+    : AbstractQt4MaemoTarget(parent, id, supportedDeviceType, qmakeScope)
 {
 }
 
@@ -765,12 +765,12 @@ AbstractQt4MaemoTarget::ActionStatus AbstractDebBasedQt4MaemoTarget::createSpeci
             + AbstractMaemoPackageCreationStep::DefaultVersionNumber);
     QtSupport::BaseQtVersion *lqt = activeQt4BuildConfiguration()->qtVersion();
     if (!lqt) {
-        raiseError(tr("Unable to create Debian templates: No Qt version set"));
+        raiseError(tr("Unable to create Debian templates: No Qt version set."));
         return ActionFailed;
     }
     if (!MaemoGlobal::callMad(dh_makeProc, dh_makeArgs, lqt->qmakeCommand().toString(), true)
             || !dh_makeProc.waitForStarted()) {
-        raiseError(tr("Unable to create Debian templates: dh_make failed (%1)")
+        raiseError(tr("Unable to create Debian templates: dh_make failed (%1).")
             .arg(dh_makeProc.errorString()));
         return ActionFailed;
     }
@@ -778,7 +778,7 @@ AbstractQt4MaemoTarget::ActionStatus AbstractDebBasedQt4MaemoTarget::createSpeci
     dh_makeProc.waitForFinished(-1);
     if (dh_makeProc.error() != QProcess::UnknownError
         || dh_makeProc.exitCode() != 0) {
-        raiseError(tr("Unable to create debian templates: dh_make failed (%1)")
+        raiseError(tr("Unable to create debian templates: dh_make failed (%1).")
             .arg(dh_makeProc.errorString()));
         return ActionFailed;
     }
@@ -958,8 +958,8 @@ QString AbstractDebBasedQt4MaemoTarget::shortDayOfWeekName(const QDateTime &dt) 
 
 
 AbstractRpmBasedQt4MaemoTarget::AbstractRpmBasedQt4MaemoTarget(Qt4Project *parent,
-        const QString &id, const QString &supportedOsType, const QString &qmakeScope)
-    : AbstractQt4MaemoTarget(parent, id, supportedOsType, qmakeScope)
+        const QString &id, const QString &supportedDeviceType, const QString &qmakeScope)
+    : AbstractQt4MaemoTarget(parent, id, supportedDeviceType, qmakeScope)
 {
 }
 
@@ -1208,7 +1208,9 @@ void Qt4HarmattanTarget::handleTargetAddedSpecial()
 
 void Qt4HarmattanTarget::addAdditionalControlFileFields(QByteArray &controlContents)
 {
-    Q_UNUSED(controlContents);
+    adaptControlFileField(controlContents, "XB-Maemo-Flags", "visible");
+    adaptControlFileField(controlContents, "XB-MeeGo-Desktop-Entry-Filename", QString::fromLatin1("%1_harmattan").arg(project()->displayName()).toUtf8());
+    adaptControlFileField(controlContents, "XB-MeeGo-Desktop-Entry", QString::fromLatin1("\n [Desktop Entry]\n Type=Application\n Name=%1\n Icon=/usr/share/icons/hicolor/80x80/apps/%1%2.png").arg(project()->displayName()).arg(80).toUtf8());
 }
 
 QString Qt4HarmattanTarget::debianDirName() const

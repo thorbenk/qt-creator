@@ -110,10 +110,7 @@ DebuggerStartParameters AbstractRemoteLinuxDebugSupport::startParameters(const R
         params.startMode = AttachToRemoteServer;
         params.executable = runConfig->localExecutableFilePath();
         params.debuggerCommand = runConfig->gdbCmd();
-        QString host = devConf->sshParameters().host;
-        params.remoteChannel = host.contains(QLatin1Char(':'))
-                ? QString::fromLatin1("[%1]:-1").arg(host)
-                : host + QLatin1String(":-1");
+        params.remoteChannel = devConf->sshParameters().host + QLatin1String(":-1");
 
         // TODO: This functionality should be inside the debugger.
         const ProjectExplorer::Abi &abi = runConfig->target()
@@ -162,7 +159,7 @@ void AbstractRemoteLinuxDebugSupport::handleAdapterSetupRequested()
     QTC_ASSERT(d->state == Inactive, return);
 
     d->state = StartingRunner;
-    showMessage(tr("Preparing remote side ...\n"), AppStuff);
+    showMessage(tr("Preparing remote side...\n"), AppStuff);
     disconnect(runner(), 0, this, 0);
     connect(runner(), SIGNAL(error(QString)), this, SLOT(handleSshError(QString)));
     connect(runner(), SIGNAL(readyForExecution()), this, SLOT(startExecution()));
@@ -210,11 +207,14 @@ void AbstractRemoteLinuxDebugSupport::startExecution()
             .arg(d->qmlPort);
     }
 
+    const QHostAddress peerAddress = runner()->connection()->connectionInfo().peerAddress;
+    QString peerAddressString = peerAddress.toString();
+    if (peerAddress.protocol() == QAbstractSocket::IPv6Protocol)
+        peerAddressString.prepend(QLatin1Char('[')).append(QLatin1Char(']'));
     const QString remoteCommandLine = (d->qmlDebugging && !d->cppDebugging)
         ? QString::fromLatin1("%1 %2 %3").arg(runner()->commandPrefix()).arg(remoteExe).arg(args)
         : QString::fromLatin1("%1 gdbserver %5:%2 %3 %4").arg(runner()->commandPrefix())
-              .arg(d->gdbServerPort).arg(remoteExe).arg(args)
-              .arg(runner()->connection()->connectionInfo().peerAddress.toString());
+              .arg(d->gdbServerPort).arg(remoteExe).arg(args).arg(peerAddressString);
     connect(runner(), SIGNAL(remoteProcessFinished(qint64)),
         SLOT(handleRemoteProcessFinished(qint64)));
     runner()->startExecution(remoteCommandLine.toUtf8());

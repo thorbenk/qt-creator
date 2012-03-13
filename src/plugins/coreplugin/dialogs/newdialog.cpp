@@ -215,16 +215,16 @@ NewDialog::NewDialog(QWidget *parent) :
 
     m_ui->templatesView->setIconSize(QSize(ICON_SIZE, ICON_SIZE));
 
-    connect(m_ui->templateCategoryView, SIGNAL(clicked(const QModelIndex&)),
-        this, SLOT(currentCategoryChanged(const QModelIndex&)));
-    connect(m_ui->templatesView, SIGNAL(clicked(const QModelIndex&)),
-        this, SLOT(currentItemChanged(const QModelIndex&)));
+    connect(m_ui->templateCategoryView, SIGNAL(clicked(QModelIndex)),
+        this, SLOT(currentCategoryChanged(QModelIndex)));
+    connect(m_ui->templatesView, SIGNAL(clicked(QModelIndex)),
+        this, SLOT(currentItemChanged(QModelIndex)));
 
     connect(m_ui->templateCategoryView->selectionModel(),
-            SIGNAL(currentChanged(const QModelIndex&,const QModelIndex&)),
-            this, SLOT(currentCategoryChanged(const QModelIndex&)));
+            SIGNAL(currentChanged(QModelIndex,QModelIndex)),
+            this, SLOT(currentCategoryChanged(QModelIndex)));
     connect(m_ui->templatesView,
-            SIGNAL(doubleClicked(const QModelIndex&)),
+            SIGNAL(doubleClicked(QModelIndex)),
             this, SLOT(okButtonClicked()));
 
     connect(m_okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
@@ -269,18 +269,18 @@ void NewDialog::setWizards(QList<IWizard*> wizards)
     QStringList availablePlatforms = IWizard::allAvailablePlatforms();
 
     if (availablePlatforms.count() > 1) {
-        m_ui->comboBox->addItem(tr("All templates"), QString());
+        m_ui->comboBox->addItem(tr("All Templates"), QString());
         foreach (const QString &platform, availablePlatforms) {
             const QString displayNameForPlatform = IWizard::displayNameForPlatform(platform);
-            m_ui->comboBox->addItem(tr("%1 templates").arg(displayNameForPlatform), platform);
+            m_ui->comboBox->addItem(tr("%1 Templates").arg(displayNameForPlatform), platform);
         }
     } else {
         if (availablePlatforms.isEmpty()) {
-            m_ui->comboBox->addItem(tr("All templates"), QString());
+            m_ui->comboBox->addItem(tr("All Templates"), QString());
         } else {
             const QString platform = availablePlatforms.first();
             const QString displayNameForPlatform = IWizard::displayNameForPlatform(platform);
-            m_ui->comboBox->addItem(tr("%1 templates").arg(displayNameForPlatform), platform);
+            m_ui->comboBox->addItem(tr("%1 Templates").arg(displayNameForPlatform), platform);
         }
         m_ui->comboBox->setDisabled(true);
     }
@@ -409,8 +409,8 @@ void NewDialog::currentCategoryChanged(const QModelIndex &index)
         m_ui->templatesView->setCurrentIndex(m_ui->templatesView->rootIndex().child(0,0));
 
         connect(m_ui->templatesView->selectionModel(),
-                SIGNAL(currentChanged(const QModelIndex&,const QModelIndex&)),
-                this, SLOT(currentItemChanged(const QModelIndex&)));
+                SIGNAL(currentChanged(QModelIndex,QModelIndex)),
+                this, SLOT(currentItemChanged(QModelIndex)));
     }
 }
 

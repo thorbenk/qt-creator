@@ -41,7 +41,7 @@
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <qt4projectmanager/qt4buildconfiguration.h>
-#include <remotelinux/portlist.h>
+#include <utils/portlist.h>
 #include <utils/ssh/sshconnection.h>
 
 #include <QDir>
@@ -71,11 +71,11 @@ MaemoRunConfiguration::MaemoRunConfiguration(AbstractQt4MaemoTarget *parent,
 void MaemoRunConfiguration::init()
 {
     m_remoteMounts = new MaemoRemoteMountsModel(this);
-    connect(m_remoteMounts, SIGNAL(rowsInserted(QModelIndex, int, int)), this,
+    connect(m_remoteMounts, SIGNAL(rowsInserted(QModelIndex,int,int)), this,
         SLOT(handleRemoteMountsChanged()));
-    connect(m_remoteMounts, SIGNAL(rowsRemoved(QModelIndex, int, int)), this,
+    connect(m_remoteMounts, SIGNAL(rowsRemoved(QModelIndex,int,int)), this,
         SLOT(handleRemoteMountsChanged()));
-    connect(m_remoteMounts, SIGNAL(dataChanged(QModelIndex, QModelIndex)), this,
+    connect(m_remoteMounts, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this,
         SLOT(handleRemoteMountsChanged()));
     connect(m_remoteMounts, SIGNAL(modelReset()), SLOT(handleRemoteMountsChanged()));
 
@@ -125,18 +125,18 @@ QString MaemoRunConfiguration::commandPrefix() const
         return QString();
 
     QString prefix = environmentPreparationCommand() + QLatin1Char(';');
-    if (deviceConfig()->osType() == QLatin1String(MeeGoOsType))
+    if (deviceConfig()->type() == QLatin1String(MeeGoOsType))
         prefix += QLatin1String("DISPLAY=:0.0 ");
 
     return QString::fromLatin1("%1 %2").arg(prefix, userEnvironmentChangesAsString());
 }
 
-PortList MaemoRunConfiguration::freePorts() const
+Utils::PortList MaemoRunConfiguration::freePorts() const
 {
     const Qt4BuildConfiguration * const bc = activeQt4BuildConfiguration();
     return bc && deployConfig()
             ? MaemoGlobal::freePorts(deployConfig()->deviceConfiguration(), bc->qtVersion())
-        : PortList();
+        : Utils::PortList();
 }
 
 QString MaemoRunConfiguration::localDirToMountForRemoteGdb() const

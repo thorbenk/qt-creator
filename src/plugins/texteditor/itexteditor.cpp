@@ -38,59 +38,6 @@
 
 using namespace TextEditor;
 
-ITextMark::~ITextMark()
-{
-
-}
-
-int ITextMark::lineNumber() const
-{
-    return m_lineNumber;
-}
-
-void ITextMark::paint(QPainter *painter, const QRect &rect) const
-{
-    m_icon.paint(painter, rect, Qt::AlignCenter);
-}
-
-void ITextMark::updateLineNumber(int lineNumber)
-{
-    m_lineNumber = lineNumber;
-}
-
-void ITextMark::updateBlock(const QTextBlock &)
-{}
-
-void ITextMark::removedFromEditor()
-{}
-
-void ITextMark::setIcon(const QIcon &icon)
-{
-    m_icon = icon;
-}
-
-void ITextMark::setPriority(Priority priority)
-{
-    m_priority = priority;
-}
-
-ITextMark::Priority ITextMark::priority() const
-{
-    return m_priority;
-}
-
-bool ITextMark::visible() const
-{
-    return true;
-}
-
-double ITextMark::widthFactor() const
-{
-    return 1.0;
-}
-
-
-
 QMap<QString, QString> ITextEditor::openedTextEditorsContents()
 {
     QMap<QString, QString> workingCopy;

@@ -43,6 +43,7 @@
 #include <coreplugin/coreconstants.h>
 
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/toolchain.h>
 
 #include <QLabel>
@@ -87,8 +88,6 @@ ProjectExplorer::PropertiesPanel *Qt4ProjectManager::Internal::UnconfiguredProje
     panel->setIcon(QIcon(":/projectexplorer/images/unconfigured.png"));
 
     TargetSetupPageWrapper *w = new TargetSetupPageWrapper(project);
-    connect (w, SIGNAL(projectUpdated(ProjectExplorer::Project*)),
-             this, SIGNAL(projectUpdated(ProjectExplorer::Project*)));
     panel->setWidget(w);
     return panel;
 }
@@ -145,7 +144,7 @@ void TargetSetupPageWrapper::updateNoteText()
     if (us.version && us.toolchain)
         text = tr("<p>The project <b>%1</b> is not yet configured.</p><p>Qt Creator uses the Qt version: <b>%2</b> "
                   "and the tool chain: <b>%3</b> to parse the project. You can edit "
-                  "these in the <b><a href=\"edit\">settings</a></b></p>")
+                  "these in the <b><a href=\"edit\">options.</a></b></p>")
                 .arg(m_project->displayName())
                 .arg(us.version->displayName())
                 .arg(us.toolchain->displayName());
@@ -188,7 +187,7 @@ void TargetSetupPageWrapper::keyReleaseEvent(QKeyEvent *event)
 void TargetSetupPageWrapper::done()
 {
     m_targetSetupPage->setupProject(m_project);
-    emit projectUpdated(m_project);
+    ProjectExplorer::ProjectExplorerPlugin::instance()->requestProjectModeUpdate(m_project);
     Core::ICore::instance()->modeManager()->activateMode(QLatin1String(Core::Constants::MODE_EDIT));
 }
 

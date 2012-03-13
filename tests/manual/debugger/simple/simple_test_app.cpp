@@ -649,7 +649,6 @@ namespace qdatetime {
         // Check time.(ISO) "" QString.
         // Check time.(Locale) "" QString.
         // Check time.(SystemLocale) "" QString.
-        // CheckType time.toLocalTime QDateTime.
         // Check time.toString "" QString.
         // Continue.
 
@@ -670,7 +669,7 @@ namespace qdatetime {
         // Check date.(Locale) "" QString.
         // Check date.(SystemLocale) "" QString.
         // Check date.toString "" QString.
-        // Check date.toUTC <not available> <unknown>.
+        // Check date.toUTC  QDateTime.
         // Continue.
 
         date = QDateTime::currentDateTime();
@@ -687,6 +686,23 @@ namespace qdatetime {
     }
 
 } // namespace qdatetime
+
+
+namespace qdir {
+
+    void testQDir()
+    {
+        QDir dir("/tmp");
+        dir.absolutePath();
+        BREAK_HERE;
+        // Check dir "/tmp" QDir.
+        // Check dir.absolutePath "/tmp" QString.
+        // Check dir.canonicalPath "/tmp" QString.
+        // Continue.
+        dummyStatement(&dir);
+    }
+
+} // namespace qdir
 
 
 namespace qfileinfo {
@@ -1136,8 +1152,8 @@ namespace qlist {
         BREAK_HERE;
         // Expand l.
         // Check l <3 items> QList<unsigned long long>.
-        // Check l.0 101 unsigned long long.
-        // Check l.2 102 unsigned long long.
+        // CheckType l.0 101 unsigned long long.
+        // CheckType l.2 102 unsigned long long.
         // Continue.
         dummyStatement(&l);
     }
@@ -1409,8 +1425,8 @@ namespace qmap {
         BREAK_HERE;
         // Expand map.
         // Check map <6 items> QMultiMap<unsigned int, float>.
-        // Check map.[0] 11 11 float.
-        // Check map.[5] 22 22 float.
+        // Check map.0 11 float.
+        // Check map.5 22 float.
         // Continue.
         dummyStatement(&map);
     }
@@ -1540,11 +1556,11 @@ namespace qobject {
 
             Q_PROPERTY(QString myProp1 READ myProp1 WRITE setMyProp1)
             QString myProp1() const { return m_myProp1; }
-            Q_SLOT void setMyProp1(const QString &mt) { m_myProp1 = mt; }
+            Q_SLOT void setMyProp1(const QString&mt) { m_myProp1 = mt; }
 
             Q_PROPERTY(QString myProp2 READ myProp2 WRITE setMyProp2)
             QString myProp2() const { return m_myProp2; }
-            Q_SLOT void setMyProp2(const QString &mt) { m_myProp2 = mt; }
+            Q_SLOT void setMyProp2(const QString&mt) { m_myProp2 = mt; }
 
         public:
             Ui *m_ui;
@@ -1992,7 +2008,7 @@ namespace final {
         BREAK_HERE;
         // Expand settings.
         // Check settings "" QSettings.
-        // Check settings.QObject "" QSettings.
+        // Check settings.[QObject] "" QSettings.
         // Check value "" QVariant (QString).
         // Continue.
         dummyStatement(&settings, &value);
@@ -2000,20 +2016,22 @@ namespace final {
 
     void testNullPointerDeref()
     {
+        int a = 'a';
+        int b = 'b';
         BREAK_HERE;
         // Continue.
 
         return; // Uncomment.
-        *(int *)0 = 0;
+        *(int *)0 = a + b;
     }
 
-    void testEndlessRecursion()
+    void testEndlessRecursion(int i = 0)
     {
         BREAK_HERE;
         // Continue.
 
         return; // Uncomment.
-        testEndlessRecursion();
+        testEndlessRecursion(i + 1);
     }
 
     void testEndlessLoop()
@@ -2262,7 +2280,7 @@ namespace qxml {
         // Check atts.attList.2.qname "name3" QString.
         // Check atts.attList.2.uri "uri3" QString.
         // Check atts.attList.2.value "value3" QString.
-        // Check atts.d <unavailable synchronous data> .
+        // CheckType atts.d QXmlAttributesPrivate.
         // Continue.
         dummyStatement();
     }
@@ -2695,7 +2713,7 @@ namespace stdmap {
 
 namespace stdptr {
 
-    void testStdUniquePtr()
+    void testStdUniquePtrInt()
     {
         #ifdef USE_CXX11
         std::unique_ptr<int> p(new int(32));
@@ -2706,7 +2724,18 @@ namespace stdptr {
         #endif
     }
 
-    void testStdSharedPtr()
+    void testStdUniquePtrFoo()
+    {
+        #ifdef USE_CXX11
+        std::unique_ptr<Foo> p(new Foo);
+        BREAK_HERE;
+        // Check p 32 std::unique_ptr<Foo, std::default_delete<Foo> >.
+        // Continue.
+        dummyStatement(&p);
+        #endif
+    }
+
+    void testStdSharedPtrInt()
     {
         #ifdef USE_CXX11
         std::shared_ptr<int> p(new int(32));
@@ -2717,10 +2746,23 @@ namespace stdptr {
         #endif
     }
 
+    void testStdSharedPtrFoo()
+    {
+        #ifdef USE_CXX11
+        std::shared_ptr<Foo> p(new Foo);
+        BREAK_HERE;
+        // Check p 32 std::shared_ptr<Foo, std::default_delete<int> >.
+        // Continue.
+        dummyStatement(&p);
+        #endif
+    }
+
     void testStdPtr()
     {
-        testStdUniquePtr();
-        testStdSharedPtr();
+        testStdUniquePtrInt();
+        testStdUniquePtrFoo();
+        testStdSharedPtrInt();
+        testStdSharedPtrFoo();
     }
 
 } // namespace stdptr
@@ -3062,7 +3104,7 @@ namespace stdvector {
         // Expand v v.0 v.0.x.
         // Check v <4 items> std::vector<Foo>.
         // CheckType v.0 Foo.
-        // Check v.0.a 1 int.
+        // Check v.[1].a 1 int.
         // CheckType v.3 Foo.
         // Continue.
         dummyStatement(&v);
@@ -3079,29 +3121,28 @@ namespace stdvector {
         BREAK_HERE;
         // Expand v.
         // Check v <5 items> std::vector<bool>.
-        // Check v.0 1 bool.
-        // Check v.1 0 bool.
-        // Check v.2 0 bool.
-        // Check v.3 1 bool.
-        // Check v.4 0 bool.
+        // Check v.0 true bool.
+        // Check v.1 false bool.
+        // Check v.2 false bool.
+        // Check v.3 true bool.
+        // Check v.4 false bool.
         // Continue.
         dummyStatement(&v);
     }
 
     void testStdVectorBool2()
     {
-        std::vector<bool> v1(50, true);
+        std::vector<bool> v1(65, true);
         std::vector<bool> v2(65);
         BREAK_HERE;
         // Expand v1.
         // Expand v2.
-        // Check v1 <50 items> std::vector<bool>.
+        // Check v1 <65 items> std::vector<bool>.
+        // Check v1.0 true bool.
+        // Check v1.64 true bool.
         // Check v2 <65 items> std::vector<bool>.
-        // Check v.0 1 bool.
-        // Check v.1 0 bool.
-        // Check v.2 0 bool.
-        // Check v.3 1 bool.
-        // Check v.4 0 bool.
+        // Check v2.0 false bool.
+        // Check v2.64 false bool.
         // Continue.
         dummyStatement(&v1, &v2);
     }
@@ -3531,7 +3572,7 @@ namespace qthread {
                 // Expand this.
                 // Check j 3 int.
                 // CheckType this qthread::Thread.
-                // Check this.QThread "This is thread #3" qthread::Thread.
+                // Check this.[QThread] "This is thread #3" qthread::Thread.
                 // Continue.
                 dummyStatement(this);
             }
@@ -4275,22 +4316,22 @@ namespace basic {
 
     void testChar()
     {
-        char s[5];
+        char s[6];
         s[0] = 0;
         BREAK_HERE;
         // Expand s.
-        // CheckType s char [5].
+        // CheckType s char [6].
         // Check s.0 0 '\0' char.
         // Continue.
 
         // Manual: Open pinnable tooltip.
         // Manual: Step over.
         // Manual: Check that display and tooltip look sane.
-        strcat(s,"\"");
-        strcat(s,"\"");
-        strcat(s,"a");
-        strcat(s,"b");
-        strcat(s,"\"");
+        strcat(s, "\"");
+        strcat(s, "\"");
+        strcat(s, "a");
+        strcat(s, "b");
+        strcat(s, "\"");
         // Manual: Close tooltip.
         dummyStatement(&s);
     }
@@ -4303,7 +4344,6 @@ namespace basic {
         BREAK_HERE;
         // Expand s.
         // CheckType s char *.
-        // Check s.*s 0 '\0' char.
         // Continue.
 
         // Manual: Open pinnable tooltip.
@@ -4470,7 +4510,7 @@ namespace basic {
     {
         // This tests the display of uninitialized data.
 
-        BREAK_HERE;
+        BREAK_UNINITIALIZED_HERE;
         // Check hii <not accessible> QHash<int, int>.
         // Check hss <not accessible> QHash<QString, QString>.
         // Check li <not accessible> QList<int>.
@@ -4525,7 +4565,7 @@ namespace basic {
         BREAK_HERE;
         // Expand s.
         // CheckType s char *.
-        // Check s.*s 97 'a' char.
+        // Skip Check s.*s 97 'a' char.
         // Check u "" QString.
         // CheckType w wchar_t *.
         // Continue.
@@ -4978,6 +5018,7 @@ namespace io {
         std::cin >> i;
         int j;
         std::cin >> j;
+        std::cout << "Values are " << i << " and " << j << "." << std::endl;
     }
 
     void testIO()
@@ -5045,7 +5086,6 @@ namespace qscript {
         s = engine.newVariant(QVariant(43.0));
         s = engine.newVariant(QVariant(QString("sss")));
         s = engine.newDate(date);
-        x = s.toInt32();
         date = s.toDateTime();
         s.setProperty("a", QScriptValue());
         QScriptValue d = s.data();
@@ -5652,13 +5692,13 @@ namespace bug5799 {
         // CheckType a1 bug5799::S1 [10].
         // CheckType a2 bug5799::Array.
         // CheckType s2 bug5799::S2.
-        // CheckType s2.bug5799::S1 bug5799::S1.
-        // Check s2.bug5799::S1.m1 5 int.
-        // Check s2.bug5799::S1.m2 32767 int.
+        // CheckType s2.[bug5799::S1] bug5799::S1.
+        // Check s2.[bug5799::S1].m1 5 int.
+        // Check s2.[bug5799::S1].m2 32767 int.
         // CheckType s4 bug5799::S4.
-        // CheckType s4.bug5799::S3 bug5799::S3.
-        // Check s4.bug5799::S3.m1 5 int.
-        // Check s4.bug5799::S3.m2 0 int.
+        // CheckType s4.[bug5799::S3] bug5799::S3.
+        // Check s4.[bug5799::S3].m1 5 int.
+        // Check s4.[bug5799::S3].m2 0 int.
         // Continue.
         dummyStatement(&s2, &s4, &a1, &a2);
     }
@@ -5774,9 +5814,11 @@ namespace bug6857 {
     void test6857()
     {
         MyFile file("/tmp/tt");
+        file.setObjectName("A file");
         BREAK_HERE;
         // Expand file.
-        // Check file.QFile "/tmp/tt" QFile.
+        // Check file "A file" MyFile.
+        // Check file.[QFile] "/tmp/tt" QFile.
         // Continue.
         dummyStatement(&file);
     }
@@ -5795,9 +5837,11 @@ namespace bug6858 {
     void test6858()
     {
         MyFile file("/tmp/tt");
+        file.setObjectName("Another file");
         QFile *pfile = &file;
         BREAK_HERE;
-        // Check pfile "/tmp/tt" bug6858::MyFile.
+        // Check pfile "Another file" bug6858::MyFile.
+        // Check pfile.[QFile] "/tmp/tt" QFile.
         // Continue.
         dummyStatement(&file, pfile);
     }
@@ -5822,7 +5866,7 @@ namespace bug6933 {
         Base *b = &d;
         BREAK_HERE;
         // Expand b b.bug6933::Base
-        // Check b.bug6933::Base.[vptr]
+        // Check b.[bug6933::Base].[vptr]
         dummyStatement(&d, b);
     }
 }
@@ -5890,14 +5934,14 @@ namespace gdb13393 {
         BREAK_HERE;
         // Expand d ptr ptrConst ptrToPtr ref refConst s.
         // CheckType d gdb13393::Derived.
-        // CheckType d.gdb13393::Base gdb13393::Derived.
+        // CheckType d.[gdb13393::Base] gdb13393::Derived.
         // Check d.b 2 int.
         // CheckType ptr gdb13393::Derived.
-        // CheckType ptr.[vptr] .
-        // Check ptr.a 1 int.
+        // CheckType ptr.[gdb12293::Base] gdb13393::Base.
+        // Check ptr.[a] 1 int.
         // CheckType ptrConst gdb13393::Derived.
-        // CheckType ptrConst.[vptr] .
-        // Check ptrConst.a 1 int.
+        // CheckType ptrConst.[gdb13393::Base] gdb13393::Base.
+        // Check ptrConst.b 2 int.
         // CheckType ptrToPtr gdb13393::Derived.
         // CheckType ptrToPtr.[vptr] .
         // Check ptrToPtr.a 1 int.
@@ -6071,6 +6115,7 @@ int main(int argc, char *argv[])
 
     qbytearray::testQByteArray();
     qdatetime::testDateTime();
+    qdir::testQDir();
     qfileinfo::testQFileInfo();
     qhash::testQHash();
     qlinkedlist::testQLinkedList();

@@ -6,9 +6,6 @@ QtcPlugin {
     name: "RemoteLinux"
 
     Depends { name: "qt"; submodules: ['gui'] }
-    Depends { name: "utils" }
-    Depends { name: "extensionsystem" }
-    Depends { name: "aggregation" }
     Depends { name: "Core" }
     Depends { name: "Debugger" }
     Depends { name: "ProjectExplorer" }
@@ -63,17 +60,10 @@ QtcPlugin {
         "genericremotelinuxdeploystepfactory.h",
         "linuxdeviceconfiguration.cpp",
         "linuxdeviceconfiguration.h",
-        "linuxdeviceconfigurations.cpp",
-        "linuxdeviceconfigurations.h",
-        "linuxdevicefactoryselectiondialog.cpp",
-        "linuxdevicefactoryselectiondialog.h",
-        "linuxdevicefactoryselectiondialog.ui",
         "linuxdevicetestdialog.cpp",
         "linuxdevicetestdialog.h",
         "linuxdevicetester.cpp",
         "linuxdevicetester.h",
-        "portlist.cpp",
-        "portlist.h",
         "publickeydeploymentdialog.cpp",
         "publickeydeploymentdialog.h",
         "remotelinux.qrc",
@@ -105,21 +95,14 @@ QtcPlugin {
         "remotelinuxrunconfigurationwidget.cpp",
         "remotelinuxrunconfigurationwidget.h",
         "remotelinuxruncontrol.h",
-        "remotelinuxsettingspages.cpp",
-        "remotelinuxsettingspages.h",
         "remotelinuxusedportsgatherer.cpp",
         "remotelinuxutils.cpp",
         "remotelinuxutils.h",
-        "sshkeycreationdialog.cpp",
-        "sshkeycreationdialog.h",
         "startgdbserverdialog.cpp",
         "startgdbserverdialog.h",
         "tarpackagecreationstep.h",
         "uploadandinstalltarpackagestep.h",
         "genericdirectuploadservice.h",
-        "linuxdeviceconfigurationssettingswidget.cpp",
-        "linuxdeviceconfigurationssettingswidget.h",
-        "linuxdeviceconfigurationssettingswidget.ui",
         "linuxdevicetestdialog.ui",
         "packageuploader.cpp",
         "packageuploader.h",
@@ -133,7 +116,6 @@ QtcPlugin {
         "remotelinuxprocessesdialog.h",
         "remotelinuxprocessesdialog.ui",
         "remotelinuxusedportsgatherer.h",
-        "sshkeycreationdialog.ui",
         "sshkeydeployer.cpp",
         "sshkeydeployer.h",
         "typespecificdeviceconfigurationlistmodel.cpp",

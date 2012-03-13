@@ -162,7 +162,7 @@ WelcomeMode::WelcomeMode() :
     layout->addWidget(scrollArea);
     scrollArea->setWidget(m_welcomePage);
     scrollArea->setWidgetResizable(true);
-    m_welcomePage->setMinimumWidth(960);
+    m_welcomePage->setMinimumWidth(860);
     PluginManager *pluginManager = PluginManager::instance();
     connect(pluginManager, SIGNAL(objectAdded(QObject*)), SLOT(welcomePluginAdded(QObject*)));
 
@@ -208,8 +208,30 @@ void WelcomeMode::initPlugins()
     QDeclarativeContext *ctx = m_welcomePage->rootContext();
     ctx->setContextProperty(QLatin1String("welcomeMode"), this);
 
-    QList<Utils::IWelcomePage*> plugins = PluginManager::instance()->getObjects<Utils::IWelcomePage>();
-    qSort(plugins.begin(), plugins.end(), &sortFunction);
+    QList<Utils::IWelcomePage*> duplicatePlugins = PluginManager::instance()->getObjects<Utils::IWelcomePage>();
+    qSort(duplicatePlugins.begin(), duplicatePlugins.end(), &sortFunction);
+
+    QList<Utils::IWelcomePage*> plugins;
+    QHash<Utils::IWelcomePage::Id, Utils::IWelcomePage*> pluginHash;
+
+    //avoid duplicate ids - choose by priority
+    foreach (Utils::IWelcomePage* plugin, duplicatePlugins) {
+        if (pluginHash.contains(plugin->id())) {
+            Utils::IWelcomePage* pluginOther = pluginHash.value(plugin->id());
+
+            if (pluginOther->priority() > plugin->priority()) {
+                plugins.removeAll(pluginOther);
+                pluginHash.remove(pluginOther->id());
+                plugins << plugin;
+                pluginHash.insert(plugin->id(), plugin);
+            }
+
+        } else {
+            plugins << plugin;
+            pluginHash.insert(plugin->id(), plugin);
+        }
+    }
+
 
     QDeclarativeEngine *engine = m_welcomePage->engine();
     if (!debug)
@@ -252,7 +274,24 @@ QString WelcomeMode::platform() const
 
 void WelcomeMode::welcomePluginAdded(QObject *obj)
 {
+    QHash<Utils::IWelcomePage::Id, Utils::IWelcomePage*> pluginHash;
+
+    foreach (QObject *obj, m_pluginList) {
+        Utils::IWelcomePage *plugin = qobject_cast<Utils::IWelcomePage*>(obj);
+        pluginHash.insert(plugin->id(), plugin);
+    }
     if (Utils::IWelcomePage *plugin = qobject_cast<Utils::IWelcomePage*>(obj)) {
+        //check for duplicated id
+        if (pluginHash.contains(plugin->id())) {
+            Utils::IWelcomePage* pluginOther = pluginHash.value(plugin->id());
+
+            if (pluginOther->priority() > plugin->priority()) {
+                m_pluginList.removeAll(pluginOther);
+            } else {
+                return;
+            }
+        }
+
         int insertPos = 0;
         foreach (Utils::IWelcomePage* p, PluginManager::instance()->getObjects<Utils::IWelcomePage>()) {
             if (plugin->priority() < p->priority())

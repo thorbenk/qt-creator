@@ -13,9 +13,7 @@ HEADERS += \
     remotelinuxplugin.h \
     remotelinux_export.h \
     linuxdeviceconfiguration.h \
-    linuxdeviceconfigurations.h \
     remotelinuxrunconfiguration.h \
-    linuxdevicefactoryselectiondialog.h \
     publickeydeploymentdialog.h \
     genericlinuxdeviceconfigurationwizard.h \
     genericlinuxdeviceconfigurationfactory.h \
@@ -26,7 +24,6 @@ HEADERS += \
     remotelinuxruncontrolfactory.h \
     remotelinuxdebugsupport.h \
     genericlinuxdeviceconfigurationwizardpages.h \
-    portlist.h \
     deployablefile.h \
     deployablefilesperprofile.h \
     deploymentinfo.h \
@@ -48,13 +45,10 @@ HEADERS += \
     linuxdevicetestdialog.h \
     remotelinuxprocesslist.h \
     remotelinuxprocessesdialog.h \
-    linuxdeviceconfigurationssettingswidget.h \
     remotelinuxenvironmentreader.h \
     sshkeydeployer.h \
     typespecificdeviceconfigurationlistmodel.h \
-    sshkeycreationdialog.h \
     remotelinuxusedportsgatherer.h \
-    remotelinuxsettingspages.h \
     remotelinuxutils.h \
     deploymentsettingsassistant.h \
     remotelinuxdeployconfigurationwidget.h \
@@ -72,9 +66,7 @@ SOURCES += \
     embeddedlinuxqtversionfactory.cpp \
     remotelinuxplugin.cpp \
     linuxdeviceconfiguration.cpp \
-    linuxdeviceconfigurations.cpp \
     remotelinuxrunconfiguration.cpp \
-    linuxdevicefactoryselectiondialog.cpp \
     publickeydeploymentdialog.cpp \
     genericlinuxdeviceconfigurationwizard.cpp \
     genericlinuxdeviceconfigurationfactory.cpp \
@@ -85,7 +77,6 @@ SOURCES += \
     remotelinuxruncontrolfactory.cpp \
     remotelinuxdebugsupport.cpp \
     genericlinuxdeviceconfigurationwizardpages.cpp \
-    portlist.cpp \
     deployablefilesperprofile.cpp \
     deploymentinfo.cpp \
     abstractremotelinuxdeploystep.cpp \
@@ -105,13 +96,10 @@ SOURCES += \
     linuxdevicetestdialog.cpp \
     remotelinuxprocesslist.cpp \
     remotelinuxprocessesdialog.cpp \
-    linuxdeviceconfigurationssettingswidget.cpp \
     remotelinuxenvironmentreader.cpp \
     sshkeydeployer.cpp \
     typespecificdeviceconfigurationlistmodel.cpp \
-    sshkeycreationdialog.cpp \
     remotelinuxusedportsgatherer.cpp \
-    remotelinuxsettingspages.cpp \
     remotelinuxutils.cpp \
     deploymentsettingsassistant.cpp \
     remotelinuxdeployconfigurationwidget.cpp \
@@ -123,12 +111,9 @@ SOURCES += \
     genericlinuxdeviceconfigurationwidget.cpp
 
 FORMS += \
-    linuxdevicefactoryselectiondialog.ui \
     genericlinuxdeviceconfigurationwizardsetuppage.ui \
     linuxdevicetestdialog.ui \
     remotelinuxprocessesdialog.ui \
-    linuxdeviceconfigurationssettingswidget.ui \
-    sshkeycreationdialog.ui \
     remotelinuxdeployconfigurationwidget.ui \
     profilesupdatedialog.ui \
     genericlinuxdeviceconfigurationwidget.ui

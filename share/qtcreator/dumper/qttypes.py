@@ -213,8 +213,14 @@ def qdump__QDateTime(d, value):
 
 
 def qdump__QDir(d, value):
-    d.putStringValue(value["d_ptr"]["d"].dereference()["path"])
     d.putNumChild(1)
+    data = value["d_ptr"]["d"].dereference()
+    try:
+        # Up to Qt 4.7
+        d.putStringValue(data["path"])
+    except:
+        # Qt 4.8 and later.
+        d.putStringValue(data["dirEntry"]["m_filePath"])
     if d.isExpanded():
         with Children(d):
             d.putCallItem("absolutePath", value, "absolutePath")
@@ -1795,16 +1801,19 @@ def qdump__std__map(d, value):
     if d.isExpanded():
         keyType = templateArgument(value.type, 0)
         valueType = templateArgument(value.type, 1)
-        # Does not work on gcc 4.4, the allocator type (fourth template
-        # argument) seems not to be available.
-        #   pairType = templateArgument(templateArgument(value.type, 3), 0)
-        # So use this as workaround:
-        pairType = templateArgument(impl.type, 1)
+        try:
+            # Does not work on gcc 4.4, the allocator type (fourth template
+            # argument) seems not to be available.
+            pairType = templateArgument(templateArgument(value.type, 3), 0)
+            pairPointer = pairType.pointer()
+        except:
+            # So use this as workaround:
+            pairType = templateArgument(impl.type, 1)
+            pairPointer = pairType.pointer()
         isCompact = mapCompact(d.currentItemFormat(), keyType, valueType)
         innerType = pairType
         if isCompact:
             innerType = valueType
-        pairPointer = pairType.pointer()
         node = impl["_M_header"]["_M_left"]
         childType = innerType
         if size == 0:
@@ -1924,6 +1933,27 @@ def qdump__std__string(d, value):
     d.putNumChild(0)
 
 
+def qdump__std__shared_ptr(d, value):
+    i = value["_M_ptr"]
+    if isNull(i):
+        d.putValue("(null)")
+        d.putNumChild(0)
+        return
+
+    if isSimpleType(templateArgument(value.type, 0)):
+        d.putValue("%s @0x%x" % (i.dereference(), long(i)))
+    else:
+        i = expensiveUpcast(i)
+        d.putValue("@0x%x" % long(i))
+
+    d.putNumChild(3)
+    with Children(d, 3):
+        d.putSubItem("data", i)
+        refcount = value["_M_refcount"]["_M_pi"]
+        d.putIntItem("usecount", refcount["_M_use_count"])
+        d.putIntItem("weakcount", refcount["_M_weak_count"])
+
+
 def qdump__std__unique_ptr(d, value):
     i = value["_M_t"]["_M_head_impl"]
     if isNull(i):
@@ -1931,9 +1961,12 @@ def qdump__std__unique_ptr(d, value):
         d.putNumChild(0)
         return
 
-    i = expensiveUpcast(i)
+    if isSimpleType(templateArgument(value.type, 0)):
+        d.putValue("%s @0x%x" % (i.dereference(), long(i)))
+    else:
+        i = expensiveUpcast(i)
+        d.putValue("@0x%x" % long(i))
 
-    d.putValue( "@0x%x" % long(i) )
     d.putNumChild(1)
     with Children(d, 1):
         d.putSubItem("data", i)

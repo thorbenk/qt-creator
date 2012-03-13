@@ -182,7 +182,7 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent, QList<BaseQtVersion *>
     }
     m_ui->qtdirList->expandAll();
 
-    connect(m_versionUi->nameEdit, SIGNAL(textEdited(const QString &)),
+    connect(m_versionUi->nameEdit, SIGNAL(textEdited(QString)),
             this, SLOT(updateCurrentQtName()));
 
     connect(m_versionUi->editPathPushButton, SIGNAL(clicked()),
@@ -193,8 +193,8 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent, QList<BaseQtVersion *>
     connect(m_ui->delButton, SIGNAL(clicked()),
             this, SLOT(removeQtDir()));
 
-    connect(m_ui->qtdirList, SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)),
-            this, SLOT(versionChanged(QTreeWidgetItem *, QTreeWidgetItem *)));
+    connect(m_ui->qtdirList, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)),
+            this, SLOT(versionChanged(QTreeWidgetItem*,QTreeWidgetItem*)));
 
     connect(m_debuggingHelperUi->rebuildButton, SIGNAL(clicked()),
             this, SLOT(buildDebuggingHelper()));
@@ -596,7 +596,9 @@ void QtOptionsPageWidget::addQtDir()
                 QFileDialog::getOpenFileName(this,
                                              tr("Select a qmake executable"),
                                              QString(),
-                                             filterForQmakeFileDialog()));
+                                             filterForQmakeFileDialog(),
+                                             0,
+                                             QFileDialog::DontResolveSymlinks));
     if (qtVersion.isNull())
         return;
     if (QtVersionManager::instance()->qtVersionForQMakeBinary(qtVersion)) {
@@ -642,7 +644,10 @@ void QtOptionsPageWidget::editPath()
     Utils::FileName qtVersion = Utils::FileName::fromString(
                 QFileDialog::getOpenFileName(this,
                                              tr("Select a qmake executable"),
-                                             dir, filterForQmakeFileDialog()));
+                                             dir,
+                                             filterForQmakeFileDialog(),
+                                             0,
+                                             QFileDialog::DontResolveSymlinks));
     if (qtVersion.isNull())
         return;
     BaseQtVersion *version = QtVersionFactory::createQtVersionFromQMakePath(qtVersion);
