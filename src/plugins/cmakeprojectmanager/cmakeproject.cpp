@@ -47,7 +47,7 @@
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/buildmanager.h>
 #include <projectexplorer/toolchain.h>
-#include <cplusplus/ModelManagerInterface.h>
+#include <cpptools/ModelManagerInterface.h>
 #include <extensionsystem/pluginmanager.h>
 #include <utils/qtcassert.h>
 #include <coreplugin/icore.h>
@@ -495,11 +495,6 @@ CMakeManager *CMakeProject::projectManager() const
 CMakeTarget *CMakeProject::activeTarget() const
 {
     return static_cast<CMakeTarget *>(Project::activeTarget());
-}
-
-QList<ProjectExplorer::Project *> CMakeProject::dependsOn()
-{
-    return QList<Project *>();
 }
 
 QList<ProjectExplorer::BuildConfigWidget*> CMakeProject::subConfigWidgets()

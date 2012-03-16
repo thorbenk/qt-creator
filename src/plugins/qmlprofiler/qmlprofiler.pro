@@ -3,7 +3,12 @@ TARGET = QmlProfiler
 
 DEFINES += PROFILER_LIBRARY
 
-QT += network script declarative
+QT += network script
+greaterThan(QT_MAJOR_VERSION, 4) {
+    QT += quick1
+} else {
+    QT += declarative
+}
 
 include(../../qtcreatorplugin.pri)
 include(../../plugins/coreplugin/coreplugin.pri)
@@ -19,14 +24,19 @@ SOURCES += \
     qmlprofilerplugin.cpp \
     qmlprofilertool.cpp \
     qmlprofilerengine.cpp \
-    tracewindow.cpp \
-    timelineview.cpp \
     qmlprofilerattachdialog.cpp \
     localqmlprofilerrunner.cpp \
     codaqmlprofilerrunner.cpp \
     remotelinuxqmlprofilerrunner.cpp \
     qmlprofilereventview.cpp \
-    qmlprofilerdetailsrewriter.cpp
+    qmlprofilerdetailsrewriter.cpp \
+    qmlprofilertraceview.cpp \
+    timelinerenderer.cpp \
+    qmlprofilerstatemanager.cpp \
+    qv8profilerdatamodel.cpp \
+    qmlprofilerdatamodel.cpp \
+    qmlprofilerclientmanager.cpp \
+    qmlprofilerviewmanager.cpp
 
 HEADERS += \
     qmlprofilerconstants.h \
@@ -34,22 +44,26 @@ HEADERS += \
     qmlprofilerplugin.h \
     qmlprofilertool.h \
     qmlprofilerengine.h \
-    tracewindow.h \
-    timelineview.h \
     qmlprofilerattachdialog.h \
     abstractqmlprofilerrunner.h \
     localqmlprofilerrunner.h \
     codaqmlprofilerrunner.h \
     remotelinuxqmlprofilerrunner.h \
     qmlprofilereventview.h \
-    qmlprofilerdetailsrewriter.h
+    qmlprofilerdetailsrewriter.h \
+    qmlprofilertraceview.h \
+    timelinerenderer.h \
+    qmlprofilerstatemanager.h \
+    qv8profilerdatamodel.h \
+    qmlprofilerdatamodel.h \
+    qmlprofilerclientmanager.h \
+    qmlprofilerviewmanager.h
 
 RESOURCES += \
     qml/qmlprofiler.qrc
 
 OTHER_FILES += \
     qml/Detail.qml \
-    qml/Elapsed.qml \
     qml/Label.qml \
     qml/MainView.qml \
     qml/RangeDetails.qml \
@@ -59,8 +73,7 @@ OTHER_FILES += \
     qml/StatusDisplay.qml \
     qml/SelectionRange.qml \
     qml/SelectionRangeDetails.qml \
-    qml/Overview.qml \
-    qml/Overview.js
+    qml/Overview.qml
 
 FORMS += \
     qmlprofilerattachdialog.ui

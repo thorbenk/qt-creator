@@ -18916,7 +18916,7 @@ Hinweis: Unter Umständen wird die lokale Datei gelöscht.</translation>
     </message>
     <message>
         <source>Start and Debug Remote Application...</source>
-        <translation>Starte und Debugge externe Anwendung...</translation>
+        <translation>Starte und Debugge entfernte Anwendung...</translation>
     </message>
     <message>
         <source>Attach to Remote Debug Server...</source>
@@ -21220,7 +21220,7 @@ Fehler: %2</translation>
     </message>
     <message>
         <source>Import build from %1.</source>
-        <translation>Build aus %1. importieren.</translation>
+        <translation>Build aus %1 importieren.</translation>
     </message>
     <message>
         <source>Already imported build</source>

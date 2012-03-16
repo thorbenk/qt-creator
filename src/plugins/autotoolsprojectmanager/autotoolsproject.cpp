@@ -48,7 +48,7 @@
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <extensionsystem/pluginmanager.h>
-#include <cplusplus/ModelManagerInterface.h>
+#include <cpptools/ModelManagerInterface.h>
 #include <coreplugin/icore.h>
 #include <utils/qtcassert.h>
 
@@ -146,11 +146,6 @@ IProjectManager *AutotoolsProject::projectManager() const
 AutotoolsTarget *AutotoolsProject::activeTarget() const
 {
     return static_cast<AutotoolsTarget *>(Project::activeTarget());
-}
-
-QList<Project *> AutotoolsProject::dependsOn()
-{
-    return QList<Project *>();
 }
 
 QString AutotoolsProject::defaultBuildDirectory() const

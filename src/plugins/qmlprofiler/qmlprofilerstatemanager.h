@@ -30,54 +30,53 @@
 **
 **************************************************************************/
 
-#ifndef FINDDERIVEDCLASSES_H
-#define FINDDERIVEDCLASSES_H
+#ifndef QMLPROFILERSTATEMANAGER_H
+#define QMLPROFILERSTATEMANAGER_H
 
-#include "CppDocument.h"
-#include "ModelManagerInterface.h"
-#include "Overview.h"
+#include <QObject>
 
-#include <QList>
-#include <QStringList>
-#include <QSet>
+namespace QmlProfiler {
+namespace Internal {
 
-namespace CPlusPlus {
-
-class CPLUSPLUS_EXPORT TypeHierarchy
+class QmlProfilerStateManager : public QObject
 {
-    friend class TypeHierarchyBuilder;
-
+    Q_OBJECT
 public:
-    TypeHierarchy();
-    TypeHierarchy(Symbol *symbol);
+    enum QmlProfilerState {
+        Idle,
+        AppStarting,
+        AppRunning,
+        AppStopRequested,
+        AppReadyToStop,
+        AppStopped,
+        AppKilled
+    };
 
-    Symbol *symbol() const;
-    const QList<TypeHierarchy> &hierarchy() const;
+    explicit QmlProfilerStateManager(QObject *parent = 0);
+    ~QmlProfilerStateManager();
+
+    QmlProfilerState currentState();
+    bool clientRecording();
+    bool serverRecording();
+
+    QString currentStateAsString();
+
+signals:
+    void stateChanged();
+    void clientRecordingChanged();
+    void serverRecordingChanged();
+
+public slots:
+    void setCurrentState(QmlProfilerState newState);
+    void setClientRecording(bool recording);
+    void setServerRecording(bool recording);
 
 private:
-    Symbol *_symbol;
-    QList<TypeHierarchy> _hierarchy;
+    class QmlProfilerStateManagerPrivate;
+    QmlProfilerStateManagerPrivate *d;
 };
 
-class CPLUSPLUS_EXPORT TypeHierarchyBuilder
-{
-public:
-    TypeHierarchyBuilder(Symbol *symbol, const Snapshot &snapshot);
+}
+}
 
-    TypeHierarchy buildDerivedTypeHierarchy();
-
-private:
-    void reset();
-    void buildDerived(TypeHierarchy *typeHierarchy);
-
-    Symbol *_symbol;
-    Snapshot _snapshot;
-    QStringList _dependencies;
-    QSet<Symbol *> _visited;
-    QHash<QString, QSet<QString> > _candidates;
-    Overview _overview;
-};
-
-} // CPlusPlus
-
-#endif // FINDDERIVEDCLASSES_H
+#endif // QMLPROFILERSTATEMANAGER_H

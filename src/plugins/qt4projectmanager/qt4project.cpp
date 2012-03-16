@@ -51,7 +51,7 @@
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <extensionsystem/pluginmanager.h>
-#include <cplusplus/ModelManagerInterface.h>
+#include <cpptools/ModelManagerInterface.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/headerpath.h>
@@ -542,7 +542,7 @@ void Qt4Project::updateCppCodeModel()
         part->language = CPlusPlus::CppModelManagerInterface::CXX;
         // part->flags
         if (tc)
-            part->flags = tc->compilerFlags(pro->variableValue(CppFlagsVar));
+            part->cxx11Enabled = tc->compilerFlags(pro->variableValue(CppFlagsVar)) == ToolChain::STD_CXX11;
 
         part->sourceFiles = pro->variableValue(CppSourceVar);
         pinfo.appendProjectPart(part);
@@ -909,12 +909,6 @@ QString Qt4Project::generatedUiHeader(const QString &formFile) const
         if (const Qt4ProFileNode *pro = proFileNodeOf(m_rootProjectNode, FormType, formFile))
             return Qt4ProFileNode::uiHeaderFile(pro->uiDirectory(), formFile);
     return QString();
-}
-
-QList<ProjectExplorer::Project*> Qt4Project::dependsOn()
-{
-    // NBS implement dependsOn
-    return QList<Project *>();
 }
 
 void Qt4Project::proFileParseError(const QString &errorMessage)

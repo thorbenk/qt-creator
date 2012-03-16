@@ -1,11 +1,11 @@
 TEMPLATE = subdirs
 
 SUBDIRS = qtpromaker \
-    qmlprofilertool \
      qmlpuppet
 
 win32 {
     SUBDIRS += qtcdebugger
+    SUBDIRS += mdnssd
     # win64interrupt only make sense for 64bit builds
     ENV_CPU=$$(CPU)
     ENV_LIBPATH=$$(LIBPATH)

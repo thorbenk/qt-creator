@@ -11,6 +11,7 @@ QtcPlugin {
     Depends { name: "Find" }
     Depends { name: "cpp" }
     Depends { name: "qt"; submodules: ['gui'] }
+    Depends { name: "CppTools" }
     Depends { name: "CPlusPlus" }
 
     cpp.includePaths: [

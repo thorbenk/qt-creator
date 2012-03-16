@@ -163,6 +163,7 @@ WelcomeMode::WelcomeMode() :
     scrollArea->setWidget(m_welcomePage);
     scrollArea->setWidgetResizable(true);
     m_welcomePage->setMinimumWidth(860);
+    m_welcomePage->setMinimumHeight(548);
     PluginManager *pluginManager = PluginManager::instance();
     connect(pluginManager, SIGNAL(objectAdded(QObject*)), SLOT(welcomePluginAdded(QObject*)));
 
@@ -234,6 +235,9 @@ void WelcomeMode::initPlugins()
 
 
     QDeclarativeEngine *engine = m_welcomePage->engine();
+    QStringList importPathList = engine->importPathList();
+    importPathList << Core::ICore::resourcePath() + QLatin1String("/welcomescreen");
+    engine->setImportPathList(importPathList);
     if (!debug)
         engine->setOutputWarningsToStandardError(false);
     engine->setNetworkAccessManagerFactory(new NetworkAccessManagerFactory);

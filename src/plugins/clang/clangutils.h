@@ -4,7 +4,7 @@
 #include "clang_global.h"
 #include "utils.h"
 
-#include <cplusplus/ModelManagerInterface.h>
+#include <cpptools/ModelManagerInterface.h>
 
 namespace Clang {
 namespace Utils {

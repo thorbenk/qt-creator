@@ -34,6 +34,7 @@
 #define QMLPROFILERENGINE_H
 
 #include <analyzerbase/ianalyzerengine.h>
+#include "qmlprofilerstatemanager.h"
 #include <utils/outputformat.h>
 
 namespace QmlProfiler {
@@ -49,28 +50,28 @@ public:
                       ProjectExplorer::RunConfiguration *runConfiguration);
     ~QmlProfilerEngine();
 
+    void registerProfilerStateManager( QmlProfilerStateManager *profilerState );
+
     static void showNonmodalWarning(const QString &warningMsg);
 signals:
     void processRunning(quint16 port);
-    void stopRecording();
     void timeUpdate();
-    void recordingChanged(bool recording);
-    void applicationDied();
 
 public slots:
     bool start();
     void stop();
 
 private slots:
-    void stopped();
+    void processEnded();
 
-    void setFetchingData(bool);
-    void dataReceived();
-    void finishProcess();
+    void cancelProcess();
     void logApplicationMessage(const QString &msg, Utils::OutputFormat format);
     void wrongSetupMessageBox(const QString &errorMessage);
     void wrongSetupMessageBoxFinished(int);
     void processIsRunning(quint16 port = 0);
+
+private slots:
+    void profilerStateChanged();
 
 private:
     class QmlProfilerEnginePrivate;

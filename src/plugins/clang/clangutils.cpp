@@ -37,7 +37,7 @@ QStringList Clang::Utils::createClangOptions(const CPlusPlus::CppModelManagerInt
 {
     Q_ASSERT(pPart);
 
-    return createClangOptions(pPart->cpp0xEnabled(),
+    return createClangOptions(pPart->cxx11Enabled,
                               pPart->objcEnabled(),
                               pPart->qtVersion,
                               pPart->defines.split('\n'),

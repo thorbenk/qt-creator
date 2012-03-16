@@ -48,6 +48,9 @@ public:
     virtual ~ClangHighlightingSupportFactory();
 
     virtual CppTools::CppHighlightingSupport *highlightingSupport(TextEditor::ITextEditor *editor);
+
+    virtual bool hightlighterHandlesDiagnostics() const
+    { return true; }
 };
 
 } // namespace Clang

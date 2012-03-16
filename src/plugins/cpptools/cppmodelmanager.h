@@ -35,7 +35,8 @@
 
 #include "cpptools_global.h"
 #include "cpptoolsconstants.h"
-#include <cplusplus/ModelManagerInterface.h>
+
+#include "ModelManagerInterface.h"
 
 #ifndef ICHECK_BUILD
 #  include <projectexplorer/project.h>
@@ -251,8 +252,11 @@ private:
 
     struct Editor {
         Editor()
-                : revision(-1) {}
+            : revision(-1)
+            , updateSelections(true)
+        {}
         int revision;
+        bool updateSelections;
         QPointer<TextEditor::ITextEditor> textEditor;
         QList<QTextEdit::ExtraSelection> selections;
         QList<TextEditor::BaseTextEditorWidget::BlockRange> ifdefedOutBlocks;

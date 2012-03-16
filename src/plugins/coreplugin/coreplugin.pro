@@ -75,7 +75,6 @@ SOURCES += mainwindow.cpp \
     dialogs/ioptionspage.cpp \
     dialogs/iwizard.cpp \
     settingsdatabase.cpp \
-    eventfilteringmainwindow.cpp \
     imode.cpp \
     editormanager/systemeditor.cpp \
     designmode.cpp \
@@ -170,7 +169,6 @@ HEADERS += mainwindow.h \
     fileiconprovider.h \
     mimedatabase.h \
     settingsdatabase.h \
-    eventfilteringmainwindow.h \
     editormanager/systemeditor.h \
     designmode.h \
     editortoolbar.h \
@@ -213,7 +211,10 @@ win32 {
     LIBS += -lole32
 }
 else:macx {
-    OBJECTIVE_SOURCES += progressmanager/progressmanager_mac.mm
+    HEADERS += macfullscreen.h
+    OBJECTIVE_SOURCES += \
+        progressmanager/progressmanager_mac.mm \
+        macfullscreen.mm
     LIBS += -framework AppKit
 }
 else:unix {
@@ -228,4 +229,3 @@ else:unix {
     }
 }
 OTHER_FILES += editormanager/BinFiles.mimetypes.xml
-

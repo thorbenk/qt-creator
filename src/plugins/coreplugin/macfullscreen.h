@@ -30,21 +30,22 @@
 **
 **************************************************************************/
 
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#ifndef MACFULLSCREEN_H
+#define MACFULLSCREEN_H
 
-namespace Constants {
+#include "mainwindow.h"
 
-const char CMD_HELP[] ="help";
-const char CMD_HELP2[] = "h";
-const char CMD_HELP3[] = "?";
+namespace Core {
+namespace Internal {
+namespace MacFullScreen {
 
-const char CMD_RECORD[] ="record";
-const char CMD_RECORD2[] ="r";
+bool supportsFullScreen();
+// adds fullscreen button to window for lion
+void addFullScreen(Core::Internal::MainWindow *window);
+void toggleFullScreen(Core::Internal::MainWindow *window);
 
-const char CMD_QUIT[] ="quit";
-const char CMD_QUIT2[] = "q";
+} // MacFullScreen
+} // Internal
+} // Core
 
-} // Contants
-
-#endif // CONSTANTS_H
+#endif // MACFULLSCREEN_H

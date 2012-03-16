@@ -41,7 +41,7 @@
 #  include <clangwrapper/codenavigator.h>
 #endif // CLANG_INDEXING
 
-#include <cplusplus/ModelManagerInterface.h>
+#include <cpptools/ModelManagerInterface.h>
 #include <cplusplus/CppDocument.h>
 #include <cplusplus/LookupContext.h>
 #include <texteditor/basetexteditor.h>

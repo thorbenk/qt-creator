@@ -50,7 +50,7 @@
 #include <coreplugin/iversioncontrol.h>
 #include <coreplugin/vcsmanager.h>
 
-#include <cplusplus/ModelManagerInterface.h>
+#include <cpptools/ModelManagerInterface.h>
 #include <cplusplus/CppDocument.h>
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/projectexplorer.h>
@@ -255,6 +255,11 @@ Qt4PriFileNode::Qt4PriFileNode(Qt4Project *project, Qt4ProFileNode* qt4ProFileNo
     setDisplayName(QFileInfo(filePath).completeBaseName());
 
     setIcon(qt4NodeStaticData()->projectIcon);
+}
+
+Qt4PriFileNode::~Qt4PriFileNode()
+{
+    watchFolders(QSet<QString>());
 }
 
 void Qt4PriFileNode::scheduleUpdate()

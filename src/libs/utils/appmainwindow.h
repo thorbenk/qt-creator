@@ -30,28 +30,24 @@
 **
 **************************************************************************/
 
-#ifndef EVENTFILTERINGMAINWINDOW_H
-#define EVENTFILTERINGMAINWINDOW_H
+#ifndef APPMAINWINDOW_H
+#define APPMAINWINDOW_H
 
+#include "utils_global.h"
 #include <QMainWindow>
 
-QT_BEGIN_NAMESPACE
-
-QT_END_NAMESPACE
-
-namespace Core {
-namespace Internal {
+namespace Utils {
 
 /*!
  * This class only exists because we can't include windows.h in mainwindow.cpp
  * because windows defines an IContext...
  */
 
-class EventFilteringMainWindow : public QMainWindow
+class QTCREATOR_UTILS_EXPORT AppMainWindow : public QMainWindow
 {
     Q_OBJECT
 public:
-    EventFilteringMainWindow();
+    AppMainWindow();
 
 signals:
     void deviceChange();
@@ -66,7 +62,6 @@ private:
     const int m_deviceEventId;
 };
 
-} // Internal
-} // Core
+} // Utils
 
-#endif // EVENTFILTERINGMAINWINDOW_H
+#endif // APPMAINWINDOW_H

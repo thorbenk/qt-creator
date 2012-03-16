@@ -30,56 +30,55 @@
 **
 **************************************************************************/
 
-#include "eventfilteringmainwindow.h"
+#ifndef FINDDERIVEDCLASSES_H
+#define FINDDERIVEDCLASSES_H
 
-#ifdef Q_OS_WIN
-#include <windows.h>
-#endif
+#include "CppDocument.h"
+#include "ModelManagerInterface.h"
+#include "Overview.h"
+#include "cpptools_global.h"
 
-#include <QtDebug>
-#include <QEvent>
-#include <QCoreApplication>
+#include <QList>
+#include <QStringList>
+#include <QSet>
 
-namespace Core {
-namespace Internal {
+namespace CPlusPlus {
 
-/* The notification signal is delayed by using a custom event
- * as otherwise device removal is not detected properly
- * (devices are still present in the registry. */
+class CPPTOOLS_EXPORT TypeHierarchy
+{
+    friend class TypeHierarchyBuilder;
 
-class DeviceNotifyEvent : public QEvent {
 public:
-    explicit DeviceNotifyEvent(int id) : QEvent(static_cast<QEvent::Type>(id)) {}
+    TypeHierarchy();
+    TypeHierarchy(Symbol *symbol);
+
+    Symbol *symbol() const;
+    const QList<TypeHierarchy> &hierarchy() const;
+
+private:
+    Symbol *_symbol;
+    QList<TypeHierarchy> _hierarchy;
 };
 
-EventFilteringMainWindow::EventFilteringMainWindow() :
-        m_deviceEventId(QEvent::registerEventType(QEvent::User + 2))
+class CPPTOOLS_EXPORT TypeHierarchyBuilder
 {
-}
+public:
+    TypeHierarchyBuilder(Symbol *symbol, const Snapshot &snapshot);
 
-#ifdef Q_OS_WIN
-bool EventFilteringMainWindow::event(QEvent *event)
-{
-    if (event->type() == m_deviceEventId) {
-        event->accept();
-        emit deviceChange();
-        return true;
-    }
-    return QMainWindow::event(event);
-}
+    TypeHierarchy buildDerivedTypeHierarchy();
 
-bool EventFilteringMainWindow::winEvent(MSG *msg, long *result)
-{
-    if (msg->message == WM_DEVICECHANGE) {
-        if (msg->wParam & 0x7 /* DBT_DEVNODES_CHANGED */) {
-            *result = TRUE;
-            QCoreApplication::postEvent(this, new DeviceNotifyEvent(m_deviceEventId));
-        }
-    }
-    return false;
-}
-#endif
+private:
+    void reset();
+    void buildDerived(TypeHierarchy *typeHierarchy);
 
-} // namespace Internal
-} // namespace Core
+    Symbol *_symbol;
+    Snapshot _snapshot;
+    QStringList _dependencies;
+    QSet<Symbol *> _visited;
+    QHash<QString, QSet<QString> > _candidates;
+    Overview _overview;
+};
 
+} // CPlusPlus
+
+#endif // FINDDERIVEDCLASSES_H

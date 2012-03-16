@@ -1,6 +1,6 @@
 #include "clangcompletion.h"
 #include "clangutils.h"
-#include "ModelManagerInterface.h"
+#include <cpptools/ModelManagerInterface.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/idocument.h>
@@ -26,6 +26,7 @@
 #include <texteditor/completionsettings.h>
 
 #include <QCoreApplication>
+#include <QDirIterator>
 #include <QTextCursor>
 #include <QTextDocument>
 

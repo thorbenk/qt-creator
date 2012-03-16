@@ -96,7 +96,7 @@
 namespace CPlusPlus {
 uint qHash(const CppModelManagerInterface::ProjectPart &p)
 {
-    uint h = qHash(p.defines) ^ p.language ^ p.flags;
+    uint h = qHash(p.defines) ^ p.language ^ ((int) p.cxx11Enabled);
 
     foreach (const QString &i, p.includePaths)
         h ^= qHash(i);
@@ -113,7 +113,7 @@ bool operator==(const CppModelManagerInterface::ProjectPart &p1,
         return false;
     if (p1.language != p2.language)
         return false;
-    if (p1.flags != p2.flags)
+    if (p1.cxx11Enabled != p2.cxx11Enabled)
         return false;
     if (p1.includePaths != p2.includePaths)
         return false;
@@ -1146,8 +1146,6 @@ void CppModelManager::updateEditor(Document::Ptr doc)
                 blockRanges.append(TextEditor::BaseTextEditorWidget::BlockRange(block.begin(), block.end()));
             }
 
-            QList<QTextEdit::ExtraSelection> selections;
-
             // set up the format for the errors
             QTextCharFormat errorFormat;
             errorFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
@@ -1158,47 +1156,51 @@ void CppModelManager::updateEditor(Document::Ptr doc)
             warningFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
             warningFormat.setUnderlineColor(Qt::darkYellow);
 
-            QSet<int> lines;
-            QList<Document::DiagnosticMessage> messages = doc->diagnosticMessages();
-            messages += extraDiagnostics(doc->fileName());
-            foreach (const Document::DiagnosticMessage &m, messages) {
-                if (m.fileName() != fileName)
-                    continue;
-                else if (lines.contains(m.line()))
-                    continue;
-
-                lines.insert(m.line());
-
-                QTextEdit::ExtraSelection sel;
-                if (m.isWarning())
-                    sel.format = warningFormat;
-                else
-                    sel.format = errorFormat;
-
-                QTextCursor c(ed->document()->findBlockByNumber(m.line() - 1));
-                const QString text = c.block().text();
-                for (int i = 0; i < text.size(); ++i) {
-                    if (! text.at(i).isSpace()) {
-                        c.setPosition(c.position() + i);
-                        break;
-                    }
-                }
-                c.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-                sel.cursor = c;
-                sel.format.setToolTip(m.text());
-                selections.append(sel);
-            }
-
             QList<Editor> todo;
-            foreach (const Editor &e, todo) {
+            foreach (const Editor &e, m_todo) {
                 if (e.textEditor != textEditor)
                     todo.append(e);
             }
-
             Editor e;
+
+            if (m_highlightingFactory->hightlighterHandlesDiagnostics()) {
+                e.updateSelections = false;
+            } else {
+                QSet<int> lines;
+                QList<Document::DiagnosticMessage> messages = doc->diagnosticMessages();
+                messages += extraDiagnostics(doc->fileName());
+                foreach (const Document::DiagnosticMessage &m, messages) {
+                    if (m.fileName() != fileName)
+                        continue;
+                    else if (lines.contains(m.line()))
+                        continue;
+
+                    lines.insert(m.line());
+
+                    QTextEdit::ExtraSelection sel;
+                    if (m.isWarning())
+                        sel.format = warningFormat;
+                    else
+                        sel.format = errorFormat;
+
+                    QTextCursor c(ed->document()->findBlockByNumber(m.line() - 1));
+                    const QString text = c.block().text();
+                    for (int i = 0; i < text.size(); ++i) {
+                        if (! text.at(i).isSpace()) {
+                            c.setPosition(c.position() + i);
+                            break;
+                        }
+                    }
+                    c.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                    sel.cursor = c;
+                    sel.format.setToolTip(m.text());
+                    e.selections.append(sel);
+                }
+            }
+
+
             e.revision = ed->document()->revision();
             e.textEditor = textEditor;
-            e.selections = selections;
             e.ifdefedOutBlocks = blockRanges;
             todo.append(e);
             m_todo = todo;
@@ -1227,8 +1229,9 @@ void CppModelManager::updateEditorSelections()
         else if (editor->document()->revision() != ed.revision)
             continue; // outdated
 
-//        editor->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection,
-//                                   ed.selections);
+        if (ed.updateSelections)
+            editor->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection,
+                                       ed.selections);
 
         editor->setIfdefedOutBlocks(ed.ifdefedOutBlocks);
     }
