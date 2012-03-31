@@ -50,7 +50,6 @@ class PROJECTEXPLORER_EXPORT DeviceManager : public QObject
 {
     Q_OBJECT
     friend class Internal::DeviceSettingsWidget;
-    friend class ProjectExplorerPlugin;
 public:
     ~DeviceManager();
 
@@ -64,6 +63,8 @@ public:
     IDevice::ConstPtr defaultDevice(const QString &deviceType) const;
     bool hasDevice(const QString &name) const;
     IDevice::Id internalId(const IDevice::ConstPtr &device) const;
+
+    int indexOf(const IDevice::ConstPtr &device) const;
 
     void addDevice(const IDevice::Ptr &device);
     void removeDevice(int index);
@@ -80,7 +81,7 @@ signals:
     void updated(); // Emitted for all of the above.
 
 private:
-    DeviceManager();
+    DeviceManager(bool doLoad = false);
 
     void load();
     void save();
@@ -101,8 +102,6 @@ private:
 
     static QString settingsFilePath();
     static void copy(const DeviceManager *source, DeviceManager *target, bool deep);
-
-    static void deleteInstance(); // For ProjectExplorerPlugin.
 
     Internal::DeviceManagerPrivate * const d;
 };

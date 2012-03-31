@@ -35,7 +35,6 @@
 #include <qmljsprivateapi.h>
 #include <QTreeView>
 #include <QStandardItemModel>
-#include <QSortFilterProxyModel>
 
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -50,21 +49,6 @@ namespace QmlJSInspector {
 namespace Internal {
 
 class PropertyEditDelegate;
-
-class PropertiesFilter : public QSortFilterProxyModel
-{
-    Q_OBJECT
-public:
-    explicit PropertiesFilter(QObject *parent = 0)
-        : QSortFilterProxyModel(parent)
-    {
-        setDynamicSortFilter(true);
-    }
-
-    ~PropertiesFilter() { }
-
-    bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const;
-};
 
 class ExpressionEdit : public QDialog
 {
@@ -108,6 +92,22 @@ private:
     QmlEditorWidgets::CustomColorDialog *m_mainFrame;
 };
 
+class QmlJSPropertyInspectorModel : public QStandardItemModel
+{
+    Q_OBJECT
+public:
+    QmlJSPropertyInspectorModel();
+    void setContentsValid(bool contentsValid);
+    bool contentsValid() const;
+
+protected:
+    Qt::ItemFlags flags(const QModelIndex &index) const;
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const;
+
+private:
+    bool m_contentsValid;
+};
+
 class QmlJSPropertyInspector : public QTreeView
 {
     Q_OBJECT
@@ -123,23 +123,27 @@ public:
 
     explicit QmlJSPropertyInspector(QWidget *parent = 0);
     void clear();
+    void setContentsValid(bool contentsValid);
+    bool contentsValid() const;
 
 signals:
     void changePropertyValue(int debugId, QString propertyName, QString valueExpression);
     void customContextMenuRequested(const QPoint &pos);
 
 public slots:
-    void setCurrentObjects(const QList<QDeclarativeDebugObjectReference> &);
+    void setCurrentObjects(const QList<QmlDebugObjectReference> &);
     void propertyValueEdited(const int objectId,const QString &propertyName, const QString &propertyValue);
     void propertyValueChanged(int debugId, const QByteArray &propertyName, const QVariant &propertyValue);
-    void filterBy(const QString &expression);
 
     void openExpressionEditor(const QModelIndex &itemIndex);
     void openColorSelector(const QModelIndex &itemIndex);
 
+private slots:
+    void headerSectionClicked(int logicalIndex);
+
 private:
     friend class PropertyEditDelegate;
-    void buildPropertyTree(const QDeclarativeDebugObjectReference &);
+    void buildPropertyTree(const QmlDebugObjectReference &);
     void addRow(const QString &name, const QString &value, const QString &type,
                 const int debugId = -1, bool editable = true);
     void setColorIcon(int row);
@@ -149,8 +153,7 @@ private:
 
     void contextMenuEvent(QContextMenuEvent *ev);
 
-    QStandardItemModel m_model;
-    PropertiesFilter *m_filter;
+    QmlJSPropertyInspectorModel m_model;
     QList<int> m_currentObjects;
 };
 

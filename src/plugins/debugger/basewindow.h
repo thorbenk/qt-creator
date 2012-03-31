@@ -38,12 +38,12 @@
 namespace Debugger {
 namespace Internal {
 
-class BaseWindow : public QTreeView
+class BaseTreeView : public QTreeView
 {
     Q_OBJECT
 
 public:
-    BaseWindow(QWidget *parent = 0);
+    BaseTreeView(QWidget *parent = 0);
 
     void setAlwaysAdjustColumnsAction(QAction *action);
     void addBaseContextActions(QMenu *menu);
@@ -51,6 +51,7 @@ public:
 
     void setModel(QAbstractItemModel *model);
     virtual void rowActivated(const QModelIndex &) {}
+    void mousePressEvent(QMouseEvent *ev);
 
 public slots:
     void resizeColumnsToContents();
@@ -59,11 +60,24 @@ public slots:
 private slots:
     void setAlternatingRowColorsHelper(bool on) { setAlternatingRowColors(on); }
     void rowActivatedHelper(const QModelIndex &index) { rowActivated(index); }
+    void headerSectionClicked(int logicalIndex);
     void reset();
 
 private:
     QAction *m_alwaysAdjustColumnsAction;
     QAction *m_adjustColumnsAction;
+};
+
+class BaseWindow : public QWidget
+{
+public:
+    explicit BaseWindow(QTreeView *treeView, QWidget *parent = 0);
+    void setModel(QAbstractItemModel *model) { m_treeView->setModel(model); }
+    QHeaderView *header() const { return m_treeView->header(); }
+    QAbstractItemModel *model() const { return m_treeView->model(); }
+
+private:
+    QTreeView *m_treeView;
 };
 
 } // namespace Internal

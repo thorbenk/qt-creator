@@ -514,11 +514,13 @@ void CppFindReferences::cancel()
 void CppFindReferences::openEditor(const Find::SearchResultItem &item)
 {
     if (item.path.size() > 0) {
-        TextEditor::BaseTextEditorWidget::openEditorAt(item.path.first(), item.lineNumber, item.textMarkPos,
-                                                 Core::Id(),
-                                                 Core::EditorManager::ModeSwitch);
+        TextEditor::BaseTextEditorWidget::openEditorAt(QDir::fromNativeSeparators(item.path.first()),
+                                                       item.lineNumber, item.textMarkPos,
+                                                       Core::Id(),
+                                                       Core::EditorManager::ModeSwitch);
     } else {
-        Core::EditorManager::instance()->openEditor(item.text, Core::Id(), Core::EditorManager::ModeSwitch);
+        Core::EditorManager::instance()->openEditor(QDir::fromNativeSeparators(item.text),
+                                                    Core::Id(), Core::EditorManager::ModeSwitch);
     }
 }
 
@@ -560,7 +562,7 @@ public:
                 unsigned lineStart;
                 const QString &lineSource = matchingLine(use.begin(), source, &lineStart);
                 usages.append(Usage(fileName, lineSource, use.beginLine(),
-                                    use.begin() - lineStart, use.length()));
+                                    use.begin() - lineStart, useMacro.name().length()));
             }
         }
 
@@ -644,8 +646,14 @@ void CppFindReferences::findMacroUses(const Macro &macro)
     {
         // ### FIXME: Encoding?
         const QByteArray &source = getSource(macro.fileName(), workingCopy).toLatin1();
-        search->addResult(macro.fileName(), macro.line(),
-                          source.mid(macro.offset(), macro.length()), 0, macro.length());
+        QByteArray line = source.mid(macro.offset(), macro.length());
+        const int macroNameOffset = line.indexOf(macro.name());
+        const int macroNameLength = macro.name().length();
+        const int possibleNewLine = line.indexOf('\n', macroNameOffset + macroNameLength);
+        if (possibleNewLine != -1)
+            line.truncate(possibleNewLine); // truncate line at first '\n' after macro name
+        search->addResult(macro.fileName(), macro.line(), line,
+                          macroNameOffset, macroNameLength);
     }
 
     QFuture<Usage> result;

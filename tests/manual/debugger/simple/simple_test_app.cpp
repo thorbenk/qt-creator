@@ -62,6 +62,8 @@
 // Same as 1, except that the debugger will stop automatically when
 // a test after a BREAK_HERE failed
 // Default: 0
+// Before using this, make sure that "Show a message box when receiving a signal"
+// is disabled in "Tools" -> "Options..." -> "Debugger" -> "GDB".
 #ifndef USE_AUTORUN
 #define USE_AUTORUN 0
 #endif
@@ -555,7 +557,7 @@ namespace qbytearray {
         QString s(10000, 'x');
         std::string ss(10000, 'c');
         BREAK_HERE;
-        // Check ba "\377\376\375\374\373\372\371\370\367\366\365\364\363\362\361\360\357\356\355\354\353\352\351\350\347\346\345\344\343\342\341\340\337\336\335\334\333\332\331\330\327\326\325\324\323\322\321\320\317\316\315\314\313\312\311\310\307\306\305\304\303\302\301\300\277\276\275\274\273\272\271\270\267\266\265\264\263\262\261\260\257\256\255\254\253\252\251\250\247\246\245\244\243\242\241\240\237\236\235\234\233\232\231\230\227\226\225\224\223\222\221\220\217\216\215\214\213\212\211\210\207\206\205\204\203\202\201\20..." QByteArray.
+        // CheckType ba QByteArray.
         // Check s "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx..." QString.
         // Check ss "ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc..." std::string.
         // Continue.
@@ -571,8 +573,11 @@ namespace qbytearray {
         QByteArray buf2(str2);
         QByteArray buf3(str3);
         BREAK_HERE;
-        // Check buf1 "\356" QByteArray.
-        // Check buf2 "\356" QByteArray.
+        // Check buf1 "î" QByteArray.
+        // Check buf2 "î" QByteArray.
+        // Check buf3 "\ee" QByteArray.
+        // Check buf1 "î" QByteArray.
+        // Check buf2 "î" QByteArray.
         // Check buf3 "\ee" QByteArray.
         // CheckType str1 char *.
         // Continue.
@@ -1152,8 +1157,8 @@ namespace qlist {
         BREAK_HERE;
         // Expand l.
         // Check l <3 items> QList<unsigned long long>.
-        // CheckType l.0 101 unsigned long long.
-        // CheckType l.2 102 unsigned long long.
+        // CheckType l.0 unsigned long long.
+        // CheckType l.2 unsigned long long.
         // Continue.
         dummyStatement(&l);
     }
@@ -2008,7 +2013,7 @@ namespace final {
         BREAK_HERE;
         // Expand settings.
         // Check settings "" QSettings.
-        // Check settings.[QObject] "" QSettings.
+        // Check settings.@1 "" QObject.
         // Check value "" QVariant (QString).
         // Continue.
         dummyStatement(&settings, &value);
@@ -3447,7 +3452,7 @@ namespace formats {
         else
             u = QString::fromUtf16((ushort *)w);
         BREAK_HERE;
-        // Check u "a\366a" QString.
+        // Check u "aöa" QString.
         // CheckType w wchar_t *.
         // Continue.
 
@@ -3572,7 +3577,7 @@ namespace qthread {
                 // Expand this.
                 // Check j 3 int.
                 // CheckType this qthread::Thread.
-                // Check this.[QThread] "This is thread #3" qthread::Thread.
+                // Check this.@1 "This is thread #3" QThread.
                 // Continue.
                 dummyStatement(this);
             }
@@ -3762,7 +3767,8 @@ namespace qvariant {
         // Check ha1.isParsed false bool.
         // Check ha1.protocol QAbstractSocket::UnknownNetworkLayerProtocol (-1) QAbstractSocket::NetworkLayerProtocol.
         // Check ha1.scopeId "" QString.
-        // Check var "127.0.0.1" QVariant (QHostAddress).
+        // CheckType var QVariant (QHostAddress).
+        // Check var.data "127.0.0.1" QHostAddress.
         // Continue.
         dummyStatement(&ha1);
     }
@@ -3780,7 +3786,7 @@ namespace qvariant {
         //QString type = var.typeName();
         var.setValue(my);
         BREAK_HERE;
-        // Expand my my.0 my.0.value my.1 my.1.value var var.0 var.0.value var.1 var.1.value.
+        // Expand my my.0 my.0.value my.1 my.1.value var var.data var.data.0 var.data.0.value var.data.1 var.data.1.value.
         // Check my <2 items> qvariant::MyType.
         // Check my.0   QMapNode<unsigned int, QStringList>.
         // Check my.0.key 1 unsigned int.
@@ -3790,15 +3796,16 @@ namespace qvariant {
         // Check my.1.key 3 unsigned int.
         // Check my.1.value <1 items> QStringList.
         // Check my.1.value.0 "World" QString.
-        // Check var <2 items> QVariant (MyType).
-        // Check var.0   QMapNode<unsigned int, QStringList>.
-        // Check var.0.key 1 unsigned int.
-        // Check var.0.value <1 items> QStringList.
+        // CheckType var QVariant (QMap<unsigned int , QStringList>).
+        // Check var.data <2 items> QMap<unsigned int, QStringList>.
+        // Check var.data.0   QMapNode<unsigned int, QStringList>.
+        // Check var.data.0.key 1 unsigned int.
+        // Check var.data.0.value <1 items> QStringList.
         // Check var.0.value.0 "Hello" QString.
-        // Check var.1   QMapNode<unsigned int, QStringList>.
-        // Check var.1.key 3 unsigned int.
-        // Check var.1.value <1 items> QStringList.
-        // Check var.1.value.0 "World" QString.
+        // Check var.data.1   QMapNode<unsigned int, QStringList>.
+        // Check var.data.1.key 3 unsigned int.
+        // Check var.data.1.value <1 items> QStringList.
+        // Check var.data.1.value.0 "World" QString.
         // Continue.
         var.setValue(my);
         var.setValue(my);
@@ -3812,15 +3819,16 @@ namespace qvariant {
         list << 1 << 2 << 3;
         QVariant variant = qVariantFromValue(list);
         BREAK_HERE;
-        // Expand list variant.
+        // Expand list variant variant.data.
         // Check list <3 items> QList<int>.
         // Check list.0 1 int.
         // Check list.1 2 int.
         // Check list.2 3 int.
-        // Check variant <3 items> QVariant (QList<int>).
-        // Check variant.0 1 int.
-        // Check variant.1 2 int.
-        // Check variant.2 3 int.
+        // CheckType variant QVariant (QList<int>).
+        // Check variant.data <3 items> QList<int>.
+        // Check variant.data.0 1 int.
+        // Check variant.data.1 2 int.
+        // Check variant.data.2 3 int.
         // Continue.
         list.clear();
         list = qVariantValue<QList<int> >(variant);
@@ -5090,7 +5098,6 @@ namespace qscript {
         s.setProperty("a", QScriptValue());
         QScriptValue d = s.data();
         BREAK_HERE;
-        // Check s <native> QScriptValue (JSCoreValue).
         // Check d (invalid) QScriptValue.
         // Check v 43 QVariant (int).
         // Check x 33 int.
@@ -5688,17 +5695,17 @@ namespace bug5799 {
         typedef S1 Array[10];
         Array a2;
         BREAK_HERE;
-        // Expand s2 s2.bug5700::S1 s4 s4.bug5799::S3
+        // Expand s2 s2.@1 s4 s4.@1
         // CheckType a1 bug5799::S1 [10].
         // CheckType a2 bug5799::Array.
         // CheckType s2 bug5799::S2.
-        // CheckType s2.[bug5799::S1] bug5799::S1.
-        // Check s2.[bug5799::S1].m1 5 int.
-        // Check s2.[bug5799::S1].m2 32767 int.
+        // CheckType s2.@1 bug5799::S1.
+        // Check s2.@1.m1 5 int.
+        // CheckType s2.@1.m2 int.
         // CheckType s4 bug5799::S4.
-        // CheckType s4.[bug5799::S3] bug5799::S3.
-        // Check s4.[bug5799::S3].m1 5 int.
-        // Check s4.[bug5799::S3].m2 0 int.
+        // CheckType s4.@1 bug5799::S3.
+        // Check s4.@1.m1 5 int.
+        // CheckType s4.@1.m2 int.
         // Continue.
         dummyStatement(&s2, &s4, &a1, &a2);
     }
@@ -5817,8 +5824,8 @@ namespace bug6857 {
         file.setObjectName("A file");
         BREAK_HERE;
         // Expand file.
-        // Check file "A file" MyFile.
-        // Check file.[QFile] "/tmp/tt" QFile.
+        // Check file "A file" bug6857::MyFile.
+        // Check file.@1 "/tmp/tt" QFile.
         // Continue.
         dummyStatement(&file);
     }
@@ -5841,7 +5848,7 @@ namespace bug6858 {
         QFile *pfile = &file;
         BREAK_HERE;
         // Check pfile "Another file" bug6858::MyFile.
-        // Check pfile.[QFile] "/tmp/tt" QFile.
+        // Check pfile.@1 "/tmp/tt" QFile.
         // Continue.
         dummyStatement(&file, pfile);
     }
@@ -5898,6 +5905,7 @@ namespace bug6933 {
         BREAK_HERE;
         // Expand b b.bug6933::Base
         // Check b.[bug6933::Base].[vptr]
+        // Continue.
         dummyStatement(&d, b);
     }
 }
@@ -5963,15 +5971,15 @@ namespace gdb13393 {
         int sharedPtr = 1;
         #endif
         BREAK_HERE;
-        // Expand d ptr ptrConst ptrToPtr ref refConst s.
+        // Expand d ptr ptr.@1 ptrConst ptrToPtr ref refConst s.
         // CheckType d gdb13393::Derived.
-        // CheckType d.[gdb13393::Base] gdb13393::Derived.
+        // CheckType d.@1 gdb13393::Base.
         // Check d.b 2 int.
         // CheckType ptr gdb13393::Derived.
-        // CheckType ptr.[gdb12293::Base] gdb13393::Base.
-        // Check ptr.[a] 1 int.
+        // CheckType ptr.@1 gdb13393::Base.
+        // Check ptr.@1.a 1 int.
         // CheckType ptrConst gdb13393::Derived.
-        // CheckType ptrConst.[gdb13393::Base] gdb13393::Base.
+        // CheckType ptrConst.@1 gdb13393::Base.
         // Check ptrConst.b 2 int.
         // CheckType ptrToPtr gdb13393::Derived.
         // CheckType ptrToPtr.[vptr] .
@@ -6026,7 +6034,10 @@ namespace gdb10586 {
         // CheckType v {...}.
         // CheckType n gdb10586::s.
         // Check v.a 2 int.
-        // Check s.x 1 int.
+        // Check v.b 3 int.
+        // Check v.x 1 int.
+        // Check n.x 10 int.
+        // Check n.y 20 int.
         // Continue.
         dummyStatement(&v, &n);
     }

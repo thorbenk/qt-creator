@@ -40,6 +40,9 @@
 
 #include <coreplugin/icore.h>
 #include <utils/qtcassert.h>
+#include <texteditor/itexteditor.h>
+#include <qmljseditor/qmljseditorconstants.h>
+#include <cppeditor/cppeditorconstants.h>
 
 #include <QTimer>
 #include <QMainWindow>
@@ -127,10 +130,20 @@ QmlCppEngine::~QmlCppEngine()
     delete d;
 }
 
+bool QmlCppEngine::canDisplayTooltip() const
+{
+    return d->m_cppEngine->canDisplayTooltip() || d->m_qmlEngine->canDisplayTooltip();
+}
+
 bool QmlCppEngine::setToolTipExpression(const QPoint & mousePos,
         TextEditor::ITextEditor *editor, const DebuggerToolTipContext &ctx)
 {
-    return d->m_activeEngine->setToolTipExpression(mousePos, editor, ctx);
+    bool success = false;
+    if (editor->id() == CppEditor::Constants::CPPEDITOR_ID)
+        success = d->m_cppEngine->setToolTipExpression(mousePos, editor, ctx);
+    else if (editor->id() == QmlJSEditor::Constants::C_QMLJSEDITOR_ID)
+        success = d->m_qmlEngine->setToolTipExpression(mousePos, editor, ctx);
+    return success;
 }
 
 void QmlCppEngine::updateWatchData(const WatchData &data,
@@ -216,9 +229,14 @@ bool QmlCppEngine::hasCapability(unsigned cap) const
     // ### this could also be an OR of both engines' capabilities
     bool hasCap = d->m_cppEngine->hasCapability(cap);
     if (d->m_activeEngine != d->m_cppEngine) {
+        //Some capabilities cannot be handled by QML Engine
+        //Expand this list as and when required
         if (cap == AddWatcherWhileRunningCapability)
             hasCap = hasCap || d->m_qmlEngine->hasCapability(cap);
-        if (cap == WatchWidgetsCapability)
+        if (cap == WatchWidgetsCapability ||
+                cap == DisassemblerCapability ||
+                cap == OperateByInstructionCapability ||
+                cap == ReverseSteppingCapability)
             hasCap = hasCap && d->m_qmlEngine->hasCapability(cap);
     }
     return hasCap;
@@ -268,7 +286,7 @@ bool QmlCppEngine::acceptsBreakpoint(BreakpointModelId id) const
 
 void QmlCppEngine::selectThread(int index)
 {
-    d->m_cppEngine->selectThread(index);
+    d->m_activeEngine->selectThread(index);
 }
 
 void QmlCppEngine::assignValueInDebugger(const WatchData *data,

@@ -47,13 +47,9 @@ class QMessageBox;
 class QAbstractItemModel;
 QT_END_NAMESPACE
 
-namespace TextEditor {
-class ITextEditor;
-}
-
-namespace Core {
-class IOptionsPage;
-}
+namespace TextEditor { class ITextEditor; }
+namespace Core { class IOptionsPage; }
+namespace ProjectExplorer { class TaskHub; }
 
 namespace Debugger {
 
@@ -201,6 +197,7 @@ public:
 
     virtual void createSnapshot();
     virtual void updateAll();
+    ProjectExplorer::TaskHub *taskHub();
 
     typedef Internal::BreakpointModelId BreakpointModelId;
     virtual bool stateAcceptsBreakpointChanges() const { return true; }
@@ -289,10 +286,9 @@ public:
     QString toFileInProject(const QUrl &fileUrl);
 
 signals:
-    void stateChanged(const Debugger::DebuggerState &state);
+    void stateChanged(Debugger::DebuggerState state);
     // A new stack frame is on display including locals.
     void stackFrameCompleted();
-    void updateViewsRequested();
     /*
      * For "external" clients of a debugger run control that needs to do
      * further setup before the debugger is started (e.g. Maemo).
@@ -302,6 +298,7 @@ signals:
      * a server start script should be used, but none is given.
      */
     void requestRemoteSetup();
+    void raiseWindow();
 
 protected:
     // The base notify*() function implementation should be sufficient

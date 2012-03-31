@@ -213,7 +213,6 @@ public Q_SLOTS:
     virtual void setTabSettings(const TextEditor::TabSettings &);
     void setSortedOutline(bool sort);
     void switchDeclarationDefinition();
-    void jumpToDefinition();
     void renameSymbolUnderCursor();
     void renameUsages();
     void findUsages();

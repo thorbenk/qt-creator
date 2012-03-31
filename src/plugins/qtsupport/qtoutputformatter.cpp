@@ -53,6 +53,7 @@ QtOutputFormatter::QtOutputFormatter(ProjectExplorer::Project *project)
                                ":"))             // colon
     , m_qtError(QLatin1String("Object::.*in (.*:\\d+)"))
     , m_qtAssert(QLatin1String("ASSERT: .* in file (.+, line \\d+)"))
+    , m_qtAssertX(QLatin1String("ASSERT failure in .*: \".*\", file (.+, line \\d+)"))
     , m_qtTestFail(QLatin1String("^   Loc: \\[(.*)\\]"))
     , m_project(project)
 {
@@ -83,6 +84,10 @@ LinkResult QtOutputFormatter::matchLine(const QString &line) const
         lr.href = m_qtAssert.cap(1);
         lr.start = m_qtAssert.pos(1);
         lr.end = lr.start + lr.href.length();
+    } else if (m_qtAssertX.indexIn(line) != -1) {
+        lr.href = m_qtAssertX.cap(1);
+        lr.start = m_qtAssertX.pos(1);
+        lr.end = lr.start + lr.href.length();
     } else if (m_qtTestFail.indexIn(line) != -1) {
         lr.href = m_qtTestFail.cap(1);
         lr.start = m_qtTestFail.pos(1);
@@ -96,9 +101,6 @@ void QtOutputFormatter::appendMessage(const QString &txt, Utils::OutputFormat fo
     QTextCursor cursor(plainTextEdit()->document());
     cursor.movePosition(QTextCursor::End);
     cursor.beginEditBlock();
-
-    QString text = txt;
-    text.remove(QLatin1Char('\r'));
 
     QString deferedText;
 

@@ -57,10 +57,9 @@
 namespace Debugger {
 namespace Internal {
 
-ModulesWindow::ModulesWindow(QWidget *parent)
-  : BaseWindow(parent)
+ModulesTreeView::ModulesTreeView(QWidget *parent)
+  : BaseTreeView(parent)
 {
-    setWindowTitle(tr("Modules"));
     setSortingEnabled(true);
     setAlwaysAdjustColumnsAction(debuggerCore()->action(AlwaysAdjustModulesColumnWidths));
 
@@ -68,14 +67,15 @@ ModulesWindow::ModulesWindow(QWidget *parent)
         SLOT(moduleActivated(QModelIndex)));
 }
 
-void ModulesWindow::moduleActivated(const QModelIndex &index)
+void ModulesTreeView::moduleActivated(const QModelIndex &index)
 {
     DebuggerEngine *engine = debuggerCore()->currentEngine();
     QTC_ASSERT(engine, return);
-    engine->gotoLocation(index.data().toString());
+    if (index.isValid())
+        engine->gotoLocation(index.sibling(index.row(), 1).data().toString());
 }
 
-void ModulesWindow::contextMenuEvent(QContextMenuEvent *ev)
+void ModulesTreeView::contextMenuEvent(QContextMenuEvent *ev)
 {
     QString name;
     QString fileName;
@@ -156,21 +156,27 @@ void ModulesWindow::contextMenuEvent(QContextMenuEvent *ev)
     if (act == actUpdateModuleList)
         engine->reloadModules();
     else if (act == actShowModuleSources)
-        engine->loadSymbols(name);
+        engine->loadSymbols(fileName);
     else if (act == actLoadSymbolsForAllModules)
         engine->loadAllSymbols();
     else if (act == actExamineAllModules)
         engine->examineModules();
     else if (act == actLoadSymbolsForModule)
-        engine->loadSymbols(name);
+        engine->loadSymbols(fileName);
     else if (act == actEditFile)
-        engine->gotoLocation(name);
+        engine->gotoLocation(fileName);
     else if (act == actShowModuleSymbols)
-        engine->requestModuleSymbols(name);
+        engine->requestModuleSymbols(fileName);
     else if (actShowDependencies && act == actShowDependencies)
         QProcess::startDetached(QLatin1String("depends"), QStringList(fileName));
     else
         handleBaseContextAction(act);
+}
+
+ModulesWindow::ModulesWindow()
+    : BaseWindow(new ModulesTreeView)
+{
+    setWindowTitle(tr("Modules"));
 }
 
 } // namespace Internal

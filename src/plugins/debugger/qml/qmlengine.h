@@ -34,7 +34,6 @@
 #define DEBUGGER_QMLENGINE_H
 
 #include "debuggerengine.h"
-#include <qmljsdebugclient/qdeclarativeenginedebug.h>
 #include <qmljsdebugclient/qdebugmessageclient.h>
 #include <utils/outputformat.h>
 #include <qmljs/qmljsdocument.h>
@@ -58,7 +57,7 @@ namespace Internal {
 class QtMessageLogItem;
 class QmlEnginePrivate;
 
-class QmlEngine : public DebuggerEngine
+class DEBUGGER_EXPORT QmlEngine : public DebuggerEngine
 {
     Q_OBJECT
 
@@ -96,6 +95,7 @@ public:
 public slots:
     void disconnected();
     void documentUpdated(QmlJS::Document::Ptr doc);
+    void expressionEvaluated(quint32 queryId, const QVariant &result);
 
 private slots:
     void errorMessageBoxFinished(int result);
@@ -171,8 +171,6 @@ private slots:
     void appendMessage(const QString &msg, Utils::OutputFormat);
 
     void synchronizeWatchers();
-    void onDebugQueryStateChanged(
-            QmlJsDebugClient::QDeclarativeDebugQuery::State state);
 
 private:
     void closeConnection();
@@ -187,7 +185,8 @@ private:
 
     void updateEditor(Core::IEditor *editor, const QTextDocument *document);
     bool canEvaluateScript(const QString &script);
-    QtMessageLogItem *constructLogItemTree(const QVariant &result,
+    QtMessageLogItem *constructLogItemTree(QtMessageLogItem *parent,
+                                           const QVariant &result,
                                            const QString &key = QString());
     bool adjustBreakpointLineAndColumn(const QString &filePath, quint32 *line,
                                        quint32 *column, bool *valid);

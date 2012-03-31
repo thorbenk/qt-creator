@@ -72,14 +72,18 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/idocument.h>
+#include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/abi.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/taskhub.h>
+#include <projectexplorer/itaskhandler.h>
 #include <texteditor/itexteditor.h>
 #include <utils/qtcassert.h>
 
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QTime>
@@ -180,6 +184,52 @@ static QByteArray parsePlainConsoleStream(const GdbResponse &response)
 
 ///////////////////////////////////////////////////////////////////////
 //
+// Debuginfo Taskhandler
+//
+///////////////////////////////////////////////////////////////////////
+
+class DebugInfoTask
+{
+public:
+    QString command;
+};
+
+class DebugInfoTaskHandler : public  ProjectExplorer::ITaskHandler
+{
+public:
+    DebugInfoTaskHandler(GdbEngine *engine)
+        : ITaskHandler(_("Debuginfo")), m_engine(engine)
+    {}
+
+    bool canHandle(const Task &task)
+    {
+        return m_debugInfoTasks.contains(task.taskId);
+    }
+
+    void handle(const Task &task)
+    {
+        m_engine->requestDebugInformation(m_debugInfoTasks.value(task.taskId));
+    }
+
+    void addTask(unsigned id, const DebugInfoTask &task)
+    {
+        m_debugInfoTasks[id] = task;
+    }
+
+    QAction *createAction(QObject *parent = 0)
+    {
+        QAction *action = new QAction(tr("Install &Debug Information"), parent);
+        action->setToolTip(tr("This tries to install missing debug information."));
+        return action;
+    }
+
+private:
+    GdbEngine *m_engine;
+    QHash<unsigned, DebugInfoTask> m_debugInfoTasks;
+};
+
+///////////////////////////////////////////////////////////////////////
+//
 // GdbEngine
 //
 ///////////////////////////////////////////////////////////////////////
@@ -217,6 +267,9 @@ GdbEngine::GdbEngine(const DebuggerStartParameters &startParameters,
 
     m_gdbAdapter = createAdapter();
 
+    m_debugInfoTaskHandler = new DebugInfoTaskHandler(this);
+    ExtensionSystem::PluginManager::instance()->addObject(m_debugInfoTaskHandler);
+
     m_commandTimer.setSingleShot(true);
     connect(&m_commandTimer, SIGNAL(timeout()), SLOT(commandTimeout()));
 
@@ -238,6 +291,10 @@ AbstractGdbProcess *GdbEngine::gdbProc() const
 
 GdbEngine::~GdbEngine()
 {
+    ExtensionSystem::PluginManager::instance()->removeObject(m_debugInfoTaskHandler);
+    delete m_debugInfoTaskHandler;
+    m_debugInfoTaskHandler = 0;
+
     // Prevent sending error messages afterwards.
     if (m_gdbAdapter)
         disconnect(gdbProc(), 0, this, 0);
@@ -422,6 +479,7 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 }
                 if (pid)
                     notifyInferiorPid(pid);
+                handleThreadGroupCreated(result);
             } else if (asyncClass == "thread-created") {
                 //"{id="1",group-id="28902"}"
                 QByteArray id = result.findChild("id").data();
@@ -430,6 +488,7 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 // Archer has "{id="28902"}"
                 QByteArray id = result.findChild("id").data();
                 showStatusMessage(tr("Thread group %1 exited").arg(_(id)), 1000);
+                handleThreadGroupExited(result);
             } else if (asyncClass == "thread-exited") {
                 //"{id="1",group-id="28902"}"
                 QByteArray id = result.findChild("id").data();
@@ -518,13 +577,15 @@ void GdbEngine::handleResponse(const QByteArray &buff)
             } else if (asyncClass == "breakpoint-created") {
                 // "{bkpt={number="1",type="breakpoint",disp="del",enabled="y",
                 //  addr="<PENDING>",pending="main",times="0",
-                //original-location="main"}}"
+                //  original-location="main"}}" -- or --
+                // {bkpt={number="2",type="hw watchpoint",disp="keep",enabled="y",
+                //  what="*0xbfffed48",times="0",original-location="*0xbfffed48"
                 BreakHandler *handler = breakHandler();
                 foreach (const GdbMi &bkpt, result.children()) {
                     BreakpointResponse br;
+                    br.type = BreakpointByFileAndLine;
                     updateResponse(br, bkpt);
-                    BreakpointModelId id = handler->findBreakpointByResponseId(br.id);
-                    handler->handleAlienBreakpoint(id, br, this);
+                    handler->handleAlienBreakpoint(br, this);
                 }
             } else if (asyncClass == "breakpoint-deleted") {
                 // "breakpoint-deleted" "{id="1"}"
@@ -605,6 +666,34 @@ void GdbEngine::handleResponse(const QByteArray &buff)
             // version and/or OS version used.
             if (data.startsWith("warning:"))
                 showMessage(_(data.mid(9)), AppStuff); // Cut "warning: "
+
+            // Messages when the target exits (gdbserver)
+            if (data.trimmed() == "Remote connection closed"
+                    || data.trimmed() == "Remote communication error.  "
+                                         "Target disconnected.: No error."
+                    || data.trimmed() == "Quit") {
+                notifyInferiorExited();
+            }
+
+            // From SuSE's gdb: >&"Missing separate debuginfo for ...\n"
+            // ">&"Try: zypper install -C \"debuginfo(build-id)=c084ee5876ed1ac12730181c9f07c3e027d8e943\"\n"
+            if (data.startsWith("Missing separate debuginfo for ")) {
+                m_lastMissingDebugInfo = QString::fromLocal8Bit(data.mid(32));
+            } else if (data.startsWith("Try: zypper")) {
+                QString cmd = QString::fromLocal8Bit(data.mid(4));
+
+                Task task(Task::Warning,
+                    tr("Missing debug information for %1\nTry: %2")
+                        .arg(m_lastMissingDebugInfo).arg(cmd),
+                    Utils::FileName(), 0, Core::Id("Debuginfo"));
+
+                taskHub()->addTask(task);
+
+                DebugInfoTask dit;
+                dit.command = cmd;
+                m_debugInfoTaskHandler->addTask(task.taskId, dit);
+            }
+
             break;
         }
 
@@ -1023,10 +1112,6 @@ void GdbEngine::handleResultRecord(GdbResponse *response)
                 QTC_CHECK(state() == InferiorRunOk);
                 notifyInferiorSpontaneousStop();
                 notifyEngineIll();
-            } else if (msg.startsWith("Remote connection closed")
-                       || msg.startsWith("Quit")) {
-                // Can happen when the target exits (gdbserver)
-                notifyInferiorExited();
             } else {
                 // Windows: Some DLL or some function not found. Report
                 // the exception now in a box.
@@ -1169,7 +1254,6 @@ void GdbEngine::updateAll()
 void GdbEngine::handleQuerySources(const GdbResponse &response)
 {
     m_sourcesListUpdating = false;
-    m_sourcesListOutdated = false;
     if (response.resultClass == GdbResultDone) {
         QMap<QString, QString> oldShortToFull = m_shortToFullName;
         m_shortToFullName.clear();
@@ -1178,16 +1262,17 @@ void GdbEngine::handleQuerySources(const GdbResponse &response)
         // fullname="/data5/dev/ide/main/bin/dumper/dumper.cpp"},
         GdbMi files = response.data.findChild("files");
         foreach (const GdbMi &item, files.children()) {
-            GdbMi fullName = item.findChild("fullname");
             GdbMi fileName = item.findChild("file");
+            if (fileName.data().endsWith("<built-in>"))
+                continue;
+            GdbMi fullName = item.findChild("fullname");
             QString file = QString::fromLocal8Bit(fileName.data());
+            QString full;
             if (fullName.isValid()) {
-                QString full = cleanupFullName(QString::fromLocal8Bit(fullName.data()));
-                m_shortToFullName[file] = full;
+                full = cleanupFullName(QString::fromLocal8Bit(fullName.data()));
                 m_fullToShortName[full] = file;
-            } else if (fileName.isValid()) {
-                m_shortToFullName[file] = tr("<unknown>");
             }
+            m_shortToFullName[file] = full;
         }
         if (m_shortToFullName != oldShortToFull)
             sourceFilesHandler()->setSourceFiles(m_shortToFullName);
@@ -1720,6 +1805,11 @@ void GdbEngine::handleShowVersion(const GdbResponse &response)
             postCommand("set target-async on", ConsoleCommand);
         else
             postCommand("set target-async off", ConsoleCommand);
+
+        if (startParameters().multiProcess)
+            postCommand("set detach-on-fork off", ConsoleCommand);
+
+        postCommand("set build-id-verbose 2", ConsoleCommand);
     }
 }
 
@@ -1844,6 +1934,43 @@ QString GdbEngine::cleanupFullName(const QString &fileName)
         cleanFilePath.replace(0, startParameters().remoteMountPoint.length(),
             startParameters().localMountDir);
     }
+
+    if (!debuggerCore()->boolSetting(AutoEnrichParameters))
+        return cleanFilePath;
+
+    const QString sysroot = startParameters().sysroot;
+    if (QFileInfo(cleanFilePath).isReadable())
+        return cleanFilePath;
+    if (!sysroot.isEmpty() && fileName.startsWith(QLatin1Char('/'))) {
+        cleanFilePath = sysroot + fileName;
+        if (QFileInfo(cleanFilePath).isReadable())
+            return cleanFilePath;
+    }
+    if (m_baseNameToFullName.isEmpty()) {
+        QString debugSource = sysroot + QLatin1String("/usr/src/debug");
+        if (QFileInfo(debugSource).isDir()) {
+            QDirIterator it(debugSource, QDirIterator::Subdirectories);
+            while (it.hasNext()) {
+                it.next();
+                QString name = it.fileName();
+                if (!name.startsWith(QLatin1Char('.'))) {
+                    QString path = it.filePath();
+                    m_baseNameToFullName.insert(name, path);
+                }
+            }
+        }
+    }
+
+    cleanFilePath.clear();
+    const QString base = QFileInfo(fileName).fileName();
+
+    QMap<QString, QString>::const_iterator jt = m_baseNameToFullName.find(base);
+    while (jt != m_baseNameToFullName.end() && jt.key() == base) {
+        // FIXME: Use some heuristics to find the "best" match.
+        return jt.value();
+        //++jt;
+    }
+
     return cleanFilePath;
 }
 
@@ -1851,13 +1978,15 @@ void GdbEngine::shutdownInferior()
 {
     QTC_ASSERT(state() == InferiorShutdownRequested, qDebug() << state());
     m_commandsToRunOnTemporaryBreak.clear();
-    m_gdbAdapter->shutdownInferior();
-}
-
-void GdbEngine::defaultInferiorShutdown(const char *cmd)
-{
-    QTC_ASSERT(state() == InferiorShutdownRequested, qDebug() << state());
-    postCommand(cmd, NeedsStop | LosesChild, CB(handleInferiorShutdown));
+    switch (startParameters().closeMode) {
+        case KillAtClose:
+            postCommand("kill", NeedsStop | LosesChild, CB(handleInferiorShutdown));
+            return;
+        case DetachAtClose:
+            postCommand("detach", NeedsStop | LosesChild, CB(handleInferiorShutdown));
+            return;
+    }
+    QTC_ASSERT(false, notifyInferiorShutdownFailed());
 }
 
 void GdbEngine::handleInferiorShutdown(const GdbResponse &response)
@@ -1942,6 +2071,18 @@ void GdbEngine::handleDetach(const GdbResponse &response)
     Q_UNUSED(response);
     QTC_ASSERT(state() == InferiorStopOk, qDebug() << state());
     notifyInferiorExited();
+}
+
+void GdbEngine::handleThreadGroupCreated(const GdbMi &result)
+{
+    QByteArray id = result.findChild("id").data();
+    QByteArray pid = result.findChild("pid").data();
+    Q_UNUSED(pid);
+}
+
+void GdbEngine::handleThreadGroupExited(const GdbMi &result)
+{
+    QByteArray id = result.findChild("id").data();
 }
 
 int GdbEngine::currentFrame() const
@@ -2380,11 +2521,21 @@ void GdbEngine::updateResponse(BreakpointResponse &response, const GdbMi &bkpt)
         } else if (child.hasName("thread")) {
             response.threadSpec = child.data().toInt();
         } else if (child.hasName("type")) {
-            // "breakpoint", "hw breakpoint", "tracepoint"
-            if (child.data().contains("tracepoint"))
+            // "breakpoint", "hw breakpoint", "tracepoint", "hw watchpoint"
+            // {bkpt={number="2",type="hw watchpoint",disp="keep",enabled="y",
+            //  what="*0xbfffed48",times="0",original-location="*0xbfffed48"
+            if (child.data().contains("tracepoint")) {
                 response.tracepoint = true;
-            else if (!child.data().contains("reakpoint"))
-                response.type = WatchpointAtAddress;
+            } else if (child.data() == "hw watchpoint" || child.data() == "watchpoint") {
+                QByteArray what = bkpt.findChild("what").data();
+                if (what.startsWith("*0x")) {
+                    response.type = WatchpointAtAddress;
+                    response.address = what.mid(1).toULongLong(0, 0);
+                } else {
+                    response.type = WatchpointAtExpression;
+                    response.expression = QString::fromLocal8Bit(what);
+                }
+            }
         } else if (child.hasName("original-location")) {
             originalLocation = child.data();
         }
@@ -3140,10 +3291,10 @@ void GdbEngine::removeBreakpoint(BreakpointModelId id)
 //
 //////////////////////////////////////////////////////////////////////
 
-void GdbEngine::loadSymbols(const QString &moduleName)
+void GdbEngine::loadSymbols(const QString &modulePath)
 {
     // FIXME: gdb does not understand quoted names here (tested with 6.8)
-    postCommand("sharedlibrary " + dotEscape(moduleName.toLocal8Bit()));
+    postCommand("sharedlibrary " + dotEscape(modulePath.toLocal8Bit()));
     reloadModulesInternal();
     reloadBreakListInternal();
     reloadStack(true);
@@ -3170,7 +3321,7 @@ void GdbEngine::loadSymbolsForStack()
                 if (module.startAddress <= frame.address
                         && frame.address < module.endAddress) {
                     postCommand("sharedlibrary "
-                        + dotEscape(module.moduleName.toLocal8Bit()));
+                        + dotEscape(module.modulePath.toLocal8Bit()));
                     needUpdate = true;
                 }
             }
@@ -3184,7 +3335,7 @@ void GdbEngine::loadSymbolsForStack()
     }
 }
 
-void GdbEngine::requestModuleSymbols(const QString &moduleName)
+void GdbEngine::requestModuleSymbols(const QString &modulePath)
 {
     QTemporaryFile tf(QDir::tempPath() + _("/gdbsymbols"));
     if (!tf.open())
@@ -3192,15 +3343,15 @@ void GdbEngine::requestModuleSymbols(const QString &moduleName)
     QString fileName = tf.fileName();
     tf.close();
     postCommand("maint print msymbols " + fileName.toLocal8Bit()
-            + ' ' + moduleName.toLocal8Bit(),
+            + ' ' + modulePath.toLocal8Bit(),
         NeedsStop, CB(handleShowModuleSymbols),
-        QVariant(moduleName + QLatin1Char('@') +  fileName));
+        QVariant(modulePath + QLatin1Char('@') +  fileName));
 }
 
 void GdbEngine::handleShowModuleSymbols(const GdbResponse &response)
 {
     const QString cookie = response.cookie.toString();
-    const QString moduleName = cookie.section(QLatin1Char('@'), 0, 0);
+    const QString modulePath = cookie.section(QLatin1Char('@'), 0, 0);
     const QString fileName = cookie.section(QLatin1Char('@'), 1, 1);
     if (response.resultClass == GdbResultDone) {
         Symbols rc;
@@ -3251,7 +3402,7 @@ void GdbEngine::handleShowModuleSymbols(const GdbResponse &response)
         }
         file.close();
         file.remove();
-        debuggerCore()->showModuleSymbols(moduleName, rc);
+        debuggerCore()->showModuleSymbols(modulePath, rc);
     } else {
         showMessageBox(QMessageBox::Critical, tr("Cannot Read Symbols"),
             tr("Cannot read symbols for module \"%1\".").arg(fileName));
@@ -3270,6 +3421,11 @@ void GdbEngine::reloadModulesInternal()
     postCommand("info shared", NeedsStop, CB(handleModulesList));
 }
 
+static QString nameFromPath(const QString &path)
+{
+    return QFileInfo(path).baseName();
+}
+
 void GdbEngine::handleModulesList(const GdbResponse &response)
 {
     Modules modules;
@@ -3285,7 +3441,8 @@ void GdbEngine::handleModulesList(const GdbResponse &response)
             QTextStream ts(&line, QIODevice::ReadOnly);
             if (line.startsWith(QLatin1String("0x"))) {
                 ts >> module.startAddress >> module.endAddress >> symbolsRead;
-                module.moduleName = ts.readLine().trimmed();
+                module.modulePath = ts.readLine().trimmed();
+                module.moduleName = nameFromPath(module.modulePath);
                 module.symbolsRead =
                     (symbolsRead == QLatin1String("Yes") ? Module::ReadOk : Module::ReadFailed);
                 modules.append(module);
@@ -3295,7 +3452,8 @@ void GdbEngine::handleModulesList(const GdbResponse &response)
                 QTC_ASSERT(symbolsRead == QLatin1String("No"), continue);
                 module.startAddress = 0;
                 module.endAddress = 0;
-                module.moduleName = ts.readLine().trimmed();
+                module.modulePath = ts.readLine().trimmed();
+                module.moduleName = nameFromPath(module.modulePath);
                 modules.append(module);
             }
         }
@@ -3307,8 +3465,9 @@ void GdbEngine::handleModulesList(const GdbResponse &response)
             // shlib-info={...}...
             foreach (const GdbMi &item, response.data.children()) {
                 Module module;
-                module.moduleName =
+                module.modulePath =
                     QString::fromLocal8Bit(item.findChild("path").data());
+                module.moduleName = nameFromPath(module.modulePath);
                 module.symbolsRead = (item.findChild("state").data() == "Y")
                         ? Module::ReadOk : Module::ReadFailed;
                 module.startAddress =
@@ -3327,8 +3486,8 @@ void GdbEngine::examineModules()
     foreach (Module module, modulesHandler()->modules()) {
         if (module.symbolsType == Module::UnknownType) {
             QProcess proc;
-            qDebug() << _("objdump -h \"%1\"").arg(module.moduleName);
-            proc.start(_("objdump -h \"%1\"").arg(module.moduleName));
+            qDebug() << _("objdump -h \"%1\"").arg(module.modulePath);
+            proc.start(_("objdump -h \"%1\"").arg(module.modulePath));
             if (!proc.waitForStarted())
                 continue;
             if (!proc.waitForFinished())
@@ -3338,7 +3497,7 @@ void GdbEngine::examineModules()
                 module.symbolsType = Module::FastSymbols;
             else
                 module.symbolsType = Module::PlainSymbols;
-            modulesHandler()->updateModule(module.moduleName, module);
+            modulesHandler()->updateModule(module.modulePath, module);
         }
     }
 }
@@ -3352,7 +3511,6 @@ void GdbEngine::examineModules()
 void GdbEngine::invalidateSourcesList()
 {
     m_modulesListOutdated = true;
-    m_sourcesListOutdated = true;
     m_breakListOutdated = true;
 }
 
@@ -5151,6 +5309,11 @@ void GdbEngine::scheduleTestResponse(int testCase, const QByteArray &response)
     showMessage(_("SCHEDULING TEST RESPONSE (CASE: %1, TOKEN: %2, RESPONSE: '%3')")
         .arg(testCase).arg(token).arg(_(response)));
     m_scheduledTestResponses[token] = response;
+}
+
+void GdbEngine::requestDebugInformation(const DebugInfoTask &task)
+{
+    QProcess::startDetached(task.command);
 }
 
 //

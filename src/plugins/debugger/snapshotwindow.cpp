@@ -56,19 +56,19 @@ namespace Internal {
 //
 ///////////////////////////////////////////////////////////////////////
 
-SnapshotWindow::SnapshotWindow(SnapshotHandler *handler)
+SnapshotTreeView::SnapshotTreeView(SnapshotHandler *handler)
 {
     m_snapshotHandler = handler;
     setWindowTitle(tr("Snapshots"));
     setAlwaysAdjustColumnsAction(debuggerCore()->action(AlwaysAdjustSnapshotsColumnWidths));
 }
 
-void SnapshotWindow::rowActivated(const QModelIndex &index)
+void SnapshotTreeView::rowActivated(const QModelIndex &index)
 {
     m_snapshotHandler->activateSnapshot(index.row());
 }
 
-void SnapshotWindow::keyPressEvent(QKeyEvent *ev)
+void SnapshotTreeView::keyPressEvent(QKeyEvent *ev)
 {
     if (ev->key() == Qt::Key_Delete) {
         QItemSelectionModel *sm = selectionModel();
@@ -84,7 +84,7 @@ void SnapshotWindow::keyPressEvent(QKeyEvent *ev)
     QTreeView::keyPressEvent(ev);
 }
 
-void SnapshotWindow::contextMenuEvent(QContextMenuEvent *ev)
+void SnapshotTreeView::contextMenuEvent(QContextMenuEvent *ev)
 {
     QModelIndex idx = indexAt(ev->pos());
 
@@ -109,7 +109,7 @@ void SnapshotWindow::contextMenuEvent(QContextMenuEvent *ev)
         handleBaseContextAction(act);
 }
 
-void SnapshotWindow::removeSnapshot(int i)
+void SnapshotTreeView::removeSnapshot(int i)
 {
     m_snapshotHandler->at(i)->quitDebugger();
 }

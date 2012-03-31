@@ -178,6 +178,8 @@ QmlJSLiveTextPreview::QmlJSLiveTextPreview(const QmlJS::Document::Ptr &doc,
     , m_initialDoc(initDoc)
     , m_applyChangesToQmlInspector(true)
     , m_clientProxy(clientProxy)
+    , m_nodeForOffset(0)
+    , m_updateNodeForOffset(false)
 {
     Q_ASSERT(doc->fileName() == initDoc->fileName());
     m_filename = doc->fileName();
@@ -200,17 +202,32 @@ void QmlJSLiveTextPreview::resetInitialDoc(const QmlJS::Document::Ptr &doc)
 }
 
 
-QList<int> QmlJSLiveTextPreview::objectReferencesForOffset(quint32 offset) const
+QList<int> QmlJSLiveTextPreview::objectReferencesForOffset(quint32 offset)
 {
     QList<int> result;
     QHashIterator<QmlJS::AST::UiObjectMember*, QList<int> > iter(m_debugIds);
+    QmlJS::AST::UiObjectMember *possibleNode = 0;
     while(iter.hasNext()) {
         iter.next();
         QmlJS::AST::UiObjectMember *member = iter.key();
-        if (member->firstSourceLocation().offset == offset) {
-            result = iter.value();
-            break;
+        quint32 startOffset = member->firstSourceLocation().offset;
+        quint32 endOffset = member->lastSourceLocation().offset;
+        if (startOffset <= offset && offset <= endOffset) {
+            if (!possibleNode)
+                possibleNode = member;
+            if (possibleNode->firstSourceLocation().offset <= startOffset &&
+                    endOffset <= possibleNode->lastSourceLocation().offset)
+                possibleNode = member;
         }
+    }
+    if (possibleNode) {
+        if (possibleNode != m_nodeForOffset) {
+            //We have found a better match, set flag so that we can
+            //query again to check if this is the best match for the offset
+            m_updateNodeForOffset = true;
+            m_nodeForOffset = possibleNode;
+        }
+        result = m_debugIds.value(possibleNode);
     }
     return result;
 }
@@ -220,7 +237,9 @@ void QmlJSLiveTextPreview::changeSelectedElements(QList<int> offsets, const QStr
     if (m_editors.isEmpty() || !m_previousDoc || !m_clientProxy)
         return;
 
-    QDeclarativeDebugObjectReference objectRefUnderCursor;
+    m_updateNodeForOffset = false;
+    m_lastOffsets = offsets;
+    QmlDebugObjectReference objectRefUnderCursor;
     objectRefUnderCursor = m_clientProxy.data()->objectReferenceForId(wordAtCursor);
 
     QList<int> selectedReferences;
@@ -252,20 +271,20 @@ void QmlJSLiveTextPreview::changeSelectedElements(QList<int> offsets, const QStr
     }
 
     if (!selectedReferences.isEmpty()) {
-        QList<QDeclarativeDebugObjectReference> refs;
+        QList<QmlDebugObjectReference> refs;
         foreach(int i, selectedReferences)
-            refs << QDeclarativeDebugObjectReference(i);
+            refs << QmlDebugObjectReference(i);
         emit selectedItemsChanged(refs);
     }
 }
 
-static QList<int> findRootObjectRecursive(const QDeclarativeDebugObjectReference &object, const Document::Ptr &doc)
+static QList<int> findRootObjectRecursive(const QmlDebugObjectReference &object, const Document::Ptr &doc)
 {
     QList<int> result;
     if (object.className() == doc->componentName())
         result += object.debugId();
 
-    foreach (const QDeclarativeDebugObjectReference &it, object.children()) {
+    foreach (const QmlDebugObjectReference &it, object.children()) {
         result += findRootObjectRecursive(it, doc);
     }
     return result;
@@ -305,7 +324,7 @@ void QmlJSLiveTextPreview::updateDebugIds()
     if(doc->qmlProgram()->members &&  doc->qmlProgram()->members->member) {
         UiObjectMember* root = doc->qmlProgram()->members->member;
         QList<int> r;
-        foreach(const QDeclarativeDebugObjectReference& it, clientProxy->rootObjectReference())
+        foreach (const QmlDebugObjectReference& it, clientProxy->rootObjectReference())
             r += findRootObjectRecursive(it, doc);
         if (!r.isEmpty())
             m_debugIds[root] += r;
@@ -338,6 +357,8 @@ void QmlJSLiveTextPreview::updateDebugIds()
             m_debugIds[it2.key()] += it2.value();
         }
     }
+    if (m_updateNodeForOffset)
+        changeSelectedElements(m_lastOffsets, QString());
 }
 
 
@@ -464,7 +485,10 @@ protected:
         if (isLiteral)
             expr = castToLiteral(scriptCode, scriptBinding);
         appliedChangesToViewer = true;
-        m_clientProxy->setBindingForObject(debugId, propertyName, expr, isLiteral, document()->fileName(), scriptBinding->firstSourceLocation().startLine);
+        m_clientProxy->setBindingForObject(
+                    debugId, propertyName, expr,
+                    isLiteral, document()->fileName(),
+                    scriptBinding->firstSourceLocation().startLine);
     }
 
     virtual void resetBindingForObject(int debugId, const QString &propertyName)

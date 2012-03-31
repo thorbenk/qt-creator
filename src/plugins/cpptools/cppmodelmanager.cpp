@@ -201,9 +201,10 @@ static const char pp_configuration[] =
     "#define __forceinline inline\n";
 
 #ifndef ICHECK_BUILD
-CppPreprocessor::CppPreprocessor(QPointer<CppModelManager> modelManager)
+CppPreprocessor::CppPreprocessor(QPointer<CppModelManager> modelManager, bool dumpFileNameWhileParsing)
     : snapshot(modelManager->snapshot()),
       m_modelManager(modelManager),
+      m_dumpFileNameWhileParsing(dumpFileNameWhileParsing),
       preprocess(this, &env),
       m_revision(0)
 {
@@ -214,6 +215,7 @@ CppPreprocessor::CppPreprocessor(QPointer<CppModelManager> modelManager)
 
 CppPreprocessor::CppPreprocessor(QPointer<CPlusPlus::ParseManager> modelManager)
     : preprocess(this, &env),
+      m_dumpFileNameWhileParsing(false),
       m_revision(0)
 {
 }
@@ -503,7 +505,7 @@ void CppPreprocessor::passedMacroDefinitionCheck(unsigned offset, const Macro &m
         return;
 
     m_currentDoc->addMacroUse(macro, offset, macro.name().length(), env.currentLine,
-                              QVector<MacroArgumentReference>(), true);
+                              QVector<MacroArgumentReference>());
 }
 
 void CppPreprocessor::failedMacroDefinitionCheck(unsigned offset, const QByteArray &name)
@@ -517,7 +519,6 @@ void CppPreprocessor::failedMacroDefinitionCheck(unsigned offset, const QByteArr
 void CppPreprocessor::startExpandingMacro(unsigned offset,
                                           const Macro &macro,
                                           const QByteArray &originalText,
-                                          bool inCondition,
                                           const QVector<MacroArgumentReference> &actuals)
 {
     if (! m_currentDoc)
@@ -525,7 +526,7 @@ void CppPreprocessor::startExpandingMacro(unsigned offset,
 
     //qDebug() << "start expanding:" << macro.name() << "text:" << originalText;
     m_currentDoc->addMacroUse(macro, offset, originalText.length(), env.currentLine,
-                              actuals, inCondition);
+                              actuals);
 }
 
 void CppPreprocessor::stopExpandingMacro(unsigned, const Macro &)
@@ -600,7 +601,11 @@ void CppPreprocessor::sourceNeeded(QString &fileName, IncludeType type, unsigned
         }
     }
 
-    //qDebug() << "parse file:" << fileName << "contents:" << contents.size();
+    if (m_dumpFileNameWhileParsing) {
+        qDebug() << "Parsing file:" << fileName
+//             << "contents:" << contents.size()
+                    ;
+    }
 
     Document::Ptr doc = snapshot.document(fileName);
     if (doc) {
@@ -619,6 +624,8 @@ void CppPreprocessor::sourceNeeded(QString &fileName, IncludeType type, unsigned
     Document::Ptr previousDoc = switchDocument(doc);
 
     const QByteArray preprocessedCode = preprocess(fileName, contents);
+
+//    { QByteArray b(preprocessedCode); b.replace("\n", "<<<\n"); qDebug("Preprocessed code for \"%s\": [[%s]]", fileName.toUtf8().constData(), b.constData()); }
 
     doc->setUtf8Source(preprocessedCode);
     doc->keepSourceAndAST();
@@ -695,6 +702,7 @@ CppModelManager::CppModelManager(QObject *parent)
 {
     m_findReferences = new CppFindReferences(this);
     m_indexerEnabled = qgetenv("QTCREATOR_NO_CODE_INDEXER").isNull();
+    m_dumpFileNameWhileParsing = !qgetenv("QTCREATOR_DUMP_FILENAME_WHILE_PARSING").isNull();
 
     m_revision = 0;
     m_synchronizer.setCancelOnWait(true);
@@ -821,12 +829,21 @@ QStringList CppModelManager::internalFrameworkPaths() const
 QByteArray CppModelManager::internalDefinedMacros() const
 {
     QByteArray macros;
+    QSet<QByteArray> alreadyIn;
     QMapIterator<ProjectExplorer::Project *, ProjectInfo> it(m_projects);
     while (it.hasNext()) {
         it.next();
         ProjectInfo pinfo = it.value();
-        foreach (const ProjectPart::Ptr &part, pinfo.projectParts())
-            macros += part->defines;
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts()) {
+            const QList<QByteArray> defs = part->defines.split('\n');
+            foreach (const QByteArray &def, defs) {
+                if (!alreadyIn.contains(def)) {
+                    macros += def;
+                    macros.append('\n');
+                    alreadyIn.insert(def);
+                }
+            }
+        }
     }
     return macros;
 }
@@ -923,11 +940,12 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 #if 0
     // Tons of debug output...
     qDebug()<<"========= CppModelManager::updateProjectInfo ======";
-    qDebug()<<" for project:"<< pinfo.project.data()->file()->fileName();
-    foreach (const ProjectPart::Ptr &part, pinfo.projectParts) {
+    qDebug()<<" for project:"<< pinfo.project().data()->document()->fileName();
+    foreach (const ProjectPart::Ptr &part, pinfo.projectParts()) {
         qDebug() << "=== part ===";
         qDebug() << "language:" << (part->language == CXX ? "C++" : "ObjC++");
-        qDebug() << "compilerflags:" << part->flags;
+        qDebug() << "C++11:" << part->cxx11Enabled;
+        qDebug() << "Qt version:" << part->qtVersion;
         qDebug() << "precompiled header:" << part->precompiledHeaders;
         qDebug() << "defines:" << part->defines;
         qDebug() << "includes:" << part->includePaths;
@@ -1018,7 +1036,7 @@ QFuture<void> CppModelManager::refreshSourceFiles(const QStringList &sourceFiles
     if (! sourceFiles.isEmpty() && m_indexerEnabled) {
         const WorkingCopy workingCopy = buildWorkingCopyList();
 
-        CppPreprocessor *preproc = new CppPreprocessor(this);
+        CppPreprocessor *preproc = new CppPreprocessor(this, m_dumpFileNameWhileParsing);
         preproc->setRevision(++m_revision);
         preproc->setProjectFiles(projectFiles());
         preproc->setIncludePaths(includePaths());

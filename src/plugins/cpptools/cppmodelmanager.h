@@ -271,6 +271,7 @@ private:
 
     CppFindReferences *m_findReferences;
     bool m_indexerEnabled;
+    bool m_dumpFileNameWhileParsing;
 
     mutable QMutex protectExtraDiagnostics;
     QHash<QString, QHash<int, QList<CPlusPlus::Document::DiagnosticMessage> > > m_extraDiagnostics;
@@ -288,7 +289,7 @@ class CPPTOOLS_EXPORT CppPreprocessor: public CPlusPlus::Client
 {
 public:
 #ifndef ICHECK_BUILD
-    CppPreprocessor(QPointer<CppModelManager> modelManager);
+    CppPreprocessor(QPointer<CppModelManager> modelManager, bool dumpFileNameWhileParsing = false);
 #else
     CppPreprocessor(QPointer<CPlusPlus::ParseManager> modelManager);
 #endif
@@ -330,7 +331,6 @@ protected:
     virtual void startExpandingMacro(unsigned offset,
                                      const CPlusPlus::Macro &macro,
                                      const QByteArray &originalText,
-                                     bool inCondition,
                                      const QVector<CPlusPlus::MacroArgumentReference> &actuals);
     virtual void stopExpandingMacro(unsigned offset, const CPlusPlus::Macro &macro);
     virtual void startSkippingBlocks(unsigned offset);
@@ -342,6 +342,7 @@ private:
 #ifndef ICHECK_BUILD
     QPointer<CppModelManager> m_modelManager;
 #endif
+    bool m_dumpFileNameWhileParsing;
     CPlusPlus::Environment env;
     CPlusPlus::Preprocessor preprocess;
     QStringList m_includePaths;

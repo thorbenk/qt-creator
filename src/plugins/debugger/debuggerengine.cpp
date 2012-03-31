@@ -269,6 +269,8 @@ public slots:
         m_disassemblerAgent.resetLocation();
     }
 
+    TaskHub *taskHub();
+
 public:
     DebuggerState state() const { return m_state; }
     RemoteSetupState remoteSetupState() const { return m_remoteSetupState; }
@@ -1038,6 +1040,8 @@ void DebuggerEngine::notifyInferiorSpontaneousStop()
     QTC_ASSERT(state() == InferiorRunOk, qDebug() << this << state());
     showStatusMessage(tr("Stopped."));
     setState(InferiorStopOk);
+    if (debuggerCore()->boolSetting(RaiseOnInterrupt))
+        emit raiseWindow();
 }
 
 void DebuggerEngine::notifyInferiorStopFailed()
@@ -1394,6 +1398,8 @@ void DebuggerEngine::quitDebugger()
         break;
     case EngineRunFailed:
     case DebuggerFinished:
+    case InferiorExitOk:
+    case InferiorShutdownOk:
         break;
     case InferiorSetupRequested:
         notifyInferiorSetupFailed();
@@ -1951,14 +1957,23 @@ void DebuggerEnginePrivate::reportTestError(const QString &msg, int line)
 {
     m_engine->showMessage(_("### Line %1: %2").arg(line).arg(msg));
     m_foundError = true;
+    Task task(Task::Error, msg, Utils::FileName::fromUserInput(m_testFileName), line + 1, Core::Id("DebuggerTest"));
+    taskHub()->addTask(task);
+}
 
+TaskHub *DebuggerEnginePrivate::taskHub()
+{
     if (!m_taskHub) {
         m_taskHub = ProjectExplorerPlugin::instance()->taskHub();
+        m_taskHub->addCategory(Core::Id("Debuginfo"), tr("Debug Information"));
         m_taskHub->addCategory(Core::Id("DebuggerTest"), tr("Debugger Test"));
     }
+    return m_taskHub;
+}
 
-    Task task(Task::Error, msg, Utils::FileName::fromUserInput(m_testFileName), line + 1, Core::Id("DebuggerTest"));
-    m_taskHub->addTask(task);
+TaskHub *DebuggerEngine::taskHub()
+{
+    return d->taskHub();
 }
 
 } // namespace Debugger

@@ -292,9 +292,9 @@ int ClangFunctionHintModel::activeArgument(const QString &prefix) const
     int argnr = 0;
     int parcount = 0;
     SimpleLexer tokenize;
-    QList<Token> tokens = tokenize(prefix);
+    QList<CPlusPlus::Token> tokens = tokenize(prefix);
     for (int i = 0; i < tokens.count(); ++i) {
-        const Token &tk = tokens.at(i);
+        const CPlusPlus::Token &tk = tokens.at(i);
         if (tk.is(T_LPAREN))
             ++parcount;
         else if (tk.is(T_RPAREN))
@@ -728,9 +728,9 @@ int ClangCompletionAssistProcessor::startOfOperator(int pos,
         tokenize.setQtMocRunEnabled(true);
         tokenize.setObjCEnabled(true);
         tokenize.setSkipComments(false);
-        const QList<Token> &tokens = tokenize(tc.block().text(), BackwardsScanner::previousBlockState(tc.block()));
+        const QList<CPlusPlus::Token> &tokens = tokenize(tc.block().text(), BackwardsScanner::previousBlockState(tc.block()));
         const int tokenIdx = SimpleLexer::tokenBefore(tokens, qMax(0, tc.positionInBlock() - 1)); // get the token at the left of the cursor
-        const Token tk = (tokenIdx == -1) ? Token() : tokens.at(tokenIdx);
+        const CPlusPlus::Token tk = (tokenIdx == -1) ? CPlusPlus::Token() : tokens.at(tokenIdx);
 
         if (*kind == T_DOXY_COMMENT && !(tk.is(T_DOXY_COMMENT) || tk.is(T_CPP_DOXY_COMMENT))) {
             *kind = T_EOF_SYMBOL;
@@ -751,7 +751,7 @@ int ClangCompletionAssistProcessor::startOfOperator(int pos,
         }
         else if (*kind == T_LPAREN) {
             if (tokenIdx > 0) {
-                const Token &previousToken = tokens.at(tokenIdx - 1); // look at the token at the left of T_LPAREN
+                const CPlusPlus::Token &previousToken = tokens.at(tokenIdx - 1); // look at the token at the left of T_LPAREN
                 switch (previousToken.kind()) {
                 case T_IDENTIFIER:
                 case T_GREATER:
@@ -772,7 +772,7 @@ int ClangCompletionAssistProcessor::startOfOperator(int pos,
             if (tokens.size() >= 3) {
                 if (tokens.at(0).is(T_POUND) && tokens.at(1).is(T_IDENTIFIER) && (tokens.at(2).is(T_STRING_LITERAL) ||
                                                                                   tokens.at(2).is(T_ANGLE_STRING_LITERAL))) {
-                    const Token &directiveToken = tokens.at(1);
+                    const CPlusPlus::Token &directiveToken = tokens.at(1);
                     QString directive = tc.block().text().mid(directiveToken.begin(),
                                                               directiveToken.length());
                     if (directive == QLatin1String("include") ||
@@ -837,9 +837,9 @@ bool ClangCompletionAssistProcessor::accepts() const
                     tokenize.setQtMocRunEnabled(true);
                     tokenize.setObjCEnabled(true);
                     tokenize.setSkipComments(false);
-                    const QList<Token> &tokens = tokenize(tc.block().text(), BackwardsScanner::previousBlockState(tc.block()));
+                    const QList<CPlusPlus::Token> &tokens = tokenize(tc.block().text(), BackwardsScanner::previousBlockState(tc.block()));
                     const int tokenIdx = SimpleLexer::tokenBefore(tokens, qMax(0, tc.positionInBlock() - 1));
-                    const Token tk = (tokenIdx == -1) ? Token() : tokens.at(tokenIdx);
+                    const CPlusPlus::Token tk = (tokenIdx == -1) ? CPlusPlus::Token() : tokens.at(tokenIdx);
 
                     if (!tk.isComment() && !tk.isLiteral()) {
                         return true;
@@ -848,7 +848,7 @@ bool ClangCompletionAssistProcessor::accepts() const
                                && tokens.at(0).kind() == T_POUND
                                && tokens.at(1).kind() == T_IDENTIFIER) {
                         const QString &line = tc.block().text();
-                        const Token &idToken = tokens.at(1);
+                        const CPlusPlus::Token &idToken = tokens.at(1);
                         const QStringRef &identifier =
                                 line.midRef(idToken.begin(), idToken.end() - idToken.begin());
                         if (identifier == QLatin1String("include")

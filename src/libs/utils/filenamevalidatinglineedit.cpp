@@ -68,7 +68,8 @@ static const QRegExp &windowsDeviceSubDirPattern()
 // ----------- FileNameValidatingLineEdit
 FileNameValidatingLineEdit::FileNameValidatingLineEdit(QWidget *parent) :
     BaseValidatingLineEdit(parent),
-    m_allowDirectories(false)
+    m_allowDirectories(false),
+    m_forceFirstCapitalLetter(false)
 {
 }
 
@@ -82,16 +83,23 @@ void FileNameValidatingLineEdit::setAllowDirectories(bool v)
     m_allowDirectories = v;
 }
 
+bool FileNameValidatingLineEdit::forceFirstCapitalLetter() const
+{
+    return m_forceFirstCapitalLetter;
+}
+
+void FileNameValidatingLineEdit::setForceFirstCapitalLetter(bool b)
+{
+    m_forceFirstCapitalLetter = b;
+}
+
 /* Validate a file base name, check for forbidden characters/strings. */
 
-#ifdef Q_OS_WIN
-#  define SLASHES "/\\"
-#else
-#  define SLASHES "/"
-#endif
 
-static const char notAllowedCharsSubDir[]   = "~!?:&*\"|#%<>$\"'();`' ";
-static const char notAllowedCharsNoSubDir[] = "~!?:&*\"|#%<>$\"'();`' "SLASHES;
+#define SLASHES "/\\"
+
+static const char notAllowedCharsSubDir[]   = ",^@=+{}[]~!?:&*\"|#%<>$\"'();`' ";
+static const char notAllowedCharsNoSubDir[] = ",^@=+{}[]~!?:&*\"|#%<>$\"'();`' "SLASHES;
 
 static const char *notAllowedSubStrings[] = {".."};
 
@@ -147,6 +155,17 @@ bool  FileNameValidatingLineEdit::validate(const QString &value, QString *errorM
             && validateFileName(value, allowDirectories(), errorMessage);
 }
 
+QString FileNameValidatingLineEdit::fixInputString(const QString &string)
+{
+    if (!forceFirstCapitalLetter())
+        return string;
+
+    QString fixedString = string;
+    if (!string.isEmpty() && string.at(0).isLower())
+        fixedString[0] = string.at(0).toUpper();
+
+    return fixedString;
+}
 
 bool FileNameValidatingLineEdit::validateFileNameExtension(const QString &fileName,
                                                            const QStringList &requiredExtensions,

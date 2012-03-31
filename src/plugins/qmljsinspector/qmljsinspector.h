@@ -41,10 +41,10 @@
 #include <qmljs/qmljsdocument.h>
 #include <qmljs/parser/qmljsastfwd_p.h>
 
+#include <debugger/debuggerconstants.h>
+
 #include <QAction>
 #include <QObject>
-
-QT_FORWARD_DECLARE_CLASS(QLineEdit)
 
 namespace ProjectExplorer {
 class Project;
@@ -102,7 +102,6 @@ public:
     void connected(ClientProxy *clientProxy);
     void disconnected();
     void setDebuggerEngine(QObject *qmlEngine);
-    QObject *debuggerEngine() const;
 
 signals:
     void statusMessage(const QString &text);
@@ -112,16 +111,18 @@ public slots:
     void reloadQmlViewer();
     void serverReloaded();
     void setApplyChangesToQmlInspector(bool applyChanges);
+    void onResult(quint32 queryId, const QVariant &result);
 
 private slots:
     void enable();
     void disable();
-    void gotoObjectReferenceDefinition(const QDeclarativeDebugObjectReference &obj);
-    void selectItems(const QList<QDeclarativeDebugObjectReference> &objectReferences);
+    void gotoObjectReferenceDefinition(const QmlDebugObjectReference &obj);
+    void selectItems(const QList<QmlDebugObjectReference> &objectReferences);
     void selectItems(const QList<int> &objectIds);
-    void changeSelectedItems(const QList<QDeclarativeDebugObjectReference> &objects);
+    void changeSelectedItems(const QList<QmlDebugObjectReference> &objects);
     void changePropertyValue(int debugId,const QString &propertyName, const QString &valueExpression);
     void objectTreeReady();
+    void onRootContext(const QVariant &value);
 
     void updateEngineList();
 
@@ -133,34 +134,38 @@ private slots:
 
     void updatePendingPreviewDocuments(QmlJS::Document::Ptr doc);
     void showDebuggerTooltip(const QPoint &mousePos, TextEditor::ITextEditor *editor, int cursorPos);
-    void debugQueryUpdated(QmlJsDebugClient::QDeclarativeDebugQuery::State);
+    void onEngineStateChanged(Debugger::DebuggerState state);
 
 private:
-    bool addQuotesForData(const QVariant &value) const;
+    void showRoot();
     void resetViews();
 
     void initializeDocuments();
     void applyChangesToQmlInspectorHelper(bool applyChanges);
     void setupDockWidgets();
     QString filenameForShadowBuildFile(const QString &filename) const;
-    void populateCrumblePath(const QDeclarativeDebugObjectReference &objRef);
-    bool isRoot(const QDeclarativeDebugObjectReference &obj) const;
-    QDeclarativeDebugObjectReference objectReferenceForLocation(const QString &fileName, int cursorPosition=-1) const;
+    void populateCrumblePath(const QmlDebugObjectReference &objRef);
+    bool isRoot(const QmlDebugObjectReference &obj) const;
+    QmlDebugObjectReference objectReferenceForLocation(const QString &fileName, int cursorPosition=-1) const;
 
     void connectSignals();
     void disconnectSignals();
 
+    void showObject(const QmlDebugObjectReference &obj);
+
+    QmlDebugObjectReference findParentRecursive(
+            int goalDebugId, const QList<QmlDebugObjectReference > &objectsToSearch);
 private:
     bool m_listeningToEditorManager;
     QmlJsInspectorToolBar *m_toolBar;
     ContextCrumblePath *m_crumblePath;
-    QLineEdit *m_filterExp;
     QmlJSPropertyInspector *m_propertyInspector;
 
     InspectorSettings *m_settings;
     ClientProxy *m_clientProxy;
-    QObject *m_qmlEngine;
-    QDeclarativeDebugExpressionQuery *m_debugQuery;
+    quint32 m_debugQuery;
+    quint32 m_showObjectQueryId;
+    QList<quint32> m_updateObjectQueryIds;
 
     // Qml/JS integration
     QHash<QString, QmlJSLiveTextPreview *> m_textPreviews;
@@ -172,6 +177,7 @@ private:
     static InspectorUi *m_instance;
     bool m_selectionCallbackExpected;
     bool m_cursorPositionChangedExternally;
+    bool m_onCrumblePathClicked;
 };
 
 } // Internal

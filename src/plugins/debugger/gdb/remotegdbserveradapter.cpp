@@ -233,9 +233,16 @@ void RemoteGdbServerAdapter::handleFileExecAndSymbols(const GdbResponse &respons
     if (response.resultClass == GdbResultDone) {
         callTargetRemote();
     } else {
+        QByteArray reason = response.data.findChild("msg").data();
         QString msg = tr("Reading debug information failed:\n");
-        msg += QString::fromLocal8Bit(response.data.findChild("msg").data());
-        m_engine->notifyInferiorSetupFailed(msg);
+        msg += QString::fromLocal8Bit(reason);
+        if (reason.endsWith("No such file or directory.")) {
+            showMessage(_("INFERIOR STARTUP: BINARY NOT FOUND"));
+            showMessage(msg, StatusBar);
+            callTargetRemote(); // Proceed nevertheless.
+        } else {
+            m_engine->notifyInferiorSetupFailed(msg);
+        }
     }
 }
 
@@ -363,14 +370,6 @@ void RemoteGdbServerAdapter::handleInterruptInferior(const GdbResponse &response
         // >810^error,msg="mi_cmd_exec_interrupt: Inferior not executing."
         m_engine->notifyInferiorStopOk();
     }
-}
-
-void RemoteGdbServerAdapter::shutdownInferior()
-{
-    if (m_engine->startParameters().startMode == AttachToRemoteServer)
-        m_engine->defaultInferiorShutdown("detach");
-    else
-        m_engine->defaultInferiorShutdown("kill");
 }
 
 void RemoteGdbServerAdapter::shutdownAdapter()

@@ -35,17 +35,21 @@
 #include "debuggeractions.h"
 #include "debuggercore.h"
 
+#include <aggregation/aggregate.h>
+#include <coreplugin/findplaceholder.h>
+#include <find/treeviewfind.h>
 #include <utils/savedaction.h>
 
-#include <QDebug>
 #include <QContextMenuEvent>
+#include <QDebug>
 #include <QHeaderView>
 #include <QMenu>
+#include <QVBoxLayout>
 
 namespace Debugger {
 namespace Internal {
 
-BaseWindow::BaseWindow(QWidget *parent)
+BaseTreeView::BaseTreeView(QWidget *parent)
     : QTreeView(parent)
 {
     QAction *act = debuggerCore()->action(UseAlternatingRowColors);
@@ -59,24 +63,27 @@ BaseWindow::BaseWindow(QWidget *parent)
     setUniformRowHeights(true);
 
     header()->setDefaultAlignment(Qt::AlignLeft);
+    header()->setClickable(true);
 
     connect(act, SIGNAL(toggled(bool)),
         SLOT(setAlternatingRowColorsHelper(bool)));
     connect(this, SIGNAL(activated(QModelIndex)),
         SLOT(rowActivatedHelper(QModelIndex)));
+    connect(header(), SIGNAL(sectionClicked(int)),
+        SLOT(headerSectionClicked(int)));
 
     m_adjustColumnsAction = new QAction(tr("Adjust Column Widths to Contents"), 0);
     m_alwaysAdjustColumnsAction = 0;
 }
 
-void BaseWindow::setAlwaysAdjustColumnsAction(QAction *action)
+void BaseTreeView::setAlwaysAdjustColumnsAction(QAction *action)
 {
     m_alwaysAdjustColumnsAction = action;
     connect(action, SIGNAL(toggled(bool)),
         SLOT(setAlwaysResizeColumnsToContents(bool)));
 }
 
-void BaseWindow::addBaseContextActions(QMenu *menu)
+void BaseTreeView::addBaseContextActions(QMenu *menu)
 {
     menu->addSeparator();
     if (m_alwaysAdjustColumnsAction)
@@ -86,7 +93,7 @@ void BaseWindow::addBaseContextActions(QMenu *menu)
     menu->addAction(debuggerCore()->action(SettingsDialog));
 }
 
-bool BaseWindow::handleBaseContextAction(QAction *act)
+bool BaseTreeView::handleBaseContextAction(QAction *act)
 {
     if (act == 0)
         return true;
@@ -103,33 +110,59 @@ bool BaseWindow::handleBaseContextAction(QAction *act)
     return false;
 }
 
-void BaseWindow::setModel(QAbstractItemModel *model)
+void BaseTreeView::setModel(QAbstractItemModel *model)
 {
     QTreeView::setModel(model);
     if (header() && m_alwaysAdjustColumnsAction)
         setAlwaysResizeColumnsToContents(m_alwaysAdjustColumnsAction->isChecked());
 }
 
-void BaseWindow::resizeColumnsToContents()
+void BaseTreeView::mousePressEvent(QMouseEvent *ev)
+{
+    QTreeView::mousePressEvent(ev);
+    if (!indexAt(ev->pos()).isValid())
+        resizeColumnsToContents();
+}
+
+void BaseTreeView::resizeColumnsToContents()
 {
     const int columnCount = model()->columnCount();
     for (int c = 0 ; c != columnCount; ++c)
         resizeColumnToContents(c);
 }
 
-void BaseWindow::setAlwaysResizeColumnsToContents(bool on)
+void BaseTreeView::setAlwaysResizeColumnsToContents(bool on)
 {
     QHeaderView::ResizeMode mode = on
         ? QHeaderView::ResizeToContents : QHeaderView::Interactive;
     header()->setResizeMode(0, mode);
 }
 
-void BaseWindow::reset()
+void BaseTreeView::headerSectionClicked(int logicalIndex)
+{
+    resizeColumnToContents(logicalIndex);
+}
+
+void BaseTreeView::reset()
 {
     QTreeView::reset();
     if (header() && m_alwaysAdjustColumnsAction
             && m_alwaysAdjustColumnsAction->isChecked())
         resizeColumnsToContents();
+}
+
+BaseWindow::BaseWindow(QTreeView *treeView, QWidget *parent)
+    : QWidget(parent), m_treeView(treeView)
+{
+    QVBoxLayout *vbox = new QVBoxLayout(this);
+    vbox->setMargin(0);
+    vbox->setSpacing(0);
+    vbox->addWidget(m_treeView);
+    vbox->addWidget(new Core::FindToolBarPlaceHolder(this));
+
+    Aggregation::Aggregate *agg = new Aggregation::Aggregate;
+    agg->add(m_treeView);
+    agg->add(new Find::TreeViewFind(m_treeView));
 }
 
 } // namespace Internal

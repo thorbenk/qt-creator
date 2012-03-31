@@ -57,6 +57,7 @@
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/applicationlauncher.h>
 #include <qmljsdebugclient/qdeclarativeoutputparser.h>
+#include <qmljsdebugclient/qmlenginedebugclient.h>
 #include <qmljseditor/qmljseditorconstants.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
@@ -119,13 +120,16 @@ private:
     InteractiveInterpreter m_interpreter;
     bool m_validContext;
     QHash<QString,BreakpointModelId> pendingBreakpoints;
+    QList<quint32> queryIds;
     bool m_retryOnConnectFail;
+    bool m_automaticConnect;
 };
 
 QmlEnginePrivate::QmlEnginePrivate(QmlEngine *q)
     : m_adapter(q),
       m_validContext(false),
-      m_retryOnConnectFail(false)
+      m_retryOnConnectFail(false),
+      m_automaticConnect(false)
 {}
 
 class ASTWalker: public Visitor
@@ -364,7 +368,11 @@ QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
             SLOT(documentUpdated(QmlJS::Document::Ptr)));
 
     // we won't get any debug output
-    d->m_retryOnConnectFail = startParameters.useTerminal;
+    if (startParameters.useTerminal) {
+        d->m_noDebugOutputTimer.setInterval(0);
+        d->m_retryOnConnectFail = true;
+        d->m_automaticConnect = true;
+    }
 }
 
 QmlEngine::~QmlEngine()
@@ -394,6 +402,9 @@ void QmlEngine::setupInferior()
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << state());
 
     notifyInferiorSetupOk();
+
+    if (d->m_automaticConnect)
+        beginConnection();
 }
 
 void QmlEngine::appendMessage(const QString &msg, Utils::OutputFormat /* format */)
@@ -416,13 +427,24 @@ void QmlEngine::connectionEstablished()
 
 void QmlEngine::tryToConnect(quint16 port)
 {
+    showMessage(QLatin1String("QML Debugger: No application output received in time, trying to connect ..."), LogStatus);
     d->m_retryOnConnectFail = true;
-    beginConnection(port);
+    if (state() == EngineRunRequested
+            && !d->m_automaticConnect)
+        beginConnection(port);
+    else
+        d->m_automaticConnect = true;
 }
 
 void QmlEngine::beginConnection(quint16 port)
 {
     d->m_noDebugOutputTimer.stop();
+
+    if (state() != EngineRunRequested && d->m_retryOnConnectFail)
+        return;
+
+    QTC_ASSERT(state() == EngineRunRequested, return)
+
     if (port > 0) {
         QTC_CHECK(startParameters().communicationChannel
                   == DebuggerStartParameters::CommunicationChannelTcpIp);
@@ -447,15 +469,9 @@ void QmlEngine::beginConnection(quint16 port)
 
 void QmlEngine::connectionStartupFailed()
 {
-    if (isSlaveEngine()) {
-        if (masterEngine()->state() != InferiorRunOk) {
-            // we're right now debugging C++, just try longer ...
-            beginConnection();
-            return;
-        }
-    }
     if (d->m_retryOnConnectFail) {
-        beginConnection();
+        // retry after 3 seconds ...
+        QTimer::singleShot(3000, this, SLOT(beginConnection()));
         return;
     }
 
@@ -1040,21 +1056,15 @@ void QmlEngine::synchronizeWatchers()
     }
 }
 
-void QmlEngine::onDebugQueryStateChanged(
-        QmlJsDebugClient::QDeclarativeDebugQuery::State state)
+void QmlEngine::expressionEvaluated(quint32 queryId, const QVariant &result)
 {
-    QmlJsDebugClient::QDeclarativeDebugExpressionQuery *query =
-            qobject_cast<QmlJsDebugClient::QDeclarativeDebugExpressionQuery *>(
-                sender());
-    if (query && state != QmlJsDebugClient::QDeclarativeDebugQuery::Error) {
-        QtMessageLogItem *item = constructLogItemTree(query->result());
+    if (d->queryIds.contains(queryId)) {
+        d->queryIds.removeOne(queryId);
+        QtMessageLogItem *item = constructLogItemTree(qtMessageLogHandler()->root(),
+                                                      result);
         if (item)
             qtMessageLogHandler()->appendItem(item);
-    } else
-        qtMessageLogHandler()->
-                appendItem(new QtMessageLogItem(QtMessageLogHandler::ErrorType,
-                                             _("Error evaluating expression.")));
-    delete query;
+    }
 }
 
 bool QmlEngine::hasCapability(unsigned cap) const
@@ -1124,7 +1134,8 @@ void QmlEngine::appendDebugOutput(QtMsgType type, const QString &message,
         //This case is not possible
         return;
     }
-    QtMessageLogItem *item = new QtMessageLogItem(itemType, message);
+    QtMessageLogItem *item = new QtMessageLogItem(qtMessageLogHandler()->root(),
+                                                  itemType, message);
     item->file = info.file;
     item->line = info.line;
     qtMessageLogHandler()->appendItem(item);
@@ -1151,21 +1162,25 @@ bool QmlEngine::evaluateScriptExpression(const QString& expression)
                 //is sent to V8DebugService. In all other cases, the
                 //expression is evaluated by QDeclarativeEngine.
                 if (state() != InferiorStopOk) {
-                    QDeclarativeEngineDebug *engineDebug =
+                    QmlEngineDebugClient *engineDebug =
                             d->m_adapter.engineDebugClient();
 
                     int id = d->m_adapter.currentSelectedDebugId();
                     if (engineDebug && id != -1) {
-                        QDeclarativeDebugExpressionQuery *query =
-                                engineDebug->queryExpressionResult(id, expression);
-                        connect(query,
-                                SIGNAL(stateChanged(
-                                           QmlJsDebugClient::QDeclarativeDebugQuery
-                                           ::State)),
-                                this,
-                                SLOT(onDebugQueryStateChanged(
-                                         QmlJsDebugClient::QDeclarativeDebugQuery
-                                         ::State)));
+                        quint32 queryId =
+                                engineDebug->queryExpressionResult(
+                                    id, expression);
+                        if (queryId) {
+                            d->queryIds << queryId;
+                        } else {
+                            didEvaluate = false;
+                            qtMessageLogHandler()->
+                                    appendItem(
+                                        new QtMessageLogItem(
+                                            qtMessageLogHandler()->root(),
+                                            QtMessageLogHandler::ErrorType,
+                                            _("Error evaluating expression.")));
+                        }
                     }
                 } else {
                     executeDebuggerCommand(expression);
@@ -1177,8 +1192,9 @@ bool QmlEngine::evaluateScriptExpression(const QString& expression)
             //Incase of invalid context, show Error message
             qtMessageLogHandler()->
                             appendItem(new QtMessageLogItem(
+                                           qtMessageLogHandler()->root(),
                                            QtMessageLogHandler::ErrorType,
-                                           _("Cannot evaluate without"
+                                           _("Cannot evaluate without "
                                              "a valid QML/JS Context.")),
                                        qtMessageLogHandler()->rowCount());
         }
@@ -1289,12 +1305,12 @@ bool QmlEngine::canEvaluateScript(const QString &script)
 }
 
 QtMessageLogItem *QmlEngine::constructLogItemTree(
-        const QVariant &result, const QString &key)
+        QtMessageLogItem *parent, const QVariant &result, const QString &key)
 {
     if (!result.isValid())
         return 0;
 
-    QtMessageLogItem *item = new QtMessageLogItem();
+    QtMessageLogItem *item = new QtMessageLogItem(parent);
     if (result.type() == QVariant::Map) {
         if (key.isEmpty())
             item->text = _("Object");
@@ -1304,9 +1320,10 @@ QtMessageLogItem *QmlEngine::constructLogItemTree(
         QMapIterator<QString, QVariant> i(result.toMap());
         while (i.hasNext()) {
             i.next();
-            QtMessageLogItem *child = constructLogItemTree(i.value(), i.key());
+            QtMessageLogItem *child = constructLogItemTree(item,
+                                                           i.value(), i.key());
             if (child)
-                item->insertChild(item->childCount(), child);
+                item->insertChild(child);
         }
     } else if (result.type() == QVariant::List) {
         if (key.isEmpty())
@@ -1315,10 +1332,10 @@ QtMessageLogItem *QmlEngine::constructLogItemTree(
             item->text = QString(_("[%1] : List")).arg(key);
         QVariantList resultList = result.toList();
         for (int i = 0; i < resultList.count(); i++) {
-            QtMessageLogItem *child = constructLogItemTree(resultList.at(i),
+            QtMessageLogItem *child = constructLogItemTree(item, resultList.at(i),
                                                           QString::number(i));
             if (child)
-                item->insertChild(item->childCount(), child);
+                item->insertChild(child);
         }
     } else if (result.canConvert(QVariant::String)) {
         item->text = result.toString();

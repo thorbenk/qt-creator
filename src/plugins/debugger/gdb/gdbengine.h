@@ -57,6 +57,8 @@ namespace Internal {
 
 class AbstractGdbAdapter;
 class AbstractGdbProcess;
+class DebugInfoTask;
+class DebugInfoTaskHandler;
 class GdbResponse;
 class GdbMi;
 class GdbToolTipContext;
@@ -264,7 +266,6 @@ private: ////////// Gdb Process Management //////////
     void handleNamespaceExtraction(const GdbResponse &response);
 
     void handleAdapterStarted();
-    void defaultInferiorShutdown(const char *cmd);
     void loadInitScript();
     void loadPythonDumpers();
     void pythonDumpersFailed();
@@ -584,9 +585,9 @@ private: ////////// View & Data Stuff //////////
     // awful hack to keep track of used files
     QMap<QString, QString> m_shortToFullName;
     QMap<QString, QString> m_fullToShortName;
+    QMultiMap<QString, QString> m_baseNameToFullName;
 
     void invalidateSourcesList();
-    bool m_sourcesListOutdated;
     bool m_sourcesListUpdating;
     bool m_breakListOutdated;
 
@@ -655,6 +656,9 @@ private: ////////// View & Data Stuff //////////
     void handleDebuggingHelperSetup(const GdbResponse &response);
     void handleDebuggingHelperVersionCheckClassic(const GdbResponse &response);
     void handleDetach(const GdbResponse &response);
+
+    void handleThreadGroupCreated(const GdbMi &result);
+    void handleThreadGroupExited(const GdbMi &result);
 
     Q_SLOT void createFullBacktrace();
     void handleCreateFullBacktrace(const GdbResponse &response);
@@ -729,6 +733,7 @@ private: ////////// View & Data Stuff //////////
     // HACK:
     QByteArray m_currentThread;
     QString m_lastWinException;
+    QString m_lastMissingDebugInfo;
     BreakpointResponseId m_qFatalBreakpointResponseId;
     bool m_actingOnExpectedStop;
 
@@ -736,6 +741,11 @@ private: ////////// View & Data Stuff //////////
 
     QHash<int, QByteArray> m_scheduledTestResponses;
     QSet<int> m_testCases;
+
+    // Debug information
+    friend class DebugInfoTaskHandler;
+    void requestDebugInformation(const DebugInfoTask &task);
+    DebugInfoTaskHandler *m_debugInfoTaskHandler;
 };
 
 } // namespace Internal

@@ -64,7 +64,7 @@ namespace {
 class InsertDeclOperation: public CppQuickFixOperation
 {
 public:
-    InsertDeclOperation(const QSharedPointer<const Internal::CppQuickFixAssistInterface> &interface,
+    InsertDeclOperation(const QSharedPointer<const CppEditor::Internal::CppQuickFixAssistInterface> &interface,
                         const QString &targetFileName, const Class *targetSymbol,
                         InsertionPointLocator::AccessSpec xsSpec,
                         const QString &decl)
@@ -151,7 +151,7 @@ Class *isMemberFunction(const LookupContext &context, Function *function)
 } // anonymous namespace
 
 QList<CppQuickFixOperation::Ptr> DeclFromDef::match(
-    const QSharedPointer<const Internal::CppQuickFixAssistInterface> &interface)
+    const QSharedPointer<const CppEditor::Internal::CppQuickFixAssistInterface> &interface)
 {
     const QList<AST *> &path = interface->path();
     CppRefactoringFilePtr file = interface->currentFile();
@@ -229,7 +229,7 @@ namespace {
 class InsertDefOperation: public CppQuickFixOperation
 {
 public:
-    InsertDefOperation(const QSharedPointer<const Internal::CppQuickFixAssistInterface> &interface,
+    InsertDefOperation(const QSharedPointer<const CppEditor::Internal::CppQuickFixAssistInterface> &interface,
                        Declaration *decl, const InsertionLocation &loc)
         : CppQuickFixOperation(interface, 0)
         , m_decl(decl)
@@ -297,7 +297,7 @@ private:
 } // anonymous namespace
 
 QList<CppQuickFixOperation::Ptr> DefFromDecl::match(
-    const QSharedPointer<const Internal::CppQuickFixAssistInterface> &interface)
+    const QSharedPointer<const CppEditor::Internal::CppQuickFixAssistInterface> &interface)
 {
     const QList<AST *> &path = interface->path();
 

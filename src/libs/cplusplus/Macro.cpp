@@ -78,7 +78,8 @@ QString Macro::decoratedName() const
                 text += QLatin1String(", ");
             else
                 first = false;
-            text += QString::fromUtf8(formal.constData(), formal.size());
+            if (formal != "__VA_ARGS__")
+                text += QString::fromUtf8(formal.constData(), formal.size());
         }
         if (f._variadic)
             text += QLatin1String("...");
@@ -91,19 +92,11 @@ QString Macro::decoratedName() const
 QString Macro::toString() const
 {
     QString text = decoratedName();
-    text.append(QString::fromUtf8(_definition.constData(), _definition.size()));
+    text.append(QString::fromUtf8(_definitionText.constData(), _definitionText.size()));
     return text;
 }
 
 QString Macro::toStringWithLineBreaks() const
 {
-    if (_lineBreaks.isEmpty())
-        return toString();
-
-    QString text = decoratedName();
-    QString definitionWithBreaks = QString::fromUtf8(_definition.constData(), _definition.size());
-    foreach (unsigned pos, _lineBreaks)
-        definitionWithBreaks[pos] = '\n';
-    text.append(definitionWithBreaks);
-    return text;
+    return toString();
 }

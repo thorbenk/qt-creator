@@ -33,7 +33,6 @@
 #include "qmljsinspectortoolbar.h"
 
 #include "qmljsinspectorconstants.h"
-#include "qmljstoolbarcolorbox.h"
 
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/command.h>
@@ -46,6 +45,7 @@
 #include <projectexplorer/projectexplorerconstants.h>
 
 #include <utils/styledbar.h>
+#include <utils/savedaction.h>
 
 #include <QAction>
 #include <QActionGroup>
@@ -70,12 +70,10 @@ QmlJsInspectorToolBar::QmlJsInspectorToolBar(QObject *parent) :
     m_playAction(0),
     m_selectAction(0),
     m_zoomAction(0),
-    m_colorPickerAction(0),
     m_showAppOnTopAction(0),
     m_playSpeedMenuActions(0),
     m_playIcon(QIcon(QLatin1String(":/qml/images/play-small.png"))),
     m_pauseIcon(QIcon(QLatin1String(":/qml/images/pause-small.png"))),
-    m_colorBox(0),
     m_emitSignals(true),
     m_paused(false),
     m_animationSpeed(1.0f),
@@ -92,15 +90,12 @@ void QmlJsInspectorToolBar::setEnabled(bool value)
     m_playAction->setEnabled(value);
     m_selectAction->setEnabled(value);
     m_zoomAction->setEnabled(value);
-    m_colorPickerAction->setEnabled(value);
-    m_colorBox->setEnabled(value);
 }
 
 void QmlJsInspectorToolBar::enable()
 {
     setEnabled(true);
     m_emitSignals = false;
-    m_showAppOnTopAction->setChecked(false);
     setAnimationSpeed(1.0f);
     m_designModeActive = false;
     updateDesignModeActions(NoTool);
@@ -113,11 +108,6 @@ void QmlJsInspectorToolBar::disable()
     m_designModeActive = false;
     updateDesignModeActions(NoTool);
     setEnabled(false);
-}
-
-void QmlJsInspectorToolBar::activateColorPicker()
-{
-    updateDesignModeActions(ColorPickerMode);
 }
 
 void QmlJsInspectorToolBar::activateSelectTool()
@@ -177,12 +167,22 @@ void QmlJsInspectorToolBar::createActions()
     Core::Context context(Debugger::Constants::C_QMLDEBUGGER);
     Core::ActionManager *am = Core::ICore::actionManager();
 
-    m_fromQmlAction =
-            new QAction(QIcon(QLatin1String(":/qml/images/from-qml-small.png")),
-                        tr("Apply Changes on Save"), this);
-    m_showAppOnTopAction =
-            new QAction(QIcon(QLatin1String(":/qml/images/app-on-top.png")),
-                        tr("Show application on top"), this);
+    m_fromQmlAction = new Utils::SavedAction(this);
+    m_fromQmlAction->setDefaultValue(false);
+    m_fromQmlAction->setSettingsKey(QLatin1String(Constants::S_QML_INSPECTOR),
+                                    QLatin1String(Constants::FROM_QML_ACTION));
+    m_fromQmlAction->setText(tr("Apply Changes on Save"));
+    m_fromQmlAction->setCheckable(true);
+    m_fromQmlAction->setIcon(QIcon(QLatin1String(":/qml/images/from-qml-small.png")));
+
+    m_showAppOnTopAction = new Utils::SavedAction(this);
+    m_showAppOnTopAction->setDefaultValue(false);
+    m_showAppOnTopAction->setSettingsKey(QLatin1String(Constants::S_QML_INSPECTOR),
+                                         QLatin1String(Constants::SHOW_APP_ON_TOP_ACTION));
+    m_showAppOnTopAction->setText(tr("Show application on top"));
+    m_showAppOnTopAction->setCheckable(true);
+    m_showAppOnTopAction->setIcon(QIcon(QLatin1String(":/qml/images/app-on-top.png")));
+
     m_playAction =
             new QAction(m_pauseIcon, tr("Play/Pause Animations"), this);
     m_selectAction =
@@ -191,29 +191,18 @@ void QmlJsInspectorToolBar::createActions()
     m_zoomAction =
             new QAction(QIcon(QLatin1String(":/qml/images/zoom-small.png")),
                         tr("Zoom"), this);
-    m_colorPickerAction =
-            new QAction(QIcon(QLatin1String(":/qml/images/color-picker-small.png")),
-                        tr("Color Picker"), this);
 
-    m_fromQmlAction->setCheckable(true);
-    m_fromQmlAction->setChecked(true);
-    m_showAppOnTopAction->setCheckable(true);
-    m_showAppOnTopAction->setChecked(false);
     m_selectAction->setCheckable(true);
     m_zoomAction->setCheckable(true);
-    m_colorPickerAction->setCheckable(true);
 
     Core::Command *command = am->registerAction(m_playAction, Constants::PLAY_ACTION, context);
     command->setAttribute(Core::Command::CA_UpdateIcon);
     am->registerAction(m_selectAction, Constants::SELECT_ACTION, context);
     am->registerAction(m_zoomAction, Constants::ZOOM_ACTION, context);
-    am->registerAction(m_colorPickerAction, Constants::COLOR_PICKER_ACTION, context);
     am->registerAction(m_fromQmlAction, Constants::FROM_QML_ACTION, context);
     am->registerAction(m_showAppOnTopAction, Constants::SHOW_APP_ON_TOP_ACTION, context);
 
-    m_barWidget = new Utils::StyledBar;
-    m_barWidget->setSingleRow(true);
-    m_barWidget->setProperty("topBorder", true);
+    m_barWidget = new QWidget;
 
     QMenu *playSpeedMenu = new QMenu(m_barWidget);
     m_playSpeedMenuActions = new QActionGroup(this);
@@ -248,19 +237,7 @@ void QmlJsInspectorToolBar::createActions()
     toolBarLayout->setMargin(0);
     toolBarLayout->setSpacing(5);
 
-    m_operateByInstructionButton = toolButton(am->command(Debugger::Constants::OPERATE_BY_INSTRUCTION)->action());
-
-    // Add generic debugging controls
-    toolBarLayout->addWidget(toolButton(Debugger::DebuggerPlugin::visibleDebugAction()));
-    toolBarLayout->addWidget(toolButton(am->command(Debugger::Constants::STOP)->action()));
-    toolBarLayout->addWidget(toolButton(am->command(Debugger::Constants::NEXT)->action()));
-    toolBarLayout->addWidget(toolButton(am->command(Debugger::Constants::STEP)->action()));
-    toolBarLayout->addWidget(toolButton(am->command(Debugger::Constants::STEPOUT)->action()));
-    toolBarLayout->addWidget(m_operateByInstructionButton);
-    toolBarLayout->addStretch(1);
-
     // QML Helpers
-    toolBarLayout->addWidget(new Utils::StyledSeparator);
     toolBarLayout->addWidget(toolButton(am->command(Constants::FROM_QML_ACTION)->action()));
     toolBarLayout->addWidget(toolButton(am->command(Constants::SHOW_APP_ON_TOP_ACTION)->action()));
     m_playButton = toolButton(am->command(Constants::PLAY_ACTION)->action());
@@ -271,26 +248,31 @@ void QmlJsInspectorToolBar::createActions()
     toolBarLayout->addWidget(new Utils::StyledSeparator);
     toolBarLayout->addWidget(toolButton(am->command(Constants::SELECT_ACTION)->action()));
     toolBarLayout->addWidget(toolButton(am->command(Constants::ZOOM_ACTION)->action()));
-    toolBarLayout->addWidget(toolButton(am->command(Constants::COLOR_PICKER_ACTION)->action()));
-
-    m_colorBox = new ToolBarColorBox(m_barWidget);
-    m_colorBox->setMinimumSize(20, 20);
-    m_colorBox->setMaximumSize(20, 20);
-    m_colorBox->setInnerBorderColor(QColor(192, 192, 192));
-    m_colorBox->setOuterBorderColor(QColor(58, 58, 58));
-    toolBarLayout->addWidget(m_colorBox);
+    toolBarLayout->addWidget(new Utils::StyledSeparator);
 
     connect(m_fromQmlAction, SIGNAL(triggered()), SLOT(activateFromQml()));
     connect(m_showAppOnTopAction, SIGNAL(triggered()), SLOT(showAppOnTopClick()));
     connect(m_playAction, SIGNAL(triggered()), SLOT(activatePlayOnClick()));
-    connect(m_colorPickerAction, SIGNAL(triggered(bool)), SLOT(colorPickerTriggered(bool)));
     connect(m_selectAction, SIGNAL(triggered(bool)), SLOT(selectToolTriggered(bool)));
     connect(m_zoomAction, SIGNAL(triggered(bool)), SLOT(zoomToolTriggered(bool)));
 
-    Debugger::DebuggerMainWindow *mw = Debugger::DebuggerPlugin::mainWindow();
-    activeDebugLanguagesChanged(mw->activeDebugLanguages());
-    connect(mw, SIGNAL(activeDebugLanguagesChanged(Debugger::DebuggerLanguages)),
-            this, SLOT(activeDebugLanguagesChanged(Debugger::DebuggerLanguages)));
+    readSettings();
+    connect(Core::ICore::instance(),
+            SIGNAL(saveSettingsRequested()), SLOT(writeSettings()));
+}
+
+void QmlJsInspectorToolBar::readSettings()
+{
+    QSettings *settings = Core::ICore::settings();
+    m_fromQmlAction->readSettings(settings);
+    m_showAppOnTopAction->readSettings(settings);
+}
+
+void QmlJsInspectorToolBar::writeSettings() const
+{
+    QSettings *settings = Core::ICore::settings();
+    m_fromQmlAction->writeSettings(settings);
+    m_showAppOnTopAction->writeSettings(settings);
 }
 
 QWidget *QmlJsInspectorToolBar::widget() const
@@ -318,19 +300,6 @@ void QmlJsInspectorToolBar::activatePlayOnClick()
 void QmlJsInspectorToolBar::updatePlayAction()
 {
     m_playAction->setIcon(m_paused ? m_playIcon : m_pauseIcon);
-}
-
-void QmlJsInspectorToolBar::colorPickerTriggered(bool checked)
-{
-    updateDesignModeActions(ColorPickerMode);
-
-    if (m_designModeActive != checked) {
-        m_designModeActive = checked;
-        emit designModeSelected(checked);
-    }
-
-    if (checked)
-        emit colorPickerSelected();
 }
 
 void QmlJsInspectorToolBar::selectToolTriggered(bool checked)
@@ -365,20 +334,10 @@ void QmlJsInspectorToolBar::showAppOnTopClick()
         emit showAppOnTopSelected(m_showAppOnTopAction->isChecked());
 }
 
-void QmlJsInspectorToolBar::setSelectedColor(const QColor &color)
-{
-    m_colorBox->setColor(color);
-}
-
 void QmlJsInspectorToolBar::activateFromQml()
 {
     if (m_emitSignals)
         emit applyChangesFromQmlFileTriggered(m_fromQmlAction->isChecked());
-}
-
-void QmlJsInspectorToolBar::activeDebugLanguagesChanged(Debugger::DebuggerLanguages languages)
-{
-    m_operateByInstructionButton->setVisible(languages & Debugger::CppLanguage);
 }
 
 void QmlJsInspectorToolBar::updateDesignModeActions(DesignTool activeTool)
@@ -386,7 +345,6 @@ void QmlJsInspectorToolBar::updateDesignModeActions(DesignTool activeTool)
     m_activeTool = activeTool;
     m_selectAction->setChecked(m_designModeActive && (m_activeTool == SelectionToolMode));
     m_zoomAction->setChecked(m_designModeActive && (m_activeTool == ZoomMode));
-    m_colorPickerAction->setChecked(m_designModeActive && (m_activeTool == ColorPickerMode));
 }
 
 } // namespace Internal

@@ -61,12 +61,14 @@ public:
         attachPID(-1),
         useTerminal(false),
         breakOnMain(false),
+        multiProcess(false),
         languages(AnyLanguage),
         qmlServerAddress(QLatin1String("127.0.0.1")),
         qmlServerPort(ProjectExplorer::Constants::QML_DEFAULT_DEBUG_SERVER_PORT),
         useServerStartScript(false),
         requestRemoteSetup(false),
         startMode(NoStartMode),
+        closeMode(KillAtClose),
         executableUid(0),
         communicationChannel(CommunicationChannelTcpIp),
         serverPort(0),
@@ -87,6 +89,7 @@ public:
     qint64 attachPID;
     bool useTerminal;
     bool breakOnMain;
+    bool multiProcess;
     DebuggerLanguages languages;
 
     // Used by AttachCrashedExternal.
@@ -125,6 +128,7 @@ public:
     QString dumperLibrary;
     QStringList dumperLibraryLocations;
     DebuggerStartMode startMode;
+    DebuggerCloseMode closeMode;
 
     // For Symbian debugging.
     quint32 executableUid;

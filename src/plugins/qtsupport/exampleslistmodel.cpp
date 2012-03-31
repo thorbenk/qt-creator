@@ -134,10 +134,13 @@ QList<ExampleItem> ExamplesListModel::parseExamples(QXmlStreamReader* reader, co
         }
             break;
         case QXmlStreamReader::EndElement:
-            if (reader->name() == QLatin1String("example"))
+            if (reader->name() == QLatin1String("example")) {
+                if (item.projectPath.isEmpty() || !QFileInfo(item.projectPath).exists())
+                    item.tags.append("broken");
                 examples.append(item);
-            else if (reader->name() == QLatin1String("examples"))
+            } else if (reader->name() == QLatin1String("examples")) {
                 return examples;
+            }
             break;
         default: // nothing
             break;

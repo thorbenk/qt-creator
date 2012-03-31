@@ -30,13 +30,16 @@ DynamicLibrary {
         "qv8profilerclient.cpp",
         "qv8profilerclient.h",
         "qdeclarativedebugclient.h",
-        "qdeclarativeenginedebug.cpp",
-        "qdeclarativeenginedebug.h",
+        "qmlenginedebugclient.cpp",
+        "qmlenginedebugclient.h",
         "qmlprofilereventtypes.h",
         "qmlprofilertraceclient.h",
         "qpacketprotocol.h",
         "qdebugmessageclient.cpp",
-        "qdebugmessageclient.h"
+        "qdebugmessageclient.h",
+        "qdeclarativeengineclient.h",
+        "qmldebuggerclient.h",
+        "qmldebuggerclient.cpp"
     ]
 
     ProductModule {

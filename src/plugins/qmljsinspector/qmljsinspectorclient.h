@@ -51,7 +51,6 @@ public:
     void setDesignModeBehavior(bool inDesignMode);
     void setAnimationSpeed(qreal slowDownFactor);
     void setAnimationPaused(bool paused);
-    void changeToColorPickerTool();
     void changeToSelectTool();
     void changeToSelectMarqueeTool();
     void changeToZoomTool();
@@ -68,7 +67,7 @@ public:
     QList<int> currentObjects() const;
 
     // ### Qt 4.8: remove if we can have access to qdeclarativecontextdata or id's
-    void setObjectIdList(const QList<QDeclarativeDebugObjectReference> &objectRoots);
+    void setObjectIdList(const QList<QmlDebugObjectReference> &objectRoots);
 
     void clearComponentCache();
 
@@ -76,8 +75,6 @@ signals:
     void connectedStatusChanged(QDeclarativeDebugClient::Status status);
 
     void currentObjectsChanged(const QList<int> &debugIds);
-    void selectedColorChanged(const QColor &color);
-    void colorPickerActivated();
     void selectToolActivated();
     void selectMarqueeToolActivated();
     void zoomToolActivated();

@@ -67,7 +67,7 @@ public:
 
     QWeakPointer<DebuggerEngine> m_engine;
     QmlDebuggerClient *m_qmlClient;
-    QmlJsDebugClient::QDeclarativeEngineDebug *m_engineDebugClient;
+    QmlJsDebugClient::QmlEngineDebugClient *m_engineDebugClient;
     QTimer m_connectionTimer;
     QDeclarativeDebugConnection *m_conn;
     QHash<QString, QmlDebuggerClient*> debugClients;
@@ -304,14 +304,24 @@ QHash<QString, Internal::QmlDebuggerClient*> QmlAdapter::debuggerClients()
     return d->debugClients;
 }
 
-QmlJsDebugClient::QDeclarativeEngineDebug *QmlAdapter::engineDebugClient() const
+QmlJsDebugClient::QmlEngineDebugClient *QmlAdapter::engineDebugClient() const
 {
     return d->m_engineDebugClient;
 }
 
-void QmlAdapter::setEngineDebugClient(QmlJsDebugClient::QDeclarativeEngineDebug *client)
+void QmlAdapter::setEngineDebugClient(QmlJsDebugClient::QmlEngineDebugClient *client)
 {
+    Internal::QmlEngine *engine =
+            qobject_cast<Internal::QmlEngine *>(d->m_engine.data());
+    if (engine && d->m_engineDebugClient)
+        disconnect(d->m_engineDebugClient, SIGNAL(result(quint32,QVariant,QByteArray)),
+                engine,
+                SLOT(expressionEvaluated(quint32,QVariant)));
     d->m_engineDebugClient = client;
+    if (engine && d->m_engineDebugClient)
+        connect(d->m_engineDebugClient, SIGNAL(result(quint32,QVariant,QByteArray)),
+                engine,
+                SLOT(expressionEvaluated(quint32,QVariant)));
 }
 
 QmlJsDebugClient::QDebugMessageClient *QmlAdapter::messageClient() const

@@ -79,7 +79,6 @@
 #include "buildconfiguration.h"
 #include "miniprojecttargetselector.h"
 #include "taskhub.h"
-#include "devicesupport/devicemanager.h"
 #include "devicesupport/devicesettingspage.h"
 #include "publishing/ipublishingwizardfactory.h"
 #include "publishing/publishingwizardselectiondialog.h"
@@ -287,7 +286,6 @@ ProjectExplorerPlugin::ProjectExplorerPlugin()
 
 ProjectExplorerPlugin::~ProjectExplorerPlugin()
 {
-    DeviceManager::deleteInstance();
     removeObject(d->m_welcomePage);
     delete d->m_welcomePage;
     removeObject(this);
@@ -371,7 +369,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     Core::Context projecTreeContext(Constants::C_PROJECT_TREE);
 
     d->m_projectsMode = new ProjectsMode(d->m_proWindow);
-    d->m_projectsMode->setEnabled(session()->startupProject());
+    d->m_projectsMode->setEnabled(false);
     addAutoReleasedObject(d->m_projectsMode);
     d->m_proWindow->layout()->addWidget(new Core::FindToolBarPlaceHolder(d->m_proWindow));
 
@@ -1281,7 +1279,7 @@ void ProjectExplorerPlugin::openProjectWelcomePage(const QString &fileName)
         QMessageBox::critical(Core::ICore::mainWindow(), tr("Failed to open project"), errorMessage);
 }
 
-bool ProjectExplorerPlugin::openProject(const QString &fileName, QString *errorString)
+Project *ProjectExplorerPlugin::openProject(const QString &fileName, QString *errorString)
 {
     if (debug)
         qDebug() << "ProjectExplorerPlugin::openProject";
@@ -1290,9 +1288,9 @@ bool ProjectExplorerPlugin::openProject(const QString &fileName, QString *errorS
     if (!list.isEmpty()) {
         addToRecentProjects(fileName, list.first()->displayName());
         d->m_session->setStartupProject(list.first());
-        return true;
+        return list.first();
     }
-    return false;
+    return 0;
 }
 
 static inline QList<IProjectManager*> allProjectManagers()
@@ -2138,6 +2136,8 @@ void ProjectExplorerPlugin::runControlFinished()
 
 void ProjectExplorerPlugin::projectAdded(ProjectExplorer::Project *pro)
 {
+    if (d->m_projectsMode)
+        d->m_projectsMode->setEnabled(true);
     // more specific action en and disabling ?
     connect(pro, SIGNAL(buildConfigurationEnabledChanged()),
             this, SLOT(updateActions()));
@@ -2145,6 +2145,8 @@ void ProjectExplorerPlugin::projectAdded(ProjectExplorer::Project *pro)
 
 void ProjectExplorerPlugin::projectRemoved(ProjectExplorer::Project * pro)
 {
+    if (d->m_projectsMode)
+        d->m_projectsMode->setEnabled(!session()->projects().isEmpty());
     // more specific action en and disabling ?
     disconnect(pro, SIGNAL(buildConfigurationEnabledChanged()),
                this, SLOT(updateActions()));
@@ -2156,9 +2158,6 @@ void ProjectExplorerPlugin::startupProjectChanged()
     Project *project = startupProject();
     if (project == previousStartupProject)
         return;
-
-    if (d->m_projectsMode)
-        d->m_projectsMode->setEnabled(project);
 
     if (previousStartupProject) {
         disconnect(previousStartupProject, SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
@@ -2208,14 +2207,14 @@ void ProjectExplorerPlugin::activeRunConfigurationChanged()
     if (rc == previousRunConfiguration)
         return;
     if (previousRunConfiguration) {
-        disconnect(previousRunConfiguration, SIGNAL(isEnabledChanged(bool)),
+        disconnect(previousRunConfiguration, SIGNAL(enabledChanged()),
                    this, SIGNAL(updateRunActions()));
         disconnect(previousRunConfiguration->debuggerAspect(), SIGNAL(debuggersChanged()),
                    this, SIGNAL(updateRunActions()));
     }
     previousRunConfiguration = rc;
     if (rc) {
-        connect(rc, SIGNAL(isEnabledChanged(bool)),
+        connect(rc, SIGNAL(enabledChanged()),
                 this, SIGNAL(updateRunActions()));
         connect(rc->debuggerAspect(), SIGNAL(debuggersChanged()),
                 this, SIGNAL(updateRunActions()));

@@ -32,7 +32,9 @@
 
 #include "debuggermainwindow.h"
 #include "debuggercore.h"
+#include "debuggerengine.h"
 
+#include <utils/appmainwindow.h>
 #include <utils/styledbar.h>
 #include <utils/qtcassert.h>
 #include <utils/fancymainwindow.h>
@@ -124,7 +126,8 @@ public:
 
     DebuggerLanguages m_supportedLanguages;
 
-    QStackedWidget *m_toolBarStack;
+    QWidget *m_debugToolBar;
+    QHBoxLayout *m_debugToolBarLayout;
 
     QHash<DebuggerLanguage, Context> m_contextsForLanguage;
 
@@ -141,13 +144,16 @@ public:
     Project *m_previousProject;
     Target *m_previousTarget;
     RunConfiguration *m_previousRunConfiguration;
+
+    DebuggerEngine *m_engine;
 };
 
 DebuggerMainWindowPrivate::DebuggerMainWindowPrivate(DebuggerMainWindow *mw)
     : q(mw)
     , m_resizeEventFilter(this)
     , m_supportedLanguages(AnyLanguage)
-    , m_toolBarStack(new QStackedWidget)
+    , m_debugToolBar(new QWidget)
+    , m_debugToolBarLayout(new QHBoxLayout(m_debugToolBar))
     , m_inDebugMode(false)
     , m_changingUI(false)
     , m_previousDebugLanguages(AnyLanguage)
@@ -157,8 +163,12 @@ DebuggerMainWindowPrivate::DebuggerMainWindowPrivate(DebuggerMainWindow *mw)
     , m_previousProject(0)
     , m_previousTarget(0)
     , m_previousRunConfiguration(0)
+    , m_engine(0)
 {
+    m_debugToolBarLayout->setMargin(0);
+    m_debugToolBarLayout->setSpacing(0);
     createViewsMenuItems();
+    addLanguage(AnyLanguage, Context());
     addLanguage(CppLanguage, Context(C_CPPDEBUGGER));
     addLanguage(QmlLanguage, Context(C_QMLDEBUGGER));
 }
@@ -271,6 +281,15 @@ DebuggerMainWindow::~DebuggerMainWindow()
     delete d;
 }
 
+void DebuggerMainWindow::setCurrentEngine(DebuggerEngine *engine)
+{
+    if (d->m_engine)
+        disconnect(d->m_engine, SIGNAL(raiseWindow()), this, SLOT(raiseDebuggerWindow()));
+    d->m_engine = engine;
+    if (d->m_engine)
+        connect(d->m_engine, SIGNAL(raiseWindow()), this, SLOT(raiseDebuggerWindow()));
+}
+
 DebuggerLanguages DebuggerMainWindow::activeDebugLanguages() const
 {
     return d->m_activeDebugLanguages;
@@ -353,8 +372,10 @@ void DebuggerMainWindowPrivate::activateQmlCppLayout()
 {
     Context qmlCppContext = m_contextsForLanguage.value(QmlLanguage);
     qmlCppContext.add(m_contextsForLanguage.value(CppLanguage));
-    if (m_toolBars.value(QmlLanguage))
-        m_toolBarStack->setCurrentWidget(m_toolBars.value(QmlLanguage));
+    if (m_toolBars.value(QmlLanguage)) {
+        m_toolBars.value(QmlLanguage)->show();
+        m_debugToolBarLayout->insertWidget(1, m_toolBars.value(QmlLanguage));
+    }
 
     if (m_previousDebugLanguages & QmlLanguage) {
         m_dockWidgetActiveStateQmlCpp = q->saveSettings();
@@ -373,7 +394,10 @@ void DebuggerMainWindowPrivate::activateCppLayout()
 {
     Context qmlCppContext = m_contextsForLanguage.value(QmlLanguage);
     qmlCppContext.add(m_contextsForLanguage.value(CppLanguage));
-    m_toolBarStack->setCurrentWidget(m_toolBars.value(CppLanguage));
+    if (m_toolBars.value(QmlLanguage)) {
+        m_toolBars.value(QmlLanguage)->hide();
+        m_debugToolBarLayout->removeWidget(m_toolBars.value(QmlLanguage));
+    }
 
     if (m_previousDebugLanguages & QmlLanguage) {
         m_dockWidgetActiveStateQmlCpp = q->saveSettings();
@@ -394,7 +418,12 @@ void DebuggerMainWindow::setToolBar(DebuggerLanguage language, QWidget *widget)
 {
     Q_ASSERT(d->m_toolBars.contains(language));
     d->m_toolBars[language] = widget;
-    d->m_toolBarStack->addWidget(widget);
+    if (language == CppLanguage)
+        d->m_debugToolBarLayout->addWidget(widget);
+
+    //Add widget at the end
+    if (language == AnyLanguage)
+        d->m_debugToolBarLayout->insertWidget(-1, widget, 10);
 }
 
 QDockWidget *DebuggerMainWindow::dockWidget(const QString &objectName) const
@@ -493,7 +522,7 @@ QWidget *DebuggerMainWindow::createContents(IMode *mode)
     QHBoxLayout *debugToolBarLayout = new QHBoxLayout(debugToolBar);
     debugToolBarLayout->setMargin(0);
     debugToolBarLayout->setSpacing(0);
-    debugToolBarLayout->addWidget(d->m_toolBarStack);
+    debugToolBarLayout->addWidget(d->m_debugToolBar);
     debugToolBarLayout->addWidget(new Utils::StyledSeparator);
 
     QDockWidget *dock = new QDockWidget(DebuggerMainWindowPrivate::tr("Debugger Toolbar"));
@@ -557,6 +586,14 @@ void DebuggerMainWindow::writeSettings() const
         settings->setValue(it.key(), it.value());
     }
     settings->endGroup();
+}
+
+void DebuggerMainWindow::raiseDebuggerWindow()
+{
+    Core::ICore *core = Core::ICore::instance();
+    Utils::AppMainWindow *appMainWindow = qobject_cast<Utils::AppMainWindow*>(core->mainWindow());
+    QTC_ASSERT(appMainWindow, return)
+    appMainWindow->raiseWindow();
 }
 
 void DebuggerMainWindow::readSettings()

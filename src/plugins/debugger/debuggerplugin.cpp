@@ -1001,7 +1001,7 @@ public slots:
         QTC_ASSERT(act, return);
         const BreakpointModelId id = act->data().value<BreakpointModelId>();
         QTC_ASSERT(id > 0, return);
-        BreakWindow::editBreakpoint(id, mainWindow());
+        BreakTreeView::editBreakpoint(id, mainWindow());
     }
 
     void slotRunToLine()
@@ -1115,6 +1115,7 @@ public slots:
     void maybeEnrichParameters(DebuggerStartParameters *sp);
 
     void gdbServerStarted(const QString &channel, const QString &sysroot, const QString &localExecutable);
+    void attachedToProcess(const QString &channel, const QString &sysroot, const QString &localExecutable);
 
 public:
     DebuggerMainWindow *m_mainWindow;
@@ -1168,18 +1169,18 @@ public:
     Utils::StatusLabel *m_statusLabel;
     QComboBox *m_threadBox;
 
-    BreakWindow *m_breakWindow;
+    BaseWindow *m_breakWindow;
     BreakHandler *m_breakHandler;
     QtMessageLogWindow *m_qtMessageLogWindow;
-    QTreeView *m_returnWindow;
-    QTreeView *m_localsWindow;
-    QTreeView *m_watchersWindow;
-    QAbstractItemView *m_registerWindow;
-    QAbstractItemView *m_modulesWindow;
-    QAbstractItemView *m_snapshotWindow;
-    SourceFilesWindow *m_sourceFilesWindow;
-    QAbstractItemView *m_stackWindow;
-    QAbstractItemView *m_threadsWindow;
+    WatchWindow *m_returnWindow;
+    WatchWindow *m_localsWindow;
+    WatchWindow *m_watchersWindow;
+    BaseWindow *m_registerWindow;
+    BaseWindow *m_modulesWindow;
+    BaseWindow *m_snapshotWindow;
+    BaseWindow *m_sourceFilesWindow;
+    BaseWindow *m_stackWindow;
+    BaseWindow *m_threadsWindow;
     LogWindow *m_logWindow;
 
     bool m_busy;
@@ -1317,7 +1318,7 @@ void DebuggerPluginPrivate::maybeEnrichParameters(DebuggerStartParameters *sp)
         sp->debugSourceLocation.append(base + QLatin1String("qt5base/src/gui"));
         sp->debugSourceLocation.append(base + QLatin1String("qt5base/src/network"));
         sp->debugSourceLocation.append(base + QLatin1String("qt5base/src/v8"));
-        sp->debugSourceLocation.append(base + QLatin1String("qt5declarative/src/declarative/qml"));
+        sp->debugSourceLocation.append(base + QLatin1String("qt5declarative/src/qml"));
     }
 }
 
@@ -1338,6 +1339,7 @@ bool DebuggerPluginPrivate::parseArgument(QStringList::const_iterator &it,
         qulonglong pid = it->toULongLong();
         if (pid) {
             sp.startMode = AttachExternal;
+            sp.closeMode = DetachAtClose;
             sp.attachPID = pid;
             sp.displayName = tr("Process %1").arg(sp.attachPID);
             sp.startMessage = tr("Attaching to local process %1.").arg(sp.attachPID);
@@ -1559,6 +1561,7 @@ void DebuggerPluginPrivate::attachExternalApplication()
     sp.displayName = tr("Process %1").arg(dlg.attachPID());
     sp.executable = dlg.executable();
     sp.startMode = AttachExternal;
+    sp.closeMode = DetachAtClose;
     sp.toolChainAbi = dlg.abi();
     sp.debuggerCommand = dlg.debuggerCommand();
     if (DebuggerRunControl *rc = createDebugger(sp))
@@ -1571,6 +1574,7 @@ void DebuggerPluginPrivate::attachExternalApplication(RunControl *rc)
     sp.attachPID = rc->applicationProcessHandle().pid();
     sp.displayName = tr("Debugger attached to %1").arg(rc->displayName());
     sp.startMode = AttachExternal;
+    sp.closeMode = DetachAtClose;
     sp.toolChainAbi = rc->abi();
     if (DebuggerRunControl *rc = createDebugger(sp))
         startDebugger(rc);
@@ -1616,6 +1620,7 @@ void DebuggerPluginPrivate::attachToRemoteServer(const QString &spec)
     sp.remoteArchitecture = spec.section(QLatin1Char('@'), 2, 2);
     sp.displayName = tr("Remote: \"%1\"").arg(sp.remoteChannel);
     sp.startMode = AttachToRemoteServer;
+    sp.closeMode = KillAtClose;
     sp.toolChainAbi = anyAbiOfBinary(sp.executable);
     if (DebuggerRunControl *rc = createDebugger(sp))
         startDebugger(rc);
@@ -1629,6 +1634,7 @@ void DebuggerPluginPrivate::startRemoteCdbSession()
     sp.toolChainAbi = Abi(hostAbi.architecture(), Abi::WindowsOS,
         Abi::WindowsMsvc2010Flavor, Abi::PEFormat, hostAbi.wordWidth());
     sp.startMode = AttachToRemoteServer;
+    sp.closeMode = KillAtClose;
     StartRemoteCdbDialog dlg(mainWindow());
     QString previousConnection = configValue(connectionKey).toString();
     if (previousConnection.isEmpty())
@@ -1665,16 +1671,12 @@ void DebuggerPluginPrivate::attachToRemoteServer()
     DebuggerStartParameters sp;
     if (StartRemoteDialog::run(mainWindow(), m_coreSettings, false, &sp)) {
         sp.startMode = AttachToRemoteServer;
+        sp.closeMode = KillAtClose;
         sp.useServerStartScript = false;
         sp.serverStartScript.clear();
         if (RunControl *rc = createDebugger(sp))
             startDebugger(rc);
     }
-}
-
-void DebuggerPluginPrivate::attachToRemoteProcess()
-{
-    startRemoteServer();
 }
 
 void DebuggerPluginPrivate::startRemoteServer()
@@ -1688,6 +1690,24 @@ void DebuggerPluginPrivate::startRemoteServer()
 }
 
 void DebuggerPluginPrivate::gdbServerStarted(const QString &channel,
+    const QString &sysroot, const QString &remoteCommandLine)
+{
+    Q_UNUSED(remoteCommandLine);
+    Q_UNUSED(sysroot);
+    showStatusMessage(tr("gdbserver is now listening at %1").arg(channel));
+}
+
+void DebuggerPluginPrivate::attachToRemoteProcess()
+{
+    PluginManager *pm = PluginManager::instance();
+    QTC_ASSERT(pm, return);
+    QObject *rl = pm->getObjectByName(_("RemoteLinuxPlugin"));
+    QTC_ASSERT(rl, return);
+    QMetaObject::invokeMethod(rl, "attachToRemoteProcess", Qt::QueuedConnection);
+    // This will call back attachedtToProcess() below.
+}
+
+void DebuggerPluginPrivate::attachedToProcess(const QString &channel,
     const QString &sysroot, const QString &remoteCommandLine)
 {
     QString binary = remoteCommandLine.section(QLatin1Char(' '), 0, 0);
@@ -1728,6 +1748,7 @@ void DebuggerPluginPrivate::gdbServerStarted(const QString &channel,
     sp.sysroot = sysroot;
     sp.executable = localExecutable;
     sp.startMode = AttachToRemoteServer;
+    sp.closeMode = KillAtClose;
     sp.overrideStartScript.clear();
     sp.useServerStartScript = false;
     sp.serverStartScript.clear();
@@ -1771,6 +1792,7 @@ void DebuggerPluginPrivate::attachToQmlPort()
     sp.sysroot = dlg.sysroot();
 
     sp.startMode = AttachToRemoteServer;
+    sp.closeMode = KillAtClose;
     sp.languages = QmlLanguage;
 
     //
@@ -1919,7 +1941,7 @@ void DebuggerPluginPrivate::requestContextMenu(ITextEditor *editor,
         // Handle non-existing breakpoint.
         const QString text = args.address
             ? tr("Set Breakpoint at 0x%1").arg(args.address, 0, 16)
-            : tr("Set Breakpoint at line %1").arg(lineNumber);
+            : tr("Set Breakpoint at Line %1").arg(lineNumber);
         QAction *act = new QAction(text, menu);
         act->setData(QVariant::fromValue(args));
         act->setEnabled(contextUsable);
@@ -1930,7 +1952,7 @@ void DebuggerPluginPrivate::requestContextMenu(ITextEditor *editor,
         args.mode = BreakpointMenuContextData::MessageTracePoint;
         const QString tracePointText = args.address
             ? tr("Set Message Tracepoint at 0x%1...").arg(args.address, 0, 16)
-            : tr("Set Message Tracepoint at line %1...").arg(lineNumber);
+            : tr("Set Message Tracepoint at Line %1...").arg(lineNumber);
         act = new QAction(tracePointText, menu);
         act->setData(QVariant::fromValue(args));
         act->setEnabled(contextUsable);
@@ -1966,7 +1988,8 @@ void DebuggerPluginPrivate::requestContextMenu(ITextEditor *editor,
             frame.function = cppFunctionAt(fileName, lineNumber);
             frame.line = 42; // trick gdb into mixed mode.
             if (!frame.function.isEmpty()) {
-                const QString text = tr("Disassemble '%1()'").arg(frame.function);
+                const QString text = tr("Disassemble Function \"%1\"")
+                    .arg(frame.function);
                 QAction *disassembleAction = new QAction(text, menu);
                 disassembleAction->setData(QVariant::fromValue(frame));
                 connect(disassembleAction, SIGNAL(triggered()), SLOT(slotDisassembleFunction()));
@@ -2099,6 +2122,7 @@ void DebuggerPluginPrivate::connectEngine(DebuggerEngine *engine)
     engine->watchHandler()->rebuildModel();
 
     mainWindow()->setEngineDebugLanguages(engine->languages());
+    mainWindow()->setCurrentEngine(engine);
 }
 
 static void changeFontSize(QWidget *widget, qreal size)
@@ -2316,6 +2340,8 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
     m_startRemoteProcessAction->setEnabled(true);
     m_attachToRemoteServerAction->setEnabled(true);
     m_attachToRemoteProcessAction->setEnabled(true);
+
+    m_threadBox->setEnabled(state == InferiorStopOk);
 
     const bool isCore = engine->startParameters().startMode == AttachCore;
     const bool stopped = state == InferiorStopOk;
@@ -2882,11 +2908,11 @@ void DebuggerPluginPrivate::extensionsInitialized()
     m_sourceFilesWindow->setObjectName(QLatin1String(DOCKWIDGET_SOURCE_FILES));
     m_threadsWindow = new ThreadsWindow;
     m_threadsWindow->setObjectName(QLatin1String(DOCKWIDGET_THREADS));
-    m_returnWindow = new WatchWindow(WatchWindow::ReturnType);
+    m_returnWindow = new WatchWindow(WatchTreeView::ReturnType);
     m_returnWindow->setObjectName(QLatin1String("CppDebugReturn"));
-    m_localsWindow = new WatchWindow(WatchWindow::LocalsType);
+    m_localsWindow = new WatchWindow(WatchTreeView::LocalsType);
     m_localsWindow->setObjectName(QLatin1String("CppDebugLocals"));
-    m_watchersWindow = new WatchWindow(WatchWindow::WatchersType);
+    m_watchersWindow = new WatchWindow(WatchTreeView::WatchersType);
     m_watchersWindow->setObjectName(QLatin1String("CppDebugWatchers"));
 
     // Snapshot
@@ -3073,7 +3099,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
     connect(act, SIGNAL(triggered()), SLOT(attachToRemoteServer()));
 
     act = m_startRemoteServerAction = new QAction(this);
-    act->setText(tr("Start Remote Debug Server..."));
+    act->setText(tr("Start Remote Debug Server Attached to Process..."));
     connect(act, SIGNAL(triggered()), SLOT(startRemoteServer()));
 
     act = m_attachToRemoteProcessAction = new QAction(this);
@@ -3431,9 +3457,9 @@ void DebuggerPluginPrivate::extensionsInitialized()
 
     hbox->addWidget(m_threadBox);
     hbox->addSpacerItem(new QSpacerItem(4, 0));
-    hbox->addWidget(m_statusLabel, 10);
 
     m_mainWindow->setToolBar(CppLanguage, toolbarContainer);
+    m_mainWindow->setToolBar(AnyLanguage, m_statusLabel);
 
     connect(action(EnableReverseDebugging),
         SIGNAL(valueChanged(QVariant)),

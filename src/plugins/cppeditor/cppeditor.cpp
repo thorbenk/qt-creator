@@ -1529,10 +1529,12 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
     return Link();
 }
 
+#if 0
 void CPPEditorWidget::jumpToDefinition()
 {
     codeNavigate(false);
 }
+#endif
 
 Symbol *CPPEditorWidget::findDefinition(Symbol *symbol, const Snapshot &snapshot) const
 {

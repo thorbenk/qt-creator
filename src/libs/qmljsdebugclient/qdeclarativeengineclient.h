@@ -6,7 +6,6 @@
 **
 ** Contact: Nokia Corporation (qt-info@nokia.com)
 **
-**
 ** GNU Lesser General Public License Usage
 **
 ** This file may be used under the terms of the GNU Lesser General Public
@@ -29,47 +28,26 @@
 ** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
-#ifndef TOOLBARCOLORBOX_H
-#define TOOLBARCOLORBOX_H
 
-#include <QLabel>
-#include <QColor>
-#include <QPoint>
+#ifndef QDECLARATIVEENGINECLIENT_H
+#define QDECLARATIVEENGINECLIENT_H
 
-QT_FORWARD_DECLARE_CLASS(QContextMenuEvent)
-QT_FORWARD_DECLARE_CLASS(QAction)
+#include "qmlenginedebugclient.h"
 
-namespace QmlJSInspector {
+namespace QmlJsDebugClient {
 
-class ToolBarColorBox : public QLabel
+class QDeclarativeDebugConnection;
+
+class QMLJSDEBUGCLIENT_EXPORT QDeclarativeEngineClient : public QmlEngineDebugClient
 {
     Q_OBJECT
 public:
-    explicit ToolBarColorBox(QWidget *parent = 0);
-    void setColor(const QColor &color);
-    void setInnerBorderColor(const QColor &color);
-    void setOuterBorderColor(const QColor &color);
-
-protected:
-    void contextMenuEvent(QContextMenuEvent *ev);
-    void mousePressEvent(QMouseEvent *ev);
-    void mouseMoveEvent(QMouseEvent *ev);
-private slots:
-    void copyColorToClipboard();
-
-private:
-    QPixmap createDragPixmap(int size = 24) const;
-
-private:
-    bool m_dragStarted;
-    QPoint m_dragBeginPoint;
-    QAction *m_copyHexColorAction;
-    QColor m_color;
-
-    QColor m_borderColorOuter;
-    QColor m_borderColorInner;
+    QDeclarativeEngineClient(QDeclarativeDebugConnection *conn)
+        : QmlEngineDebugClient(QLatin1String("QDeclarativeEngine"), conn)
+    {
+    }
 };
 
-} // namespace QmlJSInspector
+} // namespace QmlJsDebugClient
 
-#endif // TOOLBARCOLORBOX_H
+#endif // QDECLARATIVEENGINECLIENT_H

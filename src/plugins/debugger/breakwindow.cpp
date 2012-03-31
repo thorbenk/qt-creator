@@ -486,11 +486,9 @@ MultiBreakPointsDialog::MultiBreakPointsDialog(QWidget *parent) :
 //
 ///////////////////////////////////////////////////////////////////////
 
-BreakWindow::BreakWindow(QWidget *parent)
-    : BaseWindow(parent)
+BreakTreeView::BreakTreeView(QWidget *parent)
+    : BaseTreeView(parent)
 {
-    setWindowTitle(tr("Breakpoints"));
-    setObjectName(QLatin1String("ThreadsWindow"));
     setWindowIcon(QIcon(QLatin1String(":/debugger/images/debugger_breakpoints.png")));
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setAlwaysAdjustColumnsAction(debuggerCore()->action(AlwaysAdjustBreakpointsColumnWidths));
@@ -498,12 +496,12 @@ BreakWindow::BreakWindow(QWidget *parent)
         SIGNAL(toggled(bool)), SLOT(showAddressColumn(bool)));
 }
 
-void BreakWindow::showAddressColumn(bool on)
+void BreakTreeView::showAddressColumn(bool on)
 {
     setColumnHidden(7, !on);
 }
 
-void BreakWindow::keyPressEvent(QKeyEvent *ev)
+void BreakTreeView::keyPressEvent(QKeyEvent *ev)
 {
     if (ev->key() == Qt::Key_Delete) {
         QItemSelectionModel *sm = selectionModel();
@@ -519,7 +517,7 @@ void BreakWindow::keyPressEvent(QKeyEvent *ev)
     QTreeView::keyPressEvent(ev);
 }
 
-void BreakWindow::mouseDoubleClickEvent(QMouseEvent *ev)
+void BreakTreeView::mouseDoubleClickEvent(QMouseEvent *ev)
 {
     QModelIndex indexUnderMouse = indexAt(ev->pos());
     if (indexUnderMouse.isValid() && indexUnderMouse.column() >= 4) {
@@ -529,16 +527,16 @@ void BreakWindow::mouseDoubleClickEvent(QMouseEvent *ev)
     QTreeView::mouseDoubleClickEvent(ev);
 }
 
-void BreakWindow::setModel(QAbstractItemModel *model)
+void BreakTreeView::setModel(QAbstractItemModel *model)
 {
-    BaseWindow::setModel(model);
+    BaseTreeView::setModel(model);
     resizeColumnToContents(0); // Number
     resizeColumnToContents(3); // Line
     resizeColumnToContents(6); // Ignore count
     connect(model, SIGNAL(layoutChanged()), this, SLOT(expandAll()));
 }
 
-void BreakWindow::contextMenuEvent(QContextMenuEvent *ev)
+void BreakTreeView::contextMenuEvent(QContextMenuEvent *ev)
 {
     QMenu menu;
     QItemSelectionModel *sm = selectionModel();
@@ -654,21 +652,21 @@ void BreakWindow::contextMenuEvent(QContextMenuEvent *ev)
         handleBaseContextAction(act);
 }
 
-void BreakWindow::setBreakpointsEnabled(const BreakpointModelIds &ids, bool enabled)
+void BreakTreeView::setBreakpointsEnabled(const BreakpointModelIds &ids, bool enabled)
 {
     BreakHandler *handler = breakHandler();
     foreach (const BreakpointModelId id, ids)
         handler->setEnabled(id, enabled);
 }
 
-void BreakWindow::deleteBreakpoints(const BreakpointModelIds &ids)
+void BreakTreeView::deleteBreakpoints(const BreakpointModelIds &ids)
 {
     BreakHandler *handler = breakHandler();
     foreach (const BreakpointModelId id, ids)
        handler->removeBreakpoint(id);
 }
 
-void BreakWindow::editBreakpoint(BreakpointModelId id, QWidget *parent)
+void BreakTreeView::editBreakpoint(BreakpointModelId id, QWidget *parent)
 {
     BreakpointParameters data = breakHandler()->breakpointData(id);
     BreakpointParts parts = NoParts;
@@ -677,7 +675,7 @@ void BreakWindow::editBreakpoint(BreakpointModelId id, QWidget *parent)
         breakHandler()->changeBreakpointData(id, data, parts);
 }
 
-void BreakWindow::addBreakpoint()
+void BreakTreeView::addBreakpoint()
 {
     BreakpointParameters data(BreakpointByFileAndLine);
     BreakpointParts parts = NoParts;
@@ -687,7 +685,7 @@ void BreakWindow::addBreakpoint()
         breakHandler()->appendBreakpoint(data);
 }
 
-void BreakWindow::editBreakpoints(const BreakpointModelIds &ids)
+void BreakTreeView::editBreakpoints(const BreakpointModelIds &ids)
 {
     QTC_ASSERT(!ids.isEmpty(), return);
 
@@ -726,16 +724,22 @@ void BreakWindow::editBreakpoints(const BreakpointModelIds &ids)
     }
 }
 
-void BreakWindow::associateBreakpoint(const BreakpointModelIds &ids, int threadId)
+void BreakTreeView::associateBreakpoint(const BreakpointModelIds &ids, int threadId)
 {
     BreakHandler *handler = breakHandler();
     foreach (const BreakpointModelId id, ids)
         handler->setThreadSpec(id, threadId);
 }
 
-void BreakWindow::rowActivated(const QModelIndex &index)
+void BreakTreeView::rowActivated(const QModelIndex &index)
 {
     breakHandler()->gotoLocation(breakHandler()->findBreakpointByIndex(index));
+}
+
+BreakWindow::BreakWindow()
+    : BaseWindow(new BreakTreeView)
+{
+    setWindowTitle(tr("Breakpoints"));
 }
 
 } // namespace Internal
