@@ -168,7 +168,12 @@ void BaseValidatingLineEdit::slotChanged(const QString &t)
         }
     }
     bool block = blockSignals(true);
-    setText(fixInputString(t));
+    const QString fixedString = fixInputString(t);
+    if (t != fixedString) {
+        const int cursorPos = cursorPosition();
+        setText(fixedString);
+        setCursorPosition(qMin(cursorPos, fixedString.length()));
+    }
     blockSignals(block);
 }
 

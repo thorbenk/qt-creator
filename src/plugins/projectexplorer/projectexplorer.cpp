@@ -376,13 +376,6 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     addAutoReleasedObject(new CopyTaskHandler);
     addAutoReleasedObject(new ShowInEditorTaskHandler);
     addAutoReleasedObject(new VcsAnnotateTaskHandler);
-
-    d->m_buildManager = new BuildManager(this);
-    connect(d->m_buildManager, SIGNAL(buildStateChanged(ProjectExplorer::Project*)),
-            this, SLOT(buildStateChanged(ProjectExplorer::Project*)));
-    connect(d->m_buildManager, SIGNAL(buildQueueFinished(bool)),
-            this, SLOT(buildQueueFinished(bool)));
-
     addAutoReleasedObject(new CoreListener);
 
     d->m_outputPane = new AppOutputPane;
@@ -798,7 +791,9 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     mbuild->addAction(cmd, Constants::G_BUILD_RUN);
 
     // cancel build action
-    d->m_cancelBuildAction = new QAction(tr("Cancel Build"), this);
+    QIcon stopIcon = QIcon(QLatin1String(Constants::ICON_STOP));
+    stopIcon.addFile(QLatin1String(Constants::ICON_STOP_SMALL));
+    d->m_cancelBuildAction = new QAction(stopIcon, tr("Cancel Build"), this);
     cmd = am->registerAction(d->m_cancelBuildAction, Constants::CANCELBUILD, globalcontext);
     mbuild->addAction(cmd, Constants::G_BUILD_CANCEL);
 
@@ -1002,6 +997,12 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
 
     connect(this, SIGNAL(updateRunActions()), this, SLOT(slotUpdateRunActions()));
     connect(this, SIGNAL(settingsChanged()), this, SLOT(updateRunWithoutDeployMenu()));
+
+    d->m_buildManager = new BuildManager(this, d->m_cancelBuildAction);
+    connect(d->m_buildManager, SIGNAL(buildStateChanged(ProjectExplorer::Project*)),
+            this, SLOT(buildStateChanged(ProjectExplorer::Project*)));
+    connect(d->m_buildManager, SIGNAL(buildQueueFinished(bool)),
+            this, SLOT(buildQueueFinished(bool)));
 
     updateActions();
 
@@ -2576,10 +2577,12 @@ void ProjectExplorerPlugin::addNewFile()
     QTC_ASSERT(d->m_currentNode, return)
     QString location = directoryFor(d->m_currentNode);
 
+    QVariantMap map;
+    map.insert(QLatin1String(Constants::PREFERED_PROJECT_NODE), d->m_currentNode->projectNode()->path());
     Core::ICore::showNewItemDialog(tr("New File", "Title of dialog"),
                                Core::IWizard::wizardsOfKind(Core::IWizard::FileWizard)
                                + Core::IWizard::wizardsOfKind(Core::IWizard::ClassWizard),
-                               location);
+                               location, map);
 }
 
 void ProjectExplorerPlugin::addNewSubproject()
@@ -2590,9 +2593,11 @@ void ProjectExplorerPlugin::addNewSubproject()
     if (d->m_currentNode->nodeType() == ProjectNodeType
             && d->m_currentNode->projectNode()->supportedActions(
                 d->m_currentNode->projectNode()).contains(ProjectNode::AddSubProject)) {
+        QVariantMap map;
+        map.insert(QLatin1String(Constants::PREFERED_PROJECT_NODE), d->m_currentNode->projectNode()->path());
         Core::ICore::showNewItemDialog(tr("New Subproject", "Title of dialog"),
                               Core::IWizard::wizardsOfKind(Core::IWizard::ProjectWizard),
-                              location);
+                              location, map);
     }
 }
 

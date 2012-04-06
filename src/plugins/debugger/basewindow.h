@@ -33,39 +33,18 @@
 #ifndef DEBUGGER_BASEWINDOW_H
 #define DEBUGGER_BASEWINDOW_H
 
-#include <QTreeView>
+#include <utils/basetreeview.h>
 
 namespace Debugger {
 namespace Internal {
 
-class BaseTreeView : public QTreeView
+class BaseTreeView : public Utils::BaseTreeView
 {
     Q_OBJECT
 
 public:
-    BaseTreeView(QWidget *parent = 0);
-
-    void setAlwaysAdjustColumnsAction(QAction *action);
+    explicit BaseTreeView(QWidget *parent = 0);
     void addBaseContextActions(QMenu *menu);
-    bool handleBaseContextAction(QAction *action);
-
-    void setModel(QAbstractItemModel *model);
-    virtual void rowActivated(const QModelIndex &) {}
-    void mousePressEvent(QMouseEvent *ev);
-
-public slots:
-    void resizeColumnsToContents();
-    void setAlwaysResizeColumnsToContents(bool on);
-
-private slots:
-    void setAlternatingRowColorsHelper(bool on) { setAlternatingRowColors(on); }
-    void rowActivatedHelper(const QModelIndex &index) { rowActivated(index); }
-    void headerSectionClicked(int logicalIndex);
-    void reset();
-
-private:
-    QAction *m_alwaysAdjustColumnsAction;
-    QAction *m_adjustColumnsAction;
 };
 
 class BaseWindow : public QWidget

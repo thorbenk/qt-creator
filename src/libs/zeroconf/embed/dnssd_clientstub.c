@@ -35,7 +35,9 @@
 
 #include "dnssd_ipc.h"
 
-namespace ZeroConf { namespace embeddedLib {
+namespace ZeroConf {
+extern int gQuickStop;
+namespace embeddedLib {
 #include "../dns_sd_funct.h"
 static int gDaemonErr = kDNSServiceErr_NoError;
         }}
@@ -218,7 +220,24 @@ static int read_all(dnssd_sock_t sd, char *buf, int len)
 
         while (len)
                 {
-                ssize_t num_read = recv(sd, buf, len, 0);
+                timeval timeout;
+                timeout.tv_sec = 1;
+                timeout.tv_usec = 0;
+                fd_set readFds, writeFds, exceptFds;
+                memset(&readFds,0,sizeof(readFds));
+                memset(&writeFds,0,sizeof(writeFds));
+                memset(&exceptFds,0,sizeof(exceptFds));
+                FD_SET(sd, &readFds);
+                FD_SET(sd, &writeFds);
+                FD_SET(sd, &exceptFds);
+                ssize_t num_read = 0;
+                int nVal=select(sd+1, &readFds, &writeFds, &exceptFds, &timeout);
+                if (nVal < 1 || !(FD_ISSET(sd, &readFds) || FD_ISSET(sd, &exceptFds))) {
+                    if (! ZeroConf::gQuickStop)
+                        continue;
+                } else {
+                    num_read = recv(sd, buf, len, 0);
+                }
                 // It is valid to get an interrupted system call error e.g., somebody attaching
                 // in a debugger, retry without failing
                 if ((num_read < 0) && (errno == EINTR)) { syslog(LOG_INFO, "dnssd_clientstub read_all: EINTR continue"); continue; }
@@ -545,13 +564,14 @@ static DNSServiceErrorType ConnectToServer(DNSServiceRef *ref, DNSServiceFlags f
                         // daemon is still coming up. Rather than fail here, we'll wait a bit and try again.
                         // If, after four seconds, we still can't connect to the daemon,
                         // then we give up and return a failure code.
-                        if (++NumTries < DNSSD_CLIENT_MAXTRIES && !quickCheck) sleep(1); // Sleep a bit, then try again
+                        if (++NumTries < DNSSD_CLIENT_MAXTRIES && !(quickCheck && NumTries > 1)) sleep(1); // Sleep a bit, then try again
                         else {
                             quickCheck = 0;
                             dnssd_close(sdr->sockfd); FreeDNSServiceOp(sdr); return kDNSServiceErr_ServiceNotRunning; }
                         }
                 //printf("ConnectToServer opened socket %d\n", sdr->sockfd);
                 }
+        quickCheck = 0;
 
         *ref = sdr;
         return kDNSServiceErr_NoError;

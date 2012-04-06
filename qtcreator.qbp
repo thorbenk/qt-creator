@@ -52,6 +52,7 @@ Project {
         "src/plugins/mercurial/mercurial.qbs",
         "src/plugins/perforce/perforce.qbs",
         "src/plugins/projectexplorer/projectexplorer.qbs",
+        "src/plugins/qmldesigner/qmldesigner.qbs",
         "src/plugins/qmljseditor/qmljseditor.qbs",
         "src/plugins/qmljsinspector/qmljsinspector.qbs",
         "src/plugins/qmljstools/qmljstools.qbs",
@@ -135,8 +136,8 @@ Project {
         Depends { name: "app_version_header" }
         Depends { name: "cpp" }
         Depends { name: "Qt"; submodules: ["gui", "network"] }
-        Depends { name: "utils" }
-        Depends { name: "extensionsystem" }
+        Depends { name: "Utils" }
+        Depends { name: "ExtensionSystem" }
 
         files: [
             "src/app/main.cpp",
@@ -148,9 +149,9 @@ Project {
         ]
 
         Group {
-            qbs.installDir: 'bin'
             files: "bin/qtcreator.sh"
             fileTags: "install"
+            qbs.installDir: "bin"
         }
 
         Group {

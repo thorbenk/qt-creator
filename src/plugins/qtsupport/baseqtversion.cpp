@@ -755,16 +755,7 @@ BaseQtVersion::QmakeBuildConfigs BaseQtVersion::defaultBuildConfig() const
 
 QString BaseQtVersion::qtVersionString() const
 {
-    if (!m_qtVersionString.isNull())
-        return m_qtVersionString;
-    m_qtVersionString.clear();
-    if (m_qmakeIsExecutable) {
-        const QString qmake = qmakeCommand().toString();
-        m_qtVersionString =
-            ProjectExplorer::DebuggingHelperLibrary::qtVersionForQMake(qmake, &m_qmakeIsExecutable);
-    } else {
-        qWarning("Cannot determine the Qt version: %s cannot be run.", qPrintable(qmakeCommand().toString()));
-    }
+    updateVersionInfo();
     return m_qtVersionString;
 }
 
@@ -803,9 +794,6 @@ void BaseQtVersion::updateVersionInfo() const
         const QString qtInstallData = m_versionInfo.value(installDataKey);
         const QString qtInstallBins = m_versionInfo.value(installBinsKey);
         const QString qtHeaderData = m_versionInfo.value(installHeadersKey);
-        m_versionInfo.insert(QLatin1String("QMAKE_MKSPECS"),
-                             QDir::cleanPath(qtInstallData + QLatin1String("/mkspecs")));
-
         if (!qtInstallData.isEmpty()) {
             m_hasDebuggingHelper = !ProjectExplorer::DebuggingHelperLibrary::debuggingHelperLibraryByInstallData(qtInstallData).isEmpty();
             m_hasQmlDump
@@ -847,6 +835,7 @@ void BaseQtVersion::updateVersionInfo() const
         if (fi.exists())
             m_hasDemos = true;
     }
+    m_qtVersionString = m_versionInfo.value(QLatin1String("QT_VERSION"), QString());
 
     m_versionInfoUpToDate = true;
 }

@@ -12,8 +12,15 @@ def __handleProcessExited__(object, exitCode):
     processExited = True
 
 def openQmakeProject(projectPath, targets=QtQuickConstants.Targets.DESKTOP):
+    cleanUpUserFiles(projectPath)
     invokeMenuItem("File", "Open File or Project...")
     selectFromFileDialog(projectPath)
+    try:
+        # handle update generated files dialog
+        waitForObject("{type='QMessageBox' unnamed='1' visible='1' windowTitle='Update of Generated Files'}", 3000)
+        clickButton(waitForObject("{text='Yes' type='QPushButton' unnamed='1' visible='1'}"))
+    except:
+        pass
     selectFromCombo(waitForObject(":Qt Creator.Create Build Configurations:_QComboBox", 180000),
                     "For Each Qt Version One Debug And One Release")
     __chooseTargets__(targets)
@@ -299,6 +306,7 @@ def __chooseTargets__(targets=QtQuickConstants.Targets.DESKTOP, availableTargets
 def runAndCloseApp(withHookInto=False, executable=None, port=None, function=None, sType=None, userDefinedType=None):
     global processStarted, processExited
     processStarted = processExited = False
+    overrideInstallLazySignalHandler()
     installLazySignalHandler("{type='ProjectExplorer::ApplicationLaucher'}", "processStarted()", "__handleProcessStarted__")
     installLazySignalHandler("{type='ProjectExplorer::ApplicationLaucher'}", "processExited(int)", "__handleProcessExited__")
     runButton = waitForObject("{type='Core::Internal::FancyToolButton' text='Run' visible='1'}", 20000)
@@ -315,7 +323,7 @@ def runAndCloseApp(withHookInto=False, executable=None, port=None, function=None
         test.fatal("Couldn't start application - leaving test")
         invokeMenuItem("File", "Exit")
         return False
-    if os.getenv("SYSTEST_QMLVIEWER_NO_HOOK_INTO", "0") == "1":
+    if sType == SubprocessType.QT_QUICK_UI and os.getenv("SYSTEST_QMLVIEWER_NO_HOOK_INTO", "0") == "1":
         withHookInto = False
     if withHookInto and not validType(sType, userDefinedType):
         if function != None:
@@ -341,6 +349,7 @@ def validType(sType, userDef):
 
 def __closeSubprocessByPushingStop__(sType):
     ensureChecked(":Qt Creator_AppOutput_Core::Internal::OutputPaneToggleButton")
+    waitForObject(":Qt Creator.Stop_QToolButton", 5000)
     playButton = verifyEnabled(":Qt Creator.ReRun_QToolButton", False)
     stopButton = verifyEnabled(":Qt Creator.Stop_QToolButton")
     if stopButton.enabled:
@@ -446,3 +455,9 @@ def __getSupportedPlatforms__(text, getAsStrings=False):
     if getAsStrings:
         result = QtQuickConstants.getTargetsAsStrings(result)
     return result, version
+
+# copy example project (sourceExample is path to project) to temporary directory inside repository
+def prepareTemplate(sourceExample):
+    templateDir = os.path.abspath(tempDir() + "/template")
+    shutil.copytree(sourceExample, templateDir)
+    return templateDir
