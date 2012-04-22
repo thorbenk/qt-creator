@@ -5,7 +5,7 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "AnalyzerBase"
 
-    Depends { name: "qt"; submodules: ['gui'] }
+    Depends { name: "qt"; submodules: ['widgets'] }
     Depends { name: "Core" }
     Depends { name: "CppTools" }
     Depends { name: "RemoteLinux" }
@@ -54,6 +54,7 @@ QtcPlugin {
     ]
 
     ProductModule {
+        Depends { name: "cpp" }
         cpp.includePaths: [
             "."
         ]

@@ -4,7 +4,7 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "ProjectExplorer"
 
-    Depends { name: "qt"; submodules: ['gui', 'xml', 'network', 'script', 'declarative'] }
+    Depends { name: "qt"; submodules: ['widgets', 'xml', 'network', 'script', 'quick1'] }
     Depends { name: "Core" }
     Depends { name: "Locator" }
     Depends { name: "Find" }
@@ -286,7 +286,6 @@ QtcPlugin {
         "devicesupport/devicesettingswidget.cpp",
         "devicesupport/devicesettingswidget.h",
         "devicesupport/devicesettingswidget.ui",
-        "devicesupport/idevicewizard.h",
         "devicesupport/idevicewidget.h",
         "devicesupport/idevicefactory.h"
     ]

@@ -17,7 +17,7 @@ QtcLibrary {
     cpp.optimization: "fast"
 
     Depends { name: "cpp" }
-    Depends { name: "Qt.gui" }
+    Depends { name: "Qt.widgets" }
 
     Group {
         prefix: "../3rdparty/cplusplus/"
@@ -173,6 +173,7 @@ QtcLibrary {
     ]
 
     ProductModule {
+        Depends { name: "cpp" }
         cpp.includePaths: [
             ".",
             "../3rdparty",

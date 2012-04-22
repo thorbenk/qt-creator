@@ -219,12 +219,12 @@
             \o  \l{Deploying to Mobile Devices}
             \list
                 \o  \l{Deploying Applications to Symbian Devices}
-                \o  \l{Deploying Applications to Maemo or MeeGo Harmattan Devices}
+                \o  \l{Deploying Applications to Linux-Based Devices}
             \endlist
             \o  \l{Connecting Mobile Targets}
             \list
                 \o  \l{Connecting MeeGo Harmattan Devices}
-                \o  \l{Connecting Generic Linux Devices}
+                \o  \l{Connecting Embedded Linux Devices}
                 \o  \l{Connecting Maemo Devices}
                 \o  \l{Connecting Symbian Devices}
             \endlist
@@ -236,13 +236,13 @@
         \list
             \o  \l{Debugging}
             \list
-                \o  \l{Debugging a C++ Example Application}
-                \o  \l{Debugging a Qt Quick Example Application}
+                \o  \l{Setting Up Debugger}
                 \o  \l{Launching the Debugger}
                 \o  \l{Interacting with the Debugger}
-                \o  \l{Setting Up Debugger}
                 \o  \l{Using Debugging Helpers}
                 \o  \l{Debugging Qt Quick Projects}
+                \o  \l{Debugging a C++ Example Application}
+                \o  \l{Debugging a Qt Quick Example Application}
                 \o  \l{Troubleshooting Debugger}
             \endlist
             \o  \l{Analyzing Code}

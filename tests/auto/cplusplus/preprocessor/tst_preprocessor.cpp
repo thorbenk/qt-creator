@@ -111,15 +111,15 @@ public:
     }
 
     virtual void passedMacroDefinitionCheck(unsigned /*offset*/, const Macro &/*macro*/) {}
-    virtual void failedMacroDefinitionCheck(unsigned /*offset*/, const QByteArray &/*name*/) {}
+    virtual void failedMacroDefinitionCheck(unsigned /*offset*/, const ByteArrayRef &/*name*/) {}
 
     virtual void startExpandingMacro(unsigned offset,
                                      const Macro &/*macro*/,
-                                     const QByteArray &originalText,
+                                     const ByteArrayRef &originalText,
                                      const QVector<MacroArgumentReference> &/*actuals*/
                                               = QVector<MacroArgumentReference>())
     {
-        m_expandedMacros.append(originalText);
+        m_expandedMacros.append(QByteArray(originalText.start(), originalText.length()));
         m_expandedMacrosOffset.append(offset);
     }
 
@@ -204,8 +204,7 @@ public:
     {
         QByteArray src = loadSource(fileName);
         QVERIFY(!src.isEmpty());
-
-        m_pp.preprocess(fileName, src, m_output, nolines, true, false);
+        *m_output = m_pp.run(fileName, src, nolines, true);
     }
 
     QList<Block> skippedBlocks() const
@@ -240,6 +239,7 @@ private:
     QList<unsigned> m_definedMacrosLine;
 };
 
+QT_BEGIN_NAMESPACE
 namespace QTest {
     template<> char *toString(const QList<unsigned> &list)
     {
@@ -264,6 +264,7 @@ namespace QTest {
         return qstrdup(ba.data());
     }
 }
+QT_END_NAMESPACE
 
 QDebug &operator<<(QDebug& d, const MockClient::Block &b) { d << '[' << b.start << ',' << b.end << ']'; return d; }
 
@@ -288,6 +289,9 @@ private /* not corrected yet */:
     void macro_argument_expansion();
 
 private slots:
+    void defined();
+    void defined_data();
+
     void va_args();
     void named_va_args();
     void first_empty_macro_arg();
@@ -337,13 +341,12 @@ void tst_Preprocessor::va_args()
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
-                                         QByteArray("#define foo(...) int f(__VA_ARGS__);\n"
-                                                    "\nfoo(  )\n"
-                                                    "\nfoo(int a)\n"
-                                                    "\nfoo(int a,int b)\n"),
-                                         true,
-                                         false);
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
+                                                "#define foo(...) int f(__VA_ARGS__);\n"
+                                                "\nfoo(  )\n"
+                                                "\nfoo(int a)\n"
+                                                "\nfoo(int a,int b)\n",
+                                             true, false);
 
     preprocessed = preprocessed.simplified();
 //    DUMP_OUTPUT(preprocessed);
@@ -356,12 +359,12 @@ void tst_Preprocessor::named_va_args()
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
-                                         QByteArray("\n#define foo(ARGS...) int f(ARGS);"
-                                                    "\nfoo(  )\n"
-                                                    "\nfoo(int a)\n"
-                                                    "\nfoo(int a,int b)\n"),
-                                         true, false);
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
+                                                "\n#define foo(ARGS...) int f(ARGS);"
+                                                "\nfoo(  )\n"
+                                                "\nfoo(int a)\n"
+                                                "\nfoo(int a,int b)\n",
+                                             true, false);
 
     preprocessed = preprocessed.simplified();
     QCOMPARE(simplified(preprocessed), QString("int f();int f(int a);int f(int a,int b);"));
@@ -373,12 +376,12 @@ void tst_Preprocessor::first_empty_macro_arg()
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
-                                         QByteArray("\n#define foo(a,b) a int b;"
-                                                    "\nfoo(const,cVal)\n"
-                                                    "\nfoo(,Val)\n"
-                                                    "\nfoo( ,Val2)\n"),
-                                         true, false);
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
+                                                "\n#define foo(a,b) a int b;"
+                                                "\nfoo(const,cVal)\n"
+                                                "\nfoo(,Val)\n"
+                                                "\nfoo( ,Val2)\n",
+                                             true, false);
 
     preprocessed = preprocessed.simplified();
 //    DUMP_OUTPUT(preprocessed);
@@ -393,11 +396,11 @@ void tst_Preprocessor::invalid_param_count()
     Preprocessor preprocess(client, &env);
     // The following is illegal, but shouldn't crash the preprocessor.
     // GCC says: 3:14: error: macro "foo" requires 2 arguments, but only 1 given
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
-                                         QByteArray("\n#define foo(a,b) int f(a,b);"
-                                                    "\n#define ARGS(t)  t a,t b"
-                                                    "\nfoo(ARGS(int))"),
-                                         true, false);
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
+                                                "\n#define foo(a,b) int f(a,b);"
+                                                "\n#define ARGS(t)  t a,t b"
+                                                "\nfoo(ARGS(int))",
+                                             true, false);
     // do not verify the output: it's illegal, so anything might be outputted.
 }
 
@@ -407,10 +410,11 @@ void tst_Preprocessor::param_expanding_as_multiple_params()
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
-                                         QByteArray("\n#define foo(a,b) int f(a,b);"
-                                                    "\n#define ARGS(t)  t a,t b"
-                                                    "\nfoo(ARGS(int))"));
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
+                                                "\n#define foo(a,b) int f(a,b);"
+                                                "\n#define ARGS(t)  t a,t b"
+                                                "\nfoo(ARGS(int))",
+                                            false, true);
     QCOMPARE(simplified(preprocessed), QString("int f(int a,int b);"));
 }
 
@@ -420,12 +424,13 @@ void tst_Preprocessor::macro_argument_expansion() //QTCREATORBUG-7225
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
-                                         QByteArray("\n#define BAR1        2,3,4"
-                                                    "\n#define FOO1(a,b,c) a+b+c"
-                                                    "\nvoid test2(){"
-                                                    "\nint x=FOO1(BAR1);"
-                                                    "\n}"));
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
+                                                "\n#define BAR1        2,3,4"
+                                                "\n#define FOO1(a,b,c) a+b+c"
+                                                "\nvoid test2(){"
+                                                "\nint x=FOO1(BAR1);"
+                                                "\n}",
+                                            false, true);
     QCOMPARE(simplified(preprocessed), QString("void test2(){int x=2+3+4;}"));
 
 }
@@ -444,7 +449,7 @@ void tst_Preprocessor::macro_uses()
     MockClient client(&env, &output);
 
     Preprocessor preprocess(&client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"), buffer);
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"), buffer);
     QCOMPARE(simplified(preprocessed), QString("void test(){int x=8;int y=9;}"));
     QCOMPARE(client.expandedMacros(), QList<QByteArray>() << QByteArray("FOO") << QByteArray("BAR"));
     QCOMPARE(client.expandedMacrosOffset(), QList<unsigned>() << buffer.indexOf("FOO;") << buffer.indexOf("BAR;"));
@@ -457,29 +462,29 @@ void tst_Preprocessor::macro_definition_lineno()
     Client *client = 0; // no client.
     Environment env;
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
                                          QByteArray("#define foo(ARGS) int f(ARGS)\n"
                                                     "foo(int a);\n"));
     QVERIFY(preprocessed.contains("#gen true\n# 2 \"<stdin>\"\nint f"));
 
-    preprocessed = preprocess(QLatin1String("<stdin>"),
+    preprocessed = preprocess.run(QLatin1String("<stdin>"),
                               QByteArray("#define foo(ARGS) int f(ARGS)\n"
                                          "foo(int a)\n"
                                          ";\n"));
     QVERIFY(preprocessed.contains("#gen true\n# 2 \"<stdin>\"\nint f"));
 
-    preprocessed = preprocess(QLatin1String("<stdin>"),
+    preprocessed = preprocess.run(QLatin1String("<stdin>"),
                               QByteArray("#define foo(ARGS) int f(ARGS)\n"
                                          "foo(int  \n"
                                          "    a);\n"));
     QVERIFY(preprocessed.contains("#gen true\n# 2 \"<stdin>\"\nint f"));
 
-    preprocessed = preprocess(QLatin1String("<stdin>"),
+    preprocessed = preprocess.run(QLatin1String("<stdin>"),
                               QByteArray("#define foo int f\n"
                                          "foo;\n"));
     QVERIFY(preprocessed.contains("#gen true\n# 2 \"<stdin>\"\nint f"));
 
-    preprocessed = preprocess(QLatin1String("<stdin>"),
+    preprocessed = preprocess.run(QLatin1String("<stdin>"),
                               QByteArray("#define foo int f\n"
                                          "foo\n"
                                          ";\n"));
@@ -493,7 +498,7 @@ void tst_Preprocessor::objmacro_expanding_as_fnmacro_notification()
     MockClient client(&env, &output);
 
     Preprocessor preprocess(&client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
                                          QByteArray("\n#define bar(a,b) a + b"
                                                     "\n#define foo bar"
                                                     "\nfoo(1, 2)\n"));
@@ -508,7 +513,7 @@ void tst_Preprocessor::macro_arguments_notificatin()
     MockClient client(&env, &output);
 
     Preprocessor preprocess(&client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
                                          QByteArray("\n#define foo(a,b) a + b"
                                                     "\n#define arg(a) a"
                                                     "\n#define value  2"
@@ -525,7 +530,7 @@ void tst_Preprocessor::unfinished_function_like_macro_call()
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"),
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
                                          QByteArray("\n#define foo(a,b) a + b"
                                          "\nfoo(1, 2\n"));
     QByteArray expected__("# 1 \"<stdin>\"\n\n\n    1\n#gen true\n# 2 \"<stdin>\"\n+\n#gen false\n# 3 \"<stdin>\"\n       2\n");
@@ -581,7 +586,7 @@ void tst_Preprocessor::nasty_macro_expansion()
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(QLatin1String("<stdin>"), input);
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"), input);
 
     QVERIFY(!preprocessed.contains("FIELD32"));
 }
@@ -592,7 +597,7 @@ void tst_Preprocessor::tstst()
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(
+    QByteArray preprocessed = preprocess.run(
                 QLatin1String("<stdin>"),
                 QByteArray("\n"
                            "# define _GLIBCXX_VISIBILITY(V) __attribute__ ((__visibility__ (#V)))\n"
@@ -622,7 +627,7 @@ void tst_Preprocessor::test_file_builtin()
     Environment env;
 
     Preprocessor preprocess(client, &env);
-    QByteArray preprocessed = preprocess(
+    QByteArray preprocessed = preprocess.run(
                 QLatin1String("some-file.c"),
                 QByteArray("const char *f = __FILE__\n"
                            ));
@@ -688,7 +693,7 @@ void tst_Preprocessor::blockSkipping()
     Environment env;
     MockClient client(&env, &output);
     Preprocessor pp(&client, &env);
-    /*QByteArray preprocessed =*/ pp(
+    /*QByteArray preprocessed =*/ pp.run(
                 QLatin1String("<stdin>"),
                 QByteArray("#if 0\n"
                            "\n"
@@ -718,7 +723,7 @@ void tst_Preprocessor::includes_1()
     Environment env;
     MockClient client(&env, &output);
     Preprocessor pp(&client, &env);
-    /*QByteArray preprocessed =*/ pp(
+    /*QByteArray preprocessed =*/ pp.run(
                 QLatin1String("<stdin>"),
                 QByteArray("#define FOO <foo.h>\n"
                            "#define BAR \"bar.h\"\n"
@@ -747,5 +752,61 @@ void tst_Preprocessor::includes_1()
     QCOMPARE(incs.at(3).line, 8U);
 }
 
+void tst_Preprocessor::defined()
+{
+    QFETCH(bool, xdefined);
+    QFETCH(bool, ydefined);
+    QFETCH(QString, input);
+    QByteArray output;
+    Environment env;
+    MockClient client(&env, &output);
+    Preprocessor pp(&client, &env);
+    pp.run(QLatin1String("<stdin>"), input.toLatin1(), false, true);
+    QList<QByteArray> expected;
+    if (xdefined)
+        expected.append("X");
+    if (ydefined)
+        expected.append("Y");
+    if (client.definedMacros() != expected)
+        qWarning() << "\nSource: " << input.replace('\n', "    ");
+    QCOMPARE(client.definedMacros(), expected);
+}
+
+void tst_Preprocessor::defined_data()
+{
+    QTest::addColumn<bool>("xdefined");
+    QTest::addColumn<bool>("ydefined");
+    QTest::addColumn<QString>("input");
+
+    QTest::newRow("1a") << true << true <<
+        "#define X\n#if defined(X)\n#define Y\n#endif";
+    QTest::newRow("1b") << true << true <<
+        "#define X\n#if defined X \n#define Y\n#endif";
+    QTest::newRow("1c") << true << true <<
+        "#define X\n#ifdef X \n#define Y\n#endif";
+
+    QTest::newRow("2a") << false << false <<
+        "#if defined(X)\n#define Y\n#endif";
+    QTest::newRow("2b") << false << false <<
+        "#if defined X \n#define Y\n#endif";
+    QTest::newRow("2c") << false << false <<
+        "#ifdef X \n#define Y\n#endif";
+
+    QTest::newRow("3a") << true << false <<
+        "#define X\n#if !defined(X)\n#define Y\n#endif";
+    QTest::newRow("3b") << true << false <<
+        "#define X\n#if !defined X \n#define Y\n#endif";
+    QTest::newRow("3c") << true << false <<
+        "#define X\n#ifndef X \n#define Y\n#endif";
+
+    QTest::newRow("4a") << false << true <<
+        "#if !defined(X)\n#define Y\n#endif";
+    QTest::newRow("4b") << false << true <<
+        "#if !defined X \n#define Y\n#endif";
+    QTest::newRow("4c") << false << true <<
+        "#ifndef X \n#define Y\n#endif";
+}
+
 QTEST_APPLESS_MAIN(tst_Preprocessor)
+
 #include "tst_preprocessor.moc"

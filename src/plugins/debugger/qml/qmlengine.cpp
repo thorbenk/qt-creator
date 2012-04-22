@@ -33,6 +33,7 @@
 #include "qmlengine.h"
 #include "qmladapter.h"
 #include "interactiveinterpreter.h"
+#include "baseqmldebuggerclient.h"
 
 #include "debuggerstartparameters.h"
 #include "debuggeractions.h"
@@ -56,8 +57,8 @@
 
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/applicationlauncher.h>
-#include <qmljsdebugclient/qdeclarativeoutputparser.h>
-#include <qmljsdebugclient/qmlenginedebugclient.h>
+#include <qmldebug/qmloutputparser.h>
+#include <qmldebug/baseenginedebugclient.h>
 #include <qmljseditor/qmljseditorconstants.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
@@ -114,7 +115,7 @@ private:
     QmlAdapter m_adapter;
     ApplicationLauncher m_applicationLauncher;
     QTimer m_noDebugOutputTimer;
-    QmlJsDebugClient::QDeclarativeOutputParser m_outputParser;
+    QmlDebug::QmlOutputParser m_outputParser;
     QHash<QString, QTextDocument*> m_sourceDocuments;
     QHash<QString, QWeakPointer<TextEditor::ITextEditor> > m_sourceEditors;
     InteractiveInterpreter m_interpreter;
@@ -329,9 +330,9 @@ QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
             SLOT(updateCurrentContext()));
     connect(d->m_adapter.messageClient(),
             SIGNAL(message(QtMsgType,QString,
-                           QmlJsDebugClient::QDebugContextInfo)),
+                           QmlDebug::QDebugContextInfo)),
             SLOT(appendDebugOutput(QtMsgType,QString,
-                                   QmlJsDebugClient::QDebugContextInfo)));
+                                   QmlDebug::QDebugContextInfo)));
 
     connect(&d->m_applicationLauncher,
         SIGNAL(processExited(int)),
@@ -443,7 +444,7 @@ void QmlEngine::beginConnection(quint16 port)
     if (state() != EngineRunRequested && d->m_retryOnConnectFail)
         return;
 
-    QTC_ASSERT(state() == EngineRunRequested, return)
+    QTC_ASSERT(state() == EngineRunRequested, return);
 
     if (port > 0) {
         QTC_CHECK(startParameters().communicationChannel
@@ -451,7 +452,7 @@ void QmlEngine::beginConnection(quint16 port)
         QTC_ASSERT(startParameters().connParams.port == 0
                    || startParameters().connParams.port == port,
                    qWarning() << "Port " << port << "from application output does not match"
-                   << startParameters().connParams.port << "from start parameters.")
+                   << startParameters().connParams.port << "from start parameters.");
         d->m_adapter.beginConnectionTcp(startParameters().qmlServerAddress, port);
         return;
     }
@@ -836,7 +837,7 @@ void QmlEngine::insertBreakpoint(BreakpointModelId id)
     if (d->m_adapter.activeDebuggerClient()) {
         d->m_adapter.activeDebuggerClient()->insertBreakpoint(id, line, column);
     } else {
-        foreach (QmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
+        foreach (BaseQmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
             client->insertBreakpoint(id, line, column);
         }
     }
@@ -867,7 +868,7 @@ void QmlEngine::removeBreakpoint(BreakpointModelId id)
     if (d->m_adapter.activeDebuggerClient()) {
         d->m_adapter.activeDebuggerClient()->removeBreakpoint(id);
     } else {
-        foreach (QmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
+        foreach (BaseQmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
             client->removeBreakpoint(id);
         }
     }
@@ -887,7 +888,7 @@ void QmlEngine::changeBreakpoint(BreakpointModelId id)
     if (d->m_adapter.activeDebuggerClient()) {
         d->m_adapter.activeDebuggerClient()->changeBreakpoint(id);
     } else {
-        foreach (QmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
+        foreach (BaseQmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
             client->changeBreakpoint(id);
         }
     }
@@ -943,7 +944,7 @@ void QmlEngine::attemptBreakpointSynchronization()
     if (d->m_adapter.activeDebuggerClient()) {
         d->m_adapter.activeDebuggerClient()->synchronizeBreakpoints();
     } else {
-        foreach (QmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
+        foreach (BaseQmlDebuggerClient *client, d->m_adapter.debuggerClients()) {
             client->synchronizeBreakpoints();
         }
     }
@@ -1051,7 +1052,7 @@ void QmlEngine::synchronizeWatchers()
     if (d->m_adapter.activeDebuggerClient()) {
         d->m_adapter.activeDebuggerClient()->synchronizeWatchers(watchedExpressions);
     } else {
-        foreach (QmlDebuggerClient *client, d->m_adapter.debuggerClients())
+        foreach (BaseQmlDebuggerClient *client, d->m_adapter.debuggerClients())
             client->synchronizeWatchers(watchedExpressions);
     }
 }
@@ -1116,7 +1117,7 @@ void QmlEngine::updateCurrentContext()
 }
 
 void QmlEngine::appendDebugOutput(QtMsgType type, const QString &message,
-                                  const QmlJsDebugClient::QDebugContextInfo &info)
+                                  const QmlDebug::QDebugContextInfo &info)
 {
     QtMessageLogHandler::ItemType itemType;
     switch (type) {
@@ -1141,9 +1142,9 @@ void QmlEngine::appendDebugOutput(QtMsgType type, const QString &message,
     qtMessageLogHandler()->appendItem(item);
 }
 
-void QmlEngine::executeDebuggerCommand(const QString& command)
+void QmlEngine::executeDebuggerCommand(const QString &command, DebuggerLanguages languages)
 {
-    if (d->m_adapter.activeDebuggerClient()) {
+    if ((languages & QmlLanguage) && d->m_adapter.activeDebuggerClient()) {
         d->m_adapter.activeDebuggerClient()->executeDebuggerCommand(command);
     }
 }
@@ -1162,7 +1163,7 @@ bool QmlEngine::evaluateScriptExpression(const QString& expression)
                 //is sent to V8DebugService. In all other cases, the
                 //expression is evaluated by QDeclarativeEngine.
                 if (state() != InferiorStopOk) {
-                    QmlEngineDebugClient *engineDebug =
+                    BaseEngineDebugClient *engineDebug =
                             d->m_adapter.engineDebugClient();
 
                     int id = d->m_adapter.currentSelectedDebugId();
@@ -1183,7 +1184,7 @@ bool QmlEngine::evaluateScriptExpression(const QString& expression)
                         }
                     }
                 } else {
-                    executeDebuggerCommand(expression);
+                    executeDebuggerCommand(expression, QmlLanguage);
                 }
             } else {
                 didEvaluate = false;

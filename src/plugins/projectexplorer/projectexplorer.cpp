@@ -119,6 +119,7 @@
 #include <QtPlugin>
 #include <QDateTime>
 #include <QDebug>
+#include <QFileInfo>
 #include <QSettings>
 
 #if QT_VERSION < 0x050000
@@ -356,6 +357,8 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
             this, SLOT(projectRemoved(ProjectExplorer::Project*)));
     connect(d->m_session, SIGNAL(startupProjectChanged(ProjectExplorer::Project*)),
             this, SLOT(startupProjectChanged()));
+    connect(d->m_session, SIGNAL(projectDisplayNameChanged(ProjectExplorer::Project*)),
+            this, SLOT(projectDisplayNameChanged(ProjectExplorer::Project*)));
     connect(d->m_session, SIGNAL(dependencyChanged(ProjectExplorer::Project*,ProjectExplorer::Project*)),
             this, SLOT(updateActions()));
     connect(d->m_session, SIGNAL(sessionLoaded(QString)),
@@ -942,8 +945,16 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
                 s->value(QLatin1String("ProjectExplorer/Settings/MergeStdErrAndStdOut"), false).toBool();
         d->m_projectExplorerSettings.wrapAppOutput =
                 s->value(QLatin1String("ProjectExplorer/Settings/WrapAppOutput"), true).toBool();
+#ifdef Q_OS_WIN
+        QFileInfo jom = QFileInfo(MsvcToolChain::findInstalledJom());
+        if (!jom.exists())
+            jom.setFile(Utils::Environment::systemEnvironment().searchInPath(QLatin1String("jom.exe")));
+
         d->m_projectExplorerSettings.useJom =
-                s->value(QLatin1String("ProjectExplorer/Settings/UseJom"), true).toBool();
+                s->value(QLatin1String("ProjectExplorer/Settings/UseJom"), jom.exists()).toBool();
+#else
+        d->m_projectExplorerSettings.useJom = true; // No need to read any settings
+#endif
         d->m_projectExplorerSettings.autorestoreLastSession =
                 s->value(QLatin1String("ProjectExplorer/Settings/AutoRestoreLastSession"), false).toBool();
         d->m_projectExplorerSettings.prompToStopRunControl =
@@ -2153,6 +2164,12 @@ void ProjectExplorerPlugin::projectRemoved(ProjectExplorer::Project * pro)
                this, SLOT(updateActions()));
 }
 
+void ProjectExplorerPlugin::projectDisplayNameChanged(Project *pro)
+{
+    addToRecentProjects(pro->document()->fileName(), pro->displayName());
+    updateActions();
+}
+
 void ProjectExplorerPlugin::startupProjectChanged()
 {
     static QPointer<Project> previousStartupProject = 0;
@@ -2574,7 +2591,7 @@ QString ProjectExplorerPlugin::directoryFor(Node *node)
 
 void ProjectExplorerPlugin::addNewFile()
 {
-    QTC_ASSERT(d->m_currentNode, return)
+    QTC_ASSERT(d->m_currentNode, return);
     QString location = directoryFor(d->m_currentNode);
 
     QVariantMap map;
@@ -2587,7 +2604,7 @@ void ProjectExplorerPlugin::addNewFile()
 
 void ProjectExplorerPlugin::addNewSubproject()
 {
-    QTC_ASSERT(d->m_currentNode, return)
+    QTC_ASSERT(d->m_currentNode, return);
     QString location = directoryFor(d->m_currentNode);
 
     if (d->m_currentNode->nodeType() == ProjectNodeType
@@ -2603,7 +2620,7 @@ void ProjectExplorerPlugin::addNewSubproject()
 
 void ProjectExplorerPlugin::addExistingFiles()
 {
-    QTC_ASSERT(d->m_currentNode, return)
+    QTC_ASSERT(d->m_currentNode, return);
 
     QStringList fileNames = QFileDialog::getOpenFileNames(Core::ICore::mainWindow(),
         tr("Add Existing Files"), directoryFor(d->m_currentNode));
@@ -2679,33 +2696,33 @@ void ProjectExplorerPlugin::removeProject()
 
 void ProjectExplorerPlugin::openFile()
 {
-    QTC_ASSERT(d->m_currentNode, return)
+    QTC_ASSERT(d->m_currentNode, return);
     Core::EditorManager *em = Core::EditorManager::instance();
     em->openEditor(d->m_currentNode->path(), Core::Id(), Core::EditorManager::ModeSwitch);
 }
 
 void ProjectExplorerPlugin::searchOnFileSystem()
 {
-    QTC_ASSERT(d->m_currentNode, return)
+    QTC_ASSERT(d->m_currentNode, return);
     FolderNavigationWidget::findOnFileSystem(pathFor(d->m_currentNode));
 }
 
 void ProjectExplorerPlugin::showInGraphicalShell()
 {
-    QTC_ASSERT(d->m_currentNode, return)
+    QTC_ASSERT(d->m_currentNode, return);
     Core::FileUtils::showInGraphicalShell(Core::ICore::mainWindow(),
                                                     pathFor(d->m_currentNode));
 }
 
 void ProjectExplorerPlugin::openTerminalHere()
 {
-    QTC_ASSERT(d->m_currentNode, return)
+    QTC_ASSERT(d->m_currentNode, return);
     Core::FileUtils::openTerminal(directoryFor(d->m_currentNode));
 }
 
 void ProjectExplorerPlugin::removeFile()
 {
-    QTC_ASSERT(d->m_currentNode && d->m_currentNode->nodeType() == FileNodeType, return)
+    QTC_ASSERT(d->m_currentNode && d->m_currentNode->nodeType() == FileNodeType, return);
 
     FileNode *fileNode = qobject_cast<FileNode*>(d->m_currentNode);
 
@@ -2744,7 +2761,7 @@ void ProjectExplorerPlugin::removeFile()
 
 void ProjectExplorerPlugin::deleteFile()
 {
-    QTC_ASSERT(d->m_currentNode && d->m_currentNode->nodeType() == FileNodeType, return)
+    QTC_ASSERT(d->m_currentNode && d->m_currentNode->nodeType() == FileNodeType, return);
 
     FileNode *fileNode = qobject_cast<FileNode*>(d->m_currentNode);
 
@@ -2758,7 +2775,7 @@ void ProjectExplorerPlugin::deleteFile()
         return;
 
     ProjectNode *projectNode = fileNode->projectNode();
-    Q_ASSERT(projectNode);
+    QTC_ASSERT(projectNode, return);
 
     projectNode->deleteFiles(fileNode->fileType(), QStringList(filePath));
 

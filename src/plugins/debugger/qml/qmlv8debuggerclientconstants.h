@@ -39,7 +39,7 @@ namespace Internal {
 const float CURRENT_SUPPORTED_VERSION = 2.0;
 const char V8REQUEST[] = "v8request";
 const char V8MESSAGE[] = "v8message";
-const char SIGNALHANDLER[] = "signalhandler";
+const char BREAKONSIGNAL[] = "breakonsignal";
 const char CONNECT[] = "connect";
 const char INTERRUPT[] = "interrupt";
 const char V8DEBUG[] = "V8DEBUG";
@@ -120,6 +120,13 @@ const char VALUE[] = "value";
 const char OBJECT[] = "{}";
 const char ARRAY[] = "[]";
 
+const char INTERNAL_FUNCTION[] = "(function(method) { "\
+        "return (function(object, data, qmlglobal) { "\
+            "return (function() { "\
+                "return method(object, data, qmlglobal, arguments.length, arguments); "\
+            "});"\
+        "});"\
+    "})";
 } //Internal
 } //Debugger
 #endif // QMLV8DEBUGGERCLIENTCONSTANTS_H

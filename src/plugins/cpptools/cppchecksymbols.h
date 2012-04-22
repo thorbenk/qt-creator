@@ -83,7 +83,7 @@ public:
         return future;
     }
 
-    static Future go(Document::Ptr doc, const LookupContext &context);
+    static Future go(Document::Ptr doc, const LookupContext &context, const QList<Use> &macroUses);
 
     static QMap<int, QVector<Use> > chunks(const QFuture<Use> &future, int from, int to)
     {
@@ -105,7 +105,7 @@ protected:
     using ASTVisitor::visit;
     using ASTVisitor::endVisit;
 
-    CheckSymbols(Document::Ptr doc, const LookupContext &context);
+    CheckSymbols(Document::Ptr doc, const LookupContext &context, const QList<Use> &macroUses);
 
     bool hasVirtualDestructor(Class *klass) const;
     bool hasVirtualDestructor(ClassOrNamespace *binding) const;
@@ -185,6 +185,7 @@ private:
     QList<AST *> _astStack;
     QVector<Use> _usages;
     unsigned _lineOfLastUsage;
+    QList<Use> _macroUses;
 };
 
 } // namespace CPlusPlus

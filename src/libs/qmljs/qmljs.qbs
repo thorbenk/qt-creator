@@ -18,7 +18,7 @@ QtcLibrary {
     Depends { name: "Utils" }
     Depends { name: "LanguageUtils" }
     Depends { name: "cpp" }
-    Depends { name: "Qt"; submodules: ['gui', 'script'] }
+    Depends { name: "Qt"; submodules: ['widgets', 'script'] }
 
     files: [
         "qmljs.qrc",
@@ -103,6 +103,7 @@ QtcLibrary {
     ]
 
     ProductModule {
+        Depends { name: "cpp" }
         cpp.includePaths: [
             ".",
             "parser"

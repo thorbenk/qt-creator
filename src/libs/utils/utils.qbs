@@ -18,7 +18,7 @@ QtcLibrary {
     }
 
     Depends { name: "cpp" }
-    Depends { name: "Qt"; submodules: ['gui', 'network', 'script'] }
+    Depends { name: "Qt"; submodules: ['widgets', 'network', 'script', 'concurrent'] }
     Depends { name: "Botan" }
     Depends { name: "app_version_header" }
 
@@ -107,6 +107,7 @@ QtcLibrary {
         "projectnamevalidatinglineedit.h",
         "proxyaction.h",
         "qtcassert.h",
+        "qtcassert.cpp",
         "qtcolorbutton.cpp",
         "qtcolorbutton.h",
         "qtcprocess.h",
@@ -252,6 +253,10 @@ QtcLibrary {
             "unixutils.h",
             "unixutils.cpp"
         ]
+    }
+
+    ProductModule {
+        Depends { name: "Qt"; submodules: ["concurrent", "widgets", "network"] }
     }
 }
 

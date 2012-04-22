@@ -1,14 +1,14 @@
 SOURCES += $$PWD/s60manager.cpp \
+    $$PWD/symbianidevice.cpp \
+    $$PWD/symbianideviceconfigwidget.cpp \
+    $$PWD/symbianidevicefactory.cpp \
     $$PWD/sbsv2parser.cpp \
-    $$PWD/winscwtoolchain.cpp \
     $$PWD/gccetoolchain.cpp \
-    $$PWD/s60emulatorrunconfiguration.cpp \
     $$PWD/s60devicerunconfiguration.cpp \
     $$PWD/s60devicerunconfigurationwidget.cpp \
     $$PWD/rvcttoolchain.cpp \
     $$PWD/abldparser.cpp \
     $$PWD/rvctparser.cpp \
-    $$PWD/winscwparser.cpp \
     $$PWD/s60createpackagestep.cpp \
     $$PWD/s60deploystep.cpp \
     $$PWD/s60createpackageparser.cpp \
@@ -35,16 +35,16 @@ SOURCES += $$PWD/s60manager.cpp \
     $$PWD/s60devicedebugruncontrol.cpp
 
 HEADERS += $$PWD/s60manager.h \
+    $$PWD/symbianidevice.h \
+    $$PWD/symbianideviceconfigwidget.h \
+    $$PWD/symbianidevicefactory.h \
     $$PWD/sbsv2parser.h \
-    $$PWD/winscwtoolchain.h \
     $$PWD/gccetoolchain.h \
-    $$PWD/s60emulatorrunconfiguration.h \
     $$PWD/s60devicerunconfiguration.h \
     $$PWD/s60devicerunconfigurationwidget.h \
     $$PWD/rvcttoolchain.h \
     $$PWD/abldparser.h \
     $$PWD/rvctparser.h \
-    $$PWD/winscwparser.h \
     $$PWD/s60createpackagestep.h \
     $$PWD/s60deploystep.h \
     $$PWD/s60createpackageparser.h \
@@ -73,7 +73,6 @@ HEADERS += $$PWD/s60manager.h \
 FORMS += $$PWD/s60createpackagestep.ui \
     $$PWD/s60certificatedetailsdialog.ui \
     $$PWD/rvcttoolchainconfigwidget.ui \
-    $$PWD/winscwtoolchainconfigwidget.ui \
     $$PWD/s60publishingbuildsettingspageovi.ui \
     $$PWD/s60publishingresultspageovi.ui \
     $$PWD/s60publishingsissettingspageovi.ui

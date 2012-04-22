@@ -79,12 +79,8 @@ class CPLUSPLUS_EXPORT Preprocessor
 public:
     Preprocessor(Client *client, Environment *env);
 
-    QByteArray operator()(const QString &filename, const QString &source);
-    QByteArray operator()(const QString &filename, const QByteArray &source, bool noLines = false, bool markGeneratedTokens = true);
-
-    void preprocess(const QString &filename,
-                    const QByteArray &source,
-                    QByteArray *result, bool noLines, bool markGeneratedTokens, bool inCondition);
+    QByteArray run(const QString &filename, const QString &source);
+    QByteArray run(const QString &filename, const QByteArray &source, bool noLines = false, bool markGeneratedTokens = true);
 
     bool expandMacros() const;
     void setExpandMacros(bool expandMacros);
@@ -93,6 +89,10 @@ public:
     void setKeepComments(bool keepComments);
 
 private:
+    void preprocess(const QString &filename,
+                    const QByteArray &source,
+                    QByteArray *result, bool noLines, bool markGeneratedTokens, bool inCondition);
+
     enum { MAX_LEVEL = 512 };
 
     struct State {
@@ -147,12 +147,7 @@ private:
     void handleIfDefDirective(bool checkUndefined, PPToken *tk);
     void handleUndefDirective(PPToken *tk);
 
-    static bool isQtReservedWord(const Internal::ByteArrayRef &name);
-
-    void pushState(const State &newState);
-    void popState();
-
-    State createStateFromSource(const QString &fileName, const QByteArray &source, QByteArray *result, bool noLines, bool markGeneratedTokens, bool inCondition) const;
+    static bool isQtReservedWord(const ByteArrayRef &name);
 
     inline bool atStartOfOutputLine() const
     { return (m_state.m_result && !m_state.m_result->isEmpty()) ? m_state.m_result->end()[-1] == '\n' : true; }
@@ -174,12 +169,10 @@ private:
     inline void out(const char *s) const
     { if (m_state.m_result) m_state.m_result->append(s); }
 
-    inline void out(const Internal::ByteArrayRef &ref) const
+    inline void out(const ByteArrayRef &ref) const
     { if (m_state.m_result) m_state.m_result->append(ref.start(), ref.length()); }
 
-    QString string(const char *first, int len) const;
-
-    PPToken generateToken(enum Kind kind, const Internal::ByteArrayRef &content, unsigned lineno, bool addQuotes);
+    PPToken generateToken(enum Kind kind, const char *content, int len, unsigned lineno, bool addQuotes);
     PPToken generateConcatenated(const PPToken &leftTk, const PPToken &rightTk);
 
     void startSkippingBlocks(const PPToken &tk) const;
@@ -189,9 +182,9 @@ private:
     Environment *m_env;
     QByteArray m_scratchBuffer;
 
+    QString m_originalSource;
     QList<State> m_savedStates;
 
-    QString m_originalSource;
     bool m_expandMacros;
     bool m_keepComments;
 

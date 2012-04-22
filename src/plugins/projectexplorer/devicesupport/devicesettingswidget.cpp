@@ -37,11 +37,12 @@
 #include "idevice.h"
 #include "idevicefactory.h"
 #include "idevicewidget.h"
-#include "idevicewizard.h"
 
 #include <coreplugin/icore.h>
+#include <coreplugin/id.h>
 #include <extensionsystem/pluginmanager.h>
 #include <utils/portlist.h>
+#include <utils/qtcassert.h>
 
 #include <QFileInfo>
 #include <QRegExp>
@@ -115,6 +116,7 @@ DeviceSettingsWidget::~DeviceSettingsWidget()
         DeviceManager::replaceInstance();
     }
     DeviceManager::removeClonedInstance();
+    delete m_configWidget;
     delete m_ui;
 }
 
@@ -123,10 +125,9 @@ QString DeviceSettingsWidget::searchKeywords() const
     QString rc;
     QTextStream(&rc) << m_ui->configurationLabel->text()
         << ' ' << m_ui->deviceNameLabel->text()
-        << ' ' << m_ui->nameLineEdit->text();
-    if (m_configWidget)
-    rc.remove(QLatin1Char('&'));
-    return rc;
+        << ' ' << m_ui->nameLineEdit->text()
+        << ' ' << m_ui->autoDetectionKeyLabel->text();
+    return rc.remove(QLatin1Char('&'));
 }
 
 void DeviceSettingsWidget::initGui()
@@ -135,6 +136,17 @@ void DeviceSettingsWidget::initGui()
     DeviceManagerModel * const model = new DeviceManagerModel(m_deviceManager, this);
     m_ui->configurationComboBox->setModel(model);
     m_ui->nameLineEdit->setValidator(m_nameValidator);
+
+    bool hasDeviceFactories = false;
+    const QList<IDeviceFactory *> &factories
+        = ExtensionSystem::PluginManager::instance()->getObjects<IDeviceFactory>();
+    foreach (const IDeviceFactory *f, factories) {
+        if (f->canCreate()) {
+            hasDeviceFactories = true;
+            break;
+        }
+    }
+    m_ui->addConfigButton->setEnabled(hasDeviceFactories);
 
     int lastIndex = Core::ICore::settings()
         ->value(QLatin1String(LastDeviceIndexKey), 0).toInt();
@@ -151,21 +163,15 @@ void DeviceSettingsWidget::initGui()
 
 void DeviceSettingsWidget::addDevice()
 {
-    const QList<IDeviceFactory *> &factories
-        = ExtensionSystem::PluginManager::instance()->getObjects<IDeviceFactory>();
-
-    if (factories.isEmpty()) // Can't happen, because this plugin provides the generic one.
-        return;
-
     DeviceFactorySelectionDialog d;
     if (d.exec() != QDialog::Accepted)
         return;
 
-    const QScopedPointer<IDeviceWizard> wizard(d.selectedFactory()->createWizard(this));
-    if (wizard->exec() != QDialog::Accepted)
+    IDevice::Ptr device = d.selectedFactory()->create();
+    if (device.isNull())
         return;
 
-    m_deviceManager->addDevice(wizard->device());
+    m_deviceManager->addDevice(device);
     m_ui->removeConfigButton->setEnabled(true);
     m_ui->configurationComboBox->setCurrentIndex(m_ui->configurationComboBox->count()-1);
 }
@@ -182,9 +188,9 @@ void DeviceSettingsWidget::displayCurrent()
     const IDevice::ConstPtr &current = currentDevice();
     m_ui->defaultDeviceButton->setEnabled(
         m_deviceManager->defaultDevice(current->type()) != current);
-    m_ui->osTypeValueLabel->setText(DeviceManager::displayNameForDeviceType(current->type()));
+    m_ui->osTypeValueLabel->setText(current->displayType());
     m_ui->autoDetectionValueLabel->setText(current->isAutoDetected()
-        ? tr("Yes (fingerprint is '%1')").arg(current->fingerprint()) : tr("No"));
+        ? tr("Yes (fingerprint is '%1')").arg(current->id().toString()) : tr("No"));
     m_nameValidator->setDisplayName(current->displayName());
     m_ui->removeConfigButton->setEnabled(!current->isAutoDetected());
     fillInValues();
@@ -235,36 +241,26 @@ void DeviceSettingsWidget::currentDeviceChanged(int index)
     delete m_configWidget;
     m_configWidget = 0;
     m_additionalActionButtons.clear();
-    m_ui->generalGroupBox->setEnabled(false);
-    m_ui->osSpecificGroupBox->setEnabled(false);
+    QTC_ASSERT(index >= -1 && index < m_deviceManager->deviceCount(), return);
     if (index == -1) {
         m_ui->removeConfigButton->setEnabled(false);
         clearDetails();
         m_ui->defaultDeviceButton->setEnabled(false);
     } else {
         m_ui->removeConfigButton->setEnabled(true);
-        const IDeviceFactory * const factory = factoryForCurrentDevice();
-        if (factory) {
-            const QStringList &actionIds = factory->supportedDeviceActionIds();
-            foreach (const QString &actionId, actionIds) {
-                QPushButton * const button = new QPushButton(
-                            factory->displayNameForActionId(actionId));
-                m_additionalActionButtons << button;
-                connect(button, SIGNAL(clicked()), m_additionalActionsMapper, SLOT(map()));
-                m_additionalActionsMapper->setMapping(button, actionId);
-                m_ui->buttonsLayout->insertWidget(m_ui->buttonsLayout->count() - 1, button);
-            }
-            if (!m_ui->osSpecificGroupBox->layout())
-                new QVBoxLayout(m_ui->osSpecificGroupBox);
-            m_configWidget = factory->createWidget(m_deviceManager->mutableDeviceAt(currentIndex()),
-                                                   m_ui->osSpecificGroupBox);
-            if (m_configWidget) {
-                m_ui->osSpecificGroupBox->layout()->addWidget(m_configWidget);
-                m_ui->osSpecificGroupBox->setEnabled(factory->isUserEditable());
-            }
-            m_ui->generalGroupBox->setEnabled(factory->isUserEditable());
+        const IDevice::ConstPtr device = m_deviceManager->deviceAt(index);
+        foreach (const QString &actionId, device->actionIds()) {
+            QPushButton * const button = new QPushButton(device->displayNameForActionId(actionId));
+            m_additionalActionButtons << button;
+            connect(button, SIGNAL(clicked()), m_additionalActionsMapper, SLOT(map()));
+            m_additionalActionsMapper->setMapping(button, actionId);
+            m_ui->buttonsLayout->insertWidget(m_ui->buttonsLayout->count() - 1, button);
         }
-        m_ui->configurationComboBox->setCurrentIndex(index);
+        if (!m_ui->osSpecificGroupBox->layout())
+            new QVBoxLayout(m_ui->osSpecificGroupBox);
+        m_configWidget = m_deviceManager->mutableDeviceAt(index)->createWidget();
+        if (m_configWidget)
+            m_ui->osSpecificGroupBox->layout()->addWidget(m_configWidget);
         displayCurrent();
     }
 }
@@ -276,17 +272,11 @@ void DeviceSettingsWidget::clearDetails()
     m_ui->autoDetectionValueLabel->clear();
 }
 
-const IDeviceFactory *DeviceSettingsWidget::factoryForCurrentDevice() const
-{
-    Q_ASSERT(currentDevice());
-    return DeviceManager::factoryForDeviceType(currentDevice()->type());
-}
-
 void DeviceSettingsWidget::handleAdditionalActionRequest(const QString &actionId)
 {
-    const IDeviceFactory * const factory = factoryForCurrentDevice();
-    Q_ASSERT(factory);
-    QDialog * const action = factory->createDeviceAction(actionId, currentDevice(), this);
+    const IDevice::ConstPtr &device = currentDevice();
+    QTC_ASSERT(device, return);
+    QDialog * const action = device->createAction(actionId, this);
     if (action)
         action->exec();
     delete action;

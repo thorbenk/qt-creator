@@ -72,13 +72,13 @@ static QString suppressionText(const Error &error)
     // workaround: https://bugs.kde.org/show_bug.cgi?id=255822
     if (sup.frames().size() >= 24)
         sup.setFrames(sup.frames().mid(0, 23));
-    QTC_ASSERT(sup.frames().size() < 24, /**/)
+    QTC_ASSERT(sup.frames().size() < 24, /**/);
 
     // try to set some useful name automatically, instead of "insert_name_here"
     // we take the last stack frame and append the suppression kind, e.g.:
     // QDebug::operator<<(bool) [Memcheck:Cond]
     if (!error.stacks().isEmpty() && !error.stacks().first().frames().isEmpty()) {
-        const Frame &frame = error.stacks().first().frames().first();
+        const Frame frame = error.stacks().first().frames().first();
 
         QString newName;
         if (!frame.functionName().isEmpty())

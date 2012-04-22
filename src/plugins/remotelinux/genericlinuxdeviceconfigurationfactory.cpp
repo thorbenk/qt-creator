@@ -32,12 +32,7 @@
 #include "genericlinuxdeviceconfigurationfactory.h"
 
 #include "genericlinuxdeviceconfigurationwizard.h"
-#include "genericlinuxdeviceconfigurationwidget.h"
 #include "linuxdeviceconfiguration.h"
-#include "linuxdevicetestdialog.h"
-#include "publickeydeploymentdialog.h"
-#include "remotelinuxprocessesdialog.h"
-#include "remotelinuxprocesslist.h"
 #include "remotelinux_constants.h"
 
 #include <utils/qtcassert.h>
@@ -56,72 +51,30 @@ QString GenericLinuxDeviceConfigurationFactory::displayName() const
     return tr("Generic Linux Device");
 }
 
-IDeviceWizard *GenericLinuxDeviceConfigurationFactory::createWizard(QWidget *parent) const
+bool GenericLinuxDeviceConfigurationFactory::canCreate() const
 {
-    return new GenericLinuxDeviceConfigurationWizard(parent);
+    return true;
 }
 
-IDeviceWidget *GenericLinuxDeviceConfigurationFactory::createWidget(const IDevice::Ptr &device,
-    QWidget *parent) const
+IDevice::Ptr GenericLinuxDeviceConfigurationFactory::create() const
 {
-    return new GenericLinuxDeviceConfigurationWidget(device.staticCast<LinuxDeviceConfiguration>(),
-                                                     parent);
+    GenericLinuxDeviceConfigurationWizard wizard;
+    if (wizard.exec() != QDialog::Accepted)
+        return IDevice::Ptr();
+    return wizard.device();
 }
 
-IDevice::Ptr GenericLinuxDeviceConfigurationFactory::loadDevice(const QVariantMap &map) const
+bool GenericLinuxDeviceConfigurationFactory::canRestore(const QVariantMap &map) const
 {
-    QTC_ASSERT(supportsDeviceType(IDevice::typeFromMap(map)),
-        return LinuxDeviceConfiguration::Ptr());
-    LinuxDeviceConfiguration::Ptr device = LinuxDeviceConfiguration::create();
+    return IDevice::typeFromMap(map) == QLatin1String(Constants::GenericLinuxOsType);
+}
+
+IDevice::Ptr GenericLinuxDeviceConfigurationFactory::restore(const QVariantMap &map) const
+{
+    QTC_ASSERT(canRestore(map), return LinuxDeviceConfiguration::Ptr());
+    const LinuxDeviceConfiguration::Ptr device = LinuxDeviceConfiguration::create();
     device->fromMap(map);
     return device;
-}
-
-bool GenericLinuxDeviceConfigurationFactory::supportsDeviceType(const QString &deviceType) const
-{
-    return deviceType == QLatin1String(Constants::GenericLinuxOsType);
-}
-
-QString GenericLinuxDeviceConfigurationFactory::displayNameForDeviceType(const QString &deviceType) const
-{
-    QTC_ASSERT(supportsDeviceType(deviceType), return QString());
-    return tr("Generic Linux");
-}
-
-QStringList GenericLinuxDeviceConfigurationFactory::supportedDeviceActionIds() const
-{
-    return QStringList() << QLatin1String(Constants::GenericTestDeviceActionId)
-        << QLatin1String(Constants::GenericDeployKeyToDeviceActionId)
-        << QLatin1String(Constants::GenericRemoteProcessesActionId);
-}
-
-QString GenericLinuxDeviceConfigurationFactory::displayNameForActionId(const QString &actionId) const
-{
-    QTC_ASSERT(supportedDeviceActionIds().contains(actionId), return QString());
-
-    if (actionId == QLatin1String(Constants::GenericTestDeviceActionId))
-        return tr("Test");
-    if (actionId == QLatin1String(Constants::GenericRemoteProcessesActionId))
-        return tr("Remote Processes...");
-    if (actionId == QLatin1String(Constants::GenericDeployKeyToDeviceActionId))
-        return tr("Deploy Public Key...");
-    return QString(); // Can't happen.
-}
-
-QDialog *GenericLinuxDeviceConfigurationFactory::createDeviceAction(const QString &actionId,
-    const IDevice::ConstPtr &device, QWidget *parent) const
-{
-    QTC_ASSERT(supportedDeviceActionIds().contains(actionId), return 0);
-
-    const LinuxDeviceConfiguration::ConstPtr lDevice
-        = device.staticCast<const LinuxDeviceConfiguration>();
-    if (actionId == QLatin1String(Constants::GenericTestDeviceActionId))
-        return new LinuxDeviceTestDialog(lDevice, new GenericLinuxDeviceTester, parent);
-    if (actionId == QLatin1String(Constants::GenericRemoteProcessesActionId))
-        return new RemoteLinuxProcessesDialog(new GenericRemoteLinuxProcessList(lDevice, parent));
-    if (actionId == QLatin1String(Constants::GenericDeployKeyToDeviceActionId))
-        return PublicKeyDeploymentDialog::createDialog(lDevice, parent);
-    return 0; // Can't happen.
 }
 
 } // namespace RemoteLinux

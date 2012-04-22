@@ -615,7 +615,8 @@ void DebuggerEngine::gotoLocation(const Location &loc)
 {
      d->resetLocation();
 
-    if (debuggerCore()->boolSetting(OperateByInstruction) || !loc.hasDebugInfo()) {
+    if ((hasCapability(OperateByInstructionCapability) &&
+            debuggerCore()->boolSetting(OperateByInstruction)) || !loc.hasDebugInfo()) {
         d->m_disassemblerAgent.setLocation(loc);
         return;
     }
@@ -1674,7 +1675,7 @@ void DebuggerEngine::executeJumpToLine(const ContextData &)
 {
 }
 
-void DebuggerEngine::executeDebuggerCommand(const QString &)
+void DebuggerEngine::executeDebuggerCommand(const QString &, DebuggerLanguages)
 {
     showStatusMessage(tr("This debugger cannot handle user input."));
 }

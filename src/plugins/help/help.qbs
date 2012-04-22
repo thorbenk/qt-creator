@@ -5,7 +5,9 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "Help"
 
-    Depends { name: "qt"; submodules: ['gui', 'help', 'webkit'] }
+    condition: qtcore.versionMajor === 4
+    Depends { id: qtcore; name: "qt.core" }
+    Depends { name: "qt"; submodules: ['widgets', 'help', 'webkit'] }
     Depends { name: "Core" }
     Depends { name: "Find" }
     Depends { name: "Locator" }

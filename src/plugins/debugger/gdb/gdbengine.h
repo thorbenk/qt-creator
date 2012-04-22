@@ -242,7 +242,7 @@ private: ////////// General Interface //////////
     virtual void abortDebugger();
 
     virtual bool acceptsDebuggerCommands() const;
-    virtual void executeDebuggerCommand(const QString &command);
+    virtual void executeDebuggerCommand(const QString &command, DebuggerLanguages languages);
     virtual QByteArray qtNamespace() const { return m_dumperHelper.qtNamespace(); }
     virtual void setQtNamespace(const QByteArray &ns)
         { return m_dumperHelper.setQtNamespace(ns); }
@@ -420,9 +420,10 @@ private: ////////// Gdb Output, State & Capability Handling //////////
     Q_SLOT void handleResponse(const QByteArray &buff);
     void handleStopResponse(const GdbMi &data);
     void handleResultRecord(GdbResponse *response);
-    void handleStop0(const GdbMi &data);
     void handleStop1(const GdbResponse &response);
     void handleStop1(const GdbMi &data);
+    void handleStop2(const GdbResponse &response);
+    void handleStop2(const GdbMi &data);
     Q_SLOT void handleStop2();
     StackFrame parseStackFrame(const GdbMi &mi, int level);
     void resetCommandQueue();
@@ -746,6 +747,11 @@ private: ////////// View & Data Stuff //////////
     friend class DebugInfoTaskHandler;
     void requestDebugInformation(const DebugInfoTask &task);
     DebugInfoTaskHandler *m_debugInfoTaskHandler;
+
+    // Indicates whether we had at least one full attempt to load
+    // debug information.
+    bool attemptQuickStart() const;
+    bool m_fullStartDone;
 };
 
 } // namespace Internal

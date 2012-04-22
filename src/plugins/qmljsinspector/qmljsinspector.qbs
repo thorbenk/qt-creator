@@ -5,18 +5,15 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "QmlJSInspector"
 
-    Depends { name: "qt"; submodules: ['gui'] }
+    Depends { name: "qt"; submodules: ['widgets', 'quick1'] }
     Depends { name: "Core" }
-    Depends { name: "ProjectExplorer" }
-    Depends { name: "QmlProjectManager" }
-    Depends { name: "TextEditor" }
     Depends { name: "Debugger" }
-    Depends { name: "QmlJS" }
-    Depends { name: "QmlJSEditor" }
-    Depends { name: "symbianutils" }
     Depends { name: "LanguageUtils" }
+    Depends { name: "TextEditor" }
+    Depends { name: "QmlJS" }
+    Depends { name: "QmlJSTools" }
     Depends { name: "QmlEditorWidgets" }
-    Depends { name: "QmlJSDebugClient" }
+    Depends { name: "QmlDebug" }
 
 
     Depends { name: "cpp" }
@@ -39,7 +36,7 @@ QtcPlugin {
         "qmljsinspector.h",
         "qmljsinspectortoolbar.h",
         "qmljslivetextpreview.h",
-        "qmljsinspectorclient.h",
+        "qmltoolsclient.h",
         "qmljscontextcrumblepath.h",
         "qmljsinspectorsettings.h",
         "qmljspropertyinspector.h",
@@ -49,7 +46,7 @@ QtcPlugin {
         "qmljsinspector.cpp",
         "qmljsinspectortoolbar.cpp",
         "qmljslivetextpreview.cpp",
-        "qmljsinspectorclient.cpp",
+        "qmltoolsclient.cpp",
         "qmljscontextcrumblepath.cpp",
         "qmljsinspectorsettings.cpp",
         "qmljspropertyinspector.cpp",

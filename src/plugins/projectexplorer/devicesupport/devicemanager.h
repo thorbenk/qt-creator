@@ -39,6 +39,7 @@
 #include <QObject>
 
 namespace ProjectExplorer {
+class IDevice;
 class IDeviceFactory;
 
 namespace Internal {
@@ -50,6 +51,8 @@ class PROJECTEXPLORER_EXPORT DeviceManager : public QObject
 {
     Q_OBJECT
     friend class Internal::DeviceSettingsWidget;
+    friend class IDevice;
+
 public:
     ~DeviceManager();
 
@@ -57,22 +60,20 @@ public:
 
     int deviceCount() const;
     IDevice::ConstPtr deviceAt(int index) const;
-    IDevice::ConstPtr find(IDevice::Id id) const;
-    IDevice::ConstPtr findInactiveAutoDetectedDevice(const QString &type,
-        const QString &fingerprint);
+    IDevice::ConstPtr find(const Core::Id &id) const;
+    IDevice::ConstPtr findInactiveAutoDetectedDevice(const QString &type, const Core::Id id);
     IDevice::ConstPtr defaultDevice(const QString &deviceType) const;
     bool hasDevice(const QString &name) const;
-    IDevice::Id internalId(const IDevice::ConstPtr &device) const;
+    Core::Id deviceId(const IDevice::ConstPtr &device) const;
 
     int indexOf(const IDevice::ConstPtr &device) const;
 
     void addDevice(const IDevice::Ptr &device);
     void removeDevice(int index);
 
-    static const IDeviceFactory *factoryForDeviceType(const QString &type);
-    static QString displayNameForDeviceType(const QString &type);
-
 signals:
+    void deviceUpdated(const Core::Id &id);
+
     void deviceAdded(const QSharedPointer<const IDevice> &device);
     void deviceRemoved(int index);
     void displayNameChanged(int index);
@@ -86,11 +87,11 @@ private:
     void load();
     void save();
     void loadPre2_6();
+    static const IDeviceFactory *restoreFactory(const QVariantMap &map);
     void fromMap(const QVariantMap &map);
     QVariantMap toMap() const;
     void ensureOneDefaultDevicePerType();
-    IDevice::Id unusedId() const;
-    int indexForInternalId(IDevice::Id internalId) const;
+    int indexForId(const Core::Id &id) const;
 
     // For SettingsWidget.
     IDevice::Ptr mutableDeviceAt(int index) const;
@@ -99,6 +100,10 @@ private:
     static DeviceManager *cloneInstance();
     static void replaceInstance();
     static void removeClonedInstance();
+
+    // For IDevice.
+    IDevice::Ptr fromRawPointer(IDevice *device) const;
+    IDevice::ConstPtr fromRawPointer(const IDevice *device) const;
 
     static QString settingsFilePath();
     static void copy(const DeviceManager *source, DeviceManager *target, bool deep);

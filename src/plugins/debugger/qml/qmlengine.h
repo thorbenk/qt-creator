@@ -34,7 +34,7 @@
 #define DEBUGGER_QMLENGINE_H
 
 #include "debuggerengine.h"
-#include <qmljsdebugclient/qdebugmessageclient.h>
+#include <qmldebug/qdebugmessageclient.h>
 #include <utils/outputformat.h>
 #include <qmljs/qmljsdocument.h>
 
@@ -101,7 +101,7 @@ private slots:
     void errorMessageBoxFinished(int result);
     void updateCurrentContext();
     void appendDebugOutput(QtMsgType type, const QString &message,
-                           const QmlJsDebugClient::QDebugContextInfo &info);
+                           const QmlDebug::QDebugContextInfo &info);
 
 private:
     // DebuggerEngine implementation.
@@ -151,7 +151,7 @@ private:
     bool supportsThreads() const { return false; }
     void updateWatchData(const WatchData &data,
         const WatchUpdateFlags &flags);
-    void executeDebuggerCommand(const QString &command);
+    void executeDebuggerCommand(const QString &command, DebuggerLanguages languages);
     bool evaluateScriptExpression(const QString &expression);
 
     bool hasCapability(unsigned) const;

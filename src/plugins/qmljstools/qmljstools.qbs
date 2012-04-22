@@ -5,7 +5,7 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "QmlJSTools"
 
-    Depends { name: "qt"; submodules: ['gui'] }
+    Depends { name: "qt"; submodules: ['widgets'] }
     Depends { name: "Core" }
     Depends { name: "LanguageUtils" }
     Depends { name: "CppTools" }
@@ -13,7 +13,7 @@ QtcPlugin {
     Depends { name: "ProjectExplorer" }
     Depends { name: "TextEditor" }
     Depends { name: "Locator" }
-    Depends { name: "QmlJSDebugClient" }
+    Depends { name: "QmlDebug" }
     Depends { name: "QtSupport" }
 
     Depends { name: "cpp" }
@@ -54,12 +54,14 @@ QtcPlugin {
         "qmljstoolssettings.cpp",
         "qmljstoolssettings.h",
         "qmljscodestylepreferencesfactory.cpp",
-        "qmljscodestylepreferencesfactory.h"
+        "qmljscodestylepreferencesfactory.h",
+        "qmljssemanticinfo.cpp",
+        "qmljssemanticinfo.h"
     ]
 
     ProductModule {
         Depends { name: "CppTools" }
-        Depends { name: "QmlJSDebugClient" }
+        Depends { name: "QmlDebug" }
     }
 }
 

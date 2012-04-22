@@ -62,6 +62,9 @@ const char RUNQMAKECONTEXTMENU[] = "Qt4Builder.RunQMakeContextMenu";
 const char BUILDSUBDIR[] = "Qt4Builder.BuildSubDir";
 const char REBUILDSUBDIR[] = "Qt4Builder.RebuildSubDir";
 const char CLEANSUBDIR[] = "Qt4Builder.CleanSubDir";
+const char BUILDSUBDIRCONTEXTMENU[] = "Qt4Builder.BuildSubDirContextMenu";
+const char REBUILDSUBDIRCONTEXTMENU[] = "Qt4Builder.RebuildSubDirContextMenu";
+const char CLEANSUBDIRCONTEXTMENU[] = "Qt4Builder.CleanSubDirContextMenu";
 const char ADDLIBRARY[] = "Qt4.AddLibrary";
 const char SEPARATOR[] = "Qt4.Separator";
 
@@ -73,7 +76,6 @@ const char QT4PROJECT_ID[] = "Qt4ProjectManager.Qt4Project";
 
 // Targets
 const char DESKTOP_TARGET_ID[] = "Qt4ProjectManager.Target.DesktopTarget";
-const char S60_EMULATOR_TARGET_ID[] = "Qt4ProjectManager.Target.S60EmulatorTarget";
 const char S60_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.S60DeviceTarget";
 const char MAEMO5_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.MaemoDeviceTarget";
 const char HARMATTAN_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.HarmattanDeviceTarget";
@@ -89,7 +91,6 @@ const char SHADOWBUILD_TARGETFEATURE_ID[] = "Qt4ProjectManager.TargetFeature.Sha
 const char GCCE_TOOLCHAIN_ID[] = "Qt4ProjectManager.ToolChain.GCCE";
 const char MAEMO_TOOLCHAIN_ID[] = "Qt4ProjectManager.ToolChain.Maemo";
 const char RVCT_TOOLCHAIN_ID[] = "Qt4ProjectManager.ToolChain.RVCT";
-const char WINSCW_TOOLCHAIN_ID[] = "Qt4ProjectManager.ToolChain.WINSCW";
 
 // ICONS
 const char ICON_QT_PROJECT[] = ":/qt4projectmanager/images/qt_project.png";
@@ -98,7 +99,8 @@ const char ICON_HTML5_APP[] = ":/wizards/images/html5app.png";
 
 // Env variables
 const char QMAKEVAR_QMLJSDEBUGGER_PATH[] = "QMLJSDEBUGGER_PATH";
-const char QMAKEVAR_DECLARATIVE_DEBUG[] = "CONFIG+=declarative_debug";
+const char QMAKEVAR_DECLARATIVE_DEBUG4[] = "CONFIG+=declarative_debug";
+const char QMAKEVAR_DECLARATIVE_DEBUG5[] = "CONFIG+=qml_debug";
 
 // Unconfigured Settings page
 const char UNCONFIGURED_SETTINGS_PAGE_ID[] = "R.UnconfiguredSettings";

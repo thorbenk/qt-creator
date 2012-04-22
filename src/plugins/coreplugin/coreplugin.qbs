@@ -4,7 +4,13 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "Core"
 
-    Depends { name: "qt"; submodules: ['core', 'gui', 'xml', 'network', 'script', 'sql', 'help'] }
+    Depends {
+        name: "qt"
+        submodules: [
+            'core', 'widgets', 'xml', 'network',
+            'script', 'sql', 'help', 'printsupport'
+        ]
+    }
     Depends { name: "Utils" }
     Depends { name: "ExtensionSystem" }
     Depends { name: "Aggregation" }
@@ -189,6 +195,7 @@ QtcPlugin {
         "editormanager/ieditor.cpp",
         "editormanager/ieditor.h",
         "editormanager/ieditorfactory.h",
+        "editormanager/ieditorfactory.cpp",
         "editormanager/iexternaleditor.cpp",
         "editormanager/iexternaleditor.h",
         "editormanager/openeditorsmodel.cpp",
@@ -239,13 +246,14 @@ QtcPlugin {
     }
 
     ProductModule {
+        Depends { name: "cpp" }
         Depends { name: "Aggregation" }
         Depends { name: "ExtensionSystem" }
         Depends { name: "Utils" }
         cpp.includePaths: [
             "../..",
             "../../libs",
-            buildDirectory + "/.obj/Core/actionmanager"
+            product.buildDirectory + "/.obj/Core/actionmanager"
         ]
     }
 }

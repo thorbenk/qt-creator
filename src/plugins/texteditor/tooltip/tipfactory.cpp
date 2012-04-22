@@ -55,6 +55,6 @@ Internal::QTipLabel *TipFactory::createTip(const TipContent &content, QWidget *w
     if (content.typeId() == WidgetContent::WIDGET_CONTENT_ID)
         return new WidgetTip(w);
 
-    QTC_ASSERT(false, return 0; )
+    QTC_CHECK(false);
     return 0;
 }

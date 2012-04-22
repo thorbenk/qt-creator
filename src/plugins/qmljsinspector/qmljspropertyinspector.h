@@ -45,6 +45,10 @@ QT_BEGIN_NAMESPACE
 
 QT_END_NAMESPACE
 
+namespace Utils {
+class SavedAction;
+}
+
 namespace QmlJSInspector {
 namespace Internal {
 
@@ -62,7 +66,8 @@ public:
     virtual void accept();
 
 signals:
-    void dataChanged(int debugId, const QString &paramName, const QString &newExpression);
+    void dataChanged(int debugId, const QString &paramName,
+                     const QString &newExpression);
 
 private:
     QDialogButtonBox *m_buttonBox;
@@ -77,13 +82,15 @@ class ColorChooserDialog : public QDialog
 public:
     explicit ColorChooserDialog(const QString &title, QDialog *parent = 0);
 
-    void setItemData(int objectId,const QString &propertyName, const QString &colorName);
+    void setItemData(int objectId,const QString &propertyName,
+                     const QString &colorName);
 
 public slots:
     void acceptColor(const QColor &color);
 
 signals:
-    void dataChanged(int debugId, const QString &paramName, const QString &newExpression);
+    void dataChanged(int debugId, const QString &paramName,
+                     const QString &newExpression);
 
 
 private:
@@ -122,18 +129,24 @@ public:
     };
 
     explicit QmlJSPropertyInspector(QWidget *parent = 0);
+    void readSettings();
+    void addBaseContextActions(QMenu *menu);
     void clear();
     void setContentsValid(bool contentsValid);
     bool contentsValid() const;
 
 signals:
-    void changePropertyValue(int debugId, QString propertyName, QString valueExpression);
+    void changePropertyValue(int debugId, QString propertyName,
+                             QString valueExpression, bool isLiteral);
     void customContextMenuRequested(const QPoint &pos);
 
 public slots:
+    void writeSettings() const;
     void setCurrentObjects(const QList<QmlDebugObjectReference> &);
-    void propertyValueEdited(const int objectId,const QString &propertyName, const QString &propertyValue);
-    void propertyValueChanged(int debugId, const QByteArray &propertyName, const QVariant &propertyValue);
+    void propertyValueEdited(const int objectId,const QString &propertyName,
+                             const QString &propertyValue, bool isLiteral = false);
+    void propertyValueChanged(int debugId, const QByteArray &propertyName,
+                              const QVariant &propertyValue);
 
     void openExpressionEditor(const QModelIndex &itemIndex);
     void openColorSelector(const QModelIndex &itemIndex);
@@ -152,6 +165,7 @@ private:
 
     QmlJSPropertyInspectorModel m_model;
     QList<int> m_currentObjects;
+    Utils::SavedAction *m_adjustColumnsAction;
 };
 
 } // Internal

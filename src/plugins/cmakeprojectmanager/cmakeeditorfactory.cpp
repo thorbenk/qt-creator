@@ -57,8 +57,7 @@ CMakeEditorFactory::CMakeEditorFactory(CMakeManager *manager)
             TextEditorActionHandler::UnCommentSelection
             | TextEditorActionHandler::JumpToFileUnderCursor);
 
-    ICore *core = ICore::instance();
-    ActionManager *am = core->actionManager();
+    ActionManager *am = ICore::actionManager();
     ActionContainer *contextMenu = am->createMenu(Constants::M_CONTEXT);
     Command *cmd;
     Context cmakeEditorContext = Context(Constants::C_CMAKEEDITOR);
@@ -83,12 +82,6 @@ Core::Id CMakeEditorFactory::id() const
 QString CMakeEditorFactory::displayName() const
 {
     return tr(CMakeProjectManager::Constants::CMAKE_EDITOR_DISPLAY_NAME);
-}
-
-Core::IDocument *CMakeEditorFactory::open(const QString &fileName)
-{
-    Core::IEditor *iface = Core::EditorManager::instance()->openEditor(fileName, id());
-    return iface ? iface->document() : 0;
 }
 
 Core::IEditor *CMakeEditorFactory::createEditor(QWidget *parent)

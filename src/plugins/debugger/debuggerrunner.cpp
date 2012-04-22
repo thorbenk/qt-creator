@@ -453,7 +453,7 @@ void DebuggerRunControl::showMessage(const QString &msg, int channel)
 
 bool DebuggerRunControl::promptToStop(bool *optionalPrompt) const
 {
-    QTC_ASSERT(isRunning(), return true;)
+    QTC_ASSERT(isRunning(), return true);
 
     if (optionalPrompt && !*optionalPrompt)
         return true;
@@ -521,7 +521,7 @@ static QList<DebuggerEngineType> enginesForToolChain(const Abi &toolChain,
             result.push_back(CdbEngineType);
         } else {
             result.push_back(CdbEngineType);
-            result.push_back(GdbEngineType);
+            //result.push_back(GdbEngineType);
         }
         if (languages & QmlLanguage)
             result.push_back(QmlEngineType);

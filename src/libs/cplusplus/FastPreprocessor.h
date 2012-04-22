@@ -64,11 +64,11 @@ public:
     virtual void macroAdded(const Macro &) {}
 
     virtual void passedMacroDefinitionCheck(unsigned, const Macro &) {}
-    virtual void failedMacroDefinitionCheck(unsigned, const QByteArray &) {}
+    virtual void failedMacroDefinitionCheck(unsigned, const ByteArrayRef &) {}
 
     virtual void startExpandingMacro(unsigned,
                                      const Macro &,
-                                     const QByteArray &,
+                                     const ByteArrayRef &,
                                      const QVector<MacroArgumentReference> &) {}
 
     virtual void stopExpandingMacro(unsigned, const Macro &) {}

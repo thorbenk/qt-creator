@@ -30,6 +30,11 @@
 **
 **************************************************************************/
 #include "qmljspropertyinspector.h"
+#include "qmljsinspectorconstants.h"
+
+#include <debugger/debuggerconstants.h>
+#include <extensionsystem/pluginmanager.h>
+#include <coreplugin/icore.h>
 
 #include <QHeaderView>
 #include <QItemDelegate>
@@ -46,6 +51,7 @@
 #include <QMenu>
 
 #include <utils/qtcassert.h>
+#include <utils/savedaction.h>
 
 const int PROPERTY_NAME_COLUMN = 0;
 const int PROPERTY_TYPE_COLUMN = 1;
@@ -60,7 +66,7 @@ namespace Internal {
 
 class PropertyEditDelegate : public QItemDelegate
 {
-    public:
+public:
     explicit PropertyEditDelegate(QObject *parent=0) : QItemDelegate(parent),
         m_treeWidget(dynamic_cast<QmlJSPropertyInspector *>(parent)) {}
 
@@ -74,24 +80,33 @@ class PropertyEditDelegate : public QItemDelegate
 
         switch (m_treeWidget->getTypeFor(index.row())) {
 
-            case QmlJSPropertyInspector::BooleanType: {
-                // invert the bool, skip editor
-                int objectId = m_treeWidget->getData(index.row(), PROPERTY_NAME_COLUMN, Qt::UserRole).toInt();
-                QString propertyName = m_treeWidget->getData(index.row(), PROPERTY_NAME_COLUMN, Qt::DisplayRole).toString();
-                bool propertyValue = m_treeWidget->getData(index.row(), PROPERTY_VALUE_COLUMN, Qt::DisplayRole).toBool();
-                m_treeWidget->propertyValueEdited(objectId, propertyName, !propertyValue?"true":"false");
-                return 0;
-            }
+        case QmlJSPropertyInspector::BooleanType: {
+            // invert the bool, skip editor
+            int objectId = m_treeWidget->getData(index.row(),
+                                                 PROPERTY_NAME_COLUMN,
+                                                 Qt::UserRole).toInt();
+            QString propertyName
+                    = m_treeWidget->getData(index.row(),
+                                            PROPERTY_NAME_COLUMN,
+                                            Qt::DisplayRole).toString();
+            bool propertyValue
+                    = m_treeWidget->getData(index.row(), PROPERTY_VALUE_COLUMN,
+                                            Qt::DisplayRole).toBool();
+            m_treeWidget->propertyValueEdited(objectId, propertyName,
+                                              !propertyValue?"true":"false",
+                                              true);
+            return 0;
+        }
 
-            case QmlJSPropertyInspector::NumberType: {
-                QLineEdit *editor = new QLineEdit(parent);
-                editor->setValidator(new QDoubleValidator(editor));
-                return editor;
-            }
+        case QmlJSPropertyInspector::NumberType: {
+            QLineEdit *editor = new QLineEdit(parent);
+            editor->setValidator(new QDoubleValidator(editor));
+            return editor;
+        }
 
         default: {
-                return new QLineEdit(parent);
-            }
+            return new QLineEdit(parent);
+        }
         }
 
         return 0;
@@ -99,39 +114,29 @@ class PropertyEditDelegate : public QItemDelegate
 
     void setEditorData(QWidget *editor, const QModelIndex &index) const
     {
-        QVariant data = m_treeWidget->getData(index.row(), PROPERTY_VALUE_COLUMN, Qt::DisplayRole);
+        QVariant data = m_treeWidget->getData(index.row(), PROPERTY_VALUE_COLUMN,
+                                              Qt::DisplayRole);
         QLineEdit *lineEdit = static_cast<QLineEdit*>(editor);
         lineEdit->setText(data.toString());
     }
 
-    void setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const
+    void setModelData(QWidget *editor, QAbstractItemModel *model,
+                      const QModelIndex &index) const
     {
         Q_UNUSED(model);
 
-        int objectId = m_treeWidget->getData(index.row(), PROPERTY_NAME_COLUMN, Qt::UserRole).toInt();
+        int objectId = m_treeWidget->getData(index.row(), PROPERTY_NAME_COLUMN,
+                                             Qt::UserRole).toInt();
         if (objectId == -1)
             return;
 
-        QString propertyName = m_treeWidget->getData(index.row(), PROPERTY_NAME_COLUMN, Qt::DisplayRole).toString();
-
+        QString propertyName = m_treeWidget->getData(index.row(),
+                                                     PROPERTY_NAME_COLUMN,
+                                                     Qt::DisplayRole).toString();
         QLineEdit *lineEdit = static_cast<QLineEdit*>(editor);
         QString propertyValue = lineEdit->text();
-
-        // add quotes if it's a string
-        QmlJSPropertyInspector::PropertyType propertyType = m_treeWidget->getTypeFor(index.row());
-        const QChar quote(QLatin1Char('\"'));
-
-        if (propertyType == QmlJSPropertyInspector::StringType) {
-            const QChar backslash(QLatin1Char('\\'));
-            propertyValue = propertyValue.replace(quote, QString(backslash) + quote);
-        }
-
-        if (propertyType == QmlJSPropertyInspector::StringType || propertyType == QmlJSPropertyInspector::ColorType) {
-            propertyValue = quote + propertyValue + quote;
-        }
-
-        m_treeWidget->propertyValueEdited(objectId, propertyName, propertyValue);
-
+        m_treeWidget->propertyValueEdited(objectId, propertyName, propertyValue,
+                                          true);
         lineEdit->clearFocus();
     }
 
@@ -154,7 +159,8 @@ private:
 
 ExpressionEdit::ExpressionEdit(const QString &title, QDialog *parent)
     : QDialog(parent)
-    , m_buttonBox(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel))
+    , m_buttonBox(new QDialogButtonBox(QDialogButtonBox::Ok
+                                       | QDialogButtonBox::Cancel))
     , m_exprInput(new QLineEdit(this))
 {
     setWindowTitle(title);
@@ -195,7 +201,9 @@ inline QString extendedNameFromColor(QColor color)
 {
     int alphaValue = color.alpha();
     if (alphaValue < 255)
-        return QLatin1String("#") + QString("%1").arg(alphaValue, 2, 16, QChar('0')) + color.name().right(6) ;
+        return QLatin1String("#")
+                + QString("%1").arg(alphaValue, 2, 16, QChar('0'))
+                + color.name().right(6) ;
     else
         return color.name();
 }
@@ -230,7 +238,8 @@ ColorChooserDialog::ColorChooserDialog(const QString &title, QDialog *parent)
     connect(m_mainFrame,SIGNAL(rejected()),this,SLOT(reject()));
 }
 
-void ColorChooserDialog::setItemData(int objectId, const QString &propertyName, const QString& colorName)
+void ColorChooserDialog::setItemData(int objectId, const QString &propertyName,
+                                     const QString &colorName)
 {
     m_debugId = objectId;
     m_paramName = propertyName;
@@ -240,7 +249,8 @@ void ColorChooserDialog::setItemData(int objectId, const QString &propertyName, 
 void ColorChooserDialog::acceptColor(const QColor &color)
 {
     QDialog::accept();
-    emit dataChanged(m_debugId, m_paramName, QChar('\"')+color.name()+QChar('\"'));
+    emit dataChanged(m_debugId, m_paramName,
+                     QChar('\"') + color.name() + QChar('\"'));
 }
 
 // *************************************************************************
@@ -269,13 +279,14 @@ Qt::ItemFlags QmlJSPropertyInspectorModel::flags(const QModelIndex &index) const
     return m_contentsValid ? QStandardItemModel::flags(index) : Qt::ItemFlags();
 }
 
-QVariant QmlJSPropertyInspectorModel::headerData(int section, Qt::Orientation orient, int role) const
+QVariant QmlJSPropertyInspectorModel::headerData(
+        int section, Qt::Orientation orient, int role) const
 {
     if (orient == Qt::Horizontal && role == Qt::DisplayRole) {
         switch (section) {
-            case PROPERTY_NAME_COLUMN: return tr("Name");
-            case PROPERTY_VALUE_COLUMN: return tr("Value");
-            case PROPERTY_TYPE_COLUMN: return tr("Type");
+        case PROPERTY_NAME_COLUMN: return tr("Name");
+        case PROPERTY_VALUE_COLUMN: return tr("Value");
+        case PROPERTY_TYPE_COLUMN: return tr("Type");
         };
     }
     return QStandardItemModel::headerData(section, orient, role);
@@ -294,11 +305,62 @@ bool QmlJSPropertyInspectorModel::contentsValid() const
 QmlJSPropertyInspector::QmlJSPropertyInspector(QWidget *parent)
     : Utils::BaseTreeView(parent)
 {
-    setItemDelegateForColumn(PROPERTY_VALUE_COLUMN, new PropertyEditDelegate(this));
+    setItemDelegateForColumn(PROPERTY_VALUE_COLUMN,
+                             new PropertyEditDelegate(this));
 
     setModel(&m_model);
     //Add an empty Row to make the headers visible!
     addRow(QString(), QString(), QString(), -1, false);
+
+    m_adjustColumnsAction = new Utils::SavedAction(this);
+    m_adjustColumnsAction->setText(tr("Always Adjust Column Widths to Contents"));
+    m_adjustColumnsAction->setCheckable(true);
+    m_adjustColumnsAction->setValue(false);
+    m_adjustColumnsAction->setDefaultValue(false);
+    m_adjustColumnsAction->setSettingsKey(QLatin1String(Constants::S_QML_INSPECTOR),
+        QLatin1String(Constants::ALWAYS_ADJUST_COLUMNS_WIDTHS));
+    readSettings();
+    connect(Core::ICore::instance(),
+            SIGNAL(saveSettingsRequested()), SLOT(writeSettings()));
+
+    setAlwaysAdjustColumnsAction(m_adjustColumnsAction);
+
+    QAction *act = qobject_cast<QAction *>(
+                ExtensionSystem::PluginManager::instance()->getObjectByName(
+                QLatin1String(Debugger::Constants::USE_ALTERNATING_ROW_COLORS)));
+    if (act) {
+        setAlternatingRowColors(act->isChecked());
+        connect(act, SIGNAL(toggled(bool)),
+                SLOT(setAlternatingRowColorsHelper(bool)));
+    }
+}
+
+void QmlJSPropertyInspector::readSettings()
+{
+    QSettings *settings = Core::ICore::settings();
+    m_adjustColumnsAction->readSettings(settings);
+}
+
+void QmlJSPropertyInspector::writeSettings() const
+{
+    QSettings *settings = Core::ICore::settings();
+    m_adjustColumnsAction->writeSettings(settings);
+}
+
+void QmlJSPropertyInspector::addBaseContextActions(QMenu *menu)
+{
+    QAction *act = qobject_cast<QAction *>(
+                ExtensionSystem::PluginManager::instance()->getObjectByName(
+                QLatin1String(Debugger::Constants::SORT_STRUCT_MEMBERS)));
+    if (act)
+        menu->addAction(act);
+    Utils::BaseTreeView::addBaseContextActions(menu);
+
+    act = qobject_cast<QAction *>(
+                    ExtensionSystem::PluginManager::instance()->getObjectByName(
+                    QLatin1String(Debugger::Constants::SETTINGS_DIALOG)));
+    if (act)
+        menu->addAction(act);
 }
 
 void QmlJSPropertyInspector::clear()
@@ -317,7 +379,8 @@ bool QmlJSPropertyInspector::contentsValid() const
     return m_model.contentsValid();
 }
 
-void QmlJSPropertyInspector::setCurrentObjects(const QList<QmlDebugObjectReference> &objectList)
+void QmlJSPropertyInspector::setCurrentObjects(
+        const QList<QmlDebugObjectReference> &objectList)
 {
     if (objectList.isEmpty())
         return;
@@ -335,26 +398,35 @@ QVariant QmlJSPropertyInspector::getData(int row, int column, int role) const
     return m_model.data(m_model.index(row, column), role);
 }
 
-QmlJSPropertyInspector::PropertyType QmlJSPropertyInspector::getTypeFor(int row) const
+QmlJSPropertyInspector::PropertyType
+QmlJSPropertyInspector::getTypeFor(int row) const
 {
-    return static_cast<QmlJSPropertyInspector::PropertyType>(m_model.data(m_model.index(row, PROPERTY_TYPE_COLUMN), Qt::UserRole).toInt());
+    return static_cast<QmlJSPropertyInspector::PropertyType>(
+                m_model.data(m_model.index(row, PROPERTY_TYPE_COLUMN),
+                             Qt::UserRole).toInt());
 }
 
-void QmlJSPropertyInspector::propertyValueChanged(int debugId, const QByteArray &propertyName, const QVariant &propertyValue)
+void QmlJSPropertyInspector::propertyValueChanged(int debugId,
+                                                  const QByteArray &propertyName,
+                                                  const QVariant &propertyValue)
 {
     if (m_model.rowCount() == 0)
         return;
 
     QString propertyNameS = QString(propertyName);
     for (int i = 0; i < m_model.rowCount(); i++) {
-        if (m_model.data(m_model.index(i, PROPERTY_NAME_COLUMN), Qt::DisplayRole).toString() == propertyNameS &&
-                m_model.data(m_model.index(i, PROPERTY_NAME_COLUMN), Qt::UserRole).toInt() == debugId) {
-            QString oldData = m_model.data(m_model.index(i, PROPERTY_VALUE_COLUMN), Qt::DisplayRole).toString();
+        if (m_model.data(m_model.index(i, PROPERTY_NAME_COLUMN),
+                         Qt::DisplayRole).toString() == propertyNameS &&
+                m_model.data(m_model.index(i, PROPERTY_NAME_COLUMN),
+                             Qt::UserRole).toInt() == debugId) {
+            QString oldData = m_model.data(m_model.index(i, PROPERTY_VALUE_COLUMN),
+                                           Qt::DisplayRole).toString();
             QString newData = propertyValue.toString();
             if (QString(propertyValue.typeName()) == "QColor")
                 newData = extendedNameFromColor(propertyValue);
             if (oldData != newData) {
-                m_model.setData(m_model.index(i, PROPERTY_VALUE_COLUMN), newData, Qt::DisplayRole);
+                m_model.setData(m_model.index(i, PROPERTY_VALUE_COLUMN), newData,
+                                Qt::DisplayRole);
                 m_model.item(i, PROPERTY_VALUE_COLUMN)->setToolTip(newData);
                 m_model.item(i, PROPERTY_NAME_COLUMN)->setForeground(QBrush(Qt::red));
                 m_model.item(i, PROPERTY_VALUE_COLUMN)->setForeground(QBrush(Qt::red));
@@ -367,9 +439,12 @@ void QmlJSPropertyInspector::propertyValueChanged(int debugId, const QByteArray 
     }
 }
 
-void QmlJSPropertyInspector::propertyValueEdited(const int objectId,const QString& propertyName, const QString& propertyValue)
+void QmlJSPropertyInspector::propertyValueEdited(const int objectId,
+                                                 const QString &propertyName,
+                                                 const QString &propertyValue,
+                                                 bool isLiteral)
 {
-    emit changePropertyValue(objectId, propertyName, propertyValue);
+    emit changePropertyValue(objectId, propertyName, propertyValue, isLiteral);
 }
 
 void QmlJSPropertyInspector::buildPropertyTree(const QmlDebugObjectReference &obj)
@@ -378,7 +453,8 @@ void QmlJSPropertyInspector::buildPropertyTree(const QmlDebugObjectReference &ob
     QString objTypeName = obj.className();
     QString declarativeString("QDeclarative");
     if (objTypeName.startsWith(declarativeString)) {
-        objTypeName = objTypeName.mid(declarativeString.length()).section('_',0,0);
+        objTypeName = objTypeName.mid(declarativeString.length()).section('_',
+                                                                          0, 0);
     }
 
     // class
@@ -408,17 +484,24 @@ void QmlJSPropertyInspector::buildPropertyTree(const QmlDebugObjectReference &ob
             propertyValue = extendedNameFromColor(prop.value());
         }
 
-        addRow(propertyName, propertyValue, prop.valueTypeName(), obj.debugId(), prop.hasNotifySignal());
+        addRow(propertyName, propertyValue, prop.valueTypeName(), obj.debugId(),
+               prop.hasNotifySignal());
     }
 
     m_model.setHeaderData(PROPERTY_NAME_COLUMN, Qt::Horizontal,QVariant("name"));
     m_model.setHeaderData(PROPERTY_VALUE_COLUMN, Qt::Horizontal,QVariant("value"));
     m_model.setHeaderData(PROPERTY_TYPE_COLUMN, Qt::Horizontal,QVariant("type"));
 
+    QAction *act = qobject_cast<QAction *>(
+                ExtensionSystem::PluginManager::instance()->getObjectByName(
+                QLatin1String(Debugger::Constants::SORT_STRUCT_MEMBERS)));
+    if (act && act->isChecked())
+        m_model.sort(PROPERTY_NAME_COLUMN);
 }
 
-void QmlJSPropertyInspector::addRow(const QString &name,const QString &value, const QString &type,
-                             const int debugId, bool editable)
+void QmlJSPropertyInspector::addRow(const QString &name,const QString &value,
+                                    const QString &type, const int debugId,
+                                    bool editable)
 {
     QStandardItem *nameColumn = new QStandardItem(name);
     nameColumn->setToolTip(name);
@@ -435,7 +518,8 @@ void QmlJSPropertyInspector::addRow(const QString &name,const QString &value, co
     typeColumn->setEditable(false);
 
     // encode type for easy lookup
-    QmlJSPropertyInspector::PropertyType typeCode = QmlJSPropertyInspector::OtherType;
+    QmlJSPropertyInspector::PropertyType typeCode
+            = QmlJSPropertyInspector::OtherType;
     if (type == "bool")
         typeCode = QmlJSPropertyInspector::BooleanType;
     else if (type == "qreal")
@@ -505,9 +589,11 @@ void QmlJSPropertyInspector::contextMenuEvent(QContextMenuEvent *ev)
 
 void QmlJSPropertyInspector::openExpressionEditor(const QModelIndex &itemIndex)
 {
-    const QString propertyName = getData(itemIndex.row(), PROPERTY_NAME_COLUMN, Qt::DisplayRole).toString();
+    const QString propertyName = getData(itemIndex.row(), PROPERTY_NAME_COLUMN,
+                                         Qt::DisplayRole).toString();
     const QString dialogText = tr("JavaScript expression for %1").arg(propertyName);
-    const int objectId = getData(itemIndex.row(), PROPERTY_NAME_COLUMN, Qt::UserRole).toInt();
+    const int objectId = getData(itemIndex.row(), PROPERTY_NAME_COLUMN,
+                                 Qt::UserRole).toInt();
 
     ExpressionEdit *expressionDialog = new ExpressionEdit(dialogText);
     expressionDialog->setItemData(objectId, propertyName);
@@ -520,10 +606,13 @@ void QmlJSPropertyInspector::openExpressionEditor(const QModelIndex &itemIndex)
 
 void QmlJSPropertyInspector::openColorSelector(const QModelIndex &itemIndex)
 {
-    const QString propertyName = getData(itemIndex.row(), PROPERTY_NAME_COLUMN, Qt::DisplayRole).toString();
+    const QString propertyName = getData(itemIndex.row(), PROPERTY_NAME_COLUMN,
+                                         Qt::DisplayRole).toString();
     const QString dialogText = tr("Color selection for %1").arg(propertyName);
-    const int objectId = getData(itemIndex.row(), PROPERTY_NAME_COLUMN, Qt::UserRole).toInt();
-    const QString propertyValue = getData(itemIndex.row(), PROPERTY_VALUE_COLUMN, Qt::DisplayRole).toString();
+    const int objectId = getData(itemIndex.row(), PROPERTY_NAME_COLUMN,
+                                 Qt::UserRole).toInt();
+    const QString propertyValue = getData(itemIndex.row(), PROPERTY_VALUE_COLUMN,
+                                          Qt::DisplayRole).toString();
 
     ColorChooserDialog *colorDialog = new ColorChooserDialog(dialogText);
     colorDialog->setItemData(objectId, propertyName, propertyValue);

@@ -1417,7 +1417,7 @@ EventResult FakeVimHandler::Private::handleKey(const Input &input)
     if (m_mode == InsertMode || m_mode == ReplaceMode || m_mode == CommandMode) {
         g.pendingInput.append(input);
         const char code = m_mode == InsertMode ? 'i' : 'n';
-        if (g.mappings[code].mappingDone(&g.pendingInput))
+        if (g.mappings.value(code).mappingDone(&g.pendingInput))
             return handleKey2();
         if (g.inputTimer != -1)
             killTimer(g.inputTimer);
@@ -1429,34 +1429,33 @@ EventResult FakeVimHandler::Private::handleKey(const Input &input)
 
 EventResult FakeVimHandler::Private::handleKey2()
 {
+    Inputs pendingInput = g.pendingInput;
+    g.pendingInput.clear();
     if (m_mode == InsertMode) {
         EventResult result = EventUnhandled;
-        foreach (const Input &in, g.pendingInput) {
+        foreach (const Input &in, pendingInput) {
             EventResult r = handleInsertMode(in);
             if (r == EventHandled)
                 result = EventHandled;
         }
-        g.pendingInput.clear();
         return result;
     }
     if (m_mode == ReplaceMode) {
         EventResult result = EventUnhandled;
-        foreach (const Input &in, g.pendingInput) {
+        foreach (const Input &in, pendingInput) {
             EventResult r = handleReplaceMode(in);
             if (r == EventHandled)
                 result = EventHandled;
         }
-        g.pendingInput.clear();
         return result;
     }
     if (m_mode == CommandMode) {
         EventResult result = EventUnhandled;
-        foreach (const Input &in, g.pendingInput) {
+        foreach (const Input &in, pendingInput) {
             EventResult r = handleCommandMode(in);
             if (r == EventHandled)
                 result = EventHandled;
         }
-        g.pendingInput.clear();
         return result;
     }
     return EventUnhandled;
@@ -2209,7 +2208,7 @@ EventResult FakeVimHandler::Private::handleCommandMode1(const Input &input)
         if (isNoVisualMode()) {
             m_submode = ShiftLeftSubMode;
         } else {
-            shiftRegionLeft(1);
+            shiftRegionLeft(count());
             leaveVisualMode();
         }
     } else if (input.is('>')) {
@@ -2217,7 +2216,7 @@ EventResult FakeVimHandler::Private::handleCommandMode1(const Input &input)
         if (isNoVisualMode()) {
             m_submode = ShiftRightSubMode;
         } else {
-            shiftRegionRight(1);
+            shiftRegionRight(count());
             leaveVisualMode();
         }
     } else if (input.is('=')) {

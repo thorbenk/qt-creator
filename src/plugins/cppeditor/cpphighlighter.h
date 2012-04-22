@@ -72,7 +72,6 @@ private:
                                  int length);
 
     bool isPPKeyword(const QStringRef &text) const;
-    bool isQtKeyword(const QStringRef &text) const;
 
     QTextCharFormat m_formats[NumCppFormats];
 

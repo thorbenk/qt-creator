@@ -508,17 +508,17 @@ void CppPreprocessor::passedMacroDefinitionCheck(unsigned offset, const Macro &m
                               QVector<MacroArgumentReference>());
 }
 
-void CppPreprocessor::failedMacroDefinitionCheck(unsigned offset, const QByteArray &name)
+void CppPreprocessor::failedMacroDefinitionCheck(unsigned offset, const ByteArrayRef &name)
 {
     if (! m_currentDoc)
         return;
 
-    m_currentDoc->addUndefinedMacroUse(name, offset);
+    m_currentDoc->addUndefinedMacroUse(QByteArray(name.start(), name.size()), offset);
 }
 
 void CppPreprocessor::startExpandingMacro(unsigned offset,
                                           const Macro &macro,
-                                          const QByteArray &originalText,
+                                          const ByteArrayRef &originalText,
                                           const QVector<MacroArgumentReference> &actuals)
 {
     if (! m_currentDoc)
@@ -623,7 +623,7 @@ void CppPreprocessor::sourceNeeded(QString &fileName, IncludeType type, unsigned
 
     Document::Ptr previousDoc = switchDocument(doc);
 
-    const QByteArray preprocessedCode = preprocess(fileName, contents);
+    const QByteArray preprocessedCode = preprocess.run(fileName, contents);
 
 //    { QByteArray b(preprocessedCode); b.replace("\n", "<<<\n"); qDebug("Preprocessed code for \"%s\": [[%s]]", fileName.toUtf8().constData(), b.constData()); }
 

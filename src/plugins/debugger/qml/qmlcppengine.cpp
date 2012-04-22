@@ -409,13 +409,10 @@ void QmlCppEngine::executeJumpToLine(const ContextData &data)
     d->m_activeEngine->executeJumpToLine(data);
 }
 
-void QmlCppEngine::executeDebuggerCommand(const QString &command)
+void QmlCppEngine::executeDebuggerCommand(const QString &command, DebuggerLanguages languages)
 {
-    if (d->m_qmlEngine->state() == InferiorStopOk) {
-        d->m_qmlEngine->executeDebuggerCommand(command);
-    } else {
-        d->m_cppEngine->executeDebuggerCommand(command);
-    }
+    d->m_qmlEngine->executeDebuggerCommand(command, languages);
+    d->m_cppEngine->executeDebuggerCommand(command, languages);
 }
 
 bool QmlCppEngine::evaluateScriptExpression(const QString &expression)
@@ -590,6 +587,13 @@ void QmlCppEngine::slaveEngineStateChanged
                 notifyEngineRunAndInferiorRunOk();
             else if (state() == InferiorRunRequested)
                 notifyInferiorRunOk();
+
+            if (qmlEngine()->state() == InferiorStopOk) {
+                // track qml engine again
+                setState(InferiorStopRequested);
+                notifyInferiorStopOk();
+                d->m_activeEngine = qmlEngine();
+            }
             break;
         }
         case InferiorRunFailed: {
@@ -604,9 +608,8 @@ void QmlCppEngine::slaveEngineStateChanged
                            || state() == InferiorRunOk, qDebug() << state());
                 if (state() == InferiorRunOk)
                     setState(InferiorStopRequested);
-                break;
             } else {
-                // we're debugging qml, but got an abort ...
+                // we're debugging qml, but got an interrupt, or abort
                 QTC_ASSERT(state() == InferiorRunOk
                           || state() == InferiorStopOk
                            || state() == InferiorRunRequested, qDebug() << state());
@@ -621,8 +624,10 @@ void QmlCppEngine::slaveEngineStateChanged
                     notifyInferiorRunOk();
                     setState(InferiorStopRequested);
                 }
+                // now track cpp engine
+                d->m_activeEngine = cppEngine();
             }
-
+            break;
         }
         case InferiorStopOk: {
             if (isDying()) {
@@ -687,6 +692,7 @@ void QmlCppEngine::slaveEngineStateChanged
                        || state() == InferiorStopOk, qDebug() << state());
             if (state() == InferiorStopOk)
                 setState(InferiorShutdownRequested);
+            qmlEngine()->quitDebugger();
             break;
         }
         case InferiorShutdownFailed: {
@@ -706,7 +712,6 @@ void QmlCppEngine::slaveEngineStateChanged
         case EngineShutdownRequested: {
             // set by queueShutdownEngine()
             QTC_ASSERT(state() == EngineShutdownRequested, qDebug() << state());
-            qmlEngine()->quitDebugger();
             break;
         }
         case EngineShutdownFailed: {
@@ -744,11 +749,12 @@ void QmlCppEngine::slaveEngineStateChanged
                 }
 
                 QTC_ASSERT(state() == InferiorRunOk
-                           || state() == InferiorStopRequested, qDebug() << state());
+                           || state() == InferiorStopRequested
+                           || state() == InferiorShutdownRequested, qDebug() << state());
 
                 if (state() == InferiorRunOk)
                     notifyInferiorSpontaneousStop();
-                else
+                else if (state() == InferiorStopRequested)
                     notifyInferiorStopOk();
             }
 

@@ -262,6 +262,7 @@ GdbEngine::GdbEngine(const DebuggerStartParameters &startParameters,
     m_preparedForQmlBreak = false;
     m_disassembleUsesComma = false;
     m_actingOnExpectedStop = false;
+    m_fullStartDone = false;
 
     invalidateSourcesList();
 
@@ -956,7 +957,7 @@ void GdbEngine::flushCommand(const GdbCommand &cmd0)
         return;
     }
 
-    QTC_ASSERT(gdbProc()->state() == QProcess::Running, return;)
+    QTC_ASSERT(gdbProc()->state() == QProcess::Running, return);
 
     const int token = ++currentToken();
 
@@ -1234,8 +1235,10 @@ bool GdbEngine::acceptsDebuggerCommands() const
         || state() == InferiorUnrunnable;
 }
 
-void GdbEngine::executeDebuggerCommand(const QString &command)
+void GdbEngine::executeDebuggerCommand(const QString &command, DebuggerLanguages languages)
 {
+    if (!(languages & CppLanguage))
+        return;
     QTC_CHECK(acceptsDebuggerCommands());
     GdbCommand cmd;
     cmd.command = command.toLatin1();
@@ -1288,7 +1291,7 @@ void GdbEngine::handleExecuteJumpToLine(const GdbResponse &response)
         // This happens on old gdb. Trigger the effect of a '*stopped'.
         showStatusMessage(tr("Jumped. Stopped"));
         notifyInferiorSpontaneousStop();
-        handleStop1(response);
+        handleStop2(response);
     }
 }
 
@@ -1386,14 +1389,23 @@ void GdbEngine::handleStopResponse(const GdbMi &data)
         return;
     }
 
+    bool gotoHandleStop1 = true;
+    if (!m_fullStartDone) {
+        m_fullStartDone = true;
+        postCommand("sharedlibrary .*");
+        loadPythonDumpers();
+        postCommand("p 3", CB(handleStop1));
+        gotoHandleStop1 = false;
+    }
+
     BreakpointResponseId rid(data.findChild("bkptno").data());
     const GdbMi frame = data.findChild("frame");
 
     const int lineNumber = frame.findChild("line").data().toInt();
-    QString fullName = QString::fromUtf8(frame.findChild("fullname").data());
+    QString fullName = cleanupFullName(QString::fromLocal8Bit(frame.findChild("fullname").data()));
 
     if (fullName.isEmpty())
-        fullName = QString::fromUtf8(frame.findChild("file").data());
+        fullName = QString::fromLocal8Bit(frame.findChild("file").data());
 
     if (rid.isValid() && frame.isValid()
             && !isQmlStepBreakpoint(rid)
@@ -1423,7 +1435,7 @@ void GdbEngine::handleStopResponse(const GdbMi &data)
         gotoLocation(Location(fullName, lineNumber));
 
     if (!m_commandsToRunOnTemporaryBreak.isEmpty()) {
-        QTC_ASSERT(state() == InferiorStopRequested, qDebug() << state())
+        QTC_ASSERT(state() == InferiorStopRequested, qDebug() << state());
         m_actingOnExpectedStop = true;
         notifyInferiorStopOk();
         flushQueuedCommands();
@@ -1431,7 +1443,7 @@ void GdbEngine::handleStopResponse(const GdbMi &data)
             QTC_CHECK(m_commandsDoneCallback == 0);
             m_commandsDoneCallback = &GdbEngine::autoContinueInferior;
         } else {
-            QTC_ASSERT(state() == InferiorShutdownRequested, qDebug() << state())
+            QTC_ASSERT(state() == InferiorShutdownRequested, qDebug() << state());
         }
         return;
     }
@@ -1465,7 +1477,8 @@ void GdbEngine::handleStopResponse(const GdbMi &data)
     if (isQmlStepBreakpoint1(rid))
         return;
 
-    handleStop0(data);
+    if (gotoHandleStop1)
+        handleStop1(data);
 }
 
 static QByteArray stopSignal(Abi abi)
@@ -1473,37 +1486,13 @@ static QByteArray stopSignal(Abi abi)
     return (abi.os() == Abi::WindowsOS) ? QByteArray("SIGTRAP") : QByteArray("SIGINT");
 }
 
-void GdbEngine::handleStop0(const GdbMi &data)
+void GdbEngine::handleStop1(const GdbResponse &response)
 {
-#if 0 // See http://vladimir_prus.blogspot.com/2007/12/debugger-stories-pending-breakpoints.html
-    // Due to LD_PRELOADing the dumpers, these events can occur even before
-    // reaching the entry point. So handle it before the entry point hacks below.
-    if (reason.isEmpty() && m_gdbVersion < 70000 && !m_isMacGdb) {
-        // On Linux it reports "Stopped due to shared library event\n", but
-        // on Windows it simply forgets about it. Thus, we identify the response
-        // based on it having no frame information.
-        if (!data.findChild("frame").isValid()) {
-            invalidateSourcesList();
-            // Each stop causes a roundtrip and button flicker, so prevent
-            // a flood of useless stops. Will be automatically re-enabled.
-            postCommand("set stop-on-solib-events 0");
-#if 0
-            // The related code (handleAqcuiredInferior()) is disabled as well.
-            if (debuggerCore()->boolSetting(SelectedPluginBreakpoints)) {
-                QString dataStr = _(data.toString());
-                showMessage(_("SHARED LIBRARY EVENT: ") + dataStr);
-                QString pat = theDebuggerStringSetting(SelectedPluginBreakpointsPattern);
-                showMessage(_("PATTERN: ") + pat);
-                postCommand("sharedlibrary " + pat.toLocal8Bit());
-                showStatusMessage(tr("Loading %1...").arg(dataStr));
-            }
-#endif
-            continueInferiorInternal();
-            return;
-        }
-    }
-#endif
+    handleStop1(response.cookie.value<GdbMi>());
+}
 
+void GdbEngine::handleStop1(const GdbMi &data)
+{
     const GdbMi frame = data.findChild("frame");
     const QByteArray reason = data.findChild("reason").data();
 
@@ -1578,20 +1567,20 @@ void GdbEngine::handleStop0(const GdbMi &data)
     if (initHelpers) {
         tryLoadDebuggingHelpersClassic();
         QVariant var = QVariant::fromValue<GdbMi>(data);
-        postCommand("p 4", CB(handleStop1), var);  // dummy
+        postCommand("p 4", CB(handleStop2), var);  // dummy
     } else {
-        handleStop1(data);
+        handleStop2(data);
     }
     // Dumper loading is sequenced, as otherwise the display functions
     // will start requesting data without knowing that dumpers are available.
 }
 
-void GdbEngine::handleStop1(const GdbResponse &response)
+void GdbEngine::handleStop2(const GdbResponse &response)
 {
-    handleStop1(response.cookie.value<GdbMi>());
+    handleStop2(response.cookie.value<GdbMi>());
 }
 
-void GdbEngine::handleStop1(const GdbMi &data)
+void GdbEngine::handleStop2(const GdbMi &data)
 {
     if (isDying()) {
         qDebug() << "HANDLING STOP WHILE DYING";
@@ -1913,8 +1902,8 @@ QString GdbEngine::fullName(const QString &fileName)
 {
     if (fileName.isEmpty())
         return QString();
-    //QTC_ASSERT(!m_sourcesListOutdated, /* */)
-    QTC_ASSERT(!m_sourcesListUpdating, /* */)
+    //QTC_ASSERT(!m_sourcesListOutdated, /* */);
+    QTC_ASSERT(!m_sourcesListUpdating, /* */);
     return m_shortToFullName.value(fileName, QString());
 }
 
@@ -1925,7 +1914,7 @@ QString GdbEngine::cleanupFullName(const QString &fileName)
     // Gdb running on windows often delivers "fullnames" which
     // (a) have no drive letter and (b) are not normalized.
     if (Abi::hostAbi().os() == Abi::WindowsOS) {
-        QTC_ASSERT(!fileName.isEmpty(), return QString())
+        QTC_ASSERT(!fileName.isEmpty(), return QString());
         QFileInfo fi(fileName);
         if (fi.isReadable())
             cleanFilePath = QDir::cleanPath(fi.absoluteFilePath());
@@ -2247,6 +2236,9 @@ void GdbEngine::handleExecuteStep(const GdbResponse &response)
     } else if (msg.startsWith("Cannot execute this command while the selected thread is running.")) {
         showExecutionError(QString::fromLocal8Bit(msg));
         notifyInferiorRunFailed();
+    } else if (msg.startsWith("warning: SuspendThread failed")) {
+        // On Win: would lead to "PC register is not available" or "\312"
+        continueInferiorInternal();
     } else {
         showExecutionError(QString::fromLocal8Bit(msg));
         notifyInferiorIll();
@@ -2565,7 +2557,7 @@ void GdbEngine::updateResponse(BreakpointResponse &response, const GdbMi &bkpt)
 
 QString GdbEngine::breakLocation(const QString &file) const
 {
-    //QTC_ASSERT(!m_breakListOutdated, /* */)
+    //QTC_CHECK(!m_breakListOutdated);
     QString where = m_fullToShortName.value(file);
     if (where.isEmpty())
         return QFileInfo(file).fileName();
@@ -2587,7 +2579,7 @@ QByteArray GdbEngine::breakpointLocation(BreakpointModelId id)
         return (abi.os() == Abi::WindowsOS) ? "qMain" : "main";
     }
     if (data.type == BreakpointByFunction)
-        return data.functionName.toUtf8();
+        return '"' + data.functionName.toUtf8() + '"';
     if (data.type == BreakpointByAddress)
         return addressSpec(data.address);
 
@@ -2850,7 +2842,7 @@ void GdbEngine::handleBreakList(const GdbMi &table)
 
 void GdbEngine::handleBreakListMultiple(const GdbResponse &response)
 {
-    QTC_CHECK(response.resultClass == GdbResultDone)
+    QTC_CHECK(response.resultClass == GdbResultDone);
     const BreakpointModelId id = response.cookie.value<BreakpointModelId>();
     const QString str = QString::fromLocal8Bit(response.consoleStreamOutput);
     extractDataFromInfoBreak(str, id);
@@ -2858,7 +2850,7 @@ void GdbEngine::handleBreakListMultiple(const GdbResponse &response)
 
 void GdbEngine::handleBreakDisable(const GdbResponse &response)
 {
-    QTC_CHECK(response.resultClass == GdbResultDone)
+    QTC_CHECK(response.resultClass == GdbResultDone);
     const BreakpointModelId id = response.cookie.value<BreakpointModelId>();
     BreakHandler *handler = breakHandler();
     // This should only be the requested state.
@@ -2871,7 +2863,7 @@ void GdbEngine::handleBreakDisable(const GdbResponse &response)
 
 void GdbEngine::handleBreakEnable(const GdbResponse &response)
 {
-    QTC_CHECK(response.resultClass == GdbResultDone)
+    QTC_CHECK(response.resultClass == GdbResultDone);
     const BreakpointModelId id = response.cookie.value<BreakpointModelId>();
     BreakHandler *handler = breakHandler();
     // This should only be the requested state.
@@ -2884,7 +2876,7 @@ void GdbEngine::handleBreakEnable(const GdbResponse &response)
 
 void GdbEngine::handleBreakThreadSpec(const GdbResponse &response)
 {
-    QTC_CHECK(response.resultClass == GdbResultDone)
+    QTC_CHECK(response.resultClass == GdbResultDone);
     const BreakpointModelId id = response.cookie.value<BreakpointModelId>();
     BreakHandler *handler = breakHandler();
     BreakpointResponse br = handler->response(id);
@@ -2896,7 +2888,7 @@ void GdbEngine::handleBreakThreadSpec(const GdbResponse &response)
 
 void GdbEngine::handleBreakLineNumber(const GdbResponse &response)
 {
-    QTC_CHECK(response.resultClass == GdbResultDone)
+    QTC_CHECK(response.resultClass == GdbResultDone);
     const BreakpointModelId id = response.cookie.value<BreakpointModelId>();
     BreakHandler *handler = breakHandler();
     BreakpointResponse br = handler->response(id);
@@ -2918,7 +2910,7 @@ void GdbEngine::handleBreakIgnore(const GdbResponse &response)
     // 29^done
     //
     // gdb 6.3 does not produce any console output
-    QTC_CHECK(response.resultClass == GdbResultDone)
+    QTC_CHECK(response.resultClass == GdbResultDone);
     //QString msg = _(response.consoleStreamOutput);
     BreakpointModelId id = response.cookie.value<BreakpointModelId>();
     BreakHandler *handler = breakHandler();
@@ -4535,7 +4527,7 @@ void GdbEngine::fetchDisassemblerByCliPointMixed(const DisassemblerAgentCookie &
 {
     DisassemblerAgentCookie ac = ac0;
     QTC_ASSERT(ac.agent, return);
-    postCommand(disassemblerCommand(ac.agent->location(), true), Discardable,
+    postCommand(disassemblerCommand(ac.agent->location(), true), Discardable|ConsoleCommand,
         CB(handleFetchDisassemblerByCliPointMixed),
         QVariant::fromValue(ac));
 }
@@ -4558,8 +4550,8 @@ void GdbEngine::fetchDisassemblerByCliRangeMixed(const DisassemblerAgentCookie &
     QByteArray end = QByteArray::number(address + 100, 16);
     const char sep = m_disassembleUsesComma ? ',' : ' ';
     QByteArray cmd = "disassemble /m 0x" + start + sep + "0x" + end;
-    postCommand(cmd, Discardable, CB(handleFetchDisassemblerByCliRangeMixed),
-        QVariant::fromValue(ac));
+    postCommand(cmd, Discardable|ConsoleCommand,
+        CB(handleFetchDisassemblerByCliRangeMixed), QVariant::fromValue(ac));
 }
 
 void GdbEngine::fetchDisassemblerByCliRangePlain(const DisassemblerAgentCookie &ac0)
@@ -4571,8 +4563,8 @@ void GdbEngine::fetchDisassemblerByCliRangePlain(const DisassemblerAgentCookie &
     QByteArray end = QByteArray::number(address + 100, 16);
     const char sep = m_disassembleUsesComma ? ',' : ' ';
     QByteArray cmd = "disassemble 0x" + start + sep + "0x" + end;
-    postCommand(cmd, Discardable, CB(handleFetchDisassemblerByCliRangePlain),
-        QVariant::fromValue(ac));
+    postCommand(cmd, Discardable,
+        CB(handleFetchDisassemblerByCliRangePlain), QVariant::fromValue(ac));
 }
 
 static DisassemblerLine parseLine(const GdbMi &line)
@@ -4809,7 +4801,7 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
 
     showMessage(_("GDB STARTED, INITIALIZING IT"));
     postCommand("show version", CB(handleShowVersion));
-    postCommand("-list-features", CB(handleListFeatures));
+    //postCommand("-list-features", CB(handleListFeatures));
 
     //postCommand("-enable-timings");
     //postCommand("set print static-members off"); // Seemingly doesn't work.
@@ -4832,6 +4824,7 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
 
     postCommand("set breakpoint pending on");
     postCommand("set print elements 10000");
+
     // Produces a few messages during symtab loading
     //postCommand("set verbose on");
 
@@ -4868,7 +4861,7 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
     // displaced-stepping does not work in Thumb mode.
     //postCommand("set displaced-stepping on");
     postCommand("set trust-readonly-sections on", ConsoleCommand);
-    postCommand("set auto-solib-add on", ConsoleCommand);
+
     postCommand("set remotecache on", ConsoleCommand);
     //postCommand("set non-stop on", ConsoleCommand);
 
@@ -4884,7 +4877,13 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
         postCommand(cmd);
     }
 
-    loadPythonDumpers();
+    if (attemptQuickStart()) {
+        postCommand("set auto-solib-add off", ConsoleCommand);
+    } else {
+        m_fullStartDone = true;
+        postCommand("set auto-solib-add on", ConsoleCommand);
+        loadPythonDumpers();
+    }
 
     return true;
 }
@@ -4924,8 +4923,7 @@ void GdbEngine::loadPythonDumpers()
 
     loadInitScript();
 
-    postCommand("bbsetup",
-        ConsoleCommand, CB(handleHasPython));
+    postCommand("bbsetup", ConsoleCommand, CB(handleHasPython));
 }
 
 void GdbEngine::handleGdbError(QProcess::ProcessError error)
@@ -5314,6 +5312,22 @@ void GdbEngine::scheduleTestResponse(int testCase, const QByteArray &response)
 void GdbEngine::requestDebugInformation(const DebugInfoTask &task)
 {
     QProcess::startDetached(task.command);
+}
+
+bool GdbEngine::attemptQuickStart() const
+{
+    // Don't try if the user does not ask for it.
+    if (!debuggerCore()->boolSetting(AttemptQuickStart))
+        return false;
+
+    // Don't try if there are breakpoints we might be able to handle.
+    BreakHandler *handler = breakHandler();
+    foreach (BreakpointModelId id, handler->unclaimedBreakpointIds()) {
+        if (acceptsBreakpoint(id))
+            return false;
+    }
+
+    return true;
 }
 
 //

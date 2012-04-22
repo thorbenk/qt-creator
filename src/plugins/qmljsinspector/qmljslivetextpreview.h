@@ -35,6 +35,7 @@
 
 #include <QObject>
 #include <QWeakPointer>
+#include <texteditor/basetexteditor.h>
 
 #include <qmljs/parser/qmljsastfwd_p.h>
 #include <qmljs/qmljsdocument.h>
@@ -43,15 +44,11 @@
 QT_FORWARD_DECLARE_CLASS(QTextDocument)
 
 namespace Core {
-    class IEditor;
+class IEditor;
 }
 
 namespace QmlJS {
-    class ModelManagerInterface;
-}
-
-namespace QmlJSEditor {
-    class QmlJSTextEditorWidget;
+class ModelManagerInterface;
 }
 
 namespace QmlJSInspector {
@@ -102,8 +99,10 @@ private slots:
 private:
     static QmlJS::ModelManagerInterface *modelManager();
     QList<int> objectReferencesForOffset(quint32 offset);
-    QVariant castToLiteral(const QString &expression, QmlJS::AST::UiScriptBinding *scriptBinding);
-    void showSyncWarning(UnsyncronizableChangeType unsyncronizableChangeType, const QString &elementName,
+    QVariant castToLiteral(const QString &expression,
+                           QmlJS::AST::UiScriptBinding *scriptBinding);
+    void showSyncWarning(UnsyncronizableChangeType unsyncronizableChangeType,
+                         const QString &elementName,
                          unsigned line, unsigned column);
     void showExperimentalWarning();
 
@@ -115,7 +114,7 @@ private:
     QmlJS::Document::Ptr m_initialDoc; //the document that was loaded by the server
     QString m_filename;
 
-    QList<QWeakPointer<QmlJSEditor::QmlJSTextEditorWidget> > m_editors;
+    QList<QWeakPointer<TextEditor::BaseTextEditorWidget> > m_editors;
 
     bool m_applyChangesToQmlInspector;
     QmlJS::Document::Ptr m_docWithUnappliedChanges;

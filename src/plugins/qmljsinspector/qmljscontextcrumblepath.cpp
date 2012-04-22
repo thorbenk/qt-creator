@@ -44,7 +44,8 @@ ContextCrumblePath::ContextCrumblePath(QWidget *parent)
     updateContextPath(QStringList(), QList<int>());
 }
 
-void ContextCrumblePath::updateContextPath(const QStringList &path, const QList<int> &debugIds)
+void ContextCrumblePath::updateContextPath(const QStringList &path,
+                                           const QList<int> &debugIds)
 {
     Q_ASSERT(path.count() == debugIds.count());
 
@@ -59,11 +60,16 @@ void ContextCrumblePath::updateContextPath(const QStringList &path, const QList<
     }
 }
 
-void ContextCrumblePath::addChildren(const QStringList &childrenNames, const QList<int> &childrenDebugIds)
+void ContextCrumblePath::addChildren(const QStringList &childrenNames,
+                                     const QList<int> &childrenDebugIds)
 {
     Q_ASSERT(childrenNames.count() == childrenDebugIds.count());
     for (int i = 0; i < childrenNames.count(); i++)
         addChild(childrenNames[i], childrenDebugIds[i]);
+
+    //Sort them alphabetically
+    if (childrenDebugIds.count())
+        sortChildren();
 }
 
 void ContextCrumblePath::clear()

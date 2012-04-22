@@ -31,9 +31,15 @@
 **************************************************************************/
 #include "idevice.h"
 
+#include "devicemanager.h"
+
+#include <coreplugin/id.h>
 #include <utils/qtcassert.h>
 
+#include <QCoreApplication>
+
 #include <QString>
+#include <QUuid>
 
 /*!
  * \class ProjectExplorer::IDevice
@@ -72,26 +78,50 @@
  */
 
 /*!
- * \fn ProjectExplorer::IDevice::Id ProjectExplorer::IDevice::internalId() const
- * \brief Identify the device internally.
- */
-
-/*!
- * \fn QString ProjectExplorer::IDevice::fingerprint() const
- * \brief Uniquely identifies an auto-detected device.
- * The fingerprint can later be used to retrieve changes the user has done to the settings
- * of an auto-detected device so they are not lost when the device goes away, e.g. because
- * it has been disconnected.
+ * \fn Core::Id ProjectExplorer::IDevice::id() const
+ * \brief Identify the device.
+ * If an id is given when constructing a device then this id is used. Otherwise a UUID is
+ * generated and used to identity the device.
  * \sa ProjectExplorer::DeviceManager::findInactiveAutoDetectedDevice()
  */
 
 /*!
- * \fn ProjectExplorer::IDevice::Id ProjectExplorer::IDevice::invalidId()
+ * \fn Core::Id ProjectExplorer::IDevice::invalidId()
  * \brief A value that no device can ever have as its internal id.
  */
 
 /*!
- * \fn ProjectExplorer::IDevice::Ptr ProjectExploer::IDevice::clone() const
+ * \fn QString ProjectExplorer::IDevice::displayType() const
+ * \brief Prints a representation of the device's type suitable for displaying to a user.
+ */
+
+/*!
+ * \fn ProjectExplorer::IDeviceWidget *ProjectExplorer::IDevice::createWidget() const
+ * \brief Creates a widget that displays device information not part of the IDevice base class.
+ *        The widget can also be used to let the user change these attributes.
+ */
+
+/*!
+ * \fn QStringList ProjectExplorer::IDevice::actionIds() const
+ * \brief Returns a list of ids representing actions that can be run on this device.
+ *        These actions will be available in the "Devices" options page.
+ */
+
+/*!
+ * \fn QString ProjectExplorer::IDevice::displayNameForActionId(const QString &actionId) const
+ * \brief A human-readable string for the given id. Will be displayed on a button which,
+ *        when clicked, starts the respective action.
+ */
+
+/*!
+ * \fn QDialog *ProjectExplorer::IDevice::createAction(const QString &actionId) const
+ * \brief Produces a dialog implementing the respective action. The dialog is supposed to be
+ *        modal, so implementers must make sure to make whatever it does interruptible as
+ *        to not needlessly block the UI.
+ */
+
+/*!
+ * \fn ProjectExplorer::IDevice::Ptr ProjectExplorer::IDevice::clone() const
  * \brief Creates an identical copy of a device object.
  */
 
@@ -109,13 +139,17 @@
  * implementation.
  */
 
+static Core::Id newId()
+{
+    return Core::Id(QUuid::createUuid().toString());
+}
+
 namespace ProjectExplorer {
 
 const char DisplayNameKey[] = "Name";
 const char TypeKey[] = "OsType";
-const char InternalIdKey[] = "InternalId";
+const char IdKey[] = "InternalId";
 const char OriginKey[] = "Origin";
-const char FingerprintKey[] = "FingerPrint";
 
 namespace Internal {
 class IDevicePrivate
@@ -124,8 +158,8 @@ public:
     QString displayName;
     QString type;
     IDevice::Origin origin;
-    IDevice::Id internalId;
-    QString fingerprint;
+    Core::Id id;
+    IDevice::AvailabilityState availability;
 };
 } // namespace Internal
 
@@ -133,13 +167,14 @@ IDevice::IDevice() : d(new Internal::IDevicePrivate)
 {
 }
 
-IDevice::IDevice(const QString &type, Origin origin, const QString fingerprint)
+IDevice::IDevice(const QString &type, Origin origin, const Core::Id &id)
     : d(new Internal::IDevicePrivate)
 {
     d->type = type;
     d->origin = origin;
-    d->fingerprint = fingerprint;
-    QTC_CHECK(d->origin == ManuallyAdded || !d->fingerprint.isEmpty());
+    QTC_CHECK(origin == ManuallyAdded || id.isValid());
+    d->id = id.isValid() ? id : newId();
+    d->availability = DeviceAvailabilityUnknown;
 }
 
 IDevice::IDevice(const IDevice &other) : d(new Internal::IDevicePrivate)
@@ -159,7 +194,25 @@ QString IDevice::displayName() const
 
 void IDevice::setDisplayName(const QString &name)
 {
+    if (d->displayName == name)
+        return;
     d->displayName = name;
+}
+
+IDevice::DeviceInfo IDevice::deviceInformation() const
+{
+    DeviceInfo result;
+    if (availability() == DeviceUnavailable)
+        //: Title of the connectivity state information in a tool tip
+        result << IDevice::DeviceInfoItem(QCoreApplication::translate("ProjectExplorer::IDevice", "Device"),
+                                          //: Device is not connected
+                                          QCoreApplication::translate("ProjectExplorer::IDevice", "not connected"));
+    else if (availability() == DeviceAvailable)
+        //: Title of the connectivity state information in a tool tip
+        result << IDevice::DeviceInfoItem(QCoreApplication::translate("ProjectExplorer::IDevice", "Device"),
+                                          //: Device is not connected
+                                          QCoreApplication::translate("ProjectExplorer::IDevice", "connected"));
+    return result;
 }
 
 QString IDevice::type() const
@@ -172,24 +225,26 @@ bool IDevice::isAutoDetected() const
     return d->origin == AutoDetected;
 }
 
-QString IDevice::fingerprint() const
+Core::Id IDevice::id() const
 {
-    return d->fingerprint;
+    return d->id;
 }
 
-IDevice::Id IDevice::internalId() const
+IDevice::AvailabilityState IDevice::availability() const
 {
-    return d->internalId;
+    return d->availability;
 }
 
-void IDevice::setInternalId(IDevice::Id id)
+void IDevice::setAvailability(const IDevice::AvailabilityState as)
 {
-    d->internalId = id;
+    if (d->availability == as)
+        return;
+    d->availability = as;
 }
 
-IDevice::Id IDevice::invalidId()
+Core::Id IDevice::invalidId()
 {
-    return 0;
+    return Core::Id();
 }
 
 QString IDevice::typeFromMap(const QVariantMap &map)
@@ -201,10 +256,8 @@ void IDevice::fromMap(const QVariantMap &map)
 {
     d->type = typeFromMap(map);
     d->displayName = map.value(QLatin1String(DisplayNameKey)).toString();
-    d->internalId = map.value(QLatin1String(InternalIdKey), invalidId()).toULongLong();
+    d->id = Core::Id(map.value(QLatin1String(IdKey), newId().name()).toByteArray().constData());
     d->origin = static_cast<Origin>(map.value(QLatin1String(OriginKey), ManuallyAdded).toInt());
-    d->fingerprint = map.value(QLatin1String(FingerprintKey)).toString();
-    QTC_CHECK(d->origin == ManuallyAdded || !d->fingerprint.isEmpty());
 }
 
 QVariantMap IDevice::toMap() const
@@ -212,10 +265,19 @@ QVariantMap IDevice::toMap() const
     QVariantMap map;
     map.insert(QLatin1String(DisplayNameKey), d->displayName);
     map.insert(QLatin1String(TypeKey), d->type);
-    map.insert(QLatin1String(InternalIdKey), d->internalId);
+    map.insert(QLatin1String(IdKey), d->id.name());
     map.insert(QLatin1String(OriginKey), d->origin);
-    map.insert(QLatin1String(FingerprintKey), d->fingerprint);
     return map;
+}
+
+IDevice::Ptr IDevice::sharedFromThis()
+{
+    return DeviceManager::instance()->fromRawPointer(this);
+}
+
+IDevice::ConstPtr IDevice::sharedFromThis() const
+{
+    return DeviceManager::instance()->fromRawPointer(this);
 }
 
 } // namespace ProjectExplorer

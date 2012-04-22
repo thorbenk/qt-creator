@@ -75,6 +75,7 @@
 #include <qt4projectmanager/qt-s60/s60devicedebugruncontrol.h>
 #include <qt4projectmanager/qt-s60/s60devicerunconfiguration.h>
 #include <qt4projectmanager/qt-s60/s60deployconfiguration.h>
+#include <qt4projectmanager/qt-s60/symbianidevice.h>
 
 #include <QApplication>
 #include <QHBoxLayout>
@@ -92,7 +93,7 @@ using namespace Analyzer;
 using namespace Analyzer::Constants;
 using namespace QmlProfiler::Internal;
 using namespace QmlProfiler::Constants;
-using namespace QmlJsDebugClient;
+using namespace QmlDebug;
 using namespace ProjectExplorer;
 using namespace QmlProjectManager;
 using namespace RemoteLinux;
@@ -151,7 +152,7 @@ QmlProfilerTool::QmlProfilerTool(QObject *parent)
     d->m_profilerDataModel = new QmlProfilerDataModel(this);
     connect(d->m_profilerDataModel, SIGNAL(stateChanged()), this, SLOT(profilerDataModelStateChanged()));
     connect(d->m_profilerDataModel, SIGNAL(error(QString)), this, SLOT(showErrorDialog(QString)));
-    connect(d->m_profilerConnections, SIGNAL(addRangedEvent(int,qint64,qint64,QStringList,QmlJsDebugClient::QmlEventLocation)), d->m_profilerDataModel, SLOT(addRangedEvent(int,qint64,qint64,QStringList,QmlJsDebugClient::QmlEventLocation)));
+    connect(d->m_profilerConnections, SIGNAL(addRangedEvent(int,qint64,qint64,QStringList,QmlDebug::QmlEventLocation)), d->m_profilerDataModel, SLOT(addRangedEvent(int,qint64,qint64,QStringList,QmlDebug::QmlEventLocation)));
     connect(d->m_profilerConnections, SIGNAL(addV8Event(int,QString,QString,int,double,double)), d->m_profilerDataModel, SLOT(addV8Event(int,QString,QString,int,double,double)));
     connect(d->m_profilerConnections, SIGNAL(addFrameEvent(qint64,int,int)), d->m_profilerDataModel, SLOT(addFrameEvent(qint64,int,int)));
     connect(d->m_profilerConnections, SIGNAL(traceStarted(qint64)), d->m_profilerDataModel, SLOT(setTraceStartTime(qint64)));
@@ -160,10 +161,10 @@ QmlProfilerTool::QmlProfilerTool(QObject *parent)
 
 
     d->m_detailsRewriter = new QmlProfilerDetailsRewriter(this);
-    connect(d->m_profilerDataModel, SIGNAL(requestDetailsForLocation(int,QmlJsDebugClient::QmlEventLocation)),
-            d->m_detailsRewriter, SLOT(requestDetailsForLocation(int,QmlJsDebugClient::QmlEventLocation)));
-    connect(d->m_detailsRewriter, SIGNAL(rewriteDetailsString(int,QmlJsDebugClient::QmlEventLocation,QString)),
-            d->m_profilerDataModel, SLOT(rewriteDetailsString(int,QmlJsDebugClient::QmlEventLocation,QString)));
+    connect(d->m_profilerDataModel, SIGNAL(requestDetailsForLocation(int,QmlDebug::QmlEventLocation)),
+            d->m_detailsRewriter, SLOT(requestDetailsForLocation(int,QmlDebug::QmlEventLocation)));
+    connect(d->m_detailsRewriter, SIGNAL(rewriteDetailsString(int,QmlDebug::QmlEventLocation,QString)),
+            d->m_profilerDataModel, SLOT(rewriteDetailsString(int,QmlDebug::QmlEventLocation,QString)));
     connect(d->m_detailsRewriter, SIGNAL(eventDetailsChanged()), d->m_profilerDataModel, SLOT(finishedRewritingDetails()));
     connect(d->m_profilerDataModel, SIGNAL(reloadDocumentsForDetails()), d->m_detailsRewriter, SLOT(reloadDocuments()));
 
@@ -253,9 +254,9 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
         if (Qt4ProjectManager::S60DeployConfiguration *deployConfig
                 = qobject_cast<Qt4ProjectManager::S60DeployConfiguration*>(
                     runConfiguration->target()->activeDeployConfiguration())) {
-            if (deployConfig->communicationChannel()
-                    == Qt4ProjectManager::S60DeployConfiguration::CommunicationCodaSerialConnection) {
-                d->m_profilerConnections->setOstConnection(deployConfig->serialPortName());
+            if (deployConfig->device()->communicationChannel()
+                    == Qt4ProjectManager::SymbianIDevice::CommunicationCodaSerialConnection) {
+                d->m_profilerConnections->setOstConnection(deployConfig->device()->serialPortName());
                 isTcpConnection = false;
             }
         }
@@ -352,7 +353,7 @@ AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration 
 
         sp.debuggeeArgs = rc4->commandLineArguments();
         sp.displayName = rc4->displayName();
-        sp.connParams.host = deployConf->deviceAddress();
+        sp.connParams.host = deployConf->device()->address();
         sp.connParams.port = rc4->debuggerAspect()->qmlDebugServerPort();
     } else {
         // What could that be?

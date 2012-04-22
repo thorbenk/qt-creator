@@ -5,7 +5,7 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "Qt4ProjectManager"
 
-    Depends { name: "qt"; submodules: ['gui', 'network'] }
+    Depends { name: "qt"; submodules: ['widgets', 'network'] }
     Depends { name: "Core" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "QtSupport" }
@@ -147,7 +147,6 @@ QtcPlugin {
         "qt-desktop/simulatorqtversionfactory.cpp",
         "qt-desktop/simulatorqtversionfactory.h",
         "qt-s60/rvcttoolchainconfigwidget.ui",
-        "qt-s60/winscwtoolchainconfigwidget.ui",
         "qt-s60/abldparser.cpp",
         "qt-s60/abldparser.h",
         "qt-s60/certificatepathchooser.cpp",
@@ -206,18 +205,18 @@ QtcPlugin {
         "qt-s60/symbianqtversion.h",
         "qt-s60/symbianqtversionfactory.cpp",
         "qt-s60/symbianqtversionfactory.h",
-        "qt-s60/winscwparser.cpp",
-        "qt-s60/winscwparser.h",
-        "qt-s60/winscwtoolchain.cpp",
-        "qt-s60/winscwtoolchain.h",
+        "qt-s60/symbianidevice.cpp",
+        "qt-s60/symbianidevice.h",
+        "qt-s60/symbianidevicefactory.cpp",
+        "qt-s60/symbianidevicefactory.h",
+        "qt-s60/symbianideviceconfigwidget.cpp",
+        "qt-s60/symbianideviceconfigwidget.h",
         "qt-s60/codaruncontrol.cpp",
         "qt-s60/codaruncontrol.h",
         "qt-s60/s60deploystep.cpp",
         "qt-s60/s60deploystep.h",
         "qt-s60/s60devicedebugruncontrol.cpp",
         "qt-s60/s60devicedebugruncontrol.h",
-        "qt-s60/s60emulatorrunconfiguration.cpp",
-        "qt-s60/s60emulatorrunconfiguration.h",
         "qt-s60/s60manager.cpp",
         "qt-s60/s60runcontrolbase.cpp",
         "qt-s60/s60runcontrolbase.h",

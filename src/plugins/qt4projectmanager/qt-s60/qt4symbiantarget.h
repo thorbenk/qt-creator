@@ -53,25 +53,16 @@ public:
 
     ProjectExplorer::IBuildConfigurationFactory *buildConfigurationFactory() const;
 
-    QList<ProjectExplorer::ToolChain *> possibleToolChains(ProjectExplorer::BuildConfiguration *bc) const;
-
     void createApplicationProFiles(bool reparse);
     virtual QList<ProjectExplorer::RunConfiguration *> runConfigurationsForNode(ProjectExplorer::Node *n);
 
     static QString defaultDisplayName(const QString &id);
     static QIcon iconForId(const QString &id);
-private:
-     bool isSymbianConnectionAvailable(QString &tooltipText);
 
-private slots:
-    void onAddedDeployConfiguration(ProjectExplorer::DeployConfiguration *dc);
-    void slotUpdateDeviceInformation();
-    void updateToolTipAndIcon();
+protected:
+    ProjectExplorer::IDevice::ConstPtr currentDevice() const;
 
 private:
-    const QPixmap m_connectedPixmap;
-    const QPixmap m_disconnectedPixmap;
-
     Qt4BuildConfigurationFactory *m_buildConfigurationFactory;
 };
 } // namespace Internal

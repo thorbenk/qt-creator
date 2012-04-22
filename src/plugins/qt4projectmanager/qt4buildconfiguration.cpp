@@ -545,7 +545,8 @@ bool Qt4BuildConfiguration::removeQMLInspectorFromArguments(QString *args)
     for (Utils::QtcProcess::ArgIterator ait(args); ait.next(); ) {
         const QString arg = ait.value();
         if (arg.contains(QLatin1String(Constants::QMAKEVAR_QMLJSDEBUGGER_PATH))
-                || arg.contains(QLatin1String(Constants::QMAKEVAR_DECLARATIVE_DEBUG))) {
+            || arg.contains(QLatin1String(Constants::QMAKEVAR_DECLARATIVE_DEBUG4))
+            || arg.contains(QLatin1String(Constants::QMAKEVAR_DECLARATIVE_DEBUG5))) {
             ait.deleteArg();
             removedArgument = true;
         }
@@ -751,28 +752,31 @@ BuildConfiguration *Qt4BuildConfigurationFactory::create(ProjectExplorer::Target
         return 0;
 
     //: Debug build configuration. We recommend not translating it.
-    QString defaultDebugName = tr("%1 Debug").arg(version->displayName());
-    QString customDebugName;
+    QString defaultFirstName = tr("%1 Debug").arg(version->displayName());
+    QString customFirstName;
     if (buildConfigurationName != version->displayName())
-        customDebugName = tr("%1 Debug").arg(buildConfigurationName);
+        customFirstName = tr("%1 Debug").arg(buildConfigurationName);
 
-    BuildConfiguration *bc = qt4Target->addQt4BuildConfiguration(defaultDebugName, customDebugName,
+    //: Release build configuration. We recommend not translating it.
+    QString defaultSecondName = tr("%1 Release").arg(version->displayName());
+    QString customSecondName;
+    if (buildConfigurationName != version->displayName())
+        customSecondName = tr("%1 Release").arg(buildConfigurationName);
+
+    if (!(version->defaultBuildConfig() & QtSupport::BaseQtVersion::DebugBuild)) {
+        qSwap(defaultFirstName, defaultSecondName);
+        qSwap(customFirstName, customSecondName);
+    }
+
+    BuildConfiguration *bc = qt4Target->addQt4BuildConfiguration(defaultFirstName, customFirstName,
                                         version,
-                                        (version->defaultBuildConfig() | QtSupport::BaseQtVersion::DebugBuild),
+                                        version->defaultBuildConfig(),
                                         QString(), QString(), false);
 
-    if (qt4Target->id() != QLatin1String(Constants::S60_EMULATOR_TARGET_ID)) {
-        //: Release build configuration. We recommend not translating it.
-        QString defaultReleaseName = tr("%1 Release").arg(version->displayName());
-        QString customReleaseName;
-        if (buildConfigurationName != version->displayName())
-            customReleaseName = tr("%1 Release").arg(buildConfigurationName);
-
-        bc = qt4Target->addQt4BuildConfiguration(defaultReleaseName, customReleaseName,
-                                                 version,
-                                                 (version->defaultBuildConfig() & ~QtSupport::BaseQtVersion::DebugBuild),
-                                                 QString(), QString(), false);
-    }
+    qt4Target->addQt4BuildConfiguration(defaultSecondName, customSecondName,
+                                        version,
+                                        (version->defaultBuildConfig() ^ QtSupport::BaseQtVersion::DebugBuild),
+                                        QString(), QString(), false);
     return bc;
 }
 

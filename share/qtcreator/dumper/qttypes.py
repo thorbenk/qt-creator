@@ -238,6 +238,8 @@ def qdump__QFile(d, value):
     d.putNumChild(1)
     if d.isExpanded():
         with Children(d):
+            base = value.type.fields()[0].type
+            d.putSubItem("[%s]" % str(base), value.cast(base), False)
             d.putCallItem("exists", value, "exists")
 
 
@@ -1642,23 +1644,29 @@ def qedit__QVector(expr, value):
 
 
 def qdump__QVector(d, value):
-    d_ptr = value["d"]
-    p_ptr = value["p"]
-    alloc = d_ptr["alloc"]
-    size = d_ptr["size"]
+    private = value["d"]
+    checkRef(private["ref"])
+    alloc = private["alloc"]
+    size = private["size"]
+    innerType = templateArgument(value.type, 0)
+    charPointerType = lookupType("char *")
+    try:
+        # Qt 5. Will fail on Qt 4 due to the missing 'offset' member.
+        offset = private["offset"]
+        data = private.cast(charPointerType) + offset
+    except:
+        # Qt 4.
+        data = value["p"]["array"]
+
+    p = data.cast(innerType.pointer())
 
     check(0 <= size and size <= alloc and alloc <= 1000 * 1000 * 1000)
-    checkRef(d_ptr["ref"])
-
-    innerType = templateArgument(value.type, 0)
     d.putItemCount(size)
     d.putNumChild(size)
     if d.isExpanded():
-        p = gdb.Value(p_ptr["array"]).cast(innerType.pointer())
-        charPtr = lookupType("char").pointer()
         d.putField("size", size)
         with Children(d, size, maxNumChild=2000, childType=innerType, addrBase=p,
-                addrStep=(p+1).cast(charPtr) - p.cast(charPtr)):
+                addrStep=(p+1).cast(charPointerType) - p.cast(charPointerType)):
             for i in d.childRange():
                 d.putSubItem(i, p.dereference())
                 p += 1
@@ -2364,6 +2372,41 @@ def qdump__QScriptValue(d, value):
 def qdump__Debugger__Internal__GdbMi(d, value):
     d.putByteArrayValue(value["m_data"])
     d.putPlainChildren(value)
+
+def qdump__CPlusPlus__ByteArrayRef(d, value):
+    d.putValue(encodeCharArray(value["m_start"], 100, value["m_length"]),
+        Hex2EncodedLatin1)
+    d.putPlainChildren(value)
+
+def qdump__CPlusPlus__Internal__Value(d, value):
+    d.putValue(value["l"])
+    d.putPlainChildren(value)
+
+def qdump__CPlusPlus__Token(d, value):
+    k = value["f"]["kind"];
+    if long(k) == 6:
+        d.putValue("T_IDENTIFIER. offset: %d, len: %d"
+            % (value["offset"], value["f"]["length"]))
+    elif long(k) == 7:
+        d.putValue("T_NUMERIC_LITERAL. offset: %d, value: %d"
+            % (value["offset"], value["f"]["length"]))
+    elif long(k) == 60:
+        d.putValue("T_RPAREN")
+    else:
+        d.putValue("Type: %s" % k)
+    d.putPlainChildren(value)
+
+def qdump__CPlusPlus__Internal__PPToken(d, value):
+    k = value["f"]["kind"];
+    data, size, alloc = qByteArrayData(value["m_src"])
+    length = long(value["f"]["length"])
+    offset = long(value["offset"])
+    #warn("size: %s, alloc: %s, offset: %s, length: %s, data: %s"
+    #    % (size, alloc, offset, length, data))
+    d.putValue(encodeCharArray(data + offset, 100, length),
+        Hex2EncodedLatin1)
+    d.putPlainChildren(value)
+
 
 #######################################################################
 #

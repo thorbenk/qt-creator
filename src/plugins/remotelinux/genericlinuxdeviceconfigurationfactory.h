@@ -47,16 +47,10 @@ public:
     GenericLinuxDeviceConfigurationFactory(QObject *parent = 0);
 
     QString displayName() const;
-    ProjectExplorer::IDeviceWizard *createWizard(QWidget *parent) const;
-    ProjectExplorer::IDeviceWidget *createWidget(const ProjectExplorer::IDevice::Ptr &device,
-        QWidget *parent = 0) const;
-    ProjectExplorer::IDevice::Ptr loadDevice(const QVariantMap &map) const;
-    bool supportsDeviceType(const QString &deviceType) const;
-    QString displayNameForDeviceType(const QString &deviceType) const;
-    QStringList supportedDeviceActionIds() const;
-    QString displayNameForActionId(const QString &actionId) const;
-    QDialog *createDeviceAction(const QString &actionId,
-        const ProjectExplorer::IDevice::ConstPtr &device, QWidget *parent) const;
+    bool canCreate() const;
+    ProjectExplorer::IDevice::Ptr create() const;
+    bool canRestore(const QVariantMap &map) const;
+    ProjectExplorer::IDevice::Ptr restore(const QVariantMap &map) const;
 };
 
 } // namespace RemoteLinux

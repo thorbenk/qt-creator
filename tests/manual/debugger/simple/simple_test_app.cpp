@@ -266,8 +266,7 @@ struct SomeType
 
 namespace multibp {
 
-    // This tests multiple breakpoints. When a
-    // the b
+    // This tests multiple breakpoints.
     template <typename T> class Vector
     {
     public:
@@ -277,7 +276,8 @@ namespace multibp {
             BREAK_HERE;
             // Check size 10 int.
             // Continue.
-            // Check there are multiple entries in the Breakpoint vie.
+            // Manual: Add a breakpoint in the constructor
+            // Manual: Check there are multiple entries in the Breakpoint view.
             dummyStatement(this);
         }
         ~Vector() { delete [] m_data; }
@@ -394,8 +394,6 @@ namespace peekandpoke {
     void testComplexWatchers()
     {
         struct S { int a; double b; } s[10];
-        for (int i = 0; i != 10; ++i)
-            s[i].a = i;
         BREAK_HERE;
         // Expand s and s[0].
         // CheckType s peekandpoke::S [10].
@@ -405,6 +403,9 @@ namespace peekandpoke {
         // Manual: Type    ['s[%d].a' % i for i in range(5)]
         // Manual: Expand it, continue stepping. This should result in a list
         // Manual: of five items containing the .a fields of s[0]..s[4].
+        for (int i = 0; i != 10; ++i)
+            s[i].a = i;
+
         dummyStatement(&s);
     }
 
@@ -576,12 +577,21 @@ namespace qbytearray {
         // Check buf1 "î" QByteArray.
         // Check buf2 "î" QByteArray.
         // Check buf3 "\ee" QByteArray.
-        // Check buf1 "î" QByteArray.
-        // Check buf2 "î" QByteArray.
-        // Check buf3 "\ee" QByteArray.
         // CheckType str1 char *.
         // Continue.
         dummyStatement(&buf1, &buf2, &buf3);
+    }
+
+    void testQByteArray4()
+    {
+        char data[] = { 'H', 'e', 'l', 'l', 'o' };
+        QByteArray ba1 = QByteArray::fromRawData(data, 4);
+        QByteArray ba2 = QByteArray::fromRawData(data + 1, 4);
+        BREAK_HERE;
+        // Check ba1 "Hell" QByteArray.
+        // Check ba2 "ello" QByteArray.
+        // Continue.
+        dummyStatement(&ba1, &ba2, &data);
     }
 
     void testQByteArray()
@@ -589,6 +599,7 @@ namespace qbytearray {
         testQByteArray1();
         testQByteArray2();
         testQByteArray3();
+        testQByteArray4();
     }
 
 } // namespace qbytearray
@@ -677,9 +688,10 @@ namespace qdatetime {
         // Check date.toUTC  QDateTime.
         // Continue.
 
+        // Step, check display
         date = QDateTime::currentDateTime();
-        date = date.addSecs(5);
-        date = date.addSecs(5);
+        date = date.addDays(5);
+        date = date.addDays(5);
         dummyStatement(&date);
     }
 
@@ -3109,7 +3121,7 @@ namespace stdvector {
         // Expand v v.0 v.0.x.
         // Check v <4 items> std::vector<Foo>.
         // CheckType v.0 Foo.
-        // Check v.[1].a 1 int.
+        // Check v.1.a 2 int.
         // CheckType v.3 Foo.
         // Continue.
         dummyStatement(&v);
@@ -3373,12 +3385,24 @@ namespace qstring  {
         str += QLatin1Char(0);
         str += QLatin1Char(1);
         str += " fat ";
-        str += " World ";
-        str += " World ";
+        str += " World";
+        str.prepend("Prefix: ");
         BREAK_HERE;
-        // Check str "Hello  big, \t\r\n\000\001 fat  World  World " QString.
+        // Check str "Prefix: Hello  big, \t\r\n\000\001 fat  World" QString.
         // Continue.
         dummyStatement(&str);
+    }
+
+    void testQString2()
+    {
+        QChar data[] = { 'H', 'e', 'l', 'l', 'o' };
+        QString str1 = QString::fromRawData(data, 4);
+        QString str2 = QString::fromRawData(data + 1, 4);
+        BREAK_HERE;
+        // Check str1 "Hell" QString.
+        // Check str2 "ello" QString.
+        // Continue.
+        dummyStatement(&str1, &str2, &data);
     }
 
     void stringRefTest(const QString &refstring)
@@ -3411,6 +3435,7 @@ namespace qstring  {
     void testQString()
     {
         testQString1();
+        testQString2();
         testQString3();
         testQStringQuotes();
     }
@@ -5988,13 +6013,13 @@ namespace gdb13393 {
         // Check ptrConst.b 2 int.
         // CheckType ptrToPtr gdb13393::Derived.
         // CheckType ptrToPtr.[vptr] .
-        // Check ptrToPtr.a 1 int.
+        // Check ptrToPtr.@1.a 1 int.
         // CheckType ref gdb13393::Derived.
         // CheckType ref.[vptr] .
-        // Check ref.a 1 int.
+        // Check ref.@1.a 1 int.
         // CheckType refConst gdb13393::Derived.
         // CheckType refConst.[vptr] .
-        // Check refConst.a 1 int.
+        // Check refConst.@1.a 1 int.
         // CheckType s gdb13393::S.
         // CheckType s.ptr gdb13393::Derived.
         // CheckType s.ptrConst gdb13393::Derived.
@@ -6117,6 +6142,10 @@ namespace sanity {
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    QChar c(0x1E9E);
+    bool b = c.isPrint();
+    qDebug() << c << b;
 
     // Notify Creator about auto run intention.
     if (USE_AUTORUN)

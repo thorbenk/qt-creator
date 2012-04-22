@@ -98,8 +98,10 @@ PdbEngine::PdbEngine(const DebuggerStartParameters &startParameters)
 PdbEngine::~PdbEngine()
 {}
 
-void PdbEngine::executeDebuggerCommand(const QString &command)
+void PdbEngine::executeDebuggerCommand(const QString &command, DebuggerLanguages languages)
 {
+    if (!(languages & CppLanguage))
+        return;
     QTC_ASSERT(state() == InferiorStopOk, qDebug() << state());
     //XSDEBUG("PdbEngine::executeDebuggerCommand:" << command);
     if (state() == DebuggerNotReady) {
@@ -651,7 +653,7 @@ void PdbEngine::handleOutput2(const QByteArray &data)
     PdbResponse response;
     response.data = data;
     showMessage(_(data));
-    QTC_ASSERT(!m_commands.isEmpty(), qDebug() << "RESPONSE: " << data; return)
+    QTC_ASSERT(!m_commands.isEmpty(), qDebug() << "RESPONSE: " << data; return);
     PdbCommand cmd = m_commands.dequeue();
     response.cookie = cmd.cookie;
     qDebug() << "DEQUE: " << cmd.command << cmd.callbackName;
