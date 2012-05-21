@@ -306,18 +306,14 @@ def showException(msg, exType, exValue, exTraceback):
 
 
 class OutputSafer:
-    def __init__(self, d, pre = "", post = ""):
+    def __init__(self, d):
         self.d = d
-        self.pre = pre
-        self.post = post
 
     def __enter__(self):
-        self.d.put(self.pre)
         self.savedOutput = self.d.output
         self.d.output = []
 
     def __exit__(self, exType, exValue, exTraceBack):
-        self.d.put(self.post)
         if self.d.passExceptions and not exType is None:
             showException("OUTPUTSAFER", exType, exValue, exTraceBack)
             self.d.output = self.savedOutput
@@ -1107,7 +1103,7 @@ class Dumper:
 
         for item in locals:
             value = upcast(item.value)
-            with OutputSafer(self, "", ""):
+            with OutputSafer(self):
                 self.anonNumber = -1
 
                 type = value.type.unqualified()
@@ -1151,35 +1147,14 @@ class Dumper:
         #
         # Watchers
         #
-        with OutputSafer(self, ",", ""):
+        with OutputSafer(self):
             if len(watchers) > 0:
+                self.put(",")
                 for watcher in watchers.split("##"):
                     (exp, iname) = watcher.split("#")
                     self.handleWatch(exp, iname)
 
         #print('data=[' + locals + sep + watchers + ']\n')
-
-    def checkForQObjectBase(self, type):
-        name = str(type)
-        if name in qqQObjectCache:
-            return qqQObjectCache[name]
-        if name == self.ns + "QObject":
-            qqQObjectCache[name] = True
-            return True
-        fields = type.strip_typedefs().fields()
-        #fields = extractFields(type)
-        if len(fields) == 0:
-            qqQObjectCache[name] = False
-            return False
-        base = fields[0].type.strip_typedefs()
-        if base.code != StructCode:
-            return False
-        # Prevent infinite recursion in Qt 3.3.8
-        if str(base) == name:
-            return False
-        result = self.checkForQObjectBase(base)
-        qqQObjectCache[name] = result
-        return result
 
 
     def handleWatch(self, exp, iname):
@@ -1383,6 +1358,25 @@ class Dumper:
             self.putName(name)
             self.putItem(value)
 
+    def tryPutArrayContents(self, type, base, n):
+        if isSimpleType(type):
+            self.put('{value="')
+            self.put('"},{value="'.join([str((base + i).dereference())
+                for i in xrange(n)]))
+            self.put('"}');
+            return True
+        return False
+
+    def putArrayData(self, type, base, n,
+            childNumChild = None, maxNumChild = 10000):
+        base = base.cast(type.pointer())
+        with Children(self, n, type, childNumChild, maxNumChild,
+                base, type.sizeof):
+            if not self.tryPutArrayContents(type, base, n):
+                for i in self.childRange():
+                    self.putSubItem(i, (base + i).dereference())
+
+
     def putCallItem(self, name, value, func, *args):
         result = call2(value, func, args)
         with SubItem(self, name):
@@ -1409,10 +1403,33 @@ class Dumper:
 
         if type.code == ReferenceCode:
             try:
+                # Try to recognize null references explicitly.
+                if long(value.address) == 0:
+                    self.putValue("<null reference>")
+                    self.putType(typeName)
+                    self.putNumChild(0)
+                    return
+            except:
+                pass
+
+            try:
+                # Dynamic references are not supported by gdb, see
+                # http://sourceware.org/bugzilla/show_bug.cgi?id=14077.
+                # Find the dynamic type manually using referenced_type.
+                value = value.referenced_value()
+                value = value.cast(value.dynamic_type)
+                self.putItem(value)
+                self.putBetterType("%s &" % value.type)
+                return
+            except:
+                pass
+
+            try:
                 # FIXME: This throws "RuntimeError: Attempt to dereference a
                 # generic pointer." with MinGW's gcc 4.5 when it "identifies"
                 # a "QWidget &" as "void &" and with optimized out code.
                 self.putItem(value.cast(type.target().unqualified()))
+                self.putBetterType(typeName)
                 return
             except RuntimeError:
                 self.putValue("<optimized out reference>")
@@ -1451,6 +1468,11 @@ class Dumper:
             return
 
         if type.code == TypedefCode:
+            if typeName in qqDumpers:
+                self.putType(typeName)
+                qqDumpers[typeName](self, value)
+                return
+
             type = stripTypedefs(type)
             # The cast can destroy the address?
             self.putAddress(value.address)
@@ -1460,7 +1482,6 @@ class Dumper:
             else:
                 try:
                     value = value.cast(type)
-                    self.putItem(value)
                 except:
                     self.putValue("<optimized out typedef>")
                     self.putType(typeName)
@@ -1472,7 +1493,7 @@ class Dumper:
             return
 
         if type.code == ArrayCode:
-            targettype = type.target()
+            targetType = type.target()
             self.putAddress(value.address)
             self.putType(typeName)
             self.putNumChild(1)
@@ -1487,14 +1508,14 @@ class Dumper:
                 # Explicitly requested Local 8-bit formatting.
                 self.putValue(encodeCharArray(value, 100), Hex2EncodedLocal8Bit)
             else:
-                self.putValue("@0x%x" % long(value.cast(targettype.pointer())))
+                self.putValue("@0x%x" % long(value.cast(targetType.pointer())))
             if self.currentIName in self.expandedINames:
-                i = 0
-                with Children(self, childType=targettype,
-                        addrBase=value.cast(targettype.pointer()),
-                        addrStep=targettype.sizeof):
-                    self.putFields(value)
-                    i = i + 1
+                p = value.cast(targetType.pointer())
+                ts = targetType.sizeof
+                with Children(self, childType=targetType,
+                        addrBase=p, addrStep=ts):
+                    if not self.tryPutArrayContents(targetType, p, type.sizeof/ts):
+                        self.putFields(value)
             return
 
         if type.code == PointerCode:
@@ -1665,10 +1686,6 @@ class Dumper:
             self.putAddress(value.address)
             self.putType(typeName)
 
-            if typeName in qqDumpers:
-                qqDumpers[typeName](self, value)
-                return
-
             nsStrippedType = self.stripNamespaceFromType(typeName)\
                 .replace("::", "__")
 
@@ -1685,17 +1702,23 @@ class Dumper:
 
             #warn(" STRIPPED: %s" % nsStrippedType)
             #warn(" DUMPERS: %s" % (nsStrippedType in qqDumpers))
-            if nsStrippedType in qqDumpers:
+            dumper = qqDumpers.get(nsStrippedType, None)
+            if not dumper is None:
                 if tryDynamic:
-                    qqDumpers[nsStrippedType](self, expensiveUpcast(value))
+                    dumper(self, expensiveUpcast(value))
                 else:
-                    qqDumpers[nsStrippedType](self, value)
+                    dumper(self, value)
                 return
 
             # Is this derived from QObject?
-            if self.checkForQObjectBase(type):
-                qdump__QObject(self, value)
-                return
+            try:
+                # If this access fails, it's not a QObject.
+                d = value["d_ptr"]["d"]
+                privateType = lookupType(self.ns + "QObjectPrivate").pointer()
+                objectName = d.cast(privateType).dereference()["objectName"]
+                self.putStringValue(objectName, 1)
+            except:
+                pass
 
         #warn("GENERIC STRUCT: %s" % type)
         #warn("INAME: %s " % self.currentIName)

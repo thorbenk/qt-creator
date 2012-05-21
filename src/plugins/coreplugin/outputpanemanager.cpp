@@ -386,7 +386,7 @@ void OutputPaneManager::slotHide()
             m_buttons.value(idx)->setChecked(false);
         if (m_pageMap.value(idx))
             m_pageMap.value(idx)->visibilityChanged(false);
-        if (IEditor *editor = Core::EditorManager::instance()->currentEditor()) {
+        if (IEditor *editor = Core::EditorManager::currentEditor()) {
             QWidget *w = editor->widget()->focusWidget();
             if (!w)
                 w = editor->widget();
@@ -450,7 +450,7 @@ void OutputPaneManager::showPage(int idx, bool focus)
         if (!OutputPanePlaceHolder::getCurrent()) {
             // In this mode we don't have a placeholder
             // switch to the output mode and switch the page
-            ModeManager::activateMode(QLatin1String(Constants::MODE_EDIT));
+            ModeManager::activateMode(Id(Constants::MODE_EDIT));
         }
         if (OutputPanePlaceHolder::getCurrent()) {
             // make the page visible

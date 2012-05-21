@@ -13,9 +13,11 @@ QtcPlugin {
     Depends { name: "Locator" }
 
     Depends { name: "cpp" }
+    cpp.defines: base.concat(["QT_NO_CAST_FROM_ASCII"])
     cpp.includePaths: [
         ".",
         "gitorious",
+        "gerrit",
         "..",
         "../../libs",
         buildDirectory
@@ -67,6 +69,8 @@ QtcPlugin {
         "remotedialog.ui",
         "remotemodel.cpp",
         "remotemodel.h",
+        "resetdialog.cpp",
+        "resetdialog.h",
         "settingspage.cpp",
         "settingspage.h",
         "settingspage.ui",
@@ -75,24 +79,41 @@ QtcPlugin {
     ]
 
     Group {
+        prefix: "gitorious/"
         files: [
-        "gitorious/gitorioushostwidget.ui",
-        "gitorious/gitoriousprojectwidget.ui",
-        "gitorious/gitoriousrepositorywizardpage.ui",
-        "gitorious/gitorious.cpp",
-        "gitorious/gitorious.h",
-        "gitorious/gitoriousclonewizard.cpp",
-        "gitorious/gitoriousclonewizard.h",
-        "gitorious/gitorioushostwidget.cpp",
-        "gitorious/gitorioushostwidget.h",
-        "gitorious/gitorioushostwizardpage.cpp",
-        "gitorious/gitorioushostwizardpage.h",
-        "gitorious/gitoriousprojectwidget.cpp",
-        "gitorious/gitoriousprojectwidget.h",
-        "gitorious/gitoriousprojectwizardpage.cpp",
-        "gitorious/gitoriousprojectwizardpage.h",
-        "gitorious/gitoriousrepositorywizardpage.cpp",
-        "gitorious/gitoriousrepositorywizardpage.h"
+            "gitorioushostwidget.ui",
+            "gitoriousprojectwidget.ui",
+            "gitoriousrepositorywizardpage.ui",
+            "gitorious.cpp",
+            "gitorious.h",
+            "gitoriousclonewizard.cpp",
+            "gitoriousclonewizard.h",
+            "gitorioushostwidget.cpp",
+            "gitorioushostwidget.h",
+            "gitorioushostwizardpage.cpp",
+            "gitorioushostwizardpage.h",
+            "gitoriousprojectwidget.cpp",
+            "gitoriousprojectwidget.h",
+            "gitoriousprojectwizardpage.cpp",
+            "gitoriousprojectwizardpage.h",
+            "gitoriousrepositorywizardpage.cpp",
+            "gitoriousrepositorywizardpage.h"
+        ]
+    }
+
+    Group {
+        prefix: "gerrit/"
+        files: [
+            "gerritdialog.cpp",
+            "gerritdialog.h",
+            "gerritmodel.cpp",
+            "gerritmodel.h",
+            "gerritoptionspage.cpp",
+            "gerritoptionspage.h",
+            "gerritparameters.cpp",
+            "gerritparameters.h",
+            "gerritplugin.cpp",
+            "gerritplugin.h"
         ]
     }
 }

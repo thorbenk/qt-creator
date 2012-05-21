@@ -40,7 +40,7 @@ namespace Internal {
 
 class QmlCppEnginePrivate;
 
-class DEBUGGER_EXPORT QmlCppEngine : public DebuggerEngine
+class QmlCppEngine : public DebuggerEngine
 {
     Q_OBJECT
 
@@ -138,6 +138,7 @@ private:
     void slaveEngineStateChanged(DebuggerEngine *slaveEngine, DebuggerState state);
 
     void readyToExecuteQmlStep();
+    void setActiveEngine(DebuggerEngine *engine);
 
 private:
     QmlCppEnginePrivate *d;

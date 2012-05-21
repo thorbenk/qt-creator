@@ -49,6 +49,7 @@ class Project;
 namespace Qt4ProjectManager {
 
 class Qt4BuildConfiguration;
+class MakeStepConfigWidget;
 
 namespace Internal {
 
@@ -62,15 +63,15 @@ public:
     explicit MakeStepFactory(QObject *parent = 0);
     virtual ~MakeStepFactory();
 
-    bool canCreate(ProjectExplorer::BuildStepList *parent, const QString &id) const;
-    ProjectExplorer::BuildStep *create(ProjectExplorer::BuildStepList *parent, const QString &id);
+    bool canCreate(ProjectExplorer::BuildStepList *parent, const Core::Id id) const;
+    ProjectExplorer::BuildStep *create(ProjectExplorer::BuildStepList *parent, const Core::Id id);
     bool canClone(ProjectExplorer::BuildStepList *parent, ProjectExplorer::BuildStep *source) const;
     ProjectExplorer::BuildStep *clone(ProjectExplorer::BuildStepList *parent, ProjectExplorer::BuildStep *source);
     bool canRestore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map) const;
     ProjectExplorer::BuildStep *restore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map);
 
-    QStringList availableCreationIds(ProjectExplorer::BuildStepList *parent) const;
-    QString displayNameForId(const QString &id) const;
+    QList<Core::Id> availableCreationIds(ProjectExplorer::BuildStepList *parent) const;
+    QString displayNameForId(const Core::Id id) const;
 };
 } //namespace Internal
 
@@ -80,8 +81,7 @@ class QT4PROJECTMANAGER_EXPORT MakeStep : public ProjectExplorer::AbstractProces
 {
     Q_OBJECT
     friend class Internal::MakeStepFactory;
-    friend class MakeStepConfigWidget; // TODO remove this
-    // used to access internal stuff
+    friend class MakeStepConfigWidget;
 
 public:
     explicit MakeStep(ProjectExplorer::BuildStepList *bsl);
@@ -99,6 +99,7 @@ public:
     void setUserArguments(const QString &arguments);
     void setClean(bool clean);
     bool isClean() const;
+    QString makeCommand() const;
 
     QVariantMap toMap() const;
 
@@ -107,11 +108,12 @@ signals:
 
 protected:
     MakeStep(ProjectExplorer::BuildStepList *bsl, MakeStep *bs);
-    MakeStep(ProjectExplorer::BuildStepList *bsl, const QString &id);
+    MakeStep(ProjectExplorer::BuildStepList *bsl, const Core::Id id);
     virtual bool fromMap(const QVariantMap &map);
 
 private:
     void ctor();
+    void setMakeCommand(const QString &make);
     bool m_clean;
     bool m_scriptTarget;
     QString m_makeFileToCheck;

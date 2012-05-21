@@ -35,12 +35,12 @@
 #include "remotelinux_constants.h"
 #include "remotelinuxrunconfiguration.h"
 
-#include <projectexplorer/customexecutablerunconfiguration.h>
 #include <projectexplorer/devicesupport/idevice.h>
 #include <qt4projectmanager/qt4buildconfiguration.h>
 #include <qt4projectmanager/qt4nodes.h>
 #include <qt4projectmanager/qt4project.h>
 #include <qtsupport/baseqtversion.h>
+#include <qtsupport/customexecutablerunconfiguration.h>
 
 #include <QCoreApplication>
 
@@ -48,7 +48,8 @@ namespace RemoteLinux {
 namespace Internal {
 
 GenericEmbeddedLinuxTarget::GenericEmbeddedLinuxTarget(Qt4ProjectManager::Qt4Project *parent,
-        const QString &id) : AbstractEmbeddedLinuxTarget(parent, id)
+                                                       const Core::Id id) :
+    AbstractEmbeddedLinuxTarget(parent, id)
 {
     setDisplayName(tr("Embedded Linux"));
 }
@@ -73,7 +74,7 @@ Utils::FileName GenericEmbeddedLinuxTarget::mkspec(const Qt4ProjectManager::Qt4B
 
 bool GenericEmbeddedLinuxTarget::supportsDevice(const ProjectExplorer::IDevice::ConstPtr &device) const
 {
-    return device->type() == QLatin1String(Constants::GenericLinuxOsType);
+    return device->type() == Core::Id(Constants::GenericLinuxOsType);
 }
 
 void GenericEmbeddedLinuxTarget::createApplicationProFiles(bool reparse)
@@ -95,13 +96,13 @@ void GenericEmbeddedLinuxTarget::createApplicationProFiles(bool reparse)
     // Only add new runconfigurations if there are none.
     foreach (const QString &path, pathes) {
         RemoteLinuxRunConfiguration *qt4rc =
-            new RemoteLinuxRunConfiguration(this, RemoteLinuxRunConfiguration::Id, path);
+            new RemoteLinuxRunConfiguration(this, Core::Id(RemoteLinuxRunConfiguration::Id), path);
         addRunConfiguration(qt4rc);
     }
 
     // Oh still none? Add a custom executable runconfiguration
     if (runConfigurations().isEmpty())
-        addRunConfiguration(new ProjectExplorer::CustomExecutableRunConfiguration(this));
+        addRunConfiguration(new QtSupport::CustomExecutableRunConfiguration(this));
 }
 
 } // namespace Internal

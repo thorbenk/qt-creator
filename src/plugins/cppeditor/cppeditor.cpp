@@ -693,7 +693,7 @@ void CPPEditorWidget::onDocumentUpdated(Document::Ptr doc)
         return;
 
     if (! m_initialized ||
-            (Core::EditorManager::instance()->currentEditor() == editor()
+            (Core::EditorManager::currentEditor() == editor()
              && (!m_lastSemanticInfo.doc
                  || !m_lastSemanticInfo.doc->translationUnit()->ast()
                  || m_lastSemanticInfo.doc->fileName() != editorDocument()->fileName()))) {
@@ -1775,28 +1775,28 @@ void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
     const QVector<QTextCharFormat> formats = fs.toTextCharFormats(highlighterFormatCategories());
     highlighter->setFormats(formats.constBegin(), formats.constEnd());
 
-    m_occurrencesFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_OCCURRENCES));
-    m_occurrencesUnusedFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_OCCURRENCES_UNUSED));
+    m_occurrencesFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES);
+    m_occurrencesUnusedFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES_UNUSED);
     m_occurrencesUnusedFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
     m_occurrencesUnusedFormat.setUnderlineColor(m_occurrencesUnusedFormat.foreground().color());
     m_occurrencesUnusedFormat.clearForeground();
     m_occurrencesUnusedFormat.setToolTip(tr("Unused variable"));
-    m_occurrenceRenameFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_OCCURRENCES_RENAME));
+    m_occurrenceRenameFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES_RENAME);
     m_semanticHighlightFormatMap[SemanticInfo::TypeUse] =
-            fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_TYPE));
+            fs.toTextCharFormat(TextEditor::C_TYPE);
     m_semanticHighlightFormatMap[SemanticInfo::LocalUse] =
-            fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_LOCAL));
+            fs.toTextCharFormat(TextEditor::C_LOCAL);
     m_semanticHighlightFormatMap[SemanticInfo::FieldUse] =
-            fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_FIELD));
+            fs.toTextCharFormat(TextEditor::C_FIELD);
     m_semanticHighlightFormatMap[SemanticInfo::StaticUse] =
-            fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_STATIC));
+            fs.toTextCharFormat(TextEditor::C_STATIC);
     m_semanticHighlightFormatMap[SemanticInfo::VirtualMethodUse] =
-            fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_VIRTUAL_METHOD));
+            fs.toTextCharFormat(TextEditor::C_VIRTUAL_METHOD);
     m_semanticHighlightFormatMap[SemanticInfo::LabelUse] =
-            fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_LABEL));
+            fs.toTextCharFormat(TextEditor::C_LABEL);
     m_semanticHighlightFormatMap[SemanticInfo::MacroUse] =
-            fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_PREPROCESSOR));
-    m_keywordFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_KEYWORD));
+            fs.toTextCharFormat(TextEditor::C_PREPROCESSOR);
+    m_keywordFormat = fs.toTextCharFormat(TextEditor::C_KEYWORD);
 
     // only set the background, we do not want to modify foreground properties set by the syntax highlighter or the link
     m_occurrencesFormat.clearForeground();
@@ -1920,7 +1920,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
         m_highlighter.cancel();
 
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
-            if (Core::EditorManager::instance()->currentEditor() == editor()) {
+            if (Core::EditorManager::currentEditor() == editor()) {
                 if (m_highlightingSupport) {
                     m_highlighter = m_highlightingSupport->highlightingFuture(semanticInfo.doc, semanticInfo.snapshot);
                     m_highlightRevision = semanticInfo.revision;
@@ -2187,21 +2187,21 @@ QModelIndex CPPEditorWidget::indexForPosition(int line, int column, const QModel
     return lastIndex;
 }
 
-QVector<QString> CPPEditorWidget::highlighterFormatCategories()
+QVector<TextEditor::TextStyle> CPPEditorWidget::highlighterFormatCategories()
 {
-    static QVector<QString> categories;
+    static QVector<TextEditor::TextStyle> categories;
     if (categories.isEmpty()) {
-        categories << QLatin1String(TextEditor::Constants::C_NUMBER)
-                   << QLatin1String(TextEditor::Constants::C_STRING)
-                   << QLatin1String(TextEditor::Constants::C_TYPE)
-                   << QLatin1String(TextEditor::Constants::C_KEYWORD)
-                   << QLatin1String(TextEditor::Constants::C_OPERATOR)
-                   << QLatin1String(TextEditor::Constants::C_PREPROCESSOR)
-                   << QLatin1String(TextEditor::Constants::C_LABEL)
-                   << QLatin1String(TextEditor::Constants::C_COMMENT)
-                   << QLatin1String(TextEditor::Constants::C_DOXYGEN_COMMENT)
-                   << QLatin1String(TextEditor::Constants::C_DOXYGEN_TAG)
-                   << QLatin1String(TextEditor::Constants::C_VISUAL_WHITESPACE);
+        categories << TextEditor::C_NUMBER
+                   << TextEditor::C_STRING
+                   << TextEditor::C_TYPE
+                   << TextEditor::C_KEYWORD
+                   << TextEditor::C_OPERATOR
+                   << TextEditor::C_PREPROCESSOR
+                   << TextEditor::C_LABEL
+                   << TextEditor::C_COMMENT
+                   << TextEditor::C_DOXYGEN_COMMENT
+                   << TextEditor::C_DOXYGEN_TAG
+                   << TextEditor::C_VISUAL_WHITESPACE;
     }
     return categories;
 }
@@ -2260,7 +2260,7 @@ void CPPEditorWidget::updateFunctionDeclDefLink()
 
 void CPPEditorWidget::updateFunctionDeclDefLinkNow()
 {
-    if (Core::EditorManager::instance()->currentEditor() != editor())
+    if (Core::EditorManager::currentEditor() != editor())
         return;
     if (m_declDefLink) {
         // update the change marker

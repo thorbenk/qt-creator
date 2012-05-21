@@ -47,6 +47,8 @@ QtcPlugin {
         "qtversioninfo.ui",
         "qtversionmanager.ui",
         "baseqtversion.h",
+        "debugginghelper.cpp",
+        "debugginghelper.h",
         "debugginghelper.ui",
         "debugginghelperbuildtask.h",
         "exampleslistmodel.h",
@@ -70,6 +72,10 @@ QtcPlugin {
         "screenshotcropper.h",
         "showbuildlog.ui",
         "baseqtversion.cpp",
+        "customexecutableconfigurationwidget.cpp",
+        "customexecutableconfigurationwidget.h",
+        "customexecutablerunconfiguration.cpp",
+        "customexecutablerunconfiguration.h",
         "debugginghelperbuildtask.cpp",
         "exampleslistmodel.cpp",
         "gettingstartedwelcomepage.cpp",
@@ -81,5 +87,17 @@ QtcPlugin {
         "qtversionfactory.cpp",
         "qtversionmanager.cpp"
     ]
+
+    ProductModule {
+        Depends { name: "cpp" }
+        cpp.includePaths: [ "../../shared" ]
+        cpp.defines: [
+            "PROPARSER_AS_LIBRARY",
+            "PROPARSER_LIBRARY",
+            "PROPARSER_THREAD_SAFE",
+            "PROEVALUATOR_THREAD_SAFE",
+            "PROEVALUATOR_CUMULATIVE"
+        ]
+    }
 }
 

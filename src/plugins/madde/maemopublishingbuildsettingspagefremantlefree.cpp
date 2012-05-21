@@ -75,7 +75,7 @@ MaemoPublishingBuildSettingsPageFremantleFree::~MaemoPublishingBuildSettingsPage
 void MaemoPublishingBuildSettingsPageFremantleFree::collectBuildConfigurations(const Project *project)
 {
     foreach (const Target *const target, project->targets()) {
-        if (target->id() != QLatin1String(Constants::MAEMO5_DEVICE_TARGET_ID))
+        if (target->id() != Core::Id(Constants::MAEMO5_DEVICE_TARGET_ID))
             continue;
         foreach (BuildConfiguration * const bc, target->buildConfigurations()) {
             Qt4BuildConfiguration * const qt4Bc
@@ -86,7 +86,7 @@ void MaemoPublishingBuildSettingsPageFremantleFree::collectBuildConfigurations(c
             QtSupport::BaseQtVersion *lqt = qt4Bc->qtVersion();
             if (!lqt)
                 continue;
-            if (MaemoGlobal::deviceType(lqt->qmakeCommand().toString()) == QLatin1String(Maemo5OsType))
+            if (MaemoGlobal::deviceType(lqt->qmakeCommand().toString()) == Core::Id(Maemo5OsType))
                 m_buildConfigs << qt4Bc;
         }
         break;

@@ -49,7 +49,7 @@ class WatchTreeView : public BaseTreeView
     Q_OBJECT
 
 public:
-    enum Type { ReturnType, LocalsType, TooltipType, WatchersType };
+    enum Type { ReturnType, LocalsType, TooltipType, WatchersType, InspectType };
 
     explicit WatchTreeView(Type type, QWidget *parent = 0);
     Type type() const { return m_type; }
@@ -86,6 +86,8 @@ private:
 
 class WatchWindow : public BaseWindow
 {
+    Q_OBJECT
+
 public:
     explicit WatchWindow(WatchTreeView::Type type)
         : BaseWindow(new WatchTreeView(type))

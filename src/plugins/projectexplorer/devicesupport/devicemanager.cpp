@@ -54,7 +54,7 @@ namespace ProjectExplorer {
 namespace Internal {
 
 static IDevice::Ptr findAutoDetectedDevice(const QList<IDevice::Ptr> &deviceList,
-        const QString &type, const Core::Id id)
+        Core::Id type, const Core::Id id)
 {
     foreach (const IDevice::Ptr &device, deviceList) {
         if (device->isAutoDetected() && device->type() == type && device->id() == id)
@@ -73,7 +73,7 @@ public:
     static DeviceManager *clonedInstance;
     QList<IDevice::Ptr> devices;
     QList<IDevice::Ptr> inactiveAutoDetectedDevices;
-    QHash<QString, Core::Id> defaultDevices;
+    QHash<Core::Id, Core::Id> defaultDevices;
 };
 DeviceManager *DeviceManagerPrivate::clonedInstance = 0;
 
@@ -82,9 +82,9 @@ DeviceManager *DeviceManagerPrivate::clonedInstance = 0;
 using namespace Internal;
 
 
-DeviceManager *DeviceManager::instance()
+DeviceManager *DeviceManager::instance(const QString &magicTestToken)
 {
-    static DeviceManager deviceManager(true);
+    static DeviceManager deviceManager(magicTestToken != QLatin1String("magicTestToken"));
     return &deviceManager;
 }
 
@@ -96,7 +96,6 @@ int DeviceManager::deviceCount() const
 void DeviceManager::replaceInstance()
 {
     copy(DeviceManagerPrivate::clonedInstance, instance(), false);
-    instance()->save();
     emit instance()->deviceListChanged();
     emit instance()->updated();
 }
@@ -152,7 +151,7 @@ void DeviceManager::loadPre2_6()
     const QVariantHash defaultDevsHash = settings->value(QLatin1String("DefaultConfigs")).toHash();
     for (QVariantHash::ConstIterator it = defaultDevsHash.constBegin();
             it != defaultDevsHash.constEnd(); ++it) {
-        d->defaultDevices.insert(it.key(), Core::Id(it.value().toString()));
+        d->defaultDevices.insert(Core::Id(it.key()), Core::Id(it.value().toString()));
     }
     int count = settings->beginReadArray(QLatin1String("ConfigList"));
     for (int i = 0; i < count; ++i) {
@@ -176,7 +175,7 @@ void DeviceManager::fromMap(const QVariantMap &map)
     const QVariantMap defaultDevsMap = map.value(QLatin1String(DefaultDevicesKey)).toMap();
     for (QVariantMap::ConstIterator it = defaultDevsMap.constBegin();
          it != defaultDevsMap.constEnd(); ++it) {
-        d->defaultDevices.insert(it.key(), Core::Id(it.value().toString()));
+        d->defaultDevices.insert(Core::Id(it.key()), Core::Id(it.value().toString()));
     }
     const QVariantList deviceList = map.value(QLatin1String(DeviceListKey)).toList();
     foreach (const QVariant &v, deviceList) {
@@ -197,10 +196,10 @@ QVariantMap DeviceManager::toMap() const
 {
     QVariantMap map;
     QVariantMap defaultDeviceMap;
-    typedef QHash<QString, Core::Id> TypeIdHash;
+    typedef QHash<Core::Id, Core::Id> TypeIdHash;
     for (TypeIdHash::ConstIterator it = d->defaultDevices.constBegin();
              it != d->defaultDevices.constEnd(); ++it) {
-        defaultDeviceMap.insert(it.key(), it.value().toString());
+        defaultDeviceMap.insert(it.key().toString(), it.value().toString());
     }
     map.insert(QLatin1String(DefaultDevicesKey), defaultDeviceMap);
     QVariantList deviceList;
@@ -218,16 +217,19 @@ QString DeviceManager::settingsFilePath()
     return QFileInfo(pm->settings()->fileName()).absolutePath() + QLatin1String("/devices.xml");
 }
 
-void DeviceManager::addDevice(const IDevice::Ptr &device)
+void DeviceManager::addDevice(const IDevice::Ptr &_device)
 {
-    QTC_ASSERT(this != instance() || (device->isAutoDetected()), return);
+    const IDevice::Ptr device = _device->clone();
+    QTC_ASSERT(this != instance() || device->isAutoDetected(), return);
 
+    QString name = device->displayName();
     const int pos = indexForId(device->id());
-    if (pos >= 0)
-        removeDevice(pos);
+    if (pos >= 0) {
+        device->setDisplayName(QString()); // For name uniquification to work.
+        d->devices[pos] = device;
+    }
 
     // Ensure uniqueness of name.
-    QString name = device->displayName();
     if (hasDevice(name)) {
         const QString nameTemplate = name + QLatin1String(" (%1)");
         int suffix = 2;
@@ -236,66 +238,58 @@ void DeviceManager::addDevice(const IDevice::Ptr &device)
         while (hasDevice(name));
     }
     device->setDisplayName(name);
+
     if (!defaultDevice(device->type()))
         d->defaultDevices.insert(device->type(), device->id());
-    d->devices << device;
     if (this == instance() && d->clonedInstance)
         d->clonedInstance->addDevice(device->clone());
-    if (this == instance()) {
-        QList<IDevice::Ptr>::Iterator it = d->inactiveAutoDetectedDevices.begin();
-        while (it != d->inactiveAutoDetectedDevices.end()) {
-            if (it->data()->id() == device->id()) {
-                d->inactiveAutoDetectedDevices.erase(it);
-                break;
-            }
-            ++it;
-        }
-    }
 
-    emit deviceAdded(device);
-    if (pos >= 0)
+    if (pos >= 0) {
         emit deviceUpdated(device->id());
+    } else {
+        d->devices << device;
+        if (this == instance()) {
+            QList<IDevice::Ptr>::Iterator it = d->inactiveAutoDetectedDevices.begin();
+            while (it != d->inactiveAutoDetectedDevices.end()) {
+                if (it->data()->id() == device->id()) {
+                    d->inactiveAutoDetectedDevices.erase(it);
+                    break;
+                }
+                ++it;
+            }
+        }
+        emit deviceAdded(device->id());
+    }
 
     emit updated();
 }
 
-void DeviceManager::removeDevice(int idx)
+void DeviceManager::removeDevice(Core::Id id)
 {
-    const IDevice::Ptr device = mutableDeviceAt(idx);
+    const IDevice::Ptr device = mutableDevice(id);
     QTC_ASSERT(device, return);
     QTC_ASSERT(this != instance() || device->isAutoDetected(), return);
 
     const bool wasDefault = d->defaultDevices.value(device->type()) == device->id();
-    const QString deviceType = device->type();
-    d->devices.removeAt(idx);
-    emit deviceRemoved(idx);
+    const Core::Id deviceType = device->type();
+    d->devices.removeAt(indexForId(id));
+    emit deviceRemoved(device->id());
 
     if (wasDefault) {
         for (int i = 0; i < d->devices.count(); ++i) {
             if (deviceAt(i)->type() == deviceType) {
                 d->defaultDevices.insert(deviceAt(i)->type(), deviceAt(i)->id());
-                emit defaultStatusChanged(i);
+                emit deviceUpdated(deviceAt(i)->id());
                 break;
             }
         }
     }
-    if (this == instance() && d->clonedInstance) {
-        d->clonedInstance->removeDevice(d->clonedInstance->
-            indexForId(device->id()));
-    }
+    if (this == instance() && d->clonedInstance)
+        d->clonedInstance->removeDevice(id);
     if (this == instance() && device->isAutoDetected())
         d->inactiveAutoDetectedDevices << device;
 
     emit updated();
-}
-
-void DeviceManager::setDeviceDisplayName(int i, const QString &name)
-{
-    QTC_ASSERT(this != instance(), return);
-    QTC_ASSERT(i >= 0 && i < deviceCount(), return);
-
-    d->devices.at(i)->setDisplayName(name);
-    emit displayNameChanged(i);
 }
 
 void DeviceManager::setDefaultDevice(int idx)
@@ -308,13 +302,8 @@ void DeviceManager::setDefaultDevice(int idx)
     if (device == oldDefaultDevice)
         return;
     d->defaultDevices.insert(device->type(), device->id());
-    emit defaultStatusChanged(idx);
-    for (int i = 0; i < d->devices.count(); ++i) {
-        if (d->devices.at(i) == oldDefaultDevice) {
-            emit defaultStatusChanged(i);
-            break;
-        }
-    }
+    emit deviceUpdated(device->id());
+    emit deviceUpdated(oldDefaultDevice->id());
 
     emit updated();
 }
@@ -328,14 +317,16 @@ const IDeviceFactory *DeviceManager::restoreFactory(const QVariantMap &map)
             return factory;
     }
     qWarning("Warning: No factory found for device of type '%s'.",
-        qPrintable(IDevice::typeFromMap(map)));
+        qPrintable(IDevice::typeFromMap(map).toString()));
     return 0;
 }
 
-DeviceManager::DeviceManager(bool doLoad) : d(new DeviceManagerPrivate)
+DeviceManager::DeviceManager(bool isInstance) : d(new DeviceManagerPrivate)
 {
-    if (doLoad)
+    if (isInstance) {
         load();
+        connect(Core::ICore::instance(), SIGNAL(saveSettingsRequested()), SLOT(save()));
+    }
 }
 
 DeviceManager::~DeviceManager()
@@ -349,10 +340,10 @@ IDevice::ConstPtr DeviceManager::deviceAt(int idx) const
     return d->devices.at(idx);
 }
 
-IDevice::Ptr DeviceManager::mutableDeviceAt(int idx) const
+IDevice::Ptr DeviceManager::mutableDevice(Core::Id id) const
 {
-    QTC_ASSERT(idx >= 0 && idx < deviceCount(), return IDevice::Ptr());
-    return d->devices.at(idx);
+    const int index = indexForId(id);
+    return index == -1 ? IDevice::Ptr() : d->devices.at(index);
 }
 
 bool DeviceManager::hasDevice(const QString &name) const
@@ -364,19 +355,18 @@ bool DeviceManager::hasDevice(const QString &name) const
     return false;
 }
 
-IDevice::ConstPtr DeviceManager::find(const Core::Id &id) const
+IDevice::ConstPtr DeviceManager::find(Core::Id id) const
 {
     const int index = indexForId(id);
     return index == -1 ? IDevice::ConstPtr() : deviceAt(index);
 }
 
-IDevice::ConstPtr DeviceManager::findInactiveAutoDetectedDevice(const QString &type,
-                                                                const Core::Id id)
+IDevice::ConstPtr DeviceManager::findInactiveAutoDetectedDevice(Core::Id type, Core::Id id)
 {
     return findAutoDetectedDevice(d->inactiveAutoDetectedDevices, type, id);
 }
 
-IDevice::ConstPtr DeviceManager::defaultDevice(const QString &deviceType) const
+IDevice::ConstPtr DeviceManager::defaultDevice(Core::Id deviceType) const
 {
     const Core::Id id = d->defaultDevices.value(deviceType, IDevice::invalidId());
     if (id == IDevice::invalidId())
@@ -384,7 +374,7 @@ IDevice::ConstPtr DeviceManager::defaultDevice(const QString &deviceType) const
     return find(id);
 }
 
-int DeviceManager::indexForId(const Core::Id &id) const
+int DeviceManager::indexForId(Core::Id id) const
 {
     for (int i = 0; i < d->devices.count(); ++i) {
         if (deviceAt(i)->id() == id)

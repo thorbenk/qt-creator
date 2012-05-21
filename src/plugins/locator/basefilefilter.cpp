@@ -53,7 +53,7 @@ QList<FilterEntry> BaseFileFilter::matchesFor(QFutureInterface<Locator::FilterEn
     QString needle = trimWildcards(origEntry);
     QStringMatcher matcher(needle, Qt::CaseInsensitive);
     const QChar asterisk = QLatin1Char('*');
-    const QRegExp regexp(asterisk + needle+ asterisk, Qt::CaseInsensitive, QRegExp::Wildcard);
+    QRegExp regexp(asterisk + needle+ asterisk, Qt::CaseInsensitive, QRegExp::Wildcard);
     if (!regexp.isValid())
         return matches;
     const bool hasWildcard = needle.contains(asterisk) || needle.contains(QLatin1Char('?'));
@@ -99,8 +99,7 @@ QList<FilterEntry> BaseFileFilter::matchesFor(QFutureInterface<Locator::FilterEn
 
 void BaseFileFilter::accept(Locator::FilterEntry selection) const
 {
-    Core::EditorManager *em = Core::EditorManager::instance();
-    em->openEditor(selection.internalData.toString(), Id(), Core::EditorManager::ModeSwitch);
+    EditorManager::openEditor(selection.internalData.toString(), Id(), EditorManager::ModeSwitch);
 }
 
 void BaseFileFilter::generateFileNames()

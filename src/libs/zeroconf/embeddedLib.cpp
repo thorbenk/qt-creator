@@ -34,11 +34,12 @@
 
 #include "servicebrowser_p.h"
 
+#include <QCoreApplication>
+#include <QDebug>
+#include <QFileInfo>
 #include <QString>
 #include <QStringList>
 #include <QProcess>
-#include <QCoreApplication>
-#include <QDebug>
 
 #ifdef Q_OS_LINUX
 #define EMBEDDED_LIB
@@ -49,6 +50,9 @@
 #endif
 
 #ifdef EMBEDDED_LIB
+#define PID_FILE "/tmp/mdnsd.pid"
+#define MDNS_UDS_SERVERPATH "/tmp/mdnsd"
+
 #include "embed/dnssd_ipc.c"
 #include "embed/dnssd_clientlib.c"
 #include "embed/dnssd_clientstub.c"
@@ -67,6 +71,8 @@ public:
     EmbeddedZConfLib(const QString &daemonPath, ZConfLib::Ptr fallBack) : ZConfLib(fallBack),
         daemonPath(daemonPath)
     {
+        if (daemonPath.isEmpty())
+            m_maxErrors = 0;
         if (!daemonPath.isEmpty() && daemonPath.at(0) != '/' && daemonPath.at(0) != '.')
             this->daemonPath = QCoreApplication::applicationDirPath() + QChar('/') + daemonPath;
     }
@@ -82,6 +88,28 @@ public:
     bool tryStartDaemon()
     {
         if (!daemonPath.isEmpty()) {
+            QFileInfo dPath(daemonPath);
+            QProcess killall;
+            bool killAllFailed = false;
+#ifdef Q_OS_WIN
+            QString cmd = QLatin1String("taskill /im ") + dPath.fileName()
+                    + QLatin1String(" /f /t");
+#else
+            QString cmd = QLatin1String("killall ") + dPath.fileName()
+                    + QLatin1String(" 2> /dev/null");
+#endif
+            killall.start(cmd);
+            if (!killall.waitForStarted()) {
+                killAllFailed = true;
+            } else {
+                killall.closeWriteChannel();
+                killall.waitForFinished();
+            }
+            if (killAllFailed) {
+                this->setError(false,ZConfLib::tr("zeroconf failed to kill other daemons with '%1'").arg(cmd));
+                if (DEBUG_ZEROCONF)
+                    qDebug() << name() << " had an error trying to kill other daemons with " << cmd;
+            }
             if (QProcess::startDetached(daemonPath)) {
                 QThread::yieldCurrentThread();
                 // sleep a bit?

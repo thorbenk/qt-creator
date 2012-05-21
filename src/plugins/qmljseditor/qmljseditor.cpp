@@ -507,7 +507,7 @@ QmlJSTextEditorWidget::QmlJSTextEditorWidget(QWidget *parent) :
     baseTextDocument()->setSyntaxHighlighter(new Highlighter(document()));
     baseTextDocument()->setCodec(QTextCodec::codecForName("UTF-8")); // qml files are defined to be utf-8
 
-    m_modelManager = ExtensionSystem::PluginManager::instance()->getObject<ModelManagerInterface>();
+    m_modelManager = QmlJS::ModelManagerInterface::instance();
     m_contextPane = ExtensionSystem::PluginManager::instance()->getObject<QmlJS::IContextPane>();
 
 
@@ -965,12 +965,12 @@ protected:
 
 void QmlJSTextEditorWidget::setSelectedElements()
 {
-    if (!receivers(SIGNAL(selectedElementsChanged(QList<int>,QString))))
+    if (!receivers(SIGNAL(selectedElementsChanged(QList<QmlJS::AST::UiObjectMember*>,QString))))
         return;
 
     QTextCursor tc = textCursor();
     QString wordAtCursor;
-    QList<int> offsets;
+    QList<UiObjectMember *> offsets;
 
     unsigned startPos;
     unsigned endPos;
@@ -992,7 +992,7 @@ void QmlJSTextEditorWidget::setSelectedElements()
                                                           startPos, endPos);
         if (!members.isEmpty()) {
             foreach(UiObjectMember *m, members) {
-                offsets << m->firstSourceLocation().begin();
+                offsets << m;
             }
         }
     }
@@ -1015,13 +1015,13 @@ void QmlJSTextEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
     highlighter->setFormats(fs.toTextCharFormats(highlighterFormatCategories()));
     highlighter->rehighlight();
 
-    m_occurrencesFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_OCCURRENCES));
-    m_occurrencesUnusedFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_OCCURRENCES_UNUSED));
+    m_occurrencesFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES);
+    m_occurrencesUnusedFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES_UNUSED);
     m_occurrencesUnusedFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
     m_occurrencesUnusedFormat.setUnderlineColor(m_occurrencesUnusedFormat.foreground().color());
     m_occurrencesUnusedFormat.clearForeground();
     m_occurrencesUnusedFormat.setToolTip(tr("Unused variable"));
-    m_occurrenceRenameFormat = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_OCCURRENCES_RENAME));
+    m_occurrenceRenameFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES_RENAME);
 
     // only set the background, we do not want to modify foreground properties set by the syntax highlighter or the link
     m_occurrencesFormat.clearForeground();
@@ -1321,8 +1321,7 @@ void QmlJSTextEditorWidget::updateSemanticInfo()
         return;
 
     // Save time by not doing it for non-active editors.
-    Core::EditorManager *editorManager = Core::EditorManager::instance();
-    if (editorManager->currentEditor() != editor())
+    if (Core::EditorManager::currentEditor() != editor())
         return;
 
     m_updateSemanticInfoTimer->start();
@@ -1378,8 +1377,7 @@ void QmlJSTextEditorWidget::acceptNewSemanticInfo(const SemanticInfo &semanticIn
     appendExtraSelectionsForMessages(&selections, m_semanticInfo.staticAnalysisMessages, document());
     setExtraSelections(CodeWarningsSelection, selections);
 
-    Core::EditorManager *editorManager = Core::EditorManager::instance();
-    if (editorManager->currentEditor() == editor())
+    if (Core::EditorManager::currentEditor() == editor())
         m_semanticHighlighter->rerun(m_semanticInfo.scopeChain());
 
     emit semanticInfoUpdated();
@@ -1429,7 +1427,7 @@ bool QmlJSTextEditorWidget::hideContextPane()
     return b;
 }
 
-QVector<QString> QmlJSTextEditorWidget::highlighterFormatCategories()
+QVector<TextEditor::TextStyle> QmlJSTextEditorWidget::highlighterFormatCategories()
 {
     /*
         NumberFormat,
@@ -1440,15 +1438,15 @@ QVector<QString> QmlJSTextEditorWidget::highlighterFormatCategories()
         CommentFormat,
         VisualWhitespace,
      */
-    static QVector<QString> categories;
+    static QVector<TextEditor::TextStyle> categories;
     if (categories.isEmpty()) {
-        categories << QLatin1String(TextEditor::Constants::C_NUMBER)
-                << QLatin1String(TextEditor::Constants::C_STRING)
-                << QLatin1String(TextEditor::Constants::C_TYPE)
-                << QLatin1String(TextEditor::Constants::C_KEYWORD)
-                << QLatin1String(TextEditor::Constants::C_FIELD)
-                << QLatin1String(TextEditor::Constants::C_COMMENT)
-                << QLatin1String(TextEditor::Constants::C_VISUAL_WHITESPACE);
+        categories << TextEditor::C_NUMBER
+                << TextEditor::C_STRING
+                << TextEditor::C_TYPE
+                << TextEditor::C_KEYWORD
+                << TextEditor::C_FIELD
+                << TextEditor::C_COMMENT
+                << TextEditor::C_VISUAL_WHITESPACE;
     }
     return categories;
 }

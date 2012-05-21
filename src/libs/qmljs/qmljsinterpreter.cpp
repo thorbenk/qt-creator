@@ -1365,15 +1365,20 @@ QList<const CppComponentValue *> CppQmlTypes::createObjectsForImport(const QStri
 
     // make new exported objects
     foreach (const FakeMetaObject::ConstPtr &fmo, _fakeMetaObjectsByPackage.value(package)) {
-        // find the highest-version export
-        FakeMetaObject::Export bestExport;
+        // find the highest-version export for each alias
+        QHash<QString, FakeMetaObject::Export> bestExports;
         foreach (const FakeMetaObject::Export &exp, fmo->exports()) {
             if (exp.package != package || (version.isValid() && exp.version > version))
                 continue;
-            if (!bestExport.isValid() || exp.version > bestExport.version)
-                bestExport = exp;
+
+            if (bestExports.contains(exp.type)) {
+                if (exp.version > bestExports.value(exp.type).version)
+                    bestExports.insert(exp.type, exp);
+            } else {
+                bestExports.insert(exp.type, exp);
+            }
         }
-        if (!bestExport.isValid())
+        if (bestExports.isEmpty())
             continue;
 
         // if it already exists, skip
@@ -1381,22 +1386,24 @@ QList<const CppComponentValue *> CppQmlTypes::createObjectsForImport(const QStri
         if (_objectsByQualifiedName.contains(key))
             continue;
 
-        QString name = bestExport.type;
-        bool exported = true;
-        if (name.isEmpty()) {
-            exported = false;
-            name = fmo->className();
+        foreach (const FakeMetaObject::Export &bestExport, bestExports) {
+            QString name = bestExport.type;
+            bool exported = true;
+            if (name.isEmpty()) {
+                exported = false;
+                name = fmo->className();
+            }
+
+            CppComponentValue *newComponent = new CppComponentValue(
+                        fmo, name, package, bestExport.version, version,
+                        bestExport.metaObjectRevision, _valueOwner);
+
+            // use package.cppname importversion as key
+            _objectsByQualifiedName.insert(key, newComponent);
+            if (exported)
+                exportedObjects += newComponent;
+            newObjects += newComponent;
         }
-
-        CppComponentValue *newObject = new CppComponentValue(
-                    fmo, name, package, bestExport.version, version,
-                    bestExport.metaObjectRevision, _valueOwner);
-
-        // use package.cppname importversion as key
-        _objectsByQualifiedName.insert(key, newObject);
-        if (exported)
-            exportedObjects += newObject;
-        newObjects += newObject;
     }
 
     // set their prototypes, creating them if necessary

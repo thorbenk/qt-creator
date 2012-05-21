@@ -377,13 +377,18 @@ void CMakeProject::gatherFileNodes(ProjectExplorer::FolderNode *parent, QList<Pr
         list.append(file);
 }
 
+bool sortNodesByPath(Node *a, Node *b)
+{
+    return a->path() < b->path();
+}
+
 void CMakeProject::buildTree(CMakeProjectNode *rootNode, QList<ProjectExplorer::FileNode *> newList)
 {
     // Gather old list
     QList<ProjectExplorer::FileNode *> oldList;
     gatherFileNodes(rootNode, oldList);
-    qSort(oldList.begin(), oldList.end(), ProjectExplorer::ProjectNode::sortNodesByPath);
-    qSort(newList.begin(), newList.end(), ProjectExplorer::ProjectNode::sortNodesByPath);
+    qSort(oldList.begin(), oldList.end(), sortNodesByPath);
+    qSort(newList.begin(), newList.end(), sortNodesByPath);
 
     // generate added and deleted list
     QList<ProjectExplorer::FileNode *>::const_iterator oldIt  = oldList.constBegin();
@@ -478,9 +483,9 @@ QString CMakeProject::displayName() const
     return m_projectName;
 }
 
-QString CMakeProject::id() const
+Core::Id CMakeProject::id() const
 {
-    return QLatin1String(Constants::CMAKEPROJECT_ID);
+    return Core::Id(Constants::CMAKEPROJECT_ID);
 }
 
 Core::IDocument *CMakeProject::document() const
@@ -526,7 +531,7 @@ bool CMakeProject::fromMap(const QVariantMap &map)
     if (!hasUserFile) {
         CMakeTargetFactory *factory =
                 ExtensionSystem::PluginManager::instance()->getObject<CMakeTargetFactory>();
-        CMakeTarget *t = factory->create(this, QLatin1String(DEFAULT_CMAKE_TARGET_ID));
+        CMakeTarget *t = factory->create(this, Core::Id(DEFAULT_CMAKE_TARGET_ID));
 
         Q_ASSERT(t);
         Q_ASSERT(t->activeBuildConfiguration());
@@ -817,7 +822,6 @@ CMakeBuildSettingsWidget::CMakeBuildSettingsWidget(CMakeTarget *target)
     fl->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
     setLayout(fl);
 
-    // TODO add action to Build menu?
     QPushButton *runCmakeButton = new QPushButton(tr("Run cmake"));
     connect(runCmakeButton, SIGNAL(clicked()),
             this, SLOT(runCMake()));

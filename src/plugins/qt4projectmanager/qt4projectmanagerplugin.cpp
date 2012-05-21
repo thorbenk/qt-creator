@@ -182,83 +182,102 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
             am->actionContainer(ProjectExplorer::Constants::M_PROJECTCONTEXT);
     Core::ActionContainer *msubproject =
             am->actionContainer(ProjectExplorer::Constants::M_SUBPROJECTCONTEXT);
+    Core::ActionContainer *mfile =
+            am->actionContainer(ProjectExplorer::Constants::M_FILECONTEXT);
 
     //register actions
     Core::Command *command;
 
-    QIcon qmakeIcon(QLatin1String(":/qt4projectmanager/images/run_qmake.png"));
-    qmakeIcon.addFile(QLatin1String(":/qt4projectmanager/images/run_qmake_small.png"));
-    m_runQMakeAction = new QAction(qmakeIcon, tr("Run qmake"), this);
-    command = am->registerAction(m_runQMakeAction, Constants::RUNQMAKE, projectContext);
+    m_buildSubProjectContextMenu = new Utils::ParameterAction(tr("Build"), tr("Build \"%1\""),
+                                                              Utils::ParameterAction::AlwaysEnabled/*handled manually*/,
+                                                              this);
+    command = am->registerAction(m_buildSubProjectContextMenu, Constants::BUILDSUBDIRCONTEXTMENU, projectContext);
     command->setAttribute(Core::Command::CA_Hide);
-    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_PROJECT);
-    connect(m_runQMakeAction, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(runQMake()));
+    command->setAttribute(Core::Command::CA_UpdateText);
+    command->setDescription(m_buildSubProjectContextMenu->text());
+    msubproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
+    connect(m_buildSubProjectContextMenu, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(buildSubDirContextMenu()));
 
-    m_runQMakeActionContextMenu = new QAction(qmakeIcon, tr("Run qmake"), this);
+    m_runQMakeActionContextMenu = new QAction(tr("Run qmake"), this);
     command = am->registerAction(m_runQMakeActionContextMenu, Constants::RUNQMAKECONTEXTMENU, projectContext);
     command->setAttribute(Core::Command::CA_Hide);
     mproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
     msubproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
     connect(m_runQMakeActionContextMenu, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(runQMakeContextMenu()));
 
-    QIcon buildIcon = QIcon(QLatin1String(ProjectExplorer::Constants::ICON_BUILD));
-    buildIcon.addFile(QLatin1String(ProjectExplorer::Constants::ICON_BUILD_SMALL));
-    m_buildSubProjectContextMenu = new QAction(buildIcon, tr("Build"), this);
-    command = am->registerAction(m_buildSubProjectContextMenu, Constants::BUILDSUBDIRCONTEXTMENU, projectContext);
+    m_subProjectRebuildSeparator = new QAction(this);
+    m_subProjectRebuildSeparator->setSeparator(true);
     command->setAttribute(Core::Command::CA_Hide);
+    command = am->registerAction(m_subProjectRebuildSeparator, Core::Id("ProjectExplorer.SubprojectRebuild.Sep"), projectContext);
     msubproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
-    connect(m_buildSubProjectContextMenu, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(buildSubDirContextMenu()));
 
-    QIcon rebuildIcon = QIcon(QLatin1String(ProjectExplorer::Constants::ICON_REBUILD));
-    rebuildIcon.addFile(QLatin1String(ProjectExplorer::Constants::ICON_REBUILD_SMALL));
-    m_rebuildSubProjectContextMenu = new QAction(rebuildIcon, tr("Rebuild"), this);
+    m_rebuildSubProjectContextMenu = new QAction(tr("Rebuild"), this);
     command = am->registerAction(m_rebuildSubProjectContextMenu, Constants::REBUILDSUBDIRCONTEXTMENU, projectContext);
     command->setAttribute(Core::Command::CA_Hide);
     msubproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
     connect(m_rebuildSubProjectContextMenu, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(rebuildSubDirContextMenu()));
 
-    QIcon cleanIcon = QIcon(QLatin1String(ProjectExplorer::Constants::ICON_CLEAN));
-    cleanIcon.addFile(QLatin1String(ProjectExplorer::Constants::ICON_CLEAN_SMALL));
-    m_cleanSubProjectContextMenu = new QAction(cleanIcon, tr("Clean"), this);
+    m_cleanSubProjectContextMenu = new QAction(tr("Clean"), this);
     command = am->registerAction(m_cleanSubProjectContextMenu, Constants::CLEANSUBDIRCONTEXTMENU, projectContext);
     command->setAttribute(Core::Command::CA_Hide);
     msubproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
     connect(m_cleanSubProjectContextMenu, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(cleanSubDirContextMenu()));
 
+    m_buildFileContextMenu = new QAction(tr("Build"), this);
+    command = am->registerAction(m_buildFileContextMenu, Constants::BUILDFILECONTEXTMENU, projectContext);
+    command->setAttribute(Core::Command::CA_Hide);
+    mfile->addAction(command, ProjectExplorer::Constants::G_FILE_OTHER);
+    connect(m_buildFileContextMenu, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(buildFileContextMenu()));
+
     m_buildSubProjectAction = new Utils::ParameterAction(tr("Build Subproject"), tr("Build Subproject \"%1\""),
-                                                         Utils::ParameterAction::EnabledWithParameter, this);
+                                                         Utils::ParameterAction::AlwaysEnabled, this);
     command = am->registerAction(m_buildSubProjectAction, Constants::BUILDSUBDIR, projectContext);
+    command->setAttribute(Core::Command::CA_Hide);
     command->setAttribute(Core::Command::CA_UpdateText);
     command->setDescription(m_buildSubProjectAction->text());
-    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_PROJECT);
+    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_BUILD);
     connect(m_buildSubProjectAction, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(buildSubDirContextMenu()));
 
+    m_runQMakeAction = new QAction(tr("Run qmake"), this);
+    command = am->registerAction(m_runQMakeAction, Constants::RUNQMAKE, projectContext);
+    command->setAttribute(Core::Command::CA_Hide);
+    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_BUILD);
+    connect(m_runQMakeAction, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(runQMake()));
+
     m_rebuildSubProjectAction = new Utils::ParameterAction(tr("Rebuild Subproject"), tr("Rebuild Subproject \"%1\""),
-                                                           Utils::ParameterAction::EnabledWithParameter, this);
+                                                           Utils::ParameterAction::AlwaysEnabled, this);
     command = am->registerAction(m_rebuildSubProjectAction, Constants::REBUILDSUBDIR, projectContext);
+    command->setAttribute(Core::Command::CA_Hide);
     command->setAttribute(Core::Command::CA_UpdateText);
     command->setDescription(m_rebuildSubProjectAction->text());
-    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_PROJECT);
+    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_REBUILD);
     connect(m_rebuildSubProjectAction, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(rebuildSubDirContextMenu()));
 
     m_cleanSubProjectAction = new Utils::ParameterAction(tr("Clean Subproject"), tr("Clean Subproject \"%1\""),
-                                                         Utils::ParameterAction::EnabledWithParameter, this);
+                                                         Utils::ParameterAction::AlwaysEnabled, this);
     command = am->registerAction(m_cleanSubProjectAction, Constants::CLEANSUBDIR, projectContext);
+    command->setAttribute(Core::Command::CA_Hide);
     command->setAttribute(Core::Command::CA_UpdateText);
     command->setDescription(m_cleanSubProjectAction->text());
-    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_PROJECT);
+    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_CLEAN);
     connect(m_cleanSubProjectAction, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(cleanSubDirContextMenu()));
 
-    connect(m_projectExplorer,
-            SIGNAL(aboutToShowContextMenu(ProjectExplorer::Project*,ProjectExplorer::Node*)),
-            this, SLOT(updateContextMenu(ProjectExplorer::Project*,ProjectExplorer::Node*)));
+    m_buildFileAction = new Utils::ParameterAction(tr("Build File"), tr("Build File \"%1\""),
+                                                   Utils::ParameterAction::AlwaysEnabled, this);
+    command = am->registerAction(m_buildFileAction, Constants::BUILDFILE, projectContext);
+    command->setAttribute(Core::Command::CA_Hide);
+    command->setAttribute(Core::Command::CA_UpdateText);
+    command->setDescription(m_buildFileAction->text());
+    command->setDefaultKeySequence(QKeySequence(tr("Ctrl+Alt+B")));
+    mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_BUILD);
+    connect(m_buildFileAction, SIGNAL(triggered()), m_qt4ProjectManager, SLOT(buildFileContextMenu()));
 
     connect(m_projectExplorer->buildManager(), SIGNAL(buildStateChanged(ProjectExplorer::Project*)),
             this, SLOT(buildStateChanged(ProjectExplorer::Project*)));
     connect(m_projectExplorer->session(), SIGNAL(startupProjectChanged(ProjectExplorer::Project*)),
             this, SLOT(startupProjectChanged()));
     connect(m_projectExplorer, SIGNAL(currentNodeChanged(ProjectExplorer::Node*,ProjectExplorer::Project*)),
-            this, SLOT(currentNodeChanged(ProjectExplorer::Node*,ProjectExplorer::Project*)));
+            this, SLOT(updateContextActions(ProjectExplorer::Node*,ProjectExplorer::Project*)));
 
     Core::ActionContainer *contextMenu = am->createMenu(Qt4ProjectManager::Constants::M_CONTEXT);
 
@@ -295,7 +314,7 @@ bool Qt4ProjectManagerPlugin::initialize(const QStringList &arguments, QString *
 
 bool Qt4ProjectManagerPlugin::delayedInitialize()
 {
-    S60Manager::instance()->addDevice();
+    S60Manager::instance()->delayedInitialize();
     return true;
 }
 
@@ -303,42 +322,6 @@ void Qt4ProjectManagerPlugin::extensionsInitialized()
 {
     m_qt4ProjectManager->init();
 }
-
-void Qt4ProjectManagerPlugin::updateContextMenu(Project *project,
-                                                ProjectExplorer::Node *node)
-{
-    m_qt4ProjectManager->setContextProject(project);
-    m_qt4ProjectManager->setContextNode(node);
-    m_runQMakeActionContextMenu->setEnabled(false);
-    m_buildSubProjectContextMenu->setEnabled(false);
-    m_rebuildSubProjectContextMenu->setEnabled(false);
-    m_cleanSubProjectContextMenu->setEnabled(false);
-
-    Qt4ProFileNode *proFileNode = qobject_cast<Qt4ProFileNode *>(node);
-    Qt4Project *qt4Project = qobject_cast<Qt4Project *>(project);
-    if (qt4Project && proFileNode
-            && qt4Project->activeTarget()
-            && qt4Project->activeTarget()->activeQt4BuildConfiguration()) {
-        m_runQMakeActionContextMenu->setVisible(true);
-        m_buildSubProjectContextMenu->setVisible(true);
-        m_rebuildSubProjectContextMenu->setVisible(true);
-        m_cleanSubProjectContextMenu->setVisible(true);
-
-        if (!m_projectExplorer->buildManager()->isBuilding(project)) {
-            if (qt4Project->activeTarget()->activeQt4BuildConfiguration()->qmakeStep())
-                m_runQMakeActionContextMenu->setEnabled(true);
-            m_buildSubProjectContextMenu->setEnabled(true);
-            m_rebuildSubProjectContextMenu->setEnabled(true);
-            m_cleanSubProjectContextMenu->setEnabled(true);
-        }
-    } else {
-        m_runQMakeActionContextMenu->setVisible(false);
-        m_buildSubProjectContextMenu->setVisible(false);
-        m_rebuildSubProjectContextMenu->setVisible(false);
-        m_cleanSubProjectContextMenu->setVisible(false);
-    }
-}
-
 
 void Qt4ProjectManagerPlugin::startupProjectChanged()
 {
@@ -384,34 +367,69 @@ void Qt4ProjectManagerPlugin::updateRunQMakeAction()
     m_runQMakeAction->setEnabled(enable);
 }
 
-void Qt4ProjectManagerPlugin::currentNodeChanged(ProjectExplorer::Node *node, ProjectExplorer::Project *project)
+void Qt4ProjectManagerPlugin::updateContextActions(ProjectExplorer::Node *node, ProjectExplorer::Project *project)
 {
     m_addLibraryActionContextMenu->setEnabled(qobject_cast<Qt4ProFileNode *>(node));
 
-    m_qt4ProjectManager->setContextNode(node ? node->projectNode() : 0);
-    m_qt4ProjectManager->setContextProject(project);
+    Qt4ProFileNode *proFileNode = qobject_cast<Qt4ProFileNode *>(node);
+    Qt4Project *qt4Project = qobject_cast<Qt4Project *>(project);
+    Qt4ProFileNode *subProjectNode = node ? qobject_cast<Qt4ProFileNode *>(node->projectNode()) : 0;
+    ProjectExplorer::FileNode *fileNode = qobject_cast<ProjectExplorer::FileNode *>(node);
+    bool buildFilePossible = subProjectNode && fileNode
+            && (fileNode->fileType() == ProjectExplorer::SourceType);
 
-    bool subProjectActionsVisible = node && project && node->projectNode() && (node->projectNode() != project->rootProjectNode());
+    m_qt4ProjectManager->setContextNode(subProjectNode);
+    m_qt4ProjectManager->setContextProject(qt4Project);
+    m_qt4ProjectManager->setContextFile(buildFilePossible ? fileNode : 0);
+
+    bool subProjectActionsVisible = qt4Project && subProjectNode && (subProjectNode != qt4Project->rootProjectNode());
 
     QString subProjectName;
     if (subProjectActionsVisible)
-        subProjectName = node->projectNode()->displayName();
+        subProjectName = subProjectNode->displayName();
 
     m_buildSubProjectAction->setParameter(subProjectName);
     m_rebuildSubProjectAction->setParameter(subProjectName);
     m_cleanSubProjectAction->setParameter(subProjectName);
+    m_buildSubProjectContextMenu->setParameter(subProjectName);
+    m_buildFileAction->setParameter(buildFilePossible ? QFileInfo(fileNode->path()).fileName() : QString());
+
+    Qt4BuildConfiguration *buildConfiguration = (qt4Project && qt4Project->activeTarget()) ?
+            qt4Project->activeTarget()->activeQt4BuildConfiguration() : 0;
+    bool isProjectNode = qt4Project && proFileNode && buildConfiguration;
+    bool isBuilding = m_projectExplorer->buildManager()->isBuilding(project);
+    bool enabled = subProjectActionsVisible && !isBuilding;
 
     m_buildSubProjectAction->setVisible(subProjectActionsVisible);
     m_rebuildSubProjectAction->setVisible(subProjectActionsVisible);
     m_cleanSubProjectAction->setVisible(subProjectActionsVisible);
+    m_buildSubProjectContextMenu->setVisible(subProjectActionsVisible && isProjectNode);
+    m_subProjectRebuildSeparator->setVisible(subProjectActionsVisible && isProjectNode);
+    m_rebuildSubProjectContextMenu->setVisible(subProjectActionsVisible && isProjectNode);
+    m_cleanSubProjectContextMenu->setVisible(subProjectActionsVisible && isProjectNode);
+    m_runQMakeActionContextMenu->setVisible(isProjectNode && buildConfiguration->qmakeStep());
+    m_buildFileAction->setVisible(buildFilePossible);
+    m_buildFileContextMenu->setVisible(buildFilePossible);
 
+    m_buildSubProjectAction->setEnabled(enabled);
+    m_rebuildSubProjectAction->setEnabled(enabled);
+    m_cleanSubProjectAction->setEnabled(enabled);
+    m_buildSubProjectContextMenu->setEnabled(enabled && isProjectNode);
+    m_rebuildSubProjectContextMenu->setEnabled(enabled && isProjectNode);
+    m_cleanSubProjectContextMenu->setEnabled(enabled && isProjectNode);
+    m_runQMakeActionContextMenu->setEnabled(isProjectNode && !isBuilding
+                                            && buildConfiguration->qmakeStep());
+    m_buildFileAction->setEnabled(buildFilePossible && !isBuilding);
+    m_buildFileContextMenu->setEnabled(buildFilePossible && !isBuilding);
 }
 
 void Qt4ProjectManagerPlugin::buildStateChanged(ProjectExplorer::Project *pro)
 {
     ProjectExplorer::Project *currentProject = m_projectExplorer->currentProject();
-    if (pro == currentProject)
+    if (pro == currentProject) {
         updateRunQMakeAction();
+        updateContextActions(m_projectExplorer->currentNode(), pro);
+    }
 }
 
 Q_EXPORT_PLUGIN(Qt4ProjectManagerPlugin)

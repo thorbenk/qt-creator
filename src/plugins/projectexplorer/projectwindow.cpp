@@ -241,9 +241,6 @@ ProjectWindow::ProjectWindow(QWidget *parent)
     connect(m_tabWidget, SIGNAL(currentIndexChanged(int,int)),
             this, SLOT(showProperties(int,int)));
 
-    connect(session, SIGNAL(sessionLoaded(QString)), this, SLOT(restoreStatus()));
-    connect(session, SIGNAL(aboutToSaveSession()), this, SLOT(saveStatus()));
-
     connect(session, SIGNAL(projectAdded(ProjectExplorer::Project*)),
             this, SLOT(registerProject(ProjectExplorer::Project*)));
     connect(session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
@@ -275,8 +272,8 @@ void ProjectWindow::extensionsInitialized()
 
 void ProjectWindow::aboutToShutdown()
 {
-    showProperties(-1, -1); // TODO that's a bit stupid, but otherwise stuff is still
-                             // connected to the session
+    showProperties(-1, -1); // that's a bit stupid, but otherwise stuff is still
+                            // connected to the session
     disconnect(ProjectExplorerPlugin::instance()->session(), 0, this, 0);
 }
 
@@ -313,7 +310,7 @@ bool ProjectWindow::useTargetPage(ProjectExplorer::Project *project)
         return true;
     int count = 0;
     foreach (ITargetFactory *fac, ExtensionSystem::PluginManager::instance()->getObjects<ITargetFactory>()) {
-        foreach (const QString &targetId, fac->supportedTargetIds()) {
+        foreach (Core::Id targetId, fac->supportedTargetIds()) {
             if (fac->canCreate(project, targetId))
                 ++count;
             if (count > 1)
@@ -380,16 +377,6 @@ void ProjectWindow::deregisterProject(ProjectExplorer::Project *project)
 
     m_tabIndexToProject.removeAt(index);
     m_tabWidget->removeTab(index);
-}
-
-void ProjectWindow::restoreStatus()
-{
-    // TODO
-}
-
-void ProjectWindow::saveStatus()
-{
-    // TODO
 }
 
 void ProjectWindow::startupProjectChanged(ProjectExplorer::Project *p)

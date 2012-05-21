@@ -108,12 +108,6 @@ SessionManager::SessionManager(QObject *parent)
             this, SLOT(markSessionFileDirty()));
     connect(em, SIGNAL(editorsClosed(QList<Core::IEditor*>)),
             this, SLOT(markSessionFileDirty()));
-
-    m_autoSaveSessionTimer = new QTimer(this);
-    m_autoSaveSessionTimer->setSingleShot(true);
-    m_autoSaveSessionTimer->setInterval(10000);
-    connect(m_autoSaveSessionTimer, SIGNAL(timeout()),
-            ICore::instance(), SIGNAL(saveSettingsRequested()));
 }
 
 SessionManager::~SessionManager()
@@ -136,7 +130,7 @@ bool SessionManager::isDefaultSession(const QString &session) const
 
 void SessionManager::saveActiveMode(Core::IMode *mode)
 {
-    setValue(QLatin1String("ActiveMode"), mode->id());
+    setValue(QLatin1String("ActiveMode"), mode->id().toString());
 }
 
 void SessionManager::clearProjectFileCache()
@@ -164,7 +158,7 @@ bool SessionManager::recursiveDependencyCheck(const QString &newDep, const QStri
 }
 
 /*
- * TODO: The dependency management exposes an interface based on projects, but
+ * The dependency management exposes an interface based on projects, but
  * is internally purely string based. This is suboptimal. Probably it would be
  * nicer to map the filenames to projects on load and only map it back to
  * filenames when saving.
@@ -319,7 +313,10 @@ bool SessionManager::save()
         projectFiles << pro->document()->fileName();
 
     // Restore infromation on projects that failed to load:
-    projectFiles.append(m_failedProjects);
+    // don't readd projects to the list, which the user loaded
+    foreach (const QString &failed, m_failedProjects)
+        if (!projectFiles.contains(failed))
+            projectFiles << failed;
 
     writer.saveValue(QLatin1String("ProjectList"), projectFiles);
 
@@ -754,15 +751,17 @@ void SessionManager::restoreStartupProject(const Utils::PersistentSettingsReader
 {
     const QString startupProject = reader.restoreValue(QLatin1String("StartupProject")).toString();
     if (!startupProject.isEmpty()) {
-        const QString startupProjectPath = startupProject;
         foreach (Project *pro, m_projects) {
-            if (QDir::cleanPath(pro->document()->fileName()) == startupProjectPath) {
+            if (QDir::cleanPath(pro->document()->fileName()) == startupProject) {
                 setStartupProject(pro);
                 break;
             }
         }
-        if (!m_startupProject)
-            qWarning() << "Could not find startup project" << startupProjectPath;
+    }
+    if (!m_startupProject) {
+        qWarning() << "Could not find startup project" << startupProject;
+        if (!projects().isEmpty())
+            setStartupProject(projects().first());
     }
 }
 
@@ -868,13 +867,16 @@ bool SessionManager::loadSession(const QString &session)
 
         // restore the active mode
         QString modeIdentifier = value(QLatin1String("ActiveMode")).toString();
+        Id modeId;
         if (modeIdentifier.isEmpty())
-            modeIdentifier = QLatin1String(Core::Constants::MODE_EDIT);
+            modeId = Id(Core::Constants::MODE_EDIT);
+        else
+            modeId = Id(modeIdentifier);
 
-        ModeManager::activateMode(modeIdentifier);
+        ModeManager::activateMode(modeId);
         ModeManager::setFocusToCurrentMode();
     } else {
-        ModeManager::activateMode(QLatin1String(Core::Constants::MODE_EDIT));
+        ModeManager::activateMode(Id(Core::Constants::MODE_EDIT));
         ModeManager::setFocusToCurrentMode();
     }
     emit sessionLoaded(session);
@@ -902,7 +904,6 @@ void SessionManager::reportProjectLoadingProgress()
 
 void SessionManager::markSessionFileDirty(bool makeDefaultVirginDirty)
 {
-    m_autoSaveSessionTimer->start();
     if (makeDefaultVirginDirty)
         m_virginSession = false;
 }

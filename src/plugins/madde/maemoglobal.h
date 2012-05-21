@@ -33,6 +33,7 @@
 #ifndef MAEMOGLOBAL_H
 #define MAEMOGLOBAL_H
 
+#include <coreplugin/id.h>
 #include <coreplugin/idocument.h>
 #include <utils/portlist.h>
 #include <utils/environment.h>
@@ -83,10 +84,10 @@ class MaemoGlobal
 public:
     enum PackagingSystem { Dpkg, Rpm, Tar };
 
-    static bool isMaemoTargetId(const QString &id);
-    static bool isFremantleTargetId(const QString &id);
-    static bool isHarmattanTargetId(const QString &id);
-    static bool isMeegoTargetId(const QString &id);
+    static bool isMaemoTargetId(const Core::Id id);
+    static bool isFremantleTargetId(const Core::Id id);
+    static bool isHarmattanTargetId(const Core::Id id);
+    static bool isMeegoTargetId(const Core::Id id);
     static bool isValidMaemo5QtVersion(const QString &qmakePath);
     static bool isValidHarmattanQtVersion(const QString &qmakePath);
     static bool isValidMeegoQtVersion(const QString &qmakePath);
@@ -94,7 +95,7 @@ public:
     static QString homeDirOnDevice(const QString &uname);
     static QString devrootshPath();
     static int applicationIconSize(const ProjectExplorer::Target *target);
-    static QString remoteSudo(const QString &deviceType, const QString &uname);
+    static QString remoteSudo(Core::Id deviceType, const QString &uname);
     static QString remoteSourceProfilesCommand();
     static Utils::PortList freePorts(const QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> &devConf,
         const QtSupport::BaseQtVersion *qtVersion);
@@ -105,8 +106,8 @@ public:
     static QString targetRoot(const QString &qmakePath);
     static QString targetName(const QString &qmakePath);
     static QString madCommand(const QString &qmakePath);
-    static QString madDeveloperUiName(const QString &deviceType);
-    static QString deviceType(const QString &qmakePath);
+    static QString madDeveloperUiName(Core::Id deviceType);
+    static Core::Id deviceType(const QString &qmakePath);
 
     // TODO: IS this still needed with Qt Version having an Abi?
     static QString architecture(const QString &qmakePath);
@@ -116,7 +117,7 @@ public:
     static bool callMadAdmin(QProcess &proc, const QStringList &args,
         const QString &qmakePath, bool useTarget);
 
-    static bool isValidMaemoQtVersion(const QString &qmakePath, const QString &deviceType);
+    static bool isValidMaemoQtVersion(const QString &qmakePath, Core::Id deviceType);
 private:
     static QString madAdminCommand(const QString &qmakePath);
     static bool callMaddeShellScript(QProcess &proc, const QString &qmakePath,

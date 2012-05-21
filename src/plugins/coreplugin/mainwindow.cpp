@@ -234,6 +234,13 @@ MainWindow::MainWindow() :
 #if defined(Q_OS_MAC)
     MacFullScreen::addFullScreen(this);
 #endif
+
+    m_autoSaveSessionTimer = new QTimer(this);
+    m_autoSaveSessionTimer->setSingleShot(true);
+    m_autoSaveSessionTimer->setInterval(10000);
+    m_autoSaveSessionTimer->start();
+    connect(m_autoSaveSessionTimer, SIGNAL(timeout()),
+            m_coreImpl, SIGNAL(saveSettingsRequested()));
 }
 
 void MainWindow::setSidebarVisible(bool visible)
@@ -389,6 +396,7 @@ void MainWindow::extensionsInitialized()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    m_autoSaveSessionTimer->stop();
     emit m_coreImpl->saveSettingsRequested();
 
     // Save opened files
@@ -904,14 +912,14 @@ void MainWindow::openFiles(const QStringList &fileNames, ICore::OpenFilesFlags f
             if (!document && (flags & ICore::StopOnLoadFail))
                 return;
             if (document && (flags & ICore::SwitchMode))
-                ModeManager::activateMode(QLatin1String(Core::Constants::MODE_EDIT));
+                ModeManager::activateMode(Id(Core::Constants::MODE_EDIT));
         } else {
             QFlags<EditorManager::OpenEditorFlag> emFlags;
             if (flags & ICore::SwitchMode)
                 emFlags = EditorManager::ModeSwitch;
             if (flags & ICore::CanContainLineNumbers)
                 emFlags |=  EditorManager::CanContainLineNumber;
-            Core::IEditor *editor = editorManager()->openEditor(absoluteFilePath, Id(), emFlags);
+            Core::IEditor *editor = EditorManager::openEditor(absoluteFilePath, Id(), emFlags);
             if (!editor && (flags & ICore::StopOnLoadFail))
                 return;
         }
@@ -923,7 +931,7 @@ void MainWindow::setFocusToEditor()
     bool focusWasMovedToEditor = false;
 
     // give focus to the editor if we have one
-    if (IEditor *editor = m_editorManager->currentEditor()) {
+    if (IEditor *editor = EditorManager::currentEditor()) {
         if (qApp->focusWidget() != editor->widget()->focusWidget()) {
             QWidget *w = editor->widget()->focusWidget();
             if (!w)
@@ -961,7 +969,7 @@ void MainWindow::setFocusToEditor()
     }
 
     // switch to edit mode if necessary
-    ModeManager::activateMode(QLatin1String(Constants::MODE_EDIT));
+    ModeManager::activateMode(Id(Constants::MODE_EDIT));
 }
 
 void MainWindow::showNewItemDialog(const QString &title,
@@ -1047,9 +1055,9 @@ void MainWindow::openFileWith()
         if (!editorId.isValid())
             continue;
         if (isExternal) {
-            editorManager()->openExternalEditor(fileName, editorId);
+            EditorManager::openExternalEditor(fileName, editorId);
         } else {
-            editorManager()->openEditor(fileName, editorId, Core::EditorManager::ModeSwitch);
+            EditorManager::openEditor(fileName, editorId, Core::EditorManager::ModeSwitch);
         }
     }
 }
@@ -1219,11 +1227,6 @@ static const char colorKey[] = "Color";
 static const char windowGeometryKey[] = "WindowGeometry";
 static const char windowStateKey[] = "WindowState";
 
-// TODO compat for <= 2.1, remove later
-static const char geometryKey[] = "Geometry";
-static const char maxKey[] = "Maximized";
-static const char fullScreenKey[] = "FullScreen";
-
 void MainWindow::readSettings()
 {
     m_settings->beginGroup(QLatin1String(settingsGroup));
@@ -1344,7 +1347,7 @@ void MainWindow::openRecentFile()
 {
     if (const QAction *action = qobject_cast<const QAction*>(sender())) {
         const DocumentManager::RecentFile file = action->data().value<DocumentManager::RecentFile>();
-        editorManager()->openEditor(file.first, file.second, Core::EditorManager::ModeSwitch);
+        EditorManager::openEditor(file.first, file.second, EditorManager::ModeSwitch);
     }
 }
 

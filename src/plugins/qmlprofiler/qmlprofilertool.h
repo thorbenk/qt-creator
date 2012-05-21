@@ -85,6 +85,7 @@ public slots:
     void profilerStateChanged();
     void clientRecordingChanged();
     void serverRecordingChanged();
+    void clientsDisconnected();
 
     void recordingButtonChanged(bool recording);
     void setRecording(bool recording);
@@ -103,6 +104,7 @@ private slots:
 
 private:
     void clearDisplay();
+    void populateFileFinder(QString projectDirectory = QString(), QString activeSysroot = QString());
 
     class QmlProfilerToolPrivate;
     QmlProfilerToolPrivate *d;

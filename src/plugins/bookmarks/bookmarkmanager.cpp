@@ -410,6 +410,7 @@ void BookmarkManager::toggleBookmark(const QString &fileName, int lineNumber)
 
     // Add a new bookmark if no bookmark existed on this line
     Bookmark *bookmark = new Bookmark(fi.filePath(), editorLine, this);
+    bookmark->init();
     addBookmark(bookmark);
 }
 
@@ -593,10 +594,7 @@ void BookmarkManager::prev()
 
 TextEditor::ITextEditor *BookmarkManager::currentTextEditor() const
 {
-    Core::EditorManager *em = Core::EditorManager::instance();
-    Core::IEditor *currEditor = em->currentEditor();
-    if (!currEditor)
-        return 0;
+    Core::IEditor *currEditor = EditorManager::currentEditor();
     return qobject_cast<TextEditor::ITextEditor *>(currEditor);
 }
 
@@ -716,6 +714,7 @@ void BookmarkManager::addBookmark(const QString &s)
 
         if (!filePath.isEmpty() && !findBookmark(fi.path(), fi.fileName(), lineNumber)) {
             Bookmark *b = new Bookmark(filePath, lineNumber, this);
+            b->init();
             addBookmark(b, false);
         }
     } else {

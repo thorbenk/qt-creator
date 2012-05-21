@@ -42,15 +42,8 @@ def qdump__QByteArray(d, value):
     d.putByteArrayValue(value)
     data, size, alloc = qByteArrayData(value)
     d.putNumChild(size)
-
     if d.isExpanded():
-        innerType = lookupType("char")
-        with Children(d, numChild=size, maxNumChild=1000, childType=innerType,
-                addrBase=cleanAddress(data), addrStep=1):
-            p = gdb.Value(data.cast(innerType.pointer()))
-            for i in d.childRange():
-                d.put('{value="%d"},' % p.dereference())
-                p += 1
+        d.putArrayData(lookupType("char"), data, size)
 
 
 def qdump__QChar(d, value):
@@ -1371,19 +1364,12 @@ def qdump__QStringList(d, value):
     size = end - begin
     check(size >= 0)
     check(size <= 10 * 1000 * 1000)
-    #    checkAccess(&list.front())
-    #    checkAccess(&list.back())
     checkRef(d_ptr["ref"])
     d.putItemCount(size)
     d.putNumChild(size)
     if d.isExpanded():
         innerType = lookupType(d.ns + "QString")
-        ptr = gdb.Value(d_ptr["array"]).cast(innerType.pointer())
-        ptr += d_ptr["begin"]
-        with Children(d, size, maxNumChild=1000, childType=innerType):
-            for i in d.childRange():
-                d.putSubItem(i, ptr.dereference())
-                ptr += 1
+        d.putArrayData(innerType, d_ptr["array"], size, 0)
 
 
 def qdump__QTemporaryFile(d, value):
@@ -1665,11 +1651,7 @@ def qdump__QVector(d, value):
     d.putNumChild(size)
     if d.isExpanded():
         d.putField("size", size)
-        with Children(d, size, maxNumChild=2000, childType=innerType, addrBase=p,
-                addrStep=(p+1).cast(charPointerType) - p.cast(charPointerType)):
-            for i in d.childRange():
-                d.putSubItem(i, p.dereference())
-                p += 1
+        d.putArrayData(innerType, p, size)
 
 
 def qdump__QWeakPointer(d, value):
@@ -1719,11 +1701,7 @@ def qdump__std__array(d, value):
     d.putNumChild(size)
     if d.isExpanded():
         innerType = templateArgument(value.type, 0)
-        with Children(d, size, childType=innerType):
-            pcur = value.address.cast(innerType.pointer())
-            for i in d.childRange():
-                d.putSubItem(i, pcur.dereference())
-                pcur += 1
+        d.putArrayData(innerType, value.address, size)
 
 
 def qdump__std__complex(d, value):
@@ -1854,6 +1832,53 @@ def qdump__std__map(d, value):
                     node = node["_M_right"]
                     while not isNull(node["_M_left"]):
                         node = node["_M_left"]
+
+
+def stdTreeIteratorHelper(d, value):
+    pnode = value["_M_node"]
+    node = pnode.dereference()
+    d.putNumChild(1)
+    d.putValue(" ")
+    if d.isExpanded():
+        dataType = templateArgument(value.type, 0)
+        nodeType = lookupType("std::_Rb_tree_node<%s>" % dataType)
+        data = pnode.cast(nodeType.pointer()).dereference()["_M_value_field"]
+        with Children(d):
+            try:
+                d.putSubItem("first", data["first"])
+                d.putSubItem("second", data["second"])
+            except:
+                d.putSubItem("value", data)
+            with SubItem(d, "node"):
+                d.putNumChild(1)
+                d.putValue(" ")
+                d.putType(" ")
+                if d.isExpanded():
+                    with Children(d):
+                        d.putSubItem("color", node["_M_color"])
+                        d.putSubItem("left", node["_M_left"])
+                        d.putSubItem("right", node["_M_right"])
+                        d.putSubItem("parent", node["_M_parent"])
+
+
+def qdump__std___Rb_tree_iterator(d, value):
+    stdTreeIteratorHelper(d, value)
+
+def qdump__std___Rb_tree_const_iterator(d, value):
+    stdTreeIteratorHelper(d, value)
+
+def qdump__std__map__iterator(d, value):
+    stdTreeIteratorHelper(d, value)
+
+def qdump__std__map__const_iterator(d, value):
+    stdTreeIteratorHelper(d, value)
+
+def qdump__std__set__iterator(d, value):
+    stdTreeIteratorHelper(d, value)
+
+def qdump__std__set__const_iterator(d, value):
+    stdTreeIteratorHelper(d, value)
+
 
 
 def qdump__std__set(d, value):
@@ -2026,12 +2051,7 @@ def qdump__std__vector(d, value):
                     q = start + i / storagesize
                     d.putBoolItem(str(i), (q.dereference() >> (i % storagesize)) & 1)
         else:
-            with Children(d, size, maxNumChild=10000, childType=type,
-                    addrBase=start, addrStep=type.sizeof):
-                p = start
-                for i in d.childRange():
-                    d.putSubItem(i, p.dereference())
-                    p += 1
+            d.putArrayData(type, start, size)
 
 
 def qedit__std__string(expr, value):
@@ -2086,6 +2106,16 @@ def qdump____gnu_cxx__hash_set(d, value):
 #
 #######################################################################
 
+def qdump__boost__bimaps__bimap(d, value):
+    leftType = templateArgument(value.type, 0)
+    rightType = templateArgument(value.type, 1)
+    size = value["core"]["node_count"]
+    d.putItemCount(size)
+    d.putNumChild(size)
+    #if d.isExpanded():
+    d.putPlainChildren(value)
+
+
 def qdump__boost__optional(d, value):
     if value["m_initialized"] == False:
         d.putValue("<uninitialized>")
@@ -2098,6 +2128,7 @@ def qdump__boost__optional(d, value):
             d.putItem(storage.cast(type.target().pointer()).dereference())
         else:
             d.putItem(storage.cast(type))
+
 
 def qdump__boost__shared_ptr(d, value):
     # s                  boost::shared_ptr<int>
@@ -2200,16 +2231,9 @@ def qdump____m128(d, value):
     if d.isExpanded():
         format = d.currentItemFormat()
         if format == 2: # As Double
-            innerType = lookupType("double")
-            count = 2
+            d.putArrayData(lookupType("double"), value.address, 2)
         else: # Default, As float
-            innerType = lookupType("float")
-            count = 4
-        p = value.address.cast(innerType.pointer())
-        with Children(d, count, childType=innerType):
-            for i in xrange(count):
-                d.putSubItem(i, p.dereference())
-                p += 1
+            d.putArrayData(lookupType("float"), value.address, 4)
 
 
 #######################################################################

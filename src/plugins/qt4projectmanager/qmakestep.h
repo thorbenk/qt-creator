@@ -60,14 +60,14 @@ class QMakeStepFactory : public ProjectExplorer::IBuildStepFactory
 public:
     explicit QMakeStepFactory(QObject *parent = 0);
     virtual ~QMakeStepFactory();
-    bool canCreate(ProjectExplorer::BuildStepList *parent, const QString & id) const;
-    ProjectExplorer::BuildStep *create(ProjectExplorer::BuildStepList *parent, const QString &id);
+    bool canCreate(ProjectExplorer::BuildStepList *parent, const Core::Id id) const;
+    ProjectExplorer::BuildStep *create(ProjectExplorer::BuildStepList *parent, const Core::Id id);
     bool canClone(ProjectExplorer::BuildStepList *parent, ProjectExplorer::BuildStep *bs) const;
     ProjectExplorer::BuildStep *clone(ProjectExplorer::BuildStepList *parent, ProjectExplorer::BuildStep *bs);
     bool canRestore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map) const;
     ProjectExplorer::BuildStep *restore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map);
-    QStringList availableCreationIds(ProjectExplorer::BuildStepList *parent) const;
-    QString displayNameForId(const QString &id) const;
+    QList<Core::Id> availableCreationIds(ProjectExplorer::BuildStepList *parent) const;
+    QString displayNameForId(const Core::Id id) const;
 };
 
 } // namespace Internal
@@ -96,11 +96,15 @@ public:
     void setForced(bool b);
     bool forced();
 
-    // TODO clean up those functions
+    // the complete argument line
     QString allArguments(bool shorted = false);
-    QStringList moreArguments();
-    QStringList moreArgumentsAfter();
+    // deduced arguments e.g. qmljs debugging
+    QStringList deducedArguments();
+    // deduced arguments with -after, e.g. OBJECTS_DIR for symbian
+    QStringList deducedArgumentsAfter();
+    // arguments passed to the pro file parser
     QStringList parserArguments();
+    // arguments set by the user
     QString userArguments();
     Utils::FileName mkspec();
     void setUserArguments(const QString &arguments);
@@ -116,7 +120,7 @@ signals:
 
 protected:
     QMakeStep(ProjectExplorer::BuildStepList *parent, QMakeStep *source);
-    QMakeStep(ProjectExplorer::BuildStepList *parent, const QString &id);
+    QMakeStep(ProjectExplorer::BuildStepList *parent, const Core::Id id);
     virtual bool fromMap(const QVariantMap &map);
 
     virtual void processStartupFailed();

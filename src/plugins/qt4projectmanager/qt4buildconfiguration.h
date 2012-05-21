@@ -40,6 +40,7 @@
 
 namespace ProjectExplorer {
 class ToolChain;
+class FileNode;
 }
 
 namespace Qt4ProjectManager {
@@ -70,6 +71,9 @@ public:
 
     void setSubNodeBuild(Qt4ProjectManager::Qt4ProFileNode *node);
     Qt4ProjectManager::Qt4ProFileNode *subNodeBuild() const;
+
+    ProjectExplorer::FileNode *fileNodeBuild() const;
+    void setFileNodeBuild(ProjectExplorer::FileNode *node);
 
     // returns the qtVersion
     QtSupport::BaseQtVersion *qtVersion() const;
@@ -150,7 +154,7 @@ private slots:
 
 protected:
     Qt4BuildConfiguration(Qt4BaseTarget *target, Qt4BuildConfiguration *source);
-    Qt4BuildConfiguration(Qt4BaseTarget *target, const QString &id);
+    Qt4BuildConfiguration(Qt4BaseTarget *target, const Core::Id id);
     virtual bool fromMap(const QVariantMap &map);
 
 private:
@@ -166,6 +170,7 @@ private:
     int m_qtVersionId;
     QtSupport::BaseQtVersion::QmakeBuildConfigs m_qmakeBuildConfiguration;
     Qt4ProjectManager::Qt4ProFileNode *m_subNodeBuild;
+    ProjectExplorer::FileNode *m_fileNodeBuild;
 };
 
 class QT4PROJECTMANAGER_EXPORT Qt4BuildConfigurationFactory : public ProjectExplorer::IBuildConfigurationFactory
@@ -176,11 +181,11 @@ public:
     explicit Qt4BuildConfigurationFactory(QObject *parent = 0);
     ~Qt4BuildConfigurationFactory();
 
-    QStringList availableCreationIds(ProjectExplorer::Target *parent) const;
-    QString displayNameForId(const QString &id) const;
+    QList<Core::Id> availableCreationIds(ProjectExplorer::Target *parent) const;
+    QString displayNameForId(const Core::Id id) const;
 
-    bool canCreate(ProjectExplorer::Target *parent, const QString &id) const;
-    ProjectExplorer::BuildConfiguration *create(ProjectExplorer::Target *parent, const QString &id);
+    bool canCreate(ProjectExplorer::Target *parent, const Core::Id id) const;
+    ProjectExplorer::BuildConfiguration *create(ProjectExplorer::Target *parent, const Core::Id id);
     bool canClone(ProjectExplorer::Target *parent, ProjectExplorer::BuildConfiguration *source) const;
     ProjectExplorer::BuildConfiguration *clone(ProjectExplorer::Target *parent, ProjectExplorer::BuildConfiguration *source);
     bool canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const;

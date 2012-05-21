@@ -45,6 +45,7 @@
 #include <utils/qtcassert.h>
 
 #include <QFileInfo>
+#include <QPixmap>
 #include <QRegExp>
 #include <QSettings>
 #include <QSignalMapper>
@@ -98,14 +99,16 @@ DeviceSettingsWidget::DeviceSettingsWidget(QWidget *parent)
     : QWidget(parent),
       m_ui(new Ui::DeviceSettingsWidget),
       m_deviceManager(DeviceManager::cloneInstance()),
+      m_deviceManagerModel(new DeviceManagerModel(m_deviceManager, this)),
       m_nameValidator(new NameValidator(m_deviceManager, this)),
       m_saveSettingsRequested(false),
       m_additionalActionsMapper(new QSignalMapper(this)),
       m_configWidget(0)
 {
     initGui();
-    connect(m_additionalActionsMapper, SIGNAL(mapped(QString)),
-        SLOT(handleAdditionalActionRequest(QString)));
+    connect(m_additionalActionsMapper, SIGNAL(mapped(int)),
+            SLOT(handleAdditionalActionRequest(int)));
+    connect(m_deviceManager, SIGNAL(deviceUpdated(Core::Id)), SLOT(handleDeviceUpdated(Core::Id)));
 }
 
 DeviceSettingsWidget::~DeviceSettingsWidget()
@@ -133,8 +136,7 @@ QString DeviceSettingsWidget::searchKeywords() const
 void DeviceSettingsWidget::initGui()
 {
     m_ui->setupUi(this);
-    DeviceManagerModel * const model = new DeviceManagerModel(m_deviceManager, this);
-    m_ui->configurationComboBox->setModel(model);
+    m_ui->configurationComboBox->setModel(m_deviceManagerModel);
     m_ui->nameLineEdit->setValidator(m_nameValidator);
 
     bool hasDeviceFactories = false;
@@ -173,12 +175,12 @@ void DeviceSettingsWidget::addDevice()
 
     m_deviceManager->addDevice(device);
     m_ui->removeConfigButton->setEnabled(true);
-    m_ui->configurationComboBox->setCurrentIndex(m_ui->configurationComboBox->count()-1);
+    m_ui->configurationComboBox->setCurrentIndex(m_deviceManagerModel->indexOf(device));
 }
 
 void DeviceSettingsWidget::removeDevice()
 {
-    m_deviceManager->removeDevice(currentIndex());
+    m_deviceManager->removeDevice(currentDevice()->id());
     if (m_deviceManager->deviceCount() == 0)
         currentDeviceChanged(-1);
 }
@@ -192,8 +194,28 @@ void DeviceSettingsWidget::displayCurrent()
     m_ui->autoDetectionValueLabel->setText(current->isAutoDetected()
         ? tr("Yes (fingerprint is '%1')").arg(current->id().toString()) : tr("No"));
     m_nameValidator->setDisplayName(current->displayName());
+    switch (current->availability()) {
+    case IDevice::DeviceAvailable:
+        m_ui->availableValueLabel->setPixmap(QPixmap(QLatin1String(":/projectexplorer/images/ConnectionOn.png")));
+        break;
+    case IDevice::DeviceUnavailable:
+        m_ui->availableValueLabel->setPixmap(QPixmap(QLatin1String(":/projectexplorer/images/ConnectionOff.png")));
+        break;
+    case IDevice::DeviceAvailabilityUnknown:
+        m_ui->availableValueLabel->setText(tr("Unknown"));
+        break;
+    }
+
     m_ui->removeConfigButton->setEnabled(!current->isAutoDetected());
     fillInValues();
+}
+
+void DeviceSettingsWidget::setDeviceInfoWidgetsEnabled(bool enable)
+{
+    m_ui->configurationLabel->setEnabled(enable);
+    m_ui->configurationComboBox->setEnabled(enable);
+    m_ui->generalGroupBox->setEnabled(enable);
+    m_ui->osSpecificGroupBox->setEnabled(enable);
 }
 
 void DeviceSettingsWidget::fillInValues()
@@ -216,7 +238,7 @@ int DeviceSettingsWidget::currentIndex() const
 QSharedPointer<const IDevice> DeviceSettingsWidget::currentDevice() const
 {
     Q_ASSERT(currentIndex() != -1);
-    return m_deviceManager->deviceAt(currentIndex());
+    return m_deviceManagerModel->device(currentIndex());
 }
 
 void DeviceSettingsWidget::deviceNameEditingFinished()
@@ -225,8 +247,9 @@ void DeviceSettingsWidget::deviceNameEditingFinished()
         return;
 
     const QString &newName = m_ui->nameLineEdit->text();
-    m_deviceManager->setDeviceDisplayName(currentIndex(), newName);
+    m_deviceManager->mutableDevice(currentDevice()->id())->setDisplayName(newName);
     m_nameValidator->setDisplayName(newName);
+    m_deviceManagerModel->updateDevice(currentDevice()->id());
 }
 
 void DeviceSettingsWidget::setDefaultDevice()
@@ -235,30 +258,38 @@ void DeviceSettingsWidget::setDefaultDevice()
     m_ui->defaultDeviceButton->setEnabled(false);
 }
 
+void DeviceSettingsWidget::handleDeviceUpdated(Id id)
+{
+    const int index = m_deviceManager->indexForId(id);
+    if (index == currentIndex())
+        currentDeviceChanged(index);
+}
+
 void DeviceSettingsWidget::currentDeviceChanged(int index)
 {
     qDeleteAll(m_additionalActionButtons);
     delete m_configWidget;
     m_configWidget = 0;
     m_additionalActionButtons.clear();
-    QTC_ASSERT(index >= -1 && index < m_deviceManager->deviceCount(), return);
-    if (index == -1) {
+    const IDevice::ConstPtr device = m_deviceManagerModel->device(index);
+    if (device.isNull()) {
+        setDeviceInfoWidgetsEnabled(false);
         m_ui->removeConfigButton->setEnabled(false);
         clearDetails();
         m_ui->defaultDeviceButton->setEnabled(false);
     } else {
+        setDeviceInfoWidgetsEnabled(true);
         m_ui->removeConfigButton->setEnabled(true);
-        const IDevice::ConstPtr device = m_deviceManager->deviceAt(index);
-        foreach (const QString &actionId, device->actionIds()) {
+        foreach (const Core::Id actionId, device->actionIds()) {
             QPushButton * const button = new QPushButton(device->displayNameForActionId(actionId));
             m_additionalActionButtons << button;
             connect(button, SIGNAL(clicked()), m_additionalActionsMapper, SLOT(map()));
-            m_additionalActionsMapper->setMapping(button, actionId);
+            m_additionalActionsMapper->setMapping(button, actionId.uniqueIdentifier());
             m_ui->buttonsLayout->insertWidget(m_ui->buttonsLayout->count() - 1, button);
         }
         if (!m_ui->osSpecificGroupBox->layout())
             new QVBoxLayout(m_ui->osSpecificGroupBox);
-        m_configWidget = m_deviceManager->mutableDeviceAt(index)->createWidget();
+        m_configWidget = m_deviceManager->mutableDevice(device->id())->createWidget();
         if (m_configWidget)
             m_ui->osSpecificGroupBox->layout()->addWidget(m_configWidget);
         displayCurrent();
@@ -272,14 +303,11 @@ void DeviceSettingsWidget::clearDetails()
     m_ui->autoDetectionValueLabel->clear();
 }
 
-void DeviceSettingsWidget::handleAdditionalActionRequest(const QString &actionId)
+void DeviceSettingsWidget::handleAdditionalActionRequest(int actionId)
 {
-    const IDevice::ConstPtr &device = currentDevice();
+    const IDevice::ConstPtr device = m_deviceManager->find(currentDevice()->id());
     QTC_ASSERT(device, return);
-    QDialog * const action = device->createAction(actionId, this);
-    if (action)
-        action->exec();
-    delete action;
+    device->executeAction(Core::Id::fromUniqueIdentifier(actionId), this);
 }
 
 } // namespace Internal

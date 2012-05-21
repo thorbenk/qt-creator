@@ -75,20 +75,23 @@ struct Include
     Client::IncludeType type;
     unsigned line;
 };
-QDebug &operator<<(QDebug& d, const Include &i) {
+
+QDebug &operator<<(QDebug& d, const Include &i)
+{
     d << '[' << i.fileName
-      << ',' << (i.type == Client::IncludeGlobal ? "Global" : (i.type == Client::IncludeLocal ? "Local" : "Unknown"))
+      << ',' << (i.type == Client::IncludeGlobal ? "Global"
+            : (i.type == Client::IncludeLocal ? "Local" : "Unknown"))
       << ',' << i.line
       << ']';
     return d;
 }
 
-class MockClient: public Client
+class MockClient : public Client
 {
 public:
     struct Block {
-        Block(): start(0), end(0) {}
-        Block(unsigned start): start(start), end(0) {}
+        Block() : start(0), end(0) {}
+        Block(unsigned start) : start(start), end(0) {}
 
         unsigned start;
         unsigned end;
@@ -123,8 +126,7 @@ public:
         m_expandedMacrosOffset.append(offset);
     }
 
-    virtual void stopExpandingMacro(unsigned /*offset*/,
-                                    const Macro &/*macro*/) {}
+    virtual void stopExpandingMacro(unsigned /*offset*/, const Macro &/*macro*/) {}
 
     virtual void startSkippingBlocks(unsigned offset)
     { m_skippedBlocks.append(Block(offset)); }
@@ -163,7 +165,7 @@ public:
     }
 
     QString resolveLocally(const QString &currentFileName,
-                                         const QString &includedFileName) const
+                           const QString &includedFileName) const
     {
         QDir dir;
         if (currentFileName.isEmpty())
@@ -266,9 +268,13 @@ namespace QTest {
 }
 QT_END_NAMESPACE
 
-QDebug &operator<<(QDebug& d, const MockClient::Block &b) { d << '[' << b.start << ',' << b.end << ']'; return d; }
+QDebug &operator<<(QDebug& d, const MockClient::Block &b)
+{
+    d << '[' << b.start << ',' << b.end << ']';
+    return d;
+}
 
-class tst_Preprocessor: public QObject
+class tst_Preprocessor : public QObject
 {
     Q_OBJECT
 
@@ -318,15 +324,18 @@ QString tst_Preprocessor::simplified(QByteArray buf)
 {
     QString out;
     QList<QByteArray> lines = buf.split('\n');
-    foreach (QByteArray line, lines)
+    foreach (const QByteArray &line, lines) {
         if (!line.startsWith('#')) {
             out.append(' ');
             out.append(line);
         }
+    }
 
     out = out.simplified();
-    for (int i=1; i<out.length()-1; ) {
-        if (out.at(i).isSpace() && !(out.at(i-1).isLetterOrNumber() && out.at(i+1).isLetterOrNumber()))
+    for (int i = 1; i < out.length() - 1; ) {
+        if (out.at(i).isSpace()
+                && !(out.at(i-1).isLetterOrNumber()
+                && out.at(i+1).isLetterOrNumber()))
             out.remove(i,1);
         else
             i++;
@@ -650,18 +659,34 @@ void tst_Preprocessor::comparisons_data()
     QTest::addColumn<QString>("errorfile");
 
     QTest::newRow("do nothing") << "noPP.1.cpp" << "noPP.1.cpp" << "";
-    QTest::newRow("identifier-expansion 1") << "identifier-expansion.1.cpp" << "identifier-expansion.1.out.cpp" << "";
-    QTest::newRow("identifier-expansion 2") << "identifier-expansion.2.cpp" << "identifier-expansion.2.out.cpp" << "";
-    QTest::newRow("identifier-expansion 3") << "identifier-expansion.3.cpp" << "identifier-expansion.3.out.cpp" << "";
-    QTest::newRow("identifier-expansion 4") << "identifier-expansion.4.cpp" << "identifier-expansion.4.out.cpp" << "";
-    QTest::newRow("identifier-expansion 5") << "identifier-expansion.5.cpp" << "identifier-expansion.5.out.cpp" << "";
-    QTest::newRow("reserved 1") << "reserved.1.cpp" << "reserved.1.out.cpp" << "";
-    QTest::newRow("recursive 1") << "recursive.1.cpp" << "recursive.1.out.cpp" << "";
-    QTest::newRow("macro_pounder_fn") << "macro_pounder_fn.c" << "" << "";
-    QTest::newRow("macro_expand") << "macro_expand.c" << "macro_expand.out.c" << "";
-    QTest::newRow("macro-test") << "macro-test.cpp" << "macro-test.out.cpp" << "";
-    QTest::newRow("empty-macro") << "empty-macro.cpp" << "empty-macro.out.cpp" << "";
-    QTest::newRow("empty-macro 2") << "empty-macro.2.cpp" << "empty-macro.2.out.cpp" << "";
+    QTest::newRow("identifier-expansion 1")
+        << "identifier-expansion.1.cpp" << "identifier-expansion.1.out.cpp" << "";
+    QTest::newRow("identifier-expansion 2")
+        << "identifier-expansion.2.cpp" << "identifier-expansion.2.out.cpp" << "";
+    QTest::newRow("identifier-expansion 3")
+        << "identifier-expansion.3.cpp" << "identifier-expansion.3.out.cpp" << "";
+    QTest::newRow("identifier-expansion 4")
+        << "identifier-expansion.4.cpp" << "identifier-expansion.4.out.cpp" << "";
+    QTest::newRow("identifier-expansion 5")
+        << "identifier-expansion.5.cpp" << "identifier-expansion.5.out.cpp" << "";
+    QTest::newRow("reserved 1")
+        << "reserved.1.cpp" << "reserved.1.out.cpp" << "";
+    QTest::newRow("recursive 1")
+        << "recursive.1.cpp" << "recursive.1.out.cpp" << "";
+    QTest::newRow("macro_pounder_fn")
+        << "macro_pounder_fn.c" << "" << "";
+    QTest::newRow("macro_expand")
+        << "macro_expand.c" << "macro_expand.out.c" << "";
+    QTest::newRow("macro_expand_1")
+        << "macro_expand_1.cpp" << "macro_expand_1.out.cpp" << "";
+    QTest::newRow("macro-test")
+        << "macro-test.cpp" << "macro-test.out.cpp" << "";
+    QTest::newRow("empty-macro")
+        << "empty-macro.cpp" << "empty-macro.out.cpp" << "";
+    QTest::newRow("empty-macro 2")
+        << "empty-macro.2.cpp" << "empty-macro.2.out.cpp" << "";
+    QTest::newRow("poundpound 1")
+        << "poundpound.1.cpp" << "poundpound.1.out.cpp" << "";
 }
 
 void tst_Preprocessor::comparisons()
@@ -673,17 +698,21 @@ void tst_Preprocessor::comparisons()
     QByteArray errors;
     QByteArray preprocessed = preprocess(infile, &errors, infile == outfile);
 
-//    DUMP_OUTPUT(preprocessed);
+    // DUMP_OUTPUT(preprocessed);
 
     if (!outfile.isEmpty()) {
-        QByteArray output____ = loadSource("data/"+outfile); // these weird underscores are here to make the name as long as "preprocessed", so the QCOMPARE error messages are nicely aligned.
+        // These weird underscores are here to make the name as long as
+        // "preprocessed", so the QCOMPARE error messages are nicely aligned.
+        QByteArray output____ = loadSource("data/" + outfile);
         //    QCOMPARE(preprocessed, output____);
-        QCOMPARE(QString::fromUtf8(preprocessed.constData()), QString::fromUtf8(output____.constData()));
+        QCOMPARE(QString::fromUtf8(preprocessed.constData()),
+                 QString::fromUtf8(output____.constData()));
     }
 
     if (!errorfile.isEmpty()) {
-        QByteArray errorFileContents = loadSource("data/"+errorfile);
-        QCOMPARE(QString::fromUtf8(errors.constData()), QString::fromUtf8(errorFileContents.constData()));
+        QByteArray errorFileContents = loadSource("data/" + errorfile);
+        QCOMPARE(QString::fromUtf8(errors.constData()),
+                 QString::fromUtf8(errorFileContents.constData()));
     }
 }
 
@@ -805,6 +834,58 @@ void tst_Preprocessor::defined_data()
         "#if !defined X \n#define Y\n#endif";
     QTest::newRow("4c") << false << true <<
         "#ifndef X \n#define Y\n#endif";
+
+    QTest::newRow("5a") << false << false <<
+        "#if !defined(X) && (defined(Y))\n"
+        "#define X\n"
+        "#endif\n";
+    QTest::newRow("5b") << false << false <<
+        "#if !defined(X) && defined(Y)\n"
+        "#define X\n"
+        "#endif\n";
+    QTest::newRow("5c") << false << false <<
+        "#if !defined(X) && 0"
+        "#define X\n"
+        "#endif\n";
+    QTest::newRow("5d") << false << false <<
+        "#if (!defined(X)) && defined(Y)\n"
+        "#define X\n"
+        "#endif\n";
+    QTest::newRow("5d") << false << false <<
+        "#if (define(Y))\n"
+        "#define X\n"
+        "#endif\n";
+
+    QTest::newRow("6a") << true << true <<
+        "#define X 0x040500\n"
+        "#if X > 0x040000\n"
+        "#define Y 1\n"
+        "#endif\n";
+    QTest::newRow("6b") << true << true <<
+        "#define X 0x040500\n"
+        "#if X >= 0x040000\n"
+        "#define Y 1\n"
+        "#endif\n";
+    QTest::newRow("6c") << true << false <<
+        "#define X 0x040500\n"
+        "#if X == 0x040000\n"
+        "#define Y 1\n"
+        "#endif\n";
+    QTest::newRow("6d") << true << true <<
+        "#define X 0x040500\n"
+        "#if X == 0x040500\n"
+        "#define Y 1\n"
+        "#endif\n";
+    QTest::newRow("6e") << true << false <<
+        "#define X 0x040500\n"
+        "#if X < 0x040000\n"
+        "#define Y 1\n"
+        "#endif\n";
+    QTest::newRow("6f") << true << false <<
+        "#define X 0x040500\n"
+        "#if X <= 0x040000\n"
+        "#define Y 1\n"
+        "#endif\n";
 }
 
 QTEST_APPLESS_MAIN(tst_Preprocessor)

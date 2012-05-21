@@ -92,7 +92,7 @@ signals:
     void event(int event, qint64 time);
     void traceFinished( qint64 time );
     void traceStarted( qint64 time );
-    void range(int type, qint64 startTime, qint64 length,
+    void range(int type, int bindingType, qint64 startTime, qint64 length,
                const QStringList &data, const QmlDebug::QmlEventLocation &location);
     void frame(qint64 time, int frameRate, int animationCount);
 
@@ -102,7 +102,7 @@ signals:
     void cleared();
 
 protected:
-    virtual void statusChanged(Status);
+    virtual void statusChanged(ClientStatus status);
     virtual void messageReceived(const QByteArray &);
 
 private:

@@ -46,6 +46,8 @@ namespace Internal { class S60Manager; }
 class QT4PROJECTMANAGER_EXPORT SymbianIDevice : public ProjectExplorer::IDevice
 {
 public:
+    typedef QSharedPointer<const SymbianIDevice> ConstPtr;
+
     enum CommunicationChannel {
         CommunicationCodaSerialConnection,
         CommunicationCodaTcpConnection
@@ -74,9 +76,9 @@ public:
 
     QString displayType() const;
     ProjectExplorer::IDeviceWidget* createWidget();
-    QStringList actionIds() const;
-    QString displayNameForActionId(const QString&actionId) const;
-    QDialog* createAction(const QString&, QWidget*parent) const;
+    QList<Core::Id> actionIds() const;
+    QString displayNameForActionId(Core::Id actionId) const;
+    void executeAction(Core::Id actionId, QWidget*parent) const;
 
 protected:
     SymbianIDevice(const SymbianIDevice &other);

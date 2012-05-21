@@ -652,7 +652,13 @@ void Preprocessor::handleDefined(PPToken *tk)
         else
             break;
     } while (isValidToken(*tk));
-    pushToken(tk);
+
+    if (lparenSeen) {
+        while (tk->isNot(T_RPAREN))
+            lex(tk);
+    } else {
+        pushToken(tk);
+    }
     QByteArray result(1, '0');
     if (m_env->resolve(idToken.asByteArrayRef()))
         result[0] = '1';
@@ -852,7 +858,7 @@ bool Preprocessor::handleFunctionLikeMacro(PPToken *tk, const Macro *macro, QVec
                                 lineno = t.lineno;
                             else if (t.whitespace())
                                 newText.append(' ');
-                            newText.append(t.start(), t.length());
+                            newText.append(t.tokenStart(), t.length());
                         }
                         newText.replace("\\", "\\\\");
                         newText.replace("\"", "\\\"");
@@ -973,8 +979,8 @@ _Lrestart:
             } else if (tk.isValid() && !prevTk.isValid() && tk.lineno == m_env->currentLine) {
                 out(QByteArray(prevTk.length() + (tk.whitespace() ? 1 : 0), ' '));
             } else if (prevTk.generated() != tk.generated() || !prevTk.isValid()) {
-                const char *begin = tk.source().constBegin();
-                const char *end = begin + tk.offset;
+                const char *begin = tk.bufferStart();
+                const char *end = tk.tokenStart();
                 const char *it = end - 1;
                 for (; it >= begin; --it)
                     if (*it == '\n')
@@ -983,8 +989,8 @@ _Lrestart:
                 for (; it < end; ++it)
                     out(' ');
             } else {
-                const char *begin = tk.source().constBegin();
-                const char *end = begin + tk.offset;
+                const char *begin = tk.bufferStart();
+                const char *end = tk.tokenStart();
                 const char *it = end - 1;
                 for (; it >= begin; --it)
                     if (!pp_isspace(*it) || *it == '\n')
@@ -1502,6 +1508,14 @@ bool Preprocessor::isQtReservedWord(const ByteArrayRef &macroId)
 
 PPToken Preprocessor::generateToken(enum Kind kind, const char *content, int len, unsigned lineno, bool addQuotes)
 {
+    // When reconstructing the column position of a token,
+    // Preprocessor::preprocess will search for the last preceeding newline.
+    // When the token is a generated token, the column position cannot be
+    // reconstructed, but we also have to prevent it from searching the whole
+    // scratch buffer. So inserting a newline before the new token will give
+    // an indent width of 0 (zero).
+    m_scratchBuffer.append('\n');
+
     const size_t pos = m_scratchBuffer.size();
 
     if (kind == T_STRING_LITERAL && addQuotes)
@@ -1533,9 +1547,11 @@ PPToken Preprocessor::generateConcatenated(const PPToken &leftTk, const PPToken 
 {
     QByteArray newText;
     newText.reserve(leftTk.length() + rightTk.length());
-    newText.append(leftTk.start(), leftTk.length());
-    newText.append(rightTk.start(), rightTk.length());
-    return generateToken(T_IDENTIFIER, newText.constData(), newText.size(), leftTk.lineno, true);
+    newText.append(leftTk.tokenStart(), leftTk.length());
+    newText.append(rightTk.tokenStart(), rightTk.length());
+    PPToken result = generateToken(T_IDENTIFIER, newText.constData(), newText.size(), leftTk.lineno, true);
+    result.f.whitespace = leftTk.f.whitespace;
+    return result;
 }
 
 void Preprocessor::startSkippingBlocks(const Preprocessor::PPToken &tk) const

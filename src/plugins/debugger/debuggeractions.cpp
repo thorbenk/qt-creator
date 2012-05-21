@@ -41,8 +41,6 @@
 #include <utils/qtcassert.h>
 #include <utils/pathchooser.h>
 
-#include <extensionsystem/pluginmanager.h>
-
 #include <QDebug>
 #include <QVariant>
 #include <QSettings>
@@ -102,13 +100,9 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
 
     SavedAction *item = 0;
 
-    //The Actions that are accessed by QML Inspector are added to PluginManager
-    //Needed by QML Inspector
     item = new SavedAction(this);
     insertItem(SettingsDialog, item);
     item->setText(tr("Debugger Properties..."));
-    item->setObjectName(QLatin1String(Constants::SETTINGS_DIALOG));
-    ExtensionSystem::PluginManager::instance()->addObject(item);
 
     //
     // View
@@ -183,8 +177,6 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setCheckable(true);
     item->setDefaultValue(false);
     insertItem(UseAlternatingRowColors, item);
-    item->setObjectName(QLatin1String(Constants::USE_ALTERNATING_ROW_COLORS));
-    ExtensionSystem::PluginManager::instance()->addObject(item);
 
     item = new SavedAction(this);
     item->setText(tr("Debugger Font Size Follows Main Editor"));
@@ -257,7 +249,6 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setValue(true);
     insertItem(ShowQtNamespace, item);
 
-    //Needed by QML Inspector
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("SortStructMembers"));
     item->setText(tr("Sort Members of Classes and Structs Alphabetically"));
@@ -265,8 +256,6 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setDefaultValue(true);
     item->setValue(true);
     insertItem(SortStructMembers, item);
-    item->setObjectName(QLatin1String(Constants::SORT_STRUCT_MEMBERS));
-    ExtensionSystem::PluginManager::instance()->addObject(item);
 
     //
     // DebuggingHelper
@@ -352,7 +341,7 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     insertItem(BreakOnFatal, item);
 
     item = new SavedAction(this);
-    item->setText(tr("Break on \"raise\""));
+    item->setText(tr("Break on \"abort\""));
     item->setCheckable(true);
 #ifdef Q_OS_WIN
     item->setDefaultValue(true);
@@ -361,8 +350,8 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setDefaultValue(false);
     item->setValue(false);
 #endif
-    item->setSettingsKey(debugModeGroup, QLatin1String("BreakOnRaise"));
-    insertItem(BreakOnRaise, item);
+    item->setSettingsKey(debugModeGroup, QLatin1String("BreakOnAbort"));
+    insertItem(BreakOnAbort, item);
 
     //
     // Settings
@@ -380,8 +369,8 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setSettingsKey(debugModeGroup, QLatin1String("AutoEnrichParameters"));
     item->setDefaultValue(QString());
     item->setCheckable(true);
-    item->setDefaultValue(false);
-    item->setValue(false);
+    item->setDefaultValue(true);
+    item->setValue(true);
     insertItem(AutoEnrichParameters, item);
 
     item = new SavedAction(this);
@@ -448,7 +437,7 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
 
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("UseToolTipsInLocalsView"));
-    item->setText(tr("Use Tooltips in Locals View When Debugging"));
+    item->setText(tr("Use Tooltips in Locals View when Debugging"));
     item->setToolTip(tr("Checking this will enable tooltips in the locals "
         "view during debugging."));
     item->setCheckable(true);
@@ -457,7 +446,7 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
 
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("UseToolTipsInBreakpointsView"));
-    item->setText(tr("Use Tooltips in Breakpoints View When Debugging"));
+    item->setText(tr("Use Tooltips in Breakpoints View when Debugging"));
     item->setToolTip(tr("Checking this will enable tooltips in the breakpoints "
         "view during debugging."));
     item->setCheckable(true);
@@ -466,7 +455,7 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
 
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("UseAddressInBreakpointsView"));
-    item->setText(tr("Show Address Data in Breakpoints View When Debugging"));
+    item->setText(tr("Show Address Data in Breakpoints View when Debugging"));
     item->setToolTip(tr("Checking this will show a column with address "
         "information in the breakpoint view during debugging."));
     item->setCheckable(true);
@@ -475,7 +464,7 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
 
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("UseAddressInStackView"));
-    item->setText(tr("Show Address Data in Stack View When Debugging"));
+    item->setText(tr("Show Address Data in Stack View when Debugging"));
     item->setToolTip(tr("Checking this will show a column with address "
         "information in the stack view during debugging."));
     item->setCheckable(true);
@@ -549,22 +538,34 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setSettingsKey(debugModeGroup, QLatin1String("WatchdogTimeout"));
     item->setDefaultValue(20);
     insertItem(GdbWatchdogTimeout, item);
+
+    //
+    // QML Tools
+    //
+    item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("ShowQmlObjectTree"));
+    item->setDefaultValue(true);
+    insertItem(ShowQmlObjectTree, item);
+
+    item = new SavedAction(this);
+    item->setSettingsKey("QML.Inspector", QLatin1String("QmlInspector.ShowAppOnTop"));
+    item->setText(tr("Show Application On Top"));
+    item->setCheckable(true);
+    item->setDefaultValue(false);
+    item->setIcon(QIcon(QLatin1String(":/debugger/images/qml/app-on-top.png")));
+    insertItem(ShowAppOnTop, item);
+
+    item = new SavedAction(this);
+    item->setSettingsKey("QML.Inspector", QLatin1String("QmlInspector.FromQml"));
+    item->setText(tr("Apply Changes on Save"));
+    item->setCheckable(true);
+    item->setDefaultValue(false);
+    item->setIcon(QIcon(QLatin1String(":/debugger/images/qml/apply-on-save.png")));
+    insertItem(QmlUpdateOnSave, item);
 }
 
 DebuggerSettings::~DebuggerSettings()
 {
-    ExtensionSystem::PluginManager *pluginManager =
-        ExtensionSystem::PluginManager::instance();
-    QObject *o = pluginManager->getObjectByName(Constants::SETTINGS_DIALOG);
-    if (o)
-        pluginManager->removeObject(o);
-    o = pluginManager->getObjectByName(Constants::USE_ALTERNATING_ROW_COLORS);
-    if (o)
-        pluginManager->removeObject(o);
-    o = pluginManager->getObjectByName(Constants::SORT_STRUCT_MEMBERS);
-    if (o)
-        pluginManager->removeObject(o);
-
     qDeleteAll(m_items);
 }
 

@@ -133,17 +133,24 @@ HelpPlugin::HelpPlugin()
     m_bookmarkItem(0),
     m_sideBar(0),
     m_firstModeChange(true),
+    m_helpManager(0),
+    m_openPagesManager(0),
     m_oldMode(0),
     m_connectWindow(true),
     m_externalWindow(0),
     m_backMenu(0),
-    m_nextMenu(0)
+    m_nextMenu(0),
+    m_isSidebarVisible(true)
 {
 }
 
 HelpPlugin::~HelpPlugin()
 {
+    delete m_centralWidget;
+    delete m_openPagesManager;
     delete m_rightPaneSideBarWidget;
+
+    delete m_helpManager;
 }
 
 bool HelpPlugin::initialize(const QStringList &arguments, QString *error)
@@ -168,8 +175,8 @@ bool HelpPlugin::initialize(const QStringList &arguments, QString *error)
             qApp->installTranslator(qhelptr);
     }
 
-    addAutoReleasedObject(m_helpManager = new LocalHelpManager(this));
-    addAutoReleasedObject(m_openPagesManager = new OpenPagesManager(this));
+    m_helpManager = new LocalHelpManager(this);
+    m_openPagesManager = new OpenPagesManager(this);
     addAutoReleasedObject(m_docSettingsPage = new DocSettingsPage());
     addAutoReleasedObject(m_filterSettingsPage = new FilterSettingsPage());
     addAutoReleasedObject(m_generalSettingsPage = new GeneralSettingsPage());
@@ -407,8 +414,13 @@ void HelpPlugin::extensionsInitialized()
 
 ExtensionSystem::IPlugin::ShutdownFlag HelpPlugin::aboutToShutdown()
 {
-    if (m_sideBar)
-        m_sideBar->saveSettings(Core::ICore::settings(), QLatin1String("HelpSideBar"));
+    if (m_sideBar) {
+        QSettings *settings = Core::ICore::settings();
+        m_sideBar->saveSettings(settings, QLatin1String("HelpSideBar"));
+        // keep a boolean value to avoid to modify the sidebar class, at least some qml stuff
+        // depends on the always visible property of the sidebar...
+        settings->setValue(QLatin1String("HelpSideBar/") + QLatin1String("Visible"), m_isSidebarVisible);
+    }
     delete m_externalWindow;
 
     return SynchronousShutdown;
@@ -500,7 +512,9 @@ void HelpPlugin::setupUi()
         << m_openPagesItem;
     m_sideBar = new Core::SideBar(itemList, QList<Core::SideBarItem*>()
         << m_contentItem << m_openPagesItem);
+    m_sideBar->setCloseWhenEmpty(true);
     m_sideBar->setShortcutMap(shortcutMap);
+    connect(m_sideBar, SIGNAL(sideBarClosed()), this, SLOT(onSideBarVisibilityChanged()));
 
     m_splitter->setOpaqueResize(false);
     m_splitter->insertWidget(0, m_sideBar);
@@ -508,13 +522,19 @@ void HelpPlugin::setupUi()
     m_splitter->setStretchFactor(1, 1);
     m_sideBar->readSettings(Core::ICore::settings(), QLatin1String("HelpSideBar"));
     m_splitter->setSizes(QList<int>() << m_sideBar->size().width() << 300);
+
+    m_toggleSideBarAction = new QAction(QIcon(QLatin1String(Core::Constants::ICON_TOGGLE_SIDEBAR)),
+        tr("Show Sidebar"), this);
+    m_toggleSideBarAction->setCheckable(true);
+    connect(m_toggleSideBarAction, SIGNAL(triggered(bool)), this, SLOT(showHideSidebar()));
+    cmd = am->registerAction(m_toggleSideBarAction, Core::Constants::TOGGLE_SIDEBAR, modecontext);
 }
 
 void HelpPlugin::resetFilter()
 {
     const QString &filterInternal = QString::fromLatin1("Qt Creator %1.%2.%3")
         .arg(IDE_VERSION_MAJOR).arg(IDE_VERSION_MINOR).arg(IDE_VERSION_RELEASE);
-    const QRegExp filterRegExp(QLatin1String("Qt Creator \\d*\\.\\d*\\.\\d*"));
+    QRegExp filterRegExp(QLatin1String("Qt Creator \\d*\\.\\d*\\.\\d*"));
 
     QHelpEngineCore *engine = &LocalHelpManager::helpEngine();
     const QStringList &filters = engine->customFilters();
@@ -665,7 +685,7 @@ void HelpPlugin::resetRightPaneScale()
 void HelpPlugin::activateHelpMode()
 {
     if (contextHelpOption() != Help::Constants::ExternalHelpAlways)
-        Core::ModeManager::activateMode(QLatin1String(Constants::ID_MODE_HELP));
+        Core::ModeManager::activateMode(Id(Constants::ID_MODE_HELP));
     else
         showExternalWindow();
 }
@@ -690,6 +710,7 @@ void HelpPlugin::slotHideRightPane()
 void HelpPlugin::showHideSidebar()
 {
     m_sideBar->setVisible(!m_sideBar->isVisible());
+    onSideBarVisibilityChanged();
 }
 
 void HelpPlugin::showExternalWindow()
@@ -832,7 +853,7 @@ HelpViewer *HelpPlugin::viewerForContextMode()
     switch (contextHelpOption()) {
         case Help::Constants::SideBySideIfPossible: {
             // side by side if possible
-            if (IEditor *editor = EditorManager::instance()->currentEditor()) {
+            if (IEditor *editor = EditorManager::currentEditor()) {
                 if (!placeHolder || !placeHolder->isVisible()) {
                     if (!editor->widget())
                         break;
@@ -900,7 +921,7 @@ void HelpPlugin::activateContext()
                 "available.</center></body></html>").arg(m_idFromContext));
         } else {
             int version = 0;
-            const QRegExp exp("(\\d+)");
+            QRegExp exp("(\\d+)");
             QUrl source = *links.begin();
             const QLatin1String qtRefDoc = QLatin1String("com.trolltech.qt");
 
@@ -1227,6 +1248,12 @@ void HelpPlugin::openFindToolBar()
 {
     if (Find::FindPlugin::instance())
         Find::FindPlugin::instance()->openFindToolBar(Find::FindPlugin::FindForward);
+}
+
+void  HelpPlugin::onSideBarVisibilityChanged()
+{
+    m_isSidebarVisible = m_sideBar->isVisible();
+    m_toggleSideBarAction->setToolTip(m_isSidebarVisible ? tr("Hide Sidebar") : tr("Show Sidebar"));
 }
 
 void HelpPlugin::doSetupIfNeeded()

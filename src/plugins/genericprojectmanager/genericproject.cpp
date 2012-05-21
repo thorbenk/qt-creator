@@ -39,9 +39,9 @@
 #include <projectexplorer/abi.h>
 #include <projectexplorer/buildenvironmentwidget.h>
 #include <projectexplorer/headerpath.h>
-#include <projectexplorer/customexecutablerunconfiguration.h>
 #include <projectexplorer/toolchainmanager.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <qtsupport/customexecutablerunconfiguration.h>
 #include <cpptools/ModelManagerInterface.h>
 #include <extensionsystem/pluginmanager.h>
 #include <utils/pathchooser.h>
@@ -307,7 +307,7 @@ void GenericProject::refresh(RefreshOptions options)
  */
 static void expandEnvironmentVariables(const QProcessEnvironment &env, QString &string)
 {
-    const static QRegExp candidate(QLatin1String("\\$\\$\\((.+)\\)"));
+    static QRegExp candidate(QLatin1String("\\$\\$\\((.+)\\)"));
 
     int index = candidate.indexIn(string);
     while (index != -1) {
@@ -415,9 +415,9 @@ QString GenericProject::displayName() const
     return m_projectName;
 }
 
-QString GenericProject::id() const
+Core::Id GenericProject::id() const
 {
-    return QLatin1String(Constants::GENERICPROJECT_ID);
+    return Core::Id(Constants::GENERICPROJECT_ID);
 }
 
 Core::IDocument *GenericProject::document() const
@@ -477,14 +477,14 @@ bool GenericProject::fromMap(const QVariantMap &map)
             continue;
         }
         if (!t->activeRunConfiguration())
-            t->addRunConfiguration(new CustomExecutableRunConfiguration(t));
+            t->addRunConfiguration(new QtSupport::CustomExecutableRunConfiguration(t));
     }
 
     // Add default setup:
     if (targets().isEmpty()) {
         GenericTargetFactory *factory =
                 ExtensionSystem::PluginManager::instance()->getObject<GenericTargetFactory>();
-        addTarget(factory->create(this, QLatin1String(GENERIC_DESKTOP_TARGET_ID)));
+        addTarget(factory->create(this, Core::Id(GENERIC_DESKTOP_TARGET_ID)));
     }
 
     QString id = map.value(QLatin1String(TOOLCHAIN_KEY)).toString();

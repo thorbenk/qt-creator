@@ -62,6 +62,7 @@
 #include "watchwindow.h"
 #include "watchutils.h"
 #include "debuggertooltipmanager.h"
+#include "localsandexpressionswindow.h"
 
 #include "snapshothandler.h"
 #include "threadshandler.h"
@@ -552,8 +553,8 @@ public:
         setDisplayName(DebuggerPlugin::tr("Debug"));
         setIcon(QIcon(QLatin1String(":/fancyactionbar/images/mode_Debug.png")));
         setPriority(85);
-        setId(QLatin1String(MODE_DEBUG));
-        setType(QLatin1String(CC::MODE_EDIT_TYPE));
+        setId(MODE_DEBUG);
+        setType(CC::MODE_EDIT_TYPE);
     }
 
     ~DebugMode()
@@ -572,10 +573,7 @@ public:
 
 static TextEditor::ITextEditor *currentTextEditor()
 {
-    if (const Core::EditorManager *editorManager = Core::EditorManager::instance())
-            if (Core::IEditor *editor = editorManager->currentEditor())
-                return qobject_cast<TextEditor::ITextEditor*>(editor);
-    return 0;
+    return qobject_cast<TextEditor::ITextEditor *>(Core::EditorManager::currentEditor());
 }
 
 static bool currentTextEditorPosition(ContextData *data)
@@ -1032,10 +1030,7 @@ public slots:
     void handleAddToWatchWindow()
     {
         // Requires a selection, but that's the only case we want anyway.
-        EditorManager *editorManager = EditorManager::instance();
-        if (!editorManager)
-            return;
-        IEditor *editor = editorManager->currentEditor();
+        IEditor *editor = EditorManager::currentEditor();
         if (!editor)
             return;
         ITextEditor *textEditor = qobject_cast<ITextEditor*>(editor);
@@ -1093,7 +1088,6 @@ public slots:
     QIcon locationMarkIcon() const { return m_locationMarkIcon; }
 
     void openTextEditor(const QString &titlePattern0, const QString &contents);
-    void clearCppCodeModelSnapshot();
     void showMessage(const QString &msg, int channel, int timeout = -1);
 
     Utils::SavedAction *action(int code) const;
@@ -1114,14 +1108,20 @@ public slots:
     // FIXME: Remove.
     void maybeEnrichParameters(DebuggerStartParameters *sp);
 
-    void gdbServerStarted(const QString &channel, const QString &sysroot, const QString &localExecutable);
-    void attachedToProcess(const QString &channel, const QString &sysroot, const QString &localExecutable);
+    void gdbServerStarted(const QString &channel, const QString &sysroot,
+        const QString &remoteCommandLine, const QString &remoteExecutable);
+    void attachedToProcess(const QString &channel, const QString &sysroot,
+        const QString &remoteCommandLine, const QString &remoteExecutable);
+
+    void updateQmlActions() {
+        action(QmlUpdateOnSave)->setEnabled(boolSetting(ShowQmlObjectTree));
+    }
 
 public:
     DebuggerMainWindow *m_mainWindow;
     DebuggerRunControlFactory *m_debuggerRunControlFactory;
 
-    QString m_previousMode;
+    Id m_previousMode;
     QList<DebuggerStartParameters> m_scheduledStarts;
 
     Utils::ProxyAction *m_visibleStartAction;
@@ -1175,6 +1175,7 @@ public:
     WatchWindow *m_returnWindow;
     WatchWindow *m_localsWindow;
     WatchWindow *m_watchersWindow;
+    WatchWindow *m_inspectorWindow;
     BaseWindow *m_registerWindow;
     BaseWindow *m_modulesWindow;
     BaseWindow *m_snapshotWindow;
@@ -1182,6 +1183,7 @@ public:
     BaseWindow *m_stackWindow;
     BaseWindow *m_threadsWindow;
     LogWindow *m_logWindow;
+    LocalsAndExpressionsWindow *m_localsAndExpressionsWindow;
 
     bool m_busy;
     QString m_lastPermanentStatusMessage;
@@ -1228,6 +1230,7 @@ DebuggerPluginPrivate::DebuggerPluginPrivate(DebuggerPlugin *plugin) :
     m_returnWindow = 0;
     m_localsWindow = 0;
     m_watchersWindow = 0;
+    m_inspectorWindow = 0;
     m_registerWindow = 0;
     m_modulesWindow = 0;
     m_snapshotWindow = 0;
@@ -1235,6 +1238,7 @@ DebuggerPluginPrivate::DebuggerPluginPrivate(DebuggerPlugin *plugin) :
     m_stackWindow = 0;
     m_threadsWindow = 0;
     m_logWindow = 0;
+    m_localsAndExpressionsWindow = 0;
     m_qtMessageLogWindow = 0;
 
     m_mainWindow = 0;
@@ -1690,9 +1694,12 @@ void DebuggerPluginPrivate::startRemoteServer()
 }
 
 void DebuggerPluginPrivate::gdbServerStarted(const QString &channel,
-    const QString &sysroot, const QString &remoteCommandLine)
+    const QString &sysroot,
+    const QString &remoteCommandLine,
+    const QString &remoteExecutable)
 {
     Q_UNUSED(remoteCommandLine);
+    Q_UNUSED(remoteExecutable);
     Q_UNUSED(sysroot);
     showStatusMessage(tr("gdbserver is now listening at %1").arg(channel));
 }
@@ -1708,13 +1715,21 @@ void DebuggerPluginPrivate::attachToRemoteProcess()
 }
 
 void DebuggerPluginPrivate::attachedToProcess(const QString &channel,
-    const QString &sysroot, const QString &remoteCommandLine)
+    const QString &sysroot,
+    const QString &remoteCommandLine,
+    const QString &remoteExecutable)
 {
-    QString binary = remoteCommandLine.section(QLatin1Char(' '), 0, 0);
+    QString binary;
     QString localExecutable;
-    QString candidate = sysroot + QLatin1Char('/') + binary;
+    QString candidate = sysroot + remoteExecutable;
     if (QFileInfo(candidate).exists())
         localExecutable = candidate;
+    if (localExecutable.isEmpty()) {
+        binary = remoteCommandLine.section(QLatin1Char(' '), 0, 0);
+        candidate = sysroot + QLatin1Char('/') + binary;
+        if (QFileInfo(candidate).exists())
+            localExecutable = candidate;
+    }
     if (localExecutable.isEmpty()) {
         candidate = sysroot + QLatin1String("/usr/bin/") + binary;
         if (QFileInfo(candidate).exists())
@@ -2117,6 +2132,7 @@ void DebuggerPluginPrivate::connectEngine(DebuggerEngine *engine)
     //m_threadBox->setModel(engine->threadsModel());
     //m_threadBox->setModelColumn(ThreadData::ComboNameColumn);
     m_watchersWindow->setModel(engine->watchersModel());
+    m_inspectorWindow->setModel(engine->inspectorModel());
     m_qtMessageLogWindow->setModel(engine->qtMessageLogModel());
 
     engine->watchHandler()->rebuildModel();
@@ -2149,6 +2165,7 @@ void DebuggerPluginPrivate::fontSettingsChanged
     changeFontSize(m_stackWindow, size);
     changeFontSize(m_threadsWindow, size);
     changeFontSize(m_watchersWindow, size);
+    changeFontSize(m_inspectorWindow, size);
 }
 
 void DebuggerPluginPrivate::cleanupViews()
@@ -2168,7 +2185,7 @@ void DebuggerPluginPrivate::cleanupViews()
             // if they are not modified and not current editor.
             if (editor->property(Constants::OPENED_WITH_DISASSEMBLY).toBool()
                     || (!editor->document()->isModified()
-                        && editor != editorManager->currentEditor())) {
+                        && editor != EditorManager::currentEditor())) {
                 toClose.append(editor);
             } else {
                 editor->setProperty(Constants::OPENED_BY_DEBUGGER, false);
@@ -2248,7 +2265,7 @@ void DebuggerPluginPrivate::updateWatchersWindow()
     m_watchersWindow->setVisible(
         m_watchersWindow->model()->rowCount(QModelIndex()) > 0);
     m_returnWindow->setVisible(
-        m_returnWindow->model()->rowCount(QModelIndex()) > 0);
+                m_returnWindow->model()->rowCount(QModelIndex()) > 0);
 }
 
 void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
@@ -2292,6 +2309,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_debugWithoutDeployAction->setEnabled(false);
         m_visibleStartAction->setAction(m_continueAction);
         m_hiddenStopAction->setAction(m_exitAction);
+        m_localsAndExpressionsWindow->setShowLocals(true);
     } else if (state == InferiorRunOk) {
         // Shift-F5 interrupts. It is also "interruptible".
         m_interruptAction->setEnabled(true);
@@ -2301,6 +2319,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_debugWithoutDeployAction->setEnabled(false);
         m_visibleStartAction->setAction(m_interruptAction);
         m_hiddenStopAction->setAction(m_interruptAction);
+        m_localsAndExpressionsWindow->setShowLocals(false);
     } else if (state == DebuggerFinished) {
         // We don't want to do anything anymore.
         m_interruptAction->setEnabled(false);
@@ -2322,6 +2341,8 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_debugWithoutDeployAction->setEnabled(false);
         m_visibleStartAction->setAction(m_undisturbableAction);
         m_hiddenStopAction->setAction(m_exitAction);
+        // show locals in core dumps
+        m_localsAndExpressionsWindow->setShowLocals(true);
     } else {
         // Everything else is "undisturbable".
         m_interruptAction->setEnabled(false);
@@ -2390,7 +2411,6 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         || state == DebuggerFinished
         || state == InferiorUnrunnable;
     setBusyCursor(!notbusy);
-
 }
 
 void DebuggerPluginPrivate::updateDebugActions()
@@ -2440,14 +2460,14 @@ void DebuggerPluginPrivate::onModeChanged(IMode *mode)
 
     m_mainWindow->onModeChanged(mode);
 
-    if (mode->id() != QLatin1String(Constants::MODE_DEBUG)) {
+    if (mode->id() != Constants::MODE_DEBUG) {
         m_toolTipManager->leavingDebugMode();
         return;
     }
 
-    EditorManager *editorManager = EditorManager::instance();
-    if (editorManager->currentEditor())
-        editorManager->currentEditor()->widget()->setFocus();
+    if (IEditor *editor = EditorManager::currentEditor())
+        editor->widget()->setFocus();
+
     m_toolTipManager->debugModeEntered();
 }
 
@@ -2484,10 +2504,10 @@ void DebuggerPluginPrivate::dumpLog()
 /*! Activates the previous mode when the current mode is the debug mode. */
 void DebuggerPluginPrivate::activatePreviousMode()
 {
-    if (ModeManager::currentMode() == ModeManager::mode(QLatin1String(MODE_DEBUG))
-            && !m_previousMode.isEmpty()) {
+    if (ModeManager::currentMode() == ModeManager::mode(MODE_DEBUG)
+            && m_previousMode.isValid()) {
         ModeManager::activateMode(m_previousMode);
-        m_previousMode.clear();
+        m_previousMode = Id();
     }
 }
 
@@ -2496,7 +2516,7 @@ void DebuggerPluginPrivate::activateDebugMode()
     m_reverseDirectionAction->setChecked(false);
     m_reverseDirectionAction->setEnabled(false);
     m_previousMode = ModeManager::currentMode()->id();
-    ModeManager::activateMode(_(MODE_DEBUG));
+    ModeManager::activateMode(MODE_DEBUG);
 }
 
 void DebuggerPluginPrivate::sessionLoaded()
@@ -2586,18 +2606,10 @@ void DebuggerPluginPrivate::openTextEditor(const QString &titlePattern0,
     if (m_shuttingDown)
         return;
     QString titlePattern = titlePattern0;
-    EditorManager *editorManager = EditorManager::instance();
-    QTC_ASSERT(editorManager, return);
-    IEditor *editor = editorManager->openEditorWithContents(
+    IEditor *editor = EditorManager::openEditorWithContents(
         CC::K_DEFAULT_TEXT_EDITOR_ID, &titlePattern, contents);
     QTC_ASSERT(editor, return);
-    editorManager->activateEditor(editor, EditorManager::IgnoreNavigationHistory);
-}
-
-
-void DebuggerPluginPrivate::clearCppCodeModelSnapshot()
-{
-    m_codeModelSnapshot = CPlusPlus::Snapshot();
+    EditorManager::activateEditor(editor, EditorManager::IgnoreNavigationHistory);
 }
 
 void DebuggerPluginPrivate::showMessage(const QString &msg, int channel, int timeout)
@@ -2914,6 +2926,8 @@ void DebuggerPluginPrivate::extensionsInitialized()
     m_localsWindow->setObjectName(QLatin1String("CppDebugLocals"));
     m_watchersWindow = new WatchWindow(WatchTreeView::WatchersType);
     m_watchersWindow->setObjectName(QLatin1String("CppDebugWatchers"));
+    m_inspectorWindow = new WatchWindow(WatchTreeView::InspectType);
+    m_inspectorWindow->setObjectName(QLatin1String("Inspector"));
 
     // Snapshot
     m_snapshotHandler = new SnapshotHandler;
@@ -2977,10 +2991,10 @@ void DebuggerPluginPrivate::extensionsInitialized()
 
     act = m_breakAction = new QAction(tr("Toggle Breakpoint"), this);
 
-    act = m_watchAction1 = new QAction(tr("Add to Watch Window"), this);
+    act = m_watchAction1 = new QAction(tr("Add Expression Evaluator"), this);
     connect(act, SIGNAL(triggered()), SLOT(handleAddToWatchWindow()));
 
-    act = m_watchAction2 = new QAction(tr("Add to Watch Window"), this);
+    act = m_watchAction2 = new QAction(tr("Add Expression Evaluator"), this);
     connect(act, SIGNAL(triggered()), SLOT(handleAddToWatchWindow()));
 
     //m_snapshotAction = new QAction(tr("Create Snapshot"), this);
@@ -3004,6 +3018,22 @@ void DebuggerPluginPrivate::extensionsInitialized()
 
     connect(action(OperateByInstruction), SIGNAL(triggered(bool)),
         SLOT(handleOperateByInstructionTriggered(bool)));
+
+    QAction *qmlSelectDummyAction = new QAction(tr("Select"), this);
+    qmlSelectDummyAction->setCheckable(true);
+    qmlSelectDummyAction->setIcon(QIcon(_(":/debugger/images/qml/select.png")));
+    qmlSelectDummyAction->setEnabled(false);
+    Core::Command *qmlSelectCommand
+            = am->registerAction(qmlSelectDummyAction, QML_SELECTTOOL,
+                                 globalcontext);
+
+    QAction *qmlZoomDummyAction = new QAction(tr("Zoom"), this);
+    qmlZoomDummyAction->setCheckable(true);
+    qmlZoomDummyAction->setIcon(QIcon(_(":/debugger/images/qml/zoom.png")));
+    qmlZoomDummyAction->setEnabled(false);
+    Core::Command *qmlZoomCommand
+            = am->registerAction(qmlZoomDummyAction, QML_ZOOMTOOL,
+                                 globalcontext);
 
     ActionContainer *debugMenu =
         am->actionContainer(ProjectExplorer::Constants::M_DEBUG);
@@ -3031,17 +3061,13 @@ void DebuggerPluginPrivate::extensionsInitialized()
     m_mainWindow->createDockWidget(CppLanguage, m_stackWindow);
     m_mainWindow->createDockWidget(CppLanguage, m_threadsWindow);
 
-    QSplitter *localsAndWatchers = new MiniSplitter(Qt::Vertical);
-    localsAndWatchers->setObjectName(QLatin1String(DOCKWIDGET_WATCHERS));
-    localsAndWatchers->setWindowTitle(m_localsWindow->windowTitle());
-    localsAndWatchers->addWidget(m_localsWindow);
-    localsAndWatchers->addWidget(m_returnWindow);
-    localsAndWatchers->addWidget(m_watchersWindow);
-    localsAndWatchers->setStretchFactor(0, 3);
-    localsAndWatchers->setStretchFactor(1, 1);
-    localsAndWatchers->setStretchFactor(2, 1);
+    m_localsAndExpressionsWindow = new LocalsAndExpressionsWindow(
+                m_localsWindow, m_inspectorWindow, m_returnWindow,
+                m_watchersWindow);
+    m_localsAndExpressionsWindow->setObjectName(QLatin1String(DOCKWIDGET_WATCHERS));
+    m_localsAndExpressionsWindow->setWindowTitle(m_localsWindow->windowTitle());
 
-    dock = m_mainWindow->createDockWidget(CppLanguage, localsAndWatchers);
+    dock = m_mainWindow->createDockWidget(CppLanguage, m_localsAndExpressionsWindow);
     dock->setProperty(DOCKWIDGET_DEFAULT_AREA, Qt::RightDockWidgetArea);
 
     m_mainWindow->addStagedMenuEntries();
@@ -3380,7 +3406,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
 
     foreach (IOptionsPage *op, engineOptionPages)
         m_plugin->addAutoReleasedObject(op);
-    m_plugin->addAutoReleasedObject(new DebuggingHelperOptionPage);
+    m_plugin->addAutoReleasedObject(new LocalsAndExpressionsOptionsPage);
 
     connect(ModeManager::instance(), SIGNAL(currentModeChanged(Core::IMode*)),
         SLOT(onModeChanged(Core::IMode*)));
@@ -3430,6 +3456,11 @@ void DebuggerPluginPrivate::extensionsInitialized()
     connect(action(SettingsDialog), SIGNAL(triggered()),
         SLOT(showSettingsDialog()));
 
+    // QML Actions
+    connect(action(ShowQmlObjectTree), SIGNAL(valueChanged(QVariant)),
+            SLOT(updateQmlActions()));
+    updateQmlActions();
+
     // Toolbar
     QWidget *toolbarContainer = new QWidget;
 
@@ -3459,6 +3490,19 @@ void DebuggerPluginPrivate::extensionsInitialized()
     hbox->addSpacerItem(new QSpacerItem(4, 0));
 
     m_mainWindow->setToolBar(CppLanguage, toolbarContainer);
+
+    QWidget *qmlToolbar = new QWidget;
+    hbox = new QHBoxLayout(qmlToolbar);
+    hbox->setMargin(0);
+    hbox->setSpacing(0);
+    hbox->addWidget(toolButton(action(QmlUpdateOnSave)));
+    hbox->addWidget(toolButton(action(ShowAppOnTop)));
+    hbox->addWidget(new Utils::StyledSeparator);
+    hbox->addWidget(toolButton(qmlSelectCommand->action()));
+    hbox->addWidget(toolButton(qmlZoomCommand->action()));
+    hbox->addWidget(new Utils::StyledSeparator);
+    m_mainWindow->setToolBar(QmlLanguage, qmlToolbar);
+
     m_mainWindow->setToolBar(AnyLanguage, m_statusLabel);
 
     connect(action(EnableReverseDebugging),

@@ -114,10 +114,9 @@
  */
 
 /*!
- * \fn QDialog *ProjectExplorer::IDevice::createAction(const QString &actionId) const
- * \brief Produces a dialog implementing the respective action. The dialog is supposed to be
- *        modal, so implementers must make sure to make whatever it does interruptible as
- *        to not needlessly block the UI.
+ * \fn void ProjectExplorer::IDevice::executeAction(Core::Id actionId, QWidget *parent)
+ * \brief Executes the respective action. This is typically done via some sort of dialog or
+ *        wizard, so a parent widget argument is provided.
  */
 
 /*!
@@ -155,8 +154,13 @@ namespace Internal {
 class IDevicePrivate
 {
 public:
+    IDevicePrivate() :
+        origin(IDevice::AutoDetected),
+        availability(IDevice::DeviceAvailabilityUnknown)
+    { }
+
     QString displayName;
-    QString type;
+    Core::Id type;
     IDevice::Origin origin;
     Core::Id id;
     IDevice::AvailabilityState availability;
@@ -164,17 +168,14 @@ public:
 } // namespace Internal
 
 IDevice::IDevice() : d(new Internal::IDevicePrivate)
-{
-}
+{ }
 
-IDevice::IDevice(const QString &type, Origin origin, const Core::Id &id)
-    : d(new Internal::IDevicePrivate)
+IDevice::IDevice(Core::Id type, Origin origin, Core::Id id) : d(new Internal::IDevicePrivate)
 {
     d->type = type;
     d->origin = origin;
     QTC_CHECK(origin == ManuallyAdded || id.isValid());
     d->id = id.isValid() ? id : newId();
-    d->availability = DeviceAvailabilityUnknown;
 }
 
 IDevice::IDevice(const IDevice &other) : d(new Internal::IDevicePrivate)
@@ -215,7 +216,7 @@ IDevice::DeviceInfo IDevice::deviceInformation() const
     return result;
 }
 
-QString IDevice::type() const
+Core::Id IDevice::type() const
 {
     return d->type;
 }
@@ -247,9 +248,14 @@ Core::Id IDevice::invalidId()
     return Core::Id();
 }
 
-QString IDevice::typeFromMap(const QVariantMap &map)
+Core::Id IDevice::typeFromMap(const QVariantMap &map)
 {
-    return map.value(QLatin1String(TypeKey)).toString();
+    return Core::Id(map.value(QLatin1String(TypeKey)).toByteArray().constData());
+}
+
+Core::Id IDevice::idFromMap(const QVariantMap &map)
+{
+    return Core::Id(map.value(QLatin1String(IdKey)).toByteArray().constData());
 }
 
 void IDevice::fromMap(const QVariantMap &map)
@@ -264,7 +270,7 @@ QVariantMap IDevice::toMap() const
 {
     QVariantMap map;
     map.insert(QLatin1String(DisplayNameKey), d->displayName);
-    map.insert(QLatin1String(TypeKey), d->type);
+    map.insert(QLatin1String(TypeKey), d->type.name());
     map.insert(QLatin1String(IdKey), d->id.name());
     map.insert(QLatin1String(OriginKey), d->origin);
     return map;

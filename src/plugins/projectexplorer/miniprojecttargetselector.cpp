@@ -198,7 +198,7 @@ void ListWidget::keyPressEvent(QKeyEvent *event)
 
 void ListWidget::keyReleaseEvent(QKeyEvent *event)
 {
-    if (event->key() != Qt::LeftArrow && event->key() != Qt::RightArrow)
+    if (event->key() != Qt::Key_Left && event->key() != Qt::Key_Right)
         QListWidget::keyReleaseEvent(event);
 }
 
@@ -248,7 +248,6 @@ void ProjectListWidget::addProject(Project *project)
 {
     m_ignoreIndexChange = true;
 
-    QString sortName = fullName(project);
     int pos = count();
     for (int i=0; i < count(); ++i) {
         Project *p = item(i)->data(Qt::UserRole).value<Project*>();
@@ -326,7 +325,6 @@ void ProjectListWidget::projectDisplayNameChanged(Project *project)
     bool isCurrentItem = (oldPos == currentRow());
     QListWidgetItem *projectItem = takeItem(oldPos);
 
-    QString sortName = fullName(project);
     int pos = count();
     for (int i = 0; i < count(); ++i) {
         Project *p = item(i)->data(Qt::UserRole).value<Project*>();
@@ -1042,6 +1040,15 @@ void MiniProjectTargetSelector::nextOrShow()
     }
 }
 
+void MiniProjectTargetSelector::keyPressEvent(QKeyEvent *ke)
+{
+    if (ke->key() == Qt::Key_Return
+            || ke->key() == Qt::Key_Enter
+            || ke->key() == Qt::Key_Space)
+        hide();
+    QWidget::keyPressEvent(ke);
+}
+
 void MiniProjectTargetSelector::keyReleaseEvent(QKeyEvent *ke)
 {
     if (m_hideOnRelease) {
@@ -1053,6 +1060,10 @@ void MiniProjectTargetSelector::keyReleaseEvent(QKeyEvent *ke)
             m_hideOnRelease = false;
         }
     }
+    if (ke->key() == Qt::Key_Return
+            || ke->key() == Qt::Key_Enter
+            || ke->key() == Qt::Key_Space)
+        return;
     QWidget::keyReleaseEvent(ke);
 }
 

@@ -61,25 +61,28 @@ class QTSUPPORT_EXPORT QtOutputFormatter
 {
     Q_OBJECT
 public:
-    QtOutputFormatter(ProjectExplorer::Project *project);
+    explicit QtOutputFormatter(ProjectExplorer::Project *project);
 
-    virtual void appendMessage(const QString &text,
+    void appendMessage(const QString &text,
         Utils::OutputFormat format);
-    virtual void handleLink(const QString &href);
+    void handleLink(const QString &href);
+
+protected:
+    void clearLastLine();
 
 private slots:
     void updateProjectFileList();
 
 private:
     LinkResult matchLine(const QString &line) const;
-    void appendLine(QTextCursor & cursor, LinkResult lr,
-        const QString &line, Utils::OutputFormat);
+    void appendLine(QTextCursor &cursor, LinkResult lr, const QString &line,
+                    Utils::OutputFormat);
 
-    QRegExp m_qmlError;
-    QRegExp m_qtError;
-    QRegExp m_qtAssert;
-    QRegExp m_qtAssertX;
-    QRegExp m_qtTestFail;
+    mutable QRegExp m_qmlError;
+    mutable QRegExp m_qtError;
+    mutable QRegExp m_qtAssert;
+    mutable QRegExp m_qtAssertX;
+    mutable QRegExp m_qtTestFail;
     QWeakPointer<ProjectExplorer::Project> m_project;
     QString m_lastLine;
     Utils::FileInProjectFinder m_projectFinder;

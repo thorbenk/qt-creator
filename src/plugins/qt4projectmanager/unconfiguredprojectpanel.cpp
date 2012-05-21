@@ -84,7 +84,6 @@ ProjectExplorer::PropertiesPanel *Qt4ProjectManager::Internal::UnconfiguredProje
 {
     ProjectExplorer::PropertiesPanel *panel = new ProjectExplorer::PropertiesPanel;
     panel->setDisplayName(displayName());
-    // TODO the icon needs a update
     panel->setIcon(QIcon(":/projectexplorer/images/unconfigured.png"));
 
     TargetSetupPageWrapper *w = new TargetSetupPageWrapper(project);
@@ -188,7 +187,7 @@ void TargetSetupPageWrapper::done()
 {
     m_targetSetupPage->setupProject(m_project);
     ProjectExplorer::ProjectExplorerPlugin::instance()->requestProjectModeUpdate(m_project);
-    Core::ICore::instance()->modeManager()->activateMode(QLatin1String(Core::Constants::MODE_EDIT));
+    Core::ICore::instance()->modeManager()->activateMode(Core::Constants::MODE_EDIT);
 }
 
 void TargetSetupPageWrapper::noteTextLinkActivated()

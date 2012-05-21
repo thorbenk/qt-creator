@@ -69,14 +69,11 @@ void LineNumberFilter::accept(FilterEntry selection) const
         editorManager->addCurrentPositionToNavigationHistory();
         editor->gotoLine(selection.internalData.toInt());
         editor->widget()->setFocus();
-        Core::ModeManager::activateModeType(QLatin1String(Core::Constants::MODE_EDIT_TYPE));
+        Core::ModeManager::activateModeType(Id(Core::Constants::MODE_EDIT_TYPE));
     }
 }
 
 ITextEditor *LineNumberFilter::currentTextEditor() const
 {
-    Core::EditorManager *editorManager = Core::EditorManager::instance();
-    if (!editorManager->currentEditor())
-        return 0;
-    return qobject_cast<TextEditor::ITextEditor*>(editorManager->currentEditor());
+    return qobject_cast<TextEditor::ITextEditor *>(EditorManager::currentEditor());
 }

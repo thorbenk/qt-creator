@@ -95,7 +95,9 @@ enum Qt4Variable {
     QtVar,
     QmlImportPathVar,
     Makefile,
-    SymbianCapabilities
+    SymbianCapabilities,
+    ObjectExt,
+    ObjectsDir
 };
 
 // Import base classes into namespace
@@ -165,7 +167,6 @@ public:
 
 protected:
     void setIncludedInExactParse(bool b);
-    void clear();
     static QStringList varNames(FileType type);
     static QStringList dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative);
     static QSet<Utils::FileName> filterFilesProVariables(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
@@ -175,10 +176,6 @@ protected:
         AddToProFile,
         RemoveFromProFile
     };
-
-    bool changeIncludes(ProFile *includeFile,
-                       const QStringList &proFilePaths,
-                       ChangeType change);
 
     void changeFiles(const FileType fileType,
                      const QStringList &filePaths,
@@ -206,7 +203,6 @@ private:
     Internal::Qt4PriFile *m_qt4PriFile;
 
     // Memory is cheap...
-    // TODO (really that cheap?)
     QMap<ProjectExplorer::FileType, QSet<Utils::FileName> > m_files;
     QSet<Utils::FileName> m_recursiveEnumerateFiles;
     QSet<QString> m_watchedFolders;
@@ -265,6 +261,29 @@ private:
     // let them emit signals
     friend class Qt4ProjectManager::Qt4ProFileNode;
     friend class Qt4PriFileNode;
+};
+
+class ProVirtualFolderNode : public ProjectExplorer::VirtualFolderNode
+{
+public:
+    explicit ProVirtualFolderNode(const QString &folderPath, int priority, const QString &typeName)
+        : VirtualFolderNode(folderPath, priority), m_typeName(typeName)
+    {
+
+    }
+
+    QString displayName() const
+    {
+        return m_typeName;
+    }
+
+    QString tooltip() const
+    {
+        return QString();
+    }
+
+private:
+    QString m_typeName;
 };
 
 } // namespace Internal
@@ -358,6 +377,8 @@ public:
 
     QString makefile() const;
     QStringList symbianCapabilities() const;
+    QString objectExtension() const;
+    QString objectsDirectory() const;
     QByteArray cxxDefines() const;
     bool isDeployable() const;
     QString resolvedMkspecPath() const;
@@ -369,9 +390,12 @@ public:
     bool parseInProgress() const;
 
     bool hasBuildTargets(Qt4ProjectType projectType) const;
+    bool isDebugAndRelease() const;
 
     void setParseInProgress(bool b);
     void setParseInProgressRecursive(bool b);
+    void setValidParse(bool b);
+    void setValidParseRecursive(bool b);
     void emitProFileUpdatedRecursive();
 public slots:
     void asyncUpdate();
@@ -393,6 +417,8 @@ private:
     void createUiCodeModelSupport();
     QStringList updateUiFiles();
 
+    QStringList fileListForVar(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative,
+                               const QString &varName, const QString &projectDir) const;
     QString uiDirPath(QtSupport::ProFileReader *reader) const;
     QString mocDirPath(QtSupport::ProFileReader *reader) const;
     QStringList includePaths(QtSupport::ProFileReader *reader) const;
@@ -401,8 +427,6 @@ private:
     TargetInformation targetInformation(QtSupport::ProFileReader *reader) const;
     void setupInstallsList(const QtSupport::ProFileReader *reader);
     void setupProjectVersion(const QtSupport::ProFileReader *reader);
-
-    void invalidate();
 
     Qt4ProjectType m_projectType;
     Qt4VariablesHash m_varValues;

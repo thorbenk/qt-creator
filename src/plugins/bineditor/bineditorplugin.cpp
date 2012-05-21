@@ -36,6 +36,7 @@
 
 #include <coreplugin/icore.h>
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -169,13 +170,6 @@ public:
 
         return result;
     }
-
-    void replace(const QString &, const QString &,
-                 Find::FindFlags) { }
-    bool replaceStep(const QString &, const QString &,
-                     Find::FindFlags) { return false;}
-    int replaceAll(const QString &, const QString &,
-                   Find::FindFlags) { return 0; }
 
 private:
     BinEditor *m_editor;
@@ -381,8 +375,8 @@ public:
     bool duplicateSupported() const { return false; }
     IEditor *duplicate(QWidget * /* parent */) { return 0; }
 
-    QByteArray saveState() const { return QByteArray(); } // TODO
-    bool restoreState(const QByteArray & /* state */) { return false; } // TODO
+    QByteArray saveState() const { return QByteArray(); } // not supported
+    bool restoreState(const QByteArray & /* state */) { return false; }  // not supported
 
     QWidget *toolBar() { return m_toolBar; }
 
@@ -423,7 +417,7 @@ Core::Id BinEditorFactory::id() const
 
 QString BinEditorFactory::displayName() const
 {
-    return tr(Constants::C_BINEDITOR_DISPLAY_NAME);
+    return qApp->translate("OpenWith::Editors", Constants::C_BINEDITOR_DISPLAY_NAME);
 }
 
 Core::IEditor *BinEditorFactory::createEditor(QWidget *parent)

@@ -34,10 +34,13 @@
 #define QMLADAPTER_H
 
 #include "debugger_global.h"
-#include "qmljsprivateapi.h"
 
-#include <QObject>
+#include <qmldebug/qmldebugclient.h>
+
 #include <QAbstractSocket>
+#include <QObject>
+#include <QPointer>
+#include <QTimer>
 
 namespace QmlDebug {
 class BaseEngineDebugClient;
@@ -52,9 +55,8 @@ class DebuggerEngine;
 namespace Internal {
 class BaseQmlDebuggerClient;
 class QmlAdapterPrivate;
-} // namespace Internal
 
-class DEBUGGER_EXPORT QmlAdapter : public QObject
+class QmlAdapter : public QObject
 {
     Q_OBJECT
 
@@ -66,27 +68,17 @@ public:
     void beginConnectionOst(const QString &port);
     void closeConnection();
 
-    bool isConnected() const;
-
     QmlDebug::QmlDebugConnection *connection() const;
     DebuggerEngine *debuggerEngine() const;
 
-    bool disableJsDebugging(bool block);
-
-    Internal::BaseQmlDebuggerClient *activeDebuggerClient();
-    QHash<QString, Internal::BaseQmlDebuggerClient*> debuggerClients();
-
-    QmlDebug::BaseEngineDebugClient *engineDebugClient() const;
-    void setEngineDebugClient(QmlDebug::BaseEngineDebugClient *client);
+    BaseQmlDebuggerClient *activeDebuggerClient() const;
+    QHash<QString, BaseQmlDebuggerClient*> debuggerClients() const;
 
     QmlDebug::QDebugMessageClient *messageClient() const;
 
-    int currentSelectedDebugId() const;
-    QString currentSelectedDisplayName() const;
-    void setCurrentSelectedDebugInfo(int debugId, const QString &displayName = QString());
-
 public slots:
-    void logServiceStatusChange(const QString &service, float version, QmlDebugClient::Status newStatus);
+    void logServiceStatusChange(const QString &service, float version,
+                                QmlDebug::ClientStatus newStatus);
     void logServiceActivity(const QString &service, const QString &logMessage);
 
 signals:
@@ -95,24 +87,30 @@ signals:
     void connectionStartupFailed();
     void connectionError(QAbstractSocket::SocketError socketError);
     void serviceConnectionError(const QString serviceName);
-    void selectionChanged();
 
 private slots:
     void connectionErrorOccurred(QAbstractSocket::SocketError socketError);
-    void clientStatusChanged(QmlDebugClient::Status status);
-    void debugClientStatusChanged(QmlDebugClient::Status status);
+    void clientStatusChanged(QmlDebug::ClientStatus status);
+    void debugClientStatusChanged(QmlDebug::ClientStatus status);
     void connectionStateChanged();
     void checkConnectionState();
 
 private:
+    bool isConnected() const;
     void createDebuggerClients();
     void showConnectionStatusMessage(const QString &message);
     void showConnectionErrorMessage(const QString &message);
 
 private:
-    Internal::QmlAdapterPrivate *d;
+    QPointer<DebuggerEngine> m_engine;
+    BaseQmlDebuggerClient *m_qmlClient;
+    QTimer m_connectionTimer;
+    QmlDebug::QmlDebugConnection *m_conn;
+    QHash<QString, BaseQmlDebuggerClient*> m_debugClients;
+    QmlDebug::QDebugMessageClient *m_msgClient;
 };
 
+} // namespace Internal
 } // namespace Debugger
 
 #endif // QMLADAPTER_H

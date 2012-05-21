@@ -1426,8 +1426,10 @@ bool BreakHandler::BreakpointItem::isLocatedAt
 
 void BreakHandler::BreakpointItem::updateMarkerIcon()
 {
-    marker->setIcon(icon());
-    marker->updateMarker();
+    if (marker) {
+        marker->setIcon(icon());
+        marker->updateMarker();
+    }
 }
 
 void BreakHandler::BreakpointItem::updateMarker(BreakpointModelId id)
@@ -1437,8 +1439,10 @@ void BreakHandler::BreakpointItem::updateMarker(BreakpointModelId id)
     if (marker && (file != marker->fileName() || line != marker->lineNumber()))
         destroyMarker();
 
-    if (!marker && !file.isEmpty() && line > 0)
+    if (!marker && !file.isEmpty() && line > 0) {
         marker = new BreakpointMarker(id, file, line);
+        marker->init();
+    }
 }
 
 QIcon BreakHandler::BreakpointItem::icon() const

@@ -63,7 +63,7 @@ const char * const CLEAN_KEY("Qt4ProjectManager.MakeStep.Clean");
 }
 
 MakeStep::MakeStep(ProjectExplorer::BuildStepList *bsl) :
-    AbstractProcessStep(bsl, QLatin1String(MAKESTEP_BS_ID)),
+    AbstractProcessStep(bsl, Core::Id(MAKESTEP_BS_ID)),
     m_clean(false)
 {
     ctor();
@@ -78,7 +78,7 @@ MakeStep::MakeStep(ProjectExplorer::BuildStepList *bsl, MakeStep *bs) :
     ctor();
 }
 
-MakeStep::MakeStep(ProjectExplorer::BuildStepList *bsl, const QString &id) :
+MakeStep::MakeStep(ProjectExplorer::BuildStepList *bsl, const Core::Id id) :
     AbstractProcessStep(bsl, id),
     m_clean(false)
 {
@@ -88,6 +88,11 @@ MakeStep::MakeStep(ProjectExplorer::BuildStepList *bsl, const QString &id) :
 void MakeStep::ctor()
 {
     setDefaultDisplayName(tr("Make", "Qt4 MakeStep display name."));
+}
+
+void MakeStep::setMakeCommand(const QString &make)
+{
+    m_makeCmd = make;
 }
 
 MakeStep::~MakeStep()
@@ -107,6 +112,11 @@ void MakeStep::setClean(bool clean)
 bool MakeStep::isClean() const
 {
     return m_clean;
+}
+
+QString MakeStep::makeCommand() const
+{
+    return m_makeCmd;
 }
 
 QVariantMap MakeStep::toMap() const
@@ -173,15 +183,22 @@ bool MakeStep::init()
 
     ProjectExplorer::ToolChain *toolchain = bc->toolChain();
 
-    if (bc->subNodeBuild()) {
-        QString makefile = bc->subNodeBuild()->makefile();
-        if (!makefile.isEmpty()) {
+    Qt4ProjectManager::Qt4ProFileNode *subNode = bc->subNodeBuild();
+    if (subNode) {
+        QString makefile = subNode->makefile();
+        if (makefile.isEmpty())
+            makefile = QLatin1String("Makefile");
+        if (subNode->isDebugAndRelease()) {
+            if (bc->buildType() == Qt4BuildConfiguration::Debug)
+                makefile += QLatin1String(".Debug");
+            else
+                makefile += QLatin1String(".Release");
+        }
+        if (makefile != QLatin1String("Makefile")) {
             Utils::QtcProcess::addArg(&args, QLatin1String("-f"));
             Utils::QtcProcess::addArg(&args, makefile);
-            m_makeFileToCheck = QDir(workingDirectory).filePath(makefile);
-        } else {
-            m_makeFileToCheck = QDir(workingDirectory).filePath(QLatin1String("Makefile"));
         }
+        m_makeFileToCheck = QDir(workingDirectory).filePath(makefile);
     } else {
         if (!bc->makefile().isEmpty()) {
             Utils::QtcProcess::addArg(&args, QLatin1String("-f"));
@@ -199,13 +216,32 @@ bool MakeStep::init()
             Utils::QtcProcess::addArg(&args, bc->defaultMakeTarget());
     }
 
+    if (bc->fileNodeBuild() && subNode) {
+        QString objectsDir = subNode->objectsDirectory();
+        if (objectsDir.isEmpty()) {
+            objectsDir = subNode->buildDir(bc);
+            if (subNode->isDebugAndRelease()) {
+                if (bc->buildType() == Qt4BuildConfiguration::Debug)
+                    objectsDir += QLatin1String("/debug");
+                else
+                    objectsDir += QLatin1String("/release");
+            }
+        }
+        QString relObjectsDir = QDir(pp->workingDirectory()).relativeFilePath(objectsDir);
+        if (!relObjectsDir.isEmpty())
+            relObjectsDir += QLatin1Char('/');
+        QString objectFile = relObjectsDir +
+                QFileInfo(bc->fileNodeBuild()->path()).baseName() +
+                subNode->objectExtension();
+        Utils::QtcProcess::addArg(&args, objectFile);
+    }
     Utils::Environment env = bc->environment();
     // Force output to english for the parsers. Do this here and not in the toolchain's
     // addToEnvironment() to not screw up the users run environment.
     env.set(QLatin1String("LC_ALL"), QLatin1String("C"));
     // -w option enables "Enter"/"Leaving directory" messages, which we need for detecting the
     // absolute file path
-    // FIXME doing this without the user having a way to override this is rather bad
+    // doing this without the user having a way to override this is rather bad
     // so we only do it for unix and if the user didn't override the make command
     // but for now this is the least invasive change
     // We also prepend "L" to the MAKEFLAGS, so that nmake / jom are less verbose
@@ -311,7 +347,7 @@ MakeStepConfigWidget::MakeStepConfigWidget(MakeStep *makeStep)
     m_ui->makePathChooser->setBaseDirectory(Utils::PathChooser::homePath());
 
 
-    const QString &makeCmd = m_makeStep->m_makeCmd;
+    const QString &makeCmd = m_makeStep->makeCommand();
     m_ui->makePathChooser->setPath(makeCmd);
     m_ui->makeArgumentsLineEdit->setText(m_makeStep->userArguments());
 
@@ -413,8 +449,8 @@ void MakeStepConfigWidget::updateDetails()
     param.setMacroExpander(bc->macroExpander());
     param.setWorkingDirectory(bc->buildDirectory());
     QString makeCmd = bc->makeCommand();
-    if (!m_makeStep->m_makeCmd.isEmpty())
-        makeCmd = m_makeStep->m_makeCmd;
+    if (!m_makeStep->makeCommand().isEmpty())
+        makeCmd = m_makeStep->makeCommand();
     param.setCommand(makeCmd);
 
     QString args = m_makeStep->userArguments();
@@ -434,7 +470,7 @@ void MakeStepConfigWidget::updateDetails()
     // but for now this is the least invasive change
     // We also prepend "L" to the MAKEFLAGS, so that nmake / jom are less verbose
     ProjectExplorer::ToolChain *toolChain = bc->toolChain();
-    if (toolChain && m_makeStep->m_makeCmd.isEmpty()) {
+    if (toolChain && m_makeStep->makeCommand().isEmpty()) {
         if (toolChain->targetAbi().binaryFormat() != ProjectExplorer::Abi::PEFormat )
             Utils::QtcProcess::addArg(&args, QLatin1String("-w"));
         if (toolChain->targetAbi().os() == ProjectExplorer::Abi::WindowsOS
@@ -472,7 +508,7 @@ void MakeStepConfigWidget::userArgumentsChanged()
 
 void MakeStepConfigWidget::makeEdited()
 {
-    m_makeStep->m_makeCmd = m_ui->makePathChooser->rawPath();
+    m_makeStep->setMakeCommand(m_ui->makePathChooser->rawPath());
     updateDetails();
 }
 
@@ -497,19 +533,19 @@ MakeStepFactory::~MakeStepFactory()
 {
 }
 
-bool MakeStepFactory::canCreate(ProjectExplorer::BuildStepList *parent, const QString &id) const
+bool MakeStepFactory::canCreate(ProjectExplorer::BuildStepList *parent, const Core::Id id) const
 {
-    if (parent->target()->project()->id() != QLatin1String(Constants::QT4PROJECT_ID))
+    if (parent->target()->project()->id() != Core::Id(Constants::QT4PROJECT_ID))
         return false;
-    return (id == QLatin1String(MAKESTEP_BS_ID));
+    return (id == Core::Id(MAKESTEP_BS_ID));
 }
 
-ProjectExplorer::BuildStep *MakeStepFactory::create(ProjectExplorer::BuildStepList *parent, const QString &id)
+ProjectExplorer::BuildStep *MakeStepFactory::create(ProjectExplorer::BuildStepList *parent, const Core::Id id)
 {
     if (!canCreate(parent, id))
         return 0;
     MakeStep *step = new MakeStep(parent);
-    if (parent->id() == QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)) {
+    if (parent->id() == Core::Id(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)) {
         step->setClean(true);
         step->setUserArguments(QLatin1String("clean"));
     }
@@ -530,8 +566,7 @@ ProjectExplorer::BuildStep *MakeStepFactory::clone(ProjectExplorer::BuildStepLis
 
 bool MakeStepFactory::canRestore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map) const
 {
-    QString id(ProjectExplorer::idFromMap(map));
-    return canCreate(parent, id);
+    return canCreate(parent, ProjectExplorer::idFromMap(map));
 }
 
 ProjectExplorer::BuildStep *MakeStepFactory::restore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map)
@@ -545,16 +580,16 @@ ProjectExplorer::BuildStep *MakeStepFactory::restore(ProjectExplorer::BuildStepL
     return 0;
 }
 
-QStringList MakeStepFactory::availableCreationIds(ProjectExplorer::BuildStepList *parent) const
+QList<Core::Id> MakeStepFactory::availableCreationIds(ProjectExplorer::BuildStepList *parent) const
 {
-    if (parent->target()->project()->id() == QLatin1String(Constants::QT4PROJECT_ID))
-        return QStringList() << QLatin1String(MAKESTEP_BS_ID);
-    return QStringList();
+    if (parent->target()->project()->id() == Core::Id(Constants::QT4PROJECT_ID))
+        return QList<Core::Id>() << Core::Id(MAKESTEP_BS_ID);
+    return QList<Core::Id>();
 }
 
-QString MakeStepFactory::displayNameForId(const QString &id) const
+QString MakeStepFactory::displayNameForId(const Core::Id id) const
 {
-    if (id == QLatin1String(MAKESTEP_BS_ID))
+    if (id == Core::Id(MAKESTEP_BS_ID))
         return tr("Make");
     return QString();
 }

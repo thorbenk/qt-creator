@@ -58,10 +58,12 @@ private:
 
 class StackWindow : public BaseWindow
 {
+    Q_OBJECT
+
 public:
     StackWindow() : BaseWindow(new StackTreeView)
     {
-    setWindowTitle(tr("Stack"));
+        setWindowTitle(tr("Stack"));
     }
 };
 

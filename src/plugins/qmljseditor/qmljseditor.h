@@ -39,6 +39,7 @@
 #include <qmljstools/qmljssemanticinfo.h>
 #include <texteditor/basetexteditor.h>
 #include <texteditor/quickfix.h>
+#include <texteditor/texteditorconstants.h>
 
 #include <QSharedPointer>
 #include <QModelIndex>
@@ -56,6 +57,9 @@ namespace QmlJS {
     class ModelManagerInterface;
     class IContextPane;
     class LookupContext;
+namespace AST {
+    class UiObjectMember;
+}
 }
 
 /*!
@@ -108,7 +112,7 @@ public:
     Internal::QmlOutlineModel *outlineModel() const;
     QModelIndex outlineModelIndex();
 
-    static QVector<QString> highlighterFormatCategories();
+    static QVector<TextEditor::TextStyle> highlighterFormatCategories();
 
     TextEditor::IAssistInterface *createAssistInterface(TextEditor::AssistKind assistKind,
                                                         TextEditor::AssistReason reason) const;
@@ -126,7 +130,8 @@ public slots:
 
 signals:
     void outlineModelIndexChanged(const QModelIndex &index);
-    void selectedElementsChanged(QList<int> offsets, const QString &wordAtCursor);
+    void selectedElementsChanged(QList<QmlJS::AST::UiObjectMember*> offsets,
+                                 const QString &wordAtCursor);
     void semanticInfoUpdated();
 
 private slots:

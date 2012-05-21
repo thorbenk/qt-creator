@@ -294,22 +294,19 @@ Utils::JsonSchemaManager *QmlJSEditorPlugin::jsonManager() const
 
 void QmlJSEditorPlugin::findUsages()
 {
-    Core::EditorManager *em = Core::EditorManager::instance();
-    if (QmlJSTextEditorWidget *editor = qobject_cast<QmlJSTextEditorWidget*>(em->currentEditor()->widget()))
+    if (QmlJSTextEditorWidget *editor = qobject_cast<QmlJSTextEditorWidget*>(Core::EditorManager::currentEditor()->widget()))
         editor->findUsages();
 }
 
 void QmlJSEditorPlugin::renameUsages()
 {
-    Core::EditorManager *em = Core::EditorManager::instance();
-    if (QmlJSTextEditorWidget *editor = qobject_cast<QmlJSTextEditorWidget*>(em->currentEditor()->widget()))
+    if (QmlJSTextEditorWidget *editor = qobject_cast<QmlJSTextEditorWidget*>(Core::EditorManager::currentEditor()->widget()))
         editor->renameUsages();
 }
 
 void QmlJSEditorPlugin::reformatFile()
 {
-    Core::EditorManager *em = Core::EditorManager::instance();
-    if (QmlJSTextEditorWidget *editor = qobject_cast<QmlJSTextEditorWidget*>(em->currentEditor()->widget())) {
+    if (QmlJSTextEditorWidget *editor = qobject_cast<QmlJSTextEditorWidget*>(Core::EditorManager::currentEditor()->widget())) {
         QTC_ASSERT(!editor->isSemanticInfoOutdated(), return);
 
         const QString &newText = QmlJS::reformat(editor->semanticInfo().document);
@@ -322,9 +319,7 @@ void QmlJSEditorPlugin::reformatFile()
 
 void QmlJSEditorPlugin::showContextPane()
 {
-    Core::EditorManager *em = Core::EditorManager::instance();
-
-    if (QmlJSTextEditorWidget *editor = qobject_cast<QmlJSTextEditorWidget*>(em->currentEditor()->widget()))
+    if (QmlJSTextEditorWidget *editor = qobject_cast<QmlJSTextEditorWidget*>(Core::EditorManager::currentEditor()->widget()))
         editor->showContextPane();
 
 }
@@ -372,7 +367,7 @@ void QmlJSEditorPlugin::runSemanticScan()
     m_qmlTaskManager->updateSemanticMessagesNow();
     TaskHub *hub = ProjectExplorerPlugin::instance()->taskHub();
     hub->setCategoryVisibility(Constants::TASK_CATEGORY_QML_ANALYSIS, true);
-    hub->popup(false);
+    hub->requestPopup();
 }
 
 void QmlJSEditorPlugin::checkCurrentEditorSemanticInfoUpToDate()

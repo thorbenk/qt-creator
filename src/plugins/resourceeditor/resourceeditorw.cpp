@@ -36,9 +36,11 @@
 
 #include <qrceditor.h>
 
+#include <aggregation/aggregate.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/documentmanager.h>
+#include <find/treeviewfind.h>
 #include <utils/reloadpromptutils.h>
 #include <utils/fileutils.h>
 
@@ -85,7 +87,12 @@ ResourceEditorW::ResourceEditorW(const Core::Context &context,
     setContext(context);
     setWidget(m_resourceEditor);
 
+    Aggregation::Aggregate * agg = new Aggregation::Aggregate;
+    agg->add(m_resourceEditor->treeView());
+    agg->add(new Find::TreeViewFind(m_resourceEditor->treeView()));
+
     m_resourceEditor->setResourceDragEnabled(true);
+    m_contextMenu->addAction(tr("Open File"), this, SLOT(openCurrentFile()));
     m_openWithMenu = m_contextMenu->addMenu(tr("Open With"));
     // Below we need QueuedConnection because otherwise, if this qrc file
     // is inside of the qrc file, crashes happen when using "Open With" on it.
@@ -100,6 +107,8 @@ ResourceEditorW::ResourceEditorW(const Core::Context &context,
             this, SLOT(onUndoStackChanged(bool,bool)));
     connect(m_resourceEditor, SIGNAL(showContextMenu(QPoint,QString)),
             this, SLOT(showContextMenu(QPoint,QString)));
+    connect(m_resourceEditor, SIGNAL(itemActivated(QString)),
+            this, SLOT(openFile(QString)));
     connect(m_resourceEditor->commandHistory(), SIGNAL(indexChanged(int)),
             this, SLOT(setShouldAutoSave()));
     connect(m_resourceDocument, SIGNAL(changed()), this, SIGNAL(changed()));
@@ -274,8 +283,20 @@ void ResourceEditorW::onUndoStackChanged(bool canUndo, bool canRedo)
 void ResourceEditorW::showContextMenu(const QPoint &globalPoint, const QString &fileName)
 {
     Core::DocumentManager::populateOpenWithMenu(m_openWithMenu, fileName);
-    if (!m_openWithMenu->actions().isEmpty())
+    if (!m_openWithMenu->actions().isEmpty()) {
+        m_currentFileName = fileName;
         m_contextMenu->popup(globalPoint);
+    }
+}
+
+void ResourceEditorW::openCurrentFile()
+{
+    openFile(m_currentFileName);
+}
+
+void ResourceEditorW::openFile(const QString &fileName)
+{
+    Core::EditorManager::openEditor(fileName);
 }
 
 void ResourceEditorW::onUndo()

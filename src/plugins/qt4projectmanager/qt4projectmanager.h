@@ -97,8 +97,10 @@ public:
     // Context information used in the slot implementations
     ProjectExplorer::Node *contextNode() const;
     void setContextNode(ProjectExplorer::Node *node);
-    void setContextProject(ProjectExplorer::Project *project);
     ProjectExplorer::Project *contextProject() const;
+    void setContextProject(ProjectExplorer::Project *project);
+    ProjectExplorer::FileNode *contextFile() const;
+    void setContextFile(ProjectExplorer::FileNode *file);
 
     // Return the id string of a file
     static QString fileTypeId(ProjectExplorer::FileType type);
@@ -120,6 +122,7 @@ public slots:
     void buildSubDirContextMenu();
     void rebuildSubDirContextMenu();
     void cleanSubDirContextMenu();
+    void buildFileContextMenu();
 
 private slots:
     void editorAboutToClose(Core::IEditor *editor);
@@ -129,7 +132,7 @@ private slots:
 
 private:
     QList<Qt4Project *> m_projects;
-    void handleSubDirContexMenu(Action action);
+    void handleSubDirContextMenu(Action action, bool isFileBuild);
     void addLibrary(const QString &fileName, Internal::ProFileEditorWidget *editor = 0);
     void runQMake(ProjectExplorer::Project *p, ProjectExplorer::Node *node);
 
@@ -138,6 +141,7 @@ private:
     mutable QString m_unconfiguredToolChainId;
     ProjectExplorer::Node *m_contextNode;
     ProjectExplorer::Project *m_contextProject;
+    ProjectExplorer::FileNode *m_contextFile;
 
     Core::IEditor *m_lastEditor;
     bool m_dirty;

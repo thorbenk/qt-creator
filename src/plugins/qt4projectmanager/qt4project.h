@@ -88,7 +88,7 @@ public:
     virtual ~Qt4Project();
 
     QString displayName() const;
-    QString id() const;
+    Core::Id id() const;
     Core::IDocument *document() const;
     ProjectExplorer::IProjectManager *projectManager() const;
     Qt4Manager *qt4ProjectManager() const;
@@ -138,6 +138,9 @@ public:
     bool needsConfiguration() const;
 
     void configureAsExampleProject(const QStringList &platforms);
+
+    /// \internal
+    QString disabledReasonForRunConfiguration(const QString &proFilePath);
 
 signals:
     void proParsingDone();

@@ -32,10 +32,12 @@
 #ifndef DEVICEMANAGERMODEL_H
 #define DEVICEMANAGERMODEL_H
 
-#include <projectexplorer/projectexplorer_export.h>
+#include "../projectexplorer_export.h"
+#include "idevice.h"
+
+#include <coreplugin/id.h>
 
 #include <QAbstractListModel>
-#include <QSharedPointer>
 
 namespace ProjectExplorer {
 namespace Internal { class DeviceManagerModelPrivate; }
@@ -49,15 +51,23 @@ public:
     explicit DeviceManagerModel(const DeviceManager *deviceManager, QObject *parent = 0);
     ~DeviceManagerModel();
 
+    void updateDevice(Core::Id id);
+
+    IDevice::ConstPtr device(int pos) const;
+    Core::Id deviceId(int pos) const;
+    int indexOf(IDevice::ConstPtr dev) const;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
+
 private slots:
-    void handleDeviceAdded(const QSharedPointer<const IDevice> &device);
-    void handleDeviceRemoved(int idx);
-    void handleDataChanged(int idx);
+    void handleDeviceAdded(Core::Id id);
+    void handleDeviceRemoved(Core::Id id);
+    void handleDeviceUpdated(Core::Id id);
     void handleDeviceListChanged();
 
 private:
-    int rowCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+
+    int indexForId(Core::Id id) const;
 
     Internal::DeviceManagerModelPrivate * const d;
 };

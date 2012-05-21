@@ -466,7 +466,7 @@ bool UrlTextCursorHandler::findContentsUnderCursor(const QTextCursor &cursor)
     if (cursorForUrl.hasSelection()) {
         const QString line = cursorForUrl.selectedText();
         const int cursorCol = cursor.columnNumber();
-        const QRegExp urlRx(m_urlPattern);
+        QRegExp urlRx(m_urlPattern);
         int urlMatchIndex = -1;
         do {
             urlMatchIndex = urlRx.indexIn(line, urlMatchIndex + 1);
@@ -1095,8 +1095,7 @@ void VcsBaseEditorWidget::jumpToChangeFromDiff(QTextCursor cursor)
     if (!exists)
         return;
 
-    Core::EditorManager *em = Core::EditorManager::instance();
-    Core::IEditor *ed = em->openEditor(fileName, Core::Id(), Core::EditorManager::ModeSwitch);
+    Core::IEditor *ed = Core::EditorManager::openEditor(fileName, Core::Id(), Core::EditorManager::ModeSwitch);
     if (TextEditor::ITextEditor *editor = qobject_cast<TextEditor::ITextEditor *>(ed))
         editor->gotoLine(chunkStart + lineCount);
 }
@@ -1153,18 +1152,18 @@ void VcsBaseEditorWidget::setPlainTextData(const QByteArray &data)
 void VcsBaseEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
 {
     TextEditor::BaseTextEditorWidget::setFontSettings(fs);
-    d->m_backgroundColor = fs.toTextCharFormat(QLatin1String(TextEditor::Constants::C_TEXT))
+    d->m_backgroundColor = fs.toTextCharFormat(TextEditor::C_TEXT)
             .brushProperty(QTextFormat::BackgroundBrush).color();
 
     if (d->m_parameters->type == DiffOutput) {
         if (DiffHighlighter *highlighter = qobject_cast<DiffHighlighter*>(baseTextDocument()->syntaxHighlighter())) {
-            static QVector<QString> categories;
+            static QVector<TextEditor::TextStyle> categories;
             if (categories.isEmpty()) {
-                categories << QLatin1String(TextEditor::Constants::C_TEXT)
-                           << QLatin1String(TextEditor::Constants::C_ADDED_LINE)
-                           << QLatin1String(TextEditor::Constants::C_REMOVED_LINE)
-                           << QLatin1String(TextEditor::Constants::C_DIFF_FILE)
-                           << QLatin1String(TextEditor::Constants::C_DIFF_LOCATION);
+                categories << TextEditor::C_TEXT
+                           << TextEditor::C_ADDED_LINE
+                           << TextEditor::C_REMOVED_LINE
+                           << TextEditor::C_DIFF_FILE
+                           << TextEditor::C_DIFF_LOCATION;
             }
             highlighter->setFormats(fs.toTextCharFormats(categories));
             highlighter->rehighlight();
@@ -1256,7 +1255,7 @@ VcsBaseEditorWidget *VcsBaseEditorWidget::getVcsBaseEditor(const Core::IEditor *
 // Return line number of current editor if it matches.
 int VcsBaseEditorWidget::lineNumberOfCurrentEditor(const QString &currentFile)
 {
-    Core::IEditor *ed = Core::EditorManager::instance()->currentEditor();
+    Core::IEditor *ed = Core::EditorManager::currentEditor();
     if (!ed)
         return -1;
     if (!currentFile.isEmpty()) {

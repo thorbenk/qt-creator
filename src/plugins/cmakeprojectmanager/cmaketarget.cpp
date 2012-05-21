@@ -38,8 +38,8 @@
 
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/deployconfiguration.h>
-#include <projectexplorer/customexecutablerunconfiguration.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <qtsupport/customexecutablerunconfiguration.h>
 
 #include <QApplication>
 #include <QStyle>
@@ -49,8 +49,8 @@ using namespace CMakeProjectManager::Internal;
 
 namespace {
 
-QString displayNameForId(const QString &id) {
-    if (id == QLatin1String(DEFAULT_CMAKE_TARGET_ID))
+QString displayNameForId(const Core::Id id) {
+    if (id == Core::Id(DEFAULT_CMAKE_TARGET_ID))
         return QApplication::translate("CMakeProjectManager::Internal::CMakeTarget", "Desktop", "CMake Default target display name");
     return QString();
 }
@@ -62,7 +62,7 @@ QString displayNameForId(const QString &id) {
 // -------------------------------------------------------------------------
 
 CMakeTarget::CMakeTarget(CMakeProject *parent) :
-    ProjectExplorer::Target(parent, QLatin1String(DEFAULT_CMAKE_TARGET_ID)),
+    ProjectExplorer::Target(parent, Core::Id(DEFAULT_CMAKE_TARGET_ID)),
     m_buildConfigurationFactory(new CMakeBuildConfigurationFactory(this))
 {
     setDefaultDisplayName(displayNameForId(id()));
@@ -84,9 +84,9 @@ ProjectExplorer::BuildConfigWidget *CMakeTarget::createConfigWidget()
     return new CMakeBuildSettingsWidget(this);
 }
 
-bool CMakeTargetFactory::supportsTargetId(const QString &id) const
+bool CMakeTargetFactory::supportsTargetId(const Core::Id id) const
 {
-    return id == DEFAULT_CMAKE_TARGET_ID;
+    return id == Core::Id(DEFAULT_CMAKE_TARGET_ID);
 }
 
 CMakeBuildConfiguration *CMakeTarget::activeBuildConfiguration() const
@@ -117,8 +117,8 @@ void CMakeTarget::updateRunConfigurations()
     foreach (ProjectExplorer::RunConfiguration* rc, runConfigurations()) {
         if (CMakeRunConfiguration* cmakeRC = qobject_cast<CMakeRunConfiguration *>(rc))
             existingRunConfigurations.insert(cmakeRC->title(), cmakeRC);
-        ProjectExplorer::CustomExecutableRunConfiguration *ceRC =
-                qobject_cast<ProjectExplorer::CustomExecutableRunConfiguration *>(rc);
+        QtSupport::CustomExecutableRunConfiguration *ceRC =
+                qobject_cast<QtSupport::CustomExecutableRunConfiguration *>(rc);
         if (ceRC && !ceRC->isConfigured())
             toRemove << rc;
     }
@@ -160,8 +160,7 @@ void CMakeTarget::updateRunConfigurations()
     if (runConfigurations().isEmpty()) {
         // Oh no, no run configuration,
         // create a custom executable run configuration
-        ProjectExplorer::CustomExecutableRunConfiguration *rc = new ProjectExplorer::CustomExecutableRunConfiguration(this);
-        addRunConfiguration(rc);
+        addRunConfiguration(new QtSupport::CustomExecutableRunConfiguration(this));
     }
 }
 
@@ -178,23 +177,23 @@ CMakeTargetFactory::~CMakeTargetFactory()
 {
 }
 
-QStringList CMakeTargetFactory::supportedTargetIds() const
+QList<Core::Id> CMakeTargetFactory::supportedTargetIds() const
 {
-    return QStringList() << QLatin1String(DEFAULT_CMAKE_TARGET_ID);
+    return QList<Core::Id>() << Core::Id(DEFAULT_CMAKE_TARGET_ID);
 }
-QString CMakeTargetFactory::displayNameForId(const QString &id) const
+QString CMakeTargetFactory::displayNameForId(const Core::Id id) const
 {
     return ::displayNameForId(id);
 }
 
-bool CMakeTargetFactory::canCreate(ProjectExplorer::Project *parent, const QString &id) const
+bool CMakeTargetFactory::canCreate(ProjectExplorer::Project *parent, const Core::Id id) const
 {
     if (!qobject_cast<CMakeProject *>(parent))
         return false;
-    return id == QLatin1String(DEFAULT_CMAKE_TARGET_ID);
+    return id == Core::Id(DEFAULT_CMAKE_TARGET_ID);
 }
 
-CMakeTarget *CMakeTargetFactory::create(ProjectExplorer::Project *parent, const QString &id)
+CMakeTarget *CMakeTargetFactory::create(ProjectExplorer::Project *parent, const Core::Id id)
 {
     if (!canCreate(parent, id))
         return 0;

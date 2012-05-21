@@ -347,7 +347,8 @@ public:
     QString displayName() const { return tr("Ex Command Mapping"); }
     QString category() const { return _(Constants::SETTINGS_CATEGORY); }
     QString displayCategory() const { return tr("FakeVim"); }
-    QIcon categoryIcon() const { return QIcon(); } // TODO: Icon for FakeVim
+    QIcon categoryIcon() const
+        { return QIcon(_(Constants::SETTINGS_CATEGORY_FAKEVIM_ICON)); }
 
     QWidget *createPage(QWidget *parent);
     void initialize();
@@ -572,7 +573,8 @@ public:
     QString displayName() const { return tr("User Command Mapping"); }
     QString category() const { return _(Constants::SETTINGS_CATEGORY); }
     QString displayCategory() const { return tr("FakeVim"); }
-    QIcon categoryIcon() const { return QIcon(); }
+    QIcon categoryIcon() const
+        { return QIcon(_(Constants::SETTINGS_CATEGORY_FAKEVIM_ICON)); }
     void apply();
     void finish() {}
 
@@ -1021,7 +1023,7 @@ void FakeVimPluginPrivate::userActionTriggered()
     if (!key)
         return;
     QString cmd = userCommandMap().value(key);
-    IEditor *editor = ICore::editorManager()->currentEditor();
+    IEditor *editor = EditorManager::currentEditor();
     FakeVimHandler *handler = m_editorToHandler[editor];
     if (handler)
         handler->handleInput(cmd);
@@ -1255,11 +1257,9 @@ void FakeVimPluginPrivate::windowCommand(int key)
 
 void FakeVimPluginPrivate::moveSomewhere(DistFunction f)
 {
-    EditorManager *editorManager = ICore::editorManager();
-    IEditor *editor = editorManager->currentEditor();
+    IEditor *editor = EditorManager::currentEditor();
     QWidget *w = editor->widget();
-    QPlainTextEdit *pe =
-        qobject_cast<QPlainTextEdit *>(editor->widget());
+    QPlainTextEdit *pe = qobject_cast<QPlainTextEdit *>(w);
     QTC_ASSERT(pe, return);
     QRect rc = pe->cursorRect();
     QRect cursorRect(w->mapToGlobal(rc.topLeft()),
@@ -1269,8 +1269,7 @@ void FakeVimPluginPrivate::moveSomewhere(DistFunction f)
     IEditor *bestEditor = 0;
     int bestValue = 1 << 30;
 
-    QList<IEditor*> editors = editorManager->visibleEditors();
-    foreach (IEditor *editor, editors) {
+    foreach (IEditor *editor, EditorManager::instance()->visibleEditors()) {
         QWidget *w = editor->widget();
         QRect editorRect(w->mapToGlobal(w->geometry().topLeft()),
                 w->mapToGlobal(w->geometry().bottomRight()));
@@ -1288,7 +1287,7 @@ void FakeVimPluginPrivate::moveSomewhere(DistFunction f)
     // FIME: This is know to fail as the EditorManager will fall back to
     // the current editor's view. Needs additional public API there.
     if (bestEditor)
-        editorManager->activateEditor(bestEditor);
+        EditorManager::activateEditor(bestEditor);
 }
 
 void FakeVimPluginPrivate::find(bool reverse)
@@ -1572,7 +1571,7 @@ void FakeVimPluginPrivate::handleExCommand(bool *handled, const ExCommand &cmd)
         const Iterator end = exCommandMap().constEnd();
         for (Iterator it = exCommandMap().constBegin(); it != end; ++it) {
             const QString &id = it.key();
-            const QRegExp &re = it.value();
+            QRegExp re = it.value();
             if (!re.pattern().isEmpty() && re.indexIn(cmd.cmd) != -1) {
                 triggerAction(Core::Id(id));
                 return;
@@ -1705,9 +1704,8 @@ void FakeVimPluginPrivate::changeSelection
 
 int FakeVimPluginPrivate::currentFile() const
 {
-    EditorManager *editorManager = ICore::editorManager();
-    OpenEditorsModel *model = editorManager->openedEditorsModel();
-    IEditor *editor = editorManager->currentEditor();
+    OpenEditorsModel *model = EditorManager::instance()->openedEditorsModel();
+    IEditor *editor = EditorManager::currentEditor();
     return model->indexOf(editor).row();
 }
 

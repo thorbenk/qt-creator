@@ -57,10 +57,10 @@
 #include <projectexplorer/headerpath.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/buildenvironmentwidget.h>
-#include <projectexplorer/customexecutablerunconfiguration.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <utils/qtcassert.h>
+#include <qtsupport/customexecutablerunconfiguration.h>
 #include <qtsupport/qmldumptool.h>
 #include <qtsupport/baseqtversion.h>
 #include <qtsupport/profilereader.h>
@@ -369,7 +369,7 @@ bool Qt4Project::fromMap(const QVariantMap &map)
     QList<Target *>ts = targets();
     foreach (Target *t, ts) {
         if (t->buildConfigurations().isEmpty()) {
-            qWarning() << "Removing" << t->id() << "since it has no buildconfigurations!";
+            qWarning() << "Removing" << t->id().name() << "since it has no buildconfigurations!";
             removeTarget(t);
             delete t;
         }
@@ -860,9 +860,9 @@ QString Qt4Project::displayName() const
     return QFileInfo(document()->fileName()).completeBaseName();
 }
 
-QString Qt4Project::id() const
+Core::Id Qt4Project::id() const
 {
-    return QLatin1String(Constants::QT4PROJECT_ID);
+    return Core::Id(Constants::QT4PROJECT_ID);
 }
 
 Core::IDocument *Qt4Project::document() const
@@ -1233,7 +1233,7 @@ void CentralizedFolderWatcher::unwatchFolders(const QList<QString> &folders, Qt4
         }
 
         // Figure out which recursive directories we can remove
-        // TODO this might not scale. I'm pretty sure it doesn't
+        // this might not scale. I'm pretty sure it doesn't
         // A scaling implementation would need to save more information
         // where a given directory watcher actual comes from...
 
@@ -1336,7 +1336,7 @@ void Qt4Project::configureAsExampleProject(const QStringList &platforms)
 {
     QList<Qt4BaseTargetFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<Qt4BaseTargetFactory>();
     foreach (Qt4BaseTargetFactory *factory, factories) {
-        foreach (const QString &id, factory->supportedTargetIds()) {
+        foreach (const Core::Id id, factory->supportedTargetIds()) {
             QList<BuildConfigurationInfo> infos
                     = factory->availableBuildConfigurations(id, rootProjectNode()->path(),
                                                             QtSupport::QtVersionNumber(),
@@ -1362,32 +1362,22 @@ void Qt4Project::configureAsExampleProject(const QStringList &platforms)
     ProjectExplorer::ProjectExplorerPlugin::instance()->requestProjectModeUpdate(this);
 }
 
-/*!
-  Handle special case were a subproject of the qt directory is opened, and
-  qt was configured to be built as a shadow build -> also build in the sub-
-  project in the correct shadow build directory.
-  */
+// All the Qt4 run configurations should share code.
+// This is a rather suboptimal way to do that for disabledReason()
+// but more pratical then duplicated the code everywhere
+QString Qt4Project::disabledReasonForRunConfiguration(const QString &proFilePath)
+{
+    if (!QFileInfo(proFilePath).exists())
+        return tr("The .pro file '%1' does not exist.")
+                .arg(QFileInfo(proFilePath).fileName());
 
-// TODO this function should be called on project first load
-// and it should check against all configured qt versions ?
-//void Qt4Project::detectQtShadowBuild(const QString &buildConfiguration) const
-//{
-//    if (project()->activeBuildConfiguration() == buildConfiguration)
-//        return;
-//
-//    const QString currentQtDir = static_cast<Qt4Project *>(project())->qtDir(buildConfiguration);
-//    const QString qtSourceDir = static_cast<Qt4Project *>(project())->qtVersion(buildConfiguration)->sourcePath();
-//
-//    // if the project is a sub-project of Qt and Qt was shadow-built then automatically
-//    // adjust the build directory of the sub-project.
-//    if (project()->file()->fileName().startsWith(qtSourceDir) && qtSourceDir != currentQtDir) {
-//        project()->setValue(buildConfiguration, "useShadowBuild", true);
-//        QString buildDir = project()->projectDirectory();
-//        buildDir.replace(qtSourceDir, currentQtDir);
-//        project()->setValue(buildConfiguration, "buildDirectory", buildDir);
-//        project()->setValue(buildConfiguration, "autoShadowBuild", true);
-//    }
-//}
+    if (!m_rootProjectNode->findProFileFor(proFilePath))
+        return tr("The .pro file '%1' is not part of the project.")
+                .arg(QFileInfo(proFilePath).fileName());
+
+    return tr("The .pro file '%1' could not be parsed.")
+            .arg(QFileInfo(proFilePath).fileName());
+}
 
 } // namespace Qt4ProjectManager
 

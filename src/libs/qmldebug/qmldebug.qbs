@@ -20,6 +20,11 @@ QtcLibrary {
     files: [
         "baseenginedebugclient.cpp",
         "baseenginedebugclient.h",
+        "basetoolsclient.cpp",
+        "basetoolsclient.h",
+        "declarativeenginedebugclient.h",
+        "declarativetoolsclient.cpp",
+        "declarativetoolsclient.h",
         "qdebugmessageclient.cpp",
         "qdebugmessageclient.h",
         "qmldebugclient.cpp",
@@ -34,11 +39,12 @@ QtcLibrary {
         "qmlprofilertraceclient.h",
         "qpacketprotocol.cpp",
         "qpacketprotocol.h",
-        "declarativeenginedebugclient.h",
         "qmlenginedebugclient.cpp",
         "qmlenginedebugclient.h",
         "qv8profilerclient.cpp",
         "qv8profilerclient.h",
+        "qmltoolsclient.cpp",
+        "qmltoolsclient.h"
     ]
 
     ProductModule {

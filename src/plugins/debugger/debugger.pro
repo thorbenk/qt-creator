@@ -16,6 +16,8 @@ QT += gui \
     network \
     script
 
+CONFIG += exceptions
+
 HEADERS += \
     basewindow.h \
     breakhandler.h \
@@ -72,7 +74,8 @@ HEADERS += \
     qtmessagelogview.h \
     qtmessagelogproxymodel.h \
     qtmessagelogitemdelegate.h \
-    qtmessageloghandler.h
+    qtmessageloghandler.h \
+    localsandexpressionswindow.h
 
 SOURCES += \
     basewindow.cpp \
@@ -123,13 +126,14 @@ SOURCES += \
     qtmessagelogview.cpp \
     qtmessagelogitemdelegate.cpp \
     qtmessageloghandler.cpp \
-    qtmessagelogeditor.cpp
+    qtmessagelogeditor.cpp \
+    localsandexpressionswindow.cpp
 
 FORMS += attachexternaldialog.ui \
     attachcoredialog.ui \
     breakcondition.ui \
     breakpoint.ui \
-    dumperoptionpage.ui \
+    localsandexpressionsoptionspage.ui \
     commonoptionspage.ui \
     startexternaldialog.ui \
     startremotedialog.ui \

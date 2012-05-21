@@ -203,7 +203,7 @@ public:
     qint64 traceStartTime;
     qint64 qmlMeasuredTime;
 
-    QmlRangeEventStartInstance *lastFrameEvent;
+    int lastFrameEventIndex;
     qint64 maxAnimationCount;
     qint64 minAnimationCount;
 
@@ -226,7 +226,7 @@ QmlProfilerDataModel::QmlProfilerDataModel(QObject *parent) :
     d->traceStartTime = -1;
     d->qmlMeasuredTime = 0;
     d->clearQmlRootEvent();
-    d->lastFrameEvent = 0;
+    d->lastFrameEventIndex = -1;
     d->maxAnimationCount = 0;
     d->minAnimationCount = 0;
     d->v8DataModel = new QV8ProfilerDataModel(this, this);
@@ -283,7 +283,7 @@ void QmlProfilerDataModel::clear()
     d->traceStartTime = -1;
     d->qmlMeasuredTime = 0;
 
-    d->lastFrameEvent = 0;
+    d->lastFrameEventIndex = -1;
     d->maxAnimationCount = 0;
     d->minAnimationCount = 0;
 
@@ -293,8 +293,8 @@ void QmlProfilerDataModel::clear()
     setState(Empty);
 }
 
-void QmlProfilerDataModel::addRangedEvent(int type, qint64 startTime, qint64 length,
-                                          const QStringList &data,
+void QmlProfilerDataModel::addRangedEvent(int type, int bindingType, qint64 startTime,
+                                          qint64 length, const QStringList &data,
                                           const QmlDebug::QmlEventLocation &location)
 {
     const QChar colon = QLatin1Char(':');
@@ -346,6 +346,7 @@ void QmlProfilerDataModel::addRangedEvent(int type, qint64 startTime, qint64 len
         newEvent->eventHashStr = eventHashStr;
         newEvent->eventType = (QmlDebug::QmlEventType)type;
         newEvent->details = details;
+        newEvent->bindingType = bindingType;
         d->rangeEventDictionary.insert(eventHashStr, newEvent);
     }
 
@@ -400,11 +401,14 @@ void QmlProfilerDataModel::addFrameEvent(qint64 time, int framerate, int animati
 
     qint64 length = 1e9/framerate;
     // avoid overlap
-    if (d->lastFrameEvent &&
-            d->lastFrameEvent->startTime + d->lastFrameEvent->duration >= time) {
-        d->lastFrameEvent->duration = time - 1 - d->lastFrameEvent->startTime;
-        d->endInstanceList[d->lastFrameEvent->endTimeIndex].endTime =
-                d->lastFrameEvent->startTime + d->lastFrameEvent->duration;
+    QmlRangeEventStartInstance *lastFrameEvent = 0;
+    if (d->lastFrameEventIndex > -1) {
+        lastFrameEvent = &d->startInstanceList[d->lastFrameEventIndex];
+        if (lastFrameEvent->startTime + lastFrameEvent->duration >= time) {
+            lastFrameEvent->duration = time - 1 - lastFrameEvent->startTime;
+            d->endInstanceList[lastFrameEvent->endTimeIndex].endTime =
+                    lastFrameEvent->startTime + lastFrameEvent->duration;
+        }
     }
 
     QmlRangeEventEndInstance endTimeData;
@@ -424,7 +428,7 @@ void QmlProfilerDataModel::addFrameEvent(qint64 time, int framerate, int animati
     d->endInstanceList << endTimeData;
     d->startInstanceList << startTimeData;
 
-    d->lastFrameEvent = &d->startInstanceList.last();
+    d->lastFrameEventIndex = d->startInstanceList.count() - 1;
 
     emit countChanged();
 }
@@ -796,6 +800,8 @@ void QmlProfilerDataModel::complete()
         d->postProcess();
     } else
     if (currentState() == Empty) {
+        d->v8DataModel->collectV8Statistics();
+        compileStatistics(traceStartTime(), traceEndTime());
         setState(Done);
     } else {
         emit error("Unexpected complete signal in data model");
@@ -815,7 +821,6 @@ void QmlProfilerDataModel::QmlProfilerDataModelPrivate::postProcess()
         q->reloadDetails();
         prepareForDisplay();
         q->compileStatistics(q->traceStartTime(), q->traceEndTime());
-
     }
     q->setState(Done);
 }
@@ -940,13 +945,13 @@ void QmlProfilerDataModel::QmlProfilerDataModelPrivate::findAnimationLimits()
 {
     maxAnimationCount = 0;
     minAnimationCount = 0;
-    lastFrameEvent = 0;
+    lastFrameEventIndex = -1;
 
     for (int i = 0; i < startInstanceList.count(); i++) {
         if (startInstanceList[i].statsInfo->eventType == QmlDebug::Painting &&
                 startInstanceList[i].animationCount >= 0) {
             int animationcount = startInstanceList[i].animationCount;
-            if (lastFrameEvent) {
+            if (lastFrameEventIndex > -1) {
                 if (animationcount > maxAnimationCount)
                     maxAnimationCount = animationcount;
                 if (animationcount < minAnimationCount)
@@ -955,7 +960,7 @@ void QmlProfilerDataModel::QmlProfilerDataModelPrivate::findAnimationLimits()
                 maxAnimationCount = animationcount;
                 minAnimationCount = animationcount;
             }
-            lastFrameEvent = &startInstanceList[i];
+            lastFrameEventIndex = i;
         }
     }
 }
@@ -1059,9 +1064,18 @@ void QmlProfilerDataModel::QmlProfilerDataModelPrivate::linkEndsToStarts()
 void QmlProfilerDataModel::compileStatistics(qint64 startTime, qint64 endTime)
 {
     d->clearStatistics();
-    d->redoTree(startTime, endTime);
-    d->computeMedianTime(startTime, endTime);
-    d->findBindingLoops(startTime, endTime);
+    if (traceDuration() > 0) {
+        if (count() > 0) {
+            d->redoTree(startTime, endTime);
+            d->computeMedianTime(startTime, endTime);
+            d->findBindingLoops(startTime, endTime);
+        } else {
+            d->insertQmlRootEvent();
+            QmlRangeEventData *listedRootEvent = d->rangeEventDictionary.value(rootEventName());
+            listedRootEvent->calls = 1;
+            listedRootEvent->percentOfTime = 100;
+        }
+    }
 }
 
 void QmlProfilerDataModel::QmlProfilerDataModelPrivate::clearStatistics()
@@ -1070,7 +1084,7 @@ void QmlProfilerDataModel::QmlProfilerDataModelPrivate::clearStatistics()
     foreach (QmlRangeEventData *eventDescription, rangeEventDictionary.values()) {
         eventDescription->calls = 0;
         // maximum possible value
-        eventDescription->minTime = endInstanceList.last().endTime;
+        eventDescription->minTime = traceEndTime;
         eventDescription->maxTime = 0;
         eventDescription->medianTime = 0;
         eventDescription->duration = 0;
@@ -1367,6 +1381,8 @@ bool QmlProfilerDataModel::save(const QString &filename)
             stream.writeTextElement("column", QString::number(eventData->location.column));
         }
         stream.writeTextElement("details", eventData->details);
+        if (eventData->eventType == Binding)
+            stream.writeTextElement("bindingType", QString::number((int)eventData->bindingType));
         stream.writeEndElement();
     }
     stream.writeEndElement(); // eventData
@@ -1513,6 +1529,8 @@ void QmlProfilerDataModel::load()
                         if (!descriptionBuffer.value(ndx))
                             descriptionBuffer[ndx] = new QmlRangeEventData;
                         currentEvent = descriptionBuffer[ndx];
+                        // backwards compatibility: default bindingType
+                        currentEvent->bindingType = QmlBinding;
                     } else {
                         currentEvent = 0;
                     }
@@ -1549,6 +1567,10 @@ void QmlProfilerDataModel::load()
                 }
                 if (elementName == "details") {
                     currentEvent->details = readData;
+                    break;
+                }
+                if (elementName == "bindingType") {
+                    currentEvent->bindingType = readData.toInt();
                     break;
                 }
             }
@@ -1649,10 +1671,6 @@ void QmlProfilerDataModel::setState(QmlProfilerDataModel::State state)
     d->listState = state;
     emit stateChanged();
 
-    // special: if we were done with an empty list, clean internal data and go back to empty
-    if (d->listState == Done && isEmpty()) {
-        clear();
-    }
     return;
 }
 

@@ -53,20 +53,20 @@ public:
     QList<ProjectExplorer::Abi> detectQtAbis() const;
     void addToEnvironment(Utils::Environment &env) const;
 
-    bool supportsTargetId(const QString &id) const;
-    QSet<QString> supportedTargetIds() const;
+    bool supportsTargetId(const Core::Id id) const;
+    QSet<Core::Id> supportedTargetIds() const;
 
     QString description() const;
 
     bool supportsShadowBuilds() const;
-    QString deviceType() const;
+    Core::Id deviceType() const;
     Core::FeatureSet availableFeatures() const;
     QString platformName() const;
     QString platformDisplayName() const;
 
 private:
     mutable QString m_systemRoot;
-    mutable QString m_deviceType;
+    mutable Core::Id m_deviceType;
     mutable bool m_isvalidVersion;
     mutable bool m_initialized;
 };

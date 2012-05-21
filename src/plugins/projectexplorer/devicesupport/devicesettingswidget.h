@@ -32,6 +32,8 @@
 #ifndef DEVICESETTINGSWIDGET_H
 #define DEVICESETTINGSWIDGET_H
 
+#include <coreplugin/id.h>
+
 #include <QList>
 #include <QString>
 #include <QPushButton>
@@ -44,6 +46,7 @@ QT_END_NAMESPACE
 namespace ProjectExplorer {
 class IDevice;
 class DeviceManager;
+class DeviceManagerModel;
 class IDeviceWidget;
 
 namespace Internal {
@@ -61,16 +64,18 @@ public:
     QString searchKeywords() const;
 
 private slots:
+    void handleDeviceUpdated(Core::Id id);
     void currentDeviceChanged(int index);
     void addDevice();
     void removeDevice();
     void deviceNameEditingFinished();
     void setDefaultDevice();
-    void handleAdditionalActionRequest(const QString &actionId);
+    void handleAdditionalActionRequest(int actionId);
 
 private:
     void initGui();
     void displayCurrent();
+    void setDeviceInfoWidgetsEnabled(bool enable);
     QSharedPointer<const IDevice> currentDevice() const;
     int currentIndex() const;
     void clearDetails();
@@ -79,6 +84,7 @@ private:
 
     Ui::DeviceSettingsWidget *m_ui;
     DeviceManager * const m_deviceManager;
+    DeviceManagerModel * const m_deviceManagerModel;
     NameValidator * const m_nameValidator;
     bool m_saveSettingsRequested;
     QList<QPushButton *> m_additionalActionButtons;

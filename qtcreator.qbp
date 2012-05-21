@@ -3,8 +3,8 @@ import qbs.fileinfo 1.0 as FileInfo
 
 Project {
     property string ide_version_major: '2'
-    property string ide_version_minor: '4'
-    property string ide_version_release: '82'
+    property string ide_version_minor: '5'
+    property string ide_version_release: '81'
     property string qtcreator_version: ide_version_major + '.' + ide_version_minor + '.' + ide_version_release
     property var additionalCppDefines: [ 'IDE_LIBRARY_BASENAME="lib"' ]
     moduleSearchPaths: "qbs"
@@ -26,6 +26,7 @@ Project {
         "src/libs/utils/utils.qbs",
         "src/libs/zeroconf/zeroconf.qbs",
         "src/plugins/analyzerbase/analyzerbase.qbs",
+        "src/plugins/android/android.qbs",
         "src/plugins/bazaar/bazaar.qbs",
         "src/plugins/bineditor/bineditor.qbs",
         "src/plugins/bookmarks/bookmarks.qbs",
@@ -54,7 +55,6 @@ Project {
         "src/plugins/projectexplorer/projectexplorer.qbs",
         "src/plugins/qmldesigner/qmldesigner.qbs",
         "src/plugins/qmljseditor/qmljseditor.qbs",
-        "src/plugins/qmljsinspector/qmljsinspector.qbs",
         "src/plugins/qmljstools/qmljstools.qbs",
         "src/plugins/qmlprofiler/qmlprofiler.qbs",
         "src/plugins/qmlprojectmanager/qmlprojectmanager.qbs",
@@ -122,6 +122,7 @@ Project {
         name: "qtcreator"
         type: ["application", "installed_content"]
         destination: "bin"
+        consoleApplication: qbs.debugInformation
 
         cpp.rpaths: ["$ORIGIN/../lib"]
         cpp.defines: project.additionalCppDefines

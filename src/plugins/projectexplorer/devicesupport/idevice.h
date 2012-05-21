@@ -36,14 +36,11 @@
 
 #include <coreplugin/id.h>
 
-#include <coreplugin/id.h>
-
+#include <QList>
 #include <QSharedPointer>
-#include <QStringList>
 #include <QVariantMap>
 
 QT_BEGIN_NAMESPACE
-class QDialog;
 class QWidget;
 QT_END_NAMESPACE
 
@@ -77,15 +74,15 @@ public:
     typedef QList<DeviceInfoItem> DeviceInfo;
     virtual DeviceInfo deviceInformation() const;
 
-    QString type() const;
+    Core::Id type() const;
     bool isAutoDetected() const;
     Core::Id id() const;
 
     virtual QString displayType() const = 0;
     virtual IDeviceWidget *createWidget() = 0;
-    virtual QStringList actionIds() const = 0;
-    virtual QString displayNameForActionId(const QString &actionId) const = 0;
-    virtual QDialog *createAction(const QString &actionId, QWidget *parent = 0) const = 0;
+    virtual QList<Core::Id> actionIds() const = 0;
+    virtual QString displayNameForActionId(Core::Id actionId) const = 0;
+    virtual void executeAction(Core::Id actionId, QWidget *parent = 0) const = 0;
 
     enum AvailabilityState { DeviceAvailable, DeviceUnavailable, DeviceAvailabilityUnknown };
     AvailabilityState availability() const;
@@ -97,11 +94,12 @@ public:
 
     static Core::Id invalidId();
 
-    static QString typeFromMap(const QVariantMap &map);
+    static Core::Id typeFromMap(const QVariantMap &map);
+    static Core::Id idFromMap(const QVariantMap &map);
 
 protected:
     IDevice();
-    IDevice(const QString &type, Origin origin, const Core::Id &id = Core::Id());
+    IDevice(Core::Id type, Origin origin, Core::Id id = Core::Id());
     IDevice(const IDevice &other);
 
     Ptr sharedFromThis();

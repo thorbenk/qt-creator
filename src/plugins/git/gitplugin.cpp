@@ -45,6 +45,9 @@
 #include "gitoriousclonewizard.h"
 #include "stashdialog.h"
 #include "settingspage.h"
+#include "resetdialog.h"
+
+#include <gerritplugin.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/coreconstants.h>
@@ -566,7 +569,9 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
     m_redoAction = new QAction(tr("&Redo"), this);
     command = actionManager->registerAction(m_redoAction, Core::Constants::REDO, submitContext);
 
-    return true;
+
+    Gerrit::Internal::GerritPlugin *gp = new Gerrit::Internal::GerritPlugin(this);
+    return gp->initialize(gitContainer);
 }
 
 GitVersionControl *GitPlugin::gitVersionControl() const
@@ -639,15 +644,10 @@ void GitPlugin::undoRepositoryChanges()
 {
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasTopLevel(), return);
-    const QString msg = tr("Undo all pending changes to the repository\n%1?").arg(QDir::toNativeSeparators(state.topLevel()));
-    const QMessageBox::StandardButton answer
-            = QMessageBox::question(Core::ICore::mainWindow(),
-                                    tr("Undo Changes"), msg,
-                                    QMessageBox::Yes|QMessageBox::No,
-                                    QMessageBox::No);
-    if (answer == QMessageBox::No)
-        return;
-    m_gitClient->hardReset(state.topLevel(), QString());
+
+    ResetDialog dialog;
+    if (dialog.runDialog(state.topLevel()))
+        m_gitClient->hardReset(state.topLevel(), dialog.commit());
 }
 
 void GitPlugin::stageFile()
@@ -713,8 +713,8 @@ void GitPlugin::startCommit(bool amend)
 
 Core::IEditor *GitPlugin::openSubmitEditor(const QString &fileName, const CommitData &cd, bool amend)
 {
-    Core::IEditor *editor = Core::ICore::editorManager()->openEditor(fileName, Constants::GITSUBMITEDITOR_ID,
-                                                                Core::EditorManager::ModeSwitch);
+    Core::IEditor *editor = Core::EditorManager::openEditor(fileName, Constants::GITSUBMITEDITOR_ID,
+                                                Core::EditorManager::ModeSwitch);
     GitSubmitEditor *submitEditor = qobject_cast<GitSubmitEditor*>(editor);
     QTC_ASSERT(submitEditor, return 0);
     // The actions are for some reason enabled by the context switching
@@ -735,7 +735,7 @@ void GitPlugin::submitCurrentLog()
     // Close the submit editor
     m_submitActionTriggered = true;
     QList<Core::IEditor*> editors;
-    editors.push_back(Core::ICore::editorManager()->currentEditor());
+    editors.push_back(Core::EditorManager::currentEditor());
     Core::ICore::editorManager()->closeEditors(editors);
 }
 

@@ -52,7 +52,7 @@ const char G_MANUAL_REMOTE[]        = "Debugger.Group.Manual.Remote";
 const char G_AUTOMATIC_REMOTE[]     = "Debugger.Group.Automatic.Remote";
 const char G_START_QML[]            = "Debugger.Group.Start.Qml";
 
-// Common actions (accessed by QML inspector)
+// Common actions
 const char INTERRUPT[]              = "Debugger.Interrupt";
 const char CONTINUE[]               = "Debugger.Continue";
 const char STOP[]                   = "Debugger.Stop";
@@ -63,6 +63,8 @@ const char STEPOUT[]                = "Debugger.StepOut";
 const char NEXT[]                   = "Debugger.NextLine";
 const char REVERSE[]                = "Debugger.ReverseDirection";
 const char OPERATE_BY_INSTRUCTION[] = "Debugger.OperateByInstruction";
+const char QML_SELECTTOOL[]         = "Debugger.QmlSelectTool";
+const char QML_ZOOMTOOL[]           = "Debugger.QmlZoomTool";
 
 // DebuggerMainWindow dock widget names
 const char DOCKWIDGET_BREAK[]        = "Debugger.Docks.Break";
@@ -78,12 +80,6 @@ const char DOCKWIDGET_WATCHERS[]     = "Debugger.Docks.LocalsAndWatchers";
 const char DOCKWIDGET_QML_INSPECTOR[]     = "Debugger.Docks.QmlInspector";
 const char DOCKWIDGET_QML_SCRIPTCONSOLE[] = "Debugger.Docks.ScriptConsole";
 const char DOCKWIDGET_DEFAULT_AREA[]      = "Debugger.Docks.DefaultArea";
-
-// Saved Actions
-const char SETTINGS_DIALOG[]            = "SettingsDialog";
-const char USE_ALTERNATING_ROW_COLORS[] = "UseAlternatingRowColors";
-const char SORT_STRUCT_MEMBERS[]        = "SortStructMembers";
-
 } // namespace Constants
 
 enum DebuggerState

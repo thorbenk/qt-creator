@@ -62,11 +62,13 @@ const char * const COMMAND_LINE_ARGUMENTS_KEY("Qt4ProjectManager.S60DeviceRunCon
 
 enum { debug = 0 };
 
-QString pathFromId(const QString &id)
+QString pathFromId(Core::Id id)
 {
-    if (!id.startsWith(QLatin1String(S60_DEVICE_RC_PREFIX)))
+    QString idstr = QString::fromUtf8(id.name());
+    const QString prefix = QLatin1String(S60_DEVICE_RC_PREFIX);
+    if (!idstr.startsWith(prefix))
         return QString();
-    return id.mid(QString::fromLatin1(S60_DEVICE_RC_PREFIX).size());
+    return idstr.mid(prefix.size());
 }
 
 } // anonymous namespace
@@ -74,7 +76,7 @@ QString pathFromId(const QString &id)
 // ======== S60DeviceRunConfiguration
 
 S60DeviceRunConfiguration::S60DeviceRunConfiguration(Qt4BaseTarget *parent, const QString &proFilePath) :
-    RunConfiguration(parent,  QLatin1String(S60_DEVICE_RC_ID)),
+    RunConfiguration(parent,  Core::Id(S60_DEVICE_RC_ID)),
     m_proFilePath(proFilePath),
     m_validParse(parent->qt4Project()->validParse(proFilePath)),
     m_parseInProgress(parent->qt4Project()->parseInProgress(proFilePath))
@@ -111,9 +113,10 @@ void S60DeviceRunConfiguration::proFileUpdate(Qt4ProjectManager::Qt4ProFileNode 
     if (m_proFilePath != pro->path())
         return;
     bool enabled = isEnabled();
+    QString reason = disabledReason();
     m_validParse = success;
     m_parseInProgress = parseInProgress;
-    if (enabled != isEnabled())
+    if (enabled != isEnabled() || reason != disabledReason())
         emit enabledChanged();
     if (!parseInProgress)
         emit targetInformationChanged();
@@ -136,9 +139,10 @@ bool S60DeviceRunConfiguration::isEnabled() const
 QString S60DeviceRunConfiguration::disabledReason() const
 {
     if (m_parseInProgress)
-        return tr("The .pro file is currently being parsed.");
+        return tr("The .pro file '%1' is currently being parsed.")
+                .arg(QFileInfo(m_proFilePath).fileName());
     if (!m_validParse)
-        return tr("The .pro file could not be parsed.");
+        return qt4Target()->qt4Project()->disabledReasonForRunConfiguration(m_proFilePath);
     return QString();
 }
 
@@ -292,7 +296,8 @@ QString S60DeviceRunConfiguration::qmlCommandLineArguments() const
             qobject_cast<S60DeployConfiguration *>(qt4Target()->activeDeployConfiguration());
         QTC_ASSERT(activeDeployConf, return args);
 
-        if (activeDeployConf->device()->communicationChannel() == SymbianIDevice::CommunicationCodaTcpConnection)
+        QSharedPointer<const SymbianIDevice> dev = activeDeployConf->device().dynamicCast<const SymbianIDevice>();
+        if (dev->communicationChannel() == SymbianIDevice::CommunicationCodaTcpConnection)
             args = QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(debuggerAspect()->qmlDebugServerPort());
         else
             args = QLatin1String("-qmljsdebugger=ost");
@@ -316,31 +321,35 @@ S60DeviceRunConfigurationFactory::~S60DeviceRunConfigurationFactory()
 {
 }
 
-QStringList S60DeviceRunConfigurationFactory::availableCreationIds(Target *parent) const
+QList<Core::Id> S60DeviceRunConfigurationFactory::availableCreationIds(Target *parent) const
 {
+    QList<Core::Id> result;
     Qt4SymbianTarget *target = qobject_cast<Qt4SymbianTarget *>(parent);
-    if (!target || target->id() != QLatin1String(Constants::S60_DEVICE_TARGET_ID))
-        return QStringList();
+    if (!target || target->id() != Core::Id(Constants::S60_DEVICE_TARGET_ID))
+        return result;
 
-    return target->qt4Project()->applicationProFilePathes(QLatin1String(S60_DEVICE_RC_PREFIX));
+    QStringList proFiles = target->qt4Project()->applicationProFilePathes(QLatin1String(S60_DEVICE_RC_PREFIX));
+    foreach (const QString &pf, proFiles)
+        result << Core::Id(pf.toUtf8().constData());
+    return result;
 }
 
-QString S60DeviceRunConfigurationFactory::displayNameForId(const QString &id) const
+QString S60DeviceRunConfigurationFactory::displayNameForId(const Core::Id id) const
 {
     if (!pathFromId(id).isEmpty())
         return tr("%1 on Symbian Device").arg(QFileInfo(pathFromId(id)).completeBaseName());
     return QString();
 }
 
-bool S60DeviceRunConfigurationFactory::canCreate(Target *parent, const QString &id) const
+bool S60DeviceRunConfigurationFactory::canCreate(Target *parent, const Core::Id id) const
 {
     Qt4SymbianTarget *t = qobject_cast<Qt4SymbianTarget *>(parent);
-    if (!t || t->id() != QLatin1String(Constants::S60_DEVICE_TARGET_ID))
+    if (!t || t->id() != Core::Id(Constants::S60_DEVICE_TARGET_ID))
         return false;
     return t->qt4Project()->hasApplicationProFile(pathFromId(id));
 }
 
-RunConfiguration *S60DeviceRunConfigurationFactory::create(Target *parent, const QString &id)
+RunConfiguration *S60DeviceRunConfigurationFactory::create(Target *parent, const Core::Id id)
 {
     if (!canCreate(parent, id))
         return 0;
@@ -352,9 +361,9 @@ RunConfiguration *S60DeviceRunConfigurationFactory::create(Target *parent, const
 bool S60DeviceRunConfigurationFactory::canRestore(Target *parent, const QVariantMap &map) const
 {
     Qt4SymbianTarget *t = qobject_cast<Qt4SymbianTarget *>(parent);
-    if (!t || t->id() != QLatin1String(Constants::S60_DEVICE_TARGET_ID))
+    if (!t || t->id() != Core::Id(Constants::S60_DEVICE_TARGET_ID))
         return false;
-    QString id = ProjectExplorer::idFromMap(map);
+    QString id = QString::fromUtf8(ProjectExplorer::idFromMap(map).name());
     return id == QLatin1String(S60_DEVICE_RC_ID);
 }
 
@@ -375,7 +384,7 @@ bool S60DeviceRunConfigurationFactory::canClone(Target *parent, RunConfiguration
 {
     if (!qobject_cast<Qt4SymbianTarget *>(parent))
         return false;
-    return source->id() == QLatin1String(S60_DEVICE_RC_ID);
+    return source->id() == Core::Id(S60_DEVICE_RC_ID);
 }
 
 RunConfiguration *S60DeviceRunConfigurationFactory::clone(Target *parent, RunConfiguration *source)

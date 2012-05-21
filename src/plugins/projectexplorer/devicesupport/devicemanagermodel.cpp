@@ -31,7 +31,11 @@
 **************************************************************************/
 #include "devicemanagermodel.h"
 
+#include "desktopdevice.h"
 #include "devicemanager.h"
+
+#include <coreplugin/id.h>
+#include <utils/qtcassert.h>
 
 #include <QString>
 
@@ -50,11 +54,9 @@ DeviceManagerModel::DeviceManagerModel(const DeviceManager *deviceManager, QObje
 {
     d->deviceManager = deviceManager;
     handleDeviceListChanged();
-    connect(deviceManager, SIGNAL(deviceAdded(QSharedPointer<const IDevice>)),
-        SLOT(handleDeviceAdded(QSharedPointer<const IDevice>)));
-    connect(deviceManager, SIGNAL(deviceRemoved(int)), SLOT(handleDeviceRemoved(int)));
-    connect(deviceManager, SIGNAL(displayNameChanged(int)), SLOT(handleDataChanged(int)));
-    connect(deviceManager, SIGNAL(defaultStatusChanged(int)), SLOT(handleDataChanged(int)));
+    connect(deviceManager, SIGNAL(deviceAdded(Core::Id)), SLOT(handleDeviceAdded(Core::Id)));
+    connect(deviceManager, SIGNAL(deviceRemoved(Core::Id)), SLOT(handleDeviceRemoved(Core::Id)));
+    connect(deviceManager, SIGNAL(deviceUpdated(Core::Id)), SLOT(handleDeviceUpdated(Core::Id)));
     connect(deviceManager, SIGNAL(deviceListChanged()), SLOT(handleDeviceListChanged()));
 }
 
@@ -63,22 +65,57 @@ DeviceManagerModel::~DeviceManagerModel()
     delete d;
 }
 
-void DeviceManagerModel::handleDeviceAdded(const IDevice::ConstPtr &device)
+void DeviceManagerModel::updateDevice(Core::Id id)
+{
+    handleDeviceUpdated(id);
+}
+
+IDevice::ConstPtr DeviceManagerModel::device(int pos) const
+{
+    if (pos < 0 || pos >= d->devices.count())
+        return IDevice::ConstPtr();
+    return d->devices.at(pos);
+}
+
+Core::Id DeviceManagerModel::deviceId(int pos) const
+{
+    IDevice::ConstPtr dev = device(pos);
+    if (dev.isNull())
+        return IDevice::invalidId();
+    return dev->id();
+}
+
+int DeviceManagerModel::indexOf(IDevice::ConstPtr dev) const
+{
+    for (int i = 0; i < d->devices.count(); ++i) {
+        IDevice::ConstPtr current = d->devices.at(i);
+        if (current->id() == dev->id())
+            return i;
+    }
+    return -1;
+}
+
+void DeviceManagerModel::handleDeviceAdded(Core::Id id)
 {
     beginInsertRows(QModelIndex(), rowCount(), rowCount());
-    d->devices << device;
+    d->devices << d->deviceManager->find(id);
     endInsertRows();
 }
 
-void DeviceManagerModel::handleDeviceRemoved(int idx)
+void DeviceManagerModel::handleDeviceRemoved(Core::Id id)
 {
+    const int idx = indexForId(id);
+    QTC_ASSERT(idx != -1, return);
     beginRemoveRows(QModelIndex(), idx, idx);
     d->devices.removeAt(idx);
     endRemoveRows();
 }
 
-void DeviceManagerModel::handleDataChanged(int idx)
+void DeviceManagerModel::handleDeviceUpdated(Core::Id id)
 {
+    const int idx = indexForId(id);
+    QTC_ASSERT(idx != -1, return);
+    d->devices[idx] = d->deviceManager->find(id);
     const QModelIndex changedIndex = index(idx, 0);
     emit dataChanged(changedIndex, changedIndex);
 }
@@ -87,8 +124,13 @@ void DeviceManagerModel::handleDeviceListChanged()
 {
     beginResetModel();
     d->devices.clear();
-    for (int i = 0; i < d->deviceManager->deviceCount(); ++i)
-        d->devices << d->deviceManager->deviceAt(i);
+
+    for (int i = 0; i < d->deviceManager->deviceCount(); ++i) {
+        IDevice::ConstPtr dev = d->deviceManager->deviceAt(i);
+        if (dev->id() == DesktopDevice::Id)
+            continue;
+        d->devices << dev;
+    }
     endResetModel();
 }
 
@@ -100,13 +142,30 @@ int DeviceManagerModel::rowCount(const QModelIndex &parent) const
 
 QVariant DeviceManagerModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid() || index.row() >= rowCount() || role != Qt::DisplayRole)
+    if (!index.isValid() || index.row() >= rowCount())
         return QVariant();
-    const IDevice::ConstPtr device = d->devices.at(index.row());
-    QString name = device->displayName();
-    if (d->deviceManager->defaultDevice(device->type()) == device)
-        name = tr("%1 (default for %2)").arg(name, device->displayType());
+    if (role != Qt::DisplayRole && role != Qt::UserRole)
+        return QVariant();
+    const IDevice::ConstPtr dev = device(index.row());
+    if (role == Qt::UserRole)
+        return dev->id().uniqueIdentifier();
+    QString name;
+    if (d->deviceManager->defaultDevice(dev->type()) == dev)
+        name = tr("%1 (default for %2)").arg(dev->displayName(), dev->displayType());
+    else
+        name = dev->displayName();
     return name;
+}
+
+int DeviceManagerModel::indexForId(Core::Id id) const
+{
+    for (int i = 0; i < d->devices.count(); ++i) {
+        if (d->devices.at(i)->id() == id)
+            return i;
+    }
+
+    qWarning("%s: Invalid id %s.", Q_FUNC_INFO, qPrintable(id.toString()));
+    return -1;
 }
 
 } // namespace ProjectExplorer

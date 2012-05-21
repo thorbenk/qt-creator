@@ -71,12 +71,10 @@ public:
     void extensionsInitialized();
 
 private slots:
-    void updateContextMenu(ProjectExplorer::Project *project,
-                           ProjectExplorer::Node *node);
     void startupProjectChanged();
     void activeTargetChanged();
     void updateRunQMakeAction();
-    void currentNodeChanged(ProjectExplorer::Node *node, ProjectExplorer::Project *project);
+    void updateContextActions(ProjectExplorer::Node *node, ProjectExplorer::Project *project);
     void buildStateChanged(ProjectExplorer::Project *pro);
 
 #ifdef WITH_TESTS
@@ -99,12 +97,15 @@ private:
 
     QAction *m_runQMakeAction;
     QAction *m_runQMakeActionContextMenu;
-    QAction *m_buildSubProjectContextMenu;
+    Utils::ParameterAction *m_buildSubProjectContextMenu;
+    QAction *m_subProjectRebuildSeparator;
     QAction *m_rebuildSubProjectContextMenu;
     QAction *m_cleanSubProjectContextMenu;
+    QAction *m_buildFileContextMenu;
     Utils::ParameterAction *m_buildSubProjectAction;
     Utils::ParameterAction *m_rebuildSubProjectAction;
     Utils::ParameterAction *m_cleanSubProjectAction;
+    Utils::ParameterAction *m_buildFileAction;
     QAction *m_addLibraryAction;
     QAction *m_addLibraryActionContextMenu;
     Core::Context m_projectContext;

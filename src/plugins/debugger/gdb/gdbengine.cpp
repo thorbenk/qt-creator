@@ -197,11 +197,11 @@ public:
 class DebugInfoTaskHandler : public  ProjectExplorer::ITaskHandler
 {
 public:
-    DebugInfoTaskHandler(GdbEngine *engine)
-        : ITaskHandler(_("Debuginfo")), m_engine(engine)
+    explicit DebugInfoTaskHandler(GdbEngine *engine)
+        : m_engine(engine)
     {}
 
-    bool canHandle(const Task &task)
+    bool canHandle(const Task &task) const
     {
         return m_debugInfoTasks.contains(task.taskId);
     }
@@ -216,10 +216,10 @@ public:
         m_debugInfoTasks[id] = task;
     }
 
-    QAction *createAction(QObject *parent = 0)
+    QAction *createAction(QObject *parent) const
     {
-        QAction *action = new QAction(tr("Install &Debug Information"), parent);
-        action->setToolTip(tr("This tries to install missing debug information."));
+        QAction *action = new QAction(DebuggerPlugin::tr("Install &Debug Information"), parent);
+        action->setToolTip(DebuggerPlugin::tr("This tries to install missing debug information."));
         return action;
     }
 
@@ -384,6 +384,26 @@ static bool isNameChar(char c)
 {
     // could be 'stopped' or 'shlibs-added'
     return (c >= 'a' && c <= 'z') || c == '-';
+}
+
+static bool isGdbConnectionError(const QByteArray &message)
+{
+    //
+    // Handle messages gdb client produces when the target exits (gdbserver)
+    //
+    // we get this as response either to a specific command, e.g.
+    //    31^error,msg="Remote connection closed"
+    // or as informative output:
+    //    &Remote connection closed
+    //
+    const QByteArray trimmed = message.trimmed();
+    if (trimmed == "Remote connection closed"
+            || trimmed == "Remote communication error.  "
+                          "Target disconnected.: No error."
+            || trimmed == "Quit") {
+        return true;
+    }
+    return false;
 }
 
 void GdbEngine::handleResponse(const QByteArray &buff)
@@ -668,12 +688,9 @@ void GdbEngine::handleResponse(const QByteArray &buff)
             if (data.startsWith("warning:"))
                 showMessage(_(data.mid(9)), AppStuff); // Cut "warning: "
 
-            // Messages when the target exits (gdbserver)
-            if (data.trimmed() == "Remote connection closed"
-                    || data.trimmed() == "Remote communication error.  "
-                                         "Target disconnected.: No error."
-                    || data.trimmed() == "Quit") {
+            if (isGdbConnectionError(data)) {
                 notifyInferiorExited();
+                break;
             }
 
             // From SuSE's gdb: >&"Missing separate debuginfo for ...\n"
@@ -1017,7 +1034,12 @@ void GdbEngine::commandTimeout()
         showMessage(_(msg));
     }
     if (killIt) {
-        showMessage(_("TIMED OUT WAITING FOR GDB REPLY. COMMANDS STILL IN PROGRESS:"));
+        QStringList commands;
+        foreach (const GdbCommand &cookie, m_cookieForToken)
+            commands << QString(_("\"%1\"")).arg(
+                            QString::fromLatin1(cookie.command));
+        showMessage(_("TIMED OUT WAITING FOR GDB REPLY. "
+                      "COMMANDS STILL IN PROGRESS: ") + commands.join(_(", ")));
         int timeOut = m_commandTimer.interval();
         //m_commandTimer.stop();
         const QString msg = tr("The gdb process has not responded "
@@ -1113,6 +1135,8 @@ void GdbEngine::handleResultRecord(GdbResponse *response)
                 QTC_CHECK(state() == InferiorRunOk);
                 notifyInferiorSpontaneousStop();
                 notifyEngineIll();
+            } else if (isGdbConnectionError(msg)) {
+                notifyInferiorExited();
             } else {
                 // Windows: Some DLL or some function not found. Report
                 // the exception now in a box.
@@ -3126,20 +3150,22 @@ void GdbEngine::insertBreakpoint(BreakpointModelId id)
     QVariant vid = QVariant::fromValue(id);
     if (type == WatchpointAtAddress) {
         postCommand("watch " + addressSpec(handler->address(id)),
-            NeedsStop | RebuildBreakpointModel,
+            NeedsStop | RebuildBreakpointModel | ConsoleCommand,
             CB(handleWatchInsert), vid);
         return;
     }
     if (type == WatchpointAtExpression) {
         postCommand("watch " + handler->expression(id).toLocal8Bit(),
-            NeedsStop | RebuildBreakpointModel,
+            NeedsStop | RebuildBreakpointModel | ConsoleCommand,
             CB(handleWatchInsert), vid);
         return;
     }
     if (type == BreakpointAtFork) {
-        postCommand("catch fork", NeedsStop | RebuildBreakpointModel,
+        postCommand("catch fork",
+            NeedsStop | RebuildBreakpointModel | ConsoleCommand,
             CB(handleCatchInsert), vid);
-        postCommand("catch vfork", NeedsStop | RebuildBreakpointModel,
+        postCommand("catch vfork",
+            NeedsStop | RebuildBreakpointModel | ConsoleCommand,
             CB(handleCatchInsert), vid);
         return;
     }
@@ -3149,12 +3175,14 @@ void GdbEngine::insertBreakpoint(BreakpointModelId id)
     //    return;
     //}
     if (type == BreakpointAtExec) {
-        postCommand("catch exec", NeedsStop | RebuildBreakpointModel,
+        postCommand("catch exec",
+            NeedsStop | RebuildBreakpointModel | ConsoleCommand,
             CB(handleCatchInsert), vid);
         return;
     }
     if (type == BreakpointAtSysCall) {
-        postCommand("catch syscall", NeedsStop | RebuildBreakpointModel,
+        postCommand("catch syscall",
+            NeedsStop | RebuildBreakpointModel | ConsoleCommand,
             CB(handleCatchInsert), vid);
         return;
     }
@@ -3909,6 +3937,7 @@ bool GdbEngine::showToolTip()
         return true;
     }
     DebuggerToolTipWidget *tw = new DebuggerToolTipWidget;
+    tw->setDebuggerModel(TooltipsWatch);
     tw->setExpression(expression);
     tw->setContext(*m_toolTipContext);
     tw->acquireEngine(this);
@@ -4802,6 +4831,7 @@ bool GdbEngine::startGdb(const QStringList &args, const QString &settingsIdHint)
     showMessage(_("GDB STARTED, INITIALIZING IT"));
     postCommand("show version", CB(handleShowVersion));
     //postCommand("-list-features", CB(handleListFeatures));
+    postCommand("show debug-file-directory", CB(handleDebugInfoLocation));
 
     //postCommand("-enable-timings");
     //postCommand("set print static-members off"); // Seemingly doesn't work.
@@ -5036,10 +5066,6 @@ void GdbEngine::setupInferior()
         postCommand("set substitute-path " + it.key().toLocal8Bit()
             + " " + it.value().toLocal8Bit());
 
-    const QByteArray debugInfoLocation = sp.debugInfoLocation.toLocal8Bit();
-    if (!debugInfoLocation.isEmpty())
-        postCommand("set debug-file-directory " + debugInfoLocation);
-
     // Spaces just will not work.
     foreach (const QString &src, sp.debugSourceLocation)
         postCommand("directory " + src.toLocal8Bit());
@@ -5094,6 +5120,25 @@ void GdbEngine::finishInferiorSetup()
         CB(handleNamespaceExtraction), fileName);
 }
 
+void GdbEngine::handleDebugInfoLocation(const GdbResponse &response)
+{
+#ifdef Q_OS_WIN
+    const char pathSep = ';';
+#else
+    const char pathSep = ':';
+#endif
+    if (response.resultClass == GdbResultDone) {
+        const QByteArray debugInfoLocation = startParameters().debugInfoLocation.toLocal8Bit();
+        if (QFile::exists(QString::fromLocal8Bit(debugInfoLocation))) {
+            const QByteArray curDebugInfoLocations = response.consoleStreamOutput.split('"').value(1);
+            if (curDebugInfoLocations.isEmpty())
+                postCommand("set debug-file-directory " + debugInfoLocation);
+            else
+                postCommand("set debug-file-directory " + debugInfoLocation + pathSep + curDebugInfoLocations);
+        }
+    }
+}
+
 void GdbEngine::handleNamespaceExtraction(const GdbResponse &response)
 {
     QFile file(response.cookie.toString());
@@ -5117,8 +5162,8 @@ void GdbEngine::handleNamespaceExtraction(const GdbResponse &response)
     if (startParameters().startMode == AttachCore) {
         notifyInferiorSetupOk(); // No breakpoints in core files.
     } else {
-        if (debuggerCore()->boolSetting(BreakOnRaise))
-            postCommand("-break-insert -f raise");
+        if (debuggerCore()->boolSetting(BreakOnAbort))
+            postCommand("-break-insert -f abort");
         if (debuggerCore()->boolSetting(BreakOnWarning))
             postCommand("-break-insert -f '" + qtNamespace() + "qWarning'");
         if (debuggerCore()->boolSetting(BreakOnFatal))
@@ -5294,8 +5339,8 @@ bool GdbEngine::usesExecInterrupt() const
 
     // debuggerCore()->boolSetting(TargetAsync)
     DebuggerStartMode mode = startParameters().startMode;
-    return mode == AttachToRemoteServer
-        || mode == AttachToRemoteProcess;
+    return (mode == AttachToRemoteServer
+        || mode == AttachToRemoteProcess) && debuggerCore()->boolSetting(TargetAsync);
 }
 
 void GdbEngine::scheduleTestResponse(int testCase, const QByteArray &response)

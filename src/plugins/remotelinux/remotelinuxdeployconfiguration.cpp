@@ -60,7 +60,7 @@ public:
 using namespace Internal;
 
 RemoteLinuxDeployConfiguration::RemoteLinuxDeployConfiguration(ProjectExplorer::Target *target,
-        const QString &id, const QString &defaultDisplayName)
+        const Core::Id id, const QString &defaultDisplayName)
     : DeployConfiguration(target, id), d(new RemoteLinuxDeployConfigurationPrivate)
 {
     setDefaultDisplayName(defaultDisplayName);
@@ -92,9 +92,9 @@ void RemoteLinuxDeployConfiguration::handleDeviceConfigurationListUpdated()
     setDeviceConfig(DeviceManager::instance()->deviceId(d->deviceConfiguration));
 }
 
-void RemoteLinuxDeployConfiguration::setDeviceConfig(const Core::Id &internalId)
+void RemoteLinuxDeployConfiguration::setDeviceConfig(Core::Id id)
 {
-    d->deviceConfiguration = target()->deviceConfigModel()->find(internalId);
+    d->deviceConfiguration = target()->deviceConfigModel()->find(id);
     emit deviceConfigurationListChanged();
     emit currentDeviceConfigurationChanged();
 }
@@ -103,8 +103,8 @@ bool RemoteLinuxDeployConfiguration::fromMap(const QVariantMap &map)
 {
     if (!DeployConfiguration::fromMap(map))
         return false;
-    setDeviceConfig(Core::Id(map.value(QLatin1String(DeviceIdKey),
-            IDevice::invalidId().toString()).toString()));
+    const QString idString = map.value(QLatin1String(DeviceIdKey)).toString();
+    setDeviceConfig(!idString.isEmpty() ? Core::Id(idString) : IDevice::invalidId());
     return true;
 }
 

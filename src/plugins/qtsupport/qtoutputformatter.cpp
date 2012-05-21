@@ -102,7 +102,7 @@ void QtOutputFormatter::appendMessage(const QString &txt, Utils::OutputFormat fo
     cursor.movePosition(QTextCursor::End);
     cursor.beginEditBlock();
 
-    QString deferedText;
+    QString deferredText;
 
     int start = 0;
     int pos = txt.indexOf(QLatin1Char('\n'));
@@ -115,13 +115,13 @@ void QtOutputFormatter::appendMessage(const QString &txt, Utils::OutputFormat fo
             LinkResult lr = matchLine(line);
             if (!lr.href.isEmpty()) {
                 // Found something && line continuation
-                cursor.insertText(deferedText, charFormat(format));
-                deferedText.clear();
+                cursor.insertText(deferredText, charFormat(format));
+                deferredText.clear();
                 clearLastLine();
                 appendLine(cursor, lr, line, format);
             } else {
                 // Found nothing, just emit the new part
-                deferedText += newPart;
+                deferredText += newPart;
             }
             // Handled line continuation
             m_lastLine.clear();
@@ -129,11 +129,11 @@ void QtOutputFormatter::appendMessage(const QString &txt, Utils::OutputFormat fo
             const QString line = txt.mid(start, pos - start + 1);
             LinkResult lr = matchLine(line);
             if (!lr.href.isEmpty()) {
-                cursor.insertText(deferedText, charFormat(format));
-                deferedText.clear();
+                cursor.insertText(deferredText, charFormat(format));
+                deferredText.clear();
                 appendLine(cursor, lr, line, format);
             } else {
-                deferedText += line;
+                deferredText += line;
             }
         }
         start = pos + 1;
@@ -145,32 +145,32 @@ void QtOutputFormatter::appendMessage(const QString &txt, Utils::OutputFormat fo
         if (!m_lastLine.isEmpty()) {
             // Line continuation
             const QString newPart = txt.mid(start);
-            m_lastLine.append(newPart);
-            LinkResult lr = matchLine(m_lastLine);
+            const QString line = m_lastLine + newPart;
+            LinkResult lr = matchLine(line);
             if (!lr.href.isEmpty()) {
                 // Found something && line continuation
-                cursor.insertText(deferedText, charFormat(format));
-                deferedText.clear();
+                cursor.insertText(deferredText, charFormat(format));
+                deferredText.clear();
                 clearLastLine();
-                appendLine(cursor, lr, m_lastLine, format);
+                appendLine(cursor, lr, line, format);
             } else {
                 // Found nothing, just emit the new part
-                deferedText += newPart;
+                deferredText += newPart;
             }
+            m_lastLine = line;
         } else {
             m_lastLine = txt.mid(start);
             LinkResult lr = matchLine(m_lastLine);
             if (!lr.href.isEmpty()) {
-                cursor.insertText(deferedText, charFormat(format));
-                deferedText.clear();
+                cursor.insertText(deferredText, charFormat(format));
+                deferredText.clear();
                 appendLine(cursor, lr, m_lastLine, format);
             } else {
-                deferedText += m_lastLine;
+                deferredText += m_lastLine;
             }
         }
     }
-    cursor.insertText(deferedText, charFormat(format));
-    // deferedText.clear();
+    cursor.insertText(deferredText, charFormat(format));
     cursor.endEditBlock();
 }
 
@@ -193,9 +193,9 @@ void QtOutputFormatter::appendLine(QTextCursor &cursor, LinkResult lr,
 void QtOutputFormatter::handleLink(const QString &href)
 {
     if (!href.isEmpty()) {
-        const QRegExp qmlLineColumnLink(QLatin1String("^(file:///.+)" // file url
-                                                 ":(\\d+)"            // line
-                                                 ":(\\d+)$"));        // column
+        QRegExp qmlLineColumnLink(QLatin1String("^(file:///.+)" // file url
+                                                ":(\\d+)"            // line
+                                                ":(\\d+)$"));        // column
 
         if (qmlLineColumnLink.indexIn(href) != -1) {
             const QUrl fileUrl = QUrl(qmlLineColumnLink.cap(1));
@@ -207,8 +207,8 @@ void QtOutputFormatter::handleLink(const QString &href)
             return;
         }
 
-        const QRegExp qmlLineLink(QLatin1String("^(file:///.+)" // file url
-                                                 ":(\\d+)$"));  // line
+        QRegExp qmlLineLink(QLatin1String("^(file:///.+)" // file url
+                                          ":(\\d+)$"));  // line
 
         if (qmlLineLink.indexIn(href) != -1) {
             const QUrl fileUrl = QUrl(qmlLineLink.cap(1));
@@ -244,6 +244,12 @@ void QtOutputFormatter::handleLink(const QString &href)
             return;
         }
     }
+}
+
+void QtOutputFormatter::clearLastLine()
+{
+    OutputFormatter::clearLastLine();
+    m_lastLine.clear();
 }
 
 void QtOutputFormatter::updateProjectFileList()

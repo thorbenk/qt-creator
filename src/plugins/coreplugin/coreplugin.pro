@@ -24,6 +24,7 @@ SOURCES += mainwindow.cpp \
     fancytabwidget.cpp \
     generalsettings.cpp \
     id.cpp \
+    icontext.cpp \
     messagemanager.cpp \
     messageoutputwindow.cpp \
     outputpane.cpp \
@@ -209,6 +210,7 @@ RESOURCES += core.qrc \
 
 win32 {
     SOURCES += progressmanager/progressmanager_win.cpp
+    greaterThan(QT_MAJOR_VERSION, 4): QT += gui-private # Uses QPlatformNativeInterface.
     LIBS += -lole32
 }
 else:macx {

@@ -44,7 +44,6 @@
 #include <coreplugin/iversioncontrol.h>
 #include <coreplugin/vcsmanager.h>
 #include <projectexplorer/abi.h>
-#include <projectexplorer/customexecutablerunconfiguration.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectnodes.h>
 #include <projectexplorer/toolchain.h>
@@ -52,6 +51,7 @@
 #include <qt4projectmanager/qt4buildconfiguration.h>
 #include <qt4projectmanager/qt4nodes.h>
 #include <qtsupport/baseqtversion.h>
+#include <qtsupport/customexecutablerunconfiguration.h>
 #include <remotelinux/deploymentsettingsassistant.h>
 #include <utils/fileutils.h>
 #include <utils/filesystemwatcher.h>
@@ -121,7 +121,7 @@ bool adaptTagValue(QByteArray &document, const QByteArray &fieldName,
 } // anonymous namespace
 
 
-AbstractQt4MaemoTarget::AbstractQt4MaemoTarget(Qt4Project *parent, const QString &id,
+AbstractQt4MaemoTarget::AbstractQt4MaemoTarget(Qt4Project *parent, const Core::Id id,
         const QString &qmakeScope) :
     AbstractEmbeddedLinuxTarget(parent, id),
     m_filesWatcher(new Utils::FileSystemWatcher(this)),
@@ -180,7 +180,7 @@ void AbstractQt4MaemoTarget::createApplicationProFiles(bool reparse)
 
     // Oh still none? Add a custom executable runconfiguration
     if (runConfigurations().isEmpty()) {
-        addRunConfiguration(new ProjectExplorer::CustomExecutableRunConfiguration(this));
+        addRunConfiguration(new QtSupport::CustomExecutableRunConfiguration(this));
     }
 }
 
@@ -375,8 +375,9 @@ void AbstractQt4MaemoTarget::raiseError(const QString &reason)
 }
 
 AbstractDebBasedQt4MaemoTarget::AbstractDebBasedQt4MaemoTarget(Qt4Project *parent,
-        const QString &id, const QString &qmakeScope)
-    : AbstractQt4MaemoTarget(parent, id, qmakeScope)
+                                                               const Core::Id id,
+                                                               const QString &qmakeScope) :
+    AbstractQt4MaemoTarget(parent, id, qmakeScope)
 {
 }
 
@@ -897,8 +898,7 @@ QString AbstractDebBasedQt4MaemoTarget::defaultPackageFileName() const
     QString packageName = project()->displayName().toLower();
 
     // We also replace dots, because OVI store chokes on them.
-    const QRegExp legalLetter(QLatin1String("[a-z0-9+-]"), Qt::CaseSensitive,
-        QRegExp::WildcardUnix);
+    QRegExp legalLetter(QLatin1String("[a-z0-9+-]"), Qt::CaseSensitive, QRegExp::WildcardUnix);
 
     for (int i = 0; i < packageName.length(); ++i) {
         if (!legalLetter.exactMatch(packageName.mid(i, 1)))
@@ -958,8 +958,8 @@ QString AbstractDebBasedQt4MaemoTarget::shortDayOfWeekName(const QDateTime &dt) 
 
 
 AbstractRpmBasedQt4MaemoTarget::AbstractRpmBasedQt4MaemoTarget(Qt4Project *parent,
-        const QString &id, const QString &qmakeScope)
-    : AbstractQt4MaemoTarget(parent, id, qmakeScope)
+        const Core::Id id, const QString &qmakeScope) :
+    AbstractQt4MaemoTarget(parent, id, qmakeScope)
 {
 }
 
@@ -1123,7 +1123,7 @@ bool AbstractRpmBasedQt4MaemoTarget::setValueForTag(const QByteArray &tag,
     return true;
 }
 
-Qt4Maemo5Target::Qt4Maemo5Target(Qt4Project *parent, const QString &id)
+Qt4Maemo5Target::Qt4Maemo5Target(Qt4Project *parent, const Core::Id id)
     : AbstractDebBasedQt4MaemoTarget(parent, id, QLatin1String("maemo5"))
 {
     setDisplayName(defaultDisplayName());
@@ -1133,7 +1133,7 @@ Qt4Maemo5Target::~Qt4Maemo5Target() {}
 
 bool Qt4Maemo5Target::supportsDevice(const ProjectExplorer::IDevice::ConstPtr &device) const
 {
-    return device->type() == QLatin1String(Maemo5OsType);
+    return device->type() == Core::Id(Maemo5OsType);
 }
 
 QString Qt4Maemo5Target::defaultDisplayName()
@@ -1167,8 +1167,8 @@ QByteArray Qt4Maemo5Target::defaultSection() const
     return "user/hidden";
 }
 
-Qt4HarmattanTarget::Qt4HarmattanTarget(Qt4Project *parent, const QString &id)
-    : AbstractDebBasedQt4MaemoTarget(parent, id, QLatin1String("contains(MEEGO_EDITION,harmattan)"))
+Qt4HarmattanTarget::Qt4HarmattanTarget(Qt4Project *parent, const Core::Id id) :
+    AbstractDebBasedQt4MaemoTarget(parent, id, QLatin1String("contains(MEEGO_EDITION,harmattan)"))
 {
     setDisplayName(defaultDisplayName());
 }
@@ -1177,7 +1177,7 @@ Qt4HarmattanTarget::~Qt4HarmattanTarget() {}
 
 bool Qt4HarmattanTarget::supportsDevice(const ProjectExplorer::IDevice::ConstPtr &device) const
 {
-    return device->type() == QLatin1String(HarmattanOsType);
+    return device->type() == Core::Id(HarmattanOsType);
 }
 
 QString Qt4HarmattanTarget::defaultDisplayName()
@@ -1242,9 +1242,9 @@ QByteArray Qt4HarmattanTarget::defaultSection() const
 }
 
 
-Qt4MeegoTarget::Qt4MeegoTarget(Qt4Project *parent, const QString &id)
-    : AbstractRpmBasedQt4MaemoTarget(parent, id,
-          QLatin1String("!isEmpty(MEEGO_VERSION_MAJOR):!contains(MEEGO_EDITION,harmattan)"))
+Qt4MeegoTarget::Qt4MeegoTarget(Qt4Project *parent, const Core::Id id) :
+    AbstractRpmBasedQt4MaemoTarget(parent, id,
+                                   QLatin1String("!isEmpty(MEEGO_VERSION_MAJOR):!contains(MEEGO_EDITION,harmattan)"))
 {
     setDisplayName(defaultDisplayName());
 }
@@ -1253,7 +1253,7 @@ Qt4MeegoTarget::~Qt4MeegoTarget() {}
 
 bool Qt4MeegoTarget::supportsDevice(const ProjectExplorer::IDevice::ConstPtr &device) const
 {
-    return device->type() == QLatin1String(MeeGoOsType);
+    return device->type() == Core::Id(MeeGoOsType);
 }
 
 QString Qt4MeegoTarget::defaultDisplayName()

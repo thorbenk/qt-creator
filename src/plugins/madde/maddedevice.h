@@ -47,20 +47,20 @@ public:
     typedef QSharedPointer<const MaddeDevice> ConstPtr;
 
     static Ptr create();
-    static Ptr create(const QString &name, const QString &type, MachineType machineType,
-                      Origin origin = ManuallyAdded, const Core::Id &id = Core::Id());
+    static Ptr create(const QString &name, Core::Id type, MachineType machineType,
+                      Origin origin = ManuallyAdded, Core::Id id = Core::Id());
 
     QString displayType() const;
-    QStringList actionIds() const;
-    QString displayNameForActionId(const QString &actionId) const;
-    QDialog *createAction(const QString &actionId, QWidget *parent) const;
+    QList<Core::Id> actionIds() const;
+    QString displayNameForActionId(Core::Id actionId) const;
+    void executeAction(Core::Id actionId, QWidget *parent) const;
     ProjectExplorer::IDevice::Ptr clone() const;
-    static QString maddeDisplayType(const QString &type);
+    static QString maddeDisplayType(Core::Id type);
 
 private:
     MaddeDevice();
-    MaddeDevice(const QString &name, const QString &type, MachineType machineType,
-                Origin origin, const Core::Id &id);
+    MaddeDevice(const QString &name, Core::Id type, MachineType machineType,
+                Origin origin, Core::Id id);
 
     MaddeDevice(const MaddeDevice &other);
 };

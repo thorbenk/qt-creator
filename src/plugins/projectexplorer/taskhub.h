@@ -58,9 +58,8 @@ public:
     void showTaskInEditor(unsigned int id);
     void setCategoryVisibility(const Core::Id &categoryId, bool visible);
 
-    void popup(bool withFocus);
+    void requestPopup();
 
-    // TODO now there are two places for icons
     QIcon taskTypeIcon(ProjectExplorer::Task::TaskType t) const;
 signals:
     void categoryAdded(const Core::Id &categoryId, const QString &displayName, bool visible);

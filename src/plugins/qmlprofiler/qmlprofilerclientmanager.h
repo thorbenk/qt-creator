@@ -56,12 +56,14 @@ public:
 
     void clearBufferedData();
     void discardPendingData();
+    bool isConnected() const;
 
 signals:
     void connectionFailed();
+    void connectionClosed();
 
     // data
-    void addRangedEvent(int,qint64,qint64,QStringList,QmlDebug::QmlEventLocation);
+    void addRangedEvent(int,int,qint64,qint64,QStringList,QmlDebug::QmlEventLocation);
     void addV8Event(int,QString,QString,int,double,double);
     void addFrameEvent(qint64,int,int);
     void traceStarted(qint64);

@@ -86,6 +86,10 @@ enum { debug = 0 };
 #define SDEBUG(s) if (!debug) {} else qDebug() << s;
 #define XSDEBUG(s) qDebug() << s
 
+//#define WITH_BENCHMARK
+#ifdef WITH_BENCHMARK
+#include <valgrind/callgrind.h>
+#endif
 
 ///////////////////////////////////////////////////////////////////////
 //
@@ -509,6 +513,14 @@ QAbstractItemModel *DebuggerEngine::returnModel() const
     return model;
 }
 
+QAbstractItemModel *DebuggerEngine::inspectorModel() const
+{
+    QAbstractItemModel *model = watchHandler()->model(InspectWatch);
+    if (model->objectName().isEmpty()) // Make debugging easier.
+        model->setObjectName(objectName() + QLatin1String("InspectorModel"));
+    return model;
+}
+
 QAbstractItemModel *DebuggerEngine::toolTipsModel() const
 {
     QAbstractItemModel *model = watchHandler()->model(TooltipsWatch);
@@ -627,11 +639,10 @@ void DebuggerEngine::gotoLocation(const Location &loc)
 
     const QString file = loc.fileName();
     const int line = loc.lineNumber();
-    EditorManager *editorManager = EditorManager::instance();
-    QList<IEditor *> editors = editorManager->editorsForFileName(file);
+    QList<IEditor *> editors = EditorManager::instance()->editorsForFileName(file);
     IEditor *editor = 0;
     if (editors.isEmpty()) {
-        editor = editorManager->openEditor(file, Core::Id(),
+        editor = EditorManager::openEditor(file, Core::Id(),
             EditorManager::IgnoreNavigationHistory);
         if (editor) {
             editors.append(editor);
@@ -648,11 +659,12 @@ void DebuggerEngine::gotoLocation(const Location &loc)
         d->m_locationMark.reset(new TextEditor::BaseTextMark(file, line));
         d->m_locationMark->setIcon(debuggerCore()->locationMarkIcon());
         d->m_locationMark->setPriority(TextEditor::ITextMark::HighPriority);
+        d->m_locationMark->init();
     }
 
     // FIXME: Breaks with split views.
     if (!d->m_memoryAgent.hasVisibleEditor() || loc.needsRaise())
-        editorManager->activateEditor(editor);
+        EditorManager::activateEditor(editor);
     //qDebug() << "MEMORY: " << d->m_memoryAgent.hasVisibleEditor();
 }
 
@@ -878,6 +890,9 @@ void DebuggerEngine::notifyInferiorSetupFailed()
 
 void DebuggerEngine::notifyInferiorSetupOk()
 {
+#ifdef WITH_BENCHMARK
+    CALLGRIND_START_INSTRUMENTATION;
+#endif
     showMessage(_("NOTE: INFERIOR SETUP OK"));
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << this << state());
     setState(InferiorSetupOk);
@@ -1173,6 +1188,10 @@ void DebuggerEnginePrivate::setRemoteSetupState(RemoteSetupState state)
 
 void DebuggerEngine::notifyEngineIll()
 {
+#ifdef WITH_BENCHMARK
+    CALLGRIND_STOP_INSTRUMENTATION;
+    CALLGRIND_DUMP_STATS;
+#endif
     showMessage(_("NOTE: ENGINE ILL ******"));
     d->m_targetState = DebuggerFinished;
     d->m_lastGoodState = d->m_state;
@@ -1202,6 +1221,10 @@ void DebuggerEngine::notifyEngineIll()
 
 void DebuggerEngine::notifyEngineSpontaneousShutdown()
 {
+#ifdef WITH_BENCHMARK
+    CALLGRIND_STOP_INSTRUMENTATION;
+    CALLGRIND_DUMP_STATS;
+#endif
     showMessage(_("NOTE: ENGINE SPONTANEOUS SHUTDOWN"));
     setState(EngineShutdownOk, true);
     if (isMasterEngine())
@@ -1210,6 +1233,10 @@ void DebuggerEngine::notifyEngineSpontaneousShutdown()
 
 void DebuggerEngine::notifyInferiorExited()
 {
+#ifdef WITH_BENCHMARK
+    CALLGRIND_STOP_INSTRUMENTATION;
+    CALLGRIND_DUMP_STATS;
+#endif
     showMessage(_("NOTE: INFERIOR EXITED"));
     d->resetLocation();
     setState(InferiorExitOk);

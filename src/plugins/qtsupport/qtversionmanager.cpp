@@ -36,12 +36,12 @@
 
 #include "qtsupportconstants.h"
 
-#include <projectexplorer/debugginghelper.h>
 // only for legay restore
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/toolchainmanager.h>
 #include <projectexplorer/gcctoolchain.h>
 
+#include <qtsupport/debugginghelper.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/helpmanager.h>
@@ -68,8 +68,6 @@
 
 using namespace QtSupport;
 using namespace QtSupport::Internal;
-
-using ProjectExplorer::DebuggingHelperLibrary;
 
 static const char QTVERSION_DATA_KEY[] = "QtVersion.";
 static const char QTVERSION_TYPE_KEY[] = "QtVersion.Type";
@@ -127,12 +125,17 @@ bool qtVersionNumberCompare(BaseQtVersion *a, BaseQtVersion *b)
 QtVersionManager *QtVersionManager::m_self = 0;
 
 QtVersionManager::QtVersionManager() :
-    m_configFileWatcher(0)
+    m_configFileWatcher(0),
+    m_fileWatcherTimer(new QTimer)
 {
     m_self = this;
     m_idcount = 1;
 
     qRegisterMetaType<Utils::FileName>();
+
+    // Give the file a bit of time to settle before reading it...
+    m_fileWatcherTimer->setInterval(2000);
+    connect(m_fileWatcherTimer, SIGNAL(timeout()), SLOT(updateFromInstaller()));
 }
 
 void QtVersionManager::extensionsInitialized()
@@ -154,7 +157,7 @@ void QtVersionManager::extensionsInitialized()
     if (QFileInfo(configFileName).exists()) {
         m_configFileWatcher = new Utils::FileSystemWatcher(this);
         connect(m_configFileWatcher, SIGNAL(fileChanged(QString)),
-                this, SLOT(updateFromInstaller()));
+                m_fileWatcherTimer, SLOT(start()));
         m_configFileWatcher->addFile(configFileName,
                                      Utils::FileSystemWatcher::WatchModifiedDate);
     } // exists
@@ -230,6 +233,8 @@ bool QtVersionManager::restoreQtVersions()
 
 void QtVersionManager::updateFromInstaller()
 {
+    m_fileWatcherTimer->stop();
+
     // Handle overwritting of data:
     if (m_configFileWatcher) {
         const QString path = globalSettingsFileName();
@@ -237,13 +242,16 @@ void QtVersionManager::updateFromInstaller()
         m_configFileWatcher->addFile(path, Utils::FileSystemWatcher::WatchModifiedDate);
     }
 
+    QList<int> added;
+    QList<int> removed;
+    QList<int> changed;
+
     ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
     QList<QtVersionFactory *> factories = pm->getObjects<QtVersionFactory>();
     Utils::PersistentSettingsReader reader;
-    if (!reader.load(globalSettingsFileName()))
-        return;
-
-    QVariantMap data = reader.restoreValues();
+    QVariantMap data;
+    if (reader.load(globalSettingsFileName()))
+        data = reader.restoreValues();
 
     if (debug) {
         qDebug()<< "======= Existing Qt versions =======";
@@ -320,14 +328,18 @@ void QtVersionManager::updateFromInstaller()
                 id = v->uniqueId();
                 if (debug)
                     qDebug() << " Qt version found with same autodetection source" << autoDetectionSource << " => Migrating id:" << id;
-                removeVersion(v);
+                m_versions.remove(id);
                 qtversionMap[QLatin1String("Id")] = id;
 
                 if (BaseQtVersion *qtv = factory->restore(type, qtversionMap)) {
                     Q_ASSERT(qtv->isAutodetected());
-                    addVersion(qtv);
+                    m_versions.insert(id, qtv);
                     restored = true;
                 }
+                if (restored)
+                    changed << id;
+                else
+                    removed << id;
             }
         }
         // Create a new qtversion
@@ -336,7 +348,8 @@ void QtVersionManager::updateFromInstaller()
                 qDebug() << " No Qt version found matching" << autoDetectionSource << " => Creating new version";
             if (BaseQtVersion *qtv = factory->restore(type, qtversionMap)) {
                 Q_ASSERT(qtv->isAutodetected());
-                addVersion(qtv);
+                m_versions.insert(qtv->uniqueId(), qtv);
+                added << qtv->uniqueId();
                 restored = true;
             }
         }
@@ -359,7 +372,8 @@ void QtVersionManager::updateFromInstaller()
             if (!sdkVersions.contains(qtVersion->autodetectionSource())) {
                 if (debug)
                     qDebug() << "  removing version"<<qtVersion->autodetectionSource();
-                removeVersion(qtVersion);
+                m_versions.remove(qtVersion->uniqueId());
+                removed << qtVersion->uniqueId();
             }
         }
     }
@@ -372,6 +386,8 @@ void QtVersionManager::updateFromInstaller()
             qDebug() << "";
         }
     }
+    emit qtVersionsChanged(added, removed, changed);
+    saveQtVersions();
 }
 
 void QtVersionManager::saveQtVersions()
@@ -395,7 +411,7 @@ void QtVersionManager::saveQtVersions()
 
 void QtVersionManager::findSystemQt()
 {
-    Utils::FileName systemQMakePath = ProjectExplorer::DebuggingHelperLibrary::findSystemQt(Utils::Environment::systemEnvironment());
+    Utils::FileName systemQMakePath = QtSupport::DebuggingHelperLibrary::findSystemQt(Utils::Environment::systemEnvironment());
     if (systemQMakePath.isNull())
         return;
 
@@ -487,7 +503,7 @@ void QtVersionManager::removeVersion(BaseQtVersion *version)
     delete version;
 }
 
-bool QtVersionManager::supportsTargetId(const QString &id) const
+bool QtVersionManager::supportsTargetId(Core::Id id) const
 {
     QList<BaseQtVersion *> versions = QtVersionManager::instance()->versionsForTargetId(id);
     foreach (BaseQtVersion *v, versions)
@@ -496,7 +512,7 @@ bool QtVersionManager::supportsTargetId(const QString &id) const
     return false;
 }
 
-QList<BaseQtVersion *> QtVersionManager::versionsForTargetId(const QString &id,
+QList<BaseQtVersion *> QtVersionManager::versionsForTargetId(Core::Id id,
                                                              const QtVersionNumber &minimumQtVersion,
                                                              const QtVersionNumber &maximumQtVersion) const
 {
@@ -510,9 +526,9 @@ QList<BaseQtVersion *> QtVersionManager::versionsForTargetId(const QString &id,
     return targetVersions;
 }
 
-QSet<QString> QtVersionManager::supportedTargetIds() const
+QSet<Core::Id> QtVersionManager::supportedTargetIds() const
 {
-    QSet<QString> results;
+    QSet<Core::Id> results;
     foreach (BaseQtVersion *version, m_versions)
         results.unite(version->supportedTargetIds());
     return results;

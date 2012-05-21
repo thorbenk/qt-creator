@@ -37,6 +37,7 @@
 #include "stackhandler.h"
 #include "qmlengine.h"
 #include "qtmessageloghandler.h"
+#include "watchdata.h"
 
 #include <coreplugin/icore.h>
 #include <utils/qtcassert.h>
@@ -120,7 +121,7 @@ QmlCppEngine::QmlCppEngine(const DebuggerStartParameters &sp,
         *errorMessage = tr("The slave debugging engine required for combined QML/C++-Debugging could not be created: %1").arg(*errorMessage);
         return;
     }
-    d->m_activeEngine = d->m_cppEngine;
+    setActiveEngine(d->m_cppEngine);
 }
 
 QmlCppEngine::~QmlCppEngine()
@@ -149,7 +150,10 @@ bool QmlCppEngine::setToolTipExpression(const QPoint & mousePos,
 void QmlCppEngine::updateWatchData(const WatchData &data,
     const WatchUpdateFlags &flags)
 {
-    d->m_activeEngine->updateWatchData(data, flags);
+    if (data.isInspect())
+        d->m_qmlEngine->updateWatchData(data, flags);
+    else
+        d->m_activeEngine->updateWatchData(data, flags);
 }
 
 void QmlCppEngine::watchPoint(const QPoint &point)
@@ -425,7 +429,7 @@ bool QmlCppEngine::evaluateScriptExpression(const QString &expression)
 void QmlCppEngine::setupEngine()
 {
     EDEBUG("\nMASTER SETUP ENGINE");
-    d->m_activeEngine = d->m_cppEngine;
+    setActiveEngine(d->m_cppEngine);
     d->m_qmlEngine->setupSlaveEngine();
     d->m_cppEngine->setupSlaveEngine();
 
@@ -592,7 +596,7 @@ void QmlCppEngine::slaveEngineStateChanged
                 // track qml engine again
                 setState(InferiorStopRequested);
                 notifyInferiorStopOk();
-                d->m_activeEngine = qmlEngine();
+                setActiveEngine(d->m_qmlEngine);
             }
             break;
         }
@@ -625,7 +629,7 @@ void QmlCppEngine::slaveEngineStateChanged
                     setState(InferiorStopRequested);
                 }
                 // now track cpp engine
-                d->m_activeEngine = cppEngine();
+                setActiveEngine(d->m_cppEngine);
             }
             break;
         }
@@ -637,7 +641,7 @@ void QmlCppEngine::slaveEngineStateChanged
                            || state() == InferiorStopOk, qDebug() << state());
 
                 // Just to make sure, we're shutting down anyway ...
-                d->m_activeEngine = cppEngine();
+                setActiveEngine(d->m_cppEngine);
 
                 if (state() == InferiorStopRequested)
                     setState(InferiorStopOk);
@@ -645,7 +649,7 @@ void QmlCppEngine::slaveEngineStateChanged
             } else {
                 if (d->m_activeEngine != cppEngine()) {
                     showStatusMessage(tr("C++ debugger activated"));
-                    d->m_activeEngine = cppEngine();
+                    setActiveEngine(d->m_cppEngine);
                 }
 
                 QTC_ASSERT(state() == InferiorStopRequested
@@ -737,7 +741,7 @@ void QmlCppEngine::slaveEngineStateChanged
                 EDEBUG("... QML ENGINE STOPPED DURING SHUTDOWN ");
 
                 // Just to make sure, we're shutting down anyway ...
-                d->m_activeEngine = cppEngine();
+                setActiveEngine(d->m_cppEngine);
 
                 if (state() == InferiorStopRequested)
                     notifyInferiorStopOk();
@@ -745,7 +749,7 @@ void QmlCppEngine::slaveEngineStateChanged
             } else {
                 if (d->m_activeEngine != qmlEngine()) {
                     showStatusMessage(tr("QML debugger activated"));
-                    d->m_activeEngine = qmlEngine();
+                    setActiveEngine(d->m_qmlEngine);
                 }
 
                 QTC_ASSERT(state() == InferiorRunOk
@@ -819,6 +823,12 @@ DebuggerEngine *QmlCppEngine::cppEngine() const
 DebuggerEngine *QmlCppEngine::qmlEngine() const
 {
     return d->m_qmlEngine;
+}
+
+void QmlCppEngine::setActiveEngine(DebuggerEngine *engine)
+{
+    d->m_activeEngine = engine;
+    updateViews();
 }
 
 } // namespace Internal

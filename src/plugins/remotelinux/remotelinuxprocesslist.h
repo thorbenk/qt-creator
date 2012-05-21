@@ -44,6 +44,17 @@ namespace Internal {
 class AbstractRemoteLinuxProcessListPrivate;
 }
 
+class REMOTELINUX_EXPORT RemoteProcess
+{
+public:
+    RemoteProcess() : pid(0) {}
+    bool operator<(const RemoteProcess &other) const;
+
+    int pid;
+    QString cmdLine;
+    QString exe;
+};
+
 class REMOTELINUX_EXPORT AbstractRemoteLinuxProcessList : public QAbstractTableModel
 {
     Q_OBJECT
@@ -53,8 +64,7 @@ public:
 
     void update();
     void killProcess(int row);
-    int pidAt(int row) const;
-    QString commandLineAt(int row) const;
+    RemoteProcess at(int row) const;
 
 signals:
     void processListUpdated();
@@ -66,13 +76,6 @@ protected:
         QObject *parent = 0);
 
     QSharedPointer<const LinuxDeviceConfiguration> deviceConfiguration() const;
-
-    struct RemoteProcess {
-        RemoteProcess(int pid, const QString &cmdLine) : pid(pid), cmdLine(cmdLine) {}
-
-        int pid;
-        QString cmdLine;
-    };
 
 private slots:
     void handleRemoteStdOut(const QByteArray &output);

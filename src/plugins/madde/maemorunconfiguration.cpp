@@ -125,7 +125,7 @@ QString MaemoRunConfiguration::commandPrefix() const
         return QString();
 
     QString prefix = environmentPreparationCommand() + QLatin1Char(';');
-    if (deviceConfig()->type() == QLatin1String(MeeGoOsType))
+    if (deviceConfig()->type() == Core::Id(MeeGoOsType))
         prefix += QLatin1String("DISPLAY=:0.0 ");
 
     return QString::fromLatin1("%1 %2").arg(prefix, userEnvironmentChangesAsString());
@@ -192,7 +192,7 @@ const AbstractQt4MaemoTarget *MaemoRunConfiguration::maemoTarget() const
     return maemoTarget;
 }
 
-const QString MaemoRunConfiguration::Id = QLatin1String(MAEMO_RC_ID);
+const Core::Id MaemoRunConfiguration::Id = Core::Id(MAEMO_RC_ID);
 
 } // namespace Internal
 } // namespace Madde

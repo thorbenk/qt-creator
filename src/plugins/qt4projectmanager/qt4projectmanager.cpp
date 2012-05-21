@@ -106,7 +106,9 @@ static inline QString formWindowEditorContents(const QObject *editor)
 
 Qt4Manager::Qt4Manager(Qt4ProjectManagerPlugin *plugin)
   : m_plugin(plugin),
+    m_contextNode(0),
     m_contextProject(0),
+    m_contextFile(0),
     m_lastEditor(0),
     m_dirty(false)
 {
@@ -294,20 +296,30 @@ void Qt4Manager::setContextNode(ProjectExplorer::Node *node)
     m_contextNode = node;
 }
 
-void Qt4Manager::setContextProject(ProjectExplorer::Project *project)
-{
-    m_contextProject = project;
-}
-
 ProjectExplorer::Project *Qt4Manager::contextProject() const
 {
     return m_contextProject;
 }
 
+void Qt4Manager::setContextProject(ProjectExplorer::Project *project)
+{
+    m_contextProject = project;
+}
+
+ProjectExplorer::FileNode *Qt4Manager::contextFile() const
+{
+    return m_contextFile;
+}
+
+void Qt4Manager::setContextFile(ProjectExplorer::FileNode *file)
+{
+    m_contextFile = file;
+}
+
 void Qt4Manager::addLibrary()
 {
-    Core::EditorManager *em = Core::EditorManager::instance();
-    ProFileEditorWidget *editor = qobject_cast<ProFileEditorWidget*>(em->currentEditor()->widget());
+    ProFileEditorWidget *editor =
+        qobject_cast<ProFileEditorWidget*>(Core::EditorManager::currentEditor()->widget());
     if (editor)
         addLibrary(editor->editorDocument()->fileName(), editor);
 }
@@ -329,9 +341,8 @@ void Qt4Manager::addLibrary(const QString &fileName, ProFileEditorWidget *editor
     if (editor) {
         editable = editor->editor();
     } else {
-        Core::EditorManager *em = Core::EditorManager::instance();
         editable = qobject_cast<TextEditor::BaseTextEditor *>
-                (em->openEditor(fileName, Qt4ProjectManager::Constants::PROFILE_EDITOR_ID));
+                (Core::EditorManager::openEditor(fileName, Qt4ProjectManager::Constants::PROFILE_EDITOR_ID));
     }
     if (!editable)
         return;
@@ -389,20 +400,25 @@ void Qt4Manager::runQMake(ProjectExplorer::Project *p, ProjectExplorer::Node *no
 
 void Qt4Manager::buildSubDirContextMenu()
 {
-    handleSubDirContexMenu(BUILD);
+    handleSubDirContextMenu(BUILD, false);
 }
 
 void Qt4Manager::cleanSubDirContextMenu()
 {
-    handleSubDirContexMenu(CLEAN);
+    handleSubDirContextMenu(CLEAN, false);
 }
 
 void Qt4Manager::rebuildSubDirContextMenu()
 {
-    handleSubDirContexMenu(REBUILD);
+    handleSubDirContextMenu(REBUILD, false);
 }
 
-void Qt4Manager::handleSubDirContexMenu(Qt4Manager::Action action)
+void Qt4Manager::buildFileContextMenu()
+{
+    handleSubDirContextMenu(BUILD, true);
+}
+
+void Qt4Manager::handleSubDirContextMenu(Qt4Manager::Action action, bool isFileBuild)
 {
     Qt4Project *qt4pro = qobject_cast<Qt4Project *>(m_contextProject);
     QTC_ASSERT(qt4pro, return);
@@ -411,14 +427,18 @@ void Qt4Manager::handleSubDirContexMenu(Qt4Manager::Action action)
         !qt4pro->activeTarget()->activeBuildConfiguration())
     return;
 
+    if (!m_contextNode || !m_contextFile)
+        isFileBuild = false;
     Qt4BuildConfiguration *bc = qt4pro->activeTarget()->activeQt4BuildConfiguration();
-    if (m_contextNode != 0 && m_contextNode != qt4pro->rootProjectNode())
+    if (m_contextNode != 0 && (m_contextNode != qt4pro->rootProjectNode() || isFileBuild))
         if (Qt4ProFileNode *profile = qobject_cast<Qt4ProFileNode *>(m_contextNode))
             bc->setSubNodeBuild(profile);
 
+    if (isFileBuild)
+        bc->setFileNodeBuild(m_contextFile);
     if (projectExplorer()->saveModifiedFiles()) {
-        const QString buildStep = QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
-        const QString cleanStep = QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
+        const Core::Id buildStep = Core::Id(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
+        const Core::Id cleanStep = Core::Id(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
         if (action == BUILD) {
             const QString name = ProjectExplorer::ProjectExplorerPlugin::displayNameForStepId(buildStep);
             projectExplorer()->buildManager()->buildList(bc->stepList(buildStep), name);
@@ -437,6 +457,7 @@ void Qt4Manager::handleSubDirContexMenu(Qt4Manager::Action action)
     }
 
     bc->setSubNodeBuild(0);
+    bc->setFileNodeBuild(0);
 }
 
 QString Qt4Manager::fileTypeId(ProjectExplorer::FileType type)

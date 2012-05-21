@@ -50,6 +50,7 @@ public:
 
     bool load(const QString &fileName);
     bool save();
+    QTreeView *treeView() { return m_treeview; }
     QString errorMessage() const { return m_treeview->errorMessage(); }
 
     bool isDirty();
@@ -68,6 +69,7 @@ public:
 
 signals:
     void dirtyChanged(bool dirty);
+    void itemActivated(const QString &fileName);
     void showContextMenu(const QPoint &globalPos, const QString &fileName);
 
 private slots:

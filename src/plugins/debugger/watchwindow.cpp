@@ -577,24 +577,24 @@ void WatchTreeView::mouseDoubleClickEvent(QMouseEvent *ev)
 static QString addWatchActionText(QString exp)
 {
     if (exp.isEmpty())
-        return WatchTreeView::tr("Evaluate Expression");
+        return WatchTreeView::tr("Add Expression Evaluator");
     if (exp.size() > 30) {
         exp.truncate(30);
         exp.append(QLatin1String("..."));
     }
-    return WatchTreeView::tr("Evaluate Expression \"%1\"").arg(exp);
+    return WatchTreeView::tr("Add Expression Evaluator for \"%1\"").arg(exp);
 }
 
 // Text for add watch action with truncated expression.
 static QString removeWatchActionText(QString exp)
 {
     if (exp.isEmpty())
-        return WatchTreeView::tr("Remove Evaluated Expression");
+        return WatchTreeView::tr("Remove Expression Evaluator");
     if (exp.size() > 30) {
         exp.truncate(30);
         exp.append(QLatin1String("..."));
     }
-    return WatchTreeView::tr("Remove Evaluated Expression \"%1\"").arg(exp);
+    return WatchTreeView::tr("Remove Expression Evaluator for \"%1\"").arg(exp);
 }
 
 static void copyToClipboard(const QString &clipboardText)
@@ -766,11 +766,11 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
 
     QMenu menu;
     QAction *actInsertNewWatchItem =
-        menu.addAction(tr("Insert New Evaluated Expression"));
+        menu.addAction(tr("Insert New Expression Evaluator"));
     actInsertNewWatchItem->setEnabled(canHandleWatches && canInsertWatches);
-    QAction *actSelectWidgetToWatch = menu.addAction(tr("Select Widget to Watch"));
-    actSelectWidgetToWatch->setEnabled(canHandleWatches
-           && engine->hasCapability(WatchWidgetsCapability));
+    QAction *actSelectWidgetToWatch = menu.addAction(tr("Select Widget to Add into Expression Evaluator"));
+    actSelectWidgetToWatch->setEnabled(canHandleWatches && canInsertWatches
+                                       && engine->hasCapability(WatchWidgetsCapability));
     QAction *actEditTypeFormats = menu.addAction(tr("Change Global Display Formats..."));
     actEditTypeFormats->setEnabled(true);
     menu.addSeparator();
@@ -787,12 +787,12 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
     actRemoveWatchExpression->setEnabled(
         (canHandleWatches || state == DebuggerNotReady) && !exp.isEmpty());
     QAction *actRemoveWatches =
-        new QAction(tr("Remove All Evaluated Expressions"), &menu);
+        new QAction(tr("Remove All Expression Evaluators"), &menu);
     actRemoveWatches->setEnabled(!WatchHandler::watcherNames().isEmpty());
 
-    if (m_type == LocalsType)
+    if (m_type == LocalsType) {
         menu.addAction(actWatchExpression);
-    else {
+    } else if (m_type == WatchersType) {
         menu.addAction(actRemoveWatchExpression);
         menu.addAction(actRemoveWatches);
     }
@@ -868,16 +868,9 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
     menu.addAction(debuggerCore()->action(UseDebuggingHelpers));
     menu.addAction(debuggerCore()->action(UseToolTipsInLocalsView));
     menu.addAction(debuggerCore()->action(AutoDerefPointers));
-    menu.addAction(debuggerCore()->action(ShowStdNamespace));
-    menu.addAction(debuggerCore()->action(ShowQtNamespace));
     menu.addAction(debuggerCore()->action(SortStructMembers));
     menu.addAction(debuggerCore()->action(UseDynamicType));
 
-    QAction *actClearCodeModelSnapshot
-        = new QAction(tr("Refresh Code Model Snapshot"), &menu);
-    actClearCodeModelSnapshot->setEnabled(actionsEnabled
-        && debuggerCore()->action(UseCodeModel)->isChecked());
-    menu.addAction(actClearCodeModelSnapshot);
     QAction *actShowInEditor
         = new QAction(tr("Show View Contents in Editor"), &menu);
     actShowInEditor->setEnabled(actionsEnabled);
@@ -893,9 +886,11 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
 
     QAction *act = menu.exec(ev->globalPos());
 
-    if (act == actInsertNewWatchItem) {
+    if (!act) {
+        ;
+    } else if (act == actInsertNewWatchItem) {
         bool ok;
-        QString newExp = QInputDialog::getText(this, tr("Enter watch expression"),
+        QString newExp = QInputDialog::getText(this, tr("Enter Expression for Evaluator"),
                                    tr("Expression:"), QLineEdit::Normal,
                                    QString(), &ok);
         if (ok && !newExp.isEmpty())
@@ -937,15 +932,13 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
         copyToClipboard(mi1.data().toString());
     } else if (act == actRemoveWatches) {
         currentEngine()->watchHandler()->clearWatches();
-    } else if (act == actClearCodeModelSnapshot) {
-        debuggerCore()->clearCppCodeModelSnapshot();
     } else if (act == clearTypeFormatAction) {
         setModelData(LocalsTypeFormatRole, -1, mi1);
     } else if (act == clearIndividualFormatAction) {
         setModelData(LocalsIndividualFormatRole, -1, mi1);
     } else if (act == actShowInEditor) {
         QString contents = handler->editorContents();
-        debuggerCore()->openTextEditor(tr("Locals & Watchers"), contents);
+        debuggerCore()->openTextEditor(tr("Locals & Expressions"), contents);
     } else if (act == showUnprintableUnicode) {
         handler->setUnprintableBase(0);
     } else if (act == showUnprintableEscape) {
@@ -992,11 +985,15 @@ void WatchTreeView::setModel(QAbstractItemModel *model)
     setRootIsDecorated(true);
     if (header()) {
         header()->setDefaultAlignment(Qt::AlignLeft);
-        if (m_type != LocalsType)
+        if (m_type != LocalsType && m_type != InspectType)
             header()->hide();
     }
 
     connect(model, SIGNAL(layoutChanged()), SLOT(resetHelper()));
+
+    QTC_ASSERT(qobject_cast<WatchModel*>(model), return);
+    connect(model, SIGNAL(setCurrentIndex(QModelIndex)),
+            SLOT(setCurrentIndex(QModelIndex)));
 }
 
 void WatchTreeView::resetHelper()

@@ -197,6 +197,7 @@ static QSharedPointer<FunctionDeclDefLink> findLinkHelper(QSharedPointer<Functio
     // the parens are necessary for finding good places for changes
     if (!targetFuncDecl->lparen_token || !targetFuncDecl->rparen_token)
         return noResult;
+    QTC_ASSERT(targetFuncDecl->symbol, return noResult);
     // if the source and target argument counts differ, something is wrong
     QTC_ASSERT(targetFuncDecl->symbol->argumentCount() == link->sourceFunction->argumentCount(), return noResult);
 
@@ -1026,7 +1027,7 @@ QList<CppQuickFixOperation::Ptr> ApplyDeclDefLinkChanges::match(const QSharedPoi
         return results;
 
     QSharedPointer<ApplyDeclDefLinkOperation> op(new ApplyDeclDefLinkOperation(interface, link));
-    op->setDescription(FunctionDeclDefLink::tr("Apply function signature changes"));
+    op->setDescription(FunctionDeclDefLink::tr("Apply Function Signature Changes"));
     results += op;
 
     return results;

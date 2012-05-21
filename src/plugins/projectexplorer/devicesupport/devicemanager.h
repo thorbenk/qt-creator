@@ -56,46 +56,45 @@ class PROJECTEXPLORER_EXPORT DeviceManager : public QObject
 public:
     ~DeviceManager();
 
-    static DeviceManager *instance();
+    static DeviceManager *instance(const QString &magicTestToken = QString());
 
     int deviceCount() const;
     IDevice::ConstPtr deviceAt(int index) const;
-    IDevice::ConstPtr find(const Core::Id &id) const;
-    IDevice::ConstPtr findInactiveAutoDetectedDevice(const QString &type, const Core::Id id);
-    IDevice::ConstPtr defaultDevice(const QString &deviceType) const;
+
+    IDevice::ConstPtr find(Core::Id id) const;
+    IDevice::ConstPtr findInactiveAutoDetectedDevice(Core::Id type, Core::Id id);
+    IDevice::ConstPtr defaultDevice(Core::Id deviceType) const;
     bool hasDevice(const QString &name) const;
     Core::Id deviceId(const IDevice::ConstPtr &device) const;
 
+    int indexForId(Core::Id id) const;
     int indexOf(const IDevice::ConstPtr &device) const;
 
     void addDevice(const IDevice::Ptr &device);
-    void removeDevice(int index);
+    void removeDevice(Core::Id id);
 
 signals:
-    void deviceUpdated(const Core::Id &id);
-
-    void deviceAdded(const QSharedPointer<const IDevice> &device);
-    void deviceRemoved(int index);
-    void displayNameChanged(int index);
-    void defaultStatusChanged(int index);
+    void deviceAdded(Core::Id id);
+    void deviceRemoved(Core::Id id);
+    void deviceUpdated(Core::Id id);
     void deviceListChanged();
     void updated(); // Emitted for all of the above.
 
+private slots:
+    void save();
+
 private:
-    DeviceManager(bool doLoad = false);
+    DeviceManager(bool isInstance = false);
 
     void load();
-    void save();
     void loadPre2_6();
     static const IDeviceFactory *restoreFactory(const QVariantMap &map);
     void fromMap(const QVariantMap &map);
     QVariantMap toMap() const;
     void ensureOneDefaultDevicePerType();
-    int indexForId(const Core::Id &id) const;
 
     // For SettingsWidget.
-    IDevice::Ptr mutableDeviceAt(int index) const;
-    void setDeviceDisplayName(int i, const QString &name);
+    IDevice::Ptr mutableDevice(Core::Id id) const;
     void setDefaultDevice(int index);
     static DeviceManager *cloneInstance();
     static void replaceInstance();

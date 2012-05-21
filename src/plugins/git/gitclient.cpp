@@ -402,7 +402,7 @@ VcsBase::VcsBaseEditorWidget *GitClient::findExistingVCSEditor(const char *regis
         return 0;
 
     // Exists already
-    Core::EditorManager::instance()->activateEditor(outputEditor, Core::EditorManager::ModeSwitch);
+    Core::EditorManager::activateEditor(outputEditor, Core::EditorManager::ModeSwitch);
     outputEditor->createNew(m_msgWait);
     rc = VcsBase::VcsBaseEditorWidget::getVcsBaseEditor(outputEditor);
 
@@ -427,7 +427,7 @@ VcsBase::VcsBaseEditorWidget *GitClient::createVcsEditor(const Core::Id &id,
     QTC_CHECK(!findExistingVCSEditor(registerDynamicProperty, dynamicPropertyValue));
 
     // Create new, set wait message, set up with source and codec
-    Core::IEditor *outputEditor = Core::ICore::editorManager()->openEditorWithContents(id, &title, m_msgWait);
+    Core::IEditor *outputEditor = Core::EditorManager::openEditorWithContents(id, &title, m_msgWait);
     outputEditor->document()->setProperty(registerDynamicProperty, dynamicPropertyValue);
     rc = VcsBase::VcsBaseEditorWidget::getVcsBaseEditor(outputEditor);
     connect(rc, SIGNAL(annotateRevisionRequested(QString,QString,int)),
@@ -444,7 +444,7 @@ VcsBase::VcsBaseEditorWidget *GitClient::createVcsEditor(const Core::Id &id,
     }
 
     rc->setForceReadOnly(true);
-    Core::ICore::editorManager()->activateEditor(outputEditor, Core::EditorManager::ModeSwitch);
+    Core::EditorManager::activateEditor(outputEditor, Core::EditorManager::ModeSwitch);
 
     if (configWidget)
         rc->setConfigurationWidget(configWidget);
@@ -823,6 +823,30 @@ void GitClient::addFile(const QString &workingDirectory, const QString &fileName
     arguments << QLatin1String("add") << fileName;
 
     executeGit(workingDirectory, arguments, 0, true);
+}
+
+bool GitClient::synchronousLog(const QString &workingDirectory, const QStringList &arguments,
+                               QString *output, QString *errorMessageIn)
+{
+    QByteArray outputText;
+    QByteArray errorText;
+    QStringList allArguments;
+    allArguments << QLatin1String("log") << QLatin1String(GitClient::noColorOption);
+    allArguments.append(arguments);
+    const bool rc = fullySynchronousGit(workingDirectory, allArguments, &outputText, &errorText);
+    if (rc) {
+        *output = commandOutputFromLocal8Bit(outputText);
+    } else {
+        const QString errorMessage = tr("Cannot obtain log of \"%1\": %2").
+                                     arg(QDir::toNativeSeparators(workingDirectory),
+                                         commandOutputFromLocal8Bit(errorText));
+        if (errorMessageIn) {
+            *errorMessageIn = errorMessage;
+        } else {
+            outputWindow()->appendError(errorMessage);
+        }
+    }
+    return rc;
 }
 
 // Warning: 'intendToAdd' works only from 1.6.1 onwards
@@ -2303,7 +2327,7 @@ void GitClient::connectRepositoryChanged(const QString & repository, VcsBase::Co
                 GitPlugin::instance()->gitVersionControl(), SIGNAL(repositoryChanged(QString)));
     }
     m_repositoryChangedSignalMapper->setMapping(cmd, repository);
-    connect(cmd, SIGNAL(success()), m_repositoryChangedSignalMapper, SLOT(map()),
+    connect(cmd, SIGNAL(success(QVariant)), m_repositoryChangedSignalMapper, SLOT(map()),
             Qt::QueuedConnection);
 }
 
@@ -2356,7 +2380,7 @@ unsigned GitClient::synchronousGitVersion(bool silent, QString *errorMessage) co
     }
     // cut 'git version 1.6.5.1.sha'
     const QString output = commandOutputFromLocal8Bit(outputText);
-    const QRegExp versionPattern(QLatin1String("^[^\\d]+([\\d])\\.([\\d])\\.([\\d]).*$"));
+    QRegExp versionPattern(QLatin1String("^[^\\d]+([\\d])\\.([\\d])\\.([\\d]).*$"));
     QTC_ASSERT(versionPattern.isValid(), return 0);
     QTC_ASSERT(versionPattern.exactMatch(output), return 0);
     const unsigned major = versionPattern.cap(1).toUInt();

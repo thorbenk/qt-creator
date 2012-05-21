@@ -101,10 +101,16 @@
 #endif // USE_UNINITIALIZED_AUTOBREAK
 #endif
 
-#if QT_SCRIPT_LIB
+#ifdef QT_SCRIPT_LIB
 #define USE_SCRIPTLIB 1
 #else
 #define USE_SCRIPTLIB 0
+#endif
+
+#ifdef QT_WEBKIT_LIB
+#define USE_WEBKITLIB 1
+#else
+#define USE_WEBKITLIB 0
 #endif
 
 #if QT_VERSION >= 0x040500
@@ -158,6 +164,10 @@ void dummyStatement(...) {}
 #include <QScriptValue>
 #endif
 
+#if USE_WEBKITLIB
+#include <QWebPage>
+#endif
+
 #include <QXmlAttributes>
 
 #include <QHostAddress>
@@ -196,6 +206,7 @@ void dummyStatement(...) {}
 #include <boost/date_time.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/bimap.hpp>
 #endif
 
 #if USE_EIGEN
@@ -263,6 +274,21 @@ struct SomeType
 } // namespace nsB
 } // namespace nsA
 
+
+struct BaseClass
+{
+    BaseClass() : a(1) {}
+    virtual ~BaseClass() {}
+    virtual int foo() { return a; }
+    int a;
+};
+
+struct DerivedClass : BaseClass
+{
+    DerivedClass() : b(2) {}
+    int foo() { return b; }
+    int b;
+};
 
 namespace multibp {
 
@@ -1991,7 +2017,7 @@ namespace plugin {
         BREAK_HERE;
         // CheckType dir QString.
         // Check lib "" QLibrary.
-        // Check name <not accessible> QString.
+        // CheckType name QString.
         // CheckType res int.
         // Continue.
         // Step
@@ -2089,6 +2115,32 @@ namespace final {
         dummyStatement(&app);
     }
 
+    void testNullReferenceHelper(int &i, int &j)
+    {
+        i += 1;
+        j += 1;
+    }
+
+    void testNullReference()
+    {
+        int i = 21;
+        int *p = &i;
+        int *q = 0;
+        int &pp = *p;
+        int &qq = *q;
+        BREAK_HERE;
+        // Check i 21 int.
+        // CheckType p int.
+        // Check p 21 int.
+        // Check q 0x0 int *.
+        // Check pp 21 int &.
+        // Check qq <null reference> int &.
+        // Continue.
+        return; // Uncomment.
+        testNullReferenceHelper(pp, qq);
+        dummyStatement(p, q, &i);
+    }
+
     void testFinal(QCoreApplication *app)
     {
         // This contains all "final" tests that do not allow proceeding
@@ -2097,6 +2149,7 @@ namespace final {
         // Continue.
         testQSettings();
         testNullPointerDeref();
+        testNullReference();
         testEndlessLoop();
         testEndlessRecursion();
         testUncaughtException();
@@ -2311,11 +2364,13 @@ namespace stdarray {
     {
         #if USE_CXX11
         std::array<int, 4> a = { { 1, 2, 3, 4} };
+        std::array<QString, 4> b = { { "1", "2", "3", "4"} };
         BREAK_HERE;
         // Expand a.
         // Check a <4 items> std::array<int, 4u>.
+        // Check a <4 items> std::array<QString, 4u>.
         // Continue.
-        dummyStatement(&a);
+        dummyStatement(&a, &b);
         #endif
     }
 
@@ -2657,6 +2712,36 @@ namespace stdmap {
         dummyStatement(&map);
     }
 
+    void testStdMapUIntFloatIterator()
+    {
+        typedef std::map<uint, float> Map;
+        Map map;
+        map[11] = 11.0;
+        map[22] = 22.0;
+        map[33] = 33.0;
+        map[44] = 44.0;
+        map[55] = 55.0;
+        map[66] = 66.0;
+
+        Map::iterator it1 = map.begin();
+        Map::iterator it2 = it1; ++it2;
+        Map::iterator it3 = it2; ++it2;
+        Map::iterator it4 = it3; ++it3;
+        Map::iterator it5 = it4; ++it4;
+        Map::iterator it6 = it5; ++it5;
+
+        BREAK_HERE;
+        // Expand map.
+        // Check map <6 items> std::map<unsigned int, float>.
+        // Check map.11 11 float.
+        // Check it1.first 11 unsigned int.
+        // Check it1.second 11 float.
+        // Check it1.first 55 unsigned int.
+        // Check it1.second 55 float.
+        // Continue.
+        dummyStatement(&map, &it1, &it2, &it3, &it4, &it5, &it6);
+    }
+
     void testStdMapStringFloat()
     {
         std::map<QString, float> map;
@@ -2720,6 +2805,7 @@ namespace stdmap {
         testStdMapUIntStringList();
         testStdMapUIntStringListTypedef();
         testStdMapUIntFloat();
+        testStdMapUIntFloatIterator();
         testStdMapStringFloat();
         testStdMapIntString();
         testStdMapStringPointer();
@@ -2800,6 +2886,33 @@ namespace stdset {
         dummyStatement(&set);
     }
 
+    void testStdSetIntIterator()
+    {
+        typedef std::set<int> Set;
+        Set set;
+        set.insert(11.0);
+        set.insert(22.0);
+        set.insert(33.0);
+        set.insert(44.0);
+        set.insert(55.0);
+        set.insert(66.0);
+
+        Set::iterator it1 = set.begin();
+        Set::iterator it2 = it1; ++it2;
+        Set::iterator it3 = it2; ++it2;
+        Set::iterator it4 = it3; ++it3;
+        Set::iterator it5 = it4; ++it4;
+        Set::iterator it6 = it5; ++it5;
+
+        BREAK_HERE;
+        // Check set <6 items> std::set<int>.
+        // Check it1.key 11 unsigned int.
+        // Check it1.value 11 int.
+        // Check it1.key 55 unsigned int.
+        // Check it1.value 55 int.
+        dummyStatement(&set, &it1, &it2, &it3, &it4, &it5, &it6);
+    }
+
     void testStdSetString()
     {
         std::set<QString> set;
@@ -2828,6 +2941,7 @@ namespace stdset {
     void testStdSet()
     {
         testStdSetInt();
+        testStdSetIntIterator();
         testStdSetString();
         testStdSetPointer();
     }
@@ -4714,7 +4828,7 @@ namespace basic {
         const Ref d = a;
         BREAK_HERE;
         // Check a 43 int.
-        // Check b 43 int.
+        // Check b 43 int &.
         // Check c 44 int.
         // Check d 43 basic::Ref.
         // Continue.
@@ -4730,7 +4844,7 @@ namespace basic {
         const Ref d = a;
         BREAK_HERE;
         // Check a "hello" QString.
-        // Check b "bababa" QString.
+        // Check b "bababa" QString &.
         // Check c "world" QString.
         // Check d "hello" basic::Ref.
         // Continue.
@@ -4743,11 +4857,25 @@ namespace basic {
         typedef QString &Ref;
         const Ref d = const_cast<Ref>(a);
         BREAK_HERE;
-        // Check a "hello" QString.
-        // Check b "hello" QString.
+        // Check a "hello" QString &.
+        // Check b "hello" QString &.
         // Check d "hello" basic::Ref.
         // Continue.
         dummyStatement(&a, &b, &d);
+    }
+
+    void testDynamicReference()
+    {
+        DerivedClass d;
+        BaseClass *b1 = &d;
+        BaseClass &b2 = d;
+        BREAK_HERE;
+        // CheckType b1 DerivedClass *.
+        // CheckType b2 DerivedClass &.
+        // Continue.
+        int x = b1->foo();
+        int y = b2.foo();
+        dummyStatement(&d, &b1, &b2, &x, &y);
     }
 
     void testLongEvaluation1()
@@ -4822,13 +4950,13 @@ namespace basic {
     {
         BREAK_HERE;
         // Expand f.
-        // CheckType f Foo.
+        // CheckType f Foo &.
         // Check f.a 12 int.
         // Continue.
         ++f.a;
         BREAK_HERE;
         // Expand f.
-        // CheckType f Foo.
+        // CheckType f Foo &.
         // Check f.a 13 int.
         // Continue.
     }
@@ -4943,6 +5071,7 @@ namespace basic {
         testReference1();
         testReference2();
         testReference3("hello");
+        testDynamicReference();
         testReturn();
         testArray1();
         testArray2();
@@ -5137,6 +5266,30 @@ namespace qscript {
 } // namespace script
 
 
+namespace webkit {
+
+    void testWTFString()
+    {
+    #if USE_WEBKITLIB
+        BREAK_UNINITIALIZED_HERE;
+        QWebPage p;
+        BREAK_HERE;
+        // CheckType p QWebPage.
+        // Continue.
+        dummyStatement(&p);
+    #else
+        dummyStatement();
+    #endif
+    }
+
+    void testWebKit()
+    {
+        testWTFString();
+    }
+
+} // namespace webkit
+
+
 namespace boost {
 
     #if USE_BOOST
@@ -5241,6 +5394,24 @@ namespace boost {
         dummyStatement(&d1, &d2, &d3);
     }
 
+    void testBoostBimap()
+    {
+        typedef boost::bimap<int, int> B;
+        B b;
+        BREAK_HERE;
+        // Check b <0 items> boost::B.
+        // Continue.
+        b.left.insert(B::left_value_type(1, 2));
+        BREAK_HERE;
+        // Check b <1 items> boost::B.
+        // Continue.
+        B::left_const_iterator it = b.left.begin();
+        int l = it->first;
+        int r = it->second;
+        // Continue.
+        dummyStatement(&b, &l, &r);
+    }
+
     void testBoostPosixTimePtime()
     {
         using namespace boost;
@@ -5269,6 +5440,7 @@ namespace boost {
         testBoostPosixTimeTimeDuration();
         testBoostPosixTimePtime();
         testBoostGregorianDate();
+        testBoostBimap();
     }
 
     #else
@@ -5640,7 +5812,7 @@ namespace bug5184 {
         BREAK_HERE;
         // Check raw <0 items> QList<QByteArray>.
         // CheckType request QNetworkRequest.
-        // Check url "http://127.0.0.1/" QUrl.
+        // Check url "http://127.0.0.1/" QUrl &.
         // Continue.
         dummyStatement(&request, &raw);
     }
@@ -6175,6 +6347,7 @@ int main(int argc, char *argv[])
     valgrind::testValgrind();
     namespc::testNamespace();
     painting::testPainting();
+    webkit::testWebKit();
 
     stdarray::testStdArray();
     stdcomplex::testStdComplex();

@@ -44,6 +44,7 @@
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/modemanager.h>
 
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QDebug>
 
@@ -68,12 +69,12 @@ Core::Id FormEditorFactory::id() const
 
 QString FormEditorFactory::displayName() const
 {
-    return tr(C_DESIGNER_XML_DISPLAY_NAME);
+    return qApp->translate("Designer", C_DESIGNER_XML_DISPLAY_NAME);
 }
 
 Core::IDocument *FormEditorFactory::open(const QString &fileName)
 {
-    Core::IEditor *iface = Core::EditorManager::instance()->openEditor(fileName, id());
+    Core::IEditor *iface = Core::EditorManager::openEditor(fileName, id());
     if (!iface)
         return 0;
     if (qobject_cast<FormWindowEditor *>(iface)) {
@@ -98,7 +99,7 @@ QStringList FormEditorFactory::mimeTypes() const
 
 void FormEditorFactory::designerModeClicked()
 {
-    Core::ModeManager::activateMode(QLatin1String(Core::Constants::MODE_DESIGN));
+    Core::ModeManager::activateMode(Core::Constants::MODE_DESIGN);
 }
 
 } // namespace Internal

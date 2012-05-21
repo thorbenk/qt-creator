@@ -62,9 +62,11 @@ const char RUNQMAKECONTEXTMENU[] = "Qt4Builder.RunQMakeContextMenu";
 const char BUILDSUBDIR[] = "Qt4Builder.BuildSubDir";
 const char REBUILDSUBDIR[] = "Qt4Builder.RebuildSubDir";
 const char CLEANSUBDIR[] = "Qt4Builder.CleanSubDir";
+const char BUILDFILE[] = "Qt4Builder.BuildFile";
 const char BUILDSUBDIRCONTEXTMENU[] = "Qt4Builder.BuildSubDirContextMenu";
 const char REBUILDSUBDIRCONTEXTMENU[] = "Qt4Builder.RebuildSubDirContextMenu";
 const char CLEANSUBDIRCONTEXTMENU[] = "Qt4Builder.CleanSubDirContextMenu";
+const char BUILDFILECONTEXTMENU[] = "Qt4Builder.BuildFileContextMenu";
 const char ADDLIBRARY[] = "Qt4.AddLibrary";
 const char SEPARATOR[] = "Qt4.Separator";
 
@@ -81,6 +83,7 @@ const char MAEMO5_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.MaemoDeviceTarg
 const char HARMATTAN_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.HarmattanDeviceTarget";
 const char MEEGO_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.MeegoDeviceTarget";
 const char QT_SIMULATOR_TARGET_ID[] = "Qt4ProjectManager.Target.QtSimulatorTarget";
+const char ANDROID_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.AndroidDeviceTarget";
 
 // Target Features
 const char MOBILE_TARGETFEATURE_ID[] = "Qt4ProjectManager.TargetFeature.Mobile";

@@ -183,9 +183,9 @@ void RemoteLinuxDeployConfigurationWidget::handleDeviceConfigurationListChanged(
 {
     const LinuxDeviceConfiguration::ConstPtr &devConf
         = d->deployConfiguration->deviceConfiguration();
-    const Core::Id &internalId = DeviceManager::instance()->deviceId(devConf);
+    const Core::Id id = DeviceManager::instance()->deviceId(devConf);
     const int newIndex
-        = d->deployConfiguration->target()->deviceConfigModel()->indexForInternalId(internalId);
+        = d->deployConfiguration->target()->deviceConfigModel()->indexForId(id);
     d->ui.deviceConfigsComboBox->setCurrentIndex(newIndex);
 }
 
@@ -203,7 +203,7 @@ void RemoteLinuxDeployConfigurationWidget::openProjectFile()
         return;
     const DeployableFilesPerProFile * const proFileInfo =
         d->deployConfiguration->deploymentInfo()->modelAt(row);
-    Core::EditorManager::instance()->openEditor(proFileInfo->proFilePath(), Core::Id(),
+    Core::EditorManager::openEditor(proFileInfo->proFilePath(), Core::Id(),
         Core::EditorManager::ModeSwitch);
 }
 

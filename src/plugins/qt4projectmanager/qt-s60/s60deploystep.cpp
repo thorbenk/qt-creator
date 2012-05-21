@@ -117,7 +117,7 @@ S60DeployStep::S60DeployStep(ProjectExplorer::BuildStepList *bc,
 }
 
 S60DeployStep::S60DeployStep(ProjectExplorer::BuildStepList *bc):
-    BuildStep(bc, QLatin1String(S60_DEPLOY_STEP_ID)), m_timer(0),
+    BuildStep(bc, Core::Id(S60_DEPLOY_STEP_ID)), m_timer(0),
     m_timeoutTimer(new QTimer(this)),
     m_eventLoop(0),
     m_state(StateUninit),
@@ -154,13 +154,15 @@ bool S60DeployStep::init()
     S60DeployConfiguration *deployConfiguration = static_cast<S60DeployConfiguration *>(bc->target()->activeDeployConfiguration());
     if (!deployConfiguration)
         return false;
-    m_serialPortName = deployConfiguration->device()->serialPortName();
+
+    SymbianIDevice::ConstPtr dev = deployConfiguration->device();
+    m_serialPortName = dev->serialPortName();
     m_serialPortFriendlyName = SymbianUtils::SymbianDeviceManager::instance()->friendlyNameForPort(m_serialPortName);
     m_packageFileNamesWithTarget = deployConfiguration->packageFileNamesWithTargetInfo();
     m_signedPackages = deployConfiguration->signedPackages();
     m_installationDrive = deployConfiguration->installationDrive();
     m_silentInstall = deployConfiguration->silentInstall();
-    m_channel = deployConfiguration->device()->communicationChannel();
+    m_channel = dev->communicationChannel();
 
     if (m_signedPackages.isEmpty()) {
         appendMessage(tr("No package has been found. Specify at least one installation package."), true);
@@ -168,8 +170,8 @@ bool S60DeployStep::init()
     }
 
     if (m_channel == SymbianIDevice::CommunicationCodaTcpConnection) {
-        m_address = deployConfiguration->device()->address();
-        m_port = deployConfiguration->device()->port().toInt();
+        m_address = dev->address();
+        m_port = dev->port().toInt();
     }
     return true;
 }
@@ -674,16 +676,16 @@ S60DeployStepFactory::~S60DeployStepFactory()
 {
 }
 
-bool S60DeployStepFactory::canCreate(ProjectExplorer::BuildStepList *parent, const QString &id) const
+bool S60DeployStepFactory::canCreate(ProjectExplorer::BuildStepList *parent, const Core::Id id) const
 {
-    if (parent->id() != QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY))
+    if (parent->id() != Core::Id(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY))
         return false;
-    if (parent->target()->id() != QLatin1String(Constants::S60_DEVICE_TARGET_ID))
+    if (parent->target()->id() != Core::Id(Constants::S60_DEVICE_TARGET_ID))
         return false;
-    return (id == QLatin1String(S60_DEPLOY_STEP_ID));
+    return (id == Core::Id(S60_DEPLOY_STEP_ID));
 }
 
-ProjectExplorer::BuildStep *S60DeployStepFactory::create(ProjectExplorer::BuildStepList *parent, const QString &id)
+ProjectExplorer::BuildStep *S60DeployStepFactory::create(ProjectExplorer::BuildStepList *parent, const Core::Id id)
 {
     if (!canCreate(parent, id))
         return 0;
@@ -708,8 +710,7 @@ ProjectExplorer::BuildStep *S60DeployStepFactory::clone(ProjectExplorer::BuildSt
 
 bool S60DeployStepFactory::canRestore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map) const
 {
-    QString id(ProjectExplorer::idFromMap(map));
-    return canCreate(parent, id);
+    return canCreate(parent, ProjectExplorer::idFromMap(map));
 }
 
 ProjectExplorer::BuildStep *S60DeployStepFactory::restore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map)
@@ -723,17 +724,17 @@ ProjectExplorer::BuildStep *S60DeployStepFactory::restore(ProjectExplorer::Build
     return 0;
 }
 
-QStringList S60DeployStepFactory::availableCreationIds(ProjectExplorer::BuildStepList *parent) const
+QList<Core::Id> S60DeployStepFactory::availableCreationIds(ProjectExplorer::BuildStepList *parent) const
 {
-    if (parent->id() == QLatin1String(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY)
-            && parent->target()->id() == QLatin1String(Constants::S60_DEVICE_TARGET_ID))
-        return QStringList() << QLatin1String(S60_DEPLOY_STEP_ID);
-    return QStringList();
+    if (parent->id() == Core::Id(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY)
+            && parent->target()->id() == Core::Id(Constants::S60_DEVICE_TARGET_ID))
+        return QList<Core::Id>() << Core::Id(S60_DEPLOY_STEP_ID);
+    return QList<Core::Id>();
 }
 
-QString S60DeployStepFactory::displayNameForId(const QString &id) const
+QString S60DeployStepFactory::displayNameForId(const Core::Id id) const
 {
-    if (id == QLatin1String(S60_DEPLOY_STEP_ID))
+    if (id == Core::Id(S60_DEPLOY_STEP_ID))
         return tr("Deploy SIS Package");
     return QString();
 }

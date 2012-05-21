@@ -42,6 +42,7 @@ SUBDIRS   = plugin_coreplugin \
             debugger/dumper.pro \
             plugin_qmlprofiler \
             plugin_remotelinux \
+            plugin_android \
             plugin_madde \
             plugin_valgrind \
             plugin_todo
@@ -60,8 +61,7 @@ include(../../qtcreator.pri)
 
 contains(QT_CONFIG, declarative)|contains(QT_CONFIG, quick1) {
     SUBDIRS += \
-            plugin_qmlprojectmanager \
-            plugin_qmljsinspector
+            plugin_qmlprojectmanager
 
     include(../private_headers.pri)
     exists($${QT_PRIVATE_HEADERS}/QtDeclarative/private/qdeclarativecontext_p.h) {
@@ -165,6 +165,12 @@ plugin_remotelinux.depends += plugin_debugger
 plugin_remotelinux.depends += plugin_projectexplorer
 plugin_remotelinux.depends += plugin_qt4projectmanager
 
+plugin_android.subdir = android
+plugin_android.depends = plugin_coreplugin
+plugin_android.depends += plugin_debugger
+plugin_android.depends += plugin_projectexplorer
+plugin_android.depends += plugin_qt4projectmanager
+
 plugin_madde.subdir = madde
 plugin_madde.depends += plugin_remotelinux
 
@@ -186,6 +192,7 @@ plugin_debugger.subdir = debugger
 plugin_debugger.depends = plugin_projectexplorer
 plugin_debugger.depends += plugin_coreplugin
 plugin_debugger.depends += plugin_cpptools
+plugin_debugger.depends += plugin_qmljstools
 
 plugin_fakevim.subdir = fakevim
 plugin_fakevim.depends = plugin_coreplugin
@@ -205,6 +212,7 @@ plugin_help.depends += plugin_coreplugin
 
 plugin_resourceeditor.subdir = resourceeditor
 plugin_resourceeditor.depends = plugin_coreplugin
+plugin_resourceeditor.depends = plugin_find
 
 plugin_regexp.subdir = regexp
 plugin_regexp.depends = plugin_coreplugin
@@ -217,16 +225,19 @@ plugin_cmakeprojectmanager.subdir = cmakeprojectmanager
 plugin_cmakeprojectmanager.depends = plugin_texteditor
 plugin_cmakeprojectmanager.depends += plugin_projectexplorer
 plugin_cmakeprojectmanager.depends += plugin_cpptools
+plugin_cmakeprojectmanager.depends += plugin_qtsupport
 
 plugin_autotoolsprojectmanager.subdir = autotoolsprojectmanager
 plugin_autotoolsprojectmanager.depends = plugin_projectexplorer
 plugin_autotoolsprojectmanager.depends += plugin_coreplugin
 plugin_autotoolsprojectmanager.depends += plugin_cpptools
+plugin_autotoolsprojectmanager.depends += plugin_qtsupport
 
 plugin_genericprojectmanager.subdir = genericprojectmanager
 plugin_genericprojectmanager.depends = plugin_texteditor
 plugin_genericprojectmanager.depends += plugin_projectexplorer
 plugin_genericprojectmanager.depends += plugin_cpptools
+plugin_genericprojectmanager.depends += plugin_qtsupport
 
 plugin_qmljseditor.subdir = qmljseditor
 plugin_qmljseditor.depends = plugin_texteditor
@@ -255,10 +266,6 @@ plugin_qmldesigner.depends += plugin_projectexplorer
 plugin_qmldesigner.depends += plugin_qt4projectmanager
 plugin_qmldesigner.depends += plugin_qmlprojectmanager
 plugin_qmldesigner.depends += plugin_cpptools
-
-plugin_qmljsinspector.subdir = qmljsinspector
-plugin_qmljsinspector.depends += plugin_debugger
-plugin_qmljsinspector.depends += plugin_qmljstools
 
 plugin_mercurial.subdir = mercurial
 plugin_mercurial.depends = plugin_vcsbase

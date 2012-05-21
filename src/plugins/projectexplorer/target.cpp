@@ -43,8 +43,8 @@
 #include <limits>
 #include <coreplugin/coreconstants.h>
 #include <projectexplorer/buildmanager.h>
+#include <projectexplorer/devicesupport/desktopdevice.h>
 #include <projectexplorer/devicesupport/devicemanager.h>
-#include <projectexplorer/devicesupport/idevice.h>
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/projectexplorer.h>
 #include <utils/qtcassert.h>
@@ -112,14 +112,11 @@ QList<DeployConfigurationFactory *> TargetPrivate::deployFactories() const
 }
 
 
-Target::Target(Project *project, const QString &id) :
-    ProjectConfiguration(project, id), d(new TargetPrivate)
+Target::Target(Project *project, const Core::Id id) :
+    ProjectConfiguration(project, id),
+    d(new TargetPrivate)
 {
-    connect(DeviceManager::instance(), SIGNAL(deviceUpdated(Core::Id)),
-            this, SLOT(updateDeviceState(Core::Id)));
-    // everything changed...
-    connect(DeviceManager::instance(), SIGNAL(deviceListChanged()),
-            this, SLOT(updateDeviceState()));
+    connect(DeviceManager::instance(), SIGNAL(updated()), this, SLOT(updateDeviceState()));
 }
 
 Target::~Target()
@@ -328,15 +325,15 @@ void Target::setActiveDeployConfiguration(DeployConfiguration *dc)
     updateDeviceState();
 }
 
-QStringList Target::availableDeployConfigurationIds()
+QList<Core::Id> Target::availableDeployConfigurationIds()
 {
-    QStringList ids;
+    QList<Core::Id> ids;
     foreach (const DeployConfigurationFactory * const factory, d->deployFactories())
         ids << factory->availableCreationIds(this);
     return ids;
 }
 
-QString Target::displayNameForDeployConfigurationId(const QString &id)
+QString Target::displayNameForDeployConfigurationId(Core::Id &id)
 {
     foreach (const DeployConfigurationFactory * const factory, d->deployFactories()) {
         if (factory->availableCreationIds(this).contains(id))
@@ -345,7 +342,7 @@ QString Target::displayNameForDeployConfigurationId(const QString &id)
     return QString();
 }
 
-DeployConfiguration *Target::createDeployConfiguration(const QString &id)
+DeployConfiguration *Target::createDeployConfiguration(Core::Id id)
 {
     foreach (DeployConfigurationFactory * const factory, d->deployFactories()) {
         if (factory->canCreate(this, id))
@@ -459,7 +456,7 @@ QList<ToolChain *> Target::possibleToolChains(BuildConfiguration *) const
     QList<ToolChain *> tcList = ToolChainManager::instance()->toolChains();
     QList<ToolChain *> result;
     foreach (ToolChain *tc, tcList) {
-        QStringList restricted = tc->restrictedToTargets();
+        QList<Core::Id> restricted = tc->restrictedToTargets();
         if (restricted.isEmpty() || restricted.contains(id()))
             result.append(tc);
     }
@@ -509,33 +506,29 @@ static QString formatToolTip(const IDevice::DeviceInfo &input)
 
 void Target::updateDeviceState()
 {
-    IDevice::ConstPtr dev = currentDevice();
-    if (dev.isNull())
-        return;
-    updateDeviceState(dev->id());
-}
-
-void Target::updateDeviceState(Core::Id devId)
-{
-    IDevice::ConstPtr dev = DeviceManager::instance()->find(devId);
-    QTC_ASSERT(!dev.isNull(), return);
-
     IDevice::ConstPtr current = currentDevice();
-    if (current.isNull()
-            || devId != current->id()
-            || dev->availability() == IDevice::DeviceAvailabilityUnknown) {
-        setOverlayIcon(QIcon());
-        setToolTip(QString());
-        return;
+
+    QPixmap overlay;
+    if (current.isNull()) {
+        overlay = d->m_disconnectedPixmap;
+    } else {
+        switch (current->availability()) {
+        case IDevice::DeviceAvailabilityUnknown:
+            setOverlayIcon(QIcon());
+            setToolTip(QString());
+            return;
+        case IDevice::DeviceAvailable:
+            overlay = d->m_connectedPixmap;
+            break;
+        case IDevice::DeviceUnavailable:
+            overlay = d->m_disconnectedPixmap;
+            break;
+        default:
+            break;
+        }
     }
 
     static const int TARGET_OVERLAY_ORIGINAL_SIZE = 32;
-
-    QPixmap overlay;
-    if (dev->availability() == IDevice::DeviceAvailable)
-        overlay = d->m_connectedPixmap;
-    else
-        overlay = d->m_disconnectedPixmap;
 
     double factor = Core::Constants::TARGET_ICON_SIZE / (double)TARGET_OVERLAY_ORIGINAL_SIZE;
     QSize overlaySize(overlay.size().width()*factor, overlay.size().height()*factor);
@@ -547,12 +540,12 @@ void Target::updateDeviceState(Core::Id devId)
                        overlay.scaled(overlaySize));
 
     setOverlayIcon(QIcon(pixmap));
-    setToolTip(formatToolTip(dev->deviceInformation()));
+    setToolTip(current.isNull() ? QString() : formatToolTip(current->deviceInformation()));
 }
 
 ProjectExplorer::IDevice::ConstPtr Target::currentDevice() const
 {
-    return IDevice::ConstPtr(0);
+    return DeviceManager::instance()->find(ProjectExplorer::DesktopDevice::Id);
 }
 
 void Target::setEnabled(bool enabled)

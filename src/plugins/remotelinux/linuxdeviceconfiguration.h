@@ -70,21 +70,21 @@ public:
     static QString defaultPublicKeyFilePath();
 
     static Ptr create();
-    static Ptr create(const QString &name, const QString &type, MachineType machineType,
-                      Origin origin = ManuallyAdded, const Core::Id &id = Core::Id());
+    static Ptr create(const QString &name, Core::Id type, MachineType machineType,
+                      Origin origin = ManuallyAdded, Core::Id id = Core::Id());
 
     QString displayType() const;
     ProjectExplorer::IDeviceWidget *createWidget();
-    QStringList actionIds() const;
-    QString displayNameForActionId(const QString &actionId) const;
-    QDialog *createAction(const QString &actionId, QWidget *parent) const;
+    QList<Core::Id> actionIds() const;
+    QString displayNameForActionId(Core::Id actionId) const;
+    void executeAction(Core::Id actionId, QWidget *parent) const;
     void fromMap(const QVariantMap &map);
     ProjectExplorer::IDevice::Ptr clone() const;
 
 protected:
     LinuxDeviceConfiguration();
-    LinuxDeviceConfiguration(const QString &name, const QString &type, MachineType machineType,
-                             Origin origin, const Core::Id &id);
+    LinuxDeviceConfiguration(const QString &name, Core::Id type, MachineType machineType,
+                             Origin origin, Core::Id id);
     LinuxDeviceConfiguration(const LinuxDeviceConfiguration &other);
 
     QVariantMap toMap() const;

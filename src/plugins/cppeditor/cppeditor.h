@@ -46,6 +46,7 @@
 #include <cplusplus/LookupContext.h>
 #include <texteditor/basetexteditor.h>
 #include <texteditor/quickfix.h>
+#include <texteditor/texteditorconstants.h>
 #include <cpptools/commentssettings.h>
 #include <cpptools/cppsemanticinfo.h>
 
@@ -197,7 +198,7 @@ public:
 
     static Link linkToSymbol(CPlusPlus::Symbol *symbol);
 
-    static QVector<QString> highlighterFormatCategories();
+    static QVector<TextEditor::TextStyle> highlighterFormatCategories();
 
     virtual TextEditor::IAssistInterface *createAssistInterface(TextEditor::AssistKind kind,
                                                                 TextEditor::AssistReason reason) const;
