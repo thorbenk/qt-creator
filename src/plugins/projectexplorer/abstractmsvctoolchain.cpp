@@ -98,11 +98,19 @@ QByteArray AbstractMsvcToolChain::predefinedMacros(const QStringList &cxxflags) 
 ToolChain::CompilerFlags AbstractMsvcToolChain::compilerFlags(const QStringList &cxxflags) const
 {
     Q_UNUSED(cxxflags);
-    return NO_FLAGS;
+
+    switch (m_abi.osFlavor()) {
+    case ProjectExplorer::Abi::WindowsMsvc2010Flavor:
+    case ProjectExplorer::Abi::WindowsMsvc2012Flavor:
+        return STD_CXX11;
+    default:
+        return NO_FLAGS;
+    }
 }
 
-QList<HeaderPath> AbstractMsvcToolChain::systemHeaderPaths() const
+QList<HeaderPath> AbstractMsvcToolChain::systemHeaderPaths(const Utils::FileName &sysRoot) const
 {
+    Q_UNUSED(sysRoot);
     if (m_headerPaths.isEmpty()) {
         Utils::Environment env(m_lastEnvironment);
         addToEnvironment(env);
@@ -124,20 +132,25 @@ void AbstractMsvcToolChain::addToEnvironment(Utils::Environment &env) const
     env = m_resultEnvironment;
 }
 
-QString AbstractMsvcToolChain::makeCommand() const
+QString AbstractMsvcToolChain::makeCommand(const Utils::Environment &environment) const
 {
-    if (ProjectExplorerPlugin::instance()->projectExplorerSettings().useJom) {
-        return findInstalledJom();
-    }
-    return QLatin1String("nmake.exe");
-}
+    bool useJom = ProjectExplorerPlugin::instance()->projectExplorerSettings().useJom;
+    const QString jom = QLatin1String("jom.exe");
+    const QString nmake = QLatin1String("nmake.exe");
+    QString tmp;
 
-void AbstractMsvcToolChain::setDebuggerCommand(const Utils::FileName &d)
-{
-    if (m_debuggerCommand == d)
-        return;
-    m_debuggerCommand = d;
-    toolChainUpdated();
+    if (useJom) {
+        tmp = environment.searchInPath(jom, QStringList()
+                                       << QCoreApplication::applicationDirPath());
+        if (!tmp.isEmpty())
+            return tmp;
+    }
+    tmp = environment.searchInPath(nmake);
+    if (!tmp.isEmpty())
+        return tmp;
+
+    // Nothing found :(
+    return useJom ? jom : nmake;
 }
 
 Utils::FileName AbstractMsvcToolChain::compilerCommand() const
@@ -146,12 +159,6 @@ Utils::FileName AbstractMsvcToolChain::compilerCommand() const
     addToEnvironment(env);
     return Utils::FileName::fromString(env.searchInPath("cl.exe"));
 }
-
-Utils::FileName AbstractMsvcToolChain::debuggerCommand() const
-{
-    return m_debuggerCommand;
-}
-
 
 IOutputParser *AbstractMsvcToolChain::outputParser() const
 {
@@ -272,23 +279,6 @@ bool AbstractMsvcToolChain::generateEnvironmentSettings(Utils::Environment &env,
     return true;
 }
 
-QString AbstractMsvcToolChain::findInstalledJom()
-{
-    if (Abi::hostAbi().os() != Abi::WindowsOS) {
-        qWarning() << "Jom can only be used on Windows";
-        return QString();
-    }
-
-    // We want jom! Try to find it.
-    const QString jom = QLatin1String("jom.exe");
-    const QFileInfo installedJom = QFileInfo(QCoreApplication::applicationDirPath()
-                                             + QLatin1Char('/') + jom);
-    if (installedJom.isFile() && installedJom.isExecutable())
-        return installedJom.absoluteFilePath();
-    else
-        return jom;
-}
-
 bool AbstractMsvcToolChain::operator ==(const ToolChain &other) const
 {
     if (!ToolChain::operator ==(other))
@@ -296,7 +286,6 @@ bool AbstractMsvcToolChain::operator ==(const ToolChain &other) const
 
     const AbstractMsvcToolChain *msvcTc = static_cast<const AbstractMsvcToolChain *>(&other);
     return targetAbi() == msvcTc->targetAbi()
-            && m_debuggerCommand == msvcTc->m_debuggerCommand
             && m_vcvarsBat == msvcTc->m_vcvarsBat;
 }
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -128,6 +126,22 @@ SymbolGroupValue SymbolGroupValue::operator[](unsigned index) const
     return SymbolGroupValue(m_errorMessage);
 }
 
+unsigned SymbolGroupValue::childCount() const
+{
+    if (ensureExpanded())
+        return unsigned(m_node->children().size());
+    return 0;
+}
+
+SymbolGroupValue SymbolGroupValue::parent() const
+{
+    if (isValid())
+        if (AbstractSymbolGroupNode *aParent = m_node->parent())
+            if (SymbolGroupNode *parent = aParent->asSymbolGroupNode())
+                return SymbolGroupValue(parent, m_context);
+    return SymbolGroupValue("parent() invoked on invalid value.");
+}
+
 bool SymbolGroupValue::ensureExpanded() const
 {
     if (!isValid() || !m_node->canExpand())
@@ -207,7 +221,7 @@ int SymbolGroupValue::intValue(int defaultValue) const
             return rc;
     }
     if (SymbolGroupValue::verbose)
-        DebugPrint() << name() << "::intValue() fails";
+        DebugPrint() << name() << '/' << type() << '/'<< m_errorMessage << ": intValue() fails";
     return defaultValue;
 }
 
@@ -219,7 +233,7 @@ ULONG64 SymbolGroupValue::pointerValue(ULONG64 defaultValue) const
             return rc;
     }
     if (SymbolGroupValue::verbose)
-        DebugPrint() << name() << "::pointerValue() fails";
+        DebugPrint() << name() << '/'<< type() << '/' << m_errorMessage << ": pointerValue() fails";
     return defaultValue;
 }
 
@@ -252,6 +266,18 @@ ULONG64 SymbolGroupValue::readUnsignedValue(CIDebugDataSpaces *ds,
                                             std::string *errorMessage /* = 0 */)
 {
     return readPODFromMemory<ULONG64>(ds, address, debuggeeTypeSize, defaultValue, errorMessage);
+}
+
+// Note: sizeof(int) should always be 4 on Win32/Win64, no need to
+// differentiate between host and debuggee int types. When implementing
+// something like 'long', different size on host/debuggee must be taken
+// into account  (shifting signedness bits around).
+int SymbolGroupValue::readIntValue(CIDebugDataSpaces *ds,
+                                   ULONG64 address, int defaultValue,
+                                   std::string *errorMessage /* = 0 */)
+{
+    return readPODFromMemory<int>(ds, address, sizeof(int),
+                                  defaultValue, errorMessage);
 }
 
 double SymbolGroupValue::readDouble(CIDebugDataSpaces *ds, ULONG64 address, double defaultValue,
@@ -385,6 +411,30 @@ SymbolGroupValue SymbolGroupValue::typeCastedValue(ULONG64 address, const char *
     return SymbolGroupValue();
 }
 
+SymbolGroupValue SymbolGroupValue::findMember(const SymbolGroupValue &start,
+                                              const std::string &symbolName)
+{
+    const unsigned count = start.childCount();
+    for (unsigned i = 0; i < count ; ++i) { // check members
+        const SymbolGroupValue child = start[i];
+        if (child.name() == symbolName)
+            return child;
+    }
+    // Recurse down base classes at the beginning that have class names
+    // as value.
+    for (unsigned i = 0; i < count; ++i) {
+        const SymbolGroupValue child = start[i];
+        const std::wstring value = child.value();
+        if (value.compare(0, 6, L"class ") && value.compare(0, 7, L"struct ")) {
+           break;
+        } else {
+            if (SymbolGroupValue r = findMember(child, symbolName))
+                return r;
+        }
+    }
+    return SymbolGroupValue();
+}
+
 std::wstring SymbolGroupValue::wcharPointerData(unsigned charCount, unsigned maxCharCount) const
 {
     const bool truncated = charCount > maxCharCount;
@@ -417,6 +467,11 @@ unsigned SymbolGroupValue::isPointerType(const std::string &t)
     if (endsWith(t, " *"))
         return 2;
     return 0;
+}
+
+bool SymbolGroupValue::isArrayType(const std::string &t)
+{
+    return endsWith(t, ']');
 }
 
 // Return number of characters to strip for pointer type
@@ -925,6 +980,8 @@ static inline void formatMilliSeconds(std::wostream &str, int milliSecs)
 
 static const char stdStringTypeC[] = "std::basic_string<char,std::char_traits<char>,std::allocator<char> >";
 static const char stdWStringTypeC[] = "std::basic_string<unsigned short,std::char_traits<unsigned short>,std::allocator<unsigned short> >";
+// Compiler option:  -Zc:wchar_t-:
+static const char stdWStringWCharTypeC[] = "std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t> >";
 
 static KnownType knownPODTypeHelper(const std::string &type, std::string::size_type endPos)
 {
@@ -1025,7 +1082,8 @@ static KnownType knownClassTypeHelper(const std::string &type,
         // STL strings
         if (!type.compare(pos, endPos - pos, stdStringTypeC))
             return KT_StdString;
-        if (!type.compare(pos, endPos - pos, stdWStringTypeC))
+        if (!type.compare(pos, endPos - pos, stdWStringTypeC)
+            || !type.compare(pos, endPos - pos, stdWStringWCharTypeC))
             return KT_StdWString;
         return KT_Unknown;
     } // std::sth
@@ -1539,6 +1597,13 @@ static unsigned qStringSize(const SymbolGroupValueContext &ctx)
     return size;
 }
 
+/* Return the size of a QList via QStringList. */
+static unsigned qListSize(const SymbolGroupValueContext &ctx)
+{
+    static const unsigned size = SymbolGroupValue::sizeOf(QtInfo::get(ctx).prependQtCoreModule("QStringList").c_str());
+    return size;
+}
+
 /* Return the size of a QByteArray */
 static unsigned qByteArraySize(const SymbolGroupValueContext &ctx)
 {
@@ -1696,7 +1761,12 @@ static inline bool dumpQFileInfo(const SymbolGroupValue &v, std::wostream &str)
  * Dump 1st string past its QSharedData base class. */
 static bool inline dumpQDir(const SymbolGroupValue &v, std::wostream &str)
 {
-    return dumpQStringFromQPrivateClass(v, QPDM_qSharedData, 0,  str);
+    // Access QDirPrivate's dirEntry, which has the path as first member.
+    const unsigned listSize = qListSize(v.context());
+    const unsigned offset = padOffset(listSize + 2 * SymbolGroupValue::intSize())
+            + padOffset(SymbolGroupValue::pointerSize() + SymbolGroupValue::sizeOf("bool"))
+            + 2 * listSize;
+    return dumpQStringFromQPrivateClass(v, QPDM_qSharedData, offset,  str);
 }
 
 /* Dump QRegExp, for whose private class no debugging information is available.
@@ -1783,9 +1853,42 @@ static inline bool dumpQScriptValue(const SymbolGroupValue &v, std::wostream &st
 static inline bool dumpQUrl(const SymbolGroupValue &v, std::wostream &str)
 {
     // Get address of the original-encoded byte array, obtain value by dumping at address
-    const ULONG offset = padOffset(qAtomicIntSize(v.context()))
+    if (QtInfo::get(v.context()).version < 5) {
+        const ULONG offset = padOffset(qAtomicIntSize(v.context()))
                          + 6 * qStringSize(v.context()) + qByteArraySize(v.context());
-    return dumpQByteArrayFromQPrivateClass(v, QPDM_None, offset, str);
+        return dumpQByteArrayFromQPrivateClass(v, QPDM_None, offset, str);
+    }
+    ULONG offset = qAtomicIntSize(v.context()) +
+                   SymbolGroupValue::intSize();
+    const unsigned stringSize = qStringSize(v.context());
+    str << L"Scheme: ";
+    if (!dumpQStringFromQPrivateClass(v, QPDM_None, offset, str))
+        return false;
+    offset += stringSize;
+    str << L" User: ";
+    if (!dumpQStringFromQPrivateClass(v, QPDM_None, offset, str))
+        return false;
+    offset += stringSize;
+    str << L" Password: ";
+    if (!dumpQStringFromQPrivateClass(v, QPDM_None, offset, str))
+        return false;
+    offset += stringSize;
+    str << L" Host: ";
+    if (!dumpQStringFromQPrivateClass(v, QPDM_None, offset, str))
+        return false;
+    offset += stringSize;
+    str << L" Path: ";
+    if (!dumpQStringFromQPrivateClass(v, QPDM_None, offset, str))
+        return false;
+    offset += stringSize;
+    str << L" Query: ";
+    if (!dumpQStringFromQPrivateClass(v, QPDM_None, offset, str))
+        return false;
+    offset += stringSize;
+    str << L" Fragment: ";
+    if (!dumpQStringFromQPrivateClass(v, QPDM_None, offset, str))
+        return false;
+    return true;
 }
 
 // Dump QColor
@@ -1879,15 +1982,22 @@ static inline bool dumpQFlags(const SymbolGroupValue &v, std::wostream &str)
     return false;
 }
 
-static inline bool dumpQDate(const SymbolGroupValue &v, std::wostream &str)
+static bool dumpJulianDate(int julianDay, std::wostream &str)
 {
-    if (const SymbolGroupValue julianDayV = v["jd"]) {
-        const int julianDay = julianDayV.intValue();
-        if (julianDay > 0) {
-            formatJulianDate(str, julianDay);
-            return true;
-        }
+    if (julianDay < 0) {
+        return false;
+    } else if (!julianDay) {
+        str << L"<null>";
+    } else {
+        formatJulianDate(str, julianDay);
     }
+    return true;
+}
+
+static bool dumpQDate(const SymbolGroupValue &v, std::wostream &str)
+{
+    if (const SymbolGroupValue julianDayV = v["jd"])
+        return dumpJulianDate(julianDayV.intValue(), str);
     return false;
 }
 
@@ -1901,6 +2011,31 @@ static bool dumpQTime(const SymbolGroupValue &v, std::wostream &str)
         }
     }
     return false;
+}
+
+// QDateTime has an unexported private class. Obtain date and time
+// from memory.
+static bool dumpQDateTime(const SymbolGroupValue &v, std::wostream &str)
+{
+    const ULONG64 dateAddr = addressOfQPrivateMember(v, QPDM_qSharedData, 0);
+    if (!dateAddr)
+        return false;
+    const int date =
+        SymbolGroupValue::readIntValue(v.context().dataspaces,
+                                       dateAddr, SymbolGroupValue::intSize(), 0);
+    if (!date) {
+        str << L"<null>";
+        return true;
+    }
+    if (!dumpJulianDate(date, str))
+        return false;
+    const ULONG64 timeAddr = dateAddr + padOffset(SymbolGroupValue::intSize());
+    const int time =
+        SymbolGroupValue::readIntValue(v.context().dataspaces,
+                                       timeAddr, SymbolGroupValue::intSize(), 0);
+    str << L' ';
+    formatMilliSeconds(str, time);
+    return true;
 }
 
 // Dump a rectangle in X11 syntax
@@ -1987,21 +2122,32 @@ SymbolGroupValue qobjectDerivedPrivate(const SymbolGroupValue &v,
     return SymbolGroupValue(qwPrivateNode, v.context());
 }
 
+static bool dumpQObjectName(const SymbolGroupValue &qoPrivate, std::wostream &str)
+{
+    // Qt 4: plain member.
+    if (QtInfo::get(qoPrivate.context()).version < 5) {
+        if (const SymbolGroupValue oName = qoPrivate["objectName"])
+            return dumpQString(oName, str);
+    }
+    // Qt 5: member of allocated extraData.
+    if (const SymbolGroupValue extraData = qoPrivate["extraData"])
+        if (extraData.pointerValue())
+            if (const SymbolGroupValue oName = extraData["objectName"])
+                return dumpQString(oName, str);
+    return false;
+}
+
 // Dump the object name
 static inline bool dumpQWidget(const SymbolGroupValue &v, std::wostream &str, void **specialInfoIn = 0)
 {
     const QtInfo &qtInfo = QtInfo::get(v.context());
     const SymbolGroupValue qwPrivate =
         qobjectDerivedPrivate(v, qtInfo.qWidgetPrivateType, qtInfo);
-    if (!qwPrivate)
-        return false;
     // QWidgetPrivate inherits QObjectPrivate
-    const SymbolGroupValue oName = qwPrivate[unsigned(0)]["objectName"];
-    if (!oName)
+    if (!qwPrivate || !dumpQObjectName(qwPrivate[unsigned(0)], str))
         return false;
     if (specialInfoIn)
         *specialInfoIn = qwPrivate.node();
-    dumpQString(oName, str);
     return true;
 }
 
@@ -2009,15 +2155,12 @@ static inline bool dumpQWidget(const SymbolGroupValue &v, std::wostream &str, vo
 static inline bool dumpQObject(const SymbolGroupValue &v, std::wostream &str, void **specialInfoIn = 0)
 {
     const std::string &qoPrivateType = QtInfo::get(v.context()).qObjectPrivateType;
-    if (SymbolGroupValue qoPrivate = v["d_ptr"]["d"].pointerTypeCast(qoPrivateType.c_str())) {
-        if (SymbolGroupValue oName = qoPrivate["objectName"]) {
-            if (specialInfoIn)
-                *specialInfoIn = qoPrivate.node();
-            dumpQString(oName, str);
-            return true;
-        }
-    }
-    return false;
+    const SymbolGroupValue qoPrivate = v["d_ptr"]["d"].pointerTypeCast(qoPrivateType.c_str());
+    if (!qoPrivate || !dumpQObjectName(qoPrivate, str))
+        return false;
+    if (specialInfoIn)
+        *specialInfoIn = qoPrivate.node();
+    return true;
 }
 
 // Dump the object name
@@ -2026,29 +2169,21 @@ static inline bool dumpQWindow(const SymbolGroupValue &v, std::wostream &str, vo
     const QtInfo &qtInfo = QtInfo::get(v.context());
     const SymbolGroupValue qwPrivate =
         qobjectDerivedPrivate(v, qtInfo.qWindowPrivateType, qtInfo);
-    if (!qwPrivate)
-        return false;
     // QWindowPrivate inherits QObjectPrivate
-    const SymbolGroupValue oName = qwPrivate[unsigned(0)]["objectName"]; // QWidgetPrivate inherits QObjectPrivate
-    if (!oName)
+    if (!qwPrivate || !dumpQObjectName(qwPrivate[unsigned(0)], str))
         return false;
     if (specialInfoIn)
         *specialInfoIn = qwPrivate.node();
-    dumpQString(oName, str);
     return true;
 }
 
 // Dump a std::string.
 static bool dumpStd_W_String(const SymbolGroupValue &v, int type, std::wostream &str)
 {
-    SymbolGroupValue bx = v[unsigned(0)]["_Bx"];
-    int reserved = 0;
-    if (bx) { // MSVC 2010
-        reserved = v[unsigned(0)]["_Myres"].intValue();
-    } else {  // MSVC2008
-        bx = v["_Bx"];
-        reserved = v["_Myres"].intValue();
-    }
+    // Find 'bx'. MSVC 2012 has 2 base classes, MSVC 2010 1,
+    // and MSVC2008 none
+    const SymbolGroupValue bx = SymbolGroupValue::findMember(v, "_Bx");
+    const int reserved = bx.parent()["_Myres"].intValue();
     if (!bx || reserved < 0)
         return false;
     // 'Buf' array for small strings, else pointer 'Ptr'.
@@ -2381,6 +2516,9 @@ unsigned dumpSimpleType(SymbolGroupNode  *n, const SymbolGroupValueContext &ctx,
         break;
     case KT_QTime:
         rc = dumpQTime(v, str) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
+        break;
+    case KT_QDateTime:
+        rc = dumpQDateTime(v, str) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
         break;
     case KT_QPoint:
     case KT_QPointF:

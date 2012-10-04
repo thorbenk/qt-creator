@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,7 +51,7 @@ QDataStream &operator>>(QDataStream &ds, QmlObjectData &data)
 }
 
 struct QmlObjectProperty {
-    enum Type { Unknown, Basic, Object, List, SignalProperty };
+    enum Type { Unknown, Basic, Object, List, SignalProperty, Variant };
     Type type;
     QString name;
     QVariant value;
@@ -120,6 +118,7 @@ void BaseEngineDebugClient::decode(QDataStream &ds,
         case QmlObjectProperty::Basic:
         case QmlObjectProperty::List:
         case QmlObjectProperty::SignalProperty:
+        case QmlObjectProperty::Variant:
         {
             prop.m_value = data.value;
             break;
@@ -188,7 +187,10 @@ void BaseEngineDebugClient::messageReceived(const QByteArray &data)
     ds >> type;
 
     if (type == "OBJECT_CREATED") {
-        emit newObjects();
+        int engineId;
+        int objectId;
+        ds >> engineId >> objectId;
+        emit newObject(engineId, objectId, -1);
         return;
     }
 
@@ -226,7 +228,10 @@ void BaseEngineDebugClient::messageReceived(const QByteArray &data)
         emit result(queryId, exprResult, type);
     } else if (type == "WATCH_PROPERTY_R" ||
                type == "WATCH_OBJECT_R" ||
-               type == "WATCH_EXPR_OBJECT_R") {
+               type == "WATCH_EXPR_OBJECT_R" ||
+               type == "SET_BINDING_R" ||
+               type == "RESET_BINDING_R" ||
+               type == "SET_METHOD_BODY_R") {
         bool valid;
         ds >> valid;
         emit result(queryId, valid, type);
@@ -282,14 +287,14 @@ quint32 BaseEngineDebugClient::addWatch(const ObjectReference &object,
     return id;
 }
 
-quint32 BaseEngineDebugClient::addWatch(const ObjectReference &object)
+quint32 BaseEngineDebugClient::addWatch(int objectDebugId)
 {
     quint32 id = 0;
     if (status() == Enabled) {
         id = getId();
         QByteArray message;
         QDataStream ds(&message, QIODevice::WriteOnly);
-        ds << QByteArray("WATCH_OBJECT") << id << object.m_debugId;
+        ds << QByteArray("WATCH_OBJECT") << id << objectDebugId;
         sendMessage(message);
     }
     return id;
@@ -337,28 +342,28 @@ quint32 BaseEngineDebugClient::queryRootContexts(const EngineReference &engine)
     return id;
 }
 
-quint32 BaseEngineDebugClient::queryObject(const ObjectReference &object)
+quint32 BaseEngineDebugClient::queryObject(int objectId)
 {
     quint32 id = 0;
-    if (status() == Enabled && object.m_debugId != -1) {
+    if (status() == Enabled && objectId != -1) {
         id = getId();
         QByteArray message;
         QDataStream ds(&message, QIODevice::WriteOnly);
-        ds << QByteArray("FETCH_OBJECT") << id << object.m_debugId << false <<
+        ds << QByteArray("FETCH_OBJECT") << id << objectId << false <<
               true;
         sendMessage(message);
     }
     return id;
 }
 
-quint32 BaseEngineDebugClient::queryObjectRecursive(const ObjectReference &object)
+quint32 BaseEngineDebugClient::queryObjectRecursive(int objectId)
 {
     quint32 id = 0;
-    if (status() == Enabled && object.m_debugId != -1) {
+    if (status() == Enabled && objectId != -1) {
         id = getId();
         QByteArray message;
         QDataStream ds(&message, QIODevice::WriteOnly);
-        ds << QByteArray("FETCH_OBJECT") << id << object.m_debugId << true <<
+        ds << QByteArray("FETCH_OBJECT") << id << objectId << true <<
               true;
         sendMessage(message);
     }

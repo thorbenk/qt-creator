@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -100,8 +98,6 @@ void CostView::setModel(QAbstractItemModel *model)
     headerView->setStretchLastSection(false);
 
     if (qobject_cast<CallModel *>(model)) {
-        headerView->setResizeMode(CallModel::CalleeColumn, QHeaderView::Stretch);
-        headerView->setResizeMode(CallModel::CallerColumn, QHeaderView::Stretch);
         headerView->setResizeMode(CallModel::CallsColumn, QHeaderView::ResizeToContents);
         headerView->setResizeMode(CallModel::CostColumn, QHeaderView::ResizeToContents);
         setItemDelegateForColumn(CallModel::CalleeColumn, d->m_nameDelegate);
@@ -109,8 +105,6 @@ void CostView::setModel(QAbstractItemModel *model)
         setItemDelegateForColumn(CallModel::CostColumn, d->m_costDelegate);
     } else if (qobject_cast<DataModel *>(model)) {
         headerView->setResizeMode(DataModel::InclusiveCostColumn, QHeaderView::ResizeToContents);
-        headerView->setResizeMode(DataModel::LocationColumn, QHeaderView::Stretch);
-        headerView->setResizeMode(DataModel::NameColumn, QHeaderView::Stretch);
         headerView->setResizeMode(DataModel::SelfCostColumn, QHeaderView::ResizeToContents);
         setItemDelegateForColumn(DataModel::InclusiveCostColumn, d->m_costDelegate);
         setItemDelegateForColumn(DataModel::NameColumn, d->m_nameDelegate);

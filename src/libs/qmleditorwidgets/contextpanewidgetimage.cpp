@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "contextpanewidgetimage.h"
+
+#include <utils/hostosinfo.h>
+
 #include "ui_contextpanewidgetimage.h"
 #include "ui_contextpanewidgetborderimage.h"
 #include <qmljs/qmljspropertyreader.h>
@@ -611,10 +612,14 @@ PreviewLabel::PreviewLabel(QWidget *parent)
     m_hooverInfo->setFrameShape(QFrame::StyledPanel);
     m_hooverInfo->setFrameShadow(QFrame::Sunken);
 
-    QGraphicsDropShadowEffect *dropShadowEffect = new QGraphicsDropShadowEffect;
-    dropShadowEffect->setBlurRadius(4);
-    dropShadowEffect->setOffset(2, 2);
-    m_hooverInfo->setGraphicsEffect(dropShadowEffect);
+    // TODO: The following code should be enabled for OSX
+    // when QTBUG-23205 is fixed
+    if (!Utils::HostOsInfo::isMacHost()) {
+        QGraphicsDropShadowEffect *dropShadowEffect = new QGraphicsDropShadowEffect;
+        dropShadowEffect->setBlurRadius(4);
+        dropShadowEffect->setOffset(2, 2);
+        m_hooverInfo->setGraphicsEffect(dropShadowEffect);
+    }
     m_hooverInfo->setAutoFillBackground(true);
     m_hooverInfo->raise();
 }

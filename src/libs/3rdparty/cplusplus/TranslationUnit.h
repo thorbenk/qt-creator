@@ -27,7 +27,7 @@
 #include "DiagnosticClient.h"
 #include <cstdio>
 #include <vector>
-
+#include <map>
 
 namespace CPlusPlus {
 
@@ -134,6 +134,8 @@ public:
 
     unsigned findPreviousLineOffset(unsigned tokenIndex) const;
 
+    bool maybeSplitGreaterGreaterToken(unsigned tokenIndex);
+
 public:
     struct PPLine {
         unsigned offset;
@@ -170,6 +172,7 @@ private:
     std::vector<Token> *_comments;
     std::vector<unsigned> _lineOffsets;
     std::vector<PPLine> _ppLines;
+    std::map<unsigned, std::pair<unsigned, unsigned> > _expandedLineColumn; // TODO: Replace this for a hash
     MemoryPool *_pool;
     AST *_ast;
     TranslationUnit *_previousTranslationUnit;

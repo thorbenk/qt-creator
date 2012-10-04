@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef ABSTRACTREMOTELINUXDEPLOYACTION_H
@@ -34,25 +32,22 @@
 
 #include "remotelinux_export.h"
 
+#include <projectexplorer/devicesupport/idevice.h>
+
 #include <QObject>
 #include <QSharedPointer>
 #include <QVariantMap>
-QT_FORWARD_DECLARE_CLASS(QString)
 
-namespace Utils { class SshConnection; }
+namespace QSsh { class SshConnection; }
 
-namespace Qt4ProjectManager {
-class Qt4BuildConfiguration;
+namespace ProjectExplorer {
+class BuildConfiguration;
+class DeployableFile;
+class Kit;
 }
 
 namespace RemoteLinux {
-class DeployableFile;
-class DeploymentInfo;
-class LinuxDeviceConfiguration;
-
-namespace Internal {
-class AbstractRemoteLinuxDeployServicePrivate;
-}
+namespace Internal { class AbstractRemoteLinuxDeployServicePrivate; }
 
 class REMOTELINUX_EXPORT AbstractRemoteLinuxDeployService : public QObject
 {
@@ -62,8 +57,7 @@ public:
     explicit AbstractRemoteLinuxDeployService(QObject *parent = 0);
     ~AbstractRemoteLinuxDeployService();
 
-    void setDeviceConfiguration(const QSharedPointer<const LinuxDeviceConfiguration> &deviceConfiguration);
-    void setBuildConfiguration(Qt4ProjectManager::Qt4BuildConfiguration *bc);
+    void setBuildConfiguration(ProjectExplorer::BuildConfiguration *bc);
     void start();
     void stop();
 
@@ -80,12 +74,13 @@ signals:
     void stdErrData(const QString &data);
 
 protected:
-    const Qt4ProjectManager::Qt4BuildConfiguration *qt4BuildConfiguration() const;
-    QSharedPointer<const LinuxDeviceConfiguration> deviceConfiguration() const;
-    QSharedPointer<Utils::SshConnection> connection() const;
+    const ProjectExplorer::BuildConfiguration *buildConfiguration() const;
+    const ProjectExplorer::Kit *profile() const;
+    ProjectExplorer::IDevice::ConstPtr deviceConfiguration() const;
+    QSsh::SshConnection *connection() const;
 
-    void saveDeploymentTimeStamp(const DeployableFile &deployableFile);
-    bool hasChangedSinceLastDeployment(const DeployableFile &deployableFile) const;
+    void saveDeploymentTimeStamp(const ProjectExplorer::DeployableFile &deployableFile);
+    bool hasChangedSinceLastDeployment(const ProjectExplorer::DeployableFile &deployableFile) const;
 
     void handleDeviceSetupDone(bool success);
     void handleDeploymentDone();

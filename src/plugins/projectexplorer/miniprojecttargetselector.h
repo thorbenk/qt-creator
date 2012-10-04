@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -43,6 +41,7 @@ class QStackedWidget;
 QT_END_NAMESPACE
 
 namespace ProjectExplorer {
+class Kit;
 class Project;
 class Target;
 class BuildConfiguration;
@@ -59,12 +58,18 @@ class ListWidget : public QListWidget
     Q_OBJECT
 public:
     ListWidget(QWidget *parent);
-    QSize sizeHint() const;
     void keyPressEvent(QKeyEvent *event);
     void keyReleaseEvent(QKeyEvent *event);
     void setMaxCount(int maxCount);
+    int maxCount();
+
+    int optimalWidth() const;
+    void setOptimalWidth(int width);
+
+    int padding();
 private:
     int m_maxCount;
+    int m_optimalWidth;
 };
 
 class ProjectListWidget : public ListWidget
@@ -115,7 +120,7 @@ public:
 
     void keyPressEvent(QKeyEvent *ke);
     void keyReleaseEvent(QKeyEvent *ke);
-    QSize sizeHint() const;
+    bool event(QEvent *event);
 public slots:
     void toggleVisible();
     void nextOrShow();
@@ -123,17 +128,18 @@ public slots:
 private slots:
     void projectAdded(ProjectExplorer::Project *project);
     void projectRemoved(ProjectExplorer::Project *project);
-    void addedTarget(ProjectExplorer::Target *target);
-    void removedTarget(ProjectExplorer::Target *target);
-    void addedBuildConfiguration(ProjectExplorer::BuildConfiguration* bc);
-    void removedBuildConfiguration(ProjectExplorer::BuildConfiguration* bc);
-    void addedDeployConfiguration(ProjectExplorer::DeployConfiguration *dc);
-    void removedDeployConfiguration(ProjectExplorer::DeployConfiguration *dc);
-    void addedRunConfiguration(ProjectExplorer::RunConfiguration *rc);
-    void removedRunConfiguration(ProjectExplorer::RunConfiguration *rc);
+    void slotAddedTarget(ProjectExplorer::Target *target);
+    void slotRemovedTarget(ProjectExplorer::Target *target);
+    void slotAddedBuildConfiguration(ProjectExplorer::BuildConfiguration *bc);
+    void slotRemovedBuildConfiguration(ProjectExplorer::BuildConfiguration *bc);
+    void slotAddedDeployConfiguration(ProjectExplorer::DeployConfiguration *dc);
+    void slotRemovedDeployConfiguration(ProjectExplorer::DeployConfiguration *dc);
+    void slotAddedRunConfiguration(ProjectExplorer::RunConfiguration *rc);
+    void slotRemovedRunConfiguration(ProjectExplorer::RunConfiguration *rc);
 
     void changeStartupProject(ProjectExplorer::Project *project);
     void activeTargetChanged(ProjectExplorer::Target *target);
+    void kitChanged(ProjectExplorer::Kit *k);
     void activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration *bc);
     void activeDeployConfigurationChanged(ProjectExplorer::DeployConfiguration *dc);
     void activeRunConfigurationChanged(ProjectExplorer::RunConfiguration *rc);
@@ -147,15 +153,27 @@ private slots:
     void updateActionAndSummary();
     void switchToProjectsMode();
 private:
+    void addedTarget(ProjectExplorer::Target *target);
+    void removedTarget(ProjectExplorer::Target *target);
+    void addedBuildConfiguration(ProjectExplorer::BuildConfiguration* bc);
+    void removedBuildConfiguration(ProjectExplorer::BuildConfiguration* bc);
+    void addedDeployConfiguration(ProjectExplorer::DeployConfiguration *dc);
+    void removedDeployConfiguration(ProjectExplorer::DeployConfiguration *dc);
+    void addedRunConfiguration(ProjectExplorer::RunConfiguration *rc);
+    void removedRunConfiguration(ProjectExplorer::RunConfiguration *rc);
+
     void updateProjectListVisible();
     void updateTargetListVisible();
     void updateBuildListVisible();
     void updateDeployListVisible();
     void updateRunListVisible();
     void updateSummary();
-    void updateSeparatorVisible();
     void paintEvent(QPaintEvent *);
     void mousePressEvent(QMouseEvent *);
+
+    void doLayout(bool keepSize);
+    QVector<int> listWidgetWidths(int minSize, int maxSize);
+    QWidget *createTitleLabel(const QString &text);
 
     QAction *m_projectAction;
     SessionManager *m_sessionManager;
@@ -164,7 +182,6 @@ private:
     ProjectListWidget *m_projectListWidget;
     QVector<GenericListWidget *> m_listWidgets;
     QVector<QWidget *> m_titleWidgets;
-    QVector<QWidget *> m_separators;
     QLabel *m_summaryLabel;
 
     Project *m_project;

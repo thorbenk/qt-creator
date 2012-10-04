@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,7 +53,7 @@ Row {
      * [bool=true] Specifies the grouping behavior. If enabled, the checked property on buttons contained
      * in the group will be exclusive.
      *
-     * Note that a button in an exclusive group will allways be checkable
+     * Note that a button in an exclusive group will always be checkable
      */
     property bool exclusive: true
 

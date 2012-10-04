@@ -410,6 +410,7 @@ void EnumSpecifierAST::accept0(ASTVisitor *visitor)
 {
     if (visitor->visit(this)) {
         accept(name, visitor);
+        accept(type_specifier_list, visitor);
         accept(enumerator_list, visitor);
     }
     visitor->endVisit(this);
@@ -493,7 +494,6 @@ void RangeBasedForStatementAST::accept0(ASTVisitor *visitor)
     if (visitor->visit(this)) {
         accept(type_specifier_list, visitor);
         accept(declarator, visitor);
-        accept(initializer, visitor);
         accept(expression, visitor);
         accept(statement, visitor);
     }
@@ -557,7 +557,7 @@ void MemInitializerAST::accept0(ASTVisitor *visitor)
 {
     if (visitor->visit(this)) {
         accept(name, visitor);
-        accept(expression_list, visitor);
+        accept(expression, visitor);
     }
     visitor->endVisit(this);
 }
@@ -636,7 +636,15 @@ void NamespaceAliasDefinitionAST::accept0(ASTVisitor *visitor)
     visitor->endVisit(this);
 }
 
-void NewPlacementAST::accept0(ASTVisitor *visitor)
+void AliasDeclarationAST::accept0(ASTVisitor *visitor)
+{
+    if (visitor->visit(this)) {
+        accept(typeId, visitor);
+    }
+    visitor->endVisit(this);
+}
+
+void ExpressionListParenAST::accept0(ASTVisitor *visitor)
 {
     if (visitor->visit(this)) {
         accept(expression_list, visitor);
@@ -659,14 +667,6 @@ void NewExpressionAST::accept0(ASTVisitor *visitor)
         accept(type_id, visitor);
         accept(new_type_id, visitor);
         accept(new_initializer, visitor);
-    }
-    visitor->endVisit(this);
-}
-
-void NewInitializerAST::accept0(ASTVisitor *visitor)
-{
-    if (visitor->visit(this)) {
-        accept(expression, visitor);
     }
     visitor->endVisit(this);
 }
@@ -753,7 +753,7 @@ void TypenameCallExpressionAST::accept0(ASTVisitor *visitor)
 {
     if (visitor->visit(this)) {
         accept(name, visitor);
-        accept(expression_list, visitor);
+        accept(expression, visitor);
     }
     visitor->endVisit(this);
 }
@@ -762,7 +762,7 @@ void TypeConstructorCallAST::accept0(ASTVisitor *visitor)
 {
     if (visitor->visit(this)) {
         accept(type_specifier_list, visitor);
-        accept(expression_list, visitor);
+        accept(expression, visitor);
     }
     visitor->endVisit(this);
 }
@@ -824,6 +824,14 @@ void SizeofExpressionAST::accept0(ASTVisitor *visitor)
 {
     if (visitor->visit(this)) {
         accept(expression, visitor);
+    }
+    visitor->endVisit(this);
+}
+
+void AlignofExpressionAST::accept0(ASTVisitor *visitor)
+{
+    if (visitor->visit(this)) {
+        accept(typeId, visitor);
     }
     visitor->endVisit(this);
 }

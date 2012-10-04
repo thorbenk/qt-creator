@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,20 +25,29 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "desktopdevicefactory.h"
 #include "desktopdevice.h"
+#include "projectexplorerconstants.h"
 
 namespace ProjectExplorer {
 namespace Internal {
 
-QString DesktopDeviceFactory::displayName() const
+DesktopDeviceFactory::DesktopDeviceFactory(QObject *parent) : IDeviceFactory(parent)
+{ }
+
+QString DesktopDeviceFactory::displayNameForId(Core::Id type) const
 {
-    return tr("Desktop");
+    if (type == Constants::DESKTOP_DEVICE_TYPE)
+        return tr("Desktop");
+    return QString();
+}
+
+QList<Core::Id> DesktopDeviceFactory::availableCreationIds() const
+{
+    return QList<Core::Id>() << Core::Id(Constants::DESKTOP_DEVICE_TYPE);
 }
 
 bool DesktopDeviceFactory::canCreate() const
@@ -46,14 +55,15 @@ bool DesktopDeviceFactory::canCreate() const
     return false;
 }
 
-IDevice::Ptr DesktopDeviceFactory::create() const
+IDevice::Ptr DesktopDeviceFactory::create(Core::Id id) const
 {
+    Q_UNUSED(id);
     return IDevice::Ptr();
 }
 
 bool DesktopDeviceFactory::canRestore(const QVariantMap &map) const
 {
-    return IDevice::idFromMap(map) == DesktopDevice::Id;
+    return IDevice::idFromMap(map) == Constants::DESKTOP_DEVICE_ID;
 }
 
 IDevice::Ptr DesktopDeviceFactory::restore(const QVariantMap &map) const
@@ -61,9 +71,6 @@ IDevice::Ptr DesktopDeviceFactory::restore(const QVariantMap &map) const
     Q_UNUSED(map);
     return IDevice::Ptr(new DesktopDevice);
 }
-
-DesktopDeviceFactory::DesktopDeviceFactory(QObject *parent) : IDeviceFactory(parent)
-{ }
 
 } // namespace Internal
 } // namespace ProjectExplorer

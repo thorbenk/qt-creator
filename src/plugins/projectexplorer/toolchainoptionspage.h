@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,24 +25,25 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef TOOLCHAINOPTIONSPAGE_H
 #define TOOLCHAINOPTIONSPAGE_H
 
-#include "ui_toolchainoptionspage.h"
-
 #include <coreplugin/dialogs/ioptionspage.h>
 
 #include <QAbstractItemModel>
 
 QT_BEGIN_NAMESPACE
+class QBoxLayout;
+class QItemSelectionModel;
+class QPushButton;
+class QTreeView;
 class QTreeWidgetItem;
-class QWidget;
 QT_END_NAMESPACE
+
+namespace Utils { class DetailsWidget; }
 
 namespace ProjectExplorer {
 
@@ -63,7 +64,7 @@ class ToolChainModel : public QAbstractItemModel
     Q_OBJECT
 
 public:
-    explicit ToolChainModel(QWidget *configWidgetParent, QObject *parent = 0);
+    explicit ToolChainModel(QObject *parent = 0);
     ~ToolChainModel();
 
     QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
@@ -73,7 +74,6 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
-    bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole);
     Qt::ItemFlags flags(const QModelIndex &index) const;
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
@@ -108,8 +108,6 @@ private:
 
     QList<ToolChainNode *> m_toAddList;
     QList<ToolChainNode *> m_toRemoveList;
-
-    QWidget *m_configWidgetParent;
 };
 
 // --------------------------------------------------------------------------
@@ -123,16 +121,10 @@ class ToolChainOptionsPage : public Core::IOptionsPage
 public:
     ToolChainOptionsPage();
 
-    virtual QString id() const;
-    virtual QString displayName() const;
-    virtual QString category() const;
-    virtual QString displayCategory() const;
-    virtual QIcon categoryIcon() const;
-
-    virtual QWidget *createPage(QWidget *parent);
-    virtual void apply();
-    virtual void finish();
-    virtual bool matches(const QString &) const;
+    QWidget *createPage(QWidget *parent);
+    void apply();
+    void finish();
+    bool matches(const QString &) const;
 
 private slots:
     void toolChainSelectionChanged();
@@ -143,14 +135,17 @@ private slots:
 private:
     QModelIndex currentIndex() const;
 
-    Ui::ToolChainOptionsPage *m_ui;
     QWidget *m_configWidget;
     QString m_searchKeywords;
 
     ToolChainModel *m_model;
     QList<ToolChainFactory *> m_factories;
     QItemSelectionModel * m_selectionModel;
-    ToolChainConfigWidget *m_currentTcWidget;
+    QTreeView *m_toolChainView;
+    Utils::DetailsWidget *m_container;
+    QPushButton *m_addButton;
+    QPushButton *m_cloneButton;
+    QPushButton *m_delButton;
 };
 
 } // namespace Internal

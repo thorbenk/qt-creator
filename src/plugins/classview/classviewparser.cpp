@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Denis Mingulov.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -621,7 +619,8 @@ QStringList Parser::projectNodeFileList(const ProjectExplorer::FolderNode *node)
     }
 
     foreach(const ProjectExplorer::FolderNode *folder, subFolderNodes) {
-        if (folder->nodeType() != ProjectExplorer::FolderNodeType)
+        if (folder->nodeType() != ProjectExplorer::FolderNodeType
+                && folder->nodeType() != ProjectExplorer::VirtualFolderNodeType)
             continue;
         list << projectNodeFileList(folder);
     }

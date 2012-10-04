@@ -8,10 +8,10 @@ QtcLibrary {
         ".",
         ".."
     ]
-    cpp.defines: [
+    cpp.defines: base.concat([
         "EXTENSIONSYSTEM_LIBRARY",
         "IDE_TEST_DIR=\".\""
-    ]
+    ])
 
     Depends { name: "cpp" }
     Depends { name: "Qt"; submodules: ["core", "widgets"] }
@@ -46,7 +46,6 @@ QtcLibrary {
         "pluginspec_p.h",
         "pluginview.cpp",
         "pluginview.h",
-        "pluginview_p.h",
         "pluginspec.cpp",
         "images/error.png",
         "images/notloaded.png",

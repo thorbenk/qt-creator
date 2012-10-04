@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -136,7 +134,7 @@ QList<ExampleItem> ExamplesListModel::parseExamples(QXmlStreamReader* reader, co
         case QXmlStreamReader::EndElement:
             if (reader->name() == QLatin1String("example")) {
                 if (item.projectPath.isEmpty() || !QFileInfo(item.projectPath).exists())
-                    item.tags.append("broken");
+                    item.tags.append(QLatin1String("broken"));
                 examples.append(item);
             } else if (reader->name() == QLatin1String("examples")) {
                 return examples;
@@ -328,7 +326,7 @@ QStringList ExamplesListModel::exampleSources(QString *examplesFallback, QString
         return sources;
 
     // try to find a suitable Qt version
-    m_updateOnQtVersionsChanged = true; // this must be updated when the qt versions change
+    m_updateOnQtVersionsChanged = true; // this must be updated when the Qt versions change
     // fallbacks are passed back if no example manifest is found
     // and we fallback to Qt Creator's shipped manifest (e.g. only old Qt Versions found)
     QString potentialExamplesFallback;
@@ -476,7 +474,7 @@ void ExamplesListModel::ensureInitialized() const
 }
 
 ExamplesListModelFilter::ExamplesListModelFilter(ExamplesListModel *sourceModel, QObject *parent) :
-    QSortFilterProxyModel(parent), m_showTutorialsOnly(true), m_sourceModel(sourceModel)
+    QSortFilterProxyModel(parent), m_showTutorialsOnly(true), m_sourceModel(sourceModel), m_timerId(0)
 {
     connect(this, SIGNAL(showTutorialsOnlyChanged()), SLOT(updateFilter()));
     setSourceModel(m_sourceModel);
@@ -484,7 +482,12 @@ ExamplesListModelFilter::ExamplesListModelFilter(ExamplesListModel *sourceModel,
 
 void ExamplesListModelFilter::updateFilter()
 {
-    invalidateFilter();
+    ExamplesListModel *exampleListModel = qobject_cast<ExamplesListModel*>(sourceModel());
+    if (exampleListModel) {
+        exampleListModel->beginReset();
+        invalidateFilter();
+        exampleListModel->endReset();
+    }
 }
 
 bool containsSubString(const QStringList& list, const QString& substr, Qt::CaseSensitivity cs)
@@ -563,6 +566,23 @@ void ExamplesListModelFilter::setShowTutorialsOnly(bool showTutorialsOnly)
 {
     m_showTutorialsOnly = showTutorialsOnly;
     emit showTutorialsOnlyChanged();
+}
+
+void ExamplesListModelFilter::delayedUpdateFilter()
+{
+    if (m_timerId != 0)
+        killTimer(m_timerId);
+
+    m_timerId = startTimer(320);
+}
+
+void ExamplesListModelFilter::timerEvent(QTimerEvent *timerEvent)
+{
+    if (m_timerId == timerEvent->timerId()) {
+        updateFilter();
+        killTimer(m_timerId);
+        m_timerId = 0;
+    }
 }
 
 struct SearchStringLexer {
@@ -670,7 +690,7 @@ void ExamplesListModelFilter::parseSearchString(const QString &arg)
 
     setSearchStrings(searchTerms);
     setFilterTags(tags);
-    updateFilter();
+    delayedUpdateFilter();
 }
 
 } // namespace Internal

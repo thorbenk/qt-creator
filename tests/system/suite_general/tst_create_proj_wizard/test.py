@@ -5,14 +5,15 @@ import re
 def main():
     global templateDir, textChanged
     sourceExample = os.path.abspath(sdkPath + "/Examples/4.7/declarative/text/textselection")
-    if not neededFilePresent(sourceExample):
+    qmlFile = os.path.join("qml", "textselection.qml")
+    if not neededFilePresent(os.path.join(sourceExample, qmlFile)):
         return
     templateDir = prepareTemplate(sourceExample)
     startApplication("qtcreator" + SettingsPath)
     overrideInstallLazySignalHandler()
     installLazySignalHandler(":frame.templateDescription_QTextBrowser",
                              "textChanged()","__handleTextChanged__")
-    targets = getCorrectlyConfiguredTargets()
+    kits = getConfiguredKits()
     test.log("Collecting potential project types...")
     availableProjectTypes = []
     invokeMenuItem("File", "New File or Project...")
@@ -65,41 +66,42 @@ def main():
             try:
                 waitForObject("{text='Select Existing QML file' type='QLabel' visible='1'}", 1000)
                 baseLineEd = waitForObject("{type='Utils::BaseValidatingLineEdit' unnamed='1' visible='1'}", 20000)
-                type(baseLineEd, templateDir + "/qml/textselection.qml")
+                type(baseLineEd, os.path.join(templateDir, qmlFile))
                 clickButton(waitForObject(":Next_QPushButton"))
             except LookupError:
                 pass
-        waitForObject("{type='QLabel' unnamed='1' visible='1' text='Target Setup'}")
-        availableCheckboxes = filter(visibleCheckBoxExists, QtQuickConstants.getAllTargetStrings())
-        JIRA.performWorkaroundIfStillOpen(6994, JIRA.Bug.CREATOR, template, displayedPlatforms)
+        waitForObject("{type='QLabel' unnamed='1' visible='1' text='Kit Selection'}")
+        availableCheckboxes = filter(visibleCheckBoxExists, kits.keys())
         # verification whether expected, found and configured match
-        for t in targets:
+        for t in kits:
             if requiredVersion:
-                if max(targets[t]) < requiredVersion:
+                if kits[t][1] < requiredVersion:
                     if t in availableCheckboxes:
-                        test.fail("Target '%s' found as checkbox, but required version (%s) is higher "
-                                  "than configured version(s) (%s)!" % (t, requiredVersion, str(targets[t])))
+                        test.fail("Kit '%s' found as checkbox, but required Qt version (%s) is "
+                                  "higher than configured Qt version (%s)!" % (t, requiredVersion,
+                                                                               str(kits[t][1])))
                         availableCheckboxes.remove(t)
                     else:
-                        test.passes("Irrelevant target '%s' not found on 'Target setup' page - "
-                                    "required version is '%s', current version(s) are '%s'." %
-                                    (t, requiredVersion, str(targets[t])))
+                        test.passes("Irrelevant kit '%s' not found on 'Kit Selection' page - "
+                                    "required Qt version is '%s', current Qt version is '%s'." %
+                                    (t, requiredVersion, str(kits[t][1])))
                     continue
             found = False
             if t in displayedPlatforms:
                 if t in availableCheckboxes:
-                    test.passes("Found expected target '%s' on 'Target setup' page." % t)
+                    test.passes("Found expected kit '%s' on 'Kit Selection' page." % t)
                     availableCheckboxes.remove(t)
                 else:
-                    test.fail("Expected target '%s' missing on 'Target setup' page." % t)
+                    test.fail("Expected kit '%s' missing on 'Kit Selection' page." % t)
             else:
                 if t in availableCheckboxes:
-                    test.fail("Target '%s' found on 'Target setup' page - but has not been expected!" % t)
+                    test.fail("Kit '%s' found on 'Kit Selection' page - but was not expected!" % t)
                 else:
-                    test.passes("Irrelevant target '%s' not found on 'Target setup' page." % t)
+                    test.passes("Irrelevant kit '%s' not found on 'Kit Selection' page." % t)
         if len(availableCheckboxes) != 0:
-            test.fail("Found unexpected additional target(s) %s on 'Target setup' page." % str(availableCheckboxes))
-        clickButton(waitForObject("{text='Cancel' type='QPushButton' unnamed='1' visible='1'}", 20000))
+            test.fail("Found unexpected additional kit(s) %s on 'Kit Selection' page."
+                      % str(availableCheckboxes))
+        clickButton(waitForObject("{text='Cancel' type='QPushButton' unnamed='1' visible='1'}"))
     invokeMenuItem("File", "Exit")
 
 def cleanup():

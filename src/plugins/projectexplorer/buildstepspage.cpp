@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,6 +39,7 @@
 #include <extensionsystem/pluginmanager.h>
 #include <utils/qtcassert.h>
 #include <utils/detailswidget.h>
+#include <utils/hostosinfo.h>
 
 #include <QSignalMapper>
 
@@ -52,11 +51,11 @@
 #include <QHBoxLayout>
 #include <QToolButton>
 #include <QMessageBox>
-#include <QMainWindow>
 #include <QGraphicsOpacityEffect>
 
 using namespace ProjectExplorer;
 using namespace ProjectExplorer::Internal;
+using namespace Utils;
 
 ToolWidget::ToolWidget(QWidget *parent)
     : Utils::FadingPanel(parent), m_buildStepEnabled(true)
@@ -65,17 +64,13 @@ ToolWidget::ToolWidget(QWidget *parent)
     layout->setMargin(4);
     layout->setSpacing(4);
     setLayout(layout);
-    m_firstWidget = new FadingWidget(this);
+    m_firstWidget = new Utils::FadingWidget(this);
     m_firstWidget->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     QHBoxLayout *hbox = new QHBoxLayout();
     hbox->setContentsMargins(0, 0, 0, 0);
     hbox->setSpacing(0);
     m_firstWidget->setLayout(hbox);
-#ifdef Q_OS_MAC
-    QSize buttonSize(20, 20);
-#else
-    QSize buttonSize(20, 26);
-#endif
+    QSize buttonSize(20, HostOsInfo::isMacHost() ? 20 : 26);
 
     m_disableButton = new QToolButton(m_firstWidget);
     m_disableButton->setAutoRaise(true);
@@ -86,7 +81,7 @@ ToolWidget::ToolWidget(QWidget *parent)
     hbox->addWidget(m_disableButton);
     layout->addWidget(m_firstWidget);
 
-    m_secondWidget = new FadingWidget(this);
+    m_secondWidget = new Utils::FadingWidget(this);
     m_secondWidget->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     hbox = new QHBoxLayout();
     hbox->setMargin(0);
@@ -142,17 +137,15 @@ void ToolWidget::setBuildStepEnabled(bool b)
 {
     m_buildStepEnabled = b;
     if (m_buildStepEnabled) {
-#ifdef Q_OS_MAC
-        m_firstWidget->setOpacity(m_targetOpacity);
-#else
-        m_firstWidget->fadeTo(m_targetOpacity);
-#endif
+        if (HostOsInfo::isMacHost())
+            m_firstWidget->setOpacity(m_targetOpacity);
+        else
+            m_firstWidget->fadeTo(m_targetOpacity);
     } else {
-#ifdef Q_OS_MAC
-        m_firstWidget->setOpacity(1.0);
-#else
-        m_firstWidget->fadeTo(1.0);
-#endif
+        if (HostOsInfo::isMacHost())
+            m_firstWidget->setOpacity(1.0);
+        else
+            m_firstWidget->fadeTo(1.0);
     }
     m_disableButton->setChecked(!b);
 }
@@ -180,39 +173,6 @@ void ToolWidget::setUpVisible(bool b)
 void ToolWidget::setDownVisible(bool b)
 {
     m_downButton->setVisible(b);
-}
-
-FadingWidget::FadingWidget(QWidget *parent) :
-    QWidget(parent),
-    m_opacityEffect(new QGraphicsOpacityEffect)
-{
-    m_opacityEffect->setOpacity(0);
-    setGraphicsEffect(m_opacityEffect);
-
-    // Workaround for issue with QGraphicsEffect. GraphicsEffect
-    // currently clears with Window color. Remove if flickering
-    // no longer occurs on fade-in
-    QPalette pal;
-    pal.setBrush(QPalette::All, QPalette::Window, Qt::transparent);
-    setPalette(pal);
-}
-
-void FadingWidget::setOpacity(qreal value)
-{
-    m_opacityEffect->setOpacity(value);
-}
-
-void FadingWidget::fadeTo(qreal value)
-{
-    QPropertyAnimation *animation = new QPropertyAnimation(m_opacityEffect, "opacity");
-    animation->setDuration(200);
-    animation->setEndValue(value);
-    animation->start(QAbstractAnimation::DeleteWhenStopped);
-}
-
-qreal FadingWidget::opacity()
-{
-    return m_opacityEffect->opacity();
 }
 
 BuildStepsWidgetData::BuildStepsWidgetData(BuildStep *s) :
@@ -341,7 +301,7 @@ void BuildStepListWidget::updateAddBuildStepMenu()
 {
     QMap<QString, QPair<Core::Id, IBuildStepFactory *> > map;
     //Build up a list of possible steps and save map the display names to the (internal) name and factories.
-    QList<IBuildStepFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<IBuildStepFactory>();
+    QList<IBuildStepFactory *> factories = ExtensionSystem::PluginManager::getObjects<IBuildStepFactory>();
     foreach (IBuildStepFactory *factory, factories) {
         QList<Core::Id> ids = factory->availableCreationIds(m_buildStepList);
         foreach (Core::Id id, ids)
@@ -395,6 +355,7 @@ void BuildStepListWidget::triggerAddBuildStep()
     if (QAction *action = qobject_cast<QAction *>(sender())) {
         QPair<Core::Id, IBuildStepFactory *> pair = m_addBuildStepHash.value(action);
         BuildStep *newStep = pair.second->create(m_buildStepList, pair.first);
+        QTC_ASSERT(newStep, return);
         int pos = m_buildStepList->count();
         m_buildStepList->insertStep(pos, newStep);
     }
@@ -497,9 +458,8 @@ void BuildStepListWidget::setupUi()
 
     hboxLayout->addStretch(10);
 
-#ifdef Q_OS_MAC
-    m_addButton->setAttribute(Qt::WA_MacSmallSize);
-#endif
+    if (HostOsInfo::isMacHost())
+        m_addButton->setAttribute(Qt::WA_MacSmallSize);
 
     m_vbox->addLayout(hboxLayout);
 
@@ -549,9 +509,9 @@ BuildStepsPage::~BuildStepsPage()
 
 QString BuildStepsPage::displayName() const
 {
-    if (m_id == Core::Id(Constants::BUILDSTEPS_BUILD))
+    if (m_id == Constants::BUILDSTEPS_BUILD)
         return tr("Build Steps");
-    if (m_id == Core::Id(Constants::BUILDSTEPS_CLEAN))
+    if (m_id == Constants::BUILDSTEPS_CLEAN)
         return tr("Clean Steps");
     return QString();
 }

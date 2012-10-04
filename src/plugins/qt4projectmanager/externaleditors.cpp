@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,20 +25,18 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "externaleditors.h"
 #include "qt4project.h"
-#include "qt4target.h"
 #include "qt4projectmanagerconstants.h"
-#include "qt4buildconfiguration.h"
 
 #include <utils/synchronousprocess.h>
 #include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/target.h>
 #include <projectexplorer/session.h>
+#include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtversionmanager.h>
 #include <designer/designerconstants.h>
 
@@ -142,12 +140,10 @@ bool ExternalQtEditor::getEditorLaunchData(const QString &fileName,
 {
     // Get the binary either from the current Qt version of the project or Path
     if (const Qt4Project *project = qt4ProjectFor(fileName)) {
-        if (const Qt4BaseTarget *target = project->activeTarget()) {
-            if (const Qt4BuildConfiguration *qt4bc = target->activeQt4BuildConfiguration()) {
-                if (const QtSupport::BaseQtVersion *qtVersion = qt4bc->qtVersion()) {
-                    data->binary = (qtVersion->*commandAccessor)();
-                    data->workingDirectory = project->projectDirectory();
-                }
+        if (const ProjectExplorer::Target *target = project->activeTarget()) {
+            if (const QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(target->kit())) {
+                data->binary = (qtVersion->*commandAccessor)();
+                data->workingDirectory = project->projectDirectory();
             }
         }
     }

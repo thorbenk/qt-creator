@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef DEVICEMANAGERMODEL_H
@@ -51,12 +49,15 @@ public:
     explicit DeviceManagerModel(const DeviceManager *deviceManager, QObject *parent = 0);
     ~DeviceManagerModel();
 
-    void updateDevice(Core::Id id);
+    void setFilter(const QList<Core::Id> filter);
 
     IDevice::ConstPtr device(int pos) const;
     Core::Id deviceId(int pos) const;
     int indexOf(IDevice::ConstPtr dev) const;
+    int indexForId(Core::Id id) const;
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
+
+    void updateDevice(Core::Id id);
 
 private slots:
     void handleDeviceAdded(Core::Id id);
@@ -66,8 +67,6 @@ private slots:
 
 private:
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
-
-    int indexForId(Core::Id id) const;
 
     Internal::DeviceManagerModelPrivate * const d;
 };

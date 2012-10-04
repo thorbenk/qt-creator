@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -45,10 +43,6 @@
 QT_FORWARD_DECLARE_CLASS(QAction)
 QT_FORWARD_DECLARE_CLASS(QStringList)
 
-namespace Utils {
-class FileSystemWatcher;
-}
-
 namespace ProjectExplorer {
 class BuildConfiguration;
 class Project;
@@ -56,13 +50,9 @@ class RunConfiguration;
 class Target;
 }
 
-namespace QtSupport {
-class BaseQtVersion;
-}
-
-namespace RemoteLinux {
-class RemoteLinuxRunConfiguration;
-}
+namespace QtSupport { class BaseQtVersion; }
+namespace RemoteLinux { class RemoteLinuxRunConfiguration; }
+namespace Utils { class FileSystemWatcher; }
 
 namespace Madde {
 namespace Internal {
@@ -91,16 +81,9 @@ private slots:
     void targetAdded(ProjectExplorer::Target *target);
     void targetRemoved(ProjectExplorer::Target *target);
     void targetChanged(ProjectExplorer::Target *target);
+    void systemChanged();
 
-    void runConfigurationAdded(ProjectExplorer::RunConfiguration *rc);
-    void runConfigurationRemoved(ProjectExplorer::RunConfiguration *rc);
-    void runConfigurationChanged(ProjectExplorer::RunConfiguration *rc);
-
-    void buildConfigurationAdded(ProjectExplorer::BuildConfiguration *bc);
-    void buildConfigurationRemoved(ProjectExplorer::BuildConfiguration *bc);
-    void buildConfigurationChanged(ProjectExplorer::BuildConfiguration *bc);
-
-    void environmentChanged();  // needed to check for qt version
+    void environmentChanged();  // needed to check for Qt version
     void deviceConfigurationChanged(ProjectExplorer::Target *target);
 
     void terminateRuntime();
@@ -125,7 +108,6 @@ private:
         QtSupport::BaseQtVersion **qtVersion = 0);
 
     void notify(const QList<int> uniqueIds);
-    void toggleDeviceConnections(RemoteLinux::RemoteLinuxRunConfiguration *mrc, bool connect);
     void showOrHideQemuButton();
 
 private:

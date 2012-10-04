@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -45,6 +43,7 @@ class QStandardItem;
 class QModelIndex;
 class QLabel;
 template <class> class QVector;
+template <class> class QList;
 QT_END_NAMESPACE
 
 namespace Core {
@@ -79,8 +78,8 @@ private slots:
     void onItemClicked(const QModelIndex &index);
 
 private:
-    void buildDerivedHierarchy(const CppClass &cppClass, QStandardItem *parent);
-    void buildBaseHierarchy(QVector<CppClass> *s);
+    typedef const QList<CppClass> &(CppClass::* HierarchyFunc)() const;
+    void buildHierarchy(const CppClass &cppClass, QStandardItem *parent, bool isRoot, HierarchyFunc func);
 
     CPPEditorWidget *m_cppEditor;
     Utils::NavigationTreeView *m_treeView;

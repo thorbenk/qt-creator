@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,8 +27,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -148,21 +146,26 @@ void LocalValgrindProcess::readyReadStandardOutput()
 
 ////////////////////////
 
-RemoteValgrindProcess::RemoteValgrindProcess(const Utils::SshConnectionParameters &sshParams,
+RemoteValgrindProcess::RemoteValgrindProcess(const QSsh::SshConnectionParameters &sshParams,
                                              QObject *parent)
     : ValgrindProcess(parent)
     , m_params(sshParams)
+    , m_connection(0)
     , m_error(QProcess::UnknownError)
     , m_pid(0)
 {}
 
-RemoteValgrindProcess::RemoteValgrindProcess(const Utils::SshConnection::Ptr &connection, QObject *parent)
+RemoteValgrindProcess::RemoteValgrindProcess(QSsh::SshConnection *connection, QObject *parent)
     : ValgrindProcess(parent)
     , m_params(connection->connectionParameters())
     , m_connection(connection)
     , m_error(QProcess::UnknownError)
     , m_pid(0)
 {}
+
+RemoteValgrindProcess::~RemoteValgrindProcess()
+{
+}
 
 bool RemoteValgrindProcess::isRunning() const
 {
@@ -179,14 +182,13 @@ void RemoteValgrindProcess::run(const QString &valgrindExecutable, const QString
 
     // connect to host and wait for connection
     if (!m_connection)
-        m_connection = Utils::SshConnection::create(m_params);
+        m_connection = new QSsh::SshConnection(m_params, this);
 
-    if (m_connection->state() != Utils::SshConnection::Connected) {
-        connect(m_connection.data(), SIGNAL(connected()),
-                this, SLOT(connected()));
-        connect(m_connection.data(), SIGNAL(error(Utils::SshError)),
-                this, SLOT(error(Utils::SshError)));
-        if (m_connection->state() == Utils::SshConnection::Unconnected)
+    if (m_connection->state() != QSsh::SshConnection::Connected) {
+        connect(m_connection, SIGNAL(connected()), this, SLOT(connected()));
+        connect(m_connection, SIGNAL(error(QSsh::SshError)),
+                this, SLOT(error(QSsh::SshError)));
+        if (m_connection->state() == QSsh::SshConnection::Unconnected)
             m_connection->connectToHost();
     } else {
         connected();
@@ -195,7 +197,7 @@ void RemoteValgrindProcess::run(const QString &valgrindExecutable, const QString
 
 void RemoteValgrindProcess::connected()
 {
-    QTC_ASSERT(m_connection->state() == Utils::SshConnection::Connected, return);
+    QTC_ASSERT(m_connection->state() == QSsh::SshConnection::Connected, return);
 
     // connected, run command
     QString cmd;
@@ -219,14 +221,14 @@ void RemoteValgrindProcess::connected()
     m_process->start();
 }
 
-Utils::SshConnection::Ptr RemoteValgrindProcess::connection() const
+QSsh::SshConnection *RemoteValgrindProcess::connection() const
 {
     return m_connection;
 }
 
 void RemoteValgrindProcess::processStarted()
 {
-    QTC_ASSERT(m_connection->state() == Utils::SshConnection::Connected, return);
+    QTC_ASSERT(m_connection->state() == QSsh::SshConnection::Connected, return);
 
     // find out what PID our process has
 
@@ -278,10 +280,10 @@ void RemoteValgrindProcess::standardError()
     emit processOutput(m_process->readAllStandardError(), Utils::StdErrFormat);
 }
 
-void RemoteValgrindProcess::error(Utils::SshError error)
+void RemoteValgrindProcess::error(QSsh::SshError error)
 {
     switch (error) {
-        case Utils::SshTimeoutError:
+        case QSsh::SshTimeoutError:
             m_error = QProcess::Timedout;
             break;
         default:
@@ -294,7 +296,7 @@ void RemoteValgrindProcess::error(Utils::SshError error)
 
 void RemoteValgrindProcess::close()
 {
-    QTC_ASSERT(m_connection->state() == Utils::SshConnection::Connected, return);
+    QTC_ASSERT(m_connection->state() == QSsh::SshConnection::Connected, return);
     if (m_process) {
         if (m_pid) {
             const QString killTemplate = QString("kill -%2 %1" // kill
@@ -304,7 +306,7 @@ void RemoteValgrindProcess::close()
             const QString brutalKill = killTemplate.arg("SIGKILL");
             const QString remoteCall = niceKill + QLatin1String("; sleep 1; ") + brutalKill;
 
-            Utils::SshRemoteProcess::Ptr cleanup = m_connection->createRemoteProcess(remoteCall.toUtf8());
+            QSsh::SshRemoteProcess::Ptr cleanup = m_connection->createRemoteProcess(remoteCall.toUtf8());
             cleanup->start();
         }
     }
@@ -315,12 +317,12 @@ void RemoteValgrindProcess::closed(int status)
     QTC_ASSERT(m_process, return);
 
     m_errorString = m_process->errorString();
-    if (status == Utils::SshRemoteProcess::FailedToStart) {
+    if (status == QSsh::SshRemoteProcess::FailedToStart) {
         m_error = QProcess::FailedToStart;
         emit ValgrindProcess::error(QProcess::FailedToStart);
-    } else if (status == Utils::SshRemoteProcess::ExitedNormally) {
+    } else if (status == QSsh::SshRemoteProcess::NormalExit) {
         emit finished(m_process->exitCode(), QProcess::NormalExit);
-    } else if (status == Utils::SshRemoteProcess::KilledBySignal) {
+    } else if (status == QSsh::SshRemoteProcess::CrashExit) {
         m_error = QProcess::Crashed;
         emit finished(m_process->exitCode(), QProcess::CrashExit);
     }

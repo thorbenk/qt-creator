@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef MADDEUPLOADANDINSTALLPACKAGESTEPS_H
@@ -50,27 +48,6 @@ public:
         MaemoUploadAndInstallPackageStep *other);
 
     bool initInternal(QString *error = 0);
-
-    static Core::Id stepId();
-    static QString displayName();
-
-private:
-    RemoteLinux::AbstractRemoteLinuxDeployService *deployService() const;
-
-    void ctor();
-
-    RemoteLinux::AbstractUploadAndInstallPackageService *m_deployService;
-};
-
-class MeegoUploadAndInstallPackageStep : public RemoteLinux::AbstractRemoteLinuxDeployStep
-{
-    Q_OBJECT
-public:
-    MeegoUploadAndInstallPackageStep(ProjectExplorer::BuildStepList *bsl);
-    MeegoUploadAndInstallPackageStep(ProjectExplorer::BuildStepList *bsl,
-        MeegoUploadAndInstallPackageStep *other);
-
-    bool initInternal(QString *error);
 
     static Core::Id stepId();
     static QString displayName();

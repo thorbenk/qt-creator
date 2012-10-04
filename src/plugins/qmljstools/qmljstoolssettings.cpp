@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -45,53 +43,40 @@
 
 #include <QSettings>
 
-static const char *idKey = "QmlJSGlobal";
-
-using namespace QmlJSTools;
-using TextEditor::TabSettings;
+using namespace TextEditor;
 
 namespace QmlJSTools {
-namespace Internal {
 
-class QmlJSToolsSettingsPrivate
-{
-public:
-    TextEditor::SimpleCodeStylePreferences *m_globalCodeStyle;
-};
+const char idKey[] = "QmlJSGlobal";
 
-} // namespace Internal
-} // namespace QmlJSTools
-
-QmlJSToolsSettings *QmlJSToolsSettings::m_instance = 0;
+static TextEditor::SimpleCodeStylePreferences *m_globalCodeStyle = 0;
 
 QmlJSToolsSettings::QmlJSToolsSettings(QObject *parent)
     : QObject(parent)
-    , d(new Internal::QmlJSToolsSettingsPrivate)
 {
-    QTC_ASSERT(!m_instance, return);
-    m_instance = this;
+    QTC_ASSERT(!m_globalCodeStyle, return);
 
-    TextEditor::TextEditorSettings *textEditorSettings = TextEditor::TextEditorSettings::instance();
+    TextEditorSettings *textEditorSettings = TextEditorSettings::instance();
 
     // code style factory
-    TextEditor::ICodeStylePreferencesFactory *factory = new QmlJSTools::QmlJSCodeStylePreferencesFactory();
+    ICodeStylePreferencesFactory *factory = new QmlJSCodeStylePreferencesFactory();
     textEditorSettings->registerCodeStyleFactory(factory);
 
     // code style pool
-    TextEditor::CodeStylePool *pool = new TextEditor::CodeStylePool(factory, this);
+    CodeStylePool *pool = new CodeStylePool(factory, this);
     textEditorSettings->registerCodeStylePool(Constants::QML_JS_SETTINGS_ID, pool);
 
     // global code style settings
-    d->m_globalCodeStyle = new TextEditor::SimpleCodeStylePreferences(this);
-    d->m_globalCodeStyle->setDelegatingPool(pool);
-    d->m_globalCodeStyle->setDisplayName(tr("Global", "Settings"));
-    d->m_globalCodeStyle->setId(idKey);
-    pool->addCodeStyle(d->m_globalCodeStyle);
-    textEditorSettings->registerCodeStyle(QmlJSTools::Constants::QML_JS_SETTINGS_ID, d->m_globalCodeStyle);
+    m_globalCodeStyle = new SimpleCodeStylePreferences(this);
+    m_globalCodeStyle->setDelegatingPool(pool);
+    m_globalCodeStyle->setDisplayName(tr("Global", "Settings"));
+    m_globalCodeStyle->setId(idKey);
+    pool->addCodeStyle(m_globalCodeStyle);
+    textEditorSettings->registerCodeStyle(QmlJSTools::Constants::QML_JS_SETTINGS_ID, m_globalCodeStyle);
 
     // built-in settings
     // Qt style
-    TextEditor::SimpleCodeStylePreferences *qtCodeStyle = new TextEditor::SimpleCodeStylePreferences();
+    SimpleCodeStylePreferences *qtCodeStyle = new SimpleCodeStylePreferences();
     qtCodeStyle->setId(QLatin1String("qt"));
     qtCodeStyle->setDisplayName(tr("Qt"));
     qtCodeStyle->setReadOnly(true);
@@ -104,52 +89,51 @@ QmlJSToolsSettings::QmlJSToolsSettings(QObject *parent)
     pool->addCodeStyle(qtCodeStyle);
 
     // default delegate for global preferences
-    d->m_globalCodeStyle->setCurrentDelegate(qtCodeStyle);
+    m_globalCodeStyle->setCurrentDelegate(qtCodeStyle);
 
     pool->loadCustomCodeStyles();
 
     // load global settings (after built-in settings are added to the pool)
-    if (QSettings *s = Core::ICore::settings()) {
-        d->m_globalCodeStyle->fromSettings(QmlJSTools::Constants::QML_JS_SETTINGS_ID, s);
+    QSettings *s = Core::ICore::settings();
+    m_globalCodeStyle->fromSettings(QmlJSTools::Constants::QML_JS_SETTINGS_ID, s);
 
-        // legacy handling start (Qt Creator Version < 2.4)
-        const bool legacyTransformed =
-                    s->value(QLatin1String("QmlJSTabPreferences/LegacyTransformed"), false).toBool();
+    // legacy handling start (Qt Creator Version < 2.4)
+    const bool legacyTransformed =
+                s->value(QLatin1String("QmlJSTabPreferences/LegacyTransformed"), false).toBool();
 
-        if (!legacyTransformed) {
-            // creator 2.4 didn't mark yet the transformation (first run of creator 2.4)
+    if (!legacyTransformed) {
+        // creator 2.4 didn't mark yet the transformation (first run of creator 2.4)
 
-            // we need to transform the settings only if at least one from
-            // below settings was already written - otherwise we use
-            // defaults like it would be the first run of creator 2.4 without stored settings
-            const QStringList groups = s->childGroups();
-            const bool needTransform = groups.contains(QLatin1String("textTabPreferences")) ||
-                                       groups.contains(QLatin1String("QmlJSTabPreferences"));
+        // we need to transform the settings only if at least one from
+        // below settings was already written - otherwise we use
+        // defaults like it would be the first run of creator 2.4 without stored settings
+        const QStringList groups = s->childGroups();
+        const bool needTransform = groups.contains(QLatin1String("textTabPreferences")) ||
+                                   groups.contains(QLatin1String("QmlJSTabPreferences"));
 
-            if (needTransform) {
-                const QString currentFallback = s->value(QLatin1String("QmlJSTabPreferences/CurrentFallback")).toString();
-                TabSettings legacyTabSettings;
-                if (currentFallback == QLatin1String("QmlJSGlobal")) {
-                    // no delegate, global overwritten
-                    Utils::fromSettings(QLatin1String("QmlJSTabPreferences"),
-                                        QString(), s, &legacyTabSettings);
-                } else {
-                    // delegating to global
-                    legacyTabSettings = textEditorSettings->codeStyle()->currentTabSettings();
-                }
-
-                // create custom code style out of old settings
-                TextEditor::ICodeStylePreferences *oldCreator = pool->createCodeStyle(
-                         QLatin1String("legacy"), legacyTabSettings,
-                         QVariant(), tr("Old Creator"));
-
-                // change the current delegate and save
-                d->m_globalCodeStyle->setCurrentDelegate(oldCreator);
-                d->m_globalCodeStyle->toSettings(QmlJSTools::Constants::QML_JS_SETTINGS_ID, s);
+        if (needTransform) {
+            const QString currentFallback = s->value(QLatin1String("QmlJSTabPreferences/CurrentFallback")).toString();
+            TabSettings legacyTabSettings;
+            if (currentFallback == QLatin1String("QmlJSGlobal")) {
+                // no delegate, global overwritten
+                Utils::fromSettings(QLatin1String("QmlJSTabPreferences"),
+                                    QString(), s, &legacyTabSettings);
+            } else {
+                // delegating to global
+                legacyTabSettings = textEditorSettings->codeStyle()->currentTabSettings();
             }
-            // mark old settings as transformed
-            s->setValue(QLatin1String("QmlJSTabPreferences/LegacyTransformed"), true);
+
+            // create custom code style out of old settings
+            ICodeStylePreferences *oldCreator = pool->createCodeStyle(
+                     QLatin1String("legacy"), legacyTabSettings,
+                     QVariant(), tr("Old Creator"));
+
+            // change the current delegate and save
+            m_globalCodeStyle->setCurrentDelegate(oldCreator);
+            m_globalCodeStyle->toSettings(QmlJSTools::Constants::QML_JS_SETTINGS_ID, s);
         }
+        // mark old settings as transformed
+        s->setValue(QLatin1String("QmlJSTabPreferences/LegacyTransformed"), true);
         // legacy handling stop
     }
 
@@ -167,19 +151,13 @@ QmlJSToolsSettings::QmlJSToolsSettings(QObject *parent)
 
 QmlJSToolsSettings::~QmlJSToolsSettings()
 {
-    delete d;
-
-    m_instance = 0;
+    delete m_globalCodeStyle;
+    m_globalCodeStyle = 0;
 }
 
-QmlJSToolsSettings *QmlJSToolsSettings::instance()
+SimpleCodeStylePreferences *QmlJSToolsSettings::globalCodeStyle()
 {
-    return m_instance;
+    return m_globalCodeStyle;
 }
 
-TextEditor::SimpleCodeStylePreferences *QmlJSToolsSettings::qmlJSCodeStyle() const
-{
-    return d->m_globalCodeStyle;
-}
-
-
+} // namespace QmlJSTools

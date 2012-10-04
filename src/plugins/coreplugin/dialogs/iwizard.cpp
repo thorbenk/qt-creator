@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -160,7 +158,7 @@ QList<IWizard*> IWizard::allWizards()
 {
     // Hack: Trigger delayed creation of wizards
     ICore::emitNewItemsDialogRequested();
-    return ExtensionSystem::PluginManager::instance()->getObjects<IWizard>();
+    return ExtensionSystem::PluginManager::getObjects<IWizard>();
 }
 
 // Utility to find all registered wizards of a certain kind
@@ -182,7 +180,7 @@ bool IWizard::isAvailable(const QString &platformName) const
 {
     FeatureSet availableFeatures;
 
-    const QList<Core::IFeatureProvider*> featureManagers = ExtensionSystem::PluginManager::instance()->getObjects<Core::IFeatureProvider>();
+    const QList<Core::IFeatureProvider*> featureManagers = ExtensionSystem::PluginManager::getObjects<Core::IFeatureProvider>();
 
     foreach (const Core::IFeatureProvider *featureManager, featureManagers)
         availableFeatures |= featureManager->availableFeatures(platformName);
@@ -207,7 +205,7 @@ QStringList IWizard::allAvailablePlatforms()
     QStringList platforms;
 
     const QList<Core::IFeatureProvider*> featureManagers =
-            ExtensionSystem::PluginManager::instance()->getObjects<Core::IFeatureProvider>();
+            ExtensionSystem::PluginManager::getObjects<Core::IFeatureProvider>();
 
     foreach (const Core::IFeatureProvider *featureManager, featureManagers)
         platforms.append(featureManager->availablePlatforms());
@@ -218,7 +216,7 @@ QStringList IWizard::allAvailablePlatforms()
 QString IWizard::displayNameForPlatform(const QString &string)
 {
     const QList<Core::IFeatureProvider*> featureManagers =
-            ExtensionSystem::PluginManager::instance()->getObjects<Core::IFeatureProvider>();
+            ExtensionSystem::PluginManager::getObjects<Core::IFeatureProvider>();
 
     foreach (const Core::IFeatureProvider *featureManager, featureManagers) {
         QString displayName = featureManager->displayNameForPlatform(string);

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -56,15 +54,15 @@ public:
     quint32 addWatch(const PropertyReference &property);
     quint32 addWatch(const ContextReference &context, const QString &id);
     quint32 addWatch(const ObjectReference &object, const QString &expr);
-    quint32 addWatch(const ObjectReference &object);
+    quint32 addWatch(int objectDebugId);
     quint32 addWatch(const FileReference &file);
 
     void removeWatch(quint32 watch);
 
     quint32 queryAvailableEngines();
     quint32 queryRootContexts(const EngineReference &context);
-    quint32 queryObject(const ObjectReference &object);
-    quint32 queryObjectRecursive(const ObjectReference &object);
+    quint32 queryObject(int objectId);
+    quint32 queryObjectRecursive(int objectId);
     quint32 queryExpressionResult(int objectDebugId,
                                   const QString &expr, int engineId = -1);
     virtual quint32 setBindingForObject(int objectDebugId, const QString &propertyName,
@@ -81,7 +79,7 @@ public:
 
 signals:
     void newStatus(QmlDebug::ClientStatus status);
-    void newObjects();
+    void newObject(int engineId, int objectId, int parentId);
     void valueChanged(int debugId, const QByteArray &name,
                       const QVariant &value);
     void result(quint32 queryId, const QVariant &result, const QByteArray &type);
@@ -104,6 +102,12 @@ class FileReference
 {
 public:
     FileReference() : m_lineNumber(-1), m_columnNumber(-1) {}
+    FileReference(const QUrl &url, int line, int column)
+        : m_url(url),
+          m_lineNumber(line),
+          m_columnNumber(column)
+    {
+    }
 
     QUrl url() const { return m_url; }
     int lineNumber() const { return m_lineNumber; }
@@ -134,14 +138,26 @@ private:
 class ObjectReference
 {
 public:
-    ObjectReference() : m_debugId(-1), m_parentId(-1), m_contextDebugId(-1), m_needsMoreData(false) {}
-    explicit ObjectReference(int id) : m_debugId(id), m_parentId(-1), m_contextDebugId(-1), m_needsMoreData(false) {}
+    ObjectReference()
+        : m_debugId(-1), m_parentId(-1), m_contextDebugId(-1), m_needsMoreData(false)
+    {
+    }
+    explicit ObjectReference(int id)
+        : m_debugId(id), m_parentId(-1), m_contextDebugId(-1), m_needsMoreData(false)
+    {
+    }
+    ObjectReference(int id, int parentId, const FileReference &source)
+        : m_debugId(id), m_parentId(parentId), m_source(source),
+          m_contextDebugId(-1), m_needsMoreData(false)
+    {
+    }
 
     int debugId() const { return m_debugId; }
     int parentId() const { return m_parentId; }
     QString className() const { return m_className; }
     QString idString() const { return m_idString; }
     QString name() const { return m_name; }
+    bool isValid() const { return m_debugId != -1; }
 
     FileReference source() const { return m_source; }
     int contextDebugId() const { return m_contextDebugId; }

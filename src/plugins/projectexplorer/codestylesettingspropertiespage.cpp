@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -50,7 +48,7 @@ QString CodeStyleSettingsPanelFactory::id() const
 
 QString CodeStyleSettingsPanelFactory::displayName() const
 {
-    return QCoreApplication::translate("CodeStyleSettingsPanelFactory", "Code Style Settings");
+    return QCoreApplication::translate("CodeStyleSettingsPanelFactory", "Code Style");
 }
 
 int CodeStyleSettingsPanelFactory::priority() const
@@ -69,7 +67,7 @@ PropertiesPanel *CodeStyleSettingsPanelFactory::createPanel(Project *project)
     PropertiesPanel *panel = new PropertiesPanel;
     panel->setWidget(new CodeStyleSettingsWidget(project));
     panel->setIcon(QIcon(QLatin1String(":/projectexplorer/images/CodeStyleSettings.png")));
-    panel->setDisplayName(QCoreApplication::translate("CodeStyleSettingsPanel", "Code Style Settings"));
+    panel->setDisplayName(QCoreApplication::translate("CodeStyleSettingsPanel", "Code Style"));
     return panel;
 }
 

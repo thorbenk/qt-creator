@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef JAVAPARSER_H
 #define JAVAPARSER_H
+
 #include <projectexplorer/ioutputparser.h>
 
 namespace Android {
@@ -40,11 +39,13 @@ namespace Internal {
 class JavaParser : public ProjectExplorer::IOutputParser
 {
     Q_OBJECT
+
 public:
     JavaParser();
-    virtual void stdOutput(const QString &line);
-    virtual void stdError(const QString &line);
+    void stdOutput(const QString &line);
+    void stdError(const QString &line);
     void setProjectFileList(const QStringList &fileList);
+
 private:
     QRegExp m_javaRegExp;
     QStringList m_fileList;

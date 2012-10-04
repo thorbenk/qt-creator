@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -45,38 +43,30 @@
 #include <QFuture>
 
 QT_BEGIN_NAMESPACE
-struct ProFileOption;
+class ProFileGlobals;
 QT_END_NAMESPACE
 
-namespace QtSupport {
-class ProFileReader;
-}
+namespace ProjectExplorer { class DeploymentData; }
+namespace QtSupport { class ProFileReader; }
 
 namespace Qt4ProjectManager {
-class Qt4ProFileNode;
-class Qt4PriFileNode;
-class Qt4BaseTarget;
+class BuildConfigurationInfo;
+class MakeStep;
+class QMakeStep;
 class Qt4BuildConfiguration;
 class Qt4Manager;
-
-namespace Internal {
-    class DeployHelperRunStep;
-    class FileItem;
-    class GCCPreprocessor;
-    struct Qt4ProjectFiles;
-    class Qt4ProjectConfigWidget;
-    class Qt4ProjectFile;
-    class Qt4NodesWatcher;
-}
-
-class QMakeStep;
-class MakeStep;
-
-class Qt4Project;
+class Qt4PriFileNode;
+class Qt4ProFileNode;
 class Qt4RunStep;
 
 namespace Internal {
 class CentralizedFolderWatcher;
+class FileItem;
+class GCCPreprocessor;
+class Qt4ProjectFiles;
+class Qt4ProjectConfigWidget;
+class Qt4ProjectFile;
+class Qt4NodesWatcher;
 }
 
 class  QT4PROJECTMANAGER_EXPORT Qt4Project : public ProjectExplorer::Project
@@ -93,7 +83,7 @@ public:
     ProjectExplorer::IProjectManager *projectManager() const;
     Qt4Manager *qt4ProjectManager() const;
 
-    Qt4BaseTarget *activeTarget() const;
+    bool supportsKit(ProjectExplorer::Kit *k, QString *errorMesage) const;
 
     ProjectExplorer::ProjectNode *rootProjectNode() const;
     Qt4ProFileNode *rootQt4ProjectNode() const;
@@ -115,7 +105,7 @@ public:
     /// \internal
     QtSupport::ProFileReader *createProFileReader(Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc = 0);
     /// \internal
-    ProFileOption *proFileOption();
+    ProFileGlobals *qmakeGlobals();
     /// \internal
     void destroyProFileReader(QtSupport::ProFileReader *reader);
 
@@ -139,36 +129,44 @@ public:
 
     void configureAsExampleProject(const QStringList &platforms);
 
+    bool supportsNoTargetPanel() const;
+
     /// \internal
     QString disabledReasonForRunConfiguration(const QString &proFilePath);
 
+    /// suffix should be unique
+    static QString shadowBuildDirectory(const QString &profilePath, const ProjectExplorer::Kit *k,
+                                 const QString &suffix);
+    /// used by the default implementation of shadowBuildDirectory
+    static QString buildNameFor(const ProjectExplorer::Kit *k);
+
+    ProjectExplorer::Target *createTarget(ProjectExplorer::Kit *k, const QList<BuildConfigurationInfo> &infoList);
+
+    void emitBuildDirectoryInitialized();
+
 signals:
-    void proParsingDone();
-    void proFileUpdated(Qt4ProjectManager::Qt4ProFileNode *node, bool, bool);
+    void kitUpdated(Qt4ProjectManager::Qt4ProFileNode *node, bool, bool);
     void buildDirectoryInitialized();
-    void fromMapFinished();
+    void proFilesEvaluated();
 
 public slots:
+    void scheduleAsyncUpdate();
     void proFileParseError(const QString &errorMessage);
     void update();
 
 protected:
-    virtual bool fromMap(const QVariantMap &map);
+    bool fromMap(const QVariantMap &map);
 
 private slots:
-    void proFileEvaluateNeeded(Qt4ProjectManager::Qt4BaseTarget *target);
-
     void asyncUpdate();
 
-    void onAddedTarget(ProjectExplorer::Target *t);
     void activeTargetWasChanged();
 
 private:
-    void scheduleAsyncUpdate();
+    void updateRunConfigurations();
 
     void updateCppCodeModel();
     void updateQmlJSCodeModel();
-
 
     static void collectAllfProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node);
     static void collectApplicationProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node);
@@ -178,6 +176,11 @@ private:
     static bool equalFileList(const QStringList &a, const QStringList &b);
 
     static QString qmakeVarName(ProjectExplorer::FileType type);
+
+    void updateBuildSystemData();
+    void collectData(const Qt4ProFileNode *node, ProjectExplorer::DeploymentData &deploymentData);
+    void collectLibraryData(const Qt4ProFileNode *node,
+            ProjectExplorer::DeploymentData &deploymentData);
 
     Qt4Manager *m_manager;
     Qt4ProFileNode *m_rootProjectNode;
@@ -193,8 +196,8 @@ private:
     Internal::Qt4ProjectFiles *m_projectFiles;
 
     // cached data during project rescan
-    ProFileOption *m_proFileOption;
-    int m_proFileOptionRefCnt;
+    ProFileGlobals *m_qmakeGlobals;
+    int m_qmakeGlobalsRefCnt;
 
     QTimer m_asyncUpdateTimer;
     QFutureInterface<void> *m_asyncUpdateFutureInterface;
@@ -208,6 +211,8 @@ private:
     QFuture<void> m_codeModelFuture;
 
     Internal::CentralizedFolderWatcher *m_centralizedFolderWatcher;
+
+    ProjectExplorer::Target *m_activeTarget;
 
     friend class Internal::Qt4ProjectFile;
     friend class Internal::Qt4ProjectConfigWidget;

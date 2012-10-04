@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -47,7 +45,7 @@
 
     \list 1
 
-        \o  In the \gui Projects mode, select a release build configuration.
+        \o  In the \gui Projects mode, select a debug build configuration.
 
         \o  Select \gui Analyze to open the \gui Analyze mode.
 
@@ -131,8 +129,8 @@
     After you download and install Valgrind tools, you can use Callgrind from
     \QC.
 
-    \note Callgrind is supported locally on Linux and Mac OS. You can run it on
-    a remote host from Windows.
+    \note Callgrind is supported locally on Linux and Mac OS. You can run
+    it on a remote Linux machine or device from any development machine.
 
     To analyze applications:
 
@@ -167,6 +165,22 @@
     Double-click a function to view information about the calling functions in
     the \gui Callers view and about the called functions in the \gui Callees
     view.
+
+    Since the run-time characteristics of debug and release
+    \l{glossary-build-config}{build configurations}
+    differ significantly, analytical findings for one build configuration may or
+    not be relevant for the other. Profiling a debug build
+    often finds a major part of the time being spent in low-level
+    code like container implementations, while the same code
+    does not show up in the profile of a release build of the
+    same application due to inlining and other optimizations
+    typically done there.
+
+    Many recent compilers allow you to build an optimized application
+    with debug information present at the same time. Typical
+    options for GCC are for instance \c{-g -O2}. It is
+    advisable to use such a setup for Callgrind profiling.
+
 
     \image qtcreator-valgrind-callgrind.png "Profile view"
 
@@ -239,15 +253,13 @@
 
     \list 1
 
-        \o  Select \gui {Analyze > Valgrind Analyze Memory (Remote)} or
-            \gui {Valgrind Function Profile (Remote)}.
+        \o  Select \gui {Analyze > Valgrind Analyze Memory (External)} or
+            \gui {Valgrind Function Profile (External)}.
 
-            \image qtcreator-valgrind-remote-settings.png "Start Debugger dialog"
+            \image qtcreator-valgrind-remote-settings.png "Start Analyzer dialog"
 
-        \o  In the \gui Remote group, specify the connection to the remote host.
-
-        \o  In the \gui Target group, specify the application to run and analyze
-            on the remote host.
+        \o  Specify the application to run and analyze, and the \l{glossary-buildandrun-kit}{kit}
+            to use.
 
     \endlist
 

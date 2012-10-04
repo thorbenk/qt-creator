@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,18 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #include "abstractremotelinuxdeploystep.h"
 
 #include "abstractremotelinuxdeployservice.h"
 #include "remotelinuxdeployconfiguration.h"
 
+#include <projectexplorer/devicesupport/devicemanager.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/target.h>
-#include <qt4projectmanager/qt4buildconfiguration.h>
 
 using namespace ProjectExplorer;
 
@@ -63,6 +63,11 @@ AbstractRemoteLinuxDeployStep::AbstractRemoteLinuxDeployStep(BuildStepList *bsl,
 {
 }
 
+AbstractRemoteLinuxDeployStep::~AbstractRemoteLinuxDeployStep()
+{
+    delete d;
+}
+
 bool AbstractRemoteLinuxDeployStep::fromMap(const QVariantMap &map)
 {
     if (!BuildStep::fromMap(map))
@@ -79,8 +84,7 @@ QVariantMap AbstractRemoteLinuxDeployStep::toMap() const
 bool AbstractRemoteLinuxDeployStep::init()
 {
     QString error;
-    deployService()->setDeviceConfiguration(deployConfiguration()->deviceConfiguration());
-    deployService()->setBuildConfiguration(qobject_cast<Qt4ProjectManager::Qt4BuildConfiguration *>(target()->activeBuildConfiguration()));
+    deployService()->setBuildConfiguration(target()->activeBuildConfiguration());
     const bool canDeploy = initInternal(&error);
     if (!canDeploy)
         emit addOutput(tr("Cannot deploy: %1").arg(error), ErrorMessageOutput);
@@ -131,7 +135,7 @@ void AbstractRemoteLinuxDeployStep::handleErrorMessage(const QString &message)
 {
     emit addOutput(message, ErrorMessageOutput);
     emit addTask(Task(Task::Error, message, Utils::FileName(), -1,
-                      Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                      Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM)));
     d->hasError = true;
 }
 
@@ -139,7 +143,7 @@ void AbstractRemoteLinuxDeployStep::handleWarningMessage(const QString &message)
 {
     emit addOutput(message, ErrorMessageOutput);
     emit addTask(Task(Task::Warning, message, Utils::FileName(), -1,
-                      Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+                      Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM)));
 }
 
 void AbstractRemoteLinuxDeployStep::handleFinished()

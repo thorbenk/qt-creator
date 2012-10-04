@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,15 +33,14 @@
 #include "maemoglobal.h"
 #include "maemoremotemounter.h"
 
-#include <qt4projectmanager/qt4buildconfiguration.h>
-#include <remotelinux/linuxdeviceconfiguration.h>
-#include <remotelinux/remotelinuxusedportsgatherer.h>
+#include <projectexplorer/target.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/devicesupport/deviceusedportsgatherer.h>
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshconnection.h>
+#include <ssh/sshconnection.h>
 
-using namespace Qt4ProjectManager;
-using namespace RemoteLinux;
-using namespace Utils;
+using namespace ProjectExplorer;
+using namespace QSsh;
 
 namespace Madde {
 namespace Internal {
@@ -51,8 +48,7 @@ namespace Internal {
 MaemoDeploymentMounter::MaemoDeploymentMounter(QObject *parent)
     : QObject(parent),
       m_state(Inactive),
-      m_mounter(new MaemoRemoteMounter(this)),
-      m_portsGatherer(new RemoteLinuxUsedPortsGatherer(this))
+      m_mounter(new MaemoRemoteMounter(this))
 {
     connect(m_mounter, SIGNAL(error(QString)), SLOT(handleMountError(QString)));
     connect(m_mounter, SIGNAL(mounted()), SLOT(handleMounted()));
@@ -61,29 +57,22 @@ MaemoDeploymentMounter::MaemoDeploymentMounter(QObject *parent)
         SIGNAL(reportProgress(QString)));
     connect(m_mounter, SIGNAL(debugOutput(QString)),
         SIGNAL(debugOutput(QString)));
-
-    connect(m_portsGatherer, SIGNAL(error(QString)),
-        SLOT(handlePortsGathererError(QString)));
-    connect(m_portsGatherer, SIGNAL(portListReady()),
-        SLOT(handlePortListReady()));
 }
 
 MaemoDeploymentMounter::~MaemoDeploymentMounter() {}
 
-void MaemoDeploymentMounter::setupMounts(const SshConnection::Ptr &connection,
-    const LinuxDeviceConfiguration::ConstPtr &devConf,
+void MaemoDeploymentMounter::setupMounts(SshConnection *connection,
     const QList<MaemoMountSpecification> &mountSpecs,
-    const Qt4BuildConfiguration *bc)
+    const Kit *k)
 {
     QTC_ASSERT(m_state == Inactive, return);
 
     m_mountSpecs = mountSpecs;
     m_connection = connection;
-    m_devConf = devConf;
-    m_mounter->setConnection(m_connection, m_devConf);
-    m_buildConfig = bc;
-    connect(m_connection.data(), SIGNAL(error(Utils::SshError)),
-        SLOT(handleConnectionError()));
+    m_kit = k;
+    m_devConf = DeviceKitInformation::device(k);
+    m_mounter->setParameters(m_devConf, MaemoGlobal::maddeRoot(k));
+    connect(m_connection, SIGNAL(error(QSsh::SshError)), SLOT(handleConnectionError()));
     setState(UnmountingOldDirs);
     unmount();
 }
@@ -103,7 +92,6 @@ void MaemoDeploymentMounter::setupMounter()
     setState(UnmountingCurrentDirs);
 
     m_mounter->resetMountSpecifications();
-    m_mounter->setBuildConfiguration(m_buildConfig);
     foreach (const MaemoMountSpecification &mountSpec, m_mountSpecs)
         m_mounter->addMountSpecification(mountSpec, true);
     unmount();
@@ -141,8 +129,8 @@ void MaemoDeploymentMounter::handleUnmounted()
         setupMounter();
         break;
     case UnmountingCurrentDirs:
-        setState(GatheringPorts);
-        m_portsGatherer->start(m_devConf);
+        setState(Mounting);
+        m_mounter->mount();
         break;
     case UnmountingCurrentMounts:
         setState(Inactive);
@@ -152,30 +140,6 @@ void MaemoDeploymentMounter::handleUnmounted()
     default:
         break;
     }
-}
-
-void MaemoDeploymentMounter::handlePortsGathererError(const QString &errorMsg)
-{
-    QTC_ASSERT(m_state == GatheringPorts || m_state == Inactive, return);
-
-    if (m_state == Inactive)
-        return;
-
-    setState(Inactive);
-    m_mounter->resetMountSpecifications();
-    emit error(errorMsg);
-}
-
-void MaemoDeploymentMounter::handlePortListReady()
-{
-    QTC_ASSERT(m_state == GatheringPorts || m_state == Inactive, return);
-
-    if (m_state == Inactive)
-        return;
-
-    setState(Mounting);
-    m_freePorts = MaemoGlobal::freePorts(m_devConf, m_buildConfig->qtVersion());
-    m_mounter->mount(&m_freePorts, m_portsGatherer);
 }
 
 void MaemoDeploymentMounter::handleMountError(const QString &errorMsg)
@@ -205,8 +169,8 @@ void MaemoDeploymentMounter::setState(State newState)
     if (m_state == newState)
         return;
     if (newState == Inactive && m_connection) {
-        disconnect(m_connection.data(), 0, this, 0);
-        m_connection.clear();
+        disconnect(m_connection, 0, this, 0);
+        m_connection = 0;
     }
     m_state = newState;
 }

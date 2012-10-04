@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,17 +33,10 @@
 
 #include "androidrunconfiguration.h"
 
-#include <QObject>
-#include <QPointer>
-
-namespace Debugger {
-class DebuggerRunControl;
-}
-namespace QtSupport {class BaseQtVersion; }
+namespace Debugger { class DebuggerRunControl; }
 namespace ProjectExplorer { class RunControl; }
 
 namespace Android {
-
 namespace Internal {
 
 class AndroidRunConfiguration;
@@ -54,12 +45,13 @@ class AndroidRunner;
 class AndroidDebugSupport : public QObject
 {
     Q_OBJECT
+
 public:
-    static ProjectExplorer::RunControl *createDebugRunControl(AndroidRunConfiguration *runConfig);
+    static ProjectExplorer::RunControl *createDebugRunControl(AndroidRunConfiguration *runConfig,
+                                                              QString *errorMessage);
 
     AndroidDebugSupport(AndroidRunConfiguration *runConfig,
         Debugger::DebuggerRunControl *runControl);
-    ~AndroidDebugSupport();
 
 private slots:
     void handleRemoteProcessStarted(int gdbServerPort = -1, int qmlPort = -1);
@@ -69,12 +61,8 @@ private slots:
     void handleRemoteErrorOutput(const QByteArray &output);
 
 private:
-    static QStringList qtSoPaths(QtSupport::BaseQtVersion *qtVersion);
-
-private:
     Debugger::DebuggerRunControl* m_runControl;
     AndroidRunner * const m_runner;
-    const AndroidRunConfiguration::DebuggingType m_debuggingType;
     const QString m_dumperLib;
 
     int m_gdbServerPort;

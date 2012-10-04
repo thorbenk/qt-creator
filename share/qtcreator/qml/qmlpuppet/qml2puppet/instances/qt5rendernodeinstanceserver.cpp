@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qt5rendernodeinstanceserver.h"
 
-#include <QSGItem>
+#include <QQuickItem>
 
 #include "servernodeinstance.h"
 #include "childrenchangeeventfilter.h"
@@ -60,8 +58,8 @@
 #include "completecomponentcommand.h"
 #include "componentcompletedcommand.h"
 #include "createscenecommand.h"
-#include "sgitemnodeinstance.h"
-
+#include "quickitemnodeinstance.h"
+#include "removesharedmemorycommand.h"
 
 #include "dummycontextobject.h"
 
@@ -72,7 +70,7 @@ namespace QmlDesigner {
 Qt5RenderNodeInstanceServer::Qt5RenderNodeInstanceServer(NodeInstanceClientInterface *nodeInstanceClient) :
     Qt5NodeInstanceServer(nodeInstanceClient)
 {
-    Internal::SGItemNodeInstance::createEffectItem(true);
+    Internal::QuickItemNodeInstance::createEffectItem(true);
 }
 
 void Qt5RenderNodeInstanceServer::collectItemChangesAndSendChangeCommands()
@@ -81,8 +79,8 @@ void Qt5RenderNodeInstanceServer::collectItemChangesAndSendChangeCommands()
     if (!inFunction) {
         inFunction = true;
 
-        if (sgView() && nodeInstanceClient()->bytesToWrite() < 10000) {
-            foreach (QSGItem *item, allItems()) {
+        if (quickView() && nodeInstanceClient()->bytesToWrite() < 10000) {
+            foreach (QQuickItem *item, allItems()) {
                 if (item && hasInstanceForObject(item)) {
                     ServerNodeInstance instance = instanceForObject(item);
                     if (DesignerSupport::isDirty(item, DesignerSupport::ContentUpdateMask))
@@ -145,6 +143,12 @@ void Qt5RenderNodeInstanceServer::completeComponent(const CompleteComponentComma
     }
 
     nodeInstanceClient()->pixmapChanged(createPixmapChangedCommand(instanceList));
+}
+
+void QmlDesigner::Qt5RenderNodeInstanceServer::removeSharedMemory(const QmlDesigner::RemoveSharedMemoryCommand &command)
+{
+    if (command.typeName() == "Image")
+        ImageContainer::removeSharedMemorys(command.keyNumbers());
 }
 
 } // namespace QmlDesigner

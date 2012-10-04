@@ -5,13 +5,12 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "Valgrind"
 
-    Depends { name: "qt"; submodules: ['widgets', 'network'] }
+    Depends { name: "Qt"; submodules: ["widgets", "network"] }
     Depends { name: "Core" }
     Depends { name: "AnalyzerBase" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "TextEditor" }
     Depends { name: "RemoteLinux" }
-    Depends { name: "symbianutils"}
     Depends { name: "CPlusPlus"}
 
     Depends { name: "cpp" }

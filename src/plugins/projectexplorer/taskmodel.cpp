@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -70,6 +68,13 @@ int TaskModel::errorTaskCount(const Core::Id &categoryId)
 int TaskModel::warningTaskCount(const Core::Id &categoryId)
 {
     return m_categories.value(categoryId).warnings;
+}
+
+int TaskModel::unknownTaskCount(const Core::Id &categoryId)
+{
+    return m_categories.value(categoryId).count
+            - m_categories.value(categoryId).errors
+            - m_categories.value(categoryId).warnings;
 }
 
 bool TaskModel::hasFile(const QModelIndex &index) const
@@ -355,7 +360,7 @@ QModelIndex TaskFilterModel::index(int row, int column, const QModelIndex &paren
 {
     if (parent.isValid())
         return QModelIndex();
-    return createIndex(row, column, 0);
+    return createIndex(row, column);
 }
 
 QModelIndex TaskFilterModel::parent(const QModelIndex &child) const

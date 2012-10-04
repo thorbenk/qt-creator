@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -248,18 +246,12 @@ void GdbMi::dumpChildren(QByteArray * str, bool multiline, int indent) const
     }
 }
 
-class MyString : public QString {
-public:
-    ushort at(int i) const { return constData()[i].unicode(); }
-};
-
-template<class ST, typename CT>
-inline ST escapeCStringTpl(const ST &ba)
+QByteArray GdbMi::escapeCString(const QByteArray &ba)
 {
-    ST ret;
+    QByteArray ret;
     ret.reserve(ba.length() * 2);
     for (int i = 0; i < ba.length(); ++i) {
-        CT c = ba.at(i);
+        const uchar c = ba.at(i);
         switch (c) {
             case '\\': ret += "\\\\"; break;
             case '\a': ret += "\\a"; break;
@@ -273,25 +265,15 @@ inline ST escapeCStringTpl(const ST &ba)
             default:
                 if (c < 32 || c == 127) {
                     ret += '\\';
-                    ret += '0' + (c >> 6);
-                    ret += '0' + ((c >> 3) & 7);
-                    ret += '0' + (c & 7);
+                    ret += ('0' + (c >> 6));
+                    ret += ('0' + ((c >> 3) & 7));
+                    ret += ('0' + (c & 7));
                 } else {
                     ret += c;
                 }
         }
     }
     return ret;
-}
-
-QString GdbMi::escapeCString(const QString &ba)
-{
-    return escapeCStringTpl<MyString, ushort>(static_cast<const MyString &>(ba));
-}
-
-QByteArray GdbMi::escapeCString(const QByteArray &ba)
-{
-    return escapeCStringTpl<QByteArray, uchar>(ba);
 }
 
 QByteArray GdbMi::toString(bool multiline, int indent) const

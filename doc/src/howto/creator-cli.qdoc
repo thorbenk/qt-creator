@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -57,6 +55,12 @@
 
     \endlist
 
+    To open a project that is located in a particular folder, you can pass on the folder
+    name as a command line argument. \QC looks for a session that matches the folder name and
+    loads it. Or it looks for a project file in the folder and opens it. For example:
+
+    \c {qtcreator .}
+
     The following table summarizes the available options:
 
     \table
@@ -91,19 +95,6 @@
         \row
             \o -color <color>
             \o Core plugin: override the selected UI color.
-
-        \row
-            \o -disable-cdb
-            \o Debugger plugin: disable the Microsoft Console Debugger (CDB)
-            engine. For more information, see \l{Debugging}.
-
-        \row
-            \o -disable-gdb
-            \o Debugger plugin: disable the GNU Symbolic Debugger (GDB) engine.
-
-        \row
-            \o -disable-sdb
-            \o Debugger plugin: disable the Qt Script debugger engine.
 
         \row
             \o -debug <PID-or-corefile>

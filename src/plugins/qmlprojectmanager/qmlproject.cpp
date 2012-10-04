@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,7 +33,6 @@
 #include "qmlprojectmanagerconstants.h"
 #include "fileformat/qmlprojectitem.h"
 #include "qmlprojectrunconfiguration.h"
-#include "qmlprojecttarget.h"
 #include "qmlprojectconstants.h"
 #include "qmlprojectnodes.h"
 #include "qmlprojectmanager.h"
@@ -47,14 +44,17 @@
 #include <qtsupport/qmldumptool.h>
 #include <qtsupport/baseqtversion.h>
 #include <qtsupport/qtversionmanager.h>
+#include <qtsupport/qtkitinformation.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
 #include <utils/fileutils.h>
-#include <projectexplorer/toolchainmanager.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/kitmanager.h>
+#include <projectexplorer/target.h>
 #include <utils/filesystemwatcher.h>
 
 #include <QTextStream>
 #include <QDeclarativeComponent>
-#include <QtDebug>
+#include <QDebug>
 
 namespace QmlProjectManager {
 
@@ -157,17 +157,13 @@ void QmlProject::refresh(RefreshOptions options)
     pinfo.importPaths = importPaths();
     QtSupport::BaseQtVersion *version = 0;
     if (activeTarget()) {
-        if (QmlProjectRunConfiguration *rc = qobject_cast<QmlProjectRunConfiguration *>(activeTarget()->activeRunConfiguration()))
-            version = rc->qtVersion();
-        QList<ProjectExplorer::ToolChain *> tcList;
-        if (version && !version->qtAbis().isEmpty())
-              tcList = ProjectExplorer::ToolChainManager::instance()->findToolChains(version->qtAbis().at(0));
-        if (!tcList.isEmpty())
-            QtSupport::QmlDumpTool::pathAndEnvironment(this, version, tcList.first(), false, &pinfo.qmlDumpPath, &pinfo.qmlDumpEnvironment);
+        ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(activeTarget()->kit());
+        version = QtSupport::QtKitInformation::qtVersion(activeTarget()->kit());
+        QtSupport::QmlDumpTool::pathAndEnvironment(this, version, tc, false, &pinfo.qmlDumpPath, &pinfo.qmlDumpEnvironment);
     }
     if (version) {
         pinfo.tryQmlDump = true;
-        pinfo.qtImportsPath = version->versionInfo().value("QT_INSTALL_IMPORTS");
+        pinfo.qtImportsPath = version->qmakeProperty("QT_INSTALL_IMPORTS");
         pinfo.qtVersionString = version->qtVersionString();
     }
     m_modelManager->updateProjectInfo(pinfo);
@@ -221,7 +217,7 @@ QStringList QmlProject::importPaths() const
         if (runConfig) {
             const QtSupport::BaseQtVersion *qtVersion = runConfig->qtVersion();
             if (qtVersion && qtVersion->isValid()) {
-                const QString qtVersionImportPath = qtVersion->versionInfo().value("QT_INSTALL_IMPORTS");
+                const QString qtVersionImportPath = qtVersion->qmakeProperty("QT_INSTALL_IMPORTS");
                 if (!qtVersionImportPath.isEmpty())
                     importPaths += qtVersionImportPath;
             }
@@ -273,14 +269,25 @@ ProjectExplorer::IProjectManager *QmlProject::projectManager() const
     return m_manager;
 }
 
+bool QmlProject::supportsKit(ProjectExplorer::Kit *k, QString *errorMessage) const
+{
+    Core::Id deviceType = ProjectExplorer::DeviceTypeKitInformation::deviceTypeId(k);
+    if (deviceType != ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE) {
+        if (errorMessage)
+            *errorMessage = tr("Device type is not desktop.");
+        return false;
+    }
+
+    // TODO: Limit supported versions?
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(k);
+    if (!version && errorMessage)
+        *errorMessage = tr("No Qt version set in kit.");
+    return version;
+}
+
 QList<ProjectExplorer::BuildConfigWidget*> QmlProject::subConfigWidgets()
 {
     return QList<ProjectExplorer::BuildConfigWidget*>();
-}
-
-Internal::QmlProjectTarget *QmlProject::activeTarget() const
-{
-    return static_cast<Internal::QmlProjectTarget *>(Project::activeTarget());
 }
 
 ProjectExplorer::ProjectNode *QmlProject::rootProjectNode() const
@@ -298,12 +305,9 @@ bool QmlProject::fromMap(const QVariantMap &map)
     if (!Project::fromMap(map))
         return false;
 
-    if (targets().isEmpty()) {
-        Internal::QmlProjectTargetFactory *factory
-                = ExtensionSystem::PluginManager::instance()->getObject<Internal::QmlProjectTargetFactory>();
-        Internal::QmlProjectTarget *target = factory->create(this, Core::Id(Constants::QML_VIEWER_TARGET_ID));
-        addTarget(target);
-    }
+    ProjectExplorer::Kit *defaultKit = ProjectExplorer::KitManager::instance()->defaultKit();
+    if (!activeTarget() && defaultKit)
+        addTarget(createTarget(defaultKit));
 
     refresh(Everything);
     // FIXME workaround to guarantee that run/debug actions are enabled if a valid file exists

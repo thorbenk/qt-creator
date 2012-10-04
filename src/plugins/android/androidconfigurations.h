@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -67,20 +65,21 @@ public:
     AndroidConfig(const QSettings &settings);
     void save(QSettings &settings) const;
 
-    QString sdkLocation;
-    QString ndkLocation;
+    Utils::FileName sdkLocation;
+    Utils::FileName ndkLocation;
     QString ndkToolchainVersion;
-    QString antLocation;
-    QString armGdbLocation;
-    QString armGdbserverLocation;
-    QString x86GdbLocation;
-    QString x86GdbserverLocation;
-    QString openJDKLocation;
-    QString keystoreLocation;
+    Utils::FileName antLocation;
+    Utils::FileName armGdbLocation;
+    Utils::FileName armGdbserverLocation;
+    Utils::FileName x86GdbLocation;
+    Utils::FileName x86GdbserverLocation;
+    Utils::FileName openJDKLocation;
+    Utils::FileName keystoreLocation;
     unsigned partitionSize;
 };
 
-struct AndroidDevice {
+struct AndroidDeviceInfo
+{
     QString serialNumber;
     QString cpuABI;
     int sdk;
@@ -89,31 +88,31 @@ struct AndroidDevice {
 class AndroidConfigurations : public QObject
 {
     Q_OBJECT
-    Q_DISABLE_COPY(AndroidConfigurations)
-public:
 
+public:
     static AndroidConfigurations &instance(QObject *parent = 0);
     AndroidConfig config() const { return m_config; }
     void setConfig(const AndroidConfig &config);
     QStringList sdkTargets(int minApiLevel = 0) const;
     QStringList ndkToolchainVersions() const;
-    QString adbToolPath() const;
-    QString androidToolPath() const;
-    QString antToolPath() const;
-    QString emulatorToolPath() const;
-    QString gccPath(ProjectExplorer::Abi::Architecture architecture) const;
-    QString gdbServerPath(ProjectExplorer::Abi::Architecture architecture) const;
-    QString gdbPath(ProjectExplorer::Abi::Architecture architecture) const;
-    QString openJDKPath() const;
-    QString keytoolPath() const;
-    QString jarsignerPath() const;
-    QString stripPath(ProjectExplorer::Abi::Architecture architecture) const;
-    QString readelfPath(ProjectExplorer::Abi::Architecture architecture) const;
+    Utils::FileName adbToolPath() const;
+    Utils::FileName androidToolPath() const;
+    Utils::FileName antToolPath() const;
+    Utils::FileName emulatorToolPath() const;
+    Utils::FileName gccPath(ProjectExplorer::Abi::Architecture architecture) const;
+    Utils::FileName gdbServerPath(ProjectExplorer::Abi::Architecture architecture) const;
+    Utils::FileName gdbPath(ProjectExplorer::Abi::Architecture architecture) const;
+    Utils::FileName openJDKPath() const;
+    Utils::FileName keytoolPath() const;
+    Utils::FileName jarsignerPath() const;
+    Utils::FileName zipalignPath() const;
+    Utils::FileName stripPath(ProjectExplorer::Abi::Architecture architecture) const;
+    Utils::FileName readelfPath(ProjectExplorer::Abi::Architecture architecture) const;
     QString getDeployDeviceSerialNumber(int *apiLevel) const;
     bool createAVD(const QString &target, const QString &name, int sdcardSize) const;
     bool removeAVD(const QString &name) const;
-    QVector<AndroidDevice> connectedDevices(int apiLevel = -1) const;
-    QVector<AndroidDevice> androidVirtualDevices() const;
+    QVector<AndroidDeviceInfo> connectedDevices(int apiLevel = -1) const;
+    QVector<AndroidDeviceInfo> androidVirtualDevices() const;
     QString startAVD(int *apiLevel, const QString &name = QString()) const;
     QString bestMatch(const QString &targetAPI) const;
 
@@ -127,8 +126,8 @@ public slots:
     bool createAVD(int minApiLevel = 0) const;
 
 private:
-    QString toolPath(ProjectExplorer::Abi::Architecture architecture) const;
-    QString openJDKBinPath() const;
+    Utils::FileName toolPath(ProjectExplorer::Abi::Architecture architecture) const;
+    Utils::FileName openJDKBinPath() const;
 
     AndroidConfigurations(QObject *parent);
     void load();

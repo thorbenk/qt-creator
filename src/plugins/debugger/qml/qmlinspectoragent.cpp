@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,68 +55,64 @@ enum {
  */
 QmlInspectorAgent::QmlInspectorAgent(DebuggerEngine *engine, QObject *parent)
     : QObject(parent)
-    , m_engine(engine)
+    , m_debuggerEngine(engine)
     , m_engineClient(0)
     , m_engineQueryId(0)
     , m_rootContextQueryId(0)
     , m_objectToSelect(-1)
+    , m_newObjectsCreated(false)
 {
     connect(debuggerCore()->action(ShowQmlObjectTree),
             SIGNAL(valueChanged(QVariant)), SLOT(updateStatus()));
-}
-
-void QmlInspectorAgent::refreshObjectTree()
-{
-    if (debug)
-        qDebug() << __FUNCTION__ << "()";
-
-    if (!m_rootContextQueryId) {
-        m_objectTreeQueryIds.clear();
-        queryEngineContext(m_engines.value(0).debugId());
-    }
-}
-
-void QmlInspectorAgent::fetchObject(int debugId)
-{
-    if (debug)
-        qDebug() << __FUNCTION__ << "(" << debugId << ")";
-
-    m_fetchCurrentObjectsQueryIds
-            << fetchContextObject(ObjectReference(debugId));
+    m_delayQueryTimer.setSingleShot(true);
+    m_delayQueryTimer.setInterval(100);
+    connect(&m_delayQueryTimer, SIGNAL(timeout()), SLOT(queryEngineContext()));
 }
 
 quint32 QmlInspectorAgent::queryExpressionResult(int debugId,
                                                  const QString &expression)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << debugId << expression
-                 << m_engines.value(0).debugId() << ")";
+        qDebug() << __FUNCTION__ << '(' << debugId << expression
+                 << m_engine.debugId() << ')';
 
     return m_engineClient->queryExpressionResult(debugId, expression,
-                                                 m_engines.value(0).debugId());
+                                                 m_engine.debugId());
+}
+
+void QmlInspectorAgent::assignValue(const WatchData *data,
+                                    const QString &expr, const QVariant &valueV)
+{
+    if (debug)
+        qDebug() << __FUNCTION__ << '(' << data->id << ')' << data->iname;
+
+    if (data->id) {
+        QString val(valueV.toString());
+        if (valueV.type() == QVariant::String) {
+            val = val.replace(QLatin1Char('\"'), QLatin1String("\\\""));
+            val = QLatin1Char('\"') + val + QLatin1Char('\"');
+        }
+        QString expression = QString(_("%1 = %2;")).arg(expr).arg(val);
+        queryExpressionResult(data->id, expression);
+    }
 }
 
 void QmlInspectorAgent::updateWatchData(const WatchData &data)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << data.id << ")";
+        qDebug() << __FUNCTION__ << '(' << data.id << ')';
 
-    if (data.id) {
+    if (data.id && !m_fetchDataIds.contains(data.id)) {
         // objects
-        ObjectReference ref(data.id);
-        m_fetchCurrentObjectsQueryIds << fetchContextObject(ref);
-        WatchData d = data;
-        d.setAllUnneeded();
-        m_engine->watchHandler()->beginCycle(InspectWatch, false);
-        m_engine->watchHandler()->insertData(d);
-        m_engine->watchHandler()->endCycle(InspectWatch);
+        m_fetchDataIds << data.id;
+        fetchObject(data.id);
     }
 }
 
-void QmlInspectorAgent::selectObjectInTree(int debugId)
+bool QmlInspectorAgent::selectObjectInTree(int debugId)
 {
     if (debug) {
-        qDebug() << __FUNCTION__ << "(" << debugId << ")";
+        qDebug() << __FUNCTION__ << '(' << debugId << ')';
         qDebug() << "  " << debugId << "already fetched? "
                  << m_debugIdToIname.contains(debugId);
     }
@@ -126,18 +120,16 @@ void QmlInspectorAgent::selectObjectInTree(int debugId)
     if (m_debugIdToIname.contains(debugId)) {
         QByteArray iname = m_debugIdToIname.value(debugId);
         QTC_ASSERT(iname.startsWith("inspect."), qDebug() << iname);
-        QModelIndex itemIndex = m_engine->watchHandler()->itemIndex(iname);
-        QTC_ASSERT(itemIndex.isValid(),
-                   qDebug() << "No  for " << debugId << ", iname " << iname; return;);
         if (debug)
             qDebug() << "  selecting" << iname << "in tree";
-        m_engine->watchHandler()->setCurrentModelIndex(InspectWatch, itemIndex);
+        m_debuggerEngine->watchHandler()->setCurrentItem(iname);
         m_objectToSelect = 0;
+        return true;
     } else {
         // we've to fetch it
         m_objectToSelect = debugId;
-        m_fetchCurrentObjectsQueryIds
-                << fetchContextObject(ObjectReference(debugId));
+        fetchObject(debugId);
+        return false;
     }
 }
 
@@ -149,8 +141,8 @@ quint32 QmlInspectorAgent::setBindingForObject(int objectDebugId,
                                          int line)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << objectDebugId << propertyName
-                 << value.toString() << isLiteralValue << source << line << ")";
+        qDebug() << __FUNCTION__ << '(' << objectDebugId << propertyName
+                 << value.toString() << isLiteralValue << source << line << ')';
 
     if (objectDebugId == -1)
         return 0;
@@ -162,16 +154,16 @@ quint32 QmlInspectorAgent::setBindingForObject(int objectDebugId,
             || !debuggerCore()->boolSetting(ShowQmlObjectTree))
         return 0;
 
-    log(LogSend, QString("SET_BINDING %1 %2 %3 %4").arg(
+    log(LogSend, QString::fromLatin1("SET_BINDING %1 %2 %3 %4").arg(
             QString::number(objectDebugId), propertyName, value.toString(),
-            QString(isLiteralValue ? "true" : "false")));
+            QString(isLiteralValue ? QLatin1String("true") : QLatin1String("false"))));
 
     quint32 queryId = m_engineClient->setBindingForObject(
                 objectDebugId, propertyName, value.toString(), isLiteralValue,
                 source, line);
 
     if (!queryId)
-        log(LogSend, QString("SET_BINDING failed!"));
+        log(LogSend, QLatin1String("SET_BINDING failed!"));
 
     return queryId;
 }
@@ -181,8 +173,8 @@ quint32 QmlInspectorAgent::setMethodBodyForObject(int objectDebugId,
                                             const QString &methodBody)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << objectDebugId
-                 << methodName << methodBody << ")";
+        qDebug() << __FUNCTION__ << '(' << objectDebugId
+                 << methodName << methodBody << ')';
 
     if (objectDebugId == -1)
         return 0;
@@ -191,14 +183,14 @@ quint32 QmlInspectorAgent::setMethodBodyForObject(int objectDebugId,
             || !debuggerCore()->boolSetting(ShowQmlObjectTree))
         return 0;
 
-    log(LogSend, QString("SET_METHOD_BODY %1 %2 %3").arg(
+    log(LogSend, QString::fromLatin1("SET_METHOD_BODY %1 %2 %3").arg(
             QString::number(objectDebugId), methodName, methodBody));
 
     quint32 queryId = m_engineClient->setMethodBody(
                 objectDebugId, methodName, methodBody);
 
     if (!queryId)
-        log(LogSend, QString("failed!"));
+        log(LogSend, QLatin1String("failed!"));
 
     return queryId;
 }
@@ -207,8 +199,8 @@ quint32 QmlInspectorAgent::resetBindingForObject(int objectDebugId,
                                            const QString &propertyName)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << objectDebugId
-                 << propertyName << ")";
+        qDebug() << __FUNCTION__ << '(' << objectDebugId
+                 << propertyName << ')';
 
     if (objectDebugId == -1)
         return 0;
@@ -217,67 +209,98 @@ quint32 QmlInspectorAgent::resetBindingForObject(int objectDebugId,
             || !debuggerCore()->boolSetting(ShowQmlObjectTree))
         return 0;
 
-    log(LogSend, QString("RESET_BINDING %1 %2").arg(
+    log(LogSend, QString::fromLatin1("RESET_BINDING %1 %2").arg(
             QString::number(objectDebugId), propertyName));
 
     quint32 queryId = m_engineClient->resetBindingForObject(
                 objectDebugId, propertyName);
 
     if (!queryId)
-        log(LogSend, QString("failed!"));
+        log(LogSend, QLatin1String("failed!"));
 
     return queryId;
 }
 
-
-QList<ObjectReference> QmlInspectorAgent::objects() const
-{
-    QList<ObjectReference> result;
-    foreach (const ObjectReference &it, m_rootObjects)
-        result.append(objects(it));
-    return result;
-}
-
-ObjectReference QmlInspectorAgent::objectForId(int debugId) const
-{
-    foreach (const ObjectReference &it, m_rootObjects) {
-        ObjectReference result = objectForId(debugId, it);
-        if (result.debugId() == debugId)
-            return result;
-    }
-    return ObjectReference();
-}
-
-ObjectReference QmlInspectorAgent::objectForId(
+ObjectReference QmlInspectorAgent::objectForName(
         const QString &objectId) const
 {
     if (!objectId.isEmpty() && objectId[0].isLower()) {
-        const QList<ObjectReference> refs = objects();
-        foreach (const ObjectReference &ref, refs) {
-            if (ref.idString() == objectId)
-                return ref;
+        QHashIterator<int, QByteArray> iter(m_debugIdToIname);
+        const WatchHandler *watchHandler = m_debuggerEngine->watchHandler();
+        while (iter.hasNext()) {
+            iter.next();
+            const WatchData *wd = watchHandler->findData(iter.value());
+            if (wd && wd->name == objectId)
+                return ObjectReference(iter.key());
         }
     }
     return ObjectReference();
 }
 
-ObjectReference QmlInspectorAgent::objectForLocation(
+ObjectReference QmlInspectorAgent::objectForId(int objectDebugId) const
+{
+    if (!m_debugIdToIname.contains(objectDebugId))
+        return ObjectReference(objectDebugId);
+
+    int line = -1;
+    int column = -1;
+    QString file;
+    QHashIterator<QPair<QString, int>, QHash<QPair<int, int>, QList<int> > > iter(m_debugIdHash);
+    while (iter.hasNext()) {
+        iter.next();
+        QHashIterator<QPair<int, int>, QList<int> > i(iter.value());
+        while (i.hasNext()) {
+            i.next();
+            if (i.value().contains(objectDebugId)) {
+                line = i.key().first;
+                column = i.key().second;
+                break;
+            }
+        }
+        if (line != -1) {
+            file = iter.key().first;
+            break;
+        }
+    }
+    // TODO: Set correct parentId
+    return ObjectReference(objectDebugId, -1,
+                           FileReference(QUrl::fromLocalFile(file), line, column));
+}
+
+int QmlInspectorAgent::objectIdForLocation(
         int line, int column) const
 {
-    const QList<ObjectReference> refs = objects();
-    foreach (const ObjectReference &ref, refs) {
-        if (ref.source().lineNumber() == line
-                && ref.source().columnNumber() == column)
-            return ref;
+    QHashIterator<int, FileReference> iter(m_debugIdLocations);
+    while (iter.hasNext()) {
+        iter.next();
+        const FileReference &ref = iter.value();
+        if (ref.lineNumber() == line
+                && ref.columnNumber() == column)
+            return iter.key();
     }
 
-    return ObjectReference();
+    return -1;
+}
+
+QHash<int,QString> QmlInspectorAgent::rootObjectIds() const
+{
+    QHash<int,QString> rIds;
+    const WatchHandler *watchHandler = m_debuggerEngine->watchHandler();
+    foreach (const QByteArray &in, m_debugIdToIname) {
+        const WatchData *data = watchHandler->findData(in);
+        if (!data)
+            continue;
+        int debugId = data->id;
+        QString className = QLatin1String(data->type);
+        rIds.insert(debugId, className);
+    }
+     return rIds;
 }
 
 bool QmlInspectorAgent::addObjectWatch(int objectDebugId)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << objectDebugId << ")";
+        qDebug() << __FUNCTION__ << '(' << objectDebugId << ')';
 
     if (objectDebugId == -1)
         return false;
@@ -290,17 +313,13 @@ bool QmlInspectorAgent::addObjectWatch(int objectDebugId)
     if (m_objectWatches.contains(objectDebugId))
         return true;
 
-    ObjectReference ref = objectForId(objectDebugId);
-    if (ref.debugId() != objectDebugId)
-        return false;
-
     // is flooding the debugging output log!
     // log(LogSend, QString("WATCH_PROPERTY %1").arg(objectDebugId));
 
-    if (m_engineClient->addWatch(ref))
+    if (m_engineClient->addWatch(objectDebugId))
         m_objectWatches.append(objectDebugId);
 
-    return false;
+    return true;
 }
 
 bool QmlInspectorAgent::isObjectBeingWatched(int objectDebugId)
@@ -311,7 +330,7 @@ bool QmlInspectorAgent::isObjectBeingWatched(int objectDebugId)
 bool QmlInspectorAgent::removeObjectWatch(int objectDebugId)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << objectDebugId << ")";
+        qDebug() << __FUNCTION__ << '(' << objectDebugId << ')';
 
     if (objectDebugId == -1)
         return false;
@@ -345,8 +364,10 @@ void QmlInspectorAgent::setEngineClient(BaseEngineDebugClient *client)
                    this, SLOT(updateStatus()));
         disconnect(m_engineClient, SIGNAL(result(quint32,QVariant,QByteArray)),
                    this, SLOT(onResult(quint32,QVariant,QByteArray)));
-        disconnect(m_engineClient, SIGNAL(newObjects()),
-                   this, SLOT(newObjects()));
+        disconnect(m_engineClient, SIGNAL(newObject(int,int,int)),
+                   this, SLOT(newObject(int,int,int)));
+        disconnect(m_engineClient, SIGNAL(valueChanged(int,QByteArray,QVariant)),
+                   this, SLOT(onValueChanged(int,QByteArray,QVariant)));
     }
 
     m_engineClient = client;
@@ -356,11 +377,28 @@ void QmlInspectorAgent::setEngineClient(BaseEngineDebugClient *client)
                 this, SLOT(updateStatus()));
         connect(m_engineClient, SIGNAL(result(quint32,QVariant,QByteArray)),
                 this, SLOT(onResult(quint32,QVariant,QByteArray)));
-        connect(m_engineClient, SIGNAL(newObjects()),
-                this, SLOT(newObjects()));
+        connect(m_engineClient, SIGNAL(newObject(int,int,int)),
+                this, SLOT(newObject(int,int,int)));
+        connect(m_engineClient, SIGNAL(valueChanged(int,QByteArray,QVariant)),
+                this, SLOT(onValueChanged(int,QByteArray,QVariant)));
     }
 
     updateStatus();
+}
+
+QString QmlInspectorAgent::displayName(int objectDebugId) const
+{
+    if (!isConnected()
+            || !debuggerCore()->boolSetting(ShowQmlObjectTree))
+        return QString();
+
+    if (m_debugIdToIname.contains(objectDebugId)) {
+        const WatchData *data = m_debuggerEngine->watchHandler()->findData(
+                    m_debugIdToIname.value(objectDebugId));
+        QTC_ASSERT(data, return QString());
+        return data->name;
+    }
+    return QString();
 }
 
 void QmlInspectorAgent::updateStatus()
@@ -370,9 +408,7 @@ void QmlInspectorAgent::updateStatus()
             && debuggerCore()->boolSetting(ShowQmlObjectTree)) {
         reloadEngines();
     } else {
-        // clear view
-        m_engine->watchHandler()->beginCycle(InspectWatch, true);
-        m_engine->watchHandler()->endCycle(InspectWatch);
+        clearObjectTree();
     }
 }
 
@@ -382,40 +418,44 @@ void QmlInspectorAgent::onResult(quint32 queryId, const QVariant &value,
     if (debug)
         qDebug() << __FUNCTION__ << "() ...";
 
-    if (type == _("FETCH_OBJECT_R")) {
+    if (type == "FETCH_OBJECT_R") {
         log(LogReceive, _("FETCH_OBJECT_R %1").arg(
                 qvariant_cast<ObjectReference>(value).idString()));
+    } else if (type == "SET_BINDING_R"
+               || type == "RESET_BINDING_R"
+               || type == "SET_METHOD_BODY_R") {
+        QString msg = QLatin1String(type) + tr(" success : ");
+        msg += value.toBool() ? QLatin1Char('1') : QLatin1Char('0');
+        if (!value.toBool())
+            emit automaticUpdateFailed();
+        log(LogReceive, msg);
     } else {
         log(LogReceive, QLatin1String(type));
     }
 
     if (m_objectTreeQueryIds.contains(queryId)) {
         m_objectTreeQueryIds.removeOne(queryId);
-        objectTreeFetched(qvariant_cast<ObjectReference>(value));
-    } else if (queryId == m_engineQueryId) {
-        m_engineQueryId = 0;
-        updateEngineList(qvariant_cast<QList<EngineReference> >(value));
-    } else if (queryId == m_rootContextQueryId) {
-        m_rootContextQueryId = 0;
-        rootContextChanged(qvariant_cast<ContextReference>(value));
-    } else if (m_fetchCurrentObjectsQueryIds.contains(queryId)) {
-        m_fetchCurrentObjectsQueryIds.removeOne(queryId);
         if (value.type() == QVariant::List) {
             QVariantList objList = value.toList();
             foreach (QVariant var, objList) {
                 // TODO: check which among the list is the actual
                 // object that needs to be selected.
-                ObjectReference obj
-                        = qvariant_cast<ObjectReference>(var);
-                m_fetchCurrentObjects.push_front(obj);
-                onCurrentObjectsFetched(obj);
+                objectTreeFetched(qvariant_cast<ObjectReference>(var));
             }
         } else {
-            ObjectReference obj
-                    = qvariant_cast<ObjectReference>(value);
-            m_fetchCurrentObjects.push_front(obj);
-            onCurrentObjectsFetched(obj);
+            objectTreeFetched(qvariant_cast<ObjectReference>(value));
         }
+    } else if (queryId == m_engineQueryId) {
+        m_engineQueryId = 0;
+        QList<EngineReference> engines = qvariant_cast<QList<EngineReference> >(value);
+        QTC_ASSERT(engines.count(), return);
+        // only care about first engine atm
+        m_engine = engines.at(0);
+        queryEngineContext();
+    } else if (queryId == m_rootContextQueryId) {
+        m_rootContextQueryId = 0;
+        clearObjectTree();
+        fetchObjectsInContextRecursive(qvariant_cast<ContextReference>(value));
     } else {
         emit expressionResult(queryId, value);
     }
@@ -425,13 +465,37 @@ void QmlInspectorAgent::onResult(quint32 queryId, const QVariant &value,
 
 }
 
-void QmlInspectorAgent::newObjects()
+void QmlInspectorAgent::newObject(int engineId, int objectId, int /*parentId*/)
 {
     if (debug)
         qDebug() << __FUNCTION__ << "()";
 
-    log(LogReceive, QString("OBJECT_CREATED"));
-    refreshObjectTree();
+    log(LogReceive, QLatin1String("OBJECT_CREATED"));
+
+    if (m_engine.debugId() != engineId)
+        return;
+
+    m_newObjectsCreated = true;
+    if (m_engineClient->objectName() == QLatin1String(QmlDebug::Constants::QML_DEBUGGER))
+        fetchObject(objectId);
+    else
+        m_delayQueryTimer.start();
+}
+
+void QmlInspectorAgent::onValueChanged(int debugId, const QByteArray &propertyName,
+                                       const QVariant &value)
+{
+    const QByteArray iname = m_debugIdToIname.value(debugId) +
+            ".[properties]." + propertyName;
+    WatchHandler *watchHandler = m_debuggerEngine->watchHandler();
+    const WatchData *data = watchHandler->findData(iname);
+    if (debug)
+        qDebug() << __FUNCTION__ << '(' << debugId << ')' << iname << value.toString();
+    if (data) {
+        WatchData d(*data);
+        d.value = value.toString();
+        watchHandler->insertData(d);
+    }
 }
 
 void QmlInspectorAgent::reloadEngines()
@@ -447,39 +511,52 @@ void QmlInspectorAgent::reloadEngines()
     m_engineQueryId = m_engineClient->queryAvailableEngines();
 }
 
-void QmlInspectorAgent::queryEngineContext(int id)
+int QmlInspectorAgent::parentIdForObject(int objectDebugId)
 {
-    if (debug)
-        qDebug() << __FUNCTION__ << "(" << id << ")";
+    int pid = -1;
 
-    if (id < 0)
-        return;
-
-    if (!isConnected()
-            || !debuggerCore()->boolSetting(ShowQmlObjectTree))
-        return;
-
-    log(LogSend, QString("LIST_OBJECTS %1").arg(QString::number(id)));
-
-    m_rootContextQueryId
-            = m_engineClient->queryRootContexts(EngineReference(id));
+    if (m_debugIdToIname.contains(objectDebugId)) {
+        QByteArray iname = m_debugIdToIname.value(objectDebugId);
+        if (iname.count('.') > 1) {
+            int offset = iname.lastIndexOf('.');
+            QTC_ASSERT(offset > 0, return pid);
+            iname = iname.left(offset);
+            pid = m_debugIdToIname.key(iname);
+        }
+    }
+    return pid;
 }
 
-quint32 QmlInspectorAgent::fetchContextObject(const ObjectReference &obj)
+void QmlInspectorAgent::queryEngineContext()
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << obj << ")";
+        qDebug() << __FUNCTION__;
 
     if (!isConnected()
             || !debuggerCore()->boolSetting(ShowQmlObjectTree))
-        return 0;
+        return;
 
-    log(LogSend, QString("FETCH_OBJECT %1").arg(obj.idString()));
-    quint32 queryId = m_engineClient->queryObject(obj);
+    log(LogSend, QLatin1String("LIST_OBJECTS"));
+
+    m_rootContextQueryId
+            = m_engineClient->queryRootContexts(m_engine);
+}
+
+void QmlInspectorAgent::fetchObject(int debugId)
+{
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << obj.debugId() << ")"
+        qDebug() << __FUNCTION__ << '(' << debugId << ')';
+
+    if (!isConnected()
+            || !debuggerCore()->boolSetting(ShowQmlObjectTree))
+        return;
+
+    log(LogSend, QLatin1String("FETCH_OBJECT ") + QString::number(debugId));
+    quint32 queryId = m_engineClient->queryObject(debugId);
+    if (debug)
+        qDebug() << __FUNCTION__ << '(' << debugId << ')'
                  << " - query id" << queryId;
-    return queryId;
+    m_objectTreeQueryIds << queryId;
 }
 
 void QmlInspectorAgent::fetchContextObjectsForLocation(const QString &file,
@@ -488,174 +565,151 @@ void QmlInspectorAgent::fetchContextObjectsForLocation(const QString &file,
     // This can be an expensive operation as it may return multiple
     // objects. Use fetchContextObject() where possible.
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << file << ":" << lineNumber
-                 << ":" << columnNumber << ")";
+        qDebug() << __FUNCTION__ << '(' << file << ':' << lineNumber
+                 << ':' << columnNumber << ')';
 
     if (!isConnected()
             || !debuggerCore()->boolSetting(ShowQmlObjectTree))
         return;
 
-    log(LogSend, QString("FETCH_OBJECTS_FOR_LOCATION %1:%2:%3").arg(file)
+    log(LogSend, QString::fromLatin1("FETCH_OBJECTS_FOR_LOCATION %1:%2:%3").arg(file)
         .arg(QString::number(lineNumber)).arg(QString::number(columnNumber)));
     quint32 queryId = m_engineClient->queryObjectsForLocation(QFileInfo(file).fileName(),
                                                              lineNumber, columnNumber);
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << file << ":" << lineNumber
-                 << ":" << columnNumber << ")" << " - query id" << queryId;
+        qDebug() << __FUNCTION__ << '(' << file << ':' << lineNumber
+                 << ':' << columnNumber << ')' << " - query id" << queryId;
 
-    m_fetchCurrentObjectsQueryIds << queryId;
+    m_objectTreeQueryIds << queryId;
 }
 
 // fetch the root objects from the context + any child contexts
-void QmlInspectorAgent::fetchRootObjects(const ContextReference &context,
-                                         bool clear)
+void QmlInspectorAgent::fetchObjectsInContextRecursive(const ContextReference &context)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << context << clear << ")";
+        qDebug() << __FUNCTION__ << '(' << context << ')';
 
     if (!isConnected()
             || !debuggerCore()->boolSetting(ShowQmlObjectTree))
         return;
 
-    if (clear) {
-        m_rootObjects.clear();
-        m_objectTreeQueryIds.clear();
-    }
     foreach (const ObjectReference & obj, context.objects()) {
-        quint32 queryId = 0;
         using namespace QmlDebug::Constants;
-        if (m_engineClient->objectName() == QML_DEBUGGER &&
+        if (m_engineClient->objectName() == QLatin1String(QML_DEBUGGER) &&
                 m_engineClient->serviceVersion() >= CURRENT_SUPPORTED_VERSION) {
             //Fetch only root objects
             if (obj.parentId() == -1)
-                queryId = fetchContextObject(obj);
+                fetchObject(obj.debugId());
         } else {
-            queryId = m_engineClient->queryObjectRecursive(obj);
+            m_objectTreeQueryIds << m_engineClient->queryObjectRecursive(obj.debugId());
         }
-
-        if (queryId)
-            m_objectTreeQueryIds << queryId;
     }
     foreach (const ContextReference &child, context.contexts())
-        fetchRootObjects(child, false);
-}
-
-void QmlInspectorAgent::updateEngineList(const QList<EngineReference> &engines)
-{
-    if (debug)
-        qDebug() << __FUNCTION__ << "(" << engines << ")";
-
-    m_engines = engines;
-
-    // only care about first engine atm
-    queryEngineContext(engines.first().debugId());
-}
-
-void QmlInspectorAgent::rootContextChanged(const ContextReference &context)
-{
-    if (debug)
-        qDebug() << __FUNCTION__ << "(" << context << ")";
-
-    fetchRootObjects(context, true);
+        fetchObjectsInContextRecursive(child);
 }
 
 void QmlInspectorAgent::objectTreeFetched(const ObjectReference &object)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << object << ")";
+        qDebug() << __FUNCTION__ << '(' << object << ')';
 
-    m_rootObjects.append(object);
-
-    if (m_objectTreeQueryIds.isEmpty()) {
-        int old_count = m_debugIdHash.count();
-        m_debugIdHash.clear();
-        m_debugIdHash.reserve(old_count + 1);
-        m_debugIdToIname.clear();
-        foreach (const ObjectReference &it, m_rootObjects)
-            buildDebugIdHashRecursive(it);
-
-        emit objectTreeUpdated();
-
-        // sync tree with watchhandler
-        QList<WatchData> watchData;
-        foreach (const ObjectReference &obj, m_rootObjects)
-            watchData.append(buildWatchData(obj, WatchData()));
-
-        QElapsedTimer t;
-        if (debug) {
-            t.start();
-            qDebug() << "inserting " << watchData.size()
-                     << "entries into watch handler ...";
-        }
-
-        WatchHandler *watchHandler = m_engine->watchHandler();
-        watchHandler->beginCycle(InspectWatch, true);
-        watchHandler->insertBulkData(watchData);
-        watchHandler->endCycle(InspectWatch);
-
-        if (debug)
-            qDebug() << "inserting entries took" << t.elapsed() << "ms";
-    }
-}
-
-void QmlInspectorAgent::onCurrentObjectsFetched(const ObjectReference &obj)
-{
-    if (debug)
-        qDebug() << __FUNCTION__ << "( " << obj << ")";
-
-    // get parents if not known yet
-    if (!getObjectHierarchy(obj))
+    if (!object.isValid())
         return;
 
+    m_objectStack.push(object);
+
+    if (m_objectTreeQueryIds.count()) {
+        return;
+    }
+
+    QElapsedTimer timeElapsed;
+    // sync tree with watchhandler
+    QList<WatchData> watchData;
+    ObjectReference last;
+    QStack<QmlDebug::ObjectReference> stack;
+
+    // 4.x
+    if (m_newObjectsCreated && m_engineClient->objectName() != QLatin1String(QmlDebug::Constants::QML_DEBUGGER)) {
+        // We need to reverse the stack as the root objects
+        // are pushed to the bottom since they are fetched first.
+        // The child objects need to placed in the correct position and therefore
+        // the m_debugIdChildIds needs to be populated first.
+        while (!m_objectStack.isEmpty())
+            stack.push(m_objectStack.pop());
+    } else {
+        stack = m_objectStack;
+    }
+
+    while (!stack.isEmpty()) {
+        last = stack.pop();
+        int parentId = last.parentId();
+        QByteArray parentIname;
+
+        // 4.x
+        if (m_engineClient->objectName() != QLatin1String(QmlDebug::Constants::QML_DEBUGGER)) {
+            QHashIterator<int, QList<int> > i(m_debugIdChildIds);
+            while (i.hasNext()) {
+                i.next();
+                if (i.value().contains(last.debugId())) {
+                    parentId = i.key();
+                    break;
+                }
+            }
+        }
+        if (m_debugIdToIname.contains(parentId))
+            parentIname = m_debugIdToIname.value(parentId);
+        if (!m_newObjectsCreated && parentId != -1 && parentIname.isEmpty()) {
+            fetchObject(parentId);
+            return;
+        }
+        // 5.x
+        if (m_engineClient->objectName() == QLatin1String(QmlDebug::Constants::QML_DEBUGGER)
+                && m_newObjectsCreated && parentIname.isEmpty()) {
+            if (watchData.count())
+                break;
+            return;
+        }
+
+        if (debug)
+            timeElapsed.start();
+        watchData.append(buildWatchData(last, parentIname, true));
+        if (debug)
+            qDebug() << __FUNCTION__ << "Time: Build Watch Data took "
+                     << timeElapsed.elapsed() << " ms";
+        if (debug)
+            timeElapsed.start();
+        buildDebugIdHashRecursive(last);
+        if (debug)
+            qDebug() << __FUNCTION__ << "Time: Build Debug Id Hash took "
+                     << timeElapsed.elapsed() << " ms";
+    }
+    m_newObjectsCreated = false;
+    m_objectStack.clear();
+
+    WatchHandler *watchHandler = m_debuggerEngine->watchHandler();
     if (debug)
-        qDebug() << "  adding" << m_fetchCurrentObjects << "to tree";
+        timeElapsed.start();
+    watchHandler->insertData(watchData);
+    if (debug)
+        qDebug() << __FUNCTION__ << "Time: Insertion took " << timeElapsed.elapsed() << " ms";
 
-    foreach (const ObjectReference &o, m_fetchCurrentObjects)
-        addObjectToTree(o, false);
-
-    ObjectReference last = m_fetchCurrentObjects.last();
-    m_fetchCurrentObjects.clear();
+    emit objectTreeUpdated();
+    emit objectFetched(last);
 
     if (m_objectToSelect == last.debugId()) {
         // select item in view
         QByteArray iname = m_debugIdToIname.value(last.debugId());
-        QModelIndex itemIndex = m_engine->watchHandler()->itemIndex(iname);
-        QTC_ASSERT(itemIndex.isValid(), return);
         if (debug)
             qDebug() << "  selecting" << iname << "in tree";
-        m_engine->watchHandler()->setCurrentModelIndex(InspectWatch, itemIndex);
+        watchHandler->setCurrentItem(iname);
         m_objectToSelect = -1;
     }
-
-    emit objectFetched(last);
-    emit objectTreeUpdated();
-}
-
-// Fetches all anchestors of object. Returns if all has been fetched already.
-bool QmlInspectorAgent::getObjectHierarchy(const ObjectReference &obj)
-{
-    if (debug)
-        qDebug() << __FUNCTION__ << "(" << obj << ")";
-
-    ObjectReference parent = objectForId(obj.parentId());
-    //for root object
-    if (obj.parentId() == -1)
-        return true;
-
-    //for other objects
-    if (parent.debugId() == -1 || parent.needsMoreData()) {
-        m_fetchCurrentObjectsQueryIds
-                << fetchContextObject(ObjectReference(obj.parentId()));
-    } else {
-        return getObjectHierarchy(parent);
-    }
-    return false;
 }
 
 void QmlInspectorAgent::buildDebugIdHashRecursive(const ObjectReference &ref)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << ref << ")";
+        qDebug() << __FUNCTION__ << '(' << ref << ')';
 
     QUrl fileUrl = ref.source().url();
     int lineNum = ref.source().lineNumber();
@@ -664,7 +718,7 @@ void QmlInspectorAgent::buildDebugIdHashRecursive(const ObjectReference &ref)
 
     // handle the case where the url contains the revision number encoded.
     //(for object created by the debugger)
-    static QRegExp rx("(.*)_(\\d+):(\\d+)$");
+    static QRegExp rx(QLatin1String("(.*)_(\\d+):(\\d+)$"));
     if (rx.exactMatch(fileUrl.path())) {
         fileUrl.setPath(rx.cap(1));
         rev = rx.cap(2).toInt();
@@ -672,151 +726,122 @@ void QmlInspectorAgent::buildDebugIdHashRecursive(const ObjectReference &ref)
     }
 
     const QString filePath
-            = m_engine->toFileInProject(fileUrl);
+            = m_debuggerEngine->toFileInProject(fileUrl);
 
     // append the debug ids in the hash
     QPair<QString, int> file = qMakePair<QString, int>(filePath, rev);
     QPair<int, int> location = qMakePair<int, int>(lineNum, colNum);
     if (!m_debugIdHash[file][location].contains(ref.debugId()))
         m_debugIdHash[file][location].append(ref.debugId());
+    m_debugIdLocations.insert(ref.debugId(), FileReference(filePath, lineNum, colNum));
+
+    // 4.x
+    if (m_newObjectsCreated && m_engineClient->objectName() != QLatin1String(QmlDebug::Constants::QML_DEBUGGER)) {
+        QList<int> childIds;
+        foreach (const ObjectReference &c, ref.children()) {
+            childIds << c.debugId();
+        }
+        // For 4.x, we do not get the parentId. Hence, store the child ids
+        // to look up correct insertion places later
+        m_debugIdChildIds.insert(ref.debugId(), childIds);
+    }
 
     foreach (const ObjectReference &it, ref.children())
         buildDebugIdHashRecursive(it);
 }
 
-static QByteArray buildIName(const WatchData &parent, int debugId)
+static QByteArray buildIName(const QByteArray &parentIname, int debugId)
 {
-    if (!parent.isValid())
+    if (parentIname.isEmpty())
         return "inspect." + QByteArray::number(debugId);
-    return parent.iname + "." + QByteArray::number(debugId);
+    return parentIname + "." + QByteArray::number(debugId);
 }
 
-static QByteArray buildIName(const WatchData &parent, const QString &name)
+static QByteArray buildIName(const QByteArray &parentIname, const QString &name)
 {
-    return parent.iname + "." + name.toLatin1();
+    return parentIname + "." + name.toLatin1();
 }
 
 QList<WatchData> QmlInspectorAgent::buildWatchData(const ObjectReference &obj,
-                                       const WatchData &parent)
+                                       const QByteArray &parentIname,
+                                       bool append)
 {
     if (debug)
-        qDebug() << __FUNCTION__ << "(" << obj << parent.iname << ")";
+        qDebug() << __FUNCTION__ << '(' << obj << parentIname << ')';
 
     QList<WatchData> list;
 
-    WatchData objWatch;
-    QString name = obj.idString();
-    if (name.isEmpty())
-        name = obj.className();
+    int objDebugId = obj.debugId();
+    QByteArray objIname = buildIName(parentIname, objDebugId);
 
-    // object
-    objWatch.id = obj.debugId();
-    objWatch.exp = name.toLatin1();
-    objWatch.name = name;
-    objWatch.iname = buildIName(parent, obj.debugId());
-    objWatch.type = obj.className().toLatin1();
-    objWatch.value = _("object");
-    objWatch.setHasChildren(true);
-    objWatch.setAllUnneeded();
+    if (append) {
+        WatchData objWatch;
+        QString name = obj.idString();
+        if (name.isEmpty())
+            name = obj.className();
 
-    list.append(objWatch);
-    m_debugIdToIname.insert(objWatch.id, objWatch.iname);
+        if (name.isEmpty())
+            return list;
 
-    if (!m_engine->watchHandler()->isExpandedIName(objWatch.iname)
-            && obj.needsMoreData()) {
+        // object
+        objWatch.id = objDebugId;
+        objWatch.exp = name.toLatin1();
+        objWatch.name = name;
+        objWatch.iname = objIname;
+        objWatch.type = obj.className().toLatin1();
+        objWatch.value = _("object");
+        objWatch.setHasChildren(true);
+        objWatch.setAllUnneeded();
+
+        list.append(objWatch);
+        addObjectWatch(objWatch.id);
+    }
+
+    if (!m_debuggerEngine->watchHandler()->isExpandedIName(objIname)) {
         // we don't know the children yet. Not adding the 'properties'
         // element makes sure we're queried on expansion.
-        return list;
+        if (obj.needsMoreData())
+            return list;
+
+        // To improve performance, we do not insert data for items
+        // that have not been previously queried when the object tree is refreshed.
+        if (m_newObjectsCreated)
+            append = false;
     }
 
     // properties
-    WatchData propertiesWatch;
-    propertiesWatch.id = objWatch.id;
-    propertiesWatch.exp = "";
-    propertiesWatch.name = tr("properties");
-    propertiesWatch.iname = objWatch.iname + ".[properties]";
-    propertiesWatch.type = "";
-    propertiesWatch.value = _("list");
-    propertiesWatch.setHasChildren(true);
-    propertiesWatch.setAllUnneeded();
+    if (append && obj.properties().count()) {
+        WatchData propertiesWatch;
+        propertiesWatch.id = objDebugId;
+        propertiesWatch.exp = "";
+        propertiesWatch.name = tr("properties");
+        propertiesWatch.iname = objIname + ".[properties]";
+        propertiesWatch.type = "";
+        propertiesWatch.value = _("list");
+        propertiesWatch.setHasChildren(true);
+        propertiesWatch.setAllUnneeded();
 
-    list.append(propertiesWatch);
+        list.append(propertiesWatch);
 
-    foreach (const PropertyReference &property, obj.properties()) {
-        WatchData propertyWatch;
-        propertyWatch.exp = property.name().toLatin1();
-        propertyWatch.name = property.name();
-        propertyWatch.iname = buildIName(propertiesWatch, property.name());
-        propertyWatch.type = property.valueTypeName().toLatin1();
-        propertyWatch.value = property.value().toString();
-        propertyWatch.setAllUnneeded();
-        propertyWatch.setHasChildren(false);
-        list.append(propertyWatch);
+        foreach (const PropertyReference &property, obj.properties()) {
+            WatchData propertyWatch;
+            propertyWatch.id = objDebugId;
+            propertyWatch.exp = property.name().toLatin1();
+            propertyWatch.name = property.name();
+            propertyWatch.iname = buildIName(propertiesWatch.iname, property.name());
+            propertyWatch.type = property.valueTypeName().toLatin1();
+            propertyWatch.value = property.value().toString();
+            propertyWatch.setAllUnneeded();
+            propertyWatch.setHasChildren(false);
+            list.append(propertyWatch);
+        }
+        m_debugIdToIname.insert(objDebugId, objIname);
     }
 
     // recurse
     foreach (const ObjectReference &child, obj.children())
-        list.append(buildWatchData(child, objWatch));
+        list.append(buildWatchData(child, objIname, append));
     return list;
-}
-
-void QmlInspectorAgent::addObjectToTree(const ObjectReference &obj,
-                                        bool notify)
-{
-    int count = m_rootObjects.count();
-    for (int i = 0; i < count; i++) {
-        int parentId = obj.parentId();
-        if (m_engineClient->serviceVersion() < 2
-                && !m_rootObjects.contains(obj)) {
-            // we don't get parentId in qt 4.x
-            parentId = m_rootObjects[i].insertObjectInTree(obj);
-        }
-
-        if (parentId >= 0) {
-            buildDebugIdHashRecursive(obj);
-            if (notify)
-                emit objectTreeUpdated();
-
-            // find parent
-            QTC_ASSERT(m_debugIdToIname.contains(parentId), break);
-            QByteArray iname = m_debugIdToIname.value(parentId);
-            const WatchData *parent = m_engine->watchHandler()->findItem(iname);
-            if (parent) {
-                QList<WatchData> watches = buildWatchData(obj, *parent);
-                m_engine->watchHandler()->beginCycle(false);
-                m_engine->watchHandler()->insertBulkData(watches);
-                m_engine->watchHandler()->endCycle();
-                break;
-            }
-        }
-    }
-}
-
-ObjectReference QmlInspectorAgent::objectForId(int debugId,
-        const ObjectReference &objectRef) const
-{
-    if (objectRef.debugId() == debugId)
-        return objectRef;
-
-    foreach (const ObjectReference &child, objectRef.children()) {
-        ObjectReference result = objectForId(debugId, child);
-        if (result.debugId() == debugId)
-            return result;
-    }
-
-    return ObjectReference();
-}
-
-QList<ObjectReference> QmlInspectorAgent::objects(
-        const ObjectReference &objectRef) const
-{
-    QList<ObjectReference> result;
-    result.append(objectRef);
-
-    foreach (const ObjectReference &child, objectRef.children())
-        result.append(objects(child));
-
-    return result;
 }
 
 void QmlInspectorAgent::log(QmlInspectorAgent::LogDirection direction,
@@ -829,15 +854,35 @@ void QmlInspectorAgent::log(QmlInspectorAgent::LogDirection direction,
         msg += _(" receiving ");
     msg += message;
 
-    if (m_engine)
-        m_engine->showMessage(msg, LogDebug);
+    if (m_debuggerEngine)
+        m_debuggerEngine->showMessage(msg, LogDebug);
 }
 
-bool QmlInspectorAgent::isConnected()
+bool QmlInspectorAgent::isConnected() const
 {
     return m_engineClient
             && (m_engineClient->status() == QmlDebug::Enabled);
 }
 
+void QmlInspectorAgent::clearObjectTree()
+{
+    // clear view
+    m_debuggerEngine->watchHandler()->removeChildren("inspect");
+
+    m_objectTreeQueryIds.clear();
+
+    int old_count = m_debugIdHash.count();
+    m_debugIdHash.clear();
+    m_debugIdHash.reserve(old_count + 1);
+    m_debugIdToIname.clear();
+    m_debugIdChildIds.clear();
+    m_objectStack.clear();
+    // reset only for 5.x.
+    if (m_engineClient->objectName() == QLatin1String(QmlDebug::Constants::QML_DEBUGGER))
+        m_newObjectsCreated = false;
+
+    removeAllObjectWatches();
+}
 } // Internal
 } // Debugger
+

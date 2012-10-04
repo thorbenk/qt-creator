@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,19 +25,15 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "androidsettingspage.h"
 
 #include "androidsettingswidget.h"
-
 #include "androidconstants.h"
 
 #include <QCoreApplication>
-#include <QIcon>
 
 namespace Android {
 namespace Internal {
@@ -45,35 +41,12 @@ namespace Internal {
 AndroidSettingsPage::AndroidSettingsPage(QObject *parent)
     : Core::IOptionsPage(parent)
 {
-}
-
-AndroidSettingsPage::~AndroidSettingsPage()
-{
-}
-
-QString AndroidSettingsPage::id() const
-{
-    return QLatin1String(Constants::ANDROID_SETTINGS_ID);
-}
-
-QString AndroidSettingsPage::displayName() const
-{
-    return tr("Android Configurations");
-}
-
-QString AndroidSettingsPage::category() const
-{
-    return QLatin1String(Constants::ANDROID_SETTINGS_CATEGORY);
-}
-
-QString AndroidSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("Android", Constants::ANDROID_SETTINGS_TR_CATEGORY);
-}
-
-QIcon AndroidSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Constants::ANDROID_SETTINGS_CATEGORY_ICON));
+    setId(QLatin1String(Constants::ANDROID_SETTINGS_ID));
+    setDisplayName(tr("Android Configurations"));
+    setCategory(QLatin1String(Constants::ANDROID_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("Android",
+        Constants::ANDROID_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Constants::ANDROID_SETTINGS_CATEGORY_ICON));
 }
 
 bool AndroidSettingsPage::matches(const QString &searchKeyWord) const

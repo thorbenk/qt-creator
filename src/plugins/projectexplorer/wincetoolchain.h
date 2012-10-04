@@ -57,15 +57,12 @@ public:
                    const QString &libPath,
                    bool autodetect = false);
 
-    QString legacyId() const;
     QList<Utils::FileName> suggestedMkspecList() const;
 
     static WinCEToolChain *readFromMap(const QVariantMap &data);
 
     QString type() const;
     QString typeDisplayName() const;
-
-    Utils::FileName mkspecList() const;
 
     QString ceVer() const;
 
@@ -102,10 +99,11 @@ class WinCEToolChainConfigWidget : public ToolChainConfigWidget
 public:
     WinCEToolChainConfigWidget(ToolChain *);
 
-    void apply() {}
-    void discard() { }
-    bool isDirty() const {return false;}
-
+private:
+    void applyImpl() {}
+    void discardImpl() { }
+    bool isDirtyImpl() const {return false;}
+    void makeReadOnlyImpl() {}
 };
 
 class WinCEToolChainFactory : public ToolChainFactory

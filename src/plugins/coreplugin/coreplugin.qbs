@@ -5,15 +5,15 @@ QtcPlugin {
     name: "Core"
 
     Depends {
-        name: "qt"
+        name: "Qt"
         submodules: [
-            'core', 'widgets', 'xml', 'network',
-            'script', 'sql', 'help', 'printsupport'
+            "core", "widgets", "xml", "network", "script", "sql", "help", "printsupport"
         ]
     }
     Depends { name: "Utils" }
     Depends { name: "ExtensionSystem" }
     Depends { name: "Aggregation" }
+    Depends { name: "app_version_header" }
 
     cpp.includePaths: [
         ".",
@@ -25,13 +25,13 @@ QtcPlugin {
         "editormanager",
         "progressmanager",
         "scriptmanager",
-        "actionmanager",
-         buildDirectory
+        "actionmanager"
     ]
 
     cpp.dynamicLibraries: {
-        if (qbs.targetOS == 'windows') return [
-            "ole32"
+        if (qbs.targetOS == "windows") return [
+            "ole32",
+            "user32"
         ]
     }
 
@@ -123,6 +123,9 @@ QtcPlugin {
         "outputwindow.h",
         "plugindialog.cpp",
         "plugindialog.h",
+        "removefiledialog.cpp",
+        "removefiledialog.h",
+        "removefiledialog.ui",
         "rightpane.cpp",
         "rightpane.h",
         "settingsdatabase.cpp",
@@ -149,6 +152,7 @@ QtcPlugin {
         "versiondialog.cpp",
         "versiondialog.h",
         "id.cpp",
+        "iversioncontrol.cpp",
         "iversioncontrol.h",
         "variablechooser.cpp",
         "variablemanager.cpp",
@@ -163,6 +167,8 @@ QtcPlugin {
         "actionmanager/command.cpp",
         "actionmanager/command.h",
         "actionmanager/command_p.h",
+        "actionmanager/commandbutton.h",
+        "actionmanager/commandbutton.cpp",
         "actionmanager/commandmappings.cpp",
         "actionmanager/commandmappings.h",
         "actionmanager/commandmappings.ui",

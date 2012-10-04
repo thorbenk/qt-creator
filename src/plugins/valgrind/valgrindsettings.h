@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,8 +27,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -177,6 +175,7 @@ public:
     QVariantMap toMap() const;
     QVariantMap defaults() const;
     void fromMap(const QVariantMap &map);
+    virtual AbstractAnalyzerSubConfig *clone();
 
     /*
      * Global memcheck settings
@@ -204,17 +203,19 @@ private:
      * Global callgrind settings
      */
 public:
-
     CostDelegate::CostFormat costFormat() const;
     bool detectCycles() const;
+    bool shortenTemplates() const;
 
 public slots:
     void setCostFormat(Valgrind::Internal::CostDelegate::CostFormat format);
-    void setDetectCycles(bool detect);
+    void setDetectCycles(bool on);
+    void setShortenTemplates(bool on);
 
 private:
     CostDelegate::CostFormat m_costFormat;
     bool m_detectCycles;
+    bool m_shortenTemplates;
 };
 
 
@@ -232,6 +233,7 @@ public:
     QVariantMap toMap() const;
     QVariantMap defaults() const;
     void fromMap(const QVariantMap &map);
+    virtual AbstractAnalyzerSubConfig *clone();
 
     /**
      * Per-project memcheck settings, saves a diff to the global suppression files list

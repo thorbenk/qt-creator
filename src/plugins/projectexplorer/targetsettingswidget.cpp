@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,15 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "targetsettingswidget.h"
 #include "ui_targetsettingswidget.h"
 
-static int WIDTH = 900;
+#include <QPushButton>
 
 using namespace ProjectExplorer::Internal;
 
@@ -43,28 +41,42 @@ TargetSettingsWidget::TargetSettingsWidget(QWidget *parent) :
     m_targetSelector(new TargetSelector(this))
 {
     ui->setupUi(this);
-    ui->separator->setStyleSheet(QLatin1String("* { "
-        "background-image: url(:/projectexplorer/images/targetseparatorbackground.png);"
+    ui->header->setStyleSheet(QLatin1String("QWidget#header {"
+        "border-image: url(:/projectexplorer/images/targetseparatorbackground.png) 43 0 0 0 repeat;"
         "}"));
-    m_targetSelector->raise();
-    connect(m_targetSelector, SIGNAL(removeButtonClicked()),
-            this, SIGNAL(removeButtonClicked()));
+
+    QHBoxLayout *headerLayout = new QHBoxLayout;
+    headerLayout->setContentsMargins(5, 3, 0, 0);
+    ui->header->setLayout(headerLayout);
+
+    QWidget *buttonWidget = new QWidget(ui->header);
+    QVBoxLayout *buttonLayout = new QVBoxLayout;
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->setSpacing(4);
+    buttonWidget->setLayout(buttonLayout);
+    m_addButton = new QPushButton(tr("Add Kit"), buttonWidget);
+    buttonLayout->addWidget(m_addButton);
+    m_manageButton = new QPushButton(tr("Manage Kits..."), buttonWidget);
+    connect(m_manageButton, SIGNAL(clicked()), this, SIGNAL(manageButtonClicked()));
+    buttonLayout->addWidget(m_manageButton);
+    headerLayout->addWidget(buttonWidget, 0, Qt::AlignVCenter);
+
+    headerLayout->addWidget(m_targetSelector, 0, Qt::AlignBottom);
+    headerLayout->addStretch(10);
     connect(m_targetSelector, SIGNAL(currentChanged(int,int)),
             this, SIGNAL(currentChanged(int,int)));
+    connect(m_targetSelector, SIGNAL(toolTipRequested(QPoint,int)),
+            this, SIGNAL(toolTipRequested(QPoint,int)));
+    connect(m_targetSelector, SIGNAL(menuShown(int)),
+            this, SIGNAL(menuShown(int)));
 
-    m_shadow = new QWidget(this);
-
-    // Create shadow below targetselector
-    m_targetSelector->raise();
     QPalette shadowPal = palette();
     QLinearGradient grad(0, 0, 0, 2);
     grad.setColorAt(0, QColor(0, 0, 0, 60));
     grad.setColorAt(1, Qt::transparent);
     shadowPal.setBrush(QPalette::All, QPalette::Window, grad);
-    m_shadow->setPalette(shadowPal);
-    m_shadow->setAutoFillBackground(true);
-
-    updateTargetSelector();
+    ui->shadow->setPalette(shadowPal);
+    ui->shadow->setAutoFillBackground(true);
 }
 
 TargetSettingsWidget::~TargetSettingsWidget()
@@ -75,13 +87,16 @@ TargetSettingsWidget::~TargetSettingsWidget()
 void TargetSettingsWidget::insertTarget(int index, const QString &name)
 {
     m_targetSelector->insertTarget(index, name);
-    updateTargetSelector();
+}
+
+void TargetSettingsWidget::renameTarget(int index, const QString &name)
+{
+    m_targetSelector->renameTarget(index, name);
 }
 
 void TargetSettingsWidget::removeTarget(int index)
 {
     m_targetSelector->removeTarget(index);
-    updateTargetSelector();
 }
 
 void TargetSettingsWidget::setCurrentIndex(int index)
@@ -96,17 +111,17 @@ void TargetSettingsWidget::setCurrentSubIndex(int index)
 
 void TargetSettingsWidget::setAddButtonEnabled(bool enabled)
 {
-    m_targetSelector->setAddButtonEnabled(enabled);
+    m_addButton->setEnabled(enabled);
 }
 
 void TargetSettingsWidget::setAddButtonMenu(QMenu *menu)
 {
-    m_targetSelector->setAddButtonMenu(menu);
+    m_addButton->setMenu(menu);
 }
 
-void TargetSettingsWidget::setRemoveButtonEnabled(bool enabled)
+void TargetSettingsWidget::setTargetMenu(QMenu *menu)
 {
-    m_targetSelector->setRemoveButtonEnabled(enabled);
+    m_targetSelector->setTargetMenu(menu);
 }
 
 QString TargetSettingsWidget::targetNameAt(int index) const
@@ -132,29 +147,6 @@ int TargetSettingsWidget::currentIndex() const
 int TargetSettingsWidget::currentSubIndex() const
 {
     return m_targetSelector->currentSubIndex();
-}
-
-bool TargetSettingsWidget::isAddButtonEnabled() const
-{
-    return m_targetSelector->isAddButtonEnabled();
-}
-
-bool TargetSettingsWidget::isRemoveButtonEnabled() const
-{
-    return m_targetSelector->isRemoveButtonEnabled();
-}
-
-void TargetSettingsWidget::resizeEvent(QResizeEvent *e)
-{
-    QWidget::resizeEvent(e);
-    m_shadow->setGeometry(0, m_targetSelector->height() + 3, width(), 2);
-}
-
-void TargetSettingsWidget::updateTargetSelector()
-{
-    m_targetSelector->setGeometry((WIDTH-m_targetSelector->minimumSizeHint().width())/2, 13,
-        m_targetSelector->minimumSizeHint().width(),
-        m_targetSelector->minimumSizeHint().height());
 }
 
 void TargetSettingsWidget::changeEvent(QEvent *e)

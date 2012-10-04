@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -68,22 +66,12 @@ const char REBUILDSUBDIRCONTEXTMENU[] = "Qt4Builder.RebuildSubDirContextMenu";
 const char CLEANSUBDIRCONTEXTMENU[] = "Qt4Builder.CleanSubDirContextMenu";
 const char BUILDFILECONTEXTMENU[] = "Qt4Builder.BuildFileContextMenu";
 const char ADDLIBRARY[] = "Qt4.AddLibrary";
-const char SEPARATOR[] = "Qt4.Separator";
 
 // Tasks
 const char PROFILE_EVALUATE[] = "Qt4ProjectManager.ProFileEvaluate";
 
 // Project
 const char QT4PROJECT_ID[] = "Qt4ProjectManager.Qt4Project";
-
-// Targets
-const char DESKTOP_TARGET_ID[] = "Qt4ProjectManager.Target.DesktopTarget";
-const char S60_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.S60DeviceTarget";
-const char MAEMO5_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.MaemoDeviceTarget";
-const char HARMATTAN_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.HarmattanDeviceTarget";
-const char MEEGO_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.MeegoDeviceTarget";
-const char QT_SIMULATOR_TARGET_ID[] = "Qt4ProjectManager.Target.QtSimulatorTarget";
-const char ANDROID_DEVICE_TARGET_ID[] = "Qt4ProjectManager.Target.AndroidDeviceTarget";
 
 // Target Features
 const char MOBILE_TARGETFEATURE_ID[] = "Qt4ProjectManager.TargetFeature.Mobile";
@@ -104,10 +92,6 @@ const char ICON_HTML5_APP[] = ":/wizards/images/html5app.png";
 const char QMAKEVAR_QMLJSDEBUGGER_PATH[] = "QMLJSDEBUGGER_PATH";
 const char QMAKEVAR_DECLARATIVE_DEBUG4[] = "CONFIG+=declarative_debug";
 const char QMAKEVAR_DECLARATIVE_DEBUG5[] = "CONFIG+=qml_debug";
-
-// Unconfigured Settings page
-const char UNCONFIGURED_SETTINGS_PAGE_ID[] = "R.UnconfiguredSettings";
-const char UNCONFIGURED_SETTINGS_PAGE_NAME[] = QT_TRANSLATE_NOOP("Qt4ProjectManager", "Unconfigured Project");
 
 // Unconfigured Panel
 const char UNCONFIGURED_PANEL_PAGE_ID[] = "UnconfiguredPanel";

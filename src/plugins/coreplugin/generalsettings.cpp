@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,7 +38,6 @@
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/icore.h>
 
-#include <QMainWindow>
 #include <QMessageBox>
 
 #include <QCoreApplication>
@@ -58,31 +55,11 @@ using namespace Core::Internal;
 GeneralSettings::GeneralSettings():
     m_page(0), m_dialog(0)
 {
-}
-
-QString GeneralSettings::id() const
-{
-    return QLatin1String(Core::Constants::SETTINGS_ID_ENVIRONMENT);
-}
-
-QString GeneralSettings::displayName() const
-{
-    return tr("General");
-}
-
-QString GeneralSettings::category() const
-{
-    return QLatin1String(Core::Constants::SETTINGS_CATEGORY_CORE);
-}
-
-QString GeneralSettings::displayCategory() const
-{
-    return QCoreApplication::translate("Core", Core::Constants::SETTINGS_TR_CATEGORY_CORE);
-}
-
-QIcon GeneralSettings::categoryIcon() const
-{
-    return QIcon(QLatin1String(Core::Constants::SETTINGS_CATEGORY_CORE_ICON));
+    setId(QLatin1String(Core::Constants::SETTINGS_ID_ENVIRONMENT));
+    setDisplayName(tr("General"));
+    setCategory(QLatin1String(Core::Constants::SETTINGS_CATEGORY_CORE));
+    setDisplayCategory(QCoreApplication::translate("Core", Core::Constants::SETTINGS_TR_CATEGORY_CORE));
+    setCategoryIcon(QLatin1String(Core::Constants::SETTINGS_CATEGORY_CORE_ICON));
 }
 
 static bool hasQmFilesForLocale(const QString &locale, const QString &creatorTrPath)
@@ -136,10 +113,13 @@ QWidget *GeneralSettings::createPage(QWidget *parent)
     m_page->colorButton->setColor(StyleHelper::requestedBaseColor());
     m_page->reloadBehavior->setCurrentIndex(EditorManager::instance()->reloadSetting());
 #ifdef Q_OS_UNIX
-    m_page->terminalEdit->setText(ConsoleProcess::terminalEmulator(settings));
+    const QStringList availableTerminals = ConsoleProcess::availableTerminalEmulators();
+    const QString currentTerminal = ConsoleProcess::terminalEmulator(settings);
+    m_page->terminalComboBox->addItems(availableTerminals);
+    m_page->terminalComboBox->lineEdit()->setText(currentTerminal);
 #else
     m_page->terminalLabel->hide();
-    m_page->terminalEdit->hide();
+    m_page->terminalComboBox->hide();
     m_page->resetTerminalButton->hide();
 #endif
 
@@ -198,7 +178,7 @@ void GeneralSettings::apply()
     EditorManager::instance()->setReloadSetting(IDocument::ReloadSetting(m_page->reloadBehavior->currentIndex()));
 #ifdef Q_OS_UNIX
     ConsoleProcess::setTerminalEmulator(Core::ICore::settings(),
-                                        m_page->terminalEdit->text());
+                                        m_page->terminalComboBox->lineEdit()->text());
 #ifndef Q_OS_MAC
     Utils::UnixUtils::setFileBrowser(Core::ICore::settings(), m_page->externalFileBrowserEdit->text());
 #endif
@@ -223,7 +203,7 @@ void GeneralSettings::resetInterfaceColor()
 void GeneralSettings::resetTerminal()
 {
 #if defined(Q_OS_UNIX)
-    m_page->terminalEdit->setText(ConsoleProcess::defaultTerminalEmulator() + QLatin1String(" -e"));
+    m_page->terminalComboBox->lineEdit()->setText(ConsoleProcess::defaultTerminalEmulator());
 #endif
 }
 

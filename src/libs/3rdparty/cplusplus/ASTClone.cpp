@@ -362,6 +362,7 @@ ClassSpecifierAST *ClassSpecifierAST::clone(MemoryPool *pool) const
         *ast_iter = new (pool) SpecifierListAST((iter->value) ? iter->value->clone(pool) : 0);
     if (name)
         ast->name = name->clone(pool);
+    ast->final_token = final_token;
     ast->colon_token = colon_token;
     for (BaseSpecifierListAST *iter = base_clause_list, **ast_iter = &ast->base_clause_list;
          iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
@@ -486,6 +487,7 @@ FunctionDeclaratorAST *FunctionDeclaratorAST::clone(MemoryPool *pool) const
     for (SpecifierListAST *iter = cv_qualifier_list, **ast_iter = &ast->cv_qualifier_list;
          iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
         *ast_iter = new (pool) SpecifierListAST((iter->value) ? iter->value->clone(pool) : 0);
+    ast->ref_qualifier_token = ref_qualifier_token;
     if (exception_specification)
         ast->exception_specification = exception_specification->clone(pool);
     if (trailing_return_type)
@@ -556,8 +558,13 @@ EnumSpecifierAST *EnumSpecifierAST::clone(MemoryPool *pool) const
 {
     EnumSpecifierAST *ast = new (pool) EnumSpecifierAST;
     ast->enum_token = enum_token;
+    ast->key_token = key_token;
     if (name)
         ast->name = name->clone(pool);
+    ast->colon_token = colon_token;
+    for (SpecifierListAST *iter = type_specifier_list, **ast_iter = &ast->type_specifier_list;
+         iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
+        *ast_iter = new (pool) SpecifierListAST((iter->value) ? iter->value->clone(pool) : 0);
     ast->lbrace_token = lbrace_token;
     for (EnumeratorListAST *iter = enumerator_list, **ast_iter = &ast->enumerator_list;
          iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
@@ -679,8 +686,6 @@ RangeBasedForStatementAST *RangeBasedForStatementAST::clone(MemoryPool *pool) co
         *ast_iter = new (pool) SpecifierListAST((iter->value) ? iter->value->clone(pool) : 0);
     if (declarator)
         ast->declarator = declarator->clone(pool);
-    if (initializer)
-        ast->initializer = initializer->clone(pool);
     ast->colon_token = colon_token;
     if (expression)
         ast->expression = expression->clone(pool);
@@ -771,11 +776,8 @@ MemInitializerAST *MemInitializerAST::clone(MemoryPool *pool) const
     MemInitializerAST *ast = new (pool) MemInitializerAST;
     if (name)
         ast->name = name->clone(pool);
-    ast->lparen_token = lparen_token;
-    for (ExpressionListAST *iter = expression_list, **ast_iter = &ast->expression_list;
-         iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
-        *ast_iter = new (pool) ExpressionListAST((iter->value) ? iter->value->clone(pool) : 0);
-    ast->rparen_token = rparen_token;
+    if (expression)
+        ast->expression = expression->clone(pool);
     return ast;
 }
 
@@ -877,9 +879,21 @@ NamespaceAliasDefinitionAST *NamespaceAliasDefinitionAST::clone(MemoryPool *pool
     return ast;
 }
 
-NewPlacementAST *NewPlacementAST::clone(MemoryPool *pool) const
+AliasDeclarationAST *AliasDeclarationAST::clone(MemoryPool *pool) const
 {
-    NewPlacementAST *ast = new (pool) NewPlacementAST;
+    AliasDeclarationAST *ast = new (pool) AliasDeclarationAST;
+    ast->using_token = using_token;
+    ast->identifier_token = identifier_token;
+    ast->equal_token = equal_token;
+    if (typeId)
+        ast->typeId = typeId->clone(pool);
+    ast->semicolon_token = semicolon_token;
+    return ast;
+}
+
+ExpressionListParenAST *ExpressionListParenAST::clone(MemoryPool *pool) const
+{
+    ExpressionListParenAST *ast = new (pool) ExpressionListParenAST;
     ast->lparen_token = lparen_token;
     for (ExpressionListAST *iter = expression_list, **ast_iter = &ast->expression_list;
          iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
@@ -913,16 +927,6 @@ NewExpressionAST *NewExpressionAST::clone(MemoryPool *pool) const
         ast->new_type_id = new_type_id->clone(pool);
     if (new_initializer)
         ast->new_initializer = new_initializer->clone(pool);
-    return ast;
-}
-
-NewInitializerAST *NewInitializerAST::clone(MemoryPool *pool) const
-{
-    NewInitializerAST *ast = new (pool) NewInitializerAST;
-    ast->lparen_token = lparen_token;
-    if (expression)
-        ast->expression = expression->clone(pool);
-    ast->rparen_token = rparen_token;
     return ast;
 }
 
@@ -1037,11 +1041,8 @@ TypenameCallExpressionAST *TypenameCallExpressionAST::clone(MemoryPool *pool) co
     ast->typename_token = typename_token;
     if (name)
         ast->name = name->clone(pool);
-    ast->lparen_token = lparen_token;
-    for (ExpressionListAST *iter = expression_list, **ast_iter = &ast->expression_list;
-         iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
-        *ast_iter = new (pool) ExpressionListAST((iter->value) ? iter->value->clone(pool) : 0);
-    ast->rparen_token = rparen_token;
+    if (expression)
+        ast->expression = expression->clone(pool);
     return ast;
 }
 
@@ -1051,11 +1052,8 @@ TypeConstructorCallAST *TypeConstructorCallAST::clone(MemoryPool *pool) const
     for (SpecifierListAST *iter = type_specifier_list, **ast_iter = &ast->type_specifier_list;
          iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
         *ast_iter = new (pool) SpecifierListAST((iter->value) ? iter->value->clone(pool) : 0);
-    ast->lparen_token = lparen_token;
-    for (ExpressionListAST *iter = expression_list, **ast_iter = &ast->expression_list;
-         iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
-        *ast_iter = new (pool) ExpressionListAST((iter->value) ? iter->value->clone(pool) : 0);
-    ast->rparen_token = rparen_token;
+    if (expression)
+        ast->expression = expression->clone(pool);
     return ast;
 }
 
@@ -1070,6 +1068,7 @@ PointerToMemberAST *PointerToMemberAST::clone(MemoryPool *pool) const
     for (SpecifierListAST *iter = cv_qualifier_list, **ast_iter = &ast->cv_qualifier_list;
          iter; iter = iter->next, ast_iter = &(*ast_iter)->next)
         *ast_iter = new (pool) SpecifierListAST((iter->value) ? iter->value->clone(pool) : 0);
+    ast->ref_qualifier_token = ref_qualifier_token;
     return ast;
 }
 
@@ -1133,6 +1132,17 @@ SizeofExpressionAST *SizeofExpressionAST::clone(MemoryPool *pool) const
     ast->lparen_token = lparen_token;
     if (expression)
         ast->expression = expression->clone(pool);
+    ast->rparen_token = rparen_token;
+    return ast;
+}
+
+AlignofExpressionAST *AlignofExpressionAST::clone(MemoryPool *pool) const
+{
+    AlignofExpressionAST *ast = new (pool) AlignofExpressionAST;
+    ast->alignof_token = alignof_token;
+    ast->lparen_token = lparen_token;
+    if (typeId)
+        ast->typeId = typeId->clone(pool);
     ast->rparen_token = rparen_token;
     return ast;
 }

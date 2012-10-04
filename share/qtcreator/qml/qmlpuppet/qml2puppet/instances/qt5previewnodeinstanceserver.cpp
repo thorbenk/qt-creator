@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,8 +33,9 @@
 #include "nodeinstanceclientinterface.h"
 #include "statepreviewimagechangedcommand.h"
 #include "createscenecommand.h"
+#include "removesharedmemorycommand.h"
 
-#include <QSGItem>
+#include <QQuickItem>
 #include <designersupport.h>
 
 namespace QmlDesigner {
@@ -70,11 +69,11 @@ void Qt5PreviewNodeInstanceServer::collectItemChangesAndSendChangeCommands()
     if (!inFunction && nodeInstanceClient()->bytesToWrite() < 10000) {
         inFunction = true;
         QVector<ImageContainer> imageContainerVector;
-        imageContainerVector.append(ImageContainer(0, renderPreviewImage()));
+        imageContainerVector.append(ImageContainer(0, renderPreviewImage(), -1));
 
         foreach (ServerNodeInstance instance,  rootNodeInstance().stateInstances()) {
             instance.activateState();
-            imageContainerVector.append(ImageContainer(instance.instanceId(), renderPreviewImage()));
+            imageContainerVector.append(ImageContainer(instance.instanceId(), renderPreviewImage(), instance.instanceId()));
             instance.deactivateState();
         }
 
@@ -90,9 +89,9 @@ void Qt5PreviewNodeInstanceServer::changeState(const ChangeStateCommand &/*comma
 
 }
 
-static void updateDirtyNodeRecursive(QSGItem *parentItem)
+static void updateDirtyNodeRecursive(QQuickItem *parentItem)
 {
-    foreach (QSGItem *childItem, parentItem->childItems())
+    foreach (QQuickItem *childItem, parentItem->childItems())
         updateDirtyNodeRecursive(childItem);
 
     DesignerSupport::updateDirtyNode(parentItem);
@@ -115,6 +114,12 @@ QImage Qt5PreviewNodeInstanceServer::renderPreviewImage()
     previewImage = previewImage.convertToFormat(QImage::Format_ARGB32_Premultiplied);
 
     return previewImage;
+}
+
+void QmlDesigner::Qt5PreviewNodeInstanceServer::removeSharedMemory(const QmlDesigner::RemoveSharedMemoryCommand &command)
+{
+    if (command.typeName() == "Image")
+        ImageContainer::removeSharedMemorys(command.keyNumbers());
 }
 
 } // namespace QmlDesigner

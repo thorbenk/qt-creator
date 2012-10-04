@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,20 +25,15 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "remotelinuxpackageinstaller.h"
 
-#include "linuxdeviceconfiguration.h"
-
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshremoteprocessrunner.h>
+#include <ssh/sshremoteprocessrunner.h>
 
-#include <QByteArray>
-
-using namespace Utils;
+using namespace ProjectExplorer;
+using namespace QSsh;
 
 namespace RemoteLinux {
 namespace Internal {
@@ -49,9 +44,9 @@ public:
     AbstractRemoteLinuxPackageInstallerPrivate() : isRunning(false), installer(0), killProcess(0) {}
 
     bool isRunning;
-    LinuxDeviceConfiguration::ConstPtr deviceConfig;
-    Utils::SshRemoteProcessRunner *installer;
-    Utils::SshRemoteProcessRunner *killProcess;
+    IDevice::ConstPtr deviceConfig;
+    QSsh::SshRemoteProcessRunner *installer;
+    QSsh::SshRemoteProcessRunner *killProcess;
 };
 
 } // namespace Internal
@@ -66,7 +61,7 @@ AbstractRemoteLinuxPackageInstaller::~AbstractRemoteLinuxPackageInstaller()
     delete d;
 }
 
-void AbstractRemoteLinuxPackageInstaller::installPackage(const LinuxDeviceConfiguration::ConstPtr &deviceConfig,
+void AbstractRemoteLinuxPackageInstaller::installPackage(const IDevice::ConstPtr &deviceConfig,
     const QString &packageFilePath, bool removePackageFile)
 {
     QTC_ASSERT(!d->isRunning, return);
@@ -76,10 +71,8 @@ void AbstractRemoteLinuxPackageInstaller::installPackage(const LinuxDeviceConfig
     if (!d->installer)
         d->installer = new SshRemoteProcessRunner(this);
     connect(d->installer, SIGNAL(connectionError()), SLOT(handleConnectionError()));
-    connect(d->installer, SIGNAL(processOutputAvailable(QByteArray)),
-        SLOT(handleInstallerOutput(QByteArray)));
-    connect(d->installer, SIGNAL(processErrorOutputAvailable(QByteArray)),
-        SLOT(handleInstallerErrorOutput(QByteArray)));
+    connect(d->installer, SIGNAL(readyReadStandardOutput()), SLOT(handleInstallerOutput()));
+    connect(d->installer, SIGNAL(readyReadStandardError()), SLOT(handleInstallerErrorOutput()));
     connect(d->installer, SIGNAL(processClosed(int)), SLOT(handleInstallationFinished(int)));
 
     QString cmdLine = installCommandLine(packageFilePath);
@@ -112,7 +105,7 @@ void AbstractRemoteLinuxPackageInstaller::handleInstallationFinished(int exitSta
     if (!d->isRunning)
         return;
 
-    if (exitStatus != SshRemoteProcess::ExitedNormally || d->installer->processExitCode() != 0) {
+    if (exitStatus != SshRemoteProcess::NormalExit || d->installer->processExitCode() != 0) {
         emit finished(tr("Installing package failed."));
     } else if (!errorString().isEmpty()) {
         emit finished(errorString());
@@ -123,14 +116,14 @@ void AbstractRemoteLinuxPackageInstaller::handleInstallationFinished(int exitSta
     setFinished();
 }
 
-void AbstractRemoteLinuxPackageInstaller::handleInstallerOutput(const QByteArray &output)
+void AbstractRemoteLinuxPackageInstaller::handleInstallerOutput()
 {
-    emit stdoutData(QString::fromUtf8(output));
+    emit stdoutData(QString::fromUtf8(d->installer->readAllStandardOutput()));
 }
 
-void AbstractRemoteLinuxPackageInstaller::handleInstallerErrorOutput(const QByteArray &output)
+void AbstractRemoteLinuxPackageInstaller::handleInstallerErrorOutput()
 {
-    emit stderrData(QString::fromUtf8(output));
+    emit stderrData(QString::fromUtf8(d->installer->readAllStandardError()));
 }
 
 void AbstractRemoteLinuxPackageInstaller::setFinished()

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,15 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef REMOTEPROCESSTEST_H
 #define REMOTEPROCESSTEST_H
 
-#include <utils/ssh/sshremoteprocessrunner.h>
+#include <ssh/sshremoteprocessrunner.h>
 
 #include <QObject>
 
@@ -44,15 +42,15 @@ class RemoteProcessTest : public QObject
 {
     Q_OBJECT
 public:
-    RemoteProcessTest(const Utils::SshConnectionParameters &params);
+    RemoteProcessTest(const QSsh::SshConnectionParameters &params);
     ~RemoteProcessTest();
     void run();
 
 private slots:
     void handleConnectionError();
     void handleProcessStarted();
-    void handleProcessStdout(const QByteArray &output);
-    void handleProcessStderr(const QByteArray &output);
+    void handleProcessStdout();
+    void handleProcessStderr();
     void handleProcessClosed(int exitStatus);
     void handleTimeout();
     void handleReadyRead();
@@ -70,13 +68,13 @@ private:
     void handleSuccessfulCrashTest();
     void handleSuccessfulIoTest();
 
-    const Utils::SshConnectionParameters m_sshParams;
+    const QSsh::SshConnectionParameters m_sshParams;
     QTimer * const m_timeoutTimer;
     QTextStream *m_textStream;
-    Utils::SshRemoteProcessRunner * const m_remoteRunner;
-    Utils::SshRemoteProcess::Ptr m_catProcess;
-    Utils::SshRemoteProcess::Ptr m_echoProcess;
-    Utils::SshConnection::Ptr m_sshConnection;
+    QSsh::SshRemoteProcess::Ptr m_catProcess;
+    QSsh::SshRemoteProcess::Ptr m_echoProcess;
+    QSsh::SshConnection *m_sshConnection;
+    QSsh::SshRemoteProcessRunner * const m_remoteRunner;
     QByteArray m_remoteStdout;
     QByteArray m_remoteStderr;
     QByteArray m_remoteData;

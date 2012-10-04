@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemodeploybymountsteps.h"
@@ -39,16 +37,15 @@
 #include "maemoremotecopyfacility.h"
 #include "qt4maemodeployconfiguration.h"
 
+#include <projectexplorer/deploymentdata.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/target.h>
 #include <qt4projectmanager/qt4buildconfiguration.h>
-#include <qtsupport/baseqtversion.h>
 #include <remotelinux/abstractremotelinuxdeployservice.h>
-#include <remotelinux/deployablefile.h>
-#include <remotelinux/deploymentinfo.h>
-#include <remotelinux/linuxdeviceconfiguration.h>
+#include <remotelinux/linuxdevice.h>
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshconnection.h>
+#include <ssh/sshconnection.h>
 
 #include <QFileInfo>
 #include <QList>
@@ -132,7 +129,7 @@ private:
     void cancelInstallation();
     void handleInstallationSuccess();
 
-    Q_SLOT void handleFileCopied(const RemoteLinux::DeployableFile&deployable);
+    Q_SLOT void handleFileCopied(const ProjectExplorer::DeployableFile &deployable);
 
     MaemoRemoteCopyFacility * const m_copyFacility;
     mutable QList<DeployableFile> m_filesToCopy;
@@ -157,29 +154,7 @@ void AbstractMaemoDeployByMountService::doDeviceSetup()
 {
     QTC_ASSERT(m_state == Inactive, return);
 
-    if (deviceConfiguration()->machineType() == LinuxDeviceConfiguration::Hardware) {
-        handleDeviceSetupDone(true);
-        return;
-    }
-
-    if (MaemoQemuManager::instance().qemuIsRunning()) {
-        handleDeviceSetupDone(true);
-        return;
-    }
-
-    MaemoQemuRuntime rt;
-    const int qtId = qt4BuildConfiguration() && qt4BuildConfiguration()->qtVersion()
-        ? qt4BuildConfiguration()->qtVersion()->uniqueId() : -1;
-    if (MaemoQemuManager::instance().runtimeForQtVersion(qtId, &rt)) {
-        MaemoQemuManager::instance().startRuntime();
-        emit errorMessage(tr("Cannot deploy: Qemu was not running. "
-            "It has now been started up for you, but it will take "
-            "a bit of time until it is ready. Please try again then."));
-    } else {
-        emit errorMessage(tr("Cannot deploy: You want to deploy to Qemu, but it is not enabled "
-            "for this Qt version."));
-    }
-    handleDeviceSetupDone(false);
+    handleDeviceSetupDone(true);
 }
 
 void AbstractMaemoDeployByMountService::stopDeviceSetup()
@@ -193,15 +168,14 @@ void AbstractMaemoDeployByMountService::doDeploy()
 {
     QTC_ASSERT(m_state == Inactive, return);
 
-    if (!qt4BuildConfiguration()) {
+    if (!buildConfiguration()) {
         emit errorMessage(tr("Missing build configuration."));
         setFinished();
         return;
     }
 
     m_state = Mounting;
-    m_mounter->setupMounts(connection(), deviceConfiguration(), mountSpecifications(),
-        qt4BuildConfiguration());
+    m_mounter->setupMounts(connection(), mountSpecifications(), profile());
 }
 
 void AbstractMaemoDeployByMountService::stopDeployment()
@@ -281,7 +255,7 @@ QString AbstractMaemoDeployByMountService::deployMountPoint() const
 {
     return MaemoGlobal::homeDirOnDevice(deviceConfiguration()->sshParameters().userName)
         + QLatin1String("/deployMountPoint_")
-        + qt4BuildConfiguration()->target()->project()->displayName();
+        + buildConfiguration()->target()->project()->displayName();
 }
 
 
@@ -330,8 +304,8 @@ MaemoMountAndCopyFilesService::MaemoMountAndCopyFilesService(QObject *parent)
     connect(m_copyFacility, SIGNAL(stdoutData(QString)), SIGNAL(stdOutData(QString)));
     connect(m_copyFacility, SIGNAL(stderrData(QString)), SIGNAL(stdErrData(QString)));
     connect(m_copyFacility, SIGNAL(progress(QString)), SIGNAL(progressMessage(QString)));
-    connect(m_copyFacility, SIGNAL(fileCopied(RemoteLinux::DeployableFile)),
-        SLOT(handleFileCopied(RemoteLinux::DeployableFile)));
+    connect(m_copyFacility, SIGNAL(fileCopied(ProjectExplorer::DeployableFile)),
+        SLOT(handleFileCopied(ProjectExplorer::DeployableFile)));
     connect(m_copyFacility, SIGNAL(finished(QString)), SLOT(handleInstallationFinished(QString)));
 }
 
@@ -340,7 +314,7 @@ bool MaemoMountAndCopyFilesService::isDeploymentNecessary() const
     m_filesToCopy.clear();
     for (int i = 0; i < m_deployableFiles.count(); ++i) {
         const DeployableFile &d = m_deployableFiles.at(i);
-        if (hasChangedSinceLastDeployment(d) || QFileInfo(d.localFilePath).isDir())
+        if (hasChangedSinceLastDeployment(d) || d.localFilePath().toFileInfo().isDir())
             m_filesToCopy << d;
     }
     return !m_filesToCopy.isEmpty();
@@ -349,29 +323,31 @@ bool MaemoMountAndCopyFilesService::isDeploymentNecessary() const
 QList<MaemoMountSpecification> MaemoMountAndCopyFilesService::mountSpecifications() const
 {
     QList<MaemoMountSpecification> mountSpecs;
-#ifdef Q_OS_WIN
-    bool drivesToMount[26];
-    qFill(drivesToMount, drivesToMount + sizeof drivesToMount / sizeof drivesToMount[0], false);
-    for (int i = 0; i < m_filesToCopy.count(); ++i) {
-        const QString localDir = QFileInfo(m_filesToCopy.at(i).localFilePath).canonicalPath();
-        const char driveLetter = localDir.at(0).toLower().toLatin1();
-        if (driveLetter < 'a' || driveLetter > 'z') {
-            qWarning("Weird: drive letter is '%c'.", driveLetter);
-            continue;
+    if (Utils::HostOsInfo::isWindowsHost()) {
+        bool drivesToMount[26];
+        qFill(drivesToMount, drivesToMount + sizeof drivesToMount / sizeof drivesToMount[0], false);
+        for (int i = 0; i < m_filesToCopy.count(); ++i) {
+            const QString localDir
+                    = m_filesToCopy.at(i).localFilePath().toFileInfo().canonicalPath();
+            const char driveLetter = localDir.at(0).toLower().toLatin1();
+            if (driveLetter < 'a' || driveLetter > 'z') {
+                qWarning("Weird: drive letter is '%c'.", driveLetter);
+                continue;
+            }
+
+            const int index = driveLetter - 'a';
+            if (drivesToMount[index])
+                continue;
+
+            const QString mountPoint = deployMountPoint() + QLatin1Char('/')
+                    + QLatin1Char(driveLetter);
+            const MaemoMountSpecification mountSpec(localDir.left(3), mountPoint);
+            mountSpecs << mountSpec;
+            drivesToMount[index] = true;
         }
-
-        const int index = driveLetter - 'a';
-        if (drivesToMount[index])
-            continue;
-
-        const QString mountPoint = deployMountPoint() + QLatin1Char('/') + QLatin1Char(driveLetter);
-        const MaemoMountSpecification mountSpec(localDir.left(3), mountPoint);
-        mountSpecs << mountSpec;
-        drivesToMount[index] = true;
+    } else {
+        mountSpecs << MaemoMountSpecification(QLatin1String("/"), deployMountPoint());
     }
-#else
-    mountSpecs << MaemoMountSpecification(QLatin1String("/"), deployMountPoint());
-#endif
     return mountSpecs;
 }
 
@@ -470,12 +446,7 @@ AbstractRemoteLinuxDeployService *MaemoCopyFilesViaMountStep::deployService() co
 
 bool MaemoCopyFilesViaMountStep::initInternal(QString *error)
 {
-    QList<DeployableFile> deployableFiles;
-    const DeploymentInfo * const deploymentInfo = deployConfiguration()->deploymentInfo();
-    const int deployableCount = deploymentInfo->deployableCount();
-    for (int i = 0; i < deployableCount; ++i)
-        deployableFiles << deploymentInfo->deployableAt(i);
-    m_deployService->setDeployableFiles(deployableFiles);
+    m_deployService->setDeployableFiles(target()->deploymentData().allFiles());
     return deployService()->isDeploymentPossible(error);
 }
 

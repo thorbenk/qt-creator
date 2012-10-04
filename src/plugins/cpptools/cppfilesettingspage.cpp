@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,6 +39,7 @@
 
 #include <extensionsystem/pluginmanager.h>
 
+#include <utils/environment.h>
 #include <utils/fileutils.h>
 
 #include <QSettings>
@@ -152,11 +151,7 @@ static bool keyWordReplacement(const QString &keyWord,
         return true;
     }
     if (keyWord == QLatin1String("%USER%")) {
-#ifdef Q_OS_WIN
-        *value = QString::fromLocal8Bit(qgetenv("USERNAME"));
-#else
-        *value = QString::fromLocal8Bit(qgetenv("USER"));
-#endif
+        *value = Utils::Environment::systemEnvironment().userName();
         return true;
     }
     // Environment variables (for example '%$EMAIL%').
@@ -325,35 +320,11 @@ CppFileSettingsPage::CppFileSettingsPage(QSharedPointer<CppFileSettings> &settin
     Core::IOptionsPage(parent),
     m_settings(settings)
 {
-}
-
-CppFileSettingsPage::~CppFileSettingsPage()
-{
-}
-
-QString CppFileSettingsPage::id() const
-{
-    return QLatin1String(Constants::CPP_FILE_SETTINGS_ID);
-}
-
-QString CppFileSettingsPage::displayName() const
-{
-    return QCoreApplication::translate("CppTools", Constants::CPP_FILE_SETTINGS_NAME);
-}
-
-QString CppFileSettingsPage::category() const
-{
-    return QLatin1String(Constants::CPP_SETTINGS_CATEGORY);
-}
-
-QString CppFileSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("CppTools", Constants::CPP_SETTINGS_TR_CATEGORY);
-}
-
-QIcon CppFileSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Constants::SETTINGS_CATEGORY_CPP_ICON));
+    setId(QLatin1String(Constants::CPP_FILE_SETTINGS_ID));
+    setDisplayName(QCoreApplication::translate("CppTools", Constants::CPP_FILE_SETTINGS_NAME));
+    setCategory(QLatin1String(Constants::CPP_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("CppTools", Constants::CPP_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Constants::SETTINGS_CATEGORY_CPP_ICON));
 }
 
 QWidget *CppFileSettingsPage::createPage(QWidget *parent)

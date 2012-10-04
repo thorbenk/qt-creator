@@ -1,11 +1,13 @@
 import qbs.base 1.0
 
 import "../QtcPlugin.qbs" as QtcPlugin
+import "../../../qbs/defaults.js" as Defaults
 
 QtcPlugin {
     name: "Debugger"
+    type: base.concat(["installed_content"])
 
-    Depends { name: "qt"; submodules: ['widgets', 'network', 'script'] }
+    Depends { name: "Qt"; submodules: ["widgets", "network", "script"] }
     Depends { name: "Core" }
     Depends { name: "CppTools" }
     Depends { name: "QmlJSTools" }
@@ -13,12 +15,11 @@ QtcPlugin {
     Depends { name: "ProjectExplorer" }
     Depends { name: "TextEditor" }
     Depends { name: "CPlusPlus" }
-    Depends { name: "symbianutils" }
     Depends { name: "QmlJS" }
     Depends { name: "QmlDebug" }
+    Depends { name: "QtcSsh" }
 
     Depends { name: "cpp" }
-    cpp.defines: ["DEBUGGER_LIBRARY"]
     cpp.includePaths: [
         ".",
         "shared",
@@ -31,13 +32,19 @@ QtcPlugin {
         "../../shared/registryaccess/"
     ]
 
+    Group {
+        condition: Defaults.testsEnabled(qbs)
+        qbs.installDir: "tests/manual/debugger/simple/"
+        fileTags: ["install"]
+        files: ["../../../tests/manual/debugger/simple/simple.pro"]
+    }
+
     files: [
-        "breakcondition.ui",
-        "breakpoint.ui",
         "debugger.qrc",
-        "attachcoredialog.ui",
-        "attachexternaldialog.ui",
-        "attachtoqmlportdialog.ui",
+        "debuggerkitconfigwidget.cpp",
+        "debuggerkitconfigwidget.h",
+        "debuggerkitinformation.cpp",
+        "debuggerkitinformation.h",
         "basewindow.cpp",
         "breakhandler.cpp",
         "breakhandler.h",
@@ -67,14 +74,14 @@ QtcPlugin {
         "debuggerstreamops.cpp",
         "debuggerstreamops.h",
         "debuggerstringutils.h",
-        "debuggertoolchaincombobox.cpp",
-        "debuggertoolchaincombobox.h",
         "debuggertooltipmanager.cpp",
         "debuggertooltipmanager.h",
         "disassembleragent.cpp",
         "disassembleragent.h",
         "disassemblerlines.cpp",
         "disassemblerlines.h",
+        "loadcoredialog.cpp",
+        "loadcoredialog.h",
         "localsandexpressionsoptionspage.ui",
         "localsandexpressionswindow.cpp",
         "localsandexpressionswindow.h",
@@ -88,8 +95,6 @@ QtcPlugin {
         "moduleshandler.h",
         "moduleswindow.cpp",
         "moduleswindow.h",
-        "name_demangler.cpp",
-        "name_demangler.h",
         "outputcollector.cpp",
         "outputcollector.h",
         "procinterrupt.cpp",
@@ -126,9 +131,6 @@ QtcPlugin {
         "stackhandler.h",
         "stackwindow.cpp",
         "stackwindow.h",
-        "startexternaldialog.ui",
-        "startremotedialog.ui",
-        "startremoteenginedialog.ui",
         "threaddata.h",
         "threadshandler.cpp",
         "threadshandler.h",
@@ -163,15 +165,11 @@ QtcPlugin {
         "cdb/cdbparsehelpers.cpp",
         "cdb/cdbparsehelpers.h",
         "gdb/gdb.qrc",
-        "gdb/abstractgdbadapter.cpp",
-        "gdb/abstractgdbadapter.h",
         "gdb/abstractgdbprocess.cpp",
         "gdb/abstractgdbprocess.h",
         "gdb/abstractplaingdbadapter.cpp",
         "gdb/abstractplaingdbadapter.h",
         "gdb/attachgdbadapter.h",
-        "gdb/codagdbadapter.cpp",
-        "gdb/codagdbadapter.h",
         "gdb/coregdbadapter.cpp",
         "gdb/coregdbadapter.h",
         "gdb/gdbengine.cpp",
@@ -189,14 +187,14 @@ QtcPlugin {
         "gdb/remotegdbserveradapter.h",
         "gdb/remoteplaingdbadapter.cpp",
         "gdb/remoteplaingdbadapter.h",
-        "gdb/symbian.cpp",
-        "gdb/symbian.h",
         "gdb/termgdbadapter.h",
         "gdb/attachgdbadapter.cpp",
         "gdb/classicgdbengine.cpp",
         "gdb/gdbengine.h",
         "gdb/gdboptionspage.cpp",
         "gdb/termgdbadapter.cpp",
+        "gdb/startgdbserverdialog.cpp",
+        "gdb/startgdbserverdialog.h",
         "images/breakpoint_16.png",
         "images/breakpoint_24.png",
         "images/breakpoint_disabled_16.png",
@@ -263,7 +261,14 @@ QtcPlugin {
         "lldb/ipcenginehost.cpp",
         "lldb/ipcenginehost.h",
         "lldb/lldbenginehost.cpp",
-        "lldb/lldbenginehost.h"
+        "lldb/lldbenginehost.h",
+        "namedemangler/namedemangler.cpp",
+        "namedemangler/namedemangler.h",
+        "namedemangler/parsetreenodes.cpp",
+        "namedemangler/parsetreenodes.h",
+        "namedemangler/demanglerexceptions.h",
+        "namedemangler/globalparsestate.h",
+        "namedemangler/globalparsestate.cpp"
     ]
 
     Group {
@@ -272,15 +277,6 @@ QtcPlugin {
         files: [
             "registryaccess.cpp",
             "registryaccess.h"
-        ]
-    }
-
-    Group {
-        prefix: "../../shared/json/"
-        files: [
-            "json_global.h",
-            "json.cpp",
-            "json.h"
         ]
     }
 
@@ -314,7 +310,7 @@ QtcPlugin {
 
     ProductModule {
         Depends { name: "cpp" }
+        Depends { name: "QtcSsh" }
         cpp.includePaths: ["."]
     }
 }
-

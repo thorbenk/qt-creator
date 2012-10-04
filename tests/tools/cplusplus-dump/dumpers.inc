@@ -359,6 +359,8 @@ virtual bool visit(ClassSpecifierAST *ast)
     for (SpecifierListAST *iter = ast->attribute_list; iter; iter = iter->next)
         nonterminal(iter->value);
     nonterminal(ast->name);
+    if (ast->final_token)
+        terminal(ast->final_token, ast);
     if (ast->colon_token)
         terminal(ast->colon_token, ast);
     for (BaseSpecifierListAST *iter = ast->base_clause_list; iter; iter = iter->next)
@@ -477,6 +479,8 @@ virtual bool visit(FunctionDeclaratorAST *ast)
         terminal(ast->rparen_token, ast);
     for (SpecifierListAST *iter = ast->cv_qualifier_list; iter; iter = iter->next)
         nonterminal(iter->value);
+    if (ast->ref_qualifier_token)
+        terminal(ast->ref_qualifier_token, ast);
     nonterminal(ast->exception_specification);
     nonterminal(ast->trailing_return_type);
     nonterminal(ast->as_cpp_initializer);
@@ -544,7 +548,13 @@ virtual bool visit(EnumSpecifierAST *ast)
 {
     if (ast->enum_token)
         terminal(ast->enum_token, ast);
+    if (ast->key_token)
+        terminal(ast->key_token, ast);
     nonterminal(ast->name);
+    if (ast->colon_token)
+        terminal(ast->colon_token, ast);
+    for (SpecifierListAST *iter = ast->type_specifier_list; iter; iter = iter->next)
+        nonterminal(iter->value);
     if (ast->lbrace_token)
         terminal(ast->lbrace_token, ast);
     for (EnumeratorListAST *iter = ast->enumerator_list; iter; iter = iter->next)
@@ -649,6 +659,24 @@ virtual bool visit(ForeachStatementAST *ast)
     return false;
 }
 
+virtual bool visit(RangeBasedForStatementAST *ast)
+{
+    if (ast->for_token)
+        terminal(ast->for_token, ast);
+    if (ast->lparen_token)
+        terminal(ast->lparen_token, ast);
+    for (SpecifierListAST *iter = ast->type_specifier_list; iter; iter = iter->next)
+        nonterminal(iter->value);
+    nonterminal(ast->declarator);
+    if (ast->colon_token)
+        terminal(ast->colon_token, ast);
+    nonterminal(ast->expression);
+    if (ast->rparen_token)
+        terminal(ast->rparen_token, ast);
+    nonterminal(ast->statement);
+    return false;
+}
+
 virtual bool visit(ForStatementAST *ast)
 {
     if (ast->for_token)
@@ -727,12 +755,7 @@ virtual bool visit(LinkageSpecificationAST *ast)
 virtual bool visit(MemInitializerAST *ast)
 {
     nonterminal(ast->name);
-    if (ast->lparen_token)
-        terminal(ast->lparen_token, ast);
-    for (ExpressionListAST *iter = ast->expression_list; iter; iter = iter->next)
-        nonterminal(iter->value);
-    if (ast->rparen_token)
-        terminal(ast->rparen_token, ast);
+    nonterminal(ast->expression);
     return false;
 }
 
@@ -831,7 +854,21 @@ virtual bool visit(NamespaceAliasDefinitionAST *ast)
     return false;
 }
 
-virtual bool visit(NewPlacementAST *ast)
+virtual bool visit(AliasDeclarationAST *ast)
+{
+    if (ast->using_token)
+        terminal(ast->using_token, ast);
+    if (ast->identifier_token)
+        terminal(ast->identifier_token, ast);
+    if (ast->equal_token)
+        terminal(ast->equal_token, ast);
+    nonterminal(ast->typeId);
+    if (ast->semicolon_token)
+        terminal(ast->semicolon_token, ast);
+    return false;
+}
+
+virtual bool visit(ExpressionListParenAST *ast)
 {
     if (ast->lparen_token)
         terminal(ast->lparen_token, ast);
@@ -866,16 +903,6 @@ virtual bool visit(NewExpressionAST *ast)
         terminal(ast->rparen_token, ast);
     nonterminal(ast->new_type_id);
     nonterminal(ast->new_initializer);
-    return false;
-}
-
-virtual bool visit(NewInitializerAST *ast)
-{
-    if (ast->lparen_token)
-        terminal(ast->lparen_token, ast);
-    nonterminal(ast->expression);
-    if (ast->rparen_token)
-        terminal(ast->rparen_token, ast);
     return false;
 }
 
@@ -980,12 +1007,7 @@ virtual bool visit(TypenameCallExpressionAST *ast)
     if (ast->typename_token)
         terminal(ast->typename_token, ast);
     nonterminal(ast->name);
-    if (ast->lparen_token)
-        terminal(ast->lparen_token, ast);
-    for (ExpressionListAST *iter = ast->expression_list; iter; iter = iter->next)
-        nonterminal(iter->value);
-    if (ast->rparen_token)
-        terminal(ast->rparen_token, ast);
+    nonterminal(ast->expression);
     return false;
 }
 
@@ -993,12 +1015,7 @@ virtual bool visit(TypeConstructorCallAST *ast)
 {
     for (SpecifierListAST *iter = ast->type_specifier_list; iter; iter = iter->next)
         nonterminal(iter->value);
-    if (ast->lparen_token)
-        terminal(ast->lparen_token, ast);
-    for (ExpressionListAST *iter = ast->expression_list; iter; iter = iter->next)
-        nonterminal(iter->value);
-    if (ast->rparen_token)
-        terminal(ast->rparen_token, ast);
+    nonterminal(ast->expression);
     return false;
 }
 
@@ -1012,6 +1029,8 @@ virtual bool visit(PointerToMemberAST *ast)
         terminal(ast->star_token, ast);
     for (SpecifierListAST *iter = ast->cv_qualifier_list; iter; iter = iter->next)
         nonterminal(iter->value);
+    if (ast->ref_qualifier_token)
+        terminal(ast->ref_qualifier_token, ast);
     return false;
 }
 
@@ -1079,6 +1098,18 @@ virtual bool visit(SizeofExpressionAST *ast)
     if (ast->lparen_token)
         terminal(ast->lparen_token, ast);
     nonterminal(ast->expression);
+    if (ast->rparen_token)
+        terminal(ast->rparen_token, ast);
+    return false;
+}
+
+virtual bool visit(AlignofExpressionAST *ast)
+{
+    if (ast->alignof_token)
+        terminal(ast->alignof_token, ast);
+    if (ast->lparen_token)
+        terminal(ast->lparen_token, ast);
+    nonterminal(ast->typeId);
     if (ast->rparen_token)
         terminal(ast->rparen_token, ast);
     return false;

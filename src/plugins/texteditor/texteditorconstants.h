@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -58,8 +56,9 @@ enum TextStyle {
     C_TYPE,
     C_LOCAL,
     C_FIELD,
-    C_STATIC,
+    C_ENUMERATION,
     C_VIRTUAL_METHOD,
+    C_FUNCTION,
     C_KEYWORD,
     C_OPERATOR,
     C_PREPROCESSOR,
@@ -179,6 +178,11 @@ const char SNIPPET_EDITOR_ID[]     = "TextEditor.SnippetEditor";
 const char TEXT_SNIPPET_GROUP_ID[] = "Text";
 
 const char GLOBAL_SETTINGS_ID[]    = "Global";
+
+/**
+ * Delay before tooltip will be shown near completion assistant proposal
+ */
+const unsigned COMPLETION_ASSIST_TOOLTIP_DELAY = 100;
 
 } // namespace Constants
 } // namespace TextEditor

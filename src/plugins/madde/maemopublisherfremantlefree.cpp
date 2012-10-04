@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,17 +25,16 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemopublisherfremantlefree.h"
 
 #include "maemoglobal.h"
+#include "maemoconstants.h"
+#include "debianmanager.h"
 #include "maemopackagecreationstep.h"
 #include "maemopublishingfileselectiondialog.h"
 #include "qt4maemodeployconfiguration.h"
-#include "qt4maemotarget.h"
 
 #include <coreplugin/idocument.h>
 #include <projectexplorer/project.h>
@@ -43,11 +42,10 @@
 #include <qt4projectmanager/qmakestep.h>
 #include <qt4projectmanager/qt4buildconfiguration.h>
 #include <qtsupport/baseqtversion.h>
-#include <remotelinux/deployablefilesperprofile.h>
-#include <remotelinux/deploymentinfo.h>
+#include <qtsupport/qtkitinformation.h>
 #include <utils/fileutils.h>
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshremoteprocessrunner.h>
+#include <ssh/sshremoteprocessrunner.h>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -59,6 +57,7 @@
 using namespace Core;
 using namespace Qt4ProjectManager;
 using namespace RemoteLinux;
+using namespace QSsh;
 using namespace Utils;
 
 namespace Madde {
@@ -129,7 +128,7 @@ void MaemoPublisherFremantleFree::createPackage()
     if (QFileInfo(tmpDirContainer()).exists()) {
         emit progressReport(tr("Removing left-over temporary directory..."));
         QString error;
-        if (!Utils::FileUtils::removeRecursively(tmpDirContainer(), &error)) {
+        if (!FileUtils::removeRecursively(FileName::fromString(tmpDirContainer()), &error)) {
             finishWithFailure(tr("Error removing temporary directory: %1").arg(error),
                 tr("Publishing failed: Could not create source package."));
             return;
@@ -150,13 +149,6 @@ void MaemoPublisherFremantleFree::createPackage()
     if (!fixNewlines()) {
         finishWithFailure(tr("Error: Could not fix newlines."),
             tr("Publishing failed: Could not create source package."));
-        return;
-    }
-
-    QString error;
-    if (!updateDesktopFiles(&error)) {
-        finishWithFailure(error,
-            tr("Publishing failed: Could not create package."));
         return;
     }
 
@@ -210,7 +202,7 @@ bool MaemoPublisherFremantleFree::copyRecursively(const QString &srcFilePath,
         }
     } else {
         if (tgtFilePath == m_tmpProjectDir + QLatin1String("/debian/rules")) {
-            Utils::FileReader reader;
+            FileReader reader;
             if (!reader.fetch(srcFilePath)) {
                 emit progressReport(reader.errorString(), ErrorOutput);
                 return false;
@@ -220,7 +212,7 @@ bool MaemoPublisherFremantleFree::copyRecursively(const QString &srcFilePath,
             rulesContents.replace("# Add here commands to configure the package.",
                 "qmake " + QFileInfo(m_project->document()->fileName()).fileName().toLocal8Bit());
             MaemoDebianPackageCreationStep::ensureShlibdeps(rulesContents);
-            Utils::FileSaver saver(tgtFilePath);
+            FileSaver saver(tgtFilePath);
             saver.write(rulesContents);
             if (!saver.finalize()) {
                 emit progressReport(saver.errorString(), ErrorOutput);
@@ -252,7 +244,7 @@ bool MaemoPublisherFremantleFree::fixNewlines()
     const QStringList &fileNames = debianDir.entryList(QDir::Files);
     foreach (const QString &fileName, fileNames) {
         QString filePath = debianDir.filePath(fileName);
-        Utils::FileReader reader;
+        FileReader reader;
         if (!reader.fetch(filePath))
             return false;
         QByteArray contents = reader.data();
@@ -260,7 +252,7 @@ bool MaemoPublisherFremantleFree::fixNewlines()
         if (!contents.contains(crlf))
             continue;
         contents.replace(crlf, "\n");
-        Utils::FileSaver saver(filePath);
+        FileSaver saver(filePath);
         saver.write(contents);
         if (!saver.finalize())
             return false;
@@ -309,8 +301,14 @@ void MaemoPublisherFremantleFree::handleProcessFinished(bool failedToStart)
             runDpkgBuildPackage();
         } else {
             setState(RunningMakeDistclean);
-            m_process->start(m_buildConfig->makeCommand(),
-                QStringList() << QLatin1String("distclean"));
+            // Toolchain might be null! (yes because this sucks)
+            ProjectExplorer::ToolChain *tc
+                    = ProjectExplorer::ToolChainKitInformation::toolChain(m_buildConfig->target()->kit());
+            if (!tc) {
+                finishWithFailure(QString(), tr("Make distclean failed: %1")
+                                  .arg(ProjectExplorer::ToolChainKitInformation::msgNoToolChainInTarget()));
+            }
+            m_process->start(tc->makeCommand(m_buildConfig->environment()), QStringList() << QLatin1String("distclean"));
         }
         break;
     case RunningMakeDistclean:
@@ -368,13 +366,13 @@ void MaemoPublisherFremantleFree::runDpkgBuildPackage()
     }
     foreach (const QString &filePath, d.filesToExclude()) {
         QString error;
-        if (!Utils::FileUtils::removeRecursively(filePath, &error)) {
+        if (!FileUtils::removeRecursively(FileName::fromString(filePath), &error)) {
             finishWithFailure(error,
                 tr("Publishing failed: Could not create package."));
         }
     }
 
-    QtSupport::BaseQtVersion *lqt = m_buildConfig->qtVersion();
+    QtSupport::BaseQtVersion *lqt = QtSupport::QtKitInformation::qtVersion(m_buildConfig->target()->kit());
     if (!lqt)
         finishWithFailure(QString(), tr("No Qt version set."));
 
@@ -396,8 +394,7 @@ void MaemoPublisherFremantleFree::uploadPackage()
     connect(m_uploader, SIGNAL(processStarted()), SLOT(handleScpStarted()));
     connect(m_uploader, SIGNAL(connectionError()), SLOT(handleConnectionError()));
     connect(m_uploader, SIGNAL(processClosed(int)), SLOT(handleUploadJobFinished(int)));
-    connect(m_uploader, SIGNAL(processOutputAvailable(QByteArray)),
-        SLOT(handleScpStdOut(QByteArray)));
+    connect(m_uploader, SIGNAL(readyReadStandardOutput()), SLOT(handleScpStdOut()));
     emit progressReport(tr("Starting scp..."));
     setState(StartingScp);
     m_uploader->run("scp -td " + m_remoteDir.toUtf8(), m_sshParams);
@@ -424,10 +421,10 @@ void MaemoPublisherFremantleFree::handleUploadJobFinished(int exitStatus)
     QTC_ASSERT(m_state == PreparingToUploadFile || m_state == UploadingFile || m_state ==Inactive,
         return);
 
-    if (m_state != Inactive && (exitStatus != SshRemoteProcess::ExitedNormally
+    if (m_state != Inactive && (exitStatus != SshRemoteProcess::NormalExit
             || m_uploader->processExitCode() != 0)) {
         QString error;
-        if (exitStatus != SshRemoteProcess::ExitedNormally) {
+        if (exitStatus != SshRemoteProcess::NormalExit) {
             error = tr("Error uploading file: %1.")
                 .arg(m_uploader->processErrorString());
         } else {
@@ -488,7 +485,7 @@ void MaemoPublisherFremantleFree::sendFile()
     m_uploader->writeDataToProcess(QByteArray(1, '\0'));
 }
 
-void MaemoPublisherFremantleFree::handleScpStdOut(const QByteArray &output)
+void MaemoPublisherFremantleFree::handleScpStdOut()
 {
     QTC_ASSERT(m_state == PreparingToUploadFile || m_state == UploadingFile || m_state == Inactive,
         return);
@@ -496,7 +493,7 @@ void MaemoPublisherFremantleFree::handleScpStdOut(const QByteArray &output)
     if (m_state == Inactive)
         return;
 
-    m_scpOutput += output;
+    m_scpOutput += m_uploader->readAllStandardOutput();
     if (m_scpOutput == QByteArray(1, '\0')) {
         m_scpOutput.clear();
         switch (m_state) {
@@ -537,70 +534,16 @@ void MaemoPublisherFremantleFree::finishWithFailure(const QString &progressMsg,
     setState(Inactive);
 }
 
-bool MaemoPublisherFremantleFree::updateDesktopFiles(QString *error) const
-{
-    bool success = true;
-    const Qt4MaemoDeployConfiguration * const deployConfig
-        = qobject_cast<Qt4MaemoDeployConfiguration *>(m_buildConfig->target()->activeDeployConfiguration());
-    const DeploymentInfo * const deploymentInfo = deployConfig->deploymentInfo();
-    for (int i = 0; i < deploymentInfo->modelCount(); ++i) {
-        const DeployableFilesPerProFile * const model = deploymentInfo->modelAt(i);
-        QString desktopFilePath = deployConfig->localDesktopFilePath(model);
-        if (desktopFilePath.isEmpty())
-            continue;
-        desktopFilePath.replace(model->projectDir(), m_tmpProjectDir);
-        const QString executableFilePath = model->remoteExecutableFilePath();
-        if (executableFilePath.isEmpty()) {
-            qDebug("%s: Skipping subproject %s with missing deployment information.",
-                Q_FUNC_INFO, qPrintable(model->proFilePath()));
-            continue;
-        }
-        Utils::FileReader reader;
-        if (!reader.fetch(desktopFilePath, error)) {
-            success = false;
-            continue;
-        }
-        QByteArray desktopFileContents = reader.data();
-        bool fileNeedsUpdate = addOrReplaceDesktopFileValue(desktopFileContents,
-            "Exec", executableFilePath.toUtf8());
-        if (fileNeedsUpdate) {
-            Utils::FileSaver saver(desktopFilePath);
-            saver.write(desktopFileContents);
-            if (!saver.finalize(error))
-                success = false;
-        }
-    }
-    return success;
-}
-
-bool MaemoPublisherFremantleFree::addOrReplaceDesktopFileValue(QByteArray &fileContent,
-    const QByteArray &key, const QByteArray &newValue) const
-{
-    const int keyPos = fileContent.indexOf(key + '=');
-    if (keyPos == -1) {
-        if (!fileContent.endsWith('\n'))
-            fileContent += '\n';
-        fileContent += key + '=' + newValue + '\n';
-        return true;
-    }
-    int nextNewlinePos = fileContent.indexOf('\n', keyPos);
-    if (nextNewlinePos == -1)
-        nextNewlinePos = fileContent.count();
-    const int replacePos = keyPos + key.count() + 1;
-    const int replaceCount = nextNewlinePos - replacePos;
-    const QByteArray &oldValue = fileContent.mid(replacePos, replaceCount);
-    if (oldValue == newValue)
-        return false;
-    fileContent.replace(replacePos, replaceCount, newValue);
-    return true;
-}
-
 QStringList MaemoPublisherFremantleFree::findProblems() const
 {
     QStringList problems;
-    const Qt4Maemo5Target * const target
-        = qobject_cast<Qt4Maemo5Target *>(m_buildConfig->target());
-    const QString &description = target->shortDescription();
+    ProjectExplorer::Target *target = m_buildConfig->target();
+    Core::Id deviceType
+            = ProjectExplorer::DeviceTypeKitInformation::deviceTypeId(target->kit());
+    if (deviceType != Maemo5OsType)
+        return QStringList();
+
+    const QString &description = DebianManager::shortDescription(DebianManager::debianDirectory(target));
     if (description.trimmed().isEmpty()) {
         problems << tr("The package description is empty. You must set one "
             "in Projects -> Run -> Create Package -> Details.");
@@ -609,8 +552,9 @@ QStringList MaemoPublisherFremantleFree::findProblems() const
             "not what you want. Please change it in "
             "Projects -> Run -> Create Package -> Details.").arg(description);
     }
+
     QString dummy;
-    if (target->packageManagerIcon(&dummy).isNull())
+    if (DebianManager::packageManagerIcon(DebianManager::debianDirectory(target), &dummy).isNull())
         problems << tr("You have not set an icon for the package manager. "
             "The icon must be set in Projects -> Run -> Create Package -> Details.");
     return problems;

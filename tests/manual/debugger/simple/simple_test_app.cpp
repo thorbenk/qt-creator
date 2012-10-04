@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -125,6 +123,7 @@ void dummyStatement(...) {}
 #undef __STRICT_ANSI__ // working around compile error with MinGW
 #endif
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QDateTime>
 #include <QDir>
@@ -148,16 +147,19 @@ void dummyStatement(...) {}
 #include <QSharedPointer>
 #endif
 
+#if USE_GUILIB
+#include <QAction>
+#include <QApplication> // QWidgets: Separate module as of Qt 5
 #include <QColor>
 #include <QFont>
-
-//#include <QtGui/private/qfixed_p.h>
+#include <QLabel>
 #include <QPainter>
 #include <QPainterPath>
 #include <QRegion>
-
+#include <QStandardItemModel>
 #include <QTextCursor>
 #include <QTextDocument>
+#endif
 
 #if USE_SCRIPTLIB
 #include <QScriptEngine>
@@ -172,11 +174,6 @@ void dummyStatement(...) {}
 
 #include <QHostAddress>
 #include <QNetworkRequest>
-
-#include <QApplication> // QWidgets: Separate module as of Qt 5
-#include <QAction>
-#include <QStandardItemModel>
-#include <QLabel>
 
 #if USE_CXX11
 #include <array>
@@ -365,6 +362,13 @@ private:
     QHash<QObject *, Map::iterator> h;
 };
 
+class Fooooo : public Foo
+{
+public:
+    Fooooo(int x) : Foo(x), a(x + 2) {}
+    int a;
+};
+
 class X : virtual public Foo { public: X() { } };
 
 class XX : virtual public Foo { public: XX() { } };
@@ -437,6 +441,7 @@ namespace peekandpoke {
 
     void testQImageDisplay()
     {
+        #if USE_GUILIB
         QImage im(QSize(200, 200), QImage::Format_RGB32);
         im.fill(QColor(200, 10, 30).rgba());
         QPainter pain;
@@ -473,6 +478,7 @@ namespace peekandpoke {
 
         pain.end();
         dummyStatement(&pain);
+        #endif
     }
 
     void testPeekAndPoke3()
@@ -531,6 +537,7 @@ namespace anon {
         a.i = 1;
         a.i = 2;
         a.i = 3;
+
         Something s;
         BREAK_HERE;
         // Expand s.
@@ -538,13 +545,20 @@ namespace anon {
         // Check s.a 1 int.
         // Check s.b 1 int.
         // Continue.
+
         s.foo();
         BREAK_HERE;
         // Expand s.
         // Check s.a 42 int.
         // Check s.b 43 int.
         // Continue.
-        dummyStatement(&a, &s);
+
+        std::map<int, Something> m;
+        BREAK_HERE;
+        // CheckType m std::map<int, anon::{anonymous}::Something>.
+        // Continue.
+
+        dummyStatement(&a, &s, &m);
     #endif
     }
 
@@ -659,6 +673,23 @@ namespace catchthrow {
     }
 
 } // namespace catchthrow
+
+
+namespace undefined {
+
+    void testUndefined()
+    {
+        int *i = new int;
+        delete i;
+        BREAK_HERE;
+        // Manual: Uncomment the following line. Step.
+        // On Linux, a SIGABRT should be received.
+        //delete i;
+        // Continue.
+        dummyStatement(&i);
+    }
+
+} // namespace undefined
 
 
 namespace qdatetime {
@@ -913,6 +944,36 @@ namespace qhash {
         dummyStatement(&hash, &ob);
     }
 
+    void testQHashIntFloatIterator()
+    {
+        typedef QHash<int, float> Hash;
+        Hash hash;
+        hash[11] = 11.0;
+        hash[22] = 22.0;
+        hash[33] = 33.0;
+        hash[44] = 44.0;
+        hash[55] = 55.0;
+        hash[66] = 66.0;
+
+        Hash::iterator it1 = hash.begin();
+        Hash::iterator it2 = it1; ++it2;
+        Hash::iterator it3 = it2; ++it2;
+        Hash::iterator it4 = it3; ++it3;
+        Hash::iterator it5 = it4; ++it4;
+        Hash::iterator it6 = it5; ++it5;
+
+        BREAK_HERE;
+        // Expand hash.
+        // Check hash <6 items> Hash.
+        // Check hash.11 11 float.
+        // Check it1.first 11 int.
+        // Check it1.second 11 float.
+        // Check it1.first 55 int.
+        // Check it1.second 55 float.
+        // Continue.
+        dummyStatement(&hash, &it1, &it2, &it3, &it4, &it5, &it6);
+    }
+
     void testQHash()
     {
         testQHash1();
@@ -922,6 +983,7 @@ namespace qhash {
         testQHash5();
         testQHash6();
         testQHash7();
+        testQHashIntFloatIterator();
     }
 
 } // namespace qhash
@@ -947,6 +1009,7 @@ namespace painting {
 
     void testQImage()
     {
+        #if USE_GUILIB
         // only works with Python dumper
         QImage im(QSize(200, 200), QImage::Format_RGB32);
         im.fill(QColor(200, 100, 130).rgba());
@@ -962,10 +1025,12 @@ namespace painting {
         pain.drawRect(30, 30, 80, 80);
         pain.end();
         dummyStatement(&pain, &im);
+        #endif
     }
 
     void testQPixmap()
     {
+        #if USE_GUILIB
         QImage im(QSize(200, 200), QImage::Format_RGB32);
         im.fill(QColor(200, 100, 130).rgba());
         QPainter pain;
@@ -979,6 +1044,7 @@ namespace painting {
         // Check pm (200x200) QPixmap.
         // Continue.
         dummyStatement(&im, &pm);
+        #endif
     }
 
     void testPainting()
@@ -1109,6 +1175,51 @@ namespace qlist {
         // Check big.1999 1999 int.
         // Continue.
         dummyStatement(&big);
+    }
+
+    void testQListIntTakeFirst()
+    {
+        QList<int> l;
+        l.append(0);
+        l.append(1);
+        l.append(2);
+        l.takeFirst();
+        BREAK_HERE;
+        // Expand l.
+        // Check l <2 items> QList<int>.
+        // Check l.0 1 int.
+        // Continue.
+        dummyStatement(&l);
+    }
+
+    void testQListStringTakeFirst()
+    {
+        QList<QString> l;
+        l.append("0");
+        l.append("1");
+        l.append("2");
+        l.takeFirst();
+        BREAK_HERE;
+        // Expand l.
+        // Check l <2 items> QList<QString>.
+        // Check l.0 "1" QString.
+        // Continue.
+        dummyStatement(&l);
+    }
+
+    void testQStringListTakeFirst()
+    {
+        QStringList l;
+        l.append("0");
+        l.append("1");
+        l.append("2");
+        l.takeFirst();
+        BREAK_HERE;
+        // Expand l.
+        // Check l <2 items> QStringList.
+        // Check l.0 "1" QString.
+        // Continue.
+        dummyStatement(&l);
     }
 
     void testQListIntStar()
@@ -1279,6 +1390,9 @@ namespace qlist {
         testQListStdString();
         testQListFoo();
         testQListReverse();
+        testQListIntTakeFirst();
+        testQListStringTakeFirst();
+        testQStringListTakeFirst();
     }
 
 } // namespace qlist
@@ -1594,8 +1708,16 @@ namespace qobject {
         {
             Q_OBJECT
         public:
-            TestObject(QObject *parent = 0) : QObject(parent)
-                { m_ui = new Ui; m_ui->w = new QWidget; }
+            TestObject(QObject *parent = 0)
+                : QObject(parent)
+            {
+                m_ui = new Ui;
+                #if USE_GUILIB
+                m_ui->w = new QWidget;
+                #else
+                m_ui->w = 0;
+                #endif
+            }
 
             Q_PROPERTY(QString myProp1 READ myProp1 WRITE setMyProp1)
             QString myProp1() const { return m_myProp1; }
@@ -1641,6 +1763,7 @@ namespace qobject {
     #endif
 
     #if 1
+        #if USE_GUILIB
         QWidget ob;
         ob.setObjectName("An Object");
         ob.setProperty("USER DEFINED 1", 44);
@@ -1651,6 +1774,7 @@ namespace qobject {
         QObject::connect(&ob, SIGNAL(destroyed()), &ob1, SLOT(deleteLater()));
         QObject::connect(&ob, SIGNAL(destroyed()), &ob1, SLOT(deleteLater()));
         //QObject::connect(&app, SIGNAL(lastWindowClosed()), &ob, SLOT(deleteLater()));
+        #endif
     #endif
 
     #if 0
@@ -1840,9 +1964,9 @@ namespace qregexp {
 
 } // namespace qregexp
 
-
 namespace qrect {
 
+    #if USE_GUILIB
     void testQPoint()
     {
         QPoint s;
@@ -1924,15 +2048,18 @@ namespace qrect {
         // Continue.
         dummyStatement(&s);
     }
+    #endif
 
     void testGeometry()
     {
+        #if USE_GUILIB
         testQPoint();
         testQPointF();
         testQRect();
         testQRectF();
         testQSize();
         testQSizeF();
+        #endif
     }
 
 } // namespace qrect
@@ -1942,6 +2069,7 @@ namespace qregion {
 
     void testQRegion()
     {
+        #if USE_GUILIB
         // Works with Python dumpers only.
         QRegion region;
         BREAK_HERE;
@@ -1991,6 +2119,7 @@ namespace qregion {
         // Check region <4 items> QRegion.
         // Continue.
         dummyStatement(&region);
+        #endif
     }
 
 } // namespace qregion
@@ -2010,9 +2139,6 @@ namespace plugin {
     #endif
     #ifdef Q_OS_WIN
         QLibrary lib(dir + "/debug/simple_test_plugin.dll");
-    #endif
-    #ifdef Q_OS_SYMBIAN
-        QLibrary lib(dir + "/libsimple_test_plugin.dll");
     #endif
         BREAK_HERE;
         // CheckType dir QString.
@@ -2105,10 +2231,12 @@ namespace final {
 
     void testApplicationStart(QCoreApplication *app)
     {
+        #if USE_GUILIB
         QString str = QString::fromUtf8("XXXXXXXXXXXXXXyyXXX ö");
         QLabel l(str);
         l.setObjectName("Some Label");
         l.show();
+        #endif
         // Jump over next line.
         return;
         app->exec();
@@ -2714,7 +2842,7 @@ namespace stdmap {
 
     void testStdMapUIntFloatIterator()
     {
-        typedef std::map<uint, float> Map;
+        typedef std::map<int, float> Map;
         Map map;
         map[11] = 11.0;
         map[22] = 22.0;
@@ -2732,11 +2860,11 @@ namespace stdmap {
 
         BREAK_HERE;
         // Expand map.
-        // Check map <6 items> std::map<unsigned int, float>.
+        // Check map <6 items> std::map<int, float>.
         // Check map.11 11 float.
-        // Check it1.first 11 unsigned int.
+        // Check it1.first 11 int.
         // Check it1.second 11 float.
-        // Check it1.first 55 unsigned int.
+        // Check it1.first 55 int.
         // Check it1.second 55 float.
         // Continue.
         dummyStatement(&map, &it1, &it2, &it3, &it4, &it5, &it6);
@@ -2910,6 +3038,7 @@ namespace stdset {
         // Check it1.value 11 int.
         // Check it1.key 55 unsigned int.
         // Check it1.value 55 int.
+        // Continue.
         dummyStatement(&set, &it1, &it2, &it3, &it4, &it5, &it6);
     }
 
@@ -3340,6 +3469,7 @@ namespace itemmodel {
 
     void testItemModel()
     {
+        #if USE_GUILIB
         //char buf[100];
         //QString *s = static_cast<QString *>(static_cast<void *>(&(v.data_ptr().data.c)));
         //QString *t = (QString *)&(v.data_ptr());
@@ -3361,6 +3491,7 @@ namespace itemmodel {
         // Check mi "1" QModelIndex.
         // Continue.
         dummyStatement(&i1, &mi, &m, &i2, &i11);
+        #endif
     }
 
 } // namespace itemmodel
@@ -3666,6 +3797,7 @@ namespace text {
 
     void testText()
     {
+        #if USE_GUILIB
         //char *argv[] = { "xxx", 0 };
         QTextDocument doc;
         doc.setPlainText("Hallo\nWorld");
@@ -3686,6 +3818,7 @@ namespace text {
         // Check anc 1 int.
         // Continue.
         dummyStatement(&pos, &anc);
+        #endif
     }
 
 } // namespace text
@@ -3817,6 +3950,8 @@ namespace qvariant {
         BREAK_HERE;
         // Check var "Hello 10" QVariant (QString).
         // Continue.
+
+        #if USE_GUILIB
         var.setValue(QRect(100, 200, 300, 400)); // 19 QRect
         BREAK_HERE;
         // Check var 300x400+100+200 QVariant (QRect).
@@ -3825,6 +3960,7 @@ namespace qvariant {
         BREAK_HERE;
         // Check var 300x400+100+200 QVariant (QRectF).
         // Continue.
+        #endif
 
         /*
          "QStringList", # 11
@@ -4048,11 +4184,13 @@ namespace qvector {
     {
         // This tests the display of a big vector.
         QVector<int> vec(10000);
+        for (int i = 0; i != vec.size(); ++i)
+            vec[i] = i * i;
         BREAK_HERE;
         // Expand vec.
         // Check vec <10000 items> QVector<int>.
         // Check vec.0 0 int.
-        // Check vec.1999 0 int.
+        // Check vec.1999 3996001 int.
         // Continue.
 
         // step over
@@ -4113,16 +4251,19 @@ namespace qvector {
         vec.append(new Foo(1));
         vec.append(0);
         vec.append(new Foo(2));
+        vec.append(new Fooooo(3));
         // switch "Auto derefencing pointers" in Locals context menu
         // off and on again, and check result looks sane.
         BREAK_HERE;
         // Expand vec vec.0 vec.2.
-        // Check vec <3 items> QVector<Foo*>.
+        // Check vec <4 items> QVector<Foo*>.
         // CheckType vec.0 Foo.
         // Check vec.0.a 1 int.
         // Check vec.1 0x0 Foo *.
         // CheckType vec.2 Foo.
         // Check vec.2.a 2 int.
+        // CheckType vec.3 Fooooo.
+        // Check vec.3.a 5 int.
         // Continue.
         dummyStatement(&vec);
     }
@@ -4812,8 +4953,8 @@ namespace basic {
         // Check s "Foo" QString.
         // Continue.
 
-        // Select "Open Memory View" from Locals and Expressions
-        //    context menu for item 'd'.
+        // Select "Open Memory Editor->Open Memory Editor Showing Stack Layout"
+        // from Locals and Expressions context menu.
         // Check that the opened memory view contains coloured items
         //    for 'i', 'd', and 's'.
         dummyStatement(&i, &d, &s);
@@ -4932,18 +5073,54 @@ namespace basic {
         dummyStatement(&ba);
     }
 
-    void testFunctionPointerHelper() {}
+    int testFunctionPointerHelper(int x) { return x; }
 
     void testFunctionPointer()
     {
-        typedef void (*func_t)();
-        func_t f2 = testFunctionPointerHelper;
+        typedef int (*func_t)(int);
+        func_t f = testFunctionPointerHelper;
+        int a = f(43);
         BREAK_HERE;
-        // CheckType f2 basic::func_t.
+        // CheckType f basic::func_t.
         // Continue.
 
-        // Check there's a valid display for f2.
-        dummyStatement(&f2);
+        // Check there's a valid display for f.
+        dummyStatement(&f, &a);
+    }
+
+    struct Class
+    {
+        Class() : a(34) {}
+        int testFunctionPointerHelper(int x) { return x; }
+        int a;
+    };
+
+    void testMemberFunctionPointer()
+    {
+        Class x;
+        typedef int (Class::*func_t)(int);
+        func_t f = &Class::testFunctionPointerHelper;
+        int a = (x.*f)(43);
+        BREAK_HERE;
+        // CheckType f basic::func_t.
+        // Continue.
+
+        // Check there's a valid display for f.
+        dummyStatement(&f, &a);
+    }
+
+    void testMemberPointer()
+    {
+        Class x;
+        typedef int (Class::*member_t);
+        member_t m = &Class::a;
+        int a = x.*m;
+        BREAK_HERE;
+        // CheckType m basic::member_t.
+        // Continue.
+
+        // Check there's a valid display for m.
+        dummyStatement(&m, &a);
     }
 
     void testPassByReferenceHelper(Foo &f)
@@ -5097,6 +5274,8 @@ namespace basic {
         testLongEvaluation2();
         testFork();
         testFunctionPointer();
+        testMemberPointer();
+        testMemberFunctionPointer();
         testPassByReference();
         testBigInt();
         testHidden();
@@ -6268,6 +6447,45 @@ namespace valgrind {
 } // namespace valgrind
 
 
+namespace tmplate {
+
+    template<typename T>  struct Template
+    {
+        Template() : t() {}
+
+        // This serves as a manual test that multiple breakpoints work.
+        // Each of the two '// BREAK_HERE' below is in a function that
+        // is instantiated three times, so both should be reported as
+        // breakpoints with three subbreakpoints each.
+        template <typename S> void fooS(S s)
+        {
+            t = s;
+            // BREAK_HERE;
+        }
+        template <int N> void fooN()
+        {
+            t = N;
+            // BREAK_HERE;
+        }
+
+        T t;
+    };
+
+    void testTemplate()
+    {
+        Template<double> t;
+        t.fooS(1);
+        t.fooS(1.);
+        t.fooS('a');
+        t.fooN<2>();
+        t.fooN<3>();
+        t.fooN<4>();
+        dummyStatement(&t, &t.t);
+    }
+
+} // namespace tmplate
+
+
 namespace sanity {
 
     // A very quick check.
@@ -6313,7 +6531,11 @@ namespace sanity {
 
 int main(int argc, char *argv[])
 {
+    #if USE_GUILIB
     QApplication app(argc, argv);
+    #else
+    QCoreApplication app(argc, argv);
+    #endif
 
     QChar c(0x1E9E);
     bool b = c.isPrint();
@@ -6343,9 +6565,11 @@ int main(int argc, char *argv[])
     text::testText();
     io::testIO();
     catchthrow::testCatchThrow();
+    undefined::testUndefined();
     plugin::testPlugin();
     valgrind::testValgrind();
     namespc::testNamespace();
+    tmplate::testTemplate();
     painting::testPainting();
     webkit::testWebKit();
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,22 +25,20 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemoremotecopyfacility.h"
 
 #include "maemoglobal.h"
 
-#include <remotelinux/linuxdeviceconfiguration.h>
-#include <utils/ssh/sshconnection.h>
-#include <utils/ssh/sshremoteprocessrunner.h>
+#include <ssh/sshconnection.h>
+#include <ssh/sshremoteprocessrunner.h>
+#include <utils/hostosinfo.h>
 
 #include <QDir>
 
-using namespace RemoteLinux;
-using namespace Utils;
+using namespace ProjectExplorer;
+using namespace QSsh;
 
 namespace Madde {
 namespace Internal {
@@ -52,24 +50,22 @@ MaemoRemoteCopyFacility::MaemoRemoteCopyFacility(QObject *parent) :
 
 MaemoRemoteCopyFacility::~MaemoRemoteCopyFacility() {}
 
-void MaemoRemoteCopyFacility::copyFiles(const SshConnection::Ptr &connection,
-    const LinuxDeviceConfiguration::ConstPtr &devConf,
+void MaemoRemoteCopyFacility::copyFiles(SshConnection *connection,
+    const IDevice::ConstPtr &device,
     const QList<DeployableFile> &deployables, const QString &mountPoint)
 {
     Q_ASSERT(connection->state() == SshConnection::Connected);
     Q_ASSERT(!m_isCopying);
 
-    m_devConf = devConf;
+    m_devConf = device;
     m_deployables = deployables;
     m_mountPoint = mountPoint;
 
     if (!m_copyRunner)
         m_copyRunner = new SshRemoteProcessRunner(this);
     connect(m_copyRunner, SIGNAL(connectionError()), SLOT(handleConnectionError()));
-    connect(m_copyRunner, SIGNAL(processOutputAvailable(QByteArray)),
-        SLOT(handleRemoteStdout(QByteArray)));
-    connect(m_copyRunner, SIGNAL(processErrorOutputAvailable(QByteArray)),
-        SLOT(handleRemoteStderr(QByteArray)));
+    connect(m_copyRunner, SIGNAL(readyReadStandardOutput()), SLOT(handleRemoteStdout()));
+    connect(m_copyRunner, SIGNAL(readyReadStandardError()), SLOT(handleRemoteStderr()));
     connect(m_copyRunner, SIGNAL(processClosed(int)), SLOT(handleCopyFinished(int)));
 
     m_isCopying = true;
@@ -92,14 +88,14 @@ void MaemoRemoteCopyFacility::handleConnectionError()
     emit finished(tr("Connection failed: %1").arg(m_copyRunner->lastConnectionErrorString()));
 }
 
-void MaemoRemoteCopyFacility::handleRemoteStdout(const QByteArray &output)
+void MaemoRemoteCopyFacility::handleRemoteStdout()
 {
-    emit stdoutData(QString::fromUtf8(output));
+    emit stdoutData(QString::fromUtf8(m_copyRunner->readAllStandardOutput()));
 }
 
-void MaemoRemoteCopyFacility::handleRemoteStderr(const QByteArray &output)
+void MaemoRemoteCopyFacility::handleRemoteStderr()
 {
-    emit stderrData(QString::fromUtf8(output));
+    emit stderrData(QString::fromUtf8(m_copyRunner->readAllStandardError()));
 }
 
 void MaemoRemoteCopyFacility::handleCopyFinished(int exitStatus)
@@ -107,7 +103,7 @@ void MaemoRemoteCopyFacility::handleCopyFinished(int exitStatus)
     if (!m_isCopying)
         return;
 
-    if (exitStatus != SshRemoteProcess::ExitedNormally
+    if (exitStatus != SshRemoteProcess::NormalExit
             || m_copyRunner->processExitCode() != 0) {
         setFinished();
         emit finished(tr("Error: Copy command failed."));
@@ -129,19 +125,19 @@ void MaemoRemoteCopyFacility::copyNextFile()
 
     const DeployableFile &d = m_deployables.first();
     QString sourceFilePath = m_mountPoint;
-#ifdef Q_OS_WIN
-    const QString localFilePath = QDir::fromNativeSeparators(d.localFilePath);
-    sourceFilePath += QLatin1Char('/') + localFilePath.at(0).toLower()
-        + localFilePath.mid(2);
-#else
-    sourceFilePath += d.localFilePath;
-#endif
+    if (Utils::HostOsInfo::isWindowsHost()) {
+        const QString localFilePath = QDir::fromNativeSeparators(d.localFilePath().toString());
+        sourceFilePath += QLatin1Char('/') + localFilePath.at(0).toLower()
+                + localFilePath.mid(2);
+    } else {
+        sourceFilePath += d.localFilePath().toString();
+    }
 
     QString command = QString::fromLatin1("%1 mkdir -p %3 && %1 cp -a %2 %3")
         .arg(MaemoGlobal::remoteSudo(m_devConf->type(), m_devConf->sshParameters().userName),
-            sourceFilePath, d.remoteDir);
+            sourceFilePath, d.remoteDirectory());
     emit progress(tr("Copying file '%1' to directory '%2' on the device...")
-        .arg(d.localFilePath, d.remoteDir));
+        .arg(d.localFilePath().toString(), d.remoteDirectory()));
     m_copyRunner->run(command.toUtf8(), m_devConf->sshParameters());
 }
 

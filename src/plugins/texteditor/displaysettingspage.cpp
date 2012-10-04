@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,9 +53,7 @@ DisplaySettingsPage::DisplaySettingsPagePrivate::DisplaySettingsPagePrivate
     (const DisplaySettingsPageParameters &p)
     : m_parameters(p), m_page(0)
 {
-    if (const QSettings *s = Core::ICore::settings()) {
-        m_displaySettings.fromSettings(m_parameters.settingsPrefix, s);
-    }
+    m_displaySettings.fromSettings(m_parameters.settingsPrefix, Core::ICore::settings());
 }
 
 DisplaySettingsPage::DisplaySettingsPage(const DisplaySettingsPageParameters &p,
@@ -65,21 +61,13 @@ DisplaySettingsPage::DisplaySettingsPage(const DisplaySettingsPageParameters &p,
   : TextEditorOptionsPage(parent),
     d(new DisplaySettingsPagePrivate(p))
 {
+    setId(p.id);
+    setDisplayName(p.displayName);
 }
 
 DisplaySettingsPage::~DisplaySettingsPage()
 {
     delete d;
-}
-
-QString DisplaySettingsPage::id() const
-{
-    return d->m_parameters.id;
-}
-
-QString DisplaySettingsPage::displayName() const
-{
-    return d->m_parameters.displayName;
 }
 
 QWidget *DisplaySettingsPage::createPage(QWidget *parent)
@@ -163,8 +151,7 @@ void DisplaySettingsPage::setDisplaySettings(const DisplaySettings &newDisplaySe
 {
     if (newDisplaySettings != d->m_displaySettings) {
         d->m_displaySettings = newDisplaySettings;
-        if (QSettings *s = Core::ICore::settings())
-            d->m_displaySettings.toSettings(d->m_parameters.settingsPrefix, s);
+        d->m_displaySettings.toSettings(d->m_parameters.settingsPrefix, Core::ICore::settings());
 
         emit displaySettingsChanged(newDisplaySettings);
     }

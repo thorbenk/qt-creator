@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,7 @@
 
 #include <remotelinux/abstractpackagingstep.h>
 #include <utils/environment.h>
+#include <utils/fileutils.h>
 
 QT_BEGIN_NAMESPACE
 class QDateTime;
@@ -42,16 +41,10 @@ class QProcess;
 QT_END_NAMESPACE
 
 namespace Qt4ProjectManager { class Qt4BuildConfiguration; }
-
-namespace RemoteLinux {
-class RemoteLinuxDeployConfiguration;
-}
+namespace RemoteLinux { class RemoteLinuxDeployConfiguration; }
 
 namespace Madde {
 namespace Internal {
-class AbstractQt4MaemoTarget;
-class AbstractDebBasedQt4MaemoTarget;
-class AbstractRpmBasedQt4MaemoTarget;
 
 class AbstractMaemoPackageCreationStep : public RemoteLinux::AbstractPackagingStep
 {
@@ -67,9 +60,6 @@ public:
         const QString &workingDir);
 
     const Qt4ProjectManager::Qt4BuildConfiguration *qt4BuildConfiguration() const;
-    AbstractQt4MaemoTarget *maemoTarget() const;
-    AbstractDebBasedQt4MaemoTarget *debBasedMaemoTarget() const;
-    AbstractRpmBasedQt4MaemoTarget *rpmBasedMaemoTarget() const;
 
     static const QLatin1String DefaultVersionNumber;
 
@@ -95,7 +85,6 @@ private:
     virtual bool createPackage(QProcess *buildProc, const QFutureInterface<bool> &fi) = 0;
     virtual bool isMetaDataNewerThan(const QDateTime &packageDate) const = 0;
 
-    static QString nativePath(const QFile &file);
     bool isPackagingNeeded() const;
 
     const Qt4ProjectManager::Qt4BuildConfiguration *m_lastBuildConfig;
@@ -134,30 +123,6 @@ private:
     QString m_packageName;
     QString m_templatesDirPath;
     bool m_debugBuild;
-
-    static const Core::Id CreatePackageId;
-};
-
-class MaemoRpmPackageCreationStep : public AbstractMaemoPackageCreationStep
-{
-    Q_OBJECT
-    friend class MaemoPackageCreationFactory;
-public:
-    MaemoRpmPackageCreationStep(ProjectExplorer::BuildStepList *bsl);
-
-private:
-    bool init();
-    virtual bool createPackage(QProcess *buildProc, const QFutureInterface<bool> &fi);
-    virtual bool isMetaDataNewerThan(const QDateTime &packageDate) const;
-
-    MaemoRpmPackageCreationStep(ProjectExplorer::BuildStepList *buildConfig,
-        MaemoRpmPackageCreationStep *other);
-
-    void ctor();
-    QString rpmBuildDir() const;
-
-    QString m_specFile;
-    QString m_packageFileName;
 
     static const Core::Id CreatePackageId;
 };

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,8 +34,6 @@ using namespace Qt4ProjectManager::Internal;
 
 static const char *const variableKeywords[] = {
     "BACKUP_REGISTRATION_FILE_MAEMO",
-    "BACKUP_REGISTRATION_FILE_SYMBIAN",
-    "BLD_INF_RULES",
     "CCFLAG",
     "CONFIG",
     "DEFINES",
@@ -65,7 +61,6 @@ static const char *const variableKeywords[] = {
     "LITERAL_HASH",
     "MAKEFILE",
     "MAKEFILE_GENERATOR",
-    "MMP_RULES",
     "MOBILITY",
     "MOC_DIR",
     "OBJECTIVE_HEADERS",
@@ -209,25 +204,11 @@ static const char *const variableKeywords[] = {
     "RESOURCES",
     "RES_FILE",
     "RSS_RULES",
-    "S60_VERSION",
     "SIGNATURE_FILE",
     "SOURCES",
     "SRCMOC",
     "STATECHARTS",
     "SUBDIRS",
-    "SYMBIAN_VERSION",
-    "TARGET",
-    "TARGET.CAPABILITY",
-    "TARGET.EPOCALLOWDLLDATA",
-    "TARGET.EPOCHEAPSIZE",
-    "TARGET.EPOCSTACKSIZE",
-    "TARGET.SID",
-    "TARGET.UID2",
-    "TARGET.UID3",
-    "TARGET.VID",
-    "TARGET_EXT",
-    "TARGET_x",
-    "TARGET_x.y.z",
     "TEMPLATE",
     "TRANSLATIONS",
     "UICIMPLS",

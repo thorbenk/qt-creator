@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "fancylineedit.h"
+#include "historycompleter.h"
+#include "qtcassert.h"
 
 #include <QEvent>
 #include <QDebug>
@@ -44,6 +44,39 @@
 #include <QPainter>
 #include <QStyle>
 #include <QPaintEvent>
+#include <QDesktopWidget>
+
+/*! Opens a menu at the specified widget position.
+ * This functions computes the position where to show the menu, and opens it with
+ * QMenu::exec().
+ * \param menu The menu to open
+ * \param widget The widget next to which to open the menu
+ */
+static void execMenuAtWidget(QMenu *menu, QWidget *widget)
+{
+    QPoint p;
+    QRect screen = qApp->desktop()->availableGeometry(widget);
+    QSize sh = menu->sizeHint();
+    QRect rect = widget->rect();
+    if (widget->isRightToLeft()) {
+        if (widget->mapToGlobal(QPoint(0, rect.bottom())).y() + sh.height() <= screen.height()) {
+            p = widget->mapToGlobal(rect.bottomRight());
+        } else {
+            p = widget->mapToGlobal(rect.topRight() - QPoint(0, sh.height()));
+        }
+        p.rx() -= sh.width();
+    } else {
+        if (widget->mapToGlobal(QPoint(0, rect.bottom())).y() + sh.height() <= screen.height()) {
+            p = widget->mapToGlobal(rect.bottomLeft());
+        } else {
+            p = widget->mapToGlobal(rect.topLeft() - QPoint(0, sh.height()));
+        }
+    }
+    p.rx() = qMax(screen.left(), qMin(p.x(), screen.right() - sh.width()));
+    p.ry() += 1;
+
+    menu->exec(p);
+}
 
 /*!
     \class Utils::FancyLineEdit
@@ -66,7 +99,8 @@ enum { margin = 6 };
 namespace Utils {
 
 // --------- FancyLineEditPrivate
-class FancyLineEditPrivate : public QObject {
+class FancyLineEditPrivate : public QObject
+{
 public:
     explicit FancyLineEditPrivate(FancyLineEdit *parent);
 
@@ -78,12 +112,13 @@ public:
     bool m_menuTabFocusTrigger[2];
     IconButton *m_iconbutton[2];
     bool m_iconEnabled[2];
+
+    HistoryCompleter *m_historyCompleter;
 };
 
 
 FancyLineEditPrivate::FancyLineEditPrivate(FancyLineEdit *parent) :
-    QObject(parent),
-    m_lineEdit(parent)
+    QObject(parent), m_lineEdit(parent),  m_historyCompleter(0)
 {
     for (int i = 0; i < 2; ++i) {
         m_menu[i] = 0;
@@ -111,8 +146,7 @@ bool FancyLineEditPrivate::eventFilter(QObject *obj, QEvent *event)
     case QEvent::FocusIn:
         if (m_menuTabFocusTrigger[buttonIndex] && m_menu[buttonIndex]) {
             m_lineEdit->setFocus();
-            m_menu[buttonIndex]->exec(m_iconbutton[buttonIndex]->mapToGlobal(
-                    m_iconbutton[buttonIndex]->rect().center()));
+            execMenuAtWidget(m_menu[buttonIndex], m_iconbutton[buttonIndex]);
             return true;
         }
     default:
@@ -172,7 +206,7 @@ void FancyLineEdit::iconClicked()
     if (index == -1)
         return;
     if (d->m_menu[index]) {
-        d->m_menu[index]->exec(QCursor::pos());
+        execMenuAtWidget(d->m_menu[index], button);
     } else {
         emit buttonClicked((Side)index);
         if (index == Left)
@@ -266,6 +300,19 @@ void FancyLineEdit::setMenuTabFocusTrigger(Side side, bool v)
 bool FancyLineEdit::hasAutoHideButton(Side side) const
 {
     return d->m_iconbutton[side]->hasAutoHide();
+}
+
+void FancyLineEdit::setHistoryCompleter(const QString &historyKey)
+{
+    QTC_ASSERT(!d->m_historyCompleter, return);
+    d->m_historyCompleter = new HistoryCompleter(this, historyKey, this);
+    QLineEdit::setCompleter(d->m_historyCompleter);
+}
+
+void FancyLineEdit::setSpecialCompleter(QCompleter *completer)
+{
+    QTC_ASSERT(!d->m_historyCompleter, return);
+    QLineEdit::setCompleter(completer);
 }
 
 void FancyLineEdit::setAutoHideButton(Side side, bool h)

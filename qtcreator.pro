@@ -1,9 +1,9 @@
 include(qtcreator.pri)
 
 #version check qt
-!minQtVersion(4, 7, 4) {
+!minQtVersion(4, 8, 0) {
     message("Cannot build Qt Creator with Qt version $${QT_VERSION}.")
-    error("Use at least Qt 4.7.4.")
+    error("Use at least Qt 4.8.0.")
 }
 
 include(doc/doc.pri)
@@ -17,27 +17,39 @@ unix:!macx:!isEmpty(copydata):SUBDIRS += bin
 OTHER_FILES += dist/copyright_template.txt \
     $$files(dist/changes-*)
 
+macx: PLATFORM = "mac"
+else:win32: PLATFORM = "windows"
+else:linux-*: PLATFORM = "linux-$${QT_ARCH}"
+else: PLATFORM = "unknown"
+
+PATTERN = $${PLATFORM}$(INSTALL_EDITION)-$${QTCREATOR_VERSION}$(INSTALL_POSTFIX)
+
 macx {
     APPBUNDLE = "$$OUT_PWD/bin/Qt Creator.app"
+    BINDIST_SOURCE = "$$OUT_PWD/bin/Qt Creator.app"
     deployqt.commands = $$PWD/scripts/deployqtHelper_mac.sh \"$${APPBUNDLE}\"
-    bindist.commands = 7z a -mx9 $$OUT_PWD/qt-creator-mac$(INSTALL_EDITION)-$${QTCREATOR_VERSION}$(INSTALL_POSTFIX).7z \"$$OUT_PWD/bin/Qt Creator.app/\"
-    dmg.commands = $$PWD/scripts/makedmg.sh $$OUT_PWD/bin qt-creator-mac$(INSTALL_EDITION)-$${QTCREATOR_VERSION}$(INSTALL_POSTFIX).dmg
+    codesign.commands = codesign -s \"$(SIGNING_IDENTITY)\" \"$${APPBUNDLE}\"
+    dmg.commands = $$PWD/scripts/makedmg.sh $$OUT_PWD/bin qt-creator-$${PATTERN}.dmg
     dmg.depends = deployqt
-    QMAKE_EXTRA_TARGETS += dmg
+    QMAKE_EXTRA_TARGETS += codesign dmg
 } else {
-    deployqt.commands = $$PWD/scripts/deployqt.py -i $(INSTALL_ROOT)
+    BINDIST_SOURCE = "$(INSTALL_ROOT)$$QTC_PREFIX"
+    deployqt.commands = $$PWD/scripts/deployqt.py -i \"$(INSTALL_ROOT)$$QTC_PREFIX\"
     deployqt.depends = install
     win32 {
-        bindist.commands ~= s,/,\\\\,g
-        deployqt.commands ~= s,/,\\\\,g
         deployartifacts.depends = install
-        PLATFORM="windows"
-        deployartifacts.commands = git clone "git://gitorious.org/qt-creator/binary-artifacts.git"&& xcopy /s /q /y /i "binary-artifacts\\win32" $(INSTALL_ROOT)&& rmdir /s binary-artifacts
+        deployartifacts.commands = git clone "git://gitorious.org/qt-creator/binary-artifacts.git"&& xcopy /s /q /y /i "binary-artifacts\\win32" \"$(INSTALL_ROOT)$$QTC_PREFIX\"&& rmdir /s /q binary-artifacts
         QMAKE_EXTRA_TARGETS += deployartifacts
     }
-    else:linux-*:PLATFORM="linux-$${QT_ARCH}"
-    else:PLATFORM="unknown"
-    bindist.commands = $$PWD/scripts/bindistHelper.py "$(INSTALL_ROOT)" "$${PLATFORM}$(INSTALL_EDITION)-$${QTCREATOR_VERSION}$(INSTALL_POSTFIX)"
 }
+
+bindist.commands = 7z a -mx9 $$OUT_PWD/qt-creator-$${PATTERN}.7z \"$$BINDIST_SOURCE\"
+
+win32 {
+    deployqt.commands ~= s,/,\\\\,g
+    bindist.commands ~= s,/,\\\\,g
+}
+
 bindist.depends = deployqt
+
 QMAKE_EXTRA_TARGETS += deployqt bindist

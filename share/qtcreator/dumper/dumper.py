@@ -2,6 +2,8 @@ import sys
 import base64
 import __builtin__
 import os
+import os.path
+import subprocess
 import tempfile
 
 # Fails on Windows.
@@ -42,11 +44,6 @@ def removeTempFile(name, file):
     except:
         pass
 
-try:
-    import binascii
-except:
-    pass
-
 verbosity = 0
 verbosity = 1
 
@@ -69,8 +66,18 @@ Hex4EncodedLittleEndianWithoutQuotes, \
 Hex2EncodedLocal8Bit, \
 JulianDate, \
 MillisecondsSinceMidnight, \
-JulianDateAndMillisecondsSinceMidnight \
-    = range(17)
+JulianDateAndMillisecondsSinceMidnight, \
+Hex2EncodedInt1, \
+Hex2EncodedInt2, \
+Hex2EncodedInt4, \
+Hex2EncodedInt8, \
+Hex2EncodedUInt1, \
+Hex2EncodedUInt2, \
+Hex2EncodedUInt4, \
+Hex2EncodedUInt8, \
+Hex2EncodedFloat4, \
+Hex2EncodedFloat8 \
+    = range(27)
 
 # Display modes
 StopDisplay, \
@@ -81,6 +88,22 @@ DisplayProcess \
     = range(5)
 
 
+qqStringCutOff = 1000
+
+#
+# Gnuplot based display for array-like structures.
+#
+gnuplotPipe = {}
+gnuplotPid = {}
+
+def hasPlot():
+    fileName = "/usr/bin/gnuplot"
+    return os.path.isfile(fileName) and os.access(fileName, os.X_OK)
+
+
+#
+# Threads
+#
 def hasInferiorThreadList():
     #return False
     try:
@@ -89,6 +112,9 @@ def hasInferiorThreadList():
     except:
         return False
 
+#
+# VTable
+#
 def hasVTable(type):
     fields = type.fields()
     if len(fields) == 0:
@@ -114,7 +140,7 @@ def dynamicTypeName(value):
             pass
     return str(value.type)
 
-def upcast(value):
+def downcast(value):
     try:
         return value.cast(value.dynamic_type)
     except:
@@ -125,7 +151,7 @@ def upcast(value):
     #    pass
     return value
 
-def expensiveUpcast(value):
+def expensiveDowncast(value):
     try:
         return value.cast(value.dynamic_type)
     except:
@@ -138,14 +164,9 @@ def expensiveUpcast(value):
 
 typeCache = {}
 
-class TypeInfo:
-    def __init__(self, type):
-        self.size = type.sizeof
-        self.reported = False
-
-typeInfoCache = {}
-
 def lookupType(typestring):
+    global typeCache
+    global typesToReport
     type = typeCache.get(typestring)
     #warn("LOOKUP 1: %s -> %s" % (typestring, type))
     if not type is None:
@@ -154,27 +175,36 @@ def lookupType(typestring):
     if typestring == "void":
         type = gdb.lookup_type(typestring)
         typeCache[typestring] = type
+        typesToReport[typestring] = type
         return type
-
-    if typestring.find("(anon") != -1:
-        # gdb doesn't like
-        # '(anonymous namespace)::AddAnalysisMessageSuppressionComment'
-        typeCache[typestring] = None
-        return None
 
     try:
         type = gdb.parse_and_eval("{%s}&main" % typestring).type
-        typeCache[typestring] = type
-        return type
+        if not type is None:
+            typeCache[typestring] = type
+            typesToReport[typestring] = type
+            return type
     except:
         pass
 
+    # See http://sourceware.org/bugzilla/show_bug.cgi?id=13269
+    # gcc produces "{anonymous}", gdb "(anonymous namespace)"
+    # "<unnamed>" has been seen too. The only thing gdb
+    # understands when reading things back is "(anonymous namespace)"
+    if typestring.find("{anonymous}") != -1:
+        ts = typestring
+        ts = ts.replace("{anonymous}", "(anonymous namespace)")
+        type = lookupType(ts)
+        if not type is None:
+            typeCache[typestring] = type
+            typesToReport[typestring] = type
+            return type
+
     #warn(" RESULT FOR 7.2: '%s': %s" % (typestring, type))
-    #typeCache[typestring] = type
-    #return None
 
     # This part should only trigger for
     # gdb 7.1 for types with namespace separators.
+    # And anonymous namespaces.
 
     ts = typestring
     while True:
@@ -205,6 +235,7 @@ def lookupType(typestring):
         if not type is None:
             type = type.pointer()
             typeCache[typestring] = type
+            typesToReport[typestring] = type
             return type
 
     try:
@@ -212,11 +243,6 @@ def lookupType(typestring):
         type = gdb.lookup_type(ts)
     except RuntimeError, error:
         #warn("LOOKING UP '%s': %s" % (ts, error))
-        if type is None:
-            pos = typestring.find("<unnamed>")
-            if pos != -1:
-                # See http://sourceware.org/bugzilla/show_bug.cgi?id=13269
-                return lookupType(typestring.replace("<unnamed>", "(anonymous namespace)"))
         # See http://sourceware.org/bugzilla/show_bug.cgi?id=11912
         exp = "(class '%s'*)0" % ts
         try:
@@ -228,8 +254,15 @@ def lookupType(typestring):
         #warn("LOOKING UP '%s' FAILED" % ts)
         pass
 
+    if not type is None:
+        typeCache[typestring] = type
+        typesToReport[typestring] = type
+        return type
+
     # This could still be None as gdb.lookup_type("char[3]") generates
     # "RuntimeError: No type named char[3]"
+    typeCache[typestring] = type
+    typesToReport[typestring] = type
     return type
 
 def cleanAddress(addr):
@@ -362,8 +395,11 @@ class SubItem:
     def __exit__(self, exType, exValue, exTraceBack):
         #warn(" CURRENT VALUE: %s %s %s" % (self.d.currentValue,
         #    self.d.currentValueEncoding, self.d.currentValuePriority))
-        if self.d.passExceptions and not exType is None:
-            showException("SUBITEM", exType, exValue, exTraceBack)
+        if not exType is None:
+            if self.d.passExceptions:
+                showException("SUBITEM", exType, exValue, exTraceBack)
+            self.d.putNumChild(0)
+            self.d.putValue("<not accessible>")
         try:
             #warn("TYPE VALUE: %s" % self.d.currentValue)
             typeName = stripClassTag(self.d.currentType)
@@ -371,11 +407,6 @@ class SubItem:
 
             if len(typeName) > 0 and typeName != self.d.currentChildType:
                 self.d.put('type="%s",' % typeName) # str(type.unqualified()) ?
-                if not typeName in typeInfoCache \
-                        and typeName != " ": # FIXME: Move to lookupType
-                    typeObj = lookupType(typeName)
-                    if not typeObj is None:
-                        typeInfoCache[typeName] = TypeInfo(typeObj)
             if  self.d.currentValue is None:
                 self.d.put('value="<not accessible>",numchild="0",')
             else:
@@ -453,8 +484,11 @@ class Children:
         self.d.put("children=[")
 
     def __exit__(self, exType, exValue, exTraceBack):
-        if self.d.passExceptions and not exType is None:
-            showException("CHILDREN", exType, exValue, exTraceBack)
+        if not exType is None:
+            if self.d.passExceptions:
+                showException("CHILDREN", exType, exValue, exTraceBack)
+            self.d.putNumChild(0)
+            self.d.putValue("<not accessible>")
         if not self.d.currentMaxNumChild is None:
             if self.d.currentMaxNumChild < self.d.currentNumChild:
                 self.d.put('{name="<incomplete>",value="",type="",numchild="0"},')
@@ -481,6 +515,36 @@ def isSimpleType(typeobj):
         or code == IntCode \
         or code == FloatCode \
         or code == EnumCode
+
+def simpleEncoding(typeobj):
+    code = typeobj.code
+    if code == BoolCode or code == CharCode:
+        return Hex2EncodedInt1
+    if code == IntCode:
+        if str(typeobj).find("unsigned") >= 0:
+            if typeobj.sizeof == 1:
+                return Hex2EncodedUInt1
+            if typeobj.sizeof == 2:
+                return Hex2EncodedUInt2
+            if typeobj.sizeof == 4:
+                return Hex2EncodedUInt4
+            if typeobj.sizeof == 8:
+                return Hex2EncodedUInt8
+        else:
+            if typeobj.sizeof == 1:
+                return Hex2EncodedInt1
+            if typeobj.sizeof == 2:
+                return Hex2EncodedInt2
+            if typeobj.sizeof == 4:
+                return Hex2EncodedInt4
+            if typeobj.sizeof == 8:
+                return Hex2EncodedInt8
+    if code == FloatCode:
+        if typeobj.sizeof == 4:
+            return Hex2EncodedFloat4
+        if typeobj.sizeof == 8:
+            return Hex2EncodedFloat8
+    return None
 
 def warn(message):
     if True or verbosity > 0:
@@ -671,74 +735,23 @@ def findFirstZero(p, maximum):
         p = p + 1
     return maximum + 1
 
-def extractCharArray(p, maxsize):
-    p = p.cast(lookupType("unsigned char").pointer())
-    s = ""
-    i = 0
-    while i < maxsize:
-        c = int(p.dereference())
-        if c == 0:
-            return s
-        s += "%c" % c
-        p += 1
-        i += 1
-    if p.dereference() != 0:
-        s += "..."
+def encodeCArray(p, innerType, suffix):
+    t = lookupType(innerType)
+    p = p.cast(t.pointer())
+    limit = findFirstZero(p, qqStringCutOff)
+    s = readRawMemory(p, limit * t.sizeof)
+    if limit > qqStringCutOff:
+        s += suffix
     return s
 
-def extractByteArray(value):
-    d_ptr = value['d'].dereference()
-    data = d_ptr['data']
-    size = d_ptr['size']
-    alloc = d_ptr['alloc']
-    check(0 <= size and size <= alloc and alloc <= 100*1000*1000)
-    checkRef(d_ptr["ref"])
-    if size > 0:
-        checkAccess(data, 4)
-        checkAccess(data + size) == 0
-    return extractCharArray(data, min(100, size))
+def encodeCharArray(p):
+    return encodeCArray(p, "unsigned char", "2e2e2e")
 
-def encodeCharArray(p, maxsize, limit = -1):
-    t = lookupType("unsigned char").pointer()
-    p = p.cast(t)
-    if limit == -1:
-        limit = findFirstZero(p, maxsize)
-    s = ""
-    try:
-        # gdb.Inferior is new in gdb 7.2
-        inferior = gdb.inferiors()[0]
-        s = binascii.hexlify(inferior.read_memory(p, limit))
-    except:
-        for i in xrange(limit):
-            s += "%02x" % int(p.dereference())
-            p += 1
-    if limit > maxsize:
-        s += "2e2e2e"
-    return s
+def encodeChar2Array(p):
+    return encodeCArray(p, "unsigned short", "2e002e002e00")
 
-def encodeChar2Array(p, maxsize):
-    t = lookupType("unsigned short").pointer()
-    p = p.cast(t)
-    limit = findFirstZero(p, maxsize)
-    s = ""
-    for i in xrange(limit):
-        s += "%04x" % int(p.dereference())
-        p += 1
-    if i == maxsize:
-        s += "2e002e002e00"
-    return s
-
-def encodeChar4Array(p, maxsize):
-    t = lookupType("unsigned int").pointer()
-    p = p.cast(t)
-    limit = findFirstZero(p, maxsize)
-    s = ""
-    for i in xrange(limit):
-        s += "%08x" % int(p.dereference())
-        p += 1
-    if i > maxsize:
-        s += "2e0000002e0000002e000000"
-    return s
+def encodeChar4Array(p):
+    return encodeCArray(p, "unsigned int", "2e0000002e0000002e000000")
 
 def qByteArrayData(value):
     private = value['d']
@@ -755,13 +768,15 @@ def qByteArrayData(value):
 
 def encodeByteArray(value):
     data, size, alloc = qByteArrayData(value)
-    check(0 <= size and size <= alloc and alloc <= 100*1000*1000)
-    if size > 0:
-        checkAccess(data, 4)
-        checkAccess(data + size) == 0
-    return encodeCharArray(data, 100, size)
+    if alloc != 0:
+        check(0 <= size and size <= alloc and alloc <= 100*1000*1000)
+    limit = min(size, qqStringCutOff)
+    s = readRawMemory(data, limit)
+    if limit < size:
+        s += "2e2e2e"
+    return s
 
-def qQStringData(value):
+def qStringData(value):
     private = value['d']
     checkRef(private['ref'])
     try:
@@ -775,26 +790,11 @@ def qQStringData(value):
         return private['data'], int(private['size']), int(private['alloc'])
 
 def encodeString(value):
-    data, size, alloc = qQStringData(value)
-
+    data, size, alloc = qStringData(value)
     if alloc != 0:
         check(0 <= size and size <= alloc and alloc <= 100*1000*1000)
-    if size > 0:
-        checkAccess(data, 4)
-        checkAccess(data + size) == 0
-    s = ""
-    limit = min(size, 1000)
-    try:
-        # gdb.Inferior is new in gdb 7.2
-        inferior = gdb.inferiors()[0]
-        s = binascii.hexlify(inferior.read_memory(data, 2 * limit))
-    except:
-        p = data
-        for i in xrange(limit):
-            val = int(p.dereference())
-            s += "%02x" % (val % 256)
-            s += "%02x" % (val / 256)
-            p += 1
+    limit = min(size, qqStringCutOff)
+    s = readRawMemory(data, 2 * limit)
     if limit < size:
         s += "2e002e002e00"
     return s
@@ -853,13 +853,6 @@ qqDumpers = {}
 # This is a cache of all dumpers that support writing.
 qqEditable = {}
 
-# This is a cache of the namespace of the currently used Qt version.
-# FIXME: This is not available on 'bbsetup' time, only at 'bb' time.
-
-# This is a cache of typenames->bool saying whether we are QObject
-# derived.
-qqQObjectCache = {}
-
 # This keeps canonical forms of the typenames, without array indices etc.
 qqStripForFormat = {}
 
@@ -884,7 +877,6 @@ def stripForFormat(typeName):
     return stripped
 
 def bbsetup(args):
-    typeInfoCache = {}
     typeCache = {}
     module = sys.modules[__name__]
     for key, value in module.__dict__.items():
@@ -954,17 +946,21 @@ registerCommand("bbedit", bbedit)
 #
 #######################################################################
 
-def bb(args):
-    output = 'data=[' + "".join(Dumper(args).output) + '],typeinfo=['
-    for typeName, typeInfo in typeInfoCache.iteritems():
-        if not typeInfo.reported:
-            output += '{name="' + base64.b64encode(typeName)
-            output += '",size="' + str(typeInfo.size) + '"},'
-            typeInfo.reported = True
-    output += ']';
-    return output
+typesToReport = {}
 
-registerCommand("bb", bb)
+def bb(args):
+    global typesToReport
+    output = Dumper(args).output
+    output.append('],typeinfo=[')
+    for name, type in typesToReport.iteritems():
+        # Happens e.g. for '(anonymous namespace)::InsertDefOperation'
+        if not type is None:
+            output.append('{name="%s",size="%s"}'
+                % (base64.b64encode(name), type.sizeof))
+    output.append(']')
+    typesToReport = {}
+    return "".join(output)
+
 
 def p1(args):
     import cProfile
@@ -973,13 +969,14 @@ def p1(args):
     pstats.Stats('/tmp/bbprof').sort_stats('time').print_stats()
     return ""
 
-registerCommand("p1", p1)
 
 def p2(args):
     import timeit
     return timeit.repeat('bb("%s")' % args,
         'from __main__ import bb', number=10)
 
+registerCommand("bb", bb)
+registerCommand("p1", p1)
 registerCommand("p2", p2)
 
 
@@ -1007,6 +1004,8 @@ class Dumper:
         self.typeformats = {}
         self.formats = {}
         self.expandedINames = ""
+
+        self.output.append('data=[')
 
         options = []
         varList = []
@@ -1087,7 +1086,7 @@ class Dumper:
             for item in listOfLocals([]):
                 self.expandedINames.add(item.iname)
                 self.expandedINames.discard("")
-                warn("EXPANDED: %s" % self.expandedINames)
+                #warn("EXPANDED: %s" % self.expandedINames)
 
         # Take care of the return value of the last function call.
         if len(resultVarName) > 0:
@@ -1102,7 +1101,7 @@ class Dumper:
                 pass
 
         for item in locals:
-            value = upcast(item.value)
+            value = downcast(item.value) if self.useDynamicType else item.value
             with OutputSafer(self):
                 self.anonNumber = -1
 
@@ -1292,10 +1291,11 @@ class Dumper:
         self.put('name="%s",' % name)
 
     def putMapName(self, value):
-        if str(value.type) == qqNs + "QString":
+        ns = qtNamespace()
+        if str(value.type) == ns + "QString":
             self.put('key="%s",' % encodeString(value))
             self.put('keyencoded="%s",' % Hex4EncodedLittleEndian)
-        elif str(value.type) == qqNs + "QByteArray":
+        elif str(value.type) == ns + "QByteArray":
             self.put('key="%s",' % encodeByteArray(value))
             self.put('keyencoded="%s",' % Hex2EncodedLatin1)
         else:
@@ -1358,21 +1358,64 @@ class Dumper:
             self.putName(name)
             self.putItem(value)
 
-    def tryPutArrayContents(self, type, base, n):
-        if isSimpleType(type):
-            self.put('{value="')
-            self.put('"},{value="'.join([str((base + i).dereference())
-                for i in xrange(n)]))
-            self.put('"}');
-            return True
-        return False
+    def tryPutArrayContents(self, typeobj, base, n):
+        if not isSimpleType(typeobj):
+            return False
+        size = n * typeobj.sizeof;
+        self.put('childtype="%s",' % typeobj)
+        self.put('addrbase="0x%x",' % long(base))
+        self.put('addrstep="0x%x",' % long(typeobj.sizeof))
+        self.put('arrayencoding="%s",' % simpleEncoding(typeobj))
+        self.put('arraydata="')
+        self.put(readRawMemory(base, size))
+        self.put('",')
+        return True
+
+    def putPlotData(self, type, base, n, plotFormat):
+        if self.isExpanded():
+            self.putArrayData(type, base, n)
+        if not hasPlot():
+            return
+        if not isSimpleType(type):
+            self.putValue(self.currentValue + " (not plottable)")
+            return
+        global gnuplotPipe
+        global gnuplotPid
+        format = self.currentItemFormat()
+        iname = self.currentIName
+        #if False:
+        if format != plotFormat:
+            if iname in gnuplotPipe:
+                os.kill(gnuplotPid[iname], 9)
+                del gnuplotPid[iname]
+                gnuplotPipe[iname].terminate()
+                del gnuplotPipe[iname]
+            return
+        base = base.cast(type.pointer())
+        if not iname in gnuplotPipe:
+            gnuplotPipe[iname] = subprocess.Popen(["gnuplot"],
+                    stdin=subprocess.PIPE)
+            gnuplotPid[iname] = gnuplotPipe[iname].pid
+        f = gnuplotPipe[iname].stdin;
+        f.write("set term wxt noraise\n")
+        f.write("set title 'Data fields'\n")
+        f.write("set xlabel 'Index'\n")
+        f.write("set ylabel 'Value'\n")
+        f.write("set grid\n")
+        f.write("set style data lines;\n")
+        f.write("plot  '-' title '%s'\n" % iname)
+        for i in range(1, n):
+            f.write(" %s\n" % base.dereference())
+            base += 1
+        f.write("e\n")
+
 
     def putArrayData(self, type, base, n,
             childNumChild = None, maxNumChild = 10000):
         base = base.cast(type.pointer())
-        with Children(self, n, type, childNumChild, maxNumChild,
-                base, type.sizeof):
-            if not self.tryPutArrayContents(type, base, n):
+        if not self.tryPutArrayContents(type, base, n):
+            with Children(self, n, type, childNumChild, maxNumChild,
+                    base, type.sizeof):
                 for i in self.childRange():
                     self.putSubItem(i, (base + i).dereference())
 
@@ -1393,6 +1436,8 @@ class Dumper:
 
         type = value.type.unqualified()
         typeName = str(type)
+        tryDynamic &= self.useDynamicType
+        lookupType(typeName) # Fill type cache
 
         # FIXME: Gui shows references stripped?
         #warn(" ")
@@ -1412,17 +1457,18 @@ class Dumper:
             except:
                 pass
 
-            try:
-                # Dynamic references are not supported by gdb, see
-                # http://sourceware.org/bugzilla/show_bug.cgi?id=14077.
-                # Find the dynamic type manually using referenced_type.
-                value = value.referenced_value()
-                value = value.cast(value.dynamic_type)
-                self.putItem(value)
-                self.putBetterType("%s &" % value.type)
-                return
-            except:
-                pass
+            if tryDynamic:
+                try:
+                    # Dynamic references are not supported by gdb, see
+                    # http://sourceware.org/bugzilla/show_bug.cgi?id=14077.
+                    # Find the dynamic type manually using referenced_type.
+                    value = value.referenced_value()
+                    value = value.cast(value.dynamic_type)
+                    self.putItem(value)
+                    self.putBetterType("%s &" % value.type)
+                    return
+                except:
+                    pass
 
             try:
                 # FIXME: This throws "RuntimeError: Attempt to dereference a
@@ -1498,23 +1544,26 @@ class Dumper:
             self.putType(typeName)
             self.putNumChild(1)
             format = self.currentItemFormat()
-            if format == 0:
+            if format == None and str(targetType.unqualified()) == "char":
+                # Use Latin1 as default for char [].
+                self.putValue(encodeCharArray(value), Hex2EncodedLatin1)
+            elif format == 0:
                 # Explicitly requested Latin1 formatting.
-                self.putValue(encodeCharArray(value, 100), Hex2EncodedLatin1)
+                self.putValue(encodeCharArray(value), Hex2EncodedLatin1)
             elif format == 1:
                 # Explicitly requested UTF-8 formatting.
-                self.putValue(encodeCharArray(value, 100), Hex2EncodedUtf8)
+                self.putValue(encodeCharArray(value), Hex2EncodedUtf8)
             elif format == 2:
                 # Explicitly requested Local 8-bit formatting.
-                self.putValue(encodeCharArray(value, 100), Hex2EncodedLocal8Bit)
+                self.putValue(encodeCharArray(value), Hex2EncodedLocal8Bit)
             else:
                 self.putValue("@0x%x" % long(value.cast(targetType.pointer())))
             if self.currentIName in self.expandedINames:
                 p = value.cast(targetType.pointer())
                 ts = targetType.sizeof
-                with Children(self, childType=targetType,
-                        addrBase=p, addrStep=ts):
-                    if not self.tryPutArrayContents(targetType, p, type.sizeof/ts):
+                if not self.tryPutArrayContents(targetType, p, type.sizeof/ts):
+                    with Children(self, childType=targetType,
+                            addrBase=p, addrStep=ts):
                         self.putFields(value)
             return
 
@@ -1562,7 +1611,7 @@ class Dumper:
                 # Use Latin1 as default for char *.
                 self.putAddress(value.address)
                 self.putType(typeName)
-                self.putValue(encodeCharArray(value, 100), Hex2EncodedLatin1)
+                self.putValue(encodeCharArray(value), Hex2EncodedLatin1)
                 self.putNumChild(0)
                 return
 
@@ -1583,7 +1632,7 @@ class Dumper:
                 # Explicitly requested Latin1 formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
-                self.putValue(encodeCharArray(value, 100), Hex2EncodedLatin1)
+                self.putValue(encodeCharArray(value), Hex2EncodedLatin1)
                 self.putNumChild(0)
                 return
 
@@ -1591,7 +1640,7 @@ class Dumper:
                 # Explicitly requested UTF-8 formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
-                self.putValue(encodeCharArray(value, 100), Hex2EncodedUtf8)
+                self.putValue(encodeCharArray(value), Hex2EncodedUtf8)
                 self.putNumChild(0)
                 return
 
@@ -1599,7 +1648,7 @@ class Dumper:
                 # Explicitly requested local 8 bit formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
-                self.putValue(encodeCharArray(value, 100), Hex2EncodedLocal8Bit)
+                self.putValue(encodeCharArray(value), Hex2EncodedLocal8Bit)
                 self.putNumChild(0)
                 return
 
@@ -1607,7 +1656,7 @@ class Dumper:
                 # Explicitly requested UTF-16 formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
-                self.putValue(encodeChar2Array(value, 100), Hex4EncodedBigEndian)
+                self.putValue(encodeChar2Array(value), Hex4EncodedLittleEndian)
                 self.putNumChild(0)
                 return
 
@@ -1615,7 +1664,7 @@ class Dumper:
                 # Explicitly requested UCS-4 formatting.
                 self.putAddress(value.address)
                 self.putType(typeName)
-                self.putValue(encodeChar4Array(value, 100), Hex8EncodedBigEndian)
+                self.putValue(encodeChar4Array(value), Hex8EncodedLittleEndian)
                 self.putNumChild(0)
                 return
 
@@ -1659,6 +1708,15 @@ class Dumper:
             self.putPointerValue(value.address)
             return
 
+        if type.code == MethodPointerCode \
+                or type.code == MethodCode \
+                or type.code == MemberPointerCode:
+            self.putType(typeName)
+            self.putAddress(value.address)
+            self.putValue(value)
+            self.putNumChild(0)
+            return
+
         if typeName.startswith("<anon"):
             # Anonymous union. We need a dummy name to distinguish
             # multiple anonymous unions in the struct.
@@ -1674,8 +1732,8 @@ class Dumper:
             check(False)
 
 
-        if self.useDynamicType and tryDynamic:
-            self.putItem(expensiveUpcast(value), False)
+        if tryDynamic:
+            self.putItem(expensiveDowncast(value), False)
             return
 
         format = self.formats.get(self.currentIName)
@@ -1705,20 +1763,20 @@ class Dumper:
             dumper = qqDumpers.get(nsStrippedType, None)
             if not dumper is None:
                 if tryDynamic:
-                    dumper(self, expensiveUpcast(value))
+                    dumper(self, expensiveDowncast(value))
                 else:
                     dumper(self, value)
                 return
 
             # Is this derived from QObject?
-            try:
-                # If this access fails, it's not a QObject.
-                d = value["d_ptr"]["d"]
-                privateType = lookupType(self.ns + "QObjectPrivate").pointer()
-                objectName = d.cast(privateType).dereference()["objectName"]
-                self.putStringValue(objectName, 1)
-            except:
-                pass
+            #try:
+            #    # If this access fails, it's not a QObject.
+            #    d = value["d_ptr"]["d"]
+            #    privateType = lookupType(self.ns + "QObjectPrivate").pointer()
+            #    objectName = d.cast(privateType).dereference()["objectName"]
+            #    self.putStringValue(objectName, 1)
+            #except:
+            #    pass
 
         #warn("GENERIC STRUCT: %s" % type)
         #warn("INAME: %s " % self.currentIName)
@@ -1825,7 +1883,7 @@ class Dumper:
                         #if not bitsize is None:
                         #    self.put("bitsize=\"%s\",bitpos=\"%s\","
                         #            % (bitsize, bitpos))
-                        self.putItem(upcast(value[field.name]))
+                        self.putItem(downcast(value[field.name]))
 
 
     def listAnonymous(self, value, name, type):
@@ -1865,7 +1923,8 @@ def threadnames(arg):
     out = '['
     oldthread = gdb.selected_thread()
     try:
-        for thread in gdb.inferiors()[0].threads():
+        inferior = selectedInferior()
+        for thread in inferior.threads():
             maximalStackDepth = int(arg)
             thread.switch()
             e = gdb.selected_frame ()

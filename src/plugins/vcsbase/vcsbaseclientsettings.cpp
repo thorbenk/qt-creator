@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Brian McGillion & Hugues Delorme
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,14 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "vcsbaseclientsettings.h"
+
+#include <utils/environment.h>
+#include <utils/hostosinfo.h>
+#include <utils/synchronousprocess.h>
 
 #include <QSettings>
 
@@ -167,13 +169,15 @@ public:
         QSharedData(other),
         m_valueHash(other.m_valueHash),
         m_defaultValueHash(other.m_defaultValueHash),
-        m_settingsGroup(other.m_settingsGroup)
+        m_settingsGroup(other.m_settingsGroup),
+        m_binaryFullPath(other.m_binaryFullPath)
     {
     }
 
     QHash<QString, SettingValue> m_valueHash;
     QVariantHash m_defaultValueHash;
     QString m_settingsGroup;
+    mutable QString m_binaryFullPath;
 };
 
 } // namespace Internal
@@ -192,6 +196,7 @@ const QLatin1String VcsBaseClientSettings::userEmailKey("UserEmail");
 const QLatin1String VcsBaseClientSettings::logCountKey("LogCount");
 const QLatin1String VcsBaseClientSettings::promptOnSubmitKey("PromptOnSubmit");
 const QLatin1String VcsBaseClientSettings::timeoutKey("Timeout");
+const QLatin1String VcsBaseClientSettings::pathKey("Path");
 
 VcsBaseClientSettings::VcsBaseClientSettings() :
     d(new Internal::VcsBaseClientSettingsPrivate)
@@ -202,6 +207,7 @@ VcsBaseClientSettings::VcsBaseClientSettings() :
     declareKey(logCountKey, 100);
     declareKey(promptOnSubmitKey, true);
     declareKey(timeoutKey, 30);
+    declareKey(pathKey, QString());
 }
 
 VcsBaseClientSettings::VcsBaseClientSettings(const VcsBaseClientSettings &other) :
@@ -328,8 +334,10 @@ QVariant VcsBaseClientSettings::value(const QString &key) const
 
 void VcsBaseClientSettings::setValue(const QString &key, const QVariant &v)
 {
-    if (SettingValue::isUsableVariantType(valueType(key)))
+    if (SettingValue::isUsableVariantType(valueType(key))) {
         d->m_valueHash.insert(key, SettingValue(v));
+        d->m_binaryFullPath.clear();
+    }
 }
 
 QVariant::Type VcsBaseClientSettings::valueType(const QString &key) const
@@ -337,6 +345,16 @@ QVariant::Type VcsBaseClientSettings::valueType(const QString &key) const
     if (hasKey(key))
         return d->m_valueHash[key].type();
     return QVariant::Invalid;
+}
+
+QString VcsBaseClientSettings::binaryPath() const
+{
+    if (d->m_binaryFullPath.isEmpty()) {
+        d->m_binaryFullPath = Utils::Environment::systemEnvironment().searchInPath(
+                    stringValue(binaryPathKey), stringValue(pathKey).split(
+                        Utils::HostOsInfo::pathListSeparator()));
+    }
+    return d->m_binaryFullPath;
 }
 
 QString VcsBaseClientSettings::settingsGroup() const

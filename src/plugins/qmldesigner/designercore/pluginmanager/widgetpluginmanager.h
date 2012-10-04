@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +33,9 @@
 
 #include <QObject>
 #include <QList>
+
+#include "widgetpluginpath.h"
+
 
 QT_BEGIN_NAMESPACE
 class QString;
@@ -47,8 +48,6 @@ class IWidgetPlugin;
 
 namespace Internal {
 
-class WidgetPluginManagerPrivate;
-
 // PluginManager: Loads the plugin libraries on demand "as lazy as
 // possible", that is, directories are scanned and
 // instances are created only when  instances() is called.
@@ -56,11 +55,11 @@ class WidgetPluginManagerPrivate;
 class WidgetPluginManager
 {
     Q_DISABLE_COPY(WidgetPluginManager)
+    typedef QList<WidgetPluginPath> PluginPathList;
 public:
     typedef QList<IWidgetPlugin *> IWidgetPluginList;
 
     WidgetPluginManager();
-    ~WidgetPluginManager();
 
     bool addPath(const QString &path);
 
@@ -71,7 +70,7 @@ public:
     QAbstractItemModel *createModel(QObject *parent = 0);
 
 private:
-    WidgetPluginManagerPrivate *d;
+    PluginPathList m_paths;
 };
 
 } // namespace Internal

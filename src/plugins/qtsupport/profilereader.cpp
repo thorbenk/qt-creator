@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -42,8 +40,10 @@ using namespace QtSupport;
 
 static QString format(const QString &fileName, int lineNo, const QString &msg)
 {
-    if (lineNo)
+    if (lineNo > 0)
         return QString::fromLatin1("%1(%2): %3").arg(fileName, QString::number(lineNo), msg);
+    else if (lineNo)
+        return QString::fromLatin1("%1: %3").arg(fileName, msg);
     else
         return msg;
 }
@@ -56,19 +56,9 @@ ProMessageHandler::ProMessageHandler(bool verbose)
                      Qt::QueuedConnection);
 }
 
-void ProMessageHandler::parseError(const QString &fileName, int lineNo, const QString &msg)
+void ProMessageHandler::message(int type, const QString &msg, const QString &fileName, int lineNo)
 {
-    emit errorFound(format(fileName, lineNo, msg));
-}
-
-void ProMessageHandler::configError(const QString &msg)
-{
-    emit errorFound(msg);
-}
-
-void ProMessageHandler::evalError(const QString &fileName, int lineNo, const QString &msg)
-{
-    if (m_verbose)
+    if ((type & CategoryMask) == ErrorMessage && ((type & SourceMask) == SourceParser || m_verbose))
         emit errorFound(format(fileName, lineNo, msg));
 }
 
@@ -78,8 +68,8 @@ void ProMessageHandler::fileMessage(const QString &)
 }
 
 
-ProFileReader::ProFileReader(ProFileOption *option)
-    : ProFileParser(ProFileCacheManager::instance()->cache(), this)
+ProFileReader::ProFileReader(ProFileGlobals *option)
+    : QMakeParser(ProFileCacheManager::instance()->cache(), this)
     , ProFileEvaluator(option, this, this)
     , m_ignoreLevel(0)
 {

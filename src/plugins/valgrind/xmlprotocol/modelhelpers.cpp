@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,8 +27,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -64,7 +62,7 @@ QString toolTipForFrame(const Frame &frame)
     if (frame.instructionPointer())
         lines << qMakePair(QCoreApplication::translate("Valgrind::XmlProtocol",
                                                        "Instruction pointer:"),
-                           QString::fromAscii("0x%1").arg(frame.instructionPointer(), 0, 16));
+                           QString::fromLatin1("0x%1").arg(frame.instructionPointer(), 0, 16));
     if (!frame.object().isEmpty())
         lines << qMakePair(QCoreApplication::translate("Valgrind::XmlProtocol", "Object:"), frame.object());
 

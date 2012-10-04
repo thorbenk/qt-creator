@@ -1,14 +1,16 @@
 import qbs.base 1.0
 import "../QtcPlugin.qbs" as QtcPlugin
+import "../../../qbs/defaults.js" as Defaults
 
 QtcPlugin {
     name: "ProjectExplorer"
 
-    Depends { name: "qt"; submodules: ['widgets', 'xml', 'network', 'script', 'quick1'] }
+    Depends { name: "Qt"; submodules: ["widgets", "xml", "network", "script", "quick1"] }
     Depends { name: "Core" }
     Depends { name: "Locator" }
     Depends { name: "Find" }
     Depends { name: "TextEditor" }
+    Depends { name: "QtcSsh" }
 
     Depends { name: "cpp" }
     cpp.defines: base.concat(["QTC_CPU=X86Architecture"])
@@ -26,7 +28,6 @@ QtcPlugin {
         "doubletabwidget.ui",
         "processstep.ui",
         "projectexplorer.qrc",
-        "removefiledialog.ui",
         "sessiondialog.ui",
         "targetsettingswidget.ui",
         "projectwizardpage.ui",
@@ -107,6 +108,23 @@ QtcPlugin {
         "processparameters.h",
         "processstep.cpp",
         "processstep.h",
+        "kit.cpp",
+        "kit.h",
+        "kitchooser.cpp",
+        "kitchooser.h",
+        "kitconfigwidget.h",
+        "kitinformation.cpp",
+        "kitinformation.h",
+        "kitinformationconfigwidget.cpp",
+        "kitinformationconfigwidget.h",
+        "kitmanager.cpp",
+        "kitmanager.h",
+        "kitmanagerconfigwidget.cpp",
+        "kitmanagerconfigwidget.h",
+        "kitmodel.cpp",
+        "kitmodel.h",
+        "kitoptionspage.cpp",
+        "kitoptionspage.h",
         "project.cpp",
         "project.h",
         "projectconfiguration.cpp",
@@ -124,8 +142,6 @@ QtcPlugin {
         "projectwindow.cpp",
         "projectwindow.h",
         "projectwizardpage.h",
-        "removefiledialog.cpp",
-        "removefiledialog.h",
         "runconfigurationmodel.cpp",
         "runconfigurationmodel.h",
         "runsettingspropertiespage.cpp",
@@ -157,7 +173,6 @@ QtcPlugin {
         "toolchainconfigwidget.h",
         "toolchainmanager.h",
         "toolchainoptionspage.h",
-        "toolchainoptionspage.ui",
         "vcsannotatetaskhandler.h",
         "environmentitemswidget.h",
         "abi.cpp",
@@ -217,17 +232,21 @@ QtcPlugin {
         "customwizard/customwizardscriptgenerator.h",
         "customwizard/customwizard.cpp",
         "customwizard/customwizardparameters.cpp",
+        "deployablefile.h",
+        "deployablefile.cpp",
+        "deploymentdata.h",
+        "buildtargetinfo.h",
         "images/BuildSettings.png",
         "images/CodeStyleSettings.png",
-        "images/ConnectionOff.png",
-        "images/ConnectionOn.png",
+        "images/DeviceConnected.png",
+        "images/DeviceDisconnected.png",
+        "images/DeviceReadyToUse.png",
         "images/Desktop.png",
         "images/EditorSettings.png",
         "images/MaemoDevice.png",
         "images/ProjectDependencies.png",
         "images/RunSettings.png",
-        "images/SymbianDevice.png",
-        "images/SymbianEmulator.png",
+        "images/Simulator.png",
         "images/build.png",
         "images/build_32.png",
         "images/build_small.png",
@@ -251,13 +270,13 @@ QtcPlugin {
         "images/session.png",
         "images/stop.png",
         "images/stop_small.png",
-        "images/targetaddbutton.png",
-        "images/targetaddbutton_disabled.png",
+        "images/targetleftbutton.png",
+        "images/targetrightbutton.png",
         "images/targetbuildselected.png",
         "images/targetpanel_bottom.png",
         "images/targetpanel_gradient.png",
         "images/targetremovebutton.png",
-        "images/targetremovebutton_disabled.png",
+        "images/targetremovebuttondark.png",
         "images/targetrunselected.png",
         "images/targetseparatorbackground.png",
         "images/targetunselected.png",
@@ -281,15 +300,28 @@ QtcPlugin {
         "devicesupport/devicefactoryselectiondialog.cpp",
         "devicesupport/devicefactoryselectiondialog.h",
         "devicesupport/devicefactoryselectiondialog.ui",
+        "devicesupport/deviceprocesslist.cpp",
+        "devicesupport/deviceprocesslist.h",
+        "devicesupport/sshdeviceprocesslist.cpp",
+        "devicesupport/sshdeviceprocesslist.h",
+        "devicesupport/deviceprocessesdialog.cpp",
+        "devicesupport/deviceprocessesdialog.h",
         "devicesupport/devicesettingswidget.cpp",
         "devicesupport/devicesettingswidget.h",
         "devicesupport/devicesettingswidget.ui",
+        "devicesupport/deviceusedportsgatherer.cpp",
+        "devicesupport/deviceusedportsgatherer.h",
         "devicesupport/idevicewidget.h",
-        "devicesupport/idevicefactory.h"
+        "devicesupport/idevicefactory.cpp",
+        "devicesupport/idevicefactory.h",
+        "devicesupport/deviceapplicationrunner.cpp",
+        "devicesupport/deviceapplicationrunner.h",
+        "devicesupport/localprocesslist.h",
+        "devicesupport/localprocesslist.cpp"
     ]
 
     Group {
-        condition: qbs.targetOS == "windows"
+        condition: qbs.targetOS == "windows" || Defaults.testsEnabled(qbs)
         files: [
            "wincetoolchain.cpp",
            "wincetoolchain.h",
@@ -303,5 +335,15 @@ QtcPlugin {
            "abstractmsvctoolchain.h"
         ]
     }
-}
 
+    Group {
+        condition: Defaults.testsEnabled(qbs)
+        files: ["outputparser_test.h", "outputparser_test.cpp"]
+    }
+
+    ProductModule {
+        Depends { name: "cpp" }
+        Depends { name: "Qt"; submodules: ["network"] }
+        cpp.includePaths: [".."]
+    }
+}

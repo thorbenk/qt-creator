@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -66,6 +64,13 @@ void InfoBarEntry::setCancelButtonInfo(QObject *_object, const char *_member)
     cancelButtonPressMember = _member;
 }
 
+void InfoBarEntry::setCancelButtonInfo(const QString &_cancelButtonText, QObject *_object, const char *_member)
+{
+    cancelButtonText = _cancelButtonText;
+    cancelObject = _object;
+    cancelButtonPressMember = _member;
+}
+
 
 void InfoBar::addInfo(const InfoBarEntry &info)
 {
@@ -82,6 +87,16 @@ void InfoBar::removeInfo(const QString &id)
             emit changed();
             return;
         }
+}
+
+bool InfoBar::containsInfo(const QString &id) const
+{
+    QListIterator<InfoBarEntry> it(m_infoBarEntries);
+    while (it.hasNext())
+        if (it.next().id == id)
+            return true;
+
+    return false;
 }
 
 void InfoBar::clear()
@@ -169,15 +184,22 @@ void InfoBarDisplay::update()
         }
 
         QToolButton *infoWidgetCloseButton = new QToolButton;
-        infoWidgetCloseButton->setAutoRaise(true);
-        infoWidgetCloseButton->setIcon(QIcon(QLatin1String(Core::Constants::ICON_CLEAR)));
-        infoWidgetCloseButton->setToolTip(tr("Close"));
         infoWidgetCloseButton->setProperty("infoId", info.id);
-        connect(infoWidgetCloseButton, SIGNAL(clicked()), SLOT(cancelButtonClicked()));
 
+        // need to connect to cancelObjectbefore connecting to cancelButtonClicked,
+        // because the latter removes the button and with it any connect
         if (info.cancelObject)
             connect(infoWidgetCloseButton, SIGNAL(clicked()),
                     info.cancelObject, info.cancelButtonPressMember);
+        connect(infoWidgetCloseButton, SIGNAL(clicked()), SLOT(cancelButtonClicked()));
+
+        if (info.cancelButtonText.isEmpty()) {
+            infoWidgetCloseButton->setAutoRaise(true);
+            infoWidgetCloseButton->setIcon(QIcon(QLatin1String(Core::Constants::ICON_CLEAR)));
+            infoWidgetCloseButton->setToolTip(tr("Close"));
+        } else {
+            infoWidgetCloseButton->setText(info.cancelButtonText);
+        }
 
         hbox->addWidget(infoWidgetCloseButton);
 

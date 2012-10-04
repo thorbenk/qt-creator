@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,7 +55,6 @@ public:
     FormEditorWidget(FormEditorView *view);
 
     ZoomAction *zoomAction() const;
-    QAction *anchorToolAction() const;
     QAction *transformToolAction() const;
     QAction *showBoundingRectAction() const;
     QAction *selectOnlyContentItemsAction() const;
@@ -69,8 +66,6 @@ public:
 
     double spacing() const;
     double margins() const;
-
-    void setFeedbackNode(const QmlItemNode &node);
 
     QString contextHelpId() const;
 
@@ -84,14 +79,12 @@ public:
 
     void setFocus();
 
-
 protected:
     void wheelEvent(QWheelEvent *event);
     QActionGroup *toolActionGroup() const;
 
 private slots:
     void changeTransformTool(bool checked);
-    void changeAnchorTool(bool checked);
     void setZoomLevel(double zoomLevel);
     void changeRootItemWidth(const QString &widthText);
     void changeRootItemHeight(const QString &heightText);
@@ -102,7 +95,6 @@ private:
     QWeakPointer<FormEditorGraphicsView> m_graphicsView;
     QWeakPointer<ZoomAction> m_zoomAction;
     QWeakPointer<ToolBox> m_toolBox;
-    QWeakPointer<QAction> m_anchorToolAction;
     QWeakPointer<QAction> m_transformToolAction;
     QWeakPointer<QActionGroup> m_toolActionGroup;
     QWeakPointer<QAction> m_snappingAction;

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -49,15 +47,17 @@ class WatchTreeView : public BaseTreeView
     Q_OBJECT
 
 public:
-    enum Type { ReturnType, LocalsType, TooltipType, WatchersType, InspectType };
+    enum Type { LocalsType, InspectType, WatchersType, ReturnType, TooltipType };
 
     explicit WatchTreeView(Type type, QWidget *parent = 0);
     Type type() const { return m_type; }
     void setModel(QAbstractItemModel *model);
+    void reset();
 
 public slots:
     void watchExpression(const QString &exp);
-    void removeWatchExpression(const QString &exp);
+    void watchExpression(const QString &exp, const QString &name);
+    void handleItemIsExpanded(const QModelIndex &idx);
 
 private:
     Q_SLOT void resetHelper();
@@ -74,8 +74,6 @@ private:
 
     void editItem(const QModelIndex &idx);
     void resetHelper(const QModelIndex &idx);
-    void setWatchpointAtAddress(quint64 address, unsigned size);
-    void setWatchpointAtExpression(const QString &exp);
 
     void setModelData(int role, const QVariant &value = QVariant(),
         const QModelIndex &index = QModelIndex());

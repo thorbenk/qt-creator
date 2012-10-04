@@ -8,14 +8,12 @@ QtcLibrary {
         ".",
         ".."
     ]
-    cpp.defines: [
+    cpp.defines: base.concat([
         "QMLDEBUG_LIB"
-    ]
+    ])
 
     Depends { name: "cpp" }
-    Depends { name: "Qt.gui" }
-    Depends { name: "Qt.network" }
-    Depends { name: "symbianutils" }
+    Depends { name: "Qt"; submodules: ["gui", "network"] }
 
     files: [
         "baseenginedebugclient.cpp",
@@ -49,10 +47,7 @@ QtcLibrary {
 
     ProductModule {
         Depends { name: "cpp" }
-        Depends { name: "symbianutils" }
-        cpp.includePaths: [
-            "."
-        ]
+        cpp.includePaths: ["."]
     }
 }
 

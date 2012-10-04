@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "settings.h"
 #include "pastebindotcomprotocol.h"
+
+#include <utils/environment.h>
 
 #include <QVariant>
 #include <QSettings>
@@ -67,11 +67,7 @@ void Settings::toSettings(QSettings *settings) const
 void Settings::fromSettings(const QSettings *settings)
 {
     const QString rootKey = QLatin1String(groupC) + QLatin1Char('/');
-#ifdef Q_OS_WIN
-    const QString defaultUser = QString::fromLocal8Bit(qgetenv("USERNAME"));
-#else
-    const QString defaultUser = QString::fromLocal8Bit(qgetenv("USER"));
-#endif
+    const QString defaultUser = Utils::Environment::systemEnvironment().userName();
     username = settings->value(rootKey + QLatin1String(userNameKeyC), defaultUser).toString();
     protocol = settings->value(rootKey + QLatin1String(defaultProtocolKeyC), PasteBinDotComProtocol::protocolName()).toString();
     copyToClipboard = settings->value(rootKey + QLatin1String(copyToClipboardKeyC), true).toBool();

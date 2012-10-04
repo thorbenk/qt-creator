@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "remoteprocesstest.h"
 
-#include <utils/ssh/sshpseudoterminal.h>
+#include <ssh/sshpseudoterminal.h>
 
 #include <QCoreApplication>
 #include <QTextStream>
@@ -40,13 +38,14 @@
 
 #include <iostream>
 
-using namespace Utils;
+using namespace QSsh;
 
 const QByteArray StderrOutput("ChannelTest");
 
 RemoteProcessTest::RemoteProcessTest(const SshConnectionParameters &params)
     : m_sshParams(params),
       m_timeoutTimer(new QTimer(this)),
+      m_sshConnection(0),
       m_remoteRunner(new SshRemoteProcessRunner(this)),
       m_state(Inactive)
 {
@@ -54,7 +53,10 @@ RemoteProcessTest::RemoteProcessTest(const SshConnectionParameters &params)
     connect(m_timeoutTimer, SIGNAL(timeout()), SLOT(handleTimeout()));
 }
 
-RemoteProcessTest::~RemoteProcessTest() { }
+RemoteProcessTest::~RemoteProcessTest()
+{
+    delete m_sshConnection;
+}
 
 void RemoteProcessTest::run()
 {
@@ -62,10 +64,8 @@ void RemoteProcessTest::run()
         SLOT(handleConnectionError()));
     connect(m_remoteRunner, SIGNAL(processStarted()),
         SLOT(handleProcessStarted()));
-    connect(m_remoteRunner, SIGNAL(processOutputAvailable(QByteArray)),
-        SLOT(handleProcessStdout(QByteArray)));
-    connect(m_remoteRunner, SIGNAL(processErrorOutputAvailable(QByteArray)),
-        SLOT(handleProcessStderr(QByteArray)));
+    connect(m_remoteRunner, SIGNAL(readyReadStandardOutput()), SLOT(handleProcessStdout()));
+    connect(m_remoteRunner, SIGNAL(readyReadStandardError()), SLOT(handleProcessStderr()));
     connect(m_remoteRunner, SIGNAL(processClosed(int)),
         SLOT(handleProcessClosed(int)));
 
@@ -93,8 +93,8 @@ void RemoteProcessTest::handleProcessStarted()
     } else {
         m_started = true;
         if (m_state == TestingCrash) {
-            Utils::SshRemoteProcessRunner * const killer
-                = new Utils::SshRemoteProcessRunner(this);
+            QSsh::SshRemoteProcessRunner * const killer
+                = new QSsh::SshRemoteProcessRunner(this);
             killer->run("pkill -9 sleep", m_sshParams);
         } else if (m_state == TestingIoDevice) {
             connect(m_catProcess.data(), SIGNAL(readyRead()), SLOT(handleReadyRead()));
@@ -105,7 +105,7 @@ void RemoteProcessTest::handleProcessStarted()
     }
 }
 
-void RemoteProcessTest::handleProcessStdout(const QByteArray &output)
+void RemoteProcessTest::handleProcessStdout()
 {
     if (!m_started) {
         std::cerr << "Error: Remote output from non-started process."
@@ -116,11 +116,11 @@ void RemoteProcessTest::handleProcessStdout(const QByteArray &output)
             << "." << std::endl;
         qApp->quit();
     } else {
-        m_remoteStdout += output;
+        m_remoteStdout += m_remoteRunner->readAllStandardOutput();
     }
 }
 
-void RemoteProcessTest::handleProcessStderr(const QByteArray &output)
+void RemoteProcessTest::handleProcessStderr()
 {
     if (!m_started) {
         std::cerr << "Error: Remote error output from non-started process."
@@ -131,14 +131,14 @@ void RemoteProcessTest::handleProcessStderr(const QByteArray &output)
             << std::endl;
         qApp->quit();
     } else {
-        m_remoteStderr += output;
+        m_remoteStderr += m_remoteRunner->readAllStandardError();
     }
 }
 
 void RemoteProcessTest::handleProcessClosed(int exitStatus)
 {
     switch (exitStatus) {
-    case SshRemoteProcess::ExitedNormally:
+    case SshRemoteProcess::NormalExit:
         if (!m_started) {
             std::cerr << "Error: Process exited without starting." << std::endl;
             qApp->quit();
@@ -214,9 +214,9 @@ void RemoteProcessTest::handleProcessClosed(int exitStatus)
             }
             std::cout << "Ok.\nTesting I/O device functionality... " << std::flush;
             m_state = TestingIoDevice;
-            m_sshConnection = Utils::SshConnection::create(m_sshParams);
-            connect(m_sshConnection.data(), SIGNAL(connected()), SLOT(handleConnected()));
-            connect(m_sshConnection.data(), SIGNAL(error(Utils::SshError)),
+            m_sshConnection = new QSsh::SshConnection(m_sshParams);
+            connect(m_sshConnection, SIGNAL(connected()), SLOT(handleConnected()));
+            connect(m_sshConnection, SIGNAL(error(QSsh::SshError)),
                 SLOT(handleConnectionError()));
             m_sshConnection->connectToHost();
             m_timeoutTimer->start();
@@ -259,7 +259,7 @@ void RemoteProcessTest::handleProcessClosed(int exitStatus)
         }
         qApp->quit();
         break;
-    case SshRemoteProcess::KilledBySignal:
+    case SshRemoteProcess::CrashExit:
         switch (m_state) {
         case TestingCrash:
             handleSuccessfulCrashTest();
@@ -308,7 +308,7 @@ void RemoteProcessTest::handleReadyRead()
                 << qPrintable(testString()) << "', got '" << qPrintable(data) << "'." << std::endl;
             qApp->exit(1);
         }
-        Utils::SshRemoteProcessRunner * const killer = new Utils::SshRemoteProcessRunner(this);
+        QSsh::SshRemoteProcessRunner * const killer = new QSsh::SshRemoteProcessRunner(this);
         killer->run("pkill -9 cat", m_sshParams);
         break;
     }

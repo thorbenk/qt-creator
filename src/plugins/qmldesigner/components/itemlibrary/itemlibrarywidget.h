@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,15 +32,42 @@
 #define ITEMLIBRARYWIDGET_H
 
 #include "itemlibraryinfo.h"
+#include "itemlibrarycomponents.h"
+
+#include <utils/filterlineedit.h>
+
 #include <QFrame>
 #include <QToolButton>
+#include <QFileIconProvider>
+#include <QDeclarativeView>
+
+QT_BEGIN_NAMESPACE
+class QFileSystemModel;
+class QStackedWidget;
+QT_END_NAMESPACE
 
 namespace QmlDesigner {
 
-class ItemLibraryWidgetPrivate;
 class MetaInfo;
 class ItemLibraryEntry;
 class Model;
+
+namespace Internal {
+    class ItemLibraryModel;
+    class ItemLibraryTreeView;
+}
+
+class ItemLibraryFileIconProvider : public QFileIconProvider
+{
+public:
+    ItemLibraryFileIconProvider(const QSize &iconSize);
+
+    QIcon icon( const QFileInfo & info ) const;
+
+private:
+    QSize m_iconSize;
+};
+
 
 class ItemLibraryWidget : public QFrame
 {
@@ -50,13 +75,11 @@ class ItemLibraryWidget : public QFrame
 
     enum FilterChangeFlag {
       QtBasic = 0x0,
-      Meego = 0x1,
-      Symbian = 0x2
+      Meego = 0x1
     };
 
 public:
     ItemLibraryWidget(QWidget *parent = 0);
-    virtual ~ItemLibraryWidget();
 
     void setItemLibraryInfo(ItemLibraryInfo *itemLibraryInfo);
     QList<QToolButton *> createToolBarWidgets();
@@ -79,7 +102,6 @@ public Q_SLOTS:
 
     void onQtBasicOnlyChecked(bool b);
     void onMeegoChecked(bool b);
-    void onSymbianChecked(bool b);
 
 protected:
     void wheelEvent(QWheelEvent *event);
@@ -93,10 +115,23 @@ signals:
     void resetItemsView();
     void qtBasicOnlyChecked(bool b);
     void meegoChecked(bool b);
-    void symbianChecked(bool b);
 
 private:
-    ItemLibraryWidgetPrivate *d;
+    ItemLibraryFileIconProvider m_iconProvider;
+    QSize m_itemIconSize;
+    QSize m_resIconSize;
+
+    QWeakPointer<ItemLibraryInfo> m_itemLibraryInfo;
+
+    QWeakPointer<Internal::ItemLibraryModel> m_itemLibraryModel;
+    QWeakPointer<QFileSystemModel> m_resourcesFileSystemModel;
+
+    QWeakPointer<QStackedWidget> m_stackedWidget;
+    QWeakPointer<Utils::FilterLineEdit> m_lineEdit;
+    QScopedPointer<QDeclarativeView> m_itemsView;
+    QScopedPointer<Internal::ItemLibraryTreeView> m_resourcesView;
+
+    QWeakPointer<Model> m_model;
     FilterChangeFlag m_filterFlag;
 };
 

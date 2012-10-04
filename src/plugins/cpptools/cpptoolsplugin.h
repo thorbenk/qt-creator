@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -91,6 +89,12 @@ private slots:
     void test_codegen_definition_first_member();
     void test_codegen_definition_last_member();
     void test_codegen_definition_middle_member();
+
+    void test_completion_forward_declarations_present();
+    void test_completion_basic_1();
+    void test_completion_template_1();
+    void test_completion_template_as_base();
+    void test_completion_template_as_base_data();
 #endif
 
 private:

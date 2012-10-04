@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -61,7 +59,6 @@
 #include <QTimer>
 
 #include <QApplication>
-#include <QMainWindow>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTextCodec>
@@ -93,7 +90,9 @@ SessionManager::SessionManager(QObject *parent)
     m_sessionNode(new SessionNode(this)),
     m_sessionName(QLatin1String("default")),
     m_virginSession(true),
-    m_startupProject(0)
+    m_loadingSession(false),
+    m_startupProject(0),
+    m_writer(0)
 {
     connect(ModeManager::instance(), SIGNAL(currentModeChanged(Core::IMode*)),
             this, SLOT(saveActiveMode(Core::IMode*)));
@@ -113,6 +112,7 @@ SessionManager::SessionManager(QObject *parent)
 SessionManager::~SessionManager()
 {
     emit aboutToUnloadSession(m_sessionName);
+    delete m_writer;
 }
 
 
@@ -294,6 +294,11 @@ void SessionManager::removeProject(Project *project)
     removeProjects(QList<Project*>() << project);
 }
 
+bool SessionManager::loadingSession()
+{
+    return m_loadingSession;
+}
+
 bool SessionManager::save()
 {
     if (debug)
@@ -301,12 +306,16 @@ bool SessionManager::save()
 
     emit aboutToSaveSession();
 
-    PersistentSettingsWriter writer;
-
-    // save the startup project
-    if (m_startupProject) {
-        writer.saveValue(QLatin1String("StartupProject"), m_startupProject->document()->fileName());
+    if (!m_writer || m_writer->fileName() != sessionNameToFileName(m_sessionName)) {
+        delete m_writer;
+        m_writer = new Utils::PersistentSettingsWriter(sessionNameToFileName(m_sessionName),
+                                                       QLatin1String("QtCreatorSession"));
     }
+
+    QVariantMap data;
+    // save the startup project
+    if (m_startupProject)
+        data.insert(QLatin1String("StartupProject"), m_startupProject->document()->fileName());
 
     QStringList projectFiles;
     foreach (Project *pro, m_projects)
@@ -318,7 +327,7 @@ bool SessionManager::save()
         if (!projectFiles.contains(failed))
             projectFiles << failed;
 
-    writer.saveValue(QLatin1String("ProjectList"), projectFiles);
+    data.insert(QLatin1String("ProjectList"), projectFiles);
 
     QMap<QString, QVariant> depMap;
     QMap<QString, QStringList>::const_iterator i = m_depMap.constBegin();
@@ -331,7 +340,7 @@ bool SessionManager::save()
         depMap.insert(key, values);
         ++i;
     }
-    writer.saveValue(QLatin1String("ProjectDependencies"), QVariant(depMap));
+    data.insert(QLatin1String("ProjectDependencies"), QVariant(depMap));
 
     int editorCount = 0;
     QList<Core::IEditor *> editors = ICore::editorManager()->openedEditors();
@@ -340,25 +349,23 @@ bool SessionManager::save()
         if (!editor->isTemporary())
             ++editorCount;
     }
-    writer.saveValue(QLatin1String("OpenEditors"), editorCount);
-    writer.saveValue(QLatin1String("EditorSettings"),
-                     ICore::editorManager()->saveState().toBase64());
+    data.insert(QLatin1String("OpenEditors"), editorCount);
+    data.insert(QLatin1String("EditorSettings"), ICore::editorManager()->saveState().toBase64());
 
     QMap<QString, QVariant>::const_iterator it, end;
     end = m_values.constEnd();
     QStringList keys;
     for (it = m_values.constBegin(); it != end; ++it) {
-        writer.saveValue(QLatin1String("value-") + it.key(), it.value());
+        data.insert(QLatin1String("value-") + it.key(), it.value());
         keys << it.key();
     }
 
-    writer.saveValue(QLatin1String("valueKeys"), keys);
+    data.insert(QLatin1String("valueKeys"), keys);
 
-    QString fileName = sessionNameToFileName(m_sessionName);
-    bool result = writer.save(fileName, QLatin1String("QtCreatorSession"), Core::ICore::mainWindow());
+    bool result = m_writer->save(data, Core::ICore::mainWindow());
     if (!result) {
         QMessageBox::warning(0, tr("Error while saving session"),
-                                tr("Could not save session to file %1").arg(fileName));
+                                tr("Could not save session to file %1").arg(m_writer->fileName().toUserOutput()));
     }
 
     if (debug)
@@ -642,9 +649,9 @@ QStringList SessionManager::sessions() const
     return m_sessions;
 }
 
-QString SessionManager::sessionNameToFileName(const QString &session) const
+Utils::FileName SessionManager::sessionNameToFileName(const QString &session) const
 {
-    return ICore::userResourcePath() + QLatin1Char('/') + session + QLatin1String(".qws");
+    return Utils::FileName::fromString(ICore::userResourcePath() + QLatin1Char('/') + session + QLatin1String(".qws"));
 }
 
 /*!
@@ -677,7 +684,7 @@ bool SessionManager::deleteSession(const QString &session)
     if (!m_sessions.contains(session))
         return false;
     m_sessions.removeOne(session);
-    QFile fi(sessionNameToFileName(session));
+    QFile fi(sessionNameToFileName(session).toString());
     if (fi.exists())
         return fi.remove();
     return false;
@@ -688,9 +695,9 @@ bool SessionManager::cloneSession(const QString &original, const QString &clone)
     if (!m_sessions.contains(original))
         return false;
 
-    QFile fi(sessionNameToFileName(original));
+    QFile fi(sessionNameToFileName(original).toString());
     // If the file does not exist, we can still clone
-    if (!fi.exists() || fi.copy(sessionNameToFileName(clone))) {
+    if (!fi.exists() || fi.copy(sessionNameToFileName(clone).toString())) {
         Q_ASSERT(m_sessions.size() > 0);
         m_sessions.insert(1, clone);
         return true;
@@ -808,27 +815,33 @@ bool SessionManager::loadSession(const QString &session)
         return false;
 
     // Try loading the file
-    QString fileName = sessionNameToFileName(session);
+    Utils::FileName fileName = sessionNameToFileName(session);
     PersistentSettingsReader reader;
-    if (QFileInfo(fileName).exists()) {
+    if (fileName.toFileInfo().exists()) {
         if (!reader.load(fileName)) {
             QMessageBox::warning(0, tr("Error while restoring session"),
-                                 tr("Could not restore session %1").arg(fileName));
+                                 tr("Could not restore session %1").arg(fileName.toUserOutput()));
             return false;
         }
     }
+
+    m_loadingSession = true;
 
     // Allow everyone to set something in the session and before saving
     emit aboutToUnloadSession(m_sessionName);
 
     if (!isDefaultVirgin()) {
-        if (!save())
+        if (!save()) {
+            m_loadingSession = false;
             return false;
+        }
     }
 
     // Clean up
-    if (!ICore::editorManager()->closeAllEditors())
+    if (!ICore::editorManager()->closeAllEditors()) {
+        m_loadingSession = false;
         return false;
+    }
 
     setStartupProject(0);
     removeProjects(projects());
@@ -840,7 +853,7 @@ bool SessionManager::loadSession(const QString &session)
     m_sessionName = session;
     updateWindowTitle();
 
-    if (QFileInfo(fileName).exists()) {
+    if (fileName.toFileInfo().exists()) {
         m_virginSession = false;
 
         ICore::progressManager()->addTask(m_future.future(), tr("Session"),
@@ -883,6 +896,7 @@ bool SessionManager::loadSession(const QString &session)
 
     // Starts a event loop, better do that at the very end
     askUserAboutFailedProjects();
+    m_loadingSession = false;
     return true;
 }
 
@@ -937,11 +951,11 @@ void SessionManager::projectDisplayNameChanged()
 
 QStringList ProjectExplorer::SessionManager::projectsForSessionName(const QString &session) const
 {
-    const QString fileName = sessionNameToFileName(session);
+    const Utils::FileName fileName = sessionNameToFileName(session);
     PersistentSettingsReader reader;
-    if (QFileInfo(fileName).exists()) {
+    if (fileName.toFileInfo().exists()) {
         if (!reader.load(fileName)) {
-            qWarning() << "Could not restore session" << fileName;
+            qWarning() << "Could not restore session" << fileName.toUserOutput();
             return QStringList();
         }
     }

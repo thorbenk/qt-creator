@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemoqtversion.h"
@@ -34,8 +32,10 @@
 #include "maemoconstants.h"
 #include "maemoglobal.h"
 
+#include <projectexplorer/kitinformation.h>
 #include <qt4projectmanager/qt4projectmanagerconstants.h>
 #include <qtsupport/qtsupportconstants.h>
+#include <utils/hostosinfo.h>
 
 #include <QCoreApplication>
 #include <QFile>
@@ -97,87 +97,36 @@ MaemoQtVersion *MaemoQtVersion::clone() const
     return new MaemoQtVersion(*this);
 }
 
-QString MaemoQtVersion::systemRoot() const
-{
-    if (m_systemRoot.isNull()) {
-        QFile file(QDir::cleanPath(MaemoGlobal::targetRoot(qmakeCommand().toString()))
-                   + QLatin1String("/information"));
-        if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            QTextStream stream(&file);
-            while (!stream.atEnd()) {
-                const QString &line = stream.readLine().trimmed();
-                const QStringList &list = line.split(QLatin1Char(' '));
-                if (list.count() <= 1)
-                    continue;
-                if (list.at(0) == QLatin1String("sysroot")) {
-                    m_systemRoot = MaemoGlobal::maddeRoot(qmakeCommand().toString())
-                            + QLatin1String("/sysroots/") + list.at(1);
-                }
-            }
-        }
-    }
-    return m_systemRoot;
-}
-
 QList<ProjectExplorer::Abi> MaemoQtVersion::detectQtAbis() const
 {
     QList<ProjectExplorer::Abi> result;
     if (!isValid())
         return result;
-    if (m_deviceType == Core::Id(Maemo5OsType)) {
+    if (m_deviceType == Maemo5OsType) {
         result.append(ProjectExplorer::Abi(ProjectExplorer::Abi::ArmArchitecture, ProjectExplorer::Abi::LinuxOS,
                                            ProjectExplorer::Abi::MaemoLinuxFlavor, ProjectExplorer::Abi::ElfFormat,
                                            32));
-    } else if (m_deviceType == Core::Id(HarmattanOsType)) {
+    } else if (m_deviceType == HarmattanOsType) {
         result.append(ProjectExplorer::Abi(ProjectExplorer::Abi::ArmArchitecture, ProjectExplorer::Abi::LinuxOS,
                                            ProjectExplorer::Abi::HarmattanLinuxFlavor,
                                            ProjectExplorer::Abi::ElfFormat,
                                            32));
-    } else if (m_deviceType == Core::Id(MeeGoOsType)) {
-        result.append(ProjectExplorer::Abi(ProjectExplorer::Abi::ArmArchitecture, ProjectExplorer::Abi::LinuxOS,
-                                           ProjectExplorer::Abi::MeegoLinuxFlavor,
-                                           ProjectExplorer::Abi::ElfFormat, 32));
-    }
-    return result;
-}
-
-bool MaemoQtVersion::supportsTargetId(const Core::Id id) const
-{
-    return supportedTargetIds().contains(id);
-}
-
-QSet<Core::Id> MaemoQtVersion::supportedTargetIds() const
-{
-    QSet<Core::Id> result;
-    if (!isValid())
-        return result;
-    if (m_deviceType == Core::Id(Maemo5OsType)) {
-        result.insert(Core::Id(Constants::MAEMO5_DEVICE_TARGET_ID));
-    } else if (m_deviceType == Core::Id(HarmattanOsType)) {
-        result.insert(Core::Id(Constants::HARMATTAN_DEVICE_TARGET_ID));
-    } else if (m_deviceType == Core::Id(MeeGoOsType)) {
-        result.insert(Core::Id(Constants::MEEGO_DEVICE_TARGET_ID));
     }
     return result;
 }
 
 QString MaemoQtVersion::description() const
 {
-    if (m_deviceType == Core::Id(Maemo5OsType))
+    if (m_deviceType == Maemo5OsType)
         return QCoreApplication::translate("QtVersion", "Maemo", "Qt Version is meant for Maemo5");
-    else if (m_deviceType == Core::Id(HarmattanOsType))
+    if (m_deviceType == HarmattanOsType)
         return QCoreApplication::translate("QtVersion", "Harmattan ", "Qt Version is meant for Harmattan");
-    else if (m_deviceType == Core::Id(MeeGoOsType))
-        return QCoreApplication::translate("QtVersion", "MeeGo", "Qt Version is meant for MeeGo");
     return QString();
 }
 
 bool MaemoQtVersion::supportsShadowBuilds() const
 {
-#ifdef Q_OS_WIN
-    return false;
-#endif
-    return true;
+    return !Utils::HostOsInfo::isWindowsHost();
 }
 
 Core::Id MaemoQtVersion::deviceType() const
@@ -192,7 +141,7 @@ Core::FeatureSet MaemoQtVersion::availableFeatures() const
         features |= Core::FeatureSet(QtSupport::Constants::FEATURE_QTQUICK_COMPONENTS_MEEGO);
     features |= Core::FeatureSet(QtSupport::Constants::FEATURE_MOBILE);
 
-    if (deviceType() != Core::Id(Maemo5OsType)) //Only Maemo5 has proper support for Widgets
+    if (deviceType() != Maemo5OsType) //Only Maemo5 has proper support for Widgets
         features.remove(Core::Feature(QtSupport::Constants::FEATURE_QWIDGETS));
 
     return features;
@@ -200,20 +149,26 @@ Core::FeatureSet MaemoQtVersion::availableFeatures() const
 
 QString MaemoQtVersion::platformName() const
 {
+    if (m_deviceType == Maemo5OsType)
+        return QLatin1String(QtSupport::Constants::MAEMO_FREMANTLE_PLATFORM);
     return QLatin1String(QtSupport::Constants::MEEGO_HARMATTAN_PLATFORM);
 }
 
 QString MaemoQtVersion::platformDisplayName() const
 {
+    if (m_deviceType == Maemo5OsType)
+        return QLatin1String(QtSupport::Constants::MAEMO_FREMANTLE_PLATFORM_TR);
     return QLatin1String(QtSupport::Constants::MEEGO_HARMATTAN_PLATFORM_TR);
 }
 
-void MaemoQtVersion::addToEnvironment(Utils::Environment &env) const
+void MaemoQtVersion::addToEnvironment(const ProjectExplorer::Kit *k, Utils::Environment &env) const
 {
+    Q_UNUSED(k);
     const QString maddeRoot = MaemoGlobal::maddeRoot(qmakeCommand().toString());
 
     // Needed to make pkg-config stuff work.
-    env.prependOrSet(QLatin1String("SYSROOT_DIR"), QDir::toNativeSeparators(systemRoot()));
+    Utils::FileName sysRoot = ProjectExplorer::SysRootKitInformation::sysRoot(k);
+    env.prependOrSet(QLatin1String("SYSROOT_DIR"), sysRoot.toUserOutput());
     env.prependOrSetPath(QDir::toNativeSeparators(QString("%1/madbin")
         .arg(maddeRoot)));
     env.prependOrSetPath(QDir::toNativeSeparators(QString("%1/madlib")
@@ -224,6 +179,14 @@ void MaemoQtVersion::addToEnvironment(Utils::Environment &env) const
     env.prependOrSetPath(QDir::toNativeSeparators(QString("%1/bin").arg(maddeRoot)));
     env.prependOrSetPath(QDir::toNativeSeparators(QString("%1/bin")
         .arg(MaemoGlobal::targetRoot(qmakeCommand().toString()))));
+
+    // Actually this is tool chain related, but since we no longer have a tool chain...
+    const QString manglePathsKey = QLatin1String("GCCWRAPPER_PATHMANGLE");
+    if (!env.hasKey(manglePathsKey)) {
+        const QStringList pathsToMangle = QStringList() << QLatin1String("/lib")
+            << QLatin1String("/opt") << QLatin1String("/usr");
+        env.set(manglePathsKey, pathsToMangle.join(QLatin1String(":")));
+    }
 }
 
 } // namespace Internal

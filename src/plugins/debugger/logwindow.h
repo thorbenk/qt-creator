@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +34,7 @@
 #include "debuggerconstants.h"
 
 #include <QWidget>
+#include <QTimer>
 
 QT_BEGIN_NAMESPACE
 class QCursor;
@@ -44,8 +43,12 @@ class QLineEdit;
 class QPlainTextEdit;
 QT_END_NAMESPACE
 
+namespace Utils { class FancyLineEdit; }
+
 namespace Debugger {
 namespace Internal {
+
+class DebuggerPane;
 
 class LogWindow : public QWidget
 {
@@ -72,19 +75,21 @@ public slots:
     void executeLine();
     void showOutput(int channel, const QString &output);
     void showInput(int channel, const QString &input);
+    void doOutput();
 
 signals:
     void showPage();
     void statusMessageRequested(const QString &msg, int);
 
 private:
-    QPlainTextEdit *m_combinedText;  // combined input/output
-    QPlainTextEdit *m_inputText;     // scriptable input alone
-    QLineEdit *m_commandEdit;
+    DebuggerPane *m_combinedText;  // combined input/output
+    DebuggerPane *m_inputText;     // scriptable input alone
+    QTimer m_outputTimer;
+    QString m_queuedOutput;
+    Utils::FancyLineEdit *m_commandEdit;
     QLabel *m_commandLabel;
     bool m_ignoreNextInputEcho;
 };
-
 
 } // namespace Internal
 } // namespace Debugger

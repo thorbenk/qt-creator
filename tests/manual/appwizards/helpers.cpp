@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,7 +53,6 @@ bool QtQuickApp::generateFiles(QString *errorMessage) const
             && writeFile(generateFile(QtQuickAppGeneratedFileInfo::AppViewerPriFile, errorMessage), path(AppViewerPri))
             && writeFile(generateFile(QtQuickAppGeneratedFileInfo::AppViewerCppFile, errorMessage), path(AppViewerCpp))
             && writeFile(generateFile(QtQuickAppGeneratedFileInfo::AppViewerHFile, errorMessage), path(AppViewerH))
-            && writeFile(generateFile(QtQuickAppGeneratedFileInfo::SymbianSvgIconFile, errorMessage), path(SymbianSvgIcon))
             && writeFile(generateFile(QtQuickAppGeneratedFileInfo::PngIcon64File, errorMessage), path(PngIcon64))
             && writeFile(generateFile(QtQuickAppGeneratedFileInfo::PngIcon80File, errorMessage), path(PngIcon80))
             && writeFile(generateFile(QtQuickAppGeneratedFileInfo::DesktopFremantleFile, errorMessage), path(DesktopFremantle))
@@ -70,7 +67,6 @@ bool Html5App::generateFiles(QString *errorMessage) const
             && writeFile(generateFile(Html5AppGeneratedFileInfo::AppViewerPriFile, errorMessage), path(AppViewerPri))
             && writeFile(generateFile(Html5AppGeneratedFileInfo::AppViewerCppFile, errorMessage), path(AppViewerCpp))
             && writeFile(generateFile(Html5AppGeneratedFileInfo::AppViewerHFile, errorMessage), path(AppViewerH))
-            && writeFile(generateFile(Html5AppGeneratedFileInfo::SymbianSvgIconFile, errorMessage), path(SymbianSvgIcon))
             && writeFile(generateFile(Html5AppGeneratedFileInfo::PngIcon64File, errorMessage), path(PngIcon64))
             && writeFile(generateFile(Html5AppGeneratedFileInfo::PngIcon80File, errorMessage), path(PngIcon80))
             && writeFile(generateFile(Html5AppGeneratedFileInfo::DesktopFremantleFile, errorMessage), path(DesktopFremantle))

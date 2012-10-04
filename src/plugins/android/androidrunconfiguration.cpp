@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,32 +32,28 @@
 #include "androiddeploystep.h"
 #include "androidglobal.h"
 #include "androidtoolchain.h"
-#include "androidtarget.h"
+#include "androidmanager.h"
 
-#include <qt4projectmanager/qt4buildconfiguration.h>
-#include <qt4projectmanager/qt4project.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/target.h>
+#include <qtsupport/qtoutputformatter.h>
+#include <qtsupport/qtkitinformation.h>
 
 #include <utils/qtcassert.h>
 
-#include <qtsupport/qtoutputformatter.h>
-
-using namespace Qt4ProjectManager;
+using namespace ProjectExplorer;
 
 namespace Android {
 namespace Internal {
 
-using namespace ProjectExplorer;
-
-AndroidRunConfiguration::AndroidRunConfiguration(AndroidTarget *parent,
-                                                 const QString &proFilePath)
-    : RunConfiguration(parent, Core::Id(ANDROID_RC_ID))
-    , m_proFilePath(proFilePath)
+AndroidRunConfiguration::AndroidRunConfiguration(Target *parent, Core::Id id, const QString &path)
+    : RunConfiguration(parent, id)
+    , m_proFilePath(path)
 {
     init();
 }
 
-AndroidRunConfiguration::AndroidRunConfiguration(AndroidTarget *parent,
-                                                 AndroidRunConfiguration *source)
+AndroidRunConfiguration::AndroidRunConfiguration(Target *parent, AndroidRunConfiguration *source)
     : RunConfiguration(parent, source)
     , m_proFilePath(source->m_proFilePath)
 {
@@ -71,20 +65,6 @@ void AndroidRunConfiguration::init()
     setDefaultDisplayName(defaultDisplayName());
 }
 
-AndroidRunConfiguration::~AndroidRunConfiguration()
-{
-}
-
-AndroidTarget *AndroidRunConfiguration::androidTarget() const
-{
-    return static_cast<AndroidTarget *>(target());
-}
-
-Qt4BuildConfiguration *AndroidRunConfiguration::activeQt4BuildConfiguration() const
-{
-    return static_cast<Qt4BuildConfiguration *>(activeBuildConfiguration());
-}
-
 QWidget *AndroidRunConfiguration::createConfigurationWidget()
 {
     return 0;// no special running configurations
@@ -92,7 +72,7 @@ QWidget *AndroidRunConfiguration::createConfigurationWidget()
 
 Utils::OutputFormatter *AndroidRunConfiguration::createOutputFormatter() const
 {
-    return new QtSupport::QtOutputFormatter(androidTarget()->qt4Project());
+    return new QtSupport::QtOutputFormatter(target()->project());
 }
 
 QString AndroidRunConfiguration::defaultDisplayName()
@@ -105,9 +85,12 @@ AndroidConfig AndroidRunConfiguration::config() const
     return AndroidConfigurations::instance().config();
 }
 
-const QString AndroidRunConfiguration::gdbCmd() const
+const Utils::FileName AndroidRunConfiguration::gdbCmd() const
 {
-    return AndroidConfigurations::instance().gdbPath(activeQt4BuildConfiguration()->toolChain()->targetAbi().architecture());
+    ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
+    if (!tc)
+        return Utils::FileName();
+    return AndroidConfigurations::instance().gdbPath(tc->targetAbi().architecture());
 }
 
 AndroidDeployStep *AndroidRunConfiguration::deployStep() const
@@ -127,21 +110,16 @@ const QString AndroidRunConfiguration::remoteChannel() const
 
 const QString AndroidRunConfiguration::dumperLib() const
 {
-    Qt4BuildConfiguration *qt4bc(activeQt4BuildConfiguration());
-    return qt4bc->qtVersion()->gdbDebuggingHelperLibrary();
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target()->kit());
+    if (!version)
+        return QString();
+    return version->gdbDebuggingHelperLibrary();
 }
 
 QString AndroidRunConfiguration::proFilePath() const
 {
     return m_proFilePath;
 }
-
-AndroidRunConfiguration::DebuggingType AndroidRunConfiguration::debuggingType() const
-{
-    return DebugCppAndQml;
-}
-
-
 
 } // namespace Internal
 } // namespace Android

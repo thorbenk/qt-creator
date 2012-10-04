@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -77,12 +75,19 @@ protected:
 
     void cloneSteps(DeployConfiguration *source);
 
-    virtual bool fromMap(const QVariantMap &map);
+    bool fromMap(const QVariantMap &map);
 
 private:
-    friend class DeployConfigurationFactory;
-
     BuildStepList *m_stepList;
+};
+
+class PROJECTEXPLORER_EXPORT DefaultDeployConfiguration : public DeployConfiguration
+{
+    Q_OBJECT
+    friend class DeployConfigurationFactory; // for the ctors
+protected:
+    DefaultDeployConfiguration(Target *target, const Core::Id id);
+    DefaultDeployConfiguration(Target *target, DeployConfiguration *source);
 };
 
 class PROJECTEXPLORER_EXPORT DeployConfigurationFactory :
@@ -107,8 +112,17 @@ public:
     virtual bool canClone(Target *parent, DeployConfiguration *product) const;
     virtual DeployConfiguration *clone(Target *parent, DeployConfiguration *product);
 
+    static DeployConfigurationFactory *find(Target *parent, const QVariantMap &map);
+    static DeployConfigurationFactory *find(Target *parent);
+    static DeployConfigurationFactory *find(Target *parent, DeployConfiguration *dc);
+
 signals:
     void availableCreationIdsChanged();
+
+protected:
+    virtual bool canHandle(Target *parent) const;
+
+private:
 };
 
 class PROJECTEXPLORER_EXPORT DeployConfigurationWidget : public NamedWidget

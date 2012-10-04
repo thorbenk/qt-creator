@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,8 +33,8 @@
 
 #include "abstractgdbprocess.h"
 
-#include <utils/ssh/sshconnection.h>
-#include <utils/ssh/sshremoteprocess.h>
+#include <ssh/sshconnection.h>
+#include <ssh/sshremoteprocess.h>
 
 #include <QByteArray>
 #include <QQueue>
@@ -44,14 +42,14 @@
 namespace Debugger {
 namespace Internal {
 
-class RemotePlainGdbAdapter;
+class GdbRemotePlainEngine;
 
 class RemoteGdbProcess : public AbstractGdbProcess
 {
     Q_OBJECT
 public:
-    RemoteGdbProcess(const Utils::SshConnectionParameters &server,
-                     RemotePlainGdbAdapter *adapter, QObject *parent = 0);
+    RemoteGdbProcess(const QSsh::SshConnectionParameters &server,
+                     GdbRemotePlainEngine *adapter, QObject *parent = 0);
 
     virtual QByteArray readAllStandardOutput();
     virtual QByteArray readAllStandardError();
@@ -106,11 +104,11 @@ private:
     void emitErrorExit(const QString &error);
     void setState(State newState);
 
-    Utils::SshConnectionParameters m_connParams;
-    Utils::SshConnection::Ptr m_conn;
-    Utils::SshRemoteProcess::Ptr m_gdbProc;
-    Utils::SshRemoteProcess::Ptr m_appOutputReader;
-    Utils::SshRemoteProcess::Ptr m_fifoCreator;
+    QSsh::SshConnectionParameters m_connParams;
+    QSsh::SshConnection *m_conn;
+    QSsh::SshRemoteProcess::Ptr m_gdbProc;
+    QSsh::SshRemoteProcess::Ptr m_appOutputReader;
+    QSsh::SshRemoteProcess::Ptr m_fifoCreator;
     QByteArray m_gdbOutput;
     QByteArray m_errorOutput;
     QString m_command;
@@ -123,7 +121,7 @@ private:
     QByteArray m_appOutputFileName;
     State m_state;
 
-    RemotePlainGdbAdapter *m_adapter;
+    GdbRemotePlainEngine *m_adapter;
 };
 
 } // namespace Internal

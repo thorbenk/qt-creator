@@ -5,7 +5,7 @@
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 ** Copyright (c) 2010 Denis Mingulov.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,8 +26,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -47,7 +45,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QWidget>
-#include <QtDebug>
+#include <QDebug>
 
 namespace ImageViewer {
 namespace Internal {
@@ -85,6 +83,14 @@ ImageViewer::ImageViewer(QWidget *parent)
     // "emblem to specify the directory where the user stores photographs"
     // (photograph has outline - piece of paper)
     updateButtonIconByTheme(d->ui_toolbar.toolButtonOutline, "emblem-photos");
+
+    d->ui_toolbar.toolButtonZoomIn->setCommandId(Constants::ACTION_ZOOM_IN);
+    d->ui_toolbar.toolButtonZoomOut->setCommandId(Constants::ACTION_ZOOM_OUT);
+    d->ui_toolbar.toolButtonOriginalSize->setCommandId(Constants::ACTION_ORIGINAL_SIZE);
+    d->ui_toolbar.toolButtonFitToScreen->setCommandId(Constants::ACTION_FIT_TO_SCREEN);
+    d->ui_toolbar.toolButtonBackground->setCommandId(Constants::ACTION_BACKGROUND);
+    d->ui_toolbar.toolButtonOutline->setCommandId(Constants::ACTION_OUTLINE);
+    d->ui_toolbar.toolButtonPlayPause->setCommandId(Constants::ACTION_TOGGLE_ANIMATION);
 
     // connections
     connect(d->file, SIGNAL(changed()), this, SIGNAL(changed()));
@@ -272,10 +278,10 @@ void ImageViewer::setPaused(bool paused)
 {
     d->imageView->setPaused(paused);
     if (paused) {
-        d->ui_toolbar.toolButtonPlayPause->setToolTip(tr("Play Animation"));
+        d->ui_toolbar.toolButtonPlayPause->setToolTipBase(tr("Play Animation"));
         d->ui_toolbar.toolButtonPlayPause->setIcon(QPixmap(QLatin1String(":/imageviewer/images/play-small.png")));
     } else {
-        d->ui_toolbar.toolButtonPlayPause->setToolTip(tr("Pause Animation"));
+        d->ui_toolbar.toolButtonPlayPause->setToolTipBase(tr("Pause Animation"));
         d->ui_toolbar.toolButtonPlayPause->setIcon(QPixmap(QLatin1String(":/imageviewer/images/pause-small.png")));
     }
 }

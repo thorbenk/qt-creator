@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,81 +25,103 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "startremotedialog.h"
 
-#include "ui_startremotedialog.h"
-
 #include <coreplugin/icore.h>
-#include <utils/ssh/sshconnection.h>
+#include <coreplugin/id.h>
+#include <projectexplorer/kitchooser.h>
+#include <projectexplorer/kitinformation.h>
+#include <ssh/sshconnection.h>
+#include <utils/pathchooser.h>
 
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
+#include <QSpinBox>
+
+using namespace ProjectExplorer;
+using namespace Utils;
 
 namespace Analyzer {
+namespace Internal {
+
+class StartRemoteDialogPrivate
+{
+public:
+    KitChooser *kitChooser;
+    QLineEdit *executable;
+    QLineEdit *arguments;
+    QLineEdit *workingDirectory;
+    QDialogButtonBox *buttonBox;
+};
+
+} // namespace Internal
 
 StartRemoteDialog::StartRemoteDialog(QWidget *parent)
     : QDialog(parent)
-    , m_ui(new Internal::Ui::StartRemoteDialog)
+    , d(new Internal::StartRemoteDialogPrivate)
 {
-    m_ui->setupUi(this);
+    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    setWindowTitle(tr("Start Remote Analysis"));
 
-    m_ui->keyFile->setExpectedKind(Utils::PathChooser::File);
+    d->kitChooser = new KitChooser(this);
+    d->executable = new QLineEdit(this);
+    d->arguments = new QLineEdit(this);
+    d->workingDirectory = new QLineEdit(this);
+
+    d->buttonBox = new QDialogButtonBox(this);
+    d->buttonBox->setOrientation(Qt::Horizontal);
+    d->buttonBox->setStandardButtons(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);
+
+    QFormLayout *formLayout = new QFormLayout;
+    formLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    formLayout->addRow(tr("Kit:"), d->kitChooser);
+    formLayout->addRow(tr("Executable:"), d->executable);
+    formLayout->addRow(tr("Arguments:"), d->arguments);
+    formLayout->addRow(tr("Working directory:"), d->workingDirectory);
+
+    QVBoxLayout *verticalLayout = new QVBoxLayout(this);
+    verticalLayout->addLayout(formLayout);
+    verticalLayout->addWidget(d->buttonBox);
 
     QSettings *settings = Core::ICore::settings();
     settings->beginGroup(QLatin1String("AnalyzerStartRemoteDialog"));
-    m_ui->host->setText(settings->value(QLatin1String("host")).toString());
-    m_ui->port->setValue(settings->value(QLatin1String("port"), 22).toInt());
-    m_ui->user->setText(settings->value(QLatin1String("user"), qgetenv("USER")).toString());
-    m_ui->keyFile->setPath(settings->value(QLatin1String("keyFile")).toString());
-    m_ui->executable->setText(settings->value(QLatin1String("executable")).toString());
-    m_ui->workingDirectory->setText(settings->value(QLatin1String("workingDirectory")).toString());
-    m_ui->arguments->setText(settings->value(QLatin1String("arguments")).toString());
+    QString kit = settings->value(QLatin1String("profile")).toString();
+    d->kitChooser->populate();
+    d->kitChooser->setCurrentKitId(Core::Id(kit));
+    d->executable->setText(settings->value(QLatin1String("executable")).toString());
+    d->workingDirectory->setText(settings->value(QLatin1String("workingDirectory")).toString());
+    d->arguments->setText(settings->value(QLatin1String("arguments")).toString());
     settings->endGroup();
 
-    connect(m_ui->host, SIGNAL(textChanged(QString)),
-            this, SLOT(validate()));
-    connect(m_ui->port, SIGNAL(valueChanged(int)),
-            this, SLOT(validate()));
-    connect(m_ui->password, SIGNAL(textChanged(QString)),
-            this, SLOT(validate()));
-    connect(m_ui->keyFile, SIGNAL(changed(QString)),
-            this, SLOT(validate()));
-
-    connect(m_ui->executable, SIGNAL(textChanged(QString)),
-            this, SLOT(validate()));
-    connect(m_ui->workingDirectory, SIGNAL(textChanged(QString)),
-            this, SLOT(validate()));
-    connect(m_ui->arguments, SIGNAL(textChanged(QString)),
-            this, SLOT(validate()));
-
-    connect(m_ui->buttonBox, SIGNAL(accepted()),
-            this, SLOT(accept()));
-    connect(m_ui->buttonBox, SIGNAL(rejected()),
-            this, SLOT(reject()));
+    connect(d->kitChooser, SIGNAL(activated(int)), SLOT(validate()));
+    connect(d->executable, SIGNAL(textChanged(QString)), SLOT(validate()));
+    connect(d->workingDirectory, SIGNAL(textChanged(QString)), SLOT(validate()));
+    connect(d->arguments, SIGNAL(textChanged(QString)), SLOT(validate()));
+    connect(d->buttonBox, SIGNAL(accepted()), SLOT(accept()));
+    connect(d->buttonBox, SIGNAL(rejected()), SLOT(reject()));
 
     validate();
 }
 
 StartRemoteDialog::~StartRemoteDialog()
 {
-    delete m_ui;
+    delete d;
 }
 
 void StartRemoteDialog::accept()
 {
     QSettings *settings = Core::ICore::settings();
     settings->beginGroup(QLatin1String("AnalyzerStartRemoteDialog"));
-    settings->setValue(QLatin1String("host"), m_ui->host->text());
-    settings->setValue(QLatin1String("port"), m_ui->port->value());
-    settings->setValue(QLatin1String("user"), m_ui->user->text());
-    settings->setValue(QLatin1String("keyFile"), m_ui->keyFile->path());
-    settings->setValue(QLatin1String("executable"), m_ui->executable->text());
-    settings->setValue(QLatin1String("workingDirectory"), m_ui->workingDirectory->text());
-    settings->setValue(QLatin1String("arguments"), m_ui->arguments->text());
+    settings->setValue(QLatin1String("profile"), d->kitChooser->currentKitId().toString());
+    settings->setValue(QLatin1String("executable"), d->executable->text());
+    settings->setValue(QLatin1String("workingDirectory"), d->workingDirectory->text());
+    settings->setValue(QLatin1String("arguments"), d->arguments->text());
     settings->endGroup();
 
     QDialog::accept();
@@ -107,42 +129,30 @@ void StartRemoteDialog::accept()
 
 void StartRemoteDialog::validate()
 {
-    bool valid = !m_ui->host->text().isEmpty() && !m_ui->user->text().isEmpty()
-                    && !m_ui->executable->text().isEmpty();
-    valid = valid && (!m_ui->password->text().isEmpty() || m_ui->keyFile->isValid());
-    m_ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(valid);
+    bool valid = !d->executable->text().isEmpty();
+    d->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(valid);
 }
 
-Utils::SshConnectionParameters StartRemoteDialog::sshParams() const
+QSsh::SshConnectionParameters StartRemoteDialog::sshParams() const
 {
-    Utils::SshConnectionParameters params;
-    params.host = m_ui->host->text();
-    params.userName = m_ui->user->text();
-    if (m_ui->keyFile->isValid()) {
-        params.authenticationType = Utils::SshConnectionParameters::AuthenticationByKey;
-        params.privateKeyFile = m_ui->keyFile->path();
-    } else {
-        params.authenticationType = Utils::SshConnectionParameters::AuthenticationByPassword;
-        params.password = m_ui->password->text();
-    }
-    params.port = m_ui->port->value();
-    params.timeout = 10;
-    return params;
+    Kit *kit = d->kitChooser->currentKit();
+    IDevice::ConstPtr device = DeviceKitInformation::device(kit);
+    return device->sshParameters();
 }
 
 QString StartRemoteDialog::executable() const
 {
-    return m_ui->executable->text();
+    return d->executable->text();
 }
 
 QString StartRemoteDialog::arguments() const
 {
-    return m_ui->arguments->text();
+    return d->arguments->text();
 }
 
 QString StartRemoteDialog::workingDirectory() const
 {
-    return m_ui->workingDirectory->text();
+    return d->workingDirectory->text();
 }
 
 } // namespace Analyzer

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,6 +38,7 @@
 #include "debuggerstringutils.h"
 #include "stackframe.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #if USE_BREAK_MODEL_TEST
@@ -183,11 +182,9 @@ QIcon BreakHandler::emptyIcon()
 
 static inline bool fileNameMatch(const QString &f1, const QString &f2)
 {
-#ifdef Q_OS_WIN
-    return f1.compare(f2, Qt::CaseInsensitive) == 0;
-#else
+    if (Utils::HostOsInfo::isWindowsHost())
+        return f1.compare(f2, Qt::CaseInsensitive) == 0;
     return f1 == f2;
-#endif
 }
 
 static bool isSimilarTo(const BreakpointParameters &data, const BreakpointResponse &needle)
@@ -323,6 +320,8 @@ void BreakHandler::saveBreakpoints()
             map.insert(_("threadspec"), data.threadSpec);
         if (!data.enabled)
             map.insert(_("disabled"), one);
+        if (data.oneShot)
+            map.insert(_("oneshot"), one);
         if (data.pathUsage != BreakpointPathUsageEngineDefault)
             map.insert(_("usefullpath"), QString::number(data.pathUsage));
         if (data.tracepoint)
@@ -375,6 +374,9 @@ void BreakHandler::loadBreakpoints()
         v = map.value(_("disabled"));
         if (v.isValid())
             data.enabled = !v.toInt();
+        v = map.value(_("oneshot"));
+        if (v.isValid())
+            data.oneShot = v.toInt();
         v = map.value(_("usefullpath"));
         if (v.isValid())
             data.pathUsage = static_cast<BreakpointPathUsage>(v.toInt());
@@ -770,6 +772,13 @@ bool BreakHandler::isTracepoint(BreakpointModelId id) const
     return it->data.tracepoint;
 }
 
+bool BreakHandler::isOneShot(BreakpointModelId id) const
+{
+    ConstIterator it = m_storage.find(id);
+    BREAK_ASSERT(it != m_storage.end(), return false);
+    return it->data.oneShot;
+}
+
 bool BreakHandler::needsChildren(BreakpointModelId id) const
 {
     ConstIterator it = m_storage.find(id);
@@ -1154,18 +1163,20 @@ void BreakHandler::saveSessionData()
 
 void BreakHandler::loadSessionData()
 {
+    beginResetModel();
     m_storage.clear();
-    reset();
+    endResetModel();
     loadBreakpoints();
 }
 
 void BreakHandler::removeSessionData()
 {
+    beginResetModel();
     Iterator it = m_storage.begin(), et = m_storage.end();
     for ( ; it != et; ++it)
         it->destroyMarker();
     m_storage.clear();
-    reset();
+    endResetModel();
 }
 
 void BreakHandler::breakByFunction(const QString &functionName)
@@ -1567,6 +1578,33 @@ QString BreakHandler::BreakpointItem::toToolTip() const
     }
     str  << "</table></body></html>";
     return rc;
+}
+
+void BreakHandler::setWatchpointAtAddress(quint64 address, unsigned size)
+{
+    BreakpointParameters data(WatchpointAtAddress);
+    data.address = address;
+    data.size = size;
+    BreakpointModelId id = findWatchpoint(data);
+    if (id) {
+        qDebug() << "WATCHPOINT EXISTS";
+        //   removeBreakpoint(index);
+        return;
+    }
+    appendBreakpoint(data);
+}
+
+void BreakHandler::setWatchpointAtExpression(const QString &exp)
+{
+    BreakpointParameters data(WatchpointAtExpression);
+    data.expression = exp;
+    BreakpointModelId id = findWatchpoint(data);
+    if (id) {
+        qDebug() << "WATCHPOINT EXISTS";
+        //   removeBreakpoint(index);
+        return;
+    }
+    appendBreakpoint(data);
 }
 
 } // namespace Internal

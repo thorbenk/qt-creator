@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,31 +35,19 @@
 #include "cpptoolsconstants.h"
 
 #include "ModelManagerInterface.h"
-
-#ifndef ICHECK_BUILD
-#  include <projectexplorer/project.h>
-#endif
-
+#include <projectexplorer/project.h>
 #include <cplusplus/CppDocument.h>
 #include <cplusplus/PreprocessorClient.h>
-
-#ifndef ICHECK_BUILD
-#  include <texteditor/basetexteditor.h>
-#endif
-
+#include <texteditor/basetexteditor.h>
 #include <cplusplus/PreprocessorEnvironment.h>
 #include <cplusplus/pp-engine.h>
 
-#ifdef ICHECK_BUILD
-#  include "parsemanager.h"
-#else
-#  include <QHash>
-#  include <QFutureInterface>
-#  include <QFutureSynchronizer>
-#  include <QMutex>
-#  include <QTimer>
-#  include <QTextEdit> // for QTextEdit::ExtraSelection
-#endif
+#include <QHash>
+#include <QFutureInterface>
+#include <QFutureSynchronizer>
+#include <QMutex>
+#include <QTimer>
+#include <QTextEdit> // for QTextEdit::ExtraSelection
 
 #ifdef CLANG_INDEXING
 #  include <clangwrapper/indexer.h>
@@ -95,7 +81,6 @@ class CppEditorSupport;
 class CppPreprocessor;
 class CppFindReferences;
 
-#ifndef ICHECK_BUILD
 class CPPTOOLS_EXPORT CppModelManager : public CPlusPlus::CppModelManagerInterface
 {
     Q_OBJECT
@@ -145,6 +130,7 @@ public:
     virtual void findUsages(CPlusPlus::Symbol *symbol, const CPlusPlus::LookupContext &context);
 
     virtual void findMacroUsages(const CPlusPlus::Macro &macro);
+    virtual void renameMacroUsages(const CPlusPlus::Macro &macro, const QString &replacement);
 
     virtual void setExtraDiagnostics(const QString &fileName, int key,
                                      const QList<CPlusPlus::Document::DiagnosticMessage> &diagnostics);
@@ -283,16 +269,11 @@ private:
     CppHighlightingSupportFactory *m_highlightingFactory;
     CppHighlightingSupportFactory *m_highlightingFallback;
 };
-#endif
 
 class CPPTOOLS_EXPORT CppPreprocessor: public CPlusPlus::Client
 {
 public:
-#ifndef ICHECK_BUILD
     CppPreprocessor(QPointer<CppModelManager> modelManager, bool dumpFileNameWhileParsing = false);
-#else
-    CppPreprocessor(QPointer<CPlusPlus::ParseManager> modelManager);
-#endif
     virtual ~CppPreprocessor();
 
     void setRevision(unsigned revision);
@@ -326,22 +307,22 @@ protected:
     void mergeEnvironment(CPlusPlus::Document::Ptr doc);
 
     virtual void macroAdded(const CPlusPlus::Macro &macro);
-    virtual void passedMacroDefinitionCheck(unsigned offset, const CPlusPlus::Macro &macro);
+    virtual void passedMacroDefinitionCheck(unsigned offset, unsigned line,
+                                            const CPlusPlus::Macro &macro);
     virtual void failedMacroDefinitionCheck(unsigned offset, const CPlusPlus::ByteArrayRef &name);
+    virtual void notifyMacroReference(unsigned offset, unsigned line,
+                                      const CPlusPlus::Macro &macro);
     virtual void startExpandingMacro(unsigned offset,
+                                     unsigned line,
                                      const CPlusPlus::Macro &macro,
-                                     const CPlusPlus::ByteArrayRef &originalText,
                                      const QVector<CPlusPlus::MacroArgumentReference> &actuals);
     virtual void stopExpandingMacro(unsigned offset, const CPlusPlus::Macro &macro);
     virtual void startSkippingBlocks(unsigned offset);
     virtual void stopSkippingBlocks(unsigned offset);
-    virtual void sourceNeeded(QString &fileName, IncludeType type,
-                              unsigned line);
+    virtual void sourceNeeded(unsigned line, QString &fileName, IncludeType type);
 
 private:
-#ifndef ICHECK_BUILD
     QPointer<CppModelManager> m_modelManager;
-#endif
     bool m_dumpFileNameWhileParsing;
     CPlusPlus::Environment env;
     CPlusPlus::Preprocessor preprocess;

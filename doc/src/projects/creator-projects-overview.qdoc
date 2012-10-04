@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -63,7 +61,7 @@
             {shadow builds} are used to keep the build specific files separate
             from the source. You can create separate versions of project files
             to keep platform-dependent code separate. You can use qmake
-            \l{http://qt.nokia.com/doc/4.7/qmake-tutorial.html#adding-platform-specific-source-files}
+            \l{http://qt-project.org/doc/qt-4.8/qmake-tutorial.html#adding-platform-specific-source-files}
             {scopes} to select the file to process depending on which platform
             qmake is run on.
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,16 +24,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "tarpackagecreationstep.h"
 
-#include "deployablefile.h"
-#include "deploymentinfo.h"
 #include "remotelinuxdeployconfiguration.h"
 
+#include <projectexplorer/deploymentdata.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/target.h>
 
@@ -41,6 +38,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+
+#include <cstring>
 
 using namespace ProjectExplorer;
 
@@ -114,13 +113,8 @@ bool TarPackageCreationStep::init()
     if (!AbstractPackagingStep::init())
         return false;
     m_packagingNeeded = isPackagingNeeded();
-    if (!m_packagingNeeded)
-        return true;
-
-    const DeploymentInfo * const deploymentInfo = deployConfiguration()->deploymentInfo();
-    for (int i = 0; i < deploymentInfo->deployableCount(); ++i)
-        m_files.append(deploymentInfo->deployableAt(i));
-
+    if (m_packagingNeeded)
+        m_files = target()->deploymentData().allFiles();
     return true;
 }
 
@@ -154,13 +148,13 @@ bool TarPackageCreationStep::doPackage(QFutureInterface<bool> &fi)
     }
 
     foreach (const DeployableFile &d, m_files) {
-        if (d.remoteDir.isEmpty()) {
+        if (d.remoteDirectory().isEmpty()) {
             emit addOutput(tr("No remote path specified for file '%1', skipping.")
-                .arg(QDir::toNativeSeparators(d.localFilePath)), ErrorMessageOutput);
+                .arg(d.localFilePath().toUserOutput()), ErrorMessageOutput);
             continue;
         }
-        QFileInfo fileInfo(d.localFilePath);
-        if (!appendFile(tarFile, fileInfo, d.remoteDir + QLatin1Char('/')
+        QFileInfo fileInfo = d.localFilePath().toFileInfo();
+        if (!appendFile(tarFile, fileInfo, d.remoteDirectory() + QLatin1Char('/')
                 + fileInfo.fileName(), fi)) {
             return false;
         }
@@ -232,7 +226,7 @@ bool TarPackageCreationStep::writeHeader(QFile &tarFile, const QFileInfo &fileIn
     const QString &remoteFilePath)
 {
     TarFileHeader header;
-    qMemSet(&header, '\0', sizeof header);
+    std::memset(&header, '\0', sizeof header);
     const QByteArray &filePath = remoteFilePath.toUtf8();
     const int maxFilePathLength = sizeof header.fileNamePrefix + sizeof header.fileName;
     if (filePath.count() > maxFilePathLength) {
@@ -243,9 +237,9 @@ bool TarPackageCreationStep::writeHeader(QFile &tarFile, const QFileInfo &fileIn
 
     const int fileNameBytesToWrite = qMin<int>(filePath.length(), sizeof header.fileName);
     const int fileNameOffset = filePath.length() - fileNameBytesToWrite;
-    qMemCopy(&header.fileName, filePath.data() + fileNameOffset, fileNameBytesToWrite);
+    std::memcpy(&header.fileName, filePath.data() + fileNameOffset, fileNameBytesToWrite);
     if (fileNameOffset > 0)
-        qMemCopy(&header.fileNamePrefix, filePath.data(), fileNameOffset);
+        std::memcpy(&header.fileNamePrefix, filePath.data(), fileNameOffset);
     int permissions = (0400 * fileInfo.permission(QFile::ReadOwner))
         | (0200 * fileInfo.permission(QFile::WriteOwner))
         | (0100 * fileInfo.permission(QFile::ExeOwner))
@@ -256,35 +250,35 @@ bool TarPackageCreationStep::writeHeader(QFile &tarFile, const QFileInfo &fileIn
         | (02 * fileInfo.permission(QFile::WriteOther))
         | (01 * fileInfo.permission(QFile::ExeOther));
     const QByteArray permissionString = QString("%1").arg(permissions,
-        sizeof header.fileMode - 1, 8, QLatin1Char('0')).toAscii();
-    qMemCopy(&header.fileMode, permissionString.data(), permissionString.length());
+        sizeof header.fileMode - 1, 8, QLatin1Char('0')).toLatin1();
+    std::memcpy(&header.fileMode, permissionString.data(), permissionString.length());
     const QByteArray uidString = QString("%1").arg(fileInfo.ownerId(),
-        sizeof header.uid - 1, 8, QLatin1Char('0')).toAscii();
-    qMemCopy(&header.uid, uidString.data(), uidString.length());
+        sizeof header.uid - 1, 8, QLatin1Char('0')).toLatin1();
+    std::memcpy(&header.uid, uidString.data(), uidString.length());
     const QByteArray gidString = QString("%1").arg(fileInfo.groupId(),
-        sizeof header.gid - 1, 8, QLatin1Char('0')).toAscii();
-    qMemCopy(&header.gid, gidString.data(), gidString.length());
+        sizeof header.gid - 1, 8, QLatin1Char('0')).toLatin1();
+    std::memcpy(&header.gid, gidString.data(), gidString.length());
     const QByteArray sizeString = QString("%1").arg(fileInfo.size(),
-        sizeof header.length - 1, 8, QLatin1Char('0')).toAscii();
-    qMemCopy(&header.length, sizeString.data(), sizeString.length());
+        sizeof header.length - 1, 8, QLatin1Char('0')).toLatin1();
+    std::memcpy(&header.length, sizeString.data(), sizeString.length());
     const QByteArray mtimeString = QString("%1").arg(fileInfo.lastModified().toTime_t(),
-        sizeof header.mtime - 1, 8, QLatin1Char('0')).toAscii();
-    qMemCopy(&header.mtime, mtimeString.data(), mtimeString.length());
+        sizeof header.mtime - 1, 8, QLatin1Char('0')).toLatin1();
+    std::memcpy(&header.mtime, mtimeString.data(), mtimeString.length());
     if (fileInfo.isDir())
         header.typeflag = '5';
-    qMemCopy(&header.magic, "ustar", sizeof "ustar");
-    qMemCopy(&header.version, "00", 2);
+    std::memcpy(&header.magic, "ustar", sizeof "ustar");
+    std::memcpy(&header.version, "00", 2);
     const QByteArray &owner = fileInfo.owner().toUtf8();
-    qMemCopy(&header.uname, owner.data(), qMin<int>(owner.length(), sizeof header.uname - 1));
+    std::memcpy(&header.uname, owner.data(), qMin<int>(owner.length(), sizeof header.uname - 1));
     const QByteArray &group = fileInfo.group().toUtf8();
-    qMemCopy(&header.gname, group.data(), qMin<int>(group.length(), sizeof header.gname - 1));
-    qMemSet(&header.chksum, ' ', sizeof header.chksum);
+    std::memcpy(&header.gname, group.data(), qMin<int>(group.length(), sizeof header.gname - 1));
+    std::memset(&header.chksum, ' ', sizeof header.chksum);
     quint64 checksum = 0;
     for (size_t i = 0; i < sizeof header; ++i)
         checksum += reinterpret_cast<char *>(&header)[i];
     const QByteArray checksumString = QString("%1").arg(checksum,
-        sizeof header.chksum - 1, 8, QLatin1Char('0')).toAscii();
-    qMemCopy(&header.chksum, checksumString.data(), checksumString.length());
+        sizeof header.chksum - 1, 8, QLatin1Char('0')).toLatin1();
+    std::memcpy(&header.chksum, checksumString.data(), checksumString.length());
     header.chksum[sizeof header.chksum-1] = 0;
     if (!tarFile.write(reinterpret_cast<char *>(&header), sizeof header)) {
         raiseError(tr("Error writing tar file '%1': %2")

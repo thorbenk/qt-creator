@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,15 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef DEBUGGER_ATTACHGDBADAPTER_H
 #define DEBUGGER_ATTACHGDBADAPTER_H
 
-#include "abstractgdbadapter.h"
+#include "gdbengine.h"
 #include "localgdbprocess.h"
 
 namespace Debugger {
@@ -45,21 +43,21 @@ namespace Internal {
 //
 ///////////////////////////////////////////////////////////////////////
 
-class AttachGdbAdapter : public AbstractGdbAdapter
+class GdbAttachEngine : public GdbEngine
 {
     Q_OBJECT
 
 public:
-    explicit AttachGdbAdapter(GdbEngine *engine);
+    explicit GdbAttachEngine(const DebuggerStartParameters &startParameters);
 
 private:
     DumperHandling dumperHandling() const { return DumperLoadedByGdb; }
 
-    void startAdapter();
+    void setupEngine();
     void setupInferior();
     void runEngine();
-    void interruptInferior();
-    void shutdownAdapter();
+    void interruptInferior2();
+    void shutdownEngine();
 
     AbstractGdbProcess *gdbProc() { return &m_gdbProc; }
     void handleAttach(const GdbResponse &response);

@@ -1,6 +1,6 @@
 TEMPLATE = lib
 TARGET = ProjectExplorer
-QT += xml script
+QT += xml script network
 greaterThan(QT_MAJOR_VERSION, 4) {
     QT += quick1
 } else {
@@ -10,6 +10,7 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 include(../../qtcreatorplugin.pri)
 include(projectexplorer_dependencies.pri)
 include(../../libs/utils/utils.pri)
+include(../../libs/ssh/ssh.pri)
 include(customwizard/customwizard.pri)
 INCLUDEPATH += $$PWD/../../libs/utils
 HEADERS += projectexplorer.h \
@@ -19,6 +20,15 @@ HEADERS += projectexplorer.h \
     gcctoolchain.h \
     projectexplorer_export.h \
     projectwindow.h \
+    kit.h \
+    kitchooser.h \
+    kitconfigwidget.h \
+    kitinformation.h \
+    kitinformationconfigwidget.h \
+    kitmanager.h \
+    kitmanagerconfigwidget.h \
+    kitmodel.h \
+    kitoptionspage.h \
     buildmanager.h \
     buildsteplist.h \
     compileoutputwindow.h \
@@ -69,7 +79,6 @@ HEADERS += projectexplorer.h \
     sessiondialog.h \
     projectwizardpage.h \
     buildstepspage.h \
-    removefiledialog.h \
     nodesvisitor.h \
     projectmodels.h \
     currentprojectfind.h \
@@ -104,6 +113,7 @@ HEADERS += projectexplorer.h \
     codestylesettingspropertiespage.h \
     settingsaccessor.h \
     environmentitemswidget.h \
+    deployablefile.h \
     devicesupport/idevice.h \
     devicesupport/desktopdevice.h \
     devicesupport/desktopdevicefactory.h \
@@ -112,8 +122,16 @@ HEADERS += projectexplorer.h \
     devicesupport/devicemanager.h \
     devicesupport/devicemanagermodel.h \
     devicesupport/devicefactoryselectiondialog.h \
+    devicesupport/deviceprocesslist.h \
+    devicesupport/deviceprocessesdialog.h \
     devicesupport/devicesettingswidget.h \
-    devicesupport/devicesettingspage.h
+    devicesupport/devicesettingspage.h \
+    devicesupport/deviceusedportsgatherer.h \
+    devicesupport/deviceapplicationrunner.h \
+    devicesupport/localprocesslist.h \
+    devicesupport/sshdeviceprocesslist.h \
+    deploymentdata.h \
+    buildtargetinfo.h
 
 SOURCES += projectexplorer.cpp \
     abi.cpp \
@@ -121,6 +139,14 @@ SOURCES += projectexplorer.cpp \
     clangparser.cpp \
     gcctoolchain.cpp \
     projectwindow.cpp \
+    kit.cpp \
+    kitchooser.cpp \
+    kitinformation.cpp \
+    kitinformationconfigwidget.cpp \
+    kitmanager.cpp \
+    kitmanagerconfigwidget.cpp \
+    kitmodel.cpp \
+    kitoptionspage.cpp \
     buildmanager.cpp \
     buildsteplist.cpp \
     compileoutputwindow.cpp \
@@ -166,7 +192,6 @@ SOURCES += projectexplorer.cpp \
     sessiondialog.cpp \
     projectwizardpage.cpp \
     buildstepspage.cpp \
-    removefiledialog.cpp \
     nodesvisitor.cpp \
     projectmodels.cpp \
     currentprojectfind.cpp \
@@ -200,18 +225,24 @@ SOURCES += projectexplorer.cpp \
     devicesupport/idevice.cpp \
     devicesupport/desktopdevice.cpp \
     devicesupport/desktopdevicefactory.cpp \
+    devicesupport/idevicefactory.cpp \
     devicesupport/devicemanager.cpp \
     devicesupport/devicemanagermodel.cpp \
     devicesupport/devicefactoryselectiondialog.cpp \
+    devicesupport/deviceprocesslist.cpp \
+    devicesupport/deviceprocessesdialog.cpp \
     devicesupport/devicesettingswidget.cpp \
-    devicesupport/devicesettingspage.cpp
+    devicesupport/devicesettingspage.cpp \
+    devicesupport/deviceusedportsgatherer.cpp \
+    devicesupport/deviceapplicationrunner.cpp \
+    devicesupport/localprocesslist.cpp \
+    devicesupport/sshdeviceprocesslist.cpp \
+    deployablefile.cpp
 
 FORMS += processstep.ui \
-    toolchainoptionspage.ui \
     editorsettingspropertiespage.ui \
     sessiondialog.ui \
     projectwizardpage.ui \
-    removefiledialog.ui \
     projectexplorersettingspage.ui \
     targetsettingswidget.ui \
     doubletabwidget.ui \

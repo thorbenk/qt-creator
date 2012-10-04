@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,8 +33,9 @@
 
 #include "qt4project.h"
 #include "qt4projectmanager.h"
-#include "qt4target.h"
+#include <projectexplorer/target.h>
 #include <qtsupport/baseqtversion.h>
+#include <qtsupport/qtkitinformation.h>
 
 using namespace Qt4ProjectManager;
 using namespace Internal;
@@ -47,30 +46,21 @@ Qt4UiCodeModelSupport::Qt4UiCodeModelSupport(CPlusPlus::CppModelManagerInterface
                                              const QString &uiHeaderFile)
     : CppTools::UiCodeModelSupport(modelmanager, source, uiHeaderFile),
       m_project(project)
-{
-
-}
+{ }
 
 Qt4UiCodeModelSupport::~Qt4UiCodeModelSupport()
-{
-
-}
+{ }
 
 QString Qt4UiCodeModelSupport::uicCommand() const
 {
+    QtSupport::BaseQtVersion *version;
     if (m_project->needsConfiguration()) {
-        UnConfiguredSettings us = m_project->qt4ProjectManager()->unconfiguredSettings();
-        if (!us.version)
-            return QString();
-        return us.version->uicCommand();
+        version = QtSupport::QtKitInformation::qtVersion(ProjectExplorer::KitManager::instance()->defaultKit());
     } else {
-        Qt4BaseTarget *target = m_project->activeTarget();
-        Qt4BuildConfiguration *qt4bc = target->activeQt4BuildConfiguration();
-        if (!qt4bc->qtVersion())
-            return QString();
-        return qt4bc->qtVersion()->uicCommand();
+        ProjectExplorer::Target *target = m_project->activeTarget();
+        version = QtSupport::QtKitInformation::qtVersion(target->kit());
     }
-    return QString();
+    return version ? version->uicCommand() : QString();
 }
 
 QStringList Qt4UiCodeModelSupport::environment() const
@@ -78,8 +68,10 @@ QStringList Qt4UiCodeModelSupport::environment() const
     if (m_project->needsConfiguration()) {
         return Utils::Environment::systemEnvironment().toStringList();
     } else {
-        Qt4BaseTarget *target = m_project->activeTarget();
-        Qt4BuildConfiguration *qt4bc = target->activeQt4BuildConfiguration();
-        return qt4bc->environment().toStringList();
+        ProjectExplorer::Target *target = m_project->activeTarget();
+        if (!target)
+            return QStringList();
+        ProjectExplorer::BuildConfiguration *bc = target->activeBuildConfiguration();
+        return bc ? bc->environment().toStringList() : QStringList();
     }
 }

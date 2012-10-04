@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,7 +51,6 @@
 #include "nodemetainfo.h"
 #include "model_p.h"
 #include "subcomponentmanager.h"
-#include "variantparser.h"
 #include "internalproperty.h"
 #include "internalnodelistproperty.h"
 #include "internalnodeabstractproperty.h"
@@ -95,7 +92,7 @@ ModelPrivate::ModelPrivate(Model *model) :
         m_writeLock(false),
         m_internalIdCounter(1)
 {
-    m_rootInternalNode = createNode("QtQuick/Item", 1, 0, PropertyListType(), PropertyListType(), QString(), ModelNode::NodeWithoutSource,true);
+    m_rootInternalNode = createNode("QtQuick.Item", 1, 0, PropertyListType(), PropertyListType(), QString(), ModelNode::NodeWithoutSource,true);
     m_acutalStateNode = m_rootInternalNode;
 }
 
@@ -111,14 +108,14 @@ void ModelPrivate::detachAllViews()
 
     m_viewList.clear();
 
-    if (m_rewriterView) {
-        m_rewriterView->modelAboutToBeDetached(m_q);
-        m_rewriterView.clear();
-    }
-
     if (m_nodeInstanceView) {
         m_nodeInstanceView->modelAboutToBeDetached(m_q);
         m_nodeInstanceView.clear();
+    }
+
+    if (m_rewriterView) {
+        m_rewriterView->modelAboutToBeDetached(m_q);
+        m_rewriterView.clear();
     }
 }
 

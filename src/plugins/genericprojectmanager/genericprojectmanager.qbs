@@ -5,7 +5,7 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "GenericProjectManager"
 
-    Depends { name: "qt"; submodules: ['widgets'] }
+    Depends { name: "Qt.widgets" }
     Depends { name: "Core" }
     Depends { name: "CPlusPlus" }
     Depends { name: "CppTools" }
@@ -25,7 +25,6 @@ QtcPlugin {
     files: [
         "genericproject.h",
         "genericprojectplugin.h",
-        "generictarget.h",
         "genericprojectmanager.h",
         "genericprojectconstants.h",
         "genericprojectnodes.h",
@@ -38,7 +37,6 @@ QtcPlugin {
         "filesselectionwizardpage.h",
         "genericproject.cpp",
         "genericprojectplugin.cpp",
-        "generictarget.cpp",
         "genericprojectmanager.cpp",
         "genericprojectnodes.cpp",
         "genericprojectwizard.cpp",

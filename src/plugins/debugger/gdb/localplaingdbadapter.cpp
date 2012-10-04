@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,11 +38,10 @@
 
 #include <projectexplorer/abi.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <QFileInfo>
-#include <QProcess>
-#include <QMessageBox>
 
 namespace Debugger {
 namespace Internal {
@@ -55,25 +52,22 @@ namespace Internal {
 //
 ///////////////////////////////////////////////////////////////////////
 
-LocalPlainGdbAdapter::LocalPlainGdbAdapter(GdbEngine *engine)
-    : AbstractPlainGdbAdapter(engine)
+GdbLocalPlainEngine::GdbLocalPlainEngine(const DebuggerStartParameters &startParameters)
+    : GdbAbstractPlainEngine(startParameters)
 {
     // Output
     connect(&m_outputCollector, SIGNAL(byteDelivery(QByteArray)),
-        engine, SLOT(readDebugeeOutput(QByteArray)));
+        this, SLOT(readDebugeeOutput(QByteArray)));
 }
 
-AbstractGdbAdapter::DumperHandling LocalPlainGdbAdapter::dumperHandling() const
+GdbEngine::DumperHandling GdbLocalPlainEngine::dumperHandling() const
 {
     // LD_PRELOAD fails for System-Qt on Mac.
-#if defined(Q_OS_WIN) || defined(Q_OS_MAC)
-    return DumperLoadedByGdb;
-#else
-    return DumperLoadedByGdbPreload;
-#endif
+    return Utils::HostOsInfo::isWindowsHost() || Utils::HostOsInfo::isMacHost()
+            ? DumperLoadedByGdb : DumperLoadedByGdbPreload;
 }
 
-void LocalPlainGdbAdapter::startAdapter()
+void GdbLocalPlainEngine::setupEngine()
 {
     QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
     showMessage(_("TRYING TO START ADAPTER"));
@@ -84,8 +78,8 @@ void LocalPlainGdbAdapter::startAdapter()
     QStringList gdbArgs;
 
     if (!m_outputCollector.listen()) {
-        m_engine->handleAdapterStartFailed(tr("Cannot set up communication with child process: %1")
-                .arg(m_outputCollector.errorString()), QString());
+        handleAdapterStartFailed(tr("Cannot set up communication with child process: %1")
+                .arg(m_outputCollector.errorString()));
         return;
     }
     gdbArgs.append(_("--tty=") + m_outputCollector.serverName());
@@ -95,95 +89,38 @@ void LocalPlainGdbAdapter::startAdapter()
     if (startParameters().environment.size())
         m_gdbProc.setEnvironment(startParameters().environment.toStringList());
 
-    if (!m_engine->startGdb(gdbArgs)) {
-        m_outputCollector.shutdown();
-        return;
-    }
-
-    checkForReleaseBuild();
-    m_engine->handleAdapterStarted();
+    startGdb(gdbArgs);
 }
 
-void LocalPlainGdbAdapter::setupInferior()
+void GdbLocalPlainEngine::handleGdbStartFailed()
 {
-    AbstractPlainGdbAdapter::setupInferior();
+    m_outputCollector.shutdown();
 }
 
-void LocalPlainGdbAdapter::runEngine()
-{
-    AbstractPlainGdbAdapter::runEngine();
-}
-
-void LocalPlainGdbAdapter::shutdownAdapter()
+void GdbLocalPlainEngine::shutdownEngine()
 {
     showMessage(_("PLAIN ADAPTER SHUTDOWN %1").arg(state()));
     m_outputCollector.shutdown();
-    m_engine->notifyAdapterShutdownOk();
+    notifyAdapterShutdownOk();
 }
 
-void LocalPlainGdbAdapter::checkForReleaseBuild()
+void GdbLocalPlainEngine::interruptInferior2()
 {
-#ifndef Q_OS_MAC
-    // There is usually no objdump on Mac, and if there is,
-    // there are no .debug_info sections.
-    QString objDump = _("objdump");
-    // Windows: Locate objdump in the debuggee's (MinGW) environment
-    if (ProjectExplorer::Abi::hostAbi().os() == ProjectExplorer::Abi::WindowsOS
-        && startParameters().environment.size()) {
-        objDump = startParameters().environment.searchInPath(objDump);
-    } else {
-        objDump = Utils::Environment::systemEnvironment().searchInPath(objDump);
-    }
-    if (objDump.isEmpty()) {
-        showMessage(_("Could not locate objdump command for release build check"), LogWarning);
-        return;
-    }
-    // Quick check for a "release" build
-    QProcess proc;
-    QStringList args;
-    args.append(_("-h"));
-    args.append(_("-j"));
-    args.append(_(".debug_info"));
-    args.append(startParameters().executable);
-    proc.start(objDump, args);
-    proc.closeWriteChannel();
-    if (!proc.waitForStarted()) {
-        showMessage(_("OBJDUMP PROCESS COULD NOT BE STARTED. "
-            "RELEASE BUILD CHECK WILL FAIL"));
-        return;
-    }
-    proc.waitForFinished();
-    QByteArray ba = proc.readAllStandardOutput();
-    // This should yield something like
-    // "debuggertest:     file format elf32-i386\n\n"
-    // "Sections:\nIdx Name          Size      VMA       LMA       File off  Algn\n"
-    // "30 .debug_info   00087d36  00000000  00000000  0006bbd5  2**0\n"
-    // " CONTENTS, READONLY, DEBUGGING"
-    if (ba.contains("Sections:") && !ba.contains(".debug_info")) {
-        showMessageBox(QMessageBox::Information, tr("Warning"),
-           tr("This does not seem to be a \"Debug\" build.\n"
-              "Setting breakpoints by file name and line number may fail."));
-    }
-#endif
+    interruptLocalInferior(inferiorPid());
 }
 
-void LocalPlainGdbAdapter::interruptInferior()
-{
-    interruptLocalInferior(m_engine->inferiorPid());
-}
-
-QByteArray LocalPlainGdbAdapter::execFilePath() const
+QByteArray GdbLocalPlainEngine::execFilePath() const
 {
     return QFileInfo(startParameters().executable)
             .absoluteFilePath().toLocal8Bit();
 }
 
-QByteArray LocalPlainGdbAdapter::toLocalEncoding(const QString &s) const
+QByteArray GdbLocalPlainEngine::toLocalEncoding(const QString &s) const
 {
     return s.toLocal8Bit();
 }
 
-QString LocalPlainGdbAdapter::fromLocalEncoding(const QByteArray &b) const
+QString GdbLocalPlainEngine::fromLocalEncoding(const QByteArray &b) const
 {
     return QString::fromLocal8Bit(b);
 }

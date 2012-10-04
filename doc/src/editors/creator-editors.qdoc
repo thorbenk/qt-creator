@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -1150,7 +1148,7 @@
             \gui {Regular Expressions}.
             Regular expressions used in \QC are modeled on Perl regular
             expressions. For more information on using regular expressions, see
-            \l {http://doc.qt.nokia.com/4.7/qregexp.html#details}
+            \l {http://qt-project.org/doc/qt-4.8/qregexp.html#details}
             {Detailed Description} in the QRegExp Class Reference.
 
     \endlist
@@ -1654,7 +1652,7 @@
         \row
             \o Switch with Next/Previous Parameter
             \o Moves a parameter down or up one position in a parameter list.
-            \o Parameter in the declaration or definition of a fuction or method
+            \o Parameter in the declaration or definition of a function or method
         \row
             \o Extract Method
             \o Moves the selected code to a new method and replaces the block of
@@ -1808,7 +1806,13 @@
 
             The main.cpp file opens in the editor.
 
+        \o  To move to a line in the file, enter the line number in the locator.
+
     \endlist
+
+    To move directly to a particular line in the document when you open the
+    document, append a plus sign (+) or a colon (:) to the file name in the
+    locator. For example, to open main.cpp to line 41, enter: \c {main.cpp:41}.
 
     If the path to a file is very long, it might not fit into the locator
     window. To view the full path, press \key Alt when the filename is selected.

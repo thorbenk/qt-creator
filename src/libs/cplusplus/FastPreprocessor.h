@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -59,18 +57,19 @@ public:
     QByteArray run(QString fileName, const QString &source);
 
     // CPlusPlus::Client
-    virtual void sourceNeeded(QString &fileName, IncludeType, unsigned);
+    virtual void sourceNeeded(unsigned, QString &fileName, IncludeType);
 
     virtual void macroAdded(const Macro &) {}
 
-    virtual void passedMacroDefinitionCheck(unsigned, const Macro &) {}
+    virtual void passedMacroDefinitionCheck(unsigned, unsigned, const Macro &) {}
     virtual void failedMacroDefinitionCheck(unsigned, const ByteArrayRef &) {}
 
-    virtual void startExpandingMacro(unsigned,
-                                     const Macro &,
-                                     const ByteArrayRef &,
-                                     const QVector<MacroArgumentReference> &) {}
+    virtual void notifyMacroReference(unsigned, unsigned, const Macro &) {}
 
+    virtual void startExpandingMacro(unsigned,
+                                     unsigned,
+                                     const Macro &,
+                                     const QVector<MacroArgumentReference> &) {}
     virtual void stopExpandingMacro(unsigned, const Macro &) {}
 
     virtual void startSkippingBlocks(unsigned) {}

@@ -9,13 +9,13 @@ SUBDIRS   = \
     utils \
     utils/process_stub.pro \
     languageutils \
-    symbianutils \
     cplusplus \
     qmljs \
     qmldebug \
     glsl \
     qmleditorwidgets \
     qtcomponents/styleitem \
+    ssh \
     zeroconf
 win32:SUBDIRS += utils/process_ctrlc_stub.pro
 

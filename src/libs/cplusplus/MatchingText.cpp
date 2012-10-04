@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "MatchingText.h"
@@ -38,7 +36,7 @@
 #include <QTextCursor>
 
 #include <QChar>
-#include <QtDebug>
+#include <QDebug>
 
 using namespace CPlusPlus;
 
@@ -60,7 +58,7 @@ static bool shouldOverrideChar(QChar ch)
 //   qstring.h:1175:39: warning: assuming signed overflow does not occur when assuming that (X - c) > X is always false
 //
 // caused by Q_ASSERT in QStringRef::at()
-#ifdef Q_CC_GNU
+#if defined(Q_CC_GNU) && !defined(Q_CC_INTEL)
 #    pragma GCC diagnostic ignored "-Wstrict-overflow"
 #endif
 
@@ -170,7 +168,7 @@ QString MatchingText::insertMatchingBrace(const QTextCursor &cursor, const QStri
 
     const Token &token = tk[index - 1];
 
-    if (text.at(0) == QLatin1Char('"') && (token.is(T_STRING_LITERAL) || token.is(T_WIDE_STRING_LITERAL))) {
+    if (text.at(0) == QLatin1Char('"') && token.isStringLiteral()) {
         if (text.length() != 1)
             qWarning() << Q_FUNC_INFO << "handle event compression";
 
@@ -178,7 +176,7 @@ QString MatchingText::insertMatchingBrace(const QTextCursor &cursor, const QStri
             return QLatin1String("\"");
 
         return QString();
-    } else if (text.at(0) == QLatin1Char('\'') && (token.is(T_CHAR_LITERAL) || token.is(T_WIDE_CHAR_LITERAL))) {
+    } else if (text.at(0) == QLatin1Char('\'') && token.isCharLiteral()) {
         if (text.length() != 1)
             qWarning() << Q_FUNC_INFO << "handle event compression";
 

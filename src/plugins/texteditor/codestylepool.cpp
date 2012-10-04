@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -56,6 +54,7 @@ public:
     CodeStylePoolPrivate()
         : m_factory(0)
     {}
+    ~CodeStylePoolPrivate();
 
     QString generateUniqueId(const QString &id) const;
 
@@ -66,6 +65,11 @@ public:
     QMap<QString, ICodeStylePreferences *> m_idToCodeStyle;
     QString m_settingsPath;
 };
+
+CodeStylePoolPrivate::~CodeStylePoolPrivate()
+{
+    delete m_factory;
+}
 
 QString CodeStylePoolPrivate::generateUniqueId(const QString &id) const
 {
@@ -116,9 +120,11 @@ QString CodeStylePool::settingsDir() const
     return customCodeStylesPath().append(suffix);
 }
 
-QString CodeStylePool::settingsPath(const QString &id) const
+Utils::FileName CodeStylePool::settingsPath(const QString &id) const
 {
-    return settingsDir() + QLatin1Char('/') + id + QLatin1String(".xml");
+    Utils::FileName path = Utils::FileName::fromString(settingsDir());
+    path.appendPath(id + QLatin1String(".xml"));
+    return path;
 }
 
 QList<ICodeStylePreferences *> CodeStylePool::codeStyles() const
@@ -196,7 +202,7 @@ void CodeStylePool::removeCodeStyle(ICodeStylePreferences *codeStyle)
     d->m_idToCodeStyle.remove(codeStyle->id());
 
     QDir dir(settingsDir());
-    dir.remove(QFileInfo(settingsPath(codeStyle->id())).fileName());
+    dir.remove(settingsPath(codeStyle->id()).toFileInfo().fileName());
 
     delete codeStyle;
 }
@@ -214,11 +220,11 @@ void CodeStylePool::loadCustomCodeStyles()
         const QString codeStyleFile = codeStyleFiles.at(i);
         // filter out styles which id is the same as one of built-in styles
         if (!d->m_idToCodeStyle.contains(QFileInfo(codeStyleFile).completeBaseName()))
-            loadCodeStyle(dir.absoluteFilePath(codeStyleFile));
+            loadCodeStyle(Utils::FileName::fromString(dir.absoluteFilePath(codeStyleFile)));
     }
 }
 
-ICodeStylePreferences *CodeStylePool::importCodeStyle(const QString &fileName)
+ICodeStylePreferences *CodeStylePool::importCodeStyle(const Utils::FileName &fileName)
 {
     TextEditor::ICodeStylePreferences *codeStyle = loadCodeStyle(fileName);
     if (codeStyle)
@@ -226,14 +232,14 @@ ICodeStylePreferences *CodeStylePool::importCodeStyle(const QString &fileName)
     return codeStyle;
 }
 
-ICodeStylePreferences *CodeStylePool::loadCodeStyle(const QString &fileName)
+ICodeStylePreferences *CodeStylePool::loadCodeStyle(const Utils::FileName &fileName)
 {
     TextEditor::ICodeStylePreferences *codeStyle = 0;
     Utils::PersistentSettingsReader reader;
     reader.load(fileName);
     QVariantMap m = reader.restoreValues();
     if (m.contains(QLatin1String(codeStyleDataKey))) {
-        const QString id = QFileInfo(fileName).completeBaseName();
+        const QString id = fileName.toFileInfo().completeBaseName();
         const QString displayName = reader.restoreValue(QLatin1String(displayNameKey)).toString();
         const QVariantMap map = reader.restoreValue(QLatin1String(codeStyleDataKey)).toMap();
         if (d->m_factory) {
@@ -276,14 +282,15 @@ void CodeStylePool::saveCodeStyle(ICodeStylePreferences *codeStyle) const
     exportCodeStyle(settingsPath(codeStyle->id()), codeStyle);
 }
 
-void CodeStylePool::exportCodeStyle(const QString &fileName, ICodeStylePreferences *codeStyle) const
+void CodeStylePool::exportCodeStyle(const Utils::FileName &fileName, ICodeStylePreferences *codeStyle) const
 {
     QVariantMap map;
     codeStyle->toMap(QString::null, &map);
-    Utils::PersistentSettingsWriter writer;
-    writer.saveValue(QLatin1String(displayNameKey), codeStyle->displayName());
-    writer.saveValue(QLatin1String(codeStyleDataKey), map);
-    writer.save(fileName, QLatin1String(codeStyleDocKey), 0);
-}
 
+    QVariantMap tmp;
+    tmp.insert(QLatin1String(displayNameKey), codeStyle->displayName());
+    tmp.insert(QLatin1String(codeStyleDataKey), map);
+    Utils::PersistentSettingsWriter writer(fileName, QLatin1String(codeStyleDocKey));
+    writer.save(tmp, 0);
+}
 

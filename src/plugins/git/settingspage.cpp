@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +34,7 @@
 #include "gitclient.h"
 
 #include <vcsbase/vcsbaseconstants.h>
+#include <utils/hostosinfo.h>
 #include <utils/pathchooser.h>
 
 #include <QCoreApplication>
@@ -53,19 +52,19 @@ SettingsPageWidget::SettingsPageWidget(QWidget *parent) :
     QWidget(parent)
 {
     m_ui.setupUi(this);
-#ifdef Q_OS_WIN
-    const QByteArray currentHome = qgetenv("HOME");
-    const QString toolTip
-            = tr("Set the environment variable HOME to '%1'\n(%2).\n"
-                 "This causes msysgit to look for the SSH-keys in that location\n"
-                 "instead of its installation directory when run outside git bash.").
-              arg(QDir::homePath(),
-                  currentHome.isEmpty() ? tr("not currently set") :
-                                        tr("currently set to '%1'").arg(QString::fromLocal8Bit(currentHome)));
-    m_ui.winHomeCheckBox->setToolTip(toolTip);
-#else
-    m_ui.winHomeCheckBox->setVisible(false);
-#endif
+    if (Utils::HostOsInfo::isWindowsHost()) {
+        const QByteArray currentHome = qgetenv("HOME");
+        const QString toolTip
+                = tr("Set the environment variable HOME to '%1'\n(%2).\n"
+                     "This causes msysgit to look for the SSH-keys in that location\n"
+                     "instead of its installation directory when run outside git bash.").
+                arg(QDir::homePath(),
+                    currentHome.isEmpty() ? tr("not currently set") :
+                            tr("currently set to '%1'").arg(QString::fromLocal8Bit(currentHome)));
+        m_ui.winHomeCheckBox->setToolTip(toolTip);
+    } else {
+        m_ui.winHomeCheckBox->setVisible(false);
+    }
     m_ui.repBrowserCommandPathChooser->setExpectedKind(Utils::PathChooser::ExistingCommand);
     m_ui.repBrowserCommandPathChooser->setPromptDialogTitle(tr("Git Repository Browser Command"));
 }
@@ -121,16 +120,8 @@ QString SettingsPageWidget::searchKeywords() const
 SettingsPage::SettingsPage() :
     m_widget(0)
 {
-}
-
-QString SettingsPage::id() const
-{
-    return QLatin1String(VcsBase::Constants::VCS_ID_GIT);
-}
-
-QString SettingsPage::displayName() const
-{
-    return tr("Git");
+    setId(QLatin1String(VcsBase::Constants::VCS_ID_GIT));
+    setDisplayName(tr("Git"));
 }
 
 QWidget *SettingsPage::createPage(QWidget *parent)

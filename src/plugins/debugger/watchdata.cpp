@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,14 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "watchdata.h"
+#include "watchutils.h"
 
 #include <QTextStream>
+#include <QTextDocument>
 #include <QDebug>
 
 ////////////////////////////////////////////////////////////////////
@@ -43,25 +43,6 @@
 
 namespace Debugger {
 namespace Internal {
-
-static QString htmlEscape(const QString &plain)
-{
-    QString rich;
-    rich.reserve(int(plain.length() * 1.1));
-    for (int i = 0; i < plain.length(); ++i) {
-        if (plain.at(i) == QLatin1Char('<'))
-            rich += QLatin1String("&lt;");
-        else if (plain.at(i) == QLatin1Char('>'))
-            rich += QLatin1String("&gt;");
-        else if (plain.at(i) == QLatin1Char('&'))
-            rich += QLatin1String("&amp;");
-        else if (plain.at(i) == QLatin1Char('"'))
-            rich += QLatin1String("&quot;");
-        else
-            rich += plain.at(i);
-    }
-    return rich;
-}
 
 bool isPointerType(const QByteArray &type)
 {
@@ -143,12 +124,10 @@ WatchData::WatchData() :
     size(0),
     bitpos(0),
     bitsize(0),
-    generation(-1),
     hasChildren(false),
     valueEnabled(true),
     valueEditable(true),
     error(false),
-    changed(false),
     sortId(0),
     source(0)
 {
@@ -370,8 +349,10 @@ QString WatchData::toString() const
 static void formatToolTipRow(QTextStream &str,
     const QString &category, const QString &value)
 {
+    QString val = Qt::escape(value);
+    val.replace(QLatin1Char('\n'), QLatin1String("<br>"));
     str << "<tr><td>" << category << "</td><td> : </td><td>"
-        << htmlEscape(value) << "</td></tr>";
+        << val << "</td></tr>";
 }
 
 QString WatchData::toToolTip() const
@@ -386,21 +367,17 @@ QString WatchData::toToolTip() const
     formatToolTipRow(str, tr("Internal Type"), QLatin1String(type));
     formatToolTipRow(str, tr("Displayed Type"), displayedType);
     QString val = value;
-    if (value.size() > 1000) {
+    if (val.size() > 1000) {
         val.truncate(1000);
         val += tr(" ... <cut off>");
     }
     formatToolTipRow(str, tr("Value"), val);
-    formatToolTipRow(str, tr("Object Address"),
-                     QString::fromLatin1(hexAddress()));
-    if (referencingAddress)
-        formatToolTipRow(str, tr("Referencing Address"),
-                         QString::fromLatin1(hexReferencingAddress()));
+    formatToolTipRow(str, tr("Object Address"), formatToolTipAddress(address));
+        if (referencingAddress)
+        formatToolTipRow(str, tr("Referencing Address"), formatToolTipAddress(referencingAddress));
     if (size)
-        formatToolTipRow(str, tr("Static Object Size"), tr("%1 bytes").arg(size));
+        formatToolTipRow(str, tr("Static Object Size"), tr("%n bytes", 0, size));
     formatToolTipRow(str, tr("Internal ID"), QLatin1String(iname));
-    formatToolTipRow(str, tr("Generation"),
-        QString::number(generation));
     str << "</table></body></html>";
     return res;
 }
@@ -448,11 +425,6 @@ QByteArray WatchData::hexReferencingAddress() const
     if (referencingAddress)
         return QByteArray("0x") + QByteArray::number(referencingAddress, 16);
     return QByteArray();
-}
-
-bool WatchData::hasChanged(const WatchData &old) const
-{
-    return !value.isEmpty() && value != old.value && value != msgNotInScope();
 }
 
 } // namespace Internal

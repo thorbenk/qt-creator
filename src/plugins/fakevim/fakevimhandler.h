@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -43,10 +41,12 @@ namespace Internal {
 
 enum RangeMode
 {
+    // Reordering first three enum items here will break
+    // compatibility with clipboard format stored by Vim.
     RangeCharMode,         // v
     RangeLineMode,         // V
-    RangeLineModeExclusive,
     RangeBlockMode,        // Ctrl-v
+    RangeLineModeExclusive,
     RangeBlockAndTailMode // Ctrl-v for D and X
 };
 
@@ -70,11 +70,27 @@ struct ExCommand
     bool matches(const QString &min, const QString &full) const;
     void setContentsFromLine(const QString &line);
 
+    // set cmd to next subcommand and return false only if no subcommand is left
+    bool nextSubcommand();
+
+    QString printCommand() const;
+
     QString cmd;
+    QStringList subCommands;
     bool hasBang;
     QString args;
     Range range;
     int count;
+};
+
+// message levels sorted by severity
+enum MessageLevel
+{
+    MessageMode,    // show current mode (format "-- %1 --")
+    MessageCommand, // show last Ex command or search
+    MessageInfo,    // result of a command
+    MessageWarning, // warning
+    MessageError    // error
 };
 
 class FakeVimHandler : public QObject
@@ -94,8 +110,7 @@ public slots:
     void setCurrentFileName(const QString &fileName);
     QString currentFileName() const;
 
-    void showBlackMessage(const QString &msg);
-    void showRedMessage(const QString &msg);
+    void showMessage(MessageLevel level, const QString &msg);
 
     // This executes an "ex" style command taking context
     // information from the current widget.
@@ -114,11 +129,14 @@ public slots:
     int logicalIndentation(const QString &line) const;
     QString tabExpand(int n) const;
 
+    void miniBufferTextEdited(const QString &text, int cursorPos);
+
 signals:
-    void commandBufferChanged(const QString &msg, int pos);
+    void commandBufferChanged(const QString &msg, int pos, int messageLevel, QObject *eventFilter);
     void statusDataChanged(const QString &msg);
     void extraInformationChanged(const QString &msg);
     void selectionChanged(const QList<QTextEdit::ExtraSelection> &selection);
+    void highlightMatches(const QString &needle);
     void writeAllRequested(QString *error);
     void moveToMatchingParenthesis(bool *moved, bool *forward, QTextCursor *cursor);
     void checkForElectricCharacter(bool *result, QChar c);

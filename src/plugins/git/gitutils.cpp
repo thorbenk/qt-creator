@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -90,7 +88,7 @@ bool inputText(QWidget *parent, const QString &title, const QString &prompt, QSt
     dialog.setLabelText(prompt);
     dialog.setTextValue(*s);
     // Nasty hack:
-    if (QLineEdit *le = qFindChild<QLineEdit*>(&dialog))
+    if (QLineEdit *le = dialog.findChild<QLineEdit*>())
         le->setMinimumWidth(500);
     if (dialog.exec() != QDialog::Accepted)
         return false;

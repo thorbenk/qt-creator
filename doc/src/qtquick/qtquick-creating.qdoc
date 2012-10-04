@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -75,7 +73,7 @@
     application wizards import Qt Quick 1.1, and therefore, you can use them
     without changes if you target only platforms that run Qt 4.7.4 (such as
     MeeGo or the desktop). If you also target platforms that run Qt 4.7.3
-    (such as Maemo and S60 5th Edition), you must change the import statement to
+    (such as Maemo), you must change the import statement to
     import Qt Quick 1.0.
     \endif
 
@@ -123,7 +121,7 @@
     \endlist
 
     The \c import statement in the beginning of the .qml file specifies the
-    \l{http://doc.qt.nokia.com/4.7/qdeclarativemodules.html}{Qt modules} to
+    \l{http://qt-project.org/doc/qt-4.8/qdeclarativemodules.html}{Qt modules} to
     import. Each Qt module contains a set of default elements. Specify a version
     to get the features you want.
 
@@ -139,9 +137,7 @@
 
             \note We recommend that you use the \gui {Qt Quick Application for
             MeeGo Harmattan} template when you develop for MeeGo Harmattan
-            devices and the \gui {Qt Quick Application for Symbian} template
-            when you develop for Symbian devices that support Qt 4.7.4, or
-            later.
+            devices.
 
             The \gui{Introduction and Project Location} dialog opens.
 
@@ -158,16 +154,15 @@
 
         \o  Click \gui{Next}.
 
-            The \gui {Target Setup} dialog opens.
+            The \gui {Kit Selection} dialog opens.
 
-            \image qmldesigner-new-project-qt-versions.png "Target Setup dialog"
+            \image qmldesigner-new-project-qt-versions.png "Kit Selection dialog"
 
-        \o  Select the Qt versions to use as build targets for your project,
+        \o  Select build and run \l{glossary-buildandrun-kit}{kits} for your project,
             and then click \gui{Next}.
 
-            \note Qt Quick is supported since Qt 4.7, and therefore, only Qt 4.7
-            and later versions are displayed. Further, if you have only one
-            supported Qt version installed, this dialog is skipped.
+            \note If only one kit is specified in \gui Tools > \gui Options >
+            \gui {Build & Run} > \gui Kits, this dialog is skipped.
 
             The \gui {Mobile Options} dialog opens.
 
@@ -177,24 +172,10 @@
             application behaves when the orientation of the device display
             rotates between portrait and landscape, and then click \gui Next.
 
-            \note This dialog opens only if you select \gui Maemo5 or
-            \gui {Symbian Device} target in the \gui {Target Setup} dialog. On
+            \note This dialog opens only if you select a \l{glossary-buildandrun-kit}{kit}
+            with \gui Maemo5 device type in the \gui {Kit Selection} dialog. On
             Harmattan, the Qt Quick Components for MeeGo provide native-looking
             rotation.
-
-            The \gui {Symbian Specific} dialog opens.
-
-            \image qmldesigner-new-project-symbian-options.png "Symbian Specific dialog"
-
-        \o  In the \gui {Application icon (.svg)} field, select an application
-            icon for the \gui {Symbian Device} target, or use the default icon.
-
-        \o  In the \gui {Target UID3} field, specify the \l{Application UID}, or
-            use the default UID.
-
-            \note \QC generates a UID for testing the application on a device.
-            You need to change the UID when you deliver the application for
-            public use.
 
         \o  Click \gui Next.
 
@@ -203,7 +184,7 @@
             \image qmldesigner-new-project-harmattan-options.png "Harmattan Specific dialog"
 
         \o  In the \gui {Application icon} field, select the application
-            icon to use on Maemo or Harmattan targets, or use the default icon.
+            icon to use on Maemo or Harmattan devices, or use the default icon.
 
             The \gui {Project Management} dialog opens.
 
@@ -220,7 +201,7 @@
     \endlist
 
     \QC creates the necessary boilerplate files. Some of the files are
-    specific to the Symbian, Maemo, or MeeGo Harmattan platform.
+    specific to the Maemo or MeeGo Harmattan platform.
 
     \section1 Importing QML Applications
 

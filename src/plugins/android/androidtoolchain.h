@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,12 +35,7 @@
 #include <projectexplorer/toolchainconfigwidget.h>
 
 namespace Android {
-
 namespace Internal {
-
-// --------------------------------------------------------------------------
-// MaemoToolChain
-// --------------------------------------------------------------------------
 
 class AndroidToolChain : public ProjectExplorer::GccToolChain
 {
@@ -63,13 +56,13 @@ public:
     QVariantMap toMap() const;
     bool fromMap(const QVariantMap &data);
     QList<Utils::FileName> suggestedMkspecList() const;
-    virtual QString makeCommand() const;
+    QString makeCommand(const Utils::Environment &env) const;
 
     void setQtVersionId(int);
     int qtVersionId() const;
-    QString legacyId() const;
+
 protected:
-    virtual QList<ProjectExplorer::Abi> detectSupportedAbis() const;
+    QList<ProjectExplorer::Abi> detectSupportedAbis() const;
 
 private:
     explicit AndroidToolChain(bool);
@@ -87,9 +80,11 @@ class AndroidToolChainConfigWidget : public ProjectExplorer::ToolChainConfigWidg
 public:
     AndroidToolChainConfigWidget(AndroidToolChain *);
 
-    void apply();
-    void discard();
-    bool isDirty() const;
+private:
+    void applyImpl() {}
+    void discardImpl() {}
+    bool isDirtyImpl() const { return false; }
+    void makeReadOnlyImpl() {}
 };
 
 

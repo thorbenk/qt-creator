@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -122,7 +120,6 @@ private:
     AssistKind m_assistKind;
     IAssistProposalWidget *m_proposalWidget;
     QScopedPointer<IAssistProposal> m_proposal;
-    bool m_proposalApplied;
     bool m_receivedContentWhileWaiting;
     QTimer m_automaticProposalTimer;
     CompletionSettings m_settings;
@@ -142,7 +139,6 @@ CodeAssistantPrivate::CodeAssistantPrivate(CodeAssistant *assistant)
     , m_requestRunner(0)
     , m_requestProvider(0)
     , m_proposalWidget(0)
-    , m_proposalApplied(false)
     , m_receivedContentWhileWaiting(false)
     , m_settings(TextEditorSettings::instance()->completionSettings())
 {
@@ -169,10 +165,10 @@ void CodeAssistantPrivate::configure(BaseTextEditor *textEditor)
 
     m_textEditor = textEditor;
     m_completionProviders =
-        ExtensionSystem::PluginManager::instance()->getObjects<CompletionAssistProvider>();
+        ExtensionSystem::PluginManager::getObjects<CompletionAssistProvider>();
     filterEditorSpecificProviders(&m_completionProviders, m_textEditor->id());
     m_quickFixProviders =
-        ExtensionSystem::PluginManager::instance()->getObjects<QuickFixAssistProvider>();
+        ExtensionSystem::PluginManager::getObjects<QuickFixAssistProvider>();
     filterEditorSpecificProviders(&m_quickFixProviders, m_textEditor->id());
 
     m_textEditor->editorWidget()->installEventFilter(this);

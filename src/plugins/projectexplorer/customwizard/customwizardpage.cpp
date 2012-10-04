@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,6 +37,8 @@
 #include <QRegExp>
 #include <QDebug>
 #include <QDir>
+#include <QDate>
+#include <QTime>
 
 #include <QWizardPage>
 #include <QFormLayout>
@@ -464,6 +464,13 @@ QMap<QString, QString> CustomWizardFieldPage::replacementMap(const QWizard *w,
     // Insert paths for generator scripts.
     fieldReplacementMap.insert(QLatin1String("Path"), QDir::toNativeSeparators(ctx->path));
     fieldReplacementMap.insert(QLatin1String("TargetPath"), QDir::toNativeSeparators(ctx->targetPath));
+
+    // Insert additional pre-defined variables
+    fieldReplacementMap.insert(QLatin1String("CurrentDate"),
+                               QDate::currentDate().toString(QLatin1String("yyyy-MM-dd")));
+    fieldReplacementMap.insert(QLatin1String("CurrentTime"),
+                               QTime::currentTime().toString(QLocale::system().
+                                                             timeFormat(QLocale::ShortFormat)));
     return fieldReplacementMap;
 }
 

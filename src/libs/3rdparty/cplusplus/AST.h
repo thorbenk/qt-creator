@@ -125,6 +125,8 @@ public:
     virtual AST *clone(MemoryPool *pool) const = 0;
 
     virtual AccessDeclarationAST *asAccessDeclaration() { return 0; }
+    virtual AliasDeclarationAST *asAliasDeclaration() { return 0; }
+    virtual AlignofExpressionAST *asAlignofExpression() { return 0; }
     virtual ArrayAccessAST *asArrayAccess() { return 0; }
     virtual ArrayDeclaratorAST *asArrayDeclarator() { return 0; }
     virtual ArrayInitializerAST *asArrayInitializer() { return 0; }
@@ -168,6 +170,7 @@ public:
     virtual ExceptionDeclarationAST *asExceptionDeclaration() { return 0; }
     virtual ExceptionSpecificationAST *asExceptionSpecification() { return 0; }
     virtual ExpressionAST *asExpression() { return 0; }
+    virtual ExpressionListParenAST *asExpressionListParen() { return 0; }
     virtual ExpressionOrDeclarationStatementAST *asExpressionOrDeclarationStatement() { return 0; }
     virtual ExpressionStatementAST *asExpressionStatement() { return 0; }
     virtual ForStatementAST *asForStatement() { return 0; }
@@ -195,8 +198,6 @@ public:
     virtual NestedNameSpecifierAST *asNestedNameSpecifier() { return 0; }
     virtual NewArrayDeclaratorAST *asNewArrayDeclarator() { return 0; }
     virtual NewExpressionAST *asNewExpression() { return 0; }
-    virtual NewInitializerAST *asNewInitializer() { return 0; }
-    virtual NewPlacementAST *asNewPlacement() { return 0; }
     virtual NewTypeIdAST *asNewTypeId() { return 0; }
     virtual NoExceptSpecificationAST *asNoExceptSpecification() { return 0; }
     virtual NumericLiteralAST *asNumericLiteral() { return 0; }
@@ -1168,6 +1169,7 @@ public:
     unsigned classkey_token;
     SpecifierListAST *attribute_list;
     NameAST *name;
+    unsigned final_token;
     unsigned colon_token;
     BaseSpecifierListAST *base_clause_list;
     unsigned dot_dot_dot_token;
@@ -1183,6 +1185,7 @@ public:
         : classkey_token(0)
         , attribute_list(0)
         , name(0)
+        , final_token(0)
         , colon_token(0)
         , base_clause_list(0)
         , dot_dot_dot_token(0)
@@ -1455,8 +1458,10 @@ public:
     ParameterDeclarationClauseAST *parameter_declaration_clause;
     unsigned rparen_token;
     SpecifierListAST *cv_qualifier_list;
+    unsigned ref_qualifier_token;
     ExceptionSpecificationAST *exception_specification;
     TrailingReturnTypeAST *trailing_return_type;
+    // Some FunctionDeclarators can also be interpreted as an initializer, like for 'A b(c);'
     ExpressionAST *as_cpp_initializer;
 
 public: // annotations
@@ -1468,6 +1473,7 @@ public:
         , parameter_declaration_clause(0)
         , rparen_token(0)
         , cv_qualifier_list(0)
+        , ref_qualifier_token(0)
         , exception_specification(0)
         , trailing_return_type(0)
         , as_cpp_initializer(0)
@@ -1628,7 +1634,10 @@ class CPLUSPLUS_EXPORT EnumSpecifierAST: public SpecifierAST
 {
 public:
     unsigned enum_token;
+    unsigned key_token; // struct, class or 0
     NameAST *name;
+    unsigned colon_token; // can be 0 if there is no enum-base
+    SpecifierListAST *type_specifier_list; // ditto
     unsigned lbrace_token;
     EnumeratorListAST *enumerator_list;
     unsigned stray_comma_token;
@@ -1640,7 +1649,10 @@ public: // annotations
 public:
     EnumSpecifierAST()
         : enum_token(0)
+        , key_token(0)
         , name(0)
+        , colon_token(0)
+        , type_specifier_list(0)
         , lbrace_token(0)
         , enumerator_list(0)
         , stray_comma_token(0)
@@ -1916,7 +1928,6 @@ public:
     SpecifierListAST *type_specifier_list;
     DeclaratorAST *declarator;
     // or an expression
-    ExpressionAST *initializer;
     unsigned colon_token;
     ExpressionAST *expression;
     unsigned rparen_token;
@@ -1931,7 +1942,6 @@ public:
         , lparen_token(0)
         , type_specifier_list(0)
         , declarator(0)
-        , initializer(0)
         , colon_token(0)
         , expression(0)
         , rparen_token(0)
@@ -2136,16 +2146,13 @@ class CPLUSPLUS_EXPORT MemInitializerAST: public AST
 {
 public:
     NameAST *name;
-    unsigned lparen_token;
-    ExpressionListAST *expression_list;
-    unsigned rparen_token;
+    // either a BracedInitializerAST or a ExpressionListParenAST
+    ExpressionAST *expression;
 
 public:
     MemInitializerAST()
         : name(0)
-        , lparen_token(0)
-        , expression_list(0)
-        , rparen_token(0)
+        , expression(0)
     {}
 
     virtual MemInitializerAST *asMemInitializer() { return this; }
@@ -2400,7 +2407,37 @@ protected:
     virtual bool match0(AST *, ASTMatcher *);
 };
 
-class CPLUSPLUS_EXPORT NewPlacementAST: public AST
+class CPLUSPLUS_EXPORT AliasDeclarationAST: public DeclarationAST
+{
+public:
+    unsigned using_token;
+    unsigned identifier_token;
+    unsigned equal_token;
+    TypeIdAST *typeId;
+    unsigned semicolon_token;
+
+public:
+    AliasDeclarationAST()
+        : using_token(0)
+        , identifier_token(0)
+        , equal_token(0)
+        , typeId(0)
+        , semicolon_token(0)
+    {}
+
+    virtual AliasDeclarationAST *asAliasDeclaration() { return this; }
+
+    virtual unsigned firstToken() const;
+    virtual unsigned lastToken() const;
+
+    virtual AliasDeclarationAST *clone(MemoryPool *pool) const;
+
+protected:
+    virtual void accept0(ASTVisitor *visitor);
+    virtual bool match0(AST *, ASTMatcher *);
+};
+
+class CPLUSPLUS_EXPORT ExpressionListParenAST: public ExpressionAST
 {
 public:
     unsigned lparen_token;
@@ -2408,18 +2445,18 @@ public:
     unsigned rparen_token;
 
 public:
-    NewPlacementAST()
+    ExpressionListParenAST()
         : lparen_token(0)
         , expression_list(0)
         , rparen_token(0)
     {}
 
-    virtual NewPlacementAST *asNewPlacement() { return this; }
+    virtual ExpressionListParenAST *asExpressionListParen() { return this; }
 
     virtual unsigned firstToken() const;
     virtual unsigned lastToken() const;
 
-    virtual NewPlacementAST *clone(MemoryPool *pool) const;
+    virtual ExpressionListParenAST *clone(MemoryPool *pool) const;
 
 protected:
     virtual void accept0(ASTVisitor *visitor);
@@ -2457,7 +2494,7 @@ class CPLUSPLUS_EXPORT NewExpressionAST: public ExpressionAST
 public:
     unsigned scope_token;
     unsigned new_token;
-    NewPlacementAST *new_placement;
+    ExpressionListParenAST *new_placement;
 
     unsigned lparen_token;
     ExpressionAST *type_id;
@@ -2465,7 +2502,7 @@ public:
 
     NewTypeIdAST *new_type_id;
 
-    NewInitializerAST *new_initializer;
+    ExpressionAST *new_initializer; // either ExpressionListParenAST or BracedInitializerAST
 
 public:
     NewExpressionAST()
@@ -2485,32 +2522,6 @@ public:
     virtual unsigned lastToken() const;
 
     virtual NewExpressionAST *clone(MemoryPool *pool) const;
-
-protected:
-    virtual void accept0(ASTVisitor *visitor);
-    virtual bool match0(AST *, ASTMatcher *);
-};
-
-class CPLUSPLUS_EXPORT NewInitializerAST: public AST
-{
-public:
-    unsigned lparen_token;
-    ExpressionAST *expression;
-    unsigned rparen_token;
-
-public:
-    NewInitializerAST()
-        : lparen_token(0)
-        , expression(0)
-        , rparen_token(0)
-    {}
-
-    virtual NewInitializerAST *asNewInitializer() { return this; }
-
-    virtual unsigned firstToken() const;
-    virtual unsigned lastToken() const;
-
-    virtual NewInitializerAST *clone(MemoryPool *pool) const;
 
 protected:
     virtual void accept0(ASTVisitor *visitor);
@@ -2766,17 +2777,13 @@ class CPLUSPLUS_EXPORT TypenameCallExpressionAST: public ExpressionAST
 public:
     unsigned typename_token;
     NameAST *name;
-    unsigned lparen_token;
-    ExpressionListAST *expression_list;
-    unsigned rparen_token;
+    ExpressionAST *expression; // either ExpressionListParenAST or BracedInitializerAST
 
 public:
     TypenameCallExpressionAST()
         : typename_token(0)
         , name(0)
-        , lparen_token(0)
-        , expression_list(0)
-        , rparen_token(0)
+        , expression(0)
     {}
 
     virtual TypenameCallExpressionAST *asTypenameCallExpression() { return this; }
@@ -2795,16 +2802,12 @@ class CPLUSPLUS_EXPORT TypeConstructorCallAST: public ExpressionAST
 {
 public:
     SpecifierListAST *type_specifier_list;
-    unsigned lparen_token;
-    ExpressionListAST *expression_list;
-    unsigned rparen_token;
+    ExpressionAST *expression; // either ExpressionListParenAST or BracedInitializerAST
 
 public:
     TypeConstructorCallAST()
         : type_specifier_list(0)
-        , lparen_token(0)
-        , expression_list(0)
-        , rparen_token(0)
+        , expression(0)
     {}
 
     virtual TypeConstructorCallAST *asTypeConstructorCall() { return this; }
@@ -2826,6 +2829,7 @@ public:
     NestedNameSpecifierListAST *nested_name_specifier_list;
     unsigned star_token;
     SpecifierListAST *cv_qualifier_list;
+    unsigned ref_qualifier_token;
 
 public:
     PointerToMemberAST()
@@ -2833,6 +2837,7 @@ public:
         , nested_name_specifier_list(0)
         , star_token(0)
         , cv_qualifier_list(0)
+        , ref_qualifier_token(0)
     {}
 
     virtual PointerToMemberAST *asPointerToMember() { return this; }
@@ -3017,6 +3022,34 @@ public:
     virtual unsigned lastToken() const;
 
     virtual SizeofExpressionAST *clone(MemoryPool *pool) const;
+
+protected:
+    virtual void accept0(ASTVisitor *visitor);
+    virtual bool match0(AST *, ASTMatcher *);
+};
+
+class CPLUSPLUS_EXPORT AlignofExpressionAST: public ExpressionAST
+{
+public:
+    unsigned alignof_token;
+    unsigned lparen_token;
+    TypeIdAST *typeId;
+    unsigned rparen_token;
+
+public:
+    AlignofExpressionAST()
+        : alignof_token(0)
+        , lparen_token(0)
+        , typeId(0)
+        , rparen_token(0)
+    {}
+
+    virtual AlignofExpressionAST *asAlignofExpression() { return this; }
+
+    virtual unsigned firstToken() const;
+    virtual unsigned lastToken() const;
+
+    virtual AlignofExpressionAST *clone(MemoryPool *pool) const;
 
 protected:
     virtual void accept0(ASTVisitor *visitor);

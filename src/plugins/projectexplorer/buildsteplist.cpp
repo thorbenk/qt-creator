@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -47,7 +45,7 @@ namespace {
 
 IBuildStepFactory *findCloneFactory(BuildStepList *parent, BuildStep *source)
 {
-    QList<IBuildStepFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<IBuildStepFactory>();
+    QList<IBuildStepFactory *> factories = ExtensionSystem::PluginManager::getObjects<IBuildStepFactory>();
     foreach(IBuildStepFactory *factory, factories)
         if (factory->canClone(parent, source))
             return factory;
@@ -56,7 +54,7 @@ IBuildStepFactory *findCloneFactory(BuildStepList *parent, BuildStep *source)
 
 IBuildStepFactory *findRestoreFactory(BuildStepList *parent, const QVariantMap &map)
 {
-    QList<IBuildStepFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<IBuildStepFactory>();
+    QList<IBuildStepFactory *> factories = ExtensionSystem::PluginManager::getObjects<IBuildStepFactory>();
     foreach(IBuildStepFactory *factory, factories)
         if (factory->canRestore(parent, map))
             return factory;
@@ -159,7 +157,7 @@ bool BuildStepList::fromMap(const QVariantMap &map)
             qWarning() << "No step data found for" << i << "(continuing).";
             continue;
         }
-        IBuildStepFactory *factory(findRestoreFactory(this, bsData));
+        IBuildStepFactory *factory = findRestoreFactory(this, bsData);
         if (!factory) {
             qWarning() << "No factory for step" << i << "found (continuing).";
             continue;

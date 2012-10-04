@@ -11,6 +11,11 @@ from __future__ import with_statement
 def mapForms():
     return "Normal,Compact"
 
+def arrayForms():
+    if hasPlot():
+        return "Normal,Plot"
+    return "Normal"
+
 def mapCompact(format, keyType, valueType):
     if format == 2:
         return True # Compact.
@@ -316,6 +321,16 @@ def qdump__QFixed(d, value):
     d.putNumChild(0)
 
 
+def qdump__QFiniteStack(d, value):
+    alloc = value["_alloc"]
+    size = value["_size"]
+    check(0 <= size and size <= alloc and alloc <= 1000 * 1000 * 1000)
+    d.putItemCount(size)
+    d.putNumChild(size)
+    if d.isExpanded():
+        innerType = templateArgument(value.type, 0)
+        d.putArrayData(innerType, value["_array"], size)
+
 # Stock gdb 7.2 seems to have a problem with types here:
 #
 #  echo -e "namespace N { struct S { enum E { zero, one, two }; }; }\n"\
@@ -434,6 +449,27 @@ def qdump__QHashNode(d, value):
             d.putSubItem("value", val)
 
 
+def qHashIteratorHelper(d, value):
+    typeName = str(value.type)
+    hashType = lookupType(typeName[0:typeName.rfind("::")])
+    keyType = templateArgument(hashType, 0)
+    valueType = templateArgument(hashType, 1)
+    d.putNumChild(1)
+    d.putValue(" ")
+    if d.isExpanded():
+        with Children(d):
+            typeName = "%sQHash<%s,%s>::Node" % (d.ns, keyType, valueType)
+            node = value["i"].cast(lookupType(typeName).pointer())
+            d.putSubItem("key", node["key"])
+            d.putSubItem("value", node["value"])
+
+def qdump__QHash__const_iterator(d, value):
+    qHashIteratorHelper(d, value)
+
+def qdump__QHash__iterator(d, value):
+    qHashIteratorHelper(d, value)
+
+
 def qdump__QHostAddress(d, value):
     data = value["d"]["d"].dereference()
     if int(data["ipString"]["d"]["size"]):
@@ -459,9 +495,6 @@ def qdump__QList(d, value):
     check(begin >= 0 and end >= 0 and end <= 1000 * 1000 * 1000)
     size = end - begin
     check(size >= 0)
-    #if n > 0:
-    #    checkAccess(&list.front())
-    #    checkAccess(&list.back())
     checkRef(d_ptr["ref"])
 
     # Additional checks on pointer arrays.
@@ -1369,7 +1402,8 @@ def qdump__QStringList(d, value):
     d.putNumChild(size)
     if d.isExpanded():
         innerType = lookupType(d.ns + "QString")
-        d.putArrayData(innerType, d_ptr["array"], size, 0)
+        innerTypePP = innerType.pointer().pointer()
+        d.putArrayData(innerType, d_ptr["array"].cast(innerTypePP) + begin, size, 0)
 
 
 def qdump__QTemporaryFile(d, value):
@@ -1629,6 +1663,10 @@ def qedit__QVector(expr, value):
     gdb.execute(cmd)
 
 
+def qform__QVector():
+    return arrayForms()
+
+
 def qdump__QVector(d, value):
     private = value["d"]
     checkRef(private["ref"])
@@ -1649,9 +1687,7 @@ def qdump__QVector(d, value):
     check(0 <= size and size <= alloc and alloc <= 1000 * 1000 * 1000)
     d.putItemCount(size)
     d.putNumChild(size)
-    if d.isExpanded():
-        d.putField("size", size)
-        d.putArrayData(innerType, p, size)
+    d.putPlotData(innerType, p, size, 2)
 
 
 def qdump__QWeakPointer(d, value):
@@ -1976,7 +2012,7 @@ def qdump__std__shared_ptr(d, value):
     if isSimpleType(templateArgument(value.type, 0)):
         d.putValue("%s @0x%x" % (i.dereference(), long(i)))
     else:
-        i = expensiveUpcast(i)
+        i = expensiveDowncast(i)
         d.putValue("@0x%x" % long(i))
 
     d.putNumChild(3)
@@ -1997,7 +2033,7 @@ def qdump__std__unique_ptr(d, value):
     if isSimpleType(templateArgument(value.type, 0)):
         d.putValue("%s @0x%x" % (i.dereference(), long(i)))
     else:
-        i = expensiveUpcast(i)
+        i = expensiveDowncast(i)
         d.putValue("@0x%x" % long(i))
 
     d.putNumChild(1)
@@ -2185,39 +2221,6 @@ def qdump__boost__posix_time__time_duration(d, item):
 
 #######################################################################
 #
-# Symbian
-#
-#######################################################################
-
-def encodeSymbianString(base, size):
-    s = ""
-    for i in xrange(size):
-        val = int(base[i])
-        if val == 9:
-            s += "5c007400" # \t
-        else:
-            s += "%02x%02x" % (val % 256, val / 256)
-    return s
-
-def qdump__TBuf(d, value):
-    size = value["iLength"] & 0xffff
-    base = value["iBuf"]
-    max = numericTemplateArgument(value.type, 0)
-    check(0 <= size and size <= max)
-    d.putNumChild(0)
-    d.putValue(encodeSymbianString(base, size), Hex4EncodedLittleEndian)
-
-def qdump__TLitC(d, value):
-    size = value["iTypeLength"] & 0xffff
-    base = value["iBuf"]
-    max = numericTemplateArgument(value.type, 0)
-    check(0 <= size and size <= max)
-    d.putNumChild(0)
-    d.putValue(encodeSymbianString(base, size), Hex4EncodedLittleEndian)
-
-
-#######################################################################
-#
 # SSE
 #
 #######################################################################
@@ -2393,8 +2396,28 @@ def qdump__QScriptValue(d, value):
 #
 #######################################################################
 
+def qdump__Core__Id(d, value):
+    try:
+        name = parseAndEvaluate("Core::nameForId(%d)" % value["m_id"])
+        d.putValue(encodeCharArray(name), Hex2EncodedLatin1)
+        d.putNumChild(1)
+        if d.isExpanded():
+            with Children(d):
+                d.putFields(value)
+    except:
+        d.putValue(value["m_id"])
+        d.putNumChild(0)
+
 def qdump__Debugger__Internal__GdbMi(d, value):
     d.putByteArrayValue(value["m_data"])
+    d.putPlainChildren(value)
+
+def qdump__Debugger__Internal__WatchData(d, value):
+    d.putByteArrayValue(value["iname"])
+    d.putPlainChildren(value)
+
+def qdump__Debugger__Internal__WatchItem(d, value):
+    d.putByteArrayValue(value["iname"])
     d.putPlainChildren(value)
 
 def qdump__CPlusPlus__ByteArrayRef(d, value):
@@ -2402,8 +2425,38 @@ def qdump__CPlusPlus__ByteArrayRef(d, value):
         Hex2EncodedLatin1)
     d.putPlainChildren(value)
 
+def qdump__CPlusPlus__Identifier(d, value):
+    d.putValue(encodeCharArray(value["_chars"]), Hex2EncodedLatin1)
+    d.putPlainChildren(value)
+
+def qdump__CPlusPlus__IntegerType(d, value):
+    d.putValue(value["_kind"])
+    d.putPlainChildren(value)
+
+def qdump__CPlusPlus__NamedType(d, value):
+    literal = downcast(value["_name"])
+    d.putValue(encodeCharArray(literal["_chars"]), Hex2EncodedLatin1)
+    d.putPlainChildren(value)
+
+def qdump__CPlusPlus__TemplateNameId(d, value):
+    s = encodeCharArray(value["_identifier"]["_chars"])
+    d.putValue(s + "3c2e2e2e3e", Hex2EncodedLatin1)
+    d.putPlainChildren(value)
+
+def qdump__CPlusPlus__Literal(d, value):
+    d.putValue(encodeCharArray(value["_chars"]), Hex2EncodedLatin1)
+    d.putPlainChildren(value)
+
 def qdump__CPlusPlus__Internal__Value(d, value):
     d.putValue(value["l"])
+    d.putPlainChildren(value)
+
+def qdump__Utils__FileName(d, value):
+    d.putStringValue(value)
+    d.putPlainChildren(value)
+
+def qdump__Utils__ElfSection(d, value):
+    d.putByteArrayValue(value["name"])
     d.putPlainChildren(value)
 
 def qdump__CPlusPlus__Token(d, value):
@@ -2561,8 +2614,10 @@ if False:
     def qdump__Function(d, value):
         min = value["min"]
         max = value["max"]
-        var = extractByteArray(value["var"])
-        f = extractByteArray(value["f"])
+        data, size, alloc = qByteArrayData(value["var"])
+        var = extractCString(data)
+        data, size, alloc = qByteArrayData(value["f"])
+        f = extractCString(data)
         d.putValue("%s, %s=%f..%f" % (f, var, min, max))
         d.putNumChild(0)
         d.putField("typeformats", "Normal,Displayed");
@@ -2686,3 +2741,5 @@ if False:
         if d.isExpanded():
             with Children(d):
                 d.putFields(value)
+
+

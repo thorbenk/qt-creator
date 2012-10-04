@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -58,7 +56,7 @@
 #include <projectexplorer/applicationrunconfiguration.h>
 
 #include <remotelinux/remotelinuxrunconfiguration.h>
-#include <remotelinux/linuxdeviceconfiguration.h>
+#include <remotelinux/linuxdevice.h>
 
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/editormanager/editormanager.h>
@@ -71,11 +69,7 @@
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
 
-#include <qt4projectmanager/qt4buildconfiguration.h>
-#include <qt4projectmanager/qt-s60/s60devicedebugruncontrol.h>
-#include <qt4projectmanager/qt-s60/s60devicerunconfiguration.h>
-#include <qt4projectmanager/qt-s60/s60deployconfiguration.h>
-#include <qt4projectmanager/qt-s60/symbianidevice.h>
+#include <qtsupport/qtkitinformation.h>
 
 #include <QApplication>
 #include <QHBoxLayout>
@@ -177,22 +171,21 @@ QmlProfilerTool::QmlProfilerTool(QObject *parent)
 
     Command *command = 0;
     const Context globalContext(C_GLOBAL);
-    ActionManager *am = ICore::actionManager();
 
-    ActionContainer *menu = am->actionContainer(M_DEBUG_ANALYZER);
-    ActionContainer *options = am->createMenu(M_DEBUG_ANALYZER_QML_OPTIONS);
+    ActionContainer *menu = Core::ActionManager::actionContainer(M_DEBUG_ANALYZER);
+    ActionContainer *options = Core::ActionManager::createMenu(M_DEBUG_ANALYZER_QML_OPTIONS);
     options->menu()->setTitle(tr("QML Profiler Options"));
     menu->addMenu(options, G_ANALYZER_OPTIONS);
     options->menu()->setEnabled(true);
 
     QAction *act = d->m_loadQmlTrace = new QAction(tr("Load QML Trace"), options);
-    command = am->registerAction(act, "Analyzer.Menu.StartAnalyzer.QMLProfilerOptions.LoadQMLTrace", globalContext);
+    command = Core::ActionManager::registerAction(act, "Analyzer.Menu.StartAnalyzer.QMLProfilerOptions.LoadQMLTrace", globalContext);
     connect(act, SIGNAL(triggered()), this, SLOT(showLoadDialog()));
     options->addAction(command);
 
     act = d->m_saveQmlTrace = new QAction(tr("Save QML Trace"), options);
     d->m_saveQmlTrace->setEnabled(false);
-    command = am->registerAction(act, "Analyzer.Menu.StartAnalyzer.QMLProfilerOptions.SaveQMLTrace", globalContext);
+    command = Core::ActionManager::registerAction(act, "Analyzer.Menu.StartAnalyzer.QMLProfilerOptions.SaveQMLTrace", globalContext);
     connect(act, SIGNAL(triggered()), this, SLOT(showSaveDialog()));
     options->addAction(command);
 
@@ -244,27 +237,15 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
         // Check minimum Qt Version. We cannot really be sure what the Qt version
         // at runtime is, but guess that the active build configuraiton has been used.
         QtSupport::QtVersionNumber minimumVersion(4, 7, 4);
-        if (Qt4ProjectManager::Qt4BuildConfiguration *qt4Config
-                = qobject_cast<Qt4ProjectManager::Qt4BuildConfiguration*>(
-                    runConfiguration->target()->activeBuildConfiguration())) {
-            if (qt4Config->qtVersion()->isValid() && qt4Config->qtVersion()->qtVersion() < minimumVersion) {
+        QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(runConfiguration->target()->kit());
+        if (version) {
+            if (version->isValid() && version->qtVersion() < minimumVersion) {
                 int result = QMessageBox::warning(QApplication::activeWindow(), tr("QML Profiler"),
                      tr("The QML profiler requires Qt 4.7.4 or newer.\n"
                      "The Qt version configured in your active build configuration is too old.\n"
                      "Do you want to continue?"), QMessageBox::Yes, QMessageBox::No);
                 if (result == QMessageBox::No)
                     return 0;
-            }
-        }
-
-        // Check whether we should use OST instead of TCP
-        if (Qt4ProjectManager::S60DeployConfiguration *deployConfig
-                = qobject_cast<Qt4ProjectManager::S60DeployConfiguration*>(
-                    runConfiguration->target()->activeDeployConfiguration())) {
-            if (deployConfig->device()->communicationChannel()
-                    == Qt4ProjectManager::SymbianIDevice::CommunicationCodaSerialConnection) {
-                d->m_profilerConnections->setOstConnection(deployConfig->device()->serialPortName());
-                isTcpConnection = false;
             }
         }
     }
@@ -298,8 +279,7 @@ bool QmlProfilerTool::canRun(RunConfiguration *runConfiguration, RunMode mode) c
 {
     if (qobject_cast<QmlProjectRunConfiguration *>(runConfiguration)
             || qobject_cast<RemoteLinuxRunConfiguration *>(runConfiguration)
-            || qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)
-            || qobject_cast<Qt4ProjectManager::S60DeviceRunConfiguration *>(runConfiguration))
+            || qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration))
         return mode == runMode();
     return false;
 }
@@ -307,13 +287,9 @@ bool QmlProfilerTool::canRun(RunConfiguration *runConfiguration, RunMode mode) c
 static QString sysroot(RunConfiguration *runConfig)
 {
     QTC_ASSERT(runConfig, return QString());
-    if (Qt4ProjectManager::Qt4BuildConfiguration *buildConfig =
-            qobject_cast<Qt4ProjectManager::Qt4BuildConfiguration*>(
-                runConfig->target()->activeBuildConfiguration())) {
-        if (QtSupport::BaseQtVersion *qtVersion = buildConfig->qtVersion())
-            return qtVersion->systemRoot();
-    }
-
+    ProjectExplorer::Kit *k = runConfig->target()->kit();
+    if (k && ProjectExplorer::SysRootKitInformation::hasSysRoot(k))
+        return ProjectExplorer::SysRootKitInformation::sysRoot(runConfig->target()->kit()).toString();
     return QString();
 }
 
@@ -348,20 +324,10 @@ AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration 
             qobject_cast<RemoteLinux::RemoteLinuxRunConfiguration *>(runConfiguration)) {
         sp.debuggee = rc3->remoteExecutableFilePath();
         sp.debuggeeArgs = rc3->arguments();
-        sp.connParams = rc3->deviceConfig()->sshParameters();
+        sp.connParams = ProjectExplorer::DeviceKitInformation::device(rc3->target()->kit())->sshParameters();
         sp.analyzerCmdPrefix = rc3->commandPrefix();
         sp.displayName = rc3->displayName();
         sp.sysroot = sysroot(rc3);
-    } else if (Qt4ProjectManager::S60DeviceRunConfiguration *rc4 =
-        qobject_cast<Qt4ProjectManager::S60DeviceRunConfiguration *>(runConfiguration)) {
-        Qt4ProjectManager::S60DeployConfiguration *deployConf =
-                qobject_cast<Qt4ProjectManager::S60DeployConfiguration *>(runConfiguration->target()->activeDeployConfiguration());
-
-        sp.debuggeeArgs = rc4->commandLineArguments();
-        sp.displayName = rc4->displayName();
-        sp.connParams.host = deployConf->device()->address();
-        sp.connParams.port = rc4->debuggerAspect()->qmlDebugServerPort();
-        sp.sysroot = sysroot(rc4);
     } else {
         // What could that be?
         QTC_ASSERT(false, return sp);
@@ -726,7 +692,7 @@ void QmlProfilerTool::profilerStateChanged()
         break;
     }
     case QmlProfilerStateManager::AppKilled : {
-        showNonmodalWarning(tr("Application finished before loading profiled data.\n Please use the stop button instead."));
+        showNonmodalWarning(tr("Application finished before loading profiled data.\nPlease use the stop button instead."));
         break;
     }
     case QmlProfilerStateManager::Idle :

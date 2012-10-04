@@ -1,5 +1,6 @@
 import qbs.base 1.0
 import qbs.fileinfo 1.0 as FileInfo
+import "../../qbs/defaults.js" as Defaults
 
 Product {
     type: ["dynamiclibrary", "pluginSpec"]
@@ -20,13 +21,21 @@ Product {
     }
 
     Depends { name: "pluginspec" }
-    Depends { name: 'cpp' }
-    cpp.defines: [name.toUpperCase() + "_LIBRARY"]
+    Depends { name: "cpp" }
+    Depends {
+        condition: Defaults.testsEnabled(qbs)
+        name: "Qt.test"
+    }
+
+    cpp.defines: Defaults.defines(qbs).concat([name.toUpperCase() + "_LIBRARY"])
     cpp.rpaths: ["$ORIGIN/../../.."]
+    cpp.linkerFlags: {
+        if (qbs.buildVariant == "release" && (qbs.toolchain == "gcc" || qbs.toolchain == "mingw"))
+            return ["-Wl,-s"]
+    }
 
     Group {
         files: [ name + ".pluginspec.in" ]
         fileTags: ["pluginSpecIn"]
     }
 }
-

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -56,20 +54,19 @@ class GenericMakeStep : public ProjectExplorer::AbstractProcessStep
 
 public:
     GenericMakeStep(ProjectExplorer::BuildStepList *parent);
-    virtual ~GenericMakeStep();
+    ~GenericMakeStep();
 
     GenericBuildConfiguration *genericBuildConfiguration() const;
 
-    virtual bool init();
+    bool init();
+    void run(QFutureInterface<bool> &fi);
 
-    virtual void run(QFutureInterface<bool> &fi);
-
-    virtual ProjectExplorer::BuildStepConfigWidget *createConfigWidget();
-    virtual bool immutable() const;
+    ProjectExplorer::BuildStepConfigWidget *createConfigWidget();
+    bool immutable() const;
     bool buildsTarget(const QString &target) const;
     void setBuildTarget(const QString &target, bool on);
     QString allArguments() const;
-    QString makeCommand() const;
+    QString makeCommand(const Utils::Environment &environment) const;
 
     void setClean(bool clean);
     bool isClean() const;
@@ -79,7 +76,7 @@ public:
 protected:
     GenericMakeStep(ProjectExplorer::BuildStepList *parent, GenericMakeStep *bs);
     GenericMakeStep(ProjectExplorer::BuildStepList *parent, const Core::Id id);
-    virtual bool fromMap(const QVariantMap &map);
+    bool fromMap(const QVariantMap &map);
 
 private:
     void ctor();
@@ -88,21 +85,26 @@ private:
     QString m_makeArguments;
     QString m_makeCommand;
     bool m_clean;
+    QList<ProjectExplorer::Task> m_tasks;
 };
 
-class GenericMakeStepConfigWidget :public ProjectExplorer::BuildStepConfigWidget
+class GenericMakeStepConfigWidget : public ProjectExplorer::BuildStepConfigWidget
 {
     Q_OBJECT
+
 public:
     GenericMakeStepConfigWidget(GenericMakeStep *makeStep);
-    virtual QString displayName() const;
-    virtual QString summaryText() const;
+    ~GenericMakeStepConfigWidget();
+    QString displayName() const;
+    QString summaryText() const;
+
 private slots:
-    void itemChanged(QListWidgetItem*);
+    void itemChanged(QListWidgetItem *item);
     void makeLineEditTextEdited();
     void makeArgumentsLineEditTextEdited();
     void updateMakeOverrrideLabel();
     void updateDetails();
+
 private:
     Ui::GenericMakeStep *m_ui;
     GenericMakeStep *m_makeStep;
@@ -115,7 +117,6 @@ class GenericMakeStepFactory : public ProjectExplorer::IBuildStepFactory
 
 public:
     explicit GenericMakeStepFactory(QObject *parent = 0);
-    ~GenericMakeStepFactory();
 
     bool canCreate(ProjectExplorer::BuildStepList *parent, const Core::Id id) const;
     ProjectExplorer::BuildStep *create(ProjectExplorer::BuildStepList *parent, const Core::Id id);

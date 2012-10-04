@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,15 +38,23 @@
 #include <coreplugin/icore.h>
 #include <extensionsystem/pluginmanager.h>
 
+#include <utils/detailswidget.h>
 #include <utils/qtcassert.h>
 
-#include <QSignalMapper>
-#include <QTextStream>
 #include <QAction>
+#include <QApplication>
+#include <QHBoxLayout>
+#include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPushButton>
+#include <QSignalMapper>
+#include <QSpacerItem>
+#include <QTextStream>
+#include <QTreeView>
+#include <QVBoxLayout>
 
 namespace ProjectExplorer {
 namespace Internal {
@@ -62,11 +68,8 @@ public:
         if (p)
             p->childNodes.append(this);
         widget = tc ? tc->configurationWidget() : 0;
-        if (widget) {
-            if (tc && tc->isAutoDetected())
-                widget->makeReadOnly();
-            widget->setVisible(false);
-        }
+        if (widget && tc->isAutoDetected())
+            widget->makeReadOnly();
     }
 
     ~ToolChainNode()
@@ -81,7 +84,6 @@ public:
     }
 
     ToolChainNode *parent;
-    QString newName;
     QList<ToolChainNode *> childNodes;
     ToolChain *toolChain;
     ToolChainConfigWidget *widget;
@@ -92,12 +94,9 @@ public:
 // ToolChainModel
 // --------------------------------------------------------------------------
 
-ToolChainModel::ToolChainModel(QWidget *configWidgetParent, QObject *parent) :
-    QAbstractItemModel(parent),
-    m_configWidgetParent(configWidgetParent)
+ToolChainModel::ToolChainModel(QObject *parent) :
+    QAbstractItemModel(parent)
 {
-    Q_ASSERT(m_configWidgetParent);
-
     connect(ToolChainManager::instance(), SIGNAL(toolChainAdded(ProjectExplorer::ToolChain*)),
             this, SLOT(addToolChain(ProjectExplorer::ToolChain*)));
     connect(ToolChainManager::instance(), SIGNAL(toolChainRemoved(ProjectExplorer::ToolChain*)),
@@ -184,16 +183,13 @@ QVariant ToolChainModel::data(const QModelIndex &index, int role) const
     if (node->toolChain) {
         if (role == Qt::FontRole) {
             QFont f = QApplication::font();
-            if (node->changed) {
+            if (node->changed)
                 f.setBold(true);
-            }
             return f;
         }
-        if (role == Qt::DisplayRole || role == Qt::EditRole) {
-            if (index.column() == 0) {
-                return node->newName.isEmpty() ?
-                    node->toolChain->displayName() : node->newName;
-            }
+        if (role == Qt::DisplayRole) {
+            if (index.column() == 0)
+                return node->toolChain->displayName();
             return node->toolChain->typeDisplayName();
         }
         if (role == Qt::ToolTipRole) {
@@ -202,21 +198,6 @@ QVariant ToolChainModel::data(const QModelIndex &index, int role) const
         }
     }
     return QVariant();
-}
-
-bool ToolChainModel::setData(const QModelIndex &index, const QVariant &value, int role)
-{
-    if (!index.isValid())
-        return false;
-
-    ToolChainNode *node = static_cast<ToolChainNode *>(index.internalPointer());
-    Q_ASSERT(node);
-    if (index.column() != 0 || !node->toolChain || role != Qt::EditRole)
-        return false;
-    node->newName = value.toString();
-    if (!node->newName.isEmpty() && node->newName != node->toolChain->displayName())
-        node->changed = true;
-    return true;
 }
 
 Qt::ItemFlags ToolChainModel::flags(const QModelIndex &index) const
@@ -229,12 +210,7 @@ Qt::ItemFlags ToolChainModel::flags(const QModelIndex &index) const
     if (!node->toolChain)
         return Qt::ItemIsEnabled;
 
-    if (node->toolChain->isAutoDetected())
-        return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
-    else if (index.column() == 0)
-        return Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable;
-    else
-        return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
 }
 
 QVariant ToolChainModel::headerData(int section, Qt::Orientation orientation, int role) const
@@ -311,10 +287,6 @@ void ToolChainModel::apply()
         Q_ASSERT(n);
         if (n->changed) {
             Q_ASSERT(n->toolChain);
-            if (!n->newName.isEmpty()) {
-                n->toolChain->setDisplayName(n->newName);
-                n->newName.clear();
-            }
             if (n->widget)
                 n->widget->apply();
             n->changed = false;
@@ -338,16 +310,16 @@ void ToolChainModel::apply()
 
     if (removedTcs.count() == 1) {
         QMessageBox::warning(0,
-                             tr("Duplicate Tool Chain detected"),
-                             tr("The following tool chain was already configured:<br>"
+                             tr("Duplicate Compilers Detected"),
+                             tr("The following compiler was already configured:<br>"
                                 "&nbsp;%1<br>"
                                 "It was not configured again.")
                              .arg(removedTcs.at(0)));
 
     } else if (!removedTcs.isEmpty()) {
         QMessageBox::warning(0,
-                             tr("Duplicate Tool Chains detected"),
-                             tr("The following tool chains were already configured:<br>"
+                             tr("Duplicate Compilers Detected"),
+                             tr("The following compilers were already configured:<br>"
                                 "&nbsp;%1<br>"
                                 "They were not configured again.")
                              .arg(removedTcs.join(QLatin1String(",<br>&nbsp;"))));
@@ -371,8 +343,8 @@ void ToolChainModel::markForRemoval(ToolChain *tc)
             delete node->toolChain;
             node->toolChain = 0;
             m_toAddList.removeOne(node);
+            delete node;
         } else {
-            node->parent = 0;
             m_toRemoveList.append(node);
         }
         emit endRemoveRows();
@@ -403,11 +375,8 @@ QModelIndex ToolChainModel::index(ToolChainNode *node, int column) const
 ToolChainNode *ToolChainModel::createNode(ToolChainNode *parent, ToolChain *tc, bool changed)
 {
     ToolChainNode *node = new ToolChainNode(parent, tc, changed);
-    if (node->widget) {
-        m_configWidgetParent->layout()->addWidget(node->widget);
-        connect(node->widget, SIGNAL(dirty()),
-                this, SLOT(setDirty()));
-    }
+    if (node->widget)
+        connect(node->widget, SIGNAL(dirty()), this, SLOT(setDirty()));
     return node;
 }
 
@@ -471,33 +440,15 @@ void ToolChainModel::removeToolChain(ToolChain *tc)
 // --------------------------------------------------------------------------
 
 ToolChainOptionsPage::ToolChainOptionsPage() :
-    m_ui(0), m_model(0), m_selectionModel(0), m_currentTcWidget(0)
-{ }
-
-QString ToolChainOptionsPage::id() const
+    m_model(0), m_selectionModel(0), m_toolChainView(0), m_container(0),
+    m_addButton(0), m_cloneButton(0), m_delButton(0)
 {
-    return QLatin1String(Constants::TOOLCHAIN_SETTINGS_PAGE_ID);
-}
-
-QString ToolChainOptionsPage::displayName() const
-{
-    return tr("Tool Chains");
-}
-
-QString ToolChainOptionsPage::category() const
-{
-    return QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
-}
-
-QString ToolChainOptionsPage::displayCategory() const
-{
-    return QCoreApplication::translate("ProjectExplorer",
-                                       Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY);
-}
-
-QIcon ToolChainOptionsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
+    setId(QLatin1String(Constants::TOOLCHAIN_SETTINGS_PAGE_ID));
+    setDisplayName(tr("Compilers"));
+    setCategory(QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("ProjectExplorer",
+        Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
 }
 
 QWidget *ToolChainOptionsPage::createPage(QWidget *parent)
@@ -505,31 +456,54 @@ QWidget *ToolChainOptionsPage::createPage(QWidget *parent)
     // Actual page setup:
     m_configWidget = new QWidget(parent);
 
-    m_currentTcWidget = 0;
+    m_toolChainView = new QTreeView(m_configWidget);
+    m_toolChainView->setUniformRowHeights(true);
+    m_toolChainView->header()->setStretchLastSection(false);
 
-    m_ui = new Ui::ToolChainOptionsPage;
-    m_ui->setupUi(m_configWidget);
+    m_addButton = new QPushButton(tr("Add"), m_configWidget);
+    m_cloneButton = new QPushButton(tr("Clone"), m_configWidget);
+    m_delButton = new QPushButton(tr("Remove"), m_configWidget);
 
+    m_container = new Utils::DetailsWidget(m_configWidget);
+    m_container->setState(Utils::DetailsWidget::NoSummary);
+    m_container->setVisible(false);
+
+    QVBoxLayout *buttonLayout = new QVBoxLayout();
+    buttonLayout->setSpacing(6);
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->addWidget(m_addButton);
+    buttonLayout->addWidget(m_cloneButton);
+    buttonLayout->addWidget(m_delButton);
+    buttonLayout->addItem(new QSpacerItem(10, 40, QSizePolicy::Minimum, QSizePolicy::Expanding));
+
+    QVBoxLayout *verticalLayout = new QVBoxLayout();
+    verticalLayout->addWidget(m_toolChainView);
+    verticalLayout->addWidget(m_container);
+
+    QHBoxLayout *horizontalLayout = new QHBoxLayout(m_configWidget);
+    horizontalLayout->addLayout(verticalLayout);
+    horizontalLayout->addLayout(buttonLayout);
     Q_ASSERT(!m_model);
     m_model = new ToolChainModel(m_configWidget);
+
     connect(m_model, SIGNAL(toolChainStateChanged()), this, SLOT(updateState()));
 
-    m_ui->toolChainView->setModel(m_model);
-    m_ui->toolChainView->header()->setResizeMode(0, QHeaderView::ResizeToContents);
-    m_ui->toolChainView->header()->setResizeMode(1, QHeaderView::Stretch);
-    m_ui->toolChainView->expandAll();
+    m_toolChainView->setModel(m_model);
+    m_toolChainView->header()->setResizeMode(0, QHeaderView::ResizeToContents);
+    m_toolChainView->header()->setResizeMode(1, QHeaderView::Stretch);
+    m_toolChainView->expandAll();
 
-    m_selectionModel = m_ui->toolChainView->selectionModel();
+    m_selectionModel = m_toolChainView->selectionModel();
     connect(m_selectionModel, SIGNAL(selectionChanged(QItemSelection,QItemSelection)),
             this, SLOT(toolChainSelectionChanged()));
     connect(ToolChainManager::instance(), SIGNAL(toolChainsChanged()),
             this, SLOT(toolChainSelectionChanged()));
 
     // Get toolchainfactories:
-    m_factories = ExtensionSystem::PluginManager::instance()->getObjects<ToolChainFactory>();
+    m_factories = ExtensionSystem::PluginManager::getObjects<ToolChainFactory>();
 
     // Set up add menu:
-    QMenu *addMenu = new QMenu(m_ui->addButton);
+    QMenu *addMenu = new QMenu(m_addButton);
     QSignalMapper *mapper = new QSignalMapper(addMenu);
     connect(mapper, SIGNAL(mapped(QObject*)), this, SLOT(createToolChain(QObject*)));
 
@@ -543,18 +517,18 @@ QWidget *ToolChainOptionsPage::createPage(QWidget *parent)
             addMenu->addAction(action);
         }
     }
-    connect(m_ui->cloneButton, SIGNAL(clicked()), mapper, SLOT(map()));
-    mapper->setMapping(m_ui->cloneButton, static_cast<QObject *>(0));
+    connect(m_cloneButton, SIGNAL(clicked()), mapper, SLOT(map()));
+    mapper->setMapping(m_cloneButton, static_cast<QObject *>(0));
 
-    m_ui->addButton->setMenu(addMenu);
+    m_addButton->setMenu(addMenu);
 
-    connect(m_ui->delButton, SIGNAL(clicked()), this, SLOT(removeToolChain()));
+    connect(m_delButton, SIGNAL(clicked()), this, SLOT(removeToolChain()));
 
     // setup keywords:
     if (m_searchKeywords.isEmpty()) {
         QLatin1Char sep(' ');
         QTextStream stream(&m_searchKeywords);
-        stream << tr("Tool Chains");
+        stream << tr("Compilers");
         foreach (ToolChainFactory *f, m_factories)
             stream << sep << f->displayName();
 
@@ -574,15 +548,20 @@ void ToolChainOptionsPage::apply()
 
 void ToolChainOptionsPage::finish()
 {
-    if (m_model) {
-        m_model->deleteLater();
-        m_model = 0;
-    }
+    disconnect(ToolChainManager::instance(), SIGNAL(toolChainsChanged()),
+               this, SLOT(toolChainSelectionChanged()));
 
-    m_configWidget = 0; // deleted by settingsdialog
-    m_selectionModel = 0; // child of m_configWidget
-    m_ui = 0; // child of m_configWidget
-    m_currentTcWidget = 0; // deleted by the model
+    // delete by settingsdialog;
+    m_configWidget = 0;
+
+    // children of m_configWidget
+    m_model = 0;
+    m_container = 0;
+    m_selectionModel = 0;
+    m_toolChainView = 0;
+    m_addButton = 0;
+    m_cloneButton = 0;
+    m_delButton = 0;
 }
 
 bool ToolChainOptionsPage::matches(const QString &s) const
@@ -592,14 +571,11 @@ bool ToolChainOptionsPage::matches(const QString &s) const
 
 void ToolChainOptionsPage::toolChainSelectionChanged()
 {
-    if (m_currentTcWidget)
-        m_currentTcWidget->setVisible(false);
-
     QModelIndex current = currentIndex();
-    m_currentTcWidget = current.isValid() ? m_model->widget(current) : 0;
-
-    if (m_currentTcWidget)
-        m_currentTcWidget->setVisible(true);
+    (void)m_container->takeWidget(); // Prevent deletion.
+    QWidget *currentTcWidget = current.isValid() ? m_model->widget(current) : 0;
+    m_container->setWidget(currentTcWidget);
+    m_container->setVisible(currentTcWidget != 0);
     updateState();
 }
 
@@ -638,7 +614,7 @@ void ToolChainOptionsPage::removeToolChain()
 
 void ToolChainOptionsPage::updateState()
 {
-    if (!m_ui)
+    if (!m_cloneButton)
         return;
 
     bool canCopy = false;
@@ -649,8 +625,8 @@ void ToolChainOptionsPage::updateState()
         canDelete = !tc->isAutoDetected();
     }
 
-    m_ui->cloneButton->setEnabled(canCopy);
-    m_ui->delButton->setEnabled(canDelete);
+    m_cloneButton->setEnabled(canCopy);
+    m_delButton->setEnabled(canDelete);
 }
 
 QModelIndex ToolChainOptionsPage::currentIndex() const

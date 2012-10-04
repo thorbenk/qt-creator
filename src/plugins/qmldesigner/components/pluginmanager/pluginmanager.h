@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef PLUGINMANAGER_H
 #define PLUGINMANAGER_H
 
+#include "pluginpath.h"
 
 #include <QObject>
 #include <QList>
@@ -47,8 +46,6 @@ namespace QmlDesigner {
 
 class IPlugin;
 
-class PluginManagerPrivate;
-
 // PluginManager: Loads the plugin libraries on demand "as lazy as
 // possible", that is, directories are scanned and
 // instances are created only when  instances() is called.
@@ -56,11 +53,13 @@ class PluginManagerPrivate;
 class PluginManager
 {
     Q_DISABLE_COPY(PluginManager)
+
+    typedef QList<PluginPath> PluginPathList;
+
 public:
     typedef QList<IPlugin *> IPluginList;
 
     PluginManager();
-    ~PluginManager();
 
     void setPluginPaths(const QStringList &paths);
 
@@ -68,12 +67,13 @@ public:
 
     QDialog *createAboutPluginDialog(QWidget *parent);
 
-private:
+private: // functions
     // Convenience to create a model for an "About Plugins"
     // dialog. Forces plugin initialization.
     QAbstractItemModel *createModel(QObject *parent = 0);
 
-    PluginManagerPrivate *d;
+private: // variables
+    PluginPathList m_paths;
 };
 
 } // namespace QmlDesigner

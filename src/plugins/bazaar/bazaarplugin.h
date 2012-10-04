@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Hugues Delorme
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -46,7 +44,6 @@
 
 QT_BEGIN_NAMESPACE
 class QAction;
-class QTemporaryFile;
 QT_END_NAMESPACE
 
 namespace Core {
@@ -126,11 +123,9 @@ private:
     // Methods
     void createMenu();
     void createSubmitEditorActions();
-    void createSeparator(const Core::Context &context, const Core::Id &id);
     void createFileActions(const Core::Context &context);
     void createDirectoryActions(const Core::Context &context);
     void createRepositoryActions(const Core::Context &context);
-    void deleteCommitLog();
 
     // Variables
     static BazaarPlugin *m_instance;
@@ -139,11 +134,9 @@ private:
     BazaarClient *m_client;
 
     Locator::CommandLocator *m_commandLocator;
-    Core::ActionManager *m_actionManager;
     Core::ActionContainer *m_bazaarContainer;
 
     QList<QAction *> m_repositoryActionList;
-    QTemporaryFile *m_changeLog;
 
     // Menu Items (file actions)
     Utils::ParameterAction *m_addAction;
@@ -163,6 +156,7 @@ private:
     QAction *m_menuAction;
 
     QString m_submitRepository;
+    bool m_submitActionTriggered;
 };
 
 } // namespace Internal

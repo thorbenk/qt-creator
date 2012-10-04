@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -119,6 +117,7 @@ private Q_SLOTS:
     void functionBodyAndBraces4();
     void constructor1();
     void constructor2();
+    void constructor3();
     void caseBody1();
     void caseBody2();
     void caseBody3();
@@ -1869,6 +1868,42 @@ void tst_CodeFormatter::constructor2()
          << Line("    ~         foo() + 12)")
          << Line("    ~   , _carooooo(foo(),")
          << Line("    ~               12)")
+         << Line("    {")
+         << Line("        _b = 0")
+         << Line("    }")
+         << Line("};")
+         ;
+    CppCodeStyleSettings codeStyle;
+    checkIndent(data);
+}
+
+void tst_CodeFormatter::constructor3()
+{
+    QList<Line> data;
+    data << Line("class Foo {")
+         << Line("    Foo() : _a{0}, _b{1, {2, {3, \"foo\"}, 3}}")
+         << Line("    {")
+         << Line("        _b = 0")
+         << Line("    }")
+         << Line("    int _a;")
+         << Line("    Foo()")
+         << Line("    ~   : _foo{1},")
+         << Line("    ~     _bar{2},")
+         << Line("    ~     _carooooo(")
+         << Line("    ~         foo() + 12),")
+         << Line("    ~     _carooooo{foo(),")
+         << Line("    ~               12}")
+         << Line("    {")
+         << Line("        _b = 0")
+         << Line("    }")
+         << Line("    int _b;")
+         << Line("    Foo()")
+         << Line("    ~   : _foo{1}")
+         << Line("    ~   , _bar{2}")
+         << Line("    ~   , _carooooo{")
+         << Line("    ~         foo() + 12}")
+         << Line("    ~   , _carooooo{foo(),")
+         << Line("    ~               12}")
          << Line("    {")
          << Line("        _b = 0")
          << Line("    }")

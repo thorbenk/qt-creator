@@ -74,6 +74,8 @@ public:
     virtual void postVisit(AST *) {}
 
     virtual bool visit(AccessDeclarationAST *) { return true; }
+    virtual bool visit(AliasDeclarationAST *) { return true; }
+    virtual bool visit(AlignofExpressionAST *) { return true; }
     virtual bool visit(ArrayAccessAST *) { return true; }
     virtual bool visit(ArrayDeclaratorAST *) { return true; }
     virtual bool visit(ArrayInitializerAST *) { return true; }
@@ -113,6 +115,7 @@ public:
     virtual bool visit(EnumSpecifierAST *) { return true; }
     virtual bool visit(EnumeratorAST *) { return true; }
     virtual bool visit(ExceptionDeclarationAST *) { return true; }
+    virtual bool visit(ExpressionListParenAST *) { return true; }
     virtual bool visit(ExpressionOrDeclarationStatementAST *) { return true; }
     virtual bool visit(ExpressionStatementAST *) { return true; }
     virtual bool visit(ForStatementAST *) { return true; }
@@ -139,8 +142,6 @@ public:
     virtual bool visit(NestedNameSpecifierAST *) { return true; }
     virtual bool visit(NewArrayDeclaratorAST *) { return true; }
     virtual bool visit(NewExpressionAST *) { return true; }
-    virtual bool visit(NewInitializerAST *) { return true; }
-    virtual bool visit(NewPlacementAST *) { return true; }
     virtual bool visit(NewTypeIdAST *) { return true; }
     virtual bool visit(NoExceptSpecificationAST *) { return true; }
     virtual bool visit(NumericLiteralAST *) { return true; }
@@ -218,6 +219,8 @@ public:
     virtual bool visit(WhileStatementAST *) { return true; }
 
     virtual void endVisit(AccessDeclarationAST *) {}
+    virtual void endVisit(AliasDeclarationAST *) {}
+    virtual void endVisit(AlignofExpressionAST *) {}
     virtual void endVisit(ArrayAccessAST *) {}
     virtual void endVisit(ArrayDeclaratorAST *) {}
     virtual void endVisit(ArrayInitializerAST *) {}
@@ -257,6 +260,7 @@ public:
     virtual void endVisit(EnumSpecifierAST *) {}
     virtual void endVisit(EnumeratorAST *) {}
     virtual void endVisit(ExceptionDeclarationAST *) {}
+    virtual void endVisit(ExpressionListParenAST *) {}
     virtual void endVisit(ExpressionOrDeclarationStatementAST *) {}
     virtual void endVisit(ExpressionStatementAST *) {}
     virtual void endVisit(ForStatementAST *) {}
@@ -283,8 +287,6 @@ public:
     virtual void endVisit(NestedNameSpecifierAST *) {}
     virtual void endVisit(NewArrayDeclaratorAST *) {}
     virtual void endVisit(NewExpressionAST *) {}
-    virtual void endVisit(NewInitializerAST *) {}
-    virtual void endVisit(NewPlacementAST *) {}
     virtual void endVisit(NewTypeIdAST *) {}
     virtual void endVisit(NoExceptSpecificationAST *) {}
     virtual void endVisit(NumericLiteralAST *) {}

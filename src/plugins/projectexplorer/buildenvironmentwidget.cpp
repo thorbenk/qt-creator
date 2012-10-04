@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +33,7 @@
 #include "buildconfiguration.h"
 #include "environmentwidget.h"
 
+#include <projectexplorer/target.h>
 #include <utils/qtcassert.h>
 
 #include <QVBoxLayout>
@@ -69,17 +68,13 @@ void BuildEnvironmentWidget::init(BuildConfiguration *bc)
     Q_ASSERT(bc);
 
     if (m_buildConfiguration) {
-        disconnect(m_buildConfiguration, SIGNAL(environmentChanged()),
-                   this, SLOT(environmentChanged()));
-        disconnect(m_buildConfiguration, SIGNAL(toolChainChanged()),
+        disconnect(m_buildConfiguration->target(), SIGNAL(environmentChanged()),
                    this, SLOT(environmentChanged()));
     }
 
     m_buildConfiguration = bc;
 
-    connect(m_buildConfiguration, SIGNAL(environmentChanged()),
-            this, SLOT(environmentChanged()));
-    connect(m_buildConfiguration, SIGNAL(toolChainChanged()),
+    connect(m_buildConfiguration->target(), SIGNAL(environmentChanged()),
             this, SLOT(environmentChanged()));
 
     m_clearSystemEnvironmentCheckBox->setChecked(!m_buildConfiguration->useSystemEnvironment());

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,6 +55,7 @@
 #include "changestatecommand.h"
 #include "completecomponentcommand.h"
 #include "synchronizecommand.h"
+#include "removesharedmemorycommand.h"
 #include "tokencommand.h"
 
 #include "informationchangedcommand.h"
@@ -67,6 +66,7 @@
 #include "statepreviewimagechangedcommand.h"
 #include "componentcompletedcommand.h"
 #include "changenodesourcecommand.h"
+#include "endpuppetcommand.h"
 
 namespace QmlDesigner {
 
@@ -94,6 +94,7 @@ void NodeInstanceClientProxy::writeCommand(const QVariant &command)
 {
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
+    out.setVersion(QDataStream::Qt_4_8);
     out << quint32(0);
     out << quint32(m_writeCommandCounter);
     m_writeCommandCounter++;
@@ -165,6 +166,7 @@ void NodeInstanceClientProxy::readDataStream()
             break;
 
         QDataStream in(m_socket);
+        in.setVersion(QDataStream::Qt_4_8);
 
         if (m_blockSize == 0) {
             in >> m_blockSize;
@@ -276,9 +278,20 @@ void NodeInstanceClientProxy::changeNodeSource(const ChangeNodeSourceCommand &co
 {
     nodeInstanceServer()->changeNodeSource(command);
 }
+
+void NodeInstanceClientProxy::removeSharedMemory(const RemoveSharedMemoryCommand &command)
+{
+    nodeInstanceServer()->removeSharedMemory(command);
+}
 void NodeInstanceClientProxy::redirectToken(const TokenCommand &command)
 {
     nodeInstanceServer()->token(command);
+}
+
+void NodeInstanceClientProxy::redirectToken(const EndPuppetCommand &command)
+{
+    qDebug() << "End Process: " << QCoreApplication::applicationPid();
+    QCoreApplication::exit();
 }
 
 void NodeInstanceClientProxy::dispatchCommand(const QVariant &command)
@@ -298,7 +311,9 @@ void NodeInstanceClientProxy::dispatchCommand(const QVariant &command)
     static const int completeComponentCommandType = QMetaType::type("CompleteComponentCommand");
     static const int synchronizeCommandType = QMetaType::type("SynchronizeCommand");
     static const int changeNodeSourceCommandType = QMetaType::type("ChangeNodeSourceCommand");
+    static const int removeSharedMemoryCommandType = QMetaType::type("RemoveSharedMemoryCommand");
     static const int tokenCommandType = QMetaType::type("TokenCommand");
+    static const int endPuppetCommandType = QMetaType::type("EndPuppetCommand");
 
     if (command.userType() ==  createInstancesCommandType) {
         createInstances(command.value<CreateInstancesCommand>());
@@ -328,8 +343,12 @@ void NodeInstanceClientProxy::dispatchCommand(const QVariant &command)
         completeComponent(command.value<CompleteComponentCommand>());
     else if (command.userType() ==  changeNodeSourceCommandType)
         changeNodeSource(command.value<ChangeNodeSourceCommand>());
+    else if (command.userType() == removeSharedMemoryCommandType)
+        removeSharedMemory(command.value<RemoveSharedMemoryCommand>());
     else if (command.userType() ==  tokenCommandType)
         redirectToken(command.value<TokenCommand>());
+    else if (command.userType() ==  endPuppetCommandType)
+        redirectToken(command.value<EndPuppetCommand>());
     else if (command.userType() == synchronizeCommandType) {
         SynchronizeCommand synchronizeCommand = command.value<SynchronizeCommand>();
         m_synchronizeId = synchronizeCommand.synchronizeId();

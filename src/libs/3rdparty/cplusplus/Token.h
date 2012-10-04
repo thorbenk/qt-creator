@@ -37,12 +37,26 @@ enum Kind {
 
     T_FIRST_LITERAL,
     T_NUMERIC_LITERAL = T_FIRST_LITERAL,
-    T_CHAR_LITERAL,
+    T_FIRST_CHAR_LITERAL,
+    T_CHAR_LITERAL = T_FIRST_CHAR_LITERAL,
     T_WIDE_CHAR_LITERAL,
-    T_STRING_LITERAL,
+    T_UTF16_CHAR_LITERAL,
+    T_UTF32_CHAR_LITERAL,
+    T_LAST_CHAR_LITERAL = T_UTF32_CHAR_LITERAL,
+    T_FIRST_STRING_LITERAL,
+    T_STRING_LITERAL = T_FIRST_STRING_LITERAL,
     T_WIDE_STRING_LITERAL,
+    T_UTF8_STRING_LITERAL,
+    T_UTF16_STRING_LITERAL,
+    T_UTF32_STRING_LITERAL,
+    T_RAW_STRING_LITERAL,
+    T_RAW_WIDE_STRING_LITERAL,
+    T_RAW_UTF8_STRING_LITERAL,
+    T_RAW_UTF16_STRING_LITERAL,
+    T_RAW_UTF32_STRING_LITERAL,
     T_AT_STRING_LITERAL,
     T_ANGLE_STRING_LITERAL,
+    T_LAST_STRING_LITERAL = T_ANGLE_STRING_LITERAL,
     T_LAST_LITERAL = T_ANGLE_STRING_LITERAL,
 
     T_FIRST_OPERATOR,
@@ -101,13 +115,17 @@ enum Kind {
     T_LAST_OPERATOR = T_TILDE_EQUAL,
 
     T_FIRST_KEYWORD,
-    T_ASM = T_FIRST_KEYWORD,
+    T_ALIGNAS = T_FIRST_KEYWORD,
+    T_ALIGNOF,
+    T_ASM,
     T_AUTO,
     T_BOOL,
     T_BREAK,
     T_CASE,
     T_CATCH,
     T_CHAR,
+    T_CHAR16_T,
+    T_CHAR32_T,
     T_CLASS,
     T_CONST,
     T_CONST_CAST,
@@ -206,7 +224,8 @@ enum Kind {
     T_FIRST_QT_KEYWORD,
 
     // Qt keywords
-    T_SIGNAL = T_FIRST_QT_KEYWORD,
+    T_EMIT = T_FIRST_QT_KEYWORD,
+    T_SIGNAL,
     T_SLOT,
     T_Q_SIGNAL,
     T_Q_SLOT,
@@ -219,6 +238,7 @@ enum Kind {
     T_Q_PROPERTY,
     T_Q_PRIVATE_PROPERTY,
     T_Q_INTERFACES,
+    T_Q_EMIT,
     T_Q_ENUMS,
     T_Q_FLAGS,
     T_Q_PRIVATE_SLOT,
@@ -287,6 +307,12 @@ public:
     inline bool isLiteral() const
     { return f.kind >= T_FIRST_LITERAL && f.kind <= T_LAST_LITERAL; }
 
+    inline bool isCharLiteral() const
+    { return f.kind >= T_FIRST_CHAR_LITERAL && f.kind <= T_LAST_CHAR_LITERAL; }
+
+    inline bool isStringLiteral() const
+    { return f.kind >= T_FIRST_STRING_LITERAL && f.kind <= T_LAST_STRING_LITERAL; }
+
     inline bool isOperator() const
     { return f.kind >= T_FIRST_OPERATOR && f.kind <= T_LAST_OPERATOR; }
 
@@ -304,13 +330,29 @@ public:
 
 public:
     struct Flags {
+        // The token kind.
         unsigned kind       : 8;
+        // The token starts a new line.
         unsigned newline    : 1;
+        // The token is preceeded by whitespace(s).
         unsigned whitespace : 1;
+        // The token is joined with the previous one.
         unsigned joined     : 1;
+        // The token originates from a macro expansion.
         unsigned expanded   : 1;
+        // The token originates from a macro expansion and does not correspond to an
+        // argument that went through substitution. Notice the example:
+        //
+        // #define FOO(a, b) a + b;
+        // FOO(1, 2)
+        //
+        // After preprocessing we would expect the following tokens: 1 + 2;
+        // Tokens '1', '+', '2', and ';' are all expanded. However only tokens '+' and ';'
+        // are generated.
         unsigned generated  : 1;
+        // Unused...
         unsigned pad        : 3;
+        // The token lenght.
         unsigned length     : 16;
     };
     union {

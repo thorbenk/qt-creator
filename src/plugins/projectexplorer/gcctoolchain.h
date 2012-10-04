@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -54,8 +52,6 @@ class LinuxIccToolChainFactory;
 class PROJECTEXPLORER_EXPORT GccToolChain : public ToolChain
 {
 public:
-    QString legacyId() const;
-
     QString type() const;
     QString typeDisplayName() const;
     Abi targetAbi() const;
@@ -68,11 +64,9 @@ public:
     QByteArray predefinedMacros(const QStringList &cxxflags) const;
     CompilerFlags compilerFlags(const QStringList &cxxflags) const;
 
-    QList<HeaderPath> systemHeaderPaths() const;
+    QList<HeaderPath> systemHeaderPaths(const Utils::FileName &sysRoot) const;
     void addToEnvironment(Utils::Environment &env) const;
-    QString makeCommand() const;
-    void setDebuggerCommand(const Utils::FileName &);
-    Utils::FileName debuggerCommand() const;
+    QString makeCommand(const Utils::Environment &environment) const;
     QList<Utils::FileName> suggestedMkspecList() const;
     IOutputParser *outputParser() const;
 
@@ -97,7 +91,7 @@ protected:
     virtual QList<Abi> detectSupportedAbis() const;
     virtual QString detectVersion() const;
 
-    static QList<HeaderPath> gccHeaderPaths(const Utils::FileName &gcc, const QStringList &env, const QString &sysrootPath = QString());
+    static QList<HeaderPath> gccHeaderPaths(const Utils::FileName &gcc, const QStringList &env, const Utils::FileName &sysrootPath);
 
     mutable QByteArray m_predefinedMacros;
 
@@ -107,7 +101,6 @@ private:
     void updateSupportedAbis() const;
 
     Utils::FileName m_compilerCommand;
-    Utils::FileName m_debuggerCommand;
 
     Abi m_targetAbi;
     mutable QList<Abi> m_supportedAbis;
@@ -127,7 +120,7 @@ class PROJECTEXPLORER_EXPORT ClangToolChain : public GccToolChain
 public:
     QString type() const;
     QString typeDisplayName() const;
-    QString makeCommand() const;
+    QString makeCommand(const Utils::Environment &environment) const;
 
     IOutputParser *outputParser() const;
 
@@ -151,7 +144,7 @@ class PROJECTEXPLORER_EXPORT MingwToolChain : public GccToolChain
 public:
     QString type() const;
     QString typeDisplayName() const;
-    QString makeCommand() const;
+    QString makeCommand(const Utils::Environment &environment) const;
 
     ToolChain *clone() const;
 

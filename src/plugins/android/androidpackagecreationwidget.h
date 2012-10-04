@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,10 +32,13 @@
 #define ANDROIDPACKAGECREATIONWIDGET_H
 
 #include <projectexplorer/buildstep.h>
+
 #include <QAbstractListModel>
 #include <QStringList>
 
 QT_BEGIN_NAMESPACE
+class QFileSystemWatcher;
+
 namespace Ui { class AndroidPackageCreationWidget; }
 QT_END_NAMESPACE
 
@@ -106,7 +107,7 @@ private slots:
 
     void setPackageName();
     void setApplicationName();
-    void setTargetSDK(const QString &target);
+    void setTargetSDK(const QString &sdk);
     void setVersionCode();
     void setVersionName();
     void setTarget(const QString &target);
@@ -142,6 +143,7 @@ private:
     CheckModel *m_qtLibsModel;
     CheckModel *m_prebundledLibs;
     PermissionsModel *m_permissionsModel;
+    QFileSystemWatcher *m_fileSystemWatcher;
 };
 
 } // namespace Internal

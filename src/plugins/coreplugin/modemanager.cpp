@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -80,6 +78,7 @@ struct ModeManagerPrivate
     QSignalMapper *m_signalMapper;
     Context m_addedContexts;
     int m_oldCurrent;
+    bool m_saveSettingsOnModeChange;
 };
 
 static ModeManagerPrivate *d;
@@ -106,10 +105,13 @@ ModeManager::ModeManager(Internal::MainWindow *mainWindow,
     d->m_oldCurrent = -1;
     d->m_actionBar = new Internal::FancyActionBar(modeStack);
     d->m_modeStack->addCornerWidget(d->m_actionBar);
+    d->m_saveSettingsOnModeChange = false;
 
     connect(d->m_modeStack, SIGNAL(currentAboutToShow(int)), SLOT(currentTabAboutToChange(int)));
     connect(d->m_modeStack, SIGNAL(currentChanged(int)), SLOT(currentTabChanged(int)));
     connect(d->m_signalMapper, SIGNAL(mapped(int)), this, SLOT(slotActivateMode(int)));
+    connect(ExtensionSystem::PluginManager::instance(), SIGNAL(initializationDone()), this, SLOT(handleStartup()));
+    connect(ICore::instance(), SIGNAL(coreAboutToClose()), this, SLOT(handleShutdown()));
 }
 
 void ModeManager::init()
@@ -197,11 +199,10 @@ void ModeManager::objectAdded(QObject *obj)
     d->m_modeStack->setTabEnabled(index, mode->isEnabled());
 
     // Register mode shortcut
-    ActionManager *am = d->m_mainWindow->actionManager();
     const Id shortcutId(QLatin1String("QtCreator.Mode.") + mode->id().toString());
     QShortcut *shortcut = new QShortcut(d->m_mainWindow);
     shortcut->setWhatsThis(tr("Switch to <b>%1</b> mode").arg(mode->displayName()));
-    Command *cmd = am->registerShortcut(shortcut, shortcutId, Context(Constants::C_GLOBAL));
+    Command *cmd = ActionManager::registerShortcut(shortcut, shortcutId, Context(Constants::C_GLOBAL));
 
     d->m_modeShortcuts.insert(index, cmd);
     connect(cmd, SIGNAL(keySequenceChanged()), this, SLOT(updateModeToolTip()));
@@ -212,11 +213,8 @@ void ModeManager::objectAdded(QObject *obj)
         // and still expect the current shortcut to change with it
         bool currentlyHasDefaultSequence = (currentCmd->keySequence()
                                             == currentCmd->defaultKeySequence());
-#ifdef Q_OS_MAC
-        currentCmd->setDefaultKeySequence(QKeySequence(QString::fromLatin1("Meta+%1").arg(i+1)));
-#else
-        currentCmd->setDefaultKeySequence(QKeySequence(QString::fromLatin1("Ctrl+%1").arg(i+1)));
-#endif
+        currentCmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? QString::fromLatin1("Meta+%1").arg(i+1)
+                                                                       : QString::fromLatin1("Ctrl+%1").arg(i+1)));
         if (currentlyHasDefaultSequence)
             currentCmd->setKeySequence(currentCmd->defaultKeySequence());
     }
@@ -258,6 +256,12 @@ void ModeManager::enabledStateChanged()
     }
 }
 
+void ModeManager::handleStartup()
+{ d->m_saveSettingsOnModeChange = true; }
+
+void ModeManager::handleShutdown()
+{ d->m_saveSettingsOnModeChange = false; }
+
 void ModeManager::aboutToRemoveObject(QObject *obj)
 {
     IMode *mode = Aggregation::query<IMode>(obj);
@@ -296,8 +300,11 @@ void ModeManager::currentTabAboutToChange(int index)
 {
     if (index >= 0) {
         IMode *mode = d->m_modes.at(index);
-        if (mode)
+        if (mode) {
+            if (d->m_saveSettingsOnModeChange)
+                ICore::saveSettings();
             emit currentModeAboutToChange(mode);
+        }
     }
 }
 

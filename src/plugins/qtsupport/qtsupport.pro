@@ -11,13 +11,15 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 include(../../qtcreatorplugin.pri)
 include(qtsupport_dependencies.pri)
 DEFINES += \
-    PROPARSER_AS_LIBRARY PROPARSER_LIBRARY \
-    PROPARSER_THREAD_SAFE PROEVALUATOR_THREAD_SAFE PROEVALUATOR_CUMULATIVE
+    QMAKE_AS_LIBRARY QMAKE_LIBRARY \
+    PROPARSER_THREAD_SAFE PROEVALUATOR_THREAD_SAFE PROEVALUATOR_CUMULATIVE PROEVALUATOR_SETENV
 include(../../shared/proparser/proparser.pri)
 
 HEADERS += \
     qtsupportplugin.h \
     qtsupport_global.h \
+    qtkitconfigwidget.h \
+    qtkitinformation.h \
     qtoutputformatter.h \
     qtversionmanager.h \
     qtversionfactory.h \
@@ -39,6 +41,8 @@ HEADERS += \
 
 SOURCES += \
     qtsupportplugin.cpp \
+    qtkitconfigwidget.cpp \
+    qtkitinformation.cpp \
     qtoutputformatter.cpp \
     qtversionmanager.cpp \
     qtversionfactory.cpp \
@@ -64,5 +68,4 @@ FORMS   +=  \
     qtversionmanager.ui \
 
 
-DEFINES += QT_NO_CAST_TO_ASCII
-
+DEFINES += QT_NO_CAST_FROM_ASCII

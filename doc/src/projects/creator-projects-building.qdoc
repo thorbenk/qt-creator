@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -31,14 +29,18 @@
     \page creator-building-targets.html
     \nextpage creator-running-targets.html
 
-    \title Building for Multiple Targets
+    \title Building for Multiple Platforms
 
-    You can build applications for multiple \l{glossary-development-target}
-    {targets}. By default, when you run the application on a target, you
-    automatically build it for the target and deploy it to the target first.
+    You can build applications for multiple target platforms, or using different
+    compilers,
+    debuggers or Qt versions. \l{glossary-buildandrun-kit}{Kits} define the tools,
+    device type and other settings to use.
+
+    By default, when you run the application, you
+    automatically build and deploy it first.
     However, you can also perform each operation separately.
 
-    To check that the application code can be compiled and linked for a target,
+    To check that the application code can be compiled and linked for a device,
     you can build the project. The build errors and warnings are displayed in
     the \gui {Issues} output pane. More detailed information is displayed
     in the \gui {Compile Output} pane.
@@ -47,9 +49,9 @@
 
     \list 1
 
-        \o Select a target for the project.
+        \o Select a \l{glossary-buildandrun-kit}{kit} for the project.
 
-        \image qtcreator-target-selector.png "Target selector"
+        \image qtcreator-kit-selector.png "Kit selector"
 
         \o Choose \gui {Build > Build Project} or press \key {Ctrl+B}.
 
@@ -58,8 +60,8 @@
     For more information on the options you have, see
     \l{Specifying Build Settings}.
 
-    \if defined(qcmanual)
-    \input symbian/creator-projects-building-symbian.qdocinc
-    \endif
+    To quickly check the compile output for changes that you made in one file or
+    subproject, you can use the \gui Build menu commands to build a file or
+    subproject.
 
 */

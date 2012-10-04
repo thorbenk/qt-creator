@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -80,6 +78,7 @@ public:
                        const Utils::Environment &env,
                        const QString &generator);
     bool hasCodeBlocksMsvcGenerator() const;
+    bool hasCodeBlocksNinjaGenerator() const;
     static QString findCbpFile(const QDir &);
 
     static QString findDumperLibrary(const Utils::Environment &env);
@@ -103,6 +102,7 @@ struct CMakeValidator
     STATE state;
     QProcess *process;
     bool hasCodeBlocksMsvcGenerator;
+    bool hasCodeBlocksNinjaGenerator;
     QString version;
     QString executable;
 };
@@ -110,26 +110,25 @@ struct CMakeValidator
 class CMakeSettingsPage : public Core::IOptionsPage
 {
     Q_OBJECT
+
 public:
     CMakeSettingsPage();
-    virtual ~CMakeSettingsPage();
-    virtual QString id() const;
-    virtual QString displayName() const;
-    virtual QString category() const;
-    virtual QString displayCategory() const;
-    virtual QIcon categoryIcon() const;
+    ~CMakeSettingsPage();
 
-    virtual QWidget *createPage(QWidget *parent);
-    virtual void apply();
-    virtual void finish();
+    QWidget *createPage(QWidget *parent);
+    void apply();
+    void finish();
 
     QString cmakeExecutable() const;
     void setCMakeExecutable(const QString &executable);
     bool isCMakeExecutableValid() const;
     bool hasCodeBlocksMsvcGenerator() const;
+    bool hasCodeBlocksNinjaGenerator() const;
+
 private slots:
     void userCmakeFinished();
     void pathCmakeFinished();
+
 private:
     void cmakeFinished(CMakeValidator *cmakeValidator) const;
     void saveSettings() const;

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,19 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "project.h"
 
+#include "buildconfiguration.h"
+#include "deployconfiguration.h"
 #include "editorconfiguration.h"
 #include "environment.h"
 #include "projectexplorer.h"
 #include "projectexplorerconstants.h"
 #include "projectnodes.h"
+#include "runconfiguration.h"
 #include "target.h"
 #include "settingsaccessor.h"
 
@@ -44,6 +45,8 @@
 #include <coreplugin/icontext.h>
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/buildmanager.h>
+#include <projectexplorer/kit.h>
+#include <projectexplorer/kitmanager.h>
 #include <limits>
 #include <utils/qtcassert.h>
 
@@ -68,12 +71,11 @@
 */
 
 namespace {
-const char * const ACTIVE_TARGET_KEY("ProjectExplorer.Project.ActiveTarget");
-const char * const TARGET_KEY_PREFIX("ProjectExplorer.Project.Target.");
-const char * const TARGET_COUNT_KEY("ProjectExplorer.Project.TargetCount");
-
-const char * const EDITOR_SETTINGS_KEY("ProjectExplorer.Project.EditorSettings");
-const char * const PLUGIN_SETTINGS_KEY("ProjectExplorer.Project.PluginSettings");
+const char ACTIVE_TARGET_KEY[] = "ProjectExplorer.Project.ActiveTarget";
+const char TARGET_KEY_PREFIX[] = "ProjectExplorer.Project.Target.";
+const char TARGET_COUNT_KEY[] = "ProjectExplorer.Project.TargetCount";
+const char EDITOR_SETTINGS_KEY[] = "ProjectExplorer.Project.EditorSettings";
+const char PLUGIN_SETTINGS_KEY[] = "ProjectExplorer.Project.PluginSettings";
 } // namespace
 
 namespace ProjectExplorer {
@@ -85,23 +87,28 @@ class ProjectPrivate
 {
 public:
     ProjectPrivate();
+    ~ProjectPrivate();
+
     QList<Target *> m_targets;
     Target *m_activeTarget;
     EditorConfiguration *m_editorConfiguration;
     Core::Context m_projectContext;
     Core::Context m_projectLanguage;
     QVariantMap m_pluginSettings;
+    SettingsAccessor *m_accessor;
 };
 
 ProjectPrivate::ProjectPrivate() :
     m_activeTarget(0),
-    m_editorConfiguration(new EditorConfiguration())
-{
-}
+    m_editorConfiguration(new EditorConfiguration()),
+    m_accessor(0)
+{ }
+
+ProjectPrivate::~ProjectPrivate()
+{ delete m_accessor; }
 
 Project::Project() : d(new ProjectPrivate)
-{
-}
+{ }
 
 Project::~Project()
 {
@@ -112,7 +119,7 @@ Project::~Project()
 
 bool Project::hasActiveBuildSettings() const
 {
-    return activeTarget() && activeTarget()->buildConfigurationFactory();
+    return activeTarget() && IBuildConfigurationFactory::find(activeTarget());
 }
 
 QString Project::makeUnique(const QString &preferredName, const QStringList &usedNames)
@@ -143,16 +150,10 @@ void Project::changeBuildConfigurationEnabled()
 void Project::addTarget(Target *t)
 {
     QTC_ASSERT(t && !d->m_targets.contains(t), return);
-    QTC_ASSERT(!target(t->id()), return);
+    QTC_ASSERT(!target(t->kit()), return);
     Q_ASSERT(t->project() == this);
 
-    // Check that we don't have a configuration with the same displayName
-    QString targetDisplayName = t->displayName();
-    QStringList displayNames;
-    foreach (const Target *target, d->m_targets)
-        displayNames << target->displayName();
-    targetDisplayName = makeUnique(targetDisplayName, displayNames);
-    t->setDefaultDisplayName(targetDisplayName);
+    t->setDefaultDisplayName(t->displayName());
 
     // add it
     d->m_targets.push_back(t);
@@ -160,6 +161,8 @@ void Project::addTarget(Target *t)
             SLOT(changeEnvironment()));
     connect(t, SIGNAL(buildConfigurationEnabledChanged()),
             this, SLOT(changeBuildConfigurationEnabled()));
+    connect(t, SIGNAL(buildDirectoryChanged()),
+            this, SLOT(onBuildDirectoryChanged()));
     emit addedTarget(t);
 
     // check activeTarget:
@@ -216,24 +219,78 @@ void Project::setActiveTarget(Target *target)
     }
 }
 
-Target *Project::target(Core::Id id) const
+Target *Project::target(const Core::Id id) const
 {
-    foreach (Target * target, d->m_targets) {
+    foreach (Target *target, d->m_targets) {
         if (target->id() == id)
             return target;
     }
     return 0;
 }
 
+Target *Project::target(Kit *k) const
+{
+    foreach (Target *target, d->m_targets) {
+        if (target->kit() == k)
+            return target;
+    }
+    return 0;
+}
+
+bool Project::supportsKit(Kit *k, QString *errorMessage) const
+{
+    Q_UNUSED(k);
+    Q_UNUSED(errorMessage);
+    return true;
+}
+
+Target *Project::createTarget(Kit *k)
+{
+    if (!k || target(k))
+        return 0;
+
+    Target *t = new Target(this, k);
+    t->createDefaultSetup();
+
+    return t;
+}
+
+Target *Project::restoreTarget(const QVariantMap &data)
+{
+    Core::Id id = idFromMap(data);
+    if (target(id)) {
+        qWarning("Warning: Duplicated target id found, not restoring second target with id '%s'. Continuing.",
+                 qPrintable(id.toString()));
+        return 0;
+    }
+
+    Kit *k = KitManager::instance()->find(id);
+    if (!k) {
+        qWarning("Warning: No profile '%s' found. Continuing.", qPrintable(id.toString()));
+        return 0;
+    }
+
+    Target *t = new Target(this, k);
+    if (!t->fromMap(data)) {
+        delete t;
+        return 0;
+    }
+    return t;
+}
+
 void Project::saveSettings()
 {
     emit aboutToSaveSettings();
-    SettingsAccessor::instance()->saveSettings(this, toMap());
+    if (!d->m_accessor)
+        d->m_accessor = new SettingsAccessor(this);
+    d->m_accessor->saveSettings(toMap());
 }
 
 bool Project::restoreSettings()
 {
-    QVariantMap map(SettingsAccessor::instance()->restoreSettings(this));
+    if (!d->m_accessor)
+        d->m_accessor = new SettingsAccessor(this);
+    QVariantMap map(d->m_accessor->restoreSettings());
     bool ok = fromMap(map);
     if (ok)
         emit settingsLoaded();
@@ -277,11 +334,11 @@ QString Project::projectDirectory() const
     return projectDirectory(document()->fileName());
 }
 
-QString Project::projectDirectory(const QString &proFile)
+QString Project::projectDirectory(const QString &top)
 {
-    if (proFile.isEmpty())
+    if (top.isEmpty())
         return QString();
-    QFileInfo info(proFile);
+    QFileInfo info(top);
     return info.absoluteDir().path();
 }
 
@@ -301,9 +358,7 @@ bool Project::fromMap(const QVariantMap &map)
     if (!ok || maxI < 0)
         maxI = 0;
     int active(map.value(QLatin1String(ACTIVE_TARGET_KEY), 0).toInt(&ok));
-    if (!ok || active < 0)
-        active = 0;
-    if (0 > active || maxI < active)
+    if (!ok || active < 0 || active >= maxI)
         active = 0;
 
     for (int i = 0; i < maxI; ++i) {
@@ -314,32 +369,15 @@ bool Project::fromMap(const QVariantMap &map)
         }
         QVariantMap targetMap = map.value(key).toMap();
 
-        QList<ITargetFactory *> factories =
-                ExtensionSystem::PluginManager::instance()->getObjects<ITargetFactory>();
+        Target *t = restoreTarget(targetMap);
+        if (!t)
+            continue;
 
-        Target *t = 0;
-
-        Core::Id id = idFromMap(targetMap);
-        if (target(id)) {
-            qWarning("Warning: Duplicated target id found, not restoring second target with id '%s'. Continuing.",
-                     qPrintable(id.toString()));
-        } else {
-            foreach (ITargetFactory *factory, factories) {
-                if (factory->canRestore(this, targetMap)) {
-                    t = factory->restore(this, targetMap);
-                    break;
-                }
-            }
-
-            if (!t) {
-                qWarning("Warning: Unable to restore target '%s'. Continuing.", qPrintable(id.toString()));
-                continue;
-            }
-            addTarget(t);
-            if (i == active)
-                setActiveTarget(t);
-        }
+        addTarget(t);
+        if (i == active)
+            setActiveTarget(t);
     }
+
     return true;
 }
 
@@ -378,9 +416,12 @@ QVariant Project::namedSettings(const QString &name) const
     return d->m_pluginSettings.value(name);
 }
 
-void Project::setNamedSettings(const QString &name, QVariant &value)
+void Project::setNamedSettings(const QString &name, const QVariant &value)
 {
-    d->m_pluginSettings.insert(name, value);
+    if (value.isNull())
+        d->m_pluginSettings.remove(name);
+    else
+        d->m_pluginSettings.insert(name, value);
 }
 
 bool Project::needsConfiguration() const
@@ -391,6 +432,18 @@ bool Project::needsConfiguration() const
 void Project::configureAsExampleProject(const QStringList &platforms)
 {
     Q_UNUSED(platforms);
+}
+
+bool Project::supportsNoTargetPanel() const
+{
+    return false;
+}
+
+void Project::onBuildDirectoryChanged()
+{
+    Target *target = qobject_cast<Target *>(sender());
+    if (target && target == activeTarget())
+        emit buildDirectoryChanged();
 }
 
 } // namespace ProjectExplorer

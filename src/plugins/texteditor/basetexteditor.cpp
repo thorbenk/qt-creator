@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,6 +53,7 @@
 #include "texteditorsettings.h"
 #include "texteditoroverlay.h"
 #include "circularclipboard.h"
+#include "circularclipboardassist.h"
 
 #include <aggregation/aggregate.h>
 #include <coreplugin/actionmanager/actionmanager.h>
@@ -69,6 +68,7 @@
 #include <extensionsystem/pluginmanager.h>
 #include <find/basetextfind.h>
 #include <utils/linecolumnlabel.h>
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/stylehelper.h>
 
@@ -118,6 +118,7 @@
 
 using namespace TextEditor;
 using namespace TextEditor::Internal;
+using namespace Utils;
 
 namespace TextEditor {
 namespace Internal {
@@ -203,14 +204,6 @@ static void convertToPlainText(QString &txt)
     }
 }
 
-static bool isModifierKey(int key)
-{
-    return key == Qt::Key_Shift
-            || key == Qt::Key_Control
-            || key == Qt::Key_Alt
-            || key == Qt::Key_Meta;
-}
-
 static const char kTextBlockMimeType[] = "application/vnd.nokia.qtcreator.blocktext";
 static const char kVerticalTextBlockMimeType[] = "application/vnd.nokia.qtcreator.vblocktext";
 
@@ -262,7 +255,7 @@ BaseTextEditorWidget::BaseTextEditorWidget(QWidget *parent)
     // parentheses matcher
     d->m_formatRange = true;
     d->m_matchFormat.setForeground(Qt::red);
-    d->m_rangeFormat.setBackground(QColor(0xb4, 0xee, 0xb4));
+    d->m_matchFormat.setBackground(QColor(0xb4, 0xee, 0xb4));
     d->m_mismatchFormat.setBackground(Qt::magenta);
     d->m_parenthesesMatchingTimer = new QTimer(this);
     d->m_parenthesesMatchingTimer->setSingleShot(true);
@@ -1554,11 +1547,6 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
     d->m_moveLineUndoHack = false;
     d->clearVisibleFoldedBlock();
 
-    if (d->m_isCirculatingClipboard
-            && !isModifierKey(e->key())) {
-        d->m_isCirculatingClipboard = false;
-    }
-
     if (e->key() == Qt::Key_Alt
             && d->m_behaviorSettings.m_keyboardTooltips) {
         d->m_maybeFakeTooltipEvent = true;
@@ -1776,7 +1764,8 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
         // fall through
     case Qt::Key_Right:
     case Qt::Key_Left:
-#ifndef Q_OS_MAC
+        if (HostOsInfo::isMacHost())
+            break;
         if ((e->modifiers()
              & (Qt::AltModifier | Qt::ShiftModifier)) == (Qt::AltModifier | Qt::ShiftModifier)) {
             int diff_row = 0;
@@ -1800,7 +1789,6 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
                 viewport()->update();
             }
         }
-#endif
         break;
     case Qt::Key_PageUp:
     case Qt::Key_PageDown:
@@ -1819,6 +1807,7 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
                 d->m_autoCompleter->setAutoParenthesesEnabled(d->autoParenthesisOverwriteBackup);
                 d->m_autoCompleter->setSurroundWithEnabled(d->surroundWithEnabledOverwriteBackup);
                 setOverwriteMode(false);
+                viewport()->update();
             } else {
                 d->autoParenthesisOverwriteBackup = d->m_autoCompleter->isAutoParenthesesEnabled();
                 d->surroundWithEnabledOverwriteBackup = d->m_autoCompleter->isSurroundWithEnabled();
@@ -1843,13 +1832,8 @@ void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
         }
     }
 
-    if (e->key() == Qt::Key_H && e->modifiers() ==
-#ifdef Q_OS_DARWIN
-        Qt::MetaModifier
-#else
-        Qt::ControlModifier
-#endif
-        ) {
+    if (e->key() == Qt::Key_H
+            && e->modifiers() == Qt::KeyboardModifiers(HostOsInfo::controlModifier())) {
         universalHelper();
         e->accept();
         return;
@@ -2112,7 +2096,12 @@ QChar BaseTextEditorWidget::characterAt(int pos) const
 
 bool BaseTextEditorWidget::event(QEvent *e)
 {
+#if QT_VERSION >= 0x050000
+    if (e->type() != QEvent::InputMethodQuery)
+        d->m_contentsChanged = false;
+#else
     d->m_contentsChanged = false;
+#endif
     switch (e->type()) {
     case QEvent::ShortcutOverride:
         if (static_cast<QKeyEvent*>(e)->key() == Qt::Key_Escape && d->m_snippetOverlay->isVisible()) {
@@ -2496,7 +2485,6 @@ BaseTextEditorWidgetPrivate::BaseTextEditorWidgetPrivate()
     m_requestMarkEnabled(true),
     m_lineSeparatorsAllowed(false),
     m_maybeFakeTooltipEvent(false),
-    m_isCirculatingClipboard(false),
     m_visibleWrapColumn(0),
     m_linkPressed(false),
     m_delayedUpdateTimer(0),
@@ -2511,7 +2499,8 @@ BaseTextEditorWidgetPrivate::BaseTextEditorWidgetPrivate()
     m_assistRelevantContentAdded(false),
     m_cursorBlockNumber(-1),
     m_autoCompleter(new AutoCompleter),
-    m_indenter(new Indenter)
+    m_indenter(new Indenter),
+    m_clipboardAssistProvider(new Internal::ClipboardAssistProvider)
 {
 }
 
@@ -2544,6 +2533,7 @@ void BaseTextEditorWidgetPrivate::setupDocumentSignals(BaseTextDocument *documen
     q->setCursorWidth(2); // Applies to the document layout
 
     QObject::connect(documentLayout, SIGNAL(updateBlock(QTextBlock)), q, SLOT(slotUpdateBlockNotify(QTextBlock)));
+    QObject::connect(documentLayout, SIGNAL(updateExtraArea()), q, SLOT(slotUpdateExtraArea()));
     QObject::connect(q, SIGNAL(requestBlockUpdate(QTextBlock)), documentLayout, SIGNAL(updateBlock(QTextBlock)));
     QObject::connect(doc, SIGNAL(modificationChanged(bool)), q, SIGNAL(changed()));
     QObject::connect(doc, SIGNAL(contentsChange(int,int,int)), q,
@@ -3382,6 +3372,7 @@ void BaseTextEditorWidget::paintEvent(QPaintEvent *e)
                     o.start = relativePos;
                     o.length = 1;
                     o.format.setForeground(palette().base());
+                    o.format.setBackground(palette().text());
                     selections.append(o);
                 }
             }
@@ -3404,11 +3395,8 @@ void BaseTextEditorWidget::paintEvent(QPaintEvent *e)
                 cursor_pen = painter.pen();
             }
 
-#ifndef Q_OS_MAC // no visible cursor on mac
-            if (blockSelectionCursorRect.isValid())
+            if (!HostOsInfo::isMacHost() && blockSelectionCursorRect.isValid())
                 painter.fillRect(blockSelectionCursorRect, palette().text());
-#endif
-
         }
 
         offset.ry() += r.height();
@@ -4084,7 +4072,7 @@ void BaseTextEditorWidget::updateHighlights()
             d->m_parenthesesMatchingTimer->start(50);
         } else {
              // use 0-timer, not direct call, to give the syntax highlighter a chance
-            // to update the parantheses information
+            // to update the parentheses information
             d->m_parenthesesMatchingTimer->start(0);
         }
     }
@@ -4129,6 +4117,11 @@ void BaseTextEditorWidget::slotUpdateBlockNotify(const QTextBlock &block)
         }
     }
     blockRecursion = false;
+}
+
+void BaseTextEditorWidget::slotUpdateExtraArea()
+{
+    d->m_extraArea->update();
 }
 
 void BaseTextEditorWidget::timerEvent(QTimerEvent *e)
@@ -4261,10 +4254,8 @@ void BaseTextEditorWidget::mousePressEvent(QMouseEvent *e)
         }
     }
 
-#ifdef Q_OS_LINUX
-    if (handleForwardBackwardMouseButtons(e))
+    if (HostOsInfo::isLinuxHost() && handleForwardBackwardMouseButtons(e))
         return;
-#endif
 
     QPlainTextEdit::mousePressEvent(e);
 }
@@ -4284,10 +4275,8 @@ void BaseTextEditorWidget::mouseReleaseEvent(QMouseEvent *e)
         }
     }
 
-#ifndef Q_OS_LINUX
-    if (handleForwardBackwardMouseButtons(e))
+    if (!HostOsInfo::isLinuxHost() && handleForwardBackwardMouseButtons(e))
         return;
-#endif
 
     QPlainTextEdit::mouseReleaseEvent(e);
 }
@@ -4341,6 +4330,14 @@ void BaseTextEditorWidget::dragEnterEvent(QDragEnterEvent *e)
     QPlainTextEdit::dragEnterEvent(e);
 }
 
+void BaseTextEditorWidget::showDefaultContextMenu(QContextMenuEvent *e, const Core::Id menuContextId)
+{
+    QMenu menu;
+    appendMenuActionsFromContext(&menu, menuContextId);
+    appendStandardContextMenuActions(&menu);
+    menu.exec(e->globalPos());
+}
+
 void BaseTextEditorWidget::extraAreaLeaveEvent(QEvent *)
 {
     // fake missing mouse move event from Qt
@@ -4388,6 +4385,12 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
     // Set whether the mouse cursor is a hand or normal arrow
     if (e->type() == QEvent::MouseMove) {
         bool hand = (e->pos().x() <= markWidth);
+        if (hand) {
+            //Find line by cursor position
+            int line = cursor.blockNumber() + 1;
+            emit editor()->markTooltipRequested(editor(), mapToGlobal(e->pos()), line);
+        }
+
         if (hand != (d->m_extraArea->cursor().shape() == Qt::PointingHandCursor))
             d->m_extraArea->setCursor(hand ? Qt::PointingHandCursor : Qt::ArrowCursor);
     }
@@ -5023,6 +5026,8 @@ void BaseTextEditorWidget::_q_matchParentheses()
 
     QTextCursor backwardMatch = textCursor();
     QTextCursor forwardMatch = textCursor();
+    if (overwriteMode())
+        backwardMatch.movePosition(QTextCursor::Right);
     const TextBlockUserData::MatchType backwardMatchType = TextBlockUserData::matchCursorBackward(&backwardMatch);
     const TextBlockUserData::MatchType forwardMatchType = TextBlockUserData::matchCursorForward(&forwardMatch);
 
@@ -5039,15 +5044,11 @@ void BaseTextEditorWidget::_q_matchParentheses()
         if (backwardMatchType == TextBlockUserData::Mismatch) {
             sel.cursor = backwardMatch;
             sel.format = d->m_mismatchFormat;
+            extraSelections.append(sel);
         } else {
 
-            if (d->m_displaySettings.m_animateMatchingParentheses) {
+            if (d->m_displaySettings.m_animateMatchingParentheses)
                 animatePosition = backwardMatch.selectionStart();
-            } else if (d->m_formatRange) {
-                sel.cursor = backwardMatch;
-                sel.format = d->m_rangeFormat;
-                extraSelections.append(sel);
-            }
 
             sel.cursor = backwardMatch;
             sel.format = d->m_matchFormat;
@@ -5058,8 +5059,8 @@ void BaseTextEditorWidget::_q_matchParentheses()
 
             sel.cursor.setPosition(backwardMatch.selectionEnd());
             sel.cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
+            extraSelections.append(sel);
         }
-        extraSelections.append(sel);
     }
 
     if (forwardMatch.hasSelection()) {
@@ -5067,15 +5068,11 @@ void BaseTextEditorWidget::_q_matchParentheses()
         if (forwardMatchType == TextBlockUserData::Mismatch) {
             sel.cursor = forwardMatch;
             sel.format = d->m_mismatchFormat;
+            extraSelections.append(sel);
         } else {
 
-            if (d->m_displaySettings.m_animateMatchingParentheses) {
+            if (d->m_displaySettings.m_animateMatchingParentheses)
                 animatePosition = forwardMatch.selectionEnd()-1;
-            } else if (d->m_formatRange) {
-                sel.cursor = forwardMatch;
-                sel.format = d->m_rangeFormat;
-                extraSelections.append(sel);
-            }
 
             sel.cursor = forwardMatch;
             sel.format = d->m_matchFormat;
@@ -5086,8 +5083,8 @@ void BaseTextEditorWidget::_q_matchParentheses()
 
             sel.cursor.setPosition(forwardMatch.selectionEnd());
             sel.cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
+            extraSelections.append(sel);
         }
-        extraSelections.append(sel);
     }
 
 
@@ -5108,7 +5105,7 @@ void BaseTextEditorWidget::_q_matchParentheses()
         d->m_animator->setPosition(animatePosition);
         QPalette pal;
         pal.setBrush(QPalette::Text, d->m_matchFormat.foreground());
-        pal.setBrush(QPalette::Base, d->m_rangeFormat.background());
+        pal.setBrush(QPalette::Base, d->m_matchFormat.background());
         d->m_animator->setData(font(), pal, characterAt(d->m_animator->position()));
         connect(d->m_animator, SIGNAL(updateRequest(int,QPointF,QRectF)),
                 this, SLOT(_q_animateUpdate(int,QPointF,QRectF)));
@@ -5611,9 +5608,7 @@ void BaseTextEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
     d->m_searchResultFormat.setBackground(searchResultFormat.background());
 
     // Matching braces
-    d->m_matchFormat.setForeground(parenthesesFormat.foreground());
-    d->m_rangeFormat.setBackground(parenthesesFormat.background());
-
+    d->m_matchFormat = parenthesesFormat;
 
     // snippests
     d->m_occurrencesFormat = fs.toTextCharFormat(C_OCCURRENCES);
@@ -5821,26 +5816,19 @@ void BaseTextEditorWidget::paste()
 
 void BaseTextEditorWidget::circularPaste()
 {
-    const QMimeData *mimeData = CircularClipboard::instance()->next();
-    if (!mimeData)
-        return;
-
-    QTextCursor cursor = textCursor();
-    if (!d->m_isCirculatingClipboard) {
-        cursor.beginEditBlock();
-        d->m_isCirculatingClipboard = true;
-    } else {
-        cursor.joinPreviousEditBlock();
+    CircularClipboard *circularClipBoard = CircularClipboard::instance();
+    if (const QMimeData *clipboardData = QApplication::clipboard()->mimeData()) {
+        circularClipBoard->collect(duplicateMimeData(clipboardData));
+        circularClipBoard->toLastCollect();
     }
-    const int selectionStart = qMin(cursor.position(), cursor.anchor());
-    insertFromMimeData(mimeData);
-    cursor.setPosition(selectionStart, QTextCursor::KeepAnchor);
-    cursor.endEditBlock();
 
-    setTextCursor(flippedCursor(cursor));
+    if (circularClipBoard->size() > 1)
+        return invokeAssist(QuickFix, d->m_clipboardAssistProvider.data());
 
-    // We want to latest pasted content to replace the system's current clipboard.
-    QPlainTextEdit::copy();
+    if (const QMimeData *mimeData = circularClipBoard->next().data()) {
+        QApplication::clipboard()->setMimeData(duplicateMimeData(mimeData));
+        paste();
+    }
 }
 
 void BaseTextEditorWidget::switchUtf8bom()
@@ -6080,27 +6068,35 @@ QMimeData *BaseTextEditorWidget::duplicateMimeData(const QMimeData *source) cons
     return mimeData;
 }
 
+void BaseTextEditorWidget::appendMenuActionsFromContext(QMenu *menu, const Core::Id menuContextId)
+{
+    Core::ActionContainer *mcontext = Core::ActionManager::actionContainer(menuContextId);
+    QMenu *contextMenu = mcontext->menu();
+
+    foreach (QAction *action, contextMenu->actions())
+        menu->addAction(action);
+}
+
 void BaseTextEditorWidget::appendStandardContextMenuActions(QMenu *menu)
 {
     menu->addSeparator();
-    Core::ActionManager *am = Core::ICore::actionManager();
 
-    QAction *a = am->command(Core::Constants::CUT)->action();
+    QAction *a = Core::ActionManager::command(Core::Constants::CUT)->action();
     if (a && a->isEnabled())
         menu->addAction(a);
-    a = am->command(Core::Constants::COPY)->action();
+    a = Core::ActionManager::command(Core::Constants::COPY)->action();
     if (a && a->isEnabled())
         menu->addAction(a);
-    a = am->command(Core::Constants::PASTE)->action();
+    a = Core::ActionManager::command(Core::Constants::PASTE)->action();
     if (a && a->isEnabled())
         menu->addAction(a);
-    a = am->command(Constants::CIRCULAR_PASTE)->action();
+    a = Core::ActionManager::command(Constants::CIRCULAR_PASTE)->action();
     if (a && a->isEnabled())
         menu->addAction(a);
 
     BaseTextDocument *doc = baseTextDocument();
     if (doc->codec()->name() == QString(QLatin1String("UTF-8"))) {
-        a = am->command(Constants::SWITCH_UTF8BOM)->action();
+        a = Core::ActionManager::command(Constants::SWITCH_UTF8BOM)->action();
         if (a && a->isEnabled()) {
             a->setText(doc->format().hasUtf8Bom ? tr("Delete UTF-8 BOM on Save")
                                                 : tr("Add UTF-8 BOM on Save"));
@@ -6460,8 +6456,12 @@ int BaseTextEditorWidget::rowCount() const
 */
 void BaseTextEditorWidget::transformSelection(Internal::TransformationMethod method)
 {
-    QTextCursor cursor = textCursor();
+    if (hasBlockSelection()) {
+        transformBlockSelection(method);
+        return;
+    }
 
+    QTextCursor cursor = textCursor();
     int pos    = cursor.position();
     int anchor = cursor.anchor();
 
@@ -6485,6 +6485,57 @@ void BaseTextEditorWidget::transformSelection(Internal::TransformationMethod met
     cursor.setPosition(anchor);
     cursor.setPosition(pos, QTextCursor::KeepAnchor);
     setTextCursor(cursor);
+}
+
+void BaseTextEditorWidget::transformBlockSelection(Internal::TransformationMethod method)
+{
+    QTextCursor cursor = textCursor();
+    int minPos = cursor.anchor();
+    int maxPos = cursor.position();
+    if (minPos > maxPos)
+        qSwap(minPos, maxPos);
+    int leftBound = verticalBlockSelectionFirstColumn();
+    int rightBound = verticalBlockSelectionLastColumn();
+    BaseTextBlockSelection::Anchor anchorPosition = d->m_blockSelection.anchor;
+    QString text = cursor.selectedText();
+    QString transformedText = text;
+    QTextBlock currentLine = document()->findBlock(minPos);
+    int lineStart = currentLine.position();
+    do {
+        if (currentLine.contains(lineStart + leftBound)) {
+            int currentBlockWidth = qBound(0, currentLine.text().length() - leftBound,
+                                           rightBound - leftBound);
+            cursor.setPosition(lineStart + leftBound);
+            cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, currentBlockWidth);
+            transformedText.replace(lineStart + leftBound - minPos, currentBlockWidth,
+                                    (cursor.selectedText().*method)());
+        }
+        currentLine = currentLine.next();
+        if (!currentLine.isValid())
+            break;
+        lineStart = currentLine.position();
+    } while (lineStart < maxPos);
+
+    if (transformedText == text) {
+        // if the transformation does not do anything to the selection, do no create an undo step
+        return;
+    }
+
+    cursor.setPosition(minPos);
+    cursor.setPosition(maxPos, QTextCursor::KeepAnchor);
+    cursor.insertText(transformedText);
+    // restore former block selection
+    if (anchorPosition <= BaseTextBlockSelection::TopRight)
+        qSwap(minPos, maxPos);
+    cursor.setPosition(minPos);
+    cursor.setPosition(maxPos, QTextCursor::KeepAnchor);
+    d->m_blockSelection.fromSelection(tabSettings(), cursor);
+    d->m_blockSelection.anchor = anchorPosition;
+    d->m_inBlockSelectionMode = true;
+    d->m_blockSelection.firstVisualColumn = leftBound;
+    d->m_blockSelection.lastVisualColumn = rightBound;
+    setTextCursor(d->m_blockSelection.selection(tabSettings()));
+    viewport()->update();
 }
 
 void BaseTextEditorWidget::inSnippetMode(bool *active)

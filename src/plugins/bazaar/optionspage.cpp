@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Hugues Delorme
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,7 +53,7 @@ OptionsPageWidget::OptionsPageWidget(QWidget *parent)
 BazaarSettings OptionsPageWidget::settings() const
 {
     BazaarSettings s = BazaarPlugin::instance()->settings();
-    s.setValue(BazaarSettings::binaryPathKey, m_ui.commandChooser->path());
+    s.setValue(BazaarSettings::binaryPathKey, m_ui.commandChooser->rawPath());
     s.setValue(BazaarSettings::userNameKey, m_ui.defaultUsernameLineEdit->text().trimmed());
     s.setValue(BazaarSettings::userEmailKey, m_ui.defaultEmailLineEdit->text().trimmed());
     s.setValue(BazaarSettings::logCountKey, m_ui.logEntriesCount->value());
@@ -95,16 +93,8 @@ QString OptionsPageWidget::searchKeywords() const
 
 OptionsPage::OptionsPage()
 {
-}
-
-QString OptionsPage::id() const
-{
-    return QLatin1String(VcsBase::Constants::VCS_ID_BAZAAR);
-}
-
-QString OptionsPage::displayName() const
-{
-    return tr("Bazaar");
+    setId(QLatin1String(VcsBase::Constants::VCS_ID_BAZAAR));
+    setDisplayName(tr("Bazaar"));
 }
 
 QWidget *OptionsPage::createPage(QWidget *parent)

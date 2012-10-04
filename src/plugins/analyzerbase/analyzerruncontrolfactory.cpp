@@ -68,11 +68,14 @@ bool AnalyzerRunControlFactory::canRun(RunConfiguration *runConfiguration, RunMo
     return false;
 }
 
-RunControl *AnalyzerRunControlFactory::create(RunConfiguration *runConfiguration, RunMode mode)
+RunControl *AnalyzerRunControlFactory::create(RunConfiguration *runConfiguration, RunMode mode, QString *errorMessage)
 {
     IAnalyzerTool *tool = AnalyzerManager::toolFromRunMode(mode);
-    if (!tool)
+    if (!tool) {
+        if (errorMessage)
+            *errorMessage = tr("No analyzer tool selected"); // never happens
         return 0;
+    }
 
     QTC_ASSERT(canRun(runConfiguration, mode), return 0);
 
@@ -87,6 +90,14 @@ RunControl *AnalyzerRunControlFactory::create(RunConfiguration *runConfiguration
 IRunConfigurationAspect *AnalyzerRunControlFactory::createRunConfigurationAspect()
 {
     return new AnalyzerRunConfigurationAspect;
+}
+
+IRunConfigurationAspect *AnalyzerRunControlFactory::cloneRunConfigurationAspect(IRunConfigurationAspect *source)
+{
+    AnalyzerRunConfigurationAspect *s = dynamic_cast<AnalyzerRunConfigurationAspect *>(source);
+    if (!s)
+        return 0;
+    return new AnalyzerRunConfigurationAspect(s);
 }
 
 RunConfigWidget *AnalyzerRunControlFactory::createConfigurationWidget(RunConfiguration *runConfiguration)

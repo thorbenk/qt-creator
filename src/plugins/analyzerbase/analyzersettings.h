@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,8 +27,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -82,6 +80,8 @@ public:
     virtual QString displayName() const = 0;
     /// create a configuration widget for this configuration
     virtual QWidget *createConfigWidget(QWidget *parent) = 0;
+    /// clones s AbstractAnalyzerSubConfig
+    virtual AbstractAnalyzerSubConfig *clone() = 0;
 };
 
 /**
@@ -119,6 +119,7 @@ protected:
     void fromMap(const QVariantMap &map, QList<AbstractAnalyzerSubConfig *> *subConfigs);
 
     AnalyzerSettings(QObject *parent);
+    AnalyzerSettings(AnalyzerSettings *other);
     QList<AbstractAnalyzerSubConfig *> m_subConfigs;
 };
 
@@ -166,7 +167,8 @@ class ANALYZER_EXPORT AnalyzerRunConfigurationAspect
     Q_OBJECT
 
 public:
-    AnalyzerRunConfigurationAspect(QObject *parent = 0);
+    AnalyzerRunConfigurationAspect();
+    AnalyzerRunConfigurationAspect(AnalyzerRunConfigurationAspect *other);
     ~AnalyzerRunConfigurationAspect();
 
     QString displayName() const;

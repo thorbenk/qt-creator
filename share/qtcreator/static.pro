@@ -42,16 +42,15 @@ DATA_DIRS = \
     cplusplus
 macx: DATA_DIRS += scripts
 
+for(data_dir, DATA_DIRS) {
+    files = $$files($$PWD/$$data_dir/*, true)
+    win32:files ~= s|\\\\|/|g
+    for(file, files):!contains(file, ".*/Info\\.plist\\.in$"):!exists($$file/*):FILES += $$file
+}
+OTHER_FILES += $$FILES
+
 # conditionally deployed data
 !isEmpty(copydata) {
-
-    for(data_dir, DATA_DIRS) {
-        files = $$files($$PWD/$$data_dir/*, true)
-        win32:files ~= s|\\\\|/|g
-        for(file, files):!contains(file, ".*/Info\\.plist\\.in$"):!exists($$file/*):FILES += $$file
-    }
-
-    OTHER_FILES += $$FILES
     copy2build.input = FILES
     copy2build.output = $$IDE_DATA_PATH/${QMAKE_FUNC_FILE_IN_stripSrcDir}
     isEmpty(vcproj):copy2build.variable_out = PRE_TARGETDEPS
@@ -65,7 +64,7 @@ macx: DATA_DIRS += scripts
 !macx {
     for(data_dir, DATA_DIRS) {
         eval($${data_dir}.files = $$quote($$PWD/$$data_dir))
-        eval($${data_dir}.path = /share/qtcreator)
+        eval($${data_dir}.path = $$QTC_PREFIX/share/qtcreator)
         INSTALLS += $$data_dir
     }
 } else {
@@ -118,7 +117,7 @@ QMAKE_EXTRA_COMPILERS += unconditionalCopy2build
 !macx {
     for(data_dir, DATA_DIRS) {
         eval($${data_dir}.files = $$IDE_DATA_PATH/$$data_dir)
-        eval($${data_dir}.path = /share/qtcreator)
+        eval($${data_dir}.path = $$QTC_PREFIX/share/qtcreator)
         eval($${data_dir}.CONFIG += no_check_exist)
         INSTALLS += $$data_dir
     }

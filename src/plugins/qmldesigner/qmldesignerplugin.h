@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +34,8 @@
 #include <qmldesigner/designersettings.h>
 
 #include <extensionsystem/iplugin.h>
+
+#include <pluginmanager.h>
 
 #include <QWeakPointer>
 #include <QStringList>
@@ -50,10 +50,6 @@ namespace Core {
     class IEditor;
     class DesignMode;
     class EditorManager;
-}
-
-namespace QmlDesigner {
-    class IntegrationCore;
 }
 
 namespace QmlDesigner {
@@ -94,7 +90,7 @@ private:
     QStringList m_mimeTypes;
     DesignModeWidget *m_mainWidget;
 
-    QmlDesigner::IntegrationCore *m_designerCore;
+    QmlDesigner::PluginManager m_pluginManager;
     static BauhausPlugin *m_pluginInstance;
     DesignerSettings m_settings;
     DesignModeContext *m_context;

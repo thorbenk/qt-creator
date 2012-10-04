@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -112,9 +110,9 @@ public: // must be public to make Q_GADGET introspection work
 
         property_start, // after 'property'
         default_property_start, // after 'default'
-        property_type, // after first identifier
         property_list_open, // after 'list' as a type
-        property_maybe_initializer, // after
+        property_name, // after the type
+        property_maybe_initializer, // after the identifier
 
         signal_start, // after 'signal'
         signal_maybe_arglist, // after identifier

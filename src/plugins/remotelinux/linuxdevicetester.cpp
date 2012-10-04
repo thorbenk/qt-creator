@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,20 +25,18 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #include "linuxdevicetester.h"
 
-#include "linuxdeviceconfiguration.h"
-#include "remotelinuxusedportsgatherer.h"
-
+#include <projectexplorer/devicesupport/deviceusedportsgatherer.h>
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshremoteprocess.h>
-#include <utils/ssh/sshconnection.h>
+#include <ssh/sshremoteprocess.h>
+#include <ssh/sshconnection.h>
 
-using namespace Utils;
+using namespace ProjectExplorer;
+using namespace QSsh;
 
 namespace RemoteLinux {
 namespace Internal {
@@ -51,12 +49,12 @@ enum State { Inactive, Connecting, RunningUname, TestingPorts };
 class GenericLinuxDeviceTesterPrivate
 {
 public:
-    GenericLinuxDeviceTesterPrivate() : state(Inactive) {}
+    GenericLinuxDeviceTesterPrivate() : connection(0), state(Inactive) {}
 
-    LinuxDeviceConfiguration::ConstPtr deviceConfiguration;
-    SshConnection::Ptr connection;
+    IDevice::ConstPtr deviceConfiguration;
+    SshConnection *connection;
     SshRemoteProcess::Ptr process;
-    RemoteLinuxUsedPortsGatherer portsGatherer;
+    DeviceUsedPortsGatherer portsGatherer;
     State state;
 };
 
@@ -79,14 +77,14 @@ GenericLinuxDeviceTester::~GenericLinuxDeviceTester()
     delete d;
 }
 
-void GenericLinuxDeviceTester::testDevice(const LinuxDeviceConfiguration::ConstPtr &deviceConfiguration)
+void GenericLinuxDeviceTester::testDevice(const IDevice::ConstPtr &deviceConfiguration)
 {
     QTC_ASSERT(d->state == Inactive, return);
 
     d->deviceConfiguration = deviceConfiguration;
-    d->connection = SshConnection::create(deviceConfiguration->sshParameters());
-    connect(d->connection.data(), SIGNAL(connected()), SLOT(handleConnected()));
-    connect(d->connection.data(), SIGNAL(error(Utils::SshError)),
+    d->connection = new SshConnection(deviceConfiguration->sshParameters(), this);
+    connect(d->connection, SIGNAL(connected()), SLOT(handleConnected()));
+    connect(d->connection, SIGNAL(error(QSsh::SshError)),
         SLOT(handleConnectionFailure()));
 
     emit progressMessage(tr("Connecting to host..."));
@@ -115,9 +113,9 @@ void GenericLinuxDeviceTester::stopTest()
     setFinished(TestFailure);
 }
 
-SshConnection::Ptr GenericLinuxDeviceTester::connection() const
+DeviceUsedPortsGatherer *GenericLinuxDeviceTester::usedPortsGatherer() const
 {
-    return d->connection;
+    return &d->portsGatherer;
 }
 
 void GenericLinuxDeviceTester::handleConnected()
@@ -144,7 +142,7 @@ void GenericLinuxDeviceTester::handleProcessFinished(int exitStatus)
 {
     QTC_ASSERT(d->state == RunningUname, return);
 
-    if (exitStatus != SshRemoteProcess::ExitedNormally || d->process->exitCode() != 0) {
+    if (exitStatus != SshRemoteProcess::NormalExit || d->process->exitCode() != 0) {
         const QByteArray stderrOutput = d->process->readAllStandardError();
         if (!stderrOutput.isEmpty())
             emit errorMessage(tr("uname failed: %1\n").arg(QString::fromUtf8(stderrOutput)));
@@ -190,8 +188,12 @@ void GenericLinuxDeviceTester::handlePortListReady()
 void GenericLinuxDeviceTester::setFinished(TestResult result)
 {
     d->state = Inactive;
-    disconnect(d->connection.data(), 0, this, 0);
     disconnect(&d->portsGatherer, 0, this, 0);
+    if (d->connection) {
+        disconnect(d->connection, 0, this, 0);
+        d->connection->deleteLater();
+        d->connection = 0;
+    }
     emit finished(result);
 }
 

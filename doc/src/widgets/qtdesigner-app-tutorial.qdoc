@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -27,7 +25,7 @@
 
 /*!
     \contentspage index.html
-    \previouspage creator-qml-components-example.html
+    \previouspage creator-qml-application.html
     \page creator-writing-program.html
     \nextpage creator-project-managing.html
 
@@ -35,7 +33,7 @@
 
     This tutorial describes how to use \QC to create a small Qt application,
     Text Finder. It is a simplified version of the  QtUiTools
-    \l{http://doc.qt.nokia.com/4.7/uitools-textfinder.html}{Text Finder}
+    \l{http://qt-project.org/doc/qt-4.8/uitools-textfinder.html}{Text Finder}
     example. The application user interface is constructed from Qt widgets by
     using \QD. The application logic is written in C++ by using the code editor.
 
@@ -59,14 +57,15 @@
         \o  In the \gui {Create in} field, enter the path for the project files.
             For example, \c {C:\Qt\examples}, and then click \gui{Next}.
 
-            The \gui {Target Setup} dialog opens.
+            The \gui {Kit Selection} dialog opens.
 
-            \image qtcreator-new-project-qt-versions-qt-gui.png "Target Setup dialog"
+            \image qtcreator-new-project-qt-versions-qt-gui.png "Kit Selection dialog"
 
-        \o  Select the Qt versions to use as build targets for your project,
+        \o  Select build and run \l{glossary-buildandrun-kit}{kits} for your project,
             and click \gui{Next}.
 
-            \note If you have only one Qt version installed, this dialog is
+            \note If only one kit is specified in \gui Tools > \gui Options >
+            \gui {Build & Run} > \gui Kits, this dialog is
             skipped.
 
             The \gui{Class Information} dialog opens.
@@ -198,7 +197,7 @@
     \endlist
 
     For more information about designing forms with \QD, see the
-    \l{http://doc.qt.nokia.com/4.7/designer-manual.html}{Qt Designer Manual}.
+    \l{http://qt-project.org/doc/qt-4.8/designer-manual.html}{Qt Designer Manual}.
 
     \section2 Completing the Header File
 
@@ -232,7 +231,7 @@
 
         \o  Add code to load a text file using QFile, read it with QTextStream,
             and then display it on \c{textEdit} with
-            \l{http://doc.qt.nokia.com/4.7/qtextedit.html#plainText-prop}
+            \l{http://qt-project.org/doc/qt-4.8/qtextedit.html#plainText-prop}
             {setPlainText()}.
             This is illustrated by the following code snippet:
 
@@ -245,7 +244,8 @@
 
         \o  For the \c{on_findButton_clicked()} slot, add code to extract the
             search string and use the
-            \l{http://doc.qt.nokia.com/4.7/qtextedit.html#find}{find()} function
+            \l{http://qt-project.org/doc/qt-4.8/qtextedit.html#find}{find()}
+            function
             to look for the search string within the text file. This is
             illustrated by the following code snippet:
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 /*
@@ -60,6 +58,7 @@
 #include <QVector>
 #include <QBitArray>
 #include <QByteArray>
+#include <QPair>
 
 namespace CPlusPlus {
 
@@ -82,8 +81,8 @@ public:
     QByteArray run(const QString &filename, const QString &source);
     QByteArray run(const QString &filename, const QByteArray &source, bool noLines = false, bool markGeneratedTokens = true);
 
-    bool expandMacros() const;
-    void setExpandMacros(bool expandMacros);
+    bool expandFunctionlikeMacros() const;
+    void setExpandFunctionlikeMacros(bool expandFunctionlikeMacros);
 
     bool keepComments() const;
     void setKeepComments(bool keepComments);
@@ -91,9 +90,17 @@ public:
 private:
     void preprocess(const QString &filename,
                     const QByteArray &source,
-                    QByteArray *result, bool noLines, bool markGeneratedTokens, bool inCondition);
+                    QByteArray *result, bool noLines, bool markGeneratedTokens, bool inCondition,
+                    unsigned offsetRef = 0, unsigned lineRef = 1);
 
     enum { MAX_LEVEL = 512 };
+
+    enum ExpansionStatus {
+        NotExpanding,
+        ReadyForExpansion,
+        Expanding,
+        JustFinishedExpansion
+    };
 
     struct State {
         State();
@@ -113,11 +120,17 @@ private:
         bool m_inPreprocessorDirective;
 
         QByteArray *m_result;
-        bool m_markGeneratedTokens;
+        bool m_markExpandedTokens;
 
         bool m_noLines;
         bool m_inCondition;
-        bool m_inDefine;
+
+        unsigned m_offsetRef;
+        unsigned m_lineRef;
+
+        ExpansionStatus m_expansionStatus;
+        QByteArray m_expansionResult;
+        QVector<QPair<unsigned, unsigned> > m_expandedTokensInfo;
     };
 
     void handleDefined(PPToken *tk);
@@ -125,7 +138,11 @@ private:
     void lex(PPToken *tk);
     void skipPreprocesorDirective(PPToken *tk);
     bool handleIdentifier(PPToken *tk);
-    bool handleFunctionLikeMacro(PPToken *tk, const Macro *macro, QVector<PPToken> &body, bool addWhitespaceMarker);
+    bool handleFunctionLikeMacro(PPToken *tk,
+                                 const Macro *macro,
+                                 QVector<PPToken> &body,
+                                 const QVector<QVector<PPToken> > &actuals,
+                                 unsigned lineRef);
 
     bool skipping() const
     { return m_state.m_skipping[m_state.m_ifLevel]; }
@@ -149,30 +166,28 @@ private:
 
     static bool isQtReservedWord(const ByteArrayRef &name);
 
-    inline bool atStartOfOutputLine() const
-    { return (m_state.m_result && !m_state.m_result->isEmpty()) ? m_state.m_result->end()[-1] == '\n' : true; }
+    void trackExpansionCycles(PPToken *tk);
 
-    inline void startNewOutputLine() const
-    {
-        if (m_state.m_result && !m_state.m_result->isEmpty() && m_state.m_result->end()[-1] != '\n')
-            out('\n');
-    }
+    template <class T>
+    void writeOutput(const T &t);
+    void writeOutput(const ByteArrayRef &ref);
+    bool atStartOfOutputLine() const;
+    void maybeStartOutputLine();
+    void generateOutputLineMarker(unsigned lineno);
+    void synchronizeOutputLines(const PPToken &tk, bool forceLine = false);
+    void removeTrailingOutputLines();
 
-    void genLine(unsigned lineno, const QByteArray &fileName) const;
+    const QByteArray *currentOutputBuffer() const;
+    QByteArray *currentOutputBuffer();
 
-    inline void out(const QByteArray &text) const
-    { if (m_state.m_result) m_state.m_result->append(text); }
+    void enforceSpacing(const PPToken &tk, bool forceSpacing = false);
+    static std::size_t computeDistance(const PPToken &tk, bool forceTillLine = false);
 
-    inline void out(char ch) const
-    { if (m_state.m_result) m_state.m_result->append(ch); }
-
-    inline void out(const char *s) const
-    { if (m_state.m_result) m_state.m_result->append(s); }
-
-    inline void out(const ByteArrayRef &ref) const
-    { if (m_state.m_result) m_state.m_result->append(ref.start(), ref.length()); }
-
-    PPToken generateToken(enum Kind kind, const char *content, int len, unsigned lineno, bool addQuotes);
+    PPToken generateToken(enum Kind kind,
+                          const char *content, int length,
+                          unsigned lineno,
+                          bool addQuotes,
+                          bool addToControl = true);
     PPToken generateConcatenated(const PPToken &leftTk, const PPToken &rightTk);
 
     void startSkippingBlocks(const PPToken &tk) const;
@@ -182,7 +197,7 @@ private:
     Environment *m_env;
     QByteArray m_scratchBuffer;
 
-    bool m_expandMacros;
+    bool m_expandFunctionlikeMacros;
     bool m_keepComments;
 
     State m_state;

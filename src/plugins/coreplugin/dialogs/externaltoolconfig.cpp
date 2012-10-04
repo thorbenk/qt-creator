@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "externaltoolconfig.h"
 #include "ui_externaltoolconfig.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <coreplugin/coreconstants.h>
@@ -353,13 +352,13 @@ QModelIndex ExternalToolModel::addTool(const QModelIndex &atIndex)
     tool->setDescription(tr("This tool prints a line of useful text"));
     //: Sample external tool text
     const QString text = tr("Useful text");
-#ifdef Q_OS_WIN
-    tool->setExecutables(QStringList(QLatin1String("cmd")));
-    tool->setArguments(QLatin1String("/c echo ") + text);
-#else
-    tool->setExecutables(QStringList(QLatin1String("echo")));
-    tool->setArguments(text);
-#endif
+    if (Utils::HostOsInfo::isWindowsHost()) {
+        tool->setExecutables(QStringList(QLatin1String("cmd")));
+        tool->setArguments(QLatin1String("/c echo ") + text);
+    } else {
+        tool->setExecutables(QStringList(QLatin1String("echo")));
+        tool->setArguments(text);
+    }
 
     int pos;
     QModelIndex parent;

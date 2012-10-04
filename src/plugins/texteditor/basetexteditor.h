@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -168,7 +166,7 @@ public:
     QString mimeType() const;
     virtual void setMimeType(const QString &mt);
 
-
+    void appendMenuActionsFromContext(QMenu *menu, const Core::Id menuContextId);
     void appendStandardContextMenuActions(QMenu *menu);
 
     // Works only in conjunction with a syntax highlighter that puts
@@ -250,6 +248,7 @@ public:
 
     virtual IAssistInterface *createAssistInterface(AssistKind assistKind,
                                                     AssistReason assistReason) const;
+    QMimeData *duplicateMimeData(const QMimeData *source) const;
 
 public slots:
     void setDisplayName(const QString &title);
@@ -347,7 +346,6 @@ protected:
     QMimeData *createMimeDataFromSelection() const;
     bool canInsertFromMimeData(const QMimeData *source) const;
     void insertFromMimeData(const QMimeData *source);
-    QMimeData *duplicateMimeData(const QMimeData *source) const;
 
     static QString msgTextTooLarge(quint64 size);
 
@@ -471,6 +469,8 @@ protected:
 
     void dragEnterEvent(QDragEnterEvent *e);
 
+    void showDefaultContextMenu(QContextMenuEvent *e, const Core::Id menuContextId);
+
 public:
     void indentInsertedText(const QTextCursor &tc);
     void indent(QTextDocument *doc, const QTextCursor &cursor, QChar typedChar);
@@ -525,6 +525,7 @@ protected:
     virtual QString foldReplacementText(const QTextBlock &block) const;
 
 protected slots:
+    virtual void slotUpdateExtraArea();
     virtual void slotUpdateExtraAreaWidth();
     virtual void slotModificationChanged(bool);
     virtual void slotUpdateRequest(const QRect &r, int dy);
@@ -576,6 +577,7 @@ private:
     void processTooltipRequest(const QTextCursor &c);
 
     void transformSelection(Internal::TransformationMethod method);
+    void transformBlockSelection(Internal::TransformationMethod method);
 
 private slots:
     void handleBlockSelection(int diff_row, int diff_col);
@@ -636,7 +638,6 @@ public:
 
     inline ITextMarkable *markableInterface() { return e->markableInterface(); }
 
-    void setContextHelpId(const QString &id) { m_contextHelpId = id; }
     QString contextHelpId() const; // from IContext
 
     inline void setTextCodec(QTextCodec *codec, TextCodecReason = TextCodecOtherReason) { e->setTextCodec(codec); }
@@ -655,7 +656,6 @@ private slots:
 
 private:
     BaseTextEditorWidget *e;
-    mutable QString m_contextHelpId;
     QToolBar *m_toolBar;
     QWidget *m_stretchWidget;
     QAction *m_cursorPositionLabelAction;

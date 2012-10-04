@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,25 +33,25 @@
 
 #include <projectexplorer/runconfiguration.h>
 
-#include <QString>
-
 namespace Android {
 namespace Internal {
+
 class AndroidRunConfiguration;
 class AndroidRunner;
 
 class AndroidRunControl : public ProjectExplorer::RunControl
 {
     Q_OBJECT
+
 public:
     explicit AndroidRunControl(AndroidRunConfiguration *runConfig);
-    virtual ~AndroidRunControl();
+    ~AndroidRunControl();
 
-    virtual void start();
-    virtual StopResult stop();
-    virtual bool isRunning() const;
-    virtual QString displayName() const;
-    virtual QIcon icon() const;
+    void start();
+    StopResult stop();
+    bool isRunning() const;
+    QString displayName() const;
+    QIcon icon() const;
 
 private slots:
     void handleRemoteProcessFinished(const QString &error);

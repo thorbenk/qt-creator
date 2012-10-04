@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -74,28 +72,6 @@ QString MaemoDebianPackageInstaller::errorString() const
     }
 }
 
-
-MaemoRpmPackageInstaller::MaemoRpmPackageInstaller(QObject *parent)
-    : AbstractRemoteLinuxPackageInstaller(parent)
-{
-}
-
-QString MaemoRpmPackageInstaller::installCommandLine(const QString &packageFilePath) const
-{
-    // rpm -U does not allow to re-install a package with the same version
-    // number, so we need --replacepkgs. Even then, it inexplicably reports
-    // a conflict if the files are not identical to the installed version,
-    // so we need --replacefiles as well.
-    // TODO: --replacefiles is dangerous. Is there perhaps a way around it
-    // after all?
-    return MaemoGlobal::devrootshPath() + QLatin1String(" rpm -Uhv --replacepkgs --replacefiles ")
-        + packageFilePath;
-}
-
-QString MaemoRpmPackageInstaller::cancelInstallationCommandLine() const
-{
-    return QLatin1String("pkill rpm");
-}
 
 HarmattanPackageInstaller::HarmattanPackageInstaller(QObject *parent)
     : AbstractRemoteLinuxPackageInstaller(parent)

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -77,8 +75,6 @@ bool QmlJSToolsPlugin::initialize(const QStringList &arguments, QString *error)
     Q_UNUSED(arguments)
     Q_UNUSED(error)
 
-    Core::ActionManager *am = Core::ICore::actionManager();
-
     m_settings = new QmlJSToolsSettings(this); // force registration of qmljstools settings
 
     // Objects
@@ -96,8 +92,8 @@ bool QmlJSToolsPlugin::initialize(const QStringList &arguments, QString *error)
     addAutoReleasedObject(new QmlJSCodeStyleSettingsPage);
 
     // Menus
-    Core::ActionContainer *mtools = am->actionContainer(Core::Constants::M_TOOLS);
-    Core::ActionContainer *mqmljstools = am->createMenu(Constants::M_TOOLS_QMLJS);
+    Core::ActionContainer *mtools = Core::ActionManager::actionContainer(Core::Constants::M_TOOLS);
+    Core::ActionContainer *mqmljstools = Core::ActionManager::createMenu(Constants::M_TOOLS_QMLJS);
     QMenu *menu = mqmljstools->menu();
     menu->setTitle(tr("&QML/JS"));
     menu->setEnabled(true);
@@ -106,7 +102,8 @@ bool QmlJSToolsPlugin::initialize(const QStringList &arguments, QString *error)
     // Update context in global context
     m_resetCodeModelAction = new QAction(tr("Reset Code Model"), this);
     Core::Context globalContext(Core::Constants::C_GLOBAL);
-    Core::Command *cmd = am->registerAction(m_resetCodeModelAction, Core::Id(Constants::RESET_CODEMODEL), globalContext);
+    Core::Command *cmd = Core::ActionManager::registerAction(
+                m_resetCodeModelAction, Core::Id(Constants::RESET_CODEMODEL), globalContext);
     connect(m_resetCodeModelAction, SIGNAL(triggered()), m_modelManager, SLOT(resetCodeModel()));
     mqmljstools->addAction(cmd);
 

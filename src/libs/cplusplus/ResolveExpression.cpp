@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -49,8 +47,9 @@
 #include <Templates.h>
 
 #include <QList>
-#include <QtDebug>
+#include <QDebug>
 #include <QSet>
+#include <map>
 
 using namespace CPlusPlus;
 
@@ -289,13 +288,16 @@ bool ResolveExpression::visit(NumericLiteralAST *ast)
     Type *type = 0;
     bool isUnsigned = false;
 
-    if (tk.is(T_CHAR_LITERAL))
+    if (tk.is(T_CHAR_LITERAL)) {
         type = control()->integerType(IntegerType::Char);
-    else if (tk.is(T_WIDE_CHAR_LITERAL))
+    } else if (tk.is(T_WIDE_CHAR_LITERAL)) {
         type = control()->integerType(IntegerType::WideChar);
-    else if (const NumericLiteral *literal = numericLiteral(ast->literal_token)) {
+    } else if (tk.is(T_UTF16_CHAR_LITERAL)) {
+        type = control()->integerType(IntegerType::Char16);
+    } else if (tk.is(T_UTF32_CHAR_LITERAL)) {
+        type = control()->integerType(IntegerType::Char32);
+    } else if (const NumericLiteral *literal = numericLiteral(ast->literal_token)) {
         isUnsigned = literal->isUnsigned();
-
         if (literal->isInt())
             type = control()->integerType(IntegerType::Int);
         else if (literal->isLong())
@@ -459,6 +461,48 @@ bool ResolveExpression::visit(QualifiedNameAST *ast)
     return false;
 }
 
+namespace {
+
+class DeduceAutoCheck : public ASTVisitor
+{
+public:
+    DeduceAutoCheck(const Identifier *id, TranslationUnit *tu)
+        : ASTVisitor(tu), _id(id), _block(false)
+    {
+        accept(tu->ast());
+    }
+
+    virtual bool preVisit(AST *)
+    {
+        if (_block)
+            return false;
+
+        return true;
+    }
+
+    virtual bool visit(SimpleNameAST *ast)
+    {
+        if (ast->name
+                && ast->name->identifier()
+                && strcmp(ast->name->identifier()->chars(), _id->chars()) == 0) {
+            _block = true;
+        }
+
+        return false;
+    }
+
+    virtual bool visit(MemberAccessAST *ast)
+    {
+        accept(ast->base_expression);
+        return false;
+    }
+
+    const Identifier *_id;
+    bool _block;
+};
+
+} // namespace anonymous
+
 bool ResolveExpression::visit(SimpleNameAST *ast)
 {
     QList<LookupItem> candidates = _context.lookup(ast->name, _scope);
@@ -477,22 +521,32 @@ bool ResolveExpression::visit(SimpleNameAST *ast)
             if (!decl)
                 continue;
 
-            Document::Ptr doc = _context.snapshot().document(decl->fileName());
-
             const StringLiteral *initializationString = decl->getInitializer();
             if (initializationString == 0)
                 continue;
 
-            QByteArray initializer = QByteArray::fromRawData(initializationString->chars(), initializationString->size()).trimmed();
+            const QByteArray &initializer =
+                    QByteArray::fromRawData(initializationString->chars(),
+                                            initializationString->size()).trimmed();
 
             // Skip lambda-function initializers
             if (initializer.length() > 0 && initializer[0] == '[')
                 continue;
 
             TypeOfExpression exprTyper;
+            Document::Ptr doc = _context.snapshot().document(decl->fileName());
             exprTyper.init(doc, _context.snapshot(), _context.bindings());
 
-            QList<LookupItem> typeItems = exprTyper(initializer, decl->enclosingScope(), TypeOfExpression::Preprocess);
+            Document::Ptr exprDoc =
+                    documentForExpression(exprTyper.preprocessedExpression(initializer));
+            exprDoc->check();
+
+            DeduceAutoCheck deduceAuto(ast->name->identifier(), exprDoc->translationUnit());
+            if (deduceAuto._block)
+                continue;
+
+            const QList<LookupItem> &typeItems =
+                    exprTyper(extractExpressionAST(exprDoc), exprDoc, decl->enclosingScope());
             if (typeItems.empty())
                 continue;
 
@@ -577,7 +631,8 @@ bool ResolveExpression::visit(CallAST *ast)
     }
 
     if (_reference) {
-        _results.clear();
+        typedef std::multimap<int, LookupItem> LookupMap;
+        LookupMap sortedResults;
         foreach (const LookupItem &base, baseResults) {
             if (Function *funTy = base.type()->asFunctionType()) {
                 if (! maybeValidPrototype(funTy, actualArgumentCount))
@@ -602,13 +657,13 @@ bool ResolveExpression::visit(CallAST *ast)
                         ++score;
                 }
 
-                if (score)
-                    _results.prepend(base);
-                else
-                    _results.append(base);
+                sortedResults.insert(LookupMap::value_type(-score, base));
             }
         }
 
+        _results.clear();
+        for (LookupMap::const_iterator it = sortedResults.begin(); it != sortedResults.end(); ++it)
+            _results.append(it->second);
         if (_results.isEmpty())
             _results = baseResults;
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef SHELL_H
@@ -35,7 +33,7 @@
 #include <QObject>
 #include <QSharedPointer>
 
-namespace Utils {
+namespace QSsh {
 class SshConnection;
 class SshConnectionParameters;
 class SshRemoteProcess;
@@ -51,7 +49,7 @@ class Shell : public QObject
 {
     Q_OBJECT
 public:
-    Shell(const Utils::SshConnectionParameters &parameters, QObject *parent = 0);
+    Shell(const QSsh::SshConnectionParameters &parameters, QObject *parent = 0);
     ~Shell();
 
     void run();
@@ -67,8 +65,8 @@ private slots:
     void handleStdin();
 
 private:
-    QSharedPointer<Utils::SshConnection> m_connection;
-    QSharedPointer<Utils::SshRemoteProcess> m_shell;
+    QSsh::SshConnection *m_connection;
+    QSharedPointer<QSsh::SshRemoteProcess> m_shell;
     QFile * const m_stdin;
 };
 

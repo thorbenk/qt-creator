@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maddedevice.h"
@@ -36,17 +34,15 @@
 
 #include <remotelinux/linuxdevicetestdialog.h>
 #include <remotelinux/publickeydeploymentdialog.h>
-#include <remotelinux/remotelinuxprocessesdialog.h>
-#include <remotelinux/remotelinuxprocesslist.h>
 #include <remotelinux/remotelinux_constants.h>
 #include <utils/qtcassert.h>
 
+using namespace ProjectExplorer;
 using namespace RemoteLinux;
 
 namespace Madde {
 namespace Internal {
 const char MaddeDeviceTestActionId[] = "Madde.DeviceTestAction";
-const char MaddeRemoteProcessesActionId[] = "Madde.RemoteProcessesAction";
 
 MaddeDevice::Ptr MaddeDevice::create()
 {
@@ -65,11 +61,11 @@ MaddeDevice::MaddeDevice()
 
 MaddeDevice::MaddeDevice(const QString &name, Core::Id type, MachineType machineType,
         Origin origin, Core::Id id)
-    : LinuxDeviceConfiguration(name, type, machineType, origin, id)
+    : LinuxDevice(name, type, machineType, origin, id)
 {
 }
 
-MaddeDevice::MaddeDevice(const MaddeDevice &other) : LinuxDeviceConfiguration(other)
+MaddeDevice::MaddeDevice(const MaddeDevice &other) : LinuxDevice(other)
 {
 }
 
@@ -86,19 +82,16 @@ QString MaddeDevice::displayType() const
 QList<Core::Id> MaddeDevice::actionIds() const
 {
     return QList<Core::Id>() << Core::Id(MaddeDeviceTestActionId)
-        << Core::Id(Constants::GenericDeployKeyToDeviceActionId)
-        << Core::Id(MaddeRemoteProcessesActionId);
+        << Core::Id(Constants::GenericDeployKeyToDeviceActionId);
 }
 
 QString MaddeDevice::displayNameForActionId(Core::Id actionId) const
 {
     QTC_ASSERT(actionIds().contains(actionId), return QString());
 
-    if (actionId == Core::Id(MaddeDeviceTestActionId))
+    if (actionId == MaddeDeviceTestActionId)
         return tr("Test");
-    if (actionId == Core::Id(MaddeRemoteProcessesActionId))
-        return tr("Remote Processes...");
-    if (actionId == Core::Id(Constants::GenericDeployKeyToDeviceActionId))
+    if (actionId == Constants::GenericDeployKeyToDeviceActionId)
         return tr("Deploy Public Key...");
     return QString(); // Can't happen.
 }
@@ -107,26 +100,49 @@ void MaddeDevice::executeAction(Core::Id actionId, QWidget *parent) const
 {
     QTC_ASSERT(actionIds().contains(actionId), return);
 
-    QDialog *d;
-    const LinuxDeviceConfiguration::ConstPtr device
-        = sharedFromThis().staticCast<const LinuxDeviceConfiguration>();
-    if (actionId == Core::Id(MaddeDeviceTestActionId))
+    QDialog *d = 0;
+    const IDevice::ConstPtr device = sharedFromThis();
+    if (actionId == MaddeDeviceTestActionId)
         d = new LinuxDeviceTestDialog(device, new MaddeDeviceTester, parent);
-    else if (actionId == Core::Id(MaddeRemoteProcessesActionId))
-        d = new RemoteLinuxProcessesDialog(new GenericRemoteLinuxProcessList(device), parent);
-    else if (actionId == Core::Id(Constants::GenericDeployKeyToDeviceActionId))
+    else if (actionId == Constants::GenericDeployKeyToDeviceActionId)
         d = PublicKeyDeploymentDialog::createDialog(device, parent);
     if (d)
         d->exec();
+    delete d;
 }
 
 QString MaddeDevice::maddeDisplayType(Core::Id type)
 {
-    if (type == Core::Id(Maemo5OsType))
+    if (type == Maemo5OsType)
         return tr("Maemo5/Fremantle");
-    if (type == Core::Id(HarmattanOsType))
+    if (type == HarmattanOsType)
         return tr("MeeGo 1.2 Harmattan");
-    return tr("Other MeeGo OS");
+    QTC_ASSERT(false, return QString());
+    return QString(); // For crappy compilers.
+}
+
+bool MaddeDevice::allowsRemoteMounts(Core::Id type)
+{
+    return type == Maemo5OsType;
+}
+
+bool MaddeDevice::allowsPackagingDisabling(Core::Id type)
+{
+    return type == Maemo5OsType;
+}
+
+bool MaddeDevice::allowsQmlDebugging(Core::Id type)
+{
+    return type == HarmattanOsType;
+}
+
+QSize MaddeDevice::packageManagerIconSize(Core::Id type)
+{
+    if (type == Maemo5OsType)
+        return QSize(48, 48);
+    if (type == HarmattanOsType)
+        return QSize(64, 64);
+    return QSize();
 }
 
 } // namespace Internal

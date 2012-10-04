@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -73,16 +71,15 @@ public:
 
     bool isAutoDetected() const;
     QString id() const;
-    // No need to implement this for new tool chains:
-    virtual QString legacyId() const { return QString(); }
+
+    virtual QList<Utils::FileName> suggestedMkspecList() const { return QList<Utils::FileName>(); }
+    virtual Utils::FileName suggestedDebugger() const;
 
     virtual QString type() const = 0;
     virtual QString typeDisplayName() const = 0;
     virtual Abi targetAbi() const = 0;
 
     virtual bool isValid() const = 0;
-
-    virtual QList<Core::Id> restrictedToTargets() const;
 
     virtual QByteArray predefinedMacros(const QStringList &cxxflags) const = 0;
 
@@ -91,16 +88,11 @@ public:
         STD_CXX11 = 1
     };
     virtual CompilerFlags compilerFlags(const QStringList &cxxflags) const = 0;
-    virtual QList<HeaderPath> systemHeaderPaths() const = 0;
+    virtual QList<HeaderPath> systemHeaderPaths(const Utils::FileName &sysRoot) const = 0;
     virtual void addToEnvironment(Utils::Environment &env) const = 0;
-    virtual QString makeCommand() const = 0;
-
-    QList<Utils::FileName> mkspecList() const;
-    void setMkspecList(const QList<Utils::FileName> &specList);
-    virtual QList<Utils::FileName> suggestedMkspecList() const { return QList<Utils::FileName>(); }
+    virtual QString makeCommand(const Utils::Environment &env) const = 0;
 
     virtual Utils::FileName compilerCommand() const = 0;
-    virtual Utils::FileName debuggerCommand() const = 0;
     virtual QString defaultMakeTarget() const;
     virtual IOutputParser *outputParser() const = 0;
 
@@ -149,6 +141,8 @@ public:
     virtual ToolChain *restore(const QVariantMap &data);
 
     static QString idFromMap(const QVariantMap &data);
+    static void idToMap(QVariantMap &data, const QString id);
+    static void autoDetectionToMap(QVariantMap &data, bool detected);
 };
 
 } // namespace ProjectExplorer

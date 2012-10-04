@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,929 +32,432 @@
 #include "debuggerstartparameters.h"
 
 #include "debuggerconstants.h"
+#include "debuggerkitinformation.h"
 #include "debuggerstringutils.h"
 #include "cdb/cdbengine.h"
 #include "shared/hostutils.h"
 
-#include "ui_attachcoredialog.h"
-#include "ui_attachexternaldialog.h"
-#include "ui_startexternaldialog.h"
-#include "ui_startremotedialog.h"
-#include "ui_startremoteenginedialog.h"
-#include "ui_attachtoqmlportdialog.h"
-
 #include <coreplugin/icore.h>
 #include <projectexplorer/abi.h>
+#include <projectexplorer/kitinformation.h>
 #include <utils/historycompleter.h>
+#include <utils/pathchooser.h>
 #include <utils/qtcassert.h>
 #include <utils/synchronousprocess.h>
 
-#include <QCoreApplication>
-#include <QDebug>
-#include <QDir>
-#include <QRegExp>
-
+#include <QAction>
+#include <QApplication>
 #include <QButtonGroup>
+#include <QCheckBox>
+#include <QDebug>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDir>
 #include <QFileDialog>
+#include <QFormLayout>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
+#include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRegExp>
 #include <QScrollArea>
-#include <QSortFilterProxyModel>
+#include <QSpinBox>
 #include <QStandardItemModel>
-#include <QGridLayout>
+#include <QTreeView>
+#include <QVariant>
+#include <QVBoxLayout>
 
+using namespace Core;
+using namespace ProjectExplorer;
 using namespace Utils;
 
 namespace Debugger {
 namespace Internal {
 
-bool operator<(const ProcData &p1, const ProcData &p2)
-{
-    return p1.name < p2.name;
-}
+///////////////////////////////////////////////////////////////////////
+//
+// StartApplicationDialogPrivate
+//
+///////////////////////////////////////////////////////////////////////
 
-// A filterable process list model
-class ProcessListFilterModel : public QSortFilterProxyModel
+class StartApplicationDialogPrivate
 {
 public:
-    explicit ProcessListFilterModel(QObject *parent);
-    QString processIdAt(const QModelIndex &index) const;
-    QString executableForPid(const QString& pid) const;
-
-    void populate(QList<ProcData> processes, const QString &excludePid);
-
-private:
-    enum { ProcessImageRole = Qt::UserRole, ProcessNameRole };
-
-    bool lessThan(const QModelIndex &left, const QModelIndex &right) const;
-
-    QStandardItemModel *m_model;
-};
-
-ProcessListFilterModel::ProcessListFilterModel(QObject *parent)
-  : QSortFilterProxyModel(parent),
-    m_model(new QStandardItemModel(this))
-{
-    QStringList columns;
-    columns << AttachExternalDialog::tr("Process ID")
-            << AttachExternalDialog::tr("Name")
-            << AttachExternalDialog::tr("State");
-    m_model->setHorizontalHeaderLabels(columns);
-    setSourceModel(m_model);
-    setFilterCaseSensitivity(Qt::CaseInsensitive);
-    setFilterKeyColumn(1);
-}
-
-bool ProcessListFilterModel::lessThan(const QModelIndex &left,
-    const QModelIndex &right) const
-{
-    const QString l = sourceModel()->data(left).toString();
-    const QString r = sourceModel()->data(right).toString();
-    if (left.column() == 0)
-        return l.toInt() < r.toInt();
-    return l < r;
-}
-
-QString ProcessListFilterModel::processIdAt(const QModelIndex &index) const
-{
-    if (index.isValid()) {
-        const QModelIndex index0 = mapToSource(index);
-        QModelIndex siblingIndex = index0.sibling(index0.row(), 0);
-        if (const QStandardItem *item = m_model->itemFromIndex(siblingIndex))
-            return item->text();
-    }
-    return QString();
-}
-
-QString ProcessListFilterModel::executableForPid(const QString &pid) const
-{
-    const int rowCount = m_model->rowCount();
-    for (int r = 0; r < rowCount; r++) {
-        const QStandardItem *item = m_model->item(r, 0);
-        if (item->text() == pid) {
-            QString name = item->data(ProcessImageRole).toString();
-            if (name.isEmpty())
-                name = item->data(ProcessNameRole).toString();
-            return name;
-        }
-    }
-    return QString();
-}
-
-void ProcessListFilterModel::populate
-    (QList<ProcData> processes, const QString &excludePid)
-{
-    qStableSort(processes);
-
-    if (const int rowCount = m_model->rowCount())
-        m_model->removeRows(0, rowCount);
-
-    QStandardItem *root  = m_model->invisibleRootItem();
-    foreach (const ProcData &proc, processes) {
-        QList<QStandardItem *> row;
-        row.append(new QStandardItem(proc.ppid));
-        QString name = proc.image.isEmpty() ? proc.name : proc.image;
-        row.back()->setData(name, ProcessImageRole);
-        row.append(new QStandardItem(proc.name));
-        row.back()->setToolTip(proc.image);
-        row.append(new QStandardItem(proc.state));
-
-        if (proc.ppid == excludePid)
-            foreach (QStandardItem *item, row)
-                item->setEnabled(false);
-        root->appendRow(row);
-    }
-}
-
-
-///////////////////////////////////////////////////////////////////////
-//
-// AttachCoreDialog
-//
-///////////////////////////////////////////////////////////////////////
-
-AttachCoreDialog::AttachCoreDialog(QWidget *parent)
-  : QDialog(parent), m_ui(new Ui::AttachCoreDialog)
-{
-    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    m_ui->setupUi(this);
-    m_ui->toolchainComboBox->init(false);
-
-    m_ui->execFileName->setExpectedKind(PathChooser::File);
-    m_ui->execFileName->setPromptDialogTitle(tr("Select Executable"));
-
-    m_ui->coreFileName->setExpectedKind(PathChooser::File);
-    m_ui->coreFileName->setPromptDialogTitle(tr("Select Core File"));
-
-    m_ui->sysrootPathChooser->setExpectedKind(PathChooser::Directory);
-    m_ui->sysrootPathChooser->setPromptDialogTitle(tr("Select Sysroot"));
-
-    m_ui->overrideStartScriptFileName->setExpectedKind(PathChooser::File);
-    m_ui->overrideStartScriptFileName->setPromptDialogTitle(tr("Select Startup Script"));
-
-    m_ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-
-    connect(m_ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-    connect(m_ui->buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
-    connect(m_ui->coreFileName, SIGNAL(changed(QString)), this, SLOT(changed()));
-    changed();
-}
-
-AttachCoreDialog::~AttachCoreDialog()
-{
-    delete m_ui;
-}
-
-QString AttachCoreDialog::executableFile() const
-{
-    return m_ui->execFileName->path();
-}
-
-void AttachCoreDialog::setExecutableFile(const QString &fileName)
-{
-    m_ui->execFileName->setPath(fileName);
-    changed();
-}
-
-QString AttachCoreDialog::coreFile() const
-{
-    return m_ui->coreFileName->path();
-}
-
-void AttachCoreDialog::setCoreFile(const QString &fileName)
-{
-    m_ui->coreFileName->setPath(fileName);
-    changed();
-}
-
-ProjectExplorer::Abi AttachCoreDialog::abi() const
-{
-    return m_ui->toolchainComboBox->abi();
-}
-
-void AttachCoreDialog::setAbiIndex(int i)
-{
-    if (i >= 0 && i < m_ui->toolchainComboBox->count())
-        m_ui->toolchainComboBox->setCurrentIndex(i);
-}
-
-int AttachCoreDialog::abiIndex() const
-{
-    return m_ui->toolchainComboBox->currentIndex();
-}
-
-QString AttachCoreDialog::debuggerCommand()
-{
-    return m_ui->toolchainComboBox->debuggerCommand();
-}
-
-QString AttachCoreDialog::sysroot() const
-{
-    return m_ui->sysrootPathChooser->path();
-}
-
-void AttachCoreDialog::setSysroot(const QString &sysroot)
-{
-    m_ui->sysrootPathChooser->setPath(sysroot);
-}
-
-QString AttachCoreDialog::overrideStartScript() const
-{
-    return m_ui->overrideStartScriptFileName->path();
-}
-
-void AttachCoreDialog::setOverrideStartScript(const QString &scriptName)
-{
-    m_ui->overrideStartScriptFileName->setPath(scriptName);
-}
-
-bool AttachCoreDialog::isValid() const
-{
-    return m_ui->toolchainComboBox->currentIndex() >= 0 &&
-           !coreFile().isEmpty();
-}
-
-void AttachCoreDialog::changed()
-{
-    m_ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid());
-}
-
-///////////////////////////////////////////////////////////////////////
-//
-// AttachExternalDialog
-//
-///////////////////////////////////////////////////////////////////////
-
-AttachExternalDialog::AttachExternalDialog(QWidget *parent)
-  : QDialog(parent),
-    m_selfPid(QString::number(QCoreApplication::applicationPid())),
-    m_ui(new Ui::AttachExternalDialog),
-    m_model(new ProcessListFilterModel(this))
-{
-    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    m_ui->setupUi(this);
-    m_ui->toolchainComboBox->init(true);
-    okButton()->setDefault(true);
-    okButton()->setEnabled(false);
-
-    m_ui->procView->setModel(m_model);
-    m_ui->procView->setSortingEnabled(true);
-    m_ui->procView->sortByColumn(1, Qt::AscendingOrder);
-
-    connect(m_ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-    connect(m_ui->buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
-    QPushButton *refreshButton = new QPushButton(tr("Refresh"));
-    connect(refreshButton, SIGNAL(clicked()), this, SLOT(rebuildProcessList()));
-    m_ui->buttonBox->addButton(refreshButton, QDialogButtonBox::ActionRole);
-    m_ui->filterWidget->setFocus(Qt::TabFocusReason);
-
-    m_ui->procView->setAlternatingRowColors(true);
-    m_ui->procView->setRootIsDecorated(false);
-    m_ui->procView->setUniformRowHeights(true);
-
-    // Do not use activated, will be single click in Oxygen
-    connect(m_ui->procView, SIGNAL(doubleClicked(QModelIndex)),
-        this, SLOT(procSelected(QModelIndex)));
-    connect(m_ui->procView, SIGNAL(clicked(QModelIndex)),
-        this, SLOT(procClicked(QModelIndex)));
-    connect(m_ui->pidLineEdit, SIGNAL(textChanged(QString)),
-            this, SLOT(pidChanged(QString)));
-    connect(m_ui->filterWidget, SIGNAL(filterChanged(QString)),
-            this, SLOT(setFilterString(QString)));
-
-
-    setMinimumHeight(500);
-    rebuildProcessList();
-}
-
-AttachExternalDialog::~AttachExternalDialog()
-{
-    delete m_ui;
-}
-
-void AttachExternalDialog::setFilterString(const QString &filter)
-{
-    m_model->setFilterFixedString(filter);
-    // Activate the line edit if there's a unique filtered process.
-    QString processId;
-    if (m_model->rowCount(QModelIndex()) == 1)
-        processId = m_model->processIdAt(m_model->index(0, 0, QModelIndex()));
-    m_ui->pidLineEdit->setText(processId);
-    pidChanged(processId);
-}
-
-QPushButton *AttachExternalDialog::okButton() const
-{
-    return m_ui->buttonBox->button(QDialogButtonBox::Ok);
-}
-
-void AttachExternalDialog::rebuildProcessList()
-{
-    m_model->populate(hostProcessList(), m_selfPid);
-    m_ui->procView->expandAll();
-    m_ui->procView->resizeColumnToContents(0);
-    m_ui->procView->resizeColumnToContents(1);
-}
-
-void AttachExternalDialog::procSelected(const QModelIndex &proxyIndex)
-{
-    const QString processId = m_model->processIdAt(proxyIndex);
-    if (!processId.isEmpty()) {
-        m_ui->pidLineEdit->setText(processId);
-        if (okButton()->isEnabled())
-            okButton()->animateClick();
-    }
-}
-
-void AttachExternalDialog::procClicked(const QModelIndex &proxyIndex)
-{
-    const QString processId = m_model->processIdAt(proxyIndex);
-    if (!processId.isEmpty())
-        m_ui->pidLineEdit->setText(processId);
-}
-
-QString AttachExternalDialog::attachPIDText() const
-{
-    return m_ui->pidLineEdit->text().trimmed();
-}
-
-qint64 AttachExternalDialog::attachPID() const
-{
-    return attachPIDText().toLongLong();
-}
-
-QString AttachExternalDialog::executable() const
-{
-    // Search pid in model in case the user typed in the PID.
-    return m_model->executableForPid(attachPIDText());
-}
-
-ProjectExplorer::Abi AttachExternalDialog::abi() const
-{
-    return m_ui->toolchainComboBox->abi();
-}
-
-void AttachExternalDialog::setAbiIndex(int i)
-{
-    if (i >= 0 && i < m_ui->toolchainComboBox->count())
-        m_ui->toolchainComboBox->setCurrentIndex(i);
-}
-
-int AttachExternalDialog::abiIndex() const
-{
-    return m_ui->toolchainComboBox->currentIndex();
-}
-
-QString AttachExternalDialog::debuggerCommand()
-{
-    return m_ui->toolchainComboBox->debuggerCommand();
-}
-
-void AttachExternalDialog::pidChanged(const QString &pid)
-{
-    const bool enabled = !pid.isEmpty() && pid != QLatin1String("0") && pid != m_selfPid
-            && m_ui->toolchainComboBox->currentIndex() >= 0;
-    okButton()->setEnabled(enabled);
-}
-
-void AttachExternalDialog::accept()
-{
-#ifdef Q_OS_WIN
-    const qint64 pid = attachPID();
-    if (pid && isWinProcessBeingDebugged(pid)) {
-        QMessageBox::warning(this, tr("Process Already Under Debugger Control"),
-                             tr("The process %1 is already under the control of a debugger.\n"
-                                "Qt Creator cannot attach to it.").arg(pid));
-        return;
-    }
-#endif
-    QDialog::accept();
-}
-
-
-///////////////////////////////////////////////////////////////////////
-//
-// StartExternalDialog
-//
-///////////////////////////////////////////////////////////////////////
-
-class StartExternalParameters
-{
-public:
-    StartExternalParameters();
-    bool equals(const StartExternalParameters &rhs) const;
-    bool isValid() const { return !executableFile.isEmpty(); }
-    QString displayName() const;
-    void toSettings(QSettings *) const;
-    void fromSettings(const QSettings *settings);
-
-    QString executableFile;
-    QString arguments;
-    QString workingDirectory;
-    int abiIndex;
-    bool breakAtMain;
-    bool runInTerminal;
+    KitChooser *kitChooser;
+    QLabel *serverPortLabel;
+    QSpinBox *serverPortSpinBox;
+    PathChooser *localExecutablePathChooser;
+    FancyLineEdit *arguments;
+    PathChooser *workingDirectory;
+    QCheckBox *breakAtMainCheckBox;
+    QCheckBox *runInTerminalCheckBox;
+    PathChooser *debuginfoPathChooser;
+    QLabel *serverStartScriptLabel;
+    PathChooser *serverStartScriptPathChooser;
+    QComboBox *historyComboBox;
+    QDialogButtonBox *buttonBox;
 };
 
 } // namespace Internal
 } // namespace Debugger
 
-Q_DECLARE_METATYPE(Debugger::Internal::StartExternalParameters)
+Q_DECLARE_METATYPE(Debugger::Internal::StartApplicationParameters)
 
 namespace Debugger {
 namespace Internal {
 
-inline bool operator==(const StartExternalParameters &p1, const StartExternalParameters &p2)
-{ return p1.equals(p2); }
+///////////////////////////////////////////////////////////////////////
+//
+// DebuggerKitChooser
+//
+///////////////////////////////////////////////////////////////////////
 
-inline bool operator!=(const StartExternalParameters &p1, const StartExternalParameters &p2)
-{ return !p1.equals(p2); }
-
-StartExternalParameters::StartExternalParameters() :
-    abiIndex(0), breakAtMain(false), runInTerminal(false)
+DebuggerKitChooser::DebuggerKitChooser(Mode mode, QWidget *parent)
+    : ProjectExplorer::KitChooser(parent)
+    , m_hostAbi(ProjectExplorer::Abi::hostAbi())
+    , m_mode(mode)
 {
 }
 
-bool StartExternalParameters::equals(const StartExternalParameters &rhs) const
+// Match valid debuggers and restrict local debugging to compatible toolchains.
+bool DebuggerKitChooser::kitMatches(const ProjectExplorer::Kit *k) const
 {
-    return executableFile == rhs.executableFile && arguments == rhs.arguments
-        && workingDirectory == rhs.workingDirectory && abiIndex == rhs.abiIndex
-        && breakAtMain == rhs.breakAtMain && runInTerminal == rhs.runInTerminal;
+    if (!DebuggerKitInformation::isValidDebugger(k))
+        return false;
+    if (m_mode == LocalDebugging) {
+        const ProjectExplorer::ToolChain *tc = ToolChainKitInformation::toolChain(k);
+        return tc && tc->targetAbi().os() == m_hostAbi.os();
+    }
+    return true;
 }
 
-QString StartExternalParameters::displayName() const
+QString DebuggerKitChooser::kitToolTip(Kit *k) const
 {
-    enum { maxLength = 60 };
+    return DebuggerKitInformation::userOutput(DebuggerKitInformation::debuggerItem(k));
+}
 
-    QString name = QFileInfo(executableFile).fileName()
-                   + QLatin1Char(' ') + arguments;
-    if (name.size() > maxLength) {
+///////////////////////////////////////////////////////////////////////
+//
+// StartApplicationParameters
+//
+///////////////////////////////////////////////////////////////////////
+
+class StartApplicationParameters
+{
+public:
+    StartApplicationParameters();
+    QString displayName() const;
+    bool equals(const StartApplicationParameters &rhs) const;
+    void toSettings(QSettings *) const;
+    void fromSettings(const QSettings *settings);
+
+    bool operator==(const StartApplicationParameters &p) const { return equals(p); }
+    bool operator!=(const StartApplicationParameters &p) const { return !equals(p); }
+
+    Id kitId;
+    uint serverPort;
+    QString localExecutable;
+    QString processArgs;
+    QString workingDirectory;
+    bool breakAtMain;
+    bool runInTerminal;
+    QString serverStartScript;
+    QString debugInfoLocation;
+};
+
+StartApplicationParameters::StartApplicationParameters() :
+    breakAtMain(false), runInTerminal(false)
+{
+}
+
+bool StartApplicationParameters::equals(const StartApplicationParameters &rhs) const
+{
+    return localExecutable == rhs.localExecutable
+        && serverPort == rhs.serverPort
+        && processArgs == rhs.processArgs
+        && workingDirectory == rhs.workingDirectory
+        && breakAtMain == rhs.breakAtMain
+        && runInTerminal == rhs.runInTerminal
+        && serverStartScript == rhs.serverStartScript
+        && kitId == rhs.kitId
+        && debugInfoLocation == rhs.debugInfoLocation;
+}
+
+QString StartApplicationParameters::displayName() const
+{
+    const int maxLength = 60;
+
+    QString name = QFileInfo(localExecutable).fileName() + QLatin1Char(' ') + processArgs;
+    if (name.size() > 60) {
         int index = name.lastIndexOf(QLatin1Char(' '), maxLength);
         if (index == -1)
             index = maxLength;
         name.truncate(index);
         name += QLatin1String("...");
     }
+
+    if (Kit *kit = KitManager::instance()->find(kitId))
+        name += QString::fromLatin1(" (%1)").arg(kit->displayName());
+
     return name;
 }
 
-void StartExternalParameters::toSettings(QSettings *settings) const
+void StartApplicationParameters::toSettings(QSettings *settings) const
 {
-    settings->setValue(_("LastExternalExecutableFile"), executableFile);
-    settings->setValue(_("LastExternalExecutableArguments"), arguments);
+    settings->setValue(_("LastProfileId"), kitId.toString());
+    settings->setValue(_("LastServerPort"), serverPort);
+    settings->setValue(_("LastExternalExecutable"), localExecutable);
+    settings->setValue(_("LastExternalExecutableArguments"), processArgs);
     settings->setValue(_("LastExternalWorkingDirectory"), workingDirectory);
-    settings->setValue(_("LastExternalAbiIndex"), abiIndex);
     settings->setValue(_("LastExternalBreakAtMain"), breakAtMain);
     settings->setValue(_("LastExternalRunInTerminal"), runInTerminal);
-}
-
-void StartExternalParameters::fromSettings(const QSettings *settings)
-{
-    executableFile = settings->value(_("LastExternalExecutableFile")).toString();
-    arguments = settings->value(_("LastExternalExecutableArguments")).toString();
-    workingDirectory = settings->value(_("LastExternalWorkingDirectory")).toString();
-    abiIndex = settings->value(_("LastExternalAbiIndex")).toInt();
-    breakAtMain = settings->value(_("LastExternalBreakAtMain")).toBool();
-    runInTerminal = settings->value(_("LastExternalRunInTerminal")).toBool();
-}
-
-StartExternalDialog::StartExternalDialog(QWidget *parent)
-  : QDialog(parent), m_ui(new Ui::StartExternalDialog)
-{
-    QSettings *settings = Core::ICore::settings();
-    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    m_ui->setupUi(this);
-    m_ui->toolChainComboBox->init(true);
-    m_ui->execFile->setExpectedKind(PathChooser::File);
-    m_ui->execFile->setPromptDialogTitle(tr("Select Executable"));
-    m_ui->execFile->lineEdit()->setCompleter(
-        new HistoryCompleter(settings, m_ui->execFile->lineEdit()));
-    connect(m_ui->execFile, SIGNAL(changed(QString)), this, SLOT(changed()));
-    m_ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-    m_ui->workingDirectory->setExpectedKind(PathChooser::ExistingDirectory);
-    m_ui->workingDirectory->setPromptDialogTitle(tr("Select Working Directory"));
-    m_ui->workingDirectory->lineEdit()->setCompleter(
-        new HistoryCompleter(settings, m_ui->workingDirectory->lineEdit()));
-
-    m_ui->argsEdit->setCompleter(new HistoryCompleter(settings, m_ui->argsEdit));
-
-    connect(m_ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-    connect(m_ui->buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
-    connect(m_ui->historyComboBox, SIGNAL(currentIndexChanged(int)),
-            this, SLOT(historyIndexChanged(int)));
-    changed();
-}
-
-StartExternalDialog::~StartExternalDialog()
-{
-    delete m_ui;
-}
-
-StartExternalParameters StartExternalDialog::parameters() const
-{
-    StartExternalParameters result;
-    result.executableFile = m_ui->execFile->path();
-    result.arguments = m_ui->argsEdit->text();
-    result.workingDirectory = m_ui->workingDirectory->path();
-    result.abiIndex = m_ui->toolChainComboBox->currentIndex();
-    result.breakAtMain = m_ui->checkBoxBreakAtMain->isChecked();
-    result.runInTerminal = m_ui->checkBoxRunInTerminal->isChecked();
-    return result;
-}
-
-void StartExternalDialog::setParameters(const StartExternalParameters &p)
-{
-    setExecutableFile(p.executableFile);
-    m_ui->argsEdit->setText(p.arguments);
-    m_ui->workingDirectory->setPath(p.workingDirectory);
-    if (p.abiIndex >= 0 && p.abiIndex < m_ui->toolChainComboBox->count())
-        m_ui->toolChainComboBox->setCurrentIndex(p.abiIndex);
-    m_ui->checkBoxRunInTerminal->setChecked(p.runInTerminal);
-    m_ui->checkBoxBreakAtMain->setChecked(p.breakAtMain);
-}
-
-void StartExternalDialog::setHistory(const QList<StartExternalParameters> l)
-{
-    m_ui->historyComboBox->clear();
-    for (int i = l.size() -  1; i >= 0; --i)
-        if (l.at(i).isValid())
-            m_ui->historyComboBox->addItem(l.at(i).displayName(),
-                                           QVariant::fromValue(l.at(i)));
-}
-
-void StartExternalDialog::historyIndexChanged(int index)
-{
-    if (index < 0)
-        return;
-    const QVariant v = m_ui->historyComboBox->itemData(index);
-    QTC_ASSERT(v.canConvert<StartExternalParameters>(), return);
-    setParameters(v.value<StartExternalParameters>());
-}
-
-void StartExternalDialog::setExecutableFile(const QString &str)
-{
-    m_ui->execFile->setPath(str);
-    changed();
-}
-
-QString StartExternalDialog::executableFile() const
-{
-    return m_ui->execFile->path();
-}
-
-ProjectExplorer::Abi StartExternalDialog::abi() const
-{
-    return m_ui->toolChainComboBox->abi();
-}
-
-QString StartExternalDialog::debuggerCommand()
-{
-    return m_ui->toolChainComboBox->debuggerCommand();
-}
-
-bool StartExternalDialog::isValid() const
-{
-    return m_ui->toolChainComboBox->currentIndex() >= 0
-           && !executableFile().isEmpty();
-}
-
-void StartExternalDialog::changed()
-{
-    m_ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid());
-}
-
-// Read parameter history (start external, remote)
-// from settings array. Always return at least one element.
-template <class Parameter>
-QList<Parameter> readParameterHistory(QSettings *settings,
-                                      const QString &settingsGroup,
-                                      const QString &arrayName)
-{
-    QList<Parameter> result;
-    settings->beginGroup(settingsGroup);
-    const int arraySize = settings->beginReadArray(arrayName);
-    for (int i = 0; i < arraySize; ++i) {
-        settings->setArrayIndex(i);
-        Parameter p;
-        p.fromSettings(settings);
-        result.push_back(p);
-    }
-    settings->endArray();
-    if (result.isEmpty()) { // First time: Read old settings.
-        Parameter p;
-        p.fromSettings(settings);
-        result.push_back(p);
-    }
-    settings->endGroup();
-    return result;
-}
-
-// Write parameter history (start external, remote) to settings.
-template <class Parameter>
-void writeParameterHistory(const QList<Parameter> &history,
-                           QSettings *settings,
-                           const QString &settingsGroup,
-                           const QString &arrayName)
-{
-    settings->beginGroup(settingsGroup);
-    settings->beginWriteArray(arrayName);
-    for (int i = 0; i < history.size(); ++i) {
-        settings->setArrayIndex(i);
-        history.at(i).toSettings(settings);
-    }
-    settings->endArray();
-    settings->endGroup();
-}
-
-bool StartExternalDialog::run(QWidget *parent,
-                              QSettings *settings,
-                              DebuggerStartParameters *sp)
-{
-    const QString settingsGroup = _("DebugMode");
-    const QString arrayName = _("StartExternal");
-    QList<StartExternalParameters> history =
-        readParameterHistory<StartExternalParameters>(settings, settingsGroup, arrayName);
-    QTC_ASSERT(!history.isEmpty(), return false);
-
-    StartExternalDialog dialog(parent);
-    dialog.setHistory(history);
-    dialog.setParameters(history.back());
-    if (dialog.exec() != QDialog::Accepted)
-        return false;
-    const StartExternalParameters newParameters = dialog.parameters();
-
-    if (newParameters != history.back()) {
-        history.push_back(newParameters);
-        if (history.size() > 10)
-            history.pop_front();
-        writeParameterHistory(history, settings, settingsGroup, arrayName);
-    }
-
-    sp->executable = newParameters.executableFile;
-    sp->startMode = StartExternal;
-    sp->toolChainAbi = dialog.abi();
-    sp->debuggerCommand = dialog.debuggerCommand();
-    sp->workingDirectory = newParameters.workingDirectory;
-    sp->displayName = sp->executable;
-    sp->useTerminal = newParameters.runInTerminal;
-    if (!newParameters.arguments.isEmpty())
-        sp->processArgs = newParameters.arguments;
-    // Fixme: 1 of 3 testing hacks.
-    if (sp->processArgs.startsWith(QLatin1String("@tcf@ ")) || sp->processArgs.startsWith(QLatin1String("@sym@ ")))
-        // Set up an ARM Symbian Abi
-        sp->toolChainAbi = ProjectExplorer::Abi(ProjectExplorer::Abi::ArmArchitecture,
-                                                ProjectExplorer::Abi::SymbianOS,
-                                                ProjectExplorer::Abi::SymbianDeviceFlavor,
-                                                ProjectExplorer::Abi::ElfFormat, false);
-
-    sp->breakOnMain = newParameters.breakAtMain;
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////
-//
-// StartRemoteDialog
-//
-///////////////////////////////////////////////////////////////////////
-
-class StartRemoteParameters
-{
-public:
-    StartRemoteParameters();
-    bool equals(const StartRemoteParameters &rhs) const;
-    QString displayName() const { return remoteChannel; }
-    bool isValid() const { return !remoteChannel.isEmpty(); }
-
-    void toSettings(QSettings *) const;
-    void fromSettings(const QSettings *settings);
-
-    QString localExecutable;
-    QString remoteChannel;
-    QString remoteArchitecture;
-    QString overrideStartScript;
-    bool useServerStartScript;
-    QString serverStartScript;
-    QString sysroot;
-    int abiIndex;
-    QString debugInfoLocation;
-};
-
-} // namespace Internal
-} // namespace Debugger
-
-Q_DECLARE_METATYPE(Debugger::Internal::StartRemoteParameters)
-
-namespace Debugger {
-namespace Internal {
-
-inline bool operator==(const StartRemoteParameters &p1, const StartRemoteParameters &p2)
-{ return p1.equals(p2); }
-
-inline bool operator!=(const StartRemoteParameters &p1, const StartRemoteParameters &p2)
-{ return !p1.equals(p2); }
-
-StartRemoteParameters::StartRemoteParameters() :
-    useServerStartScript(false), abiIndex(0)
-{
-}
-
-bool StartRemoteParameters::equals(const StartRemoteParameters &rhs) const
-{
-    return localExecutable == rhs.localExecutable && remoteChannel ==rhs.remoteChannel
-            && remoteArchitecture == rhs.remoteArchitecture
-            && overrideStartScript == rhs.overrideStartScript
-            && useServerStartScript == rhs.useServerStartScript
-            && serverStartScript == rhs.serverStartScript
-            && sysroot == rhs.sysroot && abiIndex == rhs.abiIndex
-            && debugInfoLocation == rhs.debugInfoLocation;
-}
-
-void StartRemoteParameters::toSettings(QSettings *settings) const
-{
-    settings->setValue(_("LastRemoteChannel"), remoteChannel);
-    settings->setValue(_("LastLocalExecutable"), localExecutable);
-    settings->setValue(_("LastExternalAbiIndex"), abiIndex);
-    settings->setValue(_("LastRemoteArchitecture"), remoteArchitecture);
     settings->setValue(_("LastServerStartScript"), serverStartScript);
-    settings->setValue(_("LastUseServerStartScript"), useServerStartScript);
-    settings->setValue(_("LastRemoteStartScript"), overrideStartScript);
-    settings->setValue(_("LastSysroot"), sysroot);
     settings->setValue(_("LastDebugInfoLocation"), debugInfoLocation);
 }
 
-void StartRemoteParameters::fromSettings(const QSettings *settings)
+void StartApplicationParameters::fromSettings(const QSettings *settings)
 {
-    remoteChannel = settings->value(_("LastRemoteChannel")).toString();
-    localExecutable = settings->value(_("LastLocalExecutable")).toString();
-    abiIndex = settings->value(_("LastExternalAbiIndex")).toInt();
-    remoteArchitecture = settings->value(_("LastRemoteArchitecture")).toString();
+    const QString kitIdString = settings->value(_("LastProfileId")).toString();
+    kitId = kitIdString.isEmpty() ? Id() : Id(kitIdString);
+    serverPort = settings->value(_("LastServerPort")).toUInt();
+    localExecutable = settings->value(_("LastExternalExecutable")).toString();
+    processArgs = settings->value(_("LastExternalExecutableArguments")).toString();
+    workingDirectory = settings->value(_("LastExternalWorkingDirectory")).toString();
+    breakAtMain = settings->value(_("LastExternalBreakAtMain")).toBool();
+    runInTerminal = settings->value(_("LastExternalRunInTerminal")).toBool();
     serverStartScript = settings->value(_("LastServerStartScript")).toString();
-    useServerStartScript = settings->value(_("LastUseServerStartScript")).toBool();
-    overrideStartScript = settings->value(_("LastRemoteStartScript")).toString();
-    sysroot = settings->value(_("LastSysroot")).toString();
     debugInfoLocation = settings->value(_("LastDebugInfoLocation")).toString();
 }
 
-StartRemoteDialog::StartRemoteDialog(QWidget *parent, bool enableStartScript)
-  : QDialog(parent),
-    m_ui(new Ui::StartRemoteDialog)
+///////////////////////////////////////////////////////////////////////
+//
+// StartApplicationDialog
+//
+///////////////////////////////////////////////////////////////////////
+
+StartApplicationDialog::StartApplicationDialog(QWidget *parent)
+  : QDialog(parent), d(new StartApplicationDialogPrivate)
 {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    m_ui->setupUi(this);
-    m_ui->toolchainComboBox->init(false);
-    m_ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-    m_ui->debuginfoPathChooser->setPromptDialogTitle(tr("Select Location of Debugging Information"));
-    m_ui->executablePathChooser->setExpectedKind(PathChooser::File);
-    m_ui->executablePathChooser->setPromptDialogTitle(tr("Select Executable"));
-    m_ui->sysrootPathChooser->setPromptDialogTitle(tr("Select Sysroot"));
-    m_ui->overrideStartScriptPathChooser->setExpectedKind(PathChooser::File);
-    m_ui->overrideStartScriptPathChooser->setPromptDialogTitle(tr("Select GDB Start Script"));
-    m_ui->serverStartScriptPathChooser->setExpectedKind(PathChooser::File);
-    m_ui->serverStartScriptPathChooser->setPromptDialogTitle(tr("Select Server Start Script"));
-    m_ui->serverStartScriptPathChooser->setVisible(enableStartScript);
-    m_ui->serverStartScriptLabel->setVisible(enableStartScript);
-    m_ui->useServerStartScriptCheckBox->setVisible(enableStartScript);
-    m_ui->useServerStartScriptLabel->setVisible(enableStartScript);
+    setWindowTitle(tr("Start Debugger"));
 
-    connect(m_ui->useServerStartScriptCheckBox, SIGNAL(toggled(bool)),
-        SLOT(updateState()));
-    connect(m_ui->buttonBox, SIGNAL(accepted()), SLOT(accept()));
-    connect(m_ui->buttonBox, SIGNAL(rejected()), SLOT(reject()));
-    connect(m_ui->historyComboBox, SIGNAL(currentIndexChanged(int)),
-            this, SLOT(historyIndexChanged(int)));
+    d->localExecutablePathChooser = new PathChooser(this);
+    d->localExecutablePathChooser->setExpectedKind(PathChooser::File);
+    d->localExecutablePathChooser->setPromptDialogTitle(tr("Select Executable"));
+    d->localExecutablePathChooser->lineEdit()->setHistoryCompleter(QLatin1String("LocalExecutable"));
+
+    d->serverPortSpinBox = new QSpinBox(this);
+    d->serverPortSpinBox->setRange(1, 65535);
+
+    d->serverPortLabel = new QLabel(tr("Server port:"), this);
+
+    d->arguments = new FancyLineEdit(this);
+    d->arguments->setHistoryCompleter(QLatin1String("CommandlineArguments"));
+
+    d->workingDirectory = new PathChooser(this);
+    d->workingDirectory->setExpectedKind(PathChooser::ExistingDirectory);
+    d->workingDirectory->setPromptDialogTitle(tr("Select Working Directory"));
+    d->workingDirectory->lineEdit()->setHistoryCompleter(QLatin1String("WorkingDirectory"));
+
+    d->runInTerminalCheckBox = new QCheckBox(this);
+
+    d->kitChooser = new DebuggerKitChooser(DebuggerKitChooser::LocalDebugging, this);
+    d->kitChooser->populate();
+
+    d->breakAtMainCheckBox = new QCheckBox(this);
+    d->breakAtMainCheckBox->setText(QString());
+
+    d->serverStartScriptPathChooser = new PathChooser(this);
+    d->serverStartScriptPathChooser->setExpectedKind(PathChooser::File);
+    d->serverStartScriptPathChooser->setPromptDialogTitle(tr("Select Server Start Script"));
+    d->serverStartScriptPathChooser->setToolTip(tr(
+        "This option can be used to point to a script that will be used "
+        "to start a debug server. If the field is empty, Qt Creator's "
+        "default methods to set up debug servers will be used."));
+    d->serverStartScriptLabel = new QLabel(tr("&Server start script:"), this);
+    d->serverStartScriptLabel->setBuddy(d->serverStartScriptPathChooser);
+    d->serverStartScriptLabel->setToolTip(d->serverStartScriptPathChooser->toolTip());
+
+    d->debuginfoPathChooser = new PathChooser(this);
+    d->debuginfoPathChooser->setPromptDialogTitle(tr("Select Location of Debugging Information"));
+    d->debuginfoPathChooser->setToolTip(tr(
+        "Base path for external debug information and debug sources. "
+        "If empty, $SYSROOT/usr/lib/debug will be chosen."));
+
+    QFrame *line = new QFrame(this);
+    line->setFrameShape(QFrame::HLine);
+    line->setFrameShadow(QFrame::Sunken);
+
+    QFrame *line2 = new QFrame(this);
+    line2->setFrameShape(QFrame::HLine);
+    line2->setFrameShadow(QFrame::Sunken);
+
+    d->historyComboBox = new QComboBox(this);
+
+    d->buttonBox = new QDialogButtonBox(this);
+    d->buttonBox->setStandardButtons(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);
+    d->buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+
+    QFormLayout *formLayout = new QFormLayout();
+    formLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    formLayout->addRow(tr("&Kit:"), d->kitChooser);
+    formLayout->addRow(d->serverPortLabel, d->serverPortSpinBox);
+    formLayout->addRow(tr("Local &executable:"), d->localExecutablePathChooser);
+    formLayout->addRow(tr("Command line &arguments:"), d->arguments);
+    formLayout->addRow(tr("&Working directory:"), d->workingDirectory);
+    formLayout->addRow(tr("Run in &terminal:"), d->runInTerminalCheckBox);
+    formLayout->addRow(tr("Break at \"&main\":"), d->breakAtMainCheckBox);
+    formLayout->addRow(d->serverStartScriptLabel, d->serverStartScriptPathChooser);
+    formLayout->addRow(tr("Debug &information:"), d->debuginfoPathChooser);
+    formLayout->addRow(line2);
+    formLayout->addRow(tr("&Recent:"), d->historyComboBox);
+
+    QVBoxLayout *verticalLayout = new QVBoxLayout(this);
+    verticalLayout->addLayout(formLayout);
+    verticalLayout->addStretch();
+    verticalLayout->addWidget(line);
+    verticalLayout->addWidget(d->buttonBox);
+
+    connect(d->localExecutablePathChooser, SIGNAL(changed(QString)), SLOT(updateState()));
+    connect(d->buttonBox, SIGNAL(accepted()), SLOT(accept()));
+    connect(d->buttonBox, SIGNAL(rejected()), SLOT(reject()));
+    connect(d->historyComboBox, SIGNAL(currentIndexChanged(int)),
+            SLOT(historyIndexChanged(int)));
+
     updateState();
 }
 
-StartRemoteDialog::~StartRemoteDialog()
+StartApplicationDialog::~StartApplicationDialog()
 {
-    delete m_ui;
+    delete d;
 }
 
-bool StartRemoteDialog::run(QWidget *parent,
-                            QSettings *settings,
-                            bool useScript,
-                            DebuggerStartParameters *sp)
+void StartApplicationDialog::setHistory(const QList<StartApplicationParameters> &l)
 {
-    const QString settingsGroup = _("DebugMode");
-    const QString arrayName = useScript ?
-        _("StartRemoteScript") : _("StartRemote");
-
-    QStringList arches;
-    arches << _("i386:x86-64:intel") << _("i386") << _("arm");
-
-    QList<StartRemoteParameters> history =
-        readParameterHistory<StartRemoteParameters>(settings, settingsGroup, arrayName);
-    QTC_ASSERT(!history.isEmpty(), return false);
-
-    foreach (const StartRemoteParameters &h, history)
-        if (!arches.contains(h.remoteArchitecture))
-            arches.prepend(h.remoteArchitecture);
-
-    StartRemoteDialog dialog(parent, useScript);
-    dialog.setRemoteArchitectures(arches);
-    dialog.setHistory(history);
-    dialog.setParameters(history.back());
-    if (dialog.exec() != QDialog::Accepted)
-        return false;
-    const StartRemoteParameters newParameters = dialog.parameters();
-
-    if (newParameters != history.back()) {
-        history.push_back(newParameters);
-        if (history.size() > 10)
-            history.pop_front();
-        writeParameterHistory(history, settings, settingsGroup, arrayName);
+    d->historyComboBox->clear();
+    for (int i = l.size(); --i >= 0; ) {
+        const StartApplicationParameters &p = l.at(i);
+        if (!p.localExecutable.isEmpty())
+            d->historyComboBox->addItem(p.displayName(), QVariant::fromValue(p));
     }
-
-    sp->remoteChannel = newParameters.remoteChannel;
-    sp->remoteArchitecture = newParameters.remoteArchitecture;
-    sp->executable = newParameters.localExecutable;
-    sp->displayName = tr("Remote: \"%1\"").arg(sp->remoteChannel);
-    sp->debuggerCommand = dialog.debuggerCommand();
-    sp->toolChainAbi = dialog.abi();
-    sp->overrideStartScript = newParameters.overrideStartScript;
-    sp->useServerStartScript = newParameters.useServerStartScript;
-    sp->serverStartScript = newParameters.serverStartScript;
-    sp->sysroot = newParameters.sysroot;
-    sp->debugInfoLocation = newParameters.debugInfoLocation;
-    return true;
 }
 
-StartRemoteParameters StartRemoteDialog::parameters() const
-{
-    StartRemoteParameters result;
-    result.remoteChannel = m_ui->channelLineEdit->text();
-    result.localExecutable = m_ui->executablePathChooser->path();
-    result.remoteArchitecture = m_ui->architectureComboBox->currentText();
-    result.overrideStartScript = m_ui->overrideStartScriptPathChooser->path();
-    result.useServerStartScript = m_ui->useServerStartScriptCheckBox->isChecked();
-    result.serverStartScript = m_ui->serverStartScriptPathChooser->path();
-    result.sysroot = m_ui->sysrootPathChooser->path();
-    result.abiIndex = m_ui->toolchainComboBox->currentIndex();
-    result.debugInfoLocation = m_ui->debuginfoPathChooser->path();
-    return result;
-}
-
-void StartRemoteDialog::setParameters(const StartRemoteParameters &p)
-{
-    m_ui->channelLineEdit->setText(p.remoteChannel);
-    m_ui->executablePathChooser->setPath(p.localExecutable);
-    const int index = m_ui->architectureComboBox->findText(p.remoteArchitecture);
-    if (index != -1)
-        m_ui->architectureComboBox->setCurrentIndex(index);
-    m_ui->overrideStartScriptPathChooser->setPath(p.overrideStartScript);
-    m_ui->useServerStartScriptCheckBox->setChecked(p.useServerStartScript);
-    m_ui->serverStartScriptPathChooser->setPath(p.serverStartScript);
-    m_ui->sysrootPathChooser->setPath(p.sysroot);
-    if (p.abiIndex >= 0 && p.abiIndex < m_ui->toolchainComboBox->count())
-        m_ui->toolchainComboBox->setCurrentIndex(p.abiIndex);
-    m_ui->debuginfoPathChooser->setPath(p.debugInfoLocation);
-}
-
-void StartRemoteDialog::setHistory(const QList<StartRemoteParameters> &l)
-{
-    m_ui->historyComboBox->clear();
-    for (int i = l.size() -  1; i >= 0; --i)
-        if (l.at(i).isValid())
-            m_ui->historyComboBox->addItem(l.at(i).displayName(),
-                                           QVariant::fromValue(l.at(i)));
-}
-
-void StartRemoteDialog::historyIndexChanged(int index)
+void StartApplicationDialog::historyIndexChanged(int index)
 {
     if (index < 0)
         return;
-    const QVariant v = m_ui->historyComboBox->itemData(index);
-    QTC_ASSERT(v.canConvert<StartRemoteParameters>(), return);
-    setParameters(v.value<StartRemoteParameters>());
+    const QVariant v = d->historyComboBox->itemData(index);
+    QTC_ASSERT(v.canConvert<StartApplicationParameters>(), return);
+    setParameters(v.value<StartApplicationParameters>());
 }
 
-ProjectExplorer::Abi StartRemoteDialog::abi() const
+void StartApplicationDialog::updateState()
 {
-    return m_ui->toolchainComboBox->abi();
+    bool okEnabled = d->localExecutablePathChooser->isValid();
+    d->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(okEnabled);
 }
 
-QString StartRemoteDialog::debuggerCommand() const
+bool StartApplicationDialog::run(QWidget *parent, QSettings *settings, DebuggerStartParameters *sp)
 {
-    return m_ui->toolchainComboBox->debuggerCommand();
-}
+    const bool attachRemote = sp->startMode == AttachToRemoteServer;
+    const QString settingsGroup = QLatin1String("DebugMode");
+    const QString arrayName = QLatin1String("StartApplication");
 
-void StartRemoteDialog::setRemoteArchitectures(const QStringList &list)
-{
-    m_ui->architectureComboBox->clear();
-    if (!list.isEmpty()) {
-        m_ui->architectureComboBox->insertItems(0, list);
-        m_ui->architectureComboBox->setCurrentIndex(0);
+    QList<StartApplicationParameters> history;
+    settings->beginGroup(settingsGroup);
+    if (const int arraySize = settings->beginReadArray(arrayName)) {
+        for (int i = 0; i < arraySize; ++i) {
+            settings->setArrayIndex(i);
+            StartApplicationParameters p;
+            p.fromSettings(settings);
+            history.append(p);
+        }
+    } else {
+        history.append(StartApplicationParameters());
     }
+    settings->endArray();
+    settings->endGroup();
+
+    StartApplicationDialog dialog(parent);
+    dialog.setHistory(history);
+    dialog.setParameters(history.back());
+    if (attachRemote) {
+        dialog.d->serverStartScriptPathChooser->setVisible(false);
+        dialog.d->serverStartScriptLabel->setVisible(false);
+    } else {
+        dialog.d->serverPortSpinBox->setVisible(false);
+        dialog.d->serverPortLabel->setVisible(false);
+    }
+    if (dialog.exec() != QDialog::Accepted)
+        return false;
+
+    const StartApplicationParameters newParameters = dialog.parameters();
+    if (newParameters != history.back()) {
+        history.append(newParameters);
+        while (history.size() > 10)
+            history.takeFirst();
+        settings->beginGroup(settingsGroup);
+        settings->beginWriteArray(arrayName);
+        for (int i = 0; i < history.size(); ++i) {
+            settings->setArrayIndex(i);
+            history.at(i).toSettings(settings);
+        }
+        settings->endArray();
+        settings->endGroup();
+    }
+
+    Kit *kit = dialog.d->kitChooser->currentKit();
+    QTC_ASSERT(kit && fillParameters(sp, kit), return false);
+
+    sp->executable = newParameters.localExecutable;
+    sp->remoteChannel = sp->connParams.host + QLatin1Char(':') + QString::number(newParameters.serverPort);
+    sp->displayName = newParameters.displayName();
+    sp->workingDirectory = newParameters.workingDirectory;
+    sp->useTerminal = newParameters.runInTerminal;
+    if (!newParameters.processArgs.isEmpty())
+        sp->processArgs = newParameters.processArgs;
+    sp->breakOnMain = newParameters.breakAtMain;
+    sp->serverStartScript = newParameters.serverStartScript;
+    sp->debugInfoLocation = newParameters.debugInfoLocation;
+
+    bool isLocal = DeviceKitInformation::device(kit)->type()
+         == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE;
+    if (!attachRemote)
+        sp->startMode = isLocal ? StartExternal : StartRemoteProcess;
+    return true;
 }
 
-void StartRemoteDialog::updateState()
+StartApplicationParameters StartApplicationDialog::parameters() const
 {
-    bool enabled = m_ui->useServerStartScriptCheckBox->isChecked();
-    m_ui->serverStartScriptLabel->setEnabled(enabled);
-    m_ui->serverStartScriptPathChooser->setEnabled(enabled);
+    StartApplicationParameters result;
+    result.serverPort = d->serverPortSpinBox->value();
+    result.localExecutable = d->localExecutablePathChooser->path();
+    result.serverStartScript = d->serverStartScriptPathChooser->path();
+    result.kitId = d->kitChooser->currentKitId();
+    result.debugInfoLocation = d->debuginfoPathChooser->path();
+    result.processArgs = d->arguments->text();
+    result.workingDirectory = d->workingDirectory->path();
+    result.breakAtMain = d->breakAtMainCheckBox->isChecked();
+    result.runInTerminal = d->runInTerminalCheckBox->isChecked();
+    return result;
+}
+
+void StartApplicationDialog::setParameters(const StartApplicationParameters &p)
+{
+    d->kitChooser->setCurrentKitId(p.kitId);
+    d->serverPortSpinBox->setValue(p.serverPort);
+    d->localExecutablePathChooser->setPath(p.localExecutable);
+    d->serverStartScriptPathChooser->setPath(p.serverStartScript);
+    d->debuginfoPathChooser->setPath(p.debugInfoLocation);
+    d->arguments->setText(p.processArgs);
+    d->workingDirectory->setPath(p.workingDirectory);
+    d->runInTerminalCheckBox->setChecked(p.runInTerminal);
+    d->breakAtMainCheckBox->setChecked(p.breakAtMain);
+    updateState();
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -965,55 +466,70 @@ void StartRemoteDialog::updateState()
 //
 ///////////////////////////////////////////////////////////////////////
 
+class AttachToQmlPortDialogPrivate
+{
+public:
+    QSpinBox *portSpinBox;
+    KitChooser *kitChooser;
+};
+
 AttachToQmlPortDialog::AttachToQmlPortDialog(QWidget *parent)
   : QDialog(parent),
-    m_ui(new Ui::AttachToQmlPortDialog)
+    d(new AttachToQmlPortDialogPrivate)
 {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    m_ui->setupUi(this);
-    m_ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+    setWindowTitle(tr("Start Debugger"));
 
-    connect(m_ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-    connect(m_ui->buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
+    d->kitChooser = new DebuggerKitChooser(DebuggerKitChooser::RemoteDebugging, this);
+    d->kitChooser->populate();
+
+    d->portSpinBox = new QSpinBox(this);
+    d->portSpinBox->setMaximum(65535);
+    d->portSpinBox->setValue(3768);
+
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(this);
+    buttonBox->setStandardButtons(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);
+    buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+
+    QFormLayout *formLayout = new QFormLayout();
+    formLayout->addRow(tr("Kit:"), d->kitChooser);
+    formLayout->addRow(tr("&Port:"), d->portSpinBox);
+
+    QVBoxLayout *verticalLayout = new QVBoxLayout(this);
+    verticalLayout->addLayout(formLayout);
+    verticalLayout->addWidget(buttonBox);
+
+    connect(buttonBox, SIGNAL(accepted()), SLOT(accept()));
+    connect(buttonBox, SIGNAL(rejected()), SLOT(reject()));
 }
 
 AttachToQmlPortDialog::~AttachToQmlPortDialog()
 {
-    delete m_ui;
-}
-
-void AttachToQmlPortDialog::setHost(const QString &host)
-{
-    m_ui->hostLineEdit->setText(host);
-}
-
-QString AttachToQmlPortDialog::host() const
-{
-    return m_ui->hostLineEdit->text();
+    delete d;
 }
 
 void AttachToQmlPortDialog::setPort(const int port)
 {
-    m_ui->portSpinBox->setValue(port);
+    d->portSpinBox->setValue(port);
 }
 
 int AttachToQmlPortDialog::port() const
 {
-    return m_ui->portSpinBox->value();
+    return d->portSpinBox->value();
 }
 
-QString AttachToQmlPortDialog::sysroot() const
+Kit *AttachToQmlPortDialog::kit() const
 {
-    return m_ui->sysRootChooser->path();
+    return d->kitChooser->currentKit();
 }
 
-void AttachToQmlPortDialog::setSysroot(const QString &sysroot)
+void AttachToQmlPortDialog::setKitId(const Id &id)
 {
-    m_ui->sysRootChooser->setPath(sysroot);
+    d->kitChooser->setCurrentKitId(id);
 }
 
 // --------- StartRemoteCdbDialog
-static inline QString cdbRemoteHelp()
+static QString cdbRemoteHelp()
 {
     const char *cdbConnectionSyntax =
             "Server:Port<br>"
@@ -1032,7 +548,7 @@ static inline QString cdbRemoteHelp()
                 "(<code>%1</code> or <code>%2</code>, respectively).</p><p>Copy it onto the remote machine and set the "
                 "environment variable <code>%3</code> to point to its folder.</p><p>"
                 "Launch the remote CDB as <code>%4 &lt;executable&gt;</code> "
-                " to use TCP/IP as communication protocol.</p><p>Enter the connection parameters as:</p>"
+                "to use TCP/IP as communication protocol.</p><p>Enter the connection parameters as:</p>"
                 "<pre>%5</pre></body></html>").
             arg(ext32, ext64, QLatin1String("_NT_DEBUGGER_EXTENSION_PATH"),
                 QLatin1String("cdb.exe -server tcp:port=1234"),
@@ -1046,29 +562,33 @@ StartRemoteCdbDialog::StartRemoteCdbDialog(QWidget *parent) :
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
     QGroupBox *groupBox = new QGroupBox;
-    QFormLayout *formLayout = new QFormLayout;
+
     QLabel *helpLabel = new QLabel(cdbRemoteHelp());
     helpLabel->setWordWrap(true);
     helpLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
-    formLayout->addRow(helpLabel);
+
     QLabel *label = new QLabel(tr("&Connection:"));
     label->setBuddy(m_lineEdit);
     m_lineEdit->setMinimumWidth(400);
-    connect(m_lineEdit, SIGNAL(textChanged(QString)), this, SLOT(textChanged(QString)));
+
+    QDialogButtonBox *box = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel);
+
+    QFormLayout *formLayout = new QFormLayout;
+    formLayout->addRow(helpLabel);
     formLayout->addRow(label, m_lineEdit);
     groupBox->setLayout(formLayout);
 
-    QVBoxLayout *vLayout = new QVBoxLayout;
+    QVBoxLayout *vLayout = new QVBoxLayout(this);
     vLayout->addWidget(groupBox);
-    QDialogButtonBox *box = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel);
     vLayout->addWidget(box);
+
     m_okButton = box->button(QDialogButtonBox::Ok);
-    connect(m_lineEdit, SIGNAL(returnPressed()), m_okButton, SLOT(animateClick()));
     m_okButton->setEnabled(false);
+
+    connect(m_lineEdit, SIGNAL(textChanged(QString)), this, SLOT(textChanged(QString)));
+    connect(m_lineEdit, SIGNAL(returnPressed()), m_okButton, SLOT(animateClick()));
     connect(box, SIGNAL(accepted()), this, SLOT(accept()));
     connect(box, SIGNAL(rejected()), this, SLOT(reject()));
-
-    setLayout(vLayout);
 }
 
 void StartRemoteCdbDialog::accept()
@@ -1138,8 +658,7 @@ bool AddressDialog::isOkButtonEnabled() const
 
 void AddressDialog::setAddress(quint64 a)
 {
-    m_lineEdit->setText(QLatin1String("0x")
-                        + QString::number(a, 16));
+    m_lineEdit->setText(QLatin1String("0x") + QString::number(a, 16));
 }
 
 quint64 AddressDialog::address() const
@@ -1172,49 +691,85 @@ bool AddressDialog::isValid() const
 //
 ///////////////////////////////////////////////////////////////////////
 
-StartRemoteEngineDialog::StartRemoteEngineDialog(QWidget *parent) :
-    QDialog(parent) ,
-    m_ui(new Ui::StartRemoteEngineDialog)
+class StartRemoteEngineDialogPrivate
 {
-    QSettings *settings = Core::ICore::settings();
+public:
+    FancyLineEdit *host;
+    FancyLineEdit *username;
+    QLineEdit *password;
+    FancyLineEdit *enginePath;
+    FancyLineEdit *inferiorPath;
+    QDialogButtonBox *buttonBox;
+};
+
+StartRemoteEngineDialog::StartRemoteEngineDialog(QWidget *parent)
+    : QDialog(parent), d(new StartRemoteEngineDialogPrivate)
+{
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    m_ui->setupUi(this);
-    m_ui->host->setCompleter(new HistoryCompleter(settings, m_ui->host));
-    m_ui->username->setCompleter(new HistoryCompleter(settings, m_ui->username));
-    m_ui->enginepath->setCompleter(new HistoryCompleter(settings, m_ui->enginepath));
-    m_ui->inferiorpath->setCompleter(new HistoryCompleter(settings, m_ui->inferiorpath));
-    connect(m_ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-    connect(m_ui->buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
+    setWindowTitle(tr("Start Remote Engine"));
+
+    d->host = new FancyLineEdit(this);
+    d->host->setHistoryCompleter(QLatin1String("HostName"));
+
+    d->username = new FancyLineEdit(this);
+    d->username->setHistoryCompleter(QLatin1String("UserName"));
+
+    d->password = new QLineEdit(this);
+    d->password->setEchoMode(QLineEdit::Password);
+
+    d->enginePath = new FancyLineEdit(this);
+    d->enginePath->setHistoryCompleter(QLatin1String("EnginePath"));
+
+    d->inferiorPath = new FancyLineEdit(this);
+    d->inferiorPath->setHistoryCompleter(QLatin1String("InferiorPath"));
+
+    d->buttonBox = new QDialogButtonBox(this);
+    d->buttonBox->setStandardButtons(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);
+
+    QFormLayout *formLayout = new QFormLayout();
+    formLayout->addRow(tr("&Host:"), d->host);
+    formLayout->addRow(tr("&Username:"), d->username);
+    formLayout->addRow(tr("&Password:"), d->password);
+    formLayout->addRow(tr("&Engine path:"), d->enginePath);
+    formLayout->addRow(tr("&Inferior path:"), d->inferiorPath);
+
+    QVBoxLayout *verticalLayout = new QVBoxLayout(this);
+    verticalLayout->addLayout(formLayout);
+    verticalLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    verticalLayout->addWidget(d->buttonBox);
+
+    connect(d->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
+    connect(d->buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 }
 
 StartRemoteEngineDialog::~StartRemoteEngineDialog()
 {
-    delete m_ui;
+    delete d;
 }
 
 QString StartRemoteEngineDialog::host() const
 {
-    return m_ui->host->text();
+    return d->host->text();
 }
 
 QString StartRemoteEngineDialog::username() const
 {
-    return m_ui->username->text();
+    return d->username->text();
 }
 
 QString StartRemoteEngineDialog::password() const
 {
-    return m_ui->password->text();
+    return d->password->text();
 }
 
 QString StartRemoteEngineDialog::inferiorPath() const
 {
-    return m_ui->inferiorpath->text();
+    return d->inferiorPath->text();
 }
 
 QString StartRemoteEngineDialog::enginePath() const
 {
-    return m_ui->enginepath->text();
+    return d->enginePath->text();
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -1262,12 +817,12 @@ class TypeFormatsDialogUi
 public:
     TypeFormatsDialogUi(TypeFormatsDialog *q)
     {
-        QVBoxLayout *layout = new QVBoxLayout(q);
         tabs = new QTabWidget(q);
 
         buttonBox = new QDialogButtonBox(q);
-        buttonBox->setOrientation(Qt::Horizontal);
         buttonBox->setStandardButtons(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);
+
+        QVBoxLayout *layout = new QVBoxLayout(q);
         layout->addWidget(tabs);
         layout->addWidget(buttonBox);
         q->setLayout(layout);
@@ -1285,8 +840,8 @@ public:
     }
 
 public:
-    QDialogButtonBox *buttonBox;
     QList<TypeFormatsDialogPage *> pages;
+    QDialogButtonBox *buttonBox;
 
 private:
     QTabWidget *tabs;

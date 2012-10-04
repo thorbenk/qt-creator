@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,6 +36,7 @@
 #include "abi.h"
 #include "buildconfiguration.h"
 #include "projectexplorerconstants.h"
+#include "kitinformation.h"
 #include <extensionsystem/pluginmanager.h>
 
 #include <utils/qtcassert.h>
@@ -48,7 +47,6 @@
 
 #include <QTimer>
 #include <QSettings>
-#include <QMainWindow>
 #include <QMessageBox>
 #include <QPushButton>
 
@@ -65,92 +63,6 @@ const char USE_QML_DEBUGGER_KEY[] = "RunConfiguration.UseQmlDebugger";
 const char USE_QML_DEBUGGER_AUTO_KEY[] = "RunConfiguration.UseQmlDebuggerAuto";
 const char QML_DEBUG_SERVER_PORT_KEY[] = "RunConfiguration.QmlDebugServerPort";
 const char USE_MULTIPROCESS_KEY[] = "RunConfiguration.UseMultiProcess";
-
-// Function objects:
-
-class RunConfigurationFactoryMatcher
-{
-public:
-    RunConfigurationFactoryMatcher(Target * target) : m_target(target)
-    { }
-
-    virtual ~RunConfigurationFactoryMatcher() { }
-
-    virtual bool operator()(IRunConfigurationFactory *) const = 0;
-
-    Target *target() const
-    {
-        return m_target;
-    }
-
-private:
-    Target *m_target;
-};
-
-class CreateMatcher : public RunConfigurationFactoryMatcher
-{
-public:
-    CreateMatcher(Target *target, const Core::Id id) :
-        RunConfigurationFactoryMatcher(target),
-        m_id(id)
-    { }
-
-    bool operator()(IRunConfigurationFactory *factory) const
-    {
-        return factory->canCreate(target(), m_id);
-    }
-
-private:
-    const Core::Id m_id;
-};
-
-class CloneMatcher : public RunConfigurationFactoryMatcher
-{
-public:
-    CloneMatcher(Target *target, RunConfiguration *source) :
-        RunConfigurationFactoryMatcher(target),
-        m_source(source)
-    { }
-
-    bool operator()(IRunConfigurationFactory *factory) const
-    {
-        return factory->canClone(target(), m_source);
-    }
-
-private:
-    RunConfiguration *m_source;
-};
-
-class RestoreMatcher : public RunConfigurationFactoryMatcher
-{
-public:
-    RestoreMatcher(Target *target, const QVariantMap &map) :
-        RunConfigurationFactoryMatcher(target),
-        m_map(map)
-    { }
-
-    bool operator()(IRunConfigurationFactory *factory) const
-    {
-        return factory->canRestore(target(), m_map);
-    }
-
-private:
-    QVariantMap m_map;
-};
-
-// Helper methods:
-
-IRunConfigurationFactory *findRunConfigurationFactory(RunConfigurationFactoryMatcher &matcher)
-{
-    QList<IRunConfigurationFactory *> factories
-        = ExtensionSystem::PluginManager::instance()->
-                getObjects<IRunConfigurationFactory>();
-    foreach (IRunConfigurationFactory *factory, factories) {
-        if (matcher(factory))
-            return factory;
-    }
-    return 0;
-}
 
 } // namespace
 
@@ -211,16 +123,17 @@ DebuggerRunConfigurationAspect::DebuggerRunConfigurationAspect(RunConfiguration 
     m_suppressQmlDebuggingSpinbox(false)
 {}
 
-DebuggerRunConfigurationAspect::DebuggerRunConfigurationAspect(DebuggerRunConfigurationAspect *other) :
-    m_runConfiguration(other->m_runConfiguration),
-    m_useCppDebugger(other->m_useCppDebugger),
-    m_useQmlDebugger(other->m_useQmlDebugger),
-    m_qmlDebugServerPort(other->m_qmlDebugServerPort),
-    m_useMultiProcess(other->m_useMultiProcess),
-    m_suppressDisplay(other->m_suppressDisplay),
-    m_suppressQmlDebuggingOptions(other->m_suppressQmlDebuggingOptions),
-    m_suppressCppDebuggingOptions(other->m_suppressCppDebuggingOptions),
-    m_suppressQmlDebuggingSpinbox(other->m_suppressQmlDebuggingSpinbox)
+DebuggerRunConfigurationAspect::DebuggerRunConfigurationAspect(RunConfiguration *runConfiguration,
+                                                               DebuggerRunConfigurationAspect *other)
+    : m_runConfiguration(runConfiguration),
+      m_useCppDebugger(other->m_useCppDebugger),
+      m_useQmlDebugger(other->m_useQmlDebugger),
+      m_qmlDebugServerPort(other->m_qmlDebugServerPort),
+      m_useMultiProcess(other->m_useMultiProcess),
+      m_suppressDisplay(other->m_suppressDisplay),
+      m_suppressQmlDebuggingOptions(other->m_suppressQmlDebuggingOptions),
+      m_suppressCppDebuggingOptions(other->m_suppressCppDebuggingOptions),
+      m_suppressQmlDebuggingSpinbox(other->m_suppressQmlDebuggingSpinbox)
 {}
 
 RunConfiguration *DebuggerRunConfigurationAspect::runConfiguration()
@@ -372,10 +285,18 @@ RunConfiguration::RunConfiguration(Target *target, const Core::Id id) :
 
 RunConfiguration::RunConfiguration(Target *target, RunConfiguration *source) :
     ProjectConfiguration(target, source),
-    m_debuggerAspect(new DebuggerRunConfigurationAspect(source->debuggerAspect()))
+    m_debuggerAspect(new DebuggerRunConfigurationAspect(this, source->debuggerAspect()))
 {
     Q_ASSERT(target);
-    addExtraAspects();
+    QList<IRunControlFactory *> factories = ExtensionSystem::PluginManager::getObjects<IRunControlFactory>();
+    foreach (IRunConfigurationAspect *aspect, source->m_aspects) {
+        foreach (IRunControlFactory *factory, factories) {
+            if (IRunConfigurationAspect *clone = factory->cloneRunConfigurationAspect(aspect)) {
+                m_aspects.append(clone);
+                break;
+            }
+        }
+    }
 }
 
 RunConfiguration::~RunConfiguration()
@@ -386,8 +307,7 @@ RunConfiguration::~RunConfiguration()
 
 void RunConfiguration::addExtraAspects()
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    foreach (IRunControlFactory *factory, pm->getObjects<IRunControlFactory>())
+    foreach (IRunControlFactory *factory, ExtensionSystem::PluginManager::getObjects<IRunControlFactory>())
         if (IRunConfigurationAspect *aspect = factory->createRunConfigurationAspect())
             m_aspects.append(aspect);
 }
@@ -405,6 +325,21 @@ QString RunConfiguration::disabledReason() const
 {
     return QString();
 }
+
+bool RunConfiguration::isConfigured() const
+{
+    return true;
+}
+
+bool RunConfiguration::ensureConfigured(QString *errorMessage)
+{
+    if (isConfigured())
+        return true;
+    if (errorMessage)
+        *errorMessage = tr("Unknown error.");
+    return false;
+}
+
 
 /*!
     \fn virtual QWidget *ProjectExplorer::RunConfiguration::createConfigurationWidget()
@@ -441,7 +376,7 @@ ProjectExplorer::Abi RunConfiguration::abi() const
     BuildConfiguration *bc = target()->activeBuildConfiguration();
     if (!bc)
         return Abi::hostAbi();
-    ToolChain *tc = bc->toolChain();
+    ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(target()->kit());
     if (!tc)
         return Abi::hostAbi();
     return tc->targetAbi();
@@ -518,22 +453,38 @@ IRunConfigurationFactory::~IRunConfigurationFactory()
 {
 }
 
-IRunConfigurationFactory *IRunConfigurationFactory::createFactory(Target *parent, const Core::Id id)
+IRunConfigurationFactory *IRunConfigurationFactory::find(Target *parent, const QVariantMap &map)
 {
-    CreateMatcher matcher(parent, id);
-    return findRunConfigurationFactory(matcher);
+    QList<IRunConfigurationFactory *> factories
+            = ExtensionSystem::PluginManager::instance()->getObjects<IRunConfigurationFactory>();
+    foreach (IRunConfigurationFactory *factory, factories) {
+        if (factory->canRestore(parent, map))
+            return factory;
+    }
+    return 0;
 }
 
-IRunConfigurationFactory *IRunConfigurationFactory::cloneFactory(Target *parent, RunConfiguration *source)
+IRunConfigurationFactory *IRunConfigurationFactory::find(Target *parent, RunConfiguration *rc)
 {
-    CloneMatcher matcher(parent, source);
-    return findRunConfigurationFactory(matcher);
+    QList<IRunConfigurationFactory *> factories
+            = ExtensionSystem::PluginManager::instance()->getObjects<IRunConfigurationFactory>();
+    foreach (IRunConfigurationFactory *factory, factories) {
+        if (factory->canClone(parent, rc))
+            return factory;
+    }
+    return 0;
 }
 
-IRunConfigurationFactory *IRunConfigurationFactory::restoreFactory(Target *parent, const QVariantMap &map)
+QList<IRunConfigurationFactory *> IRunConfigurationFactory::find(Target *parent)
 {
-    RestoreMatcher matcher(parent, map);
-    return findRunConfigurationFactory(matcher);
+    QList<IRunConfigurationFactory *> factories
+            = ExtensionSystem::PluginManager::instance()->getObjects<IRunConfigurationFactory>();
+    QList<IRunConfigurationFactory *> result;
+    foreach (IRunConfigurationFactory *factory, factories) {
+        if (!factory->availableCreationIds(parent).isEmpty())
+            result << factory;
+    }
+    return result;
 }
 
 /*!
@@ -570,6 +521,17 @@ IRunControlFactory::~IRunControlFactory()
 }
 
 IRunConfigurationAspect *IRunControlFactory::createRunConfigurationAspect()
+{
+    return 0;
+}
+
+IRunConfigurationAspect *IRunControlFactory::cloneRunConfigurationAspect(IRunConfigurationAspect *source)
+{
+    Q_UNUSED(source);
+    return 0;
+}
+
+RunConfigWidget *IRunControlFactory::createConfigurationWidget(RunConfiguration *)
 {
     return 0;
 }
@@ -630,6 +592,11 @@ Abi RunControl::abi() const
     if (const RunConfiguration *rc = m_runConfiguration.data())
         return rc->abi();
     return Abi();
+}
+
+RunConfiguration *RunControl::runConfiguration() const
+{
+    return m_runConfiguration.data();
 }
 
 ProcessHandle RunControl::applicationProcessHandle() const

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -253,6 +251,16 @@ RunSettingsWidget::RunSettingsWidget(Target *target)
     connect(m_renameRunButton, SIGNAL(clicked()),
             this, SLOT(renameRunConfiguration()));
 
+    connect(m_target, SIGNAL(addedRunConfiguration(ProjectExplorer::RunConfiguration*)),
+            this, SLOT(updateRemoveToolButton()));
+    connect(m_target, SIGNAL(removedRunConfiguration(ProjectExplorer::RunConfiguration*)),
+            this, SLOT(updateRemoveToolButton()));
+
+    connect(m_target, SIGNAL(addedDeployConfiguration(ProjectExplorer::DeployConfiguration*)),
+            this, SLOT(updateRemoveToolButton()));
+    connect(m_target, SIGNAL(removedDeployConfiguration(ProjectExplorer::DeployConfiguration*)),
+            this, SLOT(updateRemoveToolButton()));
+
     connect(m_target, SIGNAL(activeRunConfigurationChanged(ProjectExplorer::RunConfiguration*)),
             this, SLOT(activeRunConfigurationChanged()));
 }
@@ -266,7 +274,7 @@ void RunSettingsWidget::aboutToShowAddMenu()
 {
     m_addRunMenu->clear();
     QList<IRunConfigurationFactory *> factories =
-        ExtensionSystem::PluginManager::instance()->getObjects<IRunConfigurationFactory>();
+        ExtensionSystem::PluginManager::getObjects<IRunConfigurationFactory>();
     foreach (IRunConfigurationFactory *factory, factories) {
         QList<Core::Id> ids = factory->availableCreationIds(m_target);
         foreach (Core::Id id, ids) {
@@ -292,6 +300,7 @@ void RunSettingsWidget::addRunConfiguration()
     RunConfiguration *newRC = fai.factory->create(m_target, fai.id);
     if (!newRC)
         return;
+    QTC_CHECK(newRC->id() == fai.id);
     m_target->addRunConfiguration(newRC);
     m_target->setActiveRunConfiguration(newRC);
     m_removeRunToolButton->setEnabled(m_target->runConfigurations().size() > 1);
@@ -322,6 +331,7 @@ void RunSettingsWidget::activeRunConfigurationChanged()
     m_runConfigurationCombo->setCurrentIndex(actRc.row());
     setConfigurationWidget(m_runConfigurationsModel->runConfigurationAt(actRc.row()));
     m_ignoreChange = false;
+    m_renameRunButton->setEnabled(m_target->activeRunConfiguration());
 }
 
 void RunSettingsWidget::renameRunConfiguration()
@@ -361,8 +371,10 @@ void RunSettingsWidget::currentRunConfigurationChanged(int index)
 
 void RunSettingsWidget::currentDeployConfigurationChanged(int index)
 {
+    if (m_ignoreChange)
+        return;
     if (index == -1)
-        updateDeployConfiguration(0);
+        m_target->setActiveDeployConfiguration(0);
     else
         m_target->setActiveDeployConfiguration(m_deployConfigurationModel->deployConfigurationAt(index));
 }
@@ -370,9 +382,12 @@ void RunSettingsWidget::currentDeployConfigurationChanged(int index)
 void RunSettingsWidget::aboutToShowDeployMenu()
 {
     m_addDeployMenu->clear();
-    QList<Core::Id> ids = m_target->availableDeployConfigurationIds();
+    DeployConfigurationFactory *factory = DeployConfigurationFactory::find(m_target);
+    if (!factory)
+        return;
+    QList<Core::Id> ids = factory->availableCreationIds(m_target);
     foreach (Core::Id id, ids) {
-        QAction *action = m_addDeployMenu->addAction(m_target->displayNameForDeployConfigurationId(id));
+        QAction *action = m_addDeployMenu->addAction(factory->displayNameForId(id));
         action->setData(QVariant::fromValue(id));
         connect(action, SIGNAL(triggered()),
                 this, SLOT(addDeployConfiguration()));
@@ -385,9 +400,18 @@ void RunSettingsWidget::addDeployConfiguration()
     if (!act)
         return;
     Core::Id id = act->data().value<Core::Id>();
-    DeployConfiguration *newDc = m_target->createDeployConfiguration(id);
+    DeployConfigurationFactory *factory = DeployConfigurationFactory::find(m_target);
+    if (!factory)
+        return;
+    DeployConfiguration *newDc = 0;
+    foreach (Core::Id id, factory->availableCreationIds(m_target)) {
+        if (!factory->canCreate(m_target, id))
+            continue;
+        newDc = factory->create(m_target, id);
+    }
     if (!newDc)
         return;
+    QTC_CHECK(!newDc || newDc->id() == id);
     m_target->addDeployConfiguration(newDc);
     m_target->setActiveDeployConfiguration(newDc);
     m_removeDeployToolButton->setEnabled(m_target->deployConfigurations().size() > 1);
@@ -446,6 +470,12 @@ void RunSettingsWidget::renameDeployConfiguration()
     m_target->activeDeployConfiguration()->setDisplayName(name);
 }
 
+void RunSettingsWidget::updateRemoveToolButton()
+{
+    m_removeDeployToolButton->setEnabled(m_target->deployConfigurations().count() > 1);
+    m_removeRunToolButton->setEnabled(m_target->runConfigurations().size() > 1);
+}
+
 void RunSettingsWidget::updateDeployConfiguration(DeployConfiguration *dc)
 {
     delete m_deployConfigurationWidget;
@@ -453,13 +483,19 @@ void RunSettingsWidget::updateDeployConfiguration(DeployConfiguration *dc)
     delete m_deploySteps;
     m_deploySteps = 0;
 
+    m_ignoreChange = true;
     m_deployConfigurationCombo->setCurrentIndex(-1);
+    m_ignoreChange = false;
+
+    m_renameDeployButton->setEnabled(dc);
 
     if (!dc)
         return;
 
     QModelIndex actDc = m_deployConfigurationModel->indexFor(dc);
+    m_ignoreChange = true;
     m_deployConfigurationCombo->setCurrentIndex(actDc.row());
+    m_ignoreChange = false;
 
     m_deployConfigurationWidget = dc->configurationWidget();
     if (m_deployConfigurationWidget) {
@@ -518,8 +554,7 @@ QString RunSettingsWidget::uniqueRCName(const QString &name)
 
 void RunSettingsWidget::addRunControlWidgets()
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    foreach (IRunControlFactory *f, pm->getObjects<IRunControlFactory>()) {
+    foreach (IRunControlFactory *f, ExtensionSystem::PluginManager::getObjects<IRunControlFactory>()) {
         ProjectExplorer::RunConfigWidget *rcw =
             f->createConfigurationWidget(m_target->activeRunConfiguration());
         if (rcw)

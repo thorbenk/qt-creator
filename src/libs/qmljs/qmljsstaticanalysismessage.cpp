@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -217,6 +215,17 @@ StaticAnalysisMessages::StaticAnalysisMessages()
            tr("maximum string value length is %1"), 1);
     newMsg(ErrInvalidArrayValueLength, Error,
            tr("%1 elements expected in array value"), 1);
+    newMsg(WarnImperativeCodeNotEditableInVisualDesigner, Warning,
+            tr("Imperative code is not supported in the Qt Quick Designer"));
+    newMsg(WarnUnsupportedTypeInVisualDesigner, Warning,
+            tr("This type is not supported in the Qt Quick Designer"));
+    newMsg(WarnReferenceToParentItemNotSupportedByVisualDesigner, Warning,
+            tr("Reference to parent item cannot be resolved correctly by the Qt Quick Designer"));
+    newMsg(WarnUndefinedValueForVisualDesigner, Warning,
+            tr("This visual property binding cannot be evaluted in the local context "
+               "and might not show up in Qt Quick Designer as expected"));
+    newMsg(WarnStatesOnlyInRootItemForVisualDesigner, Warning,
+            tr("Qt Quick Designer only supports states in the root item "));
 }
 
 } // anonymous namespace

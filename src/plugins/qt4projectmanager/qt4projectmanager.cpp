@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,7 +34,6 @@
 #include "qt4projectmanagerplugin.h"
 #include "qt4nodes.h"
 #include "qt4project.h"
-#include "qt4target.h"
 #include "profileeditor.h"
 #include "qmakestep.h"
 #include "qt4buildconfiguration.h"
@@ -55,11 +52,11 @@
 #include <projectexplorer/session.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorerconstants.h>
-#include <projectexplorer/toolchainmanager.h>
-#include <projectexplorer/toolchain.h>
+#include <projectexplorer/target.h>
 #include <utils/qtcassert.h>
 #include <qtsupport/profilereader.h>
 #include <qtsupport/baseqtversion.h>
+#include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtversionmanager.h>
 
 #include <QCoreApplication>
@@ -80,10 +77,11 @@ using ProjectExplorer::FormType;
 using ProjectExplorer::ResourceType;
 using ProjectExplorer::UnknownFileType;
 
+static const char kHostBins[] = "CurrentProject:QT_HOST_BINS";
 static const char kInstallBins[] = "CurrentProject:QT_INSTALL_BINS";
 
 // Known file types of a Qt 4 project
-static const char* qt4FileTypes[] = {
+static const char *qt4FileTypes[] = {
     "CppHeaderFiles",
     "CppSourceFiles",
     "Qt4FormFiles",
@@ -143,16 +141,13 @@ void Qt4Manager::init()
             this, SLOT(editorChanged(Core::IEditor*)));
 
     Core::VariableManager *vm = Core::VariableManager::instance();
+    vm->registerVariable(kHostBins,
+        tr("Full path to the host bin directory of the current project's Qt version."));
     vm->registerVariable(kInstallBins,
-        tr("Full path to the bin directory of the current project's Qt version."));
+        tr("Full path to the target bin directory of the current project's Qt version."
+           " You probably want %1 instead.").arg(QString::fromLatin1(kHostBins)));
     connect(vm, SIGNAL(variableUpdateRequested(QByteArray)),
             this, SLOT(updateVariable(QByteArray)));
-
-    QSettings *settings = Core::ICore::instance()->settings();
-    settings->beginGroup("Qt4ProjectManager");
-    m_unConfiguredVersionId = settings->value("QtVersionId", -1).toInt();
-    m_unconfiguredToolChainId = settings->value("ToolChainId", QString()).toString();
-    settings->endGroup();
 }
 
 void Qt4Manager::editorChanged(Core::IEditor *editor)
@@ -163,7 +158,7 @@ void Qt4Manager::editorChanged(Core::IEditor *editor)
 
         if (m_dirty) {
             const QString contents = formWindowEditorContents(m_lastEditor);
-            foreach(Qt4Project *project, m_projects)
+            foreach (Qt4Project *project, m_projects)
                 project->rootQt4ProjectNode()->updateCodeModelSupportFromEditor(m_lastEditor->document()->fileName(), contents);
             m_dirty = false;
         }
@@ -185,7 +180,7 @@ void Qt4Manager::editorAboutToClose(Core::IEditor *editor)
             disconnect(m_lastEditor, SIGNAL(changed()), this, SLOT(uiEditorContentsChanged()));
             if (m_dirty) {
                 const QString contents = formWindowEditorContents(m_lastEditor);
-                foreach(Qt4Project *project, m_projects)
+                foreach (Qt4Project *project, m_projects)
                     project->rootQt4ProjectNode()->updateCodeModelSupportFromEditor(m_lastEditor->document()->fileName(), contents);
                 m_dirty = false;
             }
@@ -196,24 +191,22 @@ void Qt4Manager::editorAboutToClose(Core::IEditor *editor)
 
 void Qt4Manager::updateVariable(const QByteArray &variable)
 {
-    if (variable == kInstallBins) {
+    if (variable == kHostBins || variable == kInstallBins) {
         Qt4Project *qt4pro = qobject_cast<Qt4Project *>(ProjectExplorer::ProjectExplorerPlugin::currentProject());
         if (!qt4pro) {
-            Core::VariableManager::instance()->remove(kInstallBins);
+            Core::VariableManager::instance()->remove(variable);
             return;
         }
         QString value;
         const QtSupport::BaseQtVersion *qtv = 0;
-        if (Qt4BaseTarget *t = qt4pro->activeTarget()) {
-            if (Qt4BuildConfiguration *bc = t->activeQt4BuildConfiguration())
-                qtv = bc->qtVersion();
-        } else {
-            qtv = unconfiguredSettings().version;
-        }
+        if (ProjectExplorer::Target *t = qt4pro->activeTarget())
+            qtv = QtSupport::QtKitInformation::qtVersion(t->kit());
+        else
+            qtv = QtSupport::QtKitInformation::qtVersion(ProjectExplorer::KitManager::instance()->defaultKit());
 
         if (qtv)
-            value = qtv->versionInfo().value(QLatin1String("QT_INSTALL_BINS"));
-        Core::VariableManager::instance()->insert(kInstallBins, value);
+            value = qtv->qmakeProperty(variable == kHostBins ? "QT_HOST_BINS" : "QT_INSTALL_BINS");
+        Core::VariableManager::instance()->insert(variable, value);
     }
 }
 
@@ -272,7 +265,9 @@ ProjectExplorer::Project *Qt4Manager::openProject(const QString &fileName, QStri
         }
     }
 
-    const QtQuickApp qtQuickApp;
+    QtQuickApp qtQuickApp;
+    updateBoilerPlateCodeFiles(&qtQuickApp, canonicalFilePath);
+    qtQuickApp.setComponentSet(QtQuickApp::QtQuick20Components);
     updateBoilerPlateCodeFiles(&qtQuickApp, canonicalFilePath);
     const Html5App html5App;
     updateBoilerPlateCodeFiles(&html5App, canonicalFilePath);
@@ -382,11 +377,11 @@ void Qt4Manager::runQMake(ProjectExplorer::Project *p, ProjectExplorer::Node *no
         !qt4pro->activeTarget()->activeBuildConfiguration())
         return;
 
-    Qt4BuildConfiguration *bc = qt4pro->activeTarget()->activeQt4BuildConfiguration();
+    Qt4BuildConfiguration *bc = static_cast<Qt4BuildConfiguration *>(qt4pro->activeTarget()->activeBuildConfiguration());
     QMakeStep *qs = bc->qmakeStep();
-
     if (!qs)
         return;
+
     //found qmakeStep, now use it
     qs->setForced(true);
 
@@ -429,7 +424,10 @@ void Qt4Manager::handleSubDirContextMenu(Qt4Manager::Action action, bool isFileB
 
     if (!m_contextNode || !m_contextFile)
         isFileBuild = false;
-    Qt4BuildConfiguration *bc = qt4pro->activeTarget()->activeQt4BuildConfiguration();
+    Qt4BuildConfiguration *bc = qobject_cast<Qt4BuildConfiguration *>(qt4pro->activeTarget()->activeBuildConfiguration());
+    if (!bc)
+        return;
+
     if (m_contextNode != 0 && (m_contextNode != qt4pro->rootProjectNode() || isFileBuild))
         if (Qt4ProFileNode *profile = qobject_cast<Qt4ProFileNode *>(m_contextNode))
             bc->setSubNodeBuild(profile);
@@ -478,58 +476,3 @@ QString Qt4Manager::fileTypeId(ProjectExplorer::FileType type)
     return QString();
 }
 
-UnConfiguredSettings Qt4Manager::unconfiguredSettings() const
-{
-    if (m_unConfiguredVersionId == -1 && m_unconfiguredToolChainId.isEmpty()) {
-        // Choose a good default qtversion and try to find a toolchain that fit
-        QtSupport::BaseQtVersion *version = 0;
-        ProjectExplorer::ToolChain *toolChain = 0;
-        QList<QtSupport::BaseQtVersion *> versions = QtSupport::QtVersionManager::instance()->validVersions();
-        if (!versions.isEmpty()) {
-            version = versions.first();
-
-            foreach (ProjectExplorer::ToolChain *tc, ProjectExplorer::ToolChainManager::instance()->toolChains()) {
-                if (tc->mkspecList().contains(version->mkspec())) {
-                    toolChain = tc;
-                    break;
-                }
-            }
-            if (!toolChain) {
-                foreach (ProjectExplorer::ToolChain *tc, ProjectExplorer::ToolChainManager::instance()->toolChains()) {
-                    if (version->qtAbis().contains(tc->targetAbi())) {
-                        toolChain = tc;
-                        break;
-                    }
-                }
-            }
-            m_unConfiguredVersionId = version->uniqueId();
-            if (toolChain)
-                m_unconfiguredToolChainId = toolChain->id();
-        }
-        UnConfiguredSettings us;
-        us.version = version;
-        us.toolchain = toolChain;
-        return us;
-    }
-    UnConfiguredSettings us;
-    us.version = QtSupport::QtVersionManager::instance()->version(m_unConfiguredVersionId);
-    us.toolchain = ProjectExplorer::ToolChainManager::instance()->findToolChain(m_unconfiguredToolChainId);
-    return us;
-}
-
-void Qt4Manager::setUnconfiguredSettings(const UnConfiguredSettings &setting)
-{
-    m_unConfiguredVersionId = setting.version ? setting.version->uniqueId() : -1;
-    m_unconfiguredToolChainId = setting.toolchain ? setting.toolchain->id() : QString();
-
-    QSettings *settings = Core::ICore::instance()->settings();
-    settings->beginGroup("Qt4ProjectManager");
-    settings->setValue("QtVersionId", m_unConfiguredVersionId);
-    settings->setValue("ToolChainId", m_unconfiguredToolChainId);
-    settings->endGroup();
-
-    foreach (Qt4Project *pro, m_projects)
-        if (pro->targets().isEmpty())
-            pro->scheduleAsyncUpdate();
-    emit unconfiguredSettingsChanged();
-}

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,18 +36,14 @@
 #include "androidrunner.h"
 
 #include <projectexplorer/projectexplorerconstants.h>
-#include <utils/qtcassert.h>
 
-#include <QIcon>
+using namespace ProjectExplorer;
 
 namespace Android {
 namespace Internal {
 
-using ProjectExplorer::RunConfiguration;
-using namespace ProjectExplorer;
-
 AndroidRunControl::AndroidRunControl(AndroidRunConfiguration *rc)
-    : RunControl(rc, ProjectExplorer::NormalRunMode)
+    : RunControl(rc, NormalRunMode)
     , m_runner(new AndroidRunner(this, rc, false))
     , m_running(false)
 {
@@ -70,13 +64,13 @@ void AndroidRunControl::start()
         SLOT(handleRemoteErrorOutput(QByteArray)));
     connect(m_runner, SIGNAL(remoteOutput(QByteArray)),
         SLOT(handleRemoteOutput(QByteArray)));
-    connect(m_runner, SIGNAL(remoteProcessFinished(const QString &)),
-        SLOT(handleRemoteProcessFinished(const QString &)));
-    appendMessage(tr("Starting remote process ..."), Utils::NormalMessageFormat);
+    connect(m_runner, SIGNAL(remoteProcessFinished(QString)),
+        SLOT(handleRemoteProcessFinished(QString)));
+    appendMessage(tr("Starting remote process..."), Utils::NormalMessageFormat);
     m_runner->start();
 }
 
-ProjectExplorer::RunControl::StopResult AndroidRunControl::stop()
+RunControl::StopResult AndroidRunControl::stop()
 {
     m_runner->stop();
     return StoppedSynchronously;

@@ -5,7 +5,7 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "QmlProjectManager"
 
-    Depends { name: "qt"; submodules: ['widgets', 'quick1'] }
+    Depends { name: "Qt"; submodules: ["widgets", "quick1"] }
     Depends { name: "Core" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "TextEditor" }
@@ -13,12 +13,12 @@ QtcPlugin {
     Depends { name: "QmlJS" }
     Depends { name: "Debugger" }
     Depends { name: "QtSupport" }
+    Depends { name: "app_version_header" }
 
     Depends { name: "cpp" }
     cpp.includePaths: [
         "..",
-        "../../libs",
-        buildDirectory
+        "../../libs"
     ]
 
     files: [
@@ -37,7 +37,6 @@ QtcPlugin {
         "qmlprojectapplicationwizard.h",
         "qmlprojectmanager_global.h",
         "qmlprojectmanagerconstants.h",
-        "qmlprojecttarget.h",
         "qmlprojectrunconfigurationwidget.h",
         "fileformat/qmlprojectitem.cpp",
         "fileformat/filefilteritems.cpp",
@@ -51,13 +50,9 @@ QtcPlugin {
         "qmlprojectrunconfiguration.cpp",
         "qmlprojectrunconfigurationfactory.cpp",
         "qmlprojectapplicationwizard.cpp",
-        "qmlprojecttarget.cpp",
         "qmlprojectrunconfigurationwidget.cpp",
         "qmlproject.qrc",
         "QmlProject.mimetypes.xml"
     ]
 }
-
-
-
 

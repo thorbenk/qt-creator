@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,19 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qmlprojectmanagerconstants.h"
+#include "qmlproject.h"
 #include "qmlprojectrunconfiguration.h"
 #include "qmlprojectrunconfigurationfactory.h"
-#include "qmlprojecttarget.h"
 
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectconfiguration.h>
 #include <projectexplorer/runconfiguration.h>
+#include <projectexplorer/target.h>
+#include <qtsupport/qtkitinformation.h>
 
 namespace QmlProjectManager {
 namespace Internal {
@@ -44,6 +45,7 @@ namespace Internal {
 QmlProjectRunConfigurationFactory::QmlProjectRunConfigurationFactory(QObject *parent) :
     ProjectExplorer::IRunConfigurationFactory(parent)
 {
+    setObjectName(QLatin1String("QmlProjectRunConfigurationFactory"));
 }
 
 QmlProjectRunConfigurationFactory::~QmlProjectRunConfigurationFactory()
@@ -52,44 +54,68 @@ QmlProjectRunConfigurationFactory::~QmlProjectRunConfigurationFactory()
 
 QList<Core::Id> QmlProjectRunConfigurationFactory::availableCreationIds(ProjectExplorer::Target *parent) const
 {
-    if (!qobject_cast<QmlProjectTarget *>(parent))
+    if (!canHandle(parent))
         return QList<Core::Id>();
-    return QList<Core::Id>() << Core::Id(Constants::QML_RC_ID);
+
+    QtSupport::BaseQtVersion *version
+            = QtSupport::QtKitInformation::qtVersion(parent->kit());
+
+    // put qmlscene first (so that it is the default) for Qt 5.0.0
+    QList<Core::Id> list;
+    if (version && version->qtVersion() >= QtSupport::QtVersionNumber(5, 0, 0))
+        list << Core::Id(Constants::QML_SCENE_RC_ID);
+
+    list << Core::Id(Constants::QML_VIEWER_RC_ID);
+
+    return list;
 }
 
 QString QmlProjectRunConfigurationFactory::displayNameForId(const Core::Id id) const
 {
-    if (id == Core::Id(Constants::QML_RC_ID))
-        return tr("Run QML Script");
+    if (id == Constants::QML_VIEWER_RC_ID)
+        return tr("QML Viewer");
+    if (id == Constants::QML_SCENE_RC_ID)
+        return tr("QML Scene");
     return QString();
 }
 
-bool QmlProjectRunConfigurationFactory::canCreate(ProjectExplorer::Target *parent, const Core::Id id) const
+bool QmlProjectRunConfigurationFactory::canCreate(ProjectExplorer::Target *parent,
+                                                  const Core::Id id) const
 {
-    if (!qobject_cast<QmlProjectTarget *>(parent))
+    if (!canHandle(parent))
         return false;
-    return id == Core::Id(Constants::QML_RC_ID);
+
+    if (id == Constants::QML_VIEWER_RC_ID)
+        return true;
+
+    if (id == Constants::QML_SCENE_RC_ID) {
+        // only support qmlscene if it's Qt5
+        QtSupport::BaseQtVersion *version
+                = QtSupport::QtKitInformation::qtVersion(parent->kit());
+        return version && version->qtVersion() >= QtSupport::QtVersionNumber(5, 0, 0);
+    }
+    return false;
 }
 
 ProjectExplorer::RunConfiguration *QmlProjectRunConfigurationFactory::create(ProjectExplorer::Target *parent, const Core::Id id)
 {
     if (!canCreate(parent, id))
         return 0;
-    QmlProjectTarget *qmlparent = static_cast<QmlProjectTarget *>(parent);
-    return new QmlProjectRunConfiguration(qmlparent);
+    return new QmlProjectRunConfiguration(parent, id);
 }
 
 bool QmlProjectRunConfigurationFactory::canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const
 {
-    return canCreate(parent, ProjectExplorer::idFromMap(map));
+    return parent && canCreate(parent, ProjectExplorer::idFromMap(map));
 }
 
 ProjectExplorer::RunConfiguration *QmlProjectRunConfigurationFactory::restore(ProjectExplorer::Target *parent, const QVariantMap &map)
 {
     if (!canRestore(parent, map))
         return 0;
-    QmlProjectTarget *qmlparent = static_cast<QmlProjectTarget *>(parent);
-    QmlProjectRunConfiguration *rc = new QmlProjectRunConfiguration(qmlparent);
+
+    Core::Id id = ProjectExplorer::idFromMap(map);
+    QmlProjectRunConfiguration *rc = new QmlProjectRunConfiguration(parent, id);
     if (rc->fromMap(map))
         return rc;
     delete rc;
@@ -106,8 +132,17 @@ ProjectExplorer::RunConfiguration *QmlProjectRunConfigurationFactory::clone(Proj
 {
     if (!canClone(parent, source))
         return 0;
-    QmlProjectTarget *qmlparent = static_cast<QmlProjectTarget *>(parent);
-    return new QmlProjectRunConfiguration(qmlparent, qobject_cast<QmlProjectRunConfiguration *>(source));
+    return new QmlProjectRunConfiguration(parent, qobject_cast<QmlProjectRunConfiguration *>(source));
+}
+
+bool QmlProjectRunConfigurationFactory::canHandle(ProjectExplorer::Target *parent) const
+{
+    if (!parent->project()->supportsKit(parent->kit()))
+        return false;
+    if (!qobject_cast<QmlProject *>(parent->project()))
+        return false;
+    Core::Id deviceType = ProjectExplorer::DeviceTypeKitInformation::deviceTypeId(parent->kit());
+    return deviceType == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE;
 }
 
 } // namespace Internal

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "devicemanager.h"
@@ -42,7 +40,6 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QList>
-#include <QMainWindow>
 #include <QSettings>
 #include <QString>
 #include <QVariantHash>
@@ -70,10 +67,21 @@ const char DefaultDevicesKey[] = "DefaultDevices";
 class DeviceManagerPrivate
 {
 public:
+    int indexForId(Core::Id id) const
+    {
+        for (int i = 0; i < devices.count(); ++i) {
+            if (devices.at(i)->id() == id)
+                return i;
+        }
+        return -1;
+    }
+
     static DeviceManager *clonedInstance;
     QList<IDevice::Ptr> devices;
     QList<IDevice::Ptr> inactiveAutoDetectedDevices;
     QHash<Core::Id, Core::Id> defaultDevices;
+
+    Utils::PersistentSettingsWriter *writer;
 };
 DeviceManager *DeviceManagerPrivate::clonedInstance = 0;
 
@@ -82,9 +90,9 @@ DeviceManager *DeviceManagerPrivate::clonedInstance = 0;
 using namespace Internal;
 
 
-DeviceManager *DeviceManager::instance(const QString &magicTestToken)
+DeviceManager *DeviceManager::instance()
 {
-    static DeviceManager deviceManager(magicTestToken != QLatin1String("magicTestToken"));
+    static DeviceManager deviceManager(true);
     return &deviceManager;
 }
 
@@ -128,15 +136,17 @@ void DeviceManager::copy(const DeviceManager *source, DeviceManager *target, boo
 
 void DeviceManager::save()
 {
-    Utils::PersistentSettingsWriter writer;
-    writer.saveValue(QLatin1String(DeviceManagerKey), toMap());
-    writer.save(settingsFilePath(), QLatin1String("QtCreatorDevices"), Core::ICore::mainWindow());
+    QVariantMap data;
+    data.insert(QLatin1String(DeviceManagerKey), toMap());
+    d->writer->save(data, Core::ICore::mainWindow());
 }
 
 void DeviceManager::load()
 {
     Utils::PersistentSettingsReader reader;
-    if (reader.load(settingsFilePath()))
+    if (reader.load(settingsFilePath(QLatin1String("/qtcreator/devices.xml"))))
+        fromMap(reader.restoreValues().value(QLatin1String(DeviceManagerKey)).toMap());
+    else if (reader.load(settingsFilePath(QLatin1String("/devices.xml"))))
         fromMap(reader.restoreValues().value(QLatin1String(DeviceManagerKey)).toMap());
     else
         loadPre2_6();
@@ -211,10 +221,9 @@ QVariantMap DeviceManager::toMap() const
     return map;
 }
 
-QString DeviceManager::settingsFilePath()
+Utils::FileName DeviceManager::settingsFilePath(const QString &extension)
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    return QFileInfo(pm->settings()->fileName()).absolutePath() + QLatin1String("/devices.xml");
+    return Utils::FileName::fromString(QFileInfo(ExtensionSystem::PluginManager::settings()->fileName()).absolutePath() + extension);
 }
 
 void DeviceManager::addDevice(const IDevice::Ptr &_device)
@@ -223,7 +232,7 @@ void DeviceManager::addDevice(const IDevice::Ptr &_device)
     QTC_ASSERT(this != instance() || device->isAutoDetected(), return);
 
     QString name = device->displayName();
-    const int pos = indexForId(device->id());
+    const int pos = d->indexForId(device->id());
     if (pos >= 0) {
         device->setDisplayName(QString()); // For name uniquification to work.
         d->devices[pos] = device;
@@ -272,7 +281,7 @@ void DeviceManager::removeDevice(Core::Id id)
 
     const bool wasDefault = d->defaultDevices.value(device->type()) == device->id();
     const Core::Id deviceType = device->type();
-    d->devices.removeAt(indexForId(id));
+    d->devices.removeAt(d->indexForId(id));
     emit deviceRemoved(device->id());
 
     if (wasDefault) {
@@ -311,18 +320,21 @@ void DeviceManager::setDefaultDevice(int idx)
 const IDeviceFactory *DeviceManager::restoreFactory(const QVariantMap &map)
 {
     const QList<IDeviceFactory *> &factories
-        = ExtensionSystem::PluginManager::instance()->getObjects<IDeviceFactory>();
+        = ExtensionSystem::PluginManager::getObjects<IDeviceFactory>();
     foreach (const IDeviceFactory * const factory, factories) {
         if (factory->canRestore(map))
             return factory;
     }
-    qWarning("Warning: No factory found for device of type '%s'.",
-        qPrintable(IDevice::typeFromMap(map).toString()));
+    qWarning("Warning: No factory found for device '%s' of type '%s'.",
+             qPrintable(IDevice::idFromMap(map).toString()),
+             qPrintable(IDevice::typeFromMap(map).toString()));
     return 0;
 }
 
 DeviceManager::DeviceManager(bool isInstance) : d(new DeviceManagerPrivate)
 {
+    d->writer = new Utils::PersistentSettingsWriter(settingsFilePath(QLatin1String("/qtcreator/devices.xml")),
+                                                    QLatin1String("QtCreatorDevices"));
     if (isInstance) {
         load();
         connect(Core::ICore::instance(), SIGNAL(saveSettingsRequested()), SLOT(save()));
@@ -331,6 +343,7 @@ DeviceManager::DeviceManager(bool isInstance) : d(new DeviceManagerPrivate)
 
 DeviceManager::~DeviceManager()
 {
+    delete d->writer;
     delete d;
 }
 
@@ -342,7 +355,7 @@ IDevice::ConstPtr DeviceManager::deviceAt(int idx) const
 
 IDevice::Ptr DeviceManager::mutableDevice(Core::Id id) const
 {
-    const int index = indexForId(id);
+    const int index = d->indexForId(id);
     return index == -1 ? IDevice::Ptr() : d->devices.at(index);
 }
 
@@ -357,7 +370,7 @@ bool DeviceManager::hasDevice(const QString &name) const
 
 IDevice::ConstPtr DeviceManager::find(Core::Id id) const
 {
-    const int index = indexForId(id);
+    const int index = d->indexForId(id);
     return index == -1 ? IDevice::ConstPtr() : deviceAt(index);
 }
 
@@ -374,23 +387,9 @@ IDevice::ConstPtr DeviceManager::defaultDevice(Core::Id deviceType) const
     return find(id);
 }
 
-int DeviceManager::indexForId(Core::Id id) const
-{
-    for (int i = 0; i < d->devices.count(); ++i) {
-        if (deviceAt(i)->id() == id)
-            return i;
-    }
-    return -1;
-}
-
 Core::Id DeviceManager::deviceId(const IDevice::ConstPtr &device) const
 {
     return device ? device->id() : IDevice::invalidId();
-}
-
-int DeviceManager::indexOf(const IDevice::ConstPtr &device) const
-{
-    return indexForId(device->id());
 }
 
 void DeviceManager::ensureOneDefaultDevicePerType()
@@ -421,5 +420,104 @@ IDevice::ConstPtr DeviceManager::fromRawPointer(const IDevice *device) const
     return fromRawPointer(const_cast<IDevice *>(device));
 }
 
+} // namespace ProjectExplorer
+
+
+#ifdef WITH_TESTS
+#include "projectexplorer.h"
+#include <QSignalSpy>
+#include <QTest>
+#include <QUuid>
+
+namespace ProjectExplorer {
+
+class TestDevice : public IDevice
+{
+public:
+    TestDevice()
+        : IDevice(testTypeId(), AutoDetected, Hardware, Core::Id(QUuid::createUuid().toString())) {}
+
+    static Core::Id testTypeId() { return Core::Id("TestType"); }
+private:
+    TestDevice(const TestDevice &other) : IDevice(other) {}
+    QString displayType() const { return QLatin1String("blubb"); }
+    IDeviceWidget *createWidget() { return 0; }
+    QList<Core::Id> actionIds() const { return QList<Core::Id>(); }
+    QString displayNameForActionId(Core::Id) const { return QString(); }
+    void executeAction(Core::Id, QWidget *) const { }
+    Ptr clone() const { return Ptr(new TestDevice(*this)); }
+};
+
+void ProjectExplorerPlugin::testDeviceManager()
+{
+    TestDevice::Ptr dev = IDevice::Ptr(new TestDevice);
+    dev->setDisplayName(QLatin1String("blubbdiblubbfurz!"));
+    QVERIFY(dev->isAutoDetected());
+    QCOMPARE(dev->type(), TestDevice::testTypeId());
+
+    TestDevice::Ptr dev2 = dev->clone();
+    QCOMPARE(dev->id(), dev2->id());
+
+    DeviceManager * const mgr = DeviceManager::instance();
+    QVERIFY(!mgr->find(dev->id()));
+    const int oldDeviceCount = mgr->deviceCount();
+
+    QSignalSpy deviceAddedSpy(mgr, SIGNAL(deviceAdded(Core::Id)));
+    QSignalSpy deviceRemovedSpy(mgr, SIGNAL(deviceRemoved(Core::Id)));
+    QSignalSpy deviceUpdatedSpy(mgr, SIGNAL(deviceUpdated(Core::Id)));
+    QSignalSpy deviceListChangedSpy(mgr, SIGNAL(deviceListChanged()));
+    QSignalSpy updatedSpy(mgr, SIGNAL(updated()));
+
+    mgr->addDevice(dev);
+    QCOMPARE(mgr->deviceCount(), oldDeviceCount + 1);
+    QVERIFY(mgr->find(dev->id()));
+    QVERIFY(mgr->hasDevice(dev->displayName()));
+    QCOMPARE(deviceAddedSpy.count(), 1);
+    QCOMPARE(deviceRemovedSpy.count(), 0);
+    QCOMPARE(deviceUpdatedSpy.count(), 0);
+    QCOMPARE(deviceListChangedSpy.count(), 0);
+    QCOMPARE(updatedSpy.count(), 1);
+    deviceAddedSpy.clear();
+    updatedSpy.clear();
+
+    mgr->addDevice(dev2);
+    QCOMPARE(mgr->deviceCount(), oldDeviceCount + 1);
+    QVERIFY(mgr->find(dev->id()));
+    QCOMPARE(deviceAddedSpy.count(), 0);
+    QCOMPARE(deviceRemovedSpy.count(), 0);
+    QCOMPARE(deviceUpdatedSpy.count(), 1);
+    QCOMPARE(deviceListChangedSpy.count(), 0);
+    QCOMPARE(updatedSpy.count(), 1);
+    deviceUpdatedSpy.clear();
+    updatedSpy.clear();
+
+    TestDevice::Ptr dev3 = IDevice::Ptr(new TestDevice);
+    QVERIFY(dev->id() != dev3->id());
+
+    dev3->setDisplayName(dev->displayName());
+    mgr->addDevice(dev3);
+    QCOMPARE(mgr->deviceAt(mgr->deviceCount() - 1)->displayName(),
+             QString(dev3->displayName() + QLatin1String(" (2)")));
+    QCOMPARE(deviceAddedSpy.count(), 1);
+    QCOMPARE(deviceRemovedSpy.count(), 0);
+    QCOMPARE(deviceUpdatedSpy.count(), 0);
+    QCOMPARE(deviceListChangedSpy.count(), 0);
+    QCOMPARE(updatedSpy.count(), 1);
+    deviceAddedSpy.clear();
+    updatedSpy.clear();
+
+    mgr->removeDevice(dev->id());
+    mgr->removeDevice(dev3->id());
+    QCOMPARE(mgr->deviceCount(), oldDeviceCount);
+    QVERIFY(!mgr->find(dev->id()));
+    QVERIFY(!mgr->find(dev3->id()));
+    QCOMPARE(deviceAddedSpy.count(), 0);
+    QCOMPARE(deviceRemovedSpy.count(), 2);
+//    QCOMPARE(deviceUpdatedSpy.count(), 0); Uncomment once the "default" stuff is gone.
+    QCOMPARE(deviceListChangedSpy.count(), 0);
+    QCOMPARE(updatedSpy.count(), 2);
+}
 
 } // namespace ProjectExplorer
+
+#endif // WITH_TESTS

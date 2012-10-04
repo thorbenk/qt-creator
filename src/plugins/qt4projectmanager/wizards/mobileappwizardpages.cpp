@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,7 +32,6 @@
 #include "ui_mobileappwizardgenericoptionspage.h"
 #include "ui_mobileappwizardmaemooptionspage.h"
 #include "ui_mobileappwizardharmattanoptionspage.h"
-#include "ui_mobileappwizardsymbianoptionspage.h"
 #include <coreplugin/coreconstants.h>
 #include <utils/fileutils.h>
 
@@ -51,13 +48,6 @@ class MobileAppWizardGenericOptionsPagePrivate
 {
     Ui::MobileAppWizardGenericOptionsPage ui;
     friend class MobileAppWizardGenericOptionsPage;
-};
-
-class MobileAppWizardSymbianOptionsPagePrivate
-{
-    Ui::MobileAppWizardSymbianOptionsPage ui;
-    QString svgIcon;
-    friend class MobileAppWizardSymbianOptionsPage;
 };
 
 class MobileAppWizardMaemoOptionsPagePrivate
@@ -113,69 +103,6 @@ AbstractMobileApp::ScreenOrientation MobileAppWizardGenericOptionsPage::orientat
 }
 
 
-MobileAppWizardSymbianOptionsPage::MobileAppWizardSymbianOptionsPage(QWidget *parent)
-    : QWizardPage(parent)
-    , d(new MobileAppWizardSymbianOptionsPagePrivate)
-{
-    d->ui.setupUi(this);
-    const QIcon open = QApplication::style()->standardIcon(QStyle::SP_DirOpenIcon);
-    d->ui.appIconLoadToolButton->setIcon(open);
-    connect(d->ui.appIconLoadToolButton, SIGNAL(clicked()), SLOT(openSvgIcon()));
-}
-
-MobileAppWizardSymbianOptionsPage::~MobileAppWizardSymbianOptionsPage()
-{
-    delete d;
-}
-
-QString MobileAppWizardSymbianOptionsPage::svgIcon() const
-{
-    return d->svgIcon;
-}
-
-void MobileAppWizardSymbianOptionsPage::setSvgIcon(const QString &icon)
-{
-    QPixmap iconPixmap(icon);
-    if (!iconPixmap.isNull()) {
-        const int symbianIconSize = 44;
-        if (iconPixmap.height() > symbianIconSize || iconPixmap.width() > symbianIconSize)
-            iconPixmap = iconPixmap.scaledToHeight(symbianIconSize, Qt::SmoothTransformation);
-        d->ui.appIconPreview->setPixmap(iconPixmap);
-        d->svgIcon = icon;
-    }
-}
-
-QString MobileAppWizardSymbianOptionsPage::symbianUid() const
-{
-    return d->ui.uid3LineEdit->text();
-}
-
-void MobileAppWizardSymbianOptionsPage::setSymbianUid(const QString &uid)
-{
-    d->ui.uid3LineEdit->setText(uid);
-}
-
-void MobileAppWizardSymbianOptionsPage::setNetworkEnabled(bool enableIt)
-{
-    d->ui.enableNetworkCheckBox->setChecked(enableIt);
-}
-
-bool MobileAppWizardSymbianOptionsPage::networkEnabled() const
-{
-    return d->ui.enableNetworkCheckBox->isChecked();
-}
-
-void MobileAppWizardSymbianOptionsPage::openSvgIcon()
-{
-    const QString svgIcon = QFileDialog::getOpenFileName(
-            this,
-            d->ui.appIconLabel->text(),
-            QDesktopServices::storageLocation(QDesktopServices::PicturesLocation),
-            QLatin1String("*.svg"));
-    if (!svgIcon.isEmpty())
-        setSvgIcon(svgIcon);
-}
-
 MobileAppWizardMaemoOptionsPage::MobileAppWizardMaemoOptionsPage(QWidget *parent)
     : QWizardPage(parent)
     , d(new MobileAppWizardMaemoOptionsPagePrivate)
@@ -227,7 +154,7 @@ public:
         saver.setAutoRemove(false);
         if (!saver.hasError())
             saver.setResult(m_pixmap.save(
-                                saver.file(), QFileInfo(m_iconPath).suffix().toAscii().constData()));
+                                saver.file(), QFileInfo(m_iconPath).suffix().toLatin1().constData()));
         if (!saver.finalize()) {
             QMessageBox::critical(QApplication::activeWindow(),
                                   tr("File Error"),

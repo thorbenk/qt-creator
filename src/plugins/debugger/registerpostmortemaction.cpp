@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -42,9 +40,9 @@
 #include <QDir>
 #include <QString>
 
-#include <Windows.h>
-#include <Objbase.h>
-#include <Shellapi.h>
+#include <windows.h>
+#include <objbase.h>
+#include <shellapi.h>
 
 using namespace RegistryAccess;
 
@@ -55,7 +53,7 @@ void RegisterPostMortemAction::registerNow(const QVariant &value)
 {
     const bool boolValue = value.toBool();
     const QString debuggerExe = QDir::toNativeSeparators(QCoreApplication::applicationDirPath() + QLatin1Char('/')
-                                + debuggerApplicationFileC + QLatin1String(".exe"));
+                                + QLatin1String(debuggerApplicationFileC) + QLatin1String(".exe"));
     const ushort *debuggerWString = debuggerExe.utf16();
 
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,7 +33,6 @@
 #include "maemoglobal.h"
 #include "maemoqemuruntimeparser.h"
 #include "maemosettingspages.h"
-#include "qt4maemotarget.h"
 #include "maemoqtversion.h"
 
 #include <coreplugin/actionmanager/actionmanager.h>
@@ -46,13 +43,13 @@
 #include <coreplugin/icontext.h>
 #include <coreplugin/modemanager.h>
 
+#include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/session.h>
-#include <projectexplorer/buildconfiguration.h>
+#include <projectexplorer/target.h>
+#include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtversionmanager.h>
-#include <qt4projectmanager/qt4buildconfiguration.h>
-#include <remotelinux/linuxdeviceconfiguration.h>
 #include <remotelinux/remotelinuxrunconfiguration.h>
 #include <utils/filesystemwatcher.h>
 
@@ -69,7 +66,6 @@
 #include <limits.h>
 
 using namespace ProjectExplorer;
-using namespace Qt4ProjectManager;
 using namespace RemoteLinux;
 
 namespace Madde {
@@ -97,8 +93,7 @@ MaemoQemuManager::MaemoQemuManager(QObject *parent)
     m_qemuAction->setToolTip(tr("Start MeeGo Emulator"));
     connect(m_qemuAction, SIGNAL(triggered()), this, SLOT(startRuntime()));
 
-    Core::ActionManager *actionManager = Core::ICore::actionManager();
-    Core::Command *qemuCommand = actionManager->registerAction(m_qemuAction,
+    Core::Command *qemuCommand = Core::ActionManager::registerAction(m_qemuAction,
         "MaemoEmulator", Core::Context(Core::Constants::C_GLOBAL));
     qemuCommand->setAttribute(Core::Command::CA_UpdateText);
     qemuCommand->setAttribute(Core::Command::CA_UpdateIcon);
@@ -107,7 +102,7 @@ MaemoQemuManager::MaemoQemuManager(QObject *parent)
     m_qemuAction->setEnabled(false);
     m_qemuAction->setVisible(false);
 
-    // listen to qt version changes to update the start button
+    // listen to Qt version changes to update the start button
     connect(QtSupport::QtVersionManager::instance(), SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
         this, SLOT(qtVersionsChanged(QList<int>,QList<int>,QList<int>)));
 
@@ -200,7 +195,7 @@ void MaemoQemuManager::qtVersionsChanged(const QList<int> &added, const QList<in
                 }
             }
         } else {
-            // this qt version has been removed from the settings
+            // this Qt version has been removed from the settings
             m_runtimes.remove(uniqueId);
             if (uniqueId == m_runningQtId) {
                 terminateRuntime();
@@ -251,56 +246,24 @@ void MaemoQemuManager::projectChanged(ProjectExplorer::Project *project)
 
 void MaemoQemuManager::targetAdded(ProjectExplorer::Target *target)
 {
-    if (!target || !MaemoGlobal::isMaemoTargetId(target->id()))
+    if (!target || !MaemoGlobal::hasMaemoDevice(target->kit()))
         return;
 
-    // handle all run configuration changes, add, remove, etc...
-    connect(target, SIGNAL(addedRunConfiguration(ProjectExplorer::RunConfiguration*)),
-        this, SLOT(runConfigurationAdded(ProjectExplorer::RunConfiguration*)));
-    connect(target, SIGNAL(removedRunConfiguration(ProjectExplorer::RunConfiguration*)),
-        this, SLOT(runConfigurationRemoved(ProjectExplorer::RunConfiguration*)));
-    connect(target, SIGNAL(activeRunConfigurationChanged(ProjectExplorer::RunConfiguration*)),
-        this, SLOT(runConfigurationChanged(ProjectExplorer::RunConfiguration*)));
-
-    // handle all build configuration changes, add, remove, etc...
-    connect(target, SIGNAL(removedBuildConfiguration(ProjectExplorer::BuildConfiguration*)),
-        this, SLOT(buildConfigurationAdded(ProjectExplorer::BuildConfiguration*)));
-    connect(target, SIGNAL(removedBuildConfiguration(ProjectExplorer::BuildConfiguration*)),
-        this, SLOT(buildConfigurationRemoved(ProjectExplorer::BuildConfiguration*)));
-    connect(target, SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
-        this, SLOT(buildConfigurationChanged(ProjectExplorer::BuildConfiguration*)));
-
-    // handle the qt version changes the build configuration uses
+    // handle the Qt version changes the build configuration uses
     connect(target, SIGNAL(environmentChanged()), this, SLOT(environmentChanged()));
+    connect(target, SIGNAL(kitChanged()), this, SLOT(systemChanged()));
 
-    foreach (RunConfiguration *rc, target->runConfigurations())
-        toggleDeviceConnections(qobject_cast<RemoteLinuxRunConfiguration*> (rc), true);
     toggleStarterButton(target);
 }
 
 void MaemoQemuManager::targetRemoved(ProjectExplorer::Target *target)
 {
-    if (!target || !MaemoGlobal::isMaemoTargetId(target->id()))
+    if (!target || !MaemoGlobal::hasMaemoDevice(target->kit()))
         return;
 
-    disconnect(target, SIGNAL(addedRunConfiguration(ProjectExplorer::RunConfiguration*)),
-        this, SLOT(runConfigurationAdded(ProjectExplorer::RunConfiguration*)));
-    disconnect(target, SIGNAL(removedRunConfiguration(ProjectExplorer::RunConfiguration*)),
-        this, SLOT(runConfigurationRemoved(ProjectExplorer::RunConfiguration*)));
-    disconnect(target, SIGNAL(activeRunConfigurationChanged(ProjectExplorer::RunConfiguration*)),
-        this, SLOT(runConfigurationChanged(ProjectExplorer::RunConfiguration*)));
-
-    disconnect(target, SIGNAL(removedBuildConfiguration(ProjectExplorer::BuildConfiguration*)),
-        this, SLOT(buildConfigurationAdded(ProjectExplorer::BuildConfiguration*)));
-    disconnect(target, SIGNAL(removedBuildConfiguration(ProjectExplorer::BuildConfiguration*)),
-        this, SLOT(buildConfigurationRemoved(ProjectExplorer::BuildConfiguration*)));
-    disconnect(target, SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
-        this, SLOT(buildConfigurationChanged(ProjectExplorer::BuildConfiguration*)));
-
     disconnect(target, SIGNAL(environmentChanged()), this, SLOT(environmentChanged()));
+    disconnect(target, SIGNAL(kitChanged()), this, SLOT(systemChanged()));
 
-    foreach (RunConfiguration *rc, target->runConfigurations())
-        toggleDeviceConnections(qobject_cast<RemoteLinuxRunConfiguration*> (rc), false);
     showOrHideQemuButton();
 }
 
@@ -312,51 +275,15 @@ void MaemoQemuManager::targetChanged(ProjectExplorer::Target *target)
     }
 }
 
-void MaemoQemuManager::runConfigurationAdded(ProjectExplorer::RunConfiguration *rc)
+void MaemoQemuManager::systemChanged()
 {
-    if (!rc || !MaemoGlobal::isMaemoTargetId(rc->target()->id()))
-        return;
-    toggleDeviceConnections(qobject_cast<RemoteLinuxRunConfiguration*> (rc), true);
-}
-
-void MaemoQemuManager::runConfigurationRemoved(ProjectExplorer::RunConfiguration *rc)
-{
-    if (!rc || !MaemoGlobal::isMaemoTargetId(rc->target()->id()))
-        return;
-    toggleDeviceConnections(qobject_cast<RemoteLinuxRunConfiguration*> (rc), false);
-}
-
-void MaemoQemuManager::runConfigurationChanged(ProjectExplorer::RunConfiguration *rc)
-{
-    if (rc)
-        m_qemuAction->setEnabled(targetUsesMatchingRuntimeConfig(rc->target()));
-}
-
-void MaemoQemuManager::buildConfigurationAdded(ProjectExplorer::BuildConfiguration *bc)
-{
-    if (!bc || !MaemoGlobal::isMaemoTargetId(bc->target()->id()))
-        return;
-
-    connect(bc, SIGNAL(environmentChanged()), this, SLOT(environmentChanged()));
-}
-
-void MaemoQemuManager::buildConfigurationRemoved(ProjectExplorer::BuildConfiguration *bc)
-{
-    if (!bc || !MaemoGlobal::isMaemoTargetId(bc->target()->id()))
-        return;
-
-    disconnect(bc, SIGNAL(environmentChanged()), this, SLOT(environmentChanged()));
-}
-
-void MaemoQemuManager::buildConfigurationChanged(ProjectExplorer::BuildConfiguration *bc)
-{
-    if (bc)
-        toggleStarterButton(bc->target());
+    Target *t = qobject_cast<Target *>(sender());
+    targetChanged(t);
 }
 
 void MaemoQemuManager::environmentChanged()
 {
-    // likely to happen when the qt version changes the build config is using
+    // likely to happen when the Qt version changes the build config is using
     if (ProjectExplorerPlugin *explorer = ProjectExplorerPlugin::instance()) {
         if (Project *project = explorer->session()->startupProject())
             toggleStarterButton(project->activeTarget());
@@ -532,12 +459,9 @@ void MaemoQemuManager::toggleStarterButton(Target *target)
 {
     int uniqueId = -1;
     if (target) {
-        if (AbstractQt4MaemoTarget *qt4Target = qobject_cast<AbstractQt4MaemoTarget*>(target)) {
-            if (Qt4BuildConfiguration *bc = qt4Target->activeQt4BuildConfiguration()) {
-                if (QtSupport::BaseQtVersion *version = bc->qtVersion())
-                    uniqueId = version->uniqueId();
-            }
-        }
+        QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target->kit());
+        if (version)
+            uniqueId = version->uniqueId();
     }
 
     if (uniqueId >= 0 && (m_runtimes.isEmpty() || !m_runtimes.contains(uniqueId)))
@@ -550,7 +474,7 @@ void MaemoQemuManager::toggleStarterButton(Target *target)
     const Project * const p
         = ProjectExplorerPlugin::instance()->session()->startupProject();
     const bool qemuButtonEnabled
-        = p && p->activeTarget() && MaemoGlobal::isMaemoTargetId(p->activeTarget()->id())
+        = p && p->activeTarget() && MaemoGlobal::hasMaemoDevice(target->kit())
             && m_runtimes.value(uniqueId, MaemoQemuRuntime()).isValid()
             && targetUsesMatchingRuntimeConfig(target) && !isRunning;
     m_qemuAction->setEnabled(qemuButtonEnabled);
@@ -563,7 +487,7 @@ bool MaemoQemuManager::sessionHasMaemoTarget() const
     const QList<Project*> &projects = explorer->session()->projects();
     foreach (const Project *p, projects) {
         foreach (const Target * const target, p->targets()) {
-            if (MaemoGlobal::isMaemoTargetId(target->id()))
+            if (MaemoGlobal::hasMaemoDevice(target->kit()))
                 return true;
         }
     }
@@ -582,39 +506,21 @@ bool MaemoQemuManager::targetUsesMatchingRuntimeConfig(Target *target,
         qobject_cast<RemoteLinuxRunConfiguration *> (target->activeRunConfiguration());
     if (!mrc)
         return false;
-    Qt4BuildConfiguration *bc
-        = qobject_cast<Qt4BuildConfiguration *>(target->activeBuildConfiguration());
-    if (!bc)
-        return false;
-    QtSupport::BaseQtVersion *version = bc->qtVersion();
+
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target->kit());
     if (!version || !m_runtimes.value(version->uniqueId(), MaemoQemuRuntime()).isValid())
         return false;
 
     if (qtVersion)
         *qtVersion = version;
-    const LinuxDeviceConfiguration::ConstPtr &config = mrc->deviceConfig();
-    return config && config->machineType() == LinuxDeviceConfiguration::Emulator;
+    const IDevice::ConstPtr config = DeviceKitInformation::device(target->kit());
+    return !config.isNull() && config->machineType() == IDevice::Emulator;
 }
 
 void MaemoQemuManager::notify(const QList<int> uniqueIds)
 {
     qtVersionsChanged(QList<int>(), QList<int>(), uniqueIds);
     environmentChanged();   // to toggle the start button
-}
-
-void MaemoQemuManager::toggleDeviceConnections(RemoteLinuxRunConfiguration *mrc,
-    bool _connect)
-{
-    if (!mrc)
-        return;
-
-    if (_connect) { // handle device configuration changes
-        connect(mrc, SIGNAL(deviceConfigurationChanged(ProjectExplorer::Target*)),
-            this, SLOT(deviceConfigurationChanged(ProjectExplorer::Target*)));
-    } else {
-        disconnect(mrc, SIGNAL(deviceConfigurationChanged(ProjectExplorer::Target*)),
-            this, SLOT(deviceConfigurationChanged(ProjectExplorer::Target*)));
-    }
 }
 
 void MaemoQemuManager::showOrHideQemuButton()

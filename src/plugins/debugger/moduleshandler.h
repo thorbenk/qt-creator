@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,28 +25,29 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef DEBUGGER_MODULESHANDLER_H
 #define DEBUGGER_MODULESHANDLER_H
 
-#include <QAbstractItemModel>
+#include <utils/elfreader.h>
+
 #include <QObject>
 #include <QVector>
 
 QT_BEGIN_NAMESPACE
+class QAbstractItemModel;
 class QSortFilterProxyModel;
 QT_END_NAMESPACE
 
 namespace Debugger {
+
+class DebuggerEngine;
+
 namespace Internal {
 
 class ModulesModel;
-class ModulesHandler;
-
 
 //////////////////////////////////////////////////////////////////
 //
@@ -75,67 +76,25 @@ typedef QVector<Symbol> Symbols;
 class Module
 {
 public:
-    Module() : symbolsRead(UnknownReadState), symbolsType(UnknownType) {}
+    Module() : symbolsRead(UnknownReadState) {}
 
 public:
     enum SymbolReadState {
         UnknownReadState,  // Not tried.
         ReadFailed,        // Tried to read, but failed.
-        ReadOk            // Dwarf index available.
-    };
-    enum SymbolType {
-        UnknownType,       // Unknown.
-        PlainSymbols,      // Ordinary symbols available.
-        FastSymbols       // Dwarf index available.
+        ReadOk             // Dwarf index available.
     };
     QString moduleName;
     QString modulePath;
+    QString hostPath;
     SymbolReadState symbolsRead;
-    SymbolType symbolsType;
     quint64 startAddress;
     quint64 endAddress;
+
+    Utils::ElfData elfData;
 };
 
 typedef QVector<Module> Modules;
-
-
-//////////////////////////////////////////////////////////////////
-//
-// ModulesModel
-//
-//////////////////////////////////////////////////////////////////
-
-class ModulesModel : public QAbstractItemModel
-{
-    // Needs tr - context.
-    Q_OBJECT
-public:
-    ModulesModel(ModulesHandler *parent);
-
-    // QAbstractItemModel
-    int columnCount(const QModelIndex &parent) const
-        { return parent.isValid() ? 0 : 5; }
-    int rowCount(const QModelIndex &parent) const
-        { return parent.isValid() ? 0 : m_modules.size(); }
-    QModelIndex parent(const QModelIndex &) const { return QModelIndex(); }
-    QModelIndex index(int row, int column, const QModelIndex &) const
-        { return createIndex(row, column); }
-    QVariant headerData(int section, Qt::Orientation orientation, int role) const;
-    QVariant data(const QModelIndex &index, int role) const;
-
-    void clearModel();
-    void addModule(const Module &module);
-    void removeModule(const QString &moduleName);
-    void setModules(const Modules &modules);
-    void updateModule(const QString &moduleName, const Module &module);
-
-    const Modules &modules() const { return m_modules; }
-
-private:
-    int indexOfModule(const QString &name) const;
-
-    Modules m_modules;
-};
 
 
 //////////////////////////////////////////////////////////////////
@@ -149,19 +108,19 @@ class ModulesHandler : public QObject
     Q_OBJECT
 
 public:
-    ModulesHandler();
+    explicit ModulesHandler(DebuggerEngine *engine);
 
     QAbstractItemModel *model() const;
 
     void setModules(const Modules &modules);
-    void addModule(const Module &module);
-    void removeModule(const QString &moduleName);
-    void updateModule(const QString &moduleName, const Module &module);
+    void removeModule(const QString &modulePath);
+    void updateModule(const Module &module);
 
     Modules modules() const;
     void removeAll();
 
 private:
+    DebuggerEngine *m_engine;
     ModulesModel *m_model;
     QSortFilterProxyModel *m_proxyModel;
 };

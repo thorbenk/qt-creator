@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,7 +37,7 @@
 #include <qmldebug/qv8profilerclient.h>
 
 #include <utils/qtcassert.h>
-#include <QWeakPointer>
+#include <QPointer>
 #include <QTimer>
 #include <QMessageBox>
 
@@ -56,8 +54,8 @@ public:
     QmlProfilerStateManager* profilerState;
 
     QmlDebugConnection *connection;
-    QWeakPointer<QmlProfilerTraceClient> qmlclientplugin;
-    QWeakPointer<QV8ProfilerClient> v8clientplugin;
+    QPointer<QmlProfilerTraceClient> qmlclientplugin;
+    QPointer<QV8ProfilerClient> v8clientplugin;
 
     QTimer connectionTimer;
     int connectionAttempts;
@@ -227,13 +225,8 @@ void QmlProfilerClientManager::connectToClient()
     if (!d->connection || d->connection->state() != QAbstractSocket::UnconnectedState)
         return;
 
-    if (d->connectMode == QmlProfilerClientManagerPrivate::TcpConnection) {
-        QmlProfilerTool::logStatus(QString("QML Profiler: Connecting to %1:%2 ...").arg(d->tcpHost, QString::number(d->tcpPort)));
-        d->connection->connectToHost(d->tcpHost, d->tcpPort);
-    } else {
-        QmlProfilerTool::logStatus(QString("QML Profiler: Connecting to %1 ...").arg(d->tcpHost));
-        d->connection->connectToOst(d->ostDevice);
-    }
+    QmlProfilerTool::logStatus(QString("QML Profiler: Connecting to %1:%2 ...").arg(d->tcpHost, QString::number(d->tcpPort)));
+    d->connection->connectToHost(d->tcpHost, d->tcpPort);
 }
 
 bool QmlProfilerClientManager::isConnected() const

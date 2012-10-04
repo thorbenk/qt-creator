@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef OUTPUTPANEMANAGER_H
 #define OUTPUTPANEMANAGER_H
+
+#include <coreplugin/id.h>
 
 #include <QMap>
 #include <QToolButton>
@@ -39,8 +39,11 @@
 QT_BEGIN_NAMESPACE
 class QAction;
 class QComboBox;
-class QStackedWidget;
+class QLabel;
 class QSplitter;
+class QStackedWidget;
+class QTimeLine;
+class QLabel;
 QT_END_NAMESPACE
 
 namespace Core {
@@ -48,11 +51,10 @@ namespace Core {
 class IOutputPane;
 
 namespace Internal {
-class OutputPaneManager;
-class MainWindow;
-}
 
-namespace Internal {
+class MainWindow;
+class OutputPaneToggleButton;
+class OutputPaneManageButton;
 
 class OutputPaneManager : public QWidget
 {
@@ -77,16 +79,20 @@ protected:
     void focusInEvent(QFocusEvent *e);
 
 private slots:
-    void changePage();
-    void showPage(bool focus, bool ensureSizeHint);
-    void togglePage(bool focus);
+    void showPage(int flags);
+    void togglePage(int flags);
     void clearPage();
     void buttonTriggered();
     void updateNavigateState();
+    void popupMenu();
+    void saveSettings() const;
+    void flashButton();
+    void setBadgeNumber(int number);
 
 private:
     // the only class that is allowed to create and destroy
     friend class MainWindow;
+    friend class OutputPaneManageButton;
 
     static void create();
     static void destroy();
@@ -94,10 +100,16 @@ private:
     explicit OutputPaneManager(QWidget *parent = 0);
     ~OutputPaneManager();
 
-    void showPage(int idx, bool focus);
+    void showPage(int idx, int flags);
     void ensurePageVisible(int idx);
     int findIndexForPage(IOutputPane *out);
-    QComboBox *m_widgetComboBox;
+    int currentIndex() const;
+    void setCurrentIndex(int idx);
+    void buttonTriggered(int idx);
+    void readSettings();
+
+    QLabel *m_titleLabel;
+    OutputPaneManageButton *m_manageButton;
     QAction *m_clearAction;
     QToolButton *m_clearButton;
     QToolButton *m_closeButton;
@@ -111,14 +123,14 @@ private:
     QToolButton *m_nextToolButton;
     QWidget *m_toolBar;
 
-    QMap<int, Core::IOutputPane*> m_pageMap;
-    int m_lastIndex;
+    QList<IOutputPane *> m_panes;
+    QVector<OutputPaneToggleButton *> m_buttons;
+    QVector<QAction *> m_actions;
+    QVector<Id> m_ids;
 
     QStackedWidget *m_outputWidgetPane;
     QStackedWidget *m_opToolBarWidgets;
     QWidget *m_buttonsWidget;
-    QMap<int, QToolButton *> m_buttons;
-    QMap<QAction *, int> m_actions;
     QPixmap m_minimizeIcon;
     QPixmap m_maximizeIcon;
     bool m_maximised;
@@ -131,15 +143,31 @@ public:
     OutputPaneToggleButton(int number, const QString &text, QAction *action,
                            QWidget *parent = 0);
     QSize sizeHint() const;
+    void resizeEvent(QResizeEvent *event);
     void paintEvent(QPaintEvent *event);
+    void flash(int count = 3);
+    void setIconBadgeNumber(int number);
 
 private slots:
     void updateToolTip();
 
 private:
+    void checkStateSet();
+
     QString m_number;
     QString m_text;
     QAction *m_action;
+    QTimeLine *m_flashTimer;
+    QLabel *m_label;
+};
+
+class OutputPaneManageButton : public QToolButton
+{
+    Q_OBJECT
+public:
+    OutputPaneManageButton();
+    QSize sizeHint() const;
+    void paintEvent(QPaintEvent *event);
 };
 
 } // namespace Internal

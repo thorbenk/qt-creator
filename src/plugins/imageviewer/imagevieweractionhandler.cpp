@@ -5,7 +5,7 @@
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 ** Copyright (c) 2010 Denis Mingulov.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,8 +26,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -48,7 +46,15 @@
 namespace ImageViewer {
 namespace Internal {
 
-enum SupportedActions { ZoomIn = 0, ZoomOut, OriginalSize, FitToScreen, Background, Outline };
+enum SupportedActions {
+    ZoomIn = 0,
+    ZoomOut,
+    OriginalSize,
+    FitToScreen,
+    Background,
+    Outline,
+    ToggleAnimation
+};
 
 ImageViewerActionHandler::ImageViewerActionHandler(QObject *parent) :
     QObject(parent), m_signalMapper(new QSignalMapper(this))
@@ -83,6 +89,9 @@ void ImageViewerActionHandler::actionTriggered(int supportedAction)
     case Outline:
         viewer->switchViewOutline();
         break;
+    case ToggleAnimation:
+        viewer->togglePlay();
+        break;
     default:
         break;
     }
@@ -95,24 +104,24 @@ void ImageViewerActionHandler::createActions()
     registerNewAction(ZoomOut, Constants::ACTION_ZOOM_OUT, tr("Zoom Out"),
                       QKeySequence(tr("Ctrl+-")));
     registerNewAction(OriginalSize, Constants::ACTION_ORIGINAL_SIZE, tr("Original Size"),
-                      QKeySequence(tr("Ctrl+0")));
+                      QKeySequence(Core::UseMacShortcuts ? tr("Meta+0") : tr("Ctrl+0")));
     registerNewAction(FitToScreen, Constants::ACTION_FIT_TO_SCREEN, tr("Fit To Screen"),
                       QKeySequence(tr("Ctrl+=")));
     registerNewAction(Background, Constants::ACTION_BACKGROUND, tr("Switch Background"),
                       QKeySequence(tr("Ctrl+[")));
     registerNewAction(Outline, Constants::ACTION_OUTLINE, tr("Switch Outline"),
                       QKeySequence(tr("Ctrl+]")));
+    registerNewAction(ToggleAnimation, Constants::ACTION_TOGGLE_ANIMATION, tr("Toggle Animation"),
+                      QKeySequence());
 }
 
 void ImageViewerActionHandler::registerNewAction(int actionId, const Core::Id &id,
     const QString &title, const QKeySequence &key)
 {
     Core::Context context(Constants::IMAGEVIEWER_ID);
-    Core::ActionManager *actionManager = Core::ICore::actionManager();
     QAction *action = new QAction(title, this);
-    Core::Command *command = actionManager->registerAction(action, id, context);
-    if (command)
-        command->setDefaultKeySequence(key);
+    Core::Command *command = Core::ActionManager::registerAction(action, id, context);
+    command->setDefaultKeySequence(key);
     connect(action, SIGNAL(triggered()), m_signalMapper, SLOT(map()));
     m_signalMapper->setMapping(action, actionId);
 }

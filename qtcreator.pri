@@ -1,7 +1,23 @@
 !isEmpty(QTCREATOR_PRI_INCLUDED):error("qtcreator.pri already included")
 QTCREATOR_PRI_INCLUDED = 1
 
-QTCREATOR_VERSION = 2.5.81
+QTCREATOR_VERSION = 2.6.81
+
+isEmpty(QTC_PREFIX) {
+    unix:!macx: QTC_PREFIX = /usr/local
+}
+
+isEqual(QT_MAJOR_VERSION, 5) {
+
+defineReplace(cleanPath) {
+    return($$clean_path($$1))
+}
+
+defineReplace(targetPath) {
+    return($$shell_path($$1))
+}
+
+} else { # qt5
 
 defineReplace(cleanPath) {
     win32:1 ~= s|\\\\|/|g
@@ -19,6 +35,8 @@ defineReplace(cleanPath) {
 defineReplace(targetPath) {
     return($$replace(1, /, $$QMAKE_DIR_SEP))
 }
+
+} # qt5
 
 defineReplace(qtLibraryName) {
    unset(LIBRARY_NAME)
@@ -56,6 +74,15 @@ defineTest(minQtVersion) {
     return(false)
 }
 
+isEqual(QT_MAJOR_VERSION, 5) {
+
+# For use in custom compilers which just copy files
+defineReplace(stripSrcDir) {
+    return($$relative_path($$absolute_path($$1, $$OUT_PWD), $$_PRO_FILE_PWD_))
+}
+
+} else { # qt5
+
 # For use in custom compilers which just copy files
 win32:i_flag = i
 defineReplace(stripSrcDir) {
@@ -65,9 +92,11 @@ defineReplace(stripSrcDir) {
         !contains(1, ^/.*):1 = $$OUT_PWD/$$1
     }
     out = $$cleanPath($$1)
-    out ~= s|^$$re_escape($$PWD/)||$$i_flag
+    out ~= s|^$$re_escape($$_PRO_FILE_PWD_/)||$$i_flag
     return($$out)
 }
+
+} # qt5
 
 isEmpty(TEST):CONFIG(debug, debug|release) {
     !debug_and_release|build_pass {
@@ -157,4 +186,5 @@ win32-msvc* {
 qt:greaterThan(QT_MAJOR_VERSION, 4) {
     contains(QT, core): QT += concurrent
     contains(QT, gui): QT += widgets
+    DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x040900
 }

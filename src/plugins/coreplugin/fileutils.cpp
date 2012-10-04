@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,16 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "fileutils.h"
 
+#include <coreplugin/documentmanager.h>
+#include <coreplugin/icore.h>
+#include <coreplugin/iversioncontrol.h>
+#include <coreplugin/removefiledialog.h>
+#include <coreplugin/vcsmanager.h>
 #include <utils/environment.h>
 
 #include <QDir>
@@ -41,8 +44,11 @@
 #include <QMessageBox>
 #include <QWidget>
 
+#if QT_VERSION < 0x050000
+#include <QAbstractFileEngine>
+#endif
+
 #ifndef Q_OS_WIN
-#include <coreplugin/icore.h>
 #include <utils/consoleprocess.h>
 #include <utils/qtcprocess.h>
 #ifndef Q_OS_MAC
@@ -164,4 +170,55 @@ QString FileUtils::msgTerminalAction()
 #else
     return QApplication::translate("Core::Internal", "Open Terminal Here");
 #endif
+}
+
+void FileUtils::removeFile(const QString &filePath, bool deleteFromFS)
+{
+    // remove from version control
+    ICore::vcsManager()->promptToDelete(filePath);
+
+    // remove from file system
+    if (deleteFromFS) {
+        QFile file(filePath);
+
+        if (file.exists()) {
+            // could have been deleted by vc
+            if (!file.remove())
+                QMessageBox::warning(ICore::mainWindow(),
+                    QApplication::translate("Core::Internal", "Deleting File Failed"),
+                    QApplication::translate("Core::Internal", "Could not delete file %1.").arg(filePath));
+        }
+    }
+}
+
+static inline bool fileSystemRenameFile(const QString &orgFilePath,
+                                        const QString &newFilePath)
+{
+#if QT_VERSION < 0x050000 // ### fixme: QTBUG-3570 might be fixed in Qt 5?
+    QFile f(orgFilePath); // Due to QTBUG-3570
+    QAbstractFileEngine *fileEngine = f.fileEngine();
+    if (!fileEngine->caseSensitive() && orgFilePath.compare(newFilePath, Qt::CaseInsensitive) == 0)
+        return fileEngine->rename(newFilePath);
+#endif
+    return QFile::rename(orgFilePath, newFilePath);
+}
+
+bool FileUtils::renameFile(const QString &orgFilePath, const QString &newFilePath)
+{
+    if (orgFilePath == newFilePath)
+        return false;
+
+    QString dir = QFileInfo(orgFilePath).absolutePath();
+    Core::IVersionControl *vc = Core::ICore::vcsManager()->findVersionControlForDirectory(dir);
+
+    bool result = false;
+    if (vc && vc->supportsOperation(Core::IVersionControl::MoveOperation))
+        result = vc->vcsMove(orgFilePath, newFilePath);
+    if (!result) // The moving via vcs failed or the vcs does not support moving, fall back
+        result = fileSystemRenameFile(orgFilePath, newFilePath);
+    if (result) {
+        // yeah we moved, tell the filemanager about it
+        Core::DocumentManager::renamedFile(orgFilePath, newFilePath);
+    }
+    return result;
 }

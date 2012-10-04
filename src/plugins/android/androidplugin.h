@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,11 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
-#ifndef ANDROIDMANAGER_H
-#define ANDROIDMANAGER_H
+#ifndef ANDROIDPLUGIN_H
+#define ANDROIDPLUGIN_H
 
 #include <extensionsystem/iplugin.h>
 
@@ -40,15 +38,15 @@ namespace Android {
 class AndroidPlugin : public ExtensionSystem::IPlugin
 {
     Q_OBJECT
+    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtCreatorPlugin" FILE "Android.json")
 
 public:
     AndroidPlugin();
-    ~AndroidPlugin();
 
-    bool initialize(const QStringList &arguments, QString *error_message);
+    bool initialize(const QStringList &arguments, QString *errorMessage);
     void extensionsInitialized();
-
 };
-} // namespace Qt4ProjectManager
 
-#endif // ANDROIDMANAGER_H
+} // namespace Android
+
+#endif // ANDROIDPLUGIN_H

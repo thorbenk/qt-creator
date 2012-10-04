@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,8 @@
 #define CODESTYLEPOOL_H
 
 #include "texteditor_global.h"
+
+#include <utils/fileutils.h>
 
 #include <QObject>
 
@@ -70,8 +70,8 @@ public:
 
     void loadCustomCodeStyles();
 
-    ICodeStylePreferences *importCodeStyle(const QString &fileName);
-    void exportCodeStyle(const QString &fileName, ICodeStylePreferences *codeStyle) const;
+    ICodeStylePreferences *importCodeStyle(const Utils::FileName &fileName);
+    void exportCodeStyle(const Utils::FileName &fileName, ICodeStylePreferences *codeStyle) const;
 
 signals:
     void codeStyleAdded(ICodeStylePreferences *);
@@ -82,12 +82,11 @@ private slots:
 
 private:
     QString settingsDir() const;
-    QString settingsPath(const QString &id) const;
-    ICodeStylePreferences *loadCodeStyle(const QString &fileName);
+    Utils::FileName settingsPath(const QString &id) const;
+    ICodeStylePreferences *loadCodeStyle(const Utils::FileName &fileName);
     void saveCodeStyle(ICodeStylePreferences *codeStyle) const;
 
     Internal::CodeStylePoolPrivate *d;
-
 };
 
 } // namespace TextEditor

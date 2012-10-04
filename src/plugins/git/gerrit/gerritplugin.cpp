@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -61,7 +59,6 @@
 #include <QDebug>
 #include <QProcess>
 #include <QRegExp>
-#include <QMainWindow>
 #include <QAction>
 #include <QFileDialog>
 #include <QTemporaryFile>
@@ -312,7 +309,8 @@ void FetchContext::startWritePatchFile()
 
 void FetchContext::startCherryPick()
 {
-    VcsBase::VcsBaseOutputWindow::instance()->popup(); // Point user to errors.
+    // Point user to errors.
+    VcsBase::VcsBaseOutputWindow::instance()->popup(Core::IOutputPane::ModeSwitch | Core::IOutputPane::WithFocus);
     VcsBase::VcsBaseOutputWindow::instance()->append(tr("Cherry-picking %1...").arg(m_patchFileName));
     QStringList args;
     args << QLatin1String("cherry-pick") <<  QLatin1String("FETCH_HEAD");
@@ -346,11 +344,10 @@ bool GerritPlugin::initialize(Core::ActionContainer *ac)
 {
     m_parameters->fromSettings(Core::ICore::instance()->settings());
 
-    Core::ActionManager *am = Core::ICore::instance()->actionManager();
     QAction *openViewAction = new QAction(tr("Gerrit..."), this);
 
     Core::Command *command =
-        am->registerAction(openViewAction, Constants::GERRIT_OPEN_VIEW,
+        Core::ActionManager::registerAction(openViewAction, Constants::GERRIT_OPEN_VIEW,
                            Core::Context(Core::Constants::C_GLOBAL));
     connect(openViewAction, SIGNAL(triggered()), this, SLOT(openView()));
     ac->addAction(command);

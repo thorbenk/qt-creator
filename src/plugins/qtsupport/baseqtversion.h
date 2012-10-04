@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,6 +49,8 @@ class Environment;
 
 namespace ProjectExplorer {
 class IOutputParser;
+class Kit;
+class ToolChain;
 } // namespace ProjectExplorer
 
 QT_BEGIN_NAMESPACE
@@ -100,8 +100,6 @@ public:
     virtual ~BaseQtVersion();
 
     virtual void fromMap(const QVariantMap &map);
-    // pre 2.3 settings, only used by SymbianQt
-    virtual void restoreLegacySettings(QSettings *s);
     virtual BaseQtVersion *clone() const = 0;
     virtual bool equals(BaseQtVersion *other);
 
@@ -119,27 +117,28 @@ public:
     virtual QVariantMap toMap() const;
     virtual bool isValid() const;
     virtual QString invalidReason() const;
-    virtual QString warningReason() const;
+    virtual QStringList warningReason() const;
 
-    virtual bool toolChainAvailable(const Core::Id id) const;
+    virtual ProjectExplorer::ToolChain *preferredToolChain(const Utils::FileName &ms) const;
 
     virtual QString description() const = 0;
     virtual QString toHtml(bool verbose) const;
 
-    virtual bool supportsTargetId(const Core::Id id) const = 0;
-    virtual QSet<Core::Id> supportedTargetIds() const = 0;
     QList<ProjectExplorer::Abi> qtAbis() const;
     virtual QList<ProjectExplorer::Abi> detectQtAbis() const = 0;
 
     // Returns the PREFIX, BINPREFIX, DOCPREFIX and similar information
-    virtual QHash<QString,QString> versionInfo() const;
-    virtual void addToEnvironment(Utils::Environment &env) const;
+    QHash<QString,QString> versionInfo() const;
+    static QString qmakeProperty(const QHash<QString,QString> &versionInfo, const QByteArray &name);
+    QString qmakeProperty(const QByteArray &name) const;
+    virtual void addToEnvironment(const ProjectExplorer::Kit *k, Utils::Environment &env) const;
 
     virtual Utils::FileName sourcePath() const;
     // used by QtUiCodeModelSupport
     virtual QString uicCommand() const;
     virtual QString designerCommand() const;
     virtual QString linguistCommand() const;
+    QString qmlsceneCommand() const;
     QString qmlviewerCommand() const;
 
     virtual QString qtVersionString() const;
@@ -154,15 +153,15 @@ public:
     bool hasDemos() const;
     QString demosPath() const;
 
-    virtual QList<ProjectExplorer::HeaderPath> systemHeaderPathes() const;
+    virtual QList<ProjectExplorer::HeaderPath> systemHeaderPathes(const ProjectExplorer::Kit *k) const;
     virtual QString frameworkInstallPath() const;
 
     // former local functions
     Utils::FileName qmakeCommand() const;
-    virtual QString systemRoot() const;
 
     /// @returns the name of the mkspec
     Utils::FileName mkspec() const;
+    Utils::FileName mkspecFor(ProjectExplorer::ToolChain *tc) const;
     /// @returns the full path to the default directory
     /// specifally not the directory the symlink/ORIGINAL_QMAKESPEC points to
     Utils::FileName mkspecPath() const;
@@ -185,12 +184,13 @@ public:
     /// Check a .pro-file/Qt version combination on possible issues
     /// @return a list of tasks, ordered on severity (errors first, then
     ///         warnings and finally info items.
-    QList<ProjectExplorer::Task> reportIssues(const QString &proFile, const QString &buildDir);
+    QList<ProjectExplorer::Task> reportIssues(const QString &proFile, const QString &buildDir) const;
 
     virtual ProjectExplorer::IOutputParser *createOutputParser() const;
 
     static bool queryQMakeVariables(const Utils::FileName &binary, QHash<QString, QString> *versionInfo);
     static bool queryQMakeVariables(const Utils::FileName &binary, QHash<QString, QString> *versionInfo, bool *qmakeIsExecutable);
+    static Utils::FileName mkspecDirectoryFromVersionInfo(const QHash<QString, QString> &versionInfo);
     static Utils::FileName mkspecFromVersionInfo(const QHash<QString, QString> &versionInfo);
 
 
@@ -220,11 +220,13 @@ public:
     virtual QString platformDisplayName() const;
     virtual bool supportsPlatform(const QString &platformName) const;
 
+    virtual QList<ProjectExplorer::Task> validateKit(const ProjectExplorer::Kit *k);
+
 protected:
     BaseQtVersion();
     BaseQtVersion(const Utils::FileName &path, bool isAutodetected = false, const QString &autodetectionSource = QString());
 
-    virtual QList<ProjectExplorer::Task> reportIssuesImpl(const QString &proFile, const QString &buildDir);
+    virtual QList<ProjectExplorer::Task> reportIssuesImpl(const QString &proFile, const QString &buildDir) const;
 
     // helper function for desktop and simulator to figure out the supported abis based on the libraries
     static Utils::FileName qtCorePath(const QHash<QString,QString> &versionInfo, const QString &versionString);
@@ -238,11 +240,11 @@ private:
     void ctor(const Utils::FileName &qmakePath);
     void updateSourcePath() const;
     void updateVersionInfo() const;
-    enum Binaries { QmlViewer, Designer, Linguist, Uic };
+    enum Binaries { QmlViewer, QmlScene, Designer, Linguist, Uic };
     QString findQtBinary(Binaries binary) const;
     void updateMkspec() const;
     void setId(int id); // used by the qtversionmanager for legacy restore
-                        // and by the qtoptionspage to replace qt versions
+                        // and by the qtoptionspage to replace Qt versions
     QString m_displayName;
     int m_id;
     bool m_isAutodetected;
@@ -275,6 +277,7 @@ private:
     mutable QString m_uicCommand;
     mutable QString m_designerCommand;
     mutable QString m_linguistCommand;
+    mutable QString m_qmlsceneCommand;
     mutable QString m_qmlviewerCommand;
 
     mutable bool m_qmakeIsExecutable;

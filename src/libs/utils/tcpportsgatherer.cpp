@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -47,8 +45,8 @@
 
 #if defined(Q_OS_WIN) && defined(Q_CC_MINGW)
 
-// Missing declarations for MinGW. This requires MinGW with gcc 4.6.
-#if __GNUC__ == 4 && __GNUC_MINOR__ < 7
+// Missing declarations for MinGW 32.
+#if __GNUC__ == 4 && (!defined(__MINGW64_VERSION_MAJOR) || __MINGW64_VERSION_MAJOR < 2)
 typedef enum { } MIB_TCP_STATE;
 #endif
 

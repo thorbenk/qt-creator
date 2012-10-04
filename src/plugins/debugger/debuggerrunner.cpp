@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,9 +39,9 @@
 #include "debuggerplugin.h"
 #include "debuggerstringutils.h"
 #include "debuggerstartparameters.h"
+#include "debuggerkitinformation.h"
 #include "lldb/lldbenginehost.h"
 #include "debuggertooltipmanager.h"
-#include "qml/qmlengine.h"
 
 #ifdef Q_OS_WIN
 #  include "peutils.h"
@@ -51,12 +49,12 @@
 #endif
 
 #include <projectexplorer/abi.h>
-#include <projectexplorer/project.h>
-#include <projectexplorer/projectexplorerconstants.h>
-#include <projectexplorer/target.h>
-#include <projectexplorer/buildconfiguration.h>
-#include <projectexplorer/toolchain.h>
 #include <projectexplorer/applicationrunconfiguration.h> // For LocalApplication*
+#include <projectexplorer/buildconfiguration.h>
+#include <projectexplorer/project.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/target.h>
+#include <projectexplorer/toolchain.h>
 
 #include <utils/outputformat.h>
 #include <utils/synchronousprocess.h>
@@ -65,7 +63,6 @@
 #include <utils/qtcprocess.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/helpmanager.h>
-#include <utils/buildablehelperlibrary.h>
 
 #include <QDir>
 #include <QCheckBox>
@@ -74,35 +71,24 @@
 #include <QErrorMessage>
 #include <QFormLayout>
 #include <QLabel>
-#include <QMessageBox>
+#include <QPointer>
 
-using namespace ProjectExplorer;
 using namespace Debugger::Internal;
+using namespace ProjectExplorer;
+using namespace Utils;
 
 enum { debug = 0 };
 
 namespace Debugger {
 namespace Internal {
 
-bool isCdbEngineEnabled(); // Check the configuration page
-bool checkCdbConfiguration(const DebuggerStartParameters &sp, ConfigurationCheck *check);
-DebuggerEngine *createCdbEngine(const DebuggerStartParameters &sp,
-    DebuggerEngine *masterEngine, QString *error);
-
-bool checkGdbConfiguration(const DebuggerStartParameters &sp, ConfigurationCheck *check);
-DebuggerEngine *createGdbEngine(const DebuggerStartParameters &sp,
-    DebuggerEngine *masterEngine);
-
+DebuggerEngine *createCdbEngine(const DebuggerStartParameters &sp, QString *error);
+DebuggerEngine *createGdbEngine(const DebuggerStartParameters &sp);
 DebuggerEngine *createScriptEngine(const DebuggerStartParameters &sp);
 DebuggerEngine *createPdbEngine(const DebuggerStartParameters &sp);
-QmlEngine *createQmlEngine(const DebuggerStartParameters &sp,
-    DebuggerEngine *masterEngine);
-DebuggerEngine *createQmlCppEngine(const DebuggerStartParameters &sp,
-                                   DebuggerEngineType slaveEngineType,
-                                   QString *errorMessage);
+DebuggerEngine *createQmlEngine(const DebuggerStartParameters &sp);
+DebuggerEngine *createQmlCppEngine(const DebuggerStartParameters &sp, QString *error);
 DebuggerEngine *createLldbEngine(const DebuggerStartParameters &sp);
-
-extern QString msgNoBinaryForToolChain(const Abi &abi);
 
 static const char *engineTypeName(DebuggerEngineType et)
 {
@@ -129,35 +115,13 @@ static const char *engineTypeName(DebuggerEngineType et)
     return "No engine";
 }
 
-static inline QString engineTypeNames(const QList<DebuggerEngineType> &l)
-{
-    QString rc;
-    foreach (DebuggerEngineType et, l) {
-        if (!rc.isEmpty())
-            rc.append(QLatin1String(", "));
-        rc += QLatin1String(engineTypeName(et));
-    }
-    return rc;
-}
-
-static QString msgEngineNotAvailable(const char *engine)
-{
-    return DebuggerPlugin::tr("The application requires the debugger engine '%1', "
-        "which is disabled.").arg(_(engine));
-}
-
-static inline QString msgEngineNotAvailable(DebuggerEngineType et)
-{
-    return msgEngineNotAvailable(engineTypeName(et));
-}
-
 ////////////////////////////////////////////////////////////////////////
 //
 // DebuggerRunConfigWidget
 //
 ////////////////////////////////////////////////////////////////////////
 
-class DebuggerRunConfigWidget : public ProjectExplorer::RunConfigWidget
+class DebuggerRunConfigWidget : public RunConfigWidget
 {
     Q_OBJECT
 
@@ -296,15 +260,10 @@ public:
     explicit DebuggerRunControlPrivate(DebuggerRunControl *parent,
                                        RunConfiguration *runConfiguration);
 
-    DebuggerEngineType engineForExecutable(unsigned enabledEngineTypes,
-        const QString &executable);
-    DebuggerEngineType engineForMode(unsigned enabledEngineTypes,
-        DebuggerStartMode mode);
-
 public:
     DebuggerRunControl *q;
     DebuggerEngine *m_engine;
-    const QWeakPointer<RunConfiguration> m_myRunConfiguration;
+    const QPointer<RunConfiguration> m_myRunConfiguration;
     bool m_running;
 };
 
@@ -320,19 +279,16 @@ DebuggerRunControlPrivate::DebuggerRunControlPrivate(DebuggerRunControl *parent,
 } // namespace Internal
 
 DebuggerRunControl::DebuggerRunControl(RunConfiguration *runConfiguration,
-                                       const DebuggerStartParameters &sp,
-                                       const QPair<DebuggerEngineType, DebuggerEngineType> &masterSlaveEngineTypes)
-    : RunControl(runConfiguration, ProjectExplorer::DebugRunMode),
+                                       const DebuggerStartParameters &sp)
+    : RunControl(runConfiguration, DebugRunMode),
       d(new DebuggerRunControlPrivate(this, runConfiguration))
 {
     connect(this, SIGNAL(finished()), SLOT(handleFinished()));
     // Create the engine. Could arguably be moved to the factory, but
     // we still have a derived S60DebugControl. Should rarely fail, though.
     QString errorMessage;
-    d->m_engine = masterSlaveEngineTypes.first == QmlCppEngineType ?
-            createQmlCppEngine(sp, masterSlaveEngineTypes.second, &errorMessage) :
-            DebuggerRunControlFactory::createEngine(masterSlaveEngineTypes.first, sp,
-                                                    0, &errorMessage);
+    d->m_engine = DebuggerRunControlFactory::createEngine(sp.masterEngineType, sp, &errorMessage);
+
     if (d->m_engine) {
         DebuggerToolTipManager::instance()->registerEngine(d->m_engine);
     } else {
@@ -369,7 +325,7 @@ QIcon DebuggerRunControl::icon() const
     return QIcon(QLatin1String(ProjectExplorer::Constants::ICON_DEBUG_SMALL));
 }
 
-void DebuggerRunControl::setCustomEnvironment(Utils::Environment env)
+void DebuggerRunControl::setCustomEnvironment(Environment env)
 {
     QTC_ASSERT(d->m_engine, return);
     d->m_engine->startParameters().environment = env;
@@ -381,7 +337,7 @@ void DebuggerRunControl::start()
     // User canceled input dialog asking for executable when working on library project.
     if (d->m_engine->startParameters().startMode == StartInternal
         && d->m_engine->startParameters().executable.isEmpty()) {
-        appendMessage(tr("No executable specified.\n"), Utils::ErrorMessageFormat);
+        appendMessage(tr("No executable specified.\n"), ErrorMessageFormat);
         emit started();
         emit finished();
         return;
@@ -416,12 +372,12 @@ void DebuggerRunControl::start()
     d->m_engine->startDebugger(this);
 
     if (d->m_running)
-        appendMessage(tr("Debugging starts\n"), Utils::NormalMessageFormat);
+        appendMessage(tr("Debugging starts\n"), NormalMessageFormat);
 }
 
 void DebuggerRunControl::startFailed()
 {
-    appendMessage(tr("Debugging has failed\n"), Utils::NormalMessageFormat);
+    appendMessage(tr("Debugging has failed\n"), NormalMessageFormat);
     d->m_running = false;
     emit finished();
     d->m_engine->handleStartFailed();
@@ -429,7 +385,7 @@ void DebuggerRunControl::startFailed()
 
 void DebuggerRunControl::handleFinished()
 {
-    appendMessage(tr("Debugging has finished\n"), Utils::NormalMessageFormat);
+    appendMessage(tr("Debugging has finished\n"), NormalMessageFormat);
     if (d->m_engine)
         d->m_engine->handleFinished();
     debuggerCore()->runControlFinished(d->m_engine);
@@ -439,13 +395,13 @@ void DebuggerRunControl::showMessage(const QString &msg, int channel)
 {
     switch (channel) {
         case AppOutput:
-            appendMessage(msg, Utils::StdOutFormatSameLine);
+            appendMessage(msg, StdOutFormatSameLine);
             break;
         case AppError:
-            appendMessage(msg, Utils::StdErrFormatSameLine);
+            appendMessage(msg, StdErrFormatSameLine);
             break;
         case AppStuff:
-            appendMessage(msg, Utils::DebugFormat);
+            appendMessage(msg, DebugFormat);
             break;
     }
 }
@@ -494,325 +450,6 @@ RunConfiguration *DebuggerRunControl::runConfiguration() const
     return d->m_myRunConfiguration.data();
 }
 
-////////////////////////////////////////////////////////////////////////
-//
-// Engine detection logic: Detection functions depending on tool chain, binary,
-// etc. Return a list of possible engines (order of prefererence) without
-// consideration of configuration, etc.
-//
-////////////////////////////////////////////////////////////////////////
-
-static QList<DebuggerEngineType> enginesForToolChain(const Abi &toolChain,
-                                                     DebuggerLanguages languages)
-{
-    QList<DebuggerEngineType> result;
-    switch (toolChain.binaryFormat()) {
-    case Abi::ElfFormat:
-    case Abi::MachOFormat:
-        result.push_back(LldbEngineType);
-        result.push_back(GdbEngineType);
-        if (languages & QmlLanguage)
-            result.push_back(QmlEngineType);
-        break;
-   case Abi::PEFormat:
-        if (toolChain.osFlavor() == Abi::WindowsMSysFlavor) {
-            result.push_back(GdbEngineType);
-            result.push_back(CdbEngineType);
-        } else {
-            result.push_back(CdbEngineType);
-            //result.push_back(GdbEngineType);
-        }
-        if (languages & QmlLanguage)
-            result.push_back(QmlEngineType);
-        break;
-    case Abi::RuntimeQmlFormat:
-        result.push_back(QmlEngineType);
-        break;
-    default:
-        break;
-    }
-    return result;
-}
-
-static inline QList<DebuggerEngineType> enginesForScriptExecutables(const QString &executable)
-{
-    QList<DebuggerEngineType> result;
-    if (executable.endsWith(_(".js"))) {
-        result.push_back(ScriptEngineType);
-    } else if (executable.endsWith(_(".py"))) {
-        result.push_back(PdbEngineType);
-    }
-    return result;
-}
-
-static QList<DebuggerEngineType> enginesForExecutable(const QString &executable)
-{
-    QList<DebuggerEngineType> result = enginesForScriptExecutables(executable);
-    if (!result.isEmpty())
-        return result;
-#ifdef Q_OS_WIN
-    // A remote executable?
-    if (!executable.endsWith(_(".exe"), Qt::CaseInsensitive)) {
-        result.push_back(GdbEngineType);
-        return result;
-    }
-
-    // If a file has PDB files, it has been compiled by VS.
-    QStringList pdbFiles;
-    QString errorMessage;
-    if (getPDBFiles(executable, &pdbFiles, &errorMessage) && !pdbFiles.isEmpty()) {
-        result.push_back(CdbEngineType);
-        result.push_back(GdbEngineType);
-        return result;
-    }
-    // Fixme: Gdb should only be preferred if MinGW can positively be detected.
-    result.push_back(GdbEngineType);
-    result.push_back(CdbEngineType);
-#else
-    result.push_back(LldbEngineType);
-    result.push_back(GdbEngineType);
-#endif
-    return result;
-}
-
-// Debugger type for mode.
-static QList<DebuggerEngineType> enginesForMode(DebuggerStartMode startMode,
-                                                DebuggerLanguages languages,
-                                                bool hardConstraintsOnly)
-{
-    QList<DebuggerEngineType> result;
-
-    if (languages == QmlLanguage) {
-        QTC_ASSERT(startMode == StartInternal
-                   || startMode == AttachToRemoteServer,
-                   qDebug() << "qml debugging not supported for mode"
-                            << startMode);
-
-        // Qml language only
-        result.push_back(QmlEngineType);
-        return result;
-    }
-
-    switch (startMode) {
-    case NoStartMode:
-        break;
-    case StartInternal:
-    case StartExternal:
-    case AttachExternal:
-        if (!hardConstraintsOnly) {
-#ifdef Q_OS_WIN
-            result.push_back(CdbEngineType); // Preferably Windows debugger for attaching locally.
-#endif
-            result.push_back(GdbEngineType);
-
-            if (languages & QmlLanguage)
-                result.push_back(QmlEngineType);
-        }
-        break;
-    case AttachCore:
-#ifdef Q_OS_WIN
-        result.push_back(CdbEngineType);
-#endif
-        result.push_back(GdbEngineType);
-        break;
-    case StartRemoteProcess:
-    case StartRemoteGdb:
-        result.push_back(GdbEngineType);
-        if (languages & QmlLanguage)
-            result.push_back(QmlEngineType);
-        break;
-    case AttachToRemoteProcess:
-    case AttachToRemoteServer:
-        if (!hardConstraintsOnly) {
-#ifdef Q_OS_WIN
-            result.push_back(CdbEngineType);
-#endif
-            result.push_back(GdbEngineType);
-
-            if (languages & QmlLanguage)
-                result.push_back(QmlEngineType);
-        }
-        break;
-    case AttachCrashedExternal:
-        result.push_back(CdbEngineType); // Only CDB can do this
-        break;
-    case StartRemoteEngine:
-        // FIXME: Unclear IPC override. Someone please have a better idea.
-        // For now thats the only supported IPC engine.
-        result.push_back(LldbEngineType);
-        break;
-    }
-    return result;
-}
-
-// Engine detection logic: Call all detection functions in order.
-
-static QList<DebuggerEngineType> engineTypes(const DebuggerStartParameters &sp)
-{
-    // Script executables and certain start modes are 'hard constraints'.
-    QList<DebuggerEngineType> result = enginesForScriptExecutables(sp.executable);
-    if (!result.isEmpty())
-        return result;
-
-    result = enginesForMode(sp.startMode, sp.languages, true);
-    if (!result.isEmpty())
-        return result;
-
-    //  'hard constraints' done (with the exception of QML ABI checked here),
-    // further try to restrict available engines.
-    if (sp.toolChainAbi.isValid()) {
-        result = enginesForToolChain(sp.toolChainAbi, sp.languages);
-        if (!result.isEmpty())
-            return result;
-    }
-
-    // FIXME: 1 of 3 testing hacks.
-    if (sp.processArgs.startsWith(QLatin1String("@tcf@ "))) {
-        result.push_back(GdbEngineType);
-        return result;
-    }
-
-    if (sp.startMode != AttachToRemoteServer
-            && sp.startMode != AttachToRemoteProcess
-            && !sp.executable.isEmpty())
-        result = enginesForExecutable(sp.executable);
-    if (!result.isEmpty())
-        return result;
-
-    result = enginesForMode(sp.startMode, sp.languages, false);
-    return result;
-}
-
-// Engine detection logic: ConfigurationCheck.
-ConfigurationCheck::ConfigurationCheck() :
-    masterSlaveEngineTypes(NoEngineType, NoEngineType)
-{
-}
-
-ConfigurationCheck::operator bool() const
-{
-    return errorMessage.isEmpty()
-        && errorDetails.isEmpty()
-        && masterSlaveEngineTypes.first != NoEngineType;
-}
-
-QString ConfigurationCheck::errorDetailsString() const
-{
-    return errorDetails.join(QLatin1String("\n\n"));
-}
-
-// Convenience helper to check whether an engine is enabled and configured
-// correctly.
-static inline bool canUseEngine(DebuggerEngineType et,
-                                const DebuggerStartParameters &sp,
-                                unsigned cmdLineEnabledEngines,
-                                ConfigurationCheck *result)
-{
-    // Enabled?
-    if ((et & cmdLineEnabledEngines) == 0) {
-        result->errorDetails.push_back(DebuggerPlugin::tr("The debugger engine '%1' is disabled.").
-                                       arg(QLatin1String(engineTypeName(et))));
-        return false;
-    }
-    // Configured.
-    switch (et) {
-    case CdbEngineType:
-        return checkCdbConfiguration(sp, result);
-    case GdbEngineType:
-        return checkGdbConfiguration(sp, result);
-    default:
-        break;
-    }
-    return true;
-}
-
-/*!
-    \fn Debugger::ConfigurationCheck Debugger::checkDebugConfiguration(const DebuggerStartParameters &sp)
-
-    This is the master engine detection function that returns the
-    engine types for a given set of start parameters and checks their
-    configuration.
-*/
-
-DEBUGGER_EXPORT ConfigurationCheck checkDebugConfiguration(const DebuggerStartParameters &sp)
-{
-    ConfigurationCheck result;
-    if (debug)
-        qDebug().nospace() << "checkDebugConfiguration " << sp.toolChainAbi.toString()
-                           << " Start mode=" << sp.startMode << " Executable=" << sp.executable
-                           << " Debugger command=" << sp.debuggerCommand;
-    // Get all applicable types.
-    QList<DebuggerEngineType> requiredTypes = engineTypes(sp);
-    if (requiredTypes.isEmpty()) {
-        result.errorMessage = QLatin1String("Internal error: Unable to determine debugger engine type for this configuration");
-        return result;
-    }
-    if (debug)
-        qDebug() << " Required: " << engineTypeNames(requiredTypes);
-    // Filter out disabled types, command line + current settings.
-    unsigned cmdLineEnabledEngines = debuggerCore()->enabledEngines();
-#ifdef WITH_LLDB
-    if (!Core::ICore::settings()->value(QLatin1String("LLDB/enabled")).toBool())
-        cmdLineEnabledEngines &= ~LldbEngineType;
-#else
-     cmdLineEnabledEngines &= ~LldbEngineType;
-#endif
-
-    DebuggerEngineType usableType = NoEngineType;
-    QList<DebuggerEngineType> unavailableTypes;
-    foreach (DebuggerEngineType et, requiredTypes) {
-        if (canUseEngine(et, sp, cmdLineEnabledEngines, &result)) {
-            result.errorDetails.clear();
-            usableType = et;
-            break;
-        } else {
-            unavailableTypes.push_back(et);
-        }
-    }
-    if (usableType == NoEngineType) {
-        if (requiredTypes.size() == 1) {
-            result.errorMessage = DebuggerPlugin::tr(
-                "The debugger engine '%1' required for debugging binaries of the type '%2'"
-                " is not configured correctly.").
-                arg(QLatin1String(engineTypeName(requiredTypes.front())), sp.toolChainAbi.toString());
-        } else {
-            result.errorMessage = DebuggerPlugin::tr(
-                "None of the debugger engines '%1' capable of debugging binaries of the type '%2'"
-                " is configured correctly.").
-                arg(engineTypeNames(requiredTypes), sp.toolChainAbi.toString());
-        }
-        return result;
-    }
-    if (debug)
-        qDebug() << "Configured engine: " << engineTypeName(usableType);
-    // Inform verbosely about MinGW-gdb/CDB fallbacks. Do not complain about LLDB, for now.
-    if (!result.errorDetails.isEmpty() && unavailableTypes.count(LldbEngineType) != unavailableTypes.size()) {
-        const QString msg = DebuggerPlugin::tr(
-            "The preferred debugger engine for debugging binaries of type '%1' is not available.\n"
-            "The debugger engine '%2' will be used as a fallback.\nDetails: %3").
-                arg(sp.toolChainAbi.toString(), QLatin1String(engineTypeName(usableType)),
-                    result.errorDetails.join(QString(QLatin1Char('\n'))));
-        debuggerCore()->showMessage(msg, LogWarning);
-        showMessageBox(QMessageBox::Warning, DebuggerPlugin::tr("Warning"), msg);
-    }
-    // Anything left: Happy.
-    result.errorMessage.clear();
-    result.errorDetails.clear();
-
-
-    // Could we actually use a combined qml/cpp-engine?
-     if (usableType != QmlEngineType
-             && requiredTypes.contains(QmlEngineType)) {
-         result.masterSlaveEngineTypes.first = QmlCppEngineType;
-         result.masterSlaveEngineTypes.second = usableType;
-     } else {
-         result.masterSlaveEngineTypes.first = usableType;
-     }
-
-    if (debug)
-        qDebug() << engineTypeName(result.masterSlaveEngineTypes.first) << engineTypeName(result.masterSlaveEngineTypes.second);
-    return result;
-}
 
 ////////////////////////////////////////////////////////////////////////
 //
@@ -820,10 +457,8 @@ DEBUGGER_EXPORT ConfigurationCheck checkDebugConfiguration(const DebuggerStartPa
 //
 ////////////////////////////////////////////////////////////////////////
 
-// A factory to create DebuggerRunControls
-DebuggerRunControlFactory::DebuggerRunControlFactory(QObject *parent,
-        unsigned enabledEngines)
-    : IRunControlFactory(parent), m_enabledEngines(enabledEngines)
+DebuggerRunControlFactory::DebuggerRunControlFactory(QObject *parent)
+    : IRunControlFactory(parent)
 {}
 
 bool DebuggerRunControlFactory::canRun(RunConfiguration *runConfiguration, RunMode mode) const
@@ -837,50 +472,26 @@ QString DebuggerRunControlFactory::displayName() const
     return DebuggerPlugin::tr("Debug");
 }
 
-// Find Qt installation by running qmake
-static inline QString findQtInstallPath(const Utils::FileName &qmakePath)
-{
-    QProcess proc;
-    QStringList args;
-    args.append(_("-query"));
-    args.append(_("QT_INSTALL_HEADERS"));
-    proc.start(qmakePath.toString(), args);
-    if (!proc.waitForStarted()) {
-        qWarning("%s: Cannot start '%s': %s", Q_FUNC_INFO, qPrintable(qmakePath.toString()),
-           qPrintable(proc.errorString()));
-        return QString();
-    }
-    proc.closeWriteChannel();
-    if (!proc.waitForFinished()) {
-        Utils::SynchronousProcess::stopProcess(proc);
-        qWarning("%s: Timeout running '%s'.", Q_FUNC_INFO, qPrintable(qmakePath.toString()));
-        return QString();
-    }
-    if (proc.exitStatus() != QProcess::NormalExit) {
-        qWarning("%s: '%s' crashed.", Q_FUNC_INFO, qPrintable(qmakePath.toString()));
-        return QString();
-    }
-    const QByteArray ba = proc.readAllStandardOutput().trimmed();
-    QDir dir(QString::fromLocal8Bit(ba));
-    if (dir.exists() && dir.cdUp())
-        return dir.absolutePath();
-    return QString();
-}
-
-static DebuggerStartParameters localStartParameters(RunConfiguration *runConfiguration)
+static DebuggerStartParameters localStartParameters(RunConfiguration *runConfiguration, QString *errorMessage)
 {
     DebuggerStartParameters sp;
     QTC_ASSERT(runConfiguration, return sp);
     LocalApplicationRunConfiguration *rc =
             qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration);
     QTC_ASSERT(rc, return sp);
+    if (!rc->ensureConfigured(errorMessage))
+        return sp;
 
+    Target *target = runConfiguration->target();
+    Kit *kit = target ? target->kit() : KitManager::instance()->defaultKit();
+    if (!fillParameters(&sp, kit, errorMessage))
+        return sp;
     sp.environment = rc->environment();
     sp.workingDirectory = rc->workingDirectory();
 
 #if defined(Q_OS_WIN)
     // Work around QTBUG-17529 (QtDeclarative fails with 'File name case mismatch' ...)
-    sp.workingDirectory = Utils::normalizePathName(sp.workingDirectory);
+    sp.workingDirectory = normalizePathName(sp.workingDirectory);
 #endif
 
     sp.executable = rc->executable();
@@ -888,29 +499,15 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
         return sp;
     sp.startMode = StartInternal;
     sp.processArgs = rc->commandLineArguments();
-    sp.toolChainAbi = rc->abi();
-    if (!sp.toolChainAbi.isValid()) {
-        QList<Abi> abis = Abi::abisOfBinary(Utils::FileName::fromString(sp.executable));
-        if (!abis.isEmpty())
-            sp.toolChainAbi = abis.at(0);
-    }
     sp.useTerminal = rc->runMode() == LocalApplicationRunConfiguration::Console;
     sp.dumperLibrary = rc->dumperLibrary();
     sp.dumperLibraryLocations = rc->dumperLibraryLocations();
 
-    if (const ProjectExplorer::Target *target = runConfiguration->target()) {
-        if (QByteArray(target->metaObject()->className()).contains("Qt4")) {
-            const Utils::FileName qmake = Utils::BuildableHelperLibrary::findSystemQt(sp.environment);
-            if (!qmake.isEmpty())
-                sp.qtInstallPath = findQtInstallPath(qmake);
-        }
-        if (const ProjectExplorer::Project *project = target->project()) {
+    if (target) {
+        if (const Project *project = target->project()) {
             sp.projectSourceDirectory = project->projectDirectory();
-            if (const ProjectExplorer::BuildConfiguration *buildConfig = target->activeBuildConfiguration()) {
+            if (const BuildConfiguration *buildConfig = target->activeBuildConfiguration())
                 sp.projectBuildDirectory = buildConfig->buildDirectory();
-                if (const ProjectExplorer::ToolChain *tc = buildConfig->toolChain())
-                    sp.debuggerCommand = tc->debuggerCommand().toString();
-            }
             sp.projectSourceFiles = project->files(Project::ExcludeGeneratedFiles);
         }
     }
@@ -929,12 +526,10 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
         // Makes sure that all bindings go through the JavaScript engine, so that
         // breakpoints are actually hit!
         const QString optimizerKey = _("QML_DISABLE_OPTIMIZER");
-        if (!sp.environment.hasKey(optimizerKey)) {
+        if (!sp.environment.hasKey(optimizerKey))
             sp.environment.set(optimizerKey, _("1"));
-        }
 
-        Utils::QtcProcess::addArg(&sp.processArgs,
-                                  QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(sp.qmlServerPort));
+        QtcProcess::addArg(&sp.processArgs, QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(sp.qmlServerPort));
     }
 
     // FIXME: If it's not yet build this will be empty and not filled
@@ -947,15 +542,98 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
 }
 
 RunControl *DebuggerRunControlFactory::create
-    (RunConfiguration *runConfiguration, RunMode mode)
+    (RunConfiguration *runConfiguration, RunMode mode, QString *errorMessage)
 {
     QTC_ASSERT(mode == DebugRunMode || mode == DebugRunModeWithBreakOnMain, return 0);
-    DebuggerStartParameters sp = localStartParameters(runConfiguration);
+    DebuggerStartParameters sp = localStartParameters(runConfiguration, errorMessage);
     if (sp.startMode == NoStartMode)
         return 0;
     if (mode == DebugRunModeWithBreakOnMain)
         sp.breakOnMain = true;
-    return create(sp, runConfiguration);
+
+    return doCreate(sp, runConfiguration, errorMessage);
+}
+
+static bool fixupEngineTypes(DebuggerStartParameters &sp, RunConfiguration *rc, QString *errorMessage)
+{
+    if (sp.masterEngineType != NoEngineType)
+        return true;
+
+    if (sp.executable.endsWith(_(".js"))) {
+        sp.masterEngineType = ScriptEngineType;
+        return true;
+    }
+
+    if (sp.executable.endsWith(_(".py"))) {
+        sp.masterEngineType = PdbEngineType;
+        return true;
+    }
+
+    if (rc) {
+        DebuggerRunConfigurationAspect *aspect = rc->debuggerAspect();
+        if (const Target *target = rc->target())
+            if (!fillParameters(&sp, target->kit(), errorMessage))
+                return false;
+        const bool useCppDebugger = aspect->useCppDebugger();
+        const bool useQmlDebugger = aspect->useQmlDebugger();
+        if (useQmlDebugger) {
+            if (useCppDebugger) {
+                sp.masterEngineType = QmlCppEngineType;
+                sp.firstSlaveEngineType = sp.cppEngineType;
+                sp.secondSlaveEngineType = QmlCppEngineType;
+            } else {
+                sp.masterEngineType = QmlEngineType;
+            }
+        } else {
+            sp.masterEngineType = sp.cppEngineType;
+        }
+        return true;
+    }
+    sp.masterEngineType = sp.cppEngineType;
+    return true;
+}
+
+DebuggerRunControl *DebuggerRunControlFactory::doCreate
+    (const DebuggerStartParameters &sp0, RunConfiguration *rc, QString *errorMessage)
+{
+    Q_UNUSED(errorMessage);
+    DebuggerStartParameters sp = sp0;
+    if (!debuggerCore()->boolSetting(AutoEnrichParameters)) {
+        const QString sysroot = sp.sysRoot;
+        if (sp.debugInfoLocation.isEmpty()) {
+            sp.debugInfoLocation = sysroot + QLatin1String("/usr/lib/debug");
+        }
+        if (sp.debugSourceLocation.isEmpty()) {
+            QString base = sysroot + QLatin1String("/usr/src/debug/");
+            sp.debugSourceLocation.append(base + QLatin1String("qt5base/src/corelib"));
+            sp.debugSourceLocation.append(base + QLatin1String("qt5base/src/gui"));
+            sp.debugSourceLocation.append(base + QLatin1String("qt5base/src/network"));
+            sp.debugSourceLocation.append(base + QLatin1String("qt5base/src/v8"));
+            sp.debugSourceLocation.append(base + QLatin1String("qt5declarative/src/qml"));
+        }
+    }
+
+    if (!fixupEngineTypes(sp, rc, errorMessage))
+        return 0;
+
+    return new DebuggerRunControl(rc, sp);
+}
+
+DebuggerRunControl *DebuggerRunControlFactory::createAndScheduleRun
+    (const DebuggerStartParameters &sp, RunConfiguration *runConfiguration)
+{
+    QString errorMessage;
+    if (runConfiguration && !runConfiguration->ensureConfigured(&errorMessage))
+        ProjectExplorer::ProjectExplorerPlugin::showRunErrorMessage(errorMessage);
+
+    DebuggerRunControl *rc = doCreate(sp, runConfiguration, &errorMessage);
+    if (!rc) {
+        ProjectExplorer::ProjectExplorerPlugin::showRunErrorMessage(errorMessage);
+        return 0;
+    }
+    debuggerCore()->showMessage(sp.startMessage, 0);
+    ProjectExplorerPlugin::instance()->startRunControl(rc, DebugRunMode);
+    return rc;
 }
 
 RunConfigWidget *DebuggerRunControlFactory::createConfigurationWidget
@@ -964,40 +642,24 @@ RunConfigWidget *DebuggerRunControlFactory::createConfigurationWidget
     return new DebuggerRunConfigWidget(runConfiguration);
 }
 
-DebuggerRunControl *DebuggerRunControlFactory::create
-    (const DebuggerStartParameters &sp, RunConfiguration *runConfiguration)
-{
-    const ConfigurationCheck check = checkDebugConfiguration(sp);
-
-    if (!check) {
-        //appendMessage(errorMessage, true);
-        Core::ICore::showWarningWithOptions(DebuggerPlugin::tr("Debugger"),
-            check.errorMessage, check.errorDetailsString(), check.settingsCategory, check.settingsPage);
-        return 0;
-    }
-
-    return new DebuggerRunControl(runConfiguration, sp, check.masterSlaveEngineTypes);
-}
-
-DebuggerEngine *DebuggerRunControlFactory::createEngine
-    (DebuggerEngineType et,
-     const DebuggerStartParameters &sp,
-     DebuggerEngine *masterEngine,
-     QString *errorMessage)
+DebuggerEngine *DebuggerRunControlFactory::createEngine(DebuggerEngineType et,
+    const DebuggerStartParameters &sp, QString *errorMessage)
 {
     switch (et) {
     case GdbEngineType:
-        return createGdbEngine(sp, masterEngine);
+        return createGdbEngine(sp);
     case ScriptEngineType:
         return createScriptEngine(sp);
     case CdbEngineType:
-        return createCdbEngine(sp, masterEngine, errorMessage);
+        return createCdbEngine(sp, errorMessage);
     case PdbEngineType:
         return createPdbEngine(sp);
     case QmlEngineType:
-        return createQmlEngine(sp, masterEngine);
+        return createQmlEngine(sp);
     case LldbEngineType:
         return createLldbEngine(sp);
+    case QmlCppEngineType:
+        return createQmlCppEngine(sp, errorMessage);
     default:
         break;
     }

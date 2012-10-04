@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Brian McGillion
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -52,6 +50,7 @@ private:
     virtual VcsBase::DiffHighlighter *createDiffHighlighter() const;
     virtual VcsBase::BaseAnnotationHighlighter *createAnnotationHighlighter(const QSet<QString> &changes, const QColor &bg) const;
     virtual QString fileNameFromDiffSpecification(const QTextBlock &diffFileSpec) const;
+    virtual QString decorateVersion(const QString &revision) const;
     virtual QStringList annotationPreviousVersions(const QString &revision) const;
 
     mutable QRegExp exactIdentifier12;

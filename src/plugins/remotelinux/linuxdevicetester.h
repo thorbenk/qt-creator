@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,39 +25,34 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #ifndef LINUXDEVICETESTER_H
 #define LINUXDEVICETESTER_H
 
 #include "remotelinux_export.h"
 
-#include <QObject>
-#include <QSharedPointer>
+#include <projectexplorer/devicesupport/idevice.h>
 
-QT_FORWARD_DECLARE_CLASS(QString)
-
-namespace Utils {
-class SshConnection;
-}
+namespace ProjectExplorer { class DeviceUsedPortsGatherer; }
+namespace QSsh { class SshConnection; }
+namespace ProjectExplorer { class DeviceUsedPortsGatherer; }
 
 namespace RemoteLinux {
-class LinuxDeviceConfiguration;
 
 namespace Internal {
 class GenericLinuxDeviceTesterPrivate;
-} // namespace Internal
+}
 
 class REMOTELINUX_EXPORT AbstractLinuxDeviceTester : public QObject
 {
     Q_OBJECT
-    Q_DISABLE_COPY(AbstractLinuxDeviceTester)
+
 public:
     enum TestResult { TestSuccess, TestFailure };
 
-    virtual void testDevice(const QSharedPointer<const LinuxDeviceConfiguration> &deviceConfiguration) = 0;
+    virtual void testDevice(const ProjectExplorer::IDevice::ConstPtr &deviceConfiguration) = 0;
     virtual void stopTest() = 0;
 
 signals:
@@ -73,14 +68,15 @@ protected:
 class REMOTELINUX_EXPORT GenericLinuxDeviceTester : public AbstractLinuxDeviceTester
 {
     Q_OBJECT
+
 public:
     explicit GenericLinuxDeviceTester(QObject *parent = 0);
     ~GenericLinuxDeviceTester();
 
-    void testDevice(const QSharedPointer<const LinuxDeviceConfiguration> &deviceConfiguration);
+    void testDevice(const ProjectExplorer::IDevice::ConstPtr &deviceConfiguration);
     void stopTest();
 
-    QSharedPointer<Utils::SshConnection> connection() const;
+    ProjectExplorer::DeviceUsedPortsGatherer *usedPortsGatherer() const;
 
 private slots:
     void handleConnected();

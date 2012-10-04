@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,8 +35,9 @@
 
 #include <valgrindprocess.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
-#include <utils/ssh/sftpchannel.h>
+#include <ssh/sftpchannel.h>
 
 #include <QTemporaryFile>
 
@@ -137,11 +136,7 @@ void CallgrindController::run(Option option)
 #if CALLGRIND_CONTROL_DEBUG
     m_process->setProcessChannelMode(QProcess::ForwardedChannels);
 #endif
-#ifdef Q_OS_WIN
-    int pid = 0;
-#else
-    const int pid = m_valgrindProc->pid();
-#endif
+    const int pid = Utils::HostOsInfo::isWindowsHost() ? 0 : m_valgrindProc->pid();
     m_process->run(CALLGRIND_CONTROL_BINARY,
                    QStringList() << optionString << QString::number(pid),
                    QString(), QString());
@@ -236,8 +231,8 @@ void CallgrindController::foundRemoteFile()
     m_remoteFile = m_findRemoteFile->readAllStandardOutput().trimmed();
 
     m_sftp = m_ssh->createSftpChannel();
-    connect(m_sftp.data(), SIGNAL(finished(Utils::SftpJobId,QString)),
-            this, SLOT(sftpJobFinished(Utils::SftpJobId,QString)));
+    connect(m_sftp.data(), SIGNAL(finished(QSsh::SftpJobId,QString)),
+            this, SLOT(sftpJobFinished(QSsh::SftpJobId,QString)));
     connect(m_sftp.data(), SIGNAL(initialized()), this, SLOT(sftpInitialized()));
     m_sftp->initialize();
 }
@@ -251,10 +246,10 @@ void CallgrindController::sftpInitialized()
     dataFile.setAutoRemove(false);
     dataFile.close();
 
-    m_downloadJob = m_sftp->downloadFile(m_remoteFile, m_tempDataFile, Utils::SftpOverwriteExisting);
+    m_downloadJob = m_sftp->downloadFile(m_remoteFile, m_tempDataFile, QSsh::SftpOverwriteExisting);
 }
 
-void CallgrindController::sftpJobFinished(Utils::SftpJobId job, const QString &error)
+void CallgrindController::sftpJobFinished(QSsh::SftpJobId job, const QString &error)
 {
     QTC_ASSERT(job == m_downloadJob, return);
 

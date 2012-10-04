@@ -5,7 +5,7 @@
 ** Copyright (c) 2012 Dmitry Savchenko.
 ** Copyright (c) 2010 Vasiliy Sorokin.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,8 +26,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +33,10 @@
 #define OPTIONSDIALOG_H
 
 #include <QWidget>
+
+QT_BEGIN_NAMESPACE
+class QListWidgetItem;
+QT_END_NAMESPACE
 
 namespace Todo {
 namespace Internal {
@@ -62,11 +64,13 @@ private slots:
     void removeButtonClicked();
     void resetButtonClicked();
     void setButtonsEnabled();
+    void itemDoubleClicked(QListWidgetItem *item);
 
 private:
     void uiFromSettings(const Settings &settings);
     Settings settingsFromUi();
     void addToKeywordsList(const Keyword &keyword);
+    void editItem(QListWidgetItem *item);
     QSet<QString> keywordNames();
 
     Ui::OptionsDialog *ui;

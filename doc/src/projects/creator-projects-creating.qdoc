@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -59,7 +57,7 @@
     automates the generation of build configurations so that only a few lines
     of information are needed to create each configuration. For more
     information about qmake, see the
-    \l{http://qt.nokia.com/doc/4.7/qmake-manual.html}{qmake Manual}.
+    \l{http://qt-project.org/doc/qt-4.8/qmake-manual.html}{qmake Manual}.
 
     You can modify the build and run settings for qmake projects in the
     \gui Projects mode.
@@ -70,18 +68,9 @@
     use \QC as a code editor and to fully control the steps and commands used to
     build the project.
 
-    \if defined(qcmanual)
-    To develop applications for Symbian devices, you use qmake and the local
-    Symbian compiler (on Windows) or qmake and a compilation service at
-    Nokia Developer (on Linux and Mac OS) to build the applications for the
-    Symbian devices target. The interface to the compilation service,
-    Remote Compiler, is installed as a part of the \QSDK. For more information,
-    see \l{Building with Remote Compiler}.
-    \endif
-
-    You can install mobile device \l{glossary-development-target}{targets}
-    as part of the \QSDK. The build and  run settings for the
-    installed targets are set up automatically. However, you might need to
+    You can install tools for mobile devices
+    as part of the \QSDK. The \l{glossary-buildandrun-kit}{kits} and build and run settings for the
+    installed device types are set up automatically. However, you might need to
     install and configure some additional software on the devices to be able to
     connect to them from the development PC.
 
@@ -89,7 +78,7 @@
 
     In the first step, you
     select a template for the project. You can filter templates (1) to view only
-    those that apply to a particular target.
+    those that apply to a particular device type.
 
     \image qtcreator-new-qt-quick-project-wizard.png
 
@@ -130,13 +119,6 @@
                 Use built-in QML elements to design Qt Quick based user
                 interfaces with a custom look and feel and QML and C++ code to
                 implement the application logic
-
-            \o  Qt Quick Application for Symbian
-
-                Use Qt Quick Components for Symbian to design a user interface
-                with the platform look and feel. Select this template to develop
-                for Symbian devices that support Qt 4.7.4 or later and have the
-                Qt Quick Components installed
 
             \o  Qt Quick Application for MeeGo Harmattan
 
@@ -243,8 +225,8 @@
 
     To create a new project, select \gui File > \gui{New File or Project} and
     select the type of your project. The contents of the wizard dialogs depend
-    on the project type and the build targets that you select in the
-    \gui {Target Setup} dialog. Follow the instructions of the wizard.
+    on the project type and the \l{glossary-buildandrun-kit}{kits} that you select in the
+    \gui {Kit Selection} dialog. Follow the instructions of the wizard.
 
     For examples of creating different types of projects, see
     \l{Tutorials}.
@@ -256,8 +238,8 @@
     for building and running projects, select \gui{Tools} > \gui{Options} >
     \gui{Build & Run} > \gui{General}.
 
-    To specify build and run settings for different target platforms, select
-    \gui Projects.
+    To specify build and run settings for different target platforms,
+    select \gui Projects.
 
     \section1 Adding Files to Projects
 
@@ -300,7 +282,15 @@
 
         \o  General
 
-            Text files
+        \list
+
+            \o  Text files
+
+            \o  Scratch buffers that use temporary files. You can create this
+                type of files for temporarily storing information that you do
+                not intend to save
+
+        \endlist
 
     \endlist
 
@@ -327,7 +317,7 @@
     Qt provides support for integration with OpenGL implementations on all
     platforms, which allows you to display hardware accelerated 3D graphics
     alongside a more conventional user interface. For more information, see
-    \l{http://doc.qt.nokia.com/4.7/qtopengl.html}{QtOpenGL Module}.
+    \l{http://qt-project.org/doc/qt-4.8/qtopengl.html}{QtOpenGL Module}.
 
     You can use the QGLShader class to compile OpenGL shaders written in the
     OpenGL Shading Language (GLSL) and in the OpenGL/ES Shading Language
@@ -381,7 +371,7 @@
 
     The wizard creates a project file (.pro) that defines a \c subdirs template
     and the subproject that you add as a value of the
-    \l{http://doc.qt.nokia.com/4.7/qmake-variable-reference.html#subdirs}
+    \l{http://qt-project.org/doc/qt-4.8/qmake-variable-reference.html#subdirs}
     {SUBDIRS variable}. It also adds all the necessary files for the subproject.
 
     To add more subprojects, right-click the project name in the \gui Projects

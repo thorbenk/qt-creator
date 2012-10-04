@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,8 +38,9 @@
 #include <QDateTime>
 
 #include <utils/environment.h>
-#include <utils/synchronousprocess.h>
 #include <utils/fileutils.h>
+#include <utils/hostosinfo.h>
+#include <utils/synchronousprocess.h>
 
 #include <QDesktopServices>
 #include <QDebug>
@@ -110,7 +109,9 @@ QString BuildableHelperLibrary::qtVersionForQMake(const QString &qmakePath, bool
     static QRegExp regexp(QLatin1String("(QMake version|QMake version:)[\\s]*([\\d.]*)"),
                           Qt::CaseInsensitive);
     regexp.indexIn(output);
-    if (regexp.cap(2).startsWith(QLatin1String("2."))) {
+    const QString qmakeVersion = regexp.cap(2);
+    if (qmakeVersion.startsWith(QLatin1String("2."))
+            || qmakeVersion.startsWith(QLatin1String("3."))) {
         static QRegExp regexp2(QLatin1String("Using Qt version[\\s]*([\\d\\.]*)"),
                                Qt::CaseInsensitive);
         regexp2.indexIn(output);
@@ -123,14 +124,14 @@ QString BuildableHelperLibrary::qtVersionForQMake(const QString &qmakePath, bool
 QStringList BuildableHelperLibrary::possibleQMakeCommands()
 {
     // On windows no one has renamed qmake, right?
-#ifdef Q_OS_WIN
-    return QStringList(QLatin1String("qmake.exe"));
-#else
+    if (HostOsInfo::isWindowsHost())
+        return QStringList(QLatin1String("qmake.exe"));
+
     // On unix some distributions renamed qmake to avoid clashes
     QStringList result;
-    result << QLatin1String("qmake-qt4") << QLatin1String("qmake4") << QLatin1String("qmake");
+    result << QLatin1String("qmake-qt4") << QLatin1String("qmake4")
+           << QLatin1String("qmake-qt5") << QLatin1String("qmake5") << QLatin1String("qmake");
     return result;
-#endif
 }
 
 // Copy helper source files to a target directory, replacing older files.
@@ -140,7 +141,7 @@ bool BuildableHelperLibrary::copyFiles(const QString &sourcePath,
                                      QString *errorMessage)
 {
     // try remove the directory
-    if (!FileUtils::removeRecursively(targetDirectory, errorMessage))
+    if (!FileUtils::removeRecursively(FileName::fromString(targetDirectory), errorMessage))
         return false;
     if (!QDir().mkpath(targetDirectory)) {
         *errorMessage = QCoreApplication::translate("ProjectExplorer::DebuggingHelperLibrary", "The target directory %1 could not be created.").arg(targetDirectory);

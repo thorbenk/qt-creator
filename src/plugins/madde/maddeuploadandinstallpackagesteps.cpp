@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,15 +33,14 @@
 #include "maemopackagecreationstep.h"
 #include "maemopackageinstaller.h"
 #include "maemoqemumanager.h"
-#include "qt4maemodeployconfiguration.h"
-#include "qt4maemotarget.h"
 
-#include <qt4projectmanager/qt4buildconfiguration.h>
-#include <qtsupport/baseqtversion.h>
+#include <projectexplorer/target.h>
+#include <qtsupport/qtkitinformation.h>
 #include <remotelinux/abstractuploadandinstallpackageservice.h>
-#include <remotelinux/linuxdeviceconfiguration.h>
-#include <utils/ssh/sshconnection.h>
+#include <remotelinux/remotelinuxdeployconfiguration.h>
+#include <ssh/sshconnection.h>
 
+using namespace ProjectExplorer;
 using namespace RemoteLinux;
 
 namespace Madde {
@@ -57,33 +54,6 @@ protected:
     explicit AbstractMaddeUploadAndInstallPackageAction(AbstractRemoteLinuxDeployStep *step)
         : AbstractUploadAndInstallPackageService(step)
     {
-    }
-
-    void doDeviceSetup()
-    {
-        if (deviceConfiguration()->machineType() == LinuxDeviceConfiguration::Hardware) {
-            handleDeviceSetupDone(true);
-            return;
-        }
-
-        if (MaemoQemuManager::instance().qemuIsRunning()) {
-            handleDeviceSetupDone(true);
-            return;
-        }
-
-        MaemoQemuRuntime rt;
-        const int qtId = qt4BuildConfiguration() && qt4BuildConfiguration()->qtVersion()
-            ? qt4BuildConfiguration()->qtVersion()->uniqueId() : -1;
-        if (MaemoQemuManager::instance().runtimeForQtVersion(qtId, &rt)) {
-            MaemoQemuManager::instance().startRuntime();
-            emit errorMessage(tr("Cannot deploy: Qemu was not running. "
-                "It has now been started up for you, but it will take "
-                "a bit of time until it is ready. Please try again then."));
-        } else {
-            emit errorMessage(tr("Cannot deploy: You want to deploy to Qemu, but it is not enabled "
-                "for this Qt version."));
-        }
-        handleDeviceSetupDone(false);
     }
 
 private:
@@ -129,23 +99,6 @@ private:
     HarmattanPackageInstaller * const m_installer;
 };
 
-class MeegoUploadAndInstallPackageAction : public AbstractMaddeUploadAndInstallPackageAction
-{
-    Q_OBJECT
-
-public:
-    MeegoUploadAndInstallPackageAction(AbstractRemoteLinuxDeployStep *step)
-        : AbstractMaddeUploadAndInstallPackageAction(step),
-          m_installer(new MaemoRpmPackageInstaller(this))
-    {
-    }
-
-    AbstractRemoteLinuxPackageInstaller *packageInstaller() const { return m_installer; }
-
-private:
-    MaemoRpmPackageInstaller * const m_installer;
-};
-
 } // anonymous namespace
 
 
@@ -164,7 +117,8 @@ MaemoUploadAndInstallPackageStep::MaemoUploadAndInstallPackageStep(ProjectExplor
 void MaemoUploadAndInstallPackageStep::ctor()
 {
     setDefaultDisplayName(displayName());
-    if (qobject_cast<Qt4HarmattanTarget *>(target()))
+    Core::Id deviceType = ProjectExplorer::DeviceTypeKitInformation::deviceTypeId(target()->kit());
+    if (deviceType == HarmattanOsType)
         m_deployService = new HarmattanUploadAndInstallPackageAction(this);
     else
         m_deployService = new MaemoUploadAndInstallPackageAction(this);
@@ -196,53 +150,6 @@ Core::Id MaemoUploadAndInstallPackageStep::stepId()
 QString MaemoUploadAndInstallPackageStep::displayName()
 {
     return tr("Deploy Debian package via SFTP upload");
-}
-
-
-MeegoUploadAndInstallPackageStep::MeegoUploadAndInstallPackageStep(ProjectExplorer::BuildStepList *bsl)
-    : AbstractRemoteLinuxDeployStep(bsl, stepId())
-{
-    ctor();
-}
-
-MeegoUploadAndInstallPackageStep::MeegoUploadAndInstallPackageStep(ProjectExplorer::BuildStepList *bsl,
-    MeegoUploadAndInstallPackageStep *other) : AbstractRemoteLinuxDeployStep(bsl, other)
-{
-    ctor();
-}
-
-void MeegoUploadAndInstallPackageStep::ctor()
-{
-    setDefaultDisplayName(displayName());
-    m_deployService = new MeegoUploadAndInstallPackageAction(this);
-}
-
-AbstractRemoteLinuxDeployService *MeegoUploadAndInstallPackageStep::deployService() const
-{
-    return m_deployService;
-}
-
-bool MeegoUploadAndInstallPackageStep::initInternal(QString *error)
-{
-    const AbstractMaemoPackageCreationStep * const pStep
-        = deployConfiguration()->earlierBuildStep<MaemoRpmPackageCreationStep>(this);
-    if (!pStep) {
-        if (error)
-            *error = tr("No RPM package creation step found.");
-        return false;
-    }
-    m_deployService->setPackageFilePath(pStep->packageFilePath());
-    return deployService()->isDeploymentPossible(error);
-}
-
-Core::Id MeegoUploadAndInstallPackageStep::stepId()
-{
-    return Core::Id("MaemoUploadAndInstallRpmPackageStep");
-}
-
-QString MeegoUploadAndInstallPackageStep::displayName()
-{
-    return tr("Deploy RPM package via SFTP upload");
 }
 
 } // namespace Internal

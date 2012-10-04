@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -27,9 +25,9 @@
 
 /*!
     \contentspage index.html
-    \previouspage creator-deployment-symbian.html
+    \previouspage creator-deploying-android.html
     \page creator-deployment-maemo.html
-    \nextpage creator-connecting-mobile.html
+    \nextpage creator-deployment-qnx.html
 
     \title Deploying Applications to Linux-Based Devices
 
@@ -46,7 +44,7 @@
     \gui {Remote Directory} field displays the folder where the file is
     installed on the device. Text in red color indicates that the information is
     missing. Edit the qmake
-    \l{http://doc.qt.nokia.com/4.8/qmake-variable-reference.html#installs}
+    \l{http://qt-project.org/doc/qt-4.8/qmake-variable-reference.html#installs}
     {INSTALLS variable} in the project .pro file to add the missing files.
 
     When you run the application, \QC copies the necessary files to the device
@@ -56,8 +54,8 @@
 
     \image qtcreator-embedded-linux-deployment.png "Deploy to embedded Linux"
 
-    When you run the application on the \gui {Embedded Linux} target, \QC
-    deploys the application as specified by the deploy steps. By default,
+    When you run the application on the \gui {Embedded Linux} device,
+    \QC deploys the application as specified by the deploy steps. By default,
     \QC copies the application files to the device by using the SSH file
     transfer protocol (SFTP), as specified by the \gui {Upload files via SFTP}
     step.
@@ -93,7 +91,7 @@
 
     \section1 Creating Debian Installation Packages
 
-    When you run the application on the \gui{Maemo5} or \gui Harmattan target,
+    When you run the application on the \gui{Maemo5} or \gui Harmattan device,
     \QC generates a Debian installation package in the build directory by
     default. You can deliver the installation package to users for installation
     on devices that are of the same type and run the same firmware as the
@@ -119,8 +117,9 @@
     \note \QC automates this process for you.
 
     \QC provides templates for a set of files that must be included in Debian
-    packages. When you create a \gui Maemo5 or \gui Harmattan target for a
-    project, \QC asks whether packaging files are to be added to the project and
+    packages. When you start using a \l{glossary-buildandrun-kit}{kit} with
+    \gui Maemo5 or \gui Harmattan device type
+    for a project, \QC asks whether packaging files are to be added to the project and
     to version control. If you plan to edit the packaging files, add them to
     version control.
 

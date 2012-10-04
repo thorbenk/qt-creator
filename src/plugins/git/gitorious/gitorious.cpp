@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,16 +53,19 @@ static const char settingsKeyC[] = "GitoriousHosts";
 // Gitorious paginates projects as 20 per page. It starts with page 1.
 enum { ProjectsPageSize = 20 };
 
-// Format an URL for a XML request
-static inline QUrl xmlRequest(const QString &host, const QString &request, int page = -1)
+// Format an URL for a http request
+static inline QUrl httpRequest(const QString &host, const QString &request)
 {
     QUrl url;
     url.setScheme(QLatin1String("http"));
-    url.setHost(host);
+    const QStringList hostList = host.split(QLatin1Char(':'), QString::SkipEmptyParts);
+    if (hostList.size() > 0)
+    {
+        url.setHost(hostList.at(0));
+        if (hostList.size() > 1)
+            url.setPort(hostList.at(1).toInt());
+    }
     url.setPath(QLatin1Char('/') + request);
-    url.addQueryItem(QLatin1String("format"), QLatin1String("xml"));
-    if (page >= 0)
-        url.addQueryItem(QLatin1String("page"), QString::number(page));
     return url;
 }
 
@@ -237,7 +238,7 @@ void GitoriousProjectReader::readProjects(QXmlStreamReader &reader)
             break;
 
         if (reader.isStartElement()) {
-            if (reader.name() == "project") {
+            if (reader.name() == QLatin1String("project")) {
                 const QSharedPointer<GitoriousProject> p = readProject(reader);
                 if (!p->name.isEmpty())
                     m_projects.push_back(p);
@@ -545,10 +546,7 @@ QNetworkReply *Gitorious::createRequest(const QUrl &url, int protocol, int hostI
 void Gitorious::updateCategories(int index)
 {
     // For now, parse the HTML of the projects site for "Popular Categories":
-    QUrl url;
-    url.setScheme(QLatin1String("http"));
-    url.setHost(hostName(index));
-    url.setPath(QLatin1String("/projects"));
+    const QUrl url = httpRequest(hostName(index), QLatin1String("projects"));
     createRequest(url, ListCategoriesProtocol, index);
 }
 
@@ -559,7 +557,10 @@ void Gitorious::updateProjectList(int hostIndex)
 
 void Gitorious::startProjectsRequest(int hostIndex, int page)
 {
-    const QUrl url = xmlRequest(hostName(hostIndex), QLatin1String("projects"), page);
+    QUrl url = httpRequest(hostName(hostIndex), QLatin1String("projects"));
+    url.addQueryItem(QLatin1String("format"), QLatin1String("xml"));
+    if (page >= 0)
+        url.addQueryItem(QLatin1String("page"), QString::number(page));
     createRequest(url, ListProjectsProtocol, hostIndex, page);
 }
 

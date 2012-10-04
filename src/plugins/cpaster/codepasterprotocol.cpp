@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,6 +38,7 @@
 #include <coreplugin/messagemanager.h>
 #include <coreplugin/messageoutputwindow.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <QListWidget>
@@ -79,12 +78,9 @@ bool CodePasterProtocol::checkConfiguration(QString *errorMessage)
     const QString hostName = m_page->hostName();
     if (hostName.isEmpty()) {
         if (errorMessage) {
-            *errorMessage =
-#ifdef Q_OS_MAC
-                       tr("No Server defined in the CodePaster preferences.");
-#else
-                       tr("No Server defined in the CodePaster options.");
-#endif
+            *errorMessage = Utils::HostOsInfo::isMacHost()
+                    ? tr("No Server defined in the CodePaster preferences.")
+                    : tr("No Server defined in the CodePaster options.");
         }
         return false;
     }
@@ -162,7 +158,7 @@ void CodePasterProtocol::pasteFinished()
         qWarning("Error pasting: %s", qPrintable(m_pasteReply->errorString()));
     } else {
         // Cut out the href-attribute
-        QString contents = QString::fromAscii(m_pasteReply->readAll());
+        QString contents = QString::fromLatin1(m_pasteReply->readAll());
         int hrefPos = contents.indexOf(QLatin1String("href=\""));
         if (hrefPos != -1) {
             hrefPos += 6;
@@ -193,7 +189,7 @@ void CodePasterProtocol::fetchFinished()
     if (error) {
         content = m_fetchReply->errorString();
     } else {
-        content = QString::fromAscii(m_fetchReply->readAll()); // Codepaster does not support special characters.
+        content = QString::fromLatin1(m_fetchReply->readAll()); // Codepaster does not support special characters.
         if (debug)
             qDebug() << content;
         if (content.contains(QLatin1String("<B>No such paste!</B>"))) {
@@ -213,7 +209,7 @@ void CodePasterProtocol::listFinished()
         Core::ICore::messageManager()->printToOutputPane(m_listReply->errorString(), true);
     } else {
         const QByteArray data = m_listReply->readAll();
-        const QStringList lines = QString::fromAscii(data).split(QLatin1Char('\n'));
+        const QStringList lines = QString::fromLatin1(data).split(QLatin1Char('\n'));
         emit listDone(name(), lines);
     }
     m_listReply->deleteLater();

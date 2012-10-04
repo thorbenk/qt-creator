@@ -5,7 +5,7 @@
 ** Copyright (c) 2012 Dmitry Savchenko.
 ** Copyright (c) 2010 Vasiliy Sorokin.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,8 +26,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +33,7 @@
 #include "keyword.h"
 #include "ui_keyworddialog.h"
 #include "constants.h"
+#include "lineparser.h"
 
 #include <QColorDialog>
 
@@ -86,7 +85,7 @@ void KeywordDialog::acceptButtonClicked()
 void KeywordDialog::setupListWidget(const QString &selectedIcon)
 {
     ui->listWidget->setViewMode(QListWidget::IconMode);
-
+    ui->listWidget->setDragEnabled(false);
     const QString infoIconName = QLatin1String(Constants::ICON_INFO);
     QListWidgetItem *item = new QListWidgetItem(QIcon(infoIconName),
                                                 QLatin1String("information"));
@@ -124,7 +123,7 @@ void KeywordDialog::setupColorWidgets(const QColor &color)
 bool KeywordDialog::canAccept()
 {
     if (!isKeywordNameCorrect()) {
-        showError(tr("Keyword cannot be empty, contain spaces or colons."));
+        showError(tr("Keyword cannot be empty, contain spaces, colons, slashes or asterisks."));
         return false;
     }
 
@@ -146,7 +145,7 @@ bool KeywordDialog::isKeywordNameCorrect()
         return false;
 
     for (int i = 0; i < name.size(); ++i)
-        if (name.at(i).isSpace() || name.at(i) == QLatin1Char(':'))
+        if (LineParser::isKeywordSeparator(name.at(i)))
             return false;
 
     return true;

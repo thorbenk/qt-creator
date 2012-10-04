@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "detailsbutton.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/stylehelper.h>
 
 #include <QPropertyAnimation>
@@ -40,6 +39,39 @@
 #include <QStyleOption>
 
 using namespace Utils;
+
+FadingWidget::FadingWidget(QWidget *parent) :
+    FadingPanel(parent),
+    m_opacityEffect(new QGraphicsOpacityEffect)
+{
+    m_opacityEffect->setOpacity(0);
+    setGraphicsEffect(m_opacityEffect);
+
+    // Workaround for issue with QGraphicsEffect. GraphicsEffect
+    // currently clears with Window color. Remove if flickering
+    // no longer occurs on fade-in
+    QPalette pal;
+    pal.setBrush(QPalette::All, QPalette::Window, Qt::transparent);
+    setPalette(pal);
+}
+
+void FadingWidget::setOpacity(qreal value)
+{
+    m_opacityEffect->setOpacity(value);
+}
+
+void FadingWidget::fadeTo(qreal value)
+{
+    QPropertyAnimation *animation = new QPropertyAnimation(m_opacityEffect, "opacity");
+    animation->setDuration(200);
+    animation->setEndValue(value);
+    animation->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+qreal FadingWidget::opacity()
+{
+    return m_opacityEffect->opacity();
+}
 
 DetailsButton::DetailsButton(QWidget *parent) : QAbstractButton(parent), m_fader(0)
 {
@@ -52,11 +84,9 @@ QSize DetailsButton::sizeHint() const
 {
     // TODO: Adjust this when icons become available!
     const int w = fontMetrics().width(text()) + 32;
-#ifdef Q_OS_MAC
-    return QSize(w, 34);
-#else
+    if (HostOsInfo::isMacHost())
+        return QSize(w, 34);
     return QSize(w, 22);
-#endif
 }
 
 bool DetailsButton::event(QEvent *e)
@@ -89,11 +119,10 @@ void DetailsButton::paintEvent(QPaintEvent *e)
     QWidget::paintEvent(e);
 
     QPainter p(this);
-#ifndef Q_OS_MAC
+
     // draw hover animation
-    if (!isDown() && m_fader > 0)
+    if (!HostOsInfo::isMacHost() && !isDown() && m_fader > 0)
         p.fillRect(rect().adjusted(1, 1, -2, -2), QColor(255, 255, 255, int(m_fader*180)));
-#endif
 
     if (isChecked()) {
         if (m_checkedPixmap.isNull() || m_checkedPixmap.size() != contentsRect().size())

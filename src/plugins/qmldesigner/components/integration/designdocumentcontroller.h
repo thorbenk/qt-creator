@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,8 +33,23 @@
 
 #include "rewriterview.h"
 
+#include <model.h>
+#include <rewriterview.h>
+#include <itemlibraryview.h>
+#include <navigatorview.h>
+#include <stateseditorview.h>
+#include <formeditorview.h>
+#include <propertyeditor.h>
+#include <componentview.h>
+#include <basetexteditmodifier.h>
+#include <componenttextmodifier.h>
+#include <subcomponentmanager.h>
+#include <model/viewlogger.h>
+
 #include <QObject>
 #include <QString>
+
+#include <QStackedWidget>
 
 QT_BEGIN_NAMESPACE
 class QUndoStack;
@@ -49,23 +62,14 @@ QT_END_NAMESPACE
 
 namespace QmlDesigner {
 
-class Model;
 class ModelNode;
 class TextModifier;
 class QmlObjectNode;
-class RewriterView;
-class ItemLibraryView;
-class NavigatorView;
-class ComponentView;
-class PropertyEditor;
-class StatesEditorView;
-class FormEditorView;
 struct CrumbleBarInfo;
 
 class DesignDocumentController: public QObject
 {
     Q_OBJECT
-
 public:
     DesignDocumentController(QObject *parent);
     ~DesignDocumentController();
@@ -74,7 +78,7 @@ public:
     QString simplfiedDisplayName() const;
 
     QString fileName() const;
-    void setFileName(const QString &fileName);
+    void setFileName(const QString &m_fileName);
 
     QList<RewriterView::Error> loadMaster(QPlainTextEdit *edit);
     QList<RewriterView::Error> loadMaster(const QByteArray &qml);
@@ -96,13 +100,13 @@ public:
     QString contextHelpId() const;
     QList<RewriterView::Error> qmlErrors() const;
 
-    void setItemLibraryView(ItemLibraryView* itemLibraryView);
+    void setItemLibraryView(ItemLibraryView* m_itemLibraryView);
     void setNavigator(NavigatorView* navigatorView);
     void setPropertyEditorView(PropertyEditor *propertyEditor);
-    void setStatesEditorView(StatesEditorView* statesEditorView);
-    void setFormEditorView(FormEditorView *formEditorView);
-    void setNodeInstanceView(NodeInstanceView *nodeInstanceView);
-    void setComponentView(ComponentView *componentView);
+    void setStatesEditorView(StatesEditorView* m_statesEditorView);
+    void setFormEditorView(FormEditorView *m_formEditorView);
+    void setNodeInstanceView(NodeInstanceView *m_nodeInstanceView);
+    void setComponentView(ComponentView *m_componentView);
 
     void setCrumbleBarInfo(const CrumbleBarInfo &crumbleBarInfo);
     static void setBlockCrumbleBar(bool);
@@ -131,7 +135,7 @@ public slots:
     void activeQtVersionChanged();
     void changeCurrentModelTo(const ModelNode &node);
     void changeToSubComponent(const ModelNode &node);
-    void changeToExternalSubComponent(const QString &fileName);
+    void changeToExternalSubComponent(const QString &m_fileName);
     void goIntoComponent();
 
 #ifdef ENABLE_TEXT_VIEW
@@ -140,9 +144,9 @@ public slots:
 #endif // ENABLE_TEXT_VIEW
 
 private slots:
-    void doRealSaveAs(const QString &fileName);
+    void doRealSaveAs(const QString &m_fileName);
 
-private:
+private: // functions
     void detachNodeInstanceView();
     void attachNodeInstanceView();
     void changeToMasterModel();
@@ -151,8 +155,35 @@ private:
     QWidget *centralWidget() const;
     QString pathToQt() const;
 
+private: // variables
+    QWeakPointer<FormEditorView> m_formEditorView;
 
-    class DesignDocumentControllerPrivate *d;
+    QWeakPointer<ItemLibraryView> m_itemLibraryView;
+    QWeakPointer<NavigatorView> m_navigator;
+    QWeakPointer<PropertyEditor> m_propertyEditorView;
+    QWeakPointer<StatesEditorView> m_statesEditorView;
+    QWeakPointer<QStackedWidget> m_stackedWidget;
+    QWeakPointer<NodeInstanceView> m_nodeInstanceView;
+    QWeakPointer<ComponentView> m_componentView;
+
+    QWeakPointer<Model> m_model;
+    QWeakPointer<Model> m_subComponentModel;
+    QWeakPointer<Model> m_masterModel;
+    QWeakPointer<QPlainTextEdit> m_textEdit;
+    QWeakPointer<RewriterView> m_rewriterView;
+    BaseTextEditModifier *m_textModifier;
+    ComponentTextModifier *m_componentTextModifier;
+    QWeakPointer<SubComponentManager> m_subComponentManager;
+    QWeakPointer<Internal::ViewLogger> m_viewLogger;
+    ModelNode m_componentNode;
+
+    QString m_fileName;
+    QUrl m_searchPath;
+    bool m_documentLoaded;
+    bool m_syncBlocked;
+    int m_qt_versionId;
+    static bool s_clearCrumblePath;
+    static bool s_pushCrumblePath;
 };
 
 

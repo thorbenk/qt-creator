@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,21 +25,19 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "androidpackageinstallationfactory.h"
 
 #include "androidpackageinstallationstep.h"
+#include "androidmanager.h"
 
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
-#include <qt4projectmanager/qt4projectmanagerconstants.h>
-
-#include <QCoreApplication>
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtsupportconstants.h>
 
 using namespace ProjectExplorer;
 
@@ -53,32 +51,31 @@ AndroidPackageInstallationFactory::AndroidPackageInstallationFactory(QObject *pa
 
 QList<Core::Id> AndroidPackageInstallationFactory::availableCreationIds(BuildStepList *parent) const
 {
-    if (parent->id() == Core::Id(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY)
-            && parent->target()->id() == Core::Id(Qt4ProjectManager::Constants::ANDROID_DEVICE_TARGET_ID)
-            && !parent->contains(Core::Id(AndroidPackageInstallationStep::Id)))
-        return QList<Core::Id>() << Core::Id(AndroidPackageInstallationStep::Id);
-    return QList<Core::Id>();
+    if (parent->id() != ProjectExplorer::Constants::BUILDSTEPS_DEPLOY)
+        return QList<Core::Id>();
+    if (!AndroidManager::supportsAndroid(parent->target()))
+        return QList<Core::Id>();
+    if (parent->contains(AndroidPackageInstallationStep::Id))
+        return QList<Core::Id>();
+    return QList<Core::Id>() << AndroidPackageInstallationStep::Id;
 }
 
 QString AndroidPackageInstallationFactory::displayNameForId(const Core::Id id) const
 {
     if (id == AndroidPackageInstallationStep::Id)
-        return QCoreApplication::translate("Qt4ProjectManager::Internal::AndroidPackageInstallationFactory",
-                                           "Deploy to device");
+        return tr("Deploy to device");
     return QString();
 }
 
 bool AndroidPackageInstallationFactory::canCreate(BuildStepList *parent, const Core::Id id) const
 {
-    return parent->id() == Core::Id(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY)
-            && id == Core::Id(AndroidPackageInstallationStep::Id)
-            && parent->target()->id() == Core::Id(Qt4ProjectManager::Constants::ANDROID_DEVICE_TARGET_ID)
-            && !parent->contains(AndroidPackageInstallationStep::Id);
+    return availableCreationIds(parent).contains(id);
 }
 
 BuildStep *AndroidPackageInstallationFactory::create(BuildStepList *parent, const Core::Id id)
 {
     Q_ASSERT(canCreate(parent, id));
+    Q_UNUSED(id);
     return new AndroidPackageInstallationStep(parent);
 }
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -97,6 +95,12 @@ enum { debugLocals = 0 };
 enum { debugSourceMapping = 0 };
 enum { debugWatches = 0 };
 enum { debugBreakpoints = 0 };
+
+enum HandleLocalsFlags
+{
+    PartialLocalsUpdate = 0x1,
+    LocalsUpdateForNewFrame = 0x2
+};
 
 #if 0
 #  define STATE_DEBUG(state, func, line, notifyFunc) qDebug("%s in %s at %s:%d", notifyFunc, stateName(state), func, line);
@@ -323,8 +327,7 @@ static inline bool validMode(DebuggerStartMode sm)
 }
 
 // Accessed by RunControlFactory
-DebuggerEngine *createCdbEngine(const DebuggerStartParameters &sp,
-    DebuggerEngine *masterEngine, QString *errorMessage)
+DebuggerEngine *createCdbEngine(const DebuggerStartParameters &sp, QString *errorMessage)
 {
 #ifdef Q_OS_WIN
     CdbOptionsPage *op = CdbOptionsPage::instance();
@@ -332,88 +335,12 @@ DebuggerEngine *createCdbEngine(const DebuggerStartParameters &sp,
         *errorMessage = QLatin1String("Internal error: Invalid start parameters passed for thre CDB engine.");
         return 0;
     }
-    return new CdbEngine(sp, masterEngine, op->options());
+    return new CdbEngine(sp, op->options());
 #else
-    Q_UNUSED(masterEngine)
     Q_UNUSED(sp)
 #endif
     *errorMessage = QString::fromLatin1("Unsupported debug mode");
     return 0;
-}
-
-bool isCdbEngineEnabled()
-{
-#ifdef Q_OS_WIN
-    return CdbOptionsPage::instance() && CdbOptionsPage::instance()->options()->isValid();
-#else
-    return false;
-#endif
-}
-
-static inline QString msgNoCdbBinaryForToolChain(const Abi &tc)
-{
-    return CdbEngine::tr("There is no CDB binary available for binaries in format '%1'").arg(tc.toString());
-}
-
-static inline bool isMsvcFlavor(Abi::OSFlavor osf)
-{
-  return osf == Abi::WindowsMsvc2005Flavor
-      || osf == Abi::WindowsMsvc2008Flavor
-      || osf == Abi::WindowsMsvc2010Flavor;
-}
-
-static QString cdbBinary(const DebuggerStartParameters &sp)
-{
-    if (!sp.debuggerCommand.isEmpty()) {
-        // Do not use a GDB binary if we got started for a project with MinGW runtime.
-        const bool abiMatch = sp.toolChainAbi.os() == Abi::WindowsOS
-                   && isMsvcFlavor(sp.toolChainAbi.osFlavor());
-        if (abiMatch)
-            return sp.debuggerCommand;
-    }
-    return debuggerCore()->debuggerForAbi(sp.toolChainAbi, CdbEngineType);
-}
-
-bool checkCdbConfiguration(const DebuggerStartParameters &sp, ConfigurationCheck *check)
-{
-#ifdef Q_OS_WIN
-    if (!isCdbEngineEnabled()) {
-        check->errorDetails.push_back(CdbEngine::tr("The CDB debug engine required for %1 is currently disabled.").
-                           arg(sp.toolChainAbi.toString()));
-        check->settingsCategory = QLatin1String(Debugger::Constants::DEBUGGER_SETTINGS_CATEGORY);
-        check->settingsPage = CdbOptionsPage::settingsId();
-        return false;
-    }
-
-    if (!validMode(sp.startMode)) {
-        check->errorDetails.push_back(CdbEngine::tr("The CDB engine does not support start mode %1.").arg(sp.startMode));
-        return false;
-    }
-
-    if (sp.toolChainAbi.binaryFormat() != Abi::PEFormat || sp.toolChainAbi.os() != Abi::WindowsOS) {
-        check->errorDetails.push_back(CdbEngine::tr("The CDB debug engine does not support the %1 ABI.").
-                                      arg(sp.toolChainAbi.toString()));
-        return false;
-    }
-
-    if (sp.startMode == AttachCore && !isMsvcFlavor(sp.toolChainAbi.osFlavor())) {
-        check->errorDetails.push_back(CdbEngine::tr("The CDB debug engine cannot debug gdb core files."));
-        return false;
-    }
-
-    if (cdbBinary(sp).isEmpty()) {
-        check->errorDetails.push_back(msgNoCdbBinaryForToolChain(sp.toolChainAbi));
-        check->settingsCategory = QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
-        check->settingsPage = QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
-        return false;
-    }
-
-    return true;
-#else
-    Q_UNUSED(sp);
-    check->errorDetails.push_back(QString::fromLatin1("Unsupported debug mode"));
-    return false;
-#endif
 }
 
 void addCdbOptionPages(QList<Core::IOptionsPage *> *opts)
@@ -432,9 +359,8 @@ static inline Utils::SavedAction *theAssemblerAction()
     return debuggerCore()->action(OperateByInstruction);
 }
 
-CdbEngine::CdbEngine(const DebuggerStartParameters &sp,
-        DebuggerEngine *masterEngine, const OptionsPtr &options) :
-    DebuggerEngine(sp, CppLanguage, masterEngine),
+CdbEngine::CdbEngine(const DebuggerStartParameters &sp, const OptionsPtr &options) :
+    DebuggerEngine(sp),
     m_creatorExtPrefix("<qtcreatorcdbext>|"),
     m_tokenPrefix("<token>"),
     m_options(options),
@@ -478,6 +404,7 @@ void CdbEngine::init()
     m_sourceStepInto = false;
     m_watchPointX = m_watchPointY = 0;
     m_ignoreCdbOutput = false;
+    m_watchInameToName.clear();
 
     m_outputBuffer.clear();
     m_builtinCommandQueue.clear();
@@ -540,29 +467,17 @@ bool CdbEngine::setToolTipExpression(const QPoint &mousePos,
     int line;
     int column;
     DebuggerToolTipContext context = contextIn;
-    QString exp = cppExpressionAt(editor, context.position, &line, &column, &context.function);
+    QString exp = fixCppExpression(cppExpressionAt(editor, context.position, &line, &column, &context.function));
     // Are we in the current stack frame
     if (context.function.isEmpty() || exp.isEmpty() || context.function != stackHandler()->currentFrame().function)
         return false;
-    // No numerical or any other expressions [yet]
-    if (!(exp.at(0).isLetter() || exp.at(0) == QLatin1Char('_')))
+    // Show tooltips of local variables only. Anything else can slow debugging down.
+    const WatchData *localVariable = watchHandler()->findCppLocalVariable(exp);
+    if (!localVariable)
         return false;
-    // Can this be found as a local variable?
-    const QByteArray localsPrefix(localsPrefixC);
-    QByteArray iname = localsPrefix + exp.toAscii();
-    QModelIndex index = watchHandler()->itemIndex(iname);
-    if (!index.isValid()) {
-        // Nope, try a 'local.this.m_foo'.
-        exp.prepend(QLatin1String("this."));
-        iname.insert(localsPrefix.size(), "this.");
-        index = watchHandler()->itemIndex(iname);
-        if (!index.isValid())
-            return false;
-    }
     DebuggerToolTipWidget *tw = new DebuggerToolTipWidget;
     tw->setContext(context);
-    tw->setDebuggerModel(LocalsWatch);
-    tw->setExpression(exp);
+    tw->setIname(localVariable->iname);
     tw->acquireEngine(this);
     DebuggerToolTipManager::instance()->showToolTip(mousePos, editor, tw);
     return true;
@@ -718,7 +633,7 @@ bool CdbEngine::launchCDB(const DebuggerStartParameters &sp, QString *errorMessa
     // Determine binary (force MSVC), extension lib name and path to use
     // The extension is passed as relative name with the path variable set
     //(does not work with absolute path names)
-    const QString executable = cdbBinary(sp);
+    const QString executable = sp.debuggerCommand;
     if (executable.isEmpty()) {
         *errorMessage = tr("There is no CDB executable specified.");
         return false;
@@ -844,11 +759,40 @@ void CdbEngine::setupInferior()
     if (startParameters().breakOnMain) {
         const BreakpointParameters bp(BreakpointAtMain);
         postCommand(cdbAddBreakpointCommand(bp, m_sourcePathMappings,
-                                            BreakpointModelId(-1), true), 0);
+                                            BreakpointModelId(quint16(-1)), true), 0);
     }
     postCommand("sxn 0x4000001f", 0); // Do not break on WowX86 exceptions.
     postCommand(".asm source_line", 0); // Source line in assembly
     postExtensionCommand("pid", QByteArray(), 0, &CdbEngine::handlePid);
+}
+
+static QByteArray msvcRunTime(const Abi::OSFlavor flavour)
+{
+    switch (flavour)  {
+    case Abi::WindowsMsvc2005Flavor:
+        return "MSVCR80";
+    case Abi::WindowsMsvc2008Flavor:
+        return "MSVCR90";
+    case Abi::WindowsMsvc2010Flavor:
+        return "MSVCR100";
+    case Abi::WindowsMsvc2012Flavor:
+        return "MSVCR110"; // #FIXME: VS2012 beta, will probably be 12 in final?
+    default:
+        break;
+    }
+    return "MSVCRT"; // MinGW, others.
+}
+
+static QByteArray breakAtFunctionCommand(const QByteArray &function,
+                                         const QByteArray &module = QByteArray())
+{
+     QByteArray result = "bu ";
+     if (!module.isEmpty()) {
+         result += module;
+         result += '!';
+     }
+     result += function;
+     return result;
 }
 
 void CdbEngine::runEngine()
@@ -856,7 +800,25 @@ void CdbEngine::runEngine()
     if (debug)
         qDebug("runEngine");
     foreach (const QString &breakEvent, m_options->breakEvents)
-            postCommand(QByteArray("sxe ") + breakEvent.toAscii(), 0);
+            postCommand(QByteArray("sxe ") + breakEvent.toLatin1(), 0);
+    // Break functions: each function must be fully qualified,
+    // else the debugger will slow down considerably.
+    foreach (const QString &breakFunctionS, m_options->breakFunctions) {
+        const QByteArray breakFunction = breakFunctionS.toLatin1();
+        if (breakFunction == CdbOptions::crtDbgReport) {
+            // CrtDbgReport(): Add MSVC runtime (debug, release)
+            // and stop at Wide character version as well
+            const QByteArray module = msvcRunTime(startParameters().toolChainAbi.osFlavor());
+            const QByteArray debugModule = module + 'D';
+            const QByteArray wideFunc = breakFunction + 'W';
+            postCommand(breakAtFunctionCommand(breakFunction, module), 0);
+            postCommand(breakAtFunctionCommand(wideFunc, module), 0);
+            postCommand(breakAtFunctionCommand(breakFunction, debugModule), 0);
+            postCommand(breakAtFunctionCommand(wideFunc, debugModule), 0);
+        } else {
+            postCommand(breakAtFunctionCommand(breakFunction), 0);
+        }
+    }
     if (startParameters().startMode == AttachCore) {
         QTC_ASSERT(!m_coreStopReason.isNull(), return; );
         notifyInferiorUnrunnable();
@@ -1024,6 +986,10 @@ void CdbEngine::updateWatchData(const WatchData &dataIn,
         QByteArray args;
         ByteArrayInputStream str(args);
         str << dataIn.iname << " \"" << dataIn.exp << '"';
+        // Store the name since the CDB extension library
+        // does not maintain the names of watches.
+        if (!dataIn.name.isEmpty() && dataIn.name != QLatin1String(dataIn.exp))
+            m_watchInameToName.insert(dataIn.iname, dataIn.name);
         postExtensionCommand("addwatch", args, 0,
                              &CdbEngine::handleAddWatch, 0,
                              qVariantFromValue(dataIn));
@@ -1048,7 +1014,7 @@ void CdbEngine::handleAddWatch(const CdbExtensionCommandPtr &reply)
         updateLocalVariable(item.iname);
     } else {
         item.setError(tr("Unable to add expression"));
-        watchHandler()->insertData(item);
+        watchHandler()->insertIncompleteData(item);
         showMessage(QString::fromLatin1("Unable to add watch item '%1'/'%2': %3").
                     arg(QString::fromLatin1(item.iname), QString::fromLatin1(item.exp),
                         QString::fromLocal8Bit(reply->errorMessage)), LogError);
@@ -1086,7 +1052,10 @@ void CdbEngine::updateLocalVariable(const QByteArray &iname)
         str << blankSeparator << stackFrame;
     }
     str << blankSeparator << iname;
-    postExtensionCommand(isWatch ? "watches" : "locals", localsArguments, 0, &CdbEngine::handleLocals);
+    postExtensionCommand(isWatch ? "watches" : "locals",
+                         localsArguments, 0,
+                         &CdbEngine::handleLocals,
+                         0, QVariant(int(PartialLocalsUpdate)));
 }
 
 bool CdbEngine::hasCapability(unsigned cap) const
@@ -1209,7 +1178,7 @@ void CdbEngine::executeRunToLine(const ContextData &data)
         bp.fileName = data.fileName;
         bp.lineNumber = data.lineNumber;
     }
-    postCommand(cdbAddBreakpointCommand(bp, m_sourcePathMappings, BreakpointModelId(-1), true), 0);
+    postCommand(cdbAddBreakpointCommand(bp, m_sourcePathMappings, BreakpointModelId(quint16(-1)), true), 0);
     continueInferior();
 }
 
@@ -1219,7 +1188,7 @@ void CdbEngine::executeRunToFunction(const QString &functionName)
     BreakpointParameters bp(BreakpointByFunction);
     bp.functionName = functionName;
 
-    postCommand(cdbAddBreakpointCommand(bp, m_sourcePathMappings, BreakpointModelId(-1), true), 0);
+    postCommand(cdbAddBreakpointCommand(bp, m_sourcePathMappings, BreakpointModelId(quint16(-1)), true), 0);
     continueInferior();
 }
 
@@ -1281,7 +1250,7 @@ void CdbEngine::handleJumpToLineAddressResolution(const CdbBuiltinCommandPtr &cm
     bool ok;
     const quint64 address = answer.toLongLong(&ok, 16);
     if (ok && address) {
-        QTC_ASSERT(qVariantCanConvert<ContextData>(cmd->cookie), return);
+        QTC_ASSERT(cmd->cookie.canConvert<ContextData>(), return);
         const ContextData cookie = qvariant_cast<ContextData>(cmd->cookie);
         jumpToAddress(address);
         gotoLocation(Location(cookie.fileName, cookie.lineNumber));
@@ -1291,7 +1260,7 @@ void CdbEngine::handleJumpToLineAddressResolution(const CdbBuiltinCommandPtr &cm
 static inline bool isAsciiWord(const QString &s)
 {
     foreach (const QChar &c, s) {
-        if (!c.isLetterOrNumber() || c.toAscii() == 0)
+        if (!c.isLetterOrNumber() || c.toLatin1() == 0)
             return false;
     }
     return true;
@@ -1465,8 +1434,7 @@ void CdbEngine::activateFrame(int index)
     stackHandler()->setCurrentIndex(index);
     const bool showAssembler = !frames.at(index).isUsable();
     if (showAssembler) { // Assembly code: Clean out model and force instruction mode.
-        watchHandler()->beginCycle();
-        watchHandler()->endCycle();
+        watchHandler()->removeAllData();
         QAction *assemblerAction = theAssemblerAction();
         if (assemblerAction->isChecked()) {
             gotoLocation(frame);
@@ -1485,14 +1453,12 @@ void CdbEngine::updateLocals(bool forNewStackFrame)
 
     const int frameIndex = stackHandler()->currentIndex();
     if (frameIndex < 0) {
-        watchHandler()->beginCycle();
-        watchHandler()->endCycle();
+        watchHandler()->removeAllData();
         return;
     }
     const StackFrame frame = stackHandler()->currentFrame();
     if (!frame.isUsable()) {
-        watchHandler()->beginCycle();
-        watchHandler()->endCycle();
+        watchHandler()->removeAllData();
         return;
     }
     /* Watchers: Forcibly discard old symbol group as switching from
@@ -1542,9 +1508,11 @@ void CdbEngine::updateLocals(bool forNewStackFrame)
     }
 
     // Required arguments: frame
+    const int flags = forNewStackFrame ? LocalsUpdateForNewFrame : 0;
     str << blankSeparator << frameIndex;
-    watchHandler()->beginCycle();
-    postExtensionCommand("locals", arguments, 0, &CdbEngine::handleLocals, 0, QVariant(forNewStackFrame));
+    postExtensionCommand("locals", arguments, 0,
+                         &CdbEngine::handleLocals, 0,
+                         QVariant(flags));
 }
 
 void CdbEngine::selectThread(int index)
@@ -1715,7 +1683,7 @@ void CdbEngine::handleResolveSymbol(const QList<quint64> &addresses, const QVari
 {
     // Disassembly mode: Determine suitable range containing the
     // agent's address within the function to display.
-    if (qVariantCanConvert<DisassemblerAgent*>(cookie)) {
+    if (cookie.canConvert<DisassemblerAgent*>()) {
         DisassemblerAgent *agent = cookie.value<DisassemblerAgent *>();
         const quint64 agentAddress = agent->address();
         quint64 functionAddress = 0;
@@ -1754,7 +1722,7 @@ void CdbEngine::handleResolveSymbol(const QList<quint64> &addresses, const QVari
 // Parse: "00000000`77606060 cc              int     3"
 void CdbEngine::handleDisassembler(const CdbBuiltinCommandPtr &command)
 {
-    QTC_ASSERT(qVariantCanConvert<DisassemblerAgent*>(command->cookie), return);
+    QTC_ASSERT(command->cookie.canConvert<DisassemblerAgent*>(), return);
     DisassemblerAgent *agent = qvariant_cast<DisassemblerAgent*>(command->cookie);
     agent->setContents(parseCdbDisassembler(command->reply));
 }
@@ -1793,7 +1761,7 @@ void CdbEngine::changeMemory(Internal::MemoryAgent *, QObject *, quint64 addr, c
 
 void CdbEngine::handleMemory(const CdbExtensionCommandPtr &command)
 {
-    QTC_ASSERT(qVariantCanConvert<MemoryViewCookie>(command->cookie), return);
+    QTC_ASSERT(command->cookie.canConvert<MemoryViewCookie>(), return);
     const MemoryViewCookie memViewCookie = qvariant_cast<MemoryViewCookie>(command->cookie);
     if (command->success) {
         const QByteArray data = QByteArray::fromBase64(command->reply);
@@ -1925,6 +1893,9 @@ void CdbEngine::handleRegisters(const CdbExtensionCommandPtr &reply)
 
 void CdbEngine::handleLocals(const CdbExtensionCommandPtr &reply)
 {
+    const int flags = reply->cookie.toInt();
+    if (!(flags & PartialLocalsUpdate))
+        watchHandler()->removeAllData();
     if (reply->success) {
         QList<WatchData> watchData;
         GdbMi root;
@@ -1940,16 +1911,23 @@ void CdbEngine::handleLocals(const CdbExtensionCommandPtr &reply)
             dummy.name = QLatin1String(child.findChild("name").data());
             parseWatchData(watchHandler()->expandedINames(), dummy, child, &watchData);
         }
-        watchHandler()->insertBulkData(watchData);
-        watchHandler()->endCycle();
+        // Fix the names of watch data.
+        for (int i =0; i < watchData.size(); ++i) {
+            if (watchData.at(i).iname.startsWith('w')) {
+                const QHash<QByteArray, QString>::const_iterator it
+                    = m_watchInameToName.find(watchData.at(i).iname);
+                if (it != m_watchInameToName.constEnd())
+                    watchData[i].name = it.value();
+            }
+        }
+        watchHandler()->insertData(watchData);
         if (debugLocals) {
             QDebug nsp = qDebug().nospace();
             nsp << "Obtained " << watchData.size() << " items:\n";
             foreach (const WatchData &wd, watchData)
                 nsp << wd.toString() <<'\n';
         }
-        const bool forNewStackFrame = reply->cookie.toBool();
-        if (forNewStackFrame)
+        if (flags & LocalsUpdateForNewFrame)
             emit stackFrameCompleted();
     } else {
         showMessage(QString::fromLatin1(reply->errorMessage), LogWarning);
@@ -2915,7 +2893,7 @@ void CdbEngine::handleExpression(const CdbExtensionCommandPtr &command)
         showMessage(QString::fromLocal8Bit(command->errorMessage), LogError);
     }
     // Is this a conditional breakpoint?
-    if (command->cookie.isValid() && qVariantCanConvert<ConditionalBreakPointCookie>(command->cookie)) {
+    if (command->cookie.isValid() && command->cookie.canConvert<ConditionalBreakPointCookie>()) {
         const ConditionalBreakPointCookie cookie = qvariant_cast<ConditionalBreakPointCookie>(command->cookie);
         const QString message = value ?
             tr("Value %1 obtained from evaluating the condition of breakpoint %2, stopping.").
@@ -3063,6 +3041,8 @@ void CdbEngine::handleBreakPoints(const GdbMi &value)
                 qPrintable(reportedResponse.toString()));
         if (reportedResponse.id.isValid() && !reportedResponse.pending) {
             const BreakpointModelId mid = handler->findBreakpointByResponseId(reportedResponse.id);
+            if (!mid.isValid() && reportedResponse.type == BreakpointByFunction)
+                continue; // Breakpoints from options, CrtDbgReport() and others.
             QTC_ASSERT(mid.isValid(), continue);
             const PendingBreakPointMap::iterator it = m_pendingBreakpointMap.find(mid);
             if (it != m_pendingBreakpointMap.end()) {
@@ -3122,13 +3102,13 @@ void CdbEngine::postWidgetAtCommand()
 
 void CdbEngine::handleCustomSpecialStop(const QVariant &v)
 {
-    if (qVariantCanConvert<MemoryChangeCookie>(v)) {
-        const MemoryChangeCookie changeData = qVariantValue<MemoryChangeCookie>(v);
+    if (v.canConvert<MemoryChangeCookie>()) {
+        const MemoryChangeCookie changeData = qvariant_cast<MemoryChangeCookie>(v);
         postCommand(cdbWriteMemoryCommand(changeData.address, changeData.data), 0);
         return;
     }
-    if (qVariantCanConvert<MemoryViewCookie>(v)) {
-        postFetchMemory(qVariantValue<MemoryViewCookie>(v));
+    if (v.canConvert<MemoryViewCookie>()) {
+        postFetchMemory(qvariant_cast<MemoryViewCookie>(v));
         return;
     }
 }

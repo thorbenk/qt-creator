@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -99,7 +97,7 @@ public:
     bool addDependency(Project *project, Project *depProject);
     void removeDependency(Project *project, Project *depProject);
 
-    QString sessionNameToFileName(const QString &session) const;
+    Utils::FileName sessionNameToFileName(const QString &session) const;
     Project *startupProject() const;
 
     const QList<Project *> &projects() const;
@@ -123,6 +121,7 @@ public:
     QStringList projectsForSessionName(const QString &session) const;
 
     void reportProjectLoadingProgress();
+    bool loadingSession();
 signals:
     void projectAdded(ProjectExplorer::Project *project);
     void singleProjectAdded(ProjectExplorer::Project *project);
@@ -169,6 +168,7 @@ private:
     mutable QStringList m_sessions;
 
     mutable QHash<Project *, QStringList> m_projectFileCache;
+    bool m_loadingSession;
 
     Project *m_startupProject;
     QList<Project *> m_projects;
@@ -176,6 +176,7 @@ private:
     QMap<QString, QStringList> m_depMap;
     QMap<QString, QVariant> m_values;
     QFutureInterface<void> m_future;
+    Utils::PersistentSettingsWriter *m_writer;
 };
 
 } // namespace ProjectExplorer

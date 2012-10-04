@@ -136,6 +136,13 @@ static inline int classify4(const char *s, bool q, bool) {
         }
       }
     }
+    else if (q && s[1] == 'm') {
+      if (s[2] == 'i') {
+        if (s[3] == 't') {
+          return T_EMIT;
+        }
+      }
+    }
   }
   else if (s[0] == 'g') {
     if (s[1] == 'o') {
@@ -525,6 +532,15 @@ static inline int classify6(const char *s, bool q, bool) {
           }
         }
       }
+      else if (s[2] == 'E') {
+        if (s[3] == 'M') {
+          if (s[4] == 'I') {
+            if (s[5] == 'T') {
+              return T_Q_EMIT;
+            }
+          }
+        }
+      }
     }
   }
   return T_IDENTIFIER;
@@ -550,6 +566,26 @@ static inline int classify7(const char *s, bool q, bool x) {
             if (s[5] == 's') {
               if (s[6] == 't') {
                 return T___CONST;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  else if (x && s[0] == 'a') {
+    if (s[1] == 'l') {
+      if (s[2] == 'i') {
+        if (s[3] == 'g') {
+          if (s[4] == 'n') {
+            if (s[5] == 'a') {
+              if (s[6] == 's') {
+                return T_ALIGNAS;
+              }
+            }
+            else if (s[5] == 'o') {
+              if (s[6] == 'f') {
+                return T_ALIGNOF;
               }
             }
           }
@@ -778,6 +814,28 @@ static inline int classify8(const char *s, bool q, bool x) {
           }
         }
       }
+    } else if (x && s[1] == 'h') {
+        if (s[2] == 'a') {
+            if (s[3] == 'r') {
+                if (s[4] == '1') {
+                    if (s[5] == '6') {
+                        if (s[6] == '_') {
+                            if (s[7] == 't') {
+                                return T_CHAR16_T;
+                            }
+                        }
+                    }
+                } else if (s[4] == '3') {
+                    if (s[5] == '2') {
+                        if (s[6] == '_') {
+                            if (s[7] == 't') {
+                                return T_CHAR32_T;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
   }
   else if (x && s[0] == 'd') {

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -199,7 +197,7 @@
     sudo apt-get install libgl-dev libglu-dev
     \endcode
 
-    \section1 Platform Releated Questions
+    \section1 Platform Related Questions
 
     \bold {Where is application output shown in \QC?}
 
@@ -232,10 +230,6 @@
     external debug output viewer, such as the
     \l{http://technet.microsoft.com/en-us/sysinternals/bb896647}{DebugView for Windows}
     to display output from GUI applications.
-
-    \if defined(qcmanual)
-    \input symbian/creator-faq-debug-output-symbian.qdocinc
-    \endif
 
     \section1 Questions about New Features
 

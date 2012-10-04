@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,7 +32,6 @@
 #include "gdbmi.h"
 
 #include "debuggerstartparameters.h"
-#include "abstractgdbadapter.h"
 #include "debuggeractions.h"
 #include "debuggercore.h"
 #include "debuggerstringutils.h"
@@ -42,6 +39,8 @@
 #include "stackhandler.h"
 #include "watchhandler.h"
 
+#include <coreplugin/icore.h>
+#include <qtsupport/qtsupportconstants.h>
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
 #include <utils/fileutils.h>
@@ -49,6 +48,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QPushButton>
 
 #if !defined(Q_OS_WIN)
 #include <dlfcn.h>
@@ -117,18 +117,21 @@ QString DumperHelper::msgPtraceError(DebuggerStartMode sm)
 {
     if (sm == StartInternal) {
         return QCoreApplication::translate("QtDumperHelper",
-                  "ptrace: Operation not permitted.\n\n"
-                  "Could not attach to the process. Check the settings of\n"
-                  "/proc/sys/kernel/yama/ptrace_scope\n"
-                  "For more details, see/etc/sysctl.d/10-ptrace.conf\n");
-    } else {
-        return QCoreApplication::translate("QtDumperHelper",
-                 "ptrace: Operation not permitted.\n\n"
-                 "Could not attach to the process. If your uid matches the uid\n"
-                 "of the target process, check the settings of\n"
-                 "/proc/sys/kernel/yama/ptrace_scope\n"
-                 "For more details, see/etc/sysctl.d/10-ptrace.conf\n");
+            "ptrace: Operation not permitted.\n\n"
+            "Could not attach to the process. "
+            "Make sure no other debugger traces this process.\n"
+            "Check the settings of\n"
+            "/proc/sys/kernel/yama/ptrace_scope\n"
+            "For more details, see /etc/sysctl.d/10-ptrace.conf\n");
     }
+    return QCoreApplication::translate("QtDumperHelper",
+        "ptrace: Operation not permitted.\n\n"
+        "Could not attach to the process. "
+        "Make sure no other debugger traces this process.\n"
+        "If your uid matches the uid\n"
+        "of the target process, check the settings of\n"
+        "/proc/sys/kernel/yama/ptrace_scope\n"
+        "For more details, see /etc/sysctl.d/10-ptrace.conf\n");
 }
 
 static inline void formatQtVersion(int v, QTextStream &str)
@@ -716,23 +719,17 @@ static bool parseConsoleStream(const GdbResponse &response, GdbMi *contents)
 void GdbEngine::updateLocalsClassic()
 {
     PRECONDITION;
-    m_pendingWatchRequests = 0;
+    //m_pendingWatchRequests = 0;
     m_pendingBreakpointRequests = 0;
     m_processedNames.clear();
-
-    if (0 && debugPending)
-        qDebug() << "\nRESET PENDING";
-    //m_toolTipCache.clear();
-    clearToolTip();
-    watchHandler()->beginCycle();
 
     QByteArray level = QByteArray::number(currentFrame());
     // '2' is 'list with type and value'
     QByteArray cmd = "-stack-list-arguments 2 " + level + ' ' + level;
-    postCommand(cmd, WatchUpdate,
+    postCommand(cmd, Discardable,
         CB(handleStackListArgumentsClassic));
     // '2' is 'list with type and value'
-    postCommand("-stack-list-locals 2", WatchUpdate,
+    postCommand("-stack-list-locals 2", Discardable,
         CB(handleStackListLocalsClassic)); // stage 2/2
 }
 
@@ -754,9 +751,9 @@ void GdbEngine::runDirectDebuggingHelperClassic(const WatchData &data, bool dump
 
     QVariant var;
     var.setValue(data);
-    postCommand(cmd, WatchUpdate, CB(handleDebuggingHelperValue3Classic), var);
+    postCommand(cmd, Discardable, CB(handleDebuggingHelperValue3Classic), var);
 
-    showStatusMessage(msgRetrievingWatchData(m_pendingWatchRequests + 1), 10000);
+    showStatusMessage(msgRetrievingWatchData(m_uncompleted.size()), 10000);
 }
 
 void GdbEngine::runDebuggingHelperClassic(const WatchData &data0, bool dumpChildren)
@@ -811,25 +808,25 @@ void GdbEngine::runDebuggingHelperClassic(const WatchData &data0, bool dumpChild
         cmd += ',' + ex;
     cmd += ')';
 
-    postCommand(cmd, WatchUpdate | NonCriticalResponse);
+    postCommand(cmd, Discardable | NonCriticalResponse);
 
-    showStatusMessage(msgRetrievingWatchData(m_pendingWatchRequests + 1), 10000);
+    showStatusMessage(msgRetrievingWatchData(m_uncompleted.size()), 10000);
 
     // retrieve response
-    postCommand("p (char*)&qDumpOutBuffer", WatchUpdate,
+    postCommand("p (char*)&qDumpOutBuffer", Discardable,
         CB(handleDebuggingHelperValue2Classic), qVariantFromValue(data));
 }
 
 void GdbEngine::createGdbVariableClassic(const WatchData &data)
 {
     PRECONDITION;
-    postCommand("-var-delete \"" + data.iname + '"', WatchUpdate);
+    postCommand("-var-delete \"" + data.iname + '"', Discardable);
     QByteArray exp = data.exp;
     if (exp.isEmpty() && data.address)
         exp = "*(" + gdbQuoteTypes(data.type) + "*)" + data.hexAddress();
     QVariant val = QVariant::fromValue<WatchData>(data);
     postCommand("-var-create \"" + data.iname + "\" * \"" + exp + '"',
-        WatchUpdate, CB(handleVarCreate), val);
+        Discardable, CB(handleVarCreate), val);
 }
 
 void GdbEngine::updateSubItemClassic(const WatchData &data0)
@@ -929,7 +926,7 @@ void GdbEngine::updateSubItemClassic(const WatchData &data0)
         if (debugSubItem)
             qDebug() << "UPDATE SUBITEM: VALUE";
         QByteArray cmd = "-var-evaluate-expression \"" + data.iname + '"';
-        postCommand(cmd, WatchUpdate,
+        postCommand(cmd, Discardable,
             CB(handleEvaluateExpressionClassic), QVariant::fromValue(data));
         return;
     }
@@ -953,7 +950,7 @@ void GdbEngine::updateSubItemClassic(const WatchData &data0)
     if (data.isChildrenNeeded()) {
         QTC_ASSERT(!data.variable.isEmpty(), return); // tested above
         QByteArray cmd = "-var-list-children --all-values \"" + data.variable + '"';
-        postCommand(cmd, WatchUpdate,
+        postCommand(cmd, Discardable,
             CB(handleVarListChildrenClassic), QVariant::fromValue(data));
         return;
     }
@@ -999,7 +996,7 @@ void GdbEngine::handleDebuggingHelperValue2Classic(const GdbResponse &response)
     if (m_cookieForToken.contains(response.token - 1)) {
         m_cookieForToken.remove(response.token - 1);
         showMessage(_("DETECTING LOST COMMAND %1").arg(response.token - 1));
-        --m_pendingWatchRequests;
+        // --m_pendingWatchRequests;
         data.setError(WatchData::msgNotInScope());
         insertData(data);
         return;
@@ -1025,7 +1022,8 @@ void GdbEngine::handleDebuggingHelperValue2Classic(const GdbResponse &response)
     parseWatchData(watchHandler()->expandedINames(), data, contents, &list);
     //for (int i = 0; i != list.size(); ++i)
     //    qDebug() << "READ: " << list.at(i).toString();
-    watchHandler()->insertBulkData(list);
+    foreach (const WatchData &data, list)
+        insertData(data);
 }
 
 void GdbEngine::handleDebuggingHelperValue3Classic(const GdbResponse &response)
@@ -1082,7 +1080,7 @@ void GdbEngine::handleDebuggingHelperValue3Classic(const GdbResponse &response)
                     QByteArray cmd = "qdumpqstring (" + data1.exp + ')';
                     QVariant var;
                     var.setValue(data1);
-                    postCommand(cmd, WatchUpdate,
+                    postCommand(cmd, Discardable,
                         CB(handleDebuggingHelperValue3Classic), var);
                 }
             }
@@ -1101,8 +1099,11 @@ void GdbEngine::handleDebuggingHelperValue3Classic(const GdbResponse &response)
 
 void GdbEngine::tryLoadDebuggingHelpersClassic()
 {
+    if (m_forceAsyncModel)
+        return;
+
     PRECONDITION;
-    if (m_gdbAdapter->dumperHandling() == AbstractGdbAdapter::DumperNotAvailable) {
+    if (dumperHandling() == GdbEngine::DumperNotAvailable) {
         // Load at least gdb macro based dumpers.
         m_debuggingHelperState = DebuggingHelperLoadTried;
         postCommand(Utils::FileReader::fetchQrc(_(":/gdb/gdbmacros.txt")));
@@ -1116,18 +1117,13 @@ void GdbEngine::tryLoadDebuggingHelpersClassic()
         return;
 
     m_debuggingHelperState = DebuggingHelperLoadTried;
-    QByteArray dlopenLib;
-    const DebuggerStartMode startMode = startParameters().startMode;
-    if (startMode == AttachToRemoteServer || startMode == StartRemoteGdb)
-        dlopenLib = startParameters().remoteDumperLib;
-    else
-        dlopenLib = qtDumperLibraryName().toLocal8Bit();
 
     // Do not use STRINGIFY for RTLD_NOW as we really want to expand that to a number.
-#if defined(Q_OS_WIN) || defined(Q_OS_SYMBIAN)
-    // We are using Python on Windows and Symbian.
+#if defined(Q_OS_WIN)
+    // We are using Python on Windows.
     QTC_CHECK(false);
 #elif defined(Q_OS_MAC)
+    QByteArray dlopenLib = startParameters().dumperLibrary.toLocal8Bit();
     //postCommand("sharedlibrary libc"); // for malloc
     //postCommand("sharedlibrary libdl"); // for dlopen
     const QByteArray flag = QByteArray::number(RTLD_NOW);
@@ -1136,6 +1132,7 @@ void GdbEngine::tryLoadDebuggingHelpersClassic()
         CB(handleDebuggingHelperSetup));
     //postCommand("sharedlibrary " + dotEscape(dlopenLib));
 #else
+    QByteArray dlopenLib = startParameters().dumperLibrary.toLocal8Bit();
     //postCommand("p dlopen");
     const QByteArray flag = QByteArray::number(RTLD_NOW);
     postCommand("sharedlibrary libc"); // for malloc
@@ -1149,16 +1146,10 @@ void GdbEngine::tryLoadDebuggingHelpersClassic()
         CB(handleDebuggingHelperSetup));
     postCommand("sharedlibrary " + dotEscape(dlopenLib));
 #endif
-    tryQueryDebuggingHelpersClassic();
-}
 
-void GdbEngine::tryQueryDebuggingHelpersClassic()
-{
-    PRECONDITION;
     // Retrieve list of dumpable classes.
     postCommand("call (void*)qDumpObjectData440(1,0,0,0,0,0,0,0)");
-    postCommand("p (char*)&qDumpOutBuffer",
-        CB(handleQueryDebuggingHelperClassic));
+    postCommand("p (char*)&qDumpOutBuffer", CB(handleQueryDebuggingHelperClassic));
 }
 
 // Called from CoreAdapter and AttachAdapter
@@ -1171,12 +1162,12 @@ void GdbEngine::updateAllClassic()
         qDebug() << state());
     tryLoadDebuggingHelpersClassic();
     reloadModulesInternal();
-    postCommand("-stack-list-frames", WatchUpdate,
+    postCommand("-stack-list-frames", Discardable,
         CB(handleStackListFrames),
         QVariant::fromValue<StackCookie>(StackCookie(false, true)));
     stackHandler()->setCurrentIndex(0);
     if (supportsThreads())
-        postCommand("-thread-list-ids", WatchUpdate, CB(handleThreadListIds), 0);
+        postCommand("-thread-list-ids", Discardable, CB(handleThreadListIds), 0);
     reloadRegisters();
     updateLocals();
 }
@@ -1240,19 +1231,21 @@ void GdbEngine::handleStackListLocalsClassic(const GdbResponse &response)
     QStringList uninitializedVariables;
     if (debuggerCore()->action(UseCodeModel)->isChecked()) {
         const StackFrame frame =
-            qVariantCanConvert<Debugger::Internal::StackFrame>(response.cookie)
-                ? qVariantValue<Debugger::Internal::StackFrame>(response.cookie)
+            response.cookie.canConvert<Debugger::Internal::StackFrame>()
+                ? qvariant_cast<Debugger::Internal::StackFrame>(response.cookie)
                 : stackHandler()->currentFrame();
         if (frame.isUsable())
             getUninitializedVariables(debuggerCore()->cppCodeModelSnapshot(),
                                       frame.function, frame.file, frame.line,
                                       &uninitializedVariables);
     }
-    QList<WatchData> list;
+    WatchHandler *handler = watchHandler();
+    insertData(*handler->findData("local"));
+
     foreach (const GdbMi &item, locals) {
         const WatchData data = localVariable(item, uninitializedVariables, &seen);
         if (data.isValid())
-            list.push_back(data);
+            insertData(data);
     }
 
     if (!m_resultVarName.isEmpty()) {
@@ -1260,22 +1253,51 @@ void GdbEngine::handleStackListLocalsClassic(const GdbResponse &response)
         rd.iname = "return.0";
         rd.name = QLatin1String("return");
         rd.exp = m_resultVarName;
-        list.append(rd);
+        insertData(rd);
     }
 
-    watchHandler()->insertBulkData(list);
-    watchHandler()->updateWatchers();
+    handler->updateWatchers();
+}
+
+static void showQtDumperLibraryWarning(const QString &details)
+{
+    QMessageBox dialog(debuggerCore()->mainWindow());
+    QPushButton *qtPref = dialog.addButton(DebuggerCore::tr("Open Qt Options"),
+        QMessageBox::ActionRole);
+    QPushButton *helperOff = dialog.addButton(DebuggerCore::tr("Turn off Helper Usage"),
+        QMessageBox::ActionRole);
+    QPushButton *justContinue = dialog.addButton(DebuggerCore::tr("Continue Anyway"),
+        QMessageBox::AcceptRole);
+    dialog.setDefaultButton(justContinue);
+    dialog.setWindowTitle(DebuggerCore::tr("Debugging Helper Missing"));
+    dialog.setText(DebuggerCore::tr("The debugger could not load the debugging helper library."));
+    dialog.setInformativeText(DebuggerCore::tr(
+        "The debugging helper is used to nicely format the values of some Qt "
+        "and Standard Library data types. "
+        "It must be compiled for each used Qt version separately. "
+        "In the Qt Creator Build and Run preferences page, select a Qt version, "
+        "expand the Details section and click Build All."));
+    if (!details.isEmpty())
+        dialog.setDetailedText(details);
+    dialog.exec();
+    if (dialog.clickedButton() == qtPref) {
+        Core::ICore::showOptionsDialog(
+            _(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
+            _(QtSupport::Constants::QTVERSION_SETTINGS_PAGE_ID));
+    } else if (dialog.clickedButton() == helperOff) {
+        debuggerCore()->action(UseDebuggingHelpers)->setValue(qVariantFromValue(false), false);
+    }
 }
 
 bool GdbEngine::checkDebuggingHelpersClassic()
 {
     PRECONDITION;
-    if (!qtDumperLibraryEnabled())
+    if (!debuggerCore()->boolSetting(UseDebuggingHelpers))
         return false;
-    const QString lib = qtDumperLibraryName();
+    const QString lib = startParameters().dumperLibrary;
     if (QFileInfo(lib).exists())
         return true;
-    const QStringList &locations = qtDumperLibraryLocations();
+    const QStringList &locations = startParameters().dumperLibraryLocations;
     const QString loc = locations.join(QLatin1String(", "));
     const QString msg = tr("The debugging helper library was not found at %1.")
             .arg(loc);
@@ -1371,7 +1393,7 @@ void GdbEngine::handleVarListChildrenHelperClassic(const GdbMi &item,
         data.setChildrenUnneeded();
         QByteArray cmd = "-var-list-children --all-values \"" + data.variable + '"';
         //iname += '.' + exp;
-        postCommand(cmd, WatchUpdate,
+        postCommand(cmd, Discardable,
             CB(handleVarListChildrenClassic), QVariant::fromValue(data));
     } else if (!startsWithDigit(QLatin1String(exp))
             && item.findChild("numchild").data() == "0") {
@@ -1390,7 +1412,7 @@ void GdbEngine::handleVarListChildrenHelperClassic(const GdbMi &item,
         WatchData data;
         data.iname = name;
         QByteArray cmd = "-var-list-children --all-values \"" + data.variable + '"';
-        postCommand(cmd, WatchUpdate,
+        postCommand(cmd, Discardable,
             CB(handleVarListChildrenClassic), QVariant::fromValue(data));
     } else if (exp == "staticMetaObject") {
         //    && item.findChild("type").data() == "const QMetaObject")
@@ -1464,9 +1486,6 @@ void GdbEngine::handleVarListChildrenClassic(const GdbResponse &response)
         //qDebug() <<  "VAR_LIST_CHILDREN: PARENT" << data.toString();
         QList<GdbMi> children = response.data.findChild("children").children();
 
-        for (int i = 0; i != children.size(); ++i)
-            handleVarListChildrenHelperClassic(children.at(i), data, i);
-
         if (children.isEmpty()) {
             // happens e.g. if no debug information is present or
             // if the class really has no children
@@ -1479,14 +1498,18 @@ void GdbEngine::handleVarListChildrenClassic(const GdbResponse &response)
             insertData(data1);
             data.setAllUnneeded();
             insertData(data);
-        } else if (data.variable.endsWith("private")
+        } else {
+            if (data.variable.endsWith("private")
                 || data.variable.endsWith("protected")
                 || data.variable.endsWith("public")) {
             // this skips the spurious "public", "private" etc levels
             // gdb produces
-        } else {
-            data.setChildrenUnneeded();
-            insertData(data);
+            } else {
+                data.setChildrenUnneeded();
+                insertData(data);
+            }
+            for (int i = 0; i != children.size(); ++i)
+                handleVarListChildrenHelperClassic(children.at(i), data, i);
         }
     } else {
         data.setError(QString::fromLocal8Bit(response.data.findChild("msg").data()));

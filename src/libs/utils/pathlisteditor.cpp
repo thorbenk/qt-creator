@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "pathlisteditor.h"
+
+#include "hostosinfo.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -94,7 +94,7 @@ void PathListPlainTextEdit::insertFromMimeData(const QMimeData *source)
     if (source->hasText()) {
         // replace separator
         QString text = source->text().trimmed();
-        text.replace(PathListEditor::separator(), QLatin1Char('\n'));
+        text.replace(HostOsInfo::pathListSeparator(), QLatin1Char('\n'));
         QSharedPointer<QMimeData> fixed(new QMimeData);
         fixed->setText(text);
         QPlainTextEdit::insertFromMimeData(fixed.data());
@@ -190,7 +190,7 @@ int PathListEditor::lastAddActionIndex()
 
 QString PathListEditor::pathListString() const
 {
-    return pathList().join(separator());
+    return pathList().join(HostOsInfo::pathListSeparator());
 }
 
 QStringList PathListEditor::pathList() const
@@ -216,7 +216,8 @@ void PathListEditor::setPathList(const QString &pathString)
     if (pathString.isEmpty()) {
         clear();
     } else {
-        setPathList(pathString.split(separator(), QString::SkipEmptyParts));
+        setPathList(pathString.split(HostOsInfo::pathListSeparator(),
+                QString::SkipEmptyParts));
     }
 }
 
@@ -252,16 +253,6 @@ void PathListEditor::slotInsert()
     const QString dir = QFileDialog::getExistingDirectory(this, d->fileDialogTitle);
     if (!dir.isEmpty())
         insertPathAtCursor(QDir::toNativeSeparators(dir));
-}
-
-QChar PathListEditor::separator()
-{
-#ifdef Q_OS_WIN
-    static const QChar rc(QLatin1Char(';'));
-#else
-    static const QChar rc(QLatin1Char(':'));
-#endif
-    return rc;
 }
 
 // Add a button "Import from 'Path'"

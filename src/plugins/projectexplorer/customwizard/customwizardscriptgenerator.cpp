@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,7 @@
 #include "customwizard.h"
 #include "customwizardparameters.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <QProcess>
@@ -68,15 +67,16 @@ QStringList fixGeneratorScript(const QString &configFile, QString binary)
         }
     } // not absolute
     QStringList rc(binary);
-#ifdef Q_OS_WIN // Windows: Cannot run scripts by QProcess, do 'cmd /c'
-    const QString extension = binaryInfo.suffix();
-    if (!extension.isEmpty() && extension.compare(QLatin1String("exe"), Qt::CaseInsensitive) != 0) {
-        rc.push_front(QLatin1String("/C"));
-        rc.push_front(QString::fromLocal8Bit(qgetenv("COMSPEC")));
-        if (rc.front().isEmpty())
-            rc.front() = QLatin1String("cmd.exe");
+    if (Utils::HostOsInfo::isWindowsHost()) { // Windows: Cannot run scripts by QProcess, do 'cmd /c'
+        const QString extension = binaryInfo.suffix();
+        if (!extension.isEmpty() && extension.compare(QLatin1String("exe"),
+                                                      Qt::CaseInsensitive) != 0) {
+            rc.push_front(QLatin1String("/C"));
+            rc.push_front(QString::fromLocal8Bit(qgetenv("COMSPEC")));
+            if (rc.front().isEmpty())
+                rc.front() = QLatin1String("cmd.exe");
+        }
     }
-#endif
     return rc;
 }
 

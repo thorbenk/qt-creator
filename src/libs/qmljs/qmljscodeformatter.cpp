@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -200,18 +198,18 @@ void CodeFormatter::recalculateStateAfter(const QTextBlock &block)
             switch (kind) {
             case Colon:         enter(binding_assignment); break; // oops, was a binding
             case Var:
-            case Identifier:    enter(property_type); break;
+            case Identifier:    enter(property_name); break;
             case List:          enter(property_list_open); break;
             default:            leave(true); continue;
             } break;
 
-        case property_type:
+        case property_name:
             turnInto(property_maybe_initializer);
             break;
 
         case property_list_open:
             if (m_currentLine.midRef(m_currentToken.begin(), m_currentToken.length) == QLatin1String(">"))
-                turnInto(property_maybe_initializer);
+                turnInto(property_name);
             break;
 
         case property_maybe_initializer:
@@ -941,7 +939,7 @@ CodeFormatter::TokenKind CodeFormatter::extendedTokenKind(const QmlJS::Token &to
         if (text == "on")
             return On;
         if (text == "list")
-            return On;
+            return List;
     } else if (kind == Keyword) {
         const QChar char1 = text.at(0);
         const QChar char2 = text.at(1);

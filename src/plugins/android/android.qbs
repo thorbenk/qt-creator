@@ -10,7 +10,7 @@ QtcPlugin {
     Depends { name: "Qt4ProjectManager" }
     Depends { name: "Debugger" }
     Depends { name: "QtSupport" }
-    Depends { name: "qt"; submodules: ['widgets', 'xml', 'network'] }
+    Depends { name: "Qt"; submodules: ["widgets", "xml", "network"] }
 
     property bool enable: false
     property var pluginspecreplacements: ({"ANDROID_EXPERIMENTAL_STR": (enable ? "false": "true")})
@@ -41,7 +41,13 @@ QtcPlugin {
         "androiddeploystepwidget.cpp",
         "androiddeploystepwidget.h",
         "androiddeploystepwidget.ui",
+        "androiddevice.cpp",
+        "androiddevice.h",
+        "androiddevicefactory.cpp",
+        "androiddevicefactory.h",
         "androidglobal.h",
+        "androidmanager.h",
+        "androidmanager.cpp",
         "androidpackagecreationfactory.cpp",
         "androidpackagecreationfactory.h",
         "androidpackagecreationstep.cpp",
@@ -73,10 +79,6 @@ QtcPlugin {
         "androidsettingswidget.cpp",
         "androidsettingswidget.h",
         "androidsettingswidget.ui",
-        "androidtarget.cpp",
-        "androidtargetfactory.cpp",
-        "androidtargetfactory.h",
-        "androidtarget.h",
         "androidtoolchain.cpp",
         "androidtoolchain.h",
         "javaparser.cpp",

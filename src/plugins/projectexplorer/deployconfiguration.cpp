@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,9 +33,13 @@
 #include "buildmanager.h"
 #include "buildsteplist.h"
 #include "buildstepspage.h"
+#include "kitinformation.h"
+#include "project.h"
 #include "projectexplorer.h"
 #include "projectexplorerconstants.h"
 #include "target.h"
+
+#include <extensionsystem/pluginmanager.h>
 
 #include <QStringList>
 
@@ -59,11 +61,12 @@ DeployConfiguration::DeployConfiguration(Target *target, const Core::Id id) :
     //: Display name of the deploy build step list. Used as part of the labels in the project window.
     m_stepList->setDefaultDisplayName(tr("Deploy"));
     //: Default DeployConfiguration display name
-    setDefaultDisplayName(tr("No deployment"));
+    setDefaultDisplayName(tr("Deploy locally"));
 }
 
 DeployConfiguration::DeployConfiguration(Target *target, DeployConfiguration *source) :
-    ProjectConfiguration(target, source)
+    ProjectConfiguration(target, source),
+    m_stepList(0)
 {
     Q_ASSERT(target);
     // Do not clone stepLists here, do that in the derived constructor instead
@@ -114,6 +117,7 @@ bool DeployConfiguration::fromMap(const QVariantMap &map)
         return false;
     QVariantMap data = map.value(QLatin1String(BUILD_STEP_LIST_PREFIX) + QLatin1String("0")).toMap();
     if (!data.isEmpty()) {
+        delete m_stepList;
         m_stepList = new BuildStepList(this, data);
         if (m_stepList->isNull()) {
             qWarning() << "Failed to restore deploy step list";
@@ -128,7 +132,7 @@ bool DeployConfiguration::fromMap(const QVariantMap &map)
     }
 
     // We assume that we hold the deploy list
-    Q_ASSERT(m_stepList && m_stepList->id() == Core::Id(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY));
+    Q_ASSERT(m_stepList && m_stepList->id() == ProjectExplorer::Constants::BUILDSTEPS_DEPLOY);
 
     return true;
 }
@@ -148,25 +152,41 @@ void DeployConfiguration::cloneSteps(DeployConfiguration *source)
 }
 
 ///
+// DefaultDeployConfiguration
+///
+DefaultDeployConfiguration::DefaultDeployConfiguration(Target *target, const Core::Id id)
+    : DeployConfiguration(target, id)
+{
+
+}
+
+DefaultDeployConfiguration::DefaultDeployConfiguration(Target *target, DeployConfiguration *source)
+    : DeployConfiguration(target, source)
+{
+    cloneSteps(source);
+}
+
+///
 // DeployConfigurationFactory
 ///
 
 DeployConfigurationFactory::DeployConfigurationFactory(QObject *parent) :
     QObject(parent)
-{ }
+{ setObjectName(QLatin1String("DeployConfigurationFactory")); }
 
 DeployConfigurationFactory::~DeployConfigurationFactory()
 { }
 
 QList<Core::Id> DeployConfigurationFactory::availableCreationIds(Target *parent) const
 {
-    Q_UNUSED(parent);
+    if (!canHandle(parent))
+        return QList<Core::Id>();
     return QList<Core::Id>() << Core::Id(Constants::DEFAULT_DEPLOYCONFIGURATION_ID);
 }
 
 QString DeployConfigurationFactory::displayNameForId(const Core::Id id) const
 {
-    if (id == Core::Id(Constants::DEFAULT_DEPLOYCONFIGURATION_ID))
+    if (id == Constants::DEFAULT_DEPLOYCONFIGURATION_ID)
         //: Display name of the default deploy configuration
         return tr("Deploy Configuration");
     return QString();
@@ -174,15 +194,16 @@ QString DeployConfigurationFactory::displayNameForId(const Core::Id id) const
 
 bool DeployConfigurationFactory::canCreate(Target *parent, const Core::Id id) const
 {
-    Q_UNUSED(parent);
-    return id == Core::Id(Constants::DEFAULT_DEPLOYCONFIGURATION_ID);
+    if (!canHandle(parent))
+        return false;
+    return id == Constants::DEFAULT_DEPLOYCONFIGURATION_ID;
 }
 
 DeployConfiguration *DeployConfigurationFactory::create(Target *parent, const Core::Id id)
 {
     if (!canCreate(parent, id))
         return 0;
-    return new DeployConfiguration(parent, id);
+    return new DefaultDeployConfiguration(parent, id);
 }
 
 bool DeployConfigurationFactory::canRestore(Target *parent, const QVariantMap &map) const
@@ -194,7 +215,7 @@ DeployConfiguration *DeployConfigurationFactory::restore(Target *parent, const Q
 {
     if (!canRestore(parent, map))
         return 0;
-    DeployConfiguration *dc = new DeployConfiguration(parent, idFromMap(map));
+    DefaultDeployConfiguration *dc = new DefaultDeployConfiguration(parent, idFromMap(map));
     if (!dc->fromMap(map)) {
         delete dc;
         return 0;
@@ -211,7 +232,47 @@ DeployConfiguration *DeployConfigurationFactory::clone(Target *parent, DeployCon
 {
     if (!canClone(parent, product))
         return 0;
-    return new DeployConfiguration(parent, product);
+    return new DefaultDeployConfiguration(parent, product);
+}
+
+DeployConfigurationFactory *DeployConfigurationFactory::find(Target *parent, const QVariantMap &map)
+{
+    QList<DeployConfigurationFactory *> factories
+            = ExtensionSystem::PluginManager::instance()->getObjects<DeployConfigurationFactory>();
+    foreach (DeployConfigurationFactory *factory, factories) {
+        if (factory->canRestore(parent, map))
+            return factory;
+    }
+    return 0;
+}
+
+DeployConfigurationFactory *DeployConfigurationFactory::find(Target *parent)
+{
+    QList<DeployConfigurationFactory *> factories
+            = ExtensionSystem::PluginManager::instance()->getObjects<DeployConfigurationFactory>();
+    foreach (DeployConfigurationFactory *factory, factories) {
+        if (!factory->availableCreationIds(parent).isEmpty())
+            return factory;
+    }
+    return 0;
+}
+
+DeployConfigurationFactory *DeployConfigurationFactory::find(Target *parent, DeployConfiguration *dc)
+{
+    QList<DeployConfigurationFactory *> factories
+            = ExtensionSystem::PluginManager::instance()->getObjects<DeployConfigurationFactory>();
+    foreach (DeployConfigurationFactory *factory, factories) {
+        if (factory->canClone(parent, dc))
+            return factory;
+    }
+    return 0;
+}
+
+bool DeployConfigurationFactory::canHandle(Target *parent) const
+{
+    if (!parent->project()->supportsKit(parent->kit()))
+        return false;
+    return DeviceTypeKitInformation::deviceTypeId(parent->kit()) == Constants::DESKTOP_DEVICE_TYPE;
 }
 
 ///

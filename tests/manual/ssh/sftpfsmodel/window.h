@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,11 +25,9 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
-#include <utils/ssh/sftpdefs.h>
+#include <ssh/sftpdefs.h>
 
 #include <QDialog>
 
@@ -37,7 +35,7 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class Window; }
 QT_END_NAMESPACE
 
-namespace Utils { class SftpFileSystemModel; }
+namespace QSsh { class SftpFileSystemModel; }
 
 class SftpFsWindow : public QDialog
 {
@@ -51,9 +49,9 @@ private slots:
     void downloadFile();
     void handleConnectionError(const QString &errorMessage);
     void handleSftpOperationFailed(const QString &errorMessage);
-    void handleSftpOperationFinished(Utils::SftpJobId jobId, const QString &error);
+    void handleSftpOperationFinished(QSsh::SftpJobId jobId, const QString &error);
 
 private:
-    Utils::SftpFileSystemModel *m_fsModel;
+    QSsh::SftpFileSystemModel *m_fsModel;
     Ui::Window *m_ui;
 };

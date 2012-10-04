@@ -1,3 +1,4 @@
+import __builtin__
 import re
 
 processStarted = False
@@ -11,9 +12,14 @@ def __handleProcessExited__(object, exitCode):
     global processExited
     processExited = True
 
-def openQmakeProject(projectPath, targets=QtQuickConstants.Targets.DESKTOP):
+def openQmakeProject(projectPath, targets = QtQuickConstants.Targets.DESKTOP_474_GCC, fromWelcome = False):
     cleanUpUserFiles(projectPath)
-    invokeMenuItem("File", "Open File or Project...")
+    if fromWelcome:
+        mouseClick(waitForObject(":OpenProject_QStyleItem"), 5, 5, 0, Qt.LeftButton)
+        if not platform.system() == "Darwin":
+            waitFor("waitForObject(':fileNameEdit_QLineEdit').focus == True")
+    else:
+        invokeMenuItem("File", "Open File or Project...")
     selectFromFileDialog(projectPath)
     try:
         # handle update generated files dialog
@@ -23,8 +29,6 @@ def openQmakeProject(projectPath, targets=QtQuickConstants.Targets.DESKTOP):
         clickButton(waitForObject("{text='Yes' type='QPushButton' unnamed='1' visible='1'}"))
     except:
         pass
-    selectFromCombo(waitForObject(":Qt Creator.Create Build Configurations:_QComboBox", 180000),
-                    "For Each Qt Version One Debug And One Release")
     __chooseTargets__(targets)
     configureButton = waitForObject("{text='Configure Project' type='QPushButton' unnamed='1' visible='1'"
                                     "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
@@ -79,8 +83,11 @@ def shadowBuildDir(path, project, qtVersion, debugVersion):
 # because the Simulator target is added for some cases even when Simulator has not
 # been set up inside Qt versions/Toolchains
 # this list can be used in __chooseTargets__()
-def __createProjectSelectType__(category, template):
-    invokeMenuItem("File", "New File or Project...")
+def __createProjectSelectType__(category, template, fromWelcome = False):
+    if fromWelcome:
+        mouseClick(waitForObject(":CreateProject_QStyleItem"), 5, 5, 0, Qt.LeftButton)
+    else:
+        invokeMenuItem("File", "New File or Project...")
     categoriesView = waitForObject("{type='QTreeView' name='templateCategoryView'}", 20000)
     clickItem(categoriesView, "Projects." + category, 5, 5, 0, Qt.LeftButton)
     templatesView = waitForObject("{name='templatesView' type='QListView'}", 20000)
@@ -108,24 +115,15 @@ def __createProjectSetNameAndPath__(path, projectName = None, checks = True):
     return str(projectName)
 
 # Selects the Qt versions for a project
-# param qtVersion is the name of a Qt version. In the project, build configurations will be
-#                 created for this version. If it is None, all Qt versions will be used
 # param checks turns tests in the function on if set to True
 # param available a list holding the available targets
-def __selectQtVersionDesktop__(qtVersion, checks, available=None):
-    __chooseTargets__(QtQuickConstants.Targets.DESKTOP, available)
-    if qtVersion == None:
-        selectFromCombo(":scrollArea.Create Build Configurations:_QComboBox_2",
-                        "For Each Qt Version One Debug And One Release")
-        ensureChecked(":scrollArea.Use Shadow Building_QCheckBox")
-    else:
-        selectFromCombo(":scrollArea.Create Build Configurations:_QComboBox_2",
-                        "For One Qt Version One Debug And One Release")
-        ensureChecked(":scrollArea.Use Shadow Building_QCheckBox")
-        selectFromCombo(":scrollArea.Qt Version:_QComboBox", qtVersion)
-        if checks:
-            verifyChecked(":scrollArea.Qt 4 for Desktop - (Qt SDK) debug_QCheckBox")
-            verifyChecked(":scrollArea.Qt 4 for Desktop - (Qt SDK) release_QCheckBox")
+def __selectQtVersionDesktop__(checks, available=None):
+    __chooseTargets__(QtQuickConstants.Targets.DESKTOP_474_GCC, available)
+    if checks:
+        cbObject = ("{type='QCheckBox' text='%s' unnamed='1' visible='1' "
+                    "container={type='Utils::DetailsWidget' visible='1' unnamed='1'}}")
+        verifyChecked(cbObject % "Debug")
+        verifyChecked(cbObject % "Release")
     clickButton(waitForObject(":Next_QPushButton"))
 
 def __createProjectHandleLastPage__(expectedFiles = None):
@@ -149,13 +147,12 @@ def __verifyFileCreation__(path, expectedFiles):
 # Creates a Qt GUI project
 # param path specifies where to create the project
 # param projectName is the name for the new project
-# param qtVersion is the name of a Qt version. In the project, build configurations will be
-#                 created for this version. If it is None, all Qt versions will be used
 # param checks turns tests in the function on if set to True
-def createProject_Qt_GUI(path, projectName, qtVersion = None, checks = True):
-    available = __createProjectSelectType__("  Applications", "Qt Gui Application")
+def createProject_Qt_GUI(path, projectName, checks = True):
+    template = "Qt Gui Application"
+    available = __createProjectSelectType__("  Applications", template)
     __createProjectSetNameAndPath__(path, projectName, checks)
-    __selectQtVersionDesktop__(qtVersion, checks, available)
+    __selectQtVersionDesktop__(checks, available)
 
     if checks:
         exp_filename = "mainwindow"
@@ -189,13 +186,11 @@ def createProject_Qt_GUI(path, projectName, qtVersion = None, checks = True):
 # Creates a Qt Console project
 # param path specifies where to create the project
 # param projectName is the name for the new project
-# param qtVersion is the name of a Qt version. In the project, build configurations will be
-#                 created for this version. If it is None, all Qt versions will be used
 # param checks turns tests in the function on if set to True
-def createProject_Qt_Console(path, projectName, qtVersion = None, checks = True):
+def createProject_Qt_Console(path, projectName, checks = True):
     available = __createProjectSelectType__("  Applications", "Qt Console Application")
     __createProjectSetNameAndPath__(path, projectName, checks)
-    __selectQtVersionDesktop__(qtVersion, checks, available)
+    __selectQtVersionDesktop__(checks, available)
 
     expectedFiles = None
     if checks:
@@ -211,11 +206,14 @@ def createProject_Qt_Console(path, projectName, qtVersion = None, checks = True)
     waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 10000)
     __verifyFileCreation__(path, expectedFiles)
 
-def createNewQtQuickApplication(workingDir, projectName = None, templateFile = None, targets = QtQuickConstants.Targets.DESKTOP):
+def createNewQtQuickApplication(workingDir, projectName = None, templateFile = None,
+                                targets = QtQuickConstants.Targets.DESKTOP_474_GCC, qtQuickVersion=1,
+                                fromWelcome=False):
     if templateFile:
-        available = __createProjectSelectType__("  Applications", "Qt Quick Application (from Existing QML File)")
+        available = __createProjectSelectType__("  Applications", "Qt Quick Application (from Existing QML File)", fromWelcome)
     else:
-        available = __createProjectSelectType__("  Applications", "Qt Quick Application (Built-in Elements)")
+        available = __createProjectSelectType__("  Applications", "Qt Quick %d Application (Built-in Elements)"
+                                                % qtQuickVersion, fromWelcome)
     projectName = __createProjectSetNameAndPath__(workingDir, projectName)
     if templateFile:
         baseLineEd = waitForObject("{type='Utils::BaseValidatingLineEdit' unnamed='1' visible='1'}", 20000)
@@ -242,7 +240,7 @@ def createNewQmlExtension(workingDir):
     if workingDir == None:
         workingDir = tempDir()
     __createProjectSetNameAndPath__(workingDir)
-    __chooseTargets__(QtQuickConstants.Targets.DESKTOP, available)
+    __chooseTargets__(QtQuickConstants.Targets.DESKTOP_474_GCC, available)
     nextButton = waitForObject(":Next_QPushButton")
     clickButton(nextButton)
     nameLineEd = waitForObject("{buddy={type='QLabel' text='Object Class-name:' unnamed='1' visible='1'} "
@@ -268,21 +266,22 @@ def __chooseComponents__(components=QtQuickConstants.Components.BUILTIN):
 # parameter target can be an OR'd value of QtQuickConstants.Targets
 # parameter availableTargets should be the result of __createProjectSelectType__()
 #           or use None as a fallback
-def __chooseTargets__(targets=QtQuickConstants.Targets.DESKTOP, availableTargets=None):
+def __chooseTargets__(targets=QtQuickConstants.Targets.DESKTOP_474_GCC, availableTargets=None):
     if availableTargets != None:
         available = availableTargets
     else:
         # following targets depend on the build environment - added for further/later tests
-        available = [QtQuickConstants.Targets.MAEMO5, QtQuickConstants.Targets.EMBEDDED_LINUX,
+        available = [QtQuickConstants.Targets.DESKTOP_474_GCC,
+                     QtQuickConstants.Targets.MAEMO5, QtQuickConstants.Targets.EMBEDDED_LINUX,
                      QtQuickConstants.Targets.SIMULATOR, QtQuickConstants.Targets.HARMATTAN]
         if platform.system() in ('Windows', 'Microsoft'):
-            available += [QtQuickConstants.Targets.SYMBIAN]
             available.remove(QtQuickConstants.Targets.EMBEDDED_LINUX)
+            available.append(QtQuickConstants.Targets.DESKTOP_474_MSVC2008)
     for current in available:
         mustCheck = targets & current == current
         try:
             ensureChecked("{type='QCheckBox' text='%s' visible='1'}" % QtQuickConstants.getStringForTarget(current),
-                          mustCheck)
+                          mustCheck, 3000)
         except LookupError:
             if mustCheck:
                 test.fail("Failed to check target '%s'." % QtQuickConstants.getStringForTarget(current))
@@ -432,23 +431,24 @@ def __getSupportedPlatforms__(text, getAsStrings=False):
         result = []
         addSimulator = False
         if 'Desktop' in supports:
-            result.append(QtQuickConstants.Targets.DESKTOP)
+            result.append(QtQuickConstants.Targets.DESKTOP_474_GCC)
             if platform.system() in ("Linux", "Darwin"):
                 result.append(QtQuickConstants.Targets.EMBEDDED_LINUX)
+            elif platform.system() in ('Windows', 'Microsoft'):
+                result.append(QtQuickConstants.Targets.DESKTOP_474_MSVC2008)
         if 'MeeGo/Harmattan' in supports:
             result.append(QtQuickConstants.Targets.HARMATTAN)
-            result.append(QtQuickConstants.Targets.MAEMO5)
             addSimulator = True
-        if 'Symbian' in supports:
-            result.append(QtQuickConstants.Targets.SYMBIAN)
+        if 'Maemo/Fremantle' in supports:
+            result.append(QtQuickConstants.Targets.MAEMO5)
             addSimulator = True
         if len(result) == 0 or addSimulator:
             result.append(QtQuickConstants.Targets.SIMULATOR)
     elif 'Platform independent' in text:
-        result = [QtQuickConstants.Targets.DESKTOP, QtQuickConstants.Targets.MAEMO5,
+        result = [QtQuickConstants.Targets.DESKTOP_474_GCC, QtQuickConstants.Targets.MAEMO5,
                   QtQuickConstants.Targets.SIMULATOR, QtQuickConstants.Targets.HARMATTAN]
-        if platform.system() in ('Microsoft', 'Windows'):
-            result.append(QtQuickConstants.Targets.SYMBIAN)
+        if platform.system() in ('Windows', 'Microsoft'):
+            result.append(QtQuickConstants.Targets.DESKTOP_474_MSVC2008)
     else:
         test.warning("Returning None (__getSupportedPlatforms__())",
                      "Parsed text: '%s'" % text)
@@ -469,3 +469,40 @@ def __sortFilenamesOSDependent__(filenames):
     else:
         filenames.sort()
     return filenames
+
+def __iterateChildren__(model, parent, nestingLevel=0):
+    children = []
+    for currentIndex in [model.index(row, 0, parent) for row in range(model.rowCount(parent))]:
+        children.append([str(currentIndex.text), nestingLevel])
+        if model.hasChildren(currentIndex):
+            children.extend(__iterateChildren__(model, currentIndex, nestingLevel + 1))
+    return children
+
+# This will write the data to a file which can then be used for comparing
+def __writeProjectTreeFile__(projectTree, filename):
+    f = open(filename, "w+")
+    f.write('"text"\t"nestinglevel"\n')
+    for elem in projectTree:
+        f.write('"%s"\t"%s"\n' % (elem[0], elem[1]))
+    f.close()
+
+def __getTestData__(record):
+    return [testData.field(record, "text"),
+            __builtin__.int(testData.field(record, "nestinglevel"))]
+
+def compareProjectTree(rootObject, dataset):
+    root = waitForObject(rootObject)
+    tree = __iterateChildren__(root.model(), root)
+
+    # __writeProjectTreeFile__(tree, dataset)
+
+    for i, current in enumerate(map(__getTestData__, testData.dataset(dataset))):
+        try:
+            # Just removing everything up to the found item
+            # Writing a pass would result in truly massive logs
+            tree = tree[tree.index(current) + 1:]
+        except ValueError:
+            test.fail('Could not find "%s" with nesting level %s' % tuple(current),
+                      'Line %s in dataset' % str(i + 1))
+            return
+    test.passes("No errors found in project tree")

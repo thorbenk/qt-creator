@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,20 +25,21 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "genericremotelinuxdeploystepfactory.h"
 
 #include "genericdirectuploadstep.h"
+#include "remotelinuxcheckforfreediskspacestep.h"
+#include "remotelinuxdeployconfiguration.h"
 #include "remotelinuxdeployconfigurationfactory.h"
 #include "remotelinuxcustomcommanddeploymentstep.h"
 #include "tarpackagecreationstep.h"
 #include "uploadandinstalltarpackagestep.h"
 
 #include <projectexplorer/buildsteplist.h>
-#include <projectexplorer/deployconfiguration.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/target.h>
 
 using namespace ProjectExplorer;
 
@@ -53,12 +54,12 @@ GenericRemoteLinuxDeployStepFactory::GenericRemoteLinuxDeployStepFactory(QObject
 QList<Core::Id> GenericRemoteLinuxDeployStepFactory::availableCreationIds(BuildStepList *parent) const
 {
     QList<Core::Id> ids;
-    const DeployConfiguration * const dc = qobject_cast<DeployConfiguration *>(parent->parent());
-    if (!dc || dc->id() != RemoteLinuxDeployConfigurationFactory::genericDeployConfigurationId())
+    if (!qobject_cast<RemoteLinuxDeployConfiguration *>(parent->parent()))
         return ids;
     ids << TarPackageCreationStep::stepId() << UploadAndInstallTarPackageStep::stepId()
         << GenericDirectUploadStep::stepId()
-        << GenericRemoteLinuxCustomCommandDeploymentStep::stepId();
+        << GenericRemoteLinuxCustomCommandDeploymentStep::stepId()
+        << RemoteLinuxCheckForFreeDiskSpaceStep::stepId();
     return ids;
 }
 
@@ -72,6 +73,8 @@ QString GenericRemoteLinuxDeployStepFactory::displayNameForId(const Core::Id id)
         return GenericDirectUploadStep::displayName();
     if (id == GenericRemoteLinuxCustomCommandDeploymentStep::stepId())
         return GenericRemoteLinuxCustomCommandDeploymentStep::stepDisplayName();
+    if (id == RemoteLinuxCheckForFreeDiskSpaceStep::stepId())
+        return RemoteLinuxCheckForFreeDiskSpaceStep::stepDisplayName();
     return QString();
 }
 
@@ -92,6 +95,8 @@ BuildStep *GenericRemoteLinuxDeployStepFactory::create(BuildStepList *parent, co
         return new GenericDirectUploadStep(parent, GenericDirectUploadStep::stepId());
     if (id == GenericRemoteLinuxCustomCommandDeploymentStep::stepId())
         return new GenericRemoteLinuxCustomCommandDeploymentStep(parent);
+    if (id == RemoteLinuxCheckForFreeDiskSpaceStep::stepId())
+        return new RemoteLinuxCheckForFreeDiskSpaceStep(parent);
     return 0;
 }
 
@@ -129,6 +134,8 @@ BuildStep *GenericRemoteLinuxDeployStepFactory::clone(BuildStepList *parent, Bui
         return new GenericDirectUploadStep(parent, other);
     if (GenericRemoteLinuxCustomCommandDeploymentStep * const other = qobject_cast<GenericRemoteLinuxCustomCommandDeploymentStep *>(product))
         return new GenericRemoteLinuxCustomCommandDeploymentStep(parent, other);
+    if (RemoteLinuxCheckForFreeDiskSpaceStep * const other = qobject_cast<RemoteLinuxCheckForFreeDiskSpaceStep *>(product))
+        return new RemoteLinuxCheckForFreeDiskSpaceStep(parent, other);
     return 0;
 }
 

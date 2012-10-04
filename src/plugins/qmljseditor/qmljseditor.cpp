@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -75,6 +73,7 @@
 #include <utils/changeset.h>
 #include <utils/uncommentselection.h>
 #include <utils/qtcassert.h>
+#include <utils/annotateditemdelegate.h>
 
 #include <QFileInfo>
 #include <QSignalMapper>
@@ -86,7 +85,6 @@
 #include <QComboBox>
 #include <QHeaderView>
 #include <QInputDialog>
-#include <QMainWindow>
 #include <QToolBar>
 #include <QTreeView>
 
@@ -508,7 +506,7 @@ QmlJSTextEditorWidget::QmlJSTextEditorWidget(QWidget *parent) :
     baseTextDocument()->setCodec(QTextCodec::codecForName("UTF-8")); // qml files are defined to be utf-8
 
     m_modelManager = QmlJS::ModelManagerInterface::instance();
-    m_contextPane = ExtensionSystem::PluginManager::instance()->getObject<QmlJS::IContextPane>();
+    m_contextPane = ExtensionSystem::PluginManager::getObject<QmlJS::IContextPane>();
 
 
     if (m_contextPane) {
@@ -1070,6 +1068,12 @@ void QmlJSTextEditorWidget::createToolBar(QmlJSEditorEditable *editor)
     m_outlineCombo->setModel(m_outlineModel);
 
     QTreeView *treeView = new QTreeView;
+
+    Utils::AnnotatedItemDelegate *itemDelegate = new Utils::AnnotatedItemDelegate(this);
+    itemDelegate->setDelimiter(QLatin1String(" "));
+    itemDelegate->setAnnotationRole(QmlOutlineModel::AnnotationRole);
+    treeView->setItemDelegateForColumn(0, itemDelegate);
+
     treeView->header()->hide();
     treeView->setItemsExpandable(false);
     treeView->setRootIsDecorated(false);
@@ -1236,7 +1240,7 @@ void QmlJSTextEditorWidget::contextMenuEvent(QContextMenuEvent *e)
 
     refactoringMenu->setEnabled(!refactoringMenu->isEmpty());
 
-    if (Core::ActionContainer *mcontext = Core::ICore::actionManager()->actionContainer(QmlJSEditor::Constants::M_CONTEXT)) {
+    if (Core::ActionContainer *mcontext = Core::ActionManager::actionContainer(QmlJSEditor::Constants::M_CONTEXT)) {
         QMenu *contextMenu = mcontext->menu();
         foreach (QAction *action, contextMenu->actions()) {
             menu->addAction(action);

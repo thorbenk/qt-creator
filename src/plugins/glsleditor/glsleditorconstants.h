@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -42,8 +40,6 @@ namespace Constants {
 const char M_CONTEXT[] = "GLSL Editor.ContextMenu";
 const char M_TOOLS_GLSL[] = "GLSLEditor.Tools.Menu";
 
-const char SEPARATOR1[] = "GLSLEditor.Separator1";
-const char SEPARATOR2[] = "GLSLEditor.Separator2";
 const char M_REFACTORING_MENU_INSERTION_POINT[] = "GLSLEditor.RefactorGroup";
 
 const char C_GLSLEDITOR_ID[] = "GLSLEditor.GLSLEditor";

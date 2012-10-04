@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qt5informationnodeinstanceserver.h"
 
-#include <QSGItem>
+#include <QQuickItem>
 
 #include "servernodeinstance.h"
 #include "childrenchangeeventfilter.h"
@@ -61,6 +59,7 @@
 #include "componentcompletedcommand.h"
 #include "createscenecommand.h"
 #include "tokencommand.h"
+#include "removesharedmemorycommand.h"
 
 #include "dummycontextobject.h"
 
@@ -97,8 +96,8 @@ void Qt5InformationNodeInstanceServer::collectItemChangesAndSendChangeCommands()
         QVector<InstancePropertyPair> propertyChangedList;
         bool adjustSceneRect = false;
 
-        if (sgView()) {
-            foreach (QSGItem *item, allItems()) {
+        if (quickView()) {
+            foreach (QQuickItem *item, allItems()) {
                 if (item && hasInstanceForObject(item)) {
                     ServerNodeInstance instance = instanceForObject(item);
 
@@ -256,6 +255,12 @@ void Qt5InformationNodeInstanceServer::completeComponent(const CompleteComponent
 
     nodeInstanceClient()->valuesChanged(createValuesChangedCommand(instanceList));
     nodeInstanceClient()->informationChanged(createAllInformationChangedCommand(instanceList, true));
+}
+
+void QmlDesigner::Qt5InformationNodeInstanceServer::removeSharedMemory(const QmlDesigner::RemoveSharedMemoryCommand &command)
+{
+    if (command.typeName() == "Values")
+        ValuesChangedCommand::removeSharedMemorys(command.keyNumbers());
 }
 
 } // namespace QmlDesigner

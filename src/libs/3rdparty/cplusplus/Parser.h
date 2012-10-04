@@ -82,6 +82,8 @@ public:
     bool parseConstantExpression(ExpressionAST *&node);
     bool parseCtorInitializer(CtorInitializerAST *&node);
     bool parseCvQualifiers(SpecifierListAST *&node);
+    bool parseRefQualifier(unsigned &ref_qualifier);
+    bool parseOverrideFinalQualifiers(SpecifierListAST *&node);
     bool parseDeclaratorOrAbstractDeclarator(DeclaratorAST *&node, SpecifierListAST *decl_specifier_list);
     bool parseDeclaration(DeclarationAST *&node);
     bool parseSimpleDeclaration(DeclarationAST *&node, ClassSpecifierAST *declaringClass = 0);
@@ -130,8 +132,8 @@ public:
     bool parseNamespaceAliasDefinition(DeclarationAST *&node);
     bool parseNewArrayDeclarator(NewArrayDeclaratorListAST *&node);
     bool parseNewExpression(ExpressionAST *&node);
-    bool parseNewPlacement(NewPlacementAST *&node);
-    bool parseNewInitializer(NewInitializerAST *&node);
+    bool parseExpressionListParen(ExpressionAST *&node);
+    bool parseNewInitializer(ExpressionAST *&node);
     bool parseNewTypeId(NewTypeIdAST *&node);
     bool parseOperator(OperatorAST *&node);
     bool parseConversionFunctionId(NameAST *&node);
@@ -188,6 +190,7 @@ public:
     bool parseUnqualifiedName(NameAST *&node, bool acceptTemplateId = true);
     bool parseUsing(DeclarationAST *&node);
     bool parseUsingDirective(DeclarationAST *&node);
+    bool parseAliasDeclaration(DeclarationAST *&node);
     bool parseWhileStatement(StatementAST *&node);
 
     void parseExpressionWithOperatorPrecedence(ExpressionAST *&lhs, int minPrecedence);
@@ -253,8 +256,9 @@ public:
     void skipUntilDeclaration();
     bool skipUntilStatement();
     bool skip(int l, int r);
+    int find(int token, int stopAt);
 
-    bool lookAtTypeParameter() const;
+    bool lookAtTypeParameter();
     bool lookAtCVQualifier() const;
     bool lookAtFunctionSpecifier() const;
     bool lookAtStorageClassSpecifier() const;
@@ -272,6 +276,7 @@ public:
     int peekAtQtContextKeyword() const;
 
     bool switchTemplateArguments(bool templateArguments);
+    bool maybeSplitGreaterGreaterToken(int n = 1);
 
     bool blockErrors(bool block);
     void warning(unsigned index, const char *format, ...);

@@ -6,7 +6,7 @@
 **
 ** Author: Frank Osterfeld, KDAB (frank.osterfeld@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,8 +27,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -194,7 +192,7 @@ QModelIndex StackModel::parent(const QModelIndex &child) const
 {
     QTC_ASSERT(!child.isValid() || child.model() == this, return QModelIndex());
 
-    if (child.internalId() == -1)
+    if (quintptr(child.internalId()) == quintptr(-1))
         return QModelIndex();
     return createIndex(child.internalId(), 0, -1);
 }
@@ -223,8 +221,9 @@ void StackModel::setError(const Error &error)
 {
     if (d->error == error)
         return;
+    beginResetModel();
     d->error = error;
-    reset();
+    endResetModel();
 }
 
 void StackModel::clear()

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,25 +37,25 @@
 namespace Debugger {
 namespace Internal {
 
-class RemotePlainGdbAdapter : public AbstractPlainGdbAdapter
+class GdbRemotePlainEngine : public GdbAbstractPlainEngine
 {
     Q_OBJECT
 
 public:
     friend class RemoteGdbProcess;
-    explicit RemotePlainGdbAdapter(GdbEngine *engine);
+    explicit GdbRemotePlainEngine(const DebuggerStartParameters &startParameters);
 
 private slots:
     void handleGdbStarted();
-    void handleGdbStartFailed();
+    void handleGdbStartFailed1();
 
 private:
-    void startAdapter();
+    void setupEngine();
     void setupInferior();
-    void interruptInferior();
-    void shutdownAdapter();
-    void handleRemoteSetupDone(int gdbServerPort, int qmlPort);
-    void handleRemoteSetupFailed(const QString &reason);
+    void interruptInferior2();
+    void shutdownEngine();
+    void notifyEngineRemoteSetupDone(int gdbServerPort, int qmlPort);
+    void notifyEngineRemoteSetupFailed(const QString &reason);
     AbstractGdbProcess *gdbProc() { return &m_gdbProc; }
     DumperHandling dumperHandling() const { return DumperLoadedByGdbPreload; }
 

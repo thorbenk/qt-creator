@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,47 +25,32 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "androidpackageinstallationstep.h"
-#include "androidtarget.h"
+#include "androidmanager.h"
 
-#include <QFileInfo>
-#include <QDir>
 #include <projectexplorer/buildsteplist.h>
 
 using namespace Android::Internal;
 
-const Core::Id AndroidPackageInstallationStep::Id("Qt4ProjectManager.AndroidPackageInstallationStep");
+const Core::Id AndroidPackageInstallationStep::Id = Core::Id("Qt4ProjectManager.AndroidPackageInstallationStep");
 
-AndroidPackageInstallationStep::AndroidPackageInstallationStep(ProjectExplorer::BuildStepList *bsl) : MakeStep(bsl, Id)
+AndroidPackageInstallationStep::AndroidPackageInstallationStep(ProjectExplorer::BuildStepList *bsl)
+    : MakeStep(bsl, Id)
 {
-    setDefaultDisplayName(tr("Copy application data"));
-    setDisplayName(tr("Copy application data"));
+    const QString name = tr("Copy application data");
+    setDefaultDisplayName(name);
+    setDisplayName(name);
 }
 
-AndroidPackageInstallationStep::AndroidPackageInstallationStep(ProjectExplorer::BuildStepList *bc, AndroidPackageInstallationStep *other): MakeStep(bc, other)
-{
-    setDefaultDisplayName(tr("Copy application data"));
-    setDisplayName(tr("Copy application data"));
-}
-
-AndroidPackageInstallationStep::~AndroidPackageInstallationStep()
-{
-}
+AndroidPackageInstallationStep::AndroidPackageInstallationStep(ProjectExplorer::BuildStepList *bc, AndroidPackageInstallationStep *other)
+    : MakeStep(bc, other)
+{ }
 
 bool AndroidPackageInstallationStep::init()
 {
-    AndroidTarget *androidTarget = qobject_cast<AndroidTarget *>(target());
-    if (!androidTarget) {
-        emit addOutput(tr("Current target is not an android target"), BuildStep::MessageOutput);
-        return false;
-    }
-
-    setUserArguments(QString::fromLatin1("INSTALL_ROOT=\"%1\" install").arg(QDir::toNativeSeparators(androidTarget->androidDirPath())));
-
+    setUserArguments(QString::fromLatin1("INSTALL_ROOT=\"%1\" install").arg(AndroidManager::dirPath(target()).toUserOutput()));
     return MakeStep::init();
 }

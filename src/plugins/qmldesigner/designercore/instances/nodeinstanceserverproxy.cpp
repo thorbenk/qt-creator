@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,6 +36,7 @@
 #include <QCoreApplication>
 #include <QUuid>
 #include <QFileInfo>
+#include <QTimer>
 
 #include "propertyabstractcontainer.h"
 #include "propertyvaluecontainer.h"
@@ -66,14 +65,27 @@
 #include "statepreviewimagechangedcommand.h"
 #include "componentcompletedcommand.h"
 #include "tokencommand.h"
-
+#include "removesharedmemorycommand.h"
+#include "endpuppetcommand.h"
 #include "synchronizecommand.h"
 
 #include "nodeinstanceview.h"
 
 #include "import.h"
+
+#include <utils/hostosinfo.h>
+
 #include <QMessageBox>
 
+namespace {
+static QLatin1String qmlPuppetApplicationDirectoryForTests()
+{
+    if (Utils::HostOsInfo::isWindowsHost())
+        //one more - debug/release dir
+        return QLatin1String("/../../../../../../bin/");
+    return QLatin1String("/../../../../../bin/");
+}
+} //namespace
 
 namespace QmlDesigner {
 
@@ -111,7 +123,9 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
 
    QString applicationPath =  pathToQt + QLatin1String("/bin");
    if (runModus == TestModus) {
-       applicationPath = QCoreApplication::applicationDirPath() + QLatin1String("/../../../../../bin");
+       applicationPath = QCoreApplication::applicationDirPath()
+           + qmlPuppetApplicationDirectoryForTests()
+           + qmlPuppetApplicationName();
    } else {
        applicationPath = macOSBundlePath(applicationPath);
        applicationPath += QLatin1Char('/') + qmlPuppetApplicationName();
@@ -219,6 +233,8 @@ NodeInstanceServerProxy::~NodeInstanceServerProxy()
 {
     disconnect(this, SLOT(processFinished(int,QProcess::ExitStatus)));
 
+    writeCommand(QVariant::fromValue(EndPuppetCommand()));
+
     if (m_firstSocket)
         m_firstSocket->close();
 
@@ -230,13 +246,13 @@ NodeInstanceServerProxy::~NodeInstanceServerProxy()
 
 
     if (m_qmlPuppetEditorProcess)
-        m_qmlPuppetEditorProcess->kill();
+        QTimer::singleShot(3000, m_qmlPuppetEditorProcess.data(), SLOT(terminate()));
 
     if (m_qmlPuppetPreviewProcess)
-        m_qmlPuppetPreviewProcess->kill();
+        QTimer::singleShot(3000, m_qmlPuppetPreviewProcess.data(), SLOT(terminate()));
 
     if (m_qmlPuppetRenderProcess)
-        m_qmlPuppetRenderProcess->kill();
+         QTimer::singleShot(3000, m_qmlPuppetRenderProcess.data(), SLOT(terminate()));
 }
 
 void NodeInstanceServerProxy::dispatchCommand(const QVariant &command)
@@ -281,6 +297,7 @@ static void writeCommandToSocket(const QVariant &command, QLocalSocket *socket, 
     if(socket) {
         QByteArray block;
         QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(QDataStream::Qt_4_8);
         out << quint32(0);
         out << quint32(commandCounter);
         out << command;
@@ -305,7 +322,7 @@ void NodeInstanceServerProxy::writeCommand(const QVariant &command)
         writeCommandToSocket(QVariant::fromValue(synchronizeCommand), m_firstSocket.data(), m_writeCommandCounter);
         m_writeCommandCounter++;
 
-        while(m_firstSocket->waitForReadyRead()) {
+        while (m_firstSocket->waitForReadyRead(100)) {
                 readFirstDataStream();
                 if (m_synchronizeId == synchronizeId)
                     return;
@@ -316,6 +333,9 @@ void NodeInstanceServerProxy::writeCommand(const QVariant &command)
 void NodeInstanceServerProxy::processFinished(int /*exitCode*/, QProcess::ExitStatus exitStatus)
 {
     qDebug() << "Process finished:" << sender();
+
+    writeCommand(QVariant::fromValue(EndPuppetCommand()));
+
     if (m_firstSocket)
         m_firstSocket->close();
     if (m_secondSocket)
@@ -337,6 +357,7 @@ void NodeInstanceServerProxy::readFirstDataStream()
             break;
 
         QDataStream in(m_firstSocket.data());
+        in.setVersion(QDataStream::Qt_4_8);
 
         if (m_firstBlockSize == 0) {
             in >> m_firstBlockSize;
@@ -374,6 +395,7 @@ void NodeInstanceServerProxy::readSecondDataStream()
             break;
 
         QDataStream in(m_secondSocket.data());
+        in.setVersion(QDataStream::Qt_4_8);
 
         if (m_secondBlockSize == 0) {
             in >> m_secondBlockSize;
@@ -411,6 +433,7 @@ void NodeInstanceServerProxy::readThirdDataStream()
             break;
 
         QDataStream in(m_thirdSocket.data());
+        in.setVersion(QDataStream::Qt_4_8);
 
         if (m_thirdBlockSize == 0) {
             in >> m_thirdBlockSize;
@@ -441,25 +464,16 @@ void NodeInstanceServerProxy::readThirdDataStream()
 
 QString NodeInstanceServerProxy::qmlPuppetApplicationName() const
 {
-    QString appName;
-    if (hasQtQuick2(m_nodeInstanceView.data())) {
-        appName = QLatin1String("qml2puppet");
-    } else {
-        appName = QLatin1String("qmlpuppet");
-    }
- #ifdef Q_OS_WIN
-    appName += QLatin1String(".exe");
- #endif
-
-    return appName;
+    if (hasQtQuick2(m_nodeInstanceView.data()))
+        return QLatin1String("qml2puppet" QTC_HOST_EXE_SUFFIX);
+    return QLatin1String("qmlpuppet" QTC_HOST_EXE_SUFFIX);
 }
 
 QString NodeInstanceServerProxy::macOSBundlePath(const QString &path) const
 {
     QString applicationPath = path;
-#ifdef Q_OS_MACX
-   applicationPath += QLatin1String("/qmlpuppet.app/Contents/MacOS");
-#endif
+    if (Utils::HostOsInfo::isMacHost())
+        applicationPath += QLatin1String("/qmlpuppet.app/Contents/MacOS");
    return applicationPath;
 }
 
@@ -536,6 +550,11 @@ void NodeInstanceServerProxy::changeNodeSource(const ChangeNodeSourceCommand &co
 void NodeInstanceServerProxy::token(const TokenCommand &command)
 {
     writeCommand(QVariant::fromValue(command));
+}
+
+void NodeInstanceServerProxy::removeSharedMemory(const RemoveSharedMemoryCommand &command)
+{
+   writeCommand(QVariant::fromValue(command));
 }
 
 } // namespace QmlDesigner

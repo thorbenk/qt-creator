@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "synchronousprocess.h"
+
+#include "hostosinfo.h"
 #include <qtcassert.h>
 
 #include <QDebug>
@@ -601,18 +601,6 @@ bool SynchronousProcess::stopProcess(QProcess &p)
 
 // Path utilities
 
-enum  OS_Type { OS_Mac, OS_Windows, OS_Unix };
-
-#ifdef Q_OS_WIN
-static const OS_Type pathOS = OS_Windows;
-#else
-#  ifdef Q_OS_MAC
-static const OS_Type pathOS = OS_Mac;
-#  else
-static const OS_Type pathOS = OS_Unix;
-#  endif
-#endif
-
 // Locate a binary in a directory, applying all kinds of
 // extensions the operating system supports.
 static QString checkBinary(const QDir &dir, const QString &binary)
@@ -624,16 +612,18 @@ static QString checkBinary(const QDir &dir, const QString &binary)
 
     // Does the OS have some weird extension concept or does the
     // binary have a 3 letter extension?
-    if (pathOS == OS_Unix)
+    if (HostOsInfo::isAnyUnixHost() && !HostOsInfo::isMacHost())
         return QString();
     const int dotIndex = binary.lastIndexOf(QLatin1Char('.'));
     if (dotIndex != -1 && dotIndex == binary.size() - 4)
         return  QString();
 
-    switch (pathOS) {
-    case OS_Unix:
+    switch (HostOsInfo::hostOs()) {
+    case HostOsInfo::HostOsLinux:
+    case HostOsInfo::HostOsOtherUnix:
+    case HostOsInfo::HostOsOther:
         break;
-    case OS_Windows: {
+    case HostOsInfo::HostOsWindows: {
             static const char *windowsExtensions[] = {".cmd", ".bat", ".exe", ".com" };
             // Check the Windows extensions using the order
             const int windowsExtensionCount = sizeof(windowsExtensions)/sizeof(const char*);
@@ -644,7 +634,7 @@ static QString checkBinary(const QDir &dir, const QString &binary)
             }
         }
         break;
-    case OS_Mac: {
+    case HostOsInfo::HostOsMac: {
             // Check for Mac app folders
             const QFileInfo appFolder(dir.filePath(binary + QLatin1String(".app")));
             if (appFolder.isDir()) {
@@ -669,13 +659,13 @@ QString SynchronousProcess::locateBinary(const QString &path, const QString &bin
         return checkBinary(absInfo.dir(), absInfo.fileName());
 
     // Windows finds binaries  in the current directory
-    if (pathOS == OS_Windows) {
+    if (HostOsInfo::isWindowsHost()) {
         const QString currentDirBinary = checkBinary(QDir::current(), binary);
         if (!currentDirBinary.isEmpty())
             return currentDirBinary;
     }
 
-    const QStringList paths = path.split(pathSeparator());
+    const QStringList paths = path.split(HostOsInfo::pathListSeparator());
     if (paths.empty())
         return QString();
     const QStringList::const_iterator cend = paths.constEnd();
@@ -692,13 +682,6 @@ QString SynchronousProcess::locateBinary(const QString &binary)
 {
     const QByteArray path = qgetenv("PATH");
     return locateBinary(QString::fromLocal8Bit(path), binary);
-}
-
-QChar SynchronousProcess::pathSeparator()
-{
-    if (pathOS == OS_Windows)
-        return QLatin1Char(';');
-    return QLatin1Char(':');
 }
 
 } // namespace Utils

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -44,33 +42,34 @@
 
     \list
 
-        \o  \l{http://doc.qt.nokia.com/4.7/qml-borderimage.html}{Border Image}
+        \o  \l{http://qt-project.org/doc/qt-4.8/qml-borderimage.html}
+            {Border Image}
             uses an image as a border or background.
 
-        \o  \l{http://doc.qt.nokia.com/4.7/qml-image.html}{Image}
+        \o  \l{http://qt-project.org/doc/qt-4.8/qml-image.html}{Image}
             adds a bitmap to the scene. You can stretch and tile images.
 
-        \o  \l{http://doc.qt.nokia.com/4.7/qml-item.html}{Item}
+        \o  \l{http://qt-project.org/doc/qt-4.8/qml-item.html}{Item}
             is the most basic of all visual items in QML. Even though it has no
             visual appearance, it defines all the properties that are common
             across visual items, such as the x and y position, width and height,
             anchoring, and key handling.
 
-        \o  \l{http://doc.qt.nokia.com/4.7/qml-rectangle.html}{Rectangle}
+        \o  \l{http://qt-project.org/doc/qt-4.8/qml-rectangle.html}{Rectangle}
             adds a rectangle that is painted with a solid fill color and an
             optional border. You can also use the radius property to create
             rounded rectangles.
 
-        \o  \l{http://doc.qt.nokia.com/4.7/qml-text.html}{Text}
+        \o  \l{http://qt-project.org/doc/qt-4.8/qml-text.html}{Text}
             adds formatted read-only text.
 
-        \o  \l{http://doc.qt.nokia.com/4.7/qml-textedit.html}{Text Edit}
+        \o  \l{http://qt-project.org/doc/qt-4.8/qml-textedit.html}{Text Edit}
             adds a single line of editable formatted text that can be validated.
 
-        \o  \l{http://doc.qt.nokia.com/4.7/qml-textinput.html}{Text Input}
+        \o  \l{http://qt-project.org/doc/qt-4.8/qml-textinput.html}{Text Input}
             adds a single line of editable plain text that can be validated.
 
-        \o  \l{http://doc.qt.nokia.com/4.7-snapshot/qml-webview.html}{Web View}
+        \o  \l{http://qt-project.org/doc/qt-4.8/qml-webview.html}{Web View}
             adds web content to a canvas.
 
     \endlist
@@ -85,10 +84,6 @@
 
     Even if you use the Qt Quick Components, you can still write cross-platform
     applications, by using different sets of QML files for each platform.
-
-    You can dowload a set of commonly used UI-components for generic use in
-    Qt Quick projects from \l{https://projects.forum.nokia.com/QMLTemplates}
-    {QML Templates}. You can open and edit the templates in \QD.
 
     \section1 Creating Components in Qt Quick Designer
 

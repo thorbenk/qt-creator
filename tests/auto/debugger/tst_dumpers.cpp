@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -166,7 +164,7 @@ public:
 
     void testJson(const char* input)
     {
-        QCOMPARE('\n' + QString::fromLatin1(Json::JsonValue(input).toString(false)),
+        QCOMPARE('\n' + Utils::JsonStringValue(QLatin1String(input)).value(),
             '\n' + QString(input));
     }
 

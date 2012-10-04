@@ -1,4 +1,6 @@
 
+import binascii
+
 cdbLoaded = False
 lldbLoaded = False
 gdbLoaded = False
@@ -287,6 +289,29 @@ try:
         removeTempFile(filename, file)
         return lines
 
+    def selectedInferior():
+        try:
+            # Does not exist in 7.3.
+            return gdb.selected_inferior()
+        except:
+            pass
+        # gdb.Inferior is new in gdb 7.2
+        return gdb.inferiors()[0]
+
+    def readRawMemory(base, size):
+        try:
+            inferior = selectedInferior()
+            return binascii.hexlify(inferior.read_memory(base, size))
+        except:
+            pass
+        s = ""
+        t = lookupType("unsigned char").pointer()
+        base = base.cast(t)
+        for i in xrange(size):
+            s += "%02x" % int(base.dereference())
+            base += 1
+        return s
+
     #######################################################################
     #
     # Types
@@ -309,8 +334,8 @@ try:
     #BitStringCode = gdb.TYPE_CODE_BITSTRING
     #ErrorTypeCode = gdb.TYPE_CODE_ERROR
     MethodCode = gdb.TYPE_CODE_METHOD
-    #MethodPointerCode = gdb.TYPE_CODE_METHODPTR
-    #MemberPointerCode = gdb.TYPE_CODE_MEMBERPTR
+    MethodPointerCode = gdb.TYPE_CODE_METHODPTR
+    MemberPointerCode = gdb.TYPE_CODE_MEMBERPTR
     ReferenceCode = gdb.TYPE_CODE_REF
     CharCode = gdb.TYPE_CODE_CHAR
     BoolCode = gdb.TYPE_CODE_BOOL

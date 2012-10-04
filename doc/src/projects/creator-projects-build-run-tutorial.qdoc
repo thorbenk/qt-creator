@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -52,23 +50,22 @@
 
         \o  Select \gui Projects to configure the project:
 
-            \image qtcreator-gs-build-example-targets.png "Selecting targets"
+            \image qtcreator-gs-build-example-targets.png "Selecting kit for building and running"
 
             \list 1
 
                 \o  Select at least \QS and one of the mobile
-                    \l{glossary-development-target}{targets} (1), Symbian
-                    Device, Maemo 5, or MeeGo Harmattan, depending on the device
-                    you develop for.
+                    \l{glossary-buildandrun-kit}{kits} (1), Maemo 5 or
+                    MeeGo Harmattan, depending on the device you develop for.
 
                 \o  Select \gui {Configure Project} (2).
 
             \endlist
 
-        \o  To test the application in \QS, click the \gui {Target
+        \o  To test the application in \QS, click the \gui {Kit
             Selector} and select \gui {\QS}.
 
-            \image qtcreator-gs-build-example-select-qs.png "Selecting Qt Simulator as target"
+            \image qtcreator-gs-build-example-select-qs.png "Selecting Qt Simulator to run on"
 
         \o  Click
             \inlineimage qtcreator-run.png
@@ -85,20 +82,9 @@
 
         \o  Change the settings in the \gui Model view. For example, rotate the
             device by clicking the \gui {Orientation} buttons or choose from the
-            various mobile device configurations in the \gui {Device} field. You
+            various mobile devices in the \gui {Device} field. You
             can also simulate various mobile functions and create your own
             scripts.
-
-        \if defined(qcmanual)
-        \o  To test the application on a Symbian device, check that the required
-            Qt libraries and a debugging agent are installed on the device. For
-            more information, see \l{Connecting Symbian Devices}.
-
-        \o  Click the \gui {Target Selector} and select \gui {Symbian Device}.
-
-        \o  Click \gui Run to build the application and run it on the Symbian
-            device.
-        \endif
 
     \endlist
 

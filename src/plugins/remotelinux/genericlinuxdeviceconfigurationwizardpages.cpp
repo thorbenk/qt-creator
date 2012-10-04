@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,14 +24,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #include "genericlinuxdeviceconfigurationwizardpages.h"
 #include "ui_genericlinuxdeviceconfigurationwizardsetuppage.h"
 
-#include "linuxdeviceconfiguration.h"
+#include <projectexplorer/devicesupport/idevice.h>
 
 namespace RemoteLinux {
 namespace Internal {
@@ -50,6 +49,7 @@ public:
 
 } // namespace Internal
 
+using namespace QSsh;
 using namespace Utils;
 
 GenericLinuxDeviceConfigurationWizardSetupPage::GenericLinuxDeviceConfigurationWizardSetupPage(QWidget *parent) :
@@ -78,7 +78,7 @@ void GenericLinuxDeviceConfigurationWizardSetupPage::initializePage()
     d->ui.userNameLineEdit->setText(defaultUserName());
     d->ui.passwordButton->setChecked(true);
     d->ui.passwordLineEdit->setText(defaultPassWord());
-    d->ui.privateKeyPathChooser->setPath(LinuxDeviceConfiguration::defaultPrivateKeyFilePath());
+    d->ui.privateKeyPathChooser->setPath(ProjectExplorer::IDevice::defaultPrivateKeyFilePath());
     handleAuthTypeChanged();
 }
 

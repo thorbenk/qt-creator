@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,21 +24,19 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef MAEMORUNFACTORIES_H
 #define MAEMORUNFACTORIES_H
 
-#include <projectexplorer/runconfiguration.h>
+#include <qt4projectmanager/qmakerunconfigurationfactory.h>
 
 namespace ProjectExplorer {
-    class RunConfiguration;
-    class RunControl;
-    class Target;
-}
+class RunControl;
+class Target;
+} // namespace ProjectExplorer
+
 using ProjectExplorer::IRunConfigurationFactory;
 using ProjectExplorer::IRunControlFactory;
 using ProjectExplorer::RunConfiguration;
@@ -49,7 +47,7 @@ using ProjectExplorer::Target;
 namespace Madde {
 namespace Internal {
 
-class MaemoRunConfigurationFactory : public IRunConfigurationFactory
+class MaemoRunConfigurationFactory : public Qt4ProjectManager::QmakeRunConfigurationFactory
 {
     Q_OBJECT
 
@@ -68,6 +66,10 @@ public:
 
     bool canClone(Target *parent, RunConfiguration *source) const;
     RunConfiguration *clone(Target *parent, RunConfiguration *source);
+
+    bool canHandle(ProjectExplorer::Target *t) const;
+    QList<ProjectExplorer::RunConfiguration *> runConfigurationsForNode(ProjectExplorer::Target *t,
+                                                                        ProjectExplorer::Node *n);
 };
 
 class MaemoRunControlFactory : public IRunControlFactory
@@ -78,10 +80,11 @@ public:
     ~MaemoRunControlFactory();
 
     QString displayName() const;
-    RunConfigWidget *createConfigurationWidget(RunConfiguration *runConfiguration);
 
     bool canRun(ProjectExplorer::RunConfiguration *runConfiguration, ProjectExplorer::RunMode mode) const;
-    RunControl *create(ProjectExplorer::RunConfiguration *runConfiguration, ProjectExplorer::RunMode mode);
+    RunControl *create(ProjectExplorer::RunConfiguration *runConfiguration,
+                       ProjectExplorer::RunMode mode,
+                       QString *errorMessage);
 };
 
     } // namespace Internal

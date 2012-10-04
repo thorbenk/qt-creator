@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -595,21 +593,31 @@ QList<InsertionLocation> InsertionPointLocator::methodDefinition(
     FindMethodDefinitionInsertPoint finder(doc->translationUnit());
     finder(declaration, &line, &column);
 
-    // Make sure we have a line before and after the new definition.
-    const QLatin1String prefix("\n\n");
+    // Force empty lines before and after the new definition.
+    QString prefix;
     QString suffix;
-    int firstNonSpace = targetFile->position(line, column);
-    QChar c = targetFile->charAt(firstNonSpace);
-    while (c == QLatin1Char(' ') || c == QLatin1Char('\t')) {
-        ++firstNonSpace;
-        c = targetFile->charAt(firstNonSpace);
-    }
-    if (targetFile->charAt(firstNonSpace) != QChar::ParagraphSeparator) {
-        suffix.append(QLatin1String("\n\n"));
+    if (!line) {
+        // Totally empty file.
+        line = 1;
+        column = 1;
+        prefix = suffix = QLatin1Char('\n');
     } else {
-        ++firstNonSpace;
-        if (targetFile->charAt(firstNonSpace) != QChar::ParagraphSeparator)
-            suffix.append(QLatin1Char('\n'));
+        QTC_ASSERT(column, return result);
+
+        prefix = QLatin1String("\n\n");
+        int firstNonSpace = targetFile->position(line, column);
+        QChar c = targetFile->charAt(firstNonSpace);
+        while (c == QLatin1Char(' ') || c == QLatin1Char('\t')) {
+            ++firstNonSpace;
+            c = targetFile->charAt(firstNonSpace);
+        }
+        if (targetFile->charAt(firstNonSpace) != QChar::ParagraphSeparator) {
+            suffix.append(QLatin1String("\n\n"));
+        } else {
+            ++firstNonSpace;
+            if (targetFile->charAt(firstNonSpace) != QChar::ParagraphSeparator)
+                suffix.append(QLatin1Char('\n'));
+        }
     }
 
     result += InsertionLocation(target, prefix, suffix, line, column);

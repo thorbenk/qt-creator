@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,19 +25,16 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "persistentsettings.h"
 
-#include <app/app_version.h>
-
 #include <utils/fileutils.h>
 
 #include <QDebug>
 #include <QFile>
+#include <QDir>
 #include <QVariant>
 #include <QStack>
 #include <QXmlStreamAttributes>
@@ -313,11 +310,11 @@ QVariantMap PersistentSettingsReader::restoreValues() const
     return m_valueMap;
 }
 
-bool PersistentSettingsReader::load(const QString &fileName)
+bool PersistentSettingsReader::load(const Utils::FileName &fileName)
 {
     m_valueMap.clear();
 
-    QFile file(fileName);
+    QFile file(fileName.toString());
     if (!file.open(QIODevice::ReadOnly|QIODevice::Text))
         return false;
     ParseContext ctx;
@@ -333,16 +330,12 @@ bool PersistentSettingsReader::load(const QString &fileName)
     \sa Utils::PersistentSettingsReader
 */
 
-PersistentSettingsWriter::PersistentSettingsWriter()
-{
-}
-
 static void writeVariantValue(QXmlStreamWriter &w, const Context &ctx,
                               const QVariant &variant, const QString &key = QString())
 {
-    switch (variant.type()) {
-    case QVariant::StringList:
-    case QVariant::List:
+    switch (static_cast<int>(variant.type())) {
+    case static_cast<int>(QVariant::StringList):
+    case static_cast<int>(QVariant::List):
         w.writeStartElement(ctx.valueListElement);
         w.writeAttribute(ctx.typeAttribute, QLatin1String(QVariant::typeToName(QVariant::List)));
         if (!key.isEmpty())
@@ -351,7 +344,7 @@ static void writeVariantValue(QXmlStreamWriter &w, const Context &ctx,
             writeVariantValue(w, ctx, var);
         w.writeEndElement();
         break;
-    case QVariant::Map: {
+    case static_cast<int>(QVariant::Map): {
         w.writeStartElement(ctx.valueMapElement);
         w.writeAttribute(ctx.typeAttribute, QLatin1String(QVariant::typeToName(QVariant::Map)));
         if (!key.isEmpty())
@@ -363,6 +356,9 @@ static void writeVariantValue(QXmlStreamWriter &w, const Context &ctx,
         w.writeEndElement();
     }
     break;
+    case static_cast<int>(QMetaType::QObjectStar): // ignore QObjects!
+    case static_cast<int>(QMetaType::VoidStar): // ignore void pointers!
+        break;
     default:
         w.writeStartElement(ctx.valueElement);
         w.writeAttribute(ctx.typeAttribute, QLatin1String(variant.typeName()));
@@ -374,28 +370,45 @@ static void writeVariantValue(QXmlStreamWriter &w, const Context &ctx,
     }
 }
 
-void PersistentSettingsWriter::saveValue(const QString &variable, const QVariant &value)
+PersistentSettingsWriter::PersistentSettingsWriter(const FileName &fileName, const QString &docType) :
+    m_fileName(fileName), m_docType(docType)
+{ }
+
+PersistentSettingsWriter::~PersistentSettingsWriter()
 {
-    m_valueMap.insert(variable, value);
+    write(m_savedData, 0);
 }
 
-bool PersistentSettingsWriter::save(const QString &fileName, const QString &docType,
-                                    QWidget *parent) const
+bool PersistentSettingsWriter::save(const QVariantMap &data, QWidget *parent) const
 {
-    Utils::FileSaver saver(fileName, QIODevice::Text);
+    if (data == m_savedData)
+        return true;
+
+    return write(data, parent);
+}
+
+FileName PersistentSettingsWriter::fileName() const
+{ return m_fileName; }
+
+bool PersistentSettingsWriter::write(const QVariantMap &data, QWidget *parent) const
+{
+    QDir tmp;
+    tmp.mkpath(m_fileName.toFileInfo().path());
+    Utils::FileSaver saver(m_fileName.toString(), QIODevice::Text);
     if (!saver.hasError()) {
         const Context ctx;
         QXmlStreamWriter w(saver.file());
         w.setAutoFormatting(true);
         w.setAutoFormattingIndent(1); // Historical, used to be QDom.
         w.writeStartDocument();
-        w.writeDTD(QLatin1String("<!DOCTYPE ") + docType + QLatin1Char('>'));
-        w.writeComment(QString::fromAscii(" Written by Qt Creator %1, %2. ").
-                       arg(QLatin1String(Core::Constants::IDE_VERSION_LONG),
+        w.writeDTD(QLatin1String("<!DOCTYPE ") + m_docType + QLatin1Char('>'));
+        w.writeComment(QString::fromLatin1(" Written by %1 %2, %3. ").
+                       arg(QCoreApplication::applicationName(),
+                           QCoreApplication::applicationVersion(),
                            QDateTime::currentDateTime().toString(Qt::ISODate)));
         w.writeStartElement(ctx.qtCreatorElement);
-        const QVariantMap::const_iterator cend = m_valueMap.constEnd();
-        for (QVariantMap::const_iterator it =  m_valueMap.constBegin(); it != cend; ++it) {
+        const QVariantMap::const_iterator cend = data.constEnd();
+        for (QVariantMap::const_iterator it =  data.constBegin(); it != cend; ++it) {
             w.writeStartElement(ctx.dataElement);
             w.writeTextElement(ctx.variableElement, it.key());
             writeVariantValue(w, ctx, it.value());
@@ -405,6 +418,10 @@ bool PersistentSettingsWriter::save(const QString &fileName, const QString &docT
 
         saver.setResult(&w);
     }
-    return saver.finalize(parent);
+    bool ok = saver.finalize(parent);
+    if (ok)
+        m_savedData = data;
+    return ok;
 }
+
 } // namespace Utils

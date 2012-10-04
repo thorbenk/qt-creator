@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,7 +33,7 @@
 
 #include <projectexplorer/abstractprocessstep.h>
 #include <projectexplorer/buildstep.h>
-#include <remotelinux/deployablefile.h>
+#include <projectexplorer/deployablefile.h>
 
 #include <QStringList>
 
@@ -91,22 +89,6 @@ private:
     virtual QStringList madArguments() const;
 };
 
-class MaemoInstallRpmPackageToSysrootStep : public AbstractMaemoInstallPackageToSysrootStep
-{
-    Q_OBJECT
-public:
-    explicit MaemoInstallRpmPackageToSysrootStep(ProjectExplorer::BuildStepList *bsl);
-    MaemoInstallRpmPackageToSysrootStep(ProjectExplorer::BuildStepList *bsl,
-        MaemoInstallRpmPackageToSysrootStep *other);
-
-    virtual ProjectExplorer::BuildStepConfigWidget *createConfigWidget();
-
-    static const Core::Id Id;
-    static QString displayName();
-private:
-    virtual QStringList madArguments() const;
-};
-
 class MaemoCopyToSysrootStep : public ProjectExplorer::BuildStep
 {
     Q_OBJECT
@@ -123,7 +105,7 @@ public:
     static QString displayName();
 private:
     QString m_systemRoot;
-    QList<RemoteLinux::DeployableFile> m_files;
+    QList<ProjectExplorer::DeployableFile> m_files;
 };
 
 class MaemoMakeInstallToSysrootStep : public ProjectExplorer::AbstractProcessStep

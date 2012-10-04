@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -45,6 +43,7 @@
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/target.h>
 #include <utils/QtConcurrentTools>
 #include <QtConcurrentRun>
 #include <QCoreApplication>
@@ -67,25 +66,25 @@ CMakeManager::CMakeManager(CMakeSettingsPage *cmakeSettingsPage)
     connect(projectExplorer, SIGNAL(aboutToShowContextMenu(ProjectExplorer::Project*,ProjectExplorer::Node*)),
             this, SLOT(updateContextMenu(ProjectExplorer::Project*,ProjectExplorer::Node*)));
 
-    Core::ActionManager *am = Core::ICore::actionManager();
-
     Core::ActionContainer *mbuild =
-            am->actionContainer(ProjectExplorer::Constants::M_BUILDPROJECT);
+            Core::ActionManager::actionContainer(ProjectExplorer::Constants::M_BUILDPROJECT);
     Core::ActionContainer *mproject =
-            am->actionContainer(ProjectExplorer::Constants::M_PROJECTCONTEXT);
+            Core::ActionManager::actionContainer(ProjectExplorer::Constants::M_PROJECTCONTEXT);
     Core::ActionContainer *msubproject =
-            am->actionContainer(ProjectExplorer::Constants::M_SUBPROJECTCONTEXT);
+            Core::ActionManager::actionContainer(ProjectExplorer::Constants::M_SUBPROJECTCONTEXT);
 
     const Core::Context projectContext(CMakeProjectManager::Constants::PROJECTCONTEXT);
 
     m_runCMakeAction = new QAction(QIcon(), tr("Run CMake"), this);
-    Core::Command *command = am->registerAction(m_runCMakeAction, Constants::RUNCMAKE, projectContext);
+    Core::Command *command = Core::ActionManager::registerAction(m_runCMakeAction,
+                                                                 Constants::RUNCMAKE, projectContext);
     command->setAttribute(Core::Command::CA_Hide);
     mbuild->addAction(command, ProjectExplorer::Constants::G_BUILD_DEPLOY);
     connect(m_runCMakeAction, SIGNAL(triggered()), this, SLOT(runCMake()));
 
     m_runCMakeActionContextMenu = new QAction(QIcon(), tr("Run CMake"), this);
-    command = am->registerAction(m_runCMakeActionContextMenu, Constants::RUNCMAKECONTEXTMENU, projectContext);
+    command = Core::ActionManager::registerAction(m_runCMakeActionContextMenu,
+                                                  Constants::RUNCMAKECONTEXTMENU, projectContext);
     command->setAttribute(Core::Command::CA_Hide);
     mproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
     msubproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
@@ -114,22 +113,19 @@ void CMakeManager::runCMake(ProjectExplorer::Project *project)
     if (!project)
         return;
     CMakeProject *cmakeProject = qobject_cast<CMakeProject *>(project);
-    if (!cmakeProject)
+    if (!cmakeProject || !cmakeProject->activeTarget() || !cmakeProject->activeTarget()->activeBuildConfiguration())
         return;
 
-    if (!cmakeProject->activeTarget())
-        return;
-    if (!cmakeProject->activeTarget()->activeBuildConfiguration())
-        return;
-    CMakeBuildConfiguration *bc = cmakeProject->activeTarget()->activeBuildConfiguration();
+    CMakeBuildConfiguration *bc
+            = static_cast<CMakeBuildConfiguration *>(cmakeProject->activeTarget()->activeBuildConfiguration());
+
     CMakeOpenProjectWizard copw(this,
                                 cmakeProject->projectDirectory(),
                                 bc->buildDirectory(),
                                 CMakeOpenProjectWizard::WantToUpdate,
-                                bc->environment());
-    if (copw.exec() == QDialog::Accepted) {
+                                bc);
+    if (copw.exec() == QDialog::Accepted)
         cmakeProject->parseCMakeLists();
-    }
 }
 
 ProjectExplorer::Project *CMakeManager::openProject(const QString &fileName, QString *errorString)
@@ -162,6 +158,11 @@ void CMakeManager::setCMakeExecutable(const QString &executable)
 bool CMakeManager::hasCodeBlocksMsvcGenerator() const
 {
     return m_settingsPage->hasCodeBlocksMsvcGenerator();
+}
+
+bool CMakeManager::hasCodeBlocksNinjaGenerator() const
+{
+    return m_settingsPage->hasCodeBlocksNinjaGenerator();
 }
 
 // need to refactor this out
@@ -246,10 +247,19 @@ QString CMakeManager::qtVersionForQMake(const QString &qmakePath)
 CMakeSettingsPage::CMakeSettingsPage()
     :  m_pathchooser(0)
 {
+    setId(QLatin1String("Z.CMake"));
+    setDisplayName(tr("CMake"));
+    setCategory(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("ProjectExplorer",
+       ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
+
     m_userCmake.process = 0;
     m_pathCmake.process = 0;
     m_userCmake.hasCodeBlocksMsvcGenerator = false;
     m_pathCmake.hasCodeBlocksMsvcGenerator = false;
+    m_userCmake.hasCodeBlocksNinjaGenerator = false;
+    m_pathCmake.hasCodeBlocksNinjaGenerator = false;
     QSettings *settings = Core::ICore::settings();
     settings->beginGroup(QLatin1String("CMakeSettings"));
     m_userCmake.executable = settings->value(QLatin1String("cmakeExecutable")).toString();
@@ -294,6 +304,7 @@ void CMakeSettingsPage::cmakeFinished(CMakeValidator *cmakeValidator) const
         versionRegexp.indexIn(response);
 
         //m_supportsQtCreator = response.contains(QLatin1String("QtCreator"));
+        cmakeValidator->hasCodeBlocksNinjaGenerator = response.contains(QLatin1String("CodeBlocks - Ninja"));
         cmakeValidator->hasCodeBlocksMsvcGenerator = response.contains(QLatin1String("CodeBlocks - NMake Makefiles"));
         cmakeValidator->version = versionRegexp.cap(1);
         if (!(versionRegexp.capturedTexts().size() > 3))
@@ -345,32 +356,6 @@ QString CMakeSettingsPage::findCmakeExecutable() const
 {
     Utils::Environment env = Utils::Environment::systemEnvironment();
     return env.searchInPath(QLatin1String("cmake"));
-}
-
-QString CMakeSettingsPage::id() const
-{
-    return QLatin1String("Z.CMake");
-}
-
-QString CMakeSettingsPage::displayName() const
-{
-    return tr("CMake");
-}
-
-QString CMakeSettingsPage::category() const
-{
-    return QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
-}
-
-QString CMakeSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("ProjectExplorer",
-                                       ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY);
-}
-
-QIcon CMakeSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
 }
 
 QWidget *CMakeSettingsPage::createPage(QWidget *parent)
@@ -448,4 +433,14 @@ bool CMakeSettingsPage::hasCodeBlocksMsvcGenerator() const
         return m_userCmake.hasCodeBlocksMsvcGenerator;
     else
         return m_pathCmake.hasCodeBlocksMsvcGenerator;
+}
+
+bool CMakeSettingsPage::hasCodeBlocksNinjaGenerator() const
+{
+    if (!isCMakeExecutableValid())
+        return false;
+    if (m_userCmake.state == CMakeValidator::VALID)
+        return m_userCmake.hasCodeBlocksNinjaGenerator;
+    else
+        return m_pathCmake.hasCodeBlocksNinjaGenerator;
 }

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -103,6 +101,11 @@ enum Type
     WarnConfusingExpressionStatement = 127,
     HintDeclarationsShouldBeAtStartOfFunction = 201,
     HintOneStatementPerLine = 202,
+    WarnImperativeCodeNotEditableInVisualDesigner = 203,
+    WarnUnsupportedTypeInVisualDesigner = 204,
+    WarnReferenceToParentItemNotSupportedByVisualDesigner = 205,
+    WarnUndefinedValueForVisualDesigner = 206,
+    WarnStatesOnlyInRootItemForVisualDesigner = 207,
     ErrUnknownComponent = 300,
     ErrCouldNotResolvePrototypeOf = 301,
     ErrCouldNotResolvePrototype = 302,

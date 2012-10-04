@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,11 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "gdbengine.h"
 #include "gdbmi.h"
-#include "abstractgdbadapter.h"
 #include "debuggeractions.h"
 #include "debuggercore.h"
 #include "debuggerstringutils.h"
@@ -54,12 +51,11 @@ namespace Internal {
 void GdbEngine::updateLocalsPython(const UpdateParameters &params)
 {
     PRECONDITION;
-    m_pendingWatchRequests = 0;
+    //m_pendingWatchRequests = 0;
     m_pendingBreakpointRequests = 0;
     m_processedNames.clear();
-    WatchHandler *handler = watchHandler();
-    handler->beginCycle(!params.tryPartial);
 
+    WatchHandler *handler = watchHandler();
     QByteArray expanded = "expanded:" + handler->expansionRequests() + ' ';
     expanded += "typeformats:" + handler->typeFormatRequests() + ' ';
     expanded += "formats:" + handler->individualFormatRequests();
@@ -68,17 +64,35 @@ void GdbEngine::updateLocalsPython(const UpdateParameters &params)
     const QString fileName = stackHandler()->currentFrame().file;
     const QString function = stackHandler()->currentFrame().function;
     if (!fileName.isEmpty()) {
-        QStringList expressions = DebuggerToolTipManager::instance()
+        typedef DebuggerToolTipManager::ExpressionInamePair ExpressionInamePair;
+        typedef DebuggerToolTipManager::ExpressionInamePairs ExpressionInamePairs;
+
+        // Re-create tooltip items that are not filters on existing local variables in
+        // the tooltip model.
+        ExpressionInamePairs toolTips = DebuggerToolTipManager::instance()
             ->treeWidgetExpressions(fileName, objectName(), function);
+
         const QString currentExpression = tooltipExpression();
-        if (!currentExpression.isEmpty() && !expressions.contains(currentExpression))
-            expressions.push_back(currentExpression);
-        foreach (const QString &te, expressions) {
-            if (!watchers.isEmpty())
-                watchers += "##";
-            watchers += te.toLatin1();
-            watchers += '#';
-            watchers += tooltipIName(te);
+        if (!currentExpression.isEmpty()) {
+            int currentIndex = -1;
+            for (int i = 0; i < toolTips.size(); ++i) {
+                if (toolTips.at(i).first == currentExpression) {
+                    currentIndex = i;
+                    break;
+                }
+            }
+            if (currentIndex < 0)
+                toolTips.push_back(ExpressionInamePair(currentExpression, tooltipIName(currentExpression)));
+        }
+
+        foreach (const ExpressionInamePair &p, toolTips) {
+            if (p.second.startsWith("tooltip")) {
+                if (!watchers.isEmpty())
+                    watchers += "##";
+                watchers += p.first.toLatin1();
+                watchers += '#';
+                watchers += p.second;
+            }
         }
     }
 
@@ -117,22 +131,7 @@ void GdbEngine::updateLocalsPython(const UpdateParameters &params)
 
     postCommand("bb options:" + options + " vars:" + params.varList + ' '
             + resultVar + expanded + " watchers:" + watchers.toHex(),
-        WatchUpdate, CB(handleStackFramePython), QVariant(params.tryPartial));
-}
-
-void GdbEngine::handleStackListLocalsPython(const GdbResponse &response)
-{
-    PRECONDITION;
-    if (response.resultClass == GdbResultDone) {
-        // 44^done,data={locals=[name="model",name="backString",...]}
-        QByteArray varList = "vars"; // Dummy entry, will be stripped by dumper.
-        foreach (const GdbMi &child, response.data.findChild("locals").children()) {
-            varList.append(',');
-            varList.append(child.data());
-        }
-        UpdateParameters params;
-        updateLocalsPython(params);
-    }
+        Discardable, CB(handleStackFramePython), QVariant(params.tryPartial));
 }
 
 void GdbEngine::handleStackFramePython(const GdbResponse &response)
@@ -151,9 +150,17 @@ void GdbEngine::handleStackFramePython(const GdbResponse &response)
         }
         GdbMi all;
         all.fromStringMultiple(out);
-
         GdbMi data = all.findChild("data");
+
+        WatchHandler *handler = watchHandler();
         QList<WatchData> list;
+
+        if (!partial) {
+            list.append(*handler->findData("local"));
+            list.append(*handler->findData("watch"));
+            list.append(*handler->findData("return"));
+        }
+
         foreach (const GdbMi &child, data.children()) {
             WatchData dummy;
             dummy.iname = child.findChild("iname").data();
@@ -166,7 +173,7 @@ void GdbEngine::handleStackFramePython(const GdbResponse &response)
             } else {
                 dummy.name = _(child.findChild("name").data());
             }
-            parseWatchData(watchHandler()->expandedINames(), dummy, child, &list);
+            parseWatchData(handler->expandedINames(), dummy, child, &list);
         }
         const GdbMi typeInfo = all.findChild("typeinfo");
         if (typeInfo.type() == GdbMi::List) {
@@ -184,15 +191,15 @@ void GdbEngine::handleStackFramePython(const GdbResponse &response)
                 list[i].size = ti.size;
         }
 
-        watchHandler()->insertBulkData(list);
+        handler->insertData(list);
 
         //PENDING_DEBUG("AFTER handleStackFrame()");
         // FIXME: This should only be used when updateLocals() was
         // triggered by expanding an item in the view.
-        if (m_pendingWatchRequests <= 0) {
+        //if (m_pendingWatchRequests <= 0) {
             //PENDING_DEBUG("\n\n ....  AND TRIGGERS MODEL UPDATE\n");
             rebuildWatchModel();
-        }
+        //}
         if (!partial)
             emit stackFrameCompleted();
     } else {
@@ -210,10 +217,7 @@ void GdbEngine::updateAllPython()
     postCommand("-stack-list-frames", CB(handleStackListFrames),
         QVariant::fromValue<StackCookie>(StackCookie(false, true)));
     stackHandler()->setCurrentIndex(0);
-    if (m_gdbAdapter->isCodaAdapter())
-        m_gdbAdapter->codaReloadThreads();
-    else
-        postCommand("-thread-info", CB(handleThreadInfo), 0);
+    postCommand("-thread-info", CB(handleThreadInfo), 0);
     reloadRegisters();
     updateLocals();
 }

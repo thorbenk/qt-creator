@@ -8,9 +8,7 @@ QtcLibrary {
         ".",
         ".."
     ]
-    cpp.defines: [
-        "AGGREGATION_LIBRARY"
-    ]
+    cpp.defines: base.concat("AGGREGATION_LIBRARY")
 
     Depends { name: "cpp" }
     Depends { name: "Qt.core" }

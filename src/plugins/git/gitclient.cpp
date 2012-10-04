@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -54,6 +52,7 @@
 #include <coreplugin/variablemanager.h>
 
 #include <texteditor/itexteditor.h>
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/qtcprocess.h>
 #include <utils/synchronousprocess.h>
@@ -66,14 +65,12 @@
 #include <vcsbase/vcsbaseplugin.h>
 
 #include <QRegExp>
-#include <QTemporaryFile>
 #include <QTime>
 #include <QFileInfo>
 #include <QDir>
 #include <QSignalMapper>
 
 #include <QComboBox>
-#include <QMainWindow> // for msg box parent
 #include <QMessageBox>
 #include <QToolButton>
 #include <QTextCodec>
@@ -366,7 +363,7 @@ const char *GitClient::decorateOption = "--decorate";
 
 QString GitClient::findRepositoryForDirectory(const QString &dir)
 {
-    if (gitVersion(true) >= 0x010700) {
+    if (gitVersion() >= 0x010700) {
         // Find a directory to run git in:
         const QString root = QDir::rootPath();
         const QString home = QDir::homePath();
@@ -391,6 +388,15 @@ QString GitClient::findRepositoryForDirectory(const QString &dir)
         const QString checkFile = QLatin1String(GIT_DIRECTORY) + QLatin1String("/config");
         return VcsBase::VcsBasePlugin::findRepositoryForDirectory(dir, checkFile);
     }
+}
+
+QString GitClient::findGitDirForRepository(const QString &repositoryDir)
+{
+    QByteArray outputText;
+    QStringList arguments;
+    arguments << QLatin1String("rev-parse") << QLatin1String("--git-dir");
+    fullySynchronousGit(repositoryDir, arguments, &outputText, 0, false);
+    return QString::fromLocal8Bit(outputText.trimmed());
 }
 
 VcsBase::VcsBaseEditorWidget *GitClient::findExistingVCSEditor(const char *registerDynamicProperty,
@@ -470,7 +476,6 @@ void GitClient::diff(const QString &workingDirectory,
         editor = createVcsEditor(editorId, title,
                                  workingDirectory, CodecSource, "originalFileName", workingDirectory, argWidget);
         connect(editor, SIGNAL(diffChunkReverted(VcsBase::DiffChunk)), argWidget, SLOT(executeCommand()));
-        editor->setRevertDiffChunkEnabled(true);
     }
 
     GitCommitDiffArgumentsWidget *argWidget = qobject_cast<GitCommitDiffArgumentsWidget *>(editor->configurationWidget());
@@ -528,7 +533,6 @@ void GitClient::diff(const QString &workingDirectory,
 
         editor = createVcsEditor(editorId, title, sourceFile, CodecSource, "originalFileName", sourceFile, argWidget);
         connect(editor, SIGNAL(diffChunkReverted(VcsBase::DiffChunk)), argWidget, SLOT(executeCommand()));
-        editor->setRevertDiffChunkEnabled(true);
     }
     editor->setDiffBaseDirectory(workingDirectory);
 
@@ -1045,6 +1049,10 @@ bool GitClient::synchronousParentRevisions(const QString &workingDirectory,
     QByteArray outputTextData;
     QByteArray errorText;
     QStringList arguments;
+    if (parents && !isValidRevision(revision)) { // Not Committed Yet
+        *parents = QStringList(QLatin1String("HEAD"));
+        return true;
+    }
     arguments << QLatin1String("rev-list") << QLatin1String(GitClient::noColorOption)
               << QLatin1String("--parents") << QLatin1String("--max-count=1") << revision;
     if (!files.isEmpty()) {
@@ -1068,31 +1076,22 @@ bool GitClient::synchronousParentRevisions(const QString &workingDirectory,
 }
 
 // Short SHA1, author, subject
-static const char defaultShortLogFormatC[] = "%h (%an \"%s\")";
+static const char defaultShortLogFormatC[] = "%h (%an \"%s";
+static const int maxShortLogLength = 120;
 
-bool GitClient::synchronousShortDescription(const QString &workingDirectory, const QString &revision,
-                                            QString *description, QString *errorMessage)
+QString GitClient::synchronousShortDescription(const QString &workingDirectory, const QString &revision)
 {
     // Short SHA 1, author, subject
-    return synchronousShortDescription(workingDirectory, revision,
-                                       QLatin1String(defaultShortLogFormatC),
-                                       description, errorMessage);
-}
-
-// Convenience working on a list of revisions
-bool GitClient::synchronousShortDescriptions(const QString &workingDirectory, const QStringList &revisions,
-                                             QStringList *descriptions, QString *errorMessage)
-{
-    descriptions->clear();
-    foreach (const QString &revision, revisions) {
-        QString description;
-        if (!synchronousShortDescription(workingDirectory, revision, &description, errorMessage)) {
-            descriptions->clear();
-            return false;
+    QString output = synchronousShortDescription(workingDirectory, revision,
+                                                 QLatin1String(defaultShortLogFormatC));
+    if (output != revision) {
+        if (output.length() > maxShortLogLength) {
+            output.truncate(maxShortLogLength);
+            output.append(QLatin1String("..."));
         }
-        descriptions->push_back(description);
+        output.append(QLatin1String("\")"));
     }
-    return true;
+    return output;
 }
 
 static inline QString msgCannotDetermineBranch(const QString &workingDirectory, const QString &why)
@@ -1161,10 +1160,10 @@ bool GitClient::synchronousTopRevision(const QString &workingDirectory, QString 
 }
 
 // Format an entry in a one-liner for selection list using git log.
-bool GitClient::synchronousShortDescription(const QString &workingDirectory, const QString &revision,
-                                            const QString &format, QString *description,
-                                            QString *errorMessage)
+QString GitClient::synchronousShortDescription(const QString &workingDirectory, const QString &revision,
+                                            const QString &format)
 {
+    QString description;
     QByteArray outputTextData;
     QByteArray errorText;
     QStringList arguments;
@@ -1173,13 +1172,15 @@ bool GitClient::synchronousShortDescription(const QString &workingDirectory, con
               << QLatin1String("--max-count=1") << revision;
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText);
     if (!rc) {
-        *errorMessage = tr("Cannot describe revision \"%1\" in \"%2\": %3").arg(revision, workingDirectory, commandOutputFromLocal8Bit(errorText));
-        return false;
+        VcsBase::VcsBaseOutputWindow *outputWindow = VcsBase::VcsBaseOutputWindow::instance();
+        outputWindow->appendSilently(tr("Cannot describe revision \"%1\" in \"%2\": %3")
+                                     .arg(revision, workingDirectory, commandOutputFromLocal8Bit(errorText)));
+        return revision;
     }
-    *description = commandOutputFromLocal8Bit(outputTextData);
-    if (description->endsWith(QLatin1Char('\n')))
-        description->truncate(description->size() - 1);
-    return true;
+    description = commandOutputFromLocal8Bit(outputTextData);
+    if (description.endsWith(QLatin1Char('\n')))
+        description.truncate(description.size() - 1);
+    return description;
 }
 
 // Create a default message to be used for describing stashes
@@ -1349,12 +1350,11 @@ bool GitClient::synchronousShow(const QString &workingDirectory, const QString &
 }
 
 // Retrieve list of files to be cleaned
-bool GitClient::synchronousCleanList(const QString &workingDirectory,
-                                     QStringList *files, QString *errorMessage)
+bool GitClient::cleanList(const QString &workingDirectory, const QString &flag, QStringList *files, QString *errorMessage)
 {
     files->clear();
     QStringList args;
-    args << QLatin1String("clean") << QLatin1String("--dry-run") << QLatin1String("-dxf");
+    args << QLatin1String("clean") << QLatin1String("--dry-run") << flag;
     QByteArray outputText;
     QByteArray errorText;
     const bool rc = fullySynchronousGit(workingDirectory, args, &outputText, &errorText);
@@ -1368,6 +1368,14 @@ bool GitClient::synchronousCleanList(const QString &workingDirectory,
         if (line.startsWith(prefix))
             files->push_back(line.mid(prefix.size()));
     return true;
+}
+
+bool GitClient::synchronousCleanList(const QString &workingDirectory, QStringList *files,
+                                     QStringList *ignoredFiles, QString *errorMessage)
+{
+    bool res = cleanList(workingDirectory, QLatin1String("-df"), files, errorMessage);
+    res &= cleanList(workingDirectory, QLatin1String("-dXf"), ignoredFiles, errorMessage);
+    return res;
 }
 
 bool GitClient::synchronousApplyPatch(const QString &workingDirectory,
@@ -1433,21 +1441,30 @@ VcsBase::Command *GitClient::executeGit(const QString &workingDirectory,
 
 QProcessEnvironment GitClient::processEnvironment() const
 {
-
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
     QString gitPath = settings()->stringValue(GitSettings::pathKey);
     if (!gitPath.isEmpty()) {
-        gitPath += Utils::SynchronousProcess::pathSeparator();
+        gitPath += Utils::HostOsInfo::pathListSeparator();
         gitPath += environment.value(QLatin1String("PATH"));
         environment.insert(QLatin1String("PATH"), gitPath);
     }
-#ifdef Q_OS_WIN
-    if (settings()->boolValue(GitSettings::winSetHomeEnvironmentKey))
+    if (Utils::HostOsInfo::isWindowsHost()
+            && settings()->boolValue(GitSettings::winSetHomeEnvironmentKey)) {
         environment.insert(QLatin1String("HOME"), QDir::toNativeSeparators(QDir::homePath()));
-#endif // Q_OS_WIN
+    }
     // Set up SSH and C locale (required by git using perl).
     VcsBase::VcsBasePlugin::setProcessEnvironment(&environment, false);
     return environment;
+}
+
+bool GitClient::isValidRevision(const QString &revision) const
+{
+    if (revision.length() < 1)
+        return false;
+    for (int i = 0; i < revision.length(); ++i)
+        if (revision.at(i) != QLatin1Char('0'))
+            return true;
+    return false;
 }
 
 // Synchronous git execution using Utils::SynchronousProcess, with
@@ -1570,9 +1587,11 @@ GitClient::StatusResult GitClient::gitStatus(const QString &workingDirectory, bo
         return StatusFailed;
     }
     // Unchanged (output text depending on whether -u was passed)
-    if (outputText.count('\n') == 1)
-        return StatusUnchanged;
-    return StatusChanged;
+    QList<QByteArray> lines = outputText.split('\n');
+    foreach (const QByteArray &line, lines)
+        if (!line.isEmpty() && !line.startsWith('#') && !line.startsWith('?'))
+            return StatusChanged;
+    return StatusUnchanged;
 }
 
 // Quietly retrieve branch list of remote repository URL
@@ -1639,15 +1658,16 @@ bool GitClient::tryLauchingGitK(const QProcessEnvironment &env,
                                 const QString &gitBinDirectory,
                                 bool silent)
 {
-#ifdef Q_OS_WIN
-    // Launch 'wish' shell from git binary directory with the gitk located there
-    const QString binary = gitBinDirectory + QLatin1String("/wish");
-    QStringList arguments(gitBinDirectory + QLatin1String("/gitk"));
-#else
-    // Simple: Run gitk from binary path
-    const QString binary = gitBinDirectory + QLatin1String("/gitk");
+    QString binary;
     QStringList arguments;
-#endif
+    if (Utils::HostOsInfo::isWindowsHost()) {
+        // Launch 'wish' shell from git binary directory with the gitk located there
+        binary = gitBinDirectory + QLatin1String("/wish");
+        arguments << (gitBinDirectory + QLatin1String("/gitk"));
+    } else {
+        // Simple: Run gitk from binary path
+        binary = gitBinDirectory + QLatin1String("/gitk");
+    }
     VcsBase::VcsBaseOutputWindow *outwin = VcsBase::VcsBaseOutputWindow::instance();
     const QString gitkOpts = settings()->stringValue(GitSettings::gitkOptionsKey);
     if (!gitkOpts.isEmpty())
@@ -1701,14 +1721,14 @@ bool GitClient::getCommitData(const QString &workingDirectory,
 
     commitData->panelInfo.repository = repoDirectory;
 
-    QDir gitDir(repoDirectory);
-    if (!gitDir.cd(QLatin1String(GIT_DIRECTORY))) {
+    QString gitDir = GitClient::findGitDirForRepository(repoDirectory);
+    if (gitDir.isEmpty()) {
         *errorMessage = tr("The repository \"%1\" is not initialized.").arg(repoDirectory);
         return false;
     }
 
     // Read description
-    const QString descriptionFile = gitDir.absoluteFilePath(QLatin1String("description"));
+    const QString descriptionFile = QDir(gitDir).absoluteFilePath(QLatin1String("description"));
     if (QFileInfo(descriptionFile).isFile()) {
         Utils::FileReader reader;
         if (!reader.fetch(descriptionFile, QIODevice::Text, errorMessage))
@@ -1762,17 +1782,14 @@ bool GitClient::getCommitData(const QString &workingDirectory,
         }
     }
 
-    commitData->panelData.author = readConfigValue(workingDirectory, QLatin1String("user.name"));
-    commitData->panelData.email = readConfigValue(workingDirectory, QLatin1String("user.email"));
     commitData->commitEncoding = readConfigValue(workingDirectory, QLatin1String("i18n.commitEncoding"));
 
     // Get the commit template or the last commit message
     if (amend) {
-        // Amend: get last commit data as "SHA1@message".
+        // Amend: get last commit data as "SHA1<tab>author<tab>email<tab>message".
         QStringList args(QLatin1String("log"));
-        const QString format = gitVersion(true) > 0x010701 ?
-                               QLatin1String("%h@%B") :
-                               QLatin1String("%h@%s%n%n%b");
+        const QString msgFormat = QLatin1String((gitVersion() > 0x010701) ? "%B" : "%s%n%n%b");
+        const QString format = QLatin1String("%h\t%an\t%ae\t") + msgFormat;
         args << QLatin1String("--max-count=1") << QLatin1String("--pretty=format:") + format;
         QTextCodec *codec = QTextCodec::codecForName(commitData->commitEncoding.toLocal8Bit());
         const Utils::SynchronousProcessResponse sp = synchronousGit(repoDirectory, args, 0, codec);
@@ -1780,13 +1797,17 @@ bool GitClient::getCommitData(const QString &workingDirectory,
             *errorMessage = tr("Cannot retrieve last commit data of repository \"%1\".").arg(repoDirectory);
             return false;
         }
-        const int separatorPos = sp.stdOut.indexOf(QLatin1Char('@'));
-        QTC_ASSERT(separatorPos != -1, return false);
-        commitData->amendSHA1= sp.stdOut.left(separatorPos);
-        *commitTemplate = sp.stdOut.mid(separatorPos + 1);
+        QStringList values = sp.stdOut.split(QLatin1Char('\t'));
+        QTC_ASSERT(values.size() >= 4, return false);
+        commitData->amendSHA1 = values.takeFirst();
+        commitData->panelData.author = values.takeFirst();
+        commitData->panelData.email = values.takeFirst();
+        *commitTemplate = values.join(QLatin1String("\t"));
     } else {
+        commitData->panelData.author = readConfigValue(workingDirectory, QLatin1String("user.name"));
+        commitData->panelData.email = readConfigValue(workingDirectory, QLatin1String("user.email"));
         // Commit: Get the commit template
-        QString templateFilename = gitDir.absoluteFilePath(QLatin1String("MERGE_MSG"));
+        QString templateFilename = QDir(gitDir).absoluteFilePath(QLatin1String("MERGE_MSG"));
         if (!QFileInfo(templateFilename).isFile())
             templateFilename = readConfigValue(workingDirectory, QLatin1String("commit.template"));
         if (!templateFilename.isEmpty()) {
@@ -2332,31 +2353,20 @@ void GitClient::connectRepositoryChanged(const QString & repository, VcsBase::Co
 }
 
 // determine version as '(major << 16) + (minor << 8) + patch' or 0.
-unsigned GitClient::gitVersion(bool silent, QString *errorMessage) const
+unsigned GitClient::gitVersion(QString *errorMessage) const
 {
     const QString newGitBinary = gitBinaryPath();
     if (m_gitVersionForBinary != newGitBinary && !newGitBinary.isEmpty()) {
         // Do not execute repeatedly if that fails (due to git
         // not being installed) until settings are changed.
-        m_cachedGitVersion = synchronousGitVersion(silent, errorMessage);
+        m_cachedGitVersion = synchronousGitVersion(errorMessage);
         m_gitVersionForBinary = newGitBinary;
     }
     return m_cachedGitVersion;
 }
 
-QString GitClient::gitVersionString(bool silent, QString *errorMessage) const
-{
-    if (const unsigned version = gitVersion(silent, errorMessage)) {
-        QString rc;
-        QTextStream(&rc) << (version >> 16) << '.'
-                << (0xFF & (version >> 8)) << '.'
-                << (version & 0xFF);
-        return rc;
-    }
-    return QString();
-}
 // determine version as '(major << 16) + (minor << 8) + patch' or 0.
-unsigned GitClient::synchronousGitVersion(bool silent, QString *errorMessage) const
+unsigned GitClient::synchronousGitVersion(QString *errorMessage) const
 {
     if (gitBinaryPath().isEmpty())
         return 0;
@@ -2364,18 +2374,13 @@ unsigned GitClient::synchronousGitVersion(bool silent, QString *errorMessage) co
     // run git --version
     QByteArray outputText;
     QByteArray errorText;
-    const bool rc = fullySynchronousGit(QString(), QStringList(QLatin1String("--version")), &outputText, &errorText);
+    const bool rc = fullySynchronousGit(QString(), QStringList(QLatin1String("--version")), &outputText, &errorText, false);
     if (!rc) {
         const QString msg = tr("Cannot determine git version: %1").arg(commandOutputFromLocal8Bit(errorText));
-        if (errorMessage) {
+        if (errorMessage)
             *errorMessage = msg;
-        } else {
-            if (silent) {
-                outputWindow()->append(msg);
-            } else {
-                outputWindow()->appendError(msg);
-            }
-        }
+        else
+            outputWindow()->append(msg);
         return 0;
     }
     // cut 'git version 1.6.5.1.sha'

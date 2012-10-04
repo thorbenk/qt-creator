@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef DIRECTDEVICEUPLOADACTION_H
@@ -35,14 +33,15 @@
 #include "abstractremotelinuxdeployservice.h"
 #include "remotelinux_export.h"
 
-#include <utils/ssh/sftpdefs.h>
+#include <ssh/sftpdefs.h>
 
 #include <QList>
 
 QT_FORWARD_DECLARE_CLASS(QString)
 
+namespace ProjectExplorer { class DeployableFile; }
+
 namespace RemoteLinux {
-class DeployableFile;
 namespace Internal { class GenericDirectUploadServicePrivate; }
 
 class REMOTELINUX_EXPORT GenericDirectUploadService : public AbstractRemoteLinuxDeployService
@@ -50,8 +49,9 @@ class REMOTELINUX_EXPORT GenericDirectUploadService : public AbstractRemoteLinux
     Q_OBJECT
 public:
     GenericDirectUploadService(QObject *parent = 0);
+    ~GenericDirectUploadService();
 
-    void setDeployableFiles(const QList<DeployableFile> &deployableFiles);
+    void setDeployableFiles(const QList<ProjectExplorer::DeployableFile> &deployableFiles);
     void setIncrementalDeployment(bool incremental);
 
   protected:
@@ -66,14 +66,14 @@ public:
 private slots:
     void handleSftpInitialized();
     void handleSftpInitializationFailed(const QString &errorMessage);
-    void handleUploadFinished(Utils::SftpJobId jobId, const QString &errorMsg);
+    void handleUploadFinished(QSsh::SftpJobId jobId, const QString &errorMsg);
     void handleMkdirFinished(int exitStatus);
     void handleLnFinished(int exitStatus);
     void handleStdOutData();
     void handleStdErrData();
 
 private:
-    void checkDeploymentNeeded(const DeployableFile &file) const;
+    void checkDeploymentNeeded(const ProjectExplorer::DeployableFile &file) const;
     void setFinished();
     void uploadNextFile();
 

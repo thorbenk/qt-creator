@@ -8,20 +8,17 @@ include(madde_dependencies.pri)
 HEADERS += \
     madde_exports.h \
     maddeplugin.h \
+    debianmanager.h \
     maemoconstants.h \
     maemorunconfigurationwidget.h \
-    maemoruncontrol.h \
     maemorunfactories.h \
     maemosettingspages.h \
-    maemotoolchain.h \
     maemopackagecreationstep.h \
     maemopackagecreationfactory.h \
     maemopackagecreationwidget.h \
     maemoqemumanager.h \
     maemodeploystepfactory.h \
     maemoglobal.h \
-    maemosshrunner.h \
-    maemodebugsupport.h \
     maemoremotemountsmodel.h \
     maemomountspecification.h \
     maemoremotemounter.h \
@@ -37,11 +34,8 @@ HEADERS += \
     maemoqemuruntimeparser.h \
     maemoqemusettingswidget.h \
     maemoqemusettings.h \
-    qt4maemotargetfactory.h \
-    qt4maemotarget.h \
     qt4maemodeployconfiguration.h \
     maemodeviceconfigwizard.h \
-    maemodeployconfigurationwidget.h \
     maemoinstalltosysrootstep.h \
     maemodeploymentmounter.h \
     maemopackageinstaller.h \
@@ -53,23 +47,22 @@ HEADERS += \
     maemodeploybymountsteps.h \
     maddedevicetester.h \
     maddedeviceconfigurationfactory.h \
-    maddedevice.h
+    maddedevice.h \
+    maemoapplicationrunnerhelperactions.h \
+    maddeqemustartstep.h
 
 SOURCES += \
     maddeplugin.cpp \
+    debianmanager.cpp \
     maemorunconfigurationwidget.cpp \
-    maemoruncontrol.cpp \
     maemorunfactories.cpp \
     maemosettingspages.cpp \
-    maemotoolchain.cpp \
     maemopackagecreationstep.cpp \
     maemopackagecreationfactory.cpp \
     maemopackagecreationwidget.cpp \
     maemoqemumanager.cpp \
     maemodeploystepfactory.cpp \
     maemoglobal.cpp \
-    maemosshrunner.cpp \
-    maemodebugsupport.cpp \
     maemoremotemountsmodel.cpp \
     maemomountspecification.cpp \
     maemoremotemounter.cpp \
@@ -84,11 +77,8 @@ SOURCES += \
     maemoqemuruntimeparser.cpp \
     maemoqemusettingswidget.cpp \
     maemoqemusettings.cpp \
-    qt4maemotargetfactory.cpp \
-    qt4maemotarget.cpp \
     qt4maemodeployconfiguration.cpp \
     maemodeviceconfigwizard.cpp \
-    maemodeployconfigurationwidget.cpp \
     maemoinstalltosysrootstep.cpp \
     maemodeploymentmounter.cpp \
     maemopackageinstaller.cpp \
@@ -100,7 +90,9 @@ SOURCES += \
     maemodeploybymountsteps.cpp \
     maddedevicetester.cpp \
     maemorunconfiguration.cpp \
-    maddedevice.cpp
+    maddedevice.cpp \
+    maemoapplicationrunnerhelperactions.cpp \
+    maddeqemustartstep.cpp
 
 FORMS += \
     maemopackagecreationwidget.ui \
@@ -113,8 +105,7 @@ FORMS += \
     maemodeviceconfigwizardpreviouskeysetupcheckpage.ui \
     maemodeviceconfigwizardreusekeyscheckpage.ui \
     maemodeviceconfigwizardkeycreationpage.ui \
-    maemodeviceconfigwizardkeydeploymentpage.ui \
-    maemodeployconfigurationwidget.ui
+    maemodeviceconfigwizardkeydeploymentpage.ui
 
 RESOURCES += qt-maemo.qrc
 DEFINES += QT_NO_CAST_TO_ASCII

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Brian McGillion
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -54,16 +52,12 @@ public:
                                   const QStringList &extraOptions = QStringList());
     bool manifestSync(const QString &repository, const QString &filename);
     QString branchQuerySync(const QString &repositoryRoot);
-    bool parentRevisionsSync(const QString &workingDirectory,
+    QStringList parentRevisionsSync(const QString &workingDirectory,
                              const QString &file /* = QString() */,
-                             const QString &revision,
-                             QStringList *parents);
-    bool shortDescriptionSync(const QString &workingDirectory, const QString &revision,
-                              const QString &format /* = QString() */, QString *description);
-    bool shortDescriptionSync(const QString &workingDirectory, const QString &revision,
-                              QString *description);
-    bool shortDescriptionsSync(const QString &workingDirectory, const QStringList &revisions,
-                              QStringList *descriptions);
+                             const QString &revision);
+    QString shortDescriptionSync(const QString &workingDirectory, const QString &revision,
+                              const QString &format /* = QString() */);
+    QString shortDescriptionSync(const QString &workingDirectory, const QString &revision);
     void incoming(const QString &repositoryRoot, const QString &repository = QString());
     void outgoing(const QString &repositoryRoot);
     QString vcsGetRepositoryURL(const QString &directory);

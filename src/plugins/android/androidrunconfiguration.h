@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,27 +34,13 @@
 #include "androidconstants.h"
 #include "androidconfigurations.h"
 
-#include <utils/environment.h>
-
 #include <projectexplorer/runconfiguration.h>
-
-QT_FORWARD_DECLARE_CLASS(QWidget)
-
-namespace Qt4ProjectManager {
-
-class Qt4BuildConfiguration;
-class Qt4Project;
-class Qt4ProFileNode;
-}
 
 namespace Android {
 namespace Internal {
 
-class AndroidDeviceConfigListModel;
 class AndroidDeployStep;
 class AndroidRunConfigurationFactory;
-class AndroidToolChain;
-class AndroidTarget;
 
 class AndroidRunConfiguration : public ProjectExplorer::RunConfiguration
 {
@@ -64,20 +48,10 @@ class AndroidRunConfiguration : public ProjectExplorer::RunConfiguration
     friend class AndroidRunConfigurationFactory;
 
 public:
-    enum BaseEnvironmentBase {
-        CleanEnvironmentBase = 0,
-        SystemEnvironmentBase = 1
-    };
-
-    enum DebuggingType { DebugCppOnly, DebugQmlOnly, DebugCppAndQml };
-
-    AndroidRunConfiguration(AndroidTarget *parent, const QString &proFilePath);
-    virtual ~AndroidRunConfiguration();
+    AndroidRunConfiguration(ProjectExplorer::Target *parent, Core::Id id, const QString &path);
 
     QWidget *createConfigurationWidget();
     Utils::OutputFormatter *createOutputFormatter() const;
-    AndroidTarget *androidTarget() const;
-    Qt4ProjectManager::Qt4BuildConfiguration *activeQt4BuildConfiguration() const;
 
     AndroidDeployStep *deployStep() const;
 
@@ -85,21 +59,18 @@ public:
     AndroidConfig config() const;
     QString proFilePath() const;
 
-    DebuggingType debuggingType() const;
-
-    const QString gdbCmd() const;
+    const Utils::FileName gdbCmd() const;
     const QString remoteChannel() const;
     const QString dumperLib() const;
 
 protected:
-    AndroidRunConfiguration(AndroidTarget *parent, AndroidRunConfiguration *source);
+    AndroidRunConfiguration(ProjectExplorer::Target *parent, AndroidRunConfiguration *source);
     QString defaultDisplayName();
 
 private:
     void init();
 
     QString m_proFilePath;
-
 };
 
 } // namespace Internal

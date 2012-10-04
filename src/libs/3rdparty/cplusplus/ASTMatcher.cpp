@@ -593,6 +593,8 @@ bool ASTMatcher::match(ClassSpecifierAST *node, ClassSpecifierAST *pattern)
     else if (! AST::match(node->name, pattern->name, this))
         return false;
 
+    pattern->final_token = node->final_token;
+
     pattern->colon_token = node->colon_token;
 
     if (! pattern->base_clause_list)
@@ -807,6 +809,8 @@ bool ASTMatcher::match(FunctionDeclaratorAST *node, FunctionDeclaratorAST *patte
     else if (! AST::match(node->cv_qualifier_list, pattern->cv_qualifier_list, this))
         return false;
 
+    pattern->ref_qualifier_token = node->ref_qualifier_token;
+
     if (! pattern->exception_specification)
         pattern->exception_specification = node->exception_specification;
     else if (! AST::match(node->exception_specification, pattern->exception_specification, this))
@@ -931,9 +935,18 @@ bool ASTMatcher::match(EnumSpecifierAST *node, EnumSpecifierAST *pattern)
 
     pattern->enum_token = node->enum_token;
 
+    pattern->key_token = node->key_token;
+
     if (! pattern->name)
         pattern->name = node->name;
     else if (! AST::match(node->name, pattern->name, this))
+        return false;
+
+    pattern->colon_token = node->colon_token;
+
+    if (! pattern->type_specifier_list)
+        pattern->type_specifier_list = node->type_specifier_list;
+    else if (! AST::match(node->type_specifier_list, pattern->type_specifier_list, this))
         return false;
 
     pattern->lbrace_token = node->lbrace_token;
@@ -1150,11 +1163,6 @@ bool ASTMatcher::match(RangeBasedForStatementAST *node, RangeBasedForStatementAS
     else if (! AST::match(node->declarator, pattern->declarator, this))
         return false;
 
-    if (! pattern->initializer)
-        pattern->initializer = node->initializer;
-    else if (! AST::match(node->initializer, pattern->initializer, this))
-        return false;
-
     pattern->colon_token = node->colon_token;
 
     if (! pattern->expression)
@@ -1317,14 +1325,10 @@ bool ASTMatcher::match(MemInitializerAST *node, MemInitializerAST *pattern)
     else if (! AST::match(node->name, pattern->name, this))
         return false;
 
-    pattern->lparen_token = node->lparen_token;
-
-    if (! pattern->expression_list)
-        pattern->expression_list = node->expression_list;
-    else if (! AST::match(node->expression_list, pattern->expression_list, this))
+    if (! pattern->expression)
+        pattern->expression = node->expression;
+    else if (! AST::match(node->expression, pattern->expression, this))
         return false;
-
-    pattern->rparen_token = node->rparen_token;
 
     return true;
 }
@@ -1490,7 +1494,28 @@ bool ASTMatcher::match(NamespaceAliasDefinitionAST *node, NamespaceAliasDefiniti
     return true;
 }
 
-bool ASTMatcher::match(NewPlacementAST *node, NewPlacementAST *pattern)
+bool ASTMatcher::match(AliasDeclarationAST *node, AliasDeclarationAST *pattern)
+{
+    (void) node;
+    (void) pattern;
+
+    pattern->using_token = node->using_token;
+
+    pattern->identifier_token = node->identifier_token;
+
+    pattern->equal_token = node->equal_token;
+
+    if (! pattern->typeId)
+        pattern->typeId = node->typeId;
+    else if (! AST::match(node->typeId, pattern->typeId, this))
+        return false;
+
+    pattern->semicolon_token = node->semicolon_token;
+
+    return true;
+}
+
+bool ASTMatcher::match(ExpressionListParenAST *node, ExpressionListParenAST *pattern)
 {
     (void) node;
     (void) pattern;
@@ -1556,23 +1581,6 @@ bool ASTMatcher::match(NewExpressionAST *node, NewExpressionAST *pattern)
         pattern->new_initializer = node->new_initializer;
     else if (! AST::match(node->new_initializer, pattern->new_initializer, this))
         return false;
-
-    return true;
-}
-
-bool ASTMatcher::match(NewInitializerAST *node, NewInitializerAST *pattern)
-{
-    (void) node;
-    (void) pattern;
-
-    pattern->lparen_token = node->lparen_token;
-
-    if (! pattern->expression)
-        pattern->expression = node->expression;
-    else if (! AST::match(node->expression, pattern->expression, this))
-        return false;
-
-    pattern->rparen_token = node->rparen_token;
 
     return true;
 }
@@ -1766,14 +1774,10 @@ bool ASTMatcher::match(TypenameCallExpressionAST *node, TypenameCallExpressionAS
     else if (! AST::match(node->name, pattern->name, this))
         return false;
 
-    pattern->lparen_token = node->lparen_token;
-
-    if (! pattern->expression_list)
-        pattern->expression_list = node->expression_list;
-    else if (! AST::match(node->expression_list, pattern->expression_list, this))
+    if (! pattern->expression)
+        pattern->expression = node->expression;
+    else if (! AST::match(node->expression, pattern->expression, this))
         return false;
-
-    pattern->rparen_token = node->rparen_token;
 
     return true;
 }
@@ -1788,14 +1792,10 @@ bool ASTMatcher::match(TypeConstructorCallAST *node, TypeConstructorCallAST *pat
     else if (! AST::match(node->type_specifier_list, pattern->type_specifier_list, this))
         return false;
 
-    pattern->lparen_token = node->lparen_token;
-
-    if (! pattern->expression_list)
-        pattern->expression_list = node->expression_list;
-    else if (! AST::match(node->expression_list, pattern->expression_list, this))
+    if (! pattern->expression)
+        pattern->expression = node->expression;
+    else if (! AST::match(node->expression, pattern->expression, this))
         return false;
-
-    pattern->rparen_token = node->rparen_token;
 
     return true;
 }
@@ -1818,6 +1818,8 @@ bool ASTMatcher::match(PointerToMemberAST *node, PointerToMemberAST *pattern)
         pattern->cv_qualifier_list = node->cv_qualifier_list;
     else if (! AST::match(node->cv_qualifier_list, pattern->cv_qualifier_list, this))
         return false;
+
+    pattern->ref_qualifier_token = node->ref_qualifier_token;
 
     return true;
 }
@@ -1916,6 +1918,25 @@ bool ASTMatcher::match(SizeofExpressionAST *node, SizeofExpressionAST *pattern)
     if (! pattern->expression)
         pattern->expression = node->expression;
     else if (! AST::match(node->expression, pattern->expression, this))
+        return false;
+
+    pattern->rparen_token = node->rparen_token;
+
+    return true;
+}
+
+bool ASTMatcher::match(AlignofExpressionAST *node, AlignofExpressionAST *pattern)
+{
+    (void) node;
+    (void) pattern;
+
+    pattern->alignof_token = node->alignof_token;
+
+    pattern->lparen_token = node->lparen_token;
+
+    if (! pattern->typeId)
+        pattern->typeId = node->typeId;
+    else if (! AST::match(node->typeId, pattern->typeId, this))
         return false;
 
     pattern->rparen_token = node->rparen_token;

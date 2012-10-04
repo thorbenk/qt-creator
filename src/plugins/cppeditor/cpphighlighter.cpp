@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,16 +25,15 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "cpphighlighter.h"
-#include <cpptools/cppdoxygen.h>
 
 #include <Token.h>
 #include <cplusplus/SimpleLexer.h>
+#include <cplusplus/Lexer.h>
+#include <cpptools/cppdoxygen.h>
 #include <cpptools/cpptoolsreuse.h>
 #include <texteditor/basetextdocumentlayout.h>
 
@@ -299,10 +298,12 @@ void CppHighlighter::highlightBlock(const QString &text)
         setCurrentBlockState(previousState);
         BaseTextDocumentLayout::clearParentheses(currentBlock());
         if (text.length())  {// the empty line can still contain whitespace
-            if (!initialState)
-                setFormat(0, text.length(), m_formats[CppVisualWhitespace]);
+            if (initialState == Lexer::State_MultiLineComment)
+                highlightLine(text, 0, text.length(), m_formats[CppCommentFormat]);
+            else if (initialState == Lexer::State_MultiLineDoxyComment)
+                highlightLine(text, 0, text.length(), m_formats[CppDoxygenCommentFormat]);
             else
-                setFormat(0, text.length(), m_formats[CppCommentFormat]);
+                setFormat(0, text.length(), m_formats[CppVisualWhitespace]);
         }
         BaseTextDocumentLayout::setFoldingIndent(currentBlock(), foldingIndent);
         return;
@@ -326,12 +327,8 @@ void CppHighlighter::highlightBlock(const QString &text)
                                tokens.at(i - 1).length();
         }
 
-        if (previousTokenEnd != tk.begin()) {
-            if (initialState && tk.isComment())
-                setFormat(previousTokenEnd, tk.begin() - previousTokenEnd, m_formats[CppCommentFormat]);
-            else
-                setFormat(previousTokenEnd, tk.begin() - previousTokenEnd, m_formats[CppVisualWhitespace]);
-        }
+        if (previousTokenEnd != tk.begin())
+            setFormat(previousTokenEnd, tk.begin() - previousTokenEnd, m_formats[CppVisualWhitespace]);
 
         if (tk.is(T_LPAREN) || tk.is(T_LBRACE) || tk.is(T_LBRACKET)) {
             const QChar c = text.at(tk.begin());
@@ -385,20 +382,16 @@ void CppHighlighter::highlightBlock(const QString &text)
         } else if (tk.is(T_NUMERIC_LITERAL))
             setFormat(tk.begin(), tk.length(), m_formats[CppNumberFormat]);
 
-        else if (tk.is(T_STRING_LITERAL) || tk.is(T_CHAR_LITERAL) || tk.is(T_ANGLE_STRING_LITERAL) ||
-                 tk.is(T_AT_STRING_LITERAL))
-            setFormat(tk.begin(), tk.length(), m_formats[CppStringFormat]);
-
-        else if (tk.is(T_WIDE_STRING_LITERAL) || tk.is(T_WIDE_CHAR_LITERAL))
-            setFormat(tk.begin(), tk.length(), m_formats[CppStringFormat]);
+        else if (tk.isStringLiteral() || tk.isCharLiteral())
+            highlightLine(text, tk.begin(), tk.length(), m_formats[CppStringFormat]);
 
         else if (tk.isComment()) {
-
+            const int startPosition = initialState ? previousTokenEnd : tk.begin();
             if (tk.is(T_COMMENT) || tk.is(T_CPP_COMMENT))
-                setFormat(tk.begin(), tk.length(), m_formats[CppCommentFormat]);
+                highlightLine(text, startPosition, tk.end() - startPosition, m_formats[CppCommentFormat]);
 
             else // a doxygen comment
-                highlightDoxygenComment(text, tk.begin(), tk.length());
+                highlightDoxygenComment(text, startPosition, tk.end() - startPosition);
 
             // we need to insert a close comment parenthesis, if
             //  - the line starts in a C Comment (initalState != 0)
@@ -433,12 +426,9 @@ void CppHighlighter::highlightBlock(const QString &text)
     }
 
     // mark the trailing white spaces
-    {
-        const Token tk = tokens.last();
-        const int lastTokenEnd = tk.begin() + tk.length();
-        if (text.length() > lastTokenEnd)
-            highlightLine(text, lastTokenEnd, text.length() - lastTokenEnd, QTextCharFormat());
-    }
+    const int lastTokenEnd = tokens.last().end();
+    if (text.length() > lastTokenEnd)
+        highlightLine(text, lastTokenEnd, text.length() - lastTokenEnd, m_formats[CppVisualWhitespace]);
 
     if (! initialState && state && ! tokens.isEmpty()) {
         parentheses.append(Parenthesis(Parenthesis::Opened, QLatin1Char('+'),
@@ -561,7 +551,8 @@ bool CppHighlighter::isPPKeyword(const QStringRef &text) const
 void CppHighlighter::highlightLine(const QString &text, int position, int length,
                                    const QTextCharFormat &format)
 {
-    const QTextCharFormat visualSpaceFormat = m_formats[CppVisualWhitespace];
+    QTextCharFormat visualSpaceFormat = m_formats[CppVisualWhitespace];
+    visualSpaceFormat.setBackground(format.background());
 
     const int end = position + length;
     int index = position;

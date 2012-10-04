@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,15 +25,20 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "remotelinuxdeployconfigurationfactory.h"
 
-#include "genericembeddedlinuxtarget.h"
 #include "genericdirectuploadstep.h"
+#include "remotelinuxcheckforfreediskspacestep.h"
+#include "remotelinux_constants.h"
 #include "remotelinuxdeployconfiguration.h"
+
+#include <projectexplorer/abi.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/project.h>
+#include <projectexplorer/target.h>
 
 #include <QCoreApplication>
 
@@ -49,12 +54,19 @@ QString genericLinuxDisplayName() {
 
 RemoteLinuxDeployConfigurationFactory::RemoteLinuxDeployConfigurationFactory(QObject *parent)
     : DeployConfigurationFactory(parent)
-{ }
+{ setObjectName(QLatin1String("RemoteLinuxDeployConfiguration"));}
 
 QList<Core::Id> RemoteLinuxDeployConfigurationFactory::availableCreationIds(Target *parent) const
 {
     QList<Core::Id> ids;
-    if (qobject_cast<GenericEmbeddedLinuxTarget *>(parent))
+    if (!parent->project()->supportsKit(parent->kit()))
+        return ids;
+    ProjectExplorer::ToolChain *tc
+            = ProjectExplorer::ToolChainKitInformation::toolChain(parent->kit());
+    if (!tc || tc->targetAbi().os() != ProjectExplorer::Abi::LinuxOS)
+        return ids;
+    const Core::Id devType = ProjectExplorer::DeviceTypeKitInformation::deviceTypeId(parent->kit());
+    if (devType == Constants::GenericLinuxOsType)
         ids << genericDeployConfigurationId();
     return ids;
 }
@@ -78,7 +90,8 @@ DeployConfiguration *RemoteLinuxDeployConfigurationFactory::create(Target *paren
 
     DeployConfiguration * const dc = new RemoteLinuxDeployConfiguration(parent, id,
         genericLinuxDisplayName());
-    dc->stepList()->insertStep(0, new GenericDirectUploadStep(dc->stepList(),
+    dc->stepList()->insertStep(0, new RemoteLinuxCheckForFreeDiskSpaceStep(dc->stepList()));
+    dc->stepList()->insertStep(1, new GenericDirectUploadStep(dc->stepList(),
         GenericDirectUploadStep::stepId()));
     return dc;
 }

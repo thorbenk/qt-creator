@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -96,6 +94,12 @@ public:
     void setAutoHideButton(Side side, bool h);
     bool hasAutoHideButton(Side side) const;
 
+    // Enable a history completer with a history of entries.
+    void setHistoryCompleter(const QString &historyKey);
+
+    // Sets a completer that is not a history completer.
+    void setSpecialCompleter(QCompleter *completer);
+
 signals:
     void buttonClicked(Utils::FancyLineEdit::Side side);
     void leftButtonClicked();
@@ -109,6 +113,10 @@ protected:
     virtual void resizeEvent(QResizeEvent *e);
 
 private:
+    // Unimplemented, to force the user to make a decision on
+    // whether to use setHistoryKey() or setSpecialCompleter().
+    void setCompleter(QCompleter *);
+
     void updateMargins();
     void updateButtonPositions();
     friend class Utils::FancyLineEditPrivate;

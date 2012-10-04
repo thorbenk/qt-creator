@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -93,12 +91,11 @@ private slots:
     }
 
 protected:
-     void mouseDoubleClickEvent(QMouseEvent *ev)
-     {
+    void mouseDoubleClickEvent(QMouseEvent *ev)
+    {
         int line = cursorForPosition(ev->pos()).block().blockNumber();
         if (unsigned taskid = m_taskids.value(line, 0)) {
-            ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-            TaskHub *hub = pm->getObject<TaskHub>();
+            TaskHub *hub = ExtensionSystem::PluginManager::getObject<TaskHub>();
             hub->showTaskInEditor(taskid);
         } else {
             QPlainTextEdit::mouseDoubleClickEvent(ev);
@@ -132,7 +129,7 @@ CompileOutputWindow::CompileOutputWindow(BuildManager * /*bm*/, QAction *cancelB
     qRegisterMetaType<QTextCharFormat>("QTextCharFormat");
 
     m_handler = new ShowOutputTaskHandler(this);
-    ExtensionSystem::PluginManager::instance()->addObject(m_handler);
+    ExtensionSystem::PluginManager::addObject(m_handler);
     connect(ProjectExplorerPlugin::instance(), SIGNAL(settingsChanged()),
             this, SLOT(updateWordWrapMode()));
     updateWordWrapMode();
@@ -140,7 +137,7 @@ CompileOutputWindow::CompileOutputWindow(BuildManager * /*bm*/, QAction *cancelB
 
 CompileOutputWindow::~CompileOutputWindow()
 {
-    ExtensionSystem::PluginManager::instance()->removeObject(m_handler);
+    ExtensionSystem::PluginManager::removeObject(m_handler);
     delete m_handler;
     delete m_cancelBuildButton;
 }

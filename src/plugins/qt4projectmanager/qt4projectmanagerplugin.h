@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,9 +39,11 @@ class QAction;
 QT_END_NAMESPACE
 
 namespace ProjectExplorer {
-    class Project;
-    class Node;
-    class ProjectExplorerPlugin;
+class Node;
+class Project;
+class ProjectExplorerPlugin;
+class KitInformation;
+class Target;
 }
 namespace Utils { class ParameterAction; }
 
@@ -52,7 +52,6 @@ namespace Qt4ProjectManager {
 class Qt4Manager;
 class QtVersionManager;
 class Qt4Project;
-class Qt4BaseTarget;
 
 namespace Internal {
 
@@ -67,7 +66,6 @@ public:
     Qt4ProjectManagerPlugin();
     ~Qt4ProjectManagerPlugin();
     bool initialize(const QStringList &arguments, QString *errorMessage);
-    bool delayedInitialize();
     void extensionsInitialized();
 
 private slots:
@@ -78,12 +76,6 @@ private slots:
     void buildStateChanged(ProjectExplorer::Project *pro);
 
 #ifdef WITH_TESTS
-    void testAbldOutputParsers_data();
-    void testAbldOutputParsers();
-    void testSbsV2OutputParsers_data();
-    void testSbsV2OutputParsers();
-    void testRvctOutputParser_data();
-    void testRvctOutputParser();
     void testQmakeOutputParsers_data();
     void testQmakeOutputParsers();
 #endif
@@ -93,7 +85,7 @@ private:
     ProFileEditorFactory *m_proFileEditorFactory;
     Qt4Manager *m_qt4ProjectManager;
     Qt4Project *m_previousStartupProject;
-    Qt4BaseTarget *m_previousTarget;
+    ProjectExplorer::Target *m_previousTarget;
 
     QAction *m_runQMakeAction;
     QAction *m_runQMakeActionContextMenu;

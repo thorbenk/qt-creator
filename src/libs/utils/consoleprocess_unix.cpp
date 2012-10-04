@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,8 @@
 
 #include "environment.h"
 #include "qtcprocess.h"
+
+#include <utils/hostosinfo.h>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -136,12 +136,14 @@ bool ConsoleProcess::start(const QString &program, const QString &args)
         }
     }
 
+    if (Utils::HostOsInfo::isMacHost()) {
+        xtermArgs << (QCoreApplication::applicationDirPath()
+                      + QLatin1String("/../Resources/qtcreator_process_stub"));
+    } else {
+        xtermArgs << (QCoreApplication::applicationDirPath()
+                      + QLatin1String("/qtcreator_process_stub"));
+    }
     xtermArgs
-#ifdef Q_OS_MAC
-              << (QCoreApplication::applicationDirPath() + QLatin1String("/../Resources/qtcreator_process_stub"))
-#else
-              << (QCoreApplication::applicationDirPath() + QLatin1String("/qtcreator_process_stub"))
-#endif
               << modeOption(d->m_mode)
               << d->m_stubServer.fullServerName()
               << msgPromptToClose()
@@ -279,21 +281,69 @@ void ConsoleProcess::stubExited()
     emit wrapperStopped();
 }
 
+struct Terminal {
+    const char *binary;
+    const char *options;
+};
+
+static const Terminal knownTerminals[] =
+{
+    {"xterm", "-e"},
+    {"aterm", "-e"},
+    {"Eterm", "-e"},
+    {"rxvt", "-e"},
+    {"urxvt", "-e"},
+    {"xfce4-terminal", "-x"},
+    {"konsole", "--nofork -e"},
+    {"gnome-terminal", "-x"}
+};
+
 QString ConsoleProcess::defaultTerminalEmulator()
 {
-#ifdef Q_OS_MAC
-    return QLatin1String("/usr/X11/bin/xterm");
-#else
-    return QLatin1String("xterm");
-#endif
+    if (Utils::HostOsInfo::isMacHost())
+        return QLatin1String("/usr/X11/bin/xterm");
+
+    const Environment env = Environment::systemEnvironment();
+    const int terminalCount = int(sizeof(knownTerminals) / sizeof(knownTerminals[0]));
+    for (int i = 0; i < terminalCount; ++i) {
+        QString result = env.searchInPath(QLatin1String(knownTerminals[i].binary));
+        if (!result.isEmpty()) {
+            result += QLatin1Char(' ');
+            result += QLatin1String(knownTerminals[i].options);
+            return result;
+        }
+    }
+    return QLatin1String("xterm -e");
+}
+
+QStringList ConsoleProcess::availableTerminalEmulators()
+{
+    if (Utils::HostOsInfo::isMacHost())
+        return QStringList(defaultTerminalEmulator());
+
+    QStringList result;
+    const Environment env = Environment::systemEnvironment();
+    const int terminalCount = int(sizeof(knownTerminals) / sizeof(knownTerminals[0]));
+    for (int i = 0; i < terminalCount; ++i) {
+        QString terminal = env.searchInPath(QLatin1String(knownTerminals[i].binary));
+        if (!terminal.isEmpty()) {
+            terminal += QLatin1Char(' ');
+            terminal += QLatin1String(knownTerminals[i].options);
+            result.push_back(terminal);
+        }
+    }
+    result.sort();
+    return result;
 }
 
 QString ConsoleProcess::terminalEmulator(const QSettings *settings)
 {
-    const QString dflt = defaultTerminalEmulator() + QLatin1String(" -e");
-    if (!settings)
-        return dflt;
-    return settings->value(QLatin1String("General/TerminalEmulator"), dflt).toString();
+    if (settings) {
+        const QString value = settings->value(QLatin1String("General/TerminalEmulator")).toString();
+        if (!value.isEmpty())
+            return value;
+    }
+    return defaultTerminalEmulator();
 }
 
 void ConsoleProcess::setTerminalEmulator(QSettings *settings, const QString &term)

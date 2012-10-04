@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,7 +32,9 @@
 #define PROFILEREADER_H
 
 #include "qtsupport_global.h"
-#include "proparser/profileparser.h"
+#include "proparser/qmakeglobals.h"
+#include "proparser/qmakeparser.h"
+#include "proparser/qmakeevaluator.h"
 #include "proparser/profileevaluator.h"
 
 #include <QObject>
@@ -46,8 +46,7 @@ namespace Internal {
 class QtSupportPlugin;
 }
 
-class QTSUPPORT_EXPORT ProMessageHandler : public QObject,
-                          public ProFileParserHandler, public ProFileEvaluatorHandler
+class QTSUPPORT_EXPORT ProMessageHandler : public QObject, public QMakeHandler
 {
     Q_OBJECT
 
@@ -57,9 +56,7 @@ public:
 
     virtual void aboutToEval(ProFile *, ProFile *, EvalFileType) {}
     virtual void doneWithEval(ProFile *) {}
-    virtual void parseError(const QString &filename, int lineNo, const QString &msg);
-    virtual void configError(const QString &msg);
-    virtual void evalError(const QString &filename, int lineNo, const QString &msg);
+    virtual void message(int type, const QString &msg, const QString &fileName, int lineNo);
     virtual void fileMessage(const QString &msg);
 
 signals:
@@ -69,12 +66,12 @@ private:
     bool m_verbose;
 };
 
-class QTSUPPORT_EXPORT ProFileReader : public ProMessageHandler, public ProFileParser, public ProFileEvaluator
+class QTSUPPORT_EXPORT ProFileReader : public ProMessageHandler, public QMakeParser, public ProFileEvaluator
 {
     Q_OBJECT
 
 public:
-    ProFileReader(ProFileOption *option);
+    ProFileReader(ProFileGlobals *option);
     ~ProFileReader();
 
     QList<ProFile*> includeFiles() const;

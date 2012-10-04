@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -176,7 +174,6 @@ enum BreakpointParts
     ConditionPart = 0x10,
     IgnoreCountPart = 0x20,
     ThreadSpecPart = 0x40,
-    AllConditionParts = ConditionPart|IgnoreCountPart|ThreadSpecPart,
     ModulePart = 0x80,
     TracePointPart = 0x100,
 
@@ -185,11 +182,16 @@ enum BreakpointParts
     PathUsagePart = 0x800,
     CommandPart = 0x1000,
     MessagePart = 0x2000,
+    OneShotPart = 0x4000,
+
+    AllConditionParts = ConditionPart|IgnoreCountPart|ThreadSpecPart
+               |OneShotPart,
 
     AllParts = FileAndLinePart|FunctionPart
                |ExpressionPart|AddressPart|ConditionPart
                |IgnoreCountPart|ThreadSpecPart|ModulePart|TracePointPart
                |EnabledPart|TypePart|PathUsagePart|CommandPart|MessagePart
+               |OneShotPart
 };
 
 inline void operator|=(BreakpointParts &p, BreakpointParts r)
@@ -236,6 +238,7 @@ public:
     QString command;         //!< command to execute
     QString message;         //!< message
     bool tracepoint;
+    bool oneShot;            //!< Should this breakpoint trigger only once?
 };
 
 class BreakpointResponse : public BreakpointParameters

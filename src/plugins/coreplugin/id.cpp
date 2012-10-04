@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,6 +36,8 @@
 #include <QByteArray>
 #include <QHash>
 #include <QVector>
+
+#include <string.h>
 
 namespace Core {
 
@@ -88,7 +88,7 @@ struct IdCache : public QHash<StringHolder, int>
     ~IdCache()
     {
         for (IdCache::iterator it = begin(); it != end(); ++it)
-            free(const_cast<char *>(it.key().str));
+            delete[](const_cast<char *>(it.key().str));
     }
 #endif
 };
@@ -129,7 +129,18 @@ QByteArray Id::name() const
 
 QString Id::toString() const
 {
-    return QString::fromUtf8(stringFromId[m_id]);
+    return QString::fromUtf8(stringFromId.at(m_id));
+}
+
+bool Id::operator==(const char *name) const
+{
+    return strcmp(stringFromId.at(m_id).constData(), name) == 0;
+}
+
+// For debugging purposes
+CORE_EXPORT const char *nameForId(int id)
+{
+    return (stringFromId.constData() + id)->constData();
 }
 
 } // namespace Core

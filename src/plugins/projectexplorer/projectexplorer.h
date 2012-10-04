@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -105,13 +103,13 @@ public:
     //PluginInterface
     bool initialize(const QStringList &arguments, QString *errorMessage);
     void extensionsInitialized();
-    bool delayedInitialize();
     ShutdownFlag aboutToShutdown();
 
     void setProjectExplorerSettings(const Internal::ProjectExplorerSettings &pes);
     Internal::ProjectExplorerSettings projectExplorerSettings() const;
 
     void startRunControl(RunControl *runControl, RunMode runMode);
+    static void showRunErrorMessage(const QString &errorMessage);
 
     // internal public for FlatModel
     void renameFile(Node *node, const QString &to);
@@ -263,6 +261,8 @@ private slots:
     void testAbiOfBinary_data();
     void testAbiOfBinary();
     void testFlavorForOs();
+
+    void testDeviceManager();
 #endif
 
 private:

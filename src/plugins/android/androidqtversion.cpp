@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,24 +34,16 @@
 
 #include <qtsupport/qtsupportconstants.h>
 
-#include <QCoreApplication>
-
 using namespace Android::Internal;
 
 AndroidQtVersion::AndroidQtVersion()
     : QtSupport::BaseQtVersion()
 {
-
 }
 
 AndroidQtVersion::AndroidQtVersion(const Utils::FileName &path, bool isAutodetected, const QString &autodetectionSource)
     : QtSupport::BaseQtVersion(path, isAutodetected, autodetectionSource)
 {
-}
-
-AndroidQtVersion::~AndroidQtVersion()
-{
-
 }
 
 AndroidQtVersion *AndroidQtVersion::clone() const
@@ -79,7 +69,7 @@ QString AndroidQtVersion::invalidReason() const
 {
     QString tmp = BaseQtVersion::invalidReason();
     if (tmp.isEmpty() && qtAbis().isEmpty())
-        return QCoreApplication::translate("QtVersion", "Failed to detect the ABI(s) used by the Qt version.");
+        return tr("Failed to detect the ABI(s) used by the Qt version.");
     return tmp;
 }
 
@@ -90,19 +80,10 @@ QList<ProjectExplorer::Abi> AndroidQtVersion::detectQtAbis() const
                                                                  32);
 }
 
-bool AndroidQtVersion::supportsTargetId(const Core::Id id) const
-{
-    return id == Core::Id(Qt4ProjectManager::Constants::ANDROID_DEVICE_TARGET_ID);
-}
-
-QSet<Core::Id> AndroidQtVersion::supportedTargetIds() const
-{
-    return QSet<Core::Id>() << Core::Id(Qt4ProjectManager::Constants::ANDROID_DEVICE_TARGET_ID);
-}
-
 QString AndroidQtVersion::description() const
 {
-    return QCoreApplication::translate("QtVersion", "Android", "Qt Version is meant for Android");
+    //: Qt Version is meant for Android
+    return tr("Android");
 }
 
 Core::FeatureSet AndroidQtVersion::availableFeatures() const
@@ -114,10 +95,10 @@ Core::FeatureSet AndroidQtVersion::availableFeatures() const
 
 QString AndroidQtVersion::platformName() const
 {
-    return QLatin1String(Constants::ANDROID_PLATFORM);
+    return QLatin1String(QtSupport::Constants::ANDROID_PLATFORM);
 }
 
 QString AndroidQtVersion::platformDisplayName() const
 {
-    return QLatin1String(Constants::ANDROID_PLATFORM_TR);
+    return QLatin1String(QtSupport::Constants::ANDROID_PLATFORM_TR);
 }

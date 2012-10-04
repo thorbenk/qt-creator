@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -128,27 +126,6 @@ static inline QString fixEscapedUnicodeChar(const QString &value) //convert "\u2
     return value;
 }
  
-static inline int fixUpMajorVersionForQt(const QString &value, int i)
-{
-    if (i == 4 && value == "Qt")
-        return 1;
-    else return i;
-}
-
-static inline int fixUpMinorVersionForQt(const QString &value, int i)
-{
-    if (i == 7 && value == "Qt")
-        return 0;
-    else return i;
-}
-
-static inline QString fixUpPackeNameForQt(const QString &value)
-{
-    if (value == "Qt")
-        return "QtQuick";
-    return value;
-}
-
 static inline bool isSignalPropertyName(const QString &signalName)
 {
     // see QmlCompiler::isSignalPropertyName
@@ -346,11 +323,10 @@ public:
 
         const CppComponentValue * qmlValue = value_cast<CppComponentValue>(value);
         if (qmlValue) {
-            typeName = fixUpPackeNameForQt(qmlValue->moduleName()) + QLatin1String(".") + qmlValue->className();
+            typeName = qmlValue->moduleName() + QLatin1String(".") + qmlValue->className();
 
-            //### todo this is just a hack to support QtQuick 1.0
-            majorVersion = fixUpMajorVersionForQt(qmlValue->moduleName(), qmlValue->componentVersion().majorVersion());
-            minorVersion = fixUpMinorVersionForQt(qmlValue->moduleName(), qmlValue->componentVersion().minorVersion());
+            majorVersion = qmlValue->componentVersion().majorVersion();
+            minorVersion = qmlValue->componentVersion().minorVersion();
         } else {
             for (UiQualifiedId *iter = astTypeNode; iter; iter = iter->next)
                 if (!iter->next && !iter->name.isEmpty())

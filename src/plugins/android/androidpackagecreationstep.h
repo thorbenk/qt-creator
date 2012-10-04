@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,22 +25,20 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef ANDROIDPACKAGECREATIONSTEP_H
 #define ANDROIDPACKAGECREATIONSTEP_H
 
-#include <projectexplorer/abi.h>
-#include <projectexplorer/buildstep.h>
-#include <QAbstractItemModel>
 #include "javaparser.h"
 
+#include <projectexplorer/abi.h>
+#include <projectexplorer/buildstep.h>
+
+#include <QAbstractItemModel>
+
 QT_BEGIN_NAMESPACE
-class QDateTime;
-class QFile;
 class QProcess;
 QT_END_NAMESPACE
 
@@ -50,30 +48,26 @@ class Qt4BuildConfiguration;
 
 namespace Android {
 namespace Internal {
-class AndroidTarget;
 
 class AndroidPackageCreationStep : public ProjectExplorer::BuildStep
 {
     Q_OBJECT
     friend class AndroidPackageCreationFactory;
+
 public:
     AndroidPackageCreationStep(ProjectExplorer::BuildStepList *bsl);
-    ~AndroidPackageCreationStep();
 
     static bool removeDirectory(const QString &dirPath);
-
     static void stripAndroidLibs(const QStringList &files, ProjectExplorer::Abi::Architecture architecture);
 
     static const QLatin1String DefaultVersionNumber;
-
-    AndroidTarget *androidTarget() const;
 
     void checkRequiredLibraries();
     void initCheckRequiredLibrariesForRun();
     void checkRequiredLibrariesForRun();
 
-    QString keystorePath();
-    void setKeystorePath(const QString &path);
+    Utils::FileName keystorePath();
+    void setKeystorePath(const Utils::FileName &path);
     void setKeystorePassword(const QString &pwd);
     void setCertificateAlias(const QString &alias);
     void setCertificatePassword(const QString &pwd);
@@ -81,8 +75,8 @@ public:
     QAbstractItemModel *keystoreCertificates();
 
 protected:
-    virtual bool fromMap(const QVariantMap &map);
-    virtual QVariantMap toMap() const;
+    bool fromMap(const QVariantMap &map);
+    QVariantMap toMap() const;
 
 private slots:
     void handleBuildStdOutOutput();
@@ -92,6 +86,9 @@ private slots:
     void showInGraphicalShell();
     void setQtLibs(const QStringList &qtLibs);
     void setPrebundledLibs(const QStringList &prebundledLibs);
+
+signals:
+    void updateRequiredLibrariesModels();
 
 private:
     AndroidPackageCreationStep(ProjectExplorer::BuildStepList *buildConfig,
@@ -110,7 +107,7 @@ private:
     static const Core::Id CreatePackageId;
 
 private:
-    QString m_keystorePath;
+    Utils::FileName m_keystorePath;
     QString m_keystorePasswd;
     QString m_certificateAlias;
     QString m_certificatePasswd;
@@ -118,24 +115,23 @@ private:
     JavaParser m_outputParser;
 
     // members to pass data from init() to run()
-    QString m_androidDir;
-    QString m_gdbServerSource;
-    QString m_gdbServerDestination;
+    Utils::FileName m_androidDir;
+    Utils::FileName m_gdbServerSource;
+    Utils::FileName m_gdbServerDestination;
     bool m_debugBuild;
-    QString m_antToolPath;
-    QString m_apkPathUnsigned;
-    QString m_apkPathSigned;
-    QString m_keystorePathForRun;
+    Utils::FileName m_antToolPath;
+    Utils::FileName m_apkPathUnsigned;
+    Utils::FileName m_apkPathSigned;
+    Utils::FileName m_keystorePathForRun;
     QString m_certificatePasswdForRun;
-    QString m_jarSigner;
+    Utils::FileName m_jarSigner;
+    Utils::FileName m_zipAligner;
     // more for checkLibraries
-    QString m_appPath;
-    QString m_readElf;
+    Utils::FileName m_appPath;
+    Utils::FileName m_readElf;
     QStringList m_qtLibs;
     QStringList m_availableQtLibs;
     QStringList m_prebundledLibs;
-signals:
-    void updateRequiredLibrariesModels();
 };
 
 } // namespace Internal

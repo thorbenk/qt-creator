@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,19 +24,17 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "sshkeydeployer.h"
 
-#include <utils/ssh/sshremoteprocessrunner.h>
+#include <ssh/sshremoteprocessrunner.h>
 #include <utils/fileutils.h>
 
 #include <QFile>
 #include <QSharedPointer>
 
-using namespace Utils;
+using namespace QSsh;
 
 namespace RemoteLinux {
 namespace Internal {
@@ -88,13 +86,13 @@ void SshKeyDeployer::handleConnectionFailure()
 void SshKeyDeployer::handleKeyUploadFinished(int exitStatus)
 {
     Q_ASSERT(exitStatus == SshRemoteProcess::FailedToStart
-        || exitStatus == SshRemoteProcess::KilledBySignal
-        || exitStatus == SshRemoteProcess::ExitedNormally);
+        || exitStatus == SshRemoteProcess::CrashExit
+        || exitStatus == SshRemoteProcess::NormalExit);
 
     const int exitCode = d->deployProcess.processExitCode();
     const QString errorMsg = d->deployProcess.processErrorString();
     cleanup();
-    if (exitStatus == SshRemoteProcess::ExitedNormally && exitCode == 0)
+    if (exitStatus == SshRemoteProcess::NormalExit && exitCode == 0)
         emit finishedSuccessfully();
     else
         emit error(tr("Key deployment failed: %1.").arg(errorMsg));

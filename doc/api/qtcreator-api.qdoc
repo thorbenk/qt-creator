@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -170,13 +168,13 @@
     \row
     \o Add a menu or menu item.
     \o You can extend existing menus or create new ones.
-    \o \l{Core::ActionManager}, \l{Core::Command}, \l{Core::ICore::actionManager()}
+    \o \l{Core::ActionManager}, \l{Core::Command}
 
     \row
     \o Add a configurable keyboard shortcut.
     \o Registering shortcuts makes it possible for users to configure them in
        the common shortcut settings dialog.
-    \o \l{Core::ActionManager}, \l{Core::Command}, \l{Core::ICore::actionManager()}
+    \o \l{Core::ActionManager}, \l{Core::Command}
 
     \row
     \o Add a mode.

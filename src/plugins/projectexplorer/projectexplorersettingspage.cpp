@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,6 +35,7 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/documentmanager.h>
+#include <utils/hostosinfo.h>
 
 #include <QLabel>
 #include <QCoreApplication>
@@ -50,9 +49,7 @@ ProjectExplorerSettingsWidget::ProjectExplorerSettingsWidget(QWidget *parent) :
     QWidget(parent)
 {
     m_ui.setupUi(this);
-#ifndef Q_OS_WIN
-    setJomVisible(false);
-#endif
+    setJomVisible(Utils::HostOsInfo::isWindowsHost());
     m_ui.directoryButtonGroup->setId(m_ui.currentDirectoryRadioButton, UseCurrentDirectory);
     m_ui.directoryButtonGroup->setId(m_ui.directoryRadioButton, UseProjectDirectory);
     connect(m_ui.directoryButtonGroup, SIGNAL(buttonClicked(int)),
@@ -153,32 +150,16 @@ QString ProjectExplorerSettingsWidget::searchKeywords() const
 // ------------------ ProjectExplorerSettingsPage
 ProjectExplorerSettingsPage::ProjectExplorerSettingsPage()
 {
+    setId(QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_ID));
+    setDisplayName(tr("General"));
+    setCategory(QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("ProjectExplorer",
+        Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
 }
 
-QString ProjectExplorerSettingsPage::id() const
+ProjectExplorerSettingsPage::~ProjectExplorerSettingsPage()
 {
-    return QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_ID);
-}
-
-QString ProjectExplorerSettingsPage::displayName() const
-{
-    return tr("General");
-}
-
-QString ProjectExplorerSettingsPage::category() const
-{
-    return QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
-}
-
-QString ProjectExplorerSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("ProjectExplorer",
-                                       Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY);
-}
-
-QIcon ProjectExplorerSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
 }
 
 QWidget *ProjectExplorerSettingsPage::createPage(QWidget *parent)

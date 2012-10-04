@@ -6,6 +6,9 @@ include(../../qtcreatorplugin.pri)
 include(qt4projectmanager_dependencies.pri)
 
 HEADERS += \
+    qmakekitinformation.h \
+    qmakekitconfigwidget.h \
+    qmakerunconfigurationfactory.h \
     qt4projectmanagerplugin.h \
     qt4projectmanager.h \
     qt4project.h \
@@ -36,6 +39,7 @@ HEADERS += \
     wizards/filespage.h \
     wizards/qtwizard.h \
     wizards/targetsetuppage.h \
+    wizards/importwidget.h \
     wizards/qtquickapp.h \
     wizards/qtquickappwizard.h \
     wizards/qtquickappwizardpages.h \
@@ -54,7 +58,6 @@ HEADERS += \
     qtuicodemodelsupport.h \
     externaleditors.h \
     qt4buildconfiguration.h \
-    qt4target.h \
     qmakeparser.h \
     addlibrarywizard.h \
     librarydetailscontroller.h \
@@ -66,11 +69,13 @@ HEADERS += \
     winceqtversionfactory.h \
     winceqtversion.h \
     profilecompletionassist.h \
-    qt4basetargetfactory.h \
-    unconfiguredprojectpanel.h \
-    unconfiguredsettingsoptionpage.h
+    unconfiguredprojectpanel.h
 
-SOURCES += qt4projectmanagerplugin.cpp \
+SOURCES += \
+    qmakekitconfigwidget.cpp \
+    qmakekitinformation.cpp \
+    qmakerunconfigurationfactory.cpp \
+    qt4projectmanagerplugin.cpp \
     qt4projectmanager.cpp \
     qt4project.cpp \
     qt4nodes.cpp \
@@ -100,6 +105,7 @@ SOURCES += qt4projectmanagerplugin.cpp \
     wizards/filespage.cpp \
     wizards/qtwizard.cpp \
     wizards/targetsetuppage.cpp \
+    wizards/importwidget.cpp \
     wizards/qtquickapp.cpp \
     wizards/qtquickappwizard.cpp \
     wizards/qtquickappwizardpages.cpp \
@@ -117,28 +123,25 @@ SOURCES += qt4projectmanagerplugin.cpp \
     qtuicodemodelsupport.cpp \
     externaleditors.cpp \
     qt4buildconfiguration.cpp \
-    qt4target.cpp \
     qmakeparser.cpp \
     addlibrarywizard.cpp \
     librarydetailscontroller.cpp \
     findqt4profiles.cpp \
     profilekeywords.cpp \
+    qt4targetsetupwidget.cpp \
     winceqtversionfactory.cpp \
     winceqtversion.cpp \
     profilecompletionassist.cpp \
-    unconfiguredprojectpanel.cpp \
-    unconfiguredsettingsoptionpage.cpp
+    unconfiguredprojectpanel.cpp
 
 FORMS += makestep.ui \
     qmakestep.ui \
     qt4projectconfigwidget.ui \
     librarydetailswidget.ui \
     wizards/testwizardpage.ui \
-    wizards/targetsetuppage.ui \
     wizards/html5appwizardsourcespage.ui \
     wizards/mobilelibrarywizardoptionpage.ui \
     wizards/mobileappwizardgenericoptionspage.ui \
-    wizards/mobileappwizardsymbianoptionspage.ui \
     wizards/mobileappwizardmaemooptionspage.ui \
     wizards/mobileappwizardharmattanoptionspage.ui \
     wizards/qtquickcomponentsetoptionspage.ui
@@ -146,7 +149,6 @@ FORMS += makestep.ui \
 RESOURCES += qt4projectmanager.qrc \
     wizards/wizards.qrc
 
-include(qt-s60/qt-s60.pri)
 include(qt-desktop/qt-desktop.pri)
 include(customwidgetwizard/customwidgetwizard.pri)
 

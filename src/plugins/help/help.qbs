@@ -5,22 +5,33 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "Help"
 
-    condition: qtcore.versionMajor === 4
-    Depends { id: qtcore; name: "qt.core" }
-    Depends { name: "qt"; submodules: ['widgets', 'help', 'webkit'] }
+    Depends { id: qtcore; name: "Qt.core" }
+    Depends {
+        condition: qtcore.versionMajor == 4
+        name: "Qt"; submodules: ["widgets", "help", "webkit", "network"]
+    }
+    Depends {
+        condition: qtcore.versionMajor >= 5
+        name: "Qt"; submodules: ["widgets", "help", "network", "printsupport"]
+    }
+
     Depends { name: "Core" }
     Depends { name: "Find" }
     Depends { name: "Locator" }
+    Depends { name: "app_version_header" }
 
     Depends { name: "cpp" }
+    Properties {
+        condition: qtcore.versionMajor >= 5
+        cpp.defines: base.concat(["QT_NO_WEBKIT"])
+    }
     cpp.defines: base.concat(["QT_CLUCENE_SUPPORT"])
     cpp.includePaths: [
         "../../shared/help",
         ".",
         "..",
         "../..",
-        "../../libs",
-        buildDirectory
+        "../../libs"
     ]
 
     files: [

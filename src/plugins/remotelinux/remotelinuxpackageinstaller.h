@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,21 +25,19 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #ifndef REMOTELINUXPACKAGEINSTALLER_H
 #define REMOTELINUXPACKAGEINSTALLER_H
 
 #include "remotelinux_export.h"
 
-#include <QObject>
+#include <projectexplorer/devicesupport/idevice.h>
+
 #include <QSharedPointer>
-#include <QString>
 
 namespace RemoteLinux {
-class LinuxDeviceConfiguration;
 
 namespace Internal {
 class AbstractRemoteLinuxPackageInstallerPrivate;
@@ -52,7 +50,7 @@ class REMOTELINUX_EXPORT AbstractRemoteLinuxPackageInstaller : public QObject
 public:
     ~AbstractRemoteLinuxPackageInstaller();
 
-    void installPackage(const QSharedPointer<const LinuxDeviceConfiguration> &deviceConfig,
+    void installPackage(const ProjectExplorer::IDevice::ConstPtr &deviceConfig,
         const QString &packageFilePath, bool removePackageFile);
     void cancelInstallation();
 
@@ -67,8 +65,8 @@ protected:
 private slots:
     void handleConnectionError();
     void handleInstallationFinished(int exitStatus);
-    void handleInstallerOutput(const QByteArray &output);
-    void handleInstallerErrorOutput(const QByteArray &output);
+    void handleInstallerOutput();
+    void handleInstallerErrorOutput();
 
 private:
     virtual QString installCommandLine(const QString &packageFilePath) const = 0;

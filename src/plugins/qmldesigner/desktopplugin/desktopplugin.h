@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,7 +32,6 @@
 #define DESKTOPPLUGIN_H
 
 #include <iwidgetplugin.h>
-#include <qdeclarative.h>
 
 QT_BEGIN_NAMESPACE
 QT_END_NAMESPACE
@@ -44,6 +41,9 @@ namespace QmlDesigner {
 class DesktopPlugin : public QObject, QmlDesigner::IWidgetPlugin
 {
     Q_OBJECT
+#if QT_VERSION >= 0x050000
+    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QmlDesignerPlugin" FILE "desktopplugin.json")
+#endif
     Q_INTERFACES(QmlDesigner::IWidgetPlugin)
 
 public:

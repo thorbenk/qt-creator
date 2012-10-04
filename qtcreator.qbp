@@ -1,17 +1,18 @@
 import qbs.base 1.0
 import qbs.fileinfo 1.0 as FileInfo
+import "qbs/defaults.js" as Defaults
 
 Project {
     property string ide_version_major: '2'
-    property string ide_version_minor: '5'
+    property string ide_version_minor: '6'
     property string ide_version_release: '81'
     property string qtcreator_version: ide_version_major + '.' + ide_version_minor + '.' + ide_version_release
-    property var additionalCppDefines: [ 'IDE_LIBRARY_BASENAME="lib"' ]
     moduleSearchPaths: "qbs"
 
     references: [
         "lib/qtcreator/qtcomponents/qtcomponents.qbs",
         "share/share.qbs",
+        "share/qtcreator/translations/translations.qbs",
         "src/libs/3rdparty/botan/botan.qbs",
         "src/libs/aggregation/aggregation.qbs",
         "src/libs/cplusplus/cplusplus.qbs",
@@ -22,22 +23,28 @@ Project {
         "src/libs/qmljs/qmljs.qbs",
         "src/libs/qmldebug/qmldebug.qbs",
         "src/libs/qtcomponents/styleitem/styleitem.qbs",
-        "src/libs/symbianutils/symbianutils.qbs",
+        "src/libs/ssh/ssh.qbs",
+        "src/libs/utils/process_stub.qbs",
+        "src/libs/utils/process_ctrlc_stub.qbs",
         "src/libs/utils/utils.qbs",
         "src/libs/zeroconf/zeroconf.qbs",
         "src/plugins/analyzerbase/analyzerbase.qbs",
         "src/plugins/android/android.qbs",
+        "src/plugins/autotoolsprojectmanager/autotoolsprojectmanager.qbs",
         "src/plugins/bazaar/bazaar.qbs",
         "src/plugins/bineditor/bineditor.qbs",
         "src/plugins/bookmarks/bookmarks.qbs",
         "src/plugins/classview/classview.qbs",
+        "src/plugins/clearcase/clearcase.qbs",
         "src/plugins/cmakeprojectmanager/cmakeprojectmanager.qbs",
         "src/plugins/coreplugin/coreplugin.qbs",
+        "src/plugins/coreplugin/images/logo/logo.qbs",
         "src/plugins/cpaster/cpaster.qbs",
         "src/plugins/cppeditor/cppeditor.qbs",
         "src/plugins/cpptools/cpptools.qbs",
         "src/plugins/cvs/cvs.qbs",
         "src/plugins/debugger/debugger.qbs",
+        "src/plugins/debugger/ptracepreload.qbs",
         "src/plugins/designer/designer.qbs",
         "src/plugins/fakevim/fakevim.qbs",
         "src/plugins/find/find.qbs",
@@ -53,11 +60,12 @@ Project {
         "src/plugins/mercurial/mercurial.qbs",
         "src/plugins/perforce/perforce.qbs",
         "src/plugins/projectexplorer/projectexplorer.qbs",
-        "src/plugins/qmldesigner/qmldesigner.qbs",
+//        "src/plugins/qmldesigner/qmldesigner.qbs",
         "src/plugins/qmljseditor/qmljseditor.qbs",
         "src/plugins/qmljstools/qmljstools.qbs",
         "src/plugins/qmlprofiler/qmlprofiler.qbs",
         "src/plugins/qmlprojectmanager/qmlprojectmanager.qbs",
+        "src/plugins/qnx/qnx.qbs",
         "src/plugins/qt4projectmanager/qt4projectmanager.qbs",
         "src/plugins/qtsupport/qtsupport.qbs",
         "src/plugins/remotelinux/remotelinux.qbs",
@@ -66,9 +74,16 @@ Project {
         "src/plugins/tasklist/tasklist.qbs",
         "src/plugins/texteditor/texteditor.qbs",
         "src/plugins/todo/todo.qbs",
+        "src/plugins/updateinfo/updateinfo.qbs",
         "src/plugins/valgrind/valgrind.qbs",
         "src/plugins/vcsbase/vcsbase.qbs",
         "src/plugins/welcome/welcome.qbs",
+        "src/share/share.qbs",
+        "src/tools/qtcdebugger/qtcdebugger.qbs",
+        "src/tools/qtcreatorcrashhandler/qtcreatorcrashhandler.qbs",
+        "src/tools/qtpromaker/qtpromaker.qbs",
+        "src/plugins/cpaster/frontend/frontend.qbs",
+        "src/tools/sdktool/sdktool.qbs"
     ]
 
     Product {
@@ -99,7 +114,7 @@ Project {
                     var file = new TextFile(input.fileName);
                     var content = file.readAll();
                     // replace quoted quotes
-                    content = content.replace(/\\\"/g, "\"");
+                    content = content.replace(/\\\"/g, '"');
                     // replace Windows line endings
                     if (onWindows)
                         content = content.replace(/\r\n/g, "\n");
@@ -116,6 +131,11 @@ Project {
                 return cmd;
             }
         }
+
+        ProductModule {
+            Depends { name: "cpp" }
+            cpp.includePaths: product.buildDirectory
+        }
     }
 
     Product {
@@ -124,8 +144,12 @@ Project {
         destination: "bin"
         consoleApplication: qbs.debugInformation
 
-        cpp.rpaths: ["$ORIGIN/../lib"]
-        cpp.defines: project.additionalCppDefines
+        cpp.rpaths: ["$ORIGIN/../lib/qtcreator"]
+        cpp.defines: Defaults.defines(qbs)
+        cpp.linkerFlags: {
+            if (qbs.buildVariant == "release" && (qbs.toolchain == "gcc" || qbs.toolchain == "mingw"))
+                return ["-Wl,-s"]
+        }
         cpp.includePaths: [
             "src",
             "src/libs",
@@ -142,14 +166,18 @@ Project {
 
         files: [
             "src/app/main.cpp",
+            "src/app/qtcreator.rc",
             "src/shared/qtsingleapplication/qtsingleapplication.h",
             "src/shared/qtsingleapplication/qtsingleapplication.cpp",
             "src/shared/qtsingleapplication/qtlocalpeer.h",
             "src/shared/qtsingleapplication/qtlocalpeer.cpp",
-            "src/shared/qtlockedfile/qtlockedfile.cpp"
+            "src/shared/qtlockedfile/qtlockedfile.cpp",
+            "src/tools/qtcreatorcrashhandler/crashhandlersetup.cpp",
+            "src/tools/qtcreatorcrashhandler/crashhandlersetup.h"
         ]
 
         Group {
+            condition: qbs.targetOS == "linux" || qbs.targetOS == "macx"
             files: "bin/qtcreator.sh"
             fileTags: "install"
             qbs.installDir: "bin"

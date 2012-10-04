@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -73,6 +71,11 @@ public:
 
     SeverityLevel severity;
     QString msg;
+
+    class ErrorLogger{
+    public:
+        virtual void appendError(ErrorMessage::SeverityLevel severity, const QString& msg) = 0;
+    };
 };
 
 ZEROCONFSHARED_EXPORT QDebug operator<<(QDebug dbg, const ErrorMessage &eMsg);
@@ -89,6 +92,12 @@ public:
     typedef QSharedPointer<const Service> ConstPtr;
     typedef QSharedPointer<Service> Ptr;
 
+    enum AddressStyle
+    {
+        PlainAddresses,
+        QuoteIPv6Adresses
+    };
+
     Service(const Service &o);
     Service();
     ~Service();
@@ -104,6 +113,7 @@ public:
     const QHostInfo *host() const { return m_host; }
     int interfaceNr() const { return m_interfaceNr; }
     QNetworkInterface networkInterface() const;
+    QStringList addresses(AddressStyle style = PlainAddresses) const;
     bool operator==(const Service &o) const;
 
     bool invalidate() { bool res = m_outdated; m_outdated = true; return res; }
@@ -142,6 +152,7 @@ public:
     void stopBrowsing();
     bool isBrowsing() const;
     bool didFail() const;
+    int maxProgress() const;
 
     const QString& serviceType() const;
     const QString& domain() const;
@@ -163,6 +174,7 @@ signals:
     void serviceRemoved(const ZeroConf::Service::ConstPtr &service,
         ZeroConf::ServiceBrowser *browser);
     void servicesUpdated(ZeroConf::ServiceBrowser *browser);
+    void startupPhase(int progress, const QString &description, ZeroConf::ServiceBrowser *browser);
     void errorMessage(ZeroConf::ErrorMessage::SeverityLevel severity, const QString &msg, ZeroConf::ServiceBrowser *browser);
     void hadFailure(const QList<ZeroConf::ErrorMessage> &messages, ZeroConf::ServiceBrowser *browser);
     void startedBrowsing(ZeroConf::ServiceBrowser *browser);

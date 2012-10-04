@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,6 +55,7 @@
 #include <texteditor/texteditorplugin.h>
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/texteditorconstants.h>
+#include <utils/hostosinfo.h>
 #include <cpptools/ModelManagerInterface.h>
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/cpptoolssettings.h>
@@ -86,16 +85,16 @@ CppEditorFactory::CppEditorFactory(CppPlugin *owner) :
             << QLatin1String(CppEditor::Constants::CPP_SOURCE_MIMETYPE)
             << QLatin1String(CppEditor::Constants::CPP_HEADER_MIMETYPE);
 
-#if !defined(Q_OS_MAC) && !defined(Q_WS_WIN)
-    Core::FileIconProvider *iconProvider = Core::FileIconProvider::instance();
-    Core::MimeDatabase *mimeDatabase = Core::ICore::mimeDatabase();
-    iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_cpp.png")),
-                                                 mimeDatabase->findByType(QLatin1String(CppEditor::Constants::CPP_SOURCE_MIMETYPE)));
-    iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_c.png")),
-                                                 mimeDatabase->findByType(QLatin1String(CppEditor::Constants::C_SOURCE_MIMETYPE)));
-    iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_h.png")),
-                                                 mimeDatabase->findByType(QLatin1String(CppEditor::Constants::CPP_HEADER_MIMETYPE)));
-#endif
+    if (!Utils::HostOsInfo::isMacHost() && !Utils::HostOsInfo::isWindowsHost()) {
+        Core::FileIconProvider *iconProvider = Core::FileIconProvider::instance();
+        Core::MimeDatabase *mimeDatabase = Core::ICore::mimeDatabase();
+        iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_cpp.png")),
+                                                     mimeDatabase->findByType(QLatin1String(CppEditor::Constants::CPP_SOURCE_MIMETYPE)));
+        iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_c.png")),
+                                                     mimeDatabase->findByType(QLatin1String(CppEditor::Constants::C_SOURCE_MIMETYPE)));
+        iconProvider->registerIconOverlayForMimeType(QIcon(QLatin1String(":/cppeditor/images/qt_h.png")),
+                                                     mimeDatabase->findByType(QLatin1String(CppEditor::Constants::CPP_HEADER_MIMETYPE)));
+    }
 }
 
 Core::Id CppEditorFactory::id() const
@@ -122,17 +121,6 @@ QStringList CppEditorFactory::mimeTypes() const
 }
 
 ///////////////////////////////// CppPlugin //////////////////////////////////
-
-static inline
-Core::Command *createSeparator(Core::ActionManager *am,
-                               QObject *parent,
-                               Core::Context &context,
-                               const char *id)
-{
-    QAction *separator = new QAction(parent);
-    separator->setSeparator(true);
-    return am->registerAction(separator, Core::Id(id), context);
-}
 
 CppPlugin *CppPlugin::m_instance = 0;
 
@@ -227,21 +215,20 @@ bool CppPlugin::initialize(const QStringList & /*arguments*/, QString *errorMess
 
     Core::Context context(CppEditor::Constants::C_CPPEDITOR);
 
-    Core::ActionManager *am = Core::ICore::actionManager();
-    Core::ActionContainer *contextMenu= am->createMenu(CppEditor::Constants::M_CONTEXT);
+    Core::ActionContainer *contextMenu= Core::ActionManager::createMenu(CppEditor::Constants::M_CONTEXT);
 
     Core::Command *cmd;
-    Core::ActionContainer *cppToolsMenu = am->actionContainer(Core::Id(CppTools::Constants::M_TOOLS_CPP));
+    Core::ActionContainer *cppToolsMenu = Core::ActionManager::actionContainer(Core::Id(CppTools::Constants::M_TOOLS_CPP));
 
-    cmd = am->command(Core::Id(CppTools::Constants::SWITCH_HEADER_SOURCE));
+    cmd = Core::ActionManager::command(Core::Id(CppTools::Constants::SWITCH_HEADER_SOURCE));
     contextMenu->addAction(cmd);
 
-    cmd = am->command(TextEditor::Constants::FOLLOW_SYMBOL_UNDER_CURSOR);
+    cmd = Core::ActionManager::command(TextEditor::Constants::FOLLOW_SYMBOL_UNDER_CURSOR);
     contextMenu->addAction(cmd);
     cppToolsMenu->addAction(cmd);
 
     QAction *switchDeclarationDefinition = new QAction(tr("Switch Between Method Declaration/Definition"), this);
-    cmd = am->registerAction(switchDeclarationDefinition,
+    cmd = Core::ActionManager::registerAction(switchDeclarationDefinition,
         Constants::SWITCH_DECLARATION_DEFINITION, context, true);
     cmd->setDefaultKeySequence(QKeySequence(tr("Shift+F2")));
     connect(switchDeclarationDefinition, SIGNAL(triggered()),
@@ -250,31 +237,28 @@ bool CppPlugin::initialize(const QStringList & /*arguments*/, QString *errorMess
     cppToolsMenu->addAction(cmd);
 
     m_findUsagesAction = new QAction(tr("Find Usages"), this);
-    cmd = am->registerAction(m_findUsagesAction, Constants::FIND_USAGES, context);
+    cmd = Core::ActionManager::registerAction(m_findUsagesAction, Constants::FIND_USAGES, context);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+U")));
     connect(m_findUsagesAction, SIGNAL(triggered()), this, SLOT(findUsages()));
     contextMenu->addAction(cmd);
     cppToolsMenu->addAction(cmd);
 
     m_openTypeHierarchyAction = new QAction(tr("Open Type Hierarchy"), this);
-    cmd = am->registerAction(m_openTypeHierarchyAction, Constants::OPEN_TYPE_HIERARCHY, context);
-    cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+T")));
+    cmd = Core::ActionManager::registerAction(m_openTypeHierarchyAction, Constants::OPEN_TYPE_HIERARCHY, context);
+    cmd->setDefaultKeySequence(QKeySequence(Core::UseMacShortcuts ? tr("Meta+Shift+T") : tr("Ctrl+Shift+T")));
     connect(m_openTypeHierarchyAction, SIGNAL(triggered()), this, SLOT(openTypeHierarchy()));
     contextMenu->addAction(cmd);
     cppToolsMenu->addAction(cmd);
 
     // Refactoring sub-menu
     Core::Context globalContext(Core::Constants::C_GLOBAL);
-    Core::Command *sep = createSeparator(am, this, globalContext,
-                                         Constants::SEPARATOR2);
+    Core::Command *sep = contextMenu->addSeparator(globalContext);
     sep->action()->setObjectName(QLatin1String(Constants::M_REFACTORING_MENU_INSERTION_POINT));
-    contextMenu->addAction(sep);
-    contextMenu->addAction(createSeparator(am, this, globalContext,
-                                           Constants::SEPARATOR3));
+    contextMenu->addSeparator(globalContext);
 
     m_renameSymbolUnderCursorAction = new QAction(tr("Rename Symbol Under Cursor"),
                                                   this);
-    cmd = am->registerAction(m_renameSymbolUnderCursorAction,
+    cmd = Core::ActionManager::registerAction(m_renameSymbolUnderCursorAction,
                              Constants::RENAME_SYMBOL_UNDER_CURSOR,
                              context);
     cmd->setDefaultKeySequence(QKeySequence(tr("CTRL+SHIFT+R")));
@@ -283,9 +267,9 @@ bool CppPlugin::initialize(const QStringList & /*arguments*/, QString *errorMess
     cppToolsMenu->addAction(cmd);
 
     // Update context in global context
-    cppToolsMenu->addAction(createSeparator(am, this, globalContext, CppEditor::Constants::SEPARATOR4));
+    cppToolsMenu->addSeparator(globalContext);
     m_updateCodeModelAction = new QAction(tr("Update Code Model"), this);
-    cmd = am->registerAction(m_updateCodeModelAction, Core::Id(Constants::UPDATE_CODEMODEL), globalContext);
+    cmd = Core::ActionManager::registerAction(m_updateCodeModelAction, Core::Id(Constants::UPDATE_CODEMODEL), globalContext);
     CPlusPlus::CppModelManagerInterface *cppModelManager = CPlusPlus::CppModelManagerInterface::instance();
     connect(m_updateCodeModelAction, SIGNAL(triggered()), cppModelManager, SLOT(updateModifiedSourceFiles()));
     cppToolsMenu->addAction(cmd);
@@ -298,12 +282,12 @@ bool CppPlugin::initialize(const QStringList & /*arguments*/, QString *errorMess
 
     m_actionHandler->initializeActions();
 
-    contextMenu->addAction(createSeparator(am, this, context, CppEditor::Constants::SEPARATOR));
+    contextMenu->addSeparator(context);
 
-    cmd = am->command(TextEditor::Constants::AUTO_INDENT_SELECTION);
+    cmd = Core::ActionManager::command(TextEditor::Constants::AUTO_INDENT_SELECTION);
     contextMenu->addAction(cmd);
 
-    cmd = am->command(TextEditor::Constants::UN_COMMENT_SELECTION);
+    cmd = Core::ActionManager::command(TextEditor::Constants::UN_COMMENT_SELECTION);
     contextMenu->addAction(cmd);
 
     connect(Core::ICore::progressManager(), SIGNAL(taskStarted(QString)),

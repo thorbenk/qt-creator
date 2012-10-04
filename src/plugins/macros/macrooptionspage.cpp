@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Nicolas Arnaud-Cormos.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -49,36 +47,11 @@ using namespace Macros::Internal;
 MacroOptionsPage::MacroOptionsPage(QObject *parent)
     : Core::IOptionsPage(parent)
 {
-}
-
-MacroOptionsPage::~MacroOptionsPage()
-{
-}
-
-QString MacroOptionsPage::id() const
-{
-    return Constants::M_OPTIONS_PAGE;
-}
-
-QString MacroOptionsPage::displayName() const
-{
-    return QCoreApplication::translate("Macros", Constants::M_OPTIONS_TR_PAGE);
-}
-
-QString MacroOptionsPage::category() const
-{
-    return TextEditor::Constants::TEXT_EDITOR_SETTINGS_CATEGORY;
-}
-
-QString MacroOptionsPage::displayCategory() const
-{
-    return QCoreApplication::translate("TextEditor",
-                                       TextEditor::Constants::TEXT_EDITOR_SETTINGS_TR_CATEGORY);
-}
-
-QIcon MacroOptionsPage::categoryIcon() const
-{
-    return QIcon();
+    setId(QLatin1String(Constants::M_OPTIONS_PAGE));
+    setDisplayName(QCoreApplication::translate("Macros", Constants::M_OPTIONS_TR_PAGE));
+    setCategory(QLatin1String(TextEditor::Constants::TEXT_EDITOR_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("TextEditor",
+        TextEditor::Constants::TEXT_EDITOR_SETTINGS_TR_CATEGORY));
 }
 
 QWidget *MacroOptionsPage::createPage(QWidget *parent)

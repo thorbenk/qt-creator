@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,44 +32,40 @@
 
 #include "genericmakestep.h"
 #include "genericproject.h"
-#include "generictarget.h"
 
 #include <projectexplorer/buildsteplist.h>
-#include <projectexplorer/toolchain.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/toolchain.h>
+#include <utils/pathchooser.h>
 #include <utils/qtcassert.h>
 
+#include <QFormLayout>
 #include <QInputDialog>
 
-using namespace GenericProjectManager;
-using namespace GenericProjectManager::Internal;
-using ProjectExplorer::BuildConfiguration;
+using namespace ProjectExplorer;
 
-namespace {
-const char * const GENERIC_BC_ID("GenericProjectManager.GenericBuildConfiguration");
+namespace GenericProjectManager {
+namespace Internal {
 
-const char * const BUILD_DIRECTORY_KEY("GenericProjectManager.GenericBuildConfiguration.BuildDirectory");
-}
+const char GENERIC_BC_ID[] = "GenericProjectManager.GenericBuildConfiguration";
+const char BUILD_DIRECTORY_KEY[] = "GenericProjectManager.GenericBuildConfiguration.BuildDirectory";
 
-GenericBuildConfiguration::GenericBuildConfiguration(GenericTarget *parent)
+GenericBuildConfiguration::GenericBuildConfiguration(Target *parent)
     : BuildConfiguration(parent, Core::Id(GENERIC_BC_ID))
 {
 }
 
-GenericBuildConfiguration::GenericBuildConfiguration(GenericTarget *parent, const Core::Id id)
+GenericBuildConfiguration::GenericBuildConfiguration(Target *parent, const Core::Id id)
     : BuildConfiguration(parent, id)
 {
 }
 
-GenericBuildConfiguration::GenericBuildConfiguration(GenericTarget *parent, GenericBuildConfiguration *source) :
+GenericBuildConfiguration::GenericBuildConfiguration(Target *parent, GenericBuildConfiguration *source) :
     BuildConfiguration(parent, source),
     m_buildDirectory(source->m_buildDirectory)
 {
     cloneSteps(source);
-}
-
-GenericBuildConfiguration::~GenericBuildConfiguration()
-{
 }
 
 QVariantMap GenericBuildConfiguration::toMap() const
@@ -112,17 +106,15 @@ void GenericBuildConfiguration::setBuildDirectory(const QString &buildDirectory)
     emit buildDirectoryChanged();
 }
 
-GenericTarget *GenericBuildConfiguration::genericTarget() const
+BuildConfigWidget *GenericBuildConfiguration::createConfigWidget()
 {
-    return static_cast<GenericTarget *>(target());
+    return new GenericBuildSettingsWidget;
 }
 
-ProjectExplorer::IOutputParser *GenericBuildConfiguration::createOutputParser() const
+IOutputParser *GenericBuildConfiguration::createOutputParser() const
 {
-    ProjectExplorer::ToolChain *tc = genericTarget()->genericProject()->toolChain();
-    if (tc)
-        return tc->outputParser();
-    return 0;
+    ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
+    return tc ? tc->outputParser() : 0;
 }
 
 
@@ -131,7 +123,7 @@ ProjectExplorer::IOutputParser *GenericBuildConfiguration::createOutputParser() 
 */
 
 GenericBuildConfigurationFactory::GenericBuildConfigurationFactory(QObject *parent) :
-    ProjectExplorer::IBuildConfigurationFactory(parent)
+    IBuildConfigurationFactory(parent)
 {
 }
 
@@ -139,95 +131,101 @@ GenericBuildConfigurationFactory::~GenericBuildConfigurationFactory()
 {
 }
 
-QList<Core::Id> GenericBuildConfigurationFactory::availableCreationIds(ProjectExplorer::Target *parent) const
+QList<Core::Id> GenericBuildConfigurationFactory::availableCreationIds(const Target *parent) const
 {
-    if (!qobject_cast<GenericTarget *>(parent))
+    if (!canHandle(parent))
         return QList<Core::Id>();
     return QList<Core::Id>() << Core::Id(GENERIC_BC_ID);
 }
 
 QString GenericBuildConfigurationFactory::displayNameForId(const Core::Id id) const
 {
-    if (id == Core::Id(GENERIC_BC_ID))
+    if (id == GENERIC_BC_ID)
         return tr("Build");
     return QString();
 }
 
-bool GenericBuildConfigurationFactory::canCreate(ProjectExplorer::Target *parent, const Core::Id id) const
+bool GenericBuildConfigurationFactory::canCreate(const Target *parent, const Core::Id id) const
 {
-    if (!qobject_cast<GenericTarget *>(parent))
+    if (!canHandle(parent))
         return false;
-    if (id == Core::Id(GENERIC_BC_ID))
+    if (id == GENERIC_BC_ID)
         return true;
     return false;
 }
 
-BuildConfiguration *GenericBuildConfigurationFactory::create(ProjectExplorer::Target *parent, const Core::Id id)
+BuildConfiguration *GenericBuildConfigurationFactory::create(Target *parent, const Core::Id id, const QString &name)
 {
     if (!canCreate(parent, id))
         return 0;
-    GenericTarget *target(static_cast<GenericTarget *>(parent));
 
     //TODO asking for name is duplicated everywhere, but maybe more
-    // wizards will show up, that incorporate choosing the name
-    bool ok;
-    QString buildConfigurationName = QInputDialog::getText(0,
-                          tr("New Configuration"),
-                          tr("New configuration name:"),
-                          QLineEdit::Normal,
-                          QString(),
-                          &ok);
+    // wizards will show up, that incorporate choosing the nam
+    bool ok = true;
+    QString buildConfigurationName = name;
+    if (buildConfigurationName.isEmpty())
+        buildConfigurationName = QInputDialog::getText(0,
+                                                       tr("New Configuration"),
+                                                       tr("New configuration name:"),
+                                                       QLineEdit::Normal,
+                                                       QString(), &ok);
+    buildConfigurationName = buildConfigurationName.trimmed();
     if (!ok || buildConfigurationName.isEmpty())
         return 0;
-    GenericBuildConfiguration *bc = new GenericBuildConfiguration(target);
+
+    GenericBuildConfiguration *bc = new GenericBuildConfiguration(parent);
     bc->setDisplayName(buildConfigurationName);
 
-    ProjectExplorer::BuildStepList *buildSteps = bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
-    ProjectExplorer::BuildStepList *cleanSteps = bc->stepList(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);
+    BuildStepList *buildSteps = bc->stepList(Constants::BUILDSTEPS_BUILD);
+    BuildStepList *cleanSteps = bc->stepList(Constants::BUILDSTEPS_CLEAN);
 
     Q_ASSERT(buildSteps);
     GenericMakeStep *makeStep = new GenericMakeStep(buildSteps);
     buildSteps->insertStep(0, makeStep);
-    makeStep->setBuildTarget("all", /* on = */ true);
+    makeStep->setBuildTarget(QLatin1String("all"), /* on = */ true);
 
     Q_ASSERT(cleanSteps);
     GenericMakeStep *cleanMakeStep = new GenericMakeStep(cleanSteps);
     cleanSteps->insertStep(0, cleanMakeStep);
-    cleanMakeStep->setBuildTarget("clean", /* on = */ true);
+    cleanMakeStep->setBuildTarget(QLatin1String("clean"), /* on = */ true);
     cleanMakeStep->setClean(true);
 
-    target->addBuildConfiguration(bc); // also makes the name unique...
     return bc;
 }
 
-bool GenericBuildConfigurationFactory::canClone(ProjectExplorer::Target *parent, ProjectExplorer::BuildConfiguration *source) const
+bool GenericBuildConfigurationFactory::canClone(const Target *parent, BuildConfiguration *source) const
 {
     return canCreate(parent, source->id());
 }
 
-BuildConfiguration *GenericBuildConfigurationFactory::clone(ProjectExplorer::Target *parent, BuildConfiguration *source)
+BuildConfiguration *GenericBuildConfigurationFactory::clone(Target *parent, BuildConfiguration *source)
 {
     if (!canClone(parent, source))
         return 0;
-    GenericTarget *target(static_cast<GenericTarget *>(parent));
-    return new GenericBuildConfiguration(target, qobject_cast<GenericBuildConfiguration *>(source));
+    return new GenericBuildConfiguration(parent, qobject_cast<GenericBuildConfiguration *>(source));
 }
 
-bool GenericBuildConfigurationFactory::canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const
+bool GenericBuildConfigurationFactory::canRestore(const Target *parent, const QVariantMap &map) const
 {
     return canCreate(parent, ProjectExplorer::idFromMap(map));
 }
 
-BuildConfiguration *GenericBuildConfigurationFactory::restore(ProjectExplorer::Target *parent, const QVariantMap &map)
+BuildConfiguration *GenericBuildConfigurationFactory::restore(Target *parent, const QVariantMap &map)
 {
     if (!canRestore(parent, map))
         return 0;
-    GenericTarget *target(static_cast<GenericTarget *>(parent));
-    GenericBuildConfiguration *bc(new GenericBuildConfiguration(target));
+    GenericBuildConfiguration *bc(new GenericBuildConfiguration(parent));
     if (bc->fromMap(map))
         return bc;
     delete bc;
     return 0;
+}
+
+bool GenericBuildConfigurationFactory::canHandle(const Target *t) const
+{
+    if (!t->project()->supportsKit(t->kit()))
+        return false;
+    return qobject_cast<GenericProject *>(t->project());
 }
 
 BuildConfiguration::BuildType GenericBuildConfiguration::buildType() const
@@ -235,3 +233,39 @@ BuildConfiguration::BuildType GenericBuildConfiguration::buildType() const
     return Unknown;
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+// GenericBuildSettingsWidget
+////////////////////////////////////////////////////////////////////////////////////
+
+GenericBuildSettingsWidget::GenericBuildSettingsWidget() : m_buildConfiguration(0)
+{
+    QFormLayout *fl = new QFormLayout(this);
+    fl->setContentsMargins(0, -1, 0, -1);
+    fl->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+
+    // build directory
+    m_pathChooser = new Utils::PathChooser(this);
+    m_pathChooser->setEnabled(true);
+    fl->addRow(tr("Build directory:"), m_pathChooser);
+    connect(m_pathChooser, SIGNAL(changed(QString)), this, SLOT(buildDirectoryChanged()));
+}
+
+QString GenericBuildSettingsWidget::displayName() const
+{
+    return tr("Generic Manager");
+}
+
+void GenericBuildSettingsWidget::init(BuildConfiguration *bc)
+{
+    m_buildConfiguration = static_cast<GenericBuildConfiguration *>(bc);
+    m_pathChooser->setBaseDirectory(bc->target()->project()->projectDirectory());
+    m_pathChooser->setPath(m_buildConfiguration->rawBuildDirectory());
+}
+
+void GenericBuildSettingsWidget::buildDirectoryChanged()
+{
+    m_buildConfiguration->setBuildDirectory(m_pathChooser->rawPath());
+}
+
+} // namespace Internal
+} // namespace GenericProjectManager

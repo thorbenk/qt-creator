@@ -1,11 +1,12 @@
 TEMPLATE = subdirs
 
 SUBDIRS = qtpromaker \
-     qmlpuppet
+     qmlpuppet \
+     ../plugins/cpaster/frontend \
+     sdktool
 
 win32 {
     SUBDIRS += qtcdebugger
-    !*g++*:SUBDIRS += mdnssd
     # win64interrupt only make sense for 64bit builds
     ENV_CPU=$$(CPU)
     ENV_LIBPATH=$$(LIBPATH)
@@ -18,12 +19,14 @@ win32 {
     SUBDIRS += valgrindfake
 }
 
-linux-* {
-    SUBDIRS += mdnssd
-}
-
 QT_BREAKPAD_ROOT_PATH = $$(QT_BREAKPAD_ROOT_PATH)
 !isEmpty(QT_BREAKPAD_ROOT_PATH) {
     SUBDIRS += qtcrashhandler
+} else {
+    linux-* {
+        # Build only in debug mode.
+        debug_and_release|CONFIG(debug, debug|release) {
+            SUBDIRS += qtcreatorcrashhandler
+        }
+    }
 }
-

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -59,6 +57,25 @@ private:
 private:
     friend class FakeVimPluginPrivate;
     FakeVimPluginPrivate *d;
+
+#ifdef WITH_TESTS
+private slots:
+    void test_vim_movement();
+    void test_vim_fFtT();
+    void test_vim_delete();
+    void test_vim_delete_inner_word();
+    void test_vim_delete_a_word();
+    void test_vim_change_a_word();
+    void test_vim_block_selection();
+    void test_vim_repeat();
+    void test_vim_search();
+    void test_vim_indent();
+    void test_vim_marks();
+    void test_vim_copy_paste();
+    void test_vim_undo_redo();
+    void test_advanced_commands();
+    void test_map();
+#endif
 };
 
 } // namespace Internal

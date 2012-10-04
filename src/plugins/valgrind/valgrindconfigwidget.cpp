@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,8 +27,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,6 +35,7 @@
 
 #include "ui_valgrindconfigwidget.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <QDebug>
@@ -67,12 +66,12 @@ ValgrindConfigWidget::ValgrindConfigWidget(ValgrindBaseSettings *settings,
     connect(m_settings, SIGNAL(valgrindExecutableChanged(QString)),
             m_ui->valgrindExeChooser, SLOT(setPath(QString)));
 
-#ifdef Q_OS_WIN
-    // FIXME: On Window we know that we don't have a local valgrind
-    // executable, so having the "Browse" button in the path chooser
-    // (which is needed for the remote executable) is confusing.
-    m_ui->valgrindExeChooser->buttonAtIndex(0)->hide();
-#endif
+    if (Utils::HostOsInfo::isWindowsHost()) {
+        // FIXME: On Window we know that we don't have a local valgrind
+        // executable, so having the "Browse" button in the path chooser
+        // (which is needed for the remote executable) is confusing.
+        m_ui->valgrindExeChooser->buttonAtIndex(0)->hide();
+    }
 
     //
     // Callgrind

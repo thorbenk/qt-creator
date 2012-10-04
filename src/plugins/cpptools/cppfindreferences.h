@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -82,6 +80,7 @@ public:
                       const QString &replacement = QString());
 
     void findMacroUses(const CPlusPlus::Macro &macro);
+    void renameMacroUses(const CPlusPlus::Macro &macro, const QString &replacement = QString());
 
     CPlusPlus::DependencyTable updateDependencyTable(CPlusPlus::Snapshot snapshot);
 
@@ -89,6 +88,7 @@ private Q_SLOTS:
     void displayResults(int first, int last);
     void searchFinished();
     void cancel();
+    void setPaused(bool paused);
     void openEditor(const Find::SearchResultItem &item);
     void onReplaceButtonClicked(const QString &text, const QList<Find::SearchResultItem> &items);
     void searchAgain();
@@ -96,6 +96,8 @@ private Q_SLOTS:
 private:
     void findUsages(CPlusPlus::Symbol *symbol, const CPlusPlus::LookupContext &context,
                     const QString &replacement, bool replace);
+    void findMacroUses(const CPlusPlus::Macro &macro, const QString &replacement,
+                       bool replace);
     void findAll_helper(Find::SearchResult *search);
     CPlusPlus::DependencyTable dependencyTable() const;
     void setDependencyTable(const CPlusPlus::DependencyTable &newTable);

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -58,7 +56,6 @@
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QMainWindow>
 #include <QPushButton>
 #include <QTextBlock>
 
@@ -89,6 +86,16 @@ void BaseFileFind::cancel()
     QFutureWatcher<FileSearchResultList> *watcher = m_watchers.key(search);
     QTC_ASSERT(watcher, return);
     watcher->cancel();
+}
+
+void BaseFileFind::setPaused(bool paused)
+{
+    SearchResult *search = qobject_cast<SearchResult *>(sender());
+    QTC_ASSERT(search, return);
+    QFutureWatcher<FileSearchResultList> *watcher = m_watchers.key(search);
+    QTC_ASSERT(watcher, return);
+    if (!paused || watcher->isRunning()) // guard against pausing when the search is finished
+        watcher->setPaused(paused);
 }
 
 QStringList BaseFileFind::fileNameFilters() const
@@ -130,6 +137,7 @@ void BaseFileFind::runNewSearch(const QString &txt, Find::FindFlags findFlags,
     }
     connect(search, SIGNAL(visibilityChanged(bool)), this, SLOT(hideHighlightAll(bool)));
     connect(search, SIGNAL(cancelled()), this, SLOT(cancel()));
+    connect(search, SIGNAL(paused(bool)), this, SLOT(setPaused(bool)));
     connect(search, SIGNAL(searchAgainRequested()), this, SLOT(searchAgain()));
     connect(this, SIGNAL(enabledChanged(bool)), search, SLOT(setSearchAgainEnabled(bool)));
     runSearch(search);
@@ -140,7 +148,7 @@ void BaseFileFind::runSearch(Find::SearchResult *search)
     FileFindParameters parameters = search->userData().value<FileFindParameters>();
     CountingLabel *label = new CountingLabel;
     connect(search, SIGNAL(countChanged(int)), label, SLOT(updateCount(int)));
-    Find::SearchResultWindow::instance()->popup(true);
+    Find::SearchResultWindow::instance()->popup(Core::IOutputPane::Flags(Core::IOutputPane::ModeSwitch | Core::IOutputPane::WithFocus));
     QFutureWatcher<FileSearchResultList> *watcher = new QFutureWatcher<FileSearchResultList>();
     m_watchers.insert(watcher, search);
     watcher->setPendingResultsLimit(1);
@@ -162,7 +170,7 @@ void BaseFileFind::runSearch(Find::SearchResult *search)
                                                                         tr("Search"),
                                                                         QLatin1String(Constants::TASK_SEARCH));
     progress->setWidget(label);
-    connect(progress, SIGNAL(clicked()), Find::SearchResultWindow::instance(), SLOT(popup()));
+    connect(progress, SIGNAL(clicked()), search, SLOT(popup()));
 }
 
 void BaseFileFind::findAll(const QString &txt, Find::FindFlags findFlags)
@@ -216,7 +224,7 @@ void BaseFileFind::searchFinished()
             static_cast<QFutureWatcher<FileSearchResultList> *>(sender());
     SearchResult *search = m_watchers.value(watcher);
     if (search)
-        search->finishSearch();
+        search->finishSearch(watcher->isCanceled());
     m_watchers.remove(watcher);
     watcher->deleteLater();
 }

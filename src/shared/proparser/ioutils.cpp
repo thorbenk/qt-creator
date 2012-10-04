@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,15 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "ioutils.h"
 
-#include <QDir>
-#include <QFile>
+#include <qdir.h>
+#include <qfile.h>
 
 #ifdef Q_OS_WIN
 #  include <windows.h>
@@ -43,7 +41,9 @@
 #  include <unistd.h>
 #endif
 
-using namespace ProFileEvaluatorInternal;
+QT_BEGIN_NAMESPACE
+
+using namespace QMakeInternal;
 
 IoUtils::FileType IoUtils::fileType(const QString &fileName)
 {
@@ -91,11 +91,40 @@ QString IoUtils::resolvePath(const QString &baseDir, const QString &fileName)
     return QDir::cleanPath(baseDir + QLatin1Char('/') + fileName);
 }
 
-#ifdef QT_BOOTSTRAPPED
-inline static bool isSpecialChar(ushort c)
+inline static
+bool hasSpecialChars(const QString &arg, const uchar (&iqm)[16])
+{
+    for (int x = arg.length() - 1; x >= 0; --x) {
+        ushort c = arg.unicode()[x].unicode();
+        if ((c < sizeof(iqm) * 8) && (iqm[c / 8] & (1 << (c & 7))))
+            return true;
+    }
+    return false;
+}
+
+QString IoUtils::shellQuoteUnix(const QString &arg)
 {
     // Chars that should be quoted (TM). This includes:
-#ifdef Q_OS_WIN
+    static const uchar iqm[] = {
+        0xff, 0xff, 0xff, 0xff, 0xdf, 0x07, 0x00, 0xd8,
+        0x00, 0x00, 0x00, 0x38, 0x01, 0x00, 0x00, 0x78
+    }; // 0-32 \'"$`<>|;&(){}*?#!~[]
+
+    if (!arg.length())
+        return QString::fromLatin1("\"\"");
+
+    QString ret(arg);
+    if (hasSpecialChars(ret, iqm)) {
+        ret.replace(QLatin1Char('\''), QLatin1String("'\\''"));
+        ret.prepend(QLatin1Char('\''));
+        ret.append(QLatin1Char('\''));
+    }
+    return ret;
+}
+
+QString IoUtils::shellQuoteWin(const QString &arg)
+{
+    // Chars that should be quoted (TM). This includes:
     // - control chars & space
     // - the shell meta chars "&()<>^|
     // - the potential separators ,;=
@@ -103,32 +132,12 @@ inline static bool isSpecialChar(ushort c)
         0xff, 0xff, 0xff, 0xff, 0x45, 0x13, 0x00, 0x78,
         0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x10
     };
-#else
-    static const uchar iqm[] = {
-        0xff, 0xff, 0xff, 0xff, 0xdf, 0x07, 0x00, 0xd8,
-        0x00, 0x00, 0x00, 0x38, 0x01, 0x00, 0x00, 0x78
-    }; // 0-32 \'"$`<>|;&(){}*?#!~[]
-#endif
 
-    return (c < sizeof(iqm) * 8) && (iqm[c / 8] & (1 << (c & 7)));
-}
-
-inline static bool hasSpecialChars(const QString &arg)
-{
-    for (int x = arg.length() - 1; x >= 0; --x)
-        if (isSpecialChar(arg.unicode()[x].unicode()))
-            return true;
-    return false;
-}
-
-QString IoUtils::shellQuote(const QString &arg)
-{
     if (!arg.length())
         return QString::fromLatin1("\"\"");
 
     QString ret(arg);
-    if (hasSpecialChars(ret)) {
-#ifdef Q_OS_WIN
+    if (hasSpecialChars(ret, iqm)) {
         // Quotes are escaped and their preceding backslashes are doubled.
         // It's impossible to escape anything inside a quoted string on cmd
         // level, so the outer quoting must be "suspended".
@@ -141,12 +150,8 @@ QString IoUtils::shellQuote(const QString &arg)
             --i;
         ret.insert(i, QLatin1Char('"'));
         ret.prepend(QLatin1Char('"'));
-#else // Q_OS_WIN
-        ret.replace(QLatin1Char('\''), QLatin1String("'\\''"));
-        ret.prepend(QLatin1Char('\''));
-        ret.append(QLatin1Char('\''));
-#endif // Q_OS_WIN
     }
     return ret;
 }
-#endif
+
+QT_END_NAMESPACE

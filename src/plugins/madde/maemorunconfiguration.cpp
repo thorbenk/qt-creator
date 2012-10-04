@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,44 +24,42 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemorunconfiguration.h"
 
-#include "qt4maemotarget.h"
+#include "maddedevice.h"
 #include "maemoconstants.h"
 #include "maemoglobal.h"
 #include "maemoremotemountsmodel.h"
 #include "maemorunconfigurationwidget.h"
-#include "qt4maemodeployconfiguration.h"
 
 #include <debugger/debuggerconstants.h>
+#include <projectexplorer/buildconfiguration.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorerconstants.h>
-#include <qt4projectmanager/qt4buildconfiguration.h>
+#include <projectexplorer/target.h>
 #include <utils/portlist.h>
-#include <utils/ssh/sshconnection.h>
+#include <ssh/sshconnection.h>
 
 #include <QDir>
 #include <QFileInfo>
 
 using namespace ProjectExplorer;
-using namespace Qt4ProjectManager;
 using namespace RemoteLinux;
 
 namespace Madde {
 namespace Internal {
 
-MaemoRunConfiguration::MaemoRunConfiguration(AbstractQt4MaemoTarget *parent,
+MaemoRunConfiguration::MaemoRunConfiguration(Target *parent, Core::Id id,
         const QString &proFilePath)
-    : RemoteLinuxRunConfiguration(parent, Id, proFilePath)
+    : RemoteLinuxRunConfiguration(parent, id, proFilePath)
 {
     init();
 }
 
-MaemoRunConfiguration::MaemoRunConfiguration(AbstractQt4MaemoTarget *parent,
+MaemoRunConfiguration::MaemoRunConfiguration(Target *parent,
         MaemoRunConfiguration *source)
     : RemoteLinuxRunConfiguration(parent, source)
 {
@@ -79,7 +77,7 @@ void MaemoRunConfiguration::init()
         SLOT(handleRemoteMountsChanged()));
     connect(m_remoteMounts, SIGNAL(modelReset()), SLOT(handleRemoteMountsChanged()));
 
-    if (!maemoTarget()->allowsQmlDebugging())
+    if (DeviceTypeKitInformation::deviceTypeId(target()->kit()) != HarmattanOsType)
         debuggerAspect()->suppressQmlDebuggingOptions();
 }
 
@@ -121,54 +119,25 @@ QString MaemoRunConfiguration::environmentPreparationCommand() const
 
 QString MaemoRunConfiguration::commandPrefix() const
 {
-    if (!deviceConfig())
+    IDevice::ConstPtr dev = DeviceKitInformation::device(target()->kit());
+    if (!dev)
         return QString();
 
-    QString prefix = environmentPreparationCommand() + QLatin1Char(';');
-    if (deviceConfig()->type() == Core::Id(MeeGoOsType))
-        prefix += QLatin1String("DISPLAY=:0.0 ");
+    const QString prefix = environmentPreparationCommand() + QLatin1Char(';');
 
     return QString::fromLatin1("%1 %2").arg(prefix, userEnvironmentChangesAsString());
 }
 
 Utils::PortList MaemoRunConfiguration::freePorts() const
 {
-    const Qt4BuildConfiguration * const bc = activeQt4BuildConfiguration();
-    return bc && deployConfig()
-            ? MaemoGlobal::freePorts(deployConfig()->deviceConfiguration(), bc->qtVersion())
-        : Utils::PortList();
-}
-
-QString MaemoRunConfiguration::localDirToMountForRemoteGdb() const
-{
-    const QString projectDir
-        = QDir::fromNativeSeparators(QDir::cleanPath(activeBuildConfiguration()
-            ->target()->project()->projectDirectory()));
-    const QString execDir
-        = QDir::fromNativeSeparators(QFileInfo(localExecutableFilePath()).path());
-    const int length = qMin(projectDir.length(), execDir.length());
-    int lastSeparatorPos = 0;
-    for (int i = 0; i < length; ++i) {
-        if (projectDir.at(i) != execDir.at(i))
-            return projectDir.left(lastSeparatorPos);
-        if (projectDir.at(i) == QLatin1Char('/'))
-            lastSeparatorPos = i;
-    }
-    return projectDir.length() == execDir.length()
-        ? projectDir : projectDir.left(lastSeparatorPos);
-}
-
-QString MaemoRunConfiguration::remoteProjectSourcesMountPoint() const
-{
-    return MaemoGlobal::homeDirOnDevice(deviceConfig()->sshParameters().userName)
-        + QLatin1String("/gdbSourcesDir_")
-        + QFileInfo(localExecutableFilePath()).fileName();
+    return MaemoGlobal::freePorts(target()->kit());
 }
 
 bool MaemoRunConfiguration::hasEnoughFreePorts(RunMode mode) const
 {
     const int freePortCount = freePorts().count();
-    const bool remoteMountsAllowed = maemoTarget()->allowsRemoteMounts();
+    Core::Id typeId = DeviceTypeKitInformation::deviceTypeId(target()->kit());
+    const bool remoteMountsAllowed = MaddeDevice::allowsRemoteMounts(typeId);
     const int mountDirCount = remoteMountsAllowed
         ? remoteMounts()->validMountSpecificationCount() : 0;
     if (mode == DebugRunMode || mode == DebugRunModeWithBreakOnMain)
@@ -183,16 +152,6 @@ void MaemoRunConfiguration::handleRemoteMountsChanged()
     emit remoteMountsChanged();
     updateEnabledState();
 }
-
-const AbstractQt4MaemoTarget *MaemoRunConfiguration::maemoTarget() const
-{
-    const AbstractQt4MaemoTarget * const maemoTarget
-        = qobject_cast<AbstractQt4MaemoTarget *>(target());
-    Q_ASSERT(maemoTarget);
-    return maemoTarget;
-}
-
-const Core::Id MaemoRunConfiguration::Id = Core::Id(MAEMO_RC_ID);
 
 } // namespace Internal
 } // namespace Madde

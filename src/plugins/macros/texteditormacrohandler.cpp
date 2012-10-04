@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Nicolas Arnaud-Cormos.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -78,8 +76,7 @@ void TextEditorMacroHandler::startRecording(Macros::Macro *macro)
         m_currentEditor->widget()->installEventFilter(this);
 
     // Block completion
-    Core::ActionManager *am = Core::ICore::actionManager();
-    am->command(TextEditor::Constants::COMPLETE_THIS)->shortcut()->blockSignals(true);
+    Core::ActionManager::command(TextEditor::Constants::COMPLETE_THIS)->shortcut()->blockSignals(true);
 }
 
 void TextEditorMacroHandler::endRecordingMacro(Macros::Macro *macro)
@@ -89,8 +86,7 @@ void TextEditorMacroHandler::endRecordingMacro(Macros::Macro *macro)
     IMacroHandler::endRecordingMacro(macro);
 
     // Unblock completion
-    Core::ActionManager *am = Core::ICore::actionManager();
-    am->command(TextEditor::Constants::COMPLETE_THIS)->shortcut()->blockSignals(false);
+    Core::ActionManager::command(TextEditor::Constants::COMPLETE_THIS)->shortcut()->blockSignals(false);
 }
 
 bool TextEditorMacroHandler::canExecuteEvent(const MacroEvent &macroEvent)

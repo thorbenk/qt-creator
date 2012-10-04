@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemopublishingbuildsettingspagefremantlefree.h"
@@ -41,6 +39,8 @@
 #include <qt4projectmanager/qt4buildconfiguration.h>
 #include <qt4projectmanager/qt4projectmanagerconstants.h>
 #include <qtsupport/baseqtversion.h>
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtsupportconstants.h>
 #include <utils/qtcassert.h>
 
 using namespace ProjectExplorer;
@@ -56,11 +56,13 @@ MaemoPublishingBuildSettingsPageFremantleFree::MaemoPublishingBuildSettingsPageF
     ui(new Ui::MaemoPublishingWizardPageFremantleFree)
 {
     ui->setupUi(this);
+
     collectBuildConfigurations(project);
     QTC_ASSERT(!m_buildConfigs.isEmpty(), return);
-    foreach (const Qt4BuildConfiguration * const bc, m_buildConfigs) {
+
+    foreach (const Qt4BuildConfiguration *const bc, m_buildConfigs)
         ui->buildConfigComboBox->addItem(bc->displayName());
-    }
+
     ui->buildConfigComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContentsOnFirstShow);
     ui->buildConfigComboBox->setCurrentIndex(0);
     connect(ui->skipUploadCheckBox, SIGNAL(toggled(bool)),
@@ -74,22 +76,17 @@ MaemoPublishingBuildSettingsPageFremantleFree::~MaemoPublishingBuildSettingsPage
 
 void MaemoPublishingBuildSettingsPageFremantleFree::collectBuildConfigurations(const Project *project)
 {
-    foreach (const Target *const target, project->targets()) {
-        if (target->id() != Core::Id(Constants::MAEMO5_DEVICE_TARGET_ID))
-            continue;
-        foreach (BuildConfiguration * const bc, target->buildConfigurations()) {
-            Qt4BuildConfiguration * const qt4Bc
-                = qobject_cast<Qt4BuildConfiguration *>(bc);
-            if (!qt4Bc)
-                continue;
+    m_buildConfigs.clear();
 
-            QtSupport::BaseQtVersion *lqt = qt4Bc->qtVersion();
-            if (!lqt)
-                continue;
-            if (MaemoGlobal::deviceType(lqt->qmakeCommand().toString()) == Core::Id(Maemo5OsType))
+    foreach (const Target *const target, project->targets()) {
+        QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target->kit());
+        if (!version || version->platformName() != QLatin1String(QtSupport::Constants::MAEMO_FREMANTLE_PLATFORM))
+            continue;
+        foreach (BuildConfiguration *const bc, target->buildConfigurations()) {
+            Qt4BuildConfiguration *const qt4Bc = qobject_cast<Qt4BuildConfiguration *>(bc);
+            if (qt4Bc)
                 m_buildConfigs << qt4Bc;
         }
-        break;
     }
 }
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,28 +25,21 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef MAEMOREMOTECOPYFACILITY_H
 #define MAEMOREMOTECOPYFACILITY_H
 
-#include <remotelinux/deployablefile.h>
+#include <projectexplorer/deployablefile.h>
+#include <projectexplorer/devicesupport/idevice.h>
 
 #include <QList>
-#include <QObject>
 #include <QSharedPointer>
-#include <QString>
 
-namespace Utils {
+namespace QSsh {
 class SshConnection;
 class SshRemoteProcessRunner;
-}
-
-namespace RemoteLinux {
-class LinuxDeviceConfiguration;
 }
 
 namespace Madde {
@@ -59,32 +52,32 @@ public:
     explicit MaemoRemoteCopyFacility(QObject *parent = 0);
     ~MaemoRemoteCopyFacility();
 
-    void copyFiles(const QSharedPointer<Utils::SshConnection> &connection,
-        const QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> &devConf,
-        const QList<RemoteLinux::DeployableFile> &deployables, const QString &mountPoint);
+    void copyFiles(QSsh::SshConnection *connection,
+        const ProjectExplorer::IDevice::ConstPtr &device,
+        const QList<ProjectExplorer::DeployableFile> &deployables, const QString &mountPoint);
     void cancel();
 
 signals:
     void stdoutData(const QString &output);
     void stderrData(const QString &output);
     void progress(const QString &message);
-    void fileCopied(const RemoteLinux::DeployableFile &deployable);
+    void fileCopied(const ProjectExplorer::DeployableFile &deployable);
     void finished(const QString &errorMsg = QString());
 
 private slots:
     void handleConnectionError();
     void handleCopyFinished(int exitStatus);
-    void handleRemoteStdout(const QByteArray &output);
-    void handleRemoteStderr(const QByteArray &output);
+    void handleRemoteStdout();
+    void handleRemoteStderr();
 
 private:
     void copyNextFile();
     void setFinished();
 
-    Utils::SshRemoteProcessRunner *m_copyRunner;
-    Utils::SshRemoteProcessRunner *m_killProcess;
-    QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> m_devConf;
-    QList<RemoteLinux::DeployableFile> m_deployables;
+    QSsh::SshRemoteProcessRunner *m_copyRunner;
+    QSsh::SshRemoteProcessRunner *m_killProcess;
+    ProjectExplorer::IDevice::ConstPtr m_devConf;
+    QList<ProjectExplorer::DeployableFile> m_deployables;
     QString m_mountPoint;
     bool m_isCopying; // TODO: Redundant due to being in sync with m_copyRunner?
 };

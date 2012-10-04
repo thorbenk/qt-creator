@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +33,7 @@
 #include <coreplugin/icore.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
+#include <projectexplorer/kit.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorer.h>
 #include <utils/qtcassert.h>
@@ -43,6 +42,7 @@
 #include <debugger/debuggerplugin.h>
 #include <debugger/debuggerconstants.h>
 #include <debugger/debuggerstartparameters.h>
+#include <debugger/debuggerruncontrolfactory.h>
 #include <qtsupport/baseqtversion.h>
 #include <qtsupport/qmlobservertool.h>
 
@@ -167,7 +167,7 @@ bool QmlProjectRunControlFactory::canRun(RunConfiguration *runConfiguration,
 }
 
 RunControl *QmlProjectRunControlFactory::create(RunConfiguration *runConfiguration,
-                                                RunMode mode)
+                                                RunMode mode, QString *errorMessage)
 {
     QTC_ASSERT(canRun(runConfiguration, mode), return 0);
     QmlProjectRunConfiguration *config = qobject_cast<QmlProjectRunConfiguration *>(runConfiguration);
@@ -187,7 +187,7 @@ RunControl *QmlProjectRunControlFactory::create(RunConfiguration *runConfigurati
     if (mode == NormalRunMode)
         runControl = new QmlProjectRunControl(config, mode);
     else if (mode == DebugRunMode)
-        runControl = createDebugRunControl(config);
+        runControl = createDebugRunControl(config, errorMessage);
     return runControl;
 }
 
@@ -196,13 +196,7 @@ QString QmlProjectRunControlFactory::displayName() const
     return tr("Run");
 }
 
-ProjectExplorer::RunConfigWidget *QmlProjectRunControlFactory::createConfigurationWidget(RunConfiguration *runConfiguration)
-{
-    Q_UNUSED(runConfiguration)
-    return 0;
-}
-
-RunControl *QmlProjectRunControlFactory::createDebugRunControl(QmlProjectRunConfiguration *runConfig)
+RunControl *QmlProjectRunControlFactory::createDebugRunControl(QmlProjectRunConfiguration *runConfig, QString *errorMessage)
 {
     Debugger::DebuggerStartParameters params;
     params.startMode = Debugger::StartInternal;
@@ -221,9 +215,6 @@ RunControl *QmlProjectRunControlFactory::createDebugRunControl(QmlProjectRunConf
     if (runConfig->debuggerAspect()->useCppDebugger())
         params.languages |= Debugger::CppLanguage;
 
-    if (!runConfig->qtVersion()->qtAbis().isEmpty())
-        params.toolChainAbi = runConfig->qtVersion()->qtAbis().first();
-
     // Makes sure that all bindings go through the JavaScript engine, so that
     // breakpoints are actually hit!
     const QString optimizerKey = QLatin1String("QML_DISABLE_OPTIMIZER");
@@ -233,10 +224,11 @@ RunControl *QmlProjectRunControlFactory::createDebugRunControl(QmlProjectRunConf
 
     if (params.executable.isEmpty()) {
         QmlProjectPlugin::showQmlObserverToolWarning();
+        *errorMessage = QString(""); // hack, we already showed a error message
         return 0;
     }
 
-    return Debugger::DebuggerPlugin::createDebugger(params, runConfig);
+    return Debugger::DebuggerPlugin::createDebugger(params, runConfig, errorMessage);
 }
 
 } // namespace Internal

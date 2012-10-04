@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,9 +34,11 @@
 #include "debugger_global.h"
 #include "debuggerconstants.h"
 
-#include <utils/ssh/sshconnection.h>
+#include <coreplugin/id.h>
+#include <ssh/sshconnection.h>
 #include <utils/environment.h>
 #include <projectexplorer/abi.h>
+#include <projectexplorer/kit.h>
 #include <projectexplorer/projectexplorerconstants.h>
 
 #include <QMetaType>
@@ -57,7 +57,11 @@ public:
     };
 
     DebuggerStartParameters()
-      : isSnapshot(false),
+      : masterEngineType(NoEngineType),
+        firstSlaveEngineType(NoEngineType),
+        secondSlaveEngineType(NoEngineType),
+        cppEngineType(NoEngineType),
+        isSnapshot(false),
         attachPID(-1),
         useTerminal(false),
         breakOnMain(false),
@@ -65,17 +69,23 @@ public:
         languages(AnyLanguage),
         qmlServerAddress(QLatin1String("127.0.0.1")),
         qmlServerPort(ProjectExplorer::Constants::QML_DEFAULT_DEBUG_SERVER_PORT),
-        useServerStartScript(false),
-        requestRemoteSetup(false),
+        remoteSetupNeeded(false),
         startMode(NoStartMode),
         closeMode(KillAtClose),
-        executableUid(0),
-        communicationChannel(CommunicationChannelTcpIp),
-        serverPort(0),
         testReceiver(0),
         testCallback(0),
         testCase(0)
     {}
+
+    //Core::Id profileId;
+
+    DebuggerEngineType masterEngineType;
+    DebuggerEngineType firstSlaveEngineType;
+    DebuggerEngineType secondSlaveEngineType;
+    DebuggerEngineType cppEngineType;
+    QString sysRoot;
+    QString debuggerCommand;
+    ProjectExplorer::Abi toolChainAbi;
 
     QString executable;
     QString displayName; // Used in the Snapshots view.
@@ -102,28 +112,18 @@ public:
     QString projectBuildDirectory;
     QStringList projectSourceFiles;
 
-
-    QString qtInstallPath;
     // Used by remote debugging.
     QString remoteChannel;
-    QString remoteArchitecture;
-    QString gnuTarget;
     QString symbolFileName;
-    bool useServerStartScript;
     QString serverStartScript;
-    QString sysroot;
     QString searchPath; // Gdb "set solib-search-path"
     QString debugInfoLocation; // Gdb "set-debug-file-directory".
     QStringList debugSourceLocation; // Gdb "directory"
-    QByteArray remoteDumperLib;
     QByteArray remoteSourcesDir;
     QString remoteMountPoint;
     QString localMountDir;
-    Utils::SshConnectionParameters connParams;
-    bool requestRemoteSetup;
-
-    QString debuggerCommand;
-    ProjectExplorer::Abi toolChainAbi;
+    QSsh::SshConnectionParameters connParams;
+    bool remoteSetupNeeded;
 
     QString dumperLibrary;
     QStringList solibSearchPath;
@@ -131,11 +131,8 @@ public:
     DebuggerStartMode startMode;
     DebuggerCloseMode closeMode;
 
-    // For Symbian debugging.
-    quint32 executableUid;
-    CommunicationChannel communicationChannel;
-    QString serverAddress;
-    quint16 serverPort;
+    // For QNX debugging
+    QString remoteExecutable;
 
     // For Debugger testing.
     QObject *testReceiver;
@@ -143,6 +140,11 @@ public:
     int testCase;
 };
 
+namespace Internal {
+
+bool fillParameters(DebuggerStartParameters *sp, const ProjectExplorer::Kit *kit = 0, QString *errorMessage = 0);
+
+} // namespace Internal
 } // namespace Debugger
 
 Q_DECLARE_METATYPE(Debugger::DebuggerStartParameters)

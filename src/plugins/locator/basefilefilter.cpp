@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,20 +25,20 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "basefilefilter.h"
 
 #include <coreplugin/editormanager/editormanager.h>
+#include <utils/fileutils.h>
 
 #include <QDir>
 #include <QStringMatcher>
 
 using namespace Core;
 using namespace Locator;
+using namespace Utils;
 
 BaseFileFilter::BaseFileFilter()
   : m_forceNewSearchList(false)
@@ -51,6 +51,7 @@ QList<FilterEntry> BaseFileFilter::matchesFor(QFutureInterface<Locator::FilterEn
     QList<FilterEntry> matches;
     QList<FilterEntry> badMatches;
     QString needle = trimWildcards(origEntry);
+    const QString lineNoSuffix = EditorManager::splitLineNumber(&needle);
     QStringMatcher matcher(needle, Qt::CaseInsensitive);
     const QChar asterisk = QLatin1Char('*');
     QRegExp regexp(asterisk + needle+ asterisk, Qt::CaseInsensitive, QRegExp::Wildcard);
@@ -81,8 +82,8 @@ QList<FilterEntry> BaseFileFilter::matchesFor(QFutureInterface<Locator::FilterEn
         if ((hasWildcard && regexp.exactMatch(name))
                 || (!hasWildcard && matcher.indexIn(name) != -1)) {
             QFileInfo fi(path);
-            FilterEntry entry(this, fi.fileName(), path);
-            entry.extraInfo = QDir::toNativeSeparators(fi.path());
+            FilterEntry entry(this, fi.fileName(), QString(path + lineNoSuffix));
+            entry.extraInfo = FileUtils::shortNativePath(FileName(fi));
             entry.resolveFileIcon = true;
             if (name.startsWith(needle))
                 matches.append(entry);
@@ -99,7 +100,8 @@ QList<FilterEntry> BaseFileFilter::matchesFor(QFutureInterface<Locator::FilterEn
 
 void BaseFileFilter::accept(Locator::FilterEntry selection) const
 {
-    EditorManager::openEditor(selection.internalData.toString(), Id(), EditorManager::ModeSwitch);
+    EditorManager::openEditor(selection.internalData.toString(), Id(),
+                              EditorManager::ModeSwitch | EditorManager::CanContainLineNumber);
 }
 
 void BaseFileFilter::generateFileNames()

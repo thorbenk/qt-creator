@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -44,7 +42,6 @@
 
 namespace GenericProjectManager {
 namespace Internal {
-
 
 struct Tree
 {
@@ -70,6 +67,7 @@ struct Glob
 class SelectableFilesModel : public QAbstractItemModel
 {
     Q_OBJECT
+
 public:
     SelectableFilesModel(const QString &baseDir, QObject *parent);
     ~SelectableFilesModel();
@@ -94,11 +92,14 @@ public:
     void waitForFinished();
     void cancel();
     void applyFilter(const QString &filter);
+
 signals:
     void parsingFinished();
     void parsingProgress(const QString &filename);
+
 private slots:
     void buildTreeFinished();
+
 private:
     QList<Glob> parseFilter(const QString &filter);
     Qt::CheckState applyFilter(const QModelIndex &index);
@@ -126,6 +127,7 @@ private:
 class SelectableFilesDialog : public QDialog
 {
     Q_OBJECT
+
 public:
     SelectableFilesDialog(const QString &path, const QStringList files, QWidget *parent);
     ~SelectableFilesDialog();
@@ -147,8 +149,7 @@ private:
     QLabel *m_progressLabel;
 };
 
-}
-}
-
+} // namespace Internal
+} // namespace GenericProjectManager
 
 #endif // SELECTABLEFILESMODEL_H

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,40 +25,37 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef TYPESPECIFICDEVICECONFIGURATIONLISTMODEL_H
 #define TYPESPECIFICDEVICECONFIGURATIONLISTMODEL_H
 
-#include "linuxdeviceconfiguration.h"
+#include <projectexplorer/devicesupport/idevice.h>
 
 #include <QAbstractListModel>
-#include <QSharedPointer>
+
+namespace ProjectExplorer { class Target; }
 
 namespace RemoteLinux {
-class AbstractEmbeddedLinuxTarget;
 namespace Internal {
 
 class TypeSpecificDeviceConfigurationListModel : public QAbstractListModel
 {
     Q_OBJECT
+
 public:
-    explicit TypeSpecificDeviceConfigurationListModel(AbstractEmbeddedLinuxTarget *target);
-    ~TypeSpecificDeviceConfigurationListModel();
+    explicit TypeSpecificDeviceConfigurationListModel(ProjectExplorer::Target *target);
 
-    virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
-    virtual QVariant data(const QModelIndex &index,
-        int role = Qt::DisplayRole) const;
-
-    QSharedPointer<const LinuxDeviceConfiguration> deviceAt(int idx) const;
-    QSharedPointer<const LinuxDeviceConfiguration> defaultDeviceConfig() const;
-    QSharedPointer<const LinuxDeviceConfiguration> find(Core::Id id) const;
-    int indexForId(Core::Id id) const;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
 
 private:
-    AbstractEmbeddedLinuxTarget * target() const;
+    int indexForId(Core::Id id) const;
+    ProjectExplorer::IDevice::ConstPtr deviceAt(int idx) const;
+    ProjectExplorer::IDevice::ConstPtr defaultDeviceConfig() const;
+    ProjectExplorer::IDevice::ConstPtr find(Core::Id id) const;
+    ProjectExplorer::Target *target() const;
+    bool deviceMatches(ProjectExplorer::IDevice::ConstPtr dev) const;
 };
 
 } // namespace Internal

@@ -1,11 +1,8 @@
     \section1 Specifying Run Settings for Qt Quick UI Projects
 
-    You can specify run settings for the \gui Desktop target:
+    You can specify run settings for \l{glossary-buildandrun-kit}{kits} with \gui Desktop device type:
 
     \list
-
-        \o  In the \gui {Qt version} field, select a Qt version that has support
-            for QML.
 
         \o  In the \gui Arguments field, you can specify command line arguments
             to be passed to the executable.

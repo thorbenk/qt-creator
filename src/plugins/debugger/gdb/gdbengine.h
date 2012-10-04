@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +34,7 @@
 #include "debuggerengine.h"
 
 #include "stackframe.h"
+#include "watchhandler.h"
 #include "watchutils.h"
 
 #include <QByteArray>
@@ -55,7 +54,6 @@
 namespace Debugger {
 namespace Internal {
 
-class AbstractGdbAdapter;
 class AbstractGdbProcess;
 class DebugInfoTask;
 class DebugInfoTaskHandler;
@@ -67,27 +65,12 @@ class WatchData;
 class DisassemblerAgentCookie;
 class DisassemblerLines;
 
-class AttachGdbAdapter;
-class CoreGdbAdapter;
-class LocalPlainGdbAdapter;
-class RemoteGdbServerAdapter;
-
 enum DebuggingHelperState
 {
     DebuggingHelperUninitialized,
     DebuggingHelperLoadTried,
     DebuggingHelperAvailable,
     DebuggingHelperUnavailable
-};
-
-class UpdateParameters
-{
-public:
-    UpdateParameters() { tryPartial = tooltipOnly = false; }
-
-    bool tryPartial;
-    bool tooltipOnly;
-    QByteArray varList;
 };
 
 /* This is only used with Mac gdb since 2.2
@@ -212,33 +195,20 @@ class GdbEngine : public Debugger::DebuggerEngine
     Q_OBJECT
 
 public:
-    GdbEngine(const DebuggerStartParameters &startParameters,
-        DebuggerEngine *masterEngine);
+    explicit GdbEngine(const DebuggerStartParameters &startParameters);
     ~GdbEngine();
-    AbstractGdbAdapter *gdbAdapter() const { return m_gdbAdapter; }
-
-private:
-    friend class AbstractGdbAdapter;
-    friend class AbstractPlainGdbAdapter;
-    friend class AttachGdbAdapter;
-    friend class CoreGdbAdapter;
-    friend class LocalPlainGdbAdapter;
-    friend class TermGdbAdapter;
-    friend class RemoteGdbServerAdapter;
-    friend class RemotePlainGdbAdapter;
-    friend class CodaGdbAdapter;
 
 private: ////////// General Interface //////////
 
-    virtual void setupEngine();
-    virtual void setupInferior();
-    virtual void runEngine();
+    virtual void setupEngine() = 0;
+    virtual void handleGdbStartFailed();
+    virtual void setupInferior() = 0;
+    virtual void notifyInferiorSetupFailed();
 
     virtual bool hasCapability(unsigned) const;
     virtual void detachDebugger();
-    virtual void shutdownEngine();
     virtual void shutdownInferior();
-    virtual void notifyInferiorSetupFailed();
+    virtual void shutdownEngine() = 0;
     virtual void abortDebugger();
 
     virtual bool acceptsDebuggerCommands() const;
@@ -254,18 +224,14 @@ private: ////////// General State //////////
 
     bool m_registerNamesListed;
 
-private: ////////// Gdb Process Management //////////
+protected: ////////// Gdb Process Management //////////
 
-    AbstractGdbAdapter *createAdapter();
-    bool startGdb(const QStringList &args = QStringList(),
-                  const QString &settingsIdHint = QString());
+    void startGdb(const QStringList &args = QStringList());
+    void reportEngineSetupOk(const GdbResponse &response);
     void handleInferiorShutdown(const GdbResponse &response);
     void handleGdbExit(const GdbResponse &response);
-    void handleRemoteSetupDone(int gdbServerPort, int qmlPort);
-    void handleRemoteSetupFailed(const QString &message);
     void handleNamespaceExtraction(const GdbResponse &response);
 
-    void handleAdapterStarted();
     void loadInitScript();
     void loadPythonDumpers();
     void pythonDumpersFailed();
@@ -307,8 +273,6 @@ private:
     QByteArray m_inbuffer;
     bool m_busy;
 
-    AbstractGdbAdapter *m_gdbAdapter;
-
     // Name of the convenience variable containing the last
     // known function return value.
     QByteArray m_resultVarName;
@@ -322,9 +286,6 @@ private: ////////// Gdb Command Management //////////
         NeedsStop = 1,
         // No need to wait for the reply before continuing inferior.
         Discardable = 2,
-        // Trigger watch model rebuild when no such commands are pending anymore.
-        RebuildWatchModel = 4,
-        WatchUpdate = Discardable | RebuildWatchModel,
         // We can live without receiving an answer.
         NonCriticalResponse = 8,
         // Callback expects GdbResultRunning instead of GdbResultDone.
@@ -341,22 +302,18 @@ private: ////////// Gdb Command Management //////////
         ConsoleCommand = 512
     };
     Q_DECLARE_FLAGS(GdbCommandFlags, GdbCommandFlag)
-    private:
 
-    typedef void (GdbEngine::*GdbCommandCallback)
-        (const GdbResponse &response);
-    typedef void (AbstractGdbAdapter::*AdapterCallback)
-        (const GdbResponse &response);
+    protected:
+    typedef void (GdbEngine::*GdbCommandCallback)(const GdbResponse &response);
 
     struct GdbCommand
     {
         GdbCommand()
-            : flags(0), callback(0), adapterCallback(0), callbackName(0)
+            : flags(0), callback(0), callbackName(0)
         {}
 
         int flags;
         GdbCommandCallback callback;
-        AdapterCallback adapterCallback;
         const char *callbackName;
         QByteArray command;
         QVariant cookie;
@@ -368,6 +325,7 @@ private: ////////// Gdb Command Management //////////
     // send and decrements on receipt, effectively preventing
     // watch model updates before everything is finished.
     void flushCommand(const GdbCommand &cmd);
+protected:
     void postCommand(const QByteArray &command,
                      GdbCommandFlags flags,
                      GdbCommandCallback callback = 0,
@@ -377,15 +335,7 @@ private: ////////// Gdb Command Management //////////
                      GdbCommandCallback callback = 0,
                      const char *callbackName = 0,
                      const QVariant &cookie = QVariant());
-    void postCommand(const QByteArray &command,
-                     AdapterCallback callback,
-                     const char *callbackName,
-                     const QVariant &cookie = QVariant());
-    void postCommand(const QByteArray &command,
-                     GdbCommandFlags flags,
-                     AdapterCallback callback,
-                     const char *callbackName,
-                     const QVariant &cookie = QVariant());
+private:
     void postCommandHelper(const GdbCommand &cmd);
     void flushQueuedCommands();
     Q_SLOT void commandTimeout();
@@ -407,7 +357,6 @@ private: ////////// Gdb Command Management //////////
     int m_oldestAcceptableToken;
     int m_nonDiscardableCount;
 
-    int m_pendingWatchRequests; // Watch updating commands in flight
     int m_pendingBreakpointRequests; // Watch updating commands in flight
 
     typedef void (GdbEngine::*CommandsDoneCallback)();
@@ -416,9 +365,10 @@ private: ////////// Gdb Command Management //////////
 
     QList<GdbCommand> m_commandsToRunOnTemporaryBreak;
     int gdbVersion() const { return m_gdbVersion; }
+    void checkForReleaseBuild();
 
 private: ////////// Gdb Output, State & Capability Handling //////////
-
+protected:
     Q_SLOT void handleResponse(const QByteArray &buff);
     void handleStopResponse(const GdbMi &data);
     void handleResultRecord(GdbResponse *response);
@@ -462,11 +412,12 @@ private: ////////// Inferior Management //////////
     void executeStepI();
     void executeNextI();
 
+    protected:
     void continueInferiorInternal();
-    void doNotifyInferiorRunOk();
     void autoContinueInferior();
     void continueInferior();
     void interruptInferior();
+    virtual void interruptInferior2() {}
     void interruptInferiorTemporarily();
 
     void executeRunToLine(const ContextData &data);
@@ -485,9 +436,11 @@ private: ////////// Inferior Management //////////
     void handleInfoProc(const GdbResponse &response);
 
 private: ////////// View & Data Stuff //////////
+    protected:
 
     void selectThread(int index);
     void activateFrame(int index);
+    void resetLocation();
 
     //
     // Breakpoint specific stuff
@@ -520,7 +473,7 @@ private: ////////// View & Data Stuff //////////
     // Modules specific stuff
     //
     void loadSymbols(const QString &moduleName);
-    void loadAllSymbols();
+    Q_SLOT void loadAllSymbols();
     void loadSymbolsForStack();
     void requestModuleSymbols(const QString &moduleName);
     void reloadModules();
@@ -528,8 +481,6 @@ private: ////////// View & Data Stuff //////////
     void reloadModulesInternal();
     void handleModulesList(const GdbResponse &response);
     void handleShowModuleSymbols(const GdbResponse &response);
-
-    bool m_modulesListOutdated;
 
     //
     // Snapshot specific stuff
@@ -544,6 +495,7 @@ private: ////////// View & Data Stuff //////////
     void setRegisterValue(int nr, const QString &value);
     void handleRegisterListNames(const GdbResponse &response);
     void handleRegisterListValues(const GdbResponse &response);
+    QVector<int> m_registerNumbers; // Map GDB register numbers to indices
 
     //
     // Disassembler specific stuff
@@ -597,6 +549,7 @@ private: ////////// View & Data Stuff //////////
     //
     // Stack specific stuff
     //
+protected:
     void updateAll();
         void updateAllClassic();
         void updateAllPython();
@@ -630,13 +583,11 @@ private: ////////// View & Data Stuff //////////
     virtual void watchPoint(const QPoint &);
     void handleWatchPoint(const GdbResponse &response);
 
-    // FIXME: BaseClass. called to improve situation for a watch item
     void updateSubItemClassic(const WatchData &data);
 
-    void virtual updateWatchData(const WatchData &data, const WatchUpdateFlags &flags);
-    Q_SLOT void updateWatchDataHelper(const WatchData &data);
+    void updateWatchData(const WatchData &data, const WatchUpdateFlags &flags);
     void rebuildWatchModel();
-    bool showToolTip();
+    void showToolTip();
 
     void insertData(const WatchData &data);
     void sendWatchParameters(const QByteArray &params0);
@@ -672,7 +623,6 @@ private: ////////// View & Data Stuff //////////
             void handleStackFramePython(const GdbResponse &response);
 
     void handleStackListLocalsClassic(const GdbResponse &response);
-    void handleStackListLocalsPython(const GdbResponse &response);
 
     WatchData localVariable(const GdbMi &item,
                             const QStringList &uninitializedVariables,
@@ -696,7 +646,6 @@ private: ////////// View & Data Stuff //////////
     bool checkDebuggingHelpersClassic();
     void setDebuggingHelperStateClassic(DebuggingHelperState);
     void tryLoadDebuggingHelpersClassic();
-    void tryQueryDebuggingHelpersClassic();
 
     DebuggingHelperState m_debuggingHelperState;
     DumperHelper m_dumperHelper;
@@ -711,7 +660,6 @@ private: ////////// View & Data Stuff //////////
 
     static QByteArray tooltipIName(const QString &exp);
     QString tooltipExpression() const;
-    void clearToolTip();
     QScopedPointer<GdbToolTipContext> m_toolTipContext;
 
 
@@ -738,7 +686,7 @@ private: ////////// View & Data Stuff //////////
     QString m_lastWinException;
     QString m_lastMissingDebugInfo;
     BreakpointResponseId m_qFatalBreakpointResponseId;
-    bool m_actingOnExpectedStop;
+    bool m_terminalTrap;
 
     bool usesExecInterrupt() const;
 
@@ -754,7 +702,38 @@ private: ////////// View & Data Stuff //////////
     // debug information.
     bool attemptQuickStart() const;
     bool m_fullStartDone;
+
+    // Test
+    bool m_forceAsyncModel;
+    QList<WatchData> m_completed;
+    QSet<QByteArray> m_uncompleted;
+
+    static QString msgGdbStopFailed(const QString &why);
+    static QString msgInferiorStopFailed(const QString &why);
+    static QString msgAttachedToStoppedInferior();
+    static QString msgInferiorSetupOk();
+    static QString msgInferiorRunOk();
+    static QString msgConnectRemoteServerFailed(const QString &why);
+
+protected:
+    enum DumperHandling
+    {
+        DumperNotAvailable,
+        DumperLoadedByAdapter,
+        DumperLoadedByGdbPreload,
+        DumperLoadedByGdb
+    };
+
+    virtual void write(const QByteArray &data);
+
+    virtual AbstractGdbProcess *gdbProc() = 0;
+    virtual DumperHandling dumperHandling() const = 0;
+
+protected:
+    bool prepareCommand();
+    void interruptLocalInferior(qint64 pid);
 };
+
 
 } // namespace Internal
 } // namespace Debugger

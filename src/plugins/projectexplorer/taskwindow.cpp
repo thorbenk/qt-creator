@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -220,6 +218,7 @@ public:
     QToolButton *m_categoriesButton;
     QMenu *m_categoriesMenu;
     TaskHub *m_taskHub;
+    int m_badgeCount;
 };
 
 static QToolButton *createFilterButton(QIcon icon, const QString &toolTip,
@@ -256,6 +255,7 @@ TaskWindow::TaskWindow(TaskHub *taskhub) : d(new TaskWindowPrivate)
 
     d->m_taskWindowContext = new Internal::TaskWindowContext(d->m_listview);
     d->m_taskHub = taskhub;
+    d->m_badgeCount = 0;
 
     Core::ICore::addContextObject(d->m_taskWindowContext);
 
@@ -305,8 +305,8 @@ TaskWindow::TaskWindow(TaskHub *taskhub) : d(new TaskWindowPrivate)
             this, SLOT(clearTasks(Core::Id)));
     connect(d->m_taskHub, SIGNAL(categoryVisibilityChanged(Core::Id,bool)),
             this, SLOT(setCategoryVisibility(Core::Id,bool)));
-    connect(d->m_taskHub, SIGNAL(popupRequested(bool)),
-            this, SLOT(popup(bool)));
+    connect(d->m_taskHub, SIGNAL(popupRequested(int)),
+            this, SLOT(popup(int)));
     connect(d->m_taskHub, SIGNAL(showTask(uint)),
             this, SLOT(showTask(uint)));
     connect(d->m_taskHub, SIGNAL(openTask(uint)),
@@ -336,11 +336,24 @@ QWidget *TaskWindow::outputWidget(QWidget *)
 
 void TaskWindow::clearTasks(const Core::Id &categoryId)
 {
+    if (categoryId.uniqueIdentifier() != 0 && !d->m_filter->filteredCategories().contains(categoryId)) {
+        if (d->m_filter->filterIncludesErrors())
+            d->m_badgeCount -= d->m_model->errorTaskCount(categoryId);
+        if (d->m_filter->filterIncludesWarnings())
+            d->m_badgeCount -= d->m_model->warningTaskCount(categoryId);
+        if (d->m_filter->filterIncludesUnknowns())
+            d->m_badgeCount -= d->m_model->unknownTaskCount(categoryId);
+    } else {
+        d->m_badgeCount = 0;
+    }
+
     d->m_model->clearTasks(categoryId);
 
     emit tasksChanged();
     emit tasksCleared();
     navigateStateChanged();
+
+    setBadgeNumber(d->m_badgeCount);
 }
 
 void TaskWindow::setCategoryVisibility(const Core::Id &categoryId, bool visible)
@@ -357,6 +370,17 @@ void TaskWindow::setCategoryVisibility(const Core::Id &categoryId, bool visible)
     }
 
     d->m_filter->setFilteredCategories(categories);
+
+    int count = 0;
+    if (d->m_filter->filterIncludesErrors())
+        count += d->m_model->errorTaskCount(categoryId);
+    if (d->m_filter->filterIncludesWarnings())
+        count += d->m_model->warningTaskCount(categoryId);
+    if (visible)
+        d->m_badgeCount += count;
+    else
+        d->m_badgeCount -= count;
+    setBadgeNumber(d->m_badgeCount);
 }
 
 void TaskWindow::visibilityChanged(bool /* b */)
@@ -379,6 +403,20 @@ void TaskWindow::addTask(const Task &task)
 
     emit tasksChanged();
     navigateStateChanged();
+
+    if (task.type == Task::Error && d->m_filter->filterIncludesErrors()
+            && !d->m_filter->filteredCategories().contains(task.category)) {
+        flash();
+        setBadgeNumber(++d->m_badgeCount);
+    }
+    if (task.type == Task::Warning && d->m_filter->filterIncludesWarnings()
+            && !d->m_filter->filteredCategories().contains(task.category)) {
+        setBadgeNumber(++d->m_badgeCount);
+    }
+    if (task.type == Task::Unknown && d->m_filter->filterIncludesUnknowns()
+            && !d->m_filter->filteredCategories().contains(task.category)) {
+        setBadgeNumber(++d->m_badgeCount);
+    }
 }
 
 void TaskWindow::removeTask(const Task &task)
@@ -387,6 +425,19 @@ void TaskWindow::removeTask(const Task &task)
 
     emit tasksChanged();
     navigateStateChanged();
+
+    if (task.type == Task::Error && d->m_filter->filterIncludesErrors()
+            && !d->m_filter->filteredCategories().contains(task.category)) {
+        setBadgeNumber(--d->m_badgeCount);
+    }
+    if (task.type == Task::Warning && d->m_filter->filterIncludesWarnings()
+            && !d->m_filter->filteredCategories().contains(task.category)) {
+        setBadgeNumber(--d->m_badgeCount);
+    }
+    if (task.type == Task::Unknown && d->m_filter->filterIncludesUnknowns()
+            && !d->m_filter->filteredCategories().contains(task.category)) {
+        setBadgeNumber(--d->m_badgeCount);
+    }
 }
 
 void TaskWindow::updatedTaskFileName(unsigned int id, const QString &fileName)
@@ -407,7 +458,7 @@ void TaskWindow::showTask(unsigned int id)
     QModelIndex sourceIdx = d->m_model->index(sourceRow, 0);
     QModelIndex filterIdx = d->m_filter->mapFromSource(sourceIdx);
     d->m_listview->setCurrentIndex(filterIdx);
-    popup(false);
+    popup(Core::IOutputPane::ModeSwitch);
 }
 
 void TaskWindow::openTask(unsigned int id)
@@ -425,7 +476,7 @@ void TaskWindow::triggerDefaultHandler(const QModelIndex &index)
 
     // Find a default handler to use:
     if (!d->m_defaultHandler) {
-        QList<ITaskHandler *> handlers = ExtensionSystem::PluginManager::instance()->getObjects<ITaskHandler>();
+        QList<ITaskHandler *> handlers = ExtensionSystem::PluginManager::getObjects<ITaskHandler>();
         foreach(ITaskHandler *handler, handlers) {
             if (handler->isDefaultHandler()) {
                 d->m_defaultHandler = handler;
@@ -458,7 +509,7 @@ void TaskWindow::showContextMenu(const QPoint &position)
     if (task.isNull())
         return;
 
-    QList<ITaskHandler *> handlers = ExtensionSystem::PluginManager::instance()->getObjects<ITaskHandler>();
+    QList<ITaskHandler *> handlers = ExtensionSystem::PluginManager::getObjects<ITaskHandler>();
     foreach(ITaskHandler *handler, handlers) {
         if (handler == d->m_defaultHandler)
             continue;
@@ -495,6 +546,7 @@ void TaskWindow::setShowWarnings(bool show)
 {
     d->m_filter->setFilterIncludesWarnings(show);
     d->m_filter->setFilterIncludesUnknowns(show); // "Unknowns" are often associated with warnings
+    setBadgeNumber(d->m_filter->rowCount());
 }
 
 void TaskWindow::updateCategoriesMenu()

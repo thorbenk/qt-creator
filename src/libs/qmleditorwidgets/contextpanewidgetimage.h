@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,9 +32,11 @@
 #define CONTEXTPANEWIDGETIMAGE_H
 
 #include <qmleditorwidgets_global.h>
-#include <QLabel>
 #include <contextpanewidget.h>
 #include <qdrawutil.h>
+
+#include <QLabel>
+#include <QPointer>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -159,7 +159,7 @@ private:
     Ui::ContextPaneWidgetImage *ui;
     Ui::ContextPaneWidgetBorderImage *uiBorderImage;
     QString m_path;
-    QWeakPointer<PreviewDialog> m_previewDialog;    
+    QPointer<PreviewDialog> m_previewDialog;
     FileWidget *m_fileWidget;
     QLabel *m_sizeLabel;
     bool m_borderImage;

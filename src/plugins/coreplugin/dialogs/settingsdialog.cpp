@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +33,7 @@
 #include <extensionsystem/pluginmanager.h>
 #include "icore.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/filterlineedit.h>
 
 #include <QSettings>
@@ -138,6 +137,8 @@ QVariant CategoryModel::data(const QModelIndex &index, int role) const
 void CategoryModel::setPages(const QList<IOptionsPage*> &pages,
                              const QList<IOptionsPageProvider *> &providers)
 {
+    beginResetModel();
+
     // Clear any previous categories
     qDeleteAll(m_categories);
     m_categories.clear();
@@ -177,7 +178,7 @@ void CategoryModel::setPages(const QList<IOptionsPage*> &pages,
         category->providers.append(provider);
     }
 
-    reset();
+    endResetModel();
 }
 
 Category *CategoryModel::findCategoryById(const QString &id)
@@ -275,7 +276,7 @@ bool optionsPageLessThan(const IOptionsPage *p1, const IOptionsPage *p2)
 
 static inline QList<Core::IOptionsPage*> sortedOptionsPages()
 {
-    QList<Core::IOptionsPage*> rc = ExtensionSystem::PluginManager::instance()->getObjects<IOptionsPage>();
+    QList<Core::IOptionsPage*> rc = ExtensionSystem::PluginManager::getObjects<IOptionsPage>();
     qStableSort(rc.begin(), rc.end(), optionsPageLessThan);
     return rc;
 }
@@ -297,14 +298,13 @@ SettingsDialog::SettingsDialog(QWidget *parent) :
 
     createGui();
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-#ifdef Q_OS_MAC
-    setWindowTitle(tr("Preferences"));
-#else
-    setWindowTitle(tr("Options"));
-#endif
+    if (Utils::HostOsInfo::isMacHost())
+        setWindowTitle(tr("Preferences"));
+    else
+        setWindowTitle(tr("Options"));
 
     m_model->setPages(m_pages,
-        ExtensionSystem::PluginManager::instance()->getObjects<IOptionsPageProvider>());
+        ExtensionSystem::PluginManager::getObjects<IOptionsPageProvider>());
 
     m_proxyModel->setSourceModel(m_model);
     m_proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
@@ -543,6 +543,8 @@ void SettingsDialog::done(int val)
     QSettings *settings = ICore::settings();
     settings->setValue(QLatin1String(categoryKeyC), m_currentCategory);
     settings->setValue(QLatin1String(pageKeyC), m_currentPage);
+
+    ICore::saveSettings(); // save all settings
 
     // exit all additional event loops, see comment in execDialog()
     QListIterator<QEventLoop *> it(m_eventLoops);

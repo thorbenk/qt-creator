@@ -5,7 +5,8 @@ TEMPLATE = app
 TARGET = $$IDE_APP_TARGET
 DESTDIR = $$IDE_APP_PATH
 
-SOURCES += main.cpp
+HEADERS += ../tools/qtcreatorcrashhandler/crashhandlersetup.h
+SOURCES += main.cpp ../tools/qtcreatorcrashhandler/crashhandlersetup.cpp
 
 include(../rpath.pri)
 
@@ -17,7 +18,7 @@ QT_BREAKPAD_ROOT_PATH = $$(QT_BREAKPAD_ROOT_PATH)
 }
 win32 {
     RC_FILE = qtcreator.rc
-    target.path = /bin
+    target.path = $$QTC_PREFIX/bin
     INSTALLS += target
 } else:macx {
     LIBS += -framework CoreFoundation
@@ -29,7 +30,7 @@ win32 {
     info.output = $$IDE_BIN_PATH/../Info.plist
     QMAKE_SUBSTITUTES = info
 } else {
-    target.path  = /bin
+    target.path  = $$QTC_PREFIX/bin
     INSTALLS    += target
 }
 
@@ -38,3 +39,5 @@ OTHER_FILES += qtcreator.rc \
     $$PWD/app_version.h.in
 
 QMAKE_SUBSTITUTES += $$PWD/app_version.h.in
+
+CONFIG += no_batch

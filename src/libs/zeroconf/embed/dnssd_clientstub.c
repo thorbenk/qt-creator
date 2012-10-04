@@ -56,11 +56,13 @@ static int gDaemonErr = kDNSServiceErr_NoError;
         #define sockaddr_mdns sockaddr_in
         #define AF_MDNS AF_INET
 
+        #ifdef _MSC_VER
         // Disable warning: "'type cast' : from data pointer 'void *' to function pointer"
         #pragma warning(disable:4055)
 
         // Disable warning: "nonstandard extension, function/data pointer conversion in expression"
         #pragma warning(disable:4152)
+        #endif
 
         //extern BOOL IsSystemServiceDisabled();
 
@@ -79,9 +81,33 @@ namespace ZeroConf { namespace embeddedLib {
                 DWORD err = WSAGetLastError();
                 (void) priority;
                 va_start( args, message );
+        #ifdef _MSC_VER
                 len = _vscprintf( message, args ) + 1;
                 buffer = reinterpret_cast<char*>(malloc( len * sizeof(char) ));
-                if ( buffer ) { vsprintf( buffer, message, args ); OutputDebugStringA( buffer ); free( buffer ); }
+                if ( buffer ) {
+                    vsprintf(buffer, message, args);
+                    OutputDebugStringA(buffer);
+                    free(buffer);
+                }
+        #else // MinGW 4.4, no longer required for 4.6
+                len = vsnprintf(NULL, 0, message, args);
+                va_end(args);
+                if (len == -1) // encoding error
+                    return;
+                buffer = reinterpret_cast<char*>(malloc((len + 1) * sizeof(char)));
+                if (buffer == NULL) // no memory allocation possible
+                    return;
+                va_start(args, message);
+                len = vsnprintf(buffer, (len + 1) * sizeof(char), message, args);
+                va_end(args);
+                if (len == -1) { // encoding error
+                    free(buffer);
+                    return;
+                } else {
+                    OutputDebugStringA(buffer);
+                    free(buffer);
+                }
+        #endif
                 WSASetLastError( err );
                 }
 }}

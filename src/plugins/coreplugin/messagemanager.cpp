@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -50,9 +48,8 @@ MessageManager::MessageManager()
 
 MessageManager::~MessageManager()
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    if (pm && m_messageOutputWindow) {
-        pm->removeObject(m_messageOutputWindow);
+    if (m_messageOutputWindow) {
+        ExtensionSystem::PluginManager::removeObject(m_messageOutputWindow);
         delete m_messageOutputWindow;
     }
 
@@ -62,13 +59,13 @@ MessageManager::~MessageManager()
 void MessageManager::init()
 {
     m_messageOutputWindow = new Internal::MessageOutputWindow;
-    ExtensionSystem::PluginManager::instance()->addObject(m_messageOutputWindow);
+    ExtensionSystem::PluginManager::addObject(m_messageOutputWindow);
 }
 
 void MessageManager::showOutputPane()
 {
     if (m_messageOutputWindow)
-        m_messageOutputWindow->popup(false);
+        m_messageOutputWindow->popup(IOutputPane::ModeSwitch);
 }
 
 void MessageManager::printToOutputPane(const QString &text, bool bringToForeground)
@@ -76,17 +73,17 @@ void MessageManager::printToOutputPane(const QString &text, bool bringToForegrou
     if (!m_messageOutputWindow)
         return;
     if (bringToForeground)
-        m_messageOutputWindow->popup(false);
+        m_messageOutputWindow->popup(IOutputPane::ModeSwitch);
     m_messageOutputWindow->append(text + QLatin1Char('\n'));
 }
 
 void MessageManager::printToOutputPanePopup(const QString &text)
 {
-    printToOutputPane(text + QLatin1Char('\n'), true);
+    printToOutputPane(text, true);
 }
 
 void MessageManager::printToOutputPane(const QString &text)
 {
-    printToOutputPane(text + QLatin1Char('\n'), false);
+    printToOutputPane(text, false);
 }
 

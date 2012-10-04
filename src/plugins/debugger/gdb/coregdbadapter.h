@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,15 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef DEBUGGER_COREGDBADAPTER_H
 #define DEBUGGER_COREGDBADAPTER_H
 
-#include "abstractgdbadapter.h"
+#include "gdbengine.h"
 #include "localgdbprocess.h"
 
 namespace Debugger {
@@ -45,37 +43,38 @@ namespace Internal {
 //
 ///////////////////////////////////////////////////////////////////////
 
-class CoreGdbAdapter : public AbstractGdbAdapter
+class GdbCoreEngine : public GdbEngine
 {
     Q_OBJECT
 
 public:
-    explicit CoreGdbAdapter(GdbEngine *engine);
+    explicit GdbCoreEngine(const DebuggerStartParameters &startParameters);
+    ~GdbCoreEngine();
 
 private:
     DumperHandling dumperHandling() const { return DumperNotAvailable; }
 
-    void startAdapter();
+    void setupEngine();
     void setupInferior();
     void runEngine();
     void interruptInferior();
-    void shutdownInferior();
-    void shutdownAdapter();
-
-    Q_SLOT void loadSymbolsForStack();
-    Q_SLOT void loadAllSymbols();
+    void shutdownEngine();
 
     AbstractGdbProcess *gdbProc() { return &m_gdbProc; }
 
-    void handleTemporaryDetach(const GdbResponse &response);
-    void handleTemporaryTargetCore(const GdbResponse &response);
     void handleFileExecAndSymbols(const GdbResponse &response);
     void handleTargetCore(const GdbResponse &response);
-    void handleModulesList(const GdbResponse &response);
+    void handleRoundTrip(const GdbResponse &response);
+    void unpackCoreIfNeeded();
+    QString coreFileName() const;
+    Q_SLOT void continueSetupEngine();
+    QString readExecutableNameFromCore(bool *isCore);
+    QString coreName() const;
 
     QString m_executable;
-    const QByteArray m_coreName;
+    QString m_coreName;
     LocalGdbProcess m_gdbProc;
+    QString m_tempCoreName;
 };
 
 } // namespace Internal

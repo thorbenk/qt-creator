@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -46,7 +44,6 @@
 
 #include <QMenu>
 #include <QAction>
-#include <QMainWindow>
 #include <QMessageBox>
 #include <QHBoxLayout>
 #include <QLineEdit>
@@ -225,7 +222,16 @@ public:
 
     bool open(QString *errorString, const QString &fileName, quint64 offset = 0) {
         QFile file(fileName);
-        if (offset >= static_cast<quint64>(file.size()))
+        quint64 size = static_cast<quint64>(file.size());
+        if (size == 0) {
+            QString msg = tr("The Binary Editor can not open empty files.");
+            if (errorString)
+                *errorString = msg;
+            else
+                QMessageBox::critical(Core::ICore::mainWindow(), tr("File Error"), msg);
+            return false;
+        }
+        if (offset >= size)
             return false;
         if (file.open(QIODevice::ReadOnly)) {
             file.close();
@@ -461,14 +467,14 @@ BinEditorPlugin::~BinEditorPlugin()
 {
 }
 
-QAction *BinEditorPlugin::registerNewAction(const QString &id, const QString &title)
+QAction *BinEditorPlugin::registerNewAction(Core::Id id, const QString &title)
 {
     QAction *result = new QAction(title, this);
-    Core::ICore::actionManager()->registerAction(result, Core::Id(id), m_context);
+    Core::ActionManager::registerAction(result, id, m_context);
     return result;
 }
 
-QAction *BinEditorPlugin::registerNewAction(const QString &id,
+QAction *BinEditorPlugin::registerNewAction(Core::Id id,
                                             QObject *receiver,
                                             const char *slot,
                                             const QString &title)
@@ -489,16 +495,10 @@ void BinEditorPlugin::initializeEditor(BinEditor *editor)
 
     m_context.add(Constants::C_BINEDITOR);
     if (!m_undoAction) {
-        m_undoAction      = registerNewAction(QLatin1String(Core::Constants::UNDO),
-                                              this, SLOT(undoAction()),
-                                              tr("&Undo"));
-        m_redoAction      = registerNewAction(QLatin1String(Core::Constants::REDO),
-                                              this, SLOT(redoAction()),
-                                              tr("&Redo"));
-        m_copyAction      = registerNewAction(QLatin1String(Core::Constants::COPY),
-                                              this, SLOT(copyAction()));
-        m_selectAllAction = registerNewAction(QLatin1String(Core::Constants::SELECTALL),
-                                              this, SLOT(selectAllAction()));
+        m_undoAction      = registerNewAction(Core::Constants::UNDO, this, SLOT(undoAction()), tr("&Undo"));
+        m_redoAction      = registerNewAction(Core::Constants::REDO, this, SLOT(redoAction()), tr("&Redo"));
+        m_copyAction      = registerNewAction(Core::Constants::COPY, this, SLOT(copyAction()));
+        m_selectAllAction = registerNewAction(Core::Constants::SELECTALL, this, SLOT(selectAllAction()));
     }
 
     // Font settings

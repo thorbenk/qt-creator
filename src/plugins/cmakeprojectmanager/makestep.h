@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,6 +38,10 @@ class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
 QT_END_NAMESPACE
+
+namespace ProjectExplorer {
+class ToolChain;
+}
 
 namespace CMakeProjectManager {
 namespace Internal {
@@ -74,10 +76,18 @@ public:
     QString additionalArguments() const;
     void setAdditionalArguments(const QString &list);
 
+    QString makeCommand(ProjectExplorer::ToolChain *tc, const Utils::Environment &env) const;
+
     void setClean(bool clean);
 
     QVariantMap toMap() const;
 
+public slots:
+    void setUseNinja(bool);
+    void activeBuildConfigurationChanged();
+
+signals:
+    void makeCommandChanged();
 
 protected:
     MakeStep(ProjectExplorer::BuildStepList *bsl, MakeStep *bs);
@@ -90,12 +100,18 @@ protected:
 
 private:
     void ctor();
+    CMakeBuildConfiguration *targetsActiveBuildConfiguration() const;
 
     bool m_clean;
     QRegExp m_percentProgress;
+    QRegExp m_ninjaProgress;
+    QString m_ninjaProgressString;
     QFutureInterface<bool> *m_futureInterface;
     QStringList m_buildTargets;
     QString m_additionalArguments;
+    QList<ProjectExplorer::Task> m_tasks;
+    bool m_useNinja;
+    CMakeBuildConfiguration *m_activeConfiguration;
 };
 
 class MakeStepConfigWidget :public ProjectExplorer::BuildStepConfigWidget

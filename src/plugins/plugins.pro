@@ -40,12 +40,12 @@ SUBDIRS   = plugin_coreplugin \
             plugin_qmljstools \
             plugin_macros \
             debugger/dumper.pro \
-            plugin_qmlprofiler \
             plugin_remotelinux \
             plugin_android \
             plugin_madde \
             plugin_valgrind \
-            plugin_todo
+            plugin_todo \
+            plugin_qnx
 
 isEmpty(IDE_PACKAGE_MODE) {
     SUBDIRS += plugin_helloworld \
@@ -56,29 +56,29 @@ isEmpty(IDE_PACKAGE_MODE) {
 linux-* {
      SUBDIRS += debugger/ptracepreload.pro
 }
+!macx:SUBDIRS += plugin_clearcase
 
 include(../../qtcreator.pri)
 
 contains(QT_CONFIG, declarative)|contains(QT_CONFIG, quick1) {
     SUBDIRS += \
-            plugin_qmlprojectmanager
+            plugin_qmlprojectmanager \
+            plugin_qmlprofiler
 
-    include(../private_headers.pri)
-    exists($${QT_PRIVATE_HEADERS}/QtDeclarative/private/qdeclarativecontext_p.h) {
-
-        minQtVersion(4, 7, 1) {
-            SUBDIRS += plugin_qmldesigner
-        } else {
-            warning()
-            warning("QmlDesigner plugin has been disabled.")
-            warning("QmlDesigner requires Qt 4.7.1 or later.")
-        }
+    greaterThan(QT_MAJOR_VERSION, 4) {
+        SUBDIRS += plugin_qmldesigner
     } else {
-        warning()
-        warning("QmlDesigner plugin has been disabled.")
-        warning("The plugin depends on private headers from QtDeclarative module.")
-        warning("To enable it, pass 'QT_PRIVATE_HEADERS=$QTDIR/include' to qmake, where $QTDIR is the source directory of qt.")
+        include(../private_headers.pri)
+        exists($${QT_PRIVATE_HEADERS}/QtDeclarative/private/qdeclarativecontext_p.h) {
+                SUBDIRS += plugin_qmldesigner
+        } else {
+            warning("QmlDesigner plugin has been disabled.")
+            warning("The plugin depends on private headers from QtDeclarative module.")
+            warning("To enable it, pass 'QT_PRIVATE_HEADERS=$QTDIR/include' to qmake, where $QTDIR is the source directory of qt.")
+        }
     }
+} else {
+    warning("QmlProjectManager, QmlProfiler and QmlDesigner plugins have been disabled: The plugins require QtDeclarative (Qt 4.x) or QtQuick1 (Qt 5.x)");
 }
 
 include (debugger/lldb/guest/qtcreator-lldb.pri)
@@ -163,7 +163,7 @@ plugin_remotelinux.subdir = remotelinux
 plugin_remotelinux.depends += plugin_coreplugin
 plugin_remotelinux.depends += plugin_debugger
 plugin_remotelinux.depends += plugin_projectexplorer
-plugin_remotelinux.depends += plugin_qt4projectmanager
+plugin_remotelinux.depends += plugin_qtsupport
 
 plugin_android.subdir = android
 plugin_android.depends = plugin_coreplugin
@@ -173,6 +173,7 @@ plugin_android.depends += plugin_qt4projectmanager
 
 plugin_madde.subdir = madde
 plugin_madde.depends += plugin_remotelinux
+plugin_madde.depends += plugin_qt4projectmanager
 
 plugin_locator.subdir = locator
 plugin_locator.depends = plugin_coreplugin
@@ -296,6 +297,8 @@ plugin_analyzerbase.depends += plugin_cpptools
 plugin_valgrind.subdir = valgrind
 plugin_valgrind.depends = plugin_coreplugin
 plugin_valgrind.depends += plugin_analyzerbase
+plugin_valgrind.depends += plugin_remotelinux
+plugin_valgrind.depends += plugin_texteditor
 
 plugin_qmlprofiler.subdir = qmlprofiler
 plugin_qmlprofiler.depends = plugin_coreplugin
@@ -322,6 +325,16 @@ plugin_todo.depends = plugin_coreplugin
 plugin_todo.depends += plugin_projectexplorer
 plugin_todo.depends += plugin_texteditor
 plugin_todo.depends += plugin_cpptools
+
+plugin_qnx.subdir = qnx
+plugin_qnx.depends = plugin_remotelinux
+plugin_qnx.depends += plugin_qt4projectmanager
+plugin_qnx.depends += plugin_coreplugin
+
+plugin_clearcase.subdir = clearcase
+plugin_clearcase.depends = plugin_vcsbase
+plugin_clearcase.depends += plugin_projectexplorer
+plugin_clearcase.depends += plugin_coreplugin
 
 # prefer qmake variable set on command line over env var
 isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)

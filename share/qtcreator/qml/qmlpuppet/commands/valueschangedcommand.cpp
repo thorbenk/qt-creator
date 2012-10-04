@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,21 +25,28 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "valueschangedcommand.h"
 
+#include <QSharedMemory>
+#include <QCache>
+
+#include <cstring>
+
 namespace QmlDesigner {
 
+static QCache<qint32, QSharedMemory> globalSharedMemoryCache(10000);
+
 ValuesChangedCommand::ValuesChangedCommand()
+    : m_keyNumber(0)
 {
 }
 
 ValuesChangedCommand::ValuesChangedCommand(const QVector<PropertyValueContainer> &valueChangeVector)
-    : m_valueChangeVector (valueChangeVector)
+    : m_valueChangeVector (valueChangeVector),
+      m_keyNumber(0)
 {
 }
 
@@ -48,17 +55,91 @@ QVector<PropertyValueContainer> ValuesChangedCommand::valueChanges() const
     return m_valueChangeVector;
 }
 
+quint32 ValuesChangedCommand::keyNumber() const
+{
+    return m_keyNumber;
+}
+
+void ValuesChangedCommand::removeSharedMemorys(const QVector<qint32> &keyNumberVector)
+{
+    foreach (qint32 keyNumber, keyNumberVector) {
+        QSharedMemory *sharedMemory = globalSharedMemoryCache.take(keyNumber);
+        delete sharedMemory;
+    }
+}
+
+static const QLatin1String valueKeyTemplateString("Values-%1");
+
+static QSharedMemory *createSharedMemory(qint32 key, int byteCount)
+{
+    QSharedMemory *sharedMemory = new QSharedMemory(QString(valueKeyTemplateString).arg(key));
+
+    bool sharedMemoryIsCreated = sharedMemory->create(byteCount);
+    if (!sharedMemoryIsCreated) {
+        if (sharedMemory->isAttached())
+            sharedMemory->attach();
+        sharedMemory->detach();
+        sharedMemoryIsCreated = sharedMemory->create(byteCount);
+    }
+
+    if (sharedMemoryIsCreated) {
+        globalSharedMemoryCache.insert(key, sharedMemory);
+        return sharedMemory;
+    }
+
+    return 0;
+}
+
 QDataStream &operator<<(QDataStream &out, const ValuesChangedCommand &command)
 {
+    static const bool dontUseSharedMemory = !qgetenv("DESIGNER_DONT_USE_SHARED_MEMORY").isEmpty();
+
+    if (!dontUseSharedMemory && command.valueChanges().count() > 5) {
+        static quint32 keyCounter = 0;
+        ++keyCounter;
+        command.m_keyNumber = keyCounter;
+        QByteArray outDataStreamByteArray;
+        QDataStream temporaryOutDataStream(&outDataStreamByteArray, QIODevice::WriteOnly);
+        temporaryOutDataStream.setVersion(QDataStream::Qt_4_8);
+
+        temporaryOutDataStream << command.valueChanges();;
+
+        QSharedMemory *sharedMemory = createSharedMemory(keyCounter, outDataStreamByteArray.size());
+
+        if (sharedMemory) {
+            std::memcpy(sharedMemory->data(), outDataStreamByteArray.constData(), sharedMemory->size());
+            out << command.keyNumber();
+            return out;
+        }
+    }
+
+    out << qint32(0);
     out << command.valueChanges();
 
     return out;
 }
 
+void readSharedMemory(qint32 key, QVector<PropertyValueContainer> *valueChangeVector)
+{
+    QSharedMemory sharedMemory(QString(valueKeyTemplateString).arg(key));
+    bool canAttach = sharedMemory.attach(QSharedMemory::ReadOnly);
+
+    if (canAttach) {
+        QDataStream in(QByteArray::fromRawData(static_cast<const char*>(sharedMemory.constData()), sharedMemory.size()));
+        in.setVersion(QDataStream::Qt_4_8);
+        in >> *valueChangeVector;
+    }
+}
+
 QDataStream &operator>>(QDataStream &in, ValuesChangedCommand &command)
 {
-    in >> command.m_valueChangeVector;
+    in >> command.m_keyNumber;
 
+    if (command.keyNumber() > 0) {
+        readSharedMemory(command.keyNumber(), &command.m_valueChangeVector);
+    } else {
+        in >> command.m_valueChangeVector;
+    }
     return in;
 }
 

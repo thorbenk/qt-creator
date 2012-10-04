@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "fileiconprovider.h"
 #include "mimedatabase.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <QApplication>
@@ -45,6 +44,8 @@
 #include <QFileIconProvider>
 #include <QIcon>
 #include <QStyle>
+
+using namespace Utils;
 
 /*!
   \class Core::FileIconProvider
@@ -141,14 +142,13 @@ QIcon FileIconProvider::icon(const QFileInfo &fileInfo) const
         }
     }
     // Get icon from OS.
-#if defined(Q_WS_WIN) || defined(Q_OS_MAC)
-    return QFileIconProvider::icon(fileInfo);
-#else
+    if (HostOsInfo::isWindowsHost() || HostOsInfo::isMacHost())
+        return QFileIconProvider::icon(fileInfo);
+
     // File icons are unknown on linux systems.
     return (fileInfo.isDir()) ?
            QFileIconProvider::icon(fileInfo) :
            d->m_unknownFileIcon;
-#endif
 }
 
 /*!

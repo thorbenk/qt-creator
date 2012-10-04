@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -49,8 +47,8 @@
     class, and header and source files for the class.
 
     To see how this works, rename wizard_sample.xml as wizard.xml in the
-    \c {\share\qtcreator\templates\wizards\listmodel\helloworld} and
-    \c {\share\qtcreator\templates\wizards\listmodel\listmodels} folders. After
+    \c {\share\qtcreator\templates\wizards\helloworld} and
+    \c {\share\qtcreator\templates\wizards\listmodel} folders. After
     you restart \QC, the \gui {Custom Classes}
     and \gui {Custom Projects} categories (1) appear in the \gui New dialog. For
     each category, an icon (2), a display name (3), and a description (4) are
@@ -442,6 +440,12 @@
         \o  \c {%CppHeaderSuffix%} is replaced by the default header suffix,
             which is also defined in \gui {File Naming}.
 
+        \o  \c {%CurrentDate%} is replaced by the current date in the format
+            \c {yyyy-MM-dd}.
+
+        \o  \c {%CurrentTime%} is replaced by the current time in the short
+            format of the locale.
+
     \endlist
 
     \section1 Validating User Input
@@ -505,7 +509,7 @@
     \endcode
 
     By default, the scripts are run in the directory corresponding to
-    \c %TargetPath%. This can be overriden by specifying the attribute
+    \c %TargetPath%. This can be overridden by specifying the attribute
     \c workingdirectory on the element \c generatorscript. For example, if the
     script creates the project directory by itself, %Path% can be specified. In
     that case, \c --dry-run should output the correct relative paths or absolute

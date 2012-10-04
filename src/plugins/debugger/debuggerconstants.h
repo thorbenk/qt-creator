@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -47,9 +45,8 @@ const char C_CPPDEBUGGER[]          = "Gdb Debugger";
 const char C_QMLDEBUGGER[]          = "Qml/JavaScript Debugger";
 
 // Menu Groups
-const char G_START_LOCAL[]          = "Debugger.Group.Start.Local";
-const char G_MANUAL_REMOTE[]        = "Debugger.Group.Manual.Remote";
-const char G_AUTOMATIC_REMOTE[]     = "Debugger.Group.Automatic.Remote";
+const char G_GENERAL[]              = "Debugger.Group.General";
+const char G_SPECIAL[]              = "Debugger.Group.Special";
 const char G_START_QML[]            = "Debugger.Group.Start.Qml";
 
 // Common actions
@@ -130,6 +127,7 @@ enum DebuggerStartMode
     AttachCore,            // Attach to a core file
     AttachToRemoteServer,  // Attach to a running gdbserver
     AttachToRemoteProcess, // Attach to a running remote process
+    LoadRemoteCore,    // Load a remote core file
     StartRemoteProcess,    // Start and attach to a remote process
     StartRemoteGdb,        // Start gdb itself remotely
     StartRemoteEngine      // Start ipc guest engine on other machine

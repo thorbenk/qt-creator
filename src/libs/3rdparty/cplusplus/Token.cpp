@@ -29,8 +29,14 @@ static const char *token_names[] = {
     ("<C++ comment>"), ("<C++ doxy comment>"),
     ("<comment>"), ("<doxy comment>"),
 
-    ("<identifier>"), ("<numeric literal>"), ("<char literal>"),
-    ("<wide char literal>"), ("<string literal>"), ("<wide char literal>"),
+    ("<identifier>"),
+
+    ("<numeric literal>"),
+    ("<char literal>"), ("<wide char literal>"), ("<utf16 char literal>"), ("<utf32 char literal>"),
+    ("<string literal>"), ("<wide string literal>"), ("<utf8 string literal>"),
+    ("<utf16 string literal>"), ("<utf32 string literal>"),
+    ("<raw string literal>"), ("<raw wide string literal>"), ("<raw utf8 string literal>"),
+    ("<raw utf16 string literal>"), ("<raw utf32 string literal>"),
     ("<@string literal>"), ("<angle string literal>"),
 
     ("&"), ("&&"), ("&="), ("->"), ("->*"), ("^"), ("^="), (":"), ("::"),
@@ -40,7 +46,8 @@ static const char *token_names[] = {
     ("|="), ("||"), ("+"), ("+="), ("++"), ("#"), ("##"), ("?"), ("}"),
     ("]"), (")"), (";"), ("*"), ("*="), ("~"), ("~="),
 
-    ("asm"), ("auto"), ("bool"), ("break"), ("case"), ("catch"), ("char"),
+    ("alignas"), ("alignof"), ("asm"), ("auto"), ("bool"), ("break"), ("case"), ("catch"),
+    ("char"), ("char16_t"), ("char32_t"),
     ("class"), ("const"), ("const_cast"), ("constexpr"), ("continue"),
     ("decltype"), ("default"),
     ("delete"), ("do"), ("double"), ("dynamic_cast"), ("else"), ("enum"),
@@ -66,10 +73,10 @@ static const char *token_names[] = {
     ("@synchronized"), ("@synthesize"), ("@throw"), ("@try"),
 
     // Qt keywords
-    ("SIGNAL"), ("SLOT"), ("Q_SIGNAL"), ("Q_SLOT"), ("signals"), ("slots"),
+    ("emit"), ("SIGNAL"), ("SLOT"), ("Q_SIGNAL"), ("Q_SLOT"), ("signals"), ("slots"),
     ("Q_FOREACH"), ("Q_D"), ("Q_Q"),
     ("Q_INVOKABLE"), ("Q_PROPERTY"), ("T_Q_PRIVATE_PROPERTY"),
-    ("Q_INTERFACES"), ("Q_ENUMS"), ("Q_FLAGS"),
+    ("Q_INTERFACES"), ("Q_EMIT"), ("Q_ENUMS"), ("Q_FLAGS"),
     ("Q_PRIVATE_SLOT"), ("Q_DECLARE_INTERFACE"), ("Q_OBJECT"), ("Q_GADGET"),
 
 };
@@ -92,11 +99,21 @@ const char *Token::spell() const
 
     case T_NUMERIC_LITERAL:
     case T_CHAR_LITERAL:
+    case T_WIDE_CHAR_LITERAL:
+    case T_UTF16_CHAR_LITERAL:
+    case T_UTF32_CHAR_LITERAL:
     case T_STRING_LITERAL:
+    case T_WIDE_STRING_LITERAL:
+    case T_UTF8_STRING_LITERAL:
+    case T_UTF16_STRING_LITERAL:
+    case T_UTF32_STRING_LITERAL:
+    case T_RAW_STRING_LITERAL:
+    case T_RAW_WIDE_STRING_LITERAL:
+    case T_RAW_UTF8_STRING_LITERAL:
+    case T_RAW_UTF16_STRING_LITERAL:
+    case T_RAW_UTF32_STRING_LITERAL:
     case T_AT_STRING_LITERAL:
     case T_ANGLE_STRING_LITERAL:
-    case T_WIDE_CHAR_LITERAL:
-    case T_WIDE_STRING_LITERAL:
         return literal->chars();
 
     default:

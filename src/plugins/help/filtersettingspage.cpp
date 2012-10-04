@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -46,31 +44,11 @@ using namespace Help::Internal;
 
 FilterSettingsPage::FilterSettingsPage()
 {
-}
-
-QString FilterSettingsPage::id() const
-{
-    return QLatin1String("D.Filters");
-}
-
-QString FilterSettingsPage::displayName() const
-{
-    return tr("Filters");
-}
-
-QString FilterSettingsPage::category() const
-{
-    return QLatin1String(Help::Constants::HELP_CATEGORY);
-}
-
-QString FilterSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("Help", Help::Constants::HELP_TR_CATEGORY);
-}
-
-QIcon FilterSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Help::Constants::HELP_CATEGORY_ICON));
+    setId(QLatin1String("D.Filters"));
+    setDisplayName(tr("Filters"));
+    setCategory(QLatin1String(Help::Constants::HELP_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("Help", Help::Constants::HELP_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Help::Constants::HELP_CATEGORY_ICON));
 }
 
 QWidget *FilterSettingsPage::createPage(QWidget *parent)

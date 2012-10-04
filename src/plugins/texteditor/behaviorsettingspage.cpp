@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -79,13 +77,12 @@ BehaviorSettingsPage::BehaviorSettingsPagePrivate::BehaviorSettingsPagePrivate
 
 void BehaviorSettingsPage::BehaviorSettingsPagePrivate::init()
 {
-    if (const QSettings *s = Core::ICore::settings()) {
-        m_codeStyle->fromSettings(m_parameters.settingsPrefix, s);
-        m_typingSettings.fromSettings(m_parameters.settingsPrefix, s);
-        m_storageSettings.fromSettings(m_parameters.settingsPrefix, s);
-        m_behaviorSettings.fromSettings(m_parameters.settingsPrefix, s);
-        m_extraEncodingSettings.fromSettings(m_parameters.settingsPrefix, s);
-    }
+    const QSettings *s = Core::ICore::settings();
+    m_codeStyle->fromSettings(m_parameters.settingsPrefix, s);
+    m_typingSettings.fromSettings(m_parameters.settingsPrefix, s);
+    m_storageSettings.fromSettings(m_parameters.settingsPrefix, s);
+    m_behaviorSettings.fromSettings(m_parameters.settingsPrefix, s);
+    m_extraEncodingSettings.fromSettings(m_parameters.settingsPrefix, s);
 }
 
 BehaviorSettingsPage::BehaviorSettingsPage(const BehaviorSettingsPageParameters &p,
@@ -102,21 +99,14 @@ BehaviorSettingsPage::BehaviorSettingsPage(const BehaviorSettingsPageParameters 
     d->m_defaultCodeStylePool = new CodeStylePool(0, this); // Any language
     d->m_defaultCodeStylePool->addCodeStyle(d->m_codeStyle);
     d->init();
+
+    setId(p.id);
+    setDisplayName(p.displayName);
 }
 
 BehaviorSettingsPage::~BehaviorSettingsPage()
 {
     delete d;
-}
-
-QString BehaviorSettingsPage::id() const
-{
-    return d->m_parameters.id;
-}
-
-QString BehaviorSettingsPage::displayName() const
-{
-    return d->m_parameters.displayName;
 }
 
 QWidget *BehaviorSettingsPage::createPage(QWidget *parent)

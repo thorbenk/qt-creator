@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "cvssettings.h"
+
+#include <utils/environment.h>
+#include <utils/hostosinfo.h>
 
 #include <QSettings>
 #include <QTextStream>
@@ -48,12 +49,7 @@ enum { defaultTimeOutS = 30 };
 
 static QString defaultCommand()
 {
-    QString rc;
-    rc = QLatin1String("cvs");
-#if defined(Q_OS_WIN32)
-    rc.append(QLatin1String(".exe"));
-#endif
-    return rc;
+    return QLatin1String("cvs" QTC_HOST_EXE_SUFFIX);
 }
 
 namespace Cvs {
@@ -72,6 +68,7 @@ void CvsSettings::fromSettings(QSettings *settings)
 {
     settings->beginGroup(QLatin1String(groupC));
     cvsCommand = settings->value(QLatin1String(commandKeyC), defaultCommand()).toString();
+    cvsBinaryPath = Utils::Environment::systemEnvironment().searchInPath(cvsCommand);
     promptToSubmit = settings->value(QLatin1String(promptToSubmitKeyC), true).toBool();
     cvsRoot = settings->value(QLatin1String(rootC), QString()).toString();
     cvsDiffOptions = settings->value(QLatin1String(diffOptionsKeyC), QLatin1String(defaultDiffOptions)).toString();

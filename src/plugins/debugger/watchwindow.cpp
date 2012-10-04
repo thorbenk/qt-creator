@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -131,7 +129,8 @@ public:
         const QString exp = index.data(LocalsExpressionRole).toString();
         if (exp == value)
             return;
-        m_watchWindow->removeWatchExpression(exp);
+        WatchHandler *handler = currentEngine()->watchHandler();
+        handler->removeData(index.data(LocalsINameRole).toByteArray());
         m_watchWindow->watchExpression(value);
     }
 
@@ -213,16 +212,13 @@ static int memberVariableRecursion(const QAbstractItemModel *model,
                                    ColorNumberToolTips *cnmv)
 {
     int childCount = 0;
-    // Recurse over top level items if modelIndex is invalid.
-    const bool isRoot = !modelIndex.isValid();
-    const int rowCount = isRoot
-        ? model->rowCount() : modelIndex.model()->rowCount(modelIndex);
+    QTC_ASSERT(modelIndex.isValid(), return childCount );
+    const int rowCount = model->rowCount(modelIndex);
     if (!rowCount)
         return childCount;
     const QString nameRoot = name.isEmpty() ? name : name +  QLatin1Char('.');
     for (int r = 0; r < rowCount; r++) {
-        const QModelIndex childIndex = isRoot
-            ? model->index(r, 0) : modelIndex.child(r, 0);
+        const QModelIndex childIndex = modelIndex.child(r, 0);
         const quint64 childAddress = addressOf(childIndex);
         const uint childSize = sizeOf(childIndex);
         if (childAddress && childAddress >= start
@@ -424,22 +420,26 @@ static void addStackLayoutMemoryView(DebuggerEngine *engine, bool separateView,
     // Determine suitable address range from locals.
     quint64 start = Q_UINT64_C(0xFFFFFFFFFFFFFFFF);
     quint64 end = 0;
-    const int rootItemCount = m->rowCount();
+    const QModelIndex localsIndex = m->index(0, 0);
+    QTC_ASSERT(localsIndex.data(LocalsINameRole).toString() == QLatin1String("local"), return);
+    const int localsItemCount = m->rowCount(localsIndex);
     // Note: Unsorted by default. Exclude 'Automatically dereferenced
     // pointer' items as they are outside the address range.
-    for (int r = 0; r < rootItemCount; r++) {
-        const QModelIndex idx = m->index(r, 0);
+    for (int r = 0; r < localsItemCount; r++) {
+        const QModelIndex idx = localsIndex.child(r, 0);
         if (idx.data(LocalsReferencingAddressRole).toULongLong() == 0) {
             const quint64 address = addressOf(idx);
             if (address) {
                 if (address < start)
                     start = address;
-                if (const uint size = sizeOf(idx))
-                    if (address + size > end)
-                        end = address + size;
+                const uint size = qMax(1u, sizeOf(idx));
+                if (address + size > end)
+                    end = address + size;
             }
         }
     }
+    if (const quint64 remainder = end % 8)
+        end += 8 - remainder;
     // Anything found and everything in a sensible range (static data in-between)?
     if (end <= start || end - start > 100 * 1024) {
         QMessageBox::information(parent,
@@ -462,7 +462,7 @@ static void addStackLayoutMemoryView(DebuggerEngine *engine, bool separateView,
     // Indicate all variables.
     const QColor background = parent->palette().color(QPalette::Normal, QPalette::Base);
     const MemoryMarkupList markup =
-        variableMemoryMarkup(m, QModelIndex(), QString(),
+        variableMemoryMarkup(m, localsIndex, QString(),
                              QString(), start, end - start,
                              regMap, true, background);
     const unsigned flags = separateView
@@ -515,13 +515,9 @@ void WatchTreeView::keyPressEvent(QKeyEvent *ev)
         QModelIndexList indices = selectionModel()->selectedRows();
         if (indices.isEmpty() && selectionModel()->currentIndex().isValid())
             indices.append(selectionModel()->currentIndex());
-        QStringList exps;
-        foreach (const QModelIndex &idx, indices) {
-            QModelIndex idx1 = idx.sibling(idx.row(), 0);
-            exps.append(idx1.data(LocalsRawExpressionRole).toString());
-        }
-        foreach (const QString &exp, exps)
-            removeWatchExpression(exp);
+        WatchHandler *handler = currentEngine()->watchHandler();
+        foreach (const QModelIndex &idx, indices)
+            handler->removeData(idx.data(LocalsINameRole).toByteArray());
     } else if (ev->key() == Qt::Key_Return
             && ev->modifiers() == Qt::ControlModifier
             && m_type == LocalsType) {
@@ -530,12 +526,12 @@ void WatchTreeView::keyPressEvent(QKeyEvent *ev)
         QString exp = model()->data(idx1).toString();
         watchExpression(exp);
     }
-    QTreeView::keyPressEvent(ev);
+    BaseTreeView::keyPressEvent(ev);
 }
 
 void WatchTreeView::dragEnterEvent(QDragEnterEvent *ev)
 {
-    //QTreeView::dragEnterEvent(ev);
+    //BaseTreeView::dragEnterEvent(ev);
     if (ev->mimeData()->hasText()) {
         ev->setDropAction(Qt::CopyAction);
         ev->accept();
@@ -544,7 +540,7 @@ void WatchTreeView::dragEnterEvent(QDragEnterEvent *ev)
 
 void WatchTreeView::dragMoveEvent(QDragMoveEvent *ev)
 {
-    //QTreeView::dragMoveEvent(ev);
+    //BaseTreeView::dragMoveEvent(ev);
     if (ev->mimeData()->hasText()) {
         ev->setDropAction(Qt::CopyAction);
         ev->accept();
@@ -554,12 +550,16 @@ void WatchTreeView::dragMoveEvent(QDragMoveEvent *ev)
 void WatchTreeView::dropEvent(QDropEvent *ev)
 {
     if (ev->mimeData()->hasText()) {
-        watchExpression(ev->mimeData()->text());
+        QString exp;
+        QString data = ev->mimeData()->text();
+        foreach (const QChar c, data)
+            exp.append(c.isPrint() ? c : QChar(QLatin1Char(' ')));
+        watchExpression(exp);
         //ev->acceptProposedAction();
         ev->setDropAction(Qt::CopyAction);
         ev->accept();
     }
-    //QTreeView::dropEvent(ev);
+    //BaseTreeView::dropEvent(ev);
 }
 
 void WatchTreeView::mouseDoubleClickEvent(QMouseEvent *ev)
@@ -570,7 +570,7 @@ void WatchTreeView::mouseDoubleClickEvent(QMouseEvent *ev)
         watchExpression(QString());
         return;
     }
-    QTreeView::mouseDoubleClickEvent(ev);
+    BaseTreeView::mouseDoubleClickEvent(ev);
 }
 
 // Text for add watch action with truncated expression.
@@ -768,11 +768,11 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
     QAction *actInsertNewWatchItem =
         menu.addAction(tr("Insert New Expression Evaluator"));
     actInsertNewWatchItem->setEnabled(canHandleWatches && canInsertWatches);
-    QAction *actSelectWidgetToWatch = menu.addAction(tr("Select Widget to Add into Expression Evaluator"));
+    QAction *actSelectWidgetToWatch =
+        menu.addAction(tr("Select Widget to Add into Expression Evaluator"));
     actSelectWidgetToWatch->setEnabled(canHandleWatches && canInsertWatches
-                                       && engine->hasCapability(WatchWidgetsCapability));
-    QAction *actEditTypeFormats = menu.addAction(tr("Change Global Display Formats..."));
-    actEditTypeFormats->setEnabled(true);
+           && engine->hasCapability(WatchWidgetsCapability));
+
     menu.addSeparator();
 
     QAction *actWatchExpression = new QAction(addWatchActionText(exp), &menu);
@@ -780,8 +780,12 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
 
     // Can remove watch if engine can handle it or session engine.
     QModelIndex p = mi0;
-    while (p.parent().isValid())
-        p = p.parent();
+    while (true) {
+        QModelIndex pp = p.parent();
+        if (!pp.isValid() || !pp.parent().isValid())
+            break;
+        p = pp;
+    }
     QString removeExp = p.data(LocalsExpressionRole).toString();
     QAction *actRemoveWatchExpression = new QAction(removeWatchActionText(removeExp), &menu);
     actRemoveWatchExpression->setEnabled(
@@ -857,7 +861,6 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
 
     menu.addAction(actInsertNewWatchItem);
     menu.addAction(actSelectWidgetToWatch);
-    menu.addAction(actEditTypeFormats);
     menu.addMenu(&formatMenu);
     menu.addMenu(&memoryMenu);
     menu.addMenu(&breakpointMenu);
@@ -912,26 +915,24 @@ void WatchTreeView::contextMenuEvent(QContextMenuEvent *ev)
     } else if (act == actOpenMemoryEditorStackLayout) {
         addStackLayoutMemoryView(currentEngine(), false, model(), ev->globalPos(), this);
     } else if (act == actSetWatchpointAtVariableAddress) {
-        setWatchpointAtAddress(address, size);
+        breakHandler()->setWatchpointAtAddress(address, size);
     } else if (act == actSetWatchpointAtPointerValue) {
-        setWatchpointAtAddress(pointerValue, sizeof(void *)); // FIXME: an approximation..
+        breakHandler()->setWatchpointAtAddress(pointerValue, sizeof(void *)); // FIXME: an approximation..
     } else if (act == actSetWatchpointAtExpression) {
-        setWatchpointAtExpression(name);
+        breakHandler()->setWatchpointAtExpression(name);
     } else if (act == actSelectWidgetToWatch) {
         grabMouse(Qt::CrossCursor);
         m_grabbing = true;
     } else if (act == actWatchExpression) {
-        watchExpression(exp);
+        watchExpression(exp, name);
     } else if (act == actRemoveWatchExpression) {
-        removeWatchExpression(removeExp);
+        handler->removeData(p.data(LocalsINameRole).toByteArray());
     } else if (act == actCopy) {
         copyToClipboard(DebuggerToolTipWidget::treeModelClipboardContents(model()));
-    } else if (act == actEditTypeFormats) {
-        handler->editTypeFormats(true, mi0.data(LocalsINameRole).toByteArray());
     } else if (act == actCopyValue) {
         copyToClipboard(mi1.data().toString());
     } else if (act == actRemoveWatches) {
-        currentEngine()->watchHandler()->clearWatches();
+        handler->clearWatches();
     } else if (act == clearTypeFormatAction) {
         setModelData(LocalsTypeFormatRole, -1, mi1);
     } else if (act == clearIndividualFormatAction) {
@@ -971,7 +972,7 @@ bool WatchTreeView::event(QEvent *ev)
         releaseMouse();
         currentEngine()->watchPoint(mapToGlobal(mev->pos()));
     }
-    return QTreeView::event(ev);
+    return BaseTreeView::event(ev);
 }
 
 void WatchTreeView::editItem(const QModelIndex &idx)
@@ -982,6 +983,7 @@ void WatchTreeView::editItem(const QModelIndex &idx)
 void WatchTreeView::setModel(QAbstractItemModel *model)
 {
     BaseTreeView::setModel(model);
+    setRootIndex(model->index(m_type, 0, QModelIndex()));
     setRootIsDecorated(true);
     if (header()) {
         header()->setDefaultAlignment(Qt::AlignLeft);
@@ -990,15 +992,25 @@ void WatchTreeView::setModel(QAbstractItemModel *model)
     }
 
     connect(model, SIGNAL(layoutChanged()), SLOT(resetHelper()));
-
-    QTC_ASSERT(qobject_cast<WatchModel*>(model), return);
-    connect(model, SIGNAL(setCurrentIndex(QModelIndex)),
+    connect(model, SIGNAL(currentIndexRequested(QModelIndex)),
             SLOT(setCurrentIndex(QModelIndex)));
+    connect(model, SIGNAL(itemIsExpanded(QModelIndex)),
+            SLOT(handleItemIsExpanded(QModelIndex)));
+}
+
+void WatchTreeView::handleItemIsExpanded(const QModelIndex &idx)
+{
+    bool on = idx.data(LocalsExpandedRole).toBool();
+    QTC_ASSERT(on, return);
+    if (!isExpanded(idx))
+        expand(idx);
 }
 
 void WatchTreeView::resetHelper()
 {
-    resetHelper(model()->index(0, 0));
+    QModelIndex idx = model()->index(m_type, 0);
+    resetHelper(idx);
+    expand(idx);
 }
 
 void WatchTreeView::resetHelper(const QModelIndex &idx)
@@ -1019,14 +1031,21 @@ void WatchTreeView::resetHelper(const QModelIndex &idx)
     }
 }
 
-void WatchTreeView::watchExpression(const QString &exp)
+void WatchTreeView::reset()
 {
-    currentEngine()->watchHandler()->watchExpression(exp);
+    BaseTreeView::reset();
+    setRootIndex(model()->index(m_type, 0));
+    resetHelper();
 }
 
-void WatchTreeView::removeWatchExpression(const QString &exp)
+void WatchTreeView::watchExpression(const QString &exp)
 {
-    currentEngine()->watchHandler()->removeWatchExpression(exp);
+    watchExpression(exp, QString());
+}
+
+void WatchTreeView::watchExpression(const QString &exp, const QString &name)
+{
+    currentEngine()->watchHandler()->watchExpression(exp, name);
 }
 
 void WatchTreeView::setModelData
@@ -1036,34 +1055,5 @@ void WatchTreeView::setModelData
     model()->setData(index, value, role);
 }
 
-void WatchTreeView::setWatchpointAtAddress(quint64 address, unsigned size)
-{
-    BreakpointParameters data(WatchpointAtAddress);
-    data.address = address;
-    data.size = size;
-    BreakpointModelId id = breakHandler()->findWatchpoint(data);
-    if (id) {
-        qDebug() << "WATCHPOINT EXISTS";
-        //   removeBreakpoint(index);
-        return;
-    }
-    breakHandler()->appendBreakpoint(data);
-}
-
-void WatchTreeView::setWatchpointAtExpression(const QString &exp)
-{
-    BreakpointParameters data(WatchpointAtExpression);
-    data.expression = exp;
-    BreakpointModelId id = breakHandler()->findWatchpoint(data);
-    if (id) {
-        qDebug() << "WATCHPOINT EXISTS";
-        //   removeBreakpoint(index);
-        return;
-    }
-    breakHandler()->appendBreakpoint(data);
-}
-
-
 } // namespace Internal
 } // namespace Debugger
-

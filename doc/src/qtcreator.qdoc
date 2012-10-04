@@ -5,7 +5,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -15,8 +15,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -88,10 +86,10 @@
             \o  \list
             \o  \bold {\l{Building and Running}}
                 \list
-                    \o  \l{Building for Multiple Targets}
-                    \o  \l{Running on Multiple Targets}
+                    \o  \l{Building for Multiple Platforms}
+                    \o  \l{Running on Multiple Platforms}
                     \o  \l{Deploying to Mobile Devices}
-                    \o  \l{Connecting Mobile Targets}
+                    \o  \l{Connecting Mobile Devices}
                 \endlist
             \endlist
             \o  \list
@@ -109,7 +107,6 @@
             \o  \list
             \o  \bold {\l{Publishing}}
                 \list
-                    \o  \l{Publishing Qt Content for Symbian Devices}
                     \o  \l{Publishing Qt Content for MeeGo Harmattan Devices}
                     \o  \l{Publishing Qt Content for Maemo Devices}
                     \o  \l{Publishing Maemo Applications to Extras-devel}
@@ -156,7 +153,6 @@
             \o  \l{Tutorials}
             \list
                 \o  \l{Creating a Qt Quick Application}
-                \o  \l{Using Qt Quick Components}
                 \o  \l{Creating a Qt Widget Based Application}
             \endlist
         \endlist
@@ -173,8 +169,9 @@
             \list
                 \o  \l{Specifying Build Settings}
                 \list
+                    \o  \l{Adding Kits}
                     \o  \l{Adding Qt Versions}
-                    \o  \l{Adding Tool Chains}
+                    \o  \l{Adding Compilers}
                 \endlist
                 \o  \l{Specifying Run Settings}
                 \o  \l{Specifying Editor Settings}
@@ -234,23 +231,25 @@
         \endlist
         \o  \l{Building and Running}
         \list
-            \o  \l{Building for Multiple Targets}
-            \o  \l{Running on Multiple Targets}
+            \o  \l{Building for Multiple Platforms}
+            \o  \l{Running on Multiple Platforms}
             \o  \l{Deploying to Mobile Devices}
             \list
-                \o  \l{Deploying Applications to Symbian Devices}
+                \o  \l{Deploying Applications to Android Devices}
                 \o  \l{Deploying Applications to Linux-Based Devices}
+                \o  \l{Deploying Applications to QNX Devices}
             \endlist
-            \o  \l{Connecting Mobile Targets}
+            \o  \l{Connecting Mobile Devices}
             \list
-                \o  \l{Connecting MeeGo Harmattan Devices}
+                \o  \l{Connecting Android Devices}
                 \o  \l{Connecting Embedded Linux Devices}
                 \o  \l{Connecting Maemo Devices}
-                \o  \l{Connecting Symbian Devices}
+                \o  \l{Connecting MeeGo Harmattan Devices}
+                \o  \l{Connecting QNX Devices}
+
             \endlist
             \o  \l{Customizing the Build Process}
             \o  \l{Using Maemo or MeeGo Harmattan Emulator}
-            \o  \l{Building with Remote Compiler}
         \endlist
         \o  \l{Debugging and Analyzing}
         \list
@@ -279,7 +278,6 @@
         \endlist
         \o  \l{Publishing}
         \list
-            \o  \l{Publishing Qt Content for Symbian Devices}
             \o  \l{Publishing Qt Content for Maemo Devices}
             \o  \l{Publishing Qt Content for MeeGo Harmattan Devices}
             \o  \l{Publishing Maemo Applications to Extras-devel}

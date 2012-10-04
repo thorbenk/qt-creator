@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,52 +33,54 @@
 #include "androidconstants.h"
 #include "androidconfigurations.h"
 #include "androiddeploystepfactory.h"
+#include "androiddevice.h"
+#include "androiddevicefactory.h"
 #include "androidconfigurations.h"
+#include "androidmanager.h"
 #include "androidpackagecreationfactory.h"
 #include "androidpackageinstallationfactory.h"
 #include "androidrunfactories.h"
 #include "androidsettingspage.h"
 #include "androidtoolchain.h"
 #include "androidqtversionfactory.h"
-#include "androidtargetfactory.h"
 #include "androiddeployconfiguration.h"
 
 #include <QtPlugin>
 
-using namespace Android;
-using namespace Android::Internal;
+#include <projectexplorer/devicesupport/devicemanager.h>
+
+namespace Android {
 
 AndroidPlugin::AndroidPlugin()
+{ }
+
+bool AndroidPlugin::initialize(const QStringList &arguments, QString *errorMessage)
 {
-}
+    Q_UNUSED(arguments);
+    Q_UNUSED(errorMessage);
 
-AndroidPlugin::~AndroidPlugin()
-{
-}
+    Internal::AndroidConfigurations::instance(this);
 
-bool AndroidPlugin::initialize(const QStringList &arguments,
-                                QString *error_message)
-{
-    Q_UNUSED(arguments)
-    Q_UNUSED(error_message)
-
-    AndroidConfigurations::instance(this);
-
-    addAutoReleasedObject(new AndroidRunControlFactory);
-    addAutoReleasedObject(new AndroidRunConfigurationFactory);
-    addAutoReleasedObject(new AndroidPackageInstallationFactory);
-    addAutoReleasedObject(new AndroidPackageCreationFactory);
-    addAutoReleasedObject(new AndroidDeployStepFactory);
-    addAutoReleasedObject(new AndroidSettingsPage);
-    addAutoReleasedObject(new AndroidTargetFactory);
-    addAutoReleasedObject(new AndroidQtVersionFactory);
-    addAutoReleasedObject(new AndroidToolChainFactory);
-    addAutoReleasedObject(new AndroidDeployConfigurationFactory);
+    addAutoReleasedObject(new Internal::AndroidRunControlFactory);
+    addAutoReleasedObject(new Internal::AndroidRunConfigurationFactory);
+    addAutoReleasedObject(new Internal::AndroidPackageInstallationFactory);
+    addAutoReleasedObject(new Internal::AndroidPackageCreationFactory);
+    addAutoReleasedObject(new Internal::AndroidDeployStepFactory);
+    addAutoReleasedObject(new Internal::AndroidSettingsPage);
+    addAutoReleasedObject(new Internal::AndroidQtVersionFactory);
+    addAutoReleasedObject(new Internal::AndroidToolChainFactory);
+    addAutoReleasedObject(new Internal::AndroidDeployConfigurationFactory);
+    addAutoReleasedObject(new Internal::AndroidDeviceFactory);
     return true;
 }
 
 void AndroidPlugin::extensionsInitialized()
 {
+    ProjectExplorer::DeviceManager *dm = ProjectExplorer::DeviceManager::instance();
+    if (dm->find(Core::Id(Constants::ANDROID_DEVICE_ID)).isNull())
+        dm->addDevice(ProjectExplorer::IDevice::Ptr(new Internal::AndroidDevice));
 }
+
+} // namespace Android
 
 Q_EXPORT_PLUGIN(Android::AndroidPlugin)

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,24 +25,22 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "packageuploader.h"
 
 #include <utils/qtcassert.h>
-#include <utils/ssh/sftpchannel.h>
-#include <utils/ssh/sshconnection.h>
+#include <ssh/sftpchannel.h>
+#include <ssh/sshconnection.h>
 
-using namespace Utils;
+using namespace QSsh;
 
 namespace RemoteLinux {
 namespace Internal {
 
 PackageUploader::PackageUploader(QObject *parent) :
-    QObject(parent), m_state(Inactive)
+    QObject(parent), m_state(Inactive), m_connection(0)
 {
 }
 
@@ -50,7 +48,7 @@ PackageUploader::~PackageUploader()
 {
 }
 
-void PackageUploader::uploadPackage(const SshConnection::Ptr &connection,
+void PackageUploader::uploadPackage(SshConnection *connection,
     const QString &localFilePath, const QString &remoteFilePath)
 {
     QTC_ASSERT(m_state == Inactive, return);
@@ -61,15 +59,14 @@ void PackageUploader::uploadPackage(const SshConnection::Ptr &connection,
     m_localFilePath = localFilePath;
     m_remoteFilePath = remoteFilePath;
     m_connection = connection;
-    connect(m_connection.data(), SIGNAL(error(Utils::SshError)),
-        SLOT(handleConnectionFailure()));
+    connect(m_connection, SIGNAL(error(QSsh::SshError)), SLOT(handleConnectionFailure()));
     m_uploader = m_connection->createSftpChannel();
     connect(m_uploader.data(), SIGNAL(initialized()), this,
         SLOT(handleSftpChannelInitialized()));
     connect(m_uploader.data(), SIGNAL(initializationFailed(QString)), this,
         SLOT(handleSftpChannelInitializationFailed(QString)));
-    connect(m_uploader.data(), SIGNAL(finished(Utils::SftpJobId,QString)),
-        this, SLOT(handleSftpJobFinished(Utils::SftpJobId,QString)));
+    connect(m_uploader.data(), SIGNAL(finished(QSsh::SftpJobId,QString)),
+        this, SLOT(handleSftpJobFinished(QSsh::SftpJobId,QString)));
     m_uploader->initialize();
 }
 
@@ -149,8 +146,8 @@ void PackageUploader::setState(State newState)
             m_uploader.clear();
         }
         if (m_connection) {
-            disconnect(m_connection.data(), 0, this, 0);
-            m_connection.clear();
+            disconnect(m_connection, 0, this, 0);
+            m_connection = 0;
         }
     }
     m_state = newState;

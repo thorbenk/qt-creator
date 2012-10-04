@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,31 +51,20 @@ int main(int argc, char *argv[])
     }
 
     {
+        QtQuickApp sAppNew;
+        sAppNew.setProjectPath(projectPath);
+        sAppNew.setComponentSet(QtQuickApp::ComponentSetQtQuick2_0);
+        sAppNew.setProjectName(QLatin1String("new_qtquick2_app"));
+        if (!sAppNew.generateFiles(&errorMessage))
+           return 1;
+    }
+
+    {
         QtQuickApp sAppImport01;
         sAppImport01.setProjectPath(projectPath);
         sAppImport01.setProjectName(QLatin1String("qml_imported_scenario_01"));
         sAppImport01.setMainQml(QtQuickApp::ModeImport, QLatin1String("../appwizards/qmlimportscenario_01/myqmlapp.qml"));
         if (!sAppImport01.generateFiles(&errorMessage))
-            return 1;
-    }
-
-    {
-        const QString rootPath = QLatin1String("../appwizards/qmlimportscenario_02/");
-        QtQuickApp sAppImport02;
-        sAppImport02.setProjectPath(projectPath);
-        sAppImport02.setProjectName(QLatin1String("qml_imported_scenario_02"));
-        sAppImport02.setMainQml(QtQuickApp::ModeImport, rootPath + QLatin1String("subfolder1/myqmlapp.qml"));
-        QStringList moduleNames;
-        moduleNames.append(QLatin1String("no.trolltech.QmlModule01"));
-        moduleNames.append(QLatin1String("com.nokia.QmlModule02"));
-        QStringList importPaths;
-        importPaths.append(rootPath + QLatin1String("subfolder2/"));
-        importPaths.append(rootPath + QLatin1String("subfolder3/"));
-        if (!sAppImport02.setExternalModules(moduleNames, importPaths)) {
-            qDebug() << sAppImport02.error();
-            return 2;
-        }
-        if (!sAppImport02.generateFiles(&errorMessage))
             return 1;
     }
 

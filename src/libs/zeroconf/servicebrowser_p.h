@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -86,7 +84,7 @@ public:
 
     virtual QString name();
 
-    virtual bool tryStartDaemon();
+    virtual bool tryStartDaemon(ErrorMessage::ErrorLogger *logger = 0);
 
     virtual void refDeallocate(DNSServiceRef sdRef) = 0;
     virtual void browserDeallocate(BrowserRef *sdRef) = 0;
@@ -120,6 +118,7 @@ public:
     bool isOk();
     QString errorMsg();
     void setError(bool failure, const QString &eMsg);
+    int nFallbacks() const;
     int maxErrors() const;
 
     static Ptr createEmbeddedLib(const QString &daemonPath, const Ptr &fallback = Ptr(0));
@@ -215,7 +214,7 @@ private:
 
 class ConnectionThread;
 
-class MainConnection {
+class MainConnection : private ErrorMessage::ErrorLogger {
     Q_DECLARE_TR_FUNCTIONS(ZeroConf)
 public:
     enum RequestFlowStatus {
@@ -234,8 +233,8 @@ public:
     };
     ZConfLib::Ptr lib;
 
-    MainConnection();
-    ~MainConnection();
+    MainConnection(ServiceBrowserPrivate *initialBrowser = 0);
+    virtual ~MainConnection();
     QMutex *lock();
     QMutex *mainThreadLock();
     void waitStartup();
@@ -257,6 +256,7 @@ public:
 
     QList<ErrorMessage> errors();
     bool isOk();
+    void startupPhase(int progress, const QString &msg);
 private:
     void appendError(ErrorMessage::SeverityLevel severity, const QString &msg);
 
@@ -321,6 +321,7 @@ public:
     void serviceAdded(const Service::ConstPtr &service, ServiceBrowser *browser);
     void serviceRemoved(const Service::ConstPtr &service, ServiceBrowser *browser);
     void servicesUpdated(ServiceBrowser *browser);
+    void startupPhase(int progress, const QString &description);
     void errorMessage(ErrorMessage::SeverityLevel severity, const QString &msg);
     void hadFailure(const QList<ErrorMessage> &msgs);
     void startedBrowsing();

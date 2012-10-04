@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -47,6 +45,10 @@ public:
 private slots:
     void initTestCase();
     void cleanupTestCase();
+    void init();
+    void cleanup();
+
+
 
     //
     // unit tests MetaInfo, NodeMetaInfo, PropertyMetaInfo
@@ -61,6 +63,8 @@ private slots:
     void testMetaInfoProperties();
     void testMetaInfoDotProperties();
     void testMetaInfoListProperties();
+    void testQtQuick20Basic();
+    void testQtQuick20BasicRectangle();
 
     //
     // unit tests Model, ModelNode, NodeProperty, AbstractView
@@ -164,6 +168,7 @@ private slots:
     // integration tests
     //
     void testBasicStates();
+    void testBasicStatesQtQuick20();
     void testStates();
     void testStatesBaseState();
     void testStatesRewriter();

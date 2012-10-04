@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -73,11 +71,6 @@ Core::IEditor *CMakeEditor::duplicate(QWidget *parent)
     ret->duplicateFrom(w);
     TextEditor::TextEditorSettings::instance()->initializeEditor(ret);
     return ret->editor();
-}
-
-Core::Context CMakeEditor::context() const
-{
-    return Core::Context(Constants::C_CMAKEEDITOR);
 }
 
 Core::Id CMakeEditor::id() const
@@ -144,19 +137,7 @@ void CMakeEditorWidget::unCommentSelection()
 
 void CMakeEditorWidget::contextMenuEvent(QContextMenuEvent *e)
 {
-    QMenu *menu = new QMenu();
-
-    Core::ActionManager *am = Core::ICore::instance()->actionManager();
-    Core::ActionContainer *mcontext = am->actionContainer(Constants::M_CONTEXT);
-    QMenu *contextMenu = mcontext->menu();
-
-    foreach (QAction *action, contextMenu->actions())
-        menu->addAction(action);
-
-    appendStandardContextMenuActions(menu);
-
-    menu->exec(e->globalPos());
-    delete menu;
+    showDefaultContextMenu(e, Constants::M_CONTEXT);
 }
 
 void CMakeEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)

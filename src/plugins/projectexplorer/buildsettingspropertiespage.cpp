@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -80,7 +78,7 @@ int BuildSettingsPanelFactory::priority() const
 
 bool BuildSettingsPanelFactory::supports(Target *target)
 {
-    return target->buildConfigurationFactory();
+    return IBuildConfigurationFactory::find(target);
 }
 
 PropertiesPanel *BuildSettingsPanelFactory::createPanel(Target *target)
@@ -112,15 +110,11 @@ BuildSettingsWidget::BuildSettingsWidget(Target *target) :
     m_buildConfiguration(0)
 {
     Q_ASSERT(m_target);
-    setupUi();
-}
 
-void BuildSettingsWidget::setupUi()
-{
     QVBoxLayout *vbox = new QVBoxLayout(this);
     vbox->setContentsMargins(0, 0, 0, 0);
 
-    if (!m_target->buildConfigurationFactory()) {
+    if (!IBuildConfigurationFactory::find(m_target)) {
         QLabel *noSettingsLabel = new QLabel(this);
         noSettingsLabel->setText(tr("No build settings available"));
         QFont f = noSettingsLabel->font();
@@ -179,9 +173,7 @@ void BuildSettingsWidget::setupUi()
     connect(m_target, SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
             this, SLOT(updateActiveConfiguration()));
 
-    if (m_target->buildConfigurationFactory())
-        connect(m_target->buildConfigurationFactory(), SIGNAL(availableCreationIdsChanged()),
-                SLOT(updateAddButtonMenu()));
+    connect(m_target, SIGNAL(kitChanged()), this, SLOT(updateAddButtonMenu()));
 }
 
 void BuildSettingsWidget::addSubWidget(BuildConfigWidget *widget)
@@ -227,12 +219,12 @@ void BuildSettingsWidget::updateAddButtonMenu()
             m_addButtonMenu->addAction(tr("&Clone Selected"),
                                        this, SLOT(cloneConfiguration()));
         }
-        IBuildConfigurationFactory *factory = m_target->buildConfigurationFactory();
-        if (factory) {
-            foreach (Core::Id id, factory->availableCreationIds(m_target)) {
-                QAction *action = m_addButtonMenu->addAction(factory->displayNameForId(id), this, SLOT(createConfiguration()));
-                action->setData(QVariant::fromValue(id));
-            }
+        IBuildConfigurationFactory * factory = IBuildConfigurationFactory::find(m_target);
+        if (!factory)
+            return;
+        foreach (Core::Id id, factory->availableCreationIds(m_target)) {
+            QAction *action = m_addButtonMenu->addAction(factory->displayNameForId(id), this, SLOT(createConfiguration()));
+            action->setData(QVariant::fromValue(id));
         }
     }
 }
@@ -245,7 +237,7 @@ void BuildSettingsWidget::updateBuildSettings()
     m_removeButton->setEnabled(m_target->buildConfigurations().size() > 1);
 
     // Add pages
-    BuildConfigWidget *generalConfigWidget = m_target->createConfigWidget();
+    BuildConfigWidget *generalConfigWidget = m_buildConfiguration->createConfigWidget();
     addSubWidget(generalConfigWidget);
 
     addSubWidget(new BuildStepsPage(m_target, Core::Id(Constants::BUILDSTEPS_BUILD)));
@@ -285,16 +277,22 @@ void BuildSettingsWidget::updateActiveConfiguration()
 
 void BuildSettingsWidget::createConfiguration()
 {
-    if (!m_target->buildConfigurationFactory())
-        return;
-
     QAction *action = qobject_cast<QAction *>(sender());
     Core::Id id = action->data().value<Core::Id>();
-    BuildConfiguration *bc = m_target->buildConfigurationFactory()->create(m_target, id);
-    if (bc) {
-        m_target->setActiveBuildConfiguration(bc);
-        updateBuildSettings();
-    }
+
+    IBuildConfigurationFactory *factory = IBuildConfigurationFactory::find(m_target);
+    if (!factory)
+        return;
+
+    BuildConfiguration *bc = factory->create(m_target, id);
+    if (!bc)
+        return;
+
+    m_target->addBuildConfiguration(bc);
+
+    QTC_CHECK(bc->id() == id);
+    m_target->setActiveBuildConfiguration(bc);
+    updateBuildSettings();
 }
 
 void BuildSettingsWidget::cloneConfiguration()
@@ -343,8 +341,10 @@ void BuildSettingsWidget::renameConfiguration()
 
 void BuildSettingsWidget::cloneConfiguration(BuildConfiguration *sourceConfiguration)
 {
-    if (!sourceConfiguration ||
-        !m_target->buildConfigurationFactory())
+    if (!sourceConfiguration)
+        return;
+    IBuildConfigurationFactory *factory = IBuildConfigurationFactory::find(m_target);
+    if (!factory)
         return;
 
     //: Title of a the cloned BuildConfiguration window, text of the window
@@ -352,7 +352,7 @@ void BuildSettingsWidget::cloneConfiguration(BuildConfiguration *sourceConfigura
     if (name.isEmpty())
         return;
 
-    BuildConfiguration * bc(m_target->buildConfigurationFactory()->clone(m_target, sourceConfiguration));
+    BuildConfiguration *bc = factory->clone(m_target, sourceConfiguration);
     if (!bc)
         return;
 

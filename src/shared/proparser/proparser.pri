@@ -6,18 +6,25 @@ DEPENDPATH *= $$PWD $$PWD/..
 
 # Input
 HEADERS += \
-        proparser_global.h \
-        profileparser.h \
+        qmake_global.h \
+        qmakeglobals.h \
+        qmakeparser.h \
+        qmakeevaluator.h \
+        qmakeevaluator_p.h \
         profileevaluator.h \
         proitems.h \
         prowriter.h \
         ioutils.h
 
 SOURCES += \
-        profileparser.cpp \
+        qmakeglobals.cpp \
+        qmakeparser.cpp \
+        qmakeevaluator.cpp \
         profileevaluator.cpp \
+        qmakebuiltins.cpp \
         proitems.cpp \
         prowriter.cpp \
         ioutils.cpp
 
 RESOURCES += proparser.qrc
+DEFINES += QMAKE_BUILTIN_PRFS

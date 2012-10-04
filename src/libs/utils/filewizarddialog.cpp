@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "filewizarddialog.h"
 #include "filewizardpage.h"
+
+#include "hostosinfo.h"
 
 #include <QAbstractButton>
 
@@ -51,15 +51,15 @@ FileWizardDialog::FileWizardDialog(QWidget *parent) :
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
     setOption(QWizard::NoCancelButton, false);
     setOption(QWizard::NoDefaultButton, false);
-#ifdef Q_OS_MAC
-    setButtonLayout(QList<QWizard::WizardButton>()
-                    << QWizard::CancelButton
-                    << QWizard::Stretch
-                    << QWizard::BackButton
-                    << QWizard::NextButton
-                    << QWizard::CommitButton
-                    << QWizard::FinishButton);
-#endif
+    if (HostOsInfo::isMacHost()) {
+        setButtonLayout(QList<QWizard::WizardButton>()
+                        << QWizard::CancelButton
+                        << QWizard::Stretch
+                        << QWizard::BackButton
+                        << QWizard::NextButton
+                        << QWizard::CommitButton
+                        << QWizard::FinishButton);
+    }
     const int filePageId = addPage(m_filePage);
     wizardProgress()->item(filePageId)->setTitle(tr("Location"));
     connect(m_filePage, SIGNAL(activated()), button(QWizard::FinishButton), SLOT(animateClick()));

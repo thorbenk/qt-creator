@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,7 +49,6 @@
 #include <QTextStream>
 #include <QHash>
 #include <QMessageBox>
-#include <QMainWindow>
 
 namespace TextEditor {
 namespace Internal {
@@ -168,8 +165,9 @@ QVariant SnippetsTableModel::headerData(int section, Qt::Orientation orientation
 
 void SnippetsTableModel::load(const QString &groupId)
 {
+    beginResetModel();
     m_activeGroupId = groupId;
-    reset();
+    endResetModel();
 }
 
 QList<QString> SnippetsTableModel::groupIds() const
@@ -222,14 +220,16 @@ void SnippetsTableModel::revertBuitInSnippet(const QModelIndex &modelIndex)
 
 void SnippetsTableModel::restoreRemovedBuiltInSnippets()
 {
+    beginResetModel();
     m_collection->restoreRemovedSnippets(m_activeGroupId);
-    reset();
+    endResetModel();
 }
 
 void SnippetsTableModel::resetSnippets()
 {
+    beginResetModel();
     m_collection->reset(m_activeGroupId);
-    reset();
+    endResetModel();
 }
 
 void SnippetsTableModel::replaceSnippet(const Snippet &snippet, const QModelIndex &modelIndex)
@@ -335,7 +335,7 @@ void SnippetsSettingsPagePrivate::configureUi(QWidget *w)
     m_ui.setupUi(w);
 
     const QList<ISnippetProvider *> &providers =
-        ExtensionSystem::PluginManager::instance()->getObjects<ISnippetProvider>();
+        ExtensionSystem::PluginManager::getObjects<ISnippetProvider>();
     foreach (ISnippetProvider *provider, providers) {
         m_ui.groupCombo->addItem(provider->displayName(), provider->groupId());
         SnippetEditorWidget *snippetEditor = new SnippetEditorWidget(w);
@@ -422,15 +422,13 @@ void SnippetsSettingsPagePrivate::loadSettings()
     if (m_ui.groupCombo->count() == 0)
         return;
 
-    if (QSettings *s = Core::ICore::settings()) {
-        m_settings.fromSettings(m_settingsPrefix, s);
-        const QString &lastGroupName = m_settings.lastUsedSnippetGroup();
-        const int index = m_ui.groupCombo->findText(lastGroupName);
-        if (index != -1)
-            m_ui.groupCombo->setCurrentIndex(index);
-        else
-            m_ui.groupCombo->setCurrentIndex(0);
-    }
+    m_settings.fromSettings(m_settingsPrefix, Core::ICore::settings());
+    const QString &lastGroupName = m_settings.lastUsedSnippetGroup();
+    const int index = m_ui.groupCombo->findText(lastGroupName);
+    if (index != -1)
+        m_ui.groupCombo->setCurrentIndex(index);
+    else
+        m_ui.groupCombo->setCurrentIndex(0);
 }
 
 void SnippetsSettingsPagePrivate::writeSettings()
@@ -438,10 +436,8 @@ void SnippetsSettingsPagePrivate::writeSettings()
     if (m_ui.groupCombo->count() == 0)
         return;
 
-    if (QSettings *s = Core::ICore::settings()) {
-        m_settings.setLastUsedSnippetGroup(m_ui.groupCombo->currentText());
-        m_settings.toSettings(m_settingsPrefix, s);
-    }
+    m_settings.setLastUsedSnippetGroup(m_ui.groupCombo->currentText());
+    m_settings.toSettings(m_settingsPrefix, Core::ICore::settings());
 }
 
 bool SnippetsSettingsPagePrivate::settingsChanged() const
@@ -548,7 +544,7 @@ void SnippetsSettingsPagePrivate::setSnippetContent()
 void SnippetsSettingsPagePrivate::decorateEditors(const TextEditor::FontSettings &fontSettings)
 {
     const QList<ISnippetProvider *> &providers =
-        ExtensionSystem::PluginManager::instance()->getObjects<ISnippetProvider>();
+        ExtensionSystem::PluginManager::getObjects<ISnippetProvider>();
     for (int i = 0; i < m_ui.groupCombo->count(); ++i) {
         SnippetEditorWidget *snippetEditor = editorAt(i);
         snippetEditor->setFontSettings(fontSettings);
@@ -565,21 +561,14 @@ void SnippetsSettingsPagePrivate::decorateEditors(const TextEditor::FontSettings
 SnippetsSettingsPage::SnippetsSettingsPage(const QString &id, QObject *parent) :
     TextEditorOptionsPage(parent),
     d(new SnippetsSettingsPagePrivate(id))
-{}
+{
+    setId(d->id());
+    setDisplayName(d->displayName());
+}
 
 SnippetsSettingsPage::~SnippetsSettingsPage()
 {
     delete d;
-}
-
-QString SnippetsSettingsPage::id() const
-{
-    return d->id();
-}
-
-QString SnippetsSettingsPage::displayName() const
-{
-    return d->displayName();
 }
 
 bool SnippetsSettingsPage::matches(const QString &s) const

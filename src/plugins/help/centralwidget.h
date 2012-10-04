@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -59,7 +57,6 @@ public:
 
     static CentralWidget *instance();
 
-    bool hasSelection() const;
     bool isForwardAvailable() const;
     bool isBackwardAvailable() const;
 
@@ -84,10 +81,7 @@ public slots:
     void resetZoom();
 
     void forward();
-    void nextPage();
-
     void backward();
-    void previousPage();
 
     void print();
     void pageSetup();
@@ -102,7 +96,6 @@ protected:
 
 signals:
     void openFindToolBar();
-    void currentViewerChanged();
     void sourceChanged(const QUrl &url);
     void forwardAvailable(bool available);
     void backwardAvailable(bool available);

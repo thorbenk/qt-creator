@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -79,6 +77,7 @@ private slots:
     void requestContextMenu(TextEditor::ITextEditor *editor,
         int lineNumber, QMenu *menu);
     void bookmarkMarginActionTriggered();
+    void bookmarkEditNoteActionTriggered();
 
 private:
     static BookmarksPlugin *m_instance;
@@ -89,6 +88,7 @@ private:
     QAction *m_nextAction;
     QAction *m_docPrevAction;
     QAction *m_docNextAction;
+    QAction *m_editNoteAction;
 
     QAction *m_bookmarkMarginAction;
     int m_bookmarkMarginActionLineNumber;

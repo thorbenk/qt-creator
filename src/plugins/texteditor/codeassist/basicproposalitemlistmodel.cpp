@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -74,7 +72,34 @@ struct ContentLessThan
 
     bool lessThan(const QString &a, const QString &b)
     {
-        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), CharLessThan());
+        QString::const_iterator pa = a.begin();
+        QString::const_iterator pb = b.begin();
+
+        CharLessThan charLessThan;
+        enum { Letter, SmallerNumber, BiggerNumber } state = Letter;
+        for (; pa != a.end() && pb != b.end(); ++pa, ++pb) {
+            if (*pa == *pb)
+                continue;
+            if (state != Letter) {
+                if (!pa->isDigit() || !pb->isDigit())
+                    break;
+            } else if (pa->isDigit() && pb->isDigit()) {
+                if (charLessThan(*pa, *pb))
+                    state = SmallerNumber;
+                else
+                    state = BiggerNumber;
+            } else {
+                return charLessThan(*pa, *pb);
+            }
+        }
+
+        if (state == Letter)
+            return pa == a.end() && pb != b.end();
+        if (pa != a.end() && pa->isDigit())
+            return false;                   //more digits
+        if (pb != b.end() && pb->isDigit())
+            return true;                    //fewer digits
+        return state == SmallerNumber;      //same length, compare first different digit in the sequence
     }
 
     struct CharLessThan

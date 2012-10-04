@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -70,11 +68,17 @@ public:
     // Access children by name or index (0-based)
     SymbolGroupValue operator[](const char *name) const;
     SymbolGroupValue operator[](unsigned) const;
+    unsigned childCount() const;
+    SymbolGroupValue parent() const;
     // take address and cast to desired (pointer) type
     SymbolGroupValue typeCast(const char *type) const;
     // take pointer value and cast to desired (pointer) type
     SymbolGroupValue pointerTypeCast(const char *type) const;
-
+    // Find a member variable traversing the list of base classes. This useful
+    // for skipping template base classes of STL containers whose number varies
+    // by MSVC version.
+    static SymbolGroupValue findMember(const SymbolGroupValue &start,
+                                       const std::string &symbolName);
     std::string name() const;
     std::string type() const;
     std::vector<std::string>  innerTypes() const { return innerTypesOf(type()); }
@@ -113,6 +117,7 @@ public:
     static std::string moduleOfType(const std::string &type);
     // pointer type, return number of characters to strip
     static unsigned isPointerType(const std::string &);
+    static bool isArrayType(const std::string &);
     static bool isVTableType(const std::string &t);
     // add pointer type 'Foo' -> 'Foo *', 'Foo *' -> 'Foo **'
     static std::string pointerType(const std::string &type);
@@ -140,6 +145,9 @@ public:
     static ULONG64 readUnsignedValue(CIDebugDataSpaces *ds,
                                      ULONG64 address, ULONG debuggeeTypeSize, ULONG64 defaultValue = 0,
                                      std::string *errorMessage = 0);
+    static int readIntValue(CIDebugDataSpaces *ds,
+                            ULONG64 address, int defaultValue = 0,
+                            std::string *errorMessage = 0);
     static double readDouble(CIDebugDataSpaces *ds,
                              ULONG64 address, double defaultValue = 0.0,
                              std::string *errorMessage = 0);

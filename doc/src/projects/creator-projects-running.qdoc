@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -31,7 +29,7 @@
     \page creator-running-targets.html
     \nextpage creator-deployment.html
 
-    \title Running on Multiple Targets
+    \title Running on Multiple Platforms
 
     By default, running an application also builds it and deploys it to a
     location from where it can be run on the desktop, in \QS, or
@@ -39,8 +37,7 @@
 
     To run executable files without deploying them first, deselect the
     \gui {Tools > Options > Project > Always deploy project before running it}
-    option. This allows you to test SIS files that you receive from Nokia
-    Publish or Symbian Signed after you have them signed, for example.
+    option.
 
     For more information on the options you have, see
     \l{Specifying Run Settings}.
@@ -52,9 +49,9 @@
     \input projects/creator-projects-running-simulator.qdocinc
 
     \if defined(qcmanual)
-    \input linux-mobile/creator-projects-running-madde.qdocinc
     \input linux-mobile/creator-projects-running-generic-linux.qdocinc
-    \input symbian/creator-projects-running-symbian.qdocinc
+    \input linux-mobile/creator-projects-running-madde.qdocinc
+    \input qnx/creator-projects-running-qnx.qdocinc
     \endif
 
 */

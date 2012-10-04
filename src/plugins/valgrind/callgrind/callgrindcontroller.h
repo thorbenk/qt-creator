@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,9 +35,9 @@
 
 #include <qprocess.h>
 
-#include <utils/ssh/sshconnection.h>
-#include <utils/ssh/sshremoteprocess.h>
-#include <utils/ssh/sftpchannel.h>
+#include <ssh/sshconnection.h>
+#include <ssh/sshremoteprocess.h>
+#include <ssh/sftpchannel.h>
 
 namespace Valgrind {
 
@@ -89,7 +87,7 @@ private Q_SLOTS:
 
     void foundRemoteFile();
     void sftpInitialized();
-    void sftpJobFinished(Utils::SftpJobId job, const QString &error);
+    void sftpJobFinished(QSsh::SftpJobId job, const QString &error);
 
 private:
     void cleanupTempFile();
@@ -102,11 +100,11 @@ private:
     Option m_lastOption;
 
     // remote callgrind support
-    Utils::SshConnection::Ptr m_ssh;
+    QSsh::SshConnection *m_ssh;
     QString m_tempDataFile;
-    Utils::SshRemoteProcess::Ptr m_findRemoteFile;
-    Utils::SftpChannel::Ptr m_sftp;
-    Utils::SftpJobId m_downloadJob;
+    QSsh::SshRemoteProcess::Ptr m_findRemoteFile;
+    QSsh::SftpChannel::Ptr m_sftp;
+    QSsh::SftpJobId m_downloadJob;
     QByteArray m_remoteFile;
 };
 

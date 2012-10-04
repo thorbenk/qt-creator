@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -99,13 +97,6 @@ CentralWidget *CentralWidget::instance()
     return gStaticCentralWidget;
 }
 
-bool CentralWidget::hasSelection() const
-{
-    if (HelpViewer* viewer = currentHelpViewer())
-        return !viewer->selectedText().isEmpty();
-    return false;
-}
-
 bool CentralWidget::isForwardAvailable() const
 {
     const HelpViewer* viewer = currentHelpViewer();
@@ -148,10 +139,7 @@ void CentralWidget::addPage(HelpViewer *page, bool fromSearch)
 
 void CentralWidget::removePage(int index)
 {
-    const bool currentChanged = (index == currentIndex());
     m_stackedWidget->removeWidget(m_stackedWidget->widget(index));
-    if (currentChanged)
-        emit currentViewerChanged();
 }
 
 int CentralWidget::currentIndex() const
@@ -162,7 +150,6 @@ int CentralWidget::currentIndex() const
 void CentralWidget::setCurrentPage(HelpViewer *page)
 {
     m_stackedWidget->setCurrentWidget(page);
-    emit currentViewerChanged();
 }
 
 bool CentralWidget::find(const QString &txt, Find::FindFlags flags,
@@ -212,22 +199,10 @@ void CentralWidget::forward()
         viewer->forward();
 }
 
-void CentralWidget::nextPage()
-{
-    m_stackedWidget->setCurrentIndex((m_stackedWidget->currentIndex() + 1)
-        % m_stackedWidget->count());
-}
-
 void CentralWidget::backward()
 {
     if (HelpViewer* viewer = currentHelpViewer())
         viewer->backward();
-}
-
-void CentralWidget::previousPage()
-{
-    m_stackedWidget->setCurrentIndex((m_stackedWidget->currentIndex() - 1)
-        % m_stackedWidget->count());
 }
 
 void CentralWidget::print()

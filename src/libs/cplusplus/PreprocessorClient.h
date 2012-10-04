@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -80,24 +78,23 @@ public:
 
   virtual void macroAdded(const Macro &macro) = 0;
 
-  virtual void passedMacroDefinitionCheck(unsigned offset, const Macro &macro) = 0;
+  virtual void passedMacroDefinitionCheck(unsigned offset, unsigned line, const Macro &macro) = 0;
   virtual void failedMacroDefinitionCheck(unsigned offset, const ByteArrayRef &name) = 0;
 
+  virtual void notifyMacroReference(unsigned offset, unsigned line, const Macro &macro) = 0;
+
   virtual void startExpandingMacro(unsigned offset,
+                                   unsigned line,
                                    const Macro &macro,
-                                   const ByteArrayRef &originalText,
                                    const QVector<MacroArgumentReference> &actuals
                                             = QVector<MacroArgumentReference>()) = 0;
-
-  virtual void stopExpandingMacro(unsigned offset,
-                                  const Macro &macro) = 0;
+  virtual void stopExpandingMacro(unsigned offset, const Macro &macro) = 0;
 
   /// Start skipping from the given offset.
   virtual void startSkippingBlocks(unsigned offset) = 0;
   virtual void stopSkippingBlocks(unsigned offset) = 0;
 
-  virtual void sourceNeeded(QString &fileName, IncludeType mode,
-                            unsigned line) = 0; // ### FIX the signature.
+  virtual void sourceNeeded(unsigned line, QString &fileName, IncludeType mode) = 0;
 };
 
 } // namespace CPlusPlus

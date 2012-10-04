@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -46,6 +44,7 @@
 
 #include <extensionsystem/pluginmanager.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/stylehelper.h>
 #include <utils/flowlayout.h>
 
@@ -107,8 +106,8 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
 
     m_findCompleter->setModel(m_plugin->findCompletionModel());
     m_replaceCompleter->setModel(m_plugin->replaceCompletionModel());
-    m_ui.findEdit->setCompleter(m_findCompleter);
-    m_ui.replaceEdit->setCompleter(m_replaceCompleter);
+    m_ui.findEdit->setSpecialCompleter(m_findCompleter);
+    m_ui.replaceEdit->setSpecialCompleter(m_replaceCompleter);
 
     QMenu *lineEditMenu = new QMenu(m_ui.findEdit);
     m_ui.findEdit->setButtonMenu(Utils::FancyLineEdit::Left, lineEditMenu);
@@ -147,22 +146,21 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
 
     // register actions
     Core::Context globalcontext(Core::Constants::C_GLOBAL);
-    Core::ActionManager *am = Core::ICore::actionManager();
-    Core::ActionContainer *mfind = am->actionContainer(Constants::M_FIND);
+    Core::ActionContainer *mfind = Core::ActionManager::actionContainer(Constants::M_FIND);
     Core::Command *cmd;
 
-    m_ui.advancedButton->setDefaultAction(am->command(Constants::ADVANCED_FIND)->action());
+    m_ui.advancedButton->setDefaultAction(Core::ActionManager::command(Constants::ADVANCED_FIND)->action());
 
     QIcon icon = QIcon::fromTheme(QLatin1String("edit-find-replace"));
     m_findInDocumentAction = new QAction(icon, tr("Find/Replace"), this);
-    cmd = am->registerAction(m_findInDocumentAction, Constants::FIND_IN_DOCUMENT, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_findInDocumentAction, Constants::FIND_IN_DOCUMENT, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence::Find);
     mfind->addAction(cmd, Constants::G_FIND_CURRENTDOCUMENT);
     connect(m_findInDocumentAction, SIGNAL(triggered()), this, SLOT(openFind()));
 
     if (QApplication::clipboard()->supportsFindBuffer()) {
         m_enterFindStringAction = new QAction(tr("Enter Find String"), this);
-        cmd = am->registerAction(m_enterFindStringAction, "Find.EnterFindString", globalcontext);
+        cmd = Core::ActionManager::registerAction(m_enterFindStringAction, "Find.EnterFindString", globalcontext);
         cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+E")));
         mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
         connect(m_enterFindStringAction, SIGNAL(triggered()), this, SLOT(putSelectionToFindClipboard()));
@@ -170,33 +168,33 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
     }
 
     m_findNextAction = new QAction(tr("Find Next"), this);
-    cmd = am->registerAction(m_findNextAction, Constants::FIND_NEXT, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_findNextAction, Constants::FIND_NEXT, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence::FindNext);
     mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
     connect(m_findNextAction, SIGNAL(triggered()), this, SLOT(invokeFindNext()));
     m_ui.findNextButton->setDefaultAction(cmd->action());
 
     m_findPreviousAction = new QAction(tr("Find Previous"), this);
-    cmd = am->registerAction(m_findPreviousAction, Constants::FIND_PREVIOUS, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_findPreviousAction, Constants::FIND_PREVIOUS, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence::FindPrevious);
     mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
     connect(m_findPreviousAction, SIGNAL(triggered()), this, SLOT(invokeFindPrevious()));
     m_ui.findPreviousButton->setDefaultAction(cmd->action());
 
     m_findNextSelectedAction = new QAction(tr("Find Next (Selected)"), this);
-    cmd = am->registerAction(m_findNextSelectedAction, Constants::FIND_NEXT_SELECTED, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_findNextSelectedAction, Constants::FIND_NEXT_SELECTED, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+F3")));
     mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
     connect(m_findNextSelectedAction, SIGNAL(triggered()), this, SLOT(findNextSelected()));
 
     m_findPreviousSelectedAction = new QAction(tr("Find Previous (Selected)"), this);
-    cmd = am->registerAction(m_findPreviousSelectedAction, Constants::FIND_PREV_SELECTED, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_findPreviousSelectedAction, Constants::FIND_PREV_SELECTED, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+F3")));
     mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
     connect(m_findPreviousSelectedAction, SIGNAL(triggered()), this, SLOT(findPreviousSelected()));
 
     m_replaceAction = new QAction(tr("Replace"), this);
-    cmd = am->registerAction(m_replaceAction, Constants::REPLACE, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_replaceAction, Constants::REPLACE, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence());
     mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
     connect(m_replaceAction, SIGNAL(triggered()), this, SLOT(invokeReplace()));
@@ -204,21 +202,21 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
 
     m_replaceNextAction = new QAction(tr("Replace && Find"), this);
     m_replaceNextAction->setIconText(tr("Replace && Find")); // work around bug in Qt that kills ampersands in tool button
-    cmd = am->registerAction(m_replaceNextAction, Constants::REPLACE_NEXT, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_replaceNextAction, Constants::REPLACE_NEXT, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+=")));
     mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
     connect(m_replaceNextAction, SIGNAL(triggered()), this, SLOT(invokeReplaceNext()));
     m_ui.replaceNextButton->setDefaultAction(cmd->action());
 
     m_replacePreviousAction = new QAction(tr("Replace && Find Previous"), this);
-    cmd = am->registerAction(m_replacePreviousAction, Constants::REPLACE_PREVIOUS, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_replacePreviousAction, Constants::REPLACE_PREVIOUS, globalcontext);
     // shortcut removed, clashes with Ctrl++ on many keyboard layouts
     //cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+=")));
     mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
     connect(m_replacePreviousAction, SIGNAL(triggered()), this, SLOT(invokeReplacePrevious()));
 
     m_replaceAllAction = new QAction(tr("Replace All"), this);
-    cmd = am->registerAction(m_replaceAllAction, Constants::REPLACE_ALL, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_replaceAllAction, Constants::REPLACE_ALL, globalcontext);
     mfind->addAction(cmd, Constants::G_FIND_ACTIONS);
     connect(m_replaceAllAction, SIGNAL(triggered()), this, SLOT(invokeReplaceAll()));
     m_ui.replaceAllButton->setDefaultAction(cmd->action());
@@ -227,7 +225,7 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
     m_caseSensitiveAction->setIcon(QIcon(QLatin1String(":/find/images/casesensitively.png")));
     m_caseSensitiveAction->setCheckable(true);
     m_caseSensitiveAction->setChecked(false);
-    cmd = am->registerAction(m_caseSensitiveAction, Constants::CASE_SENSITIVE, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_caseSensitiveAction, Constants::CASE_SENSITIVE, globalcontext);
     mfind->addAction(cmd, Constants::G_FIND_FLAGS);
     connect(m_caseSensitiveAction, SIGNAL(triggered(bool)), this, SLOT(setCaseSensitive(bool)));
     lineEditMenu->addAction(m_caseSensitiveAction);
@@ -236,7 +234,7 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
     m_wholeWordAction->setIcon(QIcon(QLatin1String(":/find/images/wholewords.png")));
     m_wholeWordAction->setCheckable(true);
     m_wholeWordAction->setChecked(false);
-    cmd = am->registerAction(m_wholeWordAction, Constants::WHOLE_WORDS, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_wholeWordAction, Constants::WHOLE_WORDS, globalcontext);
     mfind->addAction(cmd, Constants::G_FIND_FLAGS);
     connect(m_wholeWordAction, SIGNAL(triggered(bool)), this, SLOT(setWholeWord(bool)));
     lineEditMenu->addAction(m_wholeWordAction);
@@ -245,7 +243,7 @@ FindToolBar::FindToolBar(FindPlugin *plugin, CurrentDocumentFind *currentDocumen
     m_regularExpressionAction->setIcon(QIcon(QLatin1String(":/find/images/regexp.png")));
     m_regularExpressionAction->setCheckable(true);
     m_regularExpressionAction->setChecked(false);
-    cmd = am->registerAction(m_regularExpressionAction, Constants::REGULAR_EXPRESSIONS, globalcontext);
+    cmd = Core::ActionManager::registerAction(m_regularExpressionAction, Constants::REGULAR_EXPRESSIONS, globalcontext);
     mfind->addAction(cmd, Constants::G_FIND_FLAGS);
     connect(m_regularExpressionAction, SIGNAL(triggered(bool)), this, SLOT(setRegularExpressions(bool)));
     lineEditMenu->addAction(m_regularExpressionAction);
@@ -281,21 +279,22 @@ bool FindToolBar::eventFilter(QObject *obj, QEvent *event)
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
         if (ke->key() == Qt::Key_Down) {
-            if (obj == m_ui.findEdit)
+            if (obj == m_ui.findEdit) {
+                if (m_ui.findEdit->text().isEmpty())
+                    m_findCompleter->setCompletionPrefix(QString());
                 m_findCompleter->complete();
-            else if (obj == m_ui.replaceEdit)
+            } else if (obj == m_ui.replaceEdit) {
+                if (m_ui.replaceEdit->text().isEmpty())
+                    m_replaceCompleter->setCompletionPrefix(QString());
                 m_replaceCompleter->complete();
+            }
         }
     }
 
     if ((obj == m_ui.findEdit || obj == m_findCompleter->popup())
                && event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
-#ifdef Q_OS_MAC
-        if (ke->key() == Qt::Key_Space && (ke->modifiers() & Qt::MetaModifier)) {
-#else
-        if (ke->key() == Qt::Key_Space && (ke->modifiers() & Qt::ControlModifier)) {
-#endif
+        if (ke->key() == Qt::Key_Space && (ke->modifiers() & Utils::HostOsInfo::controlModifier())) {
             QString completedText = m_currentDocumentFind->completedFindString();
             if (!completedText.isEmpty()) {
                 setFindText(completedText);
@@ -312,11 +311,7 @@ bool FindToolBar::eventFilter(QObject *obj, QEvent *event)
                 event->accept();
                 return true;
             }
-#ifdef Q_OS_MAC
-        } else if (ke->key() == Qt::Key_Space && (ke->modifiers() & Qt::MetaModifier)) {
-#else
-        } else if (ke->key() == Qt::Key_Space && (ke->modifiers() & Qt::ControlModifier)) {
-#endif
+        } else if (ke->key() == Qt::Key_Space && (ke->modifiers() & Utils::HostOsInfo::controlModifier())) {
             event->accept();
             return true;
         }
@@ -607,8 +602,7 @@ void FindToolBar::hideAndResetFocus()
 
 Core::FindToolBarPlaceHolder *FindToolBar::findToolBarPlaceHolder() const
 {
-    QList<Core::FindToolBarPlaceHolder*> placeholders = ExtensionSystem::PluginManager::instance()
-                                                        ->getObjects<Core::FindToolBarPlaceHolder>();
+    QList<Core::FindToolBarPlaceHolder*> placeholders = ExtensionSystem::PluginManager::getObjects<Core::FindToolBarPlaceHolder>();
     QWidget *candidate = QApplication::focusWidget();
     while (candidate) {
         foreach (Core::FindToolBarPlaceHolder *ph, placeholders) {

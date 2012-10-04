@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -109,7 +107,7 @@
 
         \if defined(qcmanual)
         \o  On Windows, you must create projects for Maemo 5 and Harmattan
-            targets on the same partition where you installed \QSDK, \QC, and
+            device types on the same partition where you installed \QSDK, \QC, and
             MADDE.
         \endif
 
@@ -123,27 +121,6 @@
     \section1 Debugging Issues
 
     \list
-
-        \o  Debugging large applications on Symbian devices using the Symbian^3
-            operating system might not work, because the on-device debugging
-            agent might not be able to access memory when the operating system
-            starts paging. This causes breakpoint handling and symbol resolution
-            to fail. For more information, see
-            \l{https://bugreports.qt-project.org/browse/QTCREATORBUG-2158}
-            {QTCREATORBUG-2158}.
-
-            As a workaround, add the following section to the application .pro
-            file to disable paging:
-
-            \code
-            debug {
-                MMP_RULES -= PAGED
-                MMP_RULES *= UNPAGED
-            }
-            \endcode
-
-            \note You must completely clean and rebuild the project for the
-            setting to take effect.
 
         \o  When debugging executables created by the GNU Compiler version 4.5.0
             (all platforms), some data types will not be displayed in the

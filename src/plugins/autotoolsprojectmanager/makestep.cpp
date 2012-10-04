@@ -36,13 +36,16 @@
 #include "autotoolsproject.h"
 #include "autotoolsprojectconstants.h"
 #include "autotoolsbuildconfiguration.h"
-#include "autotoolstarget.h"
 
 #include <projectexplorer/buildsteplist.h>
+#include <projectexplorer/target.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/gnumakeparser.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtparser.h>
 #include <utils/qtcprocess.h>
 
 #include <QVariantMap>
@@ -65,32 +68,27 @@ const char MAKE_STEP_ADDITIONAL_ARGUMENTS_KEY[] = "AutotoolsProjectManager.MakeS
 //////////////////////////
 MakeStepFactory::MakeStepFactory(QObject *parent) :
     IBuildStepFactory(parent)
-{
-}
+{ setObjectName(QLatin1String("Autotools::MakeStepFactory")); }
 
 QList<Core::Id> MakeStepFactory::availableCreationIds(BuildStepList *parent) const
 {
-    if (parent->target()->project()->id() == Core::Id(AUTOTOOLS_PROJECT_ID))
+    if (parent->target()->project()->id() == AUTOTOOLS_PROJECT_ID)
         return QList<Core::Id>() << Core::Id(MAKE_STEP_ID);
     return QList<Core::Id>();
 }
 
 QString MakeStepFactory::displayNameForId(const Core::Id id) const
 {
-    if (id == Core::Id(MAKE_STEP_ID))
+    if (id == MAKE_STEP_ID)
         return tr("Make", "Display name for AutotoolsProjectManager::MakeStep id.");
     return QString();
 }
 
 bool MakeStepFactory::canCreate(BuildStepList *parent, const Core::Id id) const
 {
-    if (parent->target()->project()->id() != Core::Id(AUTOTOOLS_PROJECT_ID))
-        return false;
-
-    if (parent->id() != Core::Id(BUILDSTEPS_BUILD))
-        return false;
-
-    return Core::Id(MAKE_STEP_ID) == id;
+    if (parent->target()->project()->id() == AUTOTOOLS_PROJECT_ID)
+        return id == MAKE_STEP_ID;
+    return false;
 }
 
 BuildStep *MakeStepFactory::create(BuildStepList *parent, const Core::Id id)
@@ -172,6 +170,17 @@ void MakeStep::setClean(bool clean)
 bool MakeStep::init()
 {
     AutotoolsBuildConfiguration *bc = autotoolsBuildConfiguration();
+    if (!bc)
+        bc = static_cast<AutotoolsBuildConfiguration *>(target()->activeBuildConfiguration());
+
+    m_tasks.clear();
+    ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
+    if (!tc) {
+        m_tasks.append(Task(Task::Error, tr("Qt Creator needs a compiler set up to build. Configure a compiler in the kit options."),
+                            Utils::FileName(), -1,
+                            Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+        return true; // otherwise the tasks will not get reported
+    }
 
     QString arguments = Utils::QtcProcess::joinArgs(m_buildTargets);
     Utils::QtcProcess::addArgs(&arguments, additionalArguments());
@@ -182,12 +191,15 @@ bool MakeStep::init()
     pp->setMacroExpander(bc->macroExpander());
     pp->setEnvironment(bc->environment());
     pp->setWorkingDirectory(bc->buildDirectory());
-    pp->setCommand(bc->toolChain()->makeCommand());
+    pp->setCommand(tc ? tc->makeCommand(bc->environment()) : QLatin1String("make"));
     pp->setArguments(arguments);
 
     setOutputParser(new GnuMakeParser());
-    if (bc->autotoolsTarget()->autotoolsProject()->toolChain())
-        appendOutputParser(bc->autotoolsTarget()->autotoolsProject()->toolChain()->outputParser());
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target()->kit());
+    if (version)
+        appendOutputParser(new QtSupport::QtParser);
+    if (tc)
+        appendOutputParser(tc->outputParser());
     outputParser()->setWorkingDirectory(pp->effectiveWorkingDirectory());
 
     return AbstractProcessStep::init();
@@ -195,6 +207,18 @@ bool MakeStep::init()
 
 void MakeStep::run(QFutureInterface<bool> &interface)
 {
+    // Warn on common error conditions:
+    bool canContinue = true;
+    foreach (const Task &t, m_tasks) {
+        addTask(t);
+        canContinue = false;
+    }
+    if (!canContinue) {
+        emit addOutput(tr("Configuration is faulty. Check the Issues view for details."), BuildStep::MessageOutput);
+        interface.reportResult(false);
+        return;
+    }
+
     AbstractProcessStep::run(interface);
 }
 
@@ -276,6 +300,7 @@ MakeStepConfigWidget::MakeStepConfigWidget(MakeStep *makeStep) :
             makeStep, SLOT(setAdditionalArguments(QString)));
     connect(makeStep, SIGNAL(additionalArgumentsChanged(QString)),
             this, SLOT(updateDetails()));
+    connect(m_makeStep->project(), SIGNAL(environmentChanged()), this, SLOT(updateDetails()));
 }
 
 QString MakeStepConfigWidget::displayName() const
@@ -291,7 +316,7 @@ QString MakeStepConfigWidget::summaryText() const
 void MakeStepConfigWidget::updateDetails()
 {
     AutotoolsBuildConfiguration *bc = m_makeStep->autotoolsBuildConfiguration();
-    ToolChain *tc = bc->toolChain();
+    ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(m_makeStep->target()->kit());
 
     if (tc) {
         QString arguments = Utils::QtcProcess::joinArgs(m_makeStep->m_buildTargets);
@@ -301,11 +326,11 @@ void MakeStepConfigWidget::updateDetails()
         param.setMacroExpander(bc->macroExpander());
         param.setEnvironment(bc->environment());
         param.setWorkingDirectory(bc->buildDirectory());
-        param.setCommand(tc->makeCommand());
+        param.setCommand(tc->makeCommand(bc->environment()));
         param.setArguments(arguments);
         m_summaryText = param.summary(displayName());
     } else {
-        m_summaryText = tr("<b>Unknown tool chain</b>");
+        m_summaryText = QLatin1String("<b>") + ProjectExplorer::ToolChainKitInformation::msgNoToolChainInTarget()  + QLatin1String("</b>");
     }
 
     emit updateSummary();

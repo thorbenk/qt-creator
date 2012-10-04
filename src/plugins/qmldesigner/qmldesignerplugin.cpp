@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,9 +55,8 @@
 
 #include <extensionsystem/pluginmanager.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
-
-#include <integrationcore.h>
 
 #include <QAction>
 
@@ -81,7 +78,6 @@ bool shouldAssertInException()
 }
 
 BauhausPlugin::BauhausPlugin() :
-    m_designerCore(0),
     m_designMode(0),
     m_isActive(false),
     m_revertToSavedAction(new QAction(this)),
@@ -108,7 +104,6 @@ BauhausPlugin::BauhausPlugin() :
 
 BauhausPlugin::~BauhausPlugin()
 {
-    delete m_designerCore;
     Core::ICore::removeContextObject(m_context);
 }
 
@@ -122,23 +117,18 @@ bool BauhausPlugin::initialize(const QStringList & /*arguments*/, QString *error
     const Core::Context switchContext(QmlDesigner::Constants::C_QMLDESIGNER,
         QmlJSEditor::Constants::C_QMLJSEDITOR_ID);
 
-    Core::ActionManager *am = Core::ICore::actionManager();
-
     QAction *switchAction = new QAction(tr("Switch Text/Design"), this);
-    Core::Command *command = am->registerAction(switchAction, QmlDesigner::Constants::SWITCH_TEXT_DESIGN, switchContext);
+    Core::Command *command = Core::ActionManager::registerAction(
+                switchAction, QmlDesigner::Constants::SWITCH_TEXT_DESIGN, switchContext);
     command->setDefaultKeySequence(QKeySequence(Qt::Key_F4));
 
-    m_designerCore = new QmlDesigner::IntegrationCore;
     m_pluginInstance = this;
 
-#ifdef Q_OS_MAC
-    const QString pluginPath = QCoreApplication::applicationDirPath() + "/../PlugIns/QmlDesigner";
-#else
-    const QString pluginPath = QCoreApplication::applicationDirPath() + "/../"
-                               + QLatin1String(IDE_LIBRARY_BASENAME) + "/qtcreator/qmldesigner";
-#endif
-
-    m_designerCore->pluginManager()->setPluginPaths(QStringList() << pluginPath);
+    const QString pluginPath = Utils::HostOsInfo::isMacHost()
+            ? QString(QCoreApplication::applicationDirPath() + "/../PlugIns/QmlDesigner")
+            : QString(QCoreApplication::applicationDirPath() + "/../"
+                      + QLatin1String(IDE_LIBRARY_BASENAME) + "/qtcreator/qmldesigner");
+    m_pluginManager.setPluginPaths(QStringList() << pluginPath);
 
     createDesignModeWidget();
     connect(switchAction, SIGNAL(triggered()), this, SLOT(switchTextDesign()));
@@ -155,9 +145,8 @@ bool BauhausPlugin::initialize(const QStringList & /*arguments*/, QString *error
 
 void BauhausPlugin::createDesignModeWidget()
 {
-    Core::ActionManager *actionManager = Core::ICore::actionManager();
     m_editorManager = Core::ICore::editorManager();
-    Core::ActionContainer *editMenu = actionManager->actionContainer(Core::Constants::M_EDIT);
+    Core::ActionContainer *editMenu = Core::ActionManager::actionContainer(Core::Constants::M_EDIT);
 
     m_mainWidget = new DesignModeWidget;
 
@@ -168,111 +157,110 @@ void BauhausPlugin::createDesignModeWidget()
     Core::Context qmlDesignerNavigatorContext(Constants::C_QMLNAVIGATOR);
 
     // Revert to saved
-    actionManager->registerAction(m_revertToSavedAction,
+    Core::ActionManager::registerAction(m_revertToSavedAction,
                                       Core::Constants::REVERTTOSAVED, qmlDesignerMainContext);
     connect(m_revertToSavedAction, SIGNAL(triggered()), m_editorManager, SLOT(revertToSaved()));
 
     //Save
-    actionManager->registerAction(m_saveAction, Core::Constants::SAVE, qmlDesignerMainContext);
+    Core::ActionManager::registerAction(m_saveAction, Core::Constants::SAVE, qmlDesignerMainContext);
     connect(m_saveAction, SIGNAL(triggered()), m_editorManager, SLOT(saveDocument()));
 
     //Save As
-    actionManager->registerAction(m_saveAsAction, Core::Constants::SAVEAS, qmlDesignerMainContext);
+    Core::ActionManager::registerAction(m_saveAsAction, Core::Constants::SAVEAS, qmlDesignerMainContext);
     connect(m_saveAsAction, SIGNAL(triggered()), m_editorManager, SLOT(saveDocumentAs()));
 
     //Close Editor
-    actionManager->registerAction(m_closeCurrentEditorAction, Core::Constants::CLOSE, qmlDesignerMainContext);
+    Core::ActionManager::registerAction(m_closeCurrentEditorAction, Core::Constants::CLOSE, qmlDesignerMainContext);
     connect(m_closeCurrentEditorAction, SIGNAL(triggered()), m_editorManager, SLOT(closeEditor()));
 
     //Close All
-    actionManager->registerAction(m_closeAllEditorsAction, Core::Constants::CLOSEALL, qmlDesignerMainContext);
+    Core::ActionManager::registerAction(m_closeAllEditorsAction, Core::Constants::CLOSEALL, qmlDesignerMainContext);
     connect(m_closeAllEditorsAction, SIGNAL(triggered()), m_editorManager, SLOT(closeAllEditors()));
 
     //Close All Others Action
-    actionManager->registerAction(m_closeOtherEditorsAction, Core::Constants::CLOSEOTHERS, qmlDesignerMainContext);
+    Core::ActionManager::registerAction(m_closeOtherEditorsAction, Core::Constants::CLOSEOTHERS, qmlDesignerMainContext);
     connect(m_closeOtherEditorsAction, SIGNAL(triggered()), m_editorManager, SLOT(closeOtherEditors()));
 
     // Undo / Redo
-    actionManager->registerAction(m_mainWidget->undoAction(), Core::Constants::UNDO, qmlDesignerMainContext);
-    actionManager->registerAction(m_mainWidget->redoAction(), Core::Constants::REDO, qmlDesignerMainContext);
+    Core::ActionManager::registerAction(m_mainWidget->undoAction(), Core::Constants::UNDO, qmlDesignerMainContext);
+    Core::ActionManager::registerAction(m_mainWidget->redoAction(), Core::Constants::REDO, qmlDesignerMainContext);
 
     Core::Command *command;
 
     //GoIntoComponent
-    command = actionManager->registerAction(m_mainWidget->goIntoComponentAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->goIntoComponentAction(),
                                             Constants::GO_INTO_COMPONENT, qmlDesignerMainContext);
     command->setDefaultKeySequence(QKeySequence(Qt::Key_F2));
 
     //Edit Menu
 
-    command = actionManager->registerAction(m_mainWidget->deleteAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->deleteAction(),
                                             QmlDesigner::Constants::DELETE, qmlDesignerFormEditorContext);
-    command = actionManager->registerAction(m_mainWidget->deleteAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->deleteAction(),
                                             QmlDesigner::Constants::DELETE, qmlDesignerNavigatorContext);
     command->setDefaultKeySequence(QKeySequence::Delete);
     command->setAttribute(Core::Command::CA_Hide); // don't show delete in other modes
     editMenu->addAction(command, Core::Constants::G_EDIT_COPYPASTE);
 
-    command = actionManager->registerAction(m_mainWidget->cutAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->cutAction(),
                                             Core::Constants::CUT, qmlDesignerFormEditorContext);
-    command = actionManager->registerAction(m_mainWidget->cutAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->cutAction(),
                                             Core::Constants::CUT, qmlDesignerNavigatorContext);
     command->setDefaultKeySequence(QKeySequence::Cut);
     editMenu->addAction(command, Core::Constants::G_EDIT_COPYPASTE);
 
-    command = actionManager->registerAction(m_mainWidget->copyAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->copyAction(),
                                             Core::Constants::COPY, qmlDesignerFormEditorContext);
-    command = actionManager->registerAction(m_mainWidget->copyAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->copyAction(),
                                             Core::Constants::COPY, qmlDesignerNavigatorContext);
     command->setDefaultKeySequence(QKeySequence::Copy);
     editMenu->addAction(command, Core::Constants::G_EDIT_COPYPASTE);
 
-    command = actionManager->registerAction(m_mainWidget->pasteAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->pasteAction(),
                                             Core::Constants::PASTE, qmlDesignerFormEditorContext);
-    command = actionManager->registerAction(m_mainWidget->pasteAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->pasteAction(),
                                             Core::Constants::PASTE, qmlDesignerNavigatorContext);
     command->setDefaultKeySequence(QKeySequence::Paste);
     editMenu->addAction(command, Core::Constants::G_EDIT_COPYPASTE);
 
-    command = actionManager->registerAction(m_mainWidget->selectAllAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->selectAllAction(),
                                             Core::Constants::SELECTALL, qmlDesignerFormEditorContext);
-    command = actionManager->registerAction(m_mainWidget->selectAllAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->selectAllAction(),
                                             Core::Constants::SELECTALL, qmlDesignerNavigatorContext);
 
     command->setDefaultKeySequence(QKeySequence::SelectAll);
     editMenu->addAction(command, Core::Constants::G_EDIT_SELECTALL);
 
-    Core::ActionContainer *viewsMenu = actionManager->actionContainer(Core::Constants::M_WINDOW_VIEWS);
+    Core::ActionContainer *viewsMenu = Core::ActionManager::actionContainer(Core::Constants::M_WINDOW_VIEWS);
 
-    command = actionManager->registerAction(m_mainWidget->toggleLeftSidebarAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->toggleLeftSidebarAction(),
                                             Constants::TOGGLE_LEFT_SIDEBAR, qmlDesignerMainContext);
     command->setAttribute(Core::Command::CA_Hide);
     command->setDefaultKeySequence(QKeySequence("Ctrl+Alt+0"));
     viewsMenu->addAction(command);
 
-    command = actionManager->registerAction(m_mainWidget->toggleRightSidebarAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->toggleRightSidebarAction(),
                                             Constants::TOGGLE_RIGHT_SIDEBAR, qmlDesignerMainContext);
     command->setAttribute(Core::Command::CA_Hide);
     command->setDefaultKeySequence(QKeySequence("Ctrl+Alt+Shift+0"));
     viewsMenu->addAction(command);
 
-    command = actionManager->registerAction(m_mainWidget->restoreDefaultViewAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->restoreDefaultViewAction(),
                                             Constants::RESTORE_DEFAULT_VIEW, qmlDesignerMainContext);
     command->setAttribute(Core::Command::CA_Hide);
     viewsMenu->addAction(command);
 
-    command = actionManager->registerAction(m_mainWidget->hideSidebarsAction(),
+    command = Core::ActionManager::registerAction(m_mainWidget->hideSidebarsAction(),
                                             Core::Constants::TOGGLE_SIDEBAR, qmlDesignerMainContext);
 
-#ifdef Q_OS_MACX
-    // add second shortcut to trigger delete
-    QAction *deleteAction = new QAction(m_mainWidget);
-    deleteAction->setShortcut(QKeySequence(QLatin1String("Backspace")));
-    connect(deleteAction, SIGNAL(triggered()), m_mainWidget->deleteAction(),
-            SIGNAL(triggered()));
-
-    m_mainWidget->addAction(deleteAction);
-#endif // Q_OS_MACX
+    if (Utils::HostOsInfo::isMacHost()) {
+        // add second shortcut to trigger delete
+        QAction *deleteAction = new QAction(m_mainWidget);
+        deleteAction->setShortcut(QKeySequence(QLatin1String("Backspace")));
+        connect(deleteAction, SIGNAL(triggered()), m_mainWidget->deleteAction(),
+                SIGNAL(triggered()));
+        m_mainWidget->addAction(deleteAction);
+    }
 
     connect(m_editorManager, SIGNAL(currentEditorChanged(Core::IEditor*)),
             this, SLOT(updateEditor(Core::IEditor*)));
@@ -391,8 +379,7 @@ void BauhausPlugin::setSettings(const DesignerSettings &s)
 {
     if (s != m_settings) {
         m_settings = s;
-        if (QSettings *settings = Core::ICore::settings())
-            m_settings.toSettings(settings);
+        m_settings.toSettings(Core::ICore::settings());
     }
 }
 

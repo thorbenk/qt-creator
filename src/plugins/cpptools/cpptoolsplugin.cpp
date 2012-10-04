@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -104,8 +102,6 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     Q_UNUSED(arguments)
     Q_UNUSED(error)
 
-    Core::ActionManager *am = Core::ICore::actionManager();
-
     m_settings = new CppToolsSettings(this); // force registration of cpp tools settings
 
     // Objects
@@ -127,8 +123,8 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     addAutoReleasedObject(new CppCodeStyleSettingsPage);
 
     // Menus
-    Core::ActionContainer *mtools = am->actionContainer(Core::Constants::M_TOOLS);
-    Core::ActionContainer *mcpptools = am->createMenu(CppTools::Constants::M_TOOLS_CPP);
+    Core::ActionContainer *mtools = Core::ActionManager::actionContainer(Core::Constants::M_TOOLS);
+    Core::ActionContainer *mcpptools = Core::ActionManager::createMenu(CppTools::Constants::M_TOOLS_CPP);
     QMenu *menu = mcpptools->menu();
     menu->setTitle(tr("&C++"));
     menu->setEnabled(true);
@@ -138,7 +134,7 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     Core::Context context(CppEditor::Constants::C_CPPEDITOR);
 
     QAction *switchAction = new QAction(tr("Switch Header/Source"), this);
-    Core::Command *command = am->registerAction(switchAction, Constants::SWITCH_HEADER_SOURCE, context, true);
+    Core::Command *command = Core::ActionManager::registerAction(switchAction, Constants::SWITCH_HEADER_SOURCE, context, true);
     command->setDefaultKeySequence(QKeySequence(Qt::Key_F4));
     mcpptools->addAction(command);
     connect(switchAction, SIGNAL(triggered()), this, SLOT(switchHeaderSource()));
@@ -299,7 +295,8 @@ QString CppToolsPlugin::correspondingHeaderOrSourceI(const QString &fileName) co
         const QFileInfo candidateFi(absoluteDir, candidateFileName);
         if (candidateFi.isFile()) {
             m_headerSourceMapping[fi.absoluteFilePath()] = candidateFi.absoluteFilePath();
-            m_headerSourceMapping[candidateFi.absoluteFilePath()] = fi.absoluteFilePath();
+            if (type != HeaderFile || !baseName.endsWith(privateHeaderSuffix))
+                m_headerSourceMapping[candidateFi.absoluteFilePath()] = fi.absoluteFilePath();
             return candidateFi.absoluteFilePath();
         }
     }

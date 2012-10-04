@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -454,8 +452,9 @@ void FlatModel::setStartupProject(ProjectNode *projectNode)
 
 void FlatModel::reset()
 {
+    beginResetModel();
     m_childNodes.clear();
-    QAbstractItemModel::reset();
+    endResetModel();
 }
 
 QModelIndex FlatModel::indexForNode(const Node *node_)
@@ -544,7 +543,7 @@ bool FlatModel::filter(Node *node) const
     } else if (ProjectNode *projectNode = qobject_cast<ProjectNode*>(node)) {
         if (m_filterProjects && projectNode->parentFolderNode() != m_rootNode)
             isHidden = !projectNode->hasBuildTargets();
-    } else if (node->nodeType() == FolderNodeType) {
+    } else if (node->nodeType() == FolderNodeType || node->nodeType() == VirtualFolderNodeType) {
         if (m_filterProjects)
             isHidden = true;
     } else if (FileNode *fileNode = qobject_cast<FileNode*>(node)) {

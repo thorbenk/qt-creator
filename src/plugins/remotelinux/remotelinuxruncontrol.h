@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,54 +34,37 @@
 
 #include <projectexplorer/runconfiguration.h>
 
-QT_FORWARD_DECLARE_CLASS(QString)
+namespace ProjectExplorer { class DeviceApplicationHelperAction; }
 
 namespace RemoteLinux {
-class AbstractRemoteLinuxApplicationRunner;
 
-class REMOTELINUX_EXPORT AbstractRemoteLinuxRunControl : public ProjectExplorer::RunControl
+class REMOTELINUX_EXPORT RemoteLinuxRunControl : public ProjectExplorer::RunControl
 {
     Q_OBJECT
-    Q_DISABLE_COPY(AbstractRemoteLinuxRunControl)
 public:
-    explicit AbstractRemoteLinuxRunControl(ProjectExplorer::RunConfiguration *runConfig);
-    virtual ~AbstractRemoteLinuxRunControl();
+    explicit RemoteLinuxRunControl(ProjectExplorer::RunConfiguration *runConfig);
+    virtual ~RemoteLinuxRunControl();
 
     virtual void start();
     virtual StopResult stop();
     virtual bool isRunning() const;
     virtual QIcon icon() const;
 
-    virtual AbstractRemoteLinuxApplicationRunner *runner() const = 0;
+    void setApplicationRunnerPreRunAction(ProjectExplorer::DeviceApplicationHelperAction *action);
+    void setApplicationRunnerPostRunAction(ProjectExplorer::DeviceApplicationHelperAction *action);
 
 private slots:
-    void startExecution();
-    void handleSshError(const QString &error);
-    void handleRemoteProcessStarted() {}
-    void handleRemoteProcessFinished(qint64 exitCode);
+    void handleErrorMessage(const QString &error);
+    void handleRunnerFinished();
     void handleRemoteOutput(const QByteArray &output);
     void handleRemoteErrorOutput(const QByteArray &output);
     void handleProgressReport(const QString &progressString);
 
 private:
     void setFinished();
-    void handleError(const QString &errString);
 
-    bool m_running;
-};
-
-
-class REMOTELINUX_EXPORT RemoteLinuxRunControl : public AbstractRemoteLinuxRunControl
-{
-    Q_OBJECT
-
-public:
-    explicit RemoteLinuxRunControl(ProjectExplorer::RunConfiguration *runConfig);
-    virtual ~RemoteLinuxRunControl();
-private:
-    virtual AbstractRemoteLinuxApplicationRunner *runner() const;
-
-    AbstractRemoteLinuxApplicationRunner * const m_runner;
+    class RemoteLinuxRunControlPrivate;
+    RemoteLinuxRunControlPrivate * const d;
 };
 
 } // namespace RemoteLinux

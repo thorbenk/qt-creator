@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,19 +33,12 @@
 
 #include "maemomountspecification.h"
 
+#include <projectexplorer/devicesupport/idevice.h>
 #include <utils/portlist.h>
 
-#include <QList>
-#include <QObject>
-#include <QSharedPointer>
-
-namespace Utils { class SshConnection; }
-namespace Qt4ProjectManager { class Qt4BuildConfiguration; }
-
-namespace RemoteLinux {
-class LinuxDeviceConfiguration;
-class RemoteLinuxUsedPortsGatherer;
-}
+namespace ProjectExplorer { class Kit; }
+namespace QSsh { class SshConnection; }
+namespace Utils { class FileName; }
 
 namespace Madde {
 namespace Internal {
@@ -56,15 +47,15 @@ class MaemoRemoteMounter;
 class MaemoDeploymentMounter : public QObject
 {
     Q_OBJECT
+
 public:
     explicit MaemoDeploymentMounter(QObject *parent = 0);
     ~MaemoDeploymentMounter();
 
     // Connection must be in connected state.
-    void setupMounts(const QSharedPointer<Utils::SshConnection> &connection,
-        const QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> &devConf,
+    void setupMounts(QSsh::SshConnection *connection,
         const QList<MaemoMountSpecification> &mountSpecs,
-        const Qt4ProjectManager::Qt4BuildConfiguration *bc);
+        const ProjectExplorer::Kit *k);
     void tearDownMounts();
 
 signals:
@@ -78,13 +69,11 @@ private slots:
     void handleMounted();
     void handleUnmounted();
     void handleMountError(const QString &errorMsg);
-    void handlePortsGathererError(const QString &errorMsg);
-    void handlePortListReady();
     void handleConnectionError();
 
 private:
     enum State {
-        Inactive, UnmountingOldDirs, UnmountingCurrentDirs, GatheringPorts,
+        Inactive, UnmountingOldDirs, UnmountingCurrentDirs,
         Mounting, Mounted, UnmountingCurrentMounts
     };
 
@@ -93,13 +82,11 @@ private:
     void setState(State newState);
 
     State m_state;
-    QSharedPointer<Utils::SshConnection> m_connection;
-    QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> m_devConf;
+    QSsh::SshConnection *m_connection;
+    ProjectExplorer::IDevice::ConstPtr m_devConf;
     MaemoRemoteMounter * const m_mounter;
-    RemoteLinux::RemoteLinuxUsedPortsGatherer * const m_portsGatherer;
-    Utils::PortList m_freePorts;
     QList<MaemoMountSpecification> m_mountSpecs;
-    const Qt4ProjectManager::Qt4BuildConfiguration *m_buildConfig;
+    const ProjectExplorer::Kit *m_kit;
 };
 
 } // namespace Internal

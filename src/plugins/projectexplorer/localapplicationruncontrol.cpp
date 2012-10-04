@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -63,20 +61,14 @@ QString LocalApplicationRunControlFactory::displayName() const
     return tr("Run");
 }
 
-RunControl *LocalApplicationRunControlFactory::create(RunConfiguration *runConfiguration, RunMode mode)
+RunControl *LocalApplicationRunControlFactory::create(RunConfiguration *runConfiguration, RunMode mode, QString *errorMessage)
 {
     QTC_ASSERT(canRun(runConfiguration, mode), return 0);
     LocalApplicationRunConfiguration *localRunConfiguration = qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration);
     // Force the dialog about executables at this point and fail if there is none
-    if (localRunConfiguration->executable().isEmpty())
+    if (!localRunConfiguration->ensureConfigured(errorMessage))
         return 0;
     return new LocalApplicationRunControl(localRunConfiguration, mode);
-}
-
-RunConfigWidget *LocalApplicationRunControlFactory::createConfigurationWidget(RunConfiguration *runConfiguration)
-{
-    Q_UNUSED(runConfiguration)
-    return 0;
 }
 
 // ApplicationRunControl

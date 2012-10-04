@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -44,6 +42,7 @@
 #include <projectexplorer/runconfiguration.h>
 #include <utils/runextensions.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <QDesktopServices>
 #include <QCoreApplication>
@@ -196,7 +195,7 @@ static bool hasPrivateHeaders(const QString &qtInstallHeaders) {
 
 bool QmlDumpTool::canBuild(const BaseQtVersion *qtVersion, QString *reason)
 {
-    const QString installHeaders = qtVersion->versionInfo().value(QLatin1String("QT_INSTALL_HEADERS"));
+    const QString installHeaders = qtVersion->qmakeProperty("QT_INSTALL_HEADERS");
 
     if (qtVersion->type() != QLatin1String(Constants::DESKTOPQT)
             && qtVersion->type() != QLatin1String(Constants::SIMULATORQT)) {
@@ -227,9 +226,9 @@ bool QmlDumpTool::canBuild(const BaseQtVersion *qtVersion, QString *reason)
 QString QmlDumpTool::toolForVersion(BaseQtVersion *version, bool debugDump)
 {
     if (version) {
-        const QString qtInstallData = version->versionInfo().value(QLatin1String("QT_INSTALL_DATA"));
-        const QString qtInstallBins = version->versionInfo().value(QLatin1String("QT_INSTALL_BINS"));
-        const QString qtInstallHeaders = version->versionInfo().value(QLatin1String("QT_INSTALL_HEADERS"));
+        const QString qtInstallData = version->qmakeProperty("QT_INSTALL_DATA");
+        const QString qtInstallBins = version->qmakeProperty("QT_INSTALL_BINS");
+        const QString qtInstallHeaders = version->qmakeProperty("QT_INSTALL_HEADERS");
         return toolForQtPaths(qtInstallData, qtInstallBins, qtInstallHeaders, debugDump);
     }
 
@@ -247,9 +246,8 @@ static QStringList sourceFileNames()
     files << QLatin1String("main.cpp") << QLatin1String("qmldump.pro")
           << QLatin1String("qmlstreamwriter.cpp") << QLatin1String("qmlstreamwriter.h")
           << QLatin1String("LICENSE.LGPL") << QLatin1String("LGPL_EXCEPTION.TXT");
-#ifdef Q_OS_MAC
-    files << QLatin1String("Info.plist");
-#endif
+    if (Utils::HostOsInfo::isMacHost())
+        files << QLatin1String("Info.plist");
     return files;
 }
 
@@ -362,6 +360,6 @@ void QmlDumpTool::pathAndEnvironment(ProjectExplorer::Project *project, BaseQtVe
     }
 }
 
-} // namespace Qt4ProjectManager
+} // namespace QtSupport
 
 #include "qmldumptool.moc"

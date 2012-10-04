@@ -9,7 +9,7 @@ def handleDebuggerWarnings(config):
                                     "This is recommended for retrieval of the symbols of the operating system libraries.</p>"
                                     "<p><i>Note:</i> A fast internet connection is required for this to work smoothly. "
                                     "Also, a delay might occur when connecting for the first time.</p>"
-                                    "<p>Would you like to set it up?</p></br></body></html>")
+                                    "<p>Would you like to set it up?</p></body></html>")
             if popup.text == symServerNotConfiged:
                 test.log("Creator warned about the debugger not being configured to use the public Microsoft Symbol Server.")
             else:
@@ -18,9 +18,11 @@ def handleDebuggerWarnings(config):
         except LookupError:
             pass # No warning. Fine.
     else:
-        if "Release" in config and platform.system() != "Darwin":
+        if "Release" in config and not platform.system() in ("Darwin", "Microsoft", "Windows"):
             message = waitForObject("{container=':Qt Creator.DebugModeWidget_QSplitter' name='qt_msgbox_label' type='QLabel' visible='1'}", 20000)
-            test.compare(message.text, "This does not seem to be a \"Debug\" build.\nSetting breakpoints by file name and line number may fail.")
+            messageText = str(message.text)
+            test.verify(messageText.startswith('This does not seem to be a "Debug" build.\nSetting breakpoints by file name and line number may fail.'),
+                        "Got warning: %s" % messageText)
             clickButton("{container=':Qt Creator.DebugModeWidget_QSplitter' text='OK' type='QPushButton' unnamed='1' visible='1'}")
 
 def takeDebuggerLog():
@@ -35,7 +37,7 @@ def takeDebuggerLog():
     return debuggerLog
 
 # function to set breakpoints for the current project
-# on the given file,line pairs inside the given dict
+# on the given file,line pairs inside the given list of dicts
 # the lines are treated as regular expression
 def setBreakpointsForCurrentProject(filesAndLines):
     # internal helper for setBreakpointsForCurrentProject
@@ -52,18 +54,19 @@ def setBreakpointsForCurrentProject(filesAndLines):
 
     switchViewTo(ViewConstants.DEBUG)
     removeOldBreakpoints()
-    if not filesAndLines or not isinstance(filesAndLines, dict):
-        test.fatal("This function only takes a non-empty dict.")
+    if not filesAndLines or not isinstance(filesAndLines, (list,tuple)):
+        test.fatal("This function only takes a non-empty list/tuple holding dicts.")
         return False
     navTree = waitForObject("{type='Utils::NavigationTreeView' unnamed='1' visible='1' "
                             "window=':Qt Creator_Core::Internal::MainWindow'}", 20000)
-    for curFile,curLine in filesAndLines.iteritems():
-        fName = __doubleClickFile__(navTree, curFile)
-        editor = getEditorForFileSuffix(curFile)
-        if not placeCursorToLine(editor, curLine, True):
-            return False
-        invokeMenuItem("Debug", "Toggle Breakpoint")
-        test.log('Set breakpoint in %s' % fName, curLine)
+    for current in filesAndLines:
+        for curFile,curLine in current.iteritems():
+            fName = __doubleClickFile__(navTree, curFile)
+            editor = getEditorForFileSuffix(curFile)
+            if not placeCursorToLine(editor, curLine, True):
+                return False
+            invokeMenuItem("Debug", "Toggle Breakpoint")
+            test.log('Set breakpoint in %s' % fName, curLine)
     try:
         breakPointTreeView = waitForObject(":Breakpoints_Debugger::Internal::BreakTreeView")
         waitFor("breakPointTreeView.model().rowCount() == len(filesAndLines)", 2000)
@@ -177,8 +180,7 @@ def __startDebugger__(config):
 
 def __stopDebugger__():
     clickButton(waitForObject(":Debugger Toolbar.Exit Debugger_QToolButton"))
-    ensureChecked("{type='Core::Internal::OutputPaneToggleButton' unnamed='1' visible='1' "
-                  "window=':Qt Creator_Core::Internal::MainWindow' occurrence='3'}")
+    ensureChecked(":Qt Creator_AppOutput_Core::Internal::OutputPaneToggleButton")
     output = waitForObject("{type='Core::OutputWindow' visible='1' windowTitle='Application Output Window'}", 20000)
     waitFor("'Debugging has finished' in str(output.plainText)", 20000)
     return __logDebugResult__()

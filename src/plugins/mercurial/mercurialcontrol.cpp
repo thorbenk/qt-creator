@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Brian McGillion
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -69,7 +67,7 @@ bool MercurialControl::managesDirectory(const QString &directory, QString *topLe
 
 bool MercurialControl::isConfigured() const
 {
-    const QString binary = mercurialClient->settings()->stringValue(MercurialSettings::binaryPathKey);
+    const QString binary = mercurialClient->settings()->binaryPath();
     if (binary.isEmpty())
         return false;
     QFileInfo fi(binary);

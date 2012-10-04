@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,23 +25,20 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qt4project.h"
 
 #include "qt4projectmanager.h"
-#include "qt4target.h"
 #include "makestep.h"
 #include "qmakestep.h"
+#include "qmakerunconfigurationfactory.h"
 #include "qt4nodes.h"
 #include "qt4projectconfigwidget.h"
 #include "qt4projectmanagerconstants.h"
 #include "qt4buildconfiguration.h"
 #include "findqt4profiles.h"
-#include "qt4basetargetfactory.h"
 #include "buildconfigurationinfo.h"
 
 #include <coreplugin/icore.h>
@@ -53,10 +50,13 @@
 #include <extensionsystem/pluginmanager.h>
 #include <cpptools/ModelManagerInterface.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
+#include <projectexplorer/buildtargetinfo.h>
+#include <projectexplorer/deploymentdata.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/headerpath.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/buildenvironmentwidget.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <utils/qtcassert.h>
@@ -64,6 +64,7 @@
 #include <qtsupport/qmldumptool.h>
 #include <qtsupport/baseqtversion.h>
 #include <qtsupport/profilereader.h>
+#include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtsupportconstants.h>
 #include <qtsupport/qtversionmanager.h>
 #include <utils/QtConcurrentTools>
@@ -80,6 +81,43 @@ using namespace ProjectExplorer;
 
 enum { debug = 0 };
 
+// -----------------------------------------------------------------------
+// Helpers:
+// -----------------------------------------------------------------------
+
+namespace {
+
+Qt4BuildConfiguration *enableActiveQt4BuildConfiguration(ProjectExplorer::Target *t, bool enabled)
+{
+    if (!t)
+        return 0;
+    Qt4BuildConfiguration *bc = static_cast<Qt4BuildConfiguration *>(t->activeBuildConfiguration());
+    if (!bc)
+        return 0;
+    bc->setEnabled(enabled);
+    return bc;
+}
+
+QString sanitize(const QString &input)
+{
+    QString result;
+    result.reserve(input.size());
+    foreach (const QChar &qc, input) {
+        const char c = qc.toLatin1();
+        if ((c >= 'a' && c <='z')
+                || (c >= 'A' && c <= 'Z')
+                || (c >= '0' && c <= '9')
+                || c == '-'
+                || c == '_')
+            result.append(qc);
+        else
+            result.append(QLatin1Char('_'));
+    }
+    return result;
+}
+
+} // namespace
+
 namespace Qt4ProjectManager {
 namespace Internal {
 
@@ -88,7 +126,7 @@ class Qt4ProjectFile : public Core::IDocument
     Q_OBJECT
 
 public:
-    Qt4ProjectFile(Qt4Project *project, const QString &filePath, QObject *parent = 0);
+    Qt4ProjectFile(const QString &filePath, QObject *parent = 0);
 
     bool save(QString *errorString, const QString &fileName, bool autoSave);
     QString fileName() const;
@@ -106,7 +144,6 @@ public:
 
 private:
     const QString m_mimeType;
-    Qt4Project *m_project;
     QString m_filePath;
 };
 
@@ -139,7 +176,8 @@ private:
 };
 
 // Qt4ProjectFiles: Struct for (Cached) lists of files in a project
-struct Qt4ProjectFiles {
+class Qt4ProjectFiles {
+public:
     void clear();
     bool equals(const Qt4ProjectFiles &f) const;
 
@@ -238,10 +276,9 @@ void ProjectFilesVisitor::visitFolderNode(FolderNode *folderNode)
 
 // ----------- Qt4ProjectFile
 namespace Internal {
-Qt4ProjectFile::Qt4ProjectFile(Qt4Project *project, const QString &filePath, QObject *parent)
+Qt4ProjectFile::Qt4ProjectFile(const QString &filePath, QObject *parent)
     : Core::IDocument(parent),
       m_mimeType(QLatin1String(Qt4ProjectManager::Constants::PROFILE_MIMETYPE)),
-      m_project(project),
       m_filePath(filePath)
 {
 }
@@ -305,6 +342,7 @@ bool Qt4ProjectFile::reload(QString *errorString, ReloadFlag flag, ChangeType ty
 }
 
 } // namespace Internal
+
 /*!
   \class Qt4Project
 
@@ -315,15 +353,16 @@ Qt4Project::Qt4Project(Qt4Manager *manager, const QString& fileName) :
     m_manager(manager),
     m_rootProjectNode(0),
     m_nodesWatcher(new Internal::Qt4NodesWatcher(this)),
-    m_fileInfo(new Qt4ProjectFile(this, fileName, this)),
+    m_fileInfo(new Qt4ProjectFile(fileName, this)),
     m_projectFiles(new Qt4ProjectFiles),
-    m_proFileOption(0),
+    m_qmakeGlobals(0),
     m_asyncUpdateFutureInterface(0),
     m_pendingEvaluateFuturesCount(0),
     m_asyncUpdateState(NoState),
     m_cancelEvaluate(false),
     m_codeModelCanceled(false),
-    m_centralizedFolderWatcher(0)
+    m_centralizedFolderWatcher(0),
+    m_activeTarget(0)
 {
     setProjectContext(Core::Context(Qt4ProjectManager::Constants::PROJECT_ID));
     setProjectLanguage(Core::Context(ProjectExplorer::Constants::LANG_CXX));
@@ -371,7 +410,6 @@ bool Qt4Project::fromMap(const QVariantMap &map)
         if (t->buildConfigurations().isEmpty()) {
             qWarning() << "Removing" << t->id().name() << "since it has no buildconfigurations!";
             removeTarget(t);
-            delete t;
         }
     }
 
@@ -385,51 +423,23 @@ bool Qt4Project::fromMap(const QVariantMap &map)
     // This might be incorrect, need a full update
     updateCodeModels();
 
-    foreach (Target *t, targets())
-        static_cast<Qt4BaseTarget *>(t)->createApplicationProFiles(false);
-
-    foreach (Target *t, targets())
-        onAddedTarget(t);
-
-    connect(m_nodesWatcher, SIGNAL(proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)),
-            this, SIGNAL(proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)));
+    // We have the profile nodes now, so we know the runconfigs!
+    connect(m_nodesWatcher, SIGNAL(kitUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)),
+            this, SIGNAL(kitUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)));
 
     // Now we emit update once :)
     m_rootProjectNode->emitProFileUpdatedRecursive();
 
-
-    // Setup Qt versions supported (== possible targets).
-    connect(this, SIGNAL(addedTarget(ProjectExplorer::Target*)),
-            this, SLOT(onAddedTarget(ProjectExplorer::Target*)));
+    // On active buildconfiguration changes, reevaluate the .pro files
+    m_activeTarget = activeTarget();
+    if (m_activeTarget)
+        connect(m_activeTarget, SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
+                this, SLOT(scheduleAsyncUpdate()));
 
     connect(this, SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
             this, SLOT(activeTargetWasChanged()));
 
-    emit fromMapFinished();
-
     return true;
-}
-
-Qt4BaseTarget *Qt4Project::activeTarget() const
-{
-    return static_cast<Qt4BaseTarget *>(Project::activeTarget());
-}
-
-void Qt4Project::onAddedTarget(ProjectExplorer::Target *t)
-{
-    Q_ASSERT(t);
-    Qt4BaseTarget *qt4target = qobject_cast<Qt4BaseTarget *>(t);
-    Q_ASSERT(qt4target);
-    connect(qt4target, SIGNAL(buildDirectoryInitialized()),
-            this, SIGNAL(buildDirectoryInitialized()));
-    connect(qt4target, SIGNAL(proFileEvaluateNeeded(Qt4ProjectManager::Qt4BaseTarget*)),
-            this, SLOT(proFileEvaluateNeeded(Qt4ProjectManager::Qt4BaseTarget*)));
-}
-
-void Qt4Project::proFileEvaluateNeeded(Qt4ProjectManager::Qt4BaseTarget *target)
-{
-    if (activeTarget() == target)
-        scheduleAsyncUpdate();
 }
 
 /// equalFileList compares two file lists ignoring
@@ -473,15 +483,15 @@ void Qt4Project::updateCppCodeModel()
 {
     typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
 
+    Kit *k = 0;
     QtSupport::BaseQtVersion *qtVersion = 0;
     ToolChain *tc = 0;
-    if (Qt4BaseTarget *target = activeTarget()) {
-        qtVersion = target->activeQt4BuildConfiguration()->qtVersion();
-        tc = target->activeQt4BuildConfiguration()->toolChain();
-    } else {
-        qtVersion = qt4ProjectManager()->unconfiguredSettings().version;
-        tc = qt4ProjectManager()->unconfiguredSettings().toolchain;
-    }
+    if (ProjectExplorer::Target *target = activeTarget())
+        k = target->kit();
+    else
+        k = KitManager::instance()->defaultKit();
+    qtVersion = QtSupport::QtKitInformation::qtVersion(k);
+    tc = ToolChainKitInformation::toolChain(k);
 
     CPlusPlus::CppModelManagerInterface *modelmanager =
         CPlusPlus::CppModelManagerInterface::instance();
@@ -517,9 +527,9 @@ void Qt4Project::updateCppCodeModel()
 
         QList<HeaderPath> headers;
         if (tc)
-            headers = tc->systemHeaderPaths(); // todo pass cxxflags?
+            headers = tc->systemHeaderPaths(SysRootKitInformation::sysRoot(k)); // todo pass cxxflags?
         if (qtVersion) {
-            headers.append(qtVersion->systemHeaderPathes());
+            headers.append(qtVersion->systemHeaderPathes(k));
         }
 
         foreach (const HeaderPath &headerPath, headers) {
@@ -532,8 +542,10 @@ void Qt4Project::updateCppCodeModel()
         if (qtVersion) {
             if (!qtVersion->frameworkInstallPath().isEmpty())
                 part->frameworkPaths.append(qtVersion->frameworkInstallPath());
-            part->includePaths.append(qtVersion->mkspecPath().toString());
+
         }
+        if (Qt4ProFileNode *node = rootQt4ProjectNode())
+            part->includePaths.append(node->resolvedMkspecPath());
 
         // part->precompiledHeaders
         part->precompiledHeaders.append(pro->variableValue(PrecompiledHeaderVar));
@@ -585,41 +597,32 @@ void Qt4Project::updateQmlJSCodeModel()
     bool preferDebugDump = false;
     projectInfo.tryQmlDump = false;
 
-    QtSupport::BaseQtVersion *qtVersion = 0;
-    if (Qt4BaseTarget *t = activeTarget()) {
-        if (Qt4BuildConfiguration *bc = t->activeQt4BuildConfiguration()) {
-            qtVersion = bc->qtVersion();
+    ProjectExplorer::Target *t = activeTarget();
+    ProjectExplorer::Kit *k = t ? t->kit() : ProjectExplorer::KitManager::instance()->defaultKit();
+    QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(k);
+
+    if (t) {
+        if (Qt4BuildConfiguration *bc = qobject_cast<Qt4BuildConfiguration *>(t->activeBuildConfiguration()))
             preferDebugDump = bc->qmakeBuildConfiguration() & QtSupport::BaseQtVersion::DebugBuild;
-        }
     } else {
-        qtVersion = qt4ProjectManager()->unconfiguredSettings().version;
         if (qtVersion)
             preferDebugDump = qtVersion->defaultBuildConfig() & QtSupport::BaseQtVersion::DebugBuild;
     }
-    if (qtVersion) {
-        if (qtVersion && qtVersion->isValid()) {
-            projectInfo.tryQmlDump = qtVersion->type() == QLatin1String(QtSupport::Constants::DESKTOPQT)
-                    || qtVersion->type() == QLatin1String(QtSupport::Constants::SIMULATORQT);
-            projectInfo.qtImportsPath = qtVersion->versionInfo().value(QLatin1String("QT_INSTALL_IMPORTS"));
-            if (!projectInfo.qtImportsPath.isEmpty())
-                projectInfo.importPaths += projectInfo.qtImportsPath;
-            projectInfo.qtVersionString = qtVersion->qtVersionString();
-        }
+    if (qtVersion && qtVersion->isValid()) {
+        projectInfo.tryQmlDump = qtVersion->type() == QLatin1String(QtSupport::Constants::DESKTOPQT)
+                || qtVersion->type() == QLatin1String(QtSupport::Constants::SIMULATORQT);
+        projectInfo.qtImportsPath = qtVersion->qmakeProperty("QT_INSTALL_IMPORTS");
+        if (!projectInfo.qtImportsPath.isEmpty())
+            projectInfo.importPaths += projectInfo.qtImportsPath;
+        projectInfo.qtVersionString = qtVersion->qtVersionString();
     }
     projectInfo.importPaths.removeDuplicates();
 
     if (projectInfo.tryQmlDump) {
-        if (Qt4BaseTarget *target = activeTarget()) {
-            const Qt4BuildConfiguration *bc = target->activeQt4BuildConfiguration();
-            if (bc)
-                QtSupport::QmlDumpTool::pathAndEnvironment(this, bc->qtVersion(), bc->toolChain(),
-                                                           preferDebugDump, &projectInfo.qmlDumpPath,
-                                                           &projectInfo.qmlDumpEnvironment);
-        } else {
-            UnConfiguredSettings us = qt4ProjectManager()->unconfiguredSettings();
-            QtSupport::QmlDumpTool::pathAndEnvironment(this, us.version, us.toolchain,
-                                                       preferDebugDump, &projectInfo.qmlDumpPath, &projectInfo.qmlDumpEnvironment);
-        }
+        QtSupport::QmlDumpTool::pathAndEnvironment(this, qtVersion,
+                                                   ToolChainKitInformation::toolChain(k),
+                                                   preferDebugDump, &projectInfo.qmlDumpPath,
+                                                   &projectInfo.qmlDumpEnvironment);
     } else {
         projectInfo.qmlDumpPath.clear();
         projectInfo.qmlDumpEnvironment.clear();
@@ -640,10 +643,16 @@ void Qt4Project::update()
     if (debug)
         qDebug()<<"State is now Base";
     m_asyncUpdateState = Base;
-    Qt4BaseTarget *target = activeTarget();
-    if (target)
-        target->activeQt4BuildConfiguration()->setEnabled(true);
-    emit proParsingDone();
+    enableActiveQt4BuildConfiguration(activeTarget(), true);
+    updateBuildSystemData();
+    updateRunConfigurations();
+    emit proFilesEvaluated();
+}
+
+void Qt4Project::updateRunConfigurations()
+{
+    foreach (Target *t, targets())
+        t->updateDefaultRunConfigurations();
 }
 
 void Qt4Project::scheduleAsyncUpdate(Qt4ProFileNode *node)
@@ -664,8 +673,7 @@ void Qt4Project::scheduleAsyncUpdate(Qt4ProFileNode *node)
         return;
     }
 
-    if (activeTarget() && activeTarget()->activeQt4BuildConfiguration())
-        activeTarget()->activeQt4BuildConfiguration()->setEnabled(false);
+    enableActiveQt4BuildConfiguration(activeTarget(), false);
 
     if (m_asyncUpdateState == AsyncFullUpdatePending) {
         // Just postpone
@@ -702,6 +710,10 @@ void Qt4Project::scheduleAsyncUpdate(Qt4ProFileNode *node)
             m_partialEvaluate.append(node);
         // and start the timer anew
         m_asyncUpdateTimer.start();
+
+        // Cancel running code model update
+        m_codeModelFuture.cancel();
+        m_codeModelCanceled = true;
     } else if (m_asyncUpdateState == AsyncUpdateInProgress) {
         // A update is in progress
         // And this slot only gets called if a file changed on disc
@@ -735,8 +747,7 @@ void Qt4Project::scheduleAsyncUpdate()
             qDebug()<<"  update in progress, canceling and setting state to full update pending";
         m_cancelEvaluate = true;
         m_asyncUpdateState = AsyncFullUpdatePending;
-        if (activeTarget() && activeTarget()->activeQt4BuildConfiguration())
-            activeTarget()->activeQt4BuildConfiguration()->setEnabled(false);
+        enableActiveQt4BuildConfiguration(activeTarget(), false);
         m_rootProjectNode->setParseInProgressRecursive(true);
         return;
     }
@@ -744,8 +755,7 @@ void Qt4Project::scheduleAsyncUpdate()
     if (debug)
         qDebug()<<"  starting timer for full update, setting state to full update pending";
     m_partialEvaluate.clear();
-    if (activeTarget() && activeTarget()->activeQt4BuildConfiguration())
-        activeTarget()->activeQt4BuildConfiguration()->setEnabled(false);
+    enableActiveQt4BuildConfiguration(activeTarget(), false);
     m_rootProjectNode->setParseInProgressRecursive(true);
     m_asyncUpdateState = AsyncFullUpdatePending;
     m_asyncUpdateTimer.start();
@@ -793,13 +803,12 @@ void Qt4Project::decrementPendingEvaluateFutures()
         } else  if (m_asyncUpdateState != ShuttingDown){
             // After being done, we need to call:
             m_asyncUpdateState = Base;
-            if (activeTarget() && activeTarget()->activeQt4BuildConfiguration())
-                activeTarget()->activeQt4BuildConfiguration()->setEnabled(true);
-            foreach (Target *t, targets())
-                static_cast<Qt4BaseTarget *>(t)->createApplicationProFiles(true);
+            enableActiveQt4BuildConfiguration(activeTarget(), true);
             updateFileList();
             updateCodeModels();
-            emit proParsingDone();
+            updateBuildSystemData();
+            updateRunConfigurations();
+            emit proFilesEvaluated();
             if (debug)
                 qDebug()<<"  Setting state to Base";
         }
@@ -853,6 +862,14 @@ ProjectExplorer::IProjectManager *Qt4Project::projectManager() const
 Qt4Manager *Qt4Project::qt4ProjectManager() const
 {
     return m_manager;
+}
+
+bool Qt4Project::supportsKit(Kit *k, QString *errorMessage) const
+{
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(k);
+    if (!version && errorMessage)
+        *errorMessage = tr("No Qt version set in kit.");
+    return version;
 }
 
 QString Qt4Project::displayName() const
@@ -920,82 +937,72 @@ void Qt4Project::proFileParseError(const QString &errorMessage)
 
 QtSupport::ProFileReader *Qt4Project::createProFileReader(Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc)
 {
-    if (!m_proFileOption) {
-        m_proFileOption = new ProFileOption;
-        m_proFileOptionRefCnt = 0;
+    if (!m_qmakeGlobals) {
+        m_qmakeGlobals = new ProFileGlobals;
+        m_qmakeGlobalsRefCnt = 0;
 
-        QtSupport::BaseQtVersion *qtVersion = 0;
-        ProjectExplorer::ToolChain *tc = 0;
+        Kit *k;
         Utils::Environment env = Utils::Environment::systemEnvironment();
         QStringList qmakeArgs;
+        if (!bc)
+            bc = activeTarget() ? static_cast<Qt4BuildConfiguration *>(activeTarget()->activeBuildConfiguration()) : 0;
+
         if (bc) {
-            qtVersion = bc->qtVersion();
+            k = bc->target()->kit();
             env = bc->environment();
-            tc = bc->toolChain();
-            if (QMakeStep *qs = bc->qmakeStep()) {
-                qmakeArgs = qs->parserArguments();
-                m_proFileOption->qmakespec = qs->mkspec().toString();
-            } else {
+            if (bc->qmakeStep())
+                qmakeArgs = bc->qmakeStep()->parserArguments();
+            else
                 qmakeArgs = bc->configCommandLineArguments();
-            }
-        } else if (Qt4BaseTarget *target = activeTarget()) {
-            if (Qt4BuildConfiguration *bc = target->activeQt4BuildConfiguration()) {
-                qtVersion = bc->qtVersion();
-                env = bc->environment();
-                tc = bc->toolChain();
-                if (QMakeStep *qs = bc->qmakeStep()) {
-                    qmakeArgs = qs->parserArguments();
-                    m_proFileOption->qmakespec = qs->mkspec().toString();
-                } else {
-                    qmakeArgs = bc->configCommandLineArguments();
-                }
-            }
         } else {
-            UnConfiguredSettings ucs = qt4ProjectManager()->unconfiguredSettings();
-            qtVersion = ucs.version;
-            tc = ucs.toolchain;
+            k = KitManager::instance()->defaultKit();
         }
 
+        QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(k);
+        QString systemRoot = SysRootKitInformation::hasSysRoot(k)
+                ? SysRootKitInformation::sysRoot(k).toString() : QString();
+
         if (qtVersion && qtVersion->isValid()) {
-            m_proFileOption->properties = qtVersion->versionInfo();
-            if (tc)
-                m_proFileOption->sysroot = qtVersion->systemRoot();
+            m_qmakeGlobals->qmake_abslocation = QDir::cleanPath(qtVersion->qmakeCommand().toString());
+            m_qmakeGlobals->setProperties(qtVersion->versionInfo());
         }
+        m_qmakeGlobals->setDirectories(m_rootProjectNode->sourceDir(), m_rootProjectNode->buildDir());
+        m_qmakeGlobals->sysroot = systemRoot;
 
         Utils::Environment::const_iterator eit = env.constBegin(), eend = env.constEnd();
         for (; eit != eend; ++eit)
-            m_proFileOption->environment.insert(env.key(eit), env.value(eit));
+            m_qmakeGlobals->environment.insert(env.key(eit), env.value(eit));
 
-        m_proFileOption->setCommandLineArguments(qmakeArgs);
+        m_qmakeGlobals->setCommandLineArguments(m_rootProjectNode->buildDir(), qmakeArgs);
 
         QtSupport::ProFileCacheManager::instance()->incRefCount();
     }
-    ++m_proFileOptionRefCnt;
+    ++m_qmakeGlobalsRefCnt;
 
-    QtSupport::ProFileReader *reader = new QtSupport::ProFileReader(m_proFileOption);
+    QtSupport::ProFileReader *reader = new QtSupport::ProFileReader(m_qmakeGlobals);
 
     reader->setOutputDir(qt4ProFileNode->buildDir());
 
     return reader;
 }
 
-ProFileOption *Qt4Project::proFileOption()
+ProFileGlobals *Qt4Project::qmakeGlobals()
 {
-    return m_proFileOption;
+    return m_qmakeGlobals;
 }
 
 void Qt4Project::destroyProFileReader(QtSupport::ProFileReader *reader)
 {
     delete reader;
-    if (!--m_proFileOptionRefCnt) {
+    if (!--m_qmakeGlobalsRefCnt) {
         QString dir = QFileInfo(m_fileInfo->fileName()).absolutePath();
         if (!dir.endsWith(QLatin1Char('/')))
             dir += QLatin1Char('/');
         QtSupport::ProFileCacheManager::instance()->discardFiles(dir);
         QtSupport::ProFileCacheManager::instance()->decRefCount();
 
-        delete m_proFileOption;
-        m_proFileOption = 0;
+        delete m_qmakeGlobals;
+        m_qmakeGlobals = 0;
     }
 }
 
@@ -1041,7 +1048,6 @@ void Qt4Project::collectAllfProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNo
             collectAllfProFiles(list, qt4ProFileNode);
     }
 }
-
 
 void Qt4Project::collectApplicationProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node)
 {
@@ -1096,8 +1102,18 @@ QStringList Qt4Project::applicationProFilePathes(const QString &prepend) const
 
 void Qt4Project::activeTargetWasChanged()
 {
-    if (!activeTarget())
+    if (m_activeTarget) {
+        disconnect(m_activeTarget, SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
+                   this, SLOT(scheduleAsyncUpdate()));
+    }
+
+    m_activeTarget = activeTarget();
+
+    if (!m_activeTarget)
         return;
+
+    connect(m_activeTarget, SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
+            this, SLOT(scheduleAsyncUpdate()));
 
     scheduleAsyncUpdate();
 }
@@ -1334,32 +1350,26 @@ bool Qt4Project::needsConfiguration() const
 
 void Qt4Project::configureAsExampleProject(const QStringList &platforms)
 {
-    QList<Qt4BaseTargetFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<Qt4BaseTargetFactory>();
-    foreach (Qt4BaseTargetFactory *factory, factories) {
-        foreach (const Core::Id id, factory->supportedTargetIds()) {
-            QList<BuildConfigurationInfo> infos
-                    = factory->availableBuildConfigurations(id, rootProjectNode()->path(),
-                                                            QtSupport::QtVersionNumber(),
-                                                            QtSupport::QtVersionNumber(INT_MAX, INT_MAX, INT_MAX),
-                                                            Core::FeatureSet());
-            if (!platforms.isEmpty()) {
-                QList<BuildConfigurationInfo> filtered;
-                foreach (const BuildConfigurationInfo &info, infos) {
-                    foreach (const QString &platform, platforms) {
-                        if (info.version()->supportsPlatform(platform)) {
-                            filtered << info;
-                            break;
-                        }
-                    }
-                }
-                infos = filtered;
-            }
+    QList<Kit *> kits = ProjectExplorer::KitManager::instance()->kits();
+    foreach (Kit *k, kits) {
+        QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(k);
+        if (!version)
+            continue;
+        if (!platforms.isEmpty() && !platforms.contains(version->platformName()))
+            continue;
 
-            if (!infos.isEmpty())
-                addTarget(factory->create(this, id, infos));
-        }
+        QList<BuildConfigurationInfo> infoList
+                = Qt4BuildConfigurationFactory::availableBuildConfigurations(k, document()->fileName());
+        if (infoList.isEmpty())
+            continue;
+        addTarget(createTarget(k, infoList));
     }
     ProjectExplorer::ProjectExplorerPlugin::instance()->requestProjectModeUpdate(this);
+}
+
+bool Qt4Project::supportsNoTargetPanel() const
+{
+    return true;
 }
 
 // All the Qt4 run configurations should share code.
@@ -1371,6 +1381,9 @@ QString Qt4Project::disabledReasonForRunConfiguration(const QString &proFilePath
         return tr("The .pro file '%1' does not exist.")
                 .arg(QFileInfo(proFilePath).fileName());
 
+    if (!m_rootProjectNode) // Shutting down
+        return QString();
+
     if (!m_rootProjectNode->findProFileFor(proFilePath))
         return tr("The .pro file '%1' is not part of the project.")
                 .arg(QFileInfo(proFilePath).fileName());
@@ -1379,6 +1392,192 @@ QString Qt4Project::disabledReasonForRunConfiguration(const QString &proFilePath
             .arg(QFileInfo(proFilePath).fileName());
 }
 
+QString Qt4Project::shadowBuildDirectory(const QString &profilePath, const Kit *k, const QString &suffix)
+{
+    if (profilePath.isEmpty())
+        return QString();
+    QFileInfo info(profilePath);
+
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(k);
+    if (version && !version->supportsShadowBuilds())
+        return info.absolutePath();
+
+    QString base = QDir::cleanPath(projectDirectory(profilePath) + QLatin1String("/../")
+                                   + info.baseName() + QLatin1String("-build-"));
+    return base + buildNameFor(k) + QLatin1String("-") + sanitize(suffix);
+}
+
+QString Qt4Project::buildNameFor(const Kit *k)
+{
+    if (!k)
+        return QLatin1String("unknown");
+    return QString::fromLatin1(k->id().name()).mid(31, 6); // part of the UUID, should be pretty unique;-)
+}
+
+Target *Qt4Project::createTarget(Kit *k, const QList<BuildConfigurationInfo> &infoList)
+{
+    if (target(k))
+        return 0;
+
+    Target *t = new Target(this, k);
+
+    // Build Configurations:
+    foreach (const BuildConfigurationInfo &info, infoList) {
+        QString name = info.buildConfig & QtSupport::BaseQtVersion::DebugBuild
+                ? tr("Debug") : tr("Release");
+        Qt4BuildConfiguration *bc
+                = Qt4BuildConfiguration::setup(t, name, name,
+                                               info.buildConfig, info.additionalArguments,
+                                               info.directory, info.importing);
+        t->addBuildConfiguration(bc);
+    }
+
+    // Deploy Configurations:
+    t->updateDefaultDeployConfigurations();
+    // Do not create Run Configurations: Those will be generated later anyway.
+
+    return t;
+}
+
+void Qt4Project::updateBuildSystemData()
+{
+    Target * const target = activeTarget();
+    if (!target)
+        return;
+    const Qt4ProFileNode * const rootNode = rootQt4ProjectNode();
+    if (!rootNode || rootNode->parseInProgress())
+        return;
+
+    DeploymentData deploymentData;
+    collectData(rootNode, deploymentData);
+    target->setDeploymentData(deploymentData);
+
+    BuildTargetInfoList appTargetList;
+    foreach (const Qt4ProFileNode * const node, applicationProFiles())
+        appTargetList.list << BuildTargetInfo(node->targetInformation().executable, node->path());
+    target->setApplicationTargets(appTargetList);
+}
+
+void Qt4Project::collectData(const Qt4ProFileNode *node, DeploymentData &deploymentData)
+{
+    if (!node->isSubProjectDeployable(node->path()))
+        return;
+
+    const InstallsList &installsList = node->installsList();
+    foreach (const InstallsItem &item, installsList.items) {
+        foreach (const QString &localFile, item.files)
+            deploymentData.addFile(localFile, item.path);
+    }
+
+    switch (node->projectType()) {
+    case ApplicationTemplate:
+        if (!installsList.targetPath.isEmpty())
+            deploymentData.addFile(node->targetInformation().executable, installsList.targetPath);
+        break;
+    case LibraryTemplate:
+        collectLibraryData(node, deploymentData);
+        break;
+    case SubDirsTemplate:
+        foreach (const ProjectNode * const subProject, node->subProjectNodesExact()) {
+            const Qt4ProFileNode * const qt4SubProject
+                    = qobject_cast<const Qt4ProFileNode *>(subProject);
+            if (!qt4SubProject)
+                continue;
+            collectData(qt4SubProject, deploymentData);
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void Qt4Project::collectLibraryData(const Qt4ProFileNode *node, DeploymentData &deploymentData)
+{
+    const QString targetPath = node->installsList().targetPath;
+    if (targetPath.isEmpty())
+        return;
+    const ProjectExplorer::Kit * const kit = activeTarget()->kit();
+    const ProjectExplorer::ToolChain * const toolchain
+            = ProjectExplorer::ToolChainKitInformation::toolChain(kit);
+    if (!toolchain)
+        return;
+
+    TargetInformation ti = node->targetInformation();
+    QString targetFileName = ti.target;
+    const QStringList config = node->variableValue(ConfigVar);
+    const bool isStatic = config.contains(QLatin1String("static"));
+    const bool isPlugin = config.contains(QLatin1String("plugin"));
+    switch (toolchain->targetAbi().os()) {
+    case ProjectExplorer::Abi::WindowsOS: {
+        QString targetVersionExt = node->singleVariableValue(TargetVersionExtVar);
+        if (targetVersionExt.isEmpty()) {
+            const QString version = node->singleVariableValue(VersionVar);
+            if (!version.isEmpty()) {
+                targetVersionExt = version.left(version.indexOf(QLatin1Char('.')));
+                if (targetVersionExt == QLatin1String("0"))
+                    targetVersionExt.clear();
+            }
+        }
+        targetFileName += targetVersionExt + QLatin1Char('.');
+        targetFileName += QLatin1String(isStatic ? "lib" : "dll");
+        deploymentData.addFile(ti.workingDir + QLatin1Char('/') + targetFileName, targetPath);
+        break;
+    }
+    case ProjectExplorer::Abi::MacOS:
+        if (config.contains("lib_bundle")) {
+            ti.workingDir.append(QLatin1Char('/')).append(ti.target)
+                    .append(QLatin1String(".framework"));
+        } else {
+            targetFileName.prepend(QLatin1String("lib"));
+            if (!isPlugin) {
+                targetFileName += QLatin1Char('.');
+                const QString version = node->singleVariableValue(VersionVar);
+                QString majorVersion = version.left(version.indexOf(QLatin1Char('.')));
+                if (majorVersion.isEmpty())
+                    majorVersion = QLatin1String("1");
+                targetFileName += majorVersion;
+            }
+            targetFileName += QLatin1Char('.');
+            targetFileName += node->singleVariableValue(isStatic
+                    ? StaticLibExtensionVar : ShLibExtensionVar);
+        }
+        deploymentData.addFile(ti.workingDir + QLatin1Char('/') + targetFileName, targetPath);
+        break;
+    case ProjectExplorer::Abi::LinuxOS:
+    case ProjectExplorer::Abi::BsdOS:
+    case ProjectExplorer::Abi::UnixOS:
+        targetFileName.prepend(QLatin1String("lib"));
+        targetFileName += QLatin1Char('.');
+        if (isStatic) {
+            targetFileName += QLatin1Char('a');
+        } else {
+            targetFileName += QLatin1String("so");
+            deploymentData.addFile(ti.workingDir + QLatin1Char('/') + targetFileName, targetPath);
+            if (!isPlugin) {
+                QString version = node->singleVariableValue(VersionVar);
+                if (version.isEmpty())
+                    version = QLatin1String("1.0.0");
+                targetFileName += QLatin1Char('.');
+                while (true) {
+                    deploymentData.addFile(ti.workingDir + QLatin1Char('/')
+                            + targetFileName + version, targetPath);
+                    const QString tmpVersion = version.left(version.lastIndexOf(QLatin1Char('.')));
+                    if (tmpVersion == version)
+                        break;
+                    version = tmpVersion;
+                }
+            }
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void Qt4Project::emitBuildDirectoryInitialized()
+{
+    emit buildDirectoryInitialized();
+}
 } // namespace Qt4ProjectManager
 
 #include "qt4project.moc"

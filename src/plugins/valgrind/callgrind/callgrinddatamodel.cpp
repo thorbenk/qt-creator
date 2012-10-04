@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,6 +39,7 @@
 #include <QChar>
 #include <QDebug>
 #include <QStringList>
+#include <QTextDocument>
 #include <QVector>
 
 namespace Valgrind {
@@ -68,6 +67,7 @@ public:
     , m_event(0)
     , m_verboseToolTips(true)
     , m_cycleDetection(false)
+    , m_shortenTemplates(false)
     {
     }
 
@@ -77,6 +77,7 @@ public:
     int m_event;
     bool m_verboseToolTips;
     bool m_cycleDetection;
+    bool m_shortenTemplates;
     QVector<const Function *> m_functions;
 };
 
@@ -215,6 +216,23 @@ static QString noWrap(const QString &str)
     return escapedStr.replace(QLatin1Char('-'), "&#8209;");
 }
 
+static QString shortenTemplate(QString str)
+{
+    int depth = 0;
+    int  j = 0;
+    for (int i = 0, n = str.size(); i != n; ++i) {
+        int c = str.at(i).unicode();
+        if (c == '>')
+            --depth;
+        if (depth == 0)
+            str[j++] = str.at(i);
+        if (c == '<')
+            ++depth;
+    }
+    str.truncate(j);
+    return str;
+}
+
 QVariant DataModel::data(const QModelIndex &index, int role) const
 {
     //QTC_ASSERT(index.isValid() && index.model() == this, return QVariant());
@@ -225,7 +243,7 @@ QVariant DataModel::data(const QModelIndex &index, int role) const
 
     if (role == Qt::DisplayRole) {
         if (index.column() == NameColumn)
-            return func->name();
+            return d->m_shortenTemplates ? shortenTemplate(func->name()) : func->name();
         if (index.column() == LocationColumn)
             return func->location();
         if (index.column() == CalledColumn)
@@ -252,7 +270,7 @@ QVariant DataModel::data(const QModelIndex &index, int role) const
 
         // body, function info first
         ret += "<body><dl>";
-        ret += "<dt>" + tr("Function:") + "</dt><dd>" + func->name() + "</dd>\n";
+        ret += "<dt>" + tr("Function:") + "</dt><dd>" + Qt::escape(func->name()) + "</dd>\n";
         ret += "<dt>" + tr("File:") + "</dt><dd>" + func->file() + "</dd>\n";
         if (!func->costItems().isEmpty()) {
             const CostItem *firstItem = func->costItems().first();
@@ -365,6 +383,14 @@ void DataModel::enableCycleDetection(bool enabled)
 {
     beginResetModel();
     d->m_cycleDetection = enabled;
+    d->updateFunctions();
+    endResetModel();
+}
+
+void DataModel::setShortenTemplates(bool enabled)
+{
+    beginResetModel();
+    d->m_shortenTemplates = enabled;
     d->updateFunctions();
     endResetModel();
 }

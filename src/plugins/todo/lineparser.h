@@ -5,7 +5,7 @@
 ** Copyright (c) 2012 Dmitry Savchenko.
 ** Copyright (c) 2010 Vasiliy Sorokin.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,8 +26,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -43,11 +41,13 @@ namespace Internal {
 class LineParser
 {
 public:
-    LineParser();
     explicit LineParser(const KeywordList &keywordList);
 
     void setKeywordList(const KeywordList &keywordList);
     QList<TodoItem> parse(const QString &line);
+
+    // This can also be used from KeywordDialog to avoid code duplication
+    static bool isKeywordSeparator(const QChar &ch);
 
 private:
 
@@ -62,8 +62,13 @@ private:
     };
 
     KeywordEntryCandidates findKeywordEntryCandidates(const QString &line);
+    bool isKeywordAt(int index, const QString &line, const QString &keyword);
     bool isFirstCharOfTheWord(int index, const QString &line);
+    bool isLastCharOfTheWord(int index, const QString &line);
     QList<KeywordEntry> keywordEntriesFromCandidates(const QMap<int, int> &candidates, const QString &line);
+    QString trimSeparators(const QString &string);
+    bool startsWithSeparator(const QString &string);
+    bool endsWithSeparator(const QString &string);
     QList<TodoItem> todoItemsFromKeywordEntries(const QList<KeywordEntry> &entries);
 
     KeywordList m_keywords;

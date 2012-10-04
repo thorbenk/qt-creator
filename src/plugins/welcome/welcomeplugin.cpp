@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -43,6 +41,7 @@
 
 #include <projectexplorer/projectexplorer.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/styledbar.h>
 #include <utils/iwelcomepage.h>
 #include <utils/networkaccessmanager.h>
@@ -67,6 +66,7 @@
 enum { debug = 0 };
 
 using namespace ExtensionSystem;
+using namespace Utils;
 
 static const char currentPageSettingsKeyC[] = "WelcomeTab";
 
@@ -119,7 +119,6 @@ signals:
 
 private slots:
     void welcomePluginAdded(QObject*);
-    void modeChanged(Core::IMode*);
 
 private:
     void facilitateQml(QDeclarativeEngine *engine);
@@ -129,11 +128,13 @@ private:
     QHBoxLayout * buttonLayout;
     QList<QObject*> m_pluginList;
     int m_activePlugin;
+    NetworkAccessManagerFactory *m_networkAccessManagerFactory;
 };
 
 // ---  WelcomeMode
 WelcomeMode::WelcomeMode() :
     m_activePlugin(0)
+    , m_networkAccessManagerFactory(new NetworkAccessManagerFactory)
 {
     setDisplayName(tr("Welcome"));
     setIcon(QIcon(QLatin1String(Core::Constants::ICON_QTLOGO_32)));
@@ -162,12 +163,10 @@ WelcomeMode::WelcomeMode() :
     layout->addWidget(scrollArea);
     scrollArea->setWidget(m_welcomePage);
     scrollArea->setWidgetResizable(true);
-    m_welcomePage->setMinimumWidth(860);
+    m_welcomePage->setMinimumWidth(880);
     m_welcomePage->setMinimumHeight(548);
     PluginManager *pluginManager = PluginManager::instance();
     connect(pluginManager, SIGNAL(objectAdded(QObject*)), SLOT(welcomePluginAdded(QObject*)));
-
-    connect(Core::ModeManager::instance(), SIGNAL(currentModeChanged(Core::IMode*)), SLOT(modeChanged(Core::IMode*)));
 
     setWidget(m_modeWidget);
 }
@@ -186,6 +185,7 @@ WelcomeMode::~WelcomeMode()
     QSettings *settings = Core::ICore::settings();
     settings->setValue(QLatin1String(currentPageSettingsKeyC), activePlugin());
     delete m_modeWidget;
+    delete m_networkAccessManagerFactory;
 }
 
 bool sortFunction(Utils::IWelcomePage * a, Utils::IWelcomePage *b)
@@ -209,7 +209,7 @@ void WelcomeMode::initPlugins()
     QDeclarativeContext *ctx = m_welcomePage->rootContext();
     ctx->setContextProperty(QLatin1String("welcomeMode"), this);
 
-    QList<Utils::IWelcomePage*> duplicatePlugins = PluginManager::instance()->getObjects<Utils::IWelcomePage>();
+    QList<Utils::IWelcomePage*> duplicatePlugins = PluginManager::getObjects<Utils::IWelcomePage>();
     qSort(duplicatePlugins.begin(), duplicatePlugins.end(), &sortFunction);
 
     QList<Utils::IWelcomePage*> plugins;
@@ -240,13 +240,12 @@ void WelcomeMode::initPlugins()
     engine->setImportPathList(importPathList);
     if (!debug)
         engine->setOutputWarningsToStandardError(false);
-    engine->setNetworkAccessManagerFactory(new NetworkAccessManagerFactory);
+    engine->setNetworkAccessManagerFactory(m_networkAccessManagerFactory);
     QString pluginPath = QCoreApplication::applicationDirPath();
-#ifdef Q_OS_MAC
-    pluginPath += QLatin1String("/../PlugIns");
-#else
-    pluginPath += QLatin1String("/../" IDE_LIBRARY_BASENAME "/qtcreator");
-#endif
+    if (HostOsInfo::isMacHost())
+        pluginPath += QLatin1String("/../PlugIns");
+    else
+        pluginPath += QLatin1String("/../" IDE_LIBRARY_BASENAME "/qtcreator");
     engine->addImportPath(QDir::cleanPath(pluginPath));
     facilitateQml(engine);
     foreach (Utils::IWelcomePage *plugin, plugins) {
@@ -263,17 +262,13 @@ void WelcomeMode::initPlugins()
 
 QString WelcomeMode::platform() const
 {
-#if defined(Q_OS_WIN)
-    return QLatin1String("windows");
-#elif defined(Q_OS_MAC)
-    return QLatin1String("mac");
-#elif defined(Q_OS_LINUX)
-    return QLatin1String("linux");
-#elif defined(Q_OS_UNIX)
-    return QLatin1String("unix");
-#else
-    return QLatin1String("other")
-#endif
+    switch (HostOsInfo::hostOs()) {
+    case HostOsInfo::HostOsWindows: return QLatin1String("windows");
+    case HostOsInfo::HostOsMac: return QLatin1String("mac");
+    case HostOsInfo::HostOsLinux: return QLatin1String("linux");
+    case HostOsInfo::HostOsOtherUnix: return QLatin1String("unix");
+    default: return QLatin1String("other");
+    }
 }
 
 void WelcomeMode::welcomePluginAdded(QObject *obj)
@@ -297,7 +292,7 @@ void WelcomeMode::welcomePluginAdded(QObject *obj)
         }
 
         int insertPos = 0;
-        foreach (Utils::IWelcomePage* p, PluginManager::instance()->getObjects<Utils::IWelcomePage>()) {
+        foreach (Utils::IWelcomePage* p, PluginManager::getObjects<Utils::IWelcomePage>()) {
             if (plugin->priority() < p->priority())
                 insertPos++;
             else
@@ -326,22 +321,6 @@ void WelcomeMode::openProject()
 {
     ProjectExplorer::ProjectExplorerPlugin::instance()->openOpenProjectDialog();
 }
-
-void WelcomeMode::modeChanged(Core::IMode *mode)
-{
-    Q_UNUSED(mode)
-
-// Eike doesn't like this, but I do...
-
-//    ProjectExplorer::ProjectExplorerPlugin *projectExplorer = ProjectExplorer::ProjectExplorerPlugin::instance();
-//    Core::EditorManager *editorManager = Core::ICore::editorManager();
-//    if (mode->id() == id() && (!projectExplorer->currentProject() && editorManager->openedEditors().isEmpty()))
-//        ModeManager::setModeBarHidden(true);
-//    else
-//        ModeManager::setModeBarHidden(false);
-}
-
-//
 
 WelcomePlugin::WelcomePlugin()
   : m_welcomeMode(0)

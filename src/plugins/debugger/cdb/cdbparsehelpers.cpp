@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -184,7 +182,7 @@ QByteArray cdbAddBreakpointCommand(const BreakpointParameters &bpIn,
         break;
     case WatchpointAtAddress: { // Read/write, no space here
         const unsigned size = bp.size ? bp.size : 1;
-        str << "r" << size << ' ' << hex << hexPrefixOn << bp.address << hexPrefixOff << dec;
+        str << 'r' << size << ' ' << hex << hexPrefixOn << bp.address << hexPrefixOff << dec;
     }
         break;
     }
@@ -558,7 +556,7 @@ bool parseCdbDisassemblerLine(const QString &line, DisassemblerLine *dLine, uint
     dLine->address = addressS.toULongLong(&ok, 16);
     if (!ok)
         return false;
-    dLine->rawData = QByteArray::fromHex(line.mid(rawDataPos, rawDataEnd - rawDataPos).toAscii());
+    dLine->rawData = QByteArray::fromHex(line.mid(rawDataPos, rawDataEnd - rawDataPos).toLatin1());
     dLine->data = line.right(line.size() - instructionPos).trimmed();
     return true;
 }

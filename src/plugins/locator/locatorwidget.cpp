@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -43,9 +41,11 @@
 #include <coreplugin/modemanager.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/command.h>
+#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/fileiconprovider.h>
 #include <utils/filterlineedit.h>
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/runextensions.h>
 
@@ -189,8 +189,9 @@ QVariant LocatorModel::data(const QModelIndex &index, int role) const
         FilterEntry &entry = mEntries[index.row()];
         if (entry.resolveFileIcon && entry.displayIcon.isNull()) {
             entry.resolveFileIcon = false;
-            entry.displayIcon =
-                 Core::FileIconProvider::instance()->icon(QFileInfo(entry.internalData.toString()));
+            QString path = entry.internalData.toString();
+            Core::EditorManager::splitLineNumber(&path);
+            entry.displayIcon = Core::FileIconProvider::instance()->icon(QFileInfo(path));
         }
         return entry.displayIcon;
     } else if (role == Qt::ForegroundRole && index.column() == 1) {
@@ -204,8 +205,9 @@ QVariant LocatorModel::data(const QModelIndex &index, int role) const
 
 void LocatorModel::setEntries(const QList<FilterEntry> &entries)
 {
+    beginResetModel();
     mEntries = entries;
-    reset();
+    endResetModel();
 }
 
 // =========== CompletionList ===========
@@ -221,12 +223,12 @@ CompletionList::CompletionList(QWidget *parent)
     // This is too slow when done on all results
     //header()->setResizeMode(QHeaderView::ResizeToContents);
     setWindowFlags(Qt::ToolTip);
-#ifdef Q_OS_MAC
-    if (horizontalScrollBar())
-        horizontalScrollBar()->setAttribute(Qt::WA_MacMiniSize);
-    if (verticalScrollBar())
-        verticalScrollBar()->setAttribute(Qt::WA_MacMiniSize);
-#endif
+    if (Utils::HostOsInfo::isMacHost()) {
+        if (horizontalScrollBar())
+            horizontalScrollBar()->setAttribute(Qt::WA_MacMiniSize);
+        if (verticalScrollBar())
+            verticalScrollBar()->setAttribute(Qt::WA_MacMiniSize);
+    }
 }
 
 void CompletionList::updatePreferredSize()
@@ -316,7 +318,6 @@ void LocatorWidget::updateFilterList()
     m_filterMenu->clear();
 
     // update actions and menu
-    Core::ActionManager *am = Core::ICore::actionManager();
     QMap<QString, QAction *> actionCopy = m_filterActionMap;
     m_filterActionMap.clear();
     // register new actions, update existent
@@ -329,7 +330,7 @@ void LocatorWidget::updateFilterList()
         if (!actionCopy.contains(filter->id())) {
             // register new action
             action = new QAction(filter->displayName(), this);
-            cmd = am->registerAction(action, locatorId,
+            cmd = Core::ActionManager::registerAction(action, locatorId,
                                Core::Context(Core::Constants::C_GLOBAL));
             cmd->setAttribute(Core::Command::CA_UpdateText);
             connect(action, SIGNAL(triggered()), this, SLOT(filterSelected()));
@@ -337,7 +338,7 @@ void LocatorWidget::updateFilterList()
         } else {
             action = actionCopy.take(filter->id());
             action->setText(filter->displayName());
-            cmd = am->command(locatorId);
+            cmd = Core::ActionManager::command(locatorId);
         }
         m_filterActionMap.insert(filter->id(), action);
         m_filterMenu->addAction(cmd->action());
@@ -345,7 +346,7 @@ void LocatorWidget::updateFilterList()
 
     // unregister actions that are deleted now
     foreach (const QString &id, actionCopy.keys()) {
-        am->unregisterAction(actionCopy.value(id), Core::Id(QLatin1String("Locator.") + id));
+        Core::ActionManager::unregisterAction(actionCopy.value(id), Core::Id(QLatin1String("Locator.") + id));
     }
     qDeleteAll(actionCopy);
 
@@ -409,11 +410,14 @@ bool LocatorWidget::eventFilter(QObject *obj, QEvent *event)
             }
         }
     } else if (obj == m_fileLineEdit && event->type() == QEvent::FocusOut) {
-#if defined(Q_OS_WIN)
-        QFocusEvent *fev = static_cast<QFocusEvent*>(event);
-        if (fev->reason() != Qt::ActiveWindowFocusReason ||
-            (fev->reason() == Qt::ActiveWindowFocusReason && !m_completionList->isActiveWindow()))
-#endif
+        bool hideList = true;
+        if (Utils::HostOsInfo::isWindowsHost()) {
+            QFocusEvent *fev = static_cast<QFocusEvent*>(event);
+            if (fev->reason() == Qt::ActiveWindowFocusReason &&
+                    !(fev->reason() == Qt::ActiveWindowFocusReason && !m_completionList->isActiveWindow()))
+                hideList = false;
+        }
+        if (hideList)
             m_completionList->hide();
     } else if (obj == m_fileLineEdit && event->type() == QEvent::FocusIn) {
         showPopupNow();

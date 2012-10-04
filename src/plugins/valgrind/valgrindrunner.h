@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,8 +27,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,7 +36,7 @@
 #include <analyzerbase/analyzerconstants.h>
 
 #include <utils/outputformat.h>
-#include <utils/ssh/sshconnection.h>
+#include <ssh/sshconnection.h>
 
 #include <QProcess>
 
@@ -76,8 +74,8 @@ public:
     void setStartMode(Analyzer::StartMode startMode);
     Analyzer::StartMode startMode() const;
 
-    void setConnectionParameters(const Utils::SshConnectionParameters &connParams);
-    const Utils::SshConnectionParameters &connectionParameters() const;
+    void setConnectionParameters(const QSsh::SshConnectionParameters &connParams);
+    const QSsh::SshConnectionParameters &connectionParameters() const;
 
     void waitForFinished() const;
 

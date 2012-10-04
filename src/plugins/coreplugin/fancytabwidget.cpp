@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,11 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "fancytabwidget.h"
+#include <utils/hostosinfo.h>
 #include <utils/stylehelper.h>
 #include <utils/styledbar.h>
 
@@ -276,23 +275,23 @@ void FancyTabBar::paintTab(QPainter *painter, int tabIndex) const
     }
 
     QString tabText(this->tabText(tabIndex));
-    QRect tabTextRect(tabRect(tabIndex));
+    QRect tabTextRect(rect);
+    const bool drawIcon = rect.height() > 36;
     QRect tabIconRect(tabTextRect);
-    tabTextRect.translate(0, -2);
+    tabTextRect.translate(0, drawIcon ? -2 : 1);
     QFont boldFont(painter->font());
     boldFont.setPointSizeF(Utils::StyleHelper::sidebarFontSize());
     boldFont.setBold(true);
     painter->setFont(boldFont);
     painter->setPen(selected ? QColor(255, 255, 255, 160) : QColor(0, 0, 0, 110));
-    int textFlags = Qt::AlignCenter | Qt::AlignBottom | Qt::TextWordWrap;
+    const int textFlags = Qt::AlignCenter | (drawIcon ? Qt::AlignBottom : Qt::AlignVCenter) | Qt::TextWordWrap;
     if (enabled) {
         painter->drawText(tabTextRect, textFlags, tabText);
         painter->setPen(selected ? QColor(60, 60, 60) : Utils::StyleHelper::panelTextColor());
     } else {
         painter->setPen(selected ? Utils::StyleHelper::panelTextColor() : QColor(255, 255, 255, 120));
     }
-#ifndef Q_OS_MAC
-    if (!selected && enabled) {
+    if (!Utils::HostOsInfo::isMacHost() && !selected && enabled) {
         painter->save();
         int fader = int(m_tabs[tabIndex]->fader());
         QLinearGradient grad(rect.topLeft(), rect.topRight());
@@ -305,14 +304,15 @@ void FancyTabBar::paintTab(QPainter *painter, int tabIndex) const
         painter->drawLine(rect.bottomLeft(), rect.bottomRight());
         painter->restore();
     }
-#endif
 
     if (!enabled)
         painter->setOpacity(0.7);
 
-    int textHeight = painter->fontMetrics().boundingRect(QRect(0, 0, width(), height()), Qt::TextWordWrap, tabText).height();
-    tabIconRect.adjust(0, 4, 0, -textHeight);
-    Utils::StyleHelper::drawIconWithShadow(tabIcon(tabIndex), tabIconRect, painter, enabled ? QIcon::Normal : QIcon::Disabled);
+    if (drawIcon) {
+        int textHeight = painter->fontMetrics().boundingRect(QRect(0, 0, width(), height()), Qt::TextWordWrap, tabText).height();
+        tabIconRect.adjust(0, 4, 0, -textHeight);
+        Utils::StyleHelper::drawIconWithShadow(tabIcon(tabIndex), tabIconRect, painter, enabled ? QIcon::Normal : QIcon::Disabled);
+    }
 
     painter->translate(0, -1);
     painter->drawText(tabTextRect, textFlags, tabText);

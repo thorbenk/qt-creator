@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -111,91 +109,157 @@ TextEditorSettings::TextEditorSettings(QObject *parent)
     QTC_ASSERT(!m_instance, return);
     m_instance = this;
 
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-
     // Note: default background colors are coming from FormatDescription::background()
 
     // Add font preference page
-    FormatDescriptions formatDescriptions;
-    formatDescriptions.append(FormatDescription(C_TEXT, tr("Text")));
+    FormatDescriptions formatDescr;
+    formatDescr.append(FormatDescription(C_TEXT, tr("Text"), tr("Generic text.\nApplied to "
+                                                                "text, if no other "
+                                                                "rules matching.")));
 
     // Special categories
     const QPalette p = QApplication::palette();
-    formatDescriptions.append(FormatDescription(C_LINK, tr("Link"), Qt::blue));
-    formatDescriptions.append(FormatDescription(C_SELECTION, tr("Selection"), p.color(QPalette::HighlightedText)));
-    formatDescriptions.append(FormatDescription(C_LINE_NUMBER, tr("Line Number")));
-    formatDescriptions.append(FormatDescription(C_SEARCH_RESULT, tr("Search Result")));
-    formatDescriptions.append(FormatDescription(C_SEARCH_SCOPE, tr("Search Scope")));
-    formatDescriptions.append(FormatDescription(C_PARENTHESES, tr("Parentheses")));
-    formatDescriptions.append(FormatDescription(C_CURRENT_LINE, tr("Current Line")));
+    formatDescr.append(FormatDescription(C_LINK, tr("Link"),
+                                         tr("Links that follow symbol under cursor."), Qt::blue));
+    formatDescr.append(FormatDescription(C_SELECTION, tr("Selection"), tr("Selected text."),
+                                         p.color(QPalette::HighlightedText)));
+    formatDescr.append(FormatDescription(C_LINE_NUMBER, tr("Line Number"),
+                                         tr("Line numbers located on the "
+                                            "left side of the editor.")));
+    formatDescr.append(FormatDescription(C_SEARCH_RESULT, tr("Search Result"),
+                                         tr("Highlighted search results inside the editor.")));
+    formatDescr.append(FormatDescription(C_SEARCH_SCOPE, tr("Search Scope"),
+                                         tr("Section where the pattern is searched in.")));
+    formatDescr.append(FormatDescription(C_PARENTHESES, tr("Parentheses"),
+                                         tr("Displayed when matching parentheses, square brackets "
+                                            "or curly brackets are found.")));
+    formatDescr.append(FormatDescription(C_CURRENT_LINE, tr("Current Line"),
+                                         tr("Line where the cursor is placed in.")));
 
-    FormatDescription currentLineNumber = FormatDescription(C_CURRENT_LINE_NUMBER, tr("Current Line Number"), Qt::darkGray);
+    FormatDescription currentLineNumber =
+            FormatDescription(C_CURRENT_LINE_NUMBER, tr("Current Line Number"),
+                              tr("Line number located on the left side of the "
+                                 "editor where the cursor is placed in."), Qt::darkGray);
     currentLineNumber.format().setBold(true);
-    formatDescriptions.append(currentLineNumber);
+    formatDescr.append(currentLineNumber);
 
-    formatDescriptions.append(FormatDescription(C_OCCURRENCES, tr("Occurrences")));
-    formatDescriptions.append(FormatDescription(C_OCCURRENCES_UNUSED, tr("Unused Occurrence")));
-    formatDescriptions.append(FormatDescription(C_OCCURRENCES_RENAME, tr("Renaming Occurrence")));
+
+    formatDescr.append(FormatDescription(C_OCCURRENCES, tr("Occurrences"),
+                                         tr("Occurrences of the symbol under the cursor.\n"
+                                            "(Only the background will be applied.)")));
+    formatDescr.append(FormatDescription(C_OCCURRENCES_UNUSED, tr("Unused Occurrence"),
+                                         tr("Occurrences of unused variables.")));
+    formatDescr.append(FormatDescription(C_OCCURRENCES_RENAME, tr("Renaming Occurrence"),
+                                         tr("Occurrences of a symbol that will be renamed.")));
 
     // Standard categories
-    formatDescriptions.append(FormatDescription(C_NUMBER, tr("Number"), Qt::darkBlue));
-    formatDescriptions.append(FormatDescription(C_STRING, tr("String"), Qt::darkGreen));
-    formatDescriptions.append(FormatDescription(C_TYPE, tr("Type"), Qt::darkMagenta));
-    formatDescriptions.append(FormatDescription(C_LOCAL, tr("Local")));
-    formatDescriptions.append(FormatDescription(C_FIELD, tr("Field"), Qt::darkRed));
-    formatDescriptions.append(FormatDescription(C_STATIC, tr("Static"), Qt::darkMagenta));
+    formatDescr.append(FormatDescription(C_NUMBER, tr("Number"), tr("Number literal."),
+                                         Qt::darkBlue));
+    formatDescr.append(FormatDescription(C_STRING, tr("String"),
+                                         tr("Character and string literals."), Qt::darkGreen));
+    formatDescr.append(FormatDescription(C_TYPE, tr("Type"), tr("Name of a type."),
+                                         Qt::darkMagenta));
+    formatDescr.append(FormatDescription(C_LOCAL, tr("Local"), tr("Local variables.")));
+    formatDescr.append(FormatDescription(C_FIELD, tr("Field"),
+                                         tr("Class' data members."), Qt::darkRed));
+    formatDescr.append(FormatDescription(C_ENUMERATION, tr("Enumeration"),
+                                         tr("Applied to Enumeration Items."), Qt::darkMagenta));
 
-    FormatDescription virtualMethodFormatDescriptor(C_VIRTUAL_METHOD, tr("Virtual Method"));
-    virtualMethodFormatDescriptor.format().setItalic(true);
-    formatDescriptions.append(virtualMethodFormatDescriptor);
+    Format functionFormat;
+    formatDescr.append(FormatDescription(C_FUNCTION, tr("Function"), tr("Name of a function."),
+                                         functionFormat));
+    functionFormat.setItalic(true);
+    formatDescr.append(FormatDescription(C_VIRTUAL_METHOD, tr("Virtual Method"),
+                                         tr("Name of method declared as virtual."),
+                                         functionFormat));
 
-    formatDescriptions.append(FormatDescription(C_BINDING, tr("QML Binding"), Qt::darkRed));
+    formatDescr.append(FormatDescription(C_BINDING, tr("QML Binding"),
+                                         tr("QML item property, that allows a "
+                                            "binding to another property."),
+                                         Qt::darkRed));
 
     Format qmlLocalNameFormat;
     qmlLocalNameFormat.setItalic(true);
-    formatDescriptions.append(FormatDescription(C_QML_LOCAL_ID, tr("QML Local Id"), qmlLocalNameFormat));
-    formatDescriptions.append(FormatDescription(C_QML_ROOT_OBJECT_PROPERTY, tr("QML Root Object Property"), qmlLocalNameFormat));
-    formatDescriptions.append(FormatDescription(C_QML_SCOPE_OBJECT_PROPERTY, tr("QML Scope Object Property"), qmlLocalNameFormat));
-    formatDescriptions.append(FormatDescription(C_QML_STATE_NAME, tr("QML State Name"), qmlLocalNameFormat));
+    formatDescr.append(FormatDescription(C_QML_LOCAL_ID, tr("QML Local Id"),
+                                         tr("QML item id within a QML file."), qmlLocalNameFormat));
+    formatDescr.append(FormatDescription(C_QML_ROOT_OBJECT_PROPERTY,
+                                         tr("QML root Object Property"),
+                                         tr("QML property of a parent item."), qmlLocalNameFormat));
+    formatDescr.append(FormatDescription(C_QML_SCOPE_OBJECT_PROPERTY,
+                                         tr("QML scope Object Property"),
+                                         tr("Property of the same QML item."), qmlLocalNameFormat));
+    formatDescr.append(FormatDescription(C_QML_STATE_NAME, tr("QML State Name"),
+                                         tr("Name of a QML state."), qmlLocalNameFormat));
 
-    formatDescriptions.append(FormatDescription(C_QML_TYPE_ID, tr("QML Type Name"), Qt::darkMagenta));
+    formatDescr.append(FormatDescription(C_QML_TYPE_ID, tr("QML Type Name"),
+                                         tr("Name of a QML type."), Qt::darkMagenta));
 
     Format qmlExternalNameFormat = qmlLocalNameFormat;
     qmlExternalNameFormat.setForeground(Qt::darkBlue);
-    formatDescriptions.append(FormatDescription(C_QML_EXTERNAL_ID, tr("QML External Id"), qmlExternalNameFormat));
-    formatDescriptions.append(FormatDescription(C_QML_EXTERNAL_OBJECT_PROPERTY, tr("QML External Object Property"), qmlExternalNameFormat));
+    formatDescr.append(FormatDescription(C_QML_EXTERNAL_ID, tr("QML External Id"),
+                                         tr("QML id defined in another QML file."),
+                                         qmlExternalNameFormat));
+    formatDescr.append(FormatDescription(C_QML_EXTERNAL_OBJECT_PROPERTY,
+                                         tr("QML External Object Property"),
+                                         tr("QML property defined in another QML file."),
+                                         qmlExternalNameFormat));
 
     Format jsLocalFormat;
     jsLocalFormat.setForeground(QColor(41, 133, 199)); // very light blue
     jsLocalFormat.setItalic(true);
-    formatDescriptions.append(FormatDescription(C_JS_SCOPE_VAR, tr("JavaScript Scope Var"), jsLocalFormat));
+    formatDescr.append(FormatDescription(C_JS_SCOPE_VAR, tr("JavaScript Scope Var"),
+                                         tr("Variables defined inside the JavaScript file."),
+                                         jsLocalFormat));
 
     Format jsGlobalFormat;
     jsGlobalFormat.setForeground(QColor(0, 85, 175)); // light blue
     jsGlobalFormat.setItalic(true);
-    formatDescriptions.append(FormatDescription(C_JS_IMPORT_VAR, tr("JavaScript Import"), jsGlobalFormat));
-    formatDescriptions.append(FormatDescription(C_JS_GLOBAL_VAR, tr("JavaScript Global Variable"), jsGlobalFormat));
+    formatDescr.append(FormatDescription(C_JS_IMPORT_VAR, tr("JavaScript Import"),
+                                         tr("Name of a JavaScript import inside a QML file."),
+                                         jsGlobalFormat));
+    formatDescr.append(FormatDescription(C_JS_GLOBAL_VAR, tr("JavaScript Global Variable"),
+                                         tr("Variables defined outside the script."),
+                                         jsGlobalFormat));
 
-    formatDescriptions.append(FormatDescription(C_KEYWORD, tr("Keyword"), Qt::darkYellow));
-    formatDescriptions.append(FormatDescription(C_OPERATOR, tr("Operator")));
-    formatDescriptions.append(FormatDescription(C_PREPROCESSOR, tr("Preprocessor"), Qt::darkBlue));
-    formatDescriptions.append(FormatDescription(C_LABEL, tr("Label"), Qt::darkRed));
-    formatDescriptions.append(FormatDescription(C_COMMENT, tr("Comment"), Qt::darkGreen));
-    formatDescriptions.append(FormatDescription(C_DOXYGEN_COMMENT, tr("Doxygen Comment"), Qt::darkBlue));
-    formatDescriptions.append(FormatDescription(C_DOXYGEN_TAG, tr("Doxygen Tag"), Qt::blue));
-    formatDescriptions.append(FormatDescription(C_VISUAL_WHITESPACE, tr("Visual Whitespace"), Qt::lightGray));
-    formatDescriptions.append(FormatDescription(C_DISABLED_CODE, tr("Disabled Code")));
+    formatDescr.append(FormatDescription(C_KEYWORD, tr("Keyword"),
+                                         tr("Reserved keywords of the programming language."),
+                                         Qt::darkYellow));
+    formatDescr.append(FormatDescription(C_OPERATOR, tr("Operator"),
+                                         tr("Operators. (for example operator++ operator-=)")));
+    formatDescr.append(FormatDescription(C_PREPROCESSOR, tr("Preprocessor"),
+                                         tr("Preprocessor directives."), Qt::darkBlue));
+    formatDescr.append(FormatDescription(C_LABEL, tr("Label"), tr("Labels for goto statements."),
+                                         Qt::darkRed));
+    formatDescr.append(FormatDescription(C_COMMENT, tr("Comment"),
+                                         tr("All style of comments except Doxygen comments."),
+                                         Qt::darkGreen));
+    formatDescr.append(FormatDescription(C_DOXYGEN_COMMENT, tr("Doxygen Comment"),
+                                         tr("Doxygen comments."), Qt::darkBlue));
+    formatDescr.append(FormatDescription(C_DOXYGEN_TAG, tr("Doxygen Tag"), tr("Doxygen tags"),
+                                         Qt::blue));
+    formatDescr.append(FormatDescription(C_VISUAL_WHITESPACE, tr("Visual Whitespace"),
+                                         tr("Whitespace\nWill not be applied to whitespace "
+                                            "in comments and strings."), Qt::lightGray));
+    formatDescr.append(FormatDescription(C_DISABLED_CODE, tr("Disabled Code"),
+                                         tr("Code disabled by preprocessor directives.")));
 
     // Diff categories
-    formatDescriptions.append(FormatDescription(C_ADDED_LINE, tr("Added Line"), QColor(0, 170, 0)));
-    formatDescriptions.append(FormatDescription(C_REMOVED_LINE, tr("Removed Line"), Qt::red));
-    formatDescriptions.append(FormatDescription(C_DIFF_FILE, tr("Diff File"), Qt::darkBlue));
-    formatDescriptions.append(FormatDescription(C_DIFF_LOCATION, tr("Diff Location"), Qt::blue));
+    formatDescr.append(FormatDescription(C_ADDED_LINE, tr("Added Line"),
+                                         tr("Applied to added lines in differences "
+                                            "(in diff editor)."), QColor(0, 170, 0)));
+    formatDescr.append(FormatDescription(C_REMOVED_LINE, tr("Removed Line"),
+                                         tr("Applied to removed lines "
+                                            "in differences (in diff editor)."), Qt::red));
+    formatDescr.append(FormatDescription(C_DIFF_FILE, tr("Diff File"),
+                                         tr("Compared files (in diff editor)."), Qt::darkBlue));
+    formatDescr.append(FormatDescription(C_DIFF_LOCATION, tr("Diff Location"),
+                                         tr("Location in the files where the difference is "
+                                            "(in diff editor)."), Qt::blue));
 
-    m_d->m_fontSettingsPage = new FontSettingsPage(formatDescriptions,
+    m_d->m_fontSettingsPage = new FontSettingsPage(formatDescr,
                                                    QLatin1String(Constants::TEXT_EDITOR_FONT_SETTINGS),
                                                    this);
-    pm->addObject(m_d->m_fontSettingsPage);
+    ExtensionSystem::PluginManager::addObject(m_d->m_fontSettingsPage);
 
     // Add the GUI used to configure the tab, storage and interaction settings
     TextEditor::BehaviorSettingsPageParameters behaviorSettingsPageParameters;
@@ -203,22 +267,22 @@ TextEditorSettings::TextEditorSettings(QObject *parent)
     behaviorSettingsPageParameters.displayName = tr("Behavior");
     behaviorSettingsPageParameters.settingsPrefix = QLatin1String("text");
     m_d->m_behaviorSettingsPage = new BehaviorSettingsPage(behaviorSettingsPageParameters, this);
-    pm->addObject(m_d->m_behaviorSettingsPage);
+    ExtensionSystem::PluginManager::addObject(m_d->m_behaviorSettingsPage);
 
     TextEditor::DisplaySettingsPageParameters displaySettingsPageParameters;
     displaySettingsPageParameters.id = QLatin1String(Constants::TEXT_EDITOR_DISPLAY_SETTINGS),
     displaySettingsPageParameters.displayName = tr("Display");
     displaySettingsPageParameters.settingsPrefix = QLatin1String("text");
     m_d->m_displaySettingsPage = new DisplaySettingsPage(displaySettingsPageParameters, this);
-    pm->addObject(m_d->m_displaySettingsPage);
+    ExtensionSystem::PluginManager::addObject(m_d->m_displaySettingsPage);
 
     m_d->m_highlighterSettingsPage =
         new HighlighterSettingsPage(QLatin1String(Constants::TEXT_EDITOR_HIGHLIGHTER_SETTINGS), this);
-    pm->addObject(m_d->m_highlighterSettingsPage);
+    ExtensionSystem::PluginManager::addObject(m_d->m_highlighterSettingsPage);
 
     m_d->m_snippetsSettingsPage =
         new SnippetsSettingsPage(QLatin1String(Constants::TEXT_EDITOR_SNIPPETS_SETTINGS), this);
-    pm->addObject(m_d->m_snippetsSettingsPage);
+    ExtensionSystem::PluginManager::addObject(m_d->m_snippetsSettingsPage);
 
     connect(m_d->m_fontSettingsPage, SIGNAL(changed(TextEditor::FontSettings)),
             this, SIGNAL(fontSettingsChanged(TextEditor::FontSettings)));
@@ -232,18 +296,16 @@ TextEditorSettings::TextEditorSettings(QObject *parent)
             this, SIGNAL(displaySettingsChanged(TextEditor::DisplaySettings)));
 
     // TODO: Move these settings to TextEditor category
-    if (QSettings *s = Core::ICore::settings())
-        m_d->m_completionSettings.fromSettings(QLatin1String("CppTools/"), s);
+    m_d->m_completionSettings.fromSettings(QLatin1String("CppTools/"), Core::ICore::settings());
 }
 
 TextEditorSettings::~TextEditorSettings()
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    pm->removeObject(m_d->m_fontSettingsPage);
-    pm->removeObject(m_d->m_behaviorSettingsPage);
-    pm->removeObject(m_d->m_displaySettingsPage);
-    pm->removeObject(m_d->m_highlighterSettingsPage);
-    pm->removeObject(m_d->m_snippetsSettingsPage);
+    ExtensionSystem::PluginManager::removeObject(m_d->m_fontSettingsPage);
+    ExtensionSystem::PluginManager::removeObject(m_d->m_behaviorSettingsPage);
+    ExtensionSystem::PluginManager::removeObject(m_d->m_displaySettingsPage);
+    ExtensionSystem::PluginManager::removeObject(m_d->m_highlighterSettingsPage);
+    ExtensionSystem::PluginManager::removeObject(m_d->m_snippetsSettingsPage);
 
     delete m_d;
 
@@ -340,8 +402,7 @@ void TextEditorSettings::setCompletionSettings(const TextEditor::CompletionSetti
         return;
 
     m_d->m_completionSettings = settings;
-    if (QSettings *s = Core::ICore::settings())
-        m_d->m_completionSettings.toSettings(QLatin1String("CppTools/"), s);
+    m_d->m_completionSettings.toSettings(QLatin1String("CppTools/"), Core::ICore::settings());
 
     emit completionSettingsChanged(m_d->m_completionSettings);
 }

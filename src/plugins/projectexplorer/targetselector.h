@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,10 +36,12 @@
 
 QT_BEGIN_NAMESPACE
 class QMenu;
+class QPushButton;
 QT_END_NAMESPACE
 
 namespace ProjectExplorer {
 namespace Internal {
+class QPixmapButton;
 
 class TargetSelector : public QWidget
 {
@@ -54,7 +54,7 @@ public:
 
     explicit TargetSelector(QWidget *parent = 0);
 
-    QSize minimumSizeHint() const;
+    QSize sizeHint() const;
 
     int targetWidth() const;
     QString runButtonString() const { return tr("Run"); }
@@ -65,44 +65,54 @@ public:
     int currentIndex() const { return m_currentTargetIndex; }
     int currentSubIndex() const { return m_targets.at(m_currentTargetIndex).currentSubIndex; }
 
-    bool isAddButtonEnabled() const;
-    bool isRemoveButtonEnabled() const;
+    void setTargetMenu(QMenu *menu);
 
 public:
     void insertTarget(int index, const QString &name);
+    void renameTarget(int index, const QString &name);
     void removeTarget(int index);
     void setCurrentIndex(int index);
     void setCurrentSubIndex(int subindex);
-    void setAddButtonEnabled(bool enabled);
-    void setRemoveButtonEnabled(bool enabled);
-    void setAddButtonMenu(QMenu *menu);
 
 signals:
-    void removeButtonClicked();
     // This signal is emitted whenever the target pointed to by the indices
     // has changed.
     void currentChanged(int targetIndex, int subIndex);
+    void toolTipRequested(const QPoint &globalPosition, int targetIndex);
+    void menuShown(int targetIndex);
 
 protected:
     void paintEvent(QPaintEvent *event);
     void mousePressEvent(QMouseEvent *event);
+    void mouseMoveEvent(QMouseEvent *event);
+    void leaveEvent(QEvent *event);
+    bool event(QEvent *e);
 
+private slots:
+    void changeButtonPressed();
+    void updateButtons();
+    void menuAboutToShow();
+    void menuAboutToHide();
 private:
+    void getControlAt(int x, int y, int *buttonIndex, int *targetIndex, int *targetSubIndex);
+    int maxVisibleTargets() const;
+
     const QImage m_unselected;
     const QImage m_runselected;
     const QImage m_buildselected;
-    const QPixmap m_targetaddbutton;
-    const QPixmap m_targetaddbuttondisabled;
-    const QPixmap m_targetremovebutton;
-    const QPixmap m_targetremovebuttondisabled;
+    const QPixmap m_targetRightButton;
+    const QPixmap m_targetLeftButton;
+    const QPixmap m_targetChangePixmap;
+    const QPixmap m_targetChangePixmap2;
+
+    QPixmapButton *m_targetChangeButton;
 
     QList<Target> m_targets;
 
     int m_currentTargetIndex;
-    bool m_addButtonEnabled;
-    bool m_removeButtonEnabled;
-
-    QMenu *m_addButtonMenu;
+    int m_currentHoveredTargetIndex;
+    int m_startIndex;
+    bool m_menuShown;
 };
 
 } // namespace Internal

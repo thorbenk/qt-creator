@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,11 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qmlprofilerengine.h"
 
-#include "codaqmlprofilerrunner.h"
 #include "localqmlprofilerrunner.h"
 #include "remotelinuxqmlprofilerrunner.h"
 
@@ -44,9 +41,8 @@
 #include <qmlprojectmanager/qmlprojectplugin.h>
 #include <projectexplorer/localapplicationruncontrol.h>
 #include <projectexplorer/applicationrunconfiguration.h>
-#include <qt4projectmanager/qt-s60/s60devicedebugruncontrol.h>
-#include <qt4projectmanager/qt-s60/s60devicerunconfiguration.h>
 #include <qmldebug/qmloutputparser.h>
+#include <remotelinux/remotelinuxrunconfiguration.h>
 
 #include <QMainWindow>
 #include <QMessageBox>
@@ -108,9 +104,6 @@ QmlProfilerEngine::QmlProfilerEnginePrivate::createRunner(ProjectExplorer::RunCo
         conf.environment = rc2->environment();
         conf.port = rc2->debuggerAspect()->qmlDebugServerPort();
         runner = new LocalQmlProfilerRunner(conf, parent);
-    } else if (Qt4ProjectManager::S60DeviceRunConfiguration *s60Config =
-            qobject_cast<Qt4ProjectManager::S60DeviceRunConfiguration*>(runConfiguration)) {
-        runner = new CodaQmlProfilerRunner(s60Config, parent);
     } else if (RemoteLinux::RemoteLinuxRunConfiguration *rmConfig =
             qobject_cast<RemoteLinux::RemoteLinuxRunConfiguration *>(runConfiguration)) {
         runner = new RemoteLinuxQmlProfilerRunner(rmConfig, parent);
@@ -219,8 +212,11 @@ void QmlProfilerEngine::stop()
     case QmlProfilerStateManager::AppDying :
         // valid, but no further action is needed
         break;
-    default:
-        qDebug() << tr("Unexpected engine stop from state %1 in %2:%3").arg(d->m_profilerState->currentStateAsString(), QString(__FILE__), QString::number(__LINE__));
+    default: {
+        const QString message = QString::fromLatin1("Unexpected engine stop from state %1 in %2:%3")
+            .arg(d->m_profilerState->currentStateAsString(), QString::fromLatin1(__FILE__), QString::number(__LINE__));
+        qWarning("%s", qPrintable(message));
+    }
         break;
     }
 }
@@ -241,8 +237,11 @@ void QmlProfilerEngine::processEnded()
     case QmlProfilerStateManager::AppKilled :
         d->m_profilerState->setCurrentState(QmlProfilerStateManager::Idle);
         break;
-    default:
-        qDebug() << tr("Process died unexpectedly from state %1 in %2:%3").arg(d->m_profilerState->currentStateAsString(), QString(__FILE__), QString::number(__LINE__));
+    default: {
+        const QString message = QString::fromLatin1("Process died unexpectedly from state %1 in %2:%3")
+            .arg(d->m_profilerState->currentStateAsString(), QString::fromLatin1(__FILE__), QString::number(__LINE__));
+        qWarning("%s", qPrintable(message));
+}
         break;
     }
 }
@@ -261,7 +260,9 @@ void QmlProfilerEngine::cancelProcess()
         break;
     }
     default: {
-        qDebug() << tr("Unexpected process termination requested with state %1 in %2:%3").arg(d->m_profilerState->currentStateAsString(), QString(__FILE__), QString::number(__LINE__));
+        const QString message = QString::fromLatin1("Unexpected process termination requested with state %1 in %2:%3")
+            .arg(d->m_profilerState->currentStateAsString(), QString::fromLatin1(__FILE__), QString::number(__LINE__));
+        qWarning("%s", qPrintable(message));
         return;
     }
     }
@@ -364,6 +365,7 @@ void QmlProfilerEngine::profilerStateChanged()
     case QmlProfilerStateManager::Idle : {
         // When all the profiling is done, delete the profiler runner
         // (a new one will be created at start)
+        d->m_noDebugOutputTimer.stop();
         if (d->m_runner) {
             delete d->m_runner;
             d->m_runner = 0;

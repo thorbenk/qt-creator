@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,67 +34,59 @@
 #include "androiddebugsupport.h"
 #include "androidrunconfiguration.h"
 #include "androidruncontrol.h"
-#include "androidtarget.h"
+#include "androidmanager.h"
 
+#include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/target.h>
 #include <debugger/debuggerconstants.h>
 #include <qt4projectmanager/qt4project.h>
 #include <qt4projectmanager/qt4nodes.h>
-#include <qt4projectmanager/qt4projectmanagerconstants.h>
+#include <qtsupport/customexecutablerunconfiguration.h>
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtsupportconstants.h>
 
-
-namespace Android {
-namespace Internal {
 
 using namespace ProjectExplorer;
 using namespace Qt4ProjectManager;
 
-namespace {
+namespace Android {
+namespace Internal {
 
-QString pathFromId(const Core::Id id)
+#define ANDROID_PREFIX "Qt4ProjectManager.AndroidRunConfiguration"
+static QLatin1String ANDROID_RC_ID_PREFIX(ANDROID_PREFIX ":");
+
+static QString pathFromId(const Core::Id id)
 {
-    QString pathStr = QString::fromUtf8(id.name());
+    QString pathStr = id.toString();
     const QString prefix = QLatin1String(ANDROID_RC_ID_PREFIX);
     if (!pathStr.startsWith(prefix))
         return QString();
     return pathStr.mid(prefix.size());
 }
 
-} // namespace
-
 AndroidRunConfigurationFactory::AndroidRunConfigurationFactory(QObject *parent)
-    : IRunConfigurationFactory(parent)
+    : QmakeRunConfigurationFactory(parent)
 {
+    setObjectName(QLatin1String("AndroidRunConfigurationFactory"));
 }
 
-AndroidRunConfigurationFactory::~AndroidRunConfigurationFactory()
+bool AndroidRunConfigurationFactory::canCreate(Target *parent, const Core::Id id) const
 {
-}
-
-bool AndroidRunConfigurationFactory::canCreate(Target *parent,
-    const Core::Id/*id*/) const
-{
-    AndroidTarget *target = qobject_cast<AndroidTarget *>(parent);
-    if (!target
-            || target->id() != Core::Id(Qt4ProjectManager::Constants::ANDROID_DEVICE_TARGET_ID)) {
+    if (!canHandle(parent))
         return false;
-    }
-    return true;
+    return availableCreationIds(parent).contains(id);
 }
 
-bool AndroidRunConfigurationFactory::canRestore(Target *parent,
-    const QVariantMap &map) const
+bool AndroidRunConfigurationFactory::canRestore(Target *parent, const QVariantMap &map) const
 {
-    Q_UNUSED(parent)
-    Q_UNUSED(map)
-    if (!qobject_cast<AndroidTarget *>(parent))
+    if (!canHandle(parent))
         return false;
-    QString id = QString::fromUtf8(ProjectExplorer::idFromMap(map).name());
-    return id.startsWith(QLatin1String(ANDROID_RC_ID));
+    QString id = ProjectExplorer::idFromMap(map).toString();
+    return id.startsWith(QLatin1String(ANDROID_RC_ID_PREFIX));
 }
 
-bool AndroidRunConfigurationFactory::canClone(Target *parent,
-    RunConfiguration *source) const
+bool AndroidRunConfigurationFactory::canClone(Target *parent, RunConfiguration *source) const
 {
     return canCreate(parent, source->id());
 }
@@ -104,14 +94,12 @@ bool AndroidRunConfigurationFactory::canClone(Target *parent,
 QList<Core::Id> AndroidRunConfigurationFactory::availableCreationIds(Target *parent) const
 {
     QList<Core::Id> ids;
-    if (AndroidTarget *t = qobject_cast<AndroidTarget *>(parent)) {
-        if (t->id() == Core::Id(Qt4ProjectManager::Constants::ANDROID_DEVICE_TARGET_ID)) {
-            QList<Qt4ProFileNode *> nodes = t->qt4Project()->allProFiles();
-            foreach (Qt4ProFileNode *node, nodes)
-                if (node->projectType() == ApplicationTemplate || node->projectType() == LibraryTemplate)
-                    ids << Core::Id(node->targetInformation().target);
-        }
-    }
+    if (!AndroidManager::supportsAndroid(parent))
+        return ids;
+    QList<Qt4ProFileNode *> nodes = static_cast<Qt4Project *>(parent->project())->allProFiles();
+    foreach (Qt4ProFileNode *node, nodes)
+        if (node->projectType() == ApplicationTemplate || node->projectType() == LibraryTemplate)
+            ids << Core::Id(ANDROID_RC_ID_PREFIX + node->targetInformation().target);
     return ids;
 }
 
@@ -120,14 +108,11 @@ QString AndroidRunConfigurationFactory::displayNameForId(const Core::Id id) cons
     return QFileInfo(pathFromId(id)).completeBaseName();
 }
 
-RunConfiguration *AndroidRunConfigurationFactory::create(Target *parent,
-    const Core::Id id)
+RunConfiguration *AndroidRunConfigurationFactory::create(Target *parent, const Core::Id id)
 {
     if (!canCreate(parent, id))
         return 0;
-    AndroidTarget *pqt4parent = static_cast<AndroidTarget *>(parent);
-    return new AndroidRunConfiguration(pqt4parent, pathFromId(id));
-
+    return new AndroidRunConfiguration(parent, id, pathFromId(id));
 }
 
 RunConfiguration *AndroidRunConfigurationFactory::restore(Target *parent,
@@ -135,8 +120,8 @@ RunConfiguration *AndroidRunConfigurationFactory::restore(Target *parent,
 {
     if (!canRestore(parent, map))
         return 0;
-    AndroidTarget *target = static_cast<AndroidTarget *>(parent);
-    AndroidRunConfiguration *rc = new AndroidRunConfiguration(target, QString());
+    Core::Id id = ProjectExplorer::idFromMap(map);
+    AndroidRunConfiguration *rc = new AndroidRunConfiguration(parent, id, pathFromId(id));
     if (rc->fromMap(map))
         return rc;
 
@@ -144,24 +129,36 @@ RunConfiguration *AndroidRunConfigurationFactory::restore(Target *parent,
     return 0;
 }
 
-RunConfiguration *AndroidRunConfigurationFactory::clone(Target *parent,
-    RunConfiguration *source)
+RunConfiguration *AndroidRunConfigurationFactory::clone(Target *parent, RunConfiguration *source)
 {
     if (!canClone(parent, source))
         return 0;
 
     AndroidRunConfiguration *old = static_cast<AndroidRunConfiguration *>(source);
-    return new AndroidRunConfiguration(static_cast<AndroidTarget *>(parent), old);
+    return new AndroidRunConfiguration(parent, old);
+}
+
+bool AndroidRunConfigurationFactory::canHandle(Target *t) const
+{
+    if (!t->project()->supportsKit(t->kit()))
+        return false;
+    return AndroidManager::supportsAndroid(t);
+}
+
+QList<RunConfiguration *> AndroidRunConfigurationFactory::runConfigurationsForNode(Target *t, ProjectExplorer::Node *n)
+{
+    QList<ProjectExplorer::RunConfiguration *> result;
+    foreach (ProjectExplorer::RunConfiguration *rc, t->runConfigurations())
+        if (AndroidRunConfiguration *qt4c = qobject_cast<AndroidRunConfiguration *>(rc))
+                if (qt4c->proFilePath() == n->path())
+                    result << rc;
+    return result;
 }
 
 // #pragma mark -- AndroidRunControlFactory
 
 AndroidRunControlFactory::AndroidRunControlFactory(QObject *parent)
     : IRunControlFactory(parent)
-{
-}
-
-AndroidRunControlFactory::~AndroidRunControlFactory()
 {
 }
 
@@ -174,7 +171,7 @@ bool AndroidRunControlFactory::canRun(RunConfiguration *runConfiguration,
 }
 
 RunControl *AndroidRunControlFactory::create(RunConfiguration *runConfig,
-                                        ProjectExplorer::RunMode mode)
+                                        ProjectExplorer::RunMode mode, QString *errorMessage)
 {
     Q_ASSERT(canRun(runConfig, mode));
     AndroidRunConfiguration *rc = qobject_cast<AndroidRunConfiguration *>(runConfig);
@@ -182,18 +179,12 @@ RunControl *AndroidRunControlFactory::create(RunConfiguration *runConfig,
     if (mode == NormalRunMode)
         return new AndroidRunControl(rc);
     else
-        return AndroidDebugSupport::createDebugRunControl(rc);
+        return AndroidDebugSupport::createDebugRunControl(rc, errorMessage);
 }
 
 QString AndroidRunControlFactory::displayName() const
 {
     return tr("Run on Android device/emulator");
-}
-
-RunConfigWidget *AndroidRunControlFactory::createConfigurationWidget(RunConfiguration *config)
-{
-    Q_UNUSED(config)
-    return 0;
 }
 
 } // namespace Internal

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -105,14 +103,13 @@ bool HelloWorldPlugin::initialize(const QStringList &arguments, QString *errorMe
     connect(helloWorldAction, SIGNAL(triggered()), SLOT(sayHelloWorld()));
 
     // Register the action with the action manager
-    Core::ActionManager *actionManager = Core::ICore::actionManager();
     Core::Command *command =
-            actionManager->registerAction(
+            Core::ActionManager::registerAction(
                     helloWorldAction, "HelloWorld.HelloWorldAction", context);
 
     // Create our own menu to place in the Tools menu
     Core::ActionContainer *helloWorldMenu =
-            actionManager->createMenu("HelloWorld.HelloWorldMenu");
+            Core::ActionManager::createMenu("HelloWorld.HelloWorldMenu");
     QMenu *menu = helloWorldMenu->menu();
     menu->setTitle(tr("&Hello World"));
     menu->setEnabled(true);
@@ -122,7 +119,7 @@ bool HelloWorldPlugin::initialize(const QStringList &arguments, QString *errorMe
 
     // Request the Tools menu and add the Hello World menu to it
     Core::ActionContainer *toolsMenu =
-            actionManager->actionContainer(Core::Constants::M_TOOLS);
+            Core::ActionManager::actionContainer(Core::Constants::M_TOOLS);
     toolsMenu->addMenu(helloWorldMenu);
 
     // Add a mode with a push button based on BaseMode. Like the BaseView,

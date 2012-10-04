@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,27 +25,26 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #include "abstractremotelinuxdeployservice.h"
 
-#include "deployablefile.h"
-#include "linuxdeviceconfiguration.h"
-
-#include <qt4projectmanager/qt4buildconfiguration.h>
+#include <projectexplorer/buildconfiguration.h>
+#include <projectexplorer/deployablefile.h>
+#include <projectexplorer/target.h>
+#include <qtsupport/qtkitinformation.h>
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshconnection.h>
-#include <utils/ssh/sshconnectionmanager.h>
+#include <ssh/sshconnection.h>
+#include <ssh/sshconnectionmanager.h>
 
 #include <QDateTime>
 #include <QFileInfo>
 #include <QPointer>
 #include <QString>
 
-using namespace Qt4ProjectManager;
-using namespace Utils;
+using namespace ProjectExplorer;
+using namespace QSsh;
 
 namespace RemoteLinux {
 namespace Internal {
@@ -83,11 +82,13 @@ const char LastDeployedTimesKey[] = "Qt4ProjectManager.MaemoRunConfiguration.Las
 class AbstractRemoteLinuxDeployServicePrivate
 {
 public:
-    AbstractRemoteLinuxDeployServicePrivate() : state(Inactive), stopRequested(false) {}
+    AbstractRemoteLinuxDeployServicePrivate()
+        : kit(0), connection(0), state(Inactive), stopRequested(false) {}
 
-    LinuxDeviceConfiguration::ConstPtr deviceConfiguration;
-    QPointer<Qt4BuildConfiguration> buildConfiguration;
-    SshConnection::Ptr connection;
+    IDevice::ConstPtr deviceConfiguration;
+    QPointer<BuildConfiguration> buildConfiguration;
+    Kit *kit;
+    SshConnection *connection;
     State state;
     bool stopRequested;
 
@@ -107,17 +108,22 @@ AbstractRemoteLinuxDeployService::~AbstractRemoteLinuxDeployService()
     delete d;
 }
 
-const Qt4BuildConfiguration *AbstractRemoteLinuxDeployService::qt4BuildConfiguration() const
+const BuildConfiguration *AbstractRemoteLinuxDeployService::buildConfiguration() const
 {
     return d->buildConfiguration;
 }
 
-LinuxDeviceConfiguration::ConstPtr AbstractRemoteLinuxDeployService::deviceConfiguration() const
+const Kit *AbstractRemoteLinuxDeployService::profile() const
+{
+    return d->kit;
+}
+
+IDevice::ConstPtr AbstractRemoteLinuxDeployService::deviceConfiguration() const
 {
     return d->deviceConfiguration;
 }
 
-SshConnection::Ptr AbstractRemoteLinuxDeployService::connection() const
+SshConnection *AbstractRemoteLinuxDeployService::connection() const
 {
     return d->connection;
 }
@@ -126,35 +132,44 @@ void AbstractRemoteLinuxDeployService::saveDeploymentTimeStamp(const DeployableF
 {
     if (!d->buildConfiguration)
         return;
-    const QtSupport::BaseQtVersion * const qtVersion = d->buildConfiguration->qtVersion();
+    const QtSupport::BaseQtVersion *const qtVersion
+            = QtSupport::QtKitInformation::qtVersion(d->kit);
+    QString systemRoot;
+    if (SysRootKitInformation::hasSysRoot(d->kit))
+        systemRoot = SysRootKitInformation::sysRoot(d->kit).toString();
     if (!qtVersion || !qtVersion->isValid())
         return;
     d->lastDeployed.insert(DeployParameters(deployableFile,
-        deviceConfiguration()->sshParameters().host,
-        qtVersion->systemRoot()), QDateTime::currentDateTime());
+                                            deviceConfiguration()->sshParameters().host,
+                                            systemRoot),
+                           QDateTime::currentDateTime());
 }
 
 bool AbstractRemoteLinuxDeployService::hasChangedSinceLastDeployment(const DeployableFile &deployableFile) const
 {
     if (!d->buildConfiguration)
         return true;
-    const QtSupport::BaseQtVersion * const qtVersion = d->buildConfiguration->qtVersion();
+    const QtSupport::BaseQtVersion *const qtVersion
+            = QtSupport::QtKitInformation::qtVersion(d->kit);
     if (!qtVersion || !qtVersion->isValid())
         return true;
+    QString systemRoot;
+    if (SysRootKitInformation::hasSysRoot(d->kit))
+        systemRoot = SysRootKitInformation::sysRoot(d->kit).toString();
     const QDateTime &lastDeployed = d->lastDeployed.value(DeployParameters(deployableFile,
-        deviceConfiguration()->sshParameters().host, qtVersion->systemRoot()));
+        deviceConfiguration()->sshParameters().host, systemRoot));
     return !lastDeployed.isValid()
-        || QFileInfo(deployableFile.localFilePath).lastModified() > lastDeployed;
+        || deployableFile.localFilePath().toFileInfo().lastModified() > lastDeployed;
 }
 
-void AbstractRemoteLinuxDeployService::setDeviceConfiguration(const LinuxDeviceConfiguration::ConstPtr &deviceConfiguration)
-{
-    d->deviceConfiguration = deviceConfiguration;
-}
-
-void AbstractRemoteLinuxDeployService::setBuildConfiguration(Qt4BuildConfiguration *bc)
+void AbstractRemoteLinuxDeployService::setBuildConfiguration(BuildConfiguration *bc)
 {
     d->buildConfiguration = bc;
+    if (bc && bc->target())
+        d->kit = bc->target()->kit();
+    else
+        d->kit = 0;
+    d->deviceConfiguration = DeviceKitInformation::device(d->kit);
 }
 
 void AbstractRemoteLinuxDeployService::start()
@@ -220,8 +235,8 @@ QVariantMap AbstractRemoteLinuxDeployService::exportDeployTimes() const
     QVariantList timeList;
     typedef QHash<DeployParameters, QDateTime>::ConstIterator DepIt;
     for (DepIt it = d->lastDeployed.begin(); it != d->lastDeployed.end(); ++it) {
-        fileList << it.key().file.localFilePath;
-        remotePathList << it.key().file.remoteDir;
+        fileList << it.key().file.localFilePath().toString();
+        remotePathList << it.key().file.remoteDirectory();
         hostList << it.key().host;
         sysrootList << it.key().sysroot;
         timeList << it.value();
@@ -262,13 +277,13 @@ void AbstractRemoteLinuxDeployService::handleDeviceSetupDone(bool success)
     }
 
     d->state = Connecting;
-    d->connection = SshConnectionManager::instance().acquireConnection(d->deviceConfiguration->sshParameters());
-    connect(d->connection.data(), SIGNAL(error(Utils::SshError)),
+    d->connection = SshConnectionManager::instance().acquireConnection(deviceConfiguration()->sshParameters());
+    connect(d->connection, SIGNAL(error(QSsh::SshError)),
         SLOT(handleConnectionFailure()));
     if (d->connection->state() == SshConnection::Connected) {
         handleConnected();
     } else {
-        connect(d->connection.data(), SIGNAL(connected()), SLOT(handleConnected()));
+        connect(d->connection, SIGNAL(connected()), SLOT(handleConnected()));
         emit progressMessage(tr("Connecting to device..."));
         if (d->connection->state() == SshConnection::Unconnected)
             d->connection->connectToHost();
@@ -304,7 +319,7 @@ void AbstractRemoteLinuxDeployService::handleConnectionFailure()
         break;
     case Connecting: {
         QString errorMsg = tr("Could not connect to host: %1").arg(d->connection->errorString());
-        if (deviceConfiguration()->machineType() == LinuxDeviceConfiguration::Emulator)
+        if (deviceConfiguration()->machineType() == IDevice::Emulator)
             errorMsg += tr("\nDid the emulator fail to start?");
         else
             errorMsg += tr("\nIs the device connected and set up for network access?");
@@ -322,9 +337,9 @@ void AbstractRemoteLinuxDeployService::setFinished()
 {
     d->state = Inactive;
     if (d->connection) {
-        disconnect(d->connection.data(), 0, this, 0);
+        disconnect(d->connection, 0, this, 0);
         SshConnectionManager::instance().releaseConnection(d->connection);
-        d->connection = SshConnection::Ptr();
+        d->connection = 0;
     }
     d->stopRequested = false;
     emit finished();

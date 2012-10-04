@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -44,6 +42,7 @@
 #include "vcsmanager.h"
 #include "coreconstants.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/pathchooser.h>
 #include <utils/reloadpromptutils.h>
@@ -180,17 +179,17 @@ QFileSystemWatcher *DocumentManagerPrivate::fileWatcher()
 
 QFileSystemWatcher *DocumentManagerPrivate::linkWatcher()
 {
-#ifdef Q_OS_UNIX
-    if (!m_linkWatcher) {
-        m_linkWatcher = new QFileSystemWatcher(m_instance);
-        m_linkWatcher->setObjectName(QLatin1String("_qt_autotest_force_engine_poller"));
-        QObject::connect(m_linkWatcher, SIGNAL(fileChanged(QString)),
-                         m_instance, SLOT(changedFile(QString)));
+    if (Utils::HostOsInfo::isAnyUnixHost()) {
+        if (!m_linkWatcher) {
+            m_linkWatcher = new QFileSystemWatcher(m_instance);
+            m_linkWatcher->setObjectName(QLatin1String("_qt_autotest_force_engine_poller"));
+            QObject::connect(m_linkWatcher, SIGNAL(fileChanged(QString)),
+                             m_instance, SLOT(changedFile(QString)));
+        }
+        return m_linkWatcher;
     }
-    return m_linkWatcher;
-#else
+
     return fileWatcher();
-#endif
 }
 
 DocumentManagerPrivate::DocumentManagerPrivate(QMainWindow *mw) :
@@ -199,11 +198,7 @@ DocumentManagerPrivate::DocumentManagerPrivate(QMainWindow *mw) :
     m_linkWatcher(0),
     m_blockActivated(false),
     m_lastVisitedDirectory(QDir::currentPath()),
-#ifdef Q_OS_MAC  // Creator is in bizarre places when launched via finder.
-    m_useProjectsDirectory(true),
-#else
-    m_useProjectsDirectory(false),
-#endif
+    m_useProjectsDirectory(Utils::HostOsInfo::isMacHost()), // Creator is in bizarre places when launched via finder.
     m_blockedIDocument(0)
 {
 }
@@ -294,7 +289,7 @@ void DocumentManager::addDocuments(const QList<IDocument *> &documents, bool add
         foreach (IDocument *document, documents) {
             if (document && !d->m_documentsWithoutWatch.contains(document)) {
                 connect(document, SIGNAL(destroyed(QObject*)), m_instance, SLOT(documentDestroyed(QObject*)));
-                connect(document, SIGNAL(fileNameChanged(QString,QString)), m_instance, SLOT(fileNameChanged(QString, QString)));
+                connect(document, SIGNAL(fileNameChanged(QString,QString)), m_instance, SLOT(fileNameChanged(QString,QString)));
                 d->m_documentsWithoutWatch.append(document);
             }
         }
@@ -305,7 +300,7 @@ void DocumentManager::addDocuments(const QList<IDocument *> &documents, bool add
         if (document && !d->m_documentsWithWatch.contains(document)) {
             connect(document, SIGNAL(changed()), m_instance, SLOT(checkForNewFileName()));
             connect(document, SIGNAL(destroyed(QObject*)), m_instance, SLOT(documentDestroyed(QObject*)));
-            connect(document, SIGNAL(fileNameChanged(QString,QString)), m_instance, SLOT(fileNameChanged(QString, QString)));
+            connect(document, SIGNAL(fileNameChanged(QString,QString)), m_instance, SLOT(fileNameChanged(QString,QString)));
             addFileInfo(document);
         }
     }
@@ -491,9 +486,8 @@ QString DocumentManager::fixFileName(const QString &fileName, FixMode fixmode)
         s = QDir::cleanPath(s);
     }
     s = QDir::toNativeSeparators(s);
-#ifdef Q_OS_WIN
-    s = s.toLower();
-#endif
+    if (Utils::HostOsInfo::isWindowsHost())
+        s = s.toLower();
     return s;
 }
 
@@ -831,15 +825,20 @@ DocumentManager::ReadOnlyAction
                        tr("The file <i>%1</i> is read only.").arg(QDir::toNativeSeparators(fileName)),
                        QMessageBox::Cancel, parent);
 
+    QString makeWritableText;
     QPushButton *vcsButton = 0;
-    if (promptVCS)
-        vcsButton = msgBox.addButton(tr("Open with VCS (%1)").arg(versionControl->displayName()), QMessageBox::AcceptRole);
+    if (promptVCS) {
+        vcsButton = msgBox.addButton(versionControl->vcsOpenText(), QMessageBox::AcceptRole);
+        makeWritableText = versionControl->vcsMakeWritableText();
+    }
+    if (makeWritableText.isEmpty())
+        makeWritableText = tr("Make &Writable");
 
-    QPushButton *makeWritableButton =  msgBox.addButton(tr("Make Writable"), QMessageBox::AcceptRole);
+    QPushButton *makeWritableButton =  msgBox.addButton(makeWritableText, QMessageBox::AcceptRole);
 
     QPushButton *saveAsButton = 0;
     if (displaySaveAsButton)
-        saveAsButton = msgBox.addButton(tr("Save As..."), QMessageBox::ActionRole);
+        saveAsButton = msgBox.addButton(tr("&Save As..."), QMessageBox::ActionRole);
 
     msgBox.setDefaultButton(vcsButton ? vcsButton : makeWritableButton);
     msgBox.exec();
@@ -1364,7 +1363,7 @@ void DocumentManager::executeOpenWithMenuAction(QAction *action)
 {
     QTC_ASSERT(action, return);
     const QVariant data = action->data();
-    OpenWithEntry entry = qVariantValue<OpenWithEntry>(data);
+    OpenWithEntry entry = qvariant_cast<OpenWithEntry>(data);
     if (entry.editorFactory) {
         // close any open editors that have this file open, but have a different type.
         EditorManager *em = EditorManager::instance();

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -147,27 +145,24 @@ private:
 
     void setupActions();
     void setupViewActions();
-    void addDockViewAction(Core::ActionManager *am,
-                           Core::ActionContainer *viewMenu,
+    void addDockViewAction(Core::ActionContainer *viewMenu,
                            int index,
                            const Core::Context &context,
                            const QString &title, const Core::Id &id);
 
-    Core::ActionContainer *createPreviewStyleMenu(Core::ActionManager *am,
-                                                   QActionGroup *actionGroup);
+    Core::ActionContainer *createPreviewStyleMenu(QActionGroup *actionGroup);
 
     void critical(const QString &errorMessage);
     void bindShortcut(Core::Command *command, QAction *action);
     QAction *createEditModeAction(QActionGroup *ag,
                                          const Core::Context &context,
-                                         Core::ActionManager *am,
                                          Core::ActionContainer *medit,
                                          const QString &actionName,
                                          const Core::Id &id,
                                          int toolNumber,
                                          const QString &iconName = QString(),
                                          const QString &keySequence = QString());
-    Core::Command *addToolAction(QAction *a, Core::ActionManager *am,
+    Core::Command *addToolAction(QAction *a,
                                  const Core::Context &context, const Core::Id &id,
                                  Core::ActionContainer *c1, const QString &keySequence = QString());
     QToolBar *createEditorToolBar() const;
@@ -196,7 +191,6 @@ private:
     QActionGroup *m_actionGroupPreviewInStyle;
     QMenu *m_previewInStyleMenu;
     QAction *m_actionAboutPlugins;
-    QAction *m_modeActionSeparator;
     QAction *m_actionSwitchSource;
     QSignalMapper *m_shortcutMapper;
 

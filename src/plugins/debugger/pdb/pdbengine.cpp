@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,8 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
-
-#define QT_NO_CAST_FROM_ASCII
 
 #include "pdbengine.h"
 
@@ -90,7 +86,7 @@ namespace Internal {
 ///////////////////////////////////////////////////////////////////////
 
 PdbEngine::PdbEngine(const DebuggerStartParameters &startParameters)
-    : DebuggerEngine(startParameters, AnyLanguage)
+    : DebuggerEngine(startParameters)
 {
     setObjectName(QLatin1String("PdbEngine"));
 }
@@ -363,7 +359,7 @@ void PdbEngine::handleBreakInsert(const PdbResponse &response)
     int pos1 = response.data.indexOf(" at ");
     QTC_ASSERT(pos1 != -1, return);
     QByteArray bpnr = response.data.mid(11, pos1 - 11);
-    int pos2 = response.data.lastIndexOf(":");
+    int pos2 = response.data.lastIndexOf(':');
     QByteArray file = response.data.mid(pos1 + 4, pos2 - pos1 - 4);
     QByteArray line = response.data.mid(pos2 + 1);
     BreakpointResponse br;
@@ -632,7 +628,7 @@ void PdbEngine::handleOutput(const QByteArray &data)
 {
     //qDebug() << "READ: " << data;
     m_inbuffer.append(data);
-    qDebug() << "BUFFER FROM: '" << m_inbuffer << "'";
+    qDebug() << "BUFFER FROM: '" << m_inbuffer << '\'';
     while (true) {
         int pos = m_inbuffer.indexOf("(Pdb)");
         if (pos == -1)
@@ -643,7 +639,7 @@ void PdbEngine::handleOutput(const QByteArray &data)
         m_inbuffer = m_inbuffer.mid(pos + 6);
         emit outputReady(response);
     }
-    qDebug() << "BUFFER LEFT: '" << m_inbuffer << "'";
+    qDebug() << "BUFFER LEFT: '" << m_inbuffer << '\'';
     //m_inbuffer.clear();
 }
 
@@ -720,14 +716,12 @@ void PdbEngine::updateAll()
 
 void PdbEngine::updateLocals()
 {
-    WatchHandler *handler = watchHandler();
-    handler->beginCycle(true);
-
     QByteArray watchers;
     //if (!m_toolTipExpression.isEmpty())
     //    watchers += m_toolTipExpression.toLatin1()
     //        + '#' + tooltipINameForExpression(m_toolTipExpression.toLatin1());
 
+    WatchHandler *handler = watchHandler();
     QHash<QByteArray, int> watcherNames = handler->watcherNames();
     QHashIterator<QByteArray, int> it(watcherNames);
     while (it.hasNext()) {
@@ -831,8 +825,7 @@ void PdbEngine::handleListLocals(const PdbResponse &response)
         //qDebug() << "CHILD: " << child.toString();
         parseWatchData(handler->expandedINames(), dummy, child, &list);
     }
-    handler->insertBulkData(list);
-    handler->endCycle();
+    handler->insertData(list);
 }
 
 bool PdbEngine::hasCapability(unsigned cap) const

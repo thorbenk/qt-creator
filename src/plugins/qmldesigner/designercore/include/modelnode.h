@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -77,7 +75,7 @@ class CORESHARED_EXPORT  ModelNode
     friend CORESHARED_EXPORT uint qHash(const ModelNode & node);
     friend CORESHARED_EXPORT QDebug operator<<(QDebug debug, const ModelNode &modelNode);
     friend CORESHARED_EXPORT bool operator <(const ModelNode &firstNode, const ModelNode &secondNode);
-    friend CORESHARED_EXPORT QList<Internal::InternalNodePointer> QmlDesigner::toInternalNodeList(const QList<ModelNode> &nodeList);
+    friend CORESHARED_EXPORT QList<Internal::InternalNodePointer> toInternalNodeList(const QList<ModelNode> &nodeList);
     friend class QmlDesigner::Model;
     friend class QmlDesigner::AbstractView;
     friend class QmlDesigner::NodeListProperty;

@@ -13,7 +13,6 @@
         <file>images/run_small.png</file>
         <file>images/session.png</file>
         <file>images/stop.png</file>
-        <file>images/targetaddbutton.png</file>
         <file>images/targetbuildselected.png</file>
         <file>images/targetrunselected.png</file>
         <file>images/targetseparatorbackground.png</file>
@@ -21,7 +20,6 @@
         <file>images/leftselection.png</file>
         <file>images/rightselection.png</file>
         <file>images/midselection.png</file>
-        <file>images/targetremovebutton.png</file>
         <file>images/compile_error.png</file>
         <file>images/compile_warning.png</file>
         <file>images/BuildSettings.png</file>
@@ -29,18 +27,20 @@
         <file>images/EditorSettings.png</file>
         <file>images/ProjectDependencies.png</file>
         <file>images/MaemoDevice.png</file>
-        <file>images/SymbianDevice.png</file>
-        <file>images/SymbianEmulator.png</file>
-        <file>images/ConnectionOff.png</file>
-        <file>images/ConnectionOn.png</file>
+        <file>images/Simulator.png</file>
+        <file>images/DeviceConnected.png</file>
+        <file>images/DeviceDisconnected.png</file>
+        <file>images/DeviceReadyToUse.png</file>
         <file>images/build.png</file>
         <file>images/targetpanel_bottom.png</file>
         <file>images/targetpanel_gradient.png</file>
-        <file>images/targetaddbutton_disabled.png</file>
-        <file>images/targetremovebutton_disabled.png</file>
         <file>images/window.png</file>
         <file>images/stop_small.png</file>
         <file>images/disabledbuildstep.png</file>
         <file>images/unconfigured.png</file>
+        <file>images/targetleftbutton.png</file>
+        <file>images/targetrightbutton.png</file>
+        <file>images/targetchangebutton.png</file>
+        <file>images/targetchangebutton2.png</file>
     </qresource>
 </RCC>

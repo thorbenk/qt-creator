@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,6 +51,7 @@ public:
     InfoBarEntry(const InfoBarEntry &other) { *this = other; }
     void setCustomButtonInfo(const QString &_buttonText, QObject *_object, const char *_member);
     void setCancelButtonInfo(QObject *_object, const char *_member);
+    void setCancelButtonInfo(const QString &_cancelButtonText, QObject *_object, const char *_member);
 
 private:
     QString id;
@@ -60,6 +59,7 @@ private:
     QString buttonText;
     QObject *object;
     const char *buttonPressMember;
+    QString cancelButtonText;
     QObject *cancelObject;
     const char *cancelButtonPressMember;
     friend class InfoBar;
@@ -73,6 +73,7 @@ class CORE_EXPORT InfoBar : public QObject
 public:
     void addInfo(const InfoBarEntry &info);
     void removeInfo(const QString &id);
+    bool containsInfo(const QString &id) const;
     void clear();
 
 signals:

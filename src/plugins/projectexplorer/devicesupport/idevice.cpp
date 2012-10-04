@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,20 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "idevice.h"
 
 #include "devicemanager.h"
+#include "deviceprocesslist.h"
 
 #include <coreplugin/id.h>
+#include <ssh/sshconnection.h>
+#include <utils/portlist.h>
 #include <utils/qtcassert.h>
 
 #include <QCoreApplication>
+#include <QDesktopServices>
 
 #include <QString>
 #include <QUuid>
@@ -149,6 +151,23 @@ const char DisplayNameKey[] = "Name";
 const char TypeKey[] = "OsType";
 const char IdKey[] = "InternalId";
 const char OriginKey[] = "Origin";
+const char MachineTypeKey[] = "Type";
+
+// Connection
+const char HostKey[] = "Host";
+const char SshPortKey[] = "SshPort";
+const char PortsSpecKey[] = "FreePortsSpec";
+const char UserNameKey[] = "Uname";
+const char AuthKey[] = "Authentication";
+const char KeyFileKey[] = "KeyFile";
+const char PasswordKey[] = "Password";
+const char TimeoutKey[] = "Timeout";
+
+typedef QSsh::SshConnectionParameters::AuthenticationType AuthType;
+const AuthType DefaultAuthType = QSsh::SshConnectionParameters::AuthenticationByKey;
+const IDevice::MachineType DefaultMachineType = IDevice::Hardware;
+
+const int DefaultTimeout = 10;
 
 namespace Internal {
 class IDevicePrivate
@@ -156,24 +175,34 @@ class IDevicePrivate
 public:
     IDevicePrivate() :
         origin(IDevice::AutoDetected),
-        availability(IDevice::DeviceAvailabilityUnknown)
+        deviceState(IDevice::DeviceStateUnknown),
+        machineType(IDevice::Hardware)
     { }
 
     QString displayName;
     Core::Id type;
     IDevice::Origin origin;
     Core::Id id;
-    IDevice::AvailabilityState availability;
+    IDevice::DeviceState deviceState;
+    IDevice::MachineType machineType;
+
+    QSsh::SshConnectionParameters sshParameters;
+    Utils::PortList freePorts;
 };
 } // namespace Internal
+
+PortsGatheringMethod::~PortsGatheringMethod() { }
+DeviceProcessSupport::~DeviceProcessSupport() { }
 
 IDevice::IDevice() : d(new Internal::IDevicePrivate)
 { }
 
-IDevice::IDevice(Core::Id type, Origin origin, Core::Id id) : d(new Internal::IDevicePrivate)
+IDevice::IDevice(Core::Id type, Origin origin, MachineType machineType, Core::Id id)
+    : d(new Internal::IDevicePrivate)
 {
     d->type = type;
     d->origin = origin;
+    d->machineType = machineType;
     QTC_CHECK(origin == ManuallyAdded || id.isValid());
     d->id = id.isValid() ? id : newId();
 }
@@ -202,18 +231,8 @@ void IDevice::setDisplayName(const QString &name)
 
 IDevice::DeviceInfo IDevice::deviceInformation() const
 {
-    DeviceInfo result;
-    if (availability() == DeviceUnavailable)
-        //: Title of the connectivity state information in a tool tip
-        result << IDevice::DeviceInfoItem(QCoreApplication::translate("ProjectExplorer::IDevice", "Device"),
-                                          //: Device is not connected
-                                          QCoreApplication::translate("ProjectExplorer::IDevice", "not connected"));
-    else if (availability() == DeviceAvailable)
-        //: Title of the connectivity state information in a tool tip
-        result << IDevice::DeviceInfoItem(QCoreApplication::translate("ProjectExplorer::IDevice", "Device"),
-                                          //: Device is not connected
-                                          QCoreApplication::translate("ProjectExplorer::IDevice", "connected"));
-    return result;
+    const QString key = QCoreApplication::translate("ProjectExplorer::IDevice", "Device");
+    return DeviceInfo() << IDevice::DeviceInfoItem(key, deviceStateToString());
 }
 
 Core::Id IDevice::type() const
@@ -231,16 +250,33 @@ Core::Id IDevice::id() const
     return d->id;
 }
 
-IDevice::AvailabilityState IDevice::availability() const
+DeviceProcessSupport::Ptr IDevice::processSupport() const
 {
-    return d->availability;
+    return DeviceProcessSupport::Ptr();
 }
 
-void IDevice::setAvailability(const IDevice::AvailabilityState as)
+PortsGatheringMethod::Ptr IDevice::portsGatheringMethod() const
 {
-    if (d->availability == as)
+    return PortsGatheringMethod::Ptr();
+}
+
+DeviceProcessList *IDevice::createProcessListModel(QObject *parent) const
+{
+    Q_UNUSED(parent);
+    QTC_ASSERT(false, qDebug("This should not have been called..."); return 0);
+    return 0;
+}
+
+IDevice::DeviceState IDevice::deviceState() const
+{
+    return d->deviceState;
+}
+
+void IDevice::setDeviceState(const IDevice::DeviceState state)
+{
+    if (d->deviceState == state)
         return;
-    d->availability = as;
+    d->deviceState = state;
 }
 
 Core::Id IDevice::invalidId()
@@ -250,12 +286,15 @@ Core::Id IDevice::invalidId()
 
 Core::Id IDevice::typeFromMap(const QVariantMap &map)
 {
-    return Core::Id(map.value(QLatin1String(TypeKey)).toByteArray().constData());
+    const QString idStr = map.value(QLatin1String(TypeKey)).toString();
+    if (idStr.isEmpty())
+        return Core::Id();
+    return Core::Id(idStr);
 }
 
 Core::Id IDevice::idFromMap(const QVariantMap &map)
 {
-    return Core::Id(map.value(QLatin1String(IdKey)).toByteArray().constData());
+    return Core::Id(map.value(QLatin1String(IdKey)).toString());
 }
 
 void IDevice::fromMap(const QVariantMap &map)
@@ -264,15 +303,40 @@ void IDevice::fromMap(const QVariantMap &map)
     d->displayName = map.value(QLatin1String(DisplayNameKey)).toString();
     d->id = Core::Id(map.value(QLatin1String(IdKey), newId().name()).toByteArray().constData());
     d->origin = static_cast<Origin>(map.value(QLatin1String(OriginKey), ManuallyAdded).toInt());
+
+    d->sshParameters.host = map.value(HostKey).toString();
+    d->sshParameters.port = map.value(SshPortKey, 22).toInt();
+    d->sshParameters.userName = map.value(UserNameKey).toString();
+    d->sshParameters.authenticationType
+        = static_cast<AuthType>(map.value(AuthKey, DefaultAuthType).toInt());
+    d->sshParameters.password = map.value(PasswordKey).toString();
+    d->sshParameters.privateKeyFile = map.value(KeyFileKey, defaultPrivateKeyFilePath()).toString();
+    d->sshParameters.timeout = map.value(TimeoutKey, DefaultTimeout).toInt();
+
+    d->freePorts = Utils::PortList::fromString(map.value(PortsSpecKey,
+        QLatin1String("10000-10100")).toString());
+    d->machineType = static_cast<MachineType>(map.value(MachineTypeKey, DefaultMachineType).toInt());
 }
 
 QVariantMap IDevice::toMap() const
 {
     QVariantMap map;
     map.insert(QLatin1String(DisplayNameKey), d->displayName);
-    map.insert(QLatin1String(TypeKey), d->type.name());
+    map.insert(QLatin1String(TypeKey), d->type.toString());
     map.insert(QLatin1String(IdKey), d->id.name());
     map.insert(QLatin1String(OriginKey), d->origin);
+
+    map.insert(MachineTypeKey, d->machineType);
+    map.insert(HostKey, d->sshParameters.host);
+    map.insert(SshPortKey, d->sshParameters.port);
+    map.insert(UserNameKey, d->sshParameters.userName);
+    map.insert(AuthKey, d->sshParameters.authenticationType);
+    map.insert(PasswordKey, d->sshParameters.password);
+    map.insert(KeyFileKey, d->sshParameters.privateKeyFile);
+    map.insert(TimeoutKey, d->sshParameters.timeout);
+
+    map.insert(PortsSpecKey, d->freePorts.toString());
+
     return map;
 }
 
@@ -284,6 +348,54 @@ IDevice::Ptr IDevice::sharedFromThis()
 IDevice::ConstPtr IDevice::sharedFromThis() const
 {
     return DeviceManager::instance()->fromRawPointer(this);
+}
+
+QString IDevice::deviceStateToString() const
+{
+    const char context[] = "ProjectExplorer::IDevice";
+    switch (d->deviceState) {
+    case IDevice::DeviceReadyToUse: return QCoreApplication::translate(context, "Ready to use");
+    case IDevice::DeviceConnected: return QCoreApplication::translate(context, "Connected");
+    case IDevice::DeviceDisconnected: return QCoreApplication::translate(context, "Disconnected");
+    case IDevice::DeviceStateUnknown: return QCoreApplication::translate(context, "Unknown");
+    default: return QCoreApplication::translate(context, "Invalid");
+    }
+}
+
+QSsh::SshConnectionParameters IDevice::sshParameters() const
+{
+    return d->sshParameters;
+}
+
+void IDevice::setSshParameters(const QSsh::SshConnectionParameters &sshParameters)
+{
+    d->sshParameters = sshParameters;
+}
+
+void IDevice::setFreePorts(const Utils::PortList &freePorts)
+{
+    d->freePorts = freePorts;
+}
+
+Utils::PortList IDevice::freePorts() const
+{
+    return d->freePorts;
+}
+
+IDevice::MachineType IDevice::machineType() const
+{
+    return d->machineType;
+}
+
+QString IDevice::defaultPrivateKeyFilePath()
+{
+    return QDesktopServices::storageLocation(QDesktopServices::HomeLocation)
+        + QLatin1String("/.ssh/id_rsa");
+}
+
+QString IDevice::defaultPublicKeyFilePath()
+{
+    return defaultPrivateKeyFilePath() + QLatin1String(".pub");
 }
 
 } // namespace ProjectExplorer

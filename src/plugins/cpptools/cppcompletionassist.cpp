@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -337,21 +335,28 @@ void CppAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor *e
             --cursorOffset;
     }
 
-    // Avoid inserting characters that are already there
-    const int endsPosition = editor->position(TextEditor::ITextEditor::EndOfLine);
-    const QString text = editor->textAt(editor->position(), endsPosition - editor->position());
-    int existLength = 0;
-    if (!text.isEmpty()) {
-        // Calculate the exist length in front of the extra chars
-        existLength = toInsert.length() - (editor->position() - basePosition);
-        while (!text.startsWith(toInsert.right(existLength))) {
-            if (--existLength == 0)
+    // Determine the length of characters that should just be kept on the editor, but do
+    // not consider content that ends as an identifier (which could be undesired).
+    const int lineEnd = editor->position(TextEditor::ITextEditor::EndOfLine);
+    const QString inEditor = editor->textAt(editor->position(), lineEnd - editor->position());
+    int preserveLength = 0;
+    if (!inEditor.isEmpty()) {
+        preserveLength = toInsert.length() - (editor->position() - basePosition);
+        const int inEditorLength = inEditor.length();
+        while (preserveLength) {
+            if (inEditor.startsWith(toInsert.right(preserveLength))
+                    && (inEditorLength == preserveLength
+                        || (!inEditor.at(preserveLength).isLetterOrNumber()
+                            && inEditor.at(preserveLength) != QLatin1Char('_')))) {
                 break;
+            }
+            --preserveLength;
         }
     }
+
     for (int i = 0; i < extraChars.length(); ++i) {
         const QChar a = extraChars.at(i);
-        const QChar b = editor->characterAt(editor->position() + i + existLength);
+        const QChar b = editor->characterAt(editor->position() + i + preserveLength);
         if (a == b)
             ++extraLength;
         else
@@ -361,7 +366,7 @@ void CppAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor *e
     toInsert += extraChars;
 
     // Insert the remainder of the name
-    const int length = editor->position() - basePosition + existLength + extraLength;
+    const int length = editor->position() - basePosition + preserveLength + extraLength;
     editor->setCursorPosition(basePosition);
     editor->replace(length, toInsert);
     if (cursorOffset)
@@ -529,7 +534,10 @@ public:
     ConvertToCompletionItem()
         : _item(0)
         , _symbol(0)
-    { }
+    {
+        overview.setShowReturnTypes(true);
+        overview.setShowArgumentNames(true);
+    }
 
     BasicProposalItem *operator()(Symbol *symbol)
     {
@@ -568,7 +576,12 @@ protected:
     }
 
     virtual void visit(const Identifier *name)
-    { _item = newCompletionItem(name); }
+    {
+        _item = newCompletionItem(name);
+        if (!_symbol->isScope() || _symbol->isFunction()) {
+            _item->setDetail(overview.prettyType(_symbol->type(), name));
+        }
+    }
 
     virtual void visit(const TemplateNameId *name)
     {
@@ -580,7 +593,10 @@ protected:
     { _item = newCompletionItem(name); }
 
     virtual void visit(const OperatorNameId *name)
-    { _item = newCompletionItem(name); }
+    {
+        _item = newCompletionItem(name);
+        _item->setDetail(overview.prettyType(_symbol->type(), name));
+    }
 
     virtual void visit(const ConversionNameId *name)
     { _item = newCompletionItem(name); }
@@ -1432,6 +1448,13 @@ bool CppCompletionAssistProcessor::completeScope(const QList<CPlusPlus::LookupIt
                 break;
             }
 
+        } else if (Template *templ = ty->asTemplateType()) {
+            if (!result.binding())
+                continue;
+            if (ClassOrNamespace *b = result.binding()->lookupType(templ->name())) {
+                completeClass(b);
+                break;
+            }
         }
     }
 

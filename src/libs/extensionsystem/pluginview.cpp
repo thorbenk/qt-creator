@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,10 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "pluginview.h"
-#include "pluginview_p.h"
 #include "pluginmanager.h"
 #include "pluginspec.h"
 #include "plugincollection.h"
@@ -42,7 +39,7 @@
 #include <QTreeWidgetItem>
 #include <QPalette>
 
-#include <QtDebug>
+#include <QDebug>
 
 /*!
     \class ExtensionSystem::PluginView
@@ -78,10 +75,9 @@ Q_DECLARE_METATYPE(ExtensionSystem::PluginCollection*)
     Constructs a PluginView that gets the list of plugins from the
     given plugin \a manager with a given \a parent widget.
 */
-PluginView::PluginView(PluginManager *manager, QWidget *parent)
+PluginView::PluginView(QWidget *parent)
     : QWidget(parent),
       m_ui(new Internal::Ui::PluginView),
-      p(new Internal::PluginViewPrivate),
       m_allowCheckStateUpdate(true),
       C_LOAD(1)
 {
@@ -100,8 +96,7 @@ PluginView::PluginView(PluginManager *manager, QWidget *parent)
     m_whitelist << QString("Core") << QString("Locator")
                 << QString("Find") << QString("TextEditor");
 
-    p->manager = manager;
-    connect(p->manager, SIGNAL(pluginsChanged()), this, SLOT(updateList()));
+    connect(PluginManager::instance(), SIGNAL(pluginsChanged()), this, SLOT(updateList()));
     connect(m_ui->categoryWidget, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)),
             this, SLOT(selectPlugin(QTreeWidgetItem*)));
     connect(m_ui->categoryWidget, SIGNAL(itemActivated(QTreeWidgetItem*,int)),
@@ -116,7 +111,6 @@ PluginView::PluginView(PluginManager *manager, QWidget *parent)
 */
 PluginView::~PluginView()
 {
-    delete p;
     delete m_ui;
 }
 
@@ -139,7 +133,7 @@ void PluginView::updateList()
             this, SLOT(updatePluginSettings(QTreeWidgetItem*,int)));
 
     PluginCollection *defaultCollection = 0;
-    foreach(PluginCollection *collection, p->manager->pluginCollections()) {
+    foreach (PluginCollection *collection, PluginManager::pluginCollections()) {
         if (collection->name().isEmpty()) {
             defaultCollection = collection;
             continue;
@@ -345,7 +339,7 @@ void PluginView::updatePluginSettings(QTreeWidgetItem *item, int column)
 
 void PluginView::updatePluginDependencies()
 {
-    foreach (PluginSpec *spec, PluginManager::instance()->loadQueue()) {
+    foreach (PluginSpec *spec, PluginManager::loadQueue()) {
         bool disableIndirectly = false;
         if (m_whitelist.contains(spec->name()))
             continue;

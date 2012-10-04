@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -63,6 +61,7 @@
 #include <extensionsystem/pluginmanager.h>
 
 #include <utils/consoleprocess.h>
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <QDateTime>
@@ -80,7 +79,6 @@
 #include <QApplication>
 #include <QFileDialog>
 #include <QLayout>
-#include <QMainWindow>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
@@ -93,11 +91,6 @@ static const char kCurrentDocumentFilePath[] = "CurrentDocument:FilePath";
 static const char kCurrentDocumentPath[] = "CurrentDocument:Path";
 static const char kCurrentDocumentXPos[] = "CurrentDocument:XPos";
 static const char kCurrentDocumentYPos[] = "CurrentDocument:YPos";
-
-static inline ExtensionSystem::PluginManager *pluginManager()
-{
-    return ExtensionSystem::PluginManager::instance();
-}
 
 //===================EditorClosingCoreListener======================
 
@@ -274,15 +267,6 @@ static EditorManager *m_instance = 0;
 
 EditorManager *EditorManager::instance() { return m_instance; }
 
-static Command *createSeparator(ActionManager *am, QObject *parent,
-                                const Id &id, const Context &context)
-{
-    QAction *tmpaction = new QAction(parent);
-    tmpaction->setSeparator(true);
-    Command *cmd = am->registerAction(tmpaction, id, context);
-    return cmd;
-}
-
 EditorManager::EditorManager(QWidget *parent) :
     QWidget(parent),
     d(new EditorManagerPrivate(parent))
@@ -296,12 +280,11 @@ EditorManager::EditorManager(QWidget *parent) :
     // combined context for edit & design modes
     const Context editDesignContext(Constants::C_EDITORMANAGER, Constants::C_DESIGN_MODE);
 
-    ActionManager *am = ICore::actionManager();
-    ActionContainer *mfile = am->actionContainer(Constants::M_FILE);
+    ActionContainer *mfile = ActionManager::actionContainer(Constants::M_FILE);
 
     // Revert to saved
     d->m_revertToSavedAction->setIcon(QIcon::fromTheme(QLatin1String("document-revert")));
-    Command *cmd = am->registerAction(d->m_revertToSavedAction,
+    Command *cmd = ActionManager::registerAction(d->m_revertToSavedAction,
                                        Constants::REVERTTOSAVED, editManagerContext);
     cmd->setAttribute(Command::CA_UpdateText);
     cmd->setDescription(tr("Revert File to Saved"));
@@ -309,29 +292,22 @@ EditorManager::EditorManager(QWidget *parent) :
     connect(d->m_revertToSavedAction, SIGNAL(triggered()), this, SLOT(revertToSaved()));
 
     // Save Action
-    am->registerAction(d->m_saveAction, Constants::SAVE, editManagerContext);
+    ActionManager::registerAction(d->m_saveAction, Constants::SAVE, editManagerContext);
     connect(d->m_saveAction, SIGNAL(triggered()), this, SLOT(saveDocument()));
 
     // Save As Action
-    am->registerAction(d->m_saveAsAction, Constants::SAVEAS, editManagerContext);
+    ActionManager::registerAction(d->m_saveAsAction, Constants::SAVEAS, editManagerContext);
     connect(d->m_saveAsAction, SIGNAL(triggered()), this, SLOT(saveDocumentAs()));
 
     // Window Menu
-    ActionContainer *mwindow = am->actionContainer(Constants::M_WINDOW);
+    ActionContainer *mwindow = ActionManager::actionContainer(Constants::M_WINDOW);
 
     // Window menu separators
-    QAction *tmpaction = new QAction(this);
-    tmpaction->setSeparator(true);
-    cmd = am->registerAction(tmpaction, "QtCreator.Window.Sep.Split", editManagerContext);
-    mwindow->addAction(cmd, Constants::G_WINDOW_SPLIT);
-
-    tmpaction = new QAction(this);
-    tmpaction->setSeparator(true);
-    cmd = am->registerAction(tmpaction, "QtCreator.Window.Sep.Navigate", editManagerContext);
-    mwindow->addAction(cmd, Constants::G_WINDOW_NAVIGATE);
+    mwindow->addSeparator(editManagerContext, Constants::G_WINDOW_SPLIT);
+    mwindow->addSeparator(editManagerContext, Constants::G_WINDOW_NAVIGATE);
 
     // Close Action
-    cmd = am->registerAction(d->m_closeCurrentEditorAction, Constants::CLOSE, editManagerContext, true);
+    cmd = ActionManager::registerAction(d->m_closeCurrentEditorAction, Constants::CLOSE, editManagerContext, true);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+W")));
     cmd->setAttribute(Core::Command::CA_UpdateText);
     cmd->setDescription(d->m_closeCurrentEditorAction->text());
@@ -341,20 +317,20 @@ EditorManager::EditorManager(QWidget *parent) :
 #ifdef Q_WS_WIN
     // workaround for QTCREATORBUG-72
     QShortcut *sc = new QShortcut(parent);
-    cmd = am->registerShortcut(sc, Constants::CLOSE_ALTERNATIVE, editManagerContext);
+    cmd = ActionManager::registerShortcut(sc, Constants::CLOSE_ALTERNATIVE, editManagerContext);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+F4")));
     cmd->setDescription(EditorManager::tr("Close"));
     connect(sc, SIGNAL(activated()), this, SLOT(closeEditor()));
 #endif
 
     // Close All Action
-    cmd = am->registerAction(d->m_closeAllEditorsAction, Constants::CLOSEALL, editManagerContext, true);
+    cmd = ActionManager::registerAction(d->m_closeAllEditorsAction, Constants::CLOSEALL, editManagerContext, true);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+W")));
     mfile->addAction(cmd, Constants::G_FILE_CLOSE);
     connect(d->m_closeAllEditorsAction, SIGNAL(triggered()), this, SLOT(closeAllEditors()));
 
     // Close All Others Action
-    cmd = am->registerAction(d->m_closeOtherEditorsAction, Constants::CLOSEOTHERS, editManagerContext, true);
+    cmd = ActionManager::registerAction(d->m_closeOtherEditorsAction, Constants::CLOSEOTHERS, editManagerContext, true);
     mfile->addAction(cmd, Constants::G_FILE_CLOSE);
     cmd->setAttribute(Core::Command::CA_UpdateText);
     connect(d->m_closeOtherEditorsAction, SIGNAL(triggered()), this, SLOT(closeOtherEditors()));
@@ -368,83 +344,61 @@ EditorManager::EditorManager(QWidget *parent) :
     connect(d->m_openTerminalAction, SIGNAL(triggered()), this, SLOT(openTerminal()));
 
     // Goto Previous In History Action
-    cmd = am->registerAction(d->m_gotoPreviousDocHistoryAction, Constants::GOTOPREVINHISTORY, editDesignContext);
-#ifdef Q_OS_MAC
-    cmd->setDefaultKeySequence(QKeySequence(tr("Alt+Tab")));
-#else
-    cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Tab")));
-#endif
+    cmd = ActionManager::registerAction(d->m_gotoPreviousDocHistoryAction, Constants::GOTOPREVINHISTORY, editDesignContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Alt+Tab") : tr("Ctrl+Tab")));
     mwindow->addAction(cmd, Constants::G_WINDOW_NAVIGATE);
     connect(d->m_gotoPreviousDocHistoryAction, SIGNAL(triggered()), this, SLOT(gotoPreviousDocHistory()));
 
     // Goto Next In History Action
-    cmd = am->registerAction(d->m_gotoNextDocHistoryAction, Constants::GOTONEXTINHISTORY, editDesignContext);
-#ifdef Q_OS_MAC
-    cmd->setDefaultKeySequence(QKeySequence(tr("Alt+Shift+Tab")));
-#else
-    cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+Tab")));
-#endif
+    cmd = ActionManager::registerAction(d->m_gotoNextDocHistoryAction, Constants::GOTONEXTINHISTORY, editDesignContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Alt+Shift+Tab") : tr("Ctrl+Shift+Tab")));
     mwindow->addAction(cmd, Constants::G_WINDOW_NAVIGATE);
     connect(d->m_gotoNextDocHistoryAction, SIGNAL(triggered()), this, SLOT(gotoNextDocHistory()));
 
     // Go back in navigation history
-    cmd = am->registerAction(d->m_goBackAction, Constants::GO_BACK, editDesignContext);
-#ifdef Q_OS_MAC
-    cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Alt+Left")));
-#else
-    cmd->setDefaultKeySequence(QKeySequence(tr("Alt+Left")));
-#endif
+    cmd = ActionManager::registerAction(d->m_goBackAction, Constants::GO_BACK, editDesignContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Ctrl+Alt+Left") : tr("Alt+Left")));
     mwindow->addAction(cmd, Constants::G_WINDOW_NAVIGATE);
     connect(d->m_goBackAction, SIGNAL(triggered()), this, SLOT(goBackInNavigationHistory()));
 
     // Go forward in navigation history
-    cmd = am->registerAction(d->m_goForwardAction, Constants::GO_FORWARD, editDesignContext);
-#ifdef Q_OS_MAC
-    cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+Alt+Right")));
-#else
-    cmd->setDefaultKeySequence(QKeySequence(tr("Alt+Right")));
-#endif
+    cmd = ActionManager::registerAction(d->m_goForwardAction, Constants::GO_FORWARD, editDesignContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Ctrl+Alt+Right") : tr("Alt+Right")));
     mwindow->addAction(cmd, Constants::G_WINDOW_NAVIGATE);
     connect(d->m_goForwardAction, SIGNAL(triggered()), this, SLOT(goForwardInNavigationHistory()));
 
-#ifdef Q_OS_MAC
-    QString prefix = tr("Meta+E");
-#else
-    QString prefix = tr("Ctrl+E");
-#endif
-
     d->m_splitAction = new QAction(tr("Split"), this);
-    cmd = am->registerAction(d->m_splitAction, Constants::SPLIT, editManagerContext);
-    cmd->setDefaultKeySequence(QKeySequence(tr("%1,2").arg(prefix)));
+    cmd = ActionManager::registerAction(d->m_splitAction, Constants::SPLIT, editManagerContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Meta+E,2") : tr("Ctrl+E,2")));
     mwindow->addAction(cmd, Constants::G_WINDOW_SPLIT);
     connect(d->m_splitAction, SIGNAL(triggered()), this, SLOT(split()));
 
     d->m_splitSideBySideAction = new QAction(tr("Split Side by Side"), this);
-    cmd = am->registerAction(d->m_splitSideBySideAction, Constants::SPLIT_SIDE_BY_SIDE, editManagerContext);
-    cmd->setDefaultKeySequence(QKeySequence(tr("%1,3").arg(prefix)));
+    cmd = ActionManager::registerAction(d->m_splitSideBySideAction, Constants::SPLIT_SIDE_BY_SIDE, editManagerContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Meta+E,3") : tr("Ctrl+E,3")));
     mwindow->addAction(cmd, Constants::G_WINDOW_SPLIT);
     connect(d->m_splitSideBySideAction, SIGNAL(triggered()), this, SLOT(splitSideBySide()));
 
     d->m_removeCurrentSplitAction = new QAction(tr("Remove Current Split"), this);
-    cmd = am->registerAction(d->m_removeCurrentSplitAction, Constants::REMOVE_CURRENT_SPLIT, editManagerContext);
-    cmd->setDefaultKeySequence(QKeySequence(tr("%1,0").arg(prefix)));
+    cmd = ActionManager::registerAction(d->m_removeCurrentSplitAction, Constants::REMOVE_CURRENT_SPLIT, editManagerContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Meta+E,0") : tr("Ctrl+E,0")));
     mwindow->addAction(cmd, Constants::G_WINDOW_SPLIT);
     connect(d->m_removeCurrentSplitAction, SIGNAL(triggered()), this, SLOT(removeCurrentSplit()));
 
     d->m_removeAllSplitsAction = new QAction(tr("Remove All Splits"), this);
-    cmd = am->registerAction(d->m_removeAllSplitsAction, Constants::REMOVE_ALL_SPLITS, editManagerContext);
-    cmd->setDefaultKeySequence(QKeySequence(tr("%1,1").arg(prefix)));
+    cmd = ActionManager::registerAction(d->m_removeAllSplitsAction, Constants::REMOVE_ALL_SPLITS, editManagerContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Meta+E,1") : tr("Ctrl+E,1")));
     mwindow->addAction(cmd, Constants::G_WINDOW_SPLIT);
     connect(d->m_removeAllSplitsAction, SIGNAL(triggered()), this, SLOT(removeAllSplits()));
 
     d->m_gotoOtherSplitAction = new QAction(tr("Go to Next Split"), this);
-    cmd = am->registerAction(d->m_gotoOtherSplitAction, Constants::GOTO_OTHER_SPLIT, editManagerContext);
-    cmd->setDefaultKeySequence(QKeySequence(tr("%1,o").arg(prefix)));
+    cmd = ActionManager::registerAction(d->m_gotoOtherSplitAction, Constants::GOTO_OTHER_SPLIT, editManagerContext);
+    cmd->setDefaultKeySequence(QKeySequence(UseMacShortcuts ? tr("Meta+E,o") : tr("Ctrl+E,o")));
     mwindow->addAction(cmd, Constants::G_WINDOW_SPLIT);
     connect(d->m_gotoOtherSplitAction, SIGNAL(triggered()), this, SLOT(gotoOtherSplit()));
 
-    ActionContainer *medit = am->actionContainer(Constants::M_EDIT);
-    ActionContainer *advancedMenu = am->createMenu(Constants::M_EDIT_ADVANCED);
+    ActionContainer *medit = ActionManager::actionContainer(Constants::M_EDIT);
+    ActionContainer *advancedMenu = ActionManager::createMenu(Constants::M_EDIT_ADVANCED);
     medit->addMenu(advancedMenu, Constants::G_EDIT_ADVANCED);
     advancedMenu->menu()->setTitle(tr("Ad&vanced"));
     advancedMenu->appendGroup(Constants::G_EDIT_FORMAT);
@@ -454,14 +408,10 @@ EditorManager::EditorManager(QWidget *parent) :
     advancedMenu->appendGroup(Constants::G_EDIT_EDITOR);
 
     // Advanced menu separators
-    cmd = createSeparator(am, this, Id("QtCreator.Edit.Sep.Collapsing"), editManagerContext);
-    advancedMenu->addAction(cmd, Constants::G_EDIT_COLLAPSING);
-    cmd = createSeparator(am, this, Id("QtCreator.Edit.Sep.Blocks"), editManagerContext);
-    advancedMenu->addAction(cmd, Constants::G_EDIT_BLOCKS);
-    cmd = createSeparator(am, this, Id("QtCreator.Edit.Sep.Font"), editManagerContext);
-    advancedMenu->addAction(cmd, Constants::G_EDIT_FONT);
-    cmd = createSeparator(am, this, Id("QtCreator.Edit.Sep.Editor"), editManagerContext);
-    advancedMenu->addAction(cmd, Constants::G_EDIT_EDITOR);
+    advancedMenu->addSeparator(editManagerContext, Constants::G_EDIT_COLLAPSING);
+    advancedMenu->addSeparator(editManagerContext, Constants::G_EDIT_BLOCKS);
+    advancedMenu->addSeparator(editManagerContext, Constants::G_EDIT_FONT);
+    advancedMenu->addSeparator(editManagerContext, Constants::G_EDIT_EDITOR);
 
     // other setup
     d->m_splitter = new SplitterOrView(d->m_editorModel);
@@ -486,12 +436,11 @@ EditorManager::~EditorManager()
 {
     m_instance = 0;
     if (ICore::instance()) {
-        ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
         if (d->m_coreListener) {
-            pm->removeObject(d->m_coreListener);
+            ExtensionSystem::PluginManager::removeObject(d->m_coreListener);
             delete d->m_coreListener;
         }
-        pm->removeObject(d->m_openEditorsFactory);
+        ExtensionSystem::PluginManager::removeObject(d->m_openEditorsFactory);
         delete d->m_openEditorsFactory;
     }
     delete d;
@@ -500,10 +449,10 @@ EditorManager::~EditorManager()
 void EditorManager::init()
 {
     d->m_coreListener = new EditorClosingCoreListener(this);
-    pluginManager()->addObject(d->m_coreListener);
+    ExtensionSystem::PluginManager::addObject(d->m_coreListener);
 
     d->m_openEditorsFactory = new OpenEditorsViewFactory();
-    pluginManager()->addObject(d->m_openEditorsFactory);
+    ExtensionSystem::PluginManager::addObject(d->m_openEditorsFactory);
 
     VariableManager *vm = VariableManager::instance();
     vm->registerVariable(kCurrentDocumentFilePath,
@@ -850,7 +799,7 @@ bool EditorManager::closeEditors(const QList<IEditor*> &editorsToClose, bool ask
     QList<IEditor*> acceptedEditors;
     //ask all core listeners to check whether the editor can be closed
     const QList<ICoreListener *> listeners =
-        pluginManager()->getObjects<ICoreListener>();
+        ExtensionSystem::PluginManager::getObjects<ICoreListener>();
     foreach (IEditor *editor, editorsToClose) {
         bool editorAccepted = true;
         if (d->m_editorModel->isDuplicate(editor))
@@ -1134,7 +1083,7 @@ EditorManager::EditorFactoryList
     EditorManager::editorFactories(const MimeType &mimeType, bool bestMatchOnly)
 {
     EditorFactoryList rc;
-    const EditorFactoryList allFactories = pluginManager()->getObjects<IEditorFactory>();
+    const EditorFactoryList allFactories = ExtensionSystem::PluginManager::getObjects<IEditorFactory>();
     mimeTypeFactoryRecursion(ICore::mimeDatabase(), mimeType, allFactories, bestMatchOnly, &rc);
     if (debugEditorManager)
         qDebug() << Q_FUNC_INFO << mimeType.type() << " returns " << rc;
@@ -1145,7 +1094,7 @@ EditorManager::ExternalEditorList
         EditorManager::externalEditors(const MimeType &mimeType, bool bestMatchOnly)
 {
     ExternalEditorList rc;
-    const ExternalEditorList allEditors = pluginManager()->getObjects<IExternalEditor>();
+    const ExternalEditorList allEditors = ExtensionSystem::PluginManager::getObjects<IExternalEditor>();
     mimeTypeFactoryRecursion(ICore::mimeDatabase(), mimeType, allEditors, bestMatchOnly, &rc);
     if (debugEditorManager)
         qDebug() << Q_FUNC_INFO << mimeType.type() << " returns " << rc;
@@ -1155,9 +1104,9 @@ EditorManager::ExternalEditorList
 /* For something that has a 'QString id' (IEditorFactory
  * or IExternalEditor), find the one matching a id. */
 template <class EditorFactoryLike>
-EditorFactoryLike *findById(ExtensionSystem::PluginManager *pm, const Core::Id &id)
+EditorFactoryLike *findById(const Core::Id &id)
 {
-    const QList<EditorFactoryLike *> factories = pm->template getObjects<EditorFactoryLike>();
+    const QList<EditorFactoryLike *> factories = ExtensionSystem::PluginManager::getObjects<EditorFactoryLike>();
     foreach(EditorFactoryLike *efl, factories)
         if (id == efl->id())
             return efl;
@@ -1185,7 +1134,7 @@ IEditor *EditorManager::createEditor(const Id &editorId, const QString &fileName
         factories = editorFactories(mimeType, true);
     } else {
         // Find by editor id
-        if (IEditorFactory *factory = findById<IEditorFactory>(pluginManager(), editorId))
+        if (IEditorFactory *factory = findById<IEditorFactory>(editorId))
             factories.push_back(factory);
     }
     if (factories.empty()) {
@@ -1225,9 +1174,10 @@ Core::Id EditorManager::getOpenWithEditorId(const QString &fileName,
                                            bool *isExternalEditor) const
 {
     // Collect editors that can open the file
-    const MimeType mt = ICore::mimeDatabase()->findByFile(fileName);
+    MimeType mt = ICore::mimeDatabase()->findByFile(fileName);
+    //Unable to determine mime type of fileName. Falling back to text/plain",
     if (!mt)
-        return Id();
+        mt = ICore::mimeDatabase()->findByType(QLatin1String("text/plain"));
     QStringList allEditorIds;
     QStringList allEditorDisplayNames;
     QList<Id> externalEditorIds;
@@ -1267,7 +1217,7 @@ IEditor *EditorManager::openEditor(const QString &fileName, const Id &editorId,
     return m_instance->openEditor(m_instance->currentEditorView(), fileName, editorId, flags, newEditor);
 }
 
-int extractLineNumber(QString *fileName)
+static int extractLineNumber(QString *fileName)
 {
     int i = fileName->length() - 1;
     for (; i >= 0; --i) {
@@ -1278,12 +1228,38 @@ int extractLineNumber(QString *fileName)
         return -1;
     const QChar c = fileName->at(i);
     if (c == QLatin1Char(':') || c == QLatin1Char('+')) {
-        if (const int result = fileName->mid(i + 1).toInt()) {
+        bool ok;
+        const QString suffix = fileName->mid(i + 1);
+        const int result = suffix.toInt(&ok);
+        if (suffix.isEmpty() || ok) {
             fileName->truncate(i);
             return result;
         }
     }
     return -1;
+}
+
+// Extract line number suffix. Return the suffix (e.g. ":132") and truncates the filename accordingly.
+QString EditorManager::splitLineNumber(QString *fileName)
+{
+    int i = fileName->length() - 1;
+    for (; i >= 0; --i) {
+        if (!fileName->at(i).isNumber())
+            break;
+    }
+    if (i == -1)
+        return QString();
+    const QChar c = fileName->at(i);
+    if (c == QLatin1Char(':') || c == QLatin1Char('+')) {
+        const QString result = fileName->mid(i + 1);
+        bool ok;
+        result.toInt(&ok);
+        if (result.isEmpty() || ok) {
+            fileName->truncate(i);
+            return QString(c) + result;
+        }
+    }
+    return QString();
 }
 
 static QString autoSaveName(const QString &fileName)
@@ -1360,7 +1336,7 @@ IEditor *EditorManager::openEditor(Core::Internal::EditorView *view, const QStri
 
 bool EditorManager::openExternalEditor(const QString &fileName, const Core::Id &editorId)
 {
-    IExternalEditor *ee = findById<IExternalEditor>(pluginManager(), editorId);
+    IExternalEditor *ee = findById<IExternalEditor>(editorId);
     if (!ee)
         return false;
     QString errorMessage;
@@ -1532,6 +1508,9 @@ void EditorManager::autoSave()
     if (!errors.isEmpty())
         QMessageBox::critical(ICore::mainWindow(), tr("File Error"),
                               errors.join(QLatin1String("\n")));
+
+    // Also save settings while accessing the disk anyway:
+    ICore::saveSettings();
 }
 
 MakeWritableResult EditorManager::makeFileWritable(IDocument *document)
@@ -1723,9 +1702,8 @@ void EditorManager::updateActions()
             fName = curEditor->displayName();
         }
 
-#ifdef Q_OS_MAC
-        window()->setWindowModified(curEditor->document()->isModified());
-#endif
+        if (HostOsInfo::isMacHost())
+            window()->setWindowModified(curEditor->document()->isModified());
         bool ww = curEditor->document()->isModified() && curEditor->document()->isFileReadOnly();
         if (ww != curEditor->document()->hasWriteWarning()) {
             curEditor->document()->setWriteWarning(ww);
@@ -1762,10 +1740,8 @@ void EditorManager::updateActions()
                 curEditor->document()->infoBar()->removeInfo(QLatin1String("Core.EditorManager.MakeWritable"));
             }
         }
-#ifdef Q_OS_MAC
-    } else { // curEditor
+    } else /* curEditor */ if (HostOsInfo::isMacHost()) {
         window()->setWindowModified(false);
-#endif
     }
 
     setCloseSplitEnabled(d->m_splitter, d->m_splitter->isSplitter());
@@ -2110,6 +2086,8 @@ QTextCodec *EditorManager::defaultTextCodec() const
     if (QTextCodec *candidate = QTextCodec::codecForName(
             settings->value(QLatin1String(Constants::SETTINGS_DEFAULTTEXTENCODING)).toByteArray()))
         return candidate;
+    if (QTextCodec *defaultUTF8 = QTextCodec::codecForName("UTF-8"))
+        return defaultUTF8;
     return QTextCodec::codecForLocale();
 }
 

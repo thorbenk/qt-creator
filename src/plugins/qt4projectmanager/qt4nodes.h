@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,6 +53,7 @@ class ICore;
 }
 
 namespace QtSupport {
+class BaseQtVersion;
 class ProFileReader;
 }
 
@@ -95,9 +94,12 @@ enum Qt4Variable {
     QtVar,
     QmlImportPathVar,
     Makefile,
-    SymbianCapabilities,
     ObjectExt,
-    ObjectsDir
+    ObjectsDir,
+    VersionVar,
+    TargetVersionExtVar,
+    StaticLibExtensionVar,
+    ShLibExtensionVar
 };
 
 // Import base classes into namespace
@@ -168,7 +170,7 @@ public:
 protected:
     void setIncludedInExactParse(bool b);
     static QStringList varNames(FileType type);
-    static QStringList dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative);
+    static QStringList dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative, QtSupport::BaseQtVersion *qtVersion);
     static QSet<Utils::FileName> filterFilesProVariables(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
     static QSet<Utils::FileName> filterFilesRecursiveEnumerata(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
 
@@ -190,8 +192,9 @@ private:
     bool priFileWritable(const QString &path);
     bool saveModifiedEditors();
     QStringList formResources(const QString &formFile) const;
-    QStringList baseVPaths(QtSupport::ProFileReader *reader, const QString &projectDir);
-    QStringList fullVPaths(const QStringList &baseVPaths, QtSupport::ProFileReader *reader, FileType type, const QString &qmakeVariable, const QString &projectDir);
+    QStringList baseVPaths(QtSupport::ProFileReader *reader, const QString &projectDir) const;
+    QStringList fullVPaths(const QStringList &baseVPaths, QtSupport::ProFileReader *reader,
+                           FileType type, const QString &qmakeVariable, const QString &projectDir) const;
     void watchFolders(const QSet<QString> &folders);
 
     Qt4Project *m_project;
@@ -255,7 +258,7 @@ signals:
                           const QHash<Qt4Variable, QStringList> &oldValues,
                           const QHash<Qt4Variable, QStringList> &newValues);
 
-    void proFileUpdated(Qt4ProjectManager::Qt4ProFileNode *projectNode, bool success, bool parseInProgress);
+    void kitUpdated(Qt4ProjectManager::Qt4ProFileNode *projectNode, bool success, bool parseInProgress);
 
 private:
     // let them emit signals
@@ -359,10 +362,16 @@ public:
     Qt4ProjectType projectType() const;
 
     QStringList variableValue(const Qt4Variable var) const;
+    QString singleVariableValue(const Qt4Variable var) const;
+
+    bool isSubProjectDeployable(const QString &filePath) const {
+        return !m_subProjectsNotToDeploy.contains(filePath);
+    }
 
     void updateCodeModelSupportFromBuild(const QStringList &files);
     void updateCodeModelSupportFromEditor(const QString &uiFileName, const QString &contents);
 
+    QString sourceDir() const;
     QString buildDir(Qt4BuildConfiguration *bc = 0) const;
 
     QString uiDirectory() const;
@@ -373,10 +382,8 @@ public:
     TargetInformation targetInformation() const;
 
     InstallsList installsList() const;
-    ProjectVersion projectVersion() const { return m_projectVersion; }
 
     QString makefile() const;
-    QStringList symbianCapabilities() const;
     QString objectExtension() const;
     QString objectsDirectory() const;
     QByteArray cxxDefines() const;
@@ -406,7 +413,7 @@ private slots:
 
 private:
     void setupReader();
-    enum EvalResult { EvalFail, EvalPartial, EvalOk };
+    enum EvalResult { EvalAbort, EvalFail, EvalPartial, EvalOk };
     EvalResult evaluate();
     void applyEvaluate(EvalResult parseResult, bool async);
 
@@ -418,15 +425,15 @@ private:
     QStringList updateUiFiles();
 
     QStringList fileListForVar(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative,
-                               const QString &varName, const QString &projectDir) const;
+                               const QString &varName, const QString &projectDir, FileType type) const;
     QString uiDirPath(QtSupport::ProFileReader *reader) const;
     QString mocDirPath(QtSupport::ProFileReader *reader) const;
     QStringList includePaths(QtSupport::ProFileReader *reader) const;
     QStringList libDirectories(QtSupport::ProFileReader *reader) const;
-    QStringList subDirsPaths(QtSupport::ProFileReader *reader) const;
+    QStringList subDirsPaths(QtSupport::ProFileReader *reader, QStringList *subProjectsNotToDeploy = 0) const;
+
     TargetInformation targetInformation(QtSupport::ProFileReader *reader) const;
     void setupInstallsList(const QtSupport::ProFileReader *reader);
-    void setupProjectVersion(const QtSupport::ProFileReader *reader);
 
     Qt4ProjectType m_projectType;
     Qt4VariablesHash m_varValues;
@@ -435,8 +442,8 @@ private:
     QMap<QString, QDateTime> m_uitimestamps;
     TargetInformation m_qt4targetInformation;
     QString m_resolvedMkspecPath;
+    QStringList m_subProjectsNotToDeploy;
     InstallsList m_installsList;
-    ProjectVersion m_projectVersion;
     friend class Qt4NodeHierarchy;
 
     bool m_validParse;

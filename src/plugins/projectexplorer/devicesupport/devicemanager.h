@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef DEVICEMANAGER_H
@@ -35,6 +33,9 @@
 #include "idevice.h"
 
 #include <projectexplorer/projectexplorer_export.h>
+#include <utils/fileutils.h>
+
+#include <utils/fileutils.h>
 
 #include <QObject>
 
@@ -56,7 +57,7 @@ class PROJECTEXPLORER_EXPORT DeviceManager : public QObject
 public:
     ~DeviceManager();
 
-    static DeviceManager *instance(const QString &magicTestToken = QString());
+    static DeviceManager *instance();
 
     int deviceCount() const;
     IDevice::ConstPtr deviceAt(int index) const;
@@ -66,9 +67,6 @@ public:
     IDevice::ConstPtr defaultDevice(Core::Id deviceType) const;
     bool hasDevice(const QString &name) const;
     Core::Id deviceId(const IDevice::ConstPtr &device) const;
-
-    int indexForId(Core::Id id) const;
-    int indexOf(const IDevice::ConstPtr &device) const;
 
     void addDevice(const IDevice::Ptr &device);
     void removeDevice(Core::Id id);
@@ -104,7 +102,7 @@ private:
     IDevice::Ptr fromRawPointer(IDevice *device) const;
     IDevice::ConstPtr fromRawPointer(const IDevice *device) const;
 
-    static QString settingsFilePath();
+    static Utils::FileName settingsFilePath(const QString &extension);
     static void copy(const DeviceManager *source, DeviceManager *target, bool deep);
 
     Internal::DeviceManagerPrivate * const d;

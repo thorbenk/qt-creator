@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -44,10 +42,6 @@ const char SWITCH_DECLARATION_DEFINITION[] = "CppEditor.SwitchDeclarationDefinit
 const char RENAME_SYMBOL_UNDER_CURSOR[] = "CppEditor.RenameSymbolUnderCursor";
 const char FIND_USAGES[] = "CppEditor.FindUsages";
 const char M_REFACTORING_MENU_INSERTION_POINT[] = "CppEditor.RefactorGroup";
-const char SEPARATOR[] = "CppEditor.Separator";
-const char SEPARATOR2[] = "CppEditor.Separator2";
-const char SEPARATOR3[] = "CppEditor.Separator3";
-const char SEPARATOR4[] = "CppEditor.Separator4";
 const char UPDATE_CODEMODEL[] = "CppEditor.UpdateCodeModel";
 
 const int TYPE_HIERARCHY_PRIORITY = 700;

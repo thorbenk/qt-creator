@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -42,13 +40,15 @@ QT_FORWARD_DECLARE_CLASS(QIcon)
 namespace Utils { class Environment; }
 
 namespace ProjectExplorer {
+class BuildTargetInfoList;
+class DeploymentData;
 class RunConfiguration;
-class ToolChain;
 class BuildConfiguration;
 class DeployConfiguration;
 class IBuildConfigurationFactory;
 class DeployConfigurationFactory;
 class IRunConfigurationFactory;
+class Kit;
 class Project;
 class BuildConfigWidget;
 
@@ -59,10 +59,13 @@ class PROJECTEXPLORER_EXPORT Target : public ProjectConfiguration
     Q_OBJECT
 
 public:
-    virtual ~Target();
+    Target(Project *parent, Kit *p);
+    ~Target();
 
-    virtual BuildConfigWidget *createConfigWidget() = 0;
     Project *project() const;
+
+    // Kit:
+    Kit *kit() const;
 
     // Build configuration
     void addBuildConfiguration(BuildConfiguration *configuration);
@@ -72,8 +75,6 @@ public:
     BuildConfiguration *activeBuildConfiguration() const;
     void setActiveBuildConfiguration(BuildConfiguration *configuration);
 
-    virtual IBuildConfigurationFactory *buildConfigurationFactory() const = 0;
-
     // DeployConfiguration
     void addDeployConfiguration(DeployConfiguration *dc);
     bool removeDeployConfiguration(DeployConfiguration *dc);
@@ -82,9 +83,11 @@ public:
     DeployConfiguration *activeDeployConfiguration() const;
     void setActiveDeployConfiguration(DeployConfiguration *configuration);
 
-    QList<Core::Id> availableDeployConfigurationIds();
-    QString displayNameForDeployConfigurationId(Core::Id &id);
-    DeployConfiguration *createDeployConfiguration(Core::Id id);
+    void setDeploymentData(const DeploymentData &deploymentData);
+    DeploymentData deploymentData() const;
+
+    void setApplicationTargets(const BuildTargetInfoList &appTargets);
+    BuildTargetInfoList applicationTargets() const;
 
     // Running
     QList<RunConfiguration *> runConfigurations() const;
@@ -108,16 +111,20 @@ public:
     QString toolTip() const;
     void setToolTip(const QString &text);
 
-    virtual QList<ToolChain *> possibleToolChains(BuildConfiguration *) const;
-    virtual ToolChain *preferredToolChain(BuildConfiguration *) const;
+    QVariantMap toMap() const;
 
-    virtual QVariantMap toMap() const;
+    void createDefaultSetup();
+    void updateDefaultBuildConfigurations();
+    void updateDefaultDeployConfigurations();
+    void updateDefaultRunConfigurations();
 
 signals:
     void targetEnabled(bool);
     void iconChanged();
     void overlayIconChanged();
     void toolTipChanged();
+
+    void kitChanged();
 
     // TODO clean up signal names
     // might be better to also have aboutToRemove signals
@@ -143,14 +150,21 @@ signals:
     void deployConfigurationEnabledChanged();
     void runConfigurationEnabledChanged();
 
+    void deploymentDataChanged();
+    void applicationTargetsChanged();
+
+    // Remove all the signals below, they are stupid
+    /// Emitted whenever the current build configuartion changed or the build directory of the current
+    /// build configuration was changed.
+    void buildDirectoryChanged();
+
+public slots:
+    void onBuildDirectoryChanged();
+
 protected:
-    Target(Project *parent, const Core::Id id);
-
-    virtual ProjectExplorer::IDevice::ConstPtr currentDevice() const;
-
     void setEnabled(bool);
 
-    virtual bool fromMap(const QVariantMap &map);
+    bool fromMap(const QVariantMap &map);
 
 protected slots:
     void updateDeviceState();
@@ -161,31 +175,13 @@ private slots:
     void changeDeployConfigurationEnabled();
     void changeRunConfigurationEnabled();
 
+    void handleKitUpdates(ProjectExplorer::Kit *k);
+    void handleKitRemoval(ProjectExplorer::Kit *k);
+
 private:
     TargetPrivate *d;
-};
 
-class PROJECTEXPLORER_EXPORT ITargetFactory :
-    public QObject
-{
-    Q_OBJECT
-
-public:
-    explicit ITargetFactory(QObject *parent = 0);
-
-    virtual QList<Core::Id> supportedTargetIds() const = 0;
-    virtual bool supportsTargetId(const Core::Id id) const = 0;
-
-    // used to translate the types to names to display to the user
-    virtual QString displayNameForId(const Core::Id id) const = 0;
-
-    virtual bool canCreate(Project *parent, const Core::Id id) const = 0;
-    virtual Target *create(Project *parent, const Core::Id id) = 0;
-    virtual bool canRestore(Project *parent, const QVariantMap &map) const = 0;
-    virtual Target *restore(Project *parent, const QVariantMap &map) = 0;
-
-signals:
-    void canCreateTargetIdsChanged();
+    friend class Project;
 };
 
 } // namespace ProjectExplorer

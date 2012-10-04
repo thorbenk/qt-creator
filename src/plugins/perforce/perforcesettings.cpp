@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +34,7 @@
 
 #include <utils/qtcassert.h>
 #include <utils/environment.h>
+#include <utils/hostosinfo.h>
 
 #include <QDebug>
 #include <QSettings>
@@ -59,13 +58,7 @@ enum { defaultTimeOutS = 30, defaultLogCount = 1000 };
 
 static QString defaultCommand()
 {
-    Utils::Environment env = Utils::Environment::systemEnvironment();
-    QString rc;
-    rc = QLatin1String("p4");
-#if defined(Q_OS_WIN32)
-    rc.append(QLatin1String(".exe"));
-#endif
-    return env.searchInPath(rc);
+    return QLatin1String("p4" QTC_HOST_EXE_SUFFIX);
 }
 
 namespace Perforce {
@@ -117,6 +110,7 @@ void PerforceSettings::fromSettings(QSettings *settings)
 {
     settings->beginGroup(QLatin1String(groupC));
     m_settings.p4Command = settings->value(QLatin1String(commandKeyC), defaultCommand()).toString();
+    m_settings.p4BinaryPath = Utils::Environment::systemEnvironment().searchInPath(m_settings.p4Command);
     m_settings.defaultEnv = settings->value(QLatin1String(defaultKeyC), true).toBool();
     m_settings.p4Port = settings->value(QLatin1String(portKeyC), QString()).toString();
     m_settings.p4Client = settings->value(QLatin1String(clientKeyC), QString()).toString();
@@ -159,6 +153,11 @@ Settings PerforceSettings::settings() const
 QString PerforceSettings::p4Command() const
 {
     return m_settings.p4Command;
+}
+
+QString PerforceSettings::p4BinaryPath() const
+{
+    return m_settings.p4BinaryPath;
 }
 
 QString PerforceSettings::p4Port() const

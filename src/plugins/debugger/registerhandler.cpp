@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -296,6 +294,12 @@ static int bitWidthFromType(int type, int subType)
     return 0;
 }
 
+static const int TopLevelId = -1;
+static bool isTopLevelItem(const QModelIndex &index)
+{
+    return quintptr(index.internalId()) == quintptr(TopLevelId);
+}
+
 Register::Register(const QByteArray &name_)
     : name(name_), changed(true)
 {
@@ -324,7 +328,7 @@ int RegisterHandler::rowCount(const QModelIndex &idx) const
         return 0;
     if (!idx.isValid())
         return m_registers.size(); // Top level.
-    if (idx.internalId() >= 0)
+    if (!isTopLevelItem(idx))
         return 0; // Sub-Items don't have children.
     if (idx.row() >= m_registers.size())
         return 0;
@@ -337,7 +341,7 @@ int RegisterHandler::columnCount(const QModelIndex &idx) const
         return 0;
     if (!idx.isValid())
         return 2;
-    if (idx.internalId() >= 0)
+    if (!isTopLevelItem(idx))
         return 0; // Sub-Items don't have children.
     return 2;
 }
@@ -347,8 +351,8 @@ QModelIndex RegisterHandler::index(int row, int col, const QModelIndex &parent) 
     if (row < 0 || col < 0 || col >= 2)
         return QModelIndex();
     if (!parent.isValid()) // Top level.
-        return createIndex(row, col, -1);
-    if (parent.internalId() >= 0) // Sub-Item has no children.
+        return createIndex(row, col, TopLevelId);
+    if (!isTopLevelItem(parent)) // Sub-Item has no children.
         return QModelIndex();
     if (parent.column() > 0)
         return QModelIndex();
@@ -359,8 +363,8 @@ QModelIndex RegisterHandler::parent(const QModelIndex &idx) const
 {
     if (!idx.isValid())
         return QModelIndex();
-    if (idx.internalId() >= 0)
-        return createIndex(idx.internalId(), 0, -1);
+    if (!isTopLevelItem(idx))
+        return createIndex(idx.internalId(), 0, TopLevelId);
     return QModelIndex();
 }
 
@@ -482,8 +486,9 @@ Qt::ItemFlags RegisterHandler::flags(const QModelIndex &idx) const
 
 void RegisterHandler::removeAll()
 {
+    beginResetModel();
     m_registers.clear();
-    reset();
+    endResetModel();
 }
 
 bool RegisterHandler::isEmpty() const
@@ -505,12 +510,13 @@ static inline bool compareRegisterSet(const Registers &r1, const Registers &r2)
 
 void RegisterHandler::setRegisters(const Registers &registers)
 {
+    beginResetModel();
     m_registers = registers;
     const int size = m_registers.size();
     for (int r = 0; r < size; r++)
         m_registers[r].changed = false;
     calculateWidth();
-    reset();
+    endResetModel();
 }
 
 void RegisterHandler::setAndMarkRegisters(const Registers &registers)
@@ -546,9 +552,10 @@ void RegisterHandler::calculateWidth()
 void RegisterHandler::setNumberBase(int base)
 {
     if (m_base != base) {
+        beginResetModel();
         m_base = base;
         calculateWidth();
-        emit reset();
+        endResetModel();
     }
 }
 

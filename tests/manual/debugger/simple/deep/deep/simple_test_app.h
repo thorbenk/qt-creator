@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -112,6 +110,32 @@ namespace breakpoints {
     SomeTemplatedDerivedClassWithInlineConstructor<T>::
         ~SomeTemplatedDerivedClassWithInlineConstructor() {}
 
+    struct X : virtual SomeClassWithInlineConstructor
+    {
+        X() { a = 1; }
+    };
+
+    struct Y : virtual SomeClassWithInlineConstructor
+    {
+        Y() { a = 2; }
+    };
+
+    struct Z : X, Y
+    {
+        Z() : SomeClassWithInlineConstructor(), X(), Y() {}
+    };
+
+    template <class T> T twice(T t)
+    {
+        return 2 * t;
+    }
+
+    template <class T> struct Twice
+    {
+        Twice(T t) { t_ = 2 * t; }
+        T t_;
+    };
+
     void testBreakpoints()
     {
         SomeClassWithInlineConstructor a;
@@ -120,9 +144,13 @@ namespace breakpoints {
         SomeTemplatedClassWithInlineConstructor<int> d;
         SomeTemplatedBaseClassWithInlineConstructor<int> e;
         SomeTemplatedDerivedClassWithInlineConstructor<int> f;
+        Z z;
+        int aa = twice(1);
+        int bb = twice(1.0);
         // <=== Break here.
-        dummyStatement(&a, &b, &c);
-        dummyStatement(&d, &e, &f);
+        Twice<int> cc = Twice<int>(1);
+        Twice<float> dd = Twice<float>(1.0);
+        dummyStatement(&a, &b, &c, &d, &e, &f, &z, bb, aa, cc, dd);
     }
 
 } // namespace breakpoints

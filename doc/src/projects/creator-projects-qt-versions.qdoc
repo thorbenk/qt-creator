@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -27,32 +25,26 @@
 
 /*!
     \contentspage index.html
-    \previouspage creator-build-settings.html
+    \previouspage creator-targets.html
     \page creator-project-qmake.html
     \nextpage creator-tool-chains.html
 
     \title Adding Qt Versions
 
     \QC allows you to have multiple versions of Qt installed on your development
-    PC and use different versions to build your projects for different targets.
+    PC and use different versions to build your projects.
     For example, \QSDK contains special Qt versions for developing applications
     for mobile devices.
 
-    \QC checks the directories listed in the \c{PATH} environment
-    variable for the qmake executable. If a qmake executable is found, it is
-    referred to as \bold{Qt in PATH} and selected as the Qt version to use
-    in the \gui Projects mode in the \gui {Build Settings}. If \QC
-    cannot find qmake, the value in the \gui {Qt version} field might be
-    invalid and you might need to change it.
-
     \QC automatically detects the Qt versions that are registered by
-    your system or by \QSDK. To view the settings for each Qt version, move the
-    mouse pointer over it in the list. To add Qt versions, select
+    your system or by \QSDK. To view detailed information for each Qt
+    version, select it in the list and select \gui Details in the
+    \gui {Qt version for} section. To add Qt versions, select
     \gui {Tools > Options > Build & Run > Qt Versions}.
 
-    Typically, you select the Qt versions for a project when you use project
-    wizards to create the project. You can add Qt versions for a project in
-    \gui {Build Settings}.
+    You specify the Qt version to use for each \l{glossary-buildandrun-kit}
+    {kit} for building and running your projects
+    in \gui Tools > \gui Options > \gui {Build & Run} > \gui Kits.
 
     \section2 Setting Up New Qt Versions
 
@@ -82,7 +74,7 @@
         \endlist
 
     \if defined(qcmanual)
-    \input symbian/creator-projects-qt-versions-symbian.qdocinc
+    \input qnx/creator-projects-qt-version-qnx.qdocinc
     \endif
 
 */

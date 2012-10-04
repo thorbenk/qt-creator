@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,23 +25,22 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #ifndef MADDEDEVICE_H
 #define MADDEDEVICE_H
 
-#include <remotelinux/linuxdeviceconfiguration.h>
+#include <remotelinux/linuxdevice.h>
 
 #include <QCoreApplication>
 
 namespace Madde {
 namespace Internal {
 
-class MaddeDevice : public RemoteLinux::LinuxDeviceConfiguration
+class MaddeDevice : public RemoteLinux::LinuxDevice
 {
-    Q_DECLARE_TR_FUNCTIONS(MaddeDevice)
+    Q_DECLARE_TR_FUNCTIONS(Madde::Internal::MaddeDevice)
 public:
     typedef QSharedPointer<MaddeDevice> Ptr;
     typedef QSharedPointer<const MaddeDevice> ConstPtr;
@@ -56,6 +55,12 @@ public:
     void executeAction(Core::Id actionId, QWidget *parent) const;
     ProjectExplorer::IDevice::Ptr clone() const;
     static QString maddeDisplayType(Core::Id type);
+
+    static bool allowsRemoteMounts(Core::Id type);
+    static bool allowsPackagingDisabling(Core::Id type);
+    static bool allowsQmlDebugging(Core::Id type);
+
+    static QSize packageManagerIconSize(Core::Id type);
 
 private:
     MaddeDevice();

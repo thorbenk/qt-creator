@@ -35,30 +35,14 @@ def prepareBuildSettings(targetCount, currentTarget, setReleaseBuild=True, disab
     for current in range(targetCount):
         if setForAll or current == currentTarget:
             switchToBuildOrRunSettingsFor(targetCount, current, ProjectSettings.BUILD)
-            qtCombo = waitForObject(":scrollArea.qtVersionComboBox_QComboBox")
-            chooseThis = None
-            wait = False
-            try:
-                if qtCombo.currentText != defaultQtVersion:
-                    selectFromCombo(qtCombo, defaultQtVersion)
-                if setReleaseBuild:
-                    chooseThis = "%s Release" % defaultQtVersion
-                else:
-                    chooseThis = "%s Debug" % defaultQtVersion
-                editBuildCfg = waitForObject("{container={type='QScrollArea' name='scrollArea'} "
-                                             "leftWidget={container={type='QScrollArea' name='scrollArea'} "
-                                             "text='Edit build configuration:' type='QLabel'}"
-                                             "unnamed='1' type='QComboBox' visible='1'}", 20000)
-                if editBuildCfg.currentText != chooseThis:
-                    wait = True
-                    clickItem(editBuildCfg, chooseThis.replace(".", "\\."), 5, 5, 0, Qt.LeftButton)
-                else:
-                    wait = False
-            except:
-                if current == currentTarget:
-                    success = False
-            if wait and chooseThis != None:
-                waitFor("editBuildCfg.currentText==chooseThis")
+            # TODO: Improve selection of Release/Debug version
+            if setReleaseBuild:
+                chooseThis = "Release"
+            else:
+                chooseThis = "Debug"
+            editBuildCfg = waitForObject("{leftWidget={text='Edit build configuration:' type='QLabel' "
+                                         "unnamed='1' visible='1'} unnamed='1' type='QComboBox' visible='1'}", 20000)
+            selectFromCombo(editBuildCfg, chooseThis)
             ensureChecked("{name='shadowBuildCheckBox' type='QCheckBox' visible='1'}", not disableShadowBuild)
     # get back to the current target
     if currentTarget < 0 or currentTarget >= targetCount:
@@ -76,20 +60,31 @@ def prepareBuildSettings(targetCount, currentTarget, setReleaseBuild=True, disab
 def switchToBuildOrRunSettingsFor(targetCount, currentTarget, projectSettings, isQtQuickUI=False):
     try:
         targetSel = waitForObject("{type='ProjectExplorer::Internal::TargetSelector' unnamed='1' "
-                                  "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
+                                  "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}", 5000)
     except LookupError:
-        # if it's a QtQuick UI - this depends on the creator version - so better not fatal
         if isQtQuickUI:
-            return True
-        test.fatal("Wrong (time of) call - must be already at Projects view")
-        return False
+            if projectSettings == ProjectSettings.RUN:
+                mouseClick(waitForObject(":*Qt Creator.DoubleTabWidget_ProjectExplorer::Internal::DoubleTabWidget"), 70, 44, 0, Qt.LeftButton)
+                return True
+            else:
+                test.fatal("Don't know what you're trying to switch to")
+                return False
+        # there's only one target defined so use the DoubleTabWidget instead
+        if projectSettings == ProjectSettings.RUN:
+            mouseClick(waitForObject(":*Qt Creator.DoubleTabWidget_ProjectExplorer::Internal::DoubleTabWidget"), 170, 44, 0, Qt.LeftButton)
+        elif projectSettings == ProjectSettings.BUILD:
+            mouseClick(waitForObject(":*Qt Creator.DoubleTabWidget_ProjectExplorer::Internal::DoubleTabWidget"), 70, 44, 0, Qt.LeftButton)
+        else:
+            test.fatal("Don't know what you're trying to switch to")
+            return False
+        return True
     ADD_BUTTON_WIDTH = 27 # bad... (taken from source)
     selectorWidth = (targetSel.width - 3 - 2 * (ADD_BUTTON_WIDTH + 1)) / targetCount - 1
     yToClick = targetSel.height * 3 / 5 + 5
     if projectSettings == ProjectSettings.RUN:
-        xToClick = ADD_BUTTON_WIDTH + (selectorWidth + 1) * currentTarget - 2 + selectorWidth / 2 + 5
+        xToClick = ADD_BUTTON_WIDTH + (selectorWidth + 1) * currentTarget - 2 + selectorWidth / 2 + 15
     elif projectSettings == ProjectSettings.BUILD:
-        xToClick = ADD_BUTTON_WIDTH + (selectorWidth + 1) * currentTarget - 2 + selectorWidth / 2 - 5
+        xToClick = ADD_BUTTON_WIDTH + (selectorWidth + 1) * currentTarget - 2 + selectorWidth / 2 - 15
     else:
         test.fatal("Don't know what you're trying to switch to")
         return False
@@ -103,6 +98,149 @@ def switchToBuildOrRunSettingsFor(targetCount, currentTarget, projectSettings, i
 def setRunInTerminal(targetCount, currentTarget, runInTerminal=True):
     switchViewTo(ViewConstants.PROJECTS)
     switchToBuildOrRunSettingsFor(targetCount, currentTarget, ProjectSettings.RUN)
-    ensureChecked("{container=':Qt Creator.scrollArea_QScrollArea' text='Run in terminal'\
+    ensureChecked("{window=':Qt Creator_Core::Internal::MainWindow' text='Run in terminal'\
                     type='QCheckBox' unnamed='1' visible='1'}", runInTerminal)
     switchViewTo(ViewConstants.EDIT)
+
+# helper function to get some Qt information for the current (already configured) project
+# param alreadyOnProjectsBuildSettings if set to True you have to make sure that you're
+#       on the Projects view on the Build settings page (otherwise this function will end
+#       up in a ScriptError)
+# param afterSwitchTo if you want to leave the Projects view/Build settings when returning
+#       from this function you can set this parameter to one of the ViewConstants
+# this function returns an array of 4 elements (all could be None):
+#       * the first element holds the Qt version
+#       * the second element holds the mkspec
+#       * the third element holds the Qt bin path
+#       * the fourth element holds the Qt lib path
+#       of the current active project
+def getQtInformationForBuildSettings(alreadyOnProjectsBuildSettings=False, afterSwitchTo=None):
+    if not alreadyOnProjectsBuildSettings:
+        switchViewTo(ViewConstants.PROJECTS)
+        switchToBuildOrRunSettingsFor(1, 0, ProjectSettings.BUILD)
+    clickButton(waitForObject(":Qt Creator_SystemSettings.Details_Utils::DetailsButton"))
+    model = waitForObject(":scrollArea_QTableView").model()
+    qtDir = None
+    for row in range(model.rowCount()):
+        index = model.index(row, 0)
+        text = str(model.data(index).toString())
+        if text == "QTDIR":
+            qtDir = str(model.data(model.index(row, 1)).toString())
+            break
+    if qtDir == None:
+        test.fatal("UI seems to have changed - couldn't get QTDIR for this configuration.")
+        return None, None, None, None
+
+    qmakeCallLabel = waitForObject("{text?='<b>qmake:</b> qmake*' type='QLabel' unnamed='1' visible='1' "
+                                   "window=':Qt Creator_Core::Internal::MainWindow'}")
+    mkspec = __getMkspecFromQMakeCall__(str(qmakeCallLabel.text))
+    qtVersion = getQtInformationByQMakeCall(qtDir, QtInformation.QT_VERSION)
+    qtLibPath = getQtInformationByQMakeCall(qtDir, QtInformation.QT_LIBPATH)
+    qtBinPath = getQtInformationByQMakeCall(qtDir, QtInformation.QT_BINPATH)
+    if afterSwitchTo:
+        if ViewConstants.WELCOME <= afterSwitchTo <= ViewConstans.LAST_AVAILABLE:
+            switchViewTo(afterSwitchTo)
+        else:
+            test.warning("Don't know where you trying to switch to (%s)" % afterSwitchTo)
+    return qtVersion, mkspec, qtBinPath, qtLibPath
+
+def getQtInformationForQmlProject():
+    fancyToolButton = waitForObject(":*Qt Creator_Core::Internal::FancyToolButton")
+    kit = __getTargetFromToolTip__(str(fancyToolButton.toolTip))
+    if not kit:
+        test.fatal("Could not figure out which kit you're using...")
+        return None, None, None, None
+    test.log("Searching for Qt information for kit '%s'" % kit)
+    invokeMenuItem("Tools", "Options...")
+    waitForObjectItem(":Options_QListView", "Build & Run")
+    clickItem(":Options_QListView", "Build & Run", 14, 15, 0, Qt.LeftButton)
+    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Kits")
+    targetsTreeView = waitForObject(":Kits_QTreeView")
+    if not __selectTreeItemOnBuildAndRun__(targetsTreeView, "%s(\s\(default\))?" % kit, True):
+        test.fatal("Found no matching kit - this shouldn't happen.")
+        clickButton(waitForObject(":Options.Cancel_QPushButton"))
+        return None, None, None, None
+    qtVersionStr = str(waitForObject(":Kits_QtVersion_QComboBox").currentText)
+    test.log("Kit '%s' uses Qt Version '%s'" % (kit, qtVersionStr))
+    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Qt Versions")
+    treeWidget = waitForObject(":QtSupport__Internal__QtVersionManager.qtdirList_QTreeWidget")
+    if not __selectTreeItemOnBuildAndRun__(treeWidget, qtVersionStr):
+        test.fatal("Found no matching Qt Version for kit - this shouldn't happen.")
+        clickButton(waitForObject(":Options.Cancel_QPushButton"))
+        return None, None, None, None
+    qmake = str(waitForObject(":QtSupport__Internal__QtVersionManager.qmake_QLabel").text)
+    test.log("Qt Version '%s' uses qmake at '%s'" % (qtVersionStr, qmake))
+    qtDir = os.path.dirname(os.path.dirname(qmake))
+    qtVersion = getQtInformationByQMakeCall(qtDir, QtInformation.QT_VERSION)
+    qtLibPath = getQtInformationByQMakeCall(qtDir, QtInformation.QT_LIBPATH)
+    mkspec = __getMkspecFromQmake__(qmake)
+    clickButton(waitForObject(":Options.Cancel_QPushButton"))
+    return qtVersion, mkspec, qtLibPath, qmake
+
+def __selectTreeItemOnBuildAndRun__(treeViewOrWidget, itemText, isRegex=False):
+    model = treeViewOrWidget.model()
+    test.compare(model.rowCount(), 2, "Verifying expected section count")
+    autoDetected = model.index(0, 0)
+    test.compare(autoDetected.data().toString(), "Auto-detected", "Verifying label for section")
+    manual = model.index(1, 0)
+    test.compare(manual.data().toString(), "Manual", "Verifying label for section")
+    if isRegex:
+        pattern = re.compile(itemText)
+    found = False
+    for section in [autoDetected, manual]:
+        for index in [section.child(i, 0) for i in range(model.rowCount(section))]:
+            if (isRegex and pattern.match(str(index.data().toString()))
+                or itemText == (str(index.data().toString()))):
+                found = True
+                item = ".".join([str(section.data().toString()),
+                                 str(index.data().toString()).replace(".", "\\.")])
+                clickItem(treeViewOrWidget, item, 5, 5, 0, Qt.LeftButton)
+                break
+        if found:
+            break
+    return found
+
+def __getTargetFromToolTip__(toolTip):
+    if toolTip == None or not isinstance(toolTip, (str, unicode)):
+        test.warning("Parameter toolTip must be of type str or unicode and can't be None!")
+        return None
+    pattern = re.compile(".*<b>Target:</b>(.*)<b>Deploy.*")
+    target = pattern.match(toolTip)
+    if target == None:
+        test.fatal("UI seems to have changed - expected ToolTip does not match.",
+                   "ToolTip: '%s'" % toolTip)
+        return None
+    return target.group(1).split("<br/>")[0].strip()
+
+def __getMkspecFromQMakeCall__(qmakeCall):
+    qCall = qmakeCall.split("</b>")[1].strip()
+    tmp = qCall.split()
+    for i in range(len(tmp)):
+        if tmp[i] == '-spec' and i + 1 < len(tmp):
+            return tmp[i + 1]
+    test.fatal("Couldn't get mkspec from qmake call '%s'" % qmakeCall)
+    return None
+
+# this function queries information from qmake
+# param qtDir set this to a path that holds a valid Qt
+# param which set this to one of the QtInformation "constants"
+# the function will return the wanted information or None if something went wrong
+def getQtInformationByQMakeCall(qtDir, which):
+    qmake = os.path.join(qtDir, "bin", "qmake")
+    if platform.system() in ('Microsoft', 'Windows'):
+        qmake += ".exe"
+    if not os.path.exists(qmake):
+        test.fatal("Given Qt directory does not exist or does not contain bin/qmake.",
+                   "Constructed path: '%s'" % qmake)
+        return None
+    query = ""
+    if which == QtInformation.QT_VERSION:
+        query = "QT_VERSION"
+    elif which == QtInformation.QT_BINPATH:
+        query = "QT_INSTALL_BINS"
+    elif which == QtInformation.QT_LIBPATH:
+        query = "QT_INSTALL_LIBS"
+    else:
+        test.fatal("You're trying to fetch an unknown information (%s)" % which)
+        return None
+    return getOutputFromCmdline("%s -query %s" % (qmake, query)).strip()

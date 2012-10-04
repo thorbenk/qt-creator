@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,19 +24,21 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "devicesettingswidget.h"
 #include "ui_devicesettingswidget.h"
 
+#include "projectexplorerconstants.h"
 #include "devicefactoryselectiondialog.h"
 #include "devicemanager.h"
 #include "devicemanagermodel.h"
+#include "deviceprocessesdialog.h"
+#include "deviceprocesslist.h"
 #include "idevice.h"
 #include "idevicefactory.h"
 #include "idevicewidget.h"
+#include "projectexplorerconstants.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/id.h>
@@ -94,7 +96,6 @@ private:
     const DeviceManager * const m_deviceManager;
 };
 
-
 DeviceSettingsWidget::DeviceSettingsWidget(QWidget *parent)
     : QWidget(parent),
       m_ui(new Ui::DeviceSettingsWidget),
@@ -105,6 +106,7 @@ DeviceSettingsWidget::DeviceSettingsWidget(QWidget *parent)
       m_additionalActionsMapper(new QSignalMapper(this)),
       m_configWidget(0)
 {
+    m_deviceManagerModel->setFilter(QList<Core::Id>() << Core::Id(Constants::DESKTOP_DEVICE_ID));
     initGui();
     connect(m_additionalActionsMapper, SIGNAL(mapped(int)),
             SLOT(handleAdditionalActionRequest(int)));
@@ -141,7 +143,7 @@ void DeviceSettingsWidget::initGui()
 
     bool hasDeviceFactories = false;
     const QList<IDeviceFactory *> &factories
-        = ExtensionSystem::PluginManager::instance()->getObjects<IDeviceFactory>();
+        = ExtensionSystem::PluginManager::getObjects<IDeviceFactory>();
     foreach (const IDeviceFactory *f, factories) {
         if (f->canCreate()) {
             hasDeviceFactories = true;
@@ -169,7 +171,13 @@ void DeviceSettingsWidget::addDevice()
     if (d.exec() != QDialog::Accepted)
         return;
 
-    IDevice::Ptr device = d.selectedFactory()->create();
+    Core::Id toCreate = d.selectedId();
+    if (!toCreate.isValid())
+        return;
+    IDeviceFactory *factory = IDeviceFactory::find(toCreate);
+    if (!factory)
+        return;
+    IDevice::Ptr device = factory->create(toCreate);
     if (device.isNull())
         return;
 
@@ -192,19 +200,24 @@ void DeviceSettingsWidget::displayCurrent()
         m_deviceManager->defaultDevice(current->type()) != current);
     m_ui->osTypeValueLabel->setText(current->displayType());
     m_ui->autoDetectionValueLabel->setText(current->isAutoDetected()
-        ? tr("Yes (fingerprint is '%1')").arg(current->id().toString()) : tr("No"));
+            ? tr("Yes (id is \"%1\")").arg(current->id().toString()) : tr("No"));
     m_nameValidator->setDisplayName(current->displayName());
-    switch (current->availability()) {
-    case IDevice::DeviceAvailable:
-        m_ui->availableValueLabel->setPixmap(QPixmap(QLatin1String(":/projectexplorer/images/ConnectionOn.png")));
+    m_ui->deviceStateValueIconLabel->show();
+    switch (current->deviceState()) {
+    case IDevice::DeviceReadyToUse:
+        m_ui->deviceStateValueIconLabel->setPixmap(QPixmap(QLatin1String(":/projectexplorer/images/DeviceReadyToUse.png")));
         break;
-    case IDevice::DeviceUnavailable:
-        m_ui->availableValueLabel->setPixmap(QPixmap(QLatin1String(":/projectexplorer/images/ConnectionOff.png")));
+    case IDevice::DeviceConnected:
+        m_ui->deviceStateValueIconLabel->setPixmap(QPixmap(QLatin1String(":/projectexplorer/images/DeviceConnected.png")));
         break;
-    case IDevice::DeviceAvailabilityUnknown:
-        m_ui->availableValueLabel->setText(tr("Unknown"));
+    case IDevice::DeviceDisconnected:
+        m_ui->deviceStateValueIconLabel->setPixmap(QPixmap(QLatin1String(":/projectexplorer/images/DeviceDisconnected.png")));
+        break;
+    case IDevice::DeviceStateUnknown:
+        m_ui->deviceStateValueIconLabel->hide();
         break;
     }
+    m_ui->deviceStateValueTextLabel->setText(current->deviceStateToString());
 
     m_ui->removeConfigButton->setEnabled(!current->isAutoDetected());
     fillInValues();
@@ -235,7 +248,7 @@ int DeviceSettingsWidget::currentIndex() const
     return m_ui->configurationComboBox->currentIndex();
 }
 
-QSharedPointer<const IDevice> DeviceSettingsWidget::currentDevice() const
+IDevice::ConstPtr DeviceSettingsWidget::currentDevice() const
 {
     Q_ASSERT(currentIndex() != -1);
     return m_deviceManagerModel->device(currentIndex());
@@ -260,7 +273,7 @@ void DeviceSettingsWidget::setDefaultDevice()
 
 void DeviceSettingsWidget::handleDeviceUpdated(Id id)
 {
-    const int index = m_deviceManager->indexForId(id);
+    const int index = m_deviceManagerModel->indexForId(id);
     if (index == currentIndex())
         currentDeviceChanged(index);
 }
@@ -277,23 +290,32 @@ void DeviceSettingsWidget::currentDeviceChanged(int index)
         m_ui->removeConfigButton->setEnabled(false);
         clearDetails();
         m_ui->defaultDeviceButton->setEnabled(false);
-    } else {
-        setDeviceInfoWidgetsEnabled(true);
-        m_ui->removeConfigButton->setEnabled(true);
-        foreach (const Core::Id actionId, device->actionIds()) {
-            QPushButton * const button = new QPushButton(device->displayNameForActionId(actionId));
-            m_additionalActionButtons << button;
-            connect(button, SIGNAL(clicked()), m_additionalActionsMapper, SLOT(map()));
-            m_additionalActionsMapper->setMapping(button, actionId.uniqueIdentifier());
-            m_ui->buttonsLayout->insertWidget(m_ui->buttonsLayout->count() - 1, button);
-        }
-        if (!m_ui->osSpecificGroupBox->layout())
-            new QVBoxLayout(m_ui->osSpecificGroupBox);
-        m_configWidget = m_deviceManager->mutableDevice(device->id())->createWidget();
-        if (m_configWidget)
-            m_ui->osSpecificGroupBox->layout()->addWidget(m_configWidget);
-        displayCurrent();
+        return;
     }
+    setDeviceInfoWidgetsEnabled(true);
+    m_ui->removeConfigButton->setEnabled(true);
+
+    if (device->canCreateProcessModel()) {
+        QPushButton * const button = new QPushButton(tr("Remote Processes"));
+        m_additionalActionButtons << button;
+        connect(button, SIGNAL(clicked()), SLOT(handleProcessListRequested()));
+        m_ui->buttonsLayout->insertWidget(m_ui->buttonsLayout->count() - 1, button);
+    }
+
+    foreach (const Core::Id actionId, device->actionIds()) {
+        QPushButton * const button = new QPushButton(device->displayNameForActionId(actionId));
+        m_additionalActionButtons << button;
+        connect(button, SIGNAL(clicked()), m_additionalActionsMapper, SLOT(map()));
+        m_additionalActionsMapper->setMapping(button, actionId.uniqueIdentifier());
+        m_ui->buttonsLayout->insertWidget(m_ui->buttonsLayout->count() - 1, button);
+    }
+
+    if (!m_ui->osSpecificGroupBox->layout())
+        new QVBoxLayout(m_ui->osSpecificGroupBox);
+    m_configWidget = m_deviceManager->mutableDevice(device->id())->createWidget();
+    if (m_configWidget)
+        m_ui->osSpecificGroupBox->layout()->addWidget(m_configWidget);
+    displayCurrent();
 }
 
 void DeviceSettingsWidget::clearDetails()
@@ -308,6 +330,15 @@ void DeviceSettingsWidget::handleAdditionalActionRequest(int actionId)
     const IDevice::ConstPtr device = m_deviceManager->find(currentDevice()->id());
     QTC_ASSERT(device, return);
     device->executeAction(Core::Id::fromUniqueIdentifier(actionId), this);
+}
+
+void DeviceSettingsWidget::handleProcessListRequested()
+{
+    QTC_ASSERT(currentDevice()->canCreateProcessModel(), return);
+    DeviceProcessesDialog dlg;
+    dlg.addCloseButton();
+    dlg.setDevice(currentDevice());
+    dlg.exec();
 }
 
 } // namespace Internal

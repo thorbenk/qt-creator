@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemopublishingwizardfactories.h"
@@ -36,11 +34,11 @@
 #include "maemopublishingwizardfremantlefree.h"
 
 #include <projectexplorer/target.h>
-#include <qt4projectmanager/qmakestep.h>
 #include <qt4projectmanager/qt4project.h>
 #include <qt4projectmanager/qt4projectmanagerconstants.h>
-#include <qt4projectmanager/qt4buildconfiguration.h>
 #include <qtsupport/baseqtversion.h>
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtsupportconstants.h>
 
 using namespace ProjectExplorer;
 using namespace Qt4ProjectManager;
@@ -73,21 +71,10 @@ bool MaemoPublishingWizardFactoryFremantleFree::canCreateWizard(const Project *p
     if (!qobject_cast<const Qt4Project *>(project))
         return false;
     foreach (const Target *const target, project->targets()) {
-        if (target->id() != Core::Id(Constants::MAEMO5_DEVICE_TARGET_ID))
-            continue;
-        foreach (const BuildConfiguration *const bc, target->buildConfigurations()) {
-            const Qt4BuildConfiguration *const qt4Bc
-                = qobject_cast<const Qt4BuildConfiguration *>(bc);
-            if (!qt4Bc)
-                continue;
-
-            QtSupport::BaseQtVersion *qt = qt4Bc->qtVersion();
-            if (!qt)
-                continue;
-            if (MaemoGlobal::deviceType(qt->qmakeCommand().toString()) == Core::Id(Maemo5OsType))
-                return true;
-        }
-        break;
+        QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target->kit());
+        const QString &platform = version ? version->platformName() : QString();
+        if (platform == QLatin1String(QtSupport::Constants::MAEMO_FREMANTLE_PLATFORM))
+            return true;
     }
     return false;
 }

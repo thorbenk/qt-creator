@@ -5,6 +5,13 @@ Product {
     name: "SharedContent"
 
     Group {
+        condition: qbs.targetOS == "macx"
+        qbs.installDir: "share/qtcreator/scripts"
+        fileTags: ["install"]
+        files: "qtcreator/scripts/openTerminal.command"
+    }
+
+    Group {
         qbs.installDir: "share/qtcreator/designer"
         fileTags: ["install"]
         prefix: "qtcreator/designer/"
@@ -124,7 +131,6 @@ Product {
         fileTags: ["install"]
         prefix: "qtcreator/qml/qmldump/"
         files: [
-            "Info.plist.in",
             "LGPL_EXCEPTION.TXT",
             "LICENSE.LGPL",
             "main.cpp",
@@ -219,7 +225,6 @@ Product {
         fileTags: ["install"]
         prefix: "qtcreator/qml/qmlobserver/"
         files: [
-            "Info.plist.in",
             "LGPL_EXCEPTION.TXT",
             "LICENSE.LGPL",
             "deviceorientation.cpp",
@@ -400,9 +405,9 @@ Product {
     }
 
     Group {
-        qbs.installDir: "share/qtcreator/qml/qmlpuppet/instances"
+        qbs.installDir: "share/qtcreator/qml/qmlpuppet/qmlpuppet/instances"
         fileTags: ["install"]
-        prefix: "qtcreator/qml/qmlpuppet/instances/"
+        prefix: "qtcreator/qml/qmlpuppet/qmlpuppet/instances/"
         files: [
             "anchorchangesnodeinstance.cpp",
             "anchorchangesnodeinstance.h",
@@ -416,7 +421,6 @@ Product {
             "dummycontextobject.h",
             "dummynodeinstance.cpp",
             "dummynodeinstance.h",
-            "instances.pri",
             "nodeinstanceclientproxy.cpp",
             "nodeinstanceclientproxy.h",
             "nodeinstancemetaobject.cpp",
@@ -456,7 +460,6 @@ Product {
         fileTags: ["install"]
         prefix: "qtcreator/qml/qmlpuppet/qml2puppet/"
         files: [
-            "Info.plist.in",
             "main.cpp",
             "qml2puppet.pro",
         ]
@@ -488,7 +491,6 @@ Product {
         fileTags: ["install"]
         prefix: "qtcreator/qml/qmlpuppet/qmlpuppet/"
         files: [
-            "Info.plist.in",
             "main.cpp",
             "qmlpuppet.pri",
             "qmlpuppet.pro",
@@ -759,15 +761,6 @@ Product {
     }
 
     Group {
-        qbs.installDir: "share/qtcreator/scripts"
-        fileTags: ["install"]
-        prefix: "qtcreator/scripts/"
-        files: [
-            "openTerminal.command",
-        ]
-    }
-
-    Group {
         qbs.installDir: "share/qtcreator/snippets"
         fileTags: ["install"]
         prefix: "qtcreator/snippets/"
@@ -890,6 +883,36 @@ Product {
     }
 
     Group {
+        qbs.installDir: "share/qtcreator/templates/qtquick2app"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/qtquick2app/"
+        files: [
+            "app.pro",
+            "main.cpp",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/qtquick2app/qml/app/qtquick20"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/qtquick2app/qml/app/qtquick20/"
+        files: [
+            "main.qml",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/qtquick2app/qtquick2applicationviewer"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/qtquick2app/qtquick2applicationviewer/"
+        files: [
+            "qtquick2applicationviewer.cpp",
+            "qtquick2applicationviewer.h",
+            "qtquick2applicationviewer.pri",
+        ]
+    }
+
+    Group {
         qbs.installDir: "share/qtcreator/templates/qtquickapp"
         fileTags: ["install"]
         prefix: "qtcreator/templates/qtquickapp/"
@@ -919,16 +942,6 @@ Product {
     }
 
     Group {
-        qbs.installDir: "share/qtcreator/templates/qtquickapp/qml/app/symbian11"
-        fileTags: ["install"]
-        prefix: "qtcreator/templates/qtquickapp/qml/app/symbian11/"
-        files: [
-            "MainPage.qml",
-            "main.qml",
-        ]
-    }
-
-    Group {
         qbs.installDir: "share/qtcreator/templates/qtquickapp/qmlapplicationviewer"
         fileTags: ["install"]
         prefix: "qtcreator/templates/qtquickapp/qmlapplicationviewer/"
@@ -949,7 +962,6 @@ Product {
             "icon64.png",
             "icon80.png",
             "manifest.aegis",
-            "symbianicon.svg",
         ]
     }
 
@@ -959,6 +971,102 @@ Product {
         prefix: "qtcreator/templates/wizards/"
         files: [
             "README.txt",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/wizards/bb-bardescriptor"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/wizards/bb-bardescriptor/"
+        files: [
+            "bar-descriptor.xml",
+            "wizard.xml",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/wizards/bb-guiapp"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/wizards/bb-guiapp/"
+        files: [
+            "bar-descriptor.xml",
+            "icon.png",
+            "main.cpp",
+            "mainwidget.cpp",
+            "mainwidget.h",
+            "mainwidget.ui",
+            "project.pro",
+            "wizard.xml",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/wizards/bb-qt5-bardescriptor"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/wizards/bb-qt5-bardescriptor/"
+        files: [
+            "bar-descriptor.xml",
+            "wizard.xml",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/wizards/bb-qt5-guiapp"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/wizards/bb-qt5-guiapp/"
+        files: [
+            "bar-descriptor.xml",
+            "icon.png",
+            "main.cpp",
+            "mainwidget.cpp",
+            "mainwidget.h",
+            "mainwidget.ui",
+            "project.pro",
+            "wizard.xml",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/wizards/bb-qt5-quick2app"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/wizards/bb-qt5-quick2app/"
+        files: [
+            "bar-descriptor.xml",
+            "icon.png",
+            "main.cpp",
+            "project.pro",
+            "wizard.xml",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/wizards/bb-qt5-quick2app/qml"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/wizards/bb-qt5-quick2app/qml/"
+        files: [
+            "main.qml",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/wizards/bb-quickapp"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/wizards/bb-quickapp/"
+        files: [
+            "bar-descriptor.xml",
+            "icon.png",
+            "main.cpp",
+            "project.pro",
+            "wizard.xml",
+        ]
+    }
+
+    Group {
+        qbs.installDir: "share/qtcreator/templates/wizards/bb-quickapp/qml"
+        fileTags: ["install"]
+        prefix: "qtcreator/templates/wizards/bb-quickapp/qml/"
+        files: [
+            "main.qml",
         ]
     }
 
@@ -1076,21 +1184,6 @@ Product {
     }
 
     Group {
-        qbs.installDir: "share/qtcreator/translations"
-        fileTags: ["install"]
-        prefix: "qtcreator/translations/"
-        files: [
-            "README",
-            "check-ts.pl",
-            "check-ts.xq",
-            "extract-customwizards.xq",
-            "extract-externaltools.xq",
-            "extract-mimetypes.xq",
-            "translations.pro",
-        ]
-    }
-
-    Group {
         qbs.installDir: "share/qtcreator/welcomescreen"
         fileTags: ["install"]
         prefix: "qtcreator/welcomescreen/"
@@ -1132,6 +1225,7 @@ Product {
             "Delegate.qml",
             "Feedback.qml",
             "GettingStartedItem.qml",
+            "IconAndLink.qml",
             "LinkedText.qml",
             "LinksBar.qml",
             "Logo.qml",
@@ -1143,6 +1237,7 @@ Product {
             "SessionItem.qml",
             "Sessions.qml",
             "ToolTip.qml",
+            "qmldir",
         ]
     }
 

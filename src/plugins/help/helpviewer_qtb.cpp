@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,6 +35,8 @@
 #include "helpconstants.h"
 #include "helpviewer_p.h"
 #include "localhelpmanager.h"
+
+#include <utils/hostosinfo.h>
 
 #include <QApplication>
 #include <QClipboard>
@@ -82,7 +82,7 @@ HelpViewer::~HelpViewer()
 QFont HelpViewer::viewerFont() const
 {
     const QHelpEngineCore &engine = LocalHelpManager::helpEngine();
-    return qVariantValue<QFont>(engine.customValue(QLatin1String("font"),
+    return qvariant_cast<QFont>(engine.customValue(QLatin1String("font"),
         qApp->font()));
 }
 
@@ -249,6 +249,10 @@ void HelpViewer::copy()
     QTextBrowser::copy();
 }
 
+void HelpViewer::stop()
+{
+}
+
 void HelpViewer::forward()
 {
     QTextBrowser::forward();
@@ -284,19 +288,15 @@ void HelpViewer::wheelEvent(QWheelEvent *e)
 
 void HelpViewer::mousePressEvent(QMouseEvent *e)
 {
-#ifdef Q_OS_LINUX
-    if (handleForwardBackwardMouseButtons(e))
+    if (Utils::HostOsInfo::isLinuxHost() && handleForwardBackwardMouseButtons(e))
         return;
-#endif
     QTextBrowser::mousePressEvent(e);
 }
 
 void HelpViewer::mouseReleaseEvent(QMouseEvent *e)
 {
-#ifndef Q_OS_LINUX
-    if (handleForwardBackwardMouseButtons(e))
+    if (!Utils::HostOsInfo::isLinuxHost() && handleForwardBackwardMouseButtons(e))
         return;
-#endif
 
     bool controlPressed = e->modifiers() & Qt::ControlModifier;
     if ((controlPressed && d->hasAnchorAt(this, e->pos())) ||

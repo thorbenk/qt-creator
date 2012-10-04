@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -44,9 +42,6 @@
         \o  \l{Creating a Qt Quick Application}
 
             Learn about the basic Qt Quick concepts and QML elements.
-        \o  \l{Using Qt Quick Components}
-
-            Learn how to develop a Qt Quick application for mobile devices.
 
         \o  \l{Creating a Qt Widget Based Application}
 

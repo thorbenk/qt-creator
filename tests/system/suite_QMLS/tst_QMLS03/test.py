@@ -42,11 +42,12 @@ def checkUsages(resultsView, expectedResults):
 def main():
     # prepare example project
     sourceExample = os.path.abspath(sdkPath + "/Examples/4.7/declarative/animation/basics/property-animation")
-    if not neededFilePresent(sourceExample):
+    proFile = "propertyanimation.pro"
+    if not neededFilePresent(os.path.join(sourceExample, proFile)):
         return
     # copy example project to temp directory
     templateDir = prepareTemplate(sourceExample)
-    examplePath = templateDir + "/propertyanimation.pro"
+    examplePath = os.path.join(templateDir, proFile)
     startApplication("qtcreator" + SettingsPath)
     # open example project
     openQmakeProject(examplePath)
@@ -59,7 +60,8 @@ def main():
     if not placeCursorToLine(editorArea, "Rectangle {"):
         invokeMenuItem("File", "Exit")
         return
-    moveTextCursor(editorArea, QTextCursor.Left, QTextCursor.MoveAnchor, 5)
+    for i in range(5):
+        type(editorArea, "<Left>")
     ctxtMenu = openContextMenuOnTextCursorPosition(editorArea)
     activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), "Find Usages"))
     # check if usage was properly found
@@ -70,14 +72,15 @@ def main():
     resultsView = waitForObject(":Qt Creator_Find::Internal::SearchResultTreeView")
     test.verify(checkUsages(resultsView, expectedResults), "Verifying if usages were properly found using context menu.")
     # clear previous results & prepare for next search
-    clickButton(waitForObject(":Qt Creator.Clear_QToolButton"))
+    clickButton(waitForObject(":*Qt Creator.Clear_QToolButton"))
     mouseClick(editorArea, 5, 5, 0, Qt.LeftButton)
     # 2. check usages using menu
     # place cursor to component
     if not placeCursorToLine(editorArea, "anchors { left: parent.left; top: parent.top; right: parent.right; bottom: parent.verticalCenter }"):
         invokeMenuItem("File", "Exit")
         return
-    moveTextCursor(editorArea, QTextCursor.Left, QTextCursor.MoveAnchor, 87)
+    for i in range(87):
+        type(editorArea, "<Left>")
     invokeMenuItem("Tools", "QML/JS", "Find Usages")
     # check if usage was properly found
     expectedResults = [ExpectedResult("color-animation.qml", 50, "anchors { left: parent.left; top: parent.top; right: parent.right; bottom: parent.verticalCenter }"),
@@ -87,14 +90,15 @@ def main():
     resultsView = waitForObject(":Qt Creator_Find::Internal::SearchResultTreeView")
     test.verify(checkUsages(resultsView, expectedResults), "Verifying if usages were properly found using main menu.")
     # clear previous results & prepare for next search
-    clickButton(waitForObject(":Qt Creator.Clear_QToolButton"))
+    clickButton(waitForObject(":*Qt Creator.Clear_QToolButton"))
     mouseClick(editorArea, 5, 5, 0, Qt.LeftButton)
     # 3. check usages using keyboard shortcut
     # place cursor to component
     if not placeCursorToLine(editorArea, "SequentialAnimation on opacity {"):
         invokeMenuItem("File", "Exit")
         return
-    moveTextCursor(editorArea, QTextCursor.Left, QTextCursor.MoveAnchor, 5)
+    for i in range(5):
+        type(editorArea, "<Left>")
     type(editorArea, "<Ctrl+Shift+U>")
     # check if usage was properly found
     expectedResults = [ExpectedResult("color-animation.qml", 87, "SequentialAnimation on opacity {")]

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,11 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "debuggertooltipmanager.h"
+#include "debuggerinternalconstants.h"
 #include "watchutils.h"
 #include "debuggerengine.h"
 #include "debuggeractions.h"
@@ -57,7 +56,6 @@
 #include <QStyle>
 #include <QIcon>
 #include <QApplication>
-#include <QMainWindow>
 #include <QMoveEvent>
 #include <QDesktopWidget>
 #include <QScrollBar>
@@ -100,8 +98,8 @@ static const char offsetYAttributeC[] = "offset_y";
 static const char engineTypeAttributeC[] = "engine";
 static const char dateAttributeC[] = "date";
 static const char treeElementC[] = "tree";
-static const char treeModelAttributeC[] = "model"; // Locals/Watches
-static const char treeExpressionAttributeC[] = "expression"; // Locals/Watches
+static const char treeExpressionAttributeC[] = "expression";
+static const char treeInameAttributeC[] = "iname";
 static const char modelElementC[] = "model";
 static const char modelColumnCountAttributeC[] = "columncount";
 static const char modelRowElementC[] = "row";
@@ -617,7 +615,6 @@ DebuggerToolTipWidget::DebuggerToolTipWidget(QWidget *parent) :
     m_titleLabel(new DraggableLabel),
     m_engineAcquired(false),
     m_creationDate(QDate::currentDate()),
-    m_debuggerModel(TooltipsWatch),
     m_treeView(new DebuggerToolTipTreeView),
     m_defaultModel(new QStandardItemModel(this))
 {
@@ -664,7 +661,7 @@ bool DebuggerToolTipWidget::matches(const QString &fileName,
     return function == m_context.function;
 }
 
-void DebuggerToolTipWidget::acquireEngine(Debugger::DebuggerEngine *engine)
+void DebuggerToolTipWidget::acquireEngine(DebuggerEngine *engine)
 {
     QTC_ASSERT(engine, return);
 
@@ -836,61 +833,46 @@ void DebuggerToolTipWidget::saveSessionData(QXmlStreamWriter &w) const
 }
 
 /*!
-    \class Debugger::Internal::DebuggerToolTipExpressionFilterModel
+    \class Debugger::Internal::TooltipFilterModel
 
-    \brief Model for tooltips filtering a local variable using the locals or tooltip model,
-    matching on the name.
-
-    Expressions/names can either be flat ('foo' will match at the root level)
-    or nested ('this.m_foo' will match 'this' at root level and 'm_foo' at level 1).
+    \brief Model for tooltips filtering an item on the watchhandler matching its tree on the iname.
 
     In addition, suppress the model's tooltip data to avoid a tooltip on a tooltip.
 */
 
-class DebuggerToolTipExpressionFilterModel : public QSortFilterProxyModel
+class TooltipFilterModel : public QSortFilterProxyModel
 {
 public:
-    explicit DebuggerToolTipExpressionFilterModel(QAbstractItemModel *model, const QString &exp, QObject *parent = 0);
-    virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const;
+    TooltipFilterModel(QAbstractItemModel *model, const QByteArray &iname)
+        : m_iname(iname)
+    {
+        setSourceModel(model);
+    }
 
-    virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const
+    {
+        return role == Qt::ToolTipRole
+            ? QVariant() : QSortFilterProxyModel::data(index, role);
+    }
+
+    bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const;
 
 private:
-    const QStringList m_expressions;
+    const QByteArray m_iname;
 };
 
-DebuggerToolTipExpressionFilterModel::DebuggerToolTipExpressionFilterModel(QAbstractItemModel *model,
-                                                                           const QString &exp,
-                                                                           QObject *parent) :
-    QSortFilterProxyModel(parent),
-    m_expressions(exp.split(QLatin1Char('.')))
+static bool isSubIname(const QByteArray &haystack, const QByteArray &needle)
 {
-    setSourceModel(model);
+    return haystack.size() > needle.size()
+           && haystack.startsWith(needle)
+           && haystack.at(needle.size()) == '.';
 }
 
-QVariant DebuggerToolTipExpressionFilterModel::data(const QModelIndex &index, int role) const
+bool TooltipFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
 {
-    return role != Qt::ToolTipRole ?
-        QSortFilterProxyModel::data(index, role) : QVariant();
-}
-
-// Return depth of a model index, that is, 0 for root index, 1 for level-1 children, etc.
-static inline int indexDepth(QModelIndex index)
-{
-    int depth = 0;
-    for ( ; index.isValid() ; index = index.parent())
-        depth++;
-    return depth;
-}
-
-bool DebuggerToolTipExpressionFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
-{
-    // Match on expression for top level, else pass through.
-    const int depth = indexDepth(sourceParent);
-    if (depth >= m_expressions.size()) // No filters at this level
-        return true;
     const QModelIndex nameIndex = sourceModel()->index(sourceRow, 0, sourceParent);
-    return nameIndex.data().toString() == m_expressions.at(depth);
+    const QByteArray iname = nameIndex.data(LocalsINameRole).toByteArray();
+    return iname == m_iname || isSubIname(iname, m_iname) || isSubIname(m_iname, iname);
 }
 
 /*!
@@ -924,6 +906,7 @@ QAbstractItemModel *DebuggerToolTipTreeView::swapModel(QAbstractItemModel *newMo
         if (previousModel)
             previousModel->disconnect(SIGNAL(rowsInserted(QModelIndex,int,int)), this);
         setModel(newModel);
+        //setRootIndex(newModel->index(0, 0));
         connect(newModel, SIGNAL(rowsInserted(QModelIndex,int,int)),
                 this, SLOT(computeSize()), Qt::QueuedConnection);
         computeSize();
@@ -991,24 +974,12 @@ void DebuggerToolTipTreeView::computeSize()
     setRootIsDecorated(rootDecorated);
 }
 
-void DebuggerToolTipWidget::doAcquireEngine(Debugger::DebuggerEngine *engine)
+void DebuggerToolTipWidget::doAcquireEngine(DebuggerEngine *engine)
 {
     // Create a filter model on the debugger's model and switch to it.
-    QAbstractItemModel *model = 0;
-    switch (m_debuggerModel) {
-    case LocalsWatch:
-        model = engine->localsModel();
-        break;
-    case WatchersWatch:
-        model = engine->watchersModel();
-        break;
-    case TooltipsWatch:
-        model = engine->toolTipsModel();
-        break;
-    }
-    QTC_ASSERT(model, return);
-    DebuggerToolTipExpressionFilterModel *filterModel =
-            new DebuggerToolTipExpressionFilterModel(model, m_expression);
+    QAbstractItemModel *model = engine->watchModel();
+    TooltipFilterModel *filterModel =
+            new TooltipFilterModel(model, m_iname);
     swapModel(filterModel);
 }
 
@@ -1017,7 +988,7 @@ QAbstractItemModel *DebuggerToolTipWidget::swapModel(QAbstractItemModel *newMode
     QAbstractItemModel *oldModel = m_treeView->swapModel(newModel);
     // When looking at some 'this.m_foo.x', expand all items
     if (newModel) {
-        if (const int level = m_expression.count(QLatin1Char('.')) + 1) {
+        if (const int level = m_iname.count('.')) {
             QModelIndex index = newModel->index(0, 0);
             for (int i = 0; i < level && index.isValid(); i++, index = index.child(0, 0))
                 m_treeView->setExpanded(index, true);
@@ -1079,8 +1050,9 @@ void DebuggerToolTipWidget::doSaveSessionData(QXmlStreamWriter &w) const
 {
     w.writeStartElement(QLatin1String(treeElementC));
     QXmlStreamAttributes attributes;
-    attributes.append(QLatin1String(treeModelAttributeC), QString::number(m_debuggerModel));
-    attributes.append(QLatin1String(treeExpressionAttributeC), m_expression);
+    if (!m_expression.isEmpty())
+        attributes.append(QLatin1String(treeExpressionAttributeC), m_expression);
+    attributes.append(QLatin1String(treeInameAttributeC), QLatin1String(m_iname));
     w.writeAttributes(attributes);
     if (QAbstractItemModel *model = m_treeView->model()) {
         XmlWriterTreeModelVisitor v(model, w);
@@ -1095,11 +1067,11 @@ void DebuggerToolTipWidget::doLoadSessionData(QXmlStreamReader &r)
         return;
     // Restore data to default model and show that.
     const QXmlStreamAttributes attributes = r.attributes();
-    m_debuggerModel = attributes.value(QLatin1String(treeModelAttributeC)).toString().toInt();
+    m_iname = attributes.value(QLatin1String(treeInameAttributeC)).toString().toLatin1();
     m_expression = attributes.value(QLatin1String(treeExpressionAttributeC)).toString();
     if (debugToolTips)
-        qDebug() << "DebuggerTreeViewToolTipWidget::doLoadSessionData() " << m_debuggerModel << m_expression;
-    setObjectName(QLatin1String("DebuggerTreeViewToolTipWidget: ") + m_expression);
+        qDebug() << "DebuggerTreeViewToolTipWidget::doLoadSessionData() " << m_debuggerModel << m_iname;
+    setObjectName(QLatin1String("DebuggerTreeViewToolTipWidget: ") + QLatin1String(m_iname));
     restoreTreeModel(r, m_defaultModel);
     r.readNext(); // Skip </tree>
     m_treeView->swapModel(m_defaultModel);
@@ -1311,7 +1283,7 @@ void DebuggerToolTipManager::slotUpdateVisibleToolTips()
     }
 }
 
-void DebuggerToolTipManager::slotDebuggerStateChanged(Debugger::DebuggerState state)
+void DebuggerToolTipManager::slotDebuggerStateChanged(DebuggerState state)
 {
     const QObject *engine = sender();
     QTC_ASSERT(engine, return);
@@ -1319,7 +1291,7 @@ void DebuggerToolTipManager::slotDebuggerStateChanged(Debugger::DebuggerState st
     const QString name = engine->objectName();
     if (debugToolTips)
         qDebug() << "DebuggerToolTipWidget::debuggerStateChanged"
-                 << engine << Debugger::DebuggerEngine::stateName(state);
+                 << engine << DebuggerEngine::stateName(state);
 
     // Release at earliest possible convenience.
     switch (state) {
@@ -1497,14 +1469,16 @@ void DebuggerToolTipManager::slotTooltipOverrideRequested(ITextEditor *editor,
         qDebug() << "<slotTooltipOverrideRequested() " << currentEngine << *handled;
 }
 
-QStringList DebuggerToolTipManager::treeWidgetExpressions(const QString &fileName,
-                                                          const QString &engineType,
-                                                          const QString &function) const
+
+DebuggerToolTipManager::ExpressionInamePairs
+    DebuggerToolTipManager::treeWidgetExpressions(const QString &fileName,
+                                                  const QString &engineType,
+                                                  const QString &function) const
 {
-    QStringList rc;
+    ExpressionInamePairs rc;
     foreach (const QPointer<DebuggerToolTipWidget> &tw, m_tooltips) {
         if (!tw.isNull() && tw->matches(fileName, engineType, function))
-            rc.push_back(tw->expression());
+            rc.push_back(ExpressionInamePair(tw->expression(), tw->iname()));
     }
     if (debugToolTips)
         qDebug() << "DebuggerToolTipManager::treeWidgetExpressions"

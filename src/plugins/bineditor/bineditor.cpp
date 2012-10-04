@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -1053,7 +1051,8 @@ bool BinEditor::event(QEvent *e)
             return true;
         case Qt::Key_Down: {
             const QScrollBar * const scrollBar = verticalScrollBar();
-            if (scrollBar->value() >= scrollBar->maximum() - 1) {
+            const int maximum = scrollBar->maximum();
+            if (maximum && scrollBar->value() >= maximum - 1) {
                 emit newRangeRequested(editor(), baseAddress() + m_size);
                 return true;
             }
@@ -1416,7 +1415,6 @@ void BinEditor::highlightSearchResults(const QByteArray &pattern, QTextDocument:
     viewport()->update();
 }
 
-
 void BinEditor::changeData(int position, uchar character, bool highNibble)
 {
     if (!requestDataAt(position))
@@ -1493,38 +1491,46 @@ void BinEditor::contextMenuEvent(QContextMenuEvent *event)
 {
     const int selStart = selectionStart();
     const int byteCount = selectionEnd() - selStart;
-    if (byteCount == 0)
-        return;
 
     QMenu contextMenu;
     QAction copyAsciiAction(tr("Copy Selection as ASCII Characters"), this);
     QAction copyHexAction(tr("Copy Selection as Hex Values"), this);
-    QAction jumpToBeAddressHere(this);
-    QAction jumpToBeAddressNewWindow(this);
-    QAction jumpToLeAddressHere(this);
-    QAction jumpToLeAddressNewWindow(this);
+    QAction jumpToBeAddressHereAction(this);
+    QAction jumpToBeAddressNewWindowAction(this);
+    QAction jumpToLeAddressHereAction(this);
+    QAction jumpToLeAddressNewWindowAction(this);
+    QAction addWatchpointAction(tr("Set Data Breakpoint on Selection"), this);
     contextMenu.addAction(&copyAsciiAction);
     contextMenu.addAction(&copyHexAction);
+    contextMenu.addAction(&addWatchpointAction);
+
+    copyAsciiAction.setEnabled(byteCount > 0);
+    copyHexAction.setEnabled(byteCount > 0);;
+    jumpToBeAddressHereAction.setEnabled(byteCount > 0);
+    jumpToBeAddressNewWindowAction.setEnabled(byteCount > 0);
+    jumpToLeAddressHereAction.setEnabled(byteCount > 0);
+    jumpToLeAddressNewWindowAction.setEnabled(byteCount > 0);
+    addWatchpointAction.setEnabled(byteCount > 0 && byteCount <= 32);
 
     quint64 beAddress = 0;
     quint64 leAddress = 0;
     if (byteCount <= 8) {
         asIntegers(selStart, byteCount, beAddress, leAddress);
-        setupJumpToMenuAction(&contextMenu, &jumpToBeAddressHere,
-                              &jumpToBeAddressNewWindow, beAddress);
+        setupJumpToMenuAction(&contextMenu, &jumpToBeAddressHereAction,
+                      &jumpToBeAddressNewWindowAction, beAddress);
 
         // If the menu entries would be identical, show only one of them.
         if (beAddress != leAddress) {
-            setupJumpToMenuAction(&contextMenu, &jumpToLeAddressHere,
-                              &jumpToLeAddressNewWindow, leAddress);
+            setupJumpToMenuAction(&contextMenu, &jumpToLeAddressHereAction,
+                              &jumpToLeAddressNewWindowAction, leAddress);
         }
     } else {
-        jumpToBeAddressHere.setText(tr("Jump to Address in This Window"));
-        jumpToBeAddressNewWindow.setText(tr("Jump to Address in New Window"));
-        jumpToBeAddressHere.setEnabled(false);
-        jumpToBeAddressNewWindow.setEnabled(false);
-        contextMenu.addAction(&jumpToBeAddressHere);
-        contextMenu.addAction(&jumpToBeAddressNewWindow);
+        jumpToBeAddressHereAction.setText(tr("Jump to Address in This Window"));
+        jumpToBeAddressNewWindowAction.setText(tr("Jump to Address in New Window"));
+        jumpToBeAddressHereAction.setEnabled(false);
+        jumpToBeAddressNewWindowAction.setEnabled(false);
+        contextMenu.addAction(&jumpToBeAddressHereAction);
+        contextMenu.addAction(&jumpToBeAddressNewWindowAction);
     }
 
     QAction *action = contextMenu.exec(event->globalPos());
@@ -1532,14 +1538,16 @@ void BinEditor::contextMenuEvent(QContextMenuEvent *event)
         copy(true);
     else if (action == &copyHexAction)
         copy(false);
-    else if (action == &jumpToBeAddressHere)
+    else if (action == &jumpToBeAddressHereAction)
         jumpToAddress(beAddress);
-    else if (action == &jumpToLeAddressHere)
+    else if (action == &jumpToLeAddressHereAction)
         jumpToAddress(leAddress);
-    else if (action == &jumpToBeAddressNewWindow)
+    else if (action == &jumpToBeAddressNewWindowAction)
         emit newWindowRequested(beAddress);
-    else if (action == &jumpToLeAddressNewWindow)
+    else if (action == &jumpToLeAddressNewWindowAction)
         emit newWindowRequested(leAddress);
+    else if (action == &addWatchpointAction)
+        emit addWatchpointRequested(m_baseAddr + selStart, byteCount);
 }
 
 void BinEditor::setupJumpToMenuAction(QMenu *menu, QAction *actionHere,

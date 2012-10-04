@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -65,8 +63,7 @@ QString QmlFileWizard::fileContents(const QString &) const
     QTextStream str(&contents);
 
     // 100:62 is the 'golden ratio'
-    str << QLatin1String("// import QtQuick 1.0 // to target S60 5th Edition or Maemo 5\n")
-        << QLatin1String("import QtQuick 1.1\n")
+    str << QLatin1String("import QtQuick 1.1\n")
         << QLatin1String("\n")
         << QLatin1String("Rectangle {\n")
         << QLatin1String("    width: 100\n")

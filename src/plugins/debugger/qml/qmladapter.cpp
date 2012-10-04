@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -88,19 +86,6 @@ void QmlAdapter::beginConnectionTcp(const QString &address, quint16 port)
     showConnectionStatusMessage(tr("Connecting to debug server %1:%2").arg(address).arg(
                                     QString::number(port)));
     m_conn->connectToHost(address, port);
-
-    //A timeout to check the connection state
-    m_connectionTimer.start();
-}
-
-void QmlAdapter::beginConnectionOst(const QString &channel)
-{
-    if (m_engine.isNull()
-            || (m_conn && m_conn->state() != QAbstractSocket::UnconnectedState))
-        return;
-
-    showConnectionStatusMessage(tr("Connecting to debug server on %1").arg(channel));
-    m_conn->connectToOst(channel);
 
     //A timeout to check the connection state
     m_connectionTimer.start();

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,6 +36,7 @@
 
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/icore.h>
+#include <utils/hostosinfo.h>
 
 #include <QAction>
 #include <QHBoxLayout>
@@ -145,17 +144,17 @@ ExternalHelpWindow::ExternalHelpWindow(QWidget *parent)
         tr("Show Sidebar"), this);
     connect(action, SIGNAL(triggered()), this, SIGNAL(showHideSidebar()));
 
-#ifdef Q_OS_MAC
-    reset->setShortcut(QKeySequence(Qt::ALT + Qt::Key_0));
-    action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_0));
-    ctrlTab->setShortcut(QKeySequence(Qt::ALT + Qt::Key_Tab));
-    ctrlShiftTab->setShortcut(QKeySequence(Qt::ALT + Qt::SHIFT + Qt::Key_Tab));
-#else
-    reset->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_0));
-    action->setShortcut(QKeySequence(Qt::ALT + Qt::Key_0));
-    ctrlTab->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_Tab));
-    ctrlShiftTab->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_Tab));
-#endif
+    if (Utils::HostOsInfo::isMacHost()) {
+        reset->setShortcut(QKeySequence(Qt::ALT + Qt::Key_0));
+        action->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_0));
+        ctrlTab->setShortcut(QKeySequence(Qt::ALT + Qt::Key_Tab));
+        ctrlShiftTab->setShortcut(QKeySequence(Qt::ALT + Qt::SHIFT + Qt::Key_Tab));
+    } else {
+        reset->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_0));
+        action->setShortcut(QKeySequence(Qt::ALT + Qt::Key_0));
+        ctrlTab->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_Tab));
+        ctrlShiftTab->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_Tab));
+    }
 
     QToolButton *button = new QToolButton;
     button->setDefaultAction(action);

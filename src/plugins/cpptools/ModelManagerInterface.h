@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -109,7 +107,7 @@ public:
         ProjectInfo()
         { }
 
-        ProjectInfo(QWeakPointer<ProjectExplorer::Project> project)
+        ProjectInfo(QPointer<ProjectExplorer::Project> project)
             : m_project(project)
         { }
 
@@ -122,7 +120,7 @@ public:
         bool isNull() const
         { return m_project.isNull(); }
 
-        QWeakPointer<ProjectExplorer::Project> project() const
+        QPointer<ProjectExplorer::Project> project() const
         { return m_project; }
 
         const QList<ProjectPart::Ptr> projectParts() const
@@ -144,7 +142,7 @@ public:
         { return m_defines; }
 
     private: // attributes
-        QWeakPointer<ProjectExplorer::Project> m_project;
+        QPointer<ProjectExplorer::Project> m_project;
         QList<ProjectPart::Ptr> m_projectParts;
         // the attributes below are calculated from the project parts.
         QStringList m_includePaths;
@@ -179,7 +177,8 @@ public:
     enum ExtraDiagnosticKind
     {
         AllExtraDiagnostics = -1,
-        ExportedQmlTypesDiagnostic
+        ExportedQmlTypesDiagnostic,
+        CppSemanticsDiagnostic
     };
 
 public:
@@ -208,6 +207,7 @@ public:
                               const QString &replacement = QString()) = 0;
     virtual void findUsages(CPlusPlus::Symbol *symbol, const CPlusPlus::LookupContext &context) = 0;
 
+    virtual void renameMacroUsages(const CPlusPlus::Macro &macro, const QString &replacement = QString()) = 0;
     virtual void findMacroUsages(const CPlusPlus::Macro &macro) = 0;
 
     virtual void setExtraDiagnostics(const QString &fileName, int key,

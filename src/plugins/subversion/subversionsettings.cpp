@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "subversionsettings.h"
+
+#include <utils/environment.h>
+#include <utils/hostosinfo.h>
 
 #include <QSettings>
 
@@ -49,12 +50,7 @@ enum { defaultTimeOutS = 30, defaultLogCount = 1000 };
 
 static QString defaultCommand()
 {
-    QString rc;
-    rc = QLatin1String("svn");
-#if defined(Q_OS_WIN32)
-    rc.append(QLatin1String(".exe"));
-#endif
-    return rc;
+    return QLatin1String("svn" QTC_HOST_EXE_SUFFIX);
 }
 
 using namespace Subversion::Internal;
@@ -73,6 +69,7 @@ void SubversionSettings::fromSettings(QSettings *settings)
 {
     settings->beginGroup(QLatin1String(groupC));
     svnCommand = settings->value(QLatin1String(commandKeyC), defaultCommand()).toString();
+    svnBinaryPath = Utils::Environment::systemEnvironment().searchInPath(svnCommand);
     useAuthentication = settings->value(QLatin1String(authenticationKeyC), QVariant(false)).toBool();
     user = settings->value(QLatin1String(userKeyC), QString()).toString();
     password =  settings->value(QLatin1String(passwordKeyC), QString()).toString();

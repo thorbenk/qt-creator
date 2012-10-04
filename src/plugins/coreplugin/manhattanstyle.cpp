@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -49,8 +47,6 @@
 #include <QDockWidget>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMainWindow>
-#include <QMenuBar>
 #include <QPainter>
 #include <QPixmap>
 #include <QPixmapCache>
@@ -101,7 +97,6 @@ bool panelWidget(const QWidget *widget)
     while (p) {
         if (qobject_cast<const QToolBar *>(p) ||
             qobject_cast<const QStatusBar *>(p) ||
-            qobject_cast<const QMenuBar *>(p) ||
             p->property("panelwidget").toBool())
             return styleEnabled(widget);
         p = p->parentWidget();
@@ -212,16 +207,12 @@ int ManhattanStyle::pixelMetric(PixelMetric metric, const QStyleOption *option, 
     case PM_DockWidgetHandleExtent:
     case PM_DockWidgetSeparatorExtent:
         return 1;
-    case PM_MenuPanelWidth:
-    case PM_MenuBarHMargin:
-    case PM_MenuBarVMargin:
     case PM_ToolBarFrameWidth:
         if (panelWidget(widget))
             retval = 1;
         break;
     case PM_ButtonShiftVertical:
     case PM_ButtonShiftHorizontal:
-    case PM_MenuBarPanelWidth:
     case PM_ToolBarItemMargin:
     case PM_ToolBarItemSpacing:
         if (panelWidget(widget))
@@ -646,52 +637,6 @@ void ManhattanStyle::drawControl(ControlElement element, const QStyleOption *opt
         }
         break;
 
-    case CE_MenuBarItem:
-        painter->save();
-        if (const QStyleOptionMenuItem *mbi = qstyleoption_cast<const QStyleOptionMenuItem *>(option)) {
-            QColor highlightOutline = Utils::StyleHelper::borderColor().lighter(120);
-            bool act = mbi->state & State_Selected && mbi->state & State_Sunken;
-            bool dis = !(mbi->state & State_Enabled);
-            Utils::StyleHelper::menuGradient(painter, option->rect, option->rect);
-            QStyleOptionMenuItem item = *mbi;
-            item.rect = mbi->rect;
-            QPalette pal = mbi->palette;
-            pal.setBrush(QPalette::ButtonText, dis ? Qt::gray : Qt::black);
-            item.palette = pal;
-            QCommonStyle::drawControl(element, &item, painter, widget);
-            QRect r = option->rect;
-
-            if (act) {
-                // Fill|
-                QColor baseColor = Utils::StyleHelper::baseColor();
-                QLinearGradient grad(option->rect.topLeft(), option->rect.bottomLeft());
-                grad.setColorAt(0, baseColor.lighter(120));
-                grad.setColorAt(1, baseColor.lighter(130));
-                painter->fillRect(option->rect.adjusted(1, 1, -1, 0), grad);
-
-                // Outline
-                painter->setPen(QPen(highlightOutline, 0));
-                painter->drawLine(QPoint(r.left(), r.top() + 1), QPoint(r.left(), r.bottom()));
-                painter->drawLine(QPoint(r.right(), r.top() + 1), QPoint(r.right(), r.bottom()));
-                painter->drawLine(QPoint(r.left() + 1, r.top()), QPoint(r.right() - 1, r.top()));
-                highlightOutline.setAlpha(60);
-                painter->setPen(QPen(highlightOutline, 0));
-                painter->drawPoint(r.topLeft());
-                painter->drawPoint(r.topRight());
-
-                QPalette pal = mbi->palette;
-                uint alignment = Qt::AlignCenter | Qt::TextShowMnemonic | Qt::TextDontClip | Qt::TextSingleLine;
-                if (!styleHint(SH_UnderlineShortcut, mbi, widget))
-                    alignment |= Qt::TextHideMnemonic;
-                pal.setBrush(QPalette::Text, dis ? Qt::gray : QColor(0, 0, 0, 60));
-                drawItemText(painter, item.rect.translated(0, 1), alignment, pal, mbi->state & State_Enabled, mbi->text, QPalette::Text);
-                pal.setBrush(QPalette::Text, dis ? Qt::gray : Qt::white);
-                drawItemText(painter, item.rect, alignment, pal, mbi->state & State_Enabled, mbi->text, QPalette::Text);
-            }
-        }
-        painter->restore();
-        break;
-
     case CE_ComboBoxLabel:
         if (const QStyleOptionComboBox *cb = qstyleoption_cast<const QStyleOptionComboBox *>(option)) {
             if (panelWidget(widget)) {
@@ -768,15 +713,6 @@ void ManhattanStyle::drawControl(ControlElement element, const QStyleOption *opt
                     sy += s;
                 }
             }
-            painter->restore();
-        }
-        break;
-
-    case CE_MenuBarEmptyArea: {
-            Utils::StyleHelper::menuGradient(painter, option->rect, option->rect);
-            painter->save();
-            painter->setPen(Utils::StyleHelper::borderColor());
-            painter->drawLine(option->rect.bottomLeft(), option->rect.bottomRight());
             painter->restore();
         }
         break;

@@ -15,16 +15,9 @@ def main():
     # Wait for parsing to complete
     waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 300000)
 
-    # Test that some of the expected items are in the navigation tree
-    for row, record in enumerate(testData.dataset("creator_tree.tsv")):
-        node = testData.field(record, "node")
-        value = testData.field(record, "value")
-        test.compare(waitForObject(node).text, value)
-
-    for row, record in enumerate(testData.dataset("speedcrunch_tree.tsv")):
-        node = testData.field(record, "node")
-        value = testData.field(record, "value")
-        test.compare(waitForObject(node).text, value)
+    naviTreeView = "{column='0' container=':Qt Creator_Utils::NavigationTreeView' text='%s' type='QModelIndex'}"
+    compareProjectTree(naviTreeView % "speedcrunch", "projecttree_speedcrunch.tsv")
+    compareProjectTree(naviTreeView % "qtcreator", "projecttree_creator.tsv")
 
     # Now check some basic lookups in the search box
     selectFromLocator(": Qlist::QList", "QList::QList")

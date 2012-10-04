@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,19 +27,18 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "valgrindrunner.h"
 #include "valgrindprocess.h"
 
+#include <utils/environment.h>
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
-#include <utils/environment.h>
-#include <utils/ssh/sshconnection.h>
-#include <utils/ssh/sshremoteprocess.h>
+#include <ssh/sshconnection.h>
+#include <ssh/sshremoteprocess.h>
 
 #include <QEventLoop>
 
@@ -70,7 +69,7 @@ public:
     QString debuggeeArguments;
     QString workingdir;
     Analyzer::StartMode startMode;
-    Utils::SshConnectionParameters connParams;
+    QSsh::SshConnectionParameters connParams;
 };
 
 void ValgrindRunner::Private::run(ValgrindProcess *_process)
@@ -95,10 +94,9 @@ void ValgrindRunner::Private::run(ValgrindProcess *_process)
     QStringList valgrindArgs = valgrindArguments;
     valgrindArgs << QString("--tool=%1").arg(q->tool());
 
-#ifdef Q_OS_MAC
-    // May be slower to start but without it we get no filenames for symbols.
-    valgrindArgs << QLatin1String("--dsymutil=yes");
-#endif
+    if (Utils::HostOsInfo::isMacHost())
+        // May be slower to start but without it we get no filenames for symbols.
+        valgrindArgs << QLatin1String("--dsymutil=yes");
 
     QObject::connect(process, SIGNAL(processOutput(QByteArray,Utils::OutputFormat)),
             q, SIGNAL(processOutputReceived(QByteArray,Utils::OutputFormat)));
@@ -178,12 +176,12 @@ void ValgrindRunner::setStartMode(Analyzer::StartMode startMode)
     d->startMode = startMode;
 }
 
-const Utils::SshConnectionParameters &ValgrindRunner::connectionParameters() const
+const QSsh::SshConnectionParameters &ValgrindRunner::connectionParameters() const
 {
     return d->connParams;
 }
 
-void ValgrindRunner::setConnectionParameters(const Utils::SshConnectionParameters &connParams)
+void ValgrindRunner::setConnectionParameters(const QSsh::SshConnectionParameters &connParams)
 {
     d->connParams = connParams;
 }

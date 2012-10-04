@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -74,7 +72,7 @@ QtQuickAppWizardDialog::QtQuickAppWizardDialog(QWidget *parent,
                                                QtQuickAppWizard::Kind kind)
     : AbstractMobileAppWizardDialog(parent,
                                     QtSupport::QtVersionNumber(4, 7, 0),
-                                    QtSupport::QtVersionNumber(4, INT_MAX, INT_MAX), parameters)
+                                    QtSupport::QtVersionNumber(5, INT_MAX, INT_MAX), parameters)
 {
     setWindowTitle(tr("New Qt Quick Application"));
     setIntroDescription(tr("This wizard generates a Qt Quick application project."));
@@ -88,8 +86,9 @@ QtQuickAppWizardDialog::QtQuickAppWizardDialog(QWidget *parent,
     AbstractMobileAppWizardDialog::addMobilePages();
 
     if (kind == QtQuickAppWizard::ImportQml) {
-        m_componentItem->setNextItems(QList<Utils::WizardProgressItem *>()
-                                      << targetsPageItem());
+        if (targetsPageItem())
+            m_componentItem->setNextItems(QList<Utils::WizardProgressItem *>()
+                                          << targetsPageItem());
     }
 }
 
@@ -144,22 +143,21 @@ void QtQuickAppWizard::createInstances(ExtensionSystem::IPlugin *plugin)
     basicFeatures = Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK_1);
 
     parameter = base;
-    parameter.setDisplayName(tr("Qt Quick Application (Built-in Elements)"));
-    parameter.setDescription(basicDescription + tr("The built-in elements in the QtQuick namespace allow "
+    parameter.setDisplayName(tr("Qt Quick 1 Application (Built-in Elements)"));
+    parameter.setDescription(basicDescription + tr("The built-in elements in the QtQuick 1 namespace allow "
                                                    "you to write cross-platform applications with "
                                                    "a custom look and feel.\n\nRequires <b>Qt 4.7.0</b> or newer."));
     parameter.setRequiredFeatures(basicFeatures);
     list << parameter;
 
     parameter = base;
-    parameter.setDisplayName(tr("Qt Quick Application for Symbian"));
-    parameter.setDescription(basicDescription +  tr("The Qt Quick Components for Symbian are a set of "
-                                                    "ready-made components that are designed with specific "
-                                                    "native appearance for the Symbian platform.\n\nRequires "
-                                                    "<b>Qt 4.7.4</b> or newer, and the component set installed for "
-                                                    "your Qt version."));
-    parameter.setRequiredFeatures(basicFeatures | Core::Feature(QtSupport::Constants::FEATURE_QTQUICK_COMPONENTS_SYMBIAN)
-                                  | QtSupport::Constants::FEATURE_QT_QUICK_1_1);
+    parameter.setDisplayName(tr("Qt Quick 2 Application (Built-in Elements)"));
+    parameter.setDescription(tr("Creates a Qt Quick application project that can contain "
+                                "both QML and C++ code and includes a QQuickView.\n\n"
+                                "The built-in elements in the QtQuick 2 namespace allow "
+                                "you to write cross-platform applications with "
+                                "a custom look and feel.\n\nRequires <b>Qt 5.0</b> or newer."));
+    parameter.setRequiredFeatures(Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK_2));
     list << parameter;
 
     parameter = base;
@@ -213,10 +211,6 @@ AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWid
         d->app->setComponentSet(QtQuickApp::QtQuick10Components);
         d->app->setMainQml(QtQuickApp::ModeGenerate);
         break;
-    case SymbianComponents:
-        d->app->setComponentSet(QtQuickApp::Symbian11Components);
-        d->app->setMainQml(QtQuickApp::ModeGenerate);
-        break;
     case MeegoComponents:
         d->app->setComponentSet(QtQuickApp::Meego10Components);
         d->app->setMainQml(QtQuickApp::ModeGenerate);
@@ -224,6 +218,10 @@ AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWid
     case ImportQml:
         d->app->setComponentSet(QtQuickApp::QtQuick10Components);
         d->app->setMainQml(QtQuickApp::ModeImport);
+        break;
+    case QtQuick2_0:
+        d->app->setComponentSet(QtQuickApp::QtQuick20Components);
+        d->app->setMainQml(QtQuickApp::ModeGenerate);
         break;
     default:
         qWarning() << "QtQuickAppWizard illegal subOption:" << qtQuickKind();
@@ -235,7 +233,8 @@ AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWid
 
 void QtQuickAppWizard::projectPathChanged(const QString &path) const
 {
-    d->wizardDialog->targetsPage()->setProFilePath(path);
+    if (d->wizardDialog->targetsPage())
+        d->wizardDialog->targetsPage()->setProFilePath(path);
 }
 
 void QtQuickAppWizard::prepareGenerateFiles(const QWizard *w,

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maddedevicetester.h"
@@ -34,14 +32,14 @@
 #include "maemoconstants.h"
 #include "maemoglobal.h"
 
-#include <remotelinux/linuxdeviceconfiguration.h>
+#include <remotelinux/linuxdevice.h>
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshremoteprocessrunner.h>
+#include <ssh/sshremoteprocessrunner.h>
 
 #include <QRegExp>
 
 using namespace RemoteLinux;
-using namespace Utils;
+using namespace QSsh;
 
 namespace Madde {
 namespace Internal {
@@ -61,7 +59,7 @@ MaddeDeviceTester::~MaddeDeviceTester()
 {
 }
 
-void MaddeDeviceTester::testDevice(const LinuxDeviceConfiguration::ConstPtr &deviceConfiguration)
+void MaddeDeviceTester::testDevice(const ProjectExplorer::IDevice::ConstPtr &deviceConfiguration)
 {
     QTC_ASSERT(m_state == Inactive, return);
 
@@ -110,25 +108,13 @@ void MaddeDeviceTester::handleGenericTestFinished(TestResult result)
     if (!m_processRunner)
         m_processRunner = new SshRemoteProcessRunner(this);
     connect(m_processRunner, SIGNAL(connectionError()), SLOT(handleConnectionError()));
-    connect(m_processRunner, SIGNAL(processOutputAvailable(QByteArray)),
-        SLOT(handleStdout(QByteArray)));
-    connect(m_processRunner, SIGNAL(processErrorOutputAvailable(QByteArray)),
-        SLOT(handleStderr(QByteArray)));
     connect(m_processRunner, SIGNAL(processClosed(int)), SLOT(handleProcessFinished(int)));
 
-    QString qtInfoCmd;
-    if (m_deviceConfiguration->type() == Core::Id(MeeGoOsType)) {
-        qtInfoCmd = QLatin1String("rpm -qa 'libqt*' --queryformat '%{NAME} %{VERSION}\\n'");
-    } else {
-        qtInfoCmd = QLatin1String("dpkg-query -W -f "
+    const QString qtInfoCmd = QLatin1String("dpkg-query -W -f "
             "'${Package} ${Version} ${Status}\n' 'libqt*' |grep ' installed$'");
-    }
-
     emit progressMessage(tr("Checking for Qt libraries..."));
-    m_stdout.clear();
-    m_stderr.clear();
     m_state = QtTest;
-    m_processRunner->run(qtInfoCmd.toUtf8(), m_genericTester->connection()->connectionParameters());
+    m_processRunner->run(qtInfoCmd.toUtf8(), m_deviceConfiguration->sshParameters());
 }
 
 void MaddeDeviceTester::handleConnectionError()
@@ -139,22 +125,6 @@ void MaddeDeviceTester::handleConnectionError()
         .arg(m_processRunner->lastConnectionErrorString()));
     m_result = TestFailure;
     setFinished();
-}
-
-void MaddeDeviceTester::handleStdout(const QByteArray &data)
-{
-    QTC_ASSERT(m_state == QtTest || m_state == MadDeveloperTest || m_state == QmlToolingTest,
-        return);
-
-    m_stdout += data;
-}
-
-void MaddeDeviceTester::handleStderr(const QByteArray &data)
-{
-    QTC_ASSERT(m_state == QtTest || m_state == MadDeveloperTest || m_state == QmlToolingTest,
-        return);
-
-    m_stderr += data;
 }
 
 void MaddeDeviceTester::handleProcessFinished(int exitStatus)
@@ -176,11 +146,12 @@ void MaddeDeviceTester::handleProcessFinished(int exitStatus)
 
 void MaddeDeviceTester::handleQtTestFinished(int exitStatus)
 {
-    if (exitStatus != SshRemoteProcess::ExitedNormally
+    if (exitStatus != SshRemoteProcess::NormalExit
             || m_processRunner->processExitCode() != 0) {
-        if (!m_stderr.isEmpty()) {
+        const QByteArray stdErr = m_processRunner->readAllStandardError();
+        if (!stdErr.isEmpty()) {
             emit errorMessage(tr("Error checking for Qt libraries: %1\n")
-                .arg(QString::fromUtf8(m_stderr)));
+                .arg(QString::fromUtf8(stdErr)));
         } else {
             emit errorMessage(tr("Error checking for Qt libraries.\n"));
         }
@@ -190,21 +161,19 @@ void MaddeDeviceTester::handleQtTestFinished(int exitStatus)
         emit progressMessage(processedQtLibsList());
     }
 
-    m_stdout.clear();
-    m_stderr.clear();
-
     emit progressMessage(tr("Checking for connectivity support..."));
     m_state = MadDeveloperTest;
     m_processRunner->run(QString(QLatin1String("test -x") + MaemoGlobal::devrootshPath()).toUtf8(),
-        m_genericTester->connection()->connectionParameters());
+        m_deviceConfiguration->sshParameters());
 }
 
 void MaddeDeviceTester::handleMadDeveloperTestFinished(int exitStatus)
 {
-    if (exitStatus != SshRemoteProcess::ExitedNormally) {
-        if (!m_stderr.isEmpty()) {
+    if (exitStatus != SshRemoteProcess::NormalExit) {
+        const QByteArray stdErr = m_processRunner->readAllStandardError();
+        if (!stdErr.isEmpty()) {
             emit errorMessage(tr("Error checking for connectivity tool: %1\n")
-                .arg(QString::fromUtf8(m_stderr)));
+                .arg(QString::fromUtf8(stdErr)));
         } else {
             emit errorMessage(tr("Error checking for connectivity tool.\n"));
         }
@@ -212,7 +181,7 @@ void MaddeDeviceTester::handleMadDeveloperTestFinished(int exitStatus)
     } else if (m_processRunner->processExitCode() != 0) {
         QString message = tr("Connectivity tool not installed on device. "
             "Deployment currently not possible.");
-        if (m_deviceConfiguration->type() == Core::Id(HarmattanOsType)) {
+        if (m_deviceConfiguration->type() == HarmattanOsType) {
             message += tr("Please switch the device to developer mode "
                 "via Settings -> Security.");
         }
@@ -222,27 +191,24 @@ void MaddeDeviceTester::handleMadDeveloperTestFinished(int exitStatus)
         emit progressMessage(tr("Connectivity tool present.\n"));
     }
 
-    if (m_deviceConfiguration->type() != Core::Id(HarmattanOsType)) {
+    if (m_deviceConfiguration->type() != HarmattanOsType) {
         setFinished();
         return;
     }
 
-    m_stdout.clear();
-    m_stderr.clear();
-
     emit progressMessage(tr("Checking for QML tooling support..."));
     m_state = QmlToolingTest;
     m_processRunner->run(QString(QLatin1String("test -d ")
-        + QLatin1String(QmlToolingDirectory)).toUtf8(),
-        m_genericTester->connection()->connectionParameters());
+        + QLatin1String(QmlToolingDirectory)).toUtf8(), m_deviceConfiguration->sshParameters());
 }
 
 void MaddeDeviceTester::handleQmlToolingTestFinished(int exitStatus)
 {
-    if (exitStatus != SshRemoteProcess::ExitedNormally) {
-        if (!m_stderr.isEmpty()) {
+    if (exitStatus != SshRemoteProcess::NormalExit) {
+        const QByteArray stdErr = m_processRunner->readAllStandardError();
+        if (!stdErr.isEmpty()) {
             emit errorMessage(tr("Error checking for QML tooling support: %1\n")
-                .arg(QString::fromUtf8(m_stderr)));
+                .arg(QString::fromUtf8(stdErr)));
         } else {
             emit errorMessage(tr("Error checking for QML tooling support.\n"));
         }
@@ -260,13 +226,10 @@ void MaddeDeviceTester::handleQmlToolingTestFinished(int exitStatus)
 
 QString MaddeDeviceTester::processedQtLibsList()
 {
-    QString unfilteredLibs = QString::fromUtf8(m_stdout);
+    QString unfilteredLibs = QString::fromUtf8(m_processRunner->readAllStandardOutput());
     QString filteredLibs;
-    QString patternString;
-    if (m_deviceConfiguration->type() == Core::Id(MeeGoOsType))
-        patternString = QLatin1String("(libqt\\S+) ((\\d+)\\.(\\d+)\\.(\\d+))");
-    else
-        patternString = QLatin1String("(\\S+) (\\S*(\\d+)\\.(\\d+)\\.(\\d+)\\S*) \\S+ \\S+ \\S+");
+    const QString patternString
+            = QLatin1String("(\\S+) (\\S*(\\d+)\\.(\\d+)\\.(\\d+)\\S*) \\S+ \\S+ \\S+");
     QRegExp packagePattern(patternString);
     int index = packagePattern.indexIn(unfilteredLibs);
     if (index == -1)

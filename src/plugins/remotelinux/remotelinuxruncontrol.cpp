@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,17 +24,17 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "remotelinuxruncontrol.h"
 
-#include "remotelinuxapplicationrunner.h"
 #include "remotelinuxrunconfiguration.h"
 
+#include <projectexplorer/devicesupport/deviceapplicationrunner.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/target.h>
 #include <utils/qtcassert.h>
 
 #include <QString>
@@ -44,120 +44,107 @@ using namespace ProjectExplorer;
 
 namespace RemoteLinux {
 
-using ProjectExplorer::RunConfiguration;
-
-AbstractRemoteLinuxRunControl::AbstractRemoteLinuxRunControl(RunConfiguration *rc)
-    : RunControl(rc, ProjectExplorer::NormalRunMode)
-    , m_running(false)
+class RemoteLinuxRunControl::RemoteLinuxRunControlPrivate
 {
-}
+public:
+    bool running;
+    ProjectExplorer::DeviceApplicationRunner runner;
+    IDevice::ConstPtr device;
+    QString remoteExecutable;
+    QString arguments;
+    QString prefix;
+};
 
-AbstractRemoteLinuxRunControl::~AbstractRemoteLinuxRunControl()
+RemoteLinuxRunControl::RemoteLinuxRunControl(RunConfiguration *rc)
+        : RunControl(rc, ProjectExplorer::NormalRunMode), d(new RemoteLinuxRunControlPrivate)
 {
-}
-
-void AbstractRemoteLinuxRunControl::start()
-{
-    m_running = true;
-    emit started();
-    disconnect(runner(), 0, this, 0);
-    connect(runner(), SIGNAL(error(QString)), SLOT(handleSshError(QString)));
-    connect(runner(), SIGNAL(readyForExecution()), SLOT(startExecution()));
-    connect(runner(), SIGNAL(remoteErrorOutput(QByteArray)),
-        SLOT(handleRemoteErrorOutput(QByteArray)));
-    connect(runner(), SIGNAL(remoteOutput(QByteArray)),
-        SLOT(handleRemoteOutput(QByteArray)));
-    connect(runner(), SIGNAL(remoteProcessStarted()),
-        SLOT(handleRemoteProcessStarted()));
-    connect(runner(), SIGNAL(remoteProcessFinished(qint64)),
-        SLOT(handleRemoteProcessFinished(qint64)));
-    connect(runner(), SIGNAL(reportProgress(QString)),
-        SLOT(handleProgressReport(QString)));
-    runner()->start();
-}
-
-RunControl::StopResult AbstractRemoteLinuxRunControl::stop()
-{
-    runner()->stop();
-    return AsynchronousStop;
-}
-
-void AbstractRemoteLinuxRunControl::handleSshError(const QString &error)
-{
-    handleError(error);
-    setFinished();
-}
-
-void AbstractRemoteLinuxRunControl::startExecution()
-{
-    appendMessage(tr("Starting remote process...\n"), Utils::NormalMessageFormat);
-    runner()->startExecution(QString::fromLatin1("%1 %2 %3")
-        .arg(runner()->commandPrefix())
-        .arg(runner()->remoteExecutable())
-        .arg(runner()->arguments()).toUtf8());
-}
-
-void AbstractRemoteLinuxRunControl::handleRemoteProcessFinished(qint64 exitCode)
-{
-    if (exitCode != AbstractRemoteLinuxApplicationRunner::InvalidExitCode) {
-        appendMessage(tr("Finished running remote process. Exit code was %1.\n")
-            .arg(exitCode), Utils::NormalMessageFormat);
-    }
-    setFinished();
-}
-
-void AbstractRemoteLinuxRunControl::handleRemoteOutput(const QByteArray &output)
-{
-    appendMessage(QString::fromUtf8(output), Utils::StdOutFormatSameLine);
-}
-
-void AbstractRemoteLinuxRunControl::handleRemoteErrorOutput(const QByteArray &output)
-{
-    appendMessage(QString::fromUtf8(output), Utils::StdErrFormatSameLine);
-}
-
-void AbstractRemoteLinuxRunControl::handleProgressReport(const QString &progressString)
-{
-    appendMessage(progressString + QLatin1Char('\n'), Utils::NormalMessageFormat);
-}
-
-bool AbstractRemoteLinuxRunControl::isRunning() const
-{
-    return m_running;
-}
-
-QIcon AbstractRemoteLinuxRunControl::icon() const
-{
-    return QIcon(ProjectExplorer::Constants::ICON_RUN_SMALL);
-}
-
-void AbstractRemoteLinuxRunControl::handleError(const QString &errString)
-{
-    stop();
-    appendMessage(errString, Utils::ErrorMessageFormat);
-}
-
-void AbstractRemoteLinuxRunControl::setFinished()
-{
-    disconnect(runner(), 0, this, 0);
-    m_running = false;
-    emit finished();
-}
-
-
-RemoteLinuxRunControl::RemoteLinuxRunControl(ProjectExplorer::RunConfiguration *runConfig)
-    : AbstractRemoteLinuxRunControl(runConfig),
-      m_runner(new GenericRemoteLinuxApplicationRunner(qobject_cast<RemoteLinuxRunConfiguration *>(runConfig), this))
-{
+    d->running = false;
+    d->device = DeviceKitInformation::device(rc->target()->kit());
+    const RemoteLinuxRunConfiguration * const lrc = qobject_cast<RemoteLinuxRunConfiguration *>(rc);
+    d->remoteExecutable = lrc->remoteExecutableFilePath();
+    d->arguments = lrc->arguments();
+    d->prefix = lrc->commandPrefix();
 }
 
 RemoteLinuxRunControl::~RemoteLinuxRunControl()
 {
+    delete d;
 }
 
-AbstractRemoteLinuxApplicationRunner *RemoteLinuxRunControl::runner() const
+void RemoteLinuxRunControl::start()
 {
-    return m_runner;
+    d->running = true;
+    emit started();
+    d->runner.disconnect(this);
+    connect(&d->runner, SIGNAL(reportError(QString)), SLOT(handleErrorMessage(QString)));
+    connect(&d->runner, SIGNAL(remoteStderr(QByteArray)),
+        SLOT(handleRemoteErrorOutput(QByteArray)));
+    connect(&d->runner, SIGNAL(remoteStdout(QByteArray)), SLOT(handleRemoteOutput(QByteArray)));
+    connect(&d->runner, SIGNAL(finished(bool)), SLOT(handleRunnerFinished()));
+    connect(&d->runner, SIGNAL(reportProgress(QString)), SLOT(handleProgressReport(QString)));
+    const QString commandLine = QString::fromLatin1("%1 %2 %3")
+            .arg(d->prefix, d->remoteExecutable, d->arguments);
+    d->runner.start(d->device, commandLine.toUtf8());
+}
+
+RunControl::StopResult RemoteLinuxRunControl::stop()
+{
+    const QString stopCommandLine
+            = d->device->processSupport()->killProcessByNameCommandLine(d->remoteExecutable);
+    d->runner.stop(stopCommandLine.toUtf8());
+    return AsynchronousStop;
+}
+
+void RemoteLinuxRunControl::handleErrorMessage(const QString &error)
+{
+    appendMessage(error, Utils::ErrorMessageFormat);
+}
+
+void RemoteLinuxRunControl::handleRunnerFinished()
+{
+    setFinished();
+}
+
+void RemoteLinuxRunControl::handleRemoteOutput(const QByteArray &output)
+{
+    appendMessage(QString::fromUtf8(output), Utils::StdOutFormatSameLine);
+}
+
+void RemoteLinuxRunControl::handleRemoteErrorOutput(const QByteArray &output)
+{
+    appendMessage(QString::fromUtf8(output), Utils::StdErrFormatSameLine);
+}
+
+void RemoteLinuxRunControl::handleProgressReport(const QString &progressString)
+{
+    appendMessage(progressString + QLatin1Char('\n'), Utils::NormalMessageFormat);
+}
+
+bool RemoteLinuxRunControl::isRunning() const
+{
+    return d->running;
+}
+
+QIcon RemoteLinuxRunControl::icon() const
+{
+    return QIcon(ProjectExplorer::Constants::ICON_RUN_SMALL);
+}
+
+void RemoteLinuxRunControl::setApplicationRunnerPreRunAction(DeviceApplicationHelperAction *action)
+{
+    d->runner.setPreRunAction(action);
+}
+
+void RemoteLinuxRunControl::setApplicationRunnerPostRunAction(DeviceApplicationHelperAction *action)
+{
+    d->runner.setPostRunAction(action);
+}
+
+void RemoteLinuxRunControl::setFinished()
+{
+    d->runner.disconnect(this);
+    d->running = false;
+    emit finished();
 }
 
 } // namespace RemoteLinux

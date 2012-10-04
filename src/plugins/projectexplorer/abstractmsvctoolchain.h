@@ -53,20 +53,16 @@ public:
 
     QByteArray predefinedMacros(const QStringList &cxxflags) const;
     CompilerFlags compilerFlags(const QStringList &cxxflags) const;
-    QList<HeaderPath> systemHeaderPaths() const;
+    QList<HeaderPath> systemHeaderPaths(const Utils::FileName &sysRoot) const;
     void addToEnvironment(Utils::Environment &env) const;
 
-    QString makeCommand() const;
-    void setDebuggerCommand(const Utils::FileName &d);
-
+    QString makeCommand(const Utils::Environment &environment) const;
     Utils::FileName compilerCommand() const;
-    Utils::FileName debuggerCommand() const;
     IOutputParser *outputParser() const;
 
     bool canClone() const;
 
     QString varsBat() const { return m_vcvarsBat; }
-    static QString findInstalledJom();
 
     bool operator ==(const ToolChain &) const;
 

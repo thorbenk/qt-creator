@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,32 +36,27 @@
 #include "cpphighlightingsupport.h"
 #include "cpphighlightingsupportinternal.h"
 #include "abstracteditorsupport.h"
-#ifndef ICHECK_BUILD
-#  include "cpptoolsconstants.h"
-#  include "cpptoolseditorsupport.h"
-#  include "cppfindreferences.h"
-#endif
+#include "cpptoolsconstants.h"
+#include "cpptoolseditorsupport.h"
+#include "cppfindreferences.h"
 
 #include <functional>
 #include <QtConcurrentRun>
-#ifndef ICHECK_BUILD
-#  include <QFutureSynchronizer>
-#  include <utils/runextensions.h>
-#  include <texteditor/itexteditor.h>
-#  include <texteditor/basetexteditor.h>
-#  include <projectexplorer/project.h>
-#  include <projectexplorer/projectexplorer.h>
-#  include <projectexplorer/projectexplorerconstants.h>
-#  include <projectexplorer/session.h>
-#  include <coreplugin/icore.h>
-#  include <coreplugin/mimedatabase.h>
-#  include <coreplugin/editormanager/editormanager.h>
-#  include <coreplugin/progressmanager/progressmanager.h>
-#  include <extensionsystem/pluginmanager.h>
-#else
-#  include <QDir>
-#endif
+#include <QFutureSynchronizer>
+#include <utils/runextensions.h>
+#include <texteditor/itexteditor.h>
+#include <texteditor/basetexteditor.h>
+#include <projectexplorer/project.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/session.h>
+#include <coreplugin/icore.h>
+#include <coreplugin/mimedatabase.h>
+#include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/progressmanager/progressmanager.h>
+#include <extensionsystem/pluginmanager.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <TranslationUnit.h>
@@ -200,7 +193,6 @@ static const char pp_configuration[] =
     "#define __inline inline\n"
     "#define __forceinline inline\n";
 
-#ifndef ICHECK_BUILD
 CppPreprocessor::CppPreprocessor(QPointer<CppModelManager> modelManager, bool dumpFileNameWhileParsing)
     : snapshot(modelManager->snapshot()),
       m_modelManager(modelManager),
@@ -210,16 +202,6 @@ CppPreprocessor::CppPreprocessor(QPointer<CppModelManager> modelManager, bool du
 {
     preprocess.setKeepComments(true);
 }
-
-#else
-
-CppPreprocessor::CppPreprocessor(QPointer<CPlusPlus::ParseManager> modelManager)
-    : preprocess(this, &env),
-      m_dumpFileNameWhileParsing(false),
-      m_revision(0)
-{
-}
-#endif
 
 CppPreprocessor::~CppPreprocessor()
 { }
@@ -237,23 +219,23 @@ void CppPreprocessor::setIncludePaths(const QStringList &includePaths)
     for (int i = 0; i < includePaths.size(); ++i) {
         const QString &path = includePaths.at(i);
 
-#ifdef Q_OS_DARWIN
-        if (i + 1 < includePaths.size() && path.endsWith(QLatin1String(".framework/Headers"))) {
-            const QFileInfo pathInfo(path);
-            const QFileInfo frameworkFileInfo(pathInfo.path());
-            const QString frameworkName = frameworkFileInfo.baseName();
+        if (Utils::HostOsInfo::isMacHost()) {
+            if (i + 1 < includePaths.size() && path.endsWith(QLatin1String(".framework/Headers"))) {
+                const QFileInfo pathInfo(path);
+                const QFileInfo frameworkFileInfo(pathInfo.path());
+                const QString frameworkName = frameworkFileInfo.baseName();
 
-            const QFileInfo nextIncludePath = includePaths.at(i + 1);
-            if (nextIncludePath.fileName() == frameworkName) {
-                // We got a QtXXX.framework/Headers followed by $QTDIR/include/QtXXX.
-                // In this case we prefer to include files from $QTDIR/include/QtXXX.
-                continue;
+                const QFileInfo nextIncludePath = includePaths.at(i + 1);
+                if (nextIncludePath.fileName() == frameworkName) {
+                    // We got a QtXXX.framework/Headers followed by $QTDIR/include/QtXXX.
+                    // In this case we prefer to include files from $QTDIR/include/QtXXX.
+                    continue;
+                }
             }
+            m_includePaths.append(path);
+        } else {
+            m_includePaths.append(path);
         }
-        m_includePaths.append(path);
-#else
-        m_includePaths.append(path);
-#endif
     }
 }
 
@@ -300,7 +282,6 @@ void CppPreprocessor::setProjectFiles(const QStringList &files)
 void CppPreprocessor::setTodo(const QStringList &files)
 { m_todo = QSet<QString>::fromList(files); }
 
-#ifndef ICHECK_BUILD
 namespace {
 class Process: public std::unary_function<Document::Ptr, void>
 {
@@ -335,12 +316,11 @@ public:
     }
 };
 } // end of anonymous namespace
-#endif
 
 void CppPreprocessor::run(const QString &fileName)
 {
     QString absoluteFilePath = fileName;
-    sourceNeeded(absoluteFilePath, IncludeGlobal, /*line = */ 0);
+    sourceNeeded(0, absoluteFilePath, IncludeGlobal);
 }
 
 void CppPreprocessor::resetEnvironment()
@@ -499,12 +479,12 @@ void CppPreprocessor::macroAdded(const Macro &macro)
     m_currentDoc->appendMacro(macro);
 }
 
-void CppPreprocessor::passedMacroDefinitionCheck(unsigned offset, const Macro &macro)
+void CppPreprocessor::passedMacroDefinitionCheck(unsigned offset, unsigned line, const Macro &macro)
 {
     if (! m_currentDoc)
         return;
 
-    m_currentDoc->addMacroUse(macro, offset, macro.name().length(), env.currentLine,
+    m_currentDoc->addMacroUse(macro, offset, macro.name().length(), line,
                               QVector<MacroArgumentReference>());
 }
 
@@ -516,17 +496,23 @@ void CppPreprocessor::failedMacroDefinitionCheck(unsigned offset, const ByteArra
     m_currentDoc->addUndefinedMacroUse(QByteArray(name.start(), name.size()), offset);
 }
 
-void CppPreprocessor::startExpandingMacro(unsigned offset,
+void CppPreprocessor::notifyMacroReference(unsigned offset, unsigned line, const Macro &macro)
+{
+    if (! m_currentDoc)
+        return;
+
+    m_currentDoc->addMacroUse(macro, offset, macro.name().length(), line,
+                              QVector<MacroArgumentReference>());
+}
+
+void CppPreprocessor::startExpandingMacro(unsigned offset, unsigned line,
                                           const Macro &macro,
-                                          const ByteArrayRef &originalText,
                                           const QVector<MacroArgumentReference> &actuals)
 {
     if (! m_currentDoc)
         return;
 
-    //qDebug() << "start expanding:" << macro.name() << "text:" << originalText;
-    m_currentDoc->addMacroUse(macro, offset, originalText.length(), env.currentLine,
-                              actuals);
+    m_currentDoc->addMacroUse(macro, offset, macro.name().length(), line, actuals);
 }
 
 void CppPreprocessor::stopExpandingMacro(unsigned, const Macro &)
@@ -575,7 +561,7 @@ void CppPreprocessor::stopSkippingBlocks(unsigned offset)
         m_currentDoc->stopSkippingBlocks(offset);
 }
 
-void CppPreprocessor::sourceNeeded(QString &fileName, IncludeType type, unsigned line)
+void CppPreprocessor::sourceNeeded(unsigned line, QString &fileName, IncludeType type)
 {
     if (fileName.isEmpty())
         return;
@@ -592,7 +578,7 @@ void CppPreprocessor::sourceNeeded(QString &fileName, IncludeType type, unsigned
 
             Document::DiagnosticMessage d(Document::DiagnosticMessage::Warning,
                                           m_currentDoc->fileName(),
-                                          env.currentLine, /*column = */ 0,
+                                          line, /*column = */ 0,
                                           msg);
 
             m_currentDoc->addDiagnosticMessage(d);
@@ -634,21 +620,11 @@ void CppPreprocessor::sourceNeeded(QString &fileName, IncludeType type, unsigned
     snapshot.insert(doc);
     m_todo.remove(fileName);
 
-#ifndef ICHECK_BUILD
     Process process(m_modelManager, doc, snapshot, m_workingCopy);
 
     process();
 
     (void) switchDocument(previousDoc);
-#else
-    doc->releaseSource();
-    Document::CheckMode mode = Document::FastCheck;
-    mode = Document::FullCheck;
-    doc->parse();
-    doc->check(mode);
-
-    (void) switchDocument(previousDoc);
-#endif
 }
 
 Document::Ptr CppPreprocessor::switchDocument(Document::Ptr doc)
@@ -658,7 +634,6 @@ Document::Ptr CppPreprocessor::switchDocument(Document::Ptr doc)
     return previousDoc;
 }
 
-#ifndef ICHECK_BUILD
 void CppModelManager::updateModifiedSourceFiles()
 {
     const Snapshot snapshot = this->snapshot();
@@ -680,8 +655,8 @@ void CppModelManager::updateModifiedSourceFiles()
 
 CppModelManager *CppModelManager::instance()
 {
-    ExtensionSystem::PluginManager *pluginManager = ExtensionSystem::PluginManager::instance();
-    return pluginManager->getObject<CppModelManager>();
+    // TODO this is pretty stupid. use regular singleton pattern.
+    return ExtensionSystem::PluginManager::getObject<CppModelManager>();
 }
 
 
@@ -753,14 +728,14 @@ CppModelManager::CppModelManager(QObject *parent)
 
     m_completionFallback = new InternalCompletionAssistProvider;
     m_completionAssistProvider = m_completionFallback;
-    ExtensionSystem::PluginManager::instance()->addObject(m_completionAssistProvider);
+    ExtensionSystem::PluginManager::addObject(m_completionAssistProvider);
     m_highlightingFallback = new CppHighlightingSupportInternalFactory;
     m_highlightingFactory = m_highlightingFallback;
 }
 
 CppModelManager::~CppModelManager()
 {
-    ExtensionSystem::PluginManager::instance()->removeObject(m_completionAssistProvider);
+    ExtensionSystem::PluginManager::removeObject(m_completionAssistProvider);
     delete m_completionFallback;
     delete m_highlightingFallback;
 }
@@ -879,6 +854,11 @@ void CppModelManager::renameUsages(CPlusPlus::Symbol *symbol, const CPlusPlus::L
 void CppModelManager::findMacroUsages(const CPlusPlus::Macro &macro)
 {
     m_findReferences->findMacroUses(macro);
+}
+
+void CppModelManager::renameMacroUsages(const CPlusPlus::Macro &macro, const QString &replacement)
+{
+    m_findReferences->renameMacroUses(macro, replacement);
 }
 
 CppModelManager::WorkingCopy CppModelManager::buildWorkingCopyList()
@@ -1203,13 +1183,19 @@ void CppModelManager::updateEditor(Document::Ptr doc)
 
                     QTextCursor c(ed->document()->findBlockByNumber(m.line() - 1));
                     const QString text = c.block().text();
-                    for (int i = 0; i < text.size(); ++i) {
-                        if (! text.at(i).isSpace()) {
-                            c.setPosition(c.position() + i);
-                            break;
+                    if (m.length() > 0 && m.column() + m.length() < (unsigned)text.size()) {
+                        int column = m.column() > 0 ? m.column() - 1 : 0;
+                        c.setPosition(c.position() + column);
+                        c.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, m.length());
+                    } else {
+                        for (int i = 0; i < text.size(); ++i) {
+                            if (! text.at(i).isSpace()) {
+                                c.setPosition(c.position() + i);
+                                break;
+                            }
                         }
+                        c.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
                     }
-                    c.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
                     sel.cursor = c;
                     sel.format.setToolTip(m.text());
                     e.selections.append(sel);
@@ -1448,12 +1434,12 @@ CppCompletionSupport *CppModelManager::completionSupport(Core::IEditor *editor) 
 
 void CppModelManager::setCppCompletionAssistProvider(CppCompletionAssistProvider *completionAssistProvider)
 {
-    ExtensionSystem::PluginManager::instance()->removeObject(m_completionAssistProvider);
+    ExtensionSystem::PluginManager::removeObject(m_completionAssistProvider);
     if (completionAssistProvider)
         m_completionAssistProvider = completionAssistProvider;
     else
         m_completionAssistProvider = m_completionFallback;
-    ExtensionSystem::PluginManager::instance()->addObject(m_completionAssistProvider);
+    ExtensionSystem::PluginManager::addObject(m_completionAssistProvider);
 }
 
 CppHighlightingSupport *CppModelManager::highlightingSupport(Core::IEditor *editor) const
@@ -1503,4 +1489,3 @@ Clang::Indexer *CppModelManager::indexer()
 }
 #endif // CLANG_INDEXING
 
-#endif

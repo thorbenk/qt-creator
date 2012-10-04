@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,33 @@
 #include "customwidgetwidgetswizardpage.h"
 #include "customwidgetpluginwizardpage.h"
 #include "customwidgetwizard.h"
+#include <projectexplorer/projectexplorerconstants.h>
+
+#include <projectexplorer/devicesupport/idevice.h>
+#include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/kitmanager.h>
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtsupportconstants.h>
+
+namespace {
+
+class DesktopQtKitMatcher : public ProjectExplorer::KitMatcher
+{
+public:
+    bool matches(const ProjectExplorer::Kit *k) const
+    {
+        ProjectExplorer::IDevice::ConstPtr dev = ProjectExplorer::DeviceKitInformation::device(k);
+        if (dev.isNull() || dev->id() != ProjectExplorer::Constants::DESKTOP_DEVICE_ID)
+            return false;
+        QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(k);
+        return version && version->type() == QtSupport::Constants::DESKTOPQT;
+    }
+};
+
+} // namespace
 
 namespace Qt4ProjectManager {
 namespace Internal {
@@ -55,7 +80,8 @@ CustomWidgetWizardDialog::CustomWidgetWizardDialog(const QString &templateName,
     setIntroDescription(tr("This wizard generates a Qt4 Designer Custom Widget "
                            "or a Qt4 Designer Custom Widget Collection project."));
 
-    addTargetSetupPage(BaseQt4ProjectWizardDialog::desktopTarget());
+    if (!parameters.extraValues().contains(ProjectExplorer::Constants::PROJECT_KIT_IDS))
+        addTargetSetupPage();
     m_widgetPageId = addPage(m_widgetsPage);
     m_pluginPageId = addPage(m_pluginPage);
     wizardProgress()->item(m_widgetPageId)->setTitle(tr("Custom Widgets"));

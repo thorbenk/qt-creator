@@ -374,10 +374,11 @@ public:
         return __ast;
     }
 
-    EnumSpecifierAST *EnumSpecifier(NameAST *name = 0, EnumeratorListAST *enumerator_list = 0)
+    EnumSpecifierAST *EnumSpecifier(NameAST *name = 0, SpecifierListAST *type_specifier_list = 0, EnumeratorListAST *enumerator_list = 0)
     {
         EnumSpecifierAST *__ast = new (&pool) EnumSpecifierAST;
         __ast->name = name;
+        __ast->type_specifier_list = type_specifier_list;
         __ast->enumerator_list = enumerator_list;
         return __ast;
     }
@@ -447,12 +448,11 @@ public:
         return __ast;
     }
 
-    RangeBasedForStatementAST *RangeBasedForStatement(SpecifierListAST *type_specifier_list = 0, DeclaratorAST *declarator = 0, ExpressionAST *initializer = 0, ExpressionAST *expression = 0, StatementAST *statement = 0)
+    RangeBasedForStatementAST *RangeBasedForStatement(SpecifierListAST *type_specifier_list = 0, DeclaratorAST *declarator = 0, ExpressionAST *expression = 0, StatementAST *statement = 0)
     {
         RangeBasedForStatementAST *__ast = new (&pool) RangeBasedForStatementAST;
         __ast->type_specifier_list = type_specifier_list;
         __ast->declarator = declarator;
-        __ast->initializer = initializer;
         __ast->expression = expression;
         __ast->statement = statement;
         return __ast;
@@ -505,11 +505,11 @@ public:
         return __ast;
     }
 
-    MemInitializerAST *MemInitializer(NameAST *name = 0, ExpressionListAST *expression_list = 0)
+    MemInitializerAST *MemInitializer(NameAST *name = 0, ExpressionAST *expression = 0)
     {
         MemInitializerAST *__ast = new (&pool) MemInitializerAST;
         __ast->name = name;
-        __ast->expression_list = expression_list;
+        __ast->expression = expression;
         return __ast;
     }
 
@@ -578,9 +578,16 @@ public:
         return __ast;
     }
 
-    NewPlacementAST *NewPlacement(ExpressionListAST *expression_list = 0)
+    AliasDeclarationAST *AliasDeclaration(TypeIdAST *typeId = 0)
     {
-        NewPlacementAST *__ast = new (&pool) NewPlacementAST;
+        AliasDeclarationAST *__ast = new (&pool) AliasDeclarationAST;
+        __ast->typeId = typeId;
+        return __ast;
+    }
+
+    ExpressionListParenAST *ExpressionListParen(ExpressionListAST *expression_list = 0)
+    {
+        ExpressionListParenAST *__ast = new (&pool) ExpressionListParenAST;
         __ast->expression_list = expression_list;
         return __ast;
     }
@@ -592,20 +599,13 @@ public:
         return __ast;
     }
 
-    NewExpressionAST *NewExpression(NewPlacementAST *new_placement = 0, ExpressionAST *type_id = 0, NewTypeIdAST *new_type_id = 0, NewInitializerAST *new_initializer = 0)
+    NewExpressionAST *NewExpression(ExpressionListParenAST *new_placement = 0, ExpressionAST *type_id = 0, NewTypeIdAST *new_type_id = 0, ExpressionAST *new_initializer = 0)
     {
         NewExpressionAST *__ast = new (&pool) NewExpressionAST;
         __ast->new_placement = new_placement;
         __ast->type_id = type_id;
         __ast->new_type_id = new_type_id;
         __ast->new_initializer = new_initializer;
-        return __ast;
-    }
-
-    NewInitializerAST *NewInitializer(ExpressionAST *expression = 0)
-    {
-        NewInitializerAST *__ast = new (&pool) NewInitializerAST;
-        __ast->expression = expression;
         return __ast;
     }
 
@@ -678,19 +678,19 @@ public:
         return __ast;
     }
 
-    TypenameCallExpressionAST *TypenameCallExpression(NameAST *name = 0, ExpressionListAST *expression_list = 0)
+    TypenameCallExpressionAST *TypenameCallExpression(NameAST *name = 0, ExpressionAST *expression = 0)
     {
         TypenameCallExpressionAST *__ast = new (&pool) TypenameCallExpressionAST;
         __ast->name = name;
-        __ast->expression_list = expression_list;
+        __ast->expression = expression;
         return __ast;
     }
 
-    TypeConstructorCallAST *TypeConstructorCall(SpecifierListAST *type_specifier_list = 0, ExpressionListAST *expression_list = 0)
+    TypeConstructorCallAST *TypeConstructorCall(SpecifierListAST *type_specifier_list = 0, ExpressionAST *expression = 0)
     {
         TypeConstructorCallAST *__ast = new (&pool) TypeConstructorCallAST;
         __ast->type_specifier_list = type_specifier_list;
-        __ast->expression_list = expression_list;
+        __ast->expression = expression;
         return __ast;
     }
 
@@ -744,6 +744,13 @@ public:
     {
         SizeofExpressionAST *__ast = new (&pool) SizeofExpressionAST;
         __ast->expression = expression;
+        return __ast;
+    }
+
+    AlignofExpressionAST *AlignofExpression(TypeIdAST *typeId = 0)
+    {
+        AlignofExpressionAST *__ast = new (&pool) AlignofExpressionAST;
+        __ast->typeId = typeId;
         return __ast;
     }
 

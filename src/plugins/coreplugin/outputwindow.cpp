@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -75,13 +73,12 @@ OutputWindow::OutputWindow(Core::Context context, QWidget *parent)
     QAction *pasteAction = new QAction(this);
     QAction *selectAllAction = new QAction(this);
 
-    Core::ActionManager *am = ICore::actionManager();
-    am->registerAction(undoAction, Core::Constants::UNDO, context);
-    am->registerAction(redoAction, Core::Constants::REDO, context);
-    am->registerAction(cutAction, Core::Constants::CUT, context);
-    am->registerAction(copyAction, Core::Constants::COPY, context);
-    am->registerAction(pasteAction, Core::Constants::PASTE, context);
-    am->registerAction(selectAllAction, Core::Constants::SELECTALL, context);
+    ActionManager::registerAction(undoAction, Core::Constants::UNDO, context);
+    ActionManager::registerAction(redoAction, Core::Constants::REDO, context);
+    ActionManager::registerAction(cutAction, Core::Constants::CUT, context);
+    ActionManager::registerAction(copyAction, Core::Constants::COPY, context);
+    ActionManager::registerAction(pasteAction, Core::Constants::PASTE, context);
+    ActionManager::registerAction(selectAllAction, Core::Constants::SELECTALL, context);
 
     connect(undoAction, SIGNAL(triggered()), this, SLOT(undo()));
     connect(redoAction, SIGNAL(triggered()), this, SLOT(redo()));

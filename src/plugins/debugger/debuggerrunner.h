@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,35 +55,14 @@ class DebuggerRunControlFactory;
 } // namespace Internal
 
 
-class DEBUGGER_EXPORT ConfigurationCheck
-{
-public:
-    ConfigurationCheck();
-    operator bool() const;
-    QString errorDetailsString() const;
-
-    QString errorMessage;
-    QStringList errorDetails;
-    QString settingsCategory;
-    QString settingsPage;
-    QPair<DebuggerEngineType, DebuggerEngineType> masterSlaveEngineTypes;
-};
-
-DEBUGGER_EXPORT ConfigurationCheck checkDebugConfiguration(const DebuggerStartParameters &sp);
-
-// This is a job description containing all data "local" to the jobs, including
-// the models of the individual debugger views.
 class DEBUGGER_EXPORT DebuggerRunControl
     : public ProjectExplorer::RunControl
 {
     Q_OBJECT
 
 public:
-    typedef ProjectExplorer::RunConfiguration RunConfiguration;
-    explicit DebuggerRunControl(RunConfiguration *runConfiguration,
-                                const DebuggerStartParameters &sp,
-                                const QPair<DebuggerEngineType, DebuggerEngineType> &masterSlaveEngineTypes);
-
+    DebuggerRunControl(ProjectExplorer::RunConfiguration *runConfiguration,
+                       const DebuggerStartParameters &sp);
     ~DebuggerRunControl();
 
     // ProjectExplorer::RunControl
@@ -99,7 +76,7 @@ public:
     void setCustomEnvironment(Utils::Environment env);
     void startFailed();
     void debuggingFinished();
-    RunConfiguration *runConfiguration() const;
+    ProjectExplorer::RunConfiguration *runConfiguration() const;
     DebuggerEngine *engine(); // FIXME: Remove. Only used by Maemo support.
 
     void showMessage(const QString &msg, int channel);
@@ -114,7 +91,7 @@ protected:
     const DebuggerStartParameters &startParameters() const;
 
 private:
-    friend class Internal::DebuggerRunControlFactory;
+    //friend class Internal::DebuggerRunControlFactory;
     Internal::DebuggerRunControlPrivate *d;
 };
 

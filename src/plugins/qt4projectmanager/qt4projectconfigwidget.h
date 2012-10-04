@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -44,7 +42,6 @@ namespace Utils {
 }
 
 namespace Qt4ProjectManager {
-class Qt4BaseTarget;
 class Qt4BuildConfiguration;
 class Qt4ProFileNode;
 
@@ -57,7 +54,7 @@ class Qt4ProjectConfigWidget : public ProjectExplorer::BuildConfigWidget
 {
     Q_OBJECT
 public:
-    explicit Qt4ProjectConfigWidget(Qt4BaseTarget *target);
+    Qt4ProjectConfigWidget(ProjectExplorer::Target *target);
     ~Qt4ProjectConfigWidget();
 
     QString displayName() const;
@@ -68,25 +65,14 @@ private slots:
     void shadowBuildClicked(bool checked);
     void onBeforeBeforeShadowBuildDirBrowsed();
     void shadowBuildEdited();
-    void qtVersionSelected(const QString &);
-    void toolChainSelected(int index);
-    void manageQtVersions();
-    void manageToolChains();
-    void importLabelClicked();
 
     // Changes triggered from creator
-    void qtVersionsChanged();
-    void qtVersionChanged();
     void buildDirectoryChanged();
-    void toolChainChanged();
-    void updateImportLabel();
+    void updateProblemLabel();
     void environmentChanged();
-    void proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool);
-    void updateToolChainCombo();
 
 private:
     void updateDetails();
-    void updateShadowBuildUi();
 
     Ui::Qt4ProjectConfigWidget *m_ui;
     QAbstractButton *m_browseButton;

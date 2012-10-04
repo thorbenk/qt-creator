@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -62,26 +60,9 @@ QString EmbeddedLinuxQtVersion::type() const
     return RemoteLinux::Constants::EMBEDDED_LINUX_QT;
 }
 
-QString EmbeddedLinuxQtVersion::warningReason() const
-{
-    if (qtAbis().count() == 1 && qtAbis().first().isNull())
-        return QCoreApplication::translate("QtVersion", "ABI detection failed: Make sure to use a matching tool chain when building.");
-    return QString();
-}
-
 QList<ProjectExplorer::Abi> EmbeddedLinuxQtVersion::detectQtAbis() const
 {
     return qtAbisFromLibrary(qtCorePath(versionInfo(), qtVersionString()));
-}
-
-bool EmbeddedLinuxQtVersion::supportsTargetId(const Core::Id id) const
-{
-    return id == Core::Id(Constants::EMBEDDED_LINUX_TARGET_ID);
-}
-
-QSet<Core::Id> EmbeddedLinuxQtVersion::supportedTargetIds() const
-{
-    return QSet<Core::Id>() << Core::Id(Constants::EMBEDDED_LINUX_TARGET_ID);
 }
 
 QString EmbeddedLinuxQtVersion::description() const

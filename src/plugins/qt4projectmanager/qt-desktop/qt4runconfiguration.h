@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef QT4RUNCONFIGURATION_H
 #define QT4RUNCONFIGURATION_H
+
+#include "qmakerunconfigurationfactory.h"
 
 #include <projectexplorer/applicationrunconfiguration.h>
 
@@ -61,7 +61,6 @@ namespace ProjectExplorer {
 namespace Qt4ProjectManager {
 
 class Qt4Project;
-class Qt4BaseTarget;
 class Qt4ProFileNode;
 class Qt4PriFileNode;
 
@@ -76,10 +75,8 @@ class Qt4RunConfiguration : public ProjectExplorer::LocalApplicationRunConfigura
     friend class Qt4RunConfigurationFactory;
 
 public:
-    Qt4RunConfiguration(Qt4BaseTarget *parent, const QString &proFilePath);
+    Qt4RunConfiguration(ProjectExplorer::Target *parent, Core::Id id);
     virtual ~Qt4RunConfiguration();
-
-    Qt4BaseTarget *qt4Target() const;
 
     virtual bool isEnabled() const;
     virtual QString disabledReason() const;
@@ -87,6 +84,7 @@ public:
 
     virtual QString executable() const;
     virtual RunMode runMode() const;
+    bool forcedGuiMode() const;
     virtual QString workingDirectory() const;
     virtual QString commandLineArguments() const;
     virtual Utils::Environment environment() const;
@@ -115,10 +113,11 @@ signals:
     void effectiveTargetInformationChanged();
 
 private slots:
-    void proFileUpdated(Qt4ProjectManager::Qt4ProFileNode *pro, bool success, bool parseInProgress);
+    void kitChanged();
+    void kitUpdated(Qt4ProjectManager::Qt4ProFileNode *pro, bool success, bool parseInProgress);
 
 protected:
-    Qt4RunConfiguration(Qt4BaseTarget *parent, Qt4RunConfiguration *source);
+    Qt4RunConfiguration(ProjectExplorer::Target *parent, Qt4RunConfiguration *source);
     virtual bool fromMap(const QVariantMap &map);
 
 private:
@@ -146,6 +145,7 @@ private:
 
     // Cached startup sub project information
     ProjectExplorer::LocalApplicationRunConfiguration::RunMode m_runMode;
+    bool m_forcedGuiMode;
     bool m_userSetName;
     bool m_isUsingDyldImageSuffix;
     QString m_userWorkingDirectory;
@@ -204,23 +204,27 @@ private:
     bool m_isShown;
 };
 
-class Qt4RunConfigurationFactory : public ProjectExplorer::IRunConfigurationFactory
+class Qt4RunConfigurationFactory : public QmakeRunConfigurationFactory
 {
     Q_OBJECT
 
 public:
     explicit Qt4RunConfigurationFactory(QObject *parent = 0);
-    virtual ~Qt4RunConfigurationFactory();
+    ~Qt4RunConfigurationFactory();
 
-    virtual bool canCreate(ProjectExplorer::Target *parent, const Core::Id id) const;
-    virtual ProjectExplorer::RunConfiguration *create(ProjectExplorer::Target *parent, const Core::Id id);
-    virtual bool canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const;
-    virtual ProjectExplorer::RunConfiguration *restore(ProjectExplorer::Target *parent, const QVariantMap &map);
-    virtual bool canClone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *source) const;
-    virtual ProjectExplorer::RunConfiguration *clone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *source);
+    bool canCreate(ProjectExplorer::Target *parent, const Core::Id id) const;
+    ProjectExplorer::RunConfiguration *create(ProjectExplorer::Target *parent, const Core::Id id);
+    bool canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const;
+    ProjectExplorer::RunConfiguration *restore(ProjectExplorer::Target *parent, const QVariantMap &map);
+    bool canClone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *source) const;
+    ProjectExplorer::RunConfiguration *clone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *source);
 
     QList<Core::Id> availableCreationIds(ProjectExplorer::Target *parent) const;
     QString displayNameForId(const Core::Id id) const;
+
+    bool canHandle(ProjectExplorer::Target *t) const;
+    QList<ProjectExplorer::RunConfiguration *> runConfigurationsForNode(ProjectExplorer::Target *t,
+                                                                        ProjectExplorer::Node *n);
 };
 
 } // namespace Internal

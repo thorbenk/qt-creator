@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -70,10 +68,13 @@ public:
 
     QString deviceSerialNumber();
     int deviceAPILevel();
-    QString localLibsRulesFilePath();
+    Utils::FileName localLibsRulesFilePath();
 
     AndroidDeployAction deployAction();
     bool useLocalQtLibs();
+
+    bool fromMap(const QVariantMap &map);
+    QVariantMap toMap() const;
 
 public slots:
     void setDeployAction(AndroidDeployAction deploy);
@@ -116,7 +117,7 @@ private:
     QString m_packageName;
     QString m_qtVersionSourcePath;
     QtSupport::BaseQtVersion::QmakeBuildConfigs m_qtVersionQMakeBuildConfig;
-    QString m_androidDirPath;
+    Utils::FileName m_androidDirPath;
     QString m_apkPathDebug;
     QString m_apkPathRelease;
     QString m_buildDirectory;

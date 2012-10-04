@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -59,11 +57,6 @@ class FormEditorScene : public QGraphicsScene
     friend class QmlDesigner::FormEditorView;
 
 public:
-    enum PaintMode {
-        NormalMode,
-        AnchorMode
-    };
-
     FormEditorScene(FormEditorWidget *widget, FormEditorView *editorView);
     ~FormEditorScene();
     FormEditorItem *addFormEditorItem(const QmlItemNode &qmlItemNode);
@@ -96,9 +89,6 @@ public:
     FormEditorItem *rootFormEditorItem() const;
 
     void reparentItem(const QmlItemNode &node, const QmlItemNode &newParent);
-
-    PaintMode paintMode() const;
-    void setPaintMode(PaintMode paintMode);
 
     void clearFormEditorItems();
 
@@ -138,7 +128,6 @@ private:
     QWeakPointer<LayerItem> m_formLayerItem;
     QWeakPointer<LayerItem> m_manipulatorLayerItem;
     ModelNode m_dragNode;
-    PaintMode m_paintMode;
     bool m_showBoundingRects;
 };
 

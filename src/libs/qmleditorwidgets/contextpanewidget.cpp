@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "contextpanewidget.h"
+
+#include <utils/hostosinfo.h>
+
 #include <QToolButton>
 #include <QFontComboBox>
 #include <QComboBox>
@@ -50,6 +51,8 @@
 #include "contextpanewidgetrectangle.h"
 #include "customcolordialog.h"
 #include "colorbutton.h"
+
+using namespace Utils;
 
 namespace QmlEditorWidgets {
 
@@ -102,10 +105,14 @@ DragWidget::DragWidget(QWidget *parent) : QFrame(parent)
     m_startPos = QPoint(-1, -1);
     m_pos = QPoint(-1, -1);
 
-    m_dropShadowEffect = new QGraphicsDropShadowEffect;
-    m_dropShadowEffect->setBlurRadius(6);
-    m_dropShadowEffect->setOffset(2, 2);
-    setGraphicsEffect(m_dropShadowEffect);
+    // TODO: The following code should be enabled for OSX
+    // when QTBUG-23205 is fixed
+    if (!HostOsInfo::isMacHost()) {
+        m_dropShadowEffect = new QGraphicsDropShadowEffect;
+        m_dropShadowEffect->setBlurRadius(6);
+        m_dropShadowEffect->setOffset(2, 2);
+        setGraphicsEffect(m_dropShadowEffect);
+    }
 }
 
 void DragWidget::mousePressEvent(QMouseEvent * event)
@@ -123,10 +130,14 @@ void DragWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() ==  Qt::LeftButton) {
         m_startPos = QPoint(-1, -1);
-        m_dropShadowEffect = new QGraphicsDropShadowEffect;
-        m_dropShadowEffect->setBlurRadius(6);
-        m_dropShadowEffect->setOffset(2, 2);
-        setGraphicsEffect(m_dropShadowEffect);
+        // TODO: The following code should be enabled for OSX
+        // when QTBUG-23205 is fixed
+        if (!HostOsInfo::isMacHost()) {
+            m_dropShadowEffect = new QGraphicsDropShadowEffect;
+            m_dropShadowEffect->setBlurRadius(6);
+            m_dropShadowEffect->setOffset(2, 2);
+            setGraphicsEffect(m_dropShadowEffect);
+        }
     }
     QFrame::mouseReleaseEvent(event);
 }
@@ -171,16 +182,14 @@ void DragWidget::protectedMoved()
 
 void DragWidget::leaveEvent(QEvent *)
 {
-#ifdef Q_OS_MAC
-    unsetCursor();
-#endif
+    if (HostOsInfo::isMacHost())
+        unsetCursor();
 }
 
 void DragWidget::enterEvent(QEvent *)
 {
-#ifdef Q_OS_MAC
-    setCursor(Qt::ArrowCursor);
-#endif
+    if (HostOsInfo::isMacHost())
+        setCursor(Qt::ArrowCursor);
 }
 
 ContextPaneWidget::ContextPaneWidget(QWidget *parent) : DragWidget(parent), m_currentWidget(0)
@@ -226,9 +235,8 @@ ContextPaneWidget::ContextPaneWidget(QWidget *parent) : DragWidget(parent), m_cu
     m_disableAction->setCheckable(true);
     connect(m_disableAction.data(), SIGNAL(toggled(bool)), this, SLOT(onDisable(bool)));
     m_pinned = false;
-#ifdef Q_OS_MAC
-    setCursor(Qt::ArrowCursor);
-#endif
+    if (HostOsInfo::isMacHost())
+        setCursor(Qt::ArrowCursor);
 }
 
 ContextPaneWidget::~ContextPaneWidget()
@@ -236,7 +244,7 @@ ContextPaneWidget::~ContextPaneWidget()
     //if the pane was never activated the widget is not in a widget tree
     if (!m_bauhausColorDialog.isNull())
         delete m_bauhausColorDialog.data();
-        m_bauhausColorDialog.clear();
+        m_bauhausColorDialog = 0;
 }
 
 void ContextPaneWidget::activate(const QPoint &pos, const QPoint &alternative, const QPoint &alternative2, bool pinned)

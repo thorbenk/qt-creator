@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -55,12 +53,15 @@ public:
     void updateLineNumber(int lineNumber);
     void updateBlock(const QTextBlock &block);
     void updateFileName(const QString &fileName);
+    void setNote(const QString &note);
+    void updateNote(const QString &note);
     void removedFromEditor();
 
     QString filePath() const;
     QString fileName() const;
     QString path() const;
     QString lineText() const;
+    QString note() const;
 
 private:
     BookmarkManager *m_manager;
@@ -68,6 +69,7 @@ private:
     QString m_onlyFile;
     QString m_path;
     QString m_lineText;
+    QString m_note;
 };
 
 } // namespace Internal

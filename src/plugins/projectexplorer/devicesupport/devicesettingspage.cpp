@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "devicesettingspage.h"
@@ -44,35 +42,11 @@ namespace Internal {
 DeviceSettingsPage::DeviceSettingsPage(QObject *parent)
     : Core::IOptionsPage(parent)
 {
-}
-
-DeviceSettingsPage::~DeviceSettingsPage()
-{
-}
-
-QString DeviceSettingsPage::id() const
-{
-    return pageId();
-}
-
-QString DeviceSettingsPage::displayName() const
-{
-    return tr("Devices");
-}
-
-QString DeviceSettingsPage::category() const
-{
-    return pageCategory();
-}
-
-QString DeviceSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("ProjectExplorer", "Devices");
-}
-
-QIcon DeviceSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(":/projectexplorer/images/MaemoDevice.png"));
+    setId(QLatin1String(Constants::DEVICE_SETTINGS_PAGE_ID));
+    setDisplayName(tr("Devices"));
+    setCategory(QLatin1String(Constants::DEVICE_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("ProjectExplorer", "Devices"));
+    setCategoryIcon(QLatin1String(":/projectexplorer/images/MaemoDevice.png"));
 }
 
 bool DeviceSettingsPage::matches(const QString &searchKeyWord) const
@@ -95,16 +69,6 @@ void DeviceSettingsPage::apply()
 
 void DeviceSettingsPage::finish()
 {
-}
-
-QString DeviceSettingsPage::pageId()
-{
-    return QLatin1String(Constants::DEVICE_SETTINGS_PAGE_ID);
-}
-
-QString DeviceSettingsPage::pageCategory()
-{
-    return QLatin1String(Constants::DEVICE_SETTINGS_CATEGORY);
 }
 
 } // namespace Internal

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,38 +32,27 @@
 #define GDBOPTIONSPAGE_H
 
 #include <coreplugin/dialogs/ioptionspage.h>
-#include <utils/savedaction.h>
-
-namespace ProjectExplorer { class ToolChain; }
+#include <QPointer>
 
 namespace Debugger {
 namespace Internal {
 
-class GdbOptionsPageUi;
+class GdbOptionsPageWidget;
 
 class GdbOptionsPage : public Core::IOptionsPage
 {
     Q_OBJECT
+
 public:
-    explicit GdbOptionsPage();
-
-    virtual QString id() const { return settingsId(); }
-    virtual QString displayName() const;
-    virtual QString category() const;
-    virtual QString displayCategory() const;
-    virtual QIcon categoryIcon() const;
-
-    virtual QWidget *createPage(QWidget *parent);
-    virtual void apply();
-    virtual void finish();
-    virtual bool matches(const QString &) const;
-
-    static QString settingsId();
+    GdbOptionsPage();
+    ~GdbOptionsPage();
+    QWidget *createPage(QWidget *parent);
+    void apply();
+    void finish();
+    bool matches(const QString &) const;
 
 private:
-    GdbOptionsPageUi *m_ui;
-    Utils::SavedActionSet m_group;
-    QString m_searchKeywords;
+    QPointer<GdbOptionsPageWidget> m_widget;
 };
 
 } // namespace Internal

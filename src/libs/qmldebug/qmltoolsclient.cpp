@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,10 +33,11 @@
 //INSPECTOR SERVICE PROTOCOL
 // <HEADER><COMMAND><DATA>
 // <HEADER> : <type{request, response, event}><requestId/eventId>[<response_success_bool>]
-// <COMMAND> : {"enable", "disable", "select", "setAnimationSpeed",
+// <COMMAND> : {"enable", "disable", "select", "reload", "setAnimationSpeed",
 //              "showAppOnTop", "createObject", "destroyObject", "moveObject",
 //              "clearCache"}
 // <DATA> : select: <debugIds_int_list>
+//          reload: <hash<changed_filename_string, filecontents_bytearray>>
 //          setAnimationSpeed: <speed_real>
 //          showAppOnTop: <set_bool>
 //          createObject: <qml_string><parentId_int><imports_string_list><filename_string>
@@ -67,7 +66,8 @@ QmlToolsClient::QmlToolsClient(QmlDebugConnection *client)
       m_connection(client),
       m_requestId(0),
       m_slowDownFactor(1),
-      m_reloadQueryId(-1)
+      m_reloadQueryId(-1),
+      m_destroyObjectQueryId(-1)
 {
     setObjectName(name());
 }
@@ -87,6 +87,13 @@ void QmlToolsClient::messageReceived(const QByteArray &message)
         if ((m_reloadQueryId != -1) && (m_reloadQueryId == requestId) && success)
             emit reloaded();
 
+        if ((m_destroyObjectQueryId != -1) && (m_destroyObjectQueryId == requestId)
+                && success && !ds.atEnd()) {
+            int objectDebugId;
+            ds >> objectDebugId;
+            emit destroyedObject(objectDebugId);
+        }
+
         log(LogReceive, type, QString(QLatin1String("requestId: %1 success: %2"))
             .arg(QString::number(requestId)).arg(QString::number(success)));
     } else if (type == QByteArray(EVENT)) {
@@ -96,12 +103,16 @@ void QmlToolsClient::messageReceived(const QByteArray &message)
             m_currentDebugIds.clear();
             QList<int> debugIds;
             ds >> debugIds;
-            log(LogReceive, type + ':' + event,
-                QString("%1 [list of debug ids]").arg(debugIds.count()));
+
+            QStringList debugIdStrings;
             foreach (int debugId, debugIds) {
-                if (debugId != -1)
+                if (debugId != -1)  {
                     m_currentDebugIds << debugId;
+                    debugIdStrings << QString::number(debugId);
+                }
             }
+            log(LogReceive, type + ':' + event,
+                QString("[%1]").arg(debugIdStrings.join(QLatin1String(","))));
             emit currentObjectsChanged(m_currentDebugIds);
         }
     } else {
@@ -277,6 +288,7 @@ void QmlToolsClient::destroyQmlObject(int debugId)
         return;
     QByteArray message;
     QDataStream ds(&message, QIODevice::WriteOnly);
+    m_destroyObjectQueryId = m_requestId;
     ds << QByteArray(REQUEST) << m_requestId++
        << QByteArray(DESTROY_OBJECT) << debugId;
 
@@ -323,9 +335,9 @@ void QmlToolsClient::log(LogDirection direction,
 {
     QString msg;
     if (direction == LogSend)
-        msg += QLatin1String(" sending ");
+        msg += QLatin1String("sending ");
     else
-        msg += QLatin1String(" receiving ");
+        msg += QLatin1String("receiving ");
 
     msg += message;
     msg += QLatin1Char(' ');

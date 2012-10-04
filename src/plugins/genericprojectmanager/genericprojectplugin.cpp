@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,17 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "genericprojectplugin.h"
+
+#include "genericbuildconfiguration.h"
 #include "genericprojectmanager.h"
 #include "genericprojectwizard.h"
 #include "genericprojectconstants.h"
 #include "genericprojectfileseditor.h"
 #include "genericmakestep.h"
-#include "generictarget.h"
 #include "genericproject.h"
 #include "selectablefilesmodel.h"
 
@@ -54,11 +53,8 @@
 #include <QtPlugin>
 #include <QDebug>
 
-#include <QTreeView>
-#include <QMainWindow>
-
-using namespace GenericProjectManager;
-using namespace GenericProjectManager::Internal;
+namespace GenericProjectManager {
+namespace Internal {
 
 GenericProjectPlugin::GenericProjectPlugin()
     : m_projectFilesEditorFactory(0)
@@ -92,14 +88,14 @@ bool GenericProjectPlugin::initialize(const QStringList &, QString *errorMessage
     addAutoReleasedObject(manager);
     addAutoReleasedObject(new GenericMakeStepFactory);
     addAutoReleasedObject(new GenericProjectWizard);
-    addAutoReleasedObject(new GenericTargetFactory);
+    addAutoReleasedObject(new GenericBuildConfigurationFactory);
 
     const Core::Context projectContext(Constants::PROJECTCONTEXT);
-    Core::ActionManager *am = Core::ICore::actionManager();
     Core::ActionContainer *mproject =
-            am->actionContainer(ProjectExplorer::Constants::M_PROJECTCONTEXT);
+            Core::ActionManager::actionContainer(ProjectExplorer::Constants::M_PROJECTCONTEXT);
     m_editFilesAction = new QAction(tr("Edit Files..."), this);
-    Core::Command *command = am->registerAction(m_editFilesAction, Constants::EDITFILESACTION, projectContext);
+
+    Core::Command *command = Core::ActionManager::registerAction(m_editFilesAction, "GenericProjectManager.EditFiles", projectContext);
     command->setAttribute(Core::Command::CA_Hide);
     mproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_FILES);
     connect(m_editFilesAction, SIGNAL(triggered()), this, SLOT(editFiles()));
@@ -129,4 +125,7 @@ void GenericProjectPlugin::editFiles()
     }
 }
 
-Q_EXPORT_PLUGIN(GenericProjectPlugin)
+} // namespace Internal
+} // namespace GenericProjectManager
+
+Q_EXPORT_PLUGIN(GenericProjectManager::Internal::GenericProjectPlugin)

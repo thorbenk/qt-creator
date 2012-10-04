@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -80,9 +78,25 @@ void Bookmark::updateFileName(const QString &fileName)
     BaseTextMark::updateFileName(fileName);
 }
 
+void Bookmark::setNote(const QString &note)
+{
+    m_note = note;
+}
+
+void Bookmark::updateNote(const QString &note)
+{
+    setNote(note);
+    m_manager->updateBookmark(this);
+}
+
 QString Bookmark::lineText() const
 {
     return m_lineText;
+}
+
+QString Bookmark::note() const
+{
+    return m_note;
 }
 
 QString Bookmark::filePath() const

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,6 +35,7 @@
 #include "debuggercore.h"
 #include "debuggerengine.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
 
@@ -135,10 +134,9 @@ void ModulesTreeView::contextMenuEvent(QContextMenuEvent *ev)
         actShowModuleSymbols->setEnabled(engine->hasCapability(ShowModuleSymbolsCapability));
         actShowDependencies = new QAction(tr("Show Dependencies of \"%1\"").arg(name), &menu);
         actShowDependencies->setEnabled(!fileName.isEmpty());
-#ifndef Q_OS_WIN
-        // FIXME: Dependencies only available on Windows, when "depends" is installed.
-        actShowDependencies->setEnabled(false);
-#endif
+        if (!Utils::HostOsInfo::isWindowsHost())
+            // FIXME: Dependencies only available on Windows, when "depends" is installed.
+            actShowDependencies->setEnabled(false);
     }
 
     menu.addAction(actUpdateModuleList);

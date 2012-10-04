@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,29 +33,30 @@
 
 #include "watchdata.h"
 
-#include <QPointer>
 #include <QHash>
 #include <QSet>
 #include <QStringList>
 #include <QAbstractItemModel>
 
 namespace Debugger {
+
 class DebuggerEngine;
 
 namespace Internal {
 
-class WatchItem;
-class WatchHandler;
-typedef QHash<QString, QStringList> TypeFormats;
+class WatchModel;
 
-enum WatchType
+class UpdateParameters
 {
-    ReturnWatch,
-    LocalsWatch,
-    WatchersWatch,
-    TooltipsWatch,
-    InspectWatch
+public:
+    UpdateParameters() { tryPartial = tooltipOnly = false; }
+
+    bool tryPartial;
+    bool tooltipOnly;
+    QByteArray varList;
 };
+
+typedef QHash<QString, QStringList> TypeFormats;
 
 enum IntegerFormat
 {
@@ -67,126 +66,38 @@ enum IntegerFormat
     OctalFormat
 };
 
-class WatchModel : public QAbstractItemModel
-{
-    Q_OBJECT
-
-private:
-    explicit WatchModel(WatchHandler *handler, WatchType type);
-    virtual ~WatchModel();
-
-public:
-    virtual int rowCount(const QModelIndex &idx = QModelIndex()) const;
-    virtual int columnCount(const QModelIndex &idx) const;
-
-signals:
-    void setCurrentIndex(const QModelIndex &index);
-
-private:
-    QVariant data(const QModelIndex &index, int role) const;
-    bool setData(const QModelIndex &index, const QVariant &value, int role);
-    QModelIndex index(int, int, const QModelIndex &idx) const;
-    QModelIndex parent(const QModelIndex &idx) const;
-    bool hasChildren(const QModelIndex &idx) const;
-    Qt::ItemFlags flags(const QModelIndex &idx) const;
-    QVariant headerData(int section, Qt::Orientation orientation,
-        int role = Qt::DisplayRole) const;
-    bool canFetchMore(const QModelIndex &parent) const;
-    void fetchMore(const QModelIndex &parent);
-
-    void invalidateAll(const QModelIndex &parentIndex = QModelIndex());
-
-    friend class WatchHandler;
-
-    WatchItem *watchItem(const QModelIndex &) const;
-    QModelIndex watchIndex(const WatchItem *needle) const;
-    QModelIndex watchIndexHelper(const WatchItem *needle,
-        const WatchItem *parentItem, const QModelIndex &parentIndex) const;
-
-    void insertData(const WatchData &data);
-    void reinsertAllData();
-    void reinsertAllDataHelper(WatchItem *item, QList<WatchData> *data);
-    void insertBulkData(const QList<WatchData> &data);
-    WatchItem *findItem(const QByteArray &iname, WatchItem *root) const;
-    QString displayForAutoTest(const QByteArray &iname) const;
-    void reinitialize();
-    void removeOutdated();
-    void removeOutdatedHelper(WatchItem *item);
-    WatchItem *rootItem() const;
-    void destroyItem(WatchItem *item);
-
-    void emitDataChanged(int column,
-        const QModelIndex &parentIndex = QModelIndex());
-    void beginCycle(bool fullCycle); // Called at begin of updateLocals() cycle.
-    void endCycle(); // Called after all results have been received.
-
-    friend QDebug operator<<(QDebug d, const WatchModel &m);
-
-    void dump();
-    void dumpHelper(WatchItem *item);
-    void emitAllChanged();
-
-private:
-    QString displayType(const WatchData &typeIn) const;
-    QString formattedValue(const WatchData &data) const;
-    QString removeInitialNamespace(QString str) const;
-    QString removeNamespaces(QString str) const;
-    void formatRequests(QByteArray *out, const WatchItem *item) const;
-    DebuggerEngine *engine() const;
-    QString display(const WatchItem *item, int col) const;
-    int itemFormat(const WatchData &data) const;
-    bool contentIsValid() const;
-    int m_generationCounter;
-
-    WatchHandler *m_handler;
-    WatchType m_type;
-    WatchItem *m_root;
-    QSet<QByteArray> m_fetchTriggered;
-};
-
 class WatchHandler : public QObject
 {
     Q_OBJECT
 
 public:
     explicit WatchHandler(DebuggerEngine *engine);
-    WatchModel *model(WatchType type) const;
-    WatchModel *modelForIName(const QByteArray &iname) const;
+    ~WatchHandler();
+
+    QAbstractItemModel *model() const;
 
     void cleanup();
-    void watchExpression(const QString &exp);
-    void removeWatchExpression(const QString &exp);
+    void watchExpression(const QString &exp, const QString &name = QString());
     Q_SLOT void clearWatches();
-    Q_SLOT void emitAllChanged();
 
-    void beginCycle(bool fullCycle = true); // Called at begin of updateLocals() cycle
     void updateWatchers(); // Called after locals are fetched
-    void endCycle(); // Called after all results have been received
-
-    void beginCycle(WatchType type, bool fullCycle = true);
-    void endCycle(WatchType type);
 
     void showEditValue(const WatchData &data);
 
-    void insertData(const WatchData &data);
-    void insertBulkData(const QList<WatchData> &data);
-    void removeData(const QByteArray &iname);
-    Q_SLOT void reinsertAllData();
-
-    const WatchData *watchData(WatchType type, const QModelIndex &) const;
-    const WatchData *findItem(const QByteArray &iname) const;
+    const WatchData *watchData(const QModelIndex &) const;
+    const WatchData *findData(const QByteArray &iname) const;
+    const WatchData *findCppLocalVariable(const QString &name) const;
     QString displayForAutoTest(const QByteArray &iname) const;
-    QModelIndex itemIndex(const QByteArray &iname) const;
+    bool hasItem(const QByteArray &iname) const;
 
     void loadSessionData();
     void saveSessionData();
     void removeTooltip();
     void rebuildModel();
 
-    bool isExpandedIName(const QByteArray &iname) const
-        { return m_expandedINames.contains(iname); }
-    QSet<QByteArray> expandedINames() const
-        { return m_expandedINames; }
+    bool isExpandedIName(const QByteArray &iname) const;
+    QSet<QByteArray> expandedINames() const;
+
     static QStringList watchedExpressions();
     static QHash<QByteArray, int> watcherNames();
 
@@ -199,7 +110,6 @@ public:
     void addTypeFormats(const QByteArray &type, const QStringList &formats);
     void setTypeFormats(const TypeFormats &typeFormats);
     TypeFormats typeFormats() const;
-    QStringList typeFormatList(const WatchData &data) const;
 
     void setUnprintableBase(int base);
     static int unprintableBase();
@@ -213,7 +123,16 @@ public:
     void resetLocation();
     bool isValidToolTip(const QByteArray &iname) const;
 
-    void setCurrentModelIndex(WatchType modelType, const QModelIndex &index);
+    void setCurrentItem(const QByteArray &iname);
+    void updateWatchersWindow();
+
+    void insertData(const WatchData &data); // Convenience.
+    void insertData(const QList<WatchData> &list);
+    void insertIncompleteData(const WatchData &data);
+    void removeData(const QByteArray &iname);
+    void removeChildren(const QByteArray &iname);
+    void removeAllData();
+    void resetValueCache();
 
 private:
     friend class WatchModel;
@@ -223,25 +142,8 @@ private:
     static void saveTypeFormats();
 
     void setFormat(const QByteArray &type, int format);
-    void updateWatchersWindow();
-    void showInEditorHelper(QString *contents, WatchItem *item, int level);
 
-    bool m_inChange;
-
-    // QWidgets and QProcesses taking care of special displays.
-    typedef QMap<QByteArray, QPointer<QObject> > EditHandlers;
-    EditHandlers m_editHandlers;
-
-    TypeFormats m_reportedTypeFormats;
-
-    // Items expanded in the Locals & Watchers view.
-    QSet<QByteArray> m_expandedINames;
-
-    WatchModel *m_return;
-    WatchModel *m_locals;
-    WatchModel *m_watchers;
-    WatchModel *m_tooltips;
-    WatchModel *m_inspect;
+    WatchModel *m_model;
     DebuggerEngine *m_engine;
 
     int m_watcherCounter;
@@ -252,5 +154,7 @@ private:
 
 } // namespace Internal
 } // namespace Debugger
+
+Q_DECLARE_METATYPE(Debugger::Internal::UpdateParameters)
 
 #endif // DEBUGGER_WATCHHANDLER_H

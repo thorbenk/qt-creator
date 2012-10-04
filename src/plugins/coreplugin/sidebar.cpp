@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -44,6 +42,7 @@
 #include <QLayout>
 #include <QToolBar>
 #include <QAction>
+#include <QPointer>
 #include <QToolButton>
 
 namespace Core {
@@ -82,7 +81,7 @@ struct SideBarPrivate {
     SideBarPrivate() :m_closeWhenEmpty(false) {}
 
     QList<Internal::SideBarWidget*> m_widgets;
-    QMap<QString, QWeakPointer<SideBarItem> > m_itemMap;
+    QMap<QString, QPointer<SideBarItem> > m_itemMap;
     QStringList m_availableItemIds;
     QStringList m_availableItemTitles;
     QStringList m_unavailableItemIds;
@@ -111,7 +110,7 @@ SideBar::SideBar(QList<SideBarItem*> itemList,
 
 SideBar::~SideBar()
 {
-    foreach (const QWeakPointer<SideBarItem> &i, d->m_itemMap)
+    foreach (const QPointer<SideBarItem> &i, d->m_itemMap)
         if (!i.isNull())
             delete i.data();
     delete d;
@@ -119,7 +118,7 @@ SideBar::~SideBar()
 
 QString SideBar::idForTitle(const QString &title) const
 {
-    QMapIterator<QString, QWeakPointer<SideBarItem> > iter(d->m_itemMap);
+    QMapIterator<QString, QPointer<SideBarItem> > iter(d->m_itemMap);
     while(iter.hasNext()) {
         iter.next();
         if (iter.value().data()->title() == title)
@@ -154,7 +153,7 @@ void SideBar::setCloseWhenEmpty(bool value)
 
 void SideBar::makeItemAvailable(SideBarItem *item)
 {
-    typedef QMap<QString, QWeakPointer<SideBarItem> >::const_iterator Iterator;
+    typedef QMap<QString, QPointer<SideBarItem> >::const_iterator Iterator;
 
     const Iterator cend = d->m_itemMap.constEnd();
     for (Iterator it = d->m_itemMap.constBegin(); it != cend ; ++it) {
@@ -268,7 +267,7 @@ void SideBar::saveSettings(QSettings *settings, const QString &name)
             views.append(currentItemId);
     }
     if (views.isEmpty() && d->m_itemMap.size()) {
-        QMapIterator<QString, QWeakPointer<SideBarItem> > iter(d->m_itemMap);
+        QMapIterator<QString, QPointer<SideBarItem> > iter(d->m_itemMap);
         iter.next();
         views.append(iter.key());
     }
@@ -324,7 +323,7 @@ void SideBar::readSettings(QSettings *settings, const QString &name)
 
 void SideBar::activateItem(SideBarItem *item)
 {
-    typedef QMap<QString, QWeakPointer<SideBarItem> >::const_iterator Iterator;
+    typedef QMap<QString, QPointer<SideBarItem> >::const_iterator Iterator;
 
     QString id;
     const Iterator cend = d->m_itemMap.constEnd();

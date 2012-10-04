@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -72,7 +70,17 @@ enum DebuggerEncoding
     Hex2EncodedLocal8BitWithQuotes         = 13,
     JulianDate                             = 14,
     MillisecondsSinceMidnight              = 15,
-    JulianDateAndMillisecondsSinceMidnight = 16
+    JulianDateAndMillisecondsSinceMidnight = 16,
+    Hex2EncodedInt1                        = 17,
+    Hex2EncodedInt2                        = 18,
+    Hex2EncodedInt4                        = 19,
+    Hex2EncodedInt8                        = 20,
+    Hex2EncodedUInt1                       = 21,
+    Hex2EncodedUInt2                       = 22,
+    Hex2EncodedUInt4                       = 23,
+    Hex2EncodedUInt8                       = 24,
+    Hex2EncodedFloat4                      = 25,
+    Hex2EncodedFloat8                      = 26
 };
 
 bool isEditorDebuggable(Core::IEditor *editor);
@@ -92,7 +100,8 @@ QByteArray gdbQuoteTypes(const QByteArray &type);
 bool isFloatType(const QByteArray &type);
 bool isIntOrFloatType(const QByteArray &type);
 bool isIntType(const QByteArray &type);
-bool isSymbianIntType(const QByteArray &type);
+
+QString formatToolTipAddress(quint64 a);
 
 QString quoteUnprintableLatin1(const QByteArray &ba);
 
@@ -100,9 +109,13 @@ QString quoteUnprintableLatin1(const QByteArray &ba);
 bool isCppEditor(Core::IEditor *editor);
 QString cppExpressionAt(TextEditor::ITextEditor *editor, int pos,
                         int *line, int *column, QString *function = 0);
+QString fixCppExpression(const QString &exp);
 QString cppFunctionAt(const QString &fileName, int line);
 // Decode string data as returned by the dumper helpers.
 QString decodeData(const QByteArray &baIn, int encoding);
+// Decode string data as returned by the dumper helpers.
+void decodeArray(WatchData *list, const WatchData &tmplate,
+    const QByteArray &rawData, int encoding);
 
 // Get variables that are not initialized at a certain line
 // of a function from the code model. Shadowed variables will

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -78,7 +76,6 @@
 
 #include <QAction>
 #include <QApplication>
-#include <QMainWindow>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QToolTip>
@@ -269,9 +266,8 @@ public:
 //
 ///////////////////////////////////////////////////////////////////////
 
-QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
-        DebuggerEngine *masterEngine)
-  : DebuggerEngine(startParameters, QmlLanguage, masterEngine)
+QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters)
+  : DebuggerEngine(startParameters)
   , m_adapter(this)
   , m_inspectorAdapter(&m_adapter, this)
   , m_retryOnConnectFail(false)
@@ -279,9 +275,7 @@ QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
 {
     setObjectName(QLatin1String("QmlEngine"));
 
-    ExtensionSystem::PluginManager *pluginManager =
-        ExtensionSystem::PluginManager::instance();
-    pluginManager->addObject(this);
+    ExtensionSystem::PluginManager::addObject(this);
 
     connect(&m_adapter, SIGNAL(connectionError(QAbstractSocket::SocketError)),
         SLOT(connectionError(QAbstractSocket::SocketError)));
@@ -353,11 +347,8 @@ QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters,
 
 QmlEngine::~QmlEngine()
 {
-    ExtensionSystem::PluginManager *pluginManager =
-        ExtensionSystem::PluginManager::instance();
-
-    if (pluginManager->allObjects().contains(this)) {
-        pluginManager->removeObject(this);
+    if (ExtensionSystem::PluginManager::allObjects().contains(this)) {
+        ExtensionSystem::PluginManager::removeObject(this);
     }
 
     QList<Core::IEditor *> editorsToClose;
@@ -403,11 +394,19 @@ void QmlEngine::tryToConnect(quint16 port)
 {
     showMessage(QLatin1String("QML Debugger: No application output received in time, trying to connect ..."), LogStatus);
     m_retryOnConnectFail = true;
-    if (state() == EngineRunRequested
-            && !m_automaticConnect)
-        beginConnection(port);
-    else
+    if (state() == EngineRunRequested) {
+        if (isSlaveEngine()) {
+            // Probably cpp is being debugged and hence we did not get the output yet.
+            if (!masterEngine()->isDying())
+                m_noDebugOutputTimer.start();
+            else
+                appStartupFailed(tr("No application output received in time"));
+        } else {
+            beginConnection(port);
+        }
+    } else {
         m_automaticConnect = true;
+    }
 }
 
 void QmlEngine::beginConnection(quint16 port)
@@ -420,8 +419,6 @@ void QmlEngine::beginConnection(quint16 port)
     QTC_ASSERT(state() == EngineRunRequested, return);
 
     if (port > 0) {
-        QTC_CHECK(startParameters().communicationChannel
-                  == DebuggerStartParameters::CommunicationChannelTcpIp);
         QTC_ASSERT(startParameters().connParams.port == 0
                    || startParameters().connParams.port == port,
                    qWarning() << "Port " << port << "from application output does not match"
@@ -429,16 +426,9 @@ void QmlEngine::beginConnection(quint16 port)
         m_adapter.beginConnectionTcp(startParameters().qmlServerAddress, port);
         return;
     }
-    if (startParameters().communicationChannel
-           == DebuggerStartParameters::CommunicationChannelTcpIp) {
-        // no port from application output, use the one from start parameters ...
-        m_adapter.beginConnectionTcp(startParameters().qmlServerAddress,
-                                        startParameters().qmlServerPort);
-    } else {
-        QTC_CHECK(startParameters().communicationChannel
-                  == DebuggerStartParameters::CommunicationChannelUsb);
-        m_adapter.beginConnectionOst(startParameters().remoteChannel);
-    }
+    // no port from application output, use the one from start parameters ...
+    m_adapter.beginConnectionTcp(startParameters().qmlServerAddress,
+                                 startParameters().qmlServerPort);
 }
 
 void QmlEngine::connectionStartupFailed()
@@ -586,6 +576,8 @@ void QmlEngine::runEngine()
 
     if (!isSlaveEngine()) {
         if (startParameters().startMode == AttachToRemoteServer)
+            m_noDebugOutputTimer.start();
+        else if (startParameters().startMode == AttachToRemoteProcess)
             beginConnection();
         else
             startApplicationLauncher();
@@ -617,24 +609,28 @@ void QmlEngine::stopApplicationLauncher()
     }
 }
 
-void QmlEngine::handleRemoteSetupDone(int gdbServerPort, int qmlPort)
+void QmlEngine::notifyEngineRemoteSetupDone(int gdbServerPort, int qmlPort)
 {
-    Q_UNUSED(gdbServerPort);
-
     if (qmlPort != -1)
         startParameters().qmlServerPort = qmlPort;
 
-    notifyEngineRemoteSetupDone();
+    DebuggerEngine::notifyEngineRemoteSetupDone(gdbServerPort, qmlPort);
     notifyEngineSetupOk();
+
+    // The remote setup can take while especialy with mixed debugging.
+    // Just waiting for 8 seconds is not enough. Increase the timeout
+    // to 60 s
+    // In case we get an output the m_outputParser will start the connection.
+    m_noDebugOutputTimer.setInterval(60000);
 }
 
-void QmlEngine::handleRemoteSetupFailed(const QString &message)
+void QmlEngine::notifyEngineRemoteSetupFailed(const QString &message)
 {
+    DebuggerEngine::notifyEngineRemoteSetupFailed(message);
     if (isMasterEngine())
         QMessageBox::critical(0,tr("Failed to start application"),
             tr("Application startup failed: %1").arg(message));
 
-    notifyEngineRemoteSetupFailed();
     notifyEngineSetupFailed();
 }
 
@@ -666,7 +662,7 @@ void QmlEngine::shutdownEngine()
 
 void QmlEngine::setupEngine()
 {
-    if (startParameters().requestRemoteSetup) {
+    if (startParameters().remoteSetupNeeded) {
         // we need to get the port first
         notifyEngineRequestRemoteSetup();
     } else {
@@ -745,7 +741,7 @@ void QmlEngine::executeNextI()
 void QmlEngine::executeRunToLine(const ContextData &data)
 {
     QTC_ASSERT(state() == InferiorStopOk, qDebug() << state());
-    showStatusMessage(tr("Run to line  %1 (%2) requested...").arg(data.lineNumber).arg(data.fileName), 5000);
+    showStatusMessage(tr("Run to line %1 (%2) requested...").arg(data.lineNumber).arg(data.fileName), 5000);
     resetLocation();
     ContextData modifiedData = data;
     quint32 line = data.lineNumber;
@@ -989,10 +985,11 @@ bool QmlEngine::setToolTipExpression(const QPoint &mousePos,
 void QmlEngine::assignValueInDebugger(const WatchData *data,
     const QString &expression, const QVariant &valueV)
 {
-    if (!expression.isEmpty() && m_adapter.activeDebuggerClient()) {
-        m_adapter.activeDebuggerClient()->assignValueInDebugger(data,
-                                                                   expression,
-                                                                   valueV);
+    if (!expression.isEmpty()) {
+        if (data->isInspect() && m_inspectorAdapter.agent())
+            m_inspectorAdapter.agent()->assignValue(data, expression, valueV);
+        else if (m_adapter.activeDebuggerClient())
+            m_adapter.activeDebuggerClient()->assignValueInDebugger(data, expression, valueV);
     }
 }
 
@@ -1000,7 +997,6 @@ void QmlEngine::updateWatchData(const WatchData &data,
     const WatchUpdateFlags &)
 {
 //    qDebug() << "UPDATE WATCH DATA" << data.toString();
-    //watchHandler()->rebuildModel();
     //showStatusMessage(tr("Stopped."), 5000);
 
     if (data.isInspect()) {
@@ -1020,7 +1016,7 @@ void QmlEngine::updateWatchData(const WatchData &data,
 
 
     if (!data.isSomethingNeeded())
-        watchHandler()->insertData(data);
+        watchHandler()->insertIncompleteData(data);
 }
 
 void QmlEngine::synchronizeWatchers()
@@ -1060,6 +1056,14 @@ bool QmlEngine::hasCapability(unsigned cap) const
         | CreateFullBacktraceCapability
         | WatchpointCapability
         | AddWatcherCapability;*/
+}
+
+void QmlEngine::quitDebugger()
+{
+    m_noDebugOutputTimer.stop();
+    m_automaticConnect = false;
+    m_retryOnConnectFail = false;
+    DebuggerEngine::quitDebugger();
 }
 
 void QmlEngine::inferiorSpontaneousStop()
@@ -1329,10 +1333,9 @@ bool QmlEngine::adjustBreakpointLineAndColumn(
     return success;
 }
 
-QmlEngine *createQmlEngine(const DebuggerStartParameters &sp,
-    DebuggerEngine *masterEngine)
+DebuggerEngine *createQmlEngine(const DebuggerStartParameters &sp)
 {
-    return new QmlEngine(sp, masterEngine);
+    return new QmlEngine(sp);
 }
 
 } // namespace Internal

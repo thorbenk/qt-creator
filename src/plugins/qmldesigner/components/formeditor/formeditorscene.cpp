@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -54,7 +52,7 @@
 #include "formeditornodeinstanceview.h"
 
 #include "resizehandleitem.h"
-#include <QtDebug>
+#include <QDebug>
 
 
 
@@ -63,7 +61,6 @@ namespace QmlDesigner {
 FormEditorScene::FormEditorScene(FormEditorWidget *view, FormEditorView *editorView)
         : QGraphicsScene(),
         m_editorView(editorView),
-        m_paintMode(NormalMode),
         m_showBoundingRects(true)
 {
     setupScene();
@@ -273,9 +270,16 @@ void FormEditorScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
     }
 }
 
+static QTime staticTimer()
+{
+    QTime timer;
+    timer.start();
+    return timer;
+}
+
 void FormEditorScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
-    static QTime time;
+    static QTime time = staticTimer();
 
     if (time.elapsed() > 30) {
         time.restart();
@@ -391,16 +395,6 @@ FormEditorItem* FormEditorScene::rootFormEditorItem() const
      if (hasItemForQmlItemNode(editorView()->rootModelNode()))
          return itemForQmlItemNode(editorView()->rootModelNode());
     return 0;
-}
-
-FormEditorScene::PaintMode FormEditorScene::paintMode() const
-{
-    return m_paintMode;
-}
-
-void FormEditorScene::setPaintMode(PaintMode paintMode)
-{
-    m_paintMode = paintMode;
 }
 
 void FormEditorScene::clearFormEditorItems()

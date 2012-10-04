@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,8 @@
 #define QMLINSPECTORAGENT_H
 
 #include <QObject>
+#include <QStack>
+#include <QTimer>
 
 #include <qmldebug/baseenginedebugclient.h>
 #include <watchdata.h>
@@ -56,13 +56,12 @@ class QmlInspectorAgent : public QObject
 public:
     explicit QmlInspectorAgent(DebuggerEngine *engine, QObject *parent = 0);
 
-
-    void refreshObjectTree();
     void fetchObject(int debugId);
     quint32 queryExpressionResult(int debugId, const QString &expression);
 
+    void assignValue(const WatchData *data, const QString &expression, const QVariant &valueV);
     void updateWatchData(const WatchData &data);
-    void selectObjectInTree(int debugId);
+    bool selectObjectInTree(int debugId);
 
     quint32 setBindingForObject(int objectDebugId,
                                 const QString &propertyName,
@@ -75,11 +74,10 @@ public:
     quint32 resetBindingForObject(int objectDebugId,
                                   const QString &propertyName);
 
-    QList<QmlDebug::ObjectReference> objects() const;
-    QmlDebug::ObjectReference objectForId(int debugId) const;
-    QmlDebug::ObjectReference objectForId(const QString &objectId) const;
-    QmlDebug::ObjectReference objectForLocation(int line, int column) const;
-    QList<QmlDebug::ObjectReference> rootObjects() const { return m_rootObjects; }
+    QmlDebug::ObjectReference objectForName(const QString &objectId) const;
+    QmlDebug::ObjectReference objectForId(int objectDebugId) const;
+    int objectIdForLocation(int line, int column) const;
+    QHash<int, QString> rootObjectIds() const;
     DebugIdHash debugIdHash() const { return m_debugIdHash; }
 
     bool addObjectWatch(int objectDebugId);
@@ -88,46 +86,37 @@ public:
     void removeAllObjectWatches();
 
     void setEngineClient(QmlDebug::BaseEngineDebugClient *client);
+    QString displayName(int objectDebugId) const;
+    int parentIdForObject(int objectDebugId);
+    void reloadEngines();
 
 public slots:
     void fetchContextObjectsForLocation(const QString &file,
                                          int lineNumber, int columnNumber);
+    void queryEngineContext();
+
 signals:
     void objectTreeUpdated();
     void objectFetched(const QmlDebug::ObjectReference &ref);
     void expressionResult(quint32 queryId, const QVariant &value);
     void propertyChanged(int debugId, const QByteArray &propertyName,
                          const QVariant &propertyValue);
+    void automaticUpdateFailed();
 
 private slots:
     void updateStatus();
     void onResult(quint32 queryId, const QVariant &value, const QByteArray &type);
-    void newObjects();
+    void newObject(int engineId, int objectId, int parentId);
+    void onValueChanged(int debugId, const QByteArray &propertyName, const QVariant &value);
 
 private:
-    void reloadEngines();
-    void queryEngineContext(int id);
-    quint32 fetchContextObject(const QmlDebug::ObjectReference &obj);
-    void fetchRootObjects(const QmlDebug::ContextReference &context, bool clear);
+    void fetchObjectsInContextRecursive(const QmlDebug::ContextReference &context);
 
-    void updateEngineList(const QList<QmlDebug::EngineReference> &engines);
-    void rootContextChanged(const QmlDebug::ContextReference &context);
     void objectTreeFetched(const QmlDebug::ObjectReference &result);
-    void onCurrentObjectsFetched(const QmlDebug::ObjectReference &result);
-    bool getObjectHierarchy(const QmlDebug::ObjectReference &object);
-
 
     void buildDebugIdHashRecursive(const QmlDebug::ObjectReference &ref);
     QList<WatchData> buildWatchData(const QmlDebug::ObjectReference &obj,
-                                           const WatchData &parent);
-    void addObjectToTree(const QmlDebug::ObjectReference &obj, bool notify);
-
-    QmlDebug::ObjectReference objectForId(
-            int debugId,
-            const QmlDebug::ObjectReference &ref) const;
-    QList<QmlDebug::ObjectReference> objects(
-            const QmlDebug::ObjectReference &objectRef) const;
-
+                                           const QByteArray &parentIname, bool append);
 
     enum LogDirection {
         LogSend,
@@ -135,24 +124,28 @@ private:
     };
     void log(LogDirection direction, const QString &message);
 
-    bool isConnected();
+    bool isConnected() const;
+    void clearObjectTree();
 
 private:
-    DebuggerEngine *m_engine;
+    DebuggerEngine *m_debuggerEngine;
     QmlDebug::BaseEngineDebugClient *m_engineClient;
 
     quint32 m_engineQueryId;
     quint32 m_rootContextQueryId;
     int m_objectToSelect;
     QList<quint32> m_objectTreeQueryIds;
-    QList<QmlDebug::ObjectReference> m_rootObjects;
-    QList<quint32> m_fetchCurrentObjectsQueryIds;
-    QList<QmlDebug::ObjectReference> m_fetchCurrentObjects;
-    QList<QmlDebug::EngineReference> m_engines;
+    QStack<QmlDebug::ObjectReference> m_objectStack;
+    QmlDebug::EngineReference m_engine;
     QHash<int, QByteArray> m_debugIdToIname;
+    QHash<int, QList<int> > m_debugIdChildIds; // This is for 4.x
+    QHash<int, QmlDebug::FileReference> m_debugIdLocations;
     DebugIdHash m_debugIdHash;
 
     QList<int> m_objectWatches;
+    QList<int> m_fetchDataIds;
+    QTimer m_delayQueryTimer;
+    bool m_newObjectsCreated;
 };
 
 } // Internal

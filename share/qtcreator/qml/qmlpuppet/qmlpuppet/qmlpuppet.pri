@@ -1,13 +1,23 @@
-QT += core gui declarative network
+QT += core gui network
 
-contains (QT_CONFIG, webkit) {
-    QT += webkit
+greaterThan(QT_MAJOR_VERSION, 4) {
+    QT += quick1 quick1-private core-private widgets-private gui-private script-private
+} else {
+    QT += declarative
+}
+
+
+greaterThan(QT_MAJOR_VERSION, 4) {
+} else {
+    contains (QT_CONFIG, webkit) {
+        QT += webkit
+    }
 }
 
 DEFINES += QWEAKPOINTER_ENABLE_ARROW
 
-include (instances/instances.pri)
 include (../instances/instances.pri)
+include (instances/instances.pri)
 include (../commands/commands.pri)
 include (../container/container.pri)
 include (../interfaces/interfaces.pri)
@@ -21,6 +31,6 @@ macx {
     info.output = $$DESTDIR/$${TARGET}.app/Contents/Info.plist
     QMAKE_SUBSTITUTES += info
 } else {
-    target.path  = /bin
+    target.path  = $$QTC_PREFIX/bin
     INSTALLS    += target
 }

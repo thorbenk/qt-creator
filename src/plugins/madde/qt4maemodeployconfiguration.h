@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,11 +32,7 @@
 #define QT4PROJECTMANAGER_QT4DEPLOYCONFIGURATION_H
 
 #include <remotelinux/remotelinuxdeployconfiguration.h>
-
-namespace RemoteLinux {
-class DeployableFilesPerProFile;
-class DeploymentSettingsAssistant;
-}
+#include <utils/fileutils.h>
 
 namespace Madde {
 namespace Internal {
@@ -54,12 +48,12 @@ public:
     QString displayNameForId(const Core::Id id) const;
     bool canCreate(ProjectExplorer::Target *parent, const Core::Id id) const;
     ProjectExplorer::DeployConfiguration *create(ProjectExplorer::Target *parent, const Core::Id id);
-    bool canRestore(ProjectExplorer::Target *parent,
-        const QVariantMap &map) const;
-    ProjectExplorer::DeployConfiguration *restore(ProjectExplorer::Target *parent,
-        const QVariantMap &map);
+    bool canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const;
+    ProjectExplorer::DeployConfiguration *restore(ProjectExplorer::Target *parent, const QVariantMap &map);
     ProjectExplorer::DeployConfiguration *clone(ProjectExplorer::Target *parent,
         ProjectExplorer::DeployConfiguration *product);
+
+    bool canHandle(ProjectExplorer::Target *parent) const;
 };
 
 class Qt4MaemoDeployConfiguration : public RemoteLinux::RemoteLinuxDeployConfiguration
@@ -71,14 +65,19 @@ public:
 
     ProjectExplorer::DeployConfigurationWidget *configurationWidget() const;
 
-    QString localDesktopFilePath(const RemoteLinux::DeployableFilesPerProFile *proFileInfo) const;
-
     static Core::Id fremantleWithPackagingId();
     static Core::Id fremantleWithoutPackagingId();
     static Core::Id harmattanId();
-    static Core::Id meegoId();
+
+private slots:
+    void debianDirChanged(const Utils::FileName &dir);
+    void setupPackaging();
 
 private:
+    void init();
+    void setupDebianPackaging();
+    void addFilesToProject(const QStringList &files);
+
     friend class Internal::Qt4MaemoDeployConfigurationFactory;
 
     Qt4MaemoDeployConfiguration(ProjectExplorer::Target *target, const Core::Id id,

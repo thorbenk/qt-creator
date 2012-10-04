@@ -4,9 +4,13 @@ DEFINES += CORE_LIBRARY
 QT += network \
     script \
     sql
-greaterThan(QT_MAJOR_VERSION, 4): QT += printsupport
 
-CONFIG += help
+greaterThan(QT_MAJOR_VERSION, 4) {
+    QT += help printsupport
+} else {
+    CONFIG += help
+}
+
 include(../../qtcreatorplugin.pri)
 include(../../libs/utils/utils.pri)
 include(../../shared/scriptwrapper/scriptwrapper.pri)
@@ -41,6 +45,7 @@ SOURCES += mainwindow.cpp \
     editormanager/iexternaleditor.cpp \
     actionmanager/actionmanager.cpp \
     actionmanager/command.cpp \
+    actionmanager/commandbutton.cpp \
     actionmanager/actioncontainer.cpp \
     actionmanager/commandsfile.cpp \
     dialogs/saveitemsdialog.cpp \
@@ -96,7 +101,9 @@ SOURCES += mainwindow.cpp \
     featureprovider.cpp \
     idocument.cpp \
     textdocument.cpp \
-    documentmanager.cpp
+    documentmanager.cpp \
+    removefiledialog.cpp \
+    iversioncontrol.cpp
 
 HEADERS += mainwindow.h \
     editmode.h \
@@ -122,6 +129,7 @@ HEADERS += mainwindow.h \
     actionmanager/actioncontainer.h \
     actionmanager/actionmanager.h \
     actionmanager/command.h \
+    actionmanager/commandbutton.h \
     actionmanager/actionmanager_p.h \
     actionmanager/command_p.h \
     actionmanager/actioncontainer_p.h \
@@ -192,7 +200,8 @@ HEADERS += mainwindow.h \
     idocument.h \
     idocumentfactory.h \
     textdocument.h \
-    documentmanager.h
+    documentmanager.h \
+    removefiledialog.h
 
 FORMS += dialogs/newdialog.ui \
     actionmanager/commandmappings.ui \
@@ -203,7 +212,8 @@ FORMS += dialogs/newdialog.ui \
     dialogs/externaltoolconfig.ui \
     variablechooser.ui \
     mimetypesettingspage.ui \
-    mimetypemagicdialog.ui
+    mimetypemagicdialog.ui \
+    removefiledialog.ui
 
 RESOURCES += core.qrc \
     fancyactionbar.qrc
@@ -211,7 +221,7 @@ RESOURCES += core.qrc \
 win32 {
     SOURCES += progressmanager/progressmanager_win.cpp
     greaterThan(QT_MAJOR_VERSION, 4): QT += gui-private # Uses QPlatformNativeInterface.
-    LIBS += -lole32
+    LIBS += -lole32 -luser32
 }
 else:macx {
     HEADERS += macfullscreen.h
@@ -227,7 +237,7 @@ else:unix {
 
     for(imagesize, IMAGE_SIZE_LIST) {
         eval(image$${imagesize}.files = images/logo/$${imagesize}/qtcreator.png)
-        eval(image$${imagesize}.path = /share/icons/hicolor/$${imagesize}x$${imagesize}/apps)
+        eval(image$${imagesize}.path = $$QTC_PREFIX/share/icons/hicolor/$${imagesize}x$${imagesize}/apps)
         INSTALLS += image$${imagesize}
     }
 }

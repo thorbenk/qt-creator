@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,37 +33,19 @@
 
 #include "genericprojectmanager.h"
 #include "genericprojectnodes.h"
-#include "generictarget.h"
 
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectnodes.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/toolchain.h>
-#include <projectexplorer/buildstep.h>
 #include <projectexplorer/buildconfiguration.h>
 #include <coreplugin/idocument.h>
 
 #include <QFuture>
 
-QT_BEGIN_NAMESPACE
-class QComboBox;
-QT_END_NAMESPACE
-
-namespace Utils {
-class PathChooser;
-}
-
-namespace ProjectExplorer {
-class ToolChain;
-}
-
 namespace GenericProjectManager {
 namespace Internal {
 
-class GenericBuildConfiguration;
-class GenericProject;
-class GenericTarget;
-class GenericMakeStep;
 class GenericProjectFile;
 
 class GenericProject : public ProjectExplorer::Project
@@ -74,7 +54,7 @@ class GenericProject : public ProjectExplorer::Project
 
 public:
     GenericProject(Manager *manager, const QString &filename);
-    virtual ~GenericProject();
+    ~GenericProject();
 
     QString filesFileName() const;
     QString includesFileName() const;
@@ -84,7 +64,6 @@ public:
     Core::Id id() const;
     Core::IDocument *document() const;
     ProjectExplorer::IProjectManager *projectManager() const;
-    GenericTarget *activeTarget() const;
 
     QList<ProjectExplorer::BuildConfigWidget*> subConfigWidgets();
 
@@ -114,16 +93,9 @@ public:
     QStringList projectIncludePaths() const;
     QStringList files() const;
     QStringList generated() const;
-    ProjectExplorer::ToolChain *toolChain() const;
-    void setToolChain(ProjectExplorer::ToolChain *tc);
-
-    QVariantMap toMap() const;
-
-signals:
-    void toolChainChanged(ProjectExplorer::ToolChain *);
 
 protected:
-    virtual bool fromMap(const QVariantMap &map);
+    bool fromMap(const QVariantMap &map);
 
 private:
     bool saveRawFileList(const QStringList &rawFileList);
@@ -150,7 +122,6 @@ private:
     QByteArray m_defines;
 
     GenericProjectNode *m_rootNode;
-    ProjectExplorer::ToolChain *m_toolChain;
     QFuture<void> m_codeModelFuture;
 };
 
@@ -160,18 +131,17 @@ class GenericProjectFile : public Core::IDocument
 
 public:
     GenericProjectFile(GenericProject *parent, QString fileName, GenericProject::RefreshOptions options);
-    virtual ~GenericProjectFile();
 
-    virtual bool save(QString *errorString, const QString &fileName, bool autoSave);
-    virtual QString fileName() const;
+    bool save(QString *errorString, const QString &fileName, bool autoSave);
+    QString fileName() const;
 
-    virtual QString defaultPath() const;
-    virtual QString suggestedFileName() const;
-    virtual QString mimeType() const;
+    QString defaultPath() const;
+    QString suggestedFileName() const;
+    QString mimeType() const;
 
-    virtual bool isModified() const;
-    virtual bool isSaveAsAllowed() const;
-    virtual void rename(const QString &newName);
+    bool isModified() const;
+    bool isSaveAsAllowed() const;
+    void rename(const QString &newName);
 
     ReloadBehavior reloadBehavior(ChangeTrigger state, ChangeType type) const;
     bool reload(QString *errorString, ReloadFlag flag, ChangeType type);
@@ -180,31 +150,6 @@ private:
     GenericProject *m_project;
     QString m_fileName;
     GenericProject::RefreshOptions m_options;
-};
-
-class GenericBuildSettingsWidget : public ProjectExplorer::BuildConfigWidget
-{
-    Q_OBJECT
-
-public:
-    GenericBuildSettingsWidget(GenericTarget *target);
-    virtual ~GenericBuildSettingsWidget();
-
-    virtual QString displayName() const;
-
-    virtual void init(ProjectExplorer::BuildConfiguration *bc);
-
-private Q_SLOTS:
-    void buildDirectoryChanged();
-    void toolChainSelected(int index);
-    void toolChainChanged(ProjectExplorer::ToolChain *);
-    void updateToolChainList();
-
-private:
-    GenericTarget *m_target;
-    Utils::PathChooser *m_pathChooser;
-    QComboBox *m_toolChainChooser;
-    GenericBuildConfiguration *m_buildConfiguration;
 };
 
 } // namespace Internal

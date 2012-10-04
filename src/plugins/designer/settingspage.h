@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -50,17 +48,10 @@ class SettingsPage : public Core::IOptionsPage
 
 public:
     explicit SettingsPage(QDesignerOptionsPageInterface *designerPage);
-    virtual ~SettingsPage();
 
-    QString id() const;
-    QString displayName() const;
-    QString category() const;
-    QString displayCategory() const;
-    QIcon categoryIcon() const;
-
-    virtual QWidget *createPage(QWidget *parent);
-    virtual void apply();
-    virtual void finish();
+    QWidget *createPage(QWidget *parent);
+    void apply();
+    void finish();
 
 private:
     QDesignerOptionsPageInterface *m_designerPage;
@@ -73,11 +64,6 @@ class SettingsPageProvider : public Core::IOptionsPageProvider
 
 public:
     SettingsPageProvider(QObject *parent = 0);
-    ~SettingsPageProvider();
-
-    QString category() const;
-    QString displayCategory() const;
-    QIcon categoryIcon() const;
 
     QList<Core::IOptionsPage *> pages() const;
 

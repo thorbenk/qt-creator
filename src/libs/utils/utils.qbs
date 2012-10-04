@@ -4,26 +4,29 @@ import "../QtcLibrary.qbs" as QtcLibrary
 QtcLibrary {
     name: "Utils"
 
-    cpp.defines: ["QTCREATOR_UTILS_LIB"]
-    cpp.includePaths: [ ".", "..",
+    cpp.defines: base.concat(["QTCREATOR_UTILS_LIB"])
+    cpp.includePaths: [
+        ".",
+        "..",
         "../..",
-        "../3rdparty/botan/build",
-        "ssh",
         buildDirectory
     ]
 
     Properties {
         condition: qbs.targetOS == "windows"
-        cpp.dynamicLibraries: ["user32", "iphlpapi", "ws2_32"]
+        cpp.dynamicLibraries: [
+            "user32",
+            "iphlpapi",
+            "ws2_32"
+        ]
     }
     Properties {
-        condition: qbs.targetOS === "linux"
+        condition: qbs.targetOS == "linux"
         cpp.dynamicLibraries: ["X11"]
     }
 
     Depends { name: "cpp" }
-    Depends { name: "Qt"; submodules: ['widgets', 'network', 'script', 'concurrent'] }
-    Depends { name: "Botan" }
+    Depends { name: "Qt"; submodules: ["widgets", "network", "script", "concurrent"] }
     Depends { name: "app_version_header" }
 
     files: [
@@ -37,6 +40,8 @@ QtcLibrary {
         "basetreeview.h",
         "basevalidatinglineedit.cpp",
         "basevalidatinglineedit.h",
+        "bracematcher.cpp",
+        "bracematcher.h",
         "buildablehelperlibrary.h",
         "changeset.cpp",
         "changeset.h",
@@ -54,6 +59,8 @@ QtcLibrary {
         "detailsbutton.h",
         "detailswidget.cpp",
         "detailswidget.h",
+        "elfreader.cpp",
+        "elfreader.h",
         "environment.h",
         "environmentmodel.cpp",
         "environmentmodel.h",
@@ -147,6 +154,7 @@ QtcLibrary {
         "utils_global.h",
         "wizard.cpp",
         "wizard.h",
+        "hostosinfo.h",
         "persistentsettings.h",
         "settingsselector.h",
         "buildablehelperlibrary.cpp",
@@ -178,60 +186,6 @@ QtcLibrary {
         "images/crumblepath-segment.png",
         "images/removesubmitfield.png",
         "images/triangle_vert.png",
-        "ssh/sftpchannel.h",
-        "ssh/sftpchannel_p.h",
-        "ssh/sftpdefs.cpp",
-        "ssh/sftpdefs.h",
-        "ssh/sftpincomingpacket.cpp",
-        "ssh/sftpincomingpacket_p.h",
-        "ssh/sftpoperation.cpp",
-        "ssh/sftpoperation_p.h",
-        "ssh/sftpoutgoingpacket.cpp",
-        "ssh/sftpoutgoingpacket_p.h",
-        "ssh/sftppacket.cpp",
-        "ssh/sftppacket_p.h",
-        "ssh/sshbotanconversions_p.h",
-        "ssh/sshcapabilities_p.h",
-        "ssh/sshchannel.cpp",
-        "ssh/sshchannel_p.h",
-        "ssh/sshchannelmanager.cpp",
-        "ssh/sshchannelmanager_p.h",
-        "ssh/sshconnection.h",
-        "ssh/sshconnection_p.h",
-        "ssh/sshconnectionmanager.cpp",
-        "ssh/sshconnectionmanager.h",
-        "ssh/sshcryptofacility.cpp",
-        "ssh/sshcryptofacility_p.h",
-        "ssh/ssherrors.h",
-        "ssh/sshexception_p.h",
-        "ssh/sshincomingpacket_p.h",
-        "ssh/sshkeyexchange.cpp",
-        "ssh/sshkeyexchange_p.h",
-        "ssh/sshkeypasswordretriever_p.h",
-        "ssh/sshoutgoingpacket.cpp",
-        "ssh/sshoutgoingpacket_p.h",
-        "ssh/sshpacket.cpp",
-        "ssh/sshpacket_p.h",
-        "ssh/sshpacketparser.cpp",
-        "ssh/sshpacketparser_p.h",
-        "ssh/sshpseudoterminal.h",
-        "ssh/sshremoteprocess.cpp",
-        "ssh/sshremoteprocess.h",
-        "ssh/sshremoteprocess_p.h",
-        "ssh/sshremoteprocessrunner.cpp",
-        "ssh/sshremoteprocessrunner.h",
-        "ssh/sshsendfacility.cpp",
-        "ssh/sshsendfacility_p.h",
-        "ssh/sshkeypasswordretriever.cpp",
-        "ssh/sftpchannel.cpp",
-        "ssh/sshcapabilities.cpp",
-        "ssh/sshconnection.cpp",
-        "ssh/sshincomingpacket.cpp",
-        "ssh/sshkeygenerator.cpp",
-        "ssh/sshkeygenerator.h",
-        "ssh/sshkeycreationdialog.cpp",
-        "ssh/sshkeycreationdialog.h",
-        "ssh/sshkeycreationdialog.ui"
     ]
 
     Group {
@@ -240,7 +194,6 @@ QtcLibrary {
             "consoleprocess_win.cpp",
             "winutils.cpp",
             "winutils.h",
-            "process_ctrlc_stub.cpp"
         ]
     }
 
@@ -260,7 +213,9 @@ QtcLibrary {
     }
 
     ProductModule {
-        Depends { name: "Qt"; submodules: ["concurrent", "widgets", "network"] }
+        Depends { name: "cpp" }
+        Depends { name: "Qt"; submodules: ["concurrent", "widgets" ] }
+        cpp.includePaths: [".."]
     }
 }
 

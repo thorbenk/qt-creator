@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,6 +33,7 @@
 
 #include <coreplugin/id.h>
 #include <coreplugin/idocument.h>
+#include <utils/fileutils.h>
 #include <utils/portlist.h>
 #include <utils/environment.h>
 
@@ -43,12 +42,12 @@
 
 QT_BEGIN_NAMESPACE
 class QProcess;
-class QString;
 QT_END_NAMESPACE
 
-namespace QtSupport { class BaseQtVersion; }
-namespace RemoteLinux { class LinuxDeviceConfiguration; }
-namespace ProjectExplorer { class Target; }
+namespace ProjectExplorer {
+class Kit;
+class Target;
+} // namespace ProjectExplorer
 
 namespace Madde {
 namespace Internal {
@@ -82,27 +81,22 @@ class MaemoGlobal
 {
     Q_DECLARE_TR_FUNCTIONS(RemoteLinux::Internal::MaemoGlobal)
 public:
-    enum PackagingSystem { Dpkg, Rpm, Tar };
-
-    static bool isMaemoTargetId(const Core::Id id);
-    static bool isFremantleTargetId(const Core::Id id);
-    static bool isHarmattanTargetId(const Core::Id id);
-    static bool isMeegoTargetId(const Core::Id id);
+    static bool hasMaemoDevice(const ProjectExplorer::Kit *k);
+    static bool supportsMaemoDevice(const ProjectExplorer::Kit *k);
     static bool isValidMaemo5QtVersion(const QString &qmakePath);
     static bool isValidHarmattanQtVersion(const QString &qmakePath);
-    static bool isValidMeegoQtVersion(const QString &qmakePath);
 
     static QString homeDirOnDevice(const QString &uname);
     static QString devrootshPath();
     static int applicationIconSize(const ProjectExplorer::Target *target);
     static QString remoteSudo(Core::Id deviceType, const QString &uname);
     static QString remoteSourceProfilesCommand();
-    static Utils::PortList freePorts(const QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> &devConf,
-        const QtSupport::BaseQtVersion *qtVersion);
+    static Utils::PortList freePorts(const ProjectExplorer::Kit *k);
 
     static void addMaddeEnvironment(Utils::Environment &env, const QString &qmakePath);
     static void transformMaddeCall(QString &command, QStringList &args, const QString &qmakePath);
     static QString maddeRoot(const QString &qmakePath);
+    static Utils::FileName maddeRoot(const ProjectExplorer::Kit *k);
     static QString targetRoot(const QString &qmakePath);
     static QString targetName(const QString &qmakePath);
     static QString madCommand(const QString &qmakePath);

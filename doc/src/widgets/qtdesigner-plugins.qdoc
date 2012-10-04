@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -44,8 +42,8 @@
     and to change the default plugin path, see \l{How to Create Qt Plugins}.
 
     For more information about how to create plugins for \QD, see
-    \l{http://doc.qt.nokia.com/4.7/designer-using-custom-widgets.html}
-    {Creating and Using Components for Qt Designer}.
+    \l{http://qt-project.org/doc/qt-4.8/designer-using-custom-widgets.html}
+    {Using Custom Widgets with Qt Designer}.
 
     \section1 Locating Qt Designer Plugins
 
@@ -78,7 +76,7 @@
     \QC uses its own set of Qt Libraries located in the bundle, and therefore,
     you need to configure the \QD plugins that you want to use with \QC.
     Fore more information about how to deploy applications on Mac OS, see
-    \l{http://doc.qt.nokia.com/4.7/deployment-mac.html}
+    \l{http://qt-project.org/doc/qt-4.8/deployment-mac.html}
     {Deploying an Application on Mac OS X}.
 
     The following example illustrates how to configure version 5.2.1 of the

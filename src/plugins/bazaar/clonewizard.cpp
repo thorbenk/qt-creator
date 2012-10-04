@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Hugues Delorme
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -115,6 +113,6 @@ QSharedPointer<VcsBase::AbstractCheckoutJob> CloneWizard::createJob(const QList<
          << extraOptions << page->repository() << page->directory();
 
     VcsBase::ProcessCheckoutJob *job = new VcsBase::ProcessCheckoutJob;
-    job->addStep(settings.stringValue(BazaarSettings::binaryPathKey), args, page->path());
+    job->addStep(settings.binaryPath(), args, page->path());
     return QSharedPointer<VcsBase::AbstractCheckoutJob>(job);
 }

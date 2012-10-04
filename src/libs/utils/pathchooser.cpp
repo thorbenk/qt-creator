@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -204,6 +202,7 @@ public:
     QString m_baseDirectory;
     Environment m_environment;
     BinaryVersionToolTipEventFilter *m_binaryVersionToolTipEventFilter;
+    QList<QAbstractButton *> m_buttons;
 };
 
 PathChooserPrivate::PathChooserPrivate(PathChooser *chooser) :
@@ -271,15 +270,21 @@ PathChooser::~PathChooser()
 
 void PathChooser::addButton(const QString &text, QObject *receiver, const char *slotFunc)
 {
+    insertButton(d->m_buttons.count(), text, receiver, slotFunc);
+}
+
+void PathChooser::insertButton(int index, const QString &text, QObject *receiver, const char *slotFunc)
+{
     QPushButton *button = new QPushButton;
     button->setText(text);
     connect(button, SIGNAL(clicked()), receiver, slotFunc);
-    d->m_hLayout->addWidget(button);
+    d->m_hLayout->insertWidget(index + 1/*line edit*/, button);
+    d->m_buttons.insert(index, button);
 }
 
 QAbstractButton *PathChooser::buttonAtIndex(int index) const
 {
-    return findChildren<QAbstractButton*>().at(index);
+    return d->m_buttons.at(index);
 }
 
 QString PathChooser::baseDirectory() const
@@ -343,8 +348,7 @@ bool PathChooser::isReadOnly() const
 void PathChooser::setReadOnly(bool b)
 {
     d->m_lineEdit->setReadOnly(b);
-    const QList<QAbstractButton *> &allButtons = findChildren<QAbstractButton *>();
-    foreach (QAbstractButton *button, allButtons)
+    foreach (QAbstractButton *button, d->m_buttons)
         button->setEnabled(!b);
 }
 
@@ -594,7 +598,7 @@ QString PathChooser::makeDialogTitle(const QString &title)
         return d->m_dialogTitleOverride;
 }
 
-QLineEdit *PathChooser::lineEdit() const
+FancyLineEdit *PathChooser::lineEdit() const
 {
     // HACK: Make it work with HistoryCompleter.
     if (d->m_lineEdit->objectName().isEmpty())

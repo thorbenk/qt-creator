@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -49,7 +47,6 @@
 #include <qmldebug/qmltoolsclient.h>
 #include <qmljseditor/qmljseditorconstants.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
-#include <qmljstools/qmljssemanticinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
 
@@ -57,24 +54,6 @@ using namespace QmlDebug;
 
 namespace Debugger {
 namespace Internal {
-
-// Get semantic info from QmlJSTextEditorWidget
-// (we use the meta object system here to avoid having to link
-// against qmljseditor)
-static QmlJSTools::SemanticInfo getSemanticInfo(QPlainTextEdit *qmlJSTextEdit)
-{
-    QmlJSTools::SemanticInfo info;
-    QTC_ASSERT(QLatin1String(qmlJSTextEdit->metaObject()->className())
-               == QLatin1String("QmlJSEditor::QmlJSTextEditorWidget"),
-               return info);
-    QTC_ASSERT(qmlJSTextEdit->metaObject()->indexOfProperty("semanticInfo")
-               != -1, return info);
-
-    info = qmlJSTextEdit->property("semanticInfo")
-            .value<QmlJSTools::SemanticInfo>();
-    return info;
-}
-
 /*!
  * QmlInspectorAdapter manages the clients for the inspector, and the
  * integration with the text editor.
@@ -102,8 +81,6 @@ QmlInspectorAdapter::QmlInspectorAdapter(QmlAdapter *debugAdapter,
 {
     connect(m_agent, SIGNAL(objectFetched(QmlDebug::ObjectReference)),
             SLOT(onObjectFetched(QmlDebug::ObjectReference)));
-    connect(m_agent, SIGNAL(objectTreeUpdated()),
-            SLOT(onObjectTreeUpdated()));
 
     QmlDebugConnection *connection = m_debugAdapter->connection();
     DeclarativeEngineDebugClient *engineClient1
@@ -140,8 +117,8 @@ QmlInspectorAdapter::QmlInspectorAdapter(QmlAdapter *debugAdapter,
             this, SLOT(toolsClientStatusChanged(QmlDebug::ClientStatus)));
 
     // toolbar
-    m_selectAction->setObjectName("QML Select Action");
-    m_zoomAction->setObjectName("QML Zoom Action");
+    m_selectAction->setObjectName(QLatin1String("QML Select Action"));
+    m_zoomAction->setObjectName(QLatin1String("QML Zoom Action"));
     m_selectAction->setCheckable(true);
     m_zoomAction->setCheckable(true);
 
@@ -194,8 +171,8 @@ void QmlInspectorAdapter::clientStatusChanged(QmlDebug::ClientStatus status)
 
 void QmlInspectorAdapter::toolsClientStatusChanged(QmlDebug::ClientStatus status)
 {
-    Core::ActionManager *am = Core::ICore::actionManager();
     BaseToolsClient *client = qobject_cast<BaseToolsClient*>(sender());
+    QTC_ASSERT(client, return);
     if (status == QmlDebug::Enabled) {
         m_toolsClient = client;
 
@@ -204,6 +181,7 @@ void QmlInspectorAdapter::toolsClientStatusChanged(QmlDebug::ClientStatus status
         connect(client, SIGNAL(logActivity(QString,QString)),
                 m_debugAdapter, SLOT(logServiceActivity(QString,QString)));
         connect(client, SIGNAL(reloaded()), SLOT(onReloaded()));
+        connect(client, SIGNAL(destroyedObject(int)), SLOT(onDestroyedObject(int)));
 
         // only enable zoom action for Qt 4.x/old client
         // (zooming is integrated into selection tool in Qt 5).
@@ -213,10 +191,10 @@ void QmlInspectorAdapter::toolsClientStatusChanged(QmlDebug::ClientStatus status
         // register actions here
         // because there can be multiple QmlEngines
         // at the same time (but hopefully one one is connected)
-        am->registerAction(m_selectAction,
+        Core::ActionManager::registerAction(m_selectAction,
                            Core::Id(Constants::QML_SELECTTOOL),
                            m_inspectorToolsContext);
-        am->registerAction(m_zoomAction, Core::Id(Constants::QML_ZOOMTOOL),
+        Core::ActionManager::registerAction(m_zoomAction, Core::Id(Constants::QML_ZOOMTOOL),
                            m_inspectorToolsContext);
 
         Core::ICore::updateAdditionalContexts(Core::Context(),
@@ -233,16 +211,15 @@ void QmlInspectorAdapter::toolsClientStatusChanged(QmlDebug::ClientStatus status
             m_toolsClient->showAppOnTop(true);
 
         m_toolsClientConnected = true;
-    } else if (m_toolsClientConnected
-               && client == m_toolsClient) {
+    } else if (m_toolsClientConnected && client == m_toolsClient) {
         disconnect(client, SIGNAL(currentObjectsChanged(QList<int>)),
                    this, SLOT(selectObjectsFromToolsClient(QList<int>)));
         disconnect(client, SIGNAL(logActivity(QString,QString)),
                    m_debugAdapter, SLOT(logServiceActivity(QString,QString)));
 
-        am->unregisterAction(m_selectAction,
+        Core::ActionManager::unregisterAction(m_selectAction,
                              Core::Id(Constants::QML_SELECTTOOL));
-        am->unregisterAction(m_zoomAction,
+        Core::ActionManager::unregisterAction(m_zoomAction,
                              Core::Id(Constants::QML_ZOOMTOOL));
 
         m_selectAction->setChecked(false);
@@ -267,8 +244,7 @@ void QmlInspectorAdapter::engineClientStatusChanged(QmlDebug::ClientStatus statu
     if (status == QmlDebug::Enabled) {
         QTC_ASSERT(client, return);
         setActiveEngineClient(client);
-    } else if (m_engineClientConnected &&
-               (client == m_engineClient)) {
+    } else if (m_engineClientConnected && client == m_engineClient) {
         m_engineClientConnected = false;
         deletePreviews();
     }
@@ -276,27 +252,14 @@ void QmlInspectorAdapter::engineClientStatusChanged(QmlDebug::ClientStatus statu
 
 void QmlInspectorAdapter::selectObjectsFromEditor(const QList<int> &debugIds)
 {
-    int debugId = debugIds.first();
-
     if (m_selectionCallbackExpected) {
         m_selectionCallbackExpected = false;
         return;
     }
     m_cursorPositionChangedExternally = true;
-
-    ObjectReference clientRef
-            = agent()->objectForId(debugId);
-
-    // if children haven't been loaded yet do so first, the editor
-    // might actually be interested in the children!
-    if (clientRef.debugId() != debugId
-            || clientRef.needsMoreData()) {
-        m_targetToSync = ToolTarget;
-        m_debugIdToSelect = debugId;
-        agent()->fetchObject(debugId);
-    } else {
-        selectObject(clientRef, ToolTarget);
-    }
+    m_targetToSync = ToolTarget;
+    m_debugIdToSelect = debugIds.first();
+    selectObject(agent()->objectForId(m_debugIdToSelect), ToolTarget);
 }
 
 void QmlInspectorAdapter::selectObjectsFromToolsClient(const QList<int> &debugIds)
@@ -304,18 +267,9 @@ void QmlInspectorAdapter::selectObjectsFromToolsClient(const QList<int> &debugId
     if (debugIds.isEmpty())
         return;
 
-    int debugId = debugIds.first();
-
-    ObjectReference clientRef
-            = agent()->objectForId(debugId);
-
-    if (clientRef.debugId() != debugId) {
-        m_targetToSync = EditorTarget;
-        m_debugIdToSelect = debugId;
-        agent()->fetchObject(debugId);
-    } else {
-        selectObject(clientRef, EditorTarget);
-    }
+    m_targetToSync = EditorTarget;
+    m_debugIdToSelect = debugIds.first();
+    selectObject(agent()->objectForId(m_debugIdToSelect), EditorTarget);
 }
 
 void QmlInspectorAdapter::onObjectFetched(const ObjectReference &ref)
@@ -326,21 +280,12 @@ void QmlInspectorAdapter::onObjectFetched(const ObjectReference &ref)
     }
 }
 
-void QmlInspectorAdapter::onObjectTreeUpdated()
-{
-    if (m_currentSelectedDebugId == -1) {
-        // select root element on startup
-        if (!m_agent->rootObjects().isEmpty())
-            selectObject(m_agent->rootObjects().first(), NoTarget);
-    }
-}
-
 void QmlInspectorAdapter::createPreviewForEditor(Core::IEditor *newEditor)
 {
     if (!m_engineClientConnected)
         return;
 
-    if (newEditor && newEditor->id()
+    if (!newEditor || newEditor->id()
             != QmlJSEditor::Constants::C_QMLJSEDITOR_ID)
         return;
 
@@ -349,14 +294,14 @@ void QmlInspectorAdapter::createPreviewForEditor(Core::IEditor *newEditor)
             QmlJS::ModelManagerInterface::instance();
     QmlJS::Document::Ptr doc = modelManager->snapshot().document(filename);
     if (!doc) {
-        if (filename.endsWith(".qml") || filename.endsWith(".js")) {
+        if (filename.endsWith(QLatin1String(".qml")) || filename.endsWith(QLatin1String(".js"))) {
             // add to list of docs that we have to update when
             // snapshot figures out that there's a new document
             m_pendingPreviewDocumentNames.append(filename);
         }
         return;
     }
-    if (!doc->qmlProgram() && !filename.endsWith(".js"))
+    if (!doc->qmlProgram() && !filename.endsWith(QLatin1String(".js")))
         return;
 
     QmlJS::Document::Ptr initdoc = m_loadedSnapshot.document(filename);
@@ -419,6 +364,7 @@ void QmlInspectorAdapter::updatePendingPreviewDocuments(QmlJS::Document::Ptr doc
 
 void QmlInspectorAdapter::onSelectActionTriggered(bool checked)
 {
+    QTC_ASSERT(toolsClient(), return);
     if (checked) {
         toolsClient()->setDesignModeBehavior(true);
         toolsClient()->changeToSelectTool();
@@ -430,6 +376,7 @@ void QmlInspectorAdapter::onSelectActionTriggered(bool checked)
 
 void QmlInspectorAdapter::onZoomActionTriggered(bool checked)
 {
+    QTC_ASSERT(toolsClient(), return);
     if (checked) {
         toolsClient()->setDesignModeBehavior(true);
         toolsClient()->changeToZoomTool();
@@ -442,7 +389,7 @@ void QmlInspectorAdapter::onZoomActionTriggered(bool checked)
 void QmlInspectorAdapter::onShowAppOnTopChanged(const QVariant &value)
 {
     bool showAppOnTop = value.toBool();
-    if (m_toolsClient->status() == QmlDebug::Enabled)
+    if (m_toolsClient && m_toolsClient->status() == QmlDebug::Enabled)
         m_toolsClient->showAppOnTop(showAppOnTop);
 }
 
@@ -510,16 +457,14 @@ void QmlInspectorAdapter::showConnectionStatusMessage(const QString &message)
 }
 
 void QmlInspectorAdapter::gotoObjectReferenceDefinition(
-        const ObjectReference &obj)
+        const FileReference &objSource)
 {
     if (m_cursorPositionChangedExternally) {
         m_cursorPositionChangedExternally = false;
         return;
     }
 
-    FileReference source = obj.source();
-
-    const QString fileName = m_engine->toFileInProject(source.url());
+    const QString fileName = m_engine->toFileInProject(objSource.url());
 
     Core::EditorManager *editorManager = Core::EditorManager::instance();
     Core::IEditor *currentEditor = editorManager->currentEditor();
@@ -531,89 +476,28 @@ void QmlInspectorAdapter::gotoObjectReferenceDefinition(
         m_selectionCallbackExpected = true;
 
     if (textEditor) {
-        ObjectReference ref = objectReferenceForLocation(fileName);
-        if (ref.debugId() != obj.debugId()) {
-            m_selectionCallbackExpected = true;
-            editorManager->addCurrentPositionToNavigationHistory();
-            textEditor->gotoLine(source.lineNumber());
-            textEditor->widget()->setFocus();
-        }
+        m_selectionCallbackExpected = true;
+        editorManager->addCurrentPositionToNavigationHistory();
+        textEditor->gotoLine(objSource.lineNumber());
+        textEditor->widget()->setFocus();
     }
-}
-
-ObjectReference QmlInspectorAdapter::objectReferenceForLocation(
-        const QString &fileName, int cursorPosition) const
-{
-    Core::IEditor *editor = Core::EditorManager::openEditor(fileName);
-    TextEditor::ITextEditor *textEditor
-            = qobject_cast<TextEditor::ITextEditor*>(editor);
-
-    if (textEditor
-            && textEditor->id() == QmlJSEditor::Constants::C_QMLJSEDITOR_ID) {
-        if (cursorPosition == -1)
-            cursorPosition = textEditor->position();
-        TextEditor::BaseTextEditor *baseTextEditor =
-                static_cast<TextEditor::BaseTextEditor*>(editor);
-        QPlainTextEdit *editWidget
-                = qobject_cast<QPlainTextEdit*>(baseTextEditor->widget());
-
-        QmlJSTools::SemanticInfo semanticInfo = getSemanticInfo(editWidget);
-
-        if (QmlJS::AST::Node *node
-                = semanticInfo.declaringMemberNoProperties(cursorPosition)) {
-            if (QmlJS::AST::UiObjectMember *objMember
-                    = node->uiObjectMemberCast()) {
-                return agent()->objectForLocation(
-                            objMember->firstSourceLocation().startLine,
-                            objMember->firstSourceLocation().startColumn);
-            }
-        }
-    }
-    return ObjectReference();
-}
-
-inline QString displayName(const ObjectReference &obj)
-{
-    // special! state names
-    if (obj.className() == "State") {
-        foreach (const PropertyReference &prop, obj.properties()) {
-            if (prop.name() == "name")
-                return prop.value().toString();
-        }
-    }
-
-    // has id?
-    if (!obj.idString().isEmpty())
-        return obj.idString();
-
-    // return the simplified class name then
-    QString objTypeName = obj.className();
-    QStringList declarativeStrings;
-    declarativeStrings << QLatin1String("QDeclarative")
-                       << QLatin1String("QQml");
-    foreach (const QString &str, declarativeStrings) {
-        if (objTypeName.startsWith(str)) {
-            objTypeName = objTypeName.mid(str.length()).section('_', 0, 0);
-            break;
-        }
-    }
-    return QString("<%1>").arg(objTypeName);
 }
 
 void QmlInspectorAdapter::selectObject(const ObjectReference &obj,
                                        SelectionTarget target)
 {
-    if (target == ToolTarget)
+    if (m_toolsClient && target == ToolTarget)
         m_toolsClient->setObjectIdList(
                     QList<ObjectReference>() << obj);
 
     if (target == EditorTarget)
-        gotoObjectReferenceDefinition(obj);
+        gotoObjectReferenceDefinition(obj.source());
 
-    agent()->selectObjectInTree(obj.debugId());
+    if (!agent()->selectObjectInTree(obj.debugId()))
+        return;
 
     m_currentSelectedDebugId = obj.debugId();
-    m_currentSelectedDebugName = displayName(obj);
+    m_currentSelectedDebugName = agent()->displayName(obj.debugId());
     emit selectionChanged();
 }
 
@@ -640,7 +524,8 @@ void QmlInspectorAdapter::onReload()
                                fileContents);
         }
     }
-    m_toolsClient->reload(changesHash);
+    if (m_toolsClient)
+        m_toolsClient->reload(changesHash);
 }
 
 void QmlInspectorAdapter::onReloaded()
@@ -655,6 +540,12 @@ void QmlInspectorAdapter::onReloaded()
         QmlJS::Document::Ptr doc = snapshot.document(it.key());
         it.value()->resetInitialDoc(doc);
     }
+    m_agent->reloadEngines();
+}
+
+void QmlInspectorAdapter::onDestroyedObject(int objectDebugId)
+{
+    m_agent->fetchObject(m_agent->parentIdForObject(objectDebugId));
 }
 
 } // namespace Internal

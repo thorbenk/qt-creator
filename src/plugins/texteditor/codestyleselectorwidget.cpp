@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -288,9 +286,10 @@ void CodeStyleSelectorWidget::slotCopyClicked()
     if (!ok)
         return;
     ICodeStylePreferences *copy = codeStylePool->cloneCodeStyle(currentPreferences);
-    copy->setDisplayName(newName);
-    if (copy)
+    if (copy) {
+        copy->setDisplayName(newName);
         m_codeStyle->setCurrentDelegate(copy);
+    }
 }
 
 void CodeStyleSelectorWidget::slotEditClicked()
@@ -344,8 +343,9 @@ void CodeStyleSelectorWidget::slotRemoveClicked()
 
 void CodeStyleSelectorWidget::slotImportClicked()
 {
-    const QString fileName = QFileDialog::getOpenFileName(this, tr("Import Code Style"), QString::null,
-                             tr("Code styles (*.xml);;All files (*)"));
+    const Utils::FileName fileName =
+            Utils::FileName::fromString(QFileDialog::getOpenFileName(this, tr("Import Code Style"), QString::null,
+                                                                     tr("Code styles (*.xml);;All files (*)")));
     if (!fileName.isEmpty()) {
         CodeStylePool *codeStylePool = m_codeStyle->delegatingPool();
         ICodeStylePreferences *importedStyle = codeStylePool->importCodeStyle(fileName);
@@ -353,7 +353,7 @@ void CodeStyleSelectorWidget::slotImportClicked()
             m_codeStyle->setCurrentDelegate(importedStyle);
         else
             QMessageBox::warning(this, tr("Import Code Style"),
-                                 tr("Cannot import code style"));
+                                 tr("Cannot import code style from %1"), fileName.toUserOutput());
     }
 }
 
@@ -365,7 +365,7 @@ void CodeStyleSelectorWidget::slotExportClicked()
                              tr("Code styles (*.xml);;All files (*)"));
     if (!fileName.isEmpty()) {
         CodeStylePool *codeStylePool = m_codeStyle->delegatingPool();
-        codeStylePool->exportCodeStyle(fileName, currentPreferences);
+        codeStylePool->exportCodeStyle(Utils::FileName::fromString(fileName), currentPreferences);
     }
 }
 

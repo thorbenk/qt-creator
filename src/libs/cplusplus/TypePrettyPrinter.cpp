@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,7 +37,7 @@
 #include <Symbols.h>
 #include <Scope.h>
 #include <QStringList>
-#include <QtDebug>
+#include <QDebug>
 
 using namespace CPlusPlus;
 
@@ -184,6 +182,12 @@ void TypePrettyPrinter::visit(IntegerType *type)
     switch (type->kind()) {
     case IntegerType::Char:
         _text.prepend(QLatin1String("char"));
+        break;
+    case IntegerType::Char16:
+        _text.prepend(QLatin1String("char16_t"));
+        break;
+    case IntegerType::Char32:
+        _text.prepend(QLatin1String("char32_t"));
         break;
     case IntegerType::WideChar:
         _text.prepend(QLatin1String("wchar_t"));
@@ -401,7 +405,7 @@ void TypePrettyPrinter::prependWordSeparatorSpace()
 
     const QChar ch = _text.at(0);
 
-    if (ch.isLetterOrNumber())
+    if (ch.isLetterOrNumber() || ch == QLatin1Char('_'))
         _text.prepend(" ");
 }
 

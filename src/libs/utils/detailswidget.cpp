@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "detailswidget.h"
 #include "detailsbutton.h"
+#include "hostosinfo.h"
 
 #include <QStack>
 #include <QPropertyAnimation>
@@ -71,7 +70,7 @@ class DetailsWidgetPrivate
 public:
     DetailsWidgetPrivate(QWidget *parent);
 
-    QPixmap cacheBackground(const QSize &size, bool expanded);
+    QPixmap cacheBackground(const QSize &size);
     void updateControls();
     void changeHoverState(bool hovered);
 
@@ -133,7 +132,7 @@ DetailsWidgetPrivate::DetailsWidgetPrivate(QWidget *parent) :
     m_grid->addWidget(m_additionalSummaryLabel, 1, 0, 1, 3);
 }
 
-QPixmap DetailsWidgetPrivate::cacheBackground(const QSize &size, bool expanded)
+QPixmap DetailsWidgetPrivate::cacheBackground(const QSize &size)
 {
     QPixmap pixmap(size);
     pixmap.fill(Qt::transparent);
@@ -145,15 +144,10 @@ QPixmap DetailsWidgetPrivate::cacheBackground(const QSize &size, bool expanded)
 
     QRect topRect(0, 0, size.width(), topHeight);
     QRect fullRect(0, 0, size.width(), size.height());
-#ifdef Q_OS_MAC
-    p.fillRect(fullRect, qApp->palette().window().color());
-#endif
-    p.fillRect(fullRect, QColor(255, 255, 255, 40));
-
-    QColor highlight = q->palette().highlight().color();
-    highlight.setAlpha(0.5);
-    if (expanded)
-        p.fillRect(topRect, highlight);
+    if (HostOsInfo::isMacHost())
+        p.fillRect(fullRect, qApp->palette().window().color());
+    else
+        p.fillRect(fullRect, QColor(255, 255, 255, 40));
 
     QLinearGradient lg(topRect.topLeft(), topRect.bottomLeft());
     lg.setColorAt(0, QColor(255, 255, 255, 130));
@@ -195,11 +189,10 @@ void DetailsWidgetPrivate::changeHoverState(bool hovered)
 {
     if (!m_toolWidget)
         return;
-#ifdef Q_OS_MAC
-    m_toolWidget->setOpacity(hovered ? 1.0 : 0);
-#else
-    m_toolWidget->fadeTo(hovered ? 1.0 : 0);
-#endif
+    if (HostOsInfo::isMacHost())
+        m_toolWidget->setOpacity(hovered ? 1.0 : 0);
+    else
+        m_toolWidget->fadeTo(hovered ? 1.0 : 0);
     m_hovered = hovered;
 }
 
@@ -274,12 +267,12 @@ void DetailsWidget::paintEvent(QPaintEvent *paintEvent)
     if (d->m_state == Collapsed) {
         if (d->m_collapsedPixmap.isNull() ||
             d->m_collapsedPixmap.size() != size())
-            d->m_collapsedPixmap = d->cacheBackground(paintArea.size(), false);
+            d->m_collapsedPixmap = d->cacheBackground(paintArea.size());
         p.drawPixmap(paintArea, d->m_collapsedPixmap);
     } else {
         if (d->m_expandedPixmap.isNull() ||
             d->m_expandedPixmap.size() != size())
-            d->m_expandedPixmap = d->cacheBackground(paintArea.size(), true);
+            d->m_expandedPixmap = d->cacheBackground(paintArea.size());
         p.drawPixmap(paintArea, d->m_expandedPixmap);
     }
 }
@@ -346,6 +339,16 @@ QWidget *DetailsWidget::widget() const
     return d->m_widget;
 }
 
+QWidget *DetailsWidget::takeWidget()
+{
+    QWidget *widget = d->m_widget;
+    d->m_widget = 0;
+    d->m_grid->removeWidget(widget);
+    if (widget)
+        widget->setParent(0);
+    return widget;
+}
+
 void DetailsWidget::setWidget(QWidget *widget)
 {
     if (d->m_widget == widget)
@@ -378,9 +381,8 @@ void DetailsWidget::setToolWidget(Utils::FadingPanel *widget)
     d->m_toolWidget->adjustSize();
     d->m_grid->addWidget(d->m_toolWidget, 0, 1, 1, 1, Qt::AlignRight);
 
-#ifdef Q_OS_MAC
-    d->m_toolWidget->setOpacity(1.0);
-#endif
+    if (HostOsInfo::isMacHost())
+        d->m_toolWidget->setOpacity(1.0);
     d->changeHoverState(d->m_hovered);
 }
 

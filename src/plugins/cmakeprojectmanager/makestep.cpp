@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,14 +32,19 @@
 
 #include "cmakeprojectconstants.h"
 #include "cmakeproject.h"
-#include "cmaketarget.h"
 #include "cmakebuildconfiguration.h"
 
 #include <projectexplorer/buildsteplist.h>
-#include <projectexplorer/toolchain.h>
-#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/deployconfiguration.h>
 #include <projectexplorer/gnumakeparser.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/target.h>
+#include <projectexplorer/toolchain.h>
+
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtparser.h>
 
 #include <utils/qtcprocess.h>
 
@@ -56,11 +59,11 @@ using namespace CMakeProjectManager::Internal;
 using namespace ProjectExplorer;
 
 namespace {
-const char * const MS_ID("CMakeProjectManager.MakeStep");
-
-const char * const CLEAN_KEY("CMakeProjectManager.MakeStep.Clean");
-const char * const BUILD_TARGETS_KEY("CMakeProjectManager.MakeStep.BuildTargets");
-const char * const ADDITIONAL_ARGUMENTS_KEY("CMakeProjectManager.MakeStep.AdditionalArguments");
+const char MS_ID[] = "CMakeProjectManager.MakeStep";
+const char CLEAN_KEY[] = "CMakeProjectManager.MakeStep.Clean";
+const char BUILD_TARGETS_KEY[] = "CMakeProjectManager.MakeStep.BuildTargets";
+const char ADDITIONAL_ARGUMENTS_KEY[] = "CMakeProjectManager.MakeStep.AdditionalArguments";
+const char USE_NINJA_KEY[] = "CMakeProjectManager.MakeStep.UseNinja";
 }
 
 MakeStep::MakeStep(BuildStepList *bsl) :
@@ -90,8 +93,24 @@ MakeStep::MakeStep(BuildStepList *bsl, MakeStep *bs) :
 void MakeStep::ctor()
 {
     m_percentProgress = QRegExp("^\\[\\s*(\\d*)%\\]");
+    m_useNinja = false;
+    m_ninjaProgress = QRegExp ("^\\[\\s*(\\d*)/\\s*(\\d*)");
+    m_ninjaProgressString = QLatin1String("[%s/%t "); // ninja: [33/100
     //: Default display name for the cmake make step.
     setDefaultDisplayName(tr("Make"));
+
+    BuildConfiguration *bc = cmakeBuildConfiguration();
+    if (bc) {
+        m_activeConfiguration = 0;
+        connect(bc, SIGNAL(useNinjaChanged(bool)), this, SLOT(setUseNinja(bool)));
+    } else {
+        // That means the step is in the deploylist, so we listen to the active build config
+        // changed signal and react to the activeBuildConfigurationChanged() signal of the buildconfiguration
+        m_activeConfiguration = targetsActiveBuildConfiguration();
+        connect (target(), SIGNAL(activeBuildConfigurationChanged(ProjectExplorer::BuildConfiguration*)),
+                 this, SLOT(activeBuildConfigurationChanged()));
+        activeBuildConfigurationChanged();
+    }
 }
 
 MakeStep::~MakeStep()
@@ -101,6 +120,24 @@ MakeStep::~MakeStep()
 CMakeBuildConfiguration *MakeStep::cmakeBuildConfiguration() const
 {
     return static_cast<CMakeBuildConfiguration *>(buildConfiguration());
+}
+
+CMakeBuildConfiguration *MakeStep::targetsActiveBuildConfiguration() const
+{
+    return static_cast<CMakeBuildConfiguration *>(target()->activeBuildConfiguration());
+}
+
+void MakeStep::activeBuildConfigurationChanged()
+{
+    if (m_activeConfiguration)
+        disconnect(m_activeConfiguration, SIGNAL(useNinjaChanged(bool)), this, SLOT(setUseNinja(bool)));
+
+    m_activeConfiguration = targetsActiveBuildConfiguration();
+
+    if (m_activeConfiguration) {
+        connect(m_activeConfiguration, SIGNAL(useNinjaChanged(bool)), this, SLOT(setUseNinja(bool)));
+        setUseNinja(m_activeConfiguration->useNinja());
+    }
 }
 
 void MakeStep::setClean(bool clean)
@@ -114,6 +151,7 @@ QVariantMap MakeStep::toMap() const
     map.insert(QLatin1String(CLEAN_KEY), m_clean);
     map.insert(QLatin1String(BUILD_TARGETS_KEY), m_buildTargets);
     map.insert(QLatin1String(ADDITIONAL_ARGUMENTS_KEY), m_additionalArguments);
+    map.insert(QLatin1String(USE_NINJA_KEY), m_useNinja);
     return map;
 }
 
@@ -122,6 +160,7 @@ bool MakeStep::fromMap(const QVariantMap &map)
     m_clean = map.value(QLatin1String(CLEAN_KEY)).toBool();
     m_buildTargets = map.value(QLatin1String(BUILD_TARGETS_KEY)).toStringList();
     m_additionalArguments = map.value(QLatin1String(ADDITIONAL_ARGUMENTS_KEY)).toString();
+    m_useNinja = map.value(QLatin1String(USE_NINJA_KEY)).toBool();
 
     return BuildStep::fromMap(map);
 }
@@ -133,6 +172,15 @@ bool MakeStep::init()
     if (!bc)
         bc = static_cast<CMakeBuildConfiguration *>(target()->activeBuildConfiguration());
 
+    m_tasks.clear();
+    ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
+    if (!tc) {
+        m_tasks.append(Task(Task::Error, tr("Qt Creator needs a compiler set up to build. Configure a compiler in the kit options."),
+                            Utils::FileName(), -1,
+                            Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
+        return true; // otherwise the tasks will not get reported
+    }
+
     QString arguments = Utils::QtcProcess::joinArgs(m_buildTargets);
     Utils::QtcProcess::addArgs(&arguments, additionalArguments());
 
@@ -140,17 +188,25 @@ bool MakeStep::init()
 
     ProcessParameters *pp = processParameters();
     pp->setMacroExpander(bc->macroExpander());
-    pp->setEnvironment(bc->environment());
+    if (m_useNinja) {
+        Utils::Environment env = bc->environment();
+        if (!env.value(QLatin1String("NINJA_STATUS")).startsWith(m_ninjaProgressString))
+            env.set(QLatin1String("NINJA_STATUS"), m_ninjaProgressString + QLatin1String("%o/sec] "));
+        pp->setEnvironment(env);
+    } else {
+        pp->setEnvironment(bc->environment());
+    }
     pp->setWorkingDirectory(bc->buildDirectory());
-    if (bc->toolChain())
-        pp->setCommand(bc->toolChain()->makeCommand());
-    else
-        pp->setCommand(QLatin1String("make"));
+    pp->setCommand(makeCommand(tc, bc->environment()));
     pp->setArguments(arguments);
 
     setOutputParser(new ProjectExplorer::GnuMakeParser());
-    if (bc->toolChain())
-        appendOutputParser(bc->toolChain()->outputParser());
+
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target()->kit());
+    if (version)
+        appendOutputParser(new QtSupport::QtParser);
+    if (tc)
+        appendOutputParser(tc->outputParser());
     outputParser()->setWorkingDirectory(pp->effectiveWorkingDirectory());
 
     return AbstractProcessStep::init();
@@ -158,6 +214,17 @@ bool MakeStep::init()
 
 void MakeStep::run(QFutureInterface<bool> &fi)
 {
+    bool canContinue = true;
+    foreach (const Task &t, m_tasks) {
+        addTask(t);
+        canContinue = false;
+    }
+    if (!canContinue) {
+        emit addOutput(tr("Configuration is faulty. Check the Issues view for details."), BuildStep::MessageOutput);
+        fi.reportResult(false);
+        return;
+    }
+
     m_futureInterface = &fi;
     m_futureInterface->setProgressRange(0, 100);
     AbstractProcessStep::run(fi);
@@ -183,8 +250,21 @@ void MakeStep::stdOutput(const QString &line)
         int percent = m_percentProgress.cap(1).toInt(&ok);;
         if (ok)
             m_futureInterface->setProgressValue(percent);
+    } else if (m_ninjaProgress.indexIn(line) != -1) {
+        bool ok = false;
+        int done = m_ninjaProgress.cap(1).toInt(&ok);
+        if (ok) {
+            int all = m_ninjaProgress.cap(2).toInt(&ok);
+            if (ok && all != 0) {
+                int percent = 100.0 * done/all;
+                m_futureInterface->setProgressValue(percent);
+            }
+        }
     }
-    AbstractProcessStep::stdOutput(line);
+    if (m_useNinja)
+        AbstractProcessStep::stdError(line);
+    else
+        AbstractProcessStep::stdOutput(line);
 }
 
 QStringList MakeStep::buildTargets() const
@@ -227,6 +307,24 @@ void MakeStep::setAdditionalArguments(const QString &list)
     m_additionalArguments = list;
 }
 
+QString MakeStep::makeCommand(ProjectExplorer::ToolChain *tc, const Utils::Environment &env) const
+{
+    if (m_useNinja)
+        return QLatin1String("ninja");
+    if (tc)
+        return tc->makeCommand(env);
+
+    return QLatin1String("make");
+}
+
+void MakeStep::setUseNinja(bool useNinja)
+{
+    if (m_useNinja != useNinja) {
+        m_useNinja = useNinja;
+        emit makeCommandChanged();
+    }
+}
+
 //
 // MakeStepConfigWidget
 //
@@ -264,6 +362,8 @@ MakeStepConfigWidget::MakeStepConfigWidget(MakeStep *makeStep)
 
     connect(pro, SIGNAL(buildTargetsChanged()),
             this, SLOT(buildTargetsChanged()));
+    connect(pro, SIGNAL(environmentChanged()), this, SLOT(updateDetails()));
+    connect(m_makeStep, SIGNAL(makeCommandChanged()), this, SLOT(updateDetails()));
 }
 
 void MakeStepConfigWidget::additionalArgumentsEdited()
@@ -302,7 +402,13 @@ void MakeStepConfigWidget::updateDetails()
     CMakeBuildConfiguration *bc = m_makeStep->cmakeBuildConfiguration();
     if (!bc)
         bc = static_cast<CMakeBuildConfiguration *>(m_makeStep->target()->activeBuildConfiguration());
-    ProjectExplorer::ToolChain *tc = bc->toolChain();
+    if (!bc) {
+        m_summaryText = tr("<b>No build configuration found on this target.</b>");
+        updateSummary();
+        return;
+    }
+
+    ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(m_makeStep->target()->kit());
     if (tc) {
         QString arguments = Utils::QtcProcess::joinArgs(m_makeStep->buildTargets());
         Utils::QtcProcess::addArgs(&arguments, m_makeStep->additionalArguments());
@@ -311,11 +417,11 @@ void MakeStepConfigWidget::updateDetails()
         param.setMacroExpander(bc->macroExpander());
         param.setEnvironment(bc->environment());
         param.setWorkingDirectory(bc->buildDirectory());
-        param.setCommand(tc->makeCommand());
+        param.setCommand(m_makeStep->makeCommand(tc, bc->environment()));
         param.setArguments(arguments);
         m_summaryText = param.summary(displayName());
     } else {
-        m_summaryText = tr("<b>Unknown tool chain</b>");
+        m_summaryText = QLatin1String("<b>") + ProjectExplorer::ToolChainKitInformation::msgNoToolChainInTarget() + QLatin1String("</b>");
     }
     emit updateSummary();
 }
@@ -340,9 +446,9 @@ MakeStepFactory::~MakeStepFactory()
 
 bool MakeStepFactory::canCreate(BuildStepList *parent, const Core::Id id) const
 {
-    if (parent->target()->project()->id() != Core::Id(Constants::CMAKEPROJECT_ID))
-        return false;
-    return Core::Id(MS_ID) == id;
+    if (parent->target()->project()->id() == Constants::CMAKEPROJECT_ID)
+        return id == MS_ID;
+    return false;
 }
 
 BuildStep *MakeStepFactory::create(BuildStepList *parent, const Core::Id id)
@@ -350,7 +456,7 @@ BuildStep *MakeStepFactory::create(BuildStepList *parent, const Core::Id id)
     if (!canCreate(parent, id))
         return 0;
     MakeStep *step = new MakeStep(parent);
-    if (parent->id() == Core::Id(ProjectExplorer::Constants::BUILDSTEPS_CLEAN)) {
+    if (parent->id() == ProjectExplorer::Constants::BUILDSTEPS_CLEAN) {
         step->setClean(true);
         step->setAdditionalArguments("clean");
     }
@@ -387,14 +493,14 @@ BuildStep *MakeStepFactory::restore(BuildStepList *parent, const QVariantMap &ma
 
 QList<Core::Id> MakeStepFactory::availableCreationIds(ProjectExplorer::BuildStepList *parent) const
 {
-    if (parent->target()->project()->id() == Core::Id(Constants::CMAKEPROJECT_ID))
+    if (parent->target()->project()->id() == Constants::CMAKEPROJECT_ID)
         return QList<Core::Id>() << Core::Id(MS_ID);
     return QList<Core::Id>();
 }
 
 QString MakeStepFactory::displayNameForId(const Core::Id id) const
 {
-    if (id == Core::Id(MS_ID))
+    if (id == MS_ID)
         return tr("Make", "Display name for CMakeProjectManager::MakeStep id.");
     return QString();
 }

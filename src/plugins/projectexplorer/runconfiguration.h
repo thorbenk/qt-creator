@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,7 +38,7 @@
 #include <utils/outputformat.h>
 
 #include <QMetaType>
-#include <QWeakPointer>
+#include <QPointer>
 #include <QWidget>
 
 QT_FORWARD_DECLARE_CLASS(QIcon)
@@ -93,7 +91,7 @@ class PROJECTEXPLORER_EXPORT DebuggerRunConfigurationAspect
 
 public:
     DebuggerRunConfigurationAspect(RunConfiguration *runConfiguration);
-    DebuggerRunConfigurationAspect(DebuggerRunConfigurationAspect *other);
+    DebuggerRunConfigurationAspect(RunConfiguration *runConfiguration, DebuggerRunConfigurationAspect *other);
 
     enum QmlDebuggerStatus {
         DisableQmlDebugger = 0,
@@ -147,18 +145,21 @@ class PROJECTEXPLORER_EXPORT RunConfiguration : public ProjectConfiguration
     Q_OBJECT
 
 public:
-    virtual ~RunConfiguration();
+    ~RunConfiguration();
 
     virtual bool isEnabled() const;
     virtual QString disabledReason() const;
     virtual QWidget *createConfigurationWidget() = 0;
+    virtual bool isConfigured() const;
+    // Pop up configuration dialog in case for example the executable is missing.
+    virtual bool ensureConfigured(QString *errorMessage = 0);
 
     Target *target() const;
 
     virtual Utils::OutputFormatter *createOutputFormatter() const;
 
-    virtual bool fromMap(const QVariantMap &map);
-    virtual QVariantMap toMap() const;
+    bool fromMap(const QVariantMap &map);
+    QVariantMap toMap() const;
 
     DebuggerRunConfigurationAspect *debuggerAspect() const { return m_debuggerAspect; }
 
@@ -212,9 +213,9 @@ public:
     virtual bool canClone(Target *parent, RunConfiguration *product) const = 0;
     virtual RunConfiguration *clone(Target *parent, RunConfiguration *product) = 0;
 
-    static IRunConfigurationFactory *createFactory(Target *parent, const Core::Id id);
-    static IRunConfigurationFactory *cloneFactory(Target *parent, RunConfiguration *source);
-    static IRunConfigurationFactory *restoreFactory(Target *parent, const QVariantMap &map);
+    static IRunConfigurationFactory *find(Target *parent, const QVariantMap &map);
+    static IRunConfigurationFactory *find(Target *parent, RunConfiguration *rc);
+    static QList<IRunConfigurationFactory *> find(Target *parent);
 
 signals:
     void availableCreationIdsChanged();
@@ -230,12 +231,13 @@ public:
     virtual ~IRunControlFactory();
 
     virtual bool canRun(RunConfiguration *runConfiguration, RunMode mode) const = 0;
-    virtual RunControl *create(RunConfiguration *runConfiguration, RunMode mode) = 0;
+    virtual RunControl *create(RunConfiguration *runConfiguration, RunMode mode, QString *errorMessage) = 0;
 
     virtual QString displayName() const = 0;
 
     virtual IRunConfigurationAspect *createRunConfigurationAspect();
-    virtual RunConfigWidget *createConfigurationWidget(RunConfiguration *runConfiguration) = 0;
+    virtual IRunConfigurationAspect *cloneRunConfigurationAspect(IRunConfigurationAspect *);
+    virtual RunConfigWidget *createConfigurationWidget(RunConfiguration *runConfiguration);
 };
 
 class PROJECTEXPLORER_EXPORT RunConfigWidget
@@ -276,6 +278,7 @@ public:
     void setApplicationProcessHandle(const ProcessHandle &handle);
     Abi abi() const;
 
+    RunConfiguration *runConfiguration() const;
     bool sameRunConfiguration(const RunControl *other) const;
 
     Utils::OutputFormatter *outputFormatter();
@@ -304,7 +307,7 @@ protected:
 private:
     QString m_displayName;
     RunMode m_runMode;
-    const QWeakPointer<RunConfiguration> m_runConfiguration;
+    const QPointer<RunConfiguration> m_runConfiguration;
     Utils::OutputFormatter *m_outputFormatter;
 
     // A handle to the actual application process.

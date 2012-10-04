@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,38 +34,43 @@
 #include <projectexplorer/runconfiguration.h>
 
 namespace Debugger {
+
 class DebuggerEngine;
+class DebuggerRunControl;
+class DebuggerStartParameters;
+
 namespace Internal {
 
 class DebuggerRunControlFactory
     : public ProjectExplorer::IRunControlFactory
 {
 public:
-    explicit DebuggerRunControlFactory(QObject *parent, unsigned enabledEngines);
+    explicit DebuggerRunControlFactory(QObject *parent);
 
-    // This is used by the "Non-Standard" scenarios, e.g. Attach to Core.
-    // FIXME: What to do in case of a 0 runConfiguration?
-    typedef ProjectExplorer::RunConfiguration RunConfiguration;
-    typedef ProjectExplorer::RunControl RunControl;
-    typedef ProjectExplorer::RunMode RunMode;
-    DebuggerRunControl *create(const DebuggerStartParameters &sp,
-        RunConfiguration *runConfiguration = 0);
-
-    // ProjectExplorer::IRunControlFactory
     // FIXME: Used by qmljsinspector.cpp:469
-    RunControl *create(RunConfiguration *runConfiguration, RunMode mode);
-    bool canRun(RunConfiguration *runConfiguration, RunMode mode) const;
+    ProjectExplorer::RunControl *create(
+        ProjectExplorer::RunConfiguration *runConfiguration,
+        ProjectExplorer::RunMode mode,
+        QString *errorMessage);
+
+    bool canRun(ProjectExplorer::RunConfiguration *runConfiguration,
+        ProjectExplorer::RunMode mode) const;
 
     static DebuggerEngine *createEngine(DebuggerEngineType et,
-                                        const DebuggerStartParameters &sp,
-                                        DebuggerEngine *masterEngine,
-                                        QString *errorMessage);
+        const DebuggerStartParameters &sp,
+        QString *errorMessage);
+
+    static DebuggerRunControl *createAndScheduleRun(
+        const DebuggerStartParameters &sp,
+        ProjectExplorer::RunConfiguration *runConfiguration = 0);
+
+    static DebuggerRunControl *doCreate(const DebuggerStartParameters &sp,
+        ProjectExplorer::RunConfiguration *rc, QString *errorMessage);
 
 private:
     QString displayName() const;
-    ProjectExplorer::RunConfigWidget *createConfigurationWidget(RunConfiguration *runConfiguration);
-
-    const unsigned m_enabledEngines;
+    ProjectExplorer::RunConfigWidget *createConfigurationWidget(
+        ProjectExplorer::RunConfiguration *runConfiguration);
 };
 
 } // namespace Internal

@@ -85,9 +85,8 @@ protected:
     FullySpecifiedType exceptionSpecification(ExceptionSpecificationAST *ast, const FullySpecifiedType &init);
     void memInitializer(MemInitializerAST *ast, Function *fun);
     const Name *nestedNameSpecifier(NestedNameSpecifierAST *ast);
-    void newPlacement(NewPlacementAST *ast);
+    void newPlacement(ExpressionListParenAST *ast);
     FullySpecifiedType newArrayDeclarator(NewArrayDeclaratorAST *ast, const FullySpecifiedType &init);
-    void newInitializer(NewInitializerAST *ast);
     FullySpecifiedType newTypeId(NewTypeIdAST *ast);
     OperatorNameId::Kind cppOperator(OperatorAST *ast);
     void parameterDeclarationClause(ParameterDeclarationClauseAST *ast, unsigned lparen_token, Function *fun);
@@ -122,9 +121,7 @@ protected:
     virtual bool visit(DynamicExceptionSpecificationAST *ast);
     virtual bool visit(MemInitializerAST *ast);
     virtual bool visit(NestedNameSpecifierAST *ast);
-    virtual bool visit(NewPlacementAST *ast);
     virtual bool visit(NewArrayDeclaratorAST *ast);
-    virtual bool visit(NewInitializerAST *ast);
     virtual bool visit(NewTypeIdAST *ast);
     virtual bool visit(OperatorAST *ast);
     virtual bool visit(ParameterDeclarationClauseAST *ast);
@@ -199,6 +196,7 @@ protected:
     virtual bool visit(ObjCSelectorExpressionAST *ast);
     virtual bool visit(LambdaExpressionAST *ast);
     virtual bool visit(BracedInitializerAST *ast);
+    virtual bool visit(ExpressionListParenAST *ast);
 
     // DeclarationAST
     virtual bool visit(SimpleDeclarationAST *ast);
@@ -273,6 +271,8 @@ protected:
 
 private:
     static const int kMaxDepth;
+
+    void ensureValidClassName(const Name **name, unsigned sourceLocation);
 
     Scope *_scope;
     ExpressionTy _expression;

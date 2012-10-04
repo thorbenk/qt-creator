@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -52,6 +50,7 @@ class BuildConfigWidget;
 class IProjectManager;
 class EditorConfiguration;
 class ProjectNode;
+class Kit;
 class Target;
 class ProjectPrivate;
 
@@ -89,7 +88,12 @@ public:
     // Note: activeTarget can be 0 (if no targets are defined).
     Target *activeTarget() const;
     void setActiveTarget(Target *target);
-    Target *target(Core::Id id) const;
+    Target *target(const Core::Id id) const;
+    Target *target(Kit *k) const;
+    virtual bool supportsKit(Kit *k, QString *errorMessage = 0) const;
+
+    Target *createTarget(Kit *k);
+    Target *restoreTarget(const QVariantMap &data);
 
     void saveSettings();
     bool restoreSettings();
@@ -107,18 +111,20 @@ public:
 
     virtual QVariantMap toMap() const;
 
-    // The directory that holds the project file. This includes the absolute path.
+    // The directory that holds the project. This includes the absolute path.
     QString projectDirectory() const;
-    static QString projectDirectory(const QString &proFile);
+    static QString projectDirectory(const QString &top);
 
     virtual Core::Context projectContext() const;
     virtual Core::Context projectLanguage() const;
 
     QVariant namedSettings(const QString &name) const;
-    void setNamedSettings(const QString &name, QVariant &value);
+    void setNamedSettings(const QString &name, const QVariant &value);
 
     virtual bool needsConfiguration() const;
     virtual void configureAsExampleProject(const QStringList &platforms);
+
+    virtual bool supportsNoTargetPanel() const;
 
 signals:
     void displayNameChanged();
@@ -134,6 +140,8 @@ signals:
     void environmentChanged();
     void buildConfigurationEnabledChanged();
 
+    void buildDirectoryChanged();
+
     void settingsLoaded();
     void aboutToSaveSettings();
 
@@ -146,6 +154,7 @@ protected:
 private slots:
     void changeEnvironment();
     void changeBuildConfigurationEnabled();
+    void onBuildDirectoryChanged();
 
 private:
     ProjectPrivate *d;

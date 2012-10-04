@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,17 +36,33 @@
 #include <QAbstractButton>
 #include <QPixmap>
 
+#include <QGraphicsOpacityEffect>
+
 QT_FORWARD_DECLARE_CLASS(QGraphicsOpacityEffect)
 
 namespace Utils {
 class QTCREATOR_UTILS_EXPORT FadingPanel : public QWidget
 {
+    Q_OBJECT
+
 public:
     FadingPanel(QWidget *parent = 0)
         : QWidget(parent)
     {}
     virtual void fadeTo(qreal value) = 0;
     virtual void setOpacity(qreal value) = 0;
+};
+
+class QTCREATOR_UTILS_EXPORT FadingWidget : public FadingPanel
+{
+    Q_OBJECT
+public:
+    FadingWidget(QWidget *parent = 0);
+    void fadeTo(qreal value);
+    qreal opacity();
+    void setOpacity(qreal value);
+protected:
+    QGraphicsOpacityEffect *m_opacityEffect;
 };
 
 class QTCREATOR_UTILS_EXPORT DetailsButton : public QAbstractButton

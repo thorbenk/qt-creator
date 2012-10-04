@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,11 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "stackframe.h"
+#include "watchutils.h"
 
 #include <QFileInfo>
 #include <QDebug>
@@ -89,13 +88,9 @@ QString StackFrame::toToolTip() const
     QString res;
     QTextStream str(&res);
     str << "<html><body><table>";
-    if (address) {
-        str << "<tr><td>" << tr("Address:") << "</td><td>0x";
-        str.setIntegerBase(16);
-        str <<  address;
-    }
-    str.setIntegerBase(10);
-    str << "</td></tr>";
+    if (address)
+        str << "<tr><td>" << tr("Address:") << "</td><td>"
+            << formatToolTipAddress(address) << "</td></tr>";
     if (!function.isEmpty())
         str << "<tr><td>" << tr("Function:") << "</td><td>" << function << "</td></tr>";
     if (!file.isEmpty())
@@ -121,7 +116,7 @@ QString StackFrame::toToolTip() const
     } else {
         str << tr("Binary debug information is accessible for this "
             "frame. However, matching sources have not been found. "
-            "Note that some distributions ship debug sources in "
+            "Note that some distributions ship debug sources "
             "in separate packages.");
     }
 

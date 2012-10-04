@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -29,17 +27,17 @@
     \contentspage index.html
     \previouspage creator-tutorials.html
     \page creator-qml-application.html
-    \nextpage creator-qml-components-example.html
+    \nextpage creator-writing-program.html
 
     \title Creating a Qt Quick Application
 
     \note To complete this tutorial, you must have Qt 4.7 or later installed.
 
     This tutorial uses built-in QML elements and illustrates basic concepts of
-    \l {http://doc.qt.nokia.com/4.7/qtquick.html}{Qt Quick}.
+    \l {http://qt-project.org/doc/qt-4.8/qtquick.html}{Qt Quick}.
 
     This tutorial describes how to use the \QC to implement the
-    \l{http://doc.qt.nokia.com/4.7/declarative-animation-states.html}
+    \l{http://qt-project.org/doc/qt-4.8/declarative-animation-states.html}
     {states and transitions example application}. The example application
      displays a Qt logo that moves between three rectangles on the page when you
     click them.
@@ -61,14 +59,11 @@
         \o  In the \gui {Create in} field, enter the path for the project files.
             For example, \c {C:\Qt\examples}, and then click \gui{Next}.
 
-        \o  In the \gui {Application Type} dialog, select \gui {Built-in
-            elements only (for all platforms)}, and then click \gui{Next}.
+        \o  Select \l{glossary-buildandrun-kit}{kits} for running and building your project,
+            and then click \gui{Next}.
 
-        \o  Select targets, and then click \gui{Next}.
-
-            \note Targets are listed if you installed the appropriate
-            development environment, for example, as part of the \QSDK. You can
-            add targets later in the \gui Projects mode.
+            \note Kits are listed if they have been specified in \gui Tools >
+            \gui Options > \gui {Build & Run} > \gui Kits.
 
         \o  Select \gui Next in the following dialogs to use the default
             settings.

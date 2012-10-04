@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -50,11 +48,13 @@ GerritOptionsPage::GerritOptionsPage(const QSharedPointer<GerritParameters> &p,
     : VcsBase::VcsBaseOptionsPage(parent)
     , m_parameters(p)
 {
+    setId(optionsId());
+    setDisplayName(tr("Gerrit"));
 }
 
-QString GerritOptionsPage::displayName() const
+QString GerritOptionsPage::optionsId()
 {
-    return tr("Gerrit");
+    return QLatin1String("Gerrit");
 }
 
 QWidget *GerritOptionsPage::createPage(QWidget *parent)
@@ -68,8 +68,12 @@ QWidget *GerritOptionsPage::createPage(QWidget *parent)
 void GerritOptionsPage::apply()
 {
     if (GerritOptionsWidget *w = m_widget.data()) {
-        const GerritParameters newParameters = w->parameters();
+        GerritParameters newParameters = w->parameters();
         if (newParameters != *m_parameters) {
+            if (m_parameters->ssh == newParameters.ssh)
+                newParameters.portFlag = m_parameters->portFlag;
+            else
+                newParameters.setPortFlagBySshType();
             *m_parameters = newParameters;
             m_parameters->toSettings(Core::ICore::instance()->settings());
         }
@@ -87,25 +91,18 @@ GerritOptionsWidget::GerritOptionsWidget(QWidget *parent)
     , m_userLineEdit(new QLineEdit(this))
     , m_sshChooser(new Utils::PathChooser)
     , m_portSpinBox(new QSpinBox(this))
-    , m_additionalQueriesLineEdit(new QLineEdit(this))
     , m_httpsCheckBox(new QCheckBox(tr("HTTPS")))
 {
     QFormLayout *formLayout = new QFormLayout(this);
     formLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    formLayout->addRow(tr("&Host: "), m_hostLineEdit);
-    formLayout->addRow(tr("&User: "), m_userLineEdit);
+    formLayout->addRow(tr("&Host:"), m_hostLineEdit);
+    formLayout->addRow(tr("&User:"), m_userLineEdit);
     m_sshChooser->setExpectedKind(Utils::PathChooser::ExistingCommand);
     m_sshChooser->setCommandVersionArguments(QStringList(QLatin1String("-V")));
-    formLayout->addRow(tr("&ssh: "), m_sshChooser);
+    formLayout->addRow(tr("&ssh:"), m_sshChooser);
     m_portSpinBox->setMinimum(1);
     m_portSpinBox->setMaximum(65535);
-    formLayout->addRow(tr("&Port: "), m_portSpinBox);
-    formLayout->addRow(tr("&Additional queries: "), m_additionalQueriesLineEdit);
-    m_additionalQueriesLineEdit->setToolTip(tr(
-    "A comma-separated list of additional queries.\n"
-    "For example \"status:staged,status:integrating\""
-    " can be used to show the status of the Continuous Integration\n"
-    "of the Qt project."));
+    formLayout->addRow(tr("&Port:"), m_portSpinBox);
     formLayout->addRow(tr("P&rotocol:"), m_httpsCheckBox);
     m_httpsCheckBox->setToolTip(tr(
     "Determines the protocol used to form a URL in case\n"
@@ -120,7 +117,6 @@ GerritParameters GerritOptionsWidget::parameters() const
     result.user = m_userLineEdit->text().trimmed();
     result.ssh = m_sshChooser->path();
     result.port = m_portSpinBox->value();
-    result.additionalQueries = m_additionalQueriesLineEdit->text().trimmed();
     result.https = m_httpsCheckBox->isChecked();
     return result;
 }
@@ -131,7 +127,6 @@ void GerritOptionsWidget::setParameters(const GerritParameters &p)
     m_userLineEdit->setText(p.user);
     m_sshChooser->setPath(p.ssh);
     m_portSpinBox->setValue(p.port);
-    m_additionalQueriesLineEdit->setText(p.additionalQueries);
     m_httpsCheckBox->setChecked(p.https);
 }
 

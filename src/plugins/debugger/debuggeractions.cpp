@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -389,6 +387,12 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     insertItem(TargetAsync, item);
 
     item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("WarnOnReleaseBuilds"));
+    item->setCheckable(true);
+    item->setDefaultValue(true);
+    insertItem(WarnOnReleaseBuilds, item);
+
+    item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("GdbStartupCommands"));
     item->setDefaultValue(QString());
     insertItem(GdbStartupCommands, item);
@@ -404,6 +408,12 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setCheckable(true);
     item->setDefaultValue(false);
     insertItem(SwitchModeOnExit, item);
+
+    item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("BreakpointsFullPath"));
+    item->setCheckable(true);
+    item->setDefaultValue(false);
+    insertItem(BreakpointsFullPathByDefault, item);
 
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("RaiseOnInterrupt"));
@@ -547,8 +557,9 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setDefaultValue(true);
     insertItem(ShowQmlObjectTree, item);
 
+    const QString qmlInspectorGroup = QLatin1String("QML.Inspector");
     item = new SavedAction(this);
-    item->setSettingsKey("QML.Inspector", QLatin1String("QmlInspector.ShowAppOnTop"));
+    item->setSettingsKey(qmlInspectorGroup, QLatin1String("QmlInspector.ShowAppOnTop"));
     item->setText(tr("Show Application On Top"));
     item->setCheckable(true);
     item->setDefaultValue(false);
@@ -556,7 +567,7 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     insertItem(ShowAppOnTop, item);
 
     item = new SavedAction(this);
-    item->setSettingsKey("QML.Inspector", QLatin1String("QmlInspector.FromQml"));
+    item->setSettingsKey(qmlInspectorGroup, QLatin1String("QmlInspector.FromQml"));
     item->setText(tr("Apply Changes on Save"));
     item->setCheckable(true);
     item->setDefaultValue(false);
@@ -607,7 +618,7 @@ QString DebuggerSettings::dump() const
             const QString current = item->value().toString();
             const QString default_ = item->defaultValue().toString();
             ts << '\n' << key << ": " << current
-               << "  (default: " << default_ << ")";
+               << "  (default: " << default_ << ')';
             if (current != default_)
                 ts <<  "  ***";
         }

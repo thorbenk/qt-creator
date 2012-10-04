@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,7 @@
 
 #include "customexecutablerunconfiguration.h"
 #include "qtoptionspage.h"
+#include "qtkitinformation.h"
 #include "qtversionmanager.h"
 
 #include "profilereader.h"
@@ -41,6 +40,7 @@
 #include "gettingstartedwelcomepage.h"
 
 #include <extensionsystem/pluginmanager.h>
+#include <projectexplorer/kitmanager.h>
 
 #include <QtPlugin>
 #include <QMenu>
@@ -52,7 +52,7 @@ bool QtSupportPlugin::initialize(const QStringList &arguments, QString *errorMes
 {
     Q_UNUSED(arguments);
     Q_UNUSED(errorMessage);
-    ProFileParser::initialize();
+    QMakeParser::initialize();
     ProFileEvaluator::initialize();
     new ProFileCacheManager(this);
 
@@ -83,6 +83,7 @@ bool QtSupportPlugin::initialize(const QStringList &arguments, QString *errorMes
 void QtSupportPlugin::extensionsInitialized()
 {
     QtVersionManager::instance()->extensionsInitialized();
+    ProjectExplorer::KitManager::instance()->registerKitInformation(new QtKitInformation);
 }
 
 bool QtSupportPlugin::delayedInitialize()

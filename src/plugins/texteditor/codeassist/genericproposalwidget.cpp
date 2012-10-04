@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,8 +37,10 @@
 
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/completionsettings.h>
+#include <texteditor/texteditorconstants.h>
 
 #include <utils/faketooltip.h>
+#include <utils/hostosinfo.h>
 
 #include <QRect>
 #include <QLatin1String>
@@ -57,6 +57,7 @@
 #include <QDesktopWidget>
 #include <QLabel>
 
+using namespace Utils;
 
 namespace TextEditor {
 
@@ -180,7 +181,7 @@ private:
 class GenericProposalListView : public QListView
 {
 public:
-    GenericProposalListView(QWidget *parent) : QListView(parent) {}
+    GenericProposalListView(QWidget *parent);
 
     QSize calculateSize() const;
     QPoint infoFramePos() const;
@@ -193,19 +194,24 @@ public:
     void selectLastRow() { selectRow(model()->rowCount() - 1); }
 };
 
+GenericProposalListView::GenericProposalListView(QWidget *parent)
+    : QListView(parent)
+{
+    setVerticalScrollMode(QAbstractItemView::ScrollPerItem);
+}
+
 QSize GenericProposalListView::calculateSize() const
 {
     static const int maxVisibleItems = 10;
 
     // Determine size by calculating the space of the visible items
-    int visibleItems = model()->rowCount();
-    if (visibleItems > maxVisibleItems)
-        visibleItems = maxVisibleItems;
+    const int visibleItems = qMin(model()->rowCount(), maxVisibleItems);
+    const int firstVisibleRow = verticalScrollBar()->value();
 
     const QStyleOptionViewItem &option = viewOptions();
     QSize shint;
     for (int i = 0; i < visibleItems; ++i) {
-        QSize tmp = itemDelegate()->sizeHint(option, model()->index(i, 0));
+        QSize tmp = itemDelegate()->sizeHint(option, model()->index(i + firstVisibleRow, 0));
         if (shint.width() < tmp.width())
             shint = tmp;
     }
@@ -264,7 +270,7 @@ GenericProposalWidgetPrivate::GenericProposalWidgetPrivate(QWidget *completionWi
     connect(m_completionListView, SIGNAL(activated(QModelIndex)),
             this, SLOT(handleActivation(QModelIndex)));
 
-    m_infoTimer.setInterval(1000);
+    m_infoTimer.setInterval(Constants::COMPLETION_ASSIST_TOOLTIP_DELAY);
     m_infoTimer.setSingleShot(true);
     connect(&m_infoTimer, SIGNAL(timeout()), SLOT(maybeShowInfoTip()));
 }
@@ -306,15 +312,15 @@ void GenericProposalWidgetPrivate::maybeShowInfoTip()
 GenericProposalWidget::GenericProposalWidget()
     : d(new GenericProposalWidgetPrivate(this))
 {
-#ifdef Q_OS_MAC
-    if (d->m_completionListView->horizontalScrollBar())
-        d->m_completionListView->horizontalScrollBar()->setAttribute(Qt::WA_MacMiniSize);
-    if (d->m_completionListView->verticalScrollBar())
-        d->m_completionListView->verticalScrollBar()->setAttribute(Qt::WA_MacMiniSize);
-#else
-    // This improves the look with QGTKStyle.
-    setFrameStyle(d->m_completionListView->frameStyle());
-#endif
+    if (HostOsInfo::isMacHost()) {
+        if (d->m_completionListView->horizontalScrollBar())
+            d->m_completionListView->horizontalScrollBar()->setAttribute(Qt::WA_MacMiniSize);
+        if (d->m_completionListView->verticalScrollBar())
+            d->m_completionListView->verticalScrollBar()->setAttribute(Qt::WA_MacMiniSize);
+    } else {
+        // This improves the look with QGTKStyle.
+        setFrameStyle(d->m_completionListView->frameStyle());
+    }
     d->m_completionListView->setFrameStyle(QFrame::NoFrame);
     d->m_completionListView->setAttribute(Qt::WA_MacShowFocusRect, false);
     d->m_completionListView->setUniformItemSizes(true);
@@ -322,6 +328,8 @@ GenericProposalWidget::GenericProposalWidget()
     d->m_completionListView->setSelectionMode(QAbstractItemView::SingleSelection);
     d->m_completionListView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     d->m_completionListView->setMinimumSize(1, 1);
+    connect(d->m_completionListView->verticalScrollBar(), SIGNAL(valueChanged(int)),
+            this, SLOT(updatePositionAndSize()));
 
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setMargin(0);
@@ -493,11 +501,9 @@ void GenericProposalWidget::updatePositionAndSize()
 
     // Determine the position, keeping the popup on the screen
     const QDesktopWidget *desktop = QApplication::desktop();
-#ifdef Q_OS_MAC
-    const QRect screen = desktop->availableGeometry(desktop->screenNumber(d->m_underlyingWidget));
-#else
-    const QRect screen = desktop->screenGeometry(desktop->screenNumber(d->m_underlyingWidget));
-#endif
+    const QRect screen = HostOsInfo::isMacHost()
+            ? desktop->availableGeometry(desktop->screenNumber(d->m_underlyingWidget))
+            : desktop->screenGeometry(desktop->screenNumber(d->m_underlyingWidget));
 
     QPoint pos = d->m_displayRect.bottomLeft();
     pos.rx() -= 16 + fw;    // Space for the icons
@@ -530,11 +536,7 @@ bool GenericProposalWidget::eventFilter(QObject *o, QEvent *e)
         switch (ke->key()) {
         case Qt::Key_N:
         case Qt::Key_P:
-#ifdef Q_OS_MAC
-            if (ke->modifiers() == Qt::MetaModifier) {
-#else
-            if (ke->modifiers() == Qt::ControlModifier) {
-#endif
+            if (ke->modifiers() == Qt::KeyboardModifiers(HostOsInfo::controlModifier())) {
                 e->accept();
                 return true;
             }
@@ -550,11 +552,7 @@ bool GenericProposalWidget::eventFilter(QObject *o, QEvent *e)
         case Qt::Key_P:
             // select next/previous completion
             d->m_explicitlySelected = true;
-#ifdef Q_OS_MAC
-            if (ke->modifiers() == Qt::MetaModifier) {
-#else
-            if (ke->modifiers() == Qt::ControlModifier) {
-#endif
+            if (ke->modifiers() == Qt::KeyboardModifiers(HostOsInfo::controlModifier())) {
                 int change = (ke->key() == Qt::Key_N) ? 1 : -1;
                 int nrows = d->m_model->size();
                 int row = d->m_completionListView->currentIndex().row();

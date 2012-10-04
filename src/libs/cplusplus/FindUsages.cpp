@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -212,35 +210,6 @@ void FindUsages::reportResult(unsigned tokenIndex)
     const Usage u(_doc->fileName(), lineText, line, col, len);
     _usages.append(u);
     _references.append(tokenIndex);
-}
-
-bool FindUsages::compareFullyQualifiedName(const QList<const Name *> &path, const QList<const Name *> &other)
-{
-    if (path.length() != other.length())
-        return false;
-
-    for (int i = 0; i < path.length(); ++i) {
-        if (! compareName(path.at(i), other.at(i)))
-            return false;
-    }
-
-    return true;
-}
-
-bool FindUsages::compareName(const Name *name, const Name *other)
-{
-    if (name == other)
-        return true;
-
-    else if (name && other) {
-        const Identifier *id = name->identifier();
-        const Identifier *otherId = other->identifier();
-
-        if (id == otherId || (id && id->isEqualTo(otherId)))
-            return true;
-    }
-
-    return false;
 }
 
 bool FindUsages::isLocalScope(Scope *scope)
@@ -567,11 +536,7 @@ void FindUsages::memInitializer(MemInitializerAST *ast)
             (void) switchScope(previousScope);
         }
     }
-    // unsigned lparen_token = ast->lparen_token;
-    for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
-        this->expression(it->value);
-    }
-    // unsigned rparen_token = ast->rparen_token;
+    this->expression(ast->expression);
 }
 
 bool FindUsages::visit(NestedNameSpecifierAST *ast)
@@ -590,14 +555,17 @@ void FindUsages::nestedNameSpecifier(NestedNameSpecifierAST *ast)
     // unsigned scope_token = ast->scope_token;
 }
 
-bool FindUsages::visit(NewPlacementAST *ast)
+bool FindUsages::visit(ExpressionListParenAST *ast)
 {
-    (void) ast;
-    Q_ASSERT(!"unreachable");
+    // unsigned lparen_token = ast->lparen_token;
+    for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
+        this->expression(it->value);
+    }
+    // unsigned rparen_token = ast->rparen_token;
     return false;
 }
 
-void FindUsages::newPlacement(NewPlacementAST *ast)
+void FindUsages::newPlacement(ExpressionListParenAST *ast)
 {
     if (! ast)
         return;
@@ -624,23 +592,6 @@ void FindUsages::newArrayDeclarator(NewArrayDeclaratorAST *ast)
     // unsigned lbracket_token = ast->lbracket_token;
     this->expression(ast->expression);
     // unsigned rbracket_token = ast->rbracket_token;
-}
-
-bool FindUsages::visit(NewInitializerAST *ast)
-{
-    (void) ast;
-    Q_ASSERT(!"unreachable");
-    return false;
-}
-
-void FindUsages::newInitializer(NewInitializerAST *ast)
-{
-    if (! ast)
-        return;
-
-    // unsigned lparen_token = ast->lparen_token;
-    this->expression(ast->expression);
-    // unsigned rparen_token = ast->rparen_token;
 }
 
 bool FindUsages::visit(NewTypeIdAST *ast)
@@ -1057,7 +1008,6 @@ bool FindUsages::visit(RangeBasedForStatementAST *ast)
         this->specifier(it->value);
     }
     this->declarator(ast->declarator);
-    this->expression(ast->initializer);
     // unsigned comma_token = ast->comma_token;
     this->expression(ast->expression);
     // unsigned rparen_token = ast->rparen_token;
@@ -1328,7 +1278,7 @@ bool FindUsages::visit(NewExpressionAST *ast)
     this->expression(ast->type_id);
     // unsigned rparen_token = ast->rparen_token;
     this->newTypeId(ast->new_type_id);
-    this->newInitializer(ast->new_initializer);
+    this->expression(ast->new_initializer);
     return false;
 }
 
@@ -1345,11 +1295,7 @@ bool FindUsages::visit(TypenameCallExpressionAST *ast)
 {
     // unsigned typename_token = ast->typename_token;
     /*const Name *name =*/ this->name(ast->name);
-    // unsigned lparen_token = ast->lparen_token;
-    for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
-        this->expression(it->value);
-    }
-    // unsigned rparen_token = ast->rparen_token;
+    this->expression(ast->expression);
     return false;
 }
 
@@ -1358,11 +1304,7 @@ bool FindUsages::visit(TypeConstructorCallAST *ast)
     for (SpecifierListAST *it = ast->type_specifier_list; it; it = it->next) {
         this->specifier(it->value);
     }
-    // unsigned lparen_token = ast->lparen_token;
-    for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
-        this->expression(it->value);
-    }
-    // unsigned rparen_token = ast->rparen_token;
+    this->expression(ast->expression);
     return false;
 }
 
@@ -1944,6 +1886,8 @@ bool FindUsages::visit(QualifiedNameAST *ast)
 
         if (SimpleNameAST *simple_name = unqualified_name->asSimpleName())
             identifier_token = simple_name->identifier_token;
+        else if (DestructorNameAST *dtor = unqualified_name->asDestructorName())
+            identifier_token = dtor->unqualified_name->firstToken();
 
         TemplateIdAST *template_id = 0;
         if (! identifier_token) {

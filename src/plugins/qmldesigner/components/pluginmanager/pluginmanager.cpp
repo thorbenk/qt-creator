@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,11 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "pluginmanager.h"
 #include "iplugin.h"
-#include "pluginpath.h"
 #include <metainfo.h>
 
 #include <QCoreApplication>
@@ -58,81 +55,19 @@ enum { debug = 0 };
 
 namespace QmlDesigner {
 
-// Initialize and create instance of a plugin from scratch,
-// that is, make sure the library is loaded and has an instance
-// of the IPlugin type. Once something fails, mark it as failed
-// ignore it from then on.
-//static IPlugin *instance(PluginData &p)
-//{
-//    // Go stale once something fails
-//    if (p.failed)
-//        return 0;
-//    // Pull up the plugin, retrieve IPlugin instance.
-//    if (!p.instanceGuard) {
-//        p.instance = 0;
-//        QPluginLoader loader(p.path);
-//        if (!(loader.isLoaded() || loader.load())) {
-//            p.failed = true;
-//            p.errorMessage = loader.errorString();
-//            return 0;
-//        }
-//        QObject *object = loader.instance();
-//        if (!object) {
-//            p.failed = true;
-//            p.errorMessage = QCoreApplication::translate("PluginManager", "Failed to create instance.");
-//            return 0;
-//        }
-//        IPlugin *iplugin = qobject_cast<IPlugin *>(object);
-//        if (!iplugin) {
-//            p.failed = true;
-//            p.errorMessage = QCoreApplication::translate("PluginManager", "Not a QmlDesigner plugin.");
-//            delete object;
-//            return 0;
-//        }
-//        p.instanceGuard = object;
-//        p.instance = iplugin;
-//    }
-//    // Ensure it is initialized
-//    if (!p.instance->isInitialized()) {
-//        if (!p.instance->initialize(&p.errorMessage)) {
-//            p.failed = true;
-//            delete p.instance;
-//            p.instance = 0;
-//            return 0;
-//        }
-//    }
-//    return p.instance;
-//}
-
-
-// ---- PluginManager[Private]
-class PluginManagerPrivate {
-public:
-    typedef QList<PluginPath> PluginPathList;
-    PluginPathList m_paths;
-};
-
-PluginManager::PluginManager() :
-        d(new PluginManagerPrivate)
-{
-}
-
-PluginManager::~PluginManager()
-{
-    delete d;
-}
-
 PluginManager::IPluginList PluginManager::instances()
 {
-    if (debug)
-        qDebug() << '>' << Q_FUNC_INFO << QLibraryInfo::buildKey();
     IPluginList rc;
-    const PluginManagerPrivate::PluginPathList::iterator end = d->m_paths.end();
-    for (PluginManagerPrivate::PluginPathList::iterator it = d->m_paths.begin(); it != end; ++it)
+    const PluginPathList::iterator end = m_paths.end();
+    for (PluginPathList::iterator it = m_paths.begin(); it != end; ++it)
         it->getInstances(&rc);
     if (debug)
         qDebug() << '<' << Q_FUNC_INFO << rc.size();
     return rc;
+}
+
+PluginManager::PluginManager()
+{
 }
 
 void PluginManager::setPluginPaths(const QStringList &paths)
@@ -141,7 +76,7 @@ void PluginManager::setPluginPaths(const QStringList &paths)
         const QDir dir(path);
         if (!dir.exists())
             continue;
-        d->m_paths.push_back(PluginPath(dir));
+        m_paths.push_back(PluginPath(dir));
     }
 
     // also register path in widgetpluginmanager
@@ -151,8 +86,8 @@ void PluginManager::setPluginPaths(const QStringList &paths)
 QAbstractItemModel *PluginManager::createModel(QObject *parent)
 {
     QStandardItemModel *model = new QStandardItemModel(parent);
-    const PluginManagerPrivate::PluginPathList::iterator end = d->m_paths.end();
-    for (PluginManagerPrivate::PluginPathList::iterator it = d->m_paths.begin(); it != end; ++it)
+    const PluginPathList::iterator end = m_paths.end();
+    for (PluginPathList::iterator it = m_paths.begin(); it != end; ++it)
         model->appendRow(it->createModelItem());
     return model;
 }

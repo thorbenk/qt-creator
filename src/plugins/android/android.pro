@@ -12,6 +12,7 @@ QT += xml network
 HEADERS += \
     androidconstants.h \
     androidconfigurations.h \
+    androidmanager.h \
     androidrunconfiguration.h \
     androidruncontrol.h \
     androidrunfactories.h \
@@ -32,14 +33,15 @@ HEADERS += \
     androidqtversionfactory.h \
     androidqtversion.h \
     androiddeployconfiguration.h \
-    androidtarget.h \
-    androidtargetfactory.h \
     androidcreatekeystorecertificate.h \
     javaparser.h \
-    androidplugin.h
+    androidplugin.h \
+    androiddevicefactory.h \
+    androiddevice.h
 
 SOURCES += \
     androidconfigurations.cpp \
+    androidmanager.cpp \
     androidrunconfiguration.cpp \
     androidruncontrol.cpp \
     androidrunfactories.cpp \
@@ -59,11 +61,11 @@ SOURCES += \
     androidqtversionfactory.cpp \
     androidqtversion.cpp \
     androiddeployconfiguration.cpp \
-    androidtarget.cpp \
-    androidtargetfactory.cpp \
     androidcreatekeystorecertificate.cpp \
     javaparser.cpp \
-    androidplugin.cpp
+    androidplugin.cpp \
+    androiddevicefactory.cpp \
+    androiddevice.cpp
 
 
 FORMS += \
@@ -74,5 +76,5 @@ FORMS += \
     androidcreatekeystorecertificate.ui
 
 RESOURCES = android.qrc
-DEFINES += QT_NO_CAST_TO_ASCII
+DEFINES += QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_ASCII
 DEFINES += ANDROID_LIBRARY

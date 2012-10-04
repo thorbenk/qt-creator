@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -59,7 +57,7 @@
 
 #include <utils/savedaction.h>
 #include <utils/fileutils.h>
-#include <utils/historycompleter.h>
+#include <utils/fancylineedit.h>
 
 namespace Debugger {
 namespace Internal {
@@ -125,7 +123,7 @@ class InputHighlighter : public QSyntaxHighlighter
 {
 public:
     InputHighlighter(QPlainTextEdit *parent)
-        : QSyntaxHighlighter(parent->document()), m_parent(parent)
+        : QSyntaxHighlighter(parent->document())
     {}
 
 private:
@@ -137,8 +135,6 @@ private:
             setFormat(1, text.size(), format);
         }
     }
-
-    QPlainTextEdit *m_parent;
 };
 
 
@@ -156,7 +152,6 @@ public:
     DebuggerPane(QWidget *parent)
         : QPlainTextEdit(parent)
     {
-        setMaximumBlockCount(100000);
         setFrameStyle(QFrame::NoFrame);
         m_clearContentsAction = new QAction(this);
         m_clearContentsAction->setText(tr("Clear Contents"));
@@ -181,6 +176,18 @@ public:
         menu->addAction(debuggerCore()->action(SettingsDialog));
         menu->exec(ev->globalPos());
         delete menu;
+    }
+
+    void append(const QString &text)
+    {
+        const int N = 100000;
+        if (blockCount() > N) {
+            QTextBlock block = document()->findBlock(9 * N / 10);
+            QTextCursor tc(block);
+            tc.movePosition(QTextCursor::Start, QTextCursor::MoveAnchor);
+            tc.removeSelectedText();
+        }
+        appendPlainText(text);
     }
 
 
@@ -334,11 +341,9 @@ LogWindow::LogWindow(QWidget *parent)
         QSizePolicy::MinimumExpanding);
 
     m_commandLabel = new QLabel(tr("Command:"), this);
-    m_commandEdit = new QLineEdit(this);
+    m_commandEdit = new Utils::FancyLineEdit(this);
     m_commandEdit->setFrame(false);
-    m_commandEdit->setObjectName(QLatin1String("DebuggerInput"));
-    m_commandEdit->setCompleter(new Utils::HistoryCompleter(
-                                    Core::ICore::settings(), m_commandEdit));
+    m_commandEdit->setHistoryCompleter(QLatin1String("DebuggerInput"));
     QHBoxLayout *commandBox = new QHBoxLayout;
     commandBox->addWidget(m_commandLabel);
     commandBox->addWidget(m_commandEdit);
@@ -383,6 +388,8 @@ LogWindow::LogWindow(QWidget *parent)
     connect(m_inputText, SIGNAL(executeLineRequested()),
         SLOT(executeLine()));
 
+    connect(&m_outputTimer, SIGNAL(timeout()), SLOT(doOutput()));
+
     setMinimumHeight(60);
 }
 
@@ -402,25 +409,56 @@ void LogWindow::showOutput(int channel, const QString &output)
 {
     if (output.isEmpty())
         return;
-    QTextCursor oldCursor = m_combinedText->textCursor();
-    QTextCursor cursor = oldCursor;
-    cursor.movePosition(QTextCursor::End);
-    bool atEnd = oldCursor.position() == cursor.position();
 
-    if (debuggerCore()->boolSetting(LogTimeStamps))
-        m_combinedText->appendPlainText(charForChannel(LogTime) + logTimeStamp());
-    foreach (QString line, output.split(QLatin1Char('\n'))) {
-        // FIXME: QTextEdit asserts on really long lines...
-        const int n = 30000;
-        if (line.size() > n) {
-            line.truncate(n);
-            line += QLatin1String(" [...] <cut off>");
-        }
-        if (line != QLatin1String("(gdb) "))
-            m_combinedText->appendPlainText(charForChannel(channel) + line);
+    const QChar cchar = charForChannel(channel);
+    const QChar nchar = QLatin1Char('\n');
+
+    QString out;
+    out.reserve(output.size() + 1000);
+
+    if (output.at(0) != QLatin1Char('~') && debuggerCore()->boolSetting(LogTimeStamps)) {
+        out.append(charForChannel(LogTime));
+        out.append(logTimeStamp());
+        out.append(nchar);
     }
-    cursor.movePosition(QTextCursor::End);
+
+    for (int pos = 0, n = output.size(); pos < n; ) {
+        const int npos = output.indexOf(nchar, pos);
+        const int nnpos = npos == -1 ? n : npos;
+        const int l = nnpos - pos;
+        if (l != 6 || output.midRef(pos, 6) != QLatin1String("(gdb) "))  {
+            out.append(cchar);
+            if (l > 30000) {
+                // FIXME: QTextEdit asserts on really long lines...
+                out.append(output.midRef(pos, 30000));
+                out.append(QLatin1String(" [...] <cut off>\n"));
+            } else {
+                out.append(output.midRef(pos, l + 1));
+            }
+        }
+        pos = nnpos + 1;
+    }
+    if (!out.endsWith(nchar))
+        out.append(nchar);
+
+    m_queuedOutput.append(out);
+    m_outputTimer.setSingleShot(true);
+    m_outputTimer.start(80);
+}
+
+void LogWindow::doOutput()
+{
+    if (m_queuedOutput.isEmpty())
+        return;
+
+    QTextCursor cursor = m_combinedText->textCursor();
+    const bool atEnd = cursor.atEnd();
+
+    m_combinedText->append(m_queuedOutput);
+    m_queuedOutput.clear();
+
     if (atEnd) {
+        cursor.movePosition(QTextCursor::End);
         m_combinedText->setTextCursor(cursor);
         m_combinedText->ensureCursorVisible();
     }
@@ -438,8 +476,8 @@ void LogWindow::showInput(int channel, const QString &input)
         return;
     }
     if (debuggerCore()->boolSetting(LogTimeStamps))
-        m_inputText->appendPlainText(logTimeStamp());
-    m_inputText->appendPlainText(input);
+        m_inputText->append(logTimeStamp());
+    m_inputText->append(input);
     QTextCursor cursor = m_inputText->textCursor();
     cursor.movePosition(QTextCursor::End);
     m_inputText->setTextCursor(cursor);

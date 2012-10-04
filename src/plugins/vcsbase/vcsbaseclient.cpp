@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Brian McGillion & Hugues Delorme
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -52,7 +50,7 @@
 #include <QProcess>
 #include <QSignalMapper>
 #include <QTextCodec>
-#include <QtDebug>
+#include <QDebug>
 #include <QFileInfo>
 #include <QByteArray>
 #include <QMetaType>
@@ -284,7 +282,7 @@ bool VcsBaseClient::vcsFullySynchronousExec(const QString &workingDir,
         vcsProcess.setWorkingDirectory(workingDir);
     vcsProcess.setProcessEnvironment(processEnvironment());
 
-    const QString binary = settings()->stringValue(VcsBaseClientSettings::binaryPathKey);
+    const QString binary = settings()->binaryPath();
 
     ::vcsOutputWindow()->appendCommand(workingDir, binary, args);
 
@@ -319,7 +317,7 @@ Utils::SynchronousProcessResponse VcsBaseClient::vcsSynchronousExec(
         unsigned flags,
         QTextCodec *outputCodec)
 {
-    const QString binary = settings()->stringValue(VcsBaseClientSettings::binaryPathKey);
+    const QString binary = settings()->binaryPath();
     const int timeoutSec = settings()->intValue(VcsBaseClientSettings::timeoutKey);
     return VcsBase::VcsBasePlugin::runVcs(workingDirectory, binary, args,
                                           timeoutSec * 1000, flags, outputCodec);
@@ -357,7 +355,6 @@ void VcsBaseClient::diff(const QString &workingDir, const QStringList &files,
     const QString source = VcsBase::VcsBaseEditorWidget::getSource(workingDir, files);
     VcsBase::VcsBaseEditorWidget *editor = createVcsEditor(kind, title, source, true,
                                                            vcsCmdString.toLatin1().constData(), id);
-    editor->setRevertDiffChunkEnabled(true);
     editor->setDiffBaseDirectory(workingDir);
 
     VcsBaseEditorParameterWidget *paramWidget = createDiffEditor(workingDir, files, extraOptions);
@@ -548,7 +545,7 @@ VcsBaseEditorParameterWidget *VcsBaseClient::createLogEditor(const QString &work
 
 QString VcsBaseClient::vcsEditorTitle(const QString &vcsCmd, const QString &sourceId) const
 {
-    const QString binary = settings()->stringValue(VcsBaseClientSettings::binaryPathKey);
+    const QString binary = settings()->binaryPath();
     return QFileInfo(binary).baseName() +
             QLatin1Char(' ') + vcsCmd + QLatin1Char(' ') +
             QFileInfo(sourceId).fileName();
@@ -595,7 +592,7 @@ Command *VcsBaseClient::createCommand(const QString &workingDirectory,
                                       VcsBase::VcsBaseEditorWidget *editor,
                                       JobOutputBindMode mode)
 {
-    Command *cmd = new Command(d->m_clientSettings->stringValue(VcsBaseClientSettings::binaryPathKey),
+    Command *cmd = new Command(d->m_clientSettings->binaryPath(),
                                workingDirectory, processEnvironment());
     cmd->setDefaultTimeout(d->m_clientSettings->intValue(VcsBaseClientSettings::timeoutKey));
     if (editor)
@@ -623,7 +620,7 @@ Command *VcsBaseClient::createCommand(const QString &workingDirectory,
 
 void VcsBaseClient::enqueueJob(Command *cmd, const QStringList &args)
 {
-    const QString binary = QFileInfo(d->m_clientSettings->stringValue(VcsBaseClientSettings::binaryPathKey)).baseName();
+    const QString binary = QFileInfo(d->m_clientSettings->binaryPath()).baseName();
     ::vcsOutputWindow()->appendCommand(cmd->workingDirectory(), binary, args);
     cmd->addJob(args);
     cmd->execute();

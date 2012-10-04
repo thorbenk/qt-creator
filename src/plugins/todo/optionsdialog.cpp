@@ -5,7 +5,7 @@
 ** Copyright (c) 2012 Dmitry Savchenko.
 ** Copyright (c) 2010 Vasiliy Sorokin.
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -26,8 +26,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,11 +49,17 @@ OptionsDialog::OptionsDialog(QWidget *parent) :
     connect(ui->removeButton, SIGNAL(clicked()), SLOT(removeButtonClicked()));
     connect(ui->editButton, SIGNAL(clicked()), SLOT(editButtonClicked()));
     connect(ui->resetButton, SIGNAL(clicked()), SLOT(resetButtonClicked()));
+    connect(ui->keywordsList, SIGNAL(itemDoubleClicked(QListWidgetItem*)), SLOT(itemDoubleClicked(QListWidgetItem*)));
 }
 
 OptionsDialog::~OptionsDialog()
 {
     delete ui;
+}
+
+void OptionsDialog::itemDoubleClicked(QListWidgetItem *item)
+{
+    editItem(item);
 }
 
 void OptionsDialog::setSettings(const Settings &settings)
@@ -100,7 +104,11 @@ void OptionsDialog::addButtonClicked()
 void OptionsDialog::editButtonClicked()
 {
     QListWidgetItem *item = ui->keywordsList->currentItem();
+    editItem(item);
+}
 
+void OptionsDialog::editItem(QListWidgetItem *item)
+{
     Keyword keyword;
     keyword.name = item->text();
     keyword.iconResource = item->data(Qt::UserRole).toString();

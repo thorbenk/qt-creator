@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,6 +39,11 @@
 #include <QHash>
 #include <QFileInfo>
 #include <QAtomicInt>
+
+// in debug mode: make dumpers widely available without an extra include
+#ifdef QT_DEBUG
+#include "Dumpers.h"
+#endif
 
 namespace CPlusPlus {
 
@@ -191,6 +194,9 @@ public:
 
     void addDiagnosticMessage(const DiagnosticMessage &d)
     { _diagnosticMessages.append(d); }
+
+    void clearDiagnosticMessages()
+    { _diagnosticMessages.clear(); }
 
     QList<DiagnosticMessage> diagnosticMessages() const
     { return _diagnosticMessages; }

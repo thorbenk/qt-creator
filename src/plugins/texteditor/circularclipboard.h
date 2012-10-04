@@ -35,6 +35,7 @@
 
 #include <QList>
 #include <QMimeData>
+#include <QSharedPointer>
 
 namespace TextEditor {
 namespace Internal {
@@ -45,8 +46,10 @@ public:
     static CircularClipboard *instance();
 
     void collect(const QMimeData *mimeData);
-    const QMimeData *next() const;
+    void collect(const QSharedPointer<const QMimeData> &mimeData);
+    QSharedPointer<const QMimeData> next() const;
     void toLastCollect();
+    int size() const;
 
 private:
     CircularClipboard();
@@ -54,7 +57,7 @@ private:
     CircularClipboard &operator=(const CircularClipboard &);
 
     mutable int m_current;
-    QList<const QMimeData *> m_items;
+    QList< QSharedPointer<const QMimeData> > m_items;
 };
 
 } // namespace Internal

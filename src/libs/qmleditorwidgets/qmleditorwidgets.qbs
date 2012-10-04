@@ -9,16 +9,17 @@ QtcLibrary {
         "..",
         "easingpane"
     ]
-    cpp.defines: [
+    cpp.defines: base.concat([
         "QWEAKPOINTER_ENABLE_ARROW",
         "BUILD_QMLEDITORWIDGETS_LIB",
         "QT_CREATOR"
-    ]
+    ])
     cpp.optimization: "fast"
 
     Depends { name: "cpp" }
     Depends { name: "Qt"; submodules: ["widgets", "quick1", "script"] }
     Depends { name: "QmlJS" }
+    Depends { name: "Utils" }
 
     files: [
         "resources.qrc",

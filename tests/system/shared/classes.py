@@ -2,24 +2,21 @@
 class QtQuickConstants:
     class Components:
         BUILTIN = 1
-        SYMBIAN = 2
-        MEEGO_HARMATTAN = 4
-        EXISTING_QML = 8
+        MEEGO_HARMATTAN = 2
+        EXISTING_QML = 4
 
     class Targets:
-        DESKTOP = 1
+        DESKTOP_474_GCC = 1
         SIMULATOR = 2
-        SYMBIAN = 4
-        MAEMO5 = 8
-        HARMATTAN = 16
-        EMBEDDED_LINUX = 32
+        MAEMO5 = 4
+        HARMATTAN = 8
+        EMBEDDED_LINUX = 16
+        DESKTOP_474_MSVC2008 = 32
 
     @staticmethod
     def getStringForComponents(components):
             if components==QtQuickConstants.Components.BUILTIN:
                 return "Built-in elements only (for all platforms)"
-            elif components==QtQuickConstants.Components.SYMBIAN:
-                return "Qt Quick Components for Symbian"
             elif components==QtQuickConstants.Components.MEEGO_HARMATTAN:
                 return "Qt Quick Components for Meego/Harmattan"
             elif components==QtQuickConstants.Components.EXISTING_QML:
@@ -29,30 +26,20 @@ class QtQuickConstants:
 
     @staticmethod
     def getStringForTarget(target):
-        if target==QtQuickConstants.Targets.DESKTOP:
-            return "Desktop"
-        elif target==QtQuickConstants.Targets.SYMBIAN:
-            return "Symbian Device"
+        if target==QtQuickConstants.Targets.DESKTOP_474_GCC:
+            return "Desktop 474 GCC"
         elif target==QtQuickConstants.Targets.MAEMO5:
-            return "Maemo5"
+            return "Fremantle"
         elif target==QtQuickConstants.Targets.SIMULATOR:
             return "Qt Simulator"
         elif target==QtQuickConstants.Targets.HARMATTAN:
             return "Harmattan"
         elif target==QtQuickConstants.Targets.EMBEDDED_LINUX:
             return "Embedded Linux"
+        elif target==QtQuickConstants.Targets.DESKTOP_474_MSVC2008:
+            return "Desktop 474 MSVC2008"
         else:
             return None
-
-    @staticmethod
-    def getAllTargets():
-        return [QtQuickConstants.Targets.DESKTOP, QtQuickConstants.Targets.HARMATTAN,
-                QtQuickConstants.Targets.MAEMO5, QtQuickConstants.Targets.SIMULATOR,
-                QtQuickConstants.Targets.SYMBIAN, QtQuickConstants.Targets.EMBEDDED_LINUX]
-
-    @staticmethod
-    def getAllTargetStrings():
-        return QtQuickConstants.getTargetsAsStrings(QtQuickConstants.getAllTargets())
 
     @staticmethod
     def getTargetsAsStrings(targets):
@@ -122,3 +109,7 @@ class SubprocessType:
         test.fatal("Could not determine the WindowType for SubprocessType %s" % subprocessType)
         return None
 
+class QtInformation:
+    QT_VERSION = 0
+    QT_BINPATH = 1
+    QT_LIBPATH = 2

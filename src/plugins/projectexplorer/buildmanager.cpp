@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,6 +49,7 @@
 #include <utils/qtcassert.h>
 
 #include <QDir>
+#include <QPointer>
 #include <QTime>
 #include <QTimer>
 #include <QMetaType>
@@ -61,7 +60,6 @@
 #include <utils/QtConcurrentTools>
 
 #include <QApplication>
-#include <QMainWindow>
 
 static inline QString msgProgress(int progress, int total)
 {
@@ -101,7 +99,7 @@ struct BuildManagerPrivate {
     int m_maxProgress;
     QFutureInterface<void> *m_progressFutureInterface;
     QFutureWatcher<void> m_progressWatcher;
-    QWeakPointer<Core::FutureProgress> m_futureProgress;
+    QPointer<Core::FutureProgress> m_futureProgress;
 };
 
 BuildManagerPrivate::BuildManagerPrivate() :
@@ -119,7 +117,6 @@ BuildManagerPrivate::BuildManagerPrivate() :
 BuildManager::BuildManager(ProjectExplorerPlugin *parent, QAction *cancelBuildAction)
     : QObject(parent), d(new BuildManagerPrivate)
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
     d->m_projectExplorerPlugin = parent;
 
     connect(&d->m_watcher, SIGNAL(finished()),
@@ -136,11 +133,11 @@ BuildManager::BuildManager(ProjectExplorerPlugin *parent, QAction *cancelBuildAc
             this, SLOT(aboutToRemoveProject(ProjectExplorer::Project*)));
 
     d->m_outputWindow = new Internal::CompileOutputWindow(this, cancelBuildAction);
-    pm->addObject(d->m_outputWindow);
+    ExtensionSystem::PluginManager::addObject(d->m_outputWindow);
 
     d->m_taskHub = ProjectExplorerPlugin::instance()->taskHub();
     d->m_taskWindow = new Internal::TaskWindow(d->m_taskHub);
-    pm->addObject(d->m_taskWindow);
+    ExtensionSystem::PluginManager::addObject(d->m_taskWindow);
 
     qRegisterMetaType<ProjectExplorer::BuildStep::OutputFormat>();
     qRegisterMetaType<ProjectExplorer::BuildStep::OutputNewlineSetting>();
@@ -168,12 +165,10 @@ void BuildManager::extensionsInitialized()
 BuildManager::~BuildManager()
 {
     cancel();
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-
-    pm->removeObject(d->m_taskWindow);
+    ExtensionSystem::PluginManager::removeObject(d->m_taskWindow);
     delete d->m_taskWindow;
 
-    pm->removeObject(d->m_outputWindow);
+    ExtensionSystem::PluginManager::removeObject(d->m_outputWindow);
     delete d->m_outputWindow;
 
     delete d;
@@ -281,7 +276,7 @@ void BuildManager::clearBuildQueue()
     d->m_progressWatcher.setFuture(QFuture<void>());
     delete d->m_progressFutureInterface;
     d->m_progressFutureInterface = 0;
-    d->m_futureProgress.clear();
+    d->m_futureProgress = 0;
     d->m_maxProgress = 0;
 
     emit buildQueueFinished(false);
@@ -290,17 +285,17 @@ void BuildManager::clearBuildQueue()
 
 void BuildManager::toggleOutputWindow()
 {
-    d->m_outputWindow->toggle(false);
+    d->m_outputWindow->toggle(Core::IOutputPane::ModeSwitch);
 }
 
 void BuildManager::showTaskWindow()
 {
-    d->m_taskWindow->popup(false);
+    d->m_taskWindow->popup(Core::IOutputPane::NoModeSwitch);
 }
 
 void BuildManager::toggleTaskWindow()
 {
-    d->m_taskWindow->toggle(false);
+    d->m_taskWindow->toggle(Core::IOutputPane::ModeSwitch);
 }
 
 bool BuildManager::tasksAvailable() const
@@ -328,10 +323,10 @@ void BuildManager::startBuildQueue(const QStringList &preambleMessage)
         d->m_taskHub->clearTasks(Core::Id(Constants::TASK_CATEGORY_COMPILE));
         d->m_taskHub->clearTasks(Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM));
         progressManager->setApplicationLabel(QString());
-        d->m_futureProgress = QWeakPointer<Core::FutureProgress>(progressManager->addTask(d->m_progressFutureInterface->future(),
+        d->m_futureProgress = progressManager->addTask(d->m_progressFutureInterface->future(),
               QString(),
               QLatin1String(Constants::TASK_BUILD),
-              Core::ProgressManager::KeepOnFinish | Core::ProgressManager::ShowInApplicationIcon));
+              Core::ProgressManager::KeepOnFinish | Core::ProgressManager::ShowInApplicationIcon);
         connect(d->m_futureProgress.data(), SIGNAL(clicked()), this, SLOT(showBuildResults()));
         d->m_futureProgress.data()->setWidget(new Internal::BuildProgress(d->m_taskWindow));
         d->m_progress = 0;
@@ -552,12 +547,12 @@ bool BuildManager::buildLists(QList<BuildStepList *> bsls, const QStringList &st
 
     bool success = buildQueueAppend(steps, names);
     if (!success) {
-        d->m_outputWindow->popup(false);
+        d->m_outputWindow->popup(Core::IOutputPane::NoModeSwitch);
         return false;
     }
 
     if (ProjectExplorerPlugin::instance()->projectExplorerSettings().showCompilerOutput)
-        d->m_outputWindow->popup(false);
+        d->m_outputWindow->popup(Core::IOutputPane::NoModeSwitch);
     startBuildQueue(preambelMessage);
     return true;
 }
@@ -566,11 +561,11 @@ void BuildManager::appendStep(BuildStep *step, const QString &name)
 {
     bool success = buildQueueAppend(QList<BuildStep *>() << step, QStringList() << name);
     if (!success) {
-        d->m_outputWindow->popup(false);
+        d->m_outputWindow->popup(Core::IOutputPane::NoModeSwitch);
         return;
     }
     if (ProjectExplorerPlugin::instance()->projectExplorerSettings().showCompilerOutput)
-        d->m_outputWindow->popup(false);
+        d->m_outputWindow->popup(Core::IOutputPane::NoModeSwitch);
     startBuildQueue();
 }
 

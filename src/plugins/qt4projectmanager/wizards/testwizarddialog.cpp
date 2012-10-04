@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "testwizarddialog.h"
 #include "testwizardpage.h"
+#include <projectexplorer/projectexplorerconstants.h>
 
 #include <QFileInfo>
 
@@ -63,7 +62,8 @@ TestWizardDialog::TestWizardDialog(const QString &templateName,
     setWindowIcon(icon);
     setWindowTitle(templateName);
     setSelectedModules(QLatin1String("core testlib"), true);
-    addTargetSetupPage();
+    if (!parameters.extraValues().contains(ProjectExplorer::Constants::PROJECT_KIT_IDS))
+        addTargetSetupPage();
     m_modulesPageId = addModulesPage();
     m_testPageId = addPage(m_testPage);
     wizardProgress()->item(m_testPageId)->setTitle(tr("Details"));

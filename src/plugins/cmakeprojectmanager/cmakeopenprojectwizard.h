@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -44,7 +42,8 @@
 #include <QPlainTextEdit>
 
 namespace Utils {
-    class PathChooser;
+class FancyLineEdit;
+class PathChooser;
 }
 
 namespace ProjectExplorer {
@@ -55,6 +54,7 @@ namespace CMakeProjectManager {
 namespace Internal {
 
 class CMakeManager;
+class CMakeBuildConfiguration;
 
 class CMakeOpenProjectWizard : public Utils::Wizard
 {
@@ -74,14 +74,14 @@ public:
     };
 
     // used at importing a project without a .user file
-    CMakeOpenProjectWizard(CMakeManager *cmakeManager, const QString &sourceDirectory, const Utils::Environment &env);
+    CMakeOpenProjectWizard(CMakeManager *cmakeManager, const QString &sourceDirectory, CMakeBuildConfiguration *bc);
     /// used to update if we have already a .user file
     /// recreates or updates the cbp file
-    CMakeOpenProjectWizard(CMakeManager *cmakeManager, const QString &sourceDirectory, const QString &buildDirectory, Mode mode, const Utils::Environment &env);
+    CMakeOpenProjectWizard(CMakeManager *cmakeManager, const QString &sourceDirectory, const QString &buildDirectory, Mode mode, CMakeBuildConfiguration *bc);
     /// used to change the build directory of one buildconfiguration
     /// shows a page for selecting a directory
     /// then the run cmake page
-    CMakeOpenProjectWizard(CMakeManager *cmakeManager, const QString &sourceDirectory, const QString &oldBuildDirectory, const Utils::Environment &env);
+    CMakeOpenProjectWizard(CMakeManager *cmakeManager, const QString &sourceDirectory, const QString &oldBuildDirectory, CMakeBuildConfiguration *bc);
 
     virtual int nextId() const;
     QString buildDirectory() const;
@@ -90,9 +90,8 @@ public:
     CMakeManager *cmakeManager() const;
     QString arguments() const;
     void setArguments(const QString &args);
-    ProjectExplorer::ToolChain *toolChain() const;
-    void setToolChain(ProjectExplorer::ToolChain *);
     Utils::Environment environment() const;
+    CMakeBuildConfiguration *buildConfiguration() const;
     bool existsUpToDateXmlFile() const;
 
 private:
@@ -103,8 +102,7 @@ private:
     QString m_sourceDirectory;
     QString m_arguments;
     bool m_creatingCbpFiles;
-    Utils::Environment m_environment;
-    ProjectExplorer::ToolChain *m_toolChain;
+    CMakeBuildConfiguration *m_buildConfiguration;
 };
 
 class InSourceBuildPage : public QWizardPage
@@ -149,7 +147,7 @@ private:
     QPlainTextEdit *m_output;
     QPushButton *m_runCMake;
     Utils::QtcProcess *m_cmakeProcess;
-    QLineEdit *m_argumentsLineEdit;
+    Utils::FancyLineEdit *m_argumentsLineEdit;
     Utils::PathChooser *m_cmakeExecutable;
     QComboBox *m_generatorComboBox;
     QLabel *m_descriptionLabel;

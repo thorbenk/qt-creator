@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,12 +34,13 @@
 #include "icontext.h"
 #include "id.h"
 
+#include <utils/hostosinfo.h>
+
 #include <QDebug>
 #include <QTextStream>
 
 #include <QAction>
 #include <QShortcut>
-#include <QMainWindow>
 
 /*!
     \class Core::Command
@@ -265,16 +264,6 @@ Id CommandPrivate::id() const
     return m_id;
 }
 
-QAction *CommandPrivate::action() const
-{
-    return 0;
-}
-
-QShortcut *CommandPrivate::shortcut() const
-{
-    return 0;
-}
-
 Core::Context CommandPrivate::context() const
 {
     return m_context;
@@ -451,9 +440,8 @@ static QString msgActionWarning(QAction *newAction, int k, QAction *oldAction)
 
 void Action::addOverrideAction(QAction *action, const Core::Context &context, bool scriptable)
 {
-#ifdef Q_OS_MAC
-    action->setIconVisibleInMenu(false);
-#endif
+    if (Utils::HostOsInfo::isMacHost())
+        action->setIconVisibleInMenu(false);
     if (isEmpty())
         m_action->initialize(action);
     if (context.isEmpty()) {

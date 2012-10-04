@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,35 +25,33 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef ANDROIDQTVERSION_H
 #define ANDROIDQTVERSION_H
+
 #include <qtsupport/baseqtversion.h>
+
+#include <QCoreApplication>
 
 namespace Android {
 namespace Internal {
 
 class AndroidQtVersion : public QtSupport::BaseQtVersion
 {
+    Q_DECLARE_TR_FUNCTIONS(Android::Internal::AndroidQtVersion)
+
 public:
     AndroidQtVersion();
     AndroidQtVersion(const Utils::FileName &path, bool isAutodetected = false, const QString &autodetectionSource = QString());
-    ~AndroidQtVersion ();
+
     AndroidQtVersion *clone() const;
-
     QString type() const;
-
     bool isValid() const;
     QString invalidReason() const;
 
     QList<ProjectExplorer::Abi> detectQtAbis() const;
-
-    bool supportsTargetId(const Core::Id id) const;
-    QSet<Core::Id> supportedTargetIds() const;
 
     Core::FeatureSet availableFeatures() const;
     QString platformName() const;

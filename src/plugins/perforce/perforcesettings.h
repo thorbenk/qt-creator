@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -56,6 +54,7 @@ struct Settings {
                         QString *errorMessage);
 
     QString p4Command;
+    QString p4BinaryPath;
     QString p4Port;
     QString p4Client;
     QString p4User;
@@ -94,7 +93,7 @@ public:
 
     inline bool isValid() const
     {
-        return !m_topLevel.isEmpty() && !m_settings.p4Command.isEmpty();
+        return !m_topLevel.isEmpty() && !m_settings.p4BinaryPath.isEmpty();
     }
 
     void fromSettings(QSettings *settings);
@@ -125,6 +124,7 @@ public:
     QString mapToFileSystem(const QString &perforceFilePath) const;
 
     QString p4Command() const;
+    QString p4BinaryPath() const;
     QString p4Port() const;
     QString p4Client() const;
     QString p4User() const;

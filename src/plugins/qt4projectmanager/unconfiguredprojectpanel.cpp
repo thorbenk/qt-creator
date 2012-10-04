@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2011 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -42,9 +40,10 @@
 #include <coreplugin/modemanager.h>
 #include <coreplugin/coreconstants.h>
 
+#include <projectexplorer/kit.h>
+#include <projectexplorer/kitmanager.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/projectexplorer.h>
-#include <projectexplorer/toolchain.h>
 
 #include <QLabel>
 #include <QVBoxLayout>
@@ -127,45 +126,48 @@ TargetSetupPageWrapper::TargetSetupPageWrapper(ProjectExplorer::Project *project
 
     connect(m_configureButton, SIGNAL(clicked()),
             this, SLOT(done()));
-    connect(m_targetSetupPage, SIGNAL(noteTextLinkActivated()),
-            this, SLOT(noteTextLinkActivated()));
     connect(m_targetSetupPage, SIGNAL(completeChanged()),
             this, SLOT(completeChanged()));
-    connect(m_project->qt4ProjectManager(), SIGNAL(unconfiguredSettingsChanged()),
+    connect(ProjectExplorer::KitManager::instance(), SIGNAL(defaultkitChanged()),
             this, SLOT(updateNoteText()));
+    connect(ProjectExplorer::KitManager::instance(), SIGNAL(kitUpdated(ProjectExplorer::Kit*)),
+            this, SLOT(kitUpdated(ProjectExplorer::Kit*)));
+}
+
+void TargetSetupPageWrapper::kitUpdated(ProjectExplorer::Kit *k)
+{
+    if (k == ProjectExplorer::KitManager::instance()->defaultKit())
+        updateNoteText();
 }
 
 void TargetSetupPageWrapper::updateNoteText()
 {
-    UnConfiguredSettings us = m_project->qt4ProjectManager()->unconfiguredSettings();
+    ProjectExplorer::Kit *k = ProjectExplorer::KitManager::instance()->defaultKit();
 
     QString text;
-    if (us.version && us.toolchain)
-        text = tr("<p>The project <b>%1</b> is not yet configured.</p><p>Qt Creator uses the Qt version: <b>%2</b> "
-                  "and the tool chain: <b>%3</b> to parse the project. You can edit "
-                  "these in the <b><a href=\"edit\">options.</a></b></p>")
-                .arg(m_project->displayName())
-                .arg(us.version->displayName())
-                .arg(us.toolchain->displayName());
-    else if (us.version)
-        text = tr("<p>The project <b>%1</b> is not yet configured.</p><p>Qt Creator uses the Qt version: <b>%2</b> "
-                  "and <b>no tool chain</b> to parse the project. You can edit "
-                  "these in the <b><a href=\"edit\">settings</a></b></p>")
-                .arg(m_project->displayName())
-                .arg(us.version->displayName());
-    else if (us.toolchain)
-        text = tr("<p>The project <b>%1</b> is not yet configured.</p><p>Qt Creator uses <b>no Qt version</b> "
-                  "and the tool chain: <b>%2</b> to parse the project. You can edit "
-                  "these in the <b><a href=\"edit\">settings</a></b></p>")
-                .arg(m_project->displayName())
-                .arg(us.toolchain->displayName());
-    else
-        text = tr("<p>The project <b>%1</b> is not yet configured.</p><p>Qt Creator uses <b>no Qt version</b> "
-                  "and <b>no tool chain</b> to parse the project. You can edit "
-                  "these in the <b><a href=\"edit\">settings</a></b></p>")
+    bool showHint = false;
+    if (!k) {
+        text = tr("The project <b>%1</b> is not yet configured.<br/>"
+                  "Qt Creator cannot parse the project, because no kit "
+                  "has been set up.")
                 .arg(m_project->displayName());
+        showHint = true;
+    } else if (k->isValid()) {
+        text = tr("The project <b>%1</b> is not yet configured.<br/>"
+                  "Qt Creator uses the kit <b>%2</b> to parse the project.")
+                .arg(m_project->displayName())
+                .arg(k->displayName());
+        showHint = false;
+    } else {
+        text = tr("The project <b>%1</b> is not yet configured.<br/>"
+                  "Qt Creator uses the <b>invalid</b> kit <b>%2</b> to parse the project.")
+                .arg(m_project->displayName())
+                .arg(k->displayName());
+        showHint = true;
+    }
 
     m_targetSetupPage->setNoteText(text);
+    m_targetSetupPage->showOptionsHint(showHint);
 }
 
 void TargetSetupPageWrapper::keyPressEvent(QKeyEvent *event)
@@ -188,12 +190,6 @@ void TargetSetupPageWrapper::done()
     m_targetSetupPage->setupProject(m_project);
     ProjectExplorer::ProjectExplorerPlugin::instance()->requestProjectModeUpdate(m_project);
     Core::ICore::instance()->modeManager()->activateMode(Core::Constants::MODE_EDIT);
-}
-
-void TargetSetupPageWrapper::noteTextLinkActivated()
-{
-    Core::ICore::instance()->showOptionsDialog(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
-                                               QLatin1String(Constants::UNCONFIGURED_SETTINGS_PAGE_ID));
 }
 
 void TargetSetupPageWrapper::completeChanged()

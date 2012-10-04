@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,16 +34,7 @@
 #include <coreplugin/basefilewizard.h>
 #include <utils/wizard.h>
 
-QT_BEGIN_NAMESPACE
-class QFileInfo;
-class QDir;
-QT_END_NAMESPACE
-
-namespace Utils {
-
-class FileWizardPage;
-
-} // namespace Utils
+namespace Utils { class FileWizardPage; }
 
 namespace GenericProjectManager {
 namespace Internal {
@@ -58,7 +47,6 @@ class GenericProjectWizardDialog : public Utils::Wizard
 
 public:
     GenericProjectWizardDialog(QWidget *parent = 0);
-    virtual ~GenericProjectWizardDialog();
 
     QString path() const;
     void setPath(const QString &path);
@@ -77,19 +65,15 @@ class GenericProjectWizard : public Core::BaseFileWizard
 
 public:
     GenericProjectWizard();
-    virtual ~GenericProjectWizard();
-    virtual Core::FeatureSet requiredFeatures() const;
+    Core::FeatureSet requiredFeatures() const;
 
     static Core::BaseFileWizardParameters parameters();
 
 protected:
-    virtual QWizard *createWizardDialog(QWidget *parent,
-                                        const Core::WizardDialogParameters &wizardDialogParameters) const;
-
-    virtual Core::GeneratedFiles generateFiles(const QWizard *w,
-                                               QString *errorMessage) const;
-
-    virtual bool postGenerateFiles(const QWizard *w, const Core::GeneratedFiles &l, QString *errorMessage);
+    QWizard *createWizardDialog(QWidget *parent,
+                                const Core::WizardDialogParameters &wizardDialogParameters) const;
+    Core::GeneratedFiles generateFiles(const QWizard *w, QString *errorMessage) const;
+    bool postGenerateFiles(const QWizard *w, const Core::GeneratedFiles &l, QString *errorMessage);
 };
 
 } // namespace Internal

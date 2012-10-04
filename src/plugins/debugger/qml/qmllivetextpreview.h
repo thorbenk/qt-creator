@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -61,6 +59,7 @@ public:
                        const QmlJS::Document::Ptr &initDoc,
                        QmlInspectorAdapter *inspectorAdapter,
                        QObject *parent = 0);
+    ~QmlLiveTextPreview();
 
     void associateEditor(Core::IEditor *editor);
     void unassociateEditor(Core::IEditor *editor);
@@ -83,13 +82,16 @@ private slots:
     void changeSelectedElements(const QList<QmlJS::AST::UiObjectMember *> offsets,
                                 const QString &wordAtCursor);
     void documentChanged(QmlJS::Document::Ptr doc);
+    void editorContentsChanged();
+    void onAutomaticUpdateFailed();
 
 private:
     enum UnsyncronizableChangeType {
         NoUnsyncronizableChanges,
         AttributeChangeWarning,
         ElementChangeWarning,
-        JSChangeWarning
+        JSChangeWarning,
+        AutomaticUpdateFailed
     };
 
     bool changeSelectedElements(const QList<int> offsets, const QString &wordAtCursor);
@@ -115,6 +117,7 @@ private:
     QmlJS::AST::UiObjectMember *m_nodeForOffset;
     bool m_updateNodeForOffset;
     bool m_changesUnsynchronizable;
+    bool m_contentsChanged;
 
     friend class UpdateInspector;
 };

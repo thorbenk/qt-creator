@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,64 +38,51 @@ namespace Debugger {
 class DebuggerEngine;
 class DebuggerStartParameters;
 }
-namespace ProjectExplorer { class RunControl; }
+
+namespace ProjectExplorer {
+class DeviceApplicationHelperAction;
+class RunConfiguration;
+}
 
 namespace RemoteLinux {
-class LinuxDeviceConfiguration;
 class RemoteLinuxRunConfiguration;
-class AbstractRemoteLinuxApplicationRunner;
 
-namespace Internal {
-class AbstractRemoteLinuxDebugSupportPrivate;
-class RemoteLinuxDebugSupportPrivate;
-} // namespace Internal
+namespace Internal { class LinuxDeviceDebugSupportPrivate; }
 
-class REMOTELINUX_EXPORT AbstractRemoteLinuxDebugSupport : public QObject
+class REMOTELINUX_EXPORT LinuxDeviceDebugSupport : public QObject
 {
     Q_OBJECT
-    Q_DISABLE_COPY(AbstractRemoteLinuxDebugSupport)
 public:
     static Debugger::DebuggerStartParameters startParameters(const RemoteLinuxRunConfiguration *runConfig);
 
-    AbstractRemoteLinuxDebugSupport(RemoteLinuxRunConfiguration *runConfig, Debugger::DebuggerEngine *engine);
-    ~AbstractRemoteLinuxDebugSupport();
+    LinuxDeviceDebugSupport(ProjectExplorer::RunConfiguration *runConfig,
+            Debugger::DebuggerEngine *engine);
+    ~LinuxDeviceDebugSupport();
+
+    void setApplicationRunnerPreRunAction(ProjectExplorer::DeviceApplicationHelperAction *action);
+    void setApplicationRunnerPostRunAction(ProjectExplorer::DeviceApplicationHelperAction *action);
 
 private slots:
-    void handleAdapterSetupRequested();
-    void handleSshError(const QString &error);
+    void handleRemoteSetupRequested();
+    void handleAppRunnerError(const QString &error);
     void startExecution();
     void handleDebuggingFinished();
     void handleRemoteOutput(const QByteArray &output);
     void handleRemoteErrorOutput(const QByteArray &output);
     void handleProgressReport(const QString &progressOutput);
     void handleRemoteProcessStarted();
-    void handleRemoteProcessFinished(qint64 exitCode);
+    void handleAppRunnerFinished(bool success);
+    void handlePortsGathererError(const QString &message);
+    void handlePortListReady();
 
 private:
-
-    virtual AbstractRemoteLinuxApplicationRunner *runner() const = 0;
-
     void handleAdapterSetupFailed(const QString &error);
     void handleAdapterSetupDone();
     void setFinished();
     bool setPort(int &port);
     void showMessage(const QString &msg, int channel);
 
-    Internal::AbstractRemoteLinuxDebugSupportPrivate * const d;
-};
-
-
-class REMOTELINUX_EXPORT RemoteLinuxDebugSupport : public AbstractRemoteLinuxDebugSupport
-{
-    Q_OBJECT
-public:
-    RemoteLinuxDebugSupport(RemoteLinuxRunConfiguration * runConfig, Debugger::DebuggerEngine *engine);
-    ~RemoteLinuxDebugSupport();
-
-private:
-    AbstractRemoteLinuxApplicationRunner *runner() const;
-
-    Internal::RemoteLinuxDebugSupportPrivate * const d;
+    Internal::LinuxDeviceDebugSupportPrivate * const d;
 };
 
 } // namespace RemoteLinux

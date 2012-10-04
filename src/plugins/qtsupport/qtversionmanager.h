@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,7 +37,12 @@
 #include <QSet>
 #include <QStringList>
 
-namespace Utils { class FileSystemWatcher; }
+namespace Utils {
+class FileSystemWatcher;
+class PersistentSettingsWriter;
+} // namespace Utils
+
+namespace ProjectExplorer { class KitInformation; }
 
 namespace QtSupport {
 namespace Internal {
@@ -81,16 +84,6 @@ public:
     void addVersion(BaseQtVersion *version);
     void removeVersion(BaseQtVersion *version);
 
-    // Target Support:
-    bool supportsTargetId(Core::Id id) const;
-    // This returns a list of versions that support the target with the given id.
-    // @return A list of QtVersions that supports a target. This list may be empty!
-
-    QList<BaseQtVersion *> versionsForTargetId(Core::Id id,
-                                               const QtVersionNumber &minimumQtVersion = QtVersionNumber(),
-                                               const QtVersionNumber &maximumQtVersion = QtVersionNumber(INT_MAX, INT_MAX, INT_MAX)) const;
-    QSet<Core::Id> supportedTargetIds() const;
-
     // Static Methods
     enum MakefileCompatible { CouldNotParse, DifferentProject, SameProject };
     static MakefileCompatible makefileIsFor(const QString &makefile, const QString &proFile);
@@ -116,7 +109,7 @@ public slots:
     void updateDumpFor(const Utils::FileName &qmakeCommand);
 
 private slots:
-    void updateFromInstaller();
+    void updateFromInstaller(bool emitSignal = true);
 
 private:
     // This function is really simplistic...
@@ -154,6 +147,7 @@ private:
 
     Utils::FileSystemWatcher *m_configFileWatcher;
     QTimer *m_fileWatcherTimer;
+    Utils::PersistentSettingsWriter *m_writer;
 };
 
 namespace Internal {
@@ -171,6 +165,6 @@ public:
 
 }
 
-} // namespace Qt4ProjectManager
+} // namespace QtSupport
 
 #endif // QTVERSIONMANAGER_H

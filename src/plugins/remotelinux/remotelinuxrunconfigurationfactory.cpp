@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,17 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "remotelinuxrunconfigurationfactory.h"
 
-#include "remotelinuxdeployconfigurationfactory.h"
+#include "remotelinux_constants.h"
 #include "remotelinuxrunconfiguration.h"
-#include "remotelinuxutils.h"
 
-#include <qt4projectmanager/qt4project.h>
-#include <qt4projectmanager/qt4target.h>
+#include <projectexplorer/buildtargetinfo.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/project.h>
+#include <projectexplorer/target.h>
 #include <utils/qtcassert.h>
 
 #include <QFileInfo>
@@ -44,7 +43,6 @@
 #include <QStringList>
 
 using namespace ProjectExplorer;
-using namespace Qt4ProjectManager;
 
 namespace RemoteLinux {
 namespace Internal {
@@ -53,9 +51,9 @@ namespace {
 QString pathFromId(Core::Id id)
 {
     QString idStr = QString::fromUtf8(id.name());
-    if (!idStr.startsWith(RemoteLinuxRunConfiguration::Id))
+    if (!idStr.startsWith(RemoteLinuxRunConfiguration::IdPrefix))
         return QString();
-    return idStr.mid(RemoteLinuxRunConfiguration::Id.size());
+    return idStr.mid(RemoteLinuxRunConfiguration::IdPrefix.size());
 }
 
 } // namespace
@@ -63,48 +61,42 @@ QString pathFromId(Core::Id id)
 RemoteLinuxRunConfigurationFactory::RemoteLinuxRunConfigurationFactory(QObject *parent)
     : IRunConfigurationFactory(parent)
 {
+    setObjectName(QLatin1String("RemoteLinuxRunConfigurationFactory"));
 }
 
 RemoteLinuxRunConfigurationFactory::~RemoteLinuxRunConfigurationFactory()
 {
 }
 
-bool RemoteLinuxRunConfigurationFactory::canCreate(Target *parent,
-    const Core::Id id) const
+bool RemoteLinuxRunConfigurationFactory::canCreate(Target *parent, const Core::Id id) const
 {
-    if (!QString::fromUtf8(id.name()).startsWith(RemoteLinuxRunConfiguration::Id))
+    if (!canHandle(parent))
         return false;
-    return qobject_cast<Qt4BaseTarget *>(parent)->qt4Project()
-        ->hasApplicationProFile(pathFromId(id));
+    return !parent->applicationTargets().targetForProject(pathFromId(id)).isEmpty();
 }
 
 bool RemoteLinuxRunConfigurationFactory::canRestore(Target *parent, const QVariantMap &map) const
 {
-    Q_UNUSED(parent);
-    return QString::fromLatin1(ProjectExplorer::idFromMap(map).name()).startsWith(RemoteLinuxRunConfiguration::Id);
+    if (!canHandle(parent))
+        return false;
+    return idFromMap(map).toString().startsWith(RemoteLinuxRunConfiguration::IdPrefix);
 }
 
 bool RemoteLinuxRunConfigurationFactory::canClone(Target *parent, RunConfiguration *source) const
 {
     const RemoteLinuxRunConfiguration * const rlrc
             = qobject_cast<RemoteLinuxRunConfiguration *>(source);
-    const QString idStr = QString::fromLatin1(source->id().name()) + QLatin1Char('.') + rlrc->proFilePath();
-    return rlrc && canCreate(parent, Core::Id(idStr.toUtf8().constData()));
+    return rlrc && canCreate(parent, source->id());
 }
 
 QList<Core::Id> RemoteLinuxRunConfigurationFactory::availableCreationIds(Target *parent) const
 {
     QList<Core::Id> result;
-    const QList<DeployConfiguration *> &depConfs = parent->deployConfigurations();
-    foreach (const DeployConfiguration * const dc, depConfs) {
-        if (dc->id() == RemoteLinuxDeployConfigurationFactory::genericDeployConfigurationId()) {
-            QStringList proFiles = qobject_cast<Qt4BaseTarget *>(parent)->qt4Project()
-                    ->applicationProFilePathes(RemoteLinuxRunConfiguration::Id);
-            foreach (const QString &pf, proFiles)
-                result << Core::Id(pf);
-            return result;
-        }
-    }
+    if (!canHandle(parent))
+        return result;
+
+    foreach (const BuildTargetInfo &bti, parent->applicationTargets().list)
+        result << (Core::Id(RemoteLinuxRunConfiguration::IdPrefix + bti.projectFilePath.toString()));
     return result;
 }
 
@@ -117,15 +109,15 @@ QString RemoteLinuxRunConfigurationFactory::displayNameForId(const Core::Id id) 
 RunConfiguration *RemoteLinuxRunConfigurationFactory::create(Target *parent, const Core::Id id)
 {
     QTC_ASSERT(canCreate(parent, id), return 0);
-    return new RemoteLinuxRunConfiguration(qobject_cast<Qt4BaseTarget *>(parent), id, pathFromId(id));
+    return new RemoteLinuxRunConfiguration(parent, id, pathFromId(id));
 }
 
 RunConfiguration *RemoteLinuxRunConfigurationFactory::restore(Target *parent,
     const QVariantMap &map)
 {
     QTC_ASSERT(canRestore(parent, map), return 0);
-    RemoteLinuxRunConfiguration *rc = new RemoteLinuxRunConfiguration(qobject_cast<Qt4BaseTarget *>(parent),
-        Core::Id(RemoteLinuxRunConfiguration::Id), QString());
+    RemoteLinuxRunConfiguration *rc = new RemoteLinuxRunConfiguration(parent,
+            Core::Id(RemoteLinuxRunConfiguration::IdPrefix), QString());
     if (rc->fromMap(map))
         return rc;
 
@@ -138,7 +130,15 @@ RunConfiguration *RemoteLinuxRunConfigurationFactory::clone(Target *parent,
 {
     QTC_ASSERT(canClone(parent, source), return 0);
     RemoteLinuxRunConfiguration *old = static_cast<RemoteLinuxRunConfiguration *>(source);
-    return new RemoteLinuxRunConfiguration(static_cast<Qt4BaseTarget *>(parent), old);
+    return new RemoteLinuxRunConfiguration(parent, old);
+}
+
+bool RemoteLinuxRunConfigurationFactory::canHandle(const Target *target) const
+{
+    if (!target->project()->supportsKit(target->kit()))
+        return false;
+    const Core::Id deviceType = DeviceTypeKitInformation::deviceTypeId(target->kit());
+    return deviceType == RemoteLinux::Constants::GenericLinuxOsType;
 }
 
 } // namespace Internal

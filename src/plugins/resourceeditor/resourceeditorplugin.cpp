@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -92,11 +90,13 @@ bool ResourceEditorPlugin::initialize(const QStringList &arguments, QString *err
     const Core::Context context(Constants::C_RESOURCEEDITOR);
     m_undoAction = new QAction(tr("&Undo"), this);
     m_redoAction = new QAction(tr("&Redo"), this);
-    Core::ActionManager * const actionManager = Core::ICore::actionManager();
-    actionManager->registerAction(m_undoAction, Core::Constants::UNDO, context);
-    actionManager->registerAction(m_redoAction, Core::Constants::REDO, context);
+    m_refreshAction = new QAction(tr("Recheck existence of referenced files"), this);
+    Core::ActionManager::registerAction(m_undoAction, Core::Constants::UNDO, context);
+    Core::ActionManager::registerAction(m_redoAction, Core::Constants::REDO, context);
+    Core::ActionManager::registerAction(m_refreshAction, Constants::REFRESH, context);
     connect(m_undoAction, SIGNAL(triggered()), this, SLOT(onUndo()));
     connect(m_redoAction, SIGNAL(triggered()), this, SLOT(onRedo()));
+    connect(m_refreshAction, SIGNAL(triggered()), this, SLOT(onRefresh()));
 
     return true;
 }
@@ -113,6 +113,11 @@ void ResourceEditorPlugin::onUndo()
 void ResourceEditorPlugin::onRedo()
 {
     currentEditor()->onRedo();
+}
+
+void ResourceEditorPlugin::onRefresh()
+{
+    currentEditor()->onRefresh();
 }
 
 void ResourceEditorPlugin::onUndoStackChanged(ResourceEditorW const *editor,

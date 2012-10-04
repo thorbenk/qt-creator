@@ -8,7 +8,7 @@ TARGET = Debugger
 include(../../qtcreatorplugin.pri)
 include(debugger_dependencies.pri)
 
-DEFINES += DEBUGGER_LIBRARY
+DEFINES += DEBUGGER_LIBRARY QT_NO_CAST_FROM_ASCII
 
 INCLUDEPATH += $$PWD/../../libs/utils
 
@@ -38,13 +38,15 @@ HEADERS += \
     debuggerstartparameters.h \
     debuggerstreamops.h \
     debuggerstringutils.h \
+    debuggerkitconfigwidget.h \
+    debuggerkitinformation.h \
     disassembleragent.h \
     disassemblerlines.h \
+    loadcoredialog.h \
     logwindow.h \
     memoryagent.h \
     moduleshandler.h \
     moduleswindow.h \
-    name_demangler.h \
     outputcollector.h \
     procinterrupt.h \
     registerhandler.h \
@@ -66,7 +68,6 @@ HEADERS += \
     watchdelegatewidgets.h \
     debuggerruncontrolfactory.h \
     debuggertooltipmanager.h \
-    debuggertoolchaincombobox.h \
     debuggersourcepathmappingwidget.h \
     memoryview.h \
     qtmessagelogwindow.h \
@@ -91,13 +92,15 @@ SOURCES += \
     debuggerplugin.cpp \
     debuggerrunner.cpp \
     debuggerstreamops.cpp \
+    debuggerkitconfigwidget.cpp \
+    debuggerkitinformation.cpp \
     disassembleragent.cpp \
     disassemblerlines.cpp \
+    loadcoredialog.cpp \
     logwindow.cpp \
     memoryagent.cpp \
     moduleshandler.cpp \
     moduleswindow.cpp \
-    name_demangler.cpp \
     outputcollector.cpp \
     procinterrupt.cpp \
     registerhandler.cpp \
@@ -118,7 +121,6 @@ SOURCES += \
     stackframe.cpp \
     watchdelegatewidgets.cpp \
     debuggertooltipmanager.cpp \
-    debuggertoolchaincombobox.cpp \
     debuggersourcepathmappingwidget.cpp \
     memoryview.cpp \
     qtmessagelogwindow.cpp \
@@ -129,16 +131,9 @@ SOURCES += \
     qtmessagelogeditor.cpp \
     localsandexpressionswindow.cpp
 
-FORMS += attachexternaldialog.ui \
-    attachcoredialog.ui \
-    breakcondition.ui \
-    breakpoint.ui \
+FORMS += \
     localsandexpressionsoptionspage.ui \
-    commonoptionspage.ui \
-    startexternaldialog.ui \
-    startremotedialog.ui \
-    startremoteenginedialog.ui \
-    attachtoqmlportdialog.ui
+    commonoptionspage.ui
 
 RESOURCES += debugger.qrc
 
@@ -161,5 +156,24 @@ include(script/script.pri)
 include(pdb/pdb.pri)
 include(lldb/lldbhost.pri)
 include(qml/qml.pri)
+include(namedemangler/namedemangler.pri)
 
 include(shared/shared.pri)
+
+equals(TEST, 1):!isEmpty(copydata) {
+    TEST_DIR = tests/manual/debugger/simple
+    INPUT_FILE = $$IDE_SOURCE_TREE/$$TEST_DIR/simple.pro
+    macx: OUTPUT_DIR = $$IDE_DATA_PATH/$$TEST_DIR
+    else: OUTPUT_DIR = $$IDE_BUILD_TREE/$$TEST_DIR
+    win32 {
+        INPUT_FILE ~= s,/,\\\\,g
+        OUTPUT_DIR ~= s,/,\\\\,g
+    } else {
+        isEmpty(QMAKE_CHK_EXISTS_GLUE):QMAKE_CHK_EXISTS_GLUE  = "|| "
+    }
+    testfile.target = test_resources
+    testfile.commands = ($$QMAKE_CHK_DIR_EXISTS \"$$OUTPUT_DIR\" $$QMAKE_CHK_EXISTS_GLUE $$QMAKE_MKDIR \"$$OUTPUT_DIR\") \
+        && $$QMAKE_COPY \"$$INPUT_FILE\" \"$$OUTPUT_DIR\"
+    QMAKE_EXTRA_TARGETS += testfile
+    PRE_TARGETDEPS += $$testfile.target
+}

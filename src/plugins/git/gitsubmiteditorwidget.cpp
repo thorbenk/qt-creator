@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -135,7 +133,11 @@ GitSubmitEditorWidget::GitSubmitEditorWidget(QWidget *parent) :
 void GitSubmitEditorWidget::setPanelInfo(const GitSubmitEditorPanelInfo &info)
 {
     m_gitSubmitPanelUi.repositoryLabel->setText(QDir::toNativeSeparators(info.repository));
-    m_gitSubmitPanelUi.branchLabel->setText(info.branch);
+    if (info.branch.contains(QLatin1String("(no branch)")))
+        m_gitSubmitPanelUi.branchLabel->setText(QString::fromLatin1("<span style=\"color:red\">%1</span>")
+                                                .arg(tr("Detached HEAD")));
+    else
+        m_gitSubmitPanelUi.branchLabel->setText(info.branch);
 }
 
 GitSubmitEditorPanelData GitSubmitEditorWidget::panelData() const

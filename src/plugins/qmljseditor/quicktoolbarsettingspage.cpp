@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,10 +49,8 @@ QuickToolBarSettings::QuickToolBarSettings()
 
 void QuickToolBarSettings::set()
 {
-    if (get() != *this) {
-        if (QSettings *settings = Core::ICore::settings())
-            toSettings(settings);
-    }
+    if (get() != *this)
+        toSettings(Core::ICore::settings());
 }
 
 void QuickToolBarSettings::fromSettings(QSettings *settings)
@@ -126,31 +122,12 @@ QuickToolBarSettings QuickToolBarSettings::get()
 QuickToolBarSettingsPage::QuickToolBarSettingsPage() :
     m_widget(0)
 {
-}
-
-QString QuickToolBarSettingsPage::id() const
-{
-    return QLatin1String("C.QmlToolbar");
-}
-
-QString QuickToolBarSettingsPage::displayName() const
-{
-    return tr("Qt Quick ToolBar");
-}
-
-QString QuickToolBarSettingsPage::category() const
-{
-    return QLatin1String(Constants::SETTINGS_CATEGORY_QML);
-}
-
-QString QuickToolBarSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("QmlJSEditor", QmlJSEditor::Constants::SETTINGS_TR_CATEGORY_QML);
-}
-
-QIcon QuickToolBarSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(QmlDesigner::Constants::SETTINGS_CATEGORY_QML_ICON));
+    setId(QLatin1String("C.QmlToolbar"));
+    setDisplayName(tr("Qt Quick ToolBar"));
+    setCategory(QLatin1String(Constants::SETTINGS_CATEGORY_QML));
+    setDisplayCategory(QCoreApplication::translate("QmlJSEditor",
+        QmlJSEditor::Constants::SETTINGS_TR_CATEGORY_QML));
+    setCategoryIcon(QLatin1String(QmlDesigner::Constants::SETTINGS_CATEGORY_QML_ICON));
 }
 
 QWidget *QuickToolBarSettingsPage::createPage(QWidget *parent)

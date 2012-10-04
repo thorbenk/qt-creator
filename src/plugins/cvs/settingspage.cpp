@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,7 +55,8 @@ SettingsPageWidget::SettingsPageWidget(QWidget *parent) :
 CvsSettings SettingsPageWidget::settings() const
 {
     CvsSettings rc;
-    rc.cvsCommand = m_ui.commandPathChooser->path();
+    rc.cvsCommand = m_ui.commandPathChooser->rawPath();
+    rc.cvsBinaryPath = m_ui.commandPathChooser->path();
     rc.cvsRoot = m_ui.rootLineEdit->text();
     rc.cvsDiffOptions = m_ui.diffOptionsLineEdit->text();
     rc.timeOutS = m_ui.timeOutSpinBox->value();
@@ -94,14 +93,10 @@ QString SettingsPageWidget::searchKeywords() const
     return rc;
 }
 
-QString SettingsPage::id() const
+SettingsPage::SettingsPage()
 {
-    return QLatin1String(VcsBase::Constants::VCS_ID_CVS);
-}
-
-QString SettingsPage::displayName() const
-{
-    return tr("CVS");
+    setId(QLatin1String(VcsBase::Constants::VCS_ID_CVS));
+    setDisplayName(tr("CVS"));
 }
 
 QWidget *SettingsPage::createPage(QWidget *parent)

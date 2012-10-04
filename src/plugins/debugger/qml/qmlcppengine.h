@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -45,9 +43,7 @@ class QmlCppEngine : public DebuggerEngine
     Q_OBJECT
 
 public:
-    explicit QmlCppEngine(const DebuggerStartParameters &sp,
-                          DebuggerEngineType slaveEngineType,
-                          QString *errorMessage);
+    QmlCppEngine(const DebuggerStartParameters &sp, QString *errorMessage);
     ~QmlCppEngine();
 
     bool canDisplayTooltip() const;
@@ -90,8 +86,8 @@ public:
     DebuggerEngine *cppEngine() const;
     DebuggerEngine *qmlEngine() const;
 
-    void handleRemoteSetupDone(int gdbServerPort, int qmlPort);
-    void handleRemoteSetupFailed(const QString &message);
+    void notifyEngineRemoteSetupDone(int gdbServerPort, int qmlPort);
+    void notifyEngineRemoteSetupFailed(const QString &message);
 
     void showMessage(const QString &msg, int channel = LogDebug,
         int timeout = -1) const;

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -75,7 +73,7 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
     // of the version pointer while compiling
     //
     m_qtId = version->uniqueId();
-    m_qtInstallData = version->versionInfo().value(QLatin1String("QT_INSTALL_DATA"));
+    m_qtInstallData = version->qmakeProperty("QT_INSTALL_DATA");
     if (m_qtInstallData.isEmpty()) {
         const QString error
                 = QCoreApplication::translate(
@@ -88,7 +86,9 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
     }
 
     m_environment = Utils::Environment::systemEnvironment();
+#if 0 // FIXME: Reenable this!
     version->addToEnvironment(m_environment);
+#endif
 
     toolChain->addToEnvironment(m_environment);
 
@@ -98,14 +98,8 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
     if (toolChain->targetAbi().os() == Abi::LinuxOS
         && Abi::hostAbi().os() == Abi::WindowsOS)
         m_target = QLatin1String("-unix");
-    if (toolChain->targetAbi().os() == Abi::SymbianOS) {
-        m_makeArguments << QLatin1String("debug-") + toolChain->defaultMakeTarget();
-        m_makeArguments << QLatin1String("release-") + toolChain->defaultMakeTarget();
-        m_makeArguments << QLatin1String("-k");
-    } else {
-        m_makeArguments << QLatin1String("all")
-                        << QLatin1String("-k");
-    }
+    m_makeArguments << QLatin1String("all")
+                    << QLatin1String("-k");
     m_qmakeCommand = version->qmakeCommand();
     m_qmakeArguments = QStringList() << QLatin1String("-nocache");
     if (toolChain->targetAbi().os() == Abi::MacOS
@@ -117,7 +111,7 @@ DebuggingHelperBuildTask::DebuggingHelperBuildTask(const BaseQtVersion *version,
             m_qmakeArguments << QLatin1String("CONFIG+=x86_64");
         }
     }
-    m_makeCommand = toolChain->makeCommand();
+    m_makeCommand = toolChain->makeCommand(m_environment);
     m_mkspec = version->mkspec();
 
     // Make sure QtVersion cache is invalidated

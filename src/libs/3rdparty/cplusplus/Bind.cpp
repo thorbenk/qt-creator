@@ -517,9 +517,7 @@ void Bind::memInitializer(MemInitializerAST *ast, Function *fun)
     /*const Name *name =*/ this->name(ast->name);
 
     Scope *previousScope = switchScope(fun);
-    for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
-        /*ExpressionTy value =*/ this->expression(it->value);
-    }
+    this->expression(ast->expression);
     (void) switchScope(previousScope);
 }
 
@@ -539,14 +537,18 @@ const Name *Bind::nestedNameSpecifier(NestedNameSpecifierAST *ast)
     return class_or_namespace_name;
 }
 
-bool Bind::visit(NewPlacementAST *ast)
+bool Bind::visit(ExpressionListParenAST *ast)
 {
-    (void) ast;
-    assert(!"unreachable");
+    // unsigned lparen_token = ast->lparen_token;
+    for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
+        /*ExpressionTy value =*/ this->expression(it->value);
+    }
+    // unsigned rparen_token = ast->rparen_token;
+
     return false;
 }
 
-void Bind::newPlacement(NewPlacementAST *ast)
+void Bind::newPlacement(ExpressionListParenAST *ast)
 {
     if (! ast)
         return;
@@ -576,23 +578,6 @@ FullySpecifiedType Bind::newArrayDeclarator(NewArrayDeclaratorAST *ast, const Fu
     ExpressionTy expression = this->expression(ast->expression);
     // unsigned rbracket_token = ast->rbracket_token;
     return type;
-}
-
-bool Bind::visit(NewInitializerAST *ast)
-{
-    (void) ast;
-    assert(!"unreachable");
-    return false;
-}
-
-void Bind::newInitializer(NewInitializerAST *ast)
-{
-    if (! ast)
-        return;
-
-    // unsigned lparen_token = ast->lparen_token;
-    ExpressionTy expression = this->expression(ast->expression);
-    // unsigned rparen_token = ast->rparen_token;
 }
 
 bool Bind::visit(NewTypeIdAST *ast)
@@ -1330,7 +1315,6 @@ bool Bind::visit(RangeBasedForStatementAST *ast)
         block->addMember(decl);
     }
 
-    /*ExpressionTy initializer =*/ this->expression(ast->initializer);
     /*ExpressionTy expression =*/ this->expression(ast->expression);
     this->statement(ast->statement);
     (void) switchScope(previousScope);
@@ -1636,7 +1620,7 @@ bool Bind::visit(NewExpressionAST *ast)
     ExpressionTy type_id = this->expression(ast->type_id);
     // unsigned rparen_token = ast->rparen_token;
     this->newTypeId(ast->new_type_id);
-    this->newInitializer(ast->new_initializer);
+    this->expression(ast->new_initializer);
     return false;
 }
 
@@ -1653,11 +1637,7 @@ bool Bind::visit(TypenameCallExpressionAST *ast)
 {
     // unsigned typename_token = ast->typename_token;
     /*const Name *name =*/ this->name(ast->name);
-    // unsigned lparen_token = ast->lparen_token;
-    for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
-        ExpressionTy value = this->expression(it->value);
-    }
-    // unsigned rparen_token = ast->rparen_token;
+    this->expression(ast->expression);
     return false;
 }
 
@@ -1667,11 +1647,7 @@ bool Bind::visit(TypeConstructorCallAST *ast)
     for (SpecifierListAST *it = ast->type_specifier_list; it; it = it->next) {
         type = this->specifier(it->value, type);
     }
-    // unsigned lparen_token = ast->lparen_token;
-    for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
-        ExpressionTy value = this->expression(it->value);
-    }
-    // unsigned rparen_token = ast->rparen_token;
+    this->expression(ast->expression);
     return false;
 }
 
@@ -1804,7 +1780,7 @@ bool Bind::visit(BracedInitializerAST *ast)
 {
     // unsigned lbrace_token = ast->lbrace_token;
     for (ExpressionListAST *it = ast->expression_list; it; it = it->next) {
-        ExpressionTy value = this->expression(it->value);
+        /*ExpressionTy value =*/ this->expression(it->value);
     }
     // unsigned comma_token = ast->comma_token;
     // unsigned rbrace_token = ast->rbrace_token;
@@ -1850,6 +1826,8 @@ bool Bind::visit(SimpleDeclarationAST *ast)
                 sourceLocation = location(elabTypeSpec->name, sourceLocation);
                 name = elabTypeSpec->name->name;
             }
+
+            ensureValidClassName(&name, sourceLocation);
 
             ForwardClassDeclaration *decl = control()->newForwardClassDeclaration(sourceLocation, name);
             setDeclSpecifiers(decl, type);
@@ -1899,7 +1877,10 @@ bool Bind::visit(SimpleDeclarationAST *ast)
             if (Function *funTy = decl->type()->asFunctionType()) {
                 funTy->setMethodKey(methodKey);
 
-                if (funTy->isVirtual() && it->value->equal_token)
+                bool pureVirtualInit = it->value->equal_token
+                        && it->value->initializer
+                        && it->value->initializer->asNumericLiteral();
+                if (funTy->isVirtual() && pureVirtualInit)
                     funTy->setPureVirtual(true);
             }
         }
@@ -2096,7 +2077,16 @@ bool Bind::visit(ExceptionDeclarationAST *ast)
     }
     DeclaratorIdAST *declaratorId = 0;
     type = this->declarator(ast->declarator, type, &declaratorId);
+
+    const Name *argName = 0;
+    if (declaratorId && declaratorId->name)
+        argName = declaratorId->name->name;
+    Argument *arg = control()->newArgument(location(declaratorId, ast->firstToken()), argName);
+    arg->setType(type);
+    _scope->addMember(arg);
+
     // unsigned dot_dot_dot_token = ast->dot_dot_dot_token;
+
     return false;
 }
 
@@ -2658,6 +2648,20 @@ bool Bind::visit(TemplateIdAST *ast)
 bool Bind::visit(SimpleSpecifierAST *ast)
 {
     switch (tokenKind(ast->specifier_token)) {
+        case T_IDENTIFIER: {
+                const Identifier *id = tokenAt(ast->specifier_token).identifier;
+                if (id->isEqualTo(control()->cpp11Override())) {
+                    if (_type.isOverride())
+                        translationUnit()->error(ast->specifier_token, "duplicate `override'");
+                    _type.setOverride(true);
+                }
+                else if (id->isEqualTo(control()->cpp11Final())) {
+                    if (_type.isFinal())
+                        translationUnit()->error(ast->specifier_token, "duplicate `final'");
+                    _type.setFinal(true);
+                }
+            }
+            break;
         case T_CONST:
             if (_type.isConst())
                 translationUnit()->error(ast->specifier_token, "duplicate `%s'", spell(ast->specifier_token));
@@ -2748,6 +2752,18 @@ bool Bind::visit(SimpleSpecifierAST *ast)
             if (_type)
                 translationUnit()->error(ast->specifier_token, "duplicate data type in declaration");
             _type.setType(control()->integerType(IntegerType::Char));
+            break;
+
+        case T_CHAR16_T:
+            if (_type)
+                translationUnit()->error(ast->specifier_token, "duplicate data type in declaration");
+            _type.setType(control()->integerType(IntegerType::Char16));
+            break;
+
+        case T_CHAR32_T:
+            if (_type)
+                translationUnit()->error(ast->specifier_token, "duplicate data type in declaration");
+            _type.setType(control()->integerType(IntegerType::Char32));
             break;
 
         case T_WCHAR_T:
@@ -2882,20 +2898,7 @@ bool Bind::visit(ClassSpecifierAST *ast)
             }
         }
 
-        // get the unqualified class name
-        const QualifiedNameId *q = className->asQualifiedNameId();
-        const Name *unqualifiedClassName = q ? q->name() : className;
-
-        if (! unqualifiedClassName) // paranoia check
-            className = 0;
-        else if (! (unqualifiedClassName->isNameId() || unqualifiedClassName->isTemplateNameId())) {
-            translationUnit()->error(sourceLocation, "expected a class-name");
-
-            className = unqualifiedClassName->identifier();
-
-            if (q && className)
-                className = control()->qualifiedNameId(q->base(), className);
-        }
+        ensureValidClassName(&className, sourceLocation);
     }
 
     Class *klass = control()->newClass(sourceLocation, className);
@@ -3105,6 +3108,8 @@ bool Bind::visit(FunctionDeclaratorAST *ast)
     // propagate the cv-qualifiers
     fun->setConst(type.isConst());
     fun->setVolatile(type.isVolatile());
+    fun->setOverride(type.isOverride());
+    fun->setFinal(type.isFinal());
 
     this->exceptionSpecification(ast->exception_specification, type);
     if (ast->as_cpp_initializer != 0) {
@@ -3122,6 +3127,23 @@ bool Bind::visit(ArrayDeclaratorAST *ast)
     FullySpecifiedType type(control()->arrayType(_type));
     _type = type;
     return false;
+}
+
+void Bind::ensureValidClassName(const Name **name, unsigned sourceLocation)
+{
+    if (!*name)
+        return;
+
+    const QualifiedNameId *qName = (*name)->asQualifiedNameId();
+    const Name *uqName = qName ? qName->name() : *name;
+
+    if (!uqName->isNameId() && !uqName->isTemplateNameId()) {
+        translationUnit()->error(sourceLocation, "expected a class-name");
+
+        *name = uqName->identifier();
+        if (qName)
+            *name = control()->qualifiedNameId(qName->base(), *name);
+    }
 }
 
 int Bind::visibilityForAccessSpecifier(int tokenKind)

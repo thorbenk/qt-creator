@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,13 +36,8 @@
 #include <projectexplorer/iprojectmanager.h>
 #include <projectexplorer/projectnodes.h>
 
-namespace Core {
-    class IEditor;
-}
-
-namespace ExtensionSystem {
-class PluginManager;
-}
+namespace Core { class IEditor; }
+namespace ExtensionSystem { class PluginManager; }
 
 namespace ProjectExplorer {
 class Project;
@@ -64,14 +57,7 @@ namespace Internal {
 class Qt4Builder;
 class ProFileEditorWidget;
 class Qt4ProjectManagerPlugin;
-
-class UnConfiguredSettings
-{
-public:
-    QtSupport::BaseQtVersion *version;
-    ProjectExplorer::ToolChain *toolchain;
-};
-}
+} // namespace Internal
 
 class Qt4Project;
 
@@ -107,13 +93,6 @@ public:
 
     enum Action { BUILD, REBUILD, CLEAN };
 
-    /// Settings to use for codemodel if no targets exist
-    Internal::UnConfiguredSettings unconfiguredSettings() const;
-    void setUnconfiguredSettings(const Internal::UnConfiguredSettings &setting);
-
-signals:
-    void unconfiguredSettingsChanged();
-
 public slots:
     void addLibrary();
     void addLibraryContextMenu();
@@ -137,8 +116,6 @@ private:
     void runQMake(ProjectExplorer::Project *p, ProjectExplorer::Node *node);
 
     Internal::Qt4ProjectManagerPlugin *m_plugin;
-    mutable int m_unConfiguredVersionId;
-    mutable QString m_unconfiguredToolChainId;
     ProjectExplorer::Node *m_contextNode;
     ProjectExplorer::Project *m_contextProject;
     ProjectExplorer::FileNode *m_contextFile;

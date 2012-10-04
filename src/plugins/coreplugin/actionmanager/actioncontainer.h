@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,7 @@
 #define ACTIONCONTAINER_H
 
 #include "coreplugin/id.h"
+#include "coreplugin/icontext.h"
 
 #include <QObject>
 
@@ -72,6 +71,7 @@ public:
     virtual void addAction(Command *action, const Id &group = Id()) = 0;
     virtual void addMenu(ActionContainer *menu, const Id &group = Id()) = 0;
     virtual void addMenu(ActionContainer *before, ActionContainer *menu, const Id &group = Id()) = 0;
+    virtual Command *addSeparator(const Context &context, const Id &group = Id(), QAction **outSeparator = 0) = 0;
 
     // This clears this menu and submenus from all actions and submenus.
     // It does not destroy the submenus and commands, just removes them from their parents.

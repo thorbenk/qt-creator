@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -82,31 +80,12 @@ QString SettingsPageWidget::searchKeywords() const
 SettingsPage::SettingsPage() :
     m_widget(0)
 {
-}
-
-QString SettingsPage::id() const
-{
-    return QLatin1String("B.QmlDesigner");
-}
-
-QString SettingsPage::displayName() const
-{
-    return tr("Qt Quick Designer");
-}
-
-QString SettingsPage::category() const
-{
-    return QLatin1String(QmlJSEditor::Constants::SETTINGS_CATEGORY_QML);
-}
-
-QString SettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("QmlJSEditor", QmlJSEditor::Constants::SETTINGS_TR_CATEGORY_QML);
-}
-
-QIcon SettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Constants::SETTINGS_CATEGORY_QML_ICON));
+    setId(QLatin1String("B.QmlDesigner"));
+    setDisplayName(tr("Qt Quick Designer"));
+    setCategory(QLatin1String(QmlJSEditor::Constants::SETTINGS_CATEGORY_QML));
+    setDisplayCategory(QCoreApplication::translate("QmlJSEditor",
+        QmlJSEditor::Constants::SETTINGS_TR_CATEGORY_QML));
+    setCategoryIcon(QLatin1String(Constants::SETTINGS_CATEGORY_QML_ICON));
 }
 
 QWidget *SettingsPage::createPage(QWidget *parent)

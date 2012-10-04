@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -66,7 +64,7 @@ QmlJSCodeStylePreferencesWidget::QmlJSCodeStylePreferencesWidget(QWidget *parent
     m_ui->setupUi(this);
 
     const QList<ISnippetProvider *> &providers =
-        ExtensionSystem::PluginManager::instance()->getObjects<ISnippetProvider>();
+        ExtensionSystem::PluginManager::getObjects<ISnippetProvider>();
     foreach (ISnippetProvider *provider, providers) {
         if (provider->groupId() == QLatin1String(QmlJSEditor::Constants::QML_SNIPPETS_GROUP_ID)) {
             provider->decorateEditor(m_ui->previewTextEdit);
@@ -115,7 +113,7 @@ void QmlJSCodeStylePreferencesWidget::decorateEditor(const TextEditor::FontSetti
 {
     const ISnippetProvider *provider = 0;
     const QList<ISnippetProvider *> &providers =
-        ExtensionSystem::PluginManager::instance()->getObjects<ISnippetProvider>();
+        ExtensionSystem::PluginManager::getObjects<ISnippetProvider>();
     foreach (const ISnippetProvider *current, providers) {
         if (current->groupId() == QLatin1String(QmlJSEditor::Constants::QML_SNIPPETS_GROUP_ID)) {
             provider = current;
@@ -169,41 +167,17 @@ QmlJSCodeStyleSettingsPage::QmlJSCodeStyleSettingsPage(/*QSharedPointer<CppFileS
     Core::IOptionsPage(parent),
     m_pageTabPreferences(0)
 {
-}
-
-QmlJSCodeStyleSettingsPage::~QmlJSCodeStyleSettingsPage()
-{
-}
-
-QString QmlJSCodeStyleSettingsPage::id() const
-{
-    return QLatin1String(Constants::QML_JS_CODE_STYLE_SETTINGS_ID);
-}
-
-QString QmlJSCodeStyleSettingsPage::displayName() const
-{
-    return QCoreApplication::translate("QmlJSTools", Constants::QML_JS_CODE_STYLE_SETTINGS_NAME);
-}
-
-QString QmlJSCodeStyleSettingsPage::category() const
-{
-    return QLatin1String(QmlJSEditor::Constants::SETTINGS_CATEGORY_QML);
-}
-
-QString QmlJSCodeStyleSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("QmlJSEditor", QmlJSEditor::Constants::SETTINGS_TR_CATEGORY_QML);
-}
-
-QIcon QmlJSCodeStyleSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(QmlDesigner::Constants::SETTINGS_CATEGORY_QML_ICON));
+    setId(QLatin1String(Constants::QML_JS_CODE_STYLE_SETTINGS_ID));
+    setDisplayName(QCoreApplication::translate("QmlJSTools", Constants::QML_JS_CODE_STYLE_SETTINGS_NAME));
+    setCategory(QLatin1String(QmlJSEditor::Constants::SETTINGS_CATEGORY_QML));
+    setDisplayCategory(QCoreApplication::translate("QmlJSEditor", QmlJSEditor::Constants::SETTINGS_TR_CATEGORY_QML));
+    setCategoryIcon(QLatin1String(QmlDesigner::Constants::SETTINGS_CATEGORY_QML_ICON));
 }
 
 QWidget *QmlJSCodeStyleSettingsPage::createPage(QWidget *parent)
 {
     TextEditor::SimpleCodeStylePreferences *originalTabPreferences
-            = QmlJSToolsSettings::instance()->qmlJSCodeStyle();
+            = QmlJSToolsSettings::globalCodeStyle();
     m_pageTabPreferences = new TextEditor::SimpleCodeStylePreferences(m_widget);
     m_pageTabPreferences->setDelegatingPool(originalTabPreferences->delegatingPool());
     m_pageTabPreferences->setTabSettings(originalTabPreferences->tabSettings());
@@ -221,7 +195,7 @@ void QmlJSCodeStyleSettingsPage::apply()
     if (m_widget) {
         QSettings *s = Core::ICore::settings();
 
-        TextEditor::SimpleCodeStylePreferences *originalTabPreferences = QmlJSToolsSettings::instance()->qmlJSCodeStyle();
+        TextEditor::SimpleCodeStylePreferences *originalTabPreferences = QmlJSToolsSettings::globalCodeStyle();
         if (originalTabPreferences->tabSettings() != m_pageTabPreferences->tabSettings()) {
             originalTabPreferences->setTabSettings(m_pageTabPreferences->tabSettings());
             if (s)

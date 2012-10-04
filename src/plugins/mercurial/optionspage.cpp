@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Brian McGillion
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -54,7 +52,7 @@ OptionsPageWidget::OptionsPageWidget(QWidget *parent) :
 MercurialSettings OptionsPageWidget::settings() const
 {
     MercurialSettings s = MercurialPlugin::instance()->settings();
-    s.setValue(MercurialSettings::binaryPathKey, m_ui.commandChooser->path());
+    s.setValue(MercurialSettings::binaryPathKey, m_ui.commandChooser->rawPath());
     s.setValue(MercurialSettings::userNameKey, m_ui.defaultUsernameLineEdit->text().trimmed());
     s.setValue(MercurialSettings::userEmailKey, m_ui.defaultEmailLineEdit->text().trimmed());
     s.setValue(MercurialSettings::logCountKey, m_ui.logEntriesCount->value());
@@ -94,16 +92,8 @@ QString OptionsPageWidget::searchKeywords() const
 
 OptionsPage::OptionsPage()
 {
-}
-
-QString OptionsPage::id() const
-{
-    return QLatin1String(VcsBase::Constants::VCS_ID_MERCURIAL);
-}
-
-QString OptionsPage::displayName() const
-{
-    return tr("Mercurial");
+    setId(QLatin1String(VcsBase::Constants::VCS_ID_MERCURIAL));
+    setDisplayName(tr("Mercurial"));
 }
 
 QWidget *OptionsPage::createPage(QWidget *parent)

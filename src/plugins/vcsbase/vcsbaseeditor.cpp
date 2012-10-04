@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -339,24 +337,29 @@ void ChangeTextCursorHandler::handleCurrentContents()
 
 void ChangeTextCursorHandler::fillContextMenu(QMenu *menu, EditorContentType type) const
 {
+    VcsBaseEditorWidget *widget = editorWidget();
     switch (type) {
     case LogOutput: { // Describe current / Annotate file of current
         menu->addSeparator();
         menu->addAction(createCopyRevisionAction(m_currentChange));
         menu->addAction(createDescribeAction(m_currentChange));
-        if (editorWidget()->isFileLogAnnotateEnabled())
+        if (widget->isFileLogAnnotateEnabled())
             menu->addAction(createAnnotateAction(m_currentChange, false));
         break;
     }
     case AnnotateOutput: { // Describe current / annotate previous
+        bool currentValid = widget->isValidRevision(m_currentChange);
         menu->addSeparator();
         menu->addAction(createCopyRevisionAction(m_currentChange));
-        menu->addAction(createDescribeAction(m_currentChange));
-        const QStringList previousVersions = editorWidget()->annotationPreviousVersions(m_currentChange);
+        if (currentValid)
+            menu->addAction(createDescribeAction(m_currentChange));
+        menu->addSeparator();
+        if (currentValid)
+            menu->addAction(createAnnotateAction(widget->decorateVersion(m_currentChange), false));
+        const QStringList previousVersions = widget->annotationPreviousVersions(m_currentChange);
         if (!previousVersions.isEmpty()) {
-            menu->addSeparator();
             foreach (const QString &pv, previousVersions)
-                menu->addAction(createAnnotateAction(pv, true));
+                menu->addAction(createAnnotateAction(widget->decorateVersion(pv), true));
         }
         break;
     }
@@ -602,7 +605,6 @@ public:
     bool m_fileLogAnnotateEnabled;
     TextEditor::BaseTextEditor *m_editor;
     QWidget *m_configurationWidget;
-    bool m_revertChunkEnabled;
     bool m_mouseDragging;
     QList<AbstractTextCursorHandler *> m_textCursorHandlers;
 
@@ -618,7 +620,6 @@ VcsBaseEditorWidgetPrivate::VcsBaseEditorWidgetPrivate(VcsBaseEditorWidget *edit
     m_fileLogAnnotateEnabled(false),
     m_editor(0),
     m_configurationWidget(0),
-    m_revertChunkEnabled(false),
     m_mouseDragging(false)
 {
     m_textCursorHandlers.append(new ChangeTextCursorHandler(editorWidget));
@@ -921,7 +922,7 @@ void VcsBaseEditorWidget::contextMenuEvent(QContextMenuEvent *e)
         connect(applyAction, SIGNAL(triggered()), this, SLOT(slotApplyDiffChunk()));
         // Revert a chunk from a VCS diff, which might be linked to reloading the diff.
         QAction *revertAction = menu->addAction(tr("Revert Chunk..."));
-        revertAction->setEnabled(isRevertDiffChunkEnabled() && canApply);
+        revertAction->setEnabled(canApply);
         revertAction->setData(qVariantFromValue(Internal::DiffChunkAction(chunk, true)));
         connect(revertAction, SIGNAL(triggered()), this, SLOT(slotApplyDiffChunk()));
     }
@@ -1401,24 +1402,13 @@ void VcsBaseEditorWidget::slotPaste()
 {
     // Retrieve service by soft dependency.
     QObject *pasteService =
-            ExtensionSystem::PluginManager::instance()
-                ->getObjectByClassName(QLatin1String("CodePaster::CodePasterService"));
+            ExtensionSystem::PluginManager::getObjectByClassName(QLatin1String("CodePaster::CodePasterService"));
     if (pasteService) {
         QMetaObject::invokeMethod(pasteService, "postCurrentEditor");
     } else {
         QMessageBox::information(this, tr("Unable to Paste"),
                                  tr("Code pasting services are not available."));
     }
-}
-
-bool VcsBaseEditorWidget::isRevertDiffChunkEnabled() const
-{
-    return d->m_revertChunkEnabled;
-}
-
-void VcsBaseEditorWidget::setRevertDiffChunkEnabled(bool e)
-{
-    d->m_revertChunkEnabled = e;
 }
 
 bool VcsBaseEditorWidget::canApplyDiffChunk(const DiffChunk &dc) const
@@ -1435,6 +1425,17 @@ bool VcsBaseEditorWidget::canApplyDiffChunk(const DiffChunk &dc) const
 bool VcsBaseEditorWidget::applyDiffChunk(const DiffChunk &dc, bool revert) const
 {
     return VcsBasePlugin::runPatch(dc.asPatch(), QString(), 0, revert);
+}
+
+QString VcsBaseEditorWidget::decorateVersion(const QString &revision) const
+{
+    return revision;
+}
+
+bool VcsBaseEditorWidget::isValidRevision(const QString &revision) const
+{
+    Q_UNUSED(revision);
+    return true;
 }
 
 void VcsBaseEditorWidget::slotApplyDiffChunk()

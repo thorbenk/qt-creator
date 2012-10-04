@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -84,8 +82,6 @@ protected:
     bool checkCandidates(const QList<LookupItem> &candidates) const;
     void checkExpression(unsigned startToken, unsigned endToken, Scope *scope = 0);
 
-    static bool compareFullyQualifiedName(const QList<const Name *> &path, const QList<const Name *> &other);
-    static bool compareName(const Name *name, const Name *other);
     static bool isLocalScope(Scope *scope);
 
     void statement(StatementAST *ast);
@@ -108,9 +104,8 @@ protected:
     void exceptionSpecification(ExceptionSpecificationAST *ast);
     void memInitializer(MemInitializerAST *ast);
     void nestedNameSpecifier(NestedNameSpecifierAST *ast);
-    void newPlacement(NewPlacementAST *ast);
+    void newPlacement(ExpressionListParenAST *ast);
     void newArrayDeclarator(NewArrayDeclaratorAST *ast);
-    void newInitializer(NewInitializerAST *ast);
     void newTypeId(NewTypeIdAST *ast);
     void cppOperator(OperatorAST *ast);
     void parameterDeclarationClause(ParameterDeclarationClauseAST *ast);
@@ -141,9 +136,7 @@ protected:
     virtual bool visit(DynamicExceptionSpecificationAST *ast);
     virtual bool visit(MemInitializerAST *ast);
     virtual bool visit(NestedNameSpecifierAST *ast);
-    virtual bool visit(NewPlacementAST *ast);
     virtual bool visit(NewArrayDeclaratorAST *ast);
-    virtual bool visit(NewInitializerAST *ast);
     virtual bool visit(NewTypeIdAST *ast);
     virtual bool visit(OperatorAST *ast);
     virtual bool visit(ParameterDeclarationClauseAST *ast);
@@ -218,6 +211,7 @@ protected:
     virtual bool visit(ObjCSelectorExpressionAST *ast);
     virtual bool visit(LambdaExpressionAST *ast);
     virtual bool visit(BracedInitializerAST *ast);
+    virtual bool visit(ExpressionListParenAST *ast);
 
     // DeclarationAST
     virtual bool visit(SimpleDeclarationAST *ast);

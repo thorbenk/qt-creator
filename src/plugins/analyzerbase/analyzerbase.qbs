@@ -5,7 +5,7 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "AnalyzerBase"
 
-    Depends { name: "qt"; submodules: ['widgets'] }
+    Depends { name: "Qt.widgets" }
     Depends { name: "Core" }
     Depends { name: "CppTools" }
     Depends { name: "RemoteLinux" }
@@ -13,7 +13,10 @@ QtcPlugin {
     Depends { name: "TextEditor" }
 
     Depends { name: "cpp" }
-    cpp.defines: ["ANALYZER_LIBRARY", "QT_NO_CAST_FROM_ASCII"]
+    cpp.defines: base.concat([
+        "ANALYZER_LIBRARY",
+        "QT_NO_CAST_FROM_ASCII"
+    ])
     cpp.includePaths: [
         "..",
         "../../libs",
@@ -41,7 +44,6 @@ QtcPlugin {
         "ianalyzertool.cpp",
         "startremotedialog.cpp",
         "startremotedialog.h",
-        "startremotedialog.ui",
         "analyzermanager.cpp",
         "analyzermanager.h",
         "analyzerruncontrol.cpp",
@@ -55,9 +57,7 @@ QtcPlugin {
 
     ProductModule {
         Depends { name: "cpp" }
-        cpp.includePaths: [
-            "."
-        ]
+        cpp.includePaths: ["."]
 
         Depends { name: "CPlusPlus" }
     }

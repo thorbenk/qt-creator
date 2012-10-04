@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -64,7 +62,7 @@ QString SnapshotData::function() const
     if (m_frames.isEmpty())
         return QString();
     const StackFrame &frame = m_frames.at(0);
-    return frame.function + ":" + QString::number(frame.line);
+    return frame.function + QLatin1Char(':') + QString::number(frame.line);
 }
 
 QString SnapshotData::toString() const
@@ -216,10 +214,11 @@ Qt::ItemFlags SnapshotHandler::flags(const QModelIndex &index) const
 
 void SnapshotHandler::activateSnapshot(int index)
 {
+    beginResetModel();
     m_currentIndex = index;
     //qDebug() << "ACTIVATING INDEX: " << m_currentIndex << " OF " << size();
     debuggerCore()->displayDebugger(at(index), true);
-    reset();
+    endResetModel();
 }
 
 void SnapshotHandler::createSnapshot(int index)
@@ -242,28 +241,31 @@ void SnapshotHandler::removeSnapshot(int index)
     //QString fileName = engine->startParameters().coreFile;
     //if (!fileName.isEmpty())
     //    QFile::remove(fileName);
+    beginResetModel();
     m_snapshots.removeAt(index);
     if (index == m_currentIndex)
         m_currentIndex = -1;
     else if (index < m_currentIndex)
         --m_currentIndex;
     //engine->quitDebugger();
-    reset();
+    endResetModel();
 }
 
 
 void SnapshotHandler::removeAll()
 {
+    beginResetModel();
     m_snapshots.clear();
     m_currentIndex = -1;
-    reset();
+    endResetModel();
 }
 
 void SnapshotHandler::appendSnapshot(DebuggerEngine *engine)
 {
+    beginResetModel();
     m_snapshots.append(engine);
     m_currentIndex = size() - 1;
-    reset();
+    endResetModel();
 }
 
 void SnapshotHandler::removeSnapshot(DebuggerEngine *engine)
@@ -276,8 +278,9 @@ void SnapshotHandler::removeSnapshot(DebuggerEngine *engine)
 
 void SnapshotHandler::setCurrentIndex(int index)
 {
+    beginResetModel();
     m_currentIndex = index;
-    reset();
+    endResetModel();
 }
 
 DebuggerEngine *SnapshotHandler::at(int i) const

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,13 +51,11 @@ MaemoPublishingWizardFremantleFree::MaemoPublishingWizardFremantleFree(const Pro
     setOption(NoCancelButton, false);
     setWindowTitle(tr("Publishing to Fremantle's \"Extras-devel free\" Repository"));
 
-    m_buildSettingsPage
-        = new MaemoPublishingBuildSettingsPageFremantleFree(project, m_publisher);
+    m_buildSettingsPage = new MaemoPublishingBuildSettingsPageFremantleFree(project, m_publisher);
     m_buildSettingsPage->setTitle(tr("Build Settings"));
     setPage(BuildSettingsPageId, m_buildSettingsPage);
 
-    m_uploadSettingsPage
-        = new MaemoPublishingUploadSettingsPageFremantleFree(m_publisher);
+    m_uploadSettingsPage = new MaemoPublishingUploadSettingsPageFremantleFree(m_publisher);
     m_uploadSettingsPage->setTitle(tr("Upload Settings"));
     m_uploadSettingsPage->setCommitPage(true);
     setPage(UploadSettingsPageId, m_uploadSettingsPage);

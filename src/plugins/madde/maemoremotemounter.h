@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,9 @@
 #define MAEMOREMOTEMOUNTER_H
 
 #include "maemomountspecification.h"
+
+#include <projectexplorer/devicesupport/idevice.h>
+#include <utils/fileutils.h>
 
 #include <QList>
 #include <QObject>
@@ -43,19 +44,8 @@
 
 QT_FORWARD_DECLARE_CLASS(QTimer)
 
-namespace Utils {
-class PortList;
-class SftpChannel;
-class SshConnection;
-class SshRemoteProcess;
-}
-
-namespace Qt4ProjectManager { class Qt4BuildConfiguration; }
-
-namespace RemoteLinux {
-class LinuxDeviceConfiguration;
-class RemoteLinuxUsedPortsGatherer;
-}
+namespace QSsh { class SshRemoteProcessRunner; }
+namespace ProjectExplorer { class DeviceUsedPortsGatherer; }
 
 namespace Madde {
 namespace Internal {
@@ -63,21 +53,18 @@ namespace Internal {
 class MaemoRemoteMounter : public QObject
 {
     Q_OBJECT
+
 public:
-    MaemoRemoteMounter(QObject *parent);
+    MaemoRemoteMounter(QObject *parent = 0);
     ~MaemoRemoteMounter();
 
-    // Must already be connected.
-    void setConnection(const QSharedPointer<Utils::SshConnection> &connection,
-        const QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> &devConf);
-
-    void setBuildConfiguration(const Qt4ProjectManager::Qt4BuildConfiguration *bc);
+    void setParameters(const ProjectExplorer::IDevice::ConstPtr &devConf,
+            const Utils::FileName &maddeRoot);
     void addMountSpecification(const MaemoMountSpecification &mountSpec,
         bool mountAsRoot);
     bool hasValidMountSpecifications() const;
     void resetMountSpecifications() { m_mountSpecs.clear(); }
-    void mount(Utils::PortList *freePorts,
-        const RemoteLinux::RemoteLinuxUsedPortsGatherer *portsGatherer);
+    void mount();
     void unmount();
     void stop();
 
@@ -98,11 +85,13 @@ private slots:
     void handleUtfsServerTimeout();
     void handleUtfsServerStderr();
     void startUtfsServers();
+    void handlePortsGathererError(const QString &errorMsg);
+    void handlePortListReady();
 
 private:
     enum State {
         Inactive, Unmounting, UtfsClientsStarting, UtfsClientsStarted,
-            UtfsServersStarted
+            UtfsServersStarted, GatheringPorts
     };
 
     void setState(State newState);
@@ -111,7 +100,7 @@ private:
     void killUtfsServer(QProcess *proc);
     void killAllUtfsServers();
     QString utfsClientOnDevice() const;
-    QString utfsServer() const;
+    Utils::FileName utfsServer() const;
 
     QTimer * const m_utfsServerTimer;
 
@@ -123,19 +112,16 @@ private:
         int remotePort;
     };
 
-    QSharedPointer<Utils::SshConnection> m_connection;
-    QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> m_devConf;
+    ProjectExplorer::IDevice::ConstPtr m_devConf;
     QList<MountInfo> m_mountSpecs;
-    QSharedPointer<Utils::SshRemoteProcess> m_mountProcess;
-    QSharedPointer<Utils::SshRemoteProcess> m_unmountProcess;
+    QSsh::SshRemoteProcessRunner * const m_mountProcess;
+    QSsh::SshRemoteProcessRunner * const m_unmountProcess;
 
     typedef QSharedPointer<QProcess> ProcPtr;
     QList<ProcPtr> m_utfsServers;
 
-    Utils::PortList *m_freePorts;
-    const RemoteLinux::RemoteLinuxUsedPortsGatherer *m_portsGatherer;
-    bool m_remoteMountsAllowed;
-    QString m_maddeRoot;
+    ProjectExplorer::DeviceUsedPortsGatherer *m_portsGatherer;
+    Utils::FileName m_maddeRoot;
 
     State m_state;
 };

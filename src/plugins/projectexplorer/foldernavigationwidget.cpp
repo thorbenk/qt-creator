@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +34,7 @@
 
 #include <extensionsystem/pluginmanager.h>
 
+#include <coreplugin/actionmanager/command.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/fileiconprovider.h>
 #include <coreplugin/documentmanager.h>
@@ -372,7 +371,7 @@ void FolderNavigationWidget::findOnFileSystem(const QString &pathIn)
     const QFileInfo fileInfo(pathIn);
     const QString folder = fileInfo.isDir() ? fileInfo.absoluteFilePath() : fileInfo.absolutePath();
 
-    TextEditor::FindInFiles *fif = ExtensionSystem::PluginManager::instance()->getObject<TextEditor::FindInFiles>();
+    TextEditor::FindInFiles *fif = ExtensionSystem::PluginManager::getObject<TextEditor::FindInFiles>();
     if (!fif)
         return;
     Find::FindPlugin *plugin = Find::FindPlugin::instance();
@@ -408,7 +407,7 @@ Core::Id FolderNavigationWidgetFactory::id() const
 
 QKeySequence FolderNavigationWidgetFactory::activationSequence() const
 {
-    return QKeySequence(Qt::ALT + Qt::Key_Y);
+    return QKeySequence(Core::UseMacShortcuts ? tr("Meta+Y") : tr("Alt+Y"));
 }
 
 Core::NavigationView FolderNavigationWidgetFactory::createWidget()

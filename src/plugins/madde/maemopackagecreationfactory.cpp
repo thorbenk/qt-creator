@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,22 +24,22 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "maemopackagecreationfactory.h"
 
 #include "maemopackagecreationstep.h"
-#include "qt4maemotarget.h"
+#include "maddedevice.h"
 #include "qt4maemodeployconfiguration.h"
 
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/deployconfiguration.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
+#include <utils/qtcassert.h>
 
 #include <QCoreApplication>
 
@@ -62,13 +62,8 @@ QList<Core::Id> MaemoPackageCreationFactory::availableCreationIds(ProjectExplore
     QList<Core::Id> ids;
     if (!qobject_cast<Qt4MaemoDeployConfiguration *>(parent->parent()))
         return ids;
-    if (qobject_cast<AbstractDebBasedQt4MaemoTarget *>(parent->target())
-            && !parent->contains(MaemoDebianPackageCreationStep::CreatePackageId)) {
+    if (!parent->contains(MaemoDebianPackageCreationStep::CreatePackageId))
         ids << MaemoDebianPackageCreationStep::CreatePackageId;
-    } else if (qobject_cast<AbstractRpmBasedQt4MaemoTarget *>(parent->target())
-               && !parent->contains(MaemoRpmPackageCreationStep::CreatePackageId)) {
-        ids << MaemoRpmPackageCreationStep::CreatePackageId;
-    }
     return ids;
 }
 
@@ -77,9 +72,6 @@ QString MaemoPackageCreationFactory::displayNameForId(const Core::Id id) const
     if (id == MaemoDebianPackageCreationStep::CreatePackageId) {
         return QCoreApplication::translate("RemoteLinux::Internal::MaemoPackageCreationFactory",
             "Create Debian Package");
-    } else if (id == MaemoRpmPackageCreationStep::CreatePackageId) {
-        return QCoreApplication::translate("RemoteLinux::Internal::MaemoPackageCreationFactory",
-            "Create RPM Package");
     }
     return QString();
 }
@@ -94,8 +86,6 @@ BuildStep *MaemoPackageCreationFactory::create(ProjectExplorer::BuildStepList *p
     Q_ASSERT(canCreate(parent, id));
     if (id == MaemoDebianPackageCreationStep::CreatePackageId)
         return new MaemoDebianPackageCreationStep(parent);
-    else if (id == MaemoRpmPackageCreationStep::CreatePackageId)
-        return new MaemoRpmPackageCreationStep(parent);
     return 0;
 }
 
@@ -103,7 +93,7 @@ bool MaemoPackageCreationFactory::canRestore(ProjectExplorer::BuildStepList *par
                                              const QVariantMap &map) const
 {
     const Core::Id id = ProjectExplorer::idFromMap(map);
-    return canCreate(parent, id) || id == Core::Id(OldCreatePackageId);
+    return canCreate(parent, id) || id == OldCreatePackageId;
 }
 
 BuildStep *MaemoPackageCreationFactory::restore(ProjectExplorer::BuildStepList *parent,
@@ -112,16 +102,9 @@ BuildStep *MaemoPackageCreationFactory::restore(ProjectExplorer::BuildStepList *
     Q_ASSERT(canRestore(parent, map));
     BuildStep * step = 0;
     const Core::Id id = ProjectExplorer::idFromMap(map);
-    if (id == MaemoDebianPackageCreationStep::CreatePackageId
-            || (id == Core::Id(OldCreatePackageId)
-                && qobject_cast<AbstractDebBasedQt4MaemoTarget *>(parent->target()))) {
+    if (id == MaemoDebianPackageCreationStep::CreatePackageId)
         step = new MaemoDebianPackageCreationStep(parent);
-    } else if (id == MaemoRpmPackageCreationStep::CreatePackageId
-               || (id == Core::Id(OldCreatePackageId)
-                   && qobject_cast<AbstractRpmBasedQt4MaemoTarget *>(parent->target()))) {
-        step = new MaemoRpmPackageCreationStep(parent);
-    }
-    Q_ASSERT(step);
+    QTC_ASSERT(step, return 0);
 
     if (!step->fromMap(map)) {
         delete step;
@@ -143,10 +126,6 @@ BuildStep *MaemoPackageCreationFactory::clone(ProjectExplorer::BuildStepList *pa
     if (MaemoDebianPackageCreationStep * const debianStep
             = qobject_cast<MaemoDebianPackageCreationStep *>(product)) {
         return new MaemoDebianPackageCreationStep(parent, debianStep);
-    }
-    if (MaemoRpmPackageCreationStep * const rpmStep
-            = qobject_cast<MaemoRpmPackageCreationStep *>(product)) {
-        return new MaemoRpmPackageCreationStep(parent, rpmStep);
     }
     return 0;
 }

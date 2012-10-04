@@ -5,18 +5,18 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "Macros"
 
-    Depends { name: "qt"; submodules: ['widgets'] }
+    Depends { name: "Qt.widgets" }
     Depends { name: "Core" }
     Depends { name: "Locator" }
     Depends { name: "Find" }
     Depends { name: "TextEditor" }
+    Depends { name: "app_version_header" }
 
     Depends { name: "cpp" }
     cpp.includePaths: [
         "..",
         "../../libs",
-        "../..",
-        buildDirectory
+        "../.."
     ]
 
     files: [
@@ -53,7 +53,4 @@ QtcPlugin {
         "texteditormacrohandler.h"
     ]
 }
-
-
-
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,18 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef DEBUGGER_DIALOGS_H
 #define DEBUGGER_DIALOGS_H
 
+#include <projectexplorer/kitchooser.h>
+#include <projectexplorer/abi.h>
+
+#include <QDialog>
 #include <QHash>
 #include <QStringList>
-#include <QDialog>
-#include <QVBoxLayout>
 
 QT_BEGIN_NAMESPACE
 class QModelIndex;
@@ -46,150 +46,58 @@ class QDialogButtonBox;
 class QSettings;
 QT_END_NAMESPACE
 
-namespace ProjectExplorer { class Abi; }
+namespace Core { class Id; }
+namespace ProjectExplorer { class Kit; }
 
 namespace Debugger {
 class DebuggerStartParameters;
 
 namespace Internal {
 
-namespace Ui {
-class AttachCoreDialog;
-class AttachExternalDialog;
-class StartExternalDialog;
-class StartRemoteDialog;
-class AttachToQmlPortDialog;
-class StartRemoteEngineDialog;
-} // namespace Ui
-
+class AttachCoreDialogPrivate;
+class AttachToQmlPortDialogPrivate;
 class ProcessListFilterModel;
-class StartExternalParameters;
-class StartRemoteParameters;
+class StartApplicationParameters;
+class StartApplicationDialogPrivate;
+class StartRemoteEngineDialogPrivate;
 
-class AttachCoreDialog : public QDialog
-{
+class DebuggerKitChooser : public ProjectExplorer::KitChooser {
     Q_OBJECT
-
 public:
-    explicit AttachCoreDialog(QWidget *parent);
-    ~AttachCoreDialog();
+    enum Mode { RemoteDebugging, LocalDebugging };
 
-    void setExecutableFile(const QString &executable);
-    void setCoreFile(const QString &core);
+    explicit DebuggerKitChooser(Mode mode = RemoteDebugging, QWidget *parent = 0);
 
-    QString executableFile() const;
-    QString coreFile() const;
-
-    int abiIndex() const;
-    void setAbiIndex(int);
-    ProjectExplorer::Abi abi() const;
-    QString debuggerCommand();
-
-    QString sysroot() const;
-    void setSysroot(const QString &sysroot);
-
-    QString overrideStartScript() const;
-    void setOverrideStartScript(const QString &scriptName);
-
-private slots:
-    void changed();
+protected:
+    bool kitMatches(const ProjectExplorer::Kit *k) const;
+    QString kitToolTip(ProjectExplorer::Kit *k) const;
 
 private:
-    bool isValid() const;
-
-    Ui::AttachCoreDialog *m_ui;
+    const ProjectExplorer::Abi m_hostAbi;
+    const Mode m_mode;
 };
 
-class AttachExternalDialog : public QDialog
+class StartApplicationDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit AttachExternalDialog(QWidget *parent);
-    ~AttachExternalDialog();
-
-    qint64 attachPID() const;
-    QString executable() const;
-
-    int abiIndex() const;
-    void setAbiIndex(int);
-    ProjectExplorer::Abi abi() const;
-    QString debuggerCommand();
-
-    virtual void accept();
-
-private slots:
-    void rebuildProcessList();
-    void procSelected(const QModelIndex &index);
-    void procClicked(const QModelIndex &index);
-    void pidChanged(const QString &index);
-    void setFilterString(const QString &filter);
-
-private:
-    inline QPushButton *okButton() const;
-    inline QString attachPIDText() const;
-
-    const QString m_selfPid;
-    Ui::AttachExternalDialog *m_ui;
-    ProcessListFilterModel *m_model;
-};
-
-class StartExternalDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit StartExternalDialog(QWidget *parent);
-    ~StartExternalDialog();
-
-    static bool run(QWidget *parent, QSettings *settings, DebuggerStartParameters *sp);
-
-private slots:
-    void changed();
-    void historyIndexChanged(int);
-
-private:
-    StartExternalParameters parameters() const;
-    void setParameters(const StartExternalParameters &p);
-    void setHistory(const QList<StartExternalParameters> l);
-
-    QString executableFile() const;
-    void setExecutableFile(const QString &executable);
-
-    ProjectExplorer::Abi abi() const;
-    QString debuggerCommand();
-
-    bool isValid() const;
-
-    Ui::StartExternalDialog *m_ui;
-};
-
-class StartRemoteDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit StartRemoteDialog(QWidget *parent, bool enableStartScript);
-    ~StartRemoteDialog();
+    explicit StartApplicationDialog(QWidget *parent);
+    ~StartApplicationDialog();
 
     static bool run(QWidget *parent, QSettings *settings,
-                    bool useScript, DebuggerStartParameters *sp);
+                    DebuggerStartParameters *sp);
 
 private slots:
-    void updateState();
     void historyIndexChanged(int);
+    void updateState();
 
 private:
-    StartRemoteParameters parameters() const;
-    void setParameters(const StartRemoteParameters &);
-    void setHistory(const QList<StartRemoteParameters> &);
+    StartApplicationParameters parameters() const;
+    void setParameters(const StartApplicationParameters &p);
+    void setHistory(const QList<StartApplicationParameters> &l);
 
-    void setRemoteArchitectures(const QStringList &list);
-
-    ProjectExplorer::Abi abi() const;
-    QString debuggerCommand() const;
-
-    Ui::StartRemoteDialog *m_ui;
+    StartApplicationDialogPrivate *d;
 };
 
 class AttachToQmlPortDialog : public QDialog
@@ -200,17 +108,14 @@ public:
     explicit AttachToQmlPortDialog(QWidget *parent);
     ~AttachToQmlPortDialog();
 
-    QString host() const;
-    void setHost(const QString &host);
-
     int port() const;
     void setPort(const int port);
 
-    QString sysroot() const;
-    void setSysroot(const QString &sysroot);
+    ProjectExplorer::Kit *kit() const;
+    void setKitId(const Core::Id &id);
 
 private:
-    Ui::AttachToQmlPortDialog *m_ui;
+    AttachToQmlPortDialogPrivate *d;
 };
 
 class StartRemoteCdbDialog : public QDialog
@@ -224,12 +129,12 @@ public:
     QString connection() const;
     void setConnection(const QString &);
 
-    virtual void accept();
-
 private slots:
     void textChanged(const QString &);
 
 private:
+    void accept();
+
     QPushButton *m_okButton;
     QLineEdit *m_lineEdit;
 };
@@ -243,12 +148,12 @@ public:
      void setAddress(quint64 a);
      quint64 address() const;
 
-     virtual void accept();
-
 private slots:
      void textChanged();
 
 private:
+     void accept();
+
      void setOkButtonEnabled(bool v);
      bool isOkButtonEnabled() const;
 
@@ -274,7 +179,7 @@ public:
     QString inferiorPath() const;
 
 private:
-    Ui::StartRemoteEngineDialog *m_ui;
+    StartRemoteEngineDialogPrivate *d;
 };
 
 class TypeFormatsDialogUi;

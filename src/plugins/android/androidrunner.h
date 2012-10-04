@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,15 +34,14 @@
 #include "androidconfigurations.h"
 
 #include <QObject>
-#include <QStringList>
 #include <QTimer>
 #include <QThread>
 #include <QProcess>
 #include <QMutex>
 
-
 namespace Android {
 namespace Internal {
+
 class AndroidRunConfiguration;
 
 class AndroidRunner : public QThread
@@ -52,8 +49,7 @@ class AndroidRunner : public QThread
     Q_OBJECT
 
 public:
-    AndroidRunner(QObject *parent, AndroidRunConfiguration *runConfig,
-        bool debugging);
+    AndroidRunner(QObject *parent, AndroidRunConfiguration *runConfig, bool debuggingMode);
     ~AndroidRunner();
 
     QString displayName() const;
@@ -82,7 +78,6 @@ private:
     void adbKill(qint64 pid, const QString &device, int timeout = 2000, const QString &runAsPackageName = QString());
 
 private:
-    bool m_debugingMode;
     QProcess m_adbLogcatProcess;
     QByteArray m_logcat;
     QString m_intentName;
@@ -91,7 +86,10 @@ private:
     qint64 m_processPID;
     qint64 m_gdbserverPID;
     QTimer m_checkPIDTimer;
-    QString m_remoteChannel;
+    bool m_useCppDebugger;
+    bool m_useQmlDebugger;
+    QString m_remoteGdbChannel;
+    uint m_qmlPort;
     bool m_useLocalQtLibs;
     QString m_localLibs;
     QString m_localJars;

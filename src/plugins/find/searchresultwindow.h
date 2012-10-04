@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -105,15 +103,17 @@ public slots:
     void addResult(const QString &fileName, int lineNumber, const QString &lineText,
                    int searchTermStart, int searchTermLength, const QVariant &userData = QVariant());
     void addResults(const QList<SearchResultItem> &items, AddMode mode);
-    void finishSearch();
+    void finishSearch(bool canceled);
     void setTextToReplace(const QString &textToReplace);
     void restart();
     void setSearchAgainEnabled(bool enabled);
+    void popup();
 
 signals:
     void activated(const Find::SearchResultItem &item);
     void replaceButtonClicked(const QString &replaceText, const QList<Find::SearchResultItem> &checkedItems);
     void cancelled();
+    void paused(bool paused);
     void visibilityChanged(bool visible);
     void countChanged(int count);
     void searchAgainRequested();

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -43,6 +41,7 @@
 #include <utils/qtcassert.h>
 #include <utils/stringutils.h>
 #include <utils/fileutils.h>
+#include <utils/hostosinfo.h>
 
 #include <QDir>
 #include <QFile>
@@ -56,7 +55,6 @@
 
 #include <QMessageBox>
 #include <QWizard>
-#include <QMainWindow>
 #include <QIcon>
 
 enum { debugWizard = 0 };
@@ -442,7 +440,7 @@ void BaseFileWizard::runWizard(const QString &path, QWidget *parent, const QStri
 
     QString errorMessage;
     // Compile extension pages, purge out unused ones
-    ExtensionList extensions = ExtensionSystem::PluginManager::instance()->getObjects<IFileWizardExtension>();
+    ExtensionList extensions = ExtensionSystem::PluginManager::getObjects<IFileWizardExtension>();
     WizardPageList  allExtensionPages;
     for (ExtensionList::iterator it = extensions.begin(); it !=  extensions.end(); ) {
         const WizardPageList extensionPages = (*it)->extensionPages(this);
@@ -474,7 +472,8 @@ void BaseFileWizard::runWizard(const QString &path, QWidget *parent, const QStri
                                                                                            allExtensionPages,
                                                                                            platform,
                                                                                            requiredFeatures(),
-                                                                                           dialogParameterFlags)));
+                                                                                           dialogParameterFlags,
+                                                                                           extraValues)));
     QTC_ASSERT(!wizard.isNull(), return);
 
     GeneratedFiles files;
@@ -606,15 +605,15 @@ void BaseFileWizard::setupWizard(QWizard *w)
     w->setOption(QWizard::NoBackButtonOnStartPage, true);
     w->setWindowFlags(w->windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
-#ifdef Q_OS_MAC
-    w->setButtonLayout(QList<QWizard::WizardButton>()
-                    << QWizard::CancelButton
-                    << QWizard::Stretch
-                    << QWizard::BackButton
-                    << QWizard::NextButton
-                    << QWizard::CommitButton
-                    << QWizard::FinishButton);
-#endif
+    if (Utils::HostOsInfo::isMacHost()) {
+        w->setButtonLayout(QList<QWizard::WizardButton>()
+                           << QWizard::CancelButton
+                           << QWizard::Stretch
+                           << QWizard::BackButton
+                           << QWizard::NextButton
+                           << QWizard::CommitButton
+                           << QWizard::FinishButton);
+    }
 }
 
 /*!

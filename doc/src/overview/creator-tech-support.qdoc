@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -64,9 +62,6 @@
             \o  Find free Qt-based applications
             \o  \l{http://qt-apps.org/}{Qt Apps}
 
-                \note The \QC help browser does not allow you to download files,
-                and therefore, you must copy the following link to a browser:
-                http://qt-apps.org/
         \row
             \o  Buy commercial Qt support from Digia
             \o  \l{http://qt.digia.com/}{Qt Commercial}

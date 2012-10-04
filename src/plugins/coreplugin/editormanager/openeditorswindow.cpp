@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,6 +34,7 @@
 #include "editorview.h"
 #include "idocument.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <QFocusEvent>
@@ -63,16 +62,14 @@ OpenEditorsWindow::OpenEditorsWindow(QWidget *parent) :
     m_editorList->setIndentation(0);
     m_editorList->setSelectionMode(QAbstractItemView::SingleSelection);
     m_editorList->setTextElideMode(Qt::ElideMiddle);
-#ifdef Q_OS_MAC
-    m_editorList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
-#endif
+    if (Utils::HostOsInfo::isMacHost())
+        m_editorList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     m_editorList->installEventFilter(this);
 
     // We disable the frame on this list view and use a QFrame around it instead.
     // This improves the look with QGTKStyle.
-#ifndef Q_OS_MAC
-    setFrameStyle(m_editorList->frameStyle());
-#endif
+    if (!Utils::HostOsInfo::isMacHost())
+        setFrameStyle(m_editorList->frameStyle());
     m_editorList->setFrameStyle(QFrame::NoFrame);
 
     QVBoxLayout *layout = new QVBoxLayout(this);

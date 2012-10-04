@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,11 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qtsingleapplication.h"
+#include "../tools/qtcreatorcrashhandler/crashhandlersetup.h"
 
 #include <app/app_version.h>
 #include <extensionsystem/iplugin.h>
@@ -54,12 +53,13 @@
 
 #include <QApplication>
 #include <QDesktopServices>
-#include <QMainWindow>
 #include <QMessageBox>
 
 #ifdef ENABLE_QT_BREAKPAD
 #include <qtsystemexceptionhandler.h>
 #endif
+
+using namespace ExtensionSystem;
 
 enum { OptionIndent = 4, DescriptionIndent = 34 };
 
@@ -89,7 +89,7 @@ static const char SETTINGS_OPTION[] = "-settingspath";
 static const char PID_OPTION[] = "-pid";
 #endif
 
-typedef QList<ExtensionSystem::PluginSpec *> PluginSpecSet;
+typedef QList<PluginSpec *> PluginSpecSet;
 
 // Helpers for displaying messages. Note that there is no console on Windows.
 #ifdef Q_OS_WIN
@@ -128,24 +128,23 @@ static void displayError(const QString &t)
 
 #endif
 
-static void printVersion(const ExtensionSystem::PluginSpec *coreplugin,
-                         const ExtensionSystem::PluginManager &pm)
+static void printVersion(const PluginSpec *coreplugin)
 {
     QString version;
     QTextStream str(&version);
     str << '\n' << appNameC << ' ' << coreplugin->version()<< " based on Qt " << qVersion() << "\n\n";
-    pm.formatPluginVersions(str);
+    PluginManager::formatPluginVersions(str);
     str << '\n' << coreplugin->copyright() << '\n';
     displayHelpText(version);
 }
 
-static void printHelp(const QString &a0, const ExtensionSystem::PluginManager &pm)
+static void printHelp(const QString &a0)
 {
     QString help;
     QTextStream str(&help);
     str << "Usage: " << a0 << fixedOptionsC;
-    ExtensionSystem::PluginManager::formatOptions(str, OptionIndent, DescriptionIndent);
-    pm.formatPluginOptions(str, OptionIndent, DescriptionIndent);
+    PluginManager::formatOptions(str, OptionIndent, DescriptionIndent);
+    PluginManager::formatPluginOptions(str, OptionIndent, DescriptionIndent);
     displayHelpText(help);
 }
 
@@ -230,6 +229,8 @@ int main(int argc, char **argv)
     const int threadCount = QThreadPool::globalInstance()->maxThreadCount();
     QThreadPool::globalInstance()->setMaxThreadCount(qMax(4, 2 * threadCount));
 
+    setupCrashHandler(); // Display a backtrace once a serious signal is delivered.
+
 #ifdef ENABLE_QT_BREAKPAD
     QtSystemExceptionHandler systemExceptionHandler;
 #endif
@@ -264,10 +265,10 @@ int main(int argc, char **argv)
     QSettings *globalSettings = new QSettings(QSettings::IniFormat, QSettings::SystemScope,
                                               QLatin1String(Core::Constants::IDE_SETTINGSVARIANT_STR),
                                               QLatin1String("QtCreator"));
-    ExtensionSystem::PluginManager pluginManager;
-    pluginManager.setFileExtension(QLatin1String("pluginspec"));
-    pluginManager.setGlobalSettings(globalSettings);
-    pluginManager.setSettings(settings);
+    PluginManager pluginManager;
+    PluginManager::setFileExtension(QLatin1String("pluginspec"));
+    PluginManager::setGlobalSettings(globalSettings);
+    PluginManager::setSettings(settings);
 
     QTranslator translator;
     QTranslator qtTranslator;
@@ -283,7 +284,8 @@ int main(int argc, char **argv)
         uiLanguages.prepend(overrideLanguage);
     const QString &creatorTrPath = QCoreApplication::applicationDirPath()
             + QLatin1String(SHARE_PATH "/translations");
-    foreach (const QString &locale, uiLanguages) {
+    foreach (QString locale, uiLanguages) {
+        locale.replace(QLatin1Char('-'), QLatin1Char('_')); // work around QTBUG-25973
         if (translator.load(QLatin1String("qtcreator_") + locale, creatorTrPath)) {
             const QString &qtTrPath = QLibraryInfo::location(QLibraryInfo::TranslationsPath);
             const QString &qtTrFile = QLatin1String("qt_") + locale;
@@ -322,7 +324,7 @@ int main(int argc, char **argv)
 #endif
     // Load
     const QStringList pluginPaths = getPluginPaths();
-    pluginManager.setPluginPaths(pluginPaths);
+    PluginManager::setPluginPaths(pluginPaths);
 
     QMap<QString, QString> foundAppOptions;
     if (arguments.size() > 1) {
@@ -337,16 +339,16 @@ int main(int argc, char **argv)
         appOptions.insert(QLatin1String(PID_OPTION), true);
 #endif
         QString errorMessage;
-        if (!pluginManager.parseOptions(arguments, appOptions, &foundAppOptions, &errorMessage)) {
+        if (!PluginManager::parseOptions(arguments, appOptions, &foundAppOptions, &errorMessage)) {
             displayError(errorMessage);
-            printHelp(QFileInfo(app.applicationFilePath()).baseName(), pluginManager);
+            printHelp(QFileInfo(app.applicationFilePath()).baseName());
             return -1;
         }
     }
 
-    const PluginSpecSet plugins = pluginManager.plugins();
-    ExtensionSystem::PluginSpec *coreplugin = 0;
-    foreach (ExtensionSystem::PluginSpec *spec, plugins) {
+    const PluginSpecSet plugins = PluginManager::plugins();
+    PluginSpec *coreplugin = 0;
+    foreach (PluginSpec *spec, plugins) {
         if (spec->name() == QLatin1String(corePluginNameC)) {
             coreplugin = spec;
             break;
@@ -363,14 +365,14 @@ int main(int argc, char **argv)
         return 1;
     }
     if (foundAppOptions.contains(QLatin1String(VERSION_OPTION))) {
-        printVersion(coreplugin, pluginManager);
+        printVersion(coreplugin);
         return 0;
     }
     if (foundAppOptions.contains(QLatin1String(HELP_OPTION1))
             || foundAppOptions.contains(QLatin1String(HELP_OPTION2))
             || foundAppOptions.contains(QLatin1String(HELP_OPTION3))
             || foundAppOptions.contains(QLatin1String(HELP_OPTION4))) {
-        printHelp(QFileInfo(app.applicationFilePath()).baseName(), pluginManager);
+        printHelp(QFileInfo(app.applicationFilePath()).baseName());
         return 0;
     }
 
@@ -386,7 +388,7 @@ int main(int argc, char **argv)
 #endif
 
     if (app.isRunning() && (pid != -1 || foundAppOptions.contains(QLatin1String(CLIENT_OPTION)))) {
-        if (app.sendMessage(pluginManager.serializedArguments(), 5000 /*timeout*/, pid))
+        if (app.sendMessage(PluginManager::serializedArguments(), 5000 /*timeout*/, pid))
             return 0;
 
         // Message could not be send, maybe it was in the process of quitting
@@ -394,7 +396,7 @@ int main(int argc, char **argv)
             // Nah app is still running, ask the user
             int button = askMsgSendFailed();
             while(button == QMessageBox::Retry) {
-                if (app.sendMessage(pluginManager.serializedArguments(), 5000 /*timeout*/, pid))
+                if (app.sendMessage(PluginManager::serializedArguments(), 5000 /*timeout*/, pid))
                     return 0;
                 if (!app.isRunning(pid)) // App quit while we were trying so start a new creator
                     button = QMessageBox::Yes;
@@ -406,13 +408,13 @@ int main(int argc, char **argv)
         }
     }
 
-    pluginManager.loadPlugins();
+    PluginManager::loadPlugins();
     if (coreplugin->hasError()) {
         displayError(msgCoreLoadFailure(coreplugin->errorString()));
         return 1;
     }
-    if (pluginManager.hasError()) {
-        ExtensionSystem::PluginErrorOverview errorOverview(&pluginManager);
+    if (PluginManager::hasError()) {
+        PluginErrorOverview errorOverview;
         errorOverview.exec();
     }
 
@@ -429,9 +431,11 @@ int main(int argc, char **argv)
 
 #ifdef WITH_TESTS
     // Do this after the event loop has started
-    if (pluginManager.runningTests())
+    if (PluginManager::runningTests())
         QTimer::singleShot(100, &pluginManager, SLOT(startTests()));
 #endif
 
-    return app.exec();
+    const int r = app.exec();
+    cleanupCrashHandler();
+    return r;
 }

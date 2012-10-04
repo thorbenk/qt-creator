@@ -88,6 +88,9 @@ dist/gdb/source
 dist/gdb/staging
 ipch
 tmp
+# ignore both a directory as well as a symlink
+share/qtcreator/Nokia/
+share/qtcreator/Nokia
 
 # Binaries
 # --------
@@ -109,7 +112,6 @@ src/tools/qml/qmldump/qmldump
 src/tools/examplesscanner/examplesscanner
 src/tools/valgrindfake/valgrind-fake
 bin/*.exe
-src/tools/mdnssd
 
 # Tests
 #------

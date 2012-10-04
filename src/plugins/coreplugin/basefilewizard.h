@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -120,12 +118,15 @@ public:
 
     explicit WizardDialogParameters(const QString &defaultPath, const WizardPageList &extensionPages,
                                     const QString &platform, const Core::FeatureSet &requiredFeatures,
-                                    DialogParameterFlags flags)
+                                    DialogParameterFlags flags,
+                                    QVariantMap extraValues)
         : m_defaultPath(defaultPath),
           m_extensionPages(extensionPages),
           m_selectedPlatform(platform),
           m_requiredFeatures(requiredFeatures),
-          m_parameterFlags(flags) {}
+          m_parameterFlags(flags),
+          m_extraValues(extraValues)
+    {}
 
     QString defaultPath() const
     { return m_defaultPath; }
@@ -142,12 +143,16 @@ public:
     DialogParameterFlags flags() const
     { return m_parameterFlags; }
 
+    QVariantMap extraValues() const
+    { return m_extraValues; }
+
 private:
     QString m_defaultPath;
     WizardPageList m_extensionPages;
     QString m_selectedPlatform;
     Core::FeatureSet m_requiredFeatures;
     DialogParameterFlags m_parameterFlags;
+    QVariantMap m_extraValues;
 };
 
 class CORE_EXPORT BaseFileWizard : public IWizard

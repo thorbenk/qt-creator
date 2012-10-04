@@ -5,7 +5,7 @@ import re;
 # and goes to the end of the line
 # line can be a regex - but if so, remember to set isRegex to True
 # the function returns True if this went fine, False on error
-def placeCursorToLine(editor,line,isRegex=False):
+def placeCursorToLine(editor, line, isRegex=False):
     cursor = editor.textCursor()
     oldPosition = 0
     cursor.setPosition(oldPosition)
@@ -15,44 +15,20 @@ def placeCursorToLine(editor,line,isRegex=False):
         regex = re.compile(line)
     while not found:
         currentLine = str(lineUnderCursor(editor)).strip()
-        if isRegex:
-            if regex.match(currentLine):
-                found = True
-            else:
-                moveTextCursor(editor, QTextCursor.Down, QTextCursor.MoveAnchor)
-                if oldPosition==editor.textCursor().position():
-                    break
-                oldPosition = editor.textCursor().position()
-        else:
-            if currentLine==line:
-                found = True
-            else:
-                moveTextCursor(editor, QTextCursor.Down, QTextCursor.MoveAnchor)
-                if oldPosition==editor.textCursor().position():
-                    break
-                oldPosition = editor.textCursor().position()
+        found = isRegex and regex.match(currentLine) or not isRegex and currentLine == line
+        if not found:
+            type(editor, "<Down>")
+            newPosition = editor.textCursor().position()
+            if oldPosition == newPosition:
+                break
+            oldPosition = newPosition
     if not found:
         test.fatal("Couldn't find line matching\n\n%s\n\nLeaving test..." % line)
         return False
-    cursor=editor.textCursor()
+    cursor = editor.textCursor()
     cursor.movePosition(QTextCursor.EndOfLine, QTextCursor.MoveAnchor)
     editor.setTextCursor(cursor)
     return True
-
-# this function moves the text cursor of an editor by using Qt internal functions
-# this is more reliable (especially on Mac) than the type() approach
-# param editor an editor object
-# param moveOperation a value of enum MoveOperation (of QTextCursor)
-# param moveAnchor a value of enum MoveMode (of QTextCursor)
-# param n how often repeat the move operation?
-def moveTextCursor(editor, moveOperation, moveAnchor, n=1):
-    if not editor or isinstance(editor, (str,unicode)):
-        test.fatal("Either got a NoneType or a string instead of an editor object")
-        return False
-    textCursor = editor.textCursor()
-    result = textCursor.movePosition(moveOperation, moveAnchor, n)
-    editor.setTextCursor(textCursor)
-    return result
 
 # this function returns True if a QMenu is
 # popped up above the given editor
@@ -231,15 +207,18 @@ def getEditorForFileSuffix(curFile):
                          "tcc", "tpp", "t++", "c", "cu", "m", "mm", "hh", "hxx", "h++", "hpp", "hp"]
     qmlEditorSuffixes = ["qml", "qmlproject", "js", "qs", "qtt"]
     proEditorSuffixes = ["pro", "pri", "prf"]
+    glslEditorSuffixes= ["frag", "vert", "fsh", "vsh", "glsl", "shader", "gsh"]
     suffix = __getFileSuffix__(curFile)
     if suffix in cppEditorSuffixes:
         editor = waitForObject("{type='CppEditor::Internal::CPPEditorWidget' unnamed='1' "
                                "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
     elif suffix in qmlEditorSuffixes:
-        editor = waitForObject("{type='QmlJSEditor::QmlJSTextEditorWidget' unnamed='1' "
-                               "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
+        editor = waitForObject(":Qt Creator_QmlJSEditor::QmlJSTextEditorWidget")
     elif suffix in proEditorSuffixes:
         editor = waitForObject("{type='Qt4ProjectManager::Internal::ProFileEditorWidget' unnamed='1' "
+                               "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
+    elif suffix in glslEditorSuffixes:
+        editor = waitForObject("{type='GLSLEditor::GLSLTextEditorWidget' unnamed='1' "
                                "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
     else:
         test.log("Trying PlainTextEditor (file suffix: %s)" % suffix)
@@ -259,3 +238,52 @@ def __getFileSuffix__(fileName):
         return None
     else:
         return suffix[1]
+
+def maskSpecialCharsForSearchResult(filename):
+    filename = filename.replace("_", "\\_").replace(".","\\.")
+    return filename
+
+def validateSearchResult(expectedCount):
+    searchResult = waitForObject(":Qt Creator_SearchResult_Core::Internal::OutputPaneToggleButton")
+    ensureChecked(searchResult)
+    resultTreeView = waitForObject("{type='Find::Internal::SearchResultTreeView' unnamed='1' "
+                                   "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
+    counterLabel = waitForObject("{type='QLabel' unnamed='1' visible='1' text?='*matches found.' "
+                                 "window=':Qt Creator_Core::Internal::MainWindow'}")
+    matches = cast((str(counterLabel.text)).split(" ", 1)[0], "int")
+    test.compare(matches, expectedCount, "Verified match count.")
+    model = resultTreeView.model()
+    for row in range(model.rowCount()):
+        index = model.index(row, 0)
+        itemText = str(model.data(index).toString())
+        doubleClickItem(resultTreeView, maskSpecialCharsForSearchResult(itemText), 5, 5, 0, Qt.LeftButton)
+        test.log("%d occurrences in %s" % (model.rowCount(index), itemText))
+        for chRow in range(model.rowCount(index)):
+            chIndex = model.index(chRow, 0, index)
+            resultTreeView.scrollTo(chIndex)
+            text = str(chIndex.data())
+            rect = resultTreeView.visualRect(chIndex)
+            doubleClick(resultTreeView, rect.x+5, rect.y+5, 0, Qt.LeftButton)
+            editor = getEditorForFileSuffix(itemText)
+            waitFor("lineUnderCursor(editor) == text", 2000)
+            test.compare(lineUnderCursor(editor), text)
+
+# this function invokes context menu and command from it
+def invokeContextMenuItem(editorArea, command1, command2 = None):
+    ctxtMenu = openContextMenuOnTextCursorPosition(editorArea)
+    activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), command1, 1000))
+    if command2:
+        activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), command2, 1000))
+
+# this function invokes the "Find Usages" item from context menu
+# param editor an editor object
+# param line a line in editor (content of the line as a string)
+# param typeOperation a key to type
+# param n how often repeat the type operation?
+def invokeFindUsage(editor, line, typeOperation, n=1):
+    if not placeCursorToLine(editor, line, True):
+        return False
+    for i in range(n):
+        type(editor, typeOperation)
+    invokeContextMenuItem(editor, "Find Usages")
+    return True

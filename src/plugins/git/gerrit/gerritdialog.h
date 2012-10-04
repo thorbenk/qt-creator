@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef GERRIT_INTERNAL_GERRITDIALOG_H
 #define GERRIT_INTERNAL_GERRITDIALOG_H
+
+#include <utils/filterlineedit.h>
 
 #include <QDialog>
 #include <QSharedPointer>
@@ -42,19 +42,35 @@ class QLabel;
 class QModelIndex;
 class QSortFilterProxyModel;
 class QStandardItem;
+class QStringListModel;
 class QPushButton;
 class QDialogButtonBox;
 class QTextBrowser;
 QT_END_NAMESPACE
 
-namespace Utils {
-class FilterLineEdit;
-}
 namespace Gerrit {
 namespace Internal {
 class GerritParameters;
 class GerritModel;
 class GerritChange;
+
+class QueryValidatingLineEdit : public Utils::FilterLineEdit
+{
+    Q_OBJECT
+
+public:
+    explicit QueryValidatingLineEdit(QWidget *parent = 0);
+    void setTextColor(const QColor &c);
+
+public slots:
+    void setValid();
+    void setInvalid();
+
+private:
+    bool m_valid;
+    const QColor m_okTextColor;
+    const QColor m_errorTextColor;
+};
 
 class GerritDialog : public QDialog
 {
@@ -82,12 +98,15 @@ private:
     const QStandardItem *itemAt(const QModelIndex &i, int column = 0) const;
     const QStandardItem *currentItem(int column = 0) const;
     QPushButton *addActionButton(const QString &text, const char *buttonSlot);
+    void updateCompletions(const QString &query);
 
     const QSharedPointer<GerritParameters> m_parameters;
     QSortFilterProxyModel *m_filterModel;
     GerritModel *m_model;
+    QStringListModel *m_queryModel;
     QTreeView *m_treeView;
     QTextBrowser *m_detailsBrowser;
+    QueryValidatingLineEdit *m_queryLineEdit;
     Utils::FilterLineEdit *m_filterLineEdit;
     QDialogButtonBox *m_buttonBox;
     QPushButton *m_displayButton;

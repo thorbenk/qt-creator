@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -78,6 +76,12 @@ public:
 
 
     void ensureInitialized() const;
+
+    void beginReset()
+    { beginResetModel(); }
+
+    void endReset()
+    { endResetModel(); }
 
 signals:
     void tagsUpdated();
@@ -135,7 +139,7 @@ public slots:
         if (m_searchString != arg) {
             m_searchString = arg;
             emit searchStrings(arg);
-            updateFilter();
+            delayedUpdateFilter();
         }
     }
 
@@ -149,11 +153,17 @@ signals:
 
     void searchStrings(const QStringList& arg);
 
+protected:
+    void timerEvent(QTimerEvent *event);
+
 private:
+    void delayedUpdateFilter();
+
     bool m_showTutorialsOnly;
     QStringList m_filterTags;
     QStringList m_searchString;
     ExamplesListModel *m_sourceModel;
+    int m_timerId;
 };
 
 } // namespace Internal

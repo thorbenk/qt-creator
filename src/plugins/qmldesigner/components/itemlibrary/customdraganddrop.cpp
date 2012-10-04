@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,7 +39,7 @@
 #include <QDebug>
 #include <QPainter>
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && QT_VERSION < 0x050000
 #include <private/qwidget_p.h>
 #endif
 
@@ -66,7 +64,7 @@ void CustomDragAndDropIcon::startDrag()
 
 void CustomDragAndDropIcon::grabMouseSafely()
 {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && QT_VERSION < 0x050000
     // grabMouse calls SetWindowsHookEx() - this function causes a system-wide
     // freeze if any other app on the system installs a hook and fails to
     // process events.

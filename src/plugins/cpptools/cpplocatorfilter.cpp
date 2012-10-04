@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,10 +37,12 @@
 
 #include <texteditor/itexteditor.h>
 #include <texteditor/basetexteditor.h>
+#include <utils/fileutils.h>
 
 #include <QStringMatcher>
 
 using namespace CppTools::Internal;
+using namespace Utils;
 
 CppLocatorFilter::CppLocatorFilter(CppModelManager *manager)
     : m_manager(manager),
@@ -165,10 +165,12 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
 
                 QVariant id = qVariantFromValue(info);
                 Locator::FilterEntry filterEntry(this, info.symbolName, id, info.icon);
-                if (! info.symbolType.isEmpty())
+                if (! info.symbolType.isEmpty()) {
                     filterEntry.extraInfo = info.symbolType;
-                else
-                    filterEntry.extraInfo = info.fileName;
+                } else {
+                    filterEntry.extraInfo = FileUtils::shortNativePath(
+                        FileName::fromString(info.fileName));
+                }
 
                 if (info.symbolName.startsWith(entry))
                     betterEntries.append(filterEntry);

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,7 @@
 
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
+#include <utils/fileutils.h>
 
 #include <QFileInfo>
 #include <QDir>
@@ -41,6 +40,7 @@
 using namespace Core;
 using namespace Locator;
 using namespace Locator::Internal;
+using namespace Utils;
 
 OpenDocumentsFilter::OpenDocumentsFilter(EditorManager *editorManager) :
     m_editorManager(editorManager)
@@ -53,9 +53,11 @@ OpenDocumentsFilter::OpenDocumentsFilter(EditorManager *editorManager) :
     setIncludedByDefault(true);
 }
 
-QList<FilterEntry> OpenDocumentsFilter::matchesFor(QFutureInterface<Locator::FilterEntry> &future, const QString &entry)
+QList<FilterEntry> OpenDocumentsFilter::matchesFor(QFutureInterface<Locator::FilterEntry> &future, const QString &entry_)
 {
     QList<FilterEntry> value;
+    QString entry = entry_;
+    const QString lineNoSuffix = EditorManager::splitLineNumber(&entry);
     const QChar asterisk = QLatin1Char('*');
     QString pattern = QString(asterisk);
     pattern += entry;
@@ -71,8 +73,8 @@ QList<FilterEntry> OpenDocumentsFilter::matchesFor(QFutureInterface<Locator::Fil
         if (regexp.exactMatch(displayName)) {
             if (!fileName.isEmpty()) {
                 QFileInfo fi(fileName);
-                FilterEntry fiEntry(this, fi.fileName(), fileName);
-                fiEntry.extraInfo = QDir::toNativeSeparators(fi.path());
+                FilterEntry fiEntry(this, fi.fileName(), QString(fileName + lineNoSuffix));
+                fiEntry.extraInfo = FileUtils::shortNativePath(FileName(fi));
                 fiEntry.resolveFileIcon = true;
                 value.append(fiEntry);
             }
@@ -102,5 +104,6 @@ void OpenDocumentsFilter::refresh(QFutureInterface<void> &future)
 
 void OpenDocumentsFilter::accept(FilterEntry selection) const
 {
-    EditorManager::openEditor(selection.internalData.toString(), Id(), EditorManager::ModeSwitch);
+    EditorManager::openEditor(selection.internalData.toString(), Id(),
+                              EditorManager::ModeSwitch | EditorManager::CanContainLineNumber);
 }

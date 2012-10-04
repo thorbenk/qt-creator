@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -46,7 +44,6 @@ class TargetSetupPage;
 
 namespace Internal {
 class MobileAppWizardGenericOptionsPage;
-class MobileAppWizardSymbianOptionsPage;
 class MobileAppWizardMaemoOptionsPage;
 class MobileAppWizardHarmattanOptionsPage;
 }
@@ -76,28 +73,24 @@ protected:
 private:
     int idOfNextGenericPage() const;
     Utils::WizardProgressItem *itemOfNextGenericPage() const;
-    bool isSymbianTargetSelected() const;
-    bool isFremantleTargetSelected() const;
-    bool isHarmattanTargetSelected() const;
-    bool isMeegoTargetSelected() const;
+    bool isQtPlatformSelected(const QString &platform) const;
+    QList<Core::Id> selectedKits() const;
 
     Internal::MobileAppWizardGenericOptionsPage *m_genericOptionsPage;
-    Internal::MobileAppWizardSymbianOptionsPage *m_symbianOptionsPage;
     Internal::MobileAppWizardMaemoOptionsPage *m_maemoOptionsPage;
     Internal::MobileAppWizardHarmattanOptionsPage *m_harmattanOptionsPage;
     TargetSetupPage *m_targetsPage;
 
     int m_genericOptionsPageId;
-    int m_symbianOptionsPageId;
     int m_maemoOptionsPageId;
     int m_harmattanOptionsPageId;
     int m_targetsPageId;
     bool m_ignoreGeneralOptions; // If true, do not show generic mobile options page.
     Utils::WizardProgressItem *m_targetItem;
     Utils::WizardProgressItem *m_genericItem;
-    Utils::WizardProgressItem *m_symbianItem;
     Utils::WizardProgressItem *m_maemoItem;
     Utils::WizardProgressItem *m_harmattanItem;
+    QList<Core::Id> m_kitIds;
 
     friend class AbstractMobileAppWizard;
 };

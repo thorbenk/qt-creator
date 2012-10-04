@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,20 +25,15 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #include "remotelinuxcustomcommanddeployservice.h"
 
-#include "linuxdeviceconfiguration.h"
-
 #include <utils/qtcassert.h>
-#include <utils/ssh/sshremoteprocessrunner.h>
+#include <ssh/sshremoteprocessrunner.h>
 
-#include <QString>
-
-using namespace Utils;
+using namespace QSsh;
 
 namespace RemoteLinux {
 namespace Internal {
@@ -99,10 +94,8 @@ void RemoteLinuxCustomCommandDeployService::doDeploy()
 
     if (!d->runner)
         d->runner = new SshRemoteProcessRunner(this);
-    connect(d->runner, SIGNAL(processOutputAvailable(QByteArray)),
-        SLOT(handleStdout(QByteArray)));
-    connect(d->runner, SIGNAL(processErrorOutputAvailable(QByteArray)),
-        SLOT(handleStderr(QByteArray)));
+    connect(d->runner, SIGNAL(readyReadStandardOutput()), SLOT(handleStdout()));
+    connect(d->runner, SIGNAL(readyReadStandardError()), SLOT(handleStderr()));
     connect(d->runner, SIGNAL(processClosed(int)), SLOT(handleProcessClosed(int)));
 
     emit progressMessage(tr("Starting remote command '%1'...").arg(d->commandLine));
@@ -120,14 +113,14 @@ void RemoteLinuxCustomCommandDeployService::stopDeployment()
     handleDeploymentDone();
 }
 
-void RemoteLinuxCustomCommandDeployService::handleStdout(const QByteArray &output)
+void RemoteLinuxCustomCommandDeployService::handleStdout()
 {
-    emit stdOutData(QString::fromUtf8(output));
+    emit stdOutData(QString::fromUtf8(d->runner->readAllStandardOutput()));
 }
 
-void RemoteLinuxCustomCommandDeployService::handleStderr(const QByteArray &output)
+void RemoteLinuxCustomCommandDeployService::handleStderr()
 {
-    emit stdErrData(QString::fromUtf8(output));
+    emit stdErrData(QString::fromUtf8(d->runner->readAllStandardError()));
 }
 
 void RemoteLinuxCustomCommandDeployService::handleProcessClosed(int exitStatus)
@@ -136,7 +129,7 @@ void RemoteLinuxCustomCommandDeployService::handleProcessClosed(int exitStatus)
 
     if (exitStatus == SshRemoteProcess::FailedToStart) {
         emit errorMessage(tr("Remote process failed to start."));
-    } else if (exitStatus == SshRemoteProcess::KilledBySignal) {
+    } else if (exitStatus == SshRemoteProcess::CrashExit) {
         emit errorMessage(tr("Remote process was killed by a signal."));
     } else if (d->runner->processExitCode() != 0) {
         emit errorMessage(tr("Remote process finished with exit code %1.")

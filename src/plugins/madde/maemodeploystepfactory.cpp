@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,24 +25,26 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "maemodeploystepfactory.h"
 
+#include "maemoconstants.h"
+#include "maddeqemustartstep.h"
 #include "maddeuploadandinstallpackagesteps.h"
 #include "maemodeploybymountsteps.h"
 #include "maemoinstalltosysrootstep.h"
-#include "qt4maemotarget.h"
 #include "qt4maemodeployconfiguration.h"
 
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtsupportconstants.h>
 #include <remotelinux/genericdirectuploadstep.h>
+#include <remotelinux/remotelinuxcheckforfreediskspacestep.h>
 #include <remotelinux/uploadandinstalltarpackagestep.h>
 
 #include <QCoreApplication>
@@ -52,9 +54,8 @@ using namespace RemoteLinux;
 
 namespace Madde {
 namespace Internal {
-namespace {
-const QString OldMaemoDeployStepId(QLatin1String("Qt4ProjectManager.MaemoDeployStep"));
-} // anonymous namespace
+
+const char OldMaemoDeployStepId[] = "Qt4ProjectManager.MaemoDeployStep";
 
 MaemoDeployStepFactory::MaemoDeployStepFactory(QObject *parent)
     : IBuildStepFactory(parent)
@@ -67,22 +68,25 @@ QList<Core::Id> MaemoDeployStepFactory::availableCreationIds(BuildStepList *pare
     if (!qobject_cast<Qt4MaemoDeployConfiguration *>(parent->parent()))
         return ids;
 
-    AbstractQt4MaemoTarget * const maemoTarget
-        = qobject_cast<AbstractQt4MaemoTarget *>(parent->target());
-    if (maemoTarget)
-        ids << MaemoMakeInstallToSysrootStep::Id;
-    if (qobject_cast<AbstractDebBasedQt4MaemoTarget *>(parent->target())) {
-        ids << MaemoInstallDebianPackageToSysrootStep::Id;
-        ids << MaemoUploadAndInstallPackageStep::stepId();
-    } else if (qobject_cast<AbstractRpmBasedQt4MaemoTarget *>(parent->target())) {
-        ids << MaemoInstallRpmPackageToSysrootStep::Id;
-        ids << MeegoUploadAndInstallPackageStep::stepId();
+    QString platform;
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(parent->target()->kit());
+    if (version)
+        platform = version->platformName();
+
+    if (platform == QtSupport::Constants::MAEMO_FREMANTLE_PLATFORM) {
+        ids << MaemoMakeInstallToSysrootStep::Id
+            << MaemoInstallDebianPackageToSysrootStep::Id
+            << MaemoUploadAndInstallPackageStep::stepId()
+            << MaemoInstallPackageViaMountStep::stepId()
+            << MaemoCopyFilesViaMountStep::stepId()
+            << MaddeQemuStartStep::stepId();
+    } else if (platform == QtSupport::Constants::MEEGO_HARMATTAN_PLATFORM) {
+        ids << MaemoMakeInstallToSysrootStep::Id
+            << MaemoInstallDebianPackageToSysrootStep::Id
+            << MaemoUploadAndInstallPackageStep::stepId()
+            << GenericDirectUploadStep::stepId()
+            << MaddeQemuStartStep::stepId();
     }
-    if (qobject_cast<Qt4HarmattanTarget *>(parent->target()))
-        ids << GenericDirectUploadStep::stepId();
-    if (qobject_cast<Qt4Maemo5Target *>(parent->target()))
-        ids << MaemoInstallPackageViaMountStep::stepId()
-            << MaemoCopyFilesViaMountStep::stepId();
 
     return ids;
 }
@@ -91,22 +95,22 @@ QString MaemoDeployStepFactory::displayNameForId(const Core::Id id) const
 {
     if (id == MaemoInstallPackageViaMountStep::stepId())
         return MaemoInstallPackageViaMountStep::displayName();
-    else if (id == MaemoCopyFilesViaMountStep::stepId())
+    if (id == MaemoCopyFilesViaMountStep::stepId())
         return MaemoCopyFilesViaMountStep::displayName();
-    else if (id == MaemoUploadAndInstallPackageStep::stepId())
+    if (id == MaemoUploadAndInstallPackageStep::stepId())
         return MaemoUploadAndInstallPackageStep::displayName();
-    else if (id == MeegoUploadAndInstallPackageStep::stepId())
-        return MeegoUploadAndInstallPackageStep::displayName();
-    else if (id == MaemoInstallDebianPackageToSysrootStep::Id)
+    if (id == MaemoInstallDebianPackageToSysrootStep::Id)
         return MaemoInstallDebianPackageToSysrootStep::displayName();
-    else if (id == MaemoInstallRpmPackageToSysrootStep::Id)
-        return MaemoInstallRpmPackageToSysrootStep::displayName();
-    else if (id == MaemoCopyToSysrootStep::Id)
+    if (id == MaemoCopyToSysrootStep::Id)
         return MaemoCopyToSysrootStep::displayName();
-    else if (id == MaemoMakeInstallToSysrootStep::Id)
+    if (id == MaemoMakeInstallToSysrootStep::Id)
         return MaemoMakeInstallToSysrootStep::displayName();
-    else if (id == GenericDirectUploadStep::stepId())
+    if (id == GenericDirectUploadStep::stepId())
         return GenericDirectUploadStep::displayName();
+    if (id == RemoteLinuxCheckForFreeDiskSpaceStep::stepId())
+        return RemoteLinuxCheckForFreeDiskSpaceStep::stepDisplayName();
+    if (id == MaddeQemuStartStep::stepId())
+        return MaddeQemuStartStep::stepDisplayName();
     return QString();
 }
 
@@ -117,38 +121,34 @@ bool MaemoDeployStepFactory::canCreate(BuildStepList *parent, const Core::Id id)
 
 BuildStep *MaemoDeployStepFactory::create(BuildStepList *parent, const Core::Id id)
 {
-    const Target * const t = parent->target();
+    Core::Id deviceType = DeviceTypeKitInformation::deviceTypeId(parent->target()->kit());
 
-    if (id == MaemoInstallDebianPackageToSysrootStep::Id) {
+    if (id == MaemoInstallDebianPackageToSysrootStep::Id)
         return new MaemoInstallDebianPackageToSysrootStep(parent);
-    } else if (id == MaemoInstallRpmPackageToSysrootStep::Id) {
-        return new MaemoInstallRpmPackageToSysrootStep(parent);
-    } else if (id == MaemoCopyToSysrootStep::Id) {
+    if (id == MaemoCopyToSysrootStep::Id)
         return new MaemoCopyToSysrootStep(parent);
-    } else if (id == MaemoMakeInstallToSysrootStep::Id) {
+    if (id == MaemoMakeInstallToSysrootStep::Id)
         return new MaemoMakeInstallToSysrootStep(parent);
-    } else if (id == MaemoInstallPackageViaMountStep::stepId()
-        || (id == Core::Id(OldMaemoDeployStepId) && qobject_cast< const Qt4Maemo5Target *>(t))) {
+    if (id == MaemoInstallPackageViaMountStep::stepId()
+        || (id == OldMaemoDeployStepId && deviceType == Maemo5OsType))
         return new MaemoInstallPackageViaMountStep(parent);
-    } else if (id == MaemoCopyFilesViaMountStep::stepId()) {
+    if (id == MaemoCopyFilesViaMountStep::stepId())
         return new MaemoCopyFilesViaMountStep(parent);
-    } else if (id == MaemoUploadAndInstallPackageStep::stepId()
-        || (id == Core::Id(OldMaemoDeployStepId) && (qobject_cast<const Qt4HarmattanTarget *>(t)))) {
+    if (id == MaemoUploadAndInstallPackageStep::stepId()
+        || (id == OldMaemoDeployStepId && deviceType == HarmattanOsType))
         return new MaemoUploadAndInstallPackageStep(parent);
-    } else if (id == MeegoUploadAndInstallPackageStep::stepId()
-        || (id == Core::Id(OldMaemoDeployStepId) && (qobject_cast<const Qt4MeegoTarget *>(t)))) {
-        return new MeegoUploadAndInstallPackageStep(parent);
-    } else if (id == GenericDirectUploadStep::stepId()) {
+    if (id == GenericDirectUploadStep::stepId())
         return new GenericDirectUploadStep(parent, id);
-    }
-
+    if (id == RemoteLinuxCheckForFreeDiskSpaceStep::stepId())
+        return new RemoteLinuxCheckForFreeDiskSpaceStep(parent);
+    if (id == MaddeQemuStartStep::stepId())
+        return new MaddeQemuStartStep(parent);
     return 0;
 }
 
 bool MaemoDeployStepFactory::canRestore(BuildStepList *parent, const QVariantMap &map) const
 {
-    return canCreate(parent, idFromMap(map))
-        || idFromMap(map) == Core::Id(OldMaemoDeployStepId);
+    return canCreate(parent, idFromMap(map)) || idFromMap(map) == OldMaemoDeployStepId;
 }
 
 BuildStep *MaemoDeployStepFactory::restore(BuildStepList *parent, const QVariantMap &map)
@@ -179,15 +179,9 @@ BuildStep *MaemoDeployStepFactory::clone(BuildStepList *parent, BuildStep *produ
     } else if (product->id() == MaemoUploadAndInstallPackageStep::stepId()) {
         return new MaemoUploadAndInstallPackageStep(parent,
             qobject_cast<MaemoUploadAndInstallPackageStep*>(product));
-    } else if (product->id() == MeegoUploadAndInstallPackageStep::stepId()) {
-        return new MeegoUploadAndInstallPackageStep(parent,
-            qobject_cast<MeegoUploadAndInstallPackageStep*>(product));
     } else if (product->id() == MaemoInstallDebianPackageToSysrootStep::Id) {
         return new MaemoInstallDebianPackageToSysrootStep(parent,
             qobject_cast<MaemoInstallDebianPackageToSysrootStep *>(product));
-    } else if (product->id() == MaemoInstallRpmPackageToSysrootStep::Id) {
-        return new MaemoInstallRpmPackageToSysrootStep(parent,
-            qobject_cast<MaemoInstallRpmPackageToSysrootStep *>(product));
     } else if (product->id() == MaemoCopyToSysrootStep::Id) {
         return new MaemoCopyToSysrootStep(parent,
             qobject_cast<MaemoCopyToSysrootStep *>(product));
@@ -197,7 +191,12 @@ BuildStep *MaemoDeployStepFactory::clone(BuildStepList *parent, BuildStep *produ
     } else if (product->id() == GenericDirectUploadStep::stepId()) {
         return new GenericDirectUploadStep(parent,
              qobject_cast<GenericDirectUploadStep *>(product));
+    } else if (RemoteLinuxCheckForFreeDiskSpaceStep * const other = qobject_cast<RemoteLinuxCheckForFreeDiskSpaceStep *>(product)) {
+        return new RemoteLinuxCheckForFreeDiskSpaceStep(parent, other);
+    } else if (MaddeQemuStartStep * const other = qobject_cast<MaddeQemuStartStep *>(product)) {
+        return new MaddeQemuStartStep(parent, other);
     }
+
     return 0;
 }
 

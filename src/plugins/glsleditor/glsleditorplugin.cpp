@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -105,18 +103,6 @@ GLSLEditorPlugin::~GLSLEditorPlugin()
     m_instance = 0;
 }
 
-/*! Copied from cppplugin.cpp */
-static inline
-Core::Command *createSeparator(Core::ActionManager *am,
-                               QObject *parent,
-                               Core::Context &context,
-                               const char *id)
-{
-    QAction *separator = new QAction(parent);
-    separator->setSeparator(true);
-    return am->registerAction(separator, Core::Id(id), context);
-}
-
 bool GLSLEditorPlugin::initialize(const QStringList & /*arguments*/, QString *errorMessage)
 {
     if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/glsleditor/GLSLEditor.mimetypes.xml"), errorMessage))
@@ -140,27 +126,23 @@ bool GLSLEditorPlugin::initialize(const QStringList & /*arguments*/, QString *er
                                                               | TextEditor::TextEditorActionHandler::UnCollapseAll);
     m_actionHandler->initializeActions();
 
-    Core::ActionManager *am = Core::ICore::actionManager();
-    Core::ActionContainer *contextMenu = am->createMenu(GLSLEditor::Constants::M_CONTEXT);
-    Core::ActionContainer *glslToolsMenu = am->createMenu(Core::Id(Constants::M_TOOLS_GLSL));
+    Core::ActionContainer *contextMenu = Core::ActionManager::createMenu(GLSLEditor::Constants::M_CONTEXT);
+    Core::ActionContainer *glslToolsMenu = Core::ActionManager::createMenu(Core::Id(Constants::M_TOOLS_GLSL));
     glslToolsMenu->setOnAllDisabledBehavior(Core::ActionContainer::Hide);
     QMenu *menu = glslToolsMenu->menu();
     //: GLSL sub-menu in the Tools menu
     menu->setTitle(tr("GLSL"));
-    am->actionContainer(Core::Constants::M_TOOLS)->addMenu(glslToolsMenu);
+    Core::ActionManager::actionContainer(Core::Constants::M_TOOLS)->addMenu(glslToolsMenu);
 
     Core::Command *cmd = 0;
 
     // Insert marker for "Refactoring" menu:
     Core::Context globalContext(Core::Constants::C_GLOBAL);
-    Core::Command *sep = createSeparator(am, this, globalContext,
-                                         Constants::SEPARATOR1);
+    Core::Command *sep = contextMenu->addSeparator(globalContext);
     sep->action()->setObjectName(Constants::M_REFACTORING_MENU_INSERTION_POINT);
-    contextMenu->addAction(sep);
-    contextMenu->addAction(createSeparator(am, this, globalContext,
-                                           Constants::SEPARATOR2));
+    contextMenu->addSeparator(globalContext);
 
-    cmd = am->command(TextEditor::Constants::UN_COMMENT_SELECTION);
+    cmd = Core::ActionManager::command(TextEditor::Constants::UN_COMMENT_SELECTION);
     contextMenu->addAction(cmd);
 
     errorMessage->clear();
@@ -244,11 +226,11 @@ void GLSLEditorPlugin::initializeEditor(GLSLEditor::GLSLTextEditorWidget *editor
     TextEditor::TextEditorSettings::instance()->initializeEditor(editor);
 }
 
-Core::Command *GLSLEditorPlugin::addToolAction(QAction *a, Core::ActionManager *am,
+Core::Command *GLSLEditorPlugin::addToolAction(QAction *a,
                                                Core::Context &context, const Core::Id &id,
                                                Core::ActionContainer *c1, const QString &keySequence)
 {
-    Core::Command *command = am->registerAction(a, id, context);
+    Core::Command *command = Core::ActionManager::registerAction(a, id, context);
     if (!keySequence.isEmpty())
         command->setDefaultKeySequence(QKeySequence(keySequence));
     c1->addAction(command);
@@ -278,7 +260,7 @@ QByteArray GLSLEditorPlugin::glslFile(const QString &fileName) const
 void GLSLEditorPlugin::parseGlslFile(const QString &fileName, InitFile *initFile) const
 {
     // Parse the builtins for any langugage variant so we can use all keywords.
-    const unsigned variant = GLSL::Lexer::Variant_All;
+    const int variant = GLSL::Lexer::Variant_All;
 
     const QByteArray code = glslFile(fileName);
     initFile->engine = new GLSL::Engine();

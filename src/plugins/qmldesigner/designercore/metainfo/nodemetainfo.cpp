@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,9 +36,10 @@
 #include "metainfo.h"
 #include <model.h>
 #include <rewriterview.h>
+#include <propertyparser.h>
 
 #include <QSharedData>
-#include <QtDebug>
+#include <QDebug>
 #include <QIcon>
 #include <QDeclarativeContext>
 #include <QDeclarativeEngine>
@@ -52,8 +51,6 @@
 #include <qmljs/qmljsscopechain.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <languageutils/fakemetaobject.h>
-#include <private/qdeclarativemetatype_p.h>
-#include <private/qdeclarativestringconverters_p.h>
 
 namespace QmlDesigner {
 
@@ -341,7 +338,7 @@ public:
     Model *model() const
     { return m_model; }
 
-    QString packageName() const;
+    QString cppPackageName() const;
 
     QString componentSource() const;
     QString componentFileName() const;
@@ -676,6 +673,14 @@ QString NodeMetaInfoPrivate::propertyEnumScope(const QString &propertyName) cons
     return QString();
 }
 
+static QString getUnqualifiedName(const QString &name)
+{
+    const QStringList nameComponents = name.split('.');
+    if (nameComponents.size() < 2)
+        return QString();
+    return nameComponents.last();
+}
+
 bool NodeMetaInfoPrivate::cleverCheckType(const QString &otherType) const
 {
     if (otherType == qualfiedTypeName())
@@ -691,8 +696,8 @@ bool NodeMetaInfoPrivate::cleverCheckType(const QString &otherType) const
         package = split.first();
         typeName = split.at(1);
     }
-    if (packageName() == package)
-        return QString(package + '.' + typeName) == qualfiedTypeName();
+    if (cppPackageName() == package)
+        return QString(package + '.' + typeName) == cppPackageName() + '.' + getUnqualifiedName(qualfiedTypeName());
 
     const CppComponentValue *qmlObjectValue = getCppComponentValue();
     if (!qmlObjectValue)
@@ -755,7 +760,7 @@ QStringList NodeMetaInfoPrivate::keysForEnum(const QString &enumName) const
     return qmlObjectValue->getEnum(enumName).keys();
 }
 
-QString NodeMetaInfoPrivate::packageName() const
+QString NodeMetaInfoPrivate::cppPackageName() const
 {
     if (!isComponent()) {
         if (const CppComponentValue *qmlObject = getCppComponentValue())
@@ -1006,8 +1011,7 @@ QVariant NodeMetaInfo::propertyCastedValue(const QString &propertyName, const QV
         return variant;
     }
 
-    return QDeclarativeStringConverters::variantFromString(variant.toString());
-
+    return Internal::PropertyParser::variantFromString(variant.toString());
 }
 
 QList<NodeMetaInfo> NodeMetaInfo::superClasses() const
@@ -1099,6 +1103,13 @@ bool NodeMetaInfo::isSubclassOf(const QString &type, int majorVersion, int minor
 void NodeMetaInfo::clearCache()
 {
     Internal::NodeMetaInfoPrivate::clearCache();
+}
+
+bool NodeMetaInfo::isPositioner() const
+{
+    if (majorVersion() < 2)
+        return isSubclassOf("<cpp>.QDeclarativeBasePositioner", -1, -1);
+    return isSubclassOf("QtQuick.Positioner", -1, -1);
 }
 
 } // namespace QmlDesigner

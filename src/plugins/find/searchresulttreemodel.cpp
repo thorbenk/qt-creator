@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,6 +49,7 @@ SearchResultTreeModel::SearchResultTreeModel(QObject *parent)
     : QAbstractItemModel(parent)
     , m_currentParent(0)
     , m_showReplaceUI(false)
+    , m_editorFontIsUsed(false)
 {
     m_rootItem = new SearchResultTreeItem;
     m_textEditorFont = QFont(QLatin1String("Courier"));
@@ -161,10 +160,12 @@ QVariant SearchResultTreeModel::data(const QModelIndex &idx, int role) const
     QVariant result;
 
     if (role == Qt::SizeHintRole) {
-        // TODO we should not use editor font height if that is not used by any item
-        const int appFontHeight = QApplication::fontMetrics().height();
-        const int editorFontHeight = QFontMetrics(m_textEditorFont).height();
-        result = QSize(0, qMax(appFontHeight, editorFontHeight));
+        int height = QApplication::fontMetrics().height();
+        if (m_editorFontIsUsed) {
+            const int editorFontHeight = QFontMetrics(m_textEditorFont).height();
+            height = qMax(height, editorFontHeight);
+        }
+        result = QSize(0, height);
     } else {
         result = data(treeItemAtIndex(idx), role);
     }
@@ -386,6 +387,7 @@ QList<QModelIndex> SearchResultTreeModel::addResults(const QList<SearchResultIte
     qStableSort(sortedItems.begin(), sortedItems.end(), lessThanByPath);
     QList<SearchResultItem> itemSet;
     foreach (const SearchResultItem &item, sortedItems) {
+        m_editorFontIsUsed |= item.useTextEditorFont;
         if (!m_currentParent || (m_currentPath != item.path)) {
             // first add all the items from before
             if (!itemSet.isEmpty()) {
@@ -409,9 +411,11 @@ QList<QModelIndex> SearchResultTreeModel::addResults(const QList<SearchResultIte
 
 void SearchResultTreeModel::clear()
 {
+    beginResetModel();
     m_currentParent = NULL;
     m_rootItem->clearChildren();
-    reset();
+    m_editorFontIsUsed = false;
+    endResetModel();
 }
 
 QModelIndex SearchResultTreeModel::nextIndex(const QModelIndex &idx, bool *wrapped) const

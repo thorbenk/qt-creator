@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,6 +36,8 @@
 
 #include <aggregation/aggregate.h>
 #include <coreplugin/icore.h>
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/actionmanager/commandbutton.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/documentmanager.h>
 #include <find/treeviewfind.h>
@@ -49,8 +49,10 @@
 #include <QDir>
 #include <qdebug.h>
 #include <QHBoxLayout>
-#include <QMainWindow>
 #include <QMenu>
+#include <QToolBar>
+#include <QInputDialog>
+#include <QClipboard>
 
 namespace ResourceEditor {
 namespace Internal {
@@ -77,15 +79,21 @@ QString ResourceEditorDocument::mimeType() const
 ResourceEditorW::ResourceEditorW(const Core::Context &context,
                                ResourceEditorPlugin *plugin,
                                QWidget *parent)
-      : m_resourceEditor(new SharedTools::QrcEditor(parent)),
+      : m_resourceEditor(new QrcEditor(parent)),
         m_resourceDocument(new ResourceEditorDocument(this)),
         m_plugin(plugin),
         m_shouldAutoSave(false),
         m_diskIo(false),
-        m_contextMenu(new QMenu)
+        m_contextMenu(new QMenu),
+        m_toolBar(new QToolBar)
 {
     setContext(context);
     setWidget(m_resourceEditor);
+
+    Core::CommandButton *refreshButton = new Core::CommandButton(Constants::REFRESH, m_toolBar);
+    refreshButton->setIcon(QIcon(QLatin1String(":/texteditor/images/finddocuments.png")));
+    connect(refreshButton, SIGNAL(clicked()), this, SLOT(onRefresh()));
+    m_toolBar->addWidget(refreshButton);
 
     Aggregation::Aggregate * agg = new Aggregation::Aggregate;
     agg->add(m_resourceEditor->treeView());
@@ -94,6 +102,9 @@ ResourceEditorW::ResourceEditorW(const Core::Context &context,
     m_resourceEditor->setResourceDragEnabled(true);
     m_contextMenu->addAction(tr("Open File"), this, SLOT(openCurrentFile()));
     m_openWithMenu = m_contextMenu->addMenu(tr("Open With"));
+    m_renameAction = m_contextMenu->addAction(tr("Rename File..."), this, SLOT(renameCurrentFile()));
+    m_copyFileNameAction = m_contextMenu->addAction(tr("Copy Resource Path to Clipboard"), this, SLOT(copyCurrentResourcePath()));
+
     // Below we need QueuedConnection because otherwise, if this qrc file
     // is inside of the qrc file, crashes happen when using "Open With" on it.
     // (That is because this editor instance is deleted in executeOpenWithMenuAction
@@ -121,6 +132,7 @@ ResourceEditorW::~ResourceEditorW()
     if (m_resourceEditor)
         m_resourceEditor->deleteLater();
     delete m_contextMenu;
+    delete m_toolBar;
 }
 
 bool ResourceEditorW::createNew(const QString &contents)
@@ -214,6 +226,11 @@ Core::Id ResourceEditorW::id() const
     return Core::Id(ResourceEditor::Constants::RESOURCEEDITOR_ID);
 }
 
+QWidget *ResourceEditorW::toolBar()
+{
+    return m_toolBar;
+}
+
 QString ResourceEditorDocument::fileName() const
 {
     return m_parent->m_resourceEditor->fileName();
@@ -283,10 +300,9 @@ void ResourceEditorW::onUndoStackChanged(bool canUndo, bool canRedo)
 void ResourceEditorW::showContextMenu(const QPoint &globalPoint, const QString &fileName)
 {
     Core::DocumentManager::populateOpenWithMenu(m_openWithMenu, fileName);
-    if (!m_openWithMenu->actions().isEmpty()) {
-        m_currentFileName = fileName;
-        m_contextMenu->popup(globalPoint);
-    }
+    m_currentFileName = fileName;
+    m_renameAction->setEnabled(!document()->isFileReadOnly());
+    m_contextMenu->popup(globalPoint);
 }
 
 void ResourceEditorW::openCurrentFile()
@@ -299,16 +315,29 @@ void ResourceEditorW::openFile(const QString &fileName)
     Core::EditorManager::openEditor(fileName);
 }
 
+void ResourceEditorW::onRefresh()
+{
+    m_resourceEditor->refresh();
+}
+
+void ResourceEditorW::renameCurrentFile()
+{
+    m_resourceEditor->editCurrentItem();
+}
+
+void ResourceEditorW::copyCurrentResourcePath()
+{
+    QApplication::clipboard()->setText(m_resourceEditor->currentResourcePath());
+}
+
 void ResourceEditorW::onUndo()
 {
-    if (!m_resourceEditor.isNull())
-        m_resourceEditor.data()->onUndo();
+    m_resourceEditor->onUndo();
 }
 
 void ResourceEditorW::onRedo()
 {
-    if (!m_resourceEditor.isNull())
-        m_resourceEditor.data()->onRedo();
+    m_resourceEditor->onRedo();
 }
 
 } // namespace Internal

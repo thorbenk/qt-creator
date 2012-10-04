@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -53,7 +51,7 @@ typedef QList<IVersionControl *> VersionControlList;
 
 static inline VersionControlList allVersionControls()
 {
-    return ExtensionSystem::PluginManager::instance()->getObjects<IVersionControl>();
+    return ExtensionSystem::PluginManager::getObjects<IVersionControl>();
 }
 
 // ---- VCSManagerPrivate:
@@ -326,6 +324,58 @@ bool VcsManager::promptToDelete(IVersionControl *vc, const QString &fileName)
     if (button != QMessageBox::Yes)
         return true;
     return vc->vcsDelete(fileName);
+}
+
+QString VcsManager::msgAddToVcsTitle()
+{
+    return tr("Add to Version Control");
+}
+
+QString VcsManager::msgPromptToAddToVcs(const QStringList &files, const IVersionControl *vc)
+{
+    return files.size() == 1
+        ? tr("Add the file\n%1\nto version control (%2)?")
+              .arg(files.front(), vc->displayName())
+        : tr("Add the files\n%1\nto version control (%2)?")
+              .arg(files.join(QString(QLatin1Char('\n'))), vc->displayName());
+}
+
+QString VcsManager::msgAddToVcsFailedTitle()
+{
+    return tr("Adding to Version Control Failed");
+}
+
+QString VcsManager::msgToAddToVcsFailed(const QStringList &files, const IVersionControl *vc)
+{
+    return files.size() == 1
+        ? tr("Could not add the file\n%1\nto version control (%2)\n")
+              .arg(files.front(), vc->displayName())
+        : tr("Could not add the following files to version control (%1)\n%2")
+              .arg(vc->displayName(), files.join(QString(QLatin1Char('\n'))));
+}
+
+void VcsManager::promptToAdd(const QString &directory, const QStringList &fileNames)
+{
+    IVersionControl *vc = findVersionControlForDirectory(directory);
+    if (!vc || !vc->supportsOperation(Core::IVersionControl::AddOperation))
+        return;
+
+    QMessageBox::StandardButton button =
+           QMessageBox::question(Core::ICore::mainWindow(), VcsManager::msgAddToVcsTitle(),
+                                 VcsManager::msgPromptToAddToVcs(fileNames, vc),
+                                 QMessageBox::Yes | QMessageBox::No);
+    if (button == QMessageBox::Yes) {
+        QStringList notAddedToVc;
+        foreach (const QString &file, fileNames) {
+            if (!vc->vcsAdd(file))
+                notAddedToVc << file;
+        }
+
+        if (!notAddedToVc.isEmpty()) {
+            QMessageBox::warning(Core::ICore::mainWindow(), VcsManager::msgAddToVcsFailedTitle(),
+                                 VcsManager::msgToAddToVcsFailed(notAddedToVc, vc));
+        }
+    }
 }
 
 } // namespace Core

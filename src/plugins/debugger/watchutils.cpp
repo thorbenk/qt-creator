@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,8 +24,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -282,16 +280,59 @@ bool hasSideEffects(const QString &exp)
 bool isKeyWord(const QString &exp)
 {
     // FIXME: incomplete
-    return exp == QLatin1String("class")
-        || exp == QLatin1String("const")
-        || exp == QLatin1String("do")
-        || exp == QLatin1String("if")
-        || exp == QLatin1String("return")
-        || exp == QLatin1String("struct")
-        || exp == QLatin1String("template")
-        || exp == QLatin1String("void")
-        || exp == QLatin1String("volatile")
-        || exp == QLatin1String("while");
+    QTC_ASSERT(!exp.isEmpty(), return false);
+    switch (exp.at(0).toLatin1()) {
+    case 'a':
+        return exp == QLatin1String("auto");
+    case 'b':
+        return exp == QLatin1String("break");
+    case 'c':
+        return exp == QLatin1String("case") || exp == QLatin1String("class")
+               || exp == QLatin1String("const") || exp == QLatin1String("constexpr")
+               || exp == QLatin1String("catch") || exp == QLatin1String("continue")
+               || exp == QLatin1String("const_cast");
+    case 'd':
+        return exp == QLatin1String("do") || exp == QLatin1String("default")
+               || exp == QLatin1String("delete") || exp == QLatin1String("decltype")
+               || exp == QLatin1String("dynamic_cast");
+    case 'e':
+        return exp == QLatin1String("else") || exp == QLatin1String("extern")
+               || exp == QLatin1String("enum") || exp == QLatin1String("explicit");
+    case 'f':
+        return exp == QLatin1String("for") || exp == QLatin1String("friend");  // 'final'?
+    case 'g':
+        return exp == QLatin1String("goto");
+    case 'i':
+        return exp == QLatin1String("if") || exp == QLatin1String("inline");
+    case 'n':
+        return exp == QLatin1String("new") || exp == QLatin1String("namespace")
+               || exp == QLatin1String("noexcept");
+    case 'm':
+        return exp == QLatin1String("mutable");
+    case 'o':
+        return exp == QLatin1String("operator"); // 'override'?
+    case 'p':
+        return exp == QLatin1String("public") || exp == QLatin1String("protected")
+               || exp == QLatin1String("private");
+    case 'r':
+        return exp == QLatin1String("return") || exp == QLatin1String("register")
+               || exp == QLatin1String("reinterpret_cast");
+    case 's':
+        return exp == QLatin1String("struct") || exp == QLatin1String("switch")
+               || exp == QLatin1String("static_cast");
+    case 't':
+        return exp == QLatin1String("template") || exp == QLatin1String("typename")
+               || exp == QLatin1String("try") || exp == QLatin1String("throw")
+               || exp == QLatin1String("typedef");
+    case 'u':
+        return exp == QLatin1String("union") || exp == QLatin1String("using");
+    case 'v':
+        return exp == QLatin1String("void") || exp == QLatin1String("volatile")
+               || exp == QLatin1String("virtual");
+    case 'w':
+        return exp == QLatin1String("while");
+    }
+    return false;
 }
 
 bool startsWithDigit(const QString &str)
@@ -308,6 +349,26 @@ QByteArray stripPointerType(QByteArray type)
     if (type.endsWith(' '))
         type.chop(1);
     return type;
+}
+
+// Format a hex address with colons as in the memory editor.
+QString formatToolTipAddress(quint64 a)
+{
+    QString rc = QString::number(a, 16);
+    if (a) {
+        if (const int remainder = rc.size() % 4)
+            rc.prepend(QString(4 - remainder, QLatin1Char('0')));
+        const QChar colon = QLatin1Char(':');
+        switch (rc.size()) {
+        case 16:
+            rc.insert(12, colon);
+        case 12:
+            rc.insert(8, colon);
+        case 8:
+            rc.insert(4, colon);
+        }
+    }
+    return QLatin1String("0x") + rc;
 }
 
 /* getUninitializedVariables(): Get variables that are not initialized
@@ -496,11 +557,6 @@ QByteArray gdbQuoteTypes(const QByteArray &type)
     return result;
 }
 
-bool isSymbianIntType(const QByteArray &type)
-{
-    return type == "TInt" || type == "TBool";
-}
-
 // Utilities to decode string data returned by the dumper helpers.
 
 QString quoteUnprintableLatin1(const QByteArray &ba)
@@ -592,7 +648,7 @@ QString decodeData(const QByteArray &ba, int encoding)
         case Hex8EncodedBigEndian: { // 10, %08x encoded 32 bit data
             const QChar doubleQuote(QLatin1Char('"'));
             QByteArray decodedBa = QByteArray::fromHex(ba);
-            for (int i = 0; i < decodedBa.size(); i += 4) {
+            for (int i = 0; i < decodedBa.size() - 3; i += 4) {
                 char c = decodedBa.at(i);
                 decodedBa[i] = decodedBa.at(i + 3);
                 decodedBa[i + 3] = c;
@@ -641,6 +697,66 @@ QString decodeData(const QByteArray &ba, int encoding)
     }
     qDebug() << "ENCODING ERROR: " << encoding;
     return QCoreApplication::translate("Debugger", "<Encoding error>");
+}
+
+template <class T>
+void decodeArrayHelper(QList<WatchData> *list, const WatchData &tmplate,
+    const QByteArray &rawData)
+{
+    const QByteArray ba = QByteArray::fromHex(rawData);
+    const T *p = (const T *) ba.data();
+    WatchData data;
+    const QByteArray exp = "*(" + gdbQuoteTypes(tmplate.type) + "*)0x";
+    for (int i = 0, n = ba.size() / sizeof(T); i < n; ++i) {
+        data = tmplate;
+        data.sortId = i;
+        data.iname += QByteArray::number(i);
+        data.name = QString::fromLatin1("[%1]").arg(i);
+        data.value = QString::number(p[i]);
+        data.address += i * sizeof(T);
+        data.exp = exp + QByteArray::number(data.address, 16);
+        data.setAllUnneeded();
+        list->append(data);
+    }
+}
+
+void decodeArray(QList<WatchData> *list, const WatchData &tmplate,
+    const QByteArray &rawData, int encoding)
+{
+    switch (encoding) {
+        case Hex2EncodedInt1:
+            decodeArrayHelper<signed char>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedInt2:
+            decodeArrayHelper<short>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedInt4:
+            decodeArrayHelper<int>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedInt8:
+            decodeArrayHelper<qint64>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedUInt1:
+            decodeArrayHelper<uchar>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedUInt2:
+            decodeArrayHelper<ushort>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedUInt4:
+            decodeArrayHelper<uint>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedUInt8:
+            decodeArrayHelper<quint64>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedFloat4:
+            decodeArrayHelper<float>(list, tmplate, rawData);
+            break;
+        case Hex2EncodedFloat8:
+            decodeArrayHelper<double>(list, tmplate, rawData);
+            break;
+        default:
+            qDebug() << "ENCODING ERROR: " << encoding;
+    }
 }
 
 // Editor tooltip support
@@ -699,6 +815,49 @@ QString cppExpressionAt(TextEditor::ITextEditor *editor, int pos,
                     document->fileName(), *line, *column);
 
     return expr;
+}
+
+// Ensure an expression can be added as side-effect
+// free debugger expression.
+QString fixCppExpression(const QString &expIn)
+{
+    QString exp = expIn;
+    // Extract the first identifier, everything else is considered
+    // too dangerous.
+    int pos1 = 0, pos2 = exp.size();
+    bool inId = false;
+    for (int i = 0; i != exp.size(); ++i) {
+        const QChar c = exp.at(i);
+        const bool isIdChar = c.isLetterOrNumber() || c.unicode() == '_';
+        if (inId && !isIdChar) {
+            pos2 = i;
+            break;
+        }
+        if (!inId && isIdChar) {
+            inId = true;
+            pos1 = i;
+        }
+    }
+    exp = exp.mid(pos1, pos2 - pos1);
+
+    if (exp.isEmpty() || exp.startsWith(QLatin1Char('#')) || !hasLetterOrNumber(exp) || isKeyWord(exp))
+        return QString();
+
+    if (exp.startsWith(QLatin1Char('"')) && exp.endsWith(QLatin1Char('"')))
+        return QString();
+
+    if (exp.startsWith(QLatin1String("++")) || exp.startsWith(QLatin1String("--")))
+        exp.remove(0, 2);
+
+    if (exp.endsWith(QLatin1String("++")) || exp.endsWith(QLatin1String("--")))
+        exp.truncate(exp.size() - 2);
+
+    if (exp.startsWith(QLatin1Char('<')) || exp.startsWith(QLatin1Char('[')))
+        return QString();
+
+    if (hasSideEffects(exp) || exp.isEmpty())
+        return QString();
+    return exp;
 }
 
 QString cppFunctionAt(const QString &fileName, int line)
@@ -776,7 +935,7 @@ static void setWatchDataAddress(WatchData &data, quint64 address, quint64 origAd
             // *(class X*)0xdeadbeef for gdb.
             data.exp = data.name.toLatin1();
         else
-            data.exp = "*(" + gdbQuoteTypes(data.type) + "*)" +data.hexAddress();
+            data.exp = "*(" + gdbQuoteTypes(data.type) + "*)" + data.hexAddress();
     }
 }
 
@@ -870,41 +1029,49 @@ void parseWatchData(const QSet<QByteArray> &expandedINames,
     setWatchDataChildCount(childtemplate, item.findChild("childnumchild"));
     //qDebug() << "CHILD TEMPLATE:" << childtemplate.toString();
 
-    for (int i = 0, n = children.children().size(); i != n; ++i) {
-        const GdbMi &child = children.children().at(i);
-        WatchData data1 = childtemplate;
-        data1.sortId = i;
-        GdbMi name = child.findChild("name");
-        if (name.isValid())
-            data1.name = _(name.data());
-        else
-            data1.name = QString::number(i);
-        GdbMi iname = child.findChild("iname");
-        if (iname.isValid()) {
-            data1.iname = iname.data();
-        } else {
-            data1.iname = data.iname;
-            data1.iname += '.';
-            data1.iname += data1.name.toLatin1();
-        }
-        if (!data1.name.isEmpty() && data1.name.at(0).isDigit())
-            data1.name = QLatin1Char('[') + data1.name + QLatin1Char(']');
-        if (addressStep) {
-            setWatchDataAddress(data1, addressBase);
-            addressBase += addressStep;
-        }
-        QByteArray key = child.findChild("key").data();
-        if (!key.isEmpty()) {
-            int encoding = child.findChild("keyencoded").data().toInt();
-            QString skey = decodeData(key, encoding);
-            if (skey.size() > 13) {
-                skey = skey.left(12);
-                skey += _("...");
+    mi = item.findChild("arraydata");
+    if (mi.isValid()) {
+        int encoding = item.findChild("arrayencoding").data().toInt();
+        childtemplate.iname = data.iname + '.';
+        childtemplate.address = addressBase;
+        decodeArray(list, childtemplate, mi.data(), encoding);
+    } else {
+        for (int i = 0, n = children.children().size(); i != n; ++i) {
+            const GdbMi &child = children.children().at(i);
+            WatchData data1 = childtemplate;
+            data1.sortId = i;
+            GdbMi name = child.findChild("name");
+            if (name.isValid())
+                data1.name = _(name.data());
+            else
+                data1.name = QString::number(i);
+            GdbMi iname = child.findChild("iname");
+            if (iname.isValid()) {
+                data1.iname = iname.data();
+            } else {
+                data1.iname = data.iname;
+                data1.iname += '.';
+                data1.iname += data1.name.toLatin1();
             }
-            //data1.name += " (" + skey + ")";
-            data1.name = skey;
+            if (!data1.name.isEmpty() && data1.name.at(0).isDigit())
+                data1.name = QLatin1Char('[') + data1.name + QLatin1Char(']');
+            if (addressStep) {
+                setWatchDataAddress(data1, addressBase);
+                addressBase += addressStep;
+            }
+            QByteArray key = child.findChild("key").data();
+            if (!key.isEmpty()) {
+                int encoding = child.findChild("keyencoded").data().toInt();
+                QString skey = decodeData(key, encoding);
+                if (skey.size() > 13) {
+                    skey = skey.left(12);
+                    skey += _("...");
+                }
+                //data1.name += " (" + skey + ")";
+                data1.name = skey;
+            }
+            parseWatchData(expandedINames, data1, child, list);
         }
-        parseWatchData(expandedINames, data1, child, list);
     }
 }
 

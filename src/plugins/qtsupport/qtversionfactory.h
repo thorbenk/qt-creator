@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,8 +37,10 @@
 #include <QObject>
 #include <QVariantMap>
 
-QT_FORWARD_DECLARE_CLASS(QSettings)
-QT_FORWARD_DECLARE_CLASS(ProFileEvaluator)
+QT_BEGIN_NAMESPACE
+class QSettings;
+class ProFileEvaluator;
+QT_END_NAMESPACE
 
 namespace QtSupport {
 
@@ -49,6 +49,7 @@ class BaseQtVersion;
 class QTSUPPORT_EXPORT QtVersionFactory : public QObject
 {
     Q_OBJECT
+
 public:
     explicit QtVersionFactory(QObject *parent = 0);
     ~QtVersionFactory();
@@ -63,8 +64,8 @@ public:
     virtual BaseQtVersion *create(const Utils::FileName &qmakePath, ProFileEvaluator *evaluator, bool isAutoDetected = false, const QString &autoDetectionSource = QString()) = 0;
 
     static BaseQtVersion *createQtVersionFromQMakePath(const Utils::FileName &qmakePath, bool isAutoDetected = false, const QString &autoDetectionSource = QString());
-    static BaseQtVersion *createQtVersionFromLegacySettings(const Utils::FileName &qmakePath, int id, QSettings *s);
 };
 
-}
+} // namespace QtSupport
+
 #endif // QTVERSIONFACTORY_H

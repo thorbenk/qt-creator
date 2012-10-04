@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,8 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
-
-#define QT_NO_CAST_FROM_ASCII
 
 #include "lldbenginehost.h"
 
@@ -64,16 +60,14 @@
 namespace Debugger {
 namespace Internal {
 
-SshIODevice::SshIODevice(Utils::SshRemoteProcessRunner *r)
+SshIODevice::SshIODevice(QSsh::SshRemoteProcessRunner *r)
     : runner(r)
     , buckethead(0)
 {
     setOpenMode(QIODevice::ReadWrite | QIODevice::Unbuffered);
     connect (runner, SIGNAL(processStarted()), this, SLOT(processStarted()));
-    connect(runner, SIGNAL(processOutputAvailable(QByteArray)),
-            this, SLOT(outputAvailable(QByteArray)));
-    connect(runner, SIGNAL(processErrorOutputAvailable(QByteArray)),
-            this, SLOT(errorOutputAvailable(QByteArray)));
+    connect(runner, SIGNAL(readyReadStandardOutput()), this, SLOT(outputAvailable()));
+    connect(runner, SIGNAL(readyReadStandardError()), this, SLOT(errorOutputAvailable()));
 }
 
 SshIODevice::~SshIODevice()
@@ -130,15 +124,15 @@ void SshIODevice::processStarted()
     runner->writeDataToProcess(startupbuffer);
 }
 
-void SshIODevice::outputAvailable(const QByteArray &output)
+void SshIODevice::outputAvailable()
 {
-    buckets.enqueue(output);
+    buckets.enqueue(runner->readAllStandardOutput());
     emit readyRead();
 }
 
-void SshIODevice::errorOutputAvailable(const QByteArray &output)
+void SshIODevice::errorOutputAvailable()
 {
-    fprintf(stderr, "%s", output.data());
+    fprintf(stderr, "%s", runner->readAllStandardError().data());
 }
 
 
@@ -146,13 +140,14 @@ LldbEngineHost::LldbEngineHost(const DebuggerStartParameters &startParameters)
     :IPCEngineHost(startParameters), m_ssh(0)
 {
     showMessage(QLatin1String("setting up coms"));
+    setObjectName(QLatin1String("LLDBEngine"));
 
     if (startParameters.startMode == StartRemoteEngine)
     {
         m_guestProcess = 0;
-        Utils::SshRemoteProcessRunner * const runner = new Utils::SshRemoteProcessRunner;
-        connect (runner, SIGNAL(connectionError(Utils::SshError)),
-                this, SLOT(sshConnectionError(Utils::SshError)));
+        QSsh::SshRemoteProcessRunner * const runner = new QSsh::SshRemoteProcessRunner;
+        connect (runner, SIGNAL(connectionError(QSsh::SshError)),
+                this, SLOT(sshConnectionError(QSsh::SshError)));
         runner->run(startParameters.serverStartScript.toUtf8(), startParameters.connParams);
         setGuestDevice(new SshIODevice(runner));
     } else  {
@@ -199,7 +194,7 @@ LldbEngineHost::~LldbEngineHost()
     if (m_ssh && m_ssh->isProcessRunning()) {
         // TODO: openssh doesn't do that
 
-        m_ssh->sendSignalToProcess(Utils::SshRemoteProcess::KillSignal);
+        m_ssh->sendSignalToProcess(QSsh::SshRemoteProcess::KillSignal);
     }
 }
 
@@ -212,7 +207,7 @@ void LldbEngineHost::nuke()
     m_guestProcess->kill();
     notifyEngineSpontaneousShutdown();
 }
-void LldbEngineHost::sshConnectionError(Utils::SshError e)
+void LldbEngineHost::sshConnectionError(QSsh::SshError e)
 {
     showStatusMessage(tr("SSH connection error: %1").arg(e));
 }

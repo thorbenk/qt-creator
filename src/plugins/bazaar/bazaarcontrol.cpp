@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2010 Hugues Delorme
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -69,7 +67,7 @@ bool BazaarControl::managesDirectory(const QString &directory, QString *topLevel
 
 bool BazaarControl::isConfigured() const
 {
-    const QString binary = m_bazaarClient->settings()->stringValue(BazaarSettings::binaryPathKey);
+    const QString binary = m_bazaarClient->settings()->binaryPath();
     if (binary.isEmpty())
         return false;
     QFileInfo fi(binary);

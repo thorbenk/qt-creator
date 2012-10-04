@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -93,10 +91,10 @@ IntegerValidator::IntegerValidator(QObject *parent) :
 bool IntegerValidator::isCharAcceptable(const QChar &c, int base)
 {
     if (c.isLetter())
-        return base == 16 && c.toLower().toAscii() <= 'f';
+        return base == 16 && c.toLower().toLatin1() <= 'f';
     if (!c.isDigit())
         return false;
-    const int digit = c.toAscii() - '0';
+    const int digit = c.toLatin1() - '0';
     if (base == 8 && digit > 7)
         return false;
     if (base == 2 && digit > 1)

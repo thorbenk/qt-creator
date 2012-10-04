@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maddedeviceconfigurationfactory.h"
@@ -48,19 +46,19 @@ MaddeDeviceConfigurationFactory::MaddeDeviceConfigurationFactory(QObject *parent
 {
 }
 
-QString MaddeDeviceConfigurationFactory::displayName() const
+QString MaddeDeviceConfigurationFactory::displayNameForId(Core::Id type) const
 {
-    return tr("Device with MADDE support (Fremantle, Harmattan, MeeGo)");
+    return MaddeDevice::maddeDisplayType(type);
 }
 
-bool MaddeDeviceConfigurationFactory::canCreate() const
+QList<Core::Id> MaddeDeviceConfigurationFactory::availableCreationIds() const
 {
-    return true;
+    return QList<Core::Id>() << Core::Id(Maemo5OsType) << Core::Id(HarmattanOsType);
 }
 
-IDevice::Ptr MaddeDeviceConfigurationFactory::create() const
+IDevice::Ptr MaddeDeviceConfigurationFactory::create(Core::Id id) const
 {
-    MaemoDeviceConfigWizard wizard;
+    MaemoDeviceConfigWizard wizard(id);
     if (wizard.exec() != QDialog::Accepted)
         return IDevice::Ptr();
     return wizard.device();
@@ -69,8 +67,7 @@ IDevice::Ptr MaddeDeviceConfigurationFactory::create() const
 bool MaddeDeviceConfigurationFactory::canRestore(const QVariantMap &map) const
 {
     const Core::Id type = IDevice::typeFromMap(map);
-    return type == Core::Id(Maemo5OsType) || type == Core::Id(HarmattanOsType)
-        || type == Core::Id(MeeGoOsType);
+    return type == Maemo5OsType || type == HarmattanOsType;
 }
 
 IDevice::Ptr MaddeDeviceConfigurationFactory::restore(const QVariantMap &map) const

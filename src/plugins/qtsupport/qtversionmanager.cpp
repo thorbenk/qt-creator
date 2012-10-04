@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qtversionmanager.h"
 
+#include "qtkitinformation.h"
 #include "qtversionfactory.h"
 
 #include "qtsupportconstants.h"
@@ -59,7 +58,6 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
-#include <QMainWindow>
 #include <QSettings>
 #include <QTextStream>
 #include <QTimer>
@@ -71,13 +69,9 @@ using namespace QtSupport::Internal;
 
 static const char QTVERSION_DATA_KEY[] = "QtVersion.";
 static const char QTVERSION_TYPE_KEY[] = "QtVersion.Type";
-static const char QTVERSION_COUNT_KEY[] = "QtVersion.Count";
-static const char OLDQTVERSION_COUNT_KEY[] = "QtVersion.Old.Count";
-static const char OLDQTVERSION_DATA_KEY[] = "QtVersion.Old.";
-static const char OLDQTVERSION_SDKSOURCE[] = "QtVersion.Old.SdkSource";
-static const char OLDQTVERSION_PATH[] = "QtVersion.Old.Path";
 static const char QTVERSION_FILE_VERSION_KEY[] = "Version";
-static const char QTVERSION_FILENAME[] = "/qtversion.xml";
+static const char QTVERSION_FILENAME[] = "/qtcreator/qtversion.xml";
+static const char QTVERSION_LEGACY_FILENAME[] = "/qtversion.xml"; // TODO: pre 2.6, remove later
 
 // legacy settings
 static const char QtVersionsSectionName[] = "QtVersions";
@@ -88,7 +82,7 @@ template<class T>
 static T *createToolChain(const QString &id)
 {
     QList<ProjectExplorer::ToolChainFactory *> factories =
-            ExtensionSystem::PluginManager::instance()->getObjects<ProjectExplorer::ToolChainFactory>();
+            ExtensionSystem::PluginManager::getObjects<ProjectExplorer::ToolChainFactory>();
     foreach (ProjectExplorer::ToolChainFactory *f, factories) {
        if (f->id() == id) {
            Q_ASSERT(f->canCreate());
@@ -98,18 +92,18 @@ static T *createToolChain(const QString &id)
     return 0;
 }
 
-static QString globalSettingsFileName()
+static Utils::FileName globalSettingsFileName()
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    return QFileInfo(pm->globalSettings()->fileName()).absolutePath()
-            + QLatin1String(QTVERSION_FILENAME);
+    QSettings *globalSettings = ExtensionSystem::PluginManager::globalSettings();
+    return Utils::FileName::fromString(QFileInfo(globalSettings->fileName()).absolutePath()
+                                       + QLatin1String(QTVERSION_FILENAME));
 }
 
-static QString settingsFileName()
+static Utils::FileName settingsFileName(const QString &path)
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    QFileInfo settingsLocation(pm->settings()->fileName());
-    return settingsLocation.absolutePath() + QLatin1String(QTVERSION_FILENAME);
+    QSettings *settings = ExtensionSystem::PluginManager::settings();
+    QFileInfo settingsLocation(settings->fileName());
+    return Utils::FileName::fromString(settingsLocation.absolutePath() + path);
 }
 
 
@@ -126,7 +120,8 @@ QtVersionManager *QtVersionManager::m_self = 0;
 
 QtVersionManager::QtVersionManager() :
     m_configFileWatcher(0),
-    m_fileWatcherTimer(new QTimer)
+    m_fileWatcherTimer(new QTimer(this)),
+    m_writer(0)
 {
     m_self = this;
     m_idcount = 1;
@@ -141,24 +136,23 @@ QtVersionManager::QtVersionManager() :
 void QtVersionManager::extensionsInitialized()
 {
     bool success = restoreQtVersions();
-    if (!success)
-        success = legacyRestore();
-    updateFromInstaller();
+    updateFromInstaller(false);
     if (!success) {
         // We did neither restore our settings or upgraded
         // in that case figure out if there's a qt in path
-        // and add it to the qt versions
+        // and add it to the Qt versions
         findSystemQt();
     }
 
+    emit qtVersionsChanged(m_versions.keys(), QList<int>(), QList<int>());
     saveQtVersions();
 
-    const QString configFileName = globalSettingsFileName();
-    if (QFileInfo(configFileName).exists()) {
+    const Utils::FileName configFileName = globalSettingsFileName();
+    if (configFileName.toFileInfo().exists()) {
         m_configFileWatcher = new Utils::FileSystemWatcher(this);
         connect(m_configFileWatcher, SIGNAL(fileChanged(QString)),
                 m_fileWatcherTimer, SLOT(start()));
-        m_configFileWatcher->addFile(configFileName,
+        m_configFileWatcher->addFile(configFileName.toString(),
                                      Utils::FileSystemWatcher::WatchModifiedDate);
     } // exists
 }
@@ -171,6 +165,7 @@ bool QtVersionManager::delayedInitialize()
 
 QtVersionManager::~QtVersionManager()
 {
+    delete m_writer;
     qDeleteAll(m_versions);
     m_versions.clear();
 }
@@ -182,11 +177,19 @@ QtVersionManager *QtVersionManager::instance()
 
 bool QtVersionManager::restoreQtVersions()
 {
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    QList<QtVersionFactory *> factories = pm->getObjects<QtVersionFactory>();
+    QTC_ASSERT(!m_writer, return false);
+    m_writer = new Utils::PersistentSettingsWriter(settingsFileName(QLatin1String(QTVERSION_FILENAME)),
+                                                   QLatin1String("QtCreatorQtVersions"));
+
+    QList<QtVersionFactory *> factories = ExtensionSystem::PluginManager::getObjects<QtVersionFactory>();
 
     Utils::PersistentSettingsReader reader;
-    if (!reader.load(settingsFileName()))
+    Utils::FileName filename = settingsFileName(QLatin1String(QTVERSION_FILENAME));
+
+    // Read Qt Creator 2.5 qtversions.xml once:
+    if (!filename.toFileInfo().exists())
+        filename = settingsFileName(QLatin1String(QTVERSION_LEGACY_FILENAME));
+    if (!reader.load(filename))
         return false;
     QVariantMap data = reader.restoreValues();
 
@@ -195,12 +198,14 @@ bool QtVersionManager::restoreQtVersions()
     if (version < 1)
         return false;
 
-
-    int count = data.value(QLatin1String(QTVERSION_COUNT_KEY), 0).toInt();
-    for (int i = 0; i < count; ++i) {
-        const QString key = QString::fromLatin1(QTVERSION_DATA_KEY) + QString::number(i);
-        if (!data.contains(key))
-            break;
+    const QString keyPrefix = QLatin1String(QTVERSION_DATA_KEY);
+    foreach (const QString &key, data.keys()) {
+        if (!key.startsWith(keyPrefix))
+            continue;
+        bool ok;
+        int count = key.mid(keyPrefix.count()).toInt(&ok);
+        if (!ok || count < 0)
+            continue;
 
         const QVariantMap qtversionMap = data.value(key).toMap();
         const QString type = qtversionMap.value(QLatin1String(QTVERSION_TYPE_KEY)).toString();
@@ -225,32 +230,31 @@ bool QtVersionManager::restoreQtVersions()
         if (!restored)
             qWarning("Warning: Unable to restore Qt version '%s' stored in %s.",
                      qPrintable(type),
-                     qPrintable(QDir::toNativeSeparators(settingsFileName())));
+                     qPrintable(filename.toUserOutput()));
     }
     ++m_idcount;
     return true;
 }
 
-void QtVersionManager::updateFromInstaller()
+void QtVersionManager::updateFromInstaller(bool emitSignal)
 {
     m_fileWatcherTimer->stop();
 
+    const Utils::FileName path = globalSettingsFileName();
     // Handle overwritting of data:
     if (m_configFileWatcher) {
-        const QString path = globalSettingsFileName();
-        m_configFileWatcher->removeFile(path);
-        m_configFileWatcher->addFile(path, Utils::FileSystemWatcher::WatchModifiedDate);
+        m_configFileWatcher->removeFile(path.toString());
+        m_configFileWatcher->addFile(path.toString(), Utils::FileSystemWatcher::WatchModifiedDate);
     }
 
     QList<int> added;
     QList<int> removed;
     QList<int> changed;
 
-    ExtensionSystem::PluginManager *pm = ExtensionSystem::PluginManager::instance();
-    QList<QtVersionFactory *> factories = pm->getObjects<QtVersionFactory>();
+    QList<QtVersionFactory *> factories = ExtensionSystem::PluginManager::getObjects<QtVersionFactory>();
     Utils::PersistentSettingsReader reader;
     QVariantMap data;
-    if (reader.load(globalSettingsFileName()))
+    if (reader.load(path))
         data = reader.restoreValues();
 
     if (debug) {
@@ -260,50 +264,19 @@ void QtVersionManager::updateFromInstaller()
             qDebug() << "  autodetection source:"<< version->autodetectionSource();
             qDebug() << "";
         }
-    }
-
-    int oldcount = data.value(QLatin1String(OLDQTVERSION_COUNT_KEY), 0).toInt();
-    for (int i=0; i < oldcount; ++i) {
-        const QString key = QString::fromLatin1(OLDQTVERSION_DATA_KEY) +QString::number(i);
-        if (!data.contains(key))
-            break;
-        QVariantMap map = data.value(key).toMap();
-        Utils::FileName path = Utils::FileName::fromString(map.value(QLatin1String(OLDQTVERSION_PATH)).toString());
-        QString autodetectionSource = map.value(QLatin1String(OLDQTVERSION_SDKSOURCE)).toString();
-        foreach (BaseQtVersion *v, m_versions) {
-            if (v->qmakeCommand() == path) {
-                if (v->autodetectionSource().isEmpty()) {
-                    v->setAutoDetectionSource(autodetectionSource);
-                } else {
-                    if (debug)
-                        qDebug() << "## Conflicting autodetictonSource for"<<path.toString()<<"\n"
-                                 <<"     version retains"<<v->autodetectionSource();
-                }
-                // No break, we want to mark all qt versions matching that path
-                // There's no way for us to decide whether this qt was added
-                // by the user or by the installer, so we treat them all as coming
-                // from the installer. Thus removing/updating them deletes/updates them all
-                // Note: This only applies to versions that are marked via QtVersion.Old
-            }
-        }
-    }
-
-    if (debug) {
-        qDebug()<< "======= After using OLD QtVersion data to mark versions =======";
-        foreach (BaseQtVersion *version, m_versions) {
-            qDebug() << version->qmakeCommand().toString() << "id:"<<version->uniqueId();
-            qDebug() << "  autodetection source:"<< version->autodetectionSource();
-            qDebug() << "";
-        }
-
         qDebug()<< "======= Adding sdk versions =======";
     }
+
     QStringList sdkVersions;
-    int count = data.value(QLatin1String(QTVERSION_COUNT_KEY), 0).toInt();
-    for (int i = 0; i < count; ++i) {
-        const QString key = QString::fromLatin1(QTVERSION_DATA_KEY) + QString::number(i);
-        if (!data.contains(key))
-            break;
+
+    const QString keyPrefix = QLatin1String(QTVERSION_DATA_KEY);
+    foreach (const QString &key, data.keys()) {
+        if (!key.startsWith(keyPrefix))
+            continue;
+        bool ok;
+        int count = key.mid(keyPrefix.count()).toInt(&ok);
+        if (!ok || count < 0)
+            continue;
 
         QVariantMap qtversionMap = data.value(key).toMap();
         const QString type = qtversionMap.value(QLatin1String(QTVERSION_TYPE_KEY)).toString();
@@ -312,16 +285,15 @@ void QtVersionManager::updateFromInstaller()
         int id = -1; // see BaseQtVersion::fromMap()
         QtVersionFactory *factory = 0;
         foreach (QtVersionFactory *f, factories) {
-            if (f->canRestore(type)) {
+            if (f->canRestore(type))
                 factory = f;
-            }
         }
         if (!factory) {
             if (debug)
                 qDebug("Warning: Unable to find factory for type '%s'", qPrintable(type));
             continue;
         }
-        // First try to find a existing qt version to update
+        // First try to find a existing Qt version to update
         bool restored = false;
         foreach (BaseQtVersion *v, m_versions) {
             if (v->autodetectionSource() == autoDetectionSource) {
@@ -386,14 +358,18 @@ void QtVersionManager::updateFromInstaller()
             qDebug() << "";
         }
     }
-    emit qtVersionsChanged(added, removed, changed);
+    if (emitSignal)
+        emit qtVersionsChanged(added, removed, changed);
     saveQtVersions();
 }
 
 void QtVersionManager::saveQtVersions()
 {
-    Utils::PersistentSettingsWriter writer;
-    writer.saveValue(QLatin1String(QTVERSION_FILE_VERSION_KEY), 1);
+    if (!m_writer)
+        return;
+
+    QVariantMap data;
+    data.insert(QLatin1String(QTVERSION_FILE_VERSION_KEY), 1);
 
     int count = 0;
     foreach (BaseQtVersion *qtv, m_versions) {
@@ -401,12 +377,11 @@ void QtVersionManager::saveQtVersions()
         if (tmp.isEmpty())
             continue;
         tmp.insert(QLatin1String(QTVERSION_TYPE_KEY), qtv->type());
-        writer.saveValue(QString::fromLatin1(QTVERSION_DATA_KEY) + QString::number(count), tmp);
+        data.insert(QString::fromLatin1(QTVERSION_DATA_KEY) + QString::number(count), tmp);
         ++count;
 
     }
-    writer.saveValue(QLatin1String(QTVERSION_COUNT_KEY), count);
-    writer.save(settingsFileName(), QLatin1String("QtCreatorQtVersions"), Core::ICore::mainWindow());
+    m_writer->save(data, Core::ICore::mainWindow());
 }
 
 void QtVersionManager::findSystemQt()
@@ -416,69 +391,10 @@ void QtVersionManager::findSystemQt()
         return;
 
     BaseQtVersion *version = QtVersionFactory::createQtVersionFromQMakePath(systemQMakePath);
-    version->setDisplayName(BaseQtVersion::defaultDisplayName(version->qtVersionString(), systemQMakePath, true));
-    m_versions.insert(version->uniqueId(), version);
-}
-
-bool QtVersionManager::legacyRestore()
-{
-    QSettings *s = Core::ICore::settings();
-    const QString qtVersionSection = QLatin1String(QtVersionsSectionName);
-    if (!s->contains(qtVersionSection + QLatin1String("/size")))
-        return false;
-    int size = s->beginReadArray(qtVersionSection);
-    for (int i = 0; i < size; ++i) {
-        s->setArrayIndex(i);
-        // Find the right id
-        // Either something saved or something generated
-        // Note: This code assumes that either all ids are read from the settings
-        // or generated on the fly.
-        int id = s->value(QLatin1String("Id"), -1).toInt();
-        if (id == -1)
-            id = getUniqueId();
-        else if (m_idcount < id)
-            m_idcount = id + 1;
-
-        Utils::FileName qmakePath = Utils::FileName::fromString(s->value(QLatin1String("QMakePath")).toString());
-        if (qmakePath.isEmpty())
-            continue; //skip this version
-
-        BaseQtVersion *version = QtVersionFactory::createQtVersionFromLegacySettings(qmakePath, id, s);
-        if (!version) // Likely to be a invalid version
-            continue;
-
-        if (m_versions.contains(version->uniqueId())) {
-            // oh uh;
-            delete version;
-        } else {
-            m_versions.insert(version->uniqueId(), version);
-        }
-        // Update from 2.1 or earlier:
-        QString mingwDir = s->value(QLatin1String("MingwDirectory")).toString();
-        if (!mingwDir.isEmpty()) {
-            QFileInfo fi(mingwDir + QLatin1String("/bin/g++.exe"));
-            if (fi.exists() && fi.isExecutable()) {
-                ProjectExplorer::MingwToolChain *tc = createToolChain<ProjectExplorer::MingwToolChain>(QLatin1String(ProjectExplorer::Constants::MINGW_TOOLCHAIN_ID));
-                if (tc) {
-                    tc->setCompilerCommand(Utils::FileName(fi));
-                    tc->setDisplayName(tr("MinGW from %1").arg(version->displayName()));
-                    // The debugger is set later in the autoDetect method of the MinGw tool chain factory
-                    // as the default debuggers are not yet registered.
-                    ProjectExplorer::ToolChainManager::instance()->registerToolChain(tc);
-                }
-            }
-        }
-        const QString mwcDir = s->value(QLatin1String("MwcDirectory")).toString();
-        if (!mwcDir.isEmpty())
-            m_pendingMwcUpdates.append(mwcDir);
-        const QString gcceDir = s->value(QLatin1String("GcceDirectory")).toString();
-        if (!gcceDir.isEmpty())
-            m_pendingGcceUpdates.append(gcceDir);
-
+    if (version) {
+        version->setDisplayName(BaseQtVersion::defaultDisplayName(version->qtVersionString(), systemQMakePath, true));
+        m_versions.insert(version->uniqueId(), version);
     }
-    s->endArray();
-    s->remove(qtVersionSection);
-    return true;
 }
 
 void QtVersionManager::addVersion(BaseQtVersion *version)
@@ -501,37 +417,6 @@ void QtVersionManager::removeVersion(BaseQtVersion *version)
     emit qtVersionsChanged(QList<int>(), QList<int>() << version->uniqueId(), QList<int>());
     saveQtVersions();
     delete version;
-}
-
-bool QtVersionManager::supportsTargetId(Core::Id id) const
-{
-    QList<BaseQtVersion *> versions = QtVersionManager::instance()->versionsForTargetId(id);
-    foreach (BaseQtVersion *v, versions)
-        if (v->isValid() && v->toolChainAvailable(id))
-            return true;
-    return false;
-}
-
-QList<BaseQtVersion *> QtVersionManager::versionsForTargetId(Core::Id id,
-                                                             const QtVersionNumber &minimumQtVersion,
-                                                             const QtVersionNumber &maximumQtVersion) const
-{
-    QList<BaseQtVersion *> targetVersions;
-    foreach (BaseQtVersion *version, m_versions) {
-        if (version->supportsTargetId(id) && version->qtVersion() >= minimumQtVersion
-                && version->qtVersion() <= maximumQtVersion)
-            targetVersions.append(version);
-    }
-    qSort(targetVersions.begin(), targetVersions.end(), &qtVersionNumberCompare);
-    return targetVersions;
-}
-
-QSet<Core::Id> QtVersionManager::supportedTargetIds() const
-{
-    QSet<Core::Id> results;
-    foreach (BaseQtVersion *version, m_versions)
-        results.unite(version->supportedTargetIds());
-    return results;
 }
 
 void QtVersionManager::updateDocumentation()
@@ -743,9 +628,8 @@ Utils::FileName QtVersionManager::findQMakeBinaryFromMakefile(const QString &mak
 #endif
                 // Is qmake still installed?
                 QFileInfo fi(qmakePath);
-                if (fi.exists()) {
-                    return Utils::FileName(fi);
-                }
+                if (fi.exists())
+                    return Utils::FileName::fromString(fi.canonicalFilePath());
             }
         }
     }
@@ -754,13 +638,13 @@ Utils::FileName QtVersionManager::findQMakeBinaryFromMakefile(const QString &mak
 
 BaseQtVersion *QtVersionManager::qtVersionForQMakeBinary(const Utils::FileName &qmakePath)
 {
-   foreach (BaseQtVersion *version, versions()) {
-       if (version->qmakeCommand() == qmakePath) {
-           return version;
-           break;
-       }
-   }
-   return 0;
+    foreach (BaseQtVersion *version, versions()) {
+        if (version->qmakeCommand() == qmakePath) {
+            return version;
+            break;
+        }
+    }
+    return 0;
 }
 
 void dumpQMakeAssignments(const QList<QMakeAssignment> &list)

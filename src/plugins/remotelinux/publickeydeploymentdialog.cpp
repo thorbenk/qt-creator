@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,21 +24,19 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "publickeydeploymentdialog.h"
 
-#include "linuxdeviceconfiguration.h"
 #include "sshkeydeployer.h"
 
 #include <coreplugin/icore.h>
-#include <utils/ssh/sshconnection.h>
+#include <ssh/sshconnection.h>
 
 #include <QTimer>
 #include <QFileDialog>
-#include <QMainWindow>
+
+using namespace ProjectExplorer;
 
 namespace RemoteLinux {
 namespace Internal {
@@ -52,7 +50,7 @@ public:
 
 using namespace Internal;
 
-PublicKeyDeploymentDialog *PublicKeyDeploymentDialog::createDialog(const LinuxDeviceConfiguration::ConstPtr &deviceConfig,
+PublicKeyDeploymentDialog *PublicKeyDeploymentDialog::createDialog(const IDevice::ConstPtr &deviceConfig,
     QWidget *parent)
 {
     const QString &dir = QFileInfo(deviceConfig->sshParameters().privateKeyFile).path();
@@ -65,7 +63,7 @@ PublicKeyDeploymentDialog *PublicKeyDeploymentDialog::createDialog(const LinuxDe
     return new PublicKeyDeploymentDialog(deviceConfig, publicKeyFileName, parent);
 }
 
-PublicKeyDeploymentDialog::PublicKeyDeploymentDialog(const LinuxDeviceConfiguration::ConstPtr &deviceConfig,
+PublicKeyDeploymentDialog::PublicKeyDeploymentDialog(const IDevice::ConstPtr &deviceConfig,
         const QString &publicKeyFileName, QWidget *parent)
     : QProgressDialog(parent), d(new PublicKeyDeploymentDialogPrivate)
 {

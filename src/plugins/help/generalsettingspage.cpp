@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -66,31 +64,11 @@ GeneralSettingsPage::GeneralSettingsPage()
     QWebSettings* webSettings = QWebSettings::globalSettings();
     m_font.setPointSize(webSettings->fontSize(QWebSettings::DefaultFontSize));
 #endif
-}
-
-QString GeneralSettingsPage::id() const
-{
-    return QLatin1String("A.General settings");
-}
-
-QString GeneralSettingsPage::displayName() const
-{
-    return tr("General");
-}
-
-QString GeneralSettingsPage::category() const
-{
-    return QLatin1String(Help::Constants::HELP_CATEGORY);
-}
-
-QString GeneralSettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("Help", Help::Constants::HELP_TR_CATEGORY);
-}
-
-QIcon GeneralSettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Help::Constants::HELP_CATEGORY_ICON));
+    setId(QLatin1String("A.General settings"));
+    setDisplayName(tr("General"));
+    setCategory(QLatin1String(Help::Constants::HELP_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("Help", Help::Constants::HELP_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Help::Constants::HELP_CATEGORY_ICON));
 }
 
 QWidget *GeneralSettingsPage::createPage(QWidget *parent)
@@ -102,7 +80,7 @@ QWidget *GeneralSettingsPage::createPage(QWidget *parent)
     m_ui->styleComboBox->setEditable(false);
 
     Core::HelpManager *manager = Core::HelpManager::instance();
-    m_font = qVariantValue<QFont>(manager->customValue(QLatin1String("font"),
+    m_font = qvariant_cast<QFont>(manager->customValue(QLatin1String("font"),
         m_font));
 
     updateFontSize();
@@ -117,9 +95,9 @@ QWidget *GeneralSettingsPage::createPage(QWidget *parent)
     }
     m_ui->homePageLineEdit->setText(m_homePage);
 
-    const int startOption = manager->customValue(QLatin1String("StartOption"),
+    m_startOption = manager->customValue(QLatin1String("StartOption"),
         Help::Constants::ShowLastPages).toInt();
-    m_ui->helpStartComboBox->setCurrentIndex(startOption);
+    m_ui->helpStartComboBox->setCurrentIndex(m_startOption);
 
     m_contextOption = manager->customValue(QLatin1String("ContextHelpOption"),
         Help::Constants::SideBySideIfPossible).toInt();
@@ -188,13 +166,20 @@ void GeneralSettingsPage::apply()
         emit fontChanged();
     }
 
-    QString homePage = m_ui->homePageLineEdit->text();
+    QString homePage = QUrl::fromUserInput(m_ui->homePageLineEdit->text()).toString();
     if (homePage.isEmpty())
         homePage = Help::Constants::AboutBlank;
-    manager->setCustomValue(QLatin1String("HomePage"), homePage);
+    m_ui->homePageLineEdit->setText(homePage);
+    if (m_homePage != homePage) {
+        m_homePage = homePage;
+        manager->setCustomValue(QLatin1String("HomePage"), homePage);
+    }
 
     const int startOption = m_ui->helpStartComboBox->currentIndex();
-    manager->setCustomValue(QLatin1String("StartOption"), startOption);
+    if (m_startOption != startOption) {
+        m_startOption = startOption;
+        manager->setCustomValue(QLatin1String("StartOption"), startOption);
+    }
 
     const int helpOption = m_ui->contextHelpComboBox->currentIndex();
     if (m_contextOption != helpOption) {

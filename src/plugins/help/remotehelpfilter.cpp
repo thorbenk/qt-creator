@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -52,6 +50,8 @@ RemoteFilterOptions::RemoteFilterOptions(RemoteHelpFilter *filter, QWidget *pare
 
     connect(m_ui.add, SIGNAL(clicked()), this, SLOT(addNewItem()));
     connect(m_ui.remove, SIGNAL(clicked()), this, SLOT(removeItem()));
+    connect(m_ui.listWidget, SIGNAL(currentItemChanged(QListWidgetItem*,QListWidgetItem*)), SLOT(updateRemoveButton()));
+    updateRemoveButton();
 }
 
 void RemoteFilterOptions::addNewItem()
@@ -60,6 +60,7 @@ void RemoteFilterOptions::addNewItem()
     m_ui.listWidget->addItem(item);
     item->setSelected(true);
     item->setFlags(item->flags() | Qt::ItemIsEditable);
+    m_ui.listWidget->setCurrentItem(item);
     m_ui.listWidget->editItem(item);
 }
 
@@ -69,6 +70,11 @@ void RemoteFilterOptions::removeItem()
         m_ui.listWidget->removeItemWidget(item);
         delete item;
     }
+}
+
+void RemoteFilterOptions::updateRemoveButton()
+{
+    m_ui.remove->setEnabled(m_ui.listWidget->currentItem());
 }
 
 // -- RemoteHelpFilter

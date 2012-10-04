@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Brian McGillion
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -118,19 +116,18 @@ QString MercurialEditor::fileNameFromDiffSpecification(const QTextBlock &inBlock
     return QString();
 }
 
+QString MercurialEditor::decorateVersion(const QString &revision) const
+{
+    const QFileInfo fi(source());
+    const QString workingDirectory = fi.absolutePath();
+    // Format with short summary
+    return MercurialPlugin::instance()->client()->shortDescriptionSync(workingDirectory, revision);
+}
+
 QStringList MercurialEditor::annotationPreviousVersions(const QString &revision) const
 {
-    MercurialClient *client = MercurialPlugin::instance()->client();
-    QStringList parents;
     const QFileInfo fi(source());
     const QString workingDirectory = fi.absolutePath();
     // Retrieve parent revisions
-    QStringList revisions;
-    if (!client->parentRevisionsSync(workingDirectory, fi.fileName(), revision, &revisions))
-        return QStringList();
-    // Format with short summary
-    QStringList descriptions;
-    if (!client->shortDescriptionsSync(workingDirectory, revisions, &descriptions))
-        return QStringList();
-    return descriptions;
+    return MercurialPlugin::instance()->client()->parentRevisionsSync(workingDirectory, fi.fileName(), revision);
 }

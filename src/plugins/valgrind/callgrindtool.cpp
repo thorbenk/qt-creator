@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -136,6 +134,7 @@ public slots:
     void selectFunction(const Valgrind::Callgrind::Function *);
     void setCostFormat(Valgrind::Internal::CostDelegate::CostFormat format);
     void enableCycleDetection(bool enabled);
+    void shortenTemplates(bool enabled);
     void setCostEvent(int index);
 
     /// This function will add custom text marks to the editor
@@ -198,6 +197,7 @@ public:
     QAction *m_costRelative;
     QAction *m_costRelativeToParent;
     QAction *m_cycleDetection;
+    QAction *m_shortenTemplates;
     QComboBox *m_eventCombo;
 
     QTimer *m_updateTimer;
@@ -372,6 +372,11 @@ void CallgrindToolPrivate::enableCycleDetection(bool enabled)
     m_cycleDetection->setChecked(enabled);
 }
 
+void CallgrindToolPrivate::shortenTemplates(bool enabled)
+{
+    m_shortenTemplates->setChecked(enabled);
+}
+
 // Following functions can be called with actions=0 or widgets=0
 // depending on initialization sequence (whether callgrind was current).
 CostDelegate::CostFormat CallgrindToolPrivate::costFormat() const
@@ -538,26 +543,20 @@ IAnalyzerTool::ToolMode CallgrindTool::toolMode() const
 
 void CallgrindTool::extensionsInitialized()
 {
-    Core::ActionManager *actionManager = Core::ICore::actionManager();
-
     Core::Context analyzerContext = Core::Context(Analyzer::Constants::C_ANALYZEMODE);
 
     // check if there is a CppEditor context menu, if true, add our own context menu actions
     if (Core::ActionContainer *editorContextMenu =
-            actionManager->actionContainer(CppEditor::Constants::M_CONTEXT)) {
+            Core::ActionManager::actionContainer(CppEditor::Constants::M_CONTEXT)) {
         QAction *action = 0;
         Core::Command *cmd = 0;
 
-        action = new QAction(this);
-        action->setSeparator(true);
-        cmd = actionManager->registerAction(action, "Analyzer.Callgrind.ContextMenu.Sep",
-            analyzerContext);
-        editorContextMenu->addAction(cmd);
+        editorContextMenu->addSeparator(analyzerContext);
 
         action = new QAction(tr("Profile Costs of this Function and its Callees"), this);
         action->setIcon(QIcon(Analyzer::Constants::ANALYZER_CONTROL_START_ICON));
         connect(action, SIGNAL(triggered()), d, SLOT(handleShowCostsOfFunction()));
-        cmd = actionManager->registerAction(action, "Analyzer.Callgrind.ShowCostsOfFunction",
+        cmd = Core::ActionManager::registerAction(action, "Analyzer.Callgrind.ShowCostsOfFunction",
             analyzerContext);
         editorContextMenu->addAction(cmd);
         cmd->setAttribute(Core::Command::CA_Hide);
@@ -771,7 +770,6 @@ QWidget *CallgrindToolPrivate::createWidgets()
 
     // show costs as absolute numbers
     m_costAbsolute = new QAction(tr("Absolute Costs"), this);
-    ///FIXME: icon
     m_costAbsolute->setToolTip(tr("Show costs as absolute numbers."));
     m_costAbsolute->setCheckable(true);
     m_costAbsolute->setChecked(true);
@@ -781,7 +779,6 @@ QWidget *CallgrindToolPrivate::createWidgets()
 
     // show costs in percentages
     m_costRelative = new QAction(tr("Relative Costs"), this);
-    ///FIXME: icon (percentage sign?)
     m_costRelative->setToolTip(tr("Show costs relative to total inclusive cost."));
     m_costRelative->setCheckable(true);
     connect(m_costRelative, SIGNAL(toggled(bool)), SLOT(updateCostFormat()));
@@ -790,7 +787,6 @@ QWidget *CallgrindToolPrivate::createWidgets()
 
     // show costs relative to parent
     m_costRelativeToParent = new QAction(tr("Relative Costs to Parent"), this);
-    ///FIXME: icon
     m_costRelativeToParent->setToolTip(tr("Show costs relative to parent functions inclusive cost."));
     m_costRelativeToParent->setCheckable(true);
     connect(m_costRelativeToParent, SIGNAL(toggled(bool)), SLOT(updateCostFormat()));
@@ -800,18 +796,29 @@ QWidget *CallgrindToolPrivate::createWidgets()
     QToolButton *button = new QToolButton;
     button->setMenu(menu);
     button->setPopupMode(QToolButton::InstantPopup);
-    button->setText(tr("Cost Format"));
+    button->setText(QLatin1String("$"));
+    button->setToolTip(tr("Cost Format"));
     layout->addWidget(button);
     }
 
     // cycle detection
-    action = new QAction(tr("Cycle Detection"), this); ///FIXME: icon
+    //action = new QAction(QLatin1String("Cycle Detection"), this); ///FIXME: icon
+    action = new QAction(QLatin1String("O"), this); ///FIXME: icon
     action->setToolTip(tr("Enable cycle detection to properly handle recursive or circular function calls."));
     action->setCheckable(true);
     connect(action, SIGNAL(toggled(bool)), m_dataModel, SLOT(enableCycleDetection(bool)));
     connect(action, SIGNAL(toggled(bool)), m_settings, SLOT(setDetectCycles(bool)));
     layout->addWidget(createToolButton(action));
     m_cycleDetection = action;
+
+    // shorter template signature
+    action = new QAction(QLatin1String("<>"), this);
+    action->setToolTip(tr("This removes template parameter lists when displaying function names."));
+    action->setCheckable(true);
+    connect(action, SIGNAL(toggled(bool)), m_dataModel, SLOT(setShortenTemplates(bool)));
+    connect(action, SIGNAL(toggled(bool)), m_settings, SLOT(setShortenTemplates(bool)));
+    layout->addWidget(createToolButton(action));
+    m_shortenTemplates = action;
 
     // filtering
     action = new QAction(tr("Show Project Costs Only"), this);

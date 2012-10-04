@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,7 +34,6 @@
 #include "cmakeprojectmanager.h"
 #include "cmakeprojectnodes.h"
 #include "cmakebuildconfiguration.h"
-#include "cmaketarget.h"
 #include "makestep.h"
 
 #include <projectexplorer/project.h>
@@ -87,8 +84,6 @@ public:
     Core::IDocument *document() const;
     CMakeManager *projectManager() const;
 
-    CMakeTarget *activeTarget() const;
-
     QList<ProjectExplorer::BuildConfigWidget*> subConfigWidgets();
 
     ProjectExplorer::ProjectNode *rootProjectNode() const;
@@ -102,11 +97,12 @@ public:
 
     QString defaultBuildDirectory() const;
 
-    bool parseCMakeLists();
 
     QString uicCommand() const;
 
     bool isProjectFile(const QString &fileName);
+
+    bool parseCMakeLists();
 
 signals:
     /// emitted after parsing
@@ -127,6 +123,8 @@ private slots:
     void editorAboutToClose(Core::IEditor *editor);
     void uiEditorContentsChanged();
     void buildStateChanged(ProjectExplorer::Project *project);
+    void updateRunConfigurations();
+
 private:
     void buildTree(CMakeProjectNode *rootNode, QList<ProjectExplorer::FileNode *> list);
     void gatherFileNodes(ProjectExplorer::FolderNode *parent, QList<ProjectExplorer::FileNode *> &list);
@@ -134,6 +132,7 @@ private:
     void updateCodeModelSupportFromEditor(const QString &uiFileName, const QString &contents);
     void createUiCodeModelSupport();
     QString uiHeaderFile(const QString &uiFile);
+    void updateRunConfigurations(ProjectExplorer::Target *t);
 
     CMakeManager *m_manager;
     QString m_fileName;
@@ -162,9 +161,11 @@ public:
     QList<ProjectExplorer::FileNode *> cmakeFileList();
     QStringList includeFiles();
     QList<CMakeBuildTarget> buildTargets();
+    QByteArray defines() const;
     QString projectName() const;
     QString compilerName() const;
     bool hasCMakeFiles();
+
 private:
     void parseCodeBlocks_project_file();
     void parseProject();
@@ -186,6 +187,8 @@ private:
     QSet<QString> m_processedUnits;
     bool m_parsingCmakeUnit;
     QStringList m_includeFiles;
+    QStringList m_compilerOptions;
+    QByteArray m_defines;
 
     CMakeBuildTarget m_buildTarget;
     bool m_buildTargetType;
@@ -224,16 +227,16 @@ class CMakeBuildSettingsWidget : public ProjectExplorer::BuildConfigWidget
 {
     Q_OBJECT
 public:
-    explicit CMakeBuildSettingsWidget(CMakeTarget *target);
+    CMakeBuildSettingsWidget();
     QString displayName() const;
 
     // This is called to set up the config widget before showing it
-    virtual void init(ProjectExplorer::BuildConfiguration *bc);
+    void init(ProjectExplorer::BuildConfiguration *bc);
+
 private slots:
     void openChangeBuildDirectoryDialog();
     void runCMake();
 private:
-    CMakeTarget *m_target;
     QLineEdit *m_pathLineEdit;
     QPushButton *m_changeButton;
     CMakeBuildConfiguration *m_buildConfiguration;

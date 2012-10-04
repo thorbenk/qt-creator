@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -141,9 +139,7 @@ class DEBUGGER_EXPORT DebuggerEngine : public QObject
     Q_OBJECT
 
 public:
-    explicit DebuggerEngine(const DebuggerStartParameters &sp,
-        DebuggerLanguages languages,
-        DebuggerEngine *parentEngine = 0);
+    explicit DebuggerEngine(const DebuggerStartParameters &sp);
     virtual ~DebuggerEngine();
 
     const DebuggerStartParameters &startParameters() const;
@@ -213,9 +209,6 @@ public:
         const QString &expr, const QVariant &value);
     virtual void selectThread(int index);
 
-    virtual void handleRemoteSetupDone(int gdbServerPort, int qmlPort);
-    virtual void handleRemoteSetupFailed(const QString &message);
-
     virtual Internal::ModulesHandler *modulesHandler() const;
     virtual Internal::RegisterHandler *registerHandler() const;
     virtual Internal::StackHandler *stackHandler() const;
@@ -229,11 +222,12 @@ public:
     virtual QAbstractItemModel *registerModel() const;
     virtual QAbstractItemModel *stackModel() const;
     virtual QAbstractItemModel *threadsModel() const;
-    virtual QAbstractItemModel *localsModel() const;
-    virtual QAbstractItemModel *watchersModel() const;
-    virtual QAbstractItemModel *returnModel() const;
-    virtual QAbstractItemModel *inspectorModel() const;
-    virtual QAbstractItemModel *toolTipsModel() const;
+    virtual QAbstractItemModel *localsModel() const; // Deprecated, FIXME: use watchModel
+    virtual QAbstractItemModel *watchersModel() const; // Deprecated, FIXME: use watchModel
+    virtual QAbstractItemModel *returnModel() const; // Deprecated, FIXME: use watchModel
+    virtual QAbstractItemModel *inspectorModel() const; // Deprecated, FIXME: use watchModel
+    virtual QAbstractItemModel *toolTipsModel() const; // Deprecated, FIXME: use watchModel
+    virtual QAbstractItemModel *watchModel() const;
     virtual QAbstractItemModel *sourceFilesModel() const;
     virtual QAbstractItemModel *qtMessageLogModel() const;
 
@@ -247,12 +241,6 @@ public:
     DebuggerState lastGoodState() const;
     DebuggerState targetState() const;
     bool isDying() const;
-
-    // Dumper stuff (common to cdb and gdb).
-    bool qtDumperLibraryEnabled() const;
-    QString qtDumperLibraryName() const;
-    QStringList qtDumperLibraryLocations() const;
-    void showQtDumperLibraryWarning(const QString &details);
 
     static const char *stateName(int s);
 
@@ -276,8 +264,6 @@ public:
     bool isMasterEngine() const;
     DebuggerEngine *masterEngine() const;
 
-    DebuggerLanguages languages() const;
-
     virtual bool setupQmlStep(bool /*on*/) { return false; }
     virtual void readyToExecuteQmlStep() {}
 
@@ -294,8 +280,8 @@ signals:
     /*
      * For "external" clients of a debugger run control that needs to do
      * further setup before the debugger is started (e.g. Maemo).
-     * Afterwards, handleRemoteSetupDone() or handleRemoteSetupFailed() must be called
-     * to continue or abort debugging, respectively.
+     * Afterwards, notifyEngineRemoteSetupDone() or notifyEngineRemoteSetupFailed()
+     * must be called to continue or abort debugging, respectively.
      * This signal is only emitted if the start parameters indicate that
      * a server start script should be used, but none is given.
      */
@@ -311,12 +297,15 @@ protected:
     virtual void notifyEngineRunFailed();
 
     virtual void notifyEngineRequestRemoteSetup();
-    virtual void notifyEngineRemoteSetupDone();
-    virtual void notifyEngineRemoteSetupFailed();
+    public:
+    virtual void notifyEngineRemoteSetupDone(int gdbServerPort, int qmlPort);
+    virtual void notifyEngineRemoteSetupFailed(const QString &message);
 
+    protected:
     virtual void notifyInferiorSetupOk();
     virtual void notifyInferiorSetupFailed();
 
+    virtual void notifyEngineRunOkAndInferiorRunRequested();
     virtual void notifyEngineRunAndInferiorRunOk();
     virtual void notifyEngineRunAndInferiorStopOk();
     virtual void notifyInferiorUnrunnable(); // Called by CoreAdapter.
@@ -371,6 +360,7 @@ protected:
     virtual void frameDown();
 
     void setTargetState(DebuggerState state);
+    void setMasterEngine(DebuggerEngine *masterEngine);
 
     DebuggerRunControl *runControl() const;
 

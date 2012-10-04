@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,15 +32,10 @@
 
 #include <QProcess>
 #include <QTextStream>
-#include <QtDebug>
+#include <QDebug>
 
-using namespace GenericProjectManager::Internal;
-
-PkgConfigTool::PkgConfigTool()
-{ }
-
-PkgConfigTool::~PkgConfigTool()
-{ }
+namespace GenericProjectManager {
+namespace Internal {
 
 QList<PkgConfigTool::Package> PkgConfigTool::packages() const
 {
@@ -130,3 +123,6 @@ void PkgConfigTool::packages_helper() const
         m_packages.append(package);
     }
 }
+
+} // namespace Internal
+} // namespace GenericProjectManager

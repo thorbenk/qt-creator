@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "maddeplugin.h"
 
+#include "debianmanager.h"
 #include "maddedeviceconfigurationfactory.h"
 #include "maemoconstants.h"
 #include "maemodeploystepfactory.h"
@@ -40,10 +39,8 @@
 #include "maemoqemumanager.h"
 #include "maemorunfactories.h"
 #include "maemosettingspages.h"
-#include "maemotoolchain.h"
 #include "qt4maemodeployconfiguration.h"
 #include "maemoqtversionfactory.h"
-#include "qt4maemotargetfactory.h"
 
 #include <QtPlugin>
 
@@ -67,15 +64,15 @@ bool MaddePlugin::initialize(const QStringList &arguments, QString *error_messag
 
     addAutoReleasedObject(new MaemoRunControlFactory);
     addAutoReleasedObject(new MaemoRunConfigurationFactory);
-    addAutoReleasedObject(new MaemoToolChainFactory);
     addAutoReleasedObject(new Qt4MaemoDeployConfigurationFactory);
     addAutoReleasedObject(new MaemoPackageCreationFactory);
     addAutoReleasedObject(new MaemoDeployStepFactory);
     addAutoReleasedObject(new MaemoQemuSettingsPage);
     addAutoReleasedObject(new MaemoPublishingWizardFactoryFremantleFree);
-    addAutoReleasedObject(new Qt4MaemoTargetFactory);
     addAutoReleasedObject(new MaemoQtVersionFactory);
     addAutoReleasedObject(new MaddeDeviceConfigurationFactory);
+
+    new DebianManager(this);
 
     return true;
 }

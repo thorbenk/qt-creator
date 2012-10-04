@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,21 +34,17 @@
 #include <coreplugin/idocument.h>
 #include <coreplugin/editormanager/ieditor.h>
 
-#include <QPointer>
-
 QT_BEGIN_NAMESPACE
 class QMenu;
+class QToolBar;
 QT_END_NAMESPACE
-
-namespace SharedTools {
-    class QrcEditor;
-}
 
 namespace ResourceEditor {
 namespace Internal {
 
 class ResourceEditorPlugin;
 class ResourceEditorW;
+class QrcEditor;
 
 class ResourceEditorDocument
   : public virtual Core::IDocument
@@ -96,7 +90,7 @@ public:
     Core::Id id() const;
     QString displayName() const { return m_displayName; }
     void setDisplayName(const QString &title) { m_displayName = title; emit changed(); }
-    QWidget *toolBar() { return 0; }
+    QWidget *toolBar();
     QByteArray saveState() const { return QByteArray(); }
     bool restoreState(const QByteArray &/*state*/) { return true; }
 
@@ -110,13 +104,15 @@ private slots:
     void showContextMenu(const QPoint &globalPoint, const QString &fileName);
     void openCurrentFile();
     void openFile(const QString &fileName);
+    void renameCurrentFile();
+    void copyCurrentResourcePath();
 
 private:
     const QString m_extension;
     const QString m_fileFilter;
     QString m_displayName;
     QString m_suggestedName;
-    QPointer<SharedTools::QrcEditor> m_resourceEditor;
+    QrcEditor *m_resourceEditor;
     ResourceEditorDocument *m_resourceDocument;
     ResourceEditorPlugin *m_plugin;
     bool m_shouldAutoSave;
@@ -124,6 +120,12 @@ private:
     QMenu *m_contextMenu;
     QMenu *m_openWithMenu;
     QString m_currentFileName;
+    QToolBar *m_toolBar;
+    QAction *m_renameAction;
+    QAction *m_copyFileNameAction;
+
+public slots:
+    void onRefresh();
 
 public:
     void onUndo();

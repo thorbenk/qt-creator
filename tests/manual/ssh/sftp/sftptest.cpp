@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -40,10 +38,10 @@
 
 #include <iostream>
 
-using namespace Utils;
+using namespace QSsh;
 
 SftpTest::SftpTest(const Parameters &params)
-    : m_parameters(params), m_state(Inactive), m_error(false),
+    : m_parameters(params), m_state(Inactive), m_error(false), m_connection(0),
       m_bigFileUploadJob(SftpInvalidJob),
       m_bigFileDownloadJob(SftpInvalidJob),
       m_bigFileRemovalJob(SftpInvalidJob),
@@ -57,17 +55,15 @@ SftpTest::SftpTest(const Parameters &params)
 SftpTest::~SftpTest()
 {
     removeFiles(true);
+    delete m_connection;
 }
 
 void SftpTest::run()
 {
-    m_connection = SshConnection::create(m_parameters.sshParams);
-    connect(m_connection.data(), SIGNAL(connected()), this,
-        SLOT(handleConnected()));
-    connect(m_connection.data(), SIGNAL(error(Utils::SshError)), this,
-        SLOT(handleError()));
-    connect(m_connection.data(), SIGNAL(disconnected()), this,
-        SLOT(handleDisconnected()));
+    m_connection = new SshConnection(m_parameters.sshParams);
+    connect(m_connection, SIGNAL(connected()), SLOT(handleConnected()));
+    connect(m_connection, SIGNAL(error(QSsh::SshError)), SLOT(handleError()));
+    connect(m_connection, SIGNAL(disconnected()), SLOT(handleDisconnected()));
     std::cout << "Connecting to host '"
         << qPrintable(m_parameters.sshParams.host) << "'..." << std::endl;
     m_state = Connecting;
@@ -87,11 +83,11 @@ void SftpTest::handleConnected()
            SLOT(handleChannelInitialized()));
         connect(m_channel.data(), SIGNAL(initializationFailed(QString)), this,
             SLOT(handleChannelInitializationFailure(QString)));
-        connect(m_channel.data(), SIGNAL(finished(Utils::SftpJobId,QString)),
-            this, SLOT(handleJobFinished(Utils::SftpJobId,QString)));
+        connect(m_channel.data(), SIGNAL(finished(QSsh::SftpJobId,QString)),
+            this, SLOT(handleJobFinished(QSsh::SftpJobId,QString)));
         connect(m_channel.data(),
-            SIGNAL(fileInfoAvailable(Utils::SftpJobId,QList<Utils::SftpFileInfo>)),
-            SLOT(handleFileInfo(Utils::SftpJobId,QList<Utils::SftpFileInfo>)));
+            SIGNAL(fileInfoAvailable(QSsh::SftpJobId,QList<QSsh::SftpFileInfo>)),
+            SLOT(handleFileInfo(QSsh::SftpJobId,QList<QSsh::SftpFileInfo>)));
         connect(m_channel.data(), SIGNAL(closed()), this,
             SLOT(handleChannelClosed()));
         m_state = InitializingChannel;
@@ -200,7 +196,7 @@ void SftpTest::handleChannelClosed()
     m_connection->disconnectFromHost();
 }
 
-void SftpTest::handleJobFinished(Utils::SftpJobId job, const QString &error)
+void SftpTest::handleJobFinished(QSsh::SftpJobId job, const QString &error)
 {
     switch (m_state) {
     case UploadingSmall:

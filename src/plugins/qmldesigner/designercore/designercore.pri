@@ -36,7 +36,6 @@ SOURCES += $$PWD/model/abstractview.cpp \
     $$PWD/exceptions/invalidmetainfoexception.cpp \
     $$PWD/exceptions/invalidargumentexception.cpp \
     $$PWD/exceptions/notimplementedexception.cpp \
-    $$PWD/model/variantparser.cpp \
     $$PWD/exceptions/invalidmodelstateexception.cpp \
     $$PWD/exceptions/removebasestateexception.cpp \
     $$PWD/exceptions/invalididexception.cpp \
@@ -75,8 +74,7 @@ SOURCES += $$PWD/model/abstractview.cpp \
     $$PWD/model/rewriteactioncompressor.cpp \
     $$PWD/model/qmltextgenerator.cpp \
     $$PWD/model/modelmerger.cpp \
-    $$PWD/exceptions/rewritingexception.cpp \
-    $$PWD/model/modelnodecontextmenu.cpp
+    $$PWD/exceptions/rewritingexception.cpp
 
 HEADERS += $$PWD/include/corelib_global.h \
     $$PWD/include/abstractview.h \
@@ -95,7 +93,7 @@ HEADERS += $$PWD/include/corelib_global.h \
     $$PWD/model/internalnode_p.h \
     $$PWD/model/model_p.h \
     $$PWD/model/painteventfilter_p.h \
-    $$PWD/model/propertyparser.h \
+    $$PWD/include/propertyparser.h \
     $$PWD/pluginmanager/widgetpluginmanager.h \
     $$PWD/pluginmanager/widgetpluginpath.h \
     $$PWD/include/exception.h \
@@ -107,7 +105,6 @@ HEADERS += $$PWD/include/corelib_global.h \
     $$PWD/include/invalidmodelstateexception.h \
     $$PWD/include/removebasestateexception.h \
     $$PWD/include/invalididexception.h \
-    $$PWD/model/variantparser.h \
     $$PWD/include/propertynode.h \
     $$PWD/include/invalidslideindexexception.h \
     $$PWD/include/import.h \
@@ -146,8 +143,7 @@ HEADERS += $$PWD/include/corelib_global.h \
     $$PWD/include/modelmerger.h \
     $$PWD/include/mathutils.h \
     $$PWD/include/customnotifications.h \
-    $$PWD/include/rewritingexception.h \
-    $$PWD//model/modelnodecontextmenu.h
+    $$PWD/include/rewritingexception.h
 
 contains(CONFIG, plugin) {
   # If core.pri has been included in the qmldesigner plugin

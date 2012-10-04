@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -124,9 +122,6 @@ public:
 
     void setOverrideColor(const QColor &color);
 
-    bool isPresentationModeEnabled();
-    void setPresentationModeEnabled(bool);
-
 #ifdef Q_OS_MAC
     void setIsFullScreen(bool fullScreen);
 #endif
@@ -189,7 +184,7 @@ private:
     QSettings *m_globalSettings;
     SettingsDatabase *m_settingsDatabase;
     mutable QPrinter *m_printer;
-    ActionManagerPrivate *m_actionManager;
+    ActionManager *m_actionManager;
     EditorManager *m_editorManager;
     ExternalToolManager *m_externalToolManager;
     MessageManager *m_messageManager;
@@ -227,16 +222,13 @@ private:
     QAction *m_optionsAction;
     QAction *m_toggleSideBarAction;
     QAction *m_toggleFullScreenAction;
-#ifdef Q_OS_MAC
     QAction *m_minimizeAction;
     QAction *m_zoomAction;
-#endif
 
     QToolButton *m_toggleSideBarButton;
     QColor m_overrideColor;
 
     QStringList m_filesToOpenDelayed;
-    QTimer *m_autoSaveSessionTimer;
 };
 
 } // namespace Internal

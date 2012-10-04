@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,21 +25,17 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "gitsettings.h"
 
-#include <utils/synchronousprocess.h>
-
+#include <utils/hostosinfo.h>
 #include <QCoreApplication>
 
 namespace Git {
 namespace Internal {
 
-const QLatin1String GitSettings::pathKey("Path");
 const QLatin1String GitSettings::pullRebaseKey("PullRebase");
 const QLatin1String GitSettings::omitAnnotationDateKey("OmitAnnotationDate");
 const QLatin1String GitSettings::ignoreSpaceChangesInDiffKey("SpaceIgnorantDiff");
@@ -56,12 +52,7 @@ GitSettings::GitSettings()
     setSettingsGroup(QLatin1String("Git"));
 
     declareKey(binaryPathKey, QLatin1String("git"));
-#ifdef Q_OS_WIN
-    declareKey(timeoutKey, 60);
-#else
-    declareKey(timeoutKey, 30);
-#endif
-    declareKey(pathKey, QString());
+    declareKey(timeoutKey, Utils::HostOsInfo::isWindowsHost() ? 60 : 30);
     declareKey(pullRebaseKey, false);
     declareKey(omitAnnotationDateKey, false);
     declareKey(ignoreSpaceChangesInDiffKey, true);
@@ -83,30 +74,21 @@ QString GitSettings::gitBinaryPath(bool *ok, QString *errorMessage) const
     if (errorMessage)
         errorMessage->clear();
 
-    if (m_binaryPath.isEmpty()) {
-        const QString binary = stringValue(binaryPathKey);
-        QString currentPath = stringValue(pathKey);
-        // Easy, git is assumed to be elsewhere accessible
-        if (currentPath.isEmpty())
-            currentPath = QString::fromLocal8Bit(qgetenv("PATH"));
-        // Search in path?
-        m_binaryPath = Utils::SynchronousProcess::locateBinary(currentPath, binary);
-        if (m_binaryPath.isEmpty()) {
-            if (ok)
-                *ok = false;
-            if (errorMessage)
-                *errorMessage = QCoreApplication::translate("Git::Internal::GitSettings",
-                                                            "The binary '%1' could not be located in the path '%2'")
-                    .arg(binary, currentPath);
-        }
+    QString binPath = binaryPath();
+    if (binPath.isEmpty()) {
+        if (ok)
+            *ok = false;
+        if (errorMessage)
+            *errorMessage = QCoreApplication::translate("Git::Internal::GitSettings",
+                                                        "The binary '%1' could not be located in the path '%2'")
+                .arg(stringValue(binaryPathKey), stringValue(pathKey));
     }
-    return m_binaryPath;
+    return binPath;
 }
 
 GitSettings &GitSettings::operator = (const GitSettings &s)
 {
     VcsBaseClientSettings::operator =(s);
-    m_binaryPath.clear();
     return *this;
 }
 

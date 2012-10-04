@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,19 +25,17 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qt4nodes.h"
 #include "qt4project.h"
-#include "qt4target.h"
 #include "qt4projectmanager.h"
 #include "qt4projectmanagerconstants.h"
 #include "qtuicodemodelsupport.h"
 #include "qmakestep.h"
 #include "qt4buildconfiguration.h"
+#include "qmakerunconfigurationfactory.h"
 
 #include <projectexplorer/nodesvisitor.h>
 #include <projectexplorer/runconfiguration.h>
@@ -53,10 +51,14 @@
 #include <cpptools/ModelManagerInterface.h>
 #include <cplusplus/CppDocument.h>
 #include <extensionsystem/pluginmanager.h>
-#include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/buildmanager.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/target.h>
 #include <qtsupport/profilereader.h>
+#include <qtsupport/qtkitinformation.h>
+#include <qtsupport/qtsupportconstants.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/stringutils.h>
 #include <utils/fileutils.h>
@@ -71,7 +73,6 @@
 #include <QXmlStreamReader>
 
 #include <QPainter>
-#include <QMainWindow>
 #include <QMessageBox>
 #include <QPushButton>
 #include <utils/QtConcurrentTools>
@@ -338,10 +339,8 @@ struct InternalNode
                 fileWithoutPrefix = file;
             }
             QStringList parts = fileWithoutPrefix.toString().split(separator, QString::SkipEmptyParts);
-#ifndef Q_OS_WIN
-            if (!isRelative && parts.count() > 0)
+            if (!Utils::HostOsInfo::isWindowsHost() && !isRelative && parts.count() > 0)
                 parts[0].prepend(separator);
-#endif
             QStringListIterator it(parts);
             InternalNode *currentNode = this;
             QString path = (isRelative ? (projectDirFileName.toString() + QLatin1Char('/')) : QString());
@@ -543,7 +542,7 @@ struct InternalNode
 };
 }
 
-QStringList Qt4PriFileNode::baseVPaths(QtSupport::ProFileReader *reader, const QString &projectDir)
+QStringList Qt4PriFileNode::baseVPaths(QtSupport::ProFileReader *reader, const QString &projectDir) const
 {
     QStringList result;
     if (!reader)
@@ -555,7 +554,8 @@ QStringList Qt4PriFileNode::baseVPaths(QtSupport::ProFileReader *reader, const Q
     return result;
 }
 
-QStringList Qt4PriFileNode::fullVPaths(const QStringList &baseVPaths, QtSupport::ProFileReader *reader, FileType type, const QString &qmakeVariable, const QString &projectDir)
+QStringList Qt4PriFileNode::fullVPaths(const QStringList &baseVPaths, QtSupport::ProFileReader *reader,
+                                       FileType type, const QString &qmakeVariable, const QString &projectDir) const
 {
     QStringList vPaths;
     if (!reader)
@@ -599,9 +599,13 @@ void Qt4PriFileNode::update(ProFile *includeFileExact, QtSupport::ProFileReader 
 
     InternalNode contents;
 
+    ProjectExplorer::Target *t = m_project->activeTarget();
+    ProjectExplorer::Kit *k = t ? t->kit() : ProjectExplorer::KitManager::instance()->defaultKit();
+    QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(k);
+
     // Figure out DEPLOYMENT and INSTALL folders
     QStringList folders;
-    QStringList dynamicVariables = dynamicVarNames(readerExact, readerCumulative);
+    QStringList dynamicVariables = dynamicVarNames(readerExact, readerCumulative, qtVersion);
     if (includeFileExact)
         foreach (const QString &dynamicVar, dynamicVariables) {
             folders += readerExact->values(dynamicVar, includeFileExact);
@@ -726,14 +730,10 @@ void Qt4PriFileNode::watchFolders(const QSet<QString> &folders)
     m_watchedFolders = folders;
 }
 
-void Qt4PriFileNode::folderChanged(const QString &folder)
+void Qt4PriFileNode::folderChanged(const QString &changedFolder)
 {
     //qDebug()<<"########## Qt4PriFileNode::folderChanged";
     // So, we need to figure out which files changed.
-
-    QString changedFolder = folder;
-    if (!changedFolder.endsWith(QLatin1Char('/')))
-        changedFolder.append(QLatin1Char('/'));
 
     // Collect all the files
     QSet<Utils::FileName> newFiles;
@@ -795,24 +795,6 @@ void Qt4PriFileNode::folderChanged(const QString &folder)
     contents.updateSubFolders(this, this);
     m_project->updateFileList();
     m_project->updateCodeModels();
-
-    // The files to be packaged are listed inside the symbian build system.
-    // We need to regenerate that list by running qmake
-    // Other platforms do not have a explicit list of files to package, but package
-    // directories
-    foreach (ProjectExplorer::Target *target, m_project->targets()) {
-        if (target->id() == Core::Id(Constants::S60_DEVICE_TARGET_ID)) {
-            foreach (ProjectExplorer::BuildConfiguration *bc, target->buildConfigurations()) {
-                Qt4BuildConfiguration *qt4bc = qobject_cast<Qt4BuildConfiguration *>(bc);
-                if (qt4bc) {
-                    QMakeStep *qmakeStep = qt4bc->qmakeStep();
-                    if (qmakeStep)
-                        qmakeStep->setForced(true);
-                }
-            }
-        }
-    }
-
 }
 
 bool Qt4PriFileNode::deploysFolder(const QString &folder) const
@@ -832,9 +814,9 @@ bool Qt4PriFileNode::deploysFolder(const QString &folder) const
 
 QList<ProjectExplorer::RunConfiguration *> Qt4PriFileNode::runConfigurationsFor(Node *node)
 {
-    Qt4BaseTarget *target = m_project->activeTarget();
-    if (target)
-        return target->runConfigurationsForNode(node);
+    QmakeRunConfigurationFactory *factory = QmakeRunConfigurationFactory::find(m_project->activeTarget());
+    if (factory)
+        return factory->runConfigurationsForNode(m_project->activeTarget(), node);
     return QList<ProjectExplorer::RunConfiguration *>();
 }
 
@@ -916,8 +898,9 @@ QList<ProjectNode::ProjectAction> Qt4PriFileNode::supportedActions(Node *node) c
         actions << Rename;
 
 
-    Qt4BaseTarget *target = m_project->activeTarget();
-    if (target && !target->runConfigurationsForNode(node).isEmpty())
+    ProjectExplorer::Target *target = m_project->activeTarget();
+    QmakeRunConfigurationFactory *factory = QmakeRunConfigurationFactory::find(target);
+    if (factory && !factory->runConfigurationsForNode(target, node).isEmpty())
         actions << HasSubProjectRunConfigurations;
 
     return actions;
@@ -1184,7 +1167,7 @@ void Qt4PriFileNode::changeFiles(const FileType fileType,
         }
 
         QtSupport::ProMessageHandler handler;
-        ProFileParser parser(0, &handler);
+        QMakeParser parser(0, &handler);
         includeFile = parser.parsedProBlock(m_projectFilePath, contents);
     }
 
@@ -1269,12 +1252,14 @@ QStringList Qt4PriFileNode::varNames(ProjectExplorer::FileType type)
 }
 
 
-QStringList Qt4PriFileNode::dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative)
+QStringList Qt4PriFileNode::dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative,
+                                            QtSupport::BaseQtVersion *qtVersion)
 {
     QStringList result;
+
     // Figure out DEPLOYMENT and INSTALLS
     const QString deployment = QLatin1String("DEPLOYMENT");
-    const QString sources = QLatin1String(".sources");
+    const QString sources = QLatin1String(qtVersion && qtVersion->qtVersion() < QtSupport::QtVersionNumber(5,0,0) ? ".sources" : ".files");
     QStringList listOfVars = readerExact->values(deployment);
     foreach (const QString &var, listOfVars) {
         result << (var + sources);
@@ -1406,71 +1391,19 @@ TargetInformation Qt4ProFileNode::targetInformation(const QString &fileName) con
 
 QString Qt4ProFileNode::makefile() const
 {
-    if (m_varValues[Makefile].isEmpty())
-        return QString();
-    return m_varValues[Makefile].first();
-}
-
-QStringList Qt4ProFileNode::symbianCapabilities() const
-{
-    QStringList lowerCasedResult;
-
-    QStringList all;
-    all << QLatin1String("LocalServices") << QLatin1String("UserEnvironment") << QLatin1String("NetworkServices")
-        << QLatin1String("ReadUserData") << QLatin1String("WriteUserData") << QLatin1String("Location") << QLatin1String("SwEvent")
-        << QLatin1String("SurroundingsDD") << QLatin1String("ProtServ") << QLatin1String("PowerMgmt") << QLatin1String("ReadDeviceData")
-        << QLatin1String("WriteDeviceData") << QLatin1String("TrustedUI") << QLatin1String("NetworkControl")
-        << QLatin1String("MultimediaDD")<< QLatin1String("CommDD") << QLatin1String("DiskAdmin") << QLatin1String("AllFiles")
-        << QLatin1String("DRM") << QLatin1String("TCB");
-
-    foreach (const QString &cap, m_varValues[SymbianCapabilities]) {
-        QString capability = cap.toLower();
-        if (capability.startsWith(QLatin1Char('-'))) {
-            lowerCasedResult.removeAll(capability.mid(1));
-        } else if (capability == QLatin1String("all")) {
-            foreach (const QString &a, all)
-                if (!lowerCasedResult.contains(a, Qt::CaseInsensitive))
-                    lowerCasedResult << a.toLower();
-        } else {
-            lowerCasedResult << cap;
-        }
-    }
-    QStringList result; //let's make the result pretty
-    int index = -1;
-    foreach (const QString &lowerCase, lowerCasedResult) {
-        for (int i = 0; i < all.count(); ++i) {
-            index = -1;
-            if (QString::compare(lowerCase, all.at(i),
-                                 Qt::CaseInsensitive) == 0) {
-                index = i;
-                break;
-            }
-        }
-        if (index != -1)
-            result << all.at(index);
-        else
-            result << lowerCase; //strange capability!
-    }
-    return result;
+    return singleVariableValue(Makefile);
 }
 
 QString Qt4ProFileNode::objectExtension() const
 {
-    if (m_varValues[ObjectExt].isEmpty()) {
-#ifdef Q_OS_WIN
-        return QLatin1String(".obj");
-#else
-        return QLatin1String(".o");
-#endif
-    }
+    if (m_varValues[ObjectExt].isEmpty())
+        return Utils::HostOsInfo::isWindowsHost() ? QLatin1String(".obj") : QLatin1String(".o");
     return m_varValues[ObjectExt].first();
 }
 
 QString Qt4ProFileNode::objectsDirectory() const
 {
-    if (m_varValues[ObjectsDir].isEmpty())
-        return QString();
-    return m_varValues[ObjectsDir].first();
+    return singleVariableValue(ObjectsDir);
 }
 
 QByteArray Qt4ProFileNode::cxxDefines() const
@@ -1536,7 +1469,7 @@ Qt4ProFileNode::~Qt4ProFileNode()
     m_parseFutureWatcher.waitForFinished();
     if (m_readerExact) {
         // Oh we need to clean up
-        applyEvaluate(EvalFail, true);
+        applyEvaluate(EvalAbort, true);
         m_project->decrementPendingEvaluateFutures();
     }
 }
@@ -1584,11 +1517,17 @@ QStringList Qt4ProFileNode::variableValue(const Qt4Variable var) const
     return m_varValues.value(var);
 }
 
+QString Qt4ProFileNode::singleVariableValue(const Qt4Variable var) const
+{
+    const QStringList &values = variableValue(var);
+    return values.isEmpty() ? QString() : values.first();
+}
+
 void Qt4ProFileNode::emitProFileUpdatedRecursive()
 {
     foreach (ProjectExplorer::NodesWatcher *watcher, watchers())
         if (Internal::Qt4NodesWatcher *qt4Watcher = qobject_cast<Internal::Qt4NodesWatcher*>(watcher))
-            emit qt4Watcher->proFileUpdated(this, m_validParse, m_parseInProgress);
+            emit qt4Watcher->kitUpdated(this, m_validParse, m_parseInProgress);
 
     foreach (ProjectNode *subNode, subProjectNodes()) {
         if (Qt4ProFileNode *node = qobject_cast<Qt4ProFileNode *>(subNode)) {
@@ -1614,7 +1553,7 @@ void Qt4ProFileNode::setParseInProgress(bool b)
     m_parseInProgress = b;
     foreach (ProjectExplorer::NodesWatcher *watcher, watchers())
         if (Internal::Qt4NodesWatcher *qt4Watcher = qobject_cast<Internal::Qt4NodesWatcher*>(watcher))
-            emit qt4Watcher->proFileUpdated(this, m_validParse, m_parseInProgress);
+            emit qt4Watcher->kitUpdated(this, m_validParse, m_parseInProgress);
 }
 
 void Qt4ProFileNode::setValidParseRecursive(bool b)
@@ -1675,18 +1614,18 @@ void Qt4ProFileNode::setupReader()
     Q_ASSERT(!m_readerCumulative);
 
     m_readerExact = m_project->createProFileReader(this);
-    m_readerExact->setCumulative(false);
 
     m_readerCumulative = m_project->createProFileReader(this);
+    m_readerCumulative->setCumulative(true);
 }
 
 Qt4ProFileNode::EvalResult Qt4ProFileNode::evaluate()
 {
     EvalResult evalResult = EvalOk;
     if (ProFile *pro = m_readerExact->parsedProFile(m_projectFilePath)) {
-        if (!m_readerExact->accept(pro, ProFileEvaluator::LoadAll))
+        if (!m_readerExact->accept(pro, QMakeEvaluator::LoadAll))
             evalResult = EvalPartial;
-        if (!m_readerCumulative->accept(pro, ProFileEvaluator::LoadPreFiles))
+        if (!m_readerCumulative->accept(pro, QMakeEvaluator::LoadPreFiles))
             evalResult = EvalFail;
         pro->deref();
     } else {
@@ -1792,9 +1731,10 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
     QHash<QString, ProFile*> includeFilesExact;
     QSet<QString> exactSubdirs;
     ProFile *fileForCurrentProjectExact = 0;
+    QStringList subProjectsNotToDeploy;
     if (evalResult == EvalOk) {
         if (m_projectType == SubDirsTemplate) {
-            newProjectFilesExact = subDirsPaths(m_readerExact);
+            newProjectFilesExact = subDirsPaths(m_readerExact, &subProjectsNotToDeploy);
             exactSubdirs = newProjectFilesExact.toSet();
         }
         foreach (ProFile *includeFile, m_readerExact->includeFiles()) {
@@ -1966,10 +1906,10 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
 
         // update TargetInformation
         m_qt4targetInformation = targetInformation(m_readerExact);
-        m_resolvedMkspecPath = m_project->proFileOption()->qmakespec;
+        m_resolvedMkspecPath = m_readerExact->resolvedMkSpec();
 
+        m_subProjectsNotToDeploy = subProjectsNotToDeploy;
         setupInstallsList(m_readerExact);
-        setupProjectVersion(m_readerExact);
 
         // update other variables
         QHash<Qt4Variable, QStringList> newVarValues;
@@ -1977,9 +1917,15 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
         newVarValues[DefinesVar] = m_readerExact->values(QLatin1String("DEFINES"));
         newVarValues[IncludePathVar] = includePaths(m_readerExact);
         newVarValues[CppFlagsVar] = m_readerExact->values("QMAKE_CXXFLAGS");
-        newVarValues[CppHeaderVar] = fileListForVar(m_readerExact, m_readerCumulative, QLatin1String("HEADERS"), m_projectDir);
-        newVarValues[CppSourceVar] = fileListForVar(m_readerExact, m_readerCumulative, QLatin1String("SOURCES"), m_projectDir);
-        newVarValues[ObjCSourceVar] = fileListForVar(m_readerExact, m_readerCumulative, QLatin1String("OBJECTIVE_SOURCES"), m_projectDir);
+        newVarValues[CppHeaderVar] = fileListForVar(m_readerExact, m_readerCumulative,
+                                                    QLatin1String("HEADERS"), m_projectDir,
+                                                    ProjectExplorer::HeaderType);
+        newVarValues[CppSourceVar] = fileListForVar(m_readerExact, m_readerCumulative,
+                                                    QLatin1String("SOURCES"), m_projectDir,
+                                                    ProjectExplorer::SourceType);
+        newVarValues[ObjCSourceVar] = fileListForVar(m_readerExact, m_readerCumulative,
+                                                     QLatin1String("OBJECTIVE_SOURCES"), m_projectDir,
+                                                     ProjectExplorer::SourceType);
         newVarValues[UiDirVar] = QStringList() << uiDirPath(m_readerExact);
         newVarValues[MocDirVar] = QStringList() << mocDirPath(m_readerExact);
         newVarValues[PkgConfigVar] = m_readerExact->values(QLatin1String("PKGCONFIG"));
@@ -1993,10 +1939,14 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
         newVarValues[QmlImportPathVar] = m_readerExact->absolutePathValues(
                     QLatin1String("QML_IMPORT_PATH"), m_projectDir);
         newVarValues[Makefile] = m_readerExact->values(QLatin1String("MAKEFILE"));
-        newVarValues[SymbianCapabilities] = m_readerExact->values(QLatin1String("TARGET.CAPABILITY"));
         newVarValues[QtVar] = m_readerExact->values(QLatin1String("QT"));
         newVarValues[ObjectExt] = m_readerExact->values(QLatin1String("QMAKE_EXT_OBJ"));
         newVarValues[ObjectsDir] = m_readerExact->values(QLatin1String("OBJECTS_DIR"));
+        newVarValues[VersionVar] = m_readerExact->values(QLatin1String("VERSION"));
+        newVarValues[TargetVersionExtVar]
+                = m_readerExact->values(QLatin1String("TARGET_VERSION_EXT"));
+        newVarValues[StaticLibExtensionVar] = m_readerExact->values("QMAKE_EXTENSION_STATICLIB");
+        newVarValues[ShLibExtensionVar] = m_readerExact->values("QMAKE_EXTENSION_SHLIB");
 
         m_isDeployable = false;
         if (m_projectType == ApplicationTemplate) {
@@ -2033,18 +1983,24 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
 }
 
 QStringList Qt4ProFileNode::fileListForVar(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative,
-                                           const QString &varName, const QString &projectDir) const
+                                           const QString &varName, const QString &projectDir, FileType type) const
 {
+    QStringList baseVPathsExact = baseVPaths(readerExact, projectDir);
+    QStringList vPathsExact = fullVPaths(baseVPathsExact, readerExact, type, varName, projectDir);
+
     QStringList result;
     result = readerExact->absoluteFileValues(varName,
                                              projectDir,
-                                             QStringList() << projectDir,
+                                             vPathsExact,
                                              0);
-    if (readerCumulative)
+    if (readerCumulative) {
+        QStringList baseVPathsCumulative = baseVPaths(readerCumulative, projectDir);
+        QStringList vPathsCumulative = fullVPaths(baseVPathsCumulative, readerCumulative, type, varName, projectDir);
         result += readerCumulative->absoluteFileValues(varName,
                                                        projectDir,
-                                                       QStringList() << projectDir,
+                                                       vPathsCumulative,
                                                        0);
+    }
     result.removeDuplicates();
     return result;
 }
@@ -2203,7 +2159,7 @@ QStringList Qt4ProFileNode::libDirectories(QtSupport::ProFileReader *reader) con
     return result;
 }
 
-QStringList Qt4ProFileNode::subDirsPaths(QtSupport::ProFileReader *reader) const
+QStringList Qt4ProFileNode::subDirsPaths(QtSupport::ProFileReader *reader, QStringList *subProjectsNotToDeploy) const
 {
     QStringList subProjectPaths;
 
@@ -2239,7 +2195,13 @@ QStringList Qt4ProFileNode::subDirsPaths(QtSupport::ProFileReader *reader) const
         }
 
         if (QFile::exists(realFile)) {
-            subProjectPaths << QDir::cleanPath(realFile);
+            realFile = QDir::cleanPath(realFile);
+            subProjectPaths << realFile;
+            if (subProjectsNotToDeploy && !subProjectsNotToDeploy->contains(realFile)
+                    && reader->values(subDirVar + QLatin1String(".CONFIG"))
+                        .contains(QLatin1String("no_default_target"))) {
+                subProjectsNotToDeploy->append(realFile);
+            }
         } else {
             m_project->proFileParseError(tr("Could not find .pro file for sub dir '%1' in '%2'")
                                          .arg(subDirVar).arg(realDir));
@@ -2278,13 +2240,12 @@ TargetInformation Qt4ProFileNode::targetInformation(QtSupport::ProFileReader *re
     if (result.target.isEmpty())
         result.target = QFileInfo(m_projectFilePath).baseName();
 
-#if defined (Q_OS_MAC)
-    if (reader->values(QLatin1String("CONFIG")).contains(QLatin1String("app_bundle"))) {
+    if (Utils::HostOsInfo::isMacHost()
+            && reader->values(QLatin1String("CONFIG")).contains(QLatin1String("app_bundle"))) {
         result.workingDir += QLatin1Char('/')
                            + result.target
                            + QLatin1String(".app/Contents/MacOS");
     }
-#endif
 
     result.workingDir = QDir::cleanPath(result.workingDir);
 
@@ -2300,8 +2261,9 @@ TargetInformation Qt4ProFileNode::targetInformation(QtSupport::ProFileReader *re
             // Hmm can we find out whether it's debug or release in a saner way?
             // Theoretically it's in CONFIG
             QString qmakeBuildConfig = QLatin1String("release");
-            Qt4BaseTarget *target = m_project->activeTarget();
-            if (!target || target->activeQt4BuildConfiguration()->qmakeBuildConfiguration() & QtSupport::BaseQtVersion::DebugBuild)
+            ProjectExplorer::Target *target = m_project->activeTarget();
+            Qt4BuildConfiguration *bc = target ? qobject_cast<Qt4BuildConfiguration *>(target->activeBuildConfiguration()) : 0;
+            if (!target || !bc || bc->qmakeBuildConfiguration() & QtSupport::BaseQtVersion::DebugBuild)
                 qmakeBuildConfig = QLatin1String("debug");
             wd += QLatin1Char('/') + qmakeBuildConfig;
         }
@@ -2310,9 +2272,7 @@ TargetInformation Qt4ProFileNode::targetInformation(QtSupport::ProFileReader *re
     result.executable = QDir::cleanPath(wd + QLatin1Char('/') + result.target);
     //qDebug() << "##### updateTarget sets:" << result.workingDir << result.executable;
 
-#if defined (Q_OS_WIN)
-    result.executable += QLatin1String(".exe");
-#endif
+    Utils::HostOsInfo::appendExecutableSuffix(result.executable);
     result.valid = true;
     return result;
 }
@@ -2334,6 +2294,8 @@ void Qt4ProFileNode::setupInstallsList(const QtSupport::ProFileReader *reader)
         return;
     const QStringList &itemList = reader->values(QLatin1String("INSTALLS"));
     foreach (const QString &item, itemList) {
+        if (reader->values(item + QLatin1String(".CONFIG")).contains(QLatin1String("no_default_install")))
+            continue;
         QString itemPath;
         const QString pathVar = item + QLatin1String(".path");
         const QStringList &itemPaths = reader->values(pathVar);
@@ -2352,9 +2314,6 @@ void Qt4ProFileNode::setupInstallsList(const QtSupport::ProFileReader *reader)
             = reader->absoluteFileValues(item + QLatin1String(".files"),
                   m_projectDir, QStringList() << m_projectDir, 0);
         if (item == QLatin1String("target")) {
-            if (!m_installsList.targetPath.isEmpty())
-                qDebug("%s: Overwriting existing target.path in INSTALLS list.",
-                    qPrintable(m_projectFilePath));
             m_installsList.targetPath = itemPath;
         } else {
             if (itemFiles.isEmpty()) {
@@ -2371,70 +2330,22 @@ void Qt4ProFileNode::setupInstallsList(const QtSupport::ProFileReader *reader)
     }
 }
 
-void Qt4ProFileNode::setupProjectVersion(const QtSupport::ProFileReader *reader)
-{
-    m_projectVersion.major = m_projectVersion.minor = m_projectVersion.patch = -1;
-    bool ok;
-    int val = reader->value(QLatin1String("VER_MAJ")).toInt(&ok);
-    if (ok)
-        m_projectVersion.major = val;
-    val = reader->value(QLatin1String("VER_MIN")).toInt(&ok);
-    if (ok)
-        m_projectVersion.minor = val;
-    val = reader->value(QLatin1String("VER_PAT")).toInt(&ok);
-    if (ok)
-        m_projectVersion.patch = val;
-    if (m_projectVersion.major != -1 && m_projectVersion.minor != -1
-            && m_projectVersion.patch != -1) {
-        return;
-    }
-
-    const QString &version = reader->value(QLatin1String("VERSION"));
-    const QChar dot(QLatin1Char('.'));
-    int dotIndex = version.indexOf(dot);
-    if (m_projectVersion.major == -1) {
-        val = version.left(dotIndex).toInt(&ok);
-        if (ok)
-            m_projectVersion.major = val;
-    }
-    if (dotIndex != -1) {
-        int numberStartIndex = dotIndex + 1;
-        dotIndex = version.indexOf(dot, numberStartIndex);
-        if (m_projectVersion.minor == -1) {
-            val = version.mid(numberStartIndex, dotIndex - numberStartIndex).toInt(&ok);
-            if (ok)
-                m_projectVersion.minor = val;
-        }
-    }
-    if (dotIndex != -1) {
-        int numberStartIndex = dotIndex + 1;
-        dotIndex = version.indexOf(dot, numberStartIndex);
-        if (m_projectVersion.patch == -1) {
-            val = version.mid(numberStartIndex, dotIndex - numberStartIndex).toInt(&ok);
-            if (ok)
-                m_projectVersion.patch= val;
-        }
-    }
-
-    if (m_projectVersion.major == -1)
-        m_projectVersion.major = 1;
-    if (m_projectVersion.minor == -1)
-        m_projectVersion.minor = 0;
-    if (m_projectVersion.patch == -1)
-        m_projectVersion.patch = 0;
-}
-
 InstallsList Qt4ProFileNode::installsList() const
 {
     return m_installsList;
 }
 
+QString Qt4ProFileNode::sourceDir() const
+{
+    return m_projectDir;
+}
+
 QString Qt4ProFileNode::buildDir(Qt4BuildConfiguration *bc) const
 {
-    const QDir srcDirRoot = QFileInfo(m_project->rootProjectNode()->path()).absoluteDir();
+    const QDir srcDirRoot = m_project->rootQt4ProjectNode()->sourceDir();
     const QString relativeDir = srcDirRoot.relativeFilePath(m_projectDir);
     if (!bc && m_project->activeTarget())
-        bc = m_project->activeTarget()->activeQt4BuildConfiguration();
+        bc = static_cast<Qt4BuildConfiguration *>(m_project->activeTarget()->activeBuildConfiguration());
     if (!bc)
         return QString();
     return QDir(bc->buildDirectory()).absoluteFilePath(relativeDir);

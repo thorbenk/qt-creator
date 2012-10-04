@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,11 +55,11 @@ class ProjectFilesFactory: public Core::IEditorFactory
 public:
     ProjectFilesFactory(Manager *manager, TextEditor::TextEditorActionHandler *handler);
 
-    virtual Core::IEditor *createEditor(QWidget *parent);
+    Core::IEditor *createEditor(QWidget *parent);
 
-    virtual QStringList mimeTypes() const;
-    virtual Core::Id id() const;
-    virtual QString displayName() const;
+    QStringList mimeTypes() const;
+    Core::Id id() const;
+    QString displayName() const;
 
 private:
     TextEditor::TextEditorActionHandler *m_actionHandler;
@@ -75,10 +73,10 @@ class ProjectFilesEditor : public TextEditor::BaseTextEditor
 public:
     ProjectFilesEditor(ProjectFilesEditorWidget *editorWidget);
 
-    virtual Core::Id id() const;
-    virtual bool duplicateSupported() const;
-    virtual Core::IEditor *duplicate(QWidget *parent);
-    virtual bool isTemporary() const { return false; }
+    Core::Id id() const;
+    bool duplicateSupported() const;
+    Core::IEditor *duplicate(QWidget *parent);
+    bool isTemporary() const { return false; }
 };
 
 class ProjectFilesEditorWidget : public TextEditor::BaseTextEditorWidget
@@ -88,12 +86,10 @@ class ProjectFilesEditorWidget : public TextEditor::BaseTextEditorWidget
 public:
     ProjectFilesEditorWidget(QWidget *parent, ProjectFilesFactory *factory,
                        TextEditor::TextEditorActionHandler *handler);
-    virtual ~ProjectFilesEditorWidget();
 
     ProjectFilesFactory *factory() const;
     TextEditor::TextEditorActionHandler *actionHandler() const;
-
-    virtual TextEditor::BaseTextEditor *createEditor();
+    TextEditor::BaseTextEditor *createEditor();
 
 private:
     ProjectFilesFactory *m_factory;

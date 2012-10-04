@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef IDEVICE_H
@@ -36,17 +34,46 @@
 
 #include <coreplugin/id.h>
 
+#include <QAbstractSocket>
 #include <QList>
 #include <QSharedPointer>
 #include <QVariantMap>
 
 QT_BEGIN_NAMESPACE
+class QObject;
 class QWidget;
 QT_END_NAMESPACE
 
+namespace QSsh { class SshConnectionParameters; }
+namespace Utils { class PortList; }
+
 namespace ProjectExplorer {
+class DeviceProcessList;
+
 namespace Internal { class IDevicePrivate; }
+
 class IDeviceWidget;
+
+class PROJECTEXPLORER_EXPORT DeviceProcessSupport
+{
+public:
+    typedef QSharedPointer<const DeviceProcessSupport> Ptr;
+
+    virtual ~DeviceProcessSupport();
+    virtual QString killProcessByPidCommandLine(int pid) const = 0;
+    virtual QString killProcessByNameCommandLine(const QString &filePath) const = 0;
+};
+
+class PROJECTEXPLORER_EXPORT PortsGatheringMethod
+{
+public:
+    typedef QSharedPointer<const PortsGatheringMethod> Ptr;
+
+    virtual ~PortsGatheringMethod();
+    virtual QByteArray commandLine(QAbstractSocket::NetworkLayerProtocol protocol) const = 0;
+    virtual QList<int> usedPorts(const QByteArray &commandOutput) const = 0;
+};
+
 
 // See cpp file for documentation.
 class PROJECTEXPLORER_EXPORT IDevice
@@ -56,6 +83,7 @@ public:
     typedef QSharedPointer<const IDevice> ConstPtr;
 
     enum Origin { ManuallyAdded, AutoDetected };
+    enum MachineType { Hardware, Emulator };
 
     virtual ~IDevice();
 
@@ -84,9 +112,15 @@ public:
     virtual QString displayNameForActionId(Core::Id actionId) const = 0;
     virtual void executeAction(Core::Id actionId, QWidget *parent = 0) const = 0;
 
-    enum AvailabilityState { DeviceAvailable, DeviceUnavailable, DeviceAvailabilityUnknown };
-    AvailabilityState availability() const;
-    void setAvailability(const AvailabilityState as);
+    virtual DeviceProcessSupport::Ptr processSupport() const;
+    virtual PortsGatheringMethod::Ptr portsGatheringMethod() const;
+    virtual bool canCreateProcessModel() const { return false; }
+    virtual DeviceProcessList *createProcessListModel(QObject *parent = 0) const;
+
+    enum DeviceState { DeviceReadyToUse, DeviceConnected, DeviceDisconnected, DeviceStateUnknown };
+    DeviceState deviceState() const;
+    void setDeviceState(const DeviceState state);
+    QString deviceStateToString() const;
 
     virtual void fromMap(const QVariantMap &map);
     virtual QVariantMap toMap() const;
@@ -97,16 +131,27 @@ public:
     static Core::Id typeFromMap(const QVariantMap &map);
     static Core::Id idFromMap(const QVariantMap &map);
 
+    static QString defaultPrivateKeyFilePath();
+    static QString defaultPublicKeyFilePath();
+
+    QSsh::SshConnectionParameters sshParameters() const;
+    void setSshParameters(const QSsh::SshConnectionParameters &sshParameters);
+
+    Utils::PortList freePorts() const;
+    void setFreePorts(const Utils::PortList &freePorts);
+
+    MachineType machineType() const;
+
 protected:
     IDevice();
-    IDevice(Core::Id type, Origin origin, Core::Id id = Core::Id());
+    IDevice(Core::Id type, Origin origin, MachineType machineType, Core::Id id = Core::Id());
     IDevice(const IDevice &other);
 
     Ptr sharedFromThis();
     ConstPtr sharedFromThis() const;
 
 private:
-    IDevice &operator=(const IDevice &);
+    IDevice &operator=(const IDevice &); // Unimplemented.
 
     Internal::IDevicePrivate *d;
 };

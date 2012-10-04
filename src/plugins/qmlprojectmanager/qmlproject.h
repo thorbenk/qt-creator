@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -38,14 +36,10 @@
 #include <projectexplorer/project.h>
 
 #include <QDeclarativeEngine>
+#include <QPointer>
 
-namespace QmlJS {
-class ModelManagerInterface;
-}
-
-namespace Utils {
-class FileSystemWatcher;
-}
+namespace QmlJS { class ModelManagerInterface; }
+namespace Utils { class FileSystemWatcher; }
 
 namespace QmlProjectManager {
 
@@ -54,7 +48,6 @@ class QmlProjectItem;
 namespace Internal {
 class Manager;
 class QmlProjectFile;
-class QmlProjectTarget;
 class QmlProjectNode;
 } // namespace Internal
 
@@ -72,7 +65,8 @@ public:
     Core::Id id() const;
     Core::IDocument *document() const;
     ProjectExplorer::IProjectManager *projectManager() const;
-    Internal::QmlProjectTarget *activeTarget() const;
+
+    bool supportsKit(ProjectExplorer::Kit *k, QString *errorMessage) const;
 
     QList<ProjectExplorer::BuildConfigWidget*> subConfigWidgets();
 
@@ -122,7 +116,7 @@ private:
 
     // qml based, new format
     QDeclarativeEngine m_engine;
-    QWeakPointer<QmlProjectItem> m_projectItem;
+    QPointer<QmlProjectItem> m_projectItem;
 
     Internal::QmlProjectNode *m_rootNode;
 };

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -191,6 +189,7 @@ int GerritPatchSet::approvalLevel() const
 
 QString GerritChange::toHtml() const
 {
+    // Keep in sync with list model headers.
     static const QString format = GerritModel::tr(
        "<html><head/><body><table>"
        "<tr><td>Subject</td><td>%1</td></tr>"
@@ -240,9 +239,7 @@ QStringList GerritChange::gitFetchArguments(const QSharedPointer<GerritParameter
 class QueryContext : public QObject {
     Q_OBJECT
 public:
-    typedef QList<QStringList> StringListList;
-
-    QueryContext(const StringListList &queries,
+    QueryContext(const QStringList &queries,
                  const QSharedPointer<GerritParameters> &p,
                  QObject *parent = 0);
 
@@ -264,11 +261,11 @@ private slots:
     void readyReadStandardOutput();
 
 private:
-    void startQuery(const QStringList &queryArguments);
+    void startQuery(const QString &query);
     void errorTermination(const QString &msg);
 
     const QSharedPointer<GerritParameters> m_parameters;
-    const StringListList m_queries;
+    const QStringList m_queries;
     QProcess m_process;
     QString m_binary;
     QByteArray m_output;
@@ -277,7 +274,7 @@ private:
     QStringList m_baseArguments;
 };
 
-QueryContext::QueryContext(const StringListList &queries,
+QueryContext::QueryContext(const QStringList &queries,
                            const QSharedPointer<GerritParameters> &p,
                            QObject *parent)
     : QObject(parent)
@@ -321,9 +318,10 @@ void QueryContext::start()
     startQuery(m_queries.front()); // Order: synchronous call to  error handling if something goes wrong.
 }
 
-void QueryContext::startQuery(const QStringList &queryArguments)
+void QueryContext::startQuery(const QString &query)
 {
-    const QStringList arguments = m_baseArguments + queryArguments;
+    QStringList arguments = m_baseArguments;
+    arguments.push_back(query);
     VcsBase::VcsBaseOutputWindow::instance()
         ->appendCommand(m_process.workingDirectory(), m_binary, arguments);
     m_process.start(m_binary, arguments);
@@ -384,9 +382,9 @@ GerritModel::GerritModel(const QSharedPointer<GerritParameters> &p, QObject *par
     , m_parameters(p)
     , m_query(0)
 {
-    QStringList headers;
-    headers << QLatin1String("#") << tr("Title") << tr("Owner")
-            << tr("Date") << tr("Project")
+    QStringList headers; // Keep in sync with GerritChange::toHtml()
+    headers << QLatin1String("#") << tr("Subject") << tr("Owner")
+            << tr("Updated") << tr("Project")
             << tr("Approvals") << tr("Status");
     setHorizontalHeaderLabels(headers);
 }
@@ -411,10 +409,8 @@ int GerritModel::indexOf(int gerritNumber) const
     return -1;
 }
 
-void GerritModel::refresh()
+void GerritModel::refresh(const QString &query)
 {
-    typedef QueryContext::StringListList StringListList;
-
     if (m_query) {
         qWarning("%s: Another query is still running", Q_FUNC_INFO);
         return;
@@ -422,32 +418,20 @@ void GerritModel::refresh()
     clearData();
 
     // Assemble list of queries
-    const QString statusOpenQuery = QLatin1String("status:open");
 
-    StringListList queries;
-    QStringList queryArguments;
-    if (m_parameters->user.isEmpty()) {
-        queryArguments << statusOpenQuery;
-        queries.push_back(queryArguments);
-        queryArguments.clear();
-    } else {
-        // Owned by:
-        queryArguments << (QLatin1String("owner:") + m_parameters->user) << statusOpenQuery;
-        queries.push_back(queryArguments);
-        queryArguments.clear();
-        // For Review by:
-        queryArguments << (QLatin1String("reviewer:") + m_parameters->user) << statusOpenQuery;
-        queries.push_back(queryArguments);
-        queryArguments.clear();
-    }
-    // Any custom queries?
-    if (!m_parameters->additionalQueries.isEmpty()) {
-        foreach (const QString &customQuery, m_parameters->additionalQueries.split(QString::SkipEmptyParts)) {
-            queryArguments = customQuery.split(QLatin1Char(' '), QString::SkipEmptyParts);
-            if (!queryArguments.isEmpty()) {
-                queries.push_back(queryArguments);
-                queryArguments.clear();
-            }
+    QStringList queries;
+    if (!query.trimmed().isEmpty())
+        queries.push_back(query);
+    else
+    {
+        const QString statusOpenQuery = QLatin1String("status:open");
+        if (m_parameters->user.isEmpty()) {
+            queries.push_back(statusOpenQuery);
+        } else {
+            // Owned by:
+            queries.push_back(statusOpenQuery + QLatin1String(" owner:") + m_parameters->user);
+            // For Review by:
+            queries.push_back(statusOpenQuery + QLatin1String(" reviewer:") + m_parameters->user);
         }
     }
 
@@ -486,8 +470,9 @@ void GerritModel::clearData()
 
 #if QT_VERSION >= 0x050000
 // Qt 5 using the QJsonDocument classes.
-static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters> &parameters,
-                                          const QByteArray &output)
+static bool parseOutput(const QSharedPointer<GerritParameters> &parameters,
+                        const QByteArray &output,
+                        QList<GerritChangePtr> &result)
 {
     // The output consists of separate lines containing a document each
     const QString typeKey = QLatin1String("type");
@@ -511,7 +496,8 @@ static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters>
     const QString approvalsTypeKey = QLatin1String("type");
     const QString approvalsDescriptionKey = QLatin1String("description");
 
-    QList<GerritChangePtr> result;
+    bool res = true;
+    result.clear();
     result.reserve(lines.size());
 
     foreach (const QByteArray &line, lines) {
@@ -520,8 +506,12 @@ static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters>
         QJsonParseError error;
         const QJsonDocument doc = QJsonDocument::fromJson(line, &error);
         if (doc.isNull()) {
-            qWarning("Parse error: '%s' -> %s", line.constData(),
-                     qPrintable(error.errorString()));
+            QString errorMessage = GerritModel::tr("Parse error: '%1' -> %2")
+                    .arg(QString::fromLocal8Bit(line))
+                    .arg(error.errorString());
+            qWarning() << errorMessage;
+            VcsBase::VcsBaseOutputWindow::instance()->appendError(errorMessage);
+            res = false;
             continue;
         }
         GerritChangePtr change(new GerritChange);
@@ -567,10 +557,14 @@ static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters>
         if (change->isValid()) {
             result.push_back(change);
         } else {
-            qWarning("%s: Parse error in line '%s'.", Q_FUNC_INFO, line.constData());
+            qWarning("%s: Parse error: '%s'.", Q_FUNC_INFO, line.constData());
+            VcsBase::VcsBaseOutputWindow::instance()
+                    ->appendError(GerritModel::tr("Parse error: '%1'")
+                                  .arg(QString::fromLocal8Bit(line)));
+            res = false;
         }
     }
-    return result;
+    return res;
 }
 #else // QT_VERSION >= 0x050000
 // Qt 4.8 using the Json classes from utils.
@@ -601,8 +595,9 @@ static inline QString jsonStringMember(Utils::JsonObjectValue *object,
     return QString();
 }
 
-static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters> &parameters,
-                                          const QByteArray &output)
+static bool parseOutput(const QSharedPointer<GerritParameters> &parameters,
+                                          const QByteArray &output,
+                                          QList<GerritChangePtr> &result)
 {
    // The output consists of separate lines containing a document each
     const QList<QByteArray> lines = output.split('\n');
@@ -625,7 +620,8 @@ static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters>
     const QString approvalsTypeKey = QLatin1String("type");
     const QString approvalsDescriptionKey = QLatin1String("description");
     const QString lastUpdatedKey = QLatin1String("lastUpdated");
-    QList<GerritChangePtr> result;
+    bool res = true;
+    result.clear();
     result.reserve(lines.size());
 
     foreach (const QByteArray &line, lines) {
@@ -633,7 +629,11 @@ static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters>
             continue;
         QScopedPointer<Utils::JsonValue> objectValue(Utils::JsonValue::create(QString::fromUtf8(line)));
         if (objectValue.isNull()) {
-            qWarning("Parse error: '%s'", line.constData());
+            QString errorMessage = GerritModel::tr("Parse error: '%1'")
+                    .arg(QString::fromLocal8Bit(line));
+            qWarning() << errorMessage;
+            VcsBase::VcsBaseOutputWindow::instance()->appendError(errorMessage);
+            res = false;
             continue;
         }
         Utils::JsonObjectValue *object = objectValue->toObject();
@@ -700,7 +700,11 @@ static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters>
         if (change->isValid()) {
             result.push_back(change);
         } else {
+            QString errorMessage = GerritModel::tr("Parse error in line '%1'")
+                    .arg(QString::fromLocal8Bit(line));
+            VcsBase::VcsBaseOutputWindow::instance()->appendError(errorMessage);
             qWarning("%s: Parse error in line '%s'.", Q_FUNC_INFO, line.constData());
+            res = false;
         }
     }
     if (debug) {
@@ -708,7 +712,7 @@ static QList<GerritChangePtr> parseOutput(const QSharedPointer<GerritParameters>
         foreach (const GerritChangePtr &p, result)
             qDebug() << *p;
     }
-    return result;
+    return res;
 }
 #endif // QT_VERSION < 0x050000
 
@@ -720,7 +724,9 @@ bool changeDateLessThan(const GerritChangePtr &c1, const GerritChangePtr &c2)
 void GerritModel::queryFinished(const QByteArray &output)
 {
     const QDate today = QDate::currentDate();
-    QList<GerritChangePtr> changes = parseOutput(m_parameters, output);
+    QList<GerritChangePtr> changes;
+    if (!parseOutput(m_parameters, output, changes))
+        emit queryError();
     qStableSort(changes.begin(), changes.end(), changeDateLessThan);
     foreach (const GerritChangePtr &c, changes) {
         // Avoid duplicate entries for example in the (unlikely)
@@ -757,15 +763,11 @@ void GerritModel::queryFinished(const QByteArray &output)
             row[ApprovalsColumn]->setText(c->currentPatchSet.approvalsColumn());
             // Mark changes awaiting action using a bold font.
             bool bold = false;
-            switch (m_query->currentQuery()) {
-            case 0: { // Owned changes: Review != 0,1. Submit or amend.
+            if (c->owner == m_userName) { // Owned changes: Review != 0,1. Submit or amend.
                 const int level = c->currentPatchSet.approvalLevel();
                 bold = level != 0 && level != 1;
-                }
-                break;
-            case 1: // Changes pending for review: No review yet.
+            } else if (m_query->currentQuery() == 1) { // Changes pending for review: No review yet.
                 bold = !m_userName.isEmpty() && !c->currentPatchSet.hasApproval(m_userName);
-                break;
             }
             if (bold) {
                 QFont font = row.first()->font();

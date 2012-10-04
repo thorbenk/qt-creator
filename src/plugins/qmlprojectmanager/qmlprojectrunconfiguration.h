@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -37,7 +35,7 @@
 
 #include <projectexplorer/runconfiguration.h>
 
-#include <QWeakPointer>
+#include <QPointer>
 
 QT_FORWARD_DECLARE_CLASS(QStringListModel)
 
@@ -50,14 +48,11 @@ namespace Utils {
     class EnvironmentItem;
 }
 
-namespace QtSupport {
-    class BaseQtVersion;
-}
+namespace QtSupport { class BaseQtVersion; }
 
 namespace QmlProjectManager {
 
 namespace Internal {
-    class QmlProjectTarget;
     class QmlProjectRunConfigurationFactory;
     class QmlProjectRunConfigurationWidget;
 }
@@ -68,20 +63,14 @@ class QMLPROJECTMANAGER_EXPORT QmlProjectRunConfiguration : public ProjectExplor
     friend class Internal::QmlProjectRunConfigurationFactory;
     friend class Internal::QmlProjectRunConfigurationWidget;
 
-    // used in qmldumptool.cpp
-    Q_PROPERTY(int qtVersionId READ qtVersionId)
-
 public:
-    QmlProjectRunConfiguration(Internal::QmlProjectTarget *parent);
+    QmlProjectRunConfiguration(ProjectExplorer::Target *parent, Core::Id id);
     virtual ~QmlProjectRunConfiguration();
-
-    Internal::QmlProjectTarget *qmlTarget() const;
 
     QString viewerPath() const;
     QString observerPath() const;
     QString viewerArguments() const;
     QString workingDirectory() const;
-    int qtVersionId() const;
     QtSupport::BaseQtVersion *qtVersion() const;
 
     enum MainScriptSource {
@@ -110,10 +99,9 @@ public slots:
 
 private slots:
     void updateEnabled();
-    void updateQtVersions();
 
 protected:
-    QmlProjectRunConfiguration(Internal::QmlProjectTarget *parent,
+    QmlProjectRunConfiguration(ProjectExplorer::Target *parent,
                                QmlProjectRunConfiguration *source);
     virtual bool fromMap(const QVariantMap &map);
     void setEnabled(bool value);
@@ -121,7 +109,6 @@ protected:
 private:
     void ctor();
     static bool isValidVersion(QtSupport::BaseQtVersion *version);
-    void setQtVersionId(int id);
     
     static QString canonicalCapsPath(const QString &filePath);
 
@@ -138,8 +125,7 @@ private:
     QString m_scriptFile;
     QString m_qmlViewerArgs;
 
-    Internal::QmlProjectTarget *m_projectTarget;
-    QWeakPointer<Internal::QmlProjectRunConfigurationWidget> m_configurationWidget;
+    QPointer<Internal::QmlProjectRunConfigurationWidget> m_configurationWidget;
 
     bool m_isEnabled;
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -84,10 +82,10 @@ public:
     ~GitClient();
 
     QString gitBinaryPath(bool *ok = 0, QString *errorMessage = 0) const;
-    unsigned gitVersion(bool silent, QString *errorMessage = 0) const;
-    QString gitVersionString(bool silent, QString *errorMessage = 0) const;
+    unsigned gitVersion(QString *errorMessage = 0) const;
 
     QString findRepositoryForDirectory(const QString &dir);
+    QString findGitDirForRepository(const QString &repositoryDir);
 
     void diff(const QString &workingDirectory, const QStringList &diffArgs, const QString &fileName);
     void diff(const QString &workingDirectory, const QStringList &diffArgs,
@@ -123,7 +121,7 @@ public:
     bool synchronousReset(const QString &workingDirectory,
                           const QStringList &files = QStringList(),
                           QString *errorMessage = 0);
-    bool synchronousCleanList(const QString &workingDirectory, QStringList *files, QString *errorMessage);
+    bool synchronousCleanList(const QString &workingDirectory, QStringList *files, QStringList *ignoredFiles, QString *errorMessage);
     bool synchronousApplyPatch(const QString &workingDirectory, const QString &file, QString *errorMessage);
     bool synchronousInit(const QString &workingDirectory);
     bool synchronousCheckoutFiles(const QString &workingDirectory,
@@ -160,12 +158,9 @@ public:
                                     const QString &revision,
                                     QStringList *parents,
                                     QString *errorMessage);
-    bool synchronousShortDescription(const QString &workingDirectory, const QString &revision,
-                                     QString *description, QString *errorMessage);
-    bool synchronousShortDescription(const QString &workingDirectory, const QString &revision,
-                                     const QString &format, QString *description, QString *errorMessage);
-    bool synchronousShortDescriptions(const QString &workingDirectory, const QStringList &revisions,
-                                      QStringList *descriptions, QString *errorMessage);
+    QString synchronousShortDescription(const QString &workingDirectory, const QString &revision);
+    QString synchronousShortDescription(const QString &workingDirectory, const QString &revision,
+                                     const QString &format);
     bool synchronousTopRevision(const QString &workingDirectory, QString *revision = 0,
                                 QString *branch = 0, QString *errorMessage = 0);
 
@@ -226,6 +221,8 @@ public:
 
     QProcessEnvironment processEnvironment() const;
 
+    bool isValidRevision(const QString &revision) const;
+
     static QString msgNoChangedFiles();
 
     static const char *noColorOption;
@@ -280,7 +277,7 @@ private:
                            unsigned flags = 0, QTextCodec *outputCodec = 0);
 
     // determine version as '(major << 16) + (minor << 8) + patch' or 0.
-    unsigned synchronousGitVersion(bool silent, QString *errorMessage = 0) const;
+    unsigned synchronousGitVersion(QString *errorMessage = 0) const;
 
     enum RevertResult { RevertOk, RevertUnchanged, RevertCanceled, RevertFailed };
     RevertResult revertI(QStringList files,
@@ -293,6 +290,7 @@ private:
                          const QString &workingDirectory,
                          const QString &gitBinDirectory,
                          bool silent);
+    bool cleanList(const QString &workingDirectory, const QString &flag, QStringList *files, QString *errorMessage);
 
     mutable QString m_gitVersionForBinary;
     mutable unsigned m_cachedGitVersion;

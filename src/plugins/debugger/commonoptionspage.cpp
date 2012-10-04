@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,6 +37,7 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/manhattanstyle.h>
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
 #include <projectexplorer/projectexplorer.h>
@@ -72,6 +71,8 @@ CommonOptionsPageWidget::CommonOptionsPageWidget
         m_ui.checkBoxCloseBuffersOnExit);
     m_group->insert(dc->action(SwitchModeOnExit),
         m_ui.checkBoxSwitchModeOnExit);
+    m_group->insert(dc->action(BreakpointsFullPathByDefault),
+        m_ui.checkBoxBreakpointsFullPath);
     m_group->insert(dc->action(RaiseOnInterrupt),
         m_ui.checkBoxBringToForegroundOnInterrrupt);
     m_group->insert(dc->action(ShowQmlObjectTree),
@@ -98,35 +99,35 @@ CommonOptionsPageWidget::CommonOptionsPageWidget
     m_group->insert(dc->action(VerboseLog), 0);
     m_group->insert(dc->action(BreakOnThrow), 0);
     m_group->insert(dc->action(BreakOnCatch), 0);
-#ifdef Q_OS_WIN
-    Utils::SavedAction *registerAction = dc->action(RegisterForPostMortem);
-    m_group->insert(registerAction,
-        m_ui.checkBoxRegisterForPostMortem);
-    connect(registerAction, SIGNAL(toggled(bool)),
-            m_ui.checkBoxRegisterForPostMortem, SLOT(setChecked(bool)));
-#else
-    m_ui.checkBoxRegisterForPostMortem->setVisible(false);
-#endif
+    if (Utils::HostOsInfo::isWindowsHost()) {
+        Utils::SavedAction *registerAction = dc->action(RegisterForPostMortem);
+        m_group->insert(registerAction,
+                m_ui.checkBoxRegisterForPostMortem);
+        connect(registerAction, SIGNAL(toggled(bool)),
+                m_ui.checkBoxRegisterForPostMortem, SLOT(setChecked(bool)));
+    } else {
+        m_ui.checkBoxRegisterForPostMortem->setVisible(false);
+    }
 }
 
 QString CommonOptionsPageWidget::searchKeyWords() const
 {
     QString rc;
     const QLatin1Char sep(' ');
-    QTextStream(&rc)
-            << sep << m_ui.checkBoxUseAlternatingRowColors->text()
-            << sep << m_ui.checkBoxFontSizeFollowsEditor->text()
-            << sep << m_ui.checkBoxUseToolTipsInMainEditor->text()
-            << sep << m_ui.checkBoxListSourceFiles->text()
-#ifdef Q_OS_WIN
-            << sep << m_ui.checkBoxRegisterForPostMortem->text()
-#endif
-            << sep << m_ui.checkBoxCloseBuffersOnExit->text()
-            << sep << m_ui.checkBoxSwitchModeOnExit->text()
-            << sep << m_ui.labelMaximalStackDepth->text()
-            << sep << m_ui.checkBoxBringToForegroundOnInterrrupt->text()
-            << sep << m_ui.checkBoxShowQmlObjectTree->text()
-               ;
+    QTextStream stream(&rc);
+    stream << sep << m_ui.checkBoxUseAlternatingRowColors->text()
+           << sep << m_ui.checkBoxFontSizeFollowsEditor->text()
+           << sep << m_ui.checkBoxUseToolTipsInMainEditor->text()
+           << sep << m_ui.checkBoxListSourceFiles->text()
+           << sep << m_ui.checkBoxBreakpointsFullPath->text()
+           << sep << m_ui.checkBoxCloseBuffersOnExit->text()
+           << sep << m_ui.checkBoxSwitchModeOnExit->text()
+           << sep << m_ui.labelMaximalStackDepth->text()
+           << sep << m_ui.checkBoxBringToForegroundOnInterrrupt->text()
+           << sep << m_ui.checkBoxShowQmlObjectTree->text();
+    if (Utils::HostOsInfo::isWindowsHost())
+        stream << sep << m_ui.checkBoxRegisterForPostMortem->text();
+
     rc.remove(QLatin1Char('&'));
     return rc;
 }
@@ -152,34 +153,15 @@ void CommonOptionsPageWidget::setGlobalOptions(const GlobalDebuggerOptions &go)
 CommonOptionsPage::CommonOptionsPage(const QSharedPointer<GlobalDebuggerOptions> &go) :
     m_options(go)
 {
+    setId(QLatin1String(DEBUGGER_COMMON_SETTINGS_ID));
+    setDisplayName(QCoreApplication::translate("Debugger", "General"));
+    setCategory(QLatin1String(DEBUGGER_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("Debugger", DEBUGGER_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(DEBUGGER_COMMON_SETTINGS_CATEGORY_ICON));
 }
 
 CommonOptionsPage::~CommonOptionsPage()
 {
-}
-
-QString CommonOptionsPage::id() const
-{
-    return _(DEBUGGER_COMMON_SETTINGS_ID);
-}
-
-QString CommonOptionsPage::displayName() const
-{
-    return QCoreApplication::translate("Debugger", "General");
-}
-
-QString CommonOptionsPage::category() const
-{
-    return _(DEBUGGER_SETTINGS_CATEGORY);
-}
-
-QString CommonOptionsPage::displayCategory() const
-{
-    return QCoreApplication::translate("Debugger", DEBUGGER_SETTINGS_TR_CATEGORY);}
-
-QIcon CommonOptionsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(DEBUGGER_COMMON_SETTINGS_CATEGORY_ICON));
 }
 
 void CommonOptionsPage::apply()
@@ -218,36 +200,38 @@ bool CommonOptionsPage::matches(const QString &s) const
     return m_searchKeywords.contains(s, Qt::CaseInsensitive);
 }
 
-///////////////////////////////////////////////////////////////////////
-//
-// DebuggingHelperOptionPage
-//
-///////////////////////////////////////////////////////////////////////
-
-QString LocalsAndExpressionsOptionsPage::id() const
+QString CommonOptionsPage::msgSetBreakpointAtFunction(const char *function)
 {
-    return _("Z.LocalsAndExpressions");
+    return tr("Stop when %1() is called").arg(QLatin1String(function));
 }
 
-QString LocalsAndExpressionsOptionsPage::displayName() const
+QString CommonOptionsPage::msgSetBreakpointAtFunctionToolTip(const char *function,
+                                                             const QString &hint)
 {
+    QString result = QLatin1String("<html><head/><body>");
+    result += tr("Always add a breakpoint on the <i>%1()</i> function.").arg(QLatin1String(function));
+    if (!hint.isEmpty()) {
+        result += QLatin1String("<br>");
+        result += hint;
+    }
+    result += QLatin1String("</body></html>");
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////
+//
+// LocalsAndExpressionsOptionsPage
+//
+///////////////////////////////////////////////////////////////////////
+
+LocalsAndExpressionsOptionsPage::LocalsAndExpressionsOptionsPage()
+{
+    setId(QLatin1String("Z.LocalsAndExpressions"));
     //: '&&' will appear as one (one is marking keyboard shortcut)
-    return QCoreApplication::translate("Debugger", "Locals && Expressions");
-}
-
-QString LocalsAndExpressionsOptionsPage::category() const
-{
-    return _(DEBUGGER_SETTINGS_CATEGORY);
-}
-
-QString LocalsAndExpressionsOptionsPage::displayCategory() const
-{
-    return QCoreApplication::translate("Debugger", DEBUGGER_SETTINGS_TR_CATEGORY);
-}
-
-QIcon LocalsAndExpressionsOptionsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(DEBUGGER_COMMON_SETTINGS_CATEGORY_ICON));
+    setDisplayName(QCoreApplication::translate("Debugger", "Locals && Expressions"));
+    setCategory(QLatin1String(DEBUGGER_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("Debugger", DEBUGGER_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(DEBUGGER_COMMON_SETTINGS_CATEGORY_ICON));
 }
 
 void LocalsAndExpressionsOptionsPage::apply()

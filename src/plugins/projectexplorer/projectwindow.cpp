@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,6 +32,7 @@
 
 #include "doubletabwidget.h"
 
+#include "kitmanager.h"
 #include "project.h"
 #include "projectexplorer.h"
 #include "projectexplorerconstants.h"
@@ -86,7 +85,7 @@ public:
         Q_UNUSED(e);
         QPainter p(this);
         QColor fillColor = Utils::StyleHelper::mergedColors(
-                palette().button().color(), Qt::black, 80);
+                    palette().button().color(), Qt::black, 80);
         p.fillRect(contentsRect(), fillColor);
     }
 };
@@ -106,9 +105,9 @@ void RootWidget::paintEvent(QPaintEvent *e)
 
     QPainter painter(this);
     QColor light = Utils::StyleHelper::mergedColors(
-            palette().button().color(), Qt::white, 30);
+                palette().button().color(), Qt::white, 30);
     QColor dark = Utils::StyleHelper::mergedColors(
-            palette().button().color(), Qt::black, 85);
+                palette().button().color(), Qt::black, 85);
 
     painter.setPen(light);
     painter.drawLine(rect().topRight(), rect().bottomRight());
@@ -128,10 +127,10 @@ PanelsWidget::PanelsWidget(QWidget *parent) :
     // side of the screen.
     m_root->setFixedWidth(900);
     m_root->setContentsMargins(0, 0, 40, 0);
-    
+
     QPalette pal = m_root->palette();
     QColor background = Utils::StyleHelper::mergedColors(
-            palette().window().color(), Qt::white, 85);
+                palette().window().color(), Qt::white, 85);
     pal.setColor(QPalette::All, QPalette::Window, background.darker(102));
     setPalette(pal);
     pal.setColor(QPalette::All, QPalette::Window, background);
@@ -262,12 +261,7 @@ ProjectWindow::~ProjectWindow()
 
 void ProjectWindow::extensionsInitialized()
 {
-    foreach (ITargetFactory *fac, ExtensionSystem::PluginManager::instance()->getObjects<ITargetFactory>())
-        connect(fac, SIGNAL(canCreateTargetIdsChanged()),
-                this, SLOT(targetFactoriesChanged()));
-
-    QList<IProjectPanelFactory *> list = ExtensionSystem::PluginManager::instance()->getObjects<IProjectPanelFactory>();
-    qSort(list.begin(), list.end(), &IPanelFactory::prioritySort);
+    connect(KitManager::instance(), SIGNAL(kitsChanged()), this, SLOT(handleKitChanges()));
 }
 
 void ProjectWindow::aboutToShutdown()
@@ -275,6 +269,14 @@ void ProjectWindow::aboutToShutdown()
     showProperties(-1, -1); // that's a bit stupid, but otherwise stuff is still
                             // connected to the session
     disconnect(ProjectExplorerPlugin::instance()->session(), 0, this, 0);
+}
+
+void ProjectWindow::removedTarget(Target *)
+{
+    Project *p = qobject_cast<Project *>(sender());
+    QTC_ASSERT(p, return);
+    if (p->targets().isEmpty())
+        projectUpdated(p);
 }
 
 void ProjectWindow::projectUpdated(Project *p)
@@ -286,13 +288,13 @@ void ProjectWindow::projectUpdated(Project *p)
     m_tabWidget->setCurrentIndex(index);
 }
 
-void ProjectWindow::targetFactoriesChanged()
+void ProjectWindow::handleKitChanges()
 {
     bool changed = false;
     int index = m_tabWidget->currentIndex();
     QList<Project *> projects = m_tabIndexToProject;
     foreach (ProjectExplorer::Project *project, projects) {
-        if (m_usesTargetPage.value(project) != useTargetPage(project)) {
+        if (m_hasTarget.value(project) != hasTarget(project)) {
             changed = true;
             deregisterProject(project);
             registerProject(project);
@@ -302,22 +304,9 @@ void ProjectWindow::targetFactoriesChanged()
         m_tabWidget->setCurrentIndex(index);
 }
 
-bool ProjectWindow::useTargetPage(ProjectExplorer::Project *project)
+bool ProjectWindow::hasTarget(ProjectExplorer::Project *project)
 {
-    if (project->targets().isEmpty())
-        return false;
-    if (project->targets().size() > 1)
-        return true;
-    int count = 0;
-    foreach (ITargetFactory *fac, ExtensionSystem::PluginManager::instance()->getObjects<ITargetFactory>()) {
-        foreach (Core::Id targetId, fac->supportedTargetIds()) {
-            if (fac->canCreate(project, targetId))
-                ++count;
-            if (count > 1)
-                return true;
-        }
-    }
-    return false;
+    return !project->targets().isEmpty();
 }
 
 void ProjectWindow::registerProject(ProjectExplorer::Project *project)
@@ -337,28 +326,14 @@ void ProjectWindow::registerProject(ProjectExplorer::Project *project)
 
     QStringList subtabs;
 
-    bool usesTargetPage = useTargetPage(project);
-    m_usesTargetPage.insert(project, usesTargetPage);
+    bool projectHasTarget = hasTarget(project);
+    m_hasTarget.insert(project, projectHasTarget);
 
-    if (!usesTargetPage){
-        // Show the target specific pages directly
-        if (project->activeTarget()) {
-            QList<ITargetPanelFactory *> factories =
-                    ExtensionSystem::PluginManager::instance()->getObjects<ITargetPanelFactory>();
-
-            qSort(factories.begin(), factories.end(), &IPanelFactory::prioritySort);
-
-            foreach (ITargetPanelFactory *factory, factories)
-                if (factory->supports(project->activeTarget()))
-                    subtabs << factory->displayName();
-        }
-    } else {
-        // Use the Targets page
-        subtabs << QCoreApplication::translate("TargetSettingsPanelFactory", "Targets");
-    }
+    if (projectHasTarget) // Use the Targets page
+        subtabs << QCoreApplication::translate("TargetSettingsPanelFactory", "Build & Run");
 
     // Add the project specific pages
-    QList<IProjectPanelFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<IProjectPanelFactory>();
+    QList<IProjectPanelFactory *> factories = ExtensionSystem::PluginManager::getObjects<IProjectPanelFactory>();
     qSort(factories.begin(), factories.end(), &IPanelFactory::prioritySort);
     foreach (IProjectPanelFactory *panelFactory, factories) {
         if (panelFactory->supports(project))
@@ -367,6 +342,9 @@ void ProjectWindow::registerProject(ProjectExplorer::Project *project)
 
     m_tabIndexToProject.insert(index, project);
     m_tabWidget->insertTab(index, project->displayName(), project->document()->fileName(), subtabs);
+
+    connect(project, SIGNAL(removedTarget(ProjectExplorer::Target*)),
+            this, SLOT(removedTarget(ProjectExplorer::Target*)));
 }
 
 void ProjectWindow::deregisterProject(ProjectExplorer::Project *project)
@@ -377,6 +355,8 @@ void ProjectWindow::deregisterProject(ProjectExplorer::Project *project)
 
     m_tabIndexToProject.removeAt(index);
     m_tabWidget->removeTab(index);
+    disconnect(project, SIGNAL(removedTarget(ProjectExplorer::Target*)),
+            this, SLOT(removedTarget(ProjectExplorer::Target*)));
 }
 
 void ProjectWindow::startupProjectChanged(ProjectExplorer::Project *p)
@@ -404,7 +384,7 @@ void ProjectWindow::showProperties(int index, int subIndex)
         m_previousTargetSubIndex = previousPanelWidget->currentSubIndex();
     }
 
-    if (m_usesTargetPage.value(project)) {
+    if (m_hasTarget.value(project) || !project->supportsNoTargetPanel()) {
         if (subIndex == 0) {
             // Targets page
             removeCurrentWidget();
@@ -416,32 +396,17 @@ void ProjectWindow::showProperties(int index, int subIndex)
             m_centralWidget->setCurrentWidget(m_currentWidget);
         }
         ++pos;
-    } else if (project->activeTarget()) {
-        // No Targets page, target specific pages are first in the list
-        QList<ITargetPanelFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<ITargetPanelFactory>();
-        qSort(factories.begin(), factories.end(), &ITargetPanelFactory::prioritySort);
-        foreach (ITargetPanelFactory *panelFactory, factories) {
-            if (panelFactory->supports(project->activeTarget())) {
-                if (subIndex == pos) {
-                    fac = panelFactory;
-                    break;
-                }
-                ++pos;
-            }
-        }
     }
 
-    if (!fac) {
-        QList<IProjectPanelFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<IProjectPanelFactory>();
-        qSort(factories.begin(), factories.end(), &IPanelFactory::prioritySort);
-        foreach (IProjectPanelFactory *panelFactory, factories) {
-            if (panelFactory->supports(project)) {
-                if (subIndex == pos) {
-                    fac = panelFactory;
-                    break;
-                }
-                ++pos;
+    QList<IProjectPanelFactory *> factories = ExtensionSystem::PluginManager::getObjects<IProjectPanelFactory>();
+    qSort(factories.begin(), factories.end(), &IPanelFactory::prioritySort);
+    foreach (IProjectPanelFactory *panelFactory, factories) {
+        if (panelFactory->supports(project)) {
+            if (subIndex == pos) {
+                fac = panelFactory;
+                break;
             }
+            ++pos;
         }
     }
 

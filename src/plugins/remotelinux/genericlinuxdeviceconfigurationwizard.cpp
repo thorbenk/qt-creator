@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 ** GNU Lesser General Public License Usage
 **
@@ -24,21 +24,21 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
+
 #include "genericlinuxdeviceconfigurationwizard.h"
 
 #include "genericlinuxdeviceconfigurationwizardpages.h"
-#include "linuxdeviceconfiguration.h"
+#include "linuxdevice.h"
 #include "linuxdevicetestdialog.h"
 #include "linuxdevicetester.h"
 #include "remotelinux_constants.h"
+
 #include <utils/portlist.h>
 
 using namespace ProjectExplorer;
-using namespace Utils;
+using namespace QSsh;
 
 namespace RemoteLinux {
 namespace Internal {
@@ -76,7 +76,7 @@ GenericLinuxDeviceConfigurationWizard::~GenericLinuxDeviceConfigurationWizard()
 
 IDevice::Ptr GenericLinuxDeviceConfigurationWizard::device()
 {
-    Utils::SshConnectionParameters sshParams;
+    QSsh::SshConnectionParameters sshParams;
     sshParams.host = d->setupPage.hostName();
     sshParams.userName = d->setupPage.userName();
     sshParams.port = 22;
@@ -86,13 +86,15 @@ IDevice::Ptr GenericLinuxDeviceConfigurationWizard::device()
         sshParams.password = d->setupPage.password();
     else
         sshParams.privateKeyFile = d->setupPage.privateKeyFilePath();
-    LinuxDeviceConfiguration::Ptr devConf = LinuxDeviceConfiguration::create(d->setupPage.configurationName(),
-        Core::Id(Constants::GenericLinuxOsType), LinuxDeviceConfiguration::Hardware);
-    devConf->setFreePorts(Utils::PortList::fromString(QLatin1String("10000-10100")));
-    devConf->setSshParameters(sshParams);
-    LinuxDeviceTestDialog dlg(devConf, new GenericLinuxDeviceTester(this), this);
+    IDevice::Ptr device = LinuxDevice::create(d->setupPage.configurationName(),
+        Core::Id(Constants::GenericLinuxOsType), IDevice::Hardware);
+    device->setFreePorts(Utils::PortList::fromString(QLatin1String("10000-10100")));
+    device->setSshParameters(sshParams);
+    // Might be called after accept.
+    QWidget *parent = isVisible() ? this : static_cast<QWidget *>(0);
+    LinuxDeviceTestDialog dlg(device, new GenericLinuxDeviceTester(this), parent);
     dlg.exec();
-    return devConf;
+    return device;
 }
 
 } // namespace RemoteLinux

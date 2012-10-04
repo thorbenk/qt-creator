@@ -9,16 +9,16 @@ QtcLibrary {
         "..",
         "parser"
     ]
-    cpp.defines: [
+    cpp.defines: base.concat([
         "QMLJS_BUILD_DIR",
         "QT_CREATOR"
-    ]
+    ])
     cpp.optimization: "fast"
 
     Depends { name: "Utils" }
     Depends { name: "LanguageUtils" }
     Depends { name: "cpp" }
-    Depends { name: "Qt"; submodules: ['widgets', 'script'] }
+    Depends { name: "Qt"; submodules: ["widgets", "script"] }
 
     files: [
         "qmljs.qrc",

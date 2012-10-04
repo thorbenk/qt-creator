@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -110,20 +108,9 @@ CommonOptionsPage::CommonOptionsPage(QObject *parent) :
     VcsBaseOptionsPage(parent)
 {
     m_settings.fromSettings(Core::ICore::settings());
-}
 
-void CommonOptionsPage::updateNickNames()
-{
-}
-
-QString CommonOptionsPage::id() const
-{
-    return QLatin1String(Constants::VCS_COMMON_SETTINGS_ID);
-}
-
-QString CommonOptionsPage::displayName() const
-{
-    return QCoreApplication::translate("VcsBase", Constants::VCS_COMMON_SETTINGS_NAME);
+    setId(QLatin1String(Constants::VCS_COMMON_SETTINGS_ID));
+    setDisplayName(QCoreApplication::translate("VcsBase", Constants::VCS_COMMON_SETTINGS_NAME));
 }
 
 QWidget *CommonOptionsPage::createPage(QWidget *parent)

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -179,7 +177,7 @@
 
             For information on how to prepare your documentation and create a
             .qch file, see
-            \l{http://doc.qt.nokia.com/4.7/qthelp-framework.html}
+            \l{http://qt-project.org/doc/qt-4.8/qthelp-framework.html}
             {The Qt Help Framework}.
 
         \o  To add the .qch file to \QC, select \gui Tools > \gui Options >
@@ -199,8 +197,21 @@
     in the \gui {On context help} field. To detach the help window, select
     \gui {Always Show Help in External Window}.
 
-    You can select the help page to open upon startup in the \gui {Home Page}
-    field.
+    \section1 Selecting the Start Page
+
+    You can select the page to display when you open the \gui Help mode in the
+    \gui {Tools > Options > Help > General Settings > On help start} field.
+    To display the page and help panes that were open when you exited the mode,
+    select the \gui {Show My Tabs from Last Session} option. However, Web pages
+    are not opened, because loading them would slow down opening the \gui Help
+    mode.
+
+    To display a particular page, select \gui {Show My Home Page}, and specify
+    the page in the \gui {Home Page} field.
+
+    To display a blank page, select the \gui {Show a Blank Page} option. You can
+    also select the \gui {Use Blank Page} button to set a blank page as your
+    home page.
 
     \section1 Using Documentation Filters
 

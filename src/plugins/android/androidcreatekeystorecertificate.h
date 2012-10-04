@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #ifndef ANDROIDCREATEKEYSTORECERTIFICATE_H
 #define ANDROIDCREATEKEYSTORECERTIFICATE_H
+
+#include <utils/fileutils.h>
 
 #include <QDialog>
 
@@ -41,6 +41,7 @@ QT_END_NAMESPACE
 
 namespace Android {
 namespace Internal {
+
 class AndroidCreateKeystoreCertificate : public QDialog
 {
     Q_OBJECT
@@ -54,7 +55,7 @@ class AndroidCreateKeystoreCertificate : public QDialog
 public:
     explicit AndroidCreateKeystoreCertificate(QWidget *parent = 0);
     ~AndroidCreateKeystoreCertificate();
-    QString keystoreFilePath();
+    Utils::FileName keystoreFilePath();
     QString keystorePassword();
     QString certificateAlias();
     QString certificatePassword();
@@ -68,7 +69,7 @@ private slots:
 
 private:
     Ui::AndroidCreateKeystoreCertificate *ui;
-    QString m_keystoreFilePath;
+    Utils::FileName m_keystoreFilePath;
 };
 
 } // namespace Internal

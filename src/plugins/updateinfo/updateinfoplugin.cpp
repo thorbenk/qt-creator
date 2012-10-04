@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -142,7 +140,7 @@ bool UpdateInfoPlugin::initialize(const QStringList & /* arguments */, QString *
         return false;
     }
 
-    Core::ActionContainer* const helpActionContainer = Core::ICore::actionManager()->actionContainer(Core::Constants::M_HELP);
+    Core::ActionContainer* const helpActionContainer = Core::ActionManager::actionContainer(Core::Constants::M_HELP);
     helpActionContainer->menu()->addAction(tr("Start Updater"), this, SLOT(startUpdaterUiApplication()));
 
     //wait some time before we want to have the first check

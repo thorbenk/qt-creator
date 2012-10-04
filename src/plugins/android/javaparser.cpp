@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,8 +37,7 @@ using namespace Android::Internal;
 using namespace ProjectExplorer;
 
 JavaParser::JavaParser() :
-    ProjectExplorer::IOutputParser()
-  , m_javaRegExp(QLatin1String("^(.*\\[javac\\]\\s)(.*\\.java):(\\d+):(.*)$"))
+  m_javaRegExp(QLatin1String("^(.*\\[javac\\]\\s)(.*\\.java):(\\d+):(.*)$"))
 {
 }
 
@@ -67,7 +64,7 @@ void JavaParser::stdError(const QString &line)
                   m_javaRegExp.cap(4).trimmed(),
                   Utils::FileName::fromString(file) /* filename */,
                   lineno,
-                  ProjectExplorer::Constants::TASK_CATEGORY_COMPILE);
+                  Constants::TASK_CATEGORY_COMPILE);
         emit addTask(task);
         return;
     }

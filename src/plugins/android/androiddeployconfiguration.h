@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,20 +25,17 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
-#ifndef QT4PROJECTMANAGER_QT4ANDROIDDEPLOYCONFIGURATION_H
-#define QT4PROJECTMANAGER_QT4ANDROIDDEPLOYCONFIGURATION_H
+#ifndef ANDROIDDEPLOYCONFIGURATION_H
+#define ANDROIDDEPLOYCONFIGURATION_H
 
 #include <projectexplorer/deployconfiguration.h>
 
 namespace Android {
 namespace Internal {
 
-class Target;
 const char ANDROID_DEPLOYCONFIGURATION_ID[] = "Qt4ProjectManager.AndroidDeployConfiguration";
 const char ANDROID_DC_PREFIX[] = "Qt4ProjectManager.AndroidDeployConfiguration.";
 
@@ -48,8 +45,8 @@ class AndroidDeployConfiguration : public ProjectExplorer::DeployConfiguration
     friend class AndroidDeployConfigurationFactory;
 
 public:
-    AndroidDeployConfiguration(ProjectExplorer::Target *parent);
-    virtual ~AndroidDeployConfiguration();
+    AndroidDeployConfiguration(ProjectExplorer::Target *parent, Core::Id id);
+
 protected:
     AndroidDeployConfiguration(ProjectExplorer::Target *parent, ProjectExplorer::DeployConfiguration *source);
 
@@ -73,9 +70,11 @@ public:
     // used to translate the ids to names to display to the user
     QString displayNameForId(const Core::Id id) const;
 
+private:
+    bool canHandle(ProjectExplorer::Target *parent) const;
 };
 
 } // namespace Internal
 } // namespace Android
 
-#endif // QT4PROJECTMANAGER_QT4ANDROIDDEPLOYCONFIGURATION_H
+#endif // ANDROIDDEPLOYCONFIGURATION_H

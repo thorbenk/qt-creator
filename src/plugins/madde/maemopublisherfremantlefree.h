@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef MAEMOPUBLISHERFREMANTLEFREE_H
 #define MAEMOPUBLISHERFREMANTLEFREE_H
 
-#include <utils/ssh/sshconnection.h>
+#include <ssh/sshconnection.h>
 
 #include <QObject>
 #include <QProcess>
@@ -45,7 +43,7 @@ namespace Qt4ProjectManager {
 class Qt4BuildConfiguration;
 }
 
-namespace Utils {
+namespace QSsh {
 class SshRemoteProcessRunner;
 }
 
@@ -87,7 +85,7 @@ private slots:
     void handleScpStarted();
     void handleConnectionError();
     void handleUploadJobFinished(int exitStatus);
-    void handleScpStdOut(const QByteArray &output);
+    void handleScpStdOut();
 
 private:
     enum State {
@@ -107,9 +105,6 @@ private:
     void prepareToSendFile();
     void sendFile();
     void finishWithFailure(const QString &progressMsg, const QString &resultMsg);
-    bool updateDesktopFiles(QString *error = 0) const;
-    bool addOrReplaceDesktopFileValue(QByteArray &fileContent,
-        const QByteArray &key, const QByteArray &newValue) const;
     QStringList findProblems() const;
 
     const ProjectExplorer::Project * const m_project;
@@ -118,9 +113,9 @@ private:
     State m_state;
     QString m_tmpProjectDir;
     QProcess *m_process;
-    Utils::SshConnectionParameters m_sshParams;
+    QSsh::SshConnectionParameters m_sshParams;
     QString m_remoteDir;
-    Utils::SshRemoteProcessRunner *m_uploader;
+    QSsh::SshRemoteProcessRunner *m_uploader;
     QByteArray m_scpOutput;
     QList<QString> m_filesToUpload;
     QString m_resultString;

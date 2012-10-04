@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -184,7 +182,7 @@ public:
     }
 
     QString name(){
-        return QString::fromLatin1("AvahiZeroConfLib@%1").arg(size_t(this), 0, 16);
+        return QString::fromLatin1("Avahi Library");
     }
 
     // bool tryStartDaemon();
@@ -394,7 +392,7 @@ extern "C" void cAvahiResolveReply(
     const unsigned char emptyTxt[1]="";
     switch (event) {
     case AVAHI_RESOLVER_FAILURE:
-        sg->serviceResolveReply(0, kDNSServiceErr_Timeout, interface, 0, QString(), 0, 0);
+        sg->serviceResolveReply(0, interface, kDNSServiceErr_Timeout, 0, QString(), 0, 0);
         break;
     case AVAHI_RESOLVER_FOUND:
         sg->serviceResolveReply(
@@ -405,7 +403,7 @@ extern "C" void cAvahiResolveReply(
             sg->txtFieldReply(
                         kDNSServiceFlagsAdd | ((txtAtt->next || address)?kDNSServiceFlagsMoreComing:0),
                         kDNSServiceErr_NoError, static_cast<unsigned short>(txtAtt->size),
-                        txtAtt->text, -1);
+                        txtAtt->text, ~0);
             txtAtt = txtAtt->next;
         }
         if (address){
@@ -483,7 +481,7 @@ extern "C" void cAvahiClientReply (AvahiClient * /*s*/, AvahiClientState state, 
         lib->setError(false, ZConfLib::tr("cAvahiClient, still connecting, no server available"));
         break;
     default:
-        lib->setError(true, ZConfLib::tr("Error: unexpected state %1 in cAvahiClientReply, ignoring it")
+        lib->setError(true, ZConfLib::tr("unexpected state %1 in cAvahiClientReply")
                       .arg(state));
     }
 }
@@ -534,7 +532,7 @@ extern "C" void cAvahiBrowseReply(
             break;
         default:
             browser->mainConnection->lib->setError(true, ZConfLib::tr(
-                                                       "Error: unexpected state %1 in cAvahiBrowseReply, ignoring it")
+                                                       "unexpected state %1 in cAvahiBrowseReply")
                                                    .arg(event));
     }
 }

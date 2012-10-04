@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -82,6 +80,8 @@ public:
 
     QVariantMap toMap() const;
 
+    bool ensureConfigured(QString *errorMessage);
+
 signals:
     void changed();
 
@@ -118,6 +118,7 @@ private:
     QString baseWorkingDirectory() const;
     void setUserName(const QString &name);
     void setRunMode(ProjectExplorer::LocalApplicationRunConfiguration::RunMode runMode);
+    bool validateExecutable(QString *executable = 0, QString *errorMessage = 0) const;
 
     QString m_executable;
     QString m_workingDirectory;
@@ -148,6 +149,9 @@ public:
     bool canClone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *product) const;
     ProjectExplorer::RunConfiguration *clone(ProjectExplorer::Target *parent,
                                              ProjectExplorer::RunConfiguration *source);
+
+private:
+    bool canHandle(ProjectExplorer::Target *parent) const;
 };
 
 } // namespace QtSupport

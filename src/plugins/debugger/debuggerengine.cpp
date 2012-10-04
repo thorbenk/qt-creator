@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -128,9 +126,7 @@ QDebug operator<<(QDebug str, const DebuggerStartParameters &sp)
             << " attachPID=" << sp.attachPID
             << " useTerminal=" << sp.useTerminal
             << " remoteChannel=" << sp.remoteChannel
-            << " remoteArchitecture=" << sp.remoteArchitecture
             << " symbolFileName=" << sp.symbolFileName
-            << " useServerStartScript=" << sp.useServerStartScript
             << " serverStartScript=" << sp.serverStartScript
             << " abi=" << sp.toolChainAbi.toString() << '\n';
     return str;
@@ -157,21 +153,17 @@ class DebuggerEnginePrivate : public QObject
     Q_OBJECT
 
 public:
-    DebuggerEnginePrivate(DebuggerEngine *engine,
-            DebuggerEngine *masterEngine,
-            DebuggerLanguages languages,
-            const DebuggerStartParameters &sp)
+    DebuggerEnginePrivate(DebuggerEngine *engine, const DebuggerStartParameters &sp)
       : m_engine(engine),
-        m_masterEngine(masterEngine),
+        m_masterEngine(0),
         m_runControl(0),
         m_startParameters(sp),
-        m_languages(languages),
         m_state(DebuggerNotReady),
         m_lastGoodState(DebuggerNotReady),
         m_targetState(DebuggerNotReady),
         m_remoteSetupState(RemoteSetupNone),
         m_inferiorPid(0),
-        m_modulesHandler(),
+        m_modulesHandler(engine),
         m_registerHandler(),
         m_sourceFilesHandler(),
         m_stackHandler(),
@@ -185,11 +177,7 @@ public:
         m_taskHub(0)
     {
         connect(&m_locationTimer, SIGNAL(timeout()), SLOT(resetLocation()));
-        if (sp.toolChainAbi.os() == Abi::MacOS)
-            m_disassemblerAgent.setTryMixed(false);
     }
-
-    ~DebuggerEnginePrivate() {}
 
 public slots:
     void doSetupEngine();
@@ -288,7 +276,6 @@ public:
     DebuggerRunControl *m_runControl;  // Not owned.
 
     DebuggerStartParameters m_startParameters;
-    DebuggerLanguages m_languages;
 
     // The current state.
     DebuggerState m_state;
@@ -341,13 +328,9 @@ public:
 //
 //////////////////////////////////////////////////////////////////////
 
-DebuggerEngine::DebuggerEngine(const DebuggerStartParameters &startParameters,
-        DebuggerLanguages languages,
-        DebuggerEngine *parentEngine)
-  : d(new DebuggerEnginePrivate(this, parentEngine, languages, startParameters))
-{
-    d->m_inferiorPid = 0;
-}
+DebuggerEngine::DebuggerEngine(const DebuggerStartParameters &startParameters)
+  : d(new DebuggerEnginePrivate(this, startParameters))
+{}
 
 DebuggerEngine::~DebuggerEngine()
 {
@@ -491,42 +474,32 @@ QAbstractItemModel *DebuggerEngine::threadsModel() const
 
 QAbstractItemModel *DebuggerEngine::localsModel() const
 {
-    QAbstractItemModel *model = watchHandler()->model(LocalsWatch);
-    if (model->objectName().isEmpty()) // Make debugging easier.
-        model->setObjectName(objectName() + QLatin1String("LocalsModel"));
-    return model;
+    return watchHandler()->model();
 }
 
 QAbstractItemModel *DebuggerEngine::watchersModel() const
 {
-    QAbstractItemModel *model = watchHandler()->model(WatchersWatch);
-    if (model->objectName().isEmpty()) // Make debugging easier.
-        model->setObjectName(objectName() + QLatin1String("WatchersModel"));
-    return model;
+    return watchHandler()->model();
 }
 
 QAbstractItemModel *DebuggerEngine::returnModel() const
 {
-    QAbstractItemModel *model = watchHandler()->model(ReturnWatch);
-    if (model->objectName().isEmpty()) // Make debugging easier.
-        model->setObjectName(objectName() + QLatin1String("ReturnModel"));
-    return model;
+    return watchHandler()->model();
 }
 
 QAbstractItemModel *DebuggerEngine::inspectorModel() const
 {
-    QAbstractItemModel *model = watchHandler()->model(InspectWatch);
-    if (model->objectName().isEmpty()) // Make debugging easier.
-        model->setObjectName(objectName() + QLatin1String("InspectorModel"));
-    return model;
+    return watchHandler()->model();
 }
 
 QAbstractItemModel *DebuggerEngine::toolTipsModel() const
 {
-    QAbstractItemModel *model = watchHandler()->model(TooltipsWatch);
-    if (model->objectName().isEmpty()) // Make debugging easier.
-        model->setObjectName(objectName() + QLatin1String("TooltipsModel"));
-    return model;
+    return watchHandler()->model();
+}
+
+QAbstractItemModel *DebuggerEngine::watchModel() const
+{
+    return watchHandler()->model();
 }
 
 QAbstractItemModel *DebuggerEngine::sourceFilesModel() const
@@ -701,36 +674,6 @@ DebuggerStartParameters &DebuggerEngine::startParameters()
     return d->m_startParameters;
 }
 
-
-//////////////////////////////////////////////////////////////////////
-//
-// Dumpers. "Custom dumpers" are a library compiled against the current
-// Qt containing functions to evaluate values of Qt classes
-// (such as QString, taking pointers to their addresses).
-// The library must be loaded into the debuggee.
-//
-//////////////////////////////////////////////////////////////////////
-
-bool DebuggerEngine::qtDumperLibraryEnabled() const
-{
-    return debuggerCore()->boolSetting(UseDebuggingHelpers);
-}
-
-QStringList DebuggerEngine::qtDumperLibraryLocations() const
-{
-    return d->m_startParameters.dumperLibraryLocations;
-}
-
-void DebuggerEngine::showQtDumperLibraryWarning(const QString &details)
-{
-    debuggerCore()->showQtDumperLibraryWarning(details);
-}
-
-QString DebuggerEngine::qtDumperLibraryName() const
-{
-    return startParameters().dumperLibrary;
-}
-
 DebuggerState DebuggerEngine::state() const
 {
     return d->m_state;
@@ -770,6 +713,7 @@ static bool isAllowedTransition(DebuggerState from, DebuggerState to)
 
     case EngineRunRequested:
         return to == EngineRunFailed
+            || to == InferiorRunRequested
             || to == InferiorRunOk
             || to == InferiorStopOk
             || to == InferiorUnrunnable;
@@ -949,9 +893,10 @@ void DebuggerEngine::notifyEngineRequestRemoteSetup()
     emit requestRemoteSetup();
 }
 
-void DebuggerEngine::notifyEngineRemoteSetupDone()
+void DebuggerEngine::notifyEngineRemoteSetupDone(int gdbServerPort, int qmlPort)
 {
-    showMessage(_("NOTE: REMOTE SETUP DONE"));
+    showMessage(_("NOTE: REMOTE SETUP DONE: GDB SERVER PORT: %1  QML PORT %2")
+                .arg(gdbServerPort).arg(qmlPort));
     QTC_ASSERT(state() == EngineSetupRequested
                || state() == EngineSetupFailed
                || state() == DebuggerFinished, qDebug() << this << state());
@@ -966,9 +911,9 @@ void DebuggerEngine::notifyEngineRemoteSetupDone()
     d->setRemoteSetupState(RemoteSetupSucceeded);
 }
 
-void DebuggerEngine::notifyEngineRemoteSetupFailed()
+void DebuggerEngine::notifyEngineRemoteSetupFailed(const QString &message)
 {
-    showMessage(_("NOTE: REMOTE SETUP FAILED"));
+    showMessage(_("NOTE: REMOTE SETUP FAILED: ") + message);
     QTC_ASSERT(state() == EngineSetupRequested
                || state() == EngineSetupFailed
                || state() == DebuggerFinished, qDebug() << this << state());
@@ -976,6 +921,16 @@ void DebuggerEngine::notifyEngineRemoteSetupFailed()
     QTC_ASSERT(d->remoteSetupState() == RemoteSetupRequested
                || d->remoteSetupState() == RemoteSetupCancelled,
                qDebug() << this << "remoteSetupState" << d->remoteSetupState());
+}
+
+void DebuggerEngine::notifyEngineRunOkAndInferiorRunRequested()
+{
+    showMessage(_("NOTE: ENGINE RUN OK AND INFERIOR RUN REQUESTED"));
+    d->m_progress.setProgressValue(1000);
+    d->m_progress.reportFinished();
+    QTC_ASSERT(state() == EngineRunRequested, qDebug() << this << state());
+    showStatusMessage(tr("Running."));
+    setState(InferiorRunRequested);
 }
 
 void DebuggerEngine::notifyEngineRunAndInferiorRunOk()
@@ -1008,10 +963,15 @@ void DebuggerEngine::notifyInferiorRunRequested()
 
 void DebuggerEngine::notifyInferiorRunOk()
 {
+    if (state() == InferiorRunOk) {
+        showMessage(_("NOTE: INFERIOR RUN OK - REPEATED."));
+        return;
+    }
     showMessage(_("NOTE: INFERIOR RUN OK"));
     showStatusMessage(tr("Running."));
-    // Transition from StopRequested can happen sin remotegdbadapter.
+    // Transition from StopRequested can happen in remotegdbadapter.
     QTC_ASSERT(state() == InferiorRunRequested
+        || state() == InferiorStopOk
         || state() == InferiorStopRequested, qDebug() << this << state());
     setState(InferiorRunOk);
 }
@@ -1317,22 +1277,23 @@ bool DebuggerEngine::isMasterEngine() const
     return d->m_masterEngine == 0;
 }
 
+void DebuggerEngine::setMasterEngine(DebuggerEngine *masterEngine)
+{
+    d->m_masterEngine = masterEngine;
+}
+
 DebuggerEngine *DebuggerEngine::masterEngine() const
 {
     return d->m_masterEngine;
 }
 
-DebuggerLanguages DebuggerEngine::languages() const
-{
-    return d->m_languages;
-}
-
 QString DebuggerEngine::toFileInProject(const QUrl &fileUrl)
 {
     // make sure file finder is properly initialized
-    d->m_fileFinder.setProjectDirectory(startParameters().projectSourceDirectory);
-    d->m_fileFinder.setProjectFiles(startParameters().projectSourceFiles);
-    d->m_fileFinder.setSysroot(startParameters().sysroot);
+    const DebuggerStartParameters &sp = startParameters();
+    d->m_fileFinder.setProjectDirectory(sp.projectSourceDirectory);
+    d->m_fileFinder.setProjectFiles(sp.projectSourceFiles);
+    d->m_fileFinder.setSysroot(sp.sysRoot);
 
     return d->m_fileFinder.findFile(fileUrl);
 }
@@ -1833,15 +1794,6 @@ void DebuggerEngine::openDisassemblerView(const Location &location)
 {
     DisassemblerAgent *agent = new DisassemblerAgent(this);
     agent->setLocation(location);
-}
-
-void DebuggerEngine::handleRemoteSetupDone(int /*gdbServerPort*/,
-                                           int /*qmlPort*/)
-{
-}
-
-void DebuggerEngine::handleRemoteSetupFailed(const QString &/*message*/)
-{
 }
 
 bool DebuggerEngine::isStateDebugging() const

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,7 +33,7 @@
 
 #include <qmleditorwidgets_global.h>
 #include <QFrame>
-#include <QWeakPointer>
+#include <QPointer>
 
 QT_BEGIN_NAMESPACE
 class QToolButton;
@@ -78,7 +76,7 @@ private:
     QGraphicsDropShadowEffect *m_dropShadowEffect;
     QGraphicsOpacityEffect *m_opacityEffect;
     QPoint m_startPos;
-    QWeakPointer<QWidget> m_secondaryTarget;
+    QPointer<QWidget> m_secondaryTarget;
 };
 
 class QMLEDITORWIDGETS_EXPORT ContextPaneWidget : public DragWidget
@@ -140,9 +138,9 @@ private:
     ContextPaneWidgetImage *m_imageWidget;
     ContextPaneWidgetImage *m_borderImageWidget;
     ContextPaneWidgetRectangle *m_rectangleWidget;
-    QWeakPointer<CustomColorDialog> m_bauhausColorDialog;
-    QWeakPointer<QAction> m_resetAction;
-    QWeakPointer<QAction> m_disableAction;
+    QPointer<CustomColorDialog> m_bauhausColorDialog;
+    QPointer<QAction> m_resetAction;
+    QPointer<QAction> m_disableAction;
     QString m_colorName;
     QPoint m_originalPos;
     bool m_pinned;

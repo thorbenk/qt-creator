@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -54,7 +52,7 @@
 #include <QMutex>
 #include <QThread>
 #include <QMutexLocker>
-#include <QWeakPointer>
+#include <QPointer>
 #include <QWaitCondition>
 #include <QDir>
 #include <QBuffer>
@@ -69,20 +67,21 @@
 #include <QPushButton>
 #include <QMessageBox>
 #include <QApplication>
-#include <QMainWindow>
 #include <QDeclarativeImageProvider>
 #include <QDeclarativeEngine>
 #include <QDeclarativeContext>
 #include <QDesktopServices>
+
+using namespace Utils;
 
 namespace QtSupport {
 namespace Internal {
 
 const char C_FALLBACK_ROOT[] = "ProjectsFallbackRoot";
 
-QWeakPointer<ExamplesListModel> &examplesModelStatic()
+QPointer<ExamplesListModel> &examplesModelStatic()
 {
-    static QWeakPointer<ExamplesListModel> s_examplesModel;
+    static QPointer<ExamplesListModel> s_examplesModel;
     return s_examplesModel;
 }
 
@@ -179,7 +178,7 @@ public:
         Q_UNUSED(size)
         QMutexLocker lock(&m_mutex);
 
-        QUrl url = QUrl::fromEncoded(id.toAscii());
+        QUrl url = QUrl::fromEncoded(id.toLatin1());
 
         if (!m_fetcher.asynchronousFetchData(url))
             return QImage();
@@ -340,9 +339,9 @@ QString ExamplesWelcomePage::copyToAlternativeLocation(const QFileInfo& proFileI
                       .arg(nativeProjectDir));
     lay->addWidget(descrLbl, 0, 0, 1, 2);
     QLabel *txt = new QLabel(tr("&Location:"));
-    Utils::PathChooser *chooser = new Utils::PathChooser;
+    PathChooser *chooser = new PathChooser;
     txt->setBuddy(chooser);
-    chooser->setExpectedKind(Utils::PathChooser::ExistingDirectory);
+    chooser->setExpectedKind(PathChooser::ExistingDirectory);
     QSettings *settings = Core::ICore::settings();
     chooser->setPath(settings->value(QString::fromLatin1(C_FALLBACK_ROOT),
                                      Core::DocumentManager::projectsDirectory()).toString());
@@ -371,15 +370,18 @@ QString ExamplesWelcomePage::copyToAlternativeLocation(const QFileInfo& proFileI
         } else {
             QString error;
             QString targetDir = destBaseDir + QLatin1Char('/') + exampleDirName;
-            if (Utils::FileUtils::copyRecursively(projectDir, targetDir, &error)) {
+            if (FileUtils::copyRecursively(FileName::fromString(projectDir),
+                    FileName::fromString(targetDir), &error)) {
                 // set vars to new location
                 const QStringList::Iterator end = filesToOpen.end();
                 for (QStringList::Iterator it = filesToOpen.begin(); it != end; ++it)
                     it->replace(projectDir, targetDir);
 
                 foreach (const QString &dependency, dependencies) {
-                    QString dirName = QDir(dependency).dirName();
-                    if (!Utils::FileUtils::copyRecursively(dependency, targetDir + QDir::separator()+ dirName, &error)) {
+                    FileName targetFile = FileName::fromString(targetDir);
+                    targetFile.appendPath(QDir(dependency).dirName());
+                    if (!FileUtils::copyRecursively(FileName::fromString(dependency), targetFile,
+                            &error)) {
                         QMessageBox::warning(Core::ICore::mainWindow(), tr("Cannot Copy Project"), error);
                         // do not fail, just warn;
                     }
@@ -426,7 +428,7 @@ void ExamplesWelcomePage::openProject(const QString &projectFile, const QStringL
         Core::ICore::helpManager()->handleHelpRequest(help.toString()+QLatin1String("?view=split"));
     }
     if (!errorMessage.isEmpty())
-        QMessageBox::critical(Core::ICore::mainWindow(), tr("Failed to open project"), errorMessage);
+        QMessageBox::critical(Core::ICore::mainWindow(), tr("Failed to Open Project"), errorMessage);
 }
 
 void ExamplesWelcomePage::updateTagsModel()

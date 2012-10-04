@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -81,35 +79,16 @@ Settings SettingsWidget::settings()
 SettingsPage::SettingsPage(const QSharedPointer<Settings> &settings) :
     m_settings(settings), m_widget(0)
 {
+    setId(QLatin1String("A.General"));
+    setDisplayName(tr("General"));
+    setCategory(QLatin1String(Constants::CPASTER_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("CodePaster",
+        Constants::CPASTER_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Constants::SETTINGS_CATEGORY_CPASTER_ICON));
 }
 
 SettingsPage::~SettingsPage()
 {
-}
-
-QString SettingsPage::id() const
-{
-    return QLatin1String("A.General");
-}
-
-QString SettingsPage::displayName() const
-{
-    return tr("General");
-}
-
-QString SettingsPage::category() const
-{
-    return QLatin1String(Constants::CPASTER_SETTINGS_CATEGORY);
-}
-
-QString SettingsPage::displayCategory() const
-{
-    return QCoreApplication::translate("CodePaster", Constants::CPASTER_SETTINGS_TR_CATEGORY);
-}
-
-QIcon SettingsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Constants::SETTINGS_CATEGORY_CPASTER_ICON));
 }
 
 QWidget *SettingsPage::createPage(QWidget *parent)

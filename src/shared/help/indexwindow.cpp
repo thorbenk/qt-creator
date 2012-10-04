@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,6 +37,7 @@
 #include "topicchooser.h"
 
 #include <utils/filterlineedit.h>
+#include <utils/hostosinfo.h>
 #include <utils/styledbar.h>
 
 #include <QLayout>
@@ -167,13 +166,12 @@ bool IndexWindow::eventFilter(QObject *obj, QEvent *e)
             }
         }
     }
-#ifdef Q_OS_MAC
-    else if (obj == m_indexWidget && e->type() == QEvent::KeyPress) {
+    else if (Utils::HostOsInfo::isMacHost() && obj == m_indexWidget
+             && e->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent*>(e);
         if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
            m_indexWidget->activateCurrentItem();
     }
-#endif
 
     return QWidget::eventFilter(obj, e);
 }

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -39,65 +37,106 @@
             \o  Meaning
 
         \row
-            \o
-                \raw HTML
-                Qt&nbsp;in&nbsp;PATH
-                \endraw
-                \target glossary-system-qt
-            \o  This is the Qt
-                version for the \c qmake command found in your \c PATH
-                environment variable.
-                This is likely to be the system's Qt version.
-
-
-        \row
-            \o
-                \raw HTML
-                Project&nbsp;Qt
-                \endraw
-                \target glossary-project-qt
-            \o  The version of Qt configured in the \gui{Projects} mode,
-                \gui {Build Settings}, \gui {Qt Version} field. This is the Qt
-                version that is actually used by a particular project.
+            \o  Build configuration
+                \target glossary-build-config
+            \o  Contains all the information you need to compile the sources
+                into binaries. Different build configurations allow you to
+                quickly build the project for different purposes.
+                By default, \QC creates \e {debug build} and \e {release build}
+                configurations for each \l{glossary-buildandrun-kit}{kit} defined for your project.
+                A debug build contains
+                additional debug symbols that you need for debugging the
+                application but that you can leave out from the release version.
+                Generally, you use the debug configuration for testing and the
+                release configuration for creating the final installation file.
 
         \row
-            \o
-                \raw HTML
-                Shadow&nbsp;build
-                \endraw
-                \target glossary-shadow-build
-            \o  Shadow building means building a project in a separate
-                directory, the \e{build directory}. The build directory is
-                different from the source directory. One of the benefits of
-                shadow building is that it keeps your source directory clean.
-                Shadow building is the best practice if you need many build
-                configurations for a single set of source.
+            \o  Build step
+                \target glossary-build-step
+            \o  A command that \QC executes to accomplish a basic step in a
+                complex task such as cleaning, building, or deploying a project.
+                \QC executes build steps in sequence to complete the task.
+                The number and type of necessary build steps depends on the
+                project type and the build system you use. For example, projects
+                that are based on \c qmake specify build steps to use \c qmake
+                and \c make.
 
         \row
-            \o
-                \raw HTML
-                Target
-                \endraw
-                \target glossary-development-target
-            \o  Target means the software platform for which you develop an
-                application. \QC groups platform specific settings (such
-                as build configurations, compatible tool chains, and supported
-                Qt versions) as targets to make cross-platform development
-                easier.
-
-        \row
-            \o
-                \raw HTML
-                Component
-                \endraw
+            \o  Component
                 \target glossary-component
-            \o  A component is an instantiable QML definition, typically
+            \o  An instantiable QML definition, typically
                 contained in a .qml file. For instance, a Button component may
                 be defined in Button.qml. The QML runtime may instantiate this
                 Button component to create Button objects. Alternatively, a
                 component may be defined inside a
-                \l{http://doc.qt.nokia.com/4.7-snapshot/qmlreusablecomponents.html}
+                \l{http://qt-project.org/doc/qt-4.8/qmlreusablecomponents.html}
                 {Component} element.
+
+        \row
+            \o  Deploy configuration
+                \target glossary-deploy-config
+            \o  Handles the packaging and copying of the necessary files to a
+                location you want to run the executable at. The files can be
+                copied to a location in the file system of the development PC or
+                a mobile device.
+
+        \row
+            \o  Kit
+                \target glossary-buildandrun-kit
+            \o  \QC groups build and run specific settings as kits to make
+                cross-platform development easier. Each kit consists of a set
+                of values that define one environment, such as a device,
+                tool chain, Qt version, and debugger command to use. Configure kits at
+                \gui {Tools > Options > Build & Run > Kits}.
+
+        \row
+            \o  Mode
+                \target glossary-mode
+            \o  Adapts the \QC user interface to the different application
+                development tasks at hand. Each mode has its own view that shows
+                only the information required for performing a particular task,
+                and provides only the most relevant features and functions
+                related to it. As a result, the majority of the \QC window area
+                is always dedicated to actual application development tasks.
+
+        \row
+            \o  Project
+                \target glossary-project
+            \o  Groups together a set of source files, forms, and resource files
+                that you can build, deploy, and run for different desktop and
+                mobile device platforms, as
+                specified by a \e {build configuration}, \e {deploy
+                configuration}, and \e {run configuration}.
+
+        \row
+            \o  Qt version
+                \target glossary-project-qt
+            \o  \QC allows you to have multiple versions of Qt installed on your
+                development PC and use different versions to build your projects
+                for different purposes.
+
+        \row
+            \o  Run configuration
+                \target glossary-run-config
+            \o  Starts the application in the location where it was copied by
+                the \e {deploy configuration}. By default, when you run a
+                project, \QC builds it, deploys it to the device specified in the selected
+                \l{glossary-buildandrun-kit}{kit},
+                and runs it there. However, if you have not made any changes to
+                the project since you last built and deployed it, \QC simply
+                runs it again.
+
+        \row
+            \o  Shadow build
+                \target glossary-shadow-build
+            \o  Shadow building means building a project in a separate
+                directory, the \e{build directory}. The build directory is
+                different from the \e {source directory}. One of the benefits of
+                shadow building is that it keeps your source directory clean,
+                which makes it faster to switch between \e {build
+                configurations}. Therefore, shadow building is the best practice
+                if you need many build configurations for a single set of
+                source files.
 
     \endtable
 

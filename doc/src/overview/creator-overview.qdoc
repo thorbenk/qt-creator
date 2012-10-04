@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -62,7 +60,8 @@
 
                 \QC provides two integrated visual editors, \QMLD and \QD.
                 To create intuitive, modern-looking, fluid user interfaces, you
-                can use \l {http://doc.qt.nokia.com/4.7/qtquick.html}{Qt Quick}.
+                can use \l {http://qt-project.org/doc/qt-4.8/qtquick.html}
+                {Qt Quick}.
                 If you need a traditional user interface that is clearly
                 structured and enforces a platform look and feel, you can use
                 the integrated \QD. For more information, see
@@ -88,9 +87,10 @@
                 and commands used to build the project.
 
                 \QC provides support for building, running, and deploying Qt
-                applications for desktop environment and mobile devices. Build,
+                applications for desktop environment and mobile devices.
+                \l{glossary-buildandrun-kit}{Kits}, build,
                 run, and deployment settings allow you to quickly switch between
-                targets.
+                different setups and target platforms.
 
                 For more information, see \l{Building and Running}.
             \o  \bold {\l{Debugging and Analyzing}}

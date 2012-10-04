@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -95,7 +93,6 @@ class VCSBASE_EXPORT VcsBaseEditorWidget : public TextEditor::BaseTextEditorWidg
     Q_PROPERTY(QString annotateRevisionTextFormat READ annotateRevisionTextFormat WRITE setAnnotateRevisionTextFormat)
     Q_PROPERTY(QString copyRevisionTextFormat READ copyRevisionTextFormat WRITE setCopyRevisionTextFormat)
     Q_PROPERTY(bool isFileLogAnnotateEnabled READ isFileLogAnnotateEnabled WRITE setFileLogAnnotateEnabled)
-    Q_PROPERTY(bool revertDiffChunkEnabled READ isRevertDiffChunkEnabled WRITE setRevertDiffChunkEnabled)
     Q_OBJECT
 
 protected:
@@ -141,10 +138,6 @@ public:
     // Base directory for diff views
     QString diffBaseDirectory() const;
     void setDiffBaseDirectory(const QString &d);
-
-    // Diff: Can revert?
-    bool isRevertDiffChunkEnabled() const;
-    void setRevertDiffChunkEnabled(bool e);
 
     bool isModified() const;
 
@@ -254,9 +247,13 @@ private:
     // Implement to return a local file name from the diff file specification
     // (text cursor at position above change hunk)
     virtual QString fileNameFromDiffSpecification(const QTextBlock &diffFileSpec) const = 0;
+    // Implement to return decorated annotation change for "Annotate version"
+    virtual QString decorateVersion(const QString &revision) const;
     // Implement to return the previous version[s] of an annotation change
     // for "Annotate previous version"
     virtual QStringList annotationPreviousVersions(const QString &revision) const;
+    // Implement to validate revisions
+    virtual bool isValidRevision(const QString &revision) const;
     // cut out chunk and determine file name.
     DiffChunk diffChunk(QTextCursor cursor) const;
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -66,8 +64,6 @@ public:
 
     Id id() const;
 
-    QAction *action() const;
-    QShortcut *shortcut() const;
     Context context() const;
 
 
@@ -100,6 +96,8 @@ public:
     void setShortcut(QShortcut *shortcut);
     QShortcut *shortcut() const;
 
+    QAction *action() const { return 0; }
+
     void setContext(const Context &context);
     Context context() const;
     void setCurrentContext(const Context &context);
@@ -125,6 +123,7 @@ public:
     QKeySequence keySequence() const;
 
     QAction *action() const;
+    QShortcut *shortcut() const { return 0; }
 
     void setCurrentContext(const Context &context);
     bool isActive() const;

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -86,6 +84,7 @@ namespace Internal {
         SearchResultWindowPrivate(SearchResultWindow *window);
         bool isSearchVisible() const;
         int visibleSearchIndex() const;
+        void setCurrentIndex(int index, bool focus);
 
         SearchResultWindow *q;
         QList<Internal::SearchResultWidget *> m_searchResultWidgets;
@@ -102,6 +101,7 @@ namespace Internal {
     public slots:
         void setCurrentIndex(int index);
         void moveWidgetToTop();
+        void popupRequested(bool focus);
     };
 
     SearchResultWindowPrivate::SearchResultWindowPrivate(SearchResultWindow *window)
@@ -119,7 +119,7 @@ namespace Internal {
         return m_currentIndex - 1;
     }
 
-    void SearchResultWindowPrivate::setCurrentIndex(int index)
+    void SearchResultWindowPrivate::setCurrentIndex(int index, bool focus)
     {
         if (isSearchVisible())
             m_searchResultWidgets.at(visibleSearchIndex())->notifyVisibilityChanged(false);
@@ -127,14 +127,21 @@ namespace Internal {
         m_widget->setCurrentIndex(index);
         m_recentSearchesBox->setCurrentIndex(index);
         if (!isSearchVisible()) {
-            m_widget->currentWidget()->setFocus();
+            if (focus)
+                m_widget->currentWidget()->setFocus();
             m_expandCollapseButton->setEnabled(false);
         } else {
-            m_searchResultWidgets.at(visibleSearchIndex())->setFocusInternally();
+            if (focus)
+                m_searchResultWidgets.at(visibleSearchIndex())->setFocusInternally();
             m_searchResultWidgets.at(visibleSearchIndex())->notifyVisibilityChanged(true);
             m_expandCollapseButton->setEnabled(true);
         }
         q->navigateStateChanged();
+    }
+
+    void SearchResultWindowPrivate::setCurrentIndex(int index)
+    {
+        setCurrentIndex(index, true/*focus*/);
     }
 
     void SearchResultWindowPrivate::moveWidgetToTop()
@@ -169,6 +176,16 @@ namespace Internal {
             // only our internal book keeping needed
             ++m_currentIndex;
         }
+    }
+
+    void SearchResultWindowPrivate::popupRequested(bool focus)
+    {
+        SearchResultWidget *widget = qobject_cast<SearchResultWidget *>(sender());
+        QTC_ASSERT(widget, return);
+        int internalIndex = m_searchResultWidgets.indexOf(widget) + 1/*account for "new search" entry*/;
+        setCurrentIndex(internalIndex, focus);
+        q->popup(focus ? Core::IOutputPane::ModeSwitch | Core::IOutputPane::WithFocus
+                       : Core::IOutputPane::NoModeSwitch);
     }
 }
 
@@ -279,7 +296,7 @@ SearchResultWindow::SearchResultWindow(QWidget *newSearchPanel)
     d->m_expandCollapseAction = new QAction(tr("Expand All"), this);
     d->m_expandCollapseAction->setCheckable(true);
     d->m_expandCollapseAction->setIcon(QIcon(QLatin1String(":/find/images/expand.png")));
-    Core::Command *cmd = Core::ICore::actionManager()->registerAction(
+    Core::Command *cmd = Core::ActionManager::registerAction(
             d->m_expandCollapseAction, "Find.ExpandAll",
             Core::Context(Core::Constants::C_GLOBAL));
     cmd->setAttribute(Core::Command::CA_UpdateText);
@@ -367,8 +384,9 @@ SearchResult *SearchResultWindow::startNewSearch(const QString &label,
 {
     if (d->m_searchResults.size() >= MAX_SEARCH_HISTORY) {
         d->m_searchResultWidgets.last()->notifyVisibilityChanged(false);
-        delete d->m_searchResults.takeLast();
+        // widget first, because that might send interesting signals to SearchResult
         delete d->m_searchResultWidgets.takeLast();
+        delete d->m_searchResults.takeLast();
         d->m_recentSearchesBox->removeItem(d->m_recentSearchesBox->count()-1);
         if (d->m_currentIndex >= d->m_recentSearchesBox->count()) {
             // temporarily set the index to the last existing
@@ -380,6 +398,7 @@ SearchResult *SearchResultWindow::startNewSearch(const QString &label,
     d->m_widget->insertWidget(1, widget);
     connect(widget, SIGNAL(navigateStateChanged()), this, SLOT(navigateStateChanged()));
     connect(widget, SIGNAL(restarted()), d, SLOT(moveWidgetToTop()));
+    connect(widget, SIGNAL(requestPopup(bool)), d, SLOT(popupRequested(bool)));
     widget->setTextEditorFont(d->m_font);
     widget->setShowReplaceUI(searchOrSearchAndReplace != SearchOnly);
     widget->setAutoExpandResults(d->m_expandCollapseAction->isChecked());
@@ -462,7 +481,7 @@ void SearchResultWindow::setTextEditorFont(const QFont &font)
 void SearchResultWindow::openNewSearchPanel()
 {
     d->setCurrentIndex(0);
-    popup(true/*focus*/, true/*sizeHint*/);
+    popup(IOutputPane::ModeSwitch  | IOutputPane::WithFocus | IOutputPane::EnsureSizeHint);
 }
 
 /*!
@@ -584,6 +603,8 @@ SearchResult::SearchResult(SearchResultWidget *widget)
             this, SIGNAL(replaceButtonClicked(QString,QList<Find::SearchResultItem>)));
     connect(widget, SIGNAL(cancelled()),
             this, SIGNAL(cancelled()));
+    connect(widget, SIGNAL(paused(bool)),
+            this, SIGNAL(paused(bool)));
     connect(widget, SIGNAL(visibilityChanged(bool)),
             this, SIGNAL(visibilityChanged(bool)));
     connect(widget, SIGNAL(searchAgainRequested()),
@@ -669,9 +690,9 @@ void SearchResult::addResults(const QList<SearchResultItem> &items, AddMode mode
     \brief Notifies the search result window that the current search
     has finished, and the UI should reflect that.
 */
-void SearchResult::finishSearch()
+void SearchResult::finishSearch(bool canceled)
 {
-    m_widget->finishSearch();
+    m_widget->finishSearch(canceled);
 }
 
 /*!
@@ -695,6 +716,14 @@ void SearchResult::restart()
 void SearchResult::setSearchAgainEnabled(bool enabled)
 {
     m_widget->setSearchAgainEnabled(enabled);
+}
+
+/*!
+ * \brief Pops up the search result panel with this search.
+ */
+void SearchResult::popup()
+{
+    m_widget->sendRequestPopup();
 }
 
 } // namespace Find

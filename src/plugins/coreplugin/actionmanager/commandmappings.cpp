@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,23 +25,19 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "commandmappings.h"
 #include "shortcutsettings.h"
 #include "ui_commandmappings.h"
-#include "actionmanager_p.h"
-#include "actionmanager/command.h"
-#include "command_p.h"
 #include "commandsfile.h"
 #include "coreconstants.h"
 #include "documentmanager.h"
 #include "icore.h"
 #include "id.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/treewidgetcolumnstretcher.h>
 
 #include <QKeyEvent>
@@ -50,7 +46,7 @@
 #include <QTreeWidgetItem>
 #include <QFileDialog>
 #include <QCoreApplication>
-#include <QtDebug>
+#include <QDebug>
 
 Q_DECLARE_METATYPE(Core::Internal::ShortcutItem*)
 
@@ -59,10 +55,6 @@ using namespace Core::Internal;
 
 CommandMappings::CommandMappings(QObject *parent)
     : IOptionsPage(parent), m_page(0)
-{
-}
-
-CommandMappings::~CommandMappings()
 {
 }
 
@@ -165,38 +157,42 @@ void CommandMappings::filterChanged(const QString &f)
         return;
     for (int i=0; i<m_page->commandList->topLevelItemCount(); ++i) {
         QTreeWidgetItem *item = m_page->commandList->topLevelItem(i);
-        item->setHidden(filter(f, item));
+        filter(f, item);
     }
 }
 
-bool CommandMappings::filter(const QString &f, const QTreeWidgetItem *item)
+bool CommandMappings::filter(const QString &filterString, QTreeWidgetItem *item)
 {
-    if (QTreeWidgetItem *parent = item->parent()) {
-        if (parent->text(0).contains(f, Qt::CaseInsensitive))
-            return false;
+    bool visible = filterString.isEmpty();
+    int columnCount = item->columnCount();
+    for (int i = 0; !visible && i < columnCount; ++i) {
+        QString text = item->text(i);
+        if (Utils::HostOsInfo::isMacHost()) {
+            // accept e.g. Cmd+E in the filter. the text shows special fancy characters for Cmd
+            if (i == columnCount - 1) {
+                QKeySequence key = QKeySequence::fromString(text, QKeySequence::NativeText);
+                if (!key.isEmpty()) {
+                    text = key.toString(QKeySequence::PortableText);
+                    text.replace(QLatin1String("Ctrl"), QLatin1String("Cmd"));
+                    text.replace(QLatin1String("Meta"), QLatin1String("Ctrl"));
+                    text.replace(QLatin1String("Alt"), QLatin1String("Opt"));
+                }
+            }
+        }
+        visible |= (bool)text.contains(filterString, Qt::CaseInsensitive);
     }
 
-    if (item->childCount() == 0) {
-        if (f.isEmpty())
-            return false;
-        for (int i = 0; i < item->columnCount(); ++i) {
-            if (item->text(i).contains(f, Qt::CaseInsensitive))
-                return false;
-        }
-        return true;
-    }
-
-    bool found = false;
-    for (int i = 0; i < item->childCount(); ++i) {
-        QTreeWidgetItem *citem = item->child(i);
-        if (filter(f, citem)) {
-            citem->setHidden(true);
-        } else {
-            citem->setHidden(false);
-            found = true;
+    int childCount = item->childCount();
+    if (childCount > 0) {
+        // force visibility if this item matches
+        QString leafFilterString = visible ? QString() : filterString;
+        for (int i = 0; i < childCount; ++i) {
+            QTreeWidgetItem *citem = item->child(i);
+            visible |= !filter(leafFilterString, citem); // parent visible if any child visible
         }
     }
-    return !found;
+    item->setHidden(!visible);
+    return !visible;
 }
 
 void CommandMappings::setModified(QTreeWidgetItem *item , bool modified)

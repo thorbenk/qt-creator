@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -110,9 +108,7 @@ Core::BaseFileWizardParameters Html5AppWizard::parameters()
     parameters.setDescription(tr("Creates an HTML5 application project that can contain "
                                  "both HTML5 and C++ code and includes a WebKit view.\n\n"
                                  "You can build the application and deploy it on desktop and "
-                                 "mobile target platforms. For example, you can create signed "
-                                 "Symbian Installation System (SIS) packages for this type of "
-                                 "projects."));
+                                 "mobile target platforms."));
     parameters.setCategory(QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY));
     parameters.setDisplayCategory(QLatin1String(ProjectExplorer::Constants::QT_APPLICATION_WIZARD_CATEGORY_DISPLAY));
     return parameters;
@@ -129,7 +125,8 @@ AbstractMobileAppWizardDialog *Html5AppWizard::createWizardDialogInternal(QWidge
 
 void Html5AppWizard::projectPathChanged(const QString &path) const
 {
-    d->wizardDialog->targetsPage()->setProFilePath(path);
+    if (d->wizardDialog->targetsPage())
+        d->wizardDialog->targetsPage()->setProFilePath(path);
 }
 
 void Html5AppWizard::prepareGenerateFiles(const QWizard *w,

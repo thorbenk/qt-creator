@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -81,6 +79,8 @@ public:
     QList<EnvironmentItem> diff(const Environment &other) const;
     bool hasKey(const QString &key);
 
+    QString userName() const;
+
     void appendOrSet(const QString &key, const QString &value, const QString &sep = QString());
     void prependOrSet(const QString &key, const QString &value, const QString &sep = QString());
 
@@ -110,8 +110,7 @@ public:
     bool operator==(const Environment &other) const;
 
 private:
-    QString searchInPath(const QStringList &executables,
-                         const QStringList &additionalDirs = QStringList()) const;
+    QString searchInDirectory(const QStringList &execs, QString directory) const;
     QMap<QString, QString> m_values;
 };
 

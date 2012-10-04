@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,76 +25,67 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "androidpackagecreationfactory.h"
 
 #include "androidpackagecreationstep.h"
+#include "androidmanager.h"
 
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
-#include <qt4projectmanager/qt4projectmanagerconstants.h>
 
-#include <QCoreApplication>
-
-using ProjectExplorer::BuildStepList;
-using ProjectExplorer::BuildStep;
+using namespace ProjectExplorer;
 
 namespace Android {
 namespace Internal {
 
 AndroidPackageCreationFactory::AndroidPackageCreationFactory(QObject *parent)
-    : ProjectExplorer::IBuildStepFactory(parent)
+    : IBuildStepFactory(parent)
 {
 }
 
-QList<Core::Id> AndroidPackageCreationFactory::availableCreationIds(ProjectExplorer::BuildStepList *parent) const
+QList<Core::Id> AndroidPackageCreationFactory::availableCreationIds(BuildStepList *parent) const
 {
-    if (parent->id() == Core::Id(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY)
-        && parent->target()->id() == Core::Id(Qt4ProjectManager::Constants::ANDROID_DEVICE_TARGET_ID)
-        && !parent->contains(AndroidPackageCreationStep::CreatePackageId))
-        return QList<Core::Id>() << AndroidPackageCreationStep::CreatePackageId;
-    return QList<Core::Id>();
+    if (parent->id() != Constants::BUILDSTEPS_DEPLOY)
+        return QList<Core::Id>();
+    if (!AndroidManager::supportsAndroid(parent->target()))
+        return QList<Core::Id>();
+    if (parent->contains(AndroidPackageCreationStep::CreatePackageId))
+        return QList<Core::Id>();
+    return QList<Core::Id>() << AndroidPackageCreationStep::CreatePackageId;
 }
 
 QString AndroidPackageCreationFactory::displayNameForId(const Core::Id id) const
 {
     if (id == AndroidPackageCreationStep::CreatePackageId)
-        return QCoreApplication::translate("Qt4ProjectManager::Internal::AndroidPackageCreationFactory",
-                                           "Create Android (.apk) Package");
+        return tr("Create Android (.apk) Package");
     return QString();
 }
 
-bool AndroidPackageCreationFactory::canCreate(ProjectExplorer::BuildStepList *parent, const Core::Id id) const
+bool AndroidPackageCreationFactory::canCreate(BuildStepList *parent, const Core::Id id) const
 {
-    return parent->id() == Core::Id(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY)
-        && id == Core::Id(AndroidPackageCreationStep::CreatePackageId)
-        && parent->target()->id() == Core::Id(Qt4ProjectManager::Constants::ANDROID_DEVICE_TARGET_ID)
-        && !parent->contains(AndroidPackageCreationStep::CreatePackageId);
+    return availableCreationIds(parent).contains(id);
 }
 
-BuildStep *AndroidPackageCreationFactory::create(ProjectExplorer::BuildStepList *parent, const Core::Id id)
+BuildStep *AndroidPackageCreationFactory::create(BuildStepList *parent, const Core::Id id)
 {
     Q_ASSERT(canCreate(parent, id));
+    Q_UNUSED(id);
     return new AndroidPackageCreationStep(parent);
 }
 
-bool AndroidPackageCreationFactory::canRestore(ProjectExplorer::BuildStepList *parent,
-                                               const QVariantMap &map) const
+bool AndroidPackageCreationFactory::canRestore(BuildStepList *parent, const QVariantMap &map) const
 {
-    return canCreate(parent, ProjectExplorer::idFromMap(map));
+    return canCreate(parent, idFromMap(map));
 }
 
-BuildStep *AndroidPackageCreationFactory::restore(ProjectExplorer::BuildStepList *parent,
-                                                  const QVariantMap &map)
+BuildStep *AndroidPackageCreationFactory::restore(BuildStepList *parent, const QVariantMap &map)
 {
     Q_ASSERT(canRestore(parent, map));
-    AndroidPackageCreationStep *const step
-        = new AndroidPackageCreationStep(parent);
+    AndroidPackageCreationStep *const step = new AndroidPackageCreationStep(parent);
     if (!step->fromMap(map)) {
         delete step;
         return 0;
@@ -102,14 +93,12 @@ BuildStep *AndroidPackageCreationFactory::restore(ProjectExplorer::BuildStepList
     return step;
 }
 
-bool AndroidPackageCreationFactory::canClone(ProjectExplorer::BuildStepList *parent,
-                                             ProjectExplorer::BuildStep *product) const
+bool AndroidPackageCreationFactory::canClone(BuildStepList *parent, BuildStep *product) const
 {
     return canCreate(parent, product->id());
 }
 
-BuildStep *AndroidPackageCreationFactory::clone(ProjectExplorer::BuildStepList *parent,
-                                                ProjectExplorer::BuildStep *product)
+BuildStep *AndroidPackageCreationFactory::clone(BuildStepList *parent, BuildStep *product)
 {
     Q_ASSERT(canClone(parent, product));
     return new AndroidPackageCreationStep(parent, static_cast<AndroidPackageCreationStep *>(product));

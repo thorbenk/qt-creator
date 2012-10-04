@@ -10,7 +10,7 @@ QtcPlugin {
     Depends { name: "ProjectExplorer" }
     Depends { name: "Find" }
     Depends { name: "cpp" }
-    Depends { name: "qt"; submodules: ['widgets'] }
+    Depends { name: "Qt.widgets" }
     Depends { name: "CppTools" }
     Depends { name: "CPlusPlus" }
 
@@ -84,7 +84,6 @@ QtcPlugin {
         "vcsbasesubmiteditor.h",
         "vcsconfigurationpage.cpp",
         "vcsconfigurationpage.h",
-        "vcsconfigurationpage.ui",
         "vcsplugin.cpp",
         "vcsplugin.h",
         "images/diff.png",

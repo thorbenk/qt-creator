@@ -6,7 +6,7 @@
 **
 ** Author: Milian Wolff, KDAB (milian.wolff@kdab.com)
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -27,8 +27,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -56,6 +54,11 @@ AnalyzerGlobalSettings *AnalyzerGlobalSettings::m_instance = 0;
 AnalyzerSettings::AnalyzerSettings(QObject *parent)
     : QObject(parent)
 {
+}
+
+AnalyzerSettings::AnalyzerSettings(AnalyzerSettings *other)
+{
+    Q_UNUSED(other);
 }
 
 QVariantMap AnalyzerSettings::defaults() const
@@ -152,8 +155,8 @@ void AnalyzerGlobalSettings::registerTool(IAnalyzerTool *tool)
 }
 
 
-AnalyzerRunConfigurationAspect::AnalyzerRunConfigurationAspect(QObject *parent)
-    : AnalyzerSettings(parent), m_useGlobalSettings(true)
+AnalyzerRunConfigurationAspect::AnalyzerRunConfigurationAspect()
+    : AnalyzerSettings((QObject *)0), m_useGlobalSettings(true)
 {
     QList<IAnalyzerTool*> tools = AnalyzerManager::tools();
     // add sub configs
@@ -165,6 +168,19 @@ AnalyzerRunConfigurationAspect::AnalyzerRunConfigurationAspect(QObject *parent)
 
     m_subConfigs = AnalyzerGlobalSettings::instance()->subConfigs();
     resetCustomToGlobalSettings();
+}
+
+AnalyzerRunConfigurationAspect::AnalyzerRunConfigurationAspect(AnalyzerRunConfigurationAspect *other)
+    : AnalyzerSettings(other), m_useGlobalSettings(other->m_useGlobalSettings)
+{
+
+    foreach (AbstractAnalyzerSubConfig *config, other->m_customConfigurations)
+        m_customConfigurations.append(config->clone());
+
+    if (m_useGlobalSettings)
+        m_subConfigs = AnalyzerGlobalSettings::instance()->subConfigs();
+    else
+        m_subConfigs = m_customConfigurations;
 }
 
 AnalyzerRunConfigurationAspect::~AnalyzerRunConfigurationAspect()

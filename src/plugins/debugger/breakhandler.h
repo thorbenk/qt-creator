@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -138,6 +136,7 @@ public:
     void updateLineNumberFromMarker(BreakpointModelId id, int lineNumber);
     void setMarkerFileAndLine(BreakpointModelId id,
         const QString &fileName, int lineNumber);
+    bool isOneShot(BreakpointModelId id) const;
     bool isWatchpoint(BreakpointModelId id) const;
     bool isTracepoint(BreakpointModelId id) const;
     void setTracepoint(BreakpointModelId, bool on);
@@ -167,6 +166,10 @@ public:
 
     static QString displayFromThreadSpec(int spec);
     static int threadSpecFromDisplay(const QString &str);
+
+    // Convenience.
+    void setWatchpointAtAddress(quint64 address, unsigned size);
+    void setWatchpointAtExpression(const QString &exp);
 
 private:
     // QAbstractItemModel implementation.

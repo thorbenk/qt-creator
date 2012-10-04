@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,14 +37,14 @@
 
 #include <QWidget>
 
-QT_FORWARD_DECLARE_CLASS(QFormLayout)
-QT_FORWARD_DECLARE_CLASS(QGridLayout)
+QT_BEGIN_NAMESPACE
+class QFormLayout;
+class QGridLayout;
+class QLineEdit;
+class QLabel;
+QT_END_NAMESPACE
 
 namespace ProjectExplorer {
-
-namespace Internal {
-class ToolChainConfigWidgetPrivate;
-} // namespace Internal
 
 class ToolChain;
 
@@ -61,47 +59,33 @@ class PROJECTEXPLORER_EXPORT ToolChainConfigWidget : public QWidget
 public:
     ToolChainConfigWidget(ProjectExplorer::ToolChain *);
 
-    void setDisplayName(const QString &);
-    virtual void apply() = 0;
-    virtual void discard() = 0;
-    virtual bool isDirty() const = 0;
-
     ProjectExplorer::ToolChain *toolChain() const;
 
-    virtual void makeReadOnly();
+    void apply();
+    void discard();
+    bool isDirty() const;
+    void makeReadOnly();
 
 signals:
     void dirty();
 
 protected slots:
-    void emitDirty();
-    void resetMkspecList();
     void setErrorMessage(const QString &);
     void clearErrorMessage();
 
 protected:
-    void addDebuggerCommandControls(QFormLayout *lt,
-                                    const QStringList &versionArguments = QStringList());
-    void addDebuggerCommandControls(QGridLayout *lt,
-                                    int row = 0, int column = 0,
-                                    const QStringList &versionArguments = QStringList());
-    void addDebuggerAutoDetection(QObject *receiver, const char *autoDetectSlot);
-    void addMkspecControls(QFormLayout *lt);
-    void addMkspecControls(QGridLayout *lt, int row = 0, int column = 0);
-    void addErrorLabel(QFormLayout *lt);
-    void addErrorLabel(QGridLayout *lt, int row = 0, int column = 0, int colSpan = 1);
+    virtual void applyImpl() = 0;
+    virtual void discardImpl() = 0;
+    virtual bool isDirtyImpl() const = 0;
+    virtual void makeReadOnlyImpl() = 0;
 
-    Utils::FileName debuggerCommand() const;
-    void setDebuggerCommand(const Utils::FileName &debugger);
-
-    QList<Utils::FileName> mkspecList() const;
-    void setMkspecList(const QList<Utils::FileName> &specList);
+    void addErrorLabel();
+    QFormLayout *m_mainLayout;
+    QLineEdit *m_nameLineEdit;
 
 private:
-    void ensureDebuggerPathChooser(const QStringList &versionArguments);
-    void ensureMkspecEdit();
-
-    Internal::ToolChainConfigWidgetPrivate *d;
+    ToolChain *m_toolChain;
+    QLabel *m_errorLabel;
 };
 
 } // namespace ProjectExplorer

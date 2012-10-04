@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,6 +39,7 @@
 #include <coreplugin/documentmanager.h>
 #include <coreplugin/id.h>
 #include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/actionmanager/command.h>
 #include <utils/qtcassert.h>
 
 #include <QTimer>
@@ -119,6 +118,7 @@ OpenEditorsWidget::OpenEditorsWidget()
     m_ui.editorList->header()->resizeSection(1, 16);
     m_ui.editorList->setContextMenuPolicy(Qt::CustomContextMenu);
     m_ui.editorList->installEventFilter(this);
+    m_ui.editorList->viewport()->installEventFilter(this);
 
     connect(em, SIGNAL(currentEditorChanged(Core::IEditor*)),
             this, SLOT(updateCurrentItem(Core::IEditor*)));
@@ -162,6 +162,17 @@ bool OpenEditorsWidget::eventFilter(QObject *obj, QEvent *event)
                    || ke->key() == Qt::Key_Backspace)
                 && ke->modifiers() == 0) {
             closeEditor(m_ui.editorList->currentIndex());
+        }
+    } else if (obj == m_ui.editorList->viewport()
+             && event->type() == QEvent::MouseButtonRelease) {
+        QMouseEvent * me = static_cast<QMouseEvent*>(event);
+        if (me->button() == Qt::MiddleButton
+                && me->modifiers() == Qt::NoModifier) {
+            QModelIndex index = m_ui.editorList->indexAt(me->pos());
+            if (index.isValid()) {
+                closeEditor(index);
+                return true;
+            }
         }
     }
     return false;
@@ -240,7 +251,7 @@ Core::Id OpenEditorsViewFactory::id() const
 
 QKeySequence OpenEditorsViewFactory::activationSequence() const
 {
-    return QKeySequence(Qt::ALT + Qt::Key_O);
+    return QKeySequence(Core::UseMacShortcuts ? tr("Meta+O") : tr("Alt+O"));
 }
 
 OpenEditorsViewFactory::OpenEditorsViewFactory()

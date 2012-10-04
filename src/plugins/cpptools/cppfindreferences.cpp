@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -113,6 +111,8 @@ public:
     QList<Usage> operator()(const QString &fileName)
     {
         QList<Usage> usages;
+        if (future->isPaused())
+            future->waitForResume();
         if (future->isCanceled())
             return usages;
         const Identifier *symbolId = symbol->identifier();
@@ -145,6 +145,8 @@ public:
             usages = process.usages();
         }
 
+        if (future->isPaused())
+            future->waitForResume();
         return usages;
     }
 };
@@ -252,6 +254,7 @@ void CppFindReferences::findUsages(CPlusPlus::Symbol *symbol,
     search->setTextToReplace(replacement);
     connect(search, SIGNAL(replaceButtonClicked(QString,QList<Find::SearchResultItem>)),
             SLOT(onReplaceButtonClicked(QString,QList<Find::SearchResultItem>)));
+    connect(search, SIGNAL(paused(bool)), this, SLOT(setPaused(bool)));
     search->setSearchAgainSupported(true);
     connect(search, SIGNAL(searchAgainRequested()), this, SLOT(searchAgain()));
     CppFindReferencesParameters parameters;
@@ -275,14 +278,14 @@ void CppFindReferences::findAll_helper(Find::SearchResult *search)
 {
     CppFindReferencesParameters parameters = search->userData().value<CppFindReferencesParameters>();
     if (!(parameters.symbol && parameters.symbol->identifier())) {
-        search->finishSearch();
+        search->finishSearch(false);
         return;
     }
     connect(search, SIGNAL(cancelled()), this, SLOT(cancel()));
     connect(search, SIGNAL(activated(Find::SearchResultItem)),
             this, SLOT(openEditor(Find::SearchResultItem)));
 
-    Find::SearchResultWindow::instance()->popup(true);
+    Find::SearchResultWindow::instance()->popup(Core::IOutputPane::ModeSwitch | Core::IOutputPane::WithFocus);
     const CppModelManagerInterface::WorkingCopy workingCopy = _modelManager->workingCopy();
     QFuture<Usage> result;
     result = QtConcurrent::run(&find_helper, workingCopy,
@@ -293,7 +296,7 @@ void CppFindReferences::findAll_helper(Find::SearchResult *search)
     Core::FutureProgress *progress = progressManager->addTask(result, tr("Searching"),
                                                               CppTools::Constants::TASK_SEARCH);
 
-    connect(progress, SIGNAL(clicked()), Find::SearchResultWindow::instance(), SLOT(popup()));
+    connect(progress, SIGNAL(clicked()), search, SLOT(popup()));
 }
 
 void CppFindReferences::onReplaceButtonClicked(const QString &text,
@@ -313,7 +316,7 @@ void CppFindReferences::searchAgain()
     Snapshot snapshot = CppModelManagerInterface::instance()->snapshot();
     search->restart();
     if (!findSymbol(&parameters, snapshot)) {
-        search->finishSearch();
+        search->finishSearch(false);
         return;
     }
     search->setUserData(qVariantFromValue(parameters));
@@ -498,7 +501,7 @@ void CppFindReferences::searchFinished()
     QFutureWatcher<Usage> *watcher = static_cast<QFutureWatcher<Usage> *>(sender());
     Find::SearchResult *search = m_watchers.value(watcher);
     if (search)
-        search->finishSearch();
+        search->finishSearch(watcher->isCanceled());
     m_watchers.remove(watcher);
 }
 
@@ -509,6 +512,16 @@ void CppFindReferences::cancel()
     QFutureWatcher<Usage> *watcher = m_watchers.key(search);
     QTC_ASSERT(watcher, return);
     watcher->cancel();
+}
+
+void CppFindReferences::setPaused(bool paused)
+{
+    Find::SearchResult *search = qobject_cast<Find::SearchResult *>(sender());
+    QTC_ASSERT(search, return);
+    QFutureWatcher<Usage> *watcher = m_watchers.key(search);
+    QTC_ASSERT(watcher, return);
+    if (!paused || watcher->isRunning()) // guard against pausing when the search is finished
+        watcher->setPaused(paused);
 }
 
 void CppFindReferences::openEditor(const Find::SearchResultItem &item)
@@ -545,6 +558,8 @@ public:
     QList<Usage> operator()(const QString &fileName)
     {
         QList<Usage> usages;
+        if (future->isPaused())
+            future->waitForResume();
         if (future->isCanceled())
             return usages;
 
@@ -566,6 +581,8 @@ public:
             }
         }
 
+        if (future->isPaused())
+            future->waitForResume();
         return usages;
     }
 
@@ -627,17 +644,29 @@ static void findMacroUses_helper(QFutureInterface<Usage> &future,
 
 void CppFindReferences::findMacroUses(const Macro &macro)
 {
+    findMacroUses(macro, QString(), false);
+}
+
+void CppFindReferences::findMacroUses(const Macro &macro, const QString &replacement, bool replace)
+{
     Find::SearchResult *search = Find::SearchResultWindow::instance()->startNewSearch(
                 tr("C++ Macro Usages:"),
                 QString(),
                 macro.name(),
-                Find::SearchResultWindow::SearchOnly);
+                replace ? Find::SearchResultWindow::SearchAndReplace
+                        : Find::SearchResultWindow::SearchOnly,
+                QLatin1String("CppEditor"));
 
-    Find::SearchResultWindow::instance()->popup(true);
+    search->setTextToReplace(replacement);
+    connect(search, SIGNAL(replaceButtonClicked(QString,QList<Find::SearchResultItem>)),
+            SLOT(onReplaceButtonClicked(QString,QList<Find::SearchResultItem>)));
+
+    Find::SearchResultWindow::instance()->popup(Core::IOutputPane::ModeSwitch | Core::IOutputPane::WithFocus);
 
     connect(search, SIGNAL(activated(Find::SearchResultItem)),
             this, SLOT(openEditor(Find::SearchResultItem)));
     connect(search, SIGNAL(cancelled()), this, SLOT(cancel()));
+    connect(search, SIGNAL(paused(bool)), this, SLOT(setPaused(bool)));
 
     const Snapshot snapshot = _modelManager->snapshot();
     const CppModelManagerInterface::WorkingCopy workingCopy = _modelManager->workingCopy();
@@ -662,7 +691,13 @@ void CppFindReferences::findMacroUses(const Macro &macro)
     Core::ProgressManager *progressManager = Core::ICore::progressManager();
     Core::FutureProgress *progress = progressManager->addTask(result, tr("Searching"),
                                                               CppTools::Constants::TASK_SEARCH);
-    connect(progress, SIGNAL(clicked()), Find::SearchResultWindow::instance(), SLOT(popup()));
+    connect(progress, SIGNAL(clicked()), search, SLOT(popup()));
+}
+
+void CppFindReferences::renameMacroUses(const Macro &macro, const QString &replacement)
+{
+    const QString textToReplace = replacement.isEmpty() ? macro.name() : replacement;
+    findMacroUses(macro, textToReplace, true);
 }
 
 DependencyTable CppFindReferences::updateDependencyTable(CPlusPlus::Snapshot snapshot)

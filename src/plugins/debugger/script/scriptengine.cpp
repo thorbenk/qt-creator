@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,12 +25,8 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
-
-#define QT_NO_CAST_FROM_ASCII
 
 #include "scriptengine.h"
 
@@ -205,7 +201,7 @@ void ScriptAgent::scriptUnload(qint64 scriptId)
 ///////////////////////////////////////////////////////////////////////
 
 ScriptEngine::ScriptEngine(const DebuggerStartParameters &startParameters)
-    : DebuggerEngine(startParameters, AnyLanguage)
+    : DebuggerEngine(startParameters)
 {
     setObjectName(QLatin1String("ScriptEngine"));
 }
@@ -651,7 +647,6 @@ bool ScriptEngine::checkForBreakCondition(bool byFunction)
 void ScriptEngine::updateLocals()
 {
     QScriptContext *context = m_scriptEngine->currentContext();
-    watchHandler()->beginCycle();
     SDEBUG(Q_FUNC_INFO);
 
     //
@@ -686,9 +681,7 @@ void ScriptEngine::updateLocals()
     data.iname = "local";
     data.name = _(data.iname);
 
-    watchHandler()->beginCycle();
     updateSubItem(data);
-    watchHandler()->endCycle();
     // FIXME: Use an extra thread. This here is evil.
     m_stopped = true;
     showStatusMessage(tr("Stopped."), 5000);
@@ -809,9 +802,9 @@ void ScriptEngine::updateSubItem(const WatchData &data0)
     }
 
     SDEBUG(msgDebugInsert(data, children));
-    watchHandler()->insertData(data);
+    watchHandler()->insertIncompleteData(data);
     if (!children.isEmpty())
-        watchHandler()->insertBulkData(children);
+        watchHandler()->insertData(children);
 }
 
 DebuggerEngine *createScriptEngine(const DebuggerStartParameters &sp)

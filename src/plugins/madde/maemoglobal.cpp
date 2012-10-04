@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,21 +25,22 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #include "maemoglobal.h"
 
 #include "maemoconstants.h"
 #include "maemoqemumanager.h"
-#include "qt4maemotarget.h"
 
+#include <projectexplorer/devicesupport/idevice.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/target.h>
 #include <qt4projectmanager/qt4projectmanagerconstants.h>
 #include <qtsupport/baseqtversion.h>
-#include <remotelinux/linuxdeviceconfiguration.h>
+#include <qtsupport/qtkitinformation.h>
 #include <remotelinux/remotelinux_constants.h>
 #include <utils/environment.h>
+#include <utils/hostosinfo.h>
 
 #include <QDir>
 #include <QFileInfo>
@@ -47,35 +48,30 @@
 #include <QString>
 #include <QDesktopServices>
 
+using namespace ProjectExplorer;
 using namespace Qt4ProjectManager;
 using namespace Qt4ProjectManager::Constants;
 using namespace RemoteLinux;
+using namespace Utils;
 
 namespace Madde {
 namespace Internal {
-namespace {
-static const QLatin1String binQmake("/bin/qmake" EXEC_SUFFIX);
+static const QString binQmake = QLatin1String("/bin/qmake" QTC_HOST_EXE_SUFFIX);
+
+bool MaemoGlobal::hasMaemoDevice(const Kit *k)
+{
+    IDevice::ConstPtr dev = DeviceKitInformation::device(k);
+    if (dev.isNull())
+        return false;
+
+    const Core::Id type = dev->type();
+    return type == Maemo5OsType || type == HarmattanOsType;
 }
 
-bool MaemoGlobal::isMaemoTargetId(const Core::Id id)
+bool MaemoGlobal::supportsMaemoDevice(const Kit *k)
 {
-    return isFremantleTargetId(id) || isHarmattanTargetId(id)
-        || isMeegoTargetId(id);
-}
-
-bool MaemoGlobal::isFremantleTargetId(const Core::Id id)
-{
-    return id == Core::Id(MAEMO5_DEVICE_TARGET_ID);
-}
-
-bool MaemoGlobal::isHarmattanTargetId(const Core::Id id)
-{
-    return id == Core::Id(HARMATTAN_DEVICE_TARGET_ID);
-}
-
-bool MaemoGlobal::isMeegoTargetId(const Core::Id id)
-{
-    return id == Core::Id(MEEGO_DEVICE_TARGET_ID);
+    const Core::Id type = DeviceTypeKitInformation::deviceTypeId(k);
+    return type == Maemo5OsType || type == HarmattanOsType;
 }
 
 bool MaemoGlobal::isValidMaemo5QtVersion(const QString &qmakePath)
@@ -86,11 +82,6 @@ bool MaemoGlobal::isValidMaemo5QtVersion(const QString &qmakePath)
 bool MaemoGlobal::isValidHarmattanQtVersion(const QString &qmakePath)
 {
     return isValidMaemoQtVersion(qmakePath, Core::Id(HarmattanOsType));
-}
-
-bool MaemoGlobal::isValidMeegoQtVersion(const QString &qmakePath)
-{
-    return isValidMaemoQtVersion(qmakePath, Core::Id(MeeGoOsType));
 }
 
 bool MaemoGlobal::isValidMaemoQtVersion(const QString &qmakePath, Core::Id deviceType)
@@ -105,7 +96,7 @@ bool MaemoGlobal::isValidMaemoQtVersion(const QString &qmakePath, Core::Id devic
         return false;
 
     madAdminProc.setReadChannel(QProcess::StandardOutput);
-    const QByteArray tgtName = targetName(qmakePath).toAscii();
+    const QByteArray tgtName = targetName(qmakePath).toLatin1();
     while (madAdminProc.canReadLine()) {
         const QByteArray &line = madAdminProc.readLine();
         if (line.contains(tgtName)
@@ -128,19 +119,18 @@ QString MaemoGlobal::devrootshPath()
     return QLatin1String("/usr/lib/mad-developer/devrootsh");
 }
 
-int MaemoGlobal::applicationIconSize(const ProjectExplorer::Target *target)
+int MaemoGlobal::applicationIconSize(const Target *target)
 {
-    return qobject_cast<const Qt4HarmattanTarget *>(target) ? 80 : 64;
+    Core::Id deviceType = DeviceTypeKitInformation::deviceTypeId(target->kit());
+    return deviceType == HarmattanOsType ? 80 : 64;
 }
 
 QString MaemoGlobal::remoteSudo(Core::Id deviceType, const QString &uname)
 {
     if (uname == QLatin1String("root"))
         return QString();
-    if (deviceType == Core::Id(Maemo5OsType) || deviceType == Core::Id(HarmattanOsType)
-            || deviceType == Core::Id(MeeGoOsType)) {
+    if (deviceType == Maemo5OsType || deviceType == HarmattanOsType)
         return devrootshPath();
-    }
     return QString(); // Using sudo would open a can of worms.
 }
 
@@ -151,21 +141,23 @@ QString MaemoGlobal::remoteSourceProfilesCommand()
     QByteArray remoteCall(":");
     foreach (const QByteArray &profile, profiles)
         remoteCall += "; test -f " + profile + " && source " + profile;
-    return QString::fromAscii(remoteCall);
+    return QString::fromLatin1(remoteCall);
 }
 
-Utils::PortList MaemoGlobal::freePorts(const LinuxDeviceConfiguration::ConstPtr &devConf,
-    const QtSupport::BaseQtVersion *qtVersion)
+PortList MaemoGlobal::freePorts(const Kit *k)
 {
-    if (!devConf || !qtVersion)
-        return Utils::PortList();
-    if (devConf->machineType() == LinuxDeviceConfiguration::Emulator) {
+    IDevice::ConstPtr device = DeviceKitInformation::device(k);
+    QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(k);
+
+    if (!device || !qtVersion)
+        return PortList();
+    if (device->machineType() == IDevice::Emulator) {
         MaemoQemuRuntime rt;
         const int id = qtVersion->uniqueId();
         if (MaemoQemuManager::instance().runtimeForQtVersion(id, &rt))
             return rt.m_freePorts;
     }
-    return devConf->freePorts();
+    return device->freePorts();
 }
 
 QString MaemoGlobal::maddeRoot(const QString &qmakePath)
@@ -175,14 +167,14 @@ QString MaemoGlobal::maddeRoot(const QString &qmakePath)
     return dir.absolutePath();
 }
 
+FileName MaemoGlobal::maddeRoot(const Kit *k)
+{
+    return SysRootKitInformation::sysRoot(k).parentDir().parentDir();
+}
+
 QString MaemoGlobal::targetRoot(const QString &qmakePath)
 {
-#ifdef Q_OS_WIN
-    Qt::CaseSensitivity cs = Qt::CaseInsensitive;
-#else
-    Qt::CaseSensitivity cs = Qt::CaseSensitive;
-#endif
-    return QDir::cleanPath(qmakePath).remove(binQmake, cs);
+    return QDir::cleanPath(qmakePath).remove(binQmake, HostOsInfo::fileNameCaseSensitivity());
 }
 
 QString MaemoGlobal::targetName(const QString &qmakePath)
@@ -202,7 +194,7 @@ QString MaemoGlobal::madCommand(const QString &qmakePath)
 
 QString MaemoGlobal::madDeveloperUiName(Core::Id deviceType)
 {
-    return deviceType == Core::Id(HarmattanOsType)
+    return deviceType == HarmattanOsType
         ? tr("SDK Connectivity") : tr("Mad Developer");
 }
 
@@ -213,8 +205,6 @@ Core::Id MaemoGlobal::deviceType(const QString &qmakePath)
         return Core::Id(Maemo5OsType);
     if (name.startsWith(QLatin1String("harmattan")))
         return Core::Id(HarmattanOsType);
-    if (name.startsWith(QLatin1String("meego")))
-        return Core::Id(MeeGoOsType);
     return Core::Id(RemoteLinux::Constants::GenericLinuxOsType);
 }
 
@@ -232,32 +222,26 @@ QString MaemoGlobal::architecture(const QString &qmakePath)
     return arch;
 }
 
-void MaemoGlobal::addMaddeEnvironment(Utils::Environment &env, const QString &qmakePath)
+void MaemoGlobal::addMaddeEnvironment(Environment &env, const QString &qmakePath)
 {
-    Utils::Environment maddeEnv;
-#ifdef Q_OS_WIN
-    const QString root = maddeRoot(qmakePath);
-    env.prependOrSetPath(root + QLatin1String("/bin"));
-    env.prependOrSet(QLatin1String("HOME"),
-        QDesktopServices::storageLocation(QDesktopServices::HomeLocation));
-#else
-    Q_UNUSED(qmakePath);
-#endif
-    for (Utils::Environment::const_iterator it = maddeEnv.constBegin(); it != maddeEnv.constEnd(); ++it)
+    Environment maddeEnv;
+    if (HostOsInfo::isWindowsHost()) {
+        const QString root = maddeRoot(qmakePath);
+        env.prependOrSetPath(root + QLatin1String("/bin"));
+        env.prependOrSet(QLatin1String("HOME"),
+                QDesktopServices::storageLocation(QDesktopServices::HomeLocation));
+    }
+    for (Environment::const_iterator it = maddeEnv.constBegin(); it != maddeEnv.constEnd(); ++it)
         env.prependOrSet(it.key(), it.value());
 }
 
 void MaemoGlobal::transformMaddeCall(QString &command, QStringList &args, const QString &qmakePath)
 {
-#ifdef Q_OS_WIN
-    const QString root = maddeRoot(qmakePath);
-    args.prepend(command);
-    command = root + QLatin1String("/bin/sh.exe");
-#else
-    Q_UNUSED(command);
-    Q_UNUSED(args);
-    Q_UNUSED(qmakePath);
-#endif
+    if (HostOsInfo::isWindowsHost()) {
+        const QString root = maddeRoot(qmakePath);
+        args.prepend(command);
+        command = root + QLatin1String("/bin/sh.exe");
+    }
 }
 
 bool MaemoGlobal::callMad(QProcess &proc, const QStringList &args,
@@ -282,7 +266,7 @@ bool MaemoGlobal::callMaddeShellScript(QProcess &proc,
         return false;
     QString actualCommand = command;
     QStringList actualArgs = targetArgs(qmakePath, useTarget) + args;
-    Utils::Environment env(proc.systemEnvironment());
+    Environment env(proc.systemEnvironment());
     addMaddeEnvironment(env, qmakePath);
     proc.setEnvironment(env.toStringList());
     transformMaddeCall(actualCommand, actualArgs, qmakePath);

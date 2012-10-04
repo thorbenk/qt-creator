@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -56,6 +54,7 @@ class ChangeStateCommand;
 class CompleteComponentCommand;
 class ChangeNodeSourceCommand;
 class TokenCommand;
+class RemoveSharedMemoryCommand;
 
 class NodeInstanceServerInterface : public QObject
 {
@@ -83,6 +82,7 @@ public:
     virtual void completeComponent(const CompleteComponentCommand &command) = 0;
     virtual void changeNodeSource(const ChangeNodeSourceCommand &command) = 0;
     virtual void token(const TokenCommand &command) = 0;
+    virtual void removeSharedMemory(const RemoveSharedMemoryCommand &command) = 0;
 
     static void registerCommands();
 };

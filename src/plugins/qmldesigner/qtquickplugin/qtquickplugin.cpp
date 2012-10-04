@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,16 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "qtquickplugin.h"
 #include <widgetplugin_helper.h>
 #include <QtPlugin>
-#include <private/qdeclarativerectangle_p.h>
-#include <private/qdeclarativescalegrid_p_p.h>
 
 namespace QmlDesigner {
 
@@ -42,8 +38,6 @@ namespace QmlDesigner {
 QtQuickPlugin::QtQuickPlugin()
 {
 
-    qmlRegisterType<QDeclarativePen>("Qt", 4, 7, "Pen");
-    qmlRegisterType<QDeclarativeScaleGrid>("Qt", 4, 7, "ScaleGrid");
 }
 
 QString QtQuickPlugin::pluginName() const
@@ -58,5 +52,7 @@ QString QtQuickPlugin::metaInfo() const
 
 }
 
+#if QT_VERSION < 0x050000
 Q_EXPORT_PLUGIN(QmlDesigner::QtQuickPlugin)
+#endif
 

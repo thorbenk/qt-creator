@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -50,7 +48,6 @@ class PluginSpec;
 class PluginCollection;
 
 namespace Internal {
-    class PluginViewPrivate;
 namespace Ui {
     class PluginView;
 } // namespace Ui
@@ -61,7 +58,7 @@ class EXTENSIONSYSTEM_EXPORT PluginView : public QWidget
     Q_OBJECT
 
 public:
-    explicit PluginView(PluginManager *manager, QWidget *parent = 0);
+    explicit PluginView(QWidget *parent = 0);
     ~PluginView();
 
     PluginSpec *currentPlugin() const;
@@ -84,7 +81,6 @@ private:
     int parsePluginSpecs(QTreeWidgetItem *parentItem, Qt::CheckState &groupState, QList<PluginSpec*> plugins);
 
     Internal::Ui::PluginView *m_ui;
-    Internal::PluginViewPrivate *p;
     QList<QTreeWidgetItem*> m_items;
     QHash<PluginSpec*, QTreeWidgetItem*> m_specToItem;
 

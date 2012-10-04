@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -273,6 +271,12 @@ void QmlProfilerEventsWidget::contextMenuEvent(QContextMenuEvent *ev)
         if (selectedAction == showExtendedStatsAction)
             setShowExtendedStatistics(!showExtendedStatistics());
     }
+}
+
+void QmlProfilerEventsWidget::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    emit resized();
 }
 
 bool QmlProfilerEventsWidget::mouseOnTable(const QPoint &position) const
@@ -605,9 +609,15 @@ void QmlProfilerEventsMainView::QmlProfilerEventsMainViewPrivate::buildModelFrom
         if (m_fieldShown[Type]) {
             QString typeString = QmlProfilerEventsMainView::nameForType(binding->eventType);
             QString toolTipText;
-            if (binding->eventType == Binding && binding->bindingType == (int)V4Binding) {
-                typeString = typeString + tr(" (v4)");
-                toolTipText = tr("Binding is evaluated by the optimized v4 engine.");
+            if (binding->eventType == Binding) {
+                if (binding->bindingType == (int)OptimizedBinding) {
+                    typeString = typeString + tr(" (Opt)");
+                    toolTipText = tr("Binding is evaluated by the optimized engine.");
+                } else if (binding->bindingType == (int)V8Binding) {
+                    toolTipText = tr("Binding not optimized (eg. has side effects or assignments,\n"
+                                     "references to elements in other files, loops, etc.)");
+
+                }
             }
             newRow << new EventsViewItem(typeString);
             newRow.last()->setData(QVariant(typeString));

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -96,7 +94,9 @@ void AndroidDeployStepWidget::setDeployLocalQtLibs()
 
 void AndroidDeployStepWidget::setQASIPackagePath()
 {
-    QString packagePath = QFileDialog::getOpenFileName(this, tr("Qt Android smart installer"), QDir::homePath(), tr("Android package (*.apk)"));
+    QString packagePath =
+        QFileDialog::getOpenFileName(this, tr("Qt Android Smart Installer"),
+                                     QDir::homePath(), tr("Android package (*.apk)"));
     if (packagePath.length())
         m_step->setDeployQASIPackagePath(packagePath);
 }
@@ -108,7 +108,7 @@ void AndroidDeployStepWidget::useLocalQtLibsStateChanged(int state)
 
 void AndroidDeployStepWidget::editRulesFile()
 {
-    Core::ICore::instance()->openFiles(QStringList() << m_step->localLibsRulesFilePath(), Core::ICore::SwitchMode);
+    Core::ICore::instance()->openFiles(QStringList() << m_step->localLibsRulesFilePath().toString(), Core::ICore::SwitchMode);
 }
 
 } // namespace Internal

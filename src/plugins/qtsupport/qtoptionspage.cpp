@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,13 +49,15 @@
 #include <projectexplorer/toolchainmanager.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <utils/hostosinfo.h>
 #include <utils/runextensions.h>
 
 #include <QDir>
 #include <QToolTip>
 #include <QMessageBox>
 #include <QFileDialog>
-#include <QMainWindow>
+#include <QTextBrowser>
+#include <QDesktopServices>
 
 enum ModelRoles { VersionIdRole = Qt::UserRole, ToolChainIdRole, BuildLogRole, BuildRunningRole};
 
@@ -71,32 +71,12 @@ using namespace QtSupport::Internal;
 QtOptionsPage::QtOptionsPage()
     : m_widget(0)
 {
-}
-
-QString QtOptionsPage::id() const
-{
-    return QLatin1String(Constants::QTVERSION_SETTINGS_PAGE_ID);
-}
-
-QString QtOptionsPage::displayName() const
-{
-    return QCoreApplication::translate("Qt4ProjectManager", Constants::QTVERSION_SETTINGS_PAGE_NAME);
-}
-
-QString QtOptionsPage::category() const
-{
-    return QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY);
-}
-
-QString QtOptionsPage::displayCategory() const
-{
-    return QCoreApplication::translate("ProjectExplorer",
-                                       ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY);
-}
-
-QIcon QtOptionsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
+    setId(QLatin1String(Constants::QTVERSION_SETTINGS_PAGE_ID));
+    setDisplayName(QCoreApplication::translate("Qt4ProjectManager", Constants::QTVERSION_SETTINGS_PAGE_NAME));
+    setCategory(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("ProjectExplorer",
+        ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY_ICON));
 }
 
 QWidget *QtOptionsPage::createPage(QWidget *parent)
@@ -130,6 +110,7 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent)
     , m_ui(new Internal::Ui::QtVersionManager())
     , m_versionUi(new Internal::Ui::QtVersionInfo())
     , m_debuggingHelperUi(new Internal::Ui::DebuggingHelper())
+    , m_infoBrowser(new QTextBrowser)
     , m_invalidVersionIcon(QLatin1String(":/projectexplorer/images/compile_error.png"))
     , m_warningVersionIcon(QLatin1String(":/projectexplorer/images/compile_warning.png"))
     , m_configurationWidget(0)
@@ -145,6 +126,13 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent)
 
     m_ui->setupUi(this);
 
+    m_infoBrowser->setOpenLinks(false);
+    m_infoBrowser->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    connect(m_infoBrowser, SIGNAL(anchorClicked(QUrl)), this, SLOT(infoAnchorClicked(QUrl)));
+    m_ui->infoWidget->setWidget(m_infoBrowser);
+    connect(m_ui->infoWidget, SIGNAL(expanded(bool)),
+            this, SLOT(handleInfoWidgetExpanded(bool)));
+
     m_ui->versionInfoWidget->setWidget(versionInfoWidget);
     m_ui->versionInfoWidget->setState(Utils::DetailsWidget::NoSummary);
 
@@ -157,7 +145,6 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent)
     m_ui->qtdirList->header()->setStretchLastSection(false);
     m_ui->qtdirList->setTextElideMode(Qt::ElideNone);
     m_autoItem = new QTreeWidgetItem(m_ui->qtdirList);
-    m_ui->qtdirList->installEventFilter(this);
     m_autoItem->setText(0, tr("Auto-detected"));
     m_autoItem->setFirstColumnSpanned(true);
     m_autoItem->setFlags(Qt::ItemIsEnabled);
@@ -217,26 +204,6 @@ QtOptionsPageWidget::QtOptionsPageWidget(QWidget *parent)
 
     connect(ProjectExplorer::ToolChainManager::instance(), SIGNAL(toolChainsChanged()),
             this, SLOT(toolChainsUpdated()));
-}
-
-bool QtOptionsPageWidget::eventFilter(QObject *o, QEvent *e)
-{
-    // Set the items tooltip, which may cause costly initialization
-    // of QtVersion and must be up-to-date
-    if (o != m_ui->qtdirList || e->type() != QEvent::ToolTip)
-        return false;
-    QHelpEvent *helpEvent = static_cast<QHelpEvent *>(e);
-    const QPoint treePos = helpEvent->pos() - QPoint(0, m_ui->qtdirList->header()->height());
-    QTreeWidgetItem *item = m_ui->qtdirList->itemAt(treePos);
-    if (!item)
-        return false;
-    const int index = indexForTreeItem(item);
-    if (index == -1)
-        return false;
-    const QString tooltip = m_versions.at(index)->toHtml(true);
-    QToolTip::showText(helpEvent->globalPos(), tooltip, m_ui->qtdirList);
-    helpEvent->accept();
-    return true;
 }
 
 int QtOptionsPageWidget::currentIndex() const
@@ -308,7 +275,7 @@ void QtOptionsPageWidget::cleanUpQtVersions()
     if (toRemove.isEmpty())
         return;
 
-    if (QMessageBox::warning(0, tr("Remove invalid Qt Versions"),
+    if (QMessageBox::warning(0, tr("Remove Invalid Qt Versions"),
                              tr("Do you want to remove all invalid Qt Versions?<br>"
                                 "<ul><li>%1</li></ul><br>"
                                 "will be removed.").arg(toRemove.join(QLatin1String("</li><li>"))),
@@ -369,9 +336,21 @@ void QtOptionsPageWidget::qtVersionsDumpUpdated(const Utils::FileName &qmakeComm
     }
 }
 
+void QtOptionsPageWidget::handleInfoWidgetExpanded(bool expanded)
+{
+    m_ui->versionInfoWidget->setVisible(!expanded);
+    m_ui->debuggingHelperWidget->setVisible(!expanded);
+}
+
 void QtOptionsPageWidget::handleDebuggingHelperExpanded(bool expanded)
 {
     m_ui->versionInfoWidget->setVisible(!expanded);
+    m_ui->infoWidget->setVisible(!expanded);
+}
+
+void QtOptionsPageWidget::infoAnchorClicked(const QUrl &url)
+{
+    QDesktopServices::openUrl(url);
 }
 
 QtOptionsPageWidget::ValidityInfo QtOptionsPageWidget::validInformation(const BaseQtVersion *version)
@@ -382,6 +361,7 @@ QtOptionsPageWidget::ValidityInfo QtOptionsPageWidget::validInformation(const Ba
     if (!version)
         return info;
 
+    info.description = tr("Qt version %1 for %2").arg(version->qtVersionString(), version->description());
     if (!version->isValid()) {
         info.icon = m_invalidVersionIcon;
         info.message = version->invalidReason();
@@ -392,37 +372,32 @@ QtOptionsPageWidget::ValidityInfo QtOptionsPageWidget::validInformation(const Ba
     QStringList missingToolChains;
     int abiCount = 0;
     foreach (const ProjectExplorer::Abi &a, version->qtAbis()) {
-        // Ignore symbian emulator since we do not support it.
-        if (a.osFlavor() == ProjectExplorer::Abi::SymbianEmulatorFlavor)
-            continue;
         if (ProjectExplorer::ToolChainManager::instance()->findToolChains(a).isEmpty())
             missingToolChains.append(a.toString());
         ++abiCount;
     }
 
     bool useable = true;
-    if (missingToolChains.isEmpty()) {
-        // No:
-        info.message = tr("Qt version %1 for %2").arg(version->qtVersionString(), version->description());
-    } else if (missingToolChains.count() == abiCount) {
-        // Yes, this Qt version can't be used at all!
-        info.message = tr("No tool chain can produce code for this Qt version. Please define one or more tool chains.");
-        info.icon = m_invalidVersionIcon;
-        useable = false;
-    } else {
-        // Yes, some ABIs are unsupported
-        info.message = tr("Not all possible target environments can be supported due to missing tool chains.");
-        info.toolTip = tr("The following ABIs are currently not supported:<ul><li>%1</li></ul>")
-                       .arg(missingToolChains.join(QLatin1String("</li><li>")));
-        info.icon = m_warningVersionIcon;
+    QStringList warnings;
+    if (!missingToolChains.isEmpty()) {
+        if (missingToolChains.count() == abiCount) {
+            // Yes, this Qt version can't be used at all!
+            info.message = tr("No compiler can produce code for this Qt version. Please define one or more compilers.");
+            info.icon = m_invalidVersionIcon;
+            useable = false;
+        } else {
+            // Yes, some ABIs are unsupported
+            warnings << tr("Not all possible target environments can be supported due to missing compilers.");
+            info.toolTip = tr("The following ABIs are currently not supported:<ul><li>%1</li></ul>")
+                    .arg(missingToolChains.join(QLatin1String("</li><li>")));
+            info.icon = m_warningVersionIcon;
+        }
     }
 
     if (useable) {
-        QString warning = version->warningReason();
-        if (!warning.isEmpty()) {
-            if (!info.message.isEmpty())
-                info.message.append(QLatin1Char('\n'));
-            info.message += warning;
+        warnings += version->warningReason();
+        if (!warnings.isEmpty()) {
+            info.message = warnings.join(QLatin1String("\n"));
             info.icon = m_warningVersionIcon;
         }
     }
@@ -437,9 +412,6 @@ QList<ProjectExplorer::ToolChain*> QtOptionsPageWidget::toolChains(const BaseQtV
         return toolChains.values();
 
     foreach (const ProjectExplorer::Abi &a, version->qtAbis()) {
-        // Ignore symbian emulator since we do not support it.
-        if (a.osFlavor() == ProjectExplorer::Abi::SymbianEmulatorFlavor)
-            continue;
         foreach (ProjectExplorer::ToolChain *tc,
                  ProjectExplorer::ToolChainManager::instance()->findToolChains(a)) {
             toolChains.insert(tc->id(), tc);
@@ -646,11 +618,14 @@ static QString filterForQmakeFileDialog()
     for (int i = 0; i < commands.size(); ++i) {
         if (i)
             filter += QLatin1Char(' ');
-#ifdef Q_OS_MAC
-        // work around QTBUG-7739 that prohibits filters that don't start with *
-        filter += QLatin1Char('*');
-#endif
+        if (Utils::HostOsInfo::isMacHost())
+            // work around QTBUG-7739 that prohibits filters that don't start with *
+            filter += QLatin1Char('*');
         filter += commands.at(i);
+        if (Utils::HostOsInfo::isAnyUnixHost() && !Utils::HostOsInfo::isMacHost())
+            // kde bug, we need at least one wildcard character
+            // see QTCREATORBUG-7771
+            filter += QLatin1Char('*');
     }
     filter += QLatin1Char(')');
     return filter;
@@ -659,19 +634,24 @@ static QString filterForQmakeFileDialog()
 void QtOptionsPageWidget::addQtDir()
 {
     Utils::FileName qtVersion = Utils::FileName::fromString(
-                QFileDialog::getOpenFileName(this,
-                                             tr("Select a qmake executable"),
-                                             QString(),
-                                             filterForQmakeFileDialog(),
-                                             0,
-                                             QFileDialog::DontResolveSymlinks));
+                QFileInfo(QFileDialog::getOpenFileName(this,
+                                                       tr("Select a qmake executable"),
+                                                       QString(),
+                                                       filterForQmakeFileDialog(),
+                                                       0,
+                                                       QFileDialog::DontResolveSymlinks)).canonicalFilePath());
     if (qtVersion.isNull())
         return;
-    if (QtVersionManager::instance()->qtVersionForQMakeBinary(qtVersion)) {
+    BaseQtVersion *version = QtVersionManager::instance()->qtVersionForQMakeBinary(qtVersion);
+    if (version) {
         // Already exist
+        QMessageBox::warning(this, tr("Qt known"),
+                             tr("This Qt version was already registered as \"%1\".")
+                             .arg(version->displayName()));
+        return;
     }
 
-    BaseQtVersion *version = QtVersionFactory::createQtVersionFromQMakePath(qtVersion);
+    version = QtVersionFactory::createQtVersionFromQMakePath(qtVersion);
     if (version) {
         m_versions.append(version);
 
@@ -722,8 +702,8 @@ void QtOptionsPageWidget::editPath()
     // Same type? then replace!
     if (current->type() != version->type()) {
         // not the same type, error out
-        QMessageBox::critical(this, tr("Qt versions incompatible"),
-                              tr("The qt version selected must be for the same target."),
+        QMessageBox::critical(this, tr("Incompatible Qt Versions"),
+                              tr("The Qt version selected must be for the same target."),
                               QMessageBox::Ok);
         delete version;
         return;
@@ -934,7 +914,7 @@ void QtOptionsPageWidget::updateDebuggingHelperUi()
     }
 }
 
-// To be called if a qt version was removed or added
+// To be called if a Qt version was removed or added
 void QtOptionsPageWidget::updateCleanUpButton()
 {
     bool hasInvalidVersion = false;
@@ -963,11 +943,28 @@ void QtOptionsPageWidget::qtVersionChanged()
 void QtOptionsPageWidget::updateDescriptionLabel()
 {
     QTreeWidgetItem *item = m_ui->qtdirList->currentItem();
-    const ValidityInfo info = validInformation(currentVersion());
-    m_versionUi->errorLabel->setText(info.message);
-    m_versionUi->errorLabel->setToolTip(info.toolTip);
+    const BaseQtVersion *version = currentVersion();
+    const ValidityInfo info = validInformation(version);
+    if (info.message.isEmpty()) {
+        m_versionUi->errorLabel->setVisible(false);
+    } else {
+        m_versionUi->errorLabel->setVisible(true);
+        m_versionUi->errorLabel->setText(info.message);
+        m_versionUi->errorLabel->setToolTip(info.toolTip);
+    }
+    m_ui->infoWidget->setSummaryText(info.description);
     if (item)
         item->setIcon(0, info.icon);
+
+    if (version) {
+        m_infoBrowser->setHtml(version->toHtml(true));
+        m_ui->versionInfoWidget->setVisible(true);
+        m_ui->infoWidget->setVisible(true);
+    } else {
+        m_infoBrowser->setHtml(QString());
+        m_ui->versionInfoWidget->setVisible(false);
+        m_ui->infoWidget->setVisible(false);
+    }
 }
 
 int QtOptionsPageWidget::indexForTreeItem(const QTreeWidgetItem *item) const
@@ -1063,7 +1060,7 @@ void QtOptionsPageWidget::apply()
             this, SLOT(updateQtVersions(QList<int>,QList<int>,QList<int>)));
 }
 
-/* Checks that the qt version name is unique
+/* Checks that the Qt version name is unique
  * and otherwise changes the name
  *
  */
@@ -1118,13 +1115,6 @@ QString QtOptionsPageWidget::searchKeywords() const
        << sep << m_debuggingHelperUi->gdbHelperLabel->text()
        << sep << m_debuggingHelperUi->qmlDumpLabel->text()
        << sep << m_debuggingHelperUi->qmlObserverLabel->text();
-
-    // Symbian specific, could be factored out to the factory
-    // checking m_configurationWidget is not enough, we want them to be a keyword
-    // regardless of which qt versions configuration widget is currently active
-    ts << sep << tr("S60 SDK:")
-       << sep << tr("SBS v2 directory:");
-
 
     rc.remove(QLatin1Char('&'));
     return rc;

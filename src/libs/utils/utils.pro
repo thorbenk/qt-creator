@@ -1,7 +1,6 @@
 TEMPLATE = lib
 TARGET = Utils
-QT += gui \
-    network
+QT += gui network
 
 include(../../qtcreatorlibrary.pri)
 include(utils_dependencies.pri)
@@ -13,12 +12,6 @@ lessThan(QT_MAJOR_VERSION, 5) {
     win32:include(../../private_headers.pri)
 }
 
-HEADERS += \
-    proxyaction.h
-
-SOURCES += \
-    proxyaction.cpp
-
-win32: LIBS += -lUser32
+win32: LIBS += -luser32
 # PortsGatherer
-win32: LIBS += -liphlpapi -lWs2_32
+win32: LIBS += -liphlpapi -lws2_32

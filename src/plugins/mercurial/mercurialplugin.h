@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Brian McGillion
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -41,7 +39,6 @@
 
 QT_BEGIN_NAMESPACE
 class QAction;
-class QTemporaryFile;
 QT_END_NAMESPACE
 
 namespace Core {
@@ -129,13 +126,11 @@ protected:
 private:
     void createMenu();
     void createSubmitEditorActions();
-    void createSeparator(const Core::Context &context, const Core::Id &id);
     void createFileActions(const Core::Context &context);
     void createDirectoryActions(const Core::Context &context);
     void createRepositoryActions(const Core::Context &context);
     void createRepositoryManagementActions(const Core::Context &context);
     void createLessUsedActions(const Core::Context &context);
-    void deleteCommitLog();
 
     // Variables
     static MercurialPlugin *m_instance;
@@ -145,11 +140,9 @@ private:
 
     Core::ICore *core;
     Locator::CommandLocator *m_commandLocator;
-    Core::ActionManager *actionManager;
     Core::ActionContainer *mercurialContainer;
 
     QList<QAction *> m_repositoryActionList;
-    QTemporaryFile *changeLog;
 
     // Menu items (file actions)
     Utils::ParameterAction *m_addAction;
@@ -170,6 +163,8 @@ private:
     QAction *m_menuAction;
 
     QString m_submitRepository;
+
+    bool m_submitActionTriggered;
 };
 
 } // namespace Internal

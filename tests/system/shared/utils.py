@@ -22,16 +22,17 @@ def verifyChecked(objectName):
     test.compare(object.checked, True)
     return object
 
-def ensureChecked(objectName, shouldBeChecked = True):
-    object = waitForObject(objectName, 20000)
+def ensureChecked(objectName, shouldBeChecked = True, timeout=20000):
+    object = waitForObject(objectName, timeout)
     if object.checked ^ shouldBeChecked:
         clickButton(object)
     if shouldBeChecked:
         state = "checked"
     else:
         state = "unchecked"
-    test.log("New state for QCheckBox: %s" % state)
-    test.verify(object.checked == shouldBeChecked)
+    test.log("New state for QCheckBox: %s" % state,
+             str(objectName))
+    test.verify(waitFor("object.checked == shouldBeChecked", 1000))
     return object
 
 # verify that an object is in an expected enable state. Returns the object.
@@ -193,13 +194,14 @@ def invokeMenuItem(menu, item, subItem = None):
 
 def logApplicationOutput():
     # make sure application output is shown
-    ensureChecked("{type='Core::Internal::OutputPaneToggleButton' unnamed='1' visible='1' "
-                  "window=':Qt Creator_Core::Internal::MainWindow' occurrence='3'}")
+    ensureChecked(":Qt Creator_AppOutput_Core::Internal::OutputPaneToggleButton")
     try:
         output = waitForObject("{type='Core::OutputWindow' visible='1' windowTitle='Application Output Window'}", 20000)
         test.log("Application Output:\n%s" % output.plainText)
+        return str(output.plainText)
     except:
         test.fail("Could not find any Application Output - did the project run?")
+        return None
 
 # get the output from a given cmdline call
 def getOutputFromCmdline(cmdline):
@@ -218,6 +220,9 @@ def selectFromFileDialog(fileName):
         nativeType("<Return>")
         snooze(2)
         nativeType("<Return>")
+        snooze(1)
+        setWindowState(findObject(":Qt Creator_Core::Internal::MainWindow"), WindowState.Minimize)
+        setWindowState(findObject(":Qt Creator_Core::Internal::MainWindow"), WindowState.Maximize)
     else:
         fName = os.path.basename(os.path.abspath(fileName))
         pName = os.path.dirname(os.path.abspath(fileName)) + os.sep
@@ -280,29 +285,49 @@ def __checkParentAccess__(filePath):
             test.fail("No execute permission on '%s'" % tmp)
 
 # this function checks for all configured Qt versions inside
-# options dialog and returns a dict holding the targets as keys
-# and a list of supported versions as value
-def getCorrectlyConfiguredTargets():
+# options dialog and returns a dict holding the kits as keys
+# and a list of information of its configured Qt
+def getConfiguredKits():
+    def __retrieveQtVersionName__(target, version):
+        treeWidget = waitForObject(":QtSupport__Internal__QtVersionManager.qtdirList_QTreeWidget")
+        return treeWidget.currentItem().text(0)
+    targetQtVersionNames = {}
     result = {}
-    for tv in iterateQtVersions():
-        for target,version in tv.iteritems():
-         # Dialog sometimes differs from targets' names
-            if target == "Maemo":
-                target = "Maemo5"
-            elif target == "Symbian":
-                target = "Symbian Device"
-            implicitTargets = [target]
-            if target == "Desktop" and platform.system() in ("Linux", "Darwin"):
-                implicitTargets.append("Embedded Linux")
-            for currentTarget in implicitTargets:
-                if currentTarget in result:
-                    oldV = result[currentTarget]
-                    if version not in oldV:
-                        oldV.append(version)
-                        result.update({currentTarget:oldV})
-                else:
-                    result.update({currentTarget:[version]})
-    test.log("Correctly configured targets: %s" % str(result))
+    targetsQtVersions, qtVersionNames = iterateQtVersions(True, __retrieveQtVersionName__)
+    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Kits")
+    treeView = waitForObject(":Kits_QTreeView")
+    model = treeView.model()
+    test.compare(model.rowCount(), 2, "Verifying expected target section count")
+    autoDetected = model.index(0, 0)
+    test.compare(autoDetected.data().toString(), "Auto-detected",
+                 "Verifying label for target section")
+    manual = model.index(1, 0)
+    test.compare(manual.data().toString(), "Manual", "Verifying label for target section")
+    for section in [autoDetected, manual]:
+        for index in [section.child(i, 0) for i in range(model.rowCount(section))]:
+            targetName = str(index.data().toString())
+            if (targetName.endswith(" (default)")):
+                targetName = targetName.rsplit(" (default)", 1)[0]
+            item = ".".join([str(section.data().toString()),
+                             str(index.data().toString()).replace(".", "\\.")])
+            clickItem(treeView, item, 5, 5, 0, Qt.LeftButton)
+            qtVersionStr = str(waitForObject(":Kits_QtVersion_QComboBox").currentText)
+            targetQtVersionNames[targetName] = qtVersionStr
+    # merge defined target names with their configured Qt versions and devices
+    for kit,qtVersion in targetQtVersionNames.iteritems():
+        if qtVersion in qtVersionNames:
+            result[kit] = targetsQtVersions[qtVersionNames.index(qtVersion)].items()[0]
+        else:
+            test.fail("Qt version '%s' for kit '%s' can't be found in qtVersionNames."
+                      % (qtVersion, kit))
+    clickButton(waitForObject(":Options.Cancel_QPushButton"))
+    # adjust device name(s) to match getStringForTarget() - some differ from time to time
+    for targetName in result.keys():
+        targetInfo = result[targetName]
+        if targetInfo[0] == "Maemo":
+            result.update({targetName:
+                           (QtQuickConstants.getStringForTarget(QtQuickConstants.Targets.MAEMO5), targetInfo[1])})
+    test.log("Configured kits: %s" % str(result))
     return result
 
 def visibleCheckBoxExists(text):
@@ -335,7 +360,7 @@ def checkDebuggingLibrary(targVersion, targets):
                           "visible='1' windowTitle?='Debugging Helper Build Log*'}")
         if target in targStrings and version == targVersion:
             detailsButton = waitForObject("{%s type='Utils::DetailsButton' text='Details' "
-                                          "visible='1' unnamed='1'}" % container)
+                                          "visible='1' unnamed='1' occurrence='2'}" % container)
             ensureChecked(detailsButton)
             gdbHelperStat = waitForObject("{%s type='QLabel' name='gdbHelperStatus' "
                                           "visible='1'}" % container)
@@ -375,7 +400,8 @@ def checkDebuggingLibrary(targVersion, targets):
 # param keepOptionsOpen set to True if the Options dialog should stay open when
 #       leaving this function
 # param additionalFunction pass a function or name of a defined function to execute
-#       for each item on the list of Qt versions
+#       for each correctly configured item on the list of Qt versions
+#       (Qt versions having no assigned toolchain, failing qmake,... will be skipped)
 #       this function must take at least 2 parameters - the first is the target name
 #       and the second the version of the current selected Qt version item
 # param argsForAdditionalFunc you can specify as much parameters as you want to pass
@@ -411,20 +437,39 @@ def iterateQtVersions(keepOptionsOpen=False, additionalFunction=None, *argsForAd
                 target = matches.group("target").strip()
                 version = matches.group("version").strip()
                 result.append({target:version})
-            if additionalFunction:
-                try:
-                    if isinstance(additionalFunction, (str, unicode)):
-                        currResult = globals()[additionalFunction](target, version, *argsForAdditionalFunc)
-                    else:
-                        currResult = additionalFunction(target, version, *argsForAdditionalFunc)
-                except:
-                    currResult = None
-                    test.fatal("Function to additionally execute on Options Dialog could not be found or "
-                               "an exception occured while executing it.")
-                additionalResult.append(currResult)
+                if additionalFunction:
+                    try:
+                        if isinstance(additionalFunction, (str, unicode)):
+                            currResult = globals()[additionalFunction](target, version, *argsForAdditionalFunc)
+                        else:
+                            currResult = additionalFunction(target, version, *argsForAdditionalFunc)
+                    except:
+                        import sys
+                        t,v,tb = sys.exc_info()
+                        currResult = None
+                        test.fatal("Function to additionally execute on Options Dialog could not be found or "
+                                   "an exception occured while executing it.", "%s(%s)" % (str(t), str(v)))
+                    additionalResult.append(currResult)
     if not keepOptionsOpen:
         clickButton(waitForObject(":Options.Cancel_QPushButton"))
     if additionalFunction:
         return result, additionalResult
     else:
         return result
+
+# set "Always Start Full Help" in "Tools" -> "Options..." -> "Help" -> "General"
+def setAlwaysStartFullHelp():
+    invokeMenuItem("Tools", "Options...")
+    waitForObjectItem(":Options_QListView", "Help")
+    clickItem(":Options_QListView", "Help", 5, 5, 0, Qt.LeftButton)
+    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "General")
+    selectFromCombo(":Startup.contextHelpComboBox_QComboBox", "Always Start Full Help")
+    clickButton(waitForObject(":Options.OK_QPushButton"))
+
+def removePackagingDirectory(projectPath):
+    qtcPackaging = os.path.join(projectPath, "qtc_packaging")
+    if os.path.exists(qtcPackaging):
+        test.log("Removing old packaging directory '%s'" % qtcPackaging)
+        deleteDirIfExists(qtcPackaging)
+    else:
+        test.log("Couldn't remove packaging directory '%s' - did not exist." % qtcPackaging)

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -51,7 +49,6 @@
 #include <QInputDialog>
 #include <QListWidget>
 #include <QMessageBox>
-#include <QMainWindow>
 #include <QPalette>
 #include <QTextCharFormat>
 #include <QTextEdit>
@@ -104,8 +101,9 @@ public:
 
     void setColorSchemes(const QList<ColorSchemeEntry> &colorSchemes)
     {
+        beginResetModel();
         m_colorSchemes = colorSchemes;
-        reset();
+        endResetModel();
     }
 
     const ColorSchemeEntry &colorSchemeAt(int index) const
@@ -231,17 +229,19 @@ FontSettingsPagePrivate::~FontSettingsPagePrivate()
 
 
 // ------- FormatDescription
-FormatDescription::FormatDescription(TextStyle id, const QString &displayName, const QColor &color) :
-    m_id(id),
-    m_displayName(displayName)
-{
-    m_format.setForeground(color);
-}
-
-FormatDescription::FormatDescription(TextStyle id, const QString &displayName, const Format &format) :
+FormatDescription::FormatDescription(TextStyle id, const QString &displayName, const QString &tooltipText, const QColor &foreground) :
     m_id(id),
     m_displayName(displayName),
-    m_format(format)
+    m_tooltipText(tooltipText)
+{
+    m_format.setForeground(foreground);
+}
+
+FormatDescription::FormatDescription(TextStyle id, const QString &displayName, const QString &tooltipText, const Format &format) :
+    m_id(id),
+    m_displayName(displayName),
+    m_format(format),
+    m_tooltipText(tooltipText)
 {
 }
 
@@ -321,21 +321,13 @@ FontSettingsPage::FontSettingsPage(const FormatDescriptions &fd,
     TextEditorOptionsPage(parent),
     d_ptr(new FontSettingsPagePrivate(fd, id, tr("Font && Colors"), category()))
 {
+    setId(d_ptr->m_id);
+    setDisplayName(d_ptr->m_displayName);
 }
 
 FontSettingsPage::~FontSettingsPage()
 {
     delete d_ptr;
-}
-
-QString FontSettingsPage::id() const
-{
-    return d_ptr->m_id;
-}
-
-QString FontSettingsPage::displayName() const
-{
-    return d_ptr->m_displayName;
 }
 
 QWidget *FontSettingsPage::createPage(QWidget *parent)
@@ -634,8 +626,7 @@ void FontSettingsPage::saveSettings()
 {
     if (d_ptr->m_value != d_ptr->m_lastValue) {
         d_ptr->m_lastValue = d_ptr->m_value;
-        if (QSettings *settings = Core::ICore::settings())
-            d_ptr->m_value.toSettings(d_ptr->m_settingsGroup, settings);
+        d_ptr->m_value.toSettings(d_ptr->m_settingsGroup, Core::ICore::settings());
 
         QTimer::singleShot(0, this, SLOT(delayedChange()));
     }

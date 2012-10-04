@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 #ifndef MADDEDEVICETESTER_H
@@ -34,9 +32,7 @@
 
 #include <remotelinux/linuxdevicetester.h>
 
-#include <QByteArray>
-
-namespace Utils {
+namespace QSsh {
 class SshRemoteProcessRunner;
 }
 
@@ -46,18 +42,17 @@ namespace Internal {
 class MaddeDeviceTester : public RemoteLinux::AbstractLinuxDeviceTester
 {
     Q_OBJECT
+
 public:
     explicit MaddeDeviceTester(QObject *parent = 0);
     ~MaddeDeviceTester();
 
-    void testDevice(const QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> &deviceConfiguration);
+    void testDevice(const ProjectExplorer::IDevice::ConstPtr &deviceConfiguration);
     void stopTest();
 
 private slots:
     void handleGenericTestFinished(RemoteLinux::AbstractLinuxDeviceTester::TestResult result);
     void handleConnectionError();
-    void handleStdout(const QByteArray &data);
-    void handleStderr(const QByteArray &data);
     void handleProcessFinished(int exitStatus);
 
 private:
@@ -73,10 +68,8 @@ private:
     RemoteLinux::GenericLinuxDeviceTester * const m_genericTester;
     State m_state;
     TestResult m_result;
-    Utils::SshRemoteProcessRunner *m_processRunner;
-    QSharedPointer<const RemoteLinux::LinuxDeviceConfiguration> m_deviceConfiguration;
-    QByteArray m_stdout;
-    QByteArray m_stderr;
+    QSsh::SshRemoteProcessRunner *m_processRunner;
+    ProjectExplorer::IDevice::ConstPtr m_deviceConfiguration;
 };
 
 } // namespace Internal

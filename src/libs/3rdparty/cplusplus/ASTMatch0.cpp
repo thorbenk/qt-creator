@@ -592,9 +592,17 @@ bool NamespaceAliasDefinitionAST::match0(AST *pattern, ASTMatcher *matcher)
     return false;
 }
 
-bool NewPlacementAST::match0(AST *pattern, ASTMatcher *matcher)
+bool AliasDeclarationAST::match0(AST *pattern, ASTMatcher *matcher)
 {
-    if (NewPlacementAST *_other = pattern->asNewPlacement())
+    if (AliasDeclarationAST *_other = pattern->asAliasDeclaration())
+        return matcher->match(this, _other);
+
+    return false;
+}
+
+bool ExpressionListParenAST::match0(AST *pattern, ASTMatcher *matcher)
+{
+    if (ExpressionListParenAST *_other = pattern->asExpressionListParen())
         return matcher->match(this, _other);
 
     return false;
@@ -611,14 +619,6 @@ bool NewArrayDeclaratorAST::match0(AST *pattern, ASTMatcher *matcher)
 bool NewExpressionAST::match0(AST *pattern, ASTMatcher *matcher)
 {
     if (NewExpressionAST *_other = pattern->asNewExpression())
-        return matcher->match(this, _other);
-
-    return false;
-}
-
-bool NewInitializerAST::match0(AST *pattern, ASTMatcher *matcher)
-{
-    if (NewInitializerAST *_other = pattern->asNewInitializer())
         return matcher->match(this, _other);
 
     return false;
@@ -771,6 +771,14 @@ bool ReturnStatementAST::match0(AST *pattern, ASTMatcher *matcher)
 bool SizeofExpressionAST::match0(AST *pattern, ASTMatcher *matcher)
 {
     if (SizeofExpressionAST *_other = pattern->asSizeofExpression())
+        return matcher->match(this, _other);
+
+    return false;
+}
+
+bool AlignofExpressionAST::match0(AST *pattern, ASTMatcher *matcher)
+{
+    if (AlignofExpressionAST *_other = pattern->asAlignofExpression())
         return matcher->match(this, _other);
 
     return false;

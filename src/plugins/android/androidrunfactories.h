@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -34,58 +32,56 @@
 #define ANDROIDRUNFACTORIES_H
 
 #include <projectexplorer/runconfiguration.h>
+#include <qt4projectmanager/qmakerunconfigurationfactory.h>
 
 namespace ProjectExplorer {
-    class RunConfiguration;
-    class RunControl;
-    class RunConfigWidget;
-    class Target;
-}
-using ProjectExplorer::IRunConfigurationFactory;
-using ProjectExplorer::IRunControlFactory;
-using ProjectExplorer::RunConfiguration;
-using ProjectExplorer::RunControl;
-using ProjectExplorer::RunConfigWidget;
-using ProjectExplorer::Target;
+class RunControl;
+class RunConfigWidget;
+class Target;
+class Node;
+} // namespace ProjectExplorer
 
 namespace Android {
 namespace Internal {
 
-class AndroidRunConfigurationFactory : public IRunConfigurationFactory
+class AndroidRunConfigurationFactory : public Qt4ProjectManager::QmakeRunConfigurationFactory
 {
     Q_OBJECT
 
 public:
     explicit AndroidRunConfigurationFactory(QObject *parent = 0);
-    ~AndroidRunConfigurationFactory();
 
     QString displayNameForId(const Core::Id id) const;
-    QList<Core::Id> availableCreationIds(Target *parent) const;
+    QList<Core::Id> availableCreationIds(ProjectExplorer::Target *parent) const;
 
-    bool canCreate(Target *parent, const Core::Id id) const;
-    RunConfiguration *create(Target *parent, const Core::Id id);
+    bool canCreate(ProjectExplorer::Target *parent, const Core::Id id) const;
+    ProjectExplorer::RunConfiguration *create(ProjectExplorer::Target *parent, const Core::Id id);
 
-    bool canRestore(Target *parent, const QVariantMap &map) const;
-    RunConfiguration *restore(Target *parent, const QVariantMap &map);
+    bool canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const;
+    ProjectExplorer::RunConfiguration *restore(ProjectExplorer::Target *parent, const QVariantMap &map);
 
-    bool canClone(Target *parent, RunConfiguration *source) const;
-    RunConfiguration *clone(Target *parent, RunConfiguration *source);
+    bool canClone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *source) const;
+    ProjectExplorer::RunConfiguration *clone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *source);
+
+    bool canHandle(ProjectExplorer::Target *t) const;
+    QList<ProjectExplorer::RunConfiguration *> runConfigurationsForNode(ProjectExplorer::Target *t,
+                                                                        ProjectExplorer::Node *n);
 };
 
-class AndroidRunControlFactory : public IRunControlFactory
+class AndroidRunControlFactory : public ProjectExplorer::IRunControlFactory
 {
     Q_OBJECT
+
 public:
     explicit AndroidRunControlFactory(QObject *parent = 0);
-    ~AndroidRunControlFactory();
 
     QString displayName() const;
-    RunConfigWidget *createConfigurationWidget(RunConfiguration *runConfiguration);
 
-    bool canRun(RunConfiguration *runConfiguration,
+    bool canRun(ProjectExplorer::RunConfiguration *runConfiguration,
                 ProjectExplorer::RunMode mode) const;
-    RunControl *create(RunConfiguration *runConfiguration,
-                       ProjectExplorer::RunMode mode);
+    ProjectExplorer::RunControl *create(ProjectExplorer::RunConfiguration *runConfiguration,
+                       ProjectExplorer::RunMode mode,
+                       QString *errorMessage);
 };
 
 } // namespace Internal

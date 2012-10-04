@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -388,7 +386,7 @@ DumpParameters::checkRecode(const std::string &type,
     DumpParameterRecodeResult result;
     if (SymbolGroupValue::verbose > 2) {
         DebugPrint debugPrint;
-        debugPrint << '>' << __FUNCTION__ << ' ' << iname << '/' << iname;
+        debugPrint << '>' << __FUNCTION__ << ' ' << iname << '/' << type;
         if (dp)
             debugPrint << " option format: " << dp->format(type, iname);
     }
@@ -474,6 +472,9 @@ DumpParameters::checkRecode(const std::string &type,
     ULONG obtained = 0;
     if (FAILED(ctx.dataspaces->ReadVirtual(address, result.buffer, ULONG(result.size), &obtained))) {
         delete [] result.buffer;
+        DebugPrint() << __FUNCTION__ << " ReadVirtual() failed to read "
+                     << result.size << " bytes from 0x" << std::hex
+                     << address << std::dec << " for " << iname << '.';
         result = DumpParameterRecodeResult();
     }
     if (SymbolGroupValue::verbose > 2)
@@ -1029,19 +1030,26 @@ int SymbolGroupNode::dump(std::ostream &str, const std::string &visitingFullInam
 
 // Return a watch expression basically as "*(type *)(address)"
 static inline std::string watchExpression(ULONG64 address,
-                                          const std::string &type,
+                                          const std::string &typeIn,
                                           int /* kType */,
                                           const std::string &module)
 {
-    std::ostringstream str;
-    str << "*(";
-    // Try to make watch expressions faster by at least qualifying templates with
-    // the local module. We cannot do expensive type lookup here.
+    std::string type = SymbolGroupValue::stripClassPrefixes(typeIn);
+    // Try to make watch expressions faster by at least qualifying
+    // templates with the local module. We cannot do expensive type
+    // lookup here.
     // We could insert a placeholder here for non-POD types indicating
     // that a type lookup should be done when inserting watches?
-    if (!module.empty() && type.find('>') != std::string::npos)
-        str << module << '!';
-    str << SymbolGroupValue::pointerType(SymbolGroupValue::stripClassPrefixes(type)) << ')' << std::hex << std::showbase << address;
+    if (!module.empty() && type.find('>') != std::string::npos) {
+        type.insert(0, 1, '!');
+        type.insert(0, module);
+    }
+    if (SymbolGroupValue::isArrayType(type))
+        type = SymbolGroupValue::stripArrayType(type);
+
+    std::ostringstream str;
+    str << "*(" << SymbolGroupValue::pointerType(type) << ')'
+        << std::hex << std::showbase << address;
     return str.str();
 }
 
@@ -1053,11 +1061,30 @@ int SymbolGroupNode::dumpNode(std::ostream &str,
 {
     const std::string t = type();
     const ULONG64 addr = address();
-    SymbolGroupNode::dumpBasicData(str, aName, aFullIName, t,
-                                   watchExpression(addr, t, m_dumperType, m_module));
+    // Use name as watchExpression in case evaluation failed (watch group item
+    // names are the expression).
+    const std::string watchExp = t.empty() ? aName : watchExpression(addr, t, m_dumperType, m_module);
+    SymbolGroupNode::dumpBasicData(str, aName, aFullIName, t, watchExp);
 
-    if (addr)
-        str << ",addr=\"" << std::hex << std::showbase << addr << std::noshowbase << std::dec << '"';
+    std::wstring value = simpleDumpValue(ctx);
+
+    if (addr) {
+        ULONG64 referencedAddr = 0;
+        // Determine referenced address of pointers?
+        if (!value.compare(0, 2u, L"0x")) {
+            std::wistringstream str(value.substr(2u, value.size() - 2u));
+            str >> std::hex >> referencedAddr;
+        }
+        // Emulate gdb's behaviour of returning the referenced address
+        // for pointers.
+        str << std::hex << std::showbase;
+        if (referencedAddr) {
+            str << ",addr=\"" << referencedAddr << "\",origaddr=\"" << addr << '"';
+        } else {
+            str << ",addr=\"" << addr << '"';
+        }
+        str << std::noshowbase << std::dec;
+    }
     const ULONG s = size();
     if (s)
         str << ",size=\"" << s << '"';
@@ -1066,7 +1093,6 @@ int SymbolGroupNode::dumpNode(std::ostream &str,
     bool valueEnabled = !uninitialized;
 
     // Shall it be recoded?
-    std::wstring value = simpleDumpValue(ctx);
     int encoding = 0;
     if (dumpParameters.recode(t, aFullIName, ctx, addr, &value, &encoding)) {
         str << ",valueencoded=\"" << encoding

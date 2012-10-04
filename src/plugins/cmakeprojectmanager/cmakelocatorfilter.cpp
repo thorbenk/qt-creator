@@ -25,24 +25,24 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "cmakelocatorfilter.h"
-#include "cmaketarget.h"
 #include "cmakeproject.h"
 #include "makestep.h"
 
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/session.h>
+#include <projectexplorer/target.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/buildsteplist.h>
+#include <utils/fileutils.h>
 
 
 using namespace CMakeProjectManager;
 using namespace CMakeProjectManager::Internal;
+using namespace Utils;
 
 CMakeLocatorFilter::CMakeLocatorFilter()
 {
@@ -76,7 +76,8 @@ QList<Locator::FilterEntry> CMakeLocatorFilter::matchesFor(QFutureInterface<Loca
             foreach (CMakeBuildTarget ct, cmakeProject->buildTargets()) {
                 if (ct.title.contains(entry)) {
                     Locator::FilterEntry entry(this, ct.title, cmakeProject->document()->fileName());
-                    entry.extraInfo = cmakeProject->document()->fileName();
+                    entry.extraInfo = FileUtils::shortNativePath(
+                        FileName::fromString(cmakeProject->document()->fileName()));
                     result.append(entry);
                 }
             }

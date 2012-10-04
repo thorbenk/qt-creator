@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -14,8 +14,6 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 ****************************************************************************/
 
@@ -34,7 +32,7 @@
     \title Debugging a Qt Quick Example Application
 
     This section uses the
-    \l{http://doc.qt.nokia.com/4.7/demos-declarative-samegame.html}{Same Game}
+    \l{http://qt-project.org/doc/qt-4.8/demos-declarative-samegame.html}{Same Game}
     demo application to illustrate how to debug Qt Quick applications in the
     \gui Debug mode.
 
@@ -64,8 +62,7 @@
 
         \o  When the debugger hits the breakpoint, it interrupts the
             application. \QC displays the nested function calls leading to the
-            current position as a call stack trace. To view the stack, select
-            the \gui Stack tab.
+            current position as a call stack trace (1).
 
             \image qtquick-example-setting-breakpoint2.png
 
@@ -98,8 +95,8 @@
         \o  To remove a breakpoint, right-click it and select
             \gui {Delete Breakpoint}.
 
-        \o  Select the \gui {QML Inspector} tab to explore the object structure
-            at runtime:
+        \o  Select the \gui {Locals and Expressions} tab to explore the object
+            structure at runtime:
 
             \image qtquick-example-qml-inspector.png
 
@@ -116,8 +113,8 @@
 
             \image qtquick-example-property-values.png
 
-        \o  In the \gui {QML Inspector} view, double-click the value of the
-            \c text property to change it temporarily from \gui {Quit} to
+        \o  In the \gui {Locals and Expressions} view, double-click the value of
+            the \c text property to change it temporarily from \gui {Quit} to
             \gui {End Game}.
 
             When you select an element, the cursor moves to it in the code

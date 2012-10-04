@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -46,9 +44,9 @@
 
 #include "qmljsglobal_p.h"
 
-#include <qglobal.h>
-#include <qshareddata.h>
-#include <qdebug.h>
+#include <QtCore/qglobal.h>
+#include <QtCore/qshareddata.h>
+#include <QtCore/qdebug.h>
 
 #include <cstring>
 
@@ -75,10 +73,10 @@ public:
         if (_blocks) {
             for (int i = 0; i < _allocatedBlocks; ++i) {
                 if (char *b = _blocks[i])
-                    qFree(b);
+                    free(b);
             }
 
-            qFree(_blocks);
+            free(_blocks);
         }
     }
 
@@ -110,7 +108,7 @@ private:
             else
                 _allocatedBlocks *= 2;
 
-            _blocks = (char **) qRealloc(_blocks, sizeof(char *) * _allocatedBlocks);
+            _blocks = (char **) realloc(_blocks, sizeof(char *) * _allocatedBlocks);
 
             for (int index = _blockCount; index < _allocatedBlocks; ++index)
                 _blocks[index] = 0;
@@ -119,7 +117,7 @@ private:
         char *&block = _blocks[_blockCount];
 
         if (! block)
-            block = (char *) qMalloc(BLOCK_SIZE);
+            block = (char *) malloc(BLOCK_SIZE);
 
         _ptr = block;
         _end = _ptr + BLOCK_SIZE;

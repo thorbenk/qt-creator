@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,7 +33,6 @@
 #include "vcsbaseconstants.h"
 
 #include <QCoreApplication>
-#include <QIcon>
 
 /*!
     \class VcsBase::VcsBaseOptionsPage
@@ -48,21 +45,9 @@ namespace VcsBase {
 VcsBaseOptionsPage::VcsBaseOptionsPage(QObject *parent) :
     Core::IOptionsPage(parent)
 {
-}
-
-QString VcsBaseOptionsPage::category() const
-{
-    return QLatin1String(Constants::VCS_SETTINGS_CATEGORY);
-}
-
-QString VcsBaseOptionsPage::displayCategory() const
-{
-    return QCoreApplication::translate("VcsBase", Constants::VCS_SETTINGS_TR_CATEGORY);
-}
-
-QIcon VcsBaseOptionsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Constants::SETTINGS_CATEGORY_VCS_ICON));
+    setCategory(QLatin1String(Constants::VCS_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("VcsBase", Constants::VCS_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Constants::SETTINGS_CATEGORY_VCS_ICON));
 }
 
 } // namespace VcsBase

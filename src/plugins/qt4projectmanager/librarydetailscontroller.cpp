@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,9 +37,11 @@
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/session.h>
 #include <projectexplorer/project.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/buildconfiguration.h>
+#include <utils/hostosinfo.h>
 
 #include <QFileInfo>
 #include <QDir>
@@ -56,8 +56,7 @@ LibraryDetailsController::LibraryDetailsController(
     QObject(parent),
     m_platforms(AddLibraryWizard::LinuxPlatform
                 | AddLibraryWizard::MacPlatform
-                | AddLibraryWizard::WindowsPlatform
-                | AddLibraryWizard::SymbianPlatform),
+                | AddLibraryWizard::WindowsPlatform),
     m_linkageType(AddLibraryWizard::NoLinkage),
     m_macLibraryType(AddLibraryWizard::NoLibraryType),
     m_proFile(proFile),
@@ -69,30 +68,31 @@ LibraryDetailsController::LibraryDetailsController(
     m_windowsGroupVisible(true),
     m_libraryDetailsWidget(libraryDetails)
 {
-#ifdef Q_OS_MAC
-    m_creatorPlatform = CreatorMac;
-#endif
-#ifdef Q_OS_LINUX
-    m_creatorPlatform = CreatorLinux;
-#endif
-#ifdef Q_OS_WIN
-    m_creatorPlatform = CreatorWindows;
-#endif
-
-#ifndef Q_OS_LINUX
-    // project for which we are going to insert the snippet
-    const ProjectExplorer::Project *project =
-            ProjectExplorer::ProjectExplorerPlugin::instance()->session()->projectForFile(proFile);
-    // take active build configuration for it
-    Qt4BuildConfiguration *qt4BuildConfiguration =
-            qobject_cast<Qt4BuildConfiguration *>(project->activeTarget()->activeBuildConfiguration());
-    // if its tool chain is maemo behave the same as we would be on linux
-    if (qt4BuildConfiguration
-            && qt4BuildConfiguration->toolChain()
-            && (qt4BuildConfiguration->toolChain()->targetAbi().osFlavor() == ProjectExplorer::Abi::HarmattanLinuxFlavor
-                || qt4BuildConfiguration->toolChain()->targetAbi().osFlavor() == ProjectExplorer::Abi::MaemoLinuxFlavor))
+    switch (Utils::HostOsInfo::hostOs()) {
+    case Utils::HostOsInfo::HostOsMac:
+        m_creatorPlatform = CreatorMac;
+        break;
+    case Utils::HostOsInfo::HostOsLinux:
         m_creatorPlatform = CreatorLinux;
-#endif
+        break;
+    case Utils::HostOsInfo::HostOsWindows:
+        m_creatorPlatform = CreatorWindows;
+        break;
+    default:
+        break;
+    }
+
+    if (!Utils::HostOsInfo::isLinuxHost()) {
+        // project for which we are going to insert the snippet
+        const ProjectExplorer::Project *project =
+                ProjectExplorer::ProjectExplorerPlugin::instance()->session()->projectForFile(proFile);
+        // if its tool chain is maemo behave the same as we would be on linux
+        ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(project->activeTarget()->kit());
+        if (tc
+                && (tc->targetAbi().osFlavor() == ProjectExplorer::Abi::HarmattanLinuxFlavor
+                    || tc->targetAbi().osFlavor() == ProjectExplorer::Abi::MaemoLinuxFlavor))
+            m_creatorPlatform = CreatorLinux;
+    }
 
     setPlatformsVisible(true);
     setLinkageGroupVisible(true);
@@ -120,8 +120,6 @@ LibraryDetailsController::LibraryDetailsController(
     connect(m_libraryDetailsWidget->macCheckBox, SIGNAL(clicked(bool)),
             this, SLOT(slotPlatformChanged()));
     connect(m_libraryDetailsWidget->winCheckBox, SIGNAL(clicked(bool)),
-            this, SLOT(slotPlatformChanged()));
-    connect(m_libraryDetailsWidget->symCheckBox, SIGNAL(clicked(bool)),
             this, SLOT(slotPlatformChanged()));
 }
 
@@ -160,8 +158,6 @@ void LibraryDetailsController::updateGui()
         m_platforms |= AddLibraryWizard::MacPlatform;
     if (libraryDetailsWidget()->winCheckBox->isChecked())
         m_platforms |= AddLibraryWizard::WindowsPlatform;
-    if (libraryDetailsWidget()->symCheckBox->isChecked())
-        m_platforms |= AddLibraryWizard::SymbianPlatform;
 
     bool macLibraryTypeUpdated = false;
     if (!m_linkageRadiosVisible) {
@@ -427,16 +423,9 @@ static QString commonScopes(AddLibraryWizard::Platforms scopes,
             str << "unix";
             if (!(common & AddLibraryWizard::MacPlatform))
                 str << ":!macx";
-            if (!(common & AddLibraryWizard::SymbianPlatform))
-                str << ":!symbian";
         } else {
             if (scopes & AddLibraryWizard::MacPlatform)
                 str << "macx";
-            if (scopes & AddLibraryWizard::MacPlatform &&
-                    scopes & AddLibraryWizard::SymbianPlatform)
-                str << "|";
-            if (scopes & AddLibraryWizard::SymbianPlatform)
-                str << "symbian";
         }
     }
     if (scopes & AddLibraryWizard::WindowsPlatform) {
@@ -470,8 +459,6 @@ static QString generateLibsSnippet(AddLibraryWizard::Platforms platforms,
         commonPlatforms &= ~QFlags<AddLibraryWizard::Platform>(AddLibraryWizard::MacPlatform);
     if (useSubfolders || addSuffix) // we will generate a separate debug/release conditions
         commonPlatforms &= ~QFlags<AddLibraryWizard::Platform>(AddLibraryWizard::WindowsPlatform);
-    if (generateLibPath) // we will generate a separate line without -L
-        commonPlatforms &= ~QFlags<AddLibraryWizard::Platform>(AddLibraryWizard::SymbianPlatform);
 
     AddLibraryWizard::Platforms diffPlatforms = platforms ^ commonPlatforms;
     AddLibraryWizard::Platforms generatedPlatforms = 0;
@@ -499,12 +486,6 @@ static QString generateLibsSnippet(AddLibraryWizard::Platforms platforms,
         str << "mac: LIBS += " << appendSpaceIfNotEmpty(macLibraryPathSnippet)
                     << "-framework " << libName << "\n";
         generatedPlatforms |= AddLibraryWizard::MacPlatform;
-    }
-    if (diffPlatforms & AddLibraryWizard::SymbianPlatform) {
-        if (generatedPlatforms)
-            str << "else:";
-        str << "symbian: LIBS += -l" << libName << "\n";
-        generatedPlatforms |= AddLibraryWizard::SymbianPlatform;
     }
 
     if (commonPlatforms) {
@@ -563,8 +544,6 @@ static QString generatePreTargetDepsSnippet(AddLibraryWizard::Platforms platform
     }
     AddLibraryWizard::Platforms commonPlatforms = platforms;
     commonPlatforms &= ~QFlags<AddLibraryWizard::Platform>(AddLibraryWizard::WindowsPlatform);
-    // don't generate PRE_TARGETDEPS for symbian - relinking static lib apparently works without that
-    commonPlatforms &= ~QFlags<AddLibraryWizard::Platform>(AddLibraryWizard::SymbianPlatform);
     if (commonPlatforms) {
         if (generatedPlatforms)
             str << "else:";

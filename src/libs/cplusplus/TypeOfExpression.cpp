@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -165,23 +163,6 @@ ExpressionAST *TypeOfExpression::expressionAST() const
     return extractExpressionAST(m_lookupContext.expressionDocument());
 }
 
-ExpressionAST *TypeOfExpression::extractExpressionAST(Document::Ptr doc) const
-{
-    if (! doc->translationUnit()->ast())
-        return 0;
-
-    return doc->translationUnit()->ast()->asExpression();
-}
-
-Document::Ptr TypeOfExpression::documentForExpression(const QByteArray &utf8code) const
-{
-    // create the expression's AST.
-    Document::Ptr doc = Document::create(QLatin1String("<completion>"));
-    doc->setUtf8Source(utf8code);
-    doc->parse(Document::ParseExpression);
-    return doc;
-}
-
 void TypeOfExpression::processEnvironment(Document::Ptr doc, Environment *env,
                                           QSet<QString> *processed) const
 {
@@ -212,3 +193,24 @@ QByteArray TypeOfExpression::preprocessedExpression(const QByteArray &utf8code) 
     Preprocessor preproc(0, m_environment.data());
     return preproc.run("<expression>", utf8code);
 }
+
+namespace CPlusPlus {
+
+ExpressionAST *extractExpressionAST(Document::Ptr doc)
+{
+    if (! doc->translationUnit()->ast())
+        return 0;
+
+    return doc->translationUnit()->ast()->asExpression();
+}
+
+Document::Ptr documentForExpression(const QByteArray &utf8code)
+{
+    // create the expression's AST.
+    Document::Ptr doc = Document::create(QLatin1String("<completion>"));
+    doc->setUtf8Source(utf8code);
+    doc->parse(Document::ParseExpression);
+    return doc;
+}
+
+} // namespace CPlusPlus

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -119,7 +117,6 @@
 #include <QToolBar>
 #include <QTreeView>
 #include <QSortFilterProxyModel>
-#include <QMainWindow>
 
 #include <sstream>
 
@@ -165,14 +162,36 @@ public:
 class OverviewCombo : public QComboBox
 {
 public:
-    OverviewCombo(QWidget *parent = 0) : QComboBox(parent)
+    OverviewCombo(QWidget *parent = 0) : QComboBox(parent), m_skipNextHide(false)
     {}
+
+    bool eventFilter(QObject* object, QEvent* event)
+    {
+        if (event->type() == QEvent::MouseButtonPress && object == view()->viewport()) {
+            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            QModelIndex index = view()->indexAt(mouseEvent->pos());
+            if (!view()->visualRect(index).contains(mouseEvent->pos()))
+                m_skipNextHide = true;
+        }
+        return false;
+    }
 
     void showPopup()
     {
         static_cast<OverviewTreeView *>(view())->adjustWidth();
         QComboBox::showPopup();
     }
+
+    virtual void hidePopup()
+    {
+        if (m_skipNextHide)
+            m_skipNextHide = false;
+        else
+            QComboBox::hidePopup();
+    }
+
+private:
+    bool m_skipNextHide;
 };
 
 class OverviewProxyModel : public QSortFilterProxyModel
@@ -509,9 +528,10 @@ void CPPEditorWidget::createToolBar(CPPEditor *editor)
 
     QTreeView *outlineView = new OverviewTreeView;
     outlineView->header()->hide();
-    outlineView->setItemsExpandable(false);
+    outlineView->setItemsExpandable(true);
     m_outlineCombo->setView(outlineView);
     m_outlineCombo->setMaxVisibleItems(40);
+    outlineView->viewport()->installEventFilter(m_outlineCombo);
 
     m_outlineModel = new OverviewModel(this);
     m_proxyModel = new OverviewProxyModel(m_outlineModel, this);
@@ -747,10 +767,14 @@ void CPPEditorWidget::renameUsagesNow(const QString &replacement)
     info.snapshot = CppModelManagerInterface::instance()->snapshot();
     info.snapshot.insert(info.doc);
 
-    CanonicalSymbol cs(this, info);
-    if (Symbol *canonicalSymbol = cs(textCursor()))
-        if (canonicalSymbol->identifier() != 0)
-            m_modelManager->renameUsages(canonicalSymbol, cs.context(), replacement);
+    if (const Macro *macro = findCanonicalMacro(textCursor(), info.doc)) {
+        m_modelManager->renameMacroUsages(*macro, replacement);
+    } else {
+        CanonicalSymbol cs(this, info);
+        if (Symbol *canonicalSymbol = cs(textCursor()))
+            if (canonicalSymbol->identifier() != 0)
+                m_modelManager->renameUsages(canonicalSymbol, cs.context(), replacement);
+    }
 }
 
 void CPPEditorWidget::renameUsages()
@@ -890,10 +914,22 @@ void CPPEditorWidget::updateFileName()
 #endif // CLANG_INDEXING
 }
 
-void CPPEditorWidget::jumpToOutlineElement(int)
+void CPPEditorWidget::jumpToOutlineElement(int index)
 {
-    QModelIndex index = m_proxyModel->mapToSource(m_outlineCombo->view()->currentIndex());
-    Symbol *symbol = m_outlineModel->symbolFromIndex(index);
+    QModelIndex modelIndex = m_outlineCombo->view()->currentIndex();
+    // When the user clicks on an item in the combo box,
+    // the view's currentIndex is updated, so we want to use that.
+    // When the scroll wheel was used on the combo box,
+    // the view's currentIndex is not updated,
+    // but the passed index to this method is correct.
+    // So, if the view has a current index, we reset it, to be able
+    // to distinguish wheel events later
+    if (modelIndex.isValid())
+        m_outlineCombo->view()->setCurrentIndex(QModelIndex());
+    else
+        modelIndex = m_proxyModel->index(index, 0); // toplevel index
+    QModelIndex sourceIndex = m_proxyModel->mapToSource(modelIndex);
+    Symbol *symbol = m_outlineModel->symbolFromIndex(sourceIndex);
     if (! symbol)
         return;
 
@@ -1058,6 +1094,11 @@ void CPPEditorWidget::finishHighlightSymbolUsages()
 
     TextEditor::SemanticHighlighter::clearExtraAdditionalFormatsUntilEnd(
                 highlighter, m_highlighter);
+
+    if (m_modelManager)
+        m_modelManager->setExtraDiagnostics(m_lastSemanticInfo.doc->fileName(),
+                                            CPlusPlus::CppModelManagerInterface::CppSemanticsDiagnostic,
+                                            m_lastSemanticInfo.doc->diagnosticMessages());
 }
 
 // @TODO: Clang testing... Lots of code around here will need some refactor.
@@ -1613,12 +1654,11 @@ void CPPEditorWidget::contextMenuEvent(QContextMenuEvent *e)
 
     QMenu *menu = new QMenu;
 
-    Core::ActionManager *am = Core::ICore::actionManager();
-    Core::ActionContainer *mcontext = am->actionContainer(Constants::M_CONTEXT);
+    Core::ActionContainer *mcontext = Core::ActionManager::actionContainer(Constants::M_CONTEXT);
     QMenu *contextMenu = mcontext->menu();
 
     QMenu *quickFixMenu = new QMenu(tr("&Refactor"), menu);
-    quickFixMenu->addAction(am->command(Constants::RENAME_SYMBOL_UNDER_CURSOR)->action());
+    quickFixMenu->addAction(Core::ActionManager::command(Constants::RENAME_SYMBOL_UNDER_CURSOR)->action());
 
     QSignalMapper mapper;
     connect(&mapper, SIGNAL(mapped(int)), this, SLOT(performQuickFix(int)));
@@ -1788,14 +1828,18 @@ void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
             fs.toTextCharFormat(TextEditor::C_LOCAL);
     m_semanticHighlightFormatMap[SemanticInfo::FieldUse] =
             fs.toTextCharFormat(TextEditor::C_FIELD);
-    m_semanticHighlightFormatMap[SemanticInfo::StaticUse] =
-            fs.toTextCharFormat(TextEditor::C_STATIC);
+    m_semanticHighlightFormatMap[SemanticInfo::EnumerationUse] =
+            fs.toTextCharFormat(TextEditor::C_ENUMERATION);
     m_semanticHighlightFormatMap[SemanticInfo::VirtualMethodUse] =
             fs.toTextCharFormat(TextEditor::C_VIRTUAL_METHOD);
     m_semanticHighlightFormatMap[SemanticInfo::LabelUse] =
             fs.toTextCharFormat(TextEditor::C_LABEL);
     m_semanticHighlightFormatMap[SemanticInfo::MacroUse] =
             fs.toTextCharFormat(TextEditor::C_PREPROCESSOR);
+    m_semanticHighlightFormatMap[SemanticInfo::FunctionUse] =
+            fs.toTextCharFormat(TextEditor::C_FUNCTION);
+    m_semanticHighlightFormatMap[SemanticInfo::PseudoKeywordUse] =
+            fs.toTextCharFormat(TextEditor::C_KEYWORD);
     m_keywordFormat = fs.toTextCharFormat(TextEditor::C_KEYWORD);
 
     // only set the background, we do not want to modify foreground properties set by the syntax highlighter or the link

@@ -5,12 +5,12 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "RemoteLinux"
 
-    Depends { name: "qt"; submodules: ['widgets'] }
+    Depends { name: "Qt.widgets" }
     Depends { name: "Core" }
     Depends { name: "Debugger" }
     Depends { name: "ProjectExplorer" }
-    Depends { name: "Qt4ProjectManager" }
     Depends { name: "QtSupport" }
+    Depends { name: "QtcSsh" }
 
     Depends { name: "cpp" }
     cpp.includePaths: [
@@ -27,23 +27,10 @@ QtcPlugin {
         "abstractremotelinuxdeploystep.h",
         "abstractuploadandinstallpackageservice.cpp",
         "abstractuploadandinstallpackageservice.h",
-        "abstractembeddedlinuxtarget.cpp",
-        "abstractembeddedlinuxtarget.h",
-        "genericembeddedlinuxtarget.cpp",
-        "genericembeddedlinuxtarget.h",
-        "deployablefile.h",
-        "deployablefilesperprofile.cpp",
-        "deployablefilesperprofile.h",
-        "deploymentinfo.cpp",
-        "deploymentinfo.h",
-        "deploymentsettingsassistant.cpp",
-        "deploymentsettingsassistant.h",
         "embeddedlinuxqtversion.cpp",
         "embeddedlinuxqtversion.h",
         "embeddedlinuxqtversionfactory.cpp",
         "embeddedlinuxqtversionfactory.h",
-        "embeddedlinuxtargetfactory.cpp",
-        "embeddedlinuxtargetfactory.h",
         "genericdirectuploadservice.cpp",
         "genericdirectuploadstep.h",
         "genericlinuxdeviceconfigurationfactory.cpp",
@@ -58,8 +45,8 @@ QtcPlugin {
         "genericlinuxdeviceconfigurationwidget.ui",
         "genericremotelinuxdeploystepfactory.cpp",
         "genericremotelinuxdeploystepfactory.h",
-        "linuxdeviceconfiguration.cpp",
-        "linuxdeviceconfiguration.h",
+        "linuxdevice.cpp",
+        "linuxdevice.h",
         "linuxdevicetestdialog.cpp",
         "linuxdevicetestdialog.h",
         "linuxdevicetester.cpp",
@@ -69,8 +56,6 @@ QtcPlugin {
         "remotelinux.qrc",
         "remotelinux_constants.h",
         "remotelinux_export.h",
-        "remotelinuxapplicationrunner.cpp",
-        "remotelinuxapplicationrunner.h",
         "remotelinuxcustomcommanddeploymentstep.h",
         "remotelinuxcustomcommanddeployservice.cpp",
         "remotelinuxcustomcommanddeployservice.h",
@@ -85,9 +70,6 @@ QtcPlugin {
         "remotelinuxpackageinstaller.cpp",
         "remotelinuxplugin.cpp",
         "remotelinuxplugin.h",
-        "remotelinuxprocessesdialog.cpp",
-        "remotelinuxprocesslist.cpp",
-        "remotelinuxprocesslist.h",
         "remotelinuxrunconfiguration.cpp",
         "remotelinuxrunconfiguration.h",
         "remotelinuxrunconfigurationfactory.cpp",
@@ -95,27 +77,18 @@ QtcPlugin {
         "remotelinuxrunconfigurationwidget.cpp",
         "remotelinuxrunconfigurationwidget.h",
         "remotelinuxruncontrol.h",
-        "remotelinuxusedportsgatherer.cpp",
         "remotelinuxutils.cpp",
         "remotelinuxutils.h",
-        "startgdbserverdialog.cpp",
-        "startgdbserverdialog.h",
         "tarpackagecreationstep.h",
         "uploadandinstalltarpackagestep.h",
         "genericdirectuploadservice.h",
         "linuxdevicetestdialog.ui",
         "packageuploader.cpp",
         "packageuploader.h",
-        "profilesupdatedialog.cpp",
-        "profilesupdatedialog.h",
-        "profilesupdatedialog.ui",
         "remotelinuxdeployconfigurationwidget.ui",
         "remotelinuxenvironmentreader.cpp",
         "remotelinuxenvironmentreader.h",
         "remotelinuxpackageinstaller.h",
-        "remotelinuxprocessesdialog.h",
-        "remotelinuxprocessesdialog.ui",
-        "remotelinuxusedportsgatherer.h",
         "sshkeydeployer.cpp",
         "sshkeydeployer.h",
         "typespecificdeviceconfigurationlistmodel.cpp",
@@ -128,11 +101,19 @@ QtcPlugin {
         "remotelinuxruncontrolfactory.h",
         "tarpackagecreationstep.cpp",
         "uploadandinstalltarpackagestep.cpp",
+        "remotelinuxcheckforfreediskspaceservice.h",
+        "remotelinuxcheckforfreediskspaceservice.cpp",
+        "remotelinuxcheckforfreediskspacestep.h",
+        "remotelinuxcheckforfreediskspacestep.cpp",
+        "remotelinuxcheckforfreediskspacestepwidget.ui",
+        "remotelinuxdeploymentdatamodel.h",
+        "remotelinuxdeploymentdatamodel.cpp",
         "images/embeddedtarget.png"
     ]
 
     ProductModule {
         Depends { name: "Core" }
+        Depends { name: "QtcSsh" }
     }
 }
 

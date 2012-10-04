@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,29 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "desktopdevice.h"
+#include "projectexplorerconstants.h"
+#include "deviceprocesslist.h"
+#include "localprocesslist.h"
 
 #include <QCoreApplication>
 
 namespace ProjectExplorer {
 
-const Core::Id DesktopDevice::Id = Core::Id("Desktop Device");
+DesktopDevice::DesktopDevice() : IDevice(Core::Id(Constants::DESKTOP_DEVICE_TYPE),
+                                         IDevice::AutoDetected,
+                                         IDevice::Hardware,
+                                         Core::Id(Constants::DESKTOP_DEVICE_ID))
+{
+    setDisplayName(QCoreApplication::translate("ProjectExplorer::DesktopDevice", "Run locally"));
+}
+
+DesktopDevice::DesktopDevice(const DesktopDevice &other) :
+    IDevice(other)
+{ }
 
 IDevice::DeviceInfo DesktopDevice::deviceInformation() const
 {
@@ -47,6 +58,7 @@ QString DesktopDevice::displayType() const
 {
     return QCoreApplication::translate("ProjectExplorer::DesktopDevice", "Desktop");
 }
+
 IDeviceWidget *DesktopDevice::createWidget()
 {
     return 0;
@@ -69,18 +81,19 @@ void DesktopDevice::executeAction(Core::Id actionId, QWidget *parent) const
     Q_UNUSED(parent);
 }
 
+bool DesktopDevice::canCreateProcessModel() const
+{
+    return true;
+}
+
+DeviceProcessList *DesktopDevice::createProcessListModel(QObject *parent) const
+{
+    return new Internal::LocalProcessList(sharedFromThis(), parent);
+}
+
 IDevice::Ptr DesktopDevice::clone() const
 {
     return Ptr(new DesktopDevice(*this));
 }
-
-DesktopDevice::DesktopDevice() : IDevice(Core::Id("Desktop"), IDevice::AutoDetected, Id)
-{
-    setDisplayName(QCoreApplication::translate("ProjectExplorer::DesktopDevice", "Run locally"));
-}
-
-DesktopDevice::DesktopDevice(const DesktopDevice &other) :
-    IDevice(other)
-{ }
 
 } // namespace ProjectExplorer

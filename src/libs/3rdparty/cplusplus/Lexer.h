@@ -90,6 +90,13 @@ private:
     static int classifyObjCAtKeyword(const char *s, int n);
     static int classifyOperator(const char *string, int length);
 
+    void scanStringLiteral(Token *tok, unsigned char hint = 0);
+    void scanRawStringLiteral(Token *tok, unsigned char hint = 0);
+    void scanCharLiteral(Token *tok, unsigned char hint = 0);
+    void scanUntilQuote(Token *tok, unsigned char quote);
+    void scanNumericLiteral(Token *tok);
+    void scanIdentifier(Token *tok, unsigned extraProcessedChars = 0);
+
     inline void yyinp()
     {
         if (++_currentChar == _lastChar)

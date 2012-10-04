@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2009 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -35,16 +33,15 @@
 
 #include <QWidget>
 #include <QUrl>
+#include <QDeclarativeEngine>
 
 QT_BEGIN_NAMESPACE
-class QDeclarativeEngine;
 class QDeclarativeContext;
 class QDeclarativeError;
+class QDeclarativeComponent;
 QT_END_NAMESPACE
 
 namespace QmlDesigner {
-
-class DeclarativeWidgetViewPrivate;
 
 class DeclarativeWidgetView : public QWidget
 {
@@ -53,8 +50,6 @@ class DeclarativeWidgetView : public QWidget
     Q_PROPERTY(QUrl source READ source WRITE setSource DESIGNABLE true)
 public:
     explicit DeclarativeWidgetView(QWidget *parent = 0);
-
-    virtual ~DeclarativeWidgetView();
 
     QUrl source() const;
     void setSource(const QUrl&);
@@ -71,14 +66,17 @@ signals:
     void statusChanged(DeclarativeWidgetView::Status);
 
 protected:
-    virtual void setRootWidget(QWidget *);
+    void setRootWidget(QWidget *);
+    void execute();
 
 private Q_SLOTS:
     void continueExecute();
 
 private:
-     friend class DeclarativeWidgetViewPrivate;
-     DeclarativeWidgetViewPrivate *d;
+     QScopedPointer<QWidget> m_root;
+     QUrl m_source;
+     QDeclarativeEngine m_engine;
+     QWeakPointer<QDeclarativeComponent> m_component;
 
 };
 

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -88,11 +86,14 @@ public:
     // this QItemSelectionModel is shared by all views
     QItemSelectionModel *selectionModel() const;
 
+    bool hasBookmarkInPosition(const QString &fileName, int lineNumber);
+
     enum Roles {
         Filename = Qt::UserRole,
         LineNumber = Qt::UserRole + 1,
         Directory = Qt::UserRole + 2,
-        LineText = Qt::UserRole + 3
+        LineText = Qt::UserRole + 3,
+        Note = Qt::UserRole + 4
     };
 
 public slots:
@@ -104,6 +105,8 @@ public slots:
     void prev();
     void moveUp();
     void moveDown();
+    void editNote();
+    void editNote(const QString &fileName, int lineNumber);
     bool gotoBookmark(Bookmark *bookmark);
 
 signals:
@@ -116,6 +119,9 @@ private slots:
     void handleBookmarkRequest(TextEditor::ITextEditor * textEditor,
                                int line,
                                TextEditor::ITextEditor::MarkRequestKind kind);
+    void handleBookmarkTooltipRequest(TextEditor::ITextEditor *textEditor,
+                                      const QPoint &pos,
+                                      int line);
 
 private:
     TextEditor::ITextEditor *currentTextEditor() const;
@@ -128,6 +134,7 @@ private:
     void addBookmark(const QString &s);
     static QString bookmarkToString(const Bookmark *b);
     void saveBookmarks();
+    void operateTooltip(TextEditor::ITextEditor *textEditor, const QPoint &pos, Bookmark *mark);
 
     typedef QMultiMap<QString, Bookmark *> FileNameBookmarksMap;
     typedef QMap<QString, FileNameBookmarksMap *> DirectoryFileBookmarksMap;
@@ -169,6 +176,7 @@ public:
 
 class BookmarkViewFactory : public Core::INavigationWidgetFactory
 {
+    Q_OBJECT
 public:
     BookmarkViewFactory(BookmarkManager *bm);
     QString displayName() const;

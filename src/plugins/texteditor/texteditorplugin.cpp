@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -63,7 +61,6 @@
 #include <utils/qtcassert.h>
 
 #include <QtPlugin>
-#include <QMainWindow>
 #include <QShortcut>
 #include <QDir>
 #include <QTemporaryFile>
@@ -181,19 +178,14 @@ bool TextEditorPlugin::initialize(const QStringList &arguments, QString *errorMe
     addAutoReleasedObject(m_lineNumberFilter);
 
     Core::Context context(TextEditor::Constants::C_TEXTEDITOR);
-    Core::ActionManager *am = Core::ICore::actionManager();
 
     // Add shortcut for invoking automatic completion
     QShortcut *completionShortcut = new QShortcut(Core::ICore::mainWindow());
     completionShortcut->setWhatsThis(tr("Triggers a completion in this scope"));
     // Make sure the shortcut still works when the completion widget is active
     completionShortcut->setContext(Qt::ApplicationShortcut);
-    Core::Command *command = am->registerShortcut(completionShortcut, Constants::COMPLETE_THIS, context);
-#ifndef Q_OS_MAC
-    command->setDefaultKeySequence(QKeySequence(tr("Ctrl+Space")));
-#else
-    command->setDefaultKeySequence(QKeySequence(tr("Meta+Space")));
-#endif
+    Core::Command *command = Core::ActionManager::registerShortcut(completionShortcut, Constants::COMPLETE_THIS, context);
+    command->setDefaultKeySequence(QKeySequence(Core::UseMacShortcuts ? tr("Meta+Space") : tr("Ctrl+Space")));
     connect(completionShortcut, SIGNAL(activated()), this, SLOT(invokeCompletion()));
 
     // Add shortcut for invoking quick fix options
@@ -201,7 +193,7 @@ bool TextEditorPlugin::initialize(const QStringList &arguments, QString *errorMe
     quickFixShortcut->setWhatsThis(tr("Triggers a quick fix in this scope"));
     // Make sure the shortcut still works when the quick fix widget is active
     quickFixShortcut->setContext(Qt::ApplicationShortcut);
-    Core::Command *quickFixCommand = am->registerShortcut(quickFixShortcut, Constants::QUICKFIX_THIS, context);
+    Core::Command *quickFixCommand = Core::ActionManager::registerShortcut(quickFixShortcut, Constants::QUICKFIX_THIS, context);
     quickFixCommand->setDefaultKeySequence(QKeySequence(tr("Alt+Return")));
     connect(quickFixShortcut, SIGNAL(activated()), this, SLOT(invokeQuickFix()));
 
@@ -227,11 +219,9 @@ bool TextEditorPlugin::initialize(const QStringList &arguments, QString *errorMe
 
 void TextEditorPlugin::extensionsInitialized()
 {
-    ExtensionSystem::PluginManager *pluginManager = ExtensionSystem::PluginManager::instance();
-
     m_searchResultWindow = Find::SearchResultWindow::instance();
 
-    m_outlineFactory->setWidgetFactories(pluginManager->getObjects<TextEditor::IOutlineWidgetFactory>());
+    m_outlineFactory->setWidgetFactories(ExtensionSystem::PluginManager::getObjects<TextEditor::IOutlineWidgetFactory>());
 
     connect(m_settings, SIGNAL(fontSettingsChanged(TextEditor::FontSettings)),
             this, SLOT(updateSearchResultsFont(TextEditor::FontSettings)));

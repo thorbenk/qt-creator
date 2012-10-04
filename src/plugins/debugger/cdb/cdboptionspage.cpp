@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,13 +25,12 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "cdboptionspage.h"
 #include "cdboptions.h"
+#include "commonoptionspage.h"
 #include "debuggerinternalconstants.h"
 #include "cdbengine.h"
 
@@ -178,6 +177,11 @@ CdbOptionsPageWidget::CdbOptionsPageWidget(QWidget *parent) :
     eventLayout->setContentsMargins(margins);
     eventLayout->addWidget(m_breakEventWidget);
     m_ui.eventGroupBox->setLayout(eventLayout);
+    m_ui.breakCrtDbgReportCheckBox
+        ->setText(CommonOptionsPage::msgSetBreakpointAtFunction(CdbOptions::crtDbgReport));
+    const QString hint = tr("This is useful to catch runtime error messages, for example caused by assert().");
+    m_ui.breakCrtDbgReportCheckBox
+        ->setToolTip(CommonOptionsPage::msgSetBreakpointAtFunctionToolTip(CdbOptions::crtDbgReport, hint));
 }
 
 void CdbOptionsPageWidget::setOptions(CdbOptions &o)
@@ -188,6 +192,7 @@ void CdbOptionsPageWidget::setOptions(CdbOptions &o)
     m_breakEventWidget->setBreakEvents(o.breakEvents);
     m_ui.consoleCheckBox->setChecked(o.cdbConsole);
     m_ui.breakpointCorrectionCheckBox->setChecked(o.breakpointCorrection);
+    m_ui.breakCrtDbgReportCheckBox->setChecked(o.breakFunctions.contains(QLatin1String(CdbOptions::crtDbgReport)));
 }
 
 CdbOptions CdbOptionsPageWidget::options() const
@@ -199,6 +204,8 @@ CdbOptions CdbOptionsPageWidget::options() const
     rc.breakEvents = m_breakEventWidget->breakEvents();
     rc.cdbConsole = m_ui.consoleCheckBox->isChecked();
     rc.breakpointCorrection = m_ui.breakpointCorrectionCheckBox->isChecked();
+    if (m_ui.breakCrtDbgReportCheckBox->isChecked())
+        rc.breakFunctions.push_back(QLatin1String(CdbOptions::crtDbgReport));
     return rc;
 }
 
@@ -230,36 +237,24 @@ CdbOptionsPage::CdbOptionsPage() :
 {
     CdbOptionsPage::m_instance = this;
     m_options->fromSettings(Core::ICore::settings());
+
+    setId(CdbOptionsPage::settingsId());
+
+    setDisplayName(tr("CDB"));
+    setCategory(QLatin1String(Debugger::Constants::DEBUGGER_SETTINGS_CATEGORY));
+    setDisplayCategory(QCoreApplication::translate("Debugger",
+        Constants::DEBUGGER_SETTINGS_TR_CATEGORY));
+    setCategoryIcon(QLatin1String(Constants::DEBUGGER_COMMON_SETTINGS_CATEGORY_ICON));
+}
+
+QString CdbOptionsPage::settingsId()
+{
+    return QLatin1String("F.Cda");
 }
 
 CdbOptionsPage::~CdbOptionsPage()
 {
     CdbOptionsPage::m_instance = 0;
-}
-
-QString CdbOptionsPage::settingsId()
-{
-    return QLatin1String("F.Cda"); // before old CDB
-}
-
-QString CdbOptionsPage::displayName() const
-{
-    return tr("CDB");
-}
-
-QString CdbOptionsPage::category() const
-{
-    return QLatin1String(Debugger::Constants::DEBUGGER_SETTINGS_CATEGORY);
-}
-
-QString CdbOptionsPage::displayCategory() const
-{
-    return QCoreApplication::translate("Debugger", Debugger::Constants::DEBUGGER_SETTINGS_TR_CATEGORY);
-}
-
-QIcon CdbOptionsPage::categoryIcon() const
-{
-    return QIcon(QLatin1String(Debugger::Constants::DEBUGGER_COMMON_SETTINGS_CATEGORY_ICON));
 }
 
 QWidget *CdbOptionsPage::createPage(QWidget *parent)

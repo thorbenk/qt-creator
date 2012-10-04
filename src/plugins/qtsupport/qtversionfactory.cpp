@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -57,17 +55,6 @@ bool sortByPriority(QtVersionFactory *a, QtVersionFactory *b)
     return a->priority() > b->priority();
 }
 
-BaseQtVersion *QtVersionFactory::createQtVersionFromLegacySettings(const Utils::FileName &qmakePath, int id, QSettings *s)
-{
-    BaseQtVersion *v = createQtVersionFromQMakePath(qmakePath);
-    if (!v)
-        return 0;
-    v->setId(id);
-    v->setDisplayName(s->value(QLatin1String("Name")).toString());
-    v->restoreLegacySettings(s);
-    return v;
-}
-
 BaseQtVersion *QtVersionFactory::createQtVersionFromQMakePath(const Utils::FileName &qmakePath, bool isAutoDetected, const QString &autoDetectionSource)
 {
     QHash<QString, QString> versionInfo;
@@ -76,19 +63,15 @@ BaseQtVersion *QtVersionFactory::createQtVersionFromQMakePath(const Utils::FileN
         return 0;
     Utils::FileName mkspec = BaseQtVersion::mkspecFromVersionInfo(versionInfo);
 
-    ProFileOption option;
-    option.properties = versionInfo;
+    ProFileGlobals globals;
+    globals.setProperties(versionInfo);
     ProMessageHandler msgHandler(true);
     ProFileCacheManager::instance()->incRefCount();
-    ProFileParser parser(ProFileCacheManager::instance()->cache(), &msgHandler);
-    ProFileEvaluator evaluator(&option, &parser, &msgHandler);
-    if (ProFile *pro = parser.parsedProFile(mkspec.toString() + QLatin1String("/qmake.conf"))) {
-        evaluator.setCumulative(false);
-        evaluator.accept(pro, ProFileEvaluator::LoadProOnly);
-        pro->deref();
-    }
+    QMakeParser parser(ProFileCacheManager::instance()->cache(), &msgHandler);
+    ProFileEvaluator evaluator(&globals, &parser, &msgHandler);
+    evaluator.loadNamedSpec(mkspec.toString(), false);
 
-    QList<QtVersionFactory *> factories = ExtensionSystem::PluginManager::instance()->getObjects<QtVersionFactory>();
+    QList<QtVersionFactory *> factories = ExtensionSystem::PluginManager::getObjects<QtVersionFactory>();
     qSort(factories.begin(), factories.end(), &sortByPriority);
 
     foreach (QtVersionFactory *factory, factories) {

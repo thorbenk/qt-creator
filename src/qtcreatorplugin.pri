@@ -33,10 +33,20 @@ isEmpty(TARGET) {
     error("qtcreatorplugin.pri: You must provide a TARGET")
 }
 
+isEqual(QT_MAJOR_VERSION, 5) {
+
+defineReplace(stripOutDir) {
+    return($$relative_path($$1, $$OUT_PWD))
+}
+
+} else { # qt5
+
 defineReplace(stripOutDir) {
     1 ~= s|^$$re_escape($$OUT_PWD/)||$$i_flag
     return($$1)
 }
+
+} # qt5
 
 PLUGINSPEC = $$_PRO_FILE_PWD_/$${TARGET}.pluginspec
 PLUGINSPEC_IN = $${PLUGINSPEC}.in
@@ -90,6 +100,8 @@ macx {
     QMAKE_RPATHDIR =
 }
 
+# put .pro file directory in INCLUDEPATH
+CONFIG += include_source_dir
 
 contains(QT_CONFIG, reduce_exports):CONFIG += hide_symbols
 
@@ -97,9 +109,9 @@ CONFIG += plugin plugin_with_soname
 linux*:QMAKE_LFLAGS += $$QMAKE_LFLAGS_NOUNDEF
 
 !macx {
-    target.path = /$$IDE_LIBRARY_BASENAME/qtcreator/plugins/$$PROVIDER
+    target.path = $$QTC_PREFIX/$$IDE_LIBRARY_BASENAME/qtcreator/plugins/$$PROVIDER
     pluginspec.files += $${TARGET}.pluginspec
-    pluginspec.path = /$$IDE_LIBRARY_BASENAME/qtcreator/plugins/$$PROVIDER
+    pluginspec.path = $$QTC_PREFIX/$$IDE_LIBRARY_BASENAME/qtcreator/plugins/$$PROVIDER
     INSTALLS += target pluginspec
 }
 

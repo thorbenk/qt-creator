@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,18 +25,16 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "cmakeprojectplugin.h"
 #include "cmakeprojectmanager.h"
+#include "cmakebuildconfiguration.h"
 #include "cmakerunconfiguration.h"
 #include "cmakeeditorfactory.h"
 #include "makestep.h"
 #include "cmakeprojectconstants.h"
-#include "cmaketarget.h"
 #include "cmakelocatorfilter.h"
 
 #include <coreplugin/icore.h>
@@ -67,9 +65,9 @@ bool CMakeProjectPlugin::initialize(const QStringList & /*arguments*/, QString *
     addAutoReleasedObject(manager);
     addAutoReleasedObject(new MakeStepFactory);
     addAutoReleasedObject(new CMakeRunConfigurationFactory);
+    addAutoReleasedObject(new CMakeBuildConfigurationFactory);
 
     addAutoReleasedObject(new CMakeEditorFactory(manager));
-    addAutoReleasedObject(new CMakeTargetFactory);
     addAutoReleasedObject(new CMakeLocatorFilter);
 
     return true;

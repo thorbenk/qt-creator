@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,22 +25,21 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
-#ifndef QMLERROR_H
-#define QMLERROR_H
+#ifndef QQMLERROR_H
+#define QQMLERROR_H
 
-#include <qurl.h>
-#include <qstring.h>
+
+
+#include <QtCore/qurl.h>
+#include <QtCore/qstring.h>
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE
 
-QT_MODULE(Declarative)
 
 class QDebug;
 class QmlErrorPrivate;
@@ -70,8 +69,10 @@ private:
 
 QDebug operator<<(QDebug debug, const QmlError &error);
 
+Q_DECLARE_TYPEINFO(QmlError, Q_MOVABLE_TYPE);
+
 QT_END_NAMESPACE
 
 QT_END_HEADER
 
-#endif // QMLERROR_H
+#endif // QQMLERROR_H

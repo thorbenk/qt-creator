@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -49,23 +47,15 @@ CompletionSettingsPage::CompletionSettingsPage(QObject *parent)
     : TextEditor::TextEditorOptionsPage(parent)
     , m_page(0)
 {
-    if (QSettings *s = Core::ICore::settings())
-        m_commentsSettings.fromSettings(QLatin1String(CPPTOOLS_SETTINGSGROUP), s);
+    m_commentsSettings.fromSettings(QLatin1String(CPPTOOLS_SETTINGSGROUP), Core::ICore::settings());
+
+    setId(QLatin1String("P.Completion"));
+    setDisplayName(tr("Completion"));
 }
 
 CompletionSettingsPage::~CompletionSettingsPage()
 {
     delete m_page;
-}
-
-QString CompletionSettingsPage::id() const
-{
-    return QLatin1String("P.Completion");
-}
-
-QString CompletionSettingsPage::displayName() const
-{
-    return tr("Completion");
 }
 
 QWidget *CompletionSettingsPage::createPage(QWidget *parent)
@@ -151,8 +141,7 @@ void CompletionSettingsPage::apply()
     m_commentsSettings.m_enableDoxygen = m_page->enableDoxygenCheckBox->isChecked();
     m_commentsSettings.m_generateBrief = m_page->generateBriefCheckBox->isChecked();
     m_commentsSettings.m_leadingAsterisks = m_page->leadingAsterisksCheckBox->isChecked();
-    if (QSettings *s = Core::ICore::settings())
-        m_commentsSettings.toSettings(QLatin1String(CPPTOOLS_SETTINGSGROUP), s);
+    m_commentsSettings.toSettings(QLatin1String(CPPTOOLS_SETTINGSGROUP), Core::ICore::settings());
 
     emit commentsSettingsChanged(m_commentsSettings);
 }

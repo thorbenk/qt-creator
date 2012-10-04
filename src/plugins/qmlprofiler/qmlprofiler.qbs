@@ -5,7 +5,7 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "QmlProfiler"
 
-    Depends { name: "qt"; submodules: ['widgets', 'network', 'script', 'quick1'] }
+    Depends { name: "Qt"; submodules: ["widgets", "network", "script", "quick1"] }
     Depends { name: "Core" }
     Depends { name: "AnalyzerBase" }
     Depends { name: "QmlProjectManager" }
@@ -13,7 +13,6 @@ QtcPlugin {
     Depends { name: "RemoteLinux" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "QtSupport" }
-    Depends { name: "symbianutils" }
     Depends { name: "TextEditor" }
     Depends { name: "QmlDebug" }
     Depends { name: "QmlJS" }
@@ -23,7 +22,6 @@ QtcPlugin {
     Depends { name: "cpp" }
     cpp.includePaths: [
         "canvas",
-        "../../shared/symbianutils",
         "..",
         "../../libs",
         buildDirectory
@@ -31,8 +29,6 @@ QtcPlugin {
 
     files: [
         "abstractqmlprofilerrunner.h",
-        "codaqmlprofilerrunner.cpp",
-        "codaqmlprofilerrunner.h",
         "localqmlprofilerrunner.cpp",
         "localqmlprofilerrunner.h",
         "qmlprofilerattachdialog.cpp",
@@ -54,6 +50,8 @@ QtcPlugin {
         "qmlprofilerplugin.h",
         "qmlprofilerstatemanager.cpp",
         "qmlprofilerstatemanager.h",
+        "qmlprofilerstatewidget.cpp",
+        "qmlprofilerstatewidget.h",
         "qmlprofilertool.cpp",
         "qmlprofilertool.h",
         "qmlprofilertraceview.cpp",

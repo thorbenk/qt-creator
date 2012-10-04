@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -214,6 +212,20 @@ FakeVimSettings *theFakeVimSettings()
         _("usecoresearch"), _("ucs"));
 
     item = new SavedAction(instance);
+    item->setDefaultValue(false);
+    item->setValue(false);
+    item->setSettingsKey(group, _("SmartCase")); item->setCheckable(true);
+    item->setCheckable(true);
+    instance->insertItem(ConfigSmartCase, item, _("smartcase"), _("scs"));
+
+    item = new SavedAction(instance);
+    item->setDefaultValue(true);
+    item->setValue(true);
+    item->setSettingsKey(group, _("WrapScan")); item->setCheckable(true);
+    item->setCheckable(true);
+    instance->insertItem(ConfigWrapScan, item, _("wrapscan"), _("ws"));
+
+    item = new SavedAction(instance);
     item->setDefaultValue(_("indent,eol,start"));
     item->setSettingsKey(group, _("Backspace"));
     instance->insertItem(ConfigBackspace, item, _("backspace"), _("bs"));
@@ -237,6 +249,13 @@ FakeVimSettings *theFakeVimSettings()
     item->setSettingsKey(group, _("PassControlKey"));
     item->setCheckable(true);
     instance->insertItem(ConfigPassControlKey, item, _("passcontrolkey"), _("pck"));
+
+    item = new SavedAction(instance);
+    item->setDefaultValue(QString());
+    item->setValue(QString());
+    item->setSettingsKey(group, _("Clipboard"));
+    item->setCheckable(true);
+    instance->insertItem(ConfigClipboard, item, _("clipboard"), _("cb"));
 
     return instance;
 }

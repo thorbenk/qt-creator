@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,14 +25,13 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
 #include "memoryagent.h"
 #include "memoryview.h"
 
+#include "breakhandler.h"
 #include "debuggerengine.h"
 #include "debuggerstartparameters.h"
 #include "debuggercore.h"
@@ -48,7 +47,6 @@
 #include <extensionsystem/invoker.h>
 
 #include <QMessageBox>
-#include <QMainWindow>
 #include <QVBoxLayout>
 
 #include <cstring>
@@ -152,6 +150,12 @@ void MemoryAgent::connectBinEditorWidget(QWidget *w)
     connect(w,
         SIGNAL(dataChanged(Core::IEditor*,quint64,QByteArray)),
         SLOT(handleDataChanged(Core::IEditor*,quint64,QByteArray)));
+    connect(w,
+        SIGNAL(dataChanged(Core::IEditor*,quint64,QByteArray)),
+        SLOT(handleDataChanged(Core::IEditor*,quint64,QByteArray)));
+    connect(w,
+        SIGNAL(addWatchpointRequested(quint64,uint)),
+        SLOT(handleWatchpointRequest(quint64,uint)));
 }
 
 bool MemoryAgent::doCreateBinEditor(quint64 addr, unsigned flags,
@@ -165,7 +169,7 @@ bool MemoryAgent::doCreateBinEditor(quint64 addr, unsigned flags,
     if (flags & DebuggerEngine::MemoryView) {
         // Ask BIN editor plugin for factory service and have it create a bin editor widget.
         QWidget *binEditor = 0;
-        if (QObject *factory = ExtensionSystem::PluginManager::instance()->getObjectByClassName(QLatin1String("BINEditor::BinEditorWidgetFactory")))
+        if (QObject *factory = ExtensionSystem::PluginManager::getObjectByClassName(QLatin1String("BINEditor::BinEditorWidgetFactory")))
             binEditor = ExtensionSystem::invoke<QWidget *>(factory, "createWidget", (QWidget *)0);
         if (!binEditor)
             return false;
@@ -268,6 +272,11 @@ void MemoryAgent::handleDataChanged(IEditor *,
     quint64 addr, const QByteArray &data)
 {
     m_engine->changeMemory(this, sender(), addr, data);
+}
+
+void MemoryAgent::handleWatchpointRequest(quint64 address, uint size)
+{
+    m_engine->breakHandler()->setWatchpointAtAddress(address, size);
 }
 
 void MemoryAgent::updateContents()

@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -36,9 +34,6 @@
 #include <Scope.h>
 #include <Literals.h>
 #include <Symbols.h>
-
-#include <QFile>
-#include <QtDebug>
 
 using namespace CPlusPlus;
 
@@ -81,6 +76,10 @@ QModelIndex OverviewModel::index(int row, int column, const QModelIndex &parent)
         Symbol *parentSymbol = static_cast<Symbol *>(parent.internalPointer());
         Q_ASSERT(parentSymbol);
 
+        if (Template *t = parentSymbol->asTemplate())
+            if (Symbol *templateParentSymbol = t->declaration())
+                parentSymbol = templateParentSymbol;
+
         Scope *scope = parentSymbol->asScope();
         Q_ASSERT(scope != 0);
         return createIndex(row, 0, scope->memberAt(row));
@@ -94,6 +93,8 @@ QModelIndex OverviewModel::parent(const QModelIndex &child) const
         return QModelIndex();
 
     if (Scope *scope = symbol->enclosingScope()) {
+        if (scope->isTemplate() && scope->enclosingScope())
+            scope = scope->enclosingScope();
         if (scope->enclosingScope()) {
             QModelIndex index;
             if (scope->enclosingScope() && scope->enclosingScope()->enclosingScope()) // the parent doesn't have a parent
@@ -117,6 +118,10 @@ int OverviewModel::rowCount(const QModelIndex &parent) const
                 return 0;
             Symbol *parentSymbol = static_cast<Symbol *>(parent.internalPointer());
             Q_ASSERT(parentSymbol);
+
+            if (Template *t = parentSymbol->asTemplate())
+                if (Symbol *templateParentSymbol = t->declaration())
+                    parentSymbol = templateParentSymbol;
 
             if (Scope *parentScope = parentSymbol->asScope()) {
                 if (!parentScope->isFunction() && !parentScope->isObjCMethod()) {
@@ -173,6 +178,14 @@ QVariant OverviewModel::data(const QModelIndex &index, int role) const
         }
         if (symbol->isObjCPropertyDeclaration())
             name = QLatin1String("@property ") + name;
+        if (Template *t = symbol->asTemplate())
+            if (Symbol *templateDeclaration = t->declaration()) {
+                QStringList parameters;
+                for (unsigned i = 0; i < t->templateParameterCount(); ++i)
+                    parameters.append(_overview.prettyName(t->templateParameterAt(i)->name()));
+                name += QLatin1Char('<') + parameters.join(QLatin1String(", ")) + QLatin1Char('>');
+                symbol = templateDeclaration;
+            }
         if (symbol->isObjCMethod()) {
             ObjCMethod *method = symbol->asObjCMethod();
             if (method->isStatic())
@@ -181,11 +194,12 @@ QVariant OverviewModel::data(const QModelIndex &index, int role) const
                 name = QLatin1Char('-') + name;
         } else if (! symbol->isScope() || symbol->isFunction()) {
             QString type = _overview.prettyType(symbol->type());
-            if (! type.isEmpty()) {
-                if (! symbol->type()->isFunctionType())
-                    name += QLatin1String(": ");
+            if (Function *f = symbol->type()->asFunctionType()) {
                 name += type;
+                type = _overview.prettyType(f->returnType());
             }
+            if (! type.isEmpty())
+                name += QLatin1String(": ") + type;
         }
         return name;
     }
@@ -225,6 +239,7 @@ Symbol *OverviewModel::symbolFromIndex(const QModelIndex &index) const
 
 void OverviewModel::rebuild(Document::Ptr doc)
 {
+    beginResetModel();
     _cppDocument = doc;
-    reset();
+    endResetModel();
 }

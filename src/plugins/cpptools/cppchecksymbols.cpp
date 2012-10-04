@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -42,6 +40,7 @@
 #include <Scope.h>
 #include <AST.h>
 #include <SymbolVisitor.h>
+#include <Overview.h>
 
 #include <utils/qtcassert.h>
 
@@ -50,6 +49,12 @@
 #include <QDebug>
 
 #include <utils/runextensions.h>
+
+// This is for experimeting highlighting ctors/dtors as functions (instead of types).
+// Whenever this feature is considered "accepted" the switch below should be permanently
+// removed, unless we decide to actually make this a user setting - that is why it's
+// currently a bool instead of a define.
+static const bool highlightCtorDtorAsType = true;
 
 using namespace CPlusPlus;
 using namespace CppTools;
@@ -67,8 +72,8 @@ class CollectSymbols: protected SymbolVisitor
     Document::Ptr _doc;
     Snapshot _snapshot;
     QSet<QByteArray> _types;
-    QSet<QByteArray> _members;
-    QSet<QByteArray> _virtualMethods;
+    QSet<QByteArray> _fields;
+    QSet<QByteArray> _functions;
     QSet<QByteArray> _statics;
     bool _mainDocument;
 
@@ -85,14 +90,14 @@ public:
         return _types;
     }
 
-    const QSet<QByteArray> &members() const
+    const QSet<QByteArray> &fields() const
     {
-        return _members;
+        return _fields;
     }
 
-    const QSet<QByteArray> &virtualMethods() const
+    const QSet<QByteArray> &functions() const
     {
-        return _virtualMethods;
+        return _functions;
     }
 
     const QSet<QByteArray> &statics() const
@@ -137,27 +142,26 @@ protected:
         }
     }
 
-    void addMember(const Name *name)
+    void addField(const Name *name)
     {
         if (! name) {
             return;
 
         } else if (name->isNameId()) {
             const Identifier *id = name->identifier();
-            _members.insert(QByteArray::fromRawData(id->chars(), id->size()));
+            _fields.insert(QByteArray::fromRawData(id->chars(), id->size()));
 
         }
     }
 
-    void addVirtualMethod(const Name *name)
+    void addFunction(const Name *name)
     {
         if (! name) {
             return;
 
         } else if (name->isNameId()) {
             const Identifier *id = name->identifier();
-            _virtualMethods.insert(QByteArray::fromRawData(id->chars(), id->size()));
-
+            _functions.insert(QByteArray::fromRawData(id->chars(), id->size()));
         }
     }
 
@@ -181,9 +185,7 @@ protected:
 
     virtual bool visit(Function *symbol)
     {
-        if (symbol->isVirtual())
-            addVirtualMethod(symbol->name());
-
+        addFunction(symbol->name());
         return true;
     }
 
@@ -203,15 +205,13 @@ protected:
         if (symbol->enclosingEnum() != 0)
             addStatic(symbol->name());
 
-        if (Function *funTy = symbol->type()->asFunctionType()) {
-            if (funTy->isVirtual())
-                addVirtualMethod(symbol->name());
-        }
+        if (symbol->type()->isFunctionType())
+            addFunction(symbol->name());
 
         if (symbol->isTypedef())
             addType(symbol->name());
         else if (! symbol->type()->isFunctionType() && symbol->enclosingScope()->isClass())
-            addMember(symbol->name());
+            addField(symbol->name());
 
         return true;
     }
@@ -289,6 +289,22 @@ static bool sortByLinePredicate(const CheckSymbols::Use &lhs, const CheckSymbols
     return lhs.line < rhs.line;
 }
 
+
+static bool acceptName(NameAST *ast, unsigned *referenceToken)
+{
+    *referenceToken = ast->firstToken();
+    DestructorNameAST *dtor = ast->asDestructorName();
+    if (dtor)
+        *referenceToken = dtor->unqualified_name->firstToken();
+
+    if (highlightCtorDtorAsType)
+        return true;
+
+    return !dtor
+            && !ast->asConversionFunctionId()
+            && !ast->asOperatorFunctionId();
+}
+
 CheckSymbols::Future CheckSymbols::go(Document::Ptr doc, const LookupContext &context, const QList<CheckSymbols::Use> &macroUses)
 {
     QTC_ASSERT(doc, return Future());
@@ -304,8 +320,8 @@ CheckSymbols::CheckSymbols(Document::Ptr doc, const LookupContext &context, cons
 
     _fileName = doc->fileName();
     _potentialTypes = collectTypes.types();
-    _potentialMembers = collectTypes.members();
-    _potentialVirtualMethods = collectTypes.virtualMethods();
+    _potentialFields = collectTypes.fields();
+    _potentialFunctions = collectTypes.functions();
     _potentialStatics = collectTypes.statics();
 
     typeOfExpression.init(_doc, _context.snapshot(), _context.bindings());
@@ -317,7 +333,7 @@ CheckSymbols::~CheckSymbols()
 void CheckSymbols::run()
 {
     qSort(_macroUses.begin(), _macroUses.end(), sortByLinePredicate);
-    _diagnosticMessages.clear();
+    _doc->clearDiagnosticMessages();
 
     if (! isCanceled()) {
         if (_doc->translationUnit()) {
@@ -333,7 +349,7 @@ void CheckSymbols::run()
 bool CheckSymbols::warning(unsigned line, unsigned column, const QString &text, unsigned length)
 {
     Document::DiagnosticMessage m(Document::DiagnosticMessage::Warning, _fileName, line, column, text, length);
-    _diagnosticMessages.append(m);
+    _doc->addDiagnosticMessage(m);
     return false;
 }
 
@@ -469,33 +485,59 @@ bool CheckSymbols::visit(UsingDirectiveAST *)
 
 bool CheckSymbols::visit(EnumeratorAST *ast)
 {
-    addUse(ast->identifier_token, SemanticInfo::StaticUse);
+    addUse(ast->identifier_token, SemanticInfo::EnumerationUse);
     return true;
 }
 
 bool CheckSymbols::visit(SimpleDeclarationAST *ast)
 {
+    NameAST *declrIdNameAST = 0;
     if (ast->declarator_list && !ast->declarator_list->next) {
         if (ast->symbols && ! ast->symbols->next && !ast->symbols->value->isGenerated()) {
             Symbol *decl = ast->symbols->value;
-            if (NameAST *declId = declaratorId(ast->declarator_list->value)) {
+            if (NameAST *nameAST = declaratorId(ast->declarator_list->value)) {
                 if (Function *funTy = decl->type()->asFunctionType()) {
-                    if (funTy->isVirtual()) {
-                        addUse(declId, SemanticInfo::VirtualMethodUse);
-                    } else if (maybeVirtualMethod(decl->name())) {
-                        addVirtualMethod(_context.lookup(decl->name(), decl->enclosingScope()), declId, funTy->argumentCount());
+                    if (funTy->isVirtual()
+                            || (nameAST->asDestructorName()
+                                && hasVirtualDestructor(_context.lookupType(funTy->enclosingScope())))) {
+                        addUse(nameAST, SemanticInfo::VirtualMethodUse);
+                        declrIdNameAST = nameAST;
+                    } else if (maybeAddFunction(_context.lookup(decl->name(),
+                                                                decl->enclosingScope()),
+                                                nameAST, funTy->argumentCount())) {
+                        declrIdNameAST = nameAST;
+
+                        // Add a diagnostic message if non-virtual function has override/final marker
+                        if ((_usages.back().kind != SemanticInfo::VirtualMethodUse)) {
+                            if (funTy->isOverride())
+                                warning(declrIdNameAST, "Only virtual methods can be marked `override'");
+                            else if (funTy->isFinal())
+                                warning(declrIdNameAST, "Only virtual methods can be marked `final'");
+                        }
                     }
                 }
             }
         }
     }
 
-    return true;
-}
+    accept(ast->decl_specifier_list);
 
-bool CheckSymbols::visit(NamedTypeSpecifierAST *)
-{
-    return true;
+    for (DeclaratorListAST *it = ast->declarator_list; it ; it = it->next) {
+        DeclaratorAST *declr = it->value;
+        if (declrIdNameAST
+                && declr->core_declarator
+                && declr->core_declarator->asDeclaratorId()
+                && declr->core_declarator->asDeclaratorId()->name == declrIdNameAST) {
+            accept(declr->attribute_list);
+            accept(declr->postfix_declarator_list);
+            accept(declr->post_attribute_list);
+            accept(declr->initializer);
+        } else {
+            accept(declr);
+        }
+    }
+
+    return false;
 }
 
 bool CheckSymbols::visit(ElaboratedTypeSpecifierAST *ast)
@@ -515,14 +557,14 @@ bool CheckSymbols::visit(MemberAccessAST *ast)
     if (const Name *name = ast->member_name->name) {
         if (const Identifier *ident = name->identifier()) {
             const QByteArray id = QByteArray::fromRawData(ident->chars(), ident->size());
-            if (_potentialMembers.contains(id)) {
+            if (_potentialFields.contains(id)) {
                 const Token start = tokenAt(ast->firstToken());
                 const Token end = tokenAt(ast->lastToken() - 1);
                 const QByteArray expression = _doc->utf8Source().mid(start.begin(), end.end() - start.begin());
 
                 const QList<LookupItem> candidates =
                     typeOfExpression(expression, enclosingScope(), TypeOfExpression::Preprocess);
-                addClassMember(candidates, ast->member_name);
+                maybeAddField(candidates, ast->member_name);
             }
         }
     }
@@ -533,46 +575,117 @@ bool CheckSymbols::visit(MemberAccessAST *ast)
 bool CheckSymbols::visit(CallAST *ast)
 {
     if (ast->base_expression) {
-        accept(ast->base_expression);
-
         unsigned argumentCount = 0;
-
         for (ExpressionListAST *it = ast->expression_list; it; it = it->next)
             ++argumentCount;
 
+        ExpressionAST *expr = ast->base_expression;
         if (MemberAccessAST *access = ast->base_expression->asMemberAccess()) {
             if (access->member_name && access->member_name->name) {
-                if (maybeVirtualMethod(access->member_name->name)) {
-                    const QByteArray expression = textOf(access);
+                if (maybeFunction(access->member_name->name)) {
+                    expr = access->base_expression;
 
+                    const QByteArray expression = textOf(access);
                     const QList<LookupItem> candidates =
                         typeOfExpression(expression, enclosingScope(),
                                          TypeOfExpression::Preprocess);
 
                     NameAST *memberName = access->member_name;
-                    if (QualifiedNameAST *q = memberName->asQualifiedName())
+                    if (QualifiedNameAST *q = memberName->asQualifiedName()) {
+                        checkNestedName(q);
                         memberName = q->unqualified_name;
+                    }
 
-                    addVirtualMethod(candidates, memberName, argumentCount);
+                    if (!maybeAddFunction(candidates, memberName, argumentCount)
+                            && highlightCtorDtorAsType) {
+                        expr = ast->base_expression;
+                    }
                 }
             }
         } else if (IdExpressionAST *idExpr = ast->base_expression->asIdExpression()) {
             if (const Name *name = idExpr->name->name) {
-                if (maybeVirtualMethod(name)) {
+                if (maybeFunction(name)) {
+                    expr = 0;
+
                     NameAST *exprName = idExpr->name;
-                    if (QualifiedNameAST *q = exprName->asQualifiedName())
+                    if (QualifiedNameAST *q = exprName->asQualifiedName()) {
+                        checkNestedName(q);
                         exprName = q->unqualified_name;
+                    }
 
                     const QList<LookupItem> candidates =
                         typeOfExpression(textOf(idExpr), enclosingScope(),
                                          TypeOfExpression::Preprocess);
-                    addVirtualMethod(candidates, exprName, argumentCount);
+
+                    if (!maybeAddFunction(candidates, exprName, argumentCount)
+                            && highlightCtorDtorAsType) {
+                        expr = ast->base_expression;
+                    }
                 }
             }
         }
 
+        accept(expr);
         accept(ast->expression_list);
     }
+
+    return false;
+}
+
+bool CheckSymbols::visit(NewExpressionAST *ast)
+{
+    accept(ast->new_placement);
+    accept(ast->type_id);
+
+    if (highlightCtorDtorAsType) {
+        accept(ast->new_type_id);
+    } else {
+        ClassOrNamespace *binding = 0;
+        NameAST *nameAST = 0;
+        if (ast->new_type_id) {
+            for (SpecifierListAST *it = ast->new_type_id->type_specifier_list; it; it = it->next) {
+                if (NamedTypeSpecifierAST *spec = it->value->asNamedTypeSpecifier()) {
+                    nameAST = spec->name;
+                    if (QualifiedNameAST *qNameAST = nameAST->asQualifiedName()) {
+                        binding = checkNestedName(qNameAST);
+                        if (binding)
+                            binding = binding->findType(qNameAST->unqualified_name->name);
+                        nameAST = qNameAST->unqualified_name;
+                    } else if (maybeType(nameAST->name)) {
+                        binding = _context.lookupType(nameAST->name, enclosingScope());
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        if (binding && nameAST) {
+            int arguments = 0;
+            if (ast->new_initializer) {
+                ExpressionListAST *list = 0;
+                if (ExpressionListParenAST *exprListParen = ast->new_initializer->asExpressionListParen()) {
+                    list = exprListParen->expression_list;
+                } else if (BracedInitializerAST *braceInit = ast->new_initializer->asBracedInitializer()) {
+                    list = braceInit->expression_list;
+                }
+                for (ExpressionListAST *it = list; it; it = it->next)
+                    ++arguments;
+            }
+
+            Scope *scope = enclosingScope();
+            foreach (Symbol *s, binding->symbols()) {
+                if (Class *klass = s->asClass()) {
+                    scope = klass;
+                    break;
+                }
+            }
+
+            maybeAddFunction(_context.lookup(nameAST->name, scope), nameAST, arguments);
+        }
+    }
+
+    accept(ast->new_initializer);
 
     return false;
 }
@@ -656,14 +769,25 @@ void CheckSymbols::checkName(NameAST *ast, Scope *scope)
 
         if (ast->asDestructorName() != 0) {
             Class *klass = scope->asClass();
-            if (hasVirtualDestructor(_context.lookupType(klass)))
-                addUse(ast, SemanticInfo::VirtualMethodUse);
+            if (!klass && scope->asFunction())
+                klass = scope->asFunction()->enclosingScope()->asClass();
+
+            if (klass) {
+                if (hasVirtualDestructor(_context.lookupType(klass))) {
+                    addUse(ast, SemanticInfo::VirtualMethodUse);
+                } else {
+                    bool added = false;
+                    if (highlightCtorDtorAsType && maybeType(ast->name))
+                        added = maybeAddTypeOrStatic(_context.lookup(ast->name, klass), ast);
+
+                    if (!added)
+                        addUse(ast, SemanticInfo::FunctionUse);
+                }
+            }
         } else if (maybeType(ast->name) || maybeStatic(ast->name)) {
-            const QList<LookupItem> candidates = _context.lookup(ast->name, scope);
-            addTypeOrStatic(candidates, ast);
-        } else if (maybeMember(ast->name)) {
-            const QList<LookupItem> candidates = _context.lookup(ast->name, scope);
-            addClassMember(candidates, ast);
+            maybeAddTypeOrStatic(_context.lookup(ast->name, scope), ast);
+        } else if (maybeField(ast->name)) {
+            maybeAddField(_context.lookup(ast->name, scope), ast);
         }
     }
 }
@@ -686,10 +810,49 @@ bool CheckSymbols::visit(DestructorNameAST *ast)
     return true;
 }
 
+bool CheckSymbols::visit(ParameterDeclarationAST *ast)
+{
+    accept(ast->type_specifier_list);
+    // Skip parameter name, it does not need to be colored
+    accept(ast->expression);
+    return false;
+}
+
 bool CheckSymbols::visit(QualifiedNameAST *ast)
 {
     if (ast->name) {
-        ClassOrNamespace *binding = 0;
+
+        ClassOrNamespace *binding = checkNestedName(ast);
+
+        if (binding && ast->unqualified_name) {
+            if (ast->unqualified_name->asDestructorName() != 0) {
+                if (hasVirtualDestructor(binding)) {
+                    addUse(ast->unqualified_name, SemanticInfo::VirtualMethodUse);
+                } else {
+                    bool added = false;
+                    if (highlightCtorDtorAsType && maybeType(ast->name))
+                        added = maybeAddTypeOrStatic(binding->find(ast->unqualified_name->name),
+                                                     ast->unqualified_name);
+                    if (!added)
+                        addUse(ast->unqualified_name, SemanticInfo::FunctionUse);
+                }
+            } else {
+                maybeAddTypeOrStatic(binding->find(ast->unqualified_name->name), ast->unqualified_name);
+            }
+
+            if (TemplateIdAST *template_id = ast->unqualified_name->asTemplateId())
+                accept(template_id->template_argument_list);
+        }
+    }
+
+    return false;
+}
+
+ClassOrNamespace *CheckSymbols::checkNestedName(QualifiedNameAST *ast)
+{
+    ClassOrNamespace *binding = 0;
+
+    if (ast->name) {
         if (NestedNameSpecifierListAST *it = ast->nested_name_specifier_list) {
             NestedNameSpecifierAST *nested_name_specifier = it->value;
             if (NameAST *class_or_namespace_name = nested_name_specifier->class_or_namespace_name) { // ### remove shadowing
@@ -724,21 +887,9 @@ bool CheckSymbols::visit(QualifiedNameAST *ast)
                 }
             }
         }
-
-        if (binding && ast->unqualified_name) {
-            if (ast->unqualified_name->asDestructorName() != 0) {
-                if (hasVirtualDestructor(binding))
-                    addUse(ast->unqualified_name, SemanticInfo::VirtualMethodUse);
-            } else {
-                addTypeOrStatic(binding->find(ast->unqualified_name->name), ast->unqualified_name);
-            }
-
-            if (TemplateIdAST *template_id = ast->unqualified_name->asTemplateId())
-                accept(template_id->template_argument_list);
-        }
     }
 
-    return false;
+    return binding;
 }
 
 bool CheckSymbols::visit(TypenameTypeParameterAST *ast)
@@ -762,15 +913,39 @@ bool CheckSymbols::visit(MemInitializerAST *ast)
         if (ast->name && enclosingFunction->symbol) {
             if (ClassOrNamespace *binding = _context.lookupType(enclosingFunction->symbol)) {
                 foreach (Symbol *s, binding->symbols()) {
-                    if (Class *klass = s->asClass()){
-                        checkName(ast->name, klass);
+                    if (Class *klass = s->asClass()) {
+                        NameAST *nameAST = ast->name;
+                        if (QualifiedNameAST *q = nameAST->asQualifiedName()) {
+                            checkNestedName(q);
+                            nameAST = q->unqualified_name;
+                        }
+
+                        if (highlightCtorDtorAsType && maybeType(nameAST->name)) {
+                            checkName(nameAST, klass);
+                        } else if (maybeField(nameAST->name)) {
+                            maybeAddField(_context.lookup(nameAST->name, klass), nameAST);
+                        } else {
+                            // It's a constructor, count the number of arguments
+                            unsigned arguments = 0;
+                            if (ast->expression) {
+                                ExpressionListAST *expr_list = 0;
+                                if (ExpressionListParenAST *parenExprList = ast->expression->asExpressionListParen())
+                                    expr_list = parenExprList->expression_list;
+                                else if (BracedInitializerAST *bracedInitList = ast->expression->asBracedInitializer())
+                                    expr_list = bracedInitList->expression_list;
+                                for (ExpressionListAST *it = expr_list; it; it = it->next)
+                                    ++arguments;
+                            }
+                            maybeAddFunction(_context.lookup(nameAST->name, klass), nameAST, arguments);
+                        }
+
                         break;
                     }
                 }
             }
         }
 
-        accept(ast->expression_list);
+        accept(ast->expression);
     }
 
     return false;
@@ -786,11 +961,42 @@ bool CheckSymbols::visit(GotoStatementAST *ast)
 
 bool CheckSymbols::visit(LabeledStatementAST *ast)
 {
-    if (ast->label_token)
+    if (ast->label_token && !tokenAt(ast->label_token).isKeyword())
         addUse(ast->label_token, SemanticInfo::LabelUse);
 
     accept(ast->statement);
     return false;
+}
+
+
+/**
+ * \brief Highlights "override" and "final" pseudokeywords like true keywords
+ */
+bool CheckSymbols::visit(SimpleSpecifierAST *ast)
+{
+    if (ast->specifier_token)
+    {
+        const Token &tk = tokenAt(ast->specifier_token);
+        if (tk.is(T_IDENTIFIER))
+        {
+            const Identifier &id = *(tk.identifier);
+            if (id.equalTo(_doc->control()->cpp11Override())
+                    || id.equalTo(_doc->control()->cpp11Final()))
+            {
+                addUse(ast->specifier_token, SemanticInfo::PseudoKeywordUse);
+            }
+        }
+    }
+
+    return false;
+}
+
+bool CheckSymbols::visit(ClassSpecifierAST *ast)
+{
+    if (ast->final_token)
+        addUse(ast->final_token, SemanticInfo::PseudoKeywordUse);
+
+    return true;
 }
 
 bool CheckSymbols::visit(FunctionDefinitionAST *ast)
@@ -799,21 +1005,40 @@ bool CheckSymbols::visit(FunctionDefinitionAST *ast)
     accept(ast->decl_specifier_list);
     _astStack.append(thisFunction);
 
+    bool processEntireDeclr = true;
     if (ast->declarator && ast->symbol && ! ast->symbol->isGenerated()) {
         Function *fun = ast->symbol;
         if (NameAST *declId = declaratorId(ast->declarator)) {
-            if (QualifiedNameAST *q = declId->asQualifiedName())
-                declId = q->unqualified_name;
+            processEntireDeclr = false;
 
-            if (fun->isVirtual()) {
+            if (QualifiedNameAST *q = declId->asQualifiedName()) {
+                checkNestedName(q);
+                declId = q->unqualified_name;
+            }
+
+            if (fun->isVirtual()
+                    || (declId->asDestructorName()
+                        && hasVirtualDestructor(_context.lookupType(fun->enclosingScope())))) {
                 addUse(declId, SemanticInfo::VirtualMethodUse);
-            } else if (maybeVirtualMethod(fun->name())) {
-                addVirtualMethod(_context.lookup(fun->name(), fun->enclosingScope()), declId, fun->argumentCount());
+            } else if (!maybeAddFunction(_context.lookup(fun->name(),
+                                                         fun->enclosingScope()),
+                                         declId, fun->argumentCount())) {
+                processEntireDeclr = true;
             }
         }
     }
 
-    accept(ast->declarator);
+    if (ast->declarator) {
+        if (processEntireDeclr) {
+            accept(ast->declarator);
+        } else {
+            accept(ast->declarator->attribute_list);
+            accept(ast->declarator->postfix_declarator_list);
+            accept(ast->declarator->post_attribute_list);
+            accept(ast->declarator->initializer);
+        }
+    }
+
     accept(ast->ctor_initializer);
     accept(ast->function_body);
 
@@ -892,13 +1117,9 @@ void CheckSymbols::addUse(const Use &use)
 
 void CheckSymbols::addType(ClassOrNamespace *b, NameAST *ast)
 {
-    if (! b)
+    unsigned startToken;
+    if (! b || !acceptName(ast, &startToken))
         return;
-
-    unsigned startToken = ast->firstToken();
-    if (DestructorNameAST *dtor = ast->asDestructorName())
-        if (dtor->unqualified_name)
-            startToken = dtor->unqualified_name->firstToken();
 
     const Token &tok = tokenAt(startToken);
     if (tok.generated())
@@ -909,7 +1130,6 @@ void CheckSymbols::addType(ClassOrNamespace *b, NameAST *ast)
     const unsigned length = tok.length();
     const Use use(line, column, length, SemanticInfo::TypeUse);
     addUse(use);
-    //qDebug() << "added use" << oo(ast->name) << line << column << length;
 }
 
 bool CheckSymbols::isTemplateClass(Symbol *symbol) const
@@ -925,16 +1145,15 @@ bool CheckSymbols::isTemplateClass(Symbol *symbol) const
     return false;
 }
 
-void CheckSymbols::addTypeOrStatic(const QList<LookupItem> &candidates, NameAST *ast)
+bool CheckSymbols::maybeAddTypeOrStatic(const QList<LookupItem> &candidates, NameAST *ast)
 {
-    unsigned startToken = ast->firstToken();
-    if (DestructorNameAST *dtor = ast->asDestructorName())
-        if (dtor->unqualified_name)
-            startToken = dtor->unqualified_name->firstToken();
+    unsigned startToken;
+    if (!acceptName(ast, &startToken))
+        return false;
 
     const Token &tok = tokenAt(startToken);
     if (tok.generated())
-        return;
+        return false;
 
     foreach (const LookupItem &r, candidates) {
         Symbol *c = r.declaration();
@@ -951,39 +1170,39 @@ void CheckSymbols::addTypeOrStatic(const QList<LookupItem> &candidates, NameAST 
             const unsigned length = tok.length();
 
             UseKind kind = SemanticInfo::TypeUse;
-
             if (c->enclosingEnum() != 0)
-                kind = SemanticInfo::StaticUse;
+                kind = SemanticInfo::EnumerationUse;
 
             const Use use(line, column, length, kind);
             addUse(use);
-            //qDebug() << "added use" << oo(ast->name) << line << column << length;
-            break;
+
+            return true;
         }
     }
+
+    return false;
 }
 
-void CheckSymbols::addClassMember(const QList<LookupItem> &candidates, NameAST *ast)
+bool CheckSymbols::maybeAddField(const QList<LookupItem> &candidates, NameAST *ast)
 {
-    unsigned startToken = ast->firstToken();
-    if (DestructorNameAST *dtor = ast->asDestructorName())
-        if (dtor->unqualified_name)
-            startToken = dtor->unqualified_name->firstToken();
+    unsigned startToken;
+    if (!acceptName(ast, &startToken))
+        return false;
 
     const Token &tok = tokenAt(startToken);
     if (tok.generated())
-        return;
+        return false;
 
     foreach (const LookupItem &r, candidates) {
         Symbol *c = r.declaration();
         if (! c)
             continue;
         else if (! c->isDeclaration())
-            return;
+            return false;
         else if (! (c->enclosingScope() && c->enclosingScope()->isClass()))
-            return; // shadowed
+            return false; // shadowed
         else if (c->isTypedef() || c->type()->isFunctionType())
-            return; // shadowed
+            return false; // shadowed
 
         unsigned line, column;
         getTokenStartPosition(startToken, &line, &column);
@@ -991,73 +1210,96 @@ void CheckSymbols::addClassMember(const QList<LookupItem> &candidates, NameAST *
 
         const Use use(line, column, length, SemanticInfo::FieldUse);
         addUse(use);
-        break;
+
+        return true;
     }
+
+    return false;
 }
 
-void CheckSymbols::addStatic(const QList<LookupItem> &candidates, NameAST *ast)
+bool CheckSymbols::maybeAddFunction(const QList<LookupItem> &candidates, NameAST *ast, unsigned argumentCount)
 {
-    if (ast->asDestructorName() != 0)
-        return;
-
     unsigned startToken = ast->firstToken();
+    bool isDestructor = false;
+    if (DestructorNameAST *dtor = ast->asDestructorName()) {
+        isDestructor = true;
+        if (dtor->unqualified_name)
+            startToken = dtor->unqualified_name->firstToken();
+    }
+
     const Token &tok = tokenAt(startToken);
     if (tok.generated())
-        return;
+        return false;
 
+    enum { Match_None, Match_TooManyArgs, Match_TooFewArgs, Match_Ok } matchType = Match_None;
+    SemanticInfo::UseKind kind = SemanticInfo::FunctionUse;
     foreach (const LookupItem &r, candidates) {
         Symbol *c = r.declaration();
-        if (! c)
-            return;
-        if (c->enclosingScope()->isEnum()) {
-            unsigned line, column;
-            getTokenStartPosition(startToken, &line, &column);
-            const unsigned length = tok.length();
 
-            const Use use(line, column, length, SemanticInfo::StaticUse);
-            addUse(use);
-            //qDebug() << "added use" << oo(ast->name) << line << column << length;
+        // Skip current if there's no declaration or name.
+        if (! c || !c->name())
+            continue;
+
+        // In addition check for destructors, since the leading ~ is not taken into consideration.
+        // We don't want to compare destructors with something else or the other way around.
+        if (isDestructor != c->name()->isDestructorNameId())
+            continue;
+
+        Function *funTy = c->type()->asFunctionType();
+        if (! funTy) {
+            //Try to find a template function
+            if (Template * t = r.type()->asTemplateType())
+                if ((c = t->declaration()))
+                    funTy = c->type()->asFunctionType();
+        }
+        if (! funTy)
+            continue; // TODO: add diagnostic messages and color call-operators calls too?
+
+        if (argumentCount < funTy->minimumArgumentCount()) {
+            if (matchType != Match_Ok) {
+                kind = funTy->isVirtual() ? SemanticInfo::VirtualMethodUse : SemanticInfo::FunctionUse;
+                matchType = Match_TooFewArgs;
+            }
+        } else if (argumentCount > funTy->argumentCount() && ! funTy->isVariadic()) {
+            if (matchType != Match_Ok) {
+                matchType = Match_TooManyArgs;
+                kind = funTy->isVirtual() ? SemanticInfo::VirtualMethodUse : SemanticInfo::FunctionUse;
+            }
+        } else if (!funTy->isVirtual()) {
+            matchType = Match_Ok;
+            kind = SemanticInfo::FunctionUse;
+            //continue, to check if there is a matching candidate which is virtual
+        } else {
+            matchType = Match_Ok;
+            kind = SemanticInfo::VirtualMethodUse;
             break;
         }
     }
-}
 
-void CheckSymbols::addVirtualMethod(const QList<LookupItem> &candidates, NameAST *ast, unsigned argumentCount)
-{
-    unsigned startToken = ast->firstToken();
-    if (DestructorNameAST *dtor = ast->asDestructorName())
-        if (dtor->unqualified_name)
-            startToken = dtor->unqualified_name->firstToken();
-
-    const Token &tok = tokenAt(startToken);
-    if (tok.generated())
-        return;
-
-    foreach (const LookupItem &r, candidates) {
-        Symbol *c = r.declaration();
-        if (! c)
-            continue;
-
-        Function *funTy = r.type()->asFunctionType();
-        if (! funTy)
-            continue;
-        if (! funTy->isVirtual())
-            continue;
-        else if (argumentCount < funTy->minimumArgumentCount())
-            continue;
-        else if (argumentCount > funTy->argumentCount()) {
-            if (! funTy->isVariadic())
-                continue;
+    if (matchType != Match_None) {
+        if (highlightCtorDtorAsType
+                && maybeType(ast->name)
+                && kind == SemanticInfo::FunctionUse) {
+            return false;
         }
 
         unsigned line, column;
         getTokenStartPosition(startToken, &line, &column);
         const unsigned length = tok.length();
 
-        const Use use(line, column, length, SemanticInfo::VirtualMethodUse);
+        // Add a diagnostic message if argument count does not match
+        if (matchType == Match_TooFewArgs)
+            warning(line, column, "Too few arguments", length);
+        else if (matchType == Match_TooManyArgs)
+            warning(line, column, "Too many arguments", length);
+
+        const Use use(line, column, length, kind);
         addUse(use);
-        break;
+
+        return true;
     }
+
+    return false;
 }
 
 NameAST *CheckSymbols::declaratorId(DeclaratorAST *ast) const
@@ -1086,12 +1328,12 @@ bool CheckSymbols::maybeType(const Name *name) const
     return false;
 }
 
-bool CheckSymbols::maybeMember(const Name *name) const
+bool CheckSymbols::maybeField(const Name *name) const
 {
     if (name) {
         if (const Identifier *ident = name->identifier()) {
             const QByteArray id = QByteArray::fromRawData(ident->chars(), ident->size());
-            if (_potentialMembers.contains(id))
+            if (_potentialFields.contains(id))
                 return true;
         }
     }
@@ -1112,12 +1354,12 @@ bool CheckSymbols::maybeStatic(const Name *name) const
     return false;
 }
 
-bool CheckSymbols::maybeVirtualMethod(const Name *name) const
+bool CheckSymbols::maybeFunction(const Name *name) const
 {
     if (name) {
         if (const Identifier *ident = name->identifier()) {
             const QByteArray id = QByteArray::fromRawData(ident->chars(), ident->size());
-            if (_potentialVirtualMethods.contains(id))
+            if (_potentialFunctions.contains(id))
                 return true;
         }
     }

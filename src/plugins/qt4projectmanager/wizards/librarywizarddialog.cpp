@@ -4,7 +4,7 @@
 **
 ** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
 **
-** Contact: Nokia Corporation (qt-info@nokia.com)
+** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Lesser General Public License Usage
@@ -25,8 +25,6 @@
 ** Alternatively, this file may be used in accordance with the terms and
 ** conditions contained in a signed written agreement between you and Nokia.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at qt-info@nokia.com.
 **
 **************************************************************************/
 
@@ -39,7 +37,10 @@
 #include "abstractmobileapp.h"
 #include "qt4projectmanagerconstants.h"
 
+#include <qtsupport/qtsupportconstants.h>
+
 #include <utils/projectintropage.h>
+#include <projectexplorer/projectexplorerconstants.h>
 
 #include <QDebug>
 #include <QDir>
@@ -152,10 +153,10 @@ LibraryWizardDialog::LibraryWizardDialog(const QString &templateName,
     // Use the intro page instead, set up initially
     setIntroDescription(tr("This wizard generates a C++ library project."));
 
-    m_targetPageId = addTargetSetupPage();
-
-    if (m_targetPageId != -1)
+    if (!parameters.extraValues().contains(ProjectExplorer::Constants::PROJECT_KIT_IDS)) {
+        m_targetPageId = addTargetSetupPage();
         m_mobilePageId = addPage(m_mobilePage);
+    }
 
     m_modulesPageId = addModulesPage();
 
@@ -167,10 +168,13 @@ LibraryWizardDialog::LibraryWizardDialog(const QString &templateName,
 
     Utils::WizardProgressItem *introItem = wizardProgress()->item(startId());
     Utils::WizardProgressItem *targetItem = 0;
-    if (m_targetPageId != -1)
+    Utils::WizardProgressItem *mobileItem = 0;
+    if (m_targetPageId != -1) {
         targetItem = wizardProgress()->item(m_targetPageId);
-    Utils::WizardProgressItem *mobileItem = wizardProgress()->item(m_mobilePageId);
-    mobileItem->setTitle(QLatin1String("    ") + tr("Symbian Specific"));
+    }
+    if (m_mobilePageId != -1) {
+        mobileItem = wizardProgress()->item(m_mobilePageId);
+    }
     Utils::WizardProgressItem *modulesItem = wizardProgress()->item(m_modulesPageId);
     Utils::WizardProgressItem *filesItem = wizardProgress()->item(m_filesPageId);
     filesItem->setTitle(tr("Details"));
@@ -182,12 +186,17 @@ LibraryWizardDialog::LibraryWizardDialog(const QString &templateName,
         mobileItem->setNextItems(QList<Utils::WizardProgressItem *>()
                                  << modulesItem << filesItem);
         mobileItem->setNextShownItem(0);
+    } else if (m_mobilePageId != -1) {
+        introItem->setNextItems(QList<Utils::WizardProgressItem *>()
+                                 << mobileItem);
+        mobileItem->setNextItems(QList<Utils::WizardProgressItem *>()
+                                 << modulesItem << filesItem);
+        mobileItem->setNextShownItem(0);
     } else {
         introItem->setNextItems(QList<Utils::WizardProgressItem *>()
-                                << modulesItem << filesItem);
+                                 << modulesItem << filesItem);
         introItem->setNextShownItem(0);
     }
-
 
     connect(this, SIGNAL(currentIdChanged(int)), this, SLOT(slotCurrentIdChanged(int)));
 
@@ -202,11 +211,6 @@ void LibraryWizardDialog::setSuffixes(const QString &header, const QString &sour
 void LibraryWizardDialog::setLowerCaseFiles(bool l)
 {
     m_filesPage->setLowerCaseFiles(l);
-}
-
-void LibraryWizardDialog::setSymbianUid(const QString &uid)
-{
-    m_mobilePage->setSymbianUid(uid);
 }
 
 QtProjectParameters::Type  LibraryWizardDialog::type() const
@@ -235,15 +239,6 @@ int LibraryWizardDialog::nextId() const
 
             int next = m_modulesPageId;
 
-            const bool symbianTargetEnabled = isTargetSelected(Core::Id(Constants::S60_DEVICE_TARGET_ID));
-
-            // If there was no Symbian target defined we omit "Symbian specific" step
-            // We also omit this step if the library type is not dll
-            if (symbianTargetEnabled
-                    && (type() == QtProjectParameters::SharedLibrary
-                        || type() == QtProjectParameters::Qt4Plugin))
-                next = m_mobilePageId;
-
             if (next == m_modulesPageId)
                 return skipModulesPageIfNeeded();
 
@@ -253,6 +248,8 @@ int LibraryWizardDialog::nextId() const
         }
     } else if (currentId() == startId()) {
         return skipModulesPageIfNeeded();
+    } else if (currentId() == m_mobilePageId) {
+        return skipModulesPageIfNeeded();
     }
 
     return BaseQt4ProjectWizardDialog::nextId();
@@ -260,7 +257,7 @@ int LibraryWizardDialog::nextId() const
 
 void LibraryWizardDialog::initializePage(int id)
 {
-    if (m_targetPageId != -1 && id == m_targetPageId) {
+    if (m_targetPageId != -1 && (id == m_targetPageId || id == m_mobilePageId)) {
         Utils::WizardProgressItem *mobileItem = wizardProgress()->item(m_mobilePageId);
         Utils::WizardProgressItem *modulesItem = wizardProgress()->item(m_modulesPageId);
         Utils::WizardProgressItem *filesItem = wizardProgress()->item(m_filesPageId);
@@ -275,7 +272,7 @@ void LibraryWizardDialog::initializePage(int id)
 
 void LibraryWizardDialog::cleanupPage(int id)
 {
-    if (m_targetPageId != -1 && id == m_targetPageId) {
+    if (m_targetPageId != -1 && (id == m_targetPageId || id == m_mobilePageId)) {
         Utils::WizardProgressItem *mobileItem = wizardProgress()->item(m_mobilePageId);
         mobileItem->setNextShownItem(0);
     }
@@ -312,8 +309,7 @@ void LibraryWizardDialog::slotCurrentIdChanged(int id)
     if (id == m_filesPageId)
         setupFilesPage();// Switching to files page: Set up base class accordingly (plugin)
     else if (id == m_mobilePageId
-             || (m_mobilePage->symbianUid().isEmpty()
-             && currentPage() && currentPage()->isFinalPage()))
+             || (currentPage() && currentPage()->isFinalPage()))
         setupMobilePage();
 }
 
@@ -349,8 +345,6 @@ void LibraryWizardDialog::setupFilesPage()
 
 void LibraryWizardDialog::setupMobilePage()
 {
-    m_mobilePage->setSymbianUid(AbstractMobileApp::symbianUidForPath(path()+projectName()));
-
     if (type() == QtProjectParameters::Qt4Plugin)
         m_mobilePage->setQtPluginDirectory(projectName());
     m_mobilePage->setLibraryType(type());
@@ -376,14 +370,8 @@ MobileLibraryParameters LibraryWizardDialog::mobileLibraryParameters() const
     mlp.libraryType = type();
     mlp.fileName = projectName();
 
-    //Symbian and Maemo stuff should always be added to pro file. Even if no mobile target is specified
-    mlp.type |= MobileLibraryParameters::Symbian|MobileLibraryParameters::Maemo;
-
-    if (mlp.type & MobileLibraryParameters::Symbian) {
-        mlp.symbianUid = m_mobilePage->symbianUid();
-        mlp.qtPluginDirectory = m_mobilePage->qtPluginDirectory();
-        mlp.symbianCapabilities |= m_mobilePage->networkEnabled()?MobileLibraryParameters::NetworkServices:0;
-    }
+    // Maemo stuff should always be added to pro file. Even if no mobile target is specified
+    mlp.type |= MobileLibraryParameters::Maemo;
 
     return mlp;
 }
