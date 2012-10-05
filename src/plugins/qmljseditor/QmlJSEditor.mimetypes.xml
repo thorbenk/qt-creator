@@ -7,8 +7,6 @@
         <glob pattern="*.qml"/>
         <glob pattern="*.qmlproject"/>
         <glob pattern="*.qmltypes"/>
-        <glob pattern="*.qbs"/>
-        <glob pattern="*.qbp"/>
     </mime-type>
     <mime-type type="application/javascript">
         <alias type="application/x-javascript"/>

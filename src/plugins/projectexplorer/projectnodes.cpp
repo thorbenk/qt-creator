@@ -102,6 +102,11 @@ QString Node::path() const
     return m_path;
 }
 
+int Node::line() const
+{
+    return -1;
+}
+
 QString Node::displayName() const
 {
     return QFileInfo(path()).fileName();

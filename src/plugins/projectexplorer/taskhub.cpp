@@ -102,7 +102,7 @@ void TaskHub::addCategory(const Core::Id &categoryId, const QString &displayName
 
 void TaskHub::addTask(Task task)
 {
-    if (task.line != -1 && !task.file.isEmpty()) {
+    if (task.line >= 0 && !task.file.isEmpty()) {
         bool visible = (task.type == Task::Warning || task.type == Task::Error);
         TaskMark *mark = new TaskMark(task.taskId, task.file.toString(), task.line, visible);
         mark->setIcon(taskTypeIcon(task.type));

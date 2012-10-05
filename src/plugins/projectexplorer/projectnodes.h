@@ -85,6 +85,7 @@ public:
     ProjectNode *projectNode() const;     // managing project
     FolderNode *parentFolderNode() const; // parent folder or project
     QString path() const;                 // file system path
+    virtual int line() const;
     virtual QString displayName() const;
     virtual QString vcsTopic() const;
     virtual QString tooltip() const;
@@ -330,7 +331,6 @@ private:
     friend class SessionNode;
     friend class Node;
 };
-
 
 } // namespace ProjectExplorer
 

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+  <mime-type type="application/vnd.qtproject.qbsproject">
+    <alias type="text/x-qbs"/>
+    <sub-class-of type="text/x-qml"/>
+    <comment>QBS Project file</comment>
+    <glob pattern="*.qbp"/>
+    <glob pattern="*.qbs"/>
+  </mime-type>
+</mime-info>

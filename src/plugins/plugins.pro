@@ -45,7 +45,8 @@ SUBDIRS   = plugin_coreplugin \
             plugin_madde \
             plugin_valgrind \
             plugin_todo \
-            plugin_qnx
+            plugin_qnx \
+            plugin_qbsprojectmanager \
 
 isEmpty(IDE_PACKAGE_MODE) {
     SUBDIRS += plugin_helloworld \
@@ -331,6 +332,12 @@ plugin_qnx.depends = plugin_remotelinux
 plugin_qnx.depends += plugin_qt4projectmanager
 plugin_qnx.depends += plugin_coreplugin
 plugin_qnx.depends += plugin_texteditor
+
+plugin_qbsprojectmanager.subdir = qbsprojectmanager
+plugin_qbsprojectmanager.depends = plugin_texteditor
+plugin_qbsprojectmanager.depends += plugin_projectexplorer
+plugin_qbsprojectmanager.depends += plugin_cpptools
+plugin_qbsprojectmanager.depends += plugin_qtsupport
 
 plugin_clearcase.subdir = clearcase
 plugin_clearcase.depends = plugin_vcsbase
