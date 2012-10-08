@@ -337,7 +337,7 @@ private:
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
 
 #ifdef CLANG_INDEXING
-    Clang::CodeNavigator m_codeNavigator;
+    ClangCodeModel::CodeNavigator m_codeNavigator;
 #endif // CLANG_INDEXING
 
     CppTools::CommentsSettings m_commentsSettings;

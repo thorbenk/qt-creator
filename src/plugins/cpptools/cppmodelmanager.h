@@ -140,7 +140,7 @@ public:
     void finishedRefreshingSourceFiles(const QStringList &files);
 
 #ifdef CLANG_INDEXING
-    Clang::Indexer *indexer();
+    ClangCodeModel::Indexer *indexer();
 #endif // CLANG_INDEXING
 
     virtual CppCompletionSupport *completionSupport(Core::IEditor *editor) const;

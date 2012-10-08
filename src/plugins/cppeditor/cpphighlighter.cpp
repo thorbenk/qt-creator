@@ -71,7 +71,7 @@ void CppHighlighter::highlightBlock(const QString &text)
     int braceDepth = initialBraceDepth;
 
     int initialState = state;
-    const QList<Clang::Token> &tokens = m_lexer.lex(text, &state);
+    const QList<ClangCodeModel::Token> &tokens = m_lexer.lex(text, &state);
 
     int foldingIndent = initialBraceDepth;
     if (TextBlockUserData *userData = BaseTextDocumentLayout::testUserData(currentBlock())) {
@@ -98,7 +98,7 @@ void CppHighlighter::highlightBlock(const QString &text)
     bool onlyHighlightComments = false;
 
     for (int i = 0; i < tokens.size(); ++i) {
-        const Clang::Token &tk = tokens.at(i);
+        const ClangCodeModel::Token &tk = tokens.at(i);
 
         unsigned previousTokenEnd = 0;
         if (i != 0) {
@@ -112,14 +112,14 @@ void CppHighlighter::highlightBlock(const QString &text)
                       m_formats[CppVisualWhitespace]);
         }
 
-        if (tk.is(Clang::Token::Punctuation)) {
+        if (tk.is(ClangCodeModel::Token::Punctuation)) {
             const QStringRef &punc = text.midRef(tk.begin(), tk.length());
             if (punc.length() == 1) {
-                if (Clang::Token::isPunctuationLBrace(tk, text)
-                        || Clang::Token::isPunctuationLParen(tk, text)
-                        || Clang::Token::isPunctuationLBracket(tk, text)) {
+                if (ClangCodeModel::Token::isPunctuationLBrace(tk, text)
+                        || ClangCodeModel::Token::isPunctuationLParen(tk, text)
+                        || ClangCodeModel::Token::isPunctuationLBracket(tk, text)) {
                     parentheses.append(Parenthesis(Parenthesis::Opened, punc.at(0), tk.begin()));
-                    if (Clang::Token::isPunctuationLBrace(tk, text)) {
+                    if (ClangCodeModel::Token::isPunctuationLBrace(tk, text)) {
                         ++braceDepth;
 
                         // if a folding block opens at the beginning of a line, treat the entire line
@@ -129,17 +129,17 @@ void CppHighlighter::highlightBlock(const QString &text)
                             BaseTextDocumentLayout::userData(currentBlock())->setFoldingStartIncluded(true);
                         }
                     }
-                } else if (Clang::Token::isPunctuationRBrace(tk, text)
-                           || Clang::Token::isPunctuationRBracket(tk, text)
-                           || Clang::Token::isPunctuationRParen(tk, text)) {
+                } else if (ClangCodeModel::Token::isPunctuationRBrace(tk, text)
+                           || ClangCodeModel::Token::isPunctuationRBracket(tk, text)
+                           || ClangCodeModel::Token::isPunctuationRParen(tk, text)) {
                     parentheses.append(Parenthesis(Parenthesis::Closed, punc.at(0), tk.begin()));
-                    if (Clang::Token::isPunctuationRBrace(tk, text)) {
+                    if (ClangCodeModel::Token::isPunctuationRBrace(tk, text)) {
                         --braceDepth;
                         if (braceDepth < foldingIndent) {
                             // unless we are at the end of the block, we reduce the folding indent
                             if (i == tokens.size()-1
-                                    || (tokens.at(i+1).is(Clang::Token::Punctuation)
-                                        && Clang::Token::isPunctuationSemiColon(tk, text))) {
+                                    || (tokens.at(i+1).is(ClangCodeModel::Token::Punctuation)
+                                        && ClangCodeModel::Token::isPunctuationSemiColon(tk, text))) {
                                 BaseTextDocumentLayout::userData(currentBlock())->setFoldingEndIncluded(true);
                             } else {
                                 foldingIndent = qMin(braceDepth, foldingIndent);
@@ -155,18 +155,18 @@ void CppHighlighter::highlightBlock(const QString &text)
         if (expectPreprocessorKeyword)
             expectPreprocessorKeyword = false;
 
-        if (onlyHighlightComments && !tk.is(Clang::Token::Comment))
+        if (onlyHighlightComments && !tk.is(ClangCodeModel::Token::Comment))
             continue;
 
 
         if (i == 0
-                && tk.is(Clang::Token::Punctuation)
-                && Clang::Token::isPunctuationPound(tk, text)) {
+                && tk.is(ClangCodeModel::Token::Punctuation)
+                && ClangCodeModel::Token::isPunctuationPound(tk, text)) {
             highlightLine(text, tk.begin(), tk.length(), m_formats[CppPreprocessorFormat]);
             expectPreprocessorKeyword = true;
         } else if (highlightCurrentWordAsPreprocessor
-                   && (tk.is(Clang::Token::Keyword)
-                       || tk.is(Clang::Token::Identifier))
+                   && (tk.is(ClangCodeModel::Token::Keyword)
+                       || tk.is(ClangCodeModel::Token::Identifier))
                    && isPPKeyword(text.midRef(tk.begin(), tk.length()))) {
             setFormat(tk.begin(), tk.length(), m_formats[CppPreprocessorFormat]);
             const QStringRef ppKeyword = text.midRef(tk.begin(), tk.length());
@@ -175,12 +175,12 @@ void CppHighlighter::highlightBlock(const QString &text)
                     || ppKeyword == QLatin1String("pragma")) {
                 onlyHighlightComments = true;
             }
-        } else if (tk.is(Clang::Token::Literal)) {
-            if (Clang::Token::isLiteralNumeric(tk, text))
+        } else if (tk.is(ClangCodeModel::Token::Literal)) {
+            if (ClangCodeModel::Token::isLiteralNumeric(tk, text))
                 setFormat(tk.begin(), tk.length(), m_formats[CppNumberFormat]);
             else
                 highlightLine(text, tk.begin(), tk.length(), m_formats[CppStringFormat]);
-        } else if (tk.is(Clang::Token::Comment)) {
+        } else if (tk.is(ClangCodeModel::Token::Comment)) {
             if (tk.isDoxygenComment())
                 highlightDoxygenComment(text, tk.begin(), tk.length());
             else
@@ -203,24 +203,24 @@ void CppHighlighter::highlightBlock(const QString &text)
                 // clear the initial state.
                 initialState = 0;
             }
-        } else if (tk.is(Clang::Token::Keyword)) {
+        } else if (tk.is(ClangCodeModel::Token::Keyword)) {
             setFormat(tk.begin(), tk.length(), m_formats[CppKeywordFormat]);
         } else if (i == 0
                    && tokens.size() > 1
-                   && tk.is(Clang::Token::Identifier)
-                   && tokens.at(1).is(Clang::Token::Punctuation)
-                   && Clang::Token::isPunctuationColon(tokens.at(1), text)) {
+                   && tk.is(ClangCodeModel::Token::Identifier)
+                   && tokens.at(1).is(ClangCodeModel::Token::Punctuation)
+                   && ClangCodeModel::Token::isPunctuationColon(tokens.at(1), text)) {
             setFormat(tk.begin(), tk.length(), m_formats[CppLabelFormat]);
-        } else if (tk.is(Clang::Token::Identifier)) {
+        } else if (tk.is(ClangCodeModel::Token::Identifier)) {
             highlightWord(text.midRef(tk.begin(), tk.length()), tk.begin(), tk.length());
-        } else if (tk.is(Clang::Token::Punctuation)){
+        } else if (tk.is(ClangCodeModel::Token::Punctuation)){
             setFormat(tk.begin(), tk.length(), m_formats[CppOperatorFormat]);
         }
     }
 
     // mark the trailing white spaces
     {
-        const Clang::Token tk = tokens.last();
+        const ClangCodeModel::Token tk = tokens.last();
         const int lastTokenEnd = tk.begin() + tk.length();
         if (text.length() > lastTokenEnd)
             highlightLine(text, lastTokenEnd, text.length() - lastTokenEnd, QTextCharFormat());

@@ -108,7 +108,7 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
         if (future.isCanceled())
             break;
 
-        QList<Clang::Symbol> symbolList;
+        QList<ClangCodeModel::Symbol> symbolList;
         if (shortcut == QLatin1String("c")) {
             symbolList.append(m_manager->indexer()->classesFromFile(file));
         } else if (shortcut == QLatin1String("m")) {
@@ -121,7 +121,7 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
             symbolList.append(m_manager->indexer()->constructorsFromFile(file));
             symbolList.append(m_manager->indexer()->destructorsFromFile(file));
         }
-        foreach (const Clang::Symbol &symbolInfo, symbolList) {
+        foreach (const ClangCodeModel::Symbol &symbolInfo, symbolList) {
             ModelItemInfo info(symbolInfo.m_name,
                                symbolInfo.m_qualification,
                                ModelItemInfo::ItemType((int)symbolInfo.m_kind),

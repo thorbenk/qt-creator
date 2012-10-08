@@ -105,8 +105,8 @@ QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFutur
 
     //### FIXME: the range is way too big.. can't we just update the visible lines?
     CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker, fileName, options, firstLine, lastLine);
-    QObject::connect(createMarkers, SIGNAL(diagnosticsReady(const QList<Clang::Diagnostic> &)),
-                     m_diagnosticsHandler.data(), SLOT(setDiagnostics(const QList<Clang::Diagnostic> &)));
+    QObject::connect(createMarkers, SIGNAL(diagnosticsReady(const QList<ClangCodeModel::Diagnostic> &)),
+                     m_diagnosticsHandler.data(), SLOT(setDiagnostics(const QList<ClangCodeModel::Diagnostic> &)));
     return createMarkers->start();
 }
 

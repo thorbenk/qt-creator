@@ -107,7 +107,7 @@ QStringList IncludeTracker::directIncludes(const QString &fileName,
 
 QStringList IncludeTracker::parseIncludes(const QString &contents,
                                           const QString &basePath,
-                                          Clang::Internal::IncludeTracker::CacheSetIt cacheIt) const
+                                          ClangCodeModel::Internal::IncludeTracker::CacheSetIt cacheIt) const
 {
     // The list of includes computed might not be totally correct. This is because no
     // preprocessing action is performed here, but instead we simply track valid #include

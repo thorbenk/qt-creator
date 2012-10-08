@@ -74,7 +74,7 @@ private:
     QTextCharFormat m_formats[NumCppFormats];
 
 #ifdef CLANG_LEXER
-    Clang::RawLexer m_lexer;
+    ClangCodeModel::RawLexer m_lexer;
 #endif // CLANG_LEXER
 };
 

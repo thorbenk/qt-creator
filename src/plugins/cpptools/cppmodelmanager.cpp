@@ -1483,7 +1483,7 @@ QList<Document::DiagnosticMessage> CppModelManager::extraDiagnostics(const QStri
 }
 
 #ifdef CLANG_INDEXING
-Clang::Indexer *CppModelManager::indexer()
+ClangCodeModel::Indexer *CppModelManager::indexer()
 {
     return &m_clangIndexer;
 }
