@@ -549,6 +549,21 @@ ClangCompletionAssistProcessor::ClangCompletionAssistProcessor()
           << QLatin1String("include")
           << QLatin1String("line")
           << QLatin1String("pragma")
+          << QLatin1String("pragma once")
+          << QLatin1String("pragma omp atomic")
+          << QLatin1String("pragma omp parallel")
+          << QLatin1String("pragma omp for")
+          << QLatin1String("pragma omp ordered")
+          << QLatin1String("pragma omp parallel for")
+          << QLatin1String("pragma omp section")
+          << QLatin1String("pragma omp sections")
+          << QLatin1String("pragma omp parallel sections")
+          << QLatin1String("pragma omp single")
+          << QLatin1String("pragma omp master")
+          << QLatin1String("pragma omp critical")
+          << QLatin1String("pragma omp barrier")
+          << QLatin1String("pragma omp flush")
+          << QLatin1String("pragma omp threadprivate")
           << QLatin1String("undef")
           << QLatin1String("if")
           << QLatin1String("ifdef")
@@ -1133,5 +1148,6 @@ void ClangCompletionAssistProcessor::addCompletionItem(const QString &text,
     item->setIcon(icon);
     item->setOrder(order);
     item->setData(data);
+    item->keepCompletionOperator(m_model->m_completionOperator);
     m_completions.append(item);
 }

@@ -176,17 +176,42 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_TemplateRef:
         case CXCursor_TypeRef:
         case CXCursor_TypedefDecl:
+        case CXCursor_Constructor:
             add(result, tokenExtent, SourceMarker::Type);
+            break;
+
+        case CXCursor_ParmDecl:
+        case CXCursor_VariableRef:
+        case CXCursor_VarDecl:
+            add(result, tokenExtent, SourceMarker::Local);
             break;
 
         case CXCursor_DeclRefExpr: {
             CXCursor referenced = clang_getCursorReferenced(cursor);
-            if (clang_getCursorKind(referenced) == CXCursor_EnumConstantDecl)
+            switch (clang_getCursorKind(referenced)) {
+            case CXCursor_EnumConstantDecl:
                 add(result, tokenExtent, SourceMarker::Type);
+                break;
+            case CXCursor_VarDecl:
+            case CXCursor_ParmDecl:
+                add(result, tokenExtent, SourceMarker::Local);
+                break;
+            default:
+                break;
+            }
         } break;
 
         case CXCursor_MemberRefExpr:
-        case CXCursor_MemberRef:
+        case CXCursor_MemberRef: {
+            CXCursor referenced = clang_getCursorReferenced(cursor);
+            if (clang_getCursorKind(referenced) == CXCursor_FieldDecl) {
+                add(result, tokenExtent, SourceMarker::Field);
+            } else if (clang_CXXMethod_isVirtual(referenced)) {
+                add(result, tokenExtent, SourceMarker::VirtualMethod);
+            }
+        } break;
+
+        case CXCursor_FieldDecl:
             add(result, tokenExtent, SourceMarker::Field);
             break;
 
