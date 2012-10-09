@@ -166,9 +166,12 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         const CXSourceRange &tokenExtent = idTokens.extent(i);
 
         switch (cursorKind) {
+        case CXCursor_EnumConstantDecl:
+            add(result, tokenExtent, SourceMarker::Enumeration);
+            break;
+
         case CXCursor_ClassDecl:
         case CXCursor_EnumDecl:
-        case CXCursor_EnumConstantDecl:
         case CXCursor_Namespace:
         case CXCursor_NamespaceRef:
         case CXCursor_NamespaceAlias:
@@ -190,11 +193,15 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
             CXCursor referenced = clang_getCursorReferenced(cursor);
             switch (clang_getCursorKind(referenced)) {
             case CXCursor_EnumConstantDecl:
-                add(result, tokenExtent, SourceMarker::Type);
+                add(result, tokenExtent, SourceMarker::Enumeration);
                 break;
             case CXCursor_VarDecl:
             case CXCursor_ParmDecl:
                 add(result, tokenExtent, SourceMarker::Local);
+                break;
+            case CXCursor_FunctionDecl:
+            case CXCursor_FunctionTemplate:
+                add(result, tokenExtent, SourceMarker::Function);
                 break;
             default:
                 break;
@@ -204,10 +211,19 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_MemberRefExpr:
         case CXCursor_MemberRef: {
             CXCursor referenced = clang_getCursorReferenced(cursor);
-            if (clang_getCursorKind(referenced) == CXCursor_FieldDecl) {
+            switch (clang_getCursorKind(referenced)) {
+            case CXCursor_FieldDecl:
                 add(result, tokenExtent, SourceMarker::Field);
-            } else if (clang_CXXMethod_isVirtual(referenced)) {
-                add(result, tokenExtent, SourceMarker::VirtualMethod);
+                break;
+
+            case CXCursor_CXXMethod: {
+                if (clang_CXXMethod_isVirtual(referenced))
+                    add(result, tokenExtent, SourceMarker::VirtualMethod);
+                else
+                    add(result, tokenExtent, SourceMarker::Function);
+            } break;
+            default:
+                    break;
             }
         } break;
 
@@ -218,10 +234,20 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_Destructor:
         case CXCursor_CXXMethod: {
             if (clang_CXXMethod_isVirtual(cursor))
-                add(result,
-                    tokenExtent,
-                    SourceMarker::VirtualMethod);
+                add(result, tokenExtent, SourceMarker::VirtualMethod);
+            else
+                add(result, tokenExtent, SourceMarker::Function);
         } break;
+
+        case CXCursor_CXXOverrideAttr:
+        case CXCursor_CXXFinalAttr:
+            add(result, tokenExtent, SourceMarker::PseudoKeyword);
+            break;
+
+        case CXCursor_FunctionDecl:
+        case CXCursor_FunctionTemplate:
+            add(result, tokenExtent, SourceMarker::Function);
+            break;
 
         case CXCursor_LabelRef:
         case CXCursor_LabelStmt:

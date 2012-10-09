@@ -46,9 +46,12 @@ public:
         Type = 1,
         Local,
         Field,
-        Static,
+        Enumeration,
         VirtualMethod,
-        Label
+        Label,
+        Macro,
+        Function,
+        PseudoKeyword
     };
 
     SourceMarker();

@@ -1003,6 +1003,7 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
             item = new ClangAssistProposalItem;
             items.insert(txt, item);
             item->setText(txt);
+            item->setDetail(ccr.hint());
             item->setOrder(ccr.priority());
             item->setData(qVariantFromValue(ccr));
 
