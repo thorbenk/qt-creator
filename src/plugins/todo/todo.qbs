@@ -15,21 +15,16 @@ QtcPlugin {
 
     Depends { name: "cpp" }
     cpp.defines: base.concat(["QT_NO_CAST_FROM_ASCII"])
-    cpp.includePaths: [
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
 
     files: [
         "constants.h",
         "cpptodoitemsscanner.cpp",
         "cpptodoitemsscanner.h",
         "keyword.cpp",
+        "keyword.h",
         "keyworddialog.cpp",
         "keyworddialog.h",
         "keyworddialog.ui",
-        "keyword.h",
         "lineparser.cpp",
         "lineparser.h",
         "optionsdialog.cpp",
@@ -52,6 +47,6 @@ QtcPlugin {
         "todooutputpane.h",
         "todoplugin.cpp",
         "todoplugin.h",
-        "todoplugin.qrc"
+        "todoplugin.qrc",
     ]
 }

@@ -49,7 +49,7 @@ verbosity = 1
 
 # Some "Enums"
 
-# Encodings
+# Encodings. Keep that synchronized with DebuggerEncoding in watchutils.h
 Unencoded8Bit, \
 Base64Encoded8BitWithQuotes, \
 Base64Encoded16BitWithQuotes, \
@@ -79,13 +79,15 @@ Hex2EncodedFloat4, \
 Hex2EncodedFloat8 \
     = range(27)
 
-# Display modes
+# Display modes. Keep that synchronized with DebuggerDisplay in watchutils.h
 StopDisplay, \
-DisplayImage1, \
-DisplayString, \
-DisplayImage, \
-DisplayProcess \
-    = range(5)
+DisplayImageData, \
+DisplayUtf16String, \
+DisplayImageFile, \
+DisplayProcess, \
+DisplayLatin1String, \
+DisplayUtf8String \
+    = range(7)
 
 
 qqStringCutOff = 1000
@@ -1668,7 +1670,7 @@ class Dumper:
                 self.putNumChild(0)
                 return
 
-            if (typeName.replace("(anonymous namespace)", "").find("(") != -1):
+            if innerType.code == MethodCode or innerType.code == FunctionCode:
                 # A function pointer with format None.
                 self.putValue(str(value))
                 self.putAddress(value.address)

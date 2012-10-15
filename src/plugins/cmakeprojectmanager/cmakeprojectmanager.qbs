@@ -14,14 +14,6 @@ QtcPlugin {
     Depends { name: "Locator" }
     Depends { name: "QtSupport" }
 
-    Depends { name: "cpp" }
-    cpp.includePaths: [
-        ".",
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
-
     files: [
         "CMakeProject.mimetypes.xml",
         "cmakebuildconfiguration.cpp",
@@ -51,7 +43,7 @@ QtcPlugin {
         "cmakeuicodemodelsupport.cpp",
         "cmakeuicodemodelsupport.h",
         "makestep.cpp",
-        "makestep.h"
+        "makestep.h",
     ]
 }
 

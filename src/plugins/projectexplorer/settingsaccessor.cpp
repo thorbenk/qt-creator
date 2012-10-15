@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "settingsaccessor.h"
 
@@ -623,7 +622,12 @@ QVariantMap SettingsAccessor::restoreSettings() const
         }
 
         // Verify environment.
-        if (!verifyEnvironmentId(settings.m_map.value(QLatin1String(ENVIRONMENT_ID_KEY)).toString())) {
+        const QString fileId = settings.m_map.value(QLatin1String(ENVIRONMENT_ID_KEY)).toString();
+        const QString creatorId = ProjectExplorerPlugin::instance()->projectExplorerSettings().environmentId.toString();
+        if (fileId.isEmpty() || fileId != creatorId) {
+            QString backup = fn + QLatin1Char('.') + fileId.mid(1, 7);
+            QFile::copy(fn, backup);
+
             // TODO tr, casing check
             QMessageBox msgBox(
                 QMessageBox::Question,
@@ -776,17 +780,6 @@ void SettingsAccessor::addVersionHandler(UserFileVersionHandler *handler)
     Q_ASSERT(m_handlers.count() == m_lastVersion - m_firstVersion + 1);
     for (int i = m_firstVersion; i < m_lastVersion; ++i)
         Q_ASSERT(m_handlers.contains(i));
-}
-
-bool SettingsAccessor::verifyEnvironmentId(const QString &id)
-{
-    QUuid fileEnvironmentId(id);
-    if (!fileEnvironmentId.isNull()
-        && fileEnvironmentId
-            != ProjectExplorerPlugin::instance()->projectExplorerSettings().environmentId) {
-        return false;
-    }
-    return true;
 }
 
 // -------------------------------------------------------------------------

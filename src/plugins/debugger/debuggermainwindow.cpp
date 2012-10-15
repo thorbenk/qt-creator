@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "debuggermainwindow.h"
 #include "debuggercore.h"
@@ -690,7 +689,6 @@ void DebuggerMainWindowPrivate::setSimpleDockWidgetArrangement()
     QDockWidget *threadsDock = q->dockWidget(QLatin1String(DOCKWIDGET_THREADS));
     QDockWidget *outputDock = q->dockWidget(QLatin1String(DOCKWIDGET_OUTPUT));
     QDockWidget *qmlInspectorDock = q->dockWidget(QLatin1String(DOCKWIDGET_QML_INSPECTOR));
-    QDockWidget *consoleDock = q->dockWidget(QLatin1String(DOCKWIDGET_QML_SCRIPTCONSOLE));
     QDockWidget *modulesDock = q->dockWidget(QLatin1String(DOCKWIDGET_MODULES));
     QDockWidget *registerDock = q->dockWidget(QLatin1String(DOCKWIDGET_REGISTER));
     QDockWidget *sourceFilesDock = q->dockWidget(QLatin1String(DOCKWIDGET_SOURCE_FILES));
@@ -701,7 +699,6 @@ void DebuggerMainWindowPrivate::setSimpleDockWidgetArrangement()
     QTC_ASSERT(snapshotsDock, return);
     QTC_ASSERT(threadsDock, return);
     QTC_ASSERT(outputDock, return);
-    QTC_ASSERT(consoleDock, return);
     QTC_ASSERT(modulesDock, return);
     QTC_ASSERT(registerDock, return);
     QTC_ASSERT(sourceFilesDock, return);
@@ -714,7 +711,7 @@ void DebuggerMainWindowPrivate::setSimpleDockWidgetArrangement()
 
     // toolBar
     // --------------------------------------------------------------------------------
-    // stack,qmlinspector | breakpoints,modules,register,threads,sourceFiles,snapshots,scriptconsole
+    // stack,qmlinspector | breakpoints,modules,register,threads,sourceFiles,snapshots
     //
     q->splitDockWidget(toolBarDock, stackDock, Qt::Vertical);
     q->splitDockWidget(stackDock, breakDock, Qt::Horizontal);
@@ -727,13 +724,10 @@ void DebuggerMainWindowPrivate::setSimpleDockWidgetArrangement()
     q->tabifyDockWidget(breakDock, threadsDock);
     q->tabifyDockWidget(breakDock, sourceFilesDock);
     q->tabifyDockWidget(breakDock, snapshotsDock);
-    q->tabifyDockWidget(breakDock, consoleDock);
 
     if (m_activeDebugLanguages.testFlag(Debugger::QmlLanguage)) {
         if (qmlInspectorDock)
             qmlInspectorDock->show();
-        if (consoleDock)
-            consoleDock->show();
     } else {
         // CPP only
         threadsDock->show();

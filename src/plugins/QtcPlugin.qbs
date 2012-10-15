@@ -4,7 +4,7 @@ import "../../qbs/defaults.js" as Defaults
 
 Product {
     type: ["dynamiclibrary", "pluginSpec"]
-    property string provider: 'Nokia'
+    property string provider: 'QtProject'
     property var pluginspecreplacements
     destination: "lib/qtcreator/plugins/" + provider
     targetName: {
@@ -33,6 +33,7 @@ Product {
         if (qbs.buildVariant == "release" && (qbs.toolchain == "gcc" || qbs.toolchain == "mingw"))
             return ["-Wl,-s"]
     }
+    cpp.includePaths: [ ".", ".." ]
 
     Group {
         files: [ name + ".pluginspec.in" ]

@@ -15,15 +15,11 @@ QtcPlugin {
     property bool enable: false
     property var pluginspecreplacements: ({"ANDROID_EXPERIMENTAL_STR": (enable ? "false": "true")})
 
-    cpp.includePaths: [
-        "..",
-        buildDirectory,
-        "../../libs",
-        "../../shared"
-    ]
+    cpp.includePaths: base.concat("../../shared")
 
     files: [
         "addnewavddialog.ui",
+        "android.qrc",
         "androidconfigurations.cpp",
         "androidconfigurations.h",
         "androidconstants.h",
@@ -35,9 +31,9 @@ QtcPlugin {
         "androiddeployconfiguration.cpp",
         "androiddeployconfiguration.h",
         "androiddeploystep.cpp",
+        "androiddeploystep.h",
         "androiddeploystepfactory.cpp",
         "androiddeploystepfactory.h",
-        "androiddeploystep.h",
         "androiddeploystepwidget.cpp",
         "androiddeploystepwidget.h",
         "androiddeploystepwidget.ui",
@@ -46,8 +42,8 @@ QtcPlugin {
         "androiddevicefactory.cpp",
         "androiddevicefactory.h",
         "androidglobal.h",
-        "androidmanager.h",
         "androidmanager.cpp",
+        "androidmanager.h",
         "androidpackagecreationfactory.cpp",
         "androidpackagecreationfactory.h",
         "androidpackagecreationstep.cpp",
@@ -61,11 +57,10 @@ QtcPlugin {
         "androidpackageinstallationstep.h",
         "androidplugin.cpp",
         "androidplugin.h",
-        "android.qrc",
         "androidqtversion.cpp",
+        "androidqtversion.h",
         "androidqtversionfactory.cpp",
         "androidqtversionfactory.h",
-        "androidqtversion.h",
         "androidrunconfiguration.cpp",
         "androidrunconfiguration.h",
         "androidruncontrol.cpp",
@@ -82,6 +77,6 @@ QtcPlugin {
         "androidtoolchain.cpp",
         "androidtoolchain.h",
         "javaparser.cpp",
-        "javaparser.h"
+        "javaparser.h",
     ]
 }

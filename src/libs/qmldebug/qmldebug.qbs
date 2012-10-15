@@ -4,10 +4,6 @@ import "../QtcLibrary.qbs" as QtcLibrary
 QtcLibrary {
     name: "QmlDebug"
 
-    cpp.includePaths: [
-        ".",
-        ".."
-    ]
     cpp.defines: base.concat([
         "QMLDEBUG_LIB"
     ])
@@ -20,34 +16,30 @@ QtcLibrary {
         "baseenginedebugclient.h",
         "basetoolsclient.cpp",
         "basetoolsclient.h",
+        "declarativeenginedebugclient.cpp",
         "declarativeenginedebugclient.h",
+        "declarativeenginedebugclientv2.h",
         "declarativetoolsclient.cpp",
         "declarativetoolsclient.h",
         "qdebugmessageclient.cpp",
         "qdebugmessageclient.h",
+        "qmldebug_global.h",
         "qmldebugclient.cpp",
         "qmldebugclient.h",
         "qmldebugconstants.h",
-        "qmldebug_global.h",
+        "qmlenginedebugclient.h",
         "qmloutputparser.cpp",
         "qmloutputparser.h",
         "qmlprofilereventlocation.h",
         "qmlprofilereventtypes.h",
         "qmlprofilertraceclient.cpp",
         "qmlprofilertraceclient.h",
+        "qmltoolsclient.cpp",
+        "qmltoolsclient.h",
         "qpacketprotocol.cpp",
         "qpacketprotocol.h",
-        "qmlenginedebugclient.cpp",
-        "qmlenginedebugclient.h",
         "qv8profilerclient.cpp",
         "qv8profilerclient.h",
-        "qmltoolsclient.cpp",
-        "qmltoolsclient.h"
     ]
-
-    ProductModule {
-        Depends { name: "cpp" }
-        cpp.includePaths: ["."]
-    }
 }
 

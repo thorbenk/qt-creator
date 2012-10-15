@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "qtsingleapplication.h"
 #include "../tools/qtcreatorcrashhandler/crashhandlersetup.h"
@@ -162,6 +161,33 @@ static inline int askMsgSendFailed()
                                  QMessageBox::Retry);
 }
 
+// taken from utils/fileutils.cpp. We can not use utils here since that depends app_version.h.
+static bool copyRecursively(const QString &srcFilePath,
+                            const QString &tgtFilePath)
+{
+    QFileInfo srcFileInfo(srcFilePath);
+    if (srcFileInfo.isDir()) {
+        QDir targetDir(tgtFilePath);
+        targetDir.cdUp();
+        if (!targetDir.mkdir(QFileInfo(tgtFilePath).fileName()))
+            return false;
+        QDir sourceDir(srcFilePath);
+        QStringList fileNames = sourceDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
+        foreach (const QString &fileName, fileNames) {
+            const QString newSrcFilePath
+                    = srcFilePath + QLatin1Char('/') + fileName;
+            const QString newTgtFilePath
+                    = tgtFilePath + QLatin1Char('/') + fileName;
+            if (!copyRecursively(newSrcFilePath, newTgtFilePath))
+                return false;
+        }
+    } else {
+        if (!QFile::copy(srcFilePath, tgtFilePath))
+            return false;
+    }
+    return true;
+}
+
 static inline QStringList getPluginPaths()
 {
     QStringList rc;
@@ -184,9 +210,9 @@ static inline QStringList getPluginPaths()
 #endif
     // 3) <localappdata>/plugins/<ideversion>
     //    where <localappdata> is e.g.
-    //    <drive>:\Users\<username>\AppData\Local\Nokia\qtcreator on Windows Vista and later
-    //    $XDG_DATA_HOME or ~/.local/share/data/Nokia/qtcreator on Linux
-    //    ~/Library/Application Support/Nokia/Qt Creator on Mac
+    //    <drive>:\Users\<username>\AppData\Local\QtProject\qtcreator on Windows Vista and later
+    //    $XDG_DATA_HOME or ~/.local/share/data/QtProject/qtcreator on Linux
+    //    ~/Library/Application Support/QtProject/Qt Creator on Mac
     pluginPath = QDesktopServices::storageLocation(QDesktopServices::DataLocation);
     pluginPath += QLatin1Char('/')
             + QLatin1String(Core::Constants::IDE_SETTINGSVARIANT_STR)
@@ -200,6 +226,55 @@ static inline QStringList getPluginPaths()
     pluginPath += QLatin1String(Core::Constants::IDE_VERSION_LONG);
     rc.push_back(pluginPath);
     return rc;
+}
+
+static QSettings *createUserSettings()
+{
+    return new QSettings(QSettings::IniFormat, QSettings::UserScope,
+                         QLatin1String(Core::Constants::IDE_SETTINGSVARIANT_STR),
+                         QLatin1String("QtCreator"));
+}
+
+static inline QSettings *userSettings()
+{
+    QSettings *settings = createUserSettings();
+    const QString fromVariant = QLatin1String(Core::Constants::IDE_COPY_SETTINGS_FROM_VARIANT_STR);
+    if (fromVariant.isEmpty())
+        return settings;
+
+    // Copy old settings to new ones:
+    QFileInfo pathFi = QFileInfo(settings->fileName());
+    if (pathFi.exists()) // already copied.
+        return settings;
+
+    QDir destDir = pathFi.absolutePath();
+    if (!destDir.exists())
+        destDir.mkpath(pathFi.absolutePath());
+
+    QDir srcDir = destDir;
+    srcDir.cdUp();
+    if (!srcDir.cd(fromVariant))
+        return settings;
+
+    if (srcDir == destDir) // Nothing to copy and no settings yet
+        return settings;
+
+    QStringList entries = srcDir.entryList();
+    foreach (const QString &file, entries) {
+        const QString lowerFile = file.toLower();
+        if (lowerFile.startsWith(QLatin1String("profiles.xml"))
+                || lowerFile.startsWith(QLatin1String("toolchains.xml"))
+                || lowerFile.startsWith(QLatin1String("qtversion.xml"))
+                || lowerFile.startsWith(QLatin1String("devices.xml"))
+                || lowerFile.startsWith(QLatin1String("qtcreator.")))
+            QFile::copy(srcDir.absoluteFilePath(file), destDir.absoluteFilePath(file));
+        if (file == QLatin1String("qtcreator"))
+            copyRecursively(srcDir.absoluteFilePath(file), destDir.absoluteFilePath(file));
+    }
+
+    // Make sure to use the copied settings:
+    delete settings;
+    return createUserSettings();
 }
 
 #ifdef Q_OS_MAC
@@ -219,7 +294,7 @@ int main(int argc, char **argv)
     setrlimit(RLIMIT_NOFILE, &rl);
 #endif
 
-#ifdef Q_WS_X11
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
     // QML is unusable with the xlib backend
     QApplication::setGraphicsSystem("raster");
 #endif
@@ -259,9 +334,8 @@ int main(int argc, char **argv)
                        QCoreApplication::applicationDirPath() + QLatin1String(SHARE_PATH));
     QSettings::setDefaultFormat(QSettings::IniFormat);
     // plugin manager takes control of this settings object
-    QSettings *settings = new QSettings(QSettings::IniFormat, QSettings::UserScope,
-                                        QLatin1String(Core::Constants::IDE_SETTINGSVARIANT_STR),
-                                        QLatin1String("QtCreator"));
+    QSettings *settings = userSettings();
+
     QSettings *globalSettings = new QSettings(QSettings::IniFormat, QSettings::SystemScope,
                                               QLatin1String(Core::Constants::IDE_SETTINGSVARIANT_STR),
                                               QLatin1String("QtCreator"));

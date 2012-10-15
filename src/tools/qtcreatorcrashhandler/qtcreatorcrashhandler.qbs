@@ -6,7 +6,8 @@ QtcTool {
     condition: qbs.targetOS == "linux" && qbs.buildVariant == "debug"
 
     cpp.includePaths: [
-        buildDirectory
+        buildDirectory,
+        "../../libs"
     ]
 
     Depends { name: "cpp" }
@@ -14,15 +15,19 @@ QtcTool {
     Depends { name: "app_version_header" }
 
     files: [
-        "main.cpp",
+        "../../libs/utils/checkablemessagebox.cpp",
+        "../../libs/utils/checkablemessagebox.h",
+        "../../libs/utils/environment.cpp",
+        "../../libs/utils/environment.h",
         "backtracecollector.cpp",
         "backtracecollector.h",
-        "crashhandlerdialog.cpp",
-        "crashhandlerdialog.h",
         "crashhandler.cpp",
         "crashhandler.h",
+        "crashhandlerdialog.cpp",
+        "crashhandlerdialog.h",
+        "crashhandlerdialog.ui",
+        "main.cpp",
         "utils.cpp",
-        "utils.h",
-        "crashhandlerdialog.ui"
+        "utils.h"
     ]
 }

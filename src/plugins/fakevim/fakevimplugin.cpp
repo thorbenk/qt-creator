@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "fakevimplugin.h"
 
@@ -844,6 +843,9 @@ private slots:
     void windowCommand(int key);
     void find(bool reverse);
     void findNext(bool reverse);
+    void foldToggle(int depth);
+    void foldAll(bool fold);
+    void fold(int depth, bool fold);
     void showSettingsDialog();
     void maybeReadVimRc();
     void setBlockSelection(bool);
@@ -1349,6 +1351,96 @@ void FakeVimPluginPrivate::findNext(bool reverse)
         triggerAction(Find::Constants::FIND_NEXT);
 }
 
+void FakeVimPluginPrivate::foldToggle(int depth)
+{
+    IEditor *ieditor = EditorManager::currentEditor();
+    BaseTextEditorWidget *editor = qobject_cast<BaseTextEditorWidget *>(ieditor->widget());
+    QTC_ASSERT(editor != 0, return);
+
+    QTextBlock block = editor->textCursor().block();
+    fold(depth, !BaseTextDocumentLayout::isFolded(block));
+}
+
+void FakeVimPluginPrivate::foldAll(bool fold)
+{
+    IEditor *ieditor = EditorManager::currentEditor();
+    BaseTextEditorWidget *editor = qobject_cast<BaseTextEditorWidget *>(ieditor->widget());
+    QTC_ASSERT(editor != 0, return);
+
+    QTextDocument *doc = editor->document();
+    BaseTextDocumentLayout *documentLayout =
+            qobject_cast<BaseTextDocumentLayout*>(doc->documentLayout());
+    QTC_ASSERT(documentLayout != 0, return);
+
+    QTextBlock block = editor->document()->firstBlock();
+    while (block.isValid()) {
+        BaseTextDocumentLayout::doFoldOrUnfold(block, !fold);
+        block = block.next();
+    }
+
+    documentLayout->requestUpdate();
+    documentLayout->emitDocumentSizeChanged();
+}
+
+void FakeVimPluginPrivate::fold(int depth, bool fold)
+{
+    IEditor *ieditor = EditorManager::currentEditor();
+    BaseTextEditorWidget *editor = qobject_cast<BaseTextEditorWidget *>(ieditor->widget());
+    QTC_ASSERT(editor != 0, return);
+
+    QTextDocument *doc = editor->document();
+    BaseTextDocumentLayout *documentLayout =
+            qobject_cast<BaseTextDocumentLayout*>(doc->documentLayout());
+    QTC_ASSERT(documentLayout != 0, return);
+
+    QTextBlock block = editor->textCursor().block();
+    int indent = BaseTextDocumentLayout::foldingIndent(block);
+    if (fold) {
+        if (BaseTextDocumentLayout::isFolded(block)) {
+            while (block.isValid() && (BaseTextDocumentLayout::foldingIndent(block) >= indent
+                || !block.isVisible())) {
+                block = block.previous();
+            }
+        }
+        if (BaseTextDocumentLayout::canFold(block))
+            ++indent;
+        while (depth != 0 && block.isValid()) {
+            const int indent2 = BaseTextDocumentLayout::foldingIndent(block);
+            if (BaseTextDocumentLayout::canFold(block) && indent2 < indent) {
+                BaseTextDocumentLayout::doFoldOrUnfold(block, false);
+                if (depth > 0)
+                    --depth;
+                indent = indent2;
+            }
+            block = block.previous();
+        }
+    } else {
+        if (BaseTextDocumentLayout::isFolded(block)) {
+            if (depth < 0) {
+                // recursively open fold
+                while (depth < 0 && block.isValid()
+                    && BaseTextDocumentLayout::foldingIndent(block) >= indent) {
+                    if (BaseTextDocumentLayout::canFold(block)) {
+                        BaseTextDocumentLayout::doFoldOrUnfold(block, true);
+                        if (depth > 0)
+                            --depth;
+                    }
+                    block = block.next();
+                }
+            } else {
+                if (BaseTextDocumentLayout::canFold(block)) {
+                    BaseTextDocumentLayout::doFoldOrUnfold(block, true);
+                    if (depth > 0)
+                        --depth;
+                }
+            }
+        }
+    }
+
+    documentLayout->requestUpdate();
+    documentLayout->emitDocumentSizeChanged();
+}
+
 // This class defers deletion of a child FakeVimHandler using deleteLater().
 class DeferredDeleter : public QObject
 {
@@ -1421,6 +1513,12 @@ void FakeVimPluginPrivate::editorOpened(IEditor *editor)
         SLOT(find(bool)));
     connect(handler, SIGNAL(findNextRequested(bool)),
         SLOT(findNext(bool)));
+    connect(handler, SIGNAL(foldToggle(int)),
+        SLOT(foldToggle(int)));
+    connect(handler, SIGNAL(foldAll(bool)),
+        SLOT(foldAll(bool)));
+    connect(handler, SIGNAL(fold(int,bool)),
+        SLOT(fold(int,bool)));
 
     connect(handler, SIGNAL(handleExCommandRequested(bool*,ExCommand)),
         SLOT(handleExCommand(bool*,ExCommand)));

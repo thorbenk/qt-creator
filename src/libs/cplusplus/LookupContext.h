@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #ifndef CPLUSPLUS_LOOKUPCONTEXT_H
 #define CPLUSPLUS_LOOKUPCONTEXT_H
@@ -45,6 +44,33 @@
 namespace CPlusPlus {
 
 class CreateBindings;
+class Class;
+template<typename T>
+class AlreadyConsideredClassContainer
+{
+public:
+    AlreadyConsideredClassContainer() : _class(0) {}
+    void insert(const T *item)
+    {
+        if (_container.isEmpty())
+            _class = item;
+        _container.insert(item);
+    }
+    bool contains(const T *item)
+    {
+        return _container.contains(item);
+    }
+
+    void clear(const T *item)
+    {
+        if (_class != item)
+            _container.clear();
+    }
+
+private:
+    QSet<const T *> _container;
+    const T * _class;
+};
 
 class CPLUSPLUS_EXPORT ClassOrNamespace
 {
@@ -93,12 +119,7 @@ private:
     ClassOrNamespace *nestedType(const Name *name, ClassOrNamespace *origin);
 
 private:
-    struct CompareName: std::binary_function<const Name *, const Name *, bool> {
-        bool operator()(const Name *name, const Name *other) const;
-    };
-
-private:
-    typedef std::map<const Name *, ClassOrNamespace *, CompareName> Table;
+    typedef std::map<const Name *, ClassOrNamespace *, Name::Compare> Table;
     CreateBindings *_factory;
     ClassOrNamespace *_parent;
     QList<Symbol *> _symbols;
@@ -111,6 +132,9 @@ private:
     // it's an instantiation.
     const TemplateNameId *_templateId;
     ClassOrNamespace *_instantiationOrigin;
+
+    AlreadyConsideredClassContainer<Class> _alreadyConsideredClasses;
+    AlreadyConsideredClassContainer<TemplateNameId> _alreadyConsideredTemplates;
 
     friend class CreateBindings;
 };
@@ -133,6 +157,11 @@ public:
     /// Returns the Control that must be used to create temporary symbols.
     /// \internal
     QSharedPointer<Control> control() const;
+
+    bool expandTemplates() const
+    { return _expandTemplates; }
+    void setExpandTemplates(bool expandTemplates)
+    { _expandTemplates = expandTemplates; }
 
     /// Searches in \a scope for symbols with the given \a name.
     /// Store the result in \a results.
@@ -194,6 +223,7 @@ private:
     QList<ClassOrNamespace *> _entities;
     ClassOrNamespace *_globalNamespace;
     ClassOrNamespace *_currentClassOrNamespace;
+    bool _expandTemplates;
 };
 
 class CPLUSPLUS_EXPORT LookupContext
@@ -236,6 +266,9 @@ public:
 
     static const Name *minimalName(Symbol *symbol, ClassOrNamespace *target, Control *control);
 
+    void setExpandTemplates(bool expandTemplates)
+    { m_expandTemplates = expandTemplates; }
+
 private:
     // The current expression.
     Document::Ptr _expressionDocument;
@@ -250,6 +283,8 @@ private:
     mutable QSharedPointer<CreateBindings> _bindings;
 
     QSharedPointer<Control> _control;
+
+    bool m_expandTemplates;
 };
 
 bool CPLUSPLUS_EXPORT compareName(const Name *name, const Name *other);

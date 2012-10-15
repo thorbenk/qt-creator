@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "qmlinspectoradapter.h"
 
@@ -42,6 +41,7 @@
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/icore.h>
 #include <qmldebug/declarativeenginedebugclient.h>
+#include <qmldebug/declarativeenginedebugclientv2.h>
 #include <qmldebug/declarativetoolsclient.h>
 #include <qmldebug/qmlenginedebugclient.h>
 #include <qmldebug/qmltoolsclient.h>
@@ -96,13 +96,23 @@ QmlInspectorAdapter::QmlInspectorAdapter(QmlAdapter *debugAdapter,
     connect(engineClient2, SIGNAL(newStatus(QmlDebug::ClientStatus)),
             this, SLOT(engineClientStatusChanged(QmlDebug::ClientStatus)));
 
+    DeclarativeEngineDebugClientV2 *engineClient3
+            = new DeclarativeEngineDebugClientV2(connection);
+    connect(engineClient3, SIGNAL(newStatus(QmlDebug::ClientStatus)),
+            this, SLOT(clientStatusChanged(QmlDebug::ClientStatus)));
+    connect(engineClient3, SIGNAL(newStatus(QmlDebug::ClientStatus)),
+            this, SLOT(engineClientStatusChanged(QmlDebug::ClientStatus)));
+
     m_engineClients.insert(engineClient1->name(), engineClient1);
     m_engineClients.insert(engineClient2->name(), engineClient2);
+    m_engineClients.insert(engineClient3->name(), engineClient3);
 
     if (engineClient1->status() == QmlDebug::Enabled)
         setActiveEngineClient(engineClient1);
     if (engineClient2->status() == QmlDebug::Enabled)
         setActiveEngineClient(engineClient2);
+    if (engineClient3->status() == QmlDebug::Enabled)
+        setActiveEngineClient(engineClient3);
 
     DeclarativeToolsClient *toolsClient1 = new DeclarativeToolsClient(connection);
     connect(toolsClient1, SIGNAL(newStatus(QmlDebug::ClientStatus)),
@@ -292,40 +302,42 @@ void QmlInspectorAdapter::createPreviewForEditor(Core::IEditor *newEditor)
     QString filename = newEditor->document()->fileName();
     QmlJS::ModelManagerInterface *modelManager =
             QmlJS::ModelManagerInterface::instance();
-    QmlJS::Document::Ptr doc = modelManager->snapshot().document(filename);
-    if (!doc) {
-        if (filename.endsWith(QLatin1String(".qml")) || filename.endsWith(QLatin1String(".js"))) {
-            // add to list of docs that we have to update when
-            // snapshot figures out that there's a new document
-            m_pendingPreviewDocumentNames.append(filename);
+    if (modelManager) {
+        QmlJS::Document::Ptr doc = modelManager->snapshot().document(filename);
+        if (!doc) {
+            if (filename.endsWith(QLatin1String(".qml")) || filename.endsWith(QLatin1String(".js"))) {
+                // add to list of docs that we have to update when
+                // snapshot figures out that there's a new document
+                m_pendingPreviewDocumentNames.append(filename);
+            }
+            return;
         }
-        return;
-    }
-    if (!doc->qmlProgram() && !filename.endsWith(QLatin1String(".js")))
-        return;
+        if (!doc->qmlProgram() && !filename.endsWith(QLatin1String(".js")))
+            return;
 
-    QmlJS::Document::Ptr initdoc = m_loadedSnapshot.document(filename);
-    if (!initdoc)
-        initdoc = doc;
+        QmlJS::Document::Ptr initdoc = m_loadedSnapshot.document(filename);
+        if (!initdoc)
+            initdoc = doc;
 
-    if (m_textPreviews.contains(filename)) {
-        QmlLiveTextPreview *preview = m_textPreviews.value(filename);
-        preview->associateEditor(newEditor);
-    } else {
-        QmlLiveTextPreview *preview
-                = new QmlLiveTextPreview(doc, initdoc, this, this);
-        connect(preview,
-                SIGNAL(selectedItemsChanged(QList<int>)),
-                SLOT(selectObjectsFromEditor(QList<int>)));
+        if (m_textPreviews.contains(filename)) {
+            QmlLiveTextPreview *preview = m_textPreviews.value(filename);
+            preview->associateEditor(newEditor);
+        } else {
+            QmlLiveTextPreview *preview
+                    = new QmlLiveTextPreview(doc, initdoc, this, this);
+            connect(preview,
+                    SIGNAL(selectedItemsChanged(QList<int>)),
+                    SLOT(selectObjectsFromEditor(QList<int>)));
 
-        preview->setApplyChangesToQmlInspector(
-                    debuggerCore()->action(QmlUpdateOnSave)->isChecked());
-        connect(preview, SIGNAL(reloadRequest()),
-                this, SLOT(onReload()));
+            preview->setApplyChangesToQmlInspector(
+                        debuggerCore()->action(QmlUpdateOnSave)->isChecked());
+            connect(preview, SIGNAL(reloadRequest()),
+                    this, SLOT(onReload()));
 
-        m_textPreviews.insert(newEditor->document()->fileName(), preview);
-        preview->associateEditor(newEditor);
-        preview->updateDebugIds();
+            m_textPreviews.insert(newEditor->document()->fileName(), preview);
+            preview->associateEditor(newEditor);
+            preview->updateDebugIds();
+        }
     }
 }
 
@@ -416,15 +428,17 @@ void QmlInspectorAdapter::setActiveEngineClient(BaseEngineDebugClient *client)
             m_engineClient->status() == QmlDebug::Enabled) {
         QmlJS::ModelManagerInterface *modelManager
                 = QmlJS::ModelManagerInterface::instance();
-        QmlJS::Snapshot snapshot = modelManager->snapshot();
-        for (QHash<QString, QmlLiveTextPreview *>::const_iterator it
-             = m_textPreviews.constBegin();
-             it != m_textPreviews.constEnd(); ++it) {
-            QmlJS::Document::Ptr doc = snapshot.document(it.key());
-            it.value()->resetInitialDoc(doc);
-        }
+        if (modelManager) {
+            QmlJS::Snapshot snapshot = modelManager->snapshot();
+            for (QHash<QString, QmlLiveTextPreview *>::const_iterator it
+                 = m_textPreviews.constBegin();
+                 it != m_textPreviews.constEnd(); ++it) {
+                QmlJS::Document::Ptr doc = snapshot.document(it.key());
+                it.value()->resetInitialDoc(doc);
+            }
 
-        initializePreviews();
+            initializePreviews();
+        }
     }
 }
 
@@ -433,22 +447,24 @@ void QmlInspectorAdapter::initializePreviews()
     Core::EditorManager *em = Core::EditorManager::instance();
     QmlJS::ModelManagerInterface *modelManager
             = QmlJS::ModelManagerInterface::instance();
-    m_loadedSnapshot = modelManager->snapshot();
+    if (modelManager) {
+        m_loadedSnapshot = modelManager->snapshot();
 
-    if (!m_listeningToEditorManager) {
-        m_listeningToEditorManager = true;
-        connect(em, SIGNAL(editorAboutToClose(Core::IEditor*)),
-                this, SLOT(removePreviewForEditor(Core::IEditor*)));
-        connect(em, SIGNAL(editorOpened(Core::IEditor*)),
-                this, SLOT(createPreviewForEditor(Core::IEditor*)));
-        connect(modelManager,
-                SIGNAL(documentChangedOnDisk(QmlJS::Document::Ptr)),
-                this, SLOT(updatePendingPreviewDocuments(QmlJS::Document::Ptr)));
+        if (!m_listeningToEditorManager) {
+            m_listeningToEditorManager = true;
+            connect(em, SIGNAL(editorAboutToClose(Core::IEditor*)),
+                    this, SLOT(removePreviewForEditor(Core::IEditor*)));
+            connect(em, SIGNAL(editorOpened(Core::IEditor*)),
+                    this, SLOT(createPreviewForEditor(Core::IEditor*)));
+            connect(modelManager,
+                    SIGNAL(documentChangedOnDisk(QmlJS::Document::Ptr)),
+                    this, SLOT(updatePendingPreviewDocuments(QmlJS::Document::Ptr)));
+        }
+
+        // initial update
+        foreach (Core::IEditor *editor, em->openedEditors())
+            createPreviewForEditor(editor);
     }
-
-    // initial update
-    foreach (Core::IEditor *editor, em->openedEditors())
-        createPreviewForEditor(editor);
 }
 
 void QmlInspectorAdapter::showConnectionStatusMessage(const QString &message)
@@ -532,13 +548,15 @@ void QmlInspectorAdapter::onReloaded()
 {
     QmlJS::ModelManagerInterface *modelManager =
             QmlJS::ModelManagerInterface::instance();
-    QmlJS::Snapshot snapshot = modelManager->snapshot();
-    m_loadedSnapshot = snapshot;
-    for (QHash<QString, QmlLiveTextPreview *>::const_iterator it
-         = m_textPreviews.constBegin();
-         it != m_textPreviews.constEnd(); ++it) {
-        QmlJS::Document::Ptr doc = snapshot.document(it.key());
-        it.value()->resetInitialDoc(doc);
+    if (modelManager) {
+        QmlJS::Snapshot snapshot = modelManager->snapshot();
+        m_loadedSnapshot = snapshot;
+        for (QHash<QString, QmlLiveTextPreview *>::const_iterator it
+             = m_textPreviews.constBegin();
+             it != m_textPreviews.constEnd(); ++it) {
+            QmlJS::Document::Ptr doc = snapshot.document(it.key());
+            it.value()->resetInitialDoc(doc);
+        }
     }
     m_agent->reloadEngines();
 }

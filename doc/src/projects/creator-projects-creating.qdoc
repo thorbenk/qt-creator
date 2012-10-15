@@ -1,10 +1,9 @@
 /****************************************************************************
 **
+** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
 ** This file is part of Qt Creator
-**
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
-**
-** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -116,9 +115,10 @@
 
             \o  Qt Quick Application (Built-in Elements)
 
-                Use built-in QML elements to design Qt Quick based user
-                interfaces with a custom look and feel and QML and C++ code to
-                implement the application logic
+                Use built-in QML elements to design user interfaces based on
+                Qt Quick 1 (Qt 4.7.1, or later) or Qt Quick 2 (Qt 5) with a
+                custom look and feel and QML and C++ code to implement the
+                application logic
 
             \o  Qt Quick Application for MeeGo Harmattan
 
@@ -136,7 +136,7 @@
 
             \o  HTML5 Application
 
-                Use a QtWebKit view to desigm the user interface and HTML5 and
+                Use a QtWebKit view to design the user interface and HTML5 and
                 C++ code to implement the application logic
 
             \o  Qt Quick UI
@@ -176,16 +176,9 @@
 
                 Qt unit tests for features or classes
 
-            \if defined(qcmanual)
             \o  Qt Custom Designer Widgets
 
                 Custom \QD widget or widget collection
-            \endif
-
-            \o  Plain C/C++ Project
-
-                Plain C or C++ project that uses qmake but does not use the Qt
-                library
 
             \o  Empty Qt Project
 
@@ -201,7 +194,19 @@
 
         \o  Non-Qt Projects
 
-            Plain C or C++ projects that use CMake but do not use the Qt library
+        \list
+
+            \o  Plain C or C++ Project
+
+                Plain C or C++ project that uses qmake but does not use the Qt
+                library
+
+            \o  Plain C or C++ Project (CMake Build)
+
+                Plain C or C++ project that uses CMake but does not use the Qt
+                library
+
+        \endlist
 
         \o  Import Project
 

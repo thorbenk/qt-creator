@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "texteditor_global.h"
 
@@ -2498,6 +2497,7 @@ BaseTextEditorWidgetPrivate::BaseTextEditorWidgetPrivate()
     m_codeAssistant(new CodeAssistant),
     m_assistRelevantContentAdded(false),
     m_cursorBlockNumber(-1),
+    m_markDragging(false),
     m_autoCompleter(new AutoCompleter),
     m_indenter(new Indenter),
     m_clipboardAssistProvider(new Internal::ClipboardAssistProvider)
@@ -2607,7 +2607,7 @@ QPoint BaseTextEditorWidget::toolTipPosition(const QTextCursor &c) const
 {
     const QPoint cursorPos = mapToGlobal(cursorRect(c).bottomRight() + QPoint(1,1));
     return cursorPos + QPoint(d->m_extraArea->width(),
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
     -24
 #else
     -16
@@ -3797,7 +3797,7 @@ void BaseTextEditorWidget::extraAreaPaintEvent(QPaintEvent *e)
                         int count = 0;
                         it = marks.constEnd() - 1;
                         while (it != marks.constBegin()) {
-                            if ((*it)->visible())
+                            if ((*it)->isVisible())
                                 ++count;
                             if (count == 3)
                                 break;
@@ -3807,7 +3807,7 @@ void BaseTextEditorWidget::extraAreaPaintEvent(QPaintEvent *e)
                     TextMarks::const_iterator end = marks.constEnd();
                     for ( ; it != end; ++it) {
                         ITextMark *mark = *it;
-                        if (!mark->visible())
+                        if (!mark->isVisible())
                             continue;
                         const int height = fmLineSpacing - 1;
                         const int width = int(.5 + height * mark->widthFactor());
@@ -4364,6 +4364,7 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
 
     int markWidth;
     extraAreaWidth(&markWidth);
+    const bool inMarkArea = e->pos().x() <= markWidth && e->pos().x() >= 0;
 
     if (d->m_codeFoldingVisible
         && e->type() == QEvent::MouseMove && e->buttons() == 0) { // mouse tracking
@@ -4384,15 +4385,22 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
 
     // Set whether the mouse cursor is a hand or normal arrow
     if (e->type() == QEvent::MouseMove) {
-        bool hand = (e->pos().x() <= markWidth);
-        if (hand) {
+        if (inMarkArea) {
             //Find line by cursor position
             int line = cursor.blockNumber() + 1;
             emit editor()->markTooltipRequested(editor(), mapToGlobal(e->pos()), line);
         }
 
-        if (hand != (d->m_extraArea->cursor().shape() == Qt::PointingHandCursor))
-            d->m_extraArea->setCursor(hand ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        if (e->buttons() & Qt::LeftButton) {
+            int dist = (e->pos() - d->m_markDragStart).manhattanLength();
+            if (dist > QApplication::startDragDistance())
+                d->m_markDragging = true;
+        }
+
+        if (d->m_markDragging)
+            d->m_extraArea->setCursor(inMarkArea ? Qt::DragMoveCursor : Qt::ForbiddenCursor);
+        else if (inMarkArea != (d->m_extraArea->cursor().shape() == Qt::PointingHandCursor))
+            d->m_extraArea->setCursor(inMarkArea ? Qt::PointingHandCursor : Qt::ArrowCursor);
     }
 
     if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonDblClick) {
@@ -4410,7 +4418,7 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
                     toggleBlockVisible(c);
                     d->moveCursorVisible(false);
                 }
-            } else if (d->m_lineNumbersVisible && e->pos().x() > markWidth) {
+            } else if (d->m_lineNumbersVisible && !inMarkArea) {
                 QTextCursor selection = cursor;
                 selection.setVisualNavigation(true);
                 d->extraAreaSelectionAnchorBlockNumber = selection.blockNumber();
@@ -4419,6 +4427,8 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
                 setTextCursor(selection);
             } else {
                 d->extraAreaToggleMarkBlockNumber = cursor.blockNumber();
+                d->m_markDragging = false;
+                d->m_markDragStart = e->pos();
             }
         }
     } else if (d->extraAreaSelectionAnchorBlockNumber >= 0) {
@@ -4452,25 +4462,38 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
         if (e->type() == QEvent::MouseButtonRelease && e->button() == Qt::LeftButton) {
             int n = d->extraAreaToggleMarkBlockNumber;
             d->extraAreaToggleMarkBlockNumber = -1;
-            if (cursor.blockNumber() == n) {
-                if (TextBlockUserData *data = static_cast<TextBlockUserData *>(cursor.block().userData())) {
-                    foreach (ITextMark *mark, data->marks()) {
-                        if (mark->clickable()) {
+            const bool sameLine = cursor.blockNumber() == n;
+            const bool wasDragging = d->m_markDragging;
+            d->m_markDragging = false;
+            QTextBlock block = cursor.document()->findBlockByNumber(n);
+            if (TextBlockUserData *data = static_cast<TextBlockUserData *>(block.userData())) {
+                foreach (ITextMark *mark, data->marks()) {
+                    if (sameLine) {
+                        if (mark->isClickable()) {
                             mark->clicked();
+                            return;
+                        }
+                    } else {
+                        if (wasDragging && mark->isDraggable()) {
+                            if (inMarkArea) {
+                                mark->dragToLine(cursor.blockNumber() + 1);
+                                d->m_extraArea->setCursor(Qt::PointingHandCursor);
+                            } else {
+                                d->m_extraArea->setCursor(Qt::ArrowCursor);
+                            }
                             return;
                         }
                     }
                 }
-
-                int line = n + 1;
-                ITextEditor::MarkRequestKind kind;
-                if (QApplication::keyboardModifiers() & Qt::ShiftModifier)
-                    kind = ITextEditor::BookmarkRequest;
-                else
-                    kind = ITextEditor::BreakpointRequest;
-
-                emit editor()->markRequested(editor(), line, kind);
             }
+            int line = n + 1;
+            ITextEditor::MarkRequestKind kind;
+            if (QApplication::keyboardModifiers() & Qt::ShiftModifier)
+                kind = ITextEditor::BookmarkRequest;
+            else
+                kind = ITextEditor::BreakpointRequest;
+
+            emit editor()->markRequested(editor(), line, kind);
         }
     }
 }
@@ -4479,9 +4502,25 @@ void BaseTextEditorWidget::ensureCursorVisible()
 {
     QTextBlock block = textCursor().block();
     if (!block.isVisible()) {
-        while (!block.isVisible() && block.previous().isValid())
+        BaseTextDocumentLayout *documentLayout = qobject_cast<BaseTextDocumentLayout*>(document()->documentLayout());
+        QTC_ASSERT(documentLayout, return);
+
+        // Open all parent folds of current line.
+        int indent = BaseTextDocumentLayout::foldingIndent(block);
+        block = block.previous();
+        while (block.isValid()) {
+            const int indent2 = BaseTextDocumentLayout::foldingIndent(block);
+            if (BaseTextDocumentLayout::canFold(block) && indent2 < indent) {
+                BaseTextDocumentLayout::doFoldOrUnfold(block, /* unfold = */ true);
+                if (block.isVisible())
+                    break;
+                indent = indent2;
+            }
             block = block.previous();
-        toggleBlockVisible(block);
+        }
+
+        documentLayout->requestUpdate();
+        documentLayout->emitDocumentSizeChanged();
     }
     QPlainTextEdit::ensureCursorVisible();
 }

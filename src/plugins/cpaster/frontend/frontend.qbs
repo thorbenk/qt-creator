@@ -15,16 +15,16 @@ QtcTool {
     cpp.rpaths: [
         "$ORIGIN/../lib/qtcreator",
         "$ORIGIN/../lib/qtcreator/plugins",
-        "$ORIGIN/../lib/qtcreator/plugins/Nokia"
+        "$ORIGIN/../lib/qtcreator/plugins/QtProject"
     ]
 
     files: [ "main.cpp",
         "argumentscollector.h", "argumentscollector.cpp",
         "../cpasterconstants.h",
-        "../protocol.h", "../protocol.cpp",
-        "../pastebindotcomprotocol.h", "../pastebindotcomprotocol.cpp",
-        "../pastebindotcaprotocol.h", "../pastebindotcaprotocol.cpp",
         "../kdepasteprotocol.h", "../kdepasteprotocol.cpp",
-        "../urlopenprotocol.h", "../urlopenprotocol.cpp"
+        "../pastebindotcaprotocol.h", "../pastebindotcaprotocol.cpp",
+        "../pastebindotcomprotocol.h", "../pastebindotcomprotocol.cpp",
+        "../protocol.h", "../protocol.cpp",
+        "../urlopenprotocol.h", "../urlopenprotocol.cpp",
     ]
 }

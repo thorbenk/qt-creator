@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "cppmodelmanager.h"
 #include "cppcompletionassist.h"
@@ -103,7 +102,9 @@ public:
         , m_completionOperator(T_EOF_SYMBOL)
         , m_replaceDotForArrow(false)
         , m_typeOfExpression(new TypeOfExpression)
-    {}
+    {
+        m_typeOfExpression->setExpandTemplates(true);
+    }
 
     virtual bool isSortable(const QString &prefix) const;
     virtual IAssistProposalItem *proposalItem(int index) const;
@@ -400,14 +401,14 @@ private:
 QString CppFunctionHintModel::text(int index) const
 {
     Overview overview;
-    overview.setShowReturnTypes(true);
-    overview.setShowArgumentNames(true);
-    overview.setMarkedArgument(m_currentArg + 1);
+    overview.showReturnTypes = true;
+    overview.showArgumentNames = true;
+    overview.markedArgument = m_currentArg + 1;
     Function *f = m_functionSymbols.at(index);
 
-    const QString prettyMethod = overview(f->type(), f->name());
-    const int begin = overview.markedArgumentBegin();
-    const int end = overview.markedArgumentEnd();
+    const QString prettyMethod = overview.prettyType(f->type(), f->name());
+    const int begin = overview.markedArgumentBegin;
+    const int end = overview.markedArgumentEnd;
 
     QString hintText;
     hintText += Qt::escape(prettyMethod.left(begin));
@@ -535,8 +536,8 @@ public:
         : _item(0)
         , _symbol(0)
     {
-        overview.setShowReturnTypes(true);
-        overview.setShowArgumentNames(true);
+        overview.showReturnTypes = true;
+        overview.showArgumentNames = true;
     }
 
     BasicProposalItem *operator()(Symbol *symbol)
@@ -832,7 +833,8 @@ int CppCompletionAssistProcessor::startOfOperator(int pos,
         else if (tk.is(T_COMMENT) || tk.is(T_CPP_COMMENT) ||
                  (tk.isLiteral() && (*kind != T_STRING_LITERAL
                                      && *kind != T_ANGLE_STRING_LITERAL
-                                     && *kind != T_SLASH))) {
+                                     && *kind != T_SLASH
+                                     && *kind != T_DOT))) {
             *kind = T_EOF_SYMBOL;
             start = pos;
         }
@@ -859,7 +861,8 @@ int CppCompletionAssistProcessor::startOfOperator(int pos,
             }
         }
         // Check for include preprocessor directive
-        else if (*kind == T_STRING_LITERAL || *kind == T_ANGLE_STRING_LITERAL || *kind == T_SLASH) {
+        else if (*kind == T_STRING_LITERAL || *kind == T_ANGLE_STRING_LITERAL|| *kind == T_SLASH
+                 || (*kind == T_DOT && (tk.is(T_STRING_LITERAL) || tk.is(T_ANGLE_STRING_LITERAL)))) {
             bool include = false;
             if (tokens.size() >= 3) {
                 if (tokens.at(0).is(T_POUND) && tokens.at(1).is(T_IDENTIFIER) && (tokens.at(2).is(T_STRING_LITERAL) ||
@@ -878,6 +881,14 @@ int CppCompletionAssistProcessor::startOfOperator(int pos,
             if (!include) {
                 *kind = T_EOF_SYMBOL;
                 start = pos;
+            } else {
+                if (*kind == T_DOT) {
+                    start = findStartOfName(start);
+                    const QChar ch4  = start > -1 ? m_interface->characterAt(start - 1) : QChar();
+                    const QChar ch5 = start >  0 ? m_interface->characterAt(start - 2) : QChar();
+                    const QChar ch6 = start >  1 ? m_interface->characterAt(start - 3) : QChar();
+                    start = start - CppCompletionAssistProvider::activationSequenceChar(ch4, ch5, ch6, kind, wantFunctionCall);
+                }
             }
         }
     }
@@ -944,7 +955,7 @@ int CppCompletionAssistProcessor::startCompletionHelper()
         QTextCursor c(m_interface->textDocument());
         c.setPosition(endOfExpression);
         if (completeInclude(c))
-            m_startPosition = startOfName;
+            m_startPosition = endOfExpression + 1;
         return m_startPosition;
     }
 
@@ -1563,9 +1574,9 @@ bool CppCompletionAssistProcessor::completeQtMethod(const QList<CPlusPlus::Looku
 
     ConvertToCompletionItem toCompletionItem;
     Overview o;
-    o.setShowReturnTypes(false);
-    o.setShowArgumentNames(false);
-    o.setShowFunctionSignatures(true);
+    o.showReturnTypes = false;
+    o.showArgumentNames = false;
+    o.showFunctionSignatures = true;
 
     QSet<QString> signatures;
     foreach (const LookupItem &p, results) {
@@ -1871,8 +1882,8 @@ bool CppCompletionAssistProcessor::completeConstructorOrFunction(const QList<CPl
                 // set up signature autocompletion
                 foreach (Function *f, functions) {
                     Overview overview;
-                    overview.setShowArgumentNames(true);
-                    overview.setShowDefaultArguments(false);
+                    overview.showArgumentNames = true;
+                    overview.showDefaultArguments = false;
 
                     const FullySpecifiedType localTy = rewriteType(f->type(), &env, control);
 

@@ -12,35 +12,28 @@ QtcPlugin {
     Depends { name: "VcsBase" }
     Depends { name: "Locator" }
 
-    Depends { name: "cpp" }
-    cpp.includePaths: [
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
-
     files: [
-        "annotationhighlighter.h",
-        "subversionplugin.h",
-        "subversioncontrol.h",
-        "settingspage.h",
-        "subversioneditor.h",
-        "subversionsubmiteditor.h",
-        "subversionsettings.h",
-        "checkoutwizard.h",
-        "checkoutwizardpage.h",
-        "subversionconstants.h",
         "annotationhighlighter.cpp",
-        "subversionplugin.cpp",
-        "subversioncontrol.cpp",
-        "settingspage.cpp",
-        "subversioneditor.cpp",
-        "subversionsubmiteditor.cpp",
-        "subversionsettings.cpp",
+        "annotationhighlighter.h",
         "checkoutwizard.cpp",
+        "checkoutwizard.h",
         "checkoutwizardpage.cpp",
+        "checkoutwizardpage.h",
+        "settingspage.cpp",
+        "settingspage.h",
         "settingspage.ui",
-        "subversion.qrc"
+        "subversion.qrc",
+        "subversionconstants.h",
+        "subversioncontrol.cpp",
+        "subversioncontrol.h",
+        "subversioneditor.cpp",
+        "subversioneditor.h",
+        "subversionplugin.cpp",
+        "subversionplugin.h",
+        "subversionsettings.cpp",
+        "subversionsettings.h",
+        "subversionsubmiteditor.cpp",
+        "subversionsubmiteditor.h",
     ]
 }
 

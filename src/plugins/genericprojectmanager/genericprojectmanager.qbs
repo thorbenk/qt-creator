@@ -15,39 +15,31 @@ QtcPlugin {
     Depends { name: "Locator" }
     Depends { name: "QtSupport" }
 
-    Depends { name: "cpp" }
-    cpp.includePaths: [
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
-
     files: [
-        "genericproject.h",
-        "genericprojectplugin.h",
-        "genericprojectmanager.h",
-        "genericprojectconstants.h",
-        "genericprojectnodes.h",
-        "genericprojectwizard.h",
-        "genericprojectfileseditor.h",
-        "pkgconfigtool.h",
-        "genericmakestep.h",
-        "genericbuildconfiguration.h",
-        "selectablefilesmodel.h",
-        "filesselectionwizardpage.h",
-        "genericproject.cpp",
-        "genericprojectplugin.cpp",
-        "genericprojectmanager.cpp",
-        "genericprojectnodes.cpp",
-        "genericprojectwizard.cpp",
-        "genericprojectfileseditor.cpp",
-        "pkgconfigtool.cpp",
-        "genericmakestep.cpp",
-        "genericbuildconfiguration.cpp",
-        "selectablefilesmodel.cpp",
         "filesselectionwizardpage.cpp",
+        "filesselectionwizardpage.h",
+        "genericbuildconfiguration.cpp",
+        "genericbuildconfiguration.h",
+        "genericmakestep.cpp",
+        "genericmakestep.h",
         "genericmakestep.ui",
+        "genericproject.cpp",
+        "genericproject.h",
         "genericproject.qrc",
+        "genericprojectconstants.h",
+        "genericprojectfileseditor.cpp",
+        "genericprojectfileseditor.h",
+        "genericprojectmanager.cpp",
+        "genericprojectmanager.h",
+        "genericprojectnodes.cpp",
+        "genericprojectnodes.h",
+        "genericprojectplugin.cpp",
+        "genericprojectplugin.h",
+        "genericprojectwizard.cpp",
+        "genericprojectwizard.h",
+        "pkgconfigtool.cpp",
+        "pkgconfigtool.h",
+        "selectablefilesmodel.cpp",
+        "selectablefilesmodel.h",
     ]
 }
-

@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "addkitoperation.h"
 
@@ -62,6 +61,12 @@ static char SYSROOT[] = "PE.Profile.SysRoot";
 static char TOOLCHAIN[] = "PE.Profile.ToolChain";
 static char MKSPEC[] = "QtPM4.mkSpecInformation";
 static char QT[] = "QtSupport.QtInformation";
+
+AddKitOperation::AddKitOperation()
+    : m_debuggerEngine(0)
+    , m_debugger(QLatin1String("auto"))
+{
+}
 
 QString AddKitOperation::name() const
 {
@@ -203,7 +208,7 @@ int AddKitOperation::execute() const
         map = initializeKits();
 
     map = addKit(map, m_id, m_displayName, m_icon, m_debuggerEngine, m_debugger,
-                 m_deviceType, m_sysRoot, m_tc, m_qt, m_mkspec, m_extra);
+                 m_deviceType.toUtf8(), m_sysRoot, m_tc, m_qt, m_mkspec, m_extra);
 
     if (map.isEmpty())
         return -2;
@@ -216,7 +221,7 @@ bool AddKitOperation::test() const
 {
     QVariantMap map = initializeKits();
 
-    if (!map.count() == 3
+    if (map.count() != 3
             || !map.contains(QLatin1String(VERSION))
             || map.value(QLatin1String(VERSION)).toInt() != 1
             || !map.contains(QLatin1String(COUNT))
@@ -225,13 +230,13 @@ bool AddKitOperation::test() const
             || map.value(QLatin1String(DEFAULT)).toInt() != -1)
         return false;
 
-    map = addKit(map, QLatin1String("testId"), QLatin1String("Test Qt Version"), QLatin1String("/tmp/icon.png"),
+    map = addKit(map, QLatin1String("testId"), QLatin1String("Test Kit"), QLatin1String("/tmp/icon.png"),
                  1, QLatin1String("/usr/bin/gdb-test"),
-                 QLatin1String("Desktop"), QString(),
+                 QByteArray("Desktop"), QString(),
                  QLatin1String("{some-tc-id}"), QLatin1String("{some-qt-id}"), QLatin1String("unsupported/mkspec"),
                  KeyValuePairList() << KeyValuePair(QLatin1String("PE.Profile.Data/extraData"), QVariant(QLatin1String("extraValue"))));
 
-    if (!map.count() == 4
+    if (map.count() != 4
             || !map.contains(QLatin1String(VERSION))
             || map.value(QLatin1String(VERSION)).toInt() != 1
             || !map.contains(QLatin1String(COUNT))
@@ -242,11 +247,11 @@ bool AddKitOperation::test() const
         return false;
 
     QVariantMap profile0 = map.value(QLatin1String("Profile.0")).toMap();
-    if (!profile0.count() == 6
+    if (profile0.count() != 5
             || !profile0.contains(QLatin1String(ID))
             || profile0.value(QLatin1String(ID)).toString() != QLatin1String("testId")
             || !profile0.contains(QLatin1String(DISPLAYNAME))
-            || profile0.value(QLatin1String(DISPLAYNAME)).toString() != QLatin1String("Test Qt Version")
+            || profile0.value(QLatin1String(DISPLAYNAME)).toString() != QLatin1String("Test Kit")
             || !profile0.contains(QLatin1String(AUTODETECTED))
             || profile0.value(QLatin1String(AUTODETECTED)).toBool() != true)
         return false;
@@ -254,19 +259,19 @@ bool AddKitOperation::test() const
     // Ignore existing ids:
     QVariantMap result = addKit(map, QLatin1String("testId"), QLatin1String("Test Qt Version X"), QLatin1String("/tmp/icon3.png"),
                                 1, QLatin1String("/usr/bin/gdb-test3"),
-                                QLatin1String("Desktop"), QString(),
+                                QByteArray("Desktop"), QString(),
                                 QLatin1String("{some-tc-id3}"), QLatin1String("{some-qt-id3}"), QLatin1String("unsupported/mkspec3"),
                                 KeyValuePairList() << KeyValuePair(QLatin1String("PE.Profile.Data/extraData"), QVariant(QLatin1String("extraValue3"))));
     if (!result.isEmpty())
         return false;
 
     // Make sure name is unique:
-    map = addKit(map, QLatin1String("testId2"), QLatin1String("Test Qt Version"), QLatin1String("/tmp/icon2.png"),
+    map = addKit(map, QLatin1String("testId2"), QLatin1String("Test Kit2"), QLatin1String("/tmp/icon2.png"),
                  1, QLatin1String("/usr/bin/gdb-test2"),
-                 QLatin1String("Desktop"), QString(),
+                 QByteArray("Desktop"), QString(),
                  QLatin1String("{some-tc-id2}"), QLatin1String("{some-qt-id2}"), QLatin1String("unsupported/mkspec2"),
                  KeyValuePairList() << KeyValuePair(QLatin1String("PE.Profile.Data/extraData"), QVariant(QLatin1String("extraValue2"))));
-    if (!map.count() == 5
+    if (map.count() != 5
             || !map.contains(QLatin1String(VERSION))
             || map.value(QLatin1String(VERSION)).toInt() != 1
             || !map.contains(QLatin1String(COUNT))
@@ -280,11 +285,11 @@ bool AddKitOperation::test() const
         return false;
 
     QVariantMap profile1 = map.value(QLatin1String("Profile.1")).toMap();
-    if (!profile1.count() == 6
+    if (profile1.count() != 5
             || !profile1.contains(QLatin1String(ID))
             || profile1.value(QLatin1String(ID)).toString() != QLatin1String("testId2")
             || !profile1.contains(QLatin1String(DISPLAYNAME))
-            || profile1.value(QLatin1String(DISPLAYNAME)).toString() != QLatin1String("Test Qt Version2")
+            || profile1.value(QLatin1String(DISPLAYNAME)).toString() != QLatin1String("Test Kit2")
             || !profile1.contains(QLatin1String(AUTODETECTED))
             || profile1.value(QLatin1String(AUTODETECTED)).toBool() != true)
         return false;
@@ -296,7 +301,7 @@ bool AddKitOperation::test() const
 QVariantMap AddKitOperation::addKit(const QVariantMap &map,
                                     const QString &id, const QString &displayName, const QString &icon,
                                     const quint32 &debuggerType, const QString &debugger,
-                                    const QString &deviceType, const QString &sysRoot,
+                                    const QByteArray &deviceType, const QString &sysRoot,
                                     const QString &tc, const QString &qt, const QString &mkspec,
                                     const KeyValuePairList &extra)
 {

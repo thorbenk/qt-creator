@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "genericproposalwidget.h"
 #include "iassistprovider.h"
@@ -252,6 +251,7 @@ public:
     QPointer<GenericProposalInfoFrame> m_infoFrame;
     QTimer m_infoTimer;
     CodeAssistant *m_assistant;
+    bool m_autoWidth;
 
 public slots:
     void handleActivation(const QModelIndex &modelIndex);
@@ -266,6 +266,7 @@ GenericProposalWidgetPrivate::GenericProposalWidgetPrivate(QWidget *completionWi
     , m_explicitlySelected(false)
     , m_justInvoked(false)
     , m_assistant(0)
+    , m_autoWidth(true)
 {
     connect(m_completionListView, SIGNAL(activated(QModelIndex)),
             this, SLOT(handleActivation(QModelIndex)));
@@ -330,6 +331,10 @@ GenericProposalWidget::GenericProposalWidget()
     d->m_completionListView->setMinimumSize(1, 1);
     connect(d->m_completionListView->verticalScrollBar(), SIGNAL(valueChanged(int)),
             this, SLOT(updatePositionAndSize()));
+    connect(d->m_completionListView->verticalScrollBar(), SIGNAL(sliderPressed()),
+            this, SLOT(turnOffAutoWidth()));
+    connect(d->m_completionListView->verticalScrollBar(), SIGNAL(sliderReleased()),
+            this, SLOT(turnOnAutoWidth()));
 
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setMargin(0);
@@ -494,6 +499,9 @@ bool GenericProposalWidget::updateAndCheck(const QString &prefix)
 
 void GenericProposalWidget::updatePositionAndSize()
 {
+    if (!d->m_autoWidth)
+        return;
+
     const QSize &shint = d->m_completionListView->calculateSize();
     const int fw = frameWidth();
     const int width = shint.width() + fw * 2 + 30;
@@ -512,6 +520,17 @@ void GenericProposalWidget::updatePositionAndSize()
     if (pos.x() + width > screen.right())
         pos.setX(screen.right() - width);
     setGeometry(pos.x(), pos.y(), width, height);
+}
+
+void GenericProposalWidget::turnOffAutoWidth()
+{
+    d->m_autoWidth = false;
+}
+
+void GenericProposalWidget::turnOnAutoWidth()
+{
+    d->m_autoWidth = true;
+    updatePositionAndSize();
 }
 
 bool GenericProposalWidget::eventFilter(QObject *o, QEvent *e)

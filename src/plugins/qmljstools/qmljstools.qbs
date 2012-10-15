@@ -6,7 +6,7 @@ import "../../../qbs/defaults.js" as Defaults
 QtcPlugin {
     name: "QmlJSTools"
 
-    Depends { name: "Qt.widgets" }
+    Depends { name: "Qt"; submodules: ["script", "widgets"] }
     Depends { name: "Core" }
     Depends { name: "LanguageUtils" }
     Depends { name: "CppTools" }
@@ -19,16 +19,11 @@ QtcPlugin {
 
     Depends { name: "cpp" }
     cpp.defines: base.concat(["QT_NO_CAST_TO_ASCII"])
-    cpp.includePaths: [
-        "..",
-        "../../libs",
-        "../../libs/3rdparty",
-        buildDirectory
-    ]
+    cpp.includePaths: base.concat("../../libs/3rdparty")
 
     files: [
-        "qmljsmodelmanager.cpp",
-        "qmljsmodelmanager.h",
+        "qmljscodestylepreferencesfactory.cpp",
+        "qmljscodestylepreferencesfactory.h",
         "qmljscodestylesettingspage.cpp",
         "qmljscodestylesettingspage.h",
         "qmljscodestylesettingspage.ui",
@@ -41,6 +36,8 @@ QtcPlugin {
         "qmljslocatordata.cpp",
         "qmljslocatordata.h",
         "qmljsmodelmanager.cpp",
+        "qmljsmodelmanager.cpp",
+        "qmljsmodelmanager.h",
         "qmljsmodelmanager.h",
         "qmljsplugindumper.cpp",
         "qmljsplugindumper.h",
@@ -48,16 +45,31 @@ QtcPlugin {
         "qmljsqtstylecodeformatter.h",
         "qmljsrefactoringchanges.cpp",
         "qmljsrefactoringchanges.h",
+        "qmljssemanticinfo.cpp",
+        "qmljssemanticinfo.h",
         "qmljstools_global.h",
         "qmljstoolsconstants.h",
         "qmljstoolsplugin.cpp",
         "qmljstoolsplugin.h",
         "qmljstoolssettings.cpp",
         "qmljstoolssettings.h",
-        "qmljscodestylepreferencesfactory.cpp",
-        "qmljscodestylepreferencesfactory.h",
-        "qmljssemanticinfo.cpp",
-        "qmljssemanticinfo.h"
+        "qmlconsolemanager.cpp",
+        "qmlconsolemanager.h",
+        "qmlconsoleitemmodel.cpp",
+        "qmlconsoleitemmodel.h",
+        "qmlconsolepane.cpp",
+        "qmlconsolepane.h",
+        "qmlconsoleview.cpp",
+        "qmlconsoleview.h",
+        "qmlconsoleitemdelegate.cpp",
+        "qmlconsoleitemdelegate.h",
+        "qmlconsoleedit.cpp",
+        "qmlconsoleedit.h",
+        "qmlconsoleproxymodel.cpp",
+        "qmlconsoleproxymodel.h",
+        "qmljsinterpreter.cpp",
+        "qmljsinterpreter.h",
+        "qmljstools.qrc"
     ]
 
     Group {
@@ -70,4 +82,3 @@ QtcPlugin {
         Depends { name: "QmlDebug" }
     }
 }
-

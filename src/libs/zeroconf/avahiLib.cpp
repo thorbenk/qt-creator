@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "servicebrowser.h"
 #include "servicebrowser_p.h"
@@ -346,7 +345,7 @@ public:
             if (m_simplePollFree)
                 m_simplePollFree(connection->simple_poll);
             delete connection;
-            setError(true, ZConfLib::tr("%1 could not create a client (probably the daemon is not running)").arg(name()));
+            setError(true, ZConfLib::tr("%1 cannot create a client. The daemon is probably not running.").arg(name()));
             return kDNSServiceErr_Unknown;
         }
         *sdRef = reinterpret_cast<ConnectionRef>(connection);
@@ -472,16 +471,16 @@ extern "C" void cAvahiClientReply (AvahiClient * /*s*/, AvahiClientState state, 
         break;
     case (AVAHI_CLIENT_S_COLLISION):
         /* Server state: COLLISION */
-        lib->setError(true, ZConfLib::tr("cAvahiClient, server collision"));
+        lib->setError(true, ZConfLib::tr("cAvahiClient, server collision."));
         break;
     case (AVAHI_CLIENT_FAILURE):
-        lib->setError(true, ZConfLib::tr("cAvahiClient, some kind of error happened on the client side"));
+        lib->setError(true, ZConfLib::tr("cAvahiClient, an error occurred on the client side."));
         break;
     case (AVAHI_CLIENT_CONNECTING):
-        lib->setError(false, ZConfLib::tr("cAvahiClient, still connecting, no server available"));
+        lib->setError(false, ZConfLib::tr("cAvahiClient, still connecting, no server available."));
         break;
     default:
-        lib->setError(true, ZConfLib::tr("unexpected state %1 in cAvahiClientReply")
+        lib->setError(true, ZConfLib::tr("Unexpected state %1 in cAvahiClientReply.")
                       .arg(state));
     }
 }
@@ -532,7 +531,7 @@ extern "C" void cAvahiBrowseReply(
             break;
         default:
             browser->mainConnection->lib->setError(true, ZConfLib::tr(
-                                                       "unexpected state %1 in cAvahiBrowseReply")
+                                                       "Unexpected state %1 in cAvahiBrowseReply.")
                                                    .arg(event));
     }
 }

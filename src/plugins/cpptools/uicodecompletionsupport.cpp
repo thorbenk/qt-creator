@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "uicodecompletionsupport.h"
 
@@ -45,8 +44,8 @@ UiCodeModelSupport::UiCodeModelSupport(CppModelManagerInterface *modelmanager,
     : AbstractEditorSupport(modelmanager),
       m_sourceName(source),
       m_fileName(uiHeaderFile),
-      m_updateIncludingFiles(false),
-      m_initialized(false)
+      m_initialized(false),
+      m_running(false)
 {
     if (debug)
         qDebug()<<"ctor UiCodeModelSupport for"<<m_sourceName<<uiHeaderFile;
@@ -92,10 +91,6 @@ void UiCodeModelSupport::init() const
                 qDebug()<<"uic run wasn't succesfull";
             m_cacheTime = QDateTime ();
             m_contents = QByteArray();
-            // and if the header file wasn't there, next time we need to update
-            // all of the files that include this header
-            if (!uiHeaderFileInfo.exists())
-                m_updateIncludingFiles = true;
             return;
         }
     } else {
@@ -109,6 +104,8 @@ QByteArray UiCodeModelSupport::contents() const
 {
     if (!m_initialized)
         init();
+    if (m_running)
+        finishProcess();
 
     return m_contents;
 }
@@ -134,42 +131,58 @@ void UiCodeModelSupport::setFileName(const QString &name)
 
 bool UiCodeModelSupport::runUic(const QString &ui) const
 {
-    QProcess process;
     const QString uic = uicCommand();
     if (uic.isEmpty())
         return false;
-    process.setEnvironment(environment());
+    m_process.setEnvironment(environment());
 
     if (debug)
         qDebug() << "UiCodeModelSupport::runUic " << uic << " on " << ui.size() << " bytes";
-    process.start(uic, QStringList(), QIODevice::ReadWrite);
-    if (!process.waitForStarted())
+    m_process.start(uic, QStringList(), QIODevice::ReadWrite);
+    if (!m_process.waitForStarted())
         return false;
-    process.write(ui.toUtf8());
-    if (!process.waitForBytesWritten(3000))
+    m_process.write(ui.toUtf8());
+    if (!m_process.waitForBytesWritten(3000))
         goto error;
-    process.closeWriteChannel();
-    if (!process.waitForFinished(3000) && process.exitStatus() != QProcess::NormalExit && process.exitCode() != 0)
-        goto error;
-
-    m_contents = process.readAllStandardOutput();
-    m_cacheTime = QDateTime::currentDateTime();
-    if (debug)
-        qDebug() << "ok" << m_contents.size() << "bytes.";
+    m_process.closeWriteChannel();
+    m_running = true;
     return true;
 
 error:
     if (debug)
-        qDebug() << "failed" << process.readAllStandardError();
-    process.kill();
+        qDebug() << "failed" << m_process.readAllStandardError();
+    m_process.kill();
+    m_running = false;
     return false;
 }
 
 void UiCodeModelSupport::updateFromEditor(const QString &formEditorContents)
 {
-    if (runUic(formEditorContents)) {
-        updateDocument();
+    if (runUic(formEditorContents))
+        if (finishProcess())
+            updateDocument();
+}
+
+bool UiCodeModelSupport::finishProcess() const
+{
+    if (!m_running)
+        return false;
+    if (!m_process.waitForFinished(3000)
+            && m_process.exitStatus() != QProcess::NormalExit
+            && m_process.exitCode() != 0) {
+        if (debug)
+            qDebug() << "failed" << m_process.readAllStandardError();
+        m_process.kill();
+        m_running = false;
+        return false;
     }
+
+    m_contents = m_process.readAllStandardOutput();
+    m_cacheTime = QDateTime::currentDateTime();
+    if (debug)
+        qDebug() << "ok" << m_contents.size() << "bytes.";
+    m_running = false;
+    return true;
 }
 
 void UiCodeModelSupport::updateFromBuild()

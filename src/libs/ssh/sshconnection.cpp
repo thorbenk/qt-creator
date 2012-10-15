@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "sshconnection.h"
 #include "sshconnection_p.h"
@@ -82,8 +81,10 @@ namespace {
 
 
 SshConnectionParameters::SshConnectionParameters() :
-    timeout(0),  authenticationType(AuthenticationByKey), port(0), proxyType(NoProxy)
+    timeout(0),  authenticationType(AuthenticationByKey), port(0)
 {
+    options |= SshIgnoreDefaultProxy;
+    options |= SshEnableStrictConformanceChecks;
 }
 
 static inline bool equals(const SshConnectionParameters &p1, const SshConnectionParameters &p2)
@@ -226,8 +227,8 @@ SshConnectionPrivate::SshConnectionPrivate(SshConnection *conn,
       m_conn(conn)
 {
     setupPacketHandlers();
-    m_socket->setProxy(m_connParams.proxyType == SshConnectionParameters::DefaultProxy
-        ? QNetworkProxy::DefaultProxy : QNetworkProxy::NoProxy);
+    m_socket->setProxy((m_connParams.options & SshIgnoreDefaultProxy)
+            ? QNetworkProxy::NoProxy : QNetworkProxy::DefaultProxy);
     m_timeoutTimer.setSingleShot(true);
     m_timeoutTimer.setInterval(m_connParams.timeout * 1000);
     m_keepAliveTimer.setSingleShot(true);
@@ -365,8 +366,8 @@ void SshConnectionPrivate::handleServerId()
     if (newLinePos > 255 - 1) {
         throw SshServerException(SSH_DISCONNECT_PROTOCOL_ERROR,
             "Identification string too long.",
-            tr("Server identification string is %1 characters long, but the maximum "
-               "allowed length is 255.").arg(newLinePos + 1));
+            tr("Server identification string is %n characters long, but the maximum "
+               "allowed length is 255.", 0, newLinePos + 1));
     }
 
     const bool hasCarriageReturn = m_incomingData.at(newLinePos - 1) == '\r';
@@ -399,18 +400,19 @@ void SshConnectionPrivate::handleServerId()
                     .arg(serverProtoVersion));
     }
 
-    // Disable this check to accept older OpenSSH servers that do this wrong.
-    if (serverProtoVersion == QLatin1String("2.0") && !hasCarriageReturn) {
-        throw SshServerException(SSH_DISCONNECT_PROTOCOL_ERROR,
-            "Identification string is invalid.",
-            tr("Server identification string is invalid (missing carriage return)."));
-    }
+    if (m_connParams.options & SshEnableStrictConformanceChecks) {
+        if (serverProtoVersion == QLatin1String("2.0") && !hasCarriageReturn) {
+            throw SshServerException(SSH_DISCONNECT_PROTOCOL_ERROR,
+                    "Identification string is invalid.",
+                    tr("Server identification string is invalid (missing carriage return)."));
+        }
 
-    if (serverProtoVersion == QLatin1String("1.99") && m_serverHasSentDataBeforeId) {
-        throw SshServerException(SSH_DISCONNECT_PROTOCOL_ERROR,
-            "No extra data preceding identification string allowed for 1.99.",
-            tr("Server reports protocol version 1.99, but sends data "
-               "before the identification string, which is not allowed."));
+        if (serverProtoVersion == QLatin1String("1.99") && m_serverHasSentDataBeforeId) {
+            throw SshServerException(SSH_DISCONNECT_PROTOCOL_ERROR,
+                    "No extra data preceding identification string allowed for 1.99.",
+                    tr("Server reports protocol version 1.99, but sends data "
+                       "before the identification string, which is not allowed."));
+        }
     }
 
     m_keyExchange.reset(new SshKeyExchange(m_sendFacility));

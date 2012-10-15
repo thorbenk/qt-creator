@@ -13,15 +13,6 @@ QtcPlugin {
     Depends { name: "RemoteLinux" }
     Depends { name: "CPlusPlus"}
 
-    Depends { name: "cpp" }
-    cpp.includePaths: [
-        ".",
-        "valgrind",
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
-
     files: [
         "callgrindcostdelegate.cpp",
         "callgrindcostdelegate.h",
@@ -54,16 +45,16 @@ QtcPlugin {
         "valgrindengine.h",
         "valgrindplugin.cpp",
         "valgrindplugin.h",
+        "valgrindprocess.cpp",
+        "valgrindprocess.h",
+        "valgrindrunner.cpp",
+        "valgrindrunner.h",
         "valgrindsettings.cpp",
         "valgrindsettings.h",
         "valgrindtool.cpp",
         "valgrindtool.h",
         "workarounds.cpp",
         "workarounds.h",
-        "valgrindprocess.cpp",
-        "valgrindprocess.h",
-        "valgrindrunner.cpp",
-        "valgrindrunner.h",
         "callgrind/callgrindabstractmodel.h",
         "callgrind/callgrindcallmodel.cpp",
         "callgrind/callgrindcallmodel.h",
@@ -115,7 +106,6 @@ QtcPlugin {
         "xmlprotocol/suppression.cpp",
         "xmlprotocol/suppression.h",
         "xmlprotocol/threadedparser.cpp",
-        "xmlprotocol/threadedparser.h"
+        "xmlprotocol/threadedparser.h",
     ]
 }
-

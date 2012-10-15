@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "watchhandler.h"
 
@@ -194,7 +193,7 @@ private:
     bool ancestorChanged(const QSet<QByteArray> &parentINames, WatchItem *item) const;
     void insertBulkData(const QList<WatchData> &data);
     QString displayForAutoTest(const QByteArray &iname) const;
-    void reinitialize();
+    void reinitialize(bool includeInspectData = false);
     void destroyItem(WatchItem *item); // With model notification.
     void destroyChildren(WatchItem *item); // With model notification.
     void destroyHelper(const WatchItems &items); // Without model notification.
@@ -316,7 +315,7 @@ WatchItem *WatchModel::createItem(const QByteArray &iname, const QString &name, 
     return item;
 }
 
-void WatchModel::reinitialize()
+void WatchModel::reinitialize(bool includeInspectData)
 {
     CHECK(checkTree());
     //MODEL_DEBUG("REMOVING " << n << " CHILDREN OF " << m_root->iname);
@@ -325,8 +324,10 @@ void WatchModel::reinitialize()
     destroyChildren(m_watchRoot);
     destroyChildren(m_returnRoot);
     destroyChildren(m_tooltipRoot);
-    destroyChildren(m_inspectorRoot);
-    QTC_CHECK(m_cache.size() == 6);
+    if (includeInspectData) {
+        destroyChildren(m_inspectorRoot);
+        QTC_CHECK(m_cache.size() == 6);
+    }
     CHECK(checkTree());
 }
 
@@ -435,7 +436,7 @@ void WatchModel::reinsertAllData()
 {
     QList<WatchData> list;
     reinsertAllDataHelper(m_root, &list);
-    reinitialize();
+    reinitialize(true);
     insertBulkData(list);
 }
 
@@ -1517,9 +1518,9 @@ void WatchHandler::insertData(const QList<WatchData> &list)
     updateWatchersWindow();
 }
 
-void WatchHandler::removeAllData()
+void WatchHandler::removeAllData(bool includeInspectData)
 {
-    m_model->reinitialize();
+    m_model->reinitialize(includeInspectData);
     updateWatchersWindow();
 }
 
@@ -1605,7 +1606,8 @@ void WatchHandler::showEditValue(const WatchData &data)
     if (data.editformat == 0x0) {
         m_model->m_editHandlers.remove(data.iname);
         delete w;
-    } else if (data.editformat == 1 || data.editformat == 3) {
+    } else if (data.editformat == DisplayImageData
+               || data.editformat == DisplayImageFile) {
         // QImage
         QLabel *l = qobject_cast<QLabel *>(w);
         if (!l) {
@@ -1621,7 +1623,7 @@ void WatchHandler::showEditValue(const WatchData &data)
         int width, height, format;
         QByteArray ba;
         uchar *bits;
-        if (data.editformat == 1) {
+        if (data.editformat == DisplayImageData) {
             ba = QByteArray::fromHex(data.editvalue);
             const int *header = (int *)(ba.data());
             swapEndian(ba.data(), ba.size());
@@ -1629,7 +1631,7 @@ void WatchHandler::showEditValue(const WatchData &data)
             width = header[0];
             height = header[1];
             format = header[2];
-        } else { // data.editformat == 3
+        } else if (data.editformat == DisplayImageFile) {
             QTextStream ts(data.editvalue);
             QString fileName;
             ts >> width >> height >> format >> fileName;
@@ -1639,18 +1641,13 @@ void WatchHandler::showEditValue(const WatchData &data)
             bits = (uchar*)ba.data();
         }
         QImage im(bits, width, height, QImage::Format(format));
-
-#if 1
-        // Qt bug. Enforce copy of image data.
-        QImage im2(im);
-        im.detach();
-#endif
-
         l->setPixmap(QPixmap::fromImage(im));
         l->resize(width, height);
         l->show();
-    } else if (data.editformat == 2) {
-        // Display QString in a separate widget.
+    } else if (data.editformat == DisplayUtf16String
+               || data.editformat == DisplayLatin1String
+               || data.editformat == DisplayUtf16String) {
+        // String data.
         QTextEdit *t = qobject_cast<QTextEdit *>(w);
         if (!t) {
             delete w;
@@ -1658,7 +1655,13 @@ void WatchHandler::showEditValue(const WatchData &data)
             m_model->m_editHandlers[key] = t;
         }
         QByteArray ba = QByteArray::fromHex(data.editvalue);
-        QString str = QString::fromUtf16((ushort *)ba.constData(), ba.size()/2);
+        QString str;
+        if (data.editformat == DisplayUtf16String)
+            str = QString::fromUtf16((ushort *)ba.constData(), ba.size()/2);
+        else if (data.editformat == DisplayLatin1String)
+            str = QString::fromLatin1(ba.constData(), ba.size());
+        else if (data.editformat == DisplayUtf8String)
+            str = QString::fromUtf8(ba.constData(), ba.size());
         t->setText(str);
         t->resize(400, 200);
         t->show();

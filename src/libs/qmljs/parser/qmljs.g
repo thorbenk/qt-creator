@@ -1,32 +1,33 @@
-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 --
--- This file is part of Qt Creator
+-- Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+-- Contact: http://www.qt-project.org/legal
 --
--- Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+-- This file is part of Qt Creator.
 --
--- Contact: http://www.qt-project.org/
---
+-- Commercial License Usage
+-- Licensees holding valid commercial Qt licenses may use this file in
+-- accordance with the commercial license agreement provided with the
+-- Software or, alternatively, in accordance with the terms contained in
+-- a written agreement between you and Digia.  For licensing terms and
+-- conditions see http://qt.digia.com/licensing.  For further information
+-- use the contact form at http://qt.digia.com/contact-us.
 --
 -- GNU Lesser General Public License Usage
+-- Alternatively, this file may be used under the terms of the GNU Lesser
+-- General Public License version 2.1 as published by the Free Software
+-- Foundation and appearing in the file LICENSE.LGPL included in the
+-- packaging of this file.  Please review the following information to
+-- ensure the GNU Lesser General Public License version 2.1 requirements
+-- will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 --
--- This file may be used under the terms of the GNU Lesser General Public
--- License version 2.1 as published by the Free Software Foundation and
--- appearing in the file LICENSE.LGPL included in the packaging of this file.
--- Please review the following information to ensure the GNU Lesser General
--- Public License version 2.1 requirements will be met:
--- http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
---
--- In addition, as a special exception, Nokia gives you certain additional
--- rights. These rights are described in the Nokia Qt LGPL Exception
+-- In addition, as a special exception, Digia gives you certain additional
+-- rights.  These rights are described in the Digia Qt LGPL Exception
 -- version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 --
--- Other Usage
---
--- Alternatively, this file may be used in accordance with the terms and
--- conditions contained in a signed written agreement between you and Nokia.
---
---
-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+
 
 %parser         QmlJSGrammar
 %decl           qmljsparser_p.h
@@ -90,35 +91,34 @@
 
 %start TopLevel
 
-/./**************************************************************************
+/./****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 
 #include <QtCore/QDebug>
@@ -133,35 +133,34 @@
 
 ./
 
-/:/**************************************************************************
+/:/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 
 
@@ -400,6 +399,7 @@ Parser::Parser(Engine *engine):
     state_stack(0),
     location_stack(0),
     string_stack(0),
+    program(0),
     first_token(0),
     last_token(0)
 {
@@ -822,6 +822,7 @@ UiParameterList: UiParameterList T_COMMA UiPropertyType JsIdentifier ;
 /.
 case $rule_number: {
   AST::UiParameterList *node = new (pool) AST::UiParameterList(sym(1).UiParameterList, stringRef(3), stringRef(4));
+  node->propertyTypeToken = loc(3);
   node->commaToken = loc(2);
   node->identifierToken = loc(4);
   sym(1).Node = node;
@@ -2886,7 +2887,7 @@ PropertyNameAndValueListOpt: PropertyNameAndValueList ;
             yylloc.startColumn += yylloc.length;
             yylloc.length = 0;
 
-            //const QString msg = qApp->translate("QmlParser", "Missing `;'");
+            //const QString msg = qApp->translate("QQmlParser", "Missing `;'");
             //diagnostic_messages.append(DiagnosticMessage(DiagnosticMessage::Warning, yylloc, msg));
 
             first_token = &token_buffer[0];
@@ -2916,9 +2917,9 @@ PropertyNameAndValueListOpt: PropertyNameAndValueList ;
             QString msg;
             int token = token_buffer[0].token;
             if (token < 0 || token >= TERMINAL_COUNT)
-                msg = qApp->translate("QmlParser", "Syntax error");
+                msg = qApp->translate("QQmlParser", "Syntax error");
             else
-                msg = qApp->translate("QmlParser", "Unexpected token `%1'").arg(QLatin1String(spell[token]));
+                msg = qApp->translate("QQmlParser", "Unexpected token `%1'").arg(QLatin1String(spell[token]));
             diagnostic_messages.append(DiagnosticMessage(DiagnosticMessage::Error, token_buffer[0].loc, msg));
 
             action = errorState;
@@ -2946,7 +2947,7 @@ PropertyNameAndValueListOpt: PropertyNameAndValueList ;
         for (int *tk = tokens; *tk != EOF_SYMBOL; ++tk) {
             int a = t_action(errorState, *tk);
             if (a > 0 && t_action(a, yytoken)) {
-                const QString msg = qApp->translate("QmlParser", "Expected token `%1'").arg(QLatin1String(spell[*tk]));
+                const QString msg = qApp->translate("QQmlParser", "Expected token `%1'").arg(QLatin1String(spell[*tk]));
                 diagnostic_messages.append(DiagnosticMessage(DiagnosticMessage::Error, token_buffer[0].loc, msg));
 
                 yytoken = *tk;
@@ -2970,7 +2971,7 @@ PropertyNameAndValueListOpt: PropertyNameAndValueList ;
 
             int a = t_action(errorState, tk);
             if (a > 0 && t_action(a, yytoken)) {
-                const QString msg = qApp->translate("QmlParser", "Expected token `%1'").arg(QLatin1String(spell[tk]));
+                const QString msg = qApp->translate("QQmlParser", "Expected token `%1'").arg(QLatin1String(spell[tk]));
                 diagnostic_messages.append(DiagnosticMessage(DiagnosticMessage::Error, token_buffer[0].loc, msg));
 
                 yytoken = tk;
@@ -2983,7 +2984,7 @@ PropertyNameAndValueListOpt: PropertyNameAndValueList ;
             }
         }
 
-        const QString msg = qApp->translate("QmlParser", "Syntax error");
+        const QString msg = qApp->translate("QQmlParser", "Syntax error");
         diagnostic_messages.append(DiagnosticMessage(DiagnosticMessage::Error, token_buffer[0].loc, msg));
     }
 

@@ -1,10 +1,9 @@
 /****************************************************************************
 **
+** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
 ** This file is part of Qt Creator
-**
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
-**
-** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -60,18 +59,18 @@
     \endlist
 
     The location depends on the platform. On Linux and other Unix platforms, the files
-    are located in \c {~/.config/Nokia} and \c {~/.local/share/data/Nokia/qtcreator}.
+    are located in \c {~/.config/QtProject} and \c {~/.local/share/data/QtProject/qtcreator}.
 
-    On Mac OS, the files are located in \c {~/.config/Nokia} and
-    \c {~/Library/Application Support/Nokia/Qt Creator}.
+    On Mac OS, the files are located in \c {~/.config/QtProject} and
+    \c {~/Library/Application Support/QtProject/Qt Creator}.
 
     On Windows XP, the files are located in
-    \c {<drive>:\Documents and Settings\<username>\Application Data\Nokia} and
-    \c {<drive>:\Documents and Settings\<username>\Local Settings\Application Data\Nokia}.
+    \c {<drive>:\Documents and Settings\<username>\Application Data\QtProject} and
+    \c {<drive>:\Documents and Settings\<username>\Local Settings\Application Data\QtProject}.
 
     On Windows Vista and Windows 7, the files are located in
-    \c {<drive>:\Users\<username>\AppData\Roaming\Nokia} and
-    \c {<drive>:\Users\<username>\AppData\Local\Nokia}.
+    \c {<drive>:\Users\<username>\AppData\Roaming\QtProject} and
+    \c {<drive>:\Users\<username>\AppData\Local\QtProject}.
 
     \bold {\QC comes with MinGW, should I use this version with Qt?}
 
@@ -131,7 +130,7 @@
     installed when you install \QC and Qt SDK. On Mac OS X, use the GDB
     provided with Xcode. For a custom target, you can build your own
     Python-enabled GDB. Follow the instructions in
-    \l{http://developer.qt.nokia.com/wiki/QtCreatorBuildGdb}{Building GDB}.
+    \l{http://qt-project.org/wiki/QtCreatorBuildGdb}{Building GDB}.
 
     You must use at least Python version 2.5, but we recommend that you use
     version 2.6.
@@ -168,7 +167,7 @@
 
     On Windows, nmake does not support the \c{-j} parameter. Instead, we
     provide a drop-in replacement called jom. You can download a precompiled
-    version of jom from \l{ftp://ftp.qt.nokia.com/jom/}{Qt FTP server}.
+    version of jom from \l{http://releases.qt-project.org/jom/}{Qt Project Release server}.
     Put jom.exe in a location in the %PATH%. Go to the \gui {Build Settings}
     and set jom.exe as the make command.
 

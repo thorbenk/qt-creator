@@ -12,17 +12,7 @@ QtcPlugin {
     Depends { name: "TextEditor" }
     Depends { name: "app_version_header" }
 
-    Depends { name: "cpp" }
-    cpp.includePaths: [
-        "..",
-        "../../libs",
-        "../.."
-    ]
-
     files: [
-        "macrooptionswidget.ui",
-        "macros.qrc",
-        "savedialog.ui",
         "actionmacrohandler.cpp",
         "actionmacrohandler.h",
         "findmacrohandler.cpp",
@@ -41,6 +31,8 @@ QtcPlugin {
         "macrooptionspage.h",
         "macrooptionswidget.cpp",
         "macrooptionswidget.h",
+        "macrooptionswidget.ui",
+        "macros.qrc",
         "macros_global.h",
         "macrosconstants.h",
         "macrosplugin.cpp",
@@ -49,8 +41,8 @@ QtcPlugin {
         "macrotextfind.h",
         "savedialog.cpp",
         "savedialog.h",
+        "savedialog.ui",
         "texteditormacrohandler.cpp",
-        "texteditormacrohandler.h"
+        "texteditormacrohandler.h",
     ]
 }
-

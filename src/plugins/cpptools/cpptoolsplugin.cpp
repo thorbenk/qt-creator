@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "cpptoolsplugin.h"
 #include "completionsettingspage.h"
@@ -42,6 +41,7 @@
 #include "symbolsfindfilter.h"
 #include "cpptoolssettings.h"
 #include "cppctordtorfilter.h"
+#include "cpptoolsreuse.h"
 
 #include <extensionsystem/pluginmanager.h>
 
@@ -77,12 +77,15 @@
 
 #include <sstream>
 
-using namespace CppTools::Internal;
 using namespace CPlusPlus;
+
+namespace CppTools {
+namespace Internal {
 
 enum { debug = 0 };
 
 static CppToolsPlugin *m_instance = 0;
+static QHash<QString, QString> m_headerSourceMapping;
 
 CppToolsPlugin::CppToolsPlugin() :
     m_modelManager(0),
@@ -254,16 +257,23 @@ static int commonStringLength(const QString &s1, const QString &s2)
     return length;
 }
 
-QString CppToolsPlugin::correspondingHeaderOrSourceI(const QString &fileName) const
+} // namespace Internal
+
+QString correspondingHeaderOrSource(const QString &fileName, bool *wasHeader)
 {
-    const QFileInfo fi(fileName);
-    if (m_headerSourceMapping.contains(fi.absoluteFilePath()))
-        return m_headerSourceMapping.value(fi.absoluteFilePath());
+    using namespace Internal;
 
     const Core::MimeDatabase *mimeDatase = Core::ICore::mimeDatabase();
-    ProjectExplorer::Project *project = ProjectExplorer::ProjectExplorerPlugin::currentProject();
+    const QFileInfo fi(fileName);
+    if (m_headerSourceMapping.contains(fi.absoluteFilePath())) {
+        if (wasHeader)
+            *wasHeader = fileType(mimeDatase, fi) == HeaderFile;
+        return m_headerSourceMapping.value(fi.absoluteFilePath());
+    }
 
-    const FileType type = fileType(mimeDatase, fi);
+    FileType type = fileType(mimeDatase, fi);
+    if (wasHeader)
+        *wasHeader = type == HeaderFile;
 
     if (debug)
         qDebug() << Q_FUNC_INFO << fileName <<  type;
@@ -302,6 +312,7 @@ QString CppToolsPlugin::correspondingHeaderOrSourceI(const QString &fileName) co
     }
 
     // Find files in the project
+    ProjectExplorer::Project *project = ProjectExplorer::ProjectExplorerPlugin::currentProject();
     if (project) {
         QString bestFileName;
         int compareValue = 0;
@@ -328,12 +339,6 @@ QString CppToolsPlugin::correspondingHeaderOrSourceI(const QString &fileName) co
     return QString();
 }
 
-QString CppToolsPlugin::correspondingHeaderOrSource(const QString &fileName)
-{
-    const QString rc = m_instance->correspondingHeaderOrSourceI(fileName);
-    if (debug)
-        qDebug() << Q_FUNC_INFO << fileName << rc;
-    return rc;
-}
+} // namespace CppTools
 
-Q_EXPORT_PLUGIN(CppToolsPlugin)
+Q_EXPORT_PLUGIN(CppTools::Internal::CppToolsPlugin)

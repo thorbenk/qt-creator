@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "kitmanager.h"
 
@@ -151,45 +150,42 @@ void KitManager::restoreKits()
 {
     QTC_ASSERT(!d->m_writer, return);
     QList<Kit *> kitsToRegister;
+    QList<Kit *> kitsToValidate;
     QList<Kit *> kitsToCheck;
 
     // read all kits from SDK
     QFileInfo systemSettingsFile(Core::ICore::settings(QSettings::SystemScope)->fileName());
-    KitList system = restoreKits(Utils::FileName::fromString(systemSettingsFile.absolutePath() + QLatin1String(KIT_FILENAME)));
-    QList<Kit *> readKits = system.kits;
-    // make sure we mark these as autodetected!
-    foreach (Kit *k, readKits)
-        k->setAutoDetected(true);
+    QFileInfo kitFile(systemSettingsFile.absolutePath() + QLatin1String(KIT_FILENAME));
+    if (kitFile.exists()) {
+        KitList system = restoreKits(Utils::FileName(kitFile));
+        // make sure we mark these as autodetected!
+        foreach (Kit *k, system.kits)
+            k->setAutoDetected(true);
 
-    kitsToRegister = readKits; // SDK kits are always considered to be up-to-date, so no need to
-                             // recheck them.
+        // SDK kits are always considered to be up for validation since they might have been
+        // extended with additional information by creator in the meantime:
+        kitsToValidate = system.kits;
+    }
 
-    // read all kit chains from user file
+    // read all kits from user file
     KitList userKits = restoreKits(settingsFileName());
-    readKits = userKits.kits;
-
-    foreach (Kit *k, readKits) {
+    foreach (Kit *k, userKits.kits) {
         if (k->isAutoDetected())
             kitsToCheck.append(k);
         else
             kitsToRegister.append(k);
     }
-    readKits.clear();
 
-    // Then auto create kits:
-    QList<Kit *> detectedKits;
-
-    // Find/update autodetected kits:
     Kit *toStore = 0;
-    foreach (Kit *currentDetected, detectedKits) {
-        toStore = currentDetected;
+    foreach (Kit *current, kitsToValidate) {
+        toStore = current;
 
-        // Check whether we had this kit stored and prefer the old one with the old id:
+        // Check whether we had this kit stored and prefer the stored one:
         for (int i = 0; i < kitsToCheck.count(); ++i) {
-            if (*(kitsToCheck.at(i)) == *currentDetected) {
+            if (kitsToCheck.at(i)->id() == current->id()) {
                 toStore = kitsToCheck.at(i);
                 kitsToCheck.removeAt(i);
-                delete currentDetected;
+                delete current;
                 break;
             }
         }
@@ -217,10 +213,12 @@ void KitManager::restoreKits()
         setDefaultKit(k);
 
     d->m_writer = new Utils::PersistentSettingsWriter(settingsFileName(), QLatin1String("QtCreatorProfiles"));
+    emit kitsChanged();
 }
 
 KitManager::~KitManager()
 {
+    saveKits(); // Make sure we save the current state on exit!
     // Clean out kit information to avoid calling them during deregistration:
     delete d;
     m_instance = 0;
@@ -284,14 +282,18 @@ KitManager::KitList KitManager::restoreKits(const Utils::FileName &fileName)
     KitList result;
 
     PersistentSettingsReader reader;
-    if (!reader.load(fileName))
+    if (!reader.load(fileName)) {
+        qWarning("Warning: Failed to read \"%s\", cannot restore kits!", qPrintable(fileName.toUserOutput()));
         return result;
+    }
     QVariantMap data = reader.restoreValues();
 
     // Check version:
     int version = data.value(QLatin1String(KIT_FILE_VERSION_KEY), 0).toInt();
-    if (version < 1)
+    if (version < 1) {
+        qWarning("Warning: Kit file version %d not supported, cannot restore kits!", version);
         return result;
+    }
 
     const int count = data.value(QLatin1String(KIT_COUNT_KEY), 0).toInt();
     for (int i = 0; i < count; ++i) {

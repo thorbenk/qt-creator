@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "debuggerplugin.h"
 
@@ -46,7 +45,6 @@
 #include "breakpoint.h"
 #include "breakhandler.h"
 #include "breakwindow.h"
-#include "qtmessagelogwindow.h"
 #include "disassemblerlines.h"
 #include "logwindow.h"
 #include "moduleswindow.h"
@@ -964,7 +962,6 @@ public slots:
     void aboutToSaveSession();
 
     void executeDebuggerCommand(const QString &command, DebuggerLanguages languages);
-    bool evaluateScriptExpression(const QString &expression);
     void coreShutdown();
 
 #ifdef WITH_TESTS
@@ -1283,7 +1280,6 @@ public:
 
     BaseWindow *m_breakWindow;
     BreakHandler *m_breakHandler;
-    QtMessageLogWindow *m_qtMessageLogWindow;
     WatchWindow *m_returnWindow;
     WatchWindow *m_localsWindow;
     WatchWindow *m_watchersWindow;
@@ -1349,7 +1345,6 @@ DebuggerPluginPrivate::DebuggerPluginPrivate(DebuggerPlugin *plugin) :
     m_threadsWindow = 0;
     m_logWindow = 0;
     m_localsAndExpressionsWindow = 0;
-    m_qtMessageLogWindow = 0;
 
     m_mainWindow = 0;
     m_snapshotHandler = 0;
@@ -1797,7 +1792,7 @@ void DebuggerPluginPrivate::startRemoteEngine()
     sp.connParams.timeout = 5;
     sp.connParams.authenticationType = QSsh::SshConnectionParameters::AuthenticationByPassword;
     sp.connParams.port = 22;
-    sp.connParams.proxyType = QSsh::SshConnectionParameters::NoProxy;
+    sp.connParams.options = QSsh::SshIgnoreDefaultProxy;
 
     sp.executable = dlg.inferiorPath();
     sp.serverStartScript = dlg.enginePath();
@@ -2066,7 +2061,6 @@ void DebuggerPluginPrivate::connectEngine(DebuggerEngine *engine)
     m_threadsWindow->setModel(engine->threadsModel());
     m_watchersWindow->setModel(engine->watchersModel());
     m_inspectorWindow->setModel(engine->inspectorModel());
-    m_qtMessageLogWindow->setModel(engine->qtMessageLogModel());
 
     engine->watchHandler()->rebuildModel();
 
@@ -2194,7 +2188,6 @@ void DebuggerPluginPrivate::setInitialState()
     action(AutoDerefPointers)->setEnabled(true);
     action(ExpandStack)->setEnabled(false);
 
-    m_qtMessageLogWindow->setEnabled(true);
 }
 
 void DebuggerPluginPrivate::updateWatchersWindow(bool showWatch, bool showReturn)
@@ -2487,11 +2480,6 @@ void DebuggerPluginPrivate::showStatusMessage(const QString &msg0, int timeout)
     m_statusLabel->showStatusMessage(msg, timeout);
 }
 
-bool DebuggerPluginPrivate::evaluateScriptExpression(const QString &expression)
-{
-    return currentEngine()->evaluateScriptExpression(expression);
-}
-
 void DebuggerPluginPrivate::openMemoryEditor()
 {
     AddressDialog dialog;
@@ -2558,10 +2546,6 @@ void DebuggerPluginPrivate::showMessage(const QString &msg, int channel, int tim
         case LogError:
             m_logWindow->showInput(LogError, QLatin1String("ERROR: ") + msg);
             m_logWindow->showOutput(LogError, QLatin1String("ERROR: ") + msg);
-            break;
-        case QtMessageLogStatus:
-            QTC_ASSERT(m_qtMessageLogWindow, return);
-            m_qtMessageLogWindow->showStatus(msg, timeout);
             break;
         default:
             m_logWindow->showOutput(channel, msg);
@@ -2739,8 +2723,6 @@ void DebuggerPluginPrivate::extensionsInitialized()
     m_breakWindow->setObjectName(QLatin1String(DOCKWIDGET_BREAK));
     m_breakWindow->setModel(m_breakHandler->model());
 
-    m_qtMessageLogWindow = new QtMessageLogWindow();
-    m_qtMessageLogWindow->setObjectName(QLatin1String(DOCKWIDGET_QML_SCRIPTCONSOLE));
     m_modulesWindow = new ModulesWindow;
     m_modulesWindow->setObjectName(QLatin1String(DOCKWIDGET_MODULES));
     m_logWindow = new LogWindow;
@@ -2885,7 +2867,6 @@ void DebuggerPluginPrivate::extensionsInitialized()
     dock->setProperty(DOCKWIDGET_DEFAULT_AREA, Qt::TopDockWidgetArea);
 
     m_mainWindow->createDockWidget(CppLanguage, m_breakWindow);
-    m_mainWindow->createDockWidget(QmlLanguage, m_qtMessageLogWindow);
     m_mainWindow->createDockWidget(CppLanguage, m_snapshotWindow);
     m_mainWindow->createDockWidget(CppLanguage, m_stackWindow);
     m_mainWindow->createDockWidget(CppLanguage, m_threadsWindow);

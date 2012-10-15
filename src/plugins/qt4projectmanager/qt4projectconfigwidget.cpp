@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "qt4projectconfigwidget.h"
 
@@ -113,6 +112,13 @@ void Qt4ProjectConfigWidget::updateDetails()
     m_detailsContainer->setSummaryText(
                 tr("building in <b>%1</b>")
                 .arg(QDir::toNativeSeparators(m_buildConfiguration->buildDirectory())));
+}
+
+void Qt4ProjectConfigWidget::setProblemLabel(const QString &text)
+{
+    m_ui->warningLabel->setVisible(!text.isEmpty());
+    m_ui->problemLabel->setVisible(!text.isEmpty());
+    m_ui->problemLabel->setText(text);
 }
 
 void Qt4ProjectConfigWidget::environmentChanged()
@@ -203,22 +209,20 @@ void Qt4ProjectConfigWidget::shadowBuildEdited()
 
 void Qt4ProjectConfigWidget::updateProblemLabel()
 {
-    bool targetMismatch = false;
-    bool incompatibleBuild = false;
-    bool allGood = false;
 
     ProjectExplorer::Kit *k = m_buildConfiguration->target()->kit();
     const QString proFileName = m_buildConfiguration->target()->project()->document()->fileName();
 
+    // Check for Qt version:
     QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(k);
     if (!version) {
-        m_ui->problemLabel->setVisible(true);
-        m_ui->warningLabel->setVisible(true);
-        m_ui->problemLabel->setText(tr("This target cannot build this project since it does not define a "
-                                       "Qt version."));
+        setProblemLabel(tr("This target cannot build this project since it does not define a Qt version."));
         return;
     }
 
+    bool targetMismatch = false;
+    bool incompatibleBuild = false;
+    bool allGood = false;
     // we only show if we actually have a qmake and makestep
     if (m_buildConfiguration->qmakeStep() && m_buildConfiguration->makeStep()) {
         QString makefile = m_buildConfiguration->buildDirectory() + QLatin1Char('/');
@@ -245,7 +249,7 @@ void Qt4ProjectConfigWidget::updateProblemLabel()
 
     QString shadowBuildWarning;
     if (!version->supportsShadowBuilds() && m_buildConfiguration->shadowBuild()) {
-        shadowBuildWarning =tr("The Qt version %1 does not support shadow builds, building might fail.")
+        shadowBuildWarning = tr("The Qt version %1 does not support shadow builds, building might fail.")
                 .arg(version->displayName())
                 + QLatin1String("<br>");
     }
@@ -258,12 +262,7 @@ void Qt4ProjectConfigWidget::updateProblemLabel()
         issues = version->reportIssues(proFileName, buildDirectory);
         qSort(issues);
 
-        if (issues.isEmpty() && shadowBuildWarning.isEmpty()) {
-            m_ui->problemLabel->setVisible(false);
-            m_ui->warningLabel->setVisible(false);
-        } else {
-            m_ui->problemLabel->setVisible(true);
-            m_ui->warningLabel->setVisible(true);
+        if (!issues.isEmpty() || !shadowBuildWarning.isEmpty()) {
             QString text = QLatin1String("<nobr>") + shadowBuildWarning;
             foreach (const ProjectExplorer::Task &task, issues) {
                 QString type;
@@ -284,23 +283,23 @@ void Qt4ProjectConfigWidget::updateProblemLabel()
                     text.append(QLatin1String("<br>"));
                 text.append(type + task.description);
             }
-            m_ui->problemLabel->setText(text);
+            setProblemLabel(text);
+            return;
         }
     } else if (targetMismatch) {
-        m_ui->problemLabel->setVisible(true);
-        m_ui->warningLabel->setVisible(true);
-        m_ui->problemLabel->setText(shadowBuildWarning + tr("A build for a different project exists in %1, which will be overwritten.",
-                                                            "%1 build directory")
-                                    .arg(m_ui->shadowBuildDirEdit->path()));
+        setProblemLabel(shadowBuildWarning + tr("A build for a different project exists in %1, which will be overwritten.",
+                                                "%1 build directory")
+                        .arg(m_ui->shadowBuildDirEdit->path()));
+        return;
     } else if (incompatibleBuild) {
-        m_ui->warningLabel->setVisible(true);
-        m_ui->problemLabel->setVisible(true);
-        m_ui->problemLabel->setText(shadowBuildWarning +tr("An incompatible build exists in %1, which will be overwritten.",
-                                                           "%1 build directory")
-                                    .arg(m_ui->shadowBuildDirEdit->path()));
+        setProblemLabel(shadowBuildWarning +tr("An incompatible build exists in %1, which will be overwritten.",
+                                               "%1 build directory")
+                        .arg(m_ui->shadowBuildDirEdit->path()));
+        return;
     } else if (!shadowBuildWarning.isEmpty()) {
-        m_ui->warningLabel->setVisible(true);
-        m_ui->problemLabel->setVisible(true);
-        m_ui->problemLabel->setText(shadowBuildWarning);
+        setProblemLabel(shadowBuildWarning);
+        return;
     }
+
+    setProblemLabel(QString());
 }

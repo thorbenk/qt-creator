@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "gdbengine.h"
 
@@ -221,7 +220,7 @@ public:
     QAction *createAction(QObject *parent) const
     {
         QAction *action = new QAction(DebuggerPlugin::tr("Install &Debug Information"), parent);
-        action->setToolTip(DebuggerPlugin::tr("This tries to install missing debug information."));
+        action->setToolTip(DebuggerPlugin::tr("Tries to install missing debug information."));
         return action;
     }
 
@@ -302,7 +301,7 @@ QString GdbEngine::errorMessage(QProcess::ProcessError error)
     switch (error) {
         case QProcess::FailedToStart:
             return tr("The gdb process failed to start. Either the "
-                "invoked program '%1' is missing, or you may have insufficient "
+                "invoked program \"%1\" is missing, or you may have insufficient "
                 "permissions to invoke the program.\n%2")
                 .arg(m_gdb, gdbProc()->errorString());
         case QProcess::Crashed:
@@ -1053,7 +1052,7 @@ void GdbEngine::commandTimeout()
             "to a command within %n second(s). This could mean it is stuck "
             "in an endless loop or taking longer than expected to perform "
             "the operation.\nYou can choose between waiting "
-            "longer or abort debugging.", 0, timeOut / 1000);
+            "longer or aborting debugging.", 0, timeOut / 1000);
         QMessageBox *mb = showMessageBox(QMessageBox::Critical,
             tr("GDB not responding"), msg,
             QMessageBox::Ok | QMessageBox::Cancel);
@@ -2095,7 +2094,7 @@ int GdbEngine::currentFrame() const
 
 static QString msgNoGdbBinaryForToolChain(const Abi &tc)
 {
-    return GdbEngine::tr("There is no gdb binary available for binaries in format '%1'")
+    return GdbEngine::tr("There is no GDB binary available for binaries in format '%1'")
         .arg(tc.toString());
 }
 

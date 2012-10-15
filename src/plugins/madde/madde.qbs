@@ -13,25 +13,26 @@ QtcPlugin {
     Depends { name: "Qt.gui" }
 
     Depends { name: "cpp" }
-    cpp.includePaths: [
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
     cpp.defines: base.concat(['QT_NO_CAST_TO_ASCII'])
 
     files: [
+        "debianmanager.cpp",
+        "debianmanager.h",
         "madde_exports.h",
+        "maddedevice.cpp",
+        "maddedevice.h",
         "maddedeviceconfigurationfactory.cpp",
         "maddedeviceconfigurationfactory.h",
         "maddedevicetester.cpp",
         "maddedevicetester.h",
         "maddeplugin.cpp",
         "maddeplugin.h",
-        "maddeuploadandinstallpackagesteps.cpp",
-        "maddeuploadandinstallpackagesteps.h",
         "maddeqemustartstep.cpp",
         "maddeqemustartstep.h",
+        "maddeuploadandinstallpackagesteps.cpp",
+        "maddeuploadandinstallpackagesteps.h",
+        "maemoapplicationrunnerhelperactions.cpp",
+        "maemoapplicationrunnerhelperactions.h",
         "maemoconstants.h",
         "maemodeploybymountsteps.cpp",
         "maemodeploybymountsteps.h",
@@ -112,11 +113,5 @@ QtcPlugin {
         "qt-maemo.qrc",
         "qt4maemodeployconfiguration.cpp",
         "qt4maemodeployconfiguration.h",
-        "maddedevice.cpp",
-        "maddedevice.h",
-        "debianmanager.h",
-        "debianmanager.cpp",
-        "maemoapplicationrunnerhelperactions.h",
-        "maemoapplicationrunnerhelperactions.cpp"
     ]
 }

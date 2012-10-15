@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "LookupContext.h"
 #include "ResolveExpression.h"
@@ -121,21 +120,12 @@ bool compareFullyQualifiedName(const QList<const Name *> &path, const QList<cons
 
 }
 
-bool ClassOrNamespace::CompareName::operator()(const Name *name, const Name *other) const
-{
-    Q_ASSERT(name != 0);
-    Q_ASSERT(other != 0);
-
-    const Identifier *id = name->identifier();
-    const Identifier *otherId = other->identifier();
-    return strcmp(id->chars(), otherId->chars()) < 0;
-}
-
 /////////////////////////////////////////////////////////////////////
 // LookupContext
 /////////////////////////////////////////////////////////////////////
 LookupContext::LookupContext()
     : _control(new Control())
+    , m_expandTemplates(false)
 { }
 
 LookupContext::LookupContext(Document::Ptr thisDocument,
@@ -143,7 +133,8 @@ LookupContext::LookupContext(Document::Ptr thisDocument,
     : _expressionDocument(Document::create("<LookupContext>")),
       _thisDocument(thisDocument),
       _snapshot(snapshot),
-      _control(new Control())
+      _control(new Control()),
+      m_expandTemplates(false)
 {
 }
 
@@ -153,7 +144,8 @@ LookupContext::LookupContext(Document::Ptr expressionDocument,
     : _expressionDocument(expressionDocument),
       _thisDocument(thisDocument),
       _snapshot(snapshot),
-      _control(new Control())
+      _control(new Control()),
+      m_expandTemplates(false)
 {
 }
 
@@ -162,7 +154,8 @@ LookupContext::LookupContext(const LookupContext &other)
       _thisDocument(other._thisDocument),
       _snapshot(other._snapshot),
       _bindings(other._bindings),
-      _control(other._control)
+      _control(other._control),
+      m_expandTemplates(other.m_expandTemplates)
 { }
 
 LookupContext &LookupContext::operator = (const LookupContext &other)
@@ -172,6 +165,7 @@ LookupContext &LookupContext::operator = (const LookupContext &other)
     _snapshot = other._snapshot;
     _bindings = other._bindings;
     _control = other._control;
+    m_expandTemplates = other.m_expandTemplates;
     return *this;
 }
 
@@ -228,8 +222,10 @@ const Name *LookupContext::minimalName(Symbol *symbol, ClassOrNamespace *target,
 
 QSharedPointer<CreateBindings> LookupContext::bindings() const
 {
-    if (! _bindings)
+    if (! _bindings) {
         _bindings = QSharedPointer<CreateBindings>(new CreateBindings(_thisDocument, _snapshot, control()));
+        _bindings->setExpandTemplates(m_expandTemplates);
+    }
 
     return _bindings;
 }
@@ -708,17 +704,27 @@ ClassOrNamespace *ClassOrNamespace::nestedType(const Name *name, ClassOrNamespac
     if (!referenceClass)
         return reference;
 
+    const TemplateNameId *templId = name->asTemplateNameId();
+    if (_alreadyConsideredClasses.contains(referenceClass) ||
+            (templId &&
+            _alreadyConsideredTemplates.contains(templId))) {
+            return reference;
+    }
+
+    if (!name->isTemplateNameId())
+        _alreadyConsideredClasses.insert(referenceClass);
+
     QSet<ClassOrNamespace *> knownUsings = reference->usings().toSet();
 
     // If we are dealling with a template type, more work is required, since we need to
     // construct all instantiation data.
-    if (const TemplateNameId *templId = name->asTemplateNameId()) {
+    if (templId) {
+        _alreadyConsideredTemplates.insert(templId);
         ClassOrNamespace *instantiation = _factory->allocClassOrNamespace(reference);
         instantiation->_templateId = templId;
         instantiation->_instantiationOrigin = origin;
 
         // The instantiation should have all symbols, enums, and usings from the reference.
-        instantiation->_symbols.append(reference->symbols());
         instantiation->_enums.append(reference->enums());
         instantiation->_usings.append(reference->usings());
 
@@ -726,6 +732,28 @@ ClassOrNamespace *ClassOrNamespace::nestedType(const Name *name, ClassOrNamespac
         // now must worry about dependent names in base classes.
         if (Template *templ = referenceClass->enclosingTemplate()) {
             const unsigned argumentCount = templId->templateArgumentCount();
+
+            if (_factory->expandTemplates()) {
+                Subst subst(_control.data());
+                for (unsigned i = 0, ei = std::min(argumentCount, templ->templateParameterCount()); i < ei; ++i) {
+                    const TypenameArgument *tParam = templ->templateParameterAt(i)->asTypenameArgument();
+                    if (!tParam)
+                        continue;
+                    const Name *name = tParam->name();
+                    if (!name)
+                        continue;
+                    const FullySpecifiedType &ty = templId->templateArgumentAt(i);
+                    subst.bind(name, ty);
+                }
+
+                Clone cloner(_control.data());
+                foreach (Symbol *s, reference->symbols()) {
+                    instantiation->_symbols.append(cloner.symbol(s, &subst));
+                }
+            } else {
+                instantiation->_symbols.append(reference->symbols());
+            }
+
             QHash<const Name*, unsigned> templParams;
             for (unsigned i = 0; i < templ->templateParameterCount(); ++i)
                 templParams.insert(templ->templateParameterAt(i)->name(), i);
@@ -784,19 +812,44 @@ ClassOrNamespace *ClassOrNamespace::nestedType(const Name *name, ClassOrNamespac
                 if (baseBinding && !knownUsings.contains(baseBinding))
                     instantiation->addUsing(baseBinding);
             }
+        } else {
+            instantiation->_symbols.append(reference->symbols());
         }
 
+        _alreadyConsideredTemplates.clear(templId);
         return instantiation;
     }
 
+    if (allBases.isEmpty() || allBases.size() == knownUsings.size())
+        return reference;
+
+    QList<const Name *> fullyQualifiedNameForReferenceClass =
+            LookupContext::fullyQualifiedName(referenceClass);
     // Find the missing bases for regular (non-template) types.
     // Ex.: class A : public B<Some>::Type {};
     foreach (const Name *baseName, allBases) {
         ClassOrNamespace *binding = this;
         if (const QualifiedNameId *qBaseName = baseName->asQualifiedNameId()) {
+            QList<const Name *> fullyQualifiedNameForBaseClass;
+            addNames(baseName, &fullyQualifiedNameForBaseClass);
+            if (compareFullyQualifiedName(fullyQualifiedNameForReferenceClass,
+                                          fullyQualifiedNameForBaseClass)) {
+                continue;
+            }
+
             if (const Name *qualification = qBaseName->base())
                 binding = lookupType(qualification);
+            else if (binding->parent() != 0)
+                //if this is global identifier we take global namespace
+                //Ex: class A{}; namespace NS { class A: public ::A{}; }
+                binding = binding->globalNamespace();
+            else
+                //if we are in the global scope
+                continue;
             baseName = qBaseName->name();
+        }
+        else if (compareName(name, baseName)) {
+            continue;
         }
 
         if (binding) {
@@ -806,7 +859,7 @@ ClassOrNamespace *ClassOrNamespace::nestedType(const Name *name, ClassOrNamespac
         }
     }
 
-
+    _alreadyConsideredClasses.clear(referenceClass);
     return reference;
 }
 
@@ -874,7 +927,7 @@ ClassOrNamespace *ClassOrNamespace::findOrCreateType(const Name *name, ClassOrNa
 }
 
 CreateBindings::CreateBindings(Document::Ptr thisDocument, const Snapshot &snapshot, QSharedPointer<Control> control)
-    : _snapshot(snapshot), _control(control)
+    : _snapshot(snapshot), _control(control), _expandTemplates(false)
 {
     _globalNamespace = allocClassOrNamespace(/*parent = */ 0);
     _currentClassOrNamespace = _globalNamespace;

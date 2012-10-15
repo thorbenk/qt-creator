@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "cpptypehierarchy.h"
 #include "cppeditorconstants.h"
@@ -61,20 +60,20 @@ enum ItemRole {
 QStandardItem *itemForClass(const CppClass &cppClass)
 {
     QStandardItem *item = new QStandardItem;
-    item->setData(cppClass.name(), Qt::DisplayRole);
-    if (cppClass.name() != cppClass.qualifiedName())
-        item->setData(cppClass.qualifiedName(), AnnotationRole);
-    item->setData(cppClass.icon(), Qt::DecorationRole);
+    item->setData(cppClass.name, Qt::DisplayRole);
+    if (cppClass.name != cppClass.qualifiedName)
+        item->setData(cppClass.qualifiedName, AnnotationRole);
+    item->setData(cppClass.icon, Qt::DecorationRole);
     QVariant link;
-    link.setValue(CPPEditorWidget::Link(cppClass.link()));
+    link.setValue(CPPEditorWidget::Link(cppClass.link));
     item->setData(link, LinkRole);
     return item;
 }
 
 bool compareCppClassNames(const CppClass &c1, const CppClass &c2)
 {
-    const QString key1 = c1.name() + QLatin1String("::") + c1.qualifiedName();
-    const QString key2 = c2.name() + QLatin1String("::") + c2.qualifiedName();
+    const QString key1 = c1.name + QLatin1String("::") + c1.qualifiedName;
+    const QString key2 = c2.name + QLatin1String("::") + c2.qualifiedName;
     return key1 < key2;
 }
 
@@ -99,8 +98,8 @@ public:
 
     void setup(CppClass *cppClass)
     {
-        setText(cppClass->name());
-        m_link = cppClass->link();
+        setText(cppClass->name);
+        m_link = cppClass->link;
     }
 
 private:
@@ -124,7 +123,6 @@ private:
 // CppTypeHierarchyWidget
 CppTypeHierarchyWidget::CppTypeHierarchyWidget(Core::IEditor *editor) :
     QWidget(0),
-    m_cppEditor(0),
     m_treeView(0),
     m_model(0),
     m_delegate(0)
@@ -133,9 +131,7 @@ CppTypeHierarchyWidget::CppTypeHierarchyWidget(Core::IEditor *editor) :
     layout->setMargin(0);
     layout->setSpacing(0);
 
-    if (CPPEditor *cppEditor = qobject_cast<CPPEditor *>(editor)) {
-        m_cppEditor = static_cast<CPPEditorWidget *>(cppEditor->widget());
-
+    if (qobject_cast<CPPEditor *>(editor)) {
         m_inspectedClass = new CppClassLabel(this);
         m_inspectedClass->setMargin(5);
         layout->addWidget(m_inspectedClass);
@@ -165,27 +161,18 @@ CppTypeHierarchyWidget::CppTypeHierarchyWidget(Core::IEditor *editor) :
 CppTypeHierarchyWidget::~CppTypeHierarchyWidget()
 {}
 
-bool CppTypeHierarchyWidget::handleEditorChange(Core::IEditor *editor)
-{
-    if (CPPEditor *cppEditor = qobject_cast<CPPEditor *>(editor)) {
-        if (m_cppEditor) {
-            m_cppEditor = static_cast<CPPEditorWidget *>(cppEditor->widget());
-            return true;
-        }
-    } else if (!m_cppEditor) {
-        return true;
-    }
-    return false;
-}
-
 void CppTypeHierarchyWidget::perform()
 {
-    if (!m_cppEditor)
+    CPPEditor *editor = qobject_cast<CPPEditor *>(Core::EditorManager::instance()->currentEditor());
+    if (!editor)
+        return;
+    CPPEditorWidget *widget = qobject_cast<CPPEditorWidget *>(editor->widget());
+    if (!widget)
         return;
 
     m_model->clear();
 
-    CppElementEvaluator evaluator(m_cppEditor);
+    CppElementEvaluator evaluator(widget);
     evaluator.setLookupBaseClasses(true);
     evaluator.setLookupDerivedClasses(true);
     evaluator.execute();
@@ -196,29 +183,35 @@ void CppTypeHierarchyWidget::perform()
             m_inspectedClass->setup(cppClass);
             QStandardItem *bases = new QStandardItem(tr("Bases"));
             m_model->invisibleRootItem()->appendRow(bases);
-            buildHierarchy(*cppClass, bases, true, &CppClass::bases);
+            buildHierarchy(*cppClass, bases, true, cppClass->bases);
             QStandardItem *derived = new QStandardItem(tr("Derived"));
             m_model->invisibleRootItem()->appendRow(derived);
-            buildHierarchy(*cppClass, derived, true, &CppClass::derived);
+            buildHierarchy(*cppClass, derived, true, cppClass->derived);
             m_treeView->expandAll();
         }
     }
 }
 
-void CppTypeHierarchyWidget::buildHierarchy(const CppClass &cppClass, QStandardItem *parent, bool isRoot, HierarchyFunc func)
+void CppTypeHierarchyWidget::buildHierarchy(const CppClass &cppClass, QStandardItem *parent, bool isRoot, const QList<CppClass> &classes)
 {
     if (!isRoot) {
         QStandardItem *item = itemForClass(cppClass);
         parent->appendRow(item);
         parent = item;
     }
-    foreach (const CppClass &klass, sortClasses((cppClass.*func)()))
-        buildHierarchy(klass, parent, false, func);
+    foreach (const CppClass &klass, sortClasses(classes))
+        buildHierarchy(klass, parent, false, classes);
 }
 
 void CppTypeHierarchyWidget::onItemClicked(const QModelIndex &index)
 {
-    m_cppEditor->openLink(index.data(LinkRole).value<TextEditor::BaseTextEditorWidget::Link>());
+    const TextEditor::BaseTextEditorWidget::Link link
+            = index.data(LinkRole).value<TextEditor::BaseTextEditorWidget::Link>();
+    if (!link.fileName.isEmpty())
+        TextEditor::BaseTextEditorWidget::openEditorAt(link.fileName,
+                                                       link.line,
+                                                       link.column,
+                                                       Constants::CPPEDITOR_ID);
 }
 
 // CppTypeHierarchyStackedWidget
@@ -227,25 +220,11 @@ CppTypeHierarchyStackedWidget::CppTypeHierarchyStackedWidget(QWidget *parent) :
     m_typeHiearchyWidgetInstance(new CppTypeHierarchyWidget(Core::EditorManager::currentEditor()))
 {
     addWidget(m_typeHiearchyWidgetInstance);
-
-    connect(Core::EditorManager::instance(), SIGNAL(currentEditorChanged(Core::IEditor*)),
-            this, SLOT(editorChanged(Core::IEditor*)));
 }
 
 CppTypeHierarchyStackedWidget::~CppTypeHierarchyStackedWidget()
 {
     delete m_typeHiearchyWidgetInstance;
-}
-
-void CppTypeHierarchyStackedWidget::editorChanged(Core::IEditor *editor)
-{
-    if (!m_typeHiearchyWidgetInstance->handleEditorChange(editor)) {
-        CppTypeHierarchyWidget *replacement = new CppTypeHierarchyWidget(editor);
-        removeWidget(m_typeHiearchyWidgetInstance);
-        m_typeHiearchyWidgetInstance->deleteLater();
-        m_typeHiearchyWidgetInstance = replacement;
-        addWidget(m_typeHiearchyWidgetInstance);
-    }
 }
 
 // CppTypeHierarchyFactory

@@ -43,10 +43,22 @@ def qdump__QBasicAtomicPointer(d, value):
            d.putItem(value["_q_value"])
 
 
+def qform__QByteArray():
+    return "Inline,As Latin1 in Separate Window,As UTF-8 in Separate Window"
+
 def qdump__QByteArray(d, value):
     d.putByteArrayValue(value)
     data, size, alloc = qByteArrayData(value)
     d.putNumChild(size)
+    format = d.currentItemFormat()
+    if format == 1:
+        d.putDisplay(StopDisplay)
+    elif format == 2:
+        d.putField("editformat", DisplayLatin1String)
+        d.putField("editvalue", encodeByteArray(value))
+    elif format == 3:
+        d.putField("editformat", DisplayUtf8String)
+        d.putField("editvalue", encodeByteArray(value))
     if d.isExpanded():
         d.putArrayData(lookupType("char"), data, size)
 
@@ -564,7 +576,7 @@ def qdump__QImage(d, value):
         if False:
             # Take four bytes at a time, this is critical for performance.
             # In fact, even four at a time is too slow beyond 100x100 or so.
-            d.putField("editformat", 1)  # Magic marker for direct "QImage" data.
+            d.putField("editformat", DisplayImageData)
             d.put('%s="' % name)
             d.put("%08x" % int(d_ptr["width"]))
             d.put("%08x" % int(d_ptr["height"]))
@@ -581,7 +593,7 @@ def qdump__QImage(d, value):
             p = bits.cast(lookupType("unsigned char").pointer())
             gdb.execute("dump binary memory %s %s %s" %
                 (filename, cleanAddress(p), cleanAddress(p + nbytes)))
-            d.putDisplay(DisplayImage, " %d %d %d %s"
+            d.putDisplay(DisplayImageFile, " %d %d %d %s"
                 % (d_ptr["width"], d_ptr["height"], d_ptr["format"], filename))
 
 
@@ -645,7 +657,7 @@ def qdump__QMapNode(d, value):
             d.putSubItem("value", value["value"])
 
 
-def qdumpHelper__QMap(d, value, forceLong):
+def qdumpHelper__Qt4_QMap(d, value, forceLong):
     d_ptr = value["d"].dereference()
     e_ptr = value["e"].dereference()
     n = d_ptr["size"]
@@ -655,8 +667,8 @@ def qdumpHelper__QMap(d, value, forceLong):
     d.putItemCount(n)
     d.putNumChild(n)
     if d.isExpanded():
-        if n > 1000:
-            n = 1000
+        if n > 10000:
+            n = 10000
 
         keyType = templateArgument(value.type, 0)
         valueType = templateArgument(value.type, 1)
@@ -694,6 +706,66 @@ def qdumpHelper__QMap(d, value, forceLong):
                 it = it.dereference()["forward"].dereference()
 
 
+def qdumpHelper__Qt5_QMap(d, value, forceLong):
+    d_ptr = value["d"].dereference()
+    n = d_ptr["size"]
+    check(0 <= n and n <= 100*1000*1000)
+    checkRef(d_ptr["ref"])
+
+    d.putItemCount(n)
+    d.putNumChild(n)
+    if d.isExpanded():
+        if n > 10000:
+            n = 10000
+
+        keyType = templateArgument(value.type, 0)
+        valueType = templateArgument(value.type, 1)
+        isCompact = mapCompact(d.currentItemFormat(), keyType, valueType)
+        nodeType = lookupType(d.ns + "QMapNode<%s, %s>" % (keyType, valueType))
+        if isCompact:
+            innerType = valueType
+        else:
+            innerType = nodeType
+
+        with Children(d, n, childType=innerType):
+            toDo = []
+            i = -1
+            node = d_ptr["header"]
+            left = node["left"]
+            if not isNull(left):
+                toDo.append(left.dereference())
+            right = node["right"]
+            if not isNull(right):
+                toDo.append(right.dereference())
+
+            while len(toDo):
+                node = toDo[0].cast(nodeType)
+                toDo = toDo[1:]
+                left = node["left"]
+                if not isNull(left):
+                    toDo.append(left.dereference())
+                right = node["right"]
+                if not isNull(right):
+                    toDo.append(right.dereference())
+                i += 1
+
+                with SubItem(d, i):
+                    if isCompact:
+                        if forceLong:
+                            d.putName("[%s] %s" % (i, node["key"]))
+                        else:
+                            d.putMapName(node["key"])
+                        d.putItem(node["value"])
+                    else:
+                        qdump__QMapNode(d, node)
+
+
+def qdumpHelper__QMap(d, value, forceLong):
+    if value["d"].dereference().type.fields()[0].name == "backward":
+        qdumpHelper__Qt4_QMap(d, value, forceLong)
+    else:
+        qdumpHelper__Qt5_QMap(d, value, forceLong)
+
 def qform__QMap():
     return mapForms()
 
@@ -726,7 +798,10 @@ def qdump__QObject(d, value):
         staticMetaObject = value["staticMetaObject"]
         d_ptr = value["d_ptr"]["d"].cast(privateType.pointer()).dereference()
         #warn("D_PTR: %s " % d_ptr)
-        objectName = d_ptr["objectName"]
+        try:
+            objectName = d_ptr["objectName"]
+        except: # Qt 5
+            objectName = d_ptr["extraData"].dereference()["objectName"]
     except:
         d.putPlainChildren(value)
         return
@@ -1386,7 +1461,7 @@ def qdump__QString(d, value):
     if format == 1:
         d.putDisplay(StopDisplay)
     elif format == 2:
-        d.putField("editformat", 2)
+        d.putField("editformat", DisplayUtf16String)
         d.putField("editvalue", encodeString(value))
 
 

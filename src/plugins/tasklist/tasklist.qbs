@@ -12,26 +12,19 @@ QtcPlugin {
     Depends { name: "Locator" }
     Depends { name: "TextEditor" }
 
-    Depends { name: "cpp" }
-    cpp.includePaths: [
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
-
     files: [
-        "tasklistplugin.h",
+        "TaskList.mimetypes.xml",
+        "stopmonitoringhandler.cpp",
+        "stopmonitoringhandler.h",
+        "taskfile.cpp",
+        "taskfile.h",
+        "taskfilefactory.cpp",
+        "taskfilefactory.h",
+        "tasklist.qrc",
         "tasklist_export.h",
         "tasklistconstants.h",
-        "stopmonitoringhandler.h",
-        "taskfile.h",
-        "taskfilefactory.h",
         "tasklistplugin.cpp",
-        "stopmonitoringhandler.cpp",
-        "taskfile.cpp",
-        "taskfilefactory.cpp",
-        "tasklist.qrc",
-        "TaskList.mimetypes.xml"
+        "tasklistplugin.h",
     ]
 }
 

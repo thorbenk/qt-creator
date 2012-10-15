@@ -11,16 +11,12 @@ QtcPlugin {
     Depends { name: "Find" }
     Depends { name: "Locator" }
 
-    cpp.includePaths: [
-        ".",
-        "..",
+    cpp.includePaths: base.concat([
         "generichighlighter",
         "tooltip",
         "snippets",
-        "codeassist",
-        "../../libs",
-        buildDirectory
-    ]
+        "codeassist"
+    ])
 
     files: [
         "TextEditor.mimetypes.xml",
@@ -62,10 +58,10 @@ QtcPlugin {
         "codestyleselectorwidget.h",
         "codestyleselectorwidget.ui",
         "colorscheme.cpp",
+        "colorscheme.h",
         "colorschemeedit.cpp",
         "colorschemeedit.h",
         "colorschemeedit.ui",
-        "colorscheme.h",
         "completionsettings.cpp",
         "completionsettings.h",
         "convenience.cpp",
@@ -91,9 +87,9 @@ QtcPlugin {
         "helpitem.cpp",
         "helpitem.h",
         "icodestylepreferences.cpp",
+        "icodestylepreferences.h",
         "icodestylepreferencesfactory.cpp",
         "icodestylepreferencesfactory.h",
-        "icodestylepreferences.h",
         "indenter.cpp",
         "indenter.h",
         "ioutlinewidget.h",
@@ -108,9 +104,9 @@ QtcPlugin {
         "outlinefactory.cpp",
         "outlinefactory.h",
         "plaintexteditor.cpp",
+        "plaintexteditor.h",
         "plaintexteditorfactory.cpp",
         "plaintexteditorfactory.h",
-        "plaintexteditor.h",
         "quickfix.cpp",
         "quickfix.h",
         "refactoringchanges.cpp",
@@ -132,18 +128,18 @@ QtcPlugin {
         "tabsettingswidget.cpp",
         "tabsettingswidget.h",
         "tabsettingswidget.ui",
+        "texteditor.qrc",
+        "texteditor_global.h",
         "texteditoractionhandler.cpp",
         "texteditoractionhandler.h",
         "texteditorconstants.cpp",
         "texteditorconstants.h",
-        "texteditor_global.h",
         "texteditoroptionspage.cpp",
         "texteditoroptionspage.h",
         "texteditoroverlay.cpp",
         "texteditoroverlay.h",
         "texteditorplugin.cpp",
         "texteditorplugin.h",
-        "texteditor.qrc",
         "texteditorsettings.cpp",
         "texteditorsettings.h",
         "textfilewizard.cpp",
@@ -217,8 +213,8 @@ QtcPlugin {
             "highlightdefinitionmetadata.cpp",
             "highlightdefinitionmetadata.h",
             "highlighter.cpp",
-            "highlighterexception.h",
             "highlighter.h",
+            "highlighterexception.h",
             "highlightersettings.cpp",
             "highlightersettings.h",
             "highlightersettingspage.cpp",
@@ -253,12 +249,12 @@ QtcPlugin {
             "plaintextsnippetprovider.cpp",
             "plaintextsnippetprovider.h",
             "reuse.h",
+            "snippet.cpp",
+            "snippet.h",
             "snippetassistcollector.cpp",
             "snippetassistcollector.h",
-            "snippet.cpp",
             "snippeteditor.cpp",
             "snippeteditor.h",
-            "snippet.h",
             "snippetscollection.cpp",
             "snippetscollection.h",
             "snippetssettings.cpp",
@@ -281,7 +277,7 @@ QtcPlugin {
             "tips.cpp",
             "tips.h",
             "tooltip.cpp",
-            "tooltip.h"
+            "tooltip.h",
         ]
     }
 
@@ -290,4 +286,3 @@ QtcPlugin {
         Depends { name: "Locator" }
     }
 }
-

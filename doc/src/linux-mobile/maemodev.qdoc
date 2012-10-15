@@ -1,10 +1,9 @@
 /****************************************************************************
 **
+** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
 ** This file is part of Qt Creator
-**
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
-**
-** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -46,7 +45,7 @@
     For more information about developing applications for the Maemo 5
     platform, select \gui {Help > Index} and look for \gui {Platform Notes},
     or see
-    \l{http://doc.qt.nokia.com/qt-maemo/platform-notes-maemo5.html}{Platform Notes - Maemo 5}.
+    \l{http://doc.qt.digia.com/qt-maemo/platform-notes-maemo5.html}{Platform Notes - Maemo 5}.
 
     \section1 Hardware and Software Requirements for Maemo Devices
 
@@ -234,7 +233,7 @@
     \if defined(qcmanual)
     \l{Testing with User Data on Maemo Devices}.
     \else
-    \l{http://doc.qt.nokia.com/qtcreator/creator-developing-maemo.html#testing-with-user-data-on-maemo-devices}
+    \l{http://doc.qt.digia.com/qtcreator/creator-developing-maemo.html#testing-with-user-data-on-maemo-devices}
     {Testing with User Data on Maemo Devices}.
     \endif
 
@@ -250,7 +249,7 @@
     \if defined(qcmanual)
     \l{Generating SSH Keys}.
     \else
-    \l{http://doc.qt.nokia.com/qtcreator/creator-developing-meego.html#generating-ssh-keys}
+    \l{http://doc.qt.digia.com/qtcreator/creator-developing-meego.html#generating-ssh-keys}
     {Generating SSH Keys}.
     \endif
 
@@ -260,7 +259,7 @@
     \if defined(qcmanual)
     \l{Managing Device Processes}.
     \else
-    \l{http://doc.qt.nokia.com/qtcreator/creator-developing-meego.html#managing-device-processes}
+    \l{http://doc.qt.digia.com/qtcreator/creator-developing-meego.html#managing-device-processes}
     {Managing Device Processes}.
     \endif
 

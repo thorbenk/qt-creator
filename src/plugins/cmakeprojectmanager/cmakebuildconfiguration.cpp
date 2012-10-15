@@ -1,37 +1,37 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "cmakebuildconfiguration.h"
 
 #include "cmakeopenprojectwizard.h"
 #include "cmakeproject.h"
+#include "cmakeprojectconstants.h"
 
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/gnumakeparser.h>
@@ -50,12 +50,12 @@ using namespace CMakeProjectManager;
 using namespace Internal;
 
 namespace {
-const char CMAKE_BC_ID[] = "CMakeProjectManager.CMakeBuildConfiguration";
 const char BUILD_DIRECTORY_KEY[] = "CMakeProjectManager.CMakeBuildConfiguration.BuildDirectory";
+const char USE_NINJA_KEY[] = "CMakeProjectManager.CMakeBuildConfiguration.UseNinja";
 } // namespace
 
 CMakeBuildConfiguration::CMakeBuildConfiguration(ProjectExplorer::Target *parent) :
-    BuildConfiguration(parent, Core::Id(CMAKE_BC_ID)), m_useNinja(false)
+    BuildConfiguration(parent, Core::Id(Constants::CMAKE_BC_ID)), m_useNinja(false)
 {
     m_buildDirectory = static_cast<CMakeProject *>(parent->project())->defaultBuildDirectory();
 }
@@ -75,6 +75,7 @@ QVariantMap CMakeBuildConfiguration::toMap() const
 {
     QVariantMap map(ProjectExplorer::BuildConfiguration::toMap());
     map.insert(QLatin1String(BUILD_DIRECTORY_KEY), m_buildDirectory);
+    map.insert(QLatin1String(USE_NINJA_KEY), m_useNinja);
     return map;
 }
 
@@ -84,6 +85,7 @@ bool CMakeBuildConfiguration::fromMap(const QVariantMap &map)
         return false;
 
     m_buildDirectory = map.value(QLatin1String(BUILD_DIRECTORY_KEY)).toString();
+    m_useNinja = map.value(QLatin1String(USE_NINJA_KEY), false).toBool();
 
     return true;
 }
@@ -161,12 +163,12 @@ QList<Core::Id> CMakeBuildConfigurationFactory::availableCreationIds(const Proje
 {
     if (!canHandle(parent))
         return QList<Core::Id>();
-    return QList<Core::Id>() << Core::Id(CMAKE_BC_ID);
+    return QList<Core::Id>() << Core::Id(Constants::CMAKE_BC_ID);
 }
 
 QString CMakeBuildConfigurationFactory::displayNameForId(const Core::Id id) const
 {
-    if (id == CMAKE_BC_ID)
+    if (id == Constants::CMAKE_BC_ID)
         return tr("Build");
     return QString();
 }
@@ -175,7 +177,7 @@ bool CMakeBuildConfigurationFactory::canCreate(const ProjectExplorer::Target *pa
 {
     if (!canHandle(parent))
         return false;
-    if (id == CMAKE_BC_ID)
+    if (id == Constants::CMAKE_BC_ID)
         return true;
     return false;
 }
@@ -199,6 +201,17 @@ CMakeBuildConfiguration *CMakeBuildConfigurationFactory::create(ProjectExplorer:
     if (!ok || buildConfigurationName.isEmpty())
         return 0;
 
+    CMakeOpenProjectWizard::BuildInfo info;
+    info.sourceDirectory = project->projectDirectory();
+    info.environment = Utils::Environment::systemEnvironment();
+    info.buildDirectory = project->defaultBuildDirectory();
+    info.kit = parent->kit();
+    info.useNinja = false; // This is ignored anyway
+
+    CMakeOpenProjectWizard copw(project->projectManager(), CMakeOpenProjectWizard::ChangeDirectory, info);
+    if (copw.exec() != QDialog::Accepted)
+        return 0;
+
     CMakeBuildConfiguration *bc = new CMakeBuildConfiguration(parent);
     bc->setDisplayName(buildConfigurationName);
 
@@ -213,16 +226,8 @@ CMakeBuildConfiguration *CMakeBuildConfigurationFactory::create(ProjectExplorer:
     cleanMakeStep->setAdditionalArguments("clean");
     cleanMakeStep->setClean(true);
 
-    CMakeOpenProjectWizard copw(project->projectManager(),
-                                project->projectDirectory(),
-                                bc->buildDirectory(),
-                                bc);
-    if (copw.exec() != QDialog::Accepted) {
-        delete bc;
-        return 0;
-    }
-
     bc->setBuildDirectory(copw.buildDirectory());
+    bc->setUseNinja(copw.useNinja());
 
     // Default to all
     if (project->hasBuildTarget("all"))

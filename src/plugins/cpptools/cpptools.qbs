@@ -17,14 +17,12 @@ QtcPlugin {
 
     Depends { name: "cpp" }
     cpp.defines: base.concat(["QT_NO_CAST_TO_ASCII"])
-    cpp.includePaths: [
-        ".",
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
 
     files: [
+        "ModelManagerInterface.cpp",
+        "ModelManagerInterface.h",
+        "TypeHierarchyBuilder.cpp",
+        "TypeHierarchyBuilder.h",
         "abstracteditorsupport.cpp",
         "abstracteditorsupport.h",
         "commentssettings.cpp",
@@ -32,6 +30,8 @@ QtcPlugin {
         "completionsettingspage.cpp",
         "completionsettingspage.h",
         "completionsettingspage.ui",
+        "cppchecksymbols.cpp",
+        "cppchecksymbols.h",
         "cppclassesfilter.cpp",
         "cppclassesfilter.h",
         "cppcodeformatter.cpp",
@@ -39,6 +39,7 @@ QtcPlugin {
         "cppcodestylepreferences.cpp",
         "cppcodestylepreferences.h",
         "cppcodestylepreferencesfactory.cpp",
+        "cppcodestylepreferencesfactory.h",
         "cppcodestylesettings.cpp",
         "cppcodestylesettings.h",
         "cppcodestylesettingspage.cpp",
@@ -46,12 +47,14 @@ QtcPlugin {
         "cppcodestylesettingspage.ui",
         "cppcompletionassist.cpp",
         "cppcompletionassist.h",
+        "cppcompletionassistprovider.cpp",
+        "cppcompletionassistprovider.h",
+        "cppcompletionsupport.cpp",
+        "cppcompletionsupport.h",
         "cppcurrentdocumentfilter.cpp",
         "cppcurrentdocumentfilter.h",
         "cppdoxygen.cpp",
         "cppdoxygen.h",
-        "cppcompletionsupport.cpp",
-        "cppcompletionsupport.h",
         "cppfilesettingspage.cpp",
         "cppfilesettingspage.h",
         "cppfilesettingspage.ui",
@@ -59,10 +62,12 @@ QtcPlugin {
         "cppfindreferences.h",
         "cppfunctionsfilter.cpp",
         "cppfunctionsfilter.h",
-        "cpphighlightingsupportinternal.cpp",
-        "cpphighlightingsupportinternal.h",
         "cpphighlightingsupport.cpp",
         "cpphighlightingsupport.h",
+        "cpphighlightingsupportinternal.cpp",
+        "cpphighlightingsupportinternal.h",
+        "cpplocalsymbols.cpp",
+        "cpplocalsymbols.h",
         "cpplocatorfilter.cpp",
         "cpplocatorfilter.h",
         "cppmodelmanager.cpp",
@@ -73,10 +78,6 @@ QtcPlugin {
         "cpprefactoringchanges.h",
         "cppsemanticinfo.cpp",
         "cppsemanticinfo.h",
-        "cppchecksymbols.cpp",
-        "cppchecksymbols.h",
-        "cpplocalsymbols.cpp",
-        "cpplocalsymbols.h",
         "cpptools_global.h",
         "cpptoolsconstants.h",
         "cpptoolseditorsupport.cpp",
@@ -99,13 +100,6 @@ QtcPlugin {
         "symbolsfindfilter.h",
         "uicodecompletionsupport.cpp",
         "uicodecompletionsupport.h",
-        "cppcompletionassistprovider.cpp",
-        "cppcompletionassistprovider.h",
-        "cppcodestylepreferencesfactory.h",
-        "ModelManagerInterface.cpp",
-        "ModelManagerInterface.h",
-        "TypeHierarchyBuilder.cpp",
-        "TypeHierarchyBuilder.h"
     ]
 
     Group {
@@ -117,4 +111,3 @@ QtcPlugin {
         Depends { name: "CPlusPlus" }
     }
 }
-

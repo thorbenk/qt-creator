@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "targetsetuppage.h"
 #include "importwidget.h"
@@ -260,10 +259,8 @@ void TargetSetupPage::setImportSearch(bool b)
 void TargetSetupPage::setupWidgets()
 {
     // Known profiles:
-    foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::instance()->kits(m_requiredMatcher)) {
-        cleanKit(k); // clean up broken kit added by some development versions of QtC
+    foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::instance()->kits(m_requiredMatcher))
         addWidget(k);
-    }
 
     // Setup import widget:
     m_baseLayout->addWidget(m_importWidget);
@@ -338,11 +335,13 @@ void TargetSetupPage::addProject(ProjectExplorer::Kit *k, const QString &path)
     if (!k->hasValue(KIT_IS_TEMPORARY))
         return;
 
-    QStringList profiles = k->value(TEMPORARY_OF_PROJECTS, QStringList()).toStringList();
-    profiles.append(path);
-    m_ignoreUpdates = true;
-    k->setValue(KIT_IS_TEMPORARY, profiles);
-    m_ignoreUpdates = false;
+    QStringList projects = k->value(TEMPORARY_OF_PROJECTS, QStringList()).toStringList();
+    if (!projects.contains(path)) {
+        projects.append(path);
+        m_ignoreUpdates = true;
+        k->setValue(TEMPORARY_OF_PROJECTS, projects);
+        m_ignoreUpdates = false;
+    }
 }
 
 void TargetSetupPage::removeProject(ProjectExplorer::Kit *k, const QString &path)
@@ -354,9 +353,10 @@ void TargetSetupPage::removeProject(ProjectExplorer::Kit *k, const QString &path
     if (projects.contains(path)) {
         projects.removeOne(path);
         m_ignoreUpdates = true;
-        k->setValue(TEMPORARY_OF_PROJECTS, projects);
         if (projects.isEmpty())
             ProjectExplorer::KitManager::instance()->deregisterKit(k);
+        else
+            k->setValue(TEMPORARY_OF_PROJECTS, projects);
         m_ignoreUpdates = false;
     }
 }
@@ -412,14 +412,26 @@ void TargetSetupPage::import(const Utils::FileName &path, const bool silent)
         // find interesting makefiles
         QString makefile = path.toString() + QLatin1Char('/') + file;
         Utils::FileName qmakeBinary = QtSupport::QtVersionManager::findQMakeBinaryFromMakefile(makefile);
-        if (qmakeBinary.isEmpty())
+        QFileInfo fi = qmakeBinary.toFileInfo();
+        Utils::FileName canonicalQmakeBinary = Utils::FileName::fromString(fi.canonicalFilePath());
+        if (canonicalQmakeBinary.isEmpty())
             continue;
         if (QtSupport::QtVersionManager::makefileIsFor(makefile, m_proFilePath) != QtSupport::QtVersionManager::SameProject)
             continue;
 
         // Find version:
-        version = vm->qtVersionForQMakeBinary(qmakeBinary);
+        foreach (QtSupport::BaseQtVersion *v, vm->versions()) {
+            QFileInfo vfi = v->qmakeCommand().toFileInfo();
+            Utils::FileName current = Utils::FileName::fromString(vfi.canonicalFilePath());
+            if (current == canonicalQmakeBinary) {
+                version = v;
+                break;
+            }
+        }
+
+        // Create a new version if not found:
         if (!version) {
+            // Do not use the canonical path here...
             version = QtSupport::QtVersionFactory::createQtVersionFromQMakePath(qmakeBinary);
             if (!version)
                 continue;
@@ -511,20 +523,25 @@ void TargetSetupPage::setupImports()
     if (!m_importSearch || m_proFilePath.isEmpty())
         return;
 
-    QString sourceDir = QFileInfo(m_proFilePath).absolutePath();
-    import(Utils::FileName::fromString(sourceDir), true);
+    QFileInfo pfi(m_proFilePath);
+    const QString prefix = pfi.baseName();
+    QStringList toImport;
+    toImport << pfi.absolutePath();
 
     QList<ProjectExplorer::Kit *> kitList = ProjectExplorer::KitManager::instance()->kits();
     foreach (ProjectExplorer::Kit *k, kitList) {
         QFileInfo fi(Qt4Project::shadowBuildDirectory(m_proFilePath, k, QString()));
         const QString baseDir = fi.absolutePath();
-        const QString prefix = fi.baseName();
 
         foreach (const QString &dir, QDir(baseDir).entryList()) {
-            if (dir.startsWith(prefix))
-                import(Utils::FileName::fromString(baseDir + QLatin1Char('/') + dir), true);
+            const QString path = baseDir + QLatin1Char('/') + dir;
+            if (dir.startsWith(prefix) && !toImport.contains(path))
+                toImport << path;
+
         }
     }
+    foreach (const QString &path, toImport)
+        import(Utils::FileName::fromString(path), true);
 }
 
 void TargetSetupPage::handleKitAddition(ProjectExplorer::Kit *k)
@@ -539,13 +556,13 @@ void TargetSetupPage::handleKitAddition(ProjectExplorer::Kit *k)
 
 void TargetSetupPage::handleKitRemoval(ProjectExplorer::Kit *k)
 {
-    if (m_ignoreUpdates)
-        return;
-
     QtSupport::QtVersionManager *vm = QtSupport::QtVersionManager::instance();
     QtSupport::BaseQtVersion *version = vm->version(k->value(QT_IS_TEMPORARY, -1).toInt());
     if (version)
         vm->removeVersion(version);
+
+    if (m_ignoreUpdates)
+        return;
 
     removeWidget(k);
     updateVisibility();
@@ -609,7 +626,8 @@ void TargetSetupPage::updateVisibility()
 void TargetSetupPage::openOptions()
 {
     Core::ICore::instance()->showOptionsDialog(QLatin1String(ProjectExplorer::Constants::PROJECTEXPLORER_SETTINGS_CATEGORY),
-                                               QLatin1String(ProjectExplorer::Constants::KITS_SETTINGS_PAGE_ID));
+                                               QLatin1String(ProjectExplorer::Constants::KITS_SETTINGS_PAGE_ID),
+                                               this);
 }
 
 void TargetSetupPage::removeWidget(ProjectExplorer::Kit *k)

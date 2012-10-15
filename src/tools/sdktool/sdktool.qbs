@@ -4,17 +4,16 @@ import "../QtcTool.qbs" as QtcTool
 QtcTool {
     name: "sdktool"
 
-    cpp.includePaths: [buildDirectory]
-    cpp.defines: base.concat([qbs.targetOS === "mac"
-            ? 'DATA_PATH="."' : 'DATA_PATH="../share/qtcreator"'])
-
     Depends { name: "cpp" }
     Depends { name: "Qt.core" }
     Depends { name: "Utils" }
     Depends { name: "app_version_header" }
 
+    cpp.includePaths: "../../libs"
+    cpp.defines: base.concat([qbs.targetOS === "mac"
+            ? 'DATA_PATH="."' : 'DATA_PATH="../share/qtcreator"'])
+
     files: [
-        "main.cpp",
         "addkeysoperation.cpp",
         "addkeysoperation.h",
         "addkitoperation.cpp",
@@ -29,8 +28,9 @@ QtcTool {
         "findvalueoperation.h",
         "getoperation.cpp",
         "getoperation.h",
-        "operation.h",
+        "main.cpp",
         "operation.cpp",
+        "operation.h",
         "rmkeysoperation.cpp",
         "rmkeysoperation.h",
         "rmkitoperation.cpp",
@@ -40,6 +40,6 @@ QtcTool {
         "rmtoolchainoperation.cpp",
         "rmtoolchainoperation.h",
         "settings.cpp",
-        "settings.h"
+        "settings.h",
     ]
 }

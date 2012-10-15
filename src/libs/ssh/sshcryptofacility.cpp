@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "sshcryptofacility_p.h"
 
@@ -218,16 +217,14 @@ bool SshEncryptionFacility::createAuthenticationKeyFromPKCS8(const QByteArray &p
     try {
         Pipe pipe;
         pipe.process_msg(convertByteArray(privKeyFileContents), privKeyFileContents.size());
-        Private_Key * const key = PKCS8::load_key(pipe, m_rng, SshKeyPasswordRetriever());
-        if (DSA_PrivateKey * const dsaKey = dynamic_cast<DSA_PrivateKey *>(key)) {
+        const PrivateKeyPtr authKey = loadPkcs8PrivateKey(pipe, m_rng, SshKeyPasswordRetriever());
+        if (DSA_PrivateKey * const dsaKey = dynamic_cast<DSA_PrivateKey *>(authKey.data())) {
             m_authKeyAlgoName = SshCapabilities::PubKeyDss;
-            m_authKey.reset(dsaKey);
             pubKeyParams << dsaKey->group_p() << dsaKey->group_q()
                          << dsaKey->group_g() << dsaKey->get_y();
             allKeyParams << pubKeyParams << dsaKey->get_x();
-        } else if (RSA_PrivateKey * const rsaKey = dynamic_cast<RSA_PrivateKey *>(key)) {
+        } else if (RSA_PrivateKey * const rsaKey = dynamic_cast<RSA_PrivateKey *>(authKey.data())) {
             m_authKeyAlgoName = SshCapabilities::PubKeyRsa;
-            m_authKey.reset(rsaKey);
             pubKeyParams << rsaKey->get_e() << rsaKey->get_n();
             allKeyParams << pubKeyParams << rsaKey->get_p() << rsaKey->get_q()
                          << rsaKey->get_d();
@@ -235,6 +232,7 @@ bool SshEncryptionFacility::createAuthenticationKeyFromPKCS8(const QByteArray &p
             qWarning("%s: Unexpected code flow, expected success or exception.", Q_FUNC_INFO);
             return false;
         }
+        m_authKey = authKey;
     } catch (const Botan::Exception &ex) {
         error = QLatin1String(ex.what());
         return false;
@@ -291,15 +289,13 @@ bool SshEncryptionFacility::createAuthenticationKeyFromOpenSSL(const QByteArray 
         if (m_authKeyAlgoName == SshCapabilities::PubKeyDss) {
             BigInt p, q, g, y, x;
             sequence.decode (p).decode (q).decode (g).decode (y).decode (x);
-            DSA_PrivateKey * const dsaKey = new DSA_PrivateKey(m_rng, DL_Group(p, q, g), x);
-            m_authKey.reset(dsaKey);
+            m_authKey = createDsaPrivateKey(m_rng, DL_Group(p, q, g), x);
             pubKeyParams << p << q << g << y;
             allKeyParams << pubKeyParams << x;
         } else {
             BigInt p, q, e, d, n;
             sequence.decode(n).decode(e).decode(d).decode(p).decode(q);
-            RSA_PrivateKey * const rsaKey = new RSA_PrivateKey(m_rng, p, q, e, d, n);
-            m_authKey.reset(rsaKey);
+            m_authKey = createRsaPrivateKey(m_rng, p, q, e, d, n);
             pubKeyParams << e << n;
             allKeyParams << pubKeyParams << p << q << d;
         }

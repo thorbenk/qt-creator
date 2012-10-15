@@ -1,35 +1,33 @@
 /**************************************************************************
 **
-** This file is part of Qt Creator
-**
 ** Copyright (C) 2011 - 2012 Research In Motion
 **
 ** Contact: Research In Motion (blackberry-qt@qnx.com)
 ** Contact: KDAB (info@kdab.com)
 **
+** This file is part of Qt Creator.
+**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "blackberryapplicationrunner.h"
 
@@ -86,6 +84,7 @@ using namespace Qnx::Internal;
 BlackBerryApplicationRunner::BlackBerryApplicationRunner(bool debugMode, BlackBerryRunConfiguration *runConfiguration, QObject *parent)
     : QObject(parent)
     , m_debugMode(debugMode)
+    , m_slog2infoFound(true)
     , m_pid(-1)
     , m_appId(QString())
     , m_running(false)
@@ -93,6 +92,7 @@ BlackBerryApplicationRunner::BlackBerryApplicationRunner(bool debugMode, BlackBe
     , m_launchProcess(0)
     , m_stopProcess(0)
     , m_tailProcess(0)
+    , m_testSlog2Process(0)
     , m_runningStateTimer(new QTimer(this))
     , m_runningStateProcess(0)
 {
@@ -143,6 +143,17 @@ void BlackBerryApplicationRunner::start()
     m_running = true;
 }
 
+void BlackBerryApplicationRunner::checkSlog2Info()
+{
+    // Not necessary to retest if slog2info exists.
+    if (!m_testSlog2Process) {
+        m_testSlog2Process = new QSsh::SshRemoteProcessRunner(this);
+        connect(m_testSlog2Process, SIGNAL(processClosed(int)),
+                this, SLOT(handleSlog2InfoFound()));
+        m_testSlog2Process->run("slog2info", m_sshParams);
+    }
+}
+
 void BlackBerryApplicationRunner::startFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
     if (exitCode == 0 && exitStatus == QProcess::NormalExit && m_pid > -1) {
@@ -165,6 +176,12 @@ ProjectExplorer::RunControl::StopResult BlackBerryApplicationRunner::stop()
         return ProjectExplorer::RunControl::AsynchronousStop;
 
     m_stopping = true;
+
+    if (m_testSlog2Process && m_testSlog2Process->isProcessRunning()) {
+        m_testSlog2Process->cancel();
+        delete m_testSlog2Process;
+        m_testSlog2Process = 0;
+    }
 
     QStringList args;
     args << QLatin1String("-terminateApp");
@@ -236,7 +253,11 @@ void BlackBerryApplicationRunner::killTailProcess()
     QSsh::SshRemoteProcessRunner *slayProcess = new QSsh::SshRemoteProcessRunner(this);
     connect(slayProcess, SIGNAL(processClosed(int)), this, SIGNAL(finished()));
 
-    slayProcess->run("slay tail", m_sshParams);
+    if (m_slog2infoFound) {
+        slayProcess->run("slay slog2info", m_sshParams);
+    } else {
+        slayProcess->run("slay tail", m_sshParams);
+    }
 
     // Not supported by OpenSSH server
     //m_tailProcess->sendSignalToProcess(Utils::SshRemoteProcess::KillSignal);
@@ -266,10 +287,24 @@ void BlackBerryApplicationRunner::tailApplicationLog()
                 this, SLOT(handleTailConnectionError()));
     }
 
-    const QString command = QLatin1String("tail -c +1 -f /accounts/1000/appdata/") + m_appId
-            + QLatin1String("/logs/log");
-
+    QString command;
+    if (m_slog2infoFound) {
+        command = QString::fromLatin1("slog2info -w");
+    } else {
+        command = QLatin1String("tail -c +1 -f /accounts/1000/appdata/") + m_appId
+                + QLatin1String("/logs/log");
+    }
     m_tailProcess->run(command.toLatin1(), m_sshParams);
+}
+
+void BlackBerryApplicationRunner::handleSlog2InfoFound()
+{
+    QSsh::SshRemoteProcessRunner *process = qobject_cast<QSsh::SshRemoteProcessRunner *>(sender());
+    QTC_ASSERT(process, return);
+
+    m_slog2infoFound = (process->processExitCode() == 0);
+
+    tailApplicationLog();
 }
 
 void BlackBerryApplicationRunner::handleTailOutput()
@@ -278,7 +313,34 @@ void BlackBerryApplicationRunner::handleTailOutput()
     QTC_ASSERT(process, return);
 
     const QString message = QString::fromLatin1(process->readAllStandardOutput());
+    if (m_slog2infoFound) {
+        const QStringList multiLine = message.split(QLatin1Char('\n'));
+        Q_FOREACH (const QString &line, multiLine) {
+            if ( line.contains(m_appId) ) {
+                QStringList validLineBeginnings;
+                validLineBeginnings << QLatin1String("qt-msg      0  ")
+                                    << QLatin1String("qt-msg*     0  ")
+                                    << QLatin1String("                           0  ");
+                Q_FOREACH (const QString &beginning, validLineBeginnings) {
+                    if (showQtMessage(beginning, line))
+                        break;
+                }
+            }
+        }
+        return;
+    }
     emit output(message, Utils::StdOutFormat);
+}
+
+bool BlackBerryApplicationRunner::showQtMessage(const QString& pattern, const QString& line)
+{
+    const int index = line.indexOf(pattern);
+    if (index != -1) {
+        const QString str = line.right(line.length()-index-pattern.length()) + QLatin1Char('\n');
+        emit output(str, Utils::StdOutFormat);
+        return true;
+    }
+    return false;
 }
 
 void BlackBerryApplicationRunner::handleTailError()

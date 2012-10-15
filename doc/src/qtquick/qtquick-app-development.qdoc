@@ -1,10 +1,9 @@
 /****************************************************************************
 **
+** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
 ** This file is part of Qt Creator
-**
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
-**
-** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -37,7 +36,7 @@
 
     You can use the code editor (\l{Working in Edit Mode}{Edit mode}) or the
     visual editor (\l{Using Qt Quick Designer}{Design mode}) to develop Qt Quick
-    applications.
+    applications.However, the visual editor only supports Qt Quick 1.
 
     Typically, application development proceeds as follows:
 

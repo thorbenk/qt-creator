@@ -10,13 +10,7 @@ QtcPlugin {
     Depends { name: "TextEditor" }
 
     Depends { name: "cpp" }
-    cpp.includePaths: [
-        ".",
-        "../../shared/cpaster",
-        "..",
-        "../../libs",
-        buildDirectory
-    ]
+    cpp.includePaths: base.concat("../../shared/cpaster")
 
     files: [
         "codepasterprotocol.cpp",
@@ -54,7 +48,7 @@ QtcPlugin {
         "settingspage.h",
         "settingspage.ui",
         "urlopenprotocol.cpp",
-        "urlopenprotocol.h"
+        "urlopenprotocol.h",
     ]
 
     Group {
@@ -63,7 +57,7 @@ QtcPlugin {
             "cgi.cpp",
             "cgi.h",
             "splitter.cpp",
-            "splitter.h"
+            "splitter.h",
         ]
     }
 }

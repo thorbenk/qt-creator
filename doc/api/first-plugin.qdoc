@@ -1,10 +1,9 @@
-/****************************************************************************
+/**************************************************************************
+**
+** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator
-**
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
-**
-** Contact: Nokia Corporation (info@qt.nokia.com)
 **
 **
 ** GNU Free Documentation License
@@ -14,10 +13,8 @@
 ** Foundation and appearing in the file included in the packaging of this
 ** file.
 **
-** If you have questions regarding the use of this file, please contact
-** Nokia at info@qt.nokia.com.
 **
-****************************************************************************/
+**************************************************************************/
 
 /*!
     \page first-plugin.html
@@ -101,7 +98,7 @@
            plugin directory (requires you to have write permissions there).
            The other option, \gui{Local user settings}, sets your .pro file up to
            deploy your plugin into \QC's user plugin path
-           (for example \c{~/.config/Nokia/qtcreator/plugins} on Unix systems).
+           (for example \c{~/.config/QtProject/qtcreator/plugins} on Unix systems).
            We choose \gui{Qt Creator build} because we use a self-compiled
            \QC, and want the plugin to be only loaded by that \QC
            instance.
@@ -226,7 +223,7 @@
     need to add the corresponding .pri file of the plugin here.
 
     For more information about qmake, and writing .pro files in general,
-    see the \l{http://doc.qt.nokia.com/4.7/qmake-manual.html}{qmake Manual}.
+    see the \l{http://qt-project.org/doc/qt-4.8/qmake-manual.html}{qmake Manual}.
 
     \section1 Plugin Specification
 

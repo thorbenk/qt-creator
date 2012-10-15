@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "tst_testcore.h"
 
@@ -64,9 +63,6 @@
 #include <qmljs/qmljsinterpreter.h>
 
 #include <QPlainTextEdit>
-#include <private/qdeclarativestate_p.h>
-#include <private/qdeclarativemetatype_p.h>
-#include <QDeclarativeItem>
 
 //TESTED_COMPONENT=src/plugins/qmldesigner/designercore
 
@@ -332,7 +328,6 @@ void tst_TestCore::testRewriterErrors()
 
 void tst_TestCore::saveEmptyCoreModel()
 {
-    QList<QDeclarativeError> errors;
     QFile file(":/fx/empty.qml");
     QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text));
 
@@ -367,7 +362,6 @@ void tst_TestCore::saveEmptyCoreModel()
 
 void tst_TestCore::loadAttributesInCoreModel()
 {
-    QList<QDeclarativeError> errors;
     QFile file(":/fx/attributes.qml");
     QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text));
 
@@ -1816,7 +1810,7 @@ void tst_TestCore::testQmlModelView()
     QCOMPARE(node3.instanceValue("width").toInt(), 0);
 
     QCOMPARE(node3.instanceValue("x").toInt(), 20);
-    QVERIFY(!QDeclarativeMetaType::toQObject(node3.instanceValue("anchors.fill")));
+    //QVERIFY(!QDeclarativeMetaType::toQObject(node3.instanceValue("anchors.fill")));
     node3.setBindingProperty("anchors.fill", "parent");
     QCOMPARE(node3.instanceValue("x").toInt(), 0);
     QCOMPARE(node3.instanceValue("width").toInt(), 20);
@@ -4038,6 +4032,70 @@ void tst_TestCore::testMetaInfoEnums()
     QVERIFY(view->rootModelNode().metaInfo().propertyKeysForEnum("horizontalAlignment").contains(QLatin1String("AlignRight")));
 
     QApplication::processEvents();
+}
+
+void tst_TestCore::testMetaInfoQtQuick1Vs2()
+{
+    char qmlString[] = "import QtQuick 2.0\n"
+                       "Rectangle {\n"
+                            "id: root;\n"
+                            "width: 200;\n"
+                            "height: 200;\n"
+                            "color: \"white\";\n"
+                            "Text {\n"
+                                "id: text1\n"
+                                "text: \"Hello World\"\n"
+                                "anchors.centerIn: parent\n"
+                                "Item {\n"
+                                    "id: item\n"
+                                 "}\n"
+                            "}\n"
+                            "Rectangle {\n"
+                                "id: rectangle;\n"
+                                "gradient: Gradient {\n"
+                                    "GradientStop {\n"
+                                        "position: 0\n"
+                                        "color: \"white\"\n"
+                                     "}\n"
+                                     "GradientStop {\n"
+                                        "position: 1\n"
+                                        "color: \"black\"\n"
+                                     "}\n"
+                                "}\n"
+                            "}\n"
+                             "Text {\n"
+                                "text: \"text\"\n"
+                                "x: 66\n"
+                                "y: 43\n"
+                                "width: 80\n"
+                                "height: 20\n"
+                                "id: text2\n"
+                            "}\n"
+                       "}\n";
+
+    QPlainTextEdit textEdit;
+    textEdit.setPlainText(qmlString);
+    NotIndentingTextEditModifier textModifier(&textEdit);
+
+    QScopedPointer<Model> model(Model::create("QtQuick.Item"));
+    QVERIFY(model.data());
+
+    QScopedPointer<TestRewriterView> testRewriterView(new TestRewriterView());
+    testRewriterView->setTextModifier(&textModifier);
+
+    model->attachView(testRewriterView.data());
+
+    ModelNode rootModelNode = testRewriterView->rootModelNode();
+    QVERIFY(rootModelNode.isValid());
+    QCOMPARE(rootModelNode.type(), QString("QtQuick.Rectangle"));
+
+    QVERIFY(!model->metaInfo("Rectangle", 1, 0).isValid());
+    QVERIFY(model->metaInfo("Rectangle", -1, -1).isValid());
+    QVERIFY(model->metaInfo("Rectangle", 2, 0).isValid());
+
+    QVERIFY(!model->metaInfo("QtQuick.Rectangle", 1, 0).isValid());
+    QVERIFY(model->metaInfo("QtQuick.Rectangle", -1, -1).isValid());
+    QVERIFY(model->metaInfo("QtQuick.Rectangle", 2, 0).isValid());
 }
 
 void tst_TestCore::testMetaInfoProperties()

@@ -14,18 +14,8 @@ QtcPlugin {
     Depends { name: "CppTools" }
     Depends { name: "CPlusPlus" }
 
-    cpp.includePaths: [
-        ".",
-        "..",
-        "../../libs",
-        "../../libs/3rdparty",
-        buildDirectory
-    ]
-
     files: [
         "VcsBase.mimetypes.xml",
-        "vcsbase.qrc",
-        "vcsbase_global.h",
         "baseannotationhighlighter.cpp",
         "baseannotationhighlighter.h",
         "basecheckoutwizard.cpp",
@@ -65,6 +55,8 @@ QtcPlugin {
         "submiteditorfile.h",
         "submitfilemodel.cpp",
         "submitfilemodel.h",
+        "vcsbase.qrc",
+        "vcsbase_global.h",
         "vcsbaseclient.cpp",
         "vcsbaseclient.h",
         "vcsbaseclientsettings.cpp",
@@ -87,7 +79,6 @@ QtcPlugin {
         "vcsplugin.cpp",
         "vcsplugin.h",
         "images/diff.png",
-        "images/submit.png"
+        "images/submit.png",
     ]
 }
-

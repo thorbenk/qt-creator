@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "addqtoperation.h"
 
@@ -78,44 +77,72 @@ bool AddQtOperation::setArguments(const QStringList &args)
         const QString next = ((i + 1) < args.count()) ? args.at(i + 1) : QString();
 
         if (current == QLatin1String("--id")) {
-            if (next.isNull())
+            if (next.isNull()) {
+                std::cerr << "Error parsing after --id." << std::endl << std::endl;
                 return false;
+            }
             ++i; // skip next;
             m_id = next;
             continue;
         }
 
         if (current == QLatin1String("--name")) {
-            if (next.isNull())
+            if (next.isNull()) {
+                std::cerr << "Error parsing after --name." << std::endl << std::endl;
                 return false;
+            }
             ++i; // skip next;
             m_displayName = next;
             continue;
         }
 
         if (current == QLatin1String("--qmake")) {
-            if (next.isNull())
+            if (next.isNull()) {
+                std::cerr << "Error parsing after --qmake." << std::endl << std::endl;
                 return false;
+            }
             ++i; // skip next;
             m_qmake = next;
             continue;
         }
 
         if (current == QLatin1String("--type")) {
-            if (next.isNull())
+            if (next.isNull()) {
+                std::cerr << "Error parsing after --type." << std::endl << std::endl;
                 return false;
+            }
             ++i; // skip next;
             m_type = next;
             continue;
         }
 
-        if (next.isNull())
+        if (next.isNull()) {
+            std::cerr << "Unknown parameter: " << qPrintable(current) << std::endl << std::endl;
             return false;
+        }
         ++i; // skip next;
         KeyValuePair pair(current, next);
-        if (!pair.value.isValid())
+        if (!pair.value.isValid()) {
+            std::cerr << "Error parsing: " << qPrintable(current) << " " << qPrintable(next) << std::endl << std::endl;
             return false;
+        }
         m_extra << pair;
+    }
+
+    if (m_id.isEmpty()) {
+        std::cerr << "Error no id was passed." << std::endl << std::endl;
+    }
+
+    if (m_displayName.isEmpty()) {
+        std::cerr << "Error no display name was passed." << std::endl << std::endl;
+    }
+
+    if (m_qmake.isEmpty()) {
+        std::cerr << "Error no qmake was passed." << std::endl << std::endl;
+    }
+
+    if (m_type.isEmpty()) {
+        std::cerr << "Error no type was passed." << std::endl << std::endl;
     }
 
     return !m_id.isEmpty() && !m_displayName.isEmpty() && !m_qmake.isEmpty() && !m_type.isEmpty();
@@ -149,14 +176,14 @@ bool AddQtOperation::test() const
                 QLatin1String("/tmp/test/qmake"),
                 KeyValuePairList() << KeyValuePair(QLatin1String("extraData"), QVariant(QLatin1String("extraValue"))));
 
-    if (!map.count() == 2
+    if (map.count() != 2
             || !map.contains(QLatin1String(VERSION))
             || map.value(QLatin1String(VERSION)).toInt() != 1
             || !map.contains(QLatin1String("QtVersion.0")))
         return false;
 
     QVariantMap version0 = map.value(QLatin1String("QtVersion.0")).toMap();
-    if (!version0.count() == 6
+    if (version0.count() != 7
             || !version0.contains(QLatin1String(ID))
             || version0.value(QLatin1String(ID)).toInt() != -1
             || !version0.contains(QLatin1String(DISPLAYNAME))
@@ -184,7 +211,7 @@ bool AddQtOperation::test() const
     map = addQt(map, QLatin1String("testId2"), QLatin1String("Test Qt Version"), QLatin1String("testType3"),
                    QLatin1String("/tmp/test/qmake2"),
                    KeyValuePairList() << KeyValuePair(QLatin1String("extraData"), QVariant(QLatin1String("extraValue"))));
-    if (!map.count() == 3
+    if (map.count() != 3
             || !map.contains(QLatin1String(VERSION))
             || map.value(QLatin1String(VERSION)).toInt() != 1
             || !map.contains(QLatin1String("QtVersion.0"))
@@ -195,7 +222,7 @@ bool AddQtOperation::test() const
         return false;
 
     QVariantMap version1 = map.value(QLatin1String("QtVersion.1")).toMap();
-    if (!version1.count() == 6
+    if (version1.count() != 7
             || !version1.contains(QLatin1String(ID))
             || version1.value(QLatin1String(ID)).toInt() != -1
             || !version1.contains(QLatin1String(DISPLAYNAME))

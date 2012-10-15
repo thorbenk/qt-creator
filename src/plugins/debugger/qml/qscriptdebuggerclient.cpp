@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 #include "qscriptdebuggerclient.h"
 
 #include "watchdata.h"
@@ -402,6 +401,7 @@ void QScriptDebuggerClient::messageReceived(const QByteArray &data)
     stream >> command;
 
     WatchHandler *watchHandler = d->engine->watchHandler();
+    StackHandler *stackHandler = d->engine->stackHandler();
 
     if (command == "STOPPED") {
         d->engine->inferiorSpontaneousStop();
@@ -427,35 +427,7 @@ void QScriptDebuggerClient::messageReceived(const QByteArray &data)
             ideStackFrames << frame;
         }
 
-        if (ideStackFrames.size() && ideStackFrames.back().function == QLatin1String("<global>"))
-            ideStackFrames.takeLast();
-
-        d->engine->stackHandler()->setFrames(ideStackFrames);
-
-        bool needPing = false;
-
-        foreach (WatchData data, watches) {
-            data.iname = watchHandler->watcherName(data.exp);
-            watchHandler->insertIncompleteData(data);
-
-            if (watchHandler->isExpandedIName(data.iname) && qint64(data.id) != -1) {
-                needPing = true;
-                expandObject(data.iname,data.id);
-            }
-        }
-
-        foreach (WatchData data, locals) {
-            data.iname = "local." + data.exp;
-            watchHandler->insertIncompleteData(data);
-
-            if (watchHandler->isExpandedIName(data.iname) && qint64(data.id) != -1) {
-                needPing = true;
-                expandObject(data.iname,data.id);
-            }
-        }
-
-        if (needPing)
-            sendPing();
+        stackHandler->setFrames(ideStackFrames);
 
         bool becauseOfException;
         stream >> becauseOfException;
@@ -503,6 +475,8 @@ void QScriptDebuggerClient::messageReceived(const QByteArray &data)
         if (!ideStackFrames.isEmpty())
             d->engine->gotoLocation(ideStackFrames.value(0));
 
+        insertLocalsAndWatches(locals, watches, stackHandler->currentIndex());
+
     } else if (command == "RESULT") {
         WatchData data;
         QByteArray iname;
@@ -512,12 +486,12 @@ void QScriptDebuggerClient::messageReceived(const QByteArray &data)
                              +  QLatin1String(iname) + QLatin1Char(' ') + data.value);
         data.iname = iname;
         if (iname.startsWith("watch.")) {
-            watchHandler->insertIncompleteData(data);
+            watchHandler->insertData(data);
         } else if (iname == "console") {
-            d->engine->showMessage(data.value, QtMessageLogOutput);
+            d->engine->showMessage(data.value, ConsoleOutput);
         } else if (iname.startsWith("local.")) {
             data.name = data.name.left(data.name.indexOf(QLatin1Char(' ')));
-            watchHandler->insertIncompleteData(data);
+            watchHandler->insertData(data);
         } else {
             qWarning() << "QmlEngine: Unexcpected result: " << iname << data.value;
         }
@@ -532,7 +506,7 @@ void QScriptDebuggerClient::messageReceived(const QByteArray &data)
 
         foreach (WatchData data, result) {
             data.iname = iname + '.' + data.exp;
-            watchHandler->insertIncompleteData(data);
+            watchHandler->insertData(data);
 
             if (watchHandler->isExpandedIName(data.iname) && qint64(data.id) != -1) {
                 needPing = true;
@@ -553,27 +527,8 @@ void QScriptDebuggerClient::messageReceived(const QByteArray &data)
         d->logReceiveMessage(QString::fromLatin1("%1 %2 (%3 x locals) (%4 x watchdata)").arg(
                              QLatin1String(command), QString::number(frameId),
                              QString::number(locals.size()), QString::number(watches.size())));
-        bool needPing = false;
-        foreach (WatchData data, watches) {
-            data.iname = watchHandler->watcherName(data.exp);
-            watchHandler->insertIncompleteData(data);
 
-            if (watchHandler->isExpandedIName(data.iname) && qint64(data.id) != -1) {
-                needPing = true;
-                expandObject(data.iname, data.id);
-            }
-        }
-
-        foreach (WatchData data, locals) {
-            data.iname = "local." + data.exp;
-            watchHandler->insertIncompleteData(data);
-            if (watchHandler->isExpandedIName(data.iname) && qint64(data.id) != -1) {
-                needPing = true;
-                expandObject(data.iname, data.id);
-            }
-        }
-        if (needPing)
-            sendPing();
+        insertLocalsAndWatches(locals, watches, frameId);
 
     } else if (command == "PONG") {
         int ping;
@@ -586,9 +541,50 @@ void QScriptDebuggerClient::messageReceived(const QByteArray &data)
 
 }
 
+void QScriptDebuggerClient::insertLocalsAndWatches(QList<WatchData> &locals,
+                                                   QList<WatchData> &watches,
+                                                   int stackFrameIndex)
+{
+    WatchHandler *watchHandler = d->engine->watchHandler();
+    watchHandler->removeAllData();
+    if (stackFrameIndex < 0)
+        return;
+    const StackFrame frame = d->engine->stackHandler()->frameAt(stackFrameIndex);
+    if (!frame.isUsable())
+        return;
+
+    bool needPing = false;
+    foreach (WatchData data, watches) {
+        data.iname = watchHandler->watcherName(data.exp);
+        watchHandler->insertData(data);
+
+        if (watchHandler->isExpandedIName(data.iname) && qint64(data.id) != -1) {
+            needPing = true;
+            expandObject(data.iname, data.id);
+        }
+    }
+
+    foreach (WatchData data, locals) {
+        if (data.name == QLatin1String("<no initialized data>"))
+            data.name = tr("No Local Variables");
+        data.iname = "local." + data.exp;
+        watchHandler->insertData(data);
+
+        if (watchHandler->isExpandedIName(data.iname) && qint64(data.id) != -1) {
+            needPing = true;
+            expandObject(data.iname, data.id);
+        }
+    }
+
+    if (needPing)
+        sendPing();
+    emit stackFrameCompleted();
+}
+
 void QScriptDebuggerClient::setEngine(QmlEngine *engine)
 {
     d->engine = engine;
+    connect(this, SIGNAL(stackFrameCompleted()), engine, SIGNAL(stackFrameCompleted()));
 }
 
 void QScriptDebuggerClientPrivate::logSendMessage(const QString &msg) const

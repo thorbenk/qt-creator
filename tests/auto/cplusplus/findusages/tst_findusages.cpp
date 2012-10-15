@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include <QtTest>
 #include <QObject>
@@ -78,6 +77,7 @@ class tst_FindUsages: public QObject
 
 private Q_SLOTS:
     void inlineMethod();
+//    void lambdaArg();
 
     // Qt keywords
     void qproperty_1();
@@ -123,6 +123,40 @@ void tst_FindUsages::inlineMethod()
     QCOMPARE(findUsages.usages().size(), 2);
     QCOMPARE(findUsages.references().size(), 2);
 }
+
+#if 0 /* see QTCREATORBUG-7968 */
+void tst_FindUsages::lambdaArg()
+{
+    const QByteArray src = "\n"
+                           "void f() {\n"
+                           "  int test;\n"
+                           "  [test] { ++test; };\n"
+                           "}\n";
+    Document::Ptr doc = Document::create("lambdaArg");
+    doc->setUtf8Source(src);
+    doc->parse();
+    doc->check();
+
+    QVERIFY(doc->diagnosticMessages().isEmpty());
+    QCOMPARE(doc->globalSymbolCount(), 1U);
+
+    Snapshot snapshot;
+    snapshot.insert(doc);
+
+    Function *f = doc->globalSymbolAt(0)->asFunction();
+    QVERIFY(f);
+    QCOMPARE(f->memberCount(), 1U);
+    Block *b = f->memberAt(0)->asBlock();
+    QCOMPARE(b->memberCount(), 2U);
+    Declaration *d = b->memberAt(0)->asDeclaration();
+    QVERIFY(d);
+    QCOMPARE(d->name()->identifier()->chars(), "test");
+
+    FindUsages findUsages(src, doc, snapshot);
+    findUsages(d);
+    QCOMPARE(findUsages.usages().size(), 3);
+}
+#endif
 
 #if 0
 @interface Clazz {} +(void)method:(int)arg; @end

@@ -1,10 +1,9 @@
 /****************************************************************************
 **
+** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
 ** This file is part of Qt Creator
-**
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
-**
-** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -32,6 +31,8 @@
     \title Using Qt Quick Designer
 
     You can edit .qml files in the \QMLD visual editor or in the code editor.
+
+    \note \QMLD only supports Qt Quick 1.
 
     In \gui Projects, double-click a .qml file to open it in the code editor.
     Then select the \gui {Design} mode to edit the file in the visual editor.

@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "qmlv8debuggerclient.h"
 #include "qmlv8debuggerclientconstants.h"
@@ -37,11 +36,15 @@
 #include "breakhandler.h"
 #include "qmlengine.h"
 #include "stackhandler.h"
-#include "qtmessageloghandler.h"
+#include "debuggercore.h"
+#include "debuggeractions.h"
 
 #include <utils/qtcassert.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <texteditor/basetexteditor.h>
+
+#include <qmljs/consolemanagerinterface.h>
+#include <qmljs/consoleitem.h>
 
 #include <QTextBlock>
 #include <QVariant>
@@ -117,19 +120,14 @@ public:
     void version();
     //void profile(ProfileCommand command); //NOT SUPPORTED
     void gc();
-
-    QmlV8ObjectData extractData(const QVariant &data, const QVariant &refsVal);
     void clearCache();
 
     void logSendMessage(const QString &msg) const;
     void logReceiveMessage(const QString &msg) const;
 
-    QtMessageLogItem *constructLogItemTree(QtMessageLogItem *parent,
-                                           const QmlV8ObjectData &objectData, const QVariant &refsVal);
 private:
     QByteArray packMessage(const QByteArray &type, const QByteArray &message = QByteArray());
     QScriptValue initObject();
-    QVariant valueFromRef(int handle, const QVariant &refsVal, bool *success);
 
 public:
     QmlV8DebuggerClient *q;
@@ -762,8 +760,23 @@ void QmlV8DebuggerClientPrivate::gc()
     q->sendMessage(packMessage(V8REQUEST, jsonMessage.toString().toUtf8()));
 }
 
-QmlV8ObjectData QmlV8DebuggerClientPrivate::extractData(const QVariant &data,
-                                                        const QVariant &refsVal)
+QVariant valueFromRef(int handle, const QVariant &refsVal, bool *success)
+{
+    *success = false;
+    QVariant variant;
+    const QVariantList refs = refsVal.toList();
+    foreach (const QVariant &ref, refs) {
+        const QVariantMap refData = ref.toMap();
+        if (refData.value(_(HANDLE)).toInt() == handle) {
+            variant = refData;
+            *success = true;
+            break;
+        }
+    }
+    return variant;
+}
+
+QmlV8ObjectData extractData(const QVariant &data, const QVariant &refsVal)
 {
     //    { "handle" : <handle>,
     //      "type"   : <"undefined", "null", "boolean", "number", "string", "object", "function" or "frame">
@@ -901,24 +914,6 @@ QScriptValue QmlV8DebuggerClientPrivate::initObject()
     return jsonVal;
 }
 
-QVariant QmlV8DebuggerClientPrivate::valueFromRef(int handle,
-                                           const QVariant &refsVal,
-                                           bool *success)
-{
-    *success = false;
-    QVariant variant;
-    const QVariantList refs = refsVal.toList();
-    foreach (const QVariant &ref, refs) {
-        const QVariantMap refData = ref.toMap();
-        if (refData.value(_(HANDLE)).toInt() == handle) {
-            variant = refData;
-            *success = true;
-            break;
-        }
-    }
-    return variant;
-}
-
 void QmlV8DebuggerClientPrivate::logSendMessage(const QString &msg) const
 {
     if (engine)
@@ -929,34 +924,6 @@ void QmlV8DebuggerClientPrivate::logReceiveMessage(const QString &msg) const
 {
     if (engine)
         engine->logMessage(QLatin1String("V8DebuggerClient"), QmlEngine::LogReceive, msg);
-}
-
-QtMessageLogItem *QmlV8DebuggerClientPrivate::constructLogItemTree(
-        QtMessageLogItem *parent,
-        const QmlV8ObjectData &objectData,
-        const QVariant &refsVal)
-{
-    if (!objectData.value.isValid())
-        return 0;
-
-    QString text;
-    if (objectData.name.isEmpty())
-        text = objectData.value.toString();
-    else
-        text = QString(_("%1: %2")).arg(QString::fromLatin1(objectData.name))
-                .arg(objectData.value.toString());
-
-    QtMessageLogItem *item = new QtMessageLogItem(parent,
-                                                  QtMessageLogHandler::UndefinedType, text);
-
-    foreach (const QVariant &property, objectData.properties) {
-        QtMessageLogItem *child = constructLogItemTree(
-                    item, extractData(property, refsVal), refsVal);
-        if (child)
-            item->insertChild(child);
-    }
-
-    return item;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -978,8 +945,6 @@ QmlV8DebuggerClient::~QmlV8DebuggerClient()
 
 void QmlV8DebuggerClient::startSession()
 {
-    //Supports v2.0 and above
-    QTC_ASSERT(serviceVersion() >= CURRENT_SUPPORTED_VERSION, return);
     flushSendBuffer();
     d->connect();
     //Query for the V8 version. This is
@@ -1128,9 +1093,8 @@ void QmlV8DebuggerClient::assignValueInDebugger(const WatchData * /*data*/,
         d->evaluate(expression, false, false, stackHandler->currentIndex());
         d->updateLocalsAndWatchers.append(d->sequence);
     } else {
-        d->engine->showMessage(QString(_("Cannot evaluate"
-                                         "%1 in current stack frame")).
-                               arg(expression), QtMessageLogOutput);
+        d->engine->showMessage(QString(_("Cannot evaluate %1 in current stack frame")).arg(
+                                   expression), ConsoleOutput);
     }
 }
 
@@ -1147,9 +1111,8 @@ void QmlV8DebuggerClient::executeDebuggerCommand(const QString &command)
         d->debuggerCommands.append(d->sequence);
     } else {
         //Currently cannot evaluate if not in a javascript break
-        d->engine->showMessage(QString(_("Cannot evaluate %1"
-                                         "in current stack frame")).
-                               arg(command), QtMessageLogOutput);
+        d->engine->showMessage(QString(_("Cannot evaluate %1 in current stack frame")).arg(
+                                   command), ConsoleOutput);
     }
 }
 
@@ -1189,6 +1152,7 @@ void QmlV8DebuggerClient::expandObject(const QByteArray &iname, quint64 objectId
 void QmlV8DebuggerClient::setEngine(QmlEngine *engine)
 {
     d->engine = engine;
+    connect(this, SIGNAL(stackFrameCompleted()), engine, SIGNAL(stackFrameCompleted()));
 }
 
 void QmlV8DebuggerClient::getSourceFiles()
@@ -1632,17 +1596,17 @@ StackFrame QmlV8DebuggerClient::extractStackFrame(const QVariant &bodyVal, const
         return stackFrame;
     }
 
-    QmlV8ObjectData objectData = d->extractData(body.value(_("func")), refsVal);
+    QmlV8ObjectData objectData = extractData(body.value(_("func")), refsVal);
     QString functionName = objectData.value.toString();
     if (functionName.isEmpty())
-        functionName = tr("anonymous function");
+        functionName = tr("Anonymous Function");
     stackFrame.function = functionName;
 
-    objectData = d->extractData(body.value(_("script")), refsVal);
+    objectData = extractData(body.value(_("script")), refsVal);
     stackFrame.file = d->engine->toFileInProject(objectData.value.toString());
     stackFrame.usable = QFileInfo(stackFrame.file).isReadable();
 
-    objectData = d->extractData(body.value(_("receiver")), refsVal);
+    objectData = extractData(body.value(_("receiver")), refsVal);
     stackFrame.to = objectData.value.toString();
 
     stackFrame.line = body.value(_("line")).toInt() + 1;
@@ -1685,16 +1649,24 @@ void QmlV8DebuggerClient::setCurrentFrameDetails(const QVariant &bodyVal, const 
     QVariantMap currentFrame = bodyVal.toMap();
 
     StackHandler *stackHandler = d->engine->stackHandler();
-
+    WatchHandler * watchHandler = d->engine->watchHandler();
     d->clearCache();
+
+    const int frameIndex = stackHandler->currentIndex();
+    watchHandler->removeAllData();
+    if (frameIndex < 0)
+        return;
+    const StackFrame frame = stackHandler->currentFrame();
+    if (!frame.isUsable())
+        return;
+
     //Set "this" variable
     {
         WatchData data;
         data.exp = QByteArray("this");
         data.name = QLatin1String(data.exp);
         data.iname = QByteArray("local.") + data.exp;
-        QmlV8ObjectData objectData = d->extractData(
-                    currentFrame.value(_("receiver")), refsVal);
+        QmlV8ObjectData objectData = extractData(currentFrame.value(_("receiver")), refsVal);
         data.id = objectData.handle;
         data.type = objectData.type;
         data.value = objectData.value.toString();
@@ -1705,7 +1677,7 @@ void QmlV8DebuggerClient::setCurrentFrameDetails(const QVariant &bodyVal, const 
             data.setHasChildren(true);
             data.id = 0;
         }
-        d->engine->watchHandler()->insertData(data);
+        watchHandler->insertData(data);
     }
 
     const QVariantList currentFrameScopes = currentFrame.value(_("scopes")).toList();
@@ -1719,6 +1691,7 @@ void QmlV8DebuggerClient::setCurrentFrameDetails(const QVariant &bodyVal, const 
         d->scope(scopeIndex);
     }
     d->engine->gotoLocation(stackHandler->currentFrame());
+    emit stackFrameCompleted();
 }
 
 void QmlV8DebuggerClient::updateScope(const QVariant &bodyVal, const QVariant &refsVal)
@@ -1751,12 +1724,12 @@ void QmlV8DebuggerClient::updateScope(const QVariant &bodyVal, const QVariant &r
     if (bodyMap.value(_("frameIndex")).toInt() != stackHandler->currentIndex())
         return;
 
-    QmlV8ObjectData objectData = d->extractData(bodyMap.value(_("object")), refsVal);
+    QmlV8ObjectData objectData = extractData(bodyMap.value(_("object")), refsVal);
 
     QList<int> handlesToLookup;
     QList<WatchData> locals;
     foreach (const QVariant &property, objectData.properties) {
-        QmlV8ObjectData localData = d->extractData(property, refsVal);
+        QmlV8ObjectData localData = extractData(property, refsVal);
         WatchData data;
         data.exp = localData.name;
         //Check for v8 specific local data
@@ -1786,8 +1759,36 @@ void QmlV8DebuggerClient::updateScope(const QVariant &bodyVal, const QVariant &r
         d->engine->watchHandler()->insertData(locals);
 }
 
-void QmlV8DebuggerClient::updateEvaluationResult(int sequence, bool success, const QVariant &bodyVal,
+QmlJS::ConsoleItem *constructLogItemTree(QmlJS::ConsoleItem *parent,
+                                                 const QmlV8ObjectData &objectData,
                                                  const QVariant &refsVal)
+{
+    using namespace QmlJS;
+    bool sorted = debuggerCore()->boolSetting(SortStructMembers);
+    if (!objectData.value.isValid())
+        return 0;
+
+    QString text;
+    if (objectData.name.isEmpty())
+        text = objectData.value.toString();
+    else
+        text = QString(_("%1: %2")).arg(QString::fromAscii(objectData.name))
+                .arg(objectData.value.toString());
+
+    ConsoleItem *item = new ConsoleItem(parent, ConsoleItem::UndefinedType, text);
+
+    foreach (const QVariant &property, objectData.properties) {
+        ConsoleItem *child = constructLogItemTree(item, extractData(property, refsVal),
+                                                     refsVal);
+        if (child)
+            item->insertChild(child, sorted);
+    }
+
+    return item;
+}
+
+void QmlV8DebuggerClient::updateEvaluationResult(int sequence, bool success,
+                                                 const QVariant &bodyVal, const QVariant &refsVal)
 {
     //    { "seq"         : <number>,
     //      "type"        : "response",
@@ -1811,17 +1812,20 @@ void QmlV8DebuggerClient::updateEvaluationResult(int sequence, bool success, con
 
     } else if (d->debuggerCommands.contains(sequence)) {
         d->updateLocalsAndWatchers.removeOne(sequence);
-        QmlV8ObjectData body = d->extractData(bodyVal, refsVal);
-        QtMessageLogItem *item = d->constructLogItemTree(d->engine->qtMessageLogHandler()->root(),
-                                                         body, refsVal);
-        if (item)
-            d->engine->qtMessageLogHandler()->appendItem(item);
+        QmlV8ObjectData body = extractData(bodyVal, refsVal);
+        using namespace QmlJS;
+        ConsoleManagerInterface *consoleManager = ConsoleManagerInterface::instance();
+        if (consoleManager) {
+            ConsoleItem *item = constructLogItemTree(consoleManager->rootItem(), body, refsVal);
+            if (item)
+                consoleManager->printToConsolePane(item);
+        }
         //Update the locals
         foreach (int index, d->currentFrameScopes)
             d->scope(index);
 
     } else {
-        QmlV8ObjectData body = d->extractData(bodyVal, refsVal);
+        QmlV8ObjectData body = extractData(bodyVal, refsVal);
         if (d->evaluatingExpression.contains(sequence)) {
             QString exp =  d->evaluatingExpression.take(sequence);
             QList<WatchData> watchDataList;
@@ -1920,7 +1924,7 @@ void QmlV8DebuggerClient::expandLocalsAndWatchers(const QVariant &bodyVal, const
     QStringList handlesList = body.keys();
     WatchHandler *watchHandler = d->engine->watchHandler();
     foreach (const QString &handle, handlesList) {
-        QmlV8ObjectData bodyObjectData = d->extractData(
+        QmlV8ObjectData bodyObjectData = extractData(
                     body.value(handle), refsVal);
         QByteArray prepend = d->localsAndWatchers.take(handle.toInt());
 
@@ -1957,7 +1961,7 @@ QList<WatchData> QmlV8DebuggerClient::createWatchDataList(const WatchData *paren
     if (properties.count()) {
         QTC_ASSERT(parent, return watchDataList);
         foreach (const QVariant &property, properties) {
-            QmlV8ObjectData propertyData = d->extractData(property, refsVal);
+            QmlV8ObjectData propertyData = extractData(property, refsVal);
             WatchData data;
             data.name = QString::fromUtf8(propertyData.name);
 
@@ -2023,7 +2027,7 @@ void QmlV8DebuggerClient::highlightExceptionCode(int lineNumber,
 
             QString message = QString(_("%1: %2: %3")).arg(filePath).arg(lineNumber)
                     .arg(errorMessage);
-            d->engine->showMessage(message, QtMessageLogOutput);
+            d->engine->showMessage(message, ConsoleOutput);
         }
     }
 }

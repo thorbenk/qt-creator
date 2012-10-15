@@ -1,32 +1,31 @@
 /**************************************************************************
 **
-** This file is part of Qt Creator
-**
 ** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
+** Contact: http://www.qt-project.org/legal
 **
-** Contact: http://www.qt-project.org/
+** This file is part of Qt Creator.
 **
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "androidrunner.h"
 
@@ -96,7 +95,7 @@ void AndroidRunner::checkPID()
 
     if (-1 != m_processPID && pid == -1) {
         m_processPID = -1;
-        emit remoteProcessFinished(tr("\n\n'%1' died").arg(m_packageName));
+        emit remoteProcessFinished(tr("\n\n'%1' died.").arg(m_packageName));
         return;
     }
     m_processPID = pid;
@@ -151,11 +150,11 @@ void AndroidRunner::asyncStart()
                   << QString::fromLatin1("localfilesystem:/data/data/%1/debug-socket").arg(m_packageName);
         adbStarProc.start(AndroidConfigurations::instance().adbToolPath().toString(), arguments);
         if (!adbStarProc.waitForStarted()) {
-            emit remoteProcessFinished(tr("Failed to forward C++ debugging ports. Reason: %1").arg(adbStarProc.errorString()));
+            emit remoteProcessFinished(tr("Failed to forward C++ debugging ports. Reason: %1.").arg(adbStarProc.errorString()));
             return;
         }
         if (!adbStarProc.waitForFinished(-1)) {
-            emit remoteProcessFinished(tr("Failed to forward C++ debugging ports"));
+            emit remoteProcessFinished(tr("Failed to forward C++ debugging ports."));
             return;
         }
         extraParams = QLatin1String("-e native_debug true -e gdbserver_socket +debug-socket");
@@ -167,11 +166,11 @@ void AndroidRunner::asyncStart()
                   << QLatin1String("forward") << port << port; // currently forward to same port on device and host
         adbStarProc.start(AndroidConfigurations::instance().adbToolPath().toString(), arguments);
         if (!adbStarProc.waitForStarted()) {
-            emit remoteProcessFinished(tr("Failed to forward QML debugging ports. Reason: %1").arg(adbStarProc.errorString()));
+            emit remoteProcessFinished(tr("Failed to forward QML debugging ports. Reason: %1.").arg(adbStarProc.errorString()));
             return;
         }
         if (!adbStarProc.waitForFinished(-1)) {
-            emit remoteProcessFinished(tr("Failed to forward QML debugging ports"));
+            emit remoteProcessFinished(tr("Failed to forward QML debugging ports."));
             return;
         }
         extraParams+=QString::fromLatin1(" -e qml_debug true -e qmljsdebugger port:%1")
@@ -196,12 +195,12 @@ void AndroidRunner::asyncStart()
 
     adbStarProc.start(AndroidConfigurations::instance().adbToolPath().toString(), arguments);
     if (!adbStarProc.waitForStarted()) {
-        emit remoteProcessFinished(tr("Failed to start the activity. Reason: %1").arg(adbStarProc.errorString()));
+        emit remoteProcessFinished(tr("Failed to start the activity. Reason: %1.").arg(adbStarProc.errorString()));
         return;
     }
     if (!adbStarProc.waitForFinished(-1)) {
         adbStarProc.terminate();
-        emit remoteProcessFinished(tr("Unable to start '%1'").arg(m_packageName));
+        emit remoteProcessFinished(tr("Unable to start '%1'.").arg(m_packageName));
         return;
     }
     QTime startTime = QTime::currentTime();
@@ -209,7 +208,7 @@ void AndroidRunner::asyncStart()
         checkPID();
     }
     if (m_processPID == -1) {
-        emit remoteProcessFinished(tr("Cannot find %1 process").arg(m_packageName));
+        emit remoteProcessFinished(tr("Cannot find %1 process.").arg(m_packageName));
         return;
     }
 
@@ -246,7 +245,7 @@ void AndroidRunner::stop()
 void AndroidRunner::asyncStop()
 {
     killPID();
-    emit remoteProcessFinished(tr("\n\n'%1' killed").arg(m_packageName));
+    emit remoteProcessFinished(tr("\n\n'%1' killed.").arg(m_packageName));
 }
 
 void AndroidRunner::logcatReadStandardError()

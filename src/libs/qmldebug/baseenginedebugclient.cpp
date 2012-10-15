@@ -1,31 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "baseenginedebugclient.h"
 #include "qmldebugconstants.h"
@@ -76,8 +76,8 @@ void BaseEngineDebugClient::decode(QDataStream &ds,
     QmlObjectData data;
     ds >> data;
     int parentId = -1;
-    if (objectName() == QLatin1String("QmlDebugger") &&
-            serviceVersion() >= Constants::CURRENT_SUPPORTED_VERSION )
+    // qt > 4.8.3
+    if (objectName() != QLatin1String(Constants::QDECLARATIVE_ENGINE))
         ds >> parentId;
     o.m_debugId = data.objectId;
     o.m_className = data.objectType;
@@ -184,19 +184,15 @@ void BaseEngineDebugClient::messageReceived(const QByteArray &data)
     QDataStream ds(data);
     int queryId;
     QByteArray type;
-    ds >> type;
+    ds >> type >> queryId;
 
     if (type == "OBJECT_CREATED") {
         int engineId;
         int objectId;
-        ds >> engineId >> objectId;
-        emit newObject(engineId, objectId, -1);
-        return;
-    }
-
-    ds >> queryId;
-
-    if (type == "LIST_ENGINES_R") {
+        int parentId;
+        ds >> engineId >> objectId >> parentId;
+        emit newObject(engineId, objectId, parentId);
+    } else if (type == "LIST_ENGINES_R") {
         int count;
         ds >> count;
         QList<EngineReference> engines;
@@ -398,7 +394,7 @@ quint32 BaseEngineDebugClient::setBindingForObject(
         id = getId();
         QByteArray message;
         QDataStream ds(&message, QIODevice::WriteOnly);
-        ds << QByteArray("SET_BINDING") << objectDebugId << propertyName
+        ds << QByteArray("SET_BINDING") << id << objectDebugId << propertyName
            << bindingExpression << isLiteralValue << source << line;
         sendMessage(message);
     }
@@ -414,7 +410,7 @@ quint32 BaseEngineDebugClient::resetBindingForObject(
         id = getId();
         QByteArray message;
         QDataStream ds(&message, QIODevice::WriteOnly);
-        ds << QByteArray("RESET_BINDING") << objectDebugId << propertyName;
+        ds << QByteArray("RESET_BINDING") << id << objectDebugId << propertyName;
         sendMessage(message);
     }
     return id;
@@ -429,7 +425,7 @@ quint32 BaseEngineDebugClient::setMethodBody(
         id = getId();
         QByteArray message;
         QDataStream ds(&message, QIODevice::WriteOnly);
-        ds << QByteArray("SET_METHOD_BODY") << objectDebugId
+        ds << QByteArray("SET_METHOD_BODY") << id << objectDebugId
            << methodName << methodBody;
         sendMessage(message);
     }

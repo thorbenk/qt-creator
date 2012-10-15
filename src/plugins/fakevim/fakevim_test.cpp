@@ -1,32 +1,31 @@
 /**************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Lukas Holecek <hluk@email.cz>
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Lukas Holecek <hluk@email.cz>
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 /*!
  * Tests for FakeVim plugin.
@@ -122,14 +121,12 @@ struct TestData
 
     void setText(const QString &text)
     {
-        QTextCursor tc = cursor();
         QString str = text;
         int i = str.indexOf(cursorString);
         if (!cursorString.isEmpty() && i != -1)
             str.remove(i, 1);
         edit->document()->setPlainText(str);
-        tc.setPosition(qMax(0, i));
-        edit->setTextCursor(tc);
+        handler->setTextCursorPosition(i);
     }
 
     void doCommand(const QString &cmd) { handler->handleCommand(cmd); }
@@ -224,6 +221,52 @@ void FakeVimPlugin::test_vim_fFtT()
     KEYS("2F(", "123()456" N "a(b" X "(c)d)e");
     KEYS("l2F(", "123()456" N "a" X "(b(c)d)e");
     KEYS("F(", "123()456" N "a" X "(b(c)d)e");
+}
+
+void FakeVimPlugin::test_vim_transform_numbers()
+{
+    TestData data;
+    setup(&data);
+
+    data.setText("8");
+    KEYS("<c-a>", X "9");
+    KEYS("<c-x>", X "8");
+    KEYS("<c-a>", X "9");
+    KEYS("<c-a>", "1" X "0");
+    KEYS("<c-a>", "1" X "1");
+    KEYS("5<c-a>", "1" X "6");
+    KEYS("10<c-a>", "2" X "6");
+    KEYS("h100<c-a>", "12" X "6");
+    KEYS("100<c-x>", "2" X "6");
+    KEYS("10<c-x>", "1" X "6");
+    KEYS("5<c-x>", "1" X "1");
+    KEYS("5<c-x>", X "6");
+    KEYS("6<c-x>", X "0");
+    KEYS("<c-x>", "-" X "1");
+    KEYS("h10<c-x>", "-1" X "1");
+    KEYS("h100<c-x>", "-11" X "1");
+    KEYS("h889<c-x>", "-100" X "0");
+
+    // increase nearest number
+    data.setText("x-x+x: 1 2 3 -4 5");
+    KEYS("8<c-a>", "x-x+x: " X "9 2 3 -4 5");
+    KEYS("l8<c-a>", "x-x+x: 9 1" X "0 3 -4 5");
+    KEYS("l8<c-a>", "x-x+x: 9 10 1" X "1 -4 5");
+    KEYS("l16<c-a>", "x-x+x: 9 10 11 1" X "2 5");
+    KEYS("w18<c-x>", "x-x+x: 9 10 11 12 -1" X "3");
+    KEYS("hh13<c-a>", "x-x+x: 9 10 11 12 " X "0");
+    KEYS("B12<c-x>", "x-x+x: 9 10 11 " X "0 0");
+    KEYS("B11<c-x>", "x-x+x: 9 10 " X "0 0 0");
+    KEYS("B10<c-x>", "x-x+x: 9 " X "0 0 0 0");
+    KEYS("B9<c-x>", "x-x+x: " X "0 0 0 0 0");
+    KEYS("B9<c-x>", "x-x+x: -" X "9 0 0 0 0");
+
+    data.setText("-- 1 --");
+    KEYS("<c-x>", "-- " X "0 --");
+    KEYS("<c-x><c-x>", "-- -" X "2 --");
+    KEYS("2<c-a><c-a>", "-- " X "1 --");
+    KEYS("<c-a>2<c-a>", "-- " X "4 --");
+    KEYS(".", "-- " X "6 --");
 }
 
 void FakeVimPlugin::test_vim_delete()
@@ -404,19 +447,50 @@ void FakeVimPlugin::test_vim_block_selection()
 
 void FakeVimPlugin::test_vim_repeat()
 {
-    NOT_IMPLEMENTED
-
     TestData data;
     setup(&data);
 
-    data.setText("test text");
-    KEYS("ciwWORD", "WOR" X "D text");
+    // delete line
+    data.setText("abc" N "def" N "ghi");
+    KEYS("dd", X "def" N "ghi");
+    KEYS(".", X "ghi");
+
+    // delete to next word
+    data.setText("abc def ghi jkl");
+    KEYS("dw", X "def ghi jkl");
+    KEYS("w.", "def " X "jkl");
+    KEYS("gg.", X "jkl");
+
+    // change in word
+    data.setText("WORD text");
+    KEYS("ciwWORD<esc>", "WOR" X "D text");
     KEYS("w.", "WORD WOR" X "D");
 
     /* QTCREATORBUG-7248 */
     data.setText("test tex" X "t");
-    KEYS("vbcWORD", "test " "WOR" X "D");
-    KEYS("bb.", X "WORD WORD");
+    KEYS("vbcWORD<esc>", "test " "WOR" X "D");
+    KEYS("bb.", "WOR" X "D WORD");
+
+    // delete selected range
+    data.setText("abc def ghi jkl");
+    KEYS("viwd", X " def ghi jkl");
+    KEYS(".", X "f ghi jkl");
+    KEYS(".", X "hi jkl");
+
+    // delete two lines
+    data.setText("abc" N "def" N "ghi" N "jkl" N "mno");
+    KEYS("Vjx", X "ghi" N "jkl" N "mno");
+    KEYS(".", X "mno");
+
+    // delete three lines
+    data.setText("abc" N "def" N "ghi" N "jkl" N "mno" N "pqr" N "stu");
+    KEYS("d2j", X "jkl" N "mno" N "pqr" N "stu");
+    KEYS(".", X "stu");
+
+    // replace block selection
+    data.setText("abcd" N "d" X "efg" N "ghij" N "jklm");
+    KEYS("<c-v>jlrX", "abcd" N "d" X "XXg" N "gXXj" N "jklm");
+    KEYS("gg.", "XXcd" N "XXXg" N "gXXj" N "jklm");
 }
 
 void FakeVimPlugin::test_vim_search()
@@ -472,6 +546,19 @@ void FakeVimPlugin::test_vim_search()
 
     data.setText("abc" N "def" N "ab" X "c" N "ghi abc jkl");
     KEYS("#", X "abc" N "def" N "abc" N "ghi abc jkl");
+
+    // search with g* and g#
+    data.doCommand("set nows");
+    data.setText("bc" N "abc" N "abcd" N "bc" N "b");
+    KEYS("g*", "bc" N "a" X "bc" N "abcd" N "bc" N "b");
+    KEYS("n", "bc" N "abc" N "a" X "bcd" N "bc" N "b");
+    KEYS("n", "bc" N "abc" N "abcd" N X "bc" N "b");
+    KEYS("n", "bc" N "abc" N "abcd" N X "bc" N "b");
+    KEYS("g#", "bc" N "abc" N "a" X "bcd" N "bc" N "b");
+    KEYS("n", "bc" N "a" X "bc" N "abcd" N "bc" N "b");
+    KEYS("N", "bc" N "abc" N "a" X "bcd" N "bc" N "b");
+    KEYS("3n", "bc" N "abc" N "a" X "bcd" N "bc" N "b");
+    KEYS("2n", X "bc" N "abc" N "abcd" N "bc" N "b");
 
     /* QTCREATORBUG-7251 */
     data.setText("abc abc abc abc");
@@ -620,6 +707,9 @@ void FakeVimPlugin::test_vim_copy_paste()
     // block-select middle column, copy and paste twice
     data.setText("123" N "456");
     KEYS("l<C-v>j\"xy2\"xp", "12" X "223" N "45556");
+
+    data.setText("123" N "456" N "789");
+    KEYS("wyiw" "wviwp", "123" N "456" N "45" X "6");
 }
 
 void FakeVimPlugin::test_vim_undo_redo()
@@ -714,20 +804,19 @@ void FakeVimPlugin::test_vim_undo_redo()
 
 void FakeVimPlugin::test_advanced_commands()
 {
-    // TODO: Fix undo/redo position for substitute command.
     TestData data;
     setup(&data);
 
     // subcommands
-    data.setText("abc" N "  xxx" N "def");
-    COMMAND("%s/xxx/ZZZ/g|%s/ZZZ/OOO/g", "abc" N "  OOO" N "def");
+    data.setText("abc" N "  xxx" N "  xxx" N "def");
+    COMMAND("%s/xxx/ZZZ/g|%s/ZZZ/OOO/g", "abc" N "  OOO" N "  " X "OOO" N "def");
 
     // undo/redo all subcommands
-    COMMAND(":undo", "abc" N "  xxx" N "def");
-    COMMAND(":redo", "abc" N "  OOO" N "def");
+    COMMAND(":undo", "abc" N X "  xxx" N "  xxx" N "def");
+    COMMAND(":redo", "abc" N X "  OOO" N "  OOO" N "def");
 
     // redundant characters
-    COMMAND(":::   %s/\\S\\S\\S/ZZZ/g   |   ::::   %s/ZZZ/XXX/g ", "XXX" N "  XXX" N "XXX");
+    COMMAND(":::   %s/\\S\\S\\S/ZZZ/g   |   ::::   %s/ZZZ/XXX/g ", "XXX" N "  XXX" N "  XXX" N X "XXX");
 }
 
 void FakeVimPlugin::test_map()
@@ -838,6 +927,20 @@ void FakeVimPlugin::test_map()
     KEYS("X", "def xyz g" X "hi");
     KEYS("u", X "abc def ghi");
     KEYS("<C-r>", X "def xyz ghi");
+    data.doCommand("unmap  X");
+
+    data.setText("abc" N "  def" N "  ghi");
+    data.doCommand("map X jdd");
+    KEYS("X", "abc" N "  " X "ghi");
+    KEYS("u", "abc" N X "  def" N "  ghi");
+    KEYS("<c-r>", "abc" N X "  ghi");
+    data.doCommand("unmap  X");
+
+    data.setText("abc" N "def" N "ghi");
+    data.doCommand("map X jAxxx<cr>yyy<esc>");
+    KEYS("X", "abc" N "defxxx" N "yy" X "y" N "ghi");
+    KEYS("u", "abc" N "de" X "f" N "ghi");
+    KEYS("<c-r>", "abc" N "def" X "xxx" N "yyy" N "ghi");
     data.doCommand("unmap  X");
 
     NOT_IMPLEMENTED

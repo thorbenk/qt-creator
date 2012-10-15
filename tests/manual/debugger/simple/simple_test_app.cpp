@@ -1,32 +1,31 @@
-/**************************************************************************
+/****************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 ////////////////  Some global configuration below ////////////////
 
@@ -957,19 +956,19 @@ namespace qhash {
 
         Hash::iterator it1 = hash.begin();
         Hash::iterator it2 = it1; ++it2;
-        Hash::iterator it3 = it2; ++it2;
-        Hash::iterator it4 = it3; ++it3;
-        Hash::iterator it5 = it4; ++it4;
-        Hash::iterator it6 = it5; ++it5;
+        Hash::iterator it3 = it2; ++it3;
+        Hash::iterator it4 = it3; ++it4;
+        Hash::iterator it5 = it4; ++it5;
+        Hash::iterator it6 = it5; ++it6;
 
         BREAK_HERE;
         // Expand hash.
-        // Check hash <6 items> Hash.
+        // Check hash <6 items> qhash::Hash.
         // Check hash.11 11 float.
-        // Check it1.first 11 int.
-        // Check it1.second 11 float.
-        // Check it1.first 55 int.
-        // Check it1.second 55 float.
+        // Check it1.key 55 int.
+        // Check it1.value 55 float.
+        // Check it6.key 33 int.
+        // Check it6.value 33 float.
         // Continue.
         dummyStatement(&hash, &it1, &it2, &it3, &it4, &it5, &it6);
     }
@@ -1747,7 +1746,7 @@ namespace qobject {
         s += test.myProp2();
         BREAK_HERE;
         // Check s "HELLOWORLD" QString.
-        // Check test "" qobject::Names::Bar::TestObject.
+        // Check test  qobject::Names::Bar::TestObject.
         // Continue.
         dummyStatement(&s);
     #endif
@@ -2142,7 +2141,7 @@ namespace plugin {
     #endif
         BREAK_HERE;
         // CheckType dir QString.
-        // Check lib "" QLibrary.
+        // CheckType lib QLibrary.
         // CheckType name QString.
         // CheckType res int.
         // Continue.
@@ -2176,7 +2175,7 @@ namespace final {
         QVariant value = settings.value("item1","").toString();
         BREAK_HERE;
         // Expand settings.
-        // Check settings "" QSettings.
+        // Check settings  QSettings.
         // Check settings.@1 "" QObject.
         // Check value "" QVariant (QString).
         // Continue.
@@ -2853,19 +2852,19 @@ namespace stdmap {
 
         Map::iterator it1 = map.begin();
         Map::iterator it2 = it1; ++it2;
-        Map::iterator it3 = it2; ++it2;
-        Map::iterator it4 = it3; ++it3;
-        Map::iterator it5 = it4; ++it4;
-        Map::iterator it6 = it5; ++it5;
+        Map::iterator it3 = it2; ++it3;
+        Map::iterator it4 = it3; ++it4;
+        Map::iterator it5 = it4; ++it5;
+        Map::iterator it6 = it5; ++it6;
 
         BREAK_HERE;
         // Expand map.
-        // Check map <6 items> std::map<int, float>.
+        // Check map <6 items> stdmap::Map.
         // Check map.11 11 float.
         // Check it1.first 11 int.
         // Check it1.second 11 float.
-        // Check it1.first 55 int.
-        // Check it1.second 55 float.
+        // Check it6.first 66 int.
+        // Check it6.second 66 float.
         // Continue.
         dummyStatement(&map, &it1, &it2, &it3, &it4, &it5, &it6);
     }
@@ -3027,17 +3026,15 @@ namespace stdset {
 
         Set::iterator it1 = set.begin();
         Set::iterator it2 = it1; ++it2;
-        Set::iterator it3 = it2; ++it2;
-        Set::iterator it4 = it3; ++it3;
-        Set::iterator it5 = it4; ++it4;
-        Set::iterator it6 = it5; ++it5;
+        Set::iterator it3 = it2; ++it3;
+        Set::iterator it4 = it3; ++it4;
+        Set::iterator it5 = it4; ++it5;
+        Set::iterator it6 = it5; ++it6;
 
         BREAK_HERE;
-        // Check set <6 items> std::set<int>.
-        // Check it1.key 11 unsigned int.
+        // Check set <6 items> stdset::Set.
         // Check it1.value 11 int.
-        // Check it1.key 55 unsigned int.
-        // Check it1.value 55 int.
+        // Check it6.value 66 int.
         // Continue.
         dummyStatement(&set, &it1, &it2, &it3, &it4, &it5, &it6);
     }
@@ -3487,7 +3484,7 @@ namespace itemmodel {
         // CheckType i1 QStandardItem.
         // CheckType i11 QStandardItem.
         // CheckType i2 QStandardItem.
-        // Check m "" QStandardItemModel.
+        // Check m  QStandardItemModel.
         // Check mi "1" QModelIndex.
         // Continue.
         dummyStatement(&i1, &mi, &m, &i2, &i11);
@@ -3593,9 +3590,9 @@ namespace qurl {
 
     void testQUrl()
     {
-        QUrl url(QString("http://www.nokia.com"));
+        QUrl url(QString("http://qt-project.org"));
         BREAK_HERE;
-        // Check url "http://www.nokia.com" QUrl.
+        // Check url "http://qt-project.org" QUrl.
         // Continue.
         dummyStatement(&url);
     }
@@ -3847,9 +3844,11 @@ namespace qthread {
             if (m_id == 3) {
                 BREAK_HERE;
                 // Expand this.
+                // Expand this.@1.
                 // Check j 3 int.
                 // CheckType this qthread::Thread.
-                // Check this.@1 "This is thread #3" QThread.
+                // Check this.@1  QThread.
+                // Check this.@1.@1 "This is thread #3" QObject.
                 // Continue.
                 dummyStatement(this);
             }
@@ -3872,9 +3871,15 @@ namespace qthread {
         }
         BREAK_HERE;
         // Expand thread.
+        // Expand thread.0.
+        // Expand thread.0.@1.
+        // Expand thread.13.
+        // Expand thread.13.@1.
         // CheckType thread qthread::Thread [14].
-        // Check thread.0 "This is thread #0" qthread::Thread.
-        // Check thread.13 "This is thread #13" qthread::Thread.
+        // Check thread.0  qthread::Thread.
+        // Check thread.0.@1.@1 "This is thread #0" qthread::Thread.
+        // Check thread.13  qthread::Thread.
+        // Check thread.13.@1.@1 "This is thread #13" qthread::Thread.
         // Continue.
         for (int i = 0; i != N; ++i) {
             thread[i].wait();
@@ -4106,7 +4111,7 @@ namespace qvariant {
         // Check variant.data.2 3 int.
         // Continue.
         list.clear();
-        list = qVariantValue<QList<int> >(variant);
+        list = variant.value<QList<int> >();
         BREAK_HERE;
         // Expand list.
         // Check list <3 items> QList<int>.
@@ -5066,7 +5071,7 @@ namespace basic {
         ba.append('x');
         BREAK_HERE;
         // Check ba "x" QByteArray.
-        // Check proc "" QProcess.
+        // Check proc  QProcess.
         // Continue.
 
         // Check there is some contents in ba. Error message is expected.
@@ -5411,7 +5416,7 @@ namespace qscript {
         QScriptValue s;
 
         BREAK_HERE;
-        // Check engine "" QScriptEngine.
+        // Check engine  QScriptEngine.
         // Check s (invalid) QScriptValue.
         // Check x1 <not accessible> QString.
         // Continue.
@@ -5506,10 +5511,12 @@ namespace boost {
         boost::shared_ptr<int> j = i;
         boost::shared_ptr<QStringList> sl(new QStringList(QStringList() << "HUH!"));
         BREAK_HERE;
-        // Check s  boost::shared_ptr<int>.
+        // Expand sl.
+        // Check s (null) boost::shared_ptr<int>.
         // Check i 43 boost::shared_ptr<int>.
         // Check j 43 boost::shared_ptr<int>.
-        // Check sl <1 item> boost::shared_ptr<QStringList>.
+        // Check sl  boost::shared_ptr<QStringList>.
+        // Check sl.data <1 items> QStringList
         // Continue.
         dummyStatement(&s, &j, &sl);
     }
@@ -5548,7 +5555,7 @@ namespace boost {
         // Not where we started (expected in boost)
         d -= months(4);
         BREAK_HERE;
-        // Check d Tue Nov 30 2005 boost::gregorian::date.
+        // Check d Wed Nov 30 2005 boost::gregorian::date.
         // Continue.
 
         dummyStatement(&d);
@@ -6200,8 +6207,11 @@ namespace bug6857 {
         file.setObjectName("A file");
         BREAK_HERE;
         // Expand file.
-        // Check file "A file" bug6857::MyFile.
+        // Expand file.@1.
+        // Expand file.@1.@1.
+        // Check file  bug6857::MyFile.
         // Check file.@1 "/tmp/tt" QFile.
+        // Check file.@1.@1.@1 "A file" QObject.
         // Continue.
         dummyStatement(&file);
     }
@@ -6223,8 +6233,12 @@ namespace bug6858 {
         file.setObjectName("Another file");
         QFile *pfile = &file;
         BREAK_HERE;
-        // Check pfile "Another file" bug6858::MyFile.
+        // Expand pfile.
+        // Expand pfile.@1.
+        // Expand pfile.@1.@1.
+        // Check pfile  bug6858::MyFile.
         // Check pfile.@1 "/tmp/tt" QFile.
+        // Check pfile.@1.@1.@1 "Another file" QObject.
         // Continue.
         dummyStatement(&file, pfile);
     }

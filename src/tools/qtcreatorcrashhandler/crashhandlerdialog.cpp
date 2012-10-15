@@ -1,32 +1,31 @@
 /**************************************************************************
 **
-** This file is part of Qt Creator
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
 **
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** This file is part of Qt Creator.
 **
-** Contact: http://www.qt-project.org/
-**
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
 **
 ** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL included in the
+** packaging of this file.  Please review the following information to
+** ensure the GNU Lesser General Public License version 2.1 requirements
+** will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
 **
-** This file may be used under the terms of the GNU Lesser General Public
-** License version 2.1 as published by the Free Software Foundation and
-** appearing in the file LICENSE.LGPL included in the packaging of this file.
-** Please review the following information to ensure the GNU Lesser General
-** Public License version 2.1 requirements will be met:
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** In addition, as a special exception, Nokia gives you certain additional
-** rights. These rights are described in the Nokia Qt LGPL Exception
+** In addition, as a special exception, Digia gives you certain additional
+** rights.  These rights are described in the Digia Qt LGPL Exception
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
-** Other Usage
-**
-** Alternatively, this file may be used in accordance with the terms and
-** conditions contained in a signed written agreement between you and Nokia.
-**
-**
-**************************************************************************/
+****************************************************************************/
 
 #include "crashhandler.h"
 #include "crashhandlerdialog.h"
@@ -34,9 +33,15 @@
 #include "utils.h"
 
 #include <app/app_version.h>
+#include <utils/checkablemessagebox.h>
 
 #include <QClipboard>
 #include <QIcon>
+#include <QSettings>
+
+static const char SettingsApplication[] = "QtCreator";
+static const char SettingsKeySkipWarningAbortingBacktrace[]
+    = "CrashHandler/SkipWarningAbortingBacktrace";
 
 CrashHandlerDialog::CrashHandlerDialog(CrashHandler *handler, QWidget *parent) :
     QDialog(parent),
@@ -59,8 +64,8 @@ CrashHandlerDialog::CrashHandlerDialog(CrashHandler *handler, QWidget *parent) :
 
     connect(m_ui->copyToClipBoardButton, SIGNAL(clicked()), this, SLOT(copyToClipboardClicked()));
     connect(m_ui->reportBugButton, SIGNAL(clicked()), m_crashHandler, SLOT(openBugTracker()));
-    connect(m_ui->restartAppButton, SIGNAL(clicked()), m_crashHandler, SLOT(restartApplication()));
-    connect(m_ui->closeButton, SIGNAL(clicked()), qApp, SLOT(quit()));
+    connect(m_ui->debugAppButton, SIGNAL(clicked()), m_crashHandler, SLOT(debugApplication()));
+    connect(m_ui->closeButton, SIGNAL(clicked()), this, SLOT(close()));
 
     setApplicationInfo();
 }
@@ -70,6 +75,34 @@ CrashHandlerDialog::~CrashHandlerDialog()
     delete m_ui;
 }
 
+bool CrashHandlerDialog::runDebuggerWhileBacktraceNotFinished()
+{
+    // Check settings.
+    QSettings settings(QSettings::IniFormat, QSettings::UserScope,
+        QLatin1String(Core::Constants::IDE_SETTINGSVARIANT_STR),
+        QLatin1String(SettingsApplication));
+    if (settings.value(QLatin1String(SettingsKeySkipWarningAbortingBacktrace), false).toBool())
+        return true;
+
+    // Ask user.
+    const QString title = tr("Run Debugger And Abort Collecting Backtrace?");
+    const QString message = tr(
+        "<html><head/><body>"
+          "<p><b>Run the debugger and abort collecting backtrace?</b></p>"
+          "<p>You have requested to run the debugger while collecting the backtrace was not "
+          "finished.</p>"
+        "</body></html>");
+    const QString checkBoxText = tr("Do not &ask again.");
+    bool checkBoxSetting = false;
+    const QDialogButtonBox::StandardButton button = Utils::CheckableMessageBox::question(this,
+        title, message, checkBoxText, &checkBoxSetting,
+        QDialogButtonBox::Yes|QDialogButtonBox::No, QDialogButtonBox::No);
+    if (checkBoxSetting)
+        settings.setValue(QLatin1String(SettingsKeySkipWarningAbortingBacktrace), checkBoxSetting);
+
+    return button == QDialogButtonBox::Yes;
+}
+
 void CrashHandlerDialog::setToFinalState()
 {
     m_ui->progressBar->hide();
@@ -77,9 +110,14 @@ void CrashHandlerDialog::setToFinalState()
     m_ui->reportBugButton->setEnabled(true);
 }
 
-void CrashHandlerDialog::disableRestartAppButton()
+void CrashHandlerDialog::disableRestartAppCheckBox()
 {
-    m_ui->restartAppButton->setDisabled(true);
+    m_ui->restartAppCheckBox->setDisabled(true);
+}
+
+void CrashHandlerDialog::disableDebugAppButton()
+{
+    m_ui->debugAppButton->setDisabled(true);
 }
 
 void CrashHandlerDialog::setApplicationInfo()
@@ -129,4 +167,11 @@ void CrashHandlerDialog::selectLineWithContents(const QString &text)
 void CrashHandlerDialog::copyToClipboardClicked()
 {
     QApplication::clipboard()->setText(m_ui->debugInfoEdit->toPlainText());
+}
+
+void CrashHandlerDialog::close()
+{
+    if (m_ui->restartAppCheckBox->isEnabled() && m_ui->restartAppCheckBox->isChecked())
+        m_crashHandler->restartApplication();
+    qApp->quit();
 }

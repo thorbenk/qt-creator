@@ -1,10 +1,9 @@
 /****************************************************************************
 **
+** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
 ** This file is part of Qt Creator
-**
-** Copyright (c) 2012 Nokia Corporation and/or its subsidiary(-ies).
-**
-** Contact: http://www.qt-project.org/
 **
 **
 ** GNU Free Documentation License
@@ -47,7 +46,7 @@
 
         \row
             \o  Develop Qt applications for desktop and mobile devices
-            \o  \l{http://developer.qt.nokia.com/}{Qt Developer Network}
+            \o  \l{http://qt-project.org}{Qt Developer Network}
 
         \row
             \o  Develop Qt applications for Nokia mobile devices
