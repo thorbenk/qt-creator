@@ -65,6 +65,9 @@ void Qt5PreviewNodeInstanceServer::collectItemChangesAndSendChangeCommands()
 {
     static bool inFunction = false;
 
+    if (rootNodeInstance().internalSGItem() == 0)
+        return;
+
     if (!inFunction && nodeInstanceClient()->bytesToWrite() < 10000) {
         inFunction = true;
         QVector<ImageContainer> imageContainerVector;
@@ -72,7 +75,9 @@ void Qt5PreviewNodeInstanceServer::collectItemChangesAndSendChangeCommands()
 
         foreach (ServerNodeInstance instance,  rootNodeInstance().stateInstances()) {
             instance.activateState();
-            imageContainerVector.append(ImageContainer(instance.instanceId(), renderPreviewImage(), instance.instanceId()));
+            QImage previewImage = renderPreviewImage();
+            if (!previewImage.isNull())
+                imageContainerVector.append(ImageContainer(instance.instanceId(), renderPreviewImage(), instance.instanceId()));
             instance.deactivateState();
         }
 

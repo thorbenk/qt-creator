@@ -88,7 +88,6 @@ static CppToolsPlugin *m_instance = 0;
 static QHash<QString, QString> m_headerSourceMapping;
 
 CppToolsPlugin::CppToolsPlugin() :
-    m_modelManager(0),
     m_fileSettings(new CppFileSettings)
 {
     m_instance = this;
@@ -97,7 +96,7 @@ CppToolsPlugin::CppToolsPlugin() :
 CppToolsPlugin::~CppToolsPlugin()
 {
     m_instance = 0;
-    m_modelManager = 0; // deleted automatically
+    delete CppModelManager::instance();
 }
 
 bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
@@ -108,21 +107,20 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     m_settings = new CppToolsSettings(this); // force registration of cpp tools settings
 
     // Objects
-    m_modelManager = new CppModelManager(this);
+    CppModelManager *modelManager = CppModelManager::instance();
     Core::VcsManager *vcsManager = Core::ICore::vcsManager();
     connect(vcsManager, SIGNAL(repositoryChanged(QString)),
-            m_modelManager, SLOT(updateModifiedSourceFiles()));
+            modelManager, SLOT(updateModifiedSourceFiles()));
     connect(Core::DocumentManager::instance(), SIGNAL(filesChangedInternally(QStringList)),
-            m_modelManager, SLOT(updateSourceFiles(QStringList)));
-    addAutoReleasedObject(m_modelManager);
+            modelManager, SLOT(updateSourceFiles(QStringList)));
 
-    addAutoReleasedObject(new CppLocatorFilter(m_modelManager));
-    addAutoReleasedObject(new CppClassesFilter(m_modelManager));
-    addAutoReleasedObject(new CppFunctionsFilter(m_modelManager));
-    addAutoReleasedObject(new CppCtorDtorFilter(m_modelManager));
-    addAutoReleasedObject(new CppCurrentDocumentFilter(m_modelManager, Core::ICore::editorManager()));
+    addAutoReleasedObject(new CppLocatorFilter(modelManager));
+    addAutoReleasedObject(new CppClassesFilter(modelManager));
+    addAutoReleasedObject(new CppFunctionsFilter(modelManager));
+    addAutoReleasedObject(new CppCtorDtorFilter(modelManager));
+    addAutoReleasedObject(new CppCurrentDocumentFilter(modelManager, Core::ICore::editorManager()));
     addAutoReleasedObject(new CppFileSettingsPage(m_fileSettings));
-    addAutoReleasedObject(new SymbolsFindFilter(m_modelManager));
+    addAutoReleasedObject(new SymbolsFindFilter(modelManager));
     addAutoReleasedObject(new CppCodeStyleSettingsPage);
 
     // Menus
