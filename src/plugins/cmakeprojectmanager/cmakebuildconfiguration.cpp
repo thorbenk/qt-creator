@@ -125,27 +125,6 @@ void CMakeBuildConfiguration::setBuildDirectory(const QString &buildDirectory)
     emit environmentChanged();
 }
 
-ProjectExplorer::IOutputParser *CMakeBuildConfiguration::createOutputParser() const
-{
-    ProjectExplorer::IOutputParser *parserchain = new ProjectExplorer::GnuMakeParser;
-
-    int versionId = QtSupport::QtKitInformation::qtVersionId(target()->kit());
-    if (versionId >= 0)
-        parserchain->appendOutputParser(new QtSupport::QtParser);
-
-    ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(target()->kit());
-    if (tc)
-        parserchain->appendOutputParser(tc->outputParser());
-    return parserchain;
-}
-
-Utils::Environment CMakeBuildConfiguration::baseEnvironment() const
-{
-    Utils::Environment env = BuildConfiguration::baseEnvironment();
-    target()->kit()->addToEnvironment(env);
-    return env;
-}
-
 /*!
   \class CMakeBuildConfigurationFactory
 */
@@ -204,6 +183,7 @@ CMakeBuildConfiguration *CMakeBuildConfigurationFactory::create(ProjectExplorer:
     CMakeOpenProjectWizard::BuildInfo info;
     info.sourceDirectory = project->projectDirectory();
     info.environment = Utils::Environment::systemEnvironment();
+    parent->kit()->addToEnvironment(info.environment);
     info.buildDirectory = project->defaultBuildDirectory();
     info.kit = parent->kit();
     info.useNinja = false; // This is ignored anyway

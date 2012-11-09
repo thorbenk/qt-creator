@@ -1233,10 +1233,6 @@ void DebuggerEngine::setState(DebuggerState state, bool forced)
             handler->notifyBreakpointReleased(id);
     }
 
-    const bool running = d->m_state == InferiorRunOk;
-    if (running)
-        threadsHandler()->notifyRunning();
-
     showMessage(msg, LogDebug);
     updateViews();
 
@@ -1455,6 +1451,10 @@ void DebuggerEngine::requestModuleSymbols(const QString &)
 {
 }
 
+void DebuggerEngine::requestModuleSections(const QString &)
+{
+}
+
 void DebuggerEngine::reloadRegisters()
 {
 }
@@ -1584,10 +1584,6 @@ void DebuggerEngine::changeBreakpoint(BreakpointModelId id)
     BreakpointState state = breakHandler()->state(id);
     QTC_ASSERT(state == BreakpointChangeRequested, qDebug() << id << this << state);
     QTC_CHECK(false);
-}
-
-void DebuggerEngine::selectThread(int)
-{
 }
 
 void DebuggerEngine::assignValueInDebugger(const WatchData *,
@@ -1937,8 +1933,12 @@ TaskHub *DebuggerEnginePrivate::taskHub()
 {
     if (!m_taskHub) {
         m_taskHub = ProjectExplorerPlugin::instance()->taskHub();
-        m_taskHub->addCategory(Core::Id("Debuginfo"), tr("Debug Information"));
-        m_taskHub->addCategory(Core::Id("DebuggerTest"), tr("Debugger Test"));
+        m_taskHub->addCategory(Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_DEBUGINFO),
+                               tr("Debug Information"));
+        m_taskHub->addCategory(Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_TEST),
+                               tr("Debugger Test"));
+        m_taskHub->addCategory(Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME),
+                               tr("Debugger Runtime"));
     }
     return m_taskHub;
 }

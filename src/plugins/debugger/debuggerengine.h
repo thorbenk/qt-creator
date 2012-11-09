@@ -32,7 +32,8 @@
 
 #include "debugger_global.h"
 #include "debuggerconstants.h"
-#include "breakpoint.h" // For 'BreakpointId'
+#include "breakpoint.h" // For BreakpointModelId.
+#include "threaddata.h" // For ThreadId.
 
 #include <QObject>
 #include <QStringList>
@@ -178,6 +179,7 @@ public:
     virtual void loadSymbolsForStack();
     virtual void loadAllSymbols();
     virtual void requestModuleSymbols(const QString &moduleName);
+    virtual void requestModuleSections(const QString &moduleName);
 
     virtual void reloadRegisters();
     virtual void reloadSourceFiles();
@@ -205,7 +207,7 @@ public:
     virtual bool acceptsDebuggerCommands() const { return true; }
     virtual void assignValueInDebugger(const Internal::WatchData *data,
         const QString &expr, const QVariant &value);
-    virtual void selectThread(int index);
+    virtual void selectThread(Internal::ThreadId threadId) = 0;
 
     virtual Internal::ModulesHandler *modulesHandler() const;
     virtual Internal::RegisterHandler *registerHandler() const;

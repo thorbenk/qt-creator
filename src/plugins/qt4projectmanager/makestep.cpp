@@ -38,6 +38,7 @@
 #include <projectexplorer/target.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/buildsteplist.h>
+#include <projectexplorer/gnumakeparser.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/kitinformation.h>
@@ -86,7 +87,7 @@ MakeStep::MakeStep(BuildStepList *bsl, const Core::Id id) :
 
 void MakeStep::ctor()
 {
-    setDefaultDisplayName(tr("Make", "Qt4 MakeStep display name."));
+    setDefaultDisplayName(tr("Make", "Qt MakeStep display name."));
 }
 
 void MakeStep::setMakeCommand(const QString &make)
@@ -248,20 +249,11 @@ bool MakeStep::init()
     pp->setEnvironment(env);
     pp->setArguments(args);
 
-    IOutputParser *parser = 0;
-    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target()->kit());
-    if (version)
-        parser = version->createOutputParser();
+    setOutputParser(new ProjectExplorer::GnuMakeParser());
+    IOutputParser *parser = target()->kit()->createOutputParser();
     if (parser)
-        parser->appendOutputParser(new QtSupport::QtParser);
-    else
-        parser = new QtSupport::QtParser;
-    if (tc)
-        parser->appendOutputParser(tc->outputParser());
-
-    parser->setWorkingDirectory(workingDirectory);
-
-    setOutputParser(parser);
+        appendOutputParser(parser);
+    outputParser()->setWorkingDirectory(pp->effectiveWorkingDirectory());
 
     m_scriptTarget = (static_cast<Qt4Project *>(bc->target()->project())->rootQt4ProjectNode()->projectType() == ScriptTemplate);
 
@@ -416,7 +408,7 @@ void MakeStepConfigWidget::updateDetails()
         return;
     }
     if (!bc) {
-        setSummaryText(tr("<b>Make:</b> No Qt4 build configuration."));
+        setSummaryText(tr("<b>Make:</b> No Qt build configuration."));
         return;
     }
 

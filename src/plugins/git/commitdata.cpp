@@ -88,58 +88,67 @@ void CommitData::clear()
     files.clear();
 }
 
-static CommitData::FileState stateFor(const QChar &c)
+static FileStates stateFor(const QChar &c)
 {
     switch (c.unicode()) {
     case ' ':
-        return CommitData::UntrackedFile;
+        return UntrackedFile;
     case 'M':
-        return CommitData::ModifiedFile;
+        return ModifiedFile;
     case 'A':
-        return CommitData::AddedFile;
+        return AddedFile;
     case 'D':
-        return CommitData::DeletedFile;
+        return DeletedFile;
     case 'R':
-        return CommitData::RenamedFile;
+        return RenamedFile;
     case 'C':
-        return CommitData::CopiedFile;
+        return CopiedFile;
     case 'U':
-        return CommitData::UpdatedFile;
+        return UnmergedFile;
     default:
-        return CommitData::UnknownFileState;
+        return UnknownFileState;
     }
 }
 
-static bool checkLine(const QString &stateInfo, const QString &file, QList<CommitData::StateFilePair> *files)
+bool CommitData::checkLine(const QString &stateInfo, const QString &file)
 {
     QTC_ASSERT(stateInfo.count() == 2, return false);
-    QTC_ASSERT(files, return false);
 
     if (stateInfo == QLatin1String("??")) {
-        files->append(qMakePair(CommitData::UntrackedFile, file));
+        files.append(qMakePair(FileStates(UntrackedFile), file));
         return true;
     }
 
-    CommitData::FileState stagedState = stateFor(stateInfo.at(0));
-    if (stagedState == CommitData::UnknownFileState)
+    FileStates xState = stateFor(stateInfo.at(0));
+    FileStates yState = stateFor(stateInfo.at(1));
+    if (xState == UnknownFileState || yState == UnknownFileState)
         return false;
 
-    stagedState = static_cast<CommitData::FileState>(stagedState | CommitData::StagedFile);
-    if (stagedState != CommitData::StagedFile)
-        files->append(qMakePair(stagedState, file));
+    bool isMerge = (xState == UnmergedFile || yState == UnmergedFile ||
+                    ((xState == yState) && (xState == AddedFile || xState == DeletedFile)));
+    if (isMerge) {
+        if (xState == yState) {
+            if (xState == UnmergedFile)
+                xState = ModifiedFile;
+            files.append(qMakePair(xState | UnmergedFile | UnmergedUs | UnmergedThem, file));
+        } else if (xState == UnmergedFile) {
+            files.append(qMakePair(yState | UnmergedFile | UnmergedThem, file));
+        } else {
+            files.append(qMakePair(xState | UnmergedFile | UnmergedUs, file));
+        }
+    } else {
+        xState |= StagedFile;
+        if (xState != StagedFile)
+            files.append(qMakePair(xState, file));
 
-    CommitData::FileState state = stateFor(stateInfo.at(1));
-    if (state == CommitData::UnknownFileState)
-        return false;
+        if (yState != UntrackedFile) {
+            QString newFile = file;
+            if (xState & (RenamedFile | CopiedFile))
+                newFile = file.mid(file.indexOf(QLatin1String(" -> ")) + 4);
 
-    if (state != CommitData::UntrackedFile) {
-        QString newFile = file;
-        if (stagedState == CommitData::RenamedStagedFile || stagedState == CommitData::CopiedStagedFile)
-            newFile = file.mid(file.indexOf(QLatin1String(" -> ")) + 4);
-
-        files->append(qMakePair(state, newFile));
+            files.append(qMakePair(yState, newFile));
+        }
     }
-
     return true;
 }
 
@@ -165,24 +174,24 @@ bool CommitData::parseFilesFromStatus(const QString &output)
         QString file = line.mid(3);
         if (file.startsWith(QLatin1Char('"')))
             file.remove(0, 1).chop(1);
-        if (!checkLine(line.mid(0, 2), file, &files))
+        if (!checkLine(line.mid(0, 2), file))
             return false;
     }
 
     return true;
 }
 
-QStringList CommitData::filterFiles(const CommitData::FileState &state) const
+QStringList CommitData::filterFiles(const FileStates &state) const
 {
     QStringList result;
     foreach (const StateFilePair &p, files) {
-        if (state == AllStates || state == p.first)
+        if (state == p.first)
             result.append(p.second);
     }
     return result;
 }
 
-QString CommitData::stateDisplayName(const FileState &state)
+QString CommitData::stateDisplayName(const FileStates &state)
 {
     QString resultState;
     if (state == UntrackedFile)
@@ -200,8 +209,14 @@ QString CommitData::stateDisplayName(const FileState &state)
         resultState.append(QCoreApplication::translate("Git::Internal::CommitData", "renamed"));
     else if (state & CopiedFile)
         resultState.append(QCoreApplication::translate("Git::Internal::CommitData", "copied"));
-    else if (state & UpdatedFile)
-        resultState.append(QCoreApplication::translate("Git::Internal::CommitData", "updated"));
+    if (state & UnmergedUs) {
+        if (state & UnmergedThem)
+            resultState.append(QCoreApplication::translate("Git::Internal::CommitData", " by both"));
+        else
+            resultState.append(QCoreApplication::translate("Git::Internal::CommitData", " by us"));
+    } else if (state & UnmergedThem) {
+        resultState.append(QCoreApplication::translate("Git::Internal::CommitData", " by them"));
+    }
     return resultState;
 }
 

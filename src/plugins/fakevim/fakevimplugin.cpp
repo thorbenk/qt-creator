@@ -139,7 +139,10 @@ public:
 
             setCurrentWidget(m_edit);
             m_edit->setFocus();
+        } else if (contents.isEmpty()) {
+            hide();
         } else {
+            show();
             m_label->setText(messageLevel == MessageMode ? "-- " + contents + " --" : contents);
 
             QString css;
@@ -846,6 +849,7 @@ private slots:
     void foldToggle(int depth);
     void foldAll(bool fold);
     void fold(int depth, bool fold);
+    void jumpToGlobalMark(QChar mark, bool backTickMode, const QString &fileName);
     void showSettingsDialog();
     void maybeReadVimRc();
     void setBlockSelection(bool);
@@ -859,7 +863,7 @@ private slots:
     void highlightMatches(const QString &needle);
     void moveToMatchingParenthesis(bool *moved, bool *forward, QTextCursor *cursor);
     void checkForElectricCharacter(bool *result, QChar c);
-    void indentRegion(int beginLine, int endLine, QChar typedChar);
+    void indentRegion(int beginBlock, int endBlock, QChar typedChar);
     void handleExCommand(bool *handled, const ExCommand &cmd);
 
     void writeSettings();
@@ -1441,6 +1445,17 @@ void FakeVimPluginPrivate::fold(int depth, bool fold)
     documentLayout->emitDocumentSizeChanged();
 }
 
+void FakeVimPluginPrivate::jumpToGlobalMark(QChar mark, bool backTickMode,
+    const QString &fileName)
+{
+    Core::IEditor *iedit = Core::EditorManager::openEditor(fileName);
+    if (!iedit)
+        return;
+    FakeVimHandler *handler = m_editorToHandler.value(iedit, 0);
+    if (handler)
+        handler->jumpToLocalMark(mark, backTickMode);
+}
+
 // This class defers deletion of a child FakeVimHandler using deleteLater().
 class DeferredDeleter : public QObject
 {
@@ -1519,6 +1534,8 @@ void FakeVimPluginPrivate::editorOpened(IEditor *editor)
         SLOT(foldAll(bool)));
     connect(handler, SIGNAL(fold(int,bool)),
         SLOT(fold(int,bool)));
+    connect(handler, SIGNAL(jumpToGlobalMark(QChar,bool,QString)),
+        SLOT(jumpToGlobalMark(QChar,bool,QString)));
 
     connect(handler, SIGNAL(handleExCommandRequested(bool*,ExCommand)),
         SLOT(handleExCommand(bool*,ExCommand)));
@@ -1778,7 +1795,7 @@ void FakeVimPluginPrivate::moveToMatchingParenthesis(bool *moved, bool *forward,
     }
 }
 
-void FakeVimPluginPrivate::indentRegion(int beginLine, int endLine,
+void FakeVimPluginPrivate::indentRegion(int beginBlock, int endBlock,
       QChar typedChar)
 {
     FakeVimHandler *handler = qobject_cast<FakeVimHandler *>(sender());
@@ -1796,14 +1813,14 @@ void FakeVimPluginPrivate::indentRegion(int beginLine, int endLine,
             ? TabSettings::SpacesOnlyTabPolicy : TabSettings::TabsOnlyTabPolicy;
 
     QTextDocument *doc = bt->document();
-    QTextBlock startBlock = doc->findBlockByNumber(beginLine);
+    QTextBlock startBlock = doc->findBlockByNumber(beginBlock);
 
     // Record line lenghts for mark adjustments
-    QVector<int> lineLengths(endLine - beginLine + 1);
+    QVector<int> lineLengths(endBlock - beginBlock + 1);
     QTextBlock block = startBlock;
 
-    for (int i = beginLine; i <= endLine; ++i) {
-        lineLengths[i - beginLine] = block.text().length();
+    for (int i = beginBlock; i <= endBlock; ++i) {
+        lineLengths[i - beginBlock] = block.text().length();
         if (typedChar == 0 && block.text().simplified().isEmpty()) {
             // clear empty lines
             QTextCursor cursor(block);
@@ -1931,6 +1948,48 @@ void FakeVimPlugin::extensionsInitialized()
     d->m_statusBar->setPosition(StatusBarWidget::Last);
     addAutoReleasedObject(d->m_statusBar);
 }
+
+#ifdef WITH_TESTS
+void FakeVimPlugin::setupTest(QString *title, FakeVimHandler **handler, QWidget **edit)
+{
+    *title = QString("test.cpp");
+    Core::IEditor *iedit = Core::EditorManager::openEditorWithContents(Core::Id(), title);
+    Core::EditorManager::activateEditor(iedit);
+    *edit = iedit->widget();
+    *handler = d->m_editorToHandler.value(iedit, 0);
+    (*handler)->handleCommand("set startofline");
+
+//    *handler = 0;
+//    m_statusMessage.clear();
+//    m_statusData.clear();
+//    m_infoMessage.clear();
+//    if (m_textedit) {
+//        m_textedit->setPlainText(lines);
+//        QTextCursor tc = m_textedit->textCursor();
+//        tc.movePosition(QTextCursor::Start, QTextCursor::MoveAnchor);
+//        m_textedit->setTextCursor(tc);
+//        m_textedit->setPlainText(lines);
+//        *handler = new FakeVimHandler(m_textedit);
+//    } else {
+//        m_plaintextedit->setPlainText(lines);
+//        QTextCursor tc = m_plaintextedit->textCursor();
+//        tc.movePosition(QTextCursor::Start, QTextCursor::MoveAnchor);
+//        m_plaintextedit->setTextCursor(tc);
+//        m_plaintextedit->setPlainText(lines);
+//        *handler = new FakeVimHandler(m_plaintextedit);
+//    }
+
+//    QObject::connect(*handler, SIGNAL(commandBufferChanged(QString,int)),
+//        this, SLOT(changeStatusMessage(QString,int)));
+//    QObject::connect(*handler, SIGNAL(extraInformationChanged(QString)),
+//        this, SLOT(changeExtraInformation(QString)));
+//    QObject::connect(*handler, SIGNAL(statusDataChanged(QString)),
+//        this, SLOT(changeStatusData(QString)));
+
+//    QCOMPARE(EDITOR(toPlainText()), lines);
+    (*handler)->handleCommand("set iskeyword=@,48-57,_,192-255,a-z,A-Z");
+}
+#endif
 
 } // namespace Internal
 } // namespace FakeVim

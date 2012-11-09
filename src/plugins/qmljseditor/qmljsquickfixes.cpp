@@ -45,7 +45,6 @@ using namespace QmlJS::AST;
 using namespace QmlJSEditor;
 using namespace QmlJSEditor::Internal;
 using namespace QmlJSTools;
-using namespace TextEditor;
 using TextEditor::RefactoringChanges;
 
 namespace {
@@ -62,9 +61,7 @@ namespace {
 */
 class SplitInitializerOp: public QmlJSQuickFixFactory
 {
-public:
-    virtual QList<QmlJSQuickFixOperation::Ptr> match(
-        const QSharedPointer<const QmlJSQuickFixAssistInterface> &interface)
+    void match(const QmlJSQuickFixInterface &interface, QuickFixOperations &result)
     {
         UiObjectInitializer *objectInitializer = 0;
 
@@ -82,12 +79,9 @@ public:
         }
 
         if (objectInitializer)
-            return singleResult(new Operation(interface, objectInitializer));
-        else
-            return noResult();
+            result.append(TextEditor::QuickFixOperation::Ptr(new Operation(interface, objectInitializer)));
     }
 
-private:
     class Operation: public QmlJSQuickFixOperation
     {
         UiObjectInitializer *_objectInitializer;
@@ -102,7 +96,7 @@ private:
                                                    "Split Initializer"));
         }
 
-        virtual void performChanges(QmlJSRefactoringFilePtr currentFile,
+        void performChanges(QmlJSRefactoringFilePtr currentFile,
                                     const QmlJSRefactoringChanges &)
         {
             Q_ASSERT(_objectInitializer != 0);
@@ -137,18 +131,16 @@ class AddAnalysisMessageSuppressionComment: public QmlJSQuickFixFactory
 {
     Q_DECLARE_TR_FUNCTIONS(QmlJSEditor::AddAnalysisMessageSuppressionComment)
 public:
-    virtual QList<QmlJSQuickFixOperation::Ptr> match(
-        const QSharedPointer<const QmlJSQuickFixAssistInterface> &interface)
+    void match(const QmlJSQuickFixInterface &interface, QuickFixOperations &result)
     {
         const QList<StaticAnalysis::Message> &messages = interface->semanticInfo().staticAnalysisMessages;
 
         foreach (const StaticAnalysis::Message &message, messages) {
             if (interface->currentFile()->isCursorOn(message.location)) {
-                return singleResult(new Operation(interface, message));
+                result.append(QuickFixOperation::Ptr(new Operation(interface, message)));
+                return;
             }
         }
-
-        return noResult();
     }
 
 private:

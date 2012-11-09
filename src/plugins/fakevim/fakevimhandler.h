@@ -67,15 +67,8 @@ struct ExCommand
         const Range &range = Range());
 
     bool matches(const QString &min, const QString &full) const;
-    void setContentsFromLine(const QString &line);
-
-    // set cmd to next subcommand and return false only if no subcommand is left
-    bool nextSubcommand();
-
-    QString printCommand() const;
 
     QString cmd;
-    QStringList subCommands;
     bool hasBang;
     QString args;
     Range range;
@@ -133,6 +126,8 @@ public slots:
     // Set text cursor position. Keeps anchor if in visual mode.
     void setTextCursorPosition(int position);
 
+    bool jumpToLocalMark(QChar mark, bool backTickMode);
+
 signals:
     void commandBufferChanged(const QString &msg, int pos, int messageLevel, QObject *eventFilter);
     void statusDataChanged(const QString &msg);
@@ -154,6 +149,7 @@ signals:
     void foldToggle(int depth);
     void foldAll(bool fold);
     void fold(int depth, bool fold);
+    void jumpToGlobalMark(QChar mark, bool backTickMode, const QString &fileName);
 
 public:
     class Private;

@@ -102,7 +102,7 @@ public:
     void notifyChanged(const QString &name);
 
     /// \internal
-    QtSupport::ProFileReader *createProFileReader(Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc = 0);
+    QtSupport::ProFileReader *createProFileReader(const Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc = 0);
     /// \internal
     ProFileGlobals *qmakeGlobals();
     /// \internal
@@ -144,7 +144,7 @@ public:
     void emitBuildDirectoryInitialized();
 
 signals:
-    void kitUpdated(Qt4ProjectManager::Qt4ProFileNode *node, bool, bool);
+    void proFileUpdated(Qt4ProjectManager::Qt4ProFileNode *node, bool, bool);
     void buildDirectoryInitialized();
     void proFilesEvaluated();
 
@@ -155,6 +155,8 @@ public slots:
 
 protected:
     bool fromMap(const QVariantMap &map);
+    bool setupTarget(ProjectExplorer::Target *t);
+    void setupTarget(ProjectExplorer::Target *t, const QList<BuildConfigurationInfo> &infoList);
 
 private slots:
     void asyncUpdate();
@@ -204,7 +206,6 @@ private:
     enum AsyncUpdateState { NoState, Base, AsyncFullUpdatePending, AsyncPartialUpdatePending, AsyncUpdateInProgress, ShuttingDown };
     AsyncUpdateState m_asyncUpdateState;
     bool m_cancelEvaluate;
-    bool m_codeModelCanceled;
     QList<Qt4ProFileNode *> m_partialEvaluate;
 
     QFuture<void> m_codeModelFuture;

@@ -296,6 +296,76 @@ void CppToolsPlugin::test_completion_template_3()
     QVERIFY(completions.contains("Tupple"));
     QVERIFY(completions.contains("a"));
     QVERIFY(completions.contains("b"));
+}
+
+void CppToolsPlugin::test_completion_template_4()
+{
+    TestData data;
+    data.srcText = "\n"
+            "template <class T>\n"
+            "struct List\n"
+            "{\n"
+            "    typedef T U;\n"
+            "    U u;\n"
+            "};\n"
+            "\n"
+            "struct Tupple { int a; int b; };\n"
+            "\n"
+            "void func() {\n"
+            "    List<Tupple> l;\n"
+            "    @\n"
+            "    // padding so we get the scope right\n"
+            "}";
+
+    setup(&data);
+
+    Utils::ChangeSet change;
+    QString txt = QLatin1String("l.u.");
+    change.insert(data.pos, txt);
+    QTextCursor cursor(data.doc);
+    change.apply(&cursor);
+    data.pos += txt.length();
+
+    QStringList completions = getCompletions(data);
+
+    QCOMPARE(completions.size(), 3);
+    QVERIFY(completions.contains("Tupple"));
+    QVERIFY(completions.contains("a"));
+    QVERIFY(completions.contains("b"));
+}
+
+void CppToolsPlugin::test_completion_template_5()
+{
+    TestData data;
+    data.srcText = "\n"
+            "template <class T>\n"
+            "struct List\n"
+            "{\n"
+            "    T u;\n"
+            "};\n"
+            "\n"
+            "struct Tupple { int a; int b; };\n"
+            "\n"
+            "void func() {\n"
+            "    typedef List<Tupple> LT;\n"
+            "    LT l;"
+            "    @\n"
+            "    // padding so we get the scope right\n"
+            "}";
+
+    setup(&data);
+
+    Utils::ChangeSet change;
+    QString txt = QLatin1String("l.u.");
+    change.insert(data.pos, txt);
+    QTextCursor cursor(data.doc);
+    change.apply(&cursor);
+    data.pos += txt.length();
+
+    QStringList completions = getCompletions(data);
+
+    QCOMPARE(completions.size(), 3);
+    QVERIFY(completions.contains("Tupple"));
     QVERIFY(completions.contains("a"));
     QVERIFY(completions.contains("b"));
 }
@@ -742,7 +812,6 @@ void CppToolsPlugin::test_completion_base_class_has_name_the_same_as_derived_dat
 
 }
 
-
 void CppToolsPlugin::test_completion_cyclic_inheritance()
 {
     test_completion();
@@ -860,4 +929,88 @@ void CppToolsPlugin::test_completion_cyclic_inheritance_data()
     QTest::newRow("case: indirect cyclic inheritance with templates")
             << code << completions;
 
+    completions.clear();
+    code = "\n"
+           "namespace NS\n"
+           "{\n"
+           "template <typename T> struct SuperClass\n"
+           "{\n"
+           "    typedef T Type;\n"
+           "    Type super_class_type;\n"
+           "};\n"
+           "}\n"
+           "\n"
+           "template <typename T>\n"
+           "struct Class;\n"
+           "\n"
+           "template <typename T, typename S>\n"
+           "struct ClassRecurse : Class<S>\n"
+           "{\n"
+           "    T class_recurse_t;\n"
+           "    S class_recurse_s;\n"
+           "};\n"
+           "\n"
+           "template <typename T>\n"
+           "struct Class : ClassRecurse< T, typename ::NS::SuperClass<T>::Type >\n"
+           "{\n"
+           "    T class_t;\n"
+           "};\n"
+           "\n"
+           "Class<int> c;\n"
+           "c.\n"
+           "@\n"
+            ;
+    completions.append("Class");
+    completions.append("ClassRecurse");
+    completions.append("class_t");
+    completions.append("class_recurse_s");
+    completions.append("class_recurse_t");
+    QTest::newRow("case: direct cyclic inheritance with templates, more complex situation")
+            << code << completions;
+
 }
+
+void CppToolsPlugin::test_completion_enclosing_template_class()
+{
+    test_completion();
+}
+
+void CppToolsPlugin::test_completion_enclosing_template_class_data()
+{
+    QTest::addColumn<QByteArray>("code");
+    QTest::addColumn<QStringList>("expectedCompletions");
+
+    QByteArray code;
+    QStringList completions;
+
+    code = "\n"
+            "template<typename T>\n"
+            "struct Enclosing\n"
+            "{\n"
+            "    struct Nested { int int_nested; }; \n"
+            "    int int_enclosing;\n"
+            "};\n"
+            "\n"
+            "Enclosing<int>::Nested c;"
+            "@\n";
+    completions.append("Nested");
+    completions.append("int_nested");
+    QTest::newRow("case: nested class with enclosing template class")
+            << code << completions;
+
+    completions.clear();
+
+    code = "\n"
+            "template<typename T>\n"
+            "struct Enclosing\n"
+            "{\n"
+            "    template<typename T> struct Nested { int int_nested; }; \n"
+            "    int int_enclosing;\n"
+            "};\n"
+            "\n"
+            "Enclosing<int>::Nested<int> c;"
+            "@\n";
+    completions.append("Nested");
+    completions.append("int_nested");
+    QTest::newRow("case: nested template class with enclosing template class")
+            << code << completions;}

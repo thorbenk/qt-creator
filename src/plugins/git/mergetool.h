@@ -27,27 +27,67 @@
 **
 ****************************************************************************/
 
-#ifndef PROFILEKEYWORDS_H
-#define PROFILEKEYWORDS_H
+#ifndef MERGETOOL_H
+#define MERGETOOL_H
 
+#include <QObject>
 #include <QStringList>
 
-namespace Qt4ProjectManager {
+QT_BEGIN_NAMESPACE
+class QProcess;
+class QMessageBox;
+QT_END_NAMESPACE
 
+namespace Git {
 namespace Internal {
 
-class ProFileKeywords
+class MergeTool : public QObject
 {
+    Q_OBJECT
+
+    enum FileState {
+        UnknownState,
+        ModifiedState,
+        CreatedState,
+        DeletedState,
+        SubmoduleState,
+        SymbolicLinkState
+    };
+
 public:
-    static QStringList variables();
-    static QStringList functions();
-    static bool isVariable(const QString &word);
-    static bool isFunction(const QString &word);
+    explicit MergeTool(QObject *parent = 0);
+    ~MergeTool();
+    bool start(const QString &workingDirectory, const QStringList &files = QStringList());
+
+    enum MergeType {
+        NormalMerge,
+        SubmoduleMerge,
+        DeletedMerge,
+        SymbolicLinkMerge
+    };
+
+private slots:
+    void readData();
+    void done();
+
 private:
-    ProFileKeywords();
+    FileState waitAndReadStatus(QString &extraInfo);
+    QString mergeTypeName();
+    QString stateName(FileState state, const QString &extraInfo);
+    void chooseAction();
+    void addButton(QMessageBox *msgBox, const QString &text, char key);
+
+    QProcess *m_process;
+    MergeType m_mergeType;
+    QString m_fileName;
+    FileState m_localState;
+    QString m_localInfo;
+    FileState m_remoteState;
+    QString m_remoteInfo;
+    bool m_merging;
 };
 
 } // namespace Internal
-} // namespace Qt4ProjectManager
+} // namespace Git
 
-#endif // PROFILEKEYWORDS_H
+#endif // MERGETOOL_H

@@ -30,6 +30,7 @@
 #include "qt5informationnodeinstanceserver.h"
 
 #include <QQuickItem>
+#include <QQuickView>
 
 #include "servernodeinstance.h"
 #include "childrenchangeeventfilter.h"
@@ -90,6 +91,8 @@ void Qt5InformationNodeInstanceServer::collectItemChangesAndSendChangeCommands()
     static bool inFunction = false;
     if (!inFunction) {
         inFunction = true;
+
+        DesignerSupport::polishItems(quickView());
 
         QSet<ServerNodeInstance> informationChangedInstanceSet;
         QVector<InstancePropertyPair> propertyChangedList;

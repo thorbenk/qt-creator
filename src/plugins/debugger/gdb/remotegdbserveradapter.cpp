@@ -39,6 +39,7 @@
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/fancymainwindow.h>
+#include <utils/qtcprocess.h>
 #include <projectexplorer/abi.h>
 
 #include <QFileInfo>
@@ -85,7 +86,14 @@ void GdbRemoteServerEngine::setupEngine()
     QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
     showMessage(_("TRYING TO START ADAPTER"));
     if (!startParameters().serverStartScript.isEmpty()) {
-        m_uploadProc.start(_("/bin/sh ") + startParameters().serverStartScript);
+
+        // Provide script information about the environment
+        QString arglist;
+        Utils::QtcProcess::addArg(&arglist, startParameters().serverStartScript);
+        Utils::QtcProcess::addArg(&arglist, startParameters().executable);
+        Utils::QtcProcess::addArg(&arglist, startParameters().remoteChannel);
+
+        m_uploadProc.start(_("/bin/sh ") + arglist);
         m_uploadProc.waitForStarted();
     }
     if (startParameters().remoteSetupNeeded)
@@ -282,6 +290,11 @@ void GdbRemoteServerEngine::handleTargetRemote(const GdbResponse &record)
         // gdb server will stop the remote application itself.
         showMessage(_("INFERIOR STARTED"));
         showMessage(msgAttachedToStoppedInferior(), StatusBar);
+        QString postAttachCommands = debuggerCore()->stringSetting(GdbPostAttachCommands);
+        if (!postAttachCommands.isEmpty()) {
+            foreach (const QString &cmd, postAttachCommands.split(QLatin1Char('\n')))
+                postCommand(cmd.toLatin1());
+        }
         handleInferiorPrepared();
     } else {
         // 16^error,msg="hd:5555: Connection timed out."

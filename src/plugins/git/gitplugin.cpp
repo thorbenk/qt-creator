@@ -43,6 +43,7 @@
 #include "stashdialog.h"
 #include "settingspage.h"
 #include "resetdialog.h"
+#include "mergetool.h"
 
 #include "gerrit/gerritplugin.h"
 
@@ -519,6 +520,10 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
                            tr("Amend Last Commit..."), Core::Id("Git.AmendCommit"),
                            globalcontext, true, SLOT(startAmendCommit()));
 
+    createRepositoryAction(gitContainer,
+                           tr("Merge Tool"), Core::Id("Git.MergeTool"),
+                           globalcontext, true, SLOT(startMergeTool()));
+
     // Subversion in a submenu.
     gitContainer->addSeparator(globalcontext);
 
@@ -563,6 +568,11 @@ GitVersionControl *GitPlugin::gitVersionControl() const
 void GitPlugin::submitEditorDiff(const QStringList &unstaged, const QStringList &staged)
 {
     m_gitClient->diff(m_submitRepository, QStringList(), unstaged, staged);
+}
+
+void GitPlugin::submitEditorMerge(const QStringList &unmerged)
+{
+    m_gitClient->merge(m_submitRepository, unmerged);
 }
 
 void GitPlugin::diffCurrentFile()
@@ -708,6 +718,7 @@ Core::IEditor *GitPlugin::openSubmitEditor(const QString &fileName, const Commit
     if (amend) // Allow for just correcting the message
         submitEditor->setEmptyFileListEnabled(true);
     connect(submitEditor, SIGNAL(diff(QStringList,QStringList)), this, SLOT(submitEditorDiff(QStringList,QStringList)));
+    connect(submitEditor, SIGNAL(merge(QStringList)), this, SLOT(submitEditorMerge(QStringList)));
     return editor;
 }
 
@@ -802,6 +813,13 @@ void GitPlugin::push()
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasTopLevel(), return);
     m_gitClient->synchronousPush(state.topLevel());
+}
+
+void GitPlugin::startMergeTool()
+{
+    const VcsBase::VcsBasePluginState state = currentState();
+    QTC_ASSERT(state.hasTopLevel(), return);
+    m_gitClient->merge(state.topLevel());
 }
 
 // Retrieve member function of git client stored as user data of action
@@ -1066,5 +1084,56 @@ GitClient *GitPlugin::gitClient() const
 {
     return m_gitClient;
 }
+
+#ifdef WITH_TESTS
+#include <QTest>
+Q_DECLARE_METATYPE(FileStates)
+void GitPlugin::testStatusParsing_data()
+{
+    QTest::addColumn<FileStates>("first");
+    QTest::addColumn<FileStates>("second");
+
+    QTest::newRow(" M") << FileStates(ModifiedFile) << FileStates(UnknownFileState);
+    QTest::newRow(" D") << FileStates(DeletedFile) << FileStates(UnknownFileState);
+    QTest::newRow("M ") << (ModifiedFile | StagedFile) << FileStates(UnknownFileState);
+    QTest::newRow("MM") << (ModifiedFile | StagedFile) << FileStates(ModifiedFile);
+    QTest::newRow("MD") << (ModifiedFile | StagedFile) << FileStates(DeletedFile);
+    QTest::newRow("A ") << (AddedFile | StagedFile) << FileStates(UnknownFileState);
+    QTest::newRow("AM") << (AddedFile | StagedFile) << FileStates(ModifiedFile);
+    QTest::newRow("AD") << (AddedFile | StagedFile) << FileStates(DeletedFile);
+    QTest::newRow("D ") << (DeletedFile | StagedFile) << FileStates(UnknownFileState);
+    QTest::newRow("DM") << (DeletedFile | StagedFile) << FileStates(ModifiedFile);
+    QTest::newRow("R ") << (RenamedFile | StagedFile) << FileStates(UnknownFileState);
+    QTest::newRow("RM") << (RenamedFile | StagedFile) << FileStates(ModifiedFile);
+    QTest::newRow("RD") << (RenamedFile | StagedFile) << FileStates(DeletedFile);
+    QTest::newRow("C ") << (CopiedFile | StagedFile) << FileStates(UnknownFileState);
+    QTest::newRow("CM") << (CopiedFile | StagedFile) << FileStates(ModifiedFile);
+    QTest::newRow("CD") << (CopiedFile | StagedFile) << FileStates(DeletedFile);
+
+    // Merges
+    QTest::newRow("DD") << (DeletedFile | UnmergedFile | UnmergedUs | UnmergedThem) << FileStates(UnknownFileState);
+    QTest::newRow("AA") << (AddedFile | UnmergedFile | UnmergedUs | UnmergedThem) << FileStates(UnknownFileState);
+    QTest::newRow("UU") << (ModifiedFile | UnmergedFile | UnmergedUs | UnmergedThem) << FileStates(UnknownFileState);
+    QTest::newRow("AU") << (AddedFile | UnmergedFile | UnmergedUs) << FileStates(UnknownFileState);
+    QTest::newRow("UD") << (DeletedFile | UnmergedFile | UnmergedThem) << FileStates(UnknownFileState);
+    QTest::newRow("UA") << (AddedFile | UnmergedFile | UnmergedThem) << FileStates(UnknownFileState);
+    QTest::newRow("DU") << (DeletedFile | UnmergedFile | UnmergedUs) << FileStates(UnknownFileState);
+}
+
+void GitPlugin::testStatusParsing()
+{
+    CommitData data;
+    QFETCH(FileStates, first);
+    QFETCH(FileStates, second);
+    QString output = QLatin1String("## master...origin/master [ahead 1]\n");
+    output += QString::fromLatin1(QTest::currentDataTag()) + QLatin1String(" main.cpp\n");
+    data.parseFilesFromStatus(output);
+    QCOMPARE(data.files.at(0).first, first);
+    if (second == UnknownFileState)
+        QCOMPARE(data.files.size(), 1);
+    else
+        QCOMPARE(data.files.at(1).first, second);
+}
+#endif
 
 Q_EXPORT_PLUGIN(GitPlugin)

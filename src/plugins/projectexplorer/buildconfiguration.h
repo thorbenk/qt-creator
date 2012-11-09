@@ -63,7 +63,7 @@ public:
     virtual BuildConfigWidget *createConfigWidget() = 0;
 
     // Maybe the BuildConfiguration is not the best place for the environment
-    virtual Utils::Environment baseEnvironment() const;
+    Utils::Environment baseEnvironment() const;
     QString baseEnvironmentText() const;
     Utils::Environment environment() const;
     void setUserEnvironmentChanges(const QList<Utils::EnvironmentItem> &diff);
@@ -75,13 +75,6 @@ public:
     BuildStepList *stepList(Core::Id id) const;
 
     virtual QVariantMap toMap() const;
-
-    // Creates a suitable outputparser for custom build steps
-    // (based on the tool chain)
-    // this is not great API
-    // it's mainly so that custom build systems are better integrated
-    // with the generic project manager
-    virtual IOutputParser *createOutputParser() const = 0;
 
     Target *target() const;
 
@@ -111,13 +104,16 @@ protected:
     virtual bool fromMap(const QVariantMap &map);
 
 private slots:
-    void handleKitUpdate(ProjectExplorer::Kit *k);
+    void handleKitUpdate();
 
 private:
+    void emitEnvironmentChanged();
+
     bool m_clearSystemEnvironment;
     QList<Utils::EnvironmentItem> m_userEnvironmentChanges;
     QList<BuildStepList *> m_stepLists;
     Utils::AbstractMacroExpander *m_macroExpander;
+    Utils::Environment m_lastEnvironment;
 };
 
 class PROJECTEXPLORER_EXPORT IBuildConfigurationFactory :

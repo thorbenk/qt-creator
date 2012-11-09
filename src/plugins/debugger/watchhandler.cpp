@@ -1586,6 +1586,18 @@ void WatchHandler::watchExpression(const QString &exp, const QString &name)
     updateWatchersWindow();
 }
 
+// Watch something obtained from the editor.
+// Prefer to watch an existing local variable by its expression
+// (address) if it can be found. Default to watchExpression().
+void WatchHandler::watchVariable(const QString &exp)
+{
+    if (const WatchData *localVariable = findCppLocalVariable(exp)) {
+        watchExpression(QLatin1String(localVariable->exp), exp);
+    } else {
+        watchExpression(exp);
+    }
+}
+
 static void swapEndian(char *d, int nchar)
 {
     QTC_ASSERT(nchar % 4 == 0, return);
@@ -1622,7 +1634,7 @@ void WatchHandler::showEditValue(const WatchData &data)
         }
         int width, height, format;
         QByteArray ba;
-        uchar *bits;
+        uchar *bits = 0;
         if (data.editformat == DisplayImageData) {
             ba = QByteArray::fromHex(data.editvalue);
             const int *header = (int *)(ba.data());

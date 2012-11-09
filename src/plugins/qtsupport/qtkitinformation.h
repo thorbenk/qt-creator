@@ -51,7 +51,8 @@ public:
 
     QVariant defaultValue(ProjectExplorer::Kit *k) const;
 
-    QList<ProjectExplorer::Task> validate(ProjectExplorer::Kit *k) const;
+    QList<ProjectExplorer::Task> validate(const ProjectExplorer::Kit *k) const;
+    void fix(ProjectExplorer::Kit *);
 
     ProjectExplorer::KitConfigWidget *createConfigWidget(ProjectExplorer::Kit *k) const;
 
@@ -60,11 +61,16 @@ public:
     ItemList toUserOutput(ProjectExplorer::Kit *k) const;
 
     void addToEnvironment(const ProjectExplorer::Kit *k, Utils::Environment &env) const;
+    ProjectExplorer::IOutputParser *createOutputParser(const ProjectExplorer::Kit *k) const;
 
     static int qtVersionId(const ProjectExplorer::Kit *k);
     static void setQtVersionId(ProjectExplorer::Kit *k, const int id);
     static BaseQtVersion *qtVersion(const ProjectExplorer::Kit *k);
     static void setQtVersion(ProjectExplorer::Kit *k, const BaseQtVersion *v);
+private slots:
+    void qtVersionsChanged(const QList<int> &addedIds,
+                           const QList<int> &removedIds,
+                           const QList<int> &changedIds);
 };
 
 class QTSUPPORT_EXPORT QtPlatformKitMatcher : public ProjectExplorer::KitMatcher

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2009 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -27,23 +27,24 @@
 **
 ****************************************************************************/
 
-#if defined __cplusplus
-#include <QtGlobal>
+#ifndef CPPTOOLS_CPPINDEXINGSUPPORT_H
+#define CPPTOOLS_CPPINDEXINGSUPPORT_H
 
-#ifdef Q_WS_WIN
-# define _POSIX_
-# include <limits.h>
-# undef _POSIX_
-#endif
+#include "cpptools_global.h"
 
-#include "../botan/botan.h"
+#include <QFuture>
+#include <QStringList>
 
-#include <map>
-#include <fstream>
-#include <memory>
-#include <algorithm>
-#include <iostream>
-#include <vector>
-#include <string>
+namespace CppTools {
 
-#endif
+class CPPTOOLS_EXPORT CppIndexingSupport
+{
+public:
+    virtual ~CppIndexingSupport() = 0;
+
+    virtual QFuture<void> refreshSourceFiles(const QStringList &sourceFiles) = 0;
+};
+
+} // namespace CppTools
+
+#endif // CPPTOOLS_CPPINDEXINGSUPPORT_H

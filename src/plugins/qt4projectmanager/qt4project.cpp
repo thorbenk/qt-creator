@@ -46,6 +46,7 @@
 #include <coreplugin/messagemanager.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/progressmanager/progressmanager.h>
+#include <coreplugin/documentmanager.h>
 #include <extensionsystem/pluginmanager.h>
 #include <cpptools/ModelManagerInterface.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
@@ -359,7 +360,6 @@ Qt4Project::Qt4Project(Qt4Manager *manager, const QString& fileName) :
     m_pendingEvaluateFuturesCount(0),
     m_asyncUpdateState(NoState),
     m_cancelEvaluate(false),
-    m_codeModelCanceled(false),
     m_centralizedFolderWatcher(0),
     m_activeTarget(0)
 {
@@ -397,6 +397,32 @@ void Qt4Project::updateFileList()
     }
 }
 
+bool Qt4Project::setupTarget(ProjectExplorer::Target *t)
+{
+    QList<BuildConfigurationInfo> infoList
+            = Qt4BuildConfigurationFactory::availableBuildConfigurations(t->kit(), m_fileInfo->fileName());
+    setupTarget(t, infoList);
+    return true;
+}
+
+void Qt4Project::setupTarget(ProjectExplorer::Target *t, const QList<BuildConfigurationInfo> &infoList)
+{
+    // Build Configurations:
+    foreach (const BuildConfigurationInfo &info, infoList) {
+        QString name = info.buildConfig & QtSupport::BaseQtVersion::DebugBuild
+                ? tr("Debug") : tr("Release");
+        Qt4BuildConfiguration *bc
+                = Qt4BuildConfiguration::setup(t, name, name,
+                                               info.buildConfig, info.additionalArguments,
+                                               info.directory, info.importing);
+        t->addBuildConfiguration(bc);
+    }
+
+    // Deploy Configurations:
+    t->updateDefaultDeployConfigurations();
+    // Do not create Run Configurations: Those will be generated later anyway.
+}
+
 bool Qt4Project::fromMap(const QVariantMap &map)
 {
     if (!Project::fromMap(map))
@@ -423,8 +449,8 @@ bool Qt4Project::fromMap(const QVariantMap &map)
     updateCodeModels();
 
     // We have the profile nodes now, so we know the runconfigs!
-    connect(m_nodesWatcher, SIGNAL(kitUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)),
-            this, SIGNAL(kitUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)));
+    connect(m_nodesWatcher, SIGNAL(proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)),
+            this, SIGNAL(proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)));
 
     // Now we emit update once :)
     m_rootProjectNode->emitProFileUpdatedRecursive();
@@ -713,7 +739,6 @@ void Qt4Project::scheduleAsyncUpdate(Qt4ProFileNode *node)
 
         // Cancel running code model update
         m_codeModelFuture.cancel();
-        m_codeModelCanceled = true;
     } else if (m_asyncUpdateState == AsyncUpdateInProgress) {
         // A update is in progress
         // And this slot only gets called if a file changed on disc
@@ -762,7 +787,6 @@ void Qt4Project::scheduleAsyncUpdate()
 
     // Cancel running code model update
     m_codeModelFuture.cancel();
-    m_codeModelCanceled = true;
 }
 
 
@@ -936,7 +960,7 @@ void Qt4Project::proFileParseError(const QString &errorMessage)
     Core::ICore::messageManager()->printToOutputPanePopup(errorMessage);
 }
 
-QtSupport::ProFileReader *Qt4Project::createProFileReader(Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc)
+QtSupport::ProFileReader *Qt4Project::createProFileReader(const Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc)
 {
     if (!m_qmakeGlobals) {
         m_qmakeGlobals = new ProFileGlobals;
@@ -1403,16 +1427,33 @@ QString Qt4Project::shadowBuildDirectory(const QString &profilePath, const Kit *
     if (version && !version->supportsShadowBuilds())
         return info.absolutePath();
 
-    QString base = QDir::cleanPath(projectDirectory(profilePath) + QLatin1String("/../")
-                                   + info.baseName() + QLatin1String("-build-"));
-    return base + buildNameFor(k) + QLatin1String("-") + sanitize(suffix);
+    Utils::FileName buildDirBase = Utils::FileName::fromString(projectDirectory(profilePath));
+    if (Core::DocumentManager::useProjectsDirectory() &&
+        Core::DocumentManager::useBuildDirectory()) {
+        const Utils::FileName projectsDirectory =
+            Utils::FileName::fromString(Core::DocumentManager::projectsDirectory());
+
+        if (buildDirBase.isChildOf(projectsDirectory)) {
+            Utils::FileName buildDirectory =
+                Utils::FileName::fromString(Core::DocumentManager::buildDirectory());
+
+            buildDirectory.appendPath(buildDirBase.relativeChildPath(projectsDirectory).toString());
+            buildDirBase = buildDirectory;
+        }
+    }
+
+    buildDirBase.append(QLatin1String("-build-") + buildNameFor(k) +
+                        QLatin1Char('-') + sanitize(suffix));
+
+    return QDir::cleanPath(buildDirBase.toString());
 }
 
 QString Qt4Project::buildNameFor(const Kit *k)
 {
     if (!k)
         return QLatin1String("unknown");
-    return QString::fromLatin1(k->id().name()).mid(31, 6); // part of the UUID, should be pretty unique;-)
+
+    return k->fileSystemFriendlyName();
 }
 
 Target *Qt4Project::createTarget(Kit *k, const QList<BuildConfigurationInfo> &infoList)
@@ -1421,22 +1462,7 @@ Target *Qt4Project::createTarget(Kit *k, const QList<BuildConfigurationInfo> &in
         return 0;
 
     Target *t = new Target(this, k);
-
-    // Build Configurations:
-    foreach (const BuildConfigurationInfo &info, infoList) {
-        QString name = info.buildConfig & QtSupport::BaseQtVersion::DebugBuild
-                ? tr("Debug") : tr("Release");
-        Qt4BuildConfiguration *bc
-                = Qt4BuildConfiguration::setup(t, name, name,
-                                               info.buildConfig, info.additionalArguments,
-                                               info.directory, info.importing);
-        t->addBuildConfiguration(bc);
-    }
-
-    // Deploy Configurations:
-    t->updateDefaultDeployConfigurations();
-    // Do not create Run Configurations: Those will be generated later anyway.
-
+    setupTarget(t, infoList);
     return t;
 }
 

@@ -92,7 +92,7 @@ def typeLines(editor, lines):
     if isinstance(lines, (list, tuple)):
         for line in lines:
             type(editor, line)
-            type(editor, "<Enter>")
+            type(editor, "<Return>")
     else:
         test.warning("Illegal parameter passed to typeLines()")
 
@@ -218,13 +218,11 @@ def getEditorForFileSuffix(curFile):
     glslEditorSuffixes= ["frag", "vert", "fsh", "vsh", "glsl", "shader", "gsh"]
     suffix = __getFileSuffix__(curFile)
     if suffix in cppEditorSuffixes:
-        editor = waitForObject("{type='CppEditor::Internal::CPPEditorWidget' unnamed='1' "
-                               "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
+        editor = waitForObject(":Qt Creator_CppEditor::Internal::CPPEditorWidget")
     elif suffix in qmlEditorSuffixes:
         editor = waitForObject(":Qt Creator_QmlJSEditor::QmlJSTextEditorWidget")
     elif suffix in proEditorSuffixes:
-        editor = waitForObject("{type='Qt4ProjectManager::Internal::ProFileEditorWidget' unnamed='1' "
-                               "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
+        editor = waitForObject(":Qt Creator_ProFileEditorWidget")
     elif suffix in glslEditorSuffixes:
         editor = waitForObject("{type='GLSLEditor::GLSLTextEditorWidget' unnamed='1' "
                                "visible='1' window=':Qt Creator_Core::Internal::MainWindow'}")
@@ -261,15 +259,13 @@ def validateSearchResult(expectedCount):
     matches = cast((str(counterLabel.text)).split(" ", 1)[0], "int")
     test.compare(matches, expectedCount, "Verified match count.")
     model = resultTreeView.model()
-    for row in range(model.rowCount()):
-        index = model.index(row, 0)
+    for index in dumpIndices(model):
         itemText = str(model.data(index).toString())
         doubleClickItem(resultTreeView, maskSpecialCharsForSearchResult(itemText), 5, 5, 0, Qt.LeftButton)
         test.log("%d occurrences in %s" % (model.rowCount(index), itemText))
-        for chRow in range(model.rowCount(index)):
-            chIndex = model.index(chRow, 0, index)
+        for chIndex in dumpIndices(model, index):
             resultTreeView.scrollTo(chIndex)
-            text = str(chIndex.data())
+            text = str(chIndex.data()).rstrip('\r')
             rect = resultTreeView.visualRect(chIndex)
             doubleClick(resultTreeView, rect.x+5, rect.y+5, 0, Qt.LeftButton)
             editor = getEditorForFileSuffix(itemText)
@@ -295,3 +291,14 @@ def invokeFindUsage(editor, line, typeOperation, n=1):
         type(editor, typeOperation)
     invokeContextMenuItem(editor, "Find Usages")
     return True
+
+def openDocument(treeElement):
+    try:
+        navigator = waitForObject(":Qt Creator_Utils::NavigationTreeView")
+        fileName = waitForObjectItem(navigator, treeElement).text
+        doubleClickItem(navigator, treeElement, 5, 5, 0, Qt.LeftButton)
+        mainWindow = waitForObject(":Qt Creator_Core::Internal::MainWindow")
+        waitFor("fileName in str(mainWindow.windowTitle)")
+        return True
+    except:
+        return False

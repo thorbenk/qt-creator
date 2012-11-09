@@ -35,6 +35,7 @@
 #include "gitplugin.h"
 #include "gitsubmiteditor.h"
 #include "gitversioncontrol.h"
+#include "mergetool.h"
 
 #include <vcsbase/submitfilemodel.h>
 
@@ -572,6 +573,13 @@ void GitClient::diffBranch(const QString &workingDirectory,
     executeGit(workingDirectory, cmdArgs, editor);
 }
 
+void GitClient::merge(const QString &workingDirectory, const QStringList &unmergedFileNames)
+{
+    MergeTool *mergeTool = new MergeTool(this);
+    if (!mergeTool->start(workingDirectory, unmergedFileNames))
+        delete mergeTool;
+}
+
 void GitClient::status(const QString &workingDirectory)
 {
     // @TODO: Use "--no-color" once it is supported
@@ -1098,64 +1106,51 @@ static inline QString msgCannotDetermineBranch(const QString &workingDirectory, 
     return GitClient::tr("Cannot retrieve branch of \"%1\": %2").arg(QDir::toNativeSeparators(workingDirectory), why);
 }
 
-// Retrieve head revision/branch
-bool GitClient::synchronousTopRevision(const QString &workingDirectory, QString *revision,
-                                       QString *branch, QString *errorMessageIn)
+// Retrieve head branch
+QString GitClient::synchronousBranch(const QString &workingDirectory)
+{
+    QByteArray outputTextData;
+    QStringList arguments;
+    arguments << QLatin1String("symbolic-ref") << QLatin1String("HEAD");
+    // if HEAD is detached, the command is expected to fail.
+    if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData))
+        return QString();
+    QString branch = commandOutputFromLocal8Bit(outputTextData);
+    branch.remove(QLatin1Char('\n'));
+
+    // Must strip the "refs/heads/" prefix manually since the --short switch
+    // of git symbolic-ref only got introduced with git 1.7.10, which is not
+    // available for all popular Linux distributions yet.
+    const QString refsHeadsPrefix = QLatin1String("refs/heads/");
+    if (branch.startsWith(refsHeadsPrefix))
+        branch.remove(0, refsHeadsPrefix.count());
+
+    return branch;
+}
+
+// Retrieve head revision
+QString GitClient::synchronousTopRevision(const QString &workingDirectory, QString *errorMessageIn)
 {
     QByteArray outputTextData;
     QByteArray errorText;
     QStringList arguments;
     QString errorMessage;
-    do {
-        // get revision
-        if (revision) {
-            revision->clear();
-            arguments << QLatin1String("log") << QLatin1String(noColorOption)
-                    <<  QLatin1String("--max-count=1") << QLatin1String("--pretty=format:%H");
-            if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText)) {
-                errorMessage = tr("Cannot retrieve top revision of \"%1\": %2").arg(QDir::toNativeSeparators(workingDirectory), commandOutputFromLocal8Bit(errorText));
-                break;
-            }
-            *revision = commandOutputFromLocal8Bit(outputTextData);
-            revision->remove(QLatin1Char('\n'));
-        } // revision desired
-        // get branch
-        if (branch) {
-            branch->clear();
-            arguments.clear();
-            arguments << QLatin1String("branch") << QLatin1String(noColorOption);
-            if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText)) {
-                errorMessage = msgCannotDetermineBranch(workingDirectory, commandOutputFromLocal8Bit(errorText));
-                break;
-            }
-            /* parse output for current branch: \code
-* master
-  branch2
-\endcode */
-            const QString branchPrefix = QLatin1String("* ");
-            foreach(const QString &line, commandOutputLinesFromLocal8Bit(outputTextData)) {
-                if (line.startsWith(branchPrefix)) {
-                    *branch = line;
-                    branch->remove(0, branchPrefix.size());
-                    break;
-                }
-            }
-            if (branch->isEmpty()) {
-                errorMessage = msgCannotDetermineBranch(workingDirectory,
-                                                        QString::fromLatin1("Internal error: Failed to parse output: %1").arg(commandOutputFromLocal8Bit(outputTextData)));
-                break;
-            }
-        } // branch
-    } while (false);
-    const bool failed = (revision && revision->isEmpty()) || (branch && branch->isEmpty());
-    if (failed && !errorMessage.isEmpty()) {
-        if (errorMessageIn) {
-            *errorMessageIn = errorMessage;
-        } else {
-            outputWindow()->appendError(errorMessage);
-        }
+    // get revision
+    arguments << QLatin1String("rev-parse") << QLatin1String("HEAD");
+    if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText)) {
+        errorMessage = tr("Cannot retrieve top revision of \"%1\": %2")
+                .arg(QDir::toNativeSeparators(workingDirectory), commandOutputFromLocal8Bit(errorText));
+        return QString();
     }
-    return !failed;
+    QString revision = commandOutputFromLocal8Bit(outputTextData);
+    revision.remove(QLatin1Char('\n'));
+    if (revision.isEmpty() && !errorMessage.isEmpty()) {
+        if (errorMessageIn)
+            *errorMessageIn = errorMessage;
+        else
+            outputWindow()->appendError(errorMessage);
+    }
+    return revision;
 }
 
 // Format an entry in a one-liner for selection list using git log.
@@ -1763,13 +1758,13 @@ bool GitClient::getCommitData(const QString &workingDirectory,
         }
 
         // Filter out untracked files that are not part of the project
-        QStringList untrackedFiles = commitData->filterFiles(CommitData::UntrackedFile);
+        QStringList untrackedFiles = commitData->filterFiles(UntrackedFile);
 
         VcsBase::VcsBaseSubmitEditor::filterUntrackedFilesOfProject(repoDirectory, &untrackedFiles);
         QList<CommitData::StateFilePair> filteredFiles;
         QList<CommitData::StateFilePair>::const_iterator it = commitData->files.constBegin();
         for ( ; it != commitData->files.constEnd(); ++it) {
-            if (it->first == CommitData::UntrackedFile && !untrackedFiles.contains(it->second))
+            if (it->first == UntrackedFile && !untrackedFiles.contains(it->second))
                 continue;
             filteredFiles.append(*it);
         }
@@ -1849,47 +1844,41 @@ bool GitClient::addAndCommit(const QString &repositoryDirectory,
     int commitCount = 0;
 
     for (int i = 0; i < model->rowCount(); ++i) {
-        const CommitData::FileState state = static_cast<CommitData::FileState>(model->extraData(i).toInt());
+        const FileStates state = static_cast<FileStates>(model->extraData(i).toInt());
         QString file = model->file(i);
         const bool checked = model->checked(i);
 
         if (checked)
             ++commitCount;
 
-        if (state == CommitData::UntrackedFile && checked)
+        if (state == UntrackedFile && checked)
             filesToAdd.append(file);
 
-        if (state == CommitData::ModifiedStagedFile && !checked) {
-            filesToReset.append(file);
-        } else if (state == CommitData::AddedStagedFile && !checked) {
-            filesToReset.append(file);
-        } else if (state == CommitData::DeletedStagedFile && !checked) {
-            filesToReset.append(file);
-        } else if (state == CommitData::RenamedStagedFile && !checked) {
-            const int pos = file.indexOf(QLatin1String(" -> "));
-            const QString newFile = file.mid(pos + 4);
-            filesToReset.append(newFile);
-        } else if (state == CommitData::CopiedStagedFile && !checked) {
-            const QString newFile = file.mid(file.indexOf(renameSeparator) + renameSeparator.count());
-            filesToReset.append(newFile);
-        } else if (state == CommitData::UpdatedStagedFile && !checked) {
-            QTC_ASSERT(false, continue); // There should not be updated files when commiting!
+        if ((state & StagedFile) && !checked) {
+            if (state & (AddedFile | DeletedFile)) {
+                filesToReset.append(file);
+            } else if (state & (RenamedFile | CopiedFile)) {
+                const QString newFile = file.mid(file.indexOf(renameSeparator) + renameSeparator.count());
+                filesToReset.append(newFile);
+            }
+        } else if (state & UnmergedFile && checked) {
+            QTC_ASSERT(false, continue); // There should not be unmerged files when commiting!
         }
 
-        if (state == CommitData::ModifiedFile && checked) {
+        if (state == ModifiedFile && checked) {
             filesToReset.removeAll(file);
             filesToAdd.append(file);
-        } else if (state == CommitData::AddedFile && checked) {
+        } else if (state == AddedFile && checked) {
             QTC_ASSERT(false, continue); // these should be untracked!
-        } else if (state == CommitData::DeletedFile && checked) {
+        } else if (state == DeletedFile && checked) {
             filesToReset.removeAll(file);
             filesToRemove.append(file);
-        } else if (state == CommitData::RenamedFile && checked) {
+        } else if (state == RenamedFile && checked) {
             QTC_ASSERT(false, continue); // git mv directly stages.
-        } else if (state == CommitData::CopiedFile && checked) {
+        } else if (state == CopiedFile && checked) {
             QTC_ASSERT(false, continue); // only is noticed after adding a new file to the index
-        } else if (state == CommitData::UpdatedFile && checked) {
-            QTC_ASSERT(false, continue); // There should not be updated files when commiting!
+        } else if (state == UnmergedFile && checked) {
+            QTC_ASSERT(false, continue); // There should not be unmerged files when commiting!
         }
     }
 
@@ -1978,8 +1967,8 @@ GitClient::RevertResult GitClient::revertI(QStringList files,
     }
 
     // From the status output, determine all modified [un]staged files.
-    const QStringList allStagedFiles = data.filterFiles(CommitData::ModifiedStagedFile);
-    const QStringList allUnstagedFiles = data.filterFiles(CommitData::ModifiedFile);
+    const QStringList allStagedFiles = data.filterFiles(StagedFile | ModifiedFile);
+    const QStringList allUnstagedFiles = data.filterFiles(ModifiedFile);
     // Unless a directory was passed, filter all modified files for the
     // argument file list.
     QStringList stagedFiles = allStagedFiles;
@@ -2384,12 +2373,12 @@ unsigned GitClient::synchronousGitVersion(QString *errorMessage) const
     }
     // cut 'git version 1.6.5.1.sha'
     const QString output = commandOutputFromLocal8Bit(outputText);
-    QRegExp versionPattern(QLatin1String("^[^\\d]+([\\d])\\.([\\d])\\.([\\d]).*$"));
+    QRegExp versionPattern(QLatin1String("^[^\\d]+(\\d+)\\.(\\d+)\\.(\\d+).*$"));
     QTC_ASSERT(versionPattern.isValid(), return 0);
     QTC_ASSERT(versionPattern.exactMatch(output), return 0);
-    const unsigned major = versionPattern.cap(1).toUInt();
-    const unsigned minor = versionPattern.cap(2).toUInt();
-    const unsigned patch = versionPattern.cap(3).toUInt();
+    const unsigned major = versionPattern.cap(1).toUInt(0, 16);
+    const unsigned minor = versionPattern.cap(2).toUInt(0, 16);
+    const unsigned patch = versionPattern.cap(3).toUInt(0, 16);
     return version(major, minor, patch);
 }
 

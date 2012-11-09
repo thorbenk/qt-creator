@@ -2165,7 +2165,7 @@ void SemanticHighlighter::run()
 SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
 {
     SemanticInfo semanticInfo;
-    semanticInfo.revision = source.revision;
+    semanticInfo.revision = m_lastSemanticInfo.revision;
     semanticInfo.forced = source.force;
 
     m_mutex.lock();
@@ -2183,10 +2183,7 @@ SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
     if (! semanticInfo.doc) {
         semanticInfo.snapshot = source.snapshot;
         if (source.snapshot.contains(source.fileName)) {
-            const QByteArray &preprocessedCode =
-                    source.snapshot.preprocessedCode(source.code, source.fileName);
-            Document::Ptr doc =
-                    source.snapshot.documentFromSource(preprocessedCode, source.fileName);
+            Document::Ptr doc = source.snapshot.preprocessedDocument(source.code, source.fileName);
             doc->control()->setTopLevelDeclarationProcessor(this);
             doc->check();
             semanticInfo.doc = doc;
@@ -2201,6 +2198,7 @@ SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
         DeclarationAST *currentFunctionDefinition = functionDefinitionUnderCursor(ast, source.line, source.column);
 
         const LocalSymbols useTable(semanticInfo.doc, currentFunctionDefinition);
+        semanticInfo.revision = source.revision;
         semanticInfo.localUses = useTable.uses;
         semanticInfo.hasQ = useTable.hasQ;
         semanticInfo.hasD = useTable.hasD;

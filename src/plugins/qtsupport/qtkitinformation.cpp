@@ -32,6 +32,7 @@
 #include "qtkitconfigwidget.h"
 #include "qtsupportconstants.h"
 #include "qtversionmanager.h"
+#include "qtparser.h"
 
 #include <utils/environment.h>
 
@@ -45,6 +46,8 @@ QtKitInformation::QtKitInformation()
     setObjectName(QLatin1String("QtKitInformation"));
     connect(QtVersionManager::instance(), SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
             this, SIGNAL(validationNeeded()));
+    connect(QtVersionManager::instance(), SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
+            this, SLOT(qtVersionsChanged(QList<int>,QList<int>,QList<int>)));
 }
 
 Core::Id QtKitInformation::dataId() const
@@ -84,17 +87,19 @@ QVariant QtKitInformation::defaultValue(ProjectExplorer::Kit *k) const
     return -1;
 }
 
-QList<ProjectExplorer::Task> QtKitInformation::validate(ProjectExplorer::Kit *k) const
+QList<ProjectExplorer::Task> QtKitInformation::validate(const ProjectExplorer::Kit *k) const
 {
-    int id = qtVersionId(k);
-    if (id == -1)
+    BaseQtVersion *version = qtVersion(k);
+    if (!version)
         return QList<ProjectExplorer::Task>();
-    BaseQtVersion *version = QtVersionManager::instance()->version(id);
-    if (!version) {
-        setQtVersionId(k, -1);
-        return QList<ProjectExplorer::Task>();
-    }
     return version->validateKit(k);
+}
+
+void QtKitInformation::fix(ProjectExplorer::Kit *k)
+{
+    BaseQtVersion *version = qtVersion(k);
+    if (!version)
+        setQtVersionId(k, -1);
 }
 
 ProjectExplorer::KitConfigWidget *QtKitInformation::createConfigWidget(ProjectExplorer::Kit *k) const
@@ -120,6 +125,13 @@ void QtKitInformation::addToEnvironment(const ProjectExplorer::Kit *k, Utils::En
     BaseQtVersion *version = qtVersion(k);
     if (version)
         version->addToEnvironment(k, env);
+}
+
+ProjectExplorer::IOutputParser *QtKitInformation::createOutputParser(const ProjectExplorer::Kit *k) const
+{
+    if (qtVersion(k))
+        return new QtParser;
+    return 0;
 }
 
 int QtKitInformation::qtVersionId(const ProjectExplorer::Kit *k)
@@ -162,6 +174,17 @@ void QtKitInformation::setQtVersion(ProjectExplorer::Kit *k, const BaseQtVersion
         setQtVersionId(k, -1);
     else
         setQtVersionId(k, v->uniqueId());
+}
+
+void QtKitInformation::qtVersionsChanged(const QList<int> &addedIds,
+                                         const QList<int> &removedIds,
+                                         const QList<int> &changedIds)
+{
+    Q_UNUSED(addedIds);
+    Q_UNUSED(removedIds);
+    foreach (ProjectExplorer::Kit *k, ProjectExplorer::KitManager::instance()->kits())
+        if (changedIds.contains(qtVersionId(k)))
+            notifyAboutUpdate(k);
 }
 
 QtPlatformKitMatcher::QtPlatformKitMatcher(const QString &platform) :

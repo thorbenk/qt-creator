@@ -2606,13 +2606,7 @@ void BaseTextEditorWidgetPrivate::snippetTabOrBacktab(bool forward)
 QPoint BaseTextEditorWidget::toolTipPosition(const QTextCursor &c) const
 {
     const QPoint cursorPos = mapToGlobal(cursorRect(c).bottomRight() + QPoint(1,1));
-    return cursorPos + QPoint(d->m_extraArea->width(),
-#ifdef Q_OS_WIN
-    -24
-#else
-    -16
-#endif
-    );
+    return cursorPos + QPoint(d->m_extraArea->width(), HostOsInfo::isWindowsHost() ? -24 : -16);
 }
 
 void BaseTextEditorWidget::processTooltipRequest(const QTextCursor &c)
@@ -4071,7 +4065,14 @@ void BaseTextEditorWidget::updateHighlights()
             && d->m_animator == 0) {
             d->m_parenthesesMatchingTimer->start(50);
         } else {
-             // use 0-timer, not direct call, to give the syntax highlighter a chance
+            // when we uncheck "highlight matching parentheses"
+            // we need clear current selection before viewport update
+            // otherwise we get sticky highlighted parentheses
+            if (!d->m_displaySettings.m_highlightMatchingParentheses) {
+                setExtraSelections(ParenthesesMatchingSelection, QList<QTextEdit::ExtraSelection>());
+            }
+
+            // use 0-timer, not direct call, to give the syntax highlighter a chance
             // to update the parentheses information
             d->m_parenthesesMatchingTimer->start(0);
         }
@@ -4467,7 +4468,9 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
             d->m_markDragging = false;
             QTextBlock block = cursor.document()->findBlockByNumber(n);
             if (TextBlockUserData *data = static_cast<TextBlockUserData *>(block.userData())) {
-                foreach (ITextMark *mark, data->marks()) {
+                TextMarks marks = data->marks();
+                for (int i = marks.size(); --i >= 0; ) {
+                    ITextMark *mark = marks.at(i);
                     if (sameLine) {
                         if (mark->isClickable()) {
                             mark->clicked();
@@ -5060,7 +5063,9 @@ void BaseTextEditorAnimator::finish()
 
 void BaseTextEditorWidget::_q_matchParentheses()
 {
-    if (isReadOnly())
+    if (isReadOnly()
+        || !(d->m_displaySettings.m_highlightMatchingParentheses
+             || d->m_displaySettings.m_animateMatchingParentheses))
         return;
 
     QTextCursor backwardMatch = textCursor();
@@ -5149,8 +5154,8 @@ void BaseTextEditorWidget::_q_matchParentheses()
         connect(d->m_animator, SIGNAL(updateRequest(int,QPointF,QRectF)),
                 this, SLOT(_q_animateUpdate(int,QPointF,QRectF)));
     }
-
-    setExtraSelections(ParenthesesMatchingSelection, extraSelections);
+    if (d->m_displaySettings.m_highlightMatchingParentheses)
+        setExtraSelections(ParenthesesMatchingSelection, extraSelections);
 }
 
 void BaseTextEditorWidget::_q_highlightBlocks()

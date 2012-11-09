@@ -56,6 +56,7 @@ public:
 
 signals:
     void diff(const QStringList &unstagedFiles, const QStringList &stagedFiles);
+    void merge(const QStringList &unmergedFiles);
 
 protected:
     QByteArray fileContents() const;

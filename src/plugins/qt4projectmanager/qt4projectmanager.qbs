@@ -12,7 +12,6 @@ QtcPlugin {
     Depends { name: "CppTools" }
     Depends { name: "Debugger" }
     Depends { name: "QmlJS" }
-    Depends { name: "Botan" }
     Depends { name: "CPlusPlus" }
     Depends { name: "TextEditor" }
 
@@ -53,8 +52,8 @@ QtcPlugin {
         "profilehighlighter.h",
         "profilehoverhandler.cpp",
         "profilehoverhandler.h",
-        "profilekeywords.cpp",
-        "profilekeywords.h",
+        "qmakeparser.cpp",
+        "qmakeparser.h",
         "qmakekitconfigwidget.cpp",
         "qmakekitconfigwidget.h",
         "qmakekitinformation.cpp",

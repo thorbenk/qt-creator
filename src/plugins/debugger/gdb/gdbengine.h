@@ -35,6 +35,7 @@
 #include "stackframe.h"
 #include "watchhandler.h"
 #include "watchutils.h"
+#include "threaddata.h"
 
 #include <QByteArray>
 #include <QProcess>
@@ -437,7 +438,7 @@ private: ////////// Inferior Management //////////
 private: ////////// View & Data Stuff //////////
     protected:
 
-    void selectThread(int index);
+    void selectThread(ThreadId threadId);
     void activateFrame(int index);
     void resetLocation();
 
@@ -475,11 +476,13 @@ private: ////////// View & Data Stuff //////////
     Q_SLOT void loadAllSymbols();
     void loadSymbolsForStack();
     void requestModuleSymbols(const QString &moduleName);
+    void requestModuleSections(const QString &moduleName);
     void reloadModules();
     void examineModules();
     void reloadModulesInternal();
     void handleModulesList(const GdbResponse &response);
     void handleShowModuleSymbols(const GdbResponse &response);
+    void handleShowModuleSections(const GdbResponse &response);
 
     //
     // Snapshot specific stuff
@@ -664,7 +667,6 @@ protected:
 
     // For short-circuiting stack and thread list evaluation.
     bool m_stackNeeded;
-    int m_currentThreadId;
 
     //
     // Qml

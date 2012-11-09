@@ -103,12 +103,6 @@ public:
 
     QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
 
-#ifdef CLANG_INDEXING
-    // Testing...
-    void refreshSourceFiles_Clang(const QStringList &sourceFiles);
-    void refreshSourceFile_Clang(const QString &sourceFile);
-#endif // CLANG_INDEXING
-
     virtual bool isCppEditor(Core::IEditor *editor) const;
 
     CppEditorSupport *editorSupport(TextEditor::ITextEditor *editor) const
@@ -148,37 +142,7 @@ public:
     virtual CppHighlightingSupport *highlightingSupport(Core::IEditor *editor) const;
     virtual void setHighlightingSupportFactory(CppHighlightingSupportFactory *highlightingFactory);
 
-Q_SIGNALS:
-    void projectPathChanged(const QString &projectPath);
-
-    void aboutToRemoveFiles(const QStringList &files);
-
-public Q_SLOTS:
-    void editorOpened(Core::IEditor *editor);
-    void editorAboutToClose(Core::IEditor *editor);
-    virtual void updateModifiedSourceFiles();
-
-private Q_SLOTS:
-    // this should be executed in the GUI thread.
-    void onDocumentUpdated(CPlusPlus::Document::Ptr doc);
-    void onExtraDiagnosticsUpdated(const QString &fileName);
-    void onAboutToRemoveProject(ProjectExplorer::Project *project);
-    void onAboutToLoadSession(const QString &sessionName);
-    void onSessionLoaded();
-    void onAboutToUnloadSession();
-    void onProjectAdded(ProjectExplorer::Project *project);
-    void postEditorUpdate();
-    void updateEditorSelections();
-
-#ifdef CLANG_INDEXING
-    // Testing clang...
-    void onIndexingStarted_Clang(QFuture<void> indexingFuture);
-#endif // CLANG_INDEXING
-
-private:
-    void updateEditor(CPlusPlus::Document::Ptr doc);
-
-    WorkingCopy buildWorkingCopyList();
+    virtual void addIndexingSupport(CppIndexingSupport *indexingSupport);
 
     QStringList projectFiles()
     {
@@ -204,15 +168,40 @@ private:
         return m_definedMacros;
     }
 
+Q_SIGNALS:
+    void projectPathChanged(const QString &projectPath);
+
+    void aboutToRemoveFiles(const QStringList &files);
+
+public Q_SLOTS:
+    void editorOpened(Core::IEditor *editor);
+    void editorAboutToClose(Core::IEditor *editor);
+    virtual void updateModifiedSourceFiles();
+
+private Q_SLOTS:
+    // this should be executed in the GUI thread.
+    void onDocumentUpdated(CPlusPlus::Document::Ptr doc);
+    void onExtraDiagnosticsUpdated(const QString &fileName);
+    void onAboutToRemoveProject(ProjectExplorer::Project *project);
+    void onAboutToLoadSession(const QString &sessionName);
+    void onSessionLoaded();
+    void onAboutToUnloadSession();
+    void onProjectAdded(ProjectExplorer::Project *project);
+    void postEditorUpdate();
+    void updateEditorSelections();
+
+private:
+    void updateEditor(CPlusPlus::Document::Ptr doc);
+
+    WorkingCopy buildWorkingCopyList();
+
     void ensureUpdated();
     QStringList internalProjectFiles() const;
     QStringList internalIncludePaths() const;
     QStringList internalFrameworkPaths() const;
     QByteArray internalDefinedMacros() const;
 
-    static void parse(QFutureInterface<void> &future,
-                      CppPreprocessor *preproc,
-                      QStringList files);
+    void dumpModelManagerConfiguration();
 
 private:
     static QMutex m_modelManagerMutex;
@@ -255,12 +244,8 @@ private:
 
     QTimer *m_updateEditorSelectionsTimer;
 
-    QFutureSynchronizer<void> m_synchronizer;
-    unsigned m_revision;
-
     CppFindReferences *m_findReferences;
     bool m_indexerEnabled;
-    bool m_dumpFileNameWhileParsing;
 
     mutable QMutex protectExtraDiagnostics;
     QHash<QString, QHash<int, QList<CPlusPlus::Document::DiagnosticMessage> > > m_extraDiagnostics;
@@ -271,6 +256,8 @@ private:
     CppCompletionAssistProvider *m_completionFallback;
     CppHighlightingSupportFactory *m_highlightingFactory;
     CppHighlightingSupportFactory *m_highlightingFallback;
+    QList<CppIndexingSupport *> m_indexingSupporters;
+    CppIndexingSupport *m_internalIndexingSupport;
 };
 
 class CPPTOOLS_EXPORT CppPreprocessor: public CPlusPlus::Client

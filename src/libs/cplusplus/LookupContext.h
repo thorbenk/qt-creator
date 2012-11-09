@@ -58,12 +58,20 @@ public:
     }
     bool contains(const T *item)
     {
-        return _container.contains(item);
+        if (_container.contains(item))
+            return true;
+
+        foreach (const T *existingItem, _container) {
+            if (existingItem->isEqualTo(item))
+                return true;
+        }
+
+        return false;
     }
 
     void clear(const T *item)
     {
-        if (_class != item)
+        if (_class != item || _container.size() == 1)
             _container.clear();
     }
 
@@ -82,7 +90,7 @@ public:
 
     ClassOrNamespace *parent() const;
     QList<ClassOrNamespace *> usings() const;
-    QList<Enum *> enums() const;
+    QList<Enum *> unscopedEnums() const;
     QList<Symbol *> symbols() const;
 
     ClassOrNamespace *globalNamespace() const;
@@ -102,7 +110,7 @@ private:
 
     void addTodo(Symbol *symbol);
     void addSymbol(Symbol *symbol);
-    void addEnum(Enum *e);
+    void addUnscopedEnum(Enum *e);
     void addUsing(ClassOrNamespace *u);
     void addNestedType(const Name *alias, ClassOrNamespace *e);
 
@@ -135,6 +143,10 @@ private:
 
     AlreadyConsideredClassContainer<Class> _alreadyConsideredClasses;
     AlreadyConsideredClassContainer<TemplateNameId> _alreadyConsideredTemplates;
+
+#ifdef DEBUG_LOOKUP
+    const Name *_name;
+#endif // DEBUG_LOOKUP
 
     friend class CreateBindings;
 };

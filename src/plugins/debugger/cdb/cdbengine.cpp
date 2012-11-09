@@ -62,8 +62,11 @@
 #include <texteditor/itexteditor.h>
 #include <projectexplorer/abi.h>
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/task.h>
+#include <projectexplorer/taskhub.h>
 
 #include <utils/synchronousprocess.h>
+#include <utils/qtcprocess.h>
 #include <utils/winutils.h>
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
@@ -666,6 +669,8 @@ bool CdbEngine::launchCDB(const DebuggerStartParameters &sp, QString *errorMessa
               << QLatin1String(".idle_cmd ") + QString::fromLatin1(m_extensionCommandPrefixBA) + QLatin1String("idle");
     if (sp.useTerminal) // Separate console
         arguments << QLatin1String("-2");
+    if (m_options->ignoreFirstChanceAccessViolation)
+        arguments << QLatin1String("-x");
     if (!m_options->symbolPaths.isEmpty())
         arguments << QLatin1String("-y") << m_options->symbolPaths.join(QString(QLatin1Char(';')));
     if (!m_options->sourcePaths.isEmpty())
@@ -677,7 +682,8 @@ bool CdbEngine::launchCDB(const DebuggerStartParameters &sp, QString *errorMessa
     case StartExternal:
         if (!nativeArguments.isEmpty())
             nativeArguments.push_back(blank);
-        nativeArguments += QDir::toNativeSeparators(sp.executable);
+        Utils::QtcProcess::addArgs(&nativeArguments,
+                                   QStringList(QDir::toNativeSeparators(sp.executable)));
         break;
     case AttachToRemoteServer:
         break;
@@ -1302,15 +1308,6 @@ void CdbEngine::assignValueInDebugger(const WatchData *w, const QString &expr, c
     updateLocals();
 }
 
-void CdbEngine::parseThreads(const GdbMi &data, int forceCurrentThreadId /* = -1 */)
-{
-    int currentThreadId;
-    Threads threads = ThreadsHandler::parseGdbmiThreads(data, &currentThreadId);
-    threadsHandler()->setThreads(threads);
-    threadsHandler()->setCurrentThreadId(forceCurrentThreadId >= 0 ?
-                                         forceCurrentThreadId : currentThreadId);
-}
-
 void CdbEngine::handleThreads(const CdbExtensionCommandPtr &reply)
 {
     if (debug)
@@ -1318,7 +1315,7 @@ void CdbEngine::handleThreads(const CdbExtensionCommandPtr &reply)
     if (reply->success) {
         GdbMi data;
         data.fromString(reply->reply);
-        parseThreads(data);
+        threadsHandler()->updateThreads(data);
         // Continue sequence
         postCommandSequence(reply->commandSequence);
     } else {
@@ -1514,15 +1511,14 @@ void CdbEngine::updateLocals(bool forNewStackFrame)
                          QVariant(flags));
 }
 
-void CdbEngine::selectThread(int index)
+void CdbEngine::selectThread(ThreadId threadId)
 {
-    if (index < 0 || index == threadsHandler()->currentThread())
+    if (!threadId.isValid() || threadId == threadsHandler()->currentThread())
         return;
 
-    const int newThreadId = threadsHandler()->threads().at(index).id;
-    threadsHandler()->setCurrentThread(index);
+    threadsHandler()->setCurrentThread(threadId);
 
-    const QByteArray cmd = '~' + QByteArray::number(newThreadId) + " s";
+    const QByteArray cmd = '~' + QByteArray::number(threadId.raw()) + " s";
     postBuiltinCommand(cmd, 0, &CdbEngine::dummyHandler, CommandListStack);
 }
 
@@ -2089,7 +2085,6 @@ unsigned CdbEngine::examineStopReason(const GdbMi &stopReason,
         WinException exception;
         exception.fromGdbMI(stopReason);
         QString description = exception.toString();
-#ifdef Q_OS_WIN
         // It is possible to hit on a startup trap or WOW86 exception while stepping (if something
         // pulls DLLs. Avoid showing a 'stopped' Message box.
         if (exception.exceptionCode == winExceptionStartupCompleteTrap
@@ -2109,7 +2104,6 @@ unsigned CdbEngine::examineStopReason(const GdbMi &stopReason,
             *message = msgInterrupted();
             return rc;
         }
-#endif
         *exceptionBoxMessage = msgStoppedByException(description, QString::number(threadId));
         *message = description;
         rc |= StopShowExceptionMessageBox|StopReportStatusMessage|StopNotifyStop;
@@ -2179,7 +2173,7 @@ void CdbEngine::processStop(const GdbMi &stopReason, bool conditionalBreakPointT
     // Further examine stop and report to user
     QString message;
     QString exceptionBoxMessage;
-    int forcedThreadId = -1;
+    ThreadId forcedThreadId;
     const unsigned stopFlags = examineStopReason(stopReason, &message, &exceptionBoxMessage,
                                                  conditionalBreakPointTriggered);
     // Do the non-blocking log reporting
@@ -2216,7 +2210,7 @@ void CdbEngine::processStop(const GdbMi &stopReason, bool conditionalBreakPointT
         if (stopFlags & StopInArtificialThread) {
             showMessage(tr("Switching to main thread..."), LogMisc);
             postCommand("~0 s", 0);
-            forcedThreadId = 0;
+            forcedThreadId = ThreadId(0);
             // Re-fetch stack again.
             postCommandSequence(CommandListStack);
         } else {
@@ -2232,7 +2226,9 @@ void CdbEngine::processStop(const GdbMi &stopReason, bool conditionalBreakPointT
         }
         const GdbMi threads = stopReason.findChild("threads");
         if (threads.isValid()) {
-            parseThreads(threads, forcedThreadId);
+            threadsHandler()->updateThreads(threads);
+            if (forcedThreadId.isValid())
+                threadsHandler()->setCurrentThread(forcedThreadId);
         } else {
             showMessage(QString::fromLatin1(stopReason.findChild("threaderror").data()), LogError);
         }
@@ -2390,10 +2386,20 @@ void CdbEngine::handleExtensionMessage(char t, int token, const QByteArray &what
         exception.fromGdbMI(gdbmi);
         const QString message = exception.toString(true);
         showStatusMessage(message);
-#ifdef Q_OS_WIN // Report C++ exception in application output as well.
+        // Report C++ exception in application output as well.
         if (exception.exceptionCode == winExceptionCppException)
             showMessage(message + QLatin1Char('\n'), AppOutput);
-#endif
+        if (!isDebuggerWinException(exception.exceptionCode)) {
+            const Task::TaskType type =
+                    isFatalWinException(exception.exceptionCode) ? Task::Error : Task::Warning;
+            const Utils::FileName fileName = exception.file.isEmpty() ?
+                        Utils::FileName() :
+                        Utils::FileName::fromUserInput(QString::fromLocal8Bit(exception.file));
+            const Task task(type, exception.toString(false),
+                            fileName, exception.lineNumber,
+                            Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME));
+            taskHub()->addTask(task);
+        }
         return;
     }
 
@@ -2626,9 +2632,7 @@ static CPlusPlus::Document::Ptr getParsedDocument(const QString &fileName,
             src = QString::fromLocal8Bit(reader.data()); // ### FIXME encoding
     }
 
-    QByteArray source = snapshot.preprocessedCode(src, fileName);
-
-    CPlusPlus::Document::Ptr doc = snapshot.documentFromSource(source, fileName);
+    CPlusPlus::Document::Ptr doc = snapshot.preprocessedDocument(src, fileName);
     doc->parse();
     return doc;
 }
@@ -2940,7 +2944,7 @@ void CdbEngine::postCommandSequence(unsigned mask)
         return;
     }
     if (mask & CommandListRegisters) {
-        QTC_ASSERT(threadsHandler()->currentThread() >= 0,  return);
+        QTC_ASSERT(threadsHandler()->currentThreadIndex() >= 0,  return);
         postExtensionCommand("registers", QByteArray(), 0, &CdbEngine::handleRegisters, mask & ~CommandListRegisters);
         return;
     }

@@ -25,9 +25,8 @@ def modifyRunSettingsForHookInto(projectName, port):
         envVarsTableView = waitForObject("{type='QTableView' visible='1' unnamed='1'}")
         model = envVarsTableView.model()
         changingVars = []
-        for row in range(model.rowCount()):
+        for index in dumpIndices(model):
             # get var name
-            index = model.index(row, 0)
             envVarsTableView.scrollTo(index)
             varName = str(model.data(index).toString())
             # if its a special SQUISH var simply unset it, SQUISH_LIBQTDIR and PATH will be replaced with Qt paths
@@ -160,42 +159,6 @@ def __getMkspecFromQmake__(qmakeCall):
             return result.strip()
     test.warning("Could not find qmake.conf inside provided QMAKE_MKSPECS path",
                  "QMAKE_MKSPECS returned: '%s'" % QmakeConfPath)
-    return None
-
-def getQMakeFromQtVersion(qtVersion):
-    invokeMenuItem("Tools", "Options...")
-    buildAndRun = waitForObject("{type='QModelIndex' text='Build & Run' "
-                                "container={type='QListView' unnamed='1' visible='1' "
-                                "window=':Options_Core::Internal::SettingsDialog'}}")
-    mouseClick(buildAndRun, 5, 5, 0, Qt.LeftButton)
-    qtVersionTab = waitForObject("{container=':Options.qt_tabwidget_tabbar_QTabBar' text='Qt Versions' type='TabItem'}")
-    mouseClick(qtVersionTab, 5, 5, 0, Qt.LeftButton)
-    qtVersionsTree = waitForObject("{name='qtdirList' type='QTreeWidget' visible='1'}")
-    rootIndex = qtVersionsTree.invisibleRootItem()
-    rows = rootIndex.childCount()
-    for currentRow in range(rows):
-        current = rootIndex.child(currentRow)
-        child = getTreeWidgetChildByText(current, qtVersion)
-        if child != None:
-            break
-    if child != None:
-        qmake = "%s" % child.text(1)
-        if not os.path.exists(qmake):
-            test.warning("Qt version ('%s') found inside SettingsDialog does not exist." % qtVersion)
-            qmake = None
-    else:
-        test.warning("Could not find the Qt version ('%s') inside SettingsDialog." % qtVersion)
-        qmake = None
-    clickButton(waitForObject("{text='Cancel' type='QPushButton' unnamed='1' visible='1' "
-                              "window=':Options_Core::Internal::SettingsDialog'}"))
-    return qmake
-
-def getTreeWidgetChildByText(parent, text, column=0):
-    childCount = parent.childCount()
-    for row in range(childCount):
-        child = parent.child(row)
-        if child.text(column)==text:
-            return child
     return None
 
 # helper that double clicks the table view at specified row and column

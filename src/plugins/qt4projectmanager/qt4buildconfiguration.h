@@ -55,8 +55,6 @@ public:
     explicit Qt4BuildConfiguration(ProjectExplorer::Target *target);
     ~Qt4BuildConfiguration();
 
-    Utils::Environment baseEnvironment() const;
-
     ProjectExplorer::BuildConfigWidget *createConfigWidget();
     QString buildDirectory() const;
     bool shadowBuild() const;
@@ -100,8 +98,6 @@ public:
 
     QVariantMap toMap() const;
 
-    ProjectExplorer::IOutputParser *createOutputParser() const;
-
     virtual bool isEnabled() const;
     virtual QString disabledReason() const;
     /// \internal For Qt4Project, since that manages the parsing information
@@ -129,6 +125,8 @@ signals:
 
 private slots:
     void kitChanged();
+    void toolChainUpdated(ProjectExplorer::ToolChain *tc);
+    void qtVersionsChanged(const QList<int> &, const QList<int> &, const QList<int> &changed);
     void emitBuildDirectoryChanged();
 
 protected:
@@ -140,6 +138,21 @@ private:
     void ctor();
     QString rawBuildDirectory() const;
     QString defaultShadowBuildDirectory() const;
+
+    class LastKitState
+    {
+    public:
+        LastKitState();
+        explicit LastKitState(ProjectExplorer::Kit *k);
+        bool operator ==(const LastKitState &other);
+        bool operator !=(const LastKitState &other);
+    private:
+        int m_qtVersion;
+        QString m_toolchain;
+        QString m_sysroot;
+        QString m_mkspec;
+    };
+    LastKitState m_lastKitState;
 
     bool m_shadowBuild;
     bool m_isEnabled;

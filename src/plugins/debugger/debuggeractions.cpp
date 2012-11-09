@@ -397,6 +397,11 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     insertItem(GdbStartupCommands, item);
 
     item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("GdbPostAttachCommands"));
+    item->setDefaultValue(QString());
+    insertItem(GdbPostAttachCommands, item);
+
+    item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("CloseBuffersOnExit"));
     item->setCheckable(true);
     item->setDefaultValue(false);
@@ -432,6 +437,12 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setCheckable(true);
     item->setDefaultValue(false);
     insertItem(AttemptQuickStart, item);
+
+    item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("MultiInferior"));
+    item->setCheckable(true);
+    item->setDefaultValue(false);
+    insertItem(MultiInferior, item);
 
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("UseToolTips"));

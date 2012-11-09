@@ -70,9 +70,9 @@ void GitSubmitEditor::setCommitData(const CommitData &d)
     if (!d.files.isEmpty()) {
         for (QList<CommitData::StateFilePair>::const_iterator it = d.files.constBegin();
              it != d.files.constEnd(); ++it) {
-            const CommitData::FileState state = it->first;
+            const FileStates state = it->first;
             const QString file = it->second;
-            m_model->addFile(file, CommitData::stateDisplayName(state), state & CommitData::StagedFile,
+            m_model->addFile(file, CommitData::stateDisplayName(state), state & StagedFile,
                              QVariant(static_cast<int>(state)));
         }
     }
@@ -81,7 +81,8 @@ void GitSubmitEditor::setCommitData(const CommitData &d)
 
 void GitSubmitEditor::slotDiffSelected(const QStringList &files)
 {
-    // Sort it apart into staged/unstaged files
+    // Sort it apart into unmerged/staged/unstaged files
+    QStringList unmergedFiles;
     QStringList unstagedFiles;
     QStringList stagedFiles;
     const int fileColumn = fileNameColumn();
@@ -89,15 +90,19 @@ void GitSubmitEditor::slotDiffSelected(const QStringList &files)
     for (int r = 0; r < rowCount; r++) {
         const QString fileName = m_model->item(r, fileColumn)->text();
         if (files.contains(fileName)) {
-            const CommitData::FileState state = static_cast<CommitData::FileState>(m_model->extraData(r).toInt());
-            if (state & CommitData::StagedFile)
+            const FileStates state = static_cast<FileStates>(m_model->extraData(r).toInt());
+            if (state & UnmergedFile)
+                unmergedFiles.push_back(fileName);
+            else if (state & StagedFile)
                 stagedFiles.push_back(fileName);
-            else if (state != CommitData::UntrackedFile)
+            else if (state != UntrackedFile)
                 unstagedFiles.push_back(fileName);
         }
     }
     if (!unstagedFiles.empty() || !stagedFiles.empty())
         emit diff(unstagedFiles, stagedFiles);
+    if (!unmergedFiles.empty())
+        emit merge(unmergedFiles);
 }
 
 GitSubmitEditorPanelData GitSubmitEditor::panelData() const

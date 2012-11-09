@@ -17,6 +17,7 @@ testSettings.logScreenshotOnError = True
 
 source("../../shared/classes.py")
 source("../../shared/utils.py")
+source("../../shared/fs_utils.py")
 source("../../shared/build_utils.py")
 source("../../shared/project.py")
 source("../../shared/editor_utils.py")
@@ -63,6 +64,7 @@ def waitForCleanShutdown(timeOut=10):
                     shutdownDone=True
             if not shutdownDone and datetime.utcnow() > endtime:
                 break
+    snooze(4)
 
 def __removeTmpSettingsDir__():
     waitForCleanShutdown()

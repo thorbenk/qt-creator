@@ -64,33 +64,29 @@ struct GitSubmitEditorPanelData
 
 QDebug operator<<(QDebug d, const GitSubmitEditorPanelData &);
 
+enum FileState {
+    UntrackedFile = 0,
+
+    StagedFile   = 0x01,
+    ModifiedFile = 0x02,
+    AddedFile    = 0x04,
+    DeletedFile  = 0x08,
+    RenamedFile  = 0x10,
+    CopiedFile   = 0x20,
+    UnmergedFile = 0x40,
+
+    UnmergedUs   = 0x100,
+    UnmergedThem = 0x200,
+
+    UnknownFileState = 0x800
+};
+Q_DECLARE_FLAGS(FileStates, FileState)
+
 class CommitData
 {
 public:
-    enum FileState {
-        UntrackedFile = 0,
-
-        StagedFile   = 0x01,
-        ModifiedFile = 0x02,
-        AddedFile    = 0x04,
-        DeletedFile  = 0x08,
-        RenamedFile  = 0x10,
-        CopiedFile   = 0x20,
-        UpdatedFile  = 0x40,
-
-        ModifiedStagedFile = StagedFile | ModifiedFile,
-        AddedStagedFile = StagedFile | AddedFile,
-        DeletedStagedFile = StagedFile | DeletedFile,
-        RenamedStagedFile = StagedFile | RenamedFile,
-        CopiedStagedFile = StagedFile | CopiedFile,
-        UpdatedStagedFile = StagedFile | UpdatedFile,
-
-        AllStates = UpdatedFile | CopiedFile | RenamedFile | DeletedFile | AddedFile | ModifiedFile | StagedFile,
-        UnknownFileState
-    };
-
     // A pair of state string/file name ('modified', 'file.cpp').
-    typedef QPair<FileState, QString> StateFilePair;
+    typedef QPair<FileStates, QString> StateFilePair;
 
     void clear();
     // Parse the files and the branch of panelInfo
@@ -99,9 +95,9 @@ public:
 
     // Convenience to retrieve the file names from
     // the specification list. Optionally filter for a certain state
-    QStringList filterFiles(const FileState &state = AllStates) const;
+    QStringList filterFiles(const FileStates &state) const;
 
-    static QString stateDisplayName(const FileState &state);
+    static QString stateDisplayName(const FileStates &state);
 
     QString amendSHA1;
     QString commitEncoding;
@@ -109,9 +105,14 @@ public:
     GitSubmitEditorPanelData panelData;
 
     QList<StateFilePair> files;
+
+private:
+    bool checkLine(const QString &stateInfo, const QString &file);
 };
 
 } // namespace Internal
 } // namespace Git
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(Git::Internal::FileStates)
 
 #endif // COMMITDATA_H

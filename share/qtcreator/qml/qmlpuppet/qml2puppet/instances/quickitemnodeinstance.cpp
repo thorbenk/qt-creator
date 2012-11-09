@@ -66,7 +66,10 @@ QuickItemNodeInstance::~QuickItemNodeInstance()
 
 bool QuickItemNodeInstance::hasContent() const
 {
-    return m_hasContent;
+    if (m_hasContent)
+        return true;
+
+    return childItemsHaveContent(quickItem());
 }
 
 QList<ServerNodeInstance> QuickItemNodeInstance::childItems() const
@@ -112,12 +115,22 @@ void QuickItemNodeInstance::setHasContent(bool hasContent)
 }
 
 
-bool QuickItemNodeInstance::anyItemHasContent(QQuickItem *graphicsItem)
+bool QuickItemNodeInstance::anyItemHasContent(QQuickItem *quickItem)
 {
-    if (graphicsItem->flags().testFlag(QQuickItem::ItemHasContents))
+    if (quickItem->flags().testFlag(QQuickItem::ItemHasContents))
         return true;
 
-    foreach (QQuickItem *childItem, graphicsItem->childItems()) {
+    foreach (QQuickItem *childItem, quickItem->childItems()) {
+        if (anyItemHasContent(childItem))
+            return true;
+    }
+
+    return false;
+}
+
+bool QuickItemNodeInstance::childItemsHaveContent(QQuickItem *quickItem)
+{
+    foreach (QQuickItem *childItem, quickItem->childItems()) {
         if (anyItemHasContent(childItem))
             return true;
     }
@@ -130,9 +143,18 @@ QPointF QuickItemNodeInstance::position() const
     return quickItem()->pos();
 }
 
+static QTransform transformForItem(QQuickItem *item, NodeInstanceServer *nodeInstanceServer)
+{
+    QTransform toParentTransform = DesignerSupport::parentTransform(item);
+    if (item->parentItem() && !nodeInstanceServer->hasInstanceForObject(item->parentItem()))
+        return transformForItem(item->parentItem(), nodeInstanceServer) * toParentTransform;
+
+    return toParentTransform;
+}
+
 QTransform QuickItemNodeInstance::transform() const
 {
-    return DesignerSupport::parentTransform(quickItem());
+    return transformForItem(quickItem(), nodeInstanceServer());
 }
 
 QTransform QuickItemNodeInstance::customTransform() const

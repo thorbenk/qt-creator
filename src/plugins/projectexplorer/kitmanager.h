@@ -43,6 +43,7 @@
 namespace Utils { class Environment; }
 
 namespace ProjectExplorer {
+class IOutputParser;
 class Kit;
 class KitConfigWidget;
 
@@ -74,15 +75,20 @@ public:
     virtual bool visibleIn(Kit *) { return true; }
     virtual QVariant defaultValue(Kit *) const = 0;
 
-    virtual QList<Task> validate(Kit *) const = 0;
+    virtual QList<Task> validate(const Kit *) const = 0;
+    virtual void fix(Kit *) { return; }
 
     virtual ItemList toUserOutput(Kit *) const = 0;
 
     virtual KitConfigWidget *createConfigWidget(Kit *) const = 0;
 
     virtual void addToEnvironment(const Kit *k, Utils::Environment &env) const;
+    virtual IOutputParser *createOutputParser(const Kit *k) const;
 
     virtual QString displayNamePostfix(const Kit *k) const;
+
+protected:
+    void notifyAboutUpdate(Kit *k);
 
 signals:
     void validationNeeded();
@@ -115,7 +121,6 @@ public:
 public slots:
     bool registerKit(ProjectExplorer::Kit *k);
     void deregisterKit(ProjectExplorer::Kit *k);
-    QList<Task> validateKit(ProjectExplorer::Kit *k);
     void setDefaultKit(ProjectExplorer::Kit *k);
 
     void saveKits();
@@ -129,6 +134,7 @@ signals:
     void kitRemoved(ProjectExplorer::Kit *);
     // Kit was updated.
     void kitUpdated(ProjectExplorer::Kit *);
+    void unmanagedKitUpdated(ProjectExplorer::Kit *);
     // Default kit was changed.
     void defaultkitChanged();
     // Something changed.
@@ -164,6 +170,7 @@ private:
     friend class ProjectExplorerPlugin; // for constructor
     friend class Kit;
     friend class Internal::KitModel;
+    friend class KitInformation; // for notifyAbutUpdate
 };
 
 } // namespace ProjectExplorer

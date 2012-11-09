@@ -553,7 +553,7 @@ void WatchTreeView::dropEvent(QDropEvent *ev)
         QString data = ev->mimeData()->text();
         foreach (const QChar c, data)
             exp.append(c.isPrint() ? c : QChar(QLatin1Char(' ')));
-        watchExpression(exp);
+        currentEngine()->watchHandler()->watchVariable(exp);
         //ev->acceptProposedAction();
         ev->setDropAction(Qt::CopyAction);
         ev->accept();
@@ -970,6 +970,11 @@ bool WatchTreeView::event(QEvent *ev)
         currentEngine()->watchPoint(mapToGlobal(mev->pos()));
     }
     return BaseTreeView::event(ev);
+}
+
+void WatchTreeView::currentChanged(const QModelIndex &current, const QModelIndex &)
+{
+    emit currentIndexChanged(current);
 }
 
 void WatchTreeView::editItem(const QModelIndex &idx)

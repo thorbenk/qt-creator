@@ -34,6 +34,7 @@
 #include "cppcompletionassist.h"
 #include "cpphighlightingsupport.h"
 #include "cpphighlightingsupportinternal.h"
+#include "cppindexingsupport.h"
 #include "abstracteditorsupport.h"
 #include "cpptoolsconstants.h"
 #include "cpptoolseditorsupport.h"
@@ -480,12 +481,19 @@ void CppPreprocessor::macroAdded(const Macro &macro)
     m_currentDoc->appendMacro(macro);
 }
 
+static inline const Macro revision(const CppModelManagerInterface::WorkingCopy &s, const Macro &macro)
+{
+    Macro newMacro(macro);
+    newMacro.setFileRevision(s.get(macro.fileName()).second);
+    return newMacro;
+}
+
 void CppPreprocessor::passedMacroDefinitionCheck(unsigned offset, unsigned line, const Macro &macro)
 {
     if (! m_currentDoc)
         return;
 
-    m_currentDoc->addMacroUse(macro, offset, macro.name().length(), line,
+    m_currentDoc->addMacroUse(revision(m_workingCopy, macro), offset, macro.name().length(), line,
                               QVector<MacroArgumentReference>());
 }
 
@@ -502,7 +510,7 @@ void CppPreprocessor::notifyMacroReference(unsigned offset, unsigned line, const
     if (! m_currentDoc)
         return;
 
-    m_currentDoc->addMacroUse(macro, offset, macro.name().length(), line,
+    m_currentDoc->addMacroUse(revision(m_workingCopy, macro), offset, macro.name().length(), line,
                               QVector<MacroArgumentReference>());
 }
 
@@ -513,7 +521,7 @@ void CppPreprocessor::startExpandingMacro(unsigned offset, unsigned line,
     if (! m_currentDoc)
         return;
 
-    m_currentDoc->addMacroUse(macro, offset, macro.name().length(), line, actuals);
+    m_currentDoc->addMacroUse(revision(m_workingCopy, macro), offset, macro.name().length(), line, actuals);
 }
 
 void CppPreprocessor::stopExpandingMacro(unsigned, const Macro &)
@@ -654,6 +662,144 @@ void CppModelManager::updateModifiedSourceFiles()
     updateSourceFiles(sourceFiles);
 }
 
+namespace {
+
+class IndexingSupport: public CppIndexingSupport {
+public:
+    typedef CppModelManagerInterface::WorkingCopy WorkingCopy;
+
+public:
+    IndexingSupport()
+        : m_revision(0)
+    {
+        m_synchronizer.setCancelOnWait(true);
+        m_dumpFileNameWhileParsing = !qgetenv("QTCREATOR_DUMP_FILENAME_WHILE_PARSING").isNull();
+    }
+
+    ~IndexingSupport()
+    {}
+
+    QFuture<void> refreshSourceFiles(const QStringList &sourceFiles)
+    {
+        CppModelManager *mgr = CppModelManager::instance();
+        const WorkingCopy workingCopy = mgr->workingCopy();
+
+        CppPreprocessor *preproc = new CppPreprocessor(mgr, m_dumpFileNameWhileParsing);
+        preproc->setRevision(++m_revision);
+        preproc->setProjectFiles(mgr->projectFiles());
+        preproc->setIncludePaths(mgr->includePaths());
+        preproc->setFrameworkPaths(mgr->frameworkPaths());
+        preproc->setWorkingCopy(workingCopy);
+
+        QFuture<void> result = QtConcurrent::run(&parse, preproc, sourceFiles);
+
+        if (m_synchronizer.futures().size() > 10) {
+            QList<QFuture<void> > futures = m_synchronizer.futures();
+
+            m_synchronizer.clearFutures();
+
+            foreach (const QFuture<void> &future, futures) {
+                if (! (future.isFinished() || future.isCanceled()))
+                    m_synchronizer.addFuture(future);
+            }
+        }
+
+        m_synchronizer.addFuture(result);
+
+        if (sourceFiles.count() > 1) {
+            Core::ICore::progressManager()->addTask(result,
+                                                    QCoreApplication::translate("IndexingSupport", "Parsing"),
+                                                    CppTools::Constants::TASK_INDEX);
+        }
+
+        return result;
+    }
+
+private:
+    static void parse(QFutureInterface<void> &future,
+                      CppPreprocessor *preproc,
+                      QStringList files)
+    {
+        if (files.isEmpty())
+            return;
+
+        const Core::MimeDatabase *mimeDb = Core::ICore::mimeDatabase();
+        Core::MimeType cSourceTy = mimeDb->findByType(QLatin1String("text/x-csrc"));
+        Core::MimeType cppSourceTy = mimeDb->findByType(QLatin1String("text/x-c++src"));
+        Core::MimeType mSourceTy = mimeDb->findByType(QLatin1String("text/x-objcsrc"));
+
+        QStringList sources;
+        QStringList headers;
+
+        QStringList suffixes = cSourceTy.suffixes();
+        suffixes += cppSourceTy.suffixes();
+        suffixes += mSourceTy.suffixes();
+
+        foreach (const QString &file, files) {
+            QFileInfo info(file);
+
+            preproc->snapshot.remove(file);
+
+            if (suffixes.contains(info.suffix()))
+                sources.append(file);
+            else
+                headers.append(file);
+        }
+
+        const int sourceCount = sources.size();
+        files = sources;
+        files += headers;
+
+        preproc->setTodo(files);
+
+        future.setProgressRange(0, files.size());
+
+        QString conf = QLatin1String(pp_configuration_file);
+
+        bool processingHeaders = false;
+
+        for (int i = 0; i < files.size(); ++i) {
+            if (future.isPaused())
+                future.waitForResume();
+
+            if (future.isCanceled())
+                break;
+
+            const QString fileName = files.at(i);
+
+            const bool isSourceFile = i < sourceCount;
+            if (isSourceFile)
+                (void) preproc->run(conf);
+
+            else if (! processingHeaders) {
+                (void) preproc->run(conf);
+
+                processingHeaders = true;
+            }
+
+            preproc->run(fileName);
+
+            future.setProgressValue(files.size() - preproc->todo().size());
+
+            if (isSourceFile)
+                preproc->resetEnvironment();
+        }
+
+        future.setProgressValue(files.size());
+        preproc->modelManager()->finishedRefreshingSourceFiles(files);
+
+        delete preproc;
+    }
+
+private:
+    QFutureSynchronizer<void> m_synchronizer;
+    unsigned m_revision;
+    bool m_dumpFileNameWhileParsing;
+};
+
+
+} // anonymous namespace
+
 /*!
     \class CppTools::CppModelManager
     \brief The CppModelManager keeps track of one CppCodeModel instance
@@ -685,10 +831,6 @@ CppModelManager::CppModelManager(QObject *parent)
 {
     m_findReferences = new CppFindReferences(this);
     m_indexerEnabled = qgetenv("QTCREATOR_NO_CODE_INDEXER").isNull();
-    m_dumpFileNameWhileParsing = !qgetenv("QTCREATOR_DUMP_FILENAME_WHILE_PARSING").isNull();
-
-    m_revision = 0;
-    m_synchronizer.setCancelOnWait(true);
 
     m_dirty = true;
 
@@ -739,6 +881,7 @@ CppModelManager::CppModelManager(QObject *parent)
     ExtensionSystem::PluginManager::addObject(m_completionAssistProvider);
     m_highlightingFallback = new CppHighlightingSupportInternalFactory;
     m_highlightingFactory = m_highlightingFallback;
+    m_internalIndexingSupport = new IndexingSupport;
 }
 
 CppModelManager::~CppModelManager()
@@ -746,6 +889,7 @@ CppModelManager::~CppModelManager()
     ExtensionSystem::PluginManager::removeObject(m_completionAssistProvider);
     delete m_completionFallback;
     delete m_highlightingFallback;
+    delete m_internalIndexingSupport;
 }
 
 Snapshot CppModelManager::snapshot() const
@@ -831,6 +975,39 @@ QByteArray CppModelManager::internalDefinedMacros() const
     return macros;
 }
 
+/// This method will aquire the mutex!
+void CppModelManager::dumpModelManagerConfiguration()
+{
+    // Tons of debug output...
+    qDebug()<<"========= CppModelManager::dumpModelManagerConfiguration ======";
+    foreach (const ProjectInfo &pinfo, m_projects.values()) {
+        qDebug()<<" for project:"<< pinfo.project().data()->document()->fileName();
+        foreach (const ProjectPart::Ptr &part, pinfo.projectParts()) {
+            qDebug() << "=== part ===";
+            qDebug() << "language:" << (part->language == CXX ? "C++" : "ObjC++");
+            qDebug() << "C++11:" << part->cxx11Enabled;
+            qDebug() << "Qt version:" << part->qtVersion;
+            qDebug() << "precompiled header:" << part->precompiledHeaders;
+            qDebug() << "defines:" << part->defines;
+            qDebug() << "includes:" << part->includePaths;
+            qDebug() << "frameworkPaths:" << part->frameworkPaths;
+            qDebug() << "sources:" << part->sourceFiles;
+            qDebug() << "";
+        }
+    }
+
+    ensureUpdated();
+    qDebug() << "=== Merged include paths ===";
+    foreach (const QString &inc, m_includePaths)
+        qDebug() << inc;
+    qDebug() << "=== Merged framework paths ===";
+    foreach (const QString &inc, m_frameworkPaths)
+        qDebug() << inc;
+    qDebug() << "=== Merged defined macros ===";
+    qDebug() << m_definedMacros;
+    qDebug()<<"========= End of dump ======";
+}
+
 void CppModelManager::addEditorSupport(AbstractEditorSupport *editorSupport)
 {
     m_addtionalEditorSupport.insert(editorSupport);
@@ -902,11 +1079,13 @@ CppModelManager::WorkingCopy CppModelManager::workingCopy() const
 
 QFuture<void> CppModelManager::updateSourceFiles(const QStringList &sourceFiles)
 {
-#ifdef CLANG_INDEXING
-    refreshSourceFiles_Clang(sourceFiles);
-#endif // CLANG_INDEXING
+    if (sourceFiles.isEmpty() || !m_indexerEnabled)
+        return QFuture<void>();
 
-    return refreshSourceFiles(sourceFiles);
+    foreach (CppIndexingSupport *indexer, m_indexingSupporters)
+        indexer->refreshSourceFiles(sourceFiles);
+
+    return m_internalIndexingSupport->refreshSourceFiles(sourceFiles);
 }
 
 QList<CppModelManager::ProjectInfo> CppModelManager::projectInfos() const
@@ -925,40 +1104,26 @@ CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Proje
 
 void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 {
-#if 0
-    // Tons of debug output...
-    qDebug()<<"========= CppModelManager::updateProjectInfo ======";
-    qDebug()<<" for project:"<< pinfo.project().data()->document()->fileName();
-    foreach (const ProjectPart::Ptr &part, pinfo.projectParts()) {
-        qDebug() << "=== part ===";
-        qDebug() << "language:" << (part->language == CXX ? "C++" : "ObjC++");
-        qDebug() << "C++11:" << part->cxx11Enabled;
-        qDebug() << "Qt version:" << part->qtVersion;
-        qDebug() << "precompiled header:" << part->precompiledHeaders;
-        qDebug() << "defines:" << part->defines;
-        qDebug() << "includes:" << part->includePaths;
-        qDebug() << "frameworkPaths:" << part->frameworkPaths;
-        qDebug() << "sources:" << part->sourceFiles;
-        qDebug() << "";
+    { // only hold the mutex for a limited scope, so the dumping afterwards can aquire it without deadlocking.
+        QMutexLocker locker(&mutex);
+
+        if (! pinfo.isValid())
+            return;
+
+        ProjectExplorer::Project *project = pinfo.project().data();
+        m_projects.insert(project, pinfo);
+        m_dirty = true;
+
+        m_srcToProjectPart.clear();
+
+        foreach (const ProjectInfo &projectInfo, m_projects.values())
+            foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts())
+                foreach (const QString &sourceFile, projectPart->sourceFiles)
+                    m_srcToProjectPart[sourceFile].append(projectPart);
     }
 
-    qDebug() << "";
-#endif
-    QMutexLocker locker(&mutex);
-
-    if (! pinfo.isValid())
-        return;
-
-    ProjectExplorer::Project *project = pinfo.project().data();
-    m_projects.insert(project, pinfo);
-    m_dirty = true;
-
-    m_srcToProjectPart.clear();
-
-    foreach (const ProjectInfo &projectInfo, m_projects.values())
-        foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts())
-            foreach (const QString &sourceFile, projectPart->sourceFiles)
-                m_srcToProjectPart[sourceFile].append(projectPart);
+    if (!qgetenv("QTCREATOR_DUMP_PROJECT_INFO").isEmpty())
+        dumpModelManagerConfiguration();
 }
 
 QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
@@ -1018,44 +1183,6 @@ void CppModelManager::onIndexingStarted_Clang(QFuture<void> indexingFuture)
                                                         "Key.Temp.Indexing");
 }
 #endif // CLANG_INDEXING
-
-QFuture<void> CppModelManager::refreshSourceFiles(const QStringList &sourceFiles)
-{
-    if (! sourceFiles.isEmpty() && m_indexerEnabled) {
-        const WorkingCopy workingCopy = buildWorkingCopyList();
-
-        CppPreprocessor *preproc = new CppPreprocessor(this, m_dumpFileNameWhileParsing);
-        preproc->setRevision(++m_revision);
-        preproc->setProjectFiles(projectFiles());
-        preproc->setIncludePaths(includePaths());
-        preproc->setFrameworkPaths(frameworkPaths());
-        preproc->setWorkingCopy(workingCopy);
-
-        QFuture<void> result = QtConcurrent::run(&CppModelManager::parse,
-                                                 preproc, sourceFiles);
-
-        if (m_synchronizer.futures().size() > 10) {
-            QList<QFuture<void> > futures = m_synchronizer.futures();
-
-            m_synchronizer.clearFutures();
-
-            foreach (const QFuture<void> &future, futures) {
-                if (! (future.isFinished() || future.isCanceled()))
-                    m_synchronizer.addFuture(future);
-            }
-        }
-
-        m_synchronizer.addFuture(result);
-
-        if (sourceFiles.count() > 1) {
-            Core::ICore::progressManager()->addTask(result, tr("Parsing"),
-                                                    CppTools::Constants::TASK_INDEX);
-        }
-
-        return result;
-    }
-    return QFuture<void>();
-}
 
 /*!
     \fn    void CppModelManager::editorOpened(Core::IEditor *editor)
@@ -1310,81 +1437,6 @@ void CppModelManager::onAboutToUnloadSession()
 #endif // CLANG_INDEXING
 }
 
-void CppModelManager::parse(QFutureInterface<void> &future,
-                            CppPreprocessor *preproc,
-                            QStringList files)
-{
-    if (files.isEmpty())
-        return;
-
-    const Core::MimeDatabase *mimeDb = Core::ICore::mimeDatabase();
-    Core::MimeType cSourceTy = mimeDb->findByType(QLatin1String("text/x-csrc"));
-    Core::MimeType cppSourceTy = mimeDb->findByType(QLatin1String("text/x-c++src"));
-    Core::MimeType mSourceTy = mimeDb->findByType(QLatin1String("text/x-objcsrc"));
-
-    QStringList sources;
-    QStringList headers;
-
-    QStringList suffixes = cSourceTy.suffixes();
-    suffixes += cppSourceTy.suffixes();
-    suffixes += mSourceTy.suffixes();
-
-    foreach (const QString &file, files) {
-        QFileInfo info(file);
-
-        preproc->snapshot.remove(file);
-
-        if (suffixes.contains(info.suffix()))
-            sources.append(file);
-        else
-            headers.append(file);
-    }
-
-    const int sourceCount = sources.size();
-    files = sources;
-    files += headers;
-
-    preproc->setTodo(files);
-
-    future.setProgressRange(0, files.size());
-
-    QString conf = QLatin1String(pp_configuration_file);
-
-    bool processingHeaders = false;
-
-    for (int i = 0; i < files.size(); ++i) {
-        if (future.isPaused())
-            future.waitForResume();
-
-        if (future.isCanceled())
-            break;
-
-        const QString fileName = files.at(i);
-
-        const bool isSourceFile = i < sourceCount;
-        if (isSourceFile)
-            (void) preproc->run(conf);
-
-        else if (! processingHeaders) {
-            (void) preproc->run(conf);
-
-            processingHeaders = true;
-        }
-
-        preproc->run(fileName);
-
-        future.setProgressValue(files.size() - preproc->todo().size());
-
-        if (isSourceFile)
-            preproc->resetEnvironment();
-    }
-
-    future.setProgressValue(files.size());
-    preproc->modelManager()->finishedRefreshingSourceFiles(files);
-
-    delete preproc;
-}
-
 void CppModelManager::GC()
 {
     protectSnapshot.lock();
@@ -1464,6 +1516,12 @@ void CppModelManager::setHighlightingSupportFactory(CppHighlightingSupportFactor
         m_highlightingFactory = highlightingFactory;
     else
         m_highlightingFactory = m_highlightingFallback;
+}
+
+void CppModelManager::addIndexingSupport(CppIndexingSupport *indexingSupport)
+{
+    if (indexingSupport)
+        m_indexingSupporters.append(indexingSupport);
 }
 
 void CppModelManager::setExtraDiagnostics(const QString &fileName, int kind,

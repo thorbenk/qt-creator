@@ -344,24 +344,23 @@ static void dump(const char *first, const char *middle, const QString & to)
 
 // Parse "~:gdb: unknown target exception 0xc0000139 at 0x77bef04e\n"
 // and return an exception message
-static inline QString msgWinException(const QByteArray &data)
+static inline QString msgWinException(const QByteArray &data, unsigned *exCodeIn = 0)
 {
+    if (exCodeIn)
+        *exCodeIn = 0;
     const int exCodePos = data.indexOf("0x");
     const int blankPos = exCodePos != -1 ? data.indexOf(' ', exCodePos + 1) : -1;
     const int addressPos = blankPos != -1 ? data.indexOf("0x", blankPos + 1) : -1;
     if (addressPos < 0)
         return GdbEngine::tr("An exception was triggered.");
     const unsigned exCode = data.mid(exCodePos, blankPos - exCodePos).toUInt(0, 0);
+    if (exCodeIn)
+        *exCodeIn = exCode;
     const quint64 address = data.mid(addressPos).trimmed().toULongLong(0, 0);
     QString rc;
     QTextStream str(&rc);
     str << GdbEngine::tr("An exception was triggered: ");
-#ifdef Q_OS_WIN
     formatWindowsException(exCode, address, 0, 0, 0, str);
-#else
-    Q_UNUSED(exCode)
-    Q_UNUSED(address)
-#endif
     str << '.';
     return rc;
 }
@@ -467,6 +466,8 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 m_pendingLogStreamOutput.clear();
                 m_pendingConsoleStreamOutput.clear();
             } else if (asyncClass == "running") {
+                GdbMi threads = result.findChild("thread-id");
+                threadsHandler()->notifyRunning(threads.data());
                 if (state() == InferiorRunOk || state() == InferiorSetupRequested) {
                     // We get multiple *running after thread creation and in Windows terminals.
                     showMessage(QString::fromLatin1("NOTE: INFERIOR STILL RUNNING IN STATE %1.").
@@ -527,6 +528,10 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 //"{id="1",group-id="28902"}"
                 QByteArray id = result.findChild("id").data();
                 showStatusMessage(tr("Thread %1 created").arg(_(id)), 1000);
+                ThreadData thread;
+                thread.id = ThreadId(id.toLong());
+                thread.groupId = result.findChild("group-id").data();
+                threadsHandler()->updateThread(thread);
             } else if (asyncClass == "thread-group-exited") {
                 // Archer has "{id="28902"}"
                 QByteArray id = result.findChild("id").data();
@@ -538,6 +543,7 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 QByteArray groupid = result.findChild("group-id").data();
                 showStatusMessage(tr("Thread %1 in group %2 exited")
                     .arg(_(id)).arg(_(groupid)), 1000);
+                threadsHandler()->removeThread(ThreadId(id.toLong()));
             } else if (asyncClass == "thread-selected") {
                 QByteArray id = result.findChild("id").data();
                 showStatusMessage(tr("Thread %1 selected").arg(_(id)), 1000);
@@ -644,6 +650,9 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                     if (!handler->isOneShot(id))
                         handler->removeAlienBreakpoint(id);
                 }
+            } else if (asyncClass == "cmd-param-changed") {
+                // New since 2012-08-09
+                //  "{param="debug remote",value="1"}"
             } else {
                 qDebug() << "IGNORED ASYNC OUTPUT"
                     << asyncClass << result.toString();
@@ -687,8 +696,13 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 // [Windows, most likely some DLL/Entry point not found]:
                 // "gdb: unknown target exception 0xc0000139 at 0x77bef04e"
                 // This may be fatal and cause the target to exit later
-                m_lastWinException = msgWinException(data);
+                unsigned exCode;
+                m_lastWinException = msgWinException(data, &exCode);
                 showMessage(m_lastWinException, LogMisc);
+                const Task::TaskType type = isFatalWinException(exCode) ? Task::Error : Task::Warning;
+                const Task task(type, m_lastWinException, Utils::FileName(), 0,
+                                Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME));
+                taskHub()->addTask(task);
             }
 
             if (data.startsWith("QMLBP:")) {
@@ -730,7 +744,7 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 Task task(Task::Warning,
                     tr("Missing debug information for %1\nTry: %2")
                         .arg(m_lastMissingDebugInfo).arg(cmd),
-                    FileName(), 0, Core::Id("Debuginfo"));
+                    FileName(), 0, Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_DEBUGINFO));
 
                 taskHub()->addTask(task);
 
@@ -1394,6 +1408,9 @@ void GdbEngine::handleStopResponse(const GdbMi &data)
         return;
     }
 
+    GdbMi threads = data.findChild("stopped-thread");
+    threadsHandler()->notifyStopped(threads.data());
+
     const QByteArray reason = data.findChild("reason").data();
 
     if (isExitedReason(reason)) {
@@ -1745,10 +1762,6 @@ void GdbEngine::handleStop2(const GdbMi &data)
 
     // Let the event loop run before deciding whether to update the stack.
     m_stackNeeded = true; // setTokenBarrier() might reset this.
-    if (isStopperThread)
-        m_currentThreadId = 0;
-    else
-        m_currentThreadId = data.findChild("thread-id").data().toInt();
     QTimer::singleShot(0, this, SLOT(handleStop2()));
 }
 
@@ -1758,8 +1771,6 @@ void GdbEngine::handleStop2()
     if (!m_stackNeeded)
         return;
 
-    reloadStack(false); // Will trigger register reload.
-
     if (supportsThreads()) {
         if (m_isMacGdb || m_gdbVersion < 70100) {
             postCommand("-thread-list-ids", Discardable, CB(handleThreadListIds));
@@ -1768,7 +1779,6 @@ void GdbEngine::handleStop2()
             postCommand("-thread-info", Discardable, CB(handleThreadInfo));
         }
     }
-
 }
 
 void GdbEngine::handleInfoProc(const GdbResponse &response)
@@ -2118,6 +2128,7 @@ bool GdbEngine::hasCapability(unsigned cap) const
         | AddWatcherCapability
         | WatchWidgetsCapability
         | ShowModuleSymbolsCapability
+        | ShowModuleSectionsCapability
         | CatchCapability
         | OperateByInstructionCapability
         | RunToLineCapability
@@ -3315,7 +3326,7 @@ void GdbEngine::handleShowModuleSymbols(const GdbResponse &response)
     const QString modulePath = cookie.section(QLatin1Char('@'), 0, 0);
     const QString fileName = cookie.section(QLatin1Char('@'), 1, 1);
     if (response.resultClass == GdbResultDone) {
-        Symbols rc;
+        Symbols symbols;
         QFile file(fileName);
         file.open(QIODevice::ReadOnly);
         // Object file /opt/dev/qt/lib/libQtNetworkMyns.so.4:
@@ -3359,14 +3370,59 @@ void GdbEngine::handleShowModuleSymbols(const GdbResponse &response)
             symbol.name = _(line.mid(posName, lenName));
             symbol.section = _(line.mid(posSection, lenSection));
             symbol.demangled = _(line.mid(posDemangled, lenDemangled));
-            rc.push_back(symbol);
+            symbols.push_back(symbol);
         }
         file.close();
         file.remove();
-        debuggerCore()->showModuleSymbols(modulePath, rc);
+        debuggerCore()->showModuleSymbols(modulePath, symbols);
     } else {
         showMessageBox(QMessageBox::Critical, tr("Cannot Read Symbols"),
             tr("Cannot read symbols for module \"%1\".").arg(fileName));
+    }
+}
+
+void GdbEngine::requestModuleSections(const QString &moduleName)
+{
+    // There seems to be no way to get the symbols from a single .so.
+    postCommand("maint info section ALLOBJ",
+        NeedsStop, CB(handleShowModuleSections), moduleName);
+}
+
+void GdbEngine::handleShowModuleSections(const GdbResponse &response)
+{
+    // ~"  Object file: /usr/lib/i386-linux-gnu/libffi.so.6\n"
+    // ~"    0xb44a6114->0xb44a6138 at 0x00000114: .note.gnu.build-id ALLOC LOAD READONLY DATA HAS_CONTENTS\n"
+    if (response.resultClass == GdbResultDone) {
+        const QString moduleName = response.cookie.toString();
+        const QStringList lines = QString::fromLocal8Bit(response.consoleStreamOutput).split(QLatin1Char('\n'));
+        const QString prefix = QLatin1String("  Object file: ");
+        const QString needle = prefix + moduleName;
+        Sections sections;
+        bool active = false;
+        foreach (const QString &line, lines) {
+            if (line.startsWith(prefix)) {
+                if (active)
+                    break;
+                if (line == needle)
+                    active = true;
+            } else {
+                if (active) {
+                    QStringList items = line.split(QLatin1Char(' '), QString::SkipEmptyParts);
+                    QString fromTo = items.value(0, QString());
+                    const int pos = fromTo.indexOf(QLatin1Char('-'));
+                    QTC_ASSERT(pos >= 0, continue);
+                    Section section;
+                    section.from = fromTo.left(pos);
+                    section.to = fromTo.mid(pos + 2);
+                    section.address = items.value(2, QString());
+                    section.name = items.value(3, QString());
+                    section.flags = items.value(4, QString());
+                    sections.append(section);
+                }
+            }
+        }
+        if (!sections.isEmpty())
+            debuggerCore()->showModuleSections(moduleName, sections);
     }
 }
 
@@ -3486,15 +3542,12 @@ void GdbEngine::reloadSourceFilesInternal()
 //
 //////////////////////////////////////////////////////////////////////
 
-void GdbEngine::selectThread(int index)
+void GdbEngine::selectThread(ThreadId threadId)
 {
-    threadsHandler()->setCurrentThread(index);
-    Threads threads = threadsHandler()->threads();
-    QTC_ASSERT(index < threads.size(), return);
-    const int id = threads.at(index).id;
+    threadsHandler()->setCurrentThread(threadId);
     showStatusMessage(tr("Retrieving data for stack view thread 0x%1...")
-        .arg(id, 0, 16), 10000);
-    postCommand("-thread-select " + QByteArray::number(id), Discardable,
+        .arg(threadId.raw(), 0, 16), 10000);
+    postCommand("-thread-select " + QByteArray::number(threadId.raw()), Discardable,
         CB(handleStackSelectThread));
 }
 
@@ -3638,17 +3691,21 @@ void GdbEngine::handleStackSelectFrame(const GdbResponse &response)
 void GdbEngine::handleThreadInfo(const GdbResponse &response)
 {
     if (response.resultClass == GdbResultDone) {
-        int currentThreadId;
-        const Threads threads =
-            ThreadsHandler::parseGdbmiThreads(response.data, &currentThreadId);
-        threadsHandler()->setThreads(threads);
-        threadsHandler()->setCurrentThreadId(currentThreadId);
+        ThreadsHandler *handler = threadsHandler();
+        handler->updateThreads(response.data);
+        // This is necessary as the current thread might not be in the list.
+        if (!handler->currentThread().isValid()) {
+            ThreadId other = handler->threadAt(0);
+            if (other.isValid())
+                selectThread(other);
+        }
         updateViews(); // Adjust Threads combobox.
         if (m_hasInferiorThreadList && debuggerCore()->boolSetting(ShowThreadNames)) {
             postCommand("threadnames " +
                 debuggerCore()->action(MaximalStackDepth)->value().toByteArray(),
                 Discardable, CB(handleThreadNames));
         }
+        reloadStack(false); // Will trigger register reload.
     } else {
         // Fall back for older versions: Try to get at least a list
         // of running threads.
@@ -3660,37 +3717,29 @@ void GdbEngine::handleThreadListIds(const GdbResponse &response)
 {
     // "72^done,{thread-ids={thread-id="2",thread-id="1"},number-of-threads="2"}
     // In gdb 7.1+ additionally: current-thread-id="1"
+    ThreadsHandler *handler = threadsHandler();
     const QList<GdbMi> items = response.data.findChild("thread-ids").children();
-    Threads threads;
     for (int index = 0, n = items.size(); index != n; ++index) {
         ThreadData thread;
-        thread.id = items.at(index).data().toInt();
-        threads.append(thread);
+        thread.id = ThreadId(items.at(index).data().toInt());
+        handler->updateThread(thread);
     }
-    threadsHandler()->setThreads(threads);
-    threadsHandler()->setCurrentThreadId(m_currentThreadId);
+    reloadStack(false); // Will trigger register reload.
 }
 
 void GdbEngine::handleThreadNames(const GdbResponse &response)
 {
     if (response.resultClass == GdbResultDone) {
+        ThreadsHandler *handler = threadsHandler();
         GdbMi names;
         names.fromString(response.consoleStreamOutput);
-
-        Threads threads = threadsHandler()->threads();
-
         foreach (const GdbMi &name, names.children()) {
-            int id = name.findChild("id").data().toInt();
-            for (int index = 0, n = threads.size(); index != n; ++index) {
-                ThreadData &thread = threads[index];
-                if (thread.id == quint64(id)) {
-                    thread.name = decodeData(name.findChild("value").data(),
-                        name.findChild("valueencoded").data().toInt());
-                    break;
-                }
-            }
+            ThreadData thread;
+            thread.id = ThreadId(name.findChild("id").data().toInt());
+            thread.name = decodeData(name.findChild("value").data(),
+                name.findChild("valueencoded").data().toInt());
+            handler->updateThread(thread);
         }
-        threadsHandler()->setThreads(threads);
         updateViews();
     }
 }
@@ -4724,10 +4773,10 @@ void GdbEngine::startGdb(const QStringList &args)
     postCommand("set width 0");
     postCommand("set height 0");
 
-    postCommand("set breakpoint always-inserted on", ConsoleCommand);
+    //postCommand("set breakpoint always-inserted on", ConsoleCommand);
     // displaced-stepping does not work in Thumb mode.
     //postCommand("set displaced-stepping on");
-    postCommand("set trust-readonly-sections on", ConsoleCommand);
+    //postCommand("set trust-readonly-sections on", ConsoleCommand);
 
     postCommand("set remotecache on", ConsoleCommand);
     //postCommand("set non-stop on", ConsoleCommand);
@@ -4792,6 +4841,11 @@ void GdbEngine::startGdb(const QStringList &args)
 
     // Dummy command to guarantee a roundtrip before the adapter proceed.
     postCommand("pwd", ConsoleCommand, CB(reportEngineSetupOk));
+
+    if (debuggerCore()->boolSetting(MultiInferior)) {
+        //postCommand("set follow-exec-mode new");
+        postCommand("set detach-on-fork off");
+    }
 }
 
 void GdbEngine::reportEngineSetupOk(const GdbResponse &response)
@@ -5363,6 +5417,7 @@ DebuggerEngine *createGdbEngine(const DebuggerStartParameters &sp)
     switch (sp.startMode) {
     case AttachCore:
         return new GdbCoreEngine(sp);
+    case StartRemoteProcess:
     case AttachToRemoteServer:
         return new GdbRemoteServerEngine(sp);
     case StartRemoteGdb:

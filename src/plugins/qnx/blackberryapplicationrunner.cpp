@@ -115,6 +115,7 @@ BlackBerryApplicationRunner::BlackBerryApplicationRunner(bool debugMode, BlackBe
     m_runningStateTimer->setInterval(3000);
     m_runningStateTimer->setSingleShot(true);
     connect(m_runningStateTimer, SIGNAL(timeout()), this, SLOT(determineRunningState()));
+    connect(this, SIGNAL(started()), this, SLOT(checkSlog2Info()));
 }
 
 void BlackBerryApplicationRunner::start()
@@ -320,6 +321,8 @@ void BlackBerryApplicationRunner::handleTailOutput()
                 QStringList validLineBeginnings;
                 validLineBeginnings << QLatin1String("qt-msg      0  ")
                                     << QLatin1String("qt-msg*     0  ")
+                                    << QLatin1String("default*  9000  ")
+                                    << QLatin1String("default   9000  ")
                                     << QLatin1String("                           0  ");
                 Q_FOREACH (const QString &beginning, validLineBeginnings) {
                     if (showQtMessage(beginning, line))

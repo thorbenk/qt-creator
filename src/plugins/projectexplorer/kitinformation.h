@@ -60,7 +60,7 @@ public:
 
     QVariant defaultValue(Kit *k) const;
 
-    QList<Task> validate(Kit *k) const;
+    QList<Task> validate(const Kit *k) const;
 
     KitConfigWidget *createConfigWidget(Kit *k) const;
 
@@ -102,7 +102,8 @@ public:
 
     QVariant defaultValue(Kit *k) const;
 
-    QList<Task> validate(Kit *k) const;
+    QList<Task> validate(const Kit *k) const;
+    void fix(Kit *k);
 
     KitConfigWidget *createConfigWidget(Kit *k) const;
 
@@ -111,11 +112,14 @@ public:
     ItemList toUserOutput(Kit *k) const;
 
     void addToEnvironment(const Kit *k, Utils::Environment &env) const;
+    IOutputParser *createOutputParser(const Kit *k) const;
 
     static ToolChain *toolChain(const Kit *k);
     static void setToolChain(Kit *k, ToolChain *tc);
 
     static QString msgNoToolChainInTarget();
+private slots:
+    void toolChainUpdated(ProjectExplorer::ToolChain *tc);
 };
 
 class PROJECTEXPLORER_EXPORT ToolChainMatcher : public KitMatcher
@@ -149,7 +153,7 @@ public:
 
     QVariant defaultValue(Kit *k) const;
 
-    QList<Task> validate(Kit *k) const;
+    QList<Task> validate(const Kit *k) const;
 
     KitConfigWidget *createConfigWidget(Kit *k) const;
 
@@ -193,7 +197,8 @@ public:
 
     QVariant defaultValue(Kit *k) const;
 
-    QList<Task> validate(Kit *k) const;
+    QList<Task> validate(const Kit *k) const;
+    void fix(Kit *k);
 
     KitConfigWidget *createConfigWidget(Kit *k) const;
 
@@ -205,6 +210,8 @@ public:
     static Core::Id deviceId(const Kit *k);
     static void setDevice(Kit *k, IDevice::ConstPtr dev);
     static void setDeviceId(Kit *k, const Core::Id id);
+private slots:
+    void deviceUpdated(const Core::Id &id);
 };
 
 class PROJECTEXPLORER_EXPORT DeviceMatcher : public KitMatcher

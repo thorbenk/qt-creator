@@ -486,7 +486,7 @@ void tst_Semantic::template_instance_1()
     FullySpecifiedType genTy = DeprecatedGenTemplateInstance::instantiate(templId, decl, control);
 
     Overview oo;
-    oo.setShowReturnTypes(true);
+    oo.showReturnTypes = true;
 
     const QString genDecl = oo.prettyType(genTy);
     QCOMPARE(genDecl, QString::fromLatin1("void (const int &)"));
@@ -732,5 +732,5 @@ void tst_Semantic::diagnostic_error()
     QCOMPARE(doc->globals->memberCount(), 1U);
 }
 
-QTEST_APPLESS_MAIN(tst_Semantic)
+QTEST_MAIN(tst_Semantic)
 #include "tst_semantic.moc"

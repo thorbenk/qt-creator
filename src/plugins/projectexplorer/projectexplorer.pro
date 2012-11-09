@@ -1,11 +1,6 @@
 TEMPLATE = lib
 TARGET = ProjectExplorer
-QT += xml script network
-greaterThan(QT_MAJOR_VERSION, 4) {
-    QT += quick1
-} else {
-    QT += declarative
-}
+QT += xml script network declarative
 
 include(../../qtcreatorplugin.pri)
 include(projectexplorer_dependencies.pri)
@@ -20,6 +15,7 @@ HEADERS += projectexplorer.h \
     gcctoolchain.h \
     projectexplorer_export.h \
     projectwindow.h \
+    removetaskhandler.h \
     kit.h \
     kitchooser.h \
     kitconfigwidget.h \
@@ -139,6 +135,7 @@ SOURCES += projectexplorer.cpp \
     clangparser.cpp \
     gcctoolchain.cpp \
     projectwindow.cpp \
+    removetaskhandler.cpp \
     kit.cpp \
     kitchooser.cpp \
     kitinformation.cpp \

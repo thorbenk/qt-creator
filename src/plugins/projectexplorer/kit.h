@@ -40,6 +40,7 @@
 namespace Utils { class Environment; }
 
 namespace ProjectExplorer {
+class IOutputParser;
 
 namespace Internal {
 class KitManagerPrivate;
@@ -55,14 +56,22 @@ class KitPrivate;
 class PROJECTEXPLORER_EXPORT Kit
 {
 public:
-    Kit();
+    Kit(Core::Id id = Core::Id());
     ~Kit();
 
+    // Do not trigger evaluations
+    void blockNotification();
+    // Trigger evaluations again.
+    void unblockNotification();
+
     bool isValid() const;
-    QList<Task> validate();
+    QList<Task> validate() const;
+    void fix();
 
     QString displayName() const;
     void setDisplayName(const QString &name);
+
+    QString fileSystemFriendlyName() const;
 
     bool isAutoDetected() const;
     Core::Id id() const;
@@ -76,12 +85,15 @@ public:
     void setValue(const Core::Id &key, const QVariant &value);
     void removeKey(const Core::Id &key);
 
-    bool operator==(const Kit &other) const;
+    bool isDataEqual(const Kit *other) const;
+    bool isEqual(const Kit *other) const;
 
     void addToEnvironment(Utils::Environment &env) const;
+    IOutputParser *createOutputParser() const;
 
     QString toHtml();
     Kit *clone(bool keepName = false) const;
+    void copyFrom(const Kit *k);
 
 private:
     // Unimplemented.
@@ -89,7 +101,6 @@ private:
     void operator=(const Kit &other);
 
     void setAutoDetected(bool detected);
-    void setValid(bool valid);
 
     void kitUpdated();
 
@@ -99,7 +110,17 @@ private:
     Internal::KitPrivate *d;
 
     friend class KitManager;
-    friend class Internal::KitManagerPrivate;
+};
+
+class KitGuard
+{
+public:
+    KitGuard(Kit *k) : m_kit(k)
+    { k->blockNotification(); }
+
+    ~KitGuard() { m_kit->unblockNotification(); }
+private:
+    Kit *m_kit;
 };
 
 } // namespace ProjectExplorer

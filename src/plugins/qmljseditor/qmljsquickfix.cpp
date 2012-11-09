@@ -45,18 +45,12 @@ using namespace QmlJS::AST;
 using namespace QmlJSEditor;
 using namespace QmlJSEditor::Internal;
 using namespace QmlJSTools;
-using namespace TextEditor;
 using TextEditor::RefactoringChanges;
 
-QmlJSQuickFixOperation::QmlJSQuickFixOperation(
-        const QSharedPointer<const QmlJSQuickFixAssistInterface> &interface,
-        int priority)
+QmlJSQuickFixOperation::QmlJSQuickFixOperation(const QmlJSQuickFixInterface &interface,
+                                               int priority)
     : QuickFixOperation(priority)
     , m_interface(interface)
-{
-}
-
-QmlJSQuickFixOperation::~QmlJSQuickFixOperation()
 {
 }
 
@@ -79,28 +73,9 @@ QString QmlJSQuickFixOperation::fileName() const
     return m_interface->semanticInfo().document->fileName();
 }
 
-QmlJSQuickFixFactory::QmlJSQuickFixFactory()
-{
-}
 
-QmlJSQuickFixFactory::~QmlJSQuickFixFactory()
+void QmlJSQuickFixFactory::matchingOperations(const QuickFixInterface &interface,
+    QuickFixOperations &result)
 {
-}
-
-QList<QuickFixOperation::Ptr> QmlJSQuickFixFactory::matchingOperations(
-    const QSharedPointer<const TextEditor::IAssistInterface> &interface)
-{
-    return match(interface.staticCast<const QmlJSQuickFixAssistInterface>());
-}
-
-QList<QmlJSQuickFixOperation::Ptr> QmlJSQuickFixFactory::noResult()
-{
-    return QList<QmlJSQuickFixOperation::Ptr>();
-}
-
-QList<QmlJSQuickFixOperation::Ptr> QmlJSQuickFixFactory::singleResult(QmlJSQuickFixOperation *operation)
-{
-    QList<QmlJSQuickFixOperation::Ptr> result;
-    result.append(QmlJSQuickFixOperation::Ptr(operation));
-    return result;
+    match(interface.staticCast<const QmlJSQuickFixAssistInterface>(), result);
 }

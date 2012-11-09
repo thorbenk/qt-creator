@@ -232,7 +232,8 @@ void dummyStatement(...) {}
 
 #if USE_AUTOBREAK
 #   ifdef Q_CC_MSVC
-#       define BREAK_HERE __asm { int 3 }; __asm { mov eax, eax }
+#       include <crtdbg.h>
+#       define BREAK_HERE _CrtDbgReport(_CRT_WARN, NULL, NULL, "simple_test_app", NULL)
 #   else
 #       define BREAK_HERE asm("int $3; mov %eax, %eax")
 #   endif
@@ -242,7 +243,8 @@ void dummyStatement(...) {}
 
 #if USE_UNINITIALIZED_AUTOBREAK
 #   ifdef Q_CC_MSVC
-#       define BREAK_UNINITIALIZED_HERE __asm { int 3 }; __asm { mov eax, eax }
+#       include <crtdbg.h>
+#       define BREAK_UNINITIALIZED_HERE _CrtDbgReport(_CRT_WARN, NULL, NULL, "simple_test_app", NULL)
 #   else
 #       define BREAK_UNINITIALIZED_HERE asm("int $3; mov %eax, %eax")
 #   endif
@@ -681,10 +683,10 @@ namespace undefined {
         int *i = new int;
         delete i;
         BREAK_HERE;
+        // Continue.
         // Manual: Uncomment the following line. Step.
         // On Linux, a SIGABRT should be received.
         //delete i;
-        // Continue.
         dummyStatement(&i);
     }
 
@@ -3821,6 +3823,24 @@ namespace text {
 } // namespace text
 
 
+namespace qprocess {
+
+    void testQProcess()
+    {
+        return;
+        const int N = 14;
+        QProcess proc[N];
+        for (int i = 0; i != N; ++i) {
+            proc[i].start("sleep 10");
+            proc[i].waitForStarted();
+        }
+        BREAK_HERE;
+        dummyStatement(&proc);
+    }
+
+} // namespace qprocess
+
+
 namespace qthread {
 
     class Thread : public QThread
@@ -4486,6 +4506,31 @@ namespace namespc {
 } // namespace namespc
 
 
+namespace gccextensions {
+
+    void testGccExtensions()
+    {
+#ifdef __GNUC__
+        char v[8] = { 1, 2 };
+        char w __attribute__ ((vector_size (8))) = { 1, 2 };
+        int y[2] = { 1, 2 };
+        int z __attribute__ ((vector_size (8))) = { 1, 2 };
+        BREAK_HERE;
+        // Expand v.
+        // Check v.0 1 char.
+        // Check v.1 2 char.
+        // Check w.0 1 char.
+        // Check w.1 2 char.
+        // Check y.0 1 int.
+        // Check y.1 2 int.
+        // Check z.0 1 int.
+        // Check z.1 2 int.
+        // Continue.
+        dummyStatement(&v, &w, &y, &z);
+#endif
+    }
+
+} // namespace gccextension
 
 class Z : public QObject
 {
@@ -4518,6 +4563,32 @@ QString fooxx()
 namespace basic {
 
     // This tests display of basic types.
+
+    void testInt()
+    {
+        quint64 u64 = ULONG_LONG_MAX;
+        qint64 s64 = LONG_LONG_MAX;
+        quint32 u32 = ULONG_MAX;
+        qint32 s32 = LONG_MAX;
+        quint64 u64s = 0;
+        qint64 s64s = LONG_LONG_MIN;
+        quint32 u32s = 0;
+        qint32 s32s = LONG_MIN;
+
+        BREAK_HERE;
+        // Check u64 18446744073709551615 quint64.
+        // Check s64 9223372036854775807 qint64.
+        // Check u32 4294967295 quint32.
+        // Check s32 2147483647 qint32.
+        // Check u64s 0 quint64.
+        // Check s64s -9223372036854775808 qint64.
+        // Check u32s 0 quint32.
+        // Check s32s -2147483648 qint32.
+        // Continue.
+
+        dummyStatement(&u64, &s64, &u32, &s32, &u64s, &s64s, &u32s, &s32s);
+    }
+
 
     void testArray1()
     {
@@ -5248,11 +5319,47 @@ namespace basic {
         dummyStatement(&i, &b, &s);
     }
 
+    #ifdef Q_COMPILER_RVALUE_REFS
+    struct X { X() : a(2), b(3) {} int a, b; };
+
+    X testRValueReferenceHelper1()
+    {
+        return X();
+    }
+
+    X testRValueReferenceHelper2(X &&x)
+    {
+        return x;
+    }
+
+    void testRValueReference()
+    {
+        X &&x1 = testRValueReferenceHelper1();
+        X &&x2 = testRValueReferenceHelper2(std::move(x1));
+        X &&x3 = testRValueReferenceHelper2(testRValueReferenceHelper1());
+
+        X y1 = testRValueReferenceHelper1();
+        X y2 = testRValueReferenceHelper2(std::move(y1));
+        X y3 = testRValueReferenceHelper2(testRValueReferenceHelper1());
+
+        BREAK_HERE;
+        // Continue.
+        dummyStatement(&x1, &x2, &x3, &y1, &y2, &y3);
+    }
+
+    #else
+
+    void testRValueReference() {}
+
+    #endif
+
     void testBasic()
     {
+        testInt();
         testReference1();
         testReference2();
         testReference3("hello");
+        testRValueReference();
         testDynamicReference();
         testReturn();
         testArray1();
@@ -6566,6 +6673,7 @@ int main(int argc, char *argv[])
 
     // Check for normal dumpers.
     basic::testBasic();
+    gccextensions::testGccExtensions();
     qhostaddress::testQHostAddress();
     varargs::testVaList();
 
@@ -6620,6 +6728,7 @@ int main(int argc, char *argv[])
     qstringlist::testQStringList();
     qstring::testQString();
     qthread::testQThread();
+    qprocess::testQProcess();
     qurl::testQUrl();
     qvariant::testQVariant();
     qvector::testQVector();

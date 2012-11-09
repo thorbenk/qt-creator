@@ -174,6 +174,8 @@ QList<GeneratorInfo> GeneratorInfo::generatorInfosFor(ProjectExplorer::Kit *k, N
 {
     QList<GeneratorInfo> results;
     ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(k);
+    if (!tc)
+        return results;
     ProjectExplorer::Abi targetAbi = tc->targetAbi();
     if (n != ForceNinja) {
         if (targetAbi.os() == ProjectExplorer::Abi::WindowsOS) {
@@ -203,32 +205,23 @@ QList<GeneratorInfo> GeneratorInfo::generatorInfosFor(ProjectExplorer::Kit *k, N
 CMakeOpenProjectWizard::CMakeOpenProjectWizard(CMakeManager *cmakeManager, const QString &sourceDirectory, Utils::Environment env)
     : m_cmakeManager(cmakeManager),
       m_sourceDirectory(sourceDirectory),
-      m_creatingCbpFiles(false),
       m_environment(env),
       m_useNinja(false),
       m_kit(0)
 {
-    int startid;
     if (hasInSourceBuild()) {
-        startid = InSourcePageId;
         m_buildDirectory = m_sourceDirectory;
+        addPage(new InSourceBuildPage(this));
     } else {
-        startid = ShadowBuildPageId;
         m_buildDirectory = m_sourceDirectory + QLatin1String("-build");
+        addPage(new ShadowBuildPage(this));
     }
 
-    setPage(InSourcePageId, new InSourceBuildPage(this));
-    setPage(ShadowBuildPageId, new ShadowBuildPage(this));
-    setPage(CMakeRunPageId, new CMakeRunPage(this));
+    if (!m_cmakeManager->isCMakeExecutableValid())
+        addPage(new ChooseCMakePage(this));
 
-    Utils::WizardProgress *wp = wizardProgress();
-    Utils::WizardProgressItem *inSourceItem = wp->item(InSourcePageId);
-    Utils::WizardProgressItem *shadowBuildItem = wp->item(ShadowBuildPageId);
-    Utils::WizardProgressItem *cmakeRunItem = wp->item(CMakeRunPageId);
-    inSourceItem->setNextItems(QList<Utils::WizardProgressItem *>() << cmakeRunItem);
-    shadowBuildItem->setNextItems(QList<Utils::WizardProgressItem *>() << cmakeRunItem);
+    addPage(new CMakeRunPage(this));
 
-    setStartId(startid);
     init();
 }
 
@@ -236,7 +229,6 @@ CMakeOpenProjectWizard::CMakeOpenProjectWizard(CMakeManager *cmakeManager, CMake
                                                const BuildInfo &info)
     : m_cmakeManager(cmakeManager),
       m_sourceDirectory(info.sourceDirectory),
-      m_creatingCbpFiles(true),
       m_environment(info.environment),
       m_useNinja(info.useNinja),
       m_kit(info.kit)
@@ -255,6 +247,8 @@ CMakeOpenProjectWizard::CMakeOpenProjectWizard(CMakeManager *cmakeManager, CMake
         m_buildDirectory = info.buildDirectory;
         addPage(new ShadowBuildPage(this, true));
     }
+    if (!m_cmakeManager->isCMakeExecutableValid())
+        addPage(new ChooseCMakePage(this));
 
     addPage(new CMakeRunPage(this, rmode, info.buildDirectory));
     init();
@@ -270,20 +264,6 @@ CMakeManager *CMakeOpenProjectWizard::cmakeManager() const
 {
     return m_cmakeManager;
 }
-
-int CMakeOpenProjectWizard::nextId() const
-{
-    if (m_creatingCbpFiles)
-        return QWizard::nextId();
-    int cid = currentId();
-    if (cid == InSourcePageId) {
-        return CMakeRunPageId;
-    } else if (cid == ShadowBuildPageId) {
-        return CMakeRunPageId;
-    }
-    return -1;
-}
-
 
 bool CMakeOpenProjectWizard::hasInSourceBuild() const
 {
@@ -401,6 +381,61 @@ void ShadowBuildPage::buildDirectoryChanged()
     m_cmakeWizard->setBuildDirectory(m_pc->path());
 }
 
+ChooseCMakePage::ChooseCMakePage(CMakeOpenProjectWizard *cmakeWizard)
+    : QWizardPage(cmakeWizard), m_cmakeWizard(cmakeWizard)
+{
+    QFormLayout *fl = new QFormLayout;
+    fl->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    setLayout(fl);
+
+    m_cmakeLabel = new QLabel;
+    m_cmakeLabel->setWordWrap(true);
+    fl->addRow(m_cmakeLabel);
+    // Show a field for the user to enter
+    m_cmakeExecutable = new Utils::PathChooser(this);
+    m_cmakeExecutable->setExpectedKind(Utils::PathChooser::ExistingCommand);
+    fl->addRow("cmake Executable:", m_cmakeExecutable);
+
+    connect(m_cmakeExecutable, SIGNAL(editingFinished()),
+            this, SLOT(cmakeExecutableChanged()));
+    connect(m_cmakeExecutable, SIGNAL(browsingFinished()),
+            this, SLOT(cmakeExecutableChanged()));
+
+    setTitle(tr("Choose Cmake Executable"));
+}
+
+void ChooseCMakePage::updateErrorText()
+{
+    QString cmakeExecutable = m_cmakeWizard->cmakeManager()->cmakeExecutable();
+    if (m_cmakeWizard->cmakeManager()->isCMakeExecutableValid()) {
+        m_cmakeLabel->setText(tr("The cmake executable is valid."));
+    } else {
+        QString text = tr("Please specify the path to the cmake executable. No cmake executable was found in the path.");
+        if (!cmakeExecutable.isEmpty()) {
+            QFileInfo fi(cmakeExecutable);
+            if (!fi.exists())
+                text += tr(" The cmake executable (%1) does not exist.").arg(cmakeExecutable);
+            else if (!fi.isExecutable())
+                text += tr(" The path %1 is not a executable.").arg(cmakeExecutable);
+            else
+                text += tr(" The path %1 is not a valid cmake.").arg(cmakeExecutable);
+        }
+        m_cmakeLabel->setText(text);
+    }
+}
+
+void ChooseCMakePage::cmakeExecutableChanged()
+{
+    m_cmakeWizard->cmakeManager()->setCMakeExecutable(m_cmakeExecutable->path());
+    updateErrorText();
+    emit completeChanged();
+}
+
+bool ChooseCMakePage::isComplete() const
+{
+    return m_cmakeWizard->cmakeManager()->isCMakeExecutableValid();
+}
+
 CMakeRunPage::CMakeRunPage(CMakeOpenProjectWizard *cmakeWizard, Mode mode, const QString &buildDirectory)
     : QWizardPage(cmakeWizard),
       m_cmakeWizard(cmakeWizard),
@@ -422,30 +457,6 @@ void CMakeRunPage::initWidgets()
     m_descriptionLabel->setWordWrap(true);
 
     fl->addRow(m_descriptionLabel);
-
-    if (m_cmakeWizard->cmakeManager()->isCMakeExecutableValid()) {
-        m_cmakeExecutable = 0;
-    } else {
-        QString text = tr("Please specify the path to the cmake executable. No cmake executable was found in the path.");
-        QString cmakeExecutable = m_cmakeWizard->cmakeManager()->cmakeExecutable();
-        if (!cmakeExecutable.isEmpty()) {
-            QFileInfo fi(cmakeExecutable);
-            if (!fi.exists())
-                text += tr(" The cmake executable (%1) does not exist.").arg(cmakeExecutable);
-            else if (!fi.isExecutable())
-                text += tr(" The path %1 is not a executable.").arg(cmakeExecutable);
-            else
-                text += tr(" The path %1 is not a valid cmake.").arg(cmakeExecutable);
-        }
-
-        QLabel *cmakeLabel = new QLabel(text);
-        cmakeLabel->setWordWrap(true);
-        fl->addRow(cmakeLabel);
-        // Show a field for the user to enter
-        m_cmakeExecutable = new Utils::PathChooser(this);
-        m_cmakeExecutable->setExpectedKind(Utils::PathChooser::ExistingCommand);
-        fl->addRow("cmake Executable:", m_cmakeExecutable);
-    }
 
     // Run CMake Line (with arguments)
     m_argumentsLineEdit = new Utils::FancyLineEdit(this);
@@ -565,9 +576,6 @@ void CMakeRunPage::initializePage()
                 ProjectExplorer::KitManager::instance()->kits();
 
         foreach (ProjectExplorer::Kit *k, kitList) {
-            ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(k);
-            if (!tc)
-                continue;
             QList<GeneratorInfo> infos = GeneratorInfo::generatorInfosFor(k,
                                                                           hasNinjaGenerator ? GeneratorInfo::OfferNinja : GeneratorInfo::NoNinja,
                                                                           hasCodeBlocksGenerator);
@@ -593,7 +601,7 @@ void CMakeRunPage::initializePage()
                                                                       ninja,
                                                                       true);
         foreach (const GeneratorInfo &info, infos)
-                m_generatorComboBox->addItem(info.displayName(), qVariantFromValue(info));
+            m_generatorComboBox->addItem(info.displayName(), qVariantFromValue(info));
     }
 }
 
@@ -612,10 +620,6 @@ bool CMakeRunPage::validatePage()
 
 void CMakeRunPage::runCMake()
 {
-    if (m_cmakeExecutable)
-        // We asked the user for the cmake executable
-        m_cmakeWizard->cmakeManager()->setCMakeExecutable(m_cmakeExecutable->path());
-
     m_optionalCMake = false;
     m_complete = false;
 

@@ -93,6 +93,7 @@
 #include <projectexplorer/abi.h>
 #include <projectexplorer/applicationrunconfiguration.h>
 #include <projectexplorer/buildconfiguration.h>
+#include <projectexplorer/buildmanager.h>
 #include <projectexplorer/devicesupport/deviceprocessesdialog.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/projectexplorer.h>
@@ -494,6 +495,7 @@ public:
     bool hasCapability(unsigned cap) const;
     bool acceptsBreakpoint(BreakpointModelId) const { return false; }
     bool acceptsDebuggerCommands() const { return false; }
+    void selectThread(ThreadId) {}
 };
 
 bool DummyEngine::hasCapability(unsigned cap) const
@@ -781,7 +783,8 @@ public slots:
 
     void selectThread(int index)
     {
-        currentEngine()->selectThread(index);
+        ThreadId id = m_currentEngine->threadsHandler()->threadAt(index);
+        m_currentEngine->selectThread(id);
     }
 
     void breakpointSetMarginActionTriggered()
@@ -970,6 +973,8 @@ public slots:
 public slots:
     void testLoadProject(const QString &proFile, const TestCallBack &cb);
     void testProjectLoaded(ProjectExplorer::Project *project);
+    void testProjectEvaluated();
+    void testProjectBuilt(bool success);
     void testUnloadProject();
     void testFinished();
 
@@ -987,6 +992,7 @@ public slots:
     void testBenchmark1();
 
 public:
+    ProjectExplorer::Project *m_testProject;
     bool m_testSuccess;
     QList<TestCallBack> m_testCallbacks;
 
@@ -1168,12 +1174,7 @@ public slots:
         exp = fixCppExpression(exp);
         if (exp.isEmpty())
             return;
-        const QString name = exp;
-        // Prefer to watch an existing local variable by its expression (address) if it can be found.
-        WatchHandler *watchHandler = currentEngine()->watchHandler();
-        if (const WatchData *localVariable = watchHandler->findCppLocalVariable(exp))
-            exp = QLatin1String(localVariable->exp);
-        watchHandler->watchExpression(exp, name);
+        currentEngine()->watchHandler()->watchVariable(exp);
     }
 
     void handleExecExit()
@@ -1219,6 +1220,7 @@ public slots:
     QString stringSetting(int code) const;
 
     void showModuleSymbols(const QString &moduleName, const Symbols &symbols);
+    void showModuleSections(const QString &moduleName, const Sections &sections);
 
     bool parseArgument(QStringList::const_iterator &it,
         const QStringList::const_iterator &cend, QString *errorMessage);
@@ -1599,11 +1601,12 @@ void DebuggerPluginPrivate::attachCore()
 {
     AttachCoreDialog dlg(mainWindow());
 
-    dlg.setKitId(Id(configValue(_("LastExternalProfile")).toString()));
+    dlg.setKitId(Id(configValue(_("LastExternalKit")).toString()));
     dlg.setLocalExecutableFile(configValue(_("LastExternalExecutableFile")).toString());
     dlg.setLocalCoreFile(configValue(_("LastLocalCoreFile")).toString());
     dlg.setRemoteCoreFile(configValue(_("LastRemoteCoreFile")).toString());
     dlg.setOverrideStartScript(configValue(_("LastExternalStartScript")).toString());
+    dlg.setForceLocalCoreFile(configValue(_("LastForceLocalCoreFile")).toBool());
 
     if (dlg.exec() != QDialog::Accepted)
         return;
@@ -1611,11 +1614,12 @@ void DebuggerPluginPrivate::attachCore()
     setConfigValue(_("LastExternalExecutableFile"), dlg.localExecutableFile());
     setConfigValue(_("LastLocalCoreFile"), dlg.localCoreFile());
     setConfigValue(_("LastRemoteCoreFile"), dlg.remoteCoreFile());
-    setConfigValue(_("LastExternalProfile"), dlg.kit()->id().toString());
+    setConfigValue(_("LastExternalKit"), dlg.kit()->id().toString());
     setConfigValue(_("LastExternalStartScript"), dlg.overrideStartScript());
+    setConfigValue(_("LastForceLocalCoreFile"), dlg.forcesLocalCoreFile());
 
     DebuggerStartParameters sp;
-    QString display = dlg.isLocal() ? dlg.localCoreFile() : dlg.remoteCoreFile();
+    QString display = dlg.useLocalCoreFile() ? dlg.localCoreFile() : dlg.remoteCoreFile();
     QTC_ASSERT(fillParameters(&sp, dlg.kit()), return);
     sp.masterEngineType = GdbEngineType;
     sp.executable = dlg.localExecutableFile();
@@ -1693,14 +1697,15 @@ void DebuggerPluginPrivate::attachToProcess(bool startServerOnly)
         return;
     }
 
-    #ifdef Q_OS_WIN
-    if (isWinProcessBeingDebugged(process.pid)) {
+    bool isWindows = false;
+    if (const ProjectExplorer::ToolChain *tc = ToolChainKitInformation::toolChain(kit))
+        isWindows = tc->targetAbi().os() == ProjectExplorer::Abi::WindowsOS;
+    if (isWindows && isWinProcessBeingDebugged(process.pid)) {
         QMessageBox::warning(ICore::mainWindow(), tr("Process Already Under Debugger Control"),
                              tr("The process %1 is already under the control of a debugger.\n"
                                 "Qt Creator cannot attach to it.").arg(process.pid));
         return;
     }
-    #endif
 
     if (device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE) {
         DebuggerStartParameters sp;
@@ -1761,6 +1766,7 @@ void DebuggerPluginPrivate::attachToQmlPort()
     sp.startMode = AttachToRemoteProcess;
     sp.closeMode = KillAtClose;
     sp.languages = QmlLanguage;
+    sp.masterEngineType = QmlEngineType;
 
     //
     // get files from all the projects in the session
@@ -2205,7 +2211,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
     QTC_ASSERT(m_returnWindow->model(), return);
     QTC_ASSERT(!engine->isSlaveEngine(), return);
 
-    m_threadBox->setCurrentIndex(engine->threadsHandler()->currentThread());
+    m_threadBox->setCurrentIndex(engine->threadsHandler()->currentThreadIndex());
     engine->watchHandler()->updateWatchersWindow();
 
     const DebuggerState state = engine->state();
@@ -3322,6 +3328,36 @@ void DebuggerPluginPrivate::showModuleSymbols(const QString &moduleName,
     createNewDock(w);
 }
 
+void DebuggerPluginPrivate::showModuleSections(const QString &moduleName,
+    const Sections &sections)
+{
+    QTreeWidget *w = new QTreeWidget;
+    w->setUniformRowHeights(true);
+    w->setColumnCount(5);
+    w->setRootIsDecorated(false);
+    w->setAlternatingRowColors(true);
+    w->setSortingEnabled(true);
+    w->setObjectName(QLatin1String("Sections.") + moduleName);
+    QStringList header;
+    header.append(tr("Name"));
+    header.append(tr("From"));
+    header.append(tr("To"));
+    header.append(tr("Address"));
+    header.append(tr("Flags"));
+    w->setHeaderLabels(header);
+    w->setWindowTitle(tr("Sections in \"%1\"").arg(moduleName));
+    foreach (const Section &s, sections) {
+        QTreeWidgetItem *it = new QTreeWidgetItem;
+        it->setData(0, Qt::DisplayRole, s.name);
+        it->setData(1, Qt::DisplayRole, s.from);
+        it->setData(2, Qt::DisplayRole, s.to);
+        it->setData(3, Qt::DisplayRole, s.address);
+        it->setData(4, Qt::DisplayRole, s.flags);
+        w->addTopLevelItem(it);
+    }
+    createNewDock(w);
+}
+
 void DebuggerPluginPrivate::aboutToShutdown()
 {
     m_plugin->removeObject(this);
@@ -3429,10 +3465,13 @@ void DebuggerPluginPrivate::testLoadProject(const QString &proFile, const TestCa
 
     m_testCallbacks.append(cb);
     QString error;
-    if (pe->openProject(proFile, &error))
-        return; // Will end up in callback.
+    if (pe->openProject(proFile, &error)) {
+        // Will end up in callback below due to the connections to
+        // signal currentProjectChanged().
+        return;
+    }
 
-    // Eat the unused callback.
+    // Project opening failed. Eat the unused callback.
     qWarning("Cannot open %s: %s", qPrintable(proFile), qPrintable(error));
     QVERIFY(false);
     m_testCallbacks.pop_back();
@@ -3444,14 +3483,25 @@ void DebuggerPluginPrivate::testProjectLoaded(Project *project)
         qWarning("Changed to null project.");
         return;
     }
-    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
-    disconnect(pe, SIGNAL(currentProjectChanged(ProjectExplorer::Project*)),
-            this, SLOT(testProjectLoaded(ProjectExplorer::Project*)));
+    m_testProject = project;
+    connect(project, SIGNAL(proFilesEvaluated()), SLOT(testProjectEvaluated()));
+    project->configureAsExampleProject(QStringList());
+}
 
-    QString fileName = project->document()->fileName();
+void DebuggerPluginPrivate::testProjectEvaluated()
+{
+    QString fileName = m_testProject->document()->fileName();
     QVERIFY(!fileName.isEmpty());
     qWarning("Project %s loaded", qPrintable(fileName));
+    connect(ProjectExplorerPlugin::instance()->buildManager(),
+            SIGNAL(buildQueueFinished(bool)),
+            SLOT(testProjectBuilt(bool)));
+    ProjectExplorerPlugin::instance()->buildProject(m_testProject);
+}
 
+void DebuggerPluginPrivate::testProjectBuilt(bool success)
+{
+    QVERIFY(success);
     QVERIFY(!m_testCallbacks.isEmpty());
     TestCallBack cb = m_testCallbacks.takeLast();
     invoke<void>(cb.receiver, cb.slot);
@@ -3474,12 +3524,13 @@ static Kit *currentKit()
     Target *t = activeTarget();
     if (!t || !t->isEnabled())
         return 0;
-    return activeTarget()->kit();
+    return t->kit();
 }
 
 static LocalApplicationRunConfiguration *activeLocalRunConfiguration()
 {
-    return qobject_cast<LocalApplicationRunConfiguration *>(activeTarget()->activeRunConfiguration());
+    Target *t = activeTarget();
+    return t ? qobject_cast<LocalApplicationRunConfiguration *>(t->activeRunConfiguration()) : 0;
 }
 
 void DebuggerPluginPrivate::testRunProject(const DebuggerStartParameters &sp, const TestCallBack &cb)

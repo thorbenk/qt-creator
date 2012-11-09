@@ -24,11 +24,12 @@ tempFileCounter = 0
 try:
     # Test if 2.6 is used (Windows), trigger exception and default
     # to 2nd version.
-    tempfile.NamedTemporaryFile(prefix="py_",delete=True)
+    file = tempfile.NamedTemporaryFile(prefix="py_",delete=True)
+    file.close()
     def createTempFile():
-        file = tempfile.NamedTemporaryFile(prefix="py_",delete=False)
+        file = tempfile.NamedTemporaryFile(prefix="py_",delete=True)
         file.close()
-        return file.name, file
+        return file.name
 
 except:
     def createTempFile():
@@ -36,9 +37,9 @@ except:
         tempFileCounter += 1
         fileName = "%s/py_tmp_%d_%d" \
             % (tempfile.gettempdir(), os.getpid(), tempFileCounter)
-        return fileName, None
+        return fileName
 
-def removeTempFile(name, file):
+def removeTempFile(name):
     try:
         os.remove(name)
     except:
@@ -1491,7 +1492,7 @@ class Dumper:
             if value.is_optimized_out:
                 self.putValue("<optimized out>")
             else:
-                self.putValue(int(value))
+                self.putValue(value)
             self.putNumChild(0)
             return
 
@@ -1546,24 +1547,30 @@ class Dumper:
             self.putType(typeName)
             self.putNumChild(1)
             format = self.currentItemFormat()
-            if format == None and str(targetType.unqualified()) == "char":
+            isDefault = format == None and str(targetType.unqualified()) == "char"
+            if isDefault or (format >= 0 and format <= 2):
+                blob = readRawMemory(value.address, type.sizeof)
+
+            if isDefault:
                 # Use Latin1 as default for char [].
-                self.putValue(encodeCharArray(value), Hex2EncodedLatin1)
+                self.putValue(blob, Hex2EncodedLatin1)
             elif format == 0:
                 # Explicitly requested Latin1 formatting.
-                self.putValue(encodeCharArray(value), Hex2EncodedLatin1)
+                self.putValue(blob, Hex2EncodedLatin1)
             elif format == 1:
                 # Explicitly requested UTF-8 formatting.
-                self.putValue(encodeCharArray(value), Hex2EncodedUtf8)
+                self.putValue(blob, Hex2EncodedUtf8)
             elif format == 2:
                 # Explicitly requested Local 8-bit formatting.
-                self.putValue(encodeCharArray(value), Hex2EncodedLocal8Bit)
+                self.putValue(blob, Hex2EncodedLocal8Bit)
             else:
                 self.putValue("@0x%x" % long(value.cast(targetType.pointer())))
+
+
             if self.currentIName in self.expandedINames:
-                p = value.cast(targetType.pointer())
+                p = value.address
                 ts = targetType.sizeof
-                if not self.tryPutArrayContents(targetType, p, type.sizeof/ts):
+                if not self.tryPutArrayContents(targetType, p, type.sizeof / ts):
                     with Children(self, childType=targetType,
                             addrBase=p, addrStep=ts):
                         self.putFields(value)
@@ -1779,6 +1786,17 @@ class Dumper:
             #    self.putStringValue(objectName, 1)
             #except:
             #    pass
+
+        # D arrays, gdc compiled.
+        if typeName.endswith("[]"):
+            n = value["length"]
+            base = value["ptr"]
+            self.putType(typeName)
+            self.putAddress(value.address)
+            self.putItemCount(n)
+            if self.isExpanded():
+                self.putArrayData(base.type.target(), base, n)
+            return
 
         #warn("GENERIC STRUCT: %s" % type)
         #warn("INAME: %s " % self.currentIName)

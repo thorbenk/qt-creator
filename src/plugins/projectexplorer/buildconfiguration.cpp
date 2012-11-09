@@ -36,6 +36,7 @@
 #include "kitmanager.h"
 #include "target.h"
 #include "project.h"
+#include "kit.h"
 
 #include <coreplugin/variablemanager.h>
 #include <extensionsystem/pluginmanager.h>
@@ -91,8 +92,8 @@ BuildConfiguration::BuildConfiguration(Target *target, const Core::Id id) :
     bsl->setDefaultDisplayName(tr("Clean"));
     m_stepLists.append(bsl);
 
-    connect(KitManager::instance(), SIGNAL(kitUpdated(ProjectExplorer::Kit*)),
-            this, SLOT(handleKitUpdate(ProjectExplorer::Kit*)));
+    connect(target, SIGNAL(kitChanged()),
+            this, SLOT(handleKitUpdate()));
 }
 
 BuildConfiguration::BuildConfiguration(Target *target, BuildConfiguration *source) :
@@ -106,8 +107,8 @@ BuildConfiguration::BuildConfiguration(Target *target, BuildConfiguration *sourc
     // otherwise BuildStepFactories might reject to set up a BuildStep for us
     // since we are not yet the derived class!
 
-    connect(KitManager::instance(), SIGNAL(kitUpdated(ProjectExplorer::Kit*)),
-            this, SLOT(handleKitUpdate(ProjectExplorer::Kit*)));
+    connect(target, SIGNAL(kitChanged()),
+            this, SLOT(handleKitUpdate()));
 }
 
 BuildConfiguration::~BuildConfiguration()
@@ -156,6 +157,8 @@ bool BuildConfiguration::fromMap(const QVariantMap &map)
     m_clearSystemEnvironment = map.value(QLatin1String(CLEAR_SYSTEM_ENVIRONMENT_KEY)).toBool();
     m_userEnvironmentChanges = Utils::EnvironmentItem::fromStringList(map.value(QLatin1String(USER_ENVIRONMENT_CHANGES_KEY)).toStringList());
 
+    m_lastEnvironment = environment();
+
     qDeleteAll(m_stepLists);
     m_stepLists.clear();
 
@@ -186,11 +189,18 @@ bool BuildConfiguration::fromMap(const QVariantMap &map)
     return ProjectConfiguration::fromMap(map);
 }
 
-void BuildConfiguration::handleKitUpdate(ProjectExplorer::Kit *k)
+void BuildConfiguration::emitEnvironmentChanged()
 {
-    if (k != target()->kit())
-        return;
-    emit environmentChanged();
+   Utils::Environment env = environment();
+   if (env == m_lastEnvironment)
+       return;
+   m_lastEnvironment = env;
+   emit environmentChanged();
+}
+
+void BuildConfiguration::handleKitUpdate()
+{
+    emitEnvironmentChanged();
 }
 
 Target *BuildConfiguration::target() const
@@ -203,6 +213,7 @@ Utils::Environment BuildConfiguration::baseEnvironment() const
     Utils::Environment result;
     if (useSystemEnvironment())
         result = Utils::Environment::systemEnvironment();
+    target()->kit()->addToEnvironment(result);
     return result;
 }
 
@@ -226,7 +237,7 @@ void BuildConfiguration::setUseSystemEnvironment(bool b)
     if (useSystemEnvironment() == b)
         return;
     m_clearSystemEnvironment = !b;
-    emit environmentChanged();
+    emitEnvironmentChanged();
 }
 
 bool BuildConfiguration::useSystemEnvironment() const
@@ -244,7 +255,7 @@ void BuildConfiguration::setUserEnvironmentChanges(const QList<Utils::Environmen
     if (m_userEnvironmentChanges == diff)
         return;
     m_userEnvironmentChanges = diff;
-    emit environmentChanged();
+    emitEnvironmentChanged();
 }
 
 void BuildConfiguration::cloneSteps(BuildConfiguration *source)
