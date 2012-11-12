@@ -53,6 +53,7 @@ QPair<bool, QStringList> precompile(const QString &headerFileName,
 
     unsigned parseOpts = clang_defaultEditingTranslationUnitOptions();
     parseOpts |= CXTranslationUnit_Incomplete;
+    parseOpts |= CXTranslationUnit_DetailedPreprocessingRecord;
     parseOpts &= ~CXTranslationUnit_CacheCompletionResults;
     unit.setManagementOptions(parseOpts);
 

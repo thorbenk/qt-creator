@@ -116,7 +116,7 @@ QStringList formattedDiagnostics(const Unit &unit)
                 | CXDiagnostic_DisplayCategoryId
                 | CXDiagnostic_DisplayCategoryName
                 ;
-        diags << Internal::getQString(clang_formatDiagnostic(diag, opt));
+        diags << getQString(clang_formatDiagnostic(diag, opt));
         clang_disposeDiagnostic(diag);
     }
 
