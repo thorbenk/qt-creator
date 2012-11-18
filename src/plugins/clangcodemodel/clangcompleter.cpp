@@ -170,15 +170,23 @@ private:
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
 
+/**
+ * @brief Constructs with highest possible priority
+ */
 CodeCompletionResult::CodeCompletionResult()
-    : m_priority(0)
+    : m_priority(SHRT_MAX)
     , m_completionKind(Other)
     , m_availability(Available)
     , m_hasParameters(false)
 {}
 
+/**
+ * @brief Constructs with given priority
+ * @param priority - will be reversed, because in clang highest priority is 0,
+ * but inside QtCreator it is the lowest priority
+ */
 CodeCompletionResult::CodeCompletionResult(unsigned priority)
-    : m_priority(priority)
+    : m_priority(SHRT_MAX - priority)
     , m_completionKind(Other)
     , m_availability(Available)
     , m_hasParameters(false)
@@ -276,34 +284,7 @@ QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line, unsign
             unsigned priority = clang_getCompletionPriority(complStr);
 
             CodeCompletionResult ccr(priority);
-
-            bool previousChunkWasLParen = false;
-            unsigned chunckCount = clang_getNumCompletionChunks(complStr);
-            for (unsigned j = 0; j < chunckCount; ++j) {
-                CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(complStr, j);
-                const QString chunkText =
-                        Internal::getQString(clang_getCompletionChunkText(complStr, j), false);
-
-                if (chunkKind == CXCompletionChunk_TypedText)
-                    ccr.setText(chunkText);
-
-                if (chunkKind == CXCompletionChunk_RightParen && previousChunkWasLParen)
-                    ccr.setHasParameters(false);
-
-                if (chunkKind == CXCompletionChunk_LeftParen) {
-                    previousChunkWasLParen = true;
-                    ccr.setHasParameters(true);
-                } else {
-                    previousChunkWasLParen = false;
-                }
-
-                if (!chunkText.isEmpty()) {
-                    if (ccr.hint().size() > 0 && ccr.hint().at(ccr.hint().size() - 1).isLetterOrNumber())
-                        ccr.setHint(ccr.hint() + QLatin1Char(' '));
-
-                    ccr.setHint(ccr.hint() + chunkText);
-                }
-            }
+            createCompletionHint(complStr, ccr);
 
             switch (results->Results[i].CursorKind) {
             case CXCursor_Constructor:
@@ -419,4 +400,55 @@ bool ClangCompleter::objcEnabled() const
     static const QString objcOption = QLatin1String("-ObjC++");
 
     return m_d->m_options.contains(objcOption);
+}
+
+/**
+ * @brief Creates hint for completion item, can override other properties
+ *
+ * Hint can be used to display tooltip and should provide additional
+ * information like full function/type signature, file where type declarated
+ * or doxygen brief comment.
+ * @param completionString - CXCompletionString instance
+ * @param ccr - completion result where to add hint and other information
+ */
+void ClangCompleter::createCompletionHint(const void *completionString, CodeCompletionResult &ccr) const
+{
+    CXCompletionString complStr = (CXCompletionString)completionString;
+
+    QString hint;
+    bool previousChunkWasLParen = false;
+    unsigned chunckCount = clang_getNumCompletionChunks(complStr);
+    for (unsigned j = 0; j < chunckCount; ++j) {
+        CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(complStr, j);
+        const QString chunkText =
+                Internal::getQString(clang_getCompletionChunkText(complStr, j), false);
+
+        if (chunkKind == CXCompletionChunk_TypedText)
+            ccr.setText(chunkText);
+
+        if (chunkKind == CXCompletionChunk_RightParen && previousChunkWasLParen)
+            ccr.setHasParameters(false);
+
+        if (chunkKind == CXCompletionChunk_LeftParen) {
+            previousChunkWasLParen = true;
+            ccr.setHasParameters(true);
+        } else {
+            previousChunkWasLParen = false;
+        }
+
+        if (!chunkText.isEmpty()) {
+            if (hint.size() > 0 && hint.at(hint.size() - 1).isLetterOrNumber())
+                hint.append(QLatin1Char(' '));
+            hint.append(chunkText);
+        }
+    }
+
+#if 0 // if clang version is 3.2 or higher
+    const QString doxygen =
+            Internal::getQString(clang_getCompletionBriefComment(complStr));
+    hint.append(QLatin1Char('\n'));
+    hint.append(doxygen);
+#endif
+
+    ccr.setHint(hint);
 }

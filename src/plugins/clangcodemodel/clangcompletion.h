@@ -84,7 +84,7 @@ private:
                                 int endOfExpression);
 
     bool completeInclude(const QTextCursor &cursor);
-    void completeInclude(const QString &realPath, const QStringList &suffixes);
+    void completeIncludePath(const QString &realPath, const QStringList &suffixes);
     void completePreprocessor();
     void addCompletionItem(const QString &text,
                            const QIcon &icon = QIcon(),

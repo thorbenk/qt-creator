@@ -1061,6 +1061,11 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
     return m_startPosition;
 }
 
+/**
+ * @brief Creates completion proposals for #include and given cursor
+ * @param cursor - cursor placed after opening bracked or quote
+ * @return false if completions list is empty
+ */
 bool ClangCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
 {
     QString directoryPrefix;
@@ -1095,7 +1100,7 @@ bool ClangCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
             realPath += QLatin1Char('/');
             realPath += directoryPrefix;
         }
-        completeInclude(realPath, suffixes);
+        completeIncludePath(realPath, suffixes);
     }
 
     foreach (const QString &frameworkPath, m_interface->frameworkPaths()) {
@@ -1105,16 +1110,24 @@ bool ClangCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
             realPath += directoryPrefix;
             realPath += QLatin1String(".framework/Headers");
         }
-        completeInclude(realPath, suffixes);
+        completeIncludePath(realPath, suffixes);
     }
 
     return !m_completions.isEmpty();
 }
 
-void ClangCompletionAssistProcessor::completeInclude(const QString &realPath,
-                                                   const QStringList &suffixes)
+/**
+ * @brief Adds #include completion proposals using given include path
+ * @param realPath - one of directories where compiler searchs includes
+ * @param suffixes - file suffixes for C/C++ header files
+ */
+void ClangCompletionAssistProcessor::completeIncludePath(const QString &realPath,
+                                                         const QStringList &suffixes)
 {
     QDirIterator i(realPath, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    const QString hint =
+            QObject::tr("Location: ", "Parent folder for proposed #include completion")
+            + QDir::cleanPath(realPath);
     while (i.hasNext()) {
         const QString fileName = i.next();
         const QFileInfo fileInfo = i.fileInfo();
@@ -1123,7 +1136,13 @@ void ClangCompletionAssistProcessor::completeInclude(const QString &realPath,
             QString text = fileName.mid(realPath.length() + 1);
             if (fileInfo.isDir())
                 text += QLatin1Char('/');
-            addCompletionItem(text, m_icons.keywordIcon());
+
+            ClangAssistProposalItem *item = new ClangAssistProposalItem;
+            item->setText(text);
+            item->setDetail(hint);
+            item->setIcon(m_icons.keywordIcon());
+            item->keepCompletionOperator(m_model->m_completionOperator);
+            m_completions.append(item);
         }
     }
 }
