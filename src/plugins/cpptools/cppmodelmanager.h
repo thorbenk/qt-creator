@@ -48,10 +48,6 @@
 #include <QTimer>
 #include <QTextEdit> // for QTextEdit::ExtraSelection
 
-#ifdef CLANG_INDEXING
-#  include <clangwrapper/indexer.h>
-#endif // CLANG_INDEXING
-
 namespace Core {
 class IEditor;
 }
@@ -132,10 +128,6 @@ public:
 
     void finishedRefreshingSourceFiles(const QStringList &files);
 
-#ifdef CLANG_INDEXING
-    ClangCodeModel::Indexer *indexer();
-#endif // CLANG_INDEXING
-
     virtual CppCompletionSupport *completionSupport(Core::IEditor *editor) const;
     virtual void setCppCompletionAssistProvider(CppCompletionAssistProvider *completionAssistProvider);
 
@@ -183,8 +175,6 @@ private Q_SLOTS:
     void onDocumentUpdated(CPlusPlus::Document::Ptr doc);
     void onExtraDiagnosticsUpdated(const QString &fileName);
     void onAboutToRemoveProject(ProjectExplorer::Project *project);
-    void onAboutToLoadSession(const QString &sessionName);
-    void onSessionLoaded();
     void onAboutToUnloadSession();
     void onProjectAdded(ProjectExplorer::Project *project);
     void postEditorUpdate();
