@@ -36,6 +36,8 @@
 #include "clang_global.h"
 #include "symbol.h"
 
+#include <cpptools/ModelManagerInterface.h>
+
 #include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
@@ -49,8 +51,12 @@ class IndexerPrivate;
 class CLANG_EXPORT Indexer : public QObject
 {
     Q_OBJECT
+
 public:
-    Indexer();
+    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+
+public:
+    Indexer(QObject *parent = 0);
     ~Indexer();
 
     void initialize(const QString &storagePath);
@@ -61,7 +67,7 @@ public:
     bool isBusy() const;
     void cancel(bool waitForFinished);
 
-    bool addFile(const QString &fileName, const QStringList &compilationOptions);
+    bool addFile(const QString &fileName, ProjectPart::Ptr projectPart);
     QStringList allFiles() const;
     QStringList compilationOptions(const QString &fileName) const;
 

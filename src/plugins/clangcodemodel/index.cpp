@@ -32,12 +32,14 @@
 
 #include "index.h"
 
-#include <QtCore/QStringList>
-#include <QtCore/QLinkedList>
-#include <QtCore/QHash>
-#include <QtCore/QDataStream>
-#include <QtCore/QPair>
-#include <QtCore/QFileInfo>
+#include <QStringList>
+#include <QLinkedList>
+#include <QHash>
+#include <QDataStream>
+#include <QPair>
+#include <QFileInfo>
+#include <QMutex>
+#include <QMutexLocker>
 
 inline uint qHash(const QStringList &all)
 {
@@ -50,6 +52,8 @@ namespace Internal {
 class IndexPrivate
 {
 public:
+    IndexPrivate();
+
     void insertSymbol(const Symbol &symbol, const QDateTime &timeStamp);
     QList<Symbol> symbols(const QString &fileName) const;
     QList<Symbol> symbols(const QString &fileName, Symbol::Kind kind) const;
@@ -102,16 +106,22 @@ private:
 
     // @TODO: Sharing of compilation options...
 
+    mutable QMutex m_mutex;
     SymbolCont m_container;
     FileIndex m_files;
     QHash<QString, QDateTime> m_timeStamps;
 };
 
-}
-}
+} // namespace Internal
+} // namespace ClangCodeModel
 
 using namespace ClangCodeModel;
 using namespace Internal;
+
+IndexPrivate::IndexPrivate()
+    : m_mutex(QMutex::Recursive)
+{
+}
 
 void IndexPrivate::createIndexes(SymbolIt it)
 {
@@ -136,13 +146,14 @@ QList<QLinkedList<Symbol>::iterator> IndexPrivate::removeIndexes(const QString &
 
 void IndexPrivate::insertSymbol(const Symbol &symbol)
 {
+    QMutexLocker locker(&m_mutex);
+
     SymbolIt it = m_container.insert(m_container.begin(), symbol);
     createIndexes(it);
 }
 
 void IndexPrivate::insertSymbol(const Symbol &symbol, const QDateTime &timeStamp)
 {
-
     const QPair<bool, SymbolIndexIt> &find = findEquivalentSymbol(symbol);
     if (find.first)
         updateEquivalentSymbol(find.second, symbol);
@@ -202,6 +213,8 @@ void IndexPrivate::removeSymbol(SymbolIndexIt it)
 
 QList<Symbol> IndexPrivate::symbols(const QString &fileName) const
 {
+    QMutexLocker locker(&m_mutex);
+
     QList<Symbol> all;
     const QList<NameIndex> &byKind = m_files.value(fileName).values();
     foreach (const NameIndex &nameIndex, byKind) {
@@ -214,6 +227,8 @@ QList<Symbol> IndexPrivate::symbols(const QString &fileName) const
 
 QList<Symbol> IndexPrivate::symbols(const QString &fileName, Symbol::Kind kind) const
 {
+    QMutexLocker locker(&m_mutex);
+
     QList<Symbol> all;
     const QList<QList<SymbolIt> > &byName = m_files.value(fileName).value(kind).values();
     foreach (const QList<SymbolIt> &symbols, byName)
@@ -225,11 +240,15 @@ QList<Symbol> IndexPrivate::symbols(const QString &fileName,
                                     Symbol::Kind kind,
                                     const QString &uqName) const
 {
+    QMutexLocker locker(&m_mutex);
+
     return symbolsFromIterators(m_files.value(fileName).value(kind).value(uqName));
 }
 
 QList<Symbol> IndexPrivate::symbols(Symbol::Kind kind) const
 {
+    QMutexLocker locker(&m_mutex);
+
     QList<Symbol> all;
     FileIndexCIt it = m_files.begin();
     FileIndexCIt eit = m_files.end();
@@ -248,17 +267,23 @@ QList<Symbol> IndexPrivate::symbolsFromIterators(const QList<SymbolIt> &symbolLi
 
 void IndexPrivate::trackTimeStamp(const Symbol &symbol, const QDateTime &timeStamp)
 {
+    QMutexLocker locker(&m_mutex);
+
     trackTimeStamp(symbol.m_location.fileName(), timeStamp);
 }
 
 void IndexPrivate::trackTimeStamp(const QString &fileName, const QDateTime &timeStamp)
 {
+    QMutexLocker locker(&m_mutex);
+
     // We keep track of time stamps on a per file basis (most recent one).
     m_timeStamps[fileName] = timeStamp;
 }
 
 bool IndexPrivate::validate(const QString &fileName) const
 {
+    QMutexLocker locker(&m_mutex);
+
     const QDateTime &timeStamp = m_timeStamps.value(fileName);
     if (!timeStamp.isValid())
         return false;
@@ -272,21 +297,29 @@ bool IndexPrivate::validate(const QString &fileName) const
 
 void IndexPrivate::insertFile(const QString &fileName, const QDateTime &timeStamp)
 {
+    QMutexLocker locker(&m_mutex);
+
     trackTimeStamp(fileName, timeStamp);
 }
 
 QStringList IndexPrivate::files() const
 {
+    QMutexLocker locker(&m_mutex);
+
     return m_timeStamps.keys();
 }
 
 bool IndexPrivate::containsFile(const QString &fileName) const
 {
+    QMutexLocker locker(&m_mutex);
+
     return m_timeStamps.contains(fileName);
 }
 
 void IndexPrivate::removeFile(const QString &fileName)
 {
+    QMutexLocker locker(&m_mutex);
+
     const QList<SymbolIt> &iterators = removeIndexes(fileName);
     foreach (SymbolIt it, iterators)
         m_container.erase(it);
@@ -296,12 +329,16 @@ void IndexPrivate::removeFile(const QString &fileName)
 
 void IndexPrivate::removeFiles(const QStringList &fileNames)
 {
+    QMutexLocker locker(&m_mutex);
+
     foreach (const QString &fileName, fileNames)
         removeFile(fileName);
 }
 
 void IndexPrivate::clear()
 {
+    QMutexLocker locker(&m_mutex);
+
     m_container.clear();
     m_files.clear();
     m_timeStamps.clear();
@@ -309,11 +346,15 @@ void IndexPrivate::clear()
 
 bool IndexPrivate::isEmpty() const
 {
+    QMutexLocker locker(&m_mutex);
+
     return m_timeStamps.isEmpty();
 }
 
 QByteArray IndexPrivate::serialize() const
 {
+    QMutexLocker locker(&m_mutex);
+
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
 
@@ -328,6 +369,8 @@ QByteArray IndexPrivate::serialize() const
 
 void IndexPrivate::deserialize(const QByteArray &data)
 {
+    QMutexLocker locker(&m_mutex);
+
     clear();
 
     // @TODO: Version compatibility handling.

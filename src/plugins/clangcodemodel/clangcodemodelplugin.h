@@ -42,6 +42,7 @@ class ClangHighlightingSupportFactory;
 namespace Internal {
 
 class ClangCompletionAssistProvider;
+class ClangIndexer;
 
 class ClangCodeModelPlugin: public ExtensionSystem::IPlugin
 {
@@ -58,6 +59,7 @@ public:
 private:
     ClangCompletionAssistProvider *m_completionAssistProvider;
     ClangHighlightingSupportFactory *m_highlightingFactory;
+    QScopedPointer<ClangIndexer> m_indexer;
 };
 
 } // namespace Internal

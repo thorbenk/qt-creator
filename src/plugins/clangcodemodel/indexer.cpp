@@ -30,12 +30,12 @@
 **
 **************************************************************************/
 
+#include "clangutils.h"
 #include "indexer.h"
 #include "index.h"
 #include "cxraii.h"
 #include "sourcelocation.h"
 #include "liveunitsmanager.h"
-#include "dependencygraph.h"
 #include "utils_p.h"
 
 #include <clang-c/Index.h>
@@ -69,6 +69,7 @@
     #define END_PROFILE_SCOPE
 #endif
 
+using namespace Utils;
 using namespace ClangCodeModel;
 using namespace Internal;
 
@@ -77,21 +78,34 @@ namespace ClangCodeModel {
 // The indexing result, containing the symbols found, reported by the indexer processor.
 struct IndexingResult
 {
+    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+
+    IndexingResult()
+    {}
+
     IndexingResult(const QVector<Symbol> &symbol,
                    const QSet<QString> &processedFiles,
-                   const Unit &unit)
+                   const Unit &unit,
+                   const ProjectPart::Ptr &projectPart)
         : m_symbolsInfo(symbol)
         , m_processedFiles(processedFiles)
         , m_unit(unit)
+        , m_projectPart(projectPart)
     {}
+
     QVector<Symbol> m_symbolsInfo;
     QSet<QString> m_processedFiles;
     Unit m_unit;
+    ProjectPart::Ptr m_projectPart;
 };
 
 class IndexerPrivate : public QObject
 {
     Q_OBJECT
+
+public:
+    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+
 public:
     IndexerPrivate(Indexer *indexer);
 
@@ -106,23 +120,23 @@ public:
     {
         FileData() : m_upToDate(false) {}
         FileData(const QString &fileName,
-                 const QStringList &compilationOptions,
+                 const ProjectPart::Ptr &projectPart,
                  bool upToDate = false)
             : m_fileName(fileName)
-            , m_compilationOptions(compilationOptions)
+            , m_projectPart(projectPart)
             , m_upToDate(upToDate)
             , m_managementOptions(CXTranslationUnit_DetailedPreprocessingRecord
                                   | CXTranslationUnit_Incomplete)
         {}
 
         QString m_fileName;
-        QStringList m_compilationOptions;
+        ProjectPart::Ptr m_projectPart;
         bool m_upToDate;
         unsigned m_managementOptions;
     };
 
 public slots:
-    void synchronize(int resultIndex);
+    void synchronize(IndexingResult result);
     void indexingFinished();
     void dependencyGraphComputed();
     void restoredSymbolsAnalysed();
@@ -149,9 +163,9 @@ public:
     void reset();
 
     bool addFile(const QString &fileName,
-                 const QStringList &compilationOptions);
+                 ProjectPart::Ptr projectPart);
     void addOrUpdateFileData(const QString &fileName,
-                             const QStringList &compilationOptions,
+                             ProjectPart::Ptr projectPart,
                              bool upToDate);
     QStringList allFiles() const;
     bool isTrackingFile(const QString &fileName, FileType type) const;
@@ -169,81 +183,17 @@ public:
     QVector<QHash<QString, FileData> > m_files;
     Index m_index;
     QFutureWatcher<IndexingResult> m_indexingWatcher;
-    QSet<int> m_processedResults;
     bool m_hasQueuedFullRun;
     QSet<QString> m_queuedFilesRun;
     QString m_storagePath;
     bool m_isLoaded;
-    DependencyGraph m_dependencyGraph;
+//    DependencyGraph m_dependencyGraph;
     QScopedPointer<QFutureWatcher<void> >m_loadingWatcher;
 };
 
-
-// The indexer processor, which actually compiles the translation units, visits the AST,
-// collects the symbols, and eventually report them to the indexer. It relies only on local data.
-class IndexerProcessor : public QObject
-{
-    Q_OBJECT
-
-public:
-    typedef QHash<QString, IndexerPrivate::FileData> FileCont;
-    typedef QHash<QString, IndexerPrivate::FileData>::iterator FileContIt;
-
-    IndexerProcessor(const FileCont &headers,
-                     const FileCont &impls,
-                     IndexerPrivate::IndexingMode mode);
-
-    static void inclusionVisit(CXFile file,
-                               CXSourceLocation *,
-                               unsigned,
-                               CXClientData clientData);
-    static CXChildVisitResult astVisit(CXCursor cursor,
-                                       CXCursor parentCursor,
-                                       CXClientData clientData);
-
-    struct ComputeTranslationUnit
-    {
-        typedef Unit result_type;
-
-        ComputeTranslationUnit(QFutureInterface<IndexingResult> *interface)
-            : m_interface(interface)
-        {}
-
-        Unit operator()(FileContIt it);
-
-        QFutureInterface<IndexingResult> *m_interface;
-    };
-
-    struct ComputeIndexingInfo
-    {
-        typedef int result_type;
-
-        ComputeIndexingInfo(QFutureInterface<IndexingResult> *interface,
-                            IndexerProcessor *proc)
-            : m_proc(proc)
-            , m_interface(interface)
-        {}
-
-        void operator()(int, Unit unit);
-
-        IndexerProcessor *m_proc;
-        QFutureInterface<IndexingResult> *m_interface;
-        QHash<unsigned, QString> m_qualification;
-        QVector<Symbol> m_symbols;
-        QSet<QString> m_includes;
-    };
-
-    void process(QFutureInterface<IndexingResult> &interface);
-
-    static const int kProcessingBatchSize;
-
-    FileCont m_currentFiles;
-    QHash<QString, FileContIt> m_knownHeaders;
-    QSet<QString> m_newlySeenHeaders;
-    IndexerPrivate::IndexingMode m_mode;
-};
-
 } // ClangCodeModel
+
+Q_DECLARE_METATYPE(IndexingResult)
 
 namespace {
 
@@ -255,257 +205,379 @@ struct ScopepTimer
     QTime m_t;
 };
 
-} // Anonymous
-
-const int IndexerProcessor::kProcessingBatchSize = qMax(1, (QThread::idealThreadCount() - 1) * 2);
-
-Unit IndexerProcessor::ComputeTranslationUnit::operator()(FileContIt it)
+class ProjectPartIndexer: public QObject
 {
-    const IndexerPrivate::FileData &fileData = it.value();
+    Q_OBJECT
 
-    if (fileData.m_upToDate || m_interface->isCanceled())
-        return Unit();
+    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
 
-    Unit unit(fileData.m_fileName);
-    unit.setCompilationOptions(fileData.m_compilationOptions);
-    unit.setManagementOptions(fileData.m_managementOptions);
-    unit.setUnsavedFiles(UnsavedFiles()); // @TODO: Consider unsaved files...
-    unit.parse();
-
-    // Progress values are not really accurate.
-    m_interface->setProgressValue(m_interface->progressValue() + 1);
-
-    return unit;
-}
-
-void IndexerProcessor::ComputeIndexingInfo::operator()(int, Unit unit)
-{
-    if (!unit.isLoaded())
-        return;
-
-    if (m_interface->isCanceled()) {
-        unit.makeUnique();
-        return;
+public:
+    ProjectPartIndexer(IndexerPrivate *indexer, const QList<IndexerPrivate::FileData> &todo)
+        : m_todo(todo)
+        , m_future(0)
+    {
+        connect(this, SIGNAL(processedFile(IndexingResult)), indexer, SLOT(synchronize(IndexingResult)), Qt::QueuedConnection);
     }
 
-    m_qualification.clear();
-    m_symbols.clear();
-    m_symbols.reserve(10); // Reasonable guess...?
-    m_includes.clear();
+    void start(QFutureInterface<IndexingResult> &future)
+    {
+        if (m_todo.isEmpty())
+            return;
+        m_future = &future;
+        future.setProgressRange(0, m_todo.size());
 
-#ifdef DEBUG_DIAGNOSTICS
-    unsigned numDiagnostics = unit.getNumDiagnostics();
-    for (unsigned i = 0; i < numDiagnostics; ++i) {
-        ScopedCXDiagnostic diagnostic(unit.getDiagnostic(i));
-        if (!diagnostic)
-            continue;
-        CXDiagnosticSeverity severity = clang_getDiagnosticSeverity(diagnostic);
-        if (severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal) {
-            qDebug() << "Error:" << unit.fileName() << " - severity:" << severity;
-            qDebug() << "\t"<< getQString(clang_getDiagnosticSpelling(diagnostic));
+        const ProjectPart::Ptr &pPart = m_todo[0].m_projectPart;
+        const QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart);
+        const char **rawOpts = new const char*[opts.size()];
+        for (int i = 0; i < opts.size(); ++i)
+            rawOpts[i] = qstrdup(opts[i].toUtf8());
+
+        CXIndex Idx;
+        if (!(Idx = clang_createIndex(/* excludeDeclsFromPCH */ 1,
+                                      /* displayDiagnosics=*/1))) {
+          qDebug() << "Could not create Index";
+          return;
         }
-    }
+
+        CXIndexAction idxAction = clang_IndexAction_create(Idx);
+
+        for (int i = 0; i < m_todo.size(); ++i) {
+            const IndexerPrivate::FileData &fd = m_todo.at(i);
+            if (fd.m_upToDate)
+                continue;
+
+            QByteArray fileName = fd.m_fileName.toUtf8();
+
+            unsigned index_opts = CXIndexOpt_SuppressWarnings;
+            unsigned parsingOptions = fd.m_managementOptions;
+            parsingOptions |= CXTranslationUnit_SkipFunctionBodies;
+
+            /*int result =*/ clang_indexSourceFile(idxAction, this,
+                                               &IndexCB, sizeof(IndexCB),
+                                               index_opts, fileName.constData(),
+                                               rawOpts, opts.size(), 0, 0, 0,
+                                               parsingOptions);
+
+            // TODO: index imported ASTs:
+#if 0
+            if (index_data.fail_for_error)
+                result = -1;
+
+            if (full) {
+                CXTranslationUnit TU;
+                unsigned i;
+
+                for (i = 0; i < index_data.importedASTs->num_files; ++i) {
+                    if (!CreateTranslationUnit(Idx, index_data.importedASTs->filenames[i],
+                                               &TU)) {
+                        result = -1;
+                        continue;
+                    }
+                    result = clang_indexTranslationUnit(idxAction, &index_data,
+                                                        &IndexCB,sizeof(IndexCB),
+                                                        index_opts, TU);
+                    clang_disposeTranslationUnit(TU);
+                }
+            }
 #endif
 
-    // Visit to gather symbol info.
-    clang_visitChildren(unit.getTranslationUnitCursor(), IndexerProcessor::astVisit, this);
+            foreach (const QString &fn, m_allFiles.keys()) {
+                QVector<ClangCodeModel::Symbol> symbols; unfoldSymbols(symbols, fn);
+                QSet<QString> processedFiles = QSet<QString>::fromList(m_allFiles.keys());
+                Unit unit(fn);
+                ProjectPart::Ptr projectPart = fd.m_projectPart;
+                IndexingResult indexingResult(symbols, processedFiles, unit, projectPart);
+                emit processedFile(indexingResult);
 
-    // Mark the file for this unit as up-to-date.
-    m_proc->m_currentFiles[unit.fileName()].m_upToDate = true;
+                // TODO: includes need to be propagated to the dependency table.
+            }
 
-    // We also mark any other header seen during this pass as up-to-date. This would not be
-    // strictly correct, but it's the general approach we use in the model in order to try
-    // to speed up things.
-    unit.getInclusions(IndexerProcessor::inclusionVisit, &m_includes);
-    foreach (const QString &fileName, m_includes) {
-        if (m_proc->m_currentFiles.contains(fileName))
-            m_proc->m_currentFiles[fileName].m_upToDate = true;
-        else
-            m_proc->m_newlySeenHeaders.insert(fileName);
-    }
-
-    // Make symbols available.
-    m_interface->reportResult(IndexingResult(m_symbols, m_includes, unit));
-}
-
-IndexerProcessor::IndexerProcessor(const FileCont &headers,
-                                   const FileCont &impls,
-                                   IndexerPrivate::IndexingMode mode)
-    : m_currentFiles(impls)
-    , m_mode(mode)
-{
-    // Headers are processed later so we keep track of them separately.
-    foreach (const IndexerPrivate::FileData &fileData, headers) {
-        FileContIt it = m_currentFiles.insert(fileData.m_fileName, fileData);
-        m_knownHeaders.insert(fileData.m_fileName, it);
-    }
-}
-
-void IndexerProcessor::inclusionVisit(CXFile file,
-                                      CXSourceLocation *,
-                                      unsigned,
-                                      CXClientData clientData)
-{
-    const QString &fileName = normalizeFileName(getQString(clang_getFileName(file)));
-    IndexerPrivate::FileType fileType = IndexerPrivate::identifyFileType(fileName);
-    if (fileType != IndexerPrivate::HeaderFile)
-        return;
-
-    QSet<QString> *seenHeaders = static_cast<QSet<QString> *>(clientData);
-    seenHeaders->insert(fileName);
-}
-
-CXChildVisitResult IndexerProcessor::astVisit(CXCursor cursor,
-                                              CXCursor parentCursor,
-                                              CXClientData clientData)
-{
-    ComputeIndexingInfo *visitorData = static_cast<ComputeIndexingInfo *>(clientData);
-
-    CXCursorKind cursorKind = clang_getCursorKind(cursor);
-
-    // Track name qualification...
-    const QString &spelling = getQString(clang_getCursorSpelling(cursor));
-    const unsigned parentHash = clang_hashCursor(parentCursor);
-    const unsigned currentHash = clang_hashCursor(cursor);
-    if (cursorKind == CXCursor_ClassDecl
-            || cursorKind == CXCursor_StructDecl
-            || cursorKind == CXCursor_Namespace) {
-        // @TODO: Treat anonymous...
-        QString qualification;
-        if (visitorData->m_qualification.contains(parentHash)) {
-            qualification = visitorData->m_qualification.value(parentHash) %
-                    QLatin1String("::") % spelling;
-        } else {
-            qualification = spelling;
+            qDeleteAll(m_allFiles.values());
+            qDeleteAll(m_allSymbols);
         }
-        visitorData->m_qualification[currentHash] = qualification;
-    } else {
-        visitorData->m_qualification[currentHash] = visitorData->m_qualification.value(parentHash);
+
+//        dumpInfo();
+
+        clang_IndexAction_dispose(idxAction);
+        clang_disposeIndex(Idx);
+
+        delete[] rawOpts;
+
+        future.setProgressValue(m_todo.size());
+        deleteLater();
+        m_future = 0;
     }
-    QString currentQualification = visitorData->m_qualification.value(currentHash);
 
-    bool isDefinition = false;
-    // Identify symbol...
-    if (clang_isDeclaration(cursorKind)) {
-        CXCursor cursorDefinition = clang_getCursorDefinition(cursor);
-        if (!clang_equalCursors(cursorDefinition, clang_getNullCursor())
-                && clang_equalCursors(cursor, cursorDefinition)
-                && !spelling.trimmed().isEmpty()) {
-            isDefinition = true;
-            Symbol symbolInfo;
-            symbolInfo.m_location = getSpellingLocation(clang_getCursorLocation(cursor));
+signals:
+    void processedFile(IndexingResult);
 
-            // We don't track symbols found in a previous pass through the same header.
-            const QString &fileName = symbolInfo.m_location.fileName();
-            if (!fileName.trimmed().isEmpty()
-                    && !visitorData->m_proc->m_newlySeenHeaders.contains(fileName)
-                    && ((!visitorData->m_proc->m_currentFiles.contains(fileName)
-                         && visitorData->m_proc->m_mode == IndexerPrivate::RelaxedIndexing)
-                        || (visitorData->m_proc->m_currentFiles.contains(fileName)
-                            && !visitorData->m_proc->m_currentFiles.value(fileName).m_upToDate))) {
-                symbolInfo.m_name = spelling;
-                symbolInfo.m_qualification = currentQualification;
+private:
+    static inline ProjectPartIndexer *indexer(CXClientData d)
+    { return static_cast<ProjectPartIndexer *>(d); }
 
-                if (cursorKind == CXCursor_ClassDecl
-                        || cursorKind == CXCursor_StructDecl
-                        || cursorKind == CXCursor_UnionDecl
-                        || cursorKind == CXCursor_ClassTemplate
-                        || cursorKind == CXCursor_ClassTemplatePartialSpecialization) {
-                    symbolInfo.m_kind = Symbol::Class;
-                } else if (cursorKind == CXCursor_FunctionDecl) {
-                    symbolInfo.m_kind = Symbol::Function;
-                } else if (cursorKind == CXCursor_CXXMethod) {
-                    symbolInfo.m_kind = Symbol::Method;
-                } else if (cursorKind == CXCursor_FunctionTemplate) {
-                    CXCursor semaParent = clang_getCursorSemanticParent(cursor);
-                    CXCursorKind semaParentKind = clang_getCursorKind(semaParent);
-                    if (semaParentKind == CXCursor_ClassDecl
-                            || semaParentKind == CXCursor_StructDecl
-                            || semaParentKind == CXCursor_ClassTemplate
-                            || semaParentKind == CXCursor_ClassTemplatePartialSpecialization) {
-                        symbolInfo.m_kind = Symbol::Method;
-                    } else {
-                        symbolInfo.m_kind = Symbol::Function;
-                    }
-                } else if (cursorKind == CXCursor_Constructor) {
-                    symbolInfo.m_kind = Symbol::Constructor;
-                } else if (cursorKind == CXCursor_Destructor) {
-                    symbolInfo.m_kind = Symbol::Destructor;
-                }
-                visitorData->m_symbols.append(symbolInfo);
+    static int abortQuery(CXClientData client_data, void *reserved) {
+        Q_UNUSED(reserved);
+
+        return indexer(client_data)->m_future->isCanceled();
+    }
+
+    static void diagnostic(CXClientData client_data, CXDiagnosticSet diagSet, void *reserved) {
+        Q_UNUSED(client_data);
+        Q_UNUSED(diagSet);
+        Q_UNUSED(reserved);
+    }
+
+    static CXIdxClientFile enteredMainFile(CXClientData client_data, CXFile file, void *reserved) {
+        Q_UNUSED(client_data);
+        Q_UNUSED(reserved);
+
+        const QString fileName = getQString(clang_getFileName(file));
+//        qDebug() << "enteredMainFile:" << fileName;
+        ProjectPartIndexer *ppi = indexer(client_data);
+        File *f = ppi->newFile(fileName);
+        f->setMainFile();
+
+        return f;
+    }
+
+    static CXIdxClientFile ppIncludedFile(CXClientData client_data, const CXIdxIncludedFileInfo *info) {
+        Q_UNUSED(client_data);
+
+        File *includingFile = 0;
+        clang_indexLoc_getFileLocation(info->hashLoc, reinterpret_cast<CXIdxClientFile*>(&includingFile), 0, 0, 0, 0);
+
+        const QString fileName = getQString(clang_getFileName(info->file));
+        File *f = indexer(client_data)->newFile(fileName);
+
+        if (includingFile)
+            includingFile->addInclude(f);
+
+        return f;
+    }
+
+    static CXIdxClientFile importedASTFile(CXClientData client_data, const CXIdxImportedASTFileInfo *info) {
+        const QString fileName = getQString(clang_getFileName(info->file));
+
+        // TODO
+//        qDebug() << "importedASTFile:" << fileName;
+
+        indexer(client_data)->m_importedASTs.append(fileName);
+
+        return info->file;
+    }
+
+    static CXIdxClientContainer startedTranslationUnit(CXClientData client_data, void *reserved) {
+        Q_UNUSED(client_data);
+        Q_UNUSED(reserved);
+
+//        qDebug() << "startedTranslationUnit";
+        return 0;
+    }
+
+    static void indexDeclaration(CXClientData client_data, const CXIdxDeclInfo *info) {
+        ProjectPartIndexer *ppi = indexer(client_data);
+
+        File *includingFile = 0;
+        unsigned line = 0, column = 0, offset = 0;
+        clang_indexLoc_getFileLocation(info->loc, reinterpret_cast<CXIdxClientFile*>(&includingFile), 0, &line, &column, &offset);
+
+        QString kind = getQString(clang_getCursorKindSpelling(info->cursor.kind));
+        QString displayName = getQString(clang_getCursorDisplayName(info->cursor));
+        QString spellingName = getQString(clang_getCursorSpelling(info->cursor));
+//        qDebug() << includingFile->name() << ":"<<line<<":"<<column<<": display name ="<<displayName<<"spelling name ="<<spellingName<<"of kind"<<kind;
+        Symbol *sym = ppi->newSymbol(info->cursor.kind, displayName, spellingName, includingFile, line, column, offset);
+
+        // TODO: add to decl container...
+        includingFile->addSymbol(sym);
+
+        if (const CXIdxContainerInfo *semanticContainer = info->semanticContainer) {
+            if (Symbol *container = static_cast<Symbol *>(clang_index_getClientContainer(semanticContainer))) {
+                sym->semanticContainer = container;
+                container->addSymbol(sym);
             }
         }
+
+        // TODO: ObjC containers
+        // TODO: index forward decls too?
+
+        if (info->declAsContainer)
+            clang_index_setClientContainer(info->declAsContainer, sym);
     }
 
-    if (isDefinition
-            || cursorKind == CXCursor_Namespace
-            || cursorKind == CXCursor_LinkageSpec
-            || cursorKind == CXCursor_UnexposedStmt) {
-        return CXChildVisit_Recurse;
+    static void indexEntityReference(CXClientData client_data, const CXIdxEntityRefInfo *info) {
+        Q_UNUSED(client_data);
+        Q_UNUSED(info);
+
+        // TODO: well, we do get the info, so why not (optionally?) remember all references?
     }
 
-    return CXChildVisit_Continue;
-}
+private:
+    struct File;
+    struct Symbol;
 
-void IndexerProcessor::process(QFutureInterface<IndexingResult> &interface)
-{
-    BEGIN_PROFILE_SCOPE(0);
+    typedef QHash<QString, File *> FilesByName;
+    struct File
+    {
+        File(const QString &fileName)
+            : m_fileName(fileName)
+        {}
 
-    QVector<FileContIt> currentFiles;
-    currentFiles.reserve(kProcessingBatchSize);
-    FileContIt it = m_currentFiles.begin();
-    FileContIt eit = m_currentFiles.end();
+        void addInclude(File *f)
+        { m_includes.insert(f->name(), f); }
 
-    // This range is an approximation (more than one file might be updated in a single pass).
-    int outdated = 0;
-    for (FileContIt tit = it; tit != eit; ++tit) {
-        if (!tit->m_upToDate)
-            ++outdated;
+        QList<File *> includes() const
+        { return m_includes.values(); }
+
+        QString name() const
+        { return m_fileName; }
+
+        void setMainFile(bool isMainFile = true)
+        { m_isMainFile = isMainFile; }
+
+        bool isMainFile() const
+        { return m_isMainFile; }
+
+        void addSymbol(Symbol *symbol)
+        { m_symbols.append(symbol); }
+
+        QVector<Symbol *> symbols() const
+        { return m_symbols; }
+
+    private:
+        QString m_fileName;
+        FilesByName m_includes;
+        bool m_isMainFile;
+        QVector<Symbol *> m_symbols;
+    };
+
+    struct Symbol
+    {
+        Symbol(enum CXCursorKind kind, const QString &displayName, const QString &spellingName, File *file, unsigned line, unsigned column, unsigned offset)
+            : kind(kind)
+            , displayName(displayName)
+            , spellingName(spellingName)
+            , file(file)
+            , line(line)
+            , column(column)
+            , offset(offset)
+            , semanticContainer(0)
+        {}
+
+        QString spellKind() const
+        { return getQString(clang_getCursorKindSpelling(kind)); }
+
+        void addSymbol(Symbol *symbol)
+        { symbols.append(symbol); }
+
+        enum CXCursorKind kind;
+        QString displayName, spellingName;
+        File *file;
+        unsigned line, column, offset;
+        Symbol *semanticContainer;
+        QVector<Symbol *> symbols;
+    };
+
+private:
+    File *newFile(const QString &fileName)
+    {
+        File *f = new File(fileName);
+        m_allFiles.insert(fileName, f);
+        return f;
     }
-    interface.setProgressRange(0, outdated);
 
-    // First process implementation files and then headers which were not included by any unit.
-    while (it != eit && !interface.isCanceled()) {
-        FileContIt currentIt = it++;
-        if (!m_knownHeaders.contains(currentIt->m_fileName)) {
-            currentFiles.append(currentIt);
-            if (currentFiles.size() == kProcessingBatchSize || it == eit) {
-                QtConcurrent::blockingMappedReduced<int>(currentFiles,
-                                                         ComputeTranslationUnit(&interface),
-                                                         ComputeIndexingInfo(&interface, this),
-                                                         QtConcurrent::UnorderedReduce);
-                currentFiles.erase(currentFiles.begin(), currentFiles.end()); // Keep the memory.
-            }
+    Symbol *newSymbol(enum CXCursorKind kind, const QString &displayName, const QString &spellingName, File *file, unsigned line, unsigned column, unsigned offset)
+    {
+        Symbol *s = new Symbol(kind, displayName, spellingName, file, line, column, offset);
+        m_allSymbols.append(s);
+        return s;
+    }
+
+    void dumpInfo()
+    {
+        qDebug() << "=== indexing info dump ===";
+        qDebug() << "indexed" << m_allFiles.size() << "files. Main files:";
+        foreach (const File *f, m_allFiles) {
+            if (!f->isMainFile())
+                continue;
+            qDebug() << f->name() << ":";
+            foreach (const File *inc, f->includes())
+                qDebug() << "  includes" << inc->name();
+            dumpSymbols(f->symbols(), QByteArray("  "));
+        }
+
+        qDebug() << "=== end of dump ===";
+    }
+
+    void dumpSymbols(const QVector<Symbol *> &symbols, const QByteArray &indent)
+    {
+        if (symbols.isEmpty())
+            return;
+
+        qDebug("%scontained symbols:", indent.constData());
+        QByteArray newIndent = indent + "  ";
+        foreach (const Symbol *s, symbols) {
+            qDebug("%s%s (%s)", newIndent.constData(), s->spellingName.toUtf8().constData(), s->spellKind().toUtf8().constData());
+            dumpSymbols(s->symbols, newIndent);
         }
     }
 
-    const QList<FileContIt> &knownHeaders = m_knownHeaders.values();
-    const int total = knownHeaders.size();
-    int current = 0;
-    while (current < total && !interface.isCanceled()) {
-        FileContIt currentIt = knownHeaders.at(current++);
-        if (!m_currentFiles.value(currentIt.value().m_fileName).m_upToDate) {
-            currentFiles.append(currentIt);
-            if (currentFiles.size() == kProcessingBatchSize || current == total) {
-                QtConcurrent::blockingMappedReduced<int>(currentFiles,
-                                                         ComputeTranslationUnit(&interface),
-                                                         ComputeIndexingInfo(&interface, this),
-                                                         QtConcurrent::UnorderedReduce);
-                currentFiles.erase(currentFiles.begin(), currentFiles.end()); // Keep the memory.
-            }
+    void unfoldSymbols(QVector<ClangCodeModel::Symbol> &result, const QString &fileName) {
+        const QVector<Symbol *> symbolsForFile = m_allFiles[fileName]->symbols();
+        foreach (const Symbol *s, symbolsForFile) {
+            unfoldSymbols(s, result);
         }
     }
 
-    if (!currentFiles.isEmpty()) {
-        QtConcurrent::blockingMappedReduced<int>(currentFiles,
-                                                 ComputeTranslationUnit(&interface),
-                                                 ComputeIndexingInfo(&interface, this),
-                                                 QtConcurrent::UnorderedReduce);
+    void unfoldSymbols(const Symbol *s, QVector<ClangCodeModel::Symbol> &result) {
+        ClangCodeModel::Symbol sym;
+        sym.m_name = s->spellingName;
+        sym.m_qualification = s->spellingName;
+
+        static QLatin1String sep("::");
+        for (Symbol *parent = s->semanticContainer; parent; parent = parent->semanticContainer)
+            sym.m_qualification = parent->spellingName + sep + sym.m_qualification;
+
+        sym.m_location = SourceLocation(s->file->name(), s->line, s->column, s->offset);
+
+        switch (s->kind) {
+        case CXCursor_EnumDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
+        case CXCursor_StructDecl:
+        case CXCursor_ClassDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
+        case CXCursor_CXXMethod: sym.m_kind = ClangCodeModel::Symbol::Method; break;
+        case CXCursor_FunctionTemplate:
+        case CXCursor_FunctionDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
+        case CXCursor_DeclStmt: sym.m_kind = ClangCodeModel::Symbol::Declaration; break;
+        case CXCursor_Constructor: sym.m_kind = ClangCodeModel::Symbol::Constructor; break;
+        case CXCursor_Destructor: sym.m_kind = ClangCodeModel::Symbol::Destructor; break;
+        default: sym.m_kind = ClangCodeModel::Symbol::Unknown; break;
+        }
+
+        result.append(sym);
     }
 
-    END_PROFILE_SCOPE;
-}
+private:
+    static IndexerCallbacks IndexCB;
 
+private:
+    QList<IndexerPrivate::FileData> m_todo;
+    QFutureInterface<IndexingResult> *m_future;
+    QStringList m_importedASTs;
+    FilesByName  m_allFiles;
+    QVector<Symbol *> m_allSymbols;
+};
+
+IndexerCallbacks ProjectPartIndexer::IndexCB = {
+    abortQuery,
+    diagnostic,
+    enteredMainFile,
+    ppIncludedFile,
+    importedASTFile,
+    startedTranslationUnit,
+    indexDeclaration,
+    indexEntityReference
+};
+
+} // Anonymous
 
 IndexerPrivate::IndexerPrivate(Indexer *indexer)
     : m_q(indexer)
@@ -514,19 +586,32 @@ IndexerPrivate::IndexerPrivate(Indexer *indexer)
     , m_isLoaded(false)
     , m_loadingWatcher(new QFutureWatcher<void>)
 {
-    connect(&m_indexingWatcher, SIGNAL(resultReadyAt(int)), this, SLOT(synchronize(int)));
     connect(&m_indexingWatcher, SIGNAL(finished()), this, SLOT(indexingFinished()));
+    qRegisterMetaType<IndexingResult>();
 }
 
-QFuture<IndexingResult> IndexerPrivate::runCore(const QHash<QString, FileData> &headers,
+QFuture<IndexingResult> IndexerPrivate::runCore(const QHash<QString, FileData> & /*headers*/,
                                                 const QHash<QString, FileData> &impls,
-                                                IndexingMode mode)
+                                                IndexingMode /*mode*/)
 {
-    IndexerProcessor *processor = new IndexerProcessor(headers, impls, mode);
-    QFuture<IndexingResult> future = QtConcurrent::run(&IndexerProcessor::process, processor);
-    connect(&m_indexingWatcher, SIGNAL(finished()), processor, SLOT(deleteLater()));
-    m_indexingWatcher.setFuture(future);
-    return future;
+    typedef QHash<QString, FileData>::const_iterator FileContIt;
+    QHash<ProjectPart::Ptr, QList<IndexerPrivate::FileData> > parts;
+    typedef QHash<ProjectPart::Ptr, QList<IndexerPrivate::FileData> >::Iterator PartIter;
+    for (FileContIt tit = impls.begin(), eit = impls.end(); tit != eit; ++tit) {
+        if (!tit->m_upToDate) {
+            const IndexerPrivate::FileData &fd = tit.value();
+            parts[fd.m_projectPart].append(fd);
+        }
+    }
+
+    QList<ProjectPartIndexer*> indexers;
+    for (PartIter i = parts.begin(), ei = parts.end(); i != ei; ++i) {
+        indexers.append(new ProjectPartIndexer(this, i.value()));
+    }
+
+    QFuture<IndexingResult> task = QtConcurrent::run(&ProjectPartIndexer::start, indexers);
+    m_indexingWatcher.setFuture(task);
+    return task;
 }
 
 void IndexerPrivate::run()
@@ -578,7 +663,7 @@ bool IndexerPrivate::isBusy() const
 
 void IndexerPrivate::cancel(bool wait)
 {
-    m_dependencyGraph.discard();
+//    m_dependencyGraph.discard();
 
     m_loadingWatcher->cancel();
     m_indexingWatcher.cancel();
@@ -595,7 +680,6 @@ void IndexerPrivate::reset()
 
     for (int i = 0; i < TotalFileTypes; ++i)
         m_files[i].clear();
-    m_processedResults.clear();
     m_hasQueuedFullRun = false;
     m_queuedFilesRun.clear();
     m_storagePath.clear();
@@ -603,14 +687,15 @@ void IndexerPrivate::reset()
     m_isLoaded = false;
 }
 
-void IndexerPrivate::synchronize(int resultIndex)
+void IndexerPrivate::synchronize(IndexingResult result)
 {
-    IndexingResult result = m_indexingWatcher.resultAt(resultIndex);
+    qDebug()<<"*** synchronize " << result.m_unit.fileName();
+
     result.m_unit.makeUnique();
 
     foreach (const Symbol &symbol, result.m_symbolsInfo) {
         addOrUpdateFileData(symbol.m_location.fileName(),
-                    result.m_unit.compilationOptions(),
+                    result.m_projectPart,
                     true);
 
         // Make the symbol available in the database.
@@ -628,20 +713,11 @@ void IndexerPrivate::synchronize(int resultIndex)
     // If this unit is being kept alive, update in the manager.
     if (LiveUnitsManager::instance()->isTracking(result.m_unit.fileName()))
         LiveUnitsManager::instance()->updateUnit(result.m_unit.fileName(), result.m_unit);
-
-    m_processedResults.insert(resultIndex);
 }
 
 void IndexerPrivate::indexingFinished()
 {
-    if (m_indexingWatcher.isCanceled()) {
-        // There's no API guarantee that results are reported in order, so we are conservative.
-        for (int i = m_indexingWatcher.future().resultCount() - 1; i >= 0; --i) {
-            if (!m_processedResults.contains(i))
-                synchronize(i);
-        }
-    }
-    m_processedResults.clear();
+    qDebug() << "*** Indexing finised.";
 
     if (m_hasQueuedFullRun) {
         m_hasQueuedFullRun = false;
@@ -656,7 +732,7 @@ void IndexerPrivate::indexingFinished()
 }
 
 void IndexerPrivate::addOrUpdateFileData(const QString &fileName,
-                                 const QStringList &compilationOptions,
+                                 ProjectPart::Ptr projectPart,
                                  bool upToDate)
 {
     Q_ASSERT(QDir::isAbsolutePath(fileName));
@@ -665,11 +741,11 @@ void IndexerPrivate::addOrUpdateFileData(const QString &fileName,
 
     FileType fileType = identifyFileType(cleanFileName);
     if (isTrackingFile(cleanFileName, fileType)) {
-        m_files[fileType][cleanFileName].m_compilationOptions = compilationOptions;
+        m_files[fileType][cleanFileName].m_projectPart = projectPart;
         m_files[fileType][cleanFileName].m_upToDate = upToDate;
     } else {
         m_files[fileType].insert(cleanFileName,
-                                 FileData(cleanFileName, compilationOptions, upToDate));
+                                 FileData(cleanFileName, projectPart, upToDate));
     }
 
     if (!upToDate)
@@ -677,14 +753,14 @@ void IndexerPrivate::addOrUpdateFileData(const QString &fileName,
 }
 
 bool IndexerPrivate::addFile(const QString &fileName,
-                             const QStringList &compilationOptions)
+                             ProjectPart::Ptr projectPart)
 {
     if (isBusy()
             || fileName.trimmed().isEmpty()
             || !QFileInfo(fileName).isFile())
         return false;
 
-    addOrUpdateFileData(fileName, compilationOptions, false);
+    addOrUpdateFileData(fileName, projectPart, false);
 
     return true;
 }
@@ -705,15 +781,18 @@ bool IndexerPrivate::isTrackingFile(const QString &fileName, FileType type) cons
 QStringList IndexerPrivate::compilationOptions(const QString &fileName) const
 {
     FileType type = identifyFileType(fileName);
-    return m_files.value(type).value(normalizeFileName(fileName)).m_compilationOptions;
+    return Utils::createClangOptions(m_files.value(type).value(normalizeFileName(fileName)).m_projectPart);
 }
 
 IndexerPrivate::FileType IndexerPrivate::identifyFileType(const QString &fileName)
 {
-    if (fileName.endsWith(".cpp")
-            || fileName.endsWith(".cxx")
-            || fileName.endsWith(".cc")
-            || fileName.endsWith(".c")) {
+    const QString fn = fileName.toLower();
+    if (fn.endsWith(".cpp")
+            || fn.endsWith(".cxx")
+            || fn.endsWith(".cc")
+            || fn.endsWith(".c")
+            || fn.endsWith(".m")
+            || fn.endsWith(".mm")) {
         return ImplementationFile;
     }
 
@@ -772,15 +851,16 @@ void IndexerPrivate::concludeLoading()
 
 void IndexerPrivate::computeDependencyGraph()
 {
-    for (int fileType = ImplementationFile; fileType < TotalFileTypes; ++fileType) {
-        QHash<QString, FileData>::iterator it = m_files[fileType].begin();
-        for (; it != m_files[fileType].end(); ++it)
-            m_dependencyGraph.addFile(it.value().m_fileName, it.value().m_compilationOptions);
-    }
+    // FIXME
+//    for (int fileType = ImplementationFile; fileType < TotalFileTypes; ++fileType) {
+//        QHash<QString, FileData>::iterator it = m_files[fileType].begin();
+//        for (; it != m_files[fileType].end(); ++it)
+//            m_dependencyGraph.addFile(it.value().m_fileName, it.value().m_compilationOptions);
+//    }
 
     m_loadingWatcher.reset(new QFutureWatcher<void>);
     connect(m_loadingWatcher.data(), SIGNAL(finished()), this, SLOT(dependencyGraphComputed()));
-    m_loadingWatcher->setFuture(m_dependencyGraph.compute());
+//    m_loadingWatcher->setFuture(m_dependencyGraph.compute());
 }
 
 void IndexerPrivate::dependencyGraphComputed()
@@ -811,12 +891,12 @@ void IndexerPrivate::analyzeRestoredSymbols()
             // If it's not being tracked we need to find at least one tracked dependency
             // so we can use its options.
             DepedencyVisitor visitor(this);
-            m_dependencyGraph.collectDependencies(fileName,
-                                                  DependencyGraph::FilesWhichInclude,
-                                                  &visitor);
+//            m_dependencyGraph.collectDependencies(fileName,
+//                                                  DependencyGraph::FilesWhichInclude,
+//                                                  &visitor);
             if (!visitor.m_match.m_fileName.isEmpty()) {
                 addOrUpdateFileData(fileName,
-                                    visitor.m_match.m_compilationOptions,
+                                    visitor.m_match.m_projectPart,
                                     upToDate);
             } else {
                 m_index.removeFile(fileName);
@@ -841,7 +921,7 @@ bool IndexerPrivate::deserealizeSymbols()
     if (m_storagePath.isEmpty())
         return false;
 
-    Utils::FileReader reader;
+    ::Utils::FileReader reader;
     if (reader.fetch(m_storagePath)) {
         m_index.deserialize(reader.data());
         return true;
@@ -855,7 +935,7 @@ void IndexerPrivate::serializeSymbols() const
     if (m_storagePath.isEmpty())
         return;
 
-    Utils::FileSaver saver(m_storagePath);
+    ::Utils::FileSaver saver(m_storagePath);
     saver.write(m_index.serialize());
     if (!saver.finalize())
         qWarning("Failed to serialize index");
@@ -881,8 +961,9 @@ QList<Symbol> IndexerPrivate::symbols(const QString &fileName, const Symbol::Kin
 }
 
 
-Indexer::Indexer()
-    : m_d(new IndexerPrivate(this))
+Indexer::Indexer(QObject *parent)
+    : QObject(parent)
+    , m_d(new IndexerPrivate(this))
 {}
 
 Indexer::~Indexer()
@@ -929,9 +1010,9 @@ void Indexer::finalize()
     m_d->reset();
 }
 
-bool Indexer::addFile(const QString &fileName, const QStringList &compilationOptions)
+bool Indexer::addFile(const QString &fileName, ProjectPart::Ptr projectPart)
 {
-    return m_d->addFile(fileName, compilationOptions);
+    return m_d->addFile(fileName, projectPart);
 }
 
 QStringList Indexer::allFiles() const

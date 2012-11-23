@@ -41,6 +41,10 @@
 #  include "clanghighlightingsupport.h"
 #endif // CLANG_HIGHLIGHTING
 
+#ifdef CLANG_INDEXING
+#  include "clangindexer.h"
+#endif // CLANG_INDEXING
+
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/imode.h>
@@ -62,6 +66,7 @@ ClangCodeModelPlugin::ClangCodeModelPlugin()
 
 ClangCodeModelPlugin::~ClangCodeModelPlugin()
 {
+    delete m_highlightingFactory;
 }
 
 bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *errorMessage)
@@ -80,6 +85,11 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
     m_highlightingFactory = new ClangHighlightingSupportFactory;
     CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory);
 #endif // CLANG_HIGHLIGHTING
+
+#ifdef CLANG_INDEXING
+    m_indexer.reset(new ClangIndexer);
+    CPlusPlus::CppModelManagerInterface::instance()->addIndexingSupport(m_indexer->indexingSupport());
+#endif // CLANG_INDEXING
 
     return true;
 }

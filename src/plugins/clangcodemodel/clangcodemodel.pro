@@ -64,21 +64,31 @@ HEADERS += \
     $$PWD/diagnostic.h \
     $$PWD/unsavedfiledata.h
 
+contains(DEFINES, CLANG_INDEXING) {
+    HEADERS += \
+        $$PWD/clangindexer.h \
+        $$PWD/indexer.h
+#        $$PWD/dependencygraph.h \
+
+    SOURCES += \
+        $$PWD/clangindexer.cpp \
+        $$PWD/indexer.cpp
+#        $$PWD/dependencygraph.cpp \
+
+#    DEFINES+=CLANG_LEXER
+}
+
 contains(DEFINES, CLANG_LEXER) {
     HEADERS += \
         $$PWD/rawlexer.h \
         $$PWD/keywords.h \
         $$PWD/includetracker.h \
-        $$PWD/dependencygraph.h \
-        $$PWD/indexer.h \
         $$PWD/codenavigator.h \
         $$PWD/unitsetup.h
     SOURCES += \
         $$PWD/rawlexer.cpp \
         $$PWD/keywords.cpp \
         $$PWD/includetracker.cpp \
-        $$PWD/dependencygraph.cpp \
-        $$PWD/indexer.cpp \
         $$PWD/codenavigator.cpp \
         $$PWD/unitsetup.cpp
 }
