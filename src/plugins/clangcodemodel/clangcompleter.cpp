@@ -277,6 +277,11 @@ QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line, unsign
     const QByteArray fn(m_d->m_fileName.toUtf8());
     UnsavedFileData unsaved(unsavedFiles);
     unsigned opts = clang_defaultCodeCompleteOptions();
+
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION >= 6) // clang >= 3.2
+    opts |= CXCodeComplete_IncludeBriefComments;
+#endif
+
     CXCodeCompleteResults *results = clang_codeCompleteAt(m_d->m_unit, fn.constData(), line, column, unsaved.files(), unsaved.count(), opts);
     if (results) {
         for (unsigned i = 0; i < results->NumResults; ++i) {
@@ -443,11 +448,11 @@ void ClangCompleter::createCompletionHint(const void *completionString, CodeComp
         }
     }
 
-#if 0 // if clang version is 3.2 or higher
-    const QString doxygen =
-            Internal::getQString(clang_getCompletionBriefComment(complStr));
-    hint.append(QLatin1Char('\n'));
-    hint.append(doxygen);
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION >= 6) // clang >= 3.2
+    const QString doxygen = Internal::getQString(
+                clang_getCompletionBriefComment(complStr));
+    if (!doxygen.isEmpty())
+        hint += QLatin1String("<p><i>") + doxygen + QLatin1String("</i></p>");
 #endif
 
     ccr.setHint(hint);
