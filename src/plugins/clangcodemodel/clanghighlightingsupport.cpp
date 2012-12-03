@@ -54,8 +54,8 @@ void DiagnosticsHandler::setDiagnostics(const QList<ClangCodeModel::Diagnostic> 
         const QString text = c.block().text();
         if (m.length() == 0) {
             for (int i = m.location().column() - 1; i < text.size(); ++i) {
-                if (text.at(i).isSpace()) {
-                    c.setPosition(linePos + i, QTextCursor::KeepAnchor);
+                if (text.at(i).isSpace() || (i + 1 == text.size())) {
+                    c.setPosition(linePos + i + 1, QTextCursor::KeepAnchor);
                     break;
                 }
             }

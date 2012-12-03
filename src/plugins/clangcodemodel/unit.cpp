@@ -169,7 +169,8 @@ Unit::~Unit()
 
 const QString Unit::fileName() const
 {
-    return m_data->m_fileName;
+    const QByteArray &name = m_data->m_fileName;
+    return QString::fromUtf8(name.data(), name.size());
 }
 
 bool Unit::isLoaded() const
