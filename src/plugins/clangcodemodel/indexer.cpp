@@ -227,9 +227,12 @@ public:
         future.setProgressRange(0, m_todo.size());
 
         const ProjectPart::Ptr &pPart = m_todo[0].m_projectPart;
-        const QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart);
-        const char **rawOpts = new const char*[opts.size()];
-        for (int i = 0; i < opts.size(); ++i)
+        QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart);
+        const int optsSize = opts.size();
+        opts += ClangCodeModel::Utils::getClangOptionForObjC(pPart->language);
+        const int optsWithObjcSize = opts.size();
+        const char **rawOpts = new const char*[optsWithObjcSize];
+        for (int i = 0; i < optsWithObjcSize; ++i)
             rawOpts[i] = qstrdup(opts[i].toUtf8());
 
         CXIndex Idx;
@@ -248,6 +251,8 @@ public:
 
             QByteArray fileName = fd.m_fileName.toUtf8();
 
+            const unsigned usedOptsSize = pPart->objcSourceFiles.contains(fileName) ? optsWithObjcSize : optsSize;
+
             unsigned index_opts = CXIndexOpt_SuppressWarnings;
             unsigned parsingOptions = fd.m_managementOptions;
             parsingOptions |= CXTranslationUnit_SkipFunctionBodies;
@@ -255,7 +260,7 @@ public:
             /*int result =*/ clang_indexSourceFile(idxAction, this,
                                                &IndexCB, sizeof(IndexCB),
                                                index_opts, fileName.constData(),
-                                               rawOpts, opts.size(), 0, 0, 0,
+                                               rawOpts, usedOptsSize, 0, 0, 0,
                                                parsingOptions);
 
             // TODO: index imported ASTs:

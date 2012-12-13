@@ -49,6 +49,7 @@ public:
     ~ClangIndexingSupport();
 
     virtual QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
+    virtual CppTools::SymbolSearcher *createSymbolSearcher(CppTools::SymbolSearcher::Parameters parameters, QSet<QString> fileNames) { return 0; }
 
 private:
     ClangIndexer *m_indexer;

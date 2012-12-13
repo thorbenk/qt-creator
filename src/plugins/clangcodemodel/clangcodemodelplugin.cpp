@@ -88,7 +88,7 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 
 #ifdef CLANG_INDEXING
     m_indexer.reset(new ClangIndexer);
-    CPlusPlus::CppModelManagerInterface::instance()->addIndexingSupport(m_indexer->indexingSupport());
+    CPlusPlus::CppModelManagerInterface::instance()->setIndexingSupport(m_indexer->indexingSupport());
 #endif // CLANG_INDEXING
 
     return true;

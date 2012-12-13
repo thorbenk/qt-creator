@@ -38,7 +38,7 @@ using namespace Internal;
 CppCtorDtorFilter::CppCtorDtorFilter(CppModelManager *manager)
     : CppLocatorFilter(manager)
 {
-    setShortcutString("cd");
+    setShortcutString(QLatin1String("cd"));
     setIncludedByDefault(false);
 }
 

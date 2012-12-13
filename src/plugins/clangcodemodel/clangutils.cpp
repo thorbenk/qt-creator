@@ -11,7 +11,7 @@
 using namespace ClangCodeModel;
 using namespace Core;
 
-CLANG_EXPORT UnsavedFiles ClangCodeModel::Utils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy)
+UnsavedFiles ClangCodeModel::Utils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy)
 {
     // TODO: change the modelmanager to hold one working copy, and amend it every time we ask for one.
     // TODO: Reason: the UnsavedFile needs a QByteArray.
@@ -37,30 +37,37 @@ QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelM
 {
     Q_ASSERT(pPart);
 
-    return createClangOptions(pPart->cxx11Enabled,
-                              pPart->objcEnabled(),
+    return createClangOptions(pPart->language,
                               pPart->qtVersion,
                               pPart->defines.split('\n'),
                               pPart->includePaths,
                               pPart->frameworkPaths);
 }
 
-QStringList ClangCodeModel::Utils::createClangOptions(bool useCpp0x,
-                                                     bool useObjc,
-                                                     CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
-                                                     const QList<QByteArray> &defines,
-                                                     const QStringList &includePaths,
-                                                     const QStringList &frameworkPaths)
+QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManagerInterface::ProjectPart::Language language,
+                                                      CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
+                                                      const QList<QByteArray> &defines,
+                                                      const QStringList &includePaths,
+                                                      const QStringList &frameworkPaths)
 {
+    typedef CPlusPlus::CppModelManagerInterface::ProjectPart Lang;
+
     QStringList result;
 
-    if (useCpp0x)
-        result << QLatin1String("-std=c++0x");
-
-    if (useObjc)
-        result << QLatin1String("-xobjective-c++");
-    else
-        result << QLatin1String("-xc++");
+    switch (language) {
+    case Lang::CXX:
+        result << QLatin1String("-xc++") << QLatin1String("-std=gnu++98");
+        break;
+    case Lang::CXX11:
+        result << QLatin1String("-xc++") << QLatin1String("-std=c++11");
+        break;
+    case Lang::C89:
+        result << QLatin1String("-xc") << QLatin1String("-std=gnu89");
+        break;
+    case Lang::C99:
+        result << QLatin1String("-xc") << QLatin1String("-std=gnu99");
+        break;
+    }
 
     static const QString injectedHeader(Core::ICore::instance()->resourcePath() + QLatin1String("/cplusplus/qt%1-qobjectdefs-injected.h"));
     if (qtVersion == CPlusPlus::CppModelManagerInterface::ProjectPart::Qt4)
@@ -114,4 +121,20 @@ QStringList ClangCodeModel::Utils::createClangOptions(bool useCpp0x,
 #endif
 
     return result;
+}
+
+QString ClangCodeModel::Utils::getClangOptionForObjC(CPlusPlus::CppModelManagerInterface::ProjectPart::Language language)
+{
+    typedef CPlusPlus::CppModelManagerInterface::ProjectPart Lang;
+
+    switch (language) {
+    case Lang::CXX:
+    case Lang::CXX11:
+        return QLatin1String("-ObjC++");
+    case Lang::C89:
+    case Lang::C99:
+        return QLatin1String("-ObjC");
+    default:
+        return QString();
+    }
 }
