@@ -37,6 +37,7 @@
 #include "sourcelocation.h"
 #include "liveunitsmanager.h"
 #include "utils_p.h"
+#include "clangsymbolsearcher.h"
 
 #include <clang-c/Index.h>
 
@@ -178,6 +179,7 @@ public:
 
     QList<Symbol> symbols(Symbol::Kind kind) const;
     QList<Symbol> symbols(const QString &fileName, const Symbol::Kind kind) const;
+    void match(ClangSymbolSearcher *searcher) const;
 
     Indexer *m_q;
     QVector<QHash<QString, FileData> > m_files;
@@ -227,12 +229,16 @@ public:
         future.setProgressRange(0, m_todo.size());
 
         const ProjectPart::Ptr &pPart = m_todo[0].m_projectPart;
+
         QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart);
         const int optsSize = opts.size();
-        opts += ClangCodeModel::Utils::getClangOptionForObjC(pPart->language);
-        const int optsWithObjcSize = opts.size();
-        const char **rawOpts = new const char*[optsWithObjcSize];
-        for (int i = 0; i < optsWithObjcSize; ++i)
+
+        const bool isCXX = pPart->language == ProjectPart::CXX || pPart->language == ProjectPart::CXX11;
+        opts += ClangCodeModel::Utils::clangOptionForObjC(isCXX);
+        const int optsSizeObjC = opts.size();
+
+        const char **rawOpts = new const char*[optsSizeObjC];
+        for (int i = 0; i < optsSizeObjC; ++i)
             rawOpts[i] = qstrdup(opts[i].toUtf8());
 
         CXIndex Idx;
@@ -249,9 +255,8 @@ public:
             if (fd.m_upToDate)
                 continue;
 
+            const int usedOptSize = pPart->objcSourceFiles.contains(fd.m_fileName) ? optsSizeObjC : optsSize;
             QByteArray fileName = fd.m_fileName.toUtf8();
-
-            const unsigned usedOptsSize = pPart->objcSourceFiles.contains(fileName) ? optsWithObjcSize : optsSize;
 
             unsigned index_opts = CXIndexOpt_SuppressWarnings;
             unsigned parsingOptions = fd.m_managementOptions;
@@ -260,7 +265,7 @@ public:
             /*int result =*/ clang_indexSourceFile(idxAction, this,
                                                &IndexCB, sizeof(IndexCB),
                                                index_opts, fileName.constData(),
-                                               rawOpts, usedOptsSize, 0, 0, 0,
+                                               rawOpts, usedOptSize, 0, 0, 0,
                                                parsingOptions);
 
             // TODO: index imported ASTs:
@@ -694,8 +699,6 @@ void IndexerPrivate::reset()
 
 void IndexerPrivate::synchronize(IndexingResult result)
 {
-    qDebug()<<"*** synchronize " << result.m_unit.fileName();
-
     result.m_unit.makeUnique();
 
     foreach (const Symbol &symbol, result.m_symbolsInfo) {
@@ -722,8 +725,6 @@ void IndexerPrivate::synchronize(IndexingResult result)
 
 void IndexerPrivate::indexingFinished()
 {
-    qDebug() << "*** Indexing finised.";
-
     if (m_hasQueuedFullRun) {
         m_hasQueuedFullRun = false;
         run();
@@ -965,6 +966,13 @@ QList<Symbol> IndexerPrivate::symbols(const QString &fileName, const Symbol::Kin
     return m_index.symbols(fileName, kind);
 }
 
+void IndexerPrivate::match(ClangSymbolSearcher *searcher) const
+{
+    if (m_loadingWatcher->isRunning())
+        return;
+
+    m_index.match(searcher);
+}
 
 Indexer::Indexer(QObject *parent)
     : QObject(parent)
@@ -1083,6 +1091,11 @@ QList<Symbol> Indexer::destructorsFromFile(const QString &fileName) const
 QList<Symbol> Indexer::allFromFile(const QString &fileName) const
 {
     return m_d->symbols(fileName, Symbol::Unknown);
+}
+
+void Indexer::match(ClangSymbolSearcher *searcher) const
+{
+    m_d->match(searcher);
 }
 
 #include "indexer.moc"

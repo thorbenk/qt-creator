@@ -46,6 +46,10 @@
 
 namespace ClangCodeModel {
 
+namespace Internal {
+class ClangSymbolSearcher;
+} // namespace Internal
+
 class IndexerPrivate;
 
 class CLANG_EXPORT Indexer : public QObject
@@ -82,6 +86,8 @@ public:
     QList<Symbol> constructorsFromFile(const QString &fileName) const;
     QList<Symbol> destructorsFromFile(const QString &fileName) const;
     QList<Symbol> allFromFile(const QString &fileName) const;
+
+    void match(Internal::ClangSymbolSearcher *searcher) const;
 
 signals:
     void indexingStarted(QFuture<void> future);

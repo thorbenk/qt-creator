@@ -41,15 +41,16 @@ class Indexer;
 namespace Internal {
 
 class ClangIndexer;
+class ClangSymbolSearcher;
 
 class ClangIndexingSupport: public CppTools::CppIndexingSupport
 {
 public:
     ClangIndexingSupport(ClangIndexer *indexer);
-    ~ClangIndexingSupport();
+    virtual ~ClangIndexingSupport();
 
     virtual QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
-    virtual CppTools::SymbolSearcher *createSymbolSearcher(CppTools::SymbolSearcher::Parameters parameters, QSet<QString> fileNames) { return 0; }
+    virtual CppTools::SymbolSearcher *createSymbolSearcher(CppTools::SymbolSearcher::Parameters parameters, QSet<QString> fileNames);
 
 private:
     ClangIndexer *m_indexer;
@@ -65,6 +66,8 @@ public:
     CppTools::CppIndexingSupport *indexingSupport();
 
     QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
+
+    void match(ClangSymbolSearcher *searcher) const;
 
 public slots:
     void onAboutToLoadSession(const QString &sessionName);

@@ -33,39 +33,51 @@ UnsavedFiles ClangCodeModel::Utils::createUnsavedFiles(CPlusPlus::CppModelManage
     return result;
 }
 
-QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart)
+QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, const QString &fileName)
 {
     Q_ASSERT(pPart);
 
+    bool isObjC = fileName.isEmpty() ? false : pPart->objcSourceFiles.contains(fileName);
+
     return createClangOptions(pPart->language,
+                              isObjC,
                               pPart->qtVersion,
                               pPart->defines.split('\n'),
                               pPart->includePaths,
                               pPart->frameworkPaths);
 }
 
-QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManagerInterface::ProjectPart::Language language,
+QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManagerInterface::ProjectPart::Language lang,
+                                                      bool isObjC,
                                                       CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
                                                       const QList<QByteArray> &defines,
                                                       const QStringList &includePaths,
                                                       const QStringList &frameworkPaths)
 {
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart Lang;
-
     QStringList result;
 
-    switch (language) {
-    case Lang::CXX:
-        result << QLatin1String("-xc++") << QLatin1String("-std=gnu++98");
+    switch (lang) {
+    case CPlusPlus::CppModelManagerInterface::ProjectPart::C89:
+        result << QLatin1String("-std=gnu89");
+        if (isObjC)
+            result << ClangCodeModel::Utils::clangOptionForObjC(false);
         break;
-    case Lang::CXX11:
-        result << QLatin1String("-xc++") << QLatin1String("-std=c++11");
+    case CPlusPlus::CppModelManagerInterface::ProjectPart::C99:
+        result << QLatin1String("-std=gnu99");
+        if (isObjC)
+            result << ClangCodeModel::Utils::clangOptionForObjC(false);
         break;
-    case Lang::C89:
-        result << QLatin1String("-xc") << QLatin1String("-std=gnu89");
+    case CPlusPlus::CppModelManagerInterface::ProjectPart::CXX:
+        result << QLatin1String("-std=gnu++98");
+        if (isObjC)
+            result << ClangCodeModel::Utils::clangOptionForObjC(true);
         break;
-    case Lang::C99:
-        result << QLatin1String("-xc") << QLatin1String("-std=gnu99");
+    case CPlusPlus::CppModelManagerInterface::ProjectPart::CXX11:
+        result << QLatin1String("-std=c++11");
+        if (isObjC)
+            result << ClangCodeModel::Utils::clangOptionForObjC(true);
+        break;
+    default:
         break;
     }
 
@@ -123,18 +135,10 @@ QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManager
     return result;
 }
 
-QString ClangCodeModel::Utils::getClangOptionForObjC(CPlusPlus::CppModelManagerInterface::ProjectPart::Language language)
+QString ClangCodeModel::Utils::clangOptionForObjC(bool cxxEnabled)
 {
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart Lang;
-
-    switch (language) {
-    case Lang::CXX:
-    case Lang::CXX11:
+    if (cxxEnabled)
         return QLatin1String("-ObjC++");
-    case Lang::C89:
-    case Lang::C99:
+    else
         return QLatin1String("-ObjC");
-    default:
-        return QString();
-    }
 }

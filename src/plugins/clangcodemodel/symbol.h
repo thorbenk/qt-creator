@@ -35,8 +35,9 @@
 
 #include "sourcelocation.h"
 
-#include <QtCore/QString>
-#include <QtCore/QDataStream>
+#include <QString>
+#include <QDataStream>
+#include <QIcon>
 
 namespace ClangCodeModel {
 
@@ -64,6 +65,8 @@ public:
     QString m_qualification;
     SourceLocation m_location;
     Kind m_kind;
+
+    QIcon iconForSymbol() const;
 };
 
 QDataStream &operator<<(QDataStream &stream, const Symbol &symbol);

@@ -28,6 +28,7 @@
 ****************************************************************************/
 
 #include "clangindexer.h"
+#include "clangsymbolsearcher.h"
 #include "clangutils.h"
 #include "indexer.h"
 
@@ -54,6 +55,11 @@ ClangIndexingSupport::~ClangIndexingSupport()
 QFuture<void> ClangIndexingSupport::refreshSourceFiles(const QStringList &sourceFiles)
 {
     return m_indexer->refreshSourceFiles(sourceFiles);
+}
+
+CppTools::SymbolSearcher *ClangIndexingSupport::createSymbolSearcher(CppTools::SymbolSearcher::Parameters parameters, QSet<QString> fileNames)
+{
+    return new ClangSymbolSearcher(m_indexer, parameters, fileNames);
 }
 
 ClangIndexer::ClangIndexer()
@@ -102,6 +108,11 @@ QFuture<void> ClangIndexer::refreshSourceFiles(const QStringList &sourceFiles)
         m_clangIndexer->regenerate();
 
     return QFuture<void>();
+}
+
+void ClangIndexer::match(ClangSymbolSearcher *searcher) const
+{
+    m_clangIndexer->match(searcher);
 }
 
 void ClangIndexer::onAboutToLoadSession(const QString &sessionName)

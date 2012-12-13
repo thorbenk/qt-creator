@@ -30,6 +30,7 @@
 **
 **************************************************************************/
 
+#include "clangsymbolsearcher.h"
 #include "index.h"
 
 #include <QStringList>
@@ -49,6 +50,8 @@ inline uint qHash(const QStringList &all)
 namespace ClangCodeModel {
 namespace Internal {
 
+class ClangSymbolSearcher;
+
 class IndexPrivate
 {
 public:
@@ -60,6 +63,8 @@ public:
     QList<Symbol> symbols(const QString &fileName, Symbol::Kind kind, const QString &uqName) const;
     QList<Symbol> symbols(const QString &fileName, const QString &uqName) const;
     QList<Symbol> symbols(Symbol::Kind kind) const;
+
+    void match(ClangSymbolSearcher *searcher) const;
 
     void insertFile(const QString &fileName, const QDateTime &timeStamp);
     void removeFile(const QString &fileName);
@@ -257,6 +262,13 @@ QList<Symbol> IndexPrivate::symbols(Symbol::Kind kind) const
     return all;
 }
 
+void IndexPrivate::match(ClangSymbolSearcher *searcher) const
+{
+    QMutexLocker locker(&m_mutex);
+
+    searcher->search(m_container);
+}
+
 QList<Symbol> IndexPrivate::symbolsFromIterators(const QList<SymbolIt> &symbolList)
 {
     QList<Symbol> all;
@@ -429,6 +441,11 @@ QList<Symbol> Index::symbols(const QString &fileName, Symbol::Kind kind, const Q
 QList<Symbol> Index::symbols(Symbol::Kind kind) const
 {
     return d->symbols(kind);
+}
+
+void Index::match(ClangSymbolSearcher *searcher) const
+{
+    d->match(searcher);
 }
 
 void Index::insertFile(const QString &fileName, const QDateTime &timeStamp)

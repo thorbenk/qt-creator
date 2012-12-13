@@ -161,12 +161,13 @@ public:
             int position, TextEditor::AssistReason reason) const {
         Q_UNUSED(project);
 
+        QString fileName = editor()->document()->fileName();
         CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
-        QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(editor()->document()->fileName());
+        QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
         QStringList includePaths, frameworkPaths, options;
         if (!parts.isEmpty()) {
             const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
-            options = ClangCodeModel::Utils::createClangOptions(part);
+            options = ClangCodeModel::Utils::createClangOptions(part, fileName);
             includePaths = part->includePaths;
             frameworkPaths = part->frameworkPaths;
         }

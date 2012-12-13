@@ -48,6 +48,7 @@ class Symbol;
 
 namespace Internal {
 
+class ClangSymbolSearcher;
 class IndexPrivate;
 
 class Index
@@ -61,6 +62,8 @@ public:
     QList<Symbol> symbols(const QString &fileName, Symbol::Kind kind) const;
     QList<Symbol> symbols(const QString &fileName, Symbol::Kind kind, const QString &uqName) const;
     QList<Symbol> symbols(Symbol::Kind kind) const;
+
+    void match(ClangSymbolSearcher *searcher) const;
 
     void insertFile(const QString &fileName, const QDateTime &timeStamp);
     void removeFile(const QString &fileName);

@@ -32,6 +32,8 @@
 
 #include "symbol.h"
 
+#include <cplusplus/Icons.h>
+
 using namespace ClangCodeModel;
 
 Symbol::Symbol()
@@ -47,6 +49,25 @@ Symbol::Symbol(const QString &name,
     , m_location(location)
     , m_kind(type)
 {}
+
+QIcon Symbol::iconForSymbol() const
+{
+    CPlusPlus::Icons icons;
+    switch (m_kind) {
+    case Enum:
+        return icons.iconForType(CPlusPlus::Icons::EnumIconType);
+    case Class:
+        return icons.iconForType(CPlusPlus::Icons::ClassIconType);
+    case Method:
+    case Function:
+    case Declaration:
+    case Constructor:
+    case Destructor:
+        return icons.iconForType(CPlusPlus::Icons::FuncPublicIconType);
+    default:
+        return icons.iconForType(CPlusPlus::Icons::UnknownIconType);
+    }
+}
 
 namespace ClangCodeModel {
 
