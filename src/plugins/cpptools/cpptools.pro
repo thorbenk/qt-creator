@@ -4,8 +4,7 @@ include(../../qtcreatorplugin.pri)
 include($$IDE_SOURCE_TREE/src/plugins/locator/locator.pri)
 include(cpptools_dependencies.pri)
 
-# DEFINES += QT_NO_CAST_FROM_ASCII
-DEFINES += QT_NO_CAST_TO_ASCII
+DEFINES += QT_NO_CAST_FROM_ASCII
 INCLUDEPATH += .
 DEFINES += CPPTOOLS_LIBRARY
 HEADERS += completionsettingspage.h \
@@ -49,7 +48,8 @@ HEADERS += completionsettingspage.h \
     cppcompletionassistprovider.h \
     ModelManagerInterface.h \
     TypeHierarchyBuilder.h \
-    cppindexingsupport.h
+    cppindexingsupport.h \
+    builtinindexingsupport.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -90,7 +90,8 @@ SOURCES += completionsettingspage.cpp \
     cppcompletionassistprovider.cpp \
     ModelManagerInterface.cpp \
     TypeHierarchyBuilder.cpp \
-    cppindexingsupport.cpp
+    cppindexingsupport.cpp \
+    builtinindexingsupport.cpp
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \

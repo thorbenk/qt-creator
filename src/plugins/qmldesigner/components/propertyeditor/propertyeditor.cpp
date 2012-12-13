@@ -55,6 +55,7 @@
 #include "propertyeditortransaction.h"
 #include "originwidget.h"
 
+#include <qmljs/qmljssimplereader.h>
 #include <utils/fileutils.h>
 
 #include <QCoreApplication>
@@ -74,6 +75,10 @@
 #include <QGraphicsOpacityEffect>
 #include <QToolBar>
 
+#ifdef Q_OS_WIN
+#include <utils/winutils.h>
+#endif
+
 enum {
     debug = false
 };
@@ -81,6 +86,16 @@ enum {
 const int collapseButtonOffset = 114;
 
 namespace QmlDesigner {
+
+static QString applicationDirPath()
+{
+#ifdef Q_OS_WIN
+    // normalize paths so QML doesn't freak out if it's wrongly capitalized on Windows
+    return Utils::normalizePathName(QCoreApplication::applicationDirPath());
+#else
+    return QCoreApplication::applicationDirPath();
+#endif
+}
 
 #ifdef Q_OS_MAC
 #  define SHARE_PATH "/../Resources/qmldesigner"
@@ -90,9 +105,14 @@ namespace QmlDesigner {
 
 static inline QString sharedDirPath()
 {
-    QString appPath = QCoreApplication::applicationDirPath();
+    QString appPath = applicationDirPath();
 
     return QFileInfo(appPath + SHARE_PATH).absoluteFilePath();
+}
+
+static inline QString propertyTemplatesPath()
+{
+    return sharedDirPath() + QLatin1String("/propertyeditor/PropertyTemplates/");
 }
 
 static QObject *variantToQObject(const QVariant &v)
@@ -103,6 +123,32 @@ static QObject *variantToQObject(const QVariant &v)
     return 0;
 }
 
+static QmlJS::SimpleReaderNode::Ptr s_templateConfiguration;
+
+QmlJS::SimpleReaderNode::Ptr templateConfiguration()
+{
+    if (!s_templateConfiguration) {
+        QmlJS::SimpleReader reader;
+        const QString fileName = propertyTemplatesPath() + QLatin1String("TemplateTypes.qml");
+        s_templateConfiguration = reader.readFile(fileName);
+
+        if (!s_templateConfiguration) {
+            qWarning() << PropertyEditor::tr("template defitions:") << reader.errors();
+        }
+    }
+
+    return s_templateConfiguration;
+}
+
+QStringList variantToStringList(const QVariant &variant) {
+    QStringList stringList;
+
+    foreach (const QVariant &singleValue, variant.toList())
+        stringList << singleValue.toString();
+
+    return stringList;
+}
+
 PropertyEditor::NodeType::NodeType(PropertyEditor *propertyEditor) :
         m_view(new DeclarativeWidgetView), m_propertyEditorTransaction(new PropertyEditorTransaction(propertyEditor)), m_dummyPropertyEditorValue(new PropertyEditorValue()),
         m_contextObject(new PropertyEditorContextObject())
@@ -111,6 +157,7 @@ PropertyEditor::NodeType::NodeType(PropertyEditor *propertyEditor) :
 
     QDeclarativeContext *ctxt = m_view->rootContext();
     m_view->engine()->setOutputWarningsToStandardError(debug);
+    m_view->engine()->addImportPath(sharedDirPath() + QLatin1String("/propertyeditor"));
     m_dummyPropertyEditorValue->setValue("#000000");
     ctxt->setContextProperty("dummyBackendValue", m_dummyPropertyEditorValue.data());
     m_contextObject->setBackendValues(&m_backendValuesPropertyMap);
@@ -221,11 +268,11 @@ void PropertyEditor::NodeType::setup(const QmlObjectNode &fxObjectNode, const QS
         m_backendAnchorBinding.setup(QmlItemNode(fxObjectNode.modelNode()));
 
         ctxt->setContextProperty("anchorBackend", &m_backendAnchorBinding);
-        
+
         ctxt->setContextProperty("transaction", m_propertyEditorTransaction.data());
-        
+
         m_contextObject->setSpecificsUrl(qmlSpecificsFile);
-        
+
         m_contextObject->setStateName(stateName);
         if (!fxObjectNode.isValid())
             return;
@@ -333,7 +380,6 @@ static inline QString fixTypeNameForPanes(const QString &typeName)
 {
     QString fixedTypeName = typeName;
     fixedTypeName.replace('.', '/');
-    fixedTypeName.replace("QtQuick/", "Qt/");
     return fixedTypeName;
 }
 
@@ -439,8 +485,9 @@ void PropertyEditor::changeValue(const QString &propertyName)
     }
 
     if (fxObjectNode.modelNode().metaInfo().isValid() && fxObjectNode.modelNode().metaInfo().hasProperty(propertyName))
-        if (fxObjectNode.modelNode().metaInfo().propertyTypeName(propertyName) == QLatin1String("QUrl")) { //turn absolute local file paths into relative paths
-        QString filePath = castedValue.toUrl().toString();
+        if (fxObjectNode.modelNode().metaInfo().propertyTypeName(propertyName) == QLatin1String("QUrl")
+                || fxObjectNode.modelNode().metaInfo().propertyTypeName(propertyName) == QLatin1String("url")) { //turn absolute local file paths into relative paths
+            QString filePath = castedValue.toUrl().toString();
         if (QFileInfo(filePath).exists() && QFileInfo(filePath).isAbsolute()) {
             QDir fileDir(QFileInfo(model()->fileUrl().toLocalFile()).absolutePath());
             castedValue = QUrl(fileDir.relativeFilePath(filePath));
@@ -604,6 +651,7 @@ void PropertyEditor::setQmlDir(const QString &qmlDir)
 {
     m_qmlDir = qmlDir;
 
+
     QFileSystemWatcher *watcher = new QFileSystemWatcher(this);
     watcher->addPath(m_qmlDir);
     connect(watcher, SIGNAL(directoryChanged(QString)), this, SLOT(reloadQml()));
@@ -624,7 +672,12 @@ void PropertyEditor::timerEvent(QTimerEvent *timerEvent)
 
 QString templateGeneration(NodeMetaInfo type, NodeMetaInfo superType, const QmlObjectNode &objectNode)
 {
-    QString qmlTemplate = QLatin1String("import QtQuick 1.0\nimport Bauhaus 1.0\n");
+    if (!templateConfiguration() && templateConfiguration()->isValid())
+        return QString();
+
+    QStringList imports = variantToStringList(templateConfiguration()->property(QLatin1String("imports")));
+
+    QString qmlTemplate = imports.join(QLatin1String("\n")) + QLatin1Char('\n');
     qmlTemplate += QLatin1String("GroupBox {\n");
     qmlTemplate += QString(QLatin1String("caption: \"%1\"\n")).arg(objectNode.modelNode().simplifiedTypeName());
     qmlTemplate += QLatin1String("layout: VerticalLayout {\n");
@@ -645,40 +698,23 @@ QString templateGeneration(NodeMetaInfo type, NodeMetaInfo superType, const QmlO
 
         QString typeName = type.propertyTypeName(name);
         //alias resolution only possible with instance
-            if (typeName == QLatin1String("alias") && objectNode.isValid())
-                typeName = objectNode.instanceType(name);
+        if (typeName == QLatin1String("alias") && objectNode.isValid())
+            typeName = objectNode.instanceType(name);
 
-        if (!superType.hasProperty(name) && type.propertyIsWritable(name)) {
-            if (typeName == "int") {
-                qmlTemplate +=  QString(QLatin1String(
-                "IntEditor { backendValue: backendValues.%2\n caption: \"%1\"\nbaseStateFlag: isBaseState\nslider: false\n}"
-                )).arg(name).arg(properName);
-                emptyTemplate = false;
-            }
-            if (typeName == "real" || typeName == "double" || typeName == "qreal") {
-                qmlTemplate +=  QString(QLatin1String(
-                "DoubleSpinBoxAlternate {\ntext: \"%1\"\nbackendValue: backendValues.%2\nbaseStateFlag: isBaseState\n}\n"
-                )).arg(name).arg(properName);
-                emptyTemplate = false;
-            }
-            if (typeName == "string" || typeName == "QString" || typeName == "QUrl" || typeName == "url") {
-                 qmlTemplate +=  QString(QLatin1String(
-                "QWidget {\nlayout: HorizontalLayout {\nLabel {\ntext: \"%1\"\ntoolTip: \"%1\"\n}\nLineEdit {\nbackendValue: backendValues.%2\nbaseStateFlag: isBaseState\n}\n}\n}\n"
-                )).arg(name).arg(properName);
-                 emptyTemplate = false;
-            }
-            if (typeName == "bool") {
-                 qmlTemplate +=  QString(QLatin1String(
-                 "QWidget {\nlayout: HorizontalLayout {\nLabel {\ntext: \"%1\"\ntoolTip: \"%1\"\n}\nCheckBox {text: backendValues.%2.value\nbackendValue: backendValues.%2\nbaseStateFlag: isBaseState\ncheckable: true\n}\n}\n}\n"
-                 )).arg(name).arg(properName);
-                 emptyTemplate = false;
-            }
-            if (typeName == "color" || typeName == "QColor") {
-                qmlTemplate +=  QString(QLatin1String(
-                "ColorGroupBox {\ncaption: \"%1\"\nfinished: finishedNotify\nbackendColor: backendValues.%2\n}\n\n"
-                )).arg(name).arg(properName);
-                emptyTemplate = false;
-            }
+        if (!superType.hasProperty(name) && type.propertyIsWritable(name) && !name.contains(QLatin1String("."))) {
+            foreach (const QmlJS::SimpleReaderNode::Ptr &node, templateConfiguration()->children())
+                if (variantToStringList(node->property(QLatin1String("typeNames"))).contains(typeName)) {
+                    const QString fileName = propertyTemplatesPath() + node->property(QLatin1String("sourceFile")).toString();
+                    QFile file(fileName);
+                    if (file.open(QIODevice::ReadOnly)) {
+                        QString source = file.readAll();
+                        file.close();
+                        qmlTemplate += source.arg(name).arg(properName);
+                        emptyTemplate = false;
+                    } else {
+                        qWarning() << PropertyEditor::tr("template defition source file not found:") << fileName;
+                    }
+                }
         }
     }
     qmlTemplate += QLatin1String("}\n"); //VerticalLayout
@@ -753,7 +789,7 @@ void PropertyEditor::resetView()
         ctxt->setContextProperty("finishedNotify", QVariant(false));
         if (specificQmlData.isEmpty())
             type->m_contextObject->setSpecificQmlData(specificQmlData);
-            
+
         type->m_contextObject->setGlobalBaseUrl(qmlFile);
         type->m_contextObject->setSpecificQmlData(specificQmlData);
         type->m_view->setSource(qmlFile);
@@ -764,7 +800,7 @@ void PropertyEditor::resetView()
             fxObjectNode = QmlObjectNode(m_selectedNode);
         }
         QDeclarativeContext *ctxt = type->m_view->rootContext();
-        
+
         ctxt->setContextProperty("finishedNotify", QVariant(false));
         if (specificQmlData.isEmpty())
             type->m_contextObject->setSpecificQmlData(specificQmlData);
@@ -994,7 +1030,7 @@ void PropertyEditor::reloadQml()
 QString PropertyEditor::qmlFileName(const NodeMetaInfo &nodeInfo) const
 {
     if (nodeInfo.typeName().split('.').last() == "QDeclarativeItem")
-        return "Qt/ItemPane.qml";
+        return "QtQuick/ItemPane.qml";
     const QString fixedTypeName = fixTypeNameForPanes(nodeInfo.typeName());
     return fixedTypeName + QLatin1String("Pane.qml");
 }
@@ -1032,7 +1068,7 @@ QUrl PropertyEditor::qmlForNode(const ModelNode &modelNode, QString &className) 
             }
         }
     }
-    return fileToUrl(QDir(m_qmlDir).filePath("Qt/emptyPane.qml"));
+    return fileToUrl(QDir(m_qmlDir).filePath("QtQuick/emptyPane.qml"));
 }
 
 QString PropertyEditor::locateQmlFile(const QString &relativePath) const

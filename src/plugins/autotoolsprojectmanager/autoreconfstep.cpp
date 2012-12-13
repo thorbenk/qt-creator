@@ -150,14 +150,9 @@ void AutoreconfStep::ctor()
     setDefaultDisplayName(tr("Autoreconf"));
 }
 
-AutotoolsBuildConfiguration *AutoreconfStep::autotoolsBuildConfiguration() const
-{
-    return static_cast<AutotoolsBuildConfiguration *>(buildConfiguration());
-}
-
 bool AutoreconfStep::init()
 {
-    AutotoolsBuildConfiguration *bc = autotoolsBuildConfiguration();
+    BuildConfiguration *bc = buildConfiguration();
 
     ProcessParameters *pp = processParameters();
     pp->setMacroExpander(bc->macroExpander());
@@ -165,13 +160,14 @@ bool AutoreconfStep::init()
     pp->setWorkingDirectory(bc->buildDirectory());
     pp->setCommand(QLatin1String("autoreconf"));
     pp->setArguments(additionalArguments());
+    pp->resolveAll();
 
     return AbstractProcessStep::init();
 }
 
 void AutoreconfStep::run(QFutureInterface<bool> &interface)
 {
-    AutotoolsBuildConfiguration *bc = autotoolsBuildConfiguration();
+    BuildConfiguration *bc = buildConfiguration();
 
     // Check whether we need to run autoreconf
     const QFileInfo configureInfo(bc->buildDirectory() + QLatin1String("/configure"));
@@ -267,7 +263,7 @@ QString AutoreconfStepConfigWidget::summaryText() const
 
 void AutoreconfStepConfigWidget::updateDetails()
 {
-    AutotoolsBuildConfiguration *bc = m_autoreconfStep->autotoolsBuildConfiguration();
+    BuildConfiguration *bc = m_autoreconfStep->buildConfiguration();
 
     ProcessParameters param;
     param.setMacroExpander(bc->macroExpander());

@@ -39,6 +39,7 @@
 #include "kit.h"
 
 #include <coreplugin/variablemanager.h>
+#include <projectexplorer/buildenvironmentwidget.h>
 #include <extensionsystem/pluginmanager.h>
 
 #include <utils/qtcassert.h>
@@ -114,6 +115,11 @@ BuildConfiguration::BuildConfiguration(Target *target, BuildConfiguration *sourc
 BuildConfiguration::~BuildConfiguration()
 {
     delete m_macroExpander;
+}
+
+QList<NamedWidget *> BuildConfiguration::createSubConfigWidgets()
+{
+    return QList<NamedWidget *>() << new ProjectExplorer::BuildEnvironmentWidget(this);
 }
 
 Utils::AbstractMacroExpander *BuildConfiguration::macroExpander()

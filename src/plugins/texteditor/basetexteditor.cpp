@@ -568,14 +568,13 @@ void BaseTextEditorWidget::updateCannotDecodeInfo()
 {
     setReadOnly(d->m_document->hasDecodingError());
     if (d->m_document->hasDecodingError()) {
-        Core::InfoBarEntry info(
-            QLatin1String(Constants::SELECT_ENCODING),
+        Core::InfoBarEntry info(Core::Id(Constants::SELECT_ENCODING),
             tr("<b>Error:</b> Could not decode \"%1\" with \"%2\"-encoding. Editing not possible.")
             .arg(displayName()).arg(QString::fromLatin1(d->m_document->codec()->name())));
         info.setCustomButtonInfo(tr("Select Encoding"), this, SLOT(selectEncoding()));
         d->m_document->infoBar()->addInfo(info);
     } else {
-        d->m_document->infoBar()->removeInfo(QLatin1String(Constants::SELECT_ENCODING));
+        d->m_document->infoBar()->removeInfo(Core::Id(Constants::SELECT_ENCODING));
     }
 }
 
@@ -1016,9 +1015,11 @@ void BaseTextEditorWidget::insertLineAbove()
 {
     QTextCursor cursor = textCursor();
     cursor.beginEditBlock();
-    cursor.movePosition(QTextCursor::PreviousBlock, QTextCursor::MoveAnchor);
-    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::MoveAnchor);
+    // If the cursor is at the beginning of the document,
+    // it should still insert a line above the current line.
+    cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::MoveAnchor);
     cursor.insertBlock();
+    cursor.movePosition(QTextCursor::PreviousBlock, QTextCursor::MoveAnchor);
     indent(document(), cursor, QChar::Null);
     cursor.endEditBlock();
     setTextCursor(cursor);
@@ -2230,7 +2231,7 @@ bool BaseTextEditorWidget::restoreState(const QByteArray &state)
         stream >> collapsedBlocks;
         QTextDocument *doc = document();
         bool layoutChanged = false;
-        foreach(int blockNumber, collapsedBlocks) {
+        foreach (int blockNumber, collapsedBlocks) {
             QTextBlock block = doc->findBlockByNumber(qMax(0, blockNumber));
             if (block.isValid()) {
                 BaseTextDocumentLayout::doFoldOrUnfold(block, false);
@@ -4392,7 +4393,7 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
             emit editor()->markTooltipRequested(editor(), mapToGlobal(e->pos()), line);
         }
 
-        if (e->buttons() & Qt::LeftButton) {
+        if (e->buttons() & Qt::LeftButton && !d->m_markDragStart.isNull()) {
             int dist = (e->pos() - d->m_markDragStart).manhattanLength();
             if (dist > QApplication::startDragDistance())
                 d->m_markDragging = true;
@@ -4429,7 +4430,17 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
             } else {
                 d->extraAreaToggleMarkBlockNumber = cursor.blockNumber();
                 d->m_markDragging = false;
-                d->m_markDragStart = e->pos();
+                QTextBlock block = cursor.document()->findBlockByNumber(d->extraAreaToggleMarkBlockNumber);
+                if (TextBlockUserData *data = static_cast<TextBlockUserData *>(block.userData())) {
+                    TextMarks marks = data->marks();
+                    for (int i = marks.size(); --i >= 0; ) {
+                        ITextMark *mark = marks.at(i);
+                        if (mark->isDraggable()) {
+                            d->m_markDragStart = e->pos();
+                            break;
+                        }
+                    }
+                }
             }
         }
     } else if (d->extraAreaSelectionAnchorBlockNumber >= 0) {
@@ -4466,6 +4477,7 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
             const bool sameLine = cursor.blockNumber() == n;
             const bool wasDragging = d->m_markDragging;
             d->m_markDragging = false;
+            d->m_markDragStart = QPoint();
             QTextBlock block = cursor.document()->findBlockByNumber(n);
             if (TextBlockUserData *data = static_cast<TextBlockUserData *>(block.userData())) {
                 TextMarks marks = data->marks();
@@ -4545,12 +4557,12 @@ const TabSettings &BaseTextEditorWidget::tabSettings() const
     return d->m_document->tabSettings();
 }
 
-void BaseTextEditorWidget::setLanguageSettingsId(const QString &settingsId)
+void BaseTextEditorWidget::setLanguageSettingsId(Core::Id settingsId)
 {
     d->m_tabSettingsId = settingsId;
 }
 
-QString BaseTextEditorWidget::languageSettingsId() const
+Core::Id BaseTextEditorWidget::languageSettingsId() const
 {
     return d->m_tabSettingsId;
 }
@@ -5091,18 +5103,18 @@ void BaseTextEditorWidget::_q_matchParentheses()
             extraSelections.append(sel);
         } else {
 
-            if (d->m_displaySettings.m_animateMatchingParentheses)
-                animatePosition = backwardMatch.selectionStart();
-
             sel.cursor = backwardMatch;
             sel.format = d->m_matchFormat;
 
             sel.cursor.setPosition(backwardMatch.selectionStart());
-            sel.cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+            sel.cursor.setPosition(sel.cursor.position() + 1, QTextCursor::KeepAnchor);
             extraSelections.append(sel);
 
+            if (d->m_displaySettings.m_animateMatchingParentheses && sel.cursor.block().isVisible())
+                animatePosition = backwardMatch.selectionStart();
+
             sel.cursor.setPosition(backwardMatch.selectionEnd());
-            sel.cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
+            sel.cursor.setPosition(sel.cursor.position() - 1, QTextCursor::KeepAnchor);
             extraSelections.append(sel);
         }
     }
@@ -5115,19 +5127,19 @@ void BaseTextEditorWidget::_q_matchParentheses()
             extraSelections.append(sel);
         } else {
 
-            if (d->m_displaySettings.m_animateMatchingParentheses)
-                animatePosition = forwardMatch.selectionEnd()-1;
-
             sel.cursor = forwardMatch;
             sel.format = d->m_matchFormat;
 
             sel.cursor.setPosition(forwardMatch.selectionStart());
-            sel.cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+            sel.cursor.setPosition(sel.cursor.position() + 1, QTextCursor::KeepAnchor);
             extraSelections.append(sel);
 
             sel.cursor.setPosition(forwardMatch.selectionEnd());
-            sel.cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
+            sel.cursor.setPosition(sel.cursor.position() - 1, QTextCursor::KeepAnchor);
             extraSelections.append(sel);
+
+            if (d->m_displaySettings.m_animateMatchingParentheses && sel.cursor.block().isVisible())
+                animatePosition = forwardMatch.selectionEnd() - 1;
         }
     }
 
@@ -6139,7 +6151,7 @@ void BaseTextEditorWidget::appendStandardContextMenuActions(QMenu *menu)
         menu->addAction(a);
 
     BaseTextDocument *doc = baseTextDocument();
-    if (doc->codec()->name() == QString(QLatin1String("UTF-8"))) {
+    if (doc->codec()->name() == QByteArray("UTF-8")) {
         a = Core::ActionManager::command(Constants::SWITCH_UTF8BOM)->action();
         if (a && a->isEnabled()) {
             a->setText(doc->format().hasUtf8Bom ? tr("Delete UTF-8 BOM on Save")

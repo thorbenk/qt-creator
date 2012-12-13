@@ -89,12 +89,12 @@
 #if !(USE_AUTOBREAK)
 #undef USE_AUTOBREAK
 #define USE_AUTOBREAK 1
-#warning Switching on USE_AUTOBREAK
+#pragma message ("Switching on USE_AUTOBREAK")
 #endif // !USE_AUTOBREAK
 #if USE_UNINITIALIZED_AUTOBREAK
 #undef USE_UNINITIALIZED_AUTOBREAK
 #define USE_UNINITIALIZED_AUTOBREAK 0
-#warning Switching off USE_AUTOBREAK
+#pragma message ("Switching off USE_UNINITIALIZED_AUTOBREAK")
 #endif // USE_UNINITIALIZED_AUTOBREAK
 #endif
 
@@ -3676,11 +3676,22 @@ namespace qstring  {
         dummyStatement(&str, &string, pstring);
     }
 
+    void testQStringRef()
+    {
+        QString str = "Hello";
+        QStringRef ref(&str, 1, 2);
+        BREAK_HERE;
+        // Check ref "el" QString.
+        // Continue.
+        dummyStatement(&str, &ref);
+    }
+
     void testQString()
     {
         testQString1();
         testQString2();
         testQString3();
+        testQStringRef();
         testQStringQuotes();
     }
 

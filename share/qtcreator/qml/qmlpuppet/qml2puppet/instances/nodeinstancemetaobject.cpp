@@ -109,15 +109,6 @@ static QQmlPropertyCache *cacheForObject(QObject *object, QQmlEngine *engine)
     return QQmlEnginePrivate::get(engine)->cache(object);
 }
 
-static QAbstractDynamicMetaObject *abstractDynamicMetaObject(QObject *object)
-{
-    QObjectPrivate *op = QObjectPrivate::get(object);
-    if (op->metaObject)
-        return static_cast<QAbstractDynamicMetaObject *>(op->metaObject);
-    return const_cast<QAbstractDynamicMetaObject *>(static_cast<const QAbstractDynamicMetaObject *>(object->metaObject()));
-}
-
-
 NodeInstanceMetaObject *NodeInstanceMetaObject::createNodeInstanceMetaObject(const ObjectNodeInstancePointer &nodeInstance, QQmlEngine *engine)
 {
     //Avoid setting up multiple NodeInstanceMetaObjects on the same QObject
@@ -154,12 +145,14 @@ void NodeInstanceMetaObject::init(QObject *object, QQmlEngine *engine)
 
     //create cache
     cache = m_cache = QQmlEnginePrivate::get(engine)->cache(this);
+    cache->addref();
 
     //If our parent is not a VMEMetaObject we just se the flag to false again
     if (constructedMetaData(metaData))
         QQmlData::get(object)->hasVMEMetaObject = false;
 
     nodeInstanceMetaObjectList.insert(this, true);
+    hasAssignedMetaObjectData = true;
 }
 
 NodeInstanceMetaObject::NodeInstanceMetaObject(const ObjectNodeInstance::Pointer &nodeInstance, QQmlEngine *engine)
@@ -175,15 +168,18 @@ NodeInstanceMetaObject::NodeInstanceMetaObject(const ObjectNodeInstance::Pointer
 
     //Assign cache to object
     if (ddata && ddata->propertyCache) {
+        cache->setParent(ddata->propertyCache);
+        cache->invalidate(engine, this);
         ddata->propertyCache = m_cache;
     }
+
 }
 
 NodeInstanceMetaObject::NodeInstanceMetaObject(const ObjectNodeInstancePointer &nodeInstance, QObject *object, const QString &prefix, QQmlEngine *engine)
     : QQmlVMEMetaObject(object, cacheForObject(object, engine), vMEMetaDataForObject(object)),
       m_nodeInstance(nodeInstance),
-      m_context(engine->contextForObject(object)),
       m_prefix(prefix),
+      m_context(engine->contextForObject(object)),
 
       m_data(new MetaPropertyData),
       m_cache(0)
@@ -193,6 +189,9 @@ NodeInstanceMetaObject::NodeInstanceMetaObject(const ObjectNodeInstancePointer &
 
 NodeInstanceMetaObject::~NodeInstanceMetaObject()
 {
+    if (cache->count() > 1) // qml is chrashing because the property cache is not removed from the engine
+        cache->release();
+    else
     m_type->release();
 
     nodeInstanceMetaObjectList.remove(this);
@@ -207,7 +206,9 @@ void NodeInstanceMetaObject::createNewProperty(const QString &name)
 
 
     //Updating cache
+    QQmlPropertyCache *oldParent = m_cache->parent();
     QQmlEnginePrivate::get(m_context->engine())->cache(this)->invalidate(m_context->engine(), this);
+    m_cache->setParent(oldParent);
 
     QQmlProperty property(myObject(), name, m_context);
     Q_ASSERT(property.isValid());

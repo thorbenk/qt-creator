@@ -133,7 +133,7 @@ enum { debugLeaks = 0 };
     invokable methods of the "provider" object in the object pool.
 
     The \c{ExtensionSystem::invoke} function template encapsulates
-    {ExtensionSystem::Invoker} construction for the common case where 
+    {ExtensionSystem::Invoker} construction for the common case where
     the success of the call is not checked.
 
     \code
@@ -669,7 +669,7 @@ void PluginManager::startTests()
             continue;
         const QMetaObject *mo = pluginSpec->plugin()->metaObject();
         QStringList methods;
-        methods.append("arg0");
+        methods.append(QLatin1String("arg0"));
         // We only want slots starting with "test"
         for (int i = mo->methodOffset(); i < mo->methodCount(); ++i) {
 #if QT_VERSION >= 0x050000
@@ -710,8 +710,8 @@ QString PluginManager::testDataDirectory()
     QByteArray ba = qgetenv("QTCREATOR_TEST_DIR");
     QString s = QString::fromLocal8Bit(ba.constData(), ba.size());
     if (s.isEmpty()) {
-        s = IDE_TEST_DIR;
-        s.append("/tests");
+        s = QLatin1String(IDE_TEST_DIR);
+        s.append(QLatin1String("/tests"));
     }
     s = QDir::cleanPath(s);
     return s;
@@ -840,7 +840,7 @@ void PluginManagerPrivate::writeSettings()
         return;
     QStringList tempDisabledPlugins;
     QStringList tempForceEnabledPlugins;
-    foreach(PluginSpec *spec, pluginSpecs) {
+    foreach (PluginSpec *spec, pluginSpecs) {
         if (!spec->isDisabledByDefault() && !spec->isEnabled())
             tempDisabledPlugins.append(spec->name());
         if (spec->isDisabledByDefault() && spec->isEnabled())
@@ -1173,7 +1173,7 @@ void PluginManagerPrivate::readPluginPaths()
             searchPaths << subdir.absoluteFilePath();
     }
     defaultCollection = new PluginCollection(QString());
-    pluginCategories.insert("", defaultCollection);
+    pluginCategories.insert(QString(), defaultCollection);
 
     foreach (const QString &specFile, specFiles) {
         PluginSpec *spec = new PluginSpec;

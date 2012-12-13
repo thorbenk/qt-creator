@@ -40,9 +40,9 @@
 
 using namespace TextEditor;
 
-static const char *codeStyleDataKey = "CodeStyleData";
-static const char *displayNameKey = "DisplayName";
-static const char *codeStyleDocKey = "QtCreatorCodeStyle";
+static const char codeStyleDataKey[] = "CodeStyleData";
+static const char displayNameKey[] = "DisplayName";
+static const char codeStyleDocKey[] = "QtCreatorCodeStyle";
 
 namespace TextEditor {
 namespace Internal {
@@ -115,7 +115,7 @@ CodeStylePool::~CodeStylePool()
 
 QString CodeStylePool::settingsDir() const
 {
-    const QString suffix = d->m_factory ? d->m_factory->languageId() : QLatin1String("default");
+    const QString suffix = d->m_factory ? d->m_factory->languageId().toString() : QLatin1String("default");
     return customCodeStylesPath().append(suffix);
 }
 

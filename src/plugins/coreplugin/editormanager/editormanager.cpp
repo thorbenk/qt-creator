@@ -833,7 +833,7 @@ bool EditorManager::closeEditors(const QList<IEditor*> &editorsToClose, bool ask
 
     // add duplicates
     QList<IEditor *> duplicates;
-    foreach(IEditor *editor, acceptedEditors)
+    foreach (IEditor *editor, acceptedEditors)
         duplicates += d->m_editorModel->duplicatesFor(editor);
     acceptedEditors += duplicates;
 
@@ -915,7 +915,7 @@ void EditorManager::closeDuplicate(Core::IEditor *editor)
 
     emit editorAboutToClose(editor);
 
-    if(d->m_splitter->findView(editor)) {
+    if (d->m_splitter->findView(editor)) {
         EditorView *view = d->m_splitter->findView(editor)->view();
         removeEditor(editor);
         view->removeEditor(editor);
@@ -1107,7 +1107,7 @@ template <class EditorFactoryLike>
 EditorFactoryLike *findById(const Core::Id &id)
 {
     const QList<EditorFactoryLike *> factories = ExtensionSystem::PluginManager::getObjects<EditorFactoryLike>();
-    foreach(EditorFactoryLike *efl, factories)
+    foreach (EditorFactoryLike *efl, factories)
         if (id == efl->id())
             return efl;
     return 0;
@@ -1274,9 +1274,13 @@ IEditor *EditorManager::openEditor(Core::Internal::EditorView *view, const QStri
         qDebug() << Q_FUNC_INFO << fileName << editorId.name();
 
     QString fn = fileName;
+    QFileInfo fi(fn);
     int lineNumber = -1;
-    if (flags && EditorManager::CanContainLineNumber)
+    if ((flags & EditorManager::CanContainLineNumber) && !fi.exists()) {
         lineNumber = extractLineNumber(&fn);
+        if (lineNumber != -1)
+            fi.setFile(fn);
+    }
 
     if (fn.isEmpty())
         return 0;
@@ -1287,13 +1291,12 @@ IEditor *EditorManager::openEditor(Core::Internal::EditorView *view, const QStri
     const QList<IEditor *> editors = editorsForFileName(fn);
     if (!editors.isEmpty()) {
         IEditor *editor = editors.first();
-        if (flags && EditorManager::CanContainLineNumber)
+        if (flags & EditorManager::CanContainLineNumber)
             editor->gotoLine(lineNumber, -1);
         return activateEditor(view, editor, flags);
     }
 
     QString realFn = autoSaveName(fn);
-    QFileInfo fi(fn);
     QFileInfo rfi(realFn);
     if (!fi.exists() || !rfi.exists() || fi.lastModified() >= rfi.lastModified()) {
         QFile::remove(realFn);
@@ -1327,7 +1330,7 @@ IEditor *EditorManager::openEditor(Core::Internal::EditorView *view, const QStri
     if (editor == result)
         restoreEditorState(editor);
 
-    if (flags && EditorManager::CanContainLineNumber)
+    if (flags & EditorManager::CanContainLineNumber)
         editor->gotoLine(lineNumber, -1);
 
     QApplication::restoreOverrideCursor();
@@ -1711,19 +1714,19 @@ void EditorManager::updateMakeWritableWarning()
         if (ww) {
             // we are about to change a read-only file, warn user
             if (promptVCS) {
-                InfoBarEntry info(QLatin1String(kMakeWritableWarning),
+                InfoBarEntry info(Id(kMakeWritableWarning),
                                   tr("<b>Warning:</b> This file was not opened in %1 yet.")
                                   .arg(versionControl->displayName()));
                 info.setCustomButtonInfo(tr("Open"), this, SLOT(vcsOpenCurrentEditor()));
                 curEditor->document()->infoBar()->addInfo(info);
             } else {
-                InfoBarEntry info(QLatin1String(kMakeWritableWarning),
+                InfoBarEntry info(Id(kMakeWritableWarning),
                                   tr("<b>Warning:</b> You are changing a read-only file."));
                 info.setCustomButtonInfo(tr("Make Writable"), this, SLOT(makeCurrentEditorWritable()));
                 curEditor->document()->infoBar()->addInfo(info);
             }
         } else {
-            curEditor->document()->infoBar()->removeInfo(QLatin1String(kMakeWritableWarning));
+            curEditor->document()->infoBar()->removeInfo(Id(kMakeWritableWarning));
         }
     }
 }

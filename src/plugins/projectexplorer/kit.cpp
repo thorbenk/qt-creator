@@ -63,10 +63,10 @@ namespace ProjectExplorer {
 static QString cleanName(const QString &name)
 {
     QString result = name;
-    result.replace(QRegExp("\\W"), QLatin1String("_"));
-    result.replace(QRegExp("_+"), "_"); // compact _
-    result.remove(QRegExp("^_*")); // remove leading _
-    result.remove(QRegExp("_+$")); // remove trailing _
+    result.replace(QRegExp(QLatin1String("\\W")), QLatin1String("_"));
+    result.replace(QRegExp(QLatin1String("_+")), QLatin1String("_")); // compact _
+    result.remove(QRegExp(QLatin1String("^_*"))); // remove leading _
+    result.remove(QRegExp(QLatin1String("_+$"))); // remove trailing _
     if (result.isEmpty())
         result = QLatin1String("unknown");
     return result;
@@ -89,7 +89,7 @@ public:
         m_mustNotify(false)
     {
         if (!id.isValid())
-            m_id = Core::Id(QUuid::createUuid().toString().toLatin1().constData());
+            m_id = Core::Id(QUuid::createUuid().toString().toLatin1());
     }
 
     QString m_displayName;
@@ -207,7 +207,11 @@ static QString candidateName(const QString &name, const QString &postfix)
 {
     if (name.contains(postfix))
         return QString();
-    return name + QLatin1Char('-') + postfix;
+    QString candidate = name;
+    if (!candidate.isEmpty())
+        candidate.append(QLatin1Char('-'));
+    candidate.append(postfix);
+    return candidate;
 }
 
 void Kit::setDisplayName(const QString &name)
@@ -216,6 +220,7 @@ void Kit::setDisplayName(const QString &name)
     QList<KitInformation *> kitInfo = km->kitInformation();
 
     QStringList nameList;
+    nameList << QString(); // Disallow empty kit names!
     foreach (Kit *k, km->kits()) {
         if (k == this)
             continue;

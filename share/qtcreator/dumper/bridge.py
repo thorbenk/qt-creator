@@ -5,6 +5,19 @@ cdbLoaded = False
 lldbLoaded = False
 gdbLoaded = False
 
+def warn(message):
+    print "XXX: %s\n" % message.encode("latin1")
+
+
+def showException(msg, exType, exValue, exTraceback):
+    warn("**** CAUGHT EXCEPTION: %s ****" % msg)
+    try:
+        import traceback
+        for line in traceback.format_exception(exType, exValue, exTraceback):
+            warn("%s" % line)
+    except:
+        pass
+
 try:
     #import cdb_bridge
     cdbLoaded = True
@@ -42,28 +55,28 @@ try:
     #
     #######################################################################
 
+    def savePrint(output):
+        try:
+            print(output)
+        except:
+            out = ""
+            for c in output:
+                cc = ord(c)
+                if cc > 127:
+                    out += "\\\\%d" % cc
+                elif cc < 0:
+                    out += "\\\\%d" % (cc + 256)
+                else:
+                    out += c
+            print(out)
+
     def registerCommand(name, func):
 
         class Command(gdb.Command):
             def __init__(self):
                 super(Command, self).__init__(name, gdb.COMMAND_OBSCURE)
             def invoke(self, args, from_tty):
-                output = func(args)
-                try:
-                    print(output)
-                except:
-                    out = ""
-                    for c in output:
-                        cc = ord(c)
-                        if cc > 127:
-                            out += "\\\\%d" % cc
-                        elif cc < 0:
-                            out += "\\\\%d" % (cc + 256)
-                        else:
-                            out += c
-                    print(out)
-
-
+                savePrint(func(args))
 
         Command()
 
@@ -78,16 +91,16 @@ try:
         if isGoodGdb():
             return gdb.parse_and_eval(exp)
         # Work around non-existing gdb.parse_and_eval as in released 7.0
-        gdb.execute("set logging redirect on")
+#        gdb.execute("set logging redirect on")
         gdb.execute("set logging on")
         try:
             gdb.execute("print %s" % exp)
         except:
             gdb.execute("set logging off")
-            gdb.execute("set logging redirect off")
+#            gdb.execute("set logging redirect off")
             return None
         gdb.execute("set logging off")
-        gdb.execute("set logging redirect off")
+#        gdb.execute("set logging redirect off")
         return gdb.history(0)
 
 
@@ -193,9 +206,9 @@ try:
             #warn("VARLIST: %s " % varList)
             #warn("FILENAME: %s " % filename)
             gdb.execute("set logging off")
-            gdb.execute("set logging redirect off")
+#            gdb.execute("set logging redirect off")
             gdb.execute("set logging file %s" % filename)
-            gdb.execute("set logging redirect on")
+#            gdb.execute("set logging redirect on")
             gdb.execute("set logging on")
             try:
                 gdb.execute("info args")
@@ -215,7 +228,7 @@ try:
             except:
                 pass
             gdb.execute("set logging off")
-            gdb.execute("set logging redirect off")
+#            gdb.execute("set logging redirect off")
 
             try:
                 temp = open(filename, "r")
@@ -262,9 +275,9 @@ try:
             pass
         filename = createTempFile()
         gdb.execute("set logging off")
-        gdb.execute("set logging redirect off")
+#        gdb.execute("set logging redirect off")
         gdb.execute("set logging file %s" % filename)
-        gdb.execute("set logging redirect on")
+#        gdb.execute("set logging redirect on")
         gdb.execute("set logging on")
         msg = ""
         try:
@@ -276,7 +289,7 @@ try:
         except:
             msg = "Unknown error"
         gdb.execute("set logging off")
-        gdb.execute("set logging redirect off")
+#        gdb.execute("set logging redirect off")
         if len(msg):
             # Having that might confuse result handlers in the gdbengine.
             #warn("CLI ERROR: %s " % msg)
@@ -384,8 +397,8 @@ try:
         def invoke(self, args, from_tty):
             print(eval(args))
 
-    registerCommand("pp", pp)
-        
+    PPCommand()
+
     # Just convienience for 'python print gdb.parse_and_eval(...)'
     class PPPCommand(gdb.Command):
         def __init__(self):
@@ -394,6 +407,29 @@ try:
             print(gdb.parse_and_eval(args))
 
     PPPCommand()
+
+
+    def scanStack(p, n):
+        p = long(p)
+        r = []
+        for i in xrange(n):
+            f = gdb.parse_and_eval("{void*}%s" % p)
+            m = gdb.execute("info symbol %s" % f, to_string=True)
+            if not m.startswith("No symbol matches"):
+                r.append(m)
+            p += f.type.sizeof
+        return r
+
+    class ScanStackCommand(gdb.Command):
+        def __init__(self):
+            super(ScanStackCommand, self).__init__("scanStack", gdb.COMMAND_OBSCURE)
+        def invoke(self, args, from_tty):
+            if len(args) == 0:
+                args = 20
+            savePrint(scanStack(gdb.parse_and_eval("$sp"), int(args)))
+
+    ScanStackCommand()
+
 
 except:
     pass

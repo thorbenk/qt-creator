@@ -45,10 +45,10 @@ public:
         if (Utils::HostOsInfo::isLinuxHost()) {
             QString ldLibraryPath = value(QLatin1String("LD_LIBRARY_PATH"));
             QDir lib(QCoreApplication::applicationDirPath());
-            lib.cd("../lib");
+            lib.cd(QLatin1String("../lib"));
             QString toReplace = lib.path();
-            lib.cd("qtcreator");
-            toReplace.append(QLatin1String(":"));
+            lib.cd(QLatin1String("qtcreator"));
+            toReplace.append(QLatin1Char(':'));
             toReplace.append(lib.path());
 
             if (ldLibraryPath.startsWith(toReplace))

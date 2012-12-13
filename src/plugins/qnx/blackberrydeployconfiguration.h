@@ -54,20 +54,18 @@ public:
     explicit BlackBerryDeployConfiguration(ProjectExplorer::Target *parent);
     virtual ~BlackBerryDeployConfiguration();
 
-    ProjectExplorer::DeployConfigurationWidget *configurationWidget() const;
+    ProjectExplorer::NamedWidget *createConfigWidget();
 
     BlackBerryDeployInformation *deploymentInfo() const;
-
-    QString deviceHost() const;
-    QString password() const;
-    QString deviceName() const;
 
 protected:
     BlackBerryDeployConfiguration(ProjectExplorer::Target *parent, BlackBerryDeployConfiguration *source);
 
+private slots:
+    void setupBarDescriptor();
+
 private:
     void ctor();
-    void setupBarDescriptor();
     void addBarDescriptorToProject(const QString& barDescriptorPath);
 };
 

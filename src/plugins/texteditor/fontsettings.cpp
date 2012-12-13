@@ -53,13 +53,13 @@ static const bool DEFAULT_ANTIALIAS = true;
 
 #ifdef Q_OS_MAC
     enum { DEFAULT_FONT_SIZE = 12 };
-    static const char *DEFAULT_FONT_FAMILY = "Monaco";
+    static const char DEFAULT_FONT_FAMILY[] = "Monaco";
 #elif defined(Q_OS_UNIX)
     enum { DEFAULT_FONT_SIZE = 9 };
-    static const char *DEFAULT_FONT_FAMILY = "Monospace";
+    static const char DEFAULT_FONT_FAMILY[] = "Monospace";
 #else
     enum { DEFAULT_FONT_SIZE = 10 };
-    static const char *DEFAULT_FONT_FAMILY = "Courier";
+    static const char DEFAULT_FONT_FAMILY[] = "Courier";
 #endif
 } // anonymous namespace
 
@@ -132,7 +132,7 @@ bool FontSettings::fromSettings(const QString &category,
         // Load color scheme from ini file
         foreach (const FormatDescription &desc, descriptions) {
             const TextStyle id = desc.id();
-            const QString fmt = s->value(group + Constants::nameForStyle(id), QString()).toString();
+            const QString fmt = s->value(group + QLatin1String(Constants::nameForStyle(id)), QString()).toString();
             Format format;
             if (fmt.isEmpty()) {
                 format.setForeground(desc.foreground());
@@ -260,6 +260,12 @@ void FontSettings::setAntialias(bool antialias)
  * Returns the format for the given font category.
  */
 Format &FontSettings::formatFor(TextStyle category)
+
+{
+    return m_scheme.formatFor(category);
+}
+
+Format FontSettings::formatFor(TextStyle category) const
 {
     return m_scheme.formatFor(category);
 }

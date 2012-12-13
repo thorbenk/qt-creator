@@ -76,7 +76,6 @@ public:
         // so operate on a temporary list
         QList<KitNode *> tmp = childNodes;
         qDeleteAll(tmp);
-        Q_ASSERT(childNodes.isEmpty());
     }
 
     KitNode *parent;
@@ -93,8 +92,6 @@ KitModel::KitModel(QBoxLayout *parentLayout, QObject *parent) :
     m_parentLayout(parentLayout),
     m_defaultNode(0)
 {
-    Q_ASSERT(m_parentLayout);
-
     connect(KitManager::instance(), SIGNAL(kitAdded(ProjectExplorer::Kit*)),
             this, SLOT(addKit(ProjectExplorer::Kit*)));
     connect(KitManager::instance(), SIGNAL(kitRemoved(ProjectExplorer::Kit*)),
@@ -156,7 +153,7 @@ int KitModel::columnCount(const QModelIndex &parent) const
 
 QVariant KitModel::data(const QModelIndex &index, int role) const
 {
-    static QIcon warningIcon(":/projectexplorer/images/compile_warning.png");
+    static QIcon warningIcon(QLatin1String(":/projectexplorer/images/compile_warning.png"));
 
     if (!index.isValid() || index.column() != 0)
         return QVariant();
@@ -196,7 +193,6 @@ Qt::ItemFlags KitModel::flags(const QModelIndex &index) const
         return 0;
 
     KitNode *node = static_cast<KitNode *>(index.internalPointer());
-    Q_ASSERT(node);
     if (!node->widget)
         return Qt::ItemIsEnabled;
 
@@ -216,7 +212,6 @@ Kit *KitModel::kit(const QModelIndex &index)
     if (!index.isValid())
         return 0;
     KitNode *node = static_cast<KitNode *>(index.internalPointer());
-    Q_ASSERT(node);
     return node->widget->workingCopy();
 }
 
@@ -231,7 +226,6 @@ void KitModel::setDefaultKit(const QModelIndex &index)
     if (!index.isValid())
         return;
     KitNode *node = static_cast<KitNode *>(index.internalPointer());
-    Q_ASSERT(node);
     if (node->widget)
         setDefaultNode(node);
 }
@@ -246,7 +240,6 @@ KitManagerConfigWidget *KitModel::widget(const QModelIndex &index)
     if (!index.isValid())
         return 0;
     KitNode *node = static_cast<KitNode *>(index.internalPointer());
-    Q_ASSERT(node);
     return node->widget;
 }
 
@@ -284,10 +277,11 @@ void KitModel::apply()
         Q_ASSERT(!n->parent);
         n->widget->removeKit();
     }
-    Q_ASSERT(m_toRemoveList.isEmpty());
 
     // Update kits:
-    foreach (KitNode *n, m_manualRoot->childNodes) {
+    nodes = m_autoRoot->childNodes; // These can be dirty due to being made default!
+    nodes.append(m_manualRoot->childNodes);
+    foreach (KitNode *n, nodes) {
         Q_ASSERT(n);
         Q_ASSERT(n->widget);
         if (n->widget->isDirty()) {
@@ -330,7 +324,9 @@ Kit *KitModel::markForAddition(Kit *baseKit)
     KitNode *node = createNode(m_manualRoot, 0);
     if (baseKit) {
         Kit *k = node->widget->workingCopy();
+        KitGuard g(k);
         k->copyFrom(baseKit);
+        k->setAutoDetected(false); // Make sure we have a manual kit!
         k->setDisplayName(tr("Clone of %1").arg(k->displayName()));
     }
 
@@ -368,8 +364,7 @@ KitNode *KitModel::findWorkingCopy(Kit *k) const
 KitNode *KitModel::createNode(KitNode *parent, Kit *k)
 {
     KitNode *node = new KitNode(parent, k);
-    node->widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    m_parentLayout->addWidget(node->widget, 2);
+    m_parentLayout->addWidget(node->widget);
     connect(node->widget, SIGNAL(dirty()), this, SLOT(setDirty()));
     return node;
 }

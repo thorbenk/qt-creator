@@ -7,7 +7,8 @@ QtcLibrary {
     cpp.includePaths: base.concat("parser")
     cpp.defines: base.concat([
         "QMLJS_BUILD_DIR",
-        "QT_CREATOR"
+        "QT_CREATOR",
+        "QT_NO_CAST_FROM_ASCII"
     ])
     cpp.optimization: "fast"
 
@@ -96,6 +97,8 @@ QtcLibrary {
         "parser/qmljsmemorypool_p.h",
         "parser/qmljsparser.cpp",
         "parser/qmljsparser_p.h",
+        "persistenttrie.cpp",
+        "persistenttrie.h",
         "consolemanagerinterface.cpp",
         "consolemanagerinterface.h",
         "consoleitem.cpp",

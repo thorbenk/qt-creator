@@ -561,7 +561,7 @@ void PerforcePlugin::updateCheckout(const QString &workingDir, const QStringList
             perforceVersionControl()->emitRepositoryChanged(workingDir);
     } else {
         const QChar slash = QLatin1Char('/');
-        foreach(const QString &dir, dirs)
+        foreach (const QString &dir, dirs)
             perforceVersionControl()->emitRepositoryChanged(workingDir + slash + dir);
     }
 }
@@ -797,7 +797,7 @@ void PerforcePlugin::updateActions(VcsBase::VcsBasePlugin::ActionState as)
 {
     if (!enableMenuAction(as, m_menuAction)) {
         m_commandLocator->setEnabled(false);
-        return;        
+        return;
     }
     const bool hasTopLevel = currentState().hasTopLevel();
     m_commandLocator->setEnabled(hasTopLevel);
@@ -864,7 +864,7 @@ bool PerforcePlugin::managesDirectoryFstat(const QString &directory)
                                                  RunFullySynchronous);
         managed = result.stdOut.contains(QLatin1String("depotFile"))
                   || result.stdErr.contains(QLatin1String("... - no such file(s)"));
-    } while(false);
+    } while (false);
 
     m_managedDirectoryCache.insert(directory, managed);
     return managed;
@@ -1172,7 +1172,7 @@ Core::IEditor *PerforcePlugin::showOutputInEditor(const QString &title, const QS
 {
     const VcsBase::VcsBaseEditorParameters *params = findType(editorType);
     QTC_ASSERT(params, return 0);
-    const Core::Id id(params->id);
+    const Core::Id id = Core::Id(QByteArray(params->id));
     if (Perforce::Constants::debug)
         qDebug() << "PerforcePlugin::showOutputInEditor" << title << id.name()
                  <<  "Size= " << output.size() <<  " Type=" << editorType << debugCodec(codec);

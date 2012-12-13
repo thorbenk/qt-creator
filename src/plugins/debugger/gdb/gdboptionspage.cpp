@@ -77,6 +77,7 @@ public:
     QCheckBox *checkBoxEnableReverseDebugging;
     QCheckBox *checkBoxAttemptQuickStart;
     QCheckBox *checkBoxMultiInferior;
+    QCheckBox *checkBoxIntelFlavor;
 
     QGroupBox *groupBoxStartupCommands;
     QTextEdit *textEditStartupCommands;
@@ -216,13 +217,24 @@ GdbOptionsPageWidget::GdbOptionsPageWidget(QWidget *parent)
         "<html><head/><body>Keep debugging all children after a fork."
         "</body></html>"));
 
+    checkBoxIntelFlavor = new QCheckBox(groupBoxGeneral);
+    checkBoxIntelFlavor->setText(GdbOptionsPage::tr("Use Intel style disassembly"));
+    checkBoxIntelFlavor->setToolTip(GdbOptionsPage::tr(
+        "<html><head/><body>GDB shows by default AT&&T style disassembly."
+        "</body></html>"));
+
     groupBoxStartupCommands = new QGroupBox(this);
     groupBoxStartupCommands->setTitle(GdbOptionsPage::tr("Additional Startup Commands"));
     groupBoxStartupCommands->setToolTip(GdbOptionsPage::tr(
         "<html><head/><body><p>GDB commands entered here will be executed after "
         "GDB has been started and the debugging helpers have been initialized.</p>"
         "<p>You can add commands to load further debugging helpers here, or "
-        "modify existing ones.</p><p>To execute arbitrary Python scripts, "
+        "modify existing ones.</p>"
+        "<p>To execute simple Python commands, prefix them with \"python\".</p>"
+        "<p>To execute sequences of Python commands spanning multiple lines "
+        "prepend the block with \"python\" on a separate line, and append "
+        "\"end\" on a separate line.</p>"
+        "<p>To execute arbitrary Python scripts, "
         "use <i>python execfile('/path/to/script.py')</i>.</p>"
         "</body></html>"));
 
@@ -277,6 +289,7 @@ GdbOptionsPageWidget::GdbOptionsPageWidget(QWidget *parent)
     formLayout->addRow(checkBoxUseDynamicType);
     formLayout->addRow(checkBoxLoadGdbInit);
     formLayout->addRow(checkBoxWarnOnReleaseBuilds);
+    formLayout->addRow(checkBoxIntelFlavor);
     formLayout->addRow(new QLabel(QString()));
     formLayout->addRow(labelDangerous);
     formLayout->addRow(checkBoxTargetAsync);
@@ -327,6 +340,7 @@ GdbOptionsPageWidget::GdbOptionsPageWidget(QWidget *parent)
     group.insert(dc->action(GdbWatchdogTimeout), spinBoxGdbWatchdogTimeout);
     group.insert(dc->action(AttemptQuickStart), checkBoxAttemptQuickStart);
     group.insert(dc->action(MultiInferior), checkBoxMultiInferior);
+    group.insert(dc->action(IntelFlavor), checkBoxIntelFlavor);
 
     group.insert(dc->action(UseMessageBoxForSignals), checkBoxUseMessageBoxForSignals);
     group.insert(dc->action(SkipKnownFrames), checkBoxSkipKnownFrames);

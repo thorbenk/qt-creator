@@ -105,11 +105,10 @@ void GenericBuildConfiguration::setBuildDirectory(const QString &buildDirectory)
     emit buildDirectoryChanged();
 }
 
-BuildConfigWidget *GenericBuildConfiguration::createConfigWidget()
+NamedWidget *GenericBuildConfiguration::createConfigWidget()
 {
-    return new GenericBuildSettingsWidget;
+    return new GenericBuildSettingsWidget(this);
 }
-
 
 /*!
   \class GenericBuildConfigurationFactory
@@ -230,7 +229,8 @@ BuildConfiguration::BuildType GenericBuildConfiguration::buildType() const
 // GenericBuildSettingsWidget
 ////////////////////////////////////////////////////////////////////////////////////
 
-GenericBuildSettingsWidget::GenericBuildSettingsWidget() : m_buildConfiguration(0)
+GenericBuildSettingsWidget::GenericBuildSettingsWidget(GenericBuildConfiguration *bc)
+    : m_buildConfiguration(0)
 {
     QFormLayout *fl = new QFormLayout(this);
     fl->setContentsMargins(0, -1, 0, -1);
@@ -241,18 +241,11 @@ GenericBuildSettingsWidget::GenericBuildSettingsWidget() : m_buildConfiguration(
     m_pathChooser->setEnabled(true);
     fl->addRow(tr("Build directory:"), m_pathChooser);
     connect(m_pathChooser, SIGNAL(changed(QString)), this, SLOT(buildDirectoryChanged()));
-}
 
-QString GenericBuildSettingsWidget::displayName() const
-{
-    return tr("Generic Manager");
-}
-
-void GenericBuildSettingsWidget::init(BuildConfiguration *bc)
-{
-    m_buildConfiguration = static_cast<GenericBuildConfiguration *>(bc);
+    m_buildConfiguration = bc;
     m_pathChooser->setBaseDirectory(bc->target()->project()->projectDirectory());
     m_pathChooser->setPath(m_buildConfiguration->rawBuildDirectory());
+    setDisplayName(tr("Generic Manager"));
 }
 
 void GenericBuildSettingsWidget::buildDirectoryChanged()

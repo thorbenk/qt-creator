@@ -580,7 +580,7 @@ Core::IEditor *QmlJSEditorEditable::duplicate(QWidget *parent)
 
 Core::Id QmlJSEditorEditable::id() const
 {
-    return QmlJSEditor::Constants::C_QMLJSEDITOR_ID;
+    return Core::Id(QmlJSEditor::Constants::C_QMLJSEDITOR_ID);
 }
 
 bool QmlJSEditorEditable::open(QString *errorString, const QString &fileName, const QString &realFileName)
@@ -988,7 +988,7 @@ void QmlJSTextEditorWidget::setSelectedElements()
         QList<UiObjectMember *> members = selectedMembers(m_semanticInfo.document,
                                                           startPos, endPos);
         if (!members.isEmpty()) {
-            foreach(UiObjectMember *m, members) {
+            foreach (UiObjectMember *m, members) {
                 offsets << m;
             }
         }
@@ -1128,7 +1128,7 @@ TextEditor::BaseTextEditorWidget::Link QmlJSTextEditorWidget::findLinkAt(const Q
             link.fileName = text;
             return link;
         }
-        const QString relative = QString("%1/%2").arg(
+        const QString relative = QString::fromLatin1("%1/%2").arg(
                     semanticInfo.document->path(),
                     text);
         if (semanticInfo.snapshot.document(relative)) {
@@ -1243,9 +1243,9 @@ void QmlJSTextEditorWidget::contextMenuEvent(QContextMenuEvent *e)
         QMenu *contextMenu = mcontext->menu();
         foreach (QAction *action, contextMenu->actions()) {
             menu->addAction(action);
-            if (action->objectName() == QmlJSEditor::Constants::M_REFACTORING_MENU_INSERTION_POINT)
+            if (action->objectName() == QLatin1String(QmlJSEditor::Constants::M_REFACTORING_MENU_INSERTION_POINT))
                 menu->addMenu(refactoringMenu);
-            if (action->objectName() == QmlJSEditor::Constants::SHOW_QT_QUICK_HELPER) {
+            if (action->objectName() == QLatin1String(QmlJSEditor::Constants::SHOW_QT_QUICK_HELPER)) {
                 bool enabled = m_contextPane->isAvailable(editor(), semanticInfo().document, m_semanticInfo.declaringMemberNoProperties(position()));
                 action->setEnabled(enabled);
             }

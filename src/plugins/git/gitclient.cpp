@@ -68,6 +68,7 @@
 #include <QTime>
 #include <QFileInfo>
 #include <QDir>
+#include <QHash>
 #include <QSignalMapper>
 
 #include <QComboBox>
@@ -392,11 +393,18 @@ QString GitClient::findRepositoryForDirectory(const QString &dir)
 
 QString GitClient::findGitDirForRepository(const QString &repositoryDir)
 {
+    static QHash<QString, QString> repoDirCache;
+    QString &res = repoDirCache[repositoryDir];
+    if (!res.isEmpty())
+        return res;
     QByteArray outputText;
     QStringList arguments;
     arguments << QLatin1String("rev-parse") << QLatin1String("--git-dir");
     fullySynchronousGit(repositoryDir, arguments, &outputText, 0, false);
-    return QString::fromLocal8Bit(outputText.trimmed());
+    res = QString::fromLocal8Bit(outputText.trimmed());
+    if (!QDir(res).isAbsolute())
+        res.prepend(repositoryDir + QLatin1Char('/'));
+    return res;
 }
 
 VcsBase::VcsBaseEditorWidget *GitClient::findExistingVCSEditor(const char *registerDynamicProperty,
@@ -1106,26 +1114,50 @@ static inline QString msgCannotDetermineBranch(const QString &workingDirectory, 
     return GitClient::tr("Cannot retrieve branch of \"%1\": %2").arg(QDir::toNativeSeparators(workingDirectory), why);
 }
 
-// Retrieve head branch
-QString GitClient::synchronousBranch(const QString &workingDirectory)
+struct TopicData
 {
+    QDateTime timeStamp;
+    QString topic;
+};
+
+// Retrieve topic (branch, tag or HEAD hash)
+QString GitClient::synchronousTopic(const QString &workingDirectory)
+{
+    static QHash<QString, TopicData> topicCache;
+    QString gitDir = findGitDirForRepository(workingDirectory);
+    if (gitDir.isEmpty())
+        return QString();
+    TopicData &data = topicCache[gitDir];
+    QDateTime lastModified = QFileInfo(gitDir + QLatin1String("/HEAD")).lastModified();
+    if (lastModified == data.timeStamp)
+        return data.topic;
+    data.timeStamp = lastModified;
     QByteArray outputTextData;
     QStringList arguments;
     arguments << QLatin1String("symbolic-ref") << QLatin1String("HEAD");
-    // if HEAD is detached, the command is expected to fail.
-    if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData))
-        return QString();
-    QString branch = commandOutputFromLocal8Bit(outputTextData);
-    branch.remove(QLatin1Char('\n'));
+    // First try to find branch
+    if (fullySynchronousGit(workingDirectory, arguments, &outputTextData, 0, false)) {
+        QString branch = commandOutputFromLocal8Bit(outputTextData.trimmed());
 
-    // Must strip the "refs/heads/" prefix manually since the --short switch
-    // of git symbolic-ref only got introduced with git 1.7.10, which is not
-    // available for all popular Linux distributions yet.
-    const QString refsHeadsPrefix = QLatin1String("refs/heads/");
-    if (branch.startsWith(refsHeadsPrefix))
-        branch.remove(0, refsHeadsPrefix.count());
+        // Must strip the "refs/heads/" prefix manually since the --short switch
+        // of git symbolic-ref only got introduced with git 1.7.10, which is not
+        // available for all popular Linux distributions yet.
+        const QString refsHeadsPrefix = QLatin1String("refs/heads/");
+        if (branch.startsWith(refsHeadsPrefix))
+            branch.remove(0, refsHeadsPrefix.count());
 
-    return branch;
+        return data.topic = branch;
+    }
+
+    // Detached HEAD, try a tag
+    arguments.clear();
+    arguments << QLatin1String("describe") << QLatin1String("--tags")
+              << QLatin1String("--exact-match") << QLatin1String("HEAD");
+    if (fullySynchronousGit(workingDirectory, arguments, &outputTextData, 0, false))
+        return data.topic = commandOutputFromLocal8Bit(outputTextData.trimmed());
+
+    // No tag
+    return data.topic = tr("(detached)");
 }
 
 // Retrieve head revision
@@ -1137,7 +1169,7 @@ QString GitClient::synchronousTopRevision(const QString &workingDirectory, QStri
     QString errorMessage;
     // get revision
     arguments << QLatin1String("rev-parse") << QLatin1String("HEAD");
-    if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText)) {
+    if (!fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText, false)) {
         errorMessage = tr("Cannot retrieve top revision of \"%1\": %2")
                 .arg(QDir::toNativeSeparators(workingDirectory), commandOutputFromLocal8Bit(errorText));
         return QString();
@@ -1151,6 +1183,37 @@ QString GitClient::synchronousTopRevision(const QString &workingDirectory, QStri
             outputWindow()->appendError(errorMessage);
     }
     return revision;
+}
+
+void GitClient::synchronousTagsForCommit(const QString &workingDirectory, const QString &revision,
+                                         QByteArray &precedes, QByteArray &follows)
+{
+    QStringList arguments;
+    QByteArray parents;
+    arguments << QLatin1String("describe") << QLatin1String("--contains") << revision;
+    fullySynchronousGit(workingDirectory, arguments, &precedes, 0, false);
+    int tilde = precedes.indexOf('~');
+    if (tilde != -1)
+        precedes.truncate(tilde);
+    else
+        precedes = precedes.trimmed();
+
+    arguments.clear();
+    arguments << QLatin1String("log") << QLatin1String("-n1") << QLatin1String("--pretty=format:%P") << revision;
+    fullySynchronousGit(workingDirectory, arguments, &parents, 0, false);
+    foreach (const QByteArray &p, parents.split(' ')) {
+        QByteArray pf;
+        arguments.clear();
+        arguments << QLatin1String("describe") << QLatin1String("--tags")
+                  << QLatin1String("--abbrev=0") << QLatin1String(p);
+        fullySynchronousGit(workingDirectory, arguments, &pf, 0, false);
+        pf.truncate(pf.lastIndexOf('\n'));
+        if (!pf.isEmpty()) {
+            if (!follows.isEmpty())
+                follows += ", ";
+            follows += pf;
+        }
+    }
 }
 
 // Format an entry in a one-liner for selection list using git log.
@@ -1358,7 +1421,7 @@ bool GitClient::cleanList(const QString &workingDirectory, const QString &flag, 
     }
     // Filter files that git would remove
     const QString prefix = QLatin1String("Would remove ");
-    foreach(const QString &line, commandOutputLinesFromLocal8Bit(outputText))
+    foreach (const QString &line, commandOutputLinesFromLocal8Bit(outputText))
         if (line.startsWith(prefix))
             files->push_back(line.mid(prefix.size()));
     return true;
@@ -1605,7 +1668,7 @@ QStringList GitClient::synchronousRepositoryBranches(const QString &repositoryUR
     QString headSha;
     if (resp.result == Utils::SynchronousProcessResponse::Finished) {
         // split "82bfad2f51d34e98b18982211c82220b8db049b<tab>refs/heads/master"
-        foreach(const QString &line, resp.stdOut.split(QLatin1Char('\n'))) {
+        foreach (const QString &line, resp.stdOut.split(QLatin1Char('\n'))) {
             if (line.endsWith(QLatin1String("\tHEAD"))) {
                 QTC_CHECK(headSha.isNull());
                 headSha = line.left(line.indexOf(QLatin1Char('\t')));
@@ -1626,18 +1689,18 @@ QStringList GitClient::synchronousRepositoryBranches(const QString &repositoryUR
     return branches;
 }
 
-void GitClient::launchGitK(const QString &workingDirectory)
+void GitClient::launchGitK(const QString &workingDirectory, const QString &fileName)
 {
     const QFileInfo binaryInfo(gitBinaryPath());
     QDir foundBinDir(binaryInfo.dir());
     const bool foundBinDirIsCmdDir = foundBinDir.dirName() == QLatin1String("cmd");
     QProcessEnvironment env = processEnvironment();
-    if (tryLauchingGitK(env, workingDirectory, foundBinDir.path(), foundBinDirIsCmdDir))
+    if (tryLauchingGitK(env, workingDirectory, fileName, foundBinDir.path(), foundBinDirIsCmdDir))
         return;
     if (!foundBinDirIsCmdDir)
         return;
     foundBinDir.cdUp();
-    tryLauchingGitK(env, workingDirectory, foundBinDir.path() + QLatin1String("/bin"), false);
+    tryLauchingGitK(env, workingDirectory, fileName, foundBinDir.path() + QLatin1String("/bin"), false);
 }
 
 void GitClient::launchRepositoryBrowser(const QString &workingDirectory)
@@ -1649,6 +1712,7 @@ void GitClient::launchRepositoryBrowser(const QString &workingDirectory)
 
 bool GitClient::tryLauchingGitK(const QProcessEnvironment &env,
                                 const QString &workingDirectory,
+                                const QString &fileName,
                                 const QString &gitBinDirectory,
                                 bool silent)
 {
@@ -1666,6 +1730,8 @@ bool GitClient::tryLauchingGitK(const QProcessEnvironment &env,
     const QString gitkOpts = settings()->stringValue(GitSettings::gitkOptionsKey);
     if (!gitkOpts.isEmpty())
         arguments.append(Utils::QtcProcess::splitArgs(gitkOpts));
+    if (!fileName.isEmpty())
+        arguments << QLatin1String("--") << fileName;
     outwin->appendCommand(workingDirectory, binary, arguments);
     // This should always use QProcess::startDetached (as not to kill
     // the child), but that does not have an environment parameter.
@@ -1719,15 +1785,6 @@ bool GitClient::getCommitData(const QString &workingDirectory,
     if (gitDir.isEmpty()) {
         *errorMessage = tr("The repository \"%1\" is not initialized.").arg(repoDirectory);
         return false;
-    }
-
-    // Read description
-    const QString descriptionFile = QDir(gitDir).absoluteFilePath(QLatin1String("description"));
-    if (QFileInfo(descriptionFile).isFile()) {
-        Utils::FileReader reader;
-        if (!reader.fetch(descriptionFile, QIODevice::Text, errorMessage))
-            return false;
-        commitData->panelInfo.description = commandOutputFromLocal8Bit(reader.data()).trimmed();
     }
 
     // Run status. Note that it has exitcode 1 if there are no added files.
@@ -2036,9 +2093,18 @@ bool GitClient::synchronousFetch(const QString &workingDirectory, const QString 
     return resp.result == Utils::SynchronousProcessResponse::Finished;
 }
 
-bool GitClient::synchronousPull(const QString &workingDirectory)
+bool GitClient::synchronousPullOrRebase(const QString &workingDirectory, const QStringList &arguments, bool rebase)
 {
-    return synchronousPull(workingDirectory, settings()->boolValue(GitSettings::pullRebaseKey));
+    // Disable UNIX terminals to suppress SSH prompting.
+    const unsigned flags = VcsBase::VcsBasePlugin::SshPasswordPrompt|VcsBase::VcsBasePlugin::ShowStdOutInLogWindow;
+    const Utils::SynchronousProcessResponse resp = synchronousGit(workingDirectory, arguments, flags);
+    // Notify about changed files or abort the rebase.
+    const bool ok = resp.result == Utils::SynchronousProcessResponse::Finished;
+    if (ok)
+        GitPlugin::instance()->gitVersionControl()->emitRepositoryChanged(workingDirectory);
+    else
+        handleMergeConflicts(workingDirectory, rebase);
+    return ok;
 }
 
 bool GitClient::synchronousPull(const QString &workingDirectory, bool rebase)
@@ -2046,33 +2112,40 @@ bool GitClient::synchronousPull(const QString &workingDirectory, bool rebase)
     QStringList arguments(QLatin1String("pull"));
     if (rebase)
         arguments << QLatin1String("--rebase");
-    // Disable UNIX terminals to suppress SSH prompting.
-    const unsigned flags = VcsBase::VcsBasePlugin::SshPasswordPrompt|VcsBase::VcsBasePlugin::ShowStdOutInLogWindow;
-    const Utils::SynchronousProcessResponse resp = synchronousGit(workingDirectory, arguments, flags);
-    // Notify about changed files or abort the rebase.
-    const bool ok = resp.result == Utils::SynchronousProcessResponse::Finished;
-    if (ok) {
-        GitPlugin::instance()->gitVersionControl()->emitRepositoryChanged(workingDirectory);
-    } else {
-        if (rebase)
-            syncAbortPullRebase(workingDirectory);
-    }
-    return ok;
+    return synchronousPullOrRebase(workingDirectory, arguments, rebase);
 }
 
-void GitClient::syncAbortPullRebase(const QString &workingDir)
+bool GitClient::synchronousRebaseContinue(const QString &workingDirectory)
 {
-    // Abort rebase to clean if something goes wrong
-    VcsBase::VcsBaseOutputWindow *outwin = VcsBase::VcsBaseOutputWindow::instance();
-    outwin->appendError(tr("The command 'git pull --rebase' failed, aborting rebase."));
-    QStringList arguments;
-    arguments << QLatin1String("rebase") << QLatin1String("--abort");
-    QByteArray stdOut;
-    QByteArray stdErr;
-    const bool rc = fullySynchronousGit(workingDir, arguments, &stdOut, &stdErr, true);
-    outwin->append(commandOutputFromLocal8Bit(stdOut));
-    if (!rc)
-        outwin->appendError(commandOutputFromLocal8Bit(stdErr));
+    QStringList arguments(QLatin1String("rebase"));
+    arguments << QLatin1String("--continue");
+    return synchronousPullOrRebase(workingDirectory, arguments, true);
+}
+
+void GitClient::handleMergeConflicts(const QString &workingDir, bool rebase)
+{
+    QMessageBox mergeOrAbort(QMessageBox::Question, tr("Conflicts detected"),
+                             tr("Conflicts detected"), QMessageBox::Ignore | QMessageBox::Abort);
+    mergeOrAbort.addButton(tr("Run Merge Tool"), QMessageBox::ActionRole);
+    switch (mergeOrAbort.exec()) {
+    case QMessageBox::Abort: {
+        // Abort merge/rebase to clean if something goes wrong
+        VcsBase::VcsBaseOutputWindow *outwin = VcsBase::VcsBaseOutputWindow::instance();
+        QStringList arguments;
+        arguments << QLatin1String(rebase ? "rebase" : "merge") << QLatin1String("--abort");
+        QByteArray stdOut;
+        QByteArray stdErr;
+        const bool rc = fullySynchronousGit(workingDir, arguments, &stdOut, &stdErr, true);
+        outwin->append(commandOutputFromLocal8Bit(stdOut));
+        if (!rc)
+            outwin->appendError(commandOutputFromLocal8Bit(stdErr));
+        break;
+    }
+    case QMessageBox::Ignore:
+        break;
+    default: // Merge
+        merge(workingDir);
+    }
 }
 
 // Subversion: git svn
@@ -2236,7 +2309,7 @@ bool GitClient::synchronousStashList(const QString &workingDirectory,
         return false;
     }
     Stash stash;
-    foreach(const QString &line, commandOutputLinesFromLocal8Bit(outputText))
+    foreach (const QString &line, commandOutputLinesFromLocal8Bit(outputText))
         if (stash.parseStashLine(line))
             stashes->push_back(stash);
     return true;

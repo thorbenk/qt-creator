@@ -210,9 +210,9 @@ static inline QStringList getPluginPaths()
 #endif
     // 3) <localappdata>/plugins/<ideversion>
     //    where <localappdata> is e.g.
-    //    <drive>:\Users\<username>\AppData\Local\QtProject\qtcreator on Windows Vista and later
-    //    $XDG_DATA_HOME or ~/.local/share/data/QtProject/qtcreator on Linux
-    //    ~/Library/Application Support/QtProject/Qt Creator on Mac
+    //    "%LOCALAPPDATA%\QtProject\qtcreator" on Windows Vista and later
+    //    "$XDG_DATA_HOME/data/QtProject/qtcreator" or "~/.local/share/data/QtProject/qtcreator" on Linux
+    //    "~/Library/Application Support/QtProject/Qt Creator" on Mac
     pluginPath = QDesktopServices::storageLocation(QDesktopServices::DataLocation);
     pluginPath += QLatin1Char('/')
             + QLatin1String(Core::Constants::IDE_SETTINGSVARIANT_STR)
@@ -359,7 +359,11 @@ int main(int argc, char **argv)
     const QString &creatorTrPath = QCoreApplication::applicationDirPath()
             + QLatin1String(SHARE_PATH "/translations");
     foreach (QString locale, uiLanguages) {
+#if (QT_VERSION >= 0x050000)
+        locale = QLocale(locale).name();
+#else
         locale.replace(QLatin1Char('-'), QLatin1Char('_')); // work around QTBUG-25973
+#endif
         if (translator.load(QLatin1String("qtcreator_") + locale, creatorTrPath)) {
             const QString &qtTrPath = QLibraryInfo::location(QLibraryInfo::TranslationsPath);
             const QString &qtTrFile = QLatin1String("qt_") + locale;
@@ -469,7 +473,7 @@ int main(int argc, char **argv)
         if (app.isRunning(pid)) {
             // Nah app is still running, ask the user
             int button = askMsgSendFailed();
-            while(button == QMessageBox::Retry) {
+            while (button == QMessageBox::Retry) {
                 if (app.sendMessage(PluginManager::serializedArguments(), 5000 /*timeout*/, pid))
                     return 0;
                 if (!app.isRunning(pid)) // App quit while we were trying so start a new creator

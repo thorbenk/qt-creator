@@ -154,11 +154,6 @@ void MakeStep::ctor()
     setDefaultDisplayName(tr("Make"));
 }
 
-AutotoolsBuildConfiguration *MakeStep::autotoolsBuildConfiguration() const
-{
-    return static_cast<AutotoolsBuildConfiguration *>(buildConfiguration());
-}
-
 void MakeStep::setClean(bool clean)
 {
     m_clean = clean;
@@ -166,9 +161,9 @@ void MakeStep::setClean(bool clean)
 
 bool MakeStep::init()
 {
-    AutotoolsBuildConfiguration *bc = autotoolsBuildConfiguration();
+    BuildConfiguration *bc = buildConfiguration();
     if (!bc)
-        bc = static_cast<AutotoolsBuildConfiguration *>(target()->activeBuildConfiguration());
+        bc = target()->activeBuildConfiguration();
 
     m_tasks.clear();
     ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
@@ -186,10 +181,15 @@ bool MakeStep::init()
 
     ProcessParameters *pp = processParameters();
     pp->setMacroExpander(bc->macroExpander());
-    pp->setEnvironment(bc->environment());
+    Utils::Environment env = bc->environment();
+    // Force output to english for the parsers. Do this here and not in the toolchain's
+    // addToEnvironment() to not screw up the users run environment.
+    env.set(QLatin1String("LC_ALL"), QLatin1String("C"));
+    pp->setEnvironment(env);
     pp->setWorkingDirectory(bc->buildDirectory());
     pp->setCommand(tc ? tc->makeCommand(bc->environment()) : QLatin1String("make"));
     pp->setArguments(arguments);
+    pp->resolveAll();
 
     setOutputParser(new GnuMakeParser());
     IOutputParser *parser = target()->kit()->createOutputParser();
@@ -310,7 +310,7 @@ QString MakeStepConfigWidget::summaryText() const
 
 void MakeStepConfigWidget::updateDetails()
 {
-    AutotoolsBuildConfiguration *bc = m_makeStep->autotoolsBuildConfiguration();
+    BuildConfiguration *bc = m_makeStep->buildConfiguration();
     ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(m_makeStep->target()->kit());
 
     if (tc) {

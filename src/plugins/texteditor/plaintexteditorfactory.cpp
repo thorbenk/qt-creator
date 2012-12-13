@@ -65,7 +65,7 @@ PlainTextEditorFactory::~PlainTextEditorFactory()
 
 Core::Id PlainTextEditorFactory::id() const
 {
-    return Core::Constants::K_DEFAULT_TEXT_EDITOR_ID;
+    return Core::Id(Core::Constants::K_DEFAULT_TEXT_EDITOR_ID);
 }
 
 QString PlainTextEditorFactory::displayName() const
@@ -91,7 +91,7 @@ void PlainTextEditorFactory::updateEditorInfoBar(Core::IEditor *editor)
         if (!file)
             return;
         PlainTextEditorWidget *textEditor = static_cast<PlainTextEditorWidget *>(editorEditable->editorWidget());
-        const QString infoSyntaxDefinition = QLatin1String(Constants::INFO_SYNTAX_DEFINITION);
+        Core::Id infoSyntaxDefinition(Constants::INFO_SYNTAX_DEFINITION);
         if (textEditor->isMissingSyntaxDefinition() &&
             !textEditor->ignoreMissingSyntaxDefinition() &&
             TextEditorSettings::instance()->highlighterSettings().alertWhenNoDefinition()) {

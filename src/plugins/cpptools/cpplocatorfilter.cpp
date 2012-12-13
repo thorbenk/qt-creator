@@ -96,7 +96,7 @@ QList<Locator::FilterEntry> CppLocatorFilter::matchesFor(QFutureInterface<Locato
     QRegExp regexp(asterisk + entry+ asterisk, Qt::CaseInsensitive, QRegExp::Wildcard);
     if (!regexp.isValid())
         return goodEntries;
-    bool hasWildcard = (entry.contains(asterisk) || entry.contains('?'));
+    bool hasWildcard = (entry.contains(asterisk) || entry.contains(QLatin1Char('?')));
 
 #ifdef CLANG_INDEXING
 

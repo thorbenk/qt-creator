@@ -30,7 +30,7 @@
 #ifndef NODEINSTANCEVIEW_H
 #define NODEINSTANCEVIEW_H
 
-#include "corelib_global.h"
+#include "qmldesignercorelib_global.h"
 #include "abstractview.h"
 
 #include <modelnode.h>
@@ -69,7 +69,7 @@ class CompleteComponentCommand;
 class InformationContainer;
 class TokenCommand;
 
-class CORESHARED_EXPORT NodeInstanceView : public AbstractView, public NodeInstanceClientInterface
+class QMLDESIGNERCORE_EXPORT NodeInstanceView : public AbstractView, public NodeInstanceClientInterface
 {
     Q_OBJECT
 
@@ -135,6 +135,7 @@ public:
     void statePreviewImagesChanged(const StatePreviewImageChangedCommand &command);
     void componentCompleted(const ComponentCompletedCommand &command);
     void token(const TokenCommand &command);
+    void debugOutput(const DebugOutputCommand &command);
 
     QImage statePreviewImage(const ModelNode &stateNode) const;
 

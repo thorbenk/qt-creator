@@ -44,7 +44,9 @@ EmbeddedLinuxQtVersion::EmbeddedLinuxQtVersion()
 
 EmbeddedLinuxQtVersion::EmbeddedLinuxQtVersion(const Utils::FileName &path, bool isAutodetected, const QString &autodetectionSource)
     : BaseQtVersion(path, isAutodetected, autodetectionSource)
-{ }
+{
+    setDisplayName(defaultDisplayName(qtVersionString(), path, false));
+}
 
 EmbeddedLinuxQtVersion::~EmbeddedLinuxQtVersion()
 { }
@@ -56,7 +58,7 @@ EmbeddedLinuxQtVersion *EmbeddedLinuxQtVersion::clone() const
 
 QString EmbeddedLinuxQtVersion::type() const
 {
-    return RemoteLinux::Constants::EMBEDDED_LINUX_QT;
+    return QLatin1String(RemoteLinux::Constants::EMBEDDED_LINUX_QT);
 }
 
 QList<ProjectExplorer::Abi> EmbeddedLinuxQtVersion::detectQtAbis() const

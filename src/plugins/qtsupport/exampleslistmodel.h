@@ -31,20 +31,27 @@
 #define EXAMPLESLISTMODEL_H
 
 #include <QAbstractListModel>
+#include <QSortFilterProxyModel>
 #include <QStringList>
 #include <QXmlStreamReader>
-#include <QSortFilterProxyModel>
 
 namespace QtSupport {
 namespace Internal {
 
-enum ExampleRoles { Name=Qt::UserRole, ProjectPath, Description, ImageUrl,
-                    DocUrl,  FilesToOpen, Tags, Difficulty, HasSourceCode,
-                    Type, Dependencies, IsVideo, VideoUrl, VideoLength, Platforms };
+enum ExampleRoles
+{
+    Name = Qt::UserRole, ProjectPath, Description, ImageUrl,
+    DocUrl, FilesToOpen, Tags, Difficulty, HasSourceCode,
+    Type, Dependencies, IsVideo, VideoUrl, VideoLength, Platforms
+};
 
-enum InstructionalType { Example=0, Demo, Tutorial };
+enum InstructionalType
+{
+    Example = 0, Demo, Tutorial
+};
 
-struct ExampleItem {
+struct ExampleItem
+{
     ExampleItem(): difficulty(0), isVideo(false) {}
     InstructionalType type;
     QString name;
@@ -63,24 +70,21 @@ struct ExampleItem {
     QStringList platforms;
 };
 
-class ExamplesListModel : public QAbstractListModel {
+class ExamplesListModel : public QAbstractListModel
+{
     Q_OBJECT
+
 public:
     explicit ExamplesListModel(QObject *parent);
 
-    virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
-    virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
 
     QStringList tags() const;
-
-
     void ensureInitialized() const;
 
-    void beginReset()
-    { beginResetModel(); }
-
-    void endReset()
-    { endResetModel(); }
+    void beginReset() { beginResetModel(); }
+    void endReset() { endResetModel(); }
 
 signals:
     void tagsUpdated();
@@ -92,11 +96,14 @@ public slots:
 
 private:
     void addItems(const QList<ExampleItem> &items);
-    QList<ExampleItem> parseExamples(QXmlStreamReader* reader, const QString& projectsOffset);
-    QList<ExampleItem> parseDemos(QXmlStreamReader* reader, const QString& projectsOffset);
-    QList<ExampleItem> parseTutorials(QXmlStreamReader* reader, const QString& projectsOffset);
+    QList<ExampleItem> parseExamples(QXmlStreamReader *reader, const QString &projectsOffset,
+                                     const QString &examplesInstallPath);
+    QList<ExampleItem> parseDemos(QXmlStreamReader *reader, const QString &projectsOffset,
+                                  const QString &demosInstallPath);
+    QList<ExampleItem> parseTutorials(QXmlStreamReader *reader, const QString &projectsOffset);
     void clear();
-    QStringList exampleSources(QString *examplesFallback, QString *demosFallback,
+    QStringList exampleSources(QString *examplesInstallPath, QString *demosInstallPath,
+                               QString *examplesFallback, QString *demosFallback,
                                QString *sourceFallback);
     QList<ExampleItem> exampleItems;
     QStringList m_tags;
@@ -105,8 +112,10 @@ private:
     bool m_helpInitialized;
 };
 
-class ExamplesListModelFilter : public QSortFilterProxyModel {
+class ExamplesListModelFilter : public QSortFilterProxyModel
+{
     Q_OBJECT
+
 public:
     Q_PROPERTY(bool showTutorialsOnly READ showTutorialsOnly WRITE setShowTutorialsOnly NOTIFY showTutorialsOnlyChanged)
     Q_PROPERTY(QStringList filterTags READ filterTags WRITE setFilterTags NOTIFY filterTagsChanged)
@@ -120,11 +129,11 @@ public:
     QStringList filterTags() const { return m_filterTags; }
     QStringList searchStrings() const { return m_searchString; }
 
-    virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
-    virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
 
 public slots:
-    void setFilterTags(const QStringList& arg)
+    void setFilterTags(const QStringList &arg)
     {
         if (m_filterTags != arg) {
             m_filterTags = arg;
@@ -133,7 +142,7 @@ public slots:
     }
     void updateFilter();
 
-    void setSearchStrings(const QStringList& arg)
+    void setSearchStrings(const QStringList &arg)
     {
         if (m_searchString != arg) {
             m_searchString = arg;
@@ -142,20 +151,16 @@ public slots:
         }
     }
 
-    void parseSearchString(const QString& arg);
+    void parseSearchString(const QString &arg);
     void setShowTutorialsOnly(bool showTutorialsOnly);
 
 signals:
     void showTutorialsOnlyChanged();
-
     void filterTagsChanged(const QStringList& arg);
-
     void searchStrings(const QStringList& arg);
 
-protected:
-    void timerEvent(QTimerEvent *event);
-
 private:
+    void timerEvent(QTimerEvent *event);
     void delayedUpdateFilter();
 
     bool m_showTutorialsOnly;

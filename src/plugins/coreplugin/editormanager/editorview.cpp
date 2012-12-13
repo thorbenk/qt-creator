@@ -63,10 +63,6 @@
 #include <QSplitter>
 #include <QStackedLayout>
 
-#ifdef Q_OS_MAC
-#include <qmacstyle_mac.h>
-#endif
-
 using namespace Core;
 using namespace Core::Internal;
 
@@ -305,7 +301,7 @@ void EditorView::updateEditorHistory(IEditor *editor)
     location.id = editor->id();
     location.state = QVariant(state);
 
-    for(int i = 0; i < m_editorHistory.size(); ++i) {
+    for (int i = 0; i < m_editorHistory.size(); ++i) {
         if (m_editorHistory.at(i).document == 0
             || m_editorHistory.at(i).document == document
             ){
@@ -668,7 +664,7 @@ void SplitterOrView::split(Qt::Orientation orientation)
     SplitterOrView *otherView = 0;
     if (e) {
 
-        foreach(IEditor *editor, m_view->editors())
+        foreach (IEditor *editor, m_view->editors())
             m_view->removeEditor(editor);
 
         m_splitter->addWidget((view = new SplitterOrView(e)));
@@ -766,14 +762,14 @@ void SplitterOrView::unsplit()
             if (parentSplitter) { // not the toplevel splitterOrView
                 if (parentSplitter->orientation() == Qt::Horizontal) {
                     if (parentSplitter->widget(0) == this)
-                        m_view->setCloseSplitIcon(QIcon(Constants::ICON_CLOSE_SPLIT_LEFT));
+                        m_view->setCloseSplitIcon(QIcon(QLatin1String(Constants::ICON_CLOSE_SPLIT_LEFT)));
                     else
-                        m_view->setCloseSplitIcon(QIcon(Constants::ICON_CLOSE_SPLIT_RIGHT));
+                        m_view->setCloseSplitIcon(QIcon(QLatin1String(Constants::ICON_CLOSE_SPLIT_RIGHT)));
                 } else {
                     if (parentSplitter->widget(0) == this)
-                        m_view->setCloseSplitIcon(QIcon(Constants::ICON_CLOSE_SPLIT_TOP));
+                        m_view->setCloseSplitIcon(QIcon(QLatin1String(Constants::ICON_CLOSE_SPLIT_TOP)));
                     else
-                        m_view->setCloseSplitIcon(QIcon(Constants::ICON_CLOSE_SPLIT_BOTTOM));
+                        m_view->setCloseSplitIcon(QIcon(QLatin1String(Constants::ICON_CLOSE_SPLIT_BOTTOM)));
                 }
             }
         }

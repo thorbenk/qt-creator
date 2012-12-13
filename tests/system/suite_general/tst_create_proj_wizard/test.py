@@ -3,7 +3,7 @@ source("../../shared/qtcreator.py")
 import re
 
 def main():
-    global templateDir, textChanged
+    global textChanged
     sourceExample = os.path.abspath(sdkPath + "/Examples/4.7/declarative/text/textselection")
     qmlFile = os.path.join("qml", "textselection.qml")
     if not neededFilePresent(os.path.join(sourceExample, qmlFile)):
@@ -34,7 +34,7 @@ def main():
         for template in dumpItems(templatesView.model(), templatesView.rootIndex()):
             template = template.replace(".", "\\.")
             # skip non-configurable
-            if "Qt Quick UI" in template or "Plain C" in template:
+            if "Qt Quick 1 UI" in template or "Plain C" in template:
                 continue
             availableProjectTypes.append({category:template})
     clickButton(waitForObject("{text='Cancel' type='QPushButton' unnamed='1' visible='1'}"))
@@ -98,13 +98,6 @@ def main():
                       % str(availableCheckboxes))
         clickButton(waitForObject("{text='Cancel' type='QPushButton' unnamed='1' visible='1'}"))
     invokeMenuItem("File", "Exit")
-
-def cleanup():
-    global templateDir
-    # waiting for a clean exit - for a full-remove of the temp directory
-    waitForCleanShutdown()
-    if templateDir!=None:
-        deleteDirIfExists(os.path.dirname(templateDir))
 
 def __handleTextChanged__(object):
     global textChanged

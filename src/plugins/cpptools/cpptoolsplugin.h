@@ -90,12 +90,16 @@ private slots:
     void test_codegen_definition_middle_member();
 
     void test_completion_forward_declarations_present();
+    void test_completion_inside_parentheses_c_style_conversion();
+    void test_completion_inside_parentheses_cast_operator_conversion();
     void test_completion_basic_1();
     void test_completion_template_1();
     void test_completion_template_2();
     void test_completion_template_3();
     void test_completion_template_4();
     void test_completion_template_5();
+    void test_completion_template_6();
+    void test_completion_template_7();
     void test_completion_template_as_base();
     void test_completion_template_as_base_data();
     void test_completion_use_global_identifier_as_base_class();

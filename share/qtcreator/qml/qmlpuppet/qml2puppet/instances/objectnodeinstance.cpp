@@ -51,7 +51,7 @@
 #include <private/qqmlvaluetype_p.h>
 #include <private/qquicktransition_p.h>
 #include <private/qquickanimation_p.h>
-#include <private/qquicktimer_p.h>
+#include <private/qqmltimer_p.h>
 #include <private/qqmlengine_p.h>
 
 namespace QmlDesigner {
@@ -166,17 +166,6 @@ void ObjectNodeInstance::setId(const QString &id)
 QString ObjectNodeInstance::id() const
 {
     return m_id;
-}
-
-bool ObjectNodeInstance::isQmlGraphicsItem() const
-{
-    return false;
-}
-
-
-bool ObjectNodeInstance::isGraphicsObject() const
-{
-    return false;
 }
 
 bool ObjectNodeInstance::isTransition() const
@@ -723,7 +712,7 @@ static void stopAnimation(QObject *object)
 
     QQuickTransition *transition = qobject_cast<QQuickTransition*>(object);
     QQuickAbstractAnimation *animation = qobject_cast<QQuickAbstractAnimation*>(object);
-    QQuickTimer *timer = qobject_cast<QQuickTimer*>(object);
+    QQmlTimer *timer = qobject_cast<QQmlTimer*>(object);
     if (transition) {
        transition->setFromState("");
        transition->setToState("");
@@ -819,7 +808,9 @@ QStringList propertyNameForWritableProperties(QObject *object, const QString &ba
             QQmlValueType *valueType = QQmlValueTypeFactory::valueType(metaProperty.userType());
             valueType->setValue(metaProperty.read(object));
             propertyNameList.append(propertyNameForWritableProperties(valueType, baseName +  QString::fromUtf8(metaProperty.name()) + '.', inspectedObjects));
-        } else if (metaProperty.isReadable() && metaProperty.isWritable()) {
+        }
+
+        if (metaProperty.isReadable() && metaProperty.isWritable()) {
             propertyNameList.append(baseName + QString::fromUtf8(metaProperty.name()));
         }
     }

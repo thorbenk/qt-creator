@@ -49,7 +49,7 @@ SimulatorQtVersion::SimulatorQtVersion()
 SimulatorQtVersion::SimulatorQtVersion(const Utils::FileName &path, bool isAutodetected, const QString &autodetectionSource)
     : QtSupport::BaseQtVersion(path, isAutodetected, autodetectionSource)
 {
-
+    setDisplayName(defaultDisplayName(qtVersionString(), path, false));
 }
 
 SimulatorQtVersion::~SimulatorQtVersion()
@@ -100,6 +100,6 @@ Core::FeatureSet SimulatorQtVersion::availableFeatures() const
 
 bool SimulatorQtVersion::supportsPlatform(const QString &platformName) const
 {
-    return (platformName == QtSupport::Constants::MEEGO_HARMATTAN_PLATFORM
-            || platformName.isEmpty());
+    return (platformName.isEmpty()
+            || platformName == QLatin1String(QtSupport::Constants::MEEGO_HARMATTAN_PLATFORM));
 }

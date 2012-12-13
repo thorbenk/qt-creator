@@ -10,6 +10,8 @@ include(../3rdparty/cplusplus/cplusplus.pri)
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += concurrent
 
+DEFINES += QT_NO_CAST_FROM_ASCII
+
 contains(QT, gui) {
 HEADERS += \
     $$PWD/Icons.h \
@@ -36,6 +38,7 @@ HEADERS += \
     $$PWD/TypePrettyPrinter.h \
     $$PWD/ResolveExpression.h \
     $$PWD/LookupItem.h \
+    $$PWD/AlreadyConsideredClassContainer.h \
     $$PWD/LookupContext.h \
     $$PWD/ASTParent.h \
     $$PWD/ASTPath.h \

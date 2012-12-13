@@ -55,7 +55,7 @@ namespace ProjectExplorer {
 KitOptionsPage::KitOptionsPage() :
     m_model(0), m_selectionModel(0), m_currentWidget(0), m_toShow(0)
 {
-    setId(Constants::KITS_SETTINGS_PAGE_ID);
+    setId(QLatin1String(Constants::KITS_SETTINGS_PAGE_ID));
     setDisplayName(tr("Kits"));
     setCategory(QLatin1String(Constants::PROJECTEXPLORER_SETTINGS_CATEGORY));
     setDisplayCategory(QCoreApplication::translate("ProjectExplorer",
@@ -85,7 +85,7 @@ QWidget *KitOptionsPage::createPage(QWidget *parent)
     buttonLayout->addWidget(m_cloneButton);
     buttonLayout->addWidget(m_delButton);
     buttonLayout->addWidget(m_makeDefaultButton);
-    buttonLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    buttonLayout->addStretch();
 
     QHBoxLayout *horizontalLayout = new QHBoxLayout();
     horizontalLayout->addWidget(m_kitsView);
@@ -93,11 +93,11 @@ QWidget *KitOptionsPage::createPage(QWidget *parent)
 
     QVBoxLayout *verticalLayout = new QVBoxLayout(m_configWidget);
     verticalLayout->addLayout(horizontalLayout);
-    verticalLayout->setStretch(0, 1);
 
-    Q_ASSERT(!m_model);
     m_model = new Internal::KitModel(verticalLayout);
     connect(m_model, SIGNAL(kitStateChanged()), this, SLOT(updateState()));
+    verticalLayout->setStretch(0, 1);
+    verticalLayout->setStretch(1, 0);
 
     m_kitsView->setModel(m_model);
     m_kitsView->header()->setResizeMode(0, QHeaderView::Stretch);

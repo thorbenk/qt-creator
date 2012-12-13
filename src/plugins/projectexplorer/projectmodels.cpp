@@ -258,7 +258,20 @@ QVariant FlatModel::data(const QModelIndex &index, int role) const
     if (Node *node = nodeForIndex(index)) {
         FolderNode *folderNode = qobject_cast<FolderNode*>(node);
         switch (role) {
-        case Qt::DisplayRole:
+        case Qt::DisplayRole: {
+            QString name = node->displayName();
+
+            if (node->parentFolderNode()
+                    && node->parentFolderNode()->nodeType() == SessionNodeType) {
+                const QString vcsTopic = node->vcsTopic();
+
+                if (!vcsTopic.isEmpty())
+                    name += QLatin1String(" (") + vcsTopic + QLatin1Char(')');
+            }
+
+            result = name;
+            break;
+        }
         case Qt::EditRole: {
             result = node->displayName();
             break;
@@ -823,7 +836,7 @@ void FlatModel::filesAboutToBeRemoved(FolderNode *folder, const QList<FileNode*>
     FolderNode *folderNode = visibleFolderNode(folder);
 
     QSet<Node *> blackList;
-    foreach(Node *node, staleFiles)
+    foreach (Node *node, staleFiles)
         blackList.insert(node);
 
     // Now get the new List for that folder

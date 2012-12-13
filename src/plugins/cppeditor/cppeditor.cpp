@@ -1478,7 +1478,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
             return link;    //already on definition!
     } else {
         const Document::MacroUse *use = doc->findMacroUseAt(endOfToken - 1);
-        if (use && use->macro().fileName() != QLatin1String("<configuration>")) {
+        if (use && use->macro().fileName() != CppModelManagerInterface::configurationFileName()) {
             const Macro &macro = use->macro();
             link.fileName = macro.fileName();
             link.line = macro.line();
@@ -1794,7 +1794,7 @@ Core::IEditor *CPPEditor::duplicate(QWidget *parent)
 
 Core::Id CPPEditor::id() const
 {
-    return CppEditor::Constants::CPPEDITOR_ID;
+    return Core::Id(CppEditor::Constants::CPPEDITOR_ID);
 }
 
 bool CPPEditor::open(QString *errorString, const QString &fileName, const QString &realFileName)
@@ -2280,10 +2280,12 @@ void CPPEditorWidget::updateFunctionDeclDefLink()
     const int pos = textCursor().selectionStart();
 
     // if there's already a link, abort it if the cursor is outside or the name changed
+    // (adding a prefix is an exception since the user might type a return type)
     if (m_declDefLink
             && (pos < m_declDefLink->linkSelection.selectionStart()
                 || pos > m_declDefLink->linkSelection.selectionEnd()
-                || m_declDefLink->nameSelection.selectedText() != m_declDefLink->nameInitial)) {
+                || !m_declDefLink->nameSelection.selectedText().trimmed()
+                    .endsWith(m_declDefLink->nameInitial))) {
         abortDeclDefLink();
         return;
     }

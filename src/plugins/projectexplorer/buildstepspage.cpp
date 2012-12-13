@@ -491,31 +491,23 @@ void BuildStepListWidget::updateBuildStepButtonsState()
     }
 }
 
-BuildStepsPage::BuildStepsPage(Target *target, Core::Id id) :
-    BuildConfigWidget(),
+BuildStepsPage::BuildStepsPage(BuildConfiguration *bc, Core::Id id) :
+    NamedWidget(),
     m_id(id),
     m_widget(new BuildStepListWidget(this))
 {
-    Q_UNUSED(target);
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setMargin(0);
     layout->setSpacing(0);
     layout->addWidget(m_widget);
+
+    m_widget->init(bc->stepList(m_id));
+
+    if (m_id == Constants::BUILDSTEPS_BUILD)
+        setDisplayName(tr("Build Steps"));
+    if (m_id == Constants::BUILDSTEPS_CLEAN)
+        setDisplayName(tr("Clean Steps"));
 }
 
 BuildStepsPage::~BuildStepsPage()
 { }
-
-QString BuildStepsPage::displayName() const
-{
-    if (m_id == Constants::BUILDSTEPS_BUILD)
-        return tr("Build Steps");
-    if (m_id == Constants::BUILDSTEPS_CLEAN)
-        return tr("Clean Steps");
-    return QString();
-}
-
-void BuildStepsPage::init(BuildConfiguration *bc)
-{
-    m_widget->init(bc->stepList(m_id));
-}

@@ -30,7 +30,7 @@
 #ifndef ITEMLIBRARYINFO_H
 #define ITEMLIBRARYINFO_H
 
-#include "corelib_global.h"
+#include "qmldesignercorelib_global.h"
 
 #include "propertycontainer.h"
 #include <QSharedPointer>
@@ -45,15 +45,17 @@ class MetaInfoPrivate;
 
 class ItemLibraryEntry;
 
-CORESHARED_EXPORT QDataStream& operator<<(QDataStream& stream, const ItemLibraryEntry &itemLibraryEntry);
-CORESHARED_EXPORT QDataStream& operator>>(QDataStream& stream, ItemLibraryEntry &itemLibraryEntry);
+QMLDESIGNERCORE_EXPORT QDataStream& operator<<(QDataStream& stream, const ItemLibraryEntry &itemLibraryEntry);
+QMLDESIGNERCORE_EXPORT QDataStream& operator>>(QDataStream& stream, ItemLibraryEntry &itemLibraryEntry);
+QMLDESIGNERCORE_EXPORT QDebug operator<<(QDebug debug, const ItemLibraryEntry &itemLibraryEntry);
 
-class CORESHARED_EXPORT ItemLibraryEntry
+class QMLDESIGNERCORE_EXPORT ItemLibraryEntry
 {
     //friend class QmlDesigner::MetaInfo;
     //friend class QmlDesigner::Internal::MetaInfoParser;
-    friend CORESHARED_EXPORT QDataStream& operator<<(QDataStream& stream, const ItemLibraryEntry &itemLibraryEntry);
-    friend CORESHARED_EXPORT QDataStream& operator>>(QDataStream& stream, ItemLibraryEntry &itemLibraryEntry);
+    friend QMLDESIGNERCORE_EXPORT QDataStream& operator<<(QDataStream& stream, const ItemLibraryEntry &itemLibraryEntry);
+    friend QMLDESIGNERCORE_EXPORT QDataStream& operator>>(QDataStream& stream, ItemLibraryEntry &itemLibraryEntry);
+    friend QMLDESIGNERCORE_EXPORT QDebug operator<<(QDebug debug, const ItemLibraryEntry &itemLibraryEntry);
 
 public:
     ItemLibraryEntry();
@@ -82,7 +84,7 @@ public:
     void setName(const QString &name);
     void setIconPath(const QString &iconPath);
     void addProperty(const Property &p);
-    void addProperty(QString &name, QString &type, QString &value);
+    void addProperty(QString &name, QString &type, QVariant &value);
     void setDragIcon(const QIcon &icon);
     void setIcon(const QIcon &icon);
     void setCategory(const QString &category);
@@ -93,7 +95,7 @@ private:
     QExplicitlySharedDataPointer<Internal::ItemLibraryEntryData> m_data;
 };
 
-class CORESHARED_EXPORT ItemLibraryInfo : public QObject
+class QMLDESIGNERCORE_EXPORT ItemLibraryInfo : public QObject
 {
     Q_OBJECT
 

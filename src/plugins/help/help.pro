@@ -4,7 +4,7 @@ TARGET = Help
 QT += network
 greaterThan(QT_MAJOR_VERSION, 4) {
     QT += printsupport help
-    !isEmpty(QT.webkitwidgets.name): QT += webkitwidgets
+    !isEmpty(QT.webkitwidgets.name): QT += webkitwidgets webkit
     else: DEFINES += QT_NO_WEBKIT
 } else {
     CONFIG += help
@@ -16,7 +16,10 @@ INCLUDEPATH += $$PWD
 include(../../qtcreatorplugin.pri)
 include(help_dependencies.pri)
 
-DEFINES += QT_CLUCENE_SUPPORT HELP_LIBRARY
+DEFINES += \
+    QT_CLUCENE_SUPPORT \
+    HELP_LIBRARY \
+    QT_NO_CAST_FROM_ASCII
 
 HEADERS += \
     centralwidget.h \
@@ -62,7 +65,7 @@ SOURCES += \
     searchwidget.cpp \
     xbelsupport.cpp \
     externalhelpwindow.cpp
-    
+
 FORMS += docsettingspage.ui \
     filtersettingspage.ui \
     generalsettingspage.ui \

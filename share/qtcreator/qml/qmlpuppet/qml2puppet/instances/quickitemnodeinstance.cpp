@@ -35,6 +35,9 @@
 #include <QQuickView>
 #include <cmath>
 
+#include <private/qquicktextinput_p.h>
+#include <private/qquicktextedit_p.h>
+
 #include <QHash>
 
 #include <QDebug>
@@ -140,7 +143,7 @@ bool QuickItemNodeInstance::childItemsHaveContent(QQuickItem *quickItem)
 
 QPointF QuickItemNodeInstance::position() const
 {
-    return quickItem()->pos();
+    return quickItem()->position();
 }
 
 static QTransform transformForItem(QQuickItem *item, NodeInstanceServer *nodeInstanceServer)
@@ -259,8 +262,24 @@ QuickItemNodeInstance::Pointer QuickItemNodeInstance::create(QObject *object)
     return instance;
 }
 
+static void disableTextCursor(QQuickItem *item)
+{
+    foreach (QQuickItem *childItem, item->childItems())
+        disableTextCursor(childItem);
+
+    QQuickTextInput *textInput = qobject_cast<QQuickTextInput*>(item);
+    if (textInput)
+        textInput->setCursorVisible(false);
+
+    QQuickTextEdit *textEdit = qobject_cast<QQuickTextEdit*>(item);
+    if (textEdit)
+        textEdit->setCursorVisible(false);
+}
+
 void QuickItemNodeInstance::initialize(const ObjectNodeInstance::Pointer &objectNodeInstance)
 {
+    disableTextCursor(quickItem());
+
     if (instanceId() == 0) {
         DesignerSupport::setRootItem(nodeInstanceServer()->quickView(), quickItem());
     } else {
@@ -429,13 +448,22 @@ void QuickItemNodeInstance::refresh()
     repositioning(quickItem());
 }
 
+void doComponentCompleteRecursive(QQuickItem *item)
+{
+    if (item) {
+        if (DesignerSupport::isComponentComplete(item))
+            return;
+
+        foreach (QQuickItem *childItem, item->childItems())
+            doComponentCompleteRecursive(childItem);
+
+        static_cast<QQmlParserStatus*>(item)->componentComplete();
+    }
+}
+
 void QuickItemNodeInstance::doComponentComplete()
 {
-    if (quickItem()) {
-        if (DesignerSupport::isComponentComplete(quickItem()))
-            return;
-        static_cast<QQmlParserStatus*>(quickItem())->componentComplete();
-    }
+    doComponentCompleteRecursive(quickItem());
 
     quickItem()->update();
 }

@@ -127,7 +127,7 @@ bool SimpleAbstractStreamReader::readFile(const QString &fileName)
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray source = file.readAll();
         file.close();
-        return readFromSource(source);
+        return readFromSource(QString::fromLocal8Bit(source));
     }
     addError(tr("Cannot find file %1").arg(fileName));
     return false;
@@ -135,6 +135,9 @@ bool SimpleAbstractStreamReader::readFile(const QString &fileName)
 
 bool SimpleAbstractStreamReader::readFromSource(const QString &source)
 {
+    m_errors.clear();
+    m_currentSourceLocation = AST::SourceLocation();
+
     Engine engine;
     Lexer lexer(&engine);
     Parser parser(&engine);
@@ -142,7 +145,7 @@ bool SimpleAbstractStreamReader::readFromSource(const QString &source)
     lexer.setCode(source, /*line = */ 1, /*qmlMode = */true);
 
     if (!parser.parse()) {
-        QString errorMessage = QString("%1:%2: %3").arg(
+        QString errorMessage = QString::fromLatin1("%1:%2: %3").arg(
                     QString::number(parser.errorLineNumber()),
                     QString::number(parser.errorColumnNumber()),
                     parser.errorMessage());
@@ -159,7 +162,7 @@ QStringList SimpleAbstractStreamReader::errors() const
 
 void SimpleAbstractStreamReader::addError(const QString &error, const AST::SourceLocation &sourceLocation)
 {
-    m_errors << QString("%1:%2: %3\n").arg(
+    m_errors << QString::fromLatin1("%1:%2: %3\n").arg(
                     QString::number(sourceLocation.startLine),
                     QString::number(sourceLocation.startColumn),
                     error);
@@ -174,13 +177,13 @@ bool SimpleAbstractStreamReader::readDocument(AST::UiProgram *ast)
 {
     if (!ast) {
         addError(tr("Could not parse document"));
-        false;
+        return false;
     }
 
     AST::UiObjectDefinition *uiObjectDefinition = AST::cast<AST::UiObjectDefinition *>(ast->members->member);
     if (!uiObjectDefinition) {
         addError(tr("Expected document to contain a single object definition"));
-        false;
+        return false;
     }
     readChild(uiObjectDefinition);
 
@@ -232,12 +235,12 @@ void SimpleAbstractStreamReader::readProperty(AST::UiScriptBinding *uiScriptBind
     setSourceLocation(uiScriptBinding->firstSourceLocation());
 
     const QString name = toString(uiScriptBinding->qualifiedId);
-    const QVariant value = parseProperty(uiScriptBinding);
+    const QVariant value = parsePropertyScriptBinding(uiScriptBinding);
 
     propertyDefinition(name, value);
 }
 
-QVariant SimpleAbstractStreamReader::parseProperty(AST::UiScriptBinding *uiScriptBinding)
+QVariant SimpleAbstractStreamReader::parsePropertyScriptBinding(AST::UiScriptBinding *uiScriptBinding)
 {
     Q_ASSERT(uiScriptBinding);
 
@@ -247,23 +250,39 @@ QVariant SimpleAbstractStreamReader::parseProperty(AST::UiScriptBinding *uiScrip
         return QVariant();
     }
 
-    AST::StringLiteral *stringLiteral = AST::cast<AST::StringLiteral *>(expStmt->expression);
+    return parsePropertyExpression(expStmt->expression);
+}
+
+QVariant SimpleAbstractStreamReader::parsePropertyExpression(AST::ExpressionNode *expressionNode)
+{
+    Q_ASSERT(expressionNode);
+
+    AST::ArrayLiteral *arrayLiteral = AST::cast<AST::ArrayLiteral *>(expressionNode);
+
+    if (arrayLiteral) {
+        QList<QVariant> variantList;
+        for (AST::ElementList *it = arrayLiteral->elements; it; it = it->next)
+            variantList << parsePropertyExpression(it->expression);
+        return variantList;
+    }
+
+    AST::StringLiteral *stringLiteral = AST::cast<AST::StringLiteral *>(expressionNode);
     if (stringLiteral)
         return stringLiteral->value.toString();
 
-    AST::TrueLiteral *trueLiteral = AST::cast<AST::TrueLiteral *>(expStmt->expression);
+    AST::TrueLiteral *trueLiteral = AST::cast<AST::TrueLiteral *>(expressionNode);
     if (trueLiteral)
         return true;
 
-    AST::FalseLiteral *falseLiteral = AST::cast<AST::FalseLiteral *>(expStmt->expression);
+    AST::FalseLiteral *falseLiteral = AST::cast<AST::FalseLiteral *>(expressionNode);
     if (falseLiteral)
         return false;
 
-    AST::NumericLiteral *numericLiteral = AST::cast<AST::NumericLiteral *>(expStmt->expression);
+    AST::NumericLiteral *numericLiteral = AST::cast<AST::NumericLiteral *>(expressionNode);
     if (numericLiteral)
         return numericLiteral->value;
 
-    addError(tr("Expected expression statement to be a literal"), uiScriptBinding->statement->firstSourceLocation());
+    addError(tr("Expected expression statement to be a literal"), expressionNode->firstSourceLocation());
     return QVariant();
 }
 

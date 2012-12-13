@@ -275,7 +275,7 @@ void ProjectListWidget::addProject(Project *project)
     }
 
     QFontMetrics fn(font());
-    int width = fn.width(project->displayName()) + padding();
+    int width = fn.width(displayName) + padding();
     if (width > optimalWidth())
         setOptimalWidth(width);
 
@@ -309,10 +309,8 @@ void ProjectListWidget::removeProject(Project *project)
 
     // recheck optimal width
     int width = 0;
-    for (int i = 0; i < count(); ++i) {
-        Project *p = item(i)->data(Qt::UserRole).value<Project *>();
-        width = qMax(fn.width(p->displayName()) + padding(), width);
-    }
+    for (int i = 0; i < count(); ++i)
+        width = qMax(fn.width(item(i)->text()) + padding(), width);
     setOptimalWidth(width);
 
     m_ignoreIndexChange = false;
@@ -355,10 +353,8 @@ void ProjectListWidget::projectDisplayNameChanged(Project *project)
     // recheck optimal width
     QFontMetrics fn(font());
     int width = 0;
-    for (int i = 0; i < count(); ++i) {
-        Project *p = item(i)->data(Qt::UserRole).value<Project *>();
-        width = qMax(fn.width(p->displayName()) + padding(), width);
-    }
+    for (int i = 0; i < count(); ++i)
+        width = qMax(fn.width(item(i)->text()) + padding(), width);
     setOptimalWidth(width);
 
     m_ignoreIndexChange = false;
@@ -1414,7 +1410,7 @@ void MiniProjectTargetSelector::updateActionAndSummary()
     QStringList lines;
     lines << tr("<b>Project:</b> %1").arg(projectName);
     if (!targetName.isEmpty())
-        lines << tr("<b>Target:</b> %1").arg(targetName);
+        lines << tr("<b>Kit:</b> %1").arg(targetName);
     if (!buildConfig.isEmpty())
         lines << tr("<b>Build:</b> %1").arg(buildConfig);
     if (!deployConfig.isEmpty())
@@ -1455,13 +1451,13 @@ void MiniProjectTargetSelector::updateSummary()
                     .arg(startupProject->displayName());
         } else {
             if (!m_listWidgets[TARGET]->isVisibleTo(this))
-                summary.append("<br/>");
+                summary.append(QLatin1String("<br/>"));
             if (!m_listWidgets[BUILD]->isVisibleTo(this))
-                summary.append("<br/>");
+                summary.append(QLatin1String("<br/>"));
             if (!m_listWidgets[DEPLOY]->isVisibleTo(this))
-                summary.append("<br/>");
+                summary.append(QLatin1String("<br/>"));
             if (!m_listWidgets[RUN]->isVisibleTo(this))
-                summary.append("<br/>");
+                summary.append(QLatin1String("<br/>"));
         }
     }
     m_summaryLabel->setText(summary);

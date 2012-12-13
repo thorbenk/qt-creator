@@ -35,7 +35,7 @@
 #include <QExplicitlySharedDataPointer>
 #include <QIcon>
 
-#include "corelib_global.h"
+#include "qmldesignercorelib_global.h"
 #include "invalidmetainfoexception.h"
 
 QT_BEGIN_NAMESPACE
@@ -50,13 +50,13 @@ class AbstractProperty;
 
 namespace Internal {
     class MetaInfoPrivate;
-    class MetaInfoParser;
+    class MetaInfoReader;
     class SubComponentManagerPrivate;
     class ItemLibraryEntryData;
     class NodeMetaInfoPrivate;
 }
 
-class CORESHARED_EXPORT NodeMetaInfo
+class QMLDESIGNERCORE_EXPORT NodeMetaInfo
 {
 public:
     NodeMetaInfo();

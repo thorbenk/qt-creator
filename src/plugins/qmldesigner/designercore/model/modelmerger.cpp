@@ -85,7 +85,7 @@ static void splitIdInBaseNameAndNumber(const QString &id, QString *baseId, int *
 {
 
     int counter = 0;
-    while(counter < id.count()) {
+    while (counter < id.count()) {
         bool canConvertToInteger = false;
         int newNumber = id.right(counter +1).toInt(&canConvertToInteger);
         if (canConvertToInteger)
@@ -199,7 +199,7 @@ void ModelMerger::replaceModel(const ModelNode &modelNode)
         syncNodeProperties(rootNode, modelNode, idRenamingHash, view());
         syncNodeListProperties(rootNode, modelNode, idRenamingHash, view());
         m_view->changeRootNodeType(modelNode.type(), modelNode.majorVersion(), modelNode.minorVersion());
-    } catch (RewritingException &e) { 
+    } catch (RewritingException &e) {
         qWarning() << e.description(); //silent error
     }
 }

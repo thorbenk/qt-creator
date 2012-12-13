@@ -45,11 +45,11 @@ class Context;
 
 namespace ProjectExplorer {
 
-class BuildConfigWidget;
 class IProjectManager;
 class EditorConfiguration;
 class ProjectNode;
 class Kit;
+class NamedWidget;
 class Target;
 class ProjectPrivate;
 
@@ -96,8 +96,6 @@ public:
 
     void saveSettings();
     bool restoreSettings();
-
-    virtual QList<BuildConfigWidget*> subConfigWidgets();
 
     virtual ProjectNode *rootProjectNode() const = 0;
 

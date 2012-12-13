@@ -33,6 +33,7 @@
 #include <QObject>
 #include <QUrl>
 #include <QDeclarativePropertyMap>
+#include <QColor>
 
 namespace QmlDesigner {
 
@@ -63,6 +64,8 @@ public:
     bool selectionChanged() const { return m_selectionChanged; }
 
     QDeclarativePropertyMap* backendValues() const { return m_backendValues; }
+
+    Q_INVOKABLE QString convertColorToString(const QColor &color) { return color.name(); }
 
 signals:
     void globalBaseUrlChanged();

@@ -28,12 +28,30 @@
 ****************************************************************************/
 
 #include "ModelManagerInterface.h"
+#include "pp-engine.h"
 
 #include <QtCore/QSet>
+
+/*!
+    \enum CPlusPlus::CppModelManagerInterface::QtVersion
+    Allows C++ parser engine to inject headers or change inner settings as
+    needed to parse Qt language extensions for concrete major Qt version
+    \value UnknownQt
+           Parser may choose any policy
+    \value NoQt
+           Parser must not use special tricks, because it parses non-qt project
+    \value Qt4
+           Parser may enable tricks for Qt v4.x
+    \value Qt5
+           Parser may enable tricks for Qt v5.x
+*/
 
 using namespace CPlusPlus;
 
 static CppModelManagerInterface *g_instance = 0;
+
+const QString CppModelManagerInterface::configurationFileName()
+{ return Preprocessor::configurationFileName; }
 
 CppModelManagerInterface::CppModelManagerInterface(QObject *parent)
     : QObject(parent)
@@ -85,7 +103,11 @@ void CppModelManagerInterface::ProjectInfo::appendProjectPart(
 
     // update source files
     QSet<QString> srcs = QSet<QString>::fromList(m_sourceFiles);
+    foreach (const QString &src, part->headerFiles)
+        srcs.insert(src);
     foreach (const QString &src, part->sourceFiles)
+        srcs.insert(src);
+    foreach (const QString &src, part->objcSourceFiles)
         srcs.insert(src);
     m_sourceFiles = srcs.toList();
 

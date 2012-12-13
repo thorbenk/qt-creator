@@ -199,8 +199,8 @@ bool CMakeRunConfiguration::fromMap(const QVariantMap &map)
 QString CMakeRunConfiguration::defaultDisplayName() const
 {
     if (m_title.isEmpty())
-        return tr("Run CMake target");
-    return m_title + (m_enabled ? "" : tr(" (disabled)"));
+        return tr("Run CMake kit");
+    return m_title + (m_enabled ? QString() : tr(" (disabled)"));
 }
 
 QWidget *CMakeRunConfiguration::createConfigurationWidget()
@@ -565,5 +565,5 @@ QString CMakeRunConfigurationFactory::buildTargetFromId(Core::Id id)
 Core::Id CMakeRunConfigurationFactory::idFromBuildTarget(const QString &target)
 {
     QString id = QString::fromLatin1(CMAKE_RC_PREFIX) + target;
-    return Core::Id(id.toUtf8().constData());
+    return Core::Id(id.toUtf8());
 }

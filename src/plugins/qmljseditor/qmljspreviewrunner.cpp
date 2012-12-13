@@ -48,7 +48,7 @@ QmlJSPreviewRunner::QmlJSPreviewRunner(QObject *parent) :
     // prepend creator/bin dir to search path (only useful for special creator-qml package)
     const QString searchPath = QCoreApplication::applicationDirPath()
                                + Utils::HostOsInfo::pathListSeparator()
-                               + QString(qgetenv("PATH"));
+                               + QString::fromLocal8Bit(qgetenv("PATH"));
     m_qmlViewerDefaultPath = Utils::SynchronousProcess::locateBinary(searchPath, QLatin1String("qmlviewer"));
 
     Utils::Environment environment = Utils::Environment::systemEnvironment();
@@ -68,7 +68,7 @@ void QmlJSPreviewRunner::run(const QString &filename)
                                     Utils::QtcProcess::quoteArg(filename));
 
     } else {
-        errorMessage = "No file specified.";
+        errorMessage = tr("No file specified.");
     }
 
     if (!errorMessage.isEmpty())

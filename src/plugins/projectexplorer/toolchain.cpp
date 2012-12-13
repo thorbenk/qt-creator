@@ -60,7 +60,7 @@ public:
 
     static QString createId(const QString &id)
     {
-        QString newId = id.left(id.indexOf(':'));
+        QString newId = id.left(id.indexOf(QLatin1Char(':')));
         newId.append(QLatin1Char(':') + QUuid::createUuid().toString());
         return newId;
     }
@@ -131,11 +131,6 @@ Utils::FileName ToolChain::suggestedDebugger() const
 bool ToolChain::canClone() const
 {
     return true;
-}
-
-QString ToolChain::defaultMakeTarget() const
-{
-    return QString();
 }
 
 bool ToolChain::operator == (const ToolChain &tc) const

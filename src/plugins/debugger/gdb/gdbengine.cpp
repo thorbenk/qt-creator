@@ -279,6 +279,8 @@ GdbEngine::GdbEngine(const DebuggerStartParameters &startParameters)
             SLOT(reloadLocals()));
     connect(debuggerCore()->action(UseDynamicType), SIGNAL(valueChanged(QVariant)),
             SLOT(reloadLocals()));
+    connect(debuggerCore()->action(IntelFlavor), SIGNAL(valueChanged(QVariant)),
+            SLOT(reloadDisassembly()));
 }
 
 GdbEngine::~GdbEngine()
@@ -4582,6 +4584,12 @@ DisassemblerLines GdbEngine::parseDisassembler(const GdbResponse &response)
     return parseCliDisassembler(response.consoleStreamOutput);
 }
 
+void GdbEngine::reloadDisassembly()
+{
+    setTokenBarrier();
+    updateLocals();
+}
+
 void GdbEngine::handleDisassemblerCheck(const GdbResponse &response)
 {
     m_disassembleUsesComma = response.resultClass != GdbResultDone;
@@ -4897,6 +4905,10 @@ void GdbEngine::loadPythonDumpers()
     postCommand("python execfile('" + dumperSourcePath + "qttypes.py')",
         ConsoleCommand|NonCriticalResponse);
 
+    postCommand("python qqStringCutOff = "
+        + debuggerCore()->action(MaximalStringLength)->value().toByteArray(),
+        ConsoleCommand|NonCriticalResponse);
+
     loadInitScript();
 
     postCommand("bbsetup", ConsoleCommand, CB(handleHasPython));
@@ -4998,6 +5010,11 @@ void GdbEngine::handleInferiorPrepared()
     const DebuggerStartParameters &sp = startParameters();
 
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << state());
+
+    if (debuggerCore()->boolSetting(IntelFlavor)) {
+        //postCommand("set follow-exec-mode new");
+        postCommand("set disassembly-flavor intel");
+    }
 
     if (sp.breakOnMain) {
         QByteArray cmd = "tbreak ";

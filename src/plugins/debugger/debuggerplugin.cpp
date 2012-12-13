@@ -159,7 +159,7 @@
 //#   define STATE_DEBUG(s)
 //    do { QString msg; QTextStream ts(&msg); ts << s;
 //      showMessage(msg, LogDebug); } while (0)
-#   define STATE_DEBUG(s) do { qDebug() << s; } while(0)
+#   define STATE_DEBUG(s) do { qDebug() << s; } while (0)
 #else
 #   define STATE_DEBUG(s)
 #endif
@@ -463,12 +463,12 @@ static QToolButton *toolButton(QAction *action)
     return button;
 }
 
-static void setProxyAction(ProxyAction *proxy, const char *id)
+static void setProxyAction(ProxyAction *proxy, Core::Id id)
 {
     proxy->setAction(ActionManager::command(id)->action());
 }
 
-static QToolButton *toolButton(const char *id)
+static QToolButton *toolButton(Core::Id id)
 {
     return toolButton(ActionManager::command(id)->action());
 }
@@ -1471,7 +1471,7 @@ bool DebuggerPluginPrivate::parseArgument(QStringList::const_iterator &it,
     // a handshake when attaching to a crashed Windows process.
     // This is created by $QTC/src/tools/qtcdebugger/main.cpp:
     // args << QLatin1String("-wincrashevent")
-    //   << QString("%1:%2").arg(argWinCrashEvent).arg(argProcessId);
+    //   << QString::fromLatin1("%1:%2").arg(argWinCrashEvent).arg(argProcessId);
     if (*it == _("-wincrashevent")) {
         ++it;
         if (it == cend) {
@@ -1562,7 +1562,7 @@ void DebuggerPluginPrivate::onCurrentProjectChanged(Project *project)
     m_exitAction->setEnabled(false);
     m_startAction->setEnabled(true);
     m_debugWithoutDeployAction->setEnabled(true);
-    setProxyAction(m_visibleStartAction, Constants::DEBUG);
+    setProxyAction(m_visibleStartAction, Core::Id(Constants::DEBUG));
 }
 
 void DebuggerPluginPrivate::languagesChanged()
@@ -2215,7 +2215,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
     engine->watchHandler()->updateWatchersWindow();
 
     const DebuggerState state = engine->state();
-    //showMessage(QString("PLUGIN SET STATE: ")
+    //showMessage(QString::fromLatin1("PLUGIN SET STATE: ")
     //    + DebuggerEngine::stateName(state), LogStatus);
     //qDebug() << "PLUGIN SET STATE: " << state;
 
@@ -2233,7 +2233,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_exitAction->setEnabled(false);
         m_startAction->setEnabled(true);
         m_debugWithoutDeployAction->setEnabled(true);
-        setProxyAction(m_visibleStartAction, Constants::DEBUG);
+        setProxyAction(m_visibleStartAction, Core::Id(Constants::DEBUG));
         m_hiddenStopAction->setAction(m_undisturbableAction);
     } else if (state == InferiorStopOk) {
         // F5 continues, Shift-F5 kills. It is "continuable".
@@ -2242,7 +2242,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_exitAction->setEnabled(true);
         m_startAction->setEnabled(false);
         m_debugWithoutDeployAction->setEnabled(false);
-        setProxyAction(m_visibleStartAction, Constants::CONTINUE);
+        setProxyAction(m_visibleStartAction, Core::Id(Constants::CONTINUE));
         m_hiddenStopAction->setAction(m_exitAction);
         m_localsAndExpressionsWindow->setShowLocals(true);
     } else if (state == InferiorRunOk) {
@@ -2252,7 +2252,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_exitAction->setEnabled(true);
         m_startAction->setEnabled(false);
         m_debugWithoutDeployAction->setEnabled(false);
-        setProxyAction(m_visibleStartAction, Constants::INTERRUPT);
+        setProxyAction(m_visibleStartAction, Core::Id(Constants::INTERRUPT));
         m_hiddenStopAction->setAction(m_interruptAction);
         m_localsAndExpressionsWindow->setShowLocals(false);
     } else if (state == DebuggerFinished) {
@@ -2262,7 +2262,7 @@ void DebuggerPluginPrivate::updateState(DebuggerEngine *engine)
         m_exitAction->setEnabled(false);
         m_startAction->setEnabled(true);
         m_debugWithoutDeployAction->setEnabled(true);
-        setProxyAction(m_visibleStartAction, Constants::DEBUG);
+        setProxyAction(m_visibleStartAction, Core::Id(Constants::DEBUG));
         m_hiddenStopAction->setAction(m_undisturbableAction);
         m_codeModelSnapshot = CPlusPlus::Snapshot();
         setBusyCursor(false);

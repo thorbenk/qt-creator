@@ -30,7 +30,7 @@
 #ifndef QT4PROJECTCONFIGWIDGET_H
 #define QT4PROJECTCONFIGWIDGET_H
 
-#include <projectexplorer/buildstep.h>
+#include <projectexplorer/namedwidget.h>
 
 QT_BEGIN_NAMESPACE
 class QAbstractButton;
@@ -49,15 +49,12 @@ namespace Ui {
 class Qt4ProjectConfigWidget;
 }
 
-class Qt4ProjectConfigWidget : public ProjectExplorer::BuildConfigWidget
+class Qt4ProjectConfigWidget : public ProjectExplorer::NamedWidget
 {
     Q_OBJECT
 public:
-    Qt4ProjectConfigWidget(ProjectExplorer::Target *target);
+    Qt4ProjectConfigWidget(Qt4BuildConfiguration *bc);
     ~Qt4ProjectConfigWidget();
-
-    QString displayName() const;
-    void init(ProjectExplorer::BuildConfiguration *bc);
 
 private slots:
     // User changes in our widgets

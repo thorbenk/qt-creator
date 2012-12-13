@@ -37,8 +37,8 @@
 
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectnodes.h>
-#include <projectexplorer/buildstep.h>
 #include <projectexplorer/buildconfiguration.h>
+#include <projectexplorer/namedwidget.h>
 #include <coreplugin/idocument.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
@@ -84,8 +84,6 @@ public:
     Core::Id id() const;
     Core::IDocument *document() const;
     CMakeManager *projectManager() const;
-
-    QList<ProjectExplorer::BuildConfigWidget*> subConfigWidgets();
 
     ProjectExplorer::ProjectNode *rootProjectNode() const;
 
@@ -226,15 +224,11 @@ private:
     QString m_fileName;
 };
 
-class CMakeBuildSettingsWidget : public ProjectExplorer::BuildConfigWidget
+class CMakeBuildSettingsWidget : public ProjectExplorer::NamedWidget
 {
     Q_OBJECT
 public:
-    CMakeBuildSettingsWidget();
-    QString displayName() const;
-
-    // This is called to set up the config widget before showing it
-    void init(ProjectExplorer::BuildConfiguration *bc);
+    CMakeBuildSettingsWidget(CMakeBuildConfiguration *bc);
 
 private slots:
     void openChangeBuildDirectoryDialog();

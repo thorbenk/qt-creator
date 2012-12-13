@@ -30,7 +30,7 @@
 #ifndef METAINFO_H
 #define METAINFO_H
 
-#include "corelib_global.h"
+#include "qmldesignercorelib_global.h"
 
 #include <QMultiHash>
 #include <QString>
@@ -53,15 +53,15 @@ namespace Internal {
     typedef QSharedPointer<MetaInfoPrivate> MetaInfoPrivatePointer;
 }
 
-CORESHARED_EXPORT bool operator==(const MetaInfo &first, const MetaInfo &second);
-CORESHARED_EXPORT bool operator!=(const MetaInfo &first, const MetaInfo &second);
+QMLDESIGNERCORE_EXPORT bool operator==(const MetaInfo &first, const MetaInfo &second);
+QMLDESIGNERCORE_EXPORT bool operator!=(const MetaInfo &first, const MetaInfo &second);
 
 
-class CORESHARED_EXPORT MetaInfo
+class QMLDESIGNERCORE_EXPORT MetaInfo
 {
     friend class QmlDesigner::Internal::MetaInfoPrivate;
     friend class QmlDesigner::Internal::ModelPrivate;
-    friend class QmlDesigner::Internal::MetaInfoParser;
+    friend class QmlDesigner::Internal::MetaInfoReader;
     friend class QmlDesigner::Internal::SubComponentManagerPrivate;
     friend bool operator==(const MetaInfo &, const MetaInfo &);
 

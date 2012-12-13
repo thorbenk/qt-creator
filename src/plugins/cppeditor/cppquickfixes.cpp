@@ -1240,7 +1240,7 @@ public:
                 ClassOrNamespace *b = interface->context().lookupType(function);
                 if (b) {
                     // Do we have a tr method?
-                    foreach(const LookupItem &r, b->find(trName)) {
+                    foreach (const LookupItem &r, b->find(trName)) {
                         Symbol *s = r.declaration();
                         if (s->type()->isFunctionType()) {
                             // no context required for tr
@@ -1875,7 +1875,7 @@ public:
         bool inProject = false;
         foreach (const CppModelManagerInterface::ProjectInfo &info, projectInfos) {
             foreach (CppModelManagerInterface::ProjectPart::Ptr part, info.projectParts()) {
-                if (part->sourceFiles.contains(doc->fileName())) {
+                if (part->sourceFiles.contains(doc->fileName()) || part->objcSourceFiles.contains(doc->fileName()) || part->headerFiles.contains(doc->fileName())) {
                     inProject = true;
                     includePaths += part->includePaths;
                 }

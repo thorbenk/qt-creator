@@ -55,7 +55,7 @@ public:
     explicit Qt4BuildConfiguration(ProjectExplorer::Target *target);
     ~Qt4BuildConfiguration();
 
-    ProjectExplorer::BuildConfigWidget *createConfigWidget();
+    ProjectExplorer::NamedWidget *createConfigWidget();
     QString buildDirectory() const;
     bool shadowBuild() const;
     QString shadowBuildDirectory() const;
@@ -86,7 +86,6 @@ public:
     QMakeStep *qmakeStep() const;
     MakeStep *makeStep() const;
 
-    QString defaultMakeTarget() const;
     QString makefile() const;
 
     enum MakefileState { MakefileMatches, MakefileForWrongProject, MakefileIncompatible, MakefileMissing };

@@ -883,7 +883,7 @@ void SubversionPlugin::filelog(const QString &workingDir,
     QStringList args(QLatin1String("log"));
     if (m_settings.logCount > 0)
         args << QLatin1String("-l") << QString::number(m_settings.logCount);
-    foreach(const QString &file, files)
+    foreach (const QString &file, files)
         args.append(QDir::toNativeSeparators(file));
 
     // subversion stores log in UTF-8 and returns it back in user system locale.
@@ -1145,7 +1145,7 @@ Core::IEditor *SubversionPlugin::showOutputInEditor(const QString &title, const 
 {
     const VcsBase::VcsBaseEditorParameters *params = findType(editorType);
     QTC_ASSERT(params, return 0);
-    const Core::Id id = params->id;
+    const Core::Id id = Core::Id(QByteArray(params->id));
     if (Subversion::Constants::debug)
         qDebug() << "SubversionPlugin::showOutputInEditor" << title << id.name()
                  <<  "Size= " << output.size() <<  " Type=" << editorType << debugCodec(codec);
@@ -1305,20 +1305,20 @@ QString SubversionPlugin::vcsGetRepositoryURL(const QString &directory)
     bool repo = false;
     bool root = false;
 
-    while(!xml.atEnd() && !xml.hasError()) {
-        switch(xml.readNext()) {
+    while (!xml.atEnd() && !xml.hasError()) {
+        switch (xml.readNext()) {
         case QXmlStreamReader::StartDocument:
             break;
         case QXmlStreamReader::StartElement:
-            if(xml.name() == QLatin1String("repository"))
+            if (xml.name() == QLatin1String("repository"))
                 repo = true;
-            else if(repo && xml.name() == QLatin1String("root"))
+            else if (repo && xml.name() == QLatin1String("root"))
                 root = true;
             break;
         case QXmlStreamReader::EndElement:
-            if(xml.name() == QLatin1String("repository"))
+            if (xml.name() == QLatin1String("repository"))
                 repo = false;
-            else if(repo && xml.name() == QLatin1String("root"))
+            else if (repo && xml.name() == QLatin1String("root"))
                 root = false;
             break;
         case QXmlStreamReader::Characters:

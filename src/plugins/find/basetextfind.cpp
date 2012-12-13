@@ -256,8 +256,9 @@ int BaseTextFind::replaceAll(const QString &before, const QString &after,
     regexp.setPatternSyntax(usesRegExp ? QRegExp::RegExp : QRegExp::FixedString);
     regexp.setCaseSensitivity((findFlags & Find::FindCaseSensitively) ? Qt::CaseSensitive : Qt::CaseInsensitive);
     QTextCursor found = findOne(regexp, editCursor, Find::textDocumentFlagsForFindFlags(findFlags));
-    while (!found.isNull() && found.selectionStart() < found.selectionEnd()
-            && inScope(found.selectionStart(), found.selectionEnd())) {
+    while (!found.isNull()
+           && (found.selectionStart() < found.selectionEnd() || after.length() > 0)
+           && inScope(found.selectionStart(), found.selectionEnd())) {
         ++count;
         editCursor.setPosition(found.selectionStart());
         editCursor.setPosition(found.selectionEnd(), QTextCursor::KeepAnchor);
@@ -338,7 +339,18 @@ QTextCursor BaseTextFind::findOne(const QRegExp &expr, const QTextCursor &from, 
                                   Q_ARG(QTextCursor, candidate));
         if (inVerticalFindScope)
             return candidate;
-        candidate = document()->find(expr, candidate, options);
+
+        QTextCursor newCandidate = document()->find(expr, candidate, options);
+        if (newCandidate == candidate) {
+            // When searching for regular expressions that match "zero length" strings (like ^ or \b)
+            // we need to move away from the match before searching for the next one.
+            candidate.movePosition(options & QTextDocument::FindBackward
+                                   ? QTextCursor::PreviousCharacter
+                                   : QTextCursor::NextCharacter);
+            candidate = document()->find(expr, candidate, options);
+        } else {
+            candidate = newCandidate;
+        }
     }
     return candidate;
 }

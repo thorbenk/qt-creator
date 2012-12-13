@@ -122,7 +122,8 @@ static QByteArray gccPredefinedMacros(const FileName &gcc, const QStringList &ar
                 || a == QLatin1String("-O2") || a == QLatin1String("-O3")
                 || a == QLatin1String("-ffinite-math-only") || a == QLatin1String("-fshort-double")
                 || a == QLatin1String("-fshort-wchar") || a == QLatin1String("-fsignaling-nans")
-                || a.startsWith(QLatin1String("-std=")) || a.startsWith(QLatin1String("-specs="))
+                || a.startsWith(QLatin1String("-std=")) || a.startsWith(QLatin1String("-stdlib="))
+                || a.startsWith(QLatin1String("-specs="))
                 || a == QLatin1String("-ansi")
                 || a.startsWith(QLatin1String("-D")) || a.startsWith(QLatin1String("-U"))
                 || a == QLatin1String("-undef"))
@@ -148,12 +149,20 @@ static QByteArray gccPredefinedMacros(const FileName &gcc, const QStringList &ar
     return predefinedMacros;
 }
 
-QList<HeaderPath> GccToolChain::gccHeaderPaths(const FileName &gcc, const QStringList &env, const FileName &sysrootPath)
+const int GccToolChain::PREDEFINED_MACROS_CACHE_SIZE = 16;
+
+QList<HeaderPath> GccToolChain::gccHeaderPaths(const FileName &gcc, const QStringList &args,
+                                               const QStringList &env, const FileName &sysrootPath)
 {
     QList<HeaderPath> systemHeaderPaths;
     QStringList arguments;
     if (!sysrootPath.isEmpty())
         arguments.append(QString::fromLatin1("--sysroot=%1").arg(sysrootPath.toString()));
+    foreach (const QString &a, args) {
+        if (a.startsWith(QLatin1String("-stdlib=")))
+            arguments << a;
+    }
+
     arguments << QLatin1String("-xc++")
               << QLatin1String("-E")
               << QLatin1String("-v")
@@ -316,7 +325,7 @@ GccToolChain::GccToolChain(const QString &id, bool autodetect) :
 
 GccToolChain::GccToolChain(const GccToolChain &tc) :
     ToolChain(tc),
-    m_predefinedMacros(tc.predefinedMacros(QStringList())),
+    m_predefinedMacros(tc.m_predefinedMacros),
     m_compilerCommand(tc.compilerCommand()),
     m_targetAbi(tc.m_targetAbi),
     m_supportedAbis(tc.m_supportedAbis),
@@ -374,32 +383,59 @@ bool GccToolChain::isValid() const
     return !m_compilerCommand.isNull();
 }
 
+/**
+ * @brief Asks compiler for set of predefined macros
+ * @param cxxflags - compiler flags collected from project settings
+ * @return defines list, one per line, e.g. "#define __GXX_WEAK__ 1"
+ *
+ * @note changing compiler flags sometimes changes macros set, e.g. -fopenmp
+ * adds _OPENMP macro, for full list of macro search by word "when" on this page:
+ * http://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
+ */
 QByteArray GccToolChain::predefinedMacros(const QStringList &cxxflags) const
 {
-    if (m_predefinedMacros.isEmpty()) {
-        // Using a clean environment breaks ccache/distcc/etc.
-        Environment env = Environment::systemEnvironment();
-        addToEnvironment(env);
-        m_predefinedMacros = gccPredefinedMacros(m_compilerCommand, cxxflags, env.toStringList());
-    }
-    return m_predefinedMacros;
+    typedef QPair<QStringList, QByteArray> CacheItem;
+
+    for (GccCache::iterator it = m_predefinedMacros.begin(); it != m_predefinedMacros.end(); ++it)
+        if (it->first == cxxflags) {
+            // Increase cached item priority
+            CacheItem pair = *it;
+            m_predefinedMacros.erase(it);
+            m_predefinedMacros.push_back(pair);
+
+            return pair.second;
+        }
+
+    CacheItem runResults;
+    runResults.first = cxxflags;
+
+    // Using a clean environment breaks ccache/distcc/etc.
+    Environment env = Environment::systemEnvironment();
+    addToEnvironment(env);
+    runResults.second = gccPredefinedMacros(m_compilerCommand, cxxflags, env.toStringList());
+
+    m_predefinedMacros.push_back(runResults);
+    if (m_predefinedMacros.size() > PREDEFINED_MACROS_CACHE_SIZE)
+        m_predefinedMacros.pop_front();
+
+    return runResults.second;
 }
 
 ToolChain::CompilerFlags GccToolChain::compilerFlags(const QStringList &cxxflags) const
 {
-    if (cxxflags.contains("-std=c++0x") || cxxflags.contains("-std=gnu++0x") ||
-        cxxflags.contains("-std=c++11") || cxxflags.contains("-std=gnu++11"))
+    if (cxxflags.contains(QLatin1String("-std=c++0x")) || cxxflags.contains(QLatin1String("-std=gnu++0x")) ||
+        cxxflags.contains(QLatin1String("-std=c++11")) || cxxflags.contains(QLatin1String("-std=gnu++11")))
         return STD_CXX11;
     return NO_FLAGS;
 }
 
-QList<HeaderPath> GccToolChain::systemHeaderPaths(const Utils::FileName &sysRoot) const
+QList<HeaderPath> GccToolChain::systemHeaderPaths(const QStringList &cxxflags, const Utils::FileName &sysRoot) const
 {
     if (m_headerPaths.isEmpty()) {
         // Using a clean environment breaks ccache/distcc/etc.
         Environment env = Environment::systemEnvironment();
         addToEnvironment(env);
-        m_headerPaths = gccHeaderPaths(m_compilerCommand, env.toStringList(), sysRoot);
+        m_headerPaths = gccHeaderPaths(m_compilerCommand, cxxflags, env.toStringList(), sysRoot);
     }
     return m_headerPaths;
 }
@@ -614,7 +650,7 @@ ToolChain *Internal::GccToolChainFactory::restore(const QVariantMap &data)
     // Updating from 2.5:
     QVariantMap updated = data;
     QString id = idFromMap(updated);
-    if (id.startsWith(LEGACY_MAEMO_ID)) {
+    if (id.startsWith(QLatin1String(LEGACY_MAEMO_ID))) {
         id = QString::fromLatin1(Constants::GCC_TOOLCHAIN_ID).append(id.mid(id.indexOf(QLatin1Char(':'))));
         idToMap(updated, id);
         autoDetectionToMap(updated, false);
@@ -881,7 +917,7 @@ QList<FileName> MingwToolChain::suggestedMkspecList() const
     if (Utils::HostOsInfo::isWindowsHost())
         return QList<FileName>() << FileName::fromString(QLatin1String("win32-g++"));
     if (Utils::HostOsInfo::isLinuxHost()) {
-        if (version().startsWith("4.6."))
+        if (version().startsWith(QLatin1String("4.6.")))
             return QList<FileName>()
                     << FileName::fromString(QLatin1String("win32-g++-4.6-cross"))
                     << FileName::fromString(QLatin1String("unsupported/win32-g++-4.6-cross"));

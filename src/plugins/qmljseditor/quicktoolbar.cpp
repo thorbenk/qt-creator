@@ -151,7 +151,7 @@ void QuickToolBar::apply(TextEditor::BaseTextEditor *editor, Document::Ptr docum
             m_prototypes.append(object->className());
         }
 
-        if (m_prototypes.contains("PropertyChanges")) {
+        if (m_prototypes.contains(QLatin1String("PropertyChanges"))) {
             isPropertyChanges = true;
             const ObjectValue *targetObject = getPropertyChangesTarget(node, *scopeChain);
             m_prototypes.clear();
@@ -219,7 +219,7 @@ void QuickToolBar::apply(TextEditor::BaseTextEditor *editor, Document::Ptr docum
             m_node = 0;
             PropertyReader propertyReader(document, initializer);
             QTextCursor tc(editor->editorWidget()->document());
-            tc.setPosition(offset); 
+            tc.setPosition(offset);
             QPoint p1 = editor->editorWidget()->mapToParent(editor->editorWidget()->viewport()->mapToParent(editor->editorWidget()->cursorRect(tc).topLeft()) - QPoint(0, contextWidget()->height() + 10));
             tc.setPosition(end);
             QPoint p2 = editor->editorWidget()->mapToParent(editor->editorWidget()->viewport()->mapToParent(editor->editorWidget()->cursorRect(tc).bottomLeft()) + QPoint(0, 10));
@@ -237,7 +237,7 @@ void QuickToolBar::apply(TextEditor::BaseTextEditor *editor, Document::Ptr docum
                 contextWidget()->rePosition(p3 , p1, p2, QuickToolBarSettings::get().pinContextPane);
             contextWidget()->setOptions(QuickToolBarSettings::get().enableContextPane, QuickToolBarSettings::get().pinContextPane);
             contextWidget()->setPath(document->path());
-            contextWidget()->setProperties(&propertyReader); 
+            contextWidget()->setProperties(&propertyReader);
             m_doc = document;
             m_node = node;
         } else {
@@ -277,15 +277,15 @@ bool QuickToolBar::isAvailable(TextEditor::BaseTextEditor *, Document::Ptr docum
     QStringList prototypes;
     prototypes.append(name);
 
-    if (prototypes.contains("Rectangle") ||
-            prototypes.contains("Image") ||
-            prototypes.contains("BorderImage") ||
-            prototypes.contains("TextEdit") ||
-            prototypes.contains("TextInput") ||
-            prototypes.contains("PropertyAnimation") ||
-            prototypes.contains("NumberAnimation") ||
-            prototypes.contains("Text") ||
-            prototypes.contains("PropertyChanges"))
+    if (prototypes.contains(QLatin1String("Rectangle")) ||
+            prototypes.contains(QLatin1String("Image")) ||
+            prototypes.contains(QLatin1String("BorderImage")) ||
+            prototypes.contains(QLatin1String("TextEdit")) ||
+            prototypes.contains(QLatin1String("TextInput")) ||
+            prototypes.contains(QLatin1String("PropertyAnimation")) ||
+            prototypes.contains(QLatin1String("NumberAnimation")) ||
+            prototypes.contains(QLatin1String("Text")) ||
+            prototypes.contains(QLatin1String("PropertyChanges")))
         return true;
 
     return false;
@@ -296,7 +296,7 @@ void QuickToolBar::setProperty(const QString &propertyName, const QVariant &valu
 
     QString stringValue = value.toString();
     if (value.type() == QVariant::Color)
-        stringValue = QChar('\"') + value.toString() + QChar('\"');
+        stringValue = QLatin1Char('\"') + value.toString() + QLatin1Char('\"');
 
     if (cast<UiObjectDefinition*>(m_node) || cast<UiObjectBinding*>(m_node)) {
         UiObjectDefinition *objectDefinition = cast<UiObjectDefinition*>(m_node);
@@ -316,7 +316,7 @@ void QuickToolBar::setProperty(const QString &propertyName, const QVariant &valu
 
         Rewriter::BindingType bindingType = Rewriter::ScriptBinding;
 
-        if (stringValue.contains("{") && stringValue.contains("}"))
+        if (stringValue.contains(QLatin1Char('{')) && stringValue.contains(QLatin1Char('}')))
             bindingType = Rewriter::ObjectBinding;
 
         PropertyReader propertyReader(m_doc, initializer);

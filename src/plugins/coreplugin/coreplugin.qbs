@@ -32,6 +32,7 @@ QtcPlugin {
         ]
     }
 
+    cpp.defines: base.concat([ "QT_NO_CAST_FROM_ASCII" ])
     files: [
         "basefilewizard.cpp",
         "basefilewizard.h",
@@ -208,7 +209,6 @@ QtcPlugin {
         "editormanager/openeditorsmodel.h",
         "editormanager/openeditorsview.cpp",
         "editormanager/openeditorsview.h",
-        "editormanager/openeditorsview.ui",
         "editormanager/openeditorswindow.cpp",
         "editormanager/openeditorswindow.h",
         "editormanager/systemeditor.cpp",

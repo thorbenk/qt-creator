@@ -43,14 +43,12 @@ class BlackBerryDeployConfigurationWidget;
 
 class BlackBerryDeployConfiguration;
 
-class BlackBerryDeployConfigurationWidget : public ProjectExplorer::DeployConfigurationWidget
+class BlackBerryDeployConfigurationWidget : public ProjectExplorer::NamedWidget
 {
     Q_OBJECT
 public:
-    explicit BlackBerryDeployConfigurationWidget(QWidget *parent = 0);
+    explicit BlackBerryDeployConfigurationWidget(BlackBerryDeployConfiguration *dc, QWidget *parent = 0);
     ~BlackBerryDeployConfigurationWidget();
-
-    void init(ProjectExplorer::DeployConfiguration *dc);
 
 private:
     Ui::BlackBerryDeployConfigurationWidget *m_ui;

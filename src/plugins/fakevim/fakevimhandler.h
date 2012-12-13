@@ -82,7 +82,8 @@ enum MessageLevel
     MessageCommand, // show last Ex command or search
     MessageInfo,    // result of a command
     MessageWarning, // warning
-    MessageError    // error
+    MessageError,   // error
+    MessageShowCmd  // partial command
 };
 
 class FakeVimHandler : public QObject
@@ -149,6 +150,7 @@ signals:
     void foldToggle(int depth);
     void foldAll(bool fold);
     void fold(int depth, bool fold);
+    void foldGoTo(int count, bool current);
     void jumpToGlobalMark(QChar mark, bool backTickMode, const QString &fileName);
 
 public:

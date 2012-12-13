@@ -151,14 +151,9 @@ void ConfigureStep::ctor()
     setDefaultDisplayName(tr("Configure"));
 }
 
-AutotoolsBuildConfiguration *ConfigureStep::autotoolsBuildConfiguration() const
-{
-    return static_cast<AutotoolsBuildConfiguration *>(buildConfiguration());
-}
-
 bool ConfigureStep::init()
 {
-    AutotoolsBuildConfiguration *bc = autotoolsBuildConfiguration();
+    BuildConfiguration *bc = buildConfiguration();
 
     ProcessParameters *pp = processParameters();
     pp->setMacroExpander(bc->macroExpander());
@@ -166,13 +161,14 @@ bool ConfigureStep::init()
     pp->setWorkingDirectory(bc->buildDirectory());
     pp->setCommand(QLatin1String("configure"));
     pp->setArguments(additionalArguments());
+    pp->resolveAll();
 
     return AbstractProcessStep::init();
 }
 
 void ConfigureStep::run(QFutureInterface<bool>& interface)
 {
-    AutotoolsBuildConfiguration *bc = autotoolsBuildConfiguration();
+    BuildConfiguration *bc = buildConfiguration();
 
     //Check whether we need to run configure
     const QFileInfo configureInfo(bc->buildDirectory() + QLatin1String("/configure"));
@@ -271,7 +267,7 @@ QString ConfigureStepConfigWidget::summaryText() const
 
 void ConfigureStepConfigWidget::updateDetails()
 {
-    AutotoolsBuildConfiguration *bc = m_configureStep->autotoolsBuildConfiguration();
+    BuildConfiguration *bc = m_configureStep->buildConfiguration();
 
     ProcessParameters param;
     param.setMacroExpander(bc->macroExpander());

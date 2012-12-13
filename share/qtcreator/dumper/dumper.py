@@ -91,7 +91,7 @@ DisplayUtf8String \
     = range(7)
 
 
-qqStringCutOff = 1000
+qqStringCutOff = 10000
 
 #
 # Gnuplot based display for array-like structures.
@@ -331,16 +331,6 @@ def numericTemplateArgument(type, position):
         return int(msg)
 
 
-def showException(msg, exType, exValue, exTraceback):
-    warn("**** CAUGHT EXCEPTION: %s ****" % msg)
-    try:
-        import traceback
-        for line in traceback.format_exception(exType, exValue, exTraceback):
-            warn("%s" % line)
-    except:
-        pass
-
-
 class OutputSafer:
     def __init__(self, d):
         self.d = d
@@ -548,11 +538,6 @@ def simpleEncoding(typeobj):
         if typeobj.sizeof == 8:
             return Hex2EncodedFloat8
     return None
-
-def warn(message):
-    if True or verbosity > 0:
-        print "XXX: %s\n" % message.encode("latin1")
-    pass
 
 def check(exp):
     if not exp:
@@ -769,11 +754,18 @@ def qByteArrayData(value):
         # Qt 4:
         return private['data'], int(private['size']), int(private['alloc'])
 
-def encodeByteArray(value):
+def computeLimit(size, limit):
+    if limit is None:
+        return size
+    if limit == 0:
+        return min(size, qqStringCutOff)
+    return min(size, limit)
+
+def encodeByteArray(value, limit = None):
     data, size, alloc = qByteArrayData(value)
     if alloc != 0:
         check(0 <= size and size <= alloc and alloc <= 100*1000*1000)
-    limit = min(size, qqStringCutOff)
+    limit = computeLimit(size, limit)
     s = readRawMemory(data, limit)
     if limit < size:
         s += "2e2e2e"
@@ -792,11 +784,11 @@ def qStringData(value):
         # Qt 4.
         return private['data'], int(private['size']), int(private['alloc'])
 
-def encodeString(value):
+def encodeString(value, limit = 0):
     data, size, alloc = qStringData(value)
     if alloc != 0:
         check(0 <= size and size <= alloc and alloc <= 100*1000*1000)
-    limit = min(size, qqStringCutOff)
+    limit = computeLimit(size, limit)
     s = readRawMemory(data, 2 * limit)
     if limit < size:
         s += "2e002e002e00"
@@ -1542,38 +1534,7 @@ class Dumper:
             return
 
         if type.code == ArrayCode:
-            targetType = type.target()
-            self.putAddress(value.address)
-            self.putType(typeName)
-            self.putNumChild(1)
-            format = self.currentItemFormat()
-            isDefault = format == None and str(targetType.unqualified()) == "char"
-            if isDefault or (format >= 0 and format <= 2):
-                blob = readRawMemory(value.address, type.sizeof)
-
-            if isDefault:
-                # Use Latin1 as default for char [].
-                self.putValue(blob, Hex2EncodedLatin1)
-            elif format == 0:
-                # Explicitly requested Latin1 formatting.
-                self.putValue(blob, Hex2EncodedLatin1)
-            elif format == 1:
-                # Explicitly requested UTF-8 formatting.
-                self.putValue(blob, Hex2EncodedUtf8)
-            elif format == 2:
-                # Explicitly requested Local 8-bit formatting.
-                self.putValue(blob, Hex2EncodedLocal8Bit)
-            else:
-                self.putValue("@0x%x" % long(value.cast(targetType.pointer())))
-
-
-            if self.currentIName in self.expandedINames:
-                p = value.address
-                ts = targetType.sizeof
-                if not self.tryPutArrayContents(targetType, p, type.sizeof / ts):
-                    with Children(self, childType=targetType,
-                            addrBase=p, addrStep=ts):
-                        self.putFields(value)
+            qdump____c_style_array__(self, value)
             return
 
         if type.code == PointerCode:
@@ -1719,6 +1680,7 @@ class Dumper:
 
         if type.code == MethodPointerCode \
                 or type.code == MethodCode \
+                or type.code == FunctionCode \
                 or type.code == MemberPointerCode:
             self.putType(typeName)
             self.putAddress(value.address)

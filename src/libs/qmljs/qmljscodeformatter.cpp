@@ -407,16 +407,10 @@ void CodeFormatter::recalculateStateAfter(const QTextBlock &block)
             break;
 
         case condition_open:
+            if (tryInsideExpression())
+                break;
             switch (kind) {
             case RightParenthesis:  turnInto(substatement); break;
-            case LeftParenthesis:   enter(condition_paren_open); break;
-            } break;
-
-        // paren nesting
-        case condition_paren_open:
-            switch (kind) {
-            case RightParenthesis:  leave(); break;
-            case LeftParenthesis:   enter(condition_paren_open); break;
             } break;
 
         case switch_statement:
@@ -927,23 +921,23 @@ CodeFormatter::TokenKind CodeFormatter::extendedTokenKind(const QmlJS::Token &to
     QStringRef text = m_currentLine.midRef(token.begin(), token.length);
 
     if (kind == Identifier) {
-        if (text == "as")
+        if (text == QLatin1String("as"))
             return As;
-        if (text == "import")
+        if (text == QLatin1String("import"))
             return Import;
-        if (text == "signal")
+        if (text == QLatin1String("signal"))
             return Signal;
-        if (text == "property")
+        if (text == QLatin1String("property"))
             return Property;
-        if (text == "on")
+        if (text == QLatin1String("on"))
             return On;
-        if (text == "list")
+        if (text == QLatin1String("list"))
             return List;
     } else if (kind == Keyword) {
-        const QChar char1 = text.at(0);
-        const QChar char2 = text.at(1);
-        const QChar char3 = (text.size() > 2 ? text.at(2) : QChar());
-        switch (char1.toLatin1()) {
+        const char char1 = text.at(0).toLatin1();
+        const char char2 = text.at(1).toLatin1();
+        const char char3 = (text.size() > 2 ? text.at(2).toLatin1() : 0);
+        switch (char1) {
         case 'v':
             return Var;
         case 'i':
@@ -998,11 +992,11 @@ CodeFormatter::TokenKind CodeFormatter::extendedTokenKind(const QmlJS::Token &to
             return Break;
         }
     } else if (kind == Delimiter) {
-        if (text == "?")
+        if (text == QLatin1String("?"))
             return Question;
-        else if (text == "++")
+        else if (text == QLatin1String("++"))
             return PlusPlus;
-        else if (text == "--")
+        else if (text == QLatin1String("--"))
             return MinusMinus;
     }
 
@@ -1022,7 +1016,7 @@ void CodeFormatter::dump() const
 QString CodeFormatter::stateToString(int type) const
 {
     const QMetaEnum &metaEnum = staticMetaObject.enumerator(staticMetaObject.indexOfEnumerator("StateType"));
-    return metaEnum.valueToKey(type);
+    return QString::fromUtf8(metaEnum.valueToKey(type));
 }
 
 QtStyleCodeFormatter::QtStyleCodeFormatter()
@@ -1131,7 +1125,6 @@ void QtStyleCodeFormatter::onEnter(int newState, int *indentDepth, int *savedInd
     case signal_arglist_open:
     case function_arglist_open:
     case paren_open:
-    case condition_paren_open:
         if (!lastToken)
             *indentDepth = tokenPosition + 1;
         else

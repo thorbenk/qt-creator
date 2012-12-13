@@ -31,6 +31,7 @@
 #define BUILDENVIRONMENTWIDGET_H
 
 #include <projectexplorer/buildstep.h>
+#include <projectexplorer/namedwidget.h>
 
 QT_BEGIN_NAMESPACE
 class QCheckBox;
@@ -41,15 +42,12 @@ namespace ProjectExplorer {
 class EnvironmentWidget;
 class BuildConfiguration;
 
-class PROJECTEXPLORER_EXPORT BuildEnvironmentWidget : public BuildConfigWidget
+class PROJECTEXPLORER_EXPORT BuildEnvironmentWidget : public NamedWidget
 {
     Q_OBJECT
 
 public:
-    BuildEnvironmentWidget();
-
-    QString displayName() const;
-    void init(BuildConfiguration *bc);
+    BuildEnvironmentWidget(BuildConfiguration *bc);
 
 private slots:
     void environmentModelUserChangesChanged();

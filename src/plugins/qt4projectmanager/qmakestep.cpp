@@ -69,12 +69,12 @@ using namespace ProjectExplorer;
 using namespace Utils;
 
 namespace {
-const char * const QMAKE_BS_ID("QtProjectManager.QMakeBuildStep");
+const char QMAKE_BS_ID[] = "QtProjectManager.QMakeBuildStep";
 
-const char * const QMAKE_ARGUMENTS_KEY("QtProjectManager.QMakeBuildStep.QMakeArguments");
-const char * const QMAKE_FORCED_KEY("QtProjectManager.QMakeBuildStep.QMakeForced");
-const char * const QMAKE_QMLDEBUGLIBAUTO_KEY("QtProjectManager.QMakeBuildStep.LinkQmlDebuggingLibraryAuto");
-const char * const QMAKE_QMLDEBUGLIB_KEY("QtProjectManager.QMakeBuildStep.LinkQmlDebuggingLibrary");
+const char QMAKE_ARGUMENTS_KEY[] = "QtProjectManager.QMakeBuildStep.QMakeArguments";
+const char QMAKE_FORCED_KEY[] = "QtProjectManager.QMakeBuildStep.QMakeForced";
+const char QMAKE_QMLDEBUGLIBAUTO_KEY[] = "QtProjectManager.QMakeBuildStep.LinkQmlDebuggingLibraryAuto";
+const char QMAKE_QMLDEBUGLIB_KEY[] = "QtProjectManager.QMakeBuildStep.LinkQmlDebuggingLibrary";
 }
 
 QMakeStep::QMakeStep(BuildStepList *bsl) :
@@ -203,9 +203,12 @@ QStringList QMakeStep::deducedArguments()
         if (!version->needsQmlDebuggingLibrary()) {
             // This Qt version has the QML debugging services built in, however
             // they still need to be enabled at compile time
-            arguments << (version->qtVersion().majorVersion >= 5 ?
-                          QLatin1String(Constants::QMAKEVAR_DECLARATIVE_DEBUG5) :
-                          QLatin1String(Constants::QMAKEVAR_DECLARATIVE_DEBUG4));
+            // TODO: For Qt5, we can pass both arguments as there can be Qt Quick 1/2 projects.
+            // Currently there is no support for debugging multiple engines.
+            arguments << QLatin1String(Constants::QMAKEVAR_QUICK1_DEBUG);
+            if (version->qtVersion().majorVersion >= 5) {
+                arguments << QLatin1String(Constants::QMAKEVAR_QUICK2_DEBUG);
+            }
         } else {
             const QString qmlDebuggingHelperLibrary = version->qmlDebuggingHelperLibrary(true);
             if (!qmlDebuggingHelperLibrary.isEmpty()) {
@@ -286,6 +289,7 @@ bool QMakeStep::init()
     pp->setCommand(program.toString());
     pp->setArguments(args);
     pp->setEnvironment(qt4bc->environment());
+    pp->resolveAll();
 
     setOutputParser(new QMakeParser);
 

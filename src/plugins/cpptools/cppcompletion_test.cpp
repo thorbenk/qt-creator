@@ -139,17 +139,98 @@ void CppToolsPlugin::test_completion_forward_declarations_present()
     setup(&data);
 
     Utils::ChangeSet change;
-    change.insert(data.pos, "Foo::Bar::");
+    change.insert(data.pos, QLatin1String("Foo::Bar::"));
     QTextCursor cursor(data.doc);
     change.apply(&cursor);
     data.pos += 10;
 
     QStringList expected;
-    expected.append("Bar");
+    expected.append(QLatin1String("Bar"));
 
     QStringList completions = getCompletions(data);
 
     QCOMPARE(completions, expected);
+}
+
+void CppToolsPlugin::test_completion_inside_parentheses_c_style_conversion()
+{
+    TestData data;
+    data.srcText = "\n"
+            "class Base\n"
+            "{\n"
+            "    int i_base;\n"
+            "};\n"
+            "\n"
+            "class Derived : public Base\n"
+            "{\n"
+            "    int i_derived;\n"
+            "};\n"
+            "\n"
+            "void fun()\n"
+            "{\n"
+            "    Base *b = new Derived;\n"
+            "    if (1)\n"
+            "        @\n"
+            "}\n"
+            ;
+
+    setup(&data);
+
+    Utils::ChangeSet change;
+    QString txt = QLatin1String("((Derived *)b)->");
+    change.insert(data.pos, txt);
+    QTextCursor cursor(data.doc);
+    change.apply(&cursor);
+    data.pos += txt.length();
+
+    QStringList completions = getCompletions(data);
+
+    QCOMPARE(completions.size(), 4);
+    QVERIFY(completions.contains(QLatin1String("Derived")));
+    QVERIFY(completions.contains(QLatin1String("Base")));
+    QVERIFY(completions.contains(QLatin1String("i_derived")));
+    QVERIFY(completions.contains(QLatin1String("i_base")));
+
+}
+
+void CppToolsPlugin::test_completion_inside_parentheses_cast_operator_conversion()
+{
+    TestData data;
+    data.srcText = "\n"
+            "class Base\n"
+            "{\n"
+            "    int i_base;\n"
+            "};\n"
+            "\n"
+            "class Derived : public Base\n"
+            "{\n"
+            "    int i_derived;\n"
+            "};\n"
+            "\n"
+            "void fun()\n"
+            "{\n"
+            "    Base *b = new Derived;\n"
+            "    if (1)\n"
+            "        @\n"
+            "}\n"
+            ;
+
+    setup(&data);
+
+    Utils::ChangeSet change;
+    QString txt = QLatin1String("(static_cast<Derived *>(b))->");
+    change.insert(data.pos, txt);
+    QTextCursor cursor(data.doc);
+    change.apply(&cursor);
+    data.pos += txt.length();
+
+    QStringList completions = getCompletions(data);
+
+    QCOMPARE(completions.size(), 4);
+    QVERIFY(completions.contains(QLatin1String("Derived")));
+    QVERIFY(completions.contains(QLatin1String("Base")));
+    QVERIFY(completions.contains(QLatin1String("i_derived")));
+    QVERIFY(completions.contains(QLatin1String("i_base")));
 }
 
 void CppToolsPlugin::test_completion_basic_1()
@@ -172,24 +253,24 @@ void CppToolsPlugin::test_completion_basic_1()
 
     QStringList basicCompletions = getCompletions(data);
 
-    QVERIFY(!basicCompletions.contains("foo"));
-    QVERIFY(!basicCompletions.contains("m"));
-    QVERIFY(basicCompletions.contains("Foo"));
-    QVERIFY(basicCompletions.contains("func"));
-    QVERIFY(basicCompletions.contains("f"));
+    QVERIFY(!basicCompletions.contains(QLatin1String("foo")));
+    QVERIFY(!basicCompletions.contains(QLatin1String("m")));
+    QVERIFY(basicCompletions.contains(QLatin1String("Foo")));
+    QVERIFY(basicCompletions.contains(QLatin1String("func")));
+    QVERIFY(basicCompletions.contains(QLatin1String("f")));
 
     Utils::ChangeSet change;
-    change.insert(data.pos, "f.");
+    change.insert(data.pos, QLatin1String("f."));
     QTextCursor cursor(data.doc);
     change.apply(&cursor);
     data.pos += 2;
 
     QStringList memberCompletions = getCompletions(data);
 
-    QVERIFY(memberCompletions.contains("foo"));
-    QVERIFY(memberCompletions.contains("m"));
-    QVERIFY(!memberCompletions.contains("func"));
-    QVERIFY(!memberCompletions.contains("f"));
+    QVERIFY(memberCompletions.contains(QLatin1String("foo")));
+    QVERIFY(memberCompletions.contains(QLatin1String("m")));
+    QVERIFY(!memberCompletions.contains(QLatin1String("func")));
+    QVERIFY(!memberCompletions.contains(QLatin1String("f")));
 }
 
 void CppToolsPlugin::test_completion_template_1()
@@ -213,19 +294,19 @@ void CppToolsPlugin::test_completion_template_1()
     setup(&data);
 
     Utils::ChangeSet change;
-    change.insert(data.pos, "Foo::");
+    change.insert(data.pos, QLatin1String("Foo::"));
     QTextCursor cursor(data.doc);
     change.apply(&cursor);
     data.pos += 5;
 
     QStringList completions = getCompletions(data);
 
-    QVERIFY(completions.contains("Type"));
-    QVERIFY(completions.contains("foo"));
-    QVERIFY(completions.contains("m"));
-    QVERIFY(!completions.contains("T"));
-    QVERIFY(!completions.contains("f"));
-    QVERIFY(!completions.contains("func"));
+    QVERIFY(completions.contains(QLatin1String("Type")));
+    QVERIFY(completions.contains(QLatin1String("foo")));
+    QVERIFY(completions.contains(QLatin1String("m")));
+    QVERIFY(!completions.contains(QLatin1String("T")));
+    QVERIFY(!completions.contains(QLatin1String("f")));
+    QVERIFY(!completions.contains(QLatin1String("func")));
 }
 
 void CppToolsPlugin::test_completion_template_2()
@@ -258,9 +339,9 @@ void CppToolsPlugin::test_completion_template_2()
     QStringList completions = getCompletions(data);
 
     QCOMPARE(completions.size(), 3);
-    QVERIFY(completions.contains("Tupple"));
-    QVERIFY(completions.contains("a"));
-    QVERIFY(completions.contains("b"));
+    QVERIFY(completions.contains(QLatin1String("Tupple")));
+    QVERIFY(completions.contains(QLatin1String("a")));
+    QVERIFY(completions.contains(QLatin1String("b")));
 }
 
 void CppToolsPlugin::test_completion_template_3()
@@ -293,9 +374,9 @@ void CppToolsPlugin::test_completion_template_3()
     QStringList completions = getCompletions(data);
 
     QCOMPARE(completions.size(), 3);
-    QVERIFY(completions.contains("Tupple"));
-    QVERIFY(completions.contains("a"));
-    QVERIFY(completions.contains("b"));
+    QVERIFY(completions.contains(QLatin1String("Tupple")));
+    QVERIFY(completions.contains(QLatin1String("a")));
+    QVERIFY(completions.contains(QLatin1String("b")));
 }
 
 void CppToolsPlugin::test_completion_template_4()
@@ -329,9 +410,9 @@ void CppToolsPlugin::test_completion_template_4()
     QStringList completions = getCompletions(data);
 
     QCOMPARE(completions.size(), 3);
-    QVERIFY(completions.contains("Tupple"));
-    QVERIFY(completions.contains("a"));
-    QVERIFY(completions.contains("b"));
+    QVERIFY(completions.contains(QLatin1String("Tupple")));
+    QVERIFY(completions.contains(QLatin1String("a")));
+    QVERIFY(completions.contains(QLatin1String("b")));
 }
 
 void CppToolsPlugin::test_completion_template_5()
@@ -365,9 +446,91 @@ void CppToolsPlugin::test_completion_template_5()
     QStringList completions = getCompletions(data);
 
     QCOMPARE(completions.size(), 3);
-    QVERIFY(completions.contains("Tupple"));
-    QVERIFY(completions.contains("a"));
-    QVERIFY(completions.contains("b"));
+    QVERIFY(completions.contains(QLatin1String("Tupple")));
+    QVERIFY(completions.contains(QLatin1String("a")));
+    QVERIFY(completions.contains(QLatin1String("b")));
+}
+
+void CppToolsPlugin::test_completion_template_6()
+{
+    TestData data;
+    data.srcText = "\n"
+            "class Item\n"
+            "{\n"
+            "    int i;\n"
+            "};\n"
+            "\n"
+            "template <typename T>\n"
+            "class Container\n"
+            "{\n"
+            "    T get();\n"
+            "};\n"
+            "\n"
+            "template <typename T> class Container;\n"
+            "\n"
+            "class ItemContainer: public Container<Item>\n"
+            "{};\n"
+            "ItemContainer container;\n"
+            "@\n"
+            ;
+
+    setup(&data);
+
+    Utils::ChangeSet change;
+    QString txt = QLatin1String("container.get().");
+    change.insert(data.pos, txt);
+    QTextCursor cursor(data.doc);
+    change.apply(&cursor);
+    data.pos += txt.length();
+
+    QStringList completions = getCompletions(data);
+
+    QCOMPARE(completions.size(), 2);
+    QVERIFY(completions.contains(QLatin1String("Item")));
+    QVERIFY(completions.contains(QLatin1String("i")));
+}
+
+
+void CppToolsPlugin::test_completion_template_7()
+{
+    TestData data;
+    data.srcText = "\n"
+            "struct Test\n"
+            "{\n"
+            "   int i;\n"
+            "};\n"
+            "\n"
+            "template<typename T>\n"
+            "struct TemplateClass\n"
+            "{\n"
+            "    T* ptr;\n"
+            "\n"
+            "    typedef T element_type;\n"
+            "    TemplateClass(T* t) : ptr(t) {}\n"
+            "    element_type* operator->()\n"
+            "    {\n"
+            "        return ptr;\n"
+            "    }\n"
+            "};\n"
+            "\n"
+            "TemplateClass<Test> p(new Test);\n"
+            "@\n"
+            ;
+
+    setup(&data);
+
+    Utils::ChangeSet change;
+    QString txt = QLatin1String("p->");
+    change.insert(data.pos, txt);
+    QTextCursor cursor(data.doc);
+    change.apply(&cursor);
+    data.pos += txt.length();
+
+    QStringList completions = getCompletions(data);
+
+    QCOMPARE(completions.size(), 2);
+    QVERIFY(completions.contains(QLatin1String("Test")));
+    QVERIFY(completions.contains(QLatin1String("i")));
 }
 
 void CppToolsPlugin::test_completion()
@@ -380,7 +543,7 @@ void CppToolsPlugin::test_completion()
     setup(&data);
 
     Utils::ChangeSet change;
-    change.insert(data.pos, "c.");
+    change.insert(data.pos, QLatin1String("c."));
     QTextCursor cursor(data.doc);
     change.apply(&cursor);
     data.pos += 2;
@@ -414,10 +577,10 @@ void CppToolsPlugin::test_completion_template_as_base_data()
             "    @\n"
             "    // padding so we get the scope right\n"
             "}";
-    completions.append("Data");
-    completions.append("dataMember");
-    completions.append("Other");
-    completions.append("otherMember");
+    completions.append(QLatin1String("Data"));
+    completions.append(QLatin1String("dataMember"));
+    completions.append(QLatin1String("Other"));
+    completions.append(QLatin1String("otherMember"));
     QTest::newRow("case: base as template directly") << code << completions;
 
 
@@ -432,12 +595,12 @@ void CppToolsPlugin::test_completion_template_as_base_data()
             "    @\n"
             "    // padding so we get the scope right\n"
             "}";
-    completions.append("Data");
-    completions.append("dataMember");
-    completions.append("Other");
-    completions.append("otherMember");
-    completions.append("More");
-    completions.append("moreMember");
+    completions.append(QLatin1String("Data"));
+    completions.append(QLatin1String("dataMember"));
+    completions.append(QLatin1String("Other"));
+    completions.append(QLatin1String("otherMember"));
+    completions.append(QLatin1String("More"));
+    completions.append(QLatin1String("moreMember"));
     QTest::newRow("case: base as class template") << code << completions;
 
 
@@ -452,12 +615,12 @@ void CppToolsPlugin::test_completion_template_as_base_data()
             "    @\n"
             "    // padding so we get the scope right\n"
             "}";
-    completions.append("Data");
-    completions.append("dataMember");
-    completions.append("Other");
-    completions.append("otherMember");
-    completions.append("More");
-    completions.append("moreMember");
+    completions.append(QLatin1String("Data"));
+    completions.append(QLatin1String("dataMember"));
+    completions.append(QLatin1String("Other"));
+    completions.append(QLatin1String("otherMember"));
+    completions.append(QLatin1String("More"));
+    completions.append(QLatin1String("moreMember"));
     QTest::newRow("case: base as globally qualified class template") << code << completions;
 
 
@@ -474,12 +637,12 @@ void CppToolsPlugin::test_completion_template_as_base_data()
             "    @\n"
             "    // padding so we get the scope right\n"
             "}";
-    completions.append("Data");
-    completions.append("dataMember");
-    completions.append("Other");
-    completions.append("otherMember");
-    completions.append("More");
-    completions.append("moreMember");
+    completions.append(QLatin1String("Data"));
+    completions.append(QLatin1String("dataMember"));
+    completions.append(QLatin1String("Other"));
+    completions.append(QLatin1String("otherMember"));
+    completions.append(QLatin1String("More"));
+    completions.append(QLatin1String("moreMember"));
     QTest::newRow("case: base as namespace qualified class template") << code << completions;
 
 
@@ -496,10 +659,10 @@ void CppToolsPlugin::test_completion_template_as_base_data()
             "    @\n"
             "    // padding so we get the scope right\n"
             "}";
-    completions.append("Data");
-    completions.append("dataMember");
-    completions.append("Final");
-    completions.append("finalMember");
+    completions.append(QLatin1String("Data"));
+    completions.append(QLatin1String("dataMember"));
+    completions.append(QLatin1String("Final"));
+    completions.append(QLatin1String("finalMember"));
     QTest::newRow("case: base as nested template name") << code << completions;
 
 
@@ -516,10 +679,10 @@ void CppToolsPlugin::test_completion_template_as_base_data()
             "    @\n"
             "    // padding so we get the scope right\n"
             "}";
-    completions.append("Data");
-    completions.append("dataMember");
-    completions.append("Final");
-    completions.append("finalMember");
+    completions.append(QLatin1String("Data"));
+    completions.append(QLatin1String("dataMember"));
+    completions.append(QLatin1String("Final"));
+    completions.append(QLatin1String("finalMember"));
     QTest::newRow("case: base as nested template name in non-template") << code << completions;
 
     completions.clear();
@@ -535,12 +698,12 @@ void CppToolsPlugin::test_completion_template_as_base_data()
             "    @\n"
             "    // padding so we get the scope right\n"
             "}";
-    completions.append("Data");
-    completions.append("dataMember");
-    completions.append("Final");
-    completions.append("finalMember");
-    completions.append("Other");
-    completions.append("otherMember");
+    completions.append(QLatin1String("Data"));
+    completions.append(QLatin1String("dataMember"));
+    completions.append(QLatin1String("Final"));
+    completions.append(QLatin1String("finalMember"));
+    completions.append(QLatin1String("Other"));
+    completions.append(QLatin1String("otherMember"));
     QTest::newRow("case: base as template name in non-template") << code << completions;
 }
 
@@ -572,10 +735,10 @@ void CppToolsPlugin::test_completion_use_global_identifier_as_base_class_data()
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_global");
-    completions.append("int_final");
-    completions.append("Final");
-    completions.append("Global");
+    completions.append(QLatin1String("int_global"));
+    completions.append(QLatin1String("int_final"));
+    completions.append(QLatin1String("Final"));
+    completions.append(QLatin1String("Global"));
     QTest::newRow("case: derived as global and base as global") << code << completions;
 
     completions.clear();
@@ -598,10 +761,10 @@ void CppToolsPlugin::test_completion_use_global_identifier_as_base_class_data()
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_global");
-    completions.append("int_final");
-    completions.append("Final");
-    completions.append("Global");
+    completions.append(QLatin1String("int_global"));
+    completions.append(QLatin1String("int_final"));
+    completions.append(QLatin1String("Final"));
+    completions.append(QLatin1String("Global"));
     QTest::newRow("case: derived is inside namespace, base as global")
             << code << completions;
 
@@ -629,10 +792,10 @@ void CppToolsPlugin::test_completion_use_global_identifier_as_base_class_data()
 //            "@\n"
 //            "// padding so we get the scope right\n";
 
-//    completions.append("int_global");
-//    completions.append("int_final");
-//    completions.append("Final");
-//    completions.append("Global");
+//    completions.append(QLatin1String("int_global"));
+//    completions.append(QLatin1String("int_final"));
+//    completions.append(QLatin1String("Final"));
+//    completions.append(QLatin1String("Global"));
 //    QTest::newRow("case: derived is enclosed by template, base as global")
 //    << code << completions;
 
@@ -662,8 +825,8 @@ void CppToolsPlugin::test_completion_base_class_has_name_the_same_as_derived_dat
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_a");
-    completions.append("A");
+    completions.append(QLatin1String("int_a"));
+    completions.append(QLatin1String("A"));
     QTest::newRow("case: base class is derived class") << code << completions;
 
     completions.clear();
@@ -681,8 +844,8 @@ void CppToolsPlugin::test_completion_base_class_has_name_the_same_as_derived_dat
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_a");
-    completions.append("A");
+    completions.append(QLatin1String("int_a"));
+    completions.append(QLatin1String("A"));
     QTest::newRow("case: base class is derived class. class is in namespace")
             << code << completions;
 
@@ -701,8 +864,8 @@ void CppToolsPlugin::test_completion_base_class_has_name_the_same_as_derived_dat
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_a");
-    completions.append("A");
+    completions.append(QLatin1String("int_a"));
+    completions.append(QLatin1String("A"));
     QTest::newRow("case: base class is derived class. class is in namespace. "
                   "use scope operator for base class") << code << completions;
 
@@ -728,9 +891,9 @@ void CppToolsPlugin::test_completion_base_class_has_name_the_same_as_derived_dat
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_ns1_a");
-    completions.append("int_ns2_a");
-    completions.append("A");
+    completions.append(QLatin1String("int_ns1_a"));
+    completions.append(QLatin1String("int_ns2_a"));
+    completions.append(QLatin1String("A"));
     QTest::newRow("case: base class has the same name as derived but in different namespace")
             << code << completions;
 
@@ -756,9 +919,9 @@ void CppToolsPlugin::test_completion_base_class_has_name_the_same_as_derived_dat
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_enclosing_a");
-    completions.append("int_ns2_a");
-    completions.append("A");
+    completions.append(QLatin1String("int_enclosing_a"));
+    completions.append(QLatin1String("int_ns2_a"));
+    completions.append(QLatin1String("A"));
     QTest::newRow("case: base class has the same name as derived(in namespace) "
                   "but is nested by different class") << code << completions;
 
@@ -784,9 +947,9 @@ void CppToolsPlugin::test_completion_base_class_has_name_the_same_as_derived_dat
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_enclosing_base_a");
-    completions.append("int_enclosing_derived_a");
-    completions.append("A");
+    completions.append(QLatin1String("int_enclosing_base_a"));
+    completions.append(QLatin1String("int_enclosing_derived_a"));
+    completions.append(QLatin1String("A"));
     QTest::newRow("case: base class has the same name as derived(nested) "
                   "but is nested by different class") << code << completions;
 
@@ -803,8 +966,8 @@ void CppToolsPlugin::test_completion_base_class_has_name_the_same_as_derived_dat
             "@\n"
             "// padding so we get the scope right\n";
 
-    completions.append("int_a");
-    completions.append("A");
+    completions.append(QLatin1String("int_a"));
+    completions.append(QLatin1String("A"));
     QTest::newRow("case: base class is derived class. class is a template")
             << code << completions;
 
@@ -833,10 +996,10 @@ void CppToolsPlugin::test_completion_cyclic_inheritance_data()
             "A c;\n"
             "@\n"
             ;
-    completions.append("A");
-    completions.append("_a");
-    completions.append("B");
-    completions.append("_b");
+    completions.append(QLatin1String("A"));
+    completions.append(QLatin1String("_a"));
+    completions.append(QLatin1String("B"));
+    completions.append(QLatin1String("_b"));
     QTest::newRow("case: direct cyclic inheritance") << code << completions;
 
     completions.clear();
@@ -849,12 +1012,12 @@ void CppToolsPlugin::test_completion_cyclic_inheritance_data()
             "A c;\n"
             "@\n"
             ;
-    completions.append("A");
-    completions.append("_a");
-    completions.append("B");
-    completions.append("_b");
-    completions.append("C");
-    completions.append("_c");
+    completions.append(QLatin1String("A"));
+    completions.append(QLatin1String("_a"));
+    completions.append(QLatin1String("B"));
+    completions.append(QLatin1String("_b"));
+    completions.append(QLatin1String("C"));
+    completions.append(QLatin1String("_c"));
     QTest::newRow("case: indirect cyclic inheritance") << code << completions;
 
     completions.clear();
@@ -867,12 +1030,12 @@ void CppToolsPlugin::test_completion_cyclic_inheritance_data()
             "A c;\n"
             "@\n"
             ;
-    completions.append("A");
-    completions.append("_a");
-    completions.append("B");
-    completions.append("_b");
-    completions.append("C");
-    completions.append("_c");
+    completions.append(QLatin1String("A"));
+    completions.append(QLatin1String("_a"));
+    completions.append(QLatin1String("B"));
+    completions.append(QLatin1String("_b"));
+    completions.append(QLatin1String("C"));
+    completions.append(QLatin1String("_c"));
     QTest::newRow("case: indirect cyclic inheritance") << code << completions;
 
     completions.clear();
@@ -891,11 +1054,11 @@ void CppToolsPlugin::test_completion_cyclic_inheritance_data()
             "D<int, float> c;\n"
             "@\n"
             ;
-    completions.append("D");
-    completions.append("_d_t");
-    completions.append("_d_s");
-    completions.append("C");
-    completions.append("_c_t");
+    completions.append(QLatin1String("D"));
+    completions.append(QLatin1String("_d_t"));
+    completions.append(QLatin1String("_d_s"));
+    completions.append(QLatin1String("C"));
+    completions.append(QLatin1String("_c_t"));
     QTest::newRow("case: direct cyclic inheritance with templates")
             << code << completions;
 
@@ -919,13 +1082,13 @@ void CppToolsPlugin::test_completion_cyclic_inheritance_data()
             "D<int, float> c;\n"
             "@\n"
             ;
-    completions.append("D");
-    completions.append("_d_t");
-    completions.append("_d_s");
-    completions.append("C");
-    completions.append("_c_t");
-    completions.append("B");
-    completions.append("_b_t");
+    completions.append(QLatin1String("D"));
+    completions.append(QLatin1String("_d_t"));
+    completions.append(QLatin1String("_d_s"));
+    completions.append(QLatin1String("C"));
+    completions.append(QLatin1String("_c_t"));
+    completions.append(QLatin1String("B"));
+    completions.append(QLatin1String("_b_t"));
     QTest::newRow("case: indirect cyclic inheritance with templates")
             << code << completions;
 
@@ -957,17 +1120,15 @@ void CppToolsPlugin::test_completion_cyclic_inheritance_data()
            "};\n"
            "\n"
            "Class<int> c;\n"
-           "c.\n"
            "@\n"
             ;
-    completions.append("Class");
-    completions.append("ClassRecurse");
-    completions.append("class_t");
-    completions.append("class_recurse_s");
-    completions.append("class_recurse_t");
+    completions.append(QLatin1String("Class"));
+    completions.append(QLatin1String("ClassRecurse"));
+    completions.append(QLatin1String("class_t"));
+    completions.append(QLatin1String("class_recurse_s"));
+    completions.append(QLatin1String("class_recurse_t"));
     QTest::newRow("case: direct cyclic inheritance with templates, more complex situation")
             << code << completions;
-
 }
 
 void CppToolsPlugin::test_completion_enclosing_template_class()
@@ -993,8 +1154,8 @@ void CppToolsPlugin::test_completion_enclosing_template_class_data()
             "\n"
             "Enclosing<int>::Nested c;"
             "@\n";
-    completions.append("Nested");
-    completions.append("int_nested");
+    completions.append(QLatin1String("Nested"));
+    completions.append(QLatin1String("int_nested"));
     QTest::newRow("case: nested class with enclosing template class")
             << code << completions;
 
@@ -1010,7 +1171,8 @@ void CppToolsPlugin::test_completion_enclosing_template_class_data()
             "\n"
             "Enclosing<int>::Nested<int> c;"
             "@\n";
-    completions.append("Nested");
-    completions.append("int_nested");
+    completions.append(QLatin1String("Nested"));
+    completions.append(QLatin1String("int_nested"));
     QTest::newRow("case: nested template class with enclosing template class")
-            << code << completions;}
+            << code << completions;
+}

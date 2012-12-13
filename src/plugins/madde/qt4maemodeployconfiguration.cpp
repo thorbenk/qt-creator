@@ -78,9 +78,9 @@ Qt4MaemoDeployConfiguration::Qt4MaemoDeployConfiguration(ProjectExplorer::Target
     cloneSteps(source);
 }
 
-DeployConfigurationWidget *Qt4MaemoDeployConfiguration::configurationWidget() const
+NamedWidget *Qt4MaemoDeployConfiguration::createConfigWidget()
 {
-    return new RemoteLinuxDeployConfigurationWidget;
+    return new RemoteLinuxDeployConfigurationWidget(this);
 }
 
 Qt4MaemoDeployConfiguration::~Qt4MaemoDeployConfiguration() {}

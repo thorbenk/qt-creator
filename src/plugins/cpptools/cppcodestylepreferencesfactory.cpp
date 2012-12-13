@@ -91,14 +91,14 @@ CppCodeStylePreferencesFactory::CppCodeStylePreferencesFactory()
 {
 }
 
-QString CppCodeStylePreferencesFactory::languageId()
+Core::Id CppCodeStylePreferencesFactory::languageId()
 {
     return Constants::CPP_SETTINGS_ID;
 }
 
 QString CppCodeStylePreferencesFactory::displayName()
 {
-    return Constants::CPP_SETTINGS_NAME;
+    return QString::fromUtf8(Constants::CPP_SETTINGS_NAME);
 }
 
 TextEditor::ICodeStylePreferences *CppCodeStylePreferencesFactory::createCodeStyle() const

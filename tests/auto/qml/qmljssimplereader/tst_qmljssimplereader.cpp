@@ -44,6 +44,8 @@ private slots:
     void testWellFormed();
     void testIllFormed01();
     void testIllFormed02();
+    void testArrays();
+    void testBug01();
 };
 
 tst_SimpleReader::tst_SimpleReader()
@@ -173,6 +175,81 @@ void tst_SimpleReader::testIllFormed02()
         QCOMPARE(firstChild->properties().count(), 1);
         QVERIFY(firstChild->properties().contains("property01"));
         QCOMPARE(firstChild->property("property01").toString(), QLatin1String("20"));
+}
+
+void tst_SimpleReader::testArrays()
+{
+    char source[] = "RootNode {\n"
+                    "   propertyArray: [\"string01\", \"string02\" ]\n"
+                    "   ChildNode {\n"
+                    "       propertyArray: [\"string01\", \"string02\" ]\n"
+                    "       propertyArrayMixed: [\"string03\", [\"string01\", \"string02\"] ]\n"
+                    "   }\n"
+                    "}\n";
+
+        QList<QVariant> variantList;
+        variantList << QVariant(QLatin1String("string01")) << QVariant(QLatin1String("string02"));
+        const QVariant variant = variantList;
+
+        QmlJS::SimpleReader reader;
+        QmlJS::SimpleReaderNode::Ptr rootNode = reader.readFromSource(source);
+
+        QVERIFY(rootNode);
+        QVERIFY(rootNode->isValid());
+        QVERIFY(rootNode->isRoot());
+
+        QCOMPARE(rootNode->property("propertyArray"), variant);
+
+
+        QmlJS::SimpleReaderNode::Ptr firstChild = rootNode->children().at(0);
+
+        QVERIFY(firstChild);
+        QVERIFY(firstChild->isValid());
+        QVERIFY(!firstChild->isRoot());
+        QCOMPARE(firstChild->property("propertyArray"), variant);
+
+        QList<QVariant> variantList2;
+        variantList2 << QVariant(QLatin1String("string03")) << variant;
+        const QVariant variant2 = variantList2;
+
+        QCOMPARE(firstChild->property("propertyArrayMixed"), variant2);
+}
+
+void tst_SimpleReader::testBug01()
+{
+    char source[] = "\n"
+        "AutoTypes {\n"
+        "    imports: [ \"import HelperWidgets 1.0\", \"import QtQuick 1.0\", \"import Bauhaus 1.0\" ]\n"
+        "    Type {\n"
+        "        typeNames: [\"int\"]\n"
+        "        sourceFile: \"IntEditorTemplate.qml\"\n"
+        "    }\n"
+        "    Type {\n"
+        "        typeNames: [\"real\", \"double\", \"qreal\"]\n"
+        "        sourceFile: \"RealEditorTemplate.qml\"\n"
+        "    }\n"
+        "    Type {\n"
+        "        typeNames: [\"string\", \"QString\", \"QUrl\", \"url\"]\n"
+        "        sourceFile: \"StringEditorTemplate.qml\"\n"
+        "    }\n"
+        "    Type {\n"
+        "        typeNames: [\"bool\", \"boolean\"]\n"
+        "        sourceFile: \"BooleanEditorTemplate.qml\"\n"
+        "    }\n"
+        "    Type {\n"
+        "        typeNames: [\"color\", \"QColor\"]\n"
+        "        sourceFile: \"ColorEditorTemplate.qml\"\n"
+        "    }\n"
+        "}\n";
+
+    QmlJS::SimpleReader reader;
+    QmlJS::SimpleReaderNode::Ptr rootNode = reader.readFromSource(source);
+
+    QVERIFY(rootNode);
+    QVERIFY(rootNode->isValid());
+    QVERIFY(rootNode->isRoot());
+
+    QCOMPARE(rootNode->propertyNames().count(), 1);
 }
 
 QTEST_MAIN(tst_SimpleReader);

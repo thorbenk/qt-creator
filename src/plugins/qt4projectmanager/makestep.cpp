@@ -201,12 +201,6 @@ bool MakeStep::init()
     }
 
     Utils::QtcProcess::addArgs(&args, m_userArgs);
-
-    if (!isClean()) {
-        if (!bc->defaultMakeTarget().isEmpty())
-            Utils::QtcProcess::addArg(&args, bc->defaultMakeTarget());
-    }
-
     if (bc->fileNodeBuild() && subNode) {
         QString objectsDir = subNode->objectsDirectory();
         if (objectsDir.isEmpty()) {
@@ -248,6 +242,7 @@ bool MakeStep::init()
 
     pp->setEnvironment(env);
     pp->setArguments(args);
+    pp->resolveAll();
 
     setOutputParser(new ProjectExplorer::GnuMakeParser());
     IOutputParser *parser = target()->kit()->createOutputParser();
@@ -421,10 +416,6 @@ void MakeStepConfigWidget::updateDetails()
     param.setCommand(makeCmd);
 
     QString args = m_makeStep->userArguments();
-    if (!m_makeStep->isClean()) {
-        if (!bc->defaultMakeTarget().isEmpty())
-            Utils::QtcProcess::addArg(&args, bc->defaultMakeTarget());
-    }
 
     Utils::Environment env = bc->environment();
     // Force output to english for the parsers. Do this here and not in the toolchain's

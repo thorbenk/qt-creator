@@ -424,12 +424,14 @@ void QtVersionManager::updateDocumentation()
     Q_ASSERT(helpManager);
     QStringList files;
     foreach (BaseQtVersion *v, m_versions) {
-        const QString docPath = v->documentationPath() + QLatin1String("/qch/");
-        const QDir versionHelpDir(docPath);
-        foreach (const QString &helpFile,
-                versionHelpDir.entryList(QStringList() << QLatin1String("*.qch"), QDir::Files))
-            files << docPath + helpFile;
-
+        const QStringList docPaths = QStringList() << v->documentationPath() + QLatin1Char('/')
+                                                   << v->documentationPath() + QLatin1String("/qch/");
+        foreach (const QString &docPath, docPaths) {
+            const QDir versionHelpDir(docPath);
+            foreach (const QString &helpFile,
+                     versionHelpDir.entryList(QStringList() << QLatin1String("*.qch"), QDir::Files))
+                files << docPath + helpFile;
+        }
     }
     helpManager->registerDocumentation(files);
 }
@@ -471,20 +473,6 @@ QList<BaseQtVersion *> QtVersionManager::validVersions() const
 bool QtVersionManager::isValidId(int id) const
 {
     return m_versions.contains(id);
-}
-
-QString QtVersionManager::popPendingMwcUpdate()
-{
-    if (m_pendingMwcUpdates.isEmpty())
-        return QString();
-    return m_pendingMwcUpdates.takeFirst();
-}
-
-QString QtVersionManager::popPendingGcceUpdate()
-{
-    if (m_pendingGcceUpdates.isEmpty())
-        return QString();
-    return m_pendingGcceUpdates.takeFirst();
 }
 
 Core::FeatureSet QtVersionManager::availableFeatures(const QString &platformName) const
@@ -648,7 +636,7 @@ BaseQtVersion *QtVersionManager::qtVersionForQMakeBinary(const Utils::FileName &
 
 void dumpQMakeAssignments(const QList<QMakeAssignment> &list)
 {
-    foreach(const QMakeAssignment &qa, list) {
+    foreach (const QMakeAssignment &qa, list) {
         qDebug()<<qa.variable<<qa.op<<qa.value;
     }
 }
@@ -704,11 +692,11 @@ QPair<BaseQtVersion::QmakeBuildConfigs, QString> QtVersionManager::scanMakeFile(
         if (debug)
             dumpQMakeAssignments(assignments);
 
-        foreach(const QMakeAssignment &qa, assignments)
+        foreach (const QMakeAssignment &qa, assignments)
             Utils::QtcProcess::addArg(&result2, qa.variable + qa.op + qa.value);
         if (!afterAssignments.isEmpty()) {
             Utils::QtcProcess::addArg(&result2, QLatin1String("-after"));
-            foreach(const QMakeAssignment &qa, afterAssignments)
+            foreach (const QMakeAssignment &qa, afterAssignments)
                 Utils::QtcProcess::addArg(&result2, qa.variable + qa.op + qa.value);
         }
     }
@@ -803,11 +791,11 @@ BaseQtVersion::QmakeBuildConfigs QtVersionManager::qmakeBuildConfigFromCmdArgs(Q
     BaseQtVersion::QmakeBuildConfigs result = defaultBuildConfig;
     QList<QMakeAssignment> oldAssignments = *assignments;
     assignments->clear();
-    foreach(const QMakeAssignment &qa, oldAssignments) {
+    foreach (const QMakeAssignment &qa, oldAssignments) {
         if (qa.variable == QLatin1String("CONFIG")) {
             QStringList values = qa.value.split(QLatin1Char(' '));
             QStringList newValues;
-            foreach(const QString &value, values) {
+            foreach (const QString &value, values) {
                 if (value == QLatin1String("debug")) {
                     if (qa.op == QLatin1String("+="))
                         result = result  | BaseQtVersion::DebugBuild;

@@ -77,6 +77,8 @@ void BlackBerryDeployConfiguration::ctor()
         target()->project()->setNamedSettings(QLatin1String(DEPLOYMENT_INFO_SETTING), data);
     }
 
+    connect(target()->project(), SIGNAL(proFilesEvaluated()), this, SLOT(setupBarDescriptor()), Qt::UniqueConnection);
+
     setDefaultDisplayName(tr("Deploy to BlackBerry Device"));
 }
 
@@ -159,31 +161,7 @@ BlackBerryDeployInformation *BlackBerryDeployConfiguration::deploymentInfo() con
     return info;
 }
 
-QString BlackBerryDeployConfiguration::deviceHost() const
+ProjectExplorer::NamedWidget *BlackBerryDeployConfiguration::createConfigWidget()
 {
-    BlackBerryDeviceConfiguration::ConstPtr device = BlackBerryDeviceConfiguration::device(target()->kit());
-    if (!device)
-        return QString();
-
-    return device->sshParameters().host;
-}
-
-QString BlackBerryDeployConfiguration::password() const
-{
-    BlackBerryDeviceConfiguration::ConstPtr device = BlackBerryDeviceConfiguration::device(target()->kit());
-    return device->sshParameters().password;
-}
-
-QString BlackBerryDeployConfiguration::deviceName() const
-{
-    BlackBerryDeviceConfiguration::ConstPtr device = BlackBerryDeviceConfiguration::device(target()->kit());
-    if (!device)
-        return QString();
-
-    return device->displayName();
-}
-
-ProjectExplorer::DeployConfigurationWidget *BlackBerryDeployConfiguration::configurationWidget() const
-{
-    return new BlackBerryDeployConfigurationWidget;
+    return new BlackBerryDeployConfigurationWidget(this);
 }

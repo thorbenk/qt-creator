@@ -32,6 +32,7 @@
 #include "filemanager/firstdefinitionfinder.h"
 #include "filemanager/objectlengthcalculator.h"
 #include "filemanager/qmlrefactoring.h"
+#include "filemanager/qmlwarningdialog.h"
 #include "rewriteaction.h"
 #include "nodeproperty.h"
 #include "propertyparser.h"
@@ -138,7 +139,7 @@ static inline QString fixEscapedUnicodeChar(const QString &value) //convert "\u2
     }
     return value;
 }
- 
+
 static inline bool isSignalPropertyName(const QString &signalName)
 {
     // see QmlCompiler::isSignalPropertyName
@@ -257,7 +258,7 @@ static bool isCustomParserType(const QString &type)
 
 
 static bool isPropertyChangesType(const QString &type)
-{    
+{
     return  type == QLatin1String("PropertyChanges") || type == QLatin1String("QtQuick.PropertyChanges") || type == QLatin1String("Qt.PropertyChanges");
 }
 
@@ -368,8 +369,6 @@ public:
                 QDir dir(m_doc->path());
                 QString relativeDir = dir.relativeFilePath(path);
                 QString name = relativeDir.replace(QLatin1Char('/'), QLatin1Char('.'));
-                if (!name.isEmpty())
-                    typeName.prepend(name + QLatin1Char('.'));
             }
         }
     }
@@ -528,20 +527,26 @@ public:
             }
         }
 
-        QVariant v(cleanedValue);
+        if (property->asColorValue()) {
+            return PropertyParser::read(QVariant::Color, cleanedValue);
+        } else if (property->asUrlValue()) {
+            return PropertyParser::read(QVariant::Url, cleanedValue);
+        }
+
+        QVariant value(cleanedValue);
         if (property->asBooleanValue()) {
-            v.convert(QVariant::Bool);
-        } else if (property->asColorValue()) {
-            v.convert(QVariant::Color);
+            value.convert(QVariant::Bool);
+            return value;
         } else if (property->asNumberValue()) {
-            v.convert(QVariant::Double);
+            value.convert(QVariant::Double);
+            return value;
         } else if (property->asStringValue()) {
             // nothing to do
         } else { //property alias et al
             if (!hasQuotes)
                 return cleverConvert(cleanedValue);
         }
-        return v;
+        return value;
     }
 
     QVariant convertToEnum(Statement *rhs, const QString &propertyPrefix, UiQualifiedId *propertyId)
@@ -800,13 +805,16 @@ bool TextToModelMerger::load(const QString &data, DifferenceHandler &differenceH
                 QString title = QCoreApplication::translate("QmlDesigner::TextToModelMerger warning message", "This .qml file contains features"
                                                             "which are not supported by Qt Quick Designer");
 
-                QString message;
+                QStringList message;
 
                 foreach (const RewriterView::Error &warning, warnings) {
-                    message += QLatin1String("Line: ") +  QString::number(warning.line()) + ": "  + warning.description() + QLatin1String("\n");
+                    QString string = QLatin1String("Line: ") +  QString::number(warning.line()) + QLatin1String(": ")  + warning.description();
+                    //string += QLatin1String(" <a href=\"") + QString::number(warning.line()) + QLatin1String("\">Go to error</a>") + QLatin1String("<p>");
+                    message << string;
                 }
 
-                if (QMessageBox::warning(0, title, message, QMessageBox::Ignore | QMessageBox::Cancel) == QMessageBox::Cancel) {
+                QmlWarningDialog warningDialog(0, message);
+                if (warningDialog.warningsEnabled() && warningDialog.exec()) {
                     m_rewriterView->setErrors(warnings);
                     setActive(false);
                     return false;
@@ -1557,7 +1565,7 @@ ModelNode ModelAmender::listPropertyMissingModelNode(NodeListProperty &modelProp
             modelProperty.reparentHere(newNode);
         } else { //The default property could a NodeProperty implicitly (delegate:)
             modelProperty.parentModelNode().removeProperty(modelProperty.name());
-            modelProperty.reparentHere(newNode); 
+            modelProperty.reparentHere(newNode);
         }
     } else {
         modelProperty.reparentHere(newNode);

@@ -118,24 +118,6 @@ public:
     virtual BuildStep *clone(BuildStepList *parent, BuildStep *product) = 0;
 };
 
-class PROJECTEXPLORER_EXPORT BuildConfigWidget
-    : public QWidget
-{
-    Q_OBJECT
-public:
-    BuildConfigWidget()
-        :QWidget(0)
-        {}
-
-    virtual QString displayName() const = 0;
-
-    // This is called to set up the config widget before showing it
-    virtual void init(BuildConfiguration *bc) = 0;
-
-signals:
-    void displayNameChanged(const QString &);
-};
-
 class PROJECTEXPLORER_EXPORT BuildStepConfigWidget
     : public QWidget
 {

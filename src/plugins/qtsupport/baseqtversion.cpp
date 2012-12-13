@@ -185,7 +185,6 @@ BaseQtVersion::BaseQtVersion(const FileName &qmakeCommand, bool isAutodetected, 
       m_qmakeIsExecutable(true)
 {
     ctor(qmakeCommand);
-    setDisplayName(defaultDisplayName(qtVersionString(), qmakeCommand, false));
 }
 
 BaseQtVersion::BaseQtVersion()
@@ -411,7 +410,8 @@ ProjectExplorer::ToolChain *BaseQtVersion::preferredToolChain(const FileName &ms
             continue;
         if (tc->suggestedMkspecList().contains(spec))
             return tc; // perfect match
-        possibleTc = tc; // possible match
+        if (!possibleTc)
+            possibleTc = tc; // first possible match
     }
     return possibleTc;
 }
@@ -865,7 +865,7 @@ void BaseQtVersion::updateVersionInfo() const
     m_hasQmlDebuggingLibrary = false;
     m_hasQmlObserver = false;
 
-    if (!queryQMakeVariables(qmakeCommand(), &m_versionInfo, &m_qmakeIsExecutable))
+    if (!queryQMakeVariables(qmakeCommand(), qmakeRunEnvironment(), &m_versionInfo, &m_qmakeIsExecutable))
         return;
 
     const QString qtInstallData = qmakeProperty("QT_INSTALL_DATA");
@@ -996,6 +996,16 @@ void BaseQtVersion::addToEnvironment(const ProjectExplorer::Kit *k, Environment 
     Q_UNUSED(k);
     env.set(QLatin1String("QTDIR"), QDir::toNativeSeparators(qmakeProperty("QT_HOST_DATA")));
     env.prependOrSetPath(qmakeProperty("QT_HOST_BINS"));
+}
+
+// Some Qt versions may require environment settings for qmake to work
+//
+// One such example is Blackberry which for some reason decided to always use the same
+// qmake and use environment variables embedded in their mkspecs to make that point to
+// the different Qt installations.
+Utils::Environment BaseQtVersion::qmakeRunEnvironment() const
+{
+    return Utils::Environment::systemEnvironment();
 }
 
 bool BaseQtVersion::hasGdbDebuggingHelper() const
@@ -1171,55 +1181,76 @@ QtConfigWidget *BaseQtVersion::createConfigurationWidget() const
     return 0;
 }
 
-bool BaseQtVersion::queryQMakeVariables(const FileName &binary, QHash<QString, QString> *versionInfo)
+bool BaseQtVersion::queryQMakeVariables(const FileName &binary, const Utils::Environment &env,
+                                        QHash<QString, QString> *versionInfo)
 {
     bool qmakeIsExecutable;
-    return BaseQtVersion::queryQMakeVariables(binary, versionInfo, &qmakeIsExecutable);
+    return BaseQtVersion::queryQMakeVariables(binary, env, versionInfo, &qmakeIsExecutable);
 }
 
-bool BaseQtVersion::queryQMakeVariables(const FileName &binary, QHash<QString, QString> *versionInfo,
-                                        bool *qmakeIsExecutable)
+static QByteArray runQmakeQuery(const FileName &binary, const Environment &env,
+                                bool *isExecutable)
 {
     const int timeOutMS = 30000; // Might be slow on some machines.
+
+    QProcess process;
+    process.setEnvironment(env.toStringList());
+    process.start(binary.toString(), QStringList(QLatin1String("-query")), QIODevice::ReadOnly);
+
+    if (!process.waitForStarted()) {
+        qWarning("Cannot start '%s': %s", qPrintable(binary.toUserOutput()), qPrintable(process.errorString()));
+        *isExecutable = false;
+        return QByteArray();
+    }
+    if (!process.waitForFinished(timeOutMS)) {
+        SynchronousProcess::stopProcess(process);
+        *isExecutable = true;
+        qWarning("Timeout running '%s' (%dms).", qPrintable(binary.toUserOutput()), timeOutMS);
+        return QByteArray();
+    }
+    if (process.exitStatus() != QProcess::NormalExit) {
+        qWarning("'%s' crashed.", qPrintable(binary.toUserOutput()));
+        *isExecutable = false;
+        return QByteArray();
+    }
+
+    *isExecutable = true;
+    return process.readAllStandardOutput();
+}
+
+bool BaseQtVersion::queryQMakeVariables(const FileName &binary, const Environment &env,
+                                        QHash<QString, QString> *versionInfo, bool *qmakeIsExecutable)
+{
     const QFileInfo qmake = binary.toFileInfo();
     *qmakeIsExecutable = qmake.exists() && qmake.isExecutable() && !qmake.isDir();
     if (!*qmakeIsExecutable)
         return false;
 
-    QProcess process;
-    Environment env = Environment::systemEnvironment();
+    QByteArray output;
+    output = runQmakeQuery(binary, env, qmakeIsExecutable);
 
-    if (HostOsInfo::isWindowsHost()) {
-        // Add tool chain environment. This is necessary for non-static qmakes e.g. using mingw on windows
-        // We can not just add all the environments of all tool chains since that will make PATH too long
-        // which in turn will trigger a crash when parsing the results of vcvars.bat of MSVC.
+    if (output.isNull() && !qmakeIsExecutable) {
+        // Note: Don't rerun if we were able to execute the binary before.
+
+        // Try running qmake with all kinds of tool chains set up in the environment.
+        // This is required to make non-static qmakes work on windows where every tool chain
+        // tries to be incompatible with any other.
         QList<ProjectExplorer::Abi> abiList = ProjectExplorer::Abi::abisOfBinary(binary);
         QList<ProjectExplorer::ToolChain *> tcList = ProjectExplorer::ToolChainManager::instance()->toolChains();
         foreach (ProjectExplorer::ToolChain *tc, tcList) {
-            if (abiList.contains(tc->targetAbi()))
-                tc->addToEnvironment(env);
+            if (!abiList.contains(tc->targetAbi()))
+                continue;
+            Environment realEnv = env;
+            tc->addToEnvironment(realEnv);
+            output = runQmakeQuery(binary, realEnv, qmakeIsExecutable);
+            if (qmakeIsExecutable)
+                break;
         }
     }
 
-    process.setEnvironment(env.toStringList());
-    process.start(qmake.absoluteFilePath(), QStringList(QLatin1String("-query")), QIODevice::ReadOnly);
+    if (output.isNull())
+        return false;
 
-    if (!process.waitForStarted()) {
-        *qmakeIsExecutable = false;
-        qWarning("Cannot start '%s': %s", qPrintable(binary.toUserOutput()), qPrintable(process.errorString()));
-        return false;
-    }
-    if (!process.waitForFinished(timeOutMS)) {
-        SynchronousProcess::stopProcess(process);
-        qWarning("Timeout running '%s' (%dms).", qPrintable(binary.toUserOutput()), timeOutMS);
-        return false;
-    }
-    if (process.exitStatus() != QProcess::NormalExit) {
-        *qmakeIsExecutable = false;
-        qWarning("'%s' crashed.", qPrintable(binary.toUserOutput()));
-        return false;
-    }
-    QByteArray output = process.readAllStandardOutput();
     QTextStream stream(&output);
     while (!stream.atEnd()) {
         const QString line = stream.readLine();
@@ -1354,7 +1385,9 @@ FileName BaseQtVersion::qtCorePath(const QHash<QString,QString> &versionInfo, co
             }
             if (info.isReadable()) {
                 if (file.startsWith(QLatin1String("libQtCore"))
-                        || file.startsWith(QLatin1String("QtCore"))) {
+                        || file.startsWith(QLatin1String("libQt5Core"))
+                        || file.startsWith(QLatin1String("QtCore"))
+                        || file.startsWith(QLatin1String("Qt5Core"))) {
                     // Only handle static libs if we can not find dynamic ones:
                     if (file.endsWith(QLatin1String(".a")) || file.endsWith(QLatin1String(".lib")))
                         staticLibs.append(info);

@@ -96,16 +96,11 @@ GenericMakeStep::~GenericMakeStep()
 {
 }
 
-GenericBuildConfiguration *GenericMakeStep::genericBuildConfiguration() const
-{
-    return static_cast<GenericBuildConfiguration *>(buildConfiguration());
-}
-
 bool GenericMakeStep::init()
 {
-    GenericBuildConfiguration *bc = genericBuildConfiguration();
+    BuildConfiguration *bc = buildConfiguration();
     if (!bc)
-        bc = static_cast<GenericBuildConfiguration *>(target()->activeBuildConfiguration());
+        bc = target()->activeBuildConfiguration();
 
     m_tasks.clear();
     ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
@@ -119,9 +114,14 @@ bool GenericMakeStep::init()
     ProcessParameters *pp = processParameters();
     pp->setMacroExpander(bc->macroExpander());
     pp->setWorkingDirectory(bc->buildDirectory());
-    pp->setEnvironment(bc->environment());
+    Utils::Environment env = bc->environment();
+    // Force output to english for the parsers. Do this here and not in the toolchain's
+    // addToEnvironment() to not screw up the users run environment.
+    env.set(QLatin1String("LC_ALL"), QLatin1String("C"));
+    pp->setEnvironment(env);
     pp->setCommand(makeCommand(bc->environment()));
     pp->setArguments(allArguments());
+    pp->resolveAll();
 
     // If we are cleaning, then make can fail with an error code, but that doesn't mean
     // we should stop the clean queue
@@ -224,7 +224,7 @@ void GenericMakeStep::setBuildTarget(const QString &target, bool on)
     QStringList old = m_buildTargets;
     if (on && !old.contains(target))
          old << target;
-    else if(!on && old.contains(target))
+    else if (!on && old.contains(target))
         old.removeOne(target);
 
     m_buildTargets = old;
@@ -285,18 +285,18 @@ QString GenericMakeStepConfigWidget::displayName() const
 
 void GenericMakeStepConfigWidget::updateMakeOverrrideLabel()
 {
-    GenericBuildConfiguration *bc = m_makeStep->genericBuildConfiguration();
+    BuildConfiguration *bc = m_makeStep->buildConfiguration();
     if (!bc)
-        bc = static_cast<GenericBuildConfiguration *>(m_makeStep->target()->activeBuildConfiguration());
+        bc = m_makeStep->target()->activeBuildConfiguration();
 
     m_ui->makeLabel->setText(tr("Override %1:").arg(m_makeStep->makeCommand(bc->environment())));
 }
 
 void GenericMakeStepConfigWidget::updateDetails()
 {
-    GenericBuildConfiguration *bc = m_makeStep->genericBuildConfiguration();
+    BuildConfiguration *bc = m_makeStep->buildConfiguration();
     if (!bc)
-        bc = static_cast<GenericBuildConfiguration *>(m_makeStep->target()->activeBuildConfiguration());
+        bc = m_makeStep->target()->activeBuildConfiguration();
 
     ProcessParameters param;
     param.setMacroExpander(bc->macroExpander());

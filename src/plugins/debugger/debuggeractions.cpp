@@ -445,6 +445,12 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     insertItem(MultiInferior, item);
 
     item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("IntelFlavor"));
+    item->setCheckable(true);
+    item->setDefaultValue(false);
+    insertItem(IntelFlavor, item);
+
+    item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("UseToolTips"));
     item->setText(tr("Use tooltips in main editor when debugging"));
     item->setToolTip(tr("Checking this will enable tooltips for variable "
@@ -545,6 +551,11 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setSettingsKey(debugModeGroup, QLatin1String("MaximalStackDepth"));
     item->setDefaultValue(20);
     insertItem(MaximalStackDepth, item);
+
+    item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("MaximalStringLength"));
+    item->setDefaultValue(10000);
+    insertItem(MaximalStringLength, item);
 
     item = new SavedAction(this);
     item->setText(tr("Reload Full Stack"));

@@ -526,6 +526,7 @@ private: ////////// View & Data Stuff //////////
     DisassemblerLines parseDisassembler(const GdbResponse &response);
     DisassemblerLines parseCliDisassembler(const QByteArray &response);
     DisassemblerLines parseMiDisassembler(const GdbMi &response);
+    Q_SLOT void reloadDisassembly();
 
     bool m_disassembleUsesComma;
 
@@ -663,7 +664,6 @@ protected:
     static QByteArray tooltipIName(const QString &exp);
     QString tooltipExpression() const;
     QScopedPointer<GdbToolTipContext> m_toolTipContext;
-
 
     // For short-circuiting stack and thread list evaluation.
     bool m_stackNeeded;

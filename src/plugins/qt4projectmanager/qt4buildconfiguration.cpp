@@ -184,9 +184,9 @@ void Qt4BuildConfiguration::emitBuildDirectoryChanged()
     }
 }
 
-BuildConfigWidget *Qt4BuildConfiguration::createConfigWidget()
+NamedWidget *Qt4BuildConfiguration::createConfigWidget()
 {
-    return new Qt4ProjectConfigWidget(target());
+    return new Qt4ProjectConfigWidget(this);
 }
 
 QString Qt4BuildConfiguration::defaultShadowBuildDirectory() const
@@ -284,16 +284,6 @@ void Qt4BuildConfiguration::setShadowBuildAndDirectory(bool shadowBuild, const Q
 
     emitBuildDirectoryChanged();
     emitProFileEvaluateNeeded();
-}
-
-QString Qt4BuildConfiguration::defaultMakeTarget() const
-{
-    ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
-    BaseQtVersion *version = QtKitInformation::qtVersion(target()->kit());
-    if (!tc || !version)
-        return QString();
-
-    return tc->defaultMakeTarget();
 }
 
 QString Qt4BuildConfiguration::makefile() const
@@ -458,8 +448,8 @@ bool Qt4BuildConfiguration::removeQMLInspectorFromArguments(QString *args)
     for (QtcProcess::ArgIterator ait(args); ait.next(); ) {
         const QString arg = ait.value();
         if (arg.contains(QLatin1String(Constants::QMAKEVAR_QMLJSDEBUGGER_PATH))
-            || arg.contains(QLatin1String(Constants::QMAKEVAR_DECLARATIVE_DEBUG4))
-            || arg.contains(QLatin1String(Constants::QMAKEVAR_DECLARATIVE_DEBUG5))) {
+            || arg.contains(QLatin1String(Constants::QMAKEVAR_QUICK1_DEBUG))
+            || arg.contains(QLatin1String(Constants::QMAKEVAR_QUICK2_DEBUG))) {
             ait.deleteArg();
             removedArgument = true;
         }

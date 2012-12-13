@@ -161,14 +161,16 @@ public:
     QString synchronousShortDescription(const QString &workingDirectory, const QString &revision);
     QString synchronousShortDescription(const QString &workingDirectory, const QString &revision,
                                      const QString &format);
-    QString synchronousBranch(const QString &workingDirectory);
+    QString synchronousTopic(const QString &workingDirectory);
     QString synchronousTopRevision(const QString &workingDirectory, QString *errorMessage = 0);
+    void synchronousTagsForCommit(const QString &workingDirectory, const QString &revision,
+                                  QByteArray &precedes, QByteArray &follows);
 
     bool cloneRepository(const QString &directory, const QByteArray &url);
     QString vcsGetRepositoryURL(const QString &directory);
     bool synchronousFetch(const QString &workingDirectory, const QString &remote);
-    bool synchronousPull(const QString &workingDirectory);
     bool synchronousPull(const QString &workingDirectory, bool rebase);
+    bool synchronousRebaseContinue(const QString &workingDirectory);
     bool synchronousPush(const QString &workingDirectory, const QString &remote = QString());
 
     // git svn support (asynchronous).
@@ -212,7 +214,9 @@ public:
                            QString *output = 0,
                            QString *errorMessage = 0);
 
-    void launchGitK(const QString &workingDirectory);
+    void launchGitK(const QString &workingDirectory, const QString &fileName);
+    void launchGitK(const QString &workingDirectory) { launchGitK(workingDirectory, QString()); }
+
     void launchRepositoryBrowser(const QString &workingDirectory);
 
     QStringList synchronousRepositoryBranches(const QString &repositoryURL);
@@ -285,9 +289,11 @@ private:
                          QString *errorMessage,
                          bool revertStaging);
     void connectRepositoryChanged(const QString & repository, VcsBase::Command *cmd);
-    void syncAbortPullRebase(const QString &workingDir);
+    bool synchronousPullOrRebase(const QString &workingDirectory, const QStringList &arguments, bool rebase);
+    void handleMergeConflicts(const QString &workingDir, bool rebase);
     bool tryLauchingGitK(const QProcessEnvironment &env,
                          const QString &workingDirectory,
+                         const QString &fileName,
                          const QString &gitBinDirectory,
                          bool silent);
     bool cleanList(const QString &workingDirectory, const QString &flag, QStringList *files, QString *errorMessage);

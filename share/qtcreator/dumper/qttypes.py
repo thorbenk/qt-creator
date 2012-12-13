@@ -55,10 +55,10 @@ def qdump__QByteArray(d, value):
         d.putDisplay(StopDisplay)
     elif format == 2:
         d.putField("editformat", DisplayLatin1String)
-        d.putField("editvalue", encodeByteArray(value))
+        d.putField("editvalue", encodeByteArray(value, None))
     elif format == 3:
         d.putField("editformat", DisplayUtf8String)
-        d.putField("editvalue", encodeByteArray(value))
+        d.putField("editvalue", encodeByteArray(value, None))
     if d.isExpanded():
         d.putArrayData(lookupType("char"), data, size)
 
@@ -798,10 +798,15 @@ def qdump__QObject(d, value):
         staticMetaObject = value["staticMetaObject"]
         d_ptr = value["d_ptr"]["d"].cast(privateType.pointer()).dereference()
         #warn("D_PTR: %s " % d_ptr)
+        objectName = None
         try:
             objectName = d_ptr["objectName"]
         except: # Qt 5
-            objectName = d_ptr["extraData"].dereference()["objectName"]
+            p = d_ptr["extraData"]
+            if not isNull(p):
+                objectName = p.dereference()["objectName"]
+        if not objectName is None:
+            d.putStringValue(objectName)
     except:
         d.putPlainChildren(value)
         return
@@ -833,13 +838,20 @@ def qdump__QObject(d, value):
     #warn("MO.D: %s " % mo["d"])
     metaData = mo["d"]["data"]
     metaStringData = mo["d"]["stringdata"]
+    # This is char * in Qt 4 and ByteArrayData * in Qt 5.
+    # Force it to the char * data in the Qt 5 case.
+    try:
+        offset = metaStringData["offset"]
+        metaStringData = metaStringData.cast(lookupType('char*')) + int(offset)
+    except:
+        pass
+
     #extradata = mo["d"]["extradata"]   # Capitalization!
     #warn("METADATA: %s " % metaData)
     #warn("STRINGDATA: %s " % metaStringData)
     #warn("TYPE: %s " % value.type)
     #warn("INAME: %s " % d.currentIName())
     #d.putValue("")
-    d.putStringValue(objectName)
     #QSignalMapper::staticMetaObject
     #checkRef(d_ptr["ref"])
     d.putNumChild(4)
@@ -1462,7 +1474,20 @@ def qdump__QString(d, value):
         d.putDisplay(StopDisplay)
     elif format == 2:
         d.putField("editformat", DisplayUtf16String)
-        d.putField("editvalue", encodeString(value))
+        d.putField("editvalue", encodeString(value, None))
+
+
+def qdump__QStringRef(d, value):
+    s = value["m_string"].dereference()
+    data, size, alloc = qStringData(s)
+    data += int(value["m_position"])
+    size = value["m_size"]
+    s = readRawMemory(data, 2 * size)
+    d.putValue(s, Hex4EncodedLittleEndian)
+    d.putNumChild(3)
+    if d.isExpanded():
+        with Children(d):
+            d.putFields(value)
 
 
 def qdump__QStringList(d, value):
@@ -1806,6 +1831,42 @@ def qdump__QxXmlAttributes(d, value):
 #
 #######################################################################
 
+def qdump____c_style_array__(d, value):
+    type = value.type.unqualified()
+    targetType = type.target()
+    typeName = str(type)
+    d.putAddress(value.address)
+    d.putType(typeName)
+    d.putNumChild(1)
+    format = d.currentItemFormat()
+    isDefault = format == None and str(targetType.unqualified()) == "char"
+    if isDefault or (format >= 0 and format <= 2):
+        blob = readRawMemory(value.address, type.sizeof)
+
+    if isDefault:
+        # Use Latin1 as default for char [].
+        d.putValue(blob, Hex2EncodedLatin1)
+    elif format == 0:
+        # Explicitly requested Latin1 formatting.
+        d.putValue(blob, Hex2EncodedLatin1)
+    elif format == 1:
+        # Explicitly requested UTF-8 formatting.
+        d.putValue(blob, Hex2EncodedUtf8)
+    elif format == 2:
+        # Explicitly requested Local 8-bit formatting.
+        d.putValue(blob, Hex2EncodedLocal8Bit)
+    else:
+        d.putValue("@0x%x" % long(value.cast(targetType.pointer())))
+
+    if d.currentIName in d.expandedINames:
+        p = value.address
+        ts = targetType.sizeof
+        if not d.tryPutArrayContents(targetType, p, type.sizeof / ts):
+            with Children(d, childType=targetType,
+                    addrBase=p, addrStep=ts):
+                d.putFields(value)
+
+
 def qdump__std__array(d, value):
     size = numericTemplateArgument(value.type, 1)
     d.putItemCount(size)
@@ -2021,6 +2082,9 @@ def qdump__std__stack(d, value):
     qdump__std__deque(d, value["c"])
 
 
+def qform__std__string():
+    return "Inline,In Separate Window"
+
 def qdump__std__string(d, value):
     data = value["_M_dataplus"]["_M_p"]
     baseType = value.type.unqualified().strip_typedefs()
@@ -2041,40 +2105,36 @@ def qdump__std__string(d, value):
     check(rep['_M_refcount'] >= -1) # Can be -1 accoring to docs.
     check(0 <= size and size <= alloc and alloc <= 100*1000*1000)
     p = gdb.Value(data.cast(charType.pointer()))
-    s = ""
     # Override "std::basic_string<...>
     if str(charType) == "char":
         d.putType("std::string", 1)
     elif str(charType) == "wchar_t":
         d.putType("std::wstring", 1)
 
-    n = min(size, 1000)
+    n = min(size, qqStringCutOff)
+    mem = readRawMemory(p, n * charType.sizeof)
     if charType.sizeof == 1:
-        format = "%02x"
-        for i in xrange(size):
-            s += format % int(p.dereference())
-            p += 1
-        d.putValue(s, Hex2EncodedLatin1)
-        d.putNumChild(0)
+        encodingType = Hex2EncodedLatin1
+        displayType = DisplayLatin1String
     elif charType.sizeof == 2:
-        format = "%02x%02x"
-        for i in xrange(size):
-            val = int(p.dereference())
-            s += format % (val % 256, val / 256)
-            p += 1
-        d.putValue(s, Hex4EncodedLittleEndian)
+        encodingType = Hex4EncodedLatin1
+        displayType = DisplayUtf16String
     else:
-        # FIXME: This is not always a proper solution.
-        format = "%02x%02x%02x%02x"
-        for i in xrange(size):
-            val = int(p.dereference())
-            hi = val / 65536
-            lo = val % 65536
-            s += format % (lo % 256, lo / 256, hi % 256, hi / 256)
-            p += 1
-        d.putValue(s, Hex8EncodedLittleEndian)
+        encodinfType = Hex8EncodedLatin1
+        displayType = DisplayUtf16String
 
+    d.putAddress(value.address)
     d.putNumChild(0)
+    d.putValue(mem, encodingType)
+
+    format = d.currentItemFormat()
+    if format == 1:
+        d.putDisplay(StopDisplay)
+    elif format == 2:
+        d.putField("editformat", displayType)
+        if n != size:
+            mem = readRawMemory(p, size * charType.sizeof)
+        d.putField("editvalue", mem)
 
 
 def qdump__std__shared_ptr(d, value):
@@ -2686,20 +2746,24 @@ if False:
                     d.putItem(v["a"])
 
 
-    def qdump__Function(d, value):
+if False:
+
+    def qform__basic__Function():
+        return "Normal,Displayed"
+
+    def qdump__basic__Function(d, value):
         min = value["min"]
         max = value["max"]
         data, size, alloc = qByteArrayData(value["var"])
-        var = extractCString(data)
+        var = extractCString(data, 0)
         data, size, alloc = qByteArrayData(value["f"])
-        f = extractCString(data)
+        f = extractCString(data, 0)
         d.putValue("%s, %s=%f..%f" % (f, var, min, max))
         d.putNumChild(0)
-        d.putField("typeformats", "Normal,Displayed");
         format = d.currentItemFormat()
-        if format == 0:
+        if format == 1:
             d.putDisplay(StopDisplay)
-        elif format == 1:
+        elif format == 2:
             input = "plot [%s=%f:%f] %s" % (var, min, max, f)
             d.putDisplay(DisplayProcess, input, "gnuplot")
 

@@ -496,11 +496,9 @@ void RunSettingsWidget::updateDeployConfiguration(DeployConfiguration *dc)
     m_deployConfigurationCombo->setCurrentIndex(actDc.row());
     m_ignoreChange = false;
 
-    m_deployConfigurationWidget = dc->configurationWidget();
-    if (m_deployConfigurationWidget) {
-        m_deployConfigurationWidget->init(dc);
+    m_deployConfigurationWidget = dc->createConfigWidget();
+    if (m_deployConfigurationWidget)
         m_deployLayout->addWidget(m_deployConfigurationWidget);
-    }
 
     m_deploySteps = new BuildStepListWidget;
     m_deploySteps->init(dc->stepList());

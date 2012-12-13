@@ -99,6 +99,16 @@ public:
 
 typedef QHash<QString, FileStatus> StatusMap;
 
+class ViewData
+{
+public:
+    ViewData();
+
+    QString name;
+    bool isDynamic;
+    bool isUcm;
+};
+
 class ClearCasePlugin : public VcsBase::VcsBasePlugin
 {
     Q_OBJECT
@@ -141,12 +151,14 @@ public:
     QList<QStringPair> activities(int *current = 0) const;
     QString ccGetPredecessor(const QString &version) const;
     QStringList ccGetActiveVobs() const;
+    ViewData ccGetView(const QString &workingDir) const;
     bool ccFileOp(const QString &workingDir, const QString &title, const QStringList &args,
                   const QString &fileName, const QString &file2 = QString());
     FileStatus vcsStatus(const QString &file) const;
-    QString currentView() const { return m_view; }
+    QString currentView() const { return m_viewData.name; }
     void refreshActivities();
-    inline bool isUcm() const { return m_isUcm; }
+    inline bool isUcm() const { return m_viewData.isUcm; }
+    void setStatus(const QString &file, FileStatus::Status status, bool update = true);
 
     bool ccCheckUcm(const QString &viewname, const QString &workingDir) const;
 
@@ -155,7 +167,6 @@ public slots:
                      const QString &revision = QString(), int lineNumber = -1) const;
     bool newActivity();
     void updateStreamAndView();
-    void setStatus(const QString &file, ClearCase::Internal::FileStatus::Status status, bool update = true);
 
 private slots:
     void checkOutCurrentFile();
@@ -180,6 +191,7 @@ private slots:
     void tasksFinished(const QString &type);
     void syncSlot();
     void closing();
+    void updateStatusActions();
 
 protected:
     void updateActions(VcsBase::VcsBasePlugin::ActionState);
@@ -210,14 +222,12 @@ private:
     inline ClearCaseControl *clearCaseControl() const;
     QString ccGetFileActivity(const QString &workingDir, const QString &file);
     QStringList ccGetActivityVersions(const QString &workingDir, const QString &activity);
-    void updateStatusActions();
     void diffGraphical(const QString &file1, const QString &file2 = QString());
     QString diffExternal(QString file1, QString file2 = QString(), bool keep = false);
     QString getFile(const QString &nativeFile, const QString &prefix);
     static void rmdir(const QString &path);
     QString runExtDiff(const QString &workingDir, const QStringList &arguments,
                        int timeOut, QTextCodec *outputCodec = 0);
-    QString ccGetView(const QString &workingDir, bool *isDynamic = 0, bool *isUcm = 0) const;
 
     ClearCaseSettings m_settings;
 
@@ -225,9 +235,7 @@ private:
     QString m_checkInView;
     QString m_topLevel;
     QString m_stream;
-    QString m_view;
-    bool m_isDynamic;
-    bool m_isUcm;
+    ViewData m_viewData;
     QString m_intStream;
     QString m_activity;
     QString m_diffPrefix;
@@ -263,7 +271,5 @@ private:
 
 } // namespace Internal
 } // namespace ClearCase
-
-Q_DECLARE_METATYPE(ClearCase::Internal::FileStatus::Status)
 
 #endif // CLEARCASEPLUGIN_H

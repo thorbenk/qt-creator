@@ -42,8 +42,10 @@ class CORE_EXPORT Id
 {
 public:
     Id() : m_id(0) {}
+    Id(int uid) : m_id(uid) {}
     Id(const char *name);
-    // FIXME: Replace with QByteArray
+    explicit Id(const QByteArray &name);
+    // FIXME: Remove
     explicit Id(const QString &name);
     QByteArray name() const;
     QString toString() const;
@@ -55,10 +57,10 @@ public:
     bool operator<(Id id) const { return m_id < id.m_id; }
     bool operator>(Id id) const { return m_id > id.m_id; }
     int uniqueIdentifier() const { return m_id; }
-    static Id fromUniqueIdentifier(int uid) { return Id(uid, uid); }
+    static Id fromUniqueIdentifier(int uid) { return Id(uid); }
+    static void registerId(int uid, const char *name);
 
 private:
-    Id(int uid, int) : m_id(uid) {}
     // Intentionally unimplemented
     Id(const QLatin1String &);
     int m_id;

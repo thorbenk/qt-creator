@@ -175,7 +175,7 @@ BuildSettingsWidget::BuildSettingsWidget(Target *target) :
     connect(m_target, SIGNAL(kitChanged()), this, SLOT(updateAddButtonMenu()));
 }
 
-void BuildSettingsWidget::addSubWidget(BuildConfigWidget *widget)
+void BuildSettingsWidget::addSubWidget(NamedWidget *widget)
 {
     widget->setContentsMargins(0, 10, 0, 0);
 
@@ -205,7 +205,7 @@ void BuildSettingsWidget::clear()
     m_labels.clear();
 }
 
-QList<BuildConfigWidget *> BuildSettingsWidget::subWidgets() const
+QList<NamedWidget *> BuildSettingsWidget::subWidgets() const
 {
     return m_subWidgets;
 }
@@ -235,19 +235,19 @@ void BuildSettingsWidget::updateBuildSettings()
     // update buttons
     m_removeButton->setEnabled(m_target->buildConfigurations().size() > 1);
 
+    if (!m_buildConfiguration)
+        return;
+
     // Add pages
-    BuildConfigWidget *generalConfigWidget = m_buildConfiguration->createConfigWidget();
+    NamedWidget *generalConfigWidget = m_buildConfiguration->createConfigWidget();
     addSubWidget(generalConfigWidget);
 
-    addSubWidget(new BuildStepsPage(m_target, Core::Id(Constants::BUILDSTEPS_BUILD)));
-    addSubWidget(new BuildStepsPage(m_target, Core::Id(Constants::BUILDSTEPS_CLEAN)));
+    addSubWidget(new BuildStepsPage(m_buildConfiguration, Core::Id(Constants::BUILDSTEPS_BUILD)));
+    addSubWidget(new BuildStepsPage(m_buildConfiguration, Core::Id(Constants::BUILDSTEPS_CLEAN)));
 
-    QList<BuildConfigWidget *> subConfigWidgets = m_target->project()->subConfigWidgets();
-    foreach (BuildConfigWidget *subConfigWidget, subConfigWidgets)
+    QList<NamedWidget *> subConfigWidgets = m_buildConfiguration->createSubConfigWidgets();
+    foreach (NamedWidget *subConfigWidget, subConfigWidgets)
         addSubWidget(subConfigWidget);
-
-    foreach (BuildConfigWidget *widget, subWidgets())
-        widget->init(m_buildConfiguration);
 }
 
 void BuildSettingsWidget::currentIndexChanged(int index)
@@ -267,11 +267,7 @@ void BuildSettingsWidget::updateActiveConfiguration()
     BuildConfigurationModel *model = static_cast<BuildConfigurationModel *>(m_buildConfigurationComboBox->model());
     m_buildConfigurationComboBox->setCurrentIndex(model->indexFor(m_buildConfiguration).row());
 
-    foreach (QWidget *widget, subWidgets()) {
-        if (BuildConfigWidget *buildStepWidget = qobject_cast<BuildConfigWidget*>(widget)) {
-            buildStepWidget->init(m_buildConfiguration);
-        }
-    }
+    updateBuildSettings();
 }
 
 void BuildSettingsWidget::createConfiguration()
@@ -291,7 +287,6 @@ void BuildSettingsWidget::createConfiguration()
 
     QTC_CHECK(bc->id() == id);
     m_target->setActiveBuildConfiguration(bc);
-    updateBuildSettings();
 }
 
 void BuildSettingsWidget::cloneConfiguration()
@@ -357,8 +352,6 @@ void BuildSettingsWidget::cloneConfiguration(BuildConfiguration *sourceConfigura
 
     bc->setDisplayName(name);
     m_target->addBuildConfiguration(bc);
-    updateBuildSettings();
-
     m_target->setActiveBuildConfiguration(bc);
 }
 
@@ -392,6 +385,4 @@ void BuildSettingsWidget::deleteConfiguration(BuildConfiguration *deleteConfigur
     }
 
     m_target->removeBuildConfiguration(deleteConfiguration);
-
-    updateBuildSettings();
 }

@@ -42,6 +42,7 @@ class StatePreviewImageChangedCommand;
 class ComponentCompletedCommand;
 class TokenCommand;
 class RemoveSharedMemoryCommand;
+class DebugOutputCommand;
 
 class NodeInstanceClientInterface
 {
@@ -53,6 +54,7 @@ public:
     virtual void statePreviewImagesChanged(const StatePreviewImageChangedCommand &command) = 0;
     virtual void componentCompleted(const ComponentCompletedCommand &command) = 0;
     virtual void token(const TokenCommand &command) = 0;
+    virtual void debugOutput(const DebugOutputCommand &command) = 0;
 
     virtual void flush() {};
     virtual void synchronizeWithClientProcess() {}

@@ -56,7 +56,7 @@ QString GitVersionControl::displayName() const
 
 Core::Id GitVersionControl::id() const
 {
-    return VcsBase::Constants::VCS_ID_GIT;
+    return Core::Id(VcsBase::Constants::VCS_ID_GIT);
 }
 
 bool GitVersionControl::isConfigured() const
@@ -140,7 +140,12 @@ QString GitVersionControl::vcsGetRepositoryURL(const QString &directory)
     return m_client->vcsGetRepositoryURL(directory);
 }
 
-/* Snapshots are implement using stashes, relying on stash messages for
+QString GitVersionControl::vcsTopic(const QString &directory)
+{
+    return m_client->synchronousTopic(directory);
+}
+
+/* Snapshots are implemented using stashes, relying on stash messages for
  * naming as the actual stash names (stash{n}) are rotated as one adds stashes.
  * Note that the snapshot interface does not care whether we have an unmodified
  * repository state, in which case git refuses to stash.
@@ -164,7 +169,7 @@ QString GitVersionControl::vcsCreateSnapshot(const QString &topLevel)
         QString topRevision = m_client->synchronousTopRevision(topLevel);
         if (topRevision.isEmpty())
             return QString();
-        QString branch = m_client->synchronousBranch(topLevel);
+        QString branch = m_client->synchronousTopic(topLevel);
         const QChar colon = QLatin1Char(':');
         QString id = QLatin1String(stashRevisionIdC);
         id += colon;
@@ -183,7 +188,7 @@ QStringList GitVersionControl::vcsSnapshots(const QString &topLevel)
         return QStringList();
     // Return the git stash 'message' as identifier, ignoring empty ones
     QStringList rc;
-    foreach(const Stash &s, stashes)
+    foreach (const Stash &s, stashes)
         if (!s.message.isEmpty())
             rc.push_back(s.message);
     return rc;

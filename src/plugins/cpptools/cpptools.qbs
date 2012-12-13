@@ -16,7 +16,7 @@ QtcPlugin {
     Depends { name: "LanguageUtils" }
 
     Depends { name: "cpp" }
-    cpp.defines: base.concat(["QT_NO_CAST_TO_ASCII"])
+    cpp.defines: base.concat(["QT_NO_CAST_FROM_ASCII"])
 
     files: [
         "ModelManagerInterface.cpp",
@@ -102,6 +102,8 @@ QtcPlugin {
         "symbolsfindfilter.h",
         "uicodecompletionsupport.cpp",
         "uicodecompletionsupport.h",
+        "builtinindexingsupport.cpp",
+        "builtinindexingsupport.h"
     ]
 
     Group {

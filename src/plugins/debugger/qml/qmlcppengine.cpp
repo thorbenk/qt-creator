@@ -34,6 +34,7 @@
 #include "stackhandler.h"
 #include "qmlengine.h"
 #include "watchdata.h"
+#include "watchhandler.h"
 
 #include <coreplugin/icore.h>
 #include <utils/qtcassert.h>
@@ -92,8 +93,7 @@ QmlCppEngine::QmlCppEngine(const DebuggerStartParameters &sp, QString *errorMess
 {
     setObjectName(QLatin1String("QmlCppEngine"));
     d = new QmlCppEnginePrivate;
-    d->m_qmlEngine = new QmlEngine(sp);
-    d->m_qmlEngine->setMasterEngine(this);
+    d->m_qmlEngine = new QmlEngine(sp, this);
     d->m_cppEngine = DebuggerRunControlFactory::createEngine(sp.firstSlaveEngineType, sp, errorMessage);
     d->m_cppEngine->setMasterEngine(this);
     if (!d->m_cppEngine) {
@@ -133,6 +133,13 @@ void QmlCppEngine::updateWatchData(const WatchData &data,
         d->m_qmlEngine->updateWatchData(data, flags);
     else
         d->m_activeEngine->updateWatchData(data, flags);
+}
+
+void QmlCppEngine::watchDataSelected(const QByteArray &iname)
+{
+    const WatchData *wd = watchHandler()->findData(iname);
+    if (wd && wd->isInspect())
+        d->m_qmlEngine->watchDataSelected(iname);
 }
 
 void QmlCppEngine::watchPoint(const QPoint &point)

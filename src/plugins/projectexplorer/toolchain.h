@@ -87,12 +87,12 @@ public:
         STD_CXX11 = 1
     };
     virtual CompilerFlags compilerFlags(const QStringList &cxxflags) const = 0;
-    virtual QList<HeaderPath> systemHeaderPaths(const Utils::FileName &sysRoot) const = 0;
+    virtual QList<HeaderPath> systemHeaderPaths(const QStringList &cxxflags,
+                                                const Utils::FileName &sysRoot) const = 0;
     virtual void addToEnvironment(Utils::Environment &env) const = 0;
     virtual QString makeCommand(const Utils::Environment &env) const = 0;
 
     virtual Utils::FileName compilerCommand() const = 0;
-    virtual QString defaultMakeTarget() const;
     virtual IOutputParser *outputParser() const = 0;
 
     virtual bool operator ==(const ToolChain &) const;

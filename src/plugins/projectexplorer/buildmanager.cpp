@@ -76,7 +76,6 @@ struct BuildManagerPrivate {
     QList<BuildStep *> m_buildQueue;
     QList<bool> m_enabledState;
     QStringList m_stepNames;
-    ProjectExplorerPlugin *m_projectExplorerPlugin;
     bool m_running;
     QFutureWatcher<bool> m_watcher;
     QFutureInterface<bool> m_futureInterfaceForAysnc;
@@ -116,8 +115,6 @@ BuildManagerPrivate::BuildManagerPrivate() :
 BuildManager::BuildManager(ProjectExplorerPlugin *parent, QAction *cancelBuildAction)
     : QObject(parent), d(new BuildManagerPrivate)
 {
-    d->m_projectExplorerPlugin = parent;
-
     connect(&d->m_watcher, SIGNAL(finished()),
             this, SLOT(nextBuildQueue()));
 
@@ -402,10 +399,10 @@ void BuildManager::nextBuildQueue()
         // Build Failure
         const QString projectName = d->m_currentBuildStep->project()->displayName();
         const QString targetName = d->m_currentBuildStep->target()->displayName();
-        addToOutputWindow(tr("Error while building/deploying project %1 (target: %2)").arg(projectName, targetName), BuildStep::ErrorOutput);
+        addToOutputWindow(tr("Error while building/deploying project %1 (kit: %2)").arg(projectName, targetName), BuildStep::ErrorOutput);
         addToOutputWindow(tr("When executing step '%1'").arg(d->m_currentBuildStep->displayName()), BuildStep::ErrorOutput);
         // NBS TODO fix in qtconcurrent
-        d->m_progressFutureInterface->setProgressValueAndText(d->m_progress*100, tr("Error while building/deploying project %1 (target: %2)").arg(projectName, targetName));
+        d->m_progressFutureInterface->setProgressValueAndText(d->m_progress*100, tr("Error while building/deploying project %1 (kit: %2)").arg(projectName, targetName));
     }
 
     if (result)
@@ -505,7 +502,7 @@ bool BuildManager::buildQueueAppend(QList<BuildStep *> steps, QStringList names)
         // print something for the user
         const QString projectName = bs->project()->displayName();
         const QString targetName = bs->target()->displayName();
-        addToOutputWindow(tr("Error while building/deploying project %1 (target: %2)").arg(projectName, targetName), BuildStep::ErrorOutput);
+        addToOutputWindow(tr("Error while building/deploying project %1 (kit: %2)").arg(projectName, targetName), BuildStep::ErrorOutput);
         addToOutputWindow(tr("When executing step '%1'").arg(bs->displayName()), BuildStep::ErrorOutput);
 
         // disconnect the buildsteps again
@@ -533,7 +530,7 @@ bool BuildManager::buildList(BuildStepList *bsl, const QString &stepListName)
 bool BuildManager::buildLists(QList<BuildStepList *> bsls, const QStringList &stepListNames, const QStringList &preambelMessage)
 {
     QList<BuildStep *> steps;
-    foreach(BuildStepList *list, bsls)
+    foreach (BuildStepList *list, bsls)
         steps.append(list->steps());
 
     QStringList names;

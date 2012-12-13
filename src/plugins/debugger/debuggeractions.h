@@ -126,6 +126,7 @@ enum DebuggerActionCode
     TargetAsync,
     WarnOnReleaseBuilds,
     MultiInferior,
+    IntelFlavor,
 
     // Stack
     MaximalStackDepth,
@@ -139,6 +140,7 @@ enum DebuggerActionCode
     SortStructMembers,
     AutoDerefPointers,
     AlwaysAdjustLocalsColumnWidths,
+    MaximalStringLength,
 
     // Source List
     ListSourceFiles,

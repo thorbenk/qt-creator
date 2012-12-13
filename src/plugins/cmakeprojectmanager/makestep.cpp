@@ -91,8 +91,8 @@ MakeStep::MakeStep(BuildStepList *bsl, MakeStep *bs) :
 
 void MakeStep::ctor()
 {
-    m_percentProgress = QRegExp("^\\[\\s*(\\d*)%\\]");
-    m_ninjaProgress = QRegExp ("^\\[\\s*(\\d*)/\\s*(\\d*)");
+    m_percentProgress = QRegExp(QLatin1String("^\\[\\s*(\\d*)%\\]"));
+    m_ninjaProgress = QRegExp(QLatin1String("^\\[\\s*(\\d*)/\\s*(\\d*)"));
     m_ninjaProgressString = QLatin1String("[%s/%t "); // ninja: [33/100
     //: Default display name for the cmake make step.
     setDefaultDisplayName(tr("Make"));
@@ -188,17 +188,17 @@ bool MakeStep::init()
 
     ProcessParameters *pp = processParameters();
     pp->setMacroExpander(bc->macroExpander());
-    if (m_useNinja) {
-        Utils::Environment env = bc->environment();
-        if (!env.value(QLatin1String("NINJA_STATUS")).startsWith(m_ninjaProgressString))
-            env.set(QLatin1String("NINJA_STATUS"), m_ninjaProgressString + QLatin1String("%o/sec] "));
-        pp->setEnvironment(env);
-    } else {
-        pp->setEnvironment(bc->environment());
-    }
+    Utils::Environment env = bc->environment();
+    // Force output to english for the parsers. Do this here and not in the toolchain's
+    // addToEnvironment() to not screw up the users run environment.
+    env.set(QLatin1String("LC_ALL"), QLatin1String("C"));
+    if (m_useNinja && !env.value(QLatin1String("NINJA_STATUS")).startsWith(m_ninjaProgressString))
+        env.set(QLatin1String("NINJA_STATUS"), m_ninjaProgressString + QLatin1String("%o/sec] "));
+    pp->setEnvironment(env);
     pp->setWorkingDirectory(bc->buildDirectory());
     pp->setCommand(makeCommand(tc, bc->environment()));
     pp->setArguments(arguments);
+    pp->resolveAll();
 
     setOutputParser(new ProjectExplorer::GnuMakeParser());
     IOutputParser *parser = target()->kit()->createOutputParser();
@@ -340,7 +340,7 @@ MakeStepConfigWidget::MakeStepConfigWidget(MakeStep *makeStep)
 
     m_buildTargetsList = new QListWidget;
     m_buildTargetsList->setMinimumHeight(200);
-    fl->addRow(tr("Targets:"), m_buildTargetsList);
+    fl->addRow(tr("Kits:"), m_buildTargetsList);
 
     // TODO update this list also on rescans of the CMakeLists.txt
     CMakeProject *pro = static_cast<CMakeProject *>(m_makeStep->target()->project());
@@ -396,11 +396,11 @@ void MakeStepConfigWidget::buildTargetsChanged()
 
 void MakeStepConfigWidget::updateDetails()
 {
-    CMakeBuildConfiguration *bc = m_makeStep->cmakeBuildConfiguration();
+    BuildConfiguration *bc = m_makeStep->buildConfiguration();
     if (!bc)
-        bc = static_cast<CMakeBuildConfiguration *>(m_makeStep->target()->activeBuildConfiguration());
+        bc = m_makeStep->target()->activeBuildConfiguration();
     if (!bc) {
-        m_summaryText = tr("<b>No build configuration found on this target.</b>");
+        m_summaryText = tr("<b>No build configuration found on this kit.</b>");
         updateSummary();
         return;
     }
@@ -455,7 +455,7 @@ BuildStep *MakeStepFactory::create(BuildStepList *parent, const Core::Id id)
     MakeStep *step = new MakeStep(parent);
     if (parent->id() == ProjectExplorer::Constants::BUILDSTEPS_CLEAN) {
         step->setClean(true);
-        step->setAdditionalArguments("clean");
+        step->setAdditionalArguments(QLatin1String("clean"));
     }
     return step;
 }

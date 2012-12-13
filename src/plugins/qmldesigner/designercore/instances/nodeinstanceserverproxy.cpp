@@ -67,6 +67,7 @@
 #include "removesharedmemorycommand.h"
 #include "endpuppetcommand.h"
 #include "synchronizecommand.h"
+#include "debugoutputcommand.h"
 
 #include "nodeinstanceview.h"
 
@@ -209,21 +210,23 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
            }
 
        } else {
-           QMessageBox::warning(0, tr("Cannot Start QML Puppet Executable"),
-                                tr("The executable of the QML Puppet process (%1) cannot be started. "
-                                   "Please check your installation. "
-                                   "QML Puppet is a process which runs in the background to render the items.").
-                                arg(applicationPath));
+           if (!hasQtQuick2(m_nodeInstanceView.data()))
+               QMessageBox::warning(0, tr("Cannot Start QML Puppet Executable"),
+                                    tr("The executable of the QML Puppet process (%1) cannot be started. "
+                                       "Please check your installation. "
+                                       "QML Puppet is a process which runs in the background to render the items.").
+                                    arg(applicationPath));
        }
 
        m_localServer->close();
 
    } else {
-       QMessageBox::warning(0, tr("Cannot Find QML Puppet Executable"),
-                            tr("The executable of the QML Puppet process (%1) cannot be found. "
-                               "Please check your installation. "
-                               "QML Puppet is a process which runs in the background to render the items.").
-                            arg(applicationPath));
+       if (!hasQtQuick2(m_nodeInstanceView.data()))
+           QMessageBox::warning(0, tr("Cannot Find QML Puppet Executable"),
+                                tr("The executable of the QML Puppet process (%1) cannot be found. "
+                                   "Please check your installation. "
+                                   "QML Puppet is a process which runs in the background to render the items.").
+                                arg(applicationPath));
    }
 }
 
@@ -239,7 +242,7 @@ NodeInstanceServerProxy::~NodeInstanceServerProxy()
     if (m_secondSocket)
         m_secondSocket->close();
 
-    if(m_thirdSocket)
+    if (m_thirdSocket)
         m_thirdSocket->close();
 
 
@@ -263,6 +266,7 @@ void NodeInstanceServerProxy::dispatchCommand(const QVariant &command)
     static const int componentCompletedCommandType = QMetaType::type("ComponentCompletedCommand");
     static const int synchronizeCommandType = QMetaType::type("SynchronizeCommand");
     static const int tokenCommandType = QMetaType::type("TokenCommand");
+    static const int debugOutputCommandType = QMetaType::type("DebugOutputCommand");
 
     if (command.userType() ==  informationChangedCommandType)
         nodeInstanceClient()->informationChanged(command.value<InformationChangedCommand>());
@@ -278,6 +282,8 @@ void NodeInstanceServerProxy::dispatchCommand(const QVariant &command)
         nodeInstanceClient()->componentCompleted(command.value<ComponentCompletedCommand>());
     else if (command.userType() == tokenCommandType)
         nodeInstanceClient()->token(command.value<TokenCommand>());
+    else if (command.userType() == debugOutputCommandType)
+        nodeInstanceClient()->debugOutput(command.value<DebugOutputCommand>());
     else if (command.userType() == synchronizeCommandType) {
         SynchronizeCommand synchronizeCommand = command.value<SynchronizeCommand>();
         m_synchronizeId = synchronizeCommand.synchronizeId();
@@ -292,7 +298,7 @@ NodeInstanceClientInterface *NodeInstanceServerProxy::nodeInstanceClient() const
 
 static void writeCommandToSocket(const QVariant &command, QLocalSocket *socket, unsigned int commandCounter)
 {
-    if(socket) {
+    if (socket) {
         QByteArray block;
         QDataStream out(&block, QIODevice::WriteOnly);
         out.setVersion(QDataStream::Qt_4_8);

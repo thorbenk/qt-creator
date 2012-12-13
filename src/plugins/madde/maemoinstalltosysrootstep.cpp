@@ -264,8 +264,7 @@ MaemoCopyToSysrootStep::MaemoCopyToSysrootStep(BuildStepList *bsl,
 
 bool MaemoCopyToSysrootStep::init()
 {
-    const Qt4BuildConfiguration * const bc
-        = qobject_cast<Qt4BuildConfiguration *>(target()->activeBuildConfiguration());
+    const BuildConfiguration * const bc = target()->activeBuildConfiguration();
     if (!bc) {
         addOutput(tr("Cannot copy to sysroot without build configuration."),
             ErrorMessageOutput);
@@ -342,14 +341,14 @@ bool MaemoMakeInstallToSysrootStep::init()
     const Qt4BuildConfiguration * const bc
         = qobject_cast<Qt4BuildConfiguration *>(target()->activeBuildConfiguration());
     if (!bc) {
-        addOutput("Cannot deploy: No active build dconfiguration.",
+        addOutput(tr("Cannot deploy: No active build dconfiguration."),
             ErrorMessageOutput);
         return false;
     }
     const QtSupport::BaseQtVersion *const qtVersion
             = QtSupport::QtKitInformation::qtVersion(target()->kit());
     if (!qtVersion) {
-        addOutput("Cannot deploy: Unusable build configuration.",
+        addOutput(tr("Cannot deploy: Unusable build configuration."),
             ErrorMessageOutput);
         return false;
 

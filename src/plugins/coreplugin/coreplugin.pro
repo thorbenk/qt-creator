@@ -1,6 +1,7 @@
 TEMPLATE = lib
 TARGET = Core
-DEFINES += CORE_LIBRARY
+DEFINES += CORE_LIBRARY \
+    QT_NO_CAST_FROM_ASCII
 QT += network \
     script \
     sql
@@ -207,7 +208,6 @@ FORMS += dialogs/newdialog.ui \
     actionmanager/commandmappings.ui \
     dialogs/saveitemsdialog.ui \
     dialogs/openwithdialog.ui \
-    editormanager/openeditorsview.ui \
     generalsettings.ui \
     dialogs/externaltoolconfig.ui \
     variablechooser.ui \

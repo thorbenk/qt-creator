@@ -83,11 +83,11 @@ MaemoQemuManager::MaemoQemuManager(QObject *parent)
     , m_runtimeRootWatcher(0)
     , m_runtimeFolderWatcher(0)
 {
-    m_qemuStarterIcon.addFile(":/qt-maemo/images/qemu-run.png", iconSize);
-    m_qemuStarterIcon.addFile(":/qt-maemo/images/qemu-stop.png", iconSize,
+    m_qemuStarterIcon.addFile(QLatin1String(":/qt-maemo/images/qemu-run.png"), iconSize);
+    m_qemuStarterIcon.addFile(QLatin1String(":/qt-maemo/images/qemu-stop.png"), iconSize,
         QIcon::Normal, QIcon::On);
 
-    m_qemuAction = new QAction("MeeGo Emulator", this);
+    m_qemuAction = new QAction(tr("MeeGo Emulator"), this);
     m_qemuAction->setIcon(m_qemuStarterIcon.pixmap(iconSize));
     m_qemuAction->setToolTip(tr("Start MeeGo Emulator"));
     connect(m_qemuAction, SIGNAL(triggered()), this, SLOT(startRuntime()));

@@ -410,7 +410,7 @@ static inline void getProjectChoicesAndToolTips(QStringList *projectChoicesParam
     ProjectNode::ProjectAction projectAction =
            context->wizard->kind() == Core::IWizard::ProjectWizard
             ? ProjectNode::AddSubProject : ProjectNode::AddNewFile;
-    foreach(ProjectNode *n, AllProjectNodesVisitor::allProjects(projectAction)) {
+    foreach (ProjectNode *n, AllProjectNodesVisitor::allProjects(projectAction)) {
         if (projectAction == ProjectNode::AddNewFile
                 || (projectAction == ProjectNode::AddSubProject
                 && (generatedProjectFilePath.isEmpty() ? true : n->canAddSubProject(generatedProjectFilePath))))
@@ -524,9 +524,9 @@ bool ProjectFileWizardExtension::processVersionControl(const QList<Core::Generat
     return true;
 }
 
-static TextEditor::ICodeStylePreferences *codeStylePreferences(ProjectExplorer::Project *project, const QString &languageId)
+static TextEditor::ICodeStylePreferences *codeStylePreferences(ProjectExplorer::Project *project, Core::Id languageId)
 {
-    if (languageId.isEmpty())
+    if (!languageId.isValid())
         return 0;
 
     if (project)
@@ -542,9 +542,9 @@ void ProjectFileWizardExtension::applyCodeStyle(Core::GeneratedFile *file) const
 
     const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
     Core::MimeType mt = mdb->findByFile(QFileInfo(file->path()));
-    const QString languageId = TextEditor::TextEditorSettings::instance()->languageId(mt.type());
+    Core::Id languageId = TextEditor::TextEditorSettings::instance()->languageId(mt.type());
 
-    if (languageId.isEmpty())
+    if (!languageId.isValid())
         return; // don't modify files like *.ui *.pro
 
     ProjectNode *project = 0;

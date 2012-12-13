@@ -155,10 +155,6 @@ namespace {
 bool debug = false;
 }
 
-static const char kCurrentProjectPath[] = "CurrentProject:Path";
-static const char kCurrentProjectFilePath[] = "CurrentProject:FilePath";
-static const char kCurrentProjectBuildPath[] = "CurrentProject:BuildPath";
-
 namespace ProjectExplorer {
 
 struct ProjectExplorerPluginPrivate {
@@ -878,7 +874,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
 
     d->m_projectSelectorActionQuick = new QAction(this);
     d->m_projectSelectorActionQuick->setEnabled(false);
-    d->m_projectSelectorActionQuick->setText(tr("Quick Switch Target Selector"));
+    d->m_projectSelectorActionQuick->setText(tr("Quick Switch Kit Selector"));
     connect(d->m_projectSelectorActionQuick, SIGNAL(triggered()), d->m_targetSelector, SLOT(nextOrShow()));
     cmd = Core::ActionManager::registerAction(d->m_projectSelectorActionQuick, ProjectExplorer::Constants::SELECTTARGETQUICK, globalcontext);
     cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+T")));
@@ -990,12 +986,20 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     updateWelcomePage();
 
     Core::VariableManager *vm = Core::VariableManager::instance();
-    vm->registerVariable(kCurrentProjectFilePath,
+    vm->registerVariable(Constants::VAR_CURRENTPROJECT_FILEPATH,
         tr("Full path of the current project's main file, including file name."));
-    vm->registerVariable(kCurrentProjectPath,
+    vm->registerVariable(Constants::VAR_CURRENTPROJECT_PATH,
         tr("Full path of the current project's main file, excluding file name."));
-    vm->registerVariable(kCurrentProjectBuildPath,
+    vm->registerVariable(Constants::VAR_CURRENTPROJECT_BUILDPATH,
         tr("Full build path of the current project's active build configuration."));
+    vm->registerVariable(Constants::VAR_CURRENTPROJECT_NAME, tr("The current project's name."));
+    vm->registerVariable(Constants::VAR_CURRENTKIT_NAME, tr("The currently active kit's name."));
+    vm->registerVariable(Constants::VAR_CURRENTKIT_FILESYSTEMNAME,
+                         tr("The currently active kit's name in a filesystem friendly version."));
+    vm->registerVariable(Constants::VAR_CURRENTKIT_ID, tr("The currently active kit's id."));
+    vm->registerVariable(Constants::VAR_CURRENTBUILD_NAME, tr("The currently active build configuration's name."));
+    vm->registerVariable(Constants::VAR_CURRENTBUILD_TYPE, tr("The currently active build configuration's type."));
+
     connect(vm, SIGNAL(variableUpdateRequested(QByteArray)),
             this, SLOT(updateVariable(QByteArray)));
 
@@ -1121,31 +1125,75 @@ void ProjectExplorerPlugin::loadCustomWizards()
     static bool firstTime = true;
     if (firstTime) {
         firstTime = false;
-        foreach(Core::IWizard *cpw, ProjectExplorer::CustomWizard::createWizards())
+        foreach (Core::IWizard *cpw, ProjectExplorer::CustomWizard::createWizards())
             addAutoReleasedObject(cpw);
     }
 }
 
 void ProjectExplorerPlugin::updateVariable(const QByteArray &variable)
 {
-    if (variable == kCurrentProjectFilePath) {
+    if (variable == Constants::VAR_CURRENTPROJECT_FILEPATH) {
         if (currentProject() && currentProject()->document()) {
             Core::VariableManager::instance()->insert(variable,
                                                       currentProject()->document()->fileName());
         } else {
             Core::VariableManager::instance()->remove(variable);
         }
-    } else if (variable == kCurrentProjectPath) {
+    } else if (variable == Constants::VAR_CURRENTPROJECT_PATH) {
         if (currentProject() && currentProject()->document()) {
             Core::VariableManager::instance()->insert(variable,
                                                       QFileInfo(currentProject()->document()->fileName()).path());
         } else {
             Core::VariableManager::instance()->remove(variable);
         }
-    } else if (variable == kCurrentProjectBuildPath) {
+    } else if (variable == Constants::VAR_CURRENTPROJECT_BUILDPATH) {
         if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->activeBuildConfiguration()) {
             Core::VariableManager::instance()->insert(variable,
                                                       currentProject()->activeTarget()->activeBuildConfiguration()->buildDirectory());
+        } else {
+            Core::VariableManager::instance()->remove(variable);
+        }
+    } else if (variable == Constants::VAR_CURRENTPROJECT_NAME) {
+        if (currentProject()) {
+            Core::VariableManager::instance()->insert(variable, currentProject()->displayName());
+        } else {
+            Core::VariableManager::instance()->remove(variable);
+        }
+    } else if (variable == Constants::VAR_CURRENTKIT_NAME) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit()) {
+            Core::VariableManager::instance()->insert(variable, currentProject()->activeTarget()->kit()->displayName());
+        } else {
+            Core::VariableManager::instance()->remove(variable);
+        }
+    } else if (variable == Constants::VAR_CURRENTKIT_FILESYSTEMNAME) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit()) {
+            Core::VariableManager::instance()->insert(variable, currentProject()->activeTarget()->kit()->fileSystemFriendlyName());
+        } else {
+            Core::VariableManager::instance()->remove(variable);
+        }
+    } else if (variable == Constants::VAR_CURRENTKIT_ID) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit()) {
+            Core::VariableManager::instance()->insert(variable, currentProject()->activeTarget()->kit()->id().toString());
+        } else {
+            Core::VariableManager::instance()->remove(variable);
+        }
+    } else if (variable == Constants::VAR_CURRENTBUILD_NAME) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->activeBuildConfiguration()) {
+            Core::VariableManager::instance()->insert(variable, currentProject()->activeTarget()->activeBuildConfiguration()->displayName());
+        } else {
+            Core::VariableManager::instance()->remove(variable);
+        }
+    } else if (variable == Constants::VAR_CURRENTBUILD_TYPE) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->activeBuildConfiguration()) {
+            BuildConfiguration::BuildType type = currentProject()->activeTarget()->activeBuildConfiguration()->buildType();
+            QString typeString;
+            if (type == BuildConfiguration::Debug)
+                typeString = tr("debug");
+            else if (type == BuildConfiguration::Release)
+                typeString = tr("release");
+            else
+                typeString = tr("unknown");
+            Core::VariableManager::instance()->insert(variable, typeString);
         } else {
             Core::VariableManager::instance()->remove(variable);
         }
@@ -1894,7 +1942,7 @@ int ProjectExplorerPlugin::queue(QList<Project *> projects, QList<Core::Id> step
         foreach (const Project *p, projects)
             projectNames << p->displayName();
         foreach (const Core::Id id, stepIds)
-            stepNames << id.name();
+            stepNames << id.toString();
         qDebug() << "Building" << stepNames << "for projects" << projectNames;
     }
 
@@ -2066,7 +2114,7 @@ void ProjectExplorerPlugin::runProjectContextMenu()
 bool ProjectExplorerPlugin::hasBuildSettings(Project *pro)
 {
     const QList<Project *> & projects = d->m_session->projectOrder(pro);
-    foreach(Project *project, projects)
+    foreach (Project *project, projects)
         if (project
                 && project->activeTarget()
                 && project->activeTarget()->activeBuildConfiguration())
@@ -2092,7 +2140,7 @@ QPair<bool, QString> ProjectExplorerPlugin::buildSettingsEnabled(Project *pro)
         result.second = tr("Project has no build settings.");
     } else {
         const QList<Project *> & projects = d->m_session->projectOrder(pro);
-        foreach(Project *project, projects) {
+        foreach (Project *project, projects) {
             if (project
                     && project->activeTarget()
                     && project->activeTarget()->activeBuildConfiguration()
@@ -2122,7 +2170,7 @@ QPair<bool, QString> ProjectExplorerPlugin::buildSettingsEnabledForSession()
         result.second = tr("Project has no build settings");
     } else {
         const QList<Project *> & projects = d->m_session->projectOrder(0);
-        foreach(Project *project, projects) {
+        foreach (Project *project, projects) {
             if (project
                     && project->activeTarget()
                     && project->activeTarget()->activeBuildConfiguration()
@@ -2159,7 +2207,7 @@ bool ProjectExplorerPlugin::coreAboutToClose()
 bool ProjectExplorerPlugin::hasDeploySettings(Project *pro)
 {
     const QList<Project *> & projects = d->m_session->projectOrder(pro);
-    foreach(Project *project, projects)
+    foreach (Project *project, projects)
         if (project->activeTarget()
                 && project->activeTarget()->activeDeployConfiguration()
                 && !project->activeTarget()->activeDeployConfiguration()->stepList()->isEmpty())
@@ -2402,10 +2450,10 @@ QString ProjectExplorerPlugin::cannotRunReason(Project *project, RunMode runMode
         return tr("The project %1 is not configured.").arg(project->displayName());
 
     if (!project->activeTarget())
-        return tr("The project '%1' has no active target.").arg(project->displayName());
+        return tr("The project '%1' has no active kit.").arg(project->displayName());
 
     if (!project->activeTarget()->activeRunConfiguration())
-        return tr("The target '%1' for the project '%2' has no active run configuration.")
+        return tr("The kit '%1' for the project '%2' has no active run configuration.")
                 .arg(project->activeTarget()->displayName(), project->displayName());
 
 
@@ -2460,7 +2508,7 @@ void ProjectExplorerPlugin::addToRecentProjects(const QString &fileName, const Q
     QString prettyFileName(QDir::toNativeSeparators(fileName));
 
     QList<QPair<QString, QString> >::iterator it;
-    for(it = d->m_recentProjects.begin(); it != d->m_recentProjects.end();)
+    for (it = d->m_recentProjects.begin(); it != d->m_recentProjects.end();)
         if ((*it).first == prettyFileName)
             it = d->m_recentProjects.erase(it);
         else
@@ -2925,9 +2973,9 @@ QStringList ProjectExplorerPlugin::projectFilePatterns()
 {
     QStringList patterns;
     const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
-    foreach(const IProjectManager *pm, allProjectManagers())
+    foreach (const IProjectManager *pm, allProjectManagers())
         if (const Core::MimeType mt = mdb->findByType(pm->mimeType()))
-            foreach(const Core::MimeGlobPattern &gp, mt.globPatterns())
+            foreach (const Core::MimeGlobPattern &gp, mt.globPatterns())
                 patterns += gp.regExp().pattern();
     return patterns;
 }

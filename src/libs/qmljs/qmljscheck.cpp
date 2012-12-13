@@ -631,10 +631,10 @@ void Check::endVisit(UiObjectInitializer *)
     m_propertyStack.pop();
     m_typeStack.pop();
     UiObjectDefinition *objectDenition = cast<UiObjectDefinition *>(parent());
-    if (objectDenition && objectDenition->qualifiedTypeNameId->name == "Component")
+    if (objectDenition && objectDenition->qualifiedTypeNameId->name == QLatin1String("Component"))
         m_idStack.pop();
     UiObjectBinding *objectBinding = cast<UiObjectBinding *>(parent());
-    if (objectBinding && objectBinding->qualifiedTypeNameId->name == "Component")
+    if (objectBinding && objectBinding->qualifiedTypeNameId->name == QLatin1String("Component"))
         m_idStack.pop();
 }
 
@@ -710,7 +710,7 @@ static bool checkTopLevelBindingForParentReference(ExpressionStatement *expStmt,
     SourceLocation location = locationFromRange(expStmt->firstSourceLocation(), expStmt->lastSourceLocation());
     QString stmtSource = source.mid(location.begin(), location.length);
 
-    if (stmtSource.contains(QRegExp("(^|\\W)parent\\.")))
+    if (stmtSource.contains(QRegExp(QLatin1String("(^|\\W)parent\\."))))
         return true;
 
     return false;
@@ -804,7 +804,7 @@ bool Check::visit(UiScriptBinding *ast)
             return false;
         }
 
-        if (id.isEmpty() || (!id.at(0).isLower() && id.at(0) != '_')) {
+        if (id.isEmpty() || (!id.at(0).isLower() && id.at(0) != QLatin1Char('_'))) {
             addMessage(ErrInvalidId, loc);
             return false;
         }

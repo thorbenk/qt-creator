@@ -26,6 +26,7 @@ QtcPlugin {
         "../../shared/json",
         "../../shared/registryaccess"
     ])
+    cpp.defines: base.concat(["QT_NO_CAST_FROM_ASCII"])
 
     Group {
         condition: Defaults.testsEnabled(qbs)
@@ -47,7 +48,6 @@ QtcPlugin {
         "breakwindow.h",
         "commonoptionspage.cpp",
         "commonoptionspage.h",
-        "commonoptionspage.ui",
         "debugger.qrc",
         "debugger_global.h",
         "debuggeractions.cpp",

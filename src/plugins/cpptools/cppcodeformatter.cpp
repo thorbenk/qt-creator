@@ -477,7 +477,7 @@ void CodeFormatter::recalculateStateAfter(const QTextBlock &block)
         case block_open:
             if (tryStatement())
                 break;
-            switch(kind) {
+            switch (kind) {
             case T_RBRACE:      leave(true); break;
             } break;
 
@@ -766,7 +766,7 @@ void CodeFormatter::correctIndentation(const QTextBlock &block)
 }
 
 bool CodeFormatter::tryExpression(bool alsoExpression)
-{    
+{
     int newState = -1;
 
     const int kind = m_currentToken.kind();
@@ -1027,7 +1027,7 @@ void CodeFormatter::saveCurrentState(const QTextBlock &block)
 
 void CodeFormatter::restoreCurrentState(const QTextBlock &block)
 {
-    if (block.isValid()) {             
+    if (block.isValid()) {
         BlockData blockData;
         if (loadBlockData(block, &blockData)) {
             m_indentDepth = blockData.m_indentDepth;

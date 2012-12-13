@@ -631,25 +631,27 @@ QVariantMap SettingsAccessor::restoreSettings() const
             QString backup = fn + QLatin1Char('.') + fileId.mid(1, 7);
             QFile::copy(fn, backup);
 
-            // TODO tr, casing check
-            QMessageBox msgBox(
-                QMessageBox::Question,
-                QApplication::translate("ProjectExplorer::SettingsAccessor",
-                                        "Project Settings File from a different Environment?"),
-                QApplication::translate("ProjectExplorer::SettingsAccessor",
-                                        "Qt Creator has found a .user settings file which was "
-                                        "created for another development setup, maybe "
-                                        "originating from another machine.\n\n"
-                                        "The .user settings files contain environment specific "
-                                        "settings. They should not be copied to a different "
-                                        "environment. \n\n"
-                                        "Do you still want to load the settings file?"),
-                QMessageBox::Yes | QMessageBox::No,
-                Core::ICore::mainWindow());
-            msgBox.setDefaultButton(QMessageBox::No);
-            msgBox.setEscapeButton(QMessageBox::No);
-            if (msgBox.exec() == QMessageBox::No)
-                return QVariantMap();
+            if (!fileId.isEmpty()) {
+                // TODO tr, casing check
+                QMessageBox msgBox(
+                    QMessageBox::Question,
+                    QApplication::translate("ProjectExplorer::SettingsAccessor",
+                                            "Project Settings File from a different Environment?"),
+                    QApplication::translate("ProjectExplorer::SettingsAccessor",
+                                            "Qt Creator has found a .user settings file which was "
+                                            "created for another development setup, maybe "
+                                            "originating from another machine.\n\n"
+                                            "The .user settings files contain environment specific "
+                                            "settings. They should not be copied to a different "
+                                            "environment. \n\n"
+                                            "Do you still want to load the settings file?"),
+                    QMessageBox::Yes | QMessageBox::No,
+                    Core::ICore::mainWindow());
+                msgBox.setDefaultButton(QMessageBox::No);
+                msgBox.setEscapeButton(QMessageBox::No);
+                if (msgBox.exec() == QMessageBox::No)
+                    return QVariantMap();
+            }
         }
 
         // Do we need to generate a backup?
@@ -687,13 +689,11 @@ QVariantMap SettingsAccessor::restoreSettings() const
                             QApplication::translate("ProjectExplorer::SettingsAccessor",
                                                     "Unsupported Shared Settings File"),
                             QApplication::translate("ProjectExplorer::SettingsAccessor",
-                                                    "The version of your .shared file is not yet "
+                                                    "The version of your .shared file is not "
                                                     "supported by this Qt Creator version. "
                                                     "Only settings that are still compatible "
                                                     "will be taken into account.\n\n"
-                                                    "Do you want to continue?\n\n"
-                                                    "If you choose not to continue Qt Creator will "
-                                                    "not try to load the .shared file."),
+                                                    "Do you want to try loading it?"),
                             QMessageBox::Yes | QMessageBox::No,
                             Core::ICore::mainWindow());
                 msgBox.setDefaultButton(QMessageBox::No);
@@ -1628,7 +1628,7 @@ QVariantMap Version4Handler::update(Project *, const QVariantMap &map)
             const QVariantMap &originalBc = targetIt.value().toMap();
             QVariantMap newBc;
             QMapIterator<QString, QVariant> bcIt(originalBc);
-            while(bcIt.hasNext()) {
+            while (bcIt.hasNext()) {
                 bcIt.next();
                 const QString &bcKey = bcIt.key();
                 if (!bcKey.startsWith(QLatin1String("ProjectExplorer.BuildConfiguration.BuildStep."))) {
@@ -2364,7 +2364,7 @@ QVariantMap Version11Handler::update(Project *project, const QVariantMap &map)
             tcId.replace(QLatin1String("Qt4ProjectManager.ToolChain.Maemo:"),
                            QLatin1String("ProjectExplorer.ToolChain.Gcc:")); // convert Maemo to GCC
             QString data = tcId.mid(tcId.indexOf(QLatin1Char(':')) + 1);
-            QStringList split = data.split('.', QString::KeepEmptyParts);
+            QStringList split = data.split(QLatin1Char('.'), QString::KeepEmptyParts);
             QString compilerPath;
             QString debuggerPath;
             Abi compilerAbi;
@@ -2423,7 +2423,7 @@ QVariantMap Version11Handler::update(Project *project, const QVariantMap &map)
                 int dcPos = deployIt.key();
                 const QVariantMap &dc = deployIt.value();
                 // Device
-                QString devId = dc.value(QLatin1String("Qt4ProjectManager.MaemoRunConfiguration.DeviceId")).toString();
+                QByteArray devId = dc.value(QLatin1String("Qt4ProjectManager.MaemoRunConfiguration.DeviceId")).toByteArray();
                 if (devId.isEmpty())
                     devId = QByteArray("Desktop Device");
                 if (!devId.isEmpty() && !DeviceManager::instance()->find(Core::Id(devId))) // We do not know that device

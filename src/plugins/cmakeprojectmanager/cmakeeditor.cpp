@@ -74,7 +74,7 @@ Core::IEditor *CMakeEditor::duplicate(QWidget *parent)
 
 Core::Id CMakeEditor::id() const
 {
-    return CMakeProjectManager::Constants::CMAKE_EDITOR_ID;
+    return Core::Id(CMakeProjectManager::Constants::CMAKE_EDITOR_ID);
 }
 
 void CMakeEditor::markAsChanged()
@@ -84,7 +84,7 @@ void CMakeEditor::markAsChanged()
     if (m_infoBarShown)
         return;
     m_infoBarShown = true;
-    Core::InfoBarEntry info(QLatin1String("CMakeEditor.RunCMake"),
+    Core::InfoBarEntry info(Core::Id("CMakeEditor.RunCMake"),
                             tr("Changes to cmake files are shown in the project tree after building."));
     info.setCustomButtonInfo(tr("Build now"), this, SLOT(build()));
     document()->infoBar()->addInfo(info);
@@ -223,7 +223,7 @@ CMakeEditorWidget::Link CMakeEditorWidget::findLinkAt(const QTextCursor &cursor,
     if (fi.exists()) {
         if (fi.isDir()) {
             QDir subDir(fi.absoluteFilePath());
-            QString subProject = subDir.filePath("CMakeLists.txt");
+            QString subProject = subDir.filePath(QLatin1String("CMakeLists.txt"));
             if (QFileInfo(subProject).exists())
                 fileName = subProject;
             else

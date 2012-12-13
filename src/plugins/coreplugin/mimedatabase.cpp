@@ -1357,14 +1357,13 @@ bool MimeDatabasePrivate::addMimeType(MimeType mt)
     }
     // insert the type.
     m_typeMimeTypeMap.insert(type, MimeMapEntry(mt));
-    // Register the children, resolved via alias map. Note that it is still
-    // possible that aliases end up in the map if the parent classes are not inserted
-    // at this point (thus their aliases not known).
+    // Register the children
+    // Aliases will be resolved later once all mime types are known.
     const QStringList subClassesOf = mt.subClassesOf();
     if (!subClassesOf.empty()) {
         const QStringList::const_iterator socend = subClassesOf.constEnd();
         for (QStringList::const_iterator soit = subClassesOf.constBegin(); soit !=  socend; ++soit)
-            m_parentChildrenMap.insert(resolveAlias(*soit), type);
+            m_parentChildrenMap.insert(*soit, type);
     }
     // register aliasses
     const QStringList aliases = mt.aliases();
@@ -1391,7 +1390,9 @@ void MimeDatabasePrivate::raiseLevelRecursion(MimeMapEntry &e, int level)
         m_maxLevel = level;
     // At all events recurse over children since nodes might have been
     // added.
-    const QStringList childTypes = m_parentChildrenMap.values(e.type.type());
+    QStringList childTypes = m_parentChildrenMap.values(e.type.type());
+    foreach (const QString &alias, e.type.aliases())
+        childTypes.append(m_parentChildrenMap.values(alias));
     if (childTypes.empty())
         return;
     // look them up in the type->mime type map
@@ -1676,11 +1677,11 @@ QList<MimeType> MimeDatabasePrivate::readUserModifiedMimeTypes()
             switch (reader.readNext()) {
             case QXmlStreamReader::StartElement:
                 atts = reader.attributes();
-                if (reader.name() == mimeTypeTagC) {
+                if (reader.name() == QLatin1String(mimeTypeTagC)) {
                     mimeType.setType(atts.value(mimeTypeAttribute).toString());
                     const QString &patterns = atts.value(patternAttribute).toString();
                     mimeType.setGlobPatterns(toGlobPatterns(patterns.split(kSemiColon)));
-                } else if (reader.name() == matchTagC) {
+                } else if (reader.name() == QLatin1String(matchTagC)) {
                     const QString &value = atts.value(matchValueAttribute).toString();
                     const QString &type = atts.value(matchTypeAttribute).toString();
                     const QString &offset = atts.value(matchOffsetAttribute).toString();
@@ -1696,7 +1697,7 @@ QList<MimeType> MimeDatabasePrivate::readUserModifiedMimeTypes()
                 }
                 break;
             case QXmlStreamReader::EndElement:
-                if (reader.name() == mimeTypeTagC) {
+                if (reader.name() == QLatin1String(mimeTypeTagC)) {
                     mimeType.setMagicRuleMatchers(MagicRuleMatcher::createMatchers(rules));
                     mimeTypes.append(mimeType);
                     mimeType.clear();

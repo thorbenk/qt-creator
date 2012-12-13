@@ -49,7 +49,7 @@ public:
         : zoomCount(zoom)
         , forceFont(false)
         , lastAnchor(QString())
-        
+
     {}
 
     bool hasAnchorAt(QTextBrowser *browser, const QPoint& pos)
@@ -69,7 +69,7 @@ public:
 
     void openLink(bool newPage)
     {
-        if(lastAnchor.isEmpty())
+        if (lastAnchor.isEmpty())
             return;
         if (newPage)
             OpenPagesManager::instance().createPage(lastAnchor);

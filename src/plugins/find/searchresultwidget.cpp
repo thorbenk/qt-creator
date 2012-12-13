@@ -32,6 +32,7 @@
 #include "searchresulttreemodel.h"
 #include "searchresulttreeitems.h"
 #include "searchresulttreeitemroles.h"
+#include "searchresultcolor.h"
 
 #include "ifindsupport.h"
 #include "treeviewfind.h"
@@ -222,7 +223,7 @@ void SearchResultWidget::addResults(const QList<SearchResultItem> &items, Search
     updateMatchesFoundLabel();
     if (firstItems) {
         if (showWarningMessage()) {
-            Core::InfoBarEntry info(QLatin1String(UNDO_WARNING_ID), tr("This change cannot be undone."));
+            Core::InfoBarEntry info(Core::Id(UNDO_WARNING_ID), tr("This change cannot be undone."));
             info.setCustomButtonInfo(tr("Do not warn again"), this, SLOT(hideNoUndoWarning()));
             m_infoBar.addInfo(info);
         }
@@ -240,7 +241,7 @@ void SearchResultWidget::addResults(const QList<SearchResultItem> &items, Search
     } else if (m_count > SEARCHRESULT_WARNING_LIMIT && !m_sizeWarningOverridden && !m_sizeWarningActive) {
         m_sizeWarningActive = true;
         emit paused(true);
-        Core::InfoBarEntry info(QLatin1String(SIZE_WARNING_ID),
+        Core::InfoBarEntry info(Core::Id(SIZE_WARNING_ID),
                                 tr("The search resulted in more than %n items, do you still want to continue?",
                                 0, SEARCHRESULT_WARNING_LIMIT));
         info.setCancelButtonInfo(tr("Cancel"), this, SLOT(cancelAfterSizeWarning()));
@@ -318,9 +319,9 @@ void SearchResultWidget::notifyVisibilityChanged(bool visible)
     emit visibilityChanged(visible);
 }
 
-void SearchResultWidget::setTextEditorFont(const QFont &font)
+void SearchResultWidget::setTextEditorFont(const QFont &font, const SearchResultColor color)
 {
-    m_searchResultTreeView->setTextEditorFont(font);
+    m_searchResultTreeView->setTextEditorFont(font, color);
 }
 
 void SearchResultWidget::setAutoExpandResults(bool expand)
@@ -367,7 +368,7 @@ void SearchResultWidget::restart()
     m_searchResultTreeView->clear();
     m_count = 0;
     if (m_sizeWarningActive)
-        m_infoBar.removeInfo(QLatin1String(SIZE_WARNING_ID));
+        m_infoBar.removeInfo(Core::Id(SIZE_WARNING_ID));
     m_sizeWarningActive = false;
     m_sizeWarningOverridden = false;
     m_cancelButton->setVisible(true);
@@ -391,7 +392,7 @@ void SearchResultWidget::setSearchAgainEnabled(bool enabled)
 void SearchResultWidget::finishSearch(bool canceled)
 {
     if (m_sizeWarningActive)
-        m_infoBar.removeInfo(QLatin1String(SIZE_WARNING_ID));
+        m_infoBar.removeInfo(Core::Id(SIZE_WARNING_ID));
     m_sizeWarningActive = false;
     m_sizeWarningOverridden = false;
     m_replaceTextEdit->setEnabled(m_count > 0);
@@ -409,20 +410,20 @@ void SearchResultWidget::sendRequestPopup()
 void SearchResultWidget::hideNoUndoWarning()
 {
     setShowWarningMessage(false);
-    m_infoBar.removeInfo(QLatin1String(UNDO_WARNING_ID));
+    m_infoBar.removeInfo(Core::Id(UNDO_WARNING_ID));
 }
 
 void SearchResultWidget::continueAfterSizeWarning()
 {
     m_sizeWarningOverridden = true;
     m_sizeWarningActive = false;
-    m_infoBar.removeInfo(QLatin1String(SIZE_WARNING_ID));
+    m_infoBar.removeInfo(Core::Id(SIZE_WARNING_ID));
     emit paused(false);
 }
 
 void SearchResultWidget::cancelAfterSizeWarning()
 {
-    m_infoBar.removeInfo(QLatin1String(SIZE_WARNING_ID));
+    m_infoBar.removeInfo(Core::Id(SIZE_WARNING_ID));
     m_sizeWarningOverridden = true;
     m_sizeWarningActive = false;
     emit cancelled();
@@ -460,7 +461,7 @@ void SearchResultWidget::searchAgain()
 
 bool SearchResultWidget::showWarningMessage() const
 {
-    if (m_dontAskAgainGroup.isEmpty() || m_infoBar.containsInfo(QLatin1String(UNDO_WARNING_ID)))
+    if (m_dontAskAgainGroup.isEmpty() || m_infoBar.containsInfo(Core::Id(UNDO_WARNING_ID)))
         return false;
     // read settings
     QSettings *settings = Core::ICore::settings();

@@ -39,7 +39,6 @@
 #include <cpptools/ModelManagerInterface.h>
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/abi.h>
-#include <projectexplorer/buildenvironmentwidget.h>
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/headerpath.h>
 #include <projectexplorer/kitinformation.h>
@@ -251,10 +250,11 @@ void GenericProject::refresh(RefreshOptions options)
         Kit *k = activeTarget() ? activeTarget()->kit() : KitManager::instance()->defaultKit();
         ToolChain *tc = k ? ToolChainKitInformation::toolChain(k) : 0;
         if (tc) {
-            part->defines = tc->predefinedMacros(QStringList());
+            QStringList cxxflags; // FIXME: Can we do better?
+            part->defines = tc->predefinedMacros(cxxflags);
             part->defines += '\n';
 
-            foreach (const HeaderPath &headerPath, tc->systemHeaderPaths(SysRootKitInformation::sysRoot(k))) {
+            foreach (const HeaderPath &headerPath, tc->systemHeaderPaths(cxxflags, SysRootKitInformation::sysRoot(k))) {
                 if (headerPath.kind() == HeaderPath::FrameworkHeaderPath)
                     part->frameworkPaths.append(headerPath.path());
                 else
@@ -273,7 +273,7 @@ void GenericProject::refresh(RefreshOptions options)
 
         if (options & Configuration) {
             filesToUpdate = part->sourceFiles;
-            filesToUpdate.append(QLatin1String("<configuration>")); // XXX don't hardcode configuration file name
+            filesToUpdate.append(CPlusPlus::CppModelManagerInterface::configurationFileName());
             // Full update, if there's a code model update, cancel it
             m_codeModelFuture.cancel();
         } else if (options & Files) {
@@ -398,13 +398,6 @@ IProjectManager *GenericProject::projectManager() const
     return m_manager;
 }
 
-QList<BuildConfigWidget*> GenericProject::subConfigWidgets()
-{
-    QList<BuildConfigWidget*> list;
-    list << new BuildEnvironmentWidget;
-    return list;
-}
-
 GenericProjectNode *GenericProject::rootProjectNode() const
 {
     return m_rootNode;
@@ -486,7 +479,7 @@ QString GenericProjectFile::suggestedFileName() const
 
 QString GenericProjectFile::mimeType() const
 {
-    return Constants::GENERICMIMETYPE;
+    return QLatin1String(Constants::GENERICMIMETYPE);
 }
 
 bool GenericProjectFile::isModified() const

@@ -133,7 +133,7 @@ LookupContext::LookupContext()
 
 LookupContext::LookupContext(Document::Ptr thisDocument,
                              const Snapshot &snapshot)
-    : _expressionDocument(Document::create("<LookupContext>")),
+    : _expressionDocument(Document::create(QLatin1String("<LookupContext>"))),
       _thisDocument(thisDocument),
       _snapshot(snapshot),
       _control(new Control()),
@@ -726,7 +726,7 @@ ClassOrNamespace *ClassOrNamespace::nestedType(const Name *name, ClassOrNamespac
         return reference;
 
     const TemplateNameId *templId = name->asTemplateNameId();
-    if (_alreadyConsideredClasses.contains(referenceClass) ||
+    if ((! templId && _alreadyConsideredClasses.contains(referenceClass)) ||
             (templId &&
             _alreadyConsideredTemplates.contains(templId))) {
             return reference;
@@ -747,6 +747,7 @@ ClassOrNamespace *ClassOrNamespace::nestedType(const Name *name, ClassOrNamespac
 #endif // DEBUG_LOOKUP
         instantiation->_templateId = templId;
         instantiation->_instantiationOrigin = origin;
+        instantiation->_classOrNamespaces = reference->_classOrNamespaces;
 
         // The instantiation should have all symbols, enums, and usings from the reference.
         instantiation->_enums.append(reference->unscopedEnums());

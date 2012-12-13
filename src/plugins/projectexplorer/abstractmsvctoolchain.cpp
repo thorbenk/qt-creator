@@ -105,8 +105,9 @@ ToolChain::CompilerFlags AbstractMsvcToolChain::compilerFlags(const QStringList 
     }
 }
 
-QList<HeaderPath> AbstractMsvcToolChain::systemHeaderPaths(const Utils::FileName &sysRoot) const
+QList<HeaderPath> AbstractMsvcToolChain::systemHeaderPaths(const QStringList &cxxflags, const Utils::FileName &sysRoot) const
 {
+    Q_UNUSED(cxxflags);
     Q_UNUSED(sysRoot);
     if (m_headerPaths.isEmpty()) {
         Utils::Environment env(m_lastEnvironment);
@@ -154,7 +155,7 @@ Utils::FileName AbstractMsvcToolChain::compilerCommand() const
 {
     Utils::Environment env;
     addToEnvironment(env);
-    return Utils::FileName::fromString(env.searchInPath("cl.exe"));
+    return Utils::FileName::fromString(env.searchInPath(QLatin1String("cl.exe")));
 }
 
 IOutputParser *AbstractMsvcToolChain::outputParser() const
@@ -212,9 +213,8 @@ bool AbstractMsvcToolChain::generateEnvironmentSettings(Utils::Environment &env,
         call += ' ';
         call += batchArgs.toLocal8Bit();
     }
-    call += "\r\n";
+    saver.write(call + "\r\n");
 
-    saver.write(call);
     const QByteArray redirect = "set > " + Utils::QtcProcess::quoteArg(
                                     QDir::toNativeSeparators(tempOutFile)).toLocal8Bit() + "\r\n";
     saver.write(redirect);
@@ -250,6 +250,10 @@ bool AbstractMsvcToolChain::generateEnvironmentSettings(Utils::Environment &env,
         Utils::SynchronousProcess::stopProcess(run);
         return false;
     }
+    // The SDK/MSVC scripts do not return exit codes != 0. Check on stdout.
+    const QByteArray stdOut = run.readAllStandardOutput();
+    if (!stdOut.isEmpty() && (stdOut.contains("Unknown") || stdOut.contains("Error")))
+        qWarning("%s: '%s' reports:\n%s", Q_FUNC_INFO, call.constData(), stdOut.constData());
 
     //
     // Now parse the file to get the environment settings
