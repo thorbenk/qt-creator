@@ -83,6 +83,11 @@ ClangIndexer::ClangIndexer()
             this, SLOT(onAboutToUnloadSession()));
 }
 
+ClangIndexer::~ClangIndexer()
+{
+    m_clangIndexer->cancel(true);
+}
+
 CppTools::CppIndexingSupport *ClangIndexer::indexingSupport()
 {
     return m_indexingSupport.data();

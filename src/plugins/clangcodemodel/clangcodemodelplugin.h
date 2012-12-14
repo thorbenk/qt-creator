@@ -61,6 +61,8 @@ public:
 
     void extensionsInitialized();
 
+    virtual ShutdownFlag aboutToShutdown();
+
 private:
     QScopedPointer<ClangCompletionAssistProvider> m_completionAssistProvider;
     QScopedPointer<ClangHighlightingSupportFactory> m_highlightingFactory;

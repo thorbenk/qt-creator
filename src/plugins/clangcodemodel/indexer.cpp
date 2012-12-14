@@ -41,22 +41,24 @@
 
 #include <clang-c/Index.h>
 
+#include <coreplugin/icore.h>
+#include <coreplugin/progressmanager/progressmanager.h>
+#include <utils/fileutils.h>
 #include <utils/QtConcurrentTools>
 
-#include <utils/fileutils.h>
-
-#include <QtCore/QDebug>
-#include <QtCore/QVector>
-#include <QtCore/QHash>
-#include <QtCore/QSet>
-#include <QtCore/QFile>
-#include <QtCore/QFileInfo>
-#include <QtCore/QDir>
-#include <QtCore/QFuture>
-#include <QtCore/QTime>
-#include <QtCore/QtConcurrentMap>
-#include <QtCore/QThread>
-#include <QtCore/QDateTime>
+#include <QDebug>
+#include <QVector>
+#include <QHash>
+#include <QSet>
+#include <QFile>
+#include <QFileInfo>
+#include <QFutureWatcher>
+#include <QDir>
+#include <QFuture>
+#include <QTime>
+#include <QRunnable>
+#include <QThreadPool>
+#include <QDateTime>
 #include <QStringBuilder>
 
 #include <cassert>
@@ -102,6 +104,8 @@ struct IndexingResult
     ProjectPart::Ptr m_projectPart;
 };
 
+class ProjectPartIndexer;
+
 class IndexerPrivate : public QObject
 {
     Q_OBJECT
@@ -111,6 +115,8 @@ public:
 
 public:
     IndexerPrivate(Indexer *indexer);
+    ~IndexerPrivate()
+    { cancel(true); }
 
     // This enumeration is used to index a vector. So be careful when changing.
     enum FileType {
@@ -138,12 +144,18 @@ public:
         unsigned m_managementOptions;
     };
 
+    void synchronize(const QVector<IndexingResult> &results);
+    void finished(ProjectPartIndexer *ppIndexer);
+    bool noIndexersRunning() const;
+
 private:
-    QMutex mutex;
+    mutable QMutex m_mutex;
+
+    void indexingFinished();
+    void cancelIndexing();
+    int runningIndexerCount() const;
 
 public slots:
-    void synchronize(IndexingResult result);
-    void indexingFinished();
     void dependencyGraphComputed();
     void restoredSymbolsAnalysed();
 
@@ -161,9 +173,10 @@ public:
 
     void run();
     void run(const QStringList &fileNames);
-    QFuture<IndexingResult> runCore(const QHash<QString, FileData> &headers,
-                                    const QHash<QString, FileData> &impls,
-                                    IndexingMode mode);
+    QFuture<void> runCore(const QHash<QString, FileData> &headers,
+                          const QHash<QString, FileData> &impls,
+                          IndexingMode mode);
+    void watchIndexingThreads(QFutureInterface<void> &future);
     bool isBusy() const;
     void cancel(bool wait);
     void reset();
@@ -189,13 +202,15 @@ public:
     Indexer *m_q;
     QVector<QHash<QString, FileData> > m_files;
     Index m_index;
-    QFutureWatcher<IndexingResult> m_indexingWatcher;
     bool m_hasQueuedFullRun;
     QSet<QString> m_queuedFilesRun;
     QString m_storagePath;
     bool m_isLoaded;
 //    DependencyGraph m_dependencyGraph;
     QScopedPointer<QFutureWatcher<void> >m_loadingWatcher;
+    QScopedPointer<QFutureWatcher<void> >m_indexingWatcher;
+    QThreadPool m_indexingPool;
+    QSet<ProjectPartIndexer *> m_runningIndexers;
 };
 
 } // ClangCodeModel
@@ -212,27 +227,30 @@ struct ScopepTimer
     QTime m_t;
 };
 
-class ProjectPartIndexer: public QObject
-{
-    Q_OBJECT
+} // Anonymous
 
+namespace ClangCodeModel {
+
+class ProjectPartIndexer: public QRunnable
+{
     typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
 
 public:
     ProjectPartIndexer(IndexerPrivate *indexer, const QList<IndexerPrivate::FileData> &todo)
         : m_todo(todo)
-        , m_future(0)
         , m_indexer(indexer)
-    {
-//        connect(this, SIGNAL(processedFile(IndexingResult)), indexer, SLOT(synchronize(IndexingResult)), Qt::QueuedConnection);
-    }
+        , m_isCanceled(false)
+    {}
 
-    void start(QFutureInterface<IndexingResult> &future)
+    void cancel()
+    { m_isCanceled = true; }
+
+    void run()
     {
-        if (m_todo.isEmpty())
+        if (isCanceled() || m_todo.isEmpty()) {
+            finish();
             return;
-        m_future = &future;
-        future.setProgressRange(0, m_todo.size());
+        }
 
         const ProjectPart::Ptr &pPart = m_todo[0].m_projectPart;
 
@@ -251,6 +269,7 @@ public:
         if (!(Idx = clang_createIndex(/* excludeDeclsFromPCH */ 1,
                                       /* displayDiagnosics=*/1))) {
           qDebug() << "Could not create Index";
+          finish();
           return;
         }
 
@@ -297,16 +316,21 @@ public:
             }
 #endif
 
-            foreach (const QString &fn, m_allFiles.keys()) {
-                QVector<ClangCodeModel::Symbol> symbols; unfoldSymbols(symbols, fn);
-                QSet<QString> processedFiles = QSet<QString>::fromList(m_allFiles.keys());
-                Unit unit(fn);
-                ProjectPart::Ptr projectPart = fd.m_projectPart;
-                IndexingResult indexingResult(symbols, processedFiles, unit, projectPart);
-//                emit processedFile(indexingResult);
-                m_indexer->synchronize(indexingResult);
+            if (!isCanceled()) {
+                QVector<IndexingResult> indexingResults;
+                indexingResults.resize(m_allFiles.size());
 
-                // TODO: includes need to be propagated to the dependency table.
+                foreach (const QString &fn, m_allFiles.keys()) {
+                    QVector<ClangCodeModel::Symbol> symbols; unfoldSymbols(symbols, fn);
+                    QSet<QString> processedFiles = QSet<QString>::fromList(m_allFiles.keys());
+                    Unit unit(fn);
+                    ProjectPart::Ptr projectPart = fd.m_projectPart;
+                    IndexingResult indexingResult(symbols, processedFiles, unit, projectPart);
+                    indexingResults.append(indexingResult);
+
+                    // TODO: includes need to be propagated to the dependency table.
+                }
+                m_indexer->synchronize(indexingResults);
             }
 
             qDeleteAll(m_allFiles.values());
@@ -314,6 +338,8 @@ public:
             qDeleteAll(m_allSymbols);
             m_allSymbols.clear();
             m_importedASTs.clear();
+            if (isCanceled())
+                break;
         }
 
 //        dumpInfo();
@@ -322,14 +348,8 @@ public:
         clang_disposeIndex(Idx);
 
         delete[] rawOpts;
-
-        future.setProgressValue(m_todo.size());
-        deleteLater();
-        m_future = 0;
+        finish();
     }
-
-signals:
-    void processedFile(IndexingResult);
 
 private:
     static inline ProjectPartIndexer *indexer(CXClientData d)
@@ -338,7 +358,7 @@ private:
     static int abortQuery(CXClientData client_data, void *reserved) {
         Q_UNUSED(reserved);
 
-        return indexer(client_data)->m_future->isCanceled();
+        return indexer(client_data)->isCanceled();
     }
 
     static void diagnostic(CXClientData client_data, CXDiagnosticSet diagSet, void *reserved) {
@@ -501,6 +521,12 @@ private:
     };
 
 private:
+    bool isCanceled() const
+    { return m_isCanceled; }
+
+    void finish()
+    { m_indexer->finished(this); }
+
     File *file(const QString &fileName)
     {
         File *f = m_allFiles[fileName];
@@ -586,8 +612,8 @@ private:
 
 private:
     QList<IndexerPrivate::FileData> m_todo;
-    QFutureInterface<IndexingResult> *m_future;
     IndexerPrivate *m_indexer;
+    bool m_isCanceled;
     QStringList m_importedASTs;
     FilesByName  m_allFiles;
     QVector<Symbol *> m_allSymbols;
@@ -604,23 +630,29 @@ IndexerCallbacks ProjectPartIndexer::IndexCB = {
     indexEntityReference
 };
 
-} // Anonymous
+} // ClangCodeModel
 
 IndexerPrivate::IndexerPrivate(Indexer *indexer)
-    : m_q(indexer)
+    : m_mutex(QMutex::Recursive)
+    , m_q(indexer)
     , m_files(TotalFileTypes)
     , m_hasQueuedFullRun(false)
     , m_isLoaded(false)
     , m_loadingWatcher(new QFutureWatcher<void>)
+    , m_indexingWatcher(new QFutureWatcher<void>)
 {
-    connect(&m_indexingWatcher, SIGNAL(finished()), this, SLOT(indexingFinished()));
-    qRegisterMetaType<IndexingResult>();
+//    const int magicThreadCount = QThread::idealThreadCount() * 4 / 3;
+    const int magicThreadCount = QThread::idealThreadCount() - 1;
+    m_indexingPool.setMaxThreadCount(std::max(magicThreadCount, 1));
+    m_indexingPool.setExpiryTimeout(1000);
 }
 
-QFuture<IndexingResult> IndexerPrivate::runCore(const QHash<QString, FileData> & /*headers*/,
+QFuture<void> IndexerPrivate::runCore(const QHash<QString, FileData> & /*headers*/,
                                                 const QHash<QString, FileData> &impls,
                                                 IndexingMode /*mode*/)
 {
+    QMutexLocker locker(&m_mutex);
+
     typedef QHash<QString, FileData>::const_iterator FileContIt;
     QHash<ProjectPart::Ptr, QList<IndexerPrivate::FileData> > parts;
     typedef QHash<ProjectPart::Ptr, QList<IndexerPrivate::FileData> >::Iterator PartIter;
@@ -631,37 +663,60 @@ QFuture<IndexingResult> IndexerPrivate::runCore(const QHash<QString, FileData> &
         }
     }
 
-    QList<ProjectPartIndexer*> indexers;
     for (PartIter i = parts.begin(), ei = parts.end(); i != ei; ++i) {
-        indexers.append(new ProjectPartIndexer(this, i.value()));
+        ProjectPartIndexer *ppi = new ProjectPartIndexer(this, i.value());
+        m_runningIndexers.insert(ppi);
+        m_indexingPool.start(ppi);
     }
 
-    QFuture<IndexingResult> task = QtConcurrent::run(&ProjectPartIndexer::start, indexers);
-    m_indexingWatcher.setFuture(task);
+    QFuture<void> task = QtConcurrent::run(&IndexerPrivate::watchIndexingThreads, this);
+    m_indexingWatcher->setFuture(task);
     return task;
+}
+
+void IndexerPrivate::watchIndexingThreads(QFutureInterface<void> &future)
+{
+    int maxTodo = runningIndexerCount();
+    future.setProgressRange(0, maxTodo);
+
+    int todo = -1;
+    while (todo) {
+        int newTodo = runningIndexerCount();
+        if (todo != newTodo)
+            future.setProgressValue(maxTodo - newTodo);
+        todo = newTodo;
+        if (future.isCanceled()) {
+            cancelIndexing();
+            return;
+        }
+        m_indexingPool.waitForDone(500);
+    }
 }
 
 void IndexerPrivate::run()
 {
     Q_ASSERT(m_isLoaded);
 
-    if (!m_indexingWatcher.isRunning()) {
-        QFuture<IndexingResult> future =
+    QMutexLocker locker(&m_mutex);
+
+    if (m_runningIndexers.isEmpty()) {
+        QFuture<void> future =
                 runCore(m_files.value(HeaderFile),
                         m_files.value(ImplementationFile),
                         RelaxedIndexing);
         emit m_q->indexingStarted(future);
     } else {
         m_hasQueuedFullRun = true;
-        m_indexingWatcher.cancel();
+        cancelIndexing();
     }
 }
 
 void IndexerPrivate::run(const QStringList &fileNames)
 {
     Q_ASSERT(m_isLoaded);
+    QMutexLocker locker(&m_mutex);
 
-    if (!m_indexingWatcher.isRunning()) {
+    if (noIndexersRunning()) {
         QVector<QHash<QString, FileData> > files(TotalFileTypes);
         foreach (const QString &fileName, fileNames) {
             FileType type = identifyFileType(fileName);
@@ -685,7 +740,7 @@ void IndexerPrivate::run(const QStringList &fileNames)
 
 bool IndexerPrivate::isBusy() const
 {
-    return m_indexingWatcher.isRunning() || m_loadingWatcher->isRunning();
+    return !noIndexersRunning() || m_loadingWatcher->isRunning();
 }
 
 void IndexerPrivate::cancel(bool wait)
@@ -693,10 +748,12 @@ void IndexerPrivate::cancel(bool wait)
 //    m_dependencyGraph.discard();
 
     m_loadingWatcher->cancel();
-    m_indexingWatcher.cancel();
+    cancelIndexing();
     if (wait) {
         m_loadingWatcher->waitForFinished();
-        m_indexingWatcher.waitForFinished();
+        m_indexingWatcher->waitForFinished();
+        while (!noIndexersRunning())
+            m_indexingPool.waitForDone(100);
     }
 }
 
@@ -714,32 +771,50 @@ void IndexerPrivate::reset()
     m_isLoaded = false;
 }
 
-void IndexerPrivate::synchronize(IndexingResult result)
+void IndexerPrivate::synchronize(const QVector<IndexingResult> &results)
 {
-    QMutexLocker locker(&mutex);
+    foreach (IndexingResult result, results) {
+        QMutexLocker locker(&m_mutex);
 
-    result.m_unit.makeUnique();
+        result.m_unit.makeUnique();
 
-    foreach (const Symbol &symbol, result.m_symbolsInfo) {
-        addOrUpdateFileData(symbol.m_location.fileName(),
-                    result.m_projectPart,
-                    true);
+        foreach (const Symbol &symbol, result.m_symbolsInfo) {
+            addOrUpdateFileData(symbol.m_location.fileName(),
+                                result.m_projectPart,
+                                true);
 
-        // Make the symbol available in the database.
-        m_index.insertSymbol(symbol, result.m_unit.timeStamp());
+            // Make the symbol available in the database.
+            m_index.insertSymbol(symbol, result.m_unit.timeStamp());
+        }
+
+        // There might be files which were processed but did not "generate" any indexable symbol,
+        // but we still need to make the index aware of them.
+        result.m_processedFiles.insert(result.m_unit.fileName());
+        foreach (const QString &fileName, result.m_processedFiles) {
+            if (!m_index.containsFile(fileName))
+                m_index.insertFile(fileName, result.m_unit.timeStamp());
+        }
+
+        // If this unit is being kept alive, update in the manager.
+        if (LiveUnitsManager::instance()->isTracking(result.m_unit.fileName()))
+            LiveUnitsManager::instance()->updateUnit(result.m_unit.fileName(), result.m_unit);
     }
+}
 
-    // There might be files which were processed but did not "generate" any indexable symbol,
-    // but we still need to make the index aware of them.
-    result.m_processedFiles.insert(result.m_unit.fileName());
-    foreach (const QString &fileName, result.m_processedFiles) {
-        if (!m_index.containsFile(fileName))
-            m_index.insertFile(fileName, result.m_unit.timeStamp());
-    }
+void IndexerPrivate::finished(ProjectPartIndexer *ppIndexer)
+{
+    QMutexLocker locker(&m_mutex);
 
-    // If this unit is being kept alive, update in the manager.
-    if (LiveUnitsManager::instance()->isTracking(result.m_unit.fileName()))
-        LiveUnitsManager::instance()->updateUnit(result.m_unit.fileName(), result.m_unit);
+    m_runningIndexers.remove(ppIndexer);
+    if (noIndexersRunning())
+        indexingFinished();
+}
+
+bool IndexerPrivate::noIndexersRunning() const
+{
+    QMutexLocker locker(&m_mutex);
+
+    return m_runningIndexers.isEmpty();
 }
 
 void IndexerPrivate::indexingFinished()
@@ -754,6 +829,21 @@ void IndexerPrivate::indexingFinished()
     }
 
     emit m_q->indexingFinished();
+}
+
+void IndexerPrivate::cancelIndexing()
+{
+    QMutexLocker locker(&m_mutex);
+
+    foreach (ProjectPartIndexer* partIndexer, m_runningIndexers) {
+        partIndexer->cancel();
+    }
+}
+
+int IndexerPrivate::runningIndexerCount() const
+{
+    QMutexLocker locker(&m_mutex);
+    return m_runningIndexers.size();
 }
 
 void IndexerPrivate::addOrUpdateFileData(const QString &fileName,

@@ -81,6 +81,18 @@ void ClangCodeModelPlugin::extensionsInitialized()
 {
 }
 
+ExtensionSystem::IPlugin::ShutdownFlag ClangCodeModelPlugin::aboutToShutdown()
+{
+    CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(0);
+    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(0);
+    CPlusPlus::CppModelManagerInterface::instance()->setIndexingSupport(0);
+
+    if (m_completionAssistProvider)
+        removeObject(m_completionAssistProvider.data());
+
+    return ExtensionSystem::IPlugin::aboutToShutdown();
+}
+
 } // namespace Internal
 } // namespace Clang
 

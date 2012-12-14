@@ -62,6 +62,7 @@ class ClangIndexer: public QObject
 
 public:
     ClangIndexer();
+    ~ClangIndexer();
 
     CppTools::CppIndexingSupport *indexingSupport();
 
