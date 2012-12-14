@@ -33,16 +33,22 @@
 #ifndef CLANGPLUGIN_H
 #define CLANGPLUGIN_H
 
+#ifdef CLANG_HIGHLIGHTING
+#  include "clanghighlightingsupport.h"
+#endif // CLANG_HIGHLIGHTING
+
+#ifdef CLANG_COMPLETION
+#  include "clangcompletion.h"
+#endif // CLANG_COMPLETION
+
+#ifdef CLANG_INDEXING
+#  include "clangindexer.h"
+#endif // CLANG_INDEXING
+
 #include <extensionsystem/iplugin.h>
 
 namespace ClangCodeModel {
-
-class ClangHighlightingSupportFactory;
-
 namespace Internal {
-
-class ClangCompletionAssistProvider;
-class ClangIndexer;
 
 class ClangCodeModelPlugin: public ExtensionSystem::IPlugin
 {
@@ -50,15 +56,14 @@ class ClangCodeModelPlugin: public ExtensionSystem::IPlugin
 
 public:
     ClangCodeModelPlugin();
-    ~ClangCodeModelPlugin();
 
     bool initialize(const QStringList &arguments, QString *errorMessage);
 
     void extensionsInitialized();
 
 private:
-    ClangCompletionAssistProvider *m_completionAssistProvider;
-    ClangHighlightingSupportFactory *m_highlightingFactory;
+    QScopedPointer<ClangCompletionAssistProvider> m_completionAssistProvider;
+    QScopedPointer<ClangHighlightingSupportFactory> m_highlightingFactory;
     QScopedPointer<ClangIndexer> m_indexer;
 };
 

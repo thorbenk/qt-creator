@@ -59,6 +59,8 @@
 #include <QtCore/QDateTime>
 #include <QStringBuilder>
 
+#include <cassert>
+
 //#define DEBUG
 //#define DEBUG_DIAGNOSTICS
 
@@ -135,6 +137,9 @@ public:
         bool m_upToDate;
         unsigned m_managementOptions;
     };
+
+private:
+    QMutex mutex;
 
 public slots:
     void synchronize(IndexingResult result);
@@ -217,8 +222,9 @@ public:
     ProjectPartIndexer(IndexerPrivate *indexer, const QList<IndexerPrivate::FileData> &todo)
         : m_todo(todo)
         , m_future(0)
+        , m_indexer(indexer)
     {
-        connect(this, SIGNAL(processedFile(IndexingResult)), indexer, SLOT(synchronize(IndexingResult)), Qt::QueuedConnection);
+//        connect(this, SIGNAL(processedFile(IndexingResult)), indexer, SLOT(synchronize(IndexingResult)), Qt::QueuedConnection);
     }
 
     void start(QFutureInterface<IndexingResult> &future)
@@ -297,13 +303,17 @@ public:
                 Unit unit(fn);
                 ProjectPart::Ptr projectPart = fd.m_projectPart;
                 IndexingResult indexingResult(symbols, processedFiles, unit, projectPart);
-                emit processedFile(indexingResult);
+//                emit processedFile(indexingResult);
+                m_indexer->synchronize(indexingResult);
 
                 // TODO: includes need to be propagated to the dependency table.
             }
 
             qDeleteAll(m_allFiles.values());
+            m_allFiles.clear();
             qDeleteAll(m_allSymbols);
+            m_allSymbols.clear();
+            m_importedASTs.clear();
         }
 
 //        dumpInfo();
@@ -344,7 +354,7 @@ private:
         const QString fileName = getQString(clang_getFileName(file));
 //        qDebug() << "enteredMainFile:" << fileName;
         ProjectPartIndexer *ppi = indexer(client_data);
-        File *f = ppi->newFile(fileName);
+        File *f = ppi->file(fileName);
         f->setMainFile();
 
         return f;
@@ -357,7 +367,7 @@ private:
         clang_indexLoc_getFileLocation(info->hashLoc, reinterpret_cast<CXIdxClientFile*>(&includingFile), 0, 0, 0, 0);
 
         const QString fileName = getQString(clang_getFileName(info->file));
-        File *f = indexer(client_data)->newFile(fileName);
+        File *f = indexer(client_data)->file(fileName);
 
         if (includingFile)
             includingFile->addInclude(f);
@@ -433,7 +443,10 @@ private:
         {}
 
         void addInclude(File *f)
-        { m_includes.insert(f->name(), f); }
+        {
+            assert(f);
+            m_includes.insert(f->name(), f);
+        }
 
         QList<File *> includes() const
         { return m_includes.values(); }
@@ -488,10 +501,13 @@ private:
     };
 
 private:
-    File *newFile(const QString &fileName)
+    File *file(const QString &fileName)
     {
-        File *f = new File(fileName);
-        m_allFiles.insert(fileName, f);
+        File *f = m_allFiles[fileName];
+        if (!f) {
+            f = new File(fileName);
+            m_allFiles.insert(fileName, f);
+        }
         return f;
     }
 
@@ -532,7 +548,7 @@ private:
     }
 
     void unfoldSymbols(QVector<ClangCodeModel::Symbol> &result, const QString &fileName) {
-        const QVector<Symbol *> symbolsForFile = m_allFiles[fileName]->symbols();
+        const QVector<Symbol *> symbolsForFile = file(fileName)->symbols();
         foreach (const Symbol *s, symbolsForFile) {
             unfoldSymbols(s, result);
         }
@@ -571,6 +587,7 @@ private:
 private:
     QList<IndexerPrivate::FileData> m_todo;
     QFutureInterface<IndexingResult> *m_future;
+    IndexerPrivate *m_indexer;
     QStringList m_importedASTs;
     FilesByName  m_allFiles;
     QVector<Symbol *> m_allSymbols;
@@ -699,6 +716,8 @@ void IndexerPrivate::reset()
 
 void IndexerPrivate::synchronize(IndexingResult result)
 {
+    QMutexLocker locker(&mutex);
+
     result.m_unit.makeUnique();
 
     foreach (const Symbol &symbol, result.m_symbolsInfo) {

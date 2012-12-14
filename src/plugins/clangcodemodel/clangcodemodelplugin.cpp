@@ -33,18 +33,6 @@
 #include "clangcodemodelplugin.h"
 #include "utils.h"
 
-#ifdef CLANG_COMPLETION
-#  include "clangcompletion.h"
-#endif // CLANG_COMPLETION
-
-#ifdef CLANG_HIGHLIGHTING
-#  include "clanghighlightingsupport.h"
-#endif // CLANG_HIGHLIGHTING
-
-#ifdef CLANG_INDEXING
-#  include "clangindexer.h"
-#endif // CLANG_INDEXING
-
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/imode.h>
@@ -64,11 +52,6 @@ ClangCodeModelPlugin::ClangCodeModelPlugin()
 {
 }
 
-ClangCodeModelPlugin::~ClangCodeModelPlugin()
-{
-    delete m_highlightingFactory;
-}
-
 bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *errorMessage)
 {
     Q_UNUSED(arguments)
@@ -77,13 +60,13 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
     ClangCodeModel::initializeClang();
 
 #ifdef CLANG_COMPLETION
-    m_completionAssistProvider = new ClangCompletionAssistProvider;
-    CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(m_completionAssistProvider);
+    m_completionAssistProvider.reset(new ClangCompletionAssistProvider);
+    CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(m_completionAssistProvider.data());
 #endif // CLANG_COMPLETION
 
 #ifdef CLANG_HIGHLIGHTING
-    m_highlightingFactory = new ClangHighlightingSupportFactory;
-    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory);
+    m_highlightingFactory.reset(new ClangHighlightingSupportFactory);
+    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory.data());
 #endif // CLANG_HIGHLIGHTING
 
 #ifdef CLANG_INDEXING
