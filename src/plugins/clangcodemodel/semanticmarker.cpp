@@ -33,9 +33,12 @@
 #include "semanticmarker.h"
 #include "unit.h"
 #include "utils_p.h"
+#include "cxraii.h"
 
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
+
+static const unsigned ATTACHED_NOTES_LIMIT = 10;
 
 SemanticMarker::SemanticMarker()
 {
@@ -101,11 +104,25 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
 
     const unsigned diagCount = m_unit->getNumDiagnostics();
     for (unsigned i = 0; i < diagCount; ++i) {
-        CXDiagnostic diag = m_unit->getDiagnostic(i);
+        ScopedCXDiagnostic diag(m_unit->getDiagnostic(i));
         Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
-        CXSourceLocation cxLocation = clang_getDiagnosticLocation(diag);
-        const QString spelling = Internal::getQString(clang_getDiagnosticSpelling(diag));
+        if (severity != Diagnostic::Error && severity != Diagnostic::Warning)
+            continue;
 
+        CXSourceLocation cxLocation = clang_getDiagnosticLocation(diag);
+        QString spelling = Internal::getQString(clang_getDiagnosticSpelling(diag));
+
+        // Attach messages with Diagnostic::Note severity
+        ScopedCXDiagnosticSet cxChildren(clang_getChildDiagnostics(diag));
+        const unsigned size = qMin(ATTACHED_NOTES_LIMIT,
+                                   clang_getNumDiagnosticsInSet(cxChildren));
+        for (unsigned i = 0; i < size; ++i) {
+            CXDiagnostic child = clang_getDiagnosticInSet(cxChildren, i);
+            spelling.append(QLatin1String("\n  "));
+            spelling.append(Internal::getQString(clang_getDiagnosticSpelling(child)));
+        }
+
+        // Calculate one or several ranges and append diagnostic for each range
         const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
         if (rangeCount > 0) {
             for (unsigned i = 0; i < rangeCount; ++i) {
@@ -122,8 +139,6 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
             Diagnostic d(severity, location, 0, spelling);
             diagnostics.append(d);
         }
-
-        clang_disposeDiagnostic(diag);
     }
 
     return diagnostics;

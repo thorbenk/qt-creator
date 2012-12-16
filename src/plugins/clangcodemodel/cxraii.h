@@ -112,6 +112,16 @@ struct ScopedCXDiagnostic : ScopedCXType<CXDiagnostic>
     {}
 };
 
+struct ScopedCXDiagnosticSet : ScopedCXType<CXDiagnostic>
+{
+    ScopedCXDiagnosticSet()
+        : ScopedCXType<CXDiagnosticSet>(&clang_disposeDiagnosticSet)
+    {}
+    ScopedCXDiagnosticSet(const CXDiagnostic &diagnostic)
+        : ScopedCXType<CXDiagnosticSet>(diagnostic, &clang_disposeDiagnosticSet)
+    {}
+};
+
 } // Internal
 } // ClangCodeModel
 
