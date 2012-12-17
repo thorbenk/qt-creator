@@ -27,9 +27,11 @@ contains(DEFINES, CLANG_HIGHLIGHTING) {
     SOURCES += cppcreatemarkers.cpp clanghighlightingsupport.cpp
 }
 
-HEADERS += clangutils.h
+HEADERS += clangutils.h \
+    cxprettyprinter.h
 
-SOURCES += clangutils.cpp
+SOURCES += clangutils.cpp \
+    cxprettyprinter.cpp
 
 SOURCES += \
     $$PWD/clangcodemodelplugin.cpp \
