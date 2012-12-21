@@ -51,7 +51,9 @@ public:
         Label,
         Macro,
         Function,
-        PseudoKeyword
+        PseudoKeyword,
+
+        ObjectiveCMessage = VirtualMethod
     };
 
     SourceMarker();

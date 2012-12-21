@@ -360,34 +360,23 @@ bool ClangAssistProposalModel::isSortable(const QString &prefix) const
 
 bool ClangAssistProposalItem::prematurelyApplies(const QChar &typedChar) const
 {
-    if (m_completionOperator == T_SIGNAL || m_completionOperator == T_SLOT) {
-        if (typedChar == QLatin1Char('(') || typedChar == QLatin1Char(',')) {
-            m_typedChar = typedChar;
-            return true;
-        }
-    } else if (m_completionOperator == T_STRING_LITERAL
-               || m_completionOperator == T_ANGLE_STRING_LITERAL) {
-        if (typedChar == QLatin1Char('/') && text().endsWith(QLatin1Char('/'))) {
-            m_typedChar = typedChar;
-            return true;
-        }
-    } else if (isCodeCompletionResult()) {
-        if (typedChar == QLatin1Char(':')
-                || typedChar == QLatin1Char(';')
-                || typedChar == QLatin1Char('.')
-                || typedChar == QLatin1Char(',')
-                || typedChar == QLatin1Char('(')) {
-            m_typedChar = typedChar;
-            return true;
-        }
-    } else if (false /*&& data().canConvert<CompleteFunctionDeclaration>()*/) { //###
-        if (typedChar == QLatin1Char('(')) {
-            m_typedChar = typedChar;
-            return true;
-        }
-    }
+    bool ok = false;
 
-    return false;
+    if (m_completionOperator == T_SIGNAL || m_completionOperator == T_SLOT)
+        ok = QString::fromLatin1("(,").contains(typedChar);
+    else if (m_completionOperator == T_STRING_LITERAL || m_completionOperator == T_ANGLE_STRING_LITERAL)
+        ok = (typedChar == QLatin1Char('/')) && text().endsWith(QLatin1Char('/'));
+    else if (!isCodeCompletionResult())
+        ok = (typedChar == QLatin1Char('(')); /* && data().canConvert<CompleteFunctionDeclaration>()*/ //###
+    else if (originalItem().completionKind() == CodeCompletionResult::ObjCMessageCompletionKind)
+        ok = QString::fromLatin1(";.,").contains(typedChar);
+    else
+        ok = QString::fromLatin1(";.,:(").contains(typedChar);
+
+    if (ok)
+        m_typedChar = typedChar;
+
+    return ok;
 }
 
 void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor *editor,
@@ -1034,6 +1023,7 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         case CodeCompletionResult::ConstructorCompletionKind: // fall through
         case CodeCompletionResult::DestructorCompletionKind: // fall through
         case CodeCompletionResult::FunctionCompletionKind:
+        case CodeCompletionResult::ObjCMessageCompletionKind:
             item->setIcon(m_icons.iconForType(Icons::FuncPublicIconType)); // FIXME: show the effective accessebility
             break;
 

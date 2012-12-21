@@ -36,6 +36,7 @@ void DiagnosticsHandler::setDiagnostics(const QList<ClangCodeModel::Diagnostic> 
 
         switch (m.severity()) {
         case ClangCodeModel::Diagnostic::Error:
+        case ClangCodeModel::Diagnostic::Fatal:
             sel.format = errorFormat;
             break;
 
@@ -53,11 +54,24 @@ void DiagnosticsHandler::setDiagnostics(const QList<ClangCodeModel::Diagnostic> 
 
         const QString text = c.block().text();
         if (m.length() == 0) {
-            for (int i = m.location().column() - 1; i < text.size(); ++i) {
-                if (text.at(i).isSpace() || (i + 1 == text.size())) {
-                    c.setPosition(linePos + i + 1, QTextCursor::KeepAnchor);
-                    break;
+            int i = m.location().column() - 1;
+            if (i == text.size() || text.at(i).isSpace()) {
+                // backward scan
+                --i;
+                for ( ; i > 0; --i) {
+                    if (text.at(i).isSpace()) {
+                        c.setPosition(linePos + i + 1, QTextCursor::KeepAnchor);
+                        break;
+                    }
                 }
+            } else {
+                // forward scan
+                for ( ; i < text.size(); ++i)
+                    if (text.at(i).isSpace()) {
+                        ++i;
+                        break;
+                    }
+                c.setPosition(linePos + i, QTextCursor::KeepAnchor);
             }
         } else {
             c.setPosition(c.position() + m.length(), QTextCursor::KeepAnchor);
@@ -98,7 +112,7 @@ QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFutur
     QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
     QStringList options;
     foreach (const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part, parts) {
-        options = Utils::createClangOptions(part);
+        options = Utils::createClangOptions(part, fileName);
         if (!options.isEmpty())
             break;
     }

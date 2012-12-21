@@ -106,7 +106,7 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
     for (unsigned i = 0; i < diagCount; ++i) {
         ScopedCXDiagnostic diag(m_unit->getDiagnostic(i));
         Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
-        if (severity != Diagnostic::Error && severity != Diagnostic::Warning)
+        if (severity == Diagnostic::Ignored || severity == Diagnostic::Note)
             continue;
 
         CXSourceLocation cxLocation = clang_getDiagnosticLocation(diag);
@@ -172,6 +172,8 @@ static SourceMarker::Kind getKindByReferencedCursor(const CXCursor &cursor)
         return SourceMarker::Enumeration;
 
     case CXCursor_FieldDecl:
+    case CXCursor_ObjCIvarDecl:
+    case CXCursor_ObjCPropertyDecl:
         return SourceMarker::Field;
 
     case CXCursor_FunctionDecl:
@@ -189,6 +191,17 @@ static SourceMarker::Kind getKindByReferencedCursor(const CXCursor &cursor)
         else
             return SourceMarker::Function;
 
+    case CXCursor_ObjCClassMethodDecl:
+    case CXCursor_ObjCInstanceMethodDecl:
+        // calling method as property, e.h. "layer.shouldRasterize = YES"
+        return SourceMarker::Field;
+
+    case CXCursor_UnexposedDecl:
+        // NSObject "self" method which is a pseudo keyword
+        if (clang_getCursorLanguage(referenced) == CXLanguage_ObjC)
+            return SourceMarker::PseudoKeyword;
+        break;
+
     default:
         break;
     }
@@ -201,20 +214,30 @@ static SourceMarker::Kind getKindByReferencedCursor(const CXCursor &cursor)
  * @brief SemanticMarker::sourceMarkersInRange
  * @param firstLine - first line where to generate highlighting markers
  * @param lastLine - last line where to generate highlighting markers
- * @note Problematic places:
- *    - range based for from C++ 2011 requires at least child visiting
- *    - function call expression with implicit type convertion requires child
- *      visiting, example:
- *          glVertexPointer(3, GL_DOUBLE, 0, m_verticies.front()));
- *      where m_verticies is "std::vector<vec3>" and vec3 has (const double*)
- *      convertion operator. "front" cannot be highlighted even with visitor,
- *      when comparing visited cursor and token by CXSourceRange.
- *    - some compound statements have type DeclStmt or CompoundStmt which
- *      refers to top-level construction
+ *
+ * There still two kinds of problems:
+ *    - clang_annotateTokens() can return wrong cursor, and it's normal behavior
+ *    - some cases no handled
+ *
+ * Problems caused by wrong cursors:
+ *    - range-based for from C++ 2011
+ *    - identifiers in some compound statements have type DeclStmt
+ *      or CompoundStmt which refers to top-level construction.
+ *    - CXCursor_ObjCIvarDecl mapped to field, but instance variable have
+ *      incorrect cursor kind if it declared in private interface
+ *          @interface MyApplication() {
+ *              NSArray* _items;
+ *          }
+ *
+ * Missed cases:
  *    - global variables highlighted as locals
- *    - template members of template classes/functions always highlighted
- *      as members, even if they are functions - there no way to differ.
- *    - invalid code will be not highlighted or underscored
+ *    - ObjectiveC 'super' highlighted as ObjCMessage instead of PseudoKeyword
+ *    - appropriate marker had not been selected for listed cursors:
+ *          CXCursor_ObjCProtocolExpr, CXCursor_ObjCEncodeExpr,
+ *          CXCursor_ObjCDynamicDecl, CXCursor_ObjCBridgedCastExpr,
+ *          CXCursor_ObjCSuperClassRef
+ *    - template members of template classes&functions always highlighted
+ *      as members, even if they are functions - no way to differ found.
  */
 QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
                                                          unsigned lastLine)
@@ -259,7 +282,7 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
             break;
 
         case CXCursor_ParmDecl:
-        case CXCursor_VariableRef: /* available since clang 3.1 */
+        case CXCursor_VariableRef:
         case CXCursor_VarDecl:
             add(result, tokenExtent, SourceMarker::Local);
             break;
@@ -298,6 +321,29 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_FunctionTemplate:
         case CXCursor_OverloadedDeclRef:
             add(result, tokenExtent, SourceMarker::Function);
+            break;
+
+        case CXCursor_ObjCInstanceMethodDecl:
+        case CXCursor_ObjCClassMethodDecl:
+        case CXCursor_ObjCSelectorExpr:
+        case CXCursor_ObjCMessageExpr:
+            add(result, tokenExtent, SourceMarker::ObjectiveCMessage);
+            break;
+
+        case CXCursor_ObjCCategoryDecl:
+        case CXCursor_ObjCCategoryImplDecl:
+        case CXCursor_ObjCImplementationDecl:
+        case CXCursor_ObjCInterfaceDecl:
+        case CXCursor_ObjCProtocolDecl:
+        case CXCursor_ObjCProtocolRef:
+        case CXCursor_ObjCClassRef:
+            add(result, tokenExtent, SourceMarker::Type);
+            break;
+
+        case CXCursor_ObjCSynthesizeDecl:
+        case CXCursor_ObjCPropertyDecl:
+        case CXCursor_ObjCIvarDecl:
+            add(result, tokenExtent, SourceMarker::Field);
             break;
 
         case CXCursor_MacroDefinition:

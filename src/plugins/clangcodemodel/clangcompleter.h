@@ -67,7 +67,8 @@ public:
         NamespaceCompletionKind,
         PreProcessorCompletionKind,
         SignalCompletionKind,
-        SlotCompletionKind
+        SlotCompletionKind,
+        ObjCMessageCompletionKind
     };
 
     enum Availability {
@@ -208,9 +209,6 @@ public: // methods
 
     QMutex *mutex() const
     { return &m_mutex; }
-
-protected:
-    void createCompletionHint(const void *completionString, CodeCompletionResult &ccr) const;
 
 private: // instance fields
     PrivateData *m_d;
