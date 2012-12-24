@@ -641,7 +641,13 @@ void QtOptionsPageWidget::addQtDir()
                                              QFileDialog::DontResolveSymlinks));
     if (qtVersion.isNull())
         return;
-    BaseQtVersion *version = QtVersionManager::instance()->qtVersionForQMakeBinary(qtVersion);
+    BaseQtVersion *version = 0;
+    foreach (BaseQtVersion *v, m_versions) {
+        if (v->qmakeCommand() == qtVersion) {
+            version = v;
+            break;
+        }
+    }
     if (version) {
         // Already exist
         QMessageBox::warning(this, tr("Qt known"),
@@ -650,7 +656,8 @@ void QtOptionsPageWidget::addQtDir()
         return;
     }
 
-    version = QtVersionFactory::createQtVersionFromQMakePath(qtVersion);
+    QString error;
+    version = QtVersionFactory::createQtVersionFromQMakePath(qtVersion, false, QString(), &error);
     if (version) {
         m_versions.append(version);
 
@@ -663,6 +670,10 @@ void QtOptionsPageWidget::addQtDir()
         m_ui->qtdirList->setCurrentItem(item); // should update the rest of the ui
         m_versionUi->nameEdit->setFocus();
         m_versionUi->nameEdit->selectAll();
+    } else {
+        QMessageBox::warning(this, tr("Qmake not executable"),
+                             tr("The qmake %1 could not be added: %2").arg(qtVersion.toUserOutput()).arg(error));
+        return;
     }
     updateCleanUpButton();
 }

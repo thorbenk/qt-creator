@@ -171,6 +171,9 @@ GdbOptionsPageWidget::GdbOptionsPageWidget(QWidget *parent)
         "<html><head/><body>The options below give access to advanced "
         "or experimental functions of GDB. Enabling them may negatively "
         "impact your debugging experience.</body></html>"));
+    QFont f = labelDangerous->font();
+    f.setItalic(true);
+    labelDangerous->setFont(f);
 
     checkBoxTargetAsync = new QCheckBox(groupBoxGeneral);
     checkBoxTargetAsync->setText(GdbOptionsPage::tr(
@@ -184,6 +187,7 @@ GdbOptionsPageWidget::GdbOptionsPageWidget(QWidget *parent)
         "of debug information such as <i>/usr/src/debug</i> "
         "when starting GDB.</body></html>"));
 
+    // #fixme: 2.7 Move to common settings page.
     checkBoxBreakOnWarning = new QCheckBox(groupBoxGeneral);
     checkBoxBreakOnWarning->setText(CommonOptionsPage::msgSetBreakpointAtFunction("qWarning"));
     checkBoxBreakOnWarning->setToolTip(CommonOptionsPage::msgSetBreakpointAtFunctionToolTip("qWarning"));
@@ -290,7 +294,6 @@ GdbOptionsPageWidget::GdbOptionsPageWidget(QWidget *parent)
     formLayout->addRow(checkBoxLoadGdbInit);
     formLayout->addRow(checkBoxWarnOnReleaseBuilds);
     formLayout->addRow(checkBoxIntelFlavor);
-    formLayout->addRow(new QLabel(QString()));
     formLayout->addRow(labelDangerous);
     formLayout->addRow(checkBoxTargetAsync);
     formLayout->addRow(checkBoxAutoEnrichParameters);

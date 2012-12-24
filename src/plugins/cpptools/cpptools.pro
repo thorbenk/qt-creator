@@ -100,5 +100,12 @@ FORMS += completionsettingspage.ui \
 equals(TEST, 1) {
     SOURCES += \
         cppcodegen_test.cpp \
-        cppcompletion_test.cpp
+        cppcompletion_test.cpp \
+        cppmodelmanager_test.cpp \
+        modelmanagertesthelper.cpp
+
+    HEADERS += \
+        modelmanagertesthelper.h
+
+    DEFINES += SRCDIR=\\\"$$PWD\\\"
 }

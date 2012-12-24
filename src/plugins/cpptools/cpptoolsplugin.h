@@ -110,6 +110,10 @@ private slots:
     void test_completion_cyclic_inheritance_data();
     void test_completion_enclosing_template_class();
     void test_completion_enclosing_template_class_data();
+    void test_completion_instantiate_nested_class_when_enclosing_is_template();
+    void test_completion_instantiate_nested_of_nested_class_when_enclosing_is_template();
+
+    void test_modelmanager_paths();
 
 private:
     void test_completion();

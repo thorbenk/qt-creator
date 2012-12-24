@@ -27,15 +27,28 @@
 **
 ****************************************************************************/
 
+#include <qmldesignerconstants.h>
+
 #include "subcomponentmanager.h"
 #include "model.h"
 #include "metainfo.h"
+#include "metainforeader.h"
 
 #include <utils/hostosinfo.h>
 
 #include <QDir>
 #include <QMetaType>
+#include <QMessageBox>
 #include <QUrl>
+
+#include <qmljs/qmljsevaluate.h>
+#include <qmljs/qmljsinterpreter.h>
+#include <qmljs/qmljscontext.h>
+#include <qmljs/qmljslink.h>
+#include <qmljs/parser/qmljsast_p.h>
+#include <qmljs/qmljsscopebuilder.h>
+#include <qmljs/qmljsscopechain.h>
+#include <qmljs/qmljsmodelmanagerinterface.h>
 
 enum { debug = false };
 
@@ -62,6 +75,70 @@ static inline QStringList importPaths() {
     }
 
     return paths;
+}
+
+static inline bool checkIfDerivedFromItem(const QString &fileName)
+{
+    QmlJS::Snapshot snapshot;
+
+
+    QmlJS::ModelManagerInterface *modelManager = QmlJS::ModelManagerInterface::instance();
+    if (modelManager)
+        snapshot =  modelManager->snapshot();
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+
+    QByteArray source = file.readAll();
+    file.close();
+
+    QmlJS::Document::MutablePtr document =
+            QmlJS::Document::create(fileName.isEmpty() ?
+                                        QLatin1String("<internal>") : fileName, QmlJS::Document::QmlLanguage);
+    document->setSource(source);
+    document->parseQml();
+
+
+    if (!document->isParsedCorrectly()) {
+        return false;
+    }
+
+    snapshot.insert(document);
+
+    QmlJS::Link link(snapshot, QStringList(), QmlJS::ModelManagerInterface::instance()->builtins(document));
+
+    QList<QmlJS::DiagnosticMessage> diagnosticLinkMessages;
+    QmlJS::ContextPtr context = link(document, &diagnosticLinkMessages);
+
+    QmlJS::AST::UiObjectMember *astRootNode = 0;
+    if (QmlJS::AST::UiProgram *program = document->qmlProgram())
+        if (program->members)
+            astRootNode = program->members->member;
+
+    QmlJS::AST::UiObjectDefinition *definition = QmlJS::AST::cast<QmlJS::AST::UiObjectDefinition *>(astRootNode);
+
+    if (!definition)
+        return false;
+
+    QString fullTypeName;
+    for (QmlJS::AST::UiQualifiedId *iter = definition->qualifiedTypeNameId; iter; iter = iter->next)
+        if (!iter->name.isEmpty())
+            fullTypeName += iter->name.toString() + QLatin1Char('.');
+
+    if (fullTypeName.endsWith(QLatin1Char('.')))
+        fullTypeName.chop(1);
+
+    const QmlJS::ObjectValue *objectValue = context->lookupType(document.data(), fullTypeName.split('.'));
+
+    QList<const QmlJS::ObjectValue *> prototypes = QmlJS::PrototypeIterator(objectValue, context).all();
+
+    foreach (const QmlJS::ObjectValue *prototype, prototypes) {
+        if (prototype->className() == "Item")
+            return true;
+    }
+
+    return false;
 }
 
 namespace QmlDesigner {
@@ -135,6 +212,10 @@ void SubComponentManager::parseDirectories()
         QFileInfo dirInfo = QFileInfo(QFileInfo(file).path());
         if (dirInfo.exists() && dirInfo.isDir())
             parseDirectory(dirInfo.canonicalFilePath());
+
+        foreach (const QString subDir, QDir(QFileInfo(file).path()).entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot)) {
+            parseDirectory(dirInfo.canonicalFilePath() + "/" + subDir, true, subDir);
+        }
     }
 
     foreach (const Import &import, m_imports) {
@@ -160,6 +241,33 @@ void SubComponentManager::parseDirectories()
 
 void SubComponentManager::parseDirectory(const QString &canonicalDirPath, bool addToLibrary, const QString& qualification)
 {
+
+    QDir designerDir(canonicalDirPath + Constants::QML_DESIGNER_SUBFOLDER);
+    if (designerDir.exists()) {
+        QStringList filter;
+        filter << "*.metainfo";
+        designerDir.setNameFilters(filter);
+
+        QStringList metaFiles = designerDir.entryList(QDir::Files);
+        foreach (const QFileInfo &metaInfoFile, designerDir.entryInfoList(QDir::Files)) {
+            if (model() && model()->metaInfo().itemLibraryInfo()) {
+                Internal::MetaInfoReader reader(model()->metaInfo());
+                try {
+                    reader.readMetaInfoFile(metaInfoFile.absoluteFilePath(), true);
+                } catch (InvalidMetaInfoException &e) {
+                    qWarning() << e.description();
+                    const QString errorMessage = metaInfoFile.absoluteFilePath() + QLatin1Char('\n') + QLatin1Char('\n') + reader.errors().join(QLatin1String("\n"));
+                    QMessageBox::critical(0,
+                                          QCoreApplication::translate("SubComponentManager::parseDirectory", "Invalid meta info"),
+                                          errorMessage);
+                }
+            }
+        }
+        if (!metaFiles.isEmpty()) {
+            return;
+        }
+    }
+
     if (debug)
         qDebug() << Q_FUNC_INFO << canonicalDirPath;
 
@@ -224,7 +332,7 @@ void SubComponentManager::parseDirectory(const QString &canonicalDirPath, bool a
     }
 }
 
-void SubComponentManager::parseFile(const QString &canonicalFilePath, bool addToLibrary, const QString& /* qualification */)
+void SubComponentManager::parseFile(const QString &canonicalFilePath, bool addToLibrary, const QString&  qualification)
 {
     if (debug)
         qDebug() << Q_FUNC_INFO << canonicalFilePath;
@@ -238,7 +346,7 @@ void SubComponentManager::parseFile(const QString &canonicalFilePath, bool addTo
     foreach (const QString &qualifier, m_dirToQualifier.values(dir)) {
         registerQmlFile(canonicalFilePath, qualifier, addToLibrary);
     }
-    registerQmlFile(canonicalFilePath, QString(), addToLibrary);
+    registerQmlFile(canonicalFilePath, qualification, addToLibrary);
 }
 
 void SubComponentManager::parseFile(const QString &canonicalFilePath)
@@ -282,14 +390,11 @@ void SubComponentManager::registerQmlFile(const QFileInfo &fileInfo, const QStri
     if (!model())
         return;
 
+    if (!checkIfDerivedFromItem(fileInfo.absoluteFilePath()))
+        return;
+
     QString componentName = fileInfo.baseName();
 
-    if (!qualifier.isEmpty()) {
-        QString fixedQualifier = qualifier;
-        if (qualifier.right(1) == QLatin1String("."))
-            fixedQualifier.chop(1); //remove last char if it is a dot
-        componentName = fixedQualifier + '.' + componentName;
-    }
 
     if (debug)
         qDebug() << "SubComponentManager" << __FUNCTION__ << componentName;
@@ -300,10 +405,13 @@ void SubComponentManager::registerQmlFile(const QFileInfo &fileInfo, const QStri
         itemLibraryEntry.setType(componentName, -1, -1);
         itemLibraryEntry.setName(componentName);
         itemLibraryEntry.setCategory("QML Components");
+        if (!qualifier.isEmpty()) {
+            itemLibraryEntry.setForceImport(true);
+            itemLibraryEntry.setRequiredImport(qualifier);
+        }
 
 
-        if (model()->metaInfo(componentName).isValid() && model()->metaInfo(componentName).isSubclassOf("QtQuick.Item", -1, -1) &&
-            !model()->metaInfo().itemLibraryInfo()->containsEntry(itemLibraryEntry)) {
+        if (!model()->metaInfo().itemLibraryInfo()->containsEntry(itemLibraryEntry)) {
 
             model()->metaInfo().itemLibraryInfo()->addEntry(itemLibraryEntry);
         }

@@ -1157,10 +1157,12 @@ void CPPEditorWidget::codeNavigate(bool switchDeclDef)
             foreach (const LookupItem &r, declarations) {
                 if (Symbol *decl = r.declaration()) {
                     if (Function *funTy = decl->type()->asFunctionType()) {
-                        if (funTy->isEqualTo(function) && decl != function && binding == r.binding())
-                            best.prepend(decl);
-                        else
-                            best.append(decl);
+                        if (funTy->isEqualTo(function)) {
+                            if (decl != function && binding == r.binding())
+                                best.prepend(decl);
+                            else
+                                best.append(decl);
+                        }
                     }
                 }
             }
@@ -1168,7 +1170,7 @@ void CPPEditorWidget::codeNavigate(bool switchDeclDef)
                 openCppEditorAt(linkToSymbol(best.first()));
 
         } else if (lastVisibleSymbol && lastVisibleSymbol->isDeclaration() && lastVisibleSymbol->type()->isFunctionType()) {
-            if (Symbol *def = symbolFinder()->findMatchingDefinition(lastVisibleSymbol, snapshot))
+            if (Symbol *def = symbolFinder()->findMatchingDefinition(lastVisibleSymbol, snapshot, true))
                 openCppEditorAt(linkToSymbol(def));
         }
     }
