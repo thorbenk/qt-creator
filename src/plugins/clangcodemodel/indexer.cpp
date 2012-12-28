@@ -255,9 +255,13 @@ public:
         const ProjectPart::Ptr &pPart = m_todo[0].m_projectPart;
 
         QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart);
-        const int optsSize = opts.size();
 
-        const bool isCXX = pPart->language == ProjectPart::CXX || pPart->language == ProjectPart::CXX11;
+        /*
+         * Optimization: last option in "opts" is -ObjC++ or -ObjC,
+         * for C++ files it's not used (lesser num_command_line_args passed)
+         */
+        const int optsSize = opts.size();
+        const bool isCXX = pPart.isNull() || pPart->language == ProjectPart::CXX || pPart->language == ProjectPart::CXX11;
         opts += ClangCodeModel::Utils::clangOptionForObjC(isCXX);
         const int optsSizeObjC = opts.size();
 
@@ -280,7 +284,8 @@ public:
             if (fd.m_upToDate)
                 continue;
 
-            const int usedOptSize = pPart->objcSourceFiles.contains(fd.m_fileName) ? optsSizeObjC : optsSize;
+            const bool isObjC = pPart.isNull() || pPart->objcSourceFiles.contains(fd.m_fileName);
+            const int usedOptSize =  isObjC ? optsSizeObjC : optsSize;
             QByteArray fileName = fd.m_fileName.toUtf8();
 
             unsigned index_opts = CXIndexOpt_SuppressWarnings;

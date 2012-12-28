@@ -33,19 +33,39 @@ UnsavedFiles ClangCodeModel::Utils::createUnsavedFiles(CPlusPlus::CppModelManage
     return result;
 }
 
+/**
+ * @brief Creates list of command-line arguments required for correct parsing
+ * @param pPart - null if file isn't part of any project
+ * @param fileName - path to file, source isn't ObjC if name is empty
+ */
 QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, const QString &fileName)
 {
-    Q_ASSERT(pPart);
+    if (pPart.isNull())
+        return clangNonProjectFileOptions();
 
-    bool isObjC = fileName.isEmpty() ? false : pPart->objcSourceFiles.contains(fileName);
+    const bool isObjC = fileName.isEmpty() ? false : pPart->objcSourceFiles.contains(fileName);
+
+    return createClangOptions(pPart, isObjC);
+}
+
+/**
+ * @brief Creates list of command-line arguments required for correct parsing
+ * @param pPart - null if file isn't part of any project
+ * @param isObjectiveC - file is ObjectiveC or ObjectiveC++
+ */
+QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, bool isObjectiveC)
+{
+    if (pPart.isNull())
+        return clangNonProjectFileOptions();
 
     return createClangOptions(pPart->language,
-                              isObjC,
+                              isObjectiveC,
                               pPart->qtVersion,
                               pPart->defines.split('\n'),
                               pPart->includePaths,
                               pPart->frameworkPaths);
 }
+
 
 QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManagerInterface::ProjectPart::Language lang,
                                                       bool isObjC,
@@ -133,6 +153,11 @@ QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManager
 #endif
 
     return result;
+}
+
+QStringList ClangCodeModel::Utils::clangNonProjectFileOptions()
+{
+    return QStringList() << QLatin1String("-std=c++11");
 }
 
 QString ClangCodeModel::Utils::clangOptionForObjC(bool cxxEnabled)
