@@ -27,68 +27,10 @@
 **
 ****************************************************************************/
 
-#ifndef CLANGINDEXER_H
-#define CLANGINDEXER_H
-
 #include "fastindexer.h"
 
-#include <cpptools/cppindexingsupport.h>
+using namespace ClangCodeModel::Internal;
 
-#include <QObject>
-
-namespace ClangCodeModel {
-
-class Indexer;
-
-namespace Internal {
-
-class ClangIndexer;
-class ClangSymbolSearcher;
-
-class ClangIndexingSupport: public CppTools::CppIndexingSupport
+FastIndexer::~FastIndexer()
 {
-public:
-    ClangIndexingSupport(ClangIndexer *indexer);
-    virtual ~ClangIndexingSupport();
-
-    virtual QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
-    virtual CppTools::SymbolSearcher *createSymbolSearcher(CppTools::SymbolSearcher::Parameters parameters, QSet<QString> fileNames);
-
-private:
-    ClangIndexer *m_indexer;
-};
-
-class ClangIndexer: public QObject, public FastIndexer
-{
-    Q_OBJECT
-
-public:
-    ClangIndexer();
-    ~ClangIndexer();
-
-    CppTools::CppIndexingSupport *indexingSupport();
-
-    QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
-
-    void match(ClangSymbolSearcher *searcher) const;
-
-    void indexNow(const Unit &unit);
-
-public slots:
-    void onAboutToLoadSession(const QString &sessionName);
-    void onSessionLoaded();
-    void onAboutToUnloadSession();
-
-private slots:
-    void onIndexingStarted(QFuture<void> indexingFuture);
-
-private:
-    QScopedPointer<ClangIndexingSupport> m_indexingSupport;
-    bool m_isLoadingSession;
-    Indexer *m_clangIndexer;
-};
-
-} // namespace Internal
-} // namespace ClangCodeModel
-
-#endif // CLANGINDEXER_H
+}

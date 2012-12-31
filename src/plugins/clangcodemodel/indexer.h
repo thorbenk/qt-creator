@@ -35,6 +35,7 @@
 
 #include "clang_global.h"
 #include "symbol.h"
+#include "unit.h"
 
 #include <cpptools/ModelManagerInterface.h>
 
@@ -88,6 +89,8 @@ public:
     QList<Symbol> allFromFile(const QString &fileName) const;
 
     void match(Internal::ClangSymbolSearcher *searcher) const;
+
+    void runQuickIndexing(const Internal::Unit &unit, const ProjectPart::Ptr &part);
 
 signals:
     void indexingStarted(QFuture<void> future);

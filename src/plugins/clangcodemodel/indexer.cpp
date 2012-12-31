@@ -104,7 +104,7 @@ struct IndexingResult
     ProjectPart::Ptr m_projectPart;
 };
 
-class ProjectPartIndexer;
+class LibClangIndexer;
 
 class IndexerPrivate : public QObject
 {
@@ -145,7 +145,7 @@ public:
     };
 
     void synchronize(const QVector<IndexingResult> &results);
-    void finished(ProjectPartIndexer *ppIndexer);
+    void finished(LibClangIndexer *indexer);
     bool noIndexersRunning() const;
 
 private:
@@ -171,6 +171,7 @@ public:
     void computeDependencyGraph();
     void analyzeRestoredSymbols();
 
+    void runQuickIndexing(const Unit &unit, const ProjectPart::Ptr &part);
     void run();
     void run(const QStringList &fileNames);
     QFuture<void> runCore(const QHash<QString, FileData> &headers,
@@ -210,7 +211,7 @@ public:
     QScopedPointer<QFutureWatcher<void> >m_loadingWatcher;
     QScopedPointer<QFutureWatcher<void> >m_indexingWatcher;
     QThreadPool m_indexingPool;
-    QSet<ProjectPartIndexer *> m_runningIndexers;
+    QSet<LibClangIndexer *> m_runningIndexers;
 };
 
 } // ClangCodeModel
@@ -231,134 +232,52 @@ struct ScopepTimer
 
 namespace ClangCodeModel {
 
-class ProjectPartIndexer: public QRunnable
+class LibClangIndexer: public QRunnable
 {
+protected:
     typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
 
 public:
-    ProjectPartIndexer(IndexerPrivate *indexer, const QList<IndexerPrivate::FileData> &todo)
-        : m_todo(todo)
-        , m_indexer(indexer)
+    LibClangIndexer(IndexerPrivate *indexer)
+        : m_indexer(indexer)
         , m_isCanceled(false)
+    {}
+
+    virtual ~LibClangIndexer()
     {}
 
     void cancel()
     { m_isCanceled = true; }
 
-    void run()
+protected:
+    void propagateResults(const ProjectPart::Ptr &projectPart)
     {
-        if (isCanceled() || m_todo.isEmpty()) {
-            finish();
-            return;
-        }
+        if (!isCanceled()) {
+            QVector<IndexingResult> indexingResults;
+            indexingResults.resize(m_allFiles.size());
 
-        const ProjectPart::Ptr &pPart = m_todo[0].m_projectPart;
+            foreach (const QString &fn, m_allFiles.keys()) {
+                QVector<ClangCodeModel::Symbol> symbols; unfoldSymbols(symbols, fn);
+                QSet<QString> processedFiles = QSet<QString>::fromList(m_allFiles.keys());
+                Unit unit(fn);
+                IndexingResult indexingResult(symbols, processedFiles, unit, projectPart);
+                indexingResults.append(indexingResult);
 
-        QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart);
-
-        /*
-         * Optimization: last option in "opts" is -ObjC++ or -ObjC,
-         * for C++ files it's not used (lesser num_command_line_args passed)
-         */
-        const int optsSize = opts.size();
-        const bool isCXX = pPart.isNull() || pPart->language == ProjectPart::CXX || pPart->language == ProjectPart::CXX11;
-        opts += ClangCodeModel::Utils::clangOptionForObjC(isCXX);
-        const int optsSizeObjC = opts.size();
-
-        const char **rawOpts = new const char*[optsSizeObjC];
-        for (int i = 0; i < optsSizeObjC; ++i)
-            rawOpts[i] = qstrdup(opts[i].toUtf8());
-
-        CXIndex Idx;
-        if (!(Idx = clang_createIndex(/* excludeDeclsFromPCH */ 1,
-                                      /* displayDiagnosics=*/1))) {
-          qDebug() << "Could not create Index";
-          finish();
-          return;
-        }
-
-        CXIndexAction idxAction = clang_IndexAction_create(Idx);
-
-        for (int i = 0; i < m_todo.size(); ++i) {
-            const IndexerPrivate::FileData &fd = m_todo.at(i);
-            if (fd.m_upToDate)
-                continue;
-
-            const bool isObjC = pPart.isNull() || pPart->objcSourceFiles.contains(fd.m_fileName);
-            const int usedOptSize =  isObjC ? optsSizeObjC : optsSize;
-            QByteArray fileName = fd.m_fileName.toUtf8();
-
-            unsigned index_opts = CXIndexOpt_SuppressWarnings;
-            unsigned parsingOptions = fd.m_managementOptions;
-            parsingOptions |= CXTranslationUnit_SkipFunctionBodies;
-
-            /*int result =*/ clang_indexSourceFile(idxAction, this,
-                                               &IndexCB, sizeof(IndexCB),
-                                               index_opts, fileName.constData(),
-                                               rawOpts, usedOptSize, 0, 0, 0,
-                                               parsingOptions);
-
-            // TODO: index imported ASTs:
-#if 0
-            if (index_data.fail_for_error)
-                result = -1;
-
-            if (full) {
-                CXTranslationUnit TU;
-                unsigned i;
-
-                for (i = 0; i < index_data.importedASTs->num_files; ++i) {
-                    if (!CreateTranslationUnit(Idx, index_data.importedASTs->filenames[i],
-                                               &TU)) {
-                        result = -1;
-                        continue;
-                    }
-                    result = clang_indexTranslationUnit(idxAction, &index_data,
-                                                        &IndexCB,sizeof(IndexCB),
-                                                        index_opts, TU);
-                    clang_disposeTranslationUnit(TU);
-                }
+                // TODO: includes need to be propagated to the dependency table.
             }
-#endif
-
-            if (!isCanceled()) {
-                QVector<IndexingResult> indexingResults;
-                indexingResults.resize(m_allFiles.size());
-
-                foreach (const QString &fn, m_allFiles.keys()) {
-                    QVector<ClangCodeModel::Symbol> symbols; unfoldSymbols(symbols, fn);
-                    QSet<QString> processedFiles = QSet<QString>::fromList(m_allFiles.keys());
-                    Unit unit(fn);
-                    ProjectPart::Ptr projectPart = fd.m_projectPart;
-                    IndexingResult indexingResult(symbols, processedFiles, unit, projectPart);
-                    indexingResults.append(indexingResult);
-
-                    // TODO: includes need to be propagated to the dependency table.
-                }
-                m_indexer->synchronize(indexingResults);
-            }
-
-            qDeleteAll(m_allFiles.values());
-            m_allFiles.clear();
-            qDeleteAll(m_allSymbols);
-            m_allSymbols.clear();
-            m_importedASTs.clear();
-            if (isCanceled())
-                break;
+            m_indexer->synchronize(indexingResults);
         }
 
-//        dumpInfo();
-
-        clang_IndexAction_dispose(idxAction);
-        clang_disposeIndex(Idx);
-
-        delete[] rawOpts;
-        finish();
+        qDeleteAll(m_allFiles.values());
+        m_allFiles.clear();
+        qDeleteAll(m_allSymbols);
+        m_allSymbols.clear();
+        m_importedASTs.clear();
     }
 
-private:
-    static inline ProjectPartIndexer *indexer(CXClientData d)
-    { return static_cast<ProjectPartIndexer *>(d); }
+protected:
+    static inline LibClangIndexer *indexer(CXClientData d)
+    { return static_cast<LibClangIndexer *>(d); }
 
     static int abortQuery(CXClientData client_data, void *reserved) {
         Q_UNUSED(reserved);
@@ -378,14 +297,14 @@ private:
 
         const QString fileName = getQString(clang_getFileName(file));
 //        qDebug() << "enteredMainFile:" << fileName;
-        ProjectPartIndexer *ppi = indexer(client_data);
-        File *f = ppi->file(fileName);
+        LibClangIndexer *lci = indexer(client_data);
+        File *f = lci->file(fileName);
         f->setMainFile();
 
         return f;
     }
 
-    static CXIdxClientFile ppIncludedFile(CXClientData client_data, const CXIdxIncludedFileInfo *info) {
+    static CXIdxClientFile includedFile(CXClientData client_data, const CXIdxIncludedFileInfo *info) {
         Q_UNUSED(client_data);
 
         File *includingFile = 0;
@@ -420,7 +339,7 @@ private:
     }
 
     static void indexDeclaration(CXClientData client_data, const CXIdxDeclInfo *info) {
-        ProjectPartIndexer *ppi = indexer(client_data);
+        LibClangIndexer *lci = indexer(client_data);
 
         File *includingFile = 0;
         unsigned line = 0, column = 0, offset = 0;
@@ -429,11 +348,13 @@ private:
         QString kind = getQString(clang_getCursorKindSpelling(info->cursor.kind));
         QString displayName = getQString(clang_getCursorDisplayName(info->cursor));
         QString spellingName = getQString(clang_getCursorSpelling(info->cursor));
-//        qDebug() << includingFile->name() << ":"<<line<<":"<<column<<": display name ="<<displayName<<"spelling name ="<<spellingName<<"of kind"<<kind;
-        Symbol *sym = ppi->newSymbol(info->cursor.kind, displayName, spellingName, includingFile, line, column, offset);
+//        qDebug() << (includingFile ? includingFile->name() : QLatin1String("<UNKNOWN FILE>")) << ":"<<line<<":"<<column<<": display name ="<<displayName<<"spelling name ="<<spellingName<<"of kind"<<kind;
+
+        Symbol *sym = lci->newSymbol(info->cursor.kind, displayName, spellingName, includingFile, line, column, offset);
 
         // TODO: add to decl container...
-        includingFile->addSymbol(sym);
+        if (includingFile) // TODO: check why includingFile can be null...
+            includingFile->addSymbol(sym);
 
         if (const CXIdxContainerInfo *semanticContainer = info->semanticContainer) {
             if (Symbol *container = static_cast<Symbol *>(clang_index_getClientContainer(semanticContainer))) {
@@ -456,7 +377,7 @@ private:
         // TODO: well, we do get the info, so why not (optionally?) remember all references?
     }
 
-private:
+protected:
     struct File;
     struct Symbol;
 
@@ -486,7 +407,10 @@ private:
         { return m_isMainFile; }
 
         void addSymbol(Symbol *symbol)
-        { m_symbols.append(symbol); }
+        {
+            assert(symbol);
+            m_symbols.append(symbol);
+        }
 
         QVector<Symbol *> symbols() const
         { return m_symbols; }
@@ -525,7 +449,7 @@ private:
         QVector<Symbol *> symbols;
     };
 
-private:
+protected:
     bool isCanceled() const
     { return m_isCanceled; }
 
@@ -586,6 +510,9 @@ private:
     }
 
     void unfoldSymbols(const Symbol *s, QVector<ClangCodeModel::Symbol> &result) {
+        if (!s->file)
+            return;
+
         ClangCodeModel::Symbol sym;
         sym.m_name = s->spellingName;
         sym.m_qualification = s->spellingName;
@@ -612,11 +539,10 @@ private:
         result.append(sym);
     }
 
-private:
+protected:
     static IndexerCallbacks IndexCB;
 
-private:
-    QList<IndexerPrivate::FileData> m_todo;
+protected:
     IndexerPrivate *m_indexer;
     bool m_isCanceled;
     QStringList m_importedASTs;
@@ -624,15 +550,148 @@ private:
     QVector<Symbol *> m_allSymbols;
 };
 
-IndexerCallbacks ProjectPartIndexer::IndexCB = {
+IndexerCallbacks LibClangIndexer::IndexCB = {
     abortQuery,
     diagnostic,
     enteredMainFile,
-    ppIncludedFile,
+    includedFile,
     importedASTFile,
     startedTranslationUnit,
     indexDeclaration,
     indexEntityReference
+};
+
+class ProjectPartIndexer: public LibClangIndexer
+{
+public:
+    ProjectPartIndexer(IndexerPrivate *indexer, const QList<IndexerPrivate::FileData> &todo)
+        : LibClangIndexer(indexer)
+        , m_todo(todo)
+    {}
+
+    void run()
+    {
+        if (isCanceled() || m_todo.isEmpty()) {
+            finish();
+            return;
+        }
+
+        const ProjectPart::Ptr &pPart = m_todo[0].m_projectPart;
+
+        QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart);
+        const int optsSize = opts.size();
+
+        const bool isCXX = pPart.isNull() || pPart->language == ProjectPart::CXX || pPart->language == ProjectPart::CXX11;
+        opts += ClangCodeModel::Utils::clangOptionForObjC(isCXX);
+        const int optsSizeObjC = opts.size();
+
+        const char **rawOpts = new const char*[optsSizeObjC];
+        for (int i = 0; i < optsSizeObjC; ++i)
+            rawOpts[i] = qstrdup(opts[i].toUtf8());
+
+        CXIndex Idx;
+        if (!(Idx = clang_createIndex(/* excludeDeclsFromPCH */ 1,
+                                      /* displayDiagnosics=*/1))) {
+          qDebug() << "Could not create Index";
+          return;
+        }
+
+        CXIndexAction idxAction = clang_IndexAction_create(Idx);
+        const unsigned index_opts = CXIndexOpt_SuppressWarnings;
+
+        for (int i = 0; i < m_todo.size(); ++i) {
+            const IndexerPrivate::FileData &fd = m_todo.at(i);
+            if (fd.m_upToDate)
+                continue;
+
+            const int usedOptSize = (pPart.isNull() || pPart->objcSourceFiles.contains(fd.m_fileName)) ? optsSizeObjC : optsSize;
+            QByteArray fileName = fd.m_fileName.toUtf8();
+
+//            qDebug() << "Indexing file" << fd.m_fileName << "...";
+            unsigned parsingOptions = fd.m_managementOptions;
+            parsingOptions |= CXTranslationUnit_SkipFunctionBodies;
+
+            /*int result =*/ clang_indexSourceFile(idxAction, this,
+                                                   &IndexCB, sizeof(IndexCB),
+                                                   index_opts, fileName.constData(),
+                                                   rawOpts, usedOptSize, 0, 0, 0,
+                                                   parsingOptions);
+
+            // TODO: index imported ASTs:
+#if 0
+            if (index_data.fail_for_error)
+                result = -1;
+
+            if (full) {
+                CXTranslationUnit TU;
+                unsigned i;
+
+                for (i = 0; i < index_data.importedASTs->num_files; ++i) {
+                    if (!CreateTranslationUnit(Idx, index_data.importedASTs->filenames[i],
+                                               &TU)) {
+                        result = -1;
+                        continue;
+                    }
+                    result = clang_indexTranslationUnit(idxAction, &index_data,
+                                                        &IndexCB,sizeof(IndexCB),
+                                                        index_opts, TU);
+                    clang_disposeTranslationUnit(TU);
+                }
+            }
+#endif
+
+            propagateResults(fd.m_projectPart);
+            if (isCanceled())
+                break;
+        }
+
+//        dumpInfo();
+
+        clang_IndexAction_dispose(idxAction);
+        clang_disposeIndex(Idx);
+        delete[] rawOpts;
+
+        finish();
+    }
+
+private:
+    QList<IndexerPrivate::FileData> m_todo;
+};
+
+class QuickIndexer: public LibClangIndexer
+{
+public:
+    QuickIndexer(IndexerPrivate *indexer, const Unit &unit, const ProjectPart::Ptr &projectPart)
+        : LibClangIndexer(indexer)
+        , m_unit(unit)
+        , m_projectPart(projectPart)
+    {}
+
+    void run()
+    {
+        if (isCanceled()) {
+            finish();
+            return;
+        }
+
+        CXIndexAction idxAction = clang_IndexAction_create(m_unit.clangIndex());
+        const unsigned index_opts = CXIndexOpt_SuppressWarnings;
+
+//        qDebug() << "Indexing TU" << m_unit.fileName() << "...";
+        /*int result =*/ clang_indexTranslationUnit(idxAction, this,
+                                                    &IndexCB, sizeof(IndexCB),
+                                                    index_opts,
+                                                    m_unit.clangTranslationUnit());
+
+        propagateResults(m_projectPart);
+
+        clang_IndexAction_dispose(idxAction);
+        finish();
+    }
+
+private:
+    Unit m_unit;
+    ProjectPart::Ptr m_projectPart;
 };
 
 } // ClangCodeModel
@@ -806,11 +865,11 @@ void IndexerPrivate::synchronize(const QVector<IndexingResult> &results)
     }
 }
 
-void IndexerPrivate::finished(ProjectPartIndexer *ppIndexer)
+void IndexerPrivate::finished(LibClangIndexer *indexer)
 {
     QMutexLocker locker(&m_mutex);
 
-    m_runningIndexers.remove(ppIndexer);
+    m_runningIndexers.remove(indexer);
     if (noIndexersRunning())
         indexingFinished();
 }
@@ -840,7 +899,7 @@ void IndexerPrivate::cancelIndexing()
 {
     QMutexLocker locker(&m_mutex);
 
-    foreach (ProjectPartIndexer* partIndexer, m_runningIndexers) {
+    foreach (LibClangIndexer* partIndexer, m_runningIndexers) {
         partIndexer->cancel();
     }
 }
@@ -852,8 +911,8 @@ int IndexerPrivate::runningIndexerCount() const
 }
 
 void IndexerPrivate::addOrUpdateFileData(const QString &fileName,
-                                 ProjectPart::Ptr projectPart,
-                                 bool upToDate)
+                                         ProjectPart::Ptr projectPart,
+                                         bool upToDate)
 {
     Q_ASSERT(QDir::isAbsolutePath(fileName));
 
@@ -1026,6 +1085,16 @@ void IndexerPrivate::analyzeRestoredSymbols()
         if (!upToDate && m_index.containsFile(fileName))
             m_index.removeFile(fileName);
     }
+}
+
+void IndexerPrivate::runQuickIndexing(const Unit &unit, const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part)
+{
+    QMutexLocker locker(&m_mutex);
+
+    addOrUpdateFileData(unit.fileName(), part, false);
+
+    QuickIndexer indexer(this, unit, part);
+    indexer.run();
 }
 
 void IndexerPrivate::restoredSymbolsAnalysed()
@@ -1210,6 +1279,11 @@ QList<Symbol> Indexer::allFromFile(const QString &fileName) const
 void Indexer::match(ClangSymbolSearcher *searcher) const
 {
     m_d->match(searcher);
+}
+
+void Indexer::runQuickIndexing(const Unit &unit, const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part)
+{
+    m_d->runQuickIndexing(unit, part);
 }
 
 #include "indexer.moc"

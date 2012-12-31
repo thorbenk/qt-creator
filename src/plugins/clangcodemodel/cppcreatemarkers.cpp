@@ -44,28 +44,32 @@
 //#define DEBUG_TIMING
 
 using namespace ClangCodeModel;
+using namespace ClangCodeModel::Internal;
 using namespace CppTools;
 
 CreateMarkers *CreateMarkers::create(SemanticMarker::Ptr semanticMarker,
                                      const QString &fileName,
                                      const QStringList &options,
-                                     unsigned firstLine, unsigned lastLine)
+                                     unsigned firstLine, unsigned lastLine,
+                                     FastIndexer *fastIndexer)
 {
     if (semanticMarker.isNull())
         return 0;
     else
-        return new CreateMarkers(semanticMarker, fileName, options, firstLine, lastLine);
+        return new CreateMarkers(semanticMarker, fileName, options, firstLine, lastLine, fastIndexer);
 }
 
 CreateMarkers::CreateMarkers(SemanticMarker::Ptr semanticMarker,
                              const QString &fileName,
                              const QStringList &options,
-                             unsigned firstLine, unsigned lastLine)
+                             unsigned firstLine, unsigned lastLine,
+                             FastIndexer *fastIndexer)
     : m_marker(semanticMarker)
     , m_fileName(fileName)
     , m_options(options)
     , m_firstLine(firstLine)
     , m_lastLine(lastLine)
+    , m_fastIndexer(fastIndexer)
 {
     Q_ASSERT(!semanticMarker.isNull());
 
@@ -115,6 +119,7 @@ void CreateMarkers::run()
     QList<ClangCodeModel::SourceMarker> markers = m_marker->sourceMarkersInRange(m_firstLine, m_lastLine);
     foreach (const ClangCodeModel::SourceMarker &m, markers)
         addUse(SourceMarker(m.location().line(), m.location().column(), m.length(), m.kind()));
+
     if (isCanceled())
         return;
 
@@ -123,6 +128,14 @@ void CreateMarkers::run()
 
 #ifdef DEBUG_TIMING
     qDebug() << "*** Highlighting took" << t.elapsed() << "ms in total.";
+    t.restart();
+#endif // DEBUG_TIMING
+
+    if (m_fastIndexer)
+        m_fastIndexer->indexNow(m_marker->unit());
+
+#ifdef DEBUG_TIMING
+    qDebug() << "*** Fast re-indexing took" << t.elapsed() << "ms in total.";
 #endif // DEBUG_TIMING
 }
 

@@ -31,6 +31,7 @@
 #include "clangsymbolsearcher.h"
 #include "clangutils.h"
 #include "indexer.h"
+#include "liveunitsmanager.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/progressmanager/progressmanager.h>
@@ -97,11 +98,14 @@ QFuture<void> ClangIndexer::refreshSourceFiles(const QStringList &sourceFiles)
 {
     typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
     CPlusPlus::CppModelManagerInterface *mmi = CPlusPlus::CppModelManagerInterface::instance();
+    LiveUnitsManager *lum = LiveUnitsManager::instance();
 
     if (m_clangIndexer->isBusy())
         m_clangIndexer->cancel(true);
 
     foreach (const QString &file, sourceFiles) {
+        if (lum->isTracking(file))
+            continue; // we get notified separately about open files.
         const QList<ProjectPart::Ptr> &parts = mmi->projectPart(file);
         if (!parts.isEmpty())
             m_clangIndexer->addFile(file, parts.at(0));
@@ -143,10 +147,19 @@ void ClangIndexer::onAboutToUnloadSession()
     m_clangIndexer->finalize();
 }
 
-//void CppModelManager::refreshSourceFile_Clang(const QString &sourceFile)
-//{
-//    m_clangIndexer.evaluateFile(sourceFile);
-//}
+void ClangIndexer::indexNow(const ClangCodeModel::Internal::Unit &unit)
+{
+    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+
+    QString file = unit.fileName();
+    CPlusPlus::CppModelManagerInterface *mmi = CPlusPlus::CppModelManagerInterface::instance();
+    const QList<ProjectPart::Ptr> &parts = mmi->projectPart(file);
+    ProjectPart::Ptr part;
+    if (!parts.isEmpty())
+        part = parts.at(0);
+    if (!m_isLoadingSession)
+        m_clangIndexer->runQuickIndexing(unit, part);
+}
 
 void ClangIndexer::onIndexingStarted(QFuture<void> indexingFuture)
 {

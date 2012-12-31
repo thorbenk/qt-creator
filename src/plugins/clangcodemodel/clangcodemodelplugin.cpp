@@ -31,6 +31,7 @@
 **************************************************************************/
 
 #include "clangcodemodelplugin.h"
+#include "fastindexer.h"
 #include "utils.h"
 
 #include <coreplugin/coreconstants.h>
@@ -59,20 +60,28 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 
     ClangCodeModel::initializeClang();
 
+    connect(Core::ICore::editorManager(), SIGNAL(editorAboutToClose(Core::IEditor*)),
+            &m_liveUnitsManager, SLOT(editorAboutToClose(Core::IEditor*)));
+
 #ifdef CLANG_COMPLETION
     m_completionAssistProvider.reset(new ClangCompletionAssistProvider);
     CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(m_completionAssistProvider.data());
 #endif // CLANG_COMPLETION
 
-#ifdef CLANG_HIGHLIGHTING
-    m_highlightingFactory.reset(new ClangHighlightingSupportFactory);
-    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory.data());
-#endif // CLANG_HIGHLIGHTING
+    FastIndexer *fastIndexer = 0;
 
 #ifdef CLANG_INDEXING
     m_indexer.reset(new ClangIndexer);
+    fastIndexer = m_indexer.data();
     CPlusPlus::CppModelManagerInterface::instance()->setIndexingSupport(m_indexer->indexingSupport());
 #endif // CLANG_INDEXING
+
+#ifdef CLANG_HIGHLIGHTING
+    m_highlightingFactory.reset(new ClangHighlightingSupportFactory(fastIndexer));
+    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory.data());
+#else // !CLANG_HIGHLIGHTING
+    Q_UNUSED(fastIndexer);
+#endif // CLANG_HIGHLIGHTING
 
     return true;
 }

@@ -35,6 +35,8 @@
 
 #include "unit.h"
 
+#include <coreplugin/editormanager/ieditor.h>
+
 #include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtCore/QHash>
@@ -45,10 +47,10 @@ namespace Internal {
 class LiveUnitsManager : public QObject
 {
     Q_OBJECT
-private:
-    LiveUnitsManager();
 
 public:
+    LiveUnitsManager();
+    ~LiveUnitsManager();
     static LiveUnitsManager *instance();
 
     void requestTracking(const QString &fileName);
@@ -58,10 +60,14 @@ public:
     void updateUnit(const QString &fileName, const Unit &unit);
     Unit unit(const QString &fileName);
 
+public slots:
+    void editorAboutToClose(Core::IEditor*editor);
+
 signals:
-    void unitAvailable(Unit unit);
+    void unitAvailable(const ClangCodeModel::Internal::Unit &unit);
 
 private:
+    static LiveUnitsManager *m_instance;
     QHash<QString, Unit> m_units;
 };
 

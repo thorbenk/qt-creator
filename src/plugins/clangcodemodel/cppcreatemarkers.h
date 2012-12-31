@@ -33,6 +33,7 @@
 #ifndef CPPCREATEMARKERS_H
 #define CPPCREATEMARKERS_H
 
+#include "fastindexer.h"
 #include "sourcemarker.h"
 #include "semanticmarker.h"
 
@@ -72,7 +73,8 @@ public:
     static CreateMarkers *create(ClangCodeModel::SemanticMarker::Ptr semanticMarker,
                                  const QString &fileName,
                                  const QStringList &options,
-                                 unsigned firstLine, unsigned lastLine);
+                                 unsigned firstLine, unsigned lastLine,
+                                 Internal::FastIndexer *fastIndexer);
 
     void addUse(const SourceMarker &marker);
     void flush();
@@ -83,7 +85,8 @@ signals:
 protected:
     CreateMarkers(ClangCodeModel::SemanticMarker::Ptr semanticMarker,
                   const QString &fileName, const QStringList &options,
-                  unsigned firstLine, unsigned lastLine);
+                  unsigned firstLine, unsigned lastLine,
+                  Internal::FastIndexer *fastIndexer);
 
 private:
     ClangCodeModel::SemanticMarker::Ptr m_marker;
@@ -91,6 +94,7 @@ private:
     QStringList m_options;
     unsigned m_firstLine;
     unsigned m_lastLine;
+    Internal::FastIndexer *m_fastIndexer;
     QVector<SourceMarker> m_usages;
     bool m_flushRequested;
     unsigned m_flushLine;

@@ -363,3 +363,8 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
 
     return result;
 }
+
+Unit SemanticMarker::unit() const
+{
+    return *m_unit;
+}

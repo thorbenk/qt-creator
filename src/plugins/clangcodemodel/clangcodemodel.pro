@@ -47,8 +47,8 @@ SOURCES += \
     $$PWD/semanticmarker.cpp \
     $$PWD/diagnostic.cpp \
     $$PWD/unsavedfiledata.cpp \
-    $$PWD/clangsymbolsearcher.cpp
-
+    $$PWD/clangsymbolsearcher.cpp \
+    $$PWD/fastindexer.cpp
 
 HEADERS += \
     $$PWD/clangcodemodelplugin.h \
@@ -67,7 +67,8 @@ HEADERS += \
     $$PWD/semanticmarker.h \
     $$PWD/diagnostic.h \
     $$PWD/unsavedfiledata.h \
-    $$PWD/clangsymbolsearcher.h
+    $$PWD/clangsymbolsearcher.h \
+    $$PWD/fastindexer.h
 
 contains(DEFINES, CLANG_INDEXING) {
     HEADERS += \

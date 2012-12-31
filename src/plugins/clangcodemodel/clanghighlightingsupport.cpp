@@ -85,8 +85,9 @@ void DiagnosticsHandler::setDiagnostics(const QList<ClangCodeModel::Diagnostic> 
     ed->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection, selections);
 }
 
-ClangHighlightingSupport::ClangHighlightingSupport(TextEditor::ITextEditor *textEditor)
+ClangHighlightingSupport::ClangHighlightingSupport(TextEditor::ITextEditor *textEditor, FastIndexer *fastIndexer)
     : CppHighlightingSupport(textEditor)
+    , m_fastIndexer(fastIndexer)
     , m_semanticMarker(new ClangCodeModel::SemanticMarker)
     , m_diagnosticsHandler(new DiagnosticsHandler(textEditor))
 {
@@ -118,7 +119,7 @@ QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFutur
     }
 
     //### FIXME: the range is way too big.. can't we just update the visible lines?
-    CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker, fileName, options, firstLine, lastLine);
+    CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker, fileName, options, firstLine, lastLine, m_fastIndexer);
     QObject::connect(createMarkers, SIGNAL(diagnosticsReady(const QList<ClangCodeModel::Diagnostic> &)),
                      m_diagnosticsHandler.data(), SLOT(setDiagnostics(const QList<ClangCodeModel::Diagnostic> &)));
     return createMarkers->start();
@@ -130,5 +131,5 @@ ClangHighlightingSupportFactory::~ClangHighlightingSupportFactory()
 
 CppHighlightingSupport *ClangHighlightingSupportFactory::highlightingSupport(TextEditor::ITextEditor *editor)
 {
-    return new ClangHighlightingSupport(editor);
+    return new ClangHighlightingSupport(editor, m_fastIndexer);
 }

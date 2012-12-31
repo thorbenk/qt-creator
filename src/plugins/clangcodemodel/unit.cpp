@@ -337,6 +337,20 @@ void Unit::annotateTokens(CXToken *tokens, unsigned tokenCount, CXCursor *cursor
     clang_annotateTokens(m_data->m_tu, tokens, tokenCount, cursors);
 }
 
+CXTranslationUnit Unit::clangTranslationUnit() const
+{
+    Q_ASSERT(isLoaded());
+
+    return m_data->m_tu;
+}
+
+CXIndex Unit::clangIndex() const
+{
+    Q_ASSERT(isLoaded());
+
+    return m_data->m_index;
+}
+
 CXCursor Unit::getTranslationUnitCursor() const
 {
     Q_ASSERT(isLoaded());

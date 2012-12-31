@@ -35,6 +35,7 @@
 
 #include "clang_global.h"
 #include "diagnostic.h"
+#include "fastindexer.h"
 #include "sourcemarker.h"
 #include "utils.h"
 
@@ -75,6 +76,8 @@ public:
 
     QList<SourceMarker> sourceMarkersInRange(unsigned firstLine,
                                              unsigned lastLine);
+
+    Internal::Unit unit() const;
 
 private:
     mutable QMutex m_mutex;

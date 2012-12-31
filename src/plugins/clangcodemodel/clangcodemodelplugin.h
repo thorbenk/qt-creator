@@ -33,6 +33,8 @@
 #ifndef CLANGPLUGIN_H
 #define CLANGPLUGIN_H
 
+#include "liveunitsmanager.h"
+
 #ifdef CLANG_HIGHLIGHTING
 #  include "clanghighlightingsupport.h"
 #endif // CLANG_HIGHLIGHTING
@@ -64,6 +66,7 @@ public:
     virtual ShutdownFlag aboutToShutdown();
 
 private:
+    LiveUnitsManager m_liveUnitsManager;
     QScopedPointer<ClangCompletionAssistProvider> m_completionAssistProvider;
     QScopedPointer<ClangHighlightingSupportFactory> m_highlightingFactory;
     QScopedPointer<ClangIndexer> m_indexer;

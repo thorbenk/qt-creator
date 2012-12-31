@@ -3,6 +3,7 @@
 
 #include "clangutils.h"
 #include "cppcreatemarkers.h"
+#include "fastindexer.h"
 
 #include <cpptools/cpphighlightingsupport.h>
 
@@ -31,13 +32,14 @@ private:
 class ClangHighlightingSupport: public CppTools::CppHighlightingSupport
 {
 public:
-    ClangHighlightingSupport(TextEditor::ITextEditor *textEditor);
+    ClangHighlightingSupport(TextEditor::ITextEditor *textEditor, Internal::FastIndexer *fastIndexer);
     ~ClangHighlightingSupport();
 
     virtual QFuture<Use> highlightingFuture(const CPlusPlus::Document::Ptr &doc,
                                             const CPlusPlus::Snapshot &snapshot) const;
 
 private:
+    Internal::FastIndexer *m_fastIndexer;
     ClangCodeModel::SemanticMarker::Ptr m_semanticMarker;
     QScopedPointer<Internal::DiagnosticsHandler> m_diagnosticsHandler;
 };
@@ -45,12 +47,19 @@ private:
 class ClangHighlightingSupportFactory: public CppTools::CppHighlightingSupportFactory
 {
 public:
+    ClangHighlightingSupportFactory(Internal::FastIndexer *fastIndexer)
+        : m_fastIndexer(fastIndexer)
+    {}
+
     virtual ~ClangHighlightingSupportFactory();
 
     virtual CppTools::CppHighlightingSupport *highlightingSupport(TextEditor::ITextEditor *editor);
 
     virtual bool hightlighterHandlesDiagnostics() const
     { return true; }
+
+private:
+    Internal::FastIndexer *m_fastIndexer;
 };
 
 } // namespace ClangCodeModel

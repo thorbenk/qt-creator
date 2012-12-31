@@ -38,6 +38,7 @@
 #include <clang-c/Index.h>
 
 #include <QExplicitlySharedDataPointer>
+#include <QMetaType>
 #include <QString>
 #include <QStringList>
 #include <QVarLengthArray>
@@ -145,6 +146,9 @@ public:
     CXSourceRange getTokenExtent(const CXToken &token) const;
     void annotateTokens(CXToken *tokens, unsigned tokenCount, CXCursor *cursors) const;
 
+    CXTranslationUnit clangTranslationUnit() const;
+    CXIndex clangIndex() const;
+
 private:
     QExplicitlySharedDataPointer<UnitData> m_data;
 };
@@ -181,5 +185,7 @@ private:
 
 } // Internal
 } // Clang
+
+Q_DECLARE_METATYPE(ClangCodeModel::Internal::Unit)
 
 #endif // UNIT_H

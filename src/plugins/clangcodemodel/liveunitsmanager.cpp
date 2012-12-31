@@ -32,16 +32,29 @@
 
 #include "liveunitsmanager.h"
 
+#include <coreplugin/idocument.h>
+
 using namespace ClangCodeModel;
 using namespace Internal;
 
+LiveUnitsManager *LiveUnitsManager::m_instance = 0;
+
 LiveUnitsManager::LiveUnitsManager()
-{}
+{
+    Q_ASSERT(!m_instance);
+    m_instance = this;
+
+    qRegisterMetaType<ClangCodeModel::Internal::Unit>();
+}
+
+LiveUnitsManager::~LiveUnitsManager()
+{
+    m_instance = 0;
+}
 
 LiveUnitsManager *LiveUnitsManager::instance()
 {
-    static LiveUnitsManager manager;
-    return &manager;
+    return m_instance;
 }
 
 void LiveUnitsManager::requestTracking(const QString &fileName)
@@ -78,4 +91,9 @@ void LiveUnitsManager::updateUnit(const QString &fileName, const Unit &unit)
 Unit LiveUnitsManager::unit(const QString &fileName)
 {
     return m_units.value(fileName);
+}
+
+void LiveUnitsManager::editorAboutToClose(Core::IEditor *editor)
+{
+    cancelTrackingRequest(editor->document()->fileName());
 }
