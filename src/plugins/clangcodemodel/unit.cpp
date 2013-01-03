@@ -220,7 +220,11 @@ void Unit::setManagementOptions(unsigned managementOptions)
 
 bool Unit::isUnique() const
 {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
+    return m_data->ref.load() == 1;
+#else
     return m_data->ref == 1;
+#endif
 }
 
 void Unit::makeUnique()

@@ -38,6 +38,7 @@
 #include "liveunitsmanager.h"
 #include "utils_p.h"
 #include "clangsymbolsearcher.h"
+#include "pchmanager.h"
 
 #include <clang-c/Index.h>
 
@@ -272,7 +273,6 @@ protected:
         m_allFiles.clear();
         qDeleteAll(m_allSymbols);
         m_allSymbols.clear();
-        m_importedASTs.clear();
     }
 
 protected:
@@ -322,10 +322,9 @@ protected:
     static CXIdxClientFile importedASTFile(CXClientData client_data, const CXIdxImportedASTFileInfo *info) {
         const QString fileName = getQString(clang_getFileName(info->file));
 
-        // TODO
 //        qDebug() << "importedASTFile:" << fileName;
 
-        indexer(client_data)->m_importedASTs.append(fileName);
+        indexer(client_data)->m_importedASTs.insert(fileName, false);
 
         return info->file;
     }
@@ -545,7 +544,7 @@ protected:
 protected:
     IndexerPrivate *m_indexer;
     bool m_isCanceled;
-    QStringList m_importedASTs;
+    QHash<QString, bool> m_importedASTs;
     FilesByName  m_allFiles;
     QVector<Symbol *> m_allSymbols;
 };
@@ -578,69 +577,73 @@ public:
 
         const ProjectPart::Ptr &pPart = m_todo[0].m_projectPart;
 
-        QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart);
-        const int optsSize = opts.size();
-
-        const bool isCXX = pPart.isNull() || pPart->language == ProjectPart::CXX || pPart->language == ProjectPart::CXX11;
-        opts += ClangCodeModel::Utils::clangOptionForObjC(isCXX);
-        const int optsSizeObjC = opts.size();
-
-        const char **rawOpts = new const char*[optsSizeObjC];
-        for (int i = 0; i < optsSizeObjC; ++i)
-            rawOpts[i] = qstrdup(opts[i].toUtf8());
-
-        CXIndex Idx;
-        if (!(Idx = clang_createIndex(/* excludeDeclsFromPCH */ 1,
+restart:
+        CXIndex idx;
+        if (!(idx = clang_createIndex(/* excludeDeclsFromPCH */ 1,
                                       /* displayDiagnosics=*/1))) {
           qDebug() << "Could not create Index";
           return;
         }
 
-        CXIndexAction idxAction = clang_IndexAction_create(Idx);
+        CXIndexAction idxAction = clang_IndexAction_create(idx);
         const unsigned index_opts = CXIndexOpt_SuppressWarnings;
 
-        for (int i = 0; i < m_todo.size(); ++i) {
+        PCHManager *pchManager = PCHManager::instance();
+        PCHInfo::Ptr pchInfo = pchManager->pchInfo(pPart);
+
+        for (int i = 0, ei = m_todo.size(); i < ei; ++i) {
             const IndexerPrivate::FileData &fd = m_todo.at(i);
             if (fd.m_upToDate)
                 continue;
 
-            const int usedOptSize = (pPart.isNull() || pPart->objcSourceFiles.contains(fd.m_fileName)) ? optsSizeObjC : optsSize;
+            if (pchManager->pchInfo(pPart) != pchInfo) {
+                clang_IndexAction_dispose(idxAction);
+                clang_disposeIndex(idx);
+                goto restart;
+            }
+
+            const bool isObjC = !pchInfo.isNull() && pchInfo->objcWasEnabled();
+            const bool isHeader = pPart && pPart->headerFiles.contains(fd.m_fileName);
+            QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart, isObjC, isHeader);
+            if (!pchInfo.isNull())
+                opts.append(Utils::createPCHInclusionOptions(pchInfo->fileName()));
+            const int optsSize = opts.size();
+
+            const char **rawOpts = new const char*[optsSize];
+            for (int i = 0; i < optsSize; ++i)
+                rawOpts[i] = qstrdup(opts[i].toUtf8());
+
             QByteArray fileName = fd.m_fileName.toUtf8();
 
-//            qDebug() << "Indexing file" << fd.m_fileName << "...";
+            qDebug() << "Indexing file" << fd.m_fileName << "with options" << opts;
             unsigned parsingOptions = fd.m_managementOptions;
             parsingOptions |= CXTranslationUnit_SkipFunctionBodies;
 
             /*int result =*/ clang_indexSourceFile(idxAction, this,
                                                    &IndexCB, sizeof(IndexCB),
                                                    index_opts, fileName.constData(),
-                                                   rawOpts, usedOptSize, 0, 0, 0,
+                                                   rawOpts, optsSize, 0, 0, 0,
                                                    parsingOptions);
 
-            // TODO: index imported ASTs:
-#if 0
-            if (index_data.fail_for_error)
-                result = -1;
+            // index imported ASTs:
+            foreach (const QString &astFile, m_importedASTs.keys()) {
+                if (m_importedASTs.value(astFile))
+                    continue;
 
-            if (full) {
-                CXTranslationUnit TU;
-                unsigned i;
-
-                for (i = 0; i < index_data.importedASTs->num_files; ++i) {
-                    if (!CreateTranslationUnit(Idx, index_data.importedASTs->filenames[i],
-                                               &TU)) {
-                        result = -1;
-                        continue;
-                    }
-                    result = clang_indexTranslationUnit(idxAction, &index_data,
-                                                        &IndexCB,sizeof(IndexCB),
-                                                        index_opts, TU);
+                if (CXTranslationUnit TU = clang_createTranslationUnit(
+                            idx, astFile.toUtf8().constData())) {
+                    /*result =*/ clang_indexTranslationUnit(idxAction, this,
+                                                            &IndexCB,
+                                                            sizeof(IndexCB),
+                                                            index_opts, TU);
                     clang_disposeTranslationUnit(TU);
                 }
+
+                m_importedASTs[astFile] = true;
             }
-#endif
 
             propagateResults(fd.m_projectPart);
+            delete[] rawOpts;
             if (isCanceled())
                 break;
         }
@@ -648,8 +651,7 @@ public:
 //        dumpInfo();
 
         clang_IndexAction_dispose(idxAction);
-        clang_disposeIndex(Idx);
-        delete[] rawOpts;
+        clang_disposeIndex(idx);
 
         finish();
     }
@@ -669,7 +671,7 @@ public:
 
     void run()
     {
-        if (isCanceled()) {
+        if (isCanceled() || !m_unit.isLoaded()) {
             finish();
             return;
         }

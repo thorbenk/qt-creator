@@ -9,6 +9,7 @@
 #include <QString>
 
 using namespace ClangCodeModel;
+using namespace ClangCodeModel::Internal;
 using namespace Core;
 
 UnsavedFiles ClangCodeModel::Utils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy)
@@ -44,8 +45,9 @@ QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelM
         return clangNonProjectFileOptions();
 
     const bool isObjC = fileName.isEmpty() ? false : pPart->objcSourceFiles.contains(fileName);
+    const bool isHeader = fileName.isEmpty() ? false : pPart->headerFiles.contains(fileName);
 
-    return createClangOptions(pPart, isObjC);
+    return createClangOptions(pPart, isObjC, isHeader);
 }
 
 /**
@@ -53,22 +55,37 @@ QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelM
  * @param pPart - null if file isn't part of any project
  * @param isObjectiveC - file is ObjectiveC or ObjectiveC++
  */
-QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, bool isObjectiveC)
+QStringList ClangCodeModel::Utils::createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, bool isObjectiveC, bool isHeader)
 {
     if (pPart.isNull())
         return clangNonProjectFileOptions();
 
     return createClangOptions(pPart->language,
                               isObjectiveC,
+                              isHeader,
                               pPart->qtVersion,
                               pPart->defines.split('\n'),
                               pPart->includePaths,
                               pPart->frameworkPaths);
 }
 
+namespace {
+bool isBlacklisted(const QString &path)
+{
+    static QStringList blacklistedPaths = QStringList()
+            << QLatin1String("lib/gcc/i686-apple-darwin");
+
+    foreach (const QString &blacklisted, blacklistedPaths)
+        if (path.contains(blacklisted))
+            return true;
+
+    return false;
+}
+} // anonymous namespace
 
 QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManagerInterface::ProjectPart::Language lang,
                                                       bool isObjC,
+                                                      bool isHeader,
                                                       CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
                                                       const QList<QByteArray> &defines,
                                                       const QStringList &includePaths,
@@ -79,23 +96,19 @@ QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManager
     switch (lang) {
     case CPlusPlus::CppModelManagerInterface::ProjectPart::C89:
         result << QLatin1String("-std=gnu89");
-        if (isObjC)
-            result << ClangCodeModel::Utils::clangOptionForObjC(false);
+        result << ClangCodeModel::Utils::clangLanguageOption(false, isHeader, isObjC);
         break;
     case CPlusPlus::CppModelManagerInterface::ProjectPart::C99:
         result << QLatin1String("-std=gnu99");
-        if (isObjC)
-            result << ClangCodeModel::Utils::clangOptionForObjC(false);
+        result << ClangCodeModel::Utils::clangLanguageOption(false, isHeader, isObjC);
         break;
     case CPlusPlus::CppModelManagerInterface::ProjectPart::CXX:
         result << QLatin1String("-std=gnu++98");
-        if (isObjC)
-            result << ClangCodeModel::Utils::clangOptionForObjC(true);
+        result << ClangCodeModel::Utils::clangLanguageOption(true, isHeader, isObjC);
         break;
     case CPlusPlus::CppModelManagerInterface::ProjectPart::CXX11:
         result << QLatin1String("-std=c++11");
-        if (isObjC)
-            result << ClangCodeModel::Utils::clangOptionForObjC(true);
+        result << ClangCodeModel::Utils::clangLanguageOption(true, isHeader, isObjC);
         break;
     default:
         break;
@@ -112,7 +125,7 @@ QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManager
            << QLatin1String("-fdelayed-template-parsing");
 #endif
 
-    result << QLatin1String("-nobuiltininc");
+//    result << QLatin1String("-nobuiltininc");
 
     foreach (QByteArray def, defines) {
         if (def.isEmpty())
@@ -142,7 +155,7 @@ QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManager
     foreach (const QString &frameworkPath, frameworkPaths)
         result.append(QLatin1String("-F") + frameworkPath);
     foreach (const QString &inc, includePaths)
-        if (!inc.isEmpty())
+        if (!inc.isEmpty() && !isBlacklisted(inc))
             result << ("-I" + inc);
 
 #if 0
@@ -160,10 +173,48 @@ QStringList ClangCodeModel::Utils::clangNonProjectFileOptions()
     return QStringList() << QLatin1String("-std=c++11");
 }
 
-QString ClangCodeModel::Utils::clangOptionForObjC(bool cxxEnabled)
+QStringList ClangCodeModel::Utils::clangLanguageOption(bool cxxEnabled,
+                                                      bool isHeader,
+                                                      bool isObjC)
 {
-    if (cxxEnabled)
-        return QLatin1String("-ObjC++");
-    else
-        return QLatin1String("-ObjC");
+    QStringList opts;
+    opts += QLatin1String("-x");
+
+    if (cxxEnabled && isHeader && isObjC)
+        opts += QLatin1String("objective-c++-header");
+    else if (!cxxEnabled && isHeader && isObjC)
+        opts += QLatin1String("objective-c-header");
+    else if (cxxEnabled && !isHeader && isObjC)
+        opts += QLatin1String("objective-c++");
+    else if (!cxxEnabled && !isHeader && isObjC)
+        opts += QLatin1String("objective-c");
+    else if (cxxEnabled && isHeader && !isObjC)
+        opts += QLatin1String("c++-header");
+    else if (!cxxEnabled && isHeader && !isObjC)
+        opts += QLatin1String("c-header");
+    else if (cxxEnabled && !isHeader && !isObjC)
+        opts += QLatin1String("c++");
+    else // !cxxEnabled && !isHeader && !isObjC
+        opts += QLatin1String("c");
+
+    return opts;
+}
+
+QStringList ClangCodeModel::Utils::createPCHInclusionOptions(const QStringList &pchFiles)
+{
+    QStringList opts;
+
+    foreach (const QString &pchFile, pchFiles) {
+        if (QFile(pchFile).exists()) {
+            opts += QLatin1String("-include-pch");
+            opts += pchFile;
+        }
+    }
+
+    return opts;
+}
+
+QStringList ClangCodeModel::Utils::createPCHInclusionOptions(const QString &pchFile)
+{
+    return createPCHInclusionOptions(QStringList() << pchFile);
 }

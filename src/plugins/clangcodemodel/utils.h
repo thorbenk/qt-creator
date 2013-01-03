@@ -33,7 +33,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "clang_global.h"
+#include "pchinfo.h"
 
 #include <QString>
 #include <QStringList>
@@ -48,6 +48,7 @@
  * ones which are needed quite often.
  */
 namespace ClangCodeModel {
+namespace Internal {
 
 typedef QMap<QString, QByteArray> UnsavedFiles;
 
@@ -57,13 +58,11 @@ typedef QMap<QString, QByteArray> UnsavedFiles;
  * \returns a boolean indicating success (true) or failure (false), and a
  *          list of diagnostic messages.
  */
-CLANG_EXPORT QPair<bool, QStringList> precompile(
-        const QString &headerFileName,
-        const QStringList &options,
-        const QString &outFileName);
+QPair<bool, QStringList> precompile(const PCHInfo::Ptr &pchInfo);
 
 void initializeClang();
 
-} // Clang
+} // Internal namespace
+} // ClangCodeModel namespace
 
 #endif // UTILS_H

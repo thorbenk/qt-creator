@@ -45,7 +45,7 @@ class UnsavedFileData
     UnsavedFileData(const UnsavedFileData &);
     UnsavedFileData &operator=(const UnsavedFileData &);
 
-    typedef ClangCodeModel::UnsavedFiles UnsavedFiles;
+    typedef ClangCodeModel::Internal::UnsavedFiles UnsavedFiles;
 
 public:
     UnsavedFileData(const UnsavedFiles &unsavedFiles);

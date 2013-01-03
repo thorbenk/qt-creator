@@ -187,7 +187,7 @@ public: // methods
     QStringList options() const;
     void setOptions(const QStringList &options) const;
 
-    bool reparse(const UnsavedFiles &unsavedFiles);
+    bool reparse(const Internal::UnsavedFiles &unsavedFiles);
 
     /**
      * Do code-completion at the specified position.
@@ -199,11 +199,7 @@ public: // methods
      */
     QList<CodeCompletionResult> codeCompleteAt(unsigned line,
                                                unsigned column,
-                                               const UnsavedFiles &unsavedFiles);
-
-    static QPair<bool, QStringList> precompile(const QString &headerFileName,
-                                               const QStringList &options,
-                                               const QString &outFileName);
+                                               const Internal::UnsavedFiles &unsavedFiles);
 
     bool objcEnabled() const;
 

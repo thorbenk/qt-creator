@@ -70,7 +70,7 @@ public:
 
     void setCompilationOptions(const QStringList &options);
 
-    void reparse(const UnsavedFiles &unsavedFiles);
+    void reparse(const Internal::UnsavedFiles &unsavedFiles);
 
     QList<Diagnostic> diagnostics() const;
 

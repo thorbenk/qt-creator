@@ -99,7 +99,7 @@ private:
     bool m_flushRequested;
     unsigned m_flushLine;
 
-    ClangCodeModel::UnsavedFiles m_unsavedFiles;
+    ClangCodeModel::Internal::UnsavedFiles m_unsavedFiles;
 };
 
 } // namespace ClangCodeModel

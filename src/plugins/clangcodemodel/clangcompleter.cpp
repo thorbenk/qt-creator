@@ -131,7 +131,7 @@ public:
         }
     }
 
-    bool parseFromFile(const UnsavedFiles &unsavedFiles)
+    bool parseFromFile(const Internal::UnsavedFiles &unsavedFiles)
     {
         Q_ASSERT(!m_unit);
 
@@ -465,7 +465,9 @@ bool ClangCompleter::reparse(const UnsavedFiles &unsavedFiles)
     return false;
 }
 
-QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line, unsigned column, const UnsavedFiles &unsavedFiles)
+QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line,
+                                                           unsigned column,
+                                                           const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
 

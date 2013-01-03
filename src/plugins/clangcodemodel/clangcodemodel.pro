@@ -48,7 +48,11 @@ SOURCES += \
     $$PWD/diagnostic.cpp \
     $$PWD/unsavedfiledata.cpp \
     $$PWD/clangsymbolsearcher.cpp \
-    $$PWD/fastindexer.cpp
+    $$PWD/fastindexer.cpp \
+    $$PWD/pchinfo.cpp \
+    $$PWD/pchmanager.cpp \
+    $$PWD/clangprojectsettings.cpp \
+    $$PWD/clangprojectsettingspropertiespage.cpp
 
 HEADERS += \
     $$PWD/clangcodemodelplugin.h \
@@ -68,7 +72,11 @@ HEADERS += \
     $$PWD/diagnostic.h \
     $$PWD/unsavedfiledata.h \
     $$PWD/clangsymbolsearcher.h \
-    $$PWD/fastindexer.h
+    $$PWD/fastindexer.h \
+    $$PWD/pchinfo.h \
+    $$PWD/pchmanager.h \
+    $$PWD/clangprojectsettings.h \
+    $$PWD/clangprojectsettingspropertiespage.h
 
 contains(DEFINES, CLANG_INDEXING) {
     HEADERS += \
@@ -98,3 +106,5 @@ contains(DEFINES, CLANG_LEXER) {
         $$PWD/codenavigator.cpp \
         $$PWD/unitsetup.cpp
 }
+
+FORMS += $$PWD/clangprojectsettingspropertiespage.ui

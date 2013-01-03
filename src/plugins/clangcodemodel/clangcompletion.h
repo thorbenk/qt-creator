@@ -44,7 +44,7 @@ public:
     ClangCodeModel::ClangCompleter::Ptr clangWrapper() const
     { return m_clangWrapper; }
 
-    const ClangCodeModel::UnsavedFiles &unsavedFiles() const
+    const ClangCodeModel::Internal::UnsavedFiles &unsavedFiles() const
     { return m_unsavedFiles; }
 
     bool objcEnabled() const;
@@ -60,7 +60,7 @@ public:
 
 private:
     ClangCodeModel::ClangCompleter::Ptr m_clangWrapper;
-    ClangCodeModel::UnsavedFiles m_unsavedFiles;
+    ClangCodeModel::Internal::UnsavedFiles m_unsavedFiles;
     QStringList m_options, m_includePaths, m_frameworkPaths;
 };
 

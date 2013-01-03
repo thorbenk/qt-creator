@@ -1,7 +1,6 @@
 #ifndef CPPTOOLS_CLANGUTILS_H
 #define CPPTOOLS_CLANGUTILS_H
 
-#include "clang_global.h"
 #include "utils.h"
 
 #include <cpptools/ModelManagerInterface.h>
@@ -9,19 +8,21 @@
 namespace ClangCodeModel {
 namespace Utils {
 
-CLANG_EXPORT ClangCodeModel::UnsavedFiles createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy);
+ClangCodeModel::Internal::UnsavedFiles createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy);
 
-CLANG_EXPORT QStringList createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, const QString &fileName = QString());
-CLANG_EXPORT QStringList createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, bool isObjectiveC);
-CLANG_EXPORT QStringList createClangOptions(CPlusPlus::CppModelManagerInterface::ProjectPart::Language lang,
-                                            bool isObjC,
-                                            CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
-                                            const QList<QByteArray> &defines,
-                                            const QStringList &includePaths,
-                                            const QStringList &frameworkPaths);
-
+QStringList createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, const QString &fileName = QString());
+QStringList createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, bool isObjectiveC, bool isHeader);
+QStringList createClangOptions(CPlusPlus::CppModelManagerInterface::ProjectPart::Language lang,
+                               bool isObjC,
+                               bool isHeader,
+                               CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
+                               const QList<QByteArray> &defines,
+                               const QStringList &includePaths,
+                               const QStringList &frameworkPaths);
 QStringList clangNonProjectFileOptions();
-QString clangOptionForObjC(bool cxxEnabled);
+QStringList clangLanguageOption(bool cxxEnabled, bool isHeader, bool isObjC);
+QStringList createPCHInclusionOptions(const QStringList &pchFiles);
+QStringList createPCHInclusionOptions(const QString &pchFile);
 
 } // namespace Utils
 } // namespace Clang

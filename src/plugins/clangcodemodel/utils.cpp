@@ -41,25 +41,26 @@
 #include <QMutexLocker>
 
 namespace ClangCodeModel {
+namespace Internal {
 
-QPair<bool, QStringList> precompile(const QString &headerFileName,
-                                    const QStringList &options,
-                                    const QString &outFileName)
+QPair<bool, QStringList> precompile(const PCHInfo::Ptr &pchInfo)
 {
+    qDebug() << "*** Precompiling" << pchInfo->inputFileName()
+             << "into" << pchInfo->fileName()
+             << "with options" << pchInfo->options();
+
     bool ok = false;
 
-    Internal::Unit unit(headerFileName);
-    unit.setCompilationOptions(options);
+    Internal::Unit unit(pchInfo->inputFileName());
+    unit.setCompilationOptions(pchInfo->options());
 
-    unsigned parseOpts = clang_defaultEditingTranslationUnitOptions();
-    parseOpts |= CXTranslationUnit_Incomplete;
-    parseOpts |= CXTranslationUnit_DetailedPreprocessingRecord;
-    parseOpts &= ~CXTranslationUnit_CacheCompletionResults;
+    unsigned parseOpts = CXTranslationUnit_ForSerialization
+            | CXTranslationUnit_Incomplete;
     unit.setManagementOptions(parseOpts);
 
     unit.parse();
     if (unit.isLoaded())
-        ok = CXSaveError_None == unit.save(outFileName);
+        ok = CXSaveError_None == unit.save(pchInfo->fileName());
 
     return qMakePair(ok, Internal::formattedDiagnostics(unit));
 }
@@ -67,7 +68,7 @@ QPair<bool, QStringList> precompile(const QString &headerFileName,
 namespace {
 static bool clangInitialised = false;
 static QMutex initialisationMutex;
-}
+} // anonymous namespace
 
 void initializeClang()
 {
@@ -86,5 +87,6 @@ void initializeClang()
     qRegisterMetaType<QList<ClangCodeModel::Diagnostic> >();
 }
 
-} // namespace ClangCodeModel
+} // Internal namespace
+} // ClangCodeModel namespace
 
