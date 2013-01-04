@@ -92,7 +92,7 @@ private:
     Q_SLOT void showSettingsPage()
     {
         Core::ICore::showOptionsDialog(MaemoQemuSettingsPage::pageCategory(),
-            MaemoQemuSettingsPage::pageId());
+            Core::Id(MaemoQemuSettingsPage::pageId()));
         accept();
     }
 };
@@ -141,9 +141,9 @@ QString MaemoQemuSettingsPage::pageId()
     return QLatin1String("ZZ.Qemu Settings");
 }
 
-QString MaemoQemuSettingsPage::pageCategory()
+Core::Id MaemoQemuSettingsPage::pageCategory()
 {
-    return QLatin1String(ProjectExplorer::Constants::DEVICE_SETTINGS_CATEGORY);
+    return ProjectExplorer::Constants::DEVICE_SETTINGS_CATEGORY;
 }
 
 } // namespace Internal

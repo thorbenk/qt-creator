@@ -808,8 +808,7 @@ Core::IEditor *GitPlugin::openSubmitEditor(const QString &fileName, const Commit
     submitEditor->setCheckScriptWorkingDirectory(m_submitRepository);
     const QString title = amend ? tr("Amend %1").arg(cd.amendSHA1) : tr("Git Commit");
     submitEditor->setDisplayName(title);
-    if (amend) // Allow for just correcting the message
-        submitEditor->setEmptyFileListEnabled(true);
+    submitEditor->setAmend(amend);
     connect(submitEditor, SIGNAL(diff(QStringList,QStringList)), this, SLOT(submitEditorDiff(QStringList,QStringList)));
     connect(submitEditor, SIGNAL(merge(QStringList)), this, SLOT(submitEditorMerge(QStringList)));
     return editor;
@@ -888,8 +887,7 @@ void GitPlugin::pull()
     switch (stashResult) {
     case GitClient::StashUnchanged:
     case GitClient::Stashed:
-        m_gitClient->synchronousPull(state.topLevel(), rebase);
-        if (stashResult == GitClient::Stashed)
+        if (m_gitClient->synchronousPull(state.topLevel(), rebase) && (stashResult == GitClient::Stashed))
             m_gitClient->stashPop(state.topLevel());
         break;
     case GitClient::NotStashed:

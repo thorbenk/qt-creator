@@ -960,9 +960,7 @@ void MainWindow::showNewItemDialog(const QString &title,
     wizard->runWizard(path, this, selectedPlatform, extraVariables);
 }
 
-bool MainWindow::showOptionsDialog(const QString &category,
-                                   const QString &page,
-                                   QWidget *parent)
+bool MainWindow::showOptionsDialog(Id category, Id page, QWidget *parent)
 {
     emit m_coreImpl->optionsDialogRequested();
     if (!parent)
@@ -1348,8 +1346,8 @@ void MainWindow::setFullScreen(bool on)
 bool MainWindow::showWarningWithOptions(const QString &title,
                                         const QString &text,
                                         const QString &details,
-                                        const QString &settingsCategory,
-                                        const QString &settingsId,
+                                        Id settingsCategory,
+                                        Id settingsId,
                                         QWidget *parent)
 {
     if (parent == 0)
@@ -1359,11 +1357,10 @@ bool MainWindow::showWarningWithOptions(const QString &title,
     if (!details.isEmpty())
         msgBox.setDetailedText(details);
     QAbstractButton *settingsButton = 0;
-    if (!settingsId.isEmpty() || !settingsCategory.isEmpty())
+    if (settingsId.isValid() || settingsCategory.isValid())
         settingsButton = msgBox.addButton(tr("Settings..."), QMessageBox::AcceptRole);
     msgBox.exec();
-    if (settingsButton && msgBox.clickedButton() == settingsButton) {
+    if (settingsButton && msgBox.clickedButton() == settingsButton)
         return showOptionsDialog(settingsCategory, settingsId);
-    }
     return false;
 }

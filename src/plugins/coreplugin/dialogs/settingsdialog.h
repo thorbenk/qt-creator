@@ -31,10 +31,10 @@
 #define SETTINGSDIALOG_H
 
 #include "coreplugin/dialogs/ioptionspage.h"
+#include "coreplugin/id.h"
 
 #include <QList>
 #include <QSet>
-#include <QPointer>
 #include <QEventLoop>
 #include <QDialog>
 
@@ -46,9 +46,7 @@ class QLabel;
 class QListView;
 QT_END_NAMESPACE
 
-namespace Utils {
-    class FilterLineEdit;
-}
+namespace Utils { class FilterLineEdit; }
 
 namespace Core {
 namespace Internal {
@@ -61,13 +59,11 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-
     // Returns a settings dialog. This makes sure that always only
     // a single settings dialog instance is running.
     // The dialog will be deleted automatically on close.
     static SettingsDialog *getSettingsDialog(QWidget *parent,
-                               const QString &initialCategory = QString(),
-                               const QString &initialPage = QString());
+        Id initialCategory, Id initialPage);
     // Run the dialog and wait for it to finish.
     // Returns if the changes have been applied.
     bool execDialog();
@@ -92,7 +88,7 @@ private:
 
     void createGui();
     void showCategory(int index);
-    void showPage(const QString &categoryId, const QString &pageId);
+    void showPage(Id categoryId, Id pageId);
     void updateEnabledTabs(Category *category, const QString &searchText);
     void ensureCategoryWidget(Category *category);
     void disconnectTabWidgets();
@@ -102,7 +98,7 @@ private:
     QSet<Core::IOptionsPage*> m_visitedPages;
     QSortFilterProxyModel *m_proxyModel;
     CategoryModel *m_model;
-    QString m_currentCategory;
+    Core::Id m_currentCategory;
     QString m_currentPage;
     QStackedLayout *m_stackedLayout;
     Utils::FilterLineEdit *m_filterLineEdit;
@@ -112,7 +108,6 @@ private:
     bool m_applied;
     bool m_finished;
     QList<QEventLoop *> m_eventLoops;
-    static QPointer<SettingsDialog> m_instance;
 };
 
 } // namespace Internal

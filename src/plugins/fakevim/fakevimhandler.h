@@ -122,7 +122,7 @@ public slots:
     int logicalIndentation(const QString &line) const;
     QString tabExpand(int n) const;
 
-    void miniBufferTextEdited(const QString &text, int cursorPos);
+    void miniBufferTextEdited(const QString &text, int cursorPos, int anchorPos);
 
     // Set text cursor position. Keeps anchor if in visual mode.
     void setTextCursorPosition(int position);
@@ -130,7 +130,8 @@ public slots:
     bool jumpToLocalMark(QChar mark, bool backTickMode);
 
 signals:
-    void commandBufferChanged(const QString &msg, int pos, int messageLevel, QObject *eventFilter);
+    void commandBufferChanged(const QString &msg, int cursorPos,
+        int anchorPos, int messageLevel, QObject *eventFilter);
     void statusDataChanged(const QString &msg);
     void extraInformationChanged(const QString &msg);
     void selectionChanged(const QList<QTextEdit::ExtraSelection> &selection);

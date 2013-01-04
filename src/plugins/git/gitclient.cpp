@@ -1157,7 +1157,7 @@ QString GitClient::synchronousTopic(const QString &workingDirectory)
         return data.topic = commandOutputFromLocal8Bit(outputTextData.trimmed());
 
     // No tag
-    return data.topic = tr("(detached)");
+    return data.topic = tr("Detached HEAD");
 }
 
 // Retrieve head revision
@@ -1268,7 +1268,7 @@ QString GitClient::synchronousStash(const QString &workingDirectory, const QStri
     bool success = false;
     // Check for changes and stash
     QString errorMessage;
-    switch (gitStatus(workingDirectory, false, 0, &errorMessage)) {
+    switch (gitStatus(workingDirectory, StatusMode(NoUntracked | NoSubmodules), 0, &errorMessage)) {
     case  StatusChanged: {
             message = creatorStashMessage(messageKeyword);
             do {
@@ -1575,7 +1575,8 @@ GitClient::StashResult GitClient::ensureStash(const QString &workingDirectory)
 GitClient::StashResult GitClient::ensureStash(const QString &workingDirectory, QString *errorMessage)
 {
     QString statusOutput;
-    switch (gitStatus(workingDirectory, false, &statusOutput, errorMessage)) {
+    switch (gitStatus(workingDirectory, StatusMode(NoUntracked | NoSubmodules),
+                      &statusOutput, errorMessage)) {
         case StatusChanged:
         break;
         case StatusUnchanged:
@@ -1616,7 +1617,7 @@ static inline QString trimFileSpecification(QString fileSpec)
     return fileSpec;
 }
 
-GitClient::StatusResult GitClient::gitStatus(const QString &workingDirectory, bool untracked,
+GitClient::StatusResult GitClient::gitStatus(const QString &workingDirectory, StatusMode mode,
                                              QString *output, QString *errorMessage)
 {
     // Run 'status'. Note that git returns exitcode 1 if there are no added files.
@@ -1624,8 +1625,10 @@ GitClient::StatusResult GitClient::gitStatus(const QString &workingDirectory, bo
     QByteArray errorText;
 
     QStringList statusArgs(QLatin1String("status"));
-    if (untracked)
-        statusArgs << QLatin1String("-u");
+    if (mode & NoUntracked)
+        statusArgs << QLatin1String("--untracked-files=no");
+    if (mode & NoSubmodules)
+        statusArgs << QLatin1String("--ignore-submodules=all");
     statusArgs << QLatin1String("-s") << QLatin1String("-b");
 
     const bool statusRc = fullySynchronousGit(workingDirectory, statusArgs, &outputText, &errorText);
@@ -1646,7 +1649,7 @@ GitClient::StatusResult GitClient::gitStatus(const QString &workingDirectory, bo
     // Unchanged (output text depending on whether -u was passed)
     QList<QByteArray> lines = outputText.split('\n');
     foreach (const QByteArray &line, lines)
-        if (!line.isEmpty() && !line.startsWith('#') && !line.startsWith('?'))
+        if (!line.isEmpty() && !line.startsWith('#'))
             return StatusChanged;
     return StatusUnchanged;
 }
@@ -1664,7 +1667,7 @@ QStringList GitClient::synchronousRepositoryBranches(const QString &repositoryUR
             VcsBase::VcsBasePlugin::SuppressFailMessageInLogWindow;
     const Utils::SynchronousProcessResponse resp = synchronousGit(QString(), arguments, flags);
     QStringList branches;
-    branches << QLatin1String("<detached HEAD>");
+    branches << tr("<Detached HEAD>");
     QString headSha;
     if (resp.result == Utils::SynchronousProcessResponse::Finished) {
         // split "82bfad2f51d34e98b18982211c82220b8db049b<tab>refs/heads/master"
@@ -1716,15 +1719,15 @@ bool GitClient::tryLauchingGitK(const QProcessEnvironment &env,
                                 const QString &gitBinDirectory,
                                 bool silent)
 {
-    QString binary;
+    QString binary = gitBinDirectory + QLatin1String("/gitk");
     QStringList arguments;
     if (Utils::HostOsInfo::isWindowsHost()) {
-        // Launch 'wish' shell from git binary directory with the gitk located there
-        binary = gitBinDirectory + QLatin1String("/wish");
-        arguments << (gitBinDirectory + QLatin1String("/gitk"));
-    } else {
-        // Simple: Run gitk from binary path
-        binary = gitBinDirectory + QLatin1String("/gitk");
+        // If git/bin is in path, use 'wish' shell to run. Otherwise (git/cmd), directly run gitk
+        QString wish = gitBinDirectory + QLatin1String("/wish");
+        if (QFileInfo(wish + QLatin1String(".exe")).exists()) {
+            arguments << binary;
+            binary = wish;
+        }
     }
     VcsBase::VcsBaseOutputWindow *outwin = VcsBase::VcsBaseOutputWindow::instance();
     const QString gitkOpts = settings()->stringValue(GitSettings::gitkOptionsKey);
@@ -1789,7 +1792,7 @@ bool GitClient::getCommitData(const QString &workingDirectory,
 
     // Run status. Note that it has exitcode 1 if there are no added files.
     QString output;
-    const StatusResult status = gitStatus(repoDirectory, true, &output, errorMessage);
+    const StatusResult status = gitStatus(repoDirectory, ShowAll, &output, errorMessage);
     switch (status) {
     case  StatusChanged:
         break;
@@ -2000,7 +2003,7 @@ GitClient::RevertResult GitClient::revertI(QStringList files,
 
     // Check for changes
     QString output;
-    switch (gitStatus(repoDirectory, false, &output, errorMessage)) {
+    switch (gitStatus(repoDirectory, StatusMode(NoUntracked | NoSubmodules), &output, errorMessage)) {
     case StatusChanged:
         break;
     case StatusUnchanged:

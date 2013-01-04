@@ -187,10 +187,6 @@ public:
             this, SLOT(provideData(Core::IEditor*,quint64)));
         connect(m_editor, SIGNAL(newRangeRequested(Core::IEditor*,quint64)),
             this, SLOT(provideNewRange(Core::IEditor*,quint64)));
-        connect(m_editor, SIGNAL(startOfFileRequested(Core::IEditor*)), this,
-            SLOT(handleStartOfFileRequested(Core::IEditor*)));
-        connect(m_editor, SIGNAL(endOfFileRequested(Core::IEditor*)), this,
-            SLOT(handleEndOfFileRequested(Core::IEditor*)));
     }
     ~BinEditorDocument() {}
 
@@ -271,14 +267,6 @@ private slots:
 
     void provideNewRange(Core::IEditor *, quint64 offset) {
         open(0, m_fileName, offset);
-    }
-
-    void handleStartOfFileRequested(Core::IEditor *) {
-        open(0, m_fileName, 0);
-    }
-
-    void handleEndOfFileRequested(Core::IEditor *) {
-        open(0, m_fileName, QFileInfo(m_fileName).size() - 1);
     }
 
 public:
@@ -508,7 +496,6 @@ void BinEditorPlugin::initializeEditor(BinEditor *editor)
 
     QObject::connect(editor, SIGNAL(undoAvailable(bool)), this, SLOT(updateActions()));
     QObject::connect(editor, SIGNAL(redoAvailable(bool)), this, SLOT(updateActions()));
-    QObject::connect(editor, SIGNAL(copyAvailable(bool)), this, SLOT(updateActions()));
 
     Aggregation::Aggregate *aggregate = new Aggregation::Aggregate;
     BinEditorFind *binEditorFind = new BinEditorFind(editor);
@@ -570,8 +557,6 @@ void BinEditorPlugin::updateActions()
         m_undoAction->setEnabled(m_currentEditor && m_currentEditor->isUndoAvailable());
     if (m_redoAction)
         m_redoAction->setEnabled(m_currentEditor && m_currentEditor->isRedoAvailable());
-    if (m_copyAction)
-        m_copyAction->setEnabled(m_currentEditor && m_currentEditor->hasSelection());
 }
 
 void BinEditorPlugin::undoAction()

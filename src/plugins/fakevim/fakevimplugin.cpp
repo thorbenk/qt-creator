@@ -123,21 +123,25 @@ public:
         m_edit->installEventFilter(this);
         connect(m_edit, SIGNAL(textEdited(QString)), SLOT(changed()));
         connect(m_edit, SIGNAL(cursorPositionChanged(int,int)), SLOT(changed()));
+        connect(m_edit, SIGNAL(selectionChanged()), SLOT(changed()));
         m_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
         addWidget(m_label);
         addWidget(m_edit);
     }
 
-    void setContents(const QString &contents, int cursorPos, int messageLevel, QObject *eventFilter)
+    void setContents(const QString &contents, int cursorPos, int anchorPos,
+                     int messageLevel, QObject *eventFilter)
     {
         if (cursorPos != -1) {
             m_edit->blockSignals(true);
             m_label->clear();
             m_edit->setText(contents);
-            m_edit->setCursorPosition(cursorPos);
+            if (anchorPos != -1 && anchorPos != cursorPos)
+                m_edit->setSelection(anchorPos, cursorPos - anchorPos);
+            else
+                m_edit->setCursorPosition(cursorPos);
             m_edit->blockSignals(false);
-
             setCurrentWidget(m_edit);
             m_edit->setFocus();
         } else if (contents.isEmpty() && messageLevel != MessageShowCmd) {
@@ -161,7 +165,7 @@ public:
                 "*{border-radius:2px;padding-left:4px;padding-right:4px;%1}").arg(css));
 
             if (m_edit->hasFocus())
-                emit edited(QString(), -1);
+                emit edited(QString(), -1, -1);
 
             setCurrentWidget(m_label);
         }
@@ -169,12 +173,12 @@ public:
         if (m_eventFilter != eventFilter) {
             if (m_eventFilter != 0) {
                 m_edit->removeEventFilter(m_eventFilter);
-                disconnect(SIGNAL(edited(QString,int)));
+                disconnect(SIGNAL(edited(QString,int,int)));
             }
             if (eventFilter != 0) {
                 m_edit->installEventFilter(eventFilter);
-                connect(this, SIGNAL(edited(QString,int)),
-                        eventFilter, SLOT(miniBufferTextEdited(QString,int)));
+                connect(this, SIGNAL(edited(QString,int,int)),
+                        eventFilter, SLOT(miniBufferTextEdited(QString,int,int)));
             }
             m_eventFilter = eventFilter;
         }
@@ -188,12 +192,16 @@ public:
     }
 
 signals:
-    void edited(const QString &text, int cursorPos);
+    void edited(const QString &text, int cursorPos, int anchorPos);
 
 private slots:
     void changed()
     {
-        emit edited(m_edit->text(), m_edit->cursorPosition());
+        const int cursorPos = m_edit->cursorPosition();
+        int anchorPos = m_edit->selectionStart();
+        if (anchorPos == cursorPos)
+            anchorPos = cursorPos + m_edit->selectedText().length();
+        emit edited(m_edit->text(), cursorPos, anchorPos);
     }
 
     bool eventFilter(QObject *ob, QEvent *ev)
@@ -201,7 +209,7 @@ private slots:
         // cancel editing on escape
         if (m_eventFilter != 0 && ob == m_edit && ev->type() == QEvent::ShortcutOverride
             && static_cast<QKeyEvent*>(ev)->key() == Qt::Key_Escape) {
-            emit edited(QString(), -1);
+            emit edited(QString(), -1, -1);
             ev->accept();
             return true;
         }
@@ -232,7 +240,7 @@ public:
     {
         setId(_(SETTINGS_ID));
         setDisplayName(tr("General"));
-        setCategory(_(SETTINGS_CATEGORY));
+        setCategory(SETTINGS_CATEGORY);
         setDisplayCategory(tr("FakeVim"));
         setCategoryIcon(_(SETTINGS_CATEGORY_FAKEVIM_ICON));
     }
@@ -399,7 +407,7 @@ public:
     {
         setId(_(SETTINGS_EX_CMDS_ID));
         setDisplayName(tr("Ex Command Mapping"));
-        setCategory(_(SETTINGS_CATEGORY));
+        setCategory(SETTINGS_CATEGORY);
         setDisplayCategory(tr("FakeVim"));
         setCategoryIcon(_(SETTINGS_CATEGORY_FAKEVIM_ICON));
     }
@@ -621,7 +629,7 @@ public:
     {
         setId(_(SETTINGS_USER_CMDS_ID));
         setDisplayName(tr("User Command Mapping"));
-        setCategory(_(SETTINGS_CATEGORY));
+        setCategory(SETTINGS_CATEGORY);
         setDisplayCategory(tr("FakeVim"));
         setCategoryIcon(_(SETTINGS_CATEGORY_FAKEVIM_ICON));
     }
@@ -863,8 +871,8 @@ private slots:
     void hasBlockSelection(bool*);
 
     void resetCommandBuffer();
-    void showCommandBuffer(const QString &contents, int cursorPos, int messageLevel,
-                           QObject *eventFilter);
+    void showCommandBuffer(const QString &contents, int cursorPos, int anchorPos,
+                           int messageLevel, QObject *eventFilter);
     void showExtraInformation(const QString &msg);
     void changeSelection(const QList<QTextEdit::ExtraSelection> &selections);
     void highlightMatches(const QString &needle);
@@ -1191,7 +1199,7 @@ void FakeVimPluginPrivate::maybeReadVimRc()
 
 void FakeVimPluginPrivate::showSettingsDialog()
 {
-    ICore::showOptionsDialog(_(SETTINGS_CATEGORY), _(SETTINGS_ID));
+    ICore::showOptionsDialog(SETTINGS_CATEGORY, SETTINGS_ID);
 }
 
 void FakeVimPluginPrivate::triggerAction(const Id &id)
@@ -1566,8 +1574,8 @@ void FakeVimPluginPrivate::editorOpened(IEditor *editor)
 
     connect(handler, SIGNAL(extraInformationChanged(QString)),
         SLOT(showExtraInformation(QString)));
-    connect(handler, SIGNAL(commandBufferChanged(QString,int,int,QObject*)),
-        SLOT(showCommandBuffer(QString,int,int,QObject*)));
+    connect(handler, SIGNAL(commandBufferChanged(QString,int,int,int,QObject*)),
+        SLOT(showCommandBuffer(QString,int,int,int,QObject*)));
     connect(handler, SIGNAL(selectionChanged(QList<QTextEdit::ExtraSelection>)),
         SLOT(changeSelection(QList<QTextEdit::ExtraSelection>)));
     connect(handler, SIGNAL(highlightMatches(QString)),
@@ -1906,15 +1914,15 @@ void FakeVimPluginPrivate::quitFakeVim()
 
 void FakeVimPluginPrivate::resetCommandBuffer()
 {
-    showCommandBuffer(QString(), -1, 0, 0);
+    showCommandBuffer(QString(), -1, -1, 0, 0);
 }
 
-void FakeVimPluginPrivate::showCommandBuffer(const QString &contents, int cursorPos,
-                                             int messageLevel, QObject *eventFilter)
+void FakeVimPluginPrivate::showCommandBuffer(const QString &contents,
+    int cursorPos, int anchorPos, int messageLevel, QObject *eventFilter)
 {
     //qDebug() << "SHOW COMMAND BUFFER" << contents;
     if (MiniBuffer *w = qobject_cast<MiniBuffer *>(m_statusBar->widget()))
-        w->setContents(contents, cursorPos, messageLevel, eventFilter);
+        w->setContents(contents, cursorPos, anchorPos, messageLevel, eventFilter);
 }
 
 void FakeVimPluginPrivate::showExtraInformation(const QString &text)

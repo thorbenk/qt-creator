@@ -36,6 +36,13 @@
 
 namespace VcsBase {
 
+enum CheckMode
+{
+    Unchecked,
+    Checked,
+    Uncheckable
+};
+
 class VCSBASE_EXPORT SubmitFileModel : public QStandardItemModel
 {
     Q_OBJECT
@@ -44,7 +51,7 @@ public:
 
     // Convenience to create and add rows containing a file plus status text.
     QList<QStandardItem *> addFile(const QString &fileName, const QString &status = QString(),
-                                   bool checked = true, const QVariant &data = QVariant());
+                                   CheckMode checkMode = Checked, const QVariant &data = QVariant());
 
     // Find convenience that returns the whole row (as opposed to QStandardItemModel::find).
     QList<QStandardItem *> findRow(const QString &text, int column = 0) const;
@@ -55,6 +62,7 @@ public:
     QString state(int row) const;
     QString file(int row) const;
     bool checked(int row) const;
+    void setChecked(int row, bool check);
     QVariant extraData(int row) const;
 
     bool hasCheckedFiles() const;

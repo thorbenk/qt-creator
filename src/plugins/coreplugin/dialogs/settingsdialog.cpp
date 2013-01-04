@@ -29,33 +29,34 @@
 
 #include "settingsdialog.h"
 
-#include <extensionsystem/pluginmanager.h>
 #include "icore.h"
 
+#include <extensionsystem/pluginmanager.h>
 #include <utils/hostosinfo.h>
 #include <utils/filterlineedit.h>
 
-#include <QSettings>
-#include <QSortFilterProxyModel>
-#include <QItemSelectionModel>
+#include <QApplication>
+#include <QDialogButtonBox>
+#include <QFrame>
+#include <QGridLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QItemSelectionModel>
 #include <QLabel>
-#include <QPushButton>
-#include <QToolButton>
-#include <QToolBar>
-#include <QScrollBar>
-#include <QSpacerItem>
-#include <QStyle>
-#include <QStackedLayout>
-#include <QGridLayout>
 #include <QLineEdit>
-#include <QFrame>
-#include <QDialogButtonBox>
 #include <QListView>
-#include <QApplication>
-#include <QGroupBox>
+#include <QPointer>
+#include <QPushButton>
+#include <QScrollBar>
+#include <QSettings>
+#include <QSortFilterProxyModel>
+#include <QSpacerItem>
+#include <QStackedLayout>
+#include <QStyle>
 #include <QStyledItemDelegate>
+#include <QToolBar>
+#include <QToolButton>
 
 static const char categoryKeyC[] = "General/LastPreferenceCategory";
 static const char pageKeyC[] = "General/LastPreferencePage";
@@ -64,13 +65,14 @@ const int categoryIconSize = 24;
 namespace Core {
 namespace Internal {
 
-QPointer<SettingsDialog> SettingsDialog::m_instance = 0;
+static QPointer<SettingsDialog> m_instance = 0;
 
 // ----------- Category model
 
-class Category {
+class Category
+{
 public:
-    QString id;
+    Id id;
     QString displayName;
     QIcon icon;
     QList<IOptionsPage *> pages;
@@ -93,7 +95,7 @@ public:
     const QList<Category*> &categories() const { return m_categories; }
 
 private:
-    Category *findCategoryById(const QString &id);
+    Category *findCategoryById(Id id);
 
     QList<Category*> m_categories;
     QIcon m_emptyIcon;
@@ -144,7 +146,7 @@ void CategoryModel::setPages(const QList<IOptionsPage*> &pages,
 
     // Put the pages in categories
     foreach (IOptionsPage *page, pages) {
-        const QString &categoryId = page->category();
+        const Id categoryId = page->category();
         Category *category = findCategoryById(categoryId);
         if (!category) {
             category = new Category;
@@ -161,7 +163,7 @@ void CategoryModel::setPages(const QList<IOptionsPage*> &pages,
     }
 
     foreach (IOptionsPageProvider *provider, providers) {
-        const QString &categoryId = provider->category();
+        const Id categoryId = provider->category();
         Category *category = findCategoryById(categoryId);
         if (!category) {
             category = new Category;
@@ -180,7 +182,7 @@ void CategoryModel::setPages(const QList<IOptionsPage*> &pages,
     endResetModel();
 }
 
-Category *CategoryModel::findCategoryById(const QString &id)
+Category *CategoryModel::findCategoryById(Id id)
 {
     for (int i = 0; i < m_categories.size(); ++i) {
         Category *category = m_categories.at(i);
@@ -268,7 +270,7 @@ public:
 // Helpers to sort by category. id
 bool optionsPageLessThan(const IOptionsPage *p1, const IOptionsPage *p2)
 {
-    if (const int cc = p1->category().compare(p2->category()))
+    if (const int cc = p1->category().toString().compare(p2->category().toString()))
         return cc < 0;
     return p1->id().compare(p2->id()) < 0;
 }
@@ -325,14 +327,14 @@ SettingsDialog::SettingsDialog(QWidget *parent) :
     m_categoryList->setFocus();
 }
 
-void SettingsDialog::showPage(const QString &categoryId, const QString &pageId)
+void SettingsDialog::showPage(Id categoryId, Id pageId)
 {
     // handle the case of "show last page"
-    QString initialCategory = categoryId;
-    QString initialPage = pageId;
-    if (initialCategory.isEmpty() && initialPage.isEmpty()) {
+    Id initialCategory = categoryId;
+    QString initialPage = pageId.toString();
+    if (!initialCategory.isValid() && initialPage.isEmpty()) {
         QSettings *settings = ICore::settings();
-        initialCategory = settings->value(QLatin1String(categoryKeyC), QVariant(QString())).toString();
+        initialCategory = Id(settings->value(QLatin1String(categoryKeyC), QVariant(QString())).toString());
         initialPage = settings->value(QLatin1String(pageKeyC), QVariant(QString())).toString();
     }
 
@@ -461,7 +463,7 @@ void SettingsDialog::updateEnabledTabs(Category *category, const QString &search
     for (int i = 0; i < category->pages.size(); ++i) {
         const IOptionsPage *page = category->pages.at(i);
         const bool enabled = searchText.isEmpty()
-                             || page->category().contains(searchText, Qt::CaseInsensitive)
+                             || page->category().toString().contains(searchText, Qt::CaseInsensitive)
                              || page->displayName().contains(searchText, Qt::CaseInsensitive)
                              || page->matches(searchText);
         category->tabWidget->setTabEnabled(i, enabled);
@@ -540,7 +542,7 @@ void SettingsDialog::apply()
 void SettingsDialog::done(int val)
 {
     QSettings *settings = ICore::settings();
-    settings->setValue(QLatin1String(categoryKeyC), m_currentCategory);
+    settings->setValue(QLatin1String(categoryKeyC), m_currentCategory.toString());
     settings->setValue(QLatin1String(pageKeyC), m_currentPage);
 
     ICore::saveSettings(); // save all settings
@@ -565,12 +567,10 @@ QSize SettingsDialog::sizeHint() const
 }
 
 SettingsDialog *SettingsDialog::getSettingsDialog(QWidget *parent,
-                           const QString &initialCategory,
-                           const QString &initialPage)
+    Id initialCategory, Id initialPage)
 {
-    if (!m_instance) {
+    if (!m_instance)
         m_instance = new SettingsDialog(parent);
-    }
     m_instance->showPage(initialCategory, initialPage);
     return m_instance;
 }
@@ -601,7 +601,6 @@ bool SettingsDialog::execDialog()
     }
     return m_applied;
 }
-
 
 } // namespace Internal
 } // namespace Core

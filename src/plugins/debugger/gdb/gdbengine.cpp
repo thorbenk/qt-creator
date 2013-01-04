@@ -4700,7 +4700,7 @@ void GdbEngine::startGdb(const QStringList &args)
         handleGdbStartFailed();
         handleAdapterStartFailed(
             msgNoGdbBinaryForToolChain(sp.toolChainAbi),
-            _(Constants::DEBUGGER_COMMON_SETTINGS_ID));
+            Constants::DEBUGGER_COMMON_SETTINGS_ID);
         return;
     }
     QStringList gdbArgs;
@@ -4981,17 +4981,17 @@ void GdbEngine::abortDebugger()
 }
 
 void GdbEngine::handleAdapterStartFailed(const QString &msg,
-    const QString &settingsIdHint)
+    Core::Id settingsIdHint)
 {
     QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
     showMessage(_("ADAPTER START FAILED"));
     if (!msg.isEmpty()) {
         const QString title = tr("Adapter start failed");
-        if (settingsIdHint.isEmpty()) {
+        if (!settingsIdHint.isValid()) {
             Core::ICore::showWarningWithOptions(title, msg);
         } else {
             Core::ICore::showWarningWithOptions(title, msg, QString(),
-                _(Debugger::Constants::DEBUGGER_SETTINGS_CATEGORY), settingsIdHint);
+                Constants::DEBUGGER_SETTINGS_CATEGORY, settingsIdHint);
         }
     }
     notifyEngineSetupFailed();
@@ -5378,7 +5378,7 @@ bool GdbEngine::prepareCommand()
         // perr == BadQuoting is never returned on Windows
         // FIXME? QTCREATORBUG-2809
         handleAdapterStartFailed(QCoreApplication::translate("DebuggerEngine", // Same message in CdbEngine
-            "Debugging complex command lines is currently not supported on Windows."), QString());
+                                                             "Debugging complex command lines is currently not supported on Windows."), Core::Id());
         return false;
     }
 #endif

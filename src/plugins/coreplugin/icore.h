@@ -31,6 +31,7 @@
 #define ICORE_H
 
 #include "core_global.h"
+#include "id.h"
 
 #include <QObject>
 #include <QSettings>
@@ -81,14 +82,12 @@ public:
                                   const QString &defaultLocation = QString(),
                                   const QVariantMap &extraVariables = QVariantMap());
 
-    static bool showOptionsDialog(const QString &group = QString(),
-                                  const QString &page = QString(),
-                                  QWidget *parent = 0);
+    static bool showOptionsDialog(Id group, Id page, QWidget *parent = 0);
 
     static bool showWarningWithOptions(const QString &title, const QString &text,
                                        const QString &details = QString(),
-                                       const QString &settingsCategory = QString(),
-                                       const QString &settingsId = QString(),
+                                       Id settingsCategory = Id(),
+                                       Id settingsId = Id(),
                                        QWidget *parent = 0);
 
     static QT_DEPRECATED ActionManager *actionManager(); // Use Actionmanager::... directly.

@@ -145,6 +145,26 @@ private:
 //
 ///////////////////////////////////////////////////////////////////////
 
+class SeparateViewWidget : public QTabWidget
+{
+    Q_OBJECT
+
+public:
+    SeparateViewWidget(QWidget *parent) : QTabWidget(parent)
+    {
+        setTabsClosable(true);
+        connect(this, SIGNAL(tabCloseRequested(int)), SLOT(closeTab(int)));
+        setWindowFlags(windowFlags() | Qt::Window);
+        setWindowTitle(WatchHandler::tr("Debugger - Qt Creator"));
+    }
+
+public slots:
+    void closeTab(int index)
+    {
+        removeTab(index);
+    }
+};
+
 class WatchModel : public QAbstractItemModel
 {
     Q_OBJECT
@@ -1624,23 +1644,25 @@ void WatchHandler::removeSeparateWidget(QObject *o)
 {
     const int index = o && o->isWidgetType() && !m_separateWindow.isNull() ?
               indexOf(m_separateWindow, static_cast<QWidget *>(o)) : -1;
-    if (index != -1)
+    if (index != -1) {
         m_separateWindow->removeTab(index);
+        if (!m_separateWindow->count())
+            m_separateWindow->hide();
+    }
 }
 
 void WatchHandler::showSeparateWidget(QWidget *w)
 {
-    if (m_separateWindow.isNull()) {
-        m_separateWindow = new QTabWidget(debuggerCore()->mainWindow());
-        m_separateWindow->setWindowFlags(m_separateWindow->windowFlags() | Qt::Window);
-        m_separateWindow->setWindowTitle(WatchHandler::tr("Debugger - Qt Creator"));
-    }
-    const int index = indexOf(m_separateWindow, w);
+    if (m_separateWindow.isNull())
+        m_separateWindow = new SeparateViewWidget(debuggerCore()->mainWindow());
+
+    int index = indexOf(m_separateWindow, w);
     if (index != -1) {
         m_separateWindow->setTabText(index, w->windowTitle());
     } else {
-        m_separateWindow->addTab(w, w->windowTitle());
+        index = m_separateWindow->addTab(w, w->windowTitle());
     }
+    m_separateWindow->setCurrentIndex(index);
     m_separateWindow->show();
     m_separateWindow->raise();
 }
@@ -1675,7 +1697,8 @@ void WatchHandler::showEditValue(const WatchData &data)
         if (data.editformat == DisplayImageData) {
             ba = QByteArray::fromHex(data.editvalue);
             const int *header = (int *)(ba.data());
-            swapEndian(ba.data(), ba.size());
+            if (!ba.at(0) && !ba.at(1)) // Check on 'width' for Python dumpers returning 4-byte swapped-data.
+                swapEndian(ba.data(), ba.size());
             bits = 12 + (uchar *)(ba.data());
             width = header[0];
             height = header[1];
@@ -1713,9 +1736,7 @@ void WatchHandler::showEditValue(const WatchData &data)
             str = QString::fromLatin1(ba.constData(), ba.size());
         else if (data.editformat == DisplayUtf8String)
             str = QString::fromUtf8(ba.constData(), ba.size());
-        t->setWindowTitle(QString::fromLatin1("%1 (%2)").
-                          arg(data.name, data.displayedType.isEmpty() ?
-                              QLatin1String(data.type) : data.displayedType));
+        t->setWindowTitle(data.name);
         t->setText(str);
         showSeparateWidget(t);
     }

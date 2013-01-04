@@ -136,15 +136,12 @@ Q_SIGNALS:
     void modificationChanged(bool modified);
     void undoAvailable(bool);
     void redoAvailable(bool);
-    void copyAvailable(bool);
     void cursorPositionChanged(int position);
 
     void dataRequested(Core::IEditor *editor, quint64 block);
     void newWindowRequested(quint64 address);
     void newRangeRequested(Core::IEditor *, quint64 address);
     void addWatchpointRequested(quint64 address, uint size);
-    void startOfFileRequested(Core::IEditor *);
-    void endOfFileRequested(Core::IEditor *);
     void dataChanged(Core::IEditor *, quint64 address, const QByteArray &data);
 
 protected:

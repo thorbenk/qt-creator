@@ -993,10 +993,10 @@ static inline void formatMilliSeconds(std::wostream &str, int milliSecs)
         << '.' << std::setw(3) << milliSecs;
 }
 
-static const char stdStringTypeC[] = "std::basic_string<char,std::char_traits<char>,std::allocator<char> >";
-static const char stdWStringTypeC[] = "std::basic_string<unsigned short,std::char_traits<unsigned short>,std::allocator<unsigned short> >";
+const char *stdStringTypeC = "std::basic_string<char,std::char_traits<char>,std::allocator<char> >";
+const char *stdWStringTypeC = "std::basic_string<unsigned short,std::char_traits<unsigned short>,std::allocator<unsigned short> >";
 // Compiler option:  -Zc:wchar_t-:
-static const char stdWStringWCharTypeC[] = "std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t> >";
+const char *stdWStringWCharTypeC = "std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t> >";
 
 static KnownType knownPODTypeHelper(const std::string &type, std::string::size_type endPos)
 {
@@ -2066,6 +2066,70 @@ static bool dumpQDateTime(const SymbolGroupValue &v, std::wostream &str)
     return true;
 }
 
+static bool dumpQImage(const SymbolGroupValue &v, std::wostream &str, MemoryHandle **memoryHandle)
+{
+    struct CreatorImageHeader { // Header for image display as edit format, followed by data.
+        int width;
+        int height;
+        int format;
+    };
+    const QtInfo &qtInfo(QtInfo::get(v.context()));
+    // Fetch data of unexported private class
+    const ULONG64 address = v["d"].pointerValue();
+    if (!address) {
+        str << L"<null>";
+        return true;
+    }
+    const std::string qImageDataType = qtInfo.prependQtGuiModule("QImageData");
+    const unsigned long size = SymbolGroupValue::sizeOf(qImageDataType.c_str());
+    if (!size)
+        return false;
+    unsigned char *qImageData = SymbolGroupValue::readMemory(v.context().dataspaces, address, size);
+    if (!qImageData)
+        return false;
+    // read size data
+    unsigned char *ptr = qImageData + qAtomicIntSize(v.context());
+    CreatorImageHeader header;
+    header.width = *(reinterpret_cast<int *>(ptr));
+    ptr += SymbolGroupValue::intSize();
+    header.height = *(reinterpret_cast<int *>(ptr));
+    ptr += SymbolGroupValue::intSize();
+    const int depth = *(reinterpret_cast<int *>(ptr));
+    ptr += SymbolGroupValue::intSize();
+    const int nbytes = *(reinterpret_cast<int *>(ptr));
+    const unsigned dataOffset = SymbolGroupValue::fieldOffset(qImageDataType.c_str(), "data");
+    // Qt 4 has a Qt 3 support pointer member between 'data' and 'format'.
+    const unsigned formatOffset = SymbolGroupValue::fieldOffset(qImageDataType.c_str(), "format");
+    if (!dataOffset || !formatOffset)
+        return false;
+    ptr = qImageData + dataOffset;
+    // read data pointer
+    ULONG64 data = 0;
+    memcpy(&data, ptr, SymbolGroupValue::pointerSize());
+    // read format
+    ptr = qImageData + formatOffset;
+    header.format = *(reinterpret_cast<int *>(ptr));
+    if (header.width < 0 || header.height < 0 || header.format < 0 || header.format > 255
+        || nbytes < 0 || depth < 0) {
+        return false;
+    }
+    str << header.width << L'x' << header.height << L", depth: " << depth
+        << L", format: " << header.format << L", "
+        << nbytes << L" bytes @0x"  << std::hex << data << std::dec;
+    delete [] qImageData;
+    // Create Creator Image data for display if reasonable size
+    if (memoryHandle && data && nbytes > 0 && nbytes < 205824) {
+        if (unsigned char *imageData = SymbolGroupValue::readMemory(v.context().dataspaces, data, nbytes)) {
+            unsigned char *creatorImageData = new unsigned char[sizeof(CreatorImageHeader) + nbytes];
+            memcpy(creatorImageData, &header, sizeof(CreatorImageHeader));
+            memcpy(creatorImageData + sizeof(CreatorImageHeader), imageData, nbytes);
+            delete [] imageData;
+            *memoryHandle = new MemoryHandle(creatorImageData, sizeof(CreatorImageHeader) + nbytes);
+        }
+    }
+    return true;
+}
+
 // Dump a rectangle in X11 syntax
 template <class T>
 inline void dumpRect(std::wostream &str, T x, T y, T width, T height)
@@ -2206,29 +2270,32 @@ static inline bool dumpQWindow(const SymbolGroupValue &v, std::wostream &str, vo
 }
 
 // Dump a std::string.
-static bool dumpStd_W_String(const SymbolGroupValue &v, int type, std::wostream &str)
+static bool dumpStd_W_String(const SymbolGroupValue &v, int type, std::wostream &str,
+                             MemoryHandle **memoryHandle = 0)
 {
     // Find 'bx'. MSVC 2012 has 2 base classes, MSVC 2010 1,
     // and MSVC2008 none
     const SymbolGroupValue bx = SymbolGroupValue::findMember(v, "_Bx");
     const int reserved = bx.parent()["_Myres"].intValue();
-    if (!bx || reserved < 0)
+    const int size = bx.parent()["_Mysize"].intValue();
+    if (!bx || reserved < 0 || size < 0)
         return false;
     // 'Buf' array for small strings, else pointer 'Ptr'.
     const int bufSize = type == KT_StdString ? 16 : 8; // see basic_string.
-    const SymbolGroupValue string = bufSize <= reserved ? bx["_Ptr"] : bx["_Buf"];
-    if (!string)
+    const unsigned long memSize = type == KT_StdString ? size : 2 * size;
+    const ULONG64 address = reserved >= bufSize ? bx["_Ptr"].pointerValue() : bx["_Buf"].address();
+    if (!address)
         return false;
-    // Potentially re-code char arrays (preferably relying on
-    // CDB to initially format the string array).
-    const DumpParameterRecodeResult recode = checkCharArrayRecode(string);
-    if (recode.buffer) {
-        str << (type == KT_StdString ?
-            quotedWStringFromCharData(recode.buffer, recode.size) :
-            quotedWStringFromWCharData(recode.buffer, recode.size));
-        delete [] recode.buffer;
+    unsigned char *memory = SymbolGroupValue::readMemory(v.context().dataspaces, address, memSize);
+    if (!memory)
+        return false;
+    str << (type == KT_StdString ?
+        quotedWStringFromCharData(memory, memSize) :
+        quotedWStringFromWCharData(memory, memSize));
+    if (memoryHandle) {
+        *memoryHandle = new MemoryHandle(memory, memSize);
     } else {
-        str << string.value();
+        delete [] memory;
     }
     return true;
 }
@@ -2561,6 +2628,9 @@ unsigned dumpSimpleType(SymbolGroupNode  *n, const SymbolGroupValueContext &ctx,
     case KT_QLineF:
         rc = dumpQLine_F(v, str) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
         break;
+    case KT_QImage:
+        rc = dumpQImage(v, str, memoryHandleIn) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
+        break;
     case KT_QRect:
         rc = dumpQRect(v, str) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
         break;
@@ -2590,7 +2660,7 @@ unsigned dumpSimpleType(SymbolGroupNode  *n, const SymbolGroupValueContext &ctx,
         break;
     case KT_StdString:
     case KT_StdWString:
-        rc = dumpStd_W_String(v, kt, str) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
+        rc = dumpStd_W_String(v, kt, str, memoryHandleIn) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
         break;
     default:
         break;
@@ -2640,14 +2710,21 @@ bool dumpEditValue(const SymbolGroupNode *n, const SymbolGroupValueContext &,
 
     switch (n->dumperType()) {
     case KT_QString:
+    case KT_StdWString:
         if (desiredFormat == StringSeparateWindow)
             if (const MemoryHandle *mh = n->memory())
                 formatEditValue(DisplayUtf16String, mh, str);
         break;
     case KT_QByteArray:
+    case KT_StdString:
         if (desiredFormat == StringSeparateWindow)
             if (const MemoryHandle *mh = n->memory())
                 formatEditValue(DisplayLatin1String, mh, str);
+        break;
+    case KT_QImage:
+        if (desiredFormat == 1) // Image.
+            if (const MemoryHandle *mh = n->memory())
+                formatEditValue(DisplayImageData, mh, str);
         break;
     }
     return true;
