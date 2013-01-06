@@ -1,6 +1,7 @@
 #include "cxprettyprinter.h"
 #include "utils_p.h"
 #include "cxraii.h"
+#include <QStringList>
 
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
@@ -100,6 +101,53 @@ QString CXPrettyPrinter::toString(CXDiagnosticSeverity severity) const
     }
 }
 
+QString CXPrettyPrinter::jsonForCompletionMeta(CXCodeCompleteResults *results)
+{
+    QString json;
+    m_printed.swap(json);
+    m_indent = 0;
+
+    m_printed += QLatin1String("CXCodeCompleteResults {");
+    m_indent += 4;
+
+    CXCursorKind containerKind = clang_codeCompleteGetContainerKind(results, NULL);
+    writeLineEnd();
+    m_printed += QLatin1String("'container CursorKind': ");
+    m_printed += toString(containerKind);
+    m_printed += QLatin1Char(',');
+
+    QString containerUSR(Internal::getQString(clang_codeCompleteGetContainerUSR(results)));
+    if (!containerUSR.isEmpty()) {
+        writeLineEnd();
+        m_printed += QLatin1String("'container USR': ");
+        m_printed += containerUSR;
+        m_printed += QLatin1Char(',');
+    }
+
+    QString objCSelector(Internal::getQString(clang_codeCompleteGetObjCSelector(results)));
+    if (!objCSelector.isEmpty()) {
+        writeLineEnd();
+        m_printed += QLatin1String("'Objective-C selector': ");
+        m_printed += objCSelector;
+        m_printed += QLatin1Char(',');
+    }
+
+    writeLineEnd();
+    m_printed += QLatin1String("'contexts': [");
+    m_indent += 4;
+    writeCompletionContexts(results);
+    m_indent -= 4;
+    writeLineEnd();
+    m_printed += QLatin1Char(']');
+
+    m_indent -= 4;
+    writeLineEnd();
+    m_printed += QLatin1Char('}');
+
+    m_printed.swap(json);
+    return json;
+}
+
 QString CXPrettyPrinter::jsonForCompletionString(const CXCompletionString &string)
 {
     QString json;
@@ -163,6 +211,62 @@ QString CXPrettyPrinter::jsonForDiagnsotic(const CXDiagnostic &diagnostic)
 
     m_printed.swap(json);
     return json;
+}
+
+void CXPrettyPrinter::writeCompletionContexts(CXCodeCompleteResults *results)
+{
+    quint64 contexts = clang_codeCompleteGetContexts(results);
+    QStringList lines;
+
+    if (contexts & CXCompletionContext_AnyType)
+        lines << QLatin1String("'any type'");
+    if (contexts & CXCompletionContext_AnyValue)
+        lines << QLatin1String("'any value'");
+    if (contexts & CXCompletionContext_ObjCObjectValue)
+        lines << QLatin1String("'Objective-C object'");
+    if (contexts & CXCompletionContext_ObjCSelectorValue)
+        lines << QLatin1String("'Objective-C selector'");
+    if (contexts & CXCompletionContext_CXXClassTypeValue)
+        lines << QLatin1String("'C++ class'");
+    if (contexts & CXCompletionContext_DotMemberAccess)
+        lines << QLatin1String("'. member access'");
+    if (contexts & CXCompletionContext_ArrowMemberAccess)
+        lines << QLatin1String("'-> member access'");
+    if (contexts & CXCompletionContext_ObjCPropertyAccess)
+        lines << QLatin1String("'. Objective-C property access'");
+    if (contexts & CXCompletionContext_EnumTag)
+        lines << QLatin1String("'enum tag'");
+    if (contexts & CXCompletionContext_UnionTag)
+        lines << QLatin1String("'union tag'");
+    if (contexts & CXCompletionContext_StructTag)
+        lines << QLatin1String("'struct tag'");
+    if (contexts & CXCompletionContext_ClassTag)
+        lines << QLatin1String("'C++ class tag'");
+    if (contexts & CXCompletionContext_Namespace)
+        lines << QLatin1String("'namespace tag'");
+    if (contexts & CXCompletionContext_NestedNameSpecifier)
+        lines << QLatin1String("'C++ nested name specifier'");
+    if (contexts & CXCompletionContext_ObjCInterface)
+        lines << QLatin1String("'Objective-C interface'");
+    if (contexts & CXCompletionContext_ObjCProtocol)
+        lines << QLatin1String("'Objective-C protocol'");
+    if (contexts & CXCompletionContext_ObjCCategory)
+        lines << QLatin1String("'Objective-C category'");
+    if (contexts & CXCompletionContext_ObjCInstanceMessage)
+        lines << QLatin1String("'Objective-C instance message'");
+    if (contexts & CXCompletionContext_ObjCClassMessage)
+        lines << QLatin1String("'Objective-C class message'");
+    if (contexts & CXCompletionContext_ObjCSelectorName)
+        lines << QLatin1String("'Objective-C selector name'");
+    if (contexts & CXCompletionContext_MacroName)
+        lines << QLatin1String("'macro name'");
+    if (contexts & CXCompletionContext_NaturalLanguage)
+        lines << QLatin1String("'natural language'");
+
+    foreach (const QString &line, lines) {
+        writeLineEnd();
+        m_printed += line + QLatin1String(",");
+    }
 }
 
 void CXPrettyPrinter::writeCompletionStringJson(const CXCompletionString &string)

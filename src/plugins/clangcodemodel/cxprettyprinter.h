@@ -17,6 +17,7 @@ public:
     QString toString(CXCursorKind kind) const;
     QString toString(CXDiagnosticSeverity severity) const;
 
+    QString jsonForCompletionMeta(CXCodeCompleteResults *results);
     QString jsonForCompletionString(const CXCompletionString &string);
     QString jsonForCompletion(const CXCompletionResult &result);
     QString jsonForDiagnsotic(const CXDiagnostic &diagnostic);
@@ -25,6 +26,7 @@ private:
     int m_indent;
     QString m_printed;
 
+    void writeCompletionContexts(CXCodeCompleteResults *results);
     void writeCompletionStringJson(const CXCompletionString &string);
     void writeCompletionChunkJson(const CXCompletionString &string, unsigned i);
     void writeCompletionAnnotationJson(const CXCompletionString &string, unsigned i);
