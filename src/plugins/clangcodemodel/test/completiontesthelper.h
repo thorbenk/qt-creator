@@ -27,55 +27,53 @@
 **
 ****************************************************************************/
 
-#ifndef CLANGPLUGIN_H
-#define CLANGPLUGIN_H
+#ifndef CLANGCODEMODEL_TESTS_COMPLETIONTESTHELPER_H
+#define CLANGCODEMODEL_TESTS_COMPLETIONTESTHELPER_H
 
-#include "liveunitsmanager.h"
+#ifdef WITH_TESTS
 
-#ifdef CLANG_HIGHLIGHTING
-#  include "clanghighlightingsupport.h"
-#endif // CLANG_HIGHLIGHTING
+#include <QObject>
+#include <QTextDocument>
+#include <texteditor/basetexteditor.h>
+#include <cplusplus/CppDocument.h>
+#include <clangcompleter.h>
 
-#ifdef CLANG_COMPLETION
-#  include "clangcompletion.h"
-#endif // CLANG_COMPLETION
-
-#ifdef CLANG_INDEXING
-#  include "clangindexer.h"
-#endif // CLANG_INDEXING
-
-#include <extensionsystem/iplugin.h>
+namespace TextEditor { class IAssistProposal; }
 
 namespace ClangCodeModel {
 namespace Internal {
 
-class ClangCodeModelPlugin: public ExtensionSystem::IPlugin
+class CompletionTestHelper : public QObject
 {
     Q_OBJECT
-
 public:
-    ClangCodeModelPlugin();
+    explicit CompletionTestHelper(QObject *parent = 0);
+    ~CompletionTestHelper();
 
-    bool initialize(const QStringList &arguments, QString *errorMessage);
+    void operator <<(const QString &fileName);
+    QStringList codeCompleteTexts();
 
-    void extensionsInitialized();
+    int position() const;
+    const QByteArray &source() const;
 
-    virtual ShutdownFlag aboutToShutdown();
+    void addOption(const QString &option);
 
 private:
-    LiveUnitsManager m_liveUnitsManager;
-    QScopedPointer<ClangCompletionAssistProvider> m_completionAssistProvider;
-    QScopedPointer<ClangHighlightingSupportFactory> m_highlightingFactory;
-    QScopedPointer<ClangIndexer> m_indexer;
+    void findCompletionPos();
 
-#ifdef WITH_TESTS
-private slots:
-    void test_CXX_regressions();
-    void test_CXX_regressions_data();
-#endif
+    UnsavedFiles m_unsavedFiles;
+    ClangCompleter::Ptr m_completer;
+    QStringList m_clangOptions;
+
+    QByteArray m_sourceCode;
+    int m_position;
+    int m_line;
+    int m_column;
 };
 
 } // namespace Internal
-} // namespace Clang
+} // namespace ClangCodeModel
 
-#endif // CLANGPLUGIN_H
+#endif
+
+#endif // CLANGCODEMODEL_TESTS_COMPLETIONTESTHELPER_H

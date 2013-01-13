@@ -107,4 +107,26 @@ contains(DEFINES, CLANG_LEXER) {
         $$PWD/unitsetup.cpp
 }
 
+equals(TEST, 1) {
+    RESOURCES += \
+        $$PWD/test/clang_tests_database.qrc
+
+    HEADERS += \
+        $$PWD/test/completiontesthelper.h
+
+    SOURCES += \
+        $$PWD/test/completiontesthelper.cpp \
+        $$PWD/test/clangcompletion_test.cpp
+
+    OTHER_FILES += \
+        $$PWD/test/cxx_regression_1.cpp \
+        $$PWD/test/cxx_regression_2.cpp \
+        $$PWD/test/cxx_regression_3.cpp \
+        $$PWD/test/cxx_regression_4.cpp \
+        $$PWD/test/cxx_regression_5.cpp \
+        $$PWD/test/cxx_regression_6.cpp \
+        $$PWD/test/cxx_regression_7.cpp \
+        $$PWD/test/cxx_regression_8.cpp
+}
+
 FORMS += $$PWD/clangprojectsettingspropertiespage.ui

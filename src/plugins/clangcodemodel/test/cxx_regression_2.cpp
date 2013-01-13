@@ -27,55 +27,24 @@
 **
 ****************************************************************************/
 
-#ifndef CLANGPLUGIN_H
-#define CLANGPLUGIN_H
+/*
+ * Expected: 'i_first' 'c_first'
+ * Not expected: 'i_second' 'c_second' 'f_second'
+ */
 
-#include "liveunitsmanager.h"
+typedef struct {
+    int i_first;
+    char c_first;
+} S1;
 
-#ifdef CLANG_HIGHLIGHTING
-#  include "clanghighlightingsupport.h"
-#endif // CLANG_HIGHLIGHTING
+typedef struct {
+    int i_second;
+    char c_second;
+    float f_second;
+} S2;
 
-#ifdef CLANG_COMPLETION
-#  include "clangcompletion.h"
-#endif // CLANG_COMPLETION
-
-#ifdef CLANG_INDEXING
-#  include "clangindexer.h"
-#endif // CLANG_INDEXING
-
-#include <extensionsystem/iplugin.h>
-
-namespace ClangCodeModel {
-namespace Internal {
-
-class ClangCodeModelPlugin: public ExtensionSystem::IPlugin
+void foo()
 {
-    Q_OBJECT
-
-public:
-    ClangCodeModelPlugin();
-
-    bool initialize(const QStringList &arguments, QString *errorMessage);
-
-    void extensionsInitialized();
-
-    virtual ShutdownFlag aboutToShutdown();
-
-private:
-    LiveUnitsManager m_liveUnitsManager;
-    QScopedPointer<ClangCompletionAssistProvider> m_completionAssistProvider;
-    QScopedPointer<ClangHighlightingSupportFactory> m_highlightingFactory;
-    QScopedPointer<ClangIndexer> m_indexer;
-
-#ifdef WITH_TESTS
-private slots:
-    void test_CXX_regressions();
-    void test_CXX_regressions_data();
-#endif
-};
-
-} // namespace Internal
-} // namespace Clang
-
-#endif // CLANGPLUGIN_H
+    S1 s;
+    s.@;
+}

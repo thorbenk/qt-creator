@@ -27,55 +27,41 @@
 **
 ****************************************************************************/
 
-#ifndef CLANGPLUGIN_H
-#define CLANGPLUGIN_H
+/*
+ * Expected: 'i8' 'i64'
+ */
 
-#include "liveunitsmanager.h"
-
-#ifdef CLANG_HIGHLIGHTING
-#  include "clanghighlightingsupport.h"
-#endif // CLANG_HIGHLIGHTING
-
-#ifdef CLANG_COMPLETION
-#  include "clangcompletion.h"
-#endif // CLANG_COMPLETION
-
-#ifdef CLANG_INDEXING
-#  include "clangindexer.h"
-#endif // CLANG_INDEXING
-
-#include <extensionsystem/iplugin.h>
-
-namespace ClangCodeModel {
-namespace Internal {
-
-class ClangCodeModelPlugin: public ExtensionSystem::IPlugin
+class Example
 {
-    Q_OBJECT
-
 public:
-    ClangCodeModelPlugin();
-
-    bool initialize(const QStringList &arguments, QString *errorMessage);
-
-    void extensionsInitialized();
-
-    virtual ShutdownFlag aboutToShutdown();
+    Example();
+    ~Example();
 
 private:
-    LiveUnitsManager m_liveUnitsManager;
-    QScopedPointer<ClangCompletionAssistProvider> m_completionAssistProvider;
-    QScopedPointer<ClangHighlightingSupportFactory> m_highlightingFactory;
-    QScopedPointer<ClangIndexer> m_indexer;
-
-#ifdef WITH_TESTS
-private slots:
-    void test_CXX_regressions();
-    void test_CXX_regressions_data();
-#endif
+    class Priv;
+    Priv *d;
 };
 
-} // namespace Internal
-} // namespace Clang
+class Example::Priv
+{
+public:
+    int i8;
+    int i64;
 
-#endif // CLANGPLUGIN_H
+    Priv() : i8(8), i64(64) {}
+};
+
+Example::Example()
+    : d(new Example::Priv())
+{
+    d->@;
+}
+
+Example::~Example()
+{
+}
+
+void f()
+{
+    Example w;
+}
