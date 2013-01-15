@@ -73,6 +73,8 @@ QbsCleanStep::QbsCleanStep(ProjectExplorer::BuildStepList *bsl, const QbsCleanSt
 QbsCleanStep::~QbsCleanStep()
 {
     cancel();
+    m_job->deleteLater();
+    m_job = 0;
 }
 
 bool QbsCleanStep::init()
@@ -125,9 +127,8 @@ bool QbsCleanStep::runInGuiThread() const
 
 void QbsCleanStep::cancel()
 {
-    // FIXME: Will this work? I somehow doubt it...
-    delete m_job;
-    m_job = 0;
+    if (m_job)
+        m_job->cancel();
 }
 
 bool QbsCleanStep::dryRun() const
