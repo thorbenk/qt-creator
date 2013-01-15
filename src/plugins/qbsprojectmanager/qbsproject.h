@@ -134,10 +134,6 @@ private:
     QFuture<void> m_codeModelFuture;
 
     QbsBuildConfiguration *m_currentBc;
-
-    // <debug>
-    QTimer m_reparseTimer;
-    // </debug>
 };
 
 } // namespace Internal

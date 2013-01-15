@@ -37,10 +37,6 @@
 #include <api/jobs.h> // qbs
 #include <tools/buildoptions.h> // qbs
 
-// <debug>
-#include <QElapsedTimer>
-// </debug>
-
 namespace QbsProjectManager {
 namespace Internal {
 
@@ -106,14 +102,6 @@ private:
     int m_progressBase;
     bool m_showCompilerOutput;
     ProjectExplorer::IOutputParser *m_parser;
-
-    // <debug>
-    QElapsedTimer m_timer;
-    quint64 m_progressCount;
-    quint64 m_warningCount;
-    quint64 m_describeCount;
-    quint64 m_resultCount;
-    // </debug>
 
     friend class QbsBuildStepConfigWidget;
 };

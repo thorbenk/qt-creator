@@ -41,10 +41,6 @@
 #include <projectexplorer/target.h>
 #include <utils/qtcassert.h>
 
-// <debug>
-#include <QDebug>
-// </debug>
-
 static const char QBS_CLEAN_ALL[] = "Qbs.CleanAll";
 static const char QBS_DRY_RUN[] = "Qbs.DryRun";
 static const char QBS_KEEP_GOING[] = "Qbs.DryKeepGoing";

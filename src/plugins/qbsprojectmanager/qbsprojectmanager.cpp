@@ -44,9 +44,7 @@
 
 #include <QVariantMap>
 
-// <debug>
 #include <logging/logger.h> // qbs
-// </debug>
 
 // qbs settings structure:
 static const char PROFILE_LIST[] = "preferences/qtcreator/kit/";
@@ -82,9 +80,6 @@ QbsManager::QbsManager(Internal::QbsProjectManagerPlugin *plugin) :
     setObjectName("QbsProjectManager");
     connect(ProjectExplorer::KitManager::instance(), SIGNAL(kitsChanged()), this, SLOT(pushKitsToQbs()));
 
-    // <debug>
-    qbs::Logger::instance().setLevel(qbs::LoggerError);
-    // </debug>
     qbs::Logger::instance().setLogSink(new Internal::QbsLogSink);
 }
 

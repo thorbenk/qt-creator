@@ -45,10 +45,6 @@
 
 #include <QInputDialog>
 
-// <debug>
-#include <QDebug>
-// </debug>
-
 static const char QBS_BC_ID[] = "Qbs.QbsBuildConfiguration";
 static const char QBS_BUILD_DIRECTORY_KEY[] = "Qbs.BuildDirectory";
 

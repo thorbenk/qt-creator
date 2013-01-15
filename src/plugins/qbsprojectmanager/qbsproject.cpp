@@ -63,10 +63,6 @@
 
 #include <QFileInfo>
 
-// <debug>
-#include <QDebug>
-// </debug>
-
 // --------------------------------------------------------------------
 // Constants:
 // --------------------------------------------------------------------
@@ -169,11 +165,6 @@ QbsProject::QbsProject(QbsManager *manager, const QString &fileName) :
             this, SLOT(changeActiveTarget(ProjectExplorer::Target*)));
     connect(this, SIGNAL(addedTarget(ProjectExplorer::Target*)),
             this, SLOT(targetWasAdded(ProjectExplorer::Target*)));
-
-    // <debug>
-    m_reparseTimer.setInterval(200);
-    connect(&m_reparseTimer, SIGNAL(timeout()), this, SLOT(parseCurrentBuildConfiguration()));
-    // </debug>
 
     updateDocuments(0);
 }
@@ -386,18 +377,10 @@ void QbsProject::generateErrors(const qbs::Error &e)
 
 void QbsProject::parse(const QVariantMap &config, const QString &dir)
 {
-    // <debug>
-    // if (!m_reparseTimer.isActive()) m_reparseTimer.start();
-    // </debug>
-
     QTC_ASSERT(!dir.isNull(), return);
     prepareForParsing();
     m_qbsBuildConfig = config;
     m_qbsBuildRoot = dir;
-
-    // <debug>
-    qDebug() << "QBS: Buildroot:" << m_qbsBuildRoot;
-    // </debug>
 
     QTC_ASSERT(!m_qbsSetupProjectJob, return);
     m_qbsSetupProjectJob = qbs::Project::setupProject(m_fileName, m_qbsBuildConfig, m_qbsBuildRoot, 0);

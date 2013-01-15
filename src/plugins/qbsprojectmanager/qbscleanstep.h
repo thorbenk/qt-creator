@@ -37,10 +37,6 @@
 #include <api/jobs.h> // qbs
 #include <tools/buildoptions.h> // qbs
 
-// <debug>
-#include <QElapsedTimer>
-// </debug>
-
 namespace QbsProjectManager {
 namespace Internal {
 

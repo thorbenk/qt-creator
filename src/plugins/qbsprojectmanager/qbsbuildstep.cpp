@@ -42,10 +42,6 @@
 #include <projectexplorer/target.h>
 #include <utils/qtcassert.h>
 
-// <debug>
-#include <QDebug>
-// </debug>
-
 static const char QBS_CONFIG[] = "Qbs.Configuration";
 static const char QBS_DRY_RUN[] = "Qbs.DryRun";
 static const char QBS_KEEP_GOING[] = "Qbs.DryKeepGoing";
@@ -109,13 +105,6 @@ void QbsBuildStep::run(QFutureInterface<bool> &fi)
 {
     m_fi = &fi;
 
-    // <// <debug>
-    m_progressCount = 0;
-    m_describeCount = 0;
-    m_warningCount = 0;
-    m_resultCount = 0;
-    // </debug>
-
     QbsProject *pro = static_cast<QbsProject *>(project());
     qbs::BuildOptions options(m_qbsBuildOptions);
 
@@ -127,8 +116,6 @@ void QbsBuildStep::run(QFutureInterface<bool> &fi)
     }
 
     m_progressBase = 0;
-
-    m_timer.start();
 
     connect(m_job, SIGNAL(finished(bool,qbs::AbstractJob*)), this, SLOT(buildingDone(bool)));
     connect(m_job, SIGNAL(taskStarted(QString,int,qbs::AbstractJob*)),
@@ -229,17 +216,6 @@ void QbsBuildStep::buildingDone(bool success)
     m_job->deleteLater();
     m_job = 0;
 
-    // <debug>
-//    double elapsed = m_timer.elapsed() / 1000;
-//    if (elapsed == 0)
-//        elapsed = 0.001;
-
-//    qDebug() << "QbsCounts:" << success << "in" << elapsed << "s\n"
-//             << "    Progress:" << m_progressCount << "(" << (m_progressCount / elapsed) << "/s)\n"
-//             << "    Warnings:" << m_warningCount << "(" << (m_warningCount / elapsed) << "/s)\n"
-//             << "    Describe:" << m_describeCount << "(" << (m_describeCount / elapsed) << "/s)\n"
-//             << "    Results :" << m_resultCount << "(" << (m_resultCount / elapsed) << "/s)\n";
-    // </debug>
     emit finished();
 }
 
@@ -255,34 +231,22 @@ void QbsBuildStep::handleTaskStarted(const QString &desciption, int max)
 void QbsBuildStep::handleProgress(int value)
 {
     QTC_ASSERT(m_fi, return);
-    // <debug>
-    ++m_progressCount;
-    // </debug>
     m_fi->setProgressValue(m_progressBase + value);
 }
 
 void QbsBuildStep::handleWarningReport(const qbs::CodeLocation &location, const QString &message)
 {
-    // <debug>
-    ++m_warningCount;
-    // </debug>
     createTaskAndOutput(ProjectExplorer::Task::Warning, message, location.fileName, location.line);
 }
 
 void QbsBuildStep::handleCommandDescriptionReport(const QString &highlight, const QString &message)
 {
-    // <debug>
-    ++m_describeCount;
-    // </debug>
     Q_UNUSED(highlight);
     emit addOutput(message, NormalOutput);
 }
 
 void QbsBuildStep::handleProcessResultReport(const qbs::ProcessResult &result)
 {
-    // <debug>
-    ++m_resultCount;
-    // </debug>
     bool hasOutput = !result.stdOut.isEmpty() || !result.stdErr.isEmpty();
 
     if (result.success && !hasOutput && !m_showCompilerOutput)
