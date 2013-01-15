@@ -77,7 +77,7 @@ qbs::Settings *QbsManager::m_settings = new qbs::Settings;
 QbsManager::QbsManager(Internal::QbsProjectManagerPlugin *plugin) :
     m_plugin(plugin)
 {
-    setObjectName("QbsProjectManager");
+    setObjectName(QLatin1String("QbsProjectManager"));
     connect(ProjectExplorer::KitManager::instance(), SIGNAL(kitsChanged()), this, SLOT(pushKitsToQbs()));
 
     qbs::Logger::instance().setLogSink(new Internal::QbsLogSink);
