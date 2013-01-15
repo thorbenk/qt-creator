@@ -61,7 +61,9 @@ namespace Internal {
 QbsBuildStep::QbsBuildStep(ProjectExplorer::BuildStepList *bsl) :
     ProjectExplorer::BuildStep(bsl, Core::Id(Constants::QBS_BUILDSTEP_ID)),
     m_job(0), m_showCompilerOutput(true), m_parser(0)
-{ }
+{
+    setDisplayName(tr("qbs build"));
+}
 
 QbsBuildStep::QbsBuildStep(ProjectExplorer::BuildStepList *bsl, const QbsBuildStep *other) :
     ProjectExplorer::BuildStep(bsl, Core::Id(Constants::QBS_BUILDSTEP_ID)),

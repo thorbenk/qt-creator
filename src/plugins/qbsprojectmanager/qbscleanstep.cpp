@@ -60,7 +60,9 @@ namespace Internal {
 QbsCleanStep::QbsCleanStep(ProjectExplorer::BuildStepList *bsl) :
     ProjectExplorer::BuildStep(bsl, Core::Id(Constants::QBS_CLEANSTEP_ID)),
     m_cleanAll(false), m_job(0), m_showCompilerOutput(true), m_parser(0)
-{ }
+{
+    setDisplayName(tr("qbs clean"));
+}
 
 QbsCleanStep::QbsCleanStep(ProjectExplorer::BuildStepList *bsl, const QbsCleanStep *other) :
     ProjectExplorer::BuildStep(bsl, Core::Id(Constants::QBS_CLEANSTEP_ID)),
