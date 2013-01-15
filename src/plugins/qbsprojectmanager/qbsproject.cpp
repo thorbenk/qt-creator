@@ -467,6 +467,9 @@ void QbsProject::updateDocuments(const qbs::ProjectData *prj)
 
 void QbsProject::updateCppCodeModel(const qbs::ProjectData *prj)
 {
+    if (!prj)
+        return;
+
     ProjectExplorer::Kit *k = 0;
     QtSupport::BaseQtVersion *qtVersion = 0;
     ProjectExplorer::ToolChain *tc = 0;
