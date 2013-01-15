@@ -30,6 +30,8 @@
 #ifndef QBSPARSER_H
 #define QBSPARSER_H
 
+#include "qbsprojectmanager_global.h"
+
 #include <projectexplorer/ioutputparser.h>
 
 #include <QDir>
@@ -37,7 +39,7 @@
 namespace QbsProjectManager {
 namespace Internal {
 
-class PROJECTEXPLORER_EXPORT QbsParser : public ProjectExplorer::IOutputParser
+class QBSPROJECTMANAGER_EXPORT QbsParser : public ProjectExplorer::IOutputParser
 {
     Q_OBJECT
 

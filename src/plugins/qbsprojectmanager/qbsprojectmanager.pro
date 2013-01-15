@@ -17,6 +17,10 @@ include($$QBS_SOURCE_DIR/src/lib/use.pri)
 
 DEFINES += QBS_SOURCE_DIR=\\\"$$QBS_SOURCE_DIR\\\"
 DEFINES += QBS_BUILD_DIR=\\\"$$QBS_BUILD_DIR\\\"
+DEFINES += \
+    QT_CREATOR \
+    QBSPROJECTMANAGER_LIBRARY \
+    QT_NO_CAST_FROM_ASCII
 
 HEADERS = \
     qbsbuildconfiguration.h \
