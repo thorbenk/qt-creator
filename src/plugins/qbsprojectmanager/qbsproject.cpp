@@ -233,7 +233,15 @@ qbs::BuildJob *QbsProject::build(const qbs::BuildOptions &opts)
 {
     if (!m_rootProjectNode || !m_rootProjectNode->project())
         return 0;
-    return m_rootProjectNode->project()->buildAllProducts(opts);
+    if (!activeTarget() || !activeTarget()->kit())
+        return 0;
+    ProjectExplorer::BuildConfiguration *bc = 0;
+    bc = activeTarget()->activeBuildConfiguration();
+    if (!bc)
+        return 0;
+
+    QProcessEnvironment env = bc->environment().toProcessEnvironment();
+    return m_rootProjectNode->project()->buildAllProducts(opts, env);
 }
 
 qbs::CleanJob *QbsProject::clean(const qbs::BuildOptions &opts, bool everything)
