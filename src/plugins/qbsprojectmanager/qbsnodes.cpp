@@ -192,6 +192,11 @@ QbsGroupNode::QbsGroupNode(const qbs::GroupData *grp, const qbs::ProductData *pr
     }
 }
 
+bool QbsGroupNode::isEnabled() const
+{
+    return group->isEnabled();
+}
+
 // --------------------------------------------------------------------
 // QbsProductNode:
 // --------------------------------------------------------------------
@@ -211,6 +216,11 @@ QbsProductNode::QbsProductNode(const qbs::ProductData *prd) :
         toAdd << new QbsGroupNode(&grp, prd);
 
     addProjectNodes(toAdd);
+}
+
+bool QbsProductNode::isEnabled() const
+{
+    return product->isEnabled();
 }
 
 // --------------------------------------------------------------------

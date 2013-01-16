@@ -49,7 +49,8 @@ class QbsFileNode : public ProjectExplorer::FileNode
 {
     Q_OBJECT
 public:
-    QbsFileNode(const QString &filePath, const ProjectExplorer::FileType fileType, bool generated, int line);
+    QbsFileNode(const QString &filePath, const ProjectExplorer::FileType fileType, bool generated,
+                int line);
     int line() const;
 
 private:
@@ -103,6 +104,8 @@ class QbsGroupNode : public QbsBaseProjectNode
 public:
     QbsGroupNode(const qbs::GroupData *grp, const qbs::ProductData *prd);
 
+    bool isEnabled() const;
+
     const qbs::GroupData *group;
 };
 
@@ -116,6 +119,8 @@ class QbsProductNode : public QbsBaseProjectNode
 
 public:
     explicit QbsProductNode(const qbs::ProductData *prd);
+
+    bool isEnabled() const;
 
     const qbs::ProductData *product;
 };
