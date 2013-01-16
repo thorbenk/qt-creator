@@ -323,6 +323,8 @@ Qt::ItemFlags FlatModel::flags(const QModelIndex &index) const
             if (node->projectNode()->supportedActions(node).contains(ProjectNode::Rename))
                 f = f | Qt::ItemIsEditable;
         }
+        if (!node->isEnabled())
+            f = f ^ Qt::ItemIsEnabled; // disable it again.
     }
     return f;
 }
