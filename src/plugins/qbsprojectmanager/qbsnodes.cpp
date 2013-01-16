@@ -223,6 +223,16 @@ bool QbsProductNode::isEnabled() const
     return product->isEnabled();
 }
 
+void QbsProductNode::updateProductData(const qbs::ProductData *prd)
+{
+    product = prd;
+
+    for (int i = 0; i < subProjectNodes().count(); ++i) {
+        QbsGroupNode *gn = static_cast<QbsGroupNode *>(subProjectNodes().at(i));
+        gn->group = &(prd->groups().at(i));
+    }
+}
+
 // --------------------------------------------------------------------
 // QbsProjectNode:
 // --------------------------------------------------------------------
@@ -248,12 +258,11 @@ void QbsProjectNode::update(const qbs::Project *prj)
 
     QList<ProjectExplorer::ProjectNode *> oldNodeList = subProjectNodes();
 
-    delete m_projectData;
-    m_projectData = 0;
+    qbs::ProjectData *newData = 0;
 
     if (prj) {
-        m_projectData = new qbs::ProjectData(prj->projectData());
-        foreach (const qbs::ProductData &prd, m_projectData->products()) {
+        newData = new qbs::ProjectData(prj->projectData());
+        foreach (const qbs::ProductData &prd, newData->products()) {
             QbsProductNode *qn = findProductNode(prd.name());
             if (!qn) {
                 toAdd << new QbsProductNode(&prd);
@@ -263,11 +272,16 @@ void QbsProjectNode::update(const qbs::Project *prj)
                 if (*qn->product != prd) {
                     toRemove << qn;
                     toAdd << new QbsProductNode(&prd);
+                } else {
+                    qn->updateProductData(&prd);
                 }
             }
         }
     }
     toRemove.append(oldNodeList);
+
+    delete m_projectData;
+    m_projectData = newData;
 
     if (m_project) {
         delete m_project;

@@ -122,6 +122,8 @@ public:
 
     bool isEnabled() const;
 
+    void updateProductData(const qbs::ProductData *prd);
+
     const qbs::ProductData *product;
 };
 
