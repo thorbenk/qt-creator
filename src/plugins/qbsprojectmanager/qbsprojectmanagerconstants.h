@@ -57,7 +57,7 @@ static const char QBS_VARIANT_DEBUG[] = "debug";
 static const char QBS_VARIANT_RELEASE[] = "release";
 
 static const char QBS_CONFIG_VARIANT_KEY[] = "qbs.buildVariant";
-static const char QBS_CONFIG_PROFILE_KEY[] = "profile";
+static const char QBS_CONFIG_PROFILE_KEY[] = "qbs.profile";
 
 } // namespace Constants
 } // namespace QbsProjectManager
