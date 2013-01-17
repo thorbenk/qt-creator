@@ -128,8 +128,8 @@ void QbsBuildStep::run(QFutureInterface<bool> &fi)
             this, SLOT(handleProgress(int)));
     connect(m_job, SIGNAL(reportCommandDescription(QString,QString)),
             this, SLOT(handleCommandDescriptionReport(QString,QString)));
-    connect(m_job, SIGNAL(reportWarning(qbs::CodeLocation,QString)),
-            this, SLOT(handleWarningReport(qbs::CodeLocation,QString)));
+    connect(m_job, SIGNAL(reportWarning(qbs::Error)),
+            this, SLOT(handleWarningReport(qbs::Error)));
     connect(m_job, SIGNAL(reportProcessResult(qbs::ProcessResult)),
             this, SLOT(handleProcessResultReport(qbs::ProcessResult)));
 }
@@ -212,7 +212,8 @@ void QbsBuildStep::buildingDone(bool success)
 {
     // Report errors:
     foreach (const qbs::ErrorData &data, m_job->error().entries())
-        createTaskAndOutput(ProjectExplorer::Task::Error, data.description(), data.file(), data.line());
+        createTaskAndOutput(ProjectExplorer::Task::Error, data.description(),
+                            data.codeLocation().fileName, data.codeLocation().line);
 
     QTC_ASSERT(m_fi, return);
     m_fi->reportResult(success);
@@ -238,9 +239,12 @@ void QbsBuildStep::handleProgress(int value)
     m_fi->setProgressValue(m_progressBase + value);
 }
 
-void QbsBuildStep::handleWarningReport(const qbs::CodeLocation &location, const QString &message)
+void QbsBuildStep::handleWarningReport(const qbs::Error &error)
 {
-    createTaskAndOutput(ProjectExplorer::Task::Warning, message, location.fileName, location.line);
+    foreach (const qbs::ErrorData &data, error.entries()) {
+        createTaskAndOutput(ProjectExplorer::Task::Warning, data.description(),
+                            data.codeLocation().fileName, data.codeLocation().line);
+    }
 }
 
 void QbsBuildStep::handleCommandDescriptionReport(const QString &highlight, const QString &message)

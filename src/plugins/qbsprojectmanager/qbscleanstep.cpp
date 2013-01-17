@@ -178,8 +178,10 @@ QVariantMap QbsCleanStep::toMap() const
 void QbsCleanStep::cleaningDone(bool success)
 {
     // Report errors:
-    foreach (const qbs::ErrorData &data, m_job->error().entries())
-        createTaskAndOutput(ProjectExplorer::Task::Error, data.description(), data.file(), data.line());
+    foreach (const qbs::ErrorData &data, m_job->error().entries()) {
+        createTaskAndOutput(ProjectExplorer::Task::Error, data.description(),
+                            data.codeLocation().fileName, data.codeLocation().line);
+    }
 
     QTC_ASSERT(m_fi, return);
     m_fi->reportResult(success);

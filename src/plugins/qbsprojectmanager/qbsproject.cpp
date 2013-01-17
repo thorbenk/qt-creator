@@ -371,7 +371,8 @@ void QbsProject::generateErrors(const qbs::Error &e)
     foreach (const qbs::ErrorData &data, e.entries())
         taskHub()->addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error,
                                                  data.description(),
-                                                 Utils::FileName::fromString(data.file()), data.line(),
+                                                 Utils::FileName::fromString(data.codeLocation().fileName),
+                                                 data.codeLocation().line,
                                                  ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM));
 }
 
