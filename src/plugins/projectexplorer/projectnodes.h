@@ -91,14 +91,15 @@ public:
     virtual QString tooltip() const;
     virtual bool isEnabled() const;
 
+    void setPath(const QString &path); // this does not call emitNodeUpdated!
+    void emitNodeUpdated();
+
 protected:
     Node(NodeType nodeType, const QString &path);
 
     void setNodeType(NodeType type);
     void setProjectNode(ProjectNode *project);
     void setParentFolderNode(FolderNode *parentFolder);
-
-    void emitNodeUpdated();
 
 private:
     NodeType m_nodeType;
@@ -140,6 +141,9 @@ public:
 
     void setDisplayName(const QString &name);
     void setIcon(const QIcon &icon);
+
+    FileNode *findFile(const QString &path);
+    FolderNode *findSubFolder(const QString &path);
 
 protected:
     QList<FolderNode*> m_subFolderNodes;

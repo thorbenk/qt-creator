@@ -39,6 +39,7 @@ namespace qbs { class Project; }
 namespace QbsProjectManager {
 namespace Internal {
 
+class FileTreeNode;
 class QbsProjectFile;
 
 // ----------------------------------------------------------------------
@@ -51,7 +52,9 @@ class QbsFileNode : public ProjectExplorer::FileNode
 public:
     QbsFileNode(const QString &filePath, const ProjectExplorer::FileType fileType, bool generated,
                 int line);
-    int line() const;
+    int line() const { return m_line; }
+
+    void setLine(int l);
 
 private:
     int m_line;
@@ -102,11 +105,17 @@ class QbsGroupNode : public QbsBaseProjectNode
     Q_OBJECT
 
 public:
-    QbsGroupNode(const qbs::GroupData *grp, const qbs::ProductData *prd);
+    QbsGroupNode(const qbs::GroupData *grp);
 
     bool isEnabled() const;
+    void setGroup(const qbs::GroupData *group);
+    const qbs::GroupData *group() const { return m_group; }
 
-    const qbs::GroupData *group;
+private:
+    void setupFolders(ProjectExplorer::FolderNode *root, FileTreeNode *node,
+                      ProjectExplorer::FileNode *keep = 0);
+
+    const qbs::GroupData *m_group;
 };
 
 // --------------------------------------------------------------------
@@ -122,9 +131,13 @@ public:
 
     bool isEnabled() const;
 
-    void updateProductData(const qbs::ProductData *prd);
+    void setProduct(const qbs::ProductData *prd);
+    const qbs::ProductData *product() const { return m_product; }
 
-    const qbs::ProductData *product;
+private:
+    QbsGroupNode *findGroupNode(const QString &name);
+
+    const qbs::ProductData *m_product;
 };
 
 // ---------------------------------------------------------------------------
@@ -144,9 +157,9 @@ public:
     const qbs::Project *project() const;
     const qbs::ProjectData *projectData() const;
 
+private:
     QbsProductNode *findProductNode(const QString &name);
 
-private:
     const qbs::Project *m_project;
     const qbs::ProjectData *m_projectData;
 };
