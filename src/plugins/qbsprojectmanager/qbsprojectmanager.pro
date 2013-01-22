@@ -4,6 +4,11 @@ TARGET = QbsProjectManager
 include(../../qtcreatorplugin.pri)
 include(qbsprojectmanager_dependencies.pri)
 
+# Look for qbs in the environment...
+isEmpty(QBS_SOURCE_DIR):QBS_SOURCE_DIR=$$(QBS_SOURCE_DIR)
+isEmpty(QBS_BUILD_DIR):QBS_BUILD_DIR=$$(QBS_BUILD_DIR)
+
+# ... otherwise fall back to hard-coded assumptions.
 isEmpty(QBS_SOURCE_DIR):QBS_SOURCE_DIR=$$PWD/../../../../qbs
 isEmpty(QBS_BUILD_DIR):QBS_BUILD_DIR=$$PWD/../../../../../build/qbs
 
