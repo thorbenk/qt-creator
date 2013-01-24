@@ -82,6 +82,7 @@ QbsManager::QbsManager(Internal::QbsProjectManagerPlugin *plugin) :
     connect(ProjectExplorer::KitManager::instance(), SIGNAL(kitsChanged()), this, SLOT(pushKitsToQbs()));
 
     qbs::Logger::instance().setLogSink(new Internal::QbsLogSink);
+    qbs::Logger::instance().setLevel(qbs::LoggerWarning);
 }
 
 QbsManager::~QbsManager()
