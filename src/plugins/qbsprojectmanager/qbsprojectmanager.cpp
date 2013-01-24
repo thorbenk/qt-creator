@@ -37,6 +37,7 @@
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/kitmanager.h>
 #include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/toolchain.h>
 #include <qtsupport/baseqtversion.h>
 #include <qtsupport/qtkitinformation.h>

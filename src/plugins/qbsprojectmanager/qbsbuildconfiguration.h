@@ -70,6 +70,9 @@ public:
 
     BuildType buildType() const;
 
+    void setChangedFiles(const QStringList &files);
+    QStringList changedFiles() const;
+
 signals:
     void qbsConfigurationChanged();
 
@@ -92,6 +95,7 @@ private:
     bool m_isParsing;
     bool m_parsingError;
     Utils::FileName m_buildDirectory;
+    QStringList m_changedFiles;
 
     friend class QbsBuildConfigurationFactory;
     friend class QbsBuildConfigurationWidget;

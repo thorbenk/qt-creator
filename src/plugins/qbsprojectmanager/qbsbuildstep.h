@@ -96,6 +96,7 @@ private:
 
     QVariantMap m_qbsConfiguration;
     qbs::BuildOptions m_qbsBuildOptions;
+    QStringList m_changedFiles;
 
     QFutureInterface<bool> *m_fi;
     qbs::BuildJob *m_job;

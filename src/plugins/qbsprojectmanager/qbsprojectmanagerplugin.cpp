@@ -45,6 +45,7 @@
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
+#include <utils/qtcassert.h>
 
 #include <QAction>
 #include <QtPlugin>
@@ -84,6 +85,13 @@ bool QbsProjectManagerPlugin::initialize(const QStringList &arguments, QString *
     // PE Context menu for projects
     Core::ActionContainer *mproject =
             Core::ActionManager::actionContainer(ProjectExplorer::Constants::M_PROJECTCONTEXT);
+    // <debug>
+    // Core::ActionContainer *msubproject =
+    //         Core::ActionManager::actionContainer(ProjectExplorer::Constants::M_SUBPROJECTCONTEXT);
+    // </debug>
+    Core::ActionContainer *mfile =
+            Core::ActionManager::actionContainer(ProjectExplorer::Constants::M_FILECONTEXT);
+
 
     //register actions
     Core::Command *command;
@@ -100,12 +108,20 @@ bool QbsProjectManagerPlugin::initialize(const QStringList &arguments, QString *
     mproject->addAction(command, ProjectExplorer::Constants::G_PROJECT_BUILD);
     connect(m_reparseQbsCtx, SIGNAL(triggered()), this, SLOT(reparseCurrentProject()));
 
+    m_buildFileContextMenu = new QAction(tr("Build"), this);
+    command = Core::ActionManager::registerAction(m_buildFileContextMenu, Constants::ACTION_BUILD_FILE_QBS_CONTEXT, projectContext);
+    command->setAttribute(Core::Command::CA_Hide);
+    mfile->addAction(command, ProjectExplorer::Constants::G_FILE_OTHER);
+    connect(m_buildFileContextMenu, SIGNAL(triggered()), this, SLOT(buildFileContextMenu()));
+
+    // Connect
     connect(m_projectExplorer, SIGNAL(currentNodeChanged(ProjectExplorer::Node*,ProjectExplorer::Project*)),
             this, SLOT(updateContextActions(ProjectExplorer::Node*,ProjectExplorer::Project*)));
 
     connect(m_projectExplorer->buildManager(), SIGNAL(buildStateChanged(ProjectExplorer::Project*)),
             this, SLOT(buildStateChanged(ProjectExplorer::Project*)));
 
+    // Run initial setup routines
     updateContextActions(0, 0);
     updateReparseQbsAction();
 
@@ -140,8 +156,11 @@ void QbsProjectManagerPlugin::updateContextActions(ProjectExplorer::Node *node, 
     activeTargetChanged();
 
     bool isBuilding = m_projectExplorer->buildManager()->isBuilding(project);
+    bool isFile = m_currentProject && node && (node->nodeType() == ProjectExplorer::FileNodeType);
+    bool isFileEnabled = isFile && node->isEnabled();
 
     m_reparseQbsCtx->setEnabled(!isBuilding && m_currentProject && !m_currentProject->isParsing());
+    m_buildFileContextMenu->setEnabled(isFileEnabled);
 }
 
 void QbsProjectManagerPlugin::updateReparseQbsAction()
@@ -180,6 +199,36 @@ void QbsProjectManagerPlugin::parsingStateChanged()
         updateReparseQbsAction();
         updateContextActions(m_currentNode, m_currentProject);
     }
+}
+
+void QbsProjectManagerPlugin::buildFileContextMenu()
+{
+    // <debug>
+    qDebug() << "Build file...";
+    // </debug>
+    QTC_ASSERT(m_currentNode, return);
+    QTC_ASSERT(m_currentProject, return);
+
+    ProjectExplorer::Target *t = m_currentProject->activeTarget();
+    if (!t)
+        return;
+    QbsBuildConfiguration *bc = qobject_cast<QbsBuildConfiguration *>(t->activeBuildConfiguration());
+    if (!bc)
+        return;
+
+    ProjectExplorer::ProjectExplorerPlugin *pe = ProjectExplorer::ProjectExplorerPlugin::instance();
+
+    if (!pe->saveModifiedFiles())
+        return;
+
+    bc->setChangedFiles(QStringList(m_currentNode->path()));
+
+    const Core::Id buildStep = Core::Id(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
+
+    const QString name = ProjectExplorer::ProjectExplorerPlugin::displayNameForStepId(buildStep);
+    pe->buildManager()->buildList(bc->stepList(buildStep), name);
+
+    bc->setChangedFiles(QStringList());
 }
 
 void QbsProjectManagerPlugin::reparseCurrentProject()

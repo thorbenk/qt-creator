@@ -70,6 +70,7 @@ private slots:
     void activeTargetChanged();
     void buildStateChanged(ProjectExplorer::Project *project);
     void parsingStateChanged();
+    void buildFileContextMenu();
 
     void reparseCurrentProject();
 
@@ -79,6 +80,7 @@ private:
 
     QAction *m_reparseQbs;
     QAction *m_reparseQbsCtx;
+    QAction *m_buildFileContextMenu;
 
     Internal::QbsProject *m_currentProject;
     ProjectExplorer::Target *m_currentTarget;

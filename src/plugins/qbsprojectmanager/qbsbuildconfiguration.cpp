@@ -183,6 +183,16 @@ ProjectExplorer::BuildConfiguration::BuildType QbsBuildConfiguration::buildType(
     return Unknown;
 }
 
+void QbsBuildConfiguration::setChangedFiles(const QStringList &files)
+{
+    m_changedFiles = files;
+}
+
+QStringList QbsBuildConfiguration::changedFiles() const
+{
+    return m_changedFiles;
+}
+
 QbsBuildConfiguration *QbsBuildConfiguration::setup(ProjectExplorer::Target *t,
                                                     const QString &defaultDisplayName,
                                                     const QString &displayName,
