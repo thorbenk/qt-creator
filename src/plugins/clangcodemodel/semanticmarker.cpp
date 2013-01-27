@@ -93,6 +93,34 @@ void SemanticMarker::reparse(const UnsavedFiles &unsavedFiles)
         m_unit->parse();
 }
 
+/**
+ * \brief Calculate one or several ranges and append diagnostic for each range
+ * Extracted from SemanticMarker::diagnostics() to reuse code
+ */
+static void appendDiagnostic(const CXDiagnostic &diag,
+                             const CXSourceLocation &cxLocation,
+                             Diagnostic::Severity severity,
+                             const QString &spelling,
+                             QList<Diagnostic> &diagnostics)
+{
+    const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
+    if (rangeCount > 0) {
+        for (unsigned i = 0; i < rangeCount; ++i) {
+            CXSourceRange r = clang_getDiagnosticRange(diag, i);
+            const SourceLocation &spellBegin = Internal::getSpellingLocation(clang_getRangeStart(r));
+            const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
+            unsigned length = spellEnd.offset() - spellBegin.offset();
+
+            Diagnostic d(severity, spellBegin, length, spelling);
+            diagnostics.append(d);
+        }
+    } else {
+        const SourceLocation &location = Internal::getExpansionLocation(cxLocation);
+        Diagnostic d(severity, location, 0, spelling);
+        diagnostics.append(d);
+    }
+}
+
 QList<Diagnostic> SemanticMarker::diagnostics() const
 {
     QList<Diagnostic> diagnostics;
@@ -119,23 +147,14 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
             spelling.append(Internal::getQString(clang_getDiagnosticSpelling(child)));
         }
 
-        // Calculate one or several ranges and append diagnostic for each range
-        const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
-        if (rangeCount > 0) {
-            for (unsigned i = 0; i < rangeCount; ++i) {
-                CXSourceRange r = clang_getDiagnosticRange(diag, 0);
-                const SourceLocation &spellBegin = Internal::getSpellingLocation(clang_getRangeStart(r));
-                const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
-                unsigned length = spellEnd.offset() - spellBegin.offset();
-
-                Diagnostic d(severity, spellBegin, length, spelling);
-                diagnostics.append(d);
-            }
-        } else {
-            const SourceLocation &location = Internal::getExpansionLocation(cxLocation);
-            Diagnostic d(severity, location, 0, spelling);
-            diagnostics.append(d);
+        // Fatal error may occur in another file, but it breaks whole parsing
+        // Typical fatal error is unresolved #include
+        if (severity == Diagnostic::Fatal) {
+            CXDiagnostic child = clang_getDiagnosticInSet(cxChildren, i);
+            appendDiagnostic(child, clang_getDiagnosticLocation(child), Diagnostic::Warning, spelling, diagnostics);
         }
+
+        appendDiagnostic(diag, cxLocation, severity, spelling, diagnostics);
     }
 
     return diagnostics;

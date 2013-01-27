@@ -85,14 +85,8 @@ void DiagnosticsHandler::setDiagnostics(const QList<ClangCodeModel::Diagnostic> 
         if (m.length() == 0) {
             int i = m.location().column() - 1;
             if (i == text.size() || (i < text.size() && text.at(i).isSpace())) {
-                // backward scan
-                --i;
-                for ( ; i > 0; --i) {
-                    if (text.at(i).isSpace()) {
-                        c.setPosition(linePos + i + 1, QTextCursor::KeepAnchor);
-                        break;
-                    }
-                }
+                // move backward to 1 character
+                c.setPosition(linePos + i - 1, QTextCursor::KeepAnchor);
             } else {
                 // forward scan
                 for ( ; i < text.size(); ++i)
