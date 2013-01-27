@@ -93,12 +93,14 @@ QStringList CompletionTestHelper::codeCompleteTexts()
             m_completer->codeCompleteAt(m_line, m_column, m_unsavedFiles);
 
     QStringList completions;
-    QStringList hints;
-    foreach (const CodeCompletionResult& ccr, results) {
+    foreach (const CodeCompletionResult& ccr, results)
          completions << ccr.text();
-         hints << ccr.hint();
-    }
     return completions;
+}
+
+QList<CodeCompletionResult> CompletionTestHelper::codeComplete()
+{
+    return m_completer->codeCompleteAt(m_line, m_column, m_unsavedFiles);
 }
 
 int CompletionTestHelper::position() const

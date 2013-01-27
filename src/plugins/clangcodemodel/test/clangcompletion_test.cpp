@@ -91,7 +91,9 @@ void ClangCodeModelPlugin::test_CXX_regressions_data()
 
     file = QLatin1String("cxx_regression_1.cpp");
     mustHave << QLatin1String("sqr");
-    QTest::newRow("case: method call completion") << file << unexpected << mustHave;
+    unexpected << QLatin1String("~Math");
+    unexpected << QLatin1String("operator=");
+    QTest::newRow("case 1: method call completion") << file << unexpected << mustHave;
     mustHave.clear();
     unexpected.clear();
 
@@ -101,49 +103,142 @@ void ClangCodeModelPlugin::test_CXX_regressions_data()
     unexpected << QLatin1String("f_second");
     mustHave << QLatin1String("i_first");
     mustHave << QLatin1String("c_first");
-    QTest::newRow("case: multiple anonymous structs") << file << unexpected << mustHave;
+    QTest::newRow("case 2: multiple anonymous structs") << file << unexpected << mustHave;
     mustHave.clear();
     unexpected.clear();
 
     file = QLatin1String("cxx_regression_3.cpp");
     mustHave << QLatin1String("i8");
     mustHave << QLatin1String("i64");
-    QTest::newRow("case: nested class resolution") << file << unexpected << mustHave;
+    unexpected << QLatin1String("~Priv");
+    unexpected << QLatin1String("operator=");
+    QTest::newRow("case 3: nested class resolution") << file << unexpected << mustHave;
     mustHave.clear();
     unexpected.clear();
 
     file = QLatin1String("cxx_regression_4.cpp");
     mustHave << QLatin1String("action");
-    QTest::newRow("case: local (in function) class resolution") << file << unexpected << mustHave;
+    QTest::newRow("case 4: local (in function) class resolution") << file << unexpected << mustHave;
     mustHave.clear();
     unexpected.clear();
 
     file = QLatin1String("cxx_regression_5.cpp");
     mustHave << QLatin1String("doB");
     unexpected << QLatin1String("doA");
-    QTest::newRow("case: nested template class resolution") << file << unexpected << mustHave;
+    QTest::newRow("case 5: nested template class resolution") << file << unexpected << mustHave;
     mustHave.clear();
     unexpected.clear();
 
     file = QLatin1String("cxx_regression_6.cpp");
     mustHave << QLatin1String("OwningPtr");
-    QTest::newRow("case: using particular symbol from namespace") << file << unexpected << mustHave;
+    QTest::newRow("case 6: using particular symbol from namespace") << file << unexpected << mustHave;
     mustHave.clear();
     unexpected.clear();
 
     file = QLatin1String("cxx_regression_7.cpp");
     mustHave << QLatin1String("dataMember");
     mustHave << QLatin1String("anotherMember");
-    QTest::newRow("case: template class inherited from template parameter") << file << unexpected << mustHave;
+    QTest::newRow("case 7: template class inherited from template parameter") << file << unexpected << mustHave;
     mustHave.clear();
     unexpected.clear();
 
     file = QLatin1String("cxx_regression_8.cpp");
     mustHave << QLatin1String("utils::");
     unexpected << QLatin1String("utils");
-    QTest::newRow("case: namespace completion in function body") << file << unexpected << mustHave;
+    QTest::newRow("case 8: namespace completion in function body") << file << unexpected << mustHave;
     mustHave.clear();
     unexpected.clear();
+
+    file = QLatin1String("cxx_regression_9.cpp");
+    mustHave << QLatin1String("EnumScoped::Value1");
+    mustHave << QLatin1String("EnumScoped::Value2");
+    mustHave << QLatin1String("EnumScoped::Value3");
+    unexpected << QLatin1String("Value1");
+    unexpected << QLatin1String("EnumScoped");
+    QTest::newRow("case 9: c++11 enum class, value used in switch and 'case' completed")
+            << file << unexpected << mustHave;
+    mustHave.clear();
+    unexpected.clear();
+}
+
+void ClangCodeModelPlugin::test_CXX_snippets()
+{
+    QFETCH(QString, file);
+    QFETCH(QStringList, texts);
+    QFETCH(QStringList, snippets);
+    Q_ASSERT(texts.size() == snippets.size());
+
+    CompletionTestHelper helper;
+    helper << file;
+
+    QList<CodeCompletionResult> proposals = helper.codeComplete();
+
+    for (int i = 0, n = texts.size(); i < n; ++i) {
+        const QString &text = texts[i];
+        const QString &snippet = snippets[i];
+        const QString snippetError =
+                QLatin1String("Text and snippet mismatch: text '") + text
+                + QLatin1String("', snippet '") + snippet
+                + QLatin1String("', got snippet '%1'");
+
+        bool hasText = false;
+        foreach (const CodeCompletionResult &ccr, proposals) {
+            if (ccr.text() != text)
+                continue;
+            hasText = true;
+            QVERIFY2(snippet == ccr.snippet(), snippetError.arg(ccr.snippet()).toAscii());
+        }
+        const QString textError(QLatin1String("Text not found:") + text);
+        QVERIFY2(hasText, textError.toAscii());
+    }
+}
+
+void ClangCodeModelPlugin::test_CXX_snippets_data()
+{
+    QTest::addColumn<QString>("file");
+    QTest::addColumn<QStringList>("texts");
+    QTest::addColumn<QStringList>("snippets");
+
+    QString file;
+    QStringList texts;
+    QStringList snippets;
+
+    file = QLatin1String("cxx_snippets_1.cpp");
+    texts << QLatin1String("reinterpret_cast<type>(expression)");
+    snippets << QLatin1String("reinterpret_cast<$type$>($expression$)");
+
+    texts << QLatin1String("static_cast<type>(expression)");
+    snippets << QLatin1String("static_cast<$type$>($expression$)");
+
+    texts << QLatin1String("new type(expressions)");
+    snippets << QLatin1String("new $type$($expressions$)");
+
+    QTest::newRow("case: snippets for var declaration") << file << texts << snippets;
+    texts.clear();
+    snippets.clear();
+
+    file = QLatin1String("cxx_snippets_2.cpp");
+    texts << QLatin1String("private");
+    snippets << QLatin1String("");
+
+    texts << QLatin1String("protected");
+    snippets << QLatin1String("");
+
+    texts << QLatin1String("public");
+    snippets << QLatin1String("");
+
+    texts << QLatin1String("friend");
+    snippets << QLatin1String("");
+
+    texts << QLatin1String("virtual");
+    snippets << QLatin1String("");
+
+    texts << QLatin1String("typedef type name");
+    snippets << QLatin1String("typedef $type$ $name$");
+
+    QTest::newRow("case: snippets inside class declaration") << file << texts << snippets;
+    texts.clear();
+    snippets.clear();
 }
 
 #endif

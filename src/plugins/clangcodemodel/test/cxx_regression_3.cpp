@@ -29,6 +29,7 @@
 
 /*
  * Expected: 'i8' 'i64'
+ * Unexpected: 'Priv' 'operator='
  */
 
 class Example

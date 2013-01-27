@@ -18,8 +18,8 @@ DEFINES += CLANG_LIBRARY
 macx: QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
 
 contains(DEFINES, CLANG_COMPLETION) {
-    HEADERS += clangcompletion.h clangcompleter.h
-    SOURCES += clangcompletion.cpp clangcompleter.cpp
+    HEADERS += clangcompletion.h clangcompleter.h completionproposalsbuilder.h
+    SOURCES += clangcompletion.cpp clangcompleter.cpp completionproposalsbuilder.cpp
 }
 
 contains(DEFINES, CLANG_HIGHLIGHTING) {
@@ -126,7 +126,10 @@ equals(TEST, 1) {
         $$PWD/test/cxx_regression_5.cpp \
         $$PWD/test/cxx_regression_6.cpp \
         $$PWD/test/cxx_regression_7.cpp \
-        $$PWD/test/cxx_regression_8.cpp
+        $$PWD/test/cxx_regression_8.cpp \
+        $$PWD/test/cxx_regression_9.cpp \
+        $$PWD/test/cxx_snippets_1.cpp \
+        $$PWD/test/cxx_snippets_2.cpp
 }
 
 FORMS += $$PWD/clangprojectsettingspropertiespage.ui

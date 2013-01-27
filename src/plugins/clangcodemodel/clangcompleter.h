@@ -64,7 +64,9 @@ public:
         PreProcessorCompletionKind,
         SignalCompletionKind,
         SlotCompletionKind,
-        ObjCMessageCompletionKind
+        ObjCMessageCompletionKind,
+        KeywordCompletionKind,
+        ClangSnippetKind
     };
 
     enum Availability {
@@ -93,6 +95,11 @@ public:
     { return m_hint; }
     void setHint(const QString &hint)
     { m_hint = hint; }
+
+    QString snippet() const
+    { return m_snippet; }
+    void setSnippet(const QString &snippet)
+    { m_snippet = snippet; }
 
     Kind completionKind() const
     { return m_completionKind; }
@@ -149,6 +156,7 @@ private:
     Kind m_completionKind;
     QString m_text;
     QString m_hint;
+    QString m_snippet;
     Availability m_availability;
     bool m_hasParameters;
 };
@@ -182,6 +190,9 @@ public: // methods
 
     QStringList options() const;
     void setOptions(const QStringList &options) const;
+
+    bool isSignalSlotCompletion() const;
+    void setSignalSlotCompletion(bool isSignalSlot);
 
     bool reparse(const Internal::UnsavedFiles &unsavedFiles);
 

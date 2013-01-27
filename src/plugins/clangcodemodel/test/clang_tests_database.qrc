@@ -8,5 +8,8 @@
         <file>cxx_regression_6.cpp</file>
         <file>cxx_regression_7.cpp</file>
         <file>cxx_regression_8.cpp</file>
+        <file>cxx_regression_9.cpp</file>
+        <file>cxx_snippets_1.cpp</file>
+        <file>cxx_snippets_2.cpp</file>
     </qresource>
 </RCC>

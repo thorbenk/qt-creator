@@ -67,6 +67,8 @@ using namespace CPlusPlus;
 using namespace CppTools;
 using namespace TextEditor;
 
+static const char SNIPPET_ICON_PATH[] = ":/texteditor/images/snippet.png";
+
 namespace {
 
 int activationSequenceChar(const QChar &ch,
@@ -146,7 +148,11 @@ int activationSequenceChar(const QChar &ch,
     return referencePosition;
 }
 
-static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAssistInterface* interface, const QString &fileName, unsigned line, unsigned column, QByteArray modifiedInput = QByteArray())
+static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAssistInterface* interface,
+                                                        const QString &fileName,
+                                                        unsigned line, unsigned column,
+                                                        QByteArray modifiedInput = QByteArray(),
+                                                        bool isSignalSlotCompletion = false)
 {
     ClangCompleter::Ptr wrapper = interface->clangWrapper();
     QMutexLocker lock(wrapper->mutex());
@@ -154,6 +160,7 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
 
     wrapper->setFileName(fileName);
     wrapper->setOptions(interface->options());
+    wrapper->setSignalSlotCompletion(isSignalSlotCompletion);
     UnsavedFiles unsavedFiles = interface->unsavedFiles();
     if (!modifiedInput.isEmpty())
         unsavedFiles.insert(fileName, modifiedInput);
@@ -376,12 +383,11 @@ private:
     QList<CodeCompletionResult> m_overloads;
 };
 
+/// @return True, because clang always returns priorities for sorting
 bool ClangAssistProposalModel::isSortable(const QString &prefix) const
 {
-    if (m_completionOperator != T_EOF_SYMBOL)
-        return true;
-
-    return !prefix.isEmpty();
+    Q_UNUSED(prefix)
+    return true;
 }
 
 } // namespace Internal
@@ -985,7 +991,8 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
 #ifdef DEBUG_TIMING
         qDebug()<<"complete constructor or function @" << line<<":"<<column << "->"<<l<<":"<<c;
 #endif // DEBUG_TIMING
-        const QList<CodeCompletionResult> completions = unfilteredCompletion(m_interface.data(), fileName, l, c);
+        const QList<CodeCompletionResult> completions = unfilteredCompletion(
+                    m_interface.data(), fileName, l, c, QByteArray(), signalCompletion || slotCompletion);
         QList<CodeCompletionResult> functionCompletions;
         foreach (const CodeCompletionResult &ccr, completions) {
             if (ccr.completionKind() == CodeCompletionResult::FunctionCompletionKind
@@ -1004,7 +1011,9 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         }
     }
 
-    QList<CodeCompletionResult> completions = unfilteredCompletion(m_interface.data(), fileName, line, column, modifiedInput);
+    const QIcon snippetIcon = QIcon(QLatin1String(SNIPPET_ICON_PATH));
+    QList<CodeCompletionResult> completions = unfilteredCompletion(
+                m_interface.data(), fileName, line, column, modifiedInput, signalCompletion || slotCompletion);
     QHash<QString, ClangAssistProposalItem *> items;
     foreach (const CodeCompletionResult &ccr, completions) {
         if (!ccr.isValid())
@@ -1024,26 +1033,15 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
             item->setText(txt);
             item->setDetail(ccr.hint());
             item->setOrder(ccr.priority());
-            item->setData(qVariantFromValue(ccr));
 
-            if (!signalCompletion && !slotCompletion) {
-                switch (ccr.availability()) {
-                case CodeCompletionResult::Deprecated:
-                    item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Deprecated"));
-                    break;
-                case CodeCompletionResult::NotAccessible:
-                    item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Not accessible"));
-                    break;
-                case CodeCompletionResult::NotAvailable:
-                    item->setDetail(QCoreApplication::translate("ClangCompletionAssistProcessor", "Not available"));
-                    break;
-
-                default:
-                    break;
-                }
-            }
+            const QString snippet = ccr.snippet();
+            if (!snippet.isEmpty())
+                item->setData(snippet);
+            else
+                item->setData(qVariantFromValue(ccr));
         }
 
+        // FIXME: show the effective accessebility instead of availability
         switch (ccr.completionKind()) {
         case CodeCompletionResult::ClassCompletionKind: item->setIcon(m_icons.iconForType(Icons::ClassIconType)); break;
         case CodeCompletionResult::EnumCompletionKind: item->setIcon(m_icons.iconForType(Icons::EnumIconType)); break;
@@ -1053,21 +1051,54 @@ int ClangCompletionAssistProcessor::startCompletionInternal(const QString fileNa
         case CodeCompletionResult::DestructorCompletionKind: // fall through
         case CodeCompletionResult::FunctionCompletionKind:
         case CodeCompletionResult::ObjCMessageCompletionKind:
-            item->setIcon(m_icons.iconForType(Icons::FuncPublicIconType)); // FIXME: show the effective accessebility
+            switch (ccr.availability()) {
+            case CodeCompletionResult::Available:
+            case CodeCompletionResult::Deprecated:
+                item->setIcon(m_icons.iconForType(Icons::FuncPublicIconType));
+                break;
+            default:
+                item->setIcon(m_icons.iconForType(Icons::FuncPrivateIconType));
+                break;
+            }
             break;
 
         case CodeCompletionResult::SignalCompletionKind:
-            item->setIcon(m_icons.iconForType(Icons::SignalIconType)); // FIXME: show the effective accessebility
+            item->setIcon(m_icons.iconForType(Icons::SignalIconType));
             break;
 
         case CodeCompletionResult::SlotCompletionKind:
-            item->setIcon(m_icons.iconForType(Icons::SlotPublicIconType)); // FIXME: show the effective accessebility
+            switch (ccr.availability()) {
+            case CodeCompletionResult::Available:
+            case CodeCompletionResult::Deprecated:
+                item->setIcon(m_icons.iconForType(Icons::SlotPublicIconType));
+                break;
+            case CodeCompletionResult::NotAccessible:
+            case CodeCompletionResult::NotAvailable:
+                item->setIcon(m_icons.iconForType(Icons::SlotPrivateIconType));
+                break;
+            }
             break;
 
         case CodeCompletionResult::NamespaceCompletionKind: item->setIcon(m_icons.iconForType(Icons::NamespaceIconType)); break;
         case CodeCompletionResult::PreProcessorCompletionKind: item->setIcon(m_icons.iconForType(Icons::MacroIconType)); break;
         case CodeCompletionResult::VariableCompletionKind:
-            item->setIcon(m_icons.iconForType(Icons::VarPublicIconType));  // FIXME: show the effective accessebility
+            switch (ccr.availability()) {
+            case CodeCompletionResult::Available:
+            case CodeCompletionResult::Deprecated:
+                item->setIcon(m_icons.iconForType(Icons::VarPublicIconType));
+                break;
+            default:
+                item->setIcon(m_icons.iconForType(Icons::VarPrivateIconType));
+                break;
+            }
+            break;
+
+        case CodeCompletionResult::KeywordCompletionKind:
+            item->setIcon(m_icons.iconForType(Icons::KeywordIconType));
+            break;
+
+        case CodeCompletionResult::ClangSnippetKind:
+            item->setIcon(snippetIcon);
             break;
 
         default:

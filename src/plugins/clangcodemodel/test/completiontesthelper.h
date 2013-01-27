@@ -52,6 +52,7 @@ public:
 
     void operator <<(const QString &fileName);
     QStringList codeCompleteTexts();
+    QList<CodeCompletionResult> codeComplete();
 
     int position() const;
     const QByteArray &source() const;

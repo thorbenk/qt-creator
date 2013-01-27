@@ -31,6 +31,8 @@
 #include "sourcemarker.h"
 #include "unsavedfiledata.h"
 #include "utils_p.h"
+#include "completionproposalsbuilder.h"
+#include "cxraii.h"
 
 #include <QDebug>
 #include <QFile>
@@ -100,7 +102,8 @@ class ClangCodeModel::ClangCompleter::PrivateData
 {
 public:
     PrivateData()
-        : m_unit(0)
+        : m_isSignalSlotCompletion(false)
+        , m_unit(0)
     {
         const int excludeDeclsFromPCH = 1;
         const int displayDiagnostics = 1;
@@ -156,6 +159,7 @@ public:
 public:
     QString m_fileName;
     QStringList m_options;
+    bool m_isSignalSlotCompletion;
     CXIndex m_index;
     unsigned m_editingOpts;
     CXTranslationUnit m_unit;
@@ -166,214 +170,6 @@ private:
 
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
-
-namespace {
-
-void buildAvailability(const CXCompletionResult &cxResult,
-                       CodeCompletionResult &ccr)
-{
-    CXCompletionString complStr = cxResult.CompletionString;
-    switch (clang_getCompletionAvailability(complStr)) {
-    case CXAvailability_Deprecated:
-        ccr.setAvailability(CodeCompletionResult::Deprecated);
-        break;
-
-    case CXAvailability_NotAvailable:
-        ccr.setAvailability(CodeCompletionResult::NotAvailable);
-        break;
-
-    case CXAvailability_NotAccessible:
-        ccr.setAvailability(CodeCompletionResult::NotAccessible);
-        break;
-
-    default:
-        break;
-    }
-}
-
-void buildCompletionKind(const CXCompletionResult &cxResult,
-                         CodeCompletionResult &ccr)
-{
-    CXCompletionString complStr = cxResult.CompletionString;
-    CXCursorKind cursorKind = cxResult.CursorKind;
-
-    switch (cursorKind) {
-    case CXCursor_Constructor:
-        ccr.setCompletionKind(CodeCompletionResult::ConstructorCompletionKind);
-        break;
-
-    case CXCursor_Destructor:
-        ccr.setCompletionKind(CodeCompletionResult::DestructorCompletionKind);
-        break;
-
-    case CXCursor_CXXMethod: {
-        const unsigned numAnnotations = clang_getCompletionNumAnnotations(complStr);
-        bool isSignal = false, isSlot = false;
-        for (unsigned i = 0; i < numAnnotations && !isSignal && !isSlot; ++i) {
-            CXString cxAnn = clang_getCompletionAnnotation(complStr, i);
-            QString ann = Internal::getQString(cxAnn);
-            isSignal = ann == QLatin1String("qt_signal");
-            isSlot = ann == QLatin1String("qt_slot");
-        }
-        if (isSignal) {
-            ccr.setCompletionKind(CodeCompletionResult::SignalCompletionKind);
-            break;
-        }
-        if (isSlot) {
-            ccr.setCompletionKind(CodeCompletionResult::SlotCompletionKind);
-            break;
-        }
-    } // intentional fall-through!
-    case CXCursor_ConversionFunction:
-    case CXCursor_FunctionDecl:
-    case CXCursor_FunctionTemplate:
-    case CXCursor_MemberRef:
-    case CXCursor_MemberRefExpr:
-        ccr.setCompletionKind(CodeCompletionResult::FunctionCompletionKind);
-        break;
-
-    case CXCursor_FieldDecl:
-    case CXCursor_VarDecl:
-    case CXCursor_ObjCIvarDecl:
-    case CXCursor_ObjCPropertyDecl:
-    case CXCursor_ObjCSynthesizeDecl:
-        ccr.setCompletionKind(CodeCompletionResult::VariableCompletionKind);
-        break;
-
-    case CXCursor_Namespace:
-    case CXCursor_NamespaceAlias:
-    case CXCursor_NamespaceRef:
-        ccr.setCompletionKind(CodeCompletionResult::NamespaceCompletionKind);
-        break;
-
-    case CXCursor_StructDecl:
-    case CXCursor_UnionDecl:
-    case CXCursor_ClassDecl:
-    case CXCursor_TypeRef:
-    case CXCursor_TemplateRef:
-    case CXCursor_TypedefDecl:
-    case CXCursor_ClassTemplate:
-    case CXCursor_ClassTemplatePartialSpecialization:
-    case CXCursor_ObjCClassRef:
-    case CXCursor_ObjCInterfaceDecl:
-    case CXCursor_ObjCImplementationDecl:
-    case CXCursor_ObjCCategoryDecl:
-    case CXCursor_ObjCCategoryImplDecl:
-    case CXCursor_ObjCProtocolDecl:
-    case CXCursor_ObjCProtocolRef:
-        ccr.setCompletionKind(CodeCompletionResult::ClassCompletionKind);
-        break;
-
-    case CXCursor_EnumConstantDecl:
-        ccr.setCompletionKind(CodeCompletionResult::EnumeratorCompletionKind);
-        break;
-
-    case CXCursor_EnumDecl:
-        ccr.setCompletionKind(CodeCompletionResult::EnumCompletionKind);
-        break;
-
-    case CXCursor_PreprocessingDirective:
-    case CXCursor_MacroDefinition:
-    case CXCursor_MacroExpansion:
-    case CXCursor_InclusionDirective:
-        ccr.setCompletionKind(CodeCompletionResult::PreProcessorCompletionKind);
-        break;
-
-    // TODO: more objc cursors
-    case CXCursor_ObjCClassMethodDecl:
-    case CXCursor_ObjCInstanceMethodDecl:
-        ccr.setCompletionKind(CodeCompletionResult::ObjCMessageCompletionKind);
-        break;
-
-    default:
-        break;
-    }
-}
-
-/**
- * @brief Extracts text and hint from clang-c type
- *
- * Hint can be used to display tooltip and should provide additional
- * information like full function/type signature, file where type declarated
- * or doxygen brief comment.
- * @param cxResult - clang-c result that will be converted to ccr
- * @param ccr - QtCreator result, availability and completion
- *              kind should be built first
- */
-void buildHintAndText(const CXCompletionResult &cxResult,
-                      CodeCompletionResult &ccr)
-{
-    CXCompletionString complStr = cxResult.CompletionString;
-
-    QString hint;
-    QString text;
-    bool previousChunkWasLParen = false;
-    unsigned chunckCount = clang_getNumCompletionChunks(complStr);
-    for (unsigned j = 0; j < chunckCount; ++j) {
-        CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(complStr, j);
-        const QString chunkText =
-                Internal::getQString(clang_getCompletionChunkText(complStr, j), false);
-
-        switch (chunkKind) {
-        case CXCompletionChunk_TypedText:
-            if (ccr.completionKind() == CodeCompletionResult::ObjCMessageCompletionKind) {
-                if (chunkText != QLatin1String(":") && !text.isEmpty())
-                    text += QLatin1Char(' ');
-                text += chunkText;
-            } else
-                text = chunkText;
-            break;
-
-        case CXCompletionChunk_Text:
-            switch (ccr.completionKind()) {
-            case CodeCompletionResult::ClassCompletionKind:
-            case CodeCompletionResult::NamespaceCompletionKind:
-            case CodeCompletionResult::ObjCMessageCompletionKind:
-                text += chunkText;
-                break;
-            default:
-                break;
-            }
-            break;
-
-        case CXCompletionChunk_LeftParen:
-        case CXCompletionChunk_RightParen:
-            if (ccr.completionKind() == CodeCompletionResult::ObjCMessageCompletionKind)
-                text += chunkText;
-            break;
-
-        default:
-            break;
-        }
-
-        if (chunkKind == CXCompletionChunk_RightParen && previousChunkWasLParen)
-            ccr.setHasParameters(false);
-
-        if (chunkKind == CXCompletionChunk_LeftParen) {
-            previousChunkWasLParen = true;
-            ccr.setHasParameters(true);
-        } else {
-            previousChunkWasLParen = false;
-        }
-
-        if (!chunkText.isEmpty()) {
-            if (hint.size() > 0 && hint.at(hint.size() - 1).isLetterOrNumber())
-                hint.append(QLatin1Char(' '));
-            hint.append(chunkText);
-        }
-    }
-
-#if defined(CINDEX_VERSION) && (CINDEX_VERSION >= 6) // clang >= 3.2
-    const QString doxygen = Internal::getQString(
-                clang_getCompletionBriefComment(complStr));
-    if (!doxygen.isEmpty())
-        hint += QLatin1String("<p><i>") + doxygen + QLatin1String("</i></p>");
-#endif
-
-    ccr.setText(text);
-    ccr.setHint(hint);
-}
-} // anonymous namespace
 
 /**
  * @brief Constructs with highest possible priority
@@ -445,6 +241,16 @@ void ClangCompleter::setOptions(const QStringList &options) const
     }
 }
 
+bool ClangCompleter::isSignalSlotCompletion() const
+{
+    return m_d->m_isSignalSlotCompletion;
+}
+
+void ClangCompleter::setSignalSlotCompletion(bool isSignalSlot)
+{
+    m_d->m_isSignalSlotCompletion = isSignalSlot;
+}
+
 bool ClangCompleter::reparse(const UnsavedFiles &unsavedFiles)
 {
     Q_ASSERT(m_d);
@@ -489,20 +295,16 @@ QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line,
     opts |= CXCodeComplete_IncludeBriefComments;
 #endif
 
-    CXCodeCompleteResults *results = clang_codeCompleteAt(m_d->m_unit, fn.constData(), line, column, unsaved.files(), unsaved.count(), opts);
+    CXCodeCompleteResults *results = clang_codeCompleteAt(
+                m_d->m_unit, fn.constData(), line, column,
+                unsaved.files(), unsaved.count(), opts);
+
     if (results) {
-        for (unsigned i = 0; i < results->NumResults; ++i) {
-            const CXCompletionResult &cxResult = results->Results[i];
-            CXCompletionString complStr = cxResult.CompletionString;
-            unsigned priority = clang_getCompletionPriority(complStr);
+        const quint64 contexts = clang_codeCompleteGetContexts(results);
+        CompletionProposalsBuilder builder(completions, contexts, m_d->m_isSignalSlotCompletion);
 
-            CodeCompletionResult ccr(priority);
-            buildCompletionKind(cxResult, ccr);
-            buildAvailability(cxResult, ccr);
-            buildHintAndText(cxResult, ccr);
-
-            completions.append(ccr);
-        }
+        for (unsigned i = 0; i < results->NumResults; ++i)
+            builder(results->Results[i]);
 
         clang_disposeCodeCompleteResults(results);
     }
@@ -518,7 +320,8 @@ bool ClangCompleter::objcEnabled() const
 {
     Q_ASSERT(m_d);
 
-    static const QString objcOption = QLatin1String("-ObjC++");
+    static const QString objcppOption = QLatin1String("-ObjC++");
+    static const QString objcOption = QLatin1String("-ObjC");
 
-    return m_d->m_options.contains(objcOption);
+    return m_d->m_options.contains(objcOption) || m_d->m_options.contains(objcppOption);
 }

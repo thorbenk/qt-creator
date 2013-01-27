@@ -29,6 +29,7 @@
 
 /*
  * Expected: 'sqr'
+ * Not expected: '~Math', 'operator='s
  */
 
 class Math
