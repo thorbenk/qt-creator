@@ -30,6 +30,7 @@
 #include "unit.h"
 #include "unsavedfiledata.h"
 #include "utils_p.h"
+#include "raii/scopedclangoptions.h"
 
 #include <clang-c/Index.h>
 
@@ -62,13 +63,11 @@ public:
 
     void updateTimeStamp();
 
-    void releaseRawOptions();
-
     CXIndex m_index;
     CXTranslationUnit m_tu;
     QByteArray m_fileName;
     QStringList m_compOptions;
-    QVector<const char *> m_rawCompOptions;
+    SharedClangOptions m_sharedCompOptions;
     unsigned m_managOptions;
     UnsavedFiles m_unsaved;
     QDateTime m_timeStamp;
@@ -98,7 +97,6 @@ UnitData::~UnitData()
     unload();
     clang_disposeIndex(m_index);
     m_index = 0;
-    releaseRawOptions();
 }
 
 void UnitData::swap(UnitData *other)
@@ -107,7 +105,7 @@ void UnitData::swap(UnitData *other)
     qSwap(m_tu, other->m_tu);
     qSwap(m_fileName, other->m_fileName);
     qSwap(m_compOptions, other->m_compOptions);
-    qSwap(m_rawCompOptions, other->m_rawCompOptions);
+    qSwap(m_sharedCompOptions, other->m_sharedCompOptions);
     qSwap(m_managOptions, other->m_managOptions);
     qSwap(m_unsaved, other->m_unsaved);
     qSwap(m_timeStamp, other->m_timeStamp);
@@ -134,13 +132,6 @@ void UnitData::updateTimeStamp()
 {
     m_timeStamp = QDateTime::currentDateTime();
 }
-
-void UnitData::releaseRawOptions()
-{
-    foreach (const char *s, m_rawCompOptions)
-        delete[] s;
-}
-
 
 Unit::Unit()
     : m_data(new UnitData)
@@ -188,11 +179,7 @@ QStringList Unit::compilationOptions() const
 void Unit::setCompilationOptions(const QStringList &compOptions)
 {
     m_data->m_compOptions = compOptions;
-
-    m_data->releaseRawOptions();
-    m_data->m_rawCompOptions.resize(compOptions.size());
-    for (int i = 0; i < compOptions.size(); ++i)
-        m_data->m_rawCompOptions[i] = qstrdup(compOptions[i].toUtf8());
+    m_data->m_sharedCompOptions.reloadOptions(compOptions);
 }
 
 UnsavedFiles Unit::unsavedFiles() const
@@ -235,16 +222,13 @@ void Unit::parse()
 {
     m_data->unload();
 
-    const char **arguments = 0;
-    if (!m_data->m_rawCompOptions.isEmpty())
-        arguments = &m_data->m_rawCompOptions[0];
-
     m_data->updateTimeStamp();
 
     UnsavedFileData unsaved(m_data->m_unsaved);
     m_data->m_tu = clang_parseTranslationUnit(m_data->m_index,
                                               m_data->m_fileName.constData(),
-                                              arguments, m_data->m_compOptions.size(),
+                                              m_data->m_sharedCompOptions.data(),
+                                              m_data->m_sharedCompOptions.size(),
                                               unsaved.files(),
                                               unsaved.count(),
                                               m_data->m_managOptions);

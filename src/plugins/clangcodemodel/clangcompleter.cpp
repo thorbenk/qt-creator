@@ -33,6 +33,7 @@
 #include "utils_p.h"
 #include "completionproposalsbuilder.h"
 #include "cxraii.h"
+#include "raii/scopedclangoptions.h"
 
 #include <QDebug>
 #include <QFile>
@@ -138,21 +139,16 @@ public:
         if (m_fileName.isEmpty())
             return false;
 
-        m_args.clear();
-        const int argc = m_options.size();
-        const char **argv = new const char*[argc];
-        for (int i = 0; i < argc; ++i) {
-            const QByteArray arg = m_options.at(i).toUtf8();
-            m_args.append(arg);
-            argv[i] = arg.constData();
-        }
+        ScopedClangOptions options(m_options);
 
         const QByteArray fn(m_fileName.toUtf8());
         ClangCodeModel::Internal::UnsavedFileData unsaved(unsavedFiles);
 
-        m_unit = clang_parseTranslationUnit(m_index, fn.constData(), argv, argc, unsaved.files(), unsaved.count(), m_editingOpts);
+        m_unit = clang_parseTranslationUnit(m_index, fn.constData(),
+                                            options.data(), options.size(),
+                                            unsaved.files(), unsaved.count(),
+                                            m_editingOpts);
 
-        delete[] argv;
         return m_unit != 0;
     }
 
@@ -163,9 +159,6 @@ public:
     CXIndex m_index;
     unsigned m_editingOpts;
     CXTranslationUnit m_unit;
-
-private:
-    QList<QByteArray> m_args;
 };
 
 using namespace ClangCodeModel;

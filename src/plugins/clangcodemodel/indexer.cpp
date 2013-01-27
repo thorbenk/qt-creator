@@ -36,6 +36,7 @@
 #include "utils_p.h"
 #include "clangsymbolsearcher.h"
 #include "pchmanager.h"
+#include "raii/scopedclangoptions.h"
 
 #include <clang-c/Index.h>
 
@@ -606,10 +607,7 @@ restart:
                 opts.append(Utils::createPCHInclusionOptions(pchInfo->fileName()));
             const int optsSize = opts.size();
 
-            const char **rawOpts = new const char*[optsSize];
-            for (int i = 0; i < optsSize; ++i)
-                rawOpts[i] = qstrdup(opts[i].toUtf8());
-
+            ScopedClangOptions scopedOpts(opts);
             QByteArray fileName = fd.m_fileName.toUtf8();
 
             qDebug() << "Indexing file" << fd.m_fileName << "with options" << opts;
@@ -619,7 +617,7 @@ restart:
             /*int result =*/ clang_indexSourceFile(idxAction, this,
                                                    &IndexCB, sizeof(IndexCB),
                                                    index_opts, fileName.constData(),
-                                                   rawOpts, optsSize, 0, 0, 0,
+                                                   scopedOpts.data(), optsSize, 0, 0, 0,
                                                    parsingOptions);
 
             // index imported ASTs:
@@ -640,7 +638,6 @@ restart:
             }
 
             propagateResults(fd.m_projectPart);
-            delete[] rawOpts;
             if (isCanceled())
                 break;
         }
