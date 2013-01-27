@@ -84,7 +84,7 @@ void DiagnosticsHandler::setDiagnostics(const QList<ClangCodeModel::Diagnostic> 
         const QString text = c.block().text();
         if (m.length() == 0) {
             int i = m.location().column() - 1;
-            if (i == text.size() || text.at(i).isSpace()) {
+            if (i == text.size() || (i < text.size() && text.at(i).isSpace())) {
                 // backward scan
                 --i;
                 for ( ; i > 0; --i) {
