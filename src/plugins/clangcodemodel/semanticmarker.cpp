@@ -199,6 +199,7 @@ static SourceMarker::Kind getKindByReferencedCursor(const CXCursor &cursor)
 
     case CXCursor_VarDecl:
     case CXCursor_ParmDecl:
+    case CXCursor_NonTypeTemplateParameter:
         return SourceMarker::Local;
 
     case CXCursor_CXXMethod:
@@ -281,6 +282,7 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
             break;
 
         case CXCursor_ClassDecl:
+        case CXCursor_UnionDecl:
         case CXCursor_ClassTemplate:
         case CXCursor_ClassTemplatePartialSpecialization:
         case CXCursor_EnumDecl:
@@ -293,6 +295,7 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_TypedefDecl:
         case CXCursor_Constructor:
         case CXCursor_TemplateTypeParameter:
+        case CXCursor_TemplateTemplateParameter:
         case CXCursor_UnexposedDecl: /* friend class MyClass; */
             add(result, tokenExtent, SourceMarker::Type);
             break;
@@ -300,6 +303,7 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_ParmDecl:
         case CXCursor_VariableRef:
         case CXCursor_VarDecl:
+        case CXCursor_NonTypeTemplateParameter:
             add(result, tokenExtent, SourceMarker::Local);
             break;
 
@@ -330,6 +334,8 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
 
         case CXCursor_CXXOverrideAttr:
         case CXCursor_CXXFinalAttr:
+        case CXCursor_AnnotateAttr: // 'annotate' in '__attribute__((annotate("AnyComment")))'
+        case CXCursor_UnexposedAttr: // 'align' in '__declspec(align(8))'
             add(result, tokenExtent, SourceMarker::PseudoKeyword);
             break;
 
@@ -353,10 +359,13 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_ObjCProtocolDecl:
         case CXCursor_ObjCProtocolRef:
         case CXCursor_ObjCClassRef:
+        case CXCursor_ObjCSuperClassRef:
+        case CXCursor_TypeAliasDecl: // C++11 type alias: 'using value_t = T'
             add(result, tokenExtent, SourceMarker::Type);
             break;
 
         case CXCursor_ObjCSynthesizeDecl:
+        case CXCursor_ObjCDynamicDecl:
         case CXCursor_ObjCPropertyDecl:
         case CXCursor_ObjCIvarDecl:
             add(result, tokenExtent, SourceMarker::Field);
