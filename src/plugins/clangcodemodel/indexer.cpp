@@ -40,6 +40,7 @@
 
 #include <clang-c/Index.h>
 
+#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <utils/fileutils.h>
@@ -173,7 +174,7 @@ public:
     void runQuickIndexing(const Unit &unit, const ProjectPart::Ptr &part);
     void run();
     void run(const QStringList &fileNames);
-    QFuture<void> runCore(const QHash<QString, FileData> &headers,
+    void runCore(const QHash<QString, FileData> &headers,
                           const QHash<QString, FileData> &impls,
                           IndexingMode mode);
     void watchIndexingThreads(QFutureInterface<void> &future);
@@ -253,7 +254,7 @@ protected:
     {
         if (!isCanceled()) {
             QVector<IndexingResult> indexingResults;
-            indexingResults.resize(m_allFiles.size());
+            indexingResults.reserve(m_allFiles.size());
 
             foreach (const QString &fn, m_allFiles.keys()) {
                 QVector<ClangCodeModel::Symbol> symbols; unfoldSymbols(symbols, fn);
@@ -610,7 +611,7 @@ restart:
             ScopedClangOptions scopedOpts(opts);
             QByteArray fileName = fd.m_fileName.toUtf8();
 
-            qDebug() << "Indexing file" << fd.m_fileName << "with options" << opts;
+//            qDebug() << "Indexing file" << fd.m_fileName << "with options" << opts;
             unsigned parsingOptions = fd.m_managementOptions;
             parsingOptions |= CXTranslationUnit_SkipFunctionBodies;
 
@@ -707,21 +708,26 @@ IndexerPrivate::IndexerPrivate(Indexer *indexer)
     m_indexingPool.setExpiryTimeout(1000);
 }
 
-QFuture<void> IndexerPrivate::runCore(const QHash<QString, FileData> & /*headers*/,
-                                                const QHash<QString, FileData> &impls,
-                                                IndexingMode /*mode*/)
+void IndexerPrivate::runCore(const QHash<QString, FileData> & /*headers*/,
+                             const QHash<QString, FileData> &impls,
+                             IndexingMode /*mode*/)
 {
     QMutexLocker locker(&m_mutex);
 
     typedef QHash<QString, FileData>::const_iterator FileContIt;
     QHash<ProjectPart::Ptr, QList<IndexerPrivate::FileData> > parts;
     typedef QHash<ProjectPart::Ptr, QList<IndexerPrivate::FileData> >::Iterator PartIter;
+    LiveUnitsManager *lum = LiveUnitsManager::instance();
+
     for (FileContIt tit = impls.begin(), eit = impls.end(); tit != eit; ++tit) {
-        if (!tit->m_upToDate) {
+        if (!tit->m_upToDate && !lum->isTracking(tit.key())) {
             const IndexerPrivate::FileData &fd = tit.value();
             parts[fd.m_projectPart].append(fd);
         }
     }
+
+    if (parts.isEmpty())
+        return;
 
     for (PartIter i = parts.begin(), ei = parts.end(); i != ei; ++i) {
         ProjectPartIndexer *ppi = new ProjectPartIndexer(this, i.value());
@@ -731,7 +737,7 @@ QFuture<void> IndexerPrivate::runCore(const QHash<QString, FileData> & /*headers
 
     QFuture<void> task = QtConcurrent::run(&IndexerPrivate::watchIndexingThreads, this);
     m_indexingWatcher->setFuture(task);
-    return task;
+    emit m_q->indexingStarted(task);
 }
 
 void IndexerPrivate::watchIndexingThreads(QFutureInterface<void> &future)
@@ -760,11 +766,9 @@ void IndexerPrivate::run()
     QMutexLocker locker(&m_mutex);
 
     if (m_runningIndexers.isEmpty()) {
-        QFuture<void> future =
-                runCore(m_files.value(HeaderFile),
-                        m_files.value(ImplementationFile),
-                        RelaxedIndexing);
-        emit m_q->indexingStarted(future);
+        runCore(m_files.value(HeaderFile),
+                m_files.value(ImplementationFile),
+                RelaxedIndexing);
     } else {
         m_hasQueuedFullRun = true;
         cancelIndexing();

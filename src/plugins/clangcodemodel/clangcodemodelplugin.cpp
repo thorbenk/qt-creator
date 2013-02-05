@@ -66,6 +66,8 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 
     connect(Core::ICore::editorManager(), SIGNAL(editorAboutToClose(Core::IEditor*)),
             &m_liveUnitsManager, SLOT(editorAboutToClose(Core::IEditor*)));
+    connect(Core::ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor*)),
+            &m_liveUnitsManager, SLOT(editorOpened(Core::IEditor*)));
 
 #ifdef CLANG_COMPLETION
     m_completionAssistProvider.reset(new ClangCompletionAssistProvider);

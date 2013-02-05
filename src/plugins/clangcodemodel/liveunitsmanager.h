@@ -48,17 +48,21 @@ class LiveUnitsManager : public QObject
 public:
     LiveUnitsManager();
     ~LiveUnitsManager();
-    static LiveUnitsManager *instance();
+    static LiveUnitsManager *instance()
+    { return m_instance; }
 
     void requestTracking(const QString &fileName);
-    bool isTracking(const QString &fileName) const;
+    bool isTracking(const QString &fileName) const
+    { return m_units.contains(fileName); }
+
     void cancelTrackingRequest(const QString &fileName);
 
     void updateUnit(const QString &fileName, const Unit &unit);
     Unit unit(const QString &fileName);
 
 public slots:
-    void editorAboutToClose(Core::IEditor*editor);
+    void editorOpened(Core::IEditor *editor);
+    void editorAboutToClose(Core::IEditor *editor);
 
 signals:
     void unitAvailable(const ClangCodeModel::Internal::Unit &unit);

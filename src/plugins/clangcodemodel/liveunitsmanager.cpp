@@ -49,20 +49,10 @@ LiveUnitsManager::~LiveUnitsManager()
     m_instance = 0;
 }
 
-LiveUnitsManager *LiveUnitsManager::instance()
-{
-    return m_instance;
-}
-
 void LiveUnitsManager::requestTracking(const QString &fileName)
 {
-    if (!isTracking(fileName))
+    if (!fileName.isEmpty() && !isTracking(fileName))
         m_units.insert(fileName, Unit(fileName));
-}
-
-bool LiveUnitsManager::isTracking(const QString &fileName) const
-{
-    return m_units.contains(fileName);
 }
 
 void LiveUnitsManager::cancelTrackingRequest(const QString &fileName)
@@ -88,6 +78,11 @@ void LiveUnitsManager::updateUnit(const QString &fileName, const Unit &unit)
 Unit LiveUnitsManager::unit(const QString &fileName)
 {
     return m_units.value(fileName);
+}
+
+void LiveUnitsManager::editorOpened(Core::IEditor *editor)
+{
+    requestTracking(editor->document()->fileName());
 }
 
 void LiveUnitsManager::editorAboutToClose(Core::IEditor *editor)
