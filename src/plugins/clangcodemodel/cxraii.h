@@ -44,7 +44,7 @@ protected:
     typedef void (*DisposeFunction)(CXType_T);
 
     ScopedCXType(DisposeFunction f)
-        : m_disposeFunction(f)
+        : m_cx(0), m_disposeFunction(f)
     {}
     ScopedCXType(const CXType_T &cx, DisposeFunction f)
         : m_cx(cx) , m_disposeFunction(f)
@@ -117,6 +117,26 @@ struct ScopedCXDiagnosticSet : ScopedCXType<CXDiagnostic>
     ScopedCXDiagnosticSet(const CXDiagnostic &diagnostic)
         : ScopedCXType<CXDiagnosticSet>(diagnostic, &clang_disposeDiagnosticSet)
     {}
+};
+
+struct ScopedCXCodeCompleteResults : ScopedCXType<CXCodeCompleteResults*>
+{
+    ScopedCXCodeCompleteResults()
+        : ScopedCXType<CXCodeCompleteResults*>(&clang_disposeCodeCompleteResults)
+    {}
+    ScopedCXCodeCompleteResults(CXCodeCompleteResults *results)
+        : ScopedCXType<CXCodeCompleteResults*>(results, &clang_disposeCodeCompleteResults)
+    {}
+
+    unsigned size() const
+    {
+        return static_cast<CXCodeCompleteResults *>(*this)->NumResults;
+    }
+
+    const CXCompletionResult &completionAt(unsigned i)
+    {
+        return static_cast<CXCodeCompleteResults *>(*this)->Results[i];
+    }
 };
 
 } // Internal

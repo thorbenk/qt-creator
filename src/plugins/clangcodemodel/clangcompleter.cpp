@@ -32,8 +32,8 @@
 #include "unsavedfiledata.h"
 #include "utils_p.h"
 #include "completionproposalsbuilder.h"
-#include "cxraii.h"
 #include "raii/scopedclangoptions.h"
+#include "unit.h"
 
 #include <QDebug>
 #include <QFile>
@@ -45,120 +45,35 @@
 
 //#define TIME_COMPLETION
 
-namespace {
-
-static inline QString toString(CXCompletionChunkKind kind)
-{
-    switch (kind) {
-    case CXCompletionChunk_Optional:
-        return QLatin1String("Optional");
-    case CXCompletionChunk_TypedText:
-        return QLatin1String("TypedText");
-    case CXCompletionChunk_Text:
-        return QLatin1String("Text");
-    case CXCompletionChunk_Placeholder:
-        return QLatin1String("Placeholder");
-    case CXCompletionChunk_Informative:
-        return QLatin1String("Informative");
-    case CXCompletionChunk_CurrentParameter:
-        return QLatin1String("CurrentParameter");
-    case CXCompletionChunk_LeftParen:
-        return QLatin1String("LeftParen");
-    case CXCompletionChunk_RightParen:
-        return QLatin1String("RightParen");
-    case CXCompletionChunk_LeftBracket:
-        return QLatin1String("LeftBracket");
-    case CXCompletionChunk_RightBracket:
-        return QLatin1String("RightBracket");
-    case CXCompletionChunk_LeftBrace:
-        return QLatin1String("LeftBrace");
-    case CXCompletionChunk_RightBrace:
-        return QLatin1String("RightBrace");
-    case CXCompletionChunk_LeftAngle:
-        return QLatin1String("LeftAngle");
-    case CXCompletionChunk_RightAngle:
-        return QLatin1String("RightAngle");
-    case CXCompletionChunk_Comma:
-        return QLatin1String("Comma");
-    case CXCompletionChunk_ResultType:
-        return QLatin1String("ResultType");
-    case CXCompletionChunk_Colon:
-        return QLatin1String("Colon");
-    case CXCompletionChunk_SemiColon:
-        return QLatin1String("SemiColon");
-    case CXCompletionChunk_Equal:
-        return QLatin1String("Equal");
-    case CXCompletionChunk_HorizontalSpace:
-        return QLatin1String("HorizontalSpace");
-    case CXCompletionChunk_VerticalSpace:
-        return QLatin1String("VerticalSpace");
-    default:
-        return QLatin1String("<UNKNOWN>");
-    }
-}
-
-} // Anonymous namespace
-
 class ClangCodeModel::ClangCompleter::PrivateData
 {
 public:
     PrivateData()
-        : m_isSignalSlotCompletion(false)
-        , m_unit(0)
+        : m_mutex(QMutex::Recursive)
+        , m_isSignalSlotCompletion(false)
     {
-        const int excludeDeclsFromPCH = 1;
-        const int displayDiagnostics = 1;
-        m_index = clang_createIndex(excludeDeclsFromPCH, displayDiagnostics);
-
-        m_editingOpts = clang_defaultEditingTranslationUnitOptions();
+        m_unit.setManagementOptions(clang_defaultEditingTranslationUnitOptions());
     }
 
     ~PrivateData()
     {
-        invalidateTranslationUnit();
-        if (m_index) {
-            clang_disposeIndex(m_index);
-            m_index = 0;
-        }
-    }
-
-    void invalidateTranslationUnit()
-    {
-        Q_ASSERT(m_index);
-
-        if (m_unit) {
-            clang_disposeTranslationUnit(m_unit);
-            m_unit = 0;
-        }
     }
 
     bool parseFromFile(const Internal::UnsavedFiles &unsavedFiles)
     {
-        Q_ASSERT(!m_unit);
-
-        if (m_fileName.isEmpty())
+        Q_ASSERT(!m_unit.isLoaded());
+        if (m_unit.fileName().isEmpty())
             return false;
 
-        ScopedClangOptions options(m_options);
-
-        const QByteArray fn(m_fileName.toUtf8());
-        ClangCodeModel::Internal::UnsavedFileData unsaved(unsavedFiles);
-
-        m_unit = clang_parseTranslationUnit(m_index, fn.constData(),
-                                            options.data(), options.size(),
-                                            unsaved.files(), unsaved.count(),
-                                            m_editingOpts);
-
-        return m_unit != 0;
+        m_unit.setUnsavedFiles(unsavedFiles);
+        m_unit.parse();
+        return m_unit.isLoaded();
     }
 
 public:
-    QString m_fileName;
-    QStringList m_options;
+    QMutex m_mutex;
+    Internal::Unit m_unit;
     bool m_isSignalSlotCompletion;
-    CXIndex m_index;
-    unsigned m_editingOpts;
-    CXTranslationUnit m_unit;
 };
 
 using namespace ClangCodeModel;
@@ -176,7 +91,7 @@ CodeCompletionResult::CodeCompletionResult()
 
 /**
  * @brief Constructs with given priority
- * @param priority - will be reversed, because in clang highest priority is 0,
+ * @param priority Will be reversed, because clang's highest priority is 0,
  * but inside QtCreator it is the lowest priority
  */
 CodeCompletionResult::CodeCompletionResult(unsigned priority)
@@ -188,118 +103,81 @@ CodeCompletionResult::CodeCompletionResult(unsigned priority)
 }
 
 ClangCompleter::ClangCompleter()
-    : m_d(new PrivateData)
-    , m_mutex(QMutex::Recursive)
+    : d(new PrivateData)
 {
 }
 
 ClangCompleter::~ClangCompleter()
 {
-    Q_ASSERT(m_d);
-
-    delete m_d;
-    m_d = 0;
 }
 
 QString ClangCompleter::fileName() const
 {
-    Q_ASSERT(m_d);
-
-    return m_d->m_fileName;
+    return d->m_unit.fileName();
 }
 
 void ClangCompleter::setFileName(const QString &fileName)
 {
-    Q_ASSERT(m_d);
-    if (m_d->m_fileName != fileName) {
-        m_d->m_fileName = fileName;
-        m_d->invalidateTranslationUnit();
+    if (d->m_unit.fileName() != fileName) {
+        d->m_unit = Internal::Unit(fileName);
     }
 }
 
 QStringList ClangCompleter::options() const
 {
-    Q_ASSERT(m_d);
-
-    return m_d->m_options;
+    return d->m_unit.compilationOptions();
 }
 
 void ClangCompleter::setOptions(const QStringList &options) const
 {
-    Q_ASSERT(m_d);
-
-    if (m_d->m_options != options) {
-        m_d->m_options = options;
-        m_d->invalidateTranslationUnit();
+    if (d->m_unit.compilationOptions() != options) {
+        d->m_unit.setCompilationOptions(options);
+        d->m_unit.unload();
     }
 }
 
 bool ClangCompleter::isSignalSlotCompletion() const
 {
-    return m_d->m_isSignalSlotCompletion;
+    return d->m_isSignalSlotCompletion;
 }
 
 void ClangCompleter::setSignalSlotCompletion(bool isSignalSlot)
 {
-    m_d->m_isSignalSlotCompletion = isSignalSlot;
+    d->m_isSignalSlotCompletion = isSignalSlot;
 }
 
 bool ClangCompleter::reparse(const UnsavedFiles &unsavedFiles)
 {
-    Q_ASSERT(m_d);
+    if (!d->m_unit.isLoaded())
+        return d->parseFromFile(unsavedFiles);
 
-    if (!m_d->m_unit)
-        return m_d->parseFromFile(unsavedFiles);
-
-    UnsavedFileData unsaved(unsavedFiles);
-
-    unsigned opts = clang_defaultReparseOptions(m_d->m_unit);
-    if (clang_reparseTranslationUnit(m_d->m_unit, unsaved.count(), unsaved.files(), opts) == 0)
-        return true;
-
-    m_d->invalidateTranslationUnit();
-    return false;
+    d->m_unit.setUnsavedFiles(unsavedFiles);
+    d->m_unit.reparse();
+    return d->m_unit.isLoaded();
 }
 
 QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line,
                                                            unsigned column,
                                                            const UnsavedFiles &unsavedFiles)
 {
-    Q_ASSERT(m_d);
-
-    QList<CodeCompletionResult> completions;
-
 #ifdef TIME_COMPLETION
     QTime t;t.start();
 #endif // TIME_COMPLETION
 
-    if (!m_d->m_unit) {
-        m_d->parseFromFile(unsavedFiles);
-    }
+    if (!d->m_unit.isLoaded())
+        if (!d->parseFromFile(unsavedFiles))
+            return QList<CodeCompletionResult>();
 
-    if (!m_d->m_unit)
-        return completions;
+    ScopedCXCodeCompleteResults results;
+    d->m_unit.setUnsavedFiles(unsavedFiles);
+    d->m_unit.codeCompleteAt(line, column, results);
 
-    const QByteArray fn(m_d->m_fileName.toUtf8());
-    UnsavedFileData unsaved(unsavedFiles);
-    unsigned opts = clang_defaultCodeCompleteOptions();
-
-#if defined(CINDEX_VERSION) && (CINDEX_VERSION >= 6) // clang >= 3.2
-    opts |= CXCodeComplete_IncludeBriefComments;
-#endif
-
-    CXCodeCompleteResults *results = clang_codeCompleteAt(
-                m_d->m_unit, fn.constData(), line, column,
-                unsaved.files(), unsaved.count(), opts);
-
+    QList<CodeCompletionResult> completions;
     if (results) {
         const quint64 contexts = clang_codeCompleteGetContexts(results);
-        CompletionProposalsBuilder builder(completions, contexts, m_d->m_isSignalSlotCompletion);
-
-        for (unsigned i = 0; i < results->NumResults; ++i)
-            builder(results->Results[i]);
-
-        clang_disposeCodeCompleteResults(results);
+        CompletionProposalsBuilder builder(completions, contexts, d->m_isSignalSlotCompletion);
+        for (unsigned i = 0; i < results.size(); ++i)
+            builder(results.completionAt(i));
     }
 
 #ifdef TIME_COMPLETION
@@ -311,10 +189,14 @@ QList<CodeCompletionResult> ClangCompleter::codeCompleteAt(unsigned line,
 
 bool ClangCompleter::objcEnabled() const
 {
-    Q_ASSERT(m_d);
-
     static const QString objcppOption = QLatin1String("-ObjC++");
     static const QString objcOption = QLatin1String("-ObjC");
 
-    return m_d->m_options.contains(objcOption) || m_d->m_options.contains(objcppOption);
+    QStringList options = d->m_unit.compilationOptions();
+    return options.contains(objcOption) || options.contains(objcppOption);
+}
+
+QMutex *ClangCompleter::mutex() const
+{
+    return &d->m_mutex;
 }

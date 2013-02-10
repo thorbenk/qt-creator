@@ -268,6 +268,11 @@ int Unit::save(const QString &unitFileName)
                                      clang_defaultSaveOptions(m_data->m_tu));
 }
 
+void Unit::unload()
+{
+    m_data->unload();
+}
+
 CXFile Unit::getFile() const
 {
     Q_ASSERT(isLoaded());
@@ -287,6 +292,19 @@ CXSourceLocation Unit::getLocation(const CXFile &file, unsigned line, unsigned c
     Q_ASSERT(isLoaded());
 
     return clang_getLocation(m_data->m_tu, file, line, column);
+}
+
+void Unit::codeCompleteAt(unsigned line, unsigned column, ScopedCXCodeCompleteResults &results)
+{
+    unsigned flags = clang_defaultCodeCompleteOptions();
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION >= 6) // clang >= 3.2
+    flags |= CXCodeComplete_IncludeBriefComments;
+#endif
+
+    UnsavedFileData unsaved(m_data->m_unsaved);
+    results.reset(clang_codeCompleteAt(m_data->m_tu, m_data->m_fileName.constData(),
+                                       line, column,
+                                       unsaved.files(), unsaved.count(), flags));
 }
 
 void Unit::tokenize(CXSourceRange range, CXToken **tokens, unsigned *tokenCount) const
@@ -405,10 +423,8 @@ IdentifierTokens::IdentifierTokens(const Unit &unit, unsigned firstLine, unsigne
 
     m_extents = new CXSourceRange[idCount];
     // Create the markers using the cursor to check the types:
-    for (unsigned i = 0; i < idCount; ++i) {
-        const CXToken &idToken = m_identifierTokens[i];
-        m_extents[i] = unit.getTokenExtent(idToken);
-    }
+    for (unsigned i = 0; i < idCount; ++i)
+        m_extents[i] = unit.getTokenExtent(m_identifierTokens[i]);
 }
 
 IdentifierTokens::~IdentifierTokens()
@@ -423,6 +439,7 @@ void IdentifierTokens::dispose()
 
     if (m_tokenCount && m_tokens) {
         m_unit.disposeTokens(m_tokens, m_tokenCount);
+        m_tokens = 0;
         m_tokenCount = 0;
     }
 

@@ -210,12 +210,10 @@ public: // methods
 
     bool objcEnabled() const;
 
-    QMutex *mutex() const
-    { return &m_mutex; }
+    QMutex *mutex() const;
 
 private: // instance fields
-    PrivateData *m_d;
-    mutable QMutex m_mutex;
+    QScopedPointer<PrivateData> d;
 };
 
 } // namespace Clang

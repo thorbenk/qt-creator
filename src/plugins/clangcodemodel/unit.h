@@ -32,7 +32,7 @@
 
 #include "utils.h"
 
-#include <clang-c/Index.h>
+#include "cxraii.h"
 
 #include <QExplicitlySharedDataPointer>
 #include <QMetaType>
@@ -111,6 +111,7 @@ public:
     void create();
     void createFromSourceFile();
     int save(const QString &unitFileName);
+    void unload();
 
     // Simple forwarding methods, separated by clang categories for convenience.
     // As above, the names are directly mapped. Separated by categories as clang for convenience.
@@ -137,6 +138,8 @@ public:
 
     // - Physical source locations
     CXSourceLocation getLocation(const CXFile &file, unsigned line, unsigned column) const;
+
+    void codeCompleteAt(unsigned line, unsigned column, ScopedCXCodeCompleteResults &results);
 
     void tokenize(CXSourceRange range, CXToken **tokens, unsigned *tokenCount) const;
     void disposeTokens(CXToken *tokens, unsigned tokenCount) const;
