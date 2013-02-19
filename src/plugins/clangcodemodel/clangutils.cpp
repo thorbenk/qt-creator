@@ -176,8 +176,8 @@ QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManager
         } else {
             arg = QLatin1String("-D" + str);
         }
-        arg = arg.replace("\\\"", "\"");
-        arg = arg.replace("\"", "");
+        arg = arg.replace(QLatin1String("\\\""), QLatin1String("\""));
+        arg = arg.replace(QLatin1String("\""), QLatin1String(""));
         if (!result.contains(arg))
             result.append(arg);
     }
@@ -185,7 +185,7 @@ QStringList ClangCodeModel::Utils::createClangOptions(CPlusPlus::CppModelManager
         result.append(QLatin1String("-F") + frameworkPath);
     foreach (const QString &inc, includePaths)
         if (!inc.isEmpty() && !isBlacklisted(inc))
-            result << ("-I" + inc);
+            result << (QLatin1String("-I") + inc);
 
 #if 0
     qDebug() << "--- m_args:";

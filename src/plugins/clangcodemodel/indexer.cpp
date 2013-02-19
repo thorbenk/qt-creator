@@ -966,12 +966,12 @@ QStringList IndexerPrivate::compilationOptions(const QString &fileName) const
 IndexerPrivate::FileType IndexerPrivate::identifyFileType(const QString &fileName)
 {
     const QString fn = fileName.toLower();
-    if (fn.endsWith(".cpp")
-            || fn.endsWith(".cxx")
-            || fn.endsWith(".cc")
-            || fn.endsWith(".c")
-            || fn.endsWith(".m")
-            || fn.endsWith(".mm")) {
+    if (fn.endsWith(QLatin1String(".cpp"))
+            || fn.endsWith(QLatin1String(".cxx"))
+            || fn.endsWith(QLatin1String(".cc"))
+            || fn.endsWith(QLatin1String(".c"))
+            || fn.endsWith(QLatin1String(".m"))
+            || fn.endsWith(QLatin1String(".mm"))) {
         return ImplementationFile;
     }
 

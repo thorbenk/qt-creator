@@ -165,5 +165,5 @@ void ClangIndexer::onIndexingStarted(QFuture<void> indexingFuture)
 {
     Core::ICore::instance()->progressManager()->addTask(indexingFuture,
                                                         tr("C++ Indexing"),
-                                                        "Key.Temp.Indexing");
+                                                        QLatin1String("Key.Temp.Indexing"));
 }
