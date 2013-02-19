@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -67,13 +67,18 @@ bool RmToolChainOperation::setArguments(const QStringList &args)
         const QString next = ((i + 1) < args.count()) ? args.at(i + 1) : QString();
 
         if (current == QLatin1String("--id")) {
-            if (next.isNull())
+            if (next.isNull()) {
+                std::cerr << "No parameter for --id given." << std::endl << std::endl;
                 return false;
+            }
             ++i; // skip next;
             m_id = next;
             continue;
         }
     }
+
+    if (m_id.isEmpty())
+        std::cerr << "No id given." << std::endl << std::endl;
 
     return !m_id.isEmpty();
 }

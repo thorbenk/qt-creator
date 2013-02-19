@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -69,13 +69,13 @@ public:
 protected:
     typedef QList<BasicProposalItem *>::iterator ItemIterator;
     QPair<ItemIterator, ItemIterator> currentItems();
+    QList<BasicProposalItem *> m_currentItems;
 
 private:
     void mapPersistentIds();
 
     QHash<QString, int> m_idByText;
     QList<BasicProposalItem *> m_originalItems;
-    QList<BasicProposalItem *> m_currentItems;
 };
 
 } // TextEditor

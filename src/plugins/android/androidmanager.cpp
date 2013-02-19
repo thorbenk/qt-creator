@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
+** Copyright (c) 2013 BogDan Vatra <bog_dan_ro@yahoo.com>
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -34,6 +34,7 @@
 #include "androiddeploystep.h"
 #include "androidglobal.h"
 #include "androidpackagecreationstep.h"
+#include "androidtoolchain.h"
 
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/session.h>
@@ -570,13 +571,24 @@ QString AndroidManager::loadLocalJars(ProjectExplorer::Target *target, int apiLe
     return loadLocal(target, apiLevel, Jar);
 }
 
+QString AndroidManager::loadLocalJarsInitClasses(ProjectExplorer::Target *target, int apiLevel)
+{
+    return loadLocal(target, apiLevel, Jar, QLatin1String("initClass"));
+}
+
 QStringList AndroidManager::availableQtLibs(ProjectExplorer::Target *target)
 {
     QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target->kit());
     if (!target->activeRunConfiguration())
         return QStringList();
 
-    Utils::FileName readelfPath = AndroidConfigurations::instance().readelfPath(target->activeRunConfiguration()->abi().architecture());
+    ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(target->kit());
+    if (tc->type() != QLatin1String(Constants::ANDROID_TOOLCHAIN_TYPE))
+        return QStringList();
+    AndroidToolChain *atc = static_cast<AndroidToolChain *>(tc);
+
+    Utils::FileName readelfPath = AndroidConfigurations::instance().readelfPath(target->activeRunConfiguration()->abi().architecture(),
+                                                                                atc->ndkToolChainVersion());
     QStringList libs;
     const Qt4ProjectManager::Qt4Project *const qt4Project
             = qobject_cast<const Qt4ProjectManager::Qt4Project *>(target->project());
@@ -606,11 +618,10 @@ QStringList AndroidManager::availableQtLibs(ProjectExplorer::Target *target)
         int it = 0;
         while (it < mapLibs[key].dependencies.size()) {
             const QString &dependName = mapLibs[key].dependencies[it];
-            if (!mapLibs.keys().contains(dependName) && dependName.startsWith(QLatin1String("lib")) && dependName.endsWith(QLatin1String(".so"))) {
+            if (!mapLibs.keys().contains(dependName) && dependName.startsWith(QLatin1String("lib")) && dependName.endsWith(QLatin1String(".so")))
                 mapLibs[key].dependencies.removeAt(it);
-            } else {
+            else
                 ++it;
-            }
         }
         if (!mapLibs[key].dependencies.size())
             mapLibs[key].level = 0;
@@ -687,7 +698,7 @@ void AndroidManager::raiseError(const QString &reason)
     QMessageBox::critical(0, tr("Error creating Android templates"), reason);
 }
 
-QString AndroidManager::loadLocal(ProjectExplorer::Target *target, int apiLevel, ItemType item)
+QString AndroidManager::loadLocal(ProjectExplorer::Target *target, int apiLevel, ItemType item, const QString &attribute)
 {
     QString itemType;
     if (item == Lib)
@@ -718,13 +729,15 @@ QString AndroidManager::loadLocal(ProjectExplorer::Target *target, int apiLevel,
         if (libs.contains(element.attribute(QLatin1String("name")))) {
             QDomElement libElement = element.firstChildElement(QLatin1String("depends")).firstChildElement(itemType);
             while (!libElement.isNull()) {
-                localLibs += libElement.attribute(QLatin1String("file")).arg(apiLevel) + QLatin1Char(':');
+                if (libElement.hasAttribute(attribute))
+                    localLibs += libElement.attribute(attribute).arg(apiLevel) + QLatin1Char(':');
                 libElement = libElement.nextSiblingElement(itemType);
             }
 
             libElement = element.firstChildElement(QLatin1String("replaces")).firstChildElement(itemType);
             while (!libElement.isNull()) {
-                localLibs.replace(libElement.attribute(QLatin1String("file")).arg(apiLevel) + QLatin1Char(':'), QString());
+                if (libElement.hasAttribute(attribute))
+                    localLibs.replace(libElement.attribute(attribute).arg(apiLevel) + QLatin1Char(':'), QString());
                 libElement = libElement.nextSiblingElement(itemType);
             }
         }

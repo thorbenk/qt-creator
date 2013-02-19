@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -32,6 +32,6 @@ import QtQuick 2.0
 TextEdit {
     width: 80
     height: 20
-    text: qsTr("text edit")
+    text: qsTr("Text Edit")
     font.pixelSize: 12
 }

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -38,6 +38,7 @@
 #include <find/ifindsupport.h>
 
 #include <QPlainTextEdit>
+#include <QSharedPointer>
 
 QT_BEGIN_NAMESPACE
 class QToolBar;
@@ -58,11 +59,11 @@ class IAssistMonitorInterface;
 class IAssistInterface;
 class IAssistProvider;
 class ICodeStylePreferences;
+typedef QList<RefactorMarker> RefactorMarkers;
 
 namespace Internal {
     class BaseTextEditorWidgetPrivate;
     class TextEditorOverlay;
-    typedef QList<RefactorMarker> RefactorMarkers;
     typedef QString (QString::*TransformationMethod)() const;
 }
 
@@ -179,6 +180,9 @@ public:
 
     void setLineNumbersVisible(bool b);
     bool lineNumbersVisible() const;
+
+    void setAlwaysOpenLinksInNextSplit(bool b);
+    bool alwaysOpenLinksInNextSplit() const;
 
     void setMarksVisible(bool b);
     bool marksVisible() const;
@@ -326,6 +330,7 @@ public slots:
     void unindent();
 
     void openLinkUnderCursor();
+    void openLinkUnderCursorInNextSplit();
 
 signals:
     void changed();
@@ -347,6 +352,13 @@ protected:
     bool canInsertFromMimeData(const QMimeData *source) const;
     void insertFromMimeData(const QMimeData *source);
 
+    virtual QString plainTextFromSelection() const;
+    static QString convertToPlainText(const QString &txt);
+
+    virtual QString lineNumber(int blockNumber) const;
+    virtual int lineNumberTopPositionOffset(int blockNumber) const;
+    virtual int lineNumberDigits() const;
+
     static QString msgTextTooLarge(quint64 size);
 
 private:
@@ -357,8 +369,8 @@ public:
     void duplicateFrom(BaseTextEditorWidget *editor);
 
 protected:
-    BaseTextDocument *baseTextDocument() const;
-    void setBaseTextDocument(BaseTextDocument *doc);
+    QSharedPointer<BaseTextDocument> baseTextDocument() const;
+    void setBaseTextDocument(const QSharedPointer<BaseTextDocument> &doc);
 
     void setDefaultPath(const QString &defaultPath);
 
@@ -419,8 +431,8 @@ public:
     QList<QTextEdit::ExtraSelection> extraSelections(ExtraSelectionKind kind) const;
     QString extraSelectionTooltip(int pos) const;
 
-    Internal::RefactorMarkers refactorMarkers() const;
-    void setRefactorMarkers(const Internal::RefactorMarkers &markers);
+    RefactorMarkers refactorMarkers() const;
+    void setRefactorMarkers(const RefactorMarkers &markers);
 signals:
     void refactorMarkerClicked(const TextEditor::RefactorMarker &marker);
 
@@ -478,28 +490,29 @@ public:
 
     struct Link
     {
-        Link(const QString &fileName = QString(),
-             int line = 0,
-             int column = 0)
-            : begin(-1)
-            , end(-1)
-            , fileName(fileName)
-            , line(line)
-            , column(column)
+        Link(const QString &fileName = QString(), int line = 0, int column = 0)
+            : linkTextStart(-1)
+            , linkTextEnd(-1)
+            , targetFileName(fileName)
+            , targetLine(line)
+            , targetColumn(column)
         {}
 
-        bool isValid() const
-        { return begin != end; }
+        bool hasValidTarget() const
+        { return !targetFileName.isEmpty(); }
+
+        bool hasValidLinkText() const
+        { return linkTextStart != linkTextEnd; }
 
         bool operator==(const Link &other) const
-        { return begin == other.begin && end == other.end; }
+        { return linkTextStart == other.linkTextStart && linkTextEnd == other.linkTextEnd; }
 
-        int begin;           // Link position
-        int end;           // Link end position
+        int linkTextStart;
+        int linkTextEnd;
 
-        QString fileName;  // Target file
-        int line;          // Target line
-        int column;        // Target column
+        QString targetFileName;
+        int targetLine;
+        int targetColumn;
     };
 
 protected:
@@ -515,7 +528,7 @@ protected:
        Reimplement this function if you want to customize the way a link is
        opened. Returns whether the link was opened successfully.
      */
-    virtual bool openLink(const Link &link);
+    virtual bool openLink(const Link &link, bool inNextSplit = false);
 
     void maybeClearSomeExtraSelections(const QTextCursor &cursor);
 

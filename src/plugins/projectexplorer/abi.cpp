@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -609,17 +609,17 @@ QList<Abi::OSFlavor> Abi::flavorsForOs(const Abi::OS &o)
     QList<OSFlavor> result;
     switch (o) {
     case BsdOS:
-        return result << FreeBsdFlavor << OpenBsdFlavor << NetBsdFlavor;
+        return result << FreeBsdFlavor << OpenBsdFlavor << NetBsdFlavor << UnknownFlavor;
     case LinuxOS:
         return result << GenericLinuxFlavor << HarmattanLinuxFlavor << MaemoLinuxFlavor
-                      << AndroidLinuxFlavor;;
+                      << AndroidLinuxFlavor << UnknownFlavor;
     case MacOS:
-        return result << GenericMacFlavor;
+        return result << GenericMacFlavor << UnknownFlavor;
     case UnixOS:
-        return result << GenericUnixFlavor << SolarisUnixFlavor;
+        return result << GenericUnixFlavor << SolarisUnixFlavor << UnknownFlavor;
     case WindowsOS:
         return result << WindowsMsvc2005Flavor << WindowsMsvc2008Flavor << WindowsMsvc2010Flavor
-                      << WindowsMsvc2012Flavor << WindowsMSysFlavor << WindowsCEFlavor;
+                      << WindowsMsvc2012Flavor << WindowsMSysFlavor << WindowsCEFlavor << UnknownFlavor;
     case UnknownOS:
         return result << UnknownFlavor;
     default:
@@ -676,7 +676,9 @@ QList<Abi> Abi::abisOfBinary(const Utils::FileName &path)
     if (!f.exists())
         return tmp;
 
-    f.open(QFile::ReadOnly);
+    if (!f.open(QFile::ReadOnly))
+        return tmp;
+
     QByteArray data = f.read(1024);
     if (data.size() >= 67
             && getUint8(data, 0) == '!' && getUint8(data, 1) == '<' && getUint8(data, 2) == 'a'
@@ -874,7 +876,7 @@ void ProjectExplorer::ProjectExplorerPlugin::testFlavorForOs()
         foundCounter = 0;
         // make sure i is in exactly on of the flavor lists!
         foreach (const QList<Abi::OSFlavor> &l, flavorLists) {
-            QVERIFY(!l.contains(Abi::UnknownFlavor));
+            QVERIFY(l.contains(Abi::UnknownFlavor));
             if (l.contains(static_cast<Abi::OSFlavor>(i)))
                 ++foundCounter;
         }

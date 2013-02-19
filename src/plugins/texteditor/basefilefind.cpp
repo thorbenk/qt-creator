@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -104,9 +104,8 @@ QStringList BaseFileFind::fileNameFilters() const
         const QStringList parts = m_filterCombo->currentText().split(QLatin1Char(','));
         foreach (const QString &part, parts) {
             const QString filter = part.trimmed();
-            if (!filter.isEmpty()) {
+            if (!filter.isEmpty())
                 filters << filter;
-            }
         }
     }
     return filters;
@@ -138,7 +137,9 @@ void BaseFileFind::runNewSearch(const QString &txt, Find::FindFlags findFlags,
     connect(search, SIGNAL(cancelled()), this, SLOT(cancel()));
     connect(search, SIGNAL(paused(bool)), this, SLOT(setPaused(bool)));
     connect(search, SIGNAL(searchAgainRequested()), this, SLOT(searchAgain()));
-    connect(this, SIGNAL(enabledChanged(bool)), search, SLOT(setSearchAgainEnabled(bool)));
+    connect(this, SIGNAL(enabledChanged(bool)), search, SIGNAL(requestEnabledCheck()));
+    connect(search, SIGNAL(requestEnabledCheck()), this, SLOT(recheckEnabled()));
+
     runSearch(search);
 }
 
@@ -280,11 +281,10 @@ void BaseFileFind::updateComboEntries(QComboBox *combo, bool onTop)
 {
     int index = combo->findText(combo->currentText());
     if (index < 0) {
-        if (onTop) {
+        if (onTop)
             combo->insertItem(0, combo->currentText());
-        } else {
+        else
             combo->addItem(combo->currentText());
-        }
         combo->setCurrentIndex(combo->findText(combo->currentText()));
     }
 }
@@ -329,6 +329,14 @@ void BaseFileFind::searchAgain()
     SearchResult *search = qobject_cast<SearchResult *>(sender());
     search->restart();
     runSearch(search);
+}
+
+void BaseFileFind::recheckEnabled()
+{
+    SearchResult *search = qobject_cast<SearchResult *>(sender());
+    if (!search)
+        return;
+    search->setSearchAgainEnabled(isEnabled());
 }
 
 QStringList BaseFileFind::replaceAll(const QString &text,
@@ -380,6 +388,11 @@ QStringList BaseFileFind::replaceAll(const QString &text,
     }
 
     return changes.keys();
+}
+
+QVariant BaseFileFind::getAdditionalParameters(SearchResult *search)
+{
+    return search->userData().value<FileFindParameters>().additionalParameters;
 }
 
 CountingLabel::CountingLabel()

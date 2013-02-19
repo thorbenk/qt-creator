@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -32,19 +32,23 @@
 #include <QComboBox>
 #include "componentview.h"
 #include <QStandardItemModel>
-#include <QDebug>
+#include <qmldesignerplugin.h>
+#include <modelnode.h>
 
 namespace QmlDesigner {
 
 ComponentAction::ComponentAction(ComponentView  *componentView)
   :  QWidgetAction(componentView),
-     m_componentView(componentView)
+     m_componentView(componentView),
+     dontEmitCurrentComponentChanged(false)
 {
 }
 
-void ComponentAction::setCurrentIndex(int i)
+void ComponentAction::setCurrentIndex(int index)
 {
-    emit currentIndexChanged(i);
+    dontEmitCurrentComponentChanged = true;
+    emit currentIndexChanged(index);
+    dontEmitCurrentComponentChanged = false;
 }
 
 QWidget  *ComponentAction::createWidget(QWidget *parent)
@@ -53,7 +57,8 @@ QWidget  *ComponentAction::createWidget(QWidget *parent)
     comboBox->setMinimumWidth(120);
     comboBox->setToolTip(tr("Edit sub components defined in this file"));
     comboBox->setModel(m_componentView->standardItemModel());
-    connect(comboBox, SIGNAL(currentIndexChanged(int)), SLOT(emitCurrentComponentChanged(int)));
+    comboBox->setCurrentIndex(-1);
+    connect(comboBox, SIGNAL(activated(int)), SLOT(emitCurrentComponentChanged(int)));
     connect(this, SIGNAL(currentIndexChanged(int)), comboBox, SLOT(setCurrentIndex(int)));
 
     return comboBox;
@@ -61,7 +66,12 @@ QWidget  *ComponentAction::createWidget(QWidget *parent)
 
 void ComponentAction::emitCurrentComponentChanged(int index)
 {
-    emit currentComponentChanged(m_componentView->modelNode(index));
+    if (dontEmitCurrentComponentChanged)
+        return;
+
+    ModelNode componentNode = m_componentView->modelNode(index);
+
+    emit currentComponentChanged(componentNode);
 }
 
 } // namespace QmlDesigner

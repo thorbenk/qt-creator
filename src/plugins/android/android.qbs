@@ -13,7 +13,7 @@ QtcPlugin {
     Depends { name: "Qt"; submodules: ["widgets", "xml", "network"] }
 
     property bool enable: false
-    property var pluginspecreplacements: ({"ANDROID_EXPERIMENTAL_STR": (enable ? "false": "true")})
+    pluginspecreplacements: ({"ANDROID_EXPERIMENTAL_STR": (enable ? "false": "true")})
 
     cpp.includePaths: base.concat("../../shared")
 
@@ -41,6 +41,8 @@ QtcPlugin {
         "androiddevice.h",
         "androiddevicefactory.cpp",
         "androiddevicefactory.h",
+        "androidgdbserverkitinformation.cpp",
+        "androidgdbserverkitinformation.h",
         "androidglobal.h",
         "androidmanager.cpp",
         "androidmanager.h",

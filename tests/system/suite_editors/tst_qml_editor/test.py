@@ -13,12 +13,9 @@ def main():
     # add docs to have the correct tool tips
     addHelpDocumentationFromSDK()
     templateDir = prepareTemplate(sourceExample)
-    prepareForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)")
     installLazySignalHandler("{type='Core::FutureProgress' unnamed='1'}", "finished()", "__handleFutureProgress__")
     # using a temporary directory won't mess up a potentially existing
     createNewQtQuickApplication(tempDir(), "untitled", os.path.join(templateDir, qmlFile))
-    # wait for parsing to complete
-    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)")
     testRenameId()
     testFindUsages()
     testHovering()
@@ -163,11 +160,7 @@ def doubleClickFile(navTree, file):
     global templateDir
     treeElement = ("untitled.QML.%s/qml.%s" %
                    (maskSpecialCharsForProjectTree(templateDir),file))
-    waitForObjectItem(navTree, treeElement)
-    doubleClickItem(navTree, treeElement, 5, 5, 0, Qt.LeftButton)
-    mainWindow = waitForObject(":Qt Creator_Core::Internal::MainWindow")
-    name = __getUnmaskedFilename__(file)
-    waitFor("name in str(mainWindow.windowTitle)")
+    openDocument(treeElement)
 
 def __getUnmaskedFilename__(maskedFilename):
     name = maskedFilename.split("\\.")

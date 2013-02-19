@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -47,6 +47,7 @@ struct LibraryParameters {
                       const QString &headerName,
                       const QString &sharedHeader,
                       const QString &exportMacro,
+                      const QString &pluginJsonFileName,
                       int indentation,
                       QString *header,
                       QString *source) const;
@@ -60,7 +61,6 @@ struct LibraryParameters {
     QString baseClassName;
     QString sourceFileName;
     QString headerFileName;
-    QString baseClassModule;
 };
 
 } // namespace Internal

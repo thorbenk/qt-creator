@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -55,7 +55,7 @@ MouseArea {
     property int previousCurrentIndex: -1
     property alias model: listView.model
     property alias currentIndex: listView.currentIndex
-    property string currentText: model && currentIndex >= 0 ? model.get(currentIndex).text : ""
+    property string currentText: model && currentIndex >= 0 ? model.get(currentIndex) : ""
 
     // buttonPressed will be true when the mouse press starts
     // while the popup is closed. At that point, this component can be
@@ -241,7 +241,7 @@ MouseArea {
                 property alias index: itemDelegate.theIndex
                 property Item styledItem: choiceList
                 property bool highlighted: theIndex == listView.highlightedIndex
-                property string itemText: popup.model.get(theIndex).text
+                property string itemText: text
                 sourceComponent: listItem
             }
 

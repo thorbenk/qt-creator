@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -191,7 +191,6 @@ public:
     static Utils::FileName mkspecDirectoryFromVersionInfo(const QHash<QString, QString> &versionInfo);
     static Utils::FileName mkspecFromVersionInfo(const QHash<QString, QString> &versionInfo);
 
-
     virtual bool supportsBinaryDebuggingHelper() const;
     virtual QString gdbDebuggingHelperLibrary() const;
     virtual QString qmlDebuggingHelperLibrary(bool debugVersion) const;
@@ -220,6 +219,14 @@ public:
 
     virtual QList<ProjectExplorer::Task> validateKit(const ProjectExplorer::Kit *k);
 
+    Utils::FileName headerPath() const;
+    Utils::FileName libraryPath() const;
+    Utils::FileName binPath() const;
+    Utils::FileName mkspecsPath() const;
+
+    QString qtNamespace() const;
+    QString qtLibInfix() const;
+
 protected:
     BaseQtVersion();
     BaseQtVersion(const Utils::FileName &path, bool isAutodetected = false, const QString &autodetectionSource = QString());
@@ -243,32 +250,36 @@ private:
     void updateMkspec() const;
     void setId(int id); // used by the qtversionmanager for legacy restore
                         // and by the qtoptionspage to replace Qt versions
-    QString m_displayName;
-    int m_id;
-    bool m_isAutodetected;
-    QString m_autodetectionSource;
 
-    mutable Utils::FileName m_sourcePath;
+    int m_id;
+
+    bool m_isAutodetected;
     mutable bool m_hasDebuggingHelper; // controlled by m_versionInfoUpToDate
     mutable bool m_hasQmlDump;         // controlled by m_versionInfoUpToDate
     mutable bool m_hasQmlDebuggingLibrary; // controlled by m_versionInfoUpdate
     mutable bool m_hasQmlObserver;     // controlled by m_versionInfoUpToDate
-
     mutable bool m_mkspecUpToDate;
-    mutable Utils::FileName m_mkspec;
-    mutable Utils::FileName m_mkspecFullPath;
-
     mutable bool m_mkspecReadUpToDate;
     mutable bool m_defaultConfigIsDebug;
     mutable bool m_defaultConfigIsDebugAndRelease;
-    mutable QHash<QString, QString> m_mkspecValues;
-
     mutable bool m_versionInfoUpToDate;
-    mutable QHash<QString,QString> m_versionInfo;
     mutable bool m_installed;
     mutable bool m_hasExamples;
     mutable bool m_hasDemos;
     mutable bool m_hasDocumentation;
+    mutable bool m_qmakeIsExecutable;
+    mutable bool m_hasQtAbis;
+
+    QString m_displayName;
+    QString m_autodetectionSource;
+    mutable Utils::FileName m_sourcePath;
+
+    mutable Utils::FileName m_mkspec;
+    mutable Utils::FileName m_mkspecFullPath;
+
+    mutable QHash<QString, QString> m_mkspecValues;
+
+    mutable QHash<QString,QString> m_versionInfo;
 
     mutable Utils::FileName m_qmakeCommand;
     mutable QString m_qtVersionString;
@@ -278,7 +289,6 @@ private:
     mutable QString m_qmlsceneCommand;
     mutable QString m_qmlviewerCommand;
 
-    mutable bool m_qmakeIsExecutable;
     mutable QList<ProjectExplorer::Abi> m_qtAbis;
 };
 }

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -86,8 +86,8 @@ CommonOptionsPageWidget::CommonOptionsPageWidget
     checkBoxShowQmlObjectTree->setText(tr("Show QML object tree"));
 
     checkBoxBreakpointsFullPath = new QCheckBox(behaviorBox);
-    checkBoxBreakpointsFullPath->setToolTip(tr("Enable a full file path in breakpoints by default also for the GDB"));
-    checkBoxBreakpointsFullPath->setText(tr("Breakpoints full path by default"));
+    checkBoxBreakpointsFullPath->setToolTip(tr("Enable a full file path in breakpoints by default also for GDB."));
+    checkBoxBreakpointsFullPath->setText(tr("Set breakpoints using a full absolute path"));
 
     checkBoxRegisterForPostMortem = new QCheckBox(behaviorBox);
     checkBoxRegisterForPostMortem->setToolTip(tr("Register Qt Creator for debugging crashed applications."));
@@ -236,7 +236,7 @@ void CommonOptionsPageWidget::setGlobalOptions(const GlobalDebuggerOptions &go)
 CommonOptionsPage::CommonOptionsPage(const QSharedPointer<GlobalDebuggerOptions> &go) :
     m_options(go)
 {
-    setId(QLatin1String(DEBUGGER_COMMON_SETTINGS_ID));
+    setId(DEBUGGER_COMMON_SETTINGS_ID);
     setDisplayName(QCoreApplication::translate("Debugger", "General"));
     setCategory(DEBUGGER_SETTINGS_CATEGORY);
     setDisplayCategory(QCoreApplication::translate("Debugger", DEBUGGER_SETTINGS_TR_CATEGORY));
@@ -309,7 +309,7 @@ QString CommonOptionsPage::msgSetBreakpointAtFunctionToolTip(const char *functio
 
 LocalsAndExpressionsOptionsPage::LocalsAndExpressionsOptionsPage()
 {
-    setId(QLatin1String("Z.LocalsAndExpressions"));
+    setId("Z.LocalsAndExpressions");
     //: '&&' will appear as one (one is marking keyboard shortcut)
     setDisplayName(QCoreApplication::translate("Debugger", "Locals && Expressions"));
     setCategory(DEBUGGER_SETTINGS_CATEGORY);

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -75,6 +75,9 @@ bool RmKitOperation::setArguments(const QStringList &args)
 
     m_id = args.at(1);
 
+    if (m_id.isEmpty())
+        std::cerr << "No id given." << std::endl << std::endl;
+
     return !m_id.isEmpty();
 }
 
@@ -115,7 +118,7 @@ bool RmKitOperation::test() const
 
     QVariantMap result = rmKit(map, QLatin1String("testId"));
     if (result.count() != 4
-            || !result.contains("Profile.0")
+            || !result.contains(QLatin1String("Profile.0"))
             || !result.contains(QLatin1String(COUNT))
             || result.value(QLatin1String(COUNT)).toInt() != 1
             || !result.contains(QLatin1String(DEFAULT))
@@ -130,7 +133,7 @@ bool RmKitOperation::test() const
 
     result = rmKit(map, QLatin1String("testId2"));
     if (result.count() != 4
-            || !result.contains("Profile.0")
+            || !result.contains(QLatin1String("Profile.0"))
             || !result.contains(QLatin1String(COUNT))
             || result.value(QLatin1String(COUNT)).toInt() != 1
             || !result.contains(QLatin1String(DEFAULT))

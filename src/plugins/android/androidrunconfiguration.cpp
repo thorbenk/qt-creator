@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
+** Copyright (c) 2013 BogDan Vatra <bog_dan_ro@yahoo.com>
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -82,14 +82,6 @@ QString AndroidRunConfiguration::defaultDisplayName()
 AndroidConfig AndroidRunConfiguration::config() const
 {
     return AndroidConfigurations::instance().config();
-}
-
-const Utils::FileName AndroidRunConfiguration::gdbCmd() const
-{
-    ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
-    if (!tc)
-        return Utils::FileName();
-    return AndroidConfigurations::instance().gdbPath(tc->targetAbi().architecture());
 }
 
 AndroidDeployStep *AndroidRunConfiguration::deployStep() const

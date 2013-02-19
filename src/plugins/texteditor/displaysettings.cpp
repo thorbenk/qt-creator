@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -45,6 +45,7 @@ static const char highlightMatchingParenthesesKey[] = "HightlightMatchingParenth
 static const char markTextChangesKey[] = "MarkTextChanges";
 static const char autoFoldFirstCommentKey[] = "AutoFoldFirstComment";
 static const char centerCursorOnScrollKey[] = "CenterCursorOnScroll";
+static const char openLinksInNextSplitKey[] = "OpenLinksInNextSplitKey";
 static const char groupPostfix[] = "DisplaySettings";
 
 namespace TextEditor {
@@ -62,7 +63,9 @@ DisplaySettings::DisplaySettings() :
     m_highlightMatchingParentheses(true),
     m_markTextChanges(true),
     m_autoFoldFirstComment(true),
-    m_centerCursorOnScroll(false)
+    m_centerCursorOnScroll(false),
+    m_openLinksInNextSplit(false),
+    m_forceOpenLinksInNextSplit(false)
 {
 }
 
@@ -85,6 +88,7 @@ void DisplaySettings::toSettings(const QString &category, QSettings *s) const
     s->setValue(QLatin1String(markTextChangesKey), m_markTextChanges);
     s->setValue(QLatin1String(autoFoldFirstCommentKey), m_autoFoldFirstComment);
     s->setValue(QLatin1String(centerCursorOnScrollKey), m_centerCursorOnScroll);
+    s->setValue(QLatin1String(openLinksInNextSplitKey), m_openLinksInNextSplit);
     s->endGroup();
 }
 
@@ -110,6 +114,7 @@ void DisplaySettings::fromSettings(const QString &category, const QSettings *s)
     m_markTextChanges = s->value(group + QLatin1String(markTextChangesKey), m_markTextChanges).toBool();
     m_autoFoldFirstComment = s->value(group + QLatin1String(autoFoldFirstCommentKey), m_autoFoldFirstComment).toBool();
     m_centerCursorOnScroll = s->value(group + QLatin1String(centerCursorOnScrollKey), m_centerCursorOnScroll).toBool();
+    m_openLinksInNextSplit = s->value(group + QLatin1String(openLinksInNextSplitKey), m_openLinksInNextSplit).toBool();
 }
 
 bool DisplaySettings::equals(const DisplaySettings &ds) const
@@ -127,6 +132,8 @@ bool DisplaySettings::equals(const DisplaySettings &ds) const
         && m_markTextChanges == ds.m_markTextChanges
         && m_autoFoldFirstComment== ds.m_autoFoldFirstComment
         && m_centerCursorOnScroll == ds.m_centerCursorOnScroll
+        && m_openLinksInNextSplit == ds.m_openLinksInNextSplit
+        && m_forceOpenLinksInNextSplit == ds.m_forceOpenLinksInNextSplit
         ;
 }
 

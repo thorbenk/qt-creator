@@ -88,8 +88,8 @@ def testSaveChangesAndMakeWritable(modifiedFiles, readOnlyFiles):
                 clickButton("{text='OK' type='QPushButton' window=%s}" % cannotResetStr)
             except:
                 if isWritable(currentFile):
-                    test.passes("File '%s' resetted to writable state and saved." % currentFile)
                     if currentFile in readOnlyFiles:
+                        test.passes("File '%s' reset to writable state and saved." % currentFile)
                         readOnlyFiles.remove(currentFile)
                     else:
                         test.fatal("Creator states file '%s' is read-only - but supposed to be "
@@ -110,7 +110,7 @@ def testSaveChangesAndMakeWritable(modifiedFiles, readOnlyFiles):
             pass
 
 def checkOpenDocumentsContains(itemName):
-    openDocsTreeViewModel = waitForObject(":OpenDocuments_QTreeView").model()
+    openDocsTreeViewModel = waitForObject(":OpenDocuments_Widget").model()
     result = None
     found = False
     for index in dumpIndices(openDocsTreeViewModel):

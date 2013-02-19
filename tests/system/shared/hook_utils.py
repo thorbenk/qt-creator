@@ -4,19 +4,19 @@ fireWallState = None
 
 # this function modifies all necessary run settings to make it possible to hook into
 # the application compiled by Creator
-def modifyRunSettingsForHookInto(projectName, port):
-    prepareBuildSettings(1, 0)
+def modifyRunSettingsForHookInto(projectName, kitCount, port):
+    prepareBuildSettings(kitCount, 0)
     # this uses the defaultQtVersion currently
     switchViewTo(ViewConstants.PROJECTS)
-    switchToBuildOrRunSettingsFor(1, 0, ProjectSettings.BUILD)
-    qtVersion, mkspec, qtBinPath, qtLibPath = getQtInformationForBuildSettings(True)
+    switchToBuildOrRunSettingsFor(kitCount, 0, ProjectSettings.BUILD)
+    qtVersion, mkspec, qtBinPath, qtLibPath = getQtInformationForBuildSettings(kitCount, True)
     if None in (qtVersion, mkspec, qtBinPath, qtLibPath):
         test.fatal("At least one of the Qt information returned None - leaving...",
                    "Qt version: %s, mkspec: %s, Qt BinPath: %s, Qt LibPath: %s" %
                    (qtVersion, mkspec, qtBinPath, qtLibPath))
         return False
     qtVersion = ".".join(qtVersion.split(".")[:2])
-    switchToBuildOrRunSettingsFor(1, 0, ProjectSettings.RUN)
+    switchToBuildOrRunSettingsFor(kitCount, 0, ProjectSettings.RUN)
     result = __configureCustomExecutable__(projectName, port, mkspec, qtVersion)
     if result:
         clickButton(waitForObject("{window=':Qt Creator_Core::Internal::MainWindow' text='Details' "
@@ -54,9 +54,9 @@ def modifyRunSettingsForHookInto(projectName, port):
     switchViewTo(ViewConstants.EDIT)
     return result
 
-def modifyRunSettingsForHookIntoQtQuickUI(workingDir, projectName, port):
+def modifyRunSettingsForHookIntoQtQuickUI(kitCount, workingDir, projectName, port):
     switchViewTo(ViewConstants.PROJECTS)
-    switchToBuildOrRunSettingsFor(1, 0, ProjectSettings.RUN, True)
+    switchToBuildOrRunSettingsFor(kitCount, 0, ProjectSettings.RUN, True)
 
     qtVersion, mkspec, qtLibPath, qmake = getQtInformationForQmlProject()
     if None in (qtVersion, mkspec, qtLibPath, qmake):
@@ -219,6 +219,8 @@ def getChildByClass(parent, classToSearchFor, occurence=1):
 
 # get the Squish path that is needed to successfully hook into the compiled app
 def getSquishPath(mkspec, qmakev):
+    # assuming major and minor version will be enough
+    squishVersion = "%d.%d" % (squishinfo.major, squishinfo.minor)
     qmakev = ".".join(qmakev.split(".")[0:2])
     path = None
     mapfile = os.environ.get("QT_SQUISH_MAPFILE")
@@ -228,9 +230,10 @@ def getSquishPath(mkspec, qmakev):
         for line in file:
             if line[0] == "#":
                 continue
-            tmp = pattern.split(line, 2)
-            if tmp[0].strip("'\"") == qmakev and tmp[1].strip("'\"") == mkspec:
-                path = os.path.expanduser(tmp[2].strip().strip("'\""))
+            tmp = pattern.split(line, 3)
+            if (tmp[0].strip("'\"") == squishVersion and tmp[1].strip("'\"") == qmakev
+                and tmp[2].strip("'\"") == mkspec):
+                path = os.path.expanduser(tmp[3].strip().strip("'\""))
                 break
         file.close()
     else:
@@ -242,12 +245,17 @@ def getSquishPath(mkspec, qmakev):
                          "See the README file how to use it.")
         # try the test data fallback
         mapData = testData.dataset(os.getcwd() + "/../../shared_data/qt_squish_mapping.tsv")
-        for row, record in enumerate(mapData):
-            if testData.field(record, "qtversion") == qmakev and testData.field(record, "mkspec") == mkspec:
+        for record in mapData:
+            if (testData.field(record, "squishversion") == squishVersion and
+                testData.field(record, "qtversion") == qmakev
+                and testData.field(record, "mkspec") == mkspec):
                 path = os.path.expanduser(testData.field(record, "path"))
                 break
-        if path == None or not os.path.exists(path):
-            test.warning("Path '%s' from fallback test data file does not exist!" % path,
+        if path == None:
+            test.warning("Haven't found suitable Squish version with matching Qt version and mkspec.",
+                         "See the README file how to set up your environment.")
+        elif not os.path.exists(path):
+            test.warning("Squish path '%s' from fallback test data file does not exist!" % path,
                          "See the README file how to set up your environment.")
             return None
     return path

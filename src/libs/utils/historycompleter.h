@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -49,6 +49,7 @@ class QTCREATOR_UTILS_EXPORT HistoryCompleter : public QCompleter
 public:
     static void setSettings(QSettings *settings);
     HistoryCompleter(QLineEdit *lineEdit, const QString &historyKey, QObject *parent = 0);
+    bool removeHistoryItem(int index);
 
 private:
     ~HistoryCompleter();

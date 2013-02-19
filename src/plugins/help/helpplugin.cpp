@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -422,13 +422,13 @@ ExtensionSystem::IPlugin::ShutdownFlag HelpPlugin::aboutToShutdown()
 
 void HelpPlugin::unregisterOldQtCreatorDocumentation()
 {
-    const QString &nsInternal = QString::fromLatin1("com.nokia.qtcreator.%1%2%3")
+    const QString &nsInternal = QString::fromLatin1("org.qt-project.qtcreator.%1%2%3")
         .arg(IDE_VERSION_MAJOR).arg(IDE_VERSION_MINOR).arg(IDE_VERSION_RELEASE);
 
     Core::HelpManager *helpManager = Core::HelpManager::instance();
     QStringList documentationToUnregister;
     foreach (const QString &ns, helpManager->registeredNamespaces()) {
-        if (ns.startsWith(QLatin1String("com.nokia.qtcreator."))
+        if (ns.startsWith(QLatin1String("org.qt-project.qtcreator."))
                 && ns != nsInternal) {
             documentationToUnregister << ns;
         }
@@ -1168,15 +1168,15 @@ void HelpPlugin::handleHelpRequest(const QUrl &url)
 
     QString address = url.toString();
     if (!Core::HelpManager::instance()->findFile(url).isValid()) {
-        if (address.startsWith(HelpViewer::NsNokia)
-            || address.startsWith(HelpViewer::NsTrolltech)) {
+        if (address.startsWith(QLatin1String("qthelp://org.qt-project."))
+            || address.startsWith(QLatin1String("qthelp://com.nokia."))
+            || address.startsWith(QLatin1String("qthelp://com.trolltech."))) {
                 // local help not installed, resort to external web help
                 QString urlPrefix = QLatin1String("http://doc.qt.digia.com/");
-                if (url.authority() == QLatin1String("com.nokia.qtcreator")) {
+                if (url.authority() == QLatin1String("org.qt-project.qtcreator"))
                     urlPrefix.append(QString::fromLatin1("qtcreator"));
-                } else {
+                else
                     urlPrefix.append(QLatin1String("latest"));
-                }
             address = urlPrefix + address.mid(address.lastIndexOf(QLatin1Char('/')));
         }
     }
@@ -1244,7 +1244,7 @@ void HelpPlugin::slotOpenActionUrl(QAction *action)
 
 void HelpPlugin::slotOpenSupportPage()
 {
-    switchToHelpMode(QUrl(QLatin1String("qthelp://com.nokia.qtcreator/doc/technical-support.html")));
+    switchToHelpMode(QUrl(QLatin1String("qthelp://org.qt-project.qtcreator/doc/technical-support.html")));
 }
 
 void HelpPlugin::slotReportBug()

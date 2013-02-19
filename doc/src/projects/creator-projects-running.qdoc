@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (c) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator
@@ -42,15 +42,15 @@
     \l{Specifying Run Settings}.
 
     \if defined(qcmanual)
-    \input projects/creator-projects-running-desktop.qdocinc
+    \include projects/creator-projects-running-desktop.qdocinc
     \endif
 
-    \input projects/creator-projects-running-simulator.qdocinc
+    \include projects/creator-projects-running-simulator.qdocinc
 
     \if defined(qcmanual)
-    \input linux-mobile/creator-projects-running-generic-linux.qdocinc
-    \input linux-mobile/creator-projects-running-madde.qdocinc
-    \input qnx/creator-projects-running-qnx.qdocinc
+    \include linux-mobile/creator-projects-running-generic-linux.qdocinc
+    \include linux-mobile/creator-projects-running-madde.qdocinc
+    \include qnx/creator-projects-running-qnx.qdocinc
     \endif
 
 */

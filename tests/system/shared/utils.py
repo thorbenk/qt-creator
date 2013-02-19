@@ -24,6 +24,8 @@ def verifyChecked(objectName):
 
 def ensureChecked(objectName, shouldBeChecked = True, timeout=20000):
     object = waitForObject(objectName, timeout)
+    # synchronize to avoid false positives
+    waitFor('object.checked == shouldBeChecked', 1000)
     if object.checked ^ shouldBeChecked:
         clickButton(object)
     if shouldBeChecked:
@@ -285,13 +287,13 @@ def __checkParentAccess__(filePath):
 # this function checks for all configured Qt versions inside
 # options dialog and returns a dict holding the kits as keys
 # and a list of information of its configured Qt
-def getConfiguredKits():
+def getConfiguredKits(isMaddedDisabled=True):
     def __retrieveQtVersionName__(target, version):
         treeWidget = waitForObject(":QtSupport__Internal__QtVersionManager.qtdirList_QTreeWidget")
         return treeWidget.currentItem().text(0)
     # end of internal function for iterateQtVersions
     def __setQtVersionForKit__(kit, kitName, kitsQtVersionName):
-        treeView = waitForObject(":Kits_QTreeView")
+        treeView = waitForObject(":Kits_Or_Compilers_QTreeView")
         clickItem(treeView, kit, 5, 5, 0, Qt.LeftButton)
         qtVersionStr = str(waitForObject(":Kits_QtVersion_QComboBox").currentText)
         kitsQtVersionName[kitName] = qtVersionStr
@@ -305,7 +307,9 @@ def getConfiguredKits():
     iterateKits(True, True, __setQtVersionForKit__, kitsWithQtVersionName)
     # merge defined target names with their configured Qt versions and devices
     for kit,qtVersion in kitsWithQtVersionName.iteritems():
-        if qtVersion in qtVersionNames:
+        if isMaddedDisabled and  kit in ('Fremantle', 'Harmattan') and qtVersion == 'None':
+                test.log("Found Kit '%s' with unassigned Qt version (disabled Madde plugin)" % kit)
+        elif qtVersion in qtVersionNames:
             result[kit] = targetsQtVersions[qtVersionNames.index(qtVersion)].items()[0]
         else:
             test.fail("Qt version '%s' for kit '%s' can't be found in qtVersionNames."
@@ -343,7 +347,7 @@ def regexVerify(text, expectedTexts):
 
 def checkDebuggingLibrary(kitIDs):
     def __getQtVersionForKit__(kit, kitName):
-        treeView = waitForObject(":Kits_QTreeView")
+        treeView = waitForObject(":Kits_Or_Compilers_QTreeView")
         clickItem(treeView, kit, 5, 5, 0, Qt.LeftButton)
         return str(waitForObject(":Kits_QtVersion_QComboBox").currentText)
     # end of internal function for iterate kits
@@ -490,7 +494,7 @@ def iterateKits(keepOptionsOpen=False, alreadyOnOptionsDialog=False,
     waitForObjectItem(":Options_QListView", "Build & Run")
     clickItem(":Options_QListView", "Build & Run", 14, 15, 0, Qt.LeftButton)
     clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Kits")
-    treeView = waitForObject(":Kits_QTreeView")
+    treeView = waitForObject(":Kits_Or_Compilers_QTreeView")
     model = treeView.model()
     test.compare(model.rowCount(), 2, "Verifying expected target section count")
     autoDetected = model.index(0, 0)

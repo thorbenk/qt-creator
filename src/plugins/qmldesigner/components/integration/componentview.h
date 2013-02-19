@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -37,6 +37,7 @@
 
 QT_BEGIN_NAMESPACE
 class QStandardItemModel;
+class QComboBox;
 QT_END_NAMESPACE
 
 namespace QmlDesigner {
@@ -53,7 +54,7 @@ public:
         ModelNodeRole = Qt::UserRole
     };
 
-    ComponentView(QObject *parent);
+    ComponentView(QObject *parent = 0);
 
     void modelAttached(Model *model);
     void modelAboutToBeDetached(Model *model);
@@ -106,6 +107,8 @@ public:
 
     void setComponentNode(const ModelNode &node);
 
+    QWidget *widget();
+
 signals:
     void componentListChanged(const QStringList &componentList);
 
@@ -113,7 +116,6 @@ private: //functions
     void updateModel();
     void searchForComponentAndAddToList(const ModelNode &node);
     void searchForComponentAndRemoveFromList(const ModelNode &node);
-    void appendWholeDocumentAsComponent();
     void removeSingleNodeFromList(const ModelNode &node);
     int indexForNode(const ModelNode &node);
 

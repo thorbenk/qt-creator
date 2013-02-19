@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
+** Copyright (c) 2013 BogDan Vatra <bog_dan_ro@yahoo.com>
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -58,7 +58,6 @@ public:
     AndroidConfig config() const;
     QString proFilePath() const;
 
-    const Utils::FileName gdbCmd() const;
     const QString remoteChannel() const;
     const QString dumperLib() const;
 

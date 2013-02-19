@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -69,8 +69,8 @@
 
     Offers:
     \list
-    \o Add to a project file (*.pri/ *.pro)
-    \o Initialize a version control repository (unless the path is already
+    \li Add to a project file (*.pri/ *.pro)
+    \li Initialize a version control repository (unless the path is already
         managed) and do 'add' if the VCS supports it.
     \endlist
 
@@ -313,11 +313,10 @@ void ProjectFileWizardExtension::firstExtensionPageShown(
         m_context->page->setNoneLabel(tr("<None>"));
     }
 
-    if (bestProjectIndex == -1) {
+    if (bestProjectIndex == -1)
         m_context->page->setCurrentProjectIndex(0);
-    } else {
+    else
         m_context->page->setCurrentProjectIndex(bestProjectIndex + 1);
-    }
 
     // Store all version controls for later use:
     if (m_context->versionControls.isEmpty()) {
@@ -377,11 +376,10 @@ void ProjectFileWizardExtension::initializeVersionControlChoices()
 
 QList<QWizardPage *> ProjectFileWizardExtension::extensionPages(const Core::IWizard *wizard)
 {
-    if (!m_context) {
+    if (!m_context)
         m_context = new ProjectWizardContext;
-    } else {
+    else
         m_context->clear();
-    }
     // Init context with page and projects
     m_context->page = new ProjectWizardPage;
     m_context->wizard = wizard;

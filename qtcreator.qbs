@@ -4,7 +4,7 @@ import "qbs/defaults.js" as Defaults
 
 Project {
     property string ide_version_major: '2'
-    property string ide_version_minor: '6'
+    property string ide_version_minor: '7'
     property string ide_version_release: '81'
     property string qtcreator_version: ide_version_major + '.' + ide_version_minor + '.' + ide_version_release
     moduleSearchPaths: "qbs"
@@ -59,6 +59,8 @@ Project {
         "src/plugins/mercurial/mercurial.qbs",
         "src/plugins/perforce/perforce.qbs",
         "src/plugins/projectexplorer/projectexplorer.qbs",
+        "src/plugins/qbsprojectmanager/qbsprojectmanager.qbs",
+        "src/plugins/pythoneditor/pythoneditor.qbs",
 //        "src/plugins/qmldesigner/qmldesigner.qbs",
         "src/plugins/qmljseditor/qmljseditor.qbs",
         "src/plugins/qmljstools/qmljstools.qbs",
@@ -136,10 +138,8 @@ Project {
         }
     }
 
-    Product {
+    Application {
         name: "qtcreator"
-        type: ["application", "installed_content"]
-        destination: "bin"
         consoleApplication: qbs.debugInformation
 
         cpp.rpaths: ["$ORIGIN/../lib/qtcreator"]
@@ -161,6 +161,7 @@ Project {
         Depends { name: "Qt"; submodules: ["widgets", "network"] }
         Depends { name: "Utils" }
         Depends { name: "ExtensionSystem" }
+        Depends { name: "Core" }
 
         files: [
             "src/app/main.cpp",
@@ -175,14 +176,14 @@ Project {
         ]
 
         Group {
-            condition: qbs.targetOS == "linux" || qbs.targetOS == "macx"
+            condition: qbs.targetPlatform.indexOf("unix") != -1
             files: "bin/qtcreator.sh"
-            fileTags: "install"
+            qbs.install: true
             qbs.installDir: "bin"
         }
 
         Group {
-           condition: qbs.targetOS == "linux" || qbs.targetOS == "macx"
+           condition: qbs.targetPlatform.indexOf("unix") != -1
            files: [
                "src/shared/qtlockedfile/qtlockedfile_unix.cpp"
            ]
@@ -194,6 +195,11 @@ Project {
                "src/shared/qtlockedfile/qtlockedfile_win.cpp"
            ]
         }
+
+        Group {
+            fileTagsFilter: product.type
+            qbs.install: true
+            qbs.installDir: "bin"
+        }
     }
 }
-

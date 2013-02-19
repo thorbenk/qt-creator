@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2012 Lukas Holecek <hluk@email.cz>
+** Copyright (C) 2013 Lukas Holecek <hluk@email.cz>
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -421,6 +421,13 @@ void FakeVimPlugin::test_vim_movement()
     data.setText("abc def" N "ghi");
     KEYS("$a", "abc def" X N "ghi");
 
+    data.setText("abc" N "def ghi");
+    KEYS("i<end><down>", "abc" N "def ghi" X);
+    data.setText("abc" N "def ghi");
+    KEYS("<end>i<down>", "abc" N "de" X "f ghi");
+    data.setText("abc" N "def ghi");
+    KEYS("<end>a<down>", "abc" N "def" X " ghi");
+
     // paragraph movement
     data.setText("abc"  N   N "def");
     KEYS("}",     "abc" N X N "def");
@@ -535,6 +542,14 @@ void FakeVimPlugin::test_vim_insert()
     data.setText("abc" N "def");
     KEYS("2iX<delete>Y<esc>", "XYX" X "Yc" N "def");
     KEYS("0j.", "XYXYc" N "XYX" X "Yf");
+
+    data.setText("abc" N "def");
+    KEYS("i<delete>XY", "XY" X "bc" N "def");
+    KEYS("0j.", "XYbc" N "X" X "Yef");
+
+    data.setText("ab" X "c" N "def");
+    KEYS("i<bs>XY", "aXY" X "c" N "def");
+    KEYS("j.", "aXYc" N "dX" X "Yf");
 
     // insert in visual block mode
     data.setText("abc" N "d" X "ef" N "jkl" N "mno" N "pqr");
@@ -2775,12 +2790,11 @@ void FakeVimPlugin::test_vim_visual_d()
     KEYS("u",   lmid(0, 1)+"\n" + "|" + lmid(1));
 
     KEYS("v$d",     lmid(0, 1)+"\n" + "|" + lmid(2));
-    NOT_IMPLEMENTED
     KEYS("v$od",    lmid(0, 1)+"\n" + "|" + lmid(3));
     KEYS("$v$x",    lmid(0, 1)+"\n" + lmid(3,1) + "|" + lmid(4));
     KEYS("0v$d",    lmid(0, 1)+"\n" + "|" + lmid(5));
     KEYS("$v0d",    lmid(0, 1)+"\n" + "|\n" + lmid(6));
-    KEYS("v$o0k$d", lmid(0, 1)+"\n" + "|" + lmid(6).mid(1));
+    KEYS("v$o0k$d", "|" + lmid(6));
 }
 
 void FakeVimPlugin::test_vim_Visual_d()

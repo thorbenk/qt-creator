@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -116,6 +116,7 @@ signals:
     void visibilityChanged(bool visible);
     void countChanged(int count);
     void searchAgainRequested();
+    void requestEnabledCheck();
 
 private:
     SearchResult(Internal::SearchResultWidget *widget);

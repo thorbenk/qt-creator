@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -236,8 +236,12 @@ private slots:
 
     void publishProject();
     void updateWelcomePage();
+    void updateExternalFileWarning();
 
 #ifdef WITH_TESTS
+    void testAnsiFilterOutputParser_data();
+    void testAnsiFilterOutputParser();
+
     void testGccOutputParsers_data();
     void testGccOutputParsers();
 

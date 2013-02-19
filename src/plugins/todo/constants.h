@@ -1,7 +1,7 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 Dmitry Savchenko
-** Copyright (c) 2010 Vasiliy Sorokin
+** Copyright (c) 2013 Dmitry Savchenko
+** Copyright (c) 2013 Vasiliy Sorokin
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -65,6 +65,8 @@ const char SETTINGS_GROUP[] = "TodoPlugin";
 const char SCANNING_SCOPE[] = "ScanningScope";
 const char ITEMS_DISPLAY_PLACE[] = "ItemsDisplayPlace";
 const char KEYWORDS_LIST[] = "Keywords";
+const char OUTPUT_PANE_TEXT_WIDTH[] = "OutputPaneTextColumnWidth";
+const char OUTPUT_PANE_FILE_WIDTH[] = "OutputPaneFileColumnWidth";
 
 // TODO Output TreeWidget columns
 enum OutputColumnIndex {

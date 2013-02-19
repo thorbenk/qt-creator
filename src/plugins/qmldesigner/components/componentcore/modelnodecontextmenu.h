@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -49,11 +49,10 @@ public:
     static void showContextMenu(QmlModelView *view, const QPoint &globalPosition, const QPoint &scenePosition, bool showSelection);
 
 private:
-    QmlModelView *m_view;
     QPoint m_scenePos;
     SelectionContext m_selectionContext;
 };
 
-}; //QmlDesigner
+} // namespace QmlDesigner
 
 #endif // MODELNODECONTEXTMENU_H

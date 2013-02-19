@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -67,9 +67,9 @@
     When parsing the structure, a parse stack of ParseValueStackEntry is used for each
     <data> element. ParseValueStackEntry is a variant/union of:
     \list
-    \o simple value
-    \o map
-    \o list
+    \li simple value
+    \li map
+    \li list
     \endlist
 
     When entering a value element ( \c <value> / \c <valuelist> , \c <valuemap> ), entry is pushed

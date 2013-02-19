@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -33,6 +33,7 @@
 #include "qmakekitconfigwidget.h"
 
 #include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/toolchainmanager.h>
 
 #include <qtsupport/baseqtversion.h>
 #include <qtsupport/qtkitinformation.h>
@@ -83,13 +84,37 @@ QList<ProjectExplorer::Task> QmakeKitInformation::validate(const ProjectExplorer
     return result;
 }
 
+void QmakeKitInformation::setup(ProjectExplorer::Kit *k)
+{
+    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(k);
+    if (!version)
+        return;
+
+    Utils::FileName spec = QmakeKitInformation::mkspec(k);
+    if (spec.isEmpty())
+        spec = version->mkspec();
+
+    ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(k);
+
+    if (!tc || !tc->suggestedMkspecList().contains(spec)) {
+        QList<ProjectExplorer::ToolChain *> tcList = ProjectExplorer::ToolChainManager::instance()->toolChains();
+        foreach (ProjectExplorer::ToolChain *current, tcList) {
+            if (version->qtAbis().contains(current->targetAbi())
+                    && current->suggestedMkspecList().contains(spec)) {
+                ProjectExplorer::ToolChainKitInformation::setToolChain(k, current);
+                break;
+            }
+        }
+    }
+}
+
 ProjectExplorer::KitConfigWidget *
 QmakeKitInformation::createConfigWidget(ProjectExplorer::Kit *k) const
 {
     return new Internal::QmakeKitConfigWidget(k);
 }
 
-ProjectExplorer::KitInformation::ItemList QmakeKitInformation::toUserOutput(ProjectExplorer::Kit *k) const
+ProjectExplorer::KitInformation::ItemList QmakeKitInformation::toUserOutput(const ProjectExplorer::Kit *k) const
 {
     return ItemList() << qMakePair(tr("mkspec"), mkspec(k).toUserOutput());
 }

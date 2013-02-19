@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -43,7 +43,6 @@ namespace ProjectExplorer {
 class IOutputParser;
 
 namespace Internal {
-class KitManagerPrivate;
 class KitModel;
 class KitPrivate;
 } // namespace Internal
@@ -58,7 +57,6 @@ class PROJECTEXPLORER_EXPORT Kit
 {
 public:
     Kit(Core::Id id = Core::Id());
-    ~Kit();
 
     // Do not trigger evaluations
     void blockNotification();
@@ -66,8 +64,10 @@ public:
     void unblockNotification();
 
     bool isValid() const;
+    bool hasWarning() const;
     QList<Task> validate() const;
-    void fix();
+    void fix(); // Fix the individual kit information.
+    void setup(); // Apply advanced magic(TM). Used only once on each kit during initial setup.
 
     QString displayName() const;
     void setDisplayName(const QString &name);
@@ -81,10 +81,10 @@ public:
     QString iconPath() const;
     void setIconPath(const QString &path);
 
-    QVariant value(const Core::Id &key, const QVariant &unset = QVariant()) const;
-    bool hasValue(const Core::Id &key) const;
-    void setValue(const Core::Id &key, const QVariant &value);
-    void removeKey(const Core::Id &key);
+    QVariant value(Core::Id key, const QVariant &unset = QVariant()) const;
+    bool hasValue(Core::Id key) const;
+    void setValue(Core::Id key, const QVariant &value);
+    void removeKey(Core::Id key);
 
     bool isDataEqual(const Kit *other) const;
     bool isEqual(const Kit *other) const;
@@ -92,11 +92,13 @@ public:
     void addToEnvironment(Utils::Environment &env) const;
     IOutputParser *createOutputParser() const;
 
-    QString toHtml();
+    QString toHtml() const;
     Kit *clone(bool keepName = false) const;
     void copyFrom(const Kit *k);
 
 private:
+    ~Kit();
+
     // Unimplemented.
     Kit(const Kit &other);
     void operator=(const Kit &other);

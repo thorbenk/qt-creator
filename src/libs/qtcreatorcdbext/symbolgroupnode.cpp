@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -251,11 +251,10 @@ void BaseSymbolGroupNode::addChild(AbstractSymbolGroupNode *c)
 std::ostream &operator<<(std::ostream &str, const DEBUG_SYMBOL_PARAMETERS &parameters)
 {
     str << "parent=";
-    if (parameters.ParentSymbol == DEBUG_ANY_ID) {
+    if (parameters.ParentSymbol == DEBUG_ANY_ID)
         str << "DEBUG_ANY_ID";
-    } else {
+    else
         str << parameters.ParentSymbol ;
-    }
     if (parameters.Flags != 0 && parameters.Flags != 1)
         str << " flags=" << parameters.Flags;
     // Detailed flags:
@@ -583,12 +582,12 @@ void ErrorSymbolGroupNode::debug(std::ostream &os, const std::string &visitingFu
  Provides accessors for fixed-up symbol group value and a dumping facility
  consisting of:
  \list
- \o 'Simple' dumping done when running the DumpVisitor. This produces one
+ \li 'Simple' dumping done when running the DumpVisitor. This produces one
     line of formatted output shown for the class. These values
     values are always displayed, while still allowing for expansion of the structure
     in the debugger.
     It also pre-determines some information for complex dumping (type, container).
- \o 'Complex' dumping: Obscures the symbol group children by fake children, for
+ \li 'Complex' dumping: Obscures the symbol group children by fake children, for
     example container children, to be run when calling SymbolGroup::dump with an iname.
     The fake children are appended to the child list (other children are just marked as
     obscured for GDBMI dumping so that SymbolGroupValue expressions still work as before).
@@ -669,17 +668,15 @@ bool SymbolGroupNode::notifyIndexesMoved(ULONG index, bool inserted, ULONG offse
     if (m_index == DEBUG_ANY_ID || m_index < index)
         return false;
 
-    if (inserted) {
+    if (inserted)
         m_index += offset;
-    } else {
+    else
         m_index -= offset;
-    }
     if (m_parameters.ParentSymbol != DEBUG_ANY_ID && m_parameters.ParentSymbol >= index) {
-        if (inserted) {
+        if (inserted)
             m_parameters.ParentSymbol += offset;
-        } else {
+        else
             m_parameters.ParentSymbol -= offset;
-        }
     }
     return true;
 }
@@ -732,9 +729,8 @@ static inline void fixNames(bool isTopLevel, StringVector *names, StringVector *
      * 3) For toplevels: Fix shadowed variables in the order the debugger expects them:
        \code
        int x;             // Occurrence (1), should be reported as name="x <shadowed 1>"/iname="x#1"
-       if (true) {
+       if (true)
           int x = 5; (2)  // Occurrence (2), should be reported as name="x"/iname="x"
-       }
       \endcode */
     StringVector::iterator nameIt = names->begin();
     const StringVector::iterator namesEnd = names->end();
@@ -1103,11 +1099,10 @@ int SymbolGroupNode::dumpNode(std::ostream &str,
         // Emulate gdb's behaviour of returning the referenced address
         // for pointers.
         str << std::hex << std::showbase;
-        if (referencedAddr) {
+        if (referencedAddr)
             str << ",addr=\"" << referencedAddr << "\",origaddr=\"" << addr << '"';
-        } else {
+        else
             str << ",addr=\"" << addr << '"';
-        }
         str << std::noshowbase << std::dec;
     }
     const ULONG s = size();
@@ -1141,11 +1136,10 @@ int SymbolGroupNode::dumpNode(std::ostream &str,
         if (m_dumperContainerSize > 0) {
             childCountGuess = m_dumperContainerSize; // See Obscured handling
         } else {
-            if (children().empty()) {
+            if (children().empty())
                 childCountGuess = m_parameters.SubElements; // Guess
-            } else {
+            else
                 childCountGuess = unsigned(children().size());
-            }
         }
     }
     // No children..suppose we are editable and enabled.
@@ -1646,11 +1640,10 @@ SymbolGroupNodeVisitor::VisitResult
             if (!realNode->isExpanded() || realNode->testFlags(SymbolGroupNode::Uninitialized|SymbolGroupNode::ExpandedByDumper))
                     visitChildren = false;
     // Comma between same level children given obscured children
-    if (depth == m_lastDepth) {
+    if (depth == m_lastDepth)
         m_os << ',';
-    } else {
+    else
         m_lastDepth = depth;
-    }
     if (m_parameters.humanReadable()) {
         m_os << '\n';
         indentStream(m_os, depth * 2);

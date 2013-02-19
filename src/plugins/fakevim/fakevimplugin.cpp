@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -71,6 +71,7 @@
 #include <find/textfindconstants.h>
 #include <find/ifindsupport.h>
 
+#include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
 #include <utils/treewidgetcolumnstretcher.h>
@@ -83,6 +84,7 @@
 #include <QAbstractTableModel>
 #include <QDebug>
 #include <QFile>
+#include <QFileDialog>
 #include <QtPlugin>
 #include <QObject>
 #include <QSettings>
@@ -238,7 +240,7 @@ class FakeVimOptionPage : public IOptionsPage
 public:
     FakeVimOptionPage()
     {
-        setId(_(SETTINGS_ID));
+        setId(SETTINGS_ID);
         setDisplayName(tr("General"));
         setCategory(SETTINGS_CATEGORY);
         setDisplayCategory(tr("FakeVim"));
@@ -254,6 +256,8 @@ private slots:
     void copyTextEditorSettings();
     void setQtStyle();
     void setPlainStyle();
+    void openVimRc();
+    void updateVimRcWidgets();
 
 private:
     friend class DebuggerPlugin;
@@ -272,6 +276,8 @@ QWidget *FakeVimOptionPage::createPage(QWidget *parent)
         m_ui.checkBoxUseFakeVim);
     m_group.insert(theFakeVimSetting(ConfigReadVimRc),
         m_ui.checkBoxReadVimRc);
+    m_group.insert(theFakeVimSetting(ConfigVimRcPath),
+        m_ui.lineEditVimRcPath);
 
     m_group.insert(theFakeVimSetting(ConfigExpandTab),
         m_ui.checkBoxExpandTab);
@@ -318,6 +324,11 @@ QWidget *FakeVimOptionPage::createPage(QWidget *parent)
         SLOT(setQtStyle()));
     connect(m_ui.pushButtonSetPlainStyle, SIGNAL(clicked()),
         SLOT(setPlainStyle()));
+    connect(m_ui.pushButtonVimRcPath, SIGNAL(clicked()),
+        SLOT(openVimRc()));
+    connect(m_ui.checkBoxReadVimRc, SIGNAL(stateChanged(int)),
+        SLOT(updateVimRcWidgets()));
+    updateVimRcWidgets();
 
     if (m_searchKeywords.isEmpty()) {
         QLatin1Char sep(' ');
@@ -382,6 +393,21 @@ void FakeVimOptionPage::setPlainStyle()
     m_ui.lineEditBackspace->setText(QString());
 }
 
+void FakeVimOptionPage::openVimRc()
+{
+    const QString fileName = QFileDialog::getOpenFileName();
+    if (!fileName.isNull())
+        m_ui.lineEditVimRcPath->setText(fileName);
+}
+
+void FakeVimOptionPage::updateVimRcWidgets()
+{
+    bool enabled = m_ui.checkBoxReadVimRc->isChecked();
+    m_ui.labelVimRcPath->setEnabled(enabled);
+    m_ui.lineEditVimRcPath->setEnabled(enabled);
+    m_ui.pushButtonVimRcPath->setEnabled(enabled);
+}
+
 bool FakeVimOptionPage::matches(const QString &s) const
 {
     return m_searchKeywords.contains(s, Qt::CaseInsensitive);
@@ -405,7 +431,7 @@ public:
     FakeVimExCommandsPage(FakeVimPluginPrivate *q)
         : m_q(q)
     {
-        setId(_(SETTINGS_EX_CMDS_ID));
+        setId(SETTINGS_EX_CMDS_ID);
         setDisplayName(tr("Ex Command Mapping"));
         setCategory(SETTINGS_CATEGORY);
         setDisplayCategory(tr("FakeVim"));
@@ -627,7 +653,7 @@ public:
     FakeVimUserCommandsPage(FakeVimPluginPrivate *q)
         : m_q(q)
     {
-        setId(_(SETTINGS_USER_CMDS_ID));
+        setId(SETTINGS_USER_CMDS_ID);
         setDisplayName(tr("User Command Mapping"));
         setCategory(SETTINGS_CATEGORY);
         setDisplayCategory(tr("FakeVim"));
@@ -1066,6 +1092,8 @@ bool FakeVimPluginPrivate::initialize()
         this, SLOT(setUseFakeVim(QVariant)));
     connect(theFakeVimSetting(ConfigReadVimRc), SIGNAL(valueChanged(QVariant)),
         this, SLOT(maybeReadVimRc()));
+    connect(theFakeVimSetting(ConfigVimRcPath), SIGNAL(valueChanged(QVariant)),
+        this, SLOT(maybeReadVimRc()));
 
     // Delayed operations.
     connect(this, SIGNAL(delayedQuitRequested(bool,Core::IEditor*)),
@@ -1185,9 +1213,11 @@ void FakeVimPluginPrivate::maybeReadVimRc()
     //qDebug() << theFakeVimSetting(ConfigShiftWidth)->value();
     if (!theFakeVimSetting(ConfigReadVimRc)->value().toBool())
         return;
-    QString fileName =
-        QDesktopServices::storageLocation(QDesktopServices::HomeLocation)
-            + _("/.vimrc");
+    QString fileName = theFakeVimSetting(ConfigVimRcPath)->value().toString();
+    if (fileName.isEmpty()) {
+        fileName = QDesktopServices::storageLocation(QDesktopServices::HomeLocation)
+            + (Utils::HostOsInfo::isWindowsHost() ? _("/_vimrc") : _("/.vimrc"));
+    }
     //qDebug() << "READING VIMRC: " << fileName;
     // Read it into a temporary handler for effects modifying global state.
     QPlainTextEdit editor;
@@ -1224,54 +1254,41 @@ void FakeVimPluginPrivate::setActionChecked(const Id &id, bool check)
 
 static int moveRightWeight(const QRect &cursor, const QRect &other)
 {
-    int dx = other.left() - cursor.right();
-    if (dx < 0)
+    if (!cursor.adjusted(other.right(), 0, 0, 0).intersects(other))
         return -1;
-    int w = 10000 * dx;
-    int dy1 = cursor.top() - other.bottom();
-    int dy2 = cursor.bottom() - other.top();
-    w += dy1 * (dy1 > 0);
-    w += dy2 * (dy2 > 0);
-    qDebug() << "      DX: " << dx << dy1 << dy2 << w;
+    const int dx = other.left() - cursor.right();
+    const int dy = qAbs(cursor.center().y() - other.center().y());
+    const int w = 10000 * dx + dy;
     return w;
 }
 
 static int moveLeftWeight(const QRect &cursor, const QRect &other)
 {
-    int dx = other.right() - cursor.left();
-    if (dx < 0)
+    if (!cursor.adjusted(-other.right(), 0, 0, 0).intersects(other))
         return -1;
-    int w = 10000 * dx;
-    int dy1 = cursor.top() - other.bottom();
-    int dy2 = cursor.bottom() - other.top();
-    w += dy1 * (dy1 > 0);
-    w += dy2 * (dy2 > 0);
+    const int dx = cursor.left() - other.right();
+    const int dy = qAbs(cursor.center().y() -other.center().y());
+    const int w = 10000 * dx + dy;
     return w;
 }
 
 static int moveUpWeight(const QRect &cursor, const QRect &other)
 {
-    int dy = other.bottom() - cursor.top();
-    if (dy < 0)
+    if (!cursor.adjusted(0, 0, 0, -other.bottom()).intersects(other))
         return -1;
-    int w = 10000 * dy;
-    int dx1 = cursor.left() - other.right();
-    int dx2 = cursor.right() - other.left();
-    w += dx1 * (dx1 > 0);
-    w += dx2 * (dx2 > 0);
+    const int dy = cursor.top() - other.bottom();
+    const int dx = qAbs(cursor.center().x() - other.center().x());
+    const int w = 10000 * dy + dx;
     return w;
 }
 
 static int moveDownWeight(const QRect &cursor, const QRect &other)
 {
-    int dy = other.top() - cursor.bottom();
-    if (dy < 0)
+    if (!cursor.adjusted(0, 0, 0, other.bottom()).intersects(other))
         return -1;
-    int w = 10000 * dy;
-    int dx1 = cursor.left() - other.right();
-    int dx2 = cursor.right() - other.left();
-    w += dx1 * (dx1 > 0);
-    w += dx2 * (dx2 > 0);
+    const int dy = other.top() - cursor.bottom();
+    const int dx = qAbs(cursor.center().x() - other.center().x());
+    const int w = 10000 * dy + dx;
     return w;
 }
 
@@ -1319,8 +1336,8 @@ void FakeVimPluginPrivate::windowCommand(int key)
 
 void FakeVimPluginPrivate::moveSomewhere(DistFunction f)
 {
-    IEditor *editor = EditorManager::currentEditor();
-    QWidget *w = editor->widget();
+    IEditor *currentEditor = EditorManager::currentEditor();
+    QWidget *w = currentEditor->widget();
     QPlainTextEdit *pe = qobject_cast<QPlainTextEdit *>(w);
     QTC_ASSERT(pe, return);
     QRect rc = pe->cursorRect();
@@ -1332,6 +1349,8 @@ void FakeVimPluginPrivate::moveSomewhere(DistFunction f)
     int bestValue = 1 << 30;
 
     foreach (IEditor *editor, EditorManager::instance()->visibleEditors()) {
+        if (editor == currentEditor)
+            continue;
         QWidget *w = editor->widget();
         QRect editorRect(w->mapToGlobal(w->geometry().topLeft()),
                 w->mapToGlobal(w->geometry().bottomRight()));

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -43,11 +43,11 @@ using namespace Internal;
 
 struct HighlighterSettingsPage::HighlighterSettingsPagePrivate
 {
-    explicit HighlighterSettingsPagePrivate(const QString &id);
+    explicit HighlighterSettingsPagePrivate(Core::Id id);
     void ensureInitialized();
 
     bool m_initialized;
-    const QString m_id;
+    const Core::Id m_id;
     const QString m_displayName;
     const QString m_settingsPrefix;
 
@@ -59,7 +59,7 @@ struct HighlighterSettingsPage::HighlighterSettingsPagePrivate
 };
 
 HighlighterSettingsPage::HighlighterSettingsPagePrivate::
-HighlighterSettingsPagePrivate(const QString &id) :
+HighlighterSettingsPagePrivate(Core::Id id) :
     m_initialized(false),
     m_id(id),
     m_displayName(tr("Generic Highlighter")),
@@ -75,7 +75,7 @@ void HighlighterSettingsPage::HighlighterSettingsPagePrivate::ensureInitialized(
     m_settings.fromSettings(m_settingsPrefix, Core::ICore::settings());
 }
 
-HighlighterSettingsPage::HighlighterSettingsPage(const QString &id, QObject *parent) :
+HighlighterSettingsPage::HighlighterSettingsPage(Core::Id id, QObject *parent) :
     TextEditorOptionsPage(parent),
     m_requestMimeTypeRegistration(false),
     m_d(new HighlighterSettingsPagePrivate(id))
@@ -106,7 +106,6 @@ QWidget *HighlighterSettingsPage::createPage(QWidget *parent)
     if (m_d->m_searchKeywords.isEmpty()) {
         QTextStream(&m_d->m_searchKeywords) << m_d->m_page->definitionFilesGroupBox->title()
             << m_d->m_page->locationLabel->text()
-            << m_d->m_page->alertWhenNoDefinition->text()
             << m_d->m_page->useFallbackLocation->text()
             << m_d->m_page->ignoreLabel->text();
     }
@@ -165,7 +164,6 @@ void HighlighterSettingsPage::settingsFromUI()
 
     m_d->m_settings.setDefinitionFilesPath(m_d->m_page->definitionFilesPath->path());
     m_d->m_settings.setFallbackDefinitionFilesPath(m_d->m_page->fallbackDefinitionFilesPath->path());
-    m_d->m_settings.setAlertWhenNoDefinition(m_d->m_page->alertWhenNoDefinition->isChecked());
     m_d->m_settings.setUseFallbackLocation(m_d->m_page->useFallbackLocation->isChecked());
     m_d->m_settings.setIgnoredFilesPatterns(m_d->m_page->ignoreEdit->text());
     m_d->m_settings.toSettings(m_d->m_settingsPrefix, Core::ICore::settings());
@@ -176,7 +174,6 @@ void HighlighterSettingsPage::settingsToUI()
     m_d->ensureInitialized();
     m_d->m_page->definitionFilesPath->setPath(m_d->m_settings.definitionFilesPath());
     m_d->m_page->fallbackDefinitionFilesPath->setPath(m_d->m_settings.fallbackDefinitionFilesPath());
-    m_d->m_page->alertWhenNoDefinition->setChecked(m_d->m_settings.alertWhenNoDefinition());
     m_d->m_page->useFallbackLocation->setChecked(m_d->m_settings.useFallbackLocation());
     m_d->m_page->ignoreEdit->setText(m_d->m_settings.ignoredFilesPatterns());
 
@@ -253,8 +250,6 @@ bool HighlighterSettingsPage::settingsChanged() const
         return true;
     if (m_d->m_settings.fallbackDefinitionFilesPath() !=
             m_d->m_page->fallbackDefinitionFilesPath->path())
-        return true;
-    if (m_d->m_settings.alertWhenNoDefinition() != m_d->m_page->alertWhenNoDefinition->isChecked())
         return true;
     if (m_d->m_settings.useFallbackLocation() != m_d->m_page->useFallbackLocation->isChecked())
         return true;

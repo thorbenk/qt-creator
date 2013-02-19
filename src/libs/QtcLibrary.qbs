@@ -13,17 +13,21 @@ DynamicLibrary {
         if (qbs.buildVariant == "release" && (qbs.toolchain == "gcc" || qbs.toolchain == "mingw"))
             return ["-Wl,-s"]
     }
-    cpp.includePaths: [ "." ]
-
-    destination: {
-        if (qbs.targetOS == "windows")
-            return "bin"
-        else
-            return "lib/qtcreator"
-    }
+    cpp.includePaths: [ ".", ".." ]
 
     ProductModule {
         Depends { name: "cpp" }
         cpp.includePaths: [ "." ]
+    }
+
+    Group {
+        fileTagsFilter: product.type
+        qbs.install: true
+        qbs.installDir: {
+            if (qbs.targetOS == "windows")
+                return "bin"
+            else
+                return "lib/qtcreator"
+        }
     }
 }

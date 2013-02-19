@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -310,7 +310,10 @@ TaskWindow::~TaskWindow()
 
 static ITaskHandler *handler(QAction *action)
 {
-    return qobject_cast<ITaskHandler *>(action->data().value<QObject *>());
+    QVariant prop = action->property("ITaskHandler");
+    ITaskHandler *handler = qobject_cast<ITaskHandler *>(prop.value<QObject *>());
+    QTC_CHECK(handler);
+    return handler;
 }
 
 void TaskWindow::delayedInitialization()
@@ -328,7 +331,7 @@ void TaskWindow::delayedInitialization()
 
         QAction *action = h->createAction(this);
         QTC_ASSERT(action, continue);
-        action->setData(qVariantFromValue(qobject_cast<QObject*>(h)));
+        action->setProperty("ITaskHandler", qVariantFromValue(qobject_cast<QObject*>(h)));
         connect(action, SIGNAL(triggered()), this, SLOT(actionTriggered()));
         d->m_actions << action;
 
@@ -384,11 +387,10 @@ void TaskWindow::setCategoryVisibility(const Core::Id &categoryId, bool visible)
 
     QList<Core::Id> categories = d->m_filter->filteredCategories();
 
-    if (visible) {
+    if (visible)
         categories.removeOne(categoryId);
-    } else {
+    else
         categories.append(categoryId);
-    }
 
     d->m_filter->setFilteredCategories(categories);
 
@@ -612,9 +614,8 @@ void TaskWindow::setFocus()
 {
     if (d->m_filter->rowCount()) {
         d->m_listview->setFocus();
-        if (d->m_listview->currentIndex() == QModelIndex()) {
+        if (d->m_listview->currentIndex() == QModelIndex())
             d->m_listview->setCurrentIndex(d->m_filter->index(0,0, QModelIndex()));
-        }
     }
 }
 
@@ -842,7 +843,8 @@ void TaskDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
 
         const QString directory = QDir::toNativeSeparators(index.data(TaskModel::File).toString());
         int secondBaseLine = positions.top() + fm.ascent() + height + leading;
-        if (index.data(TaskModel::FileNotFound).toBool()) {
+        if (index.data(TaskModel::FileNotFound).toBool()
+                && !directory.isEmpty()) {
             QString fileNotFound = tr("File not found: %1").arg(directory);
             painter->setPen(Qt::red);
             painter->drawText(positions.textAreaLeft(), secondBaseLine, fileNotFound);

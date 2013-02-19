@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -59,10 +59,10 @@
     If you want to implement a more specialized find filter, you'll need
     to
     \list
-        \o Start your search in a separate thread
-        \o Make this known to the Core::ProgressManager, for a progress bar
+        \li Start your search in a separate thread
+        \li Make this known to the Core::ProgressManager, for a progress bar
            and the ability to cancel the search
-        \o Interface with the shared \gui{Search Results} panel, to show
+        \li Interface with the shared \gui{Search Results} panel, to show
            the search results, handle the event that the user click on one
            of the search result items, and possible handle a global replace
            of all or some of the search result items.
@@ -253,9 +253,8 @@ QPixmap Find::IFindFilter::pixmapForFindFlags(Find::FindFlags flags)
         painter.drawPixmap(x - 6, 0, regexpIcon);
         x += 6;
     }
-    if (preservecase) {
+    if (preservecase)
         painter.drawPixmap(x - 6, 0, preservecaseIcon);
-    }
     return pixmap;
 }
 

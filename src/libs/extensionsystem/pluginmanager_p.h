@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -72,6 +72,7 @@ public:
     void loadPlugin(PluginSpec *spec, PluginSpec::State destState);
     void resolveDependencies();
     void initProfiling();
+    void profilingSummary() const;
     void profilingReport(const char *what, const PluginSpec *spec = 0);
     void setSettings(QSettings *settings);
     void setGlobalSettings(QSettings *settings);
@@ -79,9 +80,26 @@ public:
     void writeSettings();
     void disablePluginIndirectly(PluginSpec *spec);
 
+    class TestSpec {
+    public:
+        TestSpec(PluginSpec *pluginSpec, const QStringList &testFunctions = QStringList())
+            : pluginSpec(pluginSpec), testFunctions(testFunctions) {}
+        PluginSpec *pluginSpec;
+        QStringList testFunctions;
+    };
+
+    bool containsTestSpec(PluginSpec *pluginSpec) const
+    {
+        foreach (const TestSpec &testSpec, testSpecs) {
+            if (testSpec.pluginSpec == pluginSpec)
+                return true;
+        }
+        return false;
+    }
+
     QHash<QString, PluginCollection *> pluginCategories;
     QList<PluginSpec *> pluginSpecs;
-    QList<PluginSpec *> testSpecs;
+    QList<TestSpec> testSpecs;
     QStringList pluginPaths;
     QString extension;
     QList<QObject *> allObjects; // ### make this a QList<QPointer<QObject> > > ?
@@ -97,6 +115,7 @@ public:
 
     QStringList arguments;
     QScopedPointer<QTime> m_profileTimer;
+    QHash<const PluginSpec *, int> m_profileTotal;
     int m_profileElapsedMS;
     unsigned m_profilingVerbosity;
     QSettings *settings;

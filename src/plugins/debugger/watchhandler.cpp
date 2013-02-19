@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -30,11 +30,13 @@
 #include "watchhandler.h"
 
 #include "breakhandler.h"
-#include "debuggerinternalconstants.h"
 #include "debuggeractions.h"
 #include "debuggercore.h"
-#include "debuggerengine.h"
 #include "debuggerdialogs.h"
+#include "debuggerengine.h"
+#include "debuggerinternalconstants.h"
+#include "debuggerprotocol.h"
+#include "imageviewer.h"
 #include "watchutils.h"
 
 #include <utils/qtcassert.h>
@@ -1157,11 +1159,10 @@ bool WatchModel::setData(const QModelIndex &idx, const QVariant &value, int role
 
         case LocalsIndividualFormatRole: {
             const int format = value.toInt();
-            if (format == -1) {
+            if (format == -1)
                 theIndividualFormats.remove(data.iname);
-            } else {
+            else
                 theIndividualFormats[data.iname] = format;
-            }
             engine()->updateWatchData(data);
             break;
         }
@@ -1277,17 +1278,15 @@ static bool watchDataLessThan(const QByteArray &iname1, int sortId1,
         return sortId1 < sortId2;
     // Get positions of last part of iname 'local.this.i1" -> "i1"
     int cmpPos1 = iname1.lastIndexOf('.');
-    if (cmpPos1 == -1) {
+    if (cmpPos1 == -1)
         cmpPos1 = 0;
-    } else {
+    else
         cmpPos1++;
-    }
     int cmpPos2 = iname2.lastIndexOf('.');
-    if (cmpPos2 == -1) {
+    if (cmpPos2 == -1)
         cmpPos2 = 0;
-    } else {
+    else
         cmpPos2++;
-    }
     // Are we looking at an array with numerical inames 'local.this.i1.0" ->
     // Go by sort id.
     if (cmpPos1 < iname1.size() && cmpPos2 < iname2.size()
@@ -1461,6 +1460,7 @@ void WatchModel::setCurrentItem(const QByteArray &iname)
 
 WatchHandler::WatchHandler(DebuggerEngine *engine)
 {
+    m_separateWindow = 0;
     m_engine = engine;
     m_watcherCounter = debuggerCore()->sessionValue(QLatin1String("Watchers"))
             .toStringList().count();
@@ -1472,6 +1472,12 @@ WatchHandler::WatchHandler(DebuggerEngine *engine)
 
 WatchHandler::~WatchHandler()
 {
+    if (m_separateWindow) {
+        debuggerCore()->setSessionValue(QLatin1String("DebuggerSeparateWidgetGeometry"),
+                m_separateWindow->geometry());
+        delete m_separateWindow;
+        m_separateWindow = 0;
+    }
     // Do it manually to prevent calling back in model destructors
     // after m_cache is destroyed.
     delete m_model;
@@ -1612,11 +1618,10 @@ void WatchHandler::watchExpression(const QString &exp, const QString &name)
 // (address) if it can be found. Default to watchExpression().
 void WatchHandler::watchVariable(const QString &exp)
 {
-    if (const WatchData *localVariable = findCppLocalVariable(exp)) {
+    if (const WatchData *localVariable = findCppLocalVariable(exp))
         watchExpression(QLatin1String(localVariable->exp), exp);
-    } else {
+    else
         watchExpression(exp);
-    }
 }
 
 static void swapEndian(char *d, int nchar)
@@ -1653,15 +1658,19 @@ void WatchHandler::removeSeparateWidget(QObject *o)
 
 void WatchHandler::showSeparateWidget(QWidget *w)
 {
-    if (m_separateWindow.isNull())
+    if (m_separateWindow.isNull()) {
         m_separateWindow = new SeparateViewWidget(debuggerCore()->mainWindow());
+        QVariant geometry = debuggerCore()->
+                sessionValue(QLatin1String("DebuggerSeparateWidgetGeometry"));
+        if (geometry.isValid())
+            m_separateWindow->setGeometry(geometry.toRect());
+    }
 
     int index = indexOf(m_separateWindow, w);
-    if (index != -1) {
+    if (index != -1)
         m_separateWindow->setTabText(index, w->windowTitle());
-    } else {
+    else
         index = m_separateWindow->addTab(w, w->windowTitle());
-    }
     m_separateWindow->setCurrentIndex(index);
     m_separateWindow->show();
     m_separateWindow->raise();
@@ -1678,11 +1687,11 @@ void WatchHandler::showEditValue(const WatchData &data)
         break;
     case DisplayImageData:
     case DisplayImageFile: {  // QImage
-        QLabel *l = qobject_cast<QLabel *>(w);
+        ImageViewer *l = qobject_cast<ImageViewer *>(w);
         if (!l) {
             removeSeparateWidget(w);
             delete w;
-            l = new QLabel;
+            l = new  ImageViewer;
             const QString title = data.address ?
                 tr("%1 Object at %2").arg(QLatin1String(data.type),
                     QLatin1String(data.hexAddress())) :
@@ -1691,7 +1700,7 @@ void WatchHandler::showEditValue(const WatchData &data)
             showSeparateWidget(l);
             m_model->m_editHandlers[key] = l;
         }
-        int width, height, format;
+        int width = 0, height = 0, format = 0;
         QByteArray ba;
         uchar *bits = 0;
         if (data.editformat == DisplayImageData) {
@@ -1712,9 +1721,7 @@ void WatchHandler::showEditValue(const WatchData &data)
             ba = f.readAll();
             bits = (uchar*)ba.data();
         }
-        QImage im(bits, width, height, QImage::Format(format));
-        l->setPixmap(QPixmap::fromImage(im));
-        l->resize(width, height);
+        l->setImage(QImage(bits, width, height, QImage::Format(format)));
         showSeparateWidget(l);
     }
         break;

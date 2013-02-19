@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -37,6 +37,7 @@ namespace Constants {
 
 const char M_TOOLS_CPP[]              = "CppTools.Tools.Menu";
 const char SWITCH_HEADER_SOURCE[]     = "CppTools.SwitchHeaderSource";
+const char OPEN_HEADER_SOURCE_IN_NEXT_SPLIT[] = "CppTools.OpenHeaderSourceInNextSplit";
 const char TASK_INDEX[]               = "CppTools.Task.Index";
 const char TASK_SEARCH[]              = "CppTools.Task.Search";
 const char C_SOURCE_MIMETYPE[] = "text/x-csrc";

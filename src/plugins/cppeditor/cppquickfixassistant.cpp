@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -49,6 +49,8 @@
 #include <cpptools/cpprefactoringchanges.h>
 
 #include <extensionsystem/pluginmanager.h>
+
+#include <utils/qtcassert.h>
 
 #include <QFileInfo>
 #include <QTextBlock>
@@ -104,6 +106,7 @@ CppQuickFixAssistInterface::CppQuickFixAssistInterface(CPPEditorWidget *editor,
     , m_currentFile(CppRefactoringChanges::file(editor, m_semanticInfo.doc))
     , m_context(m_semanticInfo.doc, m_snapshot)
 {
+    QTC_CHECK(!m_semanticInfo.doc.isNull());
     CPlusPlus::ASTPath astPath(m_semanticInfo.doc);
     m_path = astPath(editor->textCursor());
 }

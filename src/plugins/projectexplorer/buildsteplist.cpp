@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -158,7 +158,7 @@ bool BuildStepList::fromMap(const QVariantMap &map)
         }
         IBuildStepFactory *factory = findRestoreFactory(this, bsData);
         if (!factory) {
-            qWarning() << "No factory for step" << i << "found (continuing).";
+            qWarning() << "No factory for step" << i << "in list" << displayName() << "found (continuing).";
             continue;
         }
         BuildStep *bs(factory->restore(this, bsData));

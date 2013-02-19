@@ -46,7 +46,7 @@ def placeCursorToLine(editor, line, isRegex=False):
 def menuVisibleAtEditor(editor, menuInList):
     menuInList[0] = None
     try:
-        menu = waitForObject("{type='QMenu' unnamed='1' visible='1'}", 200)
+        menu = waitForObject("{type='QMenu' unnamed='1' visible='1'}", 500)
         success = menu.visible and widgetContainsPoint(editor, menu.mapToGlobal(QPoint(0, 0)))
         if success:
             menuInList[0] = menu
@@ -63,22 +63,19 @@ def widgetContainsPoint(widget, point):
 # at the same position where the text cursor is located at
 def openContextMenuOnTextCursorPosition(editor):
     rect = editor.cursorRect(editor.textCursor())
+    if platform.system() == 'Darwin':
+        JIRA.performWorkaroundIfStillOpen(6918, JIRA.Bug.CREATOR, editor)
     openContextMenu(editor, rect.x+rect.width/2, rect.y+rect.height/2, 0)
     menuInList = [None]
     waitFor("menuVisibleAtEditor(editor, menuInList)", 5000)
     return menuInList[0]
 
-# this function marks/selects the text inside the given editor from position
-# startPosition to endPosition (both inclusive)
-def markText(editor, startPosition, endPosition):
-    cursor = editor.textCursor()
-    cursor.setPosition(startPosition)
-    cursor.movePosition(QTextCursor.StartOfLine)
-    editor.setTextCursor(cursor)
-    cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, endPosition-startPosition)
-    cursor.movePosition(QTextCursor.EndOfLine, QTextCursor.KeepAnchor)
-    cursor.setPosition(endPosition, QTextCursor.KeepAnchor)
-    editor.setTextCursor(cursor)
+# this function marks/selects the text inside the given editor from current cursor position
+# param direction is one of "Left", "Right", "Up", "Down", but "End" and combinations work as well
+# param typeCount defines how often the cursor will be moved in the given direction (while marking)
+def markText(editor, direction, typeCount=1):
+    for i in range(typeCount):
+        type(editor, "<Shift+%s>" % direction)
 
 # works for all standard editors
 def replaceEditorContent(editor, newcontent):
@@ -275,9 +272,9 @@ def validateSearchResult(expectedCount):
 # this function invokes context menu and command from it
 def invokeContextMenuItem(editorArea, command1, command2 = None):
     ctxtMenu = openContextMenuOnTextCursorPosition(editorArea)
-    activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), command1, 1000))
+    activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), command1, 2000))
     if command2:
-        activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), command2, 1000))
+        activateItem(waitForObjectItem(objectMap.realName(ctxtMenu), command2, 2000))
 
 # this function invokes the "Find Usages" item from context menu
 # param editor an editor object
@@ -292,13 +289,24 @@ def invokeFindUsage(editor, line, typeOperation, n=1):
     invokeContextMenuItem(editor, "Find Usages")
     return True
 
+def addBranchWildcardToRoot(rootNode):
+    pos = rootNode.find(".")
+    if pos == -1:
+        return rootNode + " (*)"
+    return rootNode[:pos] + " (*)" + rootNode[pos:]
+
 def openDocument(treeElement):
     try:
+        selectFromCombo(":Qt Creator_Core::Internal::NavComboBox", "Open Documents")
         navigator = waitForObject(":Qt Creator_Utils::NavigationTreeView")
-        fileName = waitForObjectItem(navigator, treeElement).text
+        try:
+            item = waitForObjectItem(navigator, treeElement, 3000)
+        except:
+            treeElement = addBranchWildcardToRoot(treeElement)
+            item = waitForObjectItem(navigator, treeElement)
         doubleClickItem(navigator, treeElement, 5, 5, 0, Qt.LeftButton)
         mainWindow = waitForObject(":Qt Creator_Core::Internal::MainWindow")
-        waitFor("fileName in str(mainWindow.windowTitle)")
+        waitFor("item.text in str(mainWindow.windowTitle)")
         return True
     except:
         return False

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -44,7 +44,8 @@ public:
         QtQuick1_1 = 0,
         QtQuick2_0 = 1,
         MeegoComponents = 2,
-        ImportQml = 3
+        ImportQml = 3,
+        ImportQml2 = 4
     };
 
     QtQuickAppWizard();

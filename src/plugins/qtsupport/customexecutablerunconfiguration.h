@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -32,7 +32,7 @@
 
 #include "qtsupport_global.h"
 
-#include <projectexplorer/applicationrunconfiguration.h>
+#include <projectexplorer/localapplicationrunconfiguration.h>
 
 #include <utils/environment.h>
 
@@ -62,7 +62,7 @@ public:
      */
     QString executable() const;
 
-    /** Returns whether this runconfiguration ever was configured with a executable
+    /** Returns whether this runconfiguration ever was configured with an executable
      */
     bool isConfigured() const;
 
@@ -86,9 +86,6 @@ signals:
 
     void baseEnvironmentChanged();
     void userEnvironmentChangesChanged(const QList<Utils::EnvironmentItem> &diff);
-
-private slots:
-    void activeBuildConfigurationChanged();
 
 protected:
     CustomExecutableRunConfiguration(ProjectExplorer::Target *parent,
@@ -127,7 +124,6 @@ private:
     QString m_userName;
     QList<Utils::EnvironmentItem> m_userEnvironmentChanges;
     BaseEnvironmentBase m_baseEnvironmentBase;
-    ProjectExplorer::BuildConfiguration *m_lastActiveBuildConfiguration;
 };
 
 class CustomExecutableRunConfigurationFactory : public ProjectExplorer::IRunConfigurationFactory

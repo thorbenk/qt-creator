@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -965,7 +965,7 @@ InformationChangedCommand NodeInstanceServer::createAllInformationChangedCommand
 
 static bool supportedVariantType(QVariant::Type type)
 {
-    return type < int(QVariant::UserType) && type != QMetaType::QObjectStar && type != QVariant::Icon;
+    return type < int(QVariant::UserType) && type != int(QMetaType::QObjectStar) && type != QVariant::Icon;
 }
 
 ValuesChangedCommand NodeInstanceServer::createValuesChangedCommand(const QList<ServerNodeInstance> &instanceList) const

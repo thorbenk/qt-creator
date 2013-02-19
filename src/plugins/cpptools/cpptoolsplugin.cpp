@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -57,6 +57,7 @@
 #include <coreplugin/vcsmanager.h>
 #include <coreplugin/documentmanager.h>
 #include <cppeditor/cppeditorconstants.h>
+#include <texteditor/basetexteditor.h>
 
 #include <QtConcurrentRun>
 #include <QFutureSynchronizer>
@@ -140,6 +141,12 @@ bool CppToolsPlugin::initialize(const QStringList &arguments, QString *error)
     mcpptools->addAction(command);
     connect(switchAction, SIGNAL(triggered()), this, SLOT(switchHeaderSource()));
 
+    QAction *openInNextSplitAction = new QAction(tr("Open Corresponding Header/Source in Next Split"), this);
+    command = Core::ActionManager::registerAction(openInNextSplitAction, Constants::OPEN_HEADER_SOURCE_IN_NEXT_SPLIT, context, true);
+    command->setDefaultKeySequence(QKeySequence(Qt::CTRL + Qt::Key_E, Qt::Key_F4));
+    mcpptools->addAction(command);
+    connect(openInNextSplitAction, SIGNAL(triggered()), this, SLOT(switchHeaderSourceInNextSplit()));
+
     return true;
 }
 
@@ -159,10 +166,18 @@ ExtensionSystem::IPlugin::ShutdownFlag CppToolsPlugin::aboutToShutdown()
 
 void CppToolsPlugin::switchHeaderSource()
 {
-    Core::IEditor *editor = Core::EditorManager::currentEditor();
-    QString otherFile = correspondingHeaderOrSource(editor->document()->fileName());
+    QString otherFile = correspondingHeaderOrSource(
+                Core::EditorManager::currentEditor()->document()->fileName());
     if (!otherFile.isEmpty())
         Core::EditorManager::openEditor(otherFile);
+}
+
+void CppToolsPlugin::switchHeaderSourceInNextSplit()
+{
+    QString otherFile = correspondingHeaderOrSource(
+                Core::EditorManager::currentEditor()->document()->fileName());
+    if (!otherFile.isEmpty())
+        Core::EditorManager::openEditorInNextSplit(otherFile);
 }
 
 static QStringList findFilesInProject(const QString &name,
@@ -195,9 +210,9 @@ enum FileType {
     UnknownType
 };
 
-static inline FileType fileType(const Core::MimeDatabase *mimeDatase, const  QFileInfo & fi)
+static inline FileType fileType(const Core::MimeDatabase *mimeDatabase, const  QFileInfo & fi)
 {
-    const Core::MimeType mimeType = mimeDatase->findByFile(fi);
+    const Core::MimeType mimeType = mimeDatabase->findByFile(fi);
     if (!mimeType)
         return UnknownType;
     const QString typeName = mimeType.type();
@@ -215,20 +230,20 @@ static inline FileType fileType(const Core::MimeDatabase *mimeDatase, const  QFi
 
 // Return the suffixes that should be checked when trying to find a
 // source belonging to a header and vice versa
-static QStringList matchingCandidateSuffixes(const Core::MimeDatabase *mimeDatase, FileType type)
+static QStringList matchingCandidateSuffixes(const Core::MimeDatabase *mimeDatabase, FileType type)
 {
     switch (type) {
     case UnknownType:
         break;
     case HeaderFile: // Note that C/C++ headers are undistinguishable
-        return mimeDatase->findByType(QLatin1String(CppTools::Constants::C_SOURCE_MIMETYPE)).suffixes()
-               + mimeDatase->findByType(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE)).suffixes()
-               + mimeDatase->findByType(QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE)).suffixes();
+        return mimeDatabase->findByType(QLatin1String(CppTools::Constants::C_SOURCE_MIMETYPE)).suffixes()
+               + mimeDatabase->findByType(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE)).suffixes()
+               + mimeDatabase->findByType(QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE)).suffixes();
     case C_SourceFile:
-        return mimeDatase->findByType(QLatin1String(CppTools::Constants::C_HEADER_MIMETYPE)).suffixes();
+        return mimeDatabase->findByType(QLatin1String(CppTools::Constants::C_HEADER_MIMETYPE)).suffixes();
     case CPP_SourceFile:
     case ObjectiveCPP_SourceFile:
-        return mimeDatase->findByType(QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE)).suffixes();
+        return mimeDatabase->findByType(QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE)).suffixes();
     }
     return QStringList();
 }
@@ -261,15 +276,15 @@ QString correspondingHeaderOrSource(const QString &fileName, bool *wasHeader)
 {
     using namespace Internal;
 
-    const Core::MimeDatabase *mimeDatase = Core::ICore::mimeDatabase();
+    const Core::MimeDatabase *mimeDatabase = Core::ICore::mimeDatabase();
     const QFileInfo fi(fileName);
     if (m_headerSourceMapping.contains(fi.absoluteFilePath())) {
         if (wasHeader)
-            *wasHeader = fileType(mimeDatase, fi) == HeaderFile;
+            *wasHeader = fileType(mimeDatabase, fi) == HeaderFile;
         return m_headerSourceMapping.value(fi.absoluteFilePath());
     }
 
-    FileType type = fileType(mimeDatase, fi);
+    FileType type = fileType(mimeDatabase, fi);
     if (wasHeader)
         *wasHeader = type == HeaderFile;
 
@@ -281,7 +296,7 @@ QString correspondingHeaderOrSource(const QString &fileName, bool *wasHeader)
 
     const QString baseName = fi.completeBaseName();
     const QString privateHeaderSuffix = QLatin1String("_p");
-    const QStringList suffixes = matchingCandidateSuffixes(mimeDatase, type);
+    const QStringList suffixes = matchingCandidateSuffixes(mimeDatabase, type);
 
     QStringList candidateFileNames = baseNameWithAllSuffixes(baseName, suffixes);
     if (type == HeaderFile) {

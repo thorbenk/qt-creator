@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -70,6 +70,7 @@ namespace CMakeProjectManager {
 namespace Internal {
     class GeneratorInfo
     {
+        Q_DECLARE_TR_FUNCTIONS(CMakeProjectManager::Internal::GeneratorInfo)
     public:
         enum Ninja { NoNinja, OfferNinja, ForceNinja };
         static QList<GeneratorInfo> generatorInfosFor(ProjectExplorer::Kit *k, Ninja n, bool hasCodeBlocks);
@@ -148,7 +149,7 @@ QString GeneratorInfo::displayName() const
     if (!m_kit)
         return QString();
     if (m_isNinja)
-        return QApplication::tr("Ninja (%1)").arg(m_kit->displayName());
+        return tr("Ninja (%1)").arg(m_kit->displayName());
     ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(m_kit);
     ProjectExplorer::Abi targetAbi = tc->targetAbi();
     if (targetAbi.os() == ProjectExplorer::Abi::WindowsOS) {
@@ -156,16 +157,16 @@ QString GeneratorInfo::displayName() const
                 || targetAbi.osFlavor() == ProjectExplorer::Abi::WindowsMsvc2008Flavor
                 || targetAbi.osFlavor() == ProjectExplorer::Abi::WindowsMsvc2010Flavor
                 || targetAbi.osFlavor() == ProjectExplorer::Abi::WindowsMsvc2012Flavor) {
-            return QApplication::tr("NMake Generator (%1)").arg(m_kit->displayName());
+            return tr("NMake Generator (%1)").arg(m_kit->displayName());
         } else if (targetAbi.osFlavor() == ProjectExplorer::Abi::WindowsMSysFlavor) {
             if (Utils::HostOsInfo::isWindowsHost())
-                return QApplication::tr("MinGW Generator (%1)").arg(m_kit->displayName());
+                return tr("MinGW Generator (%1)").arg(m_kit->displayName());
             else
-                return QApplication::tr("Unix Generator (%1)").arg(m_kit->displayName());
+                return tr("Unix Generator (%1)").arg(m_kit->displayName());
         }
     } else {
         // Non windows
-        return QApplication::tr("Unix Generator (%1)").arg(m_kit->displayName());
+        return tr("Unix Generator (%1)").arg(m_kit->displayName());
     }
     return QString();
 }
@@ -394,31 +395,31 @@ ChooseCMakePage::ChooseCMakePage(CMakeOpenProjectWizard *cmakeWizard)
     // Show a field for the user to enter
     m_cmakeExecutable = new Utils::PathChooser(this);
     m_cmakeExecutable->setExpectedKind(Utils::PathChooser::ExistingCommand);
-    fl->addRow(tr("cmake Executable:"), m_cmakeExecutable);
+    fl->addRow(tr("CMake Executable:"), m_cmakeExecutable);
 
     connect(m_cmakeExecutable, SIGNAL(editingFinished()),
             this, SLOT(cmakeExecutableChanged()));
     connect(m_cmakeExecutable, SIGNAL(browsingFinished()),
             this, SLOT(cmakeExecutableChanged()));
 
-    setTitle(tr("Choose Cmake Executable"));
+    setTitle(tr("Choose CMake Executable"));
 }
 
 void ChooseCMakePage::updateErrorText()
 {
     QString cmakeExecutable = m_cmakeWizard->cmakeManager()->cmakeExecutable();
     if (m_cmakeWizard->cmakeManager()->isCMakeExecutableValid()) {
-        m_cmakeLabel->setText(tr("The cmake executable is valid."));
+        m_cmakeLabel->setText(tr("The CMake executable is valid."));
     } else {
-        QString text = tr("Please specify the path to the cmake executable. No cmake executable was found in the path.");
+        QString text = tr("Specify the path to the CMake executable. No CMake executable was found in the path.");
         if (!cmakeExecutable.isEmpty()) {
             QFileInfo fi(cmakeExecutable);
             if (!fi.exists())
-                text += tr(" The cmake executable (%1) does not exist.").arg(cmakeExecutable);
+                text += tr(" The CMake executable (%1) does not exist.").arg(cmakeExecutable);
             else if (!fi.isExecutable())
-                text += tr(" The path %1 is not a executable.").arg(cmakeExecutable);
+                text += tr(" The path %1 is not an executable.").arg(cmakeExecutable);
             else
-                text += tr(" The path %1 is not a valid cmake.").arg(cmakeExecutable);
+                text += tr(" The path %1 is not a valid CMake executable.").arg(cmakeExecutable);
         }
         m_cmakeLabel->setText(text);
     }
@@ -439,8 +440,7 @@ bool ChooseCMakePage::isComplete() const
 CMakeRunPage::CMakeRunPage(CMakeOpenProjectWizard *cmakeWizard, Mode mode, const QString &buildDirectory)
     : QWizardPage(cmakeWizard),
       m_cmakeWizard(cmakeWizard),
-      m_complete(false),
-      m_optionalCMake(false),
+      m_haveCbpFile(false),
       m_mode(mode),
       m_buildDirectory(buildDirectory)
 {
@@ -461,6 +461,7 @@ void CMakeRunPage::initWidgets()
     // Run CMake Line (with arguments)
     m_argumentsLineEdit = new Utils::FancyLineEdit(this);
     m_argumentsLineEdit->setHistoryCompleter(QLatin1String("CMakeArgumentsLineEdit"));
+    m_argumentsLineEdit->selectAll();
 
     connect(m_argumentsLineEdit,SIGNAL(returnPressed()), this, SLOT(runCMake()));
     fl->addRow(tr("Arguments:"), m_argumentsLineEdit);
@@ -532,8 +533,7 @@ void CMakeRunPage::initializePage()
                     tr("The directory %1 already contains a cbp file, which is recent enough. "
                        "You can pass special arguments and rerun CMake. "
                        "Or simply finish the wizard directly.").arg(m_buildDirectory));
-            m_optionalCMake = true;
-            m_complete = true;
+            m_haveCbpFile = true;
         } else {
             m_descriptionLabel->setText(
                     tr("The directory %1 does not contain a cbp file. Qt Creator needs to create this file by running CMake. "
@@ -607,21 +607,18 @@ void CMakeRunPage::initializePage()
 
 bool CMakeRunPage::validatePage()
 {
-    if (m_optionalCMake) {
-        int index = m_generatorComboBox->currentIndex();
-        if (index == -1)
-            return false;
-        GeneratorInfo generatorInfo = m_generatorComboBox->itemData(index).value<GeneratorInfo>();
-        m_cmakeWizard->setKit(generatorInfo.kit());
-        m_cmakeWizard->setUseNinja(generatorInfo.isNinja());
-    }
+    int index = m_generatorComboBox->currentIndex();
+    if (index == -1)
+        return false;
+    GeneratorInfo generatorInfo = m_generatorComboBox->itemData(index).value<GeneratorInfo>();
+    m_cmakeWizard->setKit(generatorInfo.kit());
+    m_cmakeWizard->setUseNinja(generatorInfo.isNinja());
     return QWizardPage::validatePage();
 }
 
 void CMakeRunPage::runCMake()
 {
-    m_optionalCMake = false;
-    m_complete = false;
+    m_haveCbpFile = false;
 
     Utils::Environment env = m_cmakeWizard->environment();
     int index = m_generatorComboBox->currentIndex();
@@ -657,7 +654,7 @@ void CMakeRunPage::runCMake()
         m_runCMake->setEnabled(true);
         m_argumentsLineEdit->setEnabled(true);
         m_generatorComboBox->setEnabled(true);
-        m_output->appendPlainText(tr("No valid cmake executable specified."));
+        m_output->appendPlainText(tr("No valid CMake executable specified."));
     }
 }
 
@@ -703,10 +700,10 @@ void CMakeRunPage::cmakeFinished()
     if (m_cmakeProcess->exitCode() != 0) {
         m_exitCodeLabel->setVisible(true);
         m_exitCodeLabel->setText(tr("CMake exited with errors. Please check CMake output."));
-        m_complete = false;
+        m_haveCbpFile = false;
     } else {
         m_exitCodeLabel->setVisible(false);
-        m_complete = true;
+        m_haveCbpFile = true;
     }
     m_cmakeProcess->deleteLater();
     m_cmakeProcess = 0;
@@ -717,12 +714,13 @@ void CMakeRunPage::cmakeFinished()
 void CMakeRunPage::cleanupPage()
 {
     m_output->clear();
-    m_complete = false;
+    m_haveCbpFile = false;
     m_exitCodeLabel->setVisible(false);
     emit completeChanged();
 }
 
 bool CMakeRunPage::isComplete() const
 {
-    return m_complete;
+    int index = m_generatorComboBox->currentIndex();
+    return index != -1 && m_haveCbpFile;
 }

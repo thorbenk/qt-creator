@@ -13,9 +13,6 @@ QtcPlugin {
     Depends { name: "CppTools" }
     Depends { name: "QmlJs" }
 
-    Depends { name: "cpp" }
-    cpp.defines: base.concat(["QT_NO_CAST_FROM_ASCII"])
-
     files: [
         "constants.h",
         "cpptodoitemsscanner.cpp",
@@ -45,6 +42,8 @@ QtcPlugin {
         "todoitemsscanner.h",
         "todooutputpane.cpp",
         "todooutputpane.h",
+        "todooutputtreeview.cpp",
+        "todooutputtreeview.h",
         "todoplugin.cpp",
         "todoplugin.h",
         "todoplugin.qrc",

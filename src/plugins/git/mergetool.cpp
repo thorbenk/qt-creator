@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -59,7 +59,7 @@ protected:
         return res;
     }
 
-    virtual qint64 writeData(const char *data, qint64 len)
+    qint64 writeData(const char *data, qint64 len)
     {
         if (len > 0)
             m_window->append(QString::fromLocal8Bit(data, len));
@@ -72,7 +72,8 @@ private:
 
 MergeTool::MergeTool(QObject *parent) :
     QObject(parent),
-    m_process(0)
+    m_process(0),
+    m_gitClient(GitPlugin::instance()->gitClient())
 {
 }
 
@@ -85,18 +86,18 @@ bool MergeTool::start(const QString &workingDirectory, const QStringList &files)
 {
     QStringList arguments;
     arguments << QLatin1String("mergetool") << QLatin1String("-y");
-    GitClient *client = GitPlugin::instance()->gitClient();
     if (!files.isEmpty()) {
-        if (client->gitVersion() < 0x010708) {
-            QMessageBox::warning(0, tr("Error"), tr("Files input for mergetool requires git >= 1.7.8"));
+        if (m_gitClient->gitVersion() < 0x010708) {
+            QMessageBox::warning(0, tr("Error"), tr("File input for the merge tool requires Git 1.7.8, or later."));
             return false;
         }
         arguments << files;
     }
     m_process = new MergeToolProcess(this);
     m_process->setWorkingDirectory(workingDirectory);
-    VcsBase::VcsBaseOutputWindow::instance()->appendCommand(workingDirectory, QLatin1String("git"), arguments);
-    m_process->start(QLatin1String("git"), arguments);
+    const QString binary = m_gitClient->gitBinaryPath();
+    VcsBase::VcsBaseOutputWindow::instance()->appendCommand(workingDirectory, binary, arguments);
+    m_process->start(binary, arguments);
     if (m_process->waitForStarted()) {
         connect(m_process, SIGNAL(finished(int)), this, SLOT(done()));
         connect(m_process, SIGNAL(readyRead()), this, SLOT(readData()));
@@ -254,21 +255,53 @@ void MergeTool::readData()
     }
 }
 
+void MergeTool::continuePreviousGitCommand(const QString &msgBoxTitle, QString msgBoxText,
+                                           const QString &buttonName, const QString &gitCommand)
+{
+    QString workingDirectory = m_process->workingDirectory();
+    bool isRebase = gitCommand == QLatin1String("rebase");
+    bool hasChanges = m_gitClient->gitStatus(m_process->workingDirectory(),
+            StatusMode(NoUntracked | NoSubmodules)) == GitClient::StatusChanged;
+    if (!hasChanges)
+        msgBoxText.prepend(tr("No changes found. "));
+    QMessageBox msgBox(QMessageBox::Question, msgBoxTitle, msgBoxText);
+    if (hasChanges || isRebase)
+        msgBox.addButton(hasChanges ? buttonName : tr("Skip"), QMessageBox::AcceptRole);
+    msgBox.addButton(QMessageBox::Abort);
+    msgBox.addButton(QMessageBox::Ignore);
+    switch (msgBox.exec()) {
+    case QMessageBox::Ignore:
+        break;
+    case QMessageBox::Abort:
+        m_gitClient->synchronousAbortCommand(workingDirectory, gitCommand);
+        break;
+    default: // Continue/Skip
+        if (isRebase)
+            m_gitClient->synchronousCommandContinue(workingDirectory, gitCommand, hasChanges);
+        else
+            GitPlugin::instance()->startCommit();
+    }
+}
+
 void MergeTool::done()
 {
     VcsBase::VcsBaseOutputWindow *outputWindow = VcsBase::VcsBaseOutputWindow::instance();
     int exitCode = m_process->exitCode();
     if (!exitCode) {
-        outputWindow->append(tr("Merge tool process finished successully"));
-        QString workingDirectory = m_process->workingDirectory();
-        GitClient *client = GitPlugin::instance()->gitClient();
-        QString gitDir = client->findGitDirForRepository(workingDirectory);
+        outputWindow->append(tr("Merge tool process finished successully."));
+        QString gitDir = m_gitClient->findGitDirForRepository(m_process->workingDirectory());
+
         if (QFile::exists(gitDir + QLatin1String("/rebase-apply/rebasing"))) {
-            if (QMessageBox::question(0, tr("Continue Rebase"),
-                                      tr("Continue rebase?"),
-                                      QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes) {
-                client->synchronousRebaseContinue(workingDirectory);
-            }
+            continuePreviousGitCommand(tr("Continue Rebase"), tr("Continue rebase?"),
+                    tr("Continue"), QLatin1String("rebase"));
+        } else if (QFile::exists(gitDir + QLatin1String("/REVERT_HEAD"))) {
+            continuePreviousGitCommand(tr("Continue Revert"),
+                    tr("You need to commit changes to finish revert.\nCommit now?"),
+                    tr("Commit"), QLatin1String("revert"));
+        } else if (QFile::exists(gitDir + QLatin1String("/CHERRY_PICK_HEAD"))) {
+            continuePreviousGitCommand(tr("Continue Cherry-Picking"),
+                    tr("You need to commit changes to finish cherry-picking.\nCommit now?"),
+                    tr("Commit"), QLatin1String("cherry-pick"));
         }
     } else {
         outputWindow->append(tr("Merge tool process terminated with exit code %1").arg(exitCode));

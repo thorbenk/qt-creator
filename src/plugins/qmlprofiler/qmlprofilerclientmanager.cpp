@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -322,15 +322,14 @@ void QmlProfilerClientManager::retryMessageBoxFinished(int result)
         break;
     }
     case QMessageBox::Help: {
-        QmlProfilerTool::handleHelpRequest(QLatin1String("qthelp://com.nokia.qtcreator/doc/creator-debugging-qml.html"));
+        QmlProfilerTool::handleHelpRequest(QLatin1String("qthelp://org.qt-project.qtcreator/doc/creator-debugging-qml.html"));
         // fall through
     }
     default: {
-        if (d->connection) {
+        if (d->connection)
             QmlProfilerTool::logStatus(QLatin1String("QML Profiler: Failed to connect! ") + d->connection->errorString());
-        } else {
+        else
             QmlProfilerTool::logStatus(QLatin1String("QML Profiler: Failed to connect!"));
-        }
 
         emit connectionFailed();
         break;
@@ -399,9 +398,8 @@ void QmlProfilerClientManager::profilerStateChanged()
     QTC_ASSERT(d->profilerState, return);
     switch (d->profilerState->currentState()) {
     case QmlProfilerStateManager::AppStopRequested :
-        if (d->profilerState->serverRecording()) {
+        if (d->profilerState->serverRecording())
             stopClientsRecording();
-        }
         else
             d->profilerState->setCurrentState(QmlProfilerStateManager::AppReadyToStop);
         break;

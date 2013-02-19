@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -80,12 +80,12 @@ QString AddKitOperation::helpText() const
 
 QString AddKitOperation::argumentsHelpText() const
 {
-    return QLatin1String("    --id <ID>                                  id of the new kit.\n"
-                         "    --name <NAME>                              display name of the new kit.\n"
+    return QLatin1String("    --id <ID>                                  id of the new kit (required).\n"
+                         "    --name <NAME>                              display name of the new kit (required).\n"
                          "    --icon <PATH>                              icon of the new kit.\n"
                          "    --debuggerengine <ENGINE>                  debuggerengine of the new kit.\n"
                          "    --debugger <PATH>                          debugger of the new kit.\n"
-                         "    --devicetype <TYPE>                        device type of the new kit.\n"
+                         "    --devicetype <TYPE>                        device type of the new kit (required).\n"
                          "    --sysroot <PATH>                           sysroot of the new kit.\n"
                          "    --toolchain <ID>                           tool chain of the new kit.\n"
                          "    --qt <ID>                                  Qt of the new kit.\n"
@@ -197,6 +197,13 @@ bool AddKitOperation::setArguments(const QStringList &args)
 
     if (m_icon.isEmpty())
         m_icon = QLatin1String(":///DESKTOP///");
+
+    if (m_id.isEmpty())
+        std::cerr << "No id given for kit." << std::endl << std::endl;
+    if (m_displayName.isEmpty())
+        std::cerr << "No name given for kit." << std::endl << std::endl;
+    if (m_deviceType.isEmpty())
+        std::cerr << "No devicetype given for kit." << std::endl << std::endl;
 
     return !m_id.isEmpty() && !m_displayName.isEmpty() && !m_deviceType.isEmpty();
 }
@@ -364,11 +371,16 @@ QVariantMap AddKitOperation::addKit(const QVariantMap &map,
                          << QLatin1String(DEBUGGER) << QLatin1String(DEBUGGER_ENGINE), QVariant(debuggerType));
     data << KeyValuePair(QStringList() << kit << QLatin1String(DATA)
                          << QLatin1String(DEBUGGER) << QLatin1String(DEBUGGER_BINARY), QVariant(debugger));
-    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA) << DEVICE_TYPE, QVariant(deviceType));
-    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA) << SYSROOT, QVariant(sysRoot));
-    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA) << TOOLCHAIN, QVariant(tc));
-    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA) << QT, QVariant(qtId));
-    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA) << MKSPEC, QVariant(mkspec));
+    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA)
+                         << QLatin1String(DEVICE_TYPE), QVariant(deviceType));
+    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA)
+                         << QLatin1String(SYSROOT), QVariant(sysRoot));
+    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA)
+                         << QLatin1String(TOOLCHAIN), QVariant(tc));
+    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA)
+                         << QLatin1String(QT), QVariant(qtId));
+    data << KeyValuePair(QStringList() << kit << QLatin1String(DATA)
+                         << QLatin1String(MKSPEC), QVariant(mkspec));
 
     data << KeyValuePair(QStringList() << QLatin1String(DEFAULT), QVariant(defaultKit));
     data << KeyValuePair(QStringList() << QLatin1String(COUNT), QVariant(count + 1));

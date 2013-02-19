@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -154,6 +154,7 @@ int KitModel::columnCount(const QModelIndex &parent) const
 QVariant KitModel::data(const QModelIndex &index, int role) const
 {
     static QIcon warningIcon(QLatin1String(":/projectexplorer/images/compile_warning.png"));
+    static QIcon errorIcon(QLatin1String(":/projectexplorer/images/compile_error.png"));
 
     if (!index.isValid() || index.column() != 0)
         return QVariant();
@@ -179,7 +180,11 @@ QVariant KitModel::data(const QModelIndex &index, int role) const
                 baseName = tr("%1 (default)").arg(baseName);
             return baseName;
         } else if (role == Qt::DecorationRole) {
-            return node->widget->isValid() ? QIcon() : warningIcon;
+            if (!node->widget->isValid())
+                return errorIcon;
+            if (node->widget->hasWarning())
+                return warningIcon;
+            return QIcon();
         } else if (role == Qt::ToolTipRole) {
             return node->widget->validityMessage();
         }
@@ -322,12 +327,14 @@ Kit *KitModel::markForAddition(Kit *baseKit)
     beginInsertRows(index(m_manualRoot), pos, pos);
 
     KitNode *node = createNode(m_manualRoot, 0);
+    Kit *k = node->widget->workingCopy();
+    KitGuard g(k);
     if (baseKit) {
-        Kit *k = node->widget->workingCopy();
-        KitGuard g(k);
         k->copyFrom(baseKit);
         k->setAutoDetected(false); // Make sure we have a manual kit!
         k->setDisplayName(tr("Clone of %1").arg(k->displayName()));
+    } else {
+        k->setup();
     }
 
     if (!m_defaultNode)
@@ -335,7 +342,7 @@ Kit *KitModel::markForAddition(Kit *baseKit)
 
     endInsertRows();
 
-    return node->widget->workingCopy();
+    return k;
 }
 
 QModelIndex KitModel::index(KitNode *node, int column) const

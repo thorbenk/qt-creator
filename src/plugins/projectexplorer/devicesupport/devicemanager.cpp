@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -135,6 +135,8 @@ void DeviceManager::copy(const DeviceManager *source, DeviceManager *target, boo
 
 void DeviceManager::save()
 {
+    if (d->clonedInstance == this)
+        return;
     QVariantMap data;
     data.insert(QLatin1String(DeviceManagerKey), toMap());
     d->writer->save(data, Core::ICore::mainWindow());
@@ -143,44 +145,36 @@ void DeviceManager::save()
 void DeviceManager::load()
 {
     Utils::PersistentSettingsReader reader;
+    // read devices file from global settings path
+    QList<IDevice::Ptr> sdkDevices;
+    if (reader.load(systemSettingsFilePath(QLatin1String("/qtcreator/devices.xml"))))
+        sdkDevices = fromMap(reader.restoreValues().value(QLatin1String(DeviceManagerKey)).toMap());
+    // read devices file from user settings path
+    QList<IDevice::Ptr> userDevices;
     if (reader.load(settingsFilePath(QLatin1String("/qtcreator/devices.xml"))))
-        fromMap(reader.restoreValues().value(QLatin1String(DeviceManagerKey)).toMap());
-    else if (reader.load(settingsFilePath(QLatin1String("/devices.xml"))))
-        fromMap(reader.restoreValues().value(QLatin1String(DeviceManagerKey)).toMap());
-    else
-        loadPre2_6();
+        userDevices = fromMap(reader.restoreValues().value(QLatin1String(DeviceManagerKey)).toMap());
+    // Insert devices into the model. Prefer the higher device version when there are multiple
+    // devices with the same id.
+    foreach (IDevice::Ptr device, userDevices) {
+        foreach (const IDevice::Ptr &sdkDevice, sdkDevices) {
+            if (device->id() == sdkDevice->id()) {
+                if (device->version() < sdkDevice->version())
+                    device = sdkDevice;
+                sdkDevices.removeOne(sdkDevice);
+                break;
+            }
+        }
+        d->devices << device;
+    }
+    // Append the new SDK devices to the model.
+    d->devices << sdkDevices;
+
     ensureOneDefaultDevicePerType();
 }
 
-// TODO: Remove in 2.8
-void DeviceManager::loadPre2_6()
+QList<IDevice::Ptr> DeviceManager::fromMap(const QVariantMap &map)
 {
-    QSettings *settings = Core::ICore::settings();
-    settings->beginGroup(QLatin1String("MaemoDeviceConfigs"));
-    const QVariantHash defaultDevsHash = settings->value(QLatin1String("DefaultConfigs")).toHash();
-    for (QVariantHash::ConstIterator it = defaultDevsHash.constBegin();
-            it != defaultDevsHash.constEnd(); ++it) {
-        d->defaultDevices.insert(Core::Id(it.key()), Core::Id(it.value().toString()));
-    }
-    int count = settings->beginReadArray(QLatin1String("ConfigList"));
-    for (int i = 0; i < count; ++i) {
-        settings->setArrayIndex(i);
-        QVariantMap map;
-        foreach (const QString &key, settings->childKeys())
-            map.insert(key, settings->value(key));
-        const IDeviceFactory * const factory = restoreFactory(map);
-        if (!factory)
-            continue;
-        IDevice::Ptr device = factory->restore(map);
-        QTC_ASSERT(device, continue);
-        d->devices << device;
-    }
-    settings->endArray();
-    settings->endGroup();
-}
-
-void DeviceManager::fromMap(const QVariantMap &map)
-{
+    QList<IDevice::Ptr> devices;
     const QVariantMap defaultDevsMap = map.value(QLatin1String(DefaultDevicesKey)).toMap();
     for (QVariantMap::ConstIterator it = defaultDevsMap.constBegin();
          it != defaultDevsMap.constEnd(); ++it) {
@@ -197,8 +191,9 @@ void DeviceManager::fromMap(const QVariantMap &map)
         if (device->isAutoDetected())
             d->inactiveAutoDetectedDevices << device;
         else
-            d->devices << device;
+            devices << device;
     }
+    return devices;
 }
 
 QVariantMap DeviceManager::toMap() const
@@ -223,6 +218,13 @@ QVariantMap DeviceManager::toMap() const
 Utils::FileName DeviceManager::settingsFilePath(const QString &extension)
 {
     return Utils::FileName::fromString(QFileInfo(ExtensionSystem::PluginManager::settings()->fileName()).absolutePath() + extension);
+}
+
+Utils::FileName DeviceManager::systemSettingsFilePath(const QString &deviceFileRelativePath)
+{
+    return Utils::FileName::fromString(
+              QFileInfo(ExtensionSystem::PluginManager::globalSettings()->fileName()).absolutePath()
+              + deviceFileRelativePath);
 }
 
 void DeviceManager::addDevice(const IDevice::Ptr &_device)
@@ -341,7 +343,8 @@ DeviceManager::DeviceManager(bool isInstance) : d(new DeviceManagerPrivate)
 
 DeviceManager::~DeviceManager()
 {
-    delete d->writer;
+    if (d->clonedInstance != this)
+        delete d->writer;
     delete d;
 }
 
@@ -379,15 +382,13 @@ IDevice::ConstPtr DeviceManager::findInactiveAutoDetectedDevice(Core::Id type, C
 
 IDevice::ConstPtr DeviceManager::defaultDevice(Core::Id deviceType) const
 {
-    const Core::Id id = d->defaultDevices.value(deviceType, IDevice::invalidId());
-    if (id == IDevice::invalidId())
-        return IDevice::ConstPtr();
-    return find(id);
+    const Core::Id id = d->defaultDevices.value(deviceType);
+    return id.isValid() ? find(id) : IDevice::ConstPtr();
 }
 
 Core::Id DeviceManager::deviceId(const IDevice::ConstPtr &device) const
 {
-    return device ? device->id() : IDevice::invalidId();
+    return device ? device->id() : Core::Id();
 }
 
 void DeviceManager::ensureOneDefaultDevicePerType()

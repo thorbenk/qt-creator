@@ -4,11 +4,10 @@ def main():
     startApplication("qtcreator" + SettingsPath)
     # using a temporary directory won't mess up a potentially existing
     workingDir = tempDir()
-    projectName = createNewQtQuickApplication(workingDir, targets = QtQuickConstants.Targets.DESKTOP_474_GCC)
-    # wait for parsing to complete
-    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)")
+    checkedTargets, projectName = createNewQtQuickApplication(workingDir,
+                                                              targets = QtQuickConstants.Targets.DESKTOP_474_GCC)
     test.log("Building project")
-    result = modifyRunSettingsForHookInto(projectName, 11223)
+    result = modifyRunSettingsForHookInto(projectName, len(checkedTargets), 11223)
     invokeMenuItem("Build", "Build All")
     waitForSignal("{type='ProjectExplorer::BuildManager' unnamed='1'}", "buildQueueFinished(bool)")
     if not checkCompile():

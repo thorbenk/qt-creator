@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -125,8 +125,6 @@ public:
     virtual QVariantMap toMap() const;
     virtual Ptr clone() const = 0;
 
-    static Core::Id invalidId();
-
     static Core::Id typeFromMap(const QVariantMap &map);
     static Core::Id idFromMap(const QVariantMap &map);
 
@@ -152,7 +150,10 @@ protected:
 private:
     IDevice &operator=(const IDevice &); // Unimplemented.
 
+    int version() const;
+
     Internal::IDevicePrivate *d;
+    friend class DeviceManager;
 };
 
 } // namespace ProjectExplorer

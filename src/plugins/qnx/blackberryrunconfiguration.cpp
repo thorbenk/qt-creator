@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2012 Research In Motion
+** Copyright (C) 2011 - 2013 Research In Motion
 **
 ** Contact: Research In Motion (blackberry-qt@qnx.com)
 ** Contact: KDAB (info@kdab.com)
@@ -35,10 +35,8 @@
 #include "blackberryrunconfigurationwidget.h"
 #include "blackberrydeployinformation.h"
 
+#include <projectexplorer/buildtargetinfo.h>
 #include <projectexplorer/target.h>
-#include <qt4projectmanager/qt4buildconfiguration.h>
-#include <qt4projectmanager/qt4nodes.h>
-#include <qt4projectmanager/qt4project.h>
 #include <ssh/sshconnection.h>
 
 using namespace Qnx;
@@ -103,24 +101,16 @@ QString BlackBerryRunConfiguration::barPackage() const
 
     QList<BarPackageDeployInformation> packages = dc->deploymentInfo()->enabledPackages();
     foreach (const BarPackageDeployInformation package, packages) {
-        if (package.proFilePath == proFilePath()) {
+        if (package.proFilePath == proFilePath())
             return package.packagePath;
-        }
     }
     return QString();
 }
 
 QString BlackBerryRunConfiguration::localExecutableFilePath() const
 {
-    Qt4ProjectManager::Qt4Project *qt4Project = static_cast<Qt4ProjectManager::Qt4Project *>(target()->project());
-    if (!qt4Project)
-        return QString();
-
-    Qt4ProjectManager::TargetInformation ti = qt4Project->rootQt4ProjectNode()->targetInformation(m_proFilePath);
-    if (!ti.valid)
-        return QString();
-
-    return QDir::cleanPath(ti.buildDir + QLatin1Char('/') + ti.target);
+    return target()->applicationTargets()
+            .targetForProject(Utils::FileName::fromString(m_proFilePath)).toString();
 }
 
 bool BlackBerryRunConfiguration::fromMap(const QVariantMap &map)

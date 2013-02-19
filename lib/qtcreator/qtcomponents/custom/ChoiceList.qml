@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -61,7 +61,7 @@ Item {
         property alias styledItem: choiceList
         sourceComponent: background
         anchors.fill: parent
-        property string currentItemText: model.get(currentIndex).text
+        property string currentItemText: model.get(currentIndex)
     }
 
     Private.ChoiceListPopup {

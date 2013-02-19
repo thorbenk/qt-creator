@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2012 Openismus GmbH.
+** Copyright (C) 2013 Openismus GmbH.
 ** Authors: Peter Penz (ppenz@openismus.com)
 **          Patricia Santana Cruz (patriciasantanacruz@gmail.com)
 ** Contact: http://www.qt-project.org/legal
@@ -211,6 +211,7 @@ void MakeStep::run(QFutureInterface<bool> &interface)
     if (!canContinue) {
         emit addOutput(tr("Configuration is faulty. Check the Issues view for details."), BuildStep::MessageOutput);
         interface.reportResult(false);
+        emit finished();
         return;
     }
 

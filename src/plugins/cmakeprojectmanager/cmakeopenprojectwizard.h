@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -188,8 +188,7 @@ private:
     QComboBox *m_generatorComboBox;
     QLabel *m_descriptionLabel;
     QLabel *m_exitCodeLabel;
-    bool m_complete;
-    bool m_optionalCMake;
+    bool m_haveCbpFile;
     Mode m_mode;
     QString m_buildDirectory;
 };

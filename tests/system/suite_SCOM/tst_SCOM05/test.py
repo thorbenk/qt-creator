@@ -3,8 +3,17 @@ source("../../shared/suites_qtta.py")
 
 def verifyChangeProject(projectName):
     # select project
-    projItem = waitForObjectItem(":Qt Creator_Utils::NavigationTreeView", projectName)
-    openItemContextMenu(waitForObject(":Qt Creator_Utils::NavigationTreeView"), projectName, 5, 5, 0)
+    try:
+        projItem = waitForObjectItem(":Qt Creator_Utils::NavigationTreeView", projectName, 3000)
+    except:
+        try:
+            projItem = waitForObjectItem(":Qt Creator_Utils::NavigationTreeView",
+                                         addBranchWildcardToRoot(projectName), 1000)
+        except:
+            test.fatal("Failed to find root node of the project '%s'." % projectName)
+            return
+    openItemContextMenu(waitForObject(":Qt Creator_Utils::NavigationTreeView"),
+                        str(projItem.text).replace("_", "\\_").replace(".", "\\."), 5, 5, 0)
     activateItem(waitForObjectItem("{name='Project.Menu.Project' type='QMenu' visible='1' "
                                    "window=':Qt Creator_Core::Internal::MainWindow'}",
                                    'Set "%s" as Active Project' % projectName))
@@ -19,10 +28,8 @@ def main():
     startApplication("qtcreator" + SettingsPath)
     # create qt quick application 1
     createNewQtQuickApplication(tempDir(), projectName1)
-    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 5000)
     # create qt quick application 2
     createNewQtQuickApplication(tempDir(), projectName2)
-    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 5000)
     # change to project 1
     verifyChangeProject(projectName1)
     # change to project 2
@@ -35,7 +42,7 @@ def main():
     ensureChecked(waitForObject(":Qt Creator_CompileOutput_Core::Internal::OutputPaneToggleButton"))
     outputLog = str(waitForObject(":Qt Creator.Compile Output_Core::OutputWindow").plainText)
     # verify that project was built successfully
-    test.verify(outputLog.endswith("exited normally."),
+    test.verify(compileSucceeded(outputLog),
                 "Verifying building of simple qt quick application while multiple projects are open.")
     # verify that proper project (project 2) was build
     test.verify(projectName2 in outputLog and projectName1 not in outputLog,

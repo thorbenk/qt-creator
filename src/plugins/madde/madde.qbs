@@ -5,15 +5,13 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "Madde"
 
+    Depends { name: "Utils" }
     Depends { name: "Debugger" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "Qt4ProjectManager" }
     Depends { name: "QtSupport" }
     Depends { name: "RemoteLinux" }
     Depends { name: "Qt.gui" }
-
-    Depends { name: "cpp" }
-    cpp.defines: base.concat(["QT_NO_CAST_FROM_ASCII"])
 
     files: [
         "debianmanager.cpp",

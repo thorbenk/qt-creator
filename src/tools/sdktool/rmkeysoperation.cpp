@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -53,7 +53,13 @@ bool RmKeysOperation::setArguments(const QStringList &args)
 
     m_keys = args;
     m_file = m_keys.takeFirst();
-    return true;
+
+    if (m_file.isEmpty())
+        std::cerr << "No file given." << std::endl << std::endl;
+    if (m_keys.isEmpty())
+        std::cerr << "No keys given." << std::endl << std::endl;
+
+    return !m_file.isEmpty() && !m_keys.isEmpty();
 }
 
 int RmKeysOperation::execute() const
@@ -113,7 +119,7 @@ bool RmKeysOperation::test() const
         return false;
 
     data.clear();
-    data.append("subkeys/subsubkeys");
+    data.append(QLatin1String("subkeys/subsubkeys"));
     result = rmKeys(testMap, data);
 
     if (result.count() != 3
@@ -131,7 +137,7 @@ bool RmKeysOperation::test() const
         return false;
 
     data.clear();
-    data.append("subkeys/testbool");
+    data.append(QLatin1String("subkeys/testbool"));
     result = rmKeys(testMap, data);
 
     if (result.count() != 3

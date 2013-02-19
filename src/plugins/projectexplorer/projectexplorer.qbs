@@ -14,7 +14,7 @@ QtcPlugin {
     Depends { name: "QtcSsh" }
 
     Depends { name: "cpp" }
-    cpp.defines: base.concat(["QTC_CPU=X86Architecture", "QT_NO_CAST_FROM_ASCII"])
+    cpp.defines: base.concat("QTC_CPU=X86Architecture")
     cpp.includePaths: base.concat([
         "customwizard",
         "publishing"
@@ -31,10 +31,10 @@ QtcPlugin {
         "allprojectsfilter.h",
         "allprojectsfind.cpp",
         "allprojectsfind.h",
+        "ansifilterparser.cpp",
+        "ansifilterparser.h",
         "applicationlauncher.cpp",
         "applicationlauncher.h",
-        "applicationrunconfiguration.cpp",
-        "applicationrunconfiguration.h",
         "appoutputpane.cpp",
         "appoutputpane.h",
         "baseprojectwizarddialog.cpp",
@@ -75,6 +75,8 @@ QtcPlugin {
         "currentprojectfilter.h",
         "currentprojectfind.cpp",
         "currentprojectfind.h",
+        "customtoolchain.cpp",
+        "customtoolchain.h",
         "dependenciespanel.cpp",
         "dependenciespanel.h",
         "deployablefile.cpp",
@@ -132,6 +134,8 @@ QtcPlugin {
         "ldparser.h",
         "linuxiccparser.cpp",
         "linuxiccparser.h",
+        "localapplicationrunconfiguration.cpp",
+        "localapplicationrunconfiguration.h",
         "localapplicationruncontrol.cpp",
         "localapplicationruncontrol.h",
         "metatypedeclarations.h",
@@ -165,6 +169,8 @@ QtcPlugin {
         "projectexplorersettingspage.ui",
         "projectfilewizardextension.cpp",
         "projectfilewizardextension.h",
+        "projectmacroexpander.cpp",
+        "projectmacroexpander.h",
         "projectmodels.cpp",
         "projectmodels.h",
         "projectnodes.cpp",

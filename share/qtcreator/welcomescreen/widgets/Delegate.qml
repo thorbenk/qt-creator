@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -34,6 +34,18 @@ Rectangle {
     id: delegate
     height: 240
     width: 216
+
+    Rectangle {
+        id: highlight
+        radius: 6
+        visible: isHighlighted
+        color: colors.strongForegroundColor
+        anchors.fill: parent
+        anchors.topMargin: 2
+        anchors.leftMargin: 4
+        anchors.rightMargin: 4
+        anchors.bottomMargin: 73
+    }
 
     property alias caption: captionItem.text
     property alias imageSource: imageItem.source
@@ -201,11 +213,11 @@ Rectangle {
     Rectangle {
         id: border
         color: "#00000000"
-        radius: 8
+        radius: 6
         anchors.rightMargin: 4
         anchors.leftMargin: 4
         anchors.bottomMargin: 4
-        anchors.topMargin: 4
+        anchors.topMargin: 1
         visible: false
         anchors.fill: parent
         border.color: "#dddcdc"
@@ -275,6 +287,11 @@ Rectangle {
             PropertyChanges {
                 target: border
                 visible: true
+            }
+
+            PropertyChanges {
+                target: highlight
+                opacity: 0
             }
         }
     ]

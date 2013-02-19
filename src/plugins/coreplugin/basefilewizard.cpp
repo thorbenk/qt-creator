@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -351,8 +351,8 @@ void WizardEventLoop::rejected()
 
     The abstract methods:
     \list
-    \o createWizardDialog(): Called to create the QWizard dialog to be shown
-    \o generateFiles(): Generate file content
+    \li createWizardDialog(): Called to create the QWizard dialog to be shown
+    \li generateFiles(): Generate file content
     \endlist
 
     must be implemented.

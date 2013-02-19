@@ -1,5 +1,5 @@
 
-QT += core gui qml quick network v8
+QT += core gui widgets qml quick network v8
 contains (QT_CONFIG, webkit) {
     QT += webkit
 }
@@ -21,6 +21,7 @@ QT_BREAKPAD_ROOT_PATH = $$(QT_BREAKPAD_ROOT_PATH)
 
 SOURCES +=  $$PWD/main.cpp
 RESOURCES +=  $$PWD/../qmlpuppet.qrc
+DEFINES -= QT_NO_CAST_FROM_ASCII
 
 OTHER_FILES += Info.plist.in
 macx {

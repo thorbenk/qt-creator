@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2012 Research In Motion
+** Copyright (C) 2011 - 2013 Research In Motion
 **
 ** Contact: Research In Motion (blackberry-qt@qnx.com)
 ** Contact: KDAB (info@kdab.com)
@@ -50,7 +50,8 @@ using namespace Qnx;
 using namespace Qnx::Internal;
 
 namespace {
-const char DEPLOYMENT_INFO_SETTING[] = "QNX.BlackBerry.DeploymentInfo";
+const char DEPLOYMENT_INFO_SETTING[] = "Qnx.BlackBerry.DeploymentInfo";
+const char DEPLOYMENT_INFO_KEY[]     = "Qnx.BlackBerry.DeployInformation";
 }
 
 BlackBerryDeployConfiguration::BlackBerryDeployConfiguration(ProjectExplorer::Target *parent)
@@ -69,13 +70,7 @@ BlackBerryDeployConfiguration::BlackBerryDeployConfiguration(ProjectExplorer::Ta
 
 void BlackBerryDeployConfiguration::ctor()
 {
-    BlackBerryDeployInformation *info
-            = qobject_cast<BlackBerryDeployInformation *>(target()->project()->namedSettings(QLatin1String(DEPLOYMENT_INFO_SETTING)).value<QObject *>());
-    if (!info) {
-        info = new BlackBerryDeployInformation(static_cast<Qt4ProjectManager::Qt4Project *>(target()->project()));
-        QVariant data = QVariant::fromValue(static_cast<QObject *>(info));
-        target()->project()->setNamedSettings(QLatin1String(DEPLOYMENT_INFO_SETTING), data);
-    }
+    m_deployInformation = new BlackBerryDeployInformation(target());
 
     connect(target()->project(), SIGNAL(proFilesEvaluated()), this, SLOT(setupBarDescriptor()), Qt::UniqueConnection);
 
@@ -110,8 +105,8 @@ void BlackBerryDeployConfiguration::setupBarDescriptor()
 
         if (!reader.fetch(barDescriptorTemplate)) {
             QMessageBox::warning(Core::ICore::mainWindow(),
-                                 tr("Error while setting up bar descriptor"),
-                                 tr("Reading bar descriptor template failed"),
+                                 tr("Cannot Set up Application Descriptor File"),
+                                 tr("Reading the bar descriptor template failed."),
                                  QMessageBox::Ok);
             return;
         }
@@ -122,8 +117,8 @@ void BlackBerryDeployConfiguration::setupBarDescriptor()
         writer.write(content.toUtf8());
         if (!writer.finalize()) {
             QMessageBox::warning(Core::ICore::mainWindow(),
-                                 tr("Error while setting up bar descriptor"),
-                                 tr("Failure writing bar descriptor file."),
+                                 tr("Cannot Set up Application Descriptor File"),
+                                 tr("Writing the bar descriptor file failed."),
                                  QMessageBox::Ok);
             return;
         }
@@ -141,7 +136,7 @@ void BlackBerryDeployConfiguration::addBarDescriptorToProject(const QString &bar
 
     QMessageBox::StandardButton button =
             QMessageBox::question(Core::ICore::mainWindow(),
-                                  tr("Add bar-descriptor.xml file to project"),
+                                  tr("Add bar-descriptor.xml File to Project"),
                                   tr("Qt Creator has set up a bar descriptor file to enable "
                                      "packaging.\nDo you want to add it to the project?"),
                                   QMessageBox::Yes | QMessageBox::No);
@@ -156,12 +151,27 @@ BlackBerryDeployConfiguration::~BlackBerryDeployConfiguration()
 
 BlackBerryDeployInformation *BlackBerryDeployConfiguration::deploymentInfo() const
 {
-    BlackBerryDeployInformation *info
-            = qobject_cast<BlackBerryDeployInformation *>(target()->project()->namedSettings(QLatin1String(DEPLOYMENT_INFO_SETTING)).value<QObject *>());
-    return info;
+    return m_deployInformation;
 }
 
 ProjectExplorer::NamedWidget *BlackBerryDeployConfiguration::createConfigWidget()
 {
     return new BlackBerryDeployConfigurationWidget(this);
+}
+
+QVariantMap BlackBerryDeployConfiguration::toMap() const
+{
+    QVariantMap map(ProjectExplorer::DeployConfiguration::toMap());
+    map.insert(QLatin1String(DEPLOYMENT_INFO_KEY), deploymentInfo()->toMap());
+    return map;
+}
+
+bool BlackBerryDeployConfiguration::fromMap(const QVariantMap &map)
+{
+    if (!ProjectExplorer::DeployConfiguration::fromMap(map))
+        return false;
+
+    QVariantMap deployInfoMap = map.value(QLatin1String(DEPLOYMENT_INFO_KEY)).toMap();
+    deploymentInfo()->fromMap(deployInfoMap);
+    return true;
 }

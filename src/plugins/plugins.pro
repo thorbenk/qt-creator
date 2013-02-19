@@ -32,6 +32,7 @@ SUBDIRS   = plugin_coreplugin \
             plugin_genericprojectmanager \
             plugin_qmljseditor \
             plugin_glsleditor \
+            plugin_pythoneditor \
             plugin_mercurial \
             plugin_bazaar \
             plugin_classview \
@@ -46,6 +47,14 @@ SUBDIRS   = plugin_coreplugin \
             plugin_valgrind \
             plugin_todo \
             plugin_qnx
+
+# Look for qbs in the environment...
+isEmpty(QBS_SOURCE_DIR): QBS_SOURCE_DIR = $$(QBS_SOURCE_DIR)
+isEmpty(QBS_BUILD_DIR): QBS_BUILD_DIR = $$(QBS_BUILD_DIR)
+
+!isEmpty(QBS_SOURCE_DIR):!isEmpty(QBS_BUILD_DIR) {
+    SUBDIRS += plugin_qbsprojectmanager
+}
 
 isEmpty(IDE_PACKAGE_MODE) {
     SUBDIRS += plugin_helloworld \
@@ -330,11 +339,23 @@ plugin_qnx.subdir = qnx
 plugin_qnx.depends = plugin_remotelinux
 plugin_qnx.depends += plugin_qt4projectmanager
 plugin_qnx.depends += plugin_coreplugin
+plugin_qnx.depends += plugin_texteditor
+
+plugin_qbsprojectmanager.subdir = qbsprojectmanager
+plugin_qbsprojectmanager.depends = plugin_texteditor
+plugin_qbsprojectmanager.depends += plugin_projectexplorer
+plugin_qbsprojectmanager.depends += plugin_cpptools
+plugin_qbsprojectmanager.depends += plugin_qtsupport
 
 plugin_clearcase.subdir = clearcase
 plugin_clearcase.depends = plugin_vcsbase
 plugin_clearcase.depends += plugin_projectexplorer
 plugin_clearcase.depends += plugin_coreplugin
+
+plugin_pythoneditor.subdir = pythoneditor
+plugin_pythoneditor.depends = plugin_coreplugin
+plugin_pythoneditor.depends += plugin_cpptools
+plugin_pythoneditor.depends += plugin_texteditor
 
 # prefer qmake variable set on command line over env var
 isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)

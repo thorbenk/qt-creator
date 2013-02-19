@@ -1,7 +1,7 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 Dmitry Savchenko
-** Copyright (c) 2010 Vasiliy Sorokin
+** Copyright (c) 2013 Dmitry Savchenko
+** Copyright (c) 2013 Vasiliy Sorokin
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -36,7 +36,6 @@
 #include <coreplugin/ioutputpane.h>
 
 QT_BEGIN_NAMESPACE
-class QTreeView;
 class QToolButton;
 class QButtonGroup;
 class QModelIndex;
@@ -48,6 +47,7 @@ namespace Internal {
 
 class TodoItem;
 class TodoItemsModel;
+class TodoOutputTreeView;
 
 class TodoOutputPane : public Core::IOutputPane
 {
@@ -84,7 +84,7 @@ private slots:
     void updateTodoCount();
 
 private:
-    QTreeView *m_todoTreeView;
+    TodoOutputTreeView *m_todoTreeView;
     QToolButton *m_currentFileButton;
     QToolButton *m_wholeProjectButton;
     QWidget *m_spacer;

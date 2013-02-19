@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
+** Copyright (c) 2013 BogDan Vatra <bog_dan_ro@yahoo.com>
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -31,6 +31,8 @@
 
 #include "androidsettingswidget.h"
 #include "androidconstants.h"
+#include "androidtoolchain.h"
+#include <projectexplorer/toolchainmanager.h>
 
 #include <QCoreApplication>
 
@@ -40,7 +42,7 @@ namespace Internal {
 AndroidSettingsPage::AndroidSettingsPage(QObject *parent)
     : Core::IOptionsPage(parent)
 {
-    setId(QLatin1String(Constants::ANDROID_SETTINGS_ID));
+    setId(Constants::ANDROID_SETTINGS_ID);
     setDisplayName(tr("Android Configurations"));
     setCategory(Constants::ANDROID_SETTINGS_CATEGORY);
     setDisplayCategory(QCoreApplication::translate("Android",
@@ -64,6 +66,22 @@ QWidget *AndroidSettingsPage::createPage(QWidget *parent)
 void AndroidSettingsPage::apply()
 {
     m_widget->saveSettings();
+
+    QList<ProjectExplorer::ToolChain *> existingToolChains = ProjectExplorer::ToolChainManager::instance()->toolChains();
+    QList<ProjectExplorer::ToolChain *> toolchains = AndroidToolChainFactory::createToolChainsForNdk(AndroidConfigurations::instance().config().ndkLocation);
+    foreach (ProjectExplorer::ToolChain *tc, toolchains) {
+        bool found = false;
+        for (int i = 0; i < existingToolChains.count(); ++i) {
+            if (*(existingToolChains.at(i)) == *tc) {
+                found = true;
+                break;
+            }
+        }
+        if (found)
+            delete tc;
+        else
+            ProjectExplorer::ToolChainManager::instance()->registerToolChain(tc);
+    }
 }
 
 void AndroidSettingsPage::finish()

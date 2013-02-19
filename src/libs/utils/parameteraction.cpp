@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -37,8 +37,8 @@
 
     The action has 2 states:
     \list
-    \o <no current parameter> displaying "Do XX" (empty text)
-    \o <parameter present> displaying "Do XX with %1".
+    \li <no current parameter> displaying "Do XX" (empty text)
+    \li <parameter present> displaying "Do XX with %1".
     \endlist
 
     Provides a slot to set the parameter, changing display
@@ -93,11 +93,10 @@ void ParameterAction::setEnablingMode(EnablingMode m)
 void ParameterAction::setParameter(const QString &p)
 {
     const bool enabled = !p.isEmpty();
-    if (enabled) {
+    if (enabled)
         setText(m_parameterText.arg(p));
-    } else {
+    else
         setText(m_emptyText);
-    }
     if (m_enablingMode == EnabledWithParameter)
         setEnabled(enabled);
 }

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -76,7 +76,7 @@ QtQuickAppWizardDialog::QtQuickAppWizardDialog(QWidget *parent,
     setWindowTitle(tr("New Qt Quick Application"));
     setIntroDescription(tr("This wizard generates a Qt Quick application project."));
 
-    if (kind == QtQuickAppWizard::ImportQml) { //Choose existing qml file
+    if (kind == QtQuickAppWizard::ImportQml || kind == QtQuickAppWizard::ImportQml2) { //Choose existing qml file
         m_componentOptionsPage = new Internal::QtQuickComponentSetOptionsPage;
         m_componentOptionsPageId = addPageWithTitle(m_componentOptionsPage, tr("Select existing QML file"));
         m_componentItem = wizardProgress()->item(m_componentOptionsPageId);
@@ -84,7 +84,7 @@ QtQuickAppWizardDialog::QtQuickAppWizardDialog(QWidget *parent,
 
     AbstractMobileAppWizardDialog::addMobilePages();
 
-    if (kind == QtQuickAppWizard::ImportQml) {
+    if (kind == QtQuickAppWizard::ImportQml || kind == QtQuickAppWizard::ImportQml2) {
         if (targetsPageItem())
             m_componentItem->setNextItems(QList<Utils::WizardProgressItem *>()
                                           << targetsPageItem());
@@ -93,9 +93,8 @@ QtQuickAppWizardDialog::QtQuickAppWizardDialog(QWidget *parent,
 
 bool QtQuickAppWizardDialog::validateCurrentPage()
 {
-    if (currentPage() == m_componentOptionsPage) {
+    if (currentPage() == m_componentOptionsPage)
         setIgnoreGenericOptionsPage(false);
-    }
     return AbstractMobileAppWizardDialog::validateCurrentPage();
 }
 
@@ -167,7 +166,7 @@ void QtQuickAppWizard::createInstances(ExtensionSystem::IPlugin *plugin)
                                                     "platform.\n\nRequires <b>Qt 4.7.4</b> or newer, and the "
                                                     "component set installed for your Qt version."));
     parameter.setRequiredFeatures(basicFeatures | Core::Feature(QtSupport::Constants::FEATURE_QTQUICK_COMPONENTS_MEEGO)
-                                  | QtSupport::Constants::FEATURE_QT_QUICK_1_1);
+                                  | Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK_1_1));
     list << parameter;
 
     parameter = base;
@@ -180,9 +179,19 @@ void QtQuickAppWizard::createInstances(ExtensionSystem::IPlugin *plugin)
     parameter.setRequiredFeatures(basicFeatures);
     list << parameter;
 
+    parameter = base;
+    parameter.setDisplayName(tr("Qt Quick 2 Application (from Existing QML File)"));
+    parameter.setDescription(basicDescription +  tr("Creates a deployable Qt Quick application from "
+                                                    "existing QML files. All files and directories that "
+                                                    "reside in the same directory as the main .qml file "
+                                                    "are deployed. You can modify the contents of the "
+                                                    "directory any time before deploying.\n\nRequires <b>Qt 5.0</b> or newer."));
+    parameter.setRequiredFeatures(Core::Feature(QtSupport::Constants::FEATURE_QT_QUICK_2));
+    list << parameter;
+
     QList<QtQuickAppWizard*> wizardList = Core::createMultipleBaseFileWizardInstances<QtQuickAppWizard>(list, plugin);
 
-    Q_ASSERT(wizardList.count() == 4);
+    Q_ASSERT(wizardList.count() == 5);
 
     for (int i = 0; i < wizardList.count(); i++) {
         wizardList.at(i)->setQtQuickKind(Kind(i));
@@ -216,6 +225,10 @@ AbstractMobileAppWizardDialog *QtQuickAppWizard::createWizardDialogInternal(QWid
         break;
     case ImportQml:
         d->app->setComponentSet(QtQuickApp::QtQuick10Components);
+        d->app->setMainQml(QtQuickApp::ModeImport);
+        break;
+    case ImportQml2:
+        d->app->setComponentSet(QtQuickApp::QtQuick20Components);
         d->app->setMainQml(QtQuickApp::ModeImport);
         break;
     case QtQuick2_0:

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -30,6 +30,8 @@
 #ifndef CPLUSPLUS_CHECKSYMBOLS_H
 #define CPLUSPLUS_CHECKSYMBOLS_H
 
+#include "cpptools_global.h"
+
 #include "cppsemanticinfo.h"
 
 #include <cplusplus/CppDocument.h>
@@ -56,7 +58,7 @@ namespace CPlusPlus {
 template class Q_DECL_IMPORT QFutureInterface<CppEditor::Internal::SemanticInfo::Use>;
 #endif
 
-class CheckSymbols:
+class CPPTOOLS_EXPORT CheckSymbols:
         protected ASTVisitor,
         public QRunnable,
         public QFutureInterface<TextEditor::SemanticHighlighter::Result>

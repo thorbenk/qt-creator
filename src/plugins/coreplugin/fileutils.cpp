@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -104,7 +104,6 @@ void FileUtils::showInGraphicalShell(QWidget *parent, const QString &pathIn)
                    << QLatin1String("tell application \"Finder\" to activate");
         QProcess::execute(QLatin1String("/usr/bin/osascript"), scriptArgs);
     } else {
-#ifndef Q_OS_MAC
         // we cannot select a file here, because no file browser really supports it...
         const QFileInfo fileInfo(pathIn);
         const QString folder = fileInfo.isDir() ? fileInfo.absoluteFilePath() : fileInfo.filePath();
@@ -116,7 +115,6 @@ void FileUtils::showInGraphicalShell(QWidget *parent, const QString &pathIn)
         success = success && error.isEmpty();
         if (!success)
             showGraphicalShellError(parent, app, error);
-#endif
     }
 }
 

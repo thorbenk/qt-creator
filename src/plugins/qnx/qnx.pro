@@ -1,7 +1,7 @@
 TEMPLATE = lib
 TARGET = Qnx
 QT += network xml
-PROVIDER = RIM
+PROVIDER = BlackBerry
 
 include(../../qtcreatorplugin.pri)
 include(qnx_dependencies.pri)
@@ -45,14 +45,30 @@ SOURCES += qnxplugin.cpp \
     qnxqtversionfactory.cpp \
     qnxqtversion.cpp \
     qnxabstractqtversion.cpp \
-    bardescriptorfileimagewizardpage.cpp \
-    blackberrywizardextension.cpp \
     blackberrydeviceconfiguration.cpp \
     qnxdeployconfiguration.cpp \
     qnxdeviceconfiguration.cpp \
     blackberrydeployinformation.cpp \
     pathchooserdelegate.cpp \
-    blackberryabstractdeploystep.cpp
+    blackberryabstractdeploystep.cpp \
+    blackberryndksettingswidget.cpp \
+    blackberryndksettingspage.cpp \
+    blackberryconfiguration.cpp \
+    bardescriptormagicmatcher.cpp \
+    bardescriptoreditorfactory.cpp \
+    bardescriptoreditor.cpp \
+    bardescriptoreditorwidget.cpp \
+    bardescriptordocument.cpp \
+    bardescriptordocumentnodehandlers.cpp \
+    bardescriptorpermissionsmodel.cpp \
+    blackberrykeyswidget.cpp \
+    blackberrykeyspage.cpp \
+    blackberrycsjregistrar.cpp \
+    blackberrycertificate.cpp \
+    blackberrycertificatemodel.cpp \
+    blackberryregisterkeydialog.cpp \
+    blackberryimportcertificatedialog.cpp \
+    blackberrycreatecertificatedialog.cpp
 
 HEADERS += qnxplugin.h\
     qnxconstants.h \
@@ -94,14 +110,30 @@ HEADERS += qnxplugin.h\
     qnxqtversionfactory.h \
     qnxqtversion.h \
     qnxabstractqtversion.h \
-    bardescriptorfileimagewizardpage.h \
-    blackberrywizardextension.h \
     blackberrydeviceconfiguration.h \
     qnxdeployconfiguration.h \
     qnxdeviceconfiguration.h \
     blackberrydeployinformation.h \
     pathchooserdelegate.h \
-    blackberryabstractdeploystep.h
+    blackberryabstractdeploystep.h \
+    blackberryndksettingswidget.h \
+    blackberryndksettingspage.h \
+    blackberryconfiguration.h \
+    bardescriptormagicmatcher.h \
+    bardescriptoreditorfactory.h \
+    bardescriptoreditor.h \
+    bardescriptoreditorwidget.h \
+    bardescriptordocument.h \
+    bardescriptordocumentnodehandlers.h \
+    bardescriptorpermissionsmodel.h \
+    blackberrykeyswidget.h \
+    blackberrykeyspage.h \
+    blackberrycsjregistrar.h \
+    blackberrycertificate.h \
+    blackberrycertificatemodel.h \
+    blackberryregisterkeydialog.h \
+    blackberryimportcertificatedialog.h \
+    blackberrycreatecertificatedialog.h
 
 FORMS += \
     blackberrydeviceconfigurationwizardsetuppage.ui \
@@ -110,7 +142,12 @@ FORMS += \
     blackberrydeployconfigurationwidget.ui \
     blackberrydeviceconfigurationwidget.ui \
     qnxbaseqtconfigwidget.ui \
-    bardescriptorfileimagewizardpage.ui
+    blackberryndksettingswidget.ui \
+    bardescriptoreditorwidget.ui \
+    blackberrykeyswidget.ui \
+    blackberryregisterkeydialog.ui \
+    blackberryimportcertificatedialog.ui \
+    blackberrycreatecertificatedialog.ui
 
 DEFINES += QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_ASCII
 

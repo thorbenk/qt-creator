@@ -13,13 +13,13 @@ def main():
     examplePath = os.path.join(templateDir, proFile)
     startApplication("qtcreator" + SettingsPath)
     # open example project
-    openQmakeProject(examplePath)
+    checkedTargets = openQmakeProject(examplePath)
     # build and wait until finished - on all build configurations
-    availableConfigs = iterateBuildConfigs(1)
+    availableConfigs = iterateBuildConfigs(len(checkedTargets))
     if not availableConfigs:
         test.fatal("Haven't found a suitable Qt version - leaving without building.")
     for kit, config in availableConfigs:
-        selectBuildConfig(1, kit, config)
+        selectBuildConfig(len(checkedTargets), kit, config)
         # try to build project
         test.log("Testing build configuration: " + config)
         invokeMenuItem("Build", "Build All")
@@ -27,7 +27,7 @@ def main():
         # verify build successful
         ensureChecked(waitForObject(":Qt Creator_CompileOutput_Core::Internal::OutputPaneToggleButton"))
         compileOutput = waitForObject(":Qt Creator.Compile Output_Core::OutputWindow")
-        if not test.verify(str(compileOutput.plainText).endswith("exited normally."),
+        if not test.verify(compileSucceeded(compileOutput.plainText),
                            "Verifying building of existing complex qt application."):
             test.log(compileOutput.plainText)
     # exit

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -92,7 +92,7 @@ KitConfigWidget *SysRootKitInformation::createConfigWidget(Kit *k) const
     return new Internal::SysRootInformationConfigWidget(k);
 }
 
-KitInformation::ItemList SysRootKitInformation::toUserOutput(Kit *k) const
+KitInformation::ItemList SysRootKitInformation::toUserOutput(const Kit *k) const
 {
     return ItemList() << qMakePair(tr("Sys Root"), sysRoot(k).toUserOutput());
 }
@@ -181,6 +181,23 @@ void ToolChainKitInformation::fix(Kit *k)
     setToolChain(k, 0); // make sure to clear out no longer known tool chains
 }
 
+void ToolChainKitInformation::setup(Kit *k)
+{
+    const QString id = k->value(Core::Id(TOOLCHAIN_INFORMATION)).toString();
+    if (id.isEmpty())
+        return;
+
+    ToolChain *tc = ToolChainManager::instance()->findToolChain(id);
+    if (tc)
+        return;
+
+    // ID is not found: Might be an ABI string...
+    foreach (ToolChain *current, ToolChainManager::instance()->toolChains()) {
+        if (current->targetAbi().toString() == id)
+            return setToolChain(k, current);
+    }
+}
+
 KitConfigWidget *ToolChainKitInformation::createConfigWidget(Kit *k) const
 {
     return new Internal::ToolChainInformationConfigWidget(k);
@@ -192,7 +209,7 @@ QString ToolChainKitInformation::displayNamePostfix(const Kit *k) const
     return tc ? tc->displayName() : QString();
 }
 
-KitInformation::ItemList ToolChainKitInformation::toUserOutput(Kit *k) const
+KitInformation::ItemList ToolChainKitInformation::toUserOutput(const Kit *k) const
 {
     ToolChain *tc = toolChain(k);
     return ItemList() << qMakePair(tr("Compiler"), tc ? tc->displayName() : tr("None"));
@@ -217,20 +234,8 @@ ToolChain *ToolChainKitInformation::toolChain(const Kit *k)
 {
     if (!k)
         return 0;
-    const QString id = k->value(Core::Id(TOOLCHAIN_INFORMATION)).toString();
-    if (id.isEmpty())
-        return 0;
-
-    ToolChain *tc = ToolChainManager::instance()->findToolChain(id);
-    if (tc)
-        return tc;
-
-    // ID is not found: Might be an ABI string...
-    foreach (ToolChain *current, ToolChainManager::instance()->toolChains()) {
-        if (current->targetAbi().toString() == id)
-            return current;
-    }
-    return 0;
+    return ToolChainManager::instance()
+            ->findToolChain(k->value(Core::Id(TOOLCHAIN_INFORMATION)).toString());
 }
 
 void ToolChainKitInformation::setToolChain(Kit *k, ToolChain *tc)
@@ -289,7 +294,7 @@ KitConfigWidget *DeviceTypeKitInformation::createConfigWidget(Kit *k) const
     return new Internal::DeviceTypeInformationConfigWidget(k);
 }
 
-KitInformation::ItemList DeviceTypeKitInformation::toUserOutput(Kit *k) const
+KitInformation::ItemList DeviceTypeKitInformation::toUserOutput(const Kit *k) const
 {
     Core::Id type = deviceTypeId(k);
     QString typeDisplayName = tr("Unknown device type");
@@ -308,14 +313,15 @@ KitInformation::ItemList DeviceTypeKitInformation::toUserOutput(Kit *k) const
 
 const Core::Id DeviceTypeKitInformation::deviceTypeId(const Kit *k)
 {
+    // FIXME: This should be fromSetting/toSetting instead.
     if (!k)
         return Core::Id();
-    return Core::Id(k->value(Core::Id(DEVICETYPE_INFORMATION)).toByteArray());
+    return Core::Id::fromName(k->value(DEVICETYPE_INFORMATION).toByteArray());
 }
 
 void DeviceTypeKitInformation::setDeviceTypeId(Kit *k, Core::Id type)
 {
-    k->setValue(Core::Id(DEVICETYPE_INFORMATION), type.name());
+    k->setValue(DEVICETYPE_INFORMATION, type.name());
 }
 
 // --------------------------------------------------------------------------
@@ -361,7 +367,7 @@ QList<Task> DeviceKitInformation::validate(const Kit *k) const
         result.append(Task(Task::Error, tr("Device does not match device type."),
                            Utils::FileName(), -1, Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM)));
     if (dev.isNull())
-        result.append(Task(Task::Warning, tr("No Device set."),
+        result.append(Task(Task::Warning, tr("No device set."),
                            Utils::FileName(), -1, Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM)));
     return result;
 }
@@ -372,8 +378,7 @@ void DeviceKitInformation::fix(Kit *k)
     if (!dev.isNull() && dev->type() == DeviceTypeKitInformation::deviceTypeId(k))
         return;
 
-    const QString id = defaultValue(k).toString();
-    setDeviceId(k, id.isEmpty() ? Core::Id() : Core::Id(id));
+    setDeviceId(k, Core::Id::fromSetting(defaultValue(k)));
 }
 
 KitConfigWidget *DeviceKitInformation::createConfigWidget(Kit *k) const
@@ -387,7 +392,7 @@ QString DeviceKitInformation::displayNamePostfix(const Kit *k) const
     return dev.isNull() ? QString() : dev->displayName();
 }
 
-KitInformation::ItemList DeviceKitInformation::toUserOutput(Kit *k) const
+KitInformation::ItemList DeviceKitInformation::toUserOutput(const Kit *k) const
 {
     IDevice::ConstPtr dev = device(k);
     return ItemList() << qMakePair(tr("Device"), dev.isNull() ? tr("Unconfigured") : dev->displayName());
@@ -401,21 +406,17 @@ IDevice::ConstPtr DeviceKitInformation::device(const Kit *k)
 
 Core::Id DeviceKitInformation::deviceId(const Kit *k)
 {
-    if (k) {
-        QString idname = k->value(Core::Id(DEVICE_INFORMATION)).toString();
-        return idname.isEmpty() ? IDevice::invalidId() : Core::Id(idname);
-    }
-    return IDevice::invalidId();
+    return k ? Core::Id::fromSetting(k->value(DEVICE_INFORMATION)) : Core::Id();
 }
 
 void DeviceKitInformation::setDevice(Kit *k, IDevice::ConstPtr dev)
 {
-    setDeviceId(k, dev ? dev->id() : IDevice::invalidId());
+    setDeviceId(k, dev ? dev->id() : Core::Id());
 }
 
 void DeviceKitInformation::setDeviceId(Kit *k, const Core::Id id)
 {
-    k->setValue(Core::Id(DEVICE_INFORMATION), id.toString());
+    k->setValue(DEVICE_INFORMATION, id.toSetting());
 }
 
 void DeviceKitInformation::deviceUpdated(const Core::Id &id)

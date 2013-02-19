@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -79,6 +79,7 @@
 #include "buildconfiguration.h"
 #include "miniprojecttargetselector.h"
 #include "taskhub.h"
+#include "customtoolchain.h"
 #include "devicesupport/desktopdevice.h"
 #include "devicesupport/desktopdevicefactory.h"
 #include "devicesupport/devicemanager.h"
@@ -96,6 +97,7 @@
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/documentmanager.h>
 #include <coreplugin/icore.h>
+#include <coreplugin/idocument.h>
 #include <coreplugin/imode.h>
 #include <coreplugin/mimedatabase.h>
 #include <coreplugin/modemanager.h>
@@ -103,6 +105,7 @@
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/command.h>
 #include <coreplugin/id.h>
+#include <coreplugin/infobar.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/findplaceholder.h>
@@ -153,6 +156,7 @@
 
 namespace {
 bool debug = false;
+const char EXTERNAL_FILE_WARNING[] = "ExternalFile";
 }
 
 namespace ProjectExplorer {
@@ -333,6 +337,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
 #endif
     addAutoReleasedObject(new Internal::GccToolChainFactory);
     addAutoReleasedObject(new Internal::ClangToolChainFactory);
+    addAutoReleasedObject(new Internal::CustomToolChainFactory);
 
     addAutoReleasedObject(new Internal::DesktopDeviceFactory);
 
@@ -735,16 +740,19 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     // build action (context menu)
     d->m_buildActionContextMenu = new QAction(tr("Build"), this);
     cmd = Core::ActionManager::registerAction(d->m_buildActionContextMenu, Constants::BUILDCM, projecTreeContext);
+    cmd->setAttribute(Core::Command::CA_UpdateText);
     mprojectContextMenu->addAction(cmd, Constants::G_PROJECT_BUILD);
 
     // rebuild action (context menu)
     d->m_rebuildActionContextMenu = new QAction(tr("Rebuild"), this);
     cmd = Core::ActionManager::registerAction(d->m_rebuildActionContextMenu, Constants::REBUILDCM, projecTreeContext);
+    cmd->setAttribute(Core::Command::CA_UpdateText);
     mprojectContextMenu->addAction(cmd, Constants::G_PROJECT_REBUILD);
 
     // clean action (context menu)
     d->m_cleanActionContextMenu = new QAction(tr("Clean"), this);
     cmd = Core::ActionManager::registerAction(d->m_cleanActionContextMenu, Constants::CLEANCM, projecTreeContext);
+    cmd->setAttribute(Core::Command::CA_UpdateText);
     mprojectContextMenu->addAction(cmd, Constants::G_PROJECT_REBUILD);
 
     // build without dependencies action
@@ -1154,35 +1162,30 @@ void ProjectExplorerPlugin::updateVariable(const QByteArray &variable)
             Core::VariableManager::instance()->remove(variable);
         }
     } else if (variable == Constants::VAR_CURRENTPROJECT_NAME) {
-        if (currentProject()) {
+        if (currentProject())
             Core::VariableManager::instance()->insert(variable, currentProject()->displayName());
-        } else {
+        else
             Core::VariableManager::instance()->remove(variable);
-        }
     } else if (variable == Constants::VAR_CURRENTKIT_NAME) {
-        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit()) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit())
             Core::VariableManager::instance()->insert(variable, currentProject()->activeTarget()->kit()->displayName());
-        } else {
+        else
             Core::VariableManager::instance()->remove(variable);
-        }
     } else if (variable == Constants::VAR_CURRENTKIT_FILESYSTEMNAME) {
-        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit()) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit())
             Core::VariableManager::instance()->insert(variable, currentProject()->activeTarget()->kit()->fileSystemFriendlyName());
-        } else {
+        else
             Core::VariableManager::instance()->remove(variable);
-        }
     } else if (variable == Constants::VAR_CURRENTKIT_ID) {
-        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit()) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->kit())
             Core::VariableManager::instance()->insert(variable, currentProject()->activeTarget()->kit()->id().toString());
-        } else {
+        else
             Core::VariableManager::instance()->remove(variable);
-        }
     } else if (variable == Constants::VAR_CURRENTBUILD_NAME) {
-        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->activeBuildConfiguration()) {
+        if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->activeBuildConfiguration())
             Core::VariableManager::instance()->insert(variable, currentProject()->activeTarget()->activeBuildConfiguration()->displayName());
-        } else {
+        else
             Core::VariableManager::instance()->remove(variable);
-        }
     } else if (variable == Constants::VAR_CURRENTBUILD_TYPE) {
         if (currentProject() && currentProject()->activeTarget() && currentProject()->activeTarget()->activeBuildConfiguration()) {
             BuildConfiguration::BuildType type = currentProject()->activeTarget()->activeBuildConfiguration()->buildType();
@@ -1644,9 +1647,8 @@ void ProjectExplorerPlugin::showContextMenu(QWidget *view, const QPoint &globalP
     updateContextMenuActions();
     d->m_projectTreeCollapseAllAction->disconnect(SIGNAL(triggered()));
     connect(d->m_projectTreeCollapseAllAction, SIGNAL(triggered()), view, SLOT(collapseAll()));
-    if (contextMenu && contextMenu->actions().count() > 0) {
+    if (contextMenu && contextMenu->actions().count() > 0)
         contextMenu->popup(globalPos);
-    }
 }
 
 BuildManager *ProjectExplorerPlugin::buildManager() const
@@ -1747,6 +1749,39 @@ void ProjectExplorerPlugin::buildQueueFinished(bool success)
     d->m_runMode = NoRunMode;
 }
 
+void ProjectExplorerPlugin::updateExternalFileWarning()
+{
+    Core::IEditor *editor = qobject_cast<Core::IEditor *>(sender());
+    if (!editor || editor->isTemporary())
+        return;
+    Core::IDocument *document = editor->document();
+    if (!document)
+        return;
+    Core::InfoBar *infoBar = document->infoBar();
+    Core::Id externalFileId(EXTERNAL_FILE_WARNING);
+    if (!document->isModified()) {
+        infoBar->removeInfo(externalFileId);
+        return;
+    }
+    if (!d->m_currentProject || !infoBar->canInfoBeAdded(externalFileId))
+        return;
+    Utils::FileName fileName = Utils::FileName::fromString(document->fileName());
+    if (fileName.isEmpty())
+        return;
+    Utils::FileName projectDir = Utils::FileName::fromString(d->m_currentProject->projectDirectory());
+    if (projectDir.isEmpty() || fileName.isChildOf(projectDir))
+        return;
+    // External file. Test if it under the same VCS
+    QString topLevel;
+    if (Core::ICore::vcsManager()->findVersionControlForDirectory(projectDir.toString(), &topLevel)
+            && fileName.isChildOf(Utils::FileName::fromString(topLevel))) {
+        return;
+    }
+    infoBar->addInfo(Core::InfoBarEntry(externalFileId,
+                             tr("<b>Warning:</b> This file is outside the project directory."),
+                             Core::InfoBarEntry::GlobalSuppressionEnabled));
+}
+
 void ProjectExplorerPlugin::setCurrent(Project *project, QString filePath, Node *node)
 {
     if (debug)
@@ -1779,6 +1814,10 @@ void ProjectExplorerPlugin::setCurrent(Project *project, QString filePath, Node 
         projectChanged = true;
     }
 
+    if (!node && Core::EditorManager::currentEditor()) {
+        connect(Core::EditorManager::currentEditor(), SIGNAL(changed()),
+                this, SLOT(updateExternalFileWarning()));
+    }
     if (projectChanged || d->m_currentNode != node) {
         d->m_currentNode = node;
         if (debug)
@@ -1827,6 +1866,17 @@ void ProjectExplorerPlugin::updateActions()
 
     // Context menu actions
     d->m_setStartupProjectAction->setParameter(projectNameContextMenu);
+
+    bool hasDependencies = session()->projectOrder(d->m_currentProject).size() > 1;
+    if (hasDependencies) {
+        d->m_buildActionContextMenu->setText(tr("Build Without Dependencies"));
+        d->m_rebuildActionContextMenu->setText(tr("Rebuild Without Dependencies"));
+        d->m_cleanActionContextMenu->setText(tr("Clean Without Dependencies"));
+    } else {
+        d->m_buildActionContextMenu->setText(tr("Build"));
+        d->m_rebuildActionContextMenu->setText(tr("Rebuild"));
+        d->m_cleanActionContextMenu->setText(tr("Clean"));
+    }
 
     d->m_buildActionContextMenu->setEnabled(buildActionContextState.first);
     d->m_rebuildActionContextMenu->setEnabled(buildActionContextState.first);
@@ -2682,11 +2732,10 @@ QString pathOrDirectoryFor(Node *node, bool dir)
         }
     } else {
         QFileInfo fi(path);
-        if (dir) {
+        if (dir)
             location = fi.isDir() ? fi.absoluteFilePath() : fi.absolutePath();
-        } else {
+        else
             location = fi.absoluteFilePath();
-        }
     }
     return location;
 }

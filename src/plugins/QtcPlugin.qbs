@@ -6,7 +6,6 @@ Product {
     type: ["dynamiclibrary", "pluginSpec"]
     property string provider: 'QtProject'
     property var pluginspecreplacements
-    destination: "lib/qtcreator/plugins/" + provider
     targetName: {
         // see PluginSpecPrivate::loadLibrary()
         if (qbs.debugInformation) {
@@ -20,6 +19,7 @@ Product {
         return name;
     }
 
+    Depends { name: "ExtensionSystem" }
     Depends { name: "pluginspec" }
     Depends { name: "cpp" }
     Depends {
@@ -39,5 +39,11 @@ Product {
         name: "PluginSpec"
         files: [ product.name + ".pluginspec.in" ]
         fileTags: ["pluginSpecIn"]
+    }
+
+    Group {
+        fileTagsFilter: product.type
+        qbs.install: true
+        qbs.installDir: "lib/qtcreator/plugins/" + provider
     }
 }

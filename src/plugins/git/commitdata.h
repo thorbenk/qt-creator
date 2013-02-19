@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -64,7 +64,7 @@ struct GitSubmitEditorPanelData
 QDebug operator<<(QDebug d, const GitSubmitEditorPanelData &);
 
 enum FileState {
-    UntrackedFile = 0,
+    EmptyFileState = 0x00,
 
     StagedFile   = 0x01,
     ModifiedFile = 0x02,
@@ -77,6 +77,7 @@ enum FileState {
     UnmergedUs   = 0x100,
     UnmergedThem = 0x200,
 
+    UntrackedFile = 0x400,
     UnknownFileState = 0x800
 };
 Q_DECLARE_FLAGS(FileStates, FileState)

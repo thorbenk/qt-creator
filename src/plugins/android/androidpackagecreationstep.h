@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
+** Copyright (c) 2013 BogDan Vatra <bog_dan_ro@yahoo.com>
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -53,7 +53,7 @@ public:
     AndroidPackageCreationStep(ProjectExplorer::BuildStepList *bsl);
 
     static bool removeDirectory(const QString &dirPath);
-    static void stripAndroidLibs(const QStringList &files, ProjectExplorer::Abi::Architecture architecture);
+    static void stripAndroidLibs(const QStringList &files, ProjectExplorer::Abi::Architecture architecture, const QString &ndkToolchainVersion);
 
     static const QLatin1String DefaultVersionNumber;
 

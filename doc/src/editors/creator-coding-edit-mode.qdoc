@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (c) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (c) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator
@@ -68,14 +68,14 @@
 
     \list
 
-        \o  To split the editor view into a top and bottom view, select
+        \li To split the editor view into a top and bottom view, select
             \gui Window > \gui Split, press \key{Ctrl+E, 2}, or select the
             \inlineimage qtcreator-split-button.png
             (\gui Split) button and then select \gui Split.
 
             Split command creates views below the currently active editor view.
 
-        \o  To split the editor view into adjacent views, select
+        \li To split the editor view into adjacent views, select
             \gui Window > \gui{Split Side by Side}, press \key{Ctrl+E, 3}, or
             select \gui {Split > Split Side by Side}.
 
@@ -101,15 +101,19 @@
 
     \list
 
-        \o  Right-click the line number and select \gui{Toggle Bookmark}.
+        \li Right-click the line number and select \gui{Toggle Bookmark}.
 
-        \o  Press \key Shift and click the left margin at a line.
+        \li Press \key Shift and click the left margin at a line.
 
-        \o  Press \key{Ctrl+M} when the cursor is on a line.
+        \li Press \key{Ctrl+M} when the cursor is on a line.
 
     \endlist
 
     \image qtcreator-togglebookmark.png
+
+    To add a note to a bookmark, right-click the bookmark and select
+    \gui{Edit Bookmark Note}. To view the note, move the mouse pointer over the
+    bookmark.
 
     To go to previous bookmark in the current session, press \key{Ctrl+,}.
 
@@ -118,7 +122,9 @@
     \section1 Moving to Symbol Definition or Declaration
 
     You can move directly to the definition or the declaration of a symbol by
-    holding the \key Ctrl and clicking the symbol.
+    holding the \key Ctrl and clicking the symbol. If you have multiple splits
+    opened, you can open the link in the next split by holding \key Ctrl and
+    \key Alt while clicking on the symbol.
 
     To enable this moving function, in \gui Tools > \gui{Options} >
     \gui{Text Editor} > \gui Behavior, select \gui{Enable mouse navigation}.
@@ -131,6 +137,15 @@
     To switch between the definition and declaration of a symbol, press
     \key {Shift+F2} or right-click the symbol and select \gui {Switch Between
     Method Declaration/Definition}.
+
+    Links are opened in the same split by default. Every operation can also be opened in
+    the next split by prebending \key {Ctrl+E} to the shortcut. For example \key {Ctrl+E,F2}
+    to follow the symbol in the next split. If currently is just one editor open a split will be
+    automatically opened. The default behavior could also be changed in
+    \gui Tools > \gui{Options} > \gui{Text Editor} > \gui Display, by checking
+    \gui{Always Open Links in Next Split}. Additional symbols and switching between definition
+    and decleration is opened in another split. If you change the default behavior the shortcuts
+    for open in next split are used to open the target in the current split.
 
     \section1 Using Update Code Model
 

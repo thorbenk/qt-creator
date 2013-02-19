@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2012 Openismus GmbH.
+** Copyright (C) 2013 Openismus GmbH.
 ** Authors: Peter Penz (ppenz@openismus.com)
 **          Patricia Santana Cruz (patriciasantanacruz@gmail.com)
 ** Contact: http://www.qt-project.org/legal
@@ -204,6 +204,12 @@ private:
      * The headerfile base name is defined by \p fileName.
      */
     static void appendHeader(QStringList &list, const QDir &dir, const QString &fileName);
+
+    /**
+     * If line starts with identifier and = goes next, return identifier.
+     * Identifier is valid target name and it matches regexp [a-zA-Z1-9_]+
+     */
+    static QString parseIdentifierBeforeAssign(const QString &line);
 
 private:
     bool m_success;             ///< Return value for MakefileParser::parse().

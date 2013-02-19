@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -51,6 +51,8 @@
 #include <QIcon>
 
 enum { debug = 0 };
+
+using namespace Core;
 
 static const char customWizardElementC[] = "wizard";
 static const char iconElementC[] = "icon";
@@ -271,8 +273,8 @@ static inline bool assignLanguageElementText(QXmlStreamReader &reader,
 // as an exercise to the reader.
 static inline bool assignLanguageElementText(QXmlStreamReader &reader,
                                              const QString &desiredLanguage,
-                                             Core::BaseFileWizardParameters *bp,
-                                             void (Core::BaseFileWizardParameters::*setter)(const QString &))
+                                             BaseFileWizardParameters *bp,
+                                             void (BaseFileWizardParameters::*setter)(const QString &))
 {
     const QStringRef elementLanguage = reader.attributes().value(QLatin1String(langAttributeC));
     if (elementLanguage.isEmpty()) {
@@ -295,7 +297,7 @@ static bool parseCustomProjectElement(QXmlStreamReader &reader,
                                       const QString &configFileFullPath,
                                       const QString &language,
                                       CustomWizardParameters *p,
-                                      Core::BaseFileWizardParameters *bp)
+                                      BaseFileWizardParameters *bp)
 {
     const QStringRef elementName = reader.name();
     if (elementName == QLatin1String(iconElementC)) {
@@ -311,17 +313,17 @@ static bool parseCustomProjectElement(QXmlStreamReader &reader,
     }
     if (elementName == QLatin1String(descriptionElementC)) {
         assignLanguageElementText(reader, language, bp,
-                                  &Core::BaseFileWizardParameters::setDescription);
+                                  &BaseFileWizardParameters::setDescription);
         return true;
     }
     if (elementName == QLatin1String(displayNameElementC)) {
         assignLanguageElementText(reader, language, bp,
-                                  &Core::BaseFileWizardParameters::setDisplayName);
+                                  &BaseFileWizardParameters::setDisplayName);
         return true;
     }
     if (elementName == QLatin1String(displayCategoryElementC)) {
         assignLanguageElementText(reader, language, bp,
-                                  &Core::BaseFileWizardParameters::setDisplayCategory);
+                                  &BaseFileWizardParameters::setDisplayCategory);
         return true;
     }
     if (elementName == QLatin1String(fieldPageTitleElementC)) {
@@ -473,38 +475,38 @@ static ParseState nextClosingState(ParseState in, const QStringRef &name)
 }
 
 // Parse kind attribute
-static inline Core::IWizard::WizardKind kindAttribute(const QXmlStreamReader &r)
+static inline IWizard::WizardKind kindAttribute(const QXmlStreamReader &r)
 {
     const QStringRef value = r.attributes().value(QLatin1String(kindAttributeC));
     if (!value.isEmpty()) {
         if (value == QLatin1String("file"))
-            return Core::IWizard::FileWizard;
+            return IWizard::FileWizard;
         if (value == QLatin1String("class"))
-            return Core::IWizard::ClassWizard;
+            return IWizard::ClassWizard;
     }
-    return Core::IWizard::ProjectWizard;
+    return IWizard::ProjectWizard;
 }
 
-static inline Core::FeatureSet requiredFeatures(const QXmlStreamReader &reader)
+static inline FeatureSet requiredFeatures(const QXmlStreamReader &reader)
 {
-    Core::FeatureSet r;
+    FeatureSet r;
     QString value = reader.attributes().value(QLatin1String(featuresRequiredC)).toString();
     QStringList stringList = value.split(QLatin1Char(','), QString::SkipEmptyParts);
-    Core::FeatureSet features;
+    FeatureSet features;
     foreach (const QString &string, stringList) {
-        Core::Feature feature(string);
+        Feature feature(Id::fromString(string));
         features |= feature;
     }
     return features;
 }
 
-static inline Core::IWizard::WizardFlags wizardFlags(const QXmlStreamReader &reader)
+static inline IWizard::WizardFlags wizardFlags(const QXmlStreamReader &reader)
 {
-    Core::IWizard::WizardFlags flags;
+    IWizard::WizardFlags flags;
     QString value = reader.attributes().value(QLatin1String(platformIndependentC)).toString();
 
     if (!value.isEmpty() && value == QLatin1String("true"))
-        flags |= Core::IWizard::PlatformIndependent;
+        flags |= IWizard::PlatformIndependent;
 
     return flags;
 }
@@ -549,7 +551,7 @@ static inline QString attributeValue(const QXmlStreamReader &r, const char *name
 // Return locale language attribute "de_UTF8" -> "de", empty string for "C"
 static inline QString languageSetting()
 {
-    QString name = Core::ICore::userInterfaceLanguage();
+    QString name = ICore::userInterfaceLanguage();
     const int underScorePos = name.indexOf(QLatin1Char('_'));
     if (underScorePos != -1)
         name.truncate(underScorePos);
@@ -577,7 +579,7 @@ GeneratorScriptArgument::GeneratorScriptArgument(const QString &v) :
 CustomWizardParameters::ParseResult
      CustomWizardParameters::parse(QIODevice &device,
                                    const QString &configFileFullPath,
-                                   Core::BaseFileWizardParameters *bp,
+                                   BaseFileWizardParameters *bp,
                                    QString *errorMessage)
 {
     int comboEntryCount = 0;
@@ -586,7 +588,7 @@ CustomWizardParameters::ParseResult
     ParseState state = ParseBeginning;
     clear();
     bp->clear();
-    bp->setKind(Core::IWizard::ProjectWizard);
+    bp->setKind(IWizard::ProjectWizard);
     const QString language = languageSetting();
     CustomWizardField field;
     do {
@@ -657,11 +659,10 @@ CustomWizardParameters::ParseResult
                         file.binary = booleanAttributeValue(reader, fileBinaryAttributeC, false);
                         if (file.target.isEmpty())
                             file.target = file.source;
-                        if (file.source.isEmpty()) {
+                        if (file.source.isEmpty())
                             qWarning("Skipping empty file name in custom project.");
-                        } else {
+                        else
                             files.push_back(file);
-                        }
                     }
                     break;
                 case ParseWithinScript:
@@ -730,7 +731,7 @@ CustomWizardParameters::ParseResult
 
 CustomWizardParameters::ParseResult
      CustomWizardParameters::parse(const QString &configFileFullPath,
-                                   Core::BaseFileWizardParameters *bp,
+                                   BaseFileWizardParameters *bp,
                                    QString *errorMessage)
 {
     QFile configFile(configFileFullPath);
@@ -907,12 +908,12 @@ bool replaceFieldHelper(ValueStringTransformation transform,
 
     Replace field values delimited by '%' with special modifiers:
     \list
-    \o %Field% -> simple replacement
-    \o %Field:l% -> replace with everything changed to lower case
-    \o %Field:u% -> replace with everything changed to upper case
-    \o %Field:c% -> replace with first character capitalized
-    \o  %Field:h% -> replace with something usable as header guard
-    \o %Field:s% -> replace with something usable as structure or class name
+    \li %Field% -> simple replacement
+    \li %Field:l% -> replace with everything changed to lower case
+    \li %Field:u% -> replace with everything changed to upper case
+    \li %Field:c% -> replace with first character capitalized
+    \li  %Field:h% -> replace with something usable as header guard
+    \li %Field:s% -> replace with something usable as structure or class name
     \endlist
 
     The return value indicates whether non-empty replacements were encountered.
@@ -995,7 +996,7 @@ void CustomWizardContext::reset()
 {
     // Basic replacement fields: Suffixes.
     baseReplacements.clear();
-    const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
+    const MimeDatabase *mdb = ICore::mimeDatabase();
     baseReplacements.insert(QLatin1String("CppSourceSuffix"),
                             mdb->preferredSuffixByType(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE)));
     baseReplacements.insert(QLatin1String("CppHeaderSuffix"),

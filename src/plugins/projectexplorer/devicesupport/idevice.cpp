@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -141,7 +141,7 @@
 
 static Core::Id newId()
 {
-    return Core::Id(QUuid::createUuid().toString());
+    return Core::Id::fromString(QUuid::createUuid().toString());
 }
 
 namespace ProjectExplorer {
@@ -151,6 +151,7 @@ const char TypeKey[] = "OsType";
 const char IdKey[] = "InternalId";
 const char OriginKey[] = "Origin";
 const char MachineTypeKey[] = "Type";
+const char VersionKey[] = "Version";
 
 // Connection
 const char HostKey[] = "Host";
@@ -175,7 +176,8 @@ public:
     IDevicePrivate() :
         origin(IDevice::AutoDetected),
         deviceState(IDevice::DeviceStateUnknown),
-        machineType(IDevice::Hardware)
+        machineType(IDevice::Hardware),
+        version(0)
     { }
 
     QString displayName;
@@ -184,6 +186,7 @@ public:
     Core::Id id;
     IDevice::DeviceState deviceState;
     IDevice::MachineType machineType;
+    int version; // This is used by devices that have been added by the SDK.
 
     QSsh::SshConnectionParameters sshParameters;
     Utils::PortList freePorts;
@@ -278,22 +281,14 @@ void IDevice::setDeviceState(const IDevice::DeviceState state)
     d->deviceState = state;
 }
 
-Core::Id IDevice::invalidId()
-{
-    return Core::Id();
-}
-
 Core::Id IDevice::typeFromMap(const QVariantMap &map)
 {
-    const QString idStr = map.value(QLatin1String(TypeKey)).toString();
-    if (idStr.isEmpty())
-        return Core::Id();
-    return Core::Id(idStr);
+    return Core::Id::fromSetting(map.value(QLatin1String(TypeKey)));
 }
 
 Core::Id IDevice::idFromMap(const QVariantMap &map)
 {
-    return Core::Id(map.value(QLatin1String(IdKey)).toString());
+    return Core::Id::fromSetting(map.value(QLatin1String(IdKey)));
 }
 
 void IDevice::fromMap(const QVariantMap &map)
@@ -315,6 +310,7 @@ void IDevice::fromMap(const QVariantMap &map)
     d->freePorts = Utils::PortList::fromString(map.value(QLatin1String(PortsSpecKey),
         QLatin1String("10000-10100")).toString());
     d->machineType = static_cast<MachineType>(map.value(QLatin1String(MachineTypeKey), DefaultMachineType).toInt());
+    d->version = map.value(QLatin1String(VersionKey), 0).toInt();
 }
 
 QVariantMap IDevice::toMap() const
@@ -335,6 +331,7 @@ QVariantMap IDevice::toMap() const
     map.insert(QLatin1String(TimeoutKey), d->sshParameters.timeout);
 
     map.insert(QLatin1String(PortsSpecKey), d->freePorts.toString());
+    map.insert(QLatin1String(VersionKey), d->version);
 
     return map;
 }
@@ -384,6 +381,11 @@ Utils::PortList IDevice::freePorts() const
 IDevice::MachineType IDevice::machineType() const
 {
     return d->machineType;
+}
+
+int IDevice::version() const
+{
+    return d->version;
 }
 
 QString IDevice::defaultPrivateKeyFilePath()

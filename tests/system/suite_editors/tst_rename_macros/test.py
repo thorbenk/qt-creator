@@ -24,11 +24,10 @@ def testRenameMacroAfterSourceModification():
     def __deleteAnyClass__():
         global cppEditorStr
         if platform.system() == 'Darwin':
-            type(cppEditorStr, "<Command+Left>")
+            type(cppEditorStr, "<Meta+Left>")
         else:
             type(cppEditorStr, "<Home>")
-        for i in range(5):
-            type(cppEditorStr, "<Shift+Down>")
+        markText(cppEditorStr, "Down", 5)
         type(cppEditorStr, "<Delete>")
 
     test.log("Testing rename macro after modifying source.")
@@ -51,11 +50,10 @@ def testRenameMacroAfterSourceMoving():
     def __cut__():
         global cppEditorStr
         if platform.system() == 'Darwin':
-            type(cppEditorStr, "<Command+Left>")
+            type(cppEditorStr, "<Meta+Left>")
         else:
             type(cppEditorStr, "<Home>")
-        for i in range(4):
-            type(cppEditorStr, "<Shift+Down>")
+        markText(cppEditorStr, "Down", 4)
         invokeMenuItem("Edit", "Cut")
 
     def __paste__():
@@ -130,7 +128,7 @@ def verifyChangedContent(origTexts, replacedSymbol, replacement):
     if successfullyCompared.count(True) == len(origTexts):
         test.passes("Successfully compared %d changed files" % len(origTexts))
     else:
-        test.fail("Verifyied %d files - %d have been successfully changed and %d failed to "
+        test.fail("Verified %d files - %d have been successfully changed and %d failed to "
                   "change correctly." % (len(origTexts), successfullyCompared.count(True),
                                          successfullyCompared.count(False)))
 
@@ -138,9 +136,13 @@ def revertChanges(files):
     for f in files:
         simpleName = simpleFileName(f)
         if openDocument(f):
-            invokeMenuItem('File', 'Revert "%s" to Saved' % simpleName)
-            clickButton(waitForObject(":Revert to Saved.Proceed_QPushButton"))
-            test.log("Reverted changes inside %s" % simpleName)
+            try:
+                invokeMenuItem('File', 'Revert "%s" to Saved' % simpleName)
+                clickButton(waitForObject(":Revert to Saved.Proceed_QPushButton"))
+                test.log("Reverted changes inside %s" % simpleName)
+            except:
+                test.warning("File '%s' cannot be reverted." % simpleName,
+                             "Maybe it has not been changed at all.")
         else:
             test.fail("Could not open %s for reverting changes" % simpleName)
 

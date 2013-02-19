@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -138,9 +138,8 @@ public:
         if (const FunctionValue *func = value->asFunctionValue()) {
             // constructors usually also have other interesting members,
             // don't consider them pure functions and complete the '()'
-            if (!func->lookupMember(QLatin1String("prototype"), 0, 0, false)) {
+            if (!func->lookupMember(QLatin1String("prototype"), 0, 0, false))
                 data = QVariant::fromValue(CompleteFunctionCall(func->namedArgumentCount() || func->isVariadic()));
-            }
         }
         addCompletion(completions, name, icon, order, data);
     }
@@ -975,6 +974,19 @@ struct QmlJSLessThan
 // -------------------------
 // QmlJSAssistProposalModel
 // -------------------------
+void QmlJSAssistProposalModel::filter(const QString &prefix)
+{
+    BasicProposalItemListModel::filter(prefix);
+    if (prefix.startsWith(QLatin1String("__")))
+        return;
+    QList<BasicProposalItem *> newCurrentItems;
+    newCurrentItems.reserve(m_currentItems.size());
+    foreach (BasicProposalItem *item, m_currentItems)
+        if (!item->text().startsWith(QLatin1String("__")))
+            newCurrentItems << item;
+    m_currentItems = newCurrentItems;
+}
+
 void QmlJSAssistProposalModel::sort()
 {
     qSort(currentItems().first, currentItems().second, QmlJSLessThan());

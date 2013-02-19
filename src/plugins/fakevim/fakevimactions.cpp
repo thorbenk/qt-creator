@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -70,9 +70,8 @@ void FakeVimSettings::insertItem(int code, SavedAction *item,
         m_nameToCode[longName] = code;
         m_codeToName[code] = longName;
     }
-    if (!shortName.isEmpty()) {
+    if (!shortName.isEmpty())
         m_nameToCode[shortName] = code;
-    }
 }
 
 void FakeVimSettings::readSettings(QSettings *settings)
@@ -142,6 +141,13 @@ FakeVimSettings *theFakeVimSettings()
     item->setCheckable(true);
     item->setValue(false);
     instance->insertItem(ConfigReadVimRc, item);
+
+    item = new SavedAction(instance);
+    item->setText(QCoreApplication::translate("FakeVim::Internal",
+        "Path to .vimrc"));
+    item->setDefaultValue(QString());
+    item->setSettingsKey(group, _("VimRcPath"));
+    instance->insertItem(ConfigVimRcPath, item);
 
     item = new SavedAction(instance);
     item->setValue(true);

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -64,7 +64,7 @@ public:
 
     KitConfigWidget *createConfigWidget(Kit *k) const;
 
-    ItemList toUserOutput(Kit *k) const;
+    ItemList toUserOutput(const Kit *k) const;
 
     static bool hasSysRoot(const Kit *k);
     static Utils::FileName sysRoot(const Kit *k);
@@ -104,12 +104,13 @@ public:
 
     QList<Task> validate(const Kit *k) const;
     void fix(Kit *k);
+    void setup(Kit *k);
 
     KitConfigWidget *createConfigWidget(Kit *k) const;
 
     QString displayNamePostfix(const Kit *k) const;
 
-    ItemList toUserOutput(Kit *k) const;
+    ItemList toUserOutput(const Kit *k) const;
 
     void addToEnvironment(const Kit *k, Utils::Environment &env) const;
     IOutputParser *createOutputParser(const Kit *k) const;
@@ -157,7 +158,7 @@ public:
 
     KitConfigWidget *createConfigWidget(Kit *k) const;
 
-    ItemList toUserOutput(Kit *k) const;
+    ItemList toUserOutput(const Kit *k) const;
 
     static const Core::Id deviceTypeId(const Kit *k);
     static void setDeviceTypeId(Kit *k, Core::Id type);
@@ -204,7 +205,7 @@ public:
 
     QString displayNamePostfix(const Kit *k) const;
 
-    ItemList toUserOutput(Kit *k) const;
+    ItemList toUserOutput(const Kit *k) const;
 
     static IDevice::ConstPtr device(const Kit *k);
     static Core::Id deviceId(const Kit *k);

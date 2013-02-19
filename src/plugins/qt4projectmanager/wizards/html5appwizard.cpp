@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -60,7 +60,7 @@ private:
 Html5AppWizardDialog::Html5AppWizardDialog(QWidget *parent,
                                            const Core::WizardDialogParameters &parameters)
     : AbstractMobileAppWizardDialog(parent, QtSupport::QtVersionNumber(),
-      QtSupport::QtVersionNumber(4, INT_MAX, INT_MAX), parameters),
+      QtSupport::QtVersionNumber(), parameters),
       m_htmlOptionsPage(0)
 {
     setWindowTitle(tr("New HTML5 Application"));

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -40,8 +40,8 @@
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/session.h>
 #include <texteditor/basetexteditor.h>
-#include <texteditor/tooltip/tooltip.h>
-#include <texteditor/tooltip/tipcontents.h>
+#include <utils/tooltip/tooltip.h>
+#include <utils/tooltip/tipcontents.h>
 #include <utils/qtcassert.h>
 
 #include <QDebug>
@@ -239,7 +239,7 @@ void BookmarkView::contextMenuEvent(QContextMenuEvent *event)
     QAction *moveDown = menu.addAction(tr("Move Down"));
     QAction *remove = menu.addAction(tr("&Remove"));
     QAction *removeAll = menu.addAction(tr("Remove All"));
-    QAction *editNote = menu.addAction(tr("Edit note"));
+    QAction *editNote = menu.addAction(tr("Edit Note"));
 
     m_contextMenuIndex = indexAt(event->pos());
     if (!m_contextMenuIndex.isValid()) {
@@ -703,7 +703,7 @@ void BookmarkManager::editNote()
     Bookmark *b = m_bookmarksList.at(current.row());
 
     bool inputOk = false;
-    QString noteText = QInputDialog::getText(0, tr("Edit note"),
+    QString noteText = QInputDialog::getText(0, tr("Edit Note"),
                                              tr("Note text:"), QLineEdit::Normal,
                                              b->note(), &inputOk);
     if (inputOk) {
@@ -803,11 +803,10 @@ void BookmarkManager::operateTooltip(TextEditor::ITextEditor *textEditor, const 
     if (!mark)
         return;
 
-    if (mark->note().isEmpty()) {
-        TextEditor::ToolTip::instance()->hide();
-    } else {
-        TextEditor::ToolTip::instance()->show(pos, TextEditor::TextContent(mark->note()), textEditor->widget());
-    }
+    if (mark->note().isEmpty())
+        Utils::ToolTip::instance()->hide();
+    else
+        Utils::ToolTip::instance()->show(pos, Utils::TextContent(mark->note()), textEditor->widget());
 }
 
 /* Loads the bookmarks from the session settings. */

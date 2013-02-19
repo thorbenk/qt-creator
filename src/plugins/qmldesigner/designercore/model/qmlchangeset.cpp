@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -37,11 +37,10 @@ namespace QmlDesigner {
 
 ModelNode QmlModelStateOperation::target() const
 {
-    if (modelNode().property("target").isBindingProperty()) {
+    if (modelNode().property("target").isBindingProperty())
         return modelNode().bindingProperty("target").resolveToModelNode();
-    } else {
+    else
         return ModelNode(); //exception?
-    }
 }
 
 void QmlModelStateOperation::setTarget(const ModelNode &target)
@@ -58,7 +57,7 @@ bool QmlModelStateOperation::isValid() const
 {
     return QmlModelNodeFacade::isValid() && (
                 modelNode().metaInfo().isSubclassOf("<cpp>.QDeclarative1StateOperation", -1, -1)
-                || modelNode().metaInfo().isSubclassOf("<cpp>.QDeclarativeStateOperation", -1, -1));
+                || modelNode().metaInfo().isSubclassOf("<cpp>.QQuickStateOperation", -1, -1));
 }
 
 void QmlPropertyChanges::removeProperty(const QString &name)

@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 AudioCodes Ltd.
+** Copyright (c) 2013 AudioCodes Ltd.
 ** Author: Orgad Shaneh <orgad.shaneh@audiocodes.com>
 ** Contact: http://www.qt-project.org/legal
 **
@@ -96,7 +96,9 @@
 #include <QVariant>
 #include <QVBoxLayout>
 #include <QXmlStreamReader>
-
+#ifdef WITH_TESTS
+#include <QTest>
+#endif
 
 namespace ClearCase {
 namespace Internal {
@@ -116,6 +118,7 @@ static const char CMD_ID_UPDATEINDEX[]        = "ClearCase.UpdateIndex";
 static const char CMD_ID_UPDATE_VIEW[]        = "ClearCase.UpdateView";
 static const char CMD_ID_CHECKIN_ALL[]        = "ClearCase.CheckInAll";
 static const char CMD_ID_STATUS[]             = "ClearCase.Status";
+static const char *CLEARCASE_ROOT_FILES[] = { "view.dat", ".view.dat" };
 
 static const VcsBase::VcsBaseEditorParameters editorParameters[] = {
 {
@@ -217,10 +220,27 @@ bool ClearCasePlugin::isCheckInEditorOpen() const
     return !m_checkInMessageFileName.isEmpty();
 }
 
+static QString ccFindRepositoryForDirectory(const QString &dirS)
+{
+    const QString home = QDir::homePath();
+
+    QDir directory(dirS);
+    do {
+        const QString absDirPath = directory.absolutePath();
+        if (directory.isRoot() || absDirPath == home)
+            break;
+
+        for (uint i = 0; i < sizeof(CLEARCASE_ROOT_FILES) / sizeof(*CLEARCASE_ROOT_FILES); ++i)
+            if (QFileInfo(directory, QLatin1String(CLEARCASE_ROOT_FILES[i])).isFile())
+                return absDirPath;
+    } while (directory.cdUp());
+    return QString();
+}
+
 /*! Find top level for view that contains \a directory
  *
- * - Snapshot Views will have the CLEARCASE_ROOT_FILE (view.dat) in its top dir
- * - Dynamic views can either be
+ * - Snapshot view has one of CLEARCASE_ROOT_FILES (view.dat or .view.dat) in its top dir
+ * - Dynamic view can either be
  *      - M:/view_name,
  *      - or mapped to a drive letter, like Z:/
  *    (drive letters are just examples)
@@ -233,7 +253,7 @@ QString ClearCasePlugin::findTopLevel(const QString &directory) const
 
     // Snapshot view
     QString topLevel =
-            findRepositoryForDirectory(directory, QLatin1String(ClearCase::Constants::CLEARCASE_ROOT_FILE));
+            ccFindRepositoryForDirectory(directory);
     if (!topLevel.isEmpty() || !clearCaseControl()->isConfigured())
         return topLevel;
 
@@ -258,7 +278,8 @@ static const VcsBase::VcsBaseSubmitEditorParameters submitParameters = {
     ClearCase::Constants::CLEARCASE_SUBMIT_MIMETYPE,
     ClearCase::Constants::CLEARCASECHECKINEDITOR_ID,
     ClearCase::Constants::CLEARCASECHECKINEDITOR_DISPLAY_NAME,
-    ClearCase::Constants::CLEARCASECHECKINEDITOR
+    ClearCase::Constants::CLEARCASECHECKINEDITOR,
+    VcsBase::VcsBaseSubmitEditorParameters::DiffFiles
 };
 
 bool ClearCasePlugin::initialize(const QStringList & /*arguments */, QString *errorMessage)
@@ -300,7 +321,7 @@ bool ClearCasePlugin::initialize(const QStringList & /*arguments */, QString *er
     const QString description = QLatin1String("ClearCase");
     const QString prefix = QLatin1String("cc");
     // register cc prefix in Locator
-    m_commandLocator = new Locator::CommandLocator(prefix, description, prefix);
+    m_commandLocator = new Locator::CommandLocator("cc", description, prefix);
     addAutoReleasedObject(m_commandLocator);
 
     //register actions
@@ -939,6 +960,7 @@ void ClearCasePlugin::startCheckInAll()
         if (iterator.value().status == FileStatus::CheckedOut)
             files.append(QDir::toNativeSeparators(iterator.key()));
     }
+    files.sort();
     startCheckIn(topLevel, files);
 }
 
@@ -975,6 +997,7 @@ void ClearCasePlugin::startCheckInActivity()
             last = file;
         }
     }
+    files.sort();
     startCheckIn(topLevel, files);
 }
 
@@ -1939,6 +1962,38 @@ void ClearCasePlugin::sync(QFutureInterface<void> &future, QString topLevel, QSt
     connect(&ccSync, SIGNAL(updateStreamAndView()), plugin, SLOT(updateStreamAndView()));
     ccSync.run(future, topLevel, files);
 }
+
+#ifdef WITH_TESTS
+void ClearCasePlugin::testDiffFileResolving_data()
+{
+    QTest::addColumn<QByteArray>("header");
+    QTest::addColumn<QByteArray>("fileName");
+
+    QTest::newRow("Modified") << QByteArray(
+            "--- src/plugins/clearcase/clearcaseeditor.cpp@@/main/1\t2013-01-20 23:45:48.549615210 +0200\n"
+            "+++ src/plugins/clearcase/clearcaseeditor.cpp@@/main/2\t2013-01-20 23:45:53.217604679 +0200\n"
+            "@@ -58,6 +58,10 @@\n\n")
+        << QByteArray("src/plugins/clearcase/clearcaseeditor.cpp");
+}
+
+void ClearCasePlugin::testDiffFileResolving()
+{
+    ClearCaseEditor editor(editorParameters + 3, 0);
+    editor.testDiffFileResolving();
+}
+
+void ClearCasePlugin::testLogResolving()
+{
+    QByteArray data(
+                "13-Sep.17:41   user1      create version \"src/plugins/clearcase/clearcaseeditor.h@@/main/branch1/branch2/9\" (baseline1, baseline2, ...)\n"
+                "22-Aug.14:13   user2      create version \"src/plugins/clearcase/clearcaseeditor.h@@/main/branch1/branch2/8\" (baseline3, baseline4, ...)\n"
+                );
+    ClearCaseEditor editor(editorParameters + 1, 0);
+    editor.testLogResolving(data,
+                            "src/plugins/clearcase/clearcaseeditor.h@@/main/branch1/branch2/9",
+                            "src/plugins/clearcase/clearcaseeditor.h@@/main/branch1/branch2/8");
+}
+#endif
 
 } // namespace Internal
 } // namespace ClearCase

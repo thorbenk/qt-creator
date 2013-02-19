@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 BogDan Vatra <bog_dan_ro@yahoo.com>
+** Copyright (c) 2013 BogDan Vatra <bog_dan_ro@yahoo.com>
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -34,6 +34,8 @@
 #include "androidglobal.h"
 #include "androidpackagecreationwidget.h"
 #include "androidmanager.h"
+#include "androidgdbserverkitinformation.h"
+#include "androidtoolchain.h"
 
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/projectexplorerconstants.h>
@@ -152,7 +154,7 @@ bool AndroidPackageCreationStep::init()
     else
         androidLibPath = path.appendPath(QLatin1String("libs/armeabi"));
     m_gdbServerDestination = androidLibPath.appendPath(QLatin1String("gdbserver"));
-    m_gdbServerSource = AndroidConfigurations::instance().gdbServerPath(target()->activeRunConfiguration()->abi().architecture());
+    m_gdbServerSource = AndroidGdbServerKitInformation::gdbServer(target()->kit());
     m_debugBuild = bc->qmakeBuildConfiguration() & QtSupport::BaseQtVersion::DebugBuild;
 
     if (!AndroidManager::createAndroidTemplatesIfNecessary(target()))
@@ -166,6 +168,11 @@ bool AndroidPackageCreationStep::init()
     m_certificatePasswdForRun = m_certificatePasswd;
     m_jarSigner = AndroidConfigurations::instance().jarsignerPath();
     m_zipAligner = AndroidConfigurations::instance().zipalignPath();
+
+    ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(target()->kit());
+    if (tc->type() != QLatin1String(Constants::ANDROID_TOOLCHAIN_TYPE))
+        return false;
+
     initCheckRequiredLibrariesForRun();
     return true;
 }
@@ -192,6 +199,21 @@ static inline QString msgCannotFindExecutable(const QString &appPath)
         "built successfully and is selected in Application tab ('Run option').").arg(appPath);
 }
 
+static void parseSharedLibs(const QByteArray &buffer, QStringList *libs)
+{
+#if defined(_WIN32)
+    QList<QByteArray> lines = buffer.trimmed().split('\r');
+#else
+    QList<QByteArray> lines = buffer.trimmed().split('\n');
+#endif
+    foreach (QByteArray line, lines) {
+        if (line.contains("(NEEDED)") && line.contains("Shared library:") ) {
+            const int pos = line.lastIndexOf('[') + 1;
+            (*libs) << QString::fromLatin1(line.mid(pos, line.length() - pos - 1));
+        }
+    }
+}
+
 void AndroidPackageCreationStep::checkRequiredLibraries()
 {
     QProcess readelfProc;
@@ -200,20 +222,20 @@ void AndroidPackageCreationStep::checkRequiredLibraries()
         raiseError(msgCannotFindElfInformation(), msgCannotFindExecutable(appPath));
         return;
     }
-    readelfProc.start(AndroidConfigurations::instance().readelfPath(target()->activeRunConfiguration()->abi().architecture()).toString(),
+
+    ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(target()->kit());
+    if (tc->type() != QLatin1String(Constants::ANDROID_TOOLCHAIN_TYPE))
+        return;
+    AndroidToolChain *atc = static_cast<AndroidToolChain *>(tc);
+
+    readelfProc.start(AndroidConfigurations::instance().readelfPath(target()->activeRunConfiguration()->abi().architecture(), atc->ndkToolChainVersion()).toString(),
                       QStringList() << QLatin1String("-d") << QLatin1String("-W") << appPath);
     if (!readelfProc.waitForFinished(-1)) {
         readelfProc.kill();
         return;
     }
     QStringList libs;
-    QList<QByteArray> lines = readelfProc.readAll().trimmed().split('\n');
-    foreach (const QByteArray &line, lines) {
-        if (line.contains("(NEEDED)") && line.contains("Shared library:") ) {
-            const int pos = line.lastIndexOf('[') + 1;
-            libs << QString::fromLatin1(line.mid(pos, line.length() - pos - 1));
-        }
-    }
+    parseSharedLibs(readelfProc.readAll(), &libs);
     QStringList checkedLibs = AndroidManager::qtLibs(target());
     QStringList requiredLibraries;
     foreach (const QString &qtLib, AndroidManager::availableQtLibs(target())) {
@@ -234,8 +256,14 @@ void AndroidPackageCreationStep::checkRequiredLibraries()
 
 void AndroidPackageCreationStep::initCheckRequiredLibrariesForRun()
 {
+    ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(target()->kit());
+    if (tc->type() != QLatin1String(Constants::ANDROID_TOOLCHAIN_TYPE))
+        return;
+    AndroidToolChain *atc = static_cast<AndroidToolChain *>(tc);
+
     m_appPath = Utils::FileName::fromString(AndroidManager::targetApplicationPath(target()));
-    m_readElf = AndroidConfigurations::instance().readelfPath(target()->activeRunConfiguration()->abi().architecture());
+    m_readElf = AndroidConfigurations::instance().readelfPath(target()->activeRunConfiguration()->abi().architecture(),
+                                                              atc->ndkToolChainVersion());
     m_qtLibs = AndroidManager::qtLibs(target());
     m_availableQtLibs = AndroidManager::availableQtLibs(target());
     m_prebundledLibs = AndroidManager::prebundledLibs(target());
@@ -254,14 +282,7 @@ void AndroidPackageCreationStep::checkRequiredLibrariesForRun()
         return;
     }
     QStringList libs;
-    QList<QByteArray> lines = readelfProc.readAll().trimmed().split('\n');
-    foreach (const QByteArray &line, lines) {
-        if (line.contains("(NEEDED)") && line.contains("Shared library:") ) {
-            const int pos = line.lastIndexOf('[') + 1;
-            libs << QString::fromLatin1(line.mid(pos, line.length() - pos - 1));
-        }
-    }
-
+    parseSharedLibs(readelfProc.readAll(), &libs);
     QStringList requiredLibraries;
     foreach (const QString &qtLib, m_availableQtLibs) {
         if (libs.contains(QLatin1String("lib") + qtLib + QLatin1String(".so")) || m_qtLibs.contains(qtLib))
@@ -459,11 +480,11 @@ bool AndroidPackageCreationStep::createPackage()
     return true;
 }
 
-void AndroidPackageCreationStep::stripAndroidLibs(const QStringList & files, Abi::Architecture architecture)
+void AndroidPackageCreationStep::stripAndroidLibs(const QStringList & files, Abi::Architecture architecture, const QString &ndkToolchainVersion)
 {
     QProcess stripProcess;
     foreach (const QString &file, files) {
-        stripProcess.start(AndroidConfigurations::instance().stripPath(architecture).toString(),
+        stripProcess.start(AndroidConfigurations::instance().stripPath(architecture, ndkToolchainVersion).toString(),
                            QStringList()<<QLatin1String("--strip-unneeded") << file);
         stripProcess.waitForStarted();
         if (!stripProcess.waitForFinished())

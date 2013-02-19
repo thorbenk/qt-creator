@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -426,6 +426,11 @@ QString PathChooser::errorMessage() const
     return d->m_lineEdit->errorMessage();
 }
 
+void PathChooser::triggerChanged()
+{
+    d->m_lineEdit->triggerChanged();
+}
+
 bool PathChooser::validatePath(const QString &path, QString *errorMessage)
 {
     QString expandedPath = d->expandedPath(path);
@@ -516,7 +521,7 @@ bool PathChooser::validatePath(const QString &path, QString *errorMessage)
     case PathChooser::ExistingCommand:
         if (!fi.isFile() || !fi.isExecutable()) {
             if (errorMessage)
-                *errorMessage = tr("The path <b>%1</b> is not a executable file.").arg(QDir::toNativeSeparators(expandedPath));
+                *errorMessage = tr("The path <b>%1</b> is not an executable file.").arg(QDir::toNativeSeparators(expandedPath));
             return false;
         }
 

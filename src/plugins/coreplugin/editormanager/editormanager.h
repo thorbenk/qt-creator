@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -116,6 +116,8 @@ public:
 
     static QString splitLineNumber(QString *fileName);
     static IEditor *openEditor(const QString &fileName, const Id &editorId = Id(),
+        OpenEditorFlags flags = 0, bool *newEditor = 0);
+    static IEditor *openEditorInNextSplit(const QString &fileName, const Id &editorId = Id(),
         OpenEditorFlags flags = 0, bool *newEditor = 0);
     static IEditor *openEditorWithContents(const Id &editorId,
         QString *titlePattern = 0, const QString &contents = QString());

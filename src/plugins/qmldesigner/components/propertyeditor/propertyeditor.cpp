@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -51,7 +51,6 @@
 #include <qmleditorwidgets/colorwidgets.h>
 #include "gradientlineqmladaptor.h"
 #include "behaviordialog.h"
-#include "qproxylayoutitem.h"
 #include "fontwidget.h"
 #include "siblingcombobox.h"
 #include "propertyeditortransaction.h"
@@ -136,9 +135,8 @@ QmlJS::SimpleReaderNode::Ptr templateConfiguration()
         const QString fileName = propertyTemplatesPath() + QLatin1String("TemplateTypes.qml");
         s_templateConfiguration = reader.readFile(fileName);
 
-        if (!s_templateConfiguration) {
-            qWarning() << PropertyEditor::tr("template defitions:") << reader.errors();
-        }
+        if (!s_templateConfiguration)
+            qWarning().nospace() << "template definitions:" << reader.errors();
     }
 
     return s_templateConfiguration;
@@ -207,12 +205,11 @@ void createPropertyEditorValue(const QmlObjectNode &fxObjectNode, const QString 
     valueObject->setName(name);
     valueObject->setModelNode(fxObjectNode);
 
-    if (fxObjectNode.propertyAffectedByCurrentState(name) && !(fxObjectNode.modelNode().property(name).isBindingProperty())) {
+    if (fxObjectNode.propertyAffectedByCurrentState(name) && !(fxObjectNode.modelNode().property(name).isBindingProperty()))
         valueObject->setValue(fxObjectNode.modelValue(name));
 
-    } else {
+    else
         valueObject->setValue(value);
-    }
 
     if (propertyName != QLatin1String("id") &&
         fxObjectNode.currentState().isBaseState() &&
@@ -239,9 +236,8 @@ void PropertyEditor::NodeType::setValue(const QmlObjectNode & fxObjectNode, cons
 
 void PropertyEditor::NodeType::setup(const QmlObjectNode &fxObjectNode, const QString &stateName, const QUrl &qmlSpecificsFile, PropertyEditor *propertyEditor)
 {
-    if (!fxObjectNode.isValid()) {
+    if (!fxObjectNode.isValid())
         return;
-    }
 
     QDeclarativeContext *ctxt = m_view->rootContext();
 
@@ -286,6 +282,17 @@ void PropertyEditor::NodeType::setup(const QmlObjectNode &fxObjectNode, const QS
         m_contextObject->setSelectionChanged(false);
 
         m_contextObject->setSelectionChanged(false);
+
+        NodeMetaInfo metaInfo = fxObjectNode.modelNode().metaInfo();
+
+        if (metaInfo.isValid()) {
+            m_contextObject->setMajorVersion(metaInfo.majorVersion());
+            m_contextObject->setMinorVersion(metaInfo.minorVersion());
+        } else {
+            m_contextObject->setMajorVersion(-1);
+            m_contextObject->setMinorVersion(-1);
+        }
+
     } else {
         qWarning() << "PropertyEditor: invalid node for setup";
     }
@@ -364,7 +371,6 @@ PropertyEditor::PropertyEditor(QWidget *parent) :
         QLayoutObject::registerDeclarativeType();
         QmlEditorWidgets::ColorWidgets::registerDeclarativeTypes();
         BehaviorDialog::registerDeclarativeType();
-        QProxyLayoutItem::registerDeclarativeTypes();
         PropertyEditorValue::registerDeclarativeTypes();
         FontWidget::registerDeclarativeTypes();
         SiblingComboBox::registerDeclarativeTypes();
@@ -469,9 +475,8 @@ void PropertyEditor::changeValue(const QString &propertyName)
     underscoreName.replace(QLatin1Char('.'), QLatin1Char('_'));
     PropertyEditorValue *value = qobject_cast<PropertyEditorValue*>(variantToQObject(m_currentType->m_backendValuesPropertyMap.value(underscoreName)));
 
-    if (value ==0) {
+    if (value ==0)
         return;
-    }
 
     QmlObjectNode fxObjectNode(m_selectedNode);
 
@@ -670,9 +675,8 @@ void PropertyEditor::delayedResetView()
 
 void PropertyEditor::timerEvent(QTimerEvent *timerEvent)
 {
-    if (m_timerId == timerEvent->timerId()) {
+    if (m_timerId == timerEvent->timerId())
         resetView();
-    }
 }
 
 QString templateGeneration(NodeMetaInfo type, NodeMetaInfo superType, const QmlObjectNode &objectNode)
@@ -717,7 +721,7 @@ QString templateGeneration(NodeMetaInfo type, NodeMetaInfo superType, const QmlO
                         qmlTemplate += source.arg(name).arg(properName);
                         emptyTemplate = false;
                     } else {
-                        qWarning() << PropertyEditor::tr("template defition source file not found:") << fileName;
+                        qWarning().nospace() << "template definition source file not found:" << fileName;
                     }
                 }
         }
@@ -759,14 +763,14 @@ void PropertyEditor::resetView()
         hierarchy << m_selectedNode.metaInfo().superClasses();
 
         foreach (const NodeMetaInfo &info, hierarchy) {
-            if (QFileInfo(qmlSpecificsFile.toLocalFile()).exists())
+            if (QFileInfo(fileFromUrl(qmlSpecificsFile)).exists())
                 break;
             qmlSpecificsFile = fileToUrl(locateQmlFile(info, fixTypeNameForPanes(info.typeName()) + "Specifics.qml"));
             diffClassName = info.typeName();
         }
     }
 
-    if (!QFileInfo(qmlSpecificsFile.toLocalFile()).exists())
+    if (!QFileInfo(fileFromUrl(qmlSpecificsFile)).exists())
         diffClassName = specificsClassName;
 
     QString specificQmlData;
@@ -801,9 +805,8 @@ void PropertyEditor::resetView()
         ctxt->setContextProperty("finishedNotify", QVariant(true));
     } else {
         QmlObjectNode fxObjectNode;
-        if (m_selectedNode.isValid()) {
+        if (m_selectedNode.isValid())
             fxObjectNode = QmlObjectNode(m_selectedNode);
-        }
         QDeclarativeContext *ctxt = type->m_view->rootContext();
 
         ctxt->setContextProperty("finishedNotify", QVariant(false));
@@ -975,9 +978,8 @@ void PropertyEditor::nodeIdChanged(const ModelNode& node, const QString& newId, 
 
     if (node == m_selectedNode) {
 
-        if (m_currentType) {
+        if (m_currentType)
             setValue(node, "id", newId);
-        }
     }
 }
 
@@ -998,7 +1000,6 @@ void PropertyEditor::select(const ModelNode &node)
 
 QWidget *PropertyEditor::widget()
 {
-    delayedResetView();
     return m_stackedWidget;
 }
 
@@ -1056,6 +1057,16 @@ QUrl PropertyEditor::fileToUrl(const QString &filePath) const {
     }
 
     return fileUrl;
+}
+
+QString PropertyEditor::fileFromUrl(const QUrl &url) const
+{
+    if (url.scheme() == QLatin1String("qrc")) {
+        const QString &path = url.path();
+        return QLatin1String(":") + path;
+    }
+
+    return url.toLocalFile();
 }
 
 QUrl PropertyEditor::qmlForNode(const ModelNode &modelNode, QString &className) const

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -123,7 +123,8 @@ IOutputParser::~IOutputParser()
 
 void IOutputParser::appendOutputParser(IOutputParser *parser)
 {
-    QTC_ASSERT(parser, return);
+    if (!parser)
+        return;
     if (m_parser) {
         m_parser->appendOutputParser(parser);
         return;

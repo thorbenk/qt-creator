@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -51,7 +51,7 @@ ResetWidget::ResetWidget(QWidget *parent) : QGroupBox(parent), m_backendObject(0
     m_vlayout->setContentsMargins(2,2,2,2);
 
     QPushButton *b = new QPushButton(this);
-    b->setText(tr("reset all properties"));
+    b->setText(tr("Reset All Properties"));
     m_vlayout->addWidget(b);
 
     setLayout(m_vlayout);

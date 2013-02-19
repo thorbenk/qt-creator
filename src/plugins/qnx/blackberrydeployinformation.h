@@ -2,7 +2,7 @@
 **
 ** This file is part of Qt Creator
 **
-** Copyright (C) 2011 - 2012 Research In Motion
+** Copyright (C) 2011 - 2013 Research In Motion
 **
 ** Contact: Research In Motion (blackberry-qt@qnx.com)
 ** Contact: KDAB (info@kdab.com)
@@ -33,7 +33,12 @@
 
 #include <QAbstractTableModel>
 
+namespace ProjectExplorer {
+class Target;
+}
+
 namespace Qt4ProjectManager {
+class Qt4ProFileNode;
 class Qt4Project;
 }
 
@@ -60,7 +65,7 @@ class BlackBerryDeployInformation : public QAbstractTableModel
 {
     Q_OBJECT
 public:
-    explicit BlackBerryDeployInformation(Qt4ProjectManager::Qt4Project *project);
+    explicit BlackBerryDeployInformation(ProjectExplorer::Target *target);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
@@ -74,8 +79,11 @@ public:
 
     QList<BarPackageDeployInformation> enabledPackages() const;
 
+    QVariantMap toMap() const;
+    void fromMap(const QVariantMap &map);
+
 private slots:
-    void initModel();
+    void updateModel();
 
 private:
     enum Columns {
@@ -85,7 +93,12 @@ private:
         ColumnCount // Always have last
     };
 
-    Qt4ProjectManager::Qt4Project *m_project;
+    Qt4ProjectManager::Qt4Project *project() const;
+
+    void initModel();
+    BarPackageDeployInformation deployInformationFromNode(Qt4ProjectManager::Qt4ProFileNode *node) const;
+
+    ProjectExplorer::Target *m_target;
 
     QList<BarPackageDeployInformation> m_deployInformation;
 };

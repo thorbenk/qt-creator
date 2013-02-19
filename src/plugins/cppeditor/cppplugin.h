@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -80,12 +80,30 @@ public slots:
 
 private slots:
     void switchDeclarationDefinition();
+    void openDeclarationDefinitionInNextSplit();
     void renameSymbolUnderCursor();
     void onTaskStarted(const QString &type);
     void onAllTasksFinished(const QString &type);
     void findUsages();
     void currentEditorChanged(Core::IEditor *editor);
     void openTypeHierarchy();
+
+#ifdef WITH_TESTS
+private slots: // quickfix tests
+    void test_quickfix_GenerateGetterSetter_basicGetterWithPrefix();
+    void test_quickfix_GenerateGetterSetter_basicGetterWithoutPrefix();
+    void test_quickfix_GenerateGetterSetter_customType();
+    void test_quickfix_GenerateGetterSetter_constMember();
+    void test_quickfix_GenerateGetterSetter_pointerToNonConst();
+    void test_quickfix_GenerateGetterSetter_pointerToConst();
+    void test_quickfix_GenerateGetterSetter_staticMember();
+    void test_quickfix_GenerateGetterSetter_secondDeclarator();
+    void test_quickfix_GenerateGetterSetter_triggeringRightAfterPointerSign();
+    void test_quickfix_GenerateGetterSetter_notTriggeringOnMemberFunction();
+    void test_quickfix_GenerateGetterSetter_notTriggeringOnMemberArray();
+    void test_quickfix_GenerateGetterSetter_notTriggeringWhenGetterOrSetterExist();
+    void test_quickfix_ReformatPointerDeclaration();
+#endif // WITH_TESTS
 
 private:
     Core::IEditor *createEditor(QWidget *parent);

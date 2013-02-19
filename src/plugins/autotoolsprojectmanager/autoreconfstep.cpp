@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2012 Openismus GmbH.
+** Copyright (C) 2013 Openismus GmbH.
 ** Authors: Peter Penz (ppenz@openismus.com)
 **          Patricia Santana Cruz (patriciasantanacruz@gmail.com)
 ** Contact: http://www.qt-project.org/legal
@@ -178,6 +178,7 @@ void AutoreconfStep::run(QFutureInterface<bool> &interface)
     if (!m_runAutoreconf) {
         emit addOutput(tr("Configuration unchanged, skipping autoreconf step."), BuildStep::MessageOutput);
         interface.reportResult(true);
+        emit finished();
         return;
     }
 

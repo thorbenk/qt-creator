@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -32,6 +32,7 @@
 #include "emptyprojectwizarddialog.h"
 
 #include <projectexplorer/projectexplorerconstants.h>
+#include <qtsupport/qtsupportconstants.h>
 
 #include <QIcon>
 
@@ -51,7 +52,7 @@ EmptyProjectWizard::EmptyProjectWizard()
 
 Core::FeatureSet EmptyProjectWizard::requiredFeatures() const
 {
-    return Core::FeatureSet();
+    return Core::Feature(QtSupport::Constants::FEATURE_QT);
 }
 
 QWizard *EmptyProjectWizard::createWizardDialog(QWidget *parent,

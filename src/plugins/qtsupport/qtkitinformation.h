@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -58,7 +58,7 @@ public:
 
     QString displayNamePostfix(const ProjectExplorer::Kit *k) const;
 
-    ItemList toUserOutput(ProjectExplorer::Kit *k) const;
+    ItemList toUserOutput(const ProjectExplorer::Kit *k) const;
 
     void addToEnvironment(const ProjectExplorer::Kit *k, Utils::Environment &env) const;
     ProjectExplorer::IOutputParser *createOutputParser(const ProjectExplorer::Kit *k) const;

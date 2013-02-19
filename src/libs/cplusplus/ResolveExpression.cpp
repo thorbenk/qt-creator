@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -357,9 +357,8 @@ void ResolveExpression::thisObject()
 bool ResolveExpression::visit(CompoundExpressionAST *ast)
 {
     CompoundStatementAST *cStmt = ast->statement;
-    if (cStmt && cStmt->statement_list) {
+    if (cStmt && cStmt->statement_list)
         accept(cStmt->statement_list->lastValue());
-    }
     return false;
 }
 
@@ -849,7 +848,7 @@ public:
     }
 
 private:
-    NamedType *getNamedType(FullySpecifiedType& type)
+    NamedType *getNamedType(FullySpecifiedType& type) const
     {
         NamedType *namedTy = type->asNamedType();
         if (! namedTy) {
@@ -859,19 +858,57 @@ private:
         return namedTy;
     }
 
-    QList<LookupItem> getNamedTypeItems(const Name *name, Scope *scope, ClassOrNamespace *binding)
+    QList<LookupItem> getNamedTypeItems(const Name *name, Scope *scope,
+                                        ClassOrNamespace *binding) const
     {
-        QList<LookupItem> namedTypeItems;
-        if (binding)
-            namedTypeItems = binding->lookup(name);
-        if (ClassOrNamespace *scopeCon = _context.lookupType(scope))
-            namedTypeItems += scopeCon->lookup(name);
+        QList<LookupItem> namedTypeItems = typedefsFromScopeUpToFunctionScope(name, scope);
+        if (namedTypeItems.isEmpty()) {
+            if (binding)
+                namedTypeItems = binding->lookup(name);
+            if (ClassOrNamespace *scopeCon = _context.lookupType(scope))
+                namedTypeItems += scopeCon->lookup(name);
+        }
 
         return namedTypeItems;
     }
 
+    /// Return all typedefs with given name from given scope up to function scope.
+    static QList<LookupItem> typedefsFromScopeUpToFunctionScope(const Name *name, Scope *scope)
+    {
+        QList<LookupItem> results;
+        Scope *enclosingBlockScope = 0;
+        for (Block *block = scope->asBlock(); block;
+             block = enclosingBlockScope ? enclosingBlockScope->asBlock() : 0) {
+            const unsigned memberCount = block->memberCount();
+            for (unsigned i = 0; i < memberCount; ++i) {
+                Symbol *symbol = block->memberAt(i);
+                if (Declaration *declaration = symbol->asDeclaration()) {
+                    if (isTypedefWithName(declaration, name)) {
+                        LookupItem item;
+                        item.setDeclaration(declaration);
+                        item.setScope(block);
+                        item.setType(declaration->type());
+                        results.append(item);
+                    }
+                }
+            }
+            enclosingBlockScope = block->enclosingScope();
+        }
+        return results;
+    }
+
+    static bool isTypedefWithName(const Declaration *declaration, const Name *name)
+    {
+        if (declaration->isTypedef()) {
+            const Identifier *identifier = declaration->name()->identifier();
+            if (name->identifier()->isEqualTo(identifier))
+                return true;
+        }
+        return false;
+    }
+
     bool findTypedef(const QList<LookupItem>& namedTypeItems, FullySpecifiedType *type,
-                     Scope **scope, QSet<Symbol *>& visited)
+                     Scope **scope, QSet<Symbol *>& visited) const
     {
         bool foundTypedef = false;
         foreach (const LookupItem &it, namedTypeItems) {
@@ -907,6 +944,8 @@ ClassOrNamespace *ResolveExpression::baseExpression(const QList<LookupItem> &bas
     TypedefsResolver typedefsResolver(_context);
 
     foreach (const LookupItem &r, baseResults) {
+        if (!r.type().type())
+            continue;
         FullySpecifiedType ty = r.type().simplified();
         FullySpecifiedType originalType = ty;
         Scope *scope = r.scope();
@@ -927,6 +966,11 @@ ClassOrNamespace *ResolveExpression::baseExpression(const QList<LookupItem> &bas
                 FullySpecifiedType type = ptrTy->elementType();
                 if (! ty->isPointerType())
                     type = ty;
+                if (ClassOrNamespace *binding = findClass(type, scope))
+                    return binding;
+
+            } else if (PointerType *ptrTy = ty->asPointerType()) {
+                FullySpecifiedType type = ptrTy->elementType();
                 if (ClassOrNamespace *binding = findClass(type, scope))
                     return binding;
 
@@ -977,10 +1021,23 @@ ClassOrNamespace *ResolveExpression::baseExpression(const QList<LookupItem> &bas
             }
         } else if (accessOp == T_DOT) {
             if (replacedDotOperator) {
-                if (PointerType *ptrTy = ty->asPointerType()) {
-                    // replace . with ->
+                *replacedDotOperator = originalType->isPointerType() || ty->isPointerType();
+                // replace . with ->
+                if (PointerType *ptrTy = originalType->asPointerType()) {
+                    // case when original type is a pointer and
+                    // typedef is for type
+                    // e.g.:
+                    // typedef S SType;
+                    // SType *p;
                     ty = ptrTy->elementType();
-                    *replacedDotOperator = true;
+                }
+                else if (PointerType *ptrTy = ty->asPointerType()) {
+                    // case when original type is a type and
+                    // typedef is for pointer of type
+                    // e.g.:
+                    // typedef S* SPTR;
+                    // SPTR p;
+                    ty = ptrTy->elementType();
                 }
             }
 

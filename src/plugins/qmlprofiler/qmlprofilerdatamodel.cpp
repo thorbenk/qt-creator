@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -307,14 +307,13 @@ void QmlProfilerDataModel::addRangedEvent(int type, int bindingType, qint64 star
 
     // generate details string
     if (data.isEmpty())
-        details = tr("Source code not available");
+        details = tr("Source code not available.");
     else {
         details = data.join(QLatin1String(" ")).replace(QLatin1Char('\n'),QLatin1Char(' ')).simplified();
         QRegExp rewrite(QLatin1String("\\(function \\$(\\w+)\\(\\) \\{ (return |)(.+) \\}\\)"));
         bool match = rewrite.exactMatch(details);
-        if (match) {
+        if (match)
             details = rewrite.cap(1) + QLatin1String(": ") + rewrite.cap(3);
-        }
         if (details.startsWith(QLatin1String("file://")))
             details = details.mid(details.lastIndexOf(QLatin1Char('/')) + 1);
     }
@@ -510,11 +509,10 @@ QmlEventType QmlProfilerDataModel::qmlEventTypeAsEnum(const QString &typeString)
     } else {
         bool isNumber = false;
         int type = typeString.toUInt(&isNumber);
-        if (isNumber) {
+        if (isNumber)
             return (QmlEventType)type;
-        } else {
+        else
             return MaximumQmlEventType;
-        }
     }
 }
 
@@ -687,7 +685,7 @@ QString QmlProfilerDataModel::getDetails(int index) const
     // special: animations
     if (d->startInstanceList[index].statsInfo->eventType == QmlDebug::Painting &&
             d->startInstanceList[index].animationCount >= 0)
-        return tr("%1 animations at %2 FPS").arg(
+        return tr("%1 animations at %2 FPS.").arg(
                     QString::number(d->startInstanceList[index].animationCount),
                     QString::number(d->startInstanceList[index].frameRate));
     return d->startInstanceList[index].statsInfo->details;
@@ -806,7 +804,7 @@ void QmlProfilerDataModel::complete()
         compileStatistics(traceStartTime(), traceEndTime());
         setState(Done);
     } else {
-        emit error(tr("Unexpected complete signal in data model"));
+        emit error(tr("Unexpected complete signal in data model."));
     }
 }
 
@@ -843,9 +841,8 @@ void QmlProfilerDataModel::QmlProfilerDataModelPrivate::prepareForDisplay()
             typeCounts[typeNumber] = new QmlRangeEventTypeCount;
             typeCounts[typeNumber]->nestingCount = 0;
         }
-        if (eventStartData.nestingLevel > typeCounts[typeNumber]->nestingCount) {
+        if (eventStartData.nestingLevel > typeCounts[typeNumber]->nestingCount)
             typeCounts[typeNumber]->nestingCount = eventStartData.nestingLevel;
-        }
         if (!typeCounts[typeNumber]->eventIds.contains(eventStartData.statsInfo->eventId))
             typeCounts[typeNumber]->eventIds << eventStartData.statsInfo->eventId;
     }
@@ -1133,9 +1130,8 @@ void QmlProfilerDataModel::QmlProfilerDataModelPrivate::redoTree(qint64 fromTime
         int level = startInstanceList[index].level;
 
         QmlRangeEventData *parentEvent = listedRootEvent;
-        if (level > Constants::QML_MIN_LEVEL && lastParent.contains(level-1)) {
+        if (level > Constants::QML_MIN_LEVEL && lastParent.contains(level-1))
             parentEvent = lastParent[level-1];
-        }
 
         if (!eventDescription->parentHash.contains(parentEvent->eventHashStr)) {
             QmlRangeEventRelative *newParentEvent = new QmlRangeEventRelative(parentEvent);
@@ -1165,9 +1161,8 @@ void QmlProfilerDataModel::QmlProfilerDataModelPrivate::redoTree(qint64 fromTime
 
         lastParent[level] = eventDescription;
 
-        if (level == Constants::QML_MIN_LEVEL) {
+        if (level == Constants::QML_MIN_LEVEL)
             totalTime += duration;
-        }
     }
 
     // fake rootEvent statistics
@@ -1349,13 +1344,13 @@ void QmlProfilerDataModel::finishedRewritingDetails()
 bool QmlProfilerDataModel::save(const QString &filename)
 {
     if (isEmpty()) {
-        emit error(tr("No data to save"));
+        emit error(tr("No data to save."));
         return false;
     }
 
     QFile file(filename);
     if (!file.open(QIODevice::WriteOnly)) {
-        emit error(tr("Could not open %1 for writing").arg(filename));
+        emit error(tr("Could not open %1 for writing.").arg(filename));
         return false;
     }
 
@@ -1432,7 +1427,7 @@ void QmlProfilerDataModel::load()
     QFile file(filename);
 
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        emit error(tr("Could not open %1 for reading").arg(filename));
+        emit error(tr("Could not open %1 for reading.").arg(filename));
         return;
     }
 
@@ -1564,9 +1559,8 @@ void QmlProfilerDataModel::load()
                     currentEvent->location.line = readData.toInt();
                     break;
                 }
-                if (elementName == QLatin1String("column")) {
+                if (elementName == QLatin1String("column"))
                     currentEvent->location.column = readData.toInt();
-                }
                 if (elementName == QLatin1String("details")) {
                     currentEvent->details = readData;
                     break;
@@ -1595,7 +1589,7 @@ void QmlProfilerDataModel::load()
     file.close();
 
     if (stream.hasError()) {
-        emit error(tr("Error while parsing %1").arg(filename));
+        emit error(tr("Error while parsing %1.").arg(filename));
         clear();
         return;
     }
@@ -1666,7 +1660,7 @@ void QmlProfilerDataModel::setState(QmlProfilerDataModel::State state)
             QTC_ASSERT(d->listState == ProcessingData || d->listState == Empty, return);
         break;
         default:
-            emit error(tr("Trying to set unknown state in events list"));
+            emit error(tr("Trying to set unknown state in events list."));
         break;
     }
 

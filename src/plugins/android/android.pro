@@ -37,7 +37,8 @@ HEADERS += \
     javaparser.h \
     androidplugin.h \
     androiddevicefactory.h \
-    androiddevice.h
+    androiddevice.h \
+    androidgdbserverkitinformation.h
 
 SOURCES += \
     androidconfigurations.cpp \
@@ -65,8 +66,8 @@ SOURCES += \
     javaparser.cpp \
     androidplugin.cpp \
     androiddevicefactory.cpp \
-    androiddevice.cpp
-
+    androiddevice.cpp \
+    androidgdbserverkitinformation.cpp
 
 FORMS += \
     androidsettingswidget.ui \
@@ -76,5 +77,4 @@ FORMS += \
     androidcreatekeystorecertificate.ui
 
 RESOURCES = android.qrc
-DEFINES += QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_ASCII
 DEFINES += ANDROID_LIBRARY

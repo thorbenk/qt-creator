@@ -5,10 +5,10 @@ headerdirs =
 sourcedirs = $SRCDIR/src
 imagedirs = $SRCDIR/images $SRCDIR/templates/images
 outputdir = $OUTDIR
-exampledirs = $SRCDIR/examples
+exampledirs = $SRCDIR/examples \
+              $SRCDIR/snippets
 indexes                 = qt.index
 
-include(compat.qdocconf)
 include(macros.qdocconf)
 include(qt-cpp-ignore.qdocconf)
 include(qt-defines.qdocconf)
@@ -17,7 +17,7 @@ sources.fileextensions         = "*.qdoc"
 
 qhp.projects            = QtCreator
 qhp.QtCreator.file             = qtcreator.qhp
-qhp.QtCreator.namespace        = com.nokia.qtcreator.$QTC_VERSION_TAG
+qhp.QtCreator.namespace        = org.qt-project.qtcreator.$QTC_VERSION_TAG
 qhp.QtCreator.virtualFolder    = doc
 qhp.QtCreator.indexTitle       = Qt Creator Manual $QTC_VERSION
 qhp.QtCreator.filterAttributes = qtcreator $QTC_VERSION

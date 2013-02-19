@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2012 Research In Motion
+** Copyright (C) 2011 - 2013 Research In Motion
 **
 ** Contact: Research In Motion (blackberry-qt@qnx.com)
 ** Contact: KDAB (info@kdab.com)
@@ -98,7 +98,6 @@ void BlackBerryAbstractDeployStep::run(QFutureInterface<bool> &fi)
 
     // Finished
     m_params.clear();
-    cleanup();
     m_processCounter = -1;
 
     m_timer->stop();

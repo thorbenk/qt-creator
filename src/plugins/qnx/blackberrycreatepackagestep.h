@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2011 - 2012 Research In Motion
+** Copyright (C) 2011 - 2013 Research In Motion
 **
 ** Contact: Research In Motion (blackberry-qt@qnx.com)
 ** Contact: KDAB (info@kdab.com)
@@ -35,7 +35,7 @@
 #include "blackberryabstractdeploystep.h"
 
 QT_BEGIN_NAMESPACE
-class QTemporaryFile;
+class QFile;
 QT_END_NAMESPACE
 
 namespace Qnx {
@@ -50,7 +50,6 @@ public:
     explicit BlackBerryCreatePackageStep(ProjectExplorer::BuildStepList *bsl);
 
     bool init();
-    void cleanup();
     ProjectExplorer::BuildStepConfigWidget *createConfigWidget();
 
     QString debugToken() const;
@@ -61,9 +60,7 @@ protected:
     void raiseError(const QString &errorMessage);
 
 private:
-    bool prepareAppDescriptorFile(const QString &appDescriptorPath, QTemporaryFile *preparedFile);
-
-    QList<QTemporaryFile *> m_preparedAppDescriptorFiles;
+    bool prepareAppDescriptorFile(const QString &appDescriptorPath, const QString &preparedFilePath);
 };
 
 } // namespace Internal

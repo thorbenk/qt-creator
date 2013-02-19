@@ -1,7 +1,7 @@
 /**************************************************************************
 **
-** Copyright (c) 2012 Dmitry Savchenko
-** Copyright (c) 2010 Vasiliy Sorokin
+** Copyright (c) 2013 Dmitry Savchenko
+** Copyright (c) 2013 Vasiliy Sorokin
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -31,10 +31,10 @@
 #include "todooutputpane.h"
 #include "constants.h"
 #include "todoitemsmodel.h"
+#include "todooutputtreeview.h"
 
 #include <QIcon>
 #include <QHeaderView>
-#include <QTreeView>
 #include <QToolButton>
 #include <QButtonGroup>
 
@@ -173,20 +173,8 @@ void TodoOutputPane::updateTodoCount()
 
 void TodoOutputPane::createTreeView()
 {
-    m_todoTreeView = new QTreeView();
-
-    m_todoTreeView->setRootIsDecorated(false);
-    m_todoTreeView->setFrameStyle(QFrame::NoFrame);
-    m_todoTreeView->setSortingEnabled(true);
+    m_todoTreeView = new TodoOutputTreeView();
     m_todoTreeView->setModel(m_todoItemsModel);
-    m_todoTreeView->setAttribute(Qt::WA_MacShowFocusRect, false);
-
-    QHeaderView *header = m_todoTreeView->header();
-    header->setResizeMode(Constants::OUTPUT_COLUMN_TEXT, QHeaderView::Stretch);
-    header->setResizeMode(Constants::OUTPUT_COLUMN_LINE, QHeaderView::ResizeToContents);
-    header->setResizeMode(Constants::OUTPUT_COLUMN_FILE, QHeaderView::ResizeToContents);
-    header->setStretchLastSection(false);
-    header->setMovable(false);
 
     connect(m_todoTreeView, SIGNAL(clicked(QModelIndex)), SLOT(todoTreeViewClicked(QModelIndex)));
 }

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -824,9 +824,10 @@ static QList<int> lazyFindReferences(Scope *scope, QString code, Document::Ptr d
     TypeOfExpression typeOfExpression;
     snapshot.insert(doc);
     typeOfExpression.init(doc, snapshot);
-    if (Symbol *canonicalSymbol = CanonicalSymbol::canonicalSymbol(scope, code, typeOfExpression)) {
+    // make possible to instantiate templates
+    typeOfExpression.setExpandTemplates(true);
+    if (Symbol *canonicalSymbol = CanonicalSymbol::canonicalSymbol(scope, code, typeOfExpression))
         return CppModelManagerInterface::instance()->references(canonicalSymbol, typeOfExpression.context());
-    }
     return QList<int>();
 }
 
@@ -837,19 +838,55 @@ void CPPEditorWidget::markSymbols(const QTextCursor &tc, const SemanticInfo &inf
     if (! info.doc)
         return;
 
-    CanonicalSymbol cs(this, info);
-    QString expression;
-    if (Scope *scope = cs.getScopeAndExpression(this, info, tc, &expression)) {
-        m_references.cancel();
-        m_referencesRevision = info.revision;
-        m_referencesCursorPosition = position();
-        m_references = QtConcurrent::run(&lazyFindReferences, scope, expression, info.doc, info.snapshot);
-        m_referencesWatcher.setFuture(m_references);
-    } else {
-        const QList<QTextEdit::ExtraSelection> selections = extraSelections(CodeSemanticsSelection);
+    if (const Macro *macro = findCanonicalMacro(textCursor(), info.doc)) {
+        QList<QTextEdit::ExtraSelection> selections;
 
-        if (! selections.isEmpty())
-            setExtraSelections(CodeSemanticsSelection, QList<QTextEdit::ExtraSelection>());
+        //Macro definition
+        if (macro->fileName() == info.doc->fileName()) {
+            QTextCursor cursor(document());
+            cursor.setPosition(macro->offset());
+            cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, macro->name().length());
+
+            QTextEdit::ExtraSelection sel;
+            sel.format = m_occurrencesFormat;
+            sel.cursor = cursor;
+            selections.append(sel);
+        }
+
+        //Other macro uses
+        foreach (Document::MacroUse use, info.doc->macroUses()) {
+            if (use.macro().line() != macro->line()
+                    || use.macro().offset() != macro->offset()
+                    || use.macro().length() != macro->length()
+                    || use.macro().fileName() != macro->fileName())
+                continue;
+
+            QTextCursor cursor(document());
+            cursor.setPosition(use.begin());
+            cursor.setPosition(use.end(), QTextCursor::KeepAnchor);
+
+            QTextEdit::ExtraSelection sel;
+            sel.format = m_occurrencesFormat;
+            sel.cursor = cursor;
+            selections.append(sel);
+        }
+
+        setExtraSelections(CodeSemanticsSelection, selections);
+    } else {
+        CanonicalSymbol cs(this, info);
+        QString expression;
+        if (Scope *scope = cs.getScopeAndExpression(this, info, tc, &expression)) {
+            m_references.cancel();
+            m_referencesRevision = info.revision;
+            m_referencesCursorPosition = position();
+            m_references = QtConcurrent::run(&lazyFindReferences, scope, expression, info.doc, info.snapshot);
+            m_referencesWatcher.setFuture(m_references);
+        } else {
+            const QList<QTextEdit::ExtraSelection> selections = extraSelections(CodeSemanticsSelection);
+
+            if (! selections.isEmpty())
+                setExtraSelections(CodeSemanticsSelection, QList<QTextEdit::ExtraSelection>());
+        }
     }
 }
 
@@ -989,8 +1026,10 @@ void CPPEditorWidget::highlightUses(const QList<SemanticInfo::Use> &uses,
         isUnused = true;
 
     foreach (const SemanticInfo::Use &use, uses) {
-        QTextEdit::ExtraSelection sel;
+        if (use.isInvalid())
+            continue;
 
+        QTextEdit::ExtraSelection sel;
         if (isUnused)
             sel.format = m_occurrencesUnusedFormat;
         else
@@ -1100,35 +1139,8 @@ void CPPEditorWidget::finishHighlightSymbolUsages()
                                             m_lastSemanticInfo.doc->diagnosticMessages());
 }
 
-// @TODO: Clang testing... Lots of code around here will need some refactor.
-void CPPEditorWidget::codeNavigate(bool switchDeclDef)
+void CPPEditorWidget::switchDeclarationDefinition(bool inNextSplit)
 {
-#ifdef CLANG_INDEXING
-
-    QTextCursor tc = textCursor();
-    CppTools::moveCursorToStartOfIdentifier(&tc);
-
-    int line, column;
-    convertPosition(tc.position(), &line, &column);
-    ++column;
-
-    ClangCodeModel::SourceLocation location;
-    if (switchDeclDef)
-        location = m_codeNavigator.switchDeclarationDefinition(line, column);
-    else
-        location = m_codeNavigator.followItem(line, column);
-    if (location.isNull())
-        return;
-
-    openLink(Link(location.fileName(), location.line(), location.column() - 1));
-
-#else // !CLANG_INDEXING
-
-    if (!switchDeclDef) {
-        openLink(findLinkAt(textCursor()));
-        return;
-    }
-
     if (! m_modelManager)
         return;
 
@@ -1145,6 +1157,8 @@ void CPPEditorWidget::codeNavigate(bool switchDeclDef)
         Function *function = lastVisibleSymbol->asFunction();
         if (! function)
             function = lastVisibleSymbol->enclosingFunction();
+
+        CPPEditorWidget::Link symbolLink;
 
         if (function) {
             LookupContext context(thisDocument, snapshot);
@@ -1166,21 +1180,19 @@ void CPPEditorWidget::codeNavigate(bool switchDeclDef)
                     }
                 }
             }
-            if (! best.isEmpty())
-                openCppEditorAt(linkToSymbol(best.first()));
+            if (best.isEmpty())
+                return;
 
-        } else if (lastVisibleSymbol && lastVisibleSymbol->isDeclaration() && lastVisibleSymbol->type()->isFunctionType()) {
-            if (Symbol *def = symbolFinder()->findMatchingDefinition(lastVisibleSymbol, snapshot, true))
-                openCppEditorAt(linkToSymbol(def));
+            symbolLink = linkToSymbol(best.first());
+        } else if (lastVisibleSymbol
+                   && lastVisibleSymbol->isDeclaration()
+                   && lastVisibleSymbol->type()->isFunctionType()) {
+            symbolLink = linkToSymbol(symbolFinder()->findMatchingDefinition(lastVisibleSymbol, snapshot));
         }
+
+        if (symbolLink.hasValidTarget())
+            openCppEditorAt(symbolLink, inNextSplit != alwaysOpenLinksInNextSplit());
     }
-
-#endif // CLANG_INDEXING
-}
-
-void CPPEditorWidget::switchDeclarationDefinition()
-{
-    codeNavigate(true);
 }
 
 static inline LookupItem skipForwardDeclarations(const QList<LookupItem> &resolvedSymbols)
@@ -1289,8 +1301,10 @@ CPPEditorWidget::Link CPPEditorWidget::attemptFuncDeclDef(const QTextCursor &cur
         doc->translationUnit()->getTokenEndPosition(name->lastToken() - 1, &endLine, &endColumn);
 
         QTextDocument *textDocument = cursor.document();
-        result.begin = textDocument->findBlockByNumber(startLine - 1).position() + startColumn - 1;
-        result.end = textDocument->findBlockByNumber(endLine - 1).position() + endColumn - 1;
+        result.linkTextStart =
+                textDocument->findBlockByNumber(startLine - 1).position() + startColumn - 1;
+        result.linkTextEnd =
+                textDocument->findBlockByNumber(endLine - 1).position() + endColumn - 1;
     }
 
     return result;
@@ -1320,8 +1334,8 @@ CPPEditorWidget::Link CPPEditorWidget::findMacroLink(const QByteArray &name,
         foreach (const Macro &macro, doc->definedMacros()) {
             if (macro.name() == name) {
                 Link link;
-                link.fileName = macro.fileName();
-                link.line = macro.line();
+                link.targetFileName = macro.fileName();
+                link.targetLine = macro.line();
                 return link;
             }
         }
@@ -1330,7 +1344,7 @@ CPPEditorWidget::Link CPPEditorWidget::findMacroLink(const QByteArray &name,
         for (int index = includes.size() - 1; index != -1; --index) {
             const Document::Include &i = includes.at(index);
             Link link = findMacroLink(name, snapshot.document(i.fileName()), snapshot, processed);
-            if (! link.fileName.isEmpty())
+            if (link.hasValidTarget())
                 return link;
         }
     }
@@ -1371,7 +1385,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
             ++pos;
         if (characterAt(pos) == QLatin1Char('(')) {
             link = attemptFuncDeclDef(cursor, m_lastSemanticInfo.doc, snapshot);
-            if (link.isValid())
+            if (link.hasValidLinkText())
                 return link;
         }
     }
@@ -1457,9 +1471,9 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
             const unsigned lineno = cursor.blockNumber() + 1;
             foreach (const Document::Include &incl, doc->includes()) {
                 if (incl.line() == lineno && incl.resolved()) {
-                    link.fileName = incl.fileName();
-                    link.begin = beginOfToken + 1;
-                    link.end = endOfToken - 1;
+                    link.targetFileName = incl.fileName();
+                    link.linkTextStart = beginOfToken + 1;
+                    link.linkTextEnd = endOfToken - 1;
                     return link;
                 }
             }
@@ -1482,10 +1496,10 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
         const Document::MacroUse *use = doc->findMacroUseAt(endOfToken - 1);
         if (use && use->macro().fileName() != CppModelManagerInterface::configurationFileName()) {
             const Macro &macro = use->macro();
-            link.fileName = macro.fileName();
-            link.line = macro.line();
-            link.begin = use->begin();
-            link.end = use->end();
+            link.targetFileName = macro.fileName();
+            link.targetLine = macro.line();
+            link.linkTextStart = use->begin();
+            link.linkTextEnd = use->end();
             return link;
         }
     }
@@ -1506,9 +1520,8 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
         else {
             if (ch == QLatin1Char('(') && ! expression.isEmpty()) {
                 tc.setPosition(pos);
-                if (TextEditor::TextBlockUserData::findNextClosingParenthesis(&tc, true)) {
+                if (TextEditor::TextBlockUserData::findNextClosingParenthesis(&tc, true))
                     expression.append(tc.selectedText());
-                }
             }
 
             break;
@@ -1517,6 +1530,8 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
 
     TypeOfExpression typeOfExpression;
     typeOfExpression.init(doc, snapshot);
+    // make possible to instantiate templates
+    typeOfExpression.setExpandTemplates(true);
     const QList<LookupItem> resolvedSymbols =
             typeOfExpression.reference(expression.toUtf8(), scope, TypeOfExpression::Preprocess);
 
@@ -1552,8 +1567,8 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
             }
 
             link = linkToSymbol(def ? def : symbol);
-            link.begin = beginOfToken;
-            link.end = endOfToken;
+            link.linkTextStart = beginOfToken;
+            link.linkTextEnd = endOfToken;
             return link;
         }
     }
@@ -1562,21 +1577,14 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
     QTextCursor macroCursor = cursor;
     const QByteArray name = identifierUnderCursor(&macroCursor).toLatin1();
     link = findMacroLink(name);
-    if (! link.fileName.isEmpty()) {
-        link.begin = macroCursor.selectionStart();
-        link.end = macroCursor.selectionEnd();
+    if (link.hasValidTarget()) {
+        link.linkTextStart = macroCursor.selectionStart();
+        link.linkTextEnd = macroCursor.selectionEnd();
         return link;
     }
 
     return Link();
 }
-
-#if 0
-void CPPEditorWidget::jumpToDefinition()
-{
-    codeNavigate(false);
-}
-#endif
 
 Symbol *CPPEditorWidget::findDefinition(Symbol *symbol, const Snapshot &snapshot) const
 {
@@ -1882,8 +1890,9 @@ CPPEditorWidget::Link CPPEditorWidget::linkToSymbol(CPlusPlus::Symbol *symbol)
     if (!symbol)
         return Link();
 
-    const QString fileName = QString::fromUtf8(symbol->fileName(),
+    const QString filename = QString::fromUtf8(symbol->fileName(),
                                                symbol->fileNameLength());
+
     unsigned line = symbol->line();
     unsigned column = symbol->column();
 
@@ -1893,18 +1902,30 @@ CPPEditorWidget::Link CPPEditorWidget::linkToSymbol(CPlusPlus::Symbol *symbol)
     if (symbol->isGenerated())
         column = 0;
 
-    return Link(fileName, line, column);
+    return Link(filename, line, column);
 }
 
-bool CPPEditorWidget::openCppEditorAt(const Link &link)
+bool CPPEditorWidget::openCppEditorAt(const Link &link, bool inNextSplit)
 {
-    if (link.fileName.isEmpty())
+    if (!link.hasValidTarget())
         return false;
 
-    return TextEditor::BaseTextEditorWidget::openEditorAt(link.fileName,
-                                                    link.line,
-                                                    link.column,
-                                                    Constants::CPPEDITOR_ID);
+    Core::EditorManager *editorManager = Core::EditorManager::instance();
+    if (inNextSplit) {
+        if (!editorManager->hasSplitter())
+            editorManager->splitSideBySide();
+        editorManager->gotoOtherSplit();
+    } else if (baseTextDocument()->fileName() == link.targetFileName) {
+        editorManager->addCurrentPositionToNavigationHistory();
+        gotoLine(link.targetLine, link.targetColumn);
+        setFocus();
+        return true;
+    }
+
+    return TextEditor::BaseTextEditorWidget::openEditorAt(link.targetFileName,
+                                                          link.targetLine,
+                                                          link.targetColumn,
+                                                          Constants::CPPEDITOR_ID);
 }
 
 void CPPEditorWidget::semanticRehighlight(bool force)
@@ -1965,7 +1986,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
         m_highlighter.cancel();
 
         if (! semanticHighlighterDisabled && semanticInfo.doc) {
-            if (Core::EditorManager::currentEditor() == editor()) {
+            if (isVisible()) {
                 if (m_highlightingSupport) {
                     m_highlighter = m_highlightingSupport->highlightingFuture(semanticInfo.doc, semanticInfo.snapshot);
                     m_highlightRevision = semanticInfo.revision;

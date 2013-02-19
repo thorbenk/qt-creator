@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -35,7 +35,9 @@
 #include <QCoreApplication>
 #include <QUuid>
 #include <QFileInfo>
+#include <QDir>
 #include <QTimer>
+#include <QTextStream>
 
 #include "propertyabstractcontainer.h"
 #include "propertyvaluecontainer.h"
@@ -78,6 +80,24 @@
 #include <QMessageBox>
 
 namespace {
+#ifdef Q_OS_MAC
+#  define SHARE_PATH "/../Resources/qmldesigner"
+#else
+#  define SHARE_PATH "/../share/qtcreator/qmldesigner"
+#endif
+
+static QString applicationDirPath()
+{
+    return QCoreApplication::applicationDirPath();
+}
+
+static inline QString sharedDirPath()
+{
+    QString appPath = applicationDirPath();
+
+    return QFileInfo(appPath + SHARE_PATH).absoluteFilePath();
+}
+
 static QLatin1String qmlPuppetApplicationDirectoryForTests()
 {
     if (Utils::HostOsInfo::isWindowsHost())
@@ -138,9 +158,8 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
    }
 
    QByteArray envImportPath = qgetenv("QTCREATOR_QMLPUPPET_PATH");
-   if (!envImportPath.isEmpty()) {
+   if (!envImportPath.isEmpty())
        applicationPath = envImportPath;
-   }
 
    QProcessEnvironment enviroment = QProcessEnvironment::systemEnvironment();
 
@@ -210,23 +229,17 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
            }
 
        } else {
-           if (!hasQtQuick2(m_nodeInstanceView.data()))
-               QMessageBox::warning(0, tr("Cannot Start QML Puppet Executable"),
-                                    tr("The executable of the QML Puppet process (%1) cannot be started. "
-                                       "Please check your installation. "
-                                       "QML Puppet is a process which runs in the background to render the items.").
-                                    arg(applicationPath));
+           QMessageBox::warning(0, tr("Cannot Start QML Puppet Executable"),
+                                tr("The executable of the QML Puppet process (%1) cannot be started. "
+                                   "Please check your installation. "
+                                   "QML Puppet is a process which runs in the background to render the items.").
+                                arg(applicationPath));
        }
 
        m_localServer->close();
 
    } else {
-       if (!hasQtQuick2(m_nodeInstanceView.data()))
-           QMessageBox::warning(0, tr("Cannot Find QML Puppet Executable"),
-                                tr("The executable of the QML Puppet process (%1) cannot be found. "
-                                   "Please check your installation. "
-                                   "QML Puppet is a process which runs in the background to render the items.").
-                                arg(applicationPath));
+           QMessageBox::warning(0, tr("Cannot Find QML Puppet Executable"), missingQmlPuppetErrorMessage(applicationPath));
    }
 }
 
@@ -296,6 +309,31 @@ NodeInstanceClientInterface *NodeInstanceServerProxy::nodeInstanceClient() const
     return m_nodeInstanceView.data();
 }
 
+QString NodeInstanceServerProxy::missingQmlPuppetErrorMessage(const QString &applicationPath) const
+{
+    QString message;
+    QTextStream str(&message);
+    str << "<html><head/><body><p>"
+        << tr("The executable of the QML Puppet process (<code>%1</code>) cannot be found. "
+              "Check your installation. "
+              "QML Puppet is a process which runs in the background to render the items.").
+           arg(QDir::toNativeSeparators(applicationPath))
+        << "</p>";
+    if (hasQtQuick2(m_nodeInstanceView.data())) {
+        str << "<p>"
+            << tr("You can build <code>qml2puppet</code> yourself with Qt 5.0.1 or higher. "
+                 "The source can be found in <code>%1</code>.").
+               arg(QDir::toNativeSeparators(sharedDirPath() + QLatin1String("/qml/qmlpuppet/qml2puppet/")))
+            << "</p><p>"
+            << tr("<code>qml2puppet</code> will be installed to the <code>bin</code> directory of your Qt version. "
+                  "Qt Quick Designer will check the <code>bin</code> directory of the currently active Qt version "
+                  "of your project.")
+            << "</p>";
+    }
+    str << "</p></body></html>";
+    return message;
+}
+
 static void writeCommandToSocket(const QVariant &command, QLocalSocket *socket, unsigned int commandCounter)
 {
     if (socket) {
@@ -363,9 +401,8 @@ void NodeInstanceServerProxy::readFirstDataStream()
         QDataStream in(m_firstSocket.data());
         in.setVersion(QDataStream::Qt_4_8);
 
-        if (m_firstBlockSize == 0) {
+        if (m_firstBlockSize == 0)
             in >> m_firstBlockSize;
-        }
 
         if (m_firstSocket->bytesAvailable() < m_firstBlockSize)
             break;
@@ -401,9 +438,8 @@ void NodeInstanceServerProxy::readSecondDataStream()
         QDataStream in(m_secondSocket.data());
         in.setVersion(QDataStream::Qt_4_8);
 
-        if (m_secondBlockSize == 0) {
+        if (m_secondBlockSize == 0)
             in >> m_secondBlockSize;
-        }
 
         if (m_secondSocket->bytesAvailable() < m_secondBlockSize)
             break;
@@ -439,9 +475,8 @@ void NodeInstanceServerProxy::readThirdDataStream()
         QDataStream in(m_thirdSocket.data());
         in.setVersion(QDataStream::Qt_4_8);
 
-        if (m_thirdBlockSize == 0) {
+        if (m_thirdBlockSize == 0)
             in >> m_thirdBlockSize;
-        }
 
         if (m_thirdSocket->bytesAvailable() < m_thirdBlockSize)
             break;
