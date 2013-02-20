@@ -42,6 +42,7 @@
 
 #include <QtTest>
 #include <QDebug>
+#undef interface // Canceling "#DEFINE interface struct" on Windows
 
 #include "completiontesthelper.h"
 #include "../clangcodemodelplugin.h"

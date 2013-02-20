@@ -7,8 +7,9 @@ DEFINES += CLANG_INDEXING
 
 win32 {
     LLVM_INCLUDEPATH = $$LLVM_INSTALL_DIR/include
-    LLVM_LIBS = -L$$LLVM_INSTALL_DIR/lib \
-        -llibclang
+    LLVM_LIBS = -L$$LLVM_INSTALL_DIR/bin \
+        -L$$LLVM_INSTALL_DIR/lib \
+        -lclang
 
     LLVM_LIBS += -ladvapi32 -lshell32
 }
