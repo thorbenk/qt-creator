@@ -104,17 +104,23 @@ static void appendDiagnostic(const CXDiagnostic &diag,
                              QList<Diagnostic> &diagnostics)
 {
     const unsigned rangeCount = clang_getDiagnosticNumRanges(diag);
-    if (rangeCount > 0) {
-        for (unsigned i = 0; i < rangeCount; ++i) {
-            CXSourceRange r = clang_getDiagnosticRange(diag, i);
-            const SourceLocation &spellBegin = Internal::getSpellingLocation(clang_getRangeStart(r));
-            const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
-            unsigned length = spellEnd.offset() - spellBegin.offset();
+    bool expandLocation = true;
 
+    for (unsigned i = 0; i < rangeCount; ++i) {
+        CXSourceRange r = clang_getDiagnosticRange(diag, i);
+        const SourceLocation &spellBegin = Internal::getSpellingLocation(clang_getRangeStart(r));
+        const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
+        unsigned length = spellEnd.offset() - spellBegin.offset();
+
+        // File name can be empty due clang bug
+        if (!spellBegin.fileName().isEmpty()) {
             Diagnostic d(severity, spellBegin, length, spelling);
             diagnostics.append(d);
+            expandLocation = false;
         }
-    } else {
+    }
+
+    if (expandLocation) {
         const SourceLocation &location = Internal::getExpansionLocation(cxLocation);
         Diagnostic d(severity, location, 0, spelling);
         diagnostics.append(d);
@@ -130,6 +136,7 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
     const unsigned diagCount = m_unit->getNumDiagnostics();
     for (unsigned i = 0; i < diagCount; ++i) {
         ScopedCXDiagnostic diag(m_unit->getDiagnostic(i));
+
         Diagnostic::Severity severity = static_cast<Diagnostic::Severity>(clang_getDiagnosticSeverity(diag));
         if (severity == Diagnostic::Ignored || severity == Diagnostic::Note)
             continue;
