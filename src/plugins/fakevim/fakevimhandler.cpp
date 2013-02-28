@@ -125,6 +125,7 @@ namespace Internal {
 #define Left            QTextCursor::Left
 #define EndOfDocument   QTextCursor::End
 #define StartOfDocument QTextCursor::Start
+#define NextBlock       QTextCursor::NextBlock
 
 #define ParagraphSeparator QChar::ParagraphSeparator
 
@@ -504,7 +505,7 @@ static void searchForward(QTextCursor *tc, QRegExp &needleExp, int *repeat)
         if (!tc->hasSelection())
             tc->movePosition(Right);
         if (tc->atBlockEnd())
-            tc->movePosition(Right);
+            tc->movePosition(NextBlock);
         *tc = doc->find(needleExp, *tc);
     }
 
@@ -517,7 +518,7 @@ static void searchForward(QTextCursor *tc, QRegExp &needleExp, int *repeat)
         if (!tc->hasSelection())
             tc->movePosition(Right);
         if (tc->atBlockEnd())
-            tc->movePosition(Right);
+            tc->movePosition(NextBlock);
         *tc = doc->find(needleExp, *tc);
         if (tc->isNull())
             return;
@@ -832,16 +833,22 @@ public:
     Input(int k, int m, const QString &t = QString())
         : m_key(k), m_modifiers(cleanModifier(m)), m_text(t)
     {
-        // On Mac, QKeyEvent::text() returns non-empty strings for
-        // cursor keys. This breaks some of the logic later on
-        // relying on text() being empty for "special" keys.
-        // FIXME: Check the real conditions.
-        if (m_text.size() == 1 && m_text.at(0).unicode() < ' ')
-            m_text.clear();
+        if (m_text.size() == 1) {
+            QChar x = m_text.at(0);
+
+            // On Mac, QKeyEvent::text() returns non-empty strings for
+            // cursor keys. This breaks some of the logic later on
+            // relying on text() being empty for "special" keys.
+            // FIXME: Check the real conditions.
+            if (x.unicode() < ' ')
+                m_text.clear();
+            else
+                m_key = x.toUpper().unicode();
+        }
 
         // Set text only if input is ascii key without control modifier.
         if (m_text.isEmpty() && k <= 0x7f && (m & (HostOsInfo::controlModifier())) == 0) {
-            QChar c = QChar::fromAscii(k);
+            QChar c = QChar::fromLatin1(k);
             m_text = QString((m & ShiftModifier) != 0 ? c.toUpper() : c.toLower());
         }
 
@@ -1025,8 +1032,8 @@ void Inputs::parseFrom(const QString &str)
 {
     const int n = str.size();
     for (int i = 0; i < n; ++i) {
-        uint c = str.at(i).unicode();
-        if (c == QLatin1Char('<')) {
+        ushort c = str.at(i).unicode();
+        if (c == '<') {
             int j = str.indexOf(QLatin1Char('>'), i);
             Input input;
             if (j != -1) {
@@ -1038,10 +1045,10 @@ void Inputs::parseFrom(const QString &str)
                 append(input);
                 i = j;
             } else {
-                append(Input(QLatin1Char(c)));
+                append(Input(c));
             }
         } else {
-            append(Input(QLatin1Char(c)));
+            append(Input(c));
         }
     }
 }
@@ -1148,7 +1155,7 @@ public:
             const QChar c = m_buffer.at(i);
             if (c.unicode() < 32) {
                 msg += QLatin1Char('^');
-                msg += QLatin1Char(c.unicode() + 64);
+                msg += QChar(c.unicode() + 64);
             } else {
                 msg += c;
             }
@@ -2340,10 +2347,11 @@ EventResult FakeVimHandler::Private::handleKey(const Input &input)
 
             r = handleDefaultKey(in);
             if (r != EventHandled) {
-                // clear bad mapping
-                const int index = g.pendingInput.lastIndexOf(Input());
-                if (index != -1)
-                    g.pendingInput.remove(0, index - 1);
+                // clear bad mapping and end all started edit blocks
+                g.pendingInput.clear();
+                while (m_editBlockLevel > 0)
+                    endEditBlock();
+                return r;
             }
         }
         handleMapped = true;
