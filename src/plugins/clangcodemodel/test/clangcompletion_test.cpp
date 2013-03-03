@@ -92,7 +92,7 @@ void ClangCodeModelPlugin::test_CXX_regressions_data()
 
     file = QLatin1String("cxx_regression_1.cpp");
     mustHave << QLatin1String("sqr");
-    unexpected << QLatin1String("~Math");
+    mustHave << QLatin1String("~Math");
     unexpected << QLatin1String("operator=");
     QTest::newRow("case 1: method call completion") << file << unexpected << mustHave;
     mustHave.clear();
@@ -111,7 +111,7 @@ void ClangCodeModelPlugin::test_CXX_regressions_data()
     file = QLatin1String("cxx_regression_3.cpp");
     mustHave << QLatin1String("i8");
     mustHave << QLatin1String("i64");
-    unexpected << QLatin1String("~Priv");
+    mustHave << QLatin1String("~Priv");
     unexpected << QLatin1String("operator=");
     QTest::newRow("case 3: nested class resolution") << file << unexpected << mustHave;
     mustHave.clear();

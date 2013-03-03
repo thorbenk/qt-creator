@@ -33,6 +33,10 @@
 #include <QTextDocument>
 #include <QCoreApplication>
 
+enum PriorityFixes {
+    PriorityFix_ExplicitDestructorCall = 10
+};
+
 namespace ClangCodeModel {
 
 /**
@@ -308,10 +312,10 @@ void CompletionProposalsBuilder::finalize()
             || (m_contexts & CXCompletionContext_ArrowMemberAccess)
             || (m_contexts & CXCompletionContext_AnyValue)) {
         if (m_resultKind == CodeCompletionResult::DestructorCompletionKind)
+            m_priority *= PriorityFix_ExplicitDestructorCall;
+        else if (m_resultKind == CodeCompletionResult::FunctionCompletionKind
+                 && m_text.startsWith(QLatin1String("operator")))
             return;
-        if (m_resultKind == CodeCompletionResult::FunctionCompletionKind)
-            if (m_text.startsWith(QLatin1String("operator")))
-                return;
     }
 
     CodeCompletionResult ccr(m_priority);
@@ -341,7 +345,6 @@ void CompletionProposalsBuilder::concatChunksForObjectiveCMessage(const CXComple
     for (unsigned i = 0; i < count; ++i) {
         CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(cxString, i);
         const QString text = Internal::getQString(clang_getCompletionChunkText(cxString, i), false);
-        bool chunkIsPlaceholder = false;
 
         switch (chunkKind) {
         case CXCompletionChunk_TypedText:
@@ -356,7 +359,6 @@ void CompletionProposalsBuilder::concatChunksForObjectiveCMessage(const CXComple
             signature += text;
             break;
         case CXCompletionChunk_Placeholder:
-            chunkIsPlaceholder = true;
             signature += QLatin1String("<b>");
             signature += Qt::escape(text);
             signature += QLatin1String("</b>");
