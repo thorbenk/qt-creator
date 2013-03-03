@@ -33,6 +33,7 @@
 #include "fastindexer.h"
 #include "sourcemarker.h"
 #include "semanticmarker.h"
+#include "pchinfo.h"
 
 #include <texteditor/semantichighlighter.h>
 
@@ -71,7 +72,8 @@ public:
                                  const QString &fileName,
                                  const QStringList &options,
                                  unsigned firstLine, unsigned lastLine,
-                                 Internal::FastIndexer *fastIndexer);
+                                 Internal::FastIndexer *fastIndexer,
+                                 const Internal::PCHInfo::Ptr &pchInfo);
 
     void addUse(const SourceMarker &marker);
     void flush();
@@ -83,10 +85,12 @@ protected:
     CreateMarkers(ClangCodeModel::SemanticMarker::Ptr semanticMarker,
                   const QString &fileName, const QStringList &options,
                   unsigned firstLine, unsigned lastLine,
-                  Internal::FastIndexer *fastIndexer);
+                  Internal::FastIndexer *fastIndexer,
+                  const Internal::PCHInfo::Ptr &pchInfo);
 
 private:
     ClangCodeModel::SemanticMarker::Ptr m_marker;
+    Internal::PCHInfo::Ptr m_pchInfo;
     QString m_fileName;
     QStringList m_options;
     unsigned m_firstLine;

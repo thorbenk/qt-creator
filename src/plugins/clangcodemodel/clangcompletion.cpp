@@ -58,6 +58,7 @@
 #include <QDirIterator>
 #include <QTextCursor>
 #include <QTextDocument>
+#include "pchmanager.h"
 
 #undef DEBUG_TIMING
 
@@ -201,9 +202,13 @@ public:
         CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
         QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
         QStringList includePaths, frameworkPaths, options;
+        PCHInfo::Ptr pchInfo;
         if (!parts.isEmpty()) {
             const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
             options = ClangCodeModel::Utils::createClangOptions(part, fileName);
+            pchInfo = PCHManager::instance()->pchInfo(part);
+            if (!pchInfo.isNull())
+                options.append(ClangCodeModel::Utils::createPCHInclusionOptions(pchInfo->fileName()));
             includePaths = part->includePaths;
             frameworkPaths = part->frameworkPaths;
         }
@@ -211,7 +216,7 @@ public:
         return new ClangCodeModel::ClangCompletionAssistInterface(
                     m_clangCompletionWrapper,
                     document, position, editor()->document(), reason,
-                    options, includePaths, frameworkPaths);
+                    options, includePaths, frameworkPaths, pchInfo);
     }
 
 private:
@@ -546,19 +551,22 @@ bool ClangCompletionAssistInterface::objcEnabled() const
     return m_clangWrapper->objcEnabled();
 }
 
-ClangCompletionAssistInterface::ClangCompletionAssistInterface(ClangCompleter::Ptr clangWrapper,
+ClangCompletionAssistInterface::ClangCompletionAssistInterface(
+        ClangCompleter::Ptr clangWrapper,
         QTextDocument *document,
         int position,
         Core::IDocument *doc,
         AssistReason reason,
         const QStringList &options,
         const QStringList &includePaths,
-        const QStringList &frameworkPaths)
+        const QStringList &frameworkPaths,
+        const PCHInfo::Ptr &pchInfo)
     : DefaultAssistInterface(document, position, doc, reason)
     , m_clangWrapper(clangWrapper)
     , m_options(options)
     , m_includePaths(includePaths)
     , m_frameworkPaths(frameworkPaths)
+    , m_savedPchPointer(pchInfo)
 {
     Q_ASSERT(!clangWrapper.isNull());
 

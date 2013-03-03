@@ -68,7 +68,8 @@ public:
                                    TextEditor::AssistReason reason,
                                    const QStringList &options,
                                    const QStringList &includePaths,
-                                   const QStringList &frameworkPaths);
+                                   const QStringList &frameworkPaths,
+                                   const Internal::PCHInfo::Ptr &pchInfo);
 
     ClangCodeModel::ClangCompleter::Ptr clangWrapper() const
     { return m_clangWrapper; }
@@ -91,6 +92,7 @@ private:
     ClangCodeModel::ClangCompleter::Ptr m_clangWrapper;
     ClangCodeModel::Internal::UnsavedFiles m_unsavedFiles;
     QStringList m_options, m_includePaths, m_frameworkPaths;
+    Internal::PCHInfo::Ptr m_savedPchPointer;
 };
 
 class CLANG_EXPORT ClangCompletionAssistProcessor : public TextEditor::IAssistProcessor

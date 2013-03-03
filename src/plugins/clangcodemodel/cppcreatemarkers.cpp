@@ -48,25 +48,28 @@ CreateMarkers *CreateMarkers::create(SemanticMarker::Ptr semanticMarker,
                                      const QString &fileName,
                                      const QStringList &options,
                                      unsigned firstLine, unsigned lastLine,
-                                     FastIndexer *fastIndexer)
+                                     FastIndexer *fastIndexer,
+                                     const Internal::PCHInfo::Ptr &pchInfo)
 {
     if (semanticMarker.isNull())
         return 0;
     else
-        return new CreateMarkers(semanticMarker, fileName, options, firstLine, lastLine, fastIndexer);
+        return new CreateMarkers(semanticMarker, fileName, options, firstLine, lastLine, fastIndexer, pchInfo);
 }
 
 CreateMarkers::CreateMarkers(SemanticMarker::Ptr semanticMarker,
                              const QString &fileName,
                              const QStringList &options,
                              unsigned firstLine, unsigned lastLine,
-                             FastIndexer *fastIndexer)
+                             FastIndexer *fastIndexer,
+                             const Internal::PCHInfo::Ptr &pchInfo)
     : m_marker(semanticMarker)
     , m_fileName(fileName)
     , m_options(options)
     , m_firstLine(firstLine)
     , m_lastLine(lastLine)
     , m_fastIndexer(fastIndexer)
+    , m_pchInfo(pchInfo)
 {
     Q_ASSERT(!semanticMarker.isNull());
 
@@ -99,6 +102,8 @@ void CreateMarkers::run()
 #ifdef DEBUG_TIMING
     qDebug() << "*** Reparse for highlighting took" << t.elapsed() << "ms.";
 #endif // DEBUG_TIMING
+
+    m_pchInfo.clear();
 
     QList<ClangCodeModel::Diagnostic> diagnostics;
     foreach (const ClangCodeModel::Diagnostic &d, m_marker->diagnostics()) {

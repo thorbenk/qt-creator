@@ -35,6 +35,7 @@
 
 #include <QTextBlock>
 #include <QTextEdit>
+#include "pchmanager.h"
 
 
 using namespace ClangCodeModel;
@@ -135,14 +136,21 @@ QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFutur
     CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
     QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
     QStringList options;
+    PCHInfo::Ptr pchInfo;
     foreach (const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part, parts) {
         options = Utils::createClangOptions(part, fileName);
+        pchInfo = PCHManager::instance()->pchInfo(part);
+        if (!pchInfo.isNull())
+            options.append(ClangCodeModel::Utils::createPCHInclusionOptions(pchInfo->fileName()));
         if (!options.isEmpty())
             break;
     }
 
     //### FIXME: the range is way too big.. can't we just update the visible lines?
-    CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker, fileName, options, firstLine, lastLine, m_fastIndexer);
+    CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker,
+                                                         fileName, options,
+                                                         firstLine, lastLine,
+                                                         m_fastIndexer, pchInfo);
     QObject::connect(createMarkers, SIGNAL(diagnosticsReady(const QList<ClangCodeModel::Diagnostic> &)),
                      m_diagnosticsHandler.data(), SLOT(setDiagnostics(const QList<ClangCodeModel::Diagnostic> &)));
     return createMarkers->start();
