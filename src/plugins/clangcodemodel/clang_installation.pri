@@ -19,7 +19,9 @@ unix {
     !isEmpty(LLVM_INSTALL_DIR):LLVM_CONFIG=$$LLVM_INSTALL_DIR/bin/llvm-config
 
     LLVM_INCLUDEPATH = $$system($$LLVM_CONFIG --includedir)
+    isEmpty(LLVM_INCLUDEPATH):LLVM_INCLUDEPATH=$$LLVM_INSTALL_DIR/include
     LLVM_LIBDIR = $$system($$LLVM_CONFIG --libdir)
+    isEmpty(LLVM_LIBDIR):LLVM_LIBDIR=$$LLVM_INSTALL_DIR/lib
 
     LLVM_LIBS = -L$$LLVM_LIBDIR
 
