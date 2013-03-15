@@ -41,11 +41,9 @@ SOURCES += \
     $$PWD/utils.cpp \
     $$PWD/utils_p.cpp \
     $$PWD/liveunitsmanager.cpp \
-    $$PWD/index.cpp \
     $$PWD/semanticmarker.cpp \
     $$PWD/diagnostic.cpp \
     $$PWD/unsavedfiledata.cpp \
-    $$PWD/clangsymbolsearcher.cpp \
     $$PWD/fastindexer.cpp \
     $$PWD/pchinfo.cpp \
     $$PWD/pchmanager.cpp \
@@ -65,11 +63,9 @@ HEADERS += \
     $$PWD/utils.h \
     $$PWD/utils_p.h \
     $$PWD/liveunitsmanager.h \
-    $$PWD/index.h \
     $$PWD/semanticmarker.h \
     $$PWD/diagnostic.h \
     $$PWD/unsavedfiledata.h \
-    $$PWD/clangsymbolsearcher.h \
     $$PWD/fastindexer.h \
     $$PWD/pchinfo.h \
     $$PWD/pchmanager.h \
@@ -80,11 +76,15 @@ HEADERS += \
 contains(DEFINES, CLANG_INDEXING) {
     HEADERS += \
         $$PWD/clangindexer.h \
+        $$PWD/clangsymbolsearcher.h \
+        $$PWD/index.h \
         $$PWD/indexer.h
 #        $$PWD/dependencygraph.h \
 
     SOURCES += \
         $$PWD/clangindexer.cpp \
+        $$PWD/clangsymbolsearcher.cpp \
+        $$PWD/index.cpp \
         $$PWD/indexer.cpp
 #        $$PWD/dependencygraph.cpp \
 }
