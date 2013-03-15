@@ -12,7 +12,6 @@ message("Building with Clang from $$LLVM_INSTALL_DIR")
 
 LIBS += $$LLVM_LIBS
 INCLUDEPATH += $$LLVM_INCLUDEPATH
-DEFINES += $$LLVM_DEFINES
 DEFINES += CLANG_LIBRARY
 
 macx: QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
@@ -36,7 +35,6 @@ SOURCES += clangutils.cpp \
 SOURCES += \
     $$PWD/clangcodemodelplugin.cpp \
     $$PWD/sourcemarker.cpp \
-    $$PWD/token.cpp \
     $$PWD/symbol.cpp \
     $$PWD/sourcelocation.cpp \
     $$PWD/unit.cpp \
@@ -59,7 +57,6 @@ HEADERS += \
     $$PWD/clangcodemodelplugin.h \
     $$PWD/clang_global.h \
     $$PWD/sourcemarker.h \
-    $$PWD/token.h \
     $$PWD/constants.h \
     $$PWD/symbol.h \
     $$PWD/cxraii.h \
@@ -90,23 +87,6 @@ contains(DEFINES, CLANG_INDEXING) {
         $$PWD/clangindexer.cpp \
         $$PWD/indexer.cpp
 #        $$PWD/dependencygraph.cpp \
-
-#    DEFINES+=CLANG_LEXER
-}
-
-contains(DEFINES, CLANG_LEXER) {
-    HEADERS += \
-        $$PWD/rawlexer.h \
-        $$PWD/keywords.h \
-        $$PWD/includetracker.h \
-        $$PWD/codenavigator.h \
-        $$PWD/unitsetup.h
-    SOURCES += \
-        $$PWD/rawlexer.cpp \
-        $$PWD/keywords.cpp \
-        $$PWD/includetracker.cpp \
-        $$PWD/codenavigator.cpp \
-        $$PWD/unitsetup.cpp
 }
 
 equals(TEST, 1) {

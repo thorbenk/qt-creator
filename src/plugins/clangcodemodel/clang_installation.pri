@@ -3,7 +3,6 @@ isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
 DEFINES += CLANG_COMPLETION
 DEFINES += CLANG_HIGHLIGHTING
 DEFINES += CLANG_INDEXING
-#DEFINES += CLANG_LEXER
 
 win32 {
     LLVM_INCLUDEPATH = $$LLVM_INSTALL_DIR/include
@@ -38,23 +37,4 @@ unix {
     }
 
     LLVM_LIBS += -l$${CLANG_LIB}
-}
-
-contains(DEFINES, CLANG_LEXER) {
-    LLVM_LIBS += \
-        -lclangLex \
-        -lclangBasic \
-        -lclangCodeGen \
-        -lclangAnalysis \
-        -lclangRewrite \
-        -lclangSema \
-        -lclangDriver \
-        -lclangAST \
-        -lclangParse \
-        -lLLVMCore \
-        -lLLVMSupport \
-        -lLLVMMC
-
-
-    LLVM_DEFINES += __STDC_LIMIT_MACROS __STDC_CONSTANT_MACROS
 }

@@ -35,10 +35,6 @@
 #include <QTextCharFormat>
 #include <QtAlgorithms>
 
-#ifdef CLANG_LEXER
-#  include <clangwrapper/rawlexer.h>
-#endif // CLANG_LEXER
-
 namespace CppEditor {
 
 namespace Internal {
@@ -71,10 +67,6 @@ private:
     bool isPPKeyword(const QStringRef &text) const;
 
     QTextCharFormat m_formats[NumCppFormats];
-
-#ifdef CLANG_LEXER
-    ClangCodeModel::RawLexer m_lexer;
-#endif // CLANG_LEXER
 };
 
 } // namespace Internal
