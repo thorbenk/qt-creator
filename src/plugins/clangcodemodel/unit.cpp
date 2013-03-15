@@ -297,7 +297,9 @@ CXSourceLocation Unit::getLocation(const CXFile &file, unsigned line, unsigned c
 void Unit::codeCompleteAt(unsigned line, unsigned column, ScopedCXCodeCompleteResults &results)
 {
     unsigned flags = clang_defaultCodeCompleteOptions();
-#if defined(CINDEX_VERSION) && (CINDEX_VERSION >= 6) // clang >= 3.2
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION > 6)
+    // Although clang 3.2 introduced this, it seems to be slightly unstable, so
+    // require at least 3.3.
     flags |= CXCodeComplete_IncludeBriefComments;
 #endif
 
