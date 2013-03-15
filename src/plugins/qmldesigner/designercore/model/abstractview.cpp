@@ -74,15 +74,15 @@ RewriterTransaction AbstractView::beginRewriterTransaction()
     return RewriterTransaction(this);
 }
 
-ModelNode AbstractView::createModelNode(const QString &typeString,
+ModelNode AbstractView::createModelNode(const TypeName &typeName,
                             int majorVersion,
                             int minorVersion,
-                            const QList<QPair<QString, QVariant> > &propertyList,
-                            const QList<QPair<QString, QVariant> > &auxPropertyList,
+                            const QList<QPair<PropertyName, QVariant> > &propertyList,
+                            const QList<QPair<PropertyName, QVariant> > &auxPropertyList,
                             const QString &nodeSource,
                             ModelNode::NodeSourceType nodeSourceType)
 {
-    return ModelNode(model()->d->createNode(typeString, majorVersion, minorVersion, propertyList, auxPropertyList, nodeSource, nodeSourceType), model(), this);
+    return ModelNode(model()->d->createNode(typeName, majorVersion, minorVersion, propertyList, auxPropertyList, nodeSource, nodeSourceType), model(), this);
 }
 
 
@@ -116,6 +116,23 @@ ModelNode AbstractView::rootModelNode()
 void AbstractView::removeModel()
 {
     m_model.clear();
+}
+
+WidgetInfo AbstractView::createWidgetInfo(QWidget *widget,
+                                          const QString &uniqueId,
+                                          WidgetInfo::PlacementHint placementHint,
+                                          int placementPriority,
+                                          const QString &tabName)
+{
+    WidgetInfo widgetInfo;
+
+    widgetInfo.widget = widget;
+    widgetInfo.uniqueId = uniqueId;
+    widgetInfo.placementHint = placementHint;
+    widgetInfo.placementPriority = placementPriority;
+    widgetInfo.tabName = tabName;
+
+    return widgetInfo;
 }
 
 /*!
@@ -240,7 +257,7 @@ void AbstractView::propertiesRemoved(const QList<AbstractProperty>& /*propertyLi
 */
 //\}
 
-void AbstractView::auxiliaryDataChanged(const ModelNode &/*node*/, const QString &/*name*/, const QVariant &/*data*/)
+void AbstractView::auxiliaryDataChanged(const ModelNode &/*node*/, const PropertyName &/*name*/, const QVariant &/*data*/)
 {
 
 }
@@ -367,6 +384,16 @@ void AbstractView::resetView()
     currentModel->attachView(this);
 }
 
+bool AbstractView::hasWidget() const
+{
+    return false;
+}
+
+WidgetInfo AbstractView::widgetInfo()
+{
+    return createWidgetInfo();
+}
+
 QList<ModelNode> AbstractView::allModelNodes() const
 {
    return toModelNodeList(model()->d->allNodes());
@@ -387,7 +414,7 @@ void AbstractView::emitCustomNotification(const QString &identifier, const QList
     model()->d->notifyCustomNotification(this, identifier, nodeList, data);
 }
 
-void AbstractView::emitInstancePropertyChange(const QList<QPair<ModelNode, QString> > &propertyList)
+void AbstractView::emitInstancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &propertyList)
 {
     if (model() && nodeInstanceView() == this)
         model()->d->notifyInstancePropertyChange(propertyList);
@@ -454,7 +481,7 @@ void AbstractView::setAcutalStateNode(const ModelNode &node)
         model()->d->notifyActualStateChanged(node);
 }
 
-void AbstractView::changeRootNodeType(const QString &type, int majorVersion, int minorVersion)
+void AbstractView::changeRootNodeType(const TypeName &type, int majorVersion, int minorVersion)
 {
     Internal::WriteLocker locker(m_model.data());
 

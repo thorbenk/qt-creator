@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
-#ifndef DOXYGEGENERATOR_H
-#define DOXYGEGENERATOR_H
+#ifndef DOXYGENGENERATOR_H
+#define DOXYGENGENERATOR_H
 
 #include "cpptools_global.h"
 
@@ -49,8 +49,10 @@ public:
     DoxygenGenerator();
 
     enum DocumentationStyle {
-        JavaStyle,
-        QtStyle
+        JavaStyle,  ///< JavaStyle comment: /**
+        QtStyle,    ///< QtStyle comment: /*!
+        CppStyleA,  ///< CppStyle comment variant A: ///
+        CppStyleB   ///< CppStyle comment variant B: //!
     };
 
     void setStyle(DocumentationStyle style);
@@ -97,4 +99,4 @@ private:
 
 } // CppTools
 
-#endif // DOXYGEGENERATOR_H
+#endif // DOXYGENGENERATOR_H

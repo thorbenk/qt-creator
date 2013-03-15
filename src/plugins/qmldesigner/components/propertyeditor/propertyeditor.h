@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
-#ifndef QmlPropertyView_h
-#define QmlPropertyView_h
+#ifndef PROPERTYEDITOR_H
+#define PROPERTYEDITOR_H
 
 #include <qmlmodelview.h>
 #include <declarativewidgetview.h>
@@ -66,8 +66,8 @@ class PropertyEditor: public QmlModelView
         ~NodeType();
 
         void setup(const QmlObjectNode &fxObjectNode, const QString &stateName, const QUrl &qmlSpecificsFile, PropertyEditor *propertyEditor);
-        void initialSetup(const QString &typeName, const QUrl &qmlSpecificsFile, PropertyEditor *propertyEditor);
-        void setValue(const QmlObjectNode &fxObjectNode, const QString &name, const QVariant &value);
+        void initialSetup(const TypeName &typeName, const QUrl &qmlSpecificsFile, PropertyEditor *propertyEditor);
+        void setValue(const QmlObjectNode &fxObjectNode, const PropertyName &name, const QVariant &value);
 
         DeclarativeWidgetView *m_view;
         Internal::QmlAnchorBindingProxy m_backendAnchorBinding;
@@ -83,40 +83,37 @@ public:
 
     void setQmlDir(const QString &qmlDirPath);
 
-    QWidget *widget();
+    bool hasWidget() const;
+    WidgetInfo widgetInfo();
 
     void selectedNodesChanged(const QList<ModelNode> &selectedNodeList,
-                              const QList<ModelNode> &lastSelectedNodeList);
-    void nodeAboutToBeRemoved(const ModelNode &removedNode);
+                              const QList<ModelNode> &lastSelectedNodeList) QTC_OVERRIDE;
+    void nodeAboutToBeRemoved(const ModelNode &removedNode) QTC_OVERRIDE;
 
-    void propertiesAdded(const NodeState &state, const QList<NodeProperty>& propertyList);
-    void propertiesRemoved(const QList<AbstractProperty>& propertyList);
-    void propertyValuesChanged(const NodeState &state, const QList<NodeProperty>& propertyList);
+    void propertiesRemoved(const QList<AbstractProperty>& propertyList) QTC_OVERRIDE;
 
-    void modelAttached(Model *model);
+    void modelAttached(Model *model) QTC_OVERRIDE;
 
-    void modelAboutToBeDetached(Model *model);
+    void modelAboutToBeDetached(Model *model) QTC_OVERRIDE;
 
     ModelState modelState() const;
 
-    void variantPropertiesChanged(const QList<VariantProperty>& propertyList, PropertyChangeFlags propertyChange);
-    void bindingPropertiesChanged(const QList<BindingProperty>& propertyList, PropertyChangeFlags propertyChange);
+    void variantPropertiesChanged(const QList<VariantProperty>& propertyList, PropertyChangeFlags propertyChange) QTC_OVERRIDE;
+    void bindingPropertiesChanged(const QList<BindingProperty>& propertyList, PropertyChangeFlags propertyChange) QTC_OVERRIDE;
 
-    void instanceInformationsChange(const QMultiHash<ModelNode, InformationName> &informationChangeHash);
+    void instanceInformationsChange(const QMultiHash<ModelNode, InformationName> &informationChangeHash) QTC_OVERRIDE;
 
-    void nodeIdChanged(const ModelNode& node, const QString& newId, const QString& oldId);
-    void scriptFunctionsChanged(const ModelNode &node, const QStringList &scriptFunctionList);
+    void nodeIdChanged(const ModelNode& node, const QString& newId, const QString& oldId) QTC_OVERRIDE;
+    void scriptFunctionsChanged(const ModelNode &node, const QStringList &scriptFunctionList) QTC_OVERRIDE;
 
     void resetView();
-    void actualStateChanged(const ModelNode &node);
+    void actualStateChanged(const ModelNode &node) QTC_OVERRIDE;
+    void instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &propertyList) QTC_OVERRIDE;
 
 protected:
     void timerEvent(QTimerEvent *event);
-    void otherPropertyChanged(const QmlObjectNode &, const QString &propertyName);
-    void transformChanged(const QmlObjectNode &qmlObjectNode, const QString &propertyName);
-
-    void setupPane(const QString &typeName);
-    void setValue(const QmlObjectNode &fxObjectNode, const QString &name, const QVariant &value);
+    void setupPane(const TypeName &typeName);
+    void setValue(const QmlObjectNode &fxObjectNode, const PropertyName &name, const QVariant &value);
 
 private slots:
     void reloadQml();
@@ -129,7 +126,7 @@ private: //functions
     QString qmlFileName(const NodeMetaInfo &nodeInfo) const;
     QUrl fileToUrl(const QString &filePath) const;
     QString fileFromUrl(const QUrl &url) const;
-    QUrl qmlForNode(const ModelNode &modelNode, QString &className) const;
+    QUrl qmlForNode(const ModelNode &modelNode, TypeName &className) const;
     QString locateQmlFile(const NodeMetaInfo &info, const QString &relativePath) const;
     void select(const ModelNode& node);
 
@@ -169,4 +166,4 @@ protected:
 };
 }
 
-#endif // QmlPropertyView_h
+#endif // PROPERTYEDITOR_H

@@ -35,13 +35,18 @@
 #include "qnxconstants.h"
 #include "bardescriptoreditor.h"
 #include "bardescriptorpermissionsmodel.h"
+#include "blackberrydeviceconfiguration.h"
+#include "blackberrydebugtokenreader.h"
 
+#include <projectexplorer/devicesupport/devicemanager.h>
 #include <qtsupport/qtversionmanager.h>
 #include <texteditor/plaintexteditor.h>
 #include <utils/qtcassert.h>
 
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QItemSelection>
+#include <QMessageBox>
 #include <QStandardItemModel>
 #include <QStringListModel>
 
@@ -78,6 +83,16 @@ void setCheckBoxBlocked(QCheckBox *checkBox, bool check)
     checkBox->setChecked(check);
     checkBox->blockSignals(blocked);
 }
+
+// Recommended maximum size for icons according to
+// http://developer.blackberry.com/native/documentation/bb10/com.qnx.doc.native_sdk.devguide/com.qnx.doc.native_sdk.devguide/topic/r_barfile_dtd_ref_image.html
+static int AppIconMaxWidth = 114;
+static int AppIconMaxHeight = 114;
+
+// Recommended maximum size for splashscreens according to
+// http://developer.blackberry.com/native/documentation/bb10/com.qnx.doc.native_sdk.devguide/com.qnx.doc.native_sdk.devguide/topic/r_barfile_dtd_ref_splashscreens.html
+static int SplashScreenMaxWidth = 1280;
+static int SplashScreenMaxHeight = 1280;
 }
 
 BarDescriptorEditorWidget::BarDescriptorEditorWidget(QWidget *parent)
@@ -103,6 +118,8 @@ BarDescriptorEditorWidget::~BarDescriptorEditorWidget()
 
 void BarDescriptorEditorWidget::initGeneralPage()
 {
+    m_ui->setFromDebugToken->setVisible(BlackBerryDebugTokenReader::isSupported());
+
     QRegExp versionNumberRegExp(QLatin1String("(\\d{1,3}\\.)?(\\d{1,3}\\.)?(\\d{1,3})"));
     QRegExpValidator *versionNumberValidator = new QRegExpValidator(versionNumberRegExp, this);
     m_ui->packageVersion->setValidator(versionNumberValidator);
@@ -113,6 +130,7 @@ void BarDescriptorEditorWidget::initGeneralPage()
 
     connect(m_ui->author, SIGNAL(textChanged(QString)), this, SLOT(setDirty()));
     connect(m_ui->authorId, SIGNAL(textChanged(QString)), this, SLOT(setDirty()));
+    connect(m_ui->setFromDebugToken, SIGNAL(clicked()), this, SLOT(setAuthorFromDebugToken()));
 }
 
 void BarDescriptorEditorWidget::clearGeneralPage()
@@ -158,12 +176,19 @@ void BarDescriptorEditorWidget::initApplicationPage()
     m_ui->iconFilePath->setExpectedKind(Utils::PathChooser::File);
     m_ui->iconFilePath->setPromptDialogFilter(tr("Images (*.jpg *.png)"));
 
+    m_ui->iconWarningLabel->setVisible(false);
+    m_ui->iconWarningPixmap->setVisible(false);
+
+    m_ui->splashScreenWarningLabel->setVisible(false);
+    m_ui->splashScreenWarningPixmap->setVisible(false);
+
     connect(m_ui->applicationName, SIGNAL(textChanged(QString)), this, SLOT(setDirty()));
     connect(m_ui->applicationDescription, SIGNAL(textChanged()), this, SLOT(setDirty()));
 
     connect(m_ui->iconFilePath, SIGNAL(changed(QString)), this, SLOT(setDirty()));
     connect(m_ui->iconFilePath, SIGNAL(changed(QString)), this, SLOT(addImageAsAsset(QString)));
     connect(m_ui->iconFilePath, SIGNAL(changed(QString)), this, SLOT(setApplicationIconPreview(QString)));
+    connect(m_ui->iconFilePath, SIGNAL(changed(QString)), this, SLOT(validateIconSize(QString)));
     connect(m_ui->iconClearButton, SIGNAL(clicked()), m_ui->iconFilePath->lineEdit(), SLOT(clear()));
 
     m_splashScreenModel = new QStringListModel(this);
@@ -214,14 +239,15 @@ void BarDescriptorEditorWidget::initAssetsPage()
     connect(m_ui->addAsset, SIGNAL(clicked()), this, SLOT(addNewAsset()));
     connect(m_ui->removeAsset, SIGNAL(clicked()), this, SLOT(removeSelectedAsset()));
     connect(m_assetsModel, SIGNAL(itemChanged(QStandardItem*)), this, SLOT(updateEntryCheckState(QStandardItem*)));
-    connect(m_assetsModel, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(setDirty()));
+    connectAssetsModel();
 }
 
 void BarDescriptorEditorWidget::clearAssetsPage()
 {
-    disconnect(m_assetsModel, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(setDirty()));
+    // We can't just block signals, as the view depends on them
+    disconnectAssetsModel();
     m_assetsModel->removeRows(0, m_assetsModel->rowCount());
-    connect(m_assetsModel, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(setDirty()));
+    connectAssetsModel();
 }
 
 void BarDescriptorEditorWidget::initSourcePage()
@@ -235,6 +261,20 @@ void BarDescriptorEditorWidget::clearSourcePage()
     disconnect(m_ui->xmlSourceView, SIGNAL(textChanged()), this, SLOT(setDirty()));
     m_ui->xmlSourceView->clear();
     connect(m_ui->xmlSourceView, SIGNAL(textChanged()), this, SLOT(setDirty()));
+}
+
+void BarDescriptorEditorWidget::disconnectAssetsModel()
+{
+    disconnect(m_assetsModel, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(setDirty()));
+    disconnect(m_assetsModel, SIGNAL(rowsInserted(QModelIndex, int, int)), this, SLOT(setDirty()));
+    disconnect(m_assetsModel, SIGNAL(rowsRemoved(QModelIndex, int, int)), this, SLOT(setDirty()));
+}
+
+void BarDescriptorEditorWidget::connectAssetsModel()
+{
+    connect(m_assetsModel, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(setDirty()));
+    connect(m_assetsModel, SIGNAL(rowsInserted(QModelIndex, int, int)), this, SLOT(setDirty()));
+    connect(m_assetsModel, SIGNAL(rowsRemoved(QModelIndex, int, int)), this, SLOT(setDirty()));
 }
 
 Core::IEditor *BarDescriptorEditorWidget::editor() const
@@ -429,6 +469,7 @@ void BarDescriptorEditorWidget::setApplicationIconDelayed(const QString &iconPat
     const QString fullIconPath = localAssetPathFromDestination(iconPath);
     setPathBlocked(m_ui->iconFilePath, fullIconPath);
     setApplicationIconPreview(fullIconPath);
+    validateIconSize(fullIconPath);
 }
 
 void BarDescriptorEditorWidget::setImagePreview(QLabel *previewLabel, const QString &path)
@@ -454,9 +495,52 @@ void BarDescriptorEditorWidget::setImagePreview(QLabel *previewLabel, const QStr
     previewLabel->setPixmap(scaledPixmap);
 }
 
+void BarDescriptorEditorWidget::validateImage(const QString &path, QLabel *warningMessage, QLabel *warningPixmap, const QSize &maximumSize)
+{
+    ImageValidationResult result = Valid;
+
+    QSize actualSize;
+    if (!path.isEmpty()) {
+        QImage img(path);
+        if (img.isNull()) {
+            result = CouldNotLoad;
+        } else {
+            actualSize = img.size();
+            if (actualSize.width() > maximumSize.width() || actualSize.height() > maximumSize.height())
+                result = IncorrectSize;
+        }
+    }
+
+    switch (result) {
+    case CouldNotLoad:
+        warningMessage->setText(tr("<font color=\"red\">Could not open '%1' for reading.</font>").arg(path));
+        warningMessage->setVisible(true);
+        warningPixmap->setVisible(true);
+        break;
+    case IncorrectSize: {
+        warningMessage->setText(tr("<font color=\"red\">The selected image is too big (%1x%2). The maximum size is %3x%4 pixels.</font>")
+                                .arg(actualSize.width()).arg(actualSize.height())
+                                .arg(maximumSize.width()).arg(maximumSize.height()));
+        warningMessage->setVisible(true);
+        warningPixmap->setVisible(true);
+        break;
+    }
+    case Valid:
+    default:
+        warningMessage->setVisible(false);
+        warningPixmap->setVisible(false);
+        break;
+    }
+}
+
 void BarDescriptorEditorWidget::setApplicationIconPreview(const QString &path)
 {
     setImagePreview(m_ui->iconPreviewLabel, path);
+}
+
+void BarDescriptorEditorWidget::validateIconSize(const QString &path)
+{
+    validateImage(path, m_ui->iconWarningLabel, m_ui->iconWarningPixmap, QSize(AppIconMaxWidth, AppIconMaxHeight));
 }
 
 void BarDescriptorEditorWidget::appendSplashScreenDelayed(const QString &splashScreenPath)
@@ -515,12 +599,27 @@ void BarDescriptorEditorWidget::handleSplashScreenSelectionChanged(const QItemSe
     if (!emptySelection) {
         QString path = m_splashScreenModel->data(selected.indexes().at(0), Qt::DisplayRole).toString();
         setImagePreview(m_ui->splashScreenPreviewLabel, path);
+        validateSplashScreenSize(path);
     } else {
         setImagePreview(m_ui->splashScreenPreviewLabel, QString());
+        m_ui->splashScreenWarningLabel->setVisible(false);
+        m_ui->splashScreenWarningPixmap->setVisible(false);
     }
 }
 
+void BarDescriptorEditorWidget::validateSplashScreenSize(const QString &path)
+{
+    validateImage(path, m_ui->splashScreenWarningLabel, m_ui->splashScreenWarningPixmap, QSize(SplashScreenMaxWidth, SplashScreenMaxHeight));
+}
+
 void BarDescriptorEditorWidget::addAsset(const BarDescriptorAsset &asset)
+{
+    disconnectAssetsModel();
+    addAssetInternal(asset);
+    connectAssetsModel();
+}
+
+void BarDescriptorEditorWidget::addAssetInternal(const BarDescriptorAsset &asset)
 {
     const QString path = asset.source;
     const QString dest = asset.destination;
@@ -529,8 +628,6 @@ void BarDescriptorEditorWidget::addAsset(const BarDescriptorAsset &asset)
 
     if (hasAsset(asset))
         return;
-
-    disconnect(m_assetsModel, SIGNAL(itemChanged(QStandardItem*)), this, SLOT(updateEntryCheckState(QStandardItem*)));
 
     QList<QStandardItem *> items;
     items << new QStandardItem(path);
@@ -542,7 +639,6 @@ void BarDescriptorEditorWidget::addAsset(const BarDescriptorAsset &asset)
     items << entryItem;
     m_assetsModel->appendRow(items);
 
-    connect(m_assetsModel, SIGNAL(itemChanged(QStandardItem*)), this, SLOT(updateEntryCheckState(QStandardItem*)));
 }
 
 bool BarDescriptorEditorWidget::hasAsset(const BarDescriptorAsset &asset)
@@ -631,7 +727,7 @@ void BarDescriptorEditorWidget::addNewAsset()
     asset.source = fileName;
     asset.destination = fi.fileName();
     asset.entry = false; // TODO
-    addAsset(asset);
+    addAssetInternal(asset);
 }
 
 void BarDescriptorEditorWidget::removeSelectedAsset()
@@ -670,5 +766,37 @@ void BarDescriptorEditorWidget::addImageAsAsset(const QString &path)
     asset.source = path;
     asset.destination = QFileInfo(path).fileName();
     asset.entry = false;
-    addAsset(asset);
+    addAssetInternal(asset);
+}
+
+void BarDescriptorEditorWidget::setAuthorFromDebugToken()
+{
+    // To select debug token, make it fancier once the debug token management is done in
+    // Qt Creator
+    QStringList debugTokens;
+    ProjectExplorer::DeviceManager *deviceManager = ProjectExplorer::DeviceManager::instance();
+    for (int i = 0; i < deviceManager->deviceCount(); ++i) {
+        ProjectExplorer::IDevice::ConstPtr device = deviceManager->deviceAt(i);
+        if (device->type() == Core::Id(Constants::QNX_BB_OS_TYPE)) {
+            BlackBerryDeviceConfiguration::ConstPtr bbDevice = device.dynamicCast<const BlackBerryDeviceConfiguration>();
+            QTC_ASSERT(bbDevice, continue);
+
+            debugTokens << bbDevice->debugToken();
+        }
+    }
+    debugTokens.removeDuplicates();
+
+    bool ok;
+    QString debugToken = QInputDialog::getItem(this, tr("Select Debug Token"), tr("Debug token:"), debugTokens, 0, false, &ok);
+    if (!ok || debugToken.isEmpty())
+        return;
+
+    BlackBerryDebugTokenReader debugTokenReader(debugToken);
+    if (!debugTokenReader.isValid()) {
+        QMessageBox::warning(this, tr("Error Reading Debug Token"), tr("There was a problem reading debug token"));
+        return;
+    }
+
+    m_ui->author->setText(debugTokenReader.author());
+    m_ui->authorId->setText(debugTokenReader.authorId());
 }

@@ -27,12 +27,13 @@
 **
 ****************************************************************************/
 
+#include "rewriteaction.h"
+
 #include <QDebug>
 
 #include "nodeabstractproperty.h"
 #include "nodelistproperty.h"
 #include "nodemetainfo.h"
-#include "rewriteaction.h"
 
 using namespace QmlDesigner;
 using namespace QmlDesigner::Internal;
@@ -57,12 +58,12 @@ static inline QString toInfo(const Import &import)
     }
 
     if (import.hasVersion())
-        txt += QString::fromLatin1("with version \"%1\"").arg(import.version());
+        txt += QString::fromUtf8("with version \"%1\"").arg(import.version());
     else
         txt += QLatin1String("without version");
 
     if (import.hasAlias())
-        txt += QString::fromLatin1("aliassed as \"%1\"").arg(import.alias());
+        txt += QString::fromUtf8("aliassed as \"%1\"").arg(import.alias());
     else
         txt += QLatin1String("unaliassed");
 
@@ -129,7 +130,7 @@ QString AddPropertyRewriteAction::info() const
 bool ChangeIdRewriteAction::execute(QmlDesigner::QmlRefactoring &refactoring, ModelNodePositionStorage &positionStore)
 {
     const int nodeLocation = positionStore.nodeOffset(m_node);
-    static const QLatin1String idPropertyName("id");
+    static const PropertyName idPropertyName("id");
     bool result = false;
 
     if (m_oldId.isEmpty()) {
@@ -281,7 +282,7 @@ bool RemovePropertyRewriteAction::execute(QmlDesigner::QmlRefactoring &refactori
 
 QString RemovePropertyRewriteAction::info() const
 {
-    return QString("RemovePropertyRewriteAction for property \"%1\"").arg(m_property.name());
+    return QString("RemovePropertyRewriteAction for property \"%1\"").arg(QLatin1String(m_property.name()));
 }
 
 bool ReparentNodeRewriteAction::execute(QmlDesigner::QmlRefactoring &refactoring, ModelNodePositionStorage &positionStore)
@@ -291,7 +292,7 @@ bool ReparentNodeRewriteAction::execute(QmlDesigner::QmlRefactoring &refactoring
     const bool isArrayBinding = m_targetProperty.isNodeListProperty();
     bool result = false;
 
-    QString targetPropertyName;
+    PropertyName targetPropertyName;
     if (!m_targetProperty.isDefaultProperty())
         targetPropertyName = m_targetProperty.name();
 

@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
-#ifndef CDBSETTINGSPAGE_H
-#define CDBSETTINGSPAGE_H
+#ifndef CDBOPTIONSPAGE_H
+#define CDBOPTIONSPAGE_H
 
 #include "cdboptions.h"
 
@@ -147,4 +147,4 @@ private:
 } // namespace Internal
 } // namespace Debugger
 
-#endif // CDBSETTINGSPAGE_H
+#endif // CDBOPTIONSPAGE_H

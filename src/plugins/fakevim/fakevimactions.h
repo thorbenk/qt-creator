@@ -30,14 +30,32 @@
 #ifndef FAKEVIM_ACTIONS_H
 #define FAKEVIM_ACTIONS_H
 
-#include <utils/savedaction.h>
+#ifndef FAKEVIM_STANDALONE
+#   include <utils/savedaction.h>
+#endif
 
 #include <QHash>
 #include <QObject>
 #include <QString>
+#include <QVariant>
 
 namespace FakeVim {
 namespace Internal {
+
+#ifdef FAKEVIM_STANDALONE
+namespace Utils {
+
+class SavedAction : public QObject
+{
+public:
+    SavedAction(QObject *parent);
+    void setValue(const QVariant &value);
+    QVariant value() const;
+    QVariant m_value;
+};
+
+} // namespace Utils
+#endif // FAKEVIM_STANDALONE
 
 enum FakeVimSettingsCode
 {
@@ -57,7 +75,11 @@ enum FakeVimSettingsCode
     ConfigIncSearch,
     ConfigUseCoreSearch,
     ConfigSmartCase,
+    ConfigIgnoreCase,
     ConfigWrapScan,
+
+    // command ~ behaves as g~
+    ConfigTildeOp,
 
     // indent  allow backspacing over autoindent
     // eol     allow backspacing over line breaks (join lines)
@@ -72,7 +94,8 @@ enum FakeVimSettingsCode
     ConfigShowMarks,
     ConfigPassControlKey,
     ConfigClipboard,
-    ConfigShowCmd
+    ConfigShowCmd,
+    ConfigScrollOff
 };
 
 class FakeVimSettings : public QObject
@@ -90,8 +113,10 @@ public:
     Utils::SavedAction *item(const QString &name);
     QString trySetValue(const QString &name, const QString &value);
 
+#ifndef FAKEVIM_STANDALONE
     void readSettings(QSettings *settings);
     void writeSettings(QSettings *settings);
+#endif
 
 private:
     QHash<int, Utils::SavedAction *> m_items;

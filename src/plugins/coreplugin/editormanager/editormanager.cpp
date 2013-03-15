@@ -86,8 +86,7 @@
 
 enum { debugEditorManager=0 };
 
-static const char kCurrentDocumentFilePath[] = "CurrentDocument:FilePath";
-static const char kCurrentDocumentPath[] = "CurrentDocument:Path";
+static const char kCurrentDocumentPrefix[] = "CurrentDocument";
 static const char kCurrentDocumentXPos[] = "CurrentDocument:XPos";
 static const char kCurrentDocumentYPos[] = "CurrentDocument:YPos";
 static const char kMakeWritableWarning[] = "Core.EditorManager.MakeWritable";
@@ -321,14 +320,14 @@ EditorManager::EditorManager(QWidget *parent) :
     mfile->addAction(cmd, Constants::G_FILE_CLOSE);
     connect(d->m_closeCurrentEditorAction, SIGNAL(triggered()), this, SLOT(closeEditor()));
 
-#ifdef Q_OS_WIN
-    // workaround for QTCREATORBUG-72
-    QShortcut *sc = new QShortcut(parent);
-    cmd = ActionManager::registerShortcut(sc, Constants::CLOSE_ALTERNATIVE, editManagerContext);
-    cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+F4")));
-    cmd->setDescription(EditorManager::tr("Close"));
-    connect(sc, SIGNAL(activated()), this, SLOT(closeEditor()));
-#endif
+    if (Utils::HostOsInfo::isWindowsHost()) {
+        // workaround for QTCREATORBUG-72
+        QShortcut *sc = new QShortcut(parent);
+        cmd = ActionManager::registerShortcut(sc, Constants::CLOSE_ALTERNATIVE, editManagerContext);
+        cmd->setDefaultKeySequence(QKeySequence(tr("Ctrl+F4")));
+        cmd->setDescription(EditorManager::tr("Close"));
+        connect(sc, SIGNAL(activated()), this, SLOT(closeEditor()));
+    }
 
     // Close All Action
     cmd = ActionManager::registerAction(d->m_closeAllEditorsAction, Constants::CLOSEALL, editManagerContext, true);
@@ -466,16 +465,12 @@ void EditorManager::init()
     d->m_openEditorsFactory = new OpenEditorsViewFactory();
     ExtensionSystem::PluginManager::addObject(d->m_openEditorsFactory);
 
-    VariableManager *vm = VariableManager::instance();
-    vm->registerVariable(kCurrentDocumentFilePath,
-        tr("Full path of the current document including file name."));
-    vm->registerVariable(kCurrentDocumentPath,
-        tr("Full path of the current document excluding file name."));
-    vm->registerVariable(kCurrentDocumentXPos,
+    VariableManager::registerFileVariables(kCurrentDocumentPrefix, tr("Current document"));
+    VariableManager::registerVariable(kCurrentDocumentXPos,
         tr("X-coordinate of the current editor's upper left corner, relative to screen."));
-    vm->registerVariable(kCurrentDocumentYPos,
+    VariableManager::registerVariable(kCurrentDocumentYPos,
         tr("Y-coordinate of the current editor's upper left corner, relative to screen."));
-    connect(vm, SIGNAL(variableUpdateRequested(QByteArray)),
+    connect(VariableManager::instance(), SIGNAL(variableUpdateRequested(QByteArray)),
             this, SLOT(updateVariable(QByteArray)));
 }
 
@@ -737,6 +732,7 @@ static void assignAction(QAction *self, QAction *other)
     self->setIcon(other->icon());
     self->setShortcut(other->shortcut());
     self->setEnabled(other->isEnabled());
+    self->setIconVisibleInMenu(other->isIconVisibleInMenu());
 }
 
 void EditorManager::addSaveAndCloseEditorActions(QMenu *contextMenu, const QModelIndex &editorIndex)
@@ -886,6 +882,9 @@ bool EditorManager::closeEditors(const QList<IEditor*> &editorsToClose, bool ask
     }
     if (acceptedEditors.isEmpty())
         return false;
+
+    // close Editor History list
+    windowPopup()->setVisible(false);
 
     // add duplicates
     QList<IEditor *> duplicates;
@@ -1709,7 +1708,7 @@ void EditorManager::vcsOpenCurrentEditor()
 
     const QString directory = QFileInfo(curEditor->document()->fileName()).absolutePath();
     IVersionControl *versionControl = ICore::vcsManager()->findVersionControlForDirectory(directory);
-    if (!versionControl || !versionControl->supportsOperation(IVersionControl::OpenOperation))
+    if (!versionControl || versionControl->openSupportMode() == IVersionControl::NoOpen)
         return;
 
     if (!versionControl->vcsOpen(curEditor->document()->fileName())) {
@@ -1763,7 +1762,7 @@ void EditorManager::updateMakeWritableWarning()
         bool promptVCS = false;
         const QString directory = QFileInfo(curEditor->document()->fileName()).absolutePath();
         IVersionControl *versionControl = ICore::vcsManager()->findVersionControlForDirectory(directory);
-        if (versionControl && versionControl->supportsOperation(IVersionControl::OpenOperation)) {
+        if (versionControl && versionControl->openSupportMode() != IVersionControl::NoOpen) {
             if (versionControl->settingsFlags() & IVersionControl::AutoOpen) {
                 vcsOpenCurrentEditor();
                 ww = false;
@@ -2287,30 +2286,27 @@ QString EditorManager::windowTitleAddition() const
 
 void EditorManager::updateVariable(const QByteArray &variable)
 {
-    if (variable == kCurrentDocumentFilePath || variable == kCurrentDocumentPath) {
+    if (VariableManager::instance()->isFileVariable(variable, kCurrentDocumentPrefix)) {
         QString value;
         IEditor *curEditor = currentEditor();
         if (curEditor) {
             QString fileName = curEditor->document()->fileName();
-            if (!fileName.isEmpty()) {
-                if (variable == kCurrentDocumentFilePath)
-                    value = QFileInfo(fileName).filePath();
-                else if (variable == kCurrentDocumentPath)
-                    value = QFileInfo(fileName).path();
-            }
+            if (!fileName.isEmpty())
+                value = VariableManager::fileVariableValue(variable, kCurrentDocumentPrefix,
+                                                                       fileName);
         }
-        VariableManager::instance()->insert(variable, value);
+        VariableManager::insert(variable, value);
     } else if (variable == kCurrentDocumentXPos) {
         QString value;
         IEditor *curEditor = currentEditor();
         if (curEditor)
             value = QString::number(curEditor->widget()->mapToGlobal(QPoint(0,0)).x());
-        VariableManager::instance()->insert(variable, value);
+        VariableManager::insert(variable, value);
     } else if (variable == kCurrentDocumentYPos) {
         QString value;
         IEditor *curEditor = currentEditor();
         if (curEditor)
             value = QString::number(curEditor->widget()->mapToGlobal(QPoint(0,0)).y());
-        VariableManager::instance()->insert(variable, value);
+        VariableManager::insert(variable, value);
     }
 }

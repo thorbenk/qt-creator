@@ -71,6 +71,8 @@ QHash<QString, QStringList> sortFilesIntoPaths(const QString &base, const QSet<Q
         } else {
             // `file' is not part of the project.
             relativeFilePath = baseDir.relativeFilePath(absoluteFilePath.toString());
+            if (relativeFilePath.endsWith(QLatin1Char('/')))
+                relativeFilePath.chop(1);
         }
 
         filesInPath[relativeFilePath].append(absoluteFileName);
@@ -80,6 +82,9 @@ QHash<QString, QStringList> sortFilesIntoPaths(const QString &base, const QSet<Q
 
 void GenericProjectNode::refresh(QSet<QString> oldFileList)
 {
+    typedef QHash<QString, QStringList> FilesInPathHash;
+    typedef FilesInPathHash::ConstIterator FilesInPathHashConstIt;
+
     if (oldFileList.isEmpty()) {
         // Only do this once
         FileNode *projectFilesNode = new FileNode(m_project->filesFileName(),
@@ -117,8 +122,11 @@ void GenericProjectNode::refresh(QSet<QString> oldFileList)
     added.subtract(oldFileList);
 
     QString baseDir = QFileInfo(path()).absolutePath();
-    QHash<QString, QStringList> filesInPaths = sortFilesIntoPaths(baseDir, added);
-    foreach (const QString &filePath, filesInPaths.keys()) {
+    FilesInPathHash filesInPaths = sortFilesIntoPaths(baseDir, added);
+
+    FilesInPathHashConstIt cend = filesInPaths.constEnd();
+    for (FilesInPathHashConstIt it = filesInPaths.constBegin(); it != cend; ++it) {
+        const QString &filePath = it.key();
         QStringList components;
         if (!filePath.isEmpty())
             components = filePath.split(QLatin1Char('/'));
@@ -127,7 +135,7 @@ void GenericProjectNode::refresh(QSet<QString> oldFileList)
             folder = createFolderByName(components, components.size());
 
         QList<FileNode *> fileNodes;
-        foreach (const QString &file, filesInPaths.value(filePath)) {
+        foreach (const QString &file, it.value()) {
             FileType fileType = SourceType; // ### FIXME
             FileNode *fileNode = new FileNode(file, fileType, /*generated = */ false);
             fileNodes.append(fileNode);
@@ -137,14 +145,16 @@ void GenericProjectNode::refresh(QSet<QString> oldFileList)
     }
 
     filesInPaths = sortFilesIntoPaths(baseDir, removed);
-    foreach (const QString &filePath, filesInPaths.keys()) {
+    cend = filesInPaths.constEnd();
+    for (FilesInPathHashConstIt it = filesInPaths.constBegin(); it != cend; ++it) {
+        const QString &filePath = it.key();
         QStringList components;
         if (!filePath.isEmpty())
             components = filePath.split(QLatin1Char('/'));
         FolderNode *folder = findFolderByName(components, components.size());
 
         QList<FileNode *> fileNodes;
-        foreach (const QString &file, filesInPaths.value(filePath)) {
+        foreach (const QString &file, it.value()) {
             foreach (FileNode *fn, folder->fileNodes())
                 if (fn->path() == file)
                     fileNodes.append(fn);

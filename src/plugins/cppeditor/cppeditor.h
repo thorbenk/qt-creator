@@ -41,6 +41,7 @@
 #include <cpptools/ModelManagerInterface.h>
 #include <cplusplus/CppDocument.h>
 #include <cplusplus/LookupContext.h>
+#include <utils/uncommentselection.h>
 #include <texteditor/basetexteditor.h>
 #include <texteditor/quickfix.h>
 #include <texteditor/texteditorconstants.h>
@@ -160,6 +161,10 @@ public:
 
     bool isTemporary() const { return false; }
     bool open(QString *errorString, const QString &fileName, const QString &realFileName);
+
+    const Utils::CommentDefinition *commentDefinition() const;
+private:
+    Utils::CommentDefinition m_commentDefinition;
 };
 
 class CPPEditorWidget : public TextEditor::BaseTextEditorWidget
@@ -268,7 +273,6 @@ private:
     SemanticHighlighter::Source currentSource(bool force = false);
 
     void highlightUses(const QList<TextEditor::SemanticHighlighter::Result> &uses,
-                       const CppTools::SemanticInfo &semanticInfo,
                        QList<QTextEdit::ExtraSelection> *selections);
 
     void createToolBar(CPPEditor *editable);
@@ -292,6 +296,7 @@ private:
     QModelIndex indexForPosition(int line, int column, const QModelIndex &rootIndex = QModelIndex()) const;
 
     bool handleDocumentationComment(QKeyEvent *e);
+    bool isStartOfDoxygenComment(const QTextCursor &cursor) const;
 
     CPlusPlus::CppModelManagerInterface *m_modelManager;
 

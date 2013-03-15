@@ -67,6 +67,8 @@ public:
 
     static ConstPtr device(const ProjectExplorer::Kit *k);
 
+    ProjectExplorer::DeviceProcessSupport::Ptr processSupport() const;
+
 protected:
     BlackBerryDeviceConfiguration();
     BlackBerryDeviceConfiguration(const QString &name, Core::Id type, MachineType machineType,

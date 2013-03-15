@@ -80,7 +80,7 @@ public:
     QStringList files(FilesMode fileMode) const;
 
     qbs::BuildJob *build(const qbs::BuildOptions &opts);
-    qbs::CleanJob *clean(const qbs::BuildOptions &opts, bool everything);
+    qbs::CleanJob *clean(const qbs::CleanOptions &opts);
 
     static ProjectExplorer::FileType fileTypeFor(const QSet<QString> &tags);
 
@@ -117,6 +117,7 @@ private:
     void updateDocuments(const qbs::ProjectData *prj);
     void updateCppCodeModel(const qbs::ProjectData *prj);
     void updateQmlJsCodeModel(const qbs::ProjectData *prj);
+    QString qbsBuildDir() const;
 
     QbsManager *const m_manager;
     const QString m_projectName;

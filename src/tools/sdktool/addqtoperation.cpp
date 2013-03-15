@@ -152,12 +152,12 @@ int AddQtOperation::execute() const
     if (map.isEmpty())
         map = initializeQtVersions();
 
-    map = addQt(map, m_id, m_displayName, m_type, m_qmake, m_extra);
+    QVariantMap result = addQt(map, m_id, m_displayName, m_type, m_qmake, m_extra);
 
-    if (map.isEmpty())
+    if (map.isEmpty() || result == map)
         return -2;
 
-    return save(map, QLatin1String("qtversions")) ? 0 : -3;
+    return save(result, QLatin1String("qtversions")) ? 0 : -3;
 }
 
 #ifdef WITH_TESTS
@@ -285,7 +285,7 @@ QVariantMap AddQtOperation::addQt(const QVariantMap &map,
     // Sanity check: Make sure displayName is unique.
     QStringList nameKeys = FindKeyOperation::findKey(map, QLatin1String(DISPLAYNAME));
     QStringList nameList;
-    foreach (const QString nameKey, nameKeys)
+    foreach (const QString &nameKey, nameKeys)
         nameList << GetOperation::get(map, nameKey).toString();
     const QString uniqueName = makeUnique(displayName, nameList);
 

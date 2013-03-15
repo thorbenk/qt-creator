@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
-#ifndef VARIANTROPERTY_H
-#define VARIANTROPERTY_H
+#ifndef VARIANTPROPERTY_H
+#define VARIANTPROPERTY_H
 
 #include "qmldesignercorelib_global.h"
 #include "abstractproperty.h"
@@ -56,13 +56,12 @@ public:
     QVariant value() const;
     VariantProperty& operator= (const QVariant &value);
 
-    void setDynamicTypeNameAndValue(const QString &type, const QVariant &value);
-    Q_DECL_DEPRECATED VariantProperty& operator= (const QPair<QString, QVariant> &typeValuePair);
+    void setDynamicTypeNameAndValue(const TypeName &type, const QVariant &value);
 
     VariantProperty();
     VariantProperty(const VariantProperty &property, AbstractView *view);
 protected:
-    VariantProperty(const QString &propertyName, const Internal::InternalNodePointer &internalNode, Model* model, AbstractView *view);
+    VariantProperty(const PropertyName &propertyName, const Internal::InternalNodePointer &internalNode, Model* model, AbstractView *view);
 };
 
 QMLDESIGNERCORE_EXPORT QTextStream& operator<<(QTextStream &stream, const VariantProperty &property);

@@ -34,6 +34,7 @@
 #include "kitinformation.h"
 #include "kitmanagerconfigwidget.h"
 #include "project.h"
+#include "projectexplorer.h"
 
 #include <coreplugin/icore.h>
 
@@ -80,6 +81,36 @@ class KitManagerPrivate
 public:
     KitManagerPrivate();
     ~KitManagerPrivate();
+
+    void insertKit(Kit *k)
+    {
+        // Keep list of kits sorted by displayname:
+        int i =0;
+        for (; i < m_kitList.count(); ++i)
+            if (m_kitList.at(i)->displayName() > k->displayName())
+                break;
+        m_kitList.insert(i, k);
+    }
+
+    void moveKit(int pos)
+    {
+        if (pos < 0 || pos >= m_kitList.count())
+            return;
+
+        Kit *current = m_kitList.at(pos);
+        int prev = pos - 1;
+        int next = pos + 1;
+
+        if (prev >= 0
+                && m_kitList.at(prev)->displayName() > current->displayName()) {
+            std::swap(m_kitList[prev], m_kitList[pos]);
+            moveKit(prev);
+        } else if (next < m_kitList.count()
+                   && m_kitList.at(next)->displayName() < current->displayName()) {
+            std::swap(m_kitList[pos], m_kitList[next]);
+            moveKit(next);
+        }
+    }
 
     Kit *m_defaultKit;
     bool m_initialized;
@@ -150,6 +181,7 @@ void KitManager::restoreKits()
         // make sure we mark these as autodetected and run additional setup logic
         foreach (Kit *k, system.kits) {
             k->setAutoDetected(true);
+            k->setSdkProvided(true);
             k->setup();
         }
 
@@ -161,7 +193,7 @@ void KitManager::restoreKits()
     // read all kits from user file
     KitList userKits = restoreKits(settingsFileName());
     foreach (Kit *k, userKits.kits) {
-        if (k->isAutoDetected())
+        if (k->isSdkProvided())
             kitsToCheck.append(k);
         else
             kitsToRegister.append(k);
@@ -202,6 +234,7 @@ void KitManager::restoreKits()
     if (kits().isEmpty()) {
         Kit *defaultKit = new Kit; // One kit using default values
         defaultKit->setDisplayName(tr("Desktop"));
+        defaultKit->setSdkProvided(false);
         defaultKit->setAutoDetected(false);
         defaultKit->setIconPath(QLatin1String(":///DESKTOP///"));
 
@@ -216,6 +249,7 @@ void KitManager::restoreKits()
 
     d->m_writer = new Utils::PersistentSettingsWriter(settingsFileName(), QLatin1String("QtCreatorProfiles"));
     d->m_initialized = true;
+    emit kitsLoaded();
     emit kitsChanged();
 }
 
@@ -259,11 +293,11 @@ bool greaterPriority(KitInformation *a, KitInformation *b)
 
 void KitManager::registerKitInformation(KitInformation *ki)
 {
+    QTC_CHECK(!isLoaded());
+
     QList<KitInformation *>::iterator it
             = qLowerBound(d->m_informationList.begin(), d->m_informationList.end(), ki, greaterPriority);
     d->m_informationList.insert(it, ki);
-
-    connect(ki, SIGNAL(validationNeeded()), this, SLOT(validateKits()));
 
     if (!d->m_initialized)
         return;
@@ -336,9 +370,6 @@ KitManager::KitList KitManager::restoreKits(const Utils::FileName &fileName)
 
 QList<Kit *> KitManager::kits(const KitMatcher *m) const
 {
-    if (!d->m_initialized)
-        const_cast<KitManager *>(this)->restoreKits();
-
     QList<Kit *> result;
     foreach (Kit *k, d->m_kitList) {
         if (!m || m->matches(k))
@@ -367,8 +398,6 @@ Kit *KitManager::find(const KitMatcher *m) const
 
 Kit *KitManager::defaultKit() const
 {
-    if (!d->m_initialized)
-        const_cast<KitManager *>(this)->restoreKits();
     return d->m_defaultKit;
 }
 
@@ -394,18 +423,27 @@ void KitManager::deleteKit(Kit *k)
     delete k;
 }
 
+bool KitManager::isLoaded() const
+{
+    return d->m_initialized;
+}
+
 void KitManager::notifyAboutUpdate(ProjectExplorer::Kit *k)
 {
     if (!k)
         return;
-    if (kits().contains(k) && d->m_initialized)
+    int pos = d->m_kitList.indexOf(k);
+    if (pos >= 0 && d->m_initialized) {
+        d->moveKit(pos);
         emit kitUpdated(k);
-    else
+    } else {
         emit unmanagedKitUpdated(k);
+    }
 }
 
 bool KitManager::registerKit(ProjectExplorer::Kit *k)
 {
+    QTC_ASSERT(isLoaded(), return false);
     if (!k)
         return true;
     foreach (Kit *current, kits()) {
@@ -452,12 +490,6 @@ void KitManager::setDefaultKit(Kit *k)
         emit defaultkitChanged();
 }
 
-void KitManager::validateKits()
-{
-    foreach (Kit *k, kits())
-        k->validate();
-}
-
 void KitManager::addKit(Kit *k)
 {
     if (!k)
@@ -473,7 +505,8 @@ void KitManager::addKit(Kit *k)
         }
     }
 
-    d->m_kitList.append(k);
+    d->insertKit(k);
+
     if (!d->m_defaultKit ||
             (!d->m_defaultKit->isValid() && k->isValid()))
         setDefaultKit(k);

@@ -33,6 +33,7 @@
 
 #include <texteditor/basetexteditor.h>
 #include <coreplugin/manhattanstyle.h>
+#include <utils/hostosinfo.h>
 
 #include <QMouseEvent>
 #include <QPainter>
@@ -103,8 +104,8 @@ QmlConsoleView::QmlConsoleView(QWidget *parent) :
                                 "image: none; }"));
 
     QString baseName = QApplication::style()->objectName();
-#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-    if (baseName == QLatin1String("windows")) {
+    if (Utils::HostOsInfo::isAnyUnixHost() && !Utils::HostOsInfo::isMacHost()
+            && baseName == QLatin1String("windows")) {
         // Sometimes we get the standard windows 95 style as a fallback
         if (QStyleFactory::keys().contains(QLatin1String("Fusion")))
             baseName = QLatin1String("fusion"); // Qt5
@@ -117,7 +118,6 @@ QmlConsoleView::QmlConsoleView(QWidget *parent) :
                 baseName = QLatin1String("cleanlooks");
         }
     }
-#endif
     QmlConsoleViewStyle *style = new QmlConsoleViewStyle(baseName);
     setStyle(style);
     style->setParent(this);
@@ -242,7 +242,7 @@ void QmlConsoleView::copyToClipboard(const QModelIndex &index)
     if (!index.isValid())
         return;
 
-    QString contents = model()->data(index).toString();
+    QString contents = model()->data(index, QmlConsoleItemModel::ExpressionRole).toString();
     // See if we have file and line Info
     QString filePath = model()->data(index, QmlConsoleItemModel::FileRole).toString();
     if (!filePath.isEmpty()) {

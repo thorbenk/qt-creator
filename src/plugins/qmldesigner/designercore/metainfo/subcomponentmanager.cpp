@@ -27,9 +27,10 @@
 **
 ****************************************************************************/
 
+#include "subcomponentmanager.h"
+
 #include <qmldesignerconstants.h>
 
-#include "subcomponentmanager.h"
 #include "model.h"
 #include "metainfo.h"
 #include "metainforeader.h"
@@ -70,7 +71,7 @@ static inline QStringList importPaths() {
     // env import paths
     QByteArray envImportPath = qgetenv("QML_IMPORT_PATH");
     if (!envImportPath.isEmpty()) {
-        paths = QString::fromLatin1(envImportPath)
+        paths = QString::fromUtf8(envImportPath)
                 .split(Utils::HostOsInfo::pathListSeparator(), QString::SkipEmptyParts);
     }
 
@@ -153,7 +154,7 @@ SubComponentManager::SubComponentManager(Model *model, QObject *parent)
 void SubComponentManager::addImport(int pos, const Import &import)
 {
     if (debug)
-        qDebug() << Q_FUNC_INFO << pos << import.file().toLatin1();
+        qDebug() << Q_FUNC_INFO << pos << import.file().toUtf8();
 
     if (import.isFileImport()) {
         QFileInfo dirInfo = QFileInfo(m_filePath.resolved(import.file()).toLocalFile());
@@ -212,8 +213,8 @@ void SubComponentManager::parseDirectories()
         if (dirInfo.exists() && dirInfo.isDir())
             parseDirectory(dirInfo.canonicalFilePath());
 
-        foreach (const QString subDir, QDir(QFileInfo(file).path()).entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot)) {
-            parseDirectory(dirInfo.canonicalFilePath() + "/" + subDir, true, subDir);
+        foreach (const QString &subDir, QDir(QFileInfo(file).path()).entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot)) {
+            parseDirectory(dirInfo.canonicalFilePath() + "/" + subDir, true, subDir.toUtf8());
         }
     }
 
@@ -221,7 +222,7 @@ void SubComponentManager::parseDirectories()
         if (import.isFileImport()) {
             QFileInfo dirInfo = QFileInfo(m_filePath.resolved(import.file()).toLocalFile());
             if (dirInfo.exists() && dirInfo.isDir())
-                parseDirectory(dirInfo.canonicalFilePath(), true, dirInfo.baseName());
+                parseDirectory(dirInfo.canonicalFilePath(), true, dirInfo.baseName().toUtf8());
         } else {
             QString url = import.url();
             foreach (const QString &path, importPaths()) {
@@ -237,7 +238,7 @@ void SubComponentManager::parseDirectories()
     }
 }
 
-void SubComponentManager::parseDirectory(const QString &canonicalDirPath, bool addToLibrary, const QString& qualification)
+void SubComponentManager::parseDirectory(const QString &canonicalDirPath, bool addToLibrary, const TypeName& qualification)
 {
 
     QDir designerDir(canonicalDirPath + Constants::QML_DESIGNER_SUBFOLDER);
@@ -406,7 +407,7 @@ void SubComponentManager::registerQmlFile(const QFileInfo &fileInfo, const QStri
     if (addToLibrary) {
         // Add file components to the library
         ItemLibraryEntry itemLibraryEntry;
-        itemLibraryEntry.setType(componentName, -1, -1);
+        itemLibraryEntry.setType(componentName.toUtf8(), -1, -1);
         itemLibraryEntry.setName(baseComponentName);
         itemLibraryEntry.setCategory("QML Components");
         if (!qualifier.isEmpty()) {

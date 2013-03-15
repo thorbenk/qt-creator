@@ -40,12 +40,12 @@
 
         \li \gui {Qt Quick Application} creates a Qt Quick application project
             that can contain both QML and C++ code. The project includes a
-            QDeclarativeView. You can build the application and deploy it on
+            QDeclarativeView. You can build the application and deploy it to
             desktop and mobile target platforms.
 
-            You can select a template that uses either the built-in QML elements
+            You can select a template that uses either the built-in QML types
             or Qt Quick components for a particular platform. The built-in QML
-            elements enable you to create cross-platform applications with a
+            types enable you to create cross-platform applications with a
             custom look and feel, whereas the components provide the look and
             feel for a particular platform.
 
@@ -64,8 +64,8 @@
             need to have the development environment installed on your
             computer to create and run this type of project.
 
-        \li \gui {Qt Quick 1 Application (from Existing QML File)} converts
-            existing Qt Quick 1 applications to Qt Quick application projects.
+        \li \gui {Qt Quick Application (from Existing QML File)} converts
+            existing Qt Quick applications to Qt Quick application projects.
             This enables you to run them from \QC and to deploy them to mobile
             devices.
 
@@ -80,8 +80,8 @@
 
     \section1 Creating Qt Quick UI Projects
 
-    Select \gui {File > New File or Project > Applications > Qt Quick UI >
-    Choose} and follow the instructions of the wizard.
+    Select \gui File > \gui {New File or Project} > \gui Applications > \gui {Qt Quick 1 UI}
+    or \gui {Qt Quick 2 UI} > \gui Choose and follow the instructions of the wizard.
 
     \QC creates the following files:
 
@@ -91,15 +91,14 @@
             files in the project folder belong to the project. Therefore, you do
             not need to individually list all the files in the project.
 
-        \li .qml file defines an element, such as a component, screen, or the
+        \li .qml file defines an UI item, such as a component, screen, or the
             whole application UI.
 
     \endlist
 
-    The \c import statement in the beginning of the .qml file specifies the
-    \l{http://qt-project.org/doc/qt-4.8/qdeclarativemodules.html}{Qt modules} to
-    import. Each Qt module contains a set of default elements. Specify a version
-    to get the features you want.
+    The \c import statement in the beginning of the .qml file specifies the Qt modules to
+    \l{http://qt-project.org/doc/qt-5.0/qtqml/qtqml-syntax-imports.html}{import}. Each Qt module
+    contains a set of default QML types. Specify a version to get the features you want.
 
     To use JavaScript and image files in the application, copy them to the
     project folder.
@@ -107,15 +106,14 @@
     \section1 Creating Qt Quick Applications
 
     Select \gui File > \gui {New File or Project} > \gui Applications >
-    \gui {Qt Quick Application 1 (Built-in Elements)} or \gui {Qt Quick
-    Application 2 (Built-in Elements)} > \gui Choose, and follow the
-    instructions of the wizard.
+    \gui {Qt Quick Application 1 (Built-in Types)} or \gui {Qt Quick Application 2 (Built-in Types)}
+    > \gui Choose, and follow the instructions of the wizard.
 
     \note The SDK for a particular target platform might install additional
     templates for that platform. For example, the \gui {Qt Quick Application for
     MeeGo Harmattan} template is installed as part of the MeeGo Harmattan tool
-    chain and the QNX templates are installed as part of the BlackBerry NDK or
-    the QNX SDK.
+    chain and the BlackBerry 10 and QNX templates are installed as part of the BlackBerry 10 NDK,
+    BlackBerry NDK, or QNX SDK.
 
     \QC creates the necessary boilerplate files. Some of the files are
     specific to a particular target platform.
@@ -123,8 +121,9 @@
     \section1 Importing QML Applications
 
     If you have existing QML applications that you want to run in \QC or deploy
-    to mobile devices, select the \gui {Qt Quick Application (from Existing QML
-    File)} template to import the main .qml file in your project.
+    to mobile devices, select \gui File > \gui {New File or Project} > \gui Applications >
+    \gui {Qt Quick 1 Application (from Existing QML file} or \gui {Qt Quick 2 Application
+    (from Existing QML File)} > \gui Choose to import the main .qml file in your project.
 
     \image qmldesigner-import-project.png "Select Existing QML File dialog"
 

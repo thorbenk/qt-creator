@@ -137,6 +137,8 @@ signals:
     void changed();
 
 private slots:
+    void setAuthorFromDebugToken();
+
     void addNewAsset();
     void removeSelectedAsset();
     void updateEntryCheckState(QStandardItem *item);
@@ -144,13 +146,21 @@ private slots:
 
     void setApplicationIconDelayed(const QString &iconPath);
     void setApplicationIconPreview(const QString &path);
+    void validateIconSize(const QString &path);
 
     void appendSplashScreenDelayed(const QString &splashScreenPath);
     void browseForSplashScreen();
     void removeSelectedSplashScreen();
     void handleSplashScreenSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
+    void validateSplashScreenSize(const QString &path);
 
 private:
+    enum ImageValidationResult {
+        Valid,
+        CouldNotLoad,
+        IncorrectSize
+    };
+
     BarDescriptorEditor *createEditor();
 
     void initGeneralPage();
@@ -162,10 +172,15 @@ private:
     void initSourcePage();
     void clearSourcePage();
 
+    void disconnectAssetsModel();
+    void connectAssetsModel();
+
+    void addAssetInternal(const BarDescriptorAsset &asset);
     bool hasAsset(const BarDescriptorAsset &asset);
     QString localAssetPathFromDestination(const QString &path);
 
     void setImagePreview(QLabel *previewLabel, const QString &path);
+    void validateImage(const QString &path, QLabel *warningMessage, QLabel *warningPixmap, const QSize &maximumSize);
 
     mutable Core::IEditor *m_editor;
 

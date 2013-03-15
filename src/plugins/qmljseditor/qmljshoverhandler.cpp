@@ -27,10 +27,10 @@
 **
 ****************************************************************************/
 
+#include "qmljshoverhandler.h"
 #include "qmljseditor.h"
 #include "qmljseditoreditable.h"
 #include "qmlexpressionundercursor.h"
-#include "qmljshoverhandler.h"
 
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/editormanager/editormanager.h>
@@ -461,10 +461,11 @@ bool HoverHandler::setQmlHelpItem(const ScopeChain &scopeChain,
     if (const ObjectValue *scope = isMember(scopeChain, node, &name)) {
         // maybe it's a type?
         if (!name.isEmpty() && name.at(0).isUpper()) {
-            AST::UiQualifiedId *qualifiedId = AST::cast<AST::UiQualifiedId *>(node);
-            const ObjectValue *value = scopeChain.context()->lookupType(qmlDocument.data(), qualifiedId);
-            if (setQmlTypeHelp(scopeChain, qmlDocument, value, QStringList(qualifiedId->name.toString())))
-                return true;
+            if (AST::UiQualifiedId *qualifiedId = AST::cast<AST::UiQualifiedId *>(node)) {
+                const ObjectValue *value = scopeChain.context()->lookupType(qmlDocument.data(), qualifiedId);
+                if (setQmlTypeHelp(scopeChain, qmlDocument, value, QStringList(qualifiedId->name.toString())))
+                    return true;
+            }
         }
 
         // otherwise, it's probably a property

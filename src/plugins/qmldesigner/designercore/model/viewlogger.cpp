@@ -177,7 +177,7 @@ void ViewLogger::nodeOrderChanged(const NodeListProperty &listProperty, const Mo
     m_output << time() << indent("nodeOrderChanged:") << listProperty << movedNode << oldIndex << endl;
 }
 
-void ViewLogger::auxiliaryDataChanged(const ModelNode &node, const QString &name, const QVariant &data)
+void ViewLogger::auxiliaryDataChanged(const ModelNode &node, const PropertyName &name, const QVariant &data)
 {
     m_output << time() << indent("auxiliaryDataChanged:") << node << "\t" << name << "\t" << data.toString() << endl;
 }
@@ -205,9 +205,9 @@ void ViewLogger::scriptFunctionsChanged(const ModelNode &node, const QStringList
     m_output << time() << indent("function scripts changed:") << node << endl;
 }
 
-void ViewLogger::instancePropertyChange(const QList<QPair<ModelNode, QString> > &propertyList)
+void ViewLogger::instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &propertyList)
 {
-    typedef QPair<ModelNode, QString> PropertyPair;
+    typedef QPair<ModelNode, PropertyName> PropertyPair;
     m_output << time() << indent("instancePropertyChange:") << endl;
 
     foreach (const PropertyPair &propertyPair, propertyList)
@@ -287,9 +287,5 @@ void ViewLogger::actualStateChanged(const ModelNode &node)
     m_output << time() << indent("actualStateChanged:") << node << endl;
 }
 
-QWidget *ViewLogger::widget()
-{
-    return 0;
-}
 } // namespace Internal
 } // namespace QmlDesigner

@@ -35,7 +35,6 @@
 #include "cmakerunconfiguration.h"
 #include "makestep.h"
 #include "cmakeopenprojectwizard.h"
-#include "cmakebuildconfiguration.h"
 #include "cmakeuicodemodelsupport.h"
 
 #include <projectexplorer/projectexplorerconstants.h>
@@ -110,7 +109,7 @@ CMakeProject::CMakeProject(CMakeManager *manager, const QString &fileName)
       m_lastEditor(0)
 {
     setProjectContext(Core::Context(CMakeProjectManager::Constants::PROJECTCONTEXT));
-    setProjectLanguage(Core::Context(ProjectExplorer::Constants::LANG_CXX));
+    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
 
     m_file = new CMakeFile(this, fileName);
 
@@ -323,8 +322,6 @@ bool CMakeProject::parseCMakeLists()
 
     QStringList cxxflags;
     foreach (const CMakeBuildTarget &buildTarget, m_buildTargets) {
-        if (buildTarget.title.endsWith(QLatin1String("/fast")))
-            continue;
         QString makeCommand = QDir::fromNativeSeparators(buildTarget.makeCommand);
         int startIndex = makeCommand.indexOf(QLatin1Char('\"'));
         int endIndex = makeCommand.indexOf(QLatin1Char('\"'), startIndex + 1);
@@ -411,13 +408,11 @@ QList<CMakeBuildTarget> CMakeProject::buildTargets() const
     return m_buildTargets;
 }
 
-QStringList CMakeProject::buildTargetTitles() const
+QStringList CMakeProject::buildTargetTitles(bool runnable) const
 {
     QStringList results;
     foreach (const CMakeBuildTarget &ct, m_buildTargets) {
-        if (ct.executable.isEmpty())
-            continue;
-        if (ct.title.endsWith(QLatin1String("/fast")))
+        if (runnable && (ct.executable.isEmpty() || ct.library))
             continue;
         results << ct.title;
     }
@@ -427,10 +422,6 @@ QStringList CMakeProject::buildTargetTitles() const
 bool CMakeProject::hasBuildTarget(const QString &title) const
 {
     foreach (const CMakeBuildTarget &ct, m_buildTargets) {
-        if (ct.executable.isEmpty())
-            continue;
-        if (ct.title.endsWith(QLatin1String("/fast")))
-            continue;
         if (ct.title == title)
             return true;
     }
@@ -751,8 +742,6 @@ void CMakeProject::updateRunConfigurations(Target *t)
         if (ct.library)
             continue;
         if (ct.executable.isEmpty())
-            continue;
-        if (ct.title.endsWith(QLatin1String("/fast")))
             continue;
         QList<CMakeRunConfiguration *> list = existingRunConfigurations.values(ct.title);
         if (!list.isEmpty()) {
@@ -1096,7 +1085,6 @@ void CMakeCbpParser::parseBuild()
 
 void CMakeCbpParser::parseBuildTarget()
 {
-    m_buildTargetType = false;
     m_buildTarget.clear();
 
     if (attributes().hasAttribute(QLatin1String("title")))
@@ -1104,7 +1092,7 @@ void CMakeCbpParser::parseBuildTarget()
     while (!atEnd()) {
         readNext();
         if (isEndElement()) {
-            if (m_buildTargetType || m_buildTarget.title == QLatin1String("all") || m_buildTarget.title == QLatin1String("install"))
+            if (!m_buildTarget.title.endsWith(QLatin1String("/fast")))
                 m_buildTargets.append(m_buildTarget);
             return;
         } else if (name() == QLatin1String("Compiler")) {
@@ -1123,15 +1111,10 @@ void CMakeCbpParser::parseBuildTargetOption()
 {
     if (attributes().hasAttribute(QLatin1String("output"))) {
         m_buildTarget.executable = attributes().value(QLatin1String("output")).toString();
-    } else if (attributes().hasAttribute(QLatin1String("type"))
-               && (attributes().value(QLatin1String("type")) == QLatin1String("1")
-                   || attributes().value(QLatin1String("type")) == QLatin1String("0"))) {
-        m_buildTargetType = true;
-    } else if (attributes().hasAttribute(QLatin1String("type"))
-               && (attributes().value(QLatin1String("type")) == QLatin1String("3")
-                   || attributes().value(QLatin1String("type")) == QLatin1String("2"))) {
-        m_buildTargetType = true;
-        m_buildTarget.library = true;
+    } else if (attributes().hasAttribute(QLatin1String("type"))) {
+        const QString value = attributes().value(QLatin1String("type")).toString();
+        if (value == QLatin1String("2") || value == QLatin1String("3"))
+            m_buildTarget.library = true;
     } else if (attributes().hasAttribute(QLatin1String("working_dir"))) {
         m_buildTarget.workingDirectory = attributes().value(QLatin1String("working_dir")).toString();
     }

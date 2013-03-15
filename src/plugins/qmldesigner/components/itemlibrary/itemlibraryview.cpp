@@ -43,12 +43,17 @@ ItemLibraryView::~ItemLibraryView()
 
 }
 
-QWidget *ItemLibraryView::widget()
+bool ItemLibraryView::hasWidget() const
+{
+    return true;
+}
+
+WidgetInfo ItemLibraryView::widgetInfo()
 {
     if (m_widget.isNull())
-        m_widget = new ItemLibraryWidget;
+            m_widget = new ItemLibraryWidget;
 
-    return m_widget.data();
+    return createWidgetInfo(m_widget.data(), QLatin1String("Library"), WidgetInfo::LeftPane, 0);
 }
 
 void ItemLibraryView::modelAttached(Model *model)
@@ -135,7 +140,7 @@ void ItemLibraryView::selectedNodesChanged(const QList<ModelNode> &,
 
 }
 
-void ItemLibraryView::auxiliaryDataChanged(const ModelNode &, const QString &, const QVariant &)
+void ItemLibraryView::auxiliaryDataChanged(const ModelNode &, const PropertyName &, const QVariant &)
 {
 
 }
@@ -145,7 +150,7 @@ void ItemLibraryView::scriptFunctionsChanged(const ModelNode &, const QStringLis
 
 }
 
-void ItemLibraryView::instancePropertyChange(const QList<QPair<ModelNode, QString> > &)
+void ItemLibraryView::instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &)
 {
 
 }

@@ -29,7 +29,6 @@
 
 #include "modelmerger.h"
 
-#include "modelmerger.h"
 #include "modelnode.h"
 #include "abstractview.h"
 #include "model.h"
@@ -140,10 +139,10 @@ static void syncNodeListProperties(ModelNode &outputNode, const ModelNode &input
 
 static ModelNode createNodeFromNode(const ModelNode &modelNode,const QHash<QString, QString> &idRenamingHash, AbstractView *view)
 {
-    QList<QPair<QString, QVariant> > propertyList;
-    QList<QPair<QString, QVariant> > variantPropertyList;
+    QList<QPair<PropertyName, QVariant> > propertyList;
+    QList<QPair<PropertyName, QVariant> > variantPropertyList;
     foreach (const VariantProperty &variantProperty, modelNode.variantProperties()) {
-        propertyList.append(QPair<QString, QVariant>(variantProperty.name(), variantProperty.value()));
+        propertyList.append(QPair<PropertyName, QVariant>(variantProperty.name(), variantProperty.value()));
     }
     NodeMetaInfo nodeMetaInfo = view->model()->metaInfo(modelNode.type());
     ModelNode newNode(view->createModelNode(modelNode.type(), nodeMetaInfo.majorVersion(), nodeMetaInfo.minorVersion(),
@@ -187,7 +186,7 @@ void ModelMerger::replaceModel(const ModelNode &modelNode)
 
         ModelNode rootNode(view()->rootModelNode());
 
-        foreach (const QString &propertyName, rootNode.propertyNames())
+        foreach (const PropertyName &propertyName, rootNode.propertyNames())
             rootNode.removeProperty(propertyName);
 
         QHash<QString, QString> idRenamingHash;

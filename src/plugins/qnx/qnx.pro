@@ -68,7 +68,13 @@ SOURCES += qnxplugin.cpp \
     blackberrycertificatemodel.cpp \
     blackberryregisterkeydialog.cpp \
     blackberryimportcertificatedialog.cpp \
-    blackberrycreatecertificatedialog.cpp
+    blackberrycreatecertificatedialog.cpp \
+    blackberrydebugtokenrequester.cpp \
+    blackberrydebugtokenrequestdialog.cpp \
+    blackberrydebugtokenuploader.cpp \
+    blackberrydebugtokenreader.cpp \
+    blackberryndkprocess.cpp \
+    blackberrydeviceprocesssupport.cpp
 
 HEADERS += qnxplugin.h\
     qnxconstants.h \
@@ -133,7 +139,13 @@ HEADERS += qnxplugin.h\
     blackberrycertificatemodel.h \
     blackberryregisterkeydialog.h \
     blackberryimportcertificatedialog.h \
-    blackberrycreatecertificatedialog.h
+    blackberrycreatecertificatedialog.h \
+    blackberrydebugtokenrequester.h \
+    blackberrydebugtokenrequestdialog.h \
+    blackberrydebugtokenuploader.h \
+    blackberrydebugtokenreader.h \
+    blackberryndkprocess.h \
+    blackberrydeviceprocesssupport.h
 
 FORMS += \
     blackberrydeviceconfigurationwizardsetuppage.ui \
@@ -147,7 +159,22 @@ FORMS += \
     blackberrykeyswidget.ui \
     blackberryregisterkeydialog.ui \
     blackberryimportcertificatedialog.ui \
-    blackberrycreatecertificatedialog.ui
+    blackberrycreatecertificatedialog.ui \
+    blackberrydebugtokenrequestdialog.ui
+
+include(../../private_headers.pri)
+
+greaterThan(QT_MAJOR_VERSION, 4) {
+    QT += gui-private
+    DEFINES += QNX_ZIP_FILE_SUPPORT
+} else {
+    exists($${QT_PRIVATE_HEADERS}/QtGui/private/qzipreader_p.h) {
+        DEFINES += QNX_ZIP_FILE_SUPPORT
+    } else {
+        warning("The QNX plugin depends on private headers from QtGui module, to be fully functional.")
+        warning("To fix it, pass 'QT_PRIVATE_HEADERS=$QTDIR/include' to qmake, where $QTDIR is the source directory of qt.")
+    }
+}
 
 DEFINES += QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_ASCII
 

@@ -81,6 +81,9 @@ class CPPTOOLS_EXPORT CppModelManager : public CPlusPlus::CppModelManagerInterfa
     Q_OBJECT
 
 public:
+    typedef CPlusPlus::Document Document;
+
+public:
     CppModelManager(QObject *parent = 0);
     virtual ~CppModelManager();
 
@@ -95,6 +98,8 @@ public:
     virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const;
 
     virtual CPlusPlus::Snapshot snapshot() const;
+    virtual Document::Ptr document(const QString &fileName) const;
+    bool replaceDocument(Document::Ptr newDoc);
     virtual void GC();
 
     QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
@@ -122,8 +127,8 @@ public:
     virtual void renameMacroUsages(const CPlusPlus::Macro &macro, const QString &replacement);
 
     virtual void setExtraDiagnostics(const QString &fileName, int key,
-                                     const QList<CPlusPlus::Document::DiagnosticMessage> &diagnostics);
-    virtual QList<CPlusPlus::Document::DiagnosticMessage> extraDiagnostics(
+                                     const QList<Document::DiagnosticMessage> &diagnostics);
+    virtual QList<Document::DiagnosticMessage> extraDiagnostics(
             const QString &fileName, int key = AllExtraDiagnostics) const;
 
     void finishedRefreshingSourceFiles(const QStringList &files);
@@ -182,8 +187,9 @@ private Q_SLOTS:
     void updateEditorSelections();
 
 private:
-    void updateEditor(CPlusPlus::Document::Ptr doc);
+    void updateEditor(Document::Ptr doc);
 
+    void replaceSnapshot(const CPlusPlus::Snapshot &newSnapshot);
     WorkingCopy buildWorkingCopyList();
 
     void ensureUpdated();
@@ -216,8 +222,8 @@ private:
     // project integration
     QMap<ProjectExplorer::Project *, ProjectInfo> m_projects;
 
-    mutable QMutex mutex;
-    mutable QMutex protectSnapshot;
+    mutable QMutex m_mutex;
+    mutable QMutex m_protectSnapshot;
 
     struct Editor {
         Editor()
@@ -238,8 +244,8 @@ private:
     CppFindReferences *m_findReferences;
     bool m_indexerEnabled;
 
-    mutable QMutex protectExtraDiagnostics;
-    QHash<QString, QHash<int, QList<CPlusPlus::Document::DiagnosticMessage> > > m_extraDiagnostics;
+    mutable QMutex m_protectExtraDiagnostics;
+    QHash<QString, QHash<int, QList<Document::DiagnosticMessage> > > m_extraDiagnostics;
 
     QMap<QString, QList<ProjectPart::Ptr> > m_srcToProjectPart;
 
@@ -253,6 +259,8 @@ private:
 
 class CPPTOOLS_EXPORT CppPreprocessor: public CPlusPlus::Client
 {
+    Q_DISABLE_COPY(CppPreprocessor)
+
 public:
     CppPreprocessor(QPointer<CppModelManager> modelManager, bool dumpFileNameWhileParsing = false);
     virtual ~CppPreprocessor();
@@ -266,6 +274,7 @@ public:
     void setTodo(const QStringList &files);
 
     void run(const QString &fileName);
+    void removeFromCache(const QString &fileName);
 
     void resetEnvironment();
     static QString cleanPath(const QString &path);
@@ -275,9 +284,6 @@ public:
 
     CppModelManager *modelManager() const
     { return m_modelManager.data(); }
-
-public: // attributes
-    CPlusPlus::Snapshot m_snapshot;
 
 protected:
     CPlusPlus::Document::Ptr switchDocument(CPlusPlus::Document::Ptr doc);
@@ -305,13 +311,13 @@ protected:
     virtual void sourceNeeded(unsigned line, QString &fileName, IncludeType type);
 
 private:
+    CPlusPlus::Snapshot m_snapshot;
     QPointer<CppModelManager> m_modelManager;
     bool m_dumpFileNameWhileParsing;
     CPlusPlus::Environment m_env;
     CPlusPlus::Preprocessor m_preprocess;
     QStringList m_includePaths;
     CPlusPlus::CppModelManagerInterface::WorkingCopy m_workingCopy;
-    QStringList m_projectFiles;
     QStringList m_frameworkPaths;
     QSet<QString> m_included;
     CPlusPlus::Document::Ptr m_currentDoc;

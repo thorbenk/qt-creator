@@ -30,8 +30,7 @@ def takeDebuggerLog():
     debuggerLogWindow = waitForObject("{container=':DebugModeWidget.Debugger Log_QDockWidget' type='Debugger::Internal::CombinedPane' unnamed='1' visible='1'}")
     debuggerLog = str(debuggerLogWindow.plainText)
     mouseClick(debuggerLogWindow, 5, 5, 0, Qt.LeftButton)
-    activateItem(waitForObjectItem(openContextMenuOnTextCursorPosition(debuggerLogWindow),
-                                   "Clear Contents"))
+    invokeContextMenuItem(debuggerLogWindow, "Clear Contents")
     waitFor("str(debuggerLogWindow.plainText)==''", 5000)
     invokeMenuItem("Window", "Views", "Debugger Log")
     return debuggerLog
@@ -207,22 +206,16 @@ def verifyBreakPoint(bpToVerify):
     if isinstance(bpToVerify, dict):
         fileName = bpToVerify.keys()[0]
         editor = getEditorForFileSuffix(fileName)
-        if editor == None:
-            return False
-        textPos = editor.textCursor().position()
-        line = str(editor.plainText)[:textPos].count("\n") + 1
-        windowTitle = str(waitForObject(":Qt Creator_Core::Internal::MainWindow").windowTitle)
-        if fileName in windowTitle:
-            test.passes("Creator's window title changed according to current file")
-        else:
-            test.fail("Creator's window title did not change according to current file")
-        if line == bpToVerify.values()[0]:
-            test.passes("Breakpoint at expected line (%d) inside expected file (%s)"
-                        % (line, fileName))
-            return True
-        else:
-            test.fail("Breakpoint did not match expected line/file",
-                         "Found: %d in %s" % (line, fileName))
+        if editor:
+            test.compare(waitForObject(":DebugModeWidget_QComboBox").toolTip, fileName,
+                         "Verify that the right file is opened")
+            textPos = editor.textCursor().position()
+            line = str(editor.plainText)[:textPos].count("\n") + 1
+            windowTitle = str(waitForObject(":Qt Creator_Core::Internal::MainWindow").windowTitle)
+            test.verify(os.path.basename(fileName) in windowTitle,
+                        "Verify that Creator's window title changed according to current file")
+            return test.compare(line, bpToVerify.values()[0],
+                                "Compare hit breakpoint to expected line number in %s" % fileName)
     else:
         test.fatal("Expected a dict for bpToVerify - got '%s'" % className(bpToVerify))
     return False

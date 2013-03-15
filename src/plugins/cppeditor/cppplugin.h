@@ -89,7 +89,18 @@ private slots:
     void openTypeHierarchy();
 
 #ifdef WITH_TESTS
-private slots: // quickfix tests
+private slots:
+    void test_doxygen_comments_qt_style();
+    void test_doxygen_comments_qt_style_continuation();
+    void test_doxygen_comments_java_style();
+    void test_doxygen_comments_java_style_continuation();
+    void test_doxygen_comments_cpp_styleA();
+    void test_doxygen_comments_cpp_styleB();
+    void test_doxygen_comments_cpp_styleA_indented();
+    void test_doxygen_comments_cpp_styleA_continuation();
+    void test_doxygen_comments_cpp_styleA_indented_continuation();
+    void test_doxygen_comments_cpp_styleA_corner_case();
+
     void test_quickfix_GenerateGetterSetter_basicGetterWithPrefix();
     void test_quickfix_GenerateGetterSetter_basicGetterWithoutPrefix();
     void test_quickfix_GenerateGetterSetter_customType();
@@ -102,7 +113,15 @@ private slots: // quickfix tests
     void test_quickfix_GenerateGetterSetter_notTriggeringOnMemberFunction();
     void test_quickfix_GenerateGetterSetter_notTriggeringOnMemberArray();
     void test_quickfix_GenerateGetterSetter_notTriggeringWhenGetterOrSetterExist();
+
     void test_quickfix_ReformatPointerDeclaration();
+
+    void test_quickfix_InsertDefFromDecl_basic();
+    void test_quickfix_InsertDefFromDecl_headerSource_basic1();
+    void test_quickfix_InsertDefFromDecl_headerSource_basic2();
+    void test_quickfix_InsertDefFromDecl_headerSource_namespace1();
+    void test_quickfix_InsertDefFromDecl_headerSource_namespace2();
+    void test_quickfix_InsertDefFromDecl_freeFunction();
 #endif // WITH_TESTS
 
 private:

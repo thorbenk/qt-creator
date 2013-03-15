@@ -12,6 +12,8 @@ def main():
     __createMinimumIni__(emptySettings)
     SettingsPath = ' -settingspath "%s"' % emptySettings
     startApplication("qtcreator" + SettingsPath)
+    if not startedWithoutPluginError():
+        return
     invokeMenuItem("Tools", "Options...")
     __checkBuildAndRun__()
     clickButton(waitForObject(":Options.Cancel_QPushButton"))
@@ -210,6 +212,7 @@ def __lowerStrs__(iterable):
             yield it
 
 def __checkCreatedSettings__(settingsFolder):
+    waitForCleanShutdown()
     qtProj = os.path.join(settingsFolder, "QtProject")
     folders = []
     files = [{os.path.join(qtProj, "QtCreator.db"):0},

@@ -41,6 +41,7 @@
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/completionsettings.h>
 #include <extensionsystem/pluginmanager.h>
+#include <utils/qtcassert.h>
 
 #include <QObject>
 #include <QList>
@@ -132,6 +133,8 @@ private:
 // --------------------
 const QChar CodeAssistantPrivate::m_null;
 
+static const int AutomaticProposalTimerInterval = 400;
+
 CodeAssistantPrivate::CodeAssistantPrivate(CodeAssistant *assistant)
     : m_q(assistant)
     , m_textEditor(0)
@@ -142,7 +145,7 @@ CodeAssistantPrivate::CodeAssistantPrivate(CodeAssistant *assistant)
     , m_settings(TextEditorSettings::instance()->completionSettings())
 {
     m_automaticProposalTimer.setSingleShot(true);
-    m_automaticProposalTimer.setInterval(400);
+    m_automaticProposalTimer.setInterval(AutomaticProposalTimerInterval);
     connect(&m_automaticProposalTimer, SIGNAL(timeout()), this, SLOT(automaticProposalTimeout()));
 
     connect(TextEditorSettings::instance(),
@@ -219,7 +222,7 @@ void CodeAssistantPrivate::requestProposal(AssistReason reason,
                                            AssistKind kind,
                                            IAssistProvider *provider)
 {
-    Q_ASSERT(!isWaitingForProposal());
+    QTC_ASSERT(!isWaitingForProposal(), return);
 
     if (!provider) {
         if (kind == Completion) {
@@ -248,7 +251,7 @@ void CodeAssistantPrivate::requestProposal(AssistReason reason,
             m_requestRunner = new ProcessorRunner;
             connect(m_requestRunner, SIGNAL(finished()), this, SLOT(proposalComputed()));
             connect(m_requestRunner, SIGNAL(finished()), this, SLOT(finalizeRequest()));
-            assistInterface->detach(m_requestRunner);
+            assistInterface->prepareForAsyncUse();
             m_requestRunner->setReason(reason);
             m_requestRunner->setProcessor(processor);
             m_requestRunner->setAssistInterface(assistInterface);
@@ -326,6 +329,7 @@ void CodeAssistantPrivate::displayProposal(IAssistProposal *newProposal, AssistR
 
 void CodeAssistantPrivate::processProposalItem(IAssistProposalItem *proposalItem)
 {
+    QTC_ASSERT(m_proposal, return);
     proposalItem->apply(m_textEditor, m_proposal->basePosition());
     destroyContext();
     process();
@@ -333,6 +337,7 @@ void CodeAssistantPrivate::processProposalItem(IAssistProposalItem *proposalItem
 
 void CodeAssistantPrivate::handlePrefixExpansion(const QString &newPrefix)
 {
+    QTC_ASSERT(m_proposal, return);
     const int currentPosition = m_textEditor->position();
     m_textEditor->setCursorPosition(m_proposal->basePosition());
     m_textEditor->replace(currentPosition - m_proposal->basePosition(), newPrefix);
@@ -395,6 +400,7 @@ void CodeAssistantPrivate::notifyChange()
     stopAutomaticProposalTimer();
 
     if (isDisplayingProposal()) {
+        QTC_ASSERT(m_proposal, return);
         if (m_textEditor->position() < m_proposal->basePosition()) {
             destroyContext();
         } else {

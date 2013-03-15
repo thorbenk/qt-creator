@@ -121,6 +121,10 @@ bool AndroidDeployStep::init()
         return false;
     }
     m_ndkToolChainVersion = static_cast<AndroidToolChain *>(tc)->ndkToolChainVersion();
+
+    QString arch = static_cast<Qt4Project *>(project())->rootQt4ProjectNode()->singleVariableValue(Qt4ProjectManager::AndroidArchVar);
+    if (!arch.isEmpty())
+        m_libgnustl = AndroidManager::libGnuStl(arch, m_ndkToolChainVersion);
     return true;
 }
 
@@ -172,9 +176,8 @@ void AndroidDeployStep::cleanLibsOnDevice()
         return;
     }
     QProcess *process = new QProcess(this);
-    QStringList arguments;
-    arguments << QLatin1String("-s") << deviceSerialNumber
-              << QLatin1String("shell") << QLatin1String("rm") << QLatin1String("-r") << QLatin1String("/data/local/tmp/qt");
+    QStringList arguments = AndroidDeviceInfo::adbSelector(deviceSerialNumber);
+    arguments << QLatin1String("shell") << QLatin1String("rm") << QLatin1String("-r") << QLatin1String("/data/local/tmp/qt");
     connect(process, SIGNAL(finished(int)), this, SLOT(cleanLibsFinished()));
     const QString adb = AndroidConfigurations::instance().adbToolPath().toString();
     Core::MessageManager::instance()->printToOutputPanePopup(adb + QLatin1String(" ")
@@ -260,11 +263,6 @@ int AndroidDeployStep::deviceAPILevel()
     return m_deviceAPILevel;
 }
 
-Utils::FileName AndroidDeployStep::localLibsRulesFilePath()
-{
-    return AndroidManager::localLibsRulesFilePath(target());
-}
-
 unsigned int AndroidDeployStep::remoteModificationTime(const QString &fullDestination, QHash<QString, unsigned int> *cache)
 {
     QString destination = QFileInfo(fullDestination).absolutePath();
@@ -272,9 +270,8 @@ unsigned int AndroidDeployStep::remoteModificationTime(const QString &fullDestin
     QHash<QString, unsigned int>::const_iterator it = cache->find(fullDestination);
     if (it != cache->constEnd())
         return *it;
-    QStringList arguments;
-    arguments << QLatin1String("-s") << m_deviceSerialNumber
-              << QLatin1String("ls") << destination;
+    QStringList arguments = AndroidDeviceInfo::adbSelector(m_deviceSerialNumber);
+    arguments << QLatin1String("ls") << destination;
     process.start(AndroidConfigurations::instance().adbToolPath().toString(), arguments);
     process.waitForFinished(-1);
     if (process.error() != QProcess::UnknownError
@@ -375,7 +372,7 @@ void AndroidDeployStep::deployFiles(QProcess *process, const QList<DeployItem> &
 {
     foreach (const DeployItem &item, deployList) {
         runCommand(process, AndroidConfigurations::instance().adbToolPath().toString(),
-                   QStringList() << QLatin1String("-s") << m_deviceSerialNumber
+                   AndroidDeviceInfo::adbSelector(m_deviceSerialNumber)
                    << QLatin1String("push") << item.localFileName
                    << item.remoteFileName);
     }
@@ -401,6 +398,22 @@ bool AndroidDeployStep::deployPackage()
                      remoteRoot + QLatin1String("/lib"),
                      true,
                      QStringList() << QLatin1String("*.so"));
+
+        // don't use the libgnustl_shared.so from the qt directory
+        for (int i = 0; i < deployList.count(); ++i) {
+            if (deployList.at(i).remoteFileName == QLatin1String("/data/local/tmp/qt/lib/libgnustl_shared.so")) {
+                deployList.removeAt(i);
+                break;
+            }
+        }
+
+        // We want to deploy that *always*
+        // since even if the timestamps did not change, the toolchain might have changed
+        // leading to a different file
+        deployList.append(DeployItem(m_libgnustl,
+                                     QDateTime::currentDateTimeUtc().toTime_t(),
+                                     QLatin1String("/data/local/tmp/qt/lib/libgnustl_shared.so"), false));
+
         collectFiles(&deployList,
                      m_qtVersionSourcePath + QLatin1String("/plugins"),
                      remoteRoot + QLatin1String("/plugins"),
@@ -429,7 +442,7 @@ bool AndroidDeployStep::deployPackage()
 
     if (m_runDeployAction == InstallQASI) {
         if (!runCommand(deployProc, AndroidConfigurations::instance().adbToolPath().toString(),
-                        QStringList() << QLatin1String("-s") << m_deviceSerialNumber
+                        AndroidDeviceInfo::adbSelector(m_deviceSerialNumber)
                         << QLatin1String("install") << QLatin1String("-r ") << m_runQASIPackagePath)) {
             raiseError(tr("Qt Android smart installer installation failed"));
             disconnect(deployProc, 0, this, 0);
@@ -442,7 +455,7 @@ bool AndroidDeployStep::deployPackage()
 
     writeOutput(tr("Installing package onto %1.").arg(m_deviceSerialNumber));
     runCommand(deployProc, AndroidConfigurations::instance().adbToolPath().toString(),
-               QStringList() << QLatin1String("-s") << m_deviceSerialNumber << QLatin1String("uninstall") << m_packageName);
+               AndroidDeviceInfo::adbSelector(m_deviceSerialNumber) << QLatin1String("uninstall") << m_packageName);
     QString package = m_apkPathDebug;
 
     if (!(m_qtVersionQMakeBuildConfig & QtSupport::BaseQtVersion::DebugBuild)
@@ -450,7 +463,7 @@ bool AndroidDeployStep::deployPackage()
         package = m_apkPathRelease;
 
     if (!runCommand(deployProc, AndroidConfigurations::instance().adbToolPath().toString(),
-                    QStringList() << QLatin1String("-s") << m_deviceSerialNumber << QLatin1String("install") << package)) {
+                    AndroidDeviceInfo::adbSelector(m_deviceSerialNumber) << QLatin1String("install") << package)) {
         raiseError(tr("Package installation failed."));
         disconnect(deployProc, 0, this, 0);
         deployProc->deleteLater();
@@ -459,11 +472,11 @@ bool AndroidDeployStep::deployPackage()
 
     writeOutput(tr("Pulling files necessary for debugging."));
     runCommand(deployProc, AndroidConfigurations::instance().adbToolPath().toString(),
-               QStringList() << QLatin1String("-s") << m_deviceSerialNumber
+               AndroidDeviceInfo::adbSelector(m_deviceSerialNumber)
                << QLatin1String("pull") << QLatin1String("/system/bin/app_process")
                << QString::fromLatin1("%1/app_process").arg(m_buildDirectory));
     runCommand(deployProc, AndroidConfigurations::instance().adbToolPath().toString(),
-               QStringList() << QLatin1String("-s") << m_deviceSerialNumber << QLatin1String("pull")
+               AndroidDeviceInfo::adbSelector(m_deviceSerialNumber) << QLatin1String("pull")
                << QLatin1String("/system/lib/libc.so")
                << QString::fromLatin1("%1/libc.so").arg(m_buildDirectory));
     disconnect(deployProc, 0, this, 0);

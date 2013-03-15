@@ -558,7 +558,7 @@ Utils::FileName AndroidManager::localLibsRulesFilePath(ProjectExplorer::Target *
     QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target->kit());
     if (!version)
         return Utils::FileName();
-    return Utils::FileName::fromString(version->qmakeProperty("QT_INSTALL_LIBS") + QLatin1String("/rules.xml"));
+    return Utils::FileName::fromString(version->qmakeProperty("QT_INSTALL_LIBS"));
 }
 
 QString AndroidManager::loadLocalLibs(ProjectExplorer::Target *target, int apiLevel)
@@ -576,33 +576,31 @@ QString AndroidManager::loadLocalJarsInitClasses(ProjectExplorer::Target *target
     return loadLocal(target, apiLevel, Jar, QLatin1String("initClass"));
 }
 
-QStringList AndroidManager::availableQtLibs(ProjectExplorer::Target *target)
+QVector<AndroidManager::Library> AndroidManager::availableQtLibsWithDependencies(ProjectExplorer::Target *target)
 {
     QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target->kit());
     if (!target->activeRunConfiguration())
-        return QStringList();
+        return QVector<AndroidManager::Library>();
 
     ProjectExplorer::ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(target->kit());
     if (tc->type() != QLatin1String(Constants::ANDROID_TOOLCHAIN_TYPE))
-        return QStringList();
+        return QVector<AndroidManager::Library>();
+
+    Qt4ProjectManager::Qt4Project *project = static_cast<Qt4ProjectManager::Qt4Project *>(target->project());
+    QString arch = project->rootQt4ProjectNode()->singleVariableValue(Qt4ProjectManager::AndroidArchVar);
+
     AndroidToolChain *atc = static_cast<AndroidToolChain *>(tc);
+    QString libgnustl = libGnuStl(arch, atc->ndkToolChainVersion());
 
     Utils::FileName readelfPath = AndroidConfigurations::instance().readelfPath(target->activeRunConfiguration()->abi().architecture(),
                                                                                 atc->ndkToolChainVersion());
-    QStringList libs;
     const Qt4ProjectManager::Qt4Project *const qt4Project
             = qobject_cast<const Qt4ProjectManager::Qt4Project *>(target->project());
     if (!qt4Project || !version)
-        return libs;
+        return QVector<AndroidManager::Library>();
     QString qtLibsPath = version->qmakeProperty("QT_INSTALL_LIBS");
     if (!readelfPath.toFileInfo().exists()) {
-        QDirIterator libsIt(qtLibsPath, QStringList() << QLatin1String("libQt*.so"));
-        while (libsIt.hasNext()) {
-            libsIt.next();
-            libs << libsIt.fileName().mid(3, libsIt.fileName().indexOf(QLatin1Char('.')) - 3);
-        }
-        libs.sort();
-        return libs;
+        return QVector<AndroidManager::Library>();
     }
     LibrariesMap mapLibs;
     QDir libPath;
@@ -613,40 +611,55 @@ QStringList AndroidManager::availableQtLibs(ProjectExplorer::Target *target)
         mapLibs[library].dependencies = dependencies(readelfPath, libPath.absolutePath());
     }
 
+    const QString library = libgnustl.mid(libgnustl.lastIndexOf(QLatin1Char('/')) + 1);
+    mapLibs[library] = Library();;
+
     // clean dependencies
-    foreach (const QString &key, mapLibs.keys()) {
+    const LibrariesMap::Iterator lend = mapLibs.end();
+    for (LibrariesMap::Iterator lit = mapLibs.begin(); lit != lend; ++lit) {
+        Library &library = lit.value();
         int it = 0;
-        while (it < mapLibs[key].dependencies.size()) {
-            const QString &dependName = mapLibs[key].dependencies[it];
-            if (!mapLibs.keys().contains(dependName) && dependName.startsWith(QLatin1String("lib")) && dependName.endsWith(QLatin1String(".so")))
-                mapLibs[key].dependencies.removeAt(it);
+        while (it < library.dependencies.size()) {
+            const QString &dependName = library.dependencies[it];
+            if (!mapLibs.contains(dependName) && dependName.startsWith(QLatin1String("lib")) && dependName.endsWith(QLatin1String(".so")))
+                library.dependencies.removeAt(it);
             else
                 ++it;
         }
-        if (!mapLibs[key].dependencies.size())
-            mapLibs[key].level = 0;
+        if (library.dependencies.isEmpty())
+            library.level = 0;
     }
 
     QVector<Library> qtLibraries;
     // calculate the level for every library
-    foreach (const QString &key, mapLibs.keys()) {
-        if (mapLibs[key].level < 0)
+    for (LibrariesMap::Iterator lit = mapLibs.begin(); lit != lend; ++lit) {
+        Library &library = lit.value();
+        const QString &key = lit.key();
+        if (library.level < 0)
            setLibraryLevel(key, mapLibs);
 
-        if (!mapLibs[key].name.length() && key.startsWith(QLatin1String("lib")) && key.endsWith(QLatin1String(".so")))
-            mapLibs[key].name = key.mid(3, key.length() - 6);
+        if (library.name.isEmpty() && key.startsWith(QLatin1String("lib")) && key.endsWith(QLatin1String(".so")))
+            library.name = key.mid(3, key.length() - 6);
 
-        for (int it = 0; it < mapLibs[key].dependencies.size(); it++) {
-            const QString &libName = mapLibs[key].dependencies[it];
+        for (int it = 0; it < library.dependencies.size(); it++) {
+            const QString &libName = library.dependencies[it];
             if (libName.startsWith(QLatin1String("lib")) && libName.endsWith(QLatin1String(".so")))
-                mapLibs[key].dependencies[it] = libName.mid(3, libName.length() - 6);
+                library.dependencies[it] = libName.mid(3, libName.length() - 6);
         }
-        qtLibraries.push_back(mapLibs[key]);
+        qtLibraries.push_back(library);
     }
     qSort(qtLibraries.begin(), qtLibraries.end(), qtLibrariesLessThan);
-    foreach (Library lib, qtLibraries) {
+
+    return qtLibraries;
+
+}
+
+QStringList AndroidManager::availableQtLibs(ProjectExplorer::Target *target)
+{
+    QStringList libs;
+    QVector<Library> qtLibraries = availableQtLibsWithDependencies(target);
+    foreach (Library lib, qtLibraries)
         libs.push_back(lib.name);
-    }
     return libs;
 }
 
@@ -708,41 +721,79 @@ QString AndroidManager::loadLocal(ProjectExplorer::Target *target, int apiLevel,
 
     QString localLibs;
 
-    QDomDocument doc;
-    if (!openXmlFile(doc, localLibsRulesFilePath(target)))
+    QDir rulesFilesDir(localLibsRulesFilePath(target).toString());
+    if (!rulesFilesDir.exists())
         return localLibs;
 
     QStringList libs;
     libs << qtLibs(target) << prebundledLibs(target);
-    QDomElement element = doc.documentElement().firstChildElement(QLatin1String("platforms")).firstChildElement(itemType + QLatin1Char('s')).firstChildElement(QLatin1String("version"));
-    while (!element.isNull()) {
-        if (element.attribute(QLatin1String("value")).toInt() == apiLevel) {
-            if (element.hasAttribute(QLatin1String("symlink")))
-                apiLevel = element.attribute(QLatin1String("symlink")).toInt();
-            break;
+
+    QFileInfoList rulesFiles = rulesFilesDir.entryInfoList(QStringList() << QLatin1String("*.xml"),
+                                                           QDir::Files | QDir::Readable);
+
+    QStringList dependencyLibs;
+    QStringList replacedLibs;
+    foreach (QFileInfo rulesFile, rulesFiles) {
+        if (rulesFile.baseName() != QLatin1String("rules")
+                && !rulesFile.baseName().endsWith(QLatin1String("-android-dependencies"))) {
+            continue;
         }
-        element = element.nextSiblingElement(QLatin1String("version"));
+
+        QDomDocument doc;
+        if (!openXmlFile(doc, Utils::FileName::fromString(rulesFile.absoluteFilePath())))
+            return localLibs;
+
+        QDomElement element = doc.documentElement().firstChildElement(QLatin1String("platforms")).firstChildElement(itemType + QLatin1Char('s')).firstChildElement(QLatin1String("version"));
+        while (!element.isNull()) {
+            if (element.attribute(QLatin1String("value")).toInt() == apiLevel) {
+                if (element.hasAttribute(QLatin1String("symlink")))
+                    apiLevel = element.attribute(QLatin1String("symlink")).toInt();
+                break;
+            }
+            element = element.nextSiblingElement(QLatin1String("version"));
+        }
+
+        element = doc.documentElement().firstChildElement(QLatin1String("dependencies")).firstChildElement(QLatin1String("lib"));
+        while (!element.isNull()) {
+            if (libs.contains(element.attribute(QLatin1String("name")))) {
+                QDomElement libElement = element.firstChildElement(QLatin1String("depends")).firstChildElement(itemType);
+                while (!libElement.isNull()) {
+                    if (libElement.hasAttribute(attribute)) {
+                        QString dependencyLib = libElement.attribute(attribute).arg(apiLevel);
+                        if (!dependencyLibs.contains(dependencyLib))
+                            dependencyLibs << dependencyLib;
+                    }
+
+                    if (libElement.hasAttribute(QLatin1String("replaces"))) {
+                        QString replacedLib = libElement.attribute(QLatin1String("replaces")).arg(apiLevel);
+                        if (!replacedLibs.contains(replacedLib))
+                            replacedLibs << replacedLib;
+                    }
+
+                    libElement = libElement.nextSiblingElement(itemType);
+                }
+
+                libElement = element.firstChildElement(QLatin1String("replaces")).firstChildElement(itemType);
+                while (!libElement.isNull()) {
+                    if (libElement.hasAttribute(attribute)) {
+                        QString replacedLib = libElement.attribute(attribute).arg(apiLevel);
+                        if (!replacedLibs.contains(replacedLib))
+                            replacedLibs << replacedLib;
+                    }
+
+                    libElement = libElement.nextSiblingElement(itemType);
+                }
+            }
+            element = element.nextSiblingElement(QLatin1String("lib"));
+        }
     }
 
-    element = doc.documentElement().firstChildElement(QLatin1String("dependencies")).firstChildElement(QLatin1String("lib"));
-    while (!element.isNull()) {
-        if (libs.contains(element.attribute(QLatin1String("name")))) {
-            QDomElement libElement = element.firstChildElement(QLatin1String("depends")).firstChildElement(itemType);
-            while (!libElement.isNull()) {
-                if (libElement.hasAttribute(attribute))
-                    localLibs += libElement.attribute(attribute).arg(apiLevel) + QLatin1Char(':');
-                libElement = libElement.nextSiblingElement(itemType);
-            }
+    // The next loop requires all library names to end with a ":" so we append one
+    // to the end after joining.
+    localLibs = dependencyLibs.join(QLatin1String(":")) + QLatin1Char(':');
+    foreach (QString replacedLib, replacedLibs)
+        localLibs.remove(replacedLib + QLatin1Char(':'));
 
-            libElement = element.firstChildElement(QLatin1String("replaces")).firstChildElement(itemType);
-            while (!libElement.isNull()) {
-                if (libElement.hasAttribute(attribute))
-                    localLibs.replace(libElement.attribute(attribute).arg(apiLevel) + QLatin1Char(':'), QString());
-                libElement = libElement.nextSiblingElement(itemType);
-            }
-        }
-        element = element.nextSiblingElement(QLatin1String("lib"));
-    }
     return localLibs;
 }
 
@@ -910,6 +961,15 @@ bool AndroidManager::qtLibrariesLessThan(const Library &a, const Library &b)
     if (a.level == b.level)
         return a.name < b.name;
     return a.level < b.level;
+}
+
+QString AndroidManager::libGnuStl(const QString &arch, const QString &ndkToolChainVersion)
+{
+    return AndroidConfigurations::instance().config().ndkLocation.toString()
+            + QLatin1String("/sources/cxx-stl/gnu-libstdc++/")
+            + ndkToolChainVersion + QLatin1String("/libs/")
+            + arch
+            + QLatin1String("/libgnustl_shared.so");
 }
 
 } // namespace Internal

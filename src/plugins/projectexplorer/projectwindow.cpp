@@ -134,10 +134,17 @@ PanelsWidget::PanelsWidget(QWidget *parent) :
     setPalette(pal);
     pal.setColor(QPalette::All, QPalette::Window, background);
     m_root->setPalette(pal);
+
     // The layout holding the individual panels:
-    m_layout = new QGridLayout(m_root);
+    QVBoxLayout *topLayout = new QVBoxLayout(m_root);
+    topLayout->setMargin(0);
+    topLayout->setSpacing(0);
+
+    m_layout = new QGridLayout;
     m_layout->setColumnMinimumWidth(0, ICON_SIZE + 4);
     m_layout->setSpacing(0);
+    topLayout->addLayout(m_layout);
+    topLayout->addStretch(100);
 
     setWidget(m_root);
     setFrameStyle(QFrame::NoFrame);
@@ -159,15 +166,15 @@ PanelsWidget::~PanelsWidget()
  * | icon   | name                                      |
  * +        +-------------------------------------------+
  * |        | line                                      |
- * +--------+-------------------------------------------+ ABOVE_CONTENTS_MARGIN
- * |          widget (with contentsmargins adjusted!)   |
+ * +        +-------------------------------------------+ ABOVE_CONTENTS_MARGIN
+ * |        | widget (with contentsmargins adjusted!)   |
  * +--------+-------------------------------------------+ BELOW_CONTENTS_MARGIN
  */
 void PanelsWidget::addPropertiesPanel(PropertiesPanel *panel)
 {
     QTC_ASSERT(panel, return);
 
-    const int headerRow(m_layout->rowCount() - 1);
+    const int headerRow = m_layout->rowCount();
 
     // icon:
     if (!panel->icon().isNull()) {
@@ -181,7 +188,11 @@ void PanelsWidget::addPropertiesPanel(PropertiesPanel *panel)
     QLabel *nameLabel = new QLabel(m_root);
     nameLabel->setText(panel->displayName());
     QPalette palette = nameLabel->palette();
-    palette.setBrush(QPalette::All, QPalette::Foreground, QColor(0, 0, 0, 110));
+    for (int i = QPalette::Active; i < QPalette::NColorGroups; ++i ) {
+        QColor foregroundColor = palette.color(QPalette::ColorGroup(i), QPalette::Foreground);
+        foregroundColor.setAlpha(110);
+        palette.setBrush(QPalette::ColorGroup(i), QPalette::Foreground, foregroundColor);
+    }
     nameLabel->setPalette(palette);
     nameLabel->setContentsMargins(0, ABOVE_HEADING_MARGIN, 0, 0);
     QFont f = nameLabel->font();

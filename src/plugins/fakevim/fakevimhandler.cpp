@@ -59,6 +59,8 @@
 
 #include "fakevimhandler.h"
 
+#include "fakevimactions.h"
+
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
@@ -105,6 +107,9 @@
 #endif
 
 using namespace Utils;
+#ifdef FAKEVIM_STANDALONE
+using namespace FakeVim::Internal::Utils;
+#endif
 
 namespace FakeVim {
 namespace Internal {
@@ -343,7 +348,7 @@ static bool eatString(const char *prefix, QString *str)
     return true;
 }
 
-static QRegExp vimPatternToQtPattern(QString needle, bool smartcase)
+static QRegExp vimPatternToQtPattern(QString needle, bool ignoreCaseOption, bool smartCaseOption)
 {
     /* Transformations (Vim regexp -> QRegExp):
      *   \a -> [A-Za-z]
@@ -374,7 +379,9 @@ static QRegExp vimPatternToQtPattern(QString needle, bool smartcase)
      *   \c - set ignorecase for rest
      *   \C - set noignorecase for rest
      */
-    bool ignorecase = smartcase && !needle.contains(QRegExp(_("[A-Z]")));
+    // FIXME: Option smartcase should be used only if search was typed by user.
+    bool ignorecase = ignoreCaseOption
+        && !(smartCaseOption && needle.contains(QRegExp(_("[A-Z]"))));
     QString pattern;
     pattern.reserve(2 * needle.size());
 
@@ -842,7 +849,7 @@ public:
             // FIXME: Check the real conditions.
             if (x.unicode() < ' ')
                 m_text.clear();
-            else
+            else if (x.isLetter())
                 m_key = x.toUpper().unicode();
         }
 
@@ -1487,9 +1494,11 @@ public:
     int logicalToPhysicalColumn(int logical, const QString &text) const;
     Column cursorColumn() const; // as visible on screen
     int firstVisibleLine() const;
+    void setScrollBarValue(int line);
     void scrollToLine(int line);
     void scrollUp(int count);
     void scrollDown(int count) { scrollUp(-count); }
+    void updateScrollOffset();
     void alignViewportToCursor(Qt::AlignmentFlag align, int line = -1,
         bool moveToNonBlank = false);
 
@@ -1768,7 +1777,7 @@ public:
     // auto-indent
     QString tabExpand(int len) const;
     Column indentation(const QString &line) const;
-    void insertAutomaticIndentation(bool goingDown);
+    void insertAutomaticIndentation(bool goingDown, bool forceAutoIndent = false);
     bool removeAutomaticIndentation(); // true if something removed
     // number of autoindented characters
     int m_justAutoIndented;
@@ -2045,12 +2054,14 @@ EventResult FakeVimHandler::Private::handleEvent(QKeyEvent *ev)
         return EventPassedToCore;
     }
 
+#ifndef FAKEVIM_STANDALONE
     bool inSnippetMode = false;
     QMetaObject::invokeMethod(editor(),
         "inSnippetMode", Q_ARG(bool *, &inSnippetMode));
 
     if (inSnippetMode)
         return EventPassedToCore;
+#endif
 
     // Fake "End of line"
     //m_tc = cursor();
@@ -2557,6 +2568,8 @@ void FakeVimHandler::Private::moveDown(int n)
         block = document()->lastBlock();
     setPosition(block.position() + qMax(0, qMin(block.length() - 2, col)));
     moveToTargetColumn();
+
+    updateScrollOffset();
 }
 
 bool FakeVimHandler::Private::moveToNextParagraph(int count)
@@ -3327,13 +3340,13 @@ bool FakeVimHandler::Private::handleMovement(const Input &input)
     } else if (input.is(']')) {
         m_subsubmode = CloseSquareSubSubMode;
     } else if (input.isKey(Key_PageDown) || input.isControl('f')) {
-        moveDown(count * (linesOnScreen() - 2) - cursorLineOnScreen());
+        moveDown(count * (linesOnScreen() - 2));
         scrollToLine(cursorLine());
         handleStartOfLine();
         movement = _("f");
     } else if (input.isKey(Key_PageUp) || input.isControl('b')) {
-        moveUp(count * (linesOnScreen() - 2) + cursorLineOnScreen());
-        scrollToLine(cursorLine() + linesOnScreen() - 2);
+        moveUp(count * (linesOnScreen() - 2));
+        scrollToLine(qMax(0, cursorLine() - linesOnScreen()));
         handleStartOfLine();
         movement = _("b");
     } else if (input.isKey(Key_BracketLeft) || input.isKey(Key_BracketRight)) {
@@ -3670,8 +3683,8 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
         endEditBlock();
     } else if (input.isControl('o')) {
         jump(-count());
-    } else if (input.is('p') || input.is('P')) {
-        pasteText(input.is('p'));
+    } else if (input.is('p') || input.is('P') || input.isShift(Qt::Key_Insert)) {
+        pasteText(!input.is('P'));
         setTargetColumn();
         setDotCommand(_("%1p"), count());
         finishMovement();
@@ -3813,7 +3826,7 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
             else if (input.is('U'))
                 m_submode = UpCaseSubMode;
             finishMovement();
-        } else if (m_gflag) {
+        } else if (m_gflag || (input.is('~') && hasConfig(ConfigTildeOp))) {
             setUndoPosition();
             if (atEndOfLine())
                 moveLeft();
@@ -3825,19 +3838,22 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
             else if (input.is('U'))
                 m_submode = UpCaseSubMode;
         } else {
-            if (!atEndOfLine()) {
-                beginEditBlock();
-                setAnchor();
-                moveRight(qMin(count(), rightDist()));
-                if (input.is('~'))
-                    invertCase(currentRange());
-                else if (input.is('u'))
-                    downCase(currentRange());
-                else if (input.is('U'))
-                    upCase(currentRange());
-                setDotCommand(QString::fromLatin1("%1%2").arg(count()).arg(input.raw()));
-                endEditBlock();
+            beginEditBlock();
+            if (atEndOfLine())
+                moveLeft();
+            setAnchor();
+            moveRight(qMin(count(), rightDist()));
+            if (input.is('~')) {
+                const int pos = position();
+                invertCase(currentRange());
+                setPosition(pos);
+            } else if (input.is('u')) {
+                downCase(currentRange());
+            } else if (input.is('U')) {
+                upCase(currentRange());
             }
+            setDotCommand(QString::fromLatin1("%1%2").arg(count()).arg(input.raw()));
+            endEditBlock();
         }
     } else if (input.isKey(Key_Delete)) {
         setAnchor();
@@ -4008,7 +4024,7 @@ bool FakeVimHandler::Private::handleYankSubMode(const Input &input)
         m_movetype = MoveLineWise;
         int endPos = firstPositionInLine(lineForPosition(position()) + count() - 1);
         Range range(position(), endPos, RangeLineMode);
-        yankText(range);
+        yankText(range, m_register);
         m_submode = NoSubMode;
         handled = true;
     } else {
@@ -4029,9 +4045,9 @@ bool FakeVimHandler::Private::handleZSubMode(const Input &input)
         if (input.isReturn() || input.is('t'))
             align = Qt::AlignTop;
         else if (input.is('.') || input.is('z'))
-            align = Qt::AlignBottom;
-        else
             align = Qt::AlignVCenter;
+        else
+            align = Qt::AlignBottom;
         const bool moveToNonBlank = (input.is('.') || input.isReturn() || input.is('-'));
         const int line = m_mvcount.isEmpty() ? -1 : firstPositionInLine(count());
         alignViewportToCursor(align, line, moveToNonBlank);
@@ -4335,6 +4351,13 @@ EventResult FakeVimHandler::Private::handleInsertMode(const Input &input)
             insert = _("<C-P>");
         else
             insert = _("<C-N>");
+    } else if (input.isShift(Qt::Key_Insert)) {
+        // Insert text from clipboard.
+        QClipboard *clipboard = QApplication::clipboard();
+        const QMimeData *data = clipboard->mimeData();
+        if (data && data->hasText())
+            insertInInsertMode(data->text());
+        insert = _("<S-INSERT>");
     } else if (!input.text().isEmpty()) {
         insert = input.text();
         insertInInsertMode(insert);
@@ -4706,7 +4729,8 @@ bool FakeVimHandler::Private::handleExSubstituteCommand(const ExCommand &cmd)
     if (g.lastSubstituteFlags.contains(QLatin1Char('i')))
         needle.prepend(_("\\c"));
 
-    QRegExp pattern = vimPatternToQtPattern(needle, hasConfig(ConfigSmartCase));
+    QRegExp pattern = vimPatternToQtPattern(needle, hasConfig(ConfigIgnoreCase),
+                                            hasConfig(ConfigSmartCase));
 
     QTextBlock lastBlock;
     QTextBlock firstBlock;
@@ -4976,22 +5000,14 @@ bool FakeVimHandler::Private::handleExChangeCommand(const ExCommand &cmd)
     if (!cmd.matches(_("c"), _("change")))
         return false;
 
-    const bool oldAutoIndent = hasConfig(ConfigAutoIndent);
-    // Temporarily set autoindent if ! is present.
-    if (cmd.hasBang)
-        theFakeVimSetting(ConfigAutoIndent)->setValue(true, false);
-
     Range range = cmd.range;
     range.rangemode = RangeLineModeExclusive;
     removeText(range);
-    insertAutomaticIndentation(true);
+    insertAutomaticIndentation(true, cmd.hasBang);
 
     // FIXME: In Vim same or less number of lines can be inserted and position after insertion is
     //        beginning of last inserted line.
     enterInsertMode();
-
-    if (cmd.hasBang && !oldAutoIndent)
-        theFakeVimSetting(ConfigAutoIndent)->setValue(false, false);
 
     return true;
 }
@@ -5155,18 +5171,26 @@ bool FakeVimHandler::Private::handleExReadCommand(const ExCommand &cmd)
         return false;
 
     beginEditBlock();
+
     moveToStartOfLine();
     setTargetColumn();
     moveDown();
+    int pos = position();
+
     m_currentFileName = cmd.args;
     QFile file(m_currentFileName);
     file.open(QIODevice::ReadOnly);
     QTextStream ts(&file);
     QString data = ts.readAll();
     insertText(data);
+
+    setAnchorAndPosition(pos, pos);
+
     endEditBlock();
+
     showMessage(MessageInfo, FakeVimHandler::tr("\"%1\" %2L, %3C")
         .arg(m_currentFileName).arg(data.count(QLatin1Char('\n'))).arg(data.size()));
+
     return true;
 }
 
@@ -5182,7 +5206,7 @@ bool FakeVimHandler::Private::handleExBangCommand(const ExCommand &cmd) // :!
     QProcess proc;
     proc.start(command);
     proc.waitForStarted();
-    if (Utils::HostOsInfo::isWindowsHost())
+    if (HostOsInfo::isWindowsHost())
         text.replace(_("\n"), _("\r\n"));
     proc.write(text.toUtf8());
     proc.closeWriteChannel();
@@ -5430,7 +5454,8 @@ void FakeVimHandler::Private::searchBalanced(bool forward, QChar needle, QChar o
 QTextCursor FakeVimHandler::Private::search(const SearchData &sd, int startPos, int count,
     bool showMessages)
 {
-    QRegExp needleExp = vimPatternToQtPattern(sd.needle, hasConfig(ConfigSmartCase));
+    QRegExp needleExp = vimPatternToQtPattern(sd.needle, hasConfig(ConfigIgnoreCase),
+                                              hasConfig(ConfigSmartCase));
     if (!needleExp.isValid()) {
         if (showMessages) {
             QString error = needleExp.errorString();
@@ -5988,13 +6013,22 @@ int FakeVimHandler::Private::linesInDocument() const
     return document()->lastBlock().length() <= 1 ? count - 1 : count;
 }
 
+void FakeVimHandler::Private::setScrollBarValue(int line)
+{
+    QScrollBar *scrollBar = EDITOR(verticalScrollBar());
+
+    // Convert line number to scroll bar value.
+    const int maxValue = scrollBar->maximum();
+    const int scrollLines = qMax(1, linesInDocument() - linesOnScreen());
+    const int value = maxValue >= scrollLines ? line * maxValue / scrollLines : line;
+
+    scrollBar->setValue(value);
+}
+
 void FakeVimHandler::Private::scrollToLine(int line)
 {
-    // FIXME: works only for QPlainTextEdit
-    QScrollBar *scrollBar = EDITOR(verticalScrollBar());
-    //qDebug() << "SCROLL: " << scrollBar->value() << line;
-    scrollBar->setValue(line);
-    //QTC_CHECK(firstVisibleLine() == line);
+    setScrollBarValue(line);
+    updateScrollOffset();
 }
 
 int FakeVimHandler::Private::firstVisibleLine() const
@@ -6012,6 +6046,23 @@ int FakeVimHandler::Private::firstVisibleLine() const
 void FakeVimHandler::Private::scrollUp(int count)
 {
     scrollToLine(cursorLine() - cursorLineOnScreen() - count);
+}
+
+void FakeVimHandler::Private::updateScrollOffset()
+{
+    // Precision of scroll offset depends on singleStep property of vertical scroll bar.
+    const int screenLines = linesOnScreen();
+    const int offset = qMin(theFakeVimSetting(ConfigScrollOff)->value().toInt(), screenLines / 2);
+    const int line = cursorLine();
+    const int scrollLine = firstVisibleLine();
+    int d = line - scrollLine;
+    if (d < offset) {
+        setScrollBarValue(scrollLine - offset + d);
+    } else {
+        d = screenLines - d;
+        if (d <= offset)
+            setScrollBarValue(scrollLine + offset - d);
+    }
 }
 
 void FakeVimHandler::Private::alignViewportToCursor(AlignmentFlag align, int line,
@@ -6818,9 +6869,9 @@ QString FakeVimHandler::Private::tabExpand(int n) const
          + QString(n % ts, QLatin1Char(' '));
 }
 
-void FakeVimHandler::Private::insertAutomaticIndentation(bool goingDown)
+void FakeVimHandler::Private::insertAutomaticIndentation(bool goingDown, bool forceAutoIndent)
 {
-    if (!hasConfig(ConfigAutoIndent) && !hasConfig(ConfigSmartIndent))
+    if (!forceAutoIndent && !hasConfig(ConfigAutoIndent) && !hasConfig(ConfigSmartIndent))
         return;
 
     if (hasConfig(ConfigSmartIndent)) {
@@ -6866,7 +6917,7 @@ void FakeVimHandler::Private::replay(const QString &command)
 {
     //qDebug() << "REPLAY: " << quoteUnprintable(command);
     Inputs inputs(command);
-    foreach (Input in, inputs) {
+    foreach (const Input &in, inputs) {
         if (handleDefaultKey(in) != EventHandled)
             break;
     }
@@ -7217,7 +7268,7 @@ RangeMode FakeVimHandler::Private::registerRangeMode(int reg) const
 
         // Use range mode from Vim's clipboard data if available.
         const QMimeData *data = clipboard->mimeData(mode);
-        if (data != 0 && data->hasFormat(vimMimeText)) {
+        if (data && data->hasFormat(vimMimeText)) {
             QByteArray bytes = data->data(vimMimeText);
             if (bytes.length() > 0)
                 return static_cast<RangeMode>(bytes.at(0));
@@ -7485,6 +7536,7 @@ void FakeVimHandler::setTextCursorPosition(int position)
         d->setPosition(pos);
     else
         d->setAnchorAndPosition(pos, pos);
+    d->m_fakeEnd = false;
     d->setTargetColumn();
 }
 

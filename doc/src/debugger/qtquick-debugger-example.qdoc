@@ -31,8 +31,8 @@
     \title Debugging a Qt Quick Example Application
 
     This section uses the
-    \l{http://qt-project.org/doc/qt-4.8/demos-declarative-samegame.html}{Same Game}
-    demo application to illustrate how to debug Qt Quick applications in the
+    \l{http://qt-project.org/doc/qt-5.0/qtquick/qtquick2-qml-advtutorial.html}{Same Game}
+    example application to illustrate how to debug Qt Quick applications in the
     \gui Debug mode.
 
     For more information about all the options you have, see
@@ -116,7 +116,7 @@
             the \c text property to change it temporarily from \gui {Quit} to
             \gui {End Game}.
 
-            When you select an element, the cursor moves to it in the code
+            When you select an item, the cursor moves to it in the code
             editor, where you can change the value permanently.
 
     \endlist

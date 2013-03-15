@@ -81,15 +81,6 @@ static QString useKindToString(UseKind useKind)
 // The following two functions are "enhancements" for QCOMPARE().
 namespace QTest {
 
-bool operator==(const Use& lhs, const Use& rhs)
-{
-    return
-        lhs.line == rhs.line &&
-        lhs.column == rhs.column &&
-        lhs.length == rhs.length &&
-        lhs.kind == rhs.kind;
-}
-
 template<>
 char *toString(const Use &use)
 {
@@ -185,6 +176,8 @@ private slots:
     void test_checksymbols_StaticUse();
     void test_checksymbols_VariableHasTheSameNameAsEnumUse();
     void test_checksymbols_NestedClassOfEnclosingTemplateUse();
+
+    void test_checksymbols_QTCREATORBUG8890_danglingPointer();
 };
 
 void tst_CheckSymbols::test_checksymbols_TypeUse()
@@ -216,11 +209,11 @@ void tst_CheckSymbols::test_checksymbols_LocalUse()
 void tst_CheckSymbols::test_checksymbols_FieldUse()
 {
     const QByteArray source =
-        "struct F {\n"
+        "struct F {\n"          // 1
         "    int i;\n"
         "    F() { i = 0; }\n"
         "};\n"
-        "int f()\n"
+        "int f()\n"             // 5
         "{\n"
         "    F s;\n"
         "    s.i = 2;\n"
@@ -233,8 +226,9 @@ void tst_CheckSymbols::test_checksymbols_FieldUse()
         << Use(5, 5, 1, SemanticInfo::FunctionUse)
         << Use(7, 5, 1, SemanticInfo::TypeUse)
         << Use(7, 7, 1, SemanticInfo::LocalUse)
+        << Use(8, 5, 1, SemanticInfo::LocalUse)
         << Use(8, 7, 1, SemanticInfo::FieldUse)
-        << Use(8, 5, 1, SemanticInfo::LocalUse);
+           ;
 
     TestData::check(source, expectedUses);
 }
@@ -245,10 +239,11 @@ void tst_CheckSymbols::test_checksymbols_EnumerationUse()
         "enum E { Red, Green, Blue };\n"
         "E e = Red\n";
     const QList<Use> expectedUses = QList<Use>()
-        << Use(1, 22, 4, SemanticInfo::EnumerationUse)
-        << Use(1, 15, 5, SemanticInfo::EnumerationUse)
         << Use(1, 6, 1, SemanticInfo::TypeUse)
-        << Use(1, 10, 3, SemanticInfo::EnumerationUse);
+        << Use(1, 10, 3, SemanticInfo::EnumerationUse)
+        << Use(1, 15, 5, SemanticInfo::EnumerationUse)
+        << Use(1, 22, 4, SemanticInfo::EnumerationUse)
+           ;
 
     TestData::check(source, expectedUses);
 }
@@ -256,18 +251,18 @@ void tst_CheckSymbols::test_checksymbols_EnumerationUse()
 void tst_CheckSymbols::test_checksymbols_VirtualMethodUse()
 {
     const QByteArray source =
-        "class B {\n"
-        "    virtual isThere();\n"
-        "};\n"
-        "class D: public B {\n"
-        "    isThere();\n"
+        "class B {\n"                   // 1
+        "    virtual bool isThere();\n" // 2
+        "};\n"                          // 3
+        "class D: public B {\n"         // 4
+        "    bool isThere();\n"         // 5
         "};\n";
     const QList<Use> expectedUses = QList<Use>()
-        << Use(1, 7, 1, SemanticInfo::TypeUse)
-        << Use(2, 13, 7, SemanticInfo::VirtualMethodUse)
-        << Use(4, 17, 1, SemanticInfo::TypeUse)
-        << Use(4, 7, 1, SemanticInfo::TypeUse)
-        << Use(5, 5, 7, SemanticInfo::VirtualMethodUse);
+        << Use(1, 7, 1, SemanticInfo::TypeUse)              // B
+        << Use(2, 18, 7, SemanticInfo::VirtualMethodUse)    // isThere
+        << Use(4, 7, 1, SemanticInfo::TypeUse)              // D
+        << Use(4, 17, 1, SemanticInfo::TypeUse)             // B
+        << Use(5, 10, 7, SemanticInfo::VirtualMethodUse);   // isThere
 
     TestData::check(source, expectedUses);
 }
@@ -298,8 +293,9 @@ void tst_CheckSymbols::test_checksymbols_MacroUse()
         << Use(2, 11, 3, SemanticInfo::MacroUse);
     const QList<Use> expectedUses = QList<Use>()
         << Use(1, 9, 3, SemanticInfo::MacroUse)
+        << Use(2, 5, 1, SemanticInfo::FunctionUse)
         << Use(2, 11, 3, SemanticInfo::MacroUse)
-        << Use(2, 5, 1, SemanticInfo::FunctionUse);
+           ;
 
     TestData::check(source, expectedUses, macroUses);
 }
@@ -361,17 +357,17 @@ void tst_CheckSymbols::test_checksymbols_StaticUse()
             << Use(1, 8, 5, SemanticInfo::TypeUse)
             << Use(3, 16, 3, SemanticInfo::FieldUse)
             << Use(4, 12, 5, SemanticInfo::TypeUse)
-            << Use(6, 16, 5, SemanticInfo::FieldUse)
             << Use(6, 9, 5, SemanticInfo::TypeUse)
+            << Use(6, 16, 5, SemanticInfo::FieldUse)
             << Use(7, 14, 3, SemanticInfo::FunctionUse)
-            << Use(11, 12, 3, SemanticInfo::FieldUse)
             << Use(11, 5, 5, SemanticInfo::TypeUse)
-            << Use(13, 20, 3, SemanticInfo::FunctionUse)
+            << Use(11, 12, 3, SemanticInfo::FieldUse)
             << Use(13, 6, 5, SemanticInfo::TypeUse)
             << Use(13, 13, 5, SemanticInfo::TypeUse)
+            << Use(13, 20, 3, SemanticInfo::FunctionUse)
             << Use(15, 5, 3, SemanticInfo::FieldUse)
-            << Use(16, 12, 3, SemanticInfo::FieldUse)
             << Use(16, 5, 5, SemanticInfo::TypeUse)
+            << Use(16, 12, 3, SemanticInfo::FieldUse)
             << Use(17, 5, 5, SemanticInfo::FieldUse)
             << Use(17, 12, 3, SemanticInfo::FieldUse)
                ;
@@ -396,9 +392,9 @@ void tst_CheckSymbols::test_checksymbols_VariableHasTheSameNameAsEnumUse()
             ;
     const QList<Use> expectedUses = QList<Use>()
             << Use(1, 8, 3, SemanticInfo::TypeUse)
-            << Use(3, 19, 3, SemanticInfo::EnumerationUse)
-            << Use(3, 14, 3, SemanticInfo::EnumerationUse)
             << Use(3, 10, 1, SemanticInfo::TypeUse)
+            << Use(3, 14, 3, SemanticInfo::EnumerationUse)
+            << Use(3, 19, 3, SemanticInfo::EnumerationUse)
             << Use(6, 8, 3, SemanticInfo::TypeUse)
             << Use(8, 9, 3, SemanticInfo::FieldUse)
             << Use(9, 9, 3, SemanticInfo::FieldUse)
@@ -431,22 +427,73 @@ void tst_CheckSymbols::test_checksymbols_NestedClassOfEnclosingTemplateUse()
             << Use(1, 18, 3, SemanticInfo::FieldUse)
             << Use(3, 19, 1, SemanticInfo::TypeUse)
             << Use(4, 8, 5, SemanticInfo::TypeUse)
-            << Use(6, 23, 2, SemanticInfo::FieldUse)
             << Use(6, 12, 6, SemanticInfo::TypeUse)
-            << Use(6, 29, 6, SemanticInfo::FieldUse)
             << Use(6, 21, 1, SemanticInfo::TypeUse)
+            << Use(6, 23, 2, SemanticInfo::FieldUse)
+            << Use(6, 29, 6, SemanticInfo::FieldUse)
             << Use(9, 6, 3, SemanticInfo::FunctionUse)
+            << Use(11, 5, 5, SemanticInfo::TypeUse)
             << Use(11, 11, 3, SemanticInfo::TypeUse)
             << Use(11, 16, 4, SemanticInfo::LocalUse)
-            << Use(11, 5, 5, SemanticInfo::TypeUse)
-            << Use(12, 20, 3, SemanticInfo::FieldUse)
-            << Use(12, 17, 2, SemanticInfo::FieldUse)
-            << Use(12, 10, 6, SemanticInfo::FieldUse)
             << Use(12, 5, 4, SemanticInfo::LocalUse)
+            << Use(12, 10, 6, SemanticInfo::FieldUse)
+            << Use(12, 17, 2, SemanticInfo::FieldUse)
+            << Use(12, 20, 3, SemanticInfo::FieldUse)
             ;
 
     TestData::check(source, expectedUses);
 }
+
+void tst_CheckSymbols::test_checksymbols_QTCREATORBUG8890_danglingPointer()
+{
+    const QByteArray source =
+       "template<class T> class QList {\n"
+        "    public:\n"
+        "        T operator[](int);\n"
+        "};\n"
+        "\n"
+        "template<class T> class QPointer {\n"
+        "    public:\n"
+        "        T& operator->();\n"
+        "};\n"
+        "\n"
+        "class Foo {\n"
+        "    void foo() {}\n"
+        "};\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    QList<QPointer<Foo> > list;\n"
+        "    list[0]->foo();\n"
+        "    list[0]->foo(); // Crashed because of this 'extra' line.\n"
+        "}\n"
+        ;
+
+    const QList<Use> expectedUses = QList<Use>()
+        << Use(1, 16, 1, SemanticInfo::TypeUse)
+        << Use(1, 25, 5, SemanticInfo::TypeUse)
+        << Use(3, 9, 1, SemanticInfo::TypeUse)
+        << Use(3, 11, 8, SemanticInfo::FunctionUse)
+        << Use(6, 16, 1, SemanticInfo::TypeUse)
+        << Use(6, 25, 8, SemanticInfo::TypeUse)
+        << Use(8, 9, 1, SemanticInfo::TypeUse)
+        << Use(8, 12, 8, SemanticInfo::FunctionUse)
+        << Use(11, 7, 3, SemanticInfo::TypeUse)
+        << Use(12, 10, 3, SemanticInfo::FunctionUse)
+        << Use(15, 6, 1, SemanticInfo::FunctionUse)
+        << Use(17, 5, 5, SemanticInfo::TypeUse)
+        << Use(17, 11, 8, SemanticInfo::TypeUse)
+        << Use(17, 20, 3, SemanticInfo::TypeUse)
+        << Use(17, 27, 4, SemanticInfo::LocalUse)
+        << Use(18, 5, 4, SemanticInfo::LocalUse)
+        << Use(18, 14, 3, SemanticInfo::FunctionUse)
+        << Use(19, 5, 4, SemanticInfo::LocalUse)
+        << Use(19, 14, 3, SemanticInfo::FunctionUse)
+        ;
+
+    TestData::check(source, expectedUses);
+ }
+
 
 QTEST_APPLESS_MAIN(tst_CheckSymbols)
 #include "tst_checksymbols.moc"

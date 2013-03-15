@@ -1064,6 +1064,9 @@ void generateLastToken(QTextStream &os, const QString &className, const QStringL
 
 void generateAST_cpp(const Snapshot &snapshot, const QDir &cplusplusDir)
 {
+    typedef QMap<QString, ClassSpecifierAST *> StringClassSpecifierASTMap;
+    typedef StringClassSpecifierASTMap::ConstIterator StringClassSpecifierASTMapConstIt;
+
     QFileInfo fileAST_cpp(cplusplusDir, QLatin1String("AST.cpp"));
     Q_ASSERT(fileAST_cpp.exists());
 
@@ -1085,8 +1088,8 @@ void generateAST_cpp(const Snapshot &snapshot, const QDir &cplusplusDir)
     AST_cpp_document->check();
 
     Overview oo;
-    QMap<QString, ClassSpecifierAST *> classesNeedingFirstToken;
-    QMap<QString, ClassSpecifierAST *> classesNeedingLastToken;
+    StringClassSpecifierASTMap classesNeedingFirstToken;
+    StringClassSpecifierASTMap classesNeedingLastToken;
 
     // find all classes with method declarations for firstToken/lastToken
     foreach (ClassSpecifierAST *classAST, astNodes.deriveds) {
@@ -1206,8 +1209,10 @@ void generateAST_cpp(const Snapshot &snapshot, const QDir &cplusplusDir)
 
     QString newMethods;
     QTextStream os(&newMethods);
-    foreach (const QString &className, classesNeedingFirstToken.keys()) {
-        const QStringList fields = collectFieldNames(classesNeedingFirstToken.value(className), true);
+    const StringClassSpecifierASTMapConstIt cfend = classesNeedingFirstToken.constEnd();
+    for (StringClassSpecifierASTMapConstIt it = classesNeedingFirstToken.constBegin(); it != cfend; ++it) {
+        const QString &className = it.key();
+        const QStringList fields = collectFieldNames(it.value(), true);
         os << "/** \\generated */" << endl;
         generateFirstToken(os, className, fields);
         if (ClassSpecifierAST *classAST = classesNeedingLastToken.value(className, 0)) {
@@ -1217,10 +1222,10 @@ void generateAST_cpp(const Snapshot &snapshot, const QDir &cplusplusDir)
             classesNeedingLastToken.remove(className);
         }
     }
-    foreach (const QString &className, classesNeedingLastToken.keys()) {
-        const QStringList fields = collectFieldNames(classesNeedingLastToken.value(className), true);
+    const StringClassSpecifierASTMapConstIt clend = classesNeedingLastToken.constEnd();
+    for (StringClassSpecifierASTMapConstIt it = classesNeedingLastToken.constBegin(); it != clend; ++it) {
         os << "/** \\generated */" << endl;
-        generateLastToken(os, className, fields);
+        generateLastToken(os, it.key(), collectFieldNames(it.value(), true));
     }
     tc.setPosition(documentEnd);
     tc.insertText(newMethods);
@@ -1562,6 +1567,8 @@ void generateASTFwd_h(const Snapshot &snapshot, const QDir &cplusplusDir, const 
 
 void generateASTPatternBuilder_h(const QDir &cplusplusDir)
 {
+    typedef QPair<QString, QString> StringPair;
+
     QFileInfo fileInfo(cplusplusDir, QLatin1String("ASTPatternBuilder.h"));
     QFile file(fileInfo.absoluteFilePath());
     if (! file.open(QFile::WriteOnly))
@@ -1619,7 +1626,7 @@ void generateASTPatternBuilder_h(const QDir &cplusplusDir)
         out
                 << "    " << className << " *" << methodName << "(";
 
-        QList<QPair<QString, QString> > args;
+        QList<StringPair> args;
 
         bool first = true;
         for (unsigned index = 0; index < klass->memberCount(); ++index) {
@@ -1652,8 +1659,7 @@ void generateASTPatternBuilder_h(const QDir &cplusplusDir)
                 << "        " << className << " *__ast = new (&pool) " << className << ';' << endl;
 
 
-        QPair<QString, QString> p;
-        foreach (p, args) {
+        foreach (const StringPair &p, args) {
             out << "        __ast->" << p.second << " = " << p.second << ';' << endl;
         }
 

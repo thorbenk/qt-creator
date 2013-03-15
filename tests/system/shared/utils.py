@@ -212,7 +212,7 @@ def getOutputFromCmdline(cmdline):
     versCall.stdout.close()
     return result
 
-def selectFromFileDialog(fileName):
+def selectFromFileDialog(fileName, waitForFile=False):
     if platform.system() == "Darwin":
         snooze(1)
         nativeType("<Command+Shift+g>")
@@ -233,6 +233,10 @@ def selectFromFileDialog(fileName):
         waitFor("str(pathLine.text)==''")
         replaceEditorContent(pathLine, fName)
         clickButton(findObject("{text='Open' type='QPushButton'}"))
+    if waitForFile:
+        fileCombo = waitForObject(":Qt Creator_FilenameQComboBox")
+        if not waitFor("str(fileCombo.currentText) in fileName", 5000):
+            test.fail("%s could not be opened in time." % fileName)
 
 # add qt.qch from SDK path
 def addHelpDocumentationFromSDK():
@@ -563,3 +567,17 @@ def dumpItems(model, parent=None, role=DisplayRole, column=0):
 # returns the children of a QTreeWidgetItem
 def dumpChildren(item):
     return [item.child(index) for index in range(item.childCount())]
+
+def writeTestResults(folder):
+    if squishinfo.version < 0x040200FF:
+        print "Skipping writing test results (Squish < 4.2)"
+        return
+    if not os.path.exists(folder):
+        print "Skipping writing test results (folder '%s' does not exist)." % folder
+        return
+    resultFile = open("%s.srf" % os.path.join(folder, os.path.basename(squishinfo.testCase)), "w")
+    resultFile.write("suite:%s\n" % os.path.basename(os.path.dirname(squishinfo.testCase)))
+    categories = ["passes", "fails", "fatals", "errors", "tests", "warnings", "xfails", "xpasses"]
+    for cat in categories:
+        resultFile.write("%s:%d\n" % (cat, test.resultCount(cat)))
+    resultFile.close()

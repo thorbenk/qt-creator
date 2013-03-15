@@ -51,6 +51,7 @@ public:
 
     bool isConfigured() const;
     bool supportsOperation(Operation operation) const;
+    OpenSupportMode openSupportMode() const;
     bool vcsOpen(const QString &fileName);
     bool vcsAdd(const QString &fileName);
     bool vcsDelete(const QString &filename);
@@ -63,6 +64,8 @@ public:
     bool vcsRestoreSnapshot(const QString &topLevel, const QString &name);
     bool vcsRemoveSnapshot(const QString &topLevel, const QString &name);
     bool vcsAnnotate(const QString &file, int line);
+
+    QString vcsOpenText() const;
 
     void emitRepositoryChanged(const QString &s);
     void emitFilesChanged(const QStringList &l);

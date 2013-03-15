@@ -113,7 +113,6 @@
 #include <QStyleFactory>
 
 /*
-#ifdef Q_OS_UNIX
 #include <signal.h>
 extern "C" void handleSigInt(int sig)
 {
@@ -121,7 +120,6 @@ extern "C" void handleSigInt(int sig)
     Core::ICore::exit();
     qDebug() << "SIGINT caught. Shutting down.";
 }
-#endif
 */
 
 using namespace Core;
@@ -168,10 +166,8 @@ MainWindow::MainWindow() :
     m_optionsAction(0),
     m_toggleSideBarAction(0),
     m_toggleFullScreenAction(0),
-#ifdef Q_OS_MAC
     m_minimizeAction(0),
     m_zoomAction(0),
-#endif
     m_toggleSideBarButton(new QToolButton)
 {
     (void) new DocumentManager(this);
@@ -230,9 +226,8 @@ MainWindow::MainWindow() :
     statusBar()->insertPermanentWidget(0, m_toggleSideBarButton);
 
 //    setUnifiedTitleAndToolBarOnMac(true);
-#ifdef Q_OS_UNIX
-     //signal(SIGINT, handleSigInt);
-#endif
+    //if (Utils::HostOsInfo::isAnyUnixHost())
+        //signal(SIGINT, handleSigInt);
 
     statusBar()->setProperty("p_styled", true);
     setAcceptDrops(true);
@@ -265,7 +260,6 @@ void MainWindow::setOverrideColor(const QColor &color)
     m_overrideColor = color;
 }
 
-#ifdef Q_OS_MAC
 void MainWindow::setIsFullScreen(bool fullScreen)
 {
     if (fullScreen)
@@ -273,7 +267,6 @@ void MainWindow::setIsFullScreen(bool fullScreen)
     else
         m_toggleFullScreenAction->setText(tr("Enter Full Screen"));
 }
-#endif
 
 MainWindow::~MainWindow()
 {
@@ -773,19 +766,19 @@ void MainWindow::registerDefaultActions()
     else
         tmpaction = new QAction(icon, tr("About &Qt Creator..."), this);
     cmd = ActionManager::registerAction(tmpaction, Constants::ABOUT_QTCREATOR, globalContext);
-    mhelp->addAction(cmd, Constants::G_HELP_ABOUT);
-    tmpaction->setEnabled(true);
     if (Utils::HostOsInfo::isMacHost())
         cmd->action()->setMenuRole(QAction::ApplicationSpecificRole);
+    mhelp->addAction(cmd, Constants::G_HELP_ABOUT);
+    tmpaction->setEnabled(true);
     connect(tmpaction, SIGNAL(triggered()), this,  SLOT(aboutQtCreator()));
 
     //About Plugins Action
     tmpaction = new QAction(tr("About &Plugins..."), this);
     cmd = ActionManager::registerAction(tmpaction, Constants::ABOUT_PLUGINS, globalContext);
-    mhelp->addAction(cmd, Constants::G_HELP_ABOUT);
-    tmpaction->setEnabled(true);
     if (Utils::HostOsInfo::isMacHost())
         cmd->action()->setMenuRole(QAction::ApplicationSpecificRole);
+    mhelp->addAction(cmd, Constants::G_HELP_ABOUT);
+    tmpaction->setEnabled(true);
     connect(tmpaction, SIGNAL(triggered()), this,  SLOT(aboutPlugins()));
     // About Qt Action
 //    tmpaction = new QAction(tr("About &Qt..."), this);
@@ -838,31 +831,51 @@ static IDocumentFactory *findDocumentFactory(const QList<IDocumentFactory*> &fil
     return 0;
 }
 
-// opens either an editor or loads a project
-void MainWindow::openFiles(const QStringList &fileNames, ICore::OpenFilesFlags flags)
+/*! Either opens \a fileNames with editors or loads a project.
+ *
+ *  \a flags can be used to stop on first failure, indicate that a file name
+ *  might include line numbers and/or switch mode to edit mode.
+ *
+ *  \returns the first opened document. Required to support the -block flag
+ *  for client mode.
+ *
+ *  \sa IPlugin::remoteArguments()
+ */
+IDocument *MainWindow::openFiles(const QStringList &fileNames, ICore::OpenFilesFlags flags)
 {
     QList<IDocumentFactory*> nonEditorFileFactories = getNonEditorDocumentFactories();
+    IDocument *res = 0;
 
     foreach (const QString &fileName, fileNames) {
         const QFileInfo fi(fileName);
         const QString absoluteFilePath = fi.absoluteFilePath();
         if (IDocumentFactory *documentFactory = findDocumentFactory(nonEditorFileFactories, mimeDatabase(), fi)) {
-            Core::IDocument *document = documentFactory->open(absoluteFilePath);
-            if (!document && (flags & ICore::StopOnLoadFail))
-                return;
-            if (document && (flags & ICore::SwitchMode))
-                ModeManager::activateMode(Id(Core::Constants::MODE_EDIT));
+            IDocument *document = documentFactory->open(absoluteFilePath);
+            if (!document) {
+                if (flags & ICore::StopOnLoadFail)
+                    return res;
+            } else {
+                if (!res)
+                    res = document;
+                if (flags & ICore::SwitchMode)
+                    ModeManager::activateMode(Id(Core::Constants::MODE_EDIT));
+            }
         } else {
             QFlags<EditorManager::OpenEditorFlag> emFlags;
             if (flags & ICore::SwitchMode)
                 emFlags = EditorManager::ModeSwitch;
             if (flags & ICore::CanContainLineNumbers)
                 emFlags |=  EditorManager::CanContainLineNumber;
-            Core::IEditor *editor = EditorManager::openEditor(absoluteFilePath, Id(), emFlags);
-            if (!editor && (flags & ICore::StopOnLoadFail))
-                return;
+            IEditor *editor = EditorManager::openEditor(absoluteFilePath, Id(), emFlags);
+            if (!editor) {
+                if (flags & ICore::StopOnLoadFail)
+                    return res;
+            } else if (!res) {
+                res = editor->document();
+            }
         }
     }
+    return res;
 }
 
 void MainWindow::setFocusToEditor()
@@ -1095,16 +1108,16 @@ void MainWindow::changeEvent(QEvent *e)
             emit windowActivated();
         }
     } else if (e->type() == QEvent::WindowStateChange) {
-#ifdef Q_OS_MAC
-        bool minimized = isMinimized();
-        if (debugMainWindow)
-            qDebug() << "main window state changed to minimized=" << minimized;
-        m_minimizeAction->setEnabled(!minimized);
-        m_zoomAction->setEnabled(!minimized);
-#else
-        bool isFullScreen = (windowState() & Qt::WindowFullScreen) != 0;
-        m_toggleFullScreenAction->setChecked(isFullScreen);
-#endif
+        if (Utils::HostOsInfo::isMacHost()) {
+            bool minimized = isMinimized();
+            if (debugMainWindow)
+                qDebug() << "main window state changed to minimized=" << minimized;
+            m_minimizeAction->setEnabled(!minimized);
+            m_zoomAction->setEnabled(!minimized);
+        } else {
+            bool isFullScreen = (windowState() & Qt::WindowFullScreen) != 0;
+            m_toggleFullScreenAction->setChecked(isFullScreen);
+        }
     }
 }
 
@@ -1128,7 +1141,10 @@ void MainWindow::updateFocusWidget(QWidget *old, QWidget *now)
             p = p->parentWidget();
         }
     }
-    updateContextObject(newContext);
+
+    // ignore toplevels that define no context, like popups without parent
+    if (newContext || qApp->focusWidget() == focusWidget())
+        updateContextObject(newContext);
 }
 
 void MainWindow::updateContextObject(IContext *context)

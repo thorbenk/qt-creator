@@ -83,22 +83,22 @@ bool QtSupportPlugin::initialize(const QStringList &arguments, QString *errorMes
 
     addAutoReleasedObject(new CustomExecutableRunConfigurationFactory);
 
+    ProjectExplorer::KitManager::instance()->registerKitInformation(new QtKitInformation);
+
     return true;
 }
 
 void QtSupportPlugin::extensionsInitialized()
 {
-    Core::VariableManager *vm = Core::VariableManager::instance();
-    vm->registerVariable(kHostBins,
+    Core::VariableManager::registerVariable(kHostBins,
         tr("Full path to the host bin directory of the current project's Qt version."));
-    vm->registerVariable(kInstallBins,
+    Core::VariableManager::registerVariable(kInstallBins,
         tr("Full path to the target bin directory of the current project's Qt version."
            " You probably want %1 instead.").arg(QString::fromLatin1(kHostBins)));
-    connect(vm, SIGNAL(variableUpdateRequested(QByteArray)),
+    connect(Core::VariableManager::instance(), SIGNAL(variableUpdateRequested(QByteArray)),
             this, SLOT(updateVariable(QByteArray)));
 
     QtVersionManager::instance()->extensionsInitialized();
-    ProjectExplorer::KitManager::instance()->registerKitInformation(new QtKitInformation);
 }
 
 bool QtSupportPlugin::delayedInitialize()

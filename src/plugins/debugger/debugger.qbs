@@ -9,7 +9,6 @@ QtcPlugin {
     Depends { name: "Qt"; submodules: ["widgets", "network", "script"] }
     Depends { name: "Core" }
     Depends { name: "CppTools" }
-    Depends { name: "QmlJSTools" }
     Depends { name: "Find" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "TextEditor" }
@@ -21,7 +20,7 @@ QtcPlugin {
     Depends { name: "cpp" }
     cpp.includePaths: base.concat([
         "shared",
-        "lldb",
+        "lldblib",
         "../../shared/json",
         "../../shared/registryaccess"
     ])
@@ -212,10 +211,10 @@ QtcPlugin {
         "images/location_24.png",
         "images/tracepoint.png",
         "images/watchpoint.png",
-        "lldb/ipcenginehost.cpp",
-        "lldb/ipcenginehost.h",
-        "lldb/lldbenginehost.cpp",
-        "lldb/lldbenginehost.h",
+        "lldblib/ipcenginehost.cpp",
+        "lldblib/ipcenginehost.h",
+        "lldblib/lldbenginehost.cpp",
+        "lldblib/lldbenginehost.h",
         "namedemangler/demanglerexceptions.h",
         "namedemangler/globalparsestate.cpp",
         "namedemangler/globalparsestate.h",
@@ -254,6 +253,8 @@ QtcPlugin {
         "shared/cdbsymbolpathlisteditor.h",
         "shared/hostutils.cpp",
         "shared/hostutils.h",
+        "shared/peutils.cpp",
+        "shared/peutils.h",
     ]
 
     Group {
@@ -270,17 +271,15 @@ QtcPlugin {
         files: [
             "registerpostmortemaction.cpp",
             "registerpostmortemaction.h",
-            "shared/peutils.cpp",
-            "shared/peutils.h",
         ]
     }
 
     Group {
         condition: qbs.targetOS == "mac"
         files: [
-            "lldb/lldboptionspage.cpp",
-            "lldb/lldboptionspage.h",
-            "lldb/lldboptionspagewidget.ui",
+            "lldblib/lldboptionspage.cpp",
+            "lldblib/lldboptionspage.h",
+            "lldblib/lldboptionspagewidget.ui",
         ]
     }
 

@@ -55,9 +55,12 @@ public:
     explicit SettingsPageWidget(QWidget *parent = 0);
 
     DesignerSettings settings() const;
-    void setSettings(const DesignerSettings &);
+    void setSettings(const DesignerSettings &designerSettings);
 
     QString searchKeywords() const;
+
+public slots:
+    void debugViewEnabledToggled(bool b);
 
 private:
     Ui::SettingsPage m_ui;

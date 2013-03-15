@@ -66,7 +66,8 @@ public:
     bool isValid() const;
     bool hasWarning() const;
     QList<Task> validate() const;
-    void fix(); // Fix the individual kit information.
+    void fix(); // Fix the individual kit information: Make sure it contains a valid value.
+                // Fix will not look at other information in the kit!
     void setup(); // Apply advanced magic(TM). Used only once on each kit during initial setup.
 
     QString displayName() const;
@@ -75,6 +76,7 @@ public:
     QString fileSystemFriendlyName() const;
 
     bool isAutoDetected() const;
+    bool isSdkProvided() const;
     Core::Id id() const;
 
     QIcon icon() const;
@@ -96,14 +98,15 @@ public:
     Kit *clone(bool keepName = false) const;
     void copyFrom(const Kit *k);
 
+    void setAutoDetected(bool detected);
 private:
+    void setSdkProvided(bool sdkProvided);
     ~Kit();
 
     // Unimplemented.
     Kit(const Kit &other);
     void operator=(const Kit &other);
 
-    void setAutoDetected(bool detected);
 
     void kitUpdated();
 

@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
-#ifndef CPLUSPLUS_CHECKSYMBOLS_H
-#define CPLUSPLUS_CHECKSYMBOLS_H
+#ifndef CPLUSPLUSCHECKSYMBOLS_H
+#define CPLUSPLUSCHECKSYMBOLS_H
 
 #include "cpptools_global.h"
 
@@ -90,8 +90,8 @@ public:
 
         for (int i = from; i < to; ++i) {
             const Use use = future.resultAt(i);
-            if (! use.line)
-                continue; // skip it, it's an invalid use.
+            if (use.isInvalid())
+                continue;
 
             const int blockNumber = use.line - 1;
             chunks[blockNumber].append(use);
@@ -186,10 +186,11 @@ private:
     QSet<QByteArray> _potentialStatics;
     QList<AST *> _astStack;
     QVector<Use> _usages;
+    int _chunkSize;
     unsigned _lineOfLastUsage;
     QList<Use> _macroUses;
 };
 
 } // namespace CPlusPlus
 
-#endif // CPLUSPLUS_CHECKSYMBOLS_H
+#endif // CPLUSPLUSCHECKSYMBOLS_H

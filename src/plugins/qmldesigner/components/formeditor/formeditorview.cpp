@@ -27,16 +27,18 @@
 **
 ****************************************************************************/
 
+#include "formeditorview.h"
 #include "selectiontool.h"
 #include "movetool.h"
 #include "resizetool.h"
 #include "dragtool.h"
-#include "formeditorview.h"
 #include "formeditorwidget.h"
 #include "formeditornodeinstanceview.h"
 #include "formeditoritem.h"
 #include "formeditorscene.h"
 #include "toolbox.h"
+
+#include <designmodecontext.h>
 #include <rewritertransaction.h>
 #include <modelnode.h>
 #include <itemlibraryinfo.h>
@@ -54,6 +56,7 @@
 #include <nodelistproperty.h>
 #include <commondefines.h>
 
+#include <coreplugin/icore.h>
 
 namespace QmlDesigner {
 
@@ -68,6 +71,9 @@ FormEditorView::FormEditorView(QObject *parent)
       m_currentTool(m_selectionTool),
       m_transactionCounter(0)
 {
+    Internal::FormEditorContext *formEditorContext = new Internal::FormEditorContext(m_formEditorWidget.data());
+    Core::ICore::addContextObject(formEditorContext);
+
     connect(formEditorWidget()->zoomAction(), SIGNAL(zoomLevelChanged(double)), SLOT(updateGraphicsIndicators()));
     connect(formEditorWidget()->showBoundingRectAction(), SIGNAL(toggled(bool)), scene(), SLOT(setShowBoundingRects(bool)));
     connect(formEditorWidget()->selectOnlyContentItemsAction(), SIGNAL(toggled(bool)), this, SLOT(setSelectOnlyContentItemsAction(bool)));
@@ -90,6 +96,7 @@ FormEditorView::~FormEditorView()
     delete m_dragTool;
     m_dragTool = 0;
 
+    qDeleteAll(m_toolList);
 
     // delete scene after tools to prevent double deletion
     // of items
@@ -267,9 +274,9 @@ void FormEditorView::bindingPropertiesChanged(const QList<BindingProperty>& prop
     QmlModelView::bindingPropertiesChanged(propertyList, propertyChange);
 }
 
-QWidget *FormEditorView::widget()
+WidgetInfo FormEditorView::widgetInfo()
 {
-    return m_formEditorWidget.data();
+    return createWidgetInfo(m_formEditorWidget.data(), "FormEditor", WidgetInfo::CentralPane, 0, tr("Form Editor"));
 }
 
 FormEditorWidget *FormEditorView::formEditorWidget()
@@ -406,6 +413,11 @@ void FormEditorView::changeToTransformTools()
     changeToSelectionTool();
 }
 
+void FormEditorView::registerTool(AbstractFormEditorTool *tool)
+{
+    m_toolList.append(tool);
+}
+
 void FormEditorView::nodeSlidedToIndex(const NodeListProperty &listProperty, int /*newIndex*/, int /*oldIndex*/)
 {
     QList<ModelNode> newOrderModelNodeList = listProperty.toModelNodeList();
@@ -421,7 +433,7 @@ void FormEditorView::nodeSlidedToIndex(const NodeListProperty &listProperty, int
     m_currentTool->formEditorItemsChanged(scene()->allFormEditorItems());
 }
 
-void FormEditorView::auxiliaryDataChanged(const ModelNode &node, const QString &name, const QVariant &data)
+void FormEditorView::auxiliaryDataChanged(const ModelNode &node, const PropertyName &name, const QVariant &data)
 {
     QmlModelView::auxiliaryDataChanged(node, name, data);
     if (name == "invisible" && m_scene->hasItemForQmlItemNode(QmlItemNode(node))) {
@@ -548,14 +560,14 @@ QmlItemNode findRecursiveQmlItemNode(const QmlObjectNode &firstQmlObjectNode)
     return QmlItemNode();
 }
 
-void FormEditorView::instancePropertyChange(const QList<QPair<ModelNode, QString> > &propertyList)
+void FormEditorView::instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &propertyList)
 {
-    typedef QPair<ModelNode, QString> NodePropertyPair;
+    typedef QPair<ModelNode, PropertyName> NodePropertyPair;
     foreach (const NodePropertyPair &nodePropertyPair, propertyList) {
         const QmlItemNode itemNode(nodePropertyPair.first);
-        const QString propertyName = nodePropertyPair.second;
+        const PropertyName propertyName = nodePropertyPair.second;
         if (itemNode.isValid() && scene()->hasItemForQmlItemNode(itemNode)) {
-            static QStringList skipList = QStringList() << "x" << "y" << "width" << "height";
+            static PropertyNameList skipList = PropertyNameList() << "x" << "y" << "width" << "height";
             if (!skipList.contains(propertyName)) {
                 m_scene->synchronizeOtherProperty(itemNode, propertyName);
                 m_currentTool->formEditorItemsChanged(QList<FormEditorItem*>() << m_scene->itemForQmlItemNode(itemNode));

@@ -44,6 +44,7 @@
 
 #include <QtPlugin>
 #include <QDebug>
+#include <QDateTime>
 
 using namespace Core;
 using namespace Core::Internal;
@@ -87,6 +88,7 @@ void CorePlugin::parseArguments(const QStringList &arguments)
 
 bool CorePlugin::initialize(const QStringList &arguments, QString *errorMessage)
 {
+    qsrand(QDateTime::currentDateTime().toTime_t());
     parseArguments(arguments);
     const bool success = m_mainWindow->init(errorMessage);
     if (success) {
@@ -117,10 +119,12 @@ bool CorePlugin::delayedInitialize()
     return true;
 }
 
-void CorePlugin::remoteCommand(const QStringList & /* options */, const QStringList &args)
+QObject *CorePlugin::remoteCommand(const QStringList & /* options */, const QStringList &args)
 {
-    m_mainWindow->openFiles(args, Core::ICore::OpenFilesFlags(ICore::SwitchMode | ICore::CanContainLineNumbers));
+    IDocument *res = m_mainWindow->openFiles(
+                args, ICore::OpenFilesFlags(ICore::SwitchMode | ICore::CanContainLineNumbers));
     m_mainWindow->activateWindow();
+    return res;
 }
 
 void CorePlugin::fileOpenRequest(const QString &f)

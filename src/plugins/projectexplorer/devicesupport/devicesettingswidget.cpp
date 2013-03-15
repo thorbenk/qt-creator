@@ -38,7 +38,6 @@
 #include "idevice.h"
 #include "idevicefactory.h"
 #include "idevicewidget.h"
-#include "projectexplorerconstants.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/id.h>
@@ -213,7 +212,8 @@ void DeviceSettingsWidget::displayCurrent()
     }
     m_ui->deviceStateValueTextLabel->setText(current->deviceStateToString());
 
-    m_ui->removeConfigButton->setEnabled(!current->isAutoDetected());
+    m_ui->removeConfigButton->setEnabled(!current->isAutoDetected()
+            || current->deviceState() == IDevice::DeviceDisconnected);
     fillInValues();
 }
 

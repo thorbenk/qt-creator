@@ -116,6 +116,7 @@ private slots:
     void undoFileChanges(bool revertStaging = true);
     void undoUnstagedFileChanges();
     void resetRepository();
+    void startRebase();
     void startRevertCommit();
     void startCherryPickCommit();
     void stageFile();
@@ -194,6 +195,7 @@ private:
     void cleanRepository(const QString &directory);
     void applyPatch(const QString &workingDirectory, QString file = QString());
     void startCommit(bool amend);
+    void updateVersionWarning();
 
     static GitPlugin *m_instance;
     Locator::CommandLocator *m_commandLocator;

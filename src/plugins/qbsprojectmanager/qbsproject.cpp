@@ -54,6 +54,7 @@
 #include <projectexplorer/target.h>
 #include <projectexplorer/taskhub.h>
 #include <qtsupport/qtkitinformation.h>
+#include <qmljstools/qmljsmodelmanager.h>
 
 #include <qmljs/qmljsmodelmanagerinterface.h>
 
@@ -66,11 +67,12 @@
 // Constants:
 // --------------------------------------------------------------------
 
-static const char CONFIG_CXXFLAGS[] = "cpp.cxxflags";
-static const char CONFIG_DEFINES[] = "cpp.defines";
-static const char CONFIG_INCLUDEPATHS[] = "cpp.includePaths";
-static const char CONFIG_FRAMEWORKPATHS[] = "cpp.frameworkPaths";
-static const char CONFIG_PRECOMPILEDHEADER[] = "modules.cpp.precompiledHeader";
+static const char CONFIG_CPP_MODULE[] = "cpp";
+static const char CONFIG_CXXFLAGS[] = "cxxflags";
+static const char CONFIG_DEFINES[] = "defines";
+static const char CONFIG_INCLUDEPATHS[] = "includePaths";
+static const char CONFIG_FRAMEWORKPATHS[] = "frameworkPaths";
+static const char CONFIG_PRECOMPILEDHEADER[] = "precompiledHeader";
 
 static const char CONFIGURATION_PATH[] = "<configuration>";
 
@@ -78,70 +80,11 @@ static const char CONFIGURATION_PATH[] = "<configuration>";
 // HELPERS:
 // --------------------------------------------------------------------
 
-// FIXME: All this should be in QBS! They do the same thing in JS.
-
-static const char MODULES_KEY[] = "modules";
-
 ProjectExplorer::TaskHub *taskHub()
 {
     return ProjectExplorer::ProjectExplorerPlugin::instance()->taskHub();
 }
 
-
-static QVariant extract(const QVariantMap &data, const QString &key)
-{
-    QStringList keyParts = key.split(QLatin1Char('.'), QString::SkipEmptyParts);
-    return qbs::Internal::getConfigProperty(data, keyParts);
-}
-
-static void expand(const QVariant &v, QStringList &partial, QSet<QString> &seenSet)
-{
-    if (v.isNull())
-        return;
-
-    QStringList tokenList;
-    if (v.type() == QVariant::StringList)
-        tokenList = v.toStringList();
-    else
-        tokenList << v.toString();
-
-    foreach (const QString &token, tokenList) {
-        if (!seenSet.contains(token)) {
-            partial << token;
-            seenSet.insert(token);
-        }
-    }
-}
-
-static QVariantList modules(const QVariantMap &root)
-{
-    QVariantList result;
-    if (!root.contains(QLatin1String(MODULES_KEY)))
-        return result;
-    const QVariantMap &moduleRoot = root.value(QLatin1String(MODULES_KEY)).toMap();
-    QVariantMap::const_iterator end = moduleRoot.end();
-    for (QVariantMap::const_iterator i = moduleRoot.begin(); i != end; ++i)
-        result << i.value();
-    return result;
-}
-
-static void recursiveAppendAll(const QString &key, const QVariantMap &root,
-                               QStringList &partial, QSet<QString> &seenSet)
-{
-    if (root.isEmpty())
-        return;
-    expand(extract(root, key), partial, seenSet);
-    foreach (const QVariant &v, modules(root))
-        recursiveAppendAll(key, v.toMap(), partial, seenSet);
-}
-
-static QStringList appendAll(const QVariantMap &data, const QString &key)
-{
-    QStringList result;
-    QSet<QString> seenSet;
-    recursiveAppendAll(key, data, result, seenSet);
-    return result;
-}
 
 namespace QbsProjectManager {
 namespace Internal {
@@ -158,7 +101,7 @@ QbsProject::QbsProject(QbsManager *manager, const QString &fileName) :
     m_currentBc(0)
 {
     setProjectContext(Core::Context(Constants::PROJECT_ID));
-    setProjectLanguage(Core::Context(ProjectExplorer::Constants::LANG_CXX));
+    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
 
     connect(this, SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
             this, SLOT(changeActiveTarget(ProjectExplorer::Target*)));
@@ -205,13 +148,19 @@ ProjectExplorer::ProjectNode *QbsProject::rootProjectNode() const
 QStringList QbsProject::files(ProjectExplorer::Project::FilesMode fileMode) const
 {
     Q_UNUSED(fileMode);
-    QStringList result;
+    QSet<QString> result;
     if (m_rootProjectNode && m_rootProjectNode->projectData()) {
-        foreach (const qbs::ProductData &prd, m_rootProjectNode->projectData()->products())
-            foreach (const qbs::GroupData &grp, prd.groups())
-                result.append(grp.allFilePaths());
+        foreach (const qbs::ProductData &prd, m_rootProjectNode->projectData()->products()) {
+            foreach (const qbs::GroupData &grp, prd.groups()) {
+                foreach (const QString &file, grp.allFilePaths())
+                    result.insert(file);
+                result.insert(grp.location().fileName);
+            }
+            result.insert(prd.location().fileName);
+        }
+        result.insert(m_rootProjectNode->projectData()->location().fileName);
     }
-    return result;
+    return result.toList();
 }
 
 void QbsProject::invalidate()
@@ -234,12 +183,11 @@ qbs::BuildJob *QbsProject::build(const qbs::BuildOptions &opts)
     return m_rootProjectNode->project()->buildAllProducts(opts, env);
 }
 
-qbs::CleanJob *QbsProject::clean(const qbs::BuildOptions &opts, bool everything)
+qbs::CleanJob *QbsProject::clean(const qbs::CleanOptions &opts)
 {
     if (!m_rootProjectNode || !m_rootProjectNode->project())
         return 0;
-    return m_rootProjectNode->project()->cleanAllProducts(opts, everything ? qbs::Project::CleanupAll
-                                                                           : qbs::Project::CleanupTemporaries);
+    return m_rootProjectNode->project()->cleanAllProducts(opts);
 }
 
 QString QbsProject::profileForTarget(const ProjectExplorer::Target *t) const
@@ -389,8 +337,9 @@ void QbsProject::parse(const QVariantMap &config, const QString &dir)
     params.projectFilePath = m_fileName;
     params.ignoreDifferentProjectFilePath = false;
     qbs::Preferences *prefs = QbsManager::preferences();
-    params.searchPaths = prefs->searchPaths(QLatin1String(QBS_BUILD_DIR));
-    params.pluginPaths = prefs->pluginPaths(QLatin1String(QBS_BUILD_DIR));
+    const QString buildDir = qbsBuildDir();
+    params.searchPaths = prefs->searchPaths(buildDir);
+    params.pluginPaths = prefs->pluginPaths(buildDir);
 
     m_qbsSetupProjectJob
             = qbs::Project::setupProject(params, m_manager->settings(), m_manager->logSink(), 0);
@@ -493,13 +442,15 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData *prj)
     QStringList allFiles;
     foreach (const qbs::ProductData &prd, prj->products()) {
         foreach (const qbs::GroupData &grp, prd.groups()) {
-            QVariantMap props = grp.properties();
+            const qbs::PropertyMap &props = grp.properties();
 
             QStringList grpIncludePaths;
             QStringList grpFrameworkPaths;
             QByteArray grpDefines;
             bool isCxx11;
-            const QStringList cxxFlags = appendAll(props, QLatin1String(CONFIG_CXXFLAGS));
+            const QStringList cxxFlags = props.getModulePropertiesAsStringList(
+                        QLatin1String(CONFIG_CPP_MODULE),
+                        QLatin1String(CONFIG_CXXFLAGS));
 
             // Toolchain specific stuff:
             QList<ProjectExplorer::HeaderPath> includePaths;
@@ -516,23 +467,28 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData *prj)
                     grpIncludePaths.append(headerPath.path());
             }
 
-            QStringList list = appendAll(props, QLatin1String(CONFIG_DEFINES));
+            QStringList list = props.getModulePropertiesAsStringList(
+                        QLatin1String(CONFIG_CPP_MODULE),
+                        QLatin1String(CONFIG_DEFINES));
             foreach (const QString &def, list)
                 grpDefines += (QByteArray("#define ") + def.toUtf8() + '\n');
 
-            list = appendAll(props, QLatin1String(CONFIG_INCLUDEPATHS));
+            list = props.getModulePropertiesAsStringList(QLatin1String(CONFIG_CPP_MODULE),
+                                                         QLatin1String(CONFIG_INCLUDEPATHS));
             foreach (const QString &p, list) {
                 const QString cp = Utils::FileName::fromUserInput(p).toString();
                 grpIncludePaths.append(cp);
             }
 
-            list = appendAll(props, QLatin1String(CONFIG_FRAMEWORKPATHS));
+            list = props.getModulePropertiesAsStringList(QLatin1String(CONFIG_CPP_MODULE),
+                                                         QLatin1String(CONFIG_FRAMEWORKPATHS));
             foreach (const QString &p, list) {
                 const QString cp = Utils::FileName::fromUserInput(p).toString();
                 grpFrameworkPaths.append(cp);
             }
 
-            const QString pch = extract(props, QLatin1String(CONFIG_PRECOMPILEDHEADER)).toString();
+            const QString pch = props.getModuleProperty(QLatin1String(CONFIG_CPP_MODULE),
+                    QLatin1String(CONFIG_PRECOMPILEDHEADER)).toString();
 
             QStringList cxxSources;
             QStringList cSources;
@@ -603,61 +559,23 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData *prj)
 
 void QbsProject::updateQmlJsCodeModel(const qbs::ProjectData *prj)
 {
-    // FIXME: No information about import directories, so ignore this for now.
-#if 1
     Q_UNUSED(prj);
-#else
     QmlJS::ModelManagerInterface *modelManager = QmlJS::ModelManagerInterface::instance();
     if (!modelManager)
         return;
 
-    QmlJS::ModelManagerInterface::ProjectInfo projectInfo = modelManager->projectInfo(this);
-    projectInfo.sourceFiles = m_projectFiles->files[QMLType];
-
-    FindQt4ProFiles findQt4ProFiles;
-    QList<Qt4ProFileNode *> proFiles = findQt4ProFiles(rootProjectNode());
-
-    projectInfo.importPaths.clear();
-    foreach (Qt4ProFileNode *node, proFiles) {
-        projectInfo.importPaths.append(node->variableValue(QmlImportPathVar));
-    }
-
-    bool preferDebugDump = false;
-    projectInfo.tryQmlDump = false;
-
-    ProjectExplorer::Target *t = activeTarget();
-    ProjectExplorer::Kit *k = t ? t->kit() : ProjectExplorer::KitManager::instance()->defaultKit();
-    QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(k);
-
-    if (t) {
-        if (Qt4BuildConfiguration *bc = qobject_cast<Qt4BuildConfiguration *>(t->activeBuildConfiguration()))
-            preferDebugDump = bc->qmakeBuildConfiguration() & QtSupport::BaseQtVersion::DebugBuild;
-    } else {
-        if (qtVersion)
-            preferDebugDump = qtVersion->defaultBuildConfig() & QtSupport::BaseQtVersion::DebugBuild;
-    }
-    if (qtVersion && qtVersion->isValid()) {
-        projectInfo.tryQmlDump = qtVersion->type() == QLatin1String(QtSupport::Constants::DESKTOPQT)
-                || qtVersion->type() == QLatin1String(QtSupport::Constants::SIMULATORQT);
-        projectInfo.qtImportsPath = qtVersion->qmakeProperty("QT_INSTALL_IMPORTS");
-        if (!projectInfo.qtImportsPath.isEmpty())
-            projectInfo.importPaths += projectInfo.qtImportsPath;
-        projectInfo.qtVersionString = qtVersion->qtVersionString();
-    }
-    projectInfo.importPaths.removeDuplicates();
-
-    if (projectInfo.tryQmlDump) {
-        QtSupport::QmlDumpTool::pathAndEnvironment(this, qtVersion,
-                                                   ToolChainKitInformation::toolChain(k),
-                                                   preferDebugDump, &projectInfo.qmlDumpPath,
-                                                   &projectInfo.qmlDumpEnvironment);
-    } else {
-        projectInfo.qmlDumpPath.clear();
-        projectInfo.qmlDumpEnvironment.clear();
-    }
-
+    QmlJS::ModelManagerInterface::ProjectInfo projectInfo =
+            QmlJSTools::defaultProjectInfoForProject(this);
     modelManager->updateProjectInfo(projectInfo);
-#endif
+}
+
+QString QbsProject::qbsBuildDir() const
+{
+    QString buildDir = Utils::Environment::systemEnvironment()
+            .value(QLatin1String("QBS_BUILD_DIR"));
+    if (buildDir.isEmpty())
+        buildDir = QLatin1String(QBS_BUILD_DIR);
+    return buildDir;
 }
 
 } // namespace Internal

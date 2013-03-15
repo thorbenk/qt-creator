@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
-#ifndef PROGRESSPIE_H
-#define PROGRESSPIE_H
+#ifndef PROGRESSBAR_H
+#define PROGRESSBAR_H
 
 #include <QString>
 #include <QWidget>
@@ -75,16 +75,16 @@ private:
     QImage bar;
     QString m_text;
     QString m_title;
-    bool m_error;
     int m_progressHeight;
     int m_minimum;
     int m_maximum;
     int m_value;
     float m_cancelButtonFader;
     bool m_finished;
+    bool m_error;
 };
 
 } // namespace Internal
 } // namespace Core
 
-#endif // PROGRESSPIE_H
+#endif // PROGRESSBAR_H

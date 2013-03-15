@@ -26,8 +26,8 @@
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ****************************************************************************/
-#ifndef QMLDOCUMENT_H
-#define QMLDOCUMENT_H
+#ifndef QMLJSDOCUMENT_H
+#define QMLJSDOCUMENT_H
 
 #include <QList>
 #include <QPair>
@@ -65,6 +65,7 @@ public:
     };
 
     static bool isQmlLikeLanguage(Language languge);
+    static bool isFullySupportedLanguage(Language language);
 protected:
     Document(const QString &fileName, Language language);
 
@@ -78,6 +79,7 @@ public:
 
     bool isQmlDocument() const;
     Language language() const;
+    void setLanguage(Language l);
 
     AST::UiProgram *qmlProgram() const;
     AST::Program *jsProgram() const;
@@ -240,4 +242,4 @@ public:
 
 } // namespace QmlJS
 
-#endif // QMLDOCUMENT_H
+#endif // QMLJSDOCUMENT_H

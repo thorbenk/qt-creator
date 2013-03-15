@@ -335,7 +335,7 @@ bool PluginManager::hasError()
 {
     foreach (PluginSpec *spec, plugins()) {
         // only show errors on startup if plugin is enabled.
-        if (spec->hasError() && spec->isEnabled() && !spec->isDisabledIndirectly())
+        if (spec->hasError() && spec->isEnabledInSettings() && !spec->isDisabledIndirectly())
             return true;
     }
     return false;
@@ -532,13 +532,16 @@ static QStringList subList(const QStringList &in, const QString &key)
 }
 
 /*!
-    \fn PluginManager::remoteArguments(const QString &argument)
+    \fn PluginManager::remoteArguments(const QString &argument, QObject *socket)
 
     Parses the options encoded by serializedArguments() const
     and passes them on to the respective plugins along with the arguments.
+
+    \a socket is passed for disconnecting the peer when the operation is done (for example,
+    document is closed) for supporting the -block flag.
 */
 
-void PluginManager::remoteArguments(const QString &serializedArgument)
+void PluginManager::remoteArguments(const QString &serializedArgument, QObject *socket)
 {
     if (serializedArgument.isEmpty())
         return;
@@ -547,9 +550,15 @@ void PluginManager::remoteArguments(const QString &serializedArgument)
     foreach (const PluginSpec *ps, plugins()) {
         if (ps->state() == PluginSpec::Running) {
             const QStringList pluginOptions = subList(serializedArguments, QLatin1Char(':') + ps->name());
-            ps->plugin()->remoteCommand(pluginOptions, arguments);
+            QObject *socketParent = ps->plugin()->remoteCommand(pluginOptions, arguments);
+            if (socketParent && socket) {
+                socket->setParent(socketParent);
+                socket = 0;
+            }
         }
     }
+    if (socket)
+        delete socket;
 }
 
 /*!
@@ -609,6 +618,9 @@ static inline void formatOption(QTextStream &str,
 
 void PluginManager::formatOptions(QTextStream &str, int optionIndentation, int descriptionIndentation)
 {
+    formatOption(str, QLatin1String(OptionsParser::LOAD_OPTION),
+                 QLatin1String("plugin"), QLatin1String("Load <plugin>"),
+                 optionIndentation, descriptionIndentation);
     formatOption(str, QLatin1String(OptionsParser::NO_LOAD_OPTION),
                  QLatin1String("plugin"), QLatin1String("Do not load <plugin>"),
                  optionIndentation, descriptionIndentation);
@@ -882,9 +894,9 @@ void PluginManagerPrivate::writeSettings()
     QStringList tempDisabledPlugins;
     QStringList tempForceEnabledPlugins;
     foreach (PluginSpec *spec, pluginSpecs) {
-        if (!spec->isDisabledByDefault() && !spec->isEnabled())
+        if (!spec->isDisabledByDefault() && !spec->isEnabledInSettings())
             tempDisabledPlugins.append(spec->name());
-        if (spec->isDisabledByDefault() && spec->isEnabled())
+        if (spec->isDisabledByDefault() && spec->isEnabledInSettings())
             tempForceEnabledPlugins.append(spec->name());
     }
 
@@ -1120,7 +1132,7 @@ void PluginManagerPrivate::loadPlugin(PluginSpec *spec, PluginSpec::State destSt
         return;
 
     // don't load disabled plugins.
-    if ((spec->isDisabledIndirectly() || !spec->isEnabled()) && destState == PluginSpec::Loaded)
+    if (!spec->isEffectivelyEnabled() && destState == PluginSpec::Loaded)
         return;
 
     switch (destState) {
@@ -1249,6 +1261,11 @@ void PluginManagerPrivate::resolveDependencies()
     foreach (PluginSpec *spec, pluginSpecs) {
         spec->d->resolveDependencies(pluginSpecs);
     }
+
+    // Reset disabledIndirectly flag
+    foreach (PluginSpec *spec, loadQueue())
+        spec->d->disabledIndirectly = false;
+
     foreach (PluginSpec *spec, loadQueue()) {
         spec->d->disableIndirectlyIfDependencyDisabled();
     }

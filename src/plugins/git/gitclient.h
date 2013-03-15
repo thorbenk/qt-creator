@@ -42,7 +42,6 @@
 
 QT_BEGIN_NAMESPACE
 class QCheckBox;
-class QErrorMessage;
 class QSignalMapper;
 class QDebug;
 class QProcessEnvironment;
@@ -112,7 +111,7 @@ public:
     unsigned gitVersion(QString *errorMessage = 0) const;
 
     QString findRepositoryForDirectory(const QString &dir);
-    QString findGitDirForRepository(const QString &repositoryDir);
+    QString findGitDirForRepository(const QString &repositoryDir) const;
 
     void diff(const QString &workingDirectory, const QStringList &diffArgs, const QString &fileName);
     void diff(const QString &workingDirectory, const QStringList &diffArgs,
@@ -198,14 +197,15 @@ public:
     QString vcsGetRepositoryURL(const QString &directory);
     bool synchronousFetch(const QString &workingDirectory, const QString &remote);
     bool synchronousPull(const QString &workingDirectory, bool rebase);
-    bool synchronousCommandContinue(const QString &workingDirectory, const QString &command, bool hasChanges);
     bool synchronousPush(const QString &workingDirectory, const QString &remote = QString());
     bool synchronousMerge(const QString &workingDirectory, const QString &branch);
+    bool canRebase(const QString &workingDirectory) const;
     bool synchronousRebase(const QString &workingDirectory,
                            const QString &baseBranch,
                            const QString &topicBranch = QString());
     bool revertCommit(const QString &workingDirectory, const QString &commit);
     bool cherryPickCommit(const QString &workingDirectory, const QString &commit);
+    void interactiveRebase(const QString &workingDirectory, const QString &commit);
     void synchronousAbortCommand(const QString &workingDir, const QString &abortCommand);
 
     // git svn support (asynchronous).
@@ -248,6 +248,10 @@ public:
                            QString *output = 0,
                            QString *errorMessage = 0);
 
+    void continueCommandIfNeeded(const QString &workingDirectory);
+    void continuePreviousGitCommand(const QString &workingDirectory, const QString &msgBoxTitle, QString msgBoxText,
+                                    const QString &buttonName, const QString &gitCommand, bool requireChanges = true);
+
     void launchGitK(const QString &workingDirectory, const QString &fileName);
     void launchGitK(const QString &workingDirectory) { launchGitK(workingDirectory, QString()); }
 
@@ -260,6 +264,7 @@ public:
     QProcessEnvironment processEnvironment() const;
 
     bool isValidRevision(const QString &revision) const;
+    void handleMergeConflicts(const QString &workingDir, const QString &commit, const QString &abortCommand);
 
     static QString msgNoChangedFiles();
 
@@ -325,7 +330,6 @@ private:
     void connectRepositoryChanged(const QString & repository, VcsBase::Command *cmd);
     bool executeAndHandleConflicts(const QString &workingDirectory, const QStringList &arguments,
                                    const QString &abortCommand = QString());
-    void handleMergeConflicts(const QString &workingDir, const QString &commit, const QString &abortCommand);
     bool tryLauchingGitK(const QProcessEnvironment &env,
                          const QString &workingDirectory,
                          const QString &fileName,
@@ -339,6 +343,7 @@ private:
     const QString m_msgWait;
     QSignalMapper *m_repositoryChangedSignalMapper;
     GitSettings *m_settings;
+    QString m_gitQtcEditor;
 };
 
 } // namespace Internal

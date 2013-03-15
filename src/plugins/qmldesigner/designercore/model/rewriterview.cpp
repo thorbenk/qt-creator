@@ -27,6 +27,8 @@
 **
 ****************************************************************************/
 
+#include "rewriterview.h"
+
 #include <filemanager/astobjecttextextractor.h>
 #include <filemanager/objectlengthcalculator.h>
 #include <filemanager/firstdefinitionfinder.h>
@@ -34,7 +36,6 @@
 
 #include <qmljs/parser/qmljsengine_p.h>
 
-#include "rewriterview.h"
 #include "rewritingexception.h"
 #include "textmodifier.h"
 #include "texttomodelmerger.h"
@@ -191,11 +192,6 @@ void RewriterView::nodeRemoved(const ModelNode &removedNode, const NodeAbstractP
 
     if (!isModificationGroupActive())
         applyChanges();
-}
-
-void RewriterView::propertiesAdded(const ModelNode &/*node*/, const QList<AbstractProperty>& /*propertyList*/)
-{
-    Q_ASSERT(0);
 }
 
 void RewriterView::propertiesAboutToBeRemoved(const QList<AbstractProperty> &propertyList)
@@ -375,7 +371,7 @@ void RewriterView::scriptFunctionsChanged(const ModelNode & /*node*/, const QStr
 {
 }
 
-void RewriterView::instancePropertyChange(const QList<QPair<ModelNode, QString> > & /*propertyList*/)
+void RewriterView::instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > & /*propertyList*/)
 {
 }
 
@@ -722,7 +718,7 @@ QString RewriterView::pathForImport(const Import &import)
 
         QmlJS::ImportInfo importInfo;
 
-        foreach (QmlJS::Import qmljsImport, imports->all()) {
+        foreach (const QmlJS::Import &qmljsImport, imports->all()) {
             if (qmljsImport.info.name() == importStr)
                 importInfo = qmljsImport.info;
         }
@@ -731,11 +727,6 @@ QString RewriterView::pathForImport(const Import &import)
     }
 
     return QString();
-}
-
-QWidget *RewriterView::widget()
-{
-    return 0;
 }
 
 void RewriterView::qmlTextChanged()

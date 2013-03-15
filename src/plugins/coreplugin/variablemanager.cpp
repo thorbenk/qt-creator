@@ -40,6 +40,11 @@
 #include <QMap>
 #include <QDebug>
 
+static const char kFilePathPostfix[] = ":FilePath";
+static const char kPathPostfix[] = ":Path";
+static const char kFileNamePostfix[] = ":FileName";
+static const char kFileBaseNamePostfix[] = ":FileBaseName";
+
 namespace Core {
 
 class VMMapExpander : public Utils::AbstractQtcMacroExpander
@@ -48,7 +53,7 @@ public:
     virtual bool resolveMacro(const QString &name, QString *ret)
     {
         bool found;
-        *ret = Core::VariableManager::instance()->value(name.toUtf8(), &found);
+        *ret = Core::VariableManager::value(name.toUtf8(), &found);
         return found;
     }
 };
@@ -72,9 +77,12 @@ public:
 */
 
 static VariableManager *variableManagerInstance = 0;
+static VariableManagerPrivate *d;
 
-VariableManager::VariableManager() : d(new VariableManagerPrivate)
+
+VariableManager::VariableManager()
 {
+    d = new VariableManagerPrivate;
     variableManagerInstance = this;
 }
 
@@ -96,10 +104,15 @@ bool VariableManager::remove(const QByteArray &variable)
 
 QString VariableManager::value(const QByteArray &variable, bool *found)
 {
-    emit variableUpdateRequested(variable);
+    variableManagerInstance->variableUpdateRequested(variable);
     if (found)
         *found = d->m_map.contains(variable);
     return d->m_map.value(variable);
+}
+
+QString VariableManager::expandedString(const QString &stringWithVariables)
+{
+    return Utils::expandMacros(stringWithVariables, macroExpander());
 }
 
 Utils::AbstractMacroExpander *VariableManager::macroExpander()
@@ -117,12 +130,48 @@ void VariableManager::registerVariable(const QByteArray &variable, const QString
     d->m_descriptions.insert(variable, description);
 }
 
-QList<QByteArray> VariableManager::variables() const
+void VariableManager::registerFileVariables(const QByteArray &prefix, const QString &heading)
+{
+    registerVariable(prefix + kFilePathPostfix, tr("%1: Full path including file name.").arg(heading));
+    registerVariable(prefix + kPathPostfix, tr("%1: Full path excluding file name.").arg(heading));
+    registerVariable(prefix + kFileNamePostfix, tr("%1: File name without including path.").arg(heading));
+    registerVariable(prefix + kFileBaseNamePostfix, tr("%1: File base name without path and suffix.").arg(heading));
+}
+
+bool VariableManager::isFileVariable(const QByteArray &variable, const QByteArray &prefix)
+{
+    return variable == prefix + kFilePathPostfix
+            || variable == prefix + kPathPostfix
+            || variable == prefix + kFileNamePostfix
+            || variable == prefix + kFileBaseNamePostfix;
+}
+
+QString VariableManager::fileVariableValue(const QByteArray &variable, const QByteArray &prefix,
+                                           const QString &fileName)
+{
+    return fileVariableValue(variable, prefix, QFileInfo(fileName));
+}
+
+QString VariableManager::fileVariableValue(const QByteArray &variable, const QByteArray &prefix,
+                                           const QFileInfo &fileInfo)
+{
+    if (variable == prefix + kFilePathPostfix)
+        return fileInfo.filePath();
+    else if (variable == prefix + kPathPostfix)
+        return fileInfo.path();
+    else if (variable == prefix + kFileNamePostfix)
+        return fileInfo.fileName();
+    else if (variable == prefix + kFileBaseNamePostfix)
+        return fileInfo.baseName();
+    return QString();
+}
+
+QList<QByteArray> VariableManager::variables()
 {
     return d->m_descriptions.keys();
 }
 
-QString VariableManager::variableDescription(const QByteArray &variable) const
+QString VariableManager::variableDescription(const QByteArray &variable)
 {
     return d->m_descriptions.value(variable);
 }

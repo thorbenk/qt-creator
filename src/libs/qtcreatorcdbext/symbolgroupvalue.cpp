@@ -1631,13 +1631,13 @@ static inline unsigned padOffset(unsigned offset)
 
 /* Return the offset to be accounted for "QSharedData" to access
  * the first member of a QSharedData-derived class */
-static unsigned qSharedDataOffset(const SymbolGroupValueContext &ctx)
+static unsigned qSharedDataSize(const SymbolGroupValueContext &ctx)
 {
     unsigned offset = 0;
     if (!offset) {
         // As of 4.X, a QAtomicInt, which will be padded to 8 on a 64bit system.
         const std::string qSharedData = QtInfo::get(ctx).prependQtCoreModule("QSharedData");
-        offset = padOffset(SymbolGroupValue::sizeOf(qSharedData.c_str()));
+        offset = SymbolGroupValue::sizeOf(qSharedData.c_str());
     }
     return offset;
 }
@@ -1713,12 +1713,12 @@ static inline bool dumpQByteArray(const SymbolGroupValue &v, std::wostream &str,
             const char c = *p;
             display.push_back(c >= 0 && isprint(c) ? wchar_t(c) : L'.');
         }
-        str << fullSize << L" bytes \"" << display;
+        str << "\"" << display;
         if (fullSize > size)
             str << L"...";
         str << L'"';
     } else {
-        str << L"<empty>";
+        str << L"\"\"";
     }
     if (memoryHandle)
         *memoryHandle = new MemoryHandle(reinterpret_cast<unsigned char *>(memory), size);
@@ -1738,7 +1738,8 @@ enum QPrivateDumpMode // Enumeration determining the offsets to be taken into co
 {
     QPDM_None,
     QPDM_qVirtual, // For classes with virtual functions (QObject-based): Skip vtable for d-address
-    QPDM_qSharedData // Private class is based on QSharedData.
+    QPDM_qSharedData, // Private class is based on QSharedData, non-padded type
+    QPDM_qSharedDataPadded // Private class is based on QSharedData, padded type (class)
 };
 
 // Determine the address of private class member by dereferencing the d-ptr and using offsets.
@@ -1758,8 +1759,11 @@ static ULONG64 addressOfQPrivateMember(const SymbolGroupValue &v, QPrivateDumpMo
         return 0;
     // Get address of type to be dumped.
     ULONG64 dumpAddress = dptr  + additionalOffset;
-    if (mode == QPDM_qSharedData) // Based on QSharedData
-        dumpAddress += qSharedDataOffset(v.context());
+    if (mode == QPDM_qSharedData) { // Simple type following QSharedData
+        dumpAddress += qSharedDataSize(v.context());
+    } else if (mode == QPDM_qSharedDataPadded) {
+        dumpAddress += padOffset(qSharedDataSize(v.context()));
+    }
     return dumpAddress;
 }
 
@@ -1810,7 +1814,7 @@ static bool dumpQByteArrayFromQPrivateClass(const SymbolGroupValue &v,
  * Dump 2nd string past its QSharedData base class. */
 static inline bool dumpQFileInfo(const SymbolGroupValue &v, std::wostream &str)
 {
-    return dumpQStringFromQPrivateClass(v, QPDM_qSharedData, qStringSize(v.context()),  str);
+    return dumpQStringFromQPrivateClass(v, QPDM_qSharedDataPadded, qStringSize(v.context()),  str);
 }
 
 /* Dump QDir, for whose private class no debugging information is available.
@@ -1822,14 +1826,14 @@ static bool inline dumpQDir(const SymbolGroupValue &v, std::wostream &str)
     const unsigned offset = padOffset(listSize + 2 * SymbolGroupValue::intSize())
             + padOffset(SymbolGroupValue::pointerSize() + SymbolGroupValue::sizeOf("bool"))
             + 2 * listSize;
-    return dumpQStringFromQPrivateClass(v, QPDM_qSharedData, offset,  str);
+    return dumpQStringFromQPrivateClass(v, QPDM_qSharedDataPadded, offset,  str);
 }
 
 /* Dump QRegExp, for whose private class no debugging information is available.
  * Dump 1st string past of its base class. */
 static inline bool dumpQRegExp(const SymbolGroupValue &v, std::wostream &str)
 {
-    return dumpQStringFromQPrivateClass(v, QPDM_qSharedData, 0,  str);
+    return dumpQStringFromQPrivateClass(v, QPDM_qSharedDataPadded, 0,  str);
 }
 
 /* Dump QFile, for whose private class no debugging information is available.
@@ -2072,7 +2076,11 @@ static bool dumpQTime(const SymbolGroupValue &v, std::wostream &str)
 // from memory.
 static bool dumpQDateTime(const SymbolGroupValue &v, std::wostream &str)
 {
-    const ULONG64 dateAddr = addressOfQPrivateMember(v, QPDM_qSharedData, 0);
+    // QDate is 64bit starting from Qt 5 which is always aligned 64bit.
+    const int qtVersion = QtInfo::get(v.context()).version;
+       const ULONG64 dateAddr = qtVersion < 5 ?
+       addressOfQPrivateMember(v, QPDM_qSharedData, 0) :
+       addressOfQPrivateMember(v, QPDM_None, 8);
     if (!dateAddr)
         return false;
     const int date =
@@ -2084,7 +2092,7 @@ static bool dumpQDateTime(const SymbolGroupValue &v, std::wostream &str)
     }
     if (!dumpJulianDate(date, str))
         return false;
-    const ULONG64 timeAddr = dateAddr + padOffset(SymbolGroupValue::intSize());
+    const ULONG64 timeAddr = dateAddr + (qtVersion < 5 ? SymbolGroupValue::intSize() : 8);
     const int time =
         SymbolGroupValue::readIntValue(v.context().dataspaces,
                                        timeAddr, SymbolGroupValue::intSize(), 0);
@@ -2774,7 +2782,8 @@ static inline std::vector<AbstractSymbolGroupNode *>
     unsigned size = 0;
     ULONG64 address = 0;
     if (QtInfo::get(ctx).version > 4) {
-        const QtStringAddressData data = readQtStringAddressData(dV, 5);
+        const SymbolGroupValue adV = dV["QArrayData"];
+        const QtStringAddressData data = readQtStringAddressData(adV, 5);
         size = data.size;
         address = data.address;
     } else {
@@ -2788,7 +2797,7 @@ static inline std::vector<AbstractSymbolGroupNode *>
     if (size > 200)
         size = 200;
     rc.reserve(size);
-    const std::string charType = "unsigned char";
+    const std::string charType = "char";
     std::string errorMessage;
     SymbolGroup *sg = n->symbolGroup();
     for (int i = 0; i < (int)size; ++i, ++address) {

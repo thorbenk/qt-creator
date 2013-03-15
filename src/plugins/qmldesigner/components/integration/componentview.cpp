@@ -73,11 +73,6 @@ void ComponentView::setComponentNode(const ModelNode &node)
     m_componentAction->setCurrentIndex(indexForNode(node));
 }
 
-QWidget *ComponentView::widget()
-{
-    return 0;
-}
-
 void ComponentView::removeSingleNodeFromList(const ModelNode &node)
 {
     for (int row = 0; row < m_standardItemModel->rowCount(); row++) {
@@ -195,7 +190,7 @@ void ComponentView::variantPropertiesChanged(const QList<VariantProperty>& /*pro
 void ComponentView::bindingPropertiesChanged(const QList<BindingProperty>& /*propertyList*/, PropertyChangeFlags /*propertyChange*/) {}
 void ComponentView::rootNodeTypeChanged(const QString &/*type*/, int /*majorVersion*/, int /*minorVersion*/) {}
 void ComponentView::scriptFunctionsChanged(const ModelNode &/*node*/, const QStringList &/*scriptFunctionList*/) {}
-void ComponentView::instancePropertyChange(const QList<QPair<ModelNode, QString> > &/*propertyList*/) {}
+void ComponentView::instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &/*propertyList*/) {}
 void ComponentView::instancesCompleted(const QVector<ModelNode> &/*completedNodeList*/) {}
 void ComponentView::instanceInformationsChange(const QMultiHash<ModelNode, InformationName> &/*informationChangeHash*/) {}
 void ComponentView::instancesRenderImageChanged(const QVector<ModelNode> &/*nodeList*/) {}
@@ -216,7 +211,7 @@ void ComponentView::fileUrlChanged(const QUrl &/*oldUrl*/, const QUrl &/*newUrl*
 void ComponentView::nodeOrderChanged(const NodeListProperty &/*listProperty*/, const ModelNode & /*movedNode*/, int /*oldIndex*/) {}
 
 
-void ComponentView::auxiliaryDataChanged(const ModelNode &/*node*/, const QString &/*name*/, const QVariant &/*data*/) {}
+void ComponentView::auxiliaryDataChanged(const ModelNode &/*node*/, const PropertyName &/*name*/, const QVariant &/*data*/) {}
 
 void ComponentView::customNotification(const AbstractView * /*view*/, const QString &/*identifier*/, const QList<ModelNode> &/*nodeList*/, const QList<QVariant> &/*data*/) {}
 void ComponentView::importsChanged(const QList<Import> &/*addedImports*/, const QList<Import> &/*removedImports*/) {}

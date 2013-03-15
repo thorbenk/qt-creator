@@ -42,8 +42,9 @@
 #include "gitorious/gitoriousclonewizard.h"
 #include "stashdialog.h"
 #include "settingspage.h"
-#include "resetdialog.h"
+#include "logchangedialog.h"
 #include "mergetool.h"
+#include "gitutils.h"
 
 #include "gerrit/gerritplugin.h"
 
@@ -55,9 +56,9 @@
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/command.h>
 #include <coreplugin/id.h>
+#include <coreplugin/infobar.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
-#include <coreplugin/documentmanager.h>
 
 #include <utils/qtcassert.h>
 #include <utils/parameteraction.h>
@@ -80,6 +81,8 @@
 #include <QFileDialog>
 #include <QMenu>
 #include <QMessageBox>
+
+static const unsigned minimumRequiredVersion = 0x010702;
 
 static const VcsBase::VcsBaseEditorParameters editorParameters[] = {
 {
@@ -433,6 +436,10 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
                            globalcontext, false, SLOT(resetRepository()));
 
     createRepositoryAction(localRepositoryMenu,
+                           tr("Interactive Rebase..."), Core::Id("Git.Rebase"),
+                           globalcontext, true, SLOT(startRebase()));
+
+    createRepositoryAction(localRepositoryMenu,
                            tr("Revert Single Commit..."), Core::Id("Git.Revert"),
                            globalcontext, true, SLOT(startRevertCommit()));
 
@@ -701,17 +708,37 @@ void GitPlugin::resetRepository()
 {
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasTopLevel(), return);
+    QString topLevel = state.topLevel();
 
-    ResetDialog dialog;
-    if (dialog.runDialog(state.topLevel()))
+    LogChangeDialog dialog(true);
+    dialog.setWindowTitle(tr("Undo Changes to %1").arg(QDir::toNativeSeparators(topLevel)));
+    if (dialog.runDialog(topLevel))
         switch (dialog.resetType()) {
         case HardReset:
-            m_gitClient->hardReset(state.topLevel(), dialog.commit());
+            m_gitClient->hardReset(topLevel, dialog.commit());
             break;
         case SoftReset:
-            m_gitClient->softReset(state.topLevel(), dialog.commit());
+            m_gitClient->softReset(topLevel, dialog.commit());
             break;
         }
+}
+
+void GitPlugin::startRebase()
+{
+    QString workingDirectory = currentState().currentDirectoryOrTopLevel();
+    if (workingDirectory.isEmpty() || !m_gitClient->canRebase(workingDirectory))
+        return;
+    GitClient::StashGuard stashGuard(workingDirectory, QLatin1String("Rebase-i"));
+    if (stashGuard.stashingFailed(true))
+        return;
+    stashGuard.preventPop();
+    LogChangeDialog dialog(false);
+    dialog.setWindowTitle(tr("Interactive Rebase"));
+    if (!dialog.runDialog(workingDirectory))
+        return;
+    const QString change = dialog.commit();
+    if (!change.isEmpty())
+        m_gitClient->interactiveRebase(workingDirectory, change);
 }
 
 void GitPlugin::startRevertCommit()
@@ -848,6 +875,26 @@ void GitPlugin::startCommit(bool amend)
     openSubmitEditor(m_commitMessageFileName, data, amend);
 }
 
+void GitPlugin::updateVersionWarning()
+{
+    if (m_gitClient->gitVersion() >= minimumRequiredVersion)
+        return;
+    Core::IEditor *curEditor = Core::EditorManager::currentEditor();
+    if (!curEditor)
+        return;
+    Core::IDocument *curDocument = curEditor->document();
+    if (!curDocument)
+        return;
+    Core::InfoBar *infoBar = curDocument->infoBar();
+    Core::Id gitVersionWarning("GitVersionWarning");
+    if (!infoBar->canInfoBeAdded(gitVersionWarning))
+        return;
+    infoBar->addInfo(Core::InfoBarEntry(gitVersionWarning,
+                        tr("Unsupported version of Git found. Git %1 or later required.")
+                        .arg(versionString(minimumRequiredVersion)),
+                        Core::InfoBarEntry::GlobalSuppressionEnabled));
+}
+
 Core::IEditor *GitPlugin::openSubmitEditor(const QString &fileName, const CommitData &cd, bool amend)
 {
     Core::IEditor *editor = Core::EditorManager::openEditor(fileName, Constants::GITSUBMITEDITOR_ID,
@@ -892,11 +939,15 @@ bool GitPlugin::submitEditorAboutToClose(VcsBase::VcsBaseSubmitEditor *submitEdi
     // Prompt user. Force a prompt unless submit was actually invoked (that
     // is, the editor was closed or shutdown).
     bool *promptData = m_settings.boolPointer(GitSettings::promptOnSubmitKey);
-    const VcsBase::VcsBaseSubmitEditor::PromptSubmitResult answer =
-            editor->promptSubmit(tr("Closing Git Editor"),
-                                 tr("Do you want to commit the change?"),
-                                 tr("Git will not accept this commit. Do you want to continue to edit it?"),
-                                 promptData, !m_submitActionTriggered, false);
+    VcsBase::VcsBaseSubmitEditor::PromptSubmitResult answer;
+    if (editor->forceClose()) {
+        answer = VcsBase::VcsBaseSubmitEditor::SubmitDiscarded;
+    } else {
+        answer = editor->promptSubmit(tr("Closing Git Editor"),
+                     tr("Do you want to commit the change?"),
+                     tr("Git will not accept this commit. Do you want to continue to edit it?"),
+                     promptData, !m_submitActionTriggered, false);
+    }
     m_submitActionTriggered = false;
     switch (answer) {
     case VcsBase::VcsBaseSubmitEditor::SubmitCanceled:
@@ -920,8 +971,10 @@ bool GitPlugin::submitEditorAboutToClose(VcsBase::VcsBaseSubmitEditor *submitEdi
         closeEditor = m_gitClient->addAndCommit(m_submitRepository, editor->panelData(),
                                                 m_commitAmendSHA1, m_commitMessageFileName, model);
     }
-    if (closeEditor)
+    if (closeEditor) {
         cleanCommitMessageFile();
+        m_gitClient->continueCommandIfNeeded(m_submitRepository);
+    }
     return closeEditor;
 }
 
@@ -934,22 +987,25 @@ void GitPlugin::pull()
 {
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasTopLevel(), return);
+    QString topLevel = state.topLevel();
     bool rebase = m_gitClient->settings()->boolValue(GitSettings::pullRebaseKey);
 
     if (!rebase) {
         bool isDetached;
-        QString branchRebaseConfig = m_gitClient->synchronousRepositoryBranches(state.topLevel(), &isDetached).at(0);
+        QString branchRebaseConfig = m_gitClient->synchronousRepositoryBranches(topLevel, &isDetached).at(0);
         if (!isDetached) {
             branchRebaseConfig.prepend(QLatin1String("branch."));
             branchRebaseConfig.append(QLatin1String(".rebase"));
-            rebase = (m_gitClient->readConfigValue(state.topLevel(), branchRebaseConfig) == QLatin1String("true"));
+            rebase = (m_gitClient->readConfigValue(topLevel, branchRebaseConfig) == QLatin1String("true"));
         }
     }
 
-    GitClient::StashGuard stashGuard(state.topLevel(), QLatin1String("Pull"));
-    if (stashGuard.stashingFailed(false) || (rebase && (stashGuard.result() == GitClient::NotStashed)))
+    GitClient::StashGuard stashGuard(topLevel, QLatin1String("Pull"));
+    if (stashGuard.stashingFailed(false))
         return;
-    if (!m_gitClient->synchronousPull(state.topLevel(), rebase))
+    if (rebase && (stashGuard.result() == GitClient::NotStashed))
+        m_gitClient->synchronousCheckoutFiles(topLevel);
+    if (!m_gitClient->synchronousPull(topLevel, rebase))
         stashGuard.preventPop();
 }
 
@@ -1157,6 +1213,8 @@ void GitPlugin::updateActions(VcsBase::VcsBasePlugin::ActionState as)
     m_commandLocator->setEnabled(repositoryEnabled);
     if (!enableMenuAction(as, m_menuAction))
         return;
+    if (repositoryEnabled)
+        updateVersionWarning();
     // Note: This menu is visible if there is no repository. Only
     // 'Create Repository'/'Show' actions should be available.
     const QString fileName = currentState().currentFileName();
@@ -1224,7 +1282,6 @@ GitClient *GitPlugin::gitClient() const
 }
 
 #ifdef WITH_TESTS
-#include "giteditor.h"
 
 #include <QTest>
 #include <QTextBlock>

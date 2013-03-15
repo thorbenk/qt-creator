@@ -34,7 +34,6 @@
 #include "androiddeploystepfactory.h"
 #include "androiddevice.h"
 #include "androiddevicefactory.h"
-#include "androidconfigurations.h"
 #include "androidmanager.h"
 #include "androidpackagecreationfactory.h"
 #include "androidpackageinstallationfactory.h"
@@ -44,6 +43,8 @@
 #include "androidqtversionfactory.h"
 #include "androiddeployconfiguration.h"
 #include "androidgdbserverkitinformation.h"
+#include <projectexplorer/kitmanager.h>
+#include <qtsupport/qtversionmanager.h>
 
 #include <QtPlugin>
 
@@ -72,14 +73,23 @@ bool AndroidPlugin::initialize(const QStringList &arguments, QString *errorMessa
     addAutoReleasedObject(new Internal::AndroidDeployConfigurationFactory);
     addAutoReleasedObject(new Internal::AndroidDeviceFactory);
     ProjectExplorer::KitManager::instance()->registerKitInformation(new Internal::AndroidGdbServerKitInformation);
+
+    ProjectExplorer::DeviceManager::instance()
+            ->addDevice(ProjectExplorer::IDevice::Ptr(new Internal::AndroidDevice));
+
+    connect(ProjectExplorer::KitManager::instance(), SIGNAL(kitsLoaded()),
+            this, SLOT(kitsRestored()));
+
     return true;
 }
 
-void AndroidPlugin::extensionsInitialized()
+void AndroidPlugin::kitsRestored()
 {
-    ProjectExplorer::DeviceManager *dm = ProjectExplorer::DeviceManager::instance();
-    if (dm->find(Core::Id(Constants::ANDROID_DEVICE_ID)).isNull())
-        dm->addDevice(ProjectExplorer::IDevice::Ptr(new Internal::AndroidDevice));
+    Internal::AndroidConfigurations::instance().updateAutomaticKitList();
+    connect(QtSupport::QtVersionManager::instance(), SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),
+            &Internal::AndroidConfigurations::instance(), SLOT(updateAutomaticKitList()));
+    disconnect(ProjectExplorer::KitManager::instance(), SIGNAL(kitsChanged()),
+               this, SLOT(kitsRestored()));
 }
 
 } // namespace Android

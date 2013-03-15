@@ -45,12 +45,24 @@
 
 namespace CPlusPlus {
 
+namespace Internal {
+struct FullyQualifiedName
+{
+    QList<const Name *> fqn;
+
+    FullyQualifiedName(const QList<const Name *> &fqn)
+        : fqn(fqn)
+    {}
+};
+} // namespace Internal;
+
 class CreateBindings;
 
 class CPLUSPLUS_EXPORT ClassOrNamespace
 {
 public:
     ClassOrNamespace(CreateBindings *factory, ClassOrNamespace *parent);
+    ~ClassOrNamespace();
 
     const TemplateNameId *templateId() const;
     ClassOrNamespace *instantiationOrigin() const;
@@ -68,7 +80,12 @@ public:
     ClassOrNamespace *lookupType(const Name *name);
     ClassOrNamespace *findType(const Name *name);
 
+    Symbol *lookupInScope(const QList<const Name *> &fullName);
+
 private:
+    typedef std::map<const Name *, ClassOrNamespace *, Name::Compare> Table;
+    typedef std::map<const TemplateNameId *, ClassOrNamespace *, TemplateNameId::Compare> TemplateNameIdTable;
+
     /// \internal
     void flush();
 
@@ -98,10 +115,8 @@ private:
                                   Subst &subst,
                                   ClassOrNamespace *enclosingTemplateClassInstantiation);
     bool isInstantiateNestedClassNeeded(const QList<Symbol *>& symbols, const Subst &subst) const;
-
-private:
-    typedef std::map<const Name *, ClassOrNamespace *, Name::Compare> Table;
-    typedef std::map<const TemplateNameId *, ClassOrNamespace *, TemplateNameId::Compare> TemplateNameIdTable;
+    ClassOrNamespace *findSpecializationWithPointer(const TemplateNameId *templId,
+                                           const TemplateNameIdTable &specializations);
 
     CreateBindings *_factory;
     ClassOrNamespace *_parent;
@@ -112,6 +127,9 @@ private:
     QList<Symbol *> _todo;
     QSharedPointer<Control> _control;
     TemplateNameIdTable _specializations;
+    QMap<const TemplateNameId *, ClassOrNamespace *> _instantiations;
+
+    QHash<Internal::FullyQualifiedName, Symbol *> *_scopeLookupCache;
 
     // it's an instantiation.
     const TemplateNameId *_templateId;
@@ -306,7 +324,6 @@ private:
     bool m_expandTemplates;
 };
 
-bool CPLUSPLUS_EXPORT compareName(const Name *name, const Name *other);
 bool CPLUSPLUS_EXPORT compareFullyQualifiedName(const QList<const Name *> &path,
                                                 const QList<const Name *> &other);
 

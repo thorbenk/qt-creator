@@ -298,9 +298,7 @@ void InsertDefFromDecl::match(const CppQuickFixInterface &interface, QuickFixOpe
             if (simpleDecl->symbols && ! simpleDecl->symbols->next) {
                 if (Symbol *symbol = simpleDecl->symbols->value) {
                     if (Declaration *decl = symbol->asDeclaration()) {
-                        if (decl->type()->isFunctionType()
-                                && decl->enclosingScope()
-                                && decl->enclosingScope()->isClass()) {
+                        if (decl->type()->isFunctionType()) {
                             CppRefactoringChanges refactoring(interface->snapshot());
                             InsertionPointLocator locator(refactoring);
                             foreach (const InsertionLocation &loc, locator.methodDefinition(decl)) {
@@ -322,8 +320,7 @@ namespace {
 class GenerateGetterSetterOperation : public CppQuickFixOperation
 {
 public:
-    GenerateGetterSetterOperation(const QSharedPointer<const CppQuickFixAssistInterface> &interface,
-                                  bool testMode = false)
+    GenerateGetterSetterOperation(const QSharedPointer<const CppQuickFixAssistInterface> &interface)
         : CppQuickFixOperation(interface)
         , m_variableName(0)
         , m_declaratorId(0)
@@ -332,7 +329,6 @@ public:
         , m_classSpecifier(0)
         , m_classDecl(0)
         , m_offerQuickFix(true)
-        , m_testMode(testMode)
     {
         setDescription(TextEditor::QuickFixFactory::tr("Create Getter and Setter Member Functions"));
 
@@ -465,9 +461,7 @@ public:
         FullySpecifiedType fullySpecifiedType = symbol->type();
         Type *type = fullySpecifiedType.type();
         QTC_ASSERT(type, return);
-        Overview oo;
-        if (!m_testMode)
-            oo = CppCodeStyleSettings::currentProjectCodeStyleOverview();
+        Overview oo = CppCodeStyleSettings::currentProjectCodeStyleOverview();
         oo.showFunctionSignatures = true;
         oo.showReturnTypes = true;
         oo.showArgumentNames = true;
@@ -597,14 +591,13 @@ public:
     QString m_setterName;
     QString m_variableString;
     bool m_offerQuickFix;
-    bool m_testMode;
 };
 
 } // namespace
 
 void GenerateGetterSetter::match(const CppQuickFixInterface &interface, QuickFixOperations &result)
 {
-    GenerateGetterSetterOperation *op = new GenerateGetterSetterOperation(interface, m_testMode);
+    GenerateGetterSetterOperation *op = new GenerateGetterSetterOperation(interface);
     if (op->isValid())
         result.append(CppQuickFixOperation::Ptr(op));
     else
@@ -1096,6 +1089,9 @@ void ExtractFunction::match(const CppQuickFixInterface &interface, QuickFixOpera
         bool usedInsideExtraction = false;
         const QList<SemanticInfo::Use> &uses = it.value();
         foreach (const SemanticInfo::Use &use, uses) {
+            if (use.isInvalid())
+                continue;
+
             const int position = file->position(use.line, use.column);
             if (position < analyser.m_extractionStart)
                 usedBeforeExtraction = true;

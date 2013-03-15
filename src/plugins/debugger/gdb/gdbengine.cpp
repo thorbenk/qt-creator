@@ -268,7 +268,7 @@ GdbEngine::GdbEngine(const DebuggerStartParameters &startParameters)
     invalidateSourcesList();
 
     m_debugInfoTaskHandler = new DebugInfoTaskHandler(this);
-    ExtensionSystem::PluginManager::addObject(m_debugInfoTaskHandler);
+    //ExtensionSystem::PluginManager::addObject(m_debugInfoTaskHandler);
 
     m_commandTimer.setSingleShot(true);
     connect(&m_commandTimer, SIGNAL(timeout()), SLOT(commandTimeout()));
@@ -287,7 +287,7 @@ GdbEngine::GdbEngine(const DebuggerStartParameters &startParameters)
 
 GdbEngine::~GdbEngine()
 {
-    ExtensionSystem::PluginManager::removeObject(m_debugInfoTaskHandler);
+    //ExtensionSystem::PluginManager::removeObject(m_debugInfoTaskHandler);
     delete m_debugInfoTaskHandler;
     m_debugInfoTaskHandler = 0;
 
@@ -2648,10 +2648,49 @@ void GdbEngine::handleCatchInsert(const GdbResponse &response)
     }
 }
 
+void GdbEngine::handleBkpt(const GdbMi &bkpt, const BreakpointModelId &id)
+{
+    BreakHandler *handler = breakHandler();
+    BreakpointResponse br = handler->response(id);
+    const QByteArray nr = bkpt.findChild("number").data();
+    const BreakpointResponseId rid(nr);
+    QTC_ASSERT(rid.isValid(), return);
+    if (nr.contains('.')) {
+        // A sub-breakpoint.
+        BreakpointResponse sub;
+        updateResponse(sub, bkpt);
+        sub.id = rid;
+        sub.type = br.type;
+        handler->insertSubBreakpoint(id, sub);
+        return;
+    }
+
+    // The MI output format might change, see
+    // http://permalink.gmane.org/gmane.comp.gdb.patches/83936
+    const GdbMi locations = bkpt.findChild("locations");
+    if (locations.isValid()) {
+        foreach (const GdbMi &loc, locations.children()) {
+            // A sub-breakpoint.
+            const QByteArray subnr = loc.findChild("number").data();
+            const BreakpointResponseId subrid(subnr);
+            BreakpointResponse sub;
+            updateResponse(sub, loc);
+            sub.id = subrid;
+            sub.type = br.type;
+            handler->insertSubBreakpoint(id, sub);
+        }
+    }
+
+    // A (the?) primary breakpoint.
+    updateResponse(br, bkpt);
+    br.id = rid;
+    handler->setResponse(id, br);
+}
+
 void GdbEngine::handleBreakInsert1(const GdbResponse &response)
 {
     BreakHandler *handler = breakHandler();
-    BreakpointModelId id = response.cookie.value<BreakpointModelId>();
+    const BreakpointModelId id = response.cookie.value<BreakpointModelId>();
     if (handler->state(id) == BreakpointRemoveRequested) {
         if (response.resultClass == GdbResultDone) {
             // This delete was defered. Act now.
@@ -2671,35 +2710,18 @@ void GdbEngine::handleBreakInsert1(const GdbResponse &response)
         // already known data from the BreakpointManager, and then
         // iterate over all items to update main- and sub-data.
         const GdbMi mainbkpt = response.data.findChild("bkpt");
-        QByteArray nr = mainbkpt.findChild("number").data();
-        BreakpointResponseId rid(nr);
-        if (!isHiddenBreakpoint(rid)) {
-            BreakpointResponse br = handler->response(id);
-            foreach (const GdbMi bkpt, response.data.children()) {
-                nr = bkpt.findChild("number").data();
-                rid = BreakpointResponseId(nr);
-                QTC_ASSERT(rid.isValid(), continue);
-                if (nr.contains('.')) {
-                    // A sub-breakpoint.
-                    BreakpointResponse sub;
-                    updateResponse(sub, bkpt);
-                    sub.id = rid;
-                    sub.type = br.type;
-                    handler->insertSubBreakpoint(id, sub);
-                } else {
-                    // A (the?) primary breakpoint.
-                    updateResponse(br, bkpt);
-                    br.id = rid;
-                    handler->setResponse(id, br);
-                }
-            }
+        const QByteArray mainnr = mainbkpt.findChild("number").data();
+        const BreakpointResponseId mainrid(mainnr);
+        if (!isHiddenBreakpoint(mainrid)) {
+            foreach (const GdbMi &bkpt, response.data.children())
+                handleBkpt(bkpt, id);
             if (handler->needsChange(id)) {
                 handler->notifyBreakpointChangeAfterInsertNeeded(id);
                 changeBreakpoint(id);
             } else {
                 handler->notifyBreakpointInsertOk(id);
             }
-            br = handler->response(id);
+            BreakpointResponse br = handler->response(id);
             attemptAdjustBreakpointLocation(id);
             // Remove if we only support 7.4 or later.
             if (br.multiple && !m_hasBreakpointNotifications)
@@ -3167,6 +3189,13 @@ void GdbEngine::insertBreakpoint(BreakpointModelId id)
     if (handler->isOneShot(id))
         cmd += "-t ";
 
+    // FIXME: -d does not work on Mac gdb.
+    if (!handler->isEnabled(id) && !m_isMacGdb)
+        cmd += "-d ";
+
+    if (int ignoreCount = handler->ignoreCount(id))
+        cmd += "-i " + QByteArray::number(ignoreCount) + ' ';
+
     QByteArray condition = handler->condition(id);
     if (!condition.isEmpty())
         cmd += " -c \"" + condition + "\" ";
@@ -3511,7 +3540,7 @@ void GdbEngine::handleModulesList(const GdbResponse &response)
 void GdbEngine::examineModules()
 {
     ModulesHandler *handler = modulesHandler();
-    foreach (Module module, handler->modules()) {
+    foreach (const Module &module, handler->modules()) {
         if (module.elfData.symbolsType == UnknownSymbols)
             handler->updateModule(module);
     }
@@ -4824,9 +4853,6 @@ void GdbEngine::startGdb(const QStringList &args)
     typedef GlobalDebuggerOptions::SourcePathMap SourcePathMap;
     typedef SourcePathMap::const_iterator SourcePathMapIterator;
 
-    if (debuggerCore()->boolSetting(WarnOnReleaseBuilds))
-        checkForReleaseBuild();
-
     showStatusMessage(tr("Setting up inferior..."));
 
     // Addint executable to modules list.
@@ -5339,70 +5365,6 @@ bool GdbEngine::attemptQuickStart() const
     }
 
     return true;
-}
-
-void GdbEngine::checkForReleaseBuild()
-{
-    const QString binary = startParameters().executable;
-    if (binary.isEmpty())
-        return;
-    ElfReader reader(binary);
-    ElfData elfData = reader.readHeaders();
-    QString error = reader.errorString();
-
-    showMessage(_("EXAMINING ") + binary);
-    QByteArray msg = "ELF SECTIONS: ";
-
-    static QList<QByteArray> interesting;
-    if (interesting.isEmpty()) {
-        interesting.append(".debug_info");
-        interesting.append(".debug_abbrev");
-        interesting.append(".debug_line");
-        interesting.append(".debug_str");
-        interesting.append(".debug_loc");
-        interesting.append(".debug_range");
-        interesting.append(".gdb_index");
-        interesting.append(".note.gnu.build-id");
-        interesting.append(".gnu.hash");
-        interesting.append(".gnu_debuglink");
-    }
-
-    QSet<QByteArray> seen;
-    foreach (const ElfSectionHeader &header, elfData.sectionHeaders) {
-        msg.append(header.name);
-        msg.append(' ');
-        if (interesting.contains(header.name))
-            seen.insert(header.name);
-    }
-    showMessage(_(msg));
-
-    if (!error.isEmpty()) {
-        showMessage(_("ERROR WHILE READING ELF SECTIONS: ") + error);
-        return;
-    }
-
-    if (elfData.sectionHeaders.isEmpty()) {
-        showMessage(_("NO SECTION HEADERS FOUND. IS THIS AN EXECUTABLE?"));
-        return;
-    }
-
-    // Note: .note.gnu.build-id also appears in regular release builds.
-    // bool hasBuildId = elfData.indexOf(".note.gnu.build-id") >= 0;
-    bool hasEmbeddedInfo = elfData.indexOf(".debug_info") >= 0;
-    bool hasLink = elfData.indexOf(".gnu_debuglink") >= 0;
-    if (hasEmbeddedInfo || hasLink)
-        return;
-
-    QString warning;
-    warning = tr("This does not seem to be a \"Debug\" build.\n"
-        "Setting breakpoints by file name and line number may fail.\n");
-
-    foreach (const QByteArray &name, interesting) {
-        QString found = seen.contains(name) ? tr("Found.") : tr("Not Found.");
-        warning.append(tr("\nSection %1: %2").arg(_(name)).arg(found));
-    }
-
-    showMessageBox(QMessageBox::Information, tr("Warning"), warning);
 }
 
 void GdbEngine::write(const QByteArray &data)

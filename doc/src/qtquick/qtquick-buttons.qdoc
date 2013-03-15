@@ -60,8 +60,8 @@
         \endlist
 
         \li Drag and drop a \gui {Text} item on top of the \gui Rectangle. This
-            creates a nested element where \gui Rectangle is the parent element
-            of \gui Text. Elements are positioned relative to their parents.
+            creates a nested item where \gui Rectangle is the parent item
+            of \gui Text. Items are positioned relative to their parents.
 
         \li In the \gui Properties pane, edit the properties of the \gui Text
             item.
@@ -91,8 +91,8 @@
     \endlist
 
     To create a graphical button that scales beautifully without using vector
-    graphics, use the \l{http://qt-project.org/doc/qt-4.8/qml-borderimage.html}
-    {Border Image} element. For more information, see
+    graphics, use the \l{http://qt-project.org/doc/qt-5.0/qtquick/qml-qtquick2-borderimage.html}
+    {Border Image} type. For more information, see
     \l{Creating Scalable Buttons and Borders}.
 
     */
@@ -107,12 +107,13 @@
 
     \title Creating Scalable Buttons and Borders
 
-    You can use the \l{http://qt-project.org/doc/qt-4.8/qml-borderimage.html}
-    {Border Image} element to display an image, such as a PNG file, as a border
+    You can use the
+    \l{http://qt-project.org/doc/qt-5.0/qtquick/qml-qtquick2-borderimage.html}
+    {Border Image} type to display an image, such as a PNG file, as a border
     and a background.
 
-    Use two Border Image elements and suitable graphics to make it look like the
-    button is pushed down when it is clicked. One of the Border Image elements
+    Use two Border Image items and suitable graphics to make it look like the
+    button is pushed down when it is clicked. One of the Border Image items
     is visible by default. You can specify that it is hidden and the other one
     becomes visible when the mouse is clicked.
 
@@ -249,7 +250,7 @@
 
         \endlist
 
-        \li In the code editor, add to the \c MouseArea item a pointer to the
+        \li In the code editor, add to the \c MouseArea a pointer to the
             \c clicked expression that you added earlier:
             \c {onClicked: parent.clicked()}.
 

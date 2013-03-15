@@ -27,8 +27,6 @@
 **
 ****************************************************************************/
 
-#include <qglobal.h>
-
 #include "locatorwidget.h"
 #include "locatorplugin.h"
 #include "locatorconstants.h"
@@ -41,7 +39,6 @@
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/command.h>
 #include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/coreconstants.h>
 #include <coreplugin/fileiconprovider.h>
 #include <utils/filterlineedit.h>
 #include <utils/hostosinfo.h>
@@ -315,10 +312,12 @@ void LocatorWidget::setPlaceholderText(const QString &text)
 
 void LocatorWidget::updateFilterList()
 {
+    typedef QMap<Id, QAction *> IdActionMap;
+
     m_filterMenu->clear();
 
     // update actions and menu
-    QMap<Id, QAction *> actionCopy = m_filterActionMap;
+    IdActionMap actionCopy = m_filterActionMap;
     m_filterActionMap.clear();
     // register new actions, update existent
     foreach (ILocatorFilter *filter, m_locatorPlugin->filters()) {
@@ -346,9 +345,11 @@ void LocatorWidget::updateFilterList()
     }
 
     // unregister actions that are deleted now
-    foreach (const Id id, actionCopy.keys())
-        ActionManager::unregisterAction(actionCopy.value(id), id.withPrefix("Locator."));
-    qDeleteAll(actionCopy);
+    const IdActionMap::Iterator end = actionCopy.end();
+    for (IdActionMap::Iterator it = actionCopy.begin(); it != end; ++it) {
+        ActionManager::unregisterAction(it.value(), it.key().withPrefix("Locator."));
+        delete it.value();
+    }
 
     m_filterMenu->addSeparator();
     m_filterMenu->addAction(m_refreshAction);

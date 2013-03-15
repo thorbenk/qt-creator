@@ -33,7 +33,9 @@
 #include "modelnodecontextmenu.h"
 
 #include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/icore.h>
 
+#include <designmodecontext.h>
 #include <nodeproperty.h>
 #include <nodelistproperty.h>
 #include <variantproperty.h>
@@ -44,8 +46,8 @@ static inline void setScenePos(const QmlDesigner::ModelNode &modelNode,const QPo
     QmlDesigner::QmlItemNode parentNode = modelNode.parentProperty().parentQmlObjectNode().toQmlItemNode();
     if (parentNode.isValid()) {
         QPointF localPos = parentNode.instanceSceneTransform().inverted().map(pos);
-        modelNode.variantProperty(QLatin1String("x")) = localPos.toPoint().x();
-        modelNode.variantProperty(QLatin1String("y")) = localPos.toPoint().y();
+        modelNode.variantProperty("x") = localPos.toPoint().x();
+        modelNode.variantProperty("y") = localPos.toPoint().y();
     }
 }
 
@@ -57,6 +59,9 @@ NavigatorView::NavigatorView(QObject* parent) :
         m_widget(new NavigatorWidget(this)),
         m_treeModel(new NavigatorTreeModel(this))
 {
+    Internal::NavigatorContext *navigatorContext = new Internal::NavigatorContext(m_widget.data());
+    Core::ICore::addContextObject(navigatorContext);
+
     m_widget->setTreeModel(m_treeModel.data());
 
     connect(treeWidget()->selectionModel(), SIGNAL(selectionChanged(QItemSelection,QItemSelection)), this, SLOT(changeSelection(QItemSelection,QItemSelection)));
@@ -94,9 +99,14 @@ NavigatorView::~NavigatorView()
         delete m_widget.data();
 }
 
-QWidget *NavigatorView::widget()
+bool NavigatorView::hasWidget() const
 {
-    return m_widget.data();
+    return true;
+}
+
+WidgetInfo NavigatorView::widgetInfo()
+{
+    return createWidgetInfo(m_widget.data(), QLatin1String("Navigator"), WidgetInfo::LeftPane, 0);
 }
 
 void NavigatorView::modelAttached(Model *model)
@@ -200,7 +210,7 @@ void NavigatorView::rootNodeTypeChanged(const QString & /*type*/, int /*majorVer
         m_treeModel->updateItemRow(rootModelNode());
 }
 
-void NavigatorView::auxiliaryDataChanged(const ModelNode &node, const QString & /*name*/, const QVariant & /*data*/)
+void NavigatorView::auxiliaryDataChanged(const ModelNode &node, const PropertyName & /*name*/, const QVariant & /*data*/)
 {
     if (m_treeModel->isInTree(node))
     {
@@ -218,7 +228,7 @@ void NavigatorView::scriptFunctionsChanged(const ModelNode &/*node*/, const QStr
 {
 }
 
-void NavigatorView::instancePropertyChange(const QList<QPair<ModelNode, QString> > &/*propertyList*/)
+void NavigatorView::instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &/*propertyList*/)
 {
 }
 

@@ -53,6 +53,7 @@ class EditorManager;
 class ExternalToolManager;
 class DocumentManager;
 class HelpManager;
+class IDocument;
 class IWizard;
 class MessageManager;
 class MimeDatabase;
@@ -95,7 +96,7 @@ public:
     void removeContextObject(IContext *contex);
     void resetContext();
 
-    void openFiles(const QStringList &fileNames, ICore::OpenFilesFlags flags);
+    Core::IDocument *openFiles(const QStringList &fileNames, ICore::OpenFilesFlags flags);
 
     Core::ActionManager *actionManager() const;
     Core::MessageManager *messageManager() const;
@@ -120,9 +121,7 @@ public:
 
     void setOverrideColor(const QColor &color);
 
-#ifdef Q_OS_MAC
     void setIsFullScreen(bool fullScreen);
-#endif
 signals:
     void windowActivated();
 
