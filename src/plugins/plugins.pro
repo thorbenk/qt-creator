@@ -47,6 +47,7 @@ SUBDIRS   = \
     valgrind \
     todo \
     qnx \
+    winrt \
     clearcase
 
 exists(../shared/qbs/qbs.pro): \
