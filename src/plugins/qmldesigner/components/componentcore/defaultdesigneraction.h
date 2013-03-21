@@ -27,43 +27,57 @@
 **
 ****************************************************************************/
 
-#ifndef NODEINSTANCESIGNALSPY_H
-#define NODEINSTANCESIGNALSPY_H
 
-#include <QObject>
-#include <QHash>
-#include <QSharedPointer>
+#ifndef QMLDESIGNER_DEFAULTDESIGNERACTION_H
+#define QMLDESIGNER_DEFAULTDESIGNERACTION_H
 
-#include "nodeinstanceglobal.h"
+#include "abstractdesigneraction.h"
+
+#include <QAction>
+#include <QScopedPointer>
 
 namespace QmlDesigner {
 
-namespace Internal {
-
-class ObjectNodeInstance;
-typedef QSharedPointer<ObjectNodeInstance> ObjectNodeInstancePointer;
-typedef QWeakPointer<ObjectNodeInstance> ObjectNodeInstanceWeakPointer;
-
-class NodeInstanceSignalSpy : public QObject
+class QMLDESIGNERCORE_EXPORT DefaultAction : public QAction
 {
+    Q_OBJECT
+
 public:
-    explicit NodeInstanceSignalSpy();
+    DefaultAction(const QString &description);
 
-    void setObjectNodeInstance(const ObjectNodeInstancePointer &nodeInstance);
+signals:
+    void triggered(bool checked, const SelectionContext &selectionContext);
 
-    virtual int qt_metacall(QMetaObject::Call, int, void **);
+public slots: //virtual method instead of slot
+    virtual void actionTriggered(bool enable);
+    void setSelectionContext(const SelectionContext &selectionContext);
 
 protected:
-    void registerObject(QObject *spiedObject, const PropertyName &prefix = PropertyName());
-
-private:
-    int methodeOffset;
-    QHash<int, PropertyName> m_indexPropertyHash;
-    QObjectList m_registeredObjectList;
-    ObjectNodeInstanceWeakPointer m_objectNodeInstance;
+    SelectionContext m_selectionContext;
 };
 
-} // namespace Internal
+class QMLDESIGNERCORE_EXPORT DefaultDesignerAction : public AbstractDesignerAction
+{
+public:
+    DefaultDesignerAction(const QString &description = QString());
+    DefaultDesignerAction(DefaultAction *action);
+
+    QAction *action() const;
+    DefaultAction *defaultAction() const;
+
+    void currentContextChanged(const SelectionContext &selectionContext);
+
+protected:
+    virtual void updateContext();
+    virtual bool isVisible(const SelectionContext &selectionContext) const = 0;
+    virtual bool isEnabled(const SelectionContext &selectionContext) const = 0;
+    SelectionContext selectionContext() const;
+
+private:
+    QScopedPointer<DefaultAction> m_defaultAction;
+    SelectionContext m_selectionContext;
+};
+
 } // namespace QmlDesigner
 
-#endif // NODEINSTANCESIGNALSPY_H
+#endif // QMLDESIGNER_DEFAULTDESIGNERACTION_H

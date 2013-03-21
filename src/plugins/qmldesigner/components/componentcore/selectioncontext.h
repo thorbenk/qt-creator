@@ -27,6 +27,7 @@
 **
 ****************************************************************************/
 
+#include <qmldesignercorelib_global.h>
 #include <qmlmodelview.h>
 
 #ifndef SELECTIONCONTEXT_H
@@ -34,63 +35,41 @@
 
 namespace QmlDesigner {
 
-class SelectionContext {
+class QMLDESIGNERCORE_EXPORT SelectionContext {
 
 public:
     SelectionContext();
-    SelectionContext(QmlModelView *view);
+    SelectionContext(QmlModelView *qmlModelView);
 
-    void setTargetNode(const ModelNode &modelNode)
-    { m_targetNode = modelNode; }
+    void setTargetNode(const ModelNode &modelNode);
+    ModelNode targetNode() const;
 
-    bool singleSelected() const
-    { return m_singleSelected; }
+    bool singleNodeIsSelected() const;
+    bool isInBaseState() const;
 
-    bool isInBaseState() const
-    { return m_isInBaseState; }
+    ModelNode currentSingleSelectedNode() const;
+    QList<ModelNode> selectedModelNodes() const;
 
-    ModelNode targetNode() const
-    { return m_targetNode; }
+    QmlModelView *qmlModelView() const;
 
-    ModelNode currentSingleSelectedNode() const
-    { return m_currentSingleSelectedNode; }
+    void setShowSelectionTools(bool show);
+    bool showSelectionTools() const;
 
-    QList<ModelNode> selectedModelNodes() const
-    { return m_selectedModelNodes; }
+    void setScenePos(const QPoint &postition);
+    QPoint scenePos() const;
 
-    QmlModelView *view() const
-    { return m_view; }
+    void setToggled(bool toggled);
+    bool toggled() const;
 
-    void setShowSelectionTools(bool show)
-    { m_showSelectionTools = show; }
-
-    bool showSelectionTools() const
-    { return m_showSelectionTools; }
-
-    QPoint scenePos() const
-    { return m_scenePos; }
-
-    void setScenePos(const QPoint &pos)
-    { m_scenePos = pos; }
-
-    void setToggled(bool b)
-    { m_toggled = b; }
-
-    bool toggled() const
-    { return m_toggled; }
-
-    bool isValid() const
-    { return view() && view()->model() && view()->nodeInstanceView(); }
+    bool isValid() const;
 
 private:
-    QmlModelView *m_view;
-    bool m_singleSelected;
-    ModelNode m_currentSingleSelectedNode;
+    QWeakPointer<QmlModelView> m_qmlModelView;
     ModelNode m_targetNode;
     bool m_isInBaseState;
     QList<ModelNode> m_selectedModelNodes;
     bool m_showSelectionTools;
-    QPoint m_scenePos;
+    QPoint m_scenePosition;
     bool m_toggled;
 };
 

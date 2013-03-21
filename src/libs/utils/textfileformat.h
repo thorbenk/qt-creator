@@ -27,12 +27,10 @@
 **
 ****************************************************************************/
 
-#ifndef TEXTFILEUTILS_H
-#define TEXTFILEUTILS_H
+#ifndef TEXTFILEFORMAT_H
+#define TEXTFILEFORMAT_H
 
 #include "utils_global.h"
-
-#include <QtGlobal>
 
 QT_BEGIN_NAMESPACE
 class QTextCodec;
@@ -90,4 +88,4 @@ public:
 
 } // namespace Utils
 
-#endif // TEXTFILEUTILS_H
+#endif // TEXTFILEFORMAT_H

@@ -249,6 +249,8 @@ BaseTextEditorWidget::BaseTextEditorWidget(QWidget *parent)
 
     d->visibleFoldedBlockNumber = d->suggestedVisibleFoldedBlockNumber = -1;
 
+    connect(d->m_codeAssistant.data(), SIGNAL(finished()), this, SIGNAL(assistFinished()));
+
     connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(slotUpdateExtraAreaWidth()));
     connect(this, SIGNAL(modificationChanged(bool)), this, SLOT(slotModificationChanged(bool)));
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(slotCursorPositionChanged()));
@@ -861,7 +863,6 @@ void BaseTextEditorWidget::gotoPreviousWordCamelCaseWithSelection()
 
 void BaseTextEditorWidget::gotoNextWordCamelCase()
 {
-    qDebug() << Q_FUNC_INFO;
     QTextCursor c = textCursor();
     camelCaseRight(c, QTextCursor::MoveAnchor);
     setTextCursor(c);
@@ -873,8 +874,6 @@ void BaseTextEditorWidget::gotoNextWordCamelCaseWithSelection()
     camelCaseRight(c, QTextCursor::KeepAnchor);
     setTextCursor(c);
 }
-
-
 
 static QTextCursor flippedCursor(const QTextCursor &cursor)
 {
@@ -1091,6 +1090,11 @@ void BaseTextEditorWidget::openLinkUnderCursorInNextSplit()
     Link symbolLink = findLinkAt(textCursor());
 
     openLink(symbolLink, !alwaysOpenLinksInNextSplit());
+}
+
+void BaseTextEditorWidget::abortAssist()
+{
+    d->m_codeAssistant->destroyContext();
 }
 
 void BaseTextEditorWidget::moveLineUpDown(bool up)
@@ -1579,10 +1583,25 @@ bool BaseTextEditorWidget::cursorMoveKeyEvent(QKeyEvent *e)
     return true;
 }
 
+static inline bool isModifier(QKeyEvent *e)
+{
+    if (!e)
+        return false;
+    switch (e->key()) {
+    case Qt::Key_Shift:
+    case Qt::Key_Control:
+    case Qt::Key_Meta:
+    case Qt::Key_Alt:
+        return true;
+    default:
+        return false;
+    }
+}
 
 void BaseTextEditorWidget::keyPressEvent(QKeyEvent *e)
 {
-    viewport()->setCursor(Qt::BlankCursor);
+    if (!isModifier(e))
+        viewport()->setCursor(Qt::BlankCursor);
     ToolTip::instance()->hide();
 
     d->m_moveLineUndoHack = false;
@@ -6684,7 +6703,7 @@ IAssistInterface *BaseTextEditorWidget::createAssistInterface(AssistKind kind,
                                                               AssistReason reason) const
 {
     Q_UNUSED(kind);
-    return new DefaultAssistInterface(document(), position(), d->m_document.data(), reason);
+    return new DefaultAssistInterface(document(), position(), d->m_document->fileName(), reason);
 }
 
 QString TextEditor::BaseTextEditorWidget::foldReplacementText(const QTextBlock &) const

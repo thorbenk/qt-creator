@@ -1453,7 +1453,7 @@ bool DebuggerPluginPrivate::parseArgument(QStringList::const_iterator &it,
                     sp.startMessage = tr("Attaching to core file %1.").arg(sp.coreFile);
                 }
                 else if (key == QLatin1String("kit")) {
-                    kit = KitManager::instance()->find(Id(val));
+                    kit = KitManager::instance()->find(Id::fromString(val));
                 }
             }
         }
@@ -1574,8 +1574,11 @@ void DebuggerPluginPrivate::onCurrentProjectChanged(Project *project)
     m_interruptAction->setEnabled(false);
     m_continueAction->setEnabled(false);
     m_exitAction->setEnabled(false);
-    m_startAction->setEnabled(true);
-    m_debugWithoutDeployAction->setEnabled(true);
+    ProjectExplorerPlugin *pe = ProjectExplorerPlugin::instance();
+    const bool canRun = pe->canRun(project, DebugRunMode);
+    m_startAction->setEnabled(canRun);
+    m_startAction->setToolTip(canRun ? QString() : pe->cannotRunReason(project, DebugRunMode));
+    m_debugWithoutDeployAction->setEnabled(canRun);
     setProxyAction(m_visibleStartAction, Core::Id(Constants::DEBUG));
 }
 
@@ -1615,7 +1618,7 @@ void DebuggerPluginPrivate::attachCore()
 {
     AttachCoreDialog dlg(mainWindow());
 
-    dlg.setKitId(Id(configValue(_("LastExternalKit")).toString()));
+    dlg.setKitId(Id::fromSetting(configValue(_("LastExternalKit"))));
     dlg.setLocalExecutableFile(configValue(_("LastExternalExecutableFile")).toString());
     dlg.setLocalCoreFile(configValue(_("LastLocalCoreFile")).toString());
     dlg.setRemoteCoreFile(configValue(_("LastRemoteCoreFile")).toString());
@@ -1628,7 +1631,7 @@ void DebuggerPluginPrivate::attachCore()
     setConfigValue(_("LastExternalExecutableFile"), dlg.localExecutableFile());
     setConfigValue(_("LastLocalCoreFile"), dlg.localCoreFile());
     setConfigValue(_("LastRemoteCoreFile"), dlg.remoteCoreFile());
-    setConfigValue(_("LastExternalKit"), dlg.kit()->id().toString());
+    setConfigValue(_("LastExternalKit"), dlg.kit()->id().toSetting());
     setConfigValue(_("LastExternalStartScript"), dlg.overrideStartScript());
     setConfigValue(_("LastForceLocalCoreFile"), dlg.forcesLocalCoreFile());
 
@@ -1764,9 +1767,9 @@ void DebuggerPluginPrivate::attachToQmlPort()
     else
         dlg.setPort(sp.qmlServerPort);
 
-    const QVariant kitId = configValue(_("LastProfile"));
+    const Id kitId = Id::fromSetting(configValue(_("LastProfile")));
     if (kitId.isValid())
-        dlg.setKitId(Id(kitId.toString()));
+        dlg.setKitId(kitId);
 
     if (dlg.exec() != QDialog::Accepted)
         return;

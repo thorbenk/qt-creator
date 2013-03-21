@@ -29,6 +29,7 @@
 
 #include "pathchooser.h"
 
+#include "fancylineedit.h"
 #include "basevalidatinglineedit.h"
 #include "environment.h"
 #include "qtcassert.h"
@@ -38,15 +39,9 @@
 
 #include <QDebug>
 #include <QDesktopServices>
-#include <QDir>
-#include <QEvent>
 #include <QFileDialog>
-#include <QFileInfo>
 #include <QHBoxLayout>
-#include <QLineEdit>
-#include <QProcess>
 #include <QPushButton>
-#include <QSettings>
 
 /*!
     \class Utils::PathChooser
@@ -250,7 +245,7 @@ PathChooser::PathChooser(QWidget *parent) :
     connect(d->m_lineEdit, SIGNAL(validChanged(bool)), this, SIGNAL(validChanged(bool)));
     connect(d->m_lineEdit, SIGNAL(editingFinished()), this, SIGNAL(editingFinished()));
 
-    d->m_lineEdit->setMinimumWidth(200);
+    d->m_lineEdit->setMinimumWidth(120);
     d->m_hLayout->addWidget(d->m_lineEdit);
     d->m_hLayout->setSizeConstraint(QLayout::SetMinimumSize);
 

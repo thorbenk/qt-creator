@@ -31,6 +31,7 @@
 #include "qt4project.h"
 #include "qt4projectmanagerconstants.h"
 
+#include <utils/hostosinfo.h>
 #include <utils/synchronousprocess.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/target.h>
@@ -75,9 +76,15 @@ static inline QString msgAppNotFound(const QString &id)
 }
 
 // -- Commands and helpers
-#ifdef Q_OS_MAC
-static const char linguistBinaryC[] = "Linguist";
-static const char designerBinaryC[] = "Designer";
+static QString linguistBinary()
+{
+    return QLatin1String(Utils::HostOsInfo::isMacHost() ? "Linguist" : "linguist");
+}
+
+static QString designerBinary()
+{
+    return QLatin1String(Utils::HostOsInfo::isMacHost() ? "Designer" : "designer");
+}
 
 // Mac: Change the call 'Foo.app/Contents/MacOS/Foo <filelist>' to
 // 'open -a Foo.app <filelist>'. doesn't support generic command line arguments
@@ -91,10 +98,6 @@ static void createMacOpenCommand(QString *binary, QStringList *arguments)
         *binary = QLatin1String("open");
     }
 }
-#else
-static const char linguistBinaryC[] = "linguist";
-static const char designerBinaryC[] = "designer";
-#endif
 
 static const char designerIdC[] = "Qt.Designer";
 static const char linguistIdC[] = "Qt.Linguist";
@@ -103,7 +106,7 @@ static const char designerDisplayName[] = QT_TRANSLATE_NOOP("OpenWith::Editors",
 static const char linguistDisplayName[] = QT_TRANSLATE_NOOP("OpenWith::Editors", "Qt Linguist");
 
 // -------------- ExternalQtEditor
-ExternalQtEditor::ExternalQtEditor(const QString &id,
+ExternalQtEditor::ExternalQtEditor(Core::Id id,
                                    const QString &displayName,
                                    const QString &mimetype,
                                    QObject *parent) :
@@ -157,12 +160,8 @@ bool ExternalQtEditor::getEditorLaunchData(const QString &fileName,
     // Setup binary + arguments, use Mac Open if appropriate
     data->arguments = additionalArguments;
     data->arguments.push_back(fileName);
-#ifdef Q_OS_MAC
-    if (useMacOpenCommand)
+    if (Utils::HostOsInfo::isMacHost() && useMacOpenCommand)
         createMacOpenCommand(&(data->binary), &(data->arguments));
-#else
-    Q_UNUSED(useMacOpenCommand)
-#endif
     if (debug)
         qDebug() << Q_FUNC_INFO << '\n' << data->binary << data->arguments;
     return true;
@@ -182,7 +181,7 @@ bool ExternalQtEditor::startEditorProcess(const EditorLaunchData &data, QString 
 
 // --------------- LinguistExternalEditor
 LinguistExternalEditor::LinguistExternalEditor(QObject *parent) :
-       ExternalQtEditor(QLatin1String(linguistIdC),
+       ExternalQtEditor(linguistIdC,
                         QLatin1String(linguistDisplayName),
                         QLatin1String(Qt4ProjectManager::Constants::LINGUIST_MIMETYPE),
                         parent)
@@ -193,14 +192,13 @@ bool LinguistExternalEditor::startEditor(const QString &fileName, QString *error
 {
     EditorLaunchData data;
     return getEditorLaunchData(fileName, &QtSupport::BaseQtVersion::linguistCommand,
-                            QLatin1String(linguistBinaryC),
-                            QStringList(), true, &data, errorMessage)
-    && startEditorProcess(data, errorMessage);
+                            linguistBinary(), QStringList(), true, &data, errorMessage)
+            && startEditorProcess(data, errorMessage);
 }
 
 // --------------- MacDesignerExternalEditor, using Mac 'open'
 MacDesignerExternalEditor::MacDesignerExternalEditor(QObject *parent) :
-       ExternalQtEditor(QLatin1String(designerIdC),
+       ExternalQtEditor(designerIdC,
                         QLatin1String(designerDisplayName),
                         QLatin1String(Qt4ProjectManager::Constants::FORM_MIMETYPE),
                         parent)
@@ -211,15 +209,14 @@ bool MacDesignerExternalEditor::startEditor(const QString &fileName, QString *er
 {
     EditorLaunchData data;
     return getEditorLaunchData(fileName, &QtSupport::BaseQtVersion::designerCommand,
-                            QLatin1String(designerBinaryC),
-                            QStringList(), true, &data, errorMessage)
+                            designerBinary(), QStringList(), true, &data, errorMessage)
         && startEditorProcess(data, errorMessage);
     return false;
 }
 
 // --------------- DesignerExternalEditor with Designer Tcp remote control.
 DesignerExternalEditor::DesignerExternalEditor(QObject *parent) :
-    ExternalQtEditor(QLatin1String(designerIdC),
+    ExternalQtEditor(designerIdC,
                      QLatin1String(designerDisplayName),
                      QLatin1String(Designer::Constants::FORM_MIMETYPE),
                      parent),
@@ -247,8 +244,7 @@ bool DesignerExternalEditor::startEditor(const QString &fileName, QString *error
     EditorLaunchData data;
     // Find the editor binary
     if (!getEditorLaunchData(fileName, &QtSupport::BaseQtVersion::designerCommand,
-                            QLatin1String(designerBinaryC),
-                            QStringList(), false, &data, errorMessage)) {
+                            designerBinary(), QStringList(), false, &data, errorMessage)) {
         return false;
     }
     // Known one?

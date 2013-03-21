@@ -73,7 +73,6 @@
 #include "session.h"
 #include "projectnodes.h"
 #include "sessiondialog.h"
-#include "target.h"
 #include "projectexplorersettingspage.h"
 #include "projectwelcomepage.h"
 #include "corelistenercheckingforrunningbuild.h"
@@ -1178,7 +1177,7 @@ void ProjectExplorerPlugin::updateVariable(const QByteArray &variable)
                 }
             }
         }
-        ProjectExpander expander(projectFilePath, projectName, kit, buildConfigurationName);
+        ProjectMacroExpander expander(projectFilePath, projectName, kit, buildConfigurationName);
         QString result;
         if (expander.resolveProjectMacro(QString::fromUtf8(variable), &result))
             Core::VariableManager::insert(variable, result);

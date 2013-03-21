@@ -178,7 +178,9 @@ enum SubMode
     YankSubMode,         // Used for y
     ZSubMode,            // Used for z
     CapitalZSubMode,     // Used for Z
-    ReplaceSubMode      // Used for r
+    ReplaceSubMode,      // Used for r
+    MacroRecordSubMode,  // Used for q
+    MacroExecuteSubMode  // Used for @
 };
 
 /*! A \e SubSubMode is used for things that require one more data item
@@ -870,7 +872,7 @@ public:
 
     bool isDigit() const
     {
-        return m_xkey >= QLatin1Char('0') && m_xkey <= QLatin1Char('9');
+        return m_xkey >= '0' && m_xkey <= '9';
     }
 
     bool isKey(int c) const
@@ -937,13 +939,16 @@ public:
 
     int key() const { return m_key; }
 
+    // Return raw character for macro recording or dot command.
     QChar raw() const
     {
         if (m_key == Key_Tab)
             return QLatin1Char('\t');
         if (m_key == Key_Return)
             return QLatin1Char('\n');
-        return m_key;
+        if (m_key == Key_Escape)
+            return QChar(27);
+        return m_xkey;
     }
 
     QString toString() const
@@ -983,6 +988,7 @@ public:
         : m_noremap(noremap), m_silent(silent)
     {
         parseFrom(str);
+        squeeze();
     }
 
     bool noremap() const { return m_noremap; }
@@ -1255,6 +1261,8 @@ class MappingsIterator : public QVector<ModeMapping::Iterator>
 public:
     MappingsIterator(Mappings *mappings, char mode = -1, const Inputs &inputs = Inputs())
         : m_parent(mappings)
+        , m_lastValid(-1)
+        , m_mode(0)
     {
         reset(mode);
         walk(inputs);
@@ -1265,7 +1273,7 @@ public:
     {
         clear();
         m_lastValid = -1;
-        m_invalidInputCount = 0;
+        m_currentInputs.clear();
         if (mode != 0) {
             m_mode = mode;
             if (mode != -1)
@@ -1284,17 +1292,12 @@ public:
     // Return size of current map.
     int mapLength() const { return m_lastValid + 1; }
 
-    int invalidInputCount() const { return m_invalidInputCount; }
-
     bool walk(const Input &input)
     {
+        m_currentInputs.append(input);
+
         if (m_modeMapping == m_parent->end())
             return false;
-
-        if (!input.isValid()) {
-            m_invalidInputCount += 1;
-            return true;
-        }
 
         ModeMapping::Iterator it;
         if (isValid()) {
@@ -1360,21 +1363,22 @@ public:
             current->setValue(inputs);
     }
 
+    const Inputs &currentInputs() const { return m_currentInputs; }
+
 private:
     Mappings *m_parent;
     Mappings::Iterator m_modeMapping;
     int m_lastValid;
-    int m_invalidInputCount;
     char m_mode;
+    Inputs m_currentInputs;
 };
 
 // state of current mapping
 struct MappingState {
     MappingState()
-        : maxMapDepth(1000), noremap(false), silent(false) {}
-    MappingState(int depth, bool noremap, bool silent)
-        : maxMapDepth(depth), noremap(noremap), silent(silent) {}
-    int maxMapDepth;
+        : noremap(false), silent(false) {}
+    MappingState(bool noremap, bool silent)
+        : noremap(noremap), silent(silent) {}
     bool noremap;
     bool silent;
 };
@@ -1396,6 +1400,7 @@ public:
     void handleExCommand(const QString &cmd);
 
     void installEventFilter();
+    void removeEventFilter();
     void passShortcuts(bool enable);
     void setupWidget();
     void restoreWidget(int tabSize);
@@ -1410,8 +1415,16 @@ public:
 
     EventResult handleKey(const Input &input);
     EventResult handleDefaultKey(const Input &input);
-    void handleMappedKeys();
-    void unhandleMappedKeys();
+    EventResult handleCurrentMapAsDefault();
+    void prependInputs(const QVector<Input> &inputs); // Handle inputs.
+    void prependMapping(const Inputs &inputs); // Handle inputs as mapping.
+    bool expandCompleteMapping(); // Return false if current mapping is not complete.
+    bool extendMapping(const Input &input); // Return false if no suitable mappig found.
+    void endMapping();
+    bool canHandleMapping();
+    void clearPendingInput();
+    void waitForMapping();
+    EventResult stopWaitForMapping(bool hasInput);
     EventResult handleInsertMode(const Input &);
     EventResult handleReplaceMode(const Input &);
 
@@ -1430,6 +1443,8 @@ public:
     bool handleYankSubMode(const Input &);
     bool handleZSubMode(const Input &);
     bool handleCapitalZSubMode(const Input &);
+    bool handleMacroRecordSubMode(const Input &);
+    bool handleMacroExecuteSubMode(const Input &);
 
     bool handleCount(const Input &); // Handle count for commands (return false if input isn't count).
     bool handleMovement(const Input &);
@@ -1441,6 +1456,7 @@ public:
     void finishMovement(const QString &dotCommandMovement = QString());
     void finishMovement(const QString &dotCommandMovement, int count);
     void resetCommandMode();
+    void clearCommandMode();
     QTextCursor search(const SearchData &sd, int startPos, int count, bool showMessages);
     void search(const SearchData &sd, bool showMessages = true);
     void searchNext(bool forward = true);
@@ -1650,6 +1666,12 @@ public:
     void ensureCursorVisible();
     void insertInInsertMode(const QString &text);
 
+    // Macro recording
+    bool startRecording(const Input &input);
+    void record(const Input &input);
+    void stopRecording();
+    bool executeRegister(int register);
+
 public:
     QTextEdit *m_textedit;
     QPlainTextEdit *m_plaintextedit;
@@ -1727,6 +1749,8 @@ public:
     void pasteText(bool afterCursor);
 
     void joinLines(int count, bool preserveSpace = false);
+
+    void insertNewLine();
 
     // undo handling
     int revision() const { return document()->availableUndoSteps(); }
@@ -1835,11 +1859,10 @@ public:
     static struct GlobalData
     {
         GlobalData()
-            : mappings(), currentMap(&mappings), inputTimer(-1), currentMessageLevel(MessageInfo),
-              lastSearchForward(false), findPending(false), returnToMode(CommandMode)
+            : mappings(), currentMap(&mappings), inputTimer(-1), mapDepth(0),
+              currentMessageLevel(MessageInfo), lastSearchForward(false), findPending(false),
+              returnToMode(CommandMode), currentRegister(0), lastExecutedRegister(0)
         {
-            // default mapping state - shouldn't be removed
-            mapStates << MappingState();
             commandBuffer.setPrompt(QLatin1Char(':'));
         }
 
@@ -1852,10 +1875,11 @@ public:
         Mappings mappings;
 
         // Input.
-        Inputs pendingInput;
+        QList<Input> pendingInput;
         MappingsIterator currentMap;
         int inputTimer;
         QStack<MappingState> mapStates;
+        int mapDepth;
 
         // Command line buffers.
         CommandBuffer commandBuffer;
@@ -1881,6 +1905,11 @@ public:
 
         // Return to insert/replace mode after single command (<C-O>).
         Mode returnToMode;
+
+        // Currently recorded macro (not recording if null string).
+        QString recording;
+        int currentRegister;
+        int lastExecutedRegister;
     } g;
 };
 
@@ -2098,6 +2127,12 @@ void FakeVimHandler::Private::installEventFilter()
     EDITOR(installEventFilter(q));
 }
 
+void FakeVimHandler::Private::removeEventFilter()
+{
+    EDITOR(viewport()->removeEventFilter(q));
+    EDITOR(removeEventFilter(q));
+}
+
 void FakeVimHandler::Private::setupWidget()
 {
     m_mode = CommandMode;
@@ -2294,80 +2329,49 @@ EventResult FakeVimHandler::Private::handleKey(const Input &input)
 {
     KEY_DEBUG("HANDLE INPUT: " << input << " MODE: " << mode);
 
-    bool handleMapped = true;
     bool hasInput = input.isValid();
 
-    if (hasInput)
-        g.pendingInput.append(input);
-
     // Waiting on input to complete mapping?
-    if (g.inputTimer != -1) {
-        killTimer(g.inputTimer);
-        g.inputTimer = -1;
-        // If there is a new input add it to incomplete input or
-        // if the mapped input can be completed complete.
-        if (hasInput && g.currentMap.walk(input)) {
-            if (g.currentMap.canExtend()) {
-                g.currentCommand.append(input.toString());
-                updateMiniBuffer();
-                g.inputTimer = startTimer(1000);
-                return EventHandled;
-            } else {
-                hasInput = false;
-                handleMappedKeys();
-            }
-        } else if (g.currentMap.isComplete()) {
-            handleMappedKeys();
-        } else {
-            g.currentMap.reset();
-            handleMapped = false;
-        }
-        g.currentCommand.clear();
-        updateMiniBuffer();
+    EventResult r = stopWaitForMapping(hasInput);
+
+    if (hasInput) {
+        record(input);
+        g.pendingInput.append(input);
     }
 
-    EventResult r = EventUnhandled;
-    while (!g.pendingInput.isEmpty()) {
-        const Input &in = g.pendingInput.front();
+    // Process pending input.
+    // Note: Pending input is global state and can be extended by:
+    //         1. handling a user input (though handleKey() is not called recursively),
+    //         2. expanding a user mapping or
+    //         3. executing a register.
+    while (!g.pendingInput.isEmpty() && r == EventHandled) {
+        const Input in = g.pendingInput.takeFirst();
 
         // invalid input is used to pop mapping state
         if (!in.isValid()) {
-            unhandleMappedKeys();
+            endMapping();
         } else {
-            if (handleMapped && !g.mapStates.last().noremap && m_subsubmode != SearchSubSubMode) {
-                if (!g.currentMap.isValid()) {
-                    g.currentMap.reset(currentModeCode());
-                    if (!g.currentMap.walk(g.pendingInput) && g.currentMap.isComplete()) {
-                        handleMappedKeys();
-                        continue;
-                    }
+            // Handle user mapping.
+            if (canHandleMapping()) {
+                if (extendMapping(in)) {
+                    if (!hasInput || !g.currentMap.canExtend())
+                        expandCompleteMapping();
+                } else if (!expandCompleteMapping()) {
+                    r = handleCurrentMapAsDefault();
                 }
-
-                // handle user mapping
-                if (g.currentMap.canExtend()) {
-                    g.currentCommand.append(in.toString());
-                    updateMiniBuffer();
-                    // wait for user to press any key or trigger complete mapping after interval
-                    g.inputTimer = startTimer(1000);
-                    return EventHandled;
-                } else if (g.currentMap.isComplete()) {
-                    handleMappedKeys();
-                    continue;
-                }
-            }
-
-            r = handleDefaultKey(in);
-            if (r != EventHandled) {
-                // clear bad mapping and end all started edit blocks
-                g.pendingInput.clear();
-                while (m_editBlockLevel > 0)
-                    endEditBlock();
-                return r;
+            } else {
+                r = handleDefaultKey(in);
             }
         }
-        handleMapped = true;
-        g.pendingInput.pop_front();
     }
+
+    if (g.currentMap.canExtend()) {
+        waitForMapping();
+        return EventHandled;
+    }
+
+    if (r != EventHandled)
+        clearPendingInput();
 
     return r;
 }
@@ -2389,51 +2393,127 @@ EventResult FakeVimHandler::Private::handleDefaultKey(const Input &input)
     return EventUnhandled;
 }
 
-void FakeVimHandler::Private::handleMappedKeys()
+EventResult FakeVimHandler::Private::handleCurrentMapAsDefault()
 {
-    int maxMapDepth = g.mapStates.last().maxMapDepth - 1;
+    // If mapping has failed take the first input from it and try default command.
+    const Inputs &inputs = g.currentMap.currentInputs();
 
-    int invalidCount = g.currentMap.invalidInputCount();
-    if (invalidCount > 0) {
-        g.mapStates.remove(g.mapStates.size() - invalidCount, invalidCount);
-        QTC_CHECK(!g.mapStates.empty());
-        for (int i = 0; i < invalidCount; ++i)
-            endEditBlock();
-    }
-
-    if (maxMapDepth <= 0) {
-        showMessage(MessageError, tr("Recursive mapping"));
-        g.pendingInput.remove(0, g.currentMap.mapLength() + invalidCount);
-    } else {
-        const Inputs &inputs = g.currentMap.inputs();
-        QVector<Input> rest = g.pendingInput.mid(g.currentMap.mapLength() + invalidCount);
-        g.pendingInput.clear();
-        g.pendingInput << inputs << Input() << rest;
-        g.mapStates << MappingState(maxMapDepth, inputs.noremap(), inputs.silent());
-        g.commandBuffer.setHistoryAutoSave(false);
-        beginLargeEditBlock();
-    }
+    Input in = inputs.front();
+    if (inputs.size() > 1)
+        prependInputs(inputs.mid(1));
     g.currentMap.reset();
+
+    return handleDefaultKey(in);
 }
 
-void FakeVimHandler::Private::unhandleMappedKeys()
+void FakeVimHandler::Private::prependInputs(const QVector<Input> &inputs)
 {
-    if (g.mapStates.size() == 1)
+    for (int i = inputs.size() - 1; i >= 0; --i)
+        g.pendingInput.prepend(inputs[i]);
+}
+
+void FakeVimHandler::Private::prependMapping(const Inputs &inputs)
+{
+    // FIXME: Implement Vim option maxmapdepth (default value is 1000).
+    if (g.mapDepth >= 1000) {
+        const int i = qMax(0, g.pendingInput.lastIndexOf(Input()));
+        QList<Input> inputs = g.pendingInput.mid(i);
+        clearPendingInput();
+        g.pendingInput.append(inputs);
+        showMessage(MessageError, tr("Recursive mapping"));
+        updateMiniBuffer();
+        return;
+    }
+
+    ++g.mapDepth;
+    g.pendingInput.prepend(Input());
+    prependInputs(inputs);
+    g.mapStates << MappingState(inputs.noremap(), inputs.silent());
+    g.commandBuffer.setHistoryAutoSave(false);
+    beginLargeEditBlock();
+}
+
+bool FakeVimHandler::Private::expandCompleteMapping()
+{
+    if (!g.currentMap.isComplete())
+        return false;
+
+    const Inputs &inputs = g.currentMap.inputs();
+    int usedInputs = g.currentMap.mapLength();
+    prependInputs(g.currentMap.currentInputs().mid(usedInputs));
+    prependMapping(inputs);
+    g.currentMap.reset();
+
+    return true;
+}
+
+bool FakeVimHandler::Private::extendMapping(const Input &input)
+{
+    if (!g.currentMap.isValid())
+        g.currentMap.reset(currentModeCode());
+    return g.currentMap.walk(input);
+}
+
+void FakeVimHandler::Private::endMapping()
+{
+    if (!g.currentMap.canExtend())
+        --g.mapDepth;
+    if (g.mapStates.isEmpty())
         return;
     g.mapStates.pop_back();
     endEditBlock();
-    if (g.mapStates.size() == 1)
+    if (g.mapStates.isEmpty())
         g.commandBuffer.setHistoryAutoSave(true);
-    if (m_mode == ExMode || m_subsubmode == SearchSubSubMode)
-        updateMiniBuffer(); // update cursor position on command line
+    updateMiniBuffer();
+}
+
+bool FakeVimHandler::Private::canHandleMapping()
+{
+    return m_subsubmode != SearchSubSubMode
+        && (g.mapStates.isEmpty() || !g.mapStates.last().noremap);
+}
+
+void FakeVimHandler::Private::clearPendingInput()
+{
+    // Clear pending input on interrupt or bad mapping.
+    g.pendingInput.clear();
+    g.mapStates.clear();
+    g.mapDepth = 0;
+
+    // Clear all started edit blocks.
+    while (m_editBlockLevel > 0)
+        endEditBlock();
+}
+
+void FakeVimHandler::Private::waitForMapping()
+{
+    g.currentCommand.clear();
+    foreach (const Input &input, g.currentMap.currentInputs())
+        g.currentCommand.append(input.toString());
+    updateMiniBuffer();
+
+    // wait for user to press any key or trigger complete mapping after interval
+    g.inputTimer = startTimer(1000);
+}
+
+EventResult FakeVimHandler::Private::stopWaitForMapping(bool hasInput)
+{
+    if (g.inputTimer != -1) {
+        killTimer(g.inputTimer);
+        g.inputTimer = -1;
+        g.currentCommand.clear();
+        if (!hasInput && !expandCompleteMapping()) {
+            // Cannot complete mapping so handle the first input from it as default command.
+            return handleCurrentMapAsDefault();
+        }
+    }
+
+    return EventHandled;
 }
 
 void FakeVimHandler::Private::timerEvent(QTimerEvent *ev)
 {
     if (ev->timerId() == g.inputTimer) {
-        if (g.currentMap.isComplete())
-            handleMappedKeys();
-
         enterFakeVim();
         handleKey(Input());
         leaveFakeVim();
@@ -2820,16 +2900,7 @@ void FakeVimHandler::Private::finishMovement(const QString &dotCommandMovement)
 
 void FakeVimHandler::Private::resetCommandMode()
 {
-    m_subsubmode = NoSubSubMode;
-    m_submode = NoSubMode;
-    m_movetype = MoveInclusive;
-    m_mvcount.clear();
-    m_opcount.clear();
-    m_gflag = false;
-    m_register = '"';
-    //m_tc.clearSelection();
-    m_rangemode = RangeCharMode;
-    g.currentCommand.clear();
+    clearCommandMode();
     if (g.returnToMode != CommandMode) {
         const QString lastInsertion = m_lastInsertion;
         if (g.returnToMode == InsertMode)
@@ -2841,6 +2912,19 @@ void FakeVimHandler::Private::resetCommandMode()
     }
     if (isNoVisualMode())
         setAnchor();
+}
+
+void FakeVimHandler::Private::clearCommandMode()
+{
+    m_submode = NoSubMode;
+    m_subsubmode = NoSubSubMode;
+    m_movetype = MoveInclusive;
+    m_mvcount.clear();
+    m_opcount.clear();
+    m_gflag = false;
+    m_register = '"';
+    m_rangemode = RangeCharMode;
+    g.currentCommand.clear();
 }
 
 void FakeVimHandler::Private::updateSelection()
@@ -2880,20 +2964,20 @@ void FakeVimHandler::Private::updateMiniBuffer()
     int anchorPos = -1;
     MessageLevel messageLevel = MessageMode;
 
-    if (g.mapStates.last().silent && g.currentMessageLevel < MessageInfo)
+    if (!g.mapStates.isEmpty() && g.mapStates.last().silent && g.currentMessageLevel < MessageInfo)
         g.currentMessage.clear();
 
     if (m_passing) {
         msg = _("PASSING");
     } else if (m_subsubmode == SearchSubSubMode) {
         msg = g.searchBuffer.display();
-        if (g.mapStates.size() == 1) {
+        if (g.mapStates.isEmpty()) {
             cursorPos = g.searchBuffer.cursorPos() + 1;
             anchorPos = g.searchBuffer.anchorPos() + 1;
         }
     } else if (m_mode == ExMode) {
         msg = g.commandBuffer.display();
-        if (g.mapStates.size() == 1) {
+        if (g.mapStates.isEmpty()) {
             cursorPos = g.commandBuffer.cursorPos() + 1;
             anchorPos = g.commandBuffer.anchorPos() + 1;
         }
@@ -2901,7 +2985,7 @@ void FakeVimHandler::Private::updateMiniBuffer()
         msg = g.currentMessage;
         g.currentMessage.clear();
         messageLevel = g.currentMessageLevel;
-    } else if (g.mapStates.size() > 1 && !g.mapStates.last().silent) {
+    } else if (!g.mapStates.isEmpty() && !g.mapStates.last().silent) {
         // Do not reset previous message when after running a mapped command.
         return;
     } else if (m_mode == CommandMode && !g.currentCommand.isEmpty() && hasConfig(ConfigShowCmd)) {
@@ -2909,24 +2993,27 @@ void FakeVimHandler::Private::updateMiniBuffer()
         messageLevel = MessageShowCmd;
     } else if (m_mode == CommandMode && isVisualMode()) {
         if (isVisualCharMode())
-            msg = _("VISUAL");
+            msg = _("-- VISUAL --");
         else if (isVisualLineMode())
-            msg = _("VISUAL LINE");
+            msg = _("-- VISUAL LINE --");
         else if (isVisualBlockMode())
             msg = _("VISUAL BLOCK");
     } else if (m_mode == InsertMode) {
-        msg = _("INSERT");
+        msg = _("-- INSERT --");
     } else if (m_mode == ReplaceMode) {
-        msg = _("REPLACE");
+        msg = _("-- REPLACE --");
     } else {
         QTC_CHECK(m_mode == CommandMode && m_subsubmode != SearchSubSubMode);
         if (g.returnToMode == CommandMode)
-            msg = _("COMMAND");
+            msg = _("-- COMMAND --");
         else if (g.returnToMode == InsertMode)
-            msg = _("(insert)");
+            msg = _("-- (insert) --");
         else
-            msg = _("(replace)");
+            msg = _("-- (replace) --");
     }
+
+    if (!g.recording.isNull() && msg.startsWith(_("--")))
+        msg.append(_("recording"));
 
     emit q->commandBufferChanged(msg, cursorPos, anchorPos, messageLevel, q);
 
@@ -3403,6 +3490,10 @@ EventResult FakeVimHandler::Private::handleCommandMode(const Input &input)
         handled = handleZSubMode(input);
     } else if (m_submode == CapitalZSubMode) {
         handled = handleCapitalZSubMode(input);
+    } else if (m_submode == MacroRecordSubMode) {
+        handled = handleMacroRecordSubMode(input);
+    } else if (m_submode == MacroExecuteSubMode) {
+        handled = handleMacroExecuteSubMode(input);
     } else if (m_submode == ShiftLeftSubMode
         || m_submode == ShiftRightSubMode
         || m_submode == IndentSubMode) {
@@ -3533,25 +3624,19 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
         setAnchor();
         m_opcount = m_mvcount;
         m_mvcount.clear();
+        m_rangemode = RangeCharMode;
         m_movetype = MoveExclusive;
         m_submode = input.is('c') ? ChangeSubMode : DeleteSubMode;
     } else if ((input.is('c') || input.is('C') || input.is('s') || input.is('R'))
           && (isVisualCharMode() || isVisualLineMode())) {
         setDotCommand(visualDotCommand() + input.asChar());
-        if ((input.is('c')|| input.is('s')) && isVisualCharMode()) {
-            leaveVisualMode();
-            m_rangemode = RangeCharMode;
-        } else {
-            leaveVisualMode();
-            m_rangemode = RangeLineMode;
-            // leaveVisualMode() has set this to MoveInclusive for visual character mode
-            m_movetype =  MoveLineWise;
-        }
+        leaveVisualMode();
         m_submode = ChangeSubMode;
         finishMovement();
     } else if (input.is('C')) {
         setAnchor();
         moveToEndOfLine();
+        m_rangemode = RangeCharMode;
         m_submode = ChangeSubMode;
         setDotCommand(QString(QLatin1Char('C')));
         finishMovement();
@@ -3570,13 +3655,11 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
             finishMovement();
         } else if (isVisualLineMode()) {
             leaveVisualMode();
-            m_rangemode = RangeLineMode;
             yankText(currentRange(), m_register);
             removeText(currentRange());
             handleStartOfLine();
         } else if (isVisualBlockMode()) {
             leaveVisualMode();
-            m_rangemode = RangeBlockMode;
             yankText(currentRange(), m_register);
             removeText(currentRange());
             setPosition(qMin(position(), anchor()));
@@ -3661,26 +3744,38 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
         bool insertAfter = input.is('o');
         setDotCommand(_(insertAfter ? "%1o" : "%1O"), count());
         setUndoPosition();
-        enterInsertMode();
-        // Insert new line so that command can be repeated [count] times inserting new line
-        // each time without unfolding any lines.
-        QTextBlock block = cursor().block();
-        bool appendLine = false;
-        if (insertAfter) {
-            const int line = lineNumber(block);
-            appendLine = line >= document()->lineCount();
-            setPosition(appendLine ? lastPositionInLine(line) : firstPositionInLine(line + 1));
-        } else {
-            setPosition(block.position());
+
+        // Prepend line only if on the first line and command is 'O'.
+        bool appendLine = true;
+        if (!insertAfter) {
+            if (block().blockNumber() == 0)
+                appendLine = false;
+            else
+                moveUp();
         }
+        const int line = lineNumber(block());
+
+        enterInsertMode();
         beginEditBlock();
-        insertText(QString::fromLatin1("\n"));
-        if (!appendLine)
+        if (appendLine) {
+            setPosition(lastPositionInLine(line));
+            insertNewLine();
+        } else {
+            setPosition(firstPositionInLine(line));
+            insertNewLine();
             moveUp();
-        insertAutomaticIndentation(insertAfter);
+        }
         recordInsertion(QString::fromLatin1("\n"));
         setTargetColumn();
         endEditBlock();
+
+        // Close accidentally opened block.
+        if (block().blockNumber() > 0) {
+            moveUp();
+            if (line != lineNumber(block()))
+                emit q->fold(1, true);
+            moveDown();
+        }
     } else if (input.isControl('o')) {
         jump(-count());
     } else if (input.is('p') || input.is('P') || input.isShift(Qt::Key_Insert)) {
@@ -3688,6 +3783,16 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
         setTargetColumn();
         setDotCommand(_("%1p"), count());
         finishMovement();
+    } else if (input.is('q')) {
+        if (g.recording.isNull()) {
+            // Recording shouldn't work in mapping or while executing register.
+            handled = g.mapStates.empty();
+            if (handled)
+                m_submode = MacroRecordSubMode;
+        } else {
+            // Stop recording.
+            stopRecording();
+        }
     } else if (input.is('r')) {
         m_submode = ReplaceSubMode;
     } else if (!isVisualMode() && input.is('R')) {
@@ -3788,6 +3893,7 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
         scrollUp(1);
     } else if (input.is('y') && isNoVisualMode()) {
         setAnchor();
+        m_rangemode = RangeCharMode;
         m_movetype = MoveExclusive;
         m_submode = YankSubMode;
     } else if (input.is('y') && isVisualCharMode()) {
@@ -3855,6 +3961,8 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
             setDotCommand(QString::fromLatin1("%1%2").arg(count()).arg(input.raw()));
             endEditBlock();
         }
+    } else if (input.is('@')) {
+        m_submode = MacroExecuteSubMode;
     } else if (input.isKey(Key_Delete)) {
         setAnchor();
         moveRight(qMin(1, rightDist()));
@@ -4092,6 +4200,24 @@ bool FakeVimHandler::Private::handleCapitalZSubMode(const Input &input)
     return handled;
 }
 
+bool FakeVimHandler::Private::handleMacroRecordSubMode(const Input &input)
+{
+    m_submode = NoSubMode;
+    return startRecording(input);
+}
+
+bool FakeVimHandler::Private::handleMacroExecuteSubMode(const Input &input)
+{
+    m_submode = NoSubMode;
+
+    bool result = true;
+    int repeat = count();
+    while (result && --repeat >= 0)
+        result = executeRegister(input.asChar().unicode());
+
+    return result;
+}
+
 EventResult FakeVimHandler::Private::handleReplaceMode(const Input &input)
 {
     bool clearLastInsertion = m_breakEditBlock;
@@ -4266,9 +4392,8 @@ EventResult FakeVimHandler::Private::handleInsertMode(const Input &input)
     } else if (input.isReturn() || input.isControl('j') || input.isControl('m')) {
         joinPreviousEditBlock();
         m_submode = NoSubMode;
-        insertText(QString::fromLatin1("\n"));
+        insertNewLine();
         insert = _("\n");
-        insertAutomaticIndentation(true);
         endEditBlock();
     } else if (input.isBackspace()) {
         joinPreviousEditBlock();
@@ -4396,6 +4521,54 @@ void FakeVimHandler::Private::insertInInsertMode(const QString &text)
     setTargetColumn();
     endEditBlock();
     m_ctrlVActive = false;
+}
+
+bool FakeVimHandler::Private::startRecording(const Input &input)
+{
+    QChar reg = input.asChar();
+    if (reg == QLatin1Char('"') || reg.isLetterOrNumber()) {
+        g.currentRegister = reg.unicode();
+        g.recording = QLatin1String("");
+        return true;
+    }
+
+    return false;
+}
+
+void FakeVimHandler::Private::record(const Input &input)
+{
+    if ( !g.recording.isNull() )
+        g.recording.append(input.raw());
+}
+
+void FakeVimHandler::Private::stopRecording()
+{
+    // Remove q from end (stop recording command).
+    g.recording.remove(g.recording.size() - 1, 1);
+    setRegister(g.currentRegister, g.recording, m_rangemode);
+    g.currentRegister = 0;
+    g.recording = QString();
+}
+
+bool FakeVimHandler::Private::executeRegister(int reg)
+{
+    QChar regChar(reg);
+
+    // TODO: Prompt for an expression to execute if register is '='.
+    if (reg == '@' && g.lastExecutedRegister != 0)
+        reg = g.lastExecutedRegister;
+    else if (QString::fromLatin1("\".*+").contains(regChar) || regChar.isLetterOrNumber())
+        g.lastExecutedRegister = reg;
+    else
+        return false;
+
+    // FIXME: In Vim it's possible to interrupt recursive macro with <C-c>.
+    //        One solution may be to call QApplication::processEvents() and check if <C-c> was
+    //        used when a mapping is active.
+    // According to Vim, register is executed like mapping.
+    prependMapping(Inputs(registerContents(reg)));
+
+    return true;
 }
 
 EventResult FakeVimHandler::Private::handleExMode(const Input &input)
@@ -6456,6 +6629,30 @@ void FakeVimHandler::Private::joinLines(int count, bool preserveSpace)
     setPosition(pos);
 }
 
+void FakeVimHandler::Private::insertNewLine()
+{
+    if ( hasConfig(ConfigPassNewLine) ) {
+        QKeyEvent event(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier, QLatin1String("\n"));
+
+        removeEventFilter();
+
+        QTextCursor tc = m_cursor;
+        tc.setPosition(tc.position());
+        EDITOR(setTextCursor(tc));
+        bool accepted = QApplication::sendEvent(editor(), &event);
+
+        installEventFilter();
+
+        if (accepted) {
+            setPosition(EDITOR(textCursor()).position());
+            return;
+        }
+    }
+
+    insertText(QString::fromLatin1("\n"));
+    insertAutomaticIndentation(true);
+}
+
 QString FakeVimHandler::Private::lineContents(int line) const
 {
     return document()->findBlockByLineNumber(line - 1).text();
@@ -6611,10 +6808,16 @@ void FakeVimHandler::Private::leaveVisualMode()
     setMark(QLatin1Char('<'), mark(QLatin1Char('<')).position);
     setMark(QLatin1Char('>'), mark(QLatin1Char('>')).position);
     m_lastVisualModeInverted = anchor() > position();
-    if (isVisualLineMode())
+    if (isVisualLineMode()) {
+        m_rangemode = RangeLineMode;
         m_movetype = MoveLineWise;
-    else if (isVisualCharMode())
+    } else if (isVisualCharMode()) {
+        m_rangemode = RangeCharMode;
         m_movetype = MoveInclusive;
+    } else if (isVisualBlockMode()) {
+        m_rangemode = RangeBlockMode;
+        m_movetype = MoveInclusive;
+    }
 
     m_visualMode = NoVisualMode;
     updateMiniBuffer();
@@ -6799,8 +7002,7 @@ void FakeVimHandler::Private::enterCommandMode(Mode returnToMode)
     if (atEndOfLine())
         moveLeft();
     m_mode = CommandMode;
-    m_submode = NoSubMode;
-    m_subsubmode = NoSubSubMode;
+    clearCommandMode();
     g.returnToMode = returnToMode;
 }
 

@@ -56,6 +56,11 @@ FormEditorView* AbstractFormEditorTool::view() const
     return m_view;
 }
 
+void AbstractFormEditorTool::setView(FormEditorView *view)
+{
+    m_view = view;
+}
+
 FormEditorScene* AbstractFormEditorTool::scene() const
 {
     return view()->scene();
@@ -204,8 +209,11 @@ void AbstractFormEditorTool::mouseReleaseEvent(const QList<QGraphicsItem*> & /*i
     }
 }
 
-void AbstractFormEditorTool::mouseDoubleClickEvent(const QList<QGraphicsItem*> &, QGraphicsSceneMouseEvent *)
+void AbstractFormEditorTool::mouseDoubleClickEvent(const QList<QGraphicsItem*> &itemList, QGraphicsSceneMouseEvent *)
 {
+    FormEditorItem *formEditorItem = topFormEditorItem(itemList);
+    if (formEditorItem)
+        view()->changeToCustomTool(formEditorItem->qmlItemNode().modelNode());
 }
 
 void AbstractFormEditorTool::showContextMenu(QGraphicsSceneMouseEvent *event)

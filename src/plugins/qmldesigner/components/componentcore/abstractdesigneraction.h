@@ -39,7 +39,7 @@ QT_END_NAMESPACE
 
 namespace QmlDesigner {
 
-class AbstractDesignerAction
+class QMLDESIGNERCORE_EXPORT AbstractDesignerAction
 {
 public:
     enum Type {
@@ -57,15 +57,12 @@ public:
     virtual ~AbstractDesignerAction() {}
 
     virtual QAction *action() const = 0;
-    virtual QString category() const = 0;
-    virtual QString menuId() const = 0;
+    virtual QByteArray category() const = 0;
+    virtual QByteArray menuId() const = 0;
     virtual int priority() const = 0;
     virtual Type type() const = 0;
-    virtual void setCurrentContext(const SelectionContext &selectionState) = 0;
+    virtual void currentContextChanged(const SelectionContext &selectionState) = 0;
 
-protected:
-    virtual bool isVisible(const SelectionContext &selectionState) const = 0;
-    virtual bool isEnabled(const SelectionContext &selectionState) const = 0;
 };
 
 } //QmlDesigner

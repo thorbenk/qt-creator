@@ -541,6 +541,9 @@ void FakeVimPlugin::test_vim_insert()
     KEYS("<insert>x<insert>X<left><left><down><esc>", "xXbc" N X "def");
     KEYS(".", "xXbc" N "x" X "Xef");
 
+    data.setText("abc" N "def");
+    KEYS("2oXYZ<esc>.", "abc" N "XYZ" N "XYZ" N "XYZ" N "XY" X "Z" N "def");
+
     // delete in insert mode is part of dot command
     data.setText("abc" N "def");
     KEYS("iX<delete>Y", "XY" X "bc" N "def");
@@ -761,6 +764,12 @@ void FakeVimPlugin::test_vim_delete()
     data.setText("  abc" N "  def" N "  gh" X "i" N "  jkl");
     KEYS("dk", "  abc" N "  " X "jkl");
     INTEGRITY(false);
+
+    // delete with copy to a register
+    data.setText("abc" N "def");
+    KEYS("\"xd$", X "" N "def");
+    KEYS("\"xp", "ab" X "c" N "def");
+    KEYS("2\"xp", "abcabcab" X "c" N "def");
 }
 
 void FakeVimPlugin::test_vim_delete_inner_word()
@@ -1010,6 +1019,12 @@ void FakeVimPlugin::test_vim_change_replace()
     data.setText("abc" N "de" X "f" N  "" N "jkl" N "mno");
     KEYS("<c-v>2jh" "2s" "XYZ<esc>", "abc" N "d" X "XYZ" N "" N "jXYZ" N "mno");
     INTEGRITY(false);
+
+    // change with copy to a register
+    data.setText("abc" N "def");
+    KEYS("\"xCxyz<esc>", "xy" X "z" N "def");
+    KEYS("\"xp", "xyzab" X "c" N "def");
+    KEYS("2\"xp", "xyzabcabcab" X "c" N "def");
 }
 
 void FakeVimPlugin::test_vim_block_selection()
@@ -1646,6 +1661,7 @@ void FakeVimPlugin::test_vim_code_autoindent()
     TestData data;
     setup(&data);
 
+    data.doCommand("set nopassnewline");
     data.doCommand("set expandtab");
     data.doCommand("set shiftwidth=3");
 
@@ -1966,6 +1982,10 @@ void FakeVimPlugin::test_vim_ex_yank()
     COMMAND("$-1y", "abc" N X "def");
     KEYS("P", "abc" N X "abc" N "def");
     COMMAND("u", "abc" N X "def");
+
+    data.setText("abc" N "def");
+    KEYS("\"xy$", X "abc" N "def");
+    KEYS("\"xP", "ab" X "cabc" N "def");
 }
 
 void FakeVimPlugin::test_vim_ex_delete()
@@ -2246,6 +2266,14 @@ void FakeVimPlugin::test_map()
     data.doCommand("map Y Xxx");
     KEYS("Y", X "abc" N "def");
     data.doCommand("unmap X|unmap Y");
+
+    // correct mapping after bad one
+    data.setText("abc" N "def");
+    data.doCommand("map X Y");
+    data.doCommand("map Y X");
+    data.doCommand("map Xx xxx");
+    KEYS("Xr2", X "2bc" N "def");
+    data.doCommand("unmap X|unmap x|unmap Y");
 
     // <C-o>
     data.setText("abc def");
@@ -2860,4 +2888,41 @@ void FakeVimPlugin::test_vim_Visual_d()
     KEYS("$V$$d", lmid(0,1)+'\n' + '|' + lmid(3));
     KEYS("Vkx",   '|' + lmid(4));
     KEYS("P",     '|' + lmid(0,1)+'\n' + lmid(3));
+}
+
+void FakeVimPlugin::test_macros()
+{
+    TestData data;
+    setup(&data);
+
+    // execute register content
+    data.setText("r1" N "r2r3");
+    KEYS("\"xy$", X "r1" N "r2r3");
+    KEYS("@x", X "11" N "r2r3");
+    INTEGRITY(false);
+
+    data.doKeys("j\"xy$");
+    KEYS("@x", "11" N X "32r3");
+    INTEGRITY(false);
+
+    data.setText("3<C-A>");
+    KEYS("\"xy$", X "3<C-A>");
+    KEYS("@x", X "6<C-A>");
+    KEYS("@x", X "9<C-A>");
+    KEYS("2@x", "1" X "5<C-A>");
+    KEYS("2@@", "2" X "1<C-A>");
+    KEYS("@@", "2" X "4<C-A>");
+
+// Raw characters for macro recording.
+#define ESC "\x1b"
+#define ENTER "\n"
+
+    // record
+    data.setText("abc" N "def");
+    KEYS("qx" "A" ENTER "- xyz" ESC "rZjI- opq" ENTER ESC "q" , "abc" N "- xyZ" N "- opq" N X "def");
+    KEYS("@x" , "abc" N "- xyZ" N "- opq" N "def" N "- opq" N X "- xyZ");
+
+    data.setText("  1 2 3" N "  4 5 6" N "  7 8 9");
+    KEYS("qx" "wrXj" "q", "  X 2 3" N "  4 5 6" N "  7 8 9");
+    KEYS("2@x", "  X 2 3" N "  4 X 6" N "  7 8 X");
 }

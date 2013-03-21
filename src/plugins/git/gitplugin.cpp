@@ -128,7 +128,7 @@ using namespace Git::Internal;
 GitPlugin *GitPlugin::m_instance = 0;
 
 GitPlugin::GitPlugin() :
-    VcsBase::VcsBasePlugin(QLatin1String(Git::Constants::GITSUBMITEDITOR_ID)),
+    VcsBase::VcsBasePlugin(Git::Constants::GITSUBMITEDITOR_ID),
     m_commandLocator(0),
     m_showAction(0),
     m_submitCurrentAction(0),
@@ -605,7 +605,7 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
         for (int i = 0; i < count; i++) {
             Core::Command *tCommand
                     = Core::ActionManager::registerAction(snapShotActions.at(i),
-                                                    Core::Id(QLatin1String("Git.Snapshot.") + QString::number(i)),
+                                                    Core::Id("Git.Snapshot.").withSuffix(i),
                                                     globalcontext);
             gitContainer->addAction(tCommand);
         }

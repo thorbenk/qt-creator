@@ -32,6 +32,8 @@
 
 #include "formeditoritem.h"
 
+#include <qmldesignercorelib_global.h>
+
 QT_BEGIN_NAMESPACE
 class QGraphicsItem;
 QT_END_NAMESPACE
@@ -40,9 +42,9 @@ namespace QmlDesigner {
 
 class FormEditorView;
 
-class AbstractFormEditorTool
+class QMLDESIGNERCORE_EXPORT AbstractFormEditorTool
 {
-
+    friend class FormEditorView;
 public:
     AbstractFormEditorTool(FormEditorView* view);
 
@@ -80,6 +82,7 @@ public:
 
     virtual void instancesCompleted(const QList<FormEditorItem*> &itemList) = 0;
     virtual void instancesParentChanged(const QList<FormEditorItem*> &itemList) = 0;
+    virtual void instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &propertyList) = 0;
 
     void setItems(const QList<FormEditorItem*> &itemList);
     QList<FormEditorItem*> items() const;
@@ -98,6 +101,7 @@ protected:
     virtual void showContextMenu(QGraphicsSceneMouseEvent *event);
 
     FormEditorView *view() const;
+    void setView(FormEditorView *view);
     FormEditorScene* scene() const;
 private:
     FormEditorView *m_view;

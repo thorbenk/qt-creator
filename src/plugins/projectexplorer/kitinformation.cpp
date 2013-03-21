@@ -46,6 +46,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QFileInfo>
 
 namespace ProjectExplorer {
 
@@ -161,9 +162,13 @@ QVariant ToolChainKitInformation::defaultValue(Kit *k) const
 QList<Task> ToolChainKitInformation::validate(const Kit *k) const
 {
     QList<Task> result;
-    if (!toolChain(k)) {
+
+    const ToolChain* toolchain = toolChain(k);
+    if (!toolchain) {
         result << Task(Task::Error, ToolChainKitInformation::msgNoToolChainInTarget(),
                        Utils::FileName(), -1, Core::Id(Constants::TASK_CATEGORY_BUILDSYSTEM));
+    } else {
+        result << toolchain->validateKit(k);
     }
     return result;
 }
@@ -331,18 +336,12 @@ KitInformation::ItemList DeviceTypeKitInformation::toUserOutput(const Kit *k) co
 
 const Core::Id DeviceTypeKitInformation::deviceTypeId(const Kit *k)
 {
-    // FIXME: This should be fromSetting/toSetting instead.
-    if (!k)
-        return Core::Id();
-    QByteArray value = k->value(DEVICETYPE_INFORMATION).toByteArray();
-    if (value.isEmpty())
-        return Core::Id();
-    return Core::Id::fromName(value);
+    return k ? Core::Id::fromSetting(k->value(DEVICETYPE_INFORMATION)) : Core::Id();
 }
 
 void DeviceTypeKitInformation::setDeviceTypeId(Kit *k, Core::Id type)
 {
-    k->setValue(DEVICETYPE_INFORMATION, type.name());
+    k->setValue(DEVICETYPE_INFORMATION, type.toSetting());
 }
 
 // --------------------------------------------------------------------------

@@ -49,6 +49,7 @@ class FormEditorScene;
 class NodeInstanceView;
 
 class AbstractFormEditorTool;
+class AbstractCustomTool;
 class MoveTool;
 class SelectionTool;
 class ResizeTool;
@@ -56,7 +57,7 @@ class DragTool;
 class ItemLibraryEntry;
 class QmlItemNode;
 
-class  FormEditorView : public QmlModelView
+class QMLDESIGNERCORE_EXPORT FormEditorView : public QmlModelView
 {
     Q_OBJECT
 
@@ -98,9 +99,10 @@ public:
     void changeToSelectionTool(QGraphicsSceneMouseEvent *event);
     void changeToResizeTool();
     void changeToTransformTools();
+    void changeToCustomTool(const ModelNode &modelNode);
+    void changeToCustomTool(AbstractCustomTool *customTool);
 
-
-    void registerTool(AbstractFormEditorTool *tool);
+    void registerTool(AbstractCustomTool *tool);
 
     void nodeSlidedToIndex(const NodeListProperty &listProperty, int newIndex, int oldIndex);
     void auxiliaryDataChanged(const ModelNode &node, const PropertyName &name, const QVariant &data) QTC_OVERRIDE;
@@ -140,7 +142,7 @@ private: //functions
 private: //variables
     QWeakPointer<FormEditorWidget> m_formEditorWidget;
     QWeakPointer<FormEditorScene> m_scene;
-    QList<AbstractFormEditorTool*> m_toolList;
+    QList<AbstractCustomTool*> m_customToolList;
     MoveTool *m_moveTool;
     SelectionTool *m_selectionTool;
     ResizeTool *m_resizeTool;

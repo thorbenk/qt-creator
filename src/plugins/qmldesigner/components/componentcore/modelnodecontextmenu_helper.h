@@ -33,6 +33,7 @@
 #include "modelnodecontextmenu.h"
 #include "modelnodeoperations.h"
 #include "designeractionmanager.h"
+#include "defaultdesigneraction.h"
 
 #include <QAction>
 #include <QMenu>
@@ -55,7 +56,7 @@ inline bool inBaseState(const SelectionContext &selectionState)
 
 inline bool singleSelection(const SelectionContext &selectionState)
 {
-    return selectionState.singleSelected();
+    return selectionState.singleNodeIsSelected();
 }
 
 inline bool selectionEnabled(const SelectionContext &selectionState)
@@ -70,7 +71,7 @@ inline bool selectionNotEmpty(const SelectionContext &selectionState)
 
 inline bool singleSelectionNotRoot(const SelectionContext &selectionState)
 {
-    return selectionState.singleSelected()
+    return selectionState.singleNodeIsSelected()
         && !selectionState.currentSingleSelectedNode().isRootNode();
 }
 
@@ -101,29 +102,6 @@ namespace ComponentUtils {
     void goIntoComponent(const ModelNode &modelNode);
 }
 
-class DefaultAction : public QAction
-{
-    Q_OBJECT
-
-public:
-    DefaultAction(const QString &description) : QAction(description, 0)
-    {
-        connect(this, SIGNAL(triggered(bool)), this, SLOT(actionTriggered(bool)));
-    }
-
-public slots: //virtual method instead of slot
-    virtual void actionTriggered(bool)
-    { }
-
-    void setSelectionContext(const SelectionContext &selectionContext)
-    {
-        m_selectionContext = selectionContext;
-    }
-
-protected:
-    SelectionContext m_selectionContext;
-};
-
 class ActionTemplate : public DefaultAction
 {
 
@@ -141,42 +119,10 @@ public /*slots*/:
     ModelNodeOperations::SelectionAction m_action;
 };
 
-
-class DefaultDesignerAction : public AbstractDesignerAction
-{
-public:
-    DefaultDesignerAction() : m_action(new DefaultAction(QString()))
-    {}
-
-    DefaultDesignerAction(DefaultAction *action) : m_action(action)
-    {}
-
-    QAction *action() const { return m_action; }
-
-    void setCurrentContext(const SelectionContext &selectionContext)
-    {
-        m_selectionContext = selectionContext;
-        updateContext();
-    }
-
-    virtual void updateContext()
-    {
-        m_action->setSelectionContext(m_selectionContext);
-        if (m_selectionContext.isValid()) {
-            m_action->setEnabled(isEnabled(m_selectionContext));
-            m_action->setVisible(isVisible(m_selectionContext));
-        }
-    }
-
-protected:
-    DefaultAction *m_action;
-    SelectionContext m_selectionContext;
-};
-
 class MenuDesignerAction : public AbstractDesignerAction
 {
 public:
-    MenuDesignerAction(const QString &displayName, const QString &menuId, int priority,
+    MenuDesignerAction(const QString &displayName, const QByteArray &menuId, int priority,
             SelectionContextFunction enabled = &SelectionContextFunctors::always,
             SelectionContextFunction visibility = &SelectionContextFunctors::always) :
         m_displayName(displayName),
@@ -192,13 +138,13 @@ public:
 
     bool isVisible(const SelectionContext &m_selectionState) const { return m_visibility(m_selectionState); }
     bool isEnabled(const SelectionContext &m_selectionState) const { return m_enabled(m_selectionState); }
-    QString category() const { return QString(); }
-    QString menuId() const { return m_menuId; }
+    QByteArray category() const { return QByteArray(); }
+    QByteArray menuId() const { return m_menuId; }
     int priority() const { return m_priority; }
     AbstractDesignerAction::Type type() const { return AbstractDesignerAction::Menu; }
     QAction *action() const { return m_action; }
 
-    virtual void setCurrentContext(const SelectionContext &selectionContext)
+    virtual void currentContextChanged(const SelectionContext &selectionContext)
     {
         m_selectionContext = selectionContext;
         updateContext();
@@ -214,7 +160,7 @@ public:
 
 protected:
     const QString m_displayName;
-    const QString m_menuId;
+    const QByteArray m_menuId;
     const int m_priority;
     SelectionContext m_selectionContext;
     QScopedPointer<QMenu> m_menu;
@@ -226,22 +172,22 @@ protected:
 class SeperatorDesignerAction : public DefaultDesignerAction
 {
 public:
-    SeperatorDesignerAction(const QString &category, int priority) :
+    SeperatorDesignerAction(const QByteArray &category, int priority) :
         m_category(category),
         m_priority(priority),
         m_visibility(&SelectionContextFunctors::always)
-    { m_action->setSeparator(true); }
+    { defaultAction()->setSeparator(true); }
 
     bool isVisible(const SelectionContext &m_selectionState) const { return m_visibility(m_selectionState); }
     bool isEnabled(const SelectionContext &) const { return true; }
-    QString category() const { return m_category; }
-    QString menuId() const { return QString(); }
+    QByteArray category() const { return m_category; }
+    QByteArray menuId() const { return QByteArray(); }
     int priority() const { return m_priority; }
     Type type() const { return Action; }
-    void setCurrentContext(const SelectionContext &) {}
+    void currentContextChanged(const SelectionContext &) {}
 
 private:
-    const QString m_category;
+    const QByteArray m_category;
     const int m_priority;
     SelectionContextFunction m_visibility;
 };
@@ -249,7 +195,7 @@ private:
 class ModelNodeAction : public DefaultDesignerAction
 {
 public:
-    ModelNodeAction(const QString &description,  const QString &category, int priority,
+    ModelNodeAction(const QString &description,  const QByteArray &category, int priority,
             ModelNodeOperations::SelectionAction selectionAction,
             SelectionContextFunction enabled = &SelectionContextFunctors::always,
             SelectionContextFunction visibility = &SelectionContextFunctors::always) :
@@ -262,13 +208,13 @@ public:
 
     bool isVisible(const SelectionContext &selectionState) const { return m_visibility(selectionState); }
     bool isEnabled(const SelectionContext &selectionState) const { return m_enabled(selectionState); }
-    QString category() const { return m_category; }
-    QString menuId() const { return QString(); }
+    QByteArray category() const { return m_category; }
+    QByteArray menuId() const { return QByteArray(); }
     int priority() const { return m_priority; }
     Type type() const { return Action; }
 
 private:
-    const QString m_category;
+    const QByteArray m_category;
     const int m_priority;
     const SelectionContextFunction m_enabled;
     const SelectionContextFunction m_visibility;

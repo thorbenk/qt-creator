@@ -629,7 +629,7 @@ void PluginManager::formatOptions(QTextStream &str, int optionIndentation, int d
                  optionIndentation, descriptionIndentation);
 #ifdef WITH_TESTS
     formatOption(str, QString::fromLatin1(OptionsParser::TEST_OPTION)
-                 + QLatin1String(" <plugin> [testfunction[:testdata]]..."), QString(),
+                 + QLatin1String(" <plugin>[,testfunction[:testdata]]..."), QString(),
                  QLatin1String("Run plugin's tests"), optionIndentation, descriptionIndentation);
     formatOption(str, QString::fromLatin1(OptionsParser::TEST_OPTION) + QLatin1String(" all"),
                  QString(), QLatin1String("Run tests from all plugins"),
@@ -730,14 +730,16 @@ void PluginManager::startTests()
             }
         }
 
-        // QTest::qExec() expects basically QCoreApplication::arguments(),
-        // so prepend a fake argument for the application name.
-        testFunctionsToExecute.prepend(QLatin1String("arg0"));
-
-        // Don't run QTest::qExec with only one argument, that'd run
+        // Don't run QTest::qExec without any test functions, that'd run
         // *all* slots as tests.
-        if (testFunctionsToExecute.size() > 1)
-            QTest::qExec(pluginSpec->plugin(), testFunctionsToExecute);
+        if (!testFunctionsToExecute.isEmpty()) {
+            // QTest::qExec() expects basically QCoreApplication::arguments(),
+            QStringList qExecArguments = QStringList()
+                << QLatin1String("arg0") // fake application name
+                << QLatin1String("-maxwarnings") << QLatin1String("0"); // unlimit output
+            qExecArguments << testFunctionsToExecute;
+            QTest::qExec(pluginSpec->plugin(), qExecArguments);
+        }
     }
     if (!d->testSpecs.isEmpty())
         QTimer::singleShot(1, QCoreApplication::instance(), SLOT(quit()));

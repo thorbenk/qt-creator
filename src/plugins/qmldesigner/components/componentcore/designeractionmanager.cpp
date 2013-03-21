@@ -195,7 +195,7 @@ protected:
         }
         SelectionContext selectionContext(this);
         foreach (AbstractDesignerAction* action, m_designerActionList) {
-            action->setCurrentContext(selectionContext);
+            action->currentContextChanged(selectionContext);
         }
         m_setupContextDirty = false;
     }
@@ -221,13 +221,13 @@ QList<AbstractDesignerAction* > DesignerActionManager::designerActions()
 
 QmlModelView *DesignerActionManager::view()
 {
-    return instance()->m_view.data();
+    return instance()->m_view;
 }
 
 class VisiblityModelNodeAction : public ModelNodeAction
 {
 public:
-    VisiblityModelNodeAction(const QString &description, const QString &category, int priority,
+    VisiblityModelNodeAction(const QString &description, const QByteArray &category, int priority,
             ModelNodeOperations::SelectionAction action,
             SelectionContextFunction enabled = &SelectionContextFunctors::always,
             SelectionContextFunction visibility = &SelectionContextFunctors::always) :
@@ -235,17 +235,17 @@ public:
     {}
     virtual void updateContext()
     {
-        m_action->setSelectionContext(m_selectionContext);
-        if (m_selectionContext.isValid()) {
-            m_action->setEnabled(isEnabled(m_selectionContext));
-            m_action->setVisible(isVisible(m_selectionContext));
+        defaultAction()->setSelectionContext(selectionContext());
+        if (selectionContext().isValid()) {
+            defaultAction()->setEnabled(isEnabled(selectionContext()));
+            defaultAction()->setVisible(isVisible(selectionContext()));
 
-            m_action->setCheckable(true);
-            QmlItemNode itemNode = QmlItemNode(m_selectionContext.currentSingleSelectedNode());
+            defaultAction()->setCheckable(true);
+            QmlItemNode itemNode = QmlItemNode(selectionContext().currentSingleSelectedNode());
             if (itemNode.isValid())
-                m_action->setChecked(itemNode.instanceValue("visible").toBool());
+                defaultAction()->setChecked(itemNode.instanceValue("visible").toBool());
             else
-                m_action->setEnabled(false);
+                defaultAction()->setEnabled(false);
         }
     }
 };
@@ -253,7 +253,7 @@ public:
 class SelectionModelNodeAction : public MenuDesignerAction
 {
 public:
-    SelectionModelNodeAction(const QString &displayName, const QString &menuId, int priority) :
+    SelectionModelNodeAction(const QString &displayName, const QByteArray &menuId, int priority) :
         MenuDesignerAction(displayName, menuId, priority,
                            &SelectionContextFunctors::always, &SelectionContextFunctors::selectionEnabled)
 
@@ -270,7 +270,7 @@ public:
         }
         if (m_action->isEnabled()) {
             ModelNode parentNode;
-            if (m_selectionContext.singleSelected() && !m_selectionContext.currentSingleSelectedNode().isRootNode()) {
+            if (m_selectionContext.singleNodeIsSelected() && !m_selectionContext.currentSingleSelectedNode().isRootNode()) {
                 ActionTemplate *selectionAction = new ActionTemplate(QString(), &ModelNodeOperations::select);
                 selectionAction->setParent(m_menu.data());
 
@@ -282,7 +282,7 @@ public:
 
                 m_menu->addAction(selectionAction);
             }
-            foreach (const ModelNode &node, m_selectionContext.view()->allModelNodes()) {
+            foreach (const ModelNode &node, m_selectionContext.qmlModelView()->allModelNodes()) {
                 if (node != m_selectionContext.currentSingleSelectedNode()
                         && node != parentNode
                         && contains(node, m_selectionContext.scenePos())
@@ -309,7 +309,7 @@ using namespace SelectionContextFunctors;
 
 bool multiSelection(const SelectionContext &context)
 {
-    return !singleSelection(context);
+    return !singleSelection(context) && selectionNotEmpty(context);
 }
 
 bool singleSelectionAndInBaseState(const SelectionContext &context)
@@ -362,7 +362,7 @@ void DesignerActionManager::createDefaultDesignerActions()
 
     addDesignerAction(new SelectionModelNodeAction(selectionCategoryDisplayName, selectionCategory, prioritySelectionCategory));
 
-    addDesignerAction(new MenuDesignerAction(stackCategoryDisplayName, stackCategory, priorityStackCategory, &always));
+    addDesignerAction(new MenuDesignerAction(stackCategoryDisplayName, stackCategory, priorityStackCategory, &selectionNotEmpty));
         addDesignerAction(new ModelNodeAction
                    (toFrontDisplayName, stackCategory, 200, &toFront, &singleSelection));
         addDesignerAction(new ModelNodeAction
@@ -434,6 +434,11 @@ QList<AbstractDesignerAction* > DesignerActionManager::factoriesInternal() const
 
 DesignerActionManager::DesignerActionManager() : m_view(new Internal::DesignerActionManagerView)
 {
+}
+
+DesignerActionManager::~DesignerActionManager()
+{
+    delete m_view;
 }
 
 } //QmlDesigner
