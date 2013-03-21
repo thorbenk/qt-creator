@@ -215,7 +215,7 @@ public:
 
         return new ClangCodeModel::ClangCompletionAssistInterface(
                     m_clangCompletionWrapper,
-                    document, position, editor()->document(), reason,
+                    document, position, editor()->document()->fileName(), reason,
                     options, includePaths, frameworkPaths, pchInfo);
     }
 
@@ -551,17 +551,16 @@ bool ClangCompletionAssistInterface::objcEnabled() const
     return m_clangWrapper->objcEnabled();
 }
 
-ClangCompletionAssistInterface::ClangCompletionAssistInterface(
-        ClangCompleter::Ptr clangWrapper,
+ClangCompletionAssistInterface::ClangCompletionAssistInterface(ClangCompleter::Ptr clangWrapper,
         QTextDocument *document,
         int position,
-        Core::IDocument *doc,
+        const QString &fileName,
         AssistReason reason,
         const QStringList &options,
         const QStringList &includePaths,
         const QStringList &frameworkPaths,
         const PCHInfo::Ptr &pchInfo)
-    : DefaultAssistInterface(document, position, doc, reason)
+    : DefaultAssistInterface(document, position, fileName, reason)
     , m_clangWrapper(clangWrapper)
     , m_options(options)
     , m_includePaths(includePaths)
@@ -652,8 +651,7 @@ int ClangCompletionAssistProcessor::startCompletionHelper()
     while (m_interface->characterAt(endOfOperator - 1).isSpace())
         --endOfOperator;
 
-    const Core::IDocument *file = m_interface->document();
-    const QString fileName = file->fileName();
+    const QString fileName = m_interface->fileName();
 
     int endOfExpression = startOfOperator(endOfOperator,
                                           &m_model->m_completionOperator,
@@ -1145,7 +1143,7 @@ bool ClangCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
 
     // Make completion for all relevant includes
     QStringList includePaths = m_interface->includePaths();
-    const QString &currentFilePath = QFileInfo(m_interface->document()->fileName()).path();
+    const QString &currentFilePath = QFileInfo(m_interface->fileName()).path();
     if (!includePaths.contains(currentFilePath))
         includePaths.append(currentFilePath);
 

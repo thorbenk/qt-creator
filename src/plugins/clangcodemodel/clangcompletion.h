@@ -64,7 +64,7 @@ public:
     ClangCompletionAssistInterface(ClangCodeModel::ClangCompleter::Ptr clangWrapper,
                                    QTextDocument *document,
                                    int position,
-                                   Core::IDocument *doc,
+                                   const QString &fileName,
                                    TextEditor::AssistReason reason,
                                    const QStringList &options,
                                    const QStringList &includePaths,
