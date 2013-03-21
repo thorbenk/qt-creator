@@ -58,13 +58,6 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager)
     _updateDocumentTimer->setSingleShot(true);
     _updateDocumentTimer->setInterval(_updateDocumentInterval);
     connect(_updateDocumentTimer, SIGNAL(timeout()), this, SLOT(updateDocumentNow()));
-
-#ifdef CLANG_INDEXING
-    // Testing clang... See note in header.
-    m_evaluateFileTimer->setSingleShot(true);
-    m_evaluateFileTimer->setInterval(_updateDocumentInterval);
-    connect(m_evaluateFileTimer, SIGNAL(timeout()), this, SLOT(evaluateFileNow()));
-#endif // CLANG_INDEXING
 }
 
 CppEditorSupport::~CppEditorSupport()
@@ -82,12 +75,6 @@ void CppEditorSupport::setTextEditor(TextEditor::ITextEditor *textEditor)
         connect(this, SIGNAL(contentsChanged()), this, SLOT(updateDocument()));
 
         updateDocument();
-
-#ifdef CLANG_INDEXING
-        // Testing clang... See note in header.
-        connect(_textEditor, SIGNAL(contentsChanged()), this, SLOT(evaluateFile()));
-        evaluateFile();
-#endif
     }
 }
 
@@ -140,23 +127,3 @@ void CppEditorSupport::updateDocumentNow()
     }
 }
 
-#ifdef CLANG_INDEXING
-// Testing clang... See note in header.
-void CppEditorSupport::evaluateFile()
-{
-    m_fileRevision = editorRevision();
-    m_evaluateFileTimer->start(_updateDocumentInterval);
-}
-
-void CppEditorSupport::evaluateFileNow()
-{
-    if (_modelManager->indexer()->isBusy() || m_fileRevision != editorRevision()) {
-        m_evaluateFileTimer->start(_updateDocumentInterval);
-    } else {
-        m_evaluateFileTimer->stop();
-
-        // @TODO: Treat unsaved file...
-        _modelManager->refreshSourceFile_Clang(_textEditor->file()->fileName());
-    }
-}
-#endif // CLANG_INDEXING

@@ -56,10 +56,6 @@
 #include <cplusplus/BackwardsScanner.h>
 #include <cplusplus/FastPreprocessor.h>
 
-#ifdef CLANG_INDEXING
-#  include <clangwrapper/sourcelocation.h>
-#endif // CLANG_INDEXING
-
 #include <cpptools/cpptoolsplugin.h>
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/cppchecksymbols.h>
@@ -70,7 +66,6 @@
 #include <cpptools/cppqtstyleindenter.h>
 #include <cpptools/cppcodestylesettings.h>
 #include <cpptools/cpprefactoringchanges.h>
-#include <cpptools/cppmodelmanager.h>
 #include <cpptools/cpptoolsreuse.h>
 #include <cpptools/doxygengenerator.h>
 #include <cpptools/cpptoolssettings.h>
@@ -1108,13 +1103,7 @@ void CPPEditorWidget::onContentsChanged(int position, int charsRemoved, int char
 }
 
 void CPPEditorWidget::updateFileName()
-{
-#ifdef CLANG_INDEXING
-    CppTools::Internal::CppModelManager *manager =
-            static_cast<CppTools::Internal::CppModelManager *>(CppModelManagerInterface::instance());
-    m_codeNavigator.setup(file()->fileName(), manager->indexer());
-#endif // CLANG_INDEXING
-}
+{}
 
 void CPPEditorWidget::jumpToOutlineElement(int index)
 {
@@ -1295,6 +1284,7 @@ void CPPEditorWidget::finishHighlightSymbolUsages()
                                             CPlusPlus::CppModelManagerInterface::CppSemanticsDiagnostic,
                                             m_lastSemanticInfo.doc->diagnosticMessages());
 }
+
 
 void CPPEditorWidget::switchDeclarationDefinition(bool inNextSplit)
 {
@@ -2159,7 +2149,15 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
                 }
             }
         }
+
+#if 0 // ### TODO: enable objc semantic highlighting
+        setExtraSelections(ObjCSelection, createSelections(document(),
+                                                           semanticInfo.objcKeywords,
+                                                           m_keywordFormat));
+#endif
     }
+
+
 
     setExtraSelections(UnusedSymbolSelection, unusedSelections);
 
@@ -2358,7 +2356,7 @@ SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
 
     m_mutex.lock();
     if (! source.force
-            && m_lastSemanticInfo.revision == ((unsigned)(source.revision))
+            && m_lastSemanticInfo.revision == source.revision
             && m_lastSemanticInfo.doc
             && m_lastSemanticInfo.doc->translationUnit()->ast()
             && m_lastSemanticInfo.doc->fileName() == source.fileName) {
@@ -2375,6 +2373,13 @@ SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
             doc->control()->setTopLevelDeclarationProcessor(this);
             doc->check();
             semanticInfo.doc = doc;
+
+#if 0
+            if (TranslationUnit *unit = doc->translationUnit()) {
+                FindObjCKeywords findObjCKeywords(unit); // ### remove me
+                objcKeywords = findObjCKeywords();
+            }
+#endif
         }
     }
 

@@ -34,8 +34,6 @@
 
 #include <texteditor/codeassist/assistenums.h>
 
-#include <QObject>
-
 QT_BEGIN_NAMESPACE
 class QTextDocument;
 QT_END_NAMESPACE
@@ -65,8 +63,6 @@ public:
 protected:
     TextEditor::ITextEditor *editor() const
     { return m_editor; }
-
-    void setUseClang(bool useClang);
 
 private:
     TextEditor::ITextEditor *m_editor;

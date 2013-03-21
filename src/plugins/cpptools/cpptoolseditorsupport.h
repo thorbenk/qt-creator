@@ -82,11 +82,6 @@ private Q_SLOTS:
     void updateDocument();
     void updateDocumentNow();
 
-#ifdef CLANG_INDEXING
-    void evaluateFile();
-    void evaluateFileNow();
-#endif // CLANG_INDEXING
-
 private:
     enum { UPDATE_DOCUMENT_DEFAULT_INTERVAL = 150 };
 

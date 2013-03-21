@@ -1194,6 +1194,7 @@ void CppModelManager::updateEditorSelections()
     }
 
     m_todo.clear();
+
 }
 
 void CppModelManager::onProjectAdded(ProjectExplorer::Project *)

@@ -391,7 +391,6 @@ bool CMakeProject::parseCMakeLists()
             m_codeModelFuture = modelmanager->updateSourceFiles(m_files);
         }
     }
-
     emit buildTargetsChanged();
     emit fileListChanged();
 

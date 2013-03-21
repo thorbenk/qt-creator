@@ -253,6 +253,7 @@ void CppHighlighter::highlightBlock(const QString &text)
     setCurrentBlockState((braceDepth << 8) | tokenize.state());
 }
 
+
 bool CppHighlighter::isPPKeyword(const QStringRef &text) const
 {
     switch (text.length())

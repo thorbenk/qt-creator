@@ -33,11 +33,6 @@
 #include "cppeditorenums.h"
 #include "cppfunctiondecldeflink.h"
 
-#ifdef CLANG_INDEXING
-#  include <clangwrapper/sourcemarker.h>
-#  include <clangwrapper/codenavigator.h>
-#endif // CLANG_INDEXING
-
 #include <cpptools/ModelManagerInterface.h>
 #include <cplusplus/CppDocument.h>
 #include <cplusplus/LookupContext.h>
@@ -264,7 +259,6 @@ private Q_SLOTS:
 private:
     void markSymbols(const QTextCursor &tc, const CppTools::SemanticInfo &info);
     bool sortedOutline() const;
-    void codeNavigate(bool jump);
     CPlusPlus::Symbol *findDefinition(CPlusPlus::Symbol *symbol, const CPlusPlus::Snapshot &snapshot) const;
 
     TextEditor::ITextEditor *openCppEditorAt(const QString &fileName, int line,
@@ -339,10 +333,6 @@ private:
 
     FunctionDeclDefLinkFinder *m_declDefLinkFinder;
     QSharedPointer<FunctionDeclDefLink> m_declDefLink;
-
-#ifdef CLANG_INDEXING
-    ClangCodeModel::CodeNavigator m_codeNavigator;
-#endif // CLANG_INDEXING
 
     CppTools::CommentsSettings m_commentsSettings;
 

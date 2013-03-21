@@ -32,7 +32,6 @@
 
 #include "cpptools_global.h"
 #include "cpptoolsconstants.h"
-
 #include "ModelManagerInterface.h"
 #include <projectexplorer/project.h>
 #include <cplusplus/CppDocument.h>
@@ -101,8 +100,6 @@ public:
     virtual Document::Ptr document(const QString &fileName) const;
     bool replaceDocument(Document::Ptr newDoc);
     virtual void GC();
-
-    QFuture<void> refreshSourceFiles(const QStringList &sourceFiles);
 
     virtual bool isCppEditor(Core::IEditor *editor) const;
 

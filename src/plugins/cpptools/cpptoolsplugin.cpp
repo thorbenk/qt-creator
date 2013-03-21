@@ -31,7 +31,6 @@
 #include "completionsettingspage.h"
 #include "cppfilesettingspage.h"
 #include "cppcodestylesettingspage.h"
-#include "cppcompletionassist.h"
 #include "cppclassesfilter.h"
 #include "cppfunctionsfilter.h"
 #include "cppcurrentdocumentfilter.h"
