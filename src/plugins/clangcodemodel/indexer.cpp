@@ -524,10 +524,10 @@ protected:
         switch (s->kind) {
         case CXCursor_EnumDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
         case CXCursor_StructDecl:
-        case CXCursor_ClassDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
+        case CXCursor_ClassDecl: sym.m_kind = ClangCodeModel::Symbol::Class; break;
         case CXCursor_CXXMethod: sym.m_kind = ClangCodeModel::Symbol::Method; break;
         case CXCursor_FunctionTemplate:
-        case CXCursor_FunctionDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
+        case CXCursor_FunctionDecl: sym.m_kind = ClangCodeModel::Symbol::Function; break;
         case CXCursor_DeclStmt: sym.m_kind = ClangCodeModel::Symbol::Declaration; break;
         case CXCursor_Constructor: sym.m_kind = ClangCodeModel::Symbol::Constructor; break;
         case CXCursor_Destructor: sym.m_kind = ClangCodeModel::Symbol::Destructor; break;
