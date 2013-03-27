@@ -27,64 +27,68 @@
 **
 ****************************************************************************/
 
-#ifndef WINRT_INTERNAL_WINRTSELECTAPPDIALOG_H
-#define WINRT_INTERNAL_WINRTSELECTAPPDIALOG_H
+#ifndef WINRT_INTERNAL_PACKAGEMANAGER_H
+#define WINRT_INTERNAL_PACKAGEMANAGER_H
 
-#include <QDialog>
-
-QT_BEGIN_NAMESPACE
-class QModelIndex;
-class QPushButton;
-class QSortFilterProxyModel;
-QT_END_NAMESPACE
+#include <QObject>
+#include <QString>
+#include <QSharedPointer>
+#include <QMetaType>
 
 namespace WinRt {
 namespace Internal {
-class PackageManager;
-namespace Ui {
-class WinRtSelectAppDialog;
-}
+class PackageManagerPrivate;
 
-class WinRtRunConfigurationModel;
+class WinRtPackage
+{
+public:
+    QString name;
+    QString fullName;
+    QString familyName;
+    QString publisher;
+    QString publisherId;
+    QString path;
+    QString version;
+};
 
-class WinRtSelectAppDialog : public QDialog
+typedef QSharedPointer<WinRtPackage> WinRtPackagePtr;
+
+
+class PackageManager : public QObject
 {
     Q_OBJECT
-
 public:
-    explicit WinRtSelectAppDialog(QWidget *parent = 0);
-    ~WinRtSelectAppDialog();
+    enum AddPackageFlags {
+        None = 0,
+        DevelopmentMode = 0x1
+    };
 
-    QString appId() const;
+    explicit PackageManager(QObject *parent = 0);
+    ~PackageManager();
 
-    void done(int);
+    QList<WinRtPackagePtr> listPackages() const;
 
-protected:
-    void contextMenuEvent(QContextMenuEvent *);
+    bool startAddPackage(const QString &manifestFile, AddPackageFlags flags,
+                         QString *errorMessage);
+    bool startRemovePackage(const QString &fullName, QString *errorMessage);
 
-private slots:
-    void currentIndexChanged();
-    void refresh();
+    bool operationInProgress() const;
+
+signals:
     void packageAdded(const QString &manifestFile);
     void packageAddFailed(const QString &manifestFile, const QString &message);
     void packageRemoved(const QString &fullName);
     void packageRemovalFailed(const QString &fullName, const QString &message);
-    void addPackage();
 
 private:
-    void adjustColumns();
-    QString appIdForIndex(const QModelIndex &filterIndex) const;
+    friend class PackageManagerPrivate;
 
-    Ui::WinRtSelectAppDialog *m_ui;
-    QPushButton *m_selectButton;
-    QPushButton *m_refreshButton;
-    QPushButton *m_addButton;
-    WinRtRunConfigurationModel *m_model;
-    QSortFilterProxyModel *m_filterModel;
-    PackageManager *m_packageManager;
+    PackageManagerPrivate *d;
 };
 
 } // namespace Internal
 } // namespace WinRt
 
-#endif // WINRT_INTERNAL_WINRTSELECTAPPDIALOG_H
+Q_DECLARE_METATYPE(WinRt::Internal::WinRtPackagePtr)
+
+#endif // WINRT_INTERNAL_PACKAGEMANAGER_H

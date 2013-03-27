@@ -29,6 +29,7 @@
 
 #include "winrtselectappdialog.h"
 #include "winrtrunconfigurationmodel.h"
+#include "packagemanager.h"
 #include "ui_winrtselectappdialog.h"
 
 #include <coreplugin/editormanager/editormanager.h>
@@ -40,7 +41,11 @@
 #include <QContextMenuEvent>
 #include <QApplication>
 #include <QClipboard>
+#include <QMessageBox>
+#include <QFileDialog>
 #include <QDir>
+#include <QApplication>
+#include <QCursor>
 
 namespace WinRt {
 namespace Internal {
@@ -50,7 +55,17 @@ WinRtSelectAppDialog::WinRtSelectAppDialog(QWidget *parent)
     , m_ui(new Ui::WinRtSelectAppDialog)
     , m_model(new WinRtRunConfigurationModel(this))
     , m_filterModel(new QSortFilterProxyModel(this))
+    , m_packageManager(new PackageManager)
 {
+    connect(m_packageManager, SIGNAL(packageRemoved(QString)),
+            this, SLOT(packageRemoved(QString)));
+    connect(m_packageManager, SIGNAL(packageRemovalFailed(QString,QString)),
+            this, SLOT(packageRemovalFailed(QString,QString)));
+    connect(m_packageManager, SIGNAL(packageAdded(QString)),
+            this, SLOT(packageAdded(QString)));
+    connect(m_packageManager, SIGNAL(packageAddFailed(QString,QString)),
+            this, SLOT(packageAddFailed(QString,QString)));
+
     m_ui->setupUi(this);
     m_ui->table->setUniformRowHeights(true);
     m_ui->table->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -77,6 +92,9 @@ WinRtSelectAppDialog::WinRtSelectAppDialog(QWidget *parent)
     connect(m_ui->table, SIGNAL(activated(QModelIndex)),
             m_selectButton, SLOT(animateClick()));
 
+    m_addButton = m_ui->buttonBox->addButton(tr("Add..."), QDialogButtonBox::ActionRole);
+    connect(m_addButton, SIGNAL(clicked()), this, SLOT(addPackage()));
+
     refresh();
 }
 
@@ -90,6 +108,7 @@ void WinRtSelectAppDialog::adjustColumns()
 WinRtSelectAppDialog::~WinRtSelectAppDialog()
 {
     delete m_ui;
+    delete m_packageManager;
 }
 
 void WinRtSelectAppDialog::currentIndexChanged()
@@ -99,7 +118,7 @@ void WinRtSelectAppDialog::currentIndexChanged()
 
 void WinRtSelectAppDialog::refresh()
 {
-    m_model->setPackages(listPackages());
+    m_model->setPackages(m_packageManager->listPackages());
     m_filterModel->sort(WinRtRunConfigurationModel::Name);
     adjustColumns();
 }
@@ -118,6 +137,45 @@ QString WinRtSelectAppDialog::appId() const
     return appIdForIndex(m_ui->table->currentIndex());
 }
 
+void WinRtSelectAppDialog::done(int r)
+{
+    if (!m_packageManager->operationInProgress())
+        QDialog::done(r);
+}
+
+void WinRtSelectAppDialog::addPackage()
+{
+    const QString manifestFile =
+        QFileDialog::getOpenFileName(this, tr("Select Manifest"),
+                                     QString(), tr("Manifest files (*.xml)"));
+    if (manifestFile.isEmpty())
+        return;
+    QString errorMessage;
+    if (m_packageManager->startAddPackage(manifestFile,
+                                          PackageManager::DevelopmentMode,
+                                          &errorMessage)) {
+        QApplication::setOverrideCursor(Qt::BusyCursor);
+        setEnabled(false);
+    } else {
+        QMessageBox::warning(this, tr("Failed to Start Adding Package"),
+                             errorMessage);
+    }
+}
+
+void WinRtSelectAppDialog::packageAdded(const QString &)
+{
+    setEnabled(true);
+    QApplication::restoreOverrideCursor();
+    refresh();
+}
+
+void WinRtSelectAppDialog::packageAddFailed(const QString &manifestFile, const QString &message)
+{
+    setEnabled(true);
+    QApplication::restoreOverrideCursor();
+    QMessageBox::warning(this, tr("Error Adding \"%1\"").arg(manifestFile), message);
+}
+
 void WinRtSelectAppDialog::contextMenuEvent(QContextMenuEvent *e)
 {
     const QModelIndex filterIndex = m_ui->table->currentIndex();
@@ -129,14 +187,43 @@ void WinRtSelectAppDialog::contextMenuEvent(QContextMenuEvent *e)
 
     QMenu menu;
     QAction *copyPathAction = menu.addAction(tr("Copy Path"));
+    QAction *copyNameAction = menu.addAction(tr("Copy Name"));
     QAction *editManifestAction = menu.addAction(tr("Open Manifest"));
+    QAction *unregisterAction = menu.addAction(tr("Remove..."));
     QAction *a = menu.exec(mapToGlobal(e->pos()));
     if (a == copyPathAction) {
-        qApp->clipboard()->setText(QDir::toNativeSeparators(package->path));
-        return;
+        QApplication::clipboard()->setText(QDir::toNativeSeparators(package->path));
+    } else if (a == copyNameAction) {
+        QApplication::clipboard()->setText(package->fullName);
     } else if (a == editManifestAction) {
         Core::EditorManager::instance()->openEditor(package->path);
+    } else if (a == unregisterAction) {
+        const QString question = tr("Would you like to remove the package \"%1\"?").arg(package->fullName);
+        if (QMessageBox::question(this, tr("Remove Package"), question, QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+            return;
+        QString errorMessage;
+        if (m_packageManager->startRemovePackage(package->fullName, &errorMessage)) {
+            QApplication::setOverrideCursor(Qt::BusyCursor);
+            setEnabled(false);
+        } else {
+            QMessageBox::warning(this, tr("Failed to Start Package Removal"),
+                                 errorMessage);
+        }
     }
+}
+
+void WinRtSelectAppDialog::packageRemovalFailed(const QString &fullName, const QString &message)
+{
+    setEnabled(true);
+    QApplication::restoreOverrideCursor();
+    QMessageBox::warning(this, tr("Error Removing \"%1\"").arg(fullName), message);
+}
+
+void WinRtSelectAppDialog::packageRemoved(const QString & /* fullName */)
+{
+    setEnabled(true);
+    QApplication::restoreOverrideCursor();
+    refresh();
 }
 
 } // namespace Internal

@@ -9,7 +9,8 @@ HEADERS += \
     winrtrunconfigurationmodel.h \
     winrtutils.h \
     winrtselectappdialog.h \
-    winrtdebugsupport.h
+    winrtdebugsupport.h \
+    packagemanager.h
 
 SOURCES += \
     winrtplugin.cpp \
@@ -19,7 +20,9 @@ SOURCES += \
     winrtrunconfigurationwidget.cpp \
     winrtrunconfigurationmodel.cpp \
     winrtselectappdialog.cpp \
-    winrtdebugsupport.cpp
+    winrtdebugsupport.cpp \
+    packagemanager.cpp \
+    winrtutils.cpp
 
 # #fixme: Remove once Qt Creator introduces C++11
 *g++*:QMAKE_CXXFLAGS +=-std=c++0x

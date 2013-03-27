@@ -29,157 +29,17 @@
 
 #include "winrtrunconfigurationmodel.h"
 #include "winrtutils.h"
+#include "packagemanager.h"
 
 #include <QFileInfo>
 #include <QDir>
 #include <QTextStream>
 #include <QScopedArrayPointer>
 
-#if defined(_MSC_VER) && _MSC_VER >= 1700
-
-#  include <wrl.h>
-#  include <windows.management.deployment.h>
-#  include <Windows.ApplicationModel.h>
-#  include <windows.foundation.collections.h>
-#  include <windows.system.userprofile.h>
-#  include <sddl.h>
-
-using namespace ABI::Windows;
-using namespace ABI::Windows::ApplicationModel;
-using namespace ABI::Windows::Storage;
-using namespace ABI::Windows::Foundation::Collections;
-using namespace ABI::Windows::Management::Deployment;
-
-#endif // defined(_MSC_VER) && _MSC_VER >= 1700
-
 enum { WinRtPackagePtrRole = Qt::UserRole + 1 };
 
 namespace WinRt {
 namespace Internal {
-
-#if defined(_MSC_VER) && _MSC_VER >= 1700
-
-// Get security ID string.
-
-static WCHAR *sidString()
-{
-    HANDLE token;
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
-        qErrnoWarning("OpenProcessToken() failed.");
-        return 0;
-    }
-    DWORD tokenSize = 0; // Determine size.
-    if (!GetTokenInformation(token, TokenUser, NULL, 0, &tokenSize)
-        && GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-        CloseHandle(token);
-        qErrnoWarning("GetTokenInformation() failed.");
-        return 0;
-    }
-    QScopedArrayPointer<char> tokenUserData(new char[tokenSize]);
-    PTOKEN_USER tokenUser = reinterpret_cast<PTOKEN_USER>(tokenUserData.data());
-    if (!GetTokenInformation(token, TokenUser, tokenUser, tokenSize, &tokenSize)) {
-        CloseHandle(token);
-        qErrnoWarning("GetTokenInformation() failed.");
-        return 0;
-    }
-    CloseHandle(token);
-
-    WCHAR *sidStr;
-    if (!ConvertSidToStringSid(tokenUser->User.Sid, &sidStr)) {
-        qErrnoWarning("ConvertSidToStringSid() failed.");
-        return 0;
-    }
-    return sidStr;
-}
-
-static inline QList<WinRtPackagePtr> readPackages(IPackageManager *manager, const HSTRING &sid)
-{
-    QList<WinRtPackagePtr> packages;
-    IIterable<Package*> *appxPackages;
-    if (FAILED(manager->FindPackagesByUserSecurityId(sid, &appxPackages))) {
-        qWarning("IPackageManager::FindPackagesByUserSecurityId() failed.");
-        return packages;
-    }
-    IIterator<Package*> *it;
-    appxPackages->First(&it);
-    boolean hasCurrent;
-    it->get_HasCurrent(&hasCurrent);
-    while (hasCurrent) {
-        WinRtPackagePtr package(new WinRtPackage);
-        IPackage *appxPackage;
-        it->get_Current(&appxPackage);
-
-        IPackageId *packageId;
-        appxPackage->get_Id(&packageId);
-        HSTRING publisher;
-        packageId->get_Publisher(&publisher);
-        package->publisher = QString::fromWCharArray(WindowsGetStringRawBuffer(publisher, nullptr));
-        HSTRING publisherId;
-        packageId->get_PublisherId(&publisherId);
-        package->publisherId = QString::fromWCharArray(WindowsGetStringRawBuffer(publisherId, nullptr));
-        HSTRING name;
-        packageId->get_Name(&name);
-        package->name = QString::fromWCharArray(WindowsGetStringRawBuffer(name, nullptr));
-        HSTRING fullName;
-        packageId->get_FullName(&fullName);
-        package->fullName = QString::fromWCharArray(WindowsGetStringRawBuffer(fullName, nullptr));
-
-        ABI::Windows::ApplicationModel::PackageVersion version;
-        packageId->get_Version(&version);
-        package->version = QString::number(version.Major)
-            + QLatin1Char('.') + QString::number(version.Minor);
-
-        HSTRING familyName;
-        packageId->get_FamilyName(&familyName);
-        package->familyName = QString::fromWCharArray(WindowsGetStringRawBuffer(familyName, nullptr));
-        qDeleteRt(packageId);
-
-        IStorageFolder *storageFolder;
-        appxPackage->get_InstalledLocation(&storageFolder);
-        IStorageItem *storageItem;
-        if (SUCCEEDED(storageFolder->QueryInterface(&storageItem))) {
-            HSTRING folderPath;
-            storageItem->get_Path(&folderPath);
-            QFileInfo pathInfo(QString::fromWCharArray(WindowsGetStringRawBuffer(folderPath,nullptr)));
-            package->path = pathInfo.canonicalFilePath().append(QLatin1String("/AppxManifest.xml"));
-            qDeleteRt(storageItem);
-        }
-        qDeleteRt(storageFolder);
-
-        packages.append(package);
-        it->MoveNext(&hasCurrent);
-    }
-    qDeleteRt(appxPackages);
-    return packages;
-}
-
-QList<WinRtPackagePtr> listPackages()
-{
-    QList<WinRtPackagePtr> result;
-
-    WCHAR *sidStr = sidString();
-    if (!sidStr)
-        return result;
-
-    HSTRING sid;
-    HSTRING_HEADER sidHeader;
-    WindowsCreateStringReference(sidStr, lstrlen(sidStr), &sidHeader, &sid);
-    IPackageManager *manager = qNewRt<IPackageManager>(RuntimeClass_Windows_Management_Deployment_PackageManager);
-    result = readPackages(manager, sid);
-    LocalFree(sidStr);
-    qDeleteRt(manager);
-    return result;
-}
-
-#else // #if defined(_MSC_VER) && _MSC_VER >= 1700
-
-QList<WinRtPackagePtr> listPackages()
-{
-    return QList<WinRtPackagePtr>();
-}
-
-#endif // !_MSC_VER
-
 
 WinRtRunConfigurationModel::WinRtRunConfigurationModel(QObject *parent)
     : QStandardItemModel(0, ColumnCount, parent)

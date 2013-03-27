@@ -27,64 +27,43 @@
 **
 ****************************************************************************/
 
-#ifndef WINRT_INTERNAL_WINRTSELECTAPPDIALOG_H
-#define WINRT_INTERNAL_WINRTSELECTAPPDIALOG_H
+#include "winrtutils.h"
 
-#include <QDialog>
+#if defined(_MSC_VER) && _MSC_VER >= 1700
 
-QT_BEGIN_NAMESPACE
-class QModelIndex;
-class QPushButton;
-class QSortFilterProxyModel;
-QT_END_NAMESPACE
+# include <utils/winutils.h>
 
 namespace WinRt {
 namespace Internal {
-class PackageManager;
-namespace Ui {
-class WinRtSelectAppDialog;
-}
 
-class WinRtRunConfigurationModel;
-
-class WinRtSelectAppDialog : public QDialog
+QString comErrorString(HRESULT hr)
 {
-    Q_OBJECT
-
-public:
-    explicit WinRtSelectAppDialog(QWidget *parent = 0);
-    ~WinRtSelectAppDialog();
-
-    QString appId() const;
-
-    void done(int);
-
-protected:
-    void contextMenuEvent(QContextMenuEvent *);
-
-private slots:
-    void currentIndexChanged();
-    void refresh();
-    void packageAdded(const QString &manifestFile);
-    void packageAddFailed(const QString &manifestFile, const QString &message);
-    void packageRemoved(const QString &fullName);
-    void packageRemovalFailed(const QString &fullName, const QString &message);
-    void addPackage();
-
-private:
-    void adjustColumns();
-    QString appIdForIndex(const QModelIndex &filterIndex) const;
-
-    Ui::WinRtSelectAppDialog *m_ui;
-    QPushButton *m_selectButton;
-    QPushButton *m_refreshButton;
-    QPushButton *m_addButton;
-    WinRtRunConfigurationModel *m_model;
-    QSortFilterProxyModel *m_filterModel;
-    PackageManager *m_packageManager;
-};
+    switch (hr) {
+    case S_OK:
+        return QLatin1String("S_OK");
+    case S_FALSE:
+        return QLatin1String("S_FALSE");
+    case E_FAIL:
+        break;
+    case E_INVALIDARG:
+        return QLatin1String("E_INVALIDARG");
+    case E_NOINTERFACE:
+        return QLatin1String("E_NOINTERFACE");
+    case E_OUTOFMEMORY:
+        return QLatin1String("E_OUTOFMEMORY");
+    case E_UNEXPECTED:
+        return QLatin1String("E_UNEXPECTED");
+    case E_NOTIMPL:
+        return QLatin1String("E_NOTIMPL");
+    }
+    if (hr == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED))
+        return QLatin1String("ERROR_ACCESS_DENIED");;
+    if (hr == HRESULT_FROM_WIN32(STATUS_CONTROL_C_EXIT))
+        return QLatin1String("STATUS_CONTROL_C_EXIT");
+    return QLatin1String("E_FAIL ") + Utils::winErrorMessage(HRESULT_CODE(hr));
+}
 
 } // namespace Internal
 } // namespace WinRt
 
-#endif // WINRT_INTERNAL_WINRTSELECTAPPDIALOG_H
+#endif // defined(_MSC_VER) && _MSC_VER >= 1700

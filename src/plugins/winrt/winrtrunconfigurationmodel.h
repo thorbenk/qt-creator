@@ -32,26 +32,11 @@
 
 #include <QStandardItemModel>
 #include <QSharedPointer>
-#include <QMetaType>
 
 namespace WinRt {
 namespace Internal {
 
-class WinRtPackage
-{
-public:
-    QString name;
-    QString fullName;
-    QString familyName;
-    QString publisher;
-    QString publisherId;
-    QString path;
-    QString version;
-};
-
-typedef QSharedPointer<WinRtPackage> WinRtPackagePtr;
-
-QList<WinRtPackagePtr> listPackages();
+class WinRtPackage;
 
 class WinRtRunConfigurationModel : public QStandardItemModel
 {
@@ -62,16 +47,14 @@ public:
 
     explicit WinRtRunConfigurationModel(QObject *parent);
 
-    WinRtPackagePtr packageAt(const QModelIndex &) const;
+    QSharedPointer<WinRtPackage> packageAt(const QModelIndex &) const;
 
-    static WinRtPackagePtr packageForItem(const QStandardItem *);
+    static QSharedPointer<WinRtPackage> packageForItem(const QStandardItem *);
 
-    void setPackages(const QList<WinRtPackagePtr> &packages);
+    void setPackages(const QList<QSharedPointer<WinRtPackage> > &packages);
 };
 
 } // namespace Internal
 } // namespace WinRt
-
-Q_DECLARE_METATYPE(WinRt::Internal::WinRtPackagePtr)
 
 #endif // WINRTRUNCONFIGURATIONMODEL_H

@@ -30,6 +30,8 @@
 #ifndef WINRTUTILS_H
 #define WINRTUTILS_H
 
+#include <QString>
+
 #if defined(_MSC_VER) && _MSC_VER >= 1700
 #  include <wrl.h>
 #  include <windows.management.deployment.h>
@@ -57,6 +59,47 @@ static inline void qDeleteRt(IUnknown *t)
 {
     t->Release();
 }
+
+static inline QString hStringToQString(HSTRING h)
+{ return QString::fromWCharArray(WindowsGetStringRawBuffer(h, nullptr)); }
+
+// Handle for "fast-pass" string.
+class HStringHandle {
+    HStringHandle(const HStringHandle &);
+    HStringHandle &operator=(const HStringHandle &);
+
+public:
+    explicit inline HStringHandle(const wchar_t *s) : m_buffer(s), m_owned(false)
+    {
+        WindowsCreateStringReference(m_buffer, lstrlen(s), &m_stringHeader, &m_string);
+    }
+
+    explicit inline HStringHandle(const QString &s) : m_buffer(HStringHandle::toWCharArray(s)), m_owned(true)
+    {
+        WindowsCreateStringReference(m_buffer, s.size(), &m_stringHeader, &m_string);
+    }
+
+    inline ~HStringHandle() { if (m_owned) delete [] m_buffer; }
+
+    operator HSTRING() const { return m_string; }
+
+private:
+    static inline wchar_t *toWCharArray(const QString &s)
+    {
+        const int size = s.size();
+        wchar_t * result = new wchar_t[size + 1];
+        s.toWCharArray(result);
+        result[size] = L'\0';
+        return result;
+    }
+
+    const wchar_t *m_buffer;
+    const bool m_owned;
+    HSTRING m_string;
+    HSTRING_HEADER m_stringHeader;
+};
+
+QString comErrorString(HRESULT hr);
 
 } // namespace Internal
 } // namespace WinRt
