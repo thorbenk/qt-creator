@@ -29,6 +29,7 @@
 
 #include "winrtdebugsupport.h"
 #include "winrtrunconfiguration.h"
+#include "winrtutils.h"
 
 #include <debugger/debuggerplugin.h>
 #include <debugger/debuggerstartparameters.h>
@@ -77,21 +78,23 @@ qint64 WinRtDebugSupport::startAppx(const QString &activationID, const QString &
 {
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     IApplicationActivationManager *launcher;
-    if (FAILED(CoCreateInstance(CLSID_ApplicationActivationManager, nullptr, CLSCTX_INPROC_SERVER,
-                                IID_IApplicationActivationManager,
-                                reinterpret_cast<void**>(&launcher)))) {
-        *errorMessage = tr("Could not instantiate the application launcher for WinRT debugging.");
+    HRESULT hr = CoCreateInstance(CLSID_ApplicationActivationManager, nullptr, CLSCTX_INPROC_SERVER,
+                                  IID_IApplicationActivationManager,
+                                  reinterpret_cast<void**>(&launcher));
+    if (FAILED(hr)) {
+        if (errorMessage)
+            *errorMessage = tr("Could not instantiate the application launcher for WinRT debugging: %1").arg(comErrorString(hr));
         CoUninitialize();
         return -1;
     }
     DWORD pid;
-    HRESULT hr = launcher->ActivateApplication(reinterpret_cast<LPCWSTR>(activationID.utf16()),
-                                               reinterpret_cast<LPCWSTR>(arguments.utf16()), AO_NONE, &pid);
+    hr = launcher->ActivateApplication(reinterpret_cast<LPCWSTR>(activationID.utf16()),
+                                       reinterpret_cast<LPCWSTR>(arguments.utf16()), AO_NONE, &pid);
     launcher->Release();
     CoUninitialize();
     if (FAILED(hr)) {
         if (errorMessage)
-            *errorMessage = tr("Unable to activate Appx: error 0x%1.\n").arg(HRESULT_CODE(hr), 0, 16);
+            *errorMessage = tr("Unable to activate Appx: %1\n").arg(comErrorString(hr));
         // Suggestions for common error codes...
         // 0x3 seems to get fixed with a re-register of the app
         return -1;
