@@ -42,5 +42,5 @@ int sqr(int a)
 
 void foo()
 {
-    @
+    <<<<
 }

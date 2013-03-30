@@ -27,18 +27,26 @@
 **
 ****************************************************************************/
 
-/*
- * Expected: 'sqr'
- * Not expected: '~Math', 'operator='s
- */
+// Expected:
+//   (List, List<$class Item$>),
+//   (Tuple, Tuple<$class First$, $class Second$, $typename Third$>)
 
-class Math
+template <class Item>
+class List
 {
-    int sqr(int a);
+    Item *data;
 };
 
-void foo()
+template <class First, class Second, typename Third>
+class Tuple
 {
-    Math math;
-    int sqr = math.<<<<;
+    First *data;
+    Second *data2;
+    Third *data3;
+};
+
+void check()
+{
+    <<<<
 }
+

@@ -54,7 +54,7 @@ int main()
     C<A> ca;
     C<B> cb;
     ca.inner.doA();
-    cb.inner.@;
+    cb.inner.<<<<;
 
     return 0;
 }

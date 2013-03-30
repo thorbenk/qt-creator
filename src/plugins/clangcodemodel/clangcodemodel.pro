@@ -111,7 +111,12 @@ equals(TEST, 1) {
         $$PWD/test/cxx_regression_8.cpp \
         $$PWD/test/cxx_regression_9.cpp \
         $$PWD/test/cxx_snippets_1.cpp \
-        $$PWD/test/cxx_snippets_2.cpp
+        $$PWD/test/cxx_snippets_2.cpp \
+        $$PWD/test/cxx_snippets_3.cpp \
+        test/cxx_snippets_4.cpp \
+        test/objc_messages_1.mm \
+        test/objc_messages_2.mm \
+        test/objc_messages_3.mm
 }
 
 FORMS += $$PWD/clangprojectsettingspropertiespage.ui

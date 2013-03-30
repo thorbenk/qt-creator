@@ -46,5 +46,5 @@ typedef struct {
 void foo()
 {
     S1 s;
-    s.@;
+    s.<<<<;
 }

@@ -49,6 +49,6 @@ int main()
     switch (scoped) {
     default:
         break;
-    case @
+    case <<<<
     }
 }

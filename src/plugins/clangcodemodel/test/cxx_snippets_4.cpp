@@ -27,18 +27,34 @@
 **
 ****************************************************************************/
 
-/*
- * Expected: 'sqr'
- * Not expected: '~Math', 'operator='s
- */
+// Expected:
+//   (clamp, ),
+//   (perform, perform<$class T$>)
+//   (perform3, perform3<$class T$, $int E$, $class D$>)
 
-class Math
-{
-    int sqr(int a);
-};
+// note: clang understands if parameter is redundant
 
-void foo()
+template<class T>
+T clamp(T value, T a = 0.0, T b = 1.0)
 {
-    Math math;
-    int sqr = math.<<<<;
+    if (value < a)
+        return a;
+    if (value > b)
+        return b;
+    return value;
+}
+
+template<class T>
+void perform()
+{
+}
+
+template<class T, int E, class D>
+void perform3()
+{
+}
+
+void check()
+{
+    <<<<
 }

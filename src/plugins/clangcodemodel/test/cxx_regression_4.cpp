@@ -37,5 +37,5 @@ void func()
     {
         static void action() {}
     };
-    impl::@;
+    impl::<<<<;
 }

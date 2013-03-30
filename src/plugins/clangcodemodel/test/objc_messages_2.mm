@@ -27,18 +27,16 @@
 **
 ****************************************************************************/
 
-/*
- * Expected: 'sqr'
- * Not expected: '~Math', 'operator='s
- */
-
-class Math
-{
-    int sqr(int a);
-};
-
-void foo()
-{
-    Math math;
-    int sqr = math.<<<<;
+@interface PopCornTracker {
+    int _quality;
+    int _eatenAmount;
+    int _remainedAmount;
 }
++ (int) eatenAmount;
+- (int) spectacleQuality;
++ (int) desiredAmountForDramaDose: (int)dose andPersonsCount: (int) count;
+@end
+
+@implementation PopCornTracker
++ <<<<
+@end

@@ -27,18 +27,28 @@
 **
 ****************************************************************************/
 
-/*
- * Expected: 'sqr'
- * Not expected: '~Math', 'operator='s
- */
+@protocol Aaaa
+@end
 
-class Math
-{
-    int sqr(int a);
-};
+@interface Bbbb
+@end
 
-void foo()
-{
-    Math math;
-    int sqr = math.<<<<;
+@interface PopCornTracker {
+    int _quality;
+    int _eatenAmount;
+    int _remainedAmount;
 }
+- (int) eatenAmount;
+- (int) spectacleQuality;
+- (int) desiredAmountForDramaDose: (int)dose andPersonsCount: (int) count;
++ (id) createNewTracker;
++ (id) createOldTracker:(Bbbb<Aaaa> *) aabb;
+- (id) initWithOldTracker:(Bbbb<Aaaa> *) aabb;
+@end
+
+@interface AdvancedPopCornTracker : PopCornTracker {
+}
+
+- <<<<
+
+@end

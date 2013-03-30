@@ -43,5 +43,5 @@ template <class T> class Other : public T
 void func()
 {
     Other<Data> c;
-    c.@;
+    c.<<<<;
 }

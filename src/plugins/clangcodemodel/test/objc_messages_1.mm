@@ -28,17 +28,30 @@
 ****************************************************************************/
 
 /*
- * Expected: 'sqr'
- * Not expected: '~Math', 'operator='s
+ * Expected texts:
+ *      eatenAmount
+ *      spectacleQuality:
+ *      desiredAmountForDramaDose:andPersonsCount:
+ *
+ * Expected hints:
+ *      -(int) eatenAmount
+ *
+ *      -(int) spectacleQuality:(bool)unused
  */
 
-class Math
-{
-    int sqr(int a);
-};
-
-void foo()
-{
-    Math math;
-    int sqr = math.<<<<;
+@interface PopCornTracker {
+    int _quality;
+    int _eatenAmount;
+    int _remainedAmount;
 }
++ (int) eatenAmount;
+- (int) spectacleQuality : (bool)unused;
+- (int) desiredAmountForDramaDose: (int)dose andPersonsCount: (int) count;
+@end
+
+@implementation PopCornTracker
+- (int) desiredAmountForDramaDose: (int)dose andPersonsCount: (int) count
+{
+    [self <<<<];
+}
+@end

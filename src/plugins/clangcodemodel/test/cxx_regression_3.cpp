@@ -55,7 +55,7 @@ public:
 Example::Example()
     : d(new Example::Priv())
 {
-    d->@;
+    d-><<<<;
 }
 
 Example::~Example()

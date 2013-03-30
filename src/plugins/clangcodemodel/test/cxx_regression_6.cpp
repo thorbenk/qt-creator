@@ -45,6 +45,6 @@ class llvm::OwningPtr
 
 void foo()
 {
-    clang::@ ptr;
+    clang::<<<< ptr;
     (void)ptr;
 }
