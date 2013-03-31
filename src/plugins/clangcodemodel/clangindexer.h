@@ -76,8 +76,8 @@ public:
 
 public slots:
     void onAboutToLoadSession(const QString &sessionName);
-    void onSessionLoaded();
-    void onAboutToUnloadSession();
+    void onSessionLoaded(QString);
+    void onAboutToSaveSession();
 
 private slots:
     void onIndexingStarted(QFuture<void> indexingFuture);

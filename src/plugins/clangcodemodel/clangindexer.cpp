@@ -79,9 +79,9 @@ ClangIndexer::ClangIndexer()
     connect(session, SIGNAL(aboutToLoadSession(QString)),
             this, SLOT(onAboutToLoadSession(QString)));
     connect(session, SIGNAL(sessionLoaded(QString)),
-            this, SLOT(onSessionLoaded()));
-    connect(session, SIGNAL(aboutToUnloadSession(QString)),
-            this, SLOT(onAboutToUnloadSession()));
+            this, SLOT(onSessionLoaded(QString)));
+    connect(session, SIGNAL(aboutToSaveSession()),
+            this, SLOT(onAboutToSaveSession()));
 }
 
 ClangIndexer::~ClangIndexer()
@@ -136,13 +136,13 @@ void ClangIndexer::onAboutToLoadSession(const QString &sessionName)
         m_clangIndexer->initialize(path + sessionName + QLatin1String(".qci"));
 }
 
-void ClangIndexer::onSessionLoaded()
+void ClangIndexer::onSessionLoaded(QString)
 {
     m_isLoadingSession = false;
     m_clangIndexer->regenerate();
 }
 
-void ClangIndexer::onAboutToUnloadSession()
+void ClangIndexer::onAboutToSaveSession()
 {
     m_clangIndexer->finalize();
 }
