@@ -48,7 +48,14 @@ namespace WinRt {
 namespace Internal {
 
 // Wrapper for Debugger::RunControl, which gets initialized as the parent
-WinRtDebugSupport::WinRtDebugSupport(WinRtRunConfiguration *rc, QString *errorMessage)
+WinRtDebugSupport::WinRtDebugSupport(Debugger::DebuggerRunControl *rc)
+    : QObject(rc) // Die with runControl
+    , m_runControl(rc)
+{
+    connect(m_runControl, SIGNAL(finished()), SLOT(onDebuggerFinished()));
+}
+
+Debugger::DebuggerRunControl *WinRtDebugSupport::createRunControl(WinRtRunConfiguration *rc, QString *errorMessage)
 {
     DebuggerStartParameters sp;
     sp.masterEngineType = CdbEngineType;
@@ -56,12 +63,28 @@ WinRtDebugSupport::WinRtDebugSupport(WinRtRunConfiguration *rc, QString *errorMe
     sp.startMode = AttachExternal;
     sp.closeMode = KillAtClose;
     sp.languages = CppLanguage;
-    sp.debuggerCommand = DebuggerKitInformation::debuggerCommand(rc->target()->kit()).toString();
-    sp.attachPID = startAppx(rc->activationID(), rc->arguments(), errorMessage);
+    const ProjectExplorer::Kit *kit = rc->target()->kit();
+    sp.masterEngineType = DebuggerKitInformation::engineType(kit);
+    if (sp.masterEngineType != CdbEngineType) {
+        *errorMessage = tr("No CDB-debugger configured in kit \"%1\".").arg(kit->displayName());
+        return 0;
+    }
+    sp.debuggerCommand = DebuggerKitInformation::debuggerCommand(kit).toString();
+    if (sp.debuggerCommand.isEmpty()) {
+        *errorMessage = tr("No debugger configured in kit \"%1\"").arg(kit->displayName());
+        return 0;
+    }
+    sp.attachPID = WinRtDebugSupport::startAppx(rc->activationID(), rc->arguments(), errorMessage);
+    if (sp.attachPID < 0)
+        return 0;
 
-    m_runControl = DebuggerPlugin::createDebugger(sp, rc, errorMessage);
-    setParent(m_runControl); // Die with runControl
-    connect(m_runControl, SIGNAL(finished()), SLOT(onDebuggerFinished()));
+    DebuggerRunControl *runControl = DebuggerPlugin::createDebugger(sp, rc, errorMessage);
+    if (!runControl) {
+        WinRtDebugSupport::stopAppx(sp.attachPID);
+        return 0;
+    }
+    new WinRtDebugSupport(runControl);
+    return runControl;
 }
 
 void WinRtDebugSupport::onDebuggerFinished()

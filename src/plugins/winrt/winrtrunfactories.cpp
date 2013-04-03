@@ -131,10 +131,8 @@ ProjectExplorer::RunControl *WinRtRunControlFactory::create(
     switch (mode) {
     case NormalRunMode:
         return new WinRtRunControl(rc, mode);
-    case DebugRunMode: {
-        WinRtDebugSupport *debugger = new WinRtDebugSupport(rc, errorMessage);
-        return debugger->runControl();
-       }
+    case DebugRunMode:
+        return WinRtDebugSupport::createRunControl(rc, errorMessage);
     default:
         break;
     }

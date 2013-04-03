@@ -40,14 +40,12 @@ namespace WinRt {
 namespace Internal {
 
 class WinRtRunConfiguration;
-class WinRTRunner;
 
 class WinRtDebugSupport : public QObject
 {
     Q_OBJECT
 public:
-    WinRtDebugSupport(WinRtRunConfiguration *rc, QString *errorMessage);
-    Debugger::DebuggerRunControl *runControl() const { return m_runControl; }
+    static Debugger::DebuggerRunControl *createRunControl(WinRtRunConfiguration *rc, QString *errorMessage);
 
     static qint64 startAppx(const QString &activationID, const QString &arguments,
                             QString *errorMessage = nullptr);
@@ -58,6 +56,8 @@ private slots:
     void onDebuggerFinished();
 
 private:
+    explicit WinRtDebugSupport(Debugger::DebuggerRunControl *);
+
     Debugger::DebuggerRunControl *m_runControl;
 };
 
