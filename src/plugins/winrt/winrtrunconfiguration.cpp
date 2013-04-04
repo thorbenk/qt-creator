@@ -84,7 +84,7 @@ bool WinRtRunConfiguration::ensureConfigured(QString *errorMessage)
     if (isConfigured())
         return true;
     // Suppress error dialog
-    errorMessage->clear();
+    errorMessage->resize(0);
     return chooseApplication();
 }
 
