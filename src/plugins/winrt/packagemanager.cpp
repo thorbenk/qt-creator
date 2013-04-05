@@ -245,16 +245,16 @@ static inline QList<WinRtPackagePtr> readPackages(PackageManagerPrivate::IPackag
         qDeleteRt(packageId);
 
         IStorageFolder *storageFolder;
-        appxPackage->get_InstalledLocation(&storageFolder);
         IStorageItem *storageItem;
-        if (SUCCEEDED(storageFolder->QueryInterface(&storageItem))) {
+        if (SUCCEEDED(appxPackage->get_InstalledLocation(&storageFolder))
+                && SUCCEEDED(storageFolder->QueryInterface(&storageItem))) {
             HSTRING folderPath;
             storageItem->get_Path(&folderPath);
             QFileInfo pathInfo(QString::fromWCharArray(WindowsGetStringRawBuffer(folderPath,nullptr)));
             package->path = pathInfo.canonicalFilePath().append(QLatin1String("/AppxManifest.xml"));
             qDeleteRt(storageItem);
+            qDeleteRt(storageFolder);
         }
-        qDeleteRt(storageFolder);
 
         packages.append(package);
         it->MoveNext(&hasCurrent);
