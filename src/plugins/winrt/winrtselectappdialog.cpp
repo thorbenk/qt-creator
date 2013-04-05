@@ -33,6 +33,8 @@
 #include "ui_winrtselectappdialog.h"
 
 #include <coreplugin/editormanager/editormanager.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/project.h>
 
 #include <QPushButton>
 #include <QMenu>
@@ -145,9 +147,11 @@ void WinRtSelectAppDialog::done(int r)
 
 void WinRtSelectAppDialog::addPackage()
 {
+    ProjectExplorer::Project *project = ProjectExplorer::ProjectExplorerPlugin::currentProject();
+    QString directory = project ? project->projectDirectory() : QString();
     const QString manifestFile =
         QFileDialog::getOpenFileName(this, tr("Select Manifest"),
-                                     QString(), tr("Manifest files (*.xml)"));
+                                     directory, tr("Manifest files (*.xml)"));
     if (manifestFile.isEmpty())
         return;
     QString errorMessage;
