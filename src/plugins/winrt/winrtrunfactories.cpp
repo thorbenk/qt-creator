@@ -77,7 +77,7 @@ bool WinRtRunConfigurationFactory::canCreate(Target *parent, const Core::Id id) 
     return id == winrtConfigurationIdC;
 }
 
-RunConfiguration *WinRtRunConfigurationFactory::create(Target *parent, const Core::Id id)
+RunConfiguration *WinRtRunConfigurationFactory::doCreate(Target *parent, const Core::Id id)
 {
     return new WinRtRunConfiguration(parent, id);
 }
@@ -88,7 +88,7 @@ bool WinRtRunConfigurationFactory::canRestore(Target *parent, const QVariantMap 
     return ProjectExplorer::idFromMap(map) == winrtConfigurationIdC;
 }
 
-RunConfiguration *WinRtRunConfigurationFactory::restore(Target *parent, const QVariantMap &map)
+RunConfiguration *WinRtRunConfigurationFactory::doRestore(Target *parent, const QVariantMap &map)
 {
     RunConfiguration *config = new WinRtRunConfiguration(parent, winrtConfigurationIdC);
     config->fromMap(map);

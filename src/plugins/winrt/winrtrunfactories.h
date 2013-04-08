@@ -46,14 +46,14 @@ public:
     QList<Core::Id> availableCreationIds(ProjectExplorer::Target *parent) const;
     QString displayNameForId(const Core::Id id) const;
     bool canCreate(ProjectExplorer::Target *parent, const Core::Id id) const;
-    ProjectExplorer::RunConfiguration *create(ProjectExplorer::Target *parent,
-                                              const Core::Id id);
     bool canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const;
-    ProjectExplorer::RunConfiguration *restore(ProjectExplorer::Target *parent,
-                                               const QVariantMap &map);
     bool canClone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *product) const;
     ProjectExplorer::RunConfiguration *clone(ProjectExplorer::Target *parent,
                                              ProjectExplorer::RunConfiguration *product);
+
+private:
+    virtual ProjectExplorer::RunConfiguration *doCreate(ProjectExplorer::Target *parent, const Core::Id id);
+    virtual ProjectExplorer::RunConfiguration *doRestore(ProjectExplorer::Target *parent, const QVariantMap &map);
 };
 
 class WinRtRunControlFactory : public ProjectExplorer::IRunControlFactory
