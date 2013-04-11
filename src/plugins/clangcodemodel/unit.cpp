@@ -351,6 +351,13 @@ CXIndex Unit::clangIndex() const
     return m_data->m_index;
 }
 
+QString Unit::getTokenSpelling(const CXToken &tok) const
+{
+    Q_ASSERT(isLoaded());
+
+    return getQString(clang_getTokenSpelling(m_data->m_tu, tok));
+}
+
 CXCursor Unit::getTranslationUnitCursor() const
 {
     Q_ASSERT(isLoaded());
@@ -403,25 +410,19 @@ IdentifierTokens::IdentifierTokens(const Unit &unit, unsigned firstLine, unsigne
 
     // Retrieve all identifier tokens:
     unit.tokenize(range, &m_tokens, &m_tokenCount);
-
-    for (unsigned i = 0; i < m_tokenCount; ++i)
-        if (CXToken_Identifier == clang_getTokenKind(m_tokens[i]))
-            m_identifierTokens.append(m_tokens[i]);
-
-    const unsigned idCount = m_identifierTokens.count();
-    if (idCount == 0)
+    if (m_tokenCount == 0)
         return;
 
     // Get the cursors for the tokens:
-    m_cursors = new CXCursor[idCount];
-    unit.annotateTokens(m_identifierTokens.data(),
-                        m_identifierTokens.count(),
+    m_cursors = new CXCursor[m_tokenCount];
+    unit.annotateTokens(m_tokens,
+                        m_tokenCount,
                         m_cursors);
 
-    m_extents = new CXSourceRange[idCount];
+    m_extents = new CXSourceRange[m_tokenCount];
     // Create the markers using the cursor to check the types:
-    for (unsigned i = 0; i < idCount; ++i)
-        m_extents[i] = unit.getTokenExtent(m_identifierTokens[i]);
+    for (unsigned i = 0; i < m_tokenCount; ++i)
+        m_extents[i] = unit.getTokenExtent(m_tokens[i]);
 }
 
 IdentifierTokens::~IdentifierTokens()

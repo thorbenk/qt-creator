@@ -53,7 +53,8 @@ public:
         LabelUse,
         MacroUse,
         FunctionUse,
-        PseudoKeywordUse
+        PseudoKeywordUse,
+        StringUse
     };
     typedef TextEditor::SemanticHighlighter::Result Use;
 
