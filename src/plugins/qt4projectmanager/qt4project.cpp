@@ -30,53 +30,32 @@
 #include "qt4project.h"
 
 #include "qt4projectmanager.h"
-#include "makestep.h"
 #include "qmakestep.h"
-#include "qmakerunconfigurationfactory.h"
 #include "qt4nodes.h"
-#include "qt4projectconfigwidget.h"
 #include "qt4projectmanagerconstants.h"
 #include "qt4buildconfiguration.h"
 #include "findqt4profiles.h"
 #include "buildconfigurationinfo.h"
 
 #include <coreplugin/icore.h>
-#include <coreplugin/idocument.h>
 #include <coreplugin/icontext.h>
-#include <coreplugin/messagemanager.h>
-#include <coreplugin/coreconstants.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <coreplugin/documentmanager.h>
-#include <coreplugin/variablemanager.h>
-#include <extensionsystem/pluginmanager.h>
-#include <cpptools/ModelManagerInterface.h>
-#include <qmljs/qmljsmodelmanagerinterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <qmljstools/qmljsmodelmanager.h>
 #include <projectexplorer/buildtargetinfo.h>
 #include <projectexplorer/deploymentdata.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/headerpath.h>
 #include <projectexplorer/target.h>
-#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorer.h>
-#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/projectmacroexpander.h>
-#include <utils/qtcassert.h>
-#include <qtsupport/customexecutablerunconfiguration.h>
-#include <qtsupport/qmldumptool.h>
-#include <qtsupport/baseqtversion.h>
 #include <qtsupport/profilereader.h>
 #include <qtsupport/qtkitinformation.h>
-#include <qtsupport/qtsupportconstants.h>
-#include <qtsupport/qtversionmanager.h>
-#include <utils/QtConcurrentTools>
-#include <utils/stringutils.h>
 
 #include <QDebug>
 #include <QDir>
 #include <QFileSystemWatcher>
-#include <QFileDialog>
-#include <QInputDialog>
 
 using namespace Qt4ProjectManager;
 using namespace Qt4ProjectManager::Internal;
@@ -349,7 +328,9 @@ Qt4Project::Qt4Project(Qt4Manager *manager, const QString& fileName) :
     m_activeTarget(0)
 {
     setProjectContext(Core::Context(Qt4ProjectManager::Constants::PROJECT_ID));
-    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
+    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
+    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
+    setProjectLanguages(pl);
 
     m_asyncUpdateTimer.setSingleShot(true);
     m_asyncUpdateTimer.setInterval(3000);
@@ -465,9 +446,9 @@ bool Qt4Project::equalFileList(const QStringList &a, const QStringList &b)
     QStringList::const_iterator bend = b.constEnd();
 
     while (ait != aend && bit != bend) {
-        if (*ait == CPlusPlus::CppModelManagerInterface::configurationFileName())
+        if (*ait == CppTools::CppModelManagerInterface::configurationFileName())
             ++ait;
-        else if (*bit == CPlusPlus::CppModelManagerInterface::configurationFileName())
+        else if (*bit == CppTools::CppModelManagerInterface::configurationFileName())
             ++bit;
         else if (*ait == *bit)
             ++ait, ++bit;
@@ -491,7 +472,8 @@ void Qt4Project::updateCodeModels()
 
 void Qt4Project::updateCppCodeModel()
 {
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+    typedef CppTools::ProjectPart ProjectPart;
+    typedef CppTools::ProjectFile ProjectFile;
 
     Kit *k = 0;
     QtSupport::BaseQtVersion *qtVersion = 0;
@@ -503,8 +485,8 @@ void Qt4Project::updateCppCodeModel()
     qtVersion = QtSupport::QtKitInformation::qtVersion(k);
     tc = ToolChainKitInformation::toolChain(k);
 
-    CPlusPlus::CppModelManagerInterface *modelmanager =
-        CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelmanager =
+        CppTools::CppModelManagerInterface::instance();
 
     if (!modelmanager)
         return;
@@ -512,7 +494,7 @@ void Qt4Project::updateCppCodeModel()
     FindQt4ProFiles findQt4ProFiles;
     QList<Qt4ProFileNode *> proFiles = findQt4ProFiles(rootProjectNode());
 
-    CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
+    CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
     pinfo.clearProjectParts();
     ProjectPart::QtVersion qtVersionForPart = ProjectPart::NoQt;
     if (qtVersion) {
@@ -567,21 +549,39 @@ void Qt4Project::updateCppCodeModel()
 
         // part->language
         if (tc)
-            part->language = tc->compilerFlags(cxxflags) == ToolChain::STD_CXX11 ? ProjectPart::CXX11 : ProjectPart::CXX;
+            part->cxxVersion = (tc->compilerFlags(cxxflags) == ToolChain::STD_CXX11)
+                    ? ProjectPart::CXX11 : ProjectPart::CXX98;
         else
-            part->language = CPlusPlus::CppModelManagerInterface::ProjectPart::CXX11;
+            part->cxxVersion = ProjectPart::CXX11;
 
-        part->sourceFiles = pro->variableValue(CppSourceVar);
-        part->headerFiles += pro->variableValue(CppHeaderVar);
-        part->headerFiles += pro->uiFiles();
-        part->sourceFiles.prepend(CPlusPlus::CppModelManagerInterface::configurationFileName());
-        part->objcSourceFiles = pro->variableValue(ObjCSourceVar);
+        foreach (const QString &file, pro->variableValue(CppSourceVar)) {
+            allFiles << file;
+            part->files << ProjectFile(file, ProjectFile::CXXSource);
+        }
+        foreach (const QString &file, pro->variableValue(CppHeaderVar)) {
+            allFiles << file;
+            part->files << ProjectFile(file, ProjectFile::CXXHeader);
+        }
+        foreach (const QString &file, pro->uiFiles()) {
+            allFiles << file;
+            part->files << ProjectFile(file, ProjectFile::CXXHeader);
+        }
+
+        part->files.prepend(ProjectFile(CppTools::CppModelManagerInterface::configurationFileName(),
+                                        ProjectFile::CXXSource));
+        foreach (const QString &file, pro->variableValue(ObjCSourceVar)) {
+            allFiles << file;
+            part->files << ProjectFile(file, ProjectFile::ObjCSource);
+        }
+        foreach (const QString &file, pro->variableValue(ObjCHeaderVar)) {
+            allFiles << file;
+            part->files << ProjectFile(file, ProjectFile::ObjCXXHeader);
+        }
+
         pinfo.appendProjectPart(part);
-
-        allFiles += part->headerFiles;
-        allFiles += part->sourceFiles;
-        allFiles += part->objcSourceFiles;
     }
+
+    setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !allFiles.isEmpty());
 
     modelmanager->updateProjectInfo(pinfo);
     m_codeModelFuture = modelmanager->updateSourceFiles(allFiles);
@@ -613,16 +613,9 @@ void Qt4Project::updateQmlJSCodeModel()
         }
     }
 
-    // If the project directory has a pro/pri file that includes a qml or quick or declarative
-    // library then chances of the project being a QML project is quite high.
-    // This assumption fails when there are no QDeclarativeEngine/QDeclarativeView (QtQuick 1)
-    // or QQmlEngine/QQuickView (QtQuick 2) instances.
-    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
-    if (hasQmlLib)
-        pl.add(ProjectExplorer::Constants::LANG_QMLJS);
-    setProjectLanguages(pl);
-
     projectInfo.importPaths.removeDuplicates();
+
+    setProjectLanguage(ProjectExplorer::Constants::LANG_QMLJS, !projectInfo.sourceFiles.isEmpty());
 
     modelManager->updateProjectInfo(projectInfo);
 }
@@ -927,7 +920,7 @@ QString Qt4Project::generatedUiHeader(const QString &formFile) const
 
 void Qt4Project::proFileParseError(const QString &errorMessage)
 {
-    Core::ICore::messageManager()->printToOutputPanePopup(errorMessage);
+    Core::ICore::messageManager()->printToOutputPane(errorMessage, Core::MessageManager::NoModeSwitch);
 }
 
 QtSupport::ProFileReader *Qt4Project::createProFileReader(const Qt4ProFileNode *qt4ProFileNode, Qt4BuildConfiguration *bc)

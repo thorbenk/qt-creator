@@ -31,13 +31,12 @@
 
 #include <utils/qtcassert.h>
 
-#include <QFileInfo>
 #include <QNetworkReply>
 
 using namespace CodePaster;
 
-UrlOpenProtocol::UrlOpenProtocol(const NetworkAccessManagerProxyPtr &nw)
-    : NetworkProtocol(nw), m_fetchReply(0)
+UrlOpenProtocol::UrlOpenProtocol()
+    : m_fetchReply(0)
 {
 }
 
@@ -72,7 +71,7 @@ void UrlOpenProtocol::fetchFinished()
     emit fetchDone(title, content, error);
 }
 
-void UrlOpenProtocol::paste(const QString &, ContentType, const QString &,
+void UrlOpenProtocol::paste(const QString &, ContentType, int, const QString &,
                             const QString &, const QString &)
 {
 }

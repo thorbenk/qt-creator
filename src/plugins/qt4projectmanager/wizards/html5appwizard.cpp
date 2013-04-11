@@ -28,18 +28,17 @@
 ****************************************************************************/
 
 #include "html5appwizard.h"
-#include "mobileappwizardpages.h"
 
 #include "html5app.h"
 #include "html5appwizardpages.h"
 #include "targetsetuppage.h"
 #include "qt4projectmanagerconstants.h"
 
+#include <qtsupport/baseqtversion.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <qtsupport/qtsupportconstants.h>
 #include <limits>
 
-#include <QCoreApplication>
 #include <QIcon>
 
 namespace Qt4ProjectManager {

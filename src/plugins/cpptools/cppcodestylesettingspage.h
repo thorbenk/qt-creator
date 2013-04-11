@@ -31,16 +31,13 @@
 #define CPPCODESTYLESETTINGSPAGE_H
 
 #include "cpptools_global.h"
-
-#include <coreplugin/dialogs/ioptionspage.h>
-#include <QWidget>
-#include <QPointer>
-#include <QSharedPointer>
-#include <QVariant>
-#include <QStringList>
-
 #include "cppcodestylesettings.h"
 #include "cppcodeformatter.h"
+
+#include <coreplugin/dialogs/ioptionspage.h>
+
+#include <QWidget>
+#include <QPointer>
 
 namespace TextEditor {
     class FontSettings;

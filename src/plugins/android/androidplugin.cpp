@@ -74,11 +74,11 @@ bool AndroidPlugin::initialize(const QStringList &arguments, QString *errorMessa
     addAutoReleasedObject(new Internal::AndroidDeviceFactory);
     ProjectExplorer::KitManager::instance()->registerKitInformation(new Internal::AndroidGdbServerKitInformation);
 
-    ProjectExplorer::DeviceManager::instance()
-            ->addDevice(ProjectExplorer::IDevice::Ptr(new Internal::AndroidDevice));
-
     connect(ProjectExplorer::KitManager::instance(), SIGNAL(kitsLoaded()),
             this, SLOT(kitsRestored()));
+
+    connect(ProjectExplorer::DeviceManager::instance(), SIGNAL(devicesLoaded()),
+            this, SLOT(updateDevice()));
 
     return true;
 }
@@ -90,6 +90,11 @@ void AndroidPlugin::kitsRestored()
             &Internal::AndroidConfigurations::instance(), SLOT(updateAutomaticKitList()));
     disconnect(ProjectExplorer::KitManager::instance(), SIGNAL(kitsChanged()),
                this, SLOT(kitsRestored()));
+}
+
+void AndroidPlugin::updateDevice()
+{
+    Internal::AndroidConfigurations::instance().updateAndroidDevice();
 }
 
 } // namespace Android

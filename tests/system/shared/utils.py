@@ -147,11 +147,24 @@ def waitForSignal(object, signal, timeout=30000):
     beforeCount = signalObjects[realName]
     waitFor("signalObjects[realName] > beforeCount", timeout)
 
+handledSignal = {}
+
 def prepareForSignal(object, signal):
     global signalObjects
+    global handledSignal
     overrideInstallLazySignalHandler()
     realName = objectMap.realName(object)
 #    test.log("waitForSignal: "+realName)
+    if realName in handledSignal.keys():
+        if handledSignal[realName] != signal:
+            # The current implementation does not support this.
+            # When an object has two different handled signals, waitForSignal() will only wait
+            # for the first of them to be emitted.
+            test.warning("You are trying to handle two different signals from the same object.",
+                         "Adding %s to object %s, which already has handled signal %s. "
+                         "This can lead to unexpected results." % (signal, realName, handledSignal[realName]))
+    else:
+        handledSignal[realName] = signal
     if not (realName in signalObjects):
         signalObjects[realName] = 0
     installLazySignalHandler(object, signal, "__callbackFunction__")
@@ -183,6 +196,11 @@ def cleanUpUserFiles(pathsToProFiles=None):
     return doneWithoutErrors
 
 def invokeMenuItem(menu, item, subItem = None):
+    if platform.system() == "Darwin":
+        try:
+            waitForObject(":Qt Creator.QtCreator.MenuBar_QMenuBar", 2000)
+        except:
+            nativeMouseClick(waitForObject(":Qt Creator_Core::Internal::MainWindow", 1000), 20, 20, 0, Qt.LeftButton)
     menuObject = waitForObjectItem(":Qt Creator.QtCreator.MenuBar_QMenuBar", menu)
     waitFor("menuObject.visible", 1000)
     activateItem(menuObject)
@@ -220,7 +238,7 @@ def selectFromFileDialog(fileName, waitForFile=False):
         nativeType(fileName)
         snooze(1)
         nativeType("<Return>")
-        snooze(2)
+        snooze(3)
         nativeType("<Return>")
         snooze(1)
     else:
@@ -229,10 +247,11 @@ def selectFromFileDialog(fileName, waitForFile=False):
         waitForObject("{name='QFileDialog' type='QFileDialog' visible='1'}")
         pathLine = waitForObject("{name='fileNameEdit' type='QLineEdit' visible='1'}")
         replaceEditorContent(pathLine, pName)
-        clickButton(findObject("{text='Open' type='QPushButton'}"))
+        clickButton(waitForObject("{text='Open' type='QPushButton'}"))
         waitFor("str(pathLine.text)==''")
+        snooze(1)
         replaceEditorContent(pathLine, fName)
-        clickButton(findObject("{text='Open' type='QPushButton'}"))
+        clickButton(waitForObject("{text='Open' type='QPushButton'}"))
     if waitForFile:
         fileCombo = waitForObject(":Qt Creator_FilenameQComboBox")
         if not waitFor("str(fileCombo.currentText) in fileName", 5000):
@@ -248,9 +267,10 @@ def addHelpDocumentationFromSDK():
     clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Documentation")
     # get rid of all docs already registered
     listWidget = waitForObject("{type='QListWidget' name='docsListWidget' visible='1'}")
-    for i in range(listWidget.count):
+    if listWidget.count > 0:
         rect = listWidget.visualItemRect(listWidget.item(0))
         mouseClick(listWidget, rect.x+5, rect.y+5, 0, Qt.LeftButton)
+        type(listWidget, "<Ctrl+A>")
         mouseClick(waitForObject("{type='QPushButton' name='removeButton' visible='1'}"), 5, 5, 0, Qt.LeftButton)
     clickButton(waitForObject("{type='QPushButton' name='addButton' visible='1' text='Add...'}"))
     selectFromFileDialog("%s/Documentation/qt.qch" % sdkPath)
@@ -441,9 +461,9 @@ def iterateQtVersions(keepOptionsOpen=False, alreadyOnOptionsDialog=False,
     treeWidget = waitForObject(":QtSupport__Internal__QtVersionManager.qtdirList_QTreeWidget")
     root = treeWidget.invisibleRootItem()
     for rootChild in dumpChildren(root):
-        rootChildText = str(rootChild.text(0)).replace(".", "\\.")
+        rootChildText = str(rootChild.text(0)).replace(".", "\\.").replace("_", "\\_")
         for subChild in dumpChildren(rootChild):
-            subChildText = str(subChild.text(0)).replace(".", "\\.")
+            subChildText = str(subChild.text(0)).replace(".", "\\.").replace("_", "\\_")
             clickItem(treeWidget, ".".join([rootChildText,subChildText]), 5, 5, 0, Qt.LeftButton)
             currentText = str(waitForObject(":QtSupport__Internal__QtVersionManager.QLabel").text)
             matches = pattern.match(currentText)
@@ -581,3 +601,15 @@ def writeTestResults(folder):
     for cat in categories:
         resultFile.write("%s:%d\n" % (cat, test.resultCount(cat)))
     resultFile.close()
+
+# wait and verify if object exists/not exists
+def checkIfObjectExists(name, shouldExist = True, timeout = 3000, verboseOnFail = False):
+    result = waitFor("object.exists(name) == shouldExist", timeout)
+    if verboseOnFail and not result:
+        test.log("checkIfObjectExists() failed for '%s'" % name)
+    return result
+
+# wait for progress bar(s) to appear and disappear
+def progressBarWait():
+    checkIfObjectExists("{type='Core::Internal::ProgressBar' unnamed='1'}", True, 2000)
+    checkIfObjectExists("{type='Core::Internal::ProgressBar' unnamed='1'}", False, 60000)

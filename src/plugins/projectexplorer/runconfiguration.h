@@ -35,8 +35,8 @@
 #include "projectexplorerconstants.h"
 
 #include <utils/outputformat.h>
+#include <utils/qtcassert.h>
 
-#include <QMetaType>
 #include <QPointer>
 #include <QWidget>
 
@@ -47,8 +47,8 @@ namespace Utils { class OutputFormatter; }
 namespace ProjectExplorer {
 class Abi;
 class BuildConfiguration;
-class DebuggerRunConfigurationAspect;
 class RunConfiguration;
+class RunConfigWidget;
 class RunControl;
 class Target;
 
@@ -78,65 +78,14 @@ public:
     virtual ~IRunConfigurationAspect() {}
     virtual QVariantMap toMap() const = 0;
     virtual QString displayName() const = 0;
+
+    virtual IRunConfigurationAspect *clone(RunConfiguration *parent) const = 0;
+    virtual RunConfigWidget *createConfigurationWidget();
+
 protected:
     friend class RunConfiguration;
     virtual void fromMap(const QVariantMap &map) = 0;
 };
-
-class PROJECTEXPLORER_EXPORT DebuggerRunConfigurationAspect
-    : public QObject, public ProjectExplorer::IRunConfigurationAspect
-{
-    Q_OBJECT
-
-public:
-    DebuggerRunConfigurationAspect(RunConfiguration *runConfiguration);
-    DebuggerRunConfigurationAspect(RunConfiguration *runConfiguration, DebuggerRunConfigurationAspect *other);
-
-    enum QmlDebuggerStatus {
-        DisableQmlDebugger = 0,
-        EnableQmlDebugger,
-        AutoEnableQmlDebugger
-    };
-
-    QVariantMap toMap() const;
-    void fromMap(const QVariantMap &map);
-
-    QString displayName() const;
-
-    bool useCppDebugger() const;
-    void setUseCppDebugger(bool value);
-    bool useQmlDebugger() const;
-    void setUseQmlDebugger(bool value);
-    uint qmlDebugServerPort() const;
-    void setQmllDebugServerPort(uint port);
-    bool useMultiProcess() const;
-    void setUseMultiProcess(bool on);
-    void suppressDisplay();
-    void suppressQmlDebuggingOptions();
-    void suppressCppDebuggingOptions();
-    void suppressQmlDebuggingSpinbox();
-    bool isDisplaySuppressed() const;
-    bool areQmlDebuggingOptionsSuppressed() const;
-    bool areCppDebuggingOptionsSuppressed() const;
-    bool isQmlDebuggingSpinboxSuppressed() const;
-    RunConfiguration *runConfiguration();
-
-signals:
-    void debuggersChanged();
-
-public:
-    RunConfiguration *m_runConfiguration;
-    bool m_useCppDebugger;
-    QmlDebuggerStatus m_useQmlDebugger;
-    uint m_qmlDebugServerPort;
-    bool m_useMultiProcess;
-
-    bool m_suppressDisplay;
-    bool m_suppressQmlDebuggingOptions;
-    bool m_suppressCppDebuggingOptions;
-    bool m_suppressQmlDebuggingSpinbox;
-};
-
 
 // Documentation inside.
 class PROJECTEXPLORER_EXPORT RunConfiguration : public ProjectConfiguration
@@ -160,11 +109,10 @@ public:
     bool fromMap(const QVariantMap &map);
     QVariantMap toMap() const;
 
-    DebuggerRunConfigurationAspect *debuggerAspect() const { return m_debuggerAspect; }
-
     QList<IRunConfigurationAspect *> extraAspects() const;
     template <typename T> T *extraAspect() const
     {
+        QTC_ASSERT(m_aspectsInitialized, return 0);
         IRunConfigurationAspect *typeCheck = static_cast<T *>(0);
         Q_UNUSED(typeCheck);
         T *result = 0;
@@ -177,8 +125,12 @@ public:
 
     virtual ProjectExplorer::Abi abi() const;
 
+    void addExtraAspects();
+    void addExtraAspect(IRunConfigurationAspect *aspect);
+
 signals:
     void enabledChanged();
+    void requestRunActionsUpdate();
 
 protected:
     RunConfiguration(Target *parent, const Core::Id id);
@@ -188,10 +140,10 @@ protected:
     BuildConfiguration *activeBuildConfiguration() const;
 
 private:
-    void addExtraAspects();
+    void ctor();
 
     QList<IRunConfigurationAspect *> m_aspects;
-    DebuggerRunConfigurationAspect *m_debuggerAspect;
+    bool m_aspectsInitialized;
 };
 
 class PROJECTEXPLORER_EXPORT IRunConfigurationFactory : public QObject
@@ -206,9 +158,9 @@ public:
     virtual QString displayNameForId(const Core::Id id) const = 0;
 
     virtual bool canCreate(Target *parent, const Core::Id id) const = 0;
-    virtual RunConfiguration *create(Target *parent, const Core::Id id) = 0;
+    RunConfiguration *create(Target *parent, const Core::Id id);
     virtual bool canRestore(Target *parent, const QVariantMap &map) const = 0;
-    virtual RunConfiguration *restore(Target *parent, const QVariantMap &map) = 0;
+    RunConfiguration *restore(Target *parent, const QVariantMap &map);
     virtual bool canClone(Target *parent, RunConfiguration *product) const = 0;
     virtual RunConfiguration *clone(Target *parent, RunConfiguration *product) = 0;
 
@@ -218,9 +170,11 @@ public:
 
 signals:
     void availableCreationIdsChanged();
-};
 
-class RunConfigWidget;
+private:
+    virtual RunConfiguration *doCreate(Target *parent, const Core::Id id) = 0;
+    virtual RunConfiguration *doRestore(Target *parent, const QVariantMap &map) = 0;
+};
 
 class PROJECTEXPLORER_EXPORT IRunControlFactory : public QObject
 {
@@ -234,9 +188,7 @@ public:
 
     virtual QString displayName() const = 0;
 
-    virtual IRunConfigurationAspect *createRunConfigurationAspect();
-    virtual IRunConfigurationAspect *cloneRunConfigurationAspect(IRunConfigurationAspect *);
-    virtual RunConfigWidget *createConfigurationWidget(RunConfiguration *runConfiguration);
+    virtual IRunConfigurationAspect *createRunConfigurationAspect(RunConfiguration *rc);
 };
 
 class PROJECTEXPLORER_EXPORT RunConfigWidget

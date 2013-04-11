@@ -12,10 +12,12 @@ class QtQuickConstants:
         HARMATTAN = 8
         EMBEDDED_LINUX = 16
         DESKTOP_474_MSVC2008 = 32
+        DESKTOP_501_DEFAULT = 64
 
     @staticmethod
     def desktopTargetClasses():
-        desktopTargets = QtQuickConstants.Targets.DESKTOP_474_GCC
+        desktopTargets = QtQuickConstants.Targets.DESKTOP_474_GCC \
+                         | QtQuickConstants.Targets.DESKTOP_501_DEFAULT
         if platform.system() in ('Windows', 'Microsoft'):
             desktopTargets |= QtQuickConstants.Targets.DESKTOP_474_MSVC2008
         return desktopTargets
@@ -45,6 +47,8 @@ class QtQuickConstants:
             return "Embedded Linux"
         elif target==QtQuickConstants.Targets.DESKTOP_474_MSVC2008:
             return "Desktop 474 MSVC2008"
+        elif target==QtQuickConstants.Targets.DESKTOP_501_DEFAULT:
+            return "Desktop 501 default"
         else:
             return None
 

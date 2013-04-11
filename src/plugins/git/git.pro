@@ -1,11 +1,4 @@
-TEMPLATE = lib
-TARGET = Git
 include(../../qtcreatorplugin.pri)
-include(../../plugins/projectexplorer/projectexplorer.pri)
-include(../../plugins/texteditor/texteditor.pri)
-include(../../plugins/coreplugin/coreplugin.pri)
-include(../../plugins/vcsbase/vcsbase.pri)
-include(../../libs/utils/utils.pri)
 HEADERS += gitplugin.h \
     gitconstants.h \
     gitclient.h \
@@ -55,8 +48,7 @@ SOURCES += gitplugin.cpp \
     mergetool.cpp \
     branchcheckoutdialog.cpp
 
-FORMS += changeselectiondialog.ui \
-    settingspage.ui \
+FORMS += settingspage.ui \
     gitsubmitpanel.ui \
     branchdialog.ui \
     stashdialog.ui \

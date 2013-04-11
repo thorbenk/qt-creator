@@ -167,10 +167,10 @@ FakeVimSettings *theFakeVimSettings()
     s = new FakeVimSettings;
 
     // Specific FakeVim settings
-    createAction(s, ConfigUseFakeVim, true,      _("UseFakeVim"));
     createAction(s, ConfigReadVimRc,  false,     _("ReadVimRc"));
     createAction(s, ConfigVimRcPath,  QString(), _("VimRcPath"));
 #ifndef FAKEVIM_STANDALONE
+    createAction(s, ConfigUseFakeVim, false,     _("UseFakeVim"));
     s->item(ConfigUseFakeVim)->setText(QCoreApplication::translate("FakeVim::Internal",
         "Use Vim-style Editing"));
     s->item(ConfigReadVimRc)->setText(QCoreApplication::translate("FakeVim::Internal",
@@ -180,7 +180,7 @@ FakeVimSettings *theFakeVimSettings()
 #endif
     createAction(s, ConfigShowMarks,      false, _("ShowMarks"),      _("sm"));
     createAction(s, ConfigPassControlKey, false, _("PassControlKey"), _("pck"));
-    createAction(s, ConfigPassNewLine,    false, _("PassNewLine"),    _("pnl"));
+    createAction(s, ConfigPassKeys,       true,  _("PassKeys"),       _("pk"));
 
     // Emulated Vim setting
     createAction(s, ConfigStartOfLine,    true,  _("StartOfLine"),   _("sol"));

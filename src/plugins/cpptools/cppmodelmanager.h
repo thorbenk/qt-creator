@@ -32,37 +32,29 @@
 
 #include "cpptools_global.h"
 #include "cpptoolsconstants.h"
-#include "ModelManagerInterface.h"
+#include "cppmodelmanagerinterface.h"
+
 #include <projectexplorer/project.h>
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/PreprocessorClient.h>
 #include <texteditor/basetexteditor.h>
+
 #include <cplusplus/PreprocessorEnvironment.h>
 #include <cplusplus/pp-engine.h>
 
 #include <QHash>
-#include <QFutureInterface>
-#include <QFutureSynchronizer>
 #include <QMutex>
 #include <QTimer>
 #include <QTextEdit> // for QTextEdit::ExtraSelection
 
-namespace Core {
-class IEditor;
-}
+namespace Core { class IEditor; }
 
 namespace TextEditor {
 class ITextEditor;
 class BaseTextEditorWidget;
-}
+} // namespace TextEditor
 
-namespace ProjectExplorer {
-class ProjectExplorerPlugin;
-}
+namespace ProjectExplorer { class ProjectExplorerPlugin; }
 
-namespace CPlusPlus {
-    class ParseManager;
-}
+namespace CPlusPlus { class ParseManager; }
 
 namespace CppTools {
 
@@ -75,7 +67,7 @@ class CppEditorSupport;
 class CppPreprocessor;
 class CppFindReferences;
 
-class CPPTOOLS_EXPORT CppModelManager : public CPlusPlus::CppModelManagerInterface
+class CPPTOOLS_EXPORT CppModelManager : public CppTools::CppModelManagerInterface
 {
     Q_OBJECT
 
@@ -94,7 +86,7 @@ public:
     virtual QList<ProjectInfo> projectInfos() const;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const;
     virtual void updateProjectInfo(const ProjectInfo &pinfo);
-    virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const;
+    virtual QList<CppTools::ProjectPart::Ptr> projectPart(const QString &fileName) const;
 
     virtual CPlusPlus::Snapshot snapshot() const;
     virtual Document::Ptr document(const QString &fileName) const;
@@ -244,7 +236,7 @@ private:
     mutable QMutex m_protectExtraDiagnostics;
     QHash<QString, QHash<int, QList<Document::DiagnosticMessage> > > m_extraDiagnostics;
 
-    QMap<QString, QList<ProjectPart::Ptr> > m_srcToProjectPart;
+    QMap<QString, QList<CppTools::ProjectPart::Ptr> > m_srcToProjectPart;
 
     CppCompletionAssistProvider *m_completionAssistProvider;
     CppCompletionAssistProvider *m_completionFallback;
@@ -263,7 +255,7 @@ public:
     virtual ~CppPreprocessor();
 
     void setRevision(unsigned revision);
-    void setWorkingCopy(const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy);
+    void setWorkingCopy(const CppTools::CppModelManagerInterface::WorkingCopy &workingCopy);
     void setIncludePaths(const QStringList &includePaths);
     void setFrameworkPaths(const QStringList &frameworkPaths);
     void addFrameworkPath(const QString &frameworkPath);
@@ -285,9 +277,10 @@ public:
 protected:
     CPlusPlus::Document::Ptr switchDocument(CPlusPlus::Document::Ptr doc);
 
-    bool includeFile(const QString &absoluteFilePath, QString *result, unsigned *revision);
-    QString tryIncludeFile(QString &fileName, IncludeType type, unsigned *revision);
-    QString tryIncludeFile_helper(QString &fileName, IncludeType type, unsigned *revision);
+    void getFileContents(const QString &absoluteFilePath, QString *contents, unsigned *revision) const;
+    bool checkFile(const QString &absoluteFilePath) const;
+    QString resolveFile(const QString &fileName, IncludeType type);
+    QString resolveFile_helper(const QString &fileName, IncludeType type);
 
     void mergeEnvironment(CPlusPlus::Document::Ptr doc);
 
@@ -305,7 +298,7 @@ protected:
     virtual void markAsIncludeGuard(const QByteArray &macroName);
     virtual void startSkippingBlocks(unsigned offset);
     virtual void stopSkippingBlocks(unsigned offset);
-    virtual void sourceNeeded(unsigned line, QString &fileName, IncludeType type);
+    virtual void sourceNeeded(unsigned line, const QString &fileName, IncludeType type);
 
 private:
     CPlusPlus::Snapshot m_snapshot;
@@ -314,7 +307,7 @@ private:
     CPlusPlus::Environment m_env;
     CPlusPlus::Preprocessor m_preprocess;
     QStringList m_includePaths;
-    CPlusPlus::CppModelManagerInterface::WorkingCopy m_workingCopy;
+    CppTools::CppModelManagerInterface::WorkingCopy m_workingCopy;
     QStringList m_frameworkPaths;
     QSet<QString> m_included;
     CPlusPlus::Document::Ptr m_currentDoc;

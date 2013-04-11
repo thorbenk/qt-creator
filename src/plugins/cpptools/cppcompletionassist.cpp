@@ -28,33 +28,11 @@
 ****************************************************************************/
 
 #include "cppcompletionassist.h"
+
 #include "cppmodelmanager.h"
 #include "cppdoxygen.h"
-#include "cpptoolsconstants.h"
 
-#include <Control.h>
-#include <AST.h>
-#include <ASTVisitor.h>
-#include <CoreTypes.h>
-#include <Literals.h>
-#include <Names.h>
-#include <NameVisitor.h>
-#include <Symbols.h>
-#include <SymbolVisitor.h>
-#include <Scope.h>
-#include <TranslationUnit.h>
-#include <CppRewriter.h>
-
-#include <cplusplus/ResolveExpression.h>
-#include <cplusplus/MatchingText.h>
-#include <cplusplus/Overview.h>
-#include <cplusplus/ExpressionUnderCursor.h>
-#include <cplusplus/BackwardsScanner.h>
-#include <cplusplus/LookupContext.h>
-
-#include <coreplugin/idocument.h>
 #include <coreplugin/icore.h>
-#include <coreplugin/mimedatabase.h>
 #include <cppeditor/cppeditorconstants.h>
 #include <texteditor/codeassist/basicproposalitem.h>
 #include <texteditor/codeassist/genericproposal.h>
@@ -64,7 +42,15 @@
 #include <texteditor/snippets/snippet.h>
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/completionsettings.h>
+
 #include <utils/qtcassert.h>
+
+#include <cplusplus/BackwardsScanner.h>
+#include <cplusplus/CppRewriter.h>
+#include <cplusplus/ExpressionUnderCursor.h>
+#include <cplusplus/MatchingText.h>
+#include <cplusplus/Overview.h>
+#include <cplusplus/ResolveExpression.h>
 
 #include <QLatin1String>
 #include <QTextCursor>
@@ -1207,7 +1193,8 @@ bool CppCompletionAssistProcessor::objcKeywordsWanted() const
     const QString fileName = m_interface->fileName();
 
     const Core::MimeDatabase *mdb = Core::ICore::mimeDatabase();
-    return mdb->findByFile(fileName).type() == QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE);
+    const QString mt = mdb->findByFile(fileName).type();
+    return mt == QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE);
 }
 
 int CppCompletionAssistProcessor::startCompletionInternal(const QString fileName,
@@ -1367,8 +1354,11 @@ void CppCompletionAssistProcessor::globalCompletion(CPlusPlus::Scope *currentSco
             for (unsigned i = 0, argc = fun->argumentCount(); i < argc; ++i) {
                 addCompletionItem(fun->argumentAt(i), FunctionArgumentsOrder);
             }
-            break;
-        } else {
+        } else if (scope->isTemplate()) {
+            Template *templ = scope->asTemplate();
+            for (unsigned i = 0, argc = templ->templateParameterCount(); i < argc; ++i) {
+                addCompletionItem(templ->templateParameterAt(i), FunctionArgumentsOrder);
+            }
             break;
         }
     }

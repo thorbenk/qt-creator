@@ -29,7 +29,6 @@
 
 #include "qmlproject.h"
 #include "qmlprojectfile.h"
-#include "qmlprojectmanagerconstants.h"
 #include "fileformat/qmlprojectitem.h"
 #include "qmlprojectrunconfiguration.h"
 #include "qmlprojectconstants.h"
@@ -39,21 +38,14 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/messagemanager.h>
 #include <coreplugin/documentmanager.h>
-#include <extensionsystem/pluginmanager.h>
-#include <qtsupport/qmldumptool.h>
 #include <qtsupport/baseqtversion.h>
-#include <qtsupport/qtversionmanager.h>
 #include <qtsupport/qtkitinformation.h>
-#include <qmljs/qmljsmodelmanagerinterface.h>
 #include <qmljstools/qmljsmodelmanager.h>
-#include <utils/fileutils.h>
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/kitmanager.h>
 #include <projectexplorer/target.h>
-#include <utils/filesystemwatcher.h>
 #include <qtsupport/qtsupportconstants.h>
 
-#include <QTextStream>
 #include <QDeclarativeComponent>
 #include <QDebug>
 
@@ -81,7 +73,7 @@ public:
         if (!version || version->type() != QLatin1String(QtSupport::Constants::DESKTOPQT))
             return false;
 
-        bool hasViewer;
+        bool hasViewer = false; // Initialization needed for dumb compilers.
         QtSupport::QtVersionNumber minVersion;
         switch (import) {
         case QmlProject::UnknownImport:
@@ -117,7 +109,7 @@ QmlProject::QmlProject(Internal::Manager *manager, const QString &fileName)
       m_modelManager(QmlJS::ModelManagerInterface::instance())
 {
     setProjectContext(Core::Context(QmlProjectManager::Constants::PROJECTCONTEXT));
-    setProjectLanguages(Core::Context(QmlProjectManager::Constants::LANG_QML));
+    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_QMLJS));
 
     QFileInfo fileInfo(m_fileName);
     m_projectName = fileInfo.completeBaseName();
@@ -194,11 +186,11 @@ void QmlProject::parseProject(RefreshOptions options)
                     connect(m_projectItem.data(), SIGNAL(qmlFilesChanged(QSet<QString>,QSet<QString>)),
                             this, SLOT(refreshFiles(QSet<QString>,QSet<QString>)));
                 } else {
-                    messageManager->printToOutputPane(tr("Error while loading project file %1.").arg(m_fileName));
-                    messageManager->printToOutputPane(component->errorString(), true);
+                    messageManager->printToOutputPane(tr("Error while loading project file %1.").arg(m_fileName), Core::MessageManager::NoModeSwitch);
+                    messageManager->printToOutputPane(component->errorString(), Core::MessageManager::NoModeSwitch);
                 }
             } else {
-                messageManager->printToOutputPane(tr("QML project: %1").arg(reader.errorString()), true);
+                messageManager->printToOutputPane(tr("QML project: %1").arg(reader.errorString()), Core::MessageManager::NoModeSwitch);
             }
         }
         if (m_projectItem) {
@@ -212,8 +204,9 @@ void QmlProject::parseProject(RefreshOptions options)
                 QString errorMessage;
                 if (!reader.fetch(mainFilePath, &errorMessage)) {
                     messageManager->printToOutputPane(
-                                tr("Warning while loading project file %1.").arg(m_fileName));
-                    messageManager->printToOutputPane(errorMessage, true);
+                                tr("Warning while loading project file %1.").arg(m_fileName),
+                                Core::MessageManager::NoModeSwitch);
+                    messageManager->printToOutputPane(errorMessage, Core::MessageManager::NoModeSwitch);
                 } else {
                     m_defaultImport = detectImport(QString::fromUtf8(reader.data()));
                 }

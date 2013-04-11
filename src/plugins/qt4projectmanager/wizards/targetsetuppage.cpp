@@ -29,29 +29,24 @@
 
 #include "targetsetuppage.h"
 #include "importwidget.h"
+#include "../qt4targetsetupwidget.h"
 
 #include "buildconfigurationinfo.h"
 #include "qt4buildconfiguration.h"
 #include "qt4project.h"
-#include "qt4projectmanagerconstants.h"
 #include "qmakekitinformation.h"
 
 #include <coreplugin/icore.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
-#include <projectexplorer/toolchain.h>
 #include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtsupportconstants.h>
 #include <qtsupport/qtversionfactory.h>
+#include <qtsupport/qtversionmanager.h>
 #include <utils/qtcprocess.h>
 
 #include <QLabel>
 #include <QMessageBox>
-#include <QVariant>
-#include <QAction>
-#include <QApplication>
-#include <QButtonGroup>
-#include <QHeaderView>
 #include <QScrollArea>
 #include <QVBoxLayout>
 

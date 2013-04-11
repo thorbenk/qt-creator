@@ -28,70 +28,40 @@
 ****************************************************************************/
 
 #include "cppmodelmanager.h"
+
 #include "builtinindexingsupport.h"
 #include "cppcompletionassist.h"
 #include "cpphighlightingsupport.h"
 #include "cpphighlightingsupportinternal.h"
 #include "cppindexingsupport.h"
 #include "abstracteditorsupport.h"
-#include "cpptoolsconstants.h"
 #include "cpptoolseditorsupport.h"
 #include "cppfindreferences.h"
 
-#include <cplusplus/pp.h>
-#include <cplusplus/Overview.h>
-
-#include <functional>
-#include <QtConcurrentRun>
-#include <QFutureSynchronizer>
-#include <utils/runextensions.h>
-#include <texteditor/itexteditor.h>
-#include <texteditor/basetexteditor.h>
-#include <projectexplorer/project.h>
-#include <projectexplorer/projectexplorer.h>
-#include <projectexplorer/projectexplorerconstants.h>
-#include <projectexplorer/session.h>
 #include <coreplugin/icore.h>
-#include <coreplugin/mimedatabase.h>
-#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/progressmanager/progressmanager.h>
-#include <extensionsystem/pluginmanager.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/session.h>
 
+#include <extensionsystem/pluginmanager.h>
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
-
-#include <TranslationUnit.h>
-#include <AST.h>
-#include <Scope.h>
-#include <Literals.h>
-#include <Symbols.h>
-#include <Names.h>
-#include <NameVisitor.h>
-#include <TypeVisitor.h>
-#include <ASTVisitor.h>
-#include <Lexer.h>
-#include <Token.h>
-#include <Parser.h>
-#include <Control.h>
-#include <CoreTypes.h>
 
 #include <QCoreApplication>
 #include <QDebug>
 #include <QMutexLocker>
-#include <QTime>
 #include <QTimer>
-#include <QtConcurrentMap>
-
 #include <QTextBlock>
 
+#include <functional>
 #include <iostream>
 #include <sstream>
 
-namespace CPlusPlus {
+namespace CppTools {
 
-uint qHash(const CppModelManagerInterface::ProjectPart &p)
+uint qHash(const ProjectPart &p)
 {
-    uint h = qHash(p.defines) ^ p.language ^ p.qtVersion;
+    uint h = qHash(p.defines) ^ p.cVersion ^ p.cxxVersion ^ p.cxxExtensions ^ p.qtVersion;
 
     foreach (const QString &i, p.includePaths)
         h ^= qHash(i);
@@ -102,12 +72,16 @@ uint qHash(const CppModelManagerInterface::ProjectPart &p)
     return h;
 }
 
-bool operator==(const CppModelManagerInterface::ProjectPart &p1,
-                const CppModelManagerInterface::ProjectPart &p2)
+bool operator==(const ProjectPart &p1,
+                const ProjectPart &p2)
 {
     if (p1.defines != p2.defines)
         return false;
-    if (p1.language != p2.language)
+    if (p1.cVersion != p2.cVersion)
+        return false;
+    if (p1.cxxVersion != p2.cxxVersion)
+        return false;
+    if (p1.cxxExtensions != p2.cxxExtensions)
         return false;
     if (p1.qtVersion!= p2.qtVersion)
         return false;
@@ -116,7 +90,7 @@ bool operator==(const CppModelManagerInterface::ProjectPart &p1,
     return p1.frameworkPaths == p2.frameworkPaths;
 }
 
-} // namespace CPlusPlus
+} // namespace CppTools
 
 using namespace CppTools;
 using namespace CppTools::Internal;
@@ -312,8 +286,7 @@ public:
 
 void CppPreprocessor::run(const QString &fileName)
 {
-    QString absoluteFilePath = fileName;
-    sourceNeeded(0, absoluteFilePath, IncludeGlobal);
+    sourceNeeded(0, fileName, IncludeGlobal);
 }
 
 void CppPreprocessor::removeFromCache(const QString &fileName)
@@ -327,60 +300,60 @@ void CppPreprocessor::resetEnvironment()
     m_processed.clear();
 }
 
-bool CppPreprocessor::includeFile(const QString &absoluteFilePath, QString *result, unsigned *revision)
+void CppPreprocessor::getFileContents(const QString &absoluteFilePath,
+                                      QString *contents,
+                                      unsigned *revision) const
+{
+    if (absoluteFilePath.isEmpty())
+        return;
+
+    if (m_workingCopy.contains(absoluteFilePath)) {
+        QPair<QString, unsigned> entry = m_workingCopy.get(absoluteFilePath);
+        if (contents)
+            *contents = entry.first;
+        if (revision)
+            *revision = entry.second;
+        return;
+    }
+
+    QFile file(absoluteFilePath);
+    if (file.open(QFile::ReadOnly | QFile::Text)) {
+        QTextCodec *defaultCodec = Core::EditorManager::instance()->defaultTextCodec();
+        QTextStream stream(&file);
+        stream.setCodec(defaultCodec);
+        if (contents)
+            *contents = stream.readAll();
+        if (revision)
+            *revision = 0;
+        file.close();
+    }
+}
+
+bool CppPreprocessor::checkFile(const QString &absoluteFilePath) const
 {
     if (absoluteFilePath.isEmpty() || m_included.contains(absoluteFilePath))
         return true;
 
-    if (m_workingCopy.contains(absoluteFilePath)) {
-        m_included.insert(absoluteFilePath);
-        const QPair<QString, unsigned> r = m_workingCopy.get(absoluteFilePath);
-        *result = r.first;
-        *revision = r.second;
-        return true;
-    }
-
     QFileInfo fileInfo(absoluteFilePath);
-    if (! fileInfo.isFile())
-        return false;
-
-    QFile file(absoluteFilePath);
-    if (file.open(QFile::ReadOnly | QFile::Text)) {
-        m_included.insert(absoluteFilePath);
-        QTextCodec *defaultCodec = Core::EditorManager::instance()->defaultTextCodec();
-        QTextStream stream(&file);
-        stream.setCodec(defaultCodec);
-        if (result)
-            *result = stream.readAll();
-        file.close();
-        return true;
-    }
-
-    return false;
+    return fileInfo.isFile() && fileInfo.isReadable();
 }
 
-QString CppPreprocessor::tryIncludeFile(QString &fileName, IncludeType type, unsigned *revision)
+/// Resolve the given file name to its absolute path w.r.t. the include type.
+QString CppPreprocessor::resolveFile(const QString &fileName, IncludeType type)
 {
     if (type == IncludeGlobal) {
-        const QString fn = m_fileNameCache.value(fileName);
+        QString fn = m_fileNameCache.value(fileName);
 
-        if (! fn.isEmpty()) {
-            fileName = fn;
+        if (! fn.isEmpty())
+            return fn;
 
-            if (revision)
-                *revision = 0;
-
-            return QString();
-        }
-
-        const QString originalFileName = fileName;
-        const QString contents = tryIncludeFile_helper(fileName, type, revision);
-        m_fileNameCache.insert(originalFileName, fileName);
-        return contents;
+        fn = resolveFile_helper(fileName, type);
+        m_fileNameCache.insert(fileName, fn);
+        return fn;
     }
 
     // IncludeLocal, IncludeNext
-    return tryIncludeFile_helper(fileName, type, revision);
+    return resolveFile_helper(fileName, type);
 }
 
 QString CppPreprocessor::cleanPath(const QString &path)
@@ -392,32 +365,23 @@ QString CppPreprocessor::cleanPath(const QString &path)
     return result;
 }
 
-QString CppPreprocessor::tryIncludeFile_helper(QString &fileName, IncludeType type, unsigned *revision)
+QString CppPreprocessor::resolveFile_helper(const QString &fileName, IncludeType type)
 {
     QFileInfo fileInfo(fileName);
-    if (fileName == Preprocessor::configurationFileName || fileInfo.isAbsolute()) {
-        QString contents;
-        includeFile(fileName, &contents, revision);
-        return contents;
-    }
+    if (fileName == Preprocessor::configurationFileName || fileInfo.isAbsolute())
+        return fileName;
 
     if (type == IncludeLocal && m_currentDoc) {
         QFileInfo currentFileInfo(m_currentDoc->fileName());
         QString path = cleanPath(currentFileInfo.absolutePath()) + fileName;
-        QString contents;
-        if (includeFile(path, &contents, revision)) {
-            fileName = path;
-            return contents;
-        }
+        if (checkFile(path))
+            return path;
     }
 
     foreach (const QString &includePath, m_includePaths) {
         QString path = includePath + fileName;
-        QString contents;
-        if (includeFile(path, &contents, revision)) {
-            fileName = path;
-            return contents;
-        }
+        if (checkFile(path))
+            return path;
     }
 
     int index = fileName.indexOf(QLatin1Char('/'));
@@ -427,11 +391,8 @@ QString CppPreprocessor::tryIncludeFile_helper(QString &fileName, IncludeType ty
 
         foreach (const QString &frameworkPath, m_frameworkPaths) {
             QString path = frameworkPath + name;
-            QString contents;
-            if (includeFile(path, &contents, revision)) {
-                fileName = path;
-                return contents;
-            }
+            if (checkFile(path))
+                return path;
         }
     }
 
@@ -544,18 +505,24 @@ void CppPreprocessor::stopSkippingBlocks(unsigned offset)
         m_currentDoc->stopSkippingBlocks(offset);
 }
 
-void CppPreprocessor::sourceNeeded(unsigned line, QString &fileName, IncludeType type)
+void CppPreprocessor::sourceNeeded(unsigned line, const QString &fileName, IncludeType type)
 {
     if (fileName.isEmpty())
         return;
 
-    unsigned editorRevision = 0;
-    QString contents = tryIncludeFile(fileName, type, &editorRevision);
-    fileName = QDir::cleanPath(fileName);
-    if (m_currentDoc) {
-        m_currentDoc->addIncludeFile(fileName, line);
+    QString absoluteFileName = resolveFile(fileName, type);
+    absoluteFileName = QDir::cleanPath(absoluteFileName);
+    if (m_currentDoc && !absoluteFileName.isEmpty())
+        m_currentDoc->addIncludeFile(absoluteFileName, line);
+    if (m_included.contains(absoluteFileName))
+        return; // we've already seen this file.
+    m_included.insert(absoluteFileName);
 
-        if (contents.isEmpty() && ! QFileInfo(fileName).isAbsolute()) {
+    unsigned editorRevision = 0;
+    QString contents;
+    getFileContents(absoluteFileName, &contents, &editorRevision);
+    if (m_currentDoc) {
+        if (contents.isEmpty() && ! QFileInfo(absoluteFileName).isAbsolute()) {
             QString msg = QCoreApplication::translate(
                     "CppPreprocessor", "%1: No such file or directory").arg(fileName);
 
@@ -567,32 +534,34 @@ void CppPreprocessor::sourceNeeded(unsigned line, QString &fileName, IncludeType
             m_currentDoc->addDiagnosticMessage(d);
 
             //qWarning() << "file not found:" << fileName << m_currentDoc->fileName() << env.current_line;
+
+            return;
         }
     }
 
     if (m_dumpFileNameWhileParsing) {
-        qDebug() << "Parsing file:" << fileName
+        qDebug() << "Parsing file:" << absoluteFileName
 //             << "contents:" << contents.size()
                     ;
     }
 
-    Document::Ptr doc = m_snapshot.document(fileName);
+    Document::Ptr doc = m_snapshot.document(absoluteFileName);
     if (doc) {
         mergeEnvironment(doc);
         return;
     }
 
-    doc = Document::create(fileName);
+    doc = Document::create(absoluteFileName);
     doc->setRevision(m_revision);
     doc->setEditorRevision(editorRevision);
 
-    QFileInfo info(fileName);
+    QFileInfo info(absoluteFileName);
     if (info.exists())
         doc->setLastModified(info.lastModified());
 
     Document::Ptr previousDoc = switchDocument(doc);
 
-    const QByteArray preprocessedCode = m_preprocess.run(fileName, contents);
+    const QByteArray preprocessedCode = m_preprocess.run(absoluteFileName, contents);
 
 //    { QByteArray b(preprocessedCode); b.replace("\n", "<<<\n"); qDebug("Preprocessed code for \"%s\": [[%s]]", fileName.toUtf8().constData(), b.constData()); }
 
@@ -601,7 +570,7 @@ void CppPreprocessor::sourceNeeded(unsigned line, QString &fileName, IncludeType
     doc->tokenize();
 
     m_snapshot.insert(doc);
-    m_todo.remove(fileName);
+    m_todo.remove(absoluteFileName);
 
     Process process(m_modelManager, doc, m_workingCopy);
     process();
@@ -769,9 +738,8 @@ QStringList CppModelManager::internalProjectFiles() const
         it.next();
         ProjectInfo pinfo = it.value();
         foreach (const ProjectPart::Ptr &part, pinfo.projectParts()) {
-            files += part->headerFiles;
-            files += part->sourceFiles;
-            files += part->objcSourceFiles;
+            foreach (const ProjectFile &file, part->files)
+                files += file.path;
         }
     }
     files.removeDuplicates();
@@ -839,24 +807,38 @@ void CppModelManager::dumpModelManagerConfiguration()
         qDebug()<<" for project:"<< pinfo.project().data()->document()->fileName();
         foreach (const ProjectPart::Ptr &part, pinfo.projectParts()) {
             qDebug() << "=== part ===";
-            const char* lang;
-            switch (part->language) {
-            case ProjectPart::CXX: lang = "C++"; break;
-            case ProjectPart::CXX11: lang = "C++11"; break;
-            case ProjectPart::C89: lang = "C89"; break;
-            case ProjectPart::C99: lang = "C99"; break;
-            default: lang = "INVALID";
+            const char* cVersion;
+            switch (part->cVersion) {
+            case ProjectPart::C89: cVersion = "C89"; break;
+            case ProjectPart::C99: cVersion = "C99"; break;
+            case ProjectPart::C11: cVersion = "C11"; break;
+            default: cVersion = "INVALID";
             }
+            const char* cxxVersion;
+            switch (part->cxxVersion) {
+            case ProjectPart::CXX98: cxxVersion = "CXX98"; break;
+            case ProjectPart::CXX11: cxxVersion = "CXX11"; break;
+            default: cxxVersion = "INVALID";
+            }
+            QStringList cxxExtensions;
+            if (part->cxxExtensions & ProjectPart::GnuExtensions)
+                cxxExtensions << QLatin1String("GnuExtensions");
+            if (part->cxxExtensions & ProjectPart::MicrosoftExtensions)
+                cxxExtensions << QLatin1String("MicrosoftExtensions");
+            if (part->cxxExtensions & ProjectPart::BorlandExtensions)
+                cxxExtensions << QLatin1String("BorlandExtensions");
+            if (part->cxxExtensions & ProjectPart::OpenMP)
+                cxxExtensions << QLatin1String("OpenMP");
 
-            qDebug() << "language:" << lang;
+            qDebug() << "cVersion:" << cVersion;
+            qDebug() << "cxxVersion:" << cxxVersion;
+            qDebug() << "cxxExtensions:" << cxxExtensions;
             qDebug() << "Qt version:" << part->qtVersion;
             qDebug() << "precompiled header:" << part->precompiledHeaders;
             qDebug() << "defines:" << part->defines;
             qDebug() << "includes:" << part->includePaths;
             qDebug() << "frameworkPaths:" << part->frameworkPaths;
-            qDebug() << "headers:" << part->headerFiles;
-            qDebug() << "sources:" << part->sourceFiles;
-            qDebug() << "objc sources:" << part->objcSourceFiles;
+            qDebug() << "files:" << part->files;
             qDebug() << "";
         }
     }
@@ -988,12 +970,8 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 
         foreach (const ProjectInfo &projectInfo, m_projects) {
             foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts()) {
-                foreach (const QString &sourceFile, projectPart->sourceFiles)
-                    m_srcToProjectPart[sourceFile].append(projectPart);
-                foreach (const QString &objcSourceFile, projectPart->objcSourceFiles)
-                    m_srcToProjectPart[objcSourceFile].append(projectPart);
-                foreach (const QString &headerFile, projectPart->headerFiles)
-                    m_srcToProjectPart[headerFile].append(projectPart);
+                foreach (const ProjectFile &cxxFile, projectPart->files)
+                    m_srcToProjectPart[cxxFile.path].append(projectPart);
             }
         }
     }
@@ -1004,9 +982,9 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
     emit projectPartsUpdated(pinfo.project().data());
 }
 
-QList<CppModelManager::ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
+QList<ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
 {
-    QList<CppModelManager::ProjectPart::Ptr> parts = m_srcToProjectPart.value(fileName);
+    QList<ProjectPart::Ptr> parts = m_srcToProjectPart.value(fileName);
     if (!parts.isEmpty())
         return parts;
 

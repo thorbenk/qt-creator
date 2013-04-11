@@ -1,8 +1,5 @@
-TEMPLATE = lib
-TARGET = Locator
 DEFINES += LOCATOR_LIBRARY
 include(../../qtcreatorplugin.pri)
-include(locator_dependencies.pri)
 HEADERS += locatorplugin.h \
     commandlocator.h \
     locatorwidget.h \

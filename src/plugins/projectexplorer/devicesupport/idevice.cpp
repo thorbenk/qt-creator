@@ -31,7 +31,6 @@
 #include "devicemanager.h"
 #include "deviceprocesslist.h"
 
-#include <coreplugin/id.h>
 #include <ssh/sshconnection.h>
 #include <utils/portlist.h>
 #include <utils/qtcassert.h>
@@ -295,7 +294,9 @@ void IDevice::fromMap(const QVariantMap &map)
 {
     d->type = typeFromMap(map);
     d->displayName = map.value(QLatin1String(DisplayNameKey)).toString();
-    d->id = Core::Id(map.value(QLatin1String(IdKey), newId().name()).toByteArray());
+    d->id = Core::Id::fromSetting(map.value(QLatin1String(IdKey)));
+    if (!d->id.isValid())
+        d->id = newId();
     d->origin = static_cast<Origin>(map.value(QLatin1String(OriginKey), ManuallyAdded).toInt());
 
     d->sshParameters.host = map.value(QLatin1String(HostKey)).toString();
@@ -318,7 +319,7 @@ QVariantMap IDevice::toMap() const
     QVariantMap map;
     map.insert(QLatin1String(DisplayNameKey), d->displayName);
     map.insert(QLatin1String(TypeKey), d->type.toString());
-    map.insert(QLatin1String(IdKey), d->id.name());
+    map.insert(QLatin1String(IdKey), d->id.toSetting());
     map.insert(QLatin1String(OriginKey), d->origin);
 
     map.insert(QLatin1String(MachineTypeKey), d->machineType);

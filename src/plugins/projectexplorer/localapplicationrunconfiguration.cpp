@@ -33,25 +33,17 @@
 
 #include <coreplugin/variablemanager.h>
 
-#include <utils/stringutils.h>
-
 namespace ProjectExplorer {
 
 /// LocalApplicationRunConfiguration
 
 LocalApplicationRunConfiguration::LocalApplicationRunConfiguration(Target *target, const Core::Id id) :
     RunConfiguration(target, id)
-{
-}
+{ }
 
 LocalApplicationRunConfiguration::LocalApplicationRunConfiguration(Target *target, LocalApplicationRunConfiguration *rc) :
     RunConfiguration(target, rc)
-{
-}
-
-LocalApplicationRunConfiguration::~LocalApplicationRunConfiguration()
-{
-}
+{ }
 
 Utils::AbstractMacroExpander *LocalApplicationRunConfiguration::macroExpander() const
 {

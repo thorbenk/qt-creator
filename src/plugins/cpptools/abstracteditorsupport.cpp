@@ -28,22 +28,12 @@
 ****************************************************************************/
 
 #include "abstracteditorsupport.h"
-#include "cpptoolsconstants.h"
+
 #include "cppfilesettingspage.h"
-
+#include "cppmodelmanagerinterface.h"
 #include <cplusplus/Overview.h>
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/ExpressionUnderCursor.h>
-#include "ModelManagerInterface.h"
-#include <CoreTypes.h>
-#include <Names.h>
-#include <Symbols.h>
-#include <Scope.h>
 
-#include <coreplugin/icore.h>
 #include <QDebug>
-
-using namespace CPlusPlus;
 
 namespace CppTools {
 
@@ -95,5 +85,6 @@ QString AbstractEditorSupport::licenseTemplate(const QString &file, const QStrin
 {
     return Internal::CppFileSettings::licenseTemplate(file, className);
 }
-}
+
+} // namespace CppTools
 

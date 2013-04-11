@@ -1,10 +1,7 @@
-TEMPLATE = lib
-TARGET = QtcSsh
 QT += gui network
 DEFINES += QSSH_LIBRARY
 
 include(../../qtcreatorlibrary.pri)
-include(ssh_dependencies.pri)
 
 SOURCES = $$PWD/sshsendfacility.cpp \
     $$PWD/sshremoteprocess.cpp \

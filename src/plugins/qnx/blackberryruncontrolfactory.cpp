@@ -35,9 +35,11 @@
 #include "blackberrydeployconfiguration.h"
 #include "blackberrydebugsupport.h"
 #include "blackberryqtversion.h"
+#include "blackberrydeviceconnectionmanager.h"
 #include "qnxutils.h"
 
 #include <debugger/debuggerplugin.h>
+#include <debugger/debuggerrunconfigurationaspect.h>
 #include <debugger/debuggerrunner.h>
 #include <debugger/debuggerkitinformation.h>
 #include <projectexplorer/deployconfiguration.h>
@@ -99,6 +101,14 @@ ProjectExplorer::RunControl *BlackBerryRunControlFactory::create(ProjectExplorer
         return 0;
     }
 
+    BlackBerryDeviceConfiguration::ConstPtr device =
+            BlackBerryDeviceConfiguration::device(rc->target()->kit());
+    if (!BlackBerryDeviceConnectionManager::instance()->isConnected(device->id())) {
+        if (errorMessage)
+            *errorMessage = tr("Device not connected");
+        return 0;
+    }
+
     if (mode == ProjectExplorer::NormalRunMode) {
         BlackBerryRunControl *runControl = new BlackBerryRunControl(rc);
         m_activeRunControls[rc->key()] = runControl;
@@ -138,15 +148,17 @@ Debugger::DebuggerStartParameters BlackBerryRunControlFactory::startParameters(
     params.displayName = runConfig->displayName();
     params.remoteSetupNeeded = true;
 
-    if (runConfig->debuggerAspect()->useQmlDebugger()) {
+    Debugger::DebuggerRunConfigurationAspect *aspect
+            = runConfig->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+    if (aspect->useQmlDebugger()) {
         BlackBerryDeviceConfiguration::ConstPtr device = BlackBerryDeviceConfiguration::device(runConfig->target()->kit());
         if (device) {
             params.qmlServerAddress = device->sshParameters().host;
-            params.qmlServerPort = runConfig->debuggerAspect()->qmlDebugServerPort();
+            params.qmlServerPort = aspect->qmlDebugServerPort();
             params.languages |= Debugger::QmlLanguage;
         }
     }
-    if (runConfig->debuggerAspect()->useCppDebugger())
+    if (aspect->useCppDebugger())
         params.languages |= Debugger::CppLanguage;
 
     if (const ProjectExplorer::Project *project = runConfig->target()->project()) {

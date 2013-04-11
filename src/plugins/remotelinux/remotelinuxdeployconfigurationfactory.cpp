@@ -34,8 +34,8 @@
 #include "remotelinuxdeployconfiguration.h"
 
 #include <projectexplorer/abi.h>
+#include <projectexplorer/toolchain.h>
 #include <projectexplorer/kitinformation.h>
-#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/target.h>
 

@@ -29,7 +29,6 @@
 
 #include "cpasterplugin.h"
 
-#include "splitter.h"
 #include "pasteview.h"
 #include "codepasterprotocol.h"
 #include "kdepasteprotocol.h"
@@ -57,12 +56,9 @@
 #include <QtPlugin>
 #include <QDebug>
 #include <QDir>
-#include <QFileInfo>
-#include <QTemporaryFile>
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
-#include <QMenu>
 #include <QInputDialog>
 #include <QUrl>
 
@@ -134,11 +130,10 @@ bool CodepasterPlugin::initialize(const QStringList &arguments, QString *errorMe
     addAutoReleasedObject(settingsPage);
 
     // Create the protocols and append them to the Settings
-    const QSharedPointer<NetworkAccessManagerProxy> networkAccessMgrProxy(new NetworkAccessManagerProxy);
-    Protocol *protos[] =  { new PasteBinDotComProtocol(networkAccessMgrProxy),
-                            new PasteBinDotCaProtocol(networkAccessMgrProxy),
-                            new KdePasteProtocol(networkAccessMgrProxy),
-                            new CodePasterProtocol(networkAccessMgrProxy),
+    Protocol *protos[] =  { new PasteBinDotComProtocol,
+                            new PasteBinDotCaProtocol,
+                            new KdePasteProtocol,
+                            new CodePasterProtocol,
                             new FileShareProtocol
                            };
     const int count = sizeof(protos) / sizeof(Protocol *);
@@ -152,7 +147,7 @@ bool CodepasterPlugin::initialize(const QStringList &arguments, QString *errorMe
         m_protocols.append(protos[i]);
     }
 
-    m_urlOpen = new UrlOpenProtocol(networkAccessMgrProxy);
+    m_urlOpen = new UrlOpenProtocol;
     connect(m_urlOpen, SIGNAL(fetchDone(QString,QString,bool)),
             this, SLOT(finishFetch(QString,QString,bool)));
 
@@ -266,8 +261,8 @@ void CodepasterPlugin::post(QString data, const QString &mimeType)
 
     const FileDataList diffChunks = splitDiffToFiles(data);
     const int dialogResult = diffChunks.isEmpty() ?
-        view.show(username, QString(), QString(), data) :
-        view.show(username, QString(), QString(), diffChunks);
+        view.show(username, QString(), QString(), m_settings->expiryDays, data) :
+        view.show(username, QString(), QString(), m_settings->expiryDays, diffChunks);
     // Save new protocol in case user changed it.
     if (dialogResult == QDialog::Accepted
         && m_settings->protocol != view.protocol()) {
@@ -313,7 +308,7 @@ void CodepasterPlugin::finishPost(const QString &link)
 {
     if (m_settings->copyToClipboard)
         QApplication::clipboard()->setText(link);
-    ICore::messageManager()->printToOutputPane(link, m_settings->displayOutput);
+    ICore::messageManager()->printToOutputPane(link, m_settings->displayOutput ? Core::MessageManager::ModeSwitch : Core::MessageManager::Silent);
 }
 
 // Extract the characters that can be used for a file name from a title
@@ -356,11 +351,11 @@ void CodepasterPlugin::finishFetch(const QString &titleDescription,
     Core::MessageManager *messageManager = ICore::messageManager();
     // Failure?
     if (error) {
-        messageManager->printToOutputPane(content, true);
+        messageManager->printToOutputPane(content, Core::MessageManager::NoModeSwitch);
         return;
     }
     if (content.isEmpty()) {
-        messageManager->printToOutputPane(tr("Empty snippet received for \"%1\".").arg(titleDescription), true);
+        messageManager->printToOutputPane(tr("Empty snippet received for \"%1\".").arg(titleDescription), Core::MessageManager::NoModeSwitch);
         return;
     }
     // If the mime type has a preferred suffix (cpp/h/patch...), use that for
@@ -379,7 +374,7 @@ void CodepasterPlugin::finishFetch(const QString &titleDescription,
     saver.setAutoRemove(false);
     saver.write(byteContent);
     if (!saver.finalize()) {
-        messageManager->printToOutputPane(saver.errorString());
+        messageManager->printToOutputPane(saver.errorString(), Core::MessageManager::NoModeSwitch);
         return;
     }
     const QString fileName = saver.fileName();

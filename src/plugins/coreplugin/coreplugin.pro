@@ -1,5 +1,3 @@
-TEMPLATE = lib
-TARGET = Core
 DEFINES += CORE_LIBRARY
 QT += network \
     script \
@@ -12,9 +10,7 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 }
 
 include(../../qtcreatorplugin.pri)
-include(../../libs/utils/utils.pri)
 include(../../shared/scriptwrapper/scriptwrapper.pri)
-include(coreplugin_dependencies.pri)
 win32-msvc*:QMAKE_CXXFLAGS += -wd4251 -wd4290 -wd4250
 INCLUDEPATH += dialogs \
     actionmanager \
@@ -53,6 +49,7 @@ SOURCES += mainwindow.cpp \
     dialogs/settingsdialog.cpp \
     actionmanager/commandmappings.cpp \
     dialogs/shortcutsettings.cpp \
+    dialogs/readonlyfilesdialog.cpp \
     dialogs/openwithdialog.cpp \
     progressmanager/progressmanager.cpp \
     progressmanager/progressview.cpp \
@@ -138,6 +135,7 @@ HEADERS += mainwindow.h \
     dialogs/newdialog.h \
     dialogs/settingsdialog.h \
     actionmanager/commandmappings.h \
+    dialogs/readonlyfilesdialog.h \
     dialogs/shortcutsettings.h \
     dialogs/openwithdialog.h \
     dialogs/iwizard.h \
@@ -206,6 +204,7 @@ HEADERS += mainwindow.h \
 FORMS += dialogs/newdialog.ui \
     actionmanager/commandmappings.ui \
     dialogs/saveitemsdialog.ui \
+    dialogs/readonlyfilesdialog.ui \
     dialogs/openwithdialog.ui \
     generalsettings.ui \
     dialogs/externaltoolconfig.ui \

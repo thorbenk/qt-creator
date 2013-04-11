@@ -39,6 +39,7 @@
 #include "blackberrydeviceconfiguration.h"
 #include "blackberrydeployinformation.h"
 
+#include <debugger/debuggerrunconfigurationaspect.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/runconfiguration.h>
@@ -102,17 +103,17 @@ bool BlackBerryCreatePackageStep::init()
     }
 
     foreach (const BarPackageDeployInformation &info, packagesToDeploy) {
-        if (info.appDescriptorPath.isEmpty()) {
+        if (info.appDescriptorPath().isEmpty()) {
             raiseError(tr("Application descriptor file not specified, please check deployment settings"));
             return false;
         }
 
-        if (info.packagePath.isEmpty()) {
+        if (info.packagePath().isEmpty()) {
             raiseError(tr("No package specified, please check deployment settings"));
             return false;
         }
 
-        const QString buildDir = target()->activeBuildConfiguration()->buildDirectory();
+        const QString buildDir = QFileInfo(info.packagePath()).absolutePath();
         QDir dir(buildDir);
         if (!dir.exists()) {
             if (!dir.mkpath(buildDir)) {
@@ -122,7 +123,7 @@ bool BlackBerryCreatePackageStep::init()
         }
 
         const QString preparedFilePath =  buildDir + QLatin1String("/bar-descriptor-") + project()->displayName() + QLatin1String("-qtc-generated.xml");
-        if (!prepareAppDescriptorFile(info.appDescriptorPath, preparedFilePath))
+        if (!prepareAppDescriptorFile(info.appDescriptorPath(), preparedFilePath))
             // If there is an error, prepareAppDescriptorFile() will raise it
             return false;
 
@@ -131,7 +132,7 @@ bool BlackBerryCreatePackageStep::init()
         args << QLatin1String("-devMode");
         if (!debugToken().isEmpty())
             args << QLatin1String("-debugToken") << QnxUtils::addQuotes(QDir::toNativeSeparators(debugToken()));
-        args << QLatin1String("-package") << QnxUtils::addQuotes(QDir::toNativeSeparators(info.packagePath));
+        args << QLatin1String("-package") << QnxUtils::addQuotes(QDir::toNativeSeparators(info.packagePath()));
         args << QnxUtils::addQuotes(QDir::toNativeSeparators(preparedFilePath));
         addCommand(packageCmd, args);
     }
@@ -151,13 +152,6 @@ QString BlackBerryCreatePackageStep::debugToken() const
         return QString();
 
     return device->debugToken();
-}
-
-void BlackBerryCreatePackageStep::raiseError(const QString &errorMessage)
-{
-    emit addOutput(errorMessage, BuildStep::ErrorMessageOutput);
-    emit addTask(ProjectExplorer::Task(ProjectExplorer::Task::Error, errorMessage, Utils::FileName(), -1,
-                                       Core::Id(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM)));
 }
 
 bool BlackBerryCreatePackageStep::prepareAppDescriptorFile(const QString &appDescriptorPath, const QString &preparedFilePath)
@@ -198,10 +192,12 @@ bool BlackBerryCreatePackageStep::prepareAppDescriptorFile(const QString &appDes
         fileContent.replace(SRC_DIR_VAR, QDir::toNativeSeparators(target()->project()->projectDirectory()).toLatin1());
 
     // Add parameter for QML debugging (if enabled)
-    if (target()->activeRunConfiguration()->debuggerAspect()->useQmlDebugger()) {
+    Debugger::DebuggerRunConfigurationAspect *aspect
+            = target()->activeRunConfiguration()->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+    if (aspect->useQmlDebugger()) {
         if (!fileContent.contains("-qmljsdebugger")) {
             const QString argString = QString::fromLatin1("<arg>-qmljsdebugger=port:%1</arg>\n</qnx>")
-                    .arg(target()->activeRunConfiguration()->debuggerAspect()->qmlDebugServerPort());
+                    .arg(aspect->qmlDebugServerPort());
             fileContent.replace("</qnx>", argString.toLatin1());
         }
     }

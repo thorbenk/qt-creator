@@ -31,7 +31,7 @@
 #include "cmakeproject.h"
 #include "cmakebuildconfiguration.h"
 
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <projectexplorer/target.h>
 
 #include <QProcess>
@@ -39,7 +39,7 @@
 using namespace CMakeProjectManager;
 using namespace Internal;
 
-CMakeUiCodeModelSupport::CMakeUiCodeModelSupport(CPlusPlus::CppModelManagerInterface *modelmanager,
+CMakeUiCodeModelSupport::CMakeUiCodeModelSupport(CppTools::CppModelManagerInterface *modelmanager,
                                              CMakeProject *project,
                                              const QString &source,
                                              const QString &uiHeaderFile)

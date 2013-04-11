@@ -100,7 +100,7 @@ void QtKitInformation::fix(ProjectExplorer::Kit *k)
 {
     QTC_ASSERT(QtVersionManager::instance()->isLoaded(), return);
     BaseQtVersion *version = qtVersion(k);
-    if (!version) {
+    if (!version && qtVersionId(k) >= 0) {
         qWarning("Qt version is no longer known, removing from kit \"%s\".", qPrintable(k->displayName()));
         setQtVersionId(k, -1);
     }
@@ -178,6 +178,22 @@ void QtKitInformation::setQtVersion(ProjectExplorer::Kit *k, const BaseQtVersion
         setQtVersionId(k, -1);
     else
         setQtVersionId(k, v->uniqueId());
+}
+
+QString QtKitInformation::dumperLibrary(const ProjectExplorer::Kit *k)
+{
+    BaseQtVersion *version = QtKitInformation::qtVersion(k);
+    if (version)
+        return version->gdbDebuggingHelperLibrary();
+    return QString();
+}
+
+QStringList QtKitInformation::dumperLibraryLocations(const ProjectExplorer::Kit *k)
+{
+    BaseQtVersion *version = QtKitInformation::qtVersion(k);
+    if (version)
+        return version->debuggingHelperLibraryLocations();
+    return QStringList();
 }
 
 void QtKitInformation::qtVersionsChanged(const QList<int> &addedIds,

@@ -28,32 +28,14 @@
 ****************************************************************************/
 
 #include "cppquickfixassistant.h"
+
 #include "cppeditorconstants.h"
 #include "cppeditor.h"
 
-// @TODO: temp
-#include "cppquickfix.h"
-
-#include <AST.h>
-#include <TranslationUnit.h>
-#include <Token.h>
-
 #include <cplusplus/ASTPath.h>
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/ResolveExpression.h>
-#include <cplusplus/Overview.h>
-#include <cplusplus/TypeOfExpression.h>
-#include <cplusplus/DependencyTable.h>
-#include <cplusplus/CppRewriter.h>
-
-#include <cpptools/cpprefactoringchanges.h>
 
 #include <extensionsystem/pluginmanager.h>
-
 #include <utils/qtcassert.h>
-
-#include <QFileInfo>
-#include <QTextBlock>
 
 using namespace CppEditor;
 using namespace CppEditor::Internal;
@@ -103,7 +85,7 @@ CppQuickFixAssistInterface::CppQuickFixAssistInterface(CPPEditorWidget *editor,
                              editor->editorDocument()->fileName(), reason)
     , m_editor(editor)
     , m_semanticInfo(editor->semanticInfo())
-    , m_snapshot(CPlusPlus::CppModelManagerInterface::instance()->snapshot())
+    , m_snapshot(CppTools::CppModelManagerInterface::instance()->snapshot())
     , m_currentFile(CppRefactoringChanges::file(editor, m_semanticInfo.doc))
     , m_context(m_semanticInfo.doc, m_snapshot)
 {

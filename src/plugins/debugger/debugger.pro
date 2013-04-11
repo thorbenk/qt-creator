@@ -1,16 +1,10 @@
-TEMPLATE = lib
-TARGET = Debugger
-
 # DEFINES += QT_USE_FAST_OPERATOR_PLUS
 # DEFINES += QT_USE_FAST_CONCATENATION
 # CONFIG += single
 
 include(../../qtcreatorplugin.pri)
-include(debugger_dependencies.pri)
 
 DEFINES += DEBUGGER_LIBRARY
-
-INCLUDEPATH += $$PWD/../../libs/utils
 
 QT += gui \
     network \
@@ -35,6 +29,7 @@ HEADERS += \
     debuggermainwindow.h \
     debuggerplugin.h \
     debuggerprotocol.h \
+    debuggerrunconfigurationaspect.h \
     debuggerrunner.h \
     debuggerstartparameters.h \
     debuggerstreamops.h \
@@ -88,6 +83,7 @@ SOURCES += \
     debuggermainwindow.cpp \
     debuggerplugin.cpp \
     debuggerprotocol.cpp \
+    debuggerrunconfigurationaspect.cpp \
     debuggerrunner.cpp \
     debuggerstreamops.cpp \
     debuggerkitconfigwidget.cpp \
@@ -147,6 +143,7 @@ include(cdb/cdb.pri)
 include(gdb/gdb.pri)
 include(script/script.pri)
 include(pdb/pdb.pri)
+include(lldb/lldb.pri)
 include(lldblib/lldbhost.pri)
 include(qml/qml.pri)
 include(namedemangler/namedemangler.pri)

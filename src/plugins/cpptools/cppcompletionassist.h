@@ -33,20 +33,16 @@
 #include "cppcompletionassistprovider.h"
 
 #include <cplusplus/Icons.h>
-#include <cplusplus/Overview.h>
 #include <cplusplus/TypeOfExpression.h>
-#include <cplusplus/CppDocument.h>
 #if QT_VERSION >= 0x050000
 // Qt 5 requires the types to be defined for Q_DECLARE_METATYPE
 #  include <cplusplus/Symbol.h>
 #endif
 
 #include <texteditor/codeassist/basicproposalitemlistmodel.h>
-#include <texteditor/codeassist/completionassistprovider.h>
+#include <texteditor/codeassist/defaultassistinterface.h>
 #include <texteditor/codeassist/iassistprocessor.h>
 #include <texteditor/snippets/snippetassistcollector.h>
-#include <texteditor/codeassist/defaultassistinterface.h>
-#include <texteditor/codeassist/basicproposalitem.h>
 
 #include <QStringList>
 #include <QVariant>
@@ -60,7 +56,7 @@ class LookupItem;
 class ClassOrNamespace;
 class Function;
 class LookupContext;
-}
+} // namespace CPlusPlus
 
 namespace CppTools {
 namespace Internal {

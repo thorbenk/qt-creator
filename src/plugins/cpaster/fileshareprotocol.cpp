@@ -32,10 +32,6 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/messagemanager.h>
-#include <coreplugin/messageoutputwindow.h>
-
-#include <utils/qtcassert.h>
-#include <utils/fileutils.h>
 
 #include <QXmlStreamReader>
 #include <QXmlStreamAttribute>
@@ -185,7 +181,7 @@ void FileShareProtocol::list()
 }
 
 void FileShareProtocol::paste(const QString &text,
-                              ContentType /* ct */,
+                              ContentType /* ct */, int /* expiryDays */,
                               const QString &username,
                               const QString & /* comment */,
                               const QString &description)
@@ -209,11 +205,11 @@ void FileShareProtocol::paste(const QString &text,
         saver.setResult(&writer);
     }
     if (!saver.finalize()) {
-        Core::ICore::messageManager()->printToOutputPanePopup(saver.errorString());
+        Core::ICore::messageManager()->printToOutputPane(saver.errorString(), Core::MessageManager::NoModeSwitch);
         return;
     }
 
     const QString msg = tr("Pasted: %1").arg(saver.fileName());
-    Core::ICore::messageManager()->printToOutputPanePopup(msg);
+    Core::ICore::messageManager()->printToOutputPane(msg, Core::MessageManager::NoModeSwitch);
 }
 } // namespace CodePaster

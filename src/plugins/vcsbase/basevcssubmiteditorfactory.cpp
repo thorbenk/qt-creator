@@ -30,8 +30,6 @@
 #include "basevcssubmiteditorfactory.h"
 #include "vcsbasesubmiteditor.h"
 
-#include <coreplugin/editormanager/editormanager.h>
-
 namespace VcsBase {
 
 namespace Internal {
@@ -49,7 +47,7 @@ public:
 
 BaseVcsSubmitEditorFactoryPrivate::BaseVcsSubmitEditorFactoryPrivate(const VcsBaseSubmitEditorParameters *parameters) :
     m_parameters(parameters),
-    m_id(QByteArray(parameters->id)),
+    m_id(parameters->id),
     m_displayName(QLatin1String(parameters->displayName)),
     m_mimeTypes(QLatin1String(parameters->mimeType))
 {

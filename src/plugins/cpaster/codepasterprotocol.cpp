@@ -29,18 +29,13 @@
 
 #include "codepasterprotocol.h"
 #include "codepastersettings.h"
-#include "cpasterplugin.h"
 
-#include <coreplugin/coreconstants.h>
-#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/messagemanager.h>
-#include <coreplugin/messageoutputwindow.h>
 
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
-#include <QListWidget>
 #include <QNetworkReply>
 #include <QDebug>
 
@@ -48,8 +43,7 @@ enum { debug = 0 };
 
 namespace CodePaster {
 
-CodePasterProtocol::CodePasterProtocol(const NetworkAccessManagerProxyPtr &nw) :
-    NetworkProtocol(nw),
+CodePasterProtocol::CodePasterProtocol() :
     m_page(new CodePaster::CodePasterSettingsPage),
     m_pasteReply(0),
     m_fetchReply(0),
@@ -130,7 +124,7 @@ void CodePasterProtocol::list()
 }
 
 void CodePasterProtocol::paste(const QString &text,
-                               ContentType /* ct */,
+                               ContentType /* ct */, int /* expiryDays */,
                                const QString &username,
                                const QString &comment,
                                const QString &description)
@@ -205,7 +199,7 @@ void CodePasterProtocol::fetchFinished()
 void CodePasterProtocol::listFinished()
 {
     if (m_listReply->error()) {
-        Core::ICore::messageManager()->printToOutputPane(m_listReply->errorString(), true);
+        Core::ICore::messageManager()->printToOutputPane(m_listReply->errorString(), Core::MessageManager::NoModeSwitch);
     } else {
         const QByteArray data = m_listReply->readAll();
         const QStringList lines = QString::fromLatin1(data).split(QLatin1Char('\n'));

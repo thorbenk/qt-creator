@@ -34,7 +34,8 @@
 
 #include <QMetaType>
 #include <QString>
-#include <QVariant>
+
+QT_FORWARD_DECLARE_CLASS(QVariant)
 
 namespace Core {
 
@@ -46,8 +47,6 @@ public:
     Id() : m_id(0) {}
     Id(int uid) : m_id(uid) {}
     Id(const char *name);
-    explicit Id(const QString &name);
-    explicit Id(const QByteArray &name);
 
     Id withSuffix(int suffix) const;
     Id withSuffix(const char *suffix) const;
@@ -57,6 +56,7 @@ public:
     QByteArray name() const;
     QString toString() const; // Avoid.
     QVariant toSetting() const; // Good to use.
+    QString suffixAfter(Id baseId) const;
     bool isValid() const { return m_id; }
     bool operator==(Id id) const { return m_id == id.m_id; }
     bool operator==(const char *name) const;
@@ -84,5 +84,10 @@ inline uint qHash(const Id &id) { return id.uniqueIdentifier(); }
 
 Q_DECLARE_METATYPE(Core::Id)
 Q_DECLARE_METATYPE(QList<Core::Id>)
+
+QT_BEGIN_NAMESPACE
+QDataStream &operator<<(QDataStream &ds, const Core::Id &id);
+QDataStream &operator>>(QDataStream &ds, Core::Id &id);
+QT_END_NAMESPACE
 
 #endif // CORE_ID_H

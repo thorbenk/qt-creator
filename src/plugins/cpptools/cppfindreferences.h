@@ -30,8 +30,6 @@
 #ifndef CPPFINDREFERENCES_H
 #define CPPFINDREFERENCES_H
 
-#include <utils/filesearch.h>
-#include <cplusplus/CppDocument.h>
 #include <cplusplus/DependencyTable.h>
 #include <cplusplus/FindUsages.h>
 
@@ -40,7 +38,6 @@
 #include <QPointer>
 #include <QFuture>
 #include <QFutureWatcher>
-#include <QMetaType>
 
 QT_FORWARD_DECLARE_CLASS(QTimer)
 
@@ -49,11 +46,9 @@ namespace Find {
     class SearchResult;
 } // namespace Find
 
-namespace CPlusPlus {
-class CppModelManagerInterface;
-}
-
 namespace CppTools {
+class CppModelManagerInterface;
+
 namespace Internal {
 
 class CppFindReferencesParameters
@@ -68,7 +63,7 @@ class CppFindReferences: public QObject
     Q_OBJECT
 
 public:
-    CppFindReferences(CPlusPlus::CppModelManagerInterface *modelManager);
+    CppFindReferences(CppModelManagerInterface *modelManager);
     virtual ~CppFindReferences();
 
     QList<int> references(CPlusPlus::Symbol *symbol, const CPlusPlus::LookupContext &context) const;
@@ -105,7 +100,7 @@ private:
                     const CPlusPlus::Snapshot &snapshot);
 
 private:
-    QPointer<CPlusPlus::CppModelManagerInterface> _modelManager;
+    QPointer<CppModelManagerInterface> _modelManager;
     QMap<QFutureWatcher<CPlusPlus::Usage> *, QPointer<Find::SearchResult> > m_watchers;
 
     mutable QMutex m_depsLock;

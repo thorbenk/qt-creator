@@ -35,6 +35,7 @@
 #include "maemorunconfigurationwidget.h"
 
 #include <debugger/debuggerconstants.h>
+#include <debugger/debuggerrunconfigurationaspect.h>
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/project.h>
@@ -76,9 +77,6 @@ void MaemoRunConfiguration::init()
     connect(m_remoteMounts, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this,
         SLOT(handleRemoteMountsChanged()));
     connect(m_remoteMounts, SIGNAL(modelReset()), SLOT(handleRemoteMountsChanged()));
-
-    if (DeviceTypeKitInformation::deviceTypeId(target()->kit()) != HarmattanOsType)
-        debuggerAspect()->suppressQmlDebuggingOptions();
 }
 
 bool MaemoRunConfiguration::isEnabled() const

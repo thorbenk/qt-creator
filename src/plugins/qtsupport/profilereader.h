@@ -31,10 +31,9 @@
 #define PROFILEREADER_H
 
 #include "qtsupport_global.h"
-#include "proparser/qmakeglobals.h"
-#include "proparser/qmakeparser.h"
-#include "proparser/qmakeevaluator.h"
 #include "proparser/profileevaluator.h"
+
+#include <coreplugin/messagemanager.h>
 
 #include <QObject>
 #include <QMap>
@@ -59,7 +58,7 @@ public:
     virtual void fileMessage(const QString &msg);
 
 signals:
-    void errorFound(const QString &error);
+    void errorFound(const QString &error, Core::MessageManager::PrintToOutputPaneFlags flag);
 
 private:
     bool m_verbose;

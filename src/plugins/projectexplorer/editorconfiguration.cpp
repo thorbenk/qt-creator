@@ -32,18 +32,15 @@
 #include "projectexplorer.h"
 #include "project.h"
 
-#include <coreplugin/editormanager/editormanager.h>
-
-#include <texteditor/itexteditor.h>
+#include <coreplugin/id.h>
 #include <texteditor/basetexteditor.h>
 #include <texteditor/texteditorsettings.h>
-#include <texteditor/tabsettings.h>
 #include <texteditor/simplecodestylepreferences.h>
 #include <texteditor/typingsettings.h>
 #include <texteditor/storagesettings.h>
 #include <texteditor/behaviorsettings.h>
 #include <texteditor/extraencodingsettings.h>
-#include <texteditor/icodestylepreferences.h>
+#include <texteditor/tabsettings.h>
 #include <texteditor/icodestylepreferencesfactory.h>
 
 #include <QLatin1String>
@@ -187,7 +184,7 @@ QVariantMap EditorConfiguration::toMap() const
     while (itCodeStyle.hasNext()) {
         itCodeStyle.next();
         QVariantMap settingsIdMap;
-        settingsIdMap.insert(QLatin1String("language"), itCodeStyle.key().name());
+        settingsIdMap.insert(QLatin1String("language"), itCodeStyle.key().toSetting());
         QVariantMap value;
         itCodeStyle.value()->toMap(QString(), &value);
         settingsIdMap.insert(QLatin1String("value"), value);
@@ -220,7 +217,7 @@ void EditorConfiguration::fromMap(const QVariantMap &map)
             qWarning() << "No data for code style settings list" << i << "found!";
             continue;
         }
-        Core::Id languageId(settingsIdMap.value(QLatin1String("language")).toByteArray());
+        Core::Id languageId = Core::Id::fromSetting(settingsIdMap.value(QLatin1String("language")));
         QVariantMap value = settingsIdMap.value(QLatin1String("value")).toMap();
         ICodeStylePreferences *preferences = d->m_languageCodeStylePreferences.value(languageId);
         if (preferences)

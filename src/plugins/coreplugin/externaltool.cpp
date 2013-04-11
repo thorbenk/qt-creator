@@ -41,8 +41,6 @@
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
 #include <utils/qtcassert.h>
-#include <utils/stringutils.h>
-#include <utils/environment.h>
 #include <utils/fileutils.h>
 #include <utils/qtcprocess.h>
 
@@ -50,9 +48,7 @@
 #include <QXmlStreamReader>
 #include <QXmlStreamWriter>
 #include <QDir>
-#include <QFile>
 #include <QDateTime>
-#include <QMenu>
 #include <QAction>
 
 #include <QDebug>
@@ -615,7 +611,7 @@ void ExternalToolRunner::run()
         m_process->setWorkingDirectory(m_resolvedWorkingDirectory);
     m_process->setCommand(m_resolvedExecutable, m_resolvedArguments);
     ICore::messageManager()->printToOutputPane(
-                tr("Starting external tool '%1' %2").arg(m_resolvedExecutable, m_resolvedArguments), false);
+                tr("Starting external tool '%1' %2").arg(m_resolvedExecutable, m_resolvedArguments), MessageManager::Silent);
     m_process->start();
 }
 
@@ -637,7 +633,7 @@ void ExternalToolRunner::finished(int exitCode, QProcess::ExitStatus status)
             DocumentManager::unexpectFileChange(m_expectedFileName);
     }
     ICore::messageManager()->printToOutputPane(
-                tr("'%1' finished").arg(m_resolvedExecutable), false);
+                tr("'%1' finished").arg(m_resolvedExecutable), MessageManager::Silent);
     deleteLater();
 }
 
@@ -657,7 +653,7 @@ void ExternalToolRunner::readStandardOutput()
     QByteArray data = m_process->readAllStandardOutput();
     QString output = m_outputCodec->toUnicode(data.constData(), data.length(), &m_outputCodecState);
     if (m_tool->outputHandling() == ExternalTool::ShowInPane)
-        ICore::messageManager()->printToOutputPane(output, true);
+        ICore::messageManager()->printToOutputPane(output, MessageManager::NoModeSwitch);
     else if (m_tool->outputHandling() == ExternalTool::ReplaceSelection)
         m_processOutput.append(output);
 }
@@ -669,7 +665,7 @@ void ExternalToolRunner::readStandardError()
     QByteArray data = m_process->readAllStandardError();
     QString output = m_outputCodec->toUnicode(data.constData(), data.length(), &m_errorCodecState);
     if (m_tool->errorHandling() == ExternalTool::ShowInPane)
-        ICore::messageManager()->printToOutputPane(output, true);
+        ICore::messageManager()->printToOutputPane(output, MessageManager::NoModeSwitch);
     else if (m_tool->errorHandling() == ExternalTool::ReplaceSelection)
         m_processOutput.append(output);
 }
@@ -771,7 +767,7 @@ void ExternalToolManager::menuActivated()
     QTC_ASSERT(tool, return);
     ExternalToolRunner *runner = new ExternalToolRunner(tool);
     if (runner->hasError())
-        ICore::messageManager()->printToOutputPane(runner->errorString(), true);
+        ICore::messageManager()->printToOutputPane(runner->errorString(), MessageManager::NoModeSwitch);
 }
 
 QMap<QString, QList<Internal::ExternalTool *> > ExternalToolManager::toolsByCategory() const

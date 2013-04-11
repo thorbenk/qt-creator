@@ -54,6 +54,8 @@ QtcPlugin {
     files: [
         "baseqtversion.cpp",
         "baseqtversion.h",
+        "qtconfigwidget.cpp",
+        "qtconfigwidget.h",
         "customexecutableconfigurationwidget.cpp",
         "customexecutableconfigurationwidget.h",
         "customexecutablerunconfiguration.cpp",
@@ -95,6 +97,7 @@ QtcPlugin {
         "qtversionmanager.cpp",
         "qtversionmanager.h",
         "qtversionmanager.ui",
+        "qtfeatureprovider.h",
         "screenshotcropper.cpp",
         "screenshotcropper.h",
         "showbuildlog.ui",
@@ -105,6 +108,8 @@ QtcPlugin {
         cpp.includePaths: "../../shared"
         cpp.defines: [
             "QMAKE_AS_LIBRARY",
+            "PROPARSER_THREAD_SAFE",
+            "PROEVALUATOR_CUMULATIVE",
             "PROEVALUATOR_THREAD_SAFE",
             "QMAKE_BUILTIN_PRFS",
             "PROEVALUATOR_SETENV"

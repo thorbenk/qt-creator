@@ -32,9 +32,6 @@
 
 #include <extensionsystem/pluginmanager.h>
 
-#include <QStatusBar>
-#include <QApplication>
-
 using namespace Core;
 
 MessageManager *MessageManager::m_instance = 0;
@@ -43,6 +40,7 @@ MessageManager::MessageManager()
     : m_messageOutputWindow(0)
 {
     m_instance = this;
+    qRegisterMetaType<Core::MessageManager::PrintToOutputPaneFlags>();
 }
 
 MessageManager::~MessageManager()
@@ -67,22 +65,18 @@ void MessageManager::showOutputPane()
         m_messageOutputWindow->popup(IOutputPane::ModeSwitch);
 }
 
-void MessageManager::printToOutputPane(const QString &text, bool bringToForeground)
+void MessageManager::printToOutputPane(const QString &text, PrintToOutputPaneFlags flags)
 {
     if (!m_messageOutputWindow)
         return;
-    if (bringToForeground)
-        m_messageOutputWindow->popup(IOutputPane::ModeSwitch);
+    if (flags & Flash) {
+        m_messageOutputWindow->flash();
+    } else if (flags & Silent) {
+        // Do nothing
+    } else {
+        m_messageOutputWindow->popup(Core::IOutputPane::Flag(int(flags)));
+    }
+
     m_messageOutputWindow->append(text + QLatin1Char('\n'));
-}
-
-void MessageManager::printToOutputPanePopup(const QString &text)
-{
-    printToOutputPane(text, true);
-}
-
-void MessageManager::printToOutputPane(const QString &text)
-{
-    printToOutputPane(text, false);
 }
 

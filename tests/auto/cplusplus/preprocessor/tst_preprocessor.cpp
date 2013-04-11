@@ -27,8 +27,9 @@
 **
 ****************************************************************************/
 
+#include <cplusplus/pp.h>
+
 #include <QtTest>
-#include <pp.h>
 #include <QHash>
 
 //TESTED_COMPONENT=src/libs/cplusplus
@@ -142,7 +143,7 @@ public:
     virtual void stopSkippingBlocks(unsigned offset)
     { m_skippedBlocks.last().end = offset; }
 
-    virtual void sourceNeeded(unsigned line, QString &includedFileName, IncludeType mode)
+    virtual void sourceNeeded(unsigned line, const QString &includedFileName, IncludeType mode)
     {
 #if 1
         m_recordedIncludes.append(Include(includedFileName, mode, line));

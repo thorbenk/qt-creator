@@ -53,6 +53,7 @@
 #include <projectexplorer/target.h>
 #include <projectexplorer/session.h>
 #include <projectexplorer/localapplicationrunconfiguration.h>
+#include <texteditor/itexteditor.h>
 
 #include <remotelinux/remotelinuxrunconfiguration.h>
 #include <remotelinux/linuxdevice.h>
@@ -67,6 +68,8 @@
 #include <coreplugin/actionmanager/command.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
+
+#include <debugger/debuggerrunconfigurationaspect.h>
 
 #include <qtsupport/qtkitinformation.h>
 
@@ -298,6 +301,9 @@ AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration 
     AnalyzerStartParameters sp;
     sp.startMode = StartQml; // FIXME: The parameter struct is not needed/not used.
 
+    Debugger::DebuggerRunConfigurationAspect *aspect
+            = runConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+
     // FIXME: This is only used to communicate the connParams settings.
     if (QmlProjectRunConfiguration *rc1 =
             qobject_cast<QmlProjectRunConfiguration *>(runConfiguration)) {
@@ -308,7 +314,7 @@ AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration 
         sp.debuggeeArgs = rc1->viewerArguments();
         sp.displayName = rc1->displayName();
         sp.connParams.host = QLatin1String("localhost");
-        sp.connParams.port = rc1->debuggerAspect()->qmlDebugServerPort();
+        sp.connParams.port = aspect->qmlDebugServerPort();
     } else if (LocalApplicationRunConfiguration *rc2 =
             qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)) {
         sp.environment = rc2->environment();
@@ -317,7 +323,7 @@ AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration 
         sp.debuggeeArgs = rc2->commandLineArguments();
         sp.displayName = rc2->displayName();
         sp.connParams.host = QLatin1String("localhost");
-        sp.connParams.port = rc2->debuggerAspect()->qmlDebugServerPort();
+        sp.connParams.port = aspect->qmlDebugServerPort();
     } else if (RemoteLinux::RemoteLinuxRunConfiguration *rc3 =
             qobject_cast<RemoteLinux::RemoteLinuxRunConfiguration *>(runConfiguration)) {
         sp.debuggee = rc3->remoteExecutableFilePath();
@@ -559,13 +565,13 @@ void QmlProfilerTool::startTool(StartMode mode)
 void QmlProfilerTool::logStatus(const QString &msg)
 {
     MessageManager *messageManager = MessageManager::instance();
-    messageManager->printToOutputPane(msg, false);
+    messageManager->printToOutputPane(msg, Core::MessageManager::Flash);
 }
 
 void QmlProfilerTool::logError(const QString &msg)
 {
     MessageManager *messageManager = MessageManager::instance();
-    messageManager->printToOutputPane(msg, true);
+    messageManager->printToOutputPane(msg, Core::MessageManager::NoModeSwitch);
 }
 
 void QmlProfilerTool::showErrorDialog(const QString &error)

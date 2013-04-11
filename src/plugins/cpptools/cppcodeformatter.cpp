@@ -29,20 +29,15 @@
 
 #include "cppcodeformatter.h"
 
-#include <Token.h>
-#include <Lexer.h>
-
 #include <texteditor/basetextdocumentlayout.h>
-#include <texteditor/tabsettings.h>
+#include <cplusplus/Lexer.h>
+
 #include <utils/qtcassert.h>
 
 #include <QDebug>
 #include <QMetaEnum>
 #include <QTextDocument>
-#include <QTextCursor>
 #include <QTextBlock>
-
-#include "cppcodestylesettingspage.h"
 
 using namespace CPlusPlus;
 using namespace CppTools;

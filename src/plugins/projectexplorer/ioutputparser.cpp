@@ -30,8 +30,6 @@
 #include "ioutputparser.h"
 #include "task.h"
 
-#include <utils/qtcassert.h>
-
 /*!
     \class ProjectExplorer::IOutputParser
 
@@ -191,6 +189,16 @@ void IOutputParser::setWorkingDirectory(const QString &workingDirectory)
 {
     if (m_parser)
         m_parser->setWorkingDirectory(workingDirectory);
+}
+
+QString IOutputParser::rightTrimmed(const QString &in)
+{
+    int pos = in.length();
+    for (; pos > 0; --pos) {
+        if (!in.at(pos - 1).isSpace())
+            break;
+    }
+    return in.mid(0, pos);
 }
 
 }

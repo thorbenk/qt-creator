@@ -28,25 +28,12 @@
 ****************************************************************************/
 
 #include "cpptoolsplugin.h"
+#include "cppcompletionassist.h"
 
-#include <AST.h>
-#include <Control.h>
-#include <CppDocument.h>
-#include <DiagnosticClient.h>
-#include <Scope.h>
-#include <TranslationUnit.h>
-#include <Literals.h>
-#include <Bind.h>
-#include <Symbols.h>
-#include <utils/changeset.h>
-#include <texteditor/basetextdocument.h>
 #include <texteditor/plaintexteditor.h>
 #include <texteditor/codeassist/iassistproposal.h>
-#include <texteditor/codeassist/iassistproposalmodel.h>
-#include <texteditor/codeassist/basicproposalitemlistmodel.h>
-#include <cpptools/cpptoolsplugin.h>
-#include <cpptools/cppcompletionassist.h>
-#include <extensionsystem/pluginmanager.h>
+
+#include <utils/changeset.h>
 #include <utils/fileutils.h>
 
 #include <QtTest>
@@ -1195,6 +1182,64 @@ void CppToolsPlugin::test_completion_cyclic_inheritance_data()
     completions.append(QLatin1String("class_recurse_s"));
     completions.append(QLatin1String("class_recurse_t"));
     QTest::newRow("case: direct cyclic inheritance with templates, more complex situation")
+            << code << completions;
+}
+
+void CppToolsPlugin::test_completion_template_function()
+{
+    QFETCH(QByteArray, code);
+    QFETCH(QStringList, expectedCompletions);
+
+    TestData data;
+    data.srcText = code;
+    setup(&data);
+
+    QStringList actualCompletions = getCompletions(data);
+    actualCompletions.sort();
+    expectedCompletions.sort();
+
+    QString errorPattern(QLatin1String("Completion not found: %1"));
+    foreach (const QString &completion, expectedCompletions) {
+        QByteArray errorMessage = errorPattern.arg(completion).toUtf8();
+        QVERIFY2(actualCompletions.contains(completion), errorMessage.data());
+    }
+}
+
+void CppToolsPlugin::test_completion_template_function_data()
+{
+    QTest::addColumn<QByteArray>("code");
+    QTest::addColumn<QStringList>("expectedCompletions");
+
+    QByteArray code;
+    QStringList completions;
+
+    code = "\n"
+           "template <class tclass, typename tname, int tint>\n"
+           "tname Hello(const tclass &e)\n"
+           "{\n"
+           "    tname e2 = e;\n"
+           "    @\n"
+           "}";
+
+    completions.append(QLatin1String("tclass"));
+    completions.append(QLatin1String("tname"));
+    completions.append(QLatin1String("tint"));
+    QTest::newRow("case: template parameters in template function body")
+            << code << completions;
+
+    completions.clear();
+
+    code = "\n"
+           "template <class tclass, typename tname, int tint>\n"
+           "tname Hello(const tclass &e, @)\n"
+           "{\n"
+           "    tname e2 = e;\n"
+           "}";
+
+    completions.append(QLatin1String("tclass"));
+    completions.append(QLatin1String("tname"));
+    completions.append(QLatin1String("tint"));
+    QTest::newRow("case: template parameters in template function parameters list")
             << code << completions;
 }
 

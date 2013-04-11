@@ -31,12 +31,10 @@
 
 #include "qtkitinformation.h"
 #include "qtversionfactory.h"
-
-#include "qtsupportconstants.h"
+#include "baseqtversion.h"
+#include "qtfeatureprovider.h"
 
 // only for legay restore
-#include <projectexplorer/projectexplorerconstants.h>
-#include <projectexplorer/toolchainmanager.h>
 #include <projectexplorer/gcctoolchain.h>
 
 #include <qtsupport/debugginghelper.h>
@@ -60,9 +58,8 @@
 #include <QFile>
 #include <QSettings>
 #include <QTextStream>
+#include <QStringList>
 #include <QTimer>
-
-#include <algorithm>
 
 using namespace QtSupport;
 using namespace QtSupport::Internal;

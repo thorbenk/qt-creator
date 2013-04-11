@@ -607,13 +607,15 @@ ClearCaseSubmitEditor *ClearCasePlugin::openClearCaseSubmitEditor(const QString 
 
 void ClearCasePlugin::updateStatusActions()
 {
+    FileStatus fileStatus = FileStatus::Unknown;
     bool hasFile = currentState().hasFile();
-    QString fileName = currentState().relativeCurrentFile();
+    if (hasFile) {
+        QString fileName = currentState().relativeCurrentFile();
+        fileStatus = m_statusMap->value(fileName, FileStatus(FileStatus::Unknown));
 
-    FileStatus fileStatus = m_statusMap->value(fileName, FileStatus(FileStatus::Unknown));
-
-    if (ClearCase::Constants::debug)
-        qDebug() << Q_FUNC_INFO << fileName << ", status = " << fileStatus.status;
+        if (ClearCase::Constants::debug)
+            qDebug() << Q_FUNC_INFO << fileName << ", status = " << fileStatus.status;
+    }
 
     m_checkOutAction->setEnabled(hasFile && (fileStatus.status & (FileStatus::CheckedIn | FileStatus::Hijacked)));
     m_undoCheckOutAction->setEnabled(hasFile && (fileStatus.status & FileStatus::CheckedOut));
@@ -1289,7 +1291,7 @@ Core::IEditor *ClearCasePlugin::showOutputInEditor(const QString& title, const Q
 {
     const VcsBase::VcsBaseEditorParameters *params = findType(editorType);
     QTC_ASSERT(params, return 0);
-    const Core::Id id = Core::Id(QByteArray(params->id));
+    const Core::Id id = params->id;
     if (ClearCase::Constants::debug)
         qDebug() << "ClearCasePlugin::showOutputInEditor" << title << id.name()
                  <<  "Size= " << output.size() <<  " Type=" << editorType << debugCodec(codec);

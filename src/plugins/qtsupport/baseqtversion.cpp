@@ -28,6 +28,7 @@
 ****************************************************************************/
 
 #include "baseqtversion.h"
+#include "qtconfigwidget.h"
 #include "qmlobservertool.h"
 #include "qmldumptool.h"
 #include "qmldebugginglibrary.h"
@@ -37,15 +38,11 @@
 #include "profilereader.h"
 #include <projectexplorer/toolchainmanager.h>
 #include <projectexplorer/toolchain.h>
-#include <projectexplorer/gnumakeparser.h>
-#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorer.h>
-#include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/headerpath.h>
 #include <qtsupport/debugginghelper.h>
 #include <qtsupport/qtsupportconstants.h>
 
-#include <utils/persistentsettings.h>
-#include <utils/environment.h>
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/synchronousprocess.h>
@@ -150,14 +147,6 @@ bool QtVersionNumber::operator <=(const QtVersionNumber &b) const
 bool QtVersionNumber::operator >=(const QtVersionNumber &b) const
 {
     return b <= *this;
-}
-
-///////////////
-// QtConfigWidget
-///////////////
-QtConfigWidget::QtConfigWidget()
-{
-
 }
 
 ///////////////

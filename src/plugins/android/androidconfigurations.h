@@ -34,6 +34,7 @@
 #include <QString>
 #include <QVector>
 #include <projectexplorer/abi.h>
+#include <utils/fileutils.h>
 
 QT_BEGIN_NAMESPACE
 class QSettings;
@@ -113,6 +114,9 @@ public:
     static ProjectExplorer::Abi::Architecture architectureForToolChainPrefix(const QString &toolchainprefix);
     static QLatin1String toolchainPrefix(ProjectExplorer::Abi::Architecture architecture);
     static QLatin1String toolsPrefix(ProjectExplorer::Abi::Architecture architecture);
+
+    // called from AndroidPlugin
+    void updateAndroidDevice();
 
 signals:
     void updated();

@@ -916,6 +916,11 @@ void PropertyEditor::bindingPropertiesChanged(const QList<BindingProperty>& prop
     }
 }
 
+void PropertyEditor::signalHandlerPropertiesChanged(const QVector<SignalHandlerProperty> & /*propertyList*/,
+                                                    AbstractView::PropertyChangeFlags /*propertyChange*/)
+{
+}
+
 
 void PropertyEditor::instanceInformationsChange(const QMultiHash<ModelNode, InformationName> &informationChangeHash)
 {
@@ -968,7 +973,7 @@ bool PropertyEditor::hasWidget() const
 
 WidgetInfo PropertyEditor::widgetInfo()
 {
-    return createWidgetInfo(m_stackedWidget, QLatin1String("Properties"), WidgetInfo::RightPane, 0);
+    return createWidgetInfo(m_stackedWidget, 0, QLatin1String("Properties"), WidgetInfo::RightPane, 0);
 }
 
 void PropertyEditor::actualStateChanged(const ModelNode &node)

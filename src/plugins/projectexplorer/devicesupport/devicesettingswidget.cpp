@@ -34,27 +34,18 @@
 #include "devicemanager.h"
 #include "devicemanagermodel.h"
 #include "deviceprocessesdialog.h"
-#include "deviceprocesslist.h"
 #include "idevice.h"
 #include "idevicefactory.h"
 #include "idevicewidget.h"
 
 #include <coreplugin/icore.h>
-#include <coreplugin/id.h>
 #include <extensionsystem/pluginmanager.h>
-#include <utils/portlist.h>
 #include <utils/qtcassert.h>
 
-#include <QFileInfo>
 #include <QPixmap>
-#include <QRegExp>
-#include <QSettings>
+#include <QPushButton>
 #include <QSignalMapper>
 #include <QTextStream>
-
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QIntValidator>
 
 #include <algorithm>
 
@@ -104,7 +95,6 @@ DeviceSettingsWidget::DeviceSettingsWidget(QWidget *parent)
       m_additionalActionsMapper(new QSignalMapper(this)),
       m_configWidget(0)
 {
-    m_deviceManagerModel->setFilter(QList<Core::Id>() << Core::Id(Constants::DESKTOP_DEVICE_ID));
     initGui();
     connect(m_additionalActionsMapper, SIGNAL(mapped(int)),
             SLOT(handleAdditionalActionRequest(int)));
@@ -297,7 +287,7 @@ void DeviceSettingsWidget::currentDeviceChanged(int index)
     m_ui->removeConfigButton->setEnabled(true);
 
     if (device->canCreateProcessModel()) {
-        QPushButton * const button = new QPushButton(tr("Remote Processes"));
+        QPushButton * const button = new QPushButton(tr("Show Running Processes"));
         m_additionalActionButtons << button;
         connect(button, SIGNAL(clicked()), SLOT(handleProcessListRequested()));
         m_ui->buttonsLayout->insertWidget(m_ui->buttonsLayout->count() - 1, button);

@@ -1,10 +1,7 @@
-TEMPLATE = lib
-TARGET = Qnx
 QT += network xml
 PROVIDER = BlackBerry
 
 include(../../qtcreatorplugin.pri)
-include(qnx_dependencies.pri)
 
 SOURCES += qnxplugin.cpp \
     blackberryqtversionfactory.cpp \
@@ -29,7 +26,6 @@ SOURCES += qnxplugin.cpp \
     blackberryruncontrol.cpp \
     blackberrydebugsupport.cpp \
     blackberryapplicationrunner.cpp \
-    blackberryconnect.cpp \
     qnxutils.cpp \
     blackberrydeviceconfigurationwidget.cpp \
     qnxdeviceconfigurationfactory.cpp \
@@ -74,7 +70,12 @@ SOURCES += qnxplugin.cpp \
     blackberrydebugtokenuploader.cpp \
     blackberrydebugtokenreader.cpp \
     blackberryndkprocess.cpp \
-    blackberrydeviceprocesssupport.cpp
+    blackberrydeviceprocesssupport.cpp \
+    blackberrycheckdevmodestepfactory.cpp \
+    blackberrycheckdevmodestep.cpp \
+    blackberrycheckdevmodestepconfigwidget.cpp \
+    blackberrydeviceconnection.cpp \
+    blackberrydeviceconnectionmanager.cpp
 
 HEADERS += qnxplugin.h\
     qnxconstants.h \
@@ -100,7 +101,6 @@ HEADERS += qnxplugin.h\
     blackberryruncontrol.h \
     blackberrydebugsupport.h \
     blackberryapplicationrunner.h \
-    blackberryconnect.h \
     qnxutils.h \
     blackberrydeviceconfigurationwidget.h \
     qnxdeviceconfigurationfactory.h \
@@ -145,7 +145,12 @@ HEADERS += qnxplugin.h\
     blackberrydebugtokenuploader.h \
     blackberrydebugtokenreader.h \
     blackberryndkprocess.h \
-    blackberrydeviceprocesssupport.h
+    blackberrydeviceprocesssupport.h \
+    blackberrycheckdevmodestepfactory.h \
+    blackberrycheckdevmodestep.h \
+    blackberrycheckdevmodestepconfigwidget.h \
+    blackberrydeviceconnection.h \
+    blackberrydeviceconnectionmanager.h
 
 FORMS += \
     blackberrydeviceconfigurationwizardsetuppage.ui \

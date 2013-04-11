@@ -28,18 +28,16 @@
 ****************************************************************************/
 
 #include "cppfilesettingspage.h"
+
 #include "cpptoolsconstants.h"
-#include "ui_cppfilesettingspage.h"
+#include <ui_cppfilesettingspage.h>
 
 #include <coreplugin/icore.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/mimedatabase.h>
 #include <cppeditor/cppeditorconstants.h>
 
-#include <extensionsystem/pluginmanager.h>
-
 #include <utils/environment.h>
-#include <utils/fileutils.h>
 
 #include <QSettings>
 #include <QDebug>
@@ -50,9 +48,7 @@
 #include <QLocale>
 #include <QTextCodec>
 #include <QTextStream>
-
 #include <QFileDialog>
-#include <QMessageBox>
 
 static const char headerSuffixKeyC[] = "HeaderSuffix";
 static const char sourceSuffixKeyC[] = "SourceSuffix";

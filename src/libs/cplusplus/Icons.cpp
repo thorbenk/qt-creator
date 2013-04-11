@@ -29,10 +29,10 @@
 
 #include "Icons.h"
 
-#include <FullySpecifiedType.h>
-#include <Scope.h>
-#include <Symbols.h>
-#include <Type.h>
+#include <cplusplus/FullySpecifiedType.h>
+#include <cplusplus/Scope.h>
+#include <cplusplus/Symbols.h>
+#include <cplusplus/Type.h>
 
 using namespace CPlusPlus;
 using CPlusPlus::Icons;
@@ -124,6 +124,8 @@ Icons::IconType Icons::iconTypeForSymbol(const Symbol *symbol)
         return FuncPublicIconType;
     } else if (symbol->isNamespace()) {
         return NamespaceIconType;
+    } else if (symbol->isTypenameArgument()) {
+        return ClassIconType;
     } else if (symbol->isUsingNamespaceDirective() ||
                symbol->isUsingDeclaration()) {
         // TODO: Might be nice to have a different icons for these things

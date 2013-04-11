@@ -32,8 +32,6 @@
 #include <utils/detailswidget.h>
 #include <utils/pathchooser.h>
 
-#include <QFileInfo>
-
 #include <QPushButton>
 #include <QVBoxLayout>
 

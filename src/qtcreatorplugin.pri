@@ -1,3 +1,19 @@
+include($$replace(_PRO_FILE_PWD_, ([^/]+$), \\1/\\1_dependencies.pri))
+TARGET = $$QTC_PLUGIN_NAME
+
+# for substitution in the .pluginspec
+dependencyList = "<dependencyList>"
+for(dep, QTC_PLUGIN_DEPENDS) {
+    include($$PWD/plugins/$$dep/$${dep}_dependencies.pri)
+    dependencyList += "        <dependency name=\"$$QTC_PLUGIN_NAME\" version=\"$$QTCREATOR_VERSION\"/>"
+}
+for(dep, QTC_PLUGIN_RECOMMENDS) {
+    include($$PWD/plugins/$$dep/$${dep}_dependencies.pri)
+    dependencyList += "        <dependency name=\"$$QTC_PLUGIN_NAME\" version=\"$$QTCREATOR_VERSION\" type=\"optional\"/>"
+}
+dependencyList += "    </dependencyList>"
+dependencyList = $$join(dependencyList, $$escape_expand(\\n))
+
 include(../qtcreator.pri)
 
 # use gui precompiled header for plugins by default
@@ -106,6 +122,7 @@ CONFIG += include_source_dir
 
 contains(QT_CONFIG, reduce_exports):CONFIG += hide_symbols
 
+TEMPLATE = lib
 CONFIG += plugin plugin_with_soname
 linux*:QMAKE_LFLAGS += $$QMAKE_LFLAGS_NOUNDEF
 

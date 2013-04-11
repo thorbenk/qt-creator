@@ -29,20 +29,16 @@
 
 #include "cdbparsehelpers.h"
 
-#include "breakpoint.h"
 #include "bytearrayinputstream.h"
 #include "debuggerprotocol.h"
 #include "disassemblerlines.h"
-#include "registerhandler.h"
 #include "shared/hostutils.h"
-#include "threadshandler.h"
+#include "threaddata.h"
 
 #include <utils/qtcassert.h>
 
-#include <QByteArray>
-#include <QVariant>
-#include <QString>
 #include <QDir>
+#include <QTextStream>
 #include <QDebug>
 
 #include <cctype>
@@ -96,7 +92,8 @@ static inline QString cdbBreakPointFileName(const BreakpointParameters &bp,
 static BreakpointParameters fixWinMSVCBreakpoint(const BreakpointParameters &p)
 {
     switch (p.type) {
-    case UnknownType:
+    case UnknownBreakpointType:
+    case LastBreakpointType:
     case BreakpointByFileAndLine:
     case BreakpointByFunction:
     case BreakpointByAddress:
@@ -185,12 +182,13 @@ QByteArray cdbAddBreakpointCommand(const BreakpointParameters &bpIn,
     case BreakpointAtExec:
     case WatchpointAtExpression:
     case BreakpointAtSysCall:
-    case UnknownType:
     case BreakpointAtCatch:
     case BreakpointAtThrow:
     case BreakpointAtMain:
     case BreakpointOnQmlSignalEmit:
     case BreakpointAtJavaScriptThrow:
+    case UnknownBreakpointType:
+    case LastBreakpointType:
         QTC_ASSERT(false, return QByteArray());
         break;
     case BreakpointByAddress:

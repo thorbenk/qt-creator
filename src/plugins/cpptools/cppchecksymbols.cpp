@@ -28,26 +28,13 @@
 ****************************************************************************/
 
 #include "cppchecksymbols.h"
+
 #include "cpplocalsymbols.h"
-
-#include <cplusplus/SimpleLexer.h>
-
-#include <Names.h>
-#include <Literals.h>
-#include <Symbols.h>
-#include <TranslationUnit.h>
-#include <Scope.h>
-#include <AST.h>
-#include <SymbolVisitor.h>
-#include <Overview.h>
 
 #include <utils/qtcassert.h>
 
 #include <QCoreApplication>
-#include <QThreadPool>
 #include <QDebug>
-
-#include <utils/runextensions.h>
 
 // This is for experimeting highlighting ctors/dtors as functions (instead of types).
 // Whenever this feature is considered "accepted" the switch below should be permanently

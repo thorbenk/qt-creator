@@ -1752,8 +1752,8 @@ static bool dumpQStringFromQPrivateClass(const SymbolGroupValue &v,
     const ULONG64 stringAddress = addressOfQPrivateMember(v, mode, additionalOffset);
     if (!stringAddress)
         return false;
-    const std::string dumpType = QtInfo::get(v.context()).prependQtCoreModule("QString");
-    const std::string symbolName = SymbolGroupValue::pointedToSymbolName(stringAddress , dumpType);
+    std::string dumpType = QtInfo::get(v.context()).prependQtCoreModule("QString");
+    std::string symbolName = SymbolGroupValue::pointedToSymbolName(stringAddress , dumpType);
     if (SymbolGroupValue::verbose > 1)
         DebugPrint() <<  "dumpQStringFromQPrivateClass of " << v.name() << '/'
                      << v.type() << " mode=" << mode
@@ -1761,8 +1761,16 @@ static bool dumpQStringFromQPrivateClass(const SymbolGroupValue &v,
                      << std::dec << " expr=" << symbolName;
     SymbolGroupNode *stringNode =
             v.node()->symbolGroup()->addSymbol(v.module(), symbolName, std::string(), &errorMessage);
-    if (!stringNode)
-        return false;
+    if (!stringNode && errorMessage.find("DEBUG_ANY_ID") != std::string::npos) {
+        // HACK:
+        // In some rare cases the the AddSymbol can't create a node with a given module name,
+        // but is able to add the symbol without any modulename.
+        dumpType = QtInfo::get(v.context()).prependModuleAndNameSpace("QString", "", QtInfo::get(v.context()).nameSpace);
+        symbolName = SymbolGroupValue::pointedToSymbolName(stringAddress , dumpType);
+        stringNode = v.node()->symbolGroup()->addSymbol(v.module(), symbolName, std::string(), &errorMessage);
+        if (!stringNode)
+            return false;
+    }
     return dumpQString(SymbolGroupValue(stringNode, v.context()), str);
 }
 
@@ -1796,12 +1804,10 @@ static inline bool dumpQFileInfo(const SymbolGroupValue &v, std::wostream &str)
  * Dump 1st string past its QSharedData base class. */
 static bool inline dumpQDir(const SymbolGroupValue &v, std::wostream &str)
 {
-    // Access QDirPrivate's dirEntry, which has the path as first member.
-    const unsigned listSize = qListSize(v.context());
-    const unsigned offset = padOffset(listSize + 2 * SymbolGroupValue::intSize())
-            + padOffset(SymbolGroupValue::pointerSize() + SymbolGroupValue::sizeOf("bool"))
-            + 2 * listSize;
-    return dumpQStringFromQPrivateClass(v, QPDM_qSharedDataPadded, offset,  str);
+    const unsigned offset =
+            v.fieldOffset(QtInfo::get(v.context()).prependQtCoreModule("QDirPrivate").c_str(),
+                          "dirEntry.m_filePath");
+    return dumpQStringFromQPrivateClass(v, QPDM_None, offset,  str);
 }
 
 /* Dump QRegExp, for whose private class no debugging information is available.
@@ -1831,15 +1837,50 @@ static inline bool dumpQFile(const SymbolGroupValue &v, std::wostream &str)
 static inline bool dumpQHostAddress(const SymbolGroupValue &v, std::wostream &str)
 {
     // Determine offset in private struct: qIPv6AddressType (array, unaligned) +  uint32 + enum.
-    static unsigned qIPv6AddressSize = 0;
-    if (!qIPv6AddressSize) {
-        const std::string qIPv6AddressType = QtInfo::get(v.context()).prependQtNetworkModule("QIPv6Address");
-        qIPv6AddressSize = SymbolGroupValue::sizeOf(qIPv6AddressType.c_str());
-    }
-    if (!qIPv6AddressSize)
+    const QtInfo info = QtInfo::get(v.context());
+    SymbolGroupValue d = v["d"]["d"];
+    std::ostringstream namestr;
+    namestr << '(' << info.prependQtNetworkModule("QHostAddressPrivate *") << ")("
+            << std::showbase << std::hex << d.pointerValue() << ')';
+    SymbolGroupNode *qHostAddressPrivateNode
+            = v.node()->symbolGroup()->addSymbol(v.module(), namestr.str(), std::string(), &std::string());
+    if (!qHostAddressPrivateNode)
         return false;
-    const unsigned offset = padOffset(8 + qIPv6AddressSize);
-    return dumpQStringFromQPrivateClass(v, QPDM_None, offset,  str);
+    const SymbolGroupValue qHostAddressPrivateValue = SymbolGroupValue(qHostAddressPrivateNode, v.context());
+    const bool parsed = readPODFromMemory<bool>(qHostAddressPrivateValue.context().dataspaces,
+                                                qHostAddressPrivateValue["isParsed"].address(),
+                                                sizeof(bool), false, &std::string());
+    if (parsed) {
+        const int protocol = qHostAddressPrivateValue["protocol"].intValue(-1);
+        if (protocol < 0) {
+            str << L"Uninitialized/Unknown protocol";
+            return true;
+        }
+        if (protocol == 1) {
+            str << L"IPv6 protocol";
+            return true;
+        }
+        DebugPrint() << v.name().c_str() << ": " <<  parsed;
+        const SymbolGroupValue a = qHostAddressPrivateValue["a"];
+        const unsigned int address = static_cast<unsigned int>(SymbolGroupValue::readIntValue(v.context().dataspaces, a.address()));
+        str << (address >> 24) << '.'
+            << (address << 8 >> 24) << '.'
+            << (address << 16 >> 24) << '.'
+            << (address << 24 >> 24);
+        return true;
+    }
+    unsigned offset = 0;
+    if (info.version < 5) {
+        static unsigned qIPv6AddressSize = 0;
+        if (!qIPv6AddressSize) {
+            const std::string qIPv6AddressType = QtInfo::get(v.context()).prependQtNetworkModule("QIPv6Address");
+            qIPv6AddressSize = SymbolGroupValue::sizeOf(qIPv6AddressType.c_str());
+        }
+        if (!qIPv6AddressSize)
+            return false;
+        offset = padOffset(8 + qIPv6AddressSize);
+    }
+    return dumpQStringFromQPrivateClass(v, QPDM_None, offset, str);
 }
 
 /* Dump QProcess, for whose private class no debugging information is available.
@@ -2112,7 +2153,7 @@ static bool dumpQImage(const SymbolGroupValue &v, std::wostream &str, MemoryHand
     }
     str << header.width << L'x' << header.height << L", depth: " << depth
         << L", format: " << header.format << L", "
-        << nbytes << L" bytes @0x"  << std::hex << data << std::dec;
+        << nbytes << L" bytes";
     delete [] qImageData;
     // Create Creator Image data for display if reasonable size
     if (memoryHandle && data && nbytes > 0 && nbytes < 205824) {

@@ -1,3 +1,6 @@
+include($$replace(_PRO_FILE_PWD_, ([^/]+$), \\1/\\1_dependencies.pri))
+TARGET = $$QTC_LIB_NAME
+
 include(../qtcreator.pri)
 
 # use precompiled header for libraries by default
@@ -13,6 +16,7 @@ include(rpath.pri)
 
 TARGET = $$qtLibraryName($$TARGET)
 
+TEMPLATE = lib
 CONFIG += shared dll
 
 contains(QT_CONFIG, reduce_exports):CONFIG += hide_symbols

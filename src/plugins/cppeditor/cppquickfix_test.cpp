@@ -27,37 +27,19 @@
 **
 ****************************************************************************/
 
-#include <AST.h>
-#include <Bind.h>
-#include <Control.h>
-#include <CppDocument.h>
-#include <DiagnosticClient.h>
-#include <Literals.h>
-#include <Scope.h>
-#include <Symbols.h>
-#include <TranslationUnit.h>
+#include "cppeditor.h"
+#include "cppinsertdecldef.h"
+#include "cppplugin.h"
+#include "cppquickfixassistant.h"
+#include "cppquickfixes.h"
 
-#include <coreplugin/editormanager/editormanager.h>
-#include <cppeditor/cppeditor.h>
-#include <cppeditor/cppinsertdecldef.h>
-#include <cppeditor/cppplugin.h>
-#include <cppeditor/cppquickfixassistant.h>
-#include <cppeditor/cppquickfix.h>
-#include <cppeditor/cppquickfixes.h>
 #include <cpptools/cppcodestylepreferences.h>
 #include <cpptools/cpptoolssettings.h>
-#include <extensionsystem/pluginmanager.h>
-#include <texteditor/basetextdocument.h>
-#include <texteditor/codeassist/basicproposalitemlistmodel.h>
-#include <texteditor/codeassist/iassistproposal.h>
-#include <texteditor/codeassist/iassistproposalmodel.h>
-#include <texteditor/plaintexteditor.h>
-#include <utils/changeset.h>
+
 #include <utils/fileutils.h>
 
 #include <QDebug>
 #include <QDir>
-#include <QTextDocument>
 #include <QtTest>
 
 
@@ -205,12 +187,12 @@ void TestCase::init()
     QStringList filePaths;
     foreach (const TestDocumentPtr &testFile, testFiles)
         filePaths << testFile->filePath();
-    CPlusPlus::CppModelManagerInterface::instance()->updateSourceFiles(filePaths);
+    CppTools::CppModelManagerInterface::instance()->updateSourceFiles(filePaths);
 
     // Wait for the parser in the future to give us the document
     QStringList filePathsNotYetInSnapshot(filePaths);
     forever {
-        Snapshot snapshot = CPlusPlus::CppModelManagerInterface::instance()->snapshot();
+        Snapshot snapshot = CppTools::CppModelManagerInterface::instance()->snapshot();
         foreach (const QString &filePath, filePathsNotYetInSnapshot) {
             if (snapshot.contains(filePath))
                 filePathsNotYetInSnapshot.removeOne(filePath);
@@ -265,7 +247,7 @@ TestCase::~TestCase()
     QCoreApplication::processEvents(); // process any pending events
 
     // Remove the test files from the code-model
-    CppModelManagerInterface *mmi = CPlusPlus::CppModelManagerInterface::instance();
+    CppModelManagerInterface *mmi = CppTools::CppModelManagerInterface::instance();
     mmi->GC();
     QCOMPARE(mmi->snapshot().size(), 0);
 }
@@ -897,5 +879,167 @@ void CppPlugin::test_quickfix_InsertDefFromDecl_freeFunction()
 
     InsertDefFromDecl factory;
     TestCase data(original, expected);
+    data.run(&factory);
+}
+
+/// Check normal add include if there is already a include
+void CppPlugin::test_quickfix_AddIncludeForUndefinedIdentifier_normal()
+{
+    QList<TestDocumentPtr> testFiles;
+
+    QByteArray original;
+    QByteArray expected;
+
+    // Header File
+    original = "class Foo {};\n";
+    expected = original + "\n";
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.h"));
+
+    // Source File
+    original =
+        "#include \"someheader.h\"\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    Fo@o foo;\n"
+        "}\n"
+        ;
+    expected =
+        "#include \"someheader.h\"\n"
+        "#include \"file.h\"\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    Foo foo;\n"
+        "}\n"
+        "\n"
+        ;
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.cpp"));
+
+    AddIncludeForUndefinedIdentifier factory;
+    TestCase data(testFiles);
+    data.run(&factory);
+}
+
+/// Check add include if no include is present
+void CppPlugin::test_quickfix_AddIncludeForUndefinedIdentifier_noinclude()
+{
+    QList<TestDocumentPtr> testFiles;
+
+    QByteArray original;
+    QByteArray expected;
+
+    // Header File
+    original = "class Foo {};\n";
+    expected = original + "\n";
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.h"));
+
+    // Source File
+    original =
+        "void f()\n"
+        "{\n"
+        "    Fo@o foo;\n"
+        "}\n"
+        ;
+    expected =
+        "#include \"file.h\"\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    Foo foo;\n"
+        "}\n"
+        "\n"
+        ;
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.cpp"));
+
+    AddIncludeForUndefinedIdentifier factory;
+    TestCase data(testFiles);
+    data.run(&factory);
+}
+
+/// Check add include if no include is present with comment on top
+void CppPlugin::test_quickfix_AddIncludeForUndefinedIdentifier_noincludeComment01()
+{
+    QList<TestDocumentPtr> testFiles;
+
+    QByteArray original;
+    QByteArray expected;
+
+    // Header File
+    original = "class Foo {};\n";
+    expected = original + "\n";
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.h"));
+
+    // Source File
+    original =
+        "\n"
+        "// comment\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    Fo@o foo;\n"
+        "}\n"
+        ;
+    expected =
+        "\n"
+        "// comment\n"
+        "\n"
+        "#include \"file.h\"\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    Foo foo;\n"
+        "}\n"
+        "\n"
+        ;
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.cpp"));
+
+    AddIncludeForUndefinedIdentifier factory;
+    TestCase data(testFiles);
+    data.run(&factory);
+}
+/// Check add include if no include is present with comment on top
+void CppPlugin::test_quickfix_AddIncludeForUndefinedIdentifier_noincludeComment02()
+{
+    QList<TestDocumentPtr> testFiles;
+
+    QByteArray original;
+    QByteArray expected;
+
+    // Header File
+    original = "class Foo {};\n";
+    expected = original + "\n";
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.h"));
+
+    // Source File
+    original =
+        "\n"
+        "/*\n"
+        " comment\n"
+        " */\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    Fo@o foo;\n"
+        "}\n"
+        ;
+    expected =
+        "\n"
+        "/*\n"
+        " comment\n"
+        " */\n"
+        "\n"
+        "#include \"file.h\"\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    Foo foo;\n"
+        "}\n"
+        "\n"
+        ;
+    testFiles << TestDocument::create(original, expected, QLatin1String("file.cpp"));
+
+    AddIncludeForUndefinedIdentifier factory;
+    TestCase data(testFiles);
     data.run(&factory);
 }

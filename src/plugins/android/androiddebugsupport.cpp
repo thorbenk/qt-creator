@@ -37,10 +37,12 @@
 #include <debugger/debuggerengine.h>
 #include <debugger/debuggerplugin.h>
 #include <debugger/debuggerkitinformation.h>
+#include <debugger/debuggerrunconfigurationaspect.h>
 #include <debugger/debuggerrunner.h>
 #include <debugger/debuggerstartparameters.h>
 
 #include <projectexplorer/target.h>
+#include <projectexplorer/toolchain.h>
 #include <qt4projectmanager/qt4buildconfiguration.h>
 #include <qt4projectmanager/qt4nodes.h>
 #include <qt4projectmanager/qt4project.h>
@@ -90,7 +92,9 @@ RunControl *AndroidDebugSupport::createDebugRunControl(AndroidRunConfiguration *
     params.displayName = AndroidManager::packageName(target);
     params.remoteSetupNeeded = true;
 
-    if (runConfig->debuggerAspect()->useCppDebugger()) {
+    Debugger::DebuggerRunConfigurationAspect *aspect
+            = runConfig->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+    if (aspect->useCppDebugger()) {
         params.languages |= CppLanguage;
         Kit *kit = target->kit();
         params.sysRoot = SysRootKitInformation::sysRoot(kit).toString();
@@ -107,10 +111,10 @@ RunControl *AndroidDebugSupport::createDebugRunControl(AndroidRunConfiguration *
         QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(kit);
         params.solibSearchPath.append(qtSoPaths(version));
     }
-    if (runConfig->debuggerAspect()->useQmlDebugger()) {
+    if (aspect->useQmlDebugger()) {
         params.languages |= QmlLanguage;
         params.qmlServerAddress = QLatin1String("localhost");
-        params.qmlServerPort = runConfig->debuggerAspect()->qmlDebugServerPort();
+        params.qmlServerPort = aspect->qmlDebugServerPort();
         //TODO: Not sure if these are the right paths.
         params.projectSourceDirectory = project->projectDirectory();
         params.projectSourceFiles = project->files(Qt4Project::ExcludeGeneratedFiles);
@@ -127,15 +131,23 @@ AndroidDebugSupport::AndroidDebugSupport(AndroidRunConfiguration *runConfig,
     DebuggerRunControl *runControl)
     : QObject(runControl), m_runControl(runControl),
       m_runner(new AndroidRunner(this, runConfig, true)),
-      m_gdbServerPort(5039), m_qmlPort(runConfig->debuggerAspect()->qmlDebugServerPort())
+      m_gdbServerPort(5039),
+      m_qmlPort(0)
 {
-    Q_ASSERT(runConfig->debuggerAspect()->useCppDebugger() || runConfig->debuggerAspect()->useQmlDebugger());
+    Debugger::DebuggerRunConfigurationAspect *aspect
+            = runConfig->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+    m_qmlPort = aspect->qmlDebugServerPort();
+    Q_ASSERT(aspect->useCppDebugger() || aspect->useQmlDebugger());
 
     connect(m_runControl->engine(), SIGNAL(requestRemoteSetup()),
             m_runner, SLOT(start()));
     connect(m_runControl, SIGNAL(finished()),
             m_runner, SLOT(stop()));
+    connect(m_runControl->engine(), SIGNAL(aboutToNotifyInferiorSetupOk()),
+            m_runner, SLOT(handleGdbRunning()));
 
+    connect(m_runner, SIGNAL(remoteServerRunning(QByteArray,int)),
+        SLOT(handleRemoteServerRunning(QByteArray,int)));
     connect(m_runner, SIGNAL(remoteProcessStarted(int,int)),
         SLOT(handleRemoteProcessStarted(int,int)));
     connect(m_runner, SIGNAL(remoteProcessFinished(QString)),
@@ -145,6 +157,11 @@ AndroidDebugSupport::AndroidDebugSupport(AndroidRunConfiguration *runConfig,
         SLOT(handleRemoteErrorOutput(QByteArray)));
     connect(m_runner, SIGNAL(remoteOutput(QByteArray)),
         SLOT(handleRemoteOutput(QByteArray)));
+}
+
+void AndroidDebugSupport::handleRemoteServerRunning(const QByteArray &serverChannel, int pid)
+{
+    m_runControl->engine()->notifyEngineRemoteServerRunning(serverChannel, pid);
 }
 
 void AndroidDebugSupport::handleRemoteProcessStarted(int gdbServerPort, int qmlPort)

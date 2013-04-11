@@ -37,7 +37,7 @@
 #include <QWidget>
 
 namespace Core {
-struct FutureProgressPrivate;
+class FutureProgressPrivate;
 
 class CORE_EXPORT FutureProgress : public QWidget
 {
@@ -71,15 +71,26 @@ public:
     void setWidget(QWidget *widget);
     QWidget *widget() const;
 
+    void setStatusBarWidget(QWidget *widget);
+    QWidget *statusBarWidget() const;
+
+    bool isFading() const;
+
+    QSize sizeHint() const;
+
 signals:
     void clicked();
     void finished();
     void canceled();
     void removeMe();
+    void hasErrorChanged();
+    void fadeStarted();
+
+    void statusBarWidgetChanged();
 
 protected:
     void mousePressEvent(QMouseEvent *event);
-    void resizeEvent(QResizeEvent *);
+    void paintEvent(QPaintEvent *);
 
 private slots:
     void updateToolTip(const QString &);
@@ -89,9 +100,9 @@ private slots:
     void setProgressRange(int min, int max);
     void setProgressValue(int val);
     void setProgressText(const QString &text);
-    void fadeAway();
 
 private:
+    friend class FutureProgressPrivate; // for sending signal
     FutureProgressPrivate *d;
 };
 

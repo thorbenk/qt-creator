@@ -17,16 +17,14 @@ QtcPlugin {
     Depends { name: "QmlJSTools" }
 
     Depends { name: "cpp" }
-    cpp.defines: base.concat([
-        "PROPARSER_AS_LIBRARY",
-        "PROPARSER_THREAD_SAFE",
-        "PROEVALUATOR_THREAD_SAFE",
-        "PROEVALUATOR_CUMULATIVE"
-    ])
     cpp.includePaths: base.concat([
         "customwidgetwizard",
         "../../shared",
     ])
+
+    pluginRecommends: [
+        "Designer"
+    ]
 
     files: [
         "Qt4ProjectManager.mimetypes.xml",

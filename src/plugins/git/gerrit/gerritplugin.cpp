@@ -32,6 +32,7 @@
 #include "gerritdialog.h"
 #include "gerritmodel.h"
 #include "gerritoptionspage.h"
+#include "gerritpushdialog.h"
 
 #include "../gitplugin.h"
 #include "../gitclient.h"
@@ -50,6 +51,7 @@
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/command.h>
 #include <coreplugin/editormanager/editormanager.h>
+#include <locator/commandlocator.h>
 
 #include <vcsbase/vcsbaseoutputwindow.h>
 
@@ -60,14 +62,17 @@
 #include <QRegExp>
 #include <QAction>
 #include <QFileDialog>
+#include <QMessageBox>
 #include <QTemporaryFile>
 #include <QDir>
+#include <QMap>
 
 enum { debug = 0 };
 
 namespace Gerrit {
 namespace Constants {
 const char GERRIT_OPEN_VIEW[] = "Gerrit.OpenView";
+const char GERRIT_PUSH[] = "Gerrit.Push";
 }
 namespace Internal {
 
@@ -330,8 +335,57 @@ bool GerritPlugin::initialize(Core::ActionContainer *ac)
     connect(openViewAction, SIGNAL(triggered()), this, SLOT(openView()));
     ac->addAction(command);
 
+    QAction *pushAction = new QAction(tr("Push to Gerrit..."), this);
+
+    Core::Command *pushCommand =
+        Core::ActionManager::registerAction(pushAction, Constants::GERRIT_PUSH,
+                           Core::Context(Core::Constants::C_GLOBAL));
+    connect(pushAction, SIGNAL(triggered()), this, SLOT(push()));
+    ac->addAction(pushCommand);
+
+    m_pushToGerritPair = ActionCommandPair(pushAction, pushCommand);
+
     Git::Internal::GitPlugin::instance()->addAutoReleasedObject(new GerritOptionsPage(m_parameters));
     return true;
+}
+
+void GerritPlugin::updateActions(bool hasTopLevel)
+{
+    m_pushToGerritPair.first->setEnabled(hasTopLevel);
+}
+
+void GerritPlugin::addToLocator(Locator::CommandLocator *locator)
+{
+    locator->appendCommand(m_pushToGerritPair.second);
+}
+
+void GerritPlugin::push()
+{
+    const QString topLevel = Git::Internal::GitPlugin::instance()->currentState().topLevel();
+
+    QPointer<GerritPushDialog> dialog = new GerritPushDialog(topLevel, Core::ICore::mainWindow());
+
+    if (!dialog->localChangesFound()) {
+        QMessageBox::critical(Core::ICore::mainWindow(), tr("No Local Changes"),
+                              tr("Change from HEAD appears to be in remote branch already! Aborting."));
+        return;
+    }
+
+    if (dialog->exec() == QDialog::Rejected)
+        return;
+
+    if (dialog.isNull())
+        return;
+
+    QStringList args;
+
+    args << dialog->selectedRemoteName();
+    args << QLatin1String("HEAD:refs/") + dialog->selectedPushType() +
+            QLatin1Char('/') + dialog->selectedRemoteBranchName();
+
+    Git::Internal::GitPlugin::instance()->gitClient()->synchronousPush(topLevel, args);
+
+    delete dialog;
 }
 
 // Open or raise the Gerrit dialog window.
@@ -378,15 +432,7 @@ QString GerritPlugin::gitBinary()
 QString GerritPlugin::branch(const QString &repository)
 {
     Git::Internal::GitClient *client = Git::Internal::GitPlugin::instance()->gitClient();
-    QString errorMessage;
-    QString output;
-    if (client->synchronousBranchCmd(repository, QStringList(), &output, &errorMessage)) {
-        output.remove(QLatin1Char('\r'));
-        foreach (const QString &line, output.split(QLatin1Char('\n')))
-            if (line.startsWith(QLatin1String("* ")))
-                return line.right(line.size() - 2);
-    }
-    return QString();
+    return client->synchronousCurrentLocalBranch(repository);
 }
 
 void GerritPlugin::fetchDisplay(const QSharedPointer<Gerrit::Internal::GerritChange> &change)
@@ -411,14 +457,80 @@ void GerritPlugin::fetch(const QSharedPointer<Gerrit::Internal::GerritChange> &c
     if (git.isEmpty())
         return;
 
-    // Ask the user for a repository to retrieve the change.
-    const QString title =
-        tr("Enter Local Repository for '%1' (%2)").arg(change->project, change->branch);
-    const QString suggestedRespository =
-        findLocalRepository(change->project, change->branch);
-    const QString repository =
-        QFileDialog::getExistingDirectory(m_dialog.data(),
-                                          title, suggestedRespository);
+    Git::Internal::GitClient* gitClient = Git::Internal::GitPlugin::instance()->gitClient();
+
+    QString repository;
+    bool verifiedRepository = false;
+    if (!m_dialog.isNull() && !m_parameters.isNull() && !m_parameters->promptPath
+            && QFile::exists(m_dialog->repositoryPath())) {
+        repository = gitClient->findRepositoryForDirectory(m_dialog->repositoryPath());
+    }
+
+    if (!repository.isEmpty()) {
+        // Check if remote from a working dir is the same as remote from patch
+        QMap<QString, QString> remotesList = gitClient->synchronousRemotesList(repository);
+        if (!remotesList.isEmpty()) {
+            QStringList remotes = remotesList.values();
+            foreach (QString remote, remotes) {
+                if (remote.endsWith(QLatin1String(".git")))
+                    remote.chop(4);
+                if (remote.contains(m_parameters->host) && remote.endsWith(change->project)) {
+                    verifiedRepository = true;
+                    break;
+                }
+            }
+
+            if (!verifiedRepository && QFile::exists(repository + QLatin1String("/.gitmodules"))) {
+                QMap<QString,QString> submodules = gitClient->synchronousSubmoduleList(repository);
+
+                QMap<QString,QString>::const_iterator i = submodules.constBegin();
+                while (i != submodules.constEnd()) {
+                    QString remote = i.value();
+                    if (remote.endsWith(QLatin1String(".git")))
+                        remote.chop(4);
+                    if (remote.contains(m_parameters->host) && remote.endsWith(change->project)
+                            && QFile::exists(repository + QLatin1Char('/') + i.key())) {
+                        repository = QDir::cleanPath(repository + QLatin1Char('/') + i.key());
+                        verifiedRepository = true;
+                        break;
+                    }
+                    ++i;
+                }
+            }
+
+            if (!verifiedRepository) {
+                QMessageBox::StandardButton answer = QMessageBox::question(
+                            Core::ICore::mainWindow(), tr("Remote not Verified"),
+                            tr("Change host: %1\nand project: %2\n\nwere not verified among remotes"
+                               " in %3. Select different folder?")
+                            .arg(m_parameters->host,
+                                 change->project,
+                                 QDir::toNativeSeparators(repository)),
+                            QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
+                            QMessageBox::Yes);
+                switch (answer) {
+                case QMessageBox::Cancel:
+                    return;
+                case QMessageBox::No:
+                    verifiedRepository = true;
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!verifiedRepository) {
+        // Ask the user for a repository to retrieve the change.
+        const QString title =
+                tr("Enter Local Repository for '%1' (%2)").arg(change->project, change->branch);
+        const QString suggestedRespository =
+                findLocalRepository(change->project, change->branch);
+        repository = QFileDialog::getExistingDirectory(m_dialog.data(),
+                                                       title, suggestedRespository);
+    }
+
     if (repository.isEmpty())
         return;
 

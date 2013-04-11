@@ -30,14 +30,12 @@
 #ifndef CPPREFACTORINGCHANGES_H
 #define CPPREFACTORINGCHANGES_H
 
-#include <ASTfwd.h>
-#include "ModelManagerInterface.h"
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/LookupContext.h>
-
-#include <cpptools/cpptools_global.h>
+#include "cpptools_global.h"
+#include "cppmodelmanagerinterface.h"
 
 #include <texteditor/refactoringchanges.h>
+
+#include <cplusplus/LookupContext.h>
 
 namespace CppTools {
 

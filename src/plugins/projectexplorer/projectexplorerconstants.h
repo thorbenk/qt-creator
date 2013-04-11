@@ -226,15 +226,14 @@ const char MSVC_TOOLCHAIN_ID[] = "ProjectExplorer.ToolChain.Msvc";
 const char WINCE_TOOLCHAIN_ID[] = "ProjectExplorer.ToolChain.WinCE";
 const char CUSTOM_TOOLCHAIN_ID[] = "ProjectExplorer.ToolChain.Custom";
 
-// Run Configuration defaults:
-const int QML_DEFAULT_DEBUG_SERVER_PORT = 3768;
-
 // Default directory to run custom (build) commands in.
 const char DEFAULT_WORKING_DIR[] = "%{buildDir}";
 
 // Desktop Device related ids:
 const char DESKTOP_DEVICE_ID[] = "Desktop Device";
 const char DESKTOP_DEVICE_TYPE[] = "Desktop";
+const int DESKTOP_PORT_START = 30000;
+const int DESKTOP_PORT_END = 31000;
 
 // Variable Names:
 const char VAR_CURRENTPROJECT_PREFIX[] = "CurrentProject";

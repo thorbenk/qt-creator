@@ -31,18 +31,18 @@
 #include "idevicefactory.h"
 
 #include <coreplugin/icore.h>
-#include <coreplugin/id.h>
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/project.h>
+#include <projectexplorer/projectexplorerconstants.h>
+#include <utils/fileutils.h>
 #include <utils/persistentsettings.h>
 #include <utils/qtcassert.h>
+#include <utils/portlist.h>
 
 #include <QFileInfo>
 #include <QHash>
 #include <QList>
-#include <QSettings>
 #include <QString>
-#include <QVariantHash>
 #include <QVariantList>
 
 #include <limits>
@@ -165,10 +165,19 @@ void DeviceManager::load()
                 break;
             }
         }
-        d->devices << device;
+        // TODO: Remove this in 2.9; this code introduces a bug #QTCREATORBUG-9055
+        // Set default port for desktop devices.
+        if (device->type() == Constants::DESKTOP_DEVICE_TYPE
+                && device->freePorts().toString().isEmpty()) {
+            Utils::PortList freePorts;
+            freePorts.addRange(Constants::DESKTOP_PORT_START, Constants::DESKTOP_PORT_END);
+            device->setFreePorts(freePorts);
+        }
+        addDevice(device);
     }
     // Append the new SDK devices to the model.
-    d->devices << sdkDevices;
+    foreach (const IDevice::Ptr &sdkDevice, sdkDevices)
+        addDevice(sdkDevice);
 
     ensureOneDefaultDevicePerType();
 
@@ -191,7 +200,7 @@ QList<IDevice::Ptr> DeviceManager::fromMap(const QVariantMap &map)
             continue;
         const IDevice::Ptr device = factory->restore(map);
         QTC_ASSERT(device, continue);
-        addDevice(device);
+        devices << device;
     }
     return devices;
 }
@@ -215,13 +224,13 @@ QVariantMap DeviceManager::toMap() const
 
 Utils::FileName DeviceManager::settingsFilePath(const QString &extension)
 {
-    return Utils::FileName::fromString(QFileInfo(ExtensionSystem::PluginManager::settings()->fileName()).absolutePath() + extension);
+    return Utils::FileName::fromString(QFileInfo(Core::ICore::settings()->fileName()).absolutePath() + extension);
 }
 
 Utils::FileName DeviceManager::systemSettingsFilePath(const QString &deviceFileRelativePath)
 {
     return Utils::FileName::fromString(
-              QFileInfo(ExtensionSystem::PluginManager::globalSettings()->fileName()).absolutePath()
+              QFileInfo(Core::ICore::settings(QSettings::SystemScope)->fileName()).absolutePath()
               + deviceFileRelativePath);
 }
 
@@ -283,15 +292,17 @@ void DeviceManager::removeDevice(Core::Id id)
 
 void DeviceManager::setDeviceState(Core::Id deviceId, IDevice::DeviceState deviceState)
 {
+    // To see the state change in the DeviceSettingsWidget. This has to happen before
+    // the pos check below, in case the device is only present in the cloned instance.
+    if (this == instance() && d->clonedInstance)
+        d->clonedInstance->setDeviceState(deviceId, deviceState);
+
     const int pos = d->indexForId(deviceId);
-    QTC_ASSERT(pos != -1, return);
+    if (pos < 0)
+        return;
     IDevice::Ptr &device = d->devices[pos];
     if (device->deviceState() == deviceState)
         return;
-
-    // To see the state change in the DeviceSettingsWidget
-    if (this == instance() && d->clonedInstance)
-        d->clonedInstance->setDeviceState(deviceId, deviceState);
 
     device->setDeviceState(deviceState);
     emit deviceUpdated(deviceId);

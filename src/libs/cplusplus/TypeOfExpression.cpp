@@ -28,13 +28,15 @@
 ****************************************************************************/
 
 #include "TypeOfExpression.h"
-#include <TranslationUnit.h>
+
 #include "LookupContext.h"
 #include "ResolveExpression.h"
 #include "pp.h"
 
-#include <AST.h>
-#include <Symbol.h>
+#include <cplusplus/AST.h>
+#include <cplusplus/Symbol.h>
+#include <cplusplus/TranslationUnit.h>
+
 #include <QSet>
 
 using namespace CPlusPlus;
@@ -106,6 +108,7 @@ QList<LookupItem> TypeOfExpression::operator()(ExpressionAST *expression,
 
     m_scope = scope;
 
+    m_documents.append(document);
     m_lookupContext = LookupContext(document, m_thisDocument, m_snapshot);
     m_lookupContext.setBindings(m_bindings);
     m_lookupContext.setExpandTemplates(m_expandTemplates);
@@ -127,6 +130,7 @@ QList<LookupItem> TypeOfExpression::reference(ExpressionAST *expression,
 
     m_scope = scope;
 
+    m_documents.append(document);
     m_lookupContext = LookupContext(document, m_thisDocument, m_snapshot);
     m_lookupContext.setBindings(m_bindings);
     m_lookupContext.setExpandTemplates(m_expandTemplates);

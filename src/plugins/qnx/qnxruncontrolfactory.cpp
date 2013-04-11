@@ -97,7 +97,7 @@ bool QnxRunControlFactory::canRun(RunConfiguration *runConfiguration, RunMode mo
         return false;
 
     if (!runConfiguration->isEnabled()
-            || !runConfiguration->id().toString().startsWith(QLatin1String(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX))) {
+            || !runConfiguration->id().name().startsWith(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX)) {
         return false;
     }
 
@@ -136,10 +136,4 @@ RunControl *QnxRunControlFactory::create(RunConfiguration *runConfig, RunMode mo
 QString QnxRunControlFactory::displayName() const
 {
     return tr("Run on remote QNX device");
-}
-
-RunConfigWidget *QnxRunControlFactory::createConfigurationWidget(RunConfiguration *config)
-{
-    Q_UNUSED(config)
-    return 0;
 }

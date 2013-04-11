@@ -30,16 +30,12 @@
 #include "cdbengine.h"
 
 #include "breakhandler.h"
-#include "breakpoint.h"
 #include "bytearrayinputstream.h"
-#include "cdboptions.h"
 #include "cdboptionspage.h"
 #include "cdbparsehelpers.h"
 #include "debuggeractions.h"
 #include "debuggercore.h"
-#include "debuggerinternalconstants.h"
 #include "debuggerprotocol.h"
-#include "debuggerrunner.h"
 #include "debuggerstartparameters.h"
 #include "debuggertooltipmanager.h"
 #include "disassembleragent.h"
@@ -47,24 +43,17 @@
 #include "memoryagent.h"
 #include "moduleshandler.h"
 #include "registerhandler.h"
-#include "stackframe.h"
 #include "stackhandler.h"
 #include "threadshandler.h"
 #include "watchhandler.h"
-#include "watchutils.h"
 #include "shared/cdbsymbolpathlisteditor.h"
 #include "shared/hostutils.h"
 #include "procinterrupt.h"
 #include "sourceutils.h"
 
-#include <TranslationUnit.h>
-
 #include <coreplugin/icore.h>
-#include <texteditor/itexteditor.h>
-#include <projectexplorer/abi.h>
-#include <projectexplorer/projectexplorerconstants.h>
-#include <projectexplorer/task.h>
 #include <projectexplorer/taskhub.h>
+#include <texteditor/itexteditor.h>
 
 #include <utils/synchronousprocess.h>
 #include <utils/qtcprocess.h>
@@ -76,17 +65,9 @@
 #include <utils/hostosinfo.h>
 
 #include <cplusplus/findcdbbreakpoint.h>
-#include <cplusplus/CppDocument.h>
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 
-#include <QCoreApplication>
-#include <QFileInfo>
 #include <QDir>
-#include <QDebug>
-#include <QTextStream>
-#include <QDateTime>
-#include <QToolTip>
-#include <QMainWindow>
 #include <QMessageBox>
 
 #include <cctype>
@@ -2605,7 +2586,8 @@ bool CdbEngine::acceptsBreakpoint(BreakpointModelId id) const
     if (!data.isCppBreakpoint())
         return false;
     switch (data.type) {
-    case UnknownType:
+    case UnknownBreakpointType:
+    case LastBreakpointType:
     case BreakpointAtFork:
     case WatchpointAtExpression:
     case BreakpointAtSysCall:
@@ -2630,18 +2612,18 @@ class BreakpointCorrectionContext
 {
 public:
     explicit BreakpointCorrectionContext(const CPlusPlus::Snapshot &s,
-                                         const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy) :
+                                         const CppTools::CppModelManagerInterface::WorkingCopy &workingCopy) :
         m_snapshot(s), m_workingCopy(workingCopy) {}
 
     unsigned fixLineNumber(const QString &fileName, unsigned lineNumber) const;
 
 private:
     const CPlusPlus::Snapshot m_snapshot;
-    CPlusPlus::CppModelManagerInterface::WorkingCopy m_workingCopy;
+    CppTools::CppModelManagerInterface::WorkingCopy m_workingCopy;
 };
 
 static CPlusPlus::Document::Ptr getParsedDocument(const QString &fileName,
-                                                  const CPlusPlus::CppModelManagerInterface::WorkingCopy &workingCopy,
+                                                  const CppTools::CppModelManagerInterface::WorkingCopy &workingCopy,
                                                   const CPlusPlus::Snapshot &snapshot)
 {
     QString src;
@@ -2748,7 +2730,7 @@ void CdbEngine::attemptBreakpointSynchronization()
                 && m_options->breakpointCorrection) {
                 if (lineCorrection.isNull())
                     lineCorrection.reset(new BreakpointCorrectionContext(debuggerCore()->cppCodeModelSnapshot(),
-                                                                         CPlusPlus::CppModelManagerInterface::instance()->workingCopy()));
+                                                                         CppTools::CppModelManagerInterface::instance()->workingCopy()));
                 response.lineNumber = lineCorrection->fixLineNumber(parameters.fileName, parameters.lineNumber);
                 postCommand(cdbAddBreakpointCommand(response, m_sourcePathMappings, id, false), 0);
             } else {

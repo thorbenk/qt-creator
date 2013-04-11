@@ -35,28 +35,16 @@
 #include "qmljsbundleprovider.h"
 
 #include <coreplugin/icore.h>
-#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/progressmanager/progressmanager.h>
-#include <coreplugin/mimedatabase.h>
 #include <coreplugin/messagemanager.h>
-#include <cpptools/ModelManagerInterface.h>
-#include <cplusplus/CppDocument.h>
-#include <qmljs/qmljscontext.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <qmljs/qmljsbind.h>
-#include <qmljs/qmljsbundle.h>
-#include <qmljs/parser/qmldirparser_p.h>
-#include <texteditor/itexteditor.h>
 #include <texteditor/basetexteditor.h>
 #include <projectexplorer/buildconfiguration.h>
-#include <projectexplorer/kit.h>
-#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorer.h>
-#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/session.h>
 #include <projectexplorer/target.h>
-#include <projectexplorer/toolchain.h>
-#include <qtsupport/baseqtversion.h>
 #include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qmldumptool.h>
 #include <qtsupport/qtsupportconstants.h>
@@ -66,11 +54,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QLibraryInfo>
-#include <QtConcurrentRun>
 #include <utils/runextensions.h>
 #include <QTextStream>
-#include <QCoreApplication>
 #include <QTimer>
 #include <QRegExp>
 
@@ -269,8 +254,8 @@ ModelManager::~ModelManager()
 
 void ModelManager::delayedInitialization()
 {
-    CPlusPlus::CppModelManagerInterface *cppModelManager =
-            CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *cppModelManager =
+            CppTools::CppModelManagerInterface::instance();
     if (cppModelManager) {
         // It's important to have a direct connection here so we can prevent
         // the source and AST of the cpp document being cleaned away.
@@ -321,9 +306,9 @@ void ModelManager::loadQmlTypeDescriptions(const QString &resourcePath)
 
     Core::MessageManager *messageManager = Core::MessageManager::instance();
     foreach (const QString &error, errors)
-        messageManager->printToOutputPane(error);
+        messageManager->printToOutputPane(error, Core::MessageManager::Flash);
     foreach (const QString &warning, warnings)
-        messageManager->printToOutputPane(warning);
+        messageManager->printToOutputPane(warning, Core::MessageManager::Flash);
 }
 
 ModelManagerInterface::WorkingCopy ModelManager::workingCopy() const
@@ -914,8 +899,8 @@ void ModelManager::startCppQmlTypeUpdate()
         return;
     }
 
-    CPlusPlus::CppModelManagerInterface *cppModelManager =
-            CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *cppModelManager =
+            CppTools::CppModelManagerInterface::instance();
     if (!cppModelManager)
         return;
 

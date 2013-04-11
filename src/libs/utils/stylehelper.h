@@ -50,6 +50,7 @@ class QTCREATOR_UTILS_EXPORT StyleHelper
 {
 public:
     static const unsigned int DEFAULT_BASE_COLOR = 0x666666;
+    static const int progressFadeAnimationDuration = 600;
 
     // Height of the project explorer navigation bar
     static int navigationWidgetHeight() { return 24; }
@@ -88,6 +89,7 @@ public:
                          int left = 0, int top = 0, int right = 0, int bottom = 0);
 
     static void tintImage(QImage &img, const QColor &tintColor);
+    static QLinearGradient statusBarGradient(const QRect &statusBarRect);
 
 private:
     static QColor m_baseColor;

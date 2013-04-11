@@ -28,16 +28,8 @@
 ****************************************************************************/
 
 #include "cpplocalsymbols.h"
-#include "cppsemanticinfo.h"
 
-#include <cplusplus/CppDocument.h>
-#include <ASTVisitor.h>
-#include <AST.h>
-#include <Scope.h>
-#include <Symbols.h>
-#include <CoreTypes.h>
-#include <Names.h>
-#include <Literals.h>
+#include "cppsemanticinfo.h"
 
 using namespace CPlusPlus;
 using namespace CppTools;

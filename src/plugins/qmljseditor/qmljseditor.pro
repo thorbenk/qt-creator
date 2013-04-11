@@ -1,12 +1,8 @@
-TEMPLATE = lib
-TARGET = QmlJSEditor
 include(../../qtcreatorplugin.pri)
-include(qmljseditor_dependencies.pri)
 QT += script
 
 DEFINES += \
-    QMLJSEDITOR_LIBRARY \
-    QT_CREATOR
+    QMLJSEDITOR_LIBRARY
 
 HEADERS += \
     qmljseditor.h \

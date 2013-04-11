@@ -1,11 +1,8 @@
-TEMPLATE = lib
-TARGET = TextEditor
 DEFINES += TEXTEDITOR_LIBRARY
 QT += xml network
 CONFIG += exceptions
 greaterThan(QT_MAJOR_VERSION, 4): QT += printsupport
 include(../../qtcreatorplugin.pri)
-include(texteditor_dependencies.pri)
 INCLUDEPATH += generichighlighter \
     snippets \
     codeassist
@@ -226,7 +223,8 @@ HEADERS += texteditorplugin.h \
     circularclipboard.h \
     circularclipboardassist.h \
     itextmark.h \
-    codeassist/keywordscompletionassist.h
+    codeassist/keywordscompletionassist.h \
+    basetextmarkregistry.h
 
 FORMS += \
     displaysettingspage.ui \

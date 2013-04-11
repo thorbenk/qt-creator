@@ -28,8 +28,10 @@
 ****************************************************************************/
 
 #include "FastPreprocessor.h"
-#include <Literals.h>
-#include <TranslationUnit.h>
+
+#include <cplusplus/Literals.h>
+#include <cplusplus/TranslationUnit.h>
+
 #include <QDir>
 
 using namespace CPlusPlus;
@@ -60,7 +62,7 @@ QByteArray FastPreprocessor::run(Document::Ptr newDoc, const QString &source)
     return preprocessed;
 }
 
-void FastPreprocessor::sourceNeeded(unsigned line, QString &fileName, IncludeType)
+void FastPreprocessor::sourceNeeded(unsigned line, const QString &fileName, IncludeType)
 {
     Q_ASSERT(_currentDoc);
     // CHECKME: Is that cleanName needed?

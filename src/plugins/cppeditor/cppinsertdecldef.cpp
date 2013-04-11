@@ -30,16 +30,11 @@
 #include "cppinsertdecldef.h"
 #include "cppquickfixassistant.h"
 
-#include <CPlusPlus.h>
-#include <cplusplus/ASTPath.h>
-#include <cplusplus/CppRewriter.h>
-#include <cplusplus/LookupContext.h>
-#include <cplusplus/Overview.h>
-#include <cplusplus/ASTVisitor.h>
-#include <cpptools/insertionpointlocator.h>
 #include <cpptools/cppcodestylesettings.h>
-#include <cpptools/cpprefactoringchanges.h>
 #include <cpptools/cpptoolsreuse.h>
+#include <cpptools/insertionpointlocator.h>
+
+#include <cplusplus/CppRewriter.h>
 
 #include <utils/qtcassert.h>
 
@@ -48,7 +43,6 @@
 #include <QHash>
 #include <QStringBuilder>
 #include <QTextDocument>
-#include <QTextBlock>
 #include <QInputDialog>
 #include <QMessageBox>
 
@@ -298,7 +292,9 @@ void InsertDefFromDecl::match(const CppQuickFixInterface &interface, QuickFixOpe
             if (simpleDecl->symbols && ! simpleDecl->symbols->next) {
                 if (Symbol *symbol = simpleDecl->symbols->value) {
                     if (Declaration *decl = symbol->asDeclaration()) {
-                        if (decl->type()->isFunctionType()) {
+                        if (Function *func = decl->type()->asFunctionType()) {
+                            if (func->isSignal())
+                                return;
                             CppRefactoringChanges refactoring(interface->snapshot());
                             InsertionPointLocator locator(refactoring);
                             foreach (const InsertionLocation &loc, locator.methodDefinition(decl)) {
@@ -566,7 +562,7 @@ public:
             CppRefactoringChanges implRefactoring(snapshot());
             CppRefactoringFilePtr implFile = implRefactoring.file(implFileName);
             ChangeSet implChanges;
-            const int implInsertPos = QFileInfo(implFileName).size();
+            const int implInsertPos = implFile->document()->characterCount() - 1;
             implChanges.insert(implInsertPos, implementation);
             implFile->setChangeSet(implChanges);
             implFile->appendIndentRange(

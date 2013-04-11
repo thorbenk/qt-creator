@@ -36,7 +36,6 @@
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/icore.h>
 #include <projectexplorer/target.h>
-#include <utils/qtcassert.h>
 #include <utils/qtcprocess.h>
 #include <qtsupport/qtkitinformation.h>
 #include <qtsupport/qtoutputformatter.h>
@@ -91,9 +90,6 @@ QString QmlProjectRunConfiguration::disabledReason() const
 void QmlProjectRunConfiguration::ctor()
 {
     // reset default settings in constructor
-    debuggerAspect()->setUseCppDebugger(false);
-    debuggerAspect()->setUseQmlDebugger(true);
-
     EditorManager *em = Core::EditorManager::instance();
     connect(em, SIGNAL(currentEditorChanged(Core::IEditor*)),
             this, SLOT(changeCurrentFile(Core::IEditor*)));

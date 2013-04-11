@@ -1,9 +1,6 @@
-TEMPLATE = lib
-TARGET = Madde
 QT += network
 
 include(../../qtcreatorplugin.pri)
-include(madde_dependencies.pri)
 
 HEADERS += \
     madde_exports.h \

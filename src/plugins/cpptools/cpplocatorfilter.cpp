@@ -34,8 +34,6 @@
 #  include <clangwrapper/symbol.h>
 #endif // CLANG_INDEXING
 
-#include <texteditor/itexteditor.h>
-#include <texteditor/basetexteditor.h>
 #include <utils/fileutils.h>
 
 #include <QStringMatcher>

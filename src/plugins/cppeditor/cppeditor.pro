@@ -1,8 +1,5 @@
-TEMPLATE = lib
-TARGET = CppEditor
 DEFINES += CPPEDITOR_LIBRARY
 include(../../qtcreatorplugin.pri)
-include(cppeditor_dependencies.pri)
 HEADERS += cppplugin.h \
     cppeditor.h \
     cpphighlighter.h \
@@ -50,7 +47,8 @@ OTHER_FILES += CppEditor.mimetypes.xml
 equals(TEST, 1) {
     SOURCES += \
         cppquickfix_test.cpp \
-        cppdoxygen_test.cpp
+        cppdoxygen_test.cpp \
+        fileandtokenactions_test.cpp
 
     DEFINES += SRCDIR=\\\"$$PWD\\\"
 }

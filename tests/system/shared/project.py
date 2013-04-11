@@ -207,12 +207,10 @@ def createNewQtQuickApplication(workingDir, projectName = None, templateFile = N
                                 targets=QtQuickConstants.desktopTargetClasses(), qtQuickVersion=1,
                                 fromWelcome=False):
     if templateFile:
-        if qtQuickVersion == 2:
-            test.fatal('There is no wizard "Qt Quick 2 Application (from Existing QML File)"',
-                       'This is a script error. Using Qt Quick 1 instead.')
-        available = __createProjectOrFileSelectType__("  Applications", "Qt Quick 1 Application (from Existing QML File)", fromWelcome)
+        available = __createProjectOrFileSelectType__("  Applications", "Qt Quick %d Application (from Existing QML File)"
+                                                      % qtQuickVersion, fromWelcome)
     else:
-        available = __createProjectOrFileSelectType__("  Applications", "Qt Quick %d Application (Built-in Elements)"
+        available = __createProjectOrFileSelectType__("  Applications", "Qt Quick %d Application (Built-in Types)"
                                                 % qtQuickVersion, fromWelcome)
     projectName = __createProjectSetNameAndPath__(workingDir, projectName)
     if templateFile:
@@ -275,7 +273,7 @@ def __chooseTargets__(targets=QtQuickConstants.Targets.DESKTOP_474_GCC, availabl
         available = availableTargets
     else:
         # following targets depend on the build environment - added for further/later tests
-        available = [QtQuickConstants.Targets.DESKTOP_474_GCC,
+        available = [QtQuickConstants.Targets.DESKTOP_474_GCC, QtQuickConstants.Targets.DESKTOP_501_DEFAULT,
                      QtQuickConstants.Targets.MAEMO5, QtQuickConstants.Targets.EMBEDDED_LINUX,
                      QtQuickConstants.Targets.SIMULATOR, QtQuickConstants.Targets.HARMATTAN]
         if platform.system() in ('Windows', 'Microsoft'):
@@ -468,6 +466,7 @@ def __getSupportedPlatforms__(text, getAsStrings=False):
         result = []
         if 'Desktop' in supports:
             result.append(QtQuickConstants.Targets.DESKTOP_474_GCC)
+            result.append(QtQuickConstants.Targets.DESKTOP_501_DEFAULT)
             if platform.system() in ("Linux", "Darwin"):
                 result.append(QtQuickConstants.Targets.EMBEDDED_LINUX)
             elif platform.system() in ('Windows', 'Microsoft'):
@@ -480,8 +479,9 @@ def __getSupportedPlatforms__(text, getAsStrings=False):
             result.append(QtQuickConstants.Targets.SIMULATOR)
     elif 'Platform independent' in text:
         # MAEMO5 and HARMATTAN could be wrong here - depends on having Madde plugin enabled or not
-        result = [QtQuickConstants.Targets.DESKTOP_474_GCC, QtQuickConstants.Targets.MAEMO5,
-                  QtQuickConstants.Targets.SIMULATOR, QtQuickConstants.Targets.HARMATTAN]
+        result = [QtQuickConstants.Targets.DESKTOP_474_GCC, QtQuickConstants.Targets.DESKTOP_501_DEFAULT,
+                  QtQuickConstants.Targets.MAEMO5, QtQuickConstants.Targets.SIMULATOR,
+                  QtQuickConstants.Targets.HARMATTAN]
         if platform.system() in ('Windows', 'Microsoft'):
             result.append(QtQuickConstants.Targets.DESKTOP_474_MSVC2008)
     else:

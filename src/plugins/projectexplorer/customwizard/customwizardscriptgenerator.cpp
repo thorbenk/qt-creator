@@ -32,7 +32,6 @@
 #include "customwizardparameters.h"
 
 #include <utils/hostosinfo.h>
-#include <utils/qtcassert.h>
 
 #include <QProcess>
 #include <QDir>
@@ -88,9 +87,6 @@ static bool
                               const QMap<QString, QString> &fieldMap,
                               QString *stdOut /* = 0 */, QString *errorMessage)
 {
-    typedef QSharedPointer<QTemporaryFile> TemporaryFilePtr;
-    typedef QList<TemporaryFilePtr> TemporaryFilePtrList;
-
     QProcess process;
     const QString binary = script.front();
     QStringList arguments;

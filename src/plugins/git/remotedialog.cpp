@@ -38,8 +38,6 @@
 
 #include <vcsbase/vcsbaseoutputwindow.h>
 
-#include <QItemSelectionModel>
-#include <QPushButton>
 #include <QMessageBox>
 
 namespace Git {
@@ -174,7 +172,8 @@ void RemoteDialog::pushToRemote()
 
     const int row = indexList.at(0).row();
     const QString remoteName = m_remoteModel->remoteName(row);
-    m_remoteModel->client()->synchronousPush(m_remoteModel->workingDirectory(), remoteName);
+    m_remoteModel->client()->synchronousPush(m_remoteModel->workingDirectory(),
+                                             QStringList() << remoteName);
 }
 
 void RemoteDialog::fetchFromRemote()

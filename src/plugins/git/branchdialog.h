@@ -31,7 +31,6 @@
 #define BRANCHDIALOG_H
 
 #include <QDialog>
-#include <QItemSelection>
 
 QT_BEGIN_NAMESPACE
 class QPushButton;
@@ -69,6 +68,7 @@ private slots:
     void add();
     void checkout();
     void remove();
+    void rename();
     void diff();
     void log();
     void merge();

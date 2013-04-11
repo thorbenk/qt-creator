@@ -31,7 +31,6 @@
 #define ANALYZERRUNCONTROLFACTORY_H
 
 #include <analyzerbase/analyzerruncontrol.h>
-#include <projectexplorer/runconfiguration.h>
 
 namespace Analyzer {
 namespace Internal {
@@ -50,10 +49,7 @@ public:
     ProjectExplorer::RunControl *create(RunConfiguration *runConfiguration,
                                         ProjectExplorer::RunMode mode,
                                         QString *errorMessage);
-    ProjectExplorer::IRunConfigurationAspect *createRunConfigurationAspect();
-    ProjectExplorer::IRunConfigurationAspect *cloneRunConfigurationAspect(ProjectExplorer::IRunConfigurationAspect *source);
-    ProjectExplorer::RunConfigWidget *createConfigurationWidget(RunConfiguration *runConfiguration);
-
+    ProjectExplorer::IRunConfigurationAspect *createRunConfigurationAspect(ProjectExplorer::RunConfiguration *rc);
 };
 
 } // namespace Internal

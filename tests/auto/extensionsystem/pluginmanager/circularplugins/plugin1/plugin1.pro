@@ -2,11 +2,12 @@ TEMPLATE = lib
 
 SOURCES += plugin1.cpp
 HEADERS += plugin1.h
+DEFINES += PLUGIN1_LIBRARY
 
 OTHER_FILES = $$PWD/plugin.xml
 
+QTC_LIB_DEPENDS += extensionsystem
 include(../../../../../../qtcreator.pri)
-include(../../../../../../src/libs/extensionsystem/extensionsystem.pri)
 include(../../../../qttestrpath.pri)
 
 COPYDIR = $$OUT_PWD

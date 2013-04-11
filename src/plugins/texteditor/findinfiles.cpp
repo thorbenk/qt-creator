@@ -29,16 +29,17 @@
 
 #include "findinfiles.h"
 
+#include <utils/filesearch.h>
 #include <coreplugin/editormanager/editormanager.h>
 
 #include <QDebug>
 #include <QSettings>
 #include <QDir>
-#include <QDirIterator>
 #include <QPushButton>
 #include <QFileDialog>
+#include <QLabel>
+#include <QComboBox>
 #include <QHBoxLayout>
-#include <QVBoxLayout>
 
 using namespace Find;
 using namespace TextEditor;
@@ -46,6 +47,10 @@ using namespace TextEditor;
 FindInFiles::FindInFiles()
   : m_configWidget(0),
     m_directory(0)
+{
+}
+
+FindInFiles::~FindInFiles()
 {
 }
 

@@ -1,5 +1,3 @@
-TEMPLATE = lib
-TARGET = QmlDebug
 QT += network
 
 include(../../qtcreatorlibrary.pri)

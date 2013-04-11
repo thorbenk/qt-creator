@@ -28,7 +28,6 @@
 ****************************************************************************/
 
 #include "debuggeractions.h"
-#include "debuggerconstants.h"
 
 #ifdef Q_OS_WIN
 #include "registerpostmortemaction.h"
@@ -36,10 +35,8 @@
 
 #include <utils/savedaction.h>
 #include <utils/qtcassert.h>
-#include <utils/pathchooser.h>
 
 #include <QDebug>
-#include <QVariant>
 #include <QSettings>
 
 using namespace Utils;
@@ -358,6 +355,14 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     insertItem(LoadGdbInit, item);
 
     item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("LoadGdbDumpers"));
+    item->setDefaultValue(QString());
+    item->setCheckable(true);
+    item->setDefaultValue(true);
+    item->setValue(true);
+    insertItem(LoadGdbDumpers, item);
+
+    item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("AutoEnrichParameters"));
     item->setDefaultValue(QString());
     item->setCheckable(true);
@@ -444,6 +449,12 @@ DebuggerSettings::DebuggerSettings(QSettings *settings)
     item->setCheckable(true);
     item->setDefaultValue(false);
     insertItem(IntelFlavor, item);
+
+    item = new SavedAction(this);
+    item->setSettingsKey(debugModeGroup, QLatin1String("IdentifyDebugInfoPackages"));
+    item->setCheckable(true);
+    item->setDefaultValue(false);
+    insertItem(IdentifyDebugInfoPackages, item);
 
     item = new SavedAction(this);
     item->setSettingsKey(debugModeGroup, QLatin1String("UseToolTips"));

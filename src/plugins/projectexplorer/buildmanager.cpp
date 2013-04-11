@@ -32,7 +32,6 @@
 #include "buildprogress.h"
 #include "buildsteplist.h"
 #include "compileoutputwindow.h"
-#include "projectexplorerconstants.h"
 #include "projectexplorer.h"
 #include "project.h"
 #include "projectexplorersettings.h"
@@ -45,13 +44,10 @@
 #include <coreplugin/progressmanager/futureprogress.h>
 #include <projectexplorer/session.h>
 #include <extensionsystem/pluginmanager.h>
-#include <utils/qtcassert.h>
 
-#include <QDir>
 #include <QPointer>
 #include <QTime>
 #include <QTimer>
-#include <QMetaType>
 #include <QList>
 #include <QHash>
 #include <QFutureWatcher>
@@ -307,6 +303,8 @@ void BuildManager::startBuildQueue(const QStringList &preambleMessage)
               Core::ProgressManager::KeepOnFinish | Core::ProgressManager::ShowInApplicationIcon);
         connect(d->m_futureProgress.data(), SIGNAL(clicked()), this, SLOT(showBuildResults()));
         d->m_futureProgress.data()->setWidget(new Internal::BuildProgress(d->m_taskWindow));
+        d->m_futureProgress.data()->setStatusBarWidget(new Internal::BuildProgress(d->m_taskWindow,
+                                                                                   Qt::Horizontal));
         d->m_progress = 0;
         d->m_progressFutureInterface->setProgressRange(0, d->m_maxProgress * 100);
 

@@ -28,10 +28,10 @@
 ****************************************************************************/
 
 #include "cppplugin.h"
+
 #include "cppclasswizard.h"
 #include "cppeditor.h"
 #include "cppeditorconstants.h"
-#include "cppeditorenums.h"
 #include "cppfilewizard.h"
 #include "cpphoverhandler.h"
 #include "cppoutline.h"
@@ -40,33 +40,21 @@
 #include "cppquickfixassistant.h"
 #include "cppquickfixes.h"
 
-#include <coreplugin/icore.h>
-#include <coreplugin/coreconstants.h>
-#include <coreplugin/mimedatabase.h>
-#include <coreplugin/fileiconprovider.h>
-#include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
-#include <coreplugin/actionmanager/command.h>
-#include <coreplugin/id.h>
-#include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/progressmanager/progressmanager.h>
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/coreconstants.h>
+#include <coreplugin/fileiconprovider.h>
+#include <coreplugin/icore.h>
 #include <coreplugin/navigationwidget.h>
-#include <texteditor/texteditoractionhandler.h>
-#include <texteditor/texteditorplugin.h>
-#include <texteditor/texteditorsettings.h>
-#include <texteditor/texteditorconstants.h>
-#include <utils/hostosinfo.h>
-#include <cpptools/ModelManagerInterface.h>
+#include <coreplugin/progressmanager/progressmanager.h>
 #include <cpptools/cpptoolsconstants.h>
-#include <cpptools/cpptoolssettings.h>
+#include <texteditor/texteditoractionhandler.h>
+#include <texteditor/texteditorsettings.h>
 
-#include <QFileInfo>
-#include <QSettings>
-#include <QTimer>
+#include <utils/hostosinfo.h>
+
 #include <QCoreApplication>
 #include <QStringList>
-
-#include <QMenu>
 
 using namespace CppEditor;
 using namespace CppEditor::Internal;
@@ -282,7 +270,7 @@ bool CppPlugin::initialize(const QStringList & /*arguments*/, QString *errorMess
     cppToolsMenu->addSeparator(globalContext);
     m_updateCodeModelAction = new QAction(tr("Update Code Model"), this);
     cmd = Core::ActionManager::registerAction(m_updateCodeModelAction, Core::Id(Constants::UPDATE_CODEMODEL), globalContext);
-    CPlusPlus::CppModelManagerInterface *cppModelManager = CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *cppModelManager = CppTools::CppModelManagerInterface::instance();
     connect(m_updateCodeModelAction, SIGNAL(triggered()), cppModelManager, SLOT(updateModifiedSourceFiles()));
     cppToolsMenu->addAction(cmd);
 

@@ -58,8 +58,6 @@ protected:
     void stdOutput(const QString &line);
     void processStarted(const ProjectExplorer::ProcessParameters &params);
 
-    void raiseError(const QString &errorMessage);
-
 private:
     QString deviceHost() const;
     QString password() const;

@@ -66,10 +66,11 @@ public:
     static DebuggerRunControl *doCreate(const DebuggerStartParameters &sp,
         ProjectExplorer::RunConfiguration *rc, QString *errorMessage);
 
+    ProjectExplorer::IRunConfigurationAspect *createRunConfigurationAspect(
+            ProjectExplorer::RunConfiguration *rc);
+
 private:
     QString displayName() const;
-    ProjectExplorer::RunConfigWidget *createConfigurationWidget(
-        ProjectExplorer::RunConfiguration *runConfiguration);
 };
 
 } // namespace Internal

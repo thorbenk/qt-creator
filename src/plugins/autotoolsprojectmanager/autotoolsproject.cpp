@@ -40,15 +40,18 @@
 #include "makefileparserthread.h"
 
 #include <projectexplorer/abi.h>
+#include <projectexplorer/toolchain.h>
 #include <projectexplorer/kitmanager.h>
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/buildsteplist.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
+#include <projectexplorer/headerpath.h>
 #include <extensionsystem/pluginmanager.h>
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <coreplugin/icore.h>
+#include <coreplugin/icontext.h>
 #include <utils/qtcassert.h>
 #include <utils/filesystemwatcher.h>
 
@@ -76,7 +79,9 @@ AutotoolsProject::AutotoolsProject(AutotoolsManager *manager, const QString &fil
     m_makefileParserThread(0)
 {
     setProjectContext(Core::Context(Constants::PROJECT_CONTEXT));
-    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
+    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
+    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
+    setProjectLanguages(pl);
 
     const QFileInfo fileInfo(m_fileName);
     m_projectName = fileInfo.absoluteDir().dirName();
@@ -315,10 +320,14 @@ void AutotoolsProject::buildFileNodeTree(const QDir &directory,
 
         // Add file node
         const QString filePath = directory.absoluteFilePath(file);
-        if (nodeHash.contains(filePath))
+        if (nodeHash.contains(filePath)) {
             nodeHash.remove(filePath);
-        else
-            fileNodes.append(new FileNode(filePath, ResourceType, false));
+        } else {
+            if (file == QLatin1String("Makefile.am") || file == QLatin1String("configure.ac"))
+                fileNodes.append(new FileNode(filePath, ProjectFileType, false));
+            else
+                fileNodes.append(new FileNode(filePath, ResourceType, false));
+        }
     }
 
     if (!fileNodes.isEmpty())
@@ -397,8 +406,8 @@ QList<Node *> AutotoolsProject::nodes(FolderNode *parent) const
 
 void AutotoolsProject::updateCppCodeModel()
 {
-    CPlusPlus::CppModelManagerInterface *modelManager =
-        CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelManager =
+        CppTools::CppModelManagerInterface::instance();
 
     if (!modelManager)
         return;
@@ -426,7 +435,7 @@ void AutotoolsProject::updateCppCodeModel()
         }
     }
 
-    CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
+    CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
 
     const bool update = (pinfo.includePaths() != allIncludePaths)
             || (pinfo.sourceFiles() != m_files)
@@ -434,16 +443,20 @@ void AutotoolsProject::updateCppCodeModel()
             || (pinfo.frameworkPaths() != allFrameworkPaths);
     if (update) {
         pinfo.clearProjectParts();
-        CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
-                    new CPlusPlus::CppModelManagerInterface::ProjectPart);
+        CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
         part->includePaths = allIncludePaths;
-        part->sourceFiles = m_files;
+        foreach (const QString &file, m_files)
+            part->files << CppTools::ProjectFile(file, CppTools::ProjectFile::CXXSource);
+
         part->defines = macros;
         part->frameworkPaths = allFrameworkPaths;
-        part->language = CPlusPlus::CppModelManagerInterface::ProjectPart::CXX11;
+        part->cVersion = CppTools::ProjectPart::C99;
+        part->cxxVersion = CppTools::ProjectPart::CXX11;
         pinfo.appendProjectPart(part);
 
         modelManager->updateProjectInfo(pinfo);
         modelManager->updateSourceFiles(m_files);
+
+        setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !part->files.isEmpty());
     }
 }

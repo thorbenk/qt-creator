@@ -28,14 +28,12 @@
 ****************************************************************************/
 
 #include "breakhandler.h"
-#include "debuggerinternalconstants.h"
 #include "breakpointmarker.h"
 
 #include "debuggeractions.h"
 #include "debuggercore.h"
 #include "debuggerengine.h"
 #include "debuggerstringutils.h"
-#include "stackframe.h"
 
 #include <extensionsystem/invoker.h>
 #include <utils/hostosinfo.h>
@@ -45,9 +43,9 @@
 #include "modeltest.h"
 #endif
 
-#include <QDir>
-#include <QFileInfo>
 #include <QTimerEvent>
+#include <QDir>
+#include <QDebug>
 
 #define BREAK_ASSERT(cond, action) if (cond) {} else { action; }
 //#define BREAK_ASSERT(cond, action) QTC_ASSERT(cond, action)
@@ -125,7 +123,8 @@ static QString typeToString(BreakpointType type)
             return BreakHandler::tr("Breakpoint on QML Signal Emit");
         case BreakpointAtJavaScriptThrow:
             return BreakHandler::tr("Breakpoint at JavaScript throw");
-        case UnknownType:
+        case UnknownBreakpointType:
+        case LastBreakpointType:
             break;
     }
     return BreakHandler::tr("Unknown Breakpoint Type");
@@ -191,7 +190,7 @@ static bool isSimilarTo(const BreakpointParameters &data, const BreakpointRespon
 {
     // Clear hit.
     // Clear miss.
-    if (needle.type != UnknownType && data.type != UnknownType
+    if (needle.type != UnknownBreakpointType && data.type != UnknownBreakpointType
             && data.type != needle.type)
         return false;
 
@@ -384,7 +383,7 @@ void BreakHandler::loadBreakpoints()
         if (v.isValid())
             data.tracepoint = bool(v.toInt());
         v = map.value(_("type"));
-        if (v.isValid() && v.toInt() != UnknownType)
+        if (v.isValid() && v.toInt() != UnknownBreakpointType)
             data.type = BreakpointType(v.toInt());
         v = map.value(_("module"));
         if (v.isValid())

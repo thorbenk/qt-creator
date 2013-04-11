@@ -29,16 +29,11 @@
 
 #include "cppoutline.h"
 
-#include <TranslationUnit.h>
-#include <Symbol.h>
-
-#include <coreplugin/idocument.h>
-#include <coreplugin/editormanager/editormanager.h>
 #include <cplusplus/OverviewModel.h>
+
 #include <utils/qtcassert.h>
 
 #include <QDebug>
-#include <QTimer>
 #include <QVBoxLayout>
 #include <QMenu>
 

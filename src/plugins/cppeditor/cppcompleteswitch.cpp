@@ -28,17 +28,13 @@
 ****************************************************************************/
 
 #include "cppcompleteswitch.h"
+
 #include "cppquickfixassistant.h"
+
+#include <cpptools/cpprefactoringchanges.h>
 
 #include <cplusplus/Overview.h>
 #include <cplusplus/TypeOfExpression.h>
-#include <cpptools/cpprefactoringchanges.h>
-#include <utils/changeset.h>
-
-#include <AST.h>
-#include <ASTVisitor.h>
-#include <CoreTypes.h>
-#include <Symbols.h>
 
 #include <QApplication>
 

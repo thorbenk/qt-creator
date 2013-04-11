@@ -32,12 +32,11 @@
 #include "remotelinuxrunconfiguration.h"
 
 #include <debugger/debuggerengine.h>
+#include <debugger/debuggerrunconfigurationaspect.h>
 #include <debugger/debuggerstartparameters.h>
 #include <debugger/debuggerkitinformation.h>
-#include <projectexplorer/abi.h>
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/devicesupport/deviceusedportsgatherer.h>
-#include <projectexplorer/kit.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/toolchain.h>
@@ -46,7 +45,6 @@
 #include <utils/qtcassert.h>
 
 #include <QPointer>
-#include <QSharedPointer>
 
 using namespace QSsh;
 using namespace Debugger;
@@ -64,8 +62,8 @@ public:
     LinuxDeviceDebugSupportPrivate(const RemoteLinuxRunConfiguration *runConfig,
             DebuggerEngine *engine)
         : engine(engine),
-          qmlDebugging(runConfig->debuggerAspect()->useQmlDebugger()),
-          cppDebugging(runConfig->debuggerAspect()->useCppDebugger()),
+          qmlDebugging(runConfig->extraAspect<Debugger::DebuggerRunConfigurationAspect>()->useQmlDebugger()),
+          cppDebugging(runConfig->extraAspect<Debugger::DebuggerRunConfigurationAspect>()->useCppDebugger()),
           state(Inactive),
           gdbServerPort(-1), qmlPort(-1),
           device(DeviceKitInformation::device(runConfig->target()->kit())),
@@ -101,18 +99,21 @@ DebuggerStartParameters LinuxDeviceDebugSupport::startParameters(const RemoteLin
     Target *target = runConfig->target();
     Kit *k = target->kit();
     const IDevice::ConstPtr device = DeviceKitInformation::device(k);
+    QTC_ASSERT(device, return params);
 
     params.sysRoot = SysRootKitInformation::sysRoot(k).toString();
     params.debuggerCommand = DebuggerKitInformation::debuggerCommand(k).toString();
     if (ToolChain *tc = ToolChainKitInformation::toolChain(k))
         params.toolChainAbi = tc->targetAbi();
 
-    if (runConfig->debuggerAspect()->useQmlDebugger()) {
+    Debugger::DebuggerRunConfigurationAspect *aspect
+            = runConfig->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+    if (aspect->useQmlDebugger()) {
         params.languages |= QmlLanguage;
         params.qmlServerAddress = device->sshParameters().host;
         params.qmlServerPort = 0; // port is selected later on
     }
-    if (runConfig->debuggerAspect()->useCppDebugger()) {
+    if (aspect->useCppDebugger()) {
         params.languages |= CppLanguage;
         params.processArgs = runConfig->arguments();
         params.startMode = AttachToRemoteServer;

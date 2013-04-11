@@ -31,18 +31,16 @@
 
 #include "abi.h"
 #include "kitinformation.h"
-#include "projectexplorer.h"
 #include "toolchain.h"
 
 #include <coreplugin/icore.h>
 
 #include <extensionsystem/pluginmanager.h>
-#include <extensionsystem/pluginspec.h>
 
+#include <utils/fileutils.h>
 #include <utils/persistentsettings.h>
 #include <utils/qtcassert.h>
 
-#include <QCoreApplication>
 #include <QDir>
 #include <QSettings>
 
@@ -60,7 +58,7 @@ using Utils::PersistentSettingsReader;
 
 static Utils::FileName settingsFileName(const QString &path)
 {
-    QFileInfo settingsLocation(ExtensionSystem::PluginManager::settings()->fileName());
+    QFileInfo settingsLocation(Core::ICore::settings()->fileName());
     return Utils::FileName::fromString(settingsLocation.absolutePath() + path);
 }
 

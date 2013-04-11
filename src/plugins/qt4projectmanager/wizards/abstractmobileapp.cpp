@@ -29,7 +29,6 @@
 
 #include "abstractmobileapp.h"
 
-#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
@@ -57,7 +56,7 @@ const QString AbstractMobileApp::ProFileComment(QLatin1String("#"));
 const QString AbstractMobileApp::DeploymentPriFileName(QLatin1String("deployment.pri"));
 const QString AbstractMobileApp::FileChecksum(QLatin1String("checksum"));
 const QString AbstractMobileApp::FileStubVersion(QLatin1String("version"));
-const int AbstractMobileApp::StubVersion = 8;
+const int AbstractMobileApp::StubVersion = 9;
 
 AbstractMobileApp::AbstractMobileApp()
     : QObject()

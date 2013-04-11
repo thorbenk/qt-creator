@@ -28,54 +28,36 @@
 ****************************************************************************/
 
 #include "cpptoolsplugin.h"
-#include "completionsettingspage.h"
+
 #include "cppfilesettingspage.h"
 #include "cppcodestylesettingspage.h"
 #include "cppclassesfilter.h"
 #include "cppfunctionsfilter.h"
 #include "cppcurrentdocumentfilter.h"
 #include "cppmodelmanager.h"
-#include "cpptoolsconstants.h"
 #include "cpplocatorfilter.h"
 #include "symbolsfindfilter.h"
 #include "cpptoolssettings.h"
 #include "cppctordtorfilter.h"
 #include "cpptoolsreuse.h"
+#include "cppprojectfile.h"
 
-#include <extensionsystem/pluginmanager.h>
-
-#include <coreplugin/icore.h>
-#include <coreplugin/mimedatabase.h>
-#include <coreplugin/coreconstants.h>
-#include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
-#include <coreplugin/actionmanager/command.h>
-#include <coreplugin/id.h>
-#include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/progressmanager/progressmanager.h>
-#include <coreplugin/vcsmanager.h>
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/coreconstants.h>
 #include <coreplugin/documentmanager.h>
+#include <coreplugin/icore.h>
+#include <coreplugin/vcsmanager.h>
 #include <cppeditor/cppeditorconstants.h>
-#include <texteditor/basetexteditor.h>
 
-#include <QtConcurrentRun>
-#include <QFutureSynchronizer>
-#include <utils/runextensions.h>
-
-#include <find/ifindfilter.h>
-#include <find/searchresultwindow.h>
-#include <utils/filesearch.h>
 #include <utils/qtcassert.h>
 
 #include <QtPlugin>
 #include <QFileInfo>
 #include <QDir>
 #include <QDebug>
-#include <QSettings>
 #include <QMenu>
 #include <QAction>
-
-#include <sstream>
 
 using namespace CPlusPlus;
 
@@ -205,51 +187,31 @@ static QStringList findFilesInProject(const QString &name,
     return candidateList;
 }
 
-// Figure out file type
-enum FileType {
-    HeaderFile,
-    C_SourceFile,
-    CPP_SourceFile,
-    ObjectiveCPP_SourceFile,
-    UnknownType
-};
-
-static inline FileType fileType(const Core::MimeDatabase *mimeDatabase, const  QFileInfo & fi)
-{
-    const Core::MimeType mimeType = mimeDatabase->findByFile(fi);
-    if (!mimeType)
-        return UnknownType;
-    const QString typeName = mimeType.type();
-    if (typeName == QLatin1String(CppTools::Constants::C_SOURCE_MIMETYPE))
-        return C_SourceFile;
-    if (typeName == QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE))
-        return CPP_SourceFile;
-    if (typeName == QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE))
-        return ObjectiveCPP_SourceFile;
-    if (typeName == QLatin1String(CppTools::Constants::C_HEADER_MIMETYPE)
-        || typeName == QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE))
-        return HeaderFile;
-    return UnknownType;
-}
-
 // Return the suffixes that should be checked when trying to find a
 // source belonging to a header and vice versa
-static QStringList matchingCandidateSuffixes(const Core::MimeDatabase *mimeDatabase, FileType type)
+static QStringList matchingCandidateSuffixes(ProjectFile::Kind kind)
 {
-    switch (type) {
-    case UnknownType:
-        break;
-    case HeaderFile: // Note that C/C++ headers are undistinguishable
-        return mimeDatabase->findByType(QLatin1String(CppTools::Constants::C_SOURCE_MIMETYPE)).suffixes()
-               + mimeDatabase->findByType(QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE)).suffixes()
-               + mimeDatabase->findByType(QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE)).suffixes();
-    case C_SourceFile:
-        return mimeDatabase->findByType(QLatin1String(CppTools::Constants::C_HEADER_MIMETYPE)).suffixes();
-    case CPP_SourceFile:
-    case ObjectiveCPP_SourceFile:
-        return mimeDatabase->findByType(QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE)).suffixes();
+    Core::MimeDatabase *md = Core::ICore::instance()->mimeDatabase();
+    switch (kind) {
+     // Note that C/C++ headers are undistinguishable
+    case ProjectFile::CHeader:
+    case ProjectFile::CXXHeader:
+    case ProjectFile::ObjCHeader:
+    case ProjectFile::ObjCXXHeader:
+        return md->findByType(QLatin1String(Constants::C_SOURCE_MIMETYPE)).suffixes()
+                + md->findByType(QLatin1String(Constants::CPP_SOURCE_MIMETYPE)).suffixes()
+                + md->findByType(QLatin1String(Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE)).suffixes();
+    case ProjectFile::CSource:
+    case ProjectFile::ObjCSource:
+        return md->findByType(QLatin1String(Constants::C_HEADER_MIMETYPE)).suffixes();
+    case ProjectFile::CXXSource:
+    case ProjectFile::ObjCXXSource:
+    case ProjectFile::CudaSource:
+    case ProjectFile::OpenCLSource:
+        return md->findByType(QLatin1String(Constants::CPP_HEADER_MIMETYPE)).suffixes();
+    default:
+        return QStringList();
     }
-    return QStringList();
 }
 
 static QStringList baseNameWithAllSuffixes(const QString &baseName, const QStringList &suffixes)
@@ -280,30 +242,26 @@ QString correspondingHeaderOrSource(const QString &fileName, bool *wasHeader)
 {
     using namespace Internal;
 
-    const Core::MimeDatabase *mimeDatabase = Core::ICore::mimeDatabase();
     const QFileInfo fi(fileName);
-    if (m_headerSourceMapping.contains(fi.absoluteFilePath())) {
-        if (wasHeader)
-            *wasHeader = fileType(mimeDatabase, fi) == HeaderFile;
-        return m_headerSourceMapping.value(fi.absoluteFilePath());
-    }
-
-    FileType type = fileType(mimeDatabase, fi);
+    ProjectFile::Kind kind = ProjectFile::classify(fileName);
+    const bool isHeader = ProjectFile::isHeader(kind);
     if (wasHeader)
-        *wasHeader = type == HeaderFile;
+        *wasHeader = isHeader;
+    if (m_headerSourceMapping.contains(fi.absoluteFilePath()))
+        return m_headerSourceMapping.value(fi.absoluteFilePath());
 
     if (debug)
-        qDebug() << Q_FUNC_INFO << fileName <<  type;
+        qDebug() << Q_FUNC_INFO << fileName <<  kind;
 
-    if (type == UnknownType)
+    if (kind == ProjectFile::Unclassified)
         return QString();
 
     const QString baseName = fi.completeBaseName();
     const QString privateHeaderSuffix = QLatin1String("_p");
-    const QStringList suffixes = matchingCandidateSuffixes(mimeDatabase, type);
+    const QStringList suffixes = matchingCandidateSuffixes(kind);
 
     QStringList candidateFileNames = baseNameWithAllSuffixes(baseName, suffixes);
-    if (type == HeaderFile) {
+    if (isHeader) {
         if (baseName.endsWith(privateHeaderSuffix)) {
             QString sourceBaseName = baseName;
             sourceBaseName.truncate(sourceBaseName.size() - privateHeaderSuffix.size());
@@ -322,7 +280,7 @@ QString correspondingHeaderOrSource(const QString &fileName, bool *wasHeader)
         const QFileInfo candidateFi(absoluteDir, candidateFileName);
         if (candidateFi.isFile()) {
             m_headerSourceMapping[fi.absoluteFilePath()] = candidateFi.absoluteFilePath();
-            if (type != HeaderFile || !baseName.endsWith(privateHeaderSuffix))
+            if (!isHeader || !baseName.endsWith(privateHeaderSuffix))
                 m_headerSourceMapping[candidateFi.absoluteFilePath()] = fi.absoluteFilePath();
             return candidateFi.absoluteFilePath();
         }

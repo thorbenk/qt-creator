@@ -31,18 +31,7 @@
 #define BASETEXTMARK_H
 
 #include "texteditor_global.h"
-#include "itexteditor.h"
-
-#include <utils/fileutils.h>
-
-#include <QWeakPointer>
-#include <QHash>
-#include <QSet>
-
-QT_BEGIN_NAMESPACE
-class QTextBlock;
-class QPainter;
-QT_END_NAMESPACE
+#include "itextmark.h"
 
 namespace TextEditor {
 namespace Internal {
@@ -69,24 +58,6 @@ public:
 private:
     QString m_fileName;
 };
-
-namespace Internal {
-class BaseTextMarkRegistry : public QObject
-{
-    Q_OBJECT
-public:
-    BaseTextMarkRegistry(QObject *parent);
-
-    void add(BaseTextMark *mark);
-    bool remove(BaseTextMark *mark);
-private slots:
-    void editorOpened(Core::IEditor *editor);
-    void documentRenamed(Core::IDocument *document, const QString &oldName, const QString &newName);
-    void allDocumentsRenamed(const QString &oldName, const QString &newName);
-private:
-    QHash<Utils::FileName, QSet<BaseTextMark *> > m_marks;
-};
-}
 
 } // namespace TextEditor
 

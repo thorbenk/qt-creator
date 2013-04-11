@@ -29,42 +29,18 @@
 
 #include "sourceutils.h"
 
-#include "debuggerprotocol.h"
-#include "debuggerstringutils.h"
 #include "watchdata.h"
 #include "watchutils.h"
 
-#include <utils/qtcassert.h>
-
-#include <coreplugin/idocument.h>
-
 #include <texteditor/basetexteditor.h>
-#include <texteditor/basetextmark.h>
-#include <texteditor/itexteditor.h>
-#include <texteditor/texteditorconstants.h>
-#include <coreplugin/editormanager/editormanager.h>
-
-#include <cpptools/cpptoolsconstants.h>
 #include <cpptools/abstracteditorsupport.h>
+#include <cpptools/cppprojectfile.h>
 
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <cplusplus/ExpressionUnderCursor.h>
 #include <cplusplus/Overview.h>
-#include <Symbols.h>
-#include <Scope.h>
 
-#include <extensionsystem/pluginmanager.h>
-
-#include <QCoreApplication>
-#include <QDateTime>
 #include <QDebug>
-#include <QHash>
-#include <QStringList>
-#include <QTextStream>
-#include <QTime>
-
-#include <QTextCursor>
-#include <QPlainTextEdit>
 
 #include <string.h>
 #include <ctype.h>
@@ -338,15 +314,11 @@ bool getUninitializedVariables(const CPlusPlus::Snapshot &snapshot,
 // Editor tooltip support
 bool isCppEditor(Core::IEditor *editor)
 {
-    using namespace CppTools::Constants;
     const Core::IDocument *document= editor->document();
     if (!document)
         return false;
-    const QByteArray mimeType = document->mimeType().toLatin1();
-    return mimeType == C_SOURCE_MIMETYPE
-        || mimeType == CPP_SOURCE_MIMETYPE
-        || mimeType == CPP_HEADER_MIMETYPE
-        || mimeType == OBJECTIVE_CPP_SOURCE_MIMETYPE;
+
+    return CppTools::ProjectFile::classify(document->fileName()) != CppTools::ProjectFile::Unclassified;
 }
 
 // Return the Cpp expression, and, if desired, the function
@@ -354,7 +326,6 @@ QString cppExpressionAt(TextEditor::ITextEditor *editor, int pos,
                         int *line, int *column, QString *function /* = 0 */)
 {
     using namespace CppTools;
-    using namespace CPlusPlus;
     *line = *column = 0;
     if (function)
         function->clear();

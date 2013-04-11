@@ -31,7 +31,7 @@
 #include "watchdata.h"
 #include "watchutils.h"
 
-#include <CppRewriter.h>
+#include <cplusplus/CppRewriter.h>
 #include <projectexplorer/abstractmsvctoolchain.h>
 #include <utils/environment.h>
 
@@ -45,6 +45,7 @@
 #endif
 
 using namespace Debugger;
+using namespace Utils;
 using namespace Internal;
 
 static QByteArray noValue = "\001";
@@ -358,9 +359,11 @@ struct TempStuff
     QString buildPath;
 };
 
-enum DebuggerEngine {
-    gdbEngine,
-    cdbEngine
+enum DebuggerEngine
+{
+    DumpTestGdbEngine,
+    DumpTestCdbEngine,
+    DumpTestLldbEngine
 };
 
 Q_DECLARE_METATYPE(Data)
@@ -370,7 +373,16 @@ class tst_Dumpers : public QObject
     Q_OBJECT
 
 public:
-    tst_Dumpers() : t(0), m_keepTemp(false) {}
+    tst_Dumpers()
+    {
+        t = 0;
+        m_keepTemp = false;
+        m_gdbVersion = 0;
+        m_gdbBuildVersion = 0;
+        m_lldbVersion = 0;
+        m_isMacGdb = false;
+        m_isQnxGdb = false;
+    }
 
 private slots:
     void initTestCase();
@@ -389,6 +401,7 @@ private:
     bool m_keepTemp;
     int m_gdbVersion; // 7.5.1 -> 70501
     int m_gdbBuildVersion;
+    int m_lldbVersion;
     bool m_isMacGdb;
     bool m_isQnxGdb;
 };
@@ -398,16 +411,21 @@ void tst_Dumpers::initTestCase()
     m_debuggerBinary = qgetenv("QTC_DEBUGGER_PATH");
     if (m_debuggerBinary.isEmpty())
         m_debuggerBinary = "gdb";
-    m_debuggerEngine = m_debuggerBinary.endsWith("cdb.exe") ? cdbEngine : gdbEngine;
+
+    m_debuggerEngine = DumpTestGdbEngine;
+    if (m_debuggerBinary.endsWith("cdb.exe"))
+        m_debuggerEngine = DumpTestCdbEngine;
+    if (m_debuggerBinary.endsWith("lldb") || m_debuggerBinary.contains("/lldb-"))
+        m_debuggerEngine = DumpTestLldbEngine;
 
     m_qmakeBinary = qgetenv("QTC_QMAKE_PATH");
     if (m_qmakeBinary.isEmpty())
         m_qmakeBinary = "qmake";
 
-    Utils::Environment utilsEnv = Utils::Environment::systemEnvironment();
+    Environment utilsEnv = Environment::systemEnvironment();
     utilsEnv.appendOrSet(QLatin1String("QT_HASH_SEED"), QLatin1String("0"));
 
-    if (m_debuggerEngine == gdbEngine) {
+    if (m_debuggerEngine == DumpTestGdbEngine) {
         QProcess debugger;
         debugger.start(QString::fromLatin1(m_debuggerBinary)
                        + QLatin1String(" -i mi -quiet -nx"));
@@ -428,24 +446,36 @@ void tst_Dumpers::initTestCase()
         QVERIFY(pos2 != -1);
         pos2 -= 4;
         version = version.mid(pos1, pos2 - pos1);
-        Debugger::Internal::extractGdbVersion(version, &m_gdbVersion,
+        extractGdbVersion(version, &m_gdbVersion,
             &m_gdbBuildVersion, &m_isMacGdb, &m_isQnxGdb);
         qDebug() << "Gdb version " << m_gdbVersion;
-    } else {
+    } else if (m_debuggerEngine == DumpTestCdbEngine) {
         QByteArray envBat = qgetenv("QTC_MSVC_ENV_BAT");
         QMap <QString, QString> envPairs;
         QVERIFY(ProjectExplorer::Internal::AbstractMsvcToolChain::generateEnvironmentSettings(
-                    utilsEnv, QString::fromLatin1(envBat), QLatin1String(""), envPairs));
+                    utilsEnv, QString::fromLatin1(envBat), QString(), envPairs));
 
         for (QMap<QString,QString>::const_iterator envIt = envPairs.begin(); envIt!=envPairs.end(); ++envIt)
                 utilsEnv.set(envIt.key(), envIt.value());
 
         const QByteArray cdbextPath = QByteArray(CDBEXT_PATH) + QByteArray("\\qtcreatorcdbext64");
         QVERIFY(QFile::exists(QString::fromLatin1(cdbextPath + QByteArray("\\qtcreatorcdbext.dll"))));
-        qDebug() << cdbextPath;
         utilsEnv.appendOrSet(QLatin1String("_NT_DEBUGGER_EXTENSION_PATH"),
                              QString::fromLatin1(cdbextPath),
                              QLatin1String(";"));
+    } else if (m_debuggerEngine == DumpTestLldbEngine) {
+        m_usePython = true;
+        QProcess debugger;
+        debugger.start(QString::fromLatin1(m_debuggerBinary + " -v"));
+        bool ok = debugger.waitForFinished(2000);
+        QVERIFY(ok);
+        QByteArray output = debugger.readAllStandardOutput();
+        output += debugger.readAllStandardError();
+        output = output.trimmed();
+        // Should be something like LLDB-178
+        m_lldbVersion = output.mid(5).toInt();
+        qDebug() << "Lldb version " << output << m_lldbVersion;
+        QVERIFY(m_lldbVersion);
     }
     m_env = utilsEnv.toProcessEnvironment();
 }
@@ -469,7 +499,7 @@ void tst_Dumpers::dumper()
 {
     QFETCH(Data, data);
 
-    if (m_debuggerEngine == gdbEngine) {
+    if (m_debuggerEngine == DumpTestGdbEngine) {
         if (data.neededGdbVersion.min > m_gdbVersion)
             MSKIP_SINGLE("Need minimum GDB version " + QByteArray::number(data.neededGdbVersion.min));
         if (data.neededGdbVersion.max < m_gdbVersion)
@@ -526,8 +556,8 @@ void tst_Dumpers::dumper()
 
     QProcess make;
     make.setWorkingDirectory(t->buildPath);
-    cmd = m_debuggerEngine == gdbEngine ? QString::fromLatin1("make")
-                                        : QString::fromLatin1("nmake");
+    cmd = m_debuggerEngine == DumpTestCdbEngine ? QString::fromLatin1("nmake")
+                                                : QString::fromLatin1("make");
     //qDebug() << "Starting make: " << cmd;
     make.start(cmd);
     QVERIFY(make.waitForFinished());
@@ -566,7 +596,7 @@ void tst_Dumpers::dumper()
     QByteArray cmds;
     QStringList args;
 
-    if (m_debuggerEngine == gdbEngine) {
+    if (m_debuggerEngine == DumpTestGdbEngine) {
         args << QLatin1String("-i")
              << QLatin1String("mi")
              << QLatin1String("-quiet")
@@ -600,7 +630,7 @@ void tst_Dumpers::dumper()
         }
         cmds += "quit\n";
 
-    } else {
+    } else if (m_debuggerEngine == DumpTestCdbEngine) {
         args << QLatin1String("-aqtcreatorcdbext.dll")
              << QLatin1String("-lines")
              << QLatin1String("-G")
@@ -613,8 +643,25 @@ void tst_Dumpers::dumper()
                "sxi 0x4000001f\n"
                "g\n"
                "gu\n"
-               "!qtcreatorcdbext.locals -t 2 -D -e " + expanded + ",return,watch,inspect -v -c -W 0\n"
-               "q\n";
+               "!qtcreatorcdbext.expandlocals -t 0 -c 0 " + expanded + "\n";
+        int token = 0;
+        QStringList sortediNames;
+        foreach (QByteArray iName, expandedINames)
+            sortediNames << QString::fromLatin1(iName);
+        sortediNames.sort();
+        foreach (QString iName, sortediNames)
+            cmds += "!qtcreatorcdbext.locals -t " + QByteArray::number(++token) + " -c 0 " + iName.toLatin1() + "\n";
+        cmds += "q\n";
+    } else if (m_debuggerEngine == DumpTestLldbEngine) {
+        cmds = "script execfile('" + dumperDir + "/bridge.py')\n"
+               "script execfile('" + dumperDir + "/dumper.py')\n"
+               "script execfile('" + dumperDir + "/qttypes.py')\n"
+               "bbsetup\n"
+               "run\n"
+               "up\n"
+               "script print('@%sS@%s@' % ('N', qtNamespace()))\n"
+               "script bb('options:fancy,autoderef,dyntype vars: expanded:" + expanded + " typeformats:')\n"
+               "quit\n";
     }
 
     t->input = cmds;
@@ -642,7 +689,7 @@ void tst_Dumpers::dumper()
 
     Context context;
     QByteArray contents;
-    if (m_debuggerEngine == gdbEngine) {
+    if (m_debuggerEngine == DumpTestGdbEngine) {
         int posDataStart = output.indexOf("data=");
         QVERIFY(posDataStart != -1);
         int posDataEnd = output.indexOf(",typeinfo", posDataStart);
@@ -664,16 +711,20 @@ void tst_Dumpers::dumper()
         int pos1 = output.indexOf(locals);
         QVERIFY(pos1 != -1);
         do {
+            pos1 += locals.length();
+            if (output.at(pos1) == '[')
+                ++pos1;
             int pos2 = output.indexOf("\n", pos1);
             QVERIFY(pos2 != -1);
-            pos1 += locals.length();
+            if (output.at(pos2 - 1) == ']')
+                --pos2;
             contents += output.mid(pos1, pos2 - pos1);
             pos1 = output.indexOf(locals, pos2);
         } while (pos1 != -1);
     }
 
     GdbMi actual;
-    actual.fromString(contents);
+    actual.fromStringMultiple(contents);
     WatchData local;
     local.iname = "local";
 
@@ -837,9 +888,9 @@ void tst_Dumpers::dumper_data()
                     "QByteArray buf3(str3);\n"
                     "unused(&buf1, &buf2, &buf3);\n")
                % CoreProfile()
-               % Check("buf1", "\"" + QByteArray(1, 0xee) + "\"", "@QByteArray")
-               % Check("buf2", "\"" + QByteArray(1, 0xee) + "\"", "@QByteArray")
-               % Check("buf3", "\"\ee\"", "@QByteArray")
+               % Check("buf1", "\"" + QByteArray(1, (char)0xee) + "\"", "@QByteArray")
+               % Check("buf2", "\"" + QByteArray(1, (char)0xee) + "\"", "@QByteArray")
+               % Check("buf3", "\"\\ee\"", "@QByteArray")
                % CheckType("str1", "char *");
 
     QTest::newRow("QByteArray4")
@@ -928,7 +979,7 @@ void tst_Dumpers::dumper_data()
                     "QFileInfo fi(\"C:\\Program Files\\tt\");\n"
                     "QString s = fi.absoluteFilePath();\n")
                % Check("fi", "\"C:/Program Files/tt\"", "QFileInfo")
-               % Check("file", "\"C:\Program Files\t\"", "QFile")
+               % Check("file", "\"C:\\Program Files\\t\"", "QFile")
                % Check("s", "\"C:/Program Files/tt\"", "QString");
 #else
             << Data("#include <QFile>\n"
@@ -2806,7 +2857,7 @@ void tst_Dumpers::dumper_data()
                % Check("l.0", "[0]", "\" big, \"", "@QString")
                % Check("l.1", "[1]", "\" World \"", "@QString");
 
-    QChar oUmlaut = QLatin1Char(0xf6);
+    QChar oUmlaut = QLatin1Char((char)0xf6);
     QTest::newRow("String")
             << Data("#include <QString>",
                     "const wchar_t *w = L\"aöa\";\n"
@@ -4279,6 +4330,31 @@ void tst_Dumpers::dumper_data()
                     "test(\"abc\", 1, 2.0);\n")
                % Check("i", "1", "int")
                % Check("f", "2", "double");
+
+
+    QByteArray inheritanceData =
+        "struct Empty {};\n"
+        "struct Data { Data() : a(42) {} int a; };\n"
+        "struct VEmpty {};\n"
+        "struct VData { VData() : v(42) {} int v; };\n"
+        "struct S1 : Empty, Data, virtual VEmpty, virtual VData\n"
+        "    { S1() : i1(1) {} int i1; };\n"
+        "struct S2 : Empty, Data, virtual VEmpty, virtual VData\n"
+        "    { S2() : i2(1) {} int i2; };\n"
+        "struct Combined : S1, S2 { Combined() : c(1) {} int c; };\n";
+
+    QTest::newRow("inheritance")
+            << Data(inheritanceData,
+                    "Combined c;\n"
+                    "c.S1::a = 42;\n"
+                    "c.S2::a = 43;\n"
+                    "c.S1::v = 44;\n"
+                    "c.S2::v = 45;\n")
+                % Check("c.c", "1", "int")
+                % Check("c.@1.@2.a", "42", "int")
+                % Check("c.@1.@4.v", "45", "int")
+                % Check("c.@2.@2.a", "43", "int")
+                % Check("c.@2.@4.v", "45", "int");
 
 
     QTest::newRow("gdb13393")

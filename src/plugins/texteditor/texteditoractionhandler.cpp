@@ -40,15 +40,10 @@
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
-#include <coreplugin/actionmanager/command.h>
-#include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/id.h>
 #include <utils/qtcassert.h>
 
-#include <QSet>
 #include <QDebug>
 #include <QAction>
-#include <QTextCursor>
 
 using namespace TextEditor;
 using namespace TextEditor::Internal;
@@ -562,7 +557,7 @@ void TextEditorActionHandler::gotoAction()
     QString locatorString = TextEditorPlugin::instance()->lineNumberFilter()->shortcutString();
     locatorString += QLatin1Char(' ');
     const int selectionStart = locatorString.size();
-    locatorString += tr("<line number>");
+    locatorString += tr("<line>:<column>");
     locatorManager->show(locatorString, selectionStart, locatorString.size() - selectionStart);
 }
 

@@ -49,11 +49,10 @@
 #include "pp.h"
 #include "pp-cctype.h"
 
-#include <Control.h>
-#include <Lexer.h>
-#include <Token.h>
-#include <Literals.h>
-#include <cctype>
+#include <cplusplus/Control.h>
+#include <cplusplus/Lexer.h>
+#include <cplusplus/Token.h>
+#include <cplusplus/Literals.h>
 
 #include <QDebug>
 #include <QList>
@@ -61,6 +60,7 @@
 #include <QTime>
 #include <QPair>
 
+#include <cctype>
 #include <list>
 #include <algorithm>
 
@@ -702,6 +702,7 @@ QByteArray Preprocessor::run(const QString &fileName,
     m_scratchBuffer.clear();
 
     QByteArray preprocessed, includeGuardMacroName;
+    preprocessed.reserve(source.size() * 2); // multiply by 2 because we insert #gen lines.
     preprocess(fileName, source, &preprocessed, &includeGuardMacroName, noLines,
                markGeneratedTokens, false);
     if (!includeGuardMacroName.isEmpty())

@@ -31,6 +31,8 @@
 #include "desktopdevice.h"
 #include "projectexplorerconstants.h"
 
+#include <utils/qtcassert.h>
+
 namespace ProjectExplorer {
 namespace Internal {
 
@@ -67,8 +69,10 @@ bool DesktopDeviceFactory::canRestore(const QVariantMap &map) const
 
 IDevice::Ptr DesktopDeviceFactory::restore(const QVariantMap &map) const
 {
-    Q_UNUSED(map);
-    return IDevice::Ptr(new DesktopDevice);
+    QTC_ASSERT(canRestore(map), return ProjectExplorer::IDevice::Ptr());
+    const ProjectExplorer::IDevice::Ptr device = IDevice::Ptr(new DesktopDevice);
+    device->fromMap(map);
+    return device;
 }
 
 } // namespace Internal

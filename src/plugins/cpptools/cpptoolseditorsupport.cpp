@@ -28,18 +28,8 @@
 ****************************************************************************/
 
 #include "cpptoolseditorsupport.h"
-#include "cppcompletionsupport.h"
-#include "cpphighlightingsupport.h"
+
 #include "cppmodelmanager.h"
-
-#include <coreplugin/idocument.h>
-
-#include <texteditor/itexteditor.h>
-#include <texteditor/basetexteditor.h>
-
-#include <AST.h>
-#include <ASTVisitor.h>
-#include <TranslationUnit.h>
 
 #include <QTimer>
 

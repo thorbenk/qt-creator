@@ -28,37 +28,21 @@
 ****************************************************************************/
 
 #include "qtcreatorintegration.h"
-#include "formeditorplugin.h"
 #include "formwindoweditor.h"
 #include "formclasswizardpage.h"
 #include "formeditorw.h"
 #include "editordata.h"
-#include "codemodelhelpers.h"
 #include <widgethost.h>
 
-#include <cpptools/cpprefactoringchanges.h>
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/insertionpointlocator.h>
 #include <cpptools/symbolfinder.h>
-#include <cpptools/ModelManagerInterface.h>
-#include <cplusplus/Symbols.h>
 #include <cplusplus/Overview.h>
-#include <cplusplus/CoreTypes.h>
-#include <cplusplus/Name.h>
-#include <cplusplus/Names.h>
-#include <cplusplus/Literals.h>
-#include <cplusplus/Scope.h>
-#include <cplusplus/Control.h>
-#include <cplusplus/TranslationUnit.h>
 #include <coreplugin/icore.h>
-#include <coreplugin/mimedatabase.h>
-#include <coreplugin/editormanager/editormanager.h>
-#include <extensionsystem/pluginmanager.h>
 #include <texteditor/basetexteditor.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/session.h>
 #include <utils/qtcassert.h>
-#include <utils/fileutils.h>
 
 #include <QDesignerFormWindowInterface>
 #include <QDesignerFormEditorInterface>
@@ -142,7 +126,7 @@ QWidget *QtCreatorIntegration::containerWindow(QWidget * /*widget*/) const
     return 0;
 }
 
-static QList<Document::Ptr> findDocumentsIncluding(const CPlusPlus::Snapshot &docTable,
+static QList<Document::Ptr> findDocumentsIncluding(const Snapshot &docTable,
                                                    const QString &fileName, bool checkFileNameOnly)
 {
     QList<Document::Ptr> docList;
@@ -192,7 +176,8 @@ static bool matchMemberClassName(const QString &needle, const QString &hayStack)
 // Find class definition in namespace (that is, the outer class
 // containing a member of the desired class type) or inheriting the desired class
 // in case of forms using the Multiple Inheritance approach
-static const Class *findClass(const Namespace *parentNameSpace, const QString &className, QString *namespaceName)
+static const Class *findClass(const Namespace *parentNameSpace,
+                                         const QString &className, QString *namespaceName)
 {
     if (Designer::Constants::Internal::debug)
         qDebug() << Q_FUNC_INFO << className;
@@ -269,7 +254,7 @@ static Function *findDeclaration(const Class *cl, const QString &functionName)
 // TODO: remove me, this is taken from cppeditor.cpp. Find some common place for this method
 static Document::Ptr findDefinition(Function *functionDeclaration, int *line)
 {
-    if (CppModelManagerInterface *cppModelManager = CppModelManagerInterface::instance()) {
+    if (CppTools::CppModelManagerInterface *cppModelManager = CppTools::CppModelManagerInterface::instance()) {
         const Snapshot snapshot = cppModelManager->snapshot();
         CppTools::SymbolFinder symbolFinder;
         if (Symbol *def = symbolFinder.findMatchingDefinition(functionDeclaration, snapshot)) {
@@ -320,7 +305,7 @@ static void addDeclaration(const Snapshot &snapshot,
     }
 }
 
-static Document::Ptr addDefinition(const CPlusPlus::Snapshot &docTable,
+static Document::Ptr addDefinition(const Snapshot &docTable,
                                    const QString &headerFileName,
                                    const QString &className,
                                    const QString &functionName,
@@ -455,7 +440,7 @@ static QString addParameterNames(const QString &functionSignature, const QString
 typedef QPair<const Class *, Document::Ptr> ClassDocumentPtrPair;
 
 static ClassDocumentPtrPair
-        findClassRecursively(const CPlusPlus::Snapshot &docTable,
+        findClassRecursively(const Snapshot &docTable,
                              const Document::Ptr &doc, const QString &className,
                              unsigned maxIncludeDepth, QString *namespaceName)
 {
@@ -468,7 +453,7 @@ static ClassDocumentPtrPair
         // Check the includes
         const unsigned recursionMaxIncludeDepth = maxIncludeDepth - 1u;
         foreach (const QString &include, doc->includedFiles()) {
-            const CPlusPlus::Snapshot::const_iterator it = docTable.find(include);
+            const Snapshot::const_iterator it = docTable.find(include);
             if (it != docTable.end()) {
                 const Document::Ptr includeDoc = it.value();
                 const ClassDocumentPtrPair irc = findClassRecursively(docTable, it.value(), className, recursionMaxIncludeDepth, namespaceName);
@@ -499,7 +484,9 @@ static inline QString uiClassName(QString formObjectName)
     return formObjectName;
 }
 
-static Document::Ptr getParsedDocument(const QString &fileName, CppModelManagerInterface::WorkingCopy &workingCopy, Snapshot &snapshot)
+static Document::Ptr getParsedDocument(const QString &fileName,
+                                       CppTools::CppModelManagerInterface::WorkingCopy &workingCopy,
+                                       Snapshot &snapshot)
 {
     QString src;
     if (workingCopy.contains(fileName)) {
@@ -547,10 +534,10 @@ bool QtCreatorIntegration::navigateToSlot(const QString &objectName,
         *errorMessage = tr("Internal error: No project could be found for %1.").arg(currentUiFile);
         return false;
     }
-    CPlusPlus::Snapshot docTable = CppModelManagerInterface::instance()->snapshot();
-    CPlusPlus::Snapshot newDocTable;
+    Snapshot docTable = CppTools::CppModelManagerInterface::instance()->snapshot();
+    Snapshot newDocTable;
 
-    for  (CPlusPlus::Snapshot::iterator it = docTable.begin(); it != docTable.end(); ++it) {
+    for (Snapshot::iterator it = docTable.begin(); it != docTable.end(); ++it) {
         const ProjectExplorer::Project *project = ProjectExplorer::ProjectExplorerPlugin::instance()->session()->projectForFile(it.key());
         if (project == uiProject)
             newDocTable.insert(it.value());
@@ -623,8 +610,8 @@ bool QtCreatorIntegration::navigateToSlot(const QString &objectName,
         }
     } else {
         // add function declaration to cl
-        CppModelManagerInterface::WorkingCopy workingCopy =
-            CppModelManagerInterface::instance()->workingCopy();
+        CppTools::CppModelManagerInterface::WorkingCopy workingCopy =
+            CppTools::CppModelManagerInterface::instance()->workingCopy();
         const QString fileName = doc->fileName();
         getParsedDocument(fileName, workingCopy, docTable);
         addDeclaration(docTable, fileName, cl, functionNameWithParameterNames);

@@ -1,7 +1,4 @@
-TEMPLATE = lib
-TARGET = Find
 include(../../qtcreatorplugin.pri)
-include(find_dependencies.pri)
 DEFINES += FIND_LIBRARY
 HEADERS += findtoolwindow.h \
     textfindconstants.h \

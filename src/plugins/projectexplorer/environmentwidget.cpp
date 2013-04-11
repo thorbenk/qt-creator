@@ -33,6 +33,7 @@
 #include <utils/detailswidget.h>
 #include <utils/environment.h>
 #include <utils/environmentmodel.h>
+#include <utils/headerviewstretcher.h>
 
 #include <QString>
 #include <QHeaderView>
@@ -96,8 +97,8 @@ EnvironmentWidget::EnvironmentWidget(QWidget *parent, QWidget *additionalDetails
     d->m_environmentView->setMinimumHeight(400);
     d->m_environmentView->setGridStyle(Qt::NoPen);
     d->m_environmentView->horizontalHeader()->setStretchLastSection(true);
-    d->m_environmentView->horizontalHeader()->setResizeMode(0, QHeaderView::ResizeToContents);
     d->m_environmentView->horizontalHeader()->setHighlightSections(false);
+    new Utils::HeaderViewStretcher(d->m_environmentView->horizontalHeader(), 1);
     d->m_environmentView->verticalHeader()->hide();
     QFontMetrics fm(font());
     d->m_environmentView->verticalHeader()->setDefaultSectionSize(qMax(static_cast<int>(fm.height() * 1.2), fm.height() + 4));

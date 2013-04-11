@@ -38,6 +38,7 @@
 
 QT_BEGIN_NAMESPACE
 class QProgressDialog;
+class QAbstractButton;
 QT_END_NAMESPACE
 
 namespace Qnx {
@@ -68,6 +69,8 @@ private slots:
     void uploadDebugToken();
     void updateUploadButton();
     void uploadFinished(int status);
+    void appendConnectionLog(Core::Id deviceId, const QString &line);
+    void clearConnectionLog(Core::Id deviceId);
 
 private:
     void updateDeviceFromUi();
@@ -76,6 +79,7 @@ private:
     BlackBerryDeviceConfiguration::Ptr deviceConfiguration() const;
 
     Ui::BlackBerryDeviceConfigurationWidget *ui;
+    QAbstractButton *uploadButton;
 
     QProgressDialog *progressDialog;
 

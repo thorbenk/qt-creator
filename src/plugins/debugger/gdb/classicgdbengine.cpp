@@ -36,15 +36,12 @@
 #include "debuggerstringutils.h"
 #include "sourceutils.h"
 #include "stackhandler.h"
-#include "watchhandler.h"
 
 #include <coreplugin/icore.h>
+#include <projectexplorer/projectexplorerconstants.h>
 #include <qtsupport/qtsupportconstants.h>
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
-#include <utils/fileutils.h>
-
-#include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QPushButton>

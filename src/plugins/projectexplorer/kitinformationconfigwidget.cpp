@@ -44,7 +44,6 @@
 #include <utils/fancylineedit.h>
 
 #include <QComboBox>
-#include <QLabel>
 #include <QPushButton>
 
 using namespace Core;
@@ -293,6 +292,7 @@ void DeviceTypeInformationConfigWidget::currentTypeChanged(int idx)
 DeviceInformationConfigWidget::DeviceInformationConfigWidget(Kit *workingCopy) :
     KitConfigWidget(workingCopy),
     m_isReadOnly(false),
+    m_ignoreChange(false),
     m_comboBox(new QComboBox),
     m_model(new DeviceManagerModel(DeviceManager::instance()))
 {

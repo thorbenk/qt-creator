@@ -37,7 +37,6 @@
 #include "buildconfiguration.h"
 #include "deployconfiguration.h"
 #include "project.h"
-#include "projectexplorerconstants.h"
 #include "runconfiguration.h"
 
 #include <limits>
@@ -401,6 +400,7 @@ void Target::addRunConfiguration(RunConfiguration* runConfiguration)
 {
     QTC_ASSERT(runConfiguration && !d->m_runConfigurations.contains(runConfiguration), return);
     Q_ASSERT(runConfiguration->target() == this);
+    runConfiguration->addExtraAspects();
 
     // Check that we don't have a configuration with the same displayName
     QString configurationDisplayName = runConfiguration->displayName();

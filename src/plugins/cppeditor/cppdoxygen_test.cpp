@@ -27,11 +27,9 @@
 **
 ****************************************************************************/
 
-#include <coreplugin/editormanager/editormanager.h>
-#include <cplusplus/CppDocument.h>
-#include <cppeditor/cppeditor.h>
-#include <cppeditor/cppplugin.h>
-#include <cpptools/ModelManagerInterface.h>
+#include "cppeditor.h"
+#include "cppplugin.h"
+
 #include <utils/fileutils.h>
 
 #include <QCoreApplication>
@@ -39,7 +37,6 @@
 #include <QDir>
 #include <QKeyEvent>
 #include <QString>
-#include <QTextDocument>
 #include <QtTest>
 
 /*!
@@ -82,11 +79,11 @@ TestCase::TestCase(const QByteArray &input)
     Utils::FileSaver srcSaver(fileName);
     srcSaver.write(originalText);
     srcSaver.finalize();
-    CPlusPlus::CppModelManagerInterface::instance()->updateSourceFiles(QStringList()<<fileName);
+    CppTools::CppModelManagerInterface::instance()->updateSourceFiles(QStringList()<<fileName);
 
     // Wait for the parser in the future to give us the document
     while (true) {
-        Snapshot s = CPlusPlus::CppModelManagerInterface::instance()->snapshot();
+        Snapshot s = CppTools::CppModelManagerInterface::instance()->snapshot();
         if (s.contains(fileName))
             break;
         QCoreApplication::processEvents();
@@ -118,7 +115,7 @@ TestCase::~TestCase()
     QCoreApplication::processEvents(); // process any pending events
 
     // Remove the test file from the code-model
-    CppModelManagerInterface *mmi = CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *mmi = CppTools::CppModelManagerInterface::instance();
     mmi->GC();
     QCOMPARE(mmi->snapshot().size(), 0);
 }

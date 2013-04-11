@@ -30,21 +30,18 @@
 #include "searchresultwindow.h"
 #include "searchresultwidget.h"
 #include "searchresultcolor.h"
-#include "findtoolwindow.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/actionmanager/actionmanager.h>
-#include <coreplugin/actionmanager/command.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/icontext.h>
 #include <utils/qtcassert.h>
 
-#include <QFile>
 #include <QSettings>
 #include <QDebug>
-#include <QVBoxLayout>
 #include <QFont>
 #include <QAction>
+#include <QToolButton>
 #include <QComboBox>
 #include <QScrollArea>
 #include <QStackedWidget>

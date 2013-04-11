@@ -29,11 +29,10 @@
 
 #include "customexecutablerunconfiguration.h"
 #include "customexecutableconfigurationwidget.h"
-#include "debugginghelper.h"
+#include "qtkitinformation.h"
 
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/project.h>
-#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/abi.h>
 
@@ -366,16 +365,12 @@ QWidget *CustomExecutableRunConfiguration::createConfigurationWidget()
 
 QString CustomExecutableRunConfiguration::dumperLibrary() const
 {
-    Utils::FileName qmakePath = DebuggingHelperLibrary::findSystemQt(environment());
-    QString qtInstallData = DebuggingHelperLibrary::qtInstallDataDir(qmakePath);
-    return DebuggingHelperLibrary::debuggingHelperLibraryByInstallData(qtInstallData);
+    return QtKitInformation::dumperLibrary(target()->kit());
 }
 
 QStringList CustomExecutableRunConfiguration::dumperLibraryLocations() const
 {
-    Utils::FileName qmakePath = DebuggingHelperLibrary::findSystemQt(environment());
-    QString qtInstallData = DebuggingHelperLibrary::qtInstallDataDir(qmakePath);
-    return DebuggingHelperLibrary::debuggingHelperLibraryDirectories(qtInstallData);
+    return QtKitInformation::dumperLibraryLocations(target()->kit());
 }
 
 ProjectExplorer::Abi CustomExecutableRunConfiguration::abi() const
@@ -401,11 +396,9 @@ bool CustomExecutableRunConfigurationFactory::canCreate(ProjectExplorer::Target 
 }
 
 ProjectExplorer::RunConfiguration *
-CustomExecutableRunConfigurationFactory::create(ProjectExplorer::Target *parent, const Core::Id id)
+CustomExecutableRunConfigurationFactory::doCreate(ProjectExplorer::Target *parent, const Core::Id id)
 {
-    if (!canCreate(parent, id))
-        return 0;
-
+    Q_UNUSED(id);
     return new CustomExecutableRunConfiguration(parent);
 }
 
@@ -419,15 +412,10 @@ bool CustomExecutableRunConfigurationFactory::canRestore(ProjectExplorer::Target
 }
 
 ProjectExplorer::RunConfiguration *
-CustomExecutableRunConfigurationFactory::restore(ProjectExplorer::Target *parent, const QVariantMap &map)
+CustomExecutableRunConfigurationFactory::doRestore(ProjectExplorer::Target *parent, const QVariantMap &map)
 {
-    if (!canRestore(parent, map))
-        return 0;
-    CustomExecutableRunConfiguration *rc(new CustomExecutableRunConfiguration(parent));
-    if (rc->fromMap(map))
-        return rc;
-    delete rc;
-    return 0;
+    Q_UNUSED(map);
+    return new CustomExecutableRunConfiguration(parent);
 }
 
 bool CustomExecutableRunConfigurationFactory::canClone(ProjectExplorer::Target *parent,

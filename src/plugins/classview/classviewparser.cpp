@@ -32,13 +32,13 @@
 #include "classviewutils.h"
 
 // cplusplus shared library. the same folder (cplusplus)
-#include <Symbol.h>
-#include <Symbols.h>
-#include <Scope.h>
-#include <Name.h>
+#include <cplusplus/Symbol.h>
+#include <cplusplus/Symbols.h>
+#include <cplusplus/Scope.h>
+#include <cplusplus/Name.h>
 
 // other
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <cplusplus/Overview.h>
 #include <cplusplus/Icons.h>
 #include <projectexplorer/projectexplorer.h>
@@ -568,7 +568,7 @@ void Parser::resetData(const CPlusPlus::Snapshot &snapshot)
 void Parser::resetDataToCurrentState()
 {
     // get latest data
-    CPlusPlus::CppModelManagerInterface *codeModel = CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *codeModel = CppTools::CppModelManagerInterface::instance();
     if (codeModel)
         resetData(codeModel->snapshot());
 }

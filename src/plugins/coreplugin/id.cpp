@@ -28,13 +28,12 @@
 ****************************************************************************/
 
 #include "id.h"
-#include "coreconstants.h"
 
 #include <utils/qtcassert.h>
 
 #include <QByteArray>
 #include <QHash>
-#include <QVector>
+#include <QVariant>
 
 #include <string.h>
 
@@ -162,22 +161,6 @@ Id::Id(const char *name)
 {}
 
 /*!
-    \overload
-
-*/
-Id::Id(const QByteArray &name)
-   : m_id(theId(name))
-{}
-
-/*!
-    \overload
-    \deprecated
-*/
-Id::Id(const QString &name)
-   : m_id(theId(name.toUtf8()))
-{}
-
-/*!
   Returns an internal representation of the id.
 */
 
@@ -283,6 +266,12 @@ Id Id::withSuffix(const char *suffix) const
     return Id(ba.constData());
 }
 
+/*!
+  \overload
+
+  \sa stringSuffix()
+*/
+
 Id Id::withSuffix(const QString &suffix) const
 {
     const QByteArray ba = name() + suffix.toUtf8();
@@ -340,4 +329,38 @@ bool Id::alphabeticallyBefore(Id other) const
     return toString().compare(other.toString(), Qt::CaseInsensitive) < 0;
 }
 
+
+/*!
+  Convenience function to extract a part of the id string
+  representation. This can be used to split off the base
+  part used when generating an id with \c{withSuffix()}.
+
+  \sa withSuffix()
+*/
+
+QString Id::suffixAfter(Id baseId) const
+{
+    const QByteArray b = baseId.name();
+    const QByteArray n = name();
+    return n.startsWith(b) ? QString::fromUtf8(n.mid(b.size())) : QString();
+}
+
 } // namespace Core
+
+
+QT_BEGIN_NAMESPACE
+
+QDataStream &operator<<(QDataStream &ds, const Core::Id &id)
+{
+    return ds << id.name();
+}
+
+QDataStream &operator>>(QDataStream &ds, Core::Id &id)
+{
+    QByteArray ba;
+    ds >> ba;
+    id = Core::Id::fromName(ba);
+    return ds;
+}
+
+QT_END_NAMESPACE

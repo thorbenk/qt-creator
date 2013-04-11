@@ -31,17 +31,17 @@
 #include "basetexteditor.h"
 
 #include <coreplugin/icore.h>
-#include <coreplugin/editormanager/editormanager.h>
-#include <extensionsystem/pluginmanager.h>
-
+#include <coreplugin/dialogs/readonlyfilesdialog.h>
 #include <utils/qtcassert.h>
+#include <utils/fileutils.h>
 
 #include <QFile>
-#include <QSet>
+#include <QFileInfo>
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QDebug>
+#include <QApplication>
 
 using namespace TextEditor;
 
@@ -324,6 +324,17 @@ void RefactoringFile::setOpenEditor(bool activate, int pos)
 
 void RefactoringFile::apply()
 {
+    // test file permissions
+    if (!QFileInfo(fileName()).isWritable()) {
+        const QString &path = fileName();
+        Core::Internal::ReadOnlyFilesDialog roDialog(path, Core::ICore::mainWindow());
+        const QString &failDetailText = QApplication::translate("RefactoringFile::apply",
+                                                                "Refactoring cannot be applied.");
+        roDialog.setShowFailWarning(true, failDetailText);
+        if (roDialog.exec() == Core::Internal::ReadOnlyFilesDialog::RO_Cancel)
+            return;
+    }
+
     // open / activate / goto position
     if (m_openEditor && !m_fileName.isEmpty()) {
         unsigned line = unsigned(-1), column = unsigned(-1);

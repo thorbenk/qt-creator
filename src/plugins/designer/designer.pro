@@ -1,11 +1,8 @@
-TEMPLATE = lib
-TARGET = Designer
 DEFINES += DESIGNER_LIBRARY
 
 include(../../qtcreatorplugin.pri)
 include(../../shared/designerintegrationv2/designerintegration.pri)
 include(cpp/cpp.pri)
-include(designer_dependencies.pri)
 
 INCLUDEPATH += ../../tools/utils
 

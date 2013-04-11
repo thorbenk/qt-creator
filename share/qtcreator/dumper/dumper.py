@@ -45,6 +45,15 @@ def removeTempFile(name):
     except:
         pass
 
+def showException(msg, exType, exValue, exTraceback):
+    warn("**** CAUGHT EXCEPTION: %s ****" % msg)
+    try:
+        import traceback
+        for line in traceback.format_exception(exType, exValue, exTraceback):
+            warn("%s" % line)
+    except:
+        pass
+
 verbosity = 0
 verbosity = 1
 
@@ -512,7 +521,8 @@ def isSimpleType(typeobj):
         or code == CharCode \
         or code == IntCode \
         or code == FloatCode \
-        or code == EnumCode
+        or code == EnumCode \
+        or code == SimpleValueCode
 
 def simpleEncoding(typeobj):
     code = typeobj.code
@@ -801,28 +811,6 @@ def stripTypedefs(type):
         type = type.strip_typedefs().unqualified()
     return type
 
-def extractFields(type):
-    # Insufficient, see http://sourceware.org/bugzilla/show_bug.cgi?id=10953:
-    #fields = type.fields()
-    # Insufficient, see http://sourceware.org/bugzilla/show_bug.cgi?id=11777:
-    #fields = defsype).fields()
-    # This seems to work.
-    #warn("TYPE 0: %s" % type)
-    type = stripTypedefs(type)
-    fields = type.fields()
-    if len(fields):
-        return fields
-    #warn("TYPE 1: %s" % type)
-    # This fails for arrays. See comment in lookupType.
-    type0 = lookupType(str(type))
-    if not type0 is None:
-        type = type0
-    if type.code == FunctionCode:
-        return []
-    #warn("TYPE 2: %s" % type)
-    fields = type.fields()
-    #warn("FIELDS: %s" % fields)
-    return fields
 
 #######################################################################
 #
@@ -872,7 +860,7 @@ def stripForFormat(typeName):
     qqStripForFormat[typeName] = stripped
     return stripped
 
-def bbsetup(args):
+def bbsetup(args = ''):
     typeCache = {}
     module = sys.modules[__name__]
     for key, value in module.__dict__.items():
@@ -1040,6 +1028,7 @@ class Dumper:
         self.useDynamicType = "dyntype" in options
         self.useFancy = "fancy" in options
         self.passExceptions = "pe" in options
+        #self.passExceptions = True
         self.autoDerefPointers = "autoderef" in options
         self.partialUpdate = "partial" in options
         self.tooltipOnly = "tooltiponly" in options
@@ -1493,7 +1482,7 @@ class Dumper:
                 self.putNumChild(0)
                 return
 
-        if type.code == IntCode or type.code == CharCode:
+        if type.code == IntCode or type.code == CharCode or type.code == SimpleValueCode:
             self.putType(typeName)
             if value.is_optimized_out:
                 self.putValue("<optimized out>")
@@ -1767,28 +1756,13 @@ class Dumper:
         #warn("INAME: %s " % self.currentIName)
         #warn("INAMES: %s " % self.expandedINames)
         #warn("EXPANDED: %s " % (self.currentIName in self.expandedINames))
-        fields = extractFields(type)
-        #fields = type.fields()
-
         self.tryPutObjectNameValue(value)  # Is this too expensive?
-
         self.putType(typeName)
         self.putEmptyValue()
-
-        if False:
-            numfields = 0
-            for field in fields:
-                bitpos = getattr(field, "bitpos", None)
-                if not bitpos is None:
-                    ++numfields
-        else:
-            numfields = len(fields)
-        self.putNumChild(numfields)
+        self.putNumChild(fieldCount(type))
 
         if self.currentIName in self.expandedINames:
             innerType = None
-            if len(fields) == 1 and fields[0].name is None:
-                innerType = type.target()
             with Children(self, 1, childType=innerType):
                 self.putFields(value)
 
@@ -1823,10 +1797,18 @@ class Dumper:
             pass
 
     def putFields(self, value, dumpBase = True):
-            type = stripTypedefs(value.type)
-            # Insufficient, see http://sourceware.org/bugzilla/show_bug.cgi?id=10953:
-            #fields = type.fields()
-            fields = extractFields(type)
+        fields = extractFields(value)
+
+        # FIXME: Merge into this function.
+        if gdbLoaded:
+            self.putFieldsGdb(fields, value, dumpBase)
+            return
+
+        for field in fields:
+            with SubItem(self, field.name):
+                self.putItem(field)
+
+    def putFieldsGdb(self, fields, value, dumpBase):
             #warn("TYPE: %s" % type)
             #warn("FIELDS: %s" % fields)
             baseNumber = 0
@@ -1834,11 +1816,9 @@ class Dumper:
                 #warn("FIELD: %s" % field)
                 #warn("  BITSIZE: %s" % field.bitsize)
                 #warn("  ARTIFICIAL: %s" % field.artificial)
-                bitpos = getattr(field, "bitpos", None)
-                if bitpos is None: # FIXME: Is check correct?
-                    continue  # A static class member(?).
 
                 if field.name is None:
+                    type = stripTypedefs(value.type)
                     innerType = type.target()
                     p = value.cast(innerType.pointer())
                     for i in xrange(type.sizeof / innerType.sizeof):
@@ -1889,8 +1869,7 @@ class Dumper:
                     with SubItem(self, field.name):
                         #bitsize = getattr(field, "bitsize", None)
                         #if not bitsize is None:
-                        #    self.put("bitsize=\"%s\",bitpos=\"%s\","
-                        #            % (bitsize, bitpos))
+                        #    self.put("bitsize=\"%s\"" % bitsize)
                         self.putItem(downcast(value[field.name]))
 
 
@@ -1974,10 +1953,12 @@ class PlainDumper:
         self.printer = printer
 
     def __call__(self, d, value):
-        printer = self.printer.invoke(value)
+        printer = self.printer.gen_printer(value)
         lister = getattr(printer, "children", None)
         children = [] if lister is None else list(lister())
         d.putType(self.printer.name)
+        val = printer.to_string().encode("hex")
+        d.putValue(val, Hex2EncodedLatin1)
         d.putValue(printer.to_string())
         d.putNumChild(len(children))
         if d.isExpanded():

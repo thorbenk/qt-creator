@@ -30,8 +30,6 @@
 #ifndef QMLJSTYPEDESCRIPTIONREADER_H
 #define QMLJSTYPEDESCRIPTIONREADER_H
 
-#include <languageutils/fakemetaobject.h>
-#include <languageutils/componentversion.h>
 #include "qmljsdocument.h"
 
 // for Q_DECLARE_TR_FUNCTIONS
@@ -51,7 +49,7 @@ class UiScriptBinding;
 class SourceLocation;
 }
 
-class TypeDescriptionReader
+class QMLJS_EXPORT TypeDescriptionReader
 {
     Q_DECLARE_TR_FUNCTIONS(QmlJS::TypeDescriptionReader)
 

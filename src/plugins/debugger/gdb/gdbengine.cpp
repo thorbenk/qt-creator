@@ -41,60 +41,39 @@
 #include "remoteplaingdbadapter.h"
 
 #include "debuggeractions.h"
-#include "debuggerconstants.h"
 #include "debuggercore.h"
 #include "debuggerplugin.h"
 #include "debuggerprotocol.h"
-#include "debuggerrunner.h"
 #include "debuggerstringutils.h"
 #include "debuggertooltipmanager.h"
 #include "disassembleragent.h"
 #include "gdboptionspage.h"
 #include "memoryagent.h"
 #include "sourceutils.h"
-#include "watchutils.h"
 
 #include "breakhandler.h"
 #include "moduleshandler.h"
 #include "registerhandler.h"
-#include "snapshothandler.h"
 #include "sourcefileshandler.h"
 #include "stackhandler.h"
 #include "threadshandler.h"
-#include "watchhandler.h"
 #include "debuggersourcepathmappingwidget.h"
 #include "hostutils.h"
 #include "logwindow.h"
 #include "procinterrupt.h"
 
 #include <coreplugin/icore.h>
-#include <coreplugin/idocument.h>
-#include <extensionsystem/pluginmanager.h>
-#include <projectexplorer/abi.h>
-#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/taskhub.h>
 #include <projectexplorer/itaskhandler.h>
 #include <texteditor/itexteditor.h>
-#include <utils/elfreader.h>
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 #include <utils/qtcprocess.h>
 #include <utils/savedaction.h>
 
-#include <QCoreApplication>
-#include <QDebug>
-#include <QDir>
 #include <QDirIterator>
-#include <QFileInfo>
-#include <QMetaObject>
-#include <QTime>
-#include <QTimer>
 #include <QTemporaryFile>
-#include <QTextStream>
 
-#include <QAction>
-#include <QDialogButtonBox>
-#include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
 
@@ -262,6 +241,7 @@ GdbEngine::GdbEngine(const DebuggerStartParameters &startParameters)
     m_disassembleUsesComma = false;
     m_terminalTrap = startParameters.useTerminal;
     m_fullStartDone = false;
+    m_systemDumpersLoaded = false;
     m_forceAsyncModel = false;
     m_pythonAttemptedToLoad = false;
 
@@ -738,23 +718,25 @@ void GdbEngine::handleResponse(const QByteArray &buff)
                 break;
             }
 
-            // From SuSE's gdb: >&"Missing separate debuginfo for ...\n"
-            // ">&"Try: zypper install -C \"debuginfo(build-id)=c084ee5876ed1ac12730181c9f07c3e027d8e943\"\n"
-            if (data.startsWith("Missing separate debuginfo for ")) {
-                m_lastMissingDebugInfo = QString::fromLocal8Bit(data.mid(32));
-            } else if (data.startsWith("Try: zypper")) {
-                QString cmd = QString::fromLocal8Bit(data.mid(4));
+            if (debuggerCore()->boolSetting(IdentifyDebugInfoPackages)) {
+                // From SuSE's gdb: >&"Missing separate debuginfo for ...\n"
+                // ">&"Try: zypper install -C \"debuginfo(build-id)=c084ee5876ed1ac12730181c9f07c3e027d8e943\"\n"
+                if (data.startsWith("Missing separate debuginfo for ")) {
+                    m_lastMissingDebugInfo = QString::fromLocal8Bit(data.mid(32));
+                } else if (data.startsWith("Try: zypper")) {
+                    QString cmd = QString::fromLocal8Bit(data.mid(4));
 
-                Task task(Task::Warning,
-                    tr("Missing debug information for %1\nTry: %2")
-                        .arg(m_lastMissingDebugInfo).arg(cmd),
-                    FileName(), 0, Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_DEBUGINFO));
+                    Task task(Task::Warning,
+                        tr("Missing debug information for %1\nTry: %2")
+                            .arg(m_lastMissingDebugInfo).arg(cmd),
+                        FileName(), 0, Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_DEBUGINFO));
 
-                taskHub()->addTask(task);
+                    taskHub()->addTask(task);
 
-                DebugInfoTask dit;
-                dit.command = cmd;
-                m_debugInfoTaskHandler->addTask(task.taskId, dit);
+                    DebugInfoTask dit;
+                    dit.command = cmd;
+                    m_debugInfoTaskHandler->addTask(task.taskId, dit);
+                }
             }
 
             break;
@@ -1267,6 +1249,7 @@ void GdbEngine::handleResultRecord(GdbResponse *response)
 
 bool GdbEngine::acceptsDebuggerCommands() const
 {
+    return true;
     return state() == InferiorStopOk
         || state() == InferiorUnrunnable;
 }
@@ -1606,6 +1589,12 @@ void GdbEngine::handleStop1(const GdbMi &data)
     else
         m_resultVarName.clear();
 
+    if (!m_systemDumpersLoaded) {
+        m_systemDumpersLoaded = true;
+        if (debuggerCore()->boolSetting(LoadGdbDumpers))
+            postCommand("importPlainDumpers");
+    }
+
     bool initHelpers = m_debuggingHelperState == DebuggingHelperUninitialized
                        || m_debuggingHelperState == DebuggingHelperLoadTried;
     // Don't load helpers on stops triggered by signals unless it's
@@ -1851,6 +1840,10 @@ void GdbEngine::handleHasPython(const GdbResponse &response)
 void GdbEngine::handlePythonSetup(const GdbResponse &response)
 {
     if (response.resultClass == GdbResultDone) {
+        postCommand("python qqStringCutOff = "
+            + debuggerCore()->action(MaximalStringLength)->value().toByteArray(),
+            ConsoleCommand|NonCriticalResponse);
+
         m_hasPython = true;
         GdbMi data;
         data.fromStringMultiple(response.consoleStreamOutput);
@@ -2551,7 +2544,7 @@ QByteArray GdbEngine::breakpointLocation(BreakpointModelId id)
 {
     BreakHandler *handler = breakHandler();
     const BreakpointParameters &data = handler->breakpointData(id);
-    QTC_ASSERT(data.type != UnknownType, return QByteArray());
+    QTC_ASSERT(data.type != UnknownBreakpointType, return QByteArray());
     // FIXME: Non-GCC-runtime
     if (data.type == BreakpointAtThrow)
         return "__cxa_throw";
@@ -3209,7 +3202,7 @@ void GdbEngine::changeBreakpoint(BreakpointModelId id)
 {
     BreakHandler *handler = breakHandler();
     const BreakpointParameters &data = handler->breakpointData(id);
-    QTC_ASSERT(data.type != UnknownType, return);
+    QTC_ASSERT(data.type != UnknownBreakpointType, return);
     const BreakpointResponse &response = handler->response(id);
     QTC_ASSERT(response.id.isValid(), return);
     const QByteArray bpnr = response.id.toByteArray();
@@ -3740,7 +3733,7 @@ void GdbEngine::handleThreadInfo(const GdbResponse &response)
                 selectThread(other);
         }
         updateViews(); // Adjust Threads combobox.
-        if (m_hasInferiorThreadList && debuggerCore()->boolSetting(ShowThreadNames)) {
+        if (false && m_hasInferiorThreadList && debuggerCore()->boolSetting(ShowThreadNames)) {
             postCommand("threadnames " +
                 debuggerCore()->action(MaximalStackDepth)->value().toByteArray(),
                 Discardable, CB(handleThreadNames));
@@ -4913,6 +4906,7 @@ void GdbEngine::startGdb(const QStringList &args)
 
 void GdbEngine::reportEngineSetupOk(const GdbResponse &response)
 {
+    loadInitScript();
     Q_UNUSED(response);
     QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
     showMessage(_("ENGINE SUCCESSFULLY STARTED"));
@@ -4959,19 +4953,7 @@ void GdbEngine::tryLoadPythonDumpers()
         Core::ICore::resourcePath().toLocal8Bit() + "/dumper/";
 
     postCommand("python execfile('" + dumperSourcePath + "bridge.py')",
-        ConsoleCommand|NonCriticalResponse);
-    postCommand("python execfile('" + dumperSourcePath + "dumper.py')",
-        ConsoleCommand|NonCriticalResponse);
-    postCommand("python execfile('" + dumperSourcePath + "qttypes.py')",
-        ConsoleCommand|NonCriticalResponse);
-
-    postCommand("python qqStringCutOff = "
-        + debuggerCore()->action(MaximalStringLength)->value().toByteArray(),
-        ConsoleCommand|NonCriticalResponse);
-
-    loadInitScript();
-
-    postCommand("bbsetup", ConsoleCommand, CB(handlePythonSetup));
+        ConsoleCommand, CB(handlePythonSetup));
 }
 
 void GdbEngine::reloadDebuggingHelpers()
@@ -5470,6 +5452,7 @@ DebuggerEngine *createGdbEngine(const DebuggerStartParameters &sp)
 void addGdbOptionPages(QList<Core::IOptionsPage *> *opts)
 {
     opts->push_back(new GdbOptionsPage());
+    opts->push_back(new GdbOptionsPage2());
 }
 
 } // namespace Internal

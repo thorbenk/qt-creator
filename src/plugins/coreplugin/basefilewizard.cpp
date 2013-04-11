@@ -28,8 +28,6 @@
 ****************************************************************************/
 
 #include "basefilewizard.h"
-
-#include "coreconstants.h"
 #include "icore.h"
 #include "ifilewizardextension.h"
 #include "mimedatabase.h"
@@ -39,17 +37,13 @@
 #include <utils/filewizarddialog.h>
 #include <utils/qtcassert.h>
 #include <utils/stringutils.h>
-#include <utils/fileutils.h>
 #include <utils/hostosinfo.h>
 
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
-#include <QVector>
 #include <QDebug>
 #include <QSharedData>
 #include <QEventLoop>
-#include <QSharedPointer>
 #include <QScopedPointer>
 
 #include <QMessageBox>
@@ -532,7 +526,8 @@ void BaseFileWizard::runWizard(const QString &path, QWidget *parent, const QStri
     foreach (IFileWizardExtension *ex, extensions) {
         bool remove;
         if (!ex->processFiles(files, &remove, &errorMessage)) {
-            QMessageBox::critical(parent, tr("File Generation Failure"), errorMessage);
+            if (!errorMessage.isEmpty())
+                QMessageBox::critical(parent, tr("File Generation Failure"), errorMessage);
             return;
         }
         removeOpenProjectAttribute |= remove;

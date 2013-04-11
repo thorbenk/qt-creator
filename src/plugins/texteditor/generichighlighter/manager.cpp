@@ -39,12 +39,11 @@
 #include "texteditorsettings.h"
 
 #include <coreplugin/icore.h>
-#include <utils/qtcassert.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 #include <utils/QtConcurrentTools>
+#include <utils/networkaccessmanager.h>
 
 #include <QtAlgorithms>
-#include <QtPlugin>
 #include <QString>
 #include <QLatin1Char>
 #include <QLatin1String>
@@ -54,13 +53,11 @@
 #include <QDir>
 #include <QRegExp>
 #include <QFuture>
-#include <QtConcurrentRun>
 #include <QtConcurrentMap>
 #include <QUrl>
 #include <QSet>
 #include <QXmlStreamReader>
 #include <QXmlStreamAttributes>
-#include <QDesktopServices>
 #include <QMessageBox>
 #include <QXmlSimpleReader>
 #include <QXmlInputSource>
@@ -427,7 +424,7 @@ void Manager::downloadAvailableDefinitionsMetaData()
     QUrl url(QLatin1String("http://www.kate-editor.org/syntax/update-3.9.xml"));
     QNetworkRequest request(url);
     // Currently this takes a couple of seconds on Windows 7: QTBUG-10106.
-    QNetworkReply *reply = m_networkManager.get(request);
+    QNetworkReply *reply = Utils::NetworkAccessManager::instance()->get(request);
     connect(reply, SIGNAL(finished()), this, SLOT(downloadAvailableDefinitionsListFinished()));
 }
 

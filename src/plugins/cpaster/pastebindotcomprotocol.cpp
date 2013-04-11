@@ -29,13 +29,10 @@
 
 #include "pastebindotcomprotocol.h"
 
-#include <coreplugin/icore.h>
-
 #include <utils/qtcassert.h>
 
 #include <QDebug>
 #include <QStringList>
-#include <QTextStream>
 #include <QXmlStreamReader>
 #include <QXmlStreamAttributes>
 #include <QByteArray>
@@ -52,8 +49,7 @@ static const char PASTEBIN_ARCHIVE[]="archive";
 static const char API_KEY[]="api_dev_key=516686fc461fb7f9341fd7cf2af6f829&"; // user: qtcreator_apikey
 
 namespace CodePaster {
-PasteBinDotComProtocol::PasteBinDotComProtocol(const NetworkAccessManagerProxyPtr &nw) :
-    NetworkProtocol(nw),
+PasteBinDotComProtocol::PasteBinDotComProtocol() :
     m_fetchReply(0),
     m_pasteReply(0),
     m_listReply(0),
@@ -102,7 +98,7 @@ static inline QByteArray format(Protocol::ContentType ct)
 }
 
 void PasteBinDotComProtocol::paste(const QString &text,
-                                   ContentType ct,
+                                   ContentType ct, int expiryDays,
                                    const QString &username,
                                    const QString &comment,
                                    const QString &description)
@@ -114,14 +110,14 @@ void PasteBinDotComProtocol::paste(const QString &text,
     // Format body
     QByteArray pasteData = API_KEY;
     pasteData += "api_option=paste&";
-    pasteData += "api_paste_expire_date=1M&";
+    pasteData += "api_paste_expire_date=";
+    pasteData += QByteArray::number(expiryDays);
+    pasteData += "D&";
     pasteData += format(ct);
     pasteData += "api_paste_name=";
     pasteData += QUrl::toPercentEncoding(username);
-
     pasteData += "&api_paste_code=";
     pasteData += QUrl::toPercentEncoding(fixNewLines(text));
-
     // fire request
     m_pasteReply = httpPost(QLatin1String(PASTEBIN_BASE) + QLatin1String(PASTEBIN_API), pasteData);
     connect(m_pasteReply, SIGNAL(finished()), this, SLOT(pasteFinished()));

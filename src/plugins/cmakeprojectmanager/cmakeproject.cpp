@@ -51,7 +51,7 @@
 #include <qtsupport/customexecutablerunconfiguration.h>
 #include <qtsupport/baseqtversion.h>
 #include <qtsupport/qtkitinformation.h>
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <extensionsystem/pluginmanager.h>
 #include <utils/qtcassert.h>
 #include <utils/stringutils.h>
@@ -109,7 +109,10 @@ CMakeProject::CMakeProject(CMakeManager *manager, const QString &fileName)
       m_lastEditor(0)
 {
     setProjectContext(Core::Context(CMakeProjectManager::Constants::PROJECTCONTEXT));
-    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
+    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
+    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
+    setProjectLanguages(pl);
+
 
     m_file = new CMakeFile(this, fileName);
 
@@ -120,8 +123,8 @@ CMakeProject::CMakeProject(CMakeManager *manager, const QString &fileName)
 CMakeProject::~CMakeProject()
 {
     // Remove CodeModel support
-    CPlusPlus::CppModelManagerInterface *modelManager
-            = CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelManager
+            = CppTools::CppModelManagerInterface::instance();
     QMap<QString, CMakeUiCodeModelSupport *>::const_iterator it, end;
     it = m_uiCodeModelSupport.constBegin();
     end = m_uiCodeModelSupport.constEnd();
@@ -321,6 +324,7 @@ bool CMakeProject::parseCMakeLists()
     allIncludePaths.append(cbpparser.includeFiles());
 
     QStringList cxxflags;
+    bool found = false;
     foreach (const CMakeBuildTarget &buildTarget, m_buildTargets) {
         QString makeCommand = QDir::fromNativeSeparators(buildTarget.makeCommand);
         int startIndex = makeCommand.indexOf(QLatin1Char('\"'));
@@ -333,14 +337,14 @@ bool CMakeProject::parseCMakeLists()
         makefile.truncate(slashIndex);
         makefile.append(QLatin1String("/CMakeFiles/") + buildTarget.title + QLatin1String(".dir/flags.make"));
         QFile file(makefile);
-        bool found = false;
         if (file.exists()) {
             file.open(QIODevice::ReadOnly | QIODevice::Text);
-            QStringList lines = QString::fromLatin1(file.readAll()).split(QLatin1Char('\n'));
-            foreach (const QString &line, lines) {
+            QTextStream stream(&file);
+            while (!stream.atEnd()) {
+                QString line = stream.readLine().trimmed();
                 if (line.startsWith(QLatin1String("CXX_FLAGS ="))) {
-                    int index = line.indexOf(QLatin1Char('=')) + 1;
-                    cxxflags = line.mid(index).trimmed().split(QLatin1Char(' '));
+                    // Skip past =
+                    cxxflags = line.mid(11).trimmed().split(QLatin1Char(' '), QString::SkipEmptyParts);
                     found = true;
                     break;
                 }
@@ -349,9 +353,34 @@ bool CMakeProject::parseCMakeLists()
         if (found)
             break;
     }
+    // Attempt to find build.ninja file and obtain FLAGS (CXX_FLAGS) from there if no suitable flags.make were
+    // found
+    if (!found && !cbpparser.buildTargets().isEmpty()) {
+        // Get "all" target's working directory
+        QString buildNinjaFile = QDir::fromNativeSeparators(cbpparser.buildTargets().at(0).workingDirectory);
+        buildNinjaFile += QLatin1String("/build.ninja");
+        QFile buildNinja(buildNinjaFile);
+        if (buildNinja.exists()) {
+            buildNinja.open(QIODevice::ReadOnly | QIODevice::Text);
+            QTextStream stream(&buildNinja);
+            bool cxxFound = false;
+            while (!stream.atEnd()) {
+                QString line = stream.readLine().trimmed();
+                // Look for a build rule which invokes CXX_COMPILER
+                if (line.startsWith(QLatin1String("build"))) {
+                    cxxFound = line.indexOf(QLatin1String("CXX_COMPILER")) != -1;
+                } else if (cxxFound && line.startsWith(QLatin1String("FLAGS ="))) {
+                    // Skip past =
+                    cxxflags = line.mid(7).trimmed().split(QLatin1Char(' '), QString::SkipEmptyParts);
+                    break;
+                }
+            }
+        }
+    }
 
     QByteArray allDefines;
     allDefines.append(tc->predefinedMacros(cxxflags));
+    allDefines.append(cbpparser.defines());
 
     QStringList allFrameworkPaths;
     QList<ProjectExplorer::HeaderPath> allHeaderPaths;
@@ -363,32 +392,35 @@ bool CMakeProject::parseCMakeLists()
             allIncludePaths.append(headerPath.path());
     }
 
-    CPlusPlus::CppModelManagerInterface *modelmanager =
-            CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelmanager =
+            CppTools::CppModelManagerInterface::instance();
     if (modelmanager) {
-        CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
+        CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
         if (pinfo.includePaths() != allIncludePaths
                 || pinfo.sourceFiles() != m_files
                 || pinfo.defines() != allDefines
                 || pinfo.frameworkPaths() != allFrameworkPaths)  {
             pinfo.clearProjectParts();
-            CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
-                        new CPlusPlus::CppModelManagerInterface::ProjectPart);
+            CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
             part->includePaths = allIncludePaths;
-            // TODO we only want C++ files, not all other stuff that might be in the project
-            part->sourceFiles = m_files;
+            CppTools::ProjectFileAdder adder(part->files);
+            foreach (const QString &file, m_files)
+                adder.maybeAdd(file);
             part->defines = allDefines;
             part->frameworkPaths = allFrameworkPaths;
+            part->cVersion = CppTools::ProjectPart::C99;
             if (tc)
-                part->language = tc->compilerFlags(cxxflags) == ToolChain::STD_CXX11
-                        ? CPlusPlus::CppModelManagerInterface::ProjectPart::CXX11
-                        : CPlusPlus::CppModelManagerInterface::ProjectPart::CXX;
+                part->cxxVersion = tc->compilerFlags(cxxflags) == ToolChain::STD_CXX11
+                        ? CppTools::ProjectPart::CXX11
+                        : CppTools::ProjectPart::CXX98;
             else
-                part->language = CPlusPlus::CppModelManagerInterface::ProjectPart::CXX11;
+                part->cxxVersion = CppTools::ProjectPart::CXX11;
             pinfo.appendProjectPart(part);
             modelmanager->updateProjectInfo(pinfo);
             m_codeModelFuture.cancel();
             m_codeModelFuture = modelmanager->updateSourceFiles(m_files);
+
+            setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !part->files.isEmpty());
         }
     }
     emit buildTargetsChanged();
@@ -782,8 +814,8 @@ void CMakeProject::updateRunConfigurations(Target *t)
 void CMakeProject::createUiCodeModelSupport()
 {
 //    qDebug()<<"creatUiCodeModelSupport()";
-    CPlusPlus::CppModelManagerInterface *modelManager
-            = CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelManager
+            = CppTools::CppModelManagerInterface::instance();
 
     // First move all to
     QMap<QString, CMakeUiCodeModelSupport *> oldCodeModelSupport;
@@ -1214,8 +1246,18 @@ void CMakeCbpParser::parseAdd()
 
     QString compilerOption = addAttributes.value(QLatin1String("option")).toString();
     // defining multiple times a macro to the same value makes no sense
-    if (!compilerOption.isEmpty() && !m_compilerOptions.contains(compilerOption))
+    if (!compilerOption.isEmpty() && !m_compilerOptions.contains(compilerOption)) {
         m_compilerOptions.append(compilerOption);
+        int macroNameIndex = compilerOption.indexOf(QLatin1String("-D")) + 2;
+        if (macroNameIndex != 1) {
+            int assignIndex = compilerOption.indexOf(QLatin1Char('='), macroNameIndex);
+            if (assignIndex != -1)
+                compilerOption[assignIndex] = ' ';
+            m_defines.append("#define ");
+            m_defines.append(compilerOption.mid(macroNameIndex).toUtf8());
+            m_defines.append('\n');
+        }
+    }
 
     while (!atEnd()) {
         readNext();
@@ -1313,6 +1355,11 @@ QStringList CMakeCbpParser::includeFiles()
     return m_includeFiles;
 }
 
+QByteArray CMakeCbpParser::defines() const
+{
+    return m_defines;
+}
+
 QList<CMakeBuildTarget> CMakeCbpParser::buildTargets()
 {
     return m_buildTargets;
@@ -1332,4 +1379,3 @@ void CMakeBuildTarget::clear()
     title.clear();
     library = false;
 }
-

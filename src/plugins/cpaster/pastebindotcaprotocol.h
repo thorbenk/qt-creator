@@ -37,7 +37,7 @@ class PasteBinDotCaProtocol : public NetworkProtocol
 {
     Q_OBJECT
 public:
-    explicit PasteBinDotCaProtocol(const NetworkAccessManagerProxyPtr &nw);
+    explicit PasteBinDotCaProtocol();
 
     static QString protocolName() { return QLatin1String("Pastebin.Ca"); }
     QString name() const { return protocolName(); }
@@ -48,6 +48,7 @@ public:
     virtual void fetch(const QString &id);
     virtual void paste(const QString &text,
                        ContentType ct = Text,
+                       int expiryDays = 1,
                        const QString &username = QString(),
                        const QString &comment = QString(),
                        const QString &description = QString());

@@ -53,6 +53,8 @@
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/taskhub.h>
+#include <projectexplorer/toolchain.h>
+#include <projectexplorer/headerpath.h>
 #include <qtsupport/qtkitinformation.h>
 #include <qmljstools/qmljsmodelmanager.h>
 
@@ -101,7 +103,10 @@ QbsProject::QbsProject(QbsManager *manager, const QString &fileName) :
     m_currentBc(0)
 {
     setProjectContext(Core::Context(Constants::PROJECT_ID));
-    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
+    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
+    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
+    setProjectLanguages(pl);
+
 
     connect(this, SIGNAL(activeTargetChanged(ProjectExplorer::Target*)),
             this, SLOT(changeActiveTarget(ProjectExplorer::Target*)));
@@ -422,21 +427,21 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData *prj)
     qtVersion = QtSupport::QtKitInformation::qtVersion(k);
     tc = ProjectExplorer::ToolChainKitInformation::toolChain(k);
 
-    CPlusPlus::CppModelManagerInterface *modelmanager =
-        CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelmanager =
+        CppTools::CppModelManagerInterface::instance();
 
     if (!modelmanager)
         return;
 
-    CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
+    CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
     pinfo.clearProjectParts();
-    CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersionForPart
-            = CPlusPlus::CppModelManagerInterface::ProjectPart::NoQt;
+    CppTools::ProjectPart::QtVersion qtVersionForPart
+            = CppTools::ProjectPart::NoQt;
     if (qtVersion) {
         if (qtVersion->qtVersion() < QtSupport::QtVersionNumber(5,0,0))
-            qtVersionForPart = CPlusPlus::CppModelManagerInterface::ProjectPart::Qt4;
+            qtVersionForPart = CppTools::ProjectPart::Qt4;
         else
-            qtVersionForPart = CPlusPlus::CppModelManagerInterface::ProjectPart::Qt5;
+            qtVersionForPart = CppTools::ProjectPart::Qt5;
     }
 
     QStringList allFiles;
@@ -470,8 +475,13 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData *prj)
             QStringList list = props.getModulePropertiesAsStringList(
                         QLatin1String(CONFIG_CPP_MODULE),
                         QLatin1String(CONFIG_DEFINES));
-            foreach (const QString &def, list)
-                grpDefines += (QByteArray("#define ") + def.toUtf8() + '\n');
+            foreach (const QString &def, list) {
+                QByteArray data = def.toUtf8();
+                int pos = data.indexOf('=');
+                if (pos >= 0)
+                    data[pos] = ' ';
+                grpDefines += (QByteArray("#define ") + data + '\n');
+            }
 
             list = props.getModulePropertiesAsStringList(QLatin1String(CONFIG_CPP_MODULE),
                                                          QLatin1String(CONFIG_INCLUDEPATHS));
@@ -490,64 +500,28 @@ void QbsProject::updateCppCodeModel(const qbs::ProjectData *prj)
             const QString pch = props.getModuleProperty(QLatin1String(CONFIG_CPP_MODULE),
                     QLatin1String(CONFIG_PRECOMPILEDHEADER)).toString();
 
-            QStringList cxxSources;
-            QStringList cSources;
-            QStringList headers;
-            QStringList objcSources;
-            cxxSources << QLatin1String(CONFIGURATION_PATH);
-            cSources << QLatin1String(CONFIGURATION_PATH);
-            objcSources << QLatin1String(CONFIGURATION_PATH);
+            CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
+            CppTools::ProjectFileAdder adder(part->files);
+            foreach (const QString &file, grp.allFilePaths())
+                if (adder.maybeAdd(file))
+                    allFiles.append(file);
+            part->files << CppTools::ProjectFile(QLatin1String(CONFIGURATION_PATH),
+                                                  CppTools::ProjectFile::CXXHeader);
 
-            foreach (const QString &file, grp.allFilePaths()) {
-                QFileInfo fi = QFileInfo(file);
-                if (!fi.exists())
-                    continue;
-
-                Core::MimeType t = Core::ICore::mimeDatabase()->findByFile(fi);
-                if (t.isNull())
-                    continue;
-                if (t.matchesType(QLatin1String("text/x-chdr")))
-                    headers << file;
-                else if (t.matchesType(QLatin1String("text/x-c++src")))
-                    cxxSources << file;
-                else if (t.matchesType(QLatin1String("text/x-objcsrc")))
-                    objcSources << file;
-                else if (t.matchesType(QLatin1String("text/x-csrc")))
-                    cxxSources << file;
-            }
-            allFiles.append(headers);
-            allFiles.append(cSources);
-            allFiles.append(cxxSources);
-            allFiles.append(objcSources);
-
-            if (cxxSources.count() > 1) {
-                CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(new CPlusPlus::CppModelManagerInterface::ProjectPart);
-                part->qtVersion = qtVersionForPart;
-                part->language = isCxx11 ? CPlusPlus::CppModelManagerInterface::ProjectPart::CXX11
-                                         : CPlusPlus::CppModelManagerInterface::ProjectPart::CXX;
-                part->sourceFiles = cxxSources;
-                part->objcSourceFiles = objcSources;
-                part->headerFiles = headers;
-                part->includePaths = grpIncludePaths;
-                part->frameworkPaths = grpFrameworkPaths;
-                part->precompiledHeaders = QStringList(pch);
-                part->defines = grpDefines;
-                pinfo.appendProjectPart(part);
-            }
-            if (cSources.count() > 1) {
-                CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(new CPlusPlus::CppModelManagerInterface::ProjectPart);
-                part->qtVersion = CPlusPlus::CppModelManagerInterface::ProjectPart::NoQt;
-                part->language = CPlusPlus::CppModelManagerInterface::ProjectPart::C99; // FIXME: Can we find the exact c version from tc?
-                part->sourceFiles = cxxSources;
-                part->headerFiles = headers;
-                part->includePaths = grpIncludePaths;
-                part->frameworkPaths = grpFrameworkPaths;
-                part->precompiledHeaders = QStringList(pch);
-                part->defines = grpDefines;
-                pinfo.appendProjectPart(part);
-            }
+            part->qtVersion = qtVersionForPart;
+            // TODO: qbs has separate variable for CFLAGS
+            part->cVersion = CppTools::ProjectPart::C99;
+            part->cxxVersion = isCxx11 ? CppTools::ProjectPart::CXX11 : CppTools::ProjectPart::CXX98;
+            // TODO: get the exact cxxExtensions from toolchain
+            part->includePaths = grpIncludePaths;
+            part->frameworkPaths = grpFrameworkPaths;
+            part->precompiledHeaders = QStringList(pch);
+            part->defines = grpDefines;
+            pinfo.appendProjectPart(part);
         }
     }
+
+    setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !allFiles.isEmpty());
 
     if (pinfo.projectParts().isEmpty())
         return;
@@ -566,6 +540,8 @@ void QbsProject::updateQmlJsCodeModel(const qbs::ProjectData *prj)
 
     QmlJS::ModelManagerInterface::ProjectInfo projectInfo =
             QmlJSTools::defaultProjectInfoForProject(this);
+
+    setProjectLanguage(ProjectExplorer::Constants::LANG_QMLJS, !projectInfo.sourceFiles.isEmpty());
     modelManager->updateProjectInfo(projectInfo);
 }
 

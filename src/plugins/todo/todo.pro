@@ -1,8 +1,4 @@
-TEMPLATE = lib
-TARGET = Todo
-
 include(../../qtcreatorplugin.pri)
-include(todo_dependencies.pri)
 
 HEADERS += todoplugin.h \
     keyword.h \

@@ -29,17 +29,12 @@
 
 #include "newdialog.h"
 #include "ui_newdialog.h"
-#include "basefilewizard.h"
-
-#include <utils/stylehelper.h>
 
 #include <coreplugin/coreconstants.h>
-#include <coreplugin/featureprovider.h>
 
+#include <QModelIndex>
 #include <QAbstractProxyModel>
 #include <QSortFilterProxyModel>
-#include <QItemSelectionModel>
-#include <QHeaderView>
 #include <QPushButton>
 #include <QStandardItem>
 #include <QItemDelegate>
@@ -192,8 +187,6 @@ NewDialog::NewDialog(QWidget *parent) :
     m_ui(new Core::Internal::Ui::NewDialog),
     m_okButton(0)
 {
-    typedef QMap<QString, QStandardItem *> CategoryItemMap;
-
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
     m_ui->setupUi(this);
     QPalette p = m_ui->frame->palette();

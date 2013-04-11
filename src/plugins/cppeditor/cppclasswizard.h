@@ -31,9 +31,9 @@
 #define CPPCLASSWIZARD_H
 
 #include <coreplugin/basefilewizard.h>
+
 #include <utils/wizard.h>
 
-#include <QStringList>
 #include <QWizardPage>
 
 namespace Utils {

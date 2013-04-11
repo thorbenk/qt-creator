@@ -40,7 +40,6 @@
 #include "kitmanager.h"
 #include "kitoptionspage.h"
 #include "target.h"
-#include "targetsettingspanel.h"
 #include "toolchainmanager.h"
 #include "toolchainoptionspage.h"
 #include "copytaskhandler.h"
@@ -58,12 +57,10 @@
 #include "dependenciespanel.h"
 #include "foldernavigationwidget.h"
 #include "iprojectmanager.h"
-#include "metatypedeclarations.h"
 #include "nodesvisitor.h"
 #include "appoutputpane.h"
 #include "pluginfilefactory.h"
 #include "processstep.h"
-#include "projectexplorerconstants.h"
 #include "customwizard.h"
 #include "kitinformation.h"
 #include "projectfilewizardextension.h"
@@ -94,37 +91,28 @@
 #endif
 
 #include <extensionsystem/pluginspec.h>
+#include <coreplugin/icore.h>
+#include <coreplugin/editormanager/ieditor.h>
+#include <coreplugin/id.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/documentmanager.h>
-#include <coreplugin/icore.h>
-#include <coreplugin/idocument.h>
 #include <coreplugin/imode.h>
 #include <coreplugin/mimedatabase.h>
 #include <coreplugin/modemanager.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
-#include <coreplugin/actionmanager/command.h>
-#include <coreplugin/id.h>
 #include <coreplugin/infobar.h>
 #include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/findplaceholder.h>
-#include <coreplugin/basefilewizard.h>
 #include <coreplugin/vcsmanager.h>
 #include <coreplugin/iversioncontrol.h>
 #include <coreplugin/variablemanager.h>
 #include <coreplugin/fileutils.h>
 #include <coreplugin/removefiledialog.h>
-#include <extensionsystem/pluginmanager.h>
-#include <find/searchresultwindow.h>
-#include <utils/consoleprocess.h>
 #include <utils/qtcassert.h>
 #include <utils/parameteraction.h>
-#include <utils/stringutils.h>
-#include <utils/persistentsettings.h>
 
 #include <QtPlugin>
-#include <QDateTime>
 #include <QDebug>
 #include <QFileInfo>
 #include <QSettings>
@@ -223,6 +211,7 @@ struct ProjectExplorerPluginPrivate {
     QString m_sessionToRestoreAtStartup;
 
     Project *m_currentProject;
+    Core::Context m_lastProjectContext;
     Node *m_currentNode;
 
     BuildManager *m_buildManager;
@@ -1769,7 +1758,25 @@ void ProjectExplorerPlugin::updateExternalFileWarning()
     }
     infoBar->addInfo(Core::InfoBarEntry(externalFileId,
                              tr("<b>Warning:</b> This file is outside the project directory."),
-                             Core::InfoBarEntry::GlobalSuppressionEnabled));
+                                        Core::InfoBarEntry::GlobalSuppressionEnabled));
+}
+
+void ProjectExplorerPlugin::updateContext()
+{
+    Core::Context oldContext;
+    oldContext.add(d->m_lastProjectContext);
+
+    Core::Context newContext;
+    if (d->m_currentProject) {
+        newContext.add(d->m_currentProject->projectContext());
+        newContext.add(d->m_currentProject->projectLanguages());
+
+        d->m_lastProjectContext = newContext;
+    } else {
+        d->m_lastProjectContext = Core::Context();
+    }
+
+    Core::ICore::updateAdditionalContexts(oldContext, newContext);
 }
 
 void ProjectExplorerPlugin::setCurrent(Project *project, QString filePath, Node *node)
@@ -1785,24 +1792,22 @@ void ProjectExplorerPlugin::setCurrent(Project *project, QString filePath, Node 
 
     bool projectChanged = false;
     if (d->m_currentProject != project) {
-        Core::Context oldContext;
-        Core::Context newContext;
-
         if (d->m_currentProject) {
-            oldContext.add(d->m_currentProject->projectContext());
-            oldContext.add(d->m_currentProject->projectLanguages());
+            disconnect(d->m_currentProject, SIGNAL(projectContextUpdated()),
+                       this, SLOT(updateContext()));
+            disconnect(d->m_currentProject, SIGNAL(projectLanguagesUpdated()),
+                       this, SLOT(updateContext()));
         }
         if (project) {
-            newContext.add(project->projectContext());
-            newContext.add(project->projectLanguages());
+            connect(project, SIGNAL(projectContextUpdated()),
+                    this, SLOT(updateContext()));
+            connect(project, SIGNAL(projectLanguagesUpdated()),
+                    this, SLOT(updateContext()));
         }
-
-        Core::ICore::updateAdditionalContexts(oldContext, newContext);
-
-        d->m_currentProject = project;
-
         projectChanged = true;
     }
+    d->m_currentProject = project;
+    updateContext();
 
     if (!node && Core::EditorManager::currentEditor()) {
         connect(Core::EditorManager::currentEditor(), SIGNAL(changed()),
@@ -2380,16 +2385,12 @@ void ProjectExplorerPlugin::activeRunConfigurationChanged()
     if (rc == previousRunConfiguration)
         return;
     if (previousRunConfiguration) {
-        disconnect(previousRunConfiguration, SIGNAL(enabledChanged()),
-                   this, SIGNAL(updateRunActions()));
-        disconnect(previousRunConfiguration->debuggerAspect(), SIGNAL(debuggersChanged()),
+        disconnect(previousRunConfiguration, SIGNAL(requestRunActionsUpdate()),
                    this, SIGNAL(updateRunActions()));
     }
     previousRunConfiguration = rc;
     if (rc) {
-        connect(rc, SIGNAL(enabledChanged()),
-                this, SIGNAL(updateRunActions()));
-        connect(rc->debuggerAspect(), SIGNAL(debuggersChanged()),
+        connect(rc, SIGNAL(requestRunActionsUpdate()),
                 this, SIGNAL(updateRunActions()));
     }
     emit updateRunActions();

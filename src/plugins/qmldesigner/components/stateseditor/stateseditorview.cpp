@@ -62,7 +62,7 @@ StatesEditorView::StatesEditorView(QObject *parent) :
 
 WidgetInfo StatesEditorView::widgetInfo()
 {
-    return createWidgetInfo(m_statesEditorWidget.data(), "StatesEditor", WidgetInfo::TopPane, 0, tr("States Editor"));
+    return createWidgetInfo(m_statesEditorWidget.data(), 0, "StatesEditor", WidgetInfo::TopPane, 0, tr("States Editor"));
 }
 
 void StatesEditorView::removeState(int nodeId)
@@ -338,6 +338,12 @@ void StatesEditorView::nodeIdChanged(const ModelNode &/*node*/, const QString &/
 }
 
 void StatesEditorView::bindingPropertiesChanged(const QList<BindingProperty> &/*propertyList*/, PropertyChangeFlags /*propertyChange*/)
+{
+
+}
+
+void StatesEditorView::signalHandlerPropertiesChanged(const QVector<SignalHandlerProperty> & /*propertyList*/,
+                                                      AbstractView::PropertyChangeFlags /*propertyChange*/)
 {
 
 }

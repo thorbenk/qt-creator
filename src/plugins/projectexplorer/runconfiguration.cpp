@@ -34,19 +34,16 @@
 #include "toolchain.h"
 #include "abi.h"
 #include "buildconfiguration.h"
-#include "projectexplorerconstants.h"
 #include "kitinformation.h"
 #include <extensionsystem/pluginmanager.h>
 
-#include <utils/qtcassert.h>
 #include <utils/outputformatter.h>
 #include <utils/checkablemessagebox.h>
 
 #include <coreplugin/icore.h>
+#include <coreplugin/icontext.h>
 
 #include <QTimer>
-#include <QSettings>
-#include <QMessageBox>
 #include <QPushButton>
 
 #ifdef Q_OS_MAC
@@ -106,151 +103,10 @@ bool ProcessHandle::equals(const ProcessHandle &rhs) const
     return m_pid == rhs.m_pid;
 }
 
-/*!
-    \class ProjectExplorer::DebuggerRunConfigurationAspect
-*/
 
-DebuggerRunConfigurationAspect::DebuggerRunConfigurationAspect(RunConfiguration *rc) :
-    m_runConfiguration(rc),
-    m_useCppDebugger(true),
-    m_useQmlDebugger(AutoEnableQmlDebugger),
-    m_qmlDebugServerPort(Constants::QML_DEFAULT_DEBUG_SERVER_PORT),
-    m_useMultiProcess(false),
-    m_suppressDisplay(false),
-    m_suppressQmlDebuggingOptions(false),
-    m_suppressCppDebuggingOptions(false),
-    m_suppressQmlDebuggingSpinbox(false)
-{}
-
-DebuggerRunConfigurationAspect::DebuggerRunConfigurationAspect(RunConfiguration *runConfiguration,
-                                                               DebuggerRunConfigurationAspect *other)
-    : m_runConfiguration(runConfiguration),
-      m_useCppDebugger(other->m_useCppDebugger),
-      m_useQmlDebugger(other->m_useQmlDebugger),
-      m_qmlDebugServerPort(other->m_qmlDebugServerPort),
-      m_useMultiProcess(other->m_useMultiProcess),
-      m_suppressDisplay(other->m_suppressDisplay),
-      m_suppressQmlDebuggingOptions(other->m_suppressQmlDebuggingOptions),
-      m_suppressCppDebuggingOptions(other->m_suppressCppDebuggingOptions),
-      m_suppressQmlDebuggingSpinbox(other->m_suppressQmlDebuggingSpinbox)
-{}
-
-RunConfiguration *DebuggerRunConfigurationAspect::runConfiguration()
+RunConfigWidget *IRunConfigurationAspect::createConfigurationWidget()
 {
-    return m_runConfiguration;
-}
-
-void DebuggerRunConfigurationAspect::setUseQmlDebugger(bool value)
-{
-    m_useQmlDebugger = value ? EnableQmlDebugger : DisableQmlDebugger;
-    emit debuggersChanged();
-}
-
-void DebuggerRunConfigurationAspect::setUseCppDebugger(bool value)
-{
-    m_useCppDebugger = value;
-    emit debuggersChanged();
-}
-
-bool DebuggerRunConfigurationAspect::useCppDebugger() const
-{
-    return m_useCppDebugger;
-}
-
-bool DebuggerRunConfigurationAspect::useQmlDebugger() const
-{
-    if (m_useQmlDebugger == DebuggerRunConfigurationAspect::AutoEnableQmlDebugger)
-        return m_runConfiguration->target()->project()->projectLanguages().contains(
-                    ProjectExplorer::Constants::LANG_QMLJS);
-    return m_useQmlDebugger == DebuggerRunConfigurationAspect::EnableQmlDebugger;
-}
-
-uint DebuggerRunConfigurationAspect::qmlDebugServerPort() const
-{
-    return m_qmlDebugServerPort;
-}
-
-void DebuggerRunConfigurationAspect::setQmllDebugServerPort(uint port)
-{
-    m_qmlDebugServerPort = port;
-}
-
-bool DebuggerRunConfigurationAspect::useMultiProcess() const
-{
-    return m_useMultiProcess;
-}
-
-void DebuggerRunConfigurationAspect::setUseMultiProcess(bool value)
-{
-    m_useMultiProcess = value;
-}
-
-void DebuggerRunConfigurationAspect::suppressDisplay()
-{
-    m_suppressDisplay = true;
-}
-
-void DebuggerRunConfigurationAspect::suppressQmlDebuggingOptions()
-{
-    m_suppressQmlDebuggingOptions = true;
-}
-
-void DebuggerRunConfigurationAspect::suppressCppDebuggingOptions()
-{
-    m_suppressCppDebuggingOptions = true;
-}
-
-void DebuggerRunConfigurationAspect::suppressQmlDebuggingSpinbox()
-{
-    m_suppressQmlDebuggingSpinbox = true;
-}
-
-bool DebuggerRunConfigurationAspect::isDisplaySuppressed() const
-{
-    return m_suppressDisplay;
-}
-
-bool DebuggerRunConfigurationAspect::areQmlDebuggingOptionsSuppressed() const
-{
-    return m_suppressQmlDebuggingOptions;
-}
-
-bool DebuggerRunConfigurationAspect::areCppDebuggingOptionsSuppressed() const
-{
-    return m_suppressCppDebuggingOptions;
-}
-
-bool DebuggerRunConfigurationAspect::isQmlDebuggingSpinboxSuppressed() const
-{
-    return m_suppressQmlDebuggingSpinbox;
-}
-
-QString DebuggerRunConfigurationAspect::displayName() const
-{
-    return tr("Debugger settings");
-}
-
-QVariantMap DebuggerRunConfigurationAspect::toMap() const
-{
-    QVariantMap map;
-    map.insert(QLatin1String(USE_CPP_DEBUGGER_KEY), m_useCppDebugger);
-    map.insert(QLatin1String(USE_QML_DEBUGGER_KEY), m_useQmlDebugger == EnableQmlDebugger);
-    map.insert(QLatin1String(USE_QML_DEBUGGER_AUTO_KEY), m_useQmlDebugger == AutoEnableQmlDebugger);
-    map.insert(QLatin1String(QML_DEBUG_SERVER_PORT_KEY), m_qmlDebugServerPort);
-    map.insert(QLatin1String(USE_MULTIPROCESS_KEY), m_useMultiProcess);
-    return map;
-}
-
-void DebuggerRunConfigurationAspect::fromMap(const QVariantMap &map)
-{
-    m_useCppDebugger = map.value(QLatin1String(USE_CPP_DEBUGGER_KEY), true).toBool();
-    if (map.value(QLatin1String(USE_QML_DEBUGGER_AUTO_KEY), false).toBool()) {
-        m_useQmlDebugger = AutoEnableQmlDebugger;
-    } else {
-        bool useQml = map.value(QLatin1String(USE_QML_DEBUGGER_KEY), false).toBool();
-        m_useQmlDebugger = useQml ? EnableQmlDebugger : DisableQmlDebugger;
-    }
-    m_useMultiProcess = map.value(QLatin1String(USE_MULTIPROCESS_KEY), false).toBool();
+    return 0;
 }
 
 
@@ -270,39 +126,49 @@ void DebuggerRunConfigurationAspect::fromMap(const QVariantMap &map)
 
 RunConfiguration::RunConfiguration(Target *target, const Core::Id id) :
     ProjectConfiguration(target, id),
-    m_debuggerAspect(new DebuggerRunConfigurationAspect(this))
+    m_aspectsInitialized(false)
 {
     Q_ASSERT(target);
-    addExtraAspects();
+    ctor();
 }
 
 RunConfiguration::RunConfiguration(Target *target, RunConfiguration *source) :
     ProjectConfiguration(target, source),
-    m_debuggerAspect(new DebuggerRunConfigurationAspect(this, source->debuggerAspect()))
+    m_aspectsInitialized(true)
 {
     Q_ASSERT(target);
-    QList<IRunControlFactory *> factories = ExtensionSystem::PluginManager::getObjects<IRunControlFactory>();
+    ctor();
     foreach (IRunConfigurationAspect *aspect, source->m_aspects) {
-        foreach (IRunControlFactory *factory, factories) {
-            if (IRunConfigurationAspect *clone = factory->cloneRunConfigurationAspect(aspect)) {
-                m_aspects.append(clone);
-                break;
-            }
-        }
+        IRunConfigurationAspect *clone = aspect->clone(this);
+        if (clone)
+            m_aspects.append(clone);
     }
 }
 
 RunConfiguration::~RunConfiguration()
 {
-    delete m_debuggerAspect;
     qDeleteAll(m_aspects);
 }
 
 void RunConfiguration::addExtraAspects()
 {
+    if (m_aspectsInitialized)
+        return;
+
     foreach (IRunControlFactory *factory, ExtensionSystem::PluginManager::getObjects<IRunControlFactory>())
-        if (IRunConfigurationAspect *aspect = factory->createRunConfigurationAspect())
-            m_aspects.append(aspect);
+        addExtraAspect(factory->createRunConfigurationAspect(this));
+    m_aspectsInitialized = true;
+}
+
+void RunConfiguration::addExtraAspect(IRunConfigurationAspect *aspect)
+{
+    if (aspect)
+        m_aspects += aspect;
+}
+
+void RunConfiguration::ctor()
+{
+    connect(this, SIGNAL(enabledChanged()), this, SIGNAL(requestRunActionsUpdate()));
 }
 
 /*!
@@ -356,8 +222,6 @@ QVariantMap RunConfiguration::toMap() const
 {
     QVariantMap map = ProjectConfiguration::toMap();
 
-    map.unite(m_debuggerAspect->toMap());
-
     foreach (IRunConfigurationAspect *aspect, m_aspects)
         map.unite(aspect->toMap());
 
@@ -377,7 +241,7 @@ ProjectExplorer::Abi RunConfiguration::abi() const
 
 bool RunConfiguration::fromMap(const QVariantMap &map)
 {
-    m_debuggerAspect->fromMap(map);
+    addExtraAspects();
 
     foreach (IRunConfigurationAspect *aspect, m_aspects)
         aspect->fromMap(map);
@@ -403,6 +267,7 @@ bool RunConfiguration::fromMap(const QVariantMap &map)
 
 QList<IRunConfigurationAspect *> RunConfiguration::extraAspects() const
 {
+    QTC_ASSERT(m_aspectsInitialized, return QList<IRunConfigurationAspect *>());
     return m_aspects;
 }
 
@@ -444,6 +309,29 @@ IRunConfigurationFactory::IRunConfigurationFactory(QObject *parent) :
 
 IRunConfigurationFactory::~IRunConfigurationFactory()
 {
+}
+
+RunConfiguration *IRunConfigurationFactory::create(Target *parent, const Core::Id id)
+{
+    if (!canCreate(parent, id))
+        return 0;
+    RunConfiguration *rc = doCreate(parent, id);
+    if (!rc)
+        return 0;
+    rc->addExtraAspects();
+    return rc;
+}
+
+RunConfiguration *IRunConfigurationFactory::restore(Target *parent, const QVariantMap &map)
+{
+    if (!canRestore(parent, map))
+        return 0;
+    RunConfiguration *rc = doRestore(parent, map);
+    if (!rc->fromMap(map)) {
+        delete rc;
+        rc = 0;
+    }
+    return rc;
 }
 
 IRunConfigurationFactory *IRunConfigurationFactory::find(Target *parent, const QVariantMap &map)
@@ -513,19 +401,9 @@ IRunControlFactory::~IRunControlFactory()
 {
 }
 
-IRunConfigurationAspect *IRunControlFactory::createRunConfigurationAspect()
+IRunConfigurationAspect *IRunControlFactory::createRunConfigurationAspect(RunConfiguration *rc)
 {
-    return 0;
-}
-
-IRunConfigurationAspect *IRunControlFactory::cloneRunConfigurationAspect(IRunConfigurationAspect *source)
-{
-    Q_UNUSED(source);
-    return 0;
-}
-
-RunConfigWidget *IRunControlFactory::createConfigurationWidget(RunConfiguration *)
-{
+    Q_UNUSED(rc);
     return 0;
 }
 

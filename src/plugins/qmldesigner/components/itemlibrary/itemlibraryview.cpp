@@ -53,7 +53,11 @@ WidgetInfo ItemLibraryView::widgetInfo()
     if (m_widget.isNull())
             m_widget = new ItemLibraryWidget;
 
-    return createWidgetInfo(m_widget.data(), QLatin1String("Library"), WidgetInfo::LeftPane, 0);
+    return createWidgetInfo(m_widget.data(),
+                            new WidgetInfo::ToolBarWidgetDefaultFactory<ItemLibraryWidget>(m_widget.data()),
+                            QLatin1String("Library"),
+                            WidgetInfo::LeftPane,
+                            0);
 }
 
 void ItemLibraryView::modelAttached(Model *model)
@@ -97,6 +101,10 @@ void ItemLibraryView::variantPropertiesChanged(const QList<VariantProperty> &, P
 void ItemLibraryView::bindingPropertiesChanged(const QList<BindingProperty> &, PropertyChangeFlags)
 {
 
+}
+
+void ItemLibraryView::signalHandlerPropertiesChanged(const QVector<SignalHandlerProperty> &, AbstractView::PropertyChangeFlags)
+{
 }
 
 void ItemLibraryView::nodeAboutToBeRemoved(const ModelNode &)

@@ -32,7 +32,6 @@
 
 #include "qt4projectmanager_global.h"
 
-#include <utils/fileutils.h>
 #include <coreplugin/idocument.h>
 #include <projectexplorer/projectnodes.h>
 
@@ -46,6 +45,8 @@
 QT_BEGIN_NAMESPACE
 class ProFile;
 QT_END_NAMESPACE
+
+namespace Utils { class FileName; }
 
 namespace Core {
 class ICore;
@@ -84,6 +85,7 @@ enum Qt4Variable {
     CppHeaderVar,
     CppSourceVar,
     ObjCSourceVar,
+    ObjCHeaderVar,
     UiDirVar,
     MocDirVar,
     PkgConfigVar,

@@ -1,9 +1,6 @@
-TEMPLATE = lib
-TARGET = RemoteLinux
 QT += network
 
 include(../../qtcreatorplugin.pri)
-include(remotelinux_dependencies.pri)
 
 HEADERS += \
     embeddedlinuxqtversion.h \

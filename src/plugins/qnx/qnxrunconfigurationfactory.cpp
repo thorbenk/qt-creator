@@ -42,15 +42,9 @@
 using namespace Qnx;
 using namespace Qnx::Internal;
 
-namespace {
-QString pathFromId(const Core::Id id)
+static QString pathFromId(const Core::Id id)
 {
-    const QString idStr = id.toString();
-    if (idStr.startsWith(QLatin1String(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX)))
-        return idStr.mid(QString::fromLatin1(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX).size());
-
-    return QString();
-}
+    return id.suffixAfter(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX);
 }
 
 QnxRunConfigurationFactory::QnxRunConfigurationFactory(QObject *parent) :
@@ -80,7 +74,7 @@ QString QnxRunConfigurationFactory::displayNameForId(const Core::Id id) const
     if (path.isEmpty())
         return QString();
 
-    if (id.toString().startsWith(QLatin1String(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX)))
+    if (id.name().startsWith(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX))
         return tr("%1 on QNX Device").arg(QFileInfo(path).completeBaseName());
 
     return QString();
@@ -88,7 +82,7 @@ QString QnxRunConfigurationFactory::displayNameForId(const Core::Id id) const
 
 bool QnxRunConfigurationFactory::canCreate(ProjectExplorer::Target *parent, const Core::Id id) const
 {
-    if (!canHandle(parent))
+    if (!canHandle(parent) || id.name().startsWith(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX))
         return false;
 
     Qt4ProjectManager::Qt4Project *qt4Project = qobject_cast<Qt4ProjectManager::Qt4Project *>(parent->project());
@@ -98,37 +92,22 @@ bool QnxRunConfigurationFactory::canCreate(ProjectExplorer::Target *parent, cons
     return qt4Project->hasApplicationProFile(pathFromId(id));
 }
 
-ProjectExplorer::RunConfiguration *QnxRunConfigurationFactory::create(ProjectExplorer::Target *parent, const Core::Id id)
+ProjectExplorer::RunConfiguration *QnxRunConfigurationFactory::doCreate(ProjectExplorer::Target *parent, const Core::Id id)
 {
-    if (!canCreate(parent, id))
-        return 0;
-
-    if (id.toString().startsWith(QLatin1String(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX)))
-        return new QnxRunConfiguration(parent, id, pathFromId(id));
-
-    return 0;
+    return new QnxRunConfiguration(parent, id, pathFromId(id));
 }
 
 bool QnxRunConfigurationFactory::canRestore(ProjectExplorer::Target *parent, const QVariantMap &map) const
 {
-    if (!canHandle(parent))
-        return false;
-
-    return ProjectExplorer::idFromMap(map).toString().startsWith(QLatin1String(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX));
+    return canHandle(parent)
+            && ProjectExplorer::idFromMap(map).name().startsWith(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX);
 }
 
-ProjectExplorer::RunConfiguration *QnxRunConfigurationFactory::restore(ProjectExplorer::Target *parent, const QVariantMap &map)
+ProjectExplorer::RunConfiguration *QnxRunConfigurationFactory::doRestore(ProjectExplorer::Target *parent,
+                                                                         const QVariantMap &map)
 {
-    if (!canRestore(parent, map))
-        return 0;
-
-    ProjectExplorer::RunConfiguration *rc = 0;
-    rc = new QnxRunConfiguration(parent, Core::Id(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX), QString());
-    if (rc->fromMap(map))
-        return rc;
-
-    delete rc;
-    return 0;
+    Q_UNUSED(map);
+    return new QnxRunConfiguration(parent, Core::Id(Constants::QNX_QNX_RUNCONFIGURATION_PREFIX), QString());
 }
 
 bool QnxRunConfigurationFactory::canClone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *source) const

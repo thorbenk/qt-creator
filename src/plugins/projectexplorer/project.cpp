@@ -30,24 +30,17 @@
 #include "project.h"
 
 #include "buildconfiguration.h"
-#include "deployconfiguration.h"
 #include "editorconfiguration.h"
 #include "projectexplorer.h"
-#include "projectexplorerconstants.h"
-#include "projectnodes.h"
-#include "runconfiguration.h"
 #include "target.h"
 #include "settingsaccessor.h"
 
 #include <coreplugin/idocument.h>
 #include <coreplugin/icontext.h>
-#include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/buildmanager.h>
-#include <projectexplorer/kit.h>
 #include <projectexplorer/kitmanager.h>
 #include <limits>
 #include <utils/qtcassert.h>
-#include <utils/environment.h>
 
 /*!
     \class ProjectExplorer::Project
@@ -397,12 +390,44 @@ QString Project::generatedUiHeader(const QString & /* formFile */) const
 
 void Project::setProjectContext(Core::Context context)
 {
+    if (d->m_projectContext == context)
+        return;
     d->m_projectContext = context;
+    emit projectContextUpdated();
 }
 
 void Project::setProjectLanguages(Core::Context language)
 {
+    if (d->m_projectLanguages == language)
+        return;
     d->m_projectLanguages = language;
+    emit projectLanguagesUpdated();
+}
+
+void Project::addProjectLanguage(Core::Id id)
+{
+    Core::Context lang = projectLanguages();
+    int pos = lang.indexOf(id);
+    if (pos < 0)
+        lang.add(id);
+    setProjectLanguages(lang);
+}
+
+void Project::removeProjectLanguage(Core::Id id)
+{
+    Core::Context lang = projectLanguages();
+    int pos = lang.indexOf(id);
+    if (pos >= 0)
+        lang.removeAt(pos);
+    setProjectLanguages(lang);
+}
+
+void Project::setProjectLanguage(Core::Id id, bool enabled)
+{
+    if (enabled)
+        addProjectLanguage(id);
+    else
+        removeProjectLanguage(id);
 }
 
 Core::Context Project::projectContext() const

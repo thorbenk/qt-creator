@@ -25,6 +25,10 @@ QtcPlugin {
         "../../shared/registryaccess"
     ])
 
+    pluginRecommends: [
+        "CppEditor"
+    ]
+
     Group {
         condition: Defaults.testsEnabled(qbs)
         qbs.install: true
@@ -67,6 +71,8 @@ QtcPlugin {
         "debuggerprotocol.cpp",
         "debuggerprotocol.h",
         "debuggerruncontrolfactory.h",
+        "debuggerrunconfigurationaspect.cpp",
+        "debuggerrunconfigurationaspect.h",
         "debuggerrunner.cpp",
         "debuggerrunner.h",
         "debuggersourcepathmappingwidget.cpp",
@@ -211,6 +217,8 @@ QtcPlugin {
         "images/location_24.png",
         "images/tracepoint.png",
         "images/watchpoint.png",
+        "lldb/lldbengine.cpp",
+        "lldb/lldbengine.h",
         "lldblib/ipcenginehost.cpp",
         "lldblib/ipcenginehost.h",
         "lldblib/lldbenginehost.cpp",

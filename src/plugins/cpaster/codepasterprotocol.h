@@ -44,7 +44,7 @@ class CodePasterProtocol : public NetworkProtocol
 {
     Q_OBJECT
 public:
-    explicit CodePasterProtocol(const NetworkAccessManagerProxyPtr &nw);
+    explicit CodePasterProtocol();
     ~CodePasterProtocol();
 
     QString name() const;
@@ -58,6 +58,7 @@ public:
     void list();
     void paste(const QString &text,
                ContentType ct = Text,
+               int expiryDays = 1,
                const QString &username = QString(),
                const QString &comment = QString(),
                const QString &description = QString());

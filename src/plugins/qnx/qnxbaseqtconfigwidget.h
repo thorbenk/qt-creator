@@ -32,7 +32,7 @@
 #ifndef QNX_INTERNAL_QNXBASEQTCONFIGWIDGET_H
 #define QNX_INTERNAL_QNXBASEQTCONFIGWIDGET_H
 
-#include <qtsupport/baseqtversion.h>
+#include <qtsupport/qtconfigwidget.h>
 
 namespace Qnx {
 namespace Internal {

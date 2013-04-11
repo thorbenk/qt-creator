@@ -28,31 +28,20 @@
 ****************************************************************************/
 
 #include "debuggerkitconfigwidget.h"
-#include "debuggerkitinformation.h"
 
 #include <coreplugin/icore.h>
 
 #include <projectexplorer/abi.h>
-#include <projectexplorer/kitinformation.h>
 
 #include <utils/pathchooser.h>
-#include <utils/qtcassert.h>
 #include <utils/elidinglabel.h>
 
 #ifdef Q_OS_WIN
 #include <utils/winutils.h>
 #endif
 
-#include <QUrl>
-
-#include <QDesktopServices>
-#include <QHBoxLayout>
-#include <QVBoxLayout>
 #include <QFormLayout>
-#include <QLabel>
 #include <QComboBox>
-#include <QMenu>
-#include <QAction>
 #include <QPushButton>
 #include <QDialogButtonBox>
 
@@ -143,10 +132,12 @@ DebuggerKitConfigDialog::DebuggerKitConfigDialog(QWidget *parent)
     formLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 
     m_comboBox->addItem(DebuggerKitInformation::debuggerEngineName(GdbEngineType), QVariant(int(GdbEngineType)));
-    if (ProjectExplorer::Abi::hostAbi().os() == ProjectExplorer::Abi::WindowsOS)
+    if (ProjectExplorer::Abi::hostAbi().os() == ProjectExplorer::Abi::WindowsOS) {
         m_comboBox->addItem(DebuggerKitInformation::debuggerEngineName(CdbEngineType), QVariant(int(CdbEngineType)));
-    else
+    } else {
         m_comboBox->addItem(DebuggerKitInformation::debuggerEngineName(LldbEngineType), QVariant(int(LldbEngineType)));
+        m_comboBox->addItem(DebuggerKitInformation::debuggerEngineName(LldbLibEngineType), QVariant(int(LldbLibEngineType)));
+    }
     connect(m_comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(refreshLabel()));
     QLabel *engineTypeLabel = new QLabel(tr("&Engine:"));
     engineTypeLabel->setBuddy(m_comboBox);

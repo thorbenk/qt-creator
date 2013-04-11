@@ -117,6 +117,7 @@ enum DebuggerActionCode
 
     // Gdb
     LoadGdbInit,
+    LoadGdbDumpers,
     AttemptQuickStart,
     GdbStartupCommands,
     GdbPostAttachCommands,
@@ -127,6 +128,7 @@ enum DebuggerActionCode
     WarnOnReleaseBuilds,
     MultiInferior,
     IntelFlavor,
+    IdentifyDebugInfoPackages,
 
     // Stack
     MaximalStackDepth,

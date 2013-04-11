@@ -29,11 +29,9 @@
 
 #include "qmakekitconfigwidget.h"
 
-#include "qt4projectmanagerconstants.h"
 #include "qmakekitinformation.h"
 
-#include <coreplugin/icore.h>
-#include <projectexplorer/projectexplorerconstants.h>
+#include <utils/fileutils.h>
 
 #include <QLineEdit>
 

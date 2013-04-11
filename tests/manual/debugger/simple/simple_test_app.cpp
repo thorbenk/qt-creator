@@ -3042,12 +3042,12 @@ namespace stdset {
     {
         typedef std::set<int> Set;
         Set set;
-        set.insert(11.0);
-        set.insert(22.0);
-        set.insert(33.0);
-        set.insert(44.0);
-        set.insert(55.0);
-        set.insert(66.0);
+        set.insert(11);
+        set.insert(22);
+        set.insert(33);
+        set.insert(44);
+        set.insert(55);
+        set.insert(66);
 
         Set::iterator it1 = set.begin();
         Set::iterator it2 = it1; ++it2;
@@ -4600,6 +4600,44 @@ QString fooxx()
 
 namespace basic {
 
+
+    struct Empty {};
+    struct Data { Data() : a(42) {} int a; };
+    struct VEmpty {};
+    struct VData { VData() : v(42) {} int v; };
+
+    struct S1 : Empty, Data, virtual VEmpty, virtual VData
+    {
+        S1() : i1(1) {}
+        int i1;
+    };
+
+    struct S2 : Empty, Data, virtual VEmpty, virtual VData
+    {
+        S2() : i2(1) {}
+        int i2;
+    };
+
+    struct Combined : S1, S2
+    {
+        Combined() : c(1) {} int c;
+    };
+
+
+    void testInheritance()
+    {
+        Combined combined;
+        combined.S1::a = 42;
+        combined.S2::a = 43;
+        combined.S1::v = 44;
+        combined.S2::v = 45;
+
+        BREAK_HERE;
+        // Continue.
+
+        dummyStatement(&combined);
+    }
+
     // This tests display of basic types.
 
     void testInt()
@@ -5393,6 +5431,7 @@ namespace basic {
 
     void testBasic()
     {
+        testInheritance();
         testInt();
         testReference1();
         testReference2();

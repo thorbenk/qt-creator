@@ -28,9 +28,9 @@
 ****************************************************************************/
 
 #include "winceqtversion.h"
-#include "qt4projectmanagerconstants.h"
 #include <qtsupport/qtsupportconstants.h>
 #include <QCoreApplication>
+#include <QStringList>
 
 using namespace Qt4ProjectManager;
 using namespace Qt4ProjectManager::Internal;

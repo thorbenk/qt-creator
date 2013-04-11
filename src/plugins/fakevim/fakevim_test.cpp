@@ -274,6 +274,7 @@ void FakeVimPlugin::setup(TestData *data)
 {
     setupTest(&data->title, &data->handler, &data->edit);
     data->reset();
+    data->doCommand("set nopasskeys | set nopasscontrolkey");
 }
 
 
@@ -1956,7 +1957,8 @@ void FakeVimPlugin::test_vim_substitute()
     data.setText("abc" N "def" N "ghi" N "jkl");
     KEYS("jVj:s/^/*<CR>", "abc" N "*def" N X "*ghi" N "jkl");
     COMMAND("'<,'>s/^/*", "abc" N "**def" N X "**ghi" N "jkl");
-    KEYS("ugv:s/^/+<CR>", "abc" N "+*def" N X "+*ghi" N "jkl");
+    KEYS("u", "abc" N X "*def" N "*ghi" N "jkl");
+    KEYS("gv:s/^/+<CR>", "abc" N "+*def" N X "+*ghi" N "jkl");
 }
 
 void FakeVimPlugin::test_vim_ex_yank()
@@ -2291,6 +2293,15 @@ void FakeVimPlugin::test_map()
     data.setText("abc" N "def");
     data.doCommand(QString::fromUtf8("no \xc3\xb8 l|no l k|no k j|no j h"));
     KEYS(QString::fromUtf8("\xc3\xb8"), "a" X "bc" N "def");
+
+    // Don't handle mapping in sub-modes that are not followed by movement command.
+    data.setText("abc" N "def");
+    data.doCommand("map <SPACE> A<cr>xy z<esc><left><left>");
+    KEYS("<space>", "abc" N "x" X "y z" N "def");
+    KEYS("r<space>", "abc" N "x" X "  z" N "def");
+    KEYS("f<space>", "abc" N "x " X " z" N "def");
+    KEYS("t<space>", "abc" N "x " X " z" N "def");
+    data.doCommand("unmap <SPACE>");
 }
 
 void FakeVimPlugin::test_vim_command_cc()
@@ -2477,7 +2488,7 @@ void FakeVimPlugin::test_vim_command_dgg()
     setup(&data);
 
     data.setText(testLines);
-    KEYS("G",    lmid(0, l.size()-2)+'\n' +  '|'+lmid(l.size()-2));
+    KEYS("Gk",   lmid(0, l.size()-2)+'\n' +  '|'+lmid(l.size()-2));
     KEYS("dgg",  "|");
     KEYS("u",    '|' + lmid(0));
 }
@@ -2491,9 +2502,9 @@ void FakeVimPlugin::test_vim_command_dG()
     KEYS("dG",   "|");
     KEYS("u",    '|' + lmid(0));
     KEYS("j",    cursor(1, 0));
-    KEYS("dG",   lmid(0,1)+'\n' + '|');
+    KEYS("dG",   "|");
     KEYS("u",    l[0]+'\n' + '|' + lmid(1));
-    KEYS("G",    lmid(0, l.size()-2)+'\n' + '|'+lmid(l.size()-2));
+    KEYS("Gk",   lmid(0, l.size()-2)+'\n' + '|'+lmid(l.size()-2));
 
     NOT_IMPLEMENTED
     // include movement to first column, as otherwise the result depends on the 'startofline' setting
@@ -2766,7 +2777,7 @@ void FakeVimPlugin::test_vim_command_Gyyp()
     setup(&data);
 
     data.setText(testLines);
-    KEYS("G",   lmid(0, l.size()-2) + "\n|" + lmid(l.size()-2));
+    KEYS("Gk",  lmid(0, l.size()-2) + "\n|" + lmid(l.size()-2));
     KEYS("yyp", lmid(0) + '|' + lmid(9, 1)+'\n');
 }
 
@@ -2823,10 +2834,9 @@ void FakeVimPlugin::test_vim_command_oO()
     KEYS("Ol1<Esc>",    "l|1\n" + lmid(0));
     KEYS("gg",              "|l1\n" + lmid(0));
     KEYS("ol2<Esc>",    "l1\n" "l|2\n" + lmid(0));
-    KEYS("G",               "l1\n" "l2\n" + lmid(0,l.size()-2)+'\n' + '|'+lmid(l.size()-2));
-    KEYS("G$",              "l1\n" "l2\n" + lmid(0,l.size()-2)+'\n' + '|'+lmid(l.size()-2));
+    KEYS("Gk$",         "l1\n" "l2\n" + lmid(0,l.size()-2)+'\n' + '|'+lmid(l.size()-2));
     KEYS("ol-1<Esc>",   "l1\n" "l2\n" + lmid(0) + "l-|1\n");
-    KEYS("G",               "l1\n" "l2\n" + lmid(0) + "|l-1\n");
+    KEYS("Gk",          "l1\n" "l2\n" + lmid(0) + "|l-1\n");
     KEYS("Ol-2<Esc>",   "l1\n" "l2\n" + lmid(0) + "l-|2\n" + "l-1\n");
 }
 
@@ -2925,4 +2935,16 @@ void FakeVimPlugin::test_macros()
     data.setText("  1 2 3" N "  4 5 6" N "  7 8 9");
     KEYS("qx" "wrXj" "q", "  X 2 3" N "  4 5 6" N "  7 8 9");
     KEYS("2@x", "  X 2 3" N "  4 X 6" N "  7 8 X");
+
+    data.setText("abc" N "def");
+    KEYS("qx<right>i<right> xyz <esc>q", "ab xyz" X " c" N "def");
+    KEYS("j0@x", "ab xyz c" N "de xyz" X " f");
+
+    data.setText("abc" N "def");
+    data.doCommand("unmap <S-down>");
+    KEYS("qx<S-down><esc>q", X "abc" N "def");
+    data.doCommand("noremap <S-down> ddp");
+    KEYS("@x", "def" N X "abc");
+    KEYS("gg@x", "abc" N X "def");
+    data.doCommand("unmap <S-down>");
 }

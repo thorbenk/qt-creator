@@ -27,26 +27,13 @@
 **
 ****************************************************************************/
 
+#include "insertionpointlocator.h"
 #include "cpptoolsplugin.h"
 
-#include <AST.h>
-#include <Control.h>
-#include <CppDocument.h>
-#include <DiagnosticClient.h>
-#include <Scope.h>
-#include <TranslationUnit.h>
-#include <Literals.h>
-#include <Bind.h>
-#include <Symbols.h>
-#include <cpptools/insertionpointlocator.h>
-#include <cpptools/cpprefactoringchanges.h>
-#include <cpptools/cpptoolsplugin.h>
-#include <extensionsystem/pluginmanager.h>
 #include <utils/fileutils.h>
 
 #include <QtTest>
 #include <QDebug>
-#include <QTextDocument>
 #include <QDir>
 
 /*!

@@ -38,7 +38,7 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/mimedatabase.h>
 #include <cpptools/cpptoolsconstants.h>
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/abi.h>
 #include <projectexplorer/buildsteplist.h>
@@ -59,27 +59,6 @@ using namespace ProjectExplorer;
 namespace GenericProjectManager {
 namespace Internal {
 
-static QList<Core::MimeType> cppMimeTypes()
-{
-    QStringList mimeTypesNames;
-    mimeTypesNames << QLatin1String(CppTools::Constants::C_SOURCE_MIMETYPE)
-                   << QLatin1String(CppTools::Constants::C_HEADER_MIMETYPE)
-                   << QLatin1String(CppTools::Constants::CPP_SOURCE_MIMETYPE)
-                   << QLatin1String(CppTools::Constants::OBJECTIVE_CPP_SOURCE_MIMETYPE)
-                   << QLatin1String(CppTools::Constants::CPP_HEADER_MIMETYPE);
-
-    QList<Core::MimeType> mimeTypes;
-
-    const Core::MimeDatabase *mimeDatabase = Core::ICore::mimeDatabase();
-    foreach (const QString &typeName, mimeTypesNames) {
-        Core::MimeType mimeType = mimeDatabase->findByType(typeName);
-        if (!mimeType.isNull())
-            mimeTypes.append(mimeType);
-    }
-
-    return mimeTypes;
-}
-
 ////////////////////////////////////////////////////////////////////////////////////
 //
 // GenericProject
@@ -91,7 +70,10 @@ GenericProject::GenericProject(Manager *manager, const QString &fileName)
       m_fileName(fileName)
 {
     setProjectContext(Context(GenericProjectManager::Constants::PROJECTCONTEXT));
-    setProjectLanguages(Context(ProjectExplorer::Constants::LANG_CXX));
+    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
+    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
+    setProjectLanguages(pl);
+
 
     QFileInfo fileInfo(m_fileName);
     QDir dir = fileInfo.dir();
@@ -261,14 +243,13 @@ void GenericProject::refresh(RefreshOptions options)
     if (options & Files)
         m_rootNode->refresh(oldFileList);
 
-    CPlusPlus::CppModelManagerInterface *modelManager =
-        CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelManager =
+        CppTools::CppModelManagerInterface::instance();
 
     if (modelManager) {
-        CPlusPlus::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
+        CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
         pinfo.clearProjectParts();
-        CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part(
-                    new CPlusPlus::CppModelManagerInterface::ProjectPart);
+        CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
 
         Kit *k = activeTarget() ? activeTarget()->kit() : KitManager::instance()->defaultKit();
         if (ToolChain *tc = ToolChainKitInformation::toolChain(k)) {
@@ -290,34 +271,29 @@ void GenericProject::refresh(RefreshOptions options)
         // ### add _defines.
 
         // Add any C/C++ files to be parsed
-        const QList<Core::MimeType> mimeTypes = cppMimeTypes();
-        QFileInfo fileInfo;
-
-        foreach (const QString &file, files()) {
-            fileInfo.setFile(file);
-            foreach (const Core::MimeType &mimeType, mimeTypes) {
-                if (mimeType.matchesFile(fileInfo)) {
-                    part->sourceFiles += file;
-                    break;
-                }
-            }
-        }
+        CppTools::ProjectFileAdder adder(part->files);
+        foreach (const QString &file, files())
+            adder.maybeAdd(file);
 
         QStringList filesToUpdate;
 
         if (options & Configuration) {
-            filesToUpdate = part->sourceFiles;
-            filesToUpdate.append(CPlusPlus::CppModelManagerInterface::configurationFileName());
+            foreach (const CppTools::ProjectFile &file, part->files)
+                filesToUpdate << file.path;
+            filesToUpdate.append(CppTools::CppModelManagerInterface::configurationFileName());
             // Full update, if there's a code model update, cancel it
             m_codeModelFuture.cancel();
         } else if (options & Files) {
             // Only update files that got added to the list
-            QSet<QString> newFileList = part->sourceFiles.toSet();
+            QSet<QString> newFileList;
+            foreach (const CppTools::ProjectFile &file, part->files)
+                newFileList.insert(file.path);
             newFileList.subtract(oldFileList);
             filesToUpdate.append(newFileList.toList());
         }
 
         pinfo.appendProjectPart(part);
+        setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !part->files.isEmpty());
 
         modelManager->updateProjectInfo(pinfo);
         m_codeModelFuture = modelManager->updateSourceFiles(filesToUpdate);
@@ -356,6 +332,7 @@ QStringList GenericProject::processEntries(const QStringList &paths,
     const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     const QDir projectDir(QFileInfo(m_fileName).dir());
 
+    QFileInfo fileInfo;
     QStringList absolutePaths;
     foreach (const QString &path, paths) {
         QString trimmedPath = path.trimmed();
@@ -366,10 +343,13 @@ QStringList GenericProject::processEntries(const QStringList &paths,
 
         trimmedPath = Utils::FileName::fromUserInput(trimmedPath).toString();
 
-        const QString absPath = QFileInfo(projectDir, trimmedPath).absoluteFilePath();
-        absolutePaths.append(absPath);
-        if (map)
-            map->insert(absPath, trimmedPath);
+        fileInfo.setFile(projectDir, trimmedPath);
+        if (fileInfo.exists()) {
+            const QString absPath = fileInfo.absoluteFilePath();
+            absolutePaths.append(absPath);
+            if (map)
+                map->insert(absPath, trimmedPath);
+        }
     }
     absolutePaths.removeDuplicates();
     return absolutePaths;

@@ -28,47 +28,28 @@
 ****************************************************************************/
 
 #include "cppfindreferences.h"
+
 #include "cpptoolsconstants.h"
+#include "cppmodelmanagerinterface.h"
 
-#include <texteditor/basetexteditor.h>
-#include <texteditor/basefilefind.h>
-#include <find/searchresultwindow.h>
-#include <extensionsystem/pluginmanager.h>
-#include <utils/filesearch.h>
-#include <utils/fileutils.h>
-#include <utils/qtcassert.h>
-#include <coreplugin/progressmanager/progressmanager.h>
-#include <coreplugin/progressmanager/futureprogress.h>
-#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/icore.h>
-#include <coreplugin/infobar.h>
+#include <coreplugin/progressmanager/futureprogress.h>
+#include <coreplugin/progressmanager/progressmanager.h>
+#include <texteditor/basefilefind.h>
+#include <texteditor/basetexteditor.h>
 
-#include <ASTVisitor.h>
-#include <AST.h>
-#include <Control.h>
-#include <Literals.h>
-#include <TranslationUnit.h>
-#include <Symbols.h>
-#include <Names.h>
-#include <Scope.h>
-
-#include <cpptools/ModelManagerInterface.h>
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/Overview.h>
-#include <cplusplus/FindUsages.h>
-
-#include <QTime>
-#include <QTimer>
-#include <QtConcurrentRun>
-#include <QtConcurrentMap>
-#include <QDir>
-#include <QApplication>
+#include <utils/qtcassert.h>
 #include <utils/runextensions.h>
 #include <utils/textfileformat.h>
+
+#include <cplusplus/Overview.h>
+#include <QtConcurrentMap>
+#include <QDir>
 
 #include <functional>
 
 using namespace CppTools::Internal;
+using namespace CppTools;
 using namespace CPlusPlus;
 
 static QString getSource(const QString &fileName,

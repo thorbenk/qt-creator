@@ -35,7 +35,7 @@
 
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/helpmanager.h>
-#include <qtsupport/debugginghelper.h>
+#include <qtsupport/qtkitinformation.h>
 #include <projectexplorer/environmentwidget.h>
 #include <projectexplorer/target.h>
 
@@ -217,17 +217,12 @@ void CMakeRunConfiguration::setCommandLineArguments(const QString &newText)
 
 QString CMakeRunConfiguration::dumperLibrary() const
 {
-    Utils::FileName qmakePath = QtSupport::DebuggingHelperLibrary::findSystemQt(environment());
-    QString qtInstallData = QtSupport::DebuggingHelperLibrary::qtInstallDataDir(qmakePath);
-    QString dhl = QtSupport::DebuggingHelperLibrary::debuggingHelperLibraryByInstallData(qtInstallData);
-    return dhl;
+    return QtSupport::QtKitInformation::dumperLibrary(target()->kit());
 }
 
 QStringList CMakeRunConfiguration::dumperLibraryLocations() const
 {
-    Utils::FileName qmakePath = QtSupport::DebuggingHelperLibrary::findSystemQt(environment());
-    QString qtInstallData = QtSupport::DebuggingHelperLibrary::qtInstallDataDir(qmakePath);
-    return QtSupport::DebuggingHelperLibrary::debuggingHelperLibraryDirectories(qtInstallData);
+    return QtSupport::QtKitInformation::dumperLibraryLocations(target()->kit());
 }
 
 Utils::Environment CMakeRunConfiguration::baseEnvironment() const
@@ -513,11 +508,9 @@ bool CMakeRunConfigurationFactory::canCreate(ProjectExplorer::Target *parent, co
     return project->hasBuildTarget(buildTargetFromId(id));
 }
 
-ProjectExplorer::RunConfiguration *CMakeRunConfigurationFactory::create(ProjectExplorer::Target *parent,
-                                                                        const Core::Id id)
+ProjectExplorer::RunConfiguration *CMakeRunConfigurationFactory::doCreate(ProjectExplorer::Target *parent,
+                                                                          const Core::Id id)
 {
-    if (!canCreate(parent, id))
-        return 0;
     CMakeProject *project = static_cast<CMakeProject *>(parent->project());
     const QString title(buildTargetFromId(id));
     const CMakeBuildTarget &ct = project->buildTargetForTitle(title);
@@ -528,7 +521,7 @@ bool CMakeRunConfigurationFactory::canClone(ProjectExplorer::Target *parent, Pro
 {
     if (!canHandle(parent))
         return false;
-    return source->id().toString().startsWith(QLatin1String(CMAKE_RC_PREFIX));
+    return source->id().name().startsWith(CMAKE_RC_PREFIX);
 }
 
 ProjectExplorer::RunConfiguration *CMakeRunConfigurationFactory::clone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration * source)
@@ -543,32 +536,22 @@ bool CMakeRunConfigurationFactory::canRestore(ProjectExplorer::Target *parent, c
 {
     if (!qobject_cast<CMakeProject *>(parent->project()))
         return false;
-    QString id = QString::fromUtf8(ProjectExplorer::idFromMap(map).name());
-    return id.startsWith(QLatin1String(CMAKE_RC_PREFIX));
+    return ProjectExplorer::idFromMap(map).name().startsWith(CMAKE_RC_PREFIX);
 }
 
-ProjectExplorer::RunConfiguration *CMakeRunConfigurationFactory::restore(ProjectExplorer::Target *parent, const QVariantMap &map)
+ProjectExplorer::RunConfiguration *CMakeRunConfigurationFactory::doRestore(ProjectExplorer::Target *parent,
+                                                                           const QVariantMap &map)
 {
-    if (!canRestore(parent, map))
-        return 0;
-    CMakeRunConfiguration *rc(new CMakeRunConfiguration(parent, ProjectExplorer::idFromMap(map),
-                                                        QString(), QString(), QString()));
-    if (rc->fromMap(map))
-        return rc;
-    delete rc;
-    return 0;
+    return new CMakeRunConfiguration(parent, ProjectExplorer::idFromMap(map),
+                                     QString(), QString(), QString());
 }
 
 QString CMakeRunConfigurationFactory::buildTargetFromId(Core::Id id)
 {
-    QString idstr = QString::fromUtf8(id.name());
-    if (!idstr.startsWith(QLatin1String(CMAKE_RC_PREFIX)))
-        return QString();
-    return idstr.mid(QString::fromLatin1(CMAKE_RC_PREFIX).length());
+    return id.suffixAfter(CMAKE_RC_PREFIX);
 }
 
 Core::Id CMakeRunConfigurationFactory::idFromBuildTarget(const QString &target)
 {
-    QString id = QString::fromLatin1(CMAKE_RC_PREFIX) + target;
-    return Core::Id(id.toUtf8());
+    return Core::Id(CMAKE_RC_PREFIX).withSuffix(target);
 }

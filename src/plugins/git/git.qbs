@@ -28,7 +28,6 @@ QtcPlugin {
         "branchmodel.h",
         "changeselectiondialog.cpp",
         "changeselectiondialog.h",
-        "changeselectiondialog.ui",
         "clonewizard.cpp",
         "clonewizard.h",
         "clonewizardpage.cpp",
@@ -108,6 +107,9 @@ QtcPlugin {
             "gerritparameters.h",
             "gerritplugin.cpp",
             "gerritplugin.h",
+            "gerritpushdialog.cpp",
+            "gerritpushdialog.h",
+            "gerritpushdialog.ui",
         ]
     }
 }

@@ -32,9 +32,10 @@
 
 #include "cpptools_global.h"
 
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/LookupContext.h>
 #include <texteditor/semantichighlighter.h>
+
+#include <cplusplus/CppDocument.h>
+
 #include <QHash>
 
 namespace CppTools {

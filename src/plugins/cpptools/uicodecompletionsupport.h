@@ -33,8 +33,7 @@
 
 #include "cpptools_global.h"
 #include "abstracteditorsupport.h"
-
-#include "ModelManagerInterface.h"
+#include "cppmodelmanagerinterface.h"
 
 #include <QDateTime>
 #include <QProcess>
@@ -44,7 +43,7 @@ namespace CppTools {
 class CPPTOOLS_EXPORT UiCodeModelSupport : public AbstractEditorSupport
 {
 public:
-    UiCodeModelSupport(CPlusPlus::CppModelManagerInterface *modelmanager,
+    UiCodeModelSupport(CppTools::CppModelManagerInterface *modelmanager,
                        const QString &sourceFile,
                        const QString &uiHeaderFile);
     ~UiCodeModelSupport();

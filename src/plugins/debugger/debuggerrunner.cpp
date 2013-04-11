@@ -31,47 +31,35 @@
 #include "debuggerruncontrolfactory.h"
 
 #include "debuggeractions.h"
-#include "debuggerinternalconstants.h"
 #include "debuggercore.h"
 #include "debuggerengine.h"
-#include "debuggermainwindow.h"
-#include "debuggerplugin.h"
-#include "debuggerstringutils.h"
-#include "debuggerstartparameters.h"
 #include "debuggerkitinformation.h"
-#include "lldblib/lldbenginehost.h"
+#include "debuggerplugin.h"
+#include "debuggerrunconfigurationaspect.h"
+#include "debuggerstartparameters.h"
+#include "debuggerstringutils.h"
 #include "debuggertooltipmanager.h"
+#include "breakhandler.h"
 
 #ifdef Q_OS_WIN
 #  include "peutils.h"
 #  include <utils/winutils.h>
 #endif
 
-#include <projectexplorer/abi.h>
 #include <projectexplorer/localapplicationrunconfiguration.h> // For LocalApplication*
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/taskhub.h>
-#include <projectexplorer/toolchain.h>
 
-#include <utils/outputformat.h>
-#include <utils/synchronousprocess.h>
 #include <utils/qtcassert.h>
-#include <utils/fancymainwindow.h>
 #include <utils/qtcprocess.h>
+#include <utils/portlist.h>
+#include <utils/tcpportsgatherer.h>
 #include <coreplugin/icore.h>
-#include <coreplugin/helpmanager.h>
 
-#include <QDir>
-#include <QCheckBox>
-#include <QSpinBox>
-#include <QDebug>
 #include <QErrorMessage>
-#include <QFormLayout>
-#include <QLabel>
-#include <QPointer>
 
 using namespace Debugger::Internal;
 using namespace ProjectExplorer;
@@ -88,6 +76,7 @@ DebuggerEngine *createScriptEngine(const DebuggerStartParameters &sp);
 DebuggerEngine *createPdbEngine(const DebuggerStartParameters &sp);
 DebuggerEngine *createQmlEngine(const DebuggerStartParameters &sp);
 DebuggerEngine *createQmlCppEngine(const DebuggerStartParameters &sp, QString *error);
+DebuggerEngine *createLldbLibEngine(const DebuggerStartParameters &sp);
 DebuggerEngine *createLldbEngine(const DebuggerStartParameters &sp);
 
 static const char *engineTypeName(DebuggerEngineType et)
@@ -107,145 +96,14 @@ static const char *engineTypeName(DebuggerEngineType et)
         return "QML engine";
     case Debugger::QmlCppEngineType:
         return "QML C++ engine";
+    case Debugger::LldbLibEngineType:
+        return "LLDB binary engine";
     case Debugger::LldbEngineType:
-        return "LLDB engine";
+        return "LLDB command line engine";
     case Debugger::AllEngineTypes:
         break;
     }
     return "No engine";
-}
-
-////////////////////////////////////////////////////////////////////////
-//
-// DebuggerRunConfigWidget
-//
-////////////////////////////////////////////////////////////////////////
-
-class DebuggerRunConfigWidget : public RunConfigWidget
-{
-    Q_OBJECT
-
-public:
-    explicit DebuggerRunConfigWidget(RunConfiguration *runConfiguration);
-    QString displayName() const { return tr("Debugger Settings"); }
-
-private slots:
-    void useCppDebuggerToggled(bool on);
-    void useQmlDebuggerToggled(bool on);
-    void qmlDebugServerPortChanged(int port);
-    void useMultiProcessToggled(bool on);
-
-public:
-    DebuggerRunConfigurationAspect *m_aspect; // not owned
-
-    QCheckBox *m_useCppDebugger;
-    QCheckBox *m_useQmlDebugger;
-    QSpinBox *m_debugServerPort;
-    QLabel *m_debugServerPortLabel;
-    QLabel *m_qmlDebuggerInfoLabel;
-    QCheckBox *m_useMultiProcess;
-};
-
-DebuggerRunConfigWidget::DebuggerRunConfigWidget(RunConfiguration *runConfiguration)
-{
-    m_aspect = runConfiguration->debuggerAspect();
-
-    m_useCppDebugger = new QCheckBox(tr("Enable C++"), this);
-    m_useQmlDebugger = new QCheckBox(tr("Enable QML"), this);
-
-    m_debugServerPort = new QSpinBox(this);
-    m_debugServerPort->setMinimum(1);
-    m_debugServerPort->setMaximum(65535);
-
-    m_debugServerPortLabel = new QLabel(tr("Debug port:"), this);
-    m_debugServerPortLabel->setBuddy(m_debugServerPort);
-
-    m_qmlDebuggerInfoLabel = new QLabel(tr("<a href=\""
-        "qthelp://org.qt-project.qtcreator/doc/creator-debugging-qml.html"
-        "\">What are the prerequisites?</a>"));
-
-    m_useCppDebugger->setChecked(m_aspect->useCppDebugger());
-    m_useQmlDebugger->setChecked(m_aspect->useQmlDebugger());
-
-    m_debugServerPort->setValue(m_aspect->qmlDebugServerPort());
-
-    static const QByteArray env = qgetenv("QTC_DEBUGGER_MULTIPROCESS");
-    m_useMultiProcess =
-        new QCheckBox(tr("Enable Debugging of Subprocesses"), this);
-    m_useMultiProcess->setChecked(m_aspect->useMultiProcess());
-    m_useMultiProcess->setVisible(env.toInt());
-
-    connect(m_qmlDebuggerInfoLabel, SIGNAL(linkActivated(QString)),
-            Core::HelpManager::instance(), SLOT(handleHelpRequest(QString)));
-    connect(m_useQmlDebugger, SIGNAL(toggled(bool)),
-            SLOT(useQmlDebuggerToggled(bool)));
-    connect(m_useCppDebugger, SIGNAL(toggled(bool)),
-            SLOT(useCppDebuggerToggled(bool)));
-    connect(m_debugServerPort, SIGNAL(valueChanged(int)),
-            SLOT(qmlDebugServerPortChanged(int)));
-    connect(m_useMultiProcess, SIGNAL(toggled(bool)),
-            SLOT(useMultiProcessToggled(bool)));
-
-    if (m_aspect->isDisplaySuppressed())
-        hide();
-
-    if (m_aspect->areQmlDebuggingOptionsSuppressed()) {
-        m_debugServerPortLabel->hide();
-        m_debugServerPort->hide();
-        m_useQmlDebugger->hide();
-    }
-
-    if (m_aspect->areCppDebuggingOptionsSuppressed())
-        m_useCppDebugger->hide();
-
-    if (m_aspect->isQmlDebuggingSpinboxSuppressed()) {
-        m_debugServerPort->hide();
-        m_debugServerPortLabel->hide();
-    }
-
-    QHBoxLayout *qmlLayout = new QHBoxLayout;
-    qmlLayout->setMargin(0);
-    qmlLayout->addWidget(m_useQmlDebugger);
-    qmlLayout->addWidget(m_debugServerPortLabel);
-    qmlLayout->addWidget(m_debugServerPort);
-    qmlLayout->addWidget(m_qmlDebuggerInfoLabel);
-    qmlLayout->addStretch();
-
-    QVBoxLayout *layout = new QVBoxLayout;
-    layout->setMargin(0);
-    layout->addWidget(m_useCppDebugger);
-    layout->addLayout(qmlLayout);
-    layout->addWidget(m_useMultiProcess);
-    setLayout(layout);
-}
-
-void DebuggerRunConfigWidget::qmlDebugServerPortChanged(int port)
-{
-    m_aspect->m_qmlDebugServerPort = port;
-}
-
-void DebuggerRunConfigWidget::useCppDebuggerToggled(bool on)
-{
-    m_aspect->m_useCppDebugger = on;
-    if (!on && !m_useQmlDebugger->isChecked())
-        m_useQmlDebugger->setChecked(true);
-}
-
-void DebuggerRunConfigWidget::useQmlDebuggerToggled(bool on)
-{
-    m_debugServerPort->setEnabled(on);
-    m_debugServerPortLabel->setEnabled(on);
-
-    m_aspect->m_useQmlDebugger = on
-            ? DebuggerRunConfigurationAspect::EnableQmlDebugger
-            : DebuggerRunConfigurationAspect::DisableQmlDebugger;
-    if (!on && !m_useCppDebugger->isChecked())
-        m_useCppDebugger->setChecked(true);
-}
-
-void DebuggerRunConfigWidget::useMultiProcessToggled(bool on)
-{
-    m_aspect->m_useMultiProcess = on;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -497,7 +355,7 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
     sp.executable = rc->executable();
     if (sp.executable.isEmpty())
         return sp;
-    sp.startMode = StartInternal;
+
     sp.processArgs = rc->commandLineArguments();
     sp.useTerminal = rc->runMode() == LocalApplicationRunConfiguration::Console;
     sp.dumperLibrary = rc->dumperLibrary();
@@ -512,15 +370,30 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
         }
     }
 
-    DebuggerRunConfigurationAspect *aspect = runConfiguration->debuggerAspect();
+    DebuggerRunConfigurationAspect *aspect
+            = runConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
     sp.multiProcess = aspect->useMultiProcess();
 
     if (aspect->useCppDebugger())
         sp.languages |= CppLanguage;
 
     if (aspect->useQmlDebugger()) {
+        const ProjectExplorer::IDevice::ConstPtr device =
+                DeviceKitInformation::device(runConfiguration->target()->kit());
         sp.qmlServerAddress = _("127.0.0.1");
-        sp.qmlServerPort = aspect->qmlDebugServerPort();
+        QTC_ASSERT(device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE, return sp);
+        TcpPortsGatherer portsGatherer;
+        portsGatherer.update(QAbstractSocket::UnknownNetworkLayerProtocol);
+        Utils::PortList portList = device->freePorts();
+        int freePort = portsGatherer.getNextFreePort(&portList);
+        if (freePort == -1) {
+            if (errorMessage)
+                *errorMessage = DebuggerPlugin::tr("Not enough free ports for QML debugging. "
+                                                   "Increase the port range for Desktop device in "
+                                                   "Device settings.");
+            return sp;
+        }
+        sp.qmlServerPort = freePort;
         sp.languages |= QmlLanguage;
 
         // Makes sure that all bindings go through the JavaScript engine, so that
@@ -531,6 +404,8 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
 
         QtcProcess::addArg(&sp.processArgs, QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(sp.qmlServerPort));
     }
+
+    sp.startMode = StartInternal;
 
     // FIXME: If it's not yet build this will be empty and not filled
     // when rebuild as the runConfiguration is not stored and therefore
@@ -570,7 +445,8 @@ static bool fixupEngineTypes(DebuggerStartParameters &sp, RunConfiguration *rc, 
     }
 
     if (rc) {
-        DebuggerRunConfigurationAspect *aspect = rc->debuggerAspect();
+        DebuggerRunConfigurationAspect *aspect
+                = rc->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
         if (const Target *target = rc->target())
             if (!fillParameters(&sp, target->kit(), errorMessage))
                 return false;
@@ -622,6 +498,11 @@ DebuggerRunControl *DebuggerRunControlFactory::doCreate
     return new DebuggerRunControl(rc, sp);
 }
 
+IRunConfigurationAspect *DebuggerRunControlFactory::createRunConfigurationAspect(RunConfiguration *rc)
+{
+    return new DebuggerRunConfigurationAspect(rc);
+}
+
 DebuggerRunControl *DebuggerRunControlFactory::createAndScheduleRun
     (const DebuggerStartParameters &sp, RunConfiguration *runConfiguration)
 {
@@ -637,12 +518,6 @@ DebuggerRunControl *DebuggerRunControlFactory::createAndScheduleRun
     debuggerCore()->showMessage(sp.startMessage, 0);
     ProjectExplorerPlugin::instance()->startRunControl(rc, DebugRunMode);
     return rc;
-}
-
-RunConfigWidget *DebuggerRunControlFactory::createConfigurationWidget
-    (RunConfiguration *runConfiguration)
-{
-    return new DebuggerRunConfigWidget(runConfiguration);
 }
 
 DebuggerEngine *DebuggerRunControlFactory::createEngine(DebuggerEngineType et,
@@ -661,6 +536,8 @@ DebuggerEngine *DebuggerRunControlFactory::createEngine(DebuggerEngineType et,
         return createQmlEngine(sp);
     case LldbEngineType:
         return createLldbEngine(sp);
+    case LldbLibEngineType:
+        return createLldbLibEngine(sp);
     case QmlCppEngineType:
         return createQmlCppEngine(sp, errorMessage);
     default:
@@ -672,5 +549,3 @@ DebuggerEngine *DebuggerRunControlFactory::createEngine(DebuggerEngineType et,
 }
 
 } // namespace Debugger
-
-#include "debuggerrunner.moc"

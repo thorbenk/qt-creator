@@ -41,15 +41,9 @@
 using namespace Qnx;
 using namespace Qnx::Internal;
 
-namespace {
-QString pathFromId(const Core::Id id)
+static QString pathFromId(const Core::Id id)
 {
-    QString idStr = id.toString();
-    if (idStr.startsWith(QLatin1String(Constants::QNX_BB_RUNCONFIGURATION_PREFIX)))
-        return idStr.mid(QString::fromLatin1(Constants::QNX_BB_RUNCONFIGURATION_PREFIX).size());
-
-    return QString();
-}
+    return id.suffixAfter(Constants::QNX_BB_RUNCONFIGURATION_PREFIX);
 }
 
 BlackBerryRunConfigurationFactory::BlackBerryRunConfigurationFactory(QObject *parent) :
@@ -80,7 +74,7 @@ QString BlackBerryRunConfigurationFactory::displayNameForId(const Core::Id id) c
     if (path.isEmpty())
         return QString();
 
-    if (id.toString().startsWith(QLatin1String(Constants::QNX_BB_RUNCONFIGURATION_PREFIX)))
+    if (id.name().startsWith(Constants::QNX_BB_RUNCONFIGURATION_PREFIX))
         return tr("%1 on BlackBerry Device").arg(QFileInfo(path).completeBaseName());
 
     return QString();
@@ -95,18 +89,15 @@ bool BlackBerryRunConfigurationFactory::canCreate(ProjectExplorer::Target *paren
     if (!qt4Project)
         return false;
 
-    if (!id.toString().startsWith(QLatin1String(Constants::QNX_BB_RUNCONFIGURATION_PREFIX)))
+    if (!id.name().startsWith(Constants::QNX_BB_RUNCONFIGURATION_PREFIX))
         return false;
 
     return qt4Project->hasApplicationProFile(pathFromId(id));
 }
 
-ProjectExplorer::RunConfiguration *BlackBerryRunConfigurationFactory::create(ProjectExplorer::Target *parent,
+ProjectExplorer::RunConfiguration *BlackBerryRunConfigurationFactory::doCreate(ProjectExplorer::Target *parent,
                                                                       const Core::Id id)
 {
-    if (!canCreate(parent, id))
-        return 0;
-
     return new BlackBerryRunConfiguration(parent, id, pathFromId(id));
 }
 
@@ -116,23 +107,15 @@ bool BlackBerryRunConfigurationFactory::canRestore(ProjectExplorer::Target *pare
     if (!canHandle(parent))
         return false;
 
-    return ProjectExplorer::idFromMap(map).toString().startsWith(QLatin1String(Constants::QNX_BB_RUNCONFIGURATION_PREFIX));
+    return ProjectExplorer::idFromMap(map).name().startsWith(Constants::QNX_BB_RUNCONFIGURATION_PREFIX);
 }
 
-ProjectExplorer::RunConfiguration *BlackBerryRunConfigurationFactory::restore(
+ProjectExplorer::RunConfiguration *BlackBerryRunConfigurationFactory::doRestore(
         ProjectExplorer::Target *parent,
         const QVariantMap &map)
 {
-    if (!canRestore(parent, map))
-        return 0;
-
-    ProjectExplorer::RunConfiguration *rc = 0;
-    rc = new BlackBerryRunConfiguration(parent, Core::Id(Constants::QNX_BB_RUNCONFIGURATION_PREFIX), QString());
-    if (rc->fromMap(map))
-        return rc;
-
-    delete rc;
-    return 0;
+    Q_UNUSED(map);
+    return new BlackBerryRunConfiguration(parent, Core::Id(Constants::QNX_BB_RUNCONFIGURATION_PREFIX), QString());
 }
 
 bool BlackBerryRunConfigurationFactory::canClone(ProjectExplorer::Target *parent,

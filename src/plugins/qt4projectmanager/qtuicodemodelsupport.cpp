@@ -31,15 +31,13 @@
 #include "qt4buildconfiguration.h"
 
 #include "qt4project.h"
-#include "qt4projectmanager.h"
 #include <projectexplorer/target.h>
-#include <qtsupport/baseqtversion.h>
 #include <qtsupport/qtkitinformation.h>
 
 using namespace Qt4ProjectManager;
 using namespace Internal;
 
-Qt4UiCodeModelSupport::Qt4UiCodeModelSupport(CPlusPlus::CppModelManagerInterface *modelmanager,
+Qt4UiCodeModelSupport::Qt4UiCodeModelSupport(CppTools::CppModelManagerInterface *modelmanager,
                                              Qt4Project *project,
                                              const QString &source,
                                              const QString &uiHeaderFile)

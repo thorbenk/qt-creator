@@ -32,10 +32,8 @@
 
 #include "cppeditor.h"
 
-#include <texteditor/helpitem.h>
 #include <cpptools/symbolfinder.h>
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/Overview.h>
+#include <texteditor/helpitem.h>
 
 #include <QString>
 #include <QStringList>
@@ -48,9 +46,7 @@ class LookupItem;
 class LookupContext;
 }
 
-namespace CppTools {
-class CppModelManagerInterface;
-}
+namespace CppTools { class CppModelManagerInterface; }
 
 namespace CppEditor {
 namespace Internal {
@@ -83,7 +79,7 @@ private:
                                const CPlusPlus::LookupContext &lookupContext);
 
     CPPEditorWidget *m_editor;
-    CPlusPlus::CppModelManagerInterface *m_modelManager;
+    CppTools::CppModelManagerInterface *m_modelManager;
     QTextCursor m_tc;
     bool m_lookupBaseClasses;
     bool m_lookupDerivedClasses;

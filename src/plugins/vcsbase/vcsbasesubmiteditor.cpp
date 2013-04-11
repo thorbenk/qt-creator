@@ -39,21 +39,9 @@
 #include "vcsplugin.h"
 
 #include <aggregation/aggregate.h>
-#include <cplusplus/Control.h>
-#include <cplusplus/CoreTypes.h>
-#include <cplusplus/FullySpecifiedType.h>
-#include <cplusplus/Literals.h>
-#include <cpptools/ModelManagerInterface.h>
-#include <cplusplus/Symbol.h>
-#include <cplusplus/Symbols.h>
-#include <cplusplus/TranslationUnit.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <coreplugin/icore.h>
-#include <coreplugin/id.h>
-#include <coreplugin/idocument.h>
-#include <coreplugin/mainwindow.h>
-#include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/editormanager/editormanager.h>
-#include <utils/completingtextedit.h>
 #include <utils/checkablemessagebox.h>
 #include <utils/synchronousprocess.h>
 #include <utils/fileutils.h>
@@ -63,25 +51,21 @@
 #include <texteditor/texteditorsettings.h>
 
 #include <projectexplorer/projectexplorer.h>
-#include <projectexplorer/session.h>
 #include <projectexplorer/project.h>
 
 #include <QDebug>
 #include <QDir>
 #include <QProcess>
-#include <QFile>
 #include <QFileInfo>
 #include <QPointer>
 #include <QStringListModel>
-#include <QTextStream>
 #include <QStyle>
 #include <QToolBar>
 #include <QAction>
 #include <QApplication>
 #include <QMessageBox>
 #include <QCompleter>
-#include <QLineEdit>
-#include <QTextEdit>
+
 #include <cstring>
 
 enum { debug = 0 };
@@ -428,7 +412,7 @@ Core::IEditor *VcsBaseSubmitEditor::duplicate(QWidget * /*parent*/)
 
 Core::Id VcsBaseSubmitEditor::id() const
 {
-    return Core::Id(QByteArray(d->m_parameters->id));
+    return d->m_parameters->id;
 }
 
 static QToolBar *createToolBar(const QWidget *someWidget, QAction *submitAction, QAction *diffAction)
@@ -488,7 +472,7 @@ void VcsBaseSubmitEditor::setFileModel(SubmitFileModel *model, const QString &re
     d->m_widget->setFileModel(model);
 
     QSet<QString> uniqueSymbols;
-    const CPlusPlus::Snapshot cppSnapShot = CPlusPlus::CppModelManagerInterface::instance()->snapshot();
+    const CPlusPlus::Snapshot cppSnapShot = CppTools::CppModelManagerInterface::instance()->snapshot();
 
     // Iterate over the files and get interesting symbols
     for (int row = 0; row < model->rowCount(); ++row) {

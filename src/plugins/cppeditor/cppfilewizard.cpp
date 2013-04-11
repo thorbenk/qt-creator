@@ -28,14 +28,14 @@
 ****************************************************************************/
 
 #include "cppfilewizard.h"
-#include "cppeditor.h"
+
 #include "cppeditorconstants.h"
 
 #include <cpptools/abstracteditorsupport.h>
+
 #include <utils/codegeneration.h>
 
 #include <QTextStream>
-#include <QFileInfo>
 #include <QDebug>
 
 using namespace CppEditor;

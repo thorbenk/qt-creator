@@ -1,10 +1,7 @@
-include(../../qttest.pri)
+QTC_PLUGIN_DEPENDS += diffeditor
 
-include($$IDE_SOURCE_TREE/src/plugins/diffeditor/diffeditor.pri)
+include(../../qttest.pri)
 
 LIBS += -L$$IDE_PLUGIN_PATH/QtProject
 
 SOURCES += tst_differ.cpp
-
-INCLUDEPATH += $$IDE_SOURCE_TREE/src/plugins $$IDE_SOURCE_TREE/src/libs
-

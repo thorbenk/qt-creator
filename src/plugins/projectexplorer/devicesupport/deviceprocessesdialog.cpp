@@ -40,13 +40,10 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
-#include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSortFilterProxyModel>
-#include <QSpacerItem>
 #include <QTextBrowser>
-#include <QTextDocument>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -199,6 +196,10 @@ DeviceProcessesDialogPrivate::DeviceProcessesDialogPrivate(KitChooser *chooser, 
     connect(&proxyModel, SIGNAL(layoutChanged()), SLOT(handleProcessListUpdated()));
     connect(buttonBox, SIGNAL(accepted()), q, SLOT(accept()));
     connect(buttonBox, SIGNAL(rejected()), q, SLOT(reject()));
+
+    QWidget::setTabOrder(kitChooser, processFilterLineEdit);
+    QWidget::setTabOrder(processFilterLineEdit, procView);
+    QWidget::setTabOrder(procView, buttonBox);
 }
 
 void DeviceProcessesDialogPrivate::setDevice(const IDevice::ConstPtr &device)

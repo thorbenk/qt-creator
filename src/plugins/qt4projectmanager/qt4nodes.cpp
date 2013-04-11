@@ -32,13 +32,10 @@
 #include "qt4projectmanager.h"
 #include "qt4projectmanagerconstants.h"
 #include "qtuicodemodelsupport.h"
-#include "qmakestep.h"
 #include "qt4buildconfiguration.h"
 #include "qmakerunconfigurationfactory.h"
 
 #include <projectexplorer/nodesvisitor.h>
-#include <projectexplorer/runconfiguration.h>
-
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/fileiconprovider.h>
@@ -46,21 +43,18 @@
 #include <coreplugin/icore.h>
 #include <coreplugin/iversioncontrol.h>
 #include <coreplugin/vcsmanager.h>
+#include <coreplugin/dialogs/readonlyfilesdialog.h>
 
-#include <cpptools/ModelManagerInterface.h>
-#include <cplusplus/CppDocument.h>
-#include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/buildmanager.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/target.h>
 #include <qtsupport/profilereader.h>
 #include <qtsupport/qtkitinformation.h>
-#include <qtsupport/qtsupportconstants.h>
+
+#include <cpptools/cppmodelmanagerinterface.h>
 
 #include <utils/hostosinfo.h>
-#include <utils/qtcassert.h>
 #include <utils/stringutils.h>
-#include <utils/fileutils.h>
 #include <proparser/prowriter.h>
 #include <algorithm>
 
@@ -68,12 +62,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QCoreApplication>
 #include <QXmlStreamReader>
 
-#include <QPainter>
 #include <QMessageBox>
-#include <QPushButton>
 #include <utils/QtConcurrentTools>
 
 // Static cached data in struct Qt4NodeStaticData providing information and icons
@@ -1035,28 +1026,9 @@ bool Qt4PriFileNode::renameFile(const FileType fileType, const QString &filePath
 
 bool Qt4PriFileNode::priFileWritable(const QString &path)
 {
-    const QString dir = QFileInfo(path).dir().path();
-    Core::IVersionControl *versionControl = Core::ICore::vcsManager()->findVersionControlForDirectory(dir);
-    switch (Core::DocumentManager::promptReadOnlyFile(path, versionControl, Core::ICore::mainWindow(), false)) {
-    case Core::DocumentManager::RO_OpenVCS:
-        if (!versionControl->vcsOpen(path)) {
-            QMessageBox::warning(Core::ICore::mainWindow(), tr("Cannot Open File"), tr("Cannot open the file for editing with VCS."));
-            return false;
-        }
-        break;
-    case Core::DocumentManager::RO_MakeWriteable: {
-        const bool permsOk = QFile::setPermissions(path, QFile::permissions(path) | QFile::WriteUser);
-        if (!permsOk) {
-            QMessageBox::warning(Core::ICore::mainWindow(), tr("Cannot Set Permissions"),  tr("Cannot set permissions to writable."));
-            return false;
-        }
-        break;
-    }
-    case Core::DocumentManager::RO_SaveAs:
-    case Core::DocumentManager::RO_Cancel:
-        return false;
-    }
-    return true;
+    Core::Internal::ReadOnlyFilesDialog roDialog(path, Core::ICore::mainWindow());
+    roDialog.setShowFailWarning(true);
+    return roDialog.exec() != Core::Internal::ReadOnlyFilesDialog::RO_Cancel;
 }
 
 bool Qt4PriFileNode::saveModifiedEditors()
@@ -1453,8 +1425,8 @@ Qt4ProFileNode::Qt4ProFileNode(Qt4Project *project,
 
 Qt4ProFileNode::~Qt4ProFileNode()
 {
-    CPlusPlus::CppModelManagerInterface *modelManager
-            = CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelManager
+            = CppTools::CppModelManagerInterface::instance();
     QMap<QString, Internal::Qt4UiCodeModelSupport *>::const_iterator it, end;
     end = m_uiCodeModelSupport.constEnd();
     for (it = m_uiCodeModelSupport.constBegin(); it != end; ++it) {
@@ -1920,6 +1892,8 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
                                                     QLatin1String("SOURCES"), m_projectDir, buildDirectory);
         newVarValues[ObjCSourceVar] = fileListForVar(m_readerExact, m_readerCumulative,
                                                      QLatin1String("OBJECTIVE_SOURCES"), m_projectDir, buildDirectory);
+        newVarValues[ObjCHeaderVar] = fileListForVar(m_readerExact, m_readerCumulative,
+                                                     QLatin1String("OBJECTIVE_HEADERS"), m_projectDir, buildDirectory);
         newVarValues[UiDirVar] = QStringList() << uiDirPath(m_readerExact);
         newVarValues[MocDirVar] = QStringList() << mocDirPath(m_readerExact);
         newVarValues[PkgConfigVar] = m_readerExact->values(QLatin1String("PKGCONFIG"));
@@ -2303,8 +2277,8 @@ QString Qt4ProFileNode::uiHeaderFile(const QString &uiDir, const QString &formFi
 void Qt4ProFileNode::createUiCodeModelSupport()
 {
 //    qDebug()<<"creatUiCodeModelSupport()";
-    CPlusPlus::CppModelManagerInterface *modelManager
-            = CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *modelManager
+            = CppTools::CppModelManagerInterface::instance();
 
     // First move all to
     QMap<QString, Internal::Qt4UiCodeModelSupport *> oldCodeModelSupport;

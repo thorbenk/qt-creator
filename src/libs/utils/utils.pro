@@ -1,10 +1,6 @@
-TEMPLATE = lib
-TARGET = Utils
 QT += gui network
 
 include(../../qtcreatorlibrary.pri)
-include(utils_dependencies.pri)
-
 include(utils-lib.pri)
 
 lessThan(QT_MAJOR_VERSION, 5) {

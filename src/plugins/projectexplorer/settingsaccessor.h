@@ -31,7 +31,10 @@
 #define SETTINGSACCESSOR_H
 
 #include <utils/fileutils.h>
-#include <utils/persistentsettings.h>
+
+#include <QVariantMap>
+
+namespace Utils { class PersistentSettingsWriter; }
 
 namespace ProjectExplorer {
 
@@ -53,9 +56,14 @@ public:
     bool saveSettings(const QVariantMap &map) const;
 
 private:
-
     // Takes ownership of the handler!
     void addVersionHandler(Internal::UserFileVersionHandler *handler);
+
+    QStringList findSettingsFiles(const QString &suffix) const;
+    QByteArray creatorId() const;
+    QString defaultFileName(const QString &suffix) const;
+    int currentVersion() const;
+    void backupUserFile() const;
 
     // The relevant data from the settings currently in use.
     class SettingsData
@@ -66,22 +74,31 @@ private:
 
         void clear();
         bool isValid() const;
+        QByteArray environmentId() const { return m_environmentId; }
+        int version() const { return m_version; }
+        Utils::FileName fileName() const { return m_fileName; }
 
         int m_version;
+        QByteArray m_environmentId;
         bool m_usingBackup;
         QVariantMap m_map;
         Utils::FileName m_fileName;
     };
 
+    void incrementVersion(SettingsData &data) const;
+
+    SettingsData readUserSettings() const;
+    SettingsData readSharedSettings() const;
+    SettingsData findBestSettings(const QStringList &candidates) const;
+    SettingsData mergeSettings(const SettingsData &user, const SettingsData &shared) const;
+
     // The entity which actually reads/writes to the settings file.
     class FileAccessor
     {
     public:
-        FileAccessor(const QByteArray &id,
-                     const QString &defaultSuffix,
+        FileAccessor(const QString &defaultSuffix,
                      const QString &environmentSuffix,
                      bool envSpecific,
-                     bool versionStrict,
                      SettingsAccessor *accessor);
         ~FileAccessor();
 
@@ -89,22 +106,15 @@ private:
         bool writeFile(const SettingsData *settings) const;
 
         QString suffix() const { return m_suffix; }
-        QByteArray id() const { return m_id; }
 
     private:
         void assignSuffix(const QString &defaultSuffix, const QString &environmentSuffix);
-        QString assembleFileName(const Project *project) const;
-        bool findNewestCompatibleSetting(SettingsData *settings) const;
 
-        QByteArray m_id;
         QString m_suffix;
         bool m_environmentSpecific;
-        bool m_versionStrict;
         SettingsAccessor *m_accessor;
         mutable Utils::PersistentSettingsWriter *m_writer;
     };
-
-    static bool verifyEnvironmentId(const QString &id);
 
     QMap<int, Internal::UserFileVersionHandler *> m_handlers;
     int m_firstVersion;

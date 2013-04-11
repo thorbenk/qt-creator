@@ -30,20 +30,9 @@
 #include "qmljsfindexportedcpptypes.h"
 
 #include <qmljs/qmljsinterpreter.h>
-#include <cplusplus/AST.h>
-#include <cplusplus/TranslationUnit.h>
-#include <cplusplus/ASTVisitor.h>
-#include <cplusplus/ASTMatcher.h>
-#include <cplusplus/ASTPatternBuilder.h>
 #include <cplusplus/Overview.h>
 #include <cplusplus/TypeOfExpression.h>
-#include <cplusplus/Names.h>
-#include <cplusplus/Literals.h>
-#include <cplusplus/CoreTypes.h>
-#include <cplusplus/Symbols.h>
-#include <cplusplus/SimpleLexer.h>
-#include <cpptools/ModelManagerInterface.h>
-#include <utils/qtcassert.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 
 #include <QDebug>
 
@@ -713,9 +702,9 @@ void FindExportedCppTypes::operator()(const CPlusPlus::Document::Ptr &document)
 
     FindExportsVisitor finder(document);
     finder();
-    if (CppModelManagerInterface *cppModelManager = CppModelManagerInterface::instance()) {
+    if (CppTools::CppModelManagerInterface *cppModelManager = CppTools::CppModelManagerInterface::instance()) {
         cppModelManager->setExtraDiagnostics(
-                    document->fileName(), CppModelManagerInterface::ExportedQmlTypesDiagnostic,
+                    document->fileName(), CppTools::CppModelManagerInterface::ExportedQmlTypesDiagnostic,
                     finder.messages());
     }
 

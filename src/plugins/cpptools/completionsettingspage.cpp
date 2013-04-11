@@ -28,15 +28,14 @@
 ****************************************************************************/
 
 #include "completionsettingspage.h"
-#include "ui_completionsettingspage.h"
+
+#include <ui_completionsettingspage.h>
 #include "cpptoolsconstants.h"
 
 #include <coreplugin/icore.h>
-#include <extensionsystem/pluginmanager.h>
 #include <texteditor/texteditorsettings.h>
 
 #include <QTextStream>
-#include <QCoreApplication>
 
 using namespace CppTools;
 using namespace CppTools::Internal;

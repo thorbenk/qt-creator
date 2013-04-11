@@ -38,28 +38,24 @@
 #include "ieditor.h"
 #include "iversioncontrol.h"
 #include "mimedatabase.h"
-#include "tabpositionindicator.h"
 #include "vcsmanager.h"
 
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/actionmanager.h>
-#include <coreplugin/actionmanager/command.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/editormanager/ieditorfactory.h>
 #include <coreplugin/editormanager/iexternaleditor.h>
 #include <coreplugin/editortoolbar.h>
 #include <coreplugin/fileutils.h>
 #include <coreplugin/icorelistener.h>
-#include <coreplugin/id.h>
-#include <coreplugin/imode.h>
 #include <coreplugin/infobar.h>
 #include <coreplugin/modemanager.h>
 #include <coreplugin/settingsdatabase.h>
 #include <coreplugin/variablemanager.h>
+#include <coreplugin/dialogs/readonlyfilesdialog.h>
 
 #include <extensionsystem/pluginmanager.h>
 
-#include <utils/consoleprocess.h>
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
 
@@ -67,7 +63,6 @@
 #include <QDebug>
 #include <QFileInfo>
 #include <QMap>
-#include <QProcess>
 #include <QSet>
 #include <QSettings>
 #include <QTextCodec>
@@ -77,12 +72,10 @@
 #include <QShortcut>
 #include <QApplication>
 #include <QFileDialog>
-#include <QLayout>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSplitter>
-#include <QStackedLayout>
 
 enum { debugEditorManager=0 };
 
@@ -542,8 +535,10 @@ void EditorManager::setCurrentView(Core::Internal::SplitterOrView *view)
     if (view)
         view->update();
 
-    if (view && !view->editor())
+    if (view && !view->editor()) {
         view->setFocus();
+        view->activateWindow();
+    }
 }
 
 Core::Internal::SplitterOrView *EditorManager::currentSplitterOrView() const
@@ -1081,8 +1076,10 @@ Core::IEditor *EditorManager::activateEditor(Core::Internal::EditorView *view, C
         setCurrentEditor(editor, (flags & IgnoreNavigationHistory));
         if (flags & ModeSwitch)
             switchToPreferedMode();
-        if (isVisible())
+        if (isVisible()) {
             editor->widget()->setFocus();
+            editor->widget()->activateWindow();
+        }
     }
     return editor;
 }
@@ -1582,33 +1579,17 @@ MakeWritableResult EditorManager::makeFileWritable(IDocument *document)
 {
     if (!document)
         return Failed;
-    QString directory = QFileInfo(document->fileName()).absolutePath();
-    IVersionControl *versionControl = ICore::vcsManager()->findVersionControlForDirectory(directory);
-    const QString &fileName = document->fileName();
 
-    switch (DocumentManager::promptReadOnlyFile(fileName, versionControl, ICore::mainWindow(), document->isSaveAsAllowed())) {
-    case DocumentManager::RO_OpenVCS:
-        if (!versionControl->vcsOpen(fileName)) {
-            QMessageBox::warning(ICore::mainWindow(), tr("Cannot Open File"), tr("Cannot open the file for editing with SCC."));
-            return Failed;
-        }
-        document->checkPermissions();
-        return OpenedWithVersionControl;
-    case DocumentManager::RO_MakeWriteable: {
-        const bool permsOk = QFile::setPermissions(fileName, QFile::permissions(fileName) | QFile::WriteUser);
-        if (!permsOk) {
-            QMessageBox::warning(ICore::mainWindow(), tr("Cannot Set Permissions"),  tr("Cannot set permissions to writable."));
-            return Failed;
-        }
-    }
-        document->checkPermissions();
+    ReadOnlyFilesDialog roDialog(document, ICore::mainWindow(), document->isSaveAsAllowed());
+    switch (roDialog.exec()) {
+    case ReadOnlyFilesDialog::RO_MakeWritable:
+    case ReadOnlyFilesDialog::RO_OpenVCS:
         return MadeWritable;
-    case DocumentManager::RO_SaveAs :
-        return saveDocumentAs(document) ? SavedAs : Failed;
-    case DocumentManager::RO_Cancel:
-        break;
+    case ReadOnlyFilesDialog::RO_SaveAs:
+        return SavedAs;
+    default:
+        return Failed;
     }
-    return Failed;
 }
 
 bool EditorManager::saveDocumentAs(IDocument *documentParam)
@@ -1989,7 +1970,7 @@ QByteArray EditorManager::saveState() const
 
     foreach (const OpenEditorsModel::Entry &entry, entries) {
         if (!entry.editor || !entry.editor->isTemporary())
-            stream << entry.fileName() << entry.displayName() << entry.id().name();
+            stream << entry.fileName() << entry.displayName() << entry.id();
     }
 
     stream << d->m_splitter->saveState();
@@ -2020,7 +2001,7 @@ bool EditorManager::restoreState(const QByteArray &state)
         stream >> fileName;
         QString displayName;
         stream >> displayName;
-        QByteArray id;
+        Core::Id id;
         stream >> id;
 
         if (!fileName.isEmpty() && !displayName.isEmpty()) {
@@ -2029,9 +2010,9 @@ bool EditorManager::restoreState(const QByteArray &state)
                 continue;
             QFileInfo rfi(autoSaveName(fileName));
             if (rfi.exists() && fi.lastModified() < rfi.lastModified())
-                openEditor(fileName, Id::fromName(id));
+                openEditor(fileName, id);
             else
-                d->m_editorModel->addRestoredEditor(fileName, displayName, Id::fromName(id));
+                d->m_editorModel->addRestoredEditor(fileName, displayName, id);
         }
     }
 
@@ -2262,6 +2243,7 @@ void EditorManager::gotoOtherSplit()
         if (IEditor *editor = view->editor()) {
             setCurrentEditor(editor, true);
             editor->widget()->setFocus();
+            editor->widget()->activateWindow();
         } else {
             setCurrentView(view);
         }

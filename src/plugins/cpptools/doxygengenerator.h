@@ -34,12 +34,9 @@
 
 #include <cplusplus/Overview.h>
 
-#include <QLatin1String>
 #include <QTextCursor>
 
-namespace CPlusPlus {
-class DeclarationAST;
-}
+namespace CPlusPlus { class DeclarationAST; }
 
 namespace CppTools {
 
@@ -97,6 +94,6 @@ private:
     QString m_commentOffset;
 };
 
-} // CppTools
+} // namespace CppTools
 
 #endif // DOXYGENGENERATOR_H

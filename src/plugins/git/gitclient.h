@@ -155,7 +155,11 @@ public:
                                   QString revision = QString(), QString *errorMessage = 0,
                                   bool revertStaging = true);
     // Checkout branch
-    bool synchronousCheckout(const QString &workingDirectory, const QString &ref, QString *errorMessage = 0);
+    bool synchronousCheckout(const QString &workingDirectory, const QString &ref, QString *errorMessage);
+    bool synchronousCheckout(const QString &workingDirectory, const QString &ref)
+         { return synchronousCheckout(workingDirectory, ref, 0); }
+    void submoduleUpdate(const QString &workingDirectory);
+    void promptSubmoduleUpdate(const QString &workingDirectory);
 
     // Do a stash and return identier.
     enum { StashPromptDescription = 0x1, StashImmediateRestore = 0x2, StashIgnoreUnchanged = 0x4 };
@@ -178,8 +182,17 @@ public:
                               QString *output, QString *errorMessage);
     bool synchronousRemoteCmd(const QString &workingDirectory, QStringList remoteArgs,
                               QString *output, QString *errorMessage);
+
+    QMap<QString,QString> synchronousRemotesList(const QString &workingDirectory,
+                                                 QString *errorMessage = 0);
+    QMap<QString,QString> synchronousSubmoduleList(const QString &workingDirectory,
+                                                   QString *errorMessage = 0);
     bool synchronousShow(const QString &workingDirectory, const QString &id,
                               QString *output, QString *errorMessage);
+
+    bool synchronousRevListCmd(const QString &workingDirectory, const QStringList &arguments,
+                               QString *output, QString *errorMessage = 0);
+
     bool synchronousParentRevisions(const QString &workingDirectory,
                                     const QStringList &files /* = QStringList() */,
                                     const QString &revision,
@@ -188,6 +201,11 @@ public:
     QString synchronousShortDescription(const QString &workingDirectory, const QString &revision);
     QString synchronousShortDescription(const QString &workingDirectory, const QString &revision,
                                      const QString &format);
+
+    QString synchronousCurrentLocalBranch(const QString &workingDirectory);
+
+    bool synchronousHeadRefs(const QString &workingDirectory, QStringList *output,
+                             QString *errorMessage = 0);
     QString synchronousTopic(const QString &workingDirectory);
     QString synchronousTopRevision(const QString &workingDirectory, QString *errorMessage = 0);
     void synchronousTagsForCommit(const QString &workingDirectory, const QString &revision,
@@ -197,7 +215,8 @@ public:
     QString vcsGetRepositoryURL(const QString &directory);
     bool synchronousFetch(const QString &workingDirectory, const QString &remote);
     bool synchronousPull(const QString &workingDirectory, bool rebase);
-    bool synchronousPush(const QString &workingDirectory, const QString &remote = QString());
+    bool synchronousPush(const QString &workingDirectory,
+                         const QStringList &pushArgs = QStringList());
     bool synchronousMerge(const QString &workingDirectory, const QString &branch);
     bool canRebase(const QString &workingDirectory) const;
     bool synchronousRebase(const QString &workingDirectory,
@@ -257,7 +276,7 @@ public:
 
     void launchRepositoryBrowser(const QString &workingDirectory);
 
-    QStringList synchronousRepositoryBranches(const QString &repositoryURL, bool *isDetached = 0);
+    QStringList synchronousRepositoryBranches(const QString &repositoryURL);
 
     GitSettings *settings() const;
 

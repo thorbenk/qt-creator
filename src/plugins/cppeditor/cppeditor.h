@@ -30,18 +30,14 @@
 #ifndef CPPEDITOR_H
 #define CPPEDITOR_H
 
-#include "cppeditorenums.h"
 #include "cppfunctiondecldeflink.h"
 
-#include <cpptools/ModelManagerInterface.h>
-#include <cplusplus/CppDocument.h>
-#include <cplusplus/LookupContext.h>
-#include <utils/uncommentselection.h>
-#include <texteditor/basetexteditor.h>
-#include <texteditor/quickfix.h>
-#include <texteditor/texteditorconstants.h>
 #include <cpptools/commentssettings.h>
 #include <cpptools/cppsemanticinfo.h>
+#include <texteditor/basetexteditor.h>
+#include <texteditor/texteditorconstants.h>
+
+#include <utils/uncommentselection.h>
 
 #include <QThread>
 #include <QMutex>
@@ -58,17 +54,15 @@ QT_END_NAMESPACE
 namespace CPlusPlus {
 class OverviewModel;
 class Symbol;
-class CppModelManagerInterface;
 }
 
 namespace CppTools {
 class CppCodeStyleSettings;
+class CppModelManagerInterface;
 class CppRefactoringFile;
 }
 
-namespace TextEditor {
-class FontSettings;
-}
+namespace TextEditor { class FontSettings; }
 
 namespace CppEditor {
 namespace Internal {
@@ -184,7 +178,7 @@ public:
     virtual void cut(); // reimplemented from BaseTextEditorWidget
     virtual void selectAll(); // reimplemented from BaseTextEditorWidget
 
-    CPlusPlus::CppModelManagerInterface *modelManager() const;
+    CppTools::CppModelManagerInterface *modelManager() const;
 
     virtual void setMimeType(const QString &mt);
 
@@ -292,7 +286,7 @@ private:
     bool handleDocumentationComment(QKeyEvent *e);
     bool isStartOfDoxygenComment(const QTextCursor &cursor) const;
 
-    CPlusPlus::CppModelManagerInterface *m_modelManager;
+    CppTools::CppModelManagerInterface *m_modelManager;
 
     QComboBox *m_outlineCombo;
     CPlusPlus::OverviewModel *m_outlineModel;

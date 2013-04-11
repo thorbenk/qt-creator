@@ -27,9 +27,9 @@
 **
 ****************************************************************************/
 
-#include <PreprocessorEnvironment.h>
-#include <PreprocessorClient.h>
-#include <pp.h>
+#include <cplusplus/PreprocessorEnvironment.h>
+#include <cplusplus/PreprocessorClient.h>
+#include <cplusplus/pp.h>
 
 #include <QCoreApplication>
 #include <QFile>
@@ -67,7 +67,7 @@ public:
     void addInclude(const QString &absoluteFilePath)
     { included.append(absoluteFilePath); }
 
-    virtual void sourceNeeded(QString &fileName, IncludeType mode, unsigned)
+    virtual void sourceNeeded(const QString &fileName, IncludeType mode, unsigned)
     {
         const QString currentFile = env->currentFile;
 
@@ -122,7 +122,7 @@ public:
     virtual void stopSkippingBlocks(unsigned)
     { }
 
-    virtual void sourceNeeded(unsigned, QString &, IncludeType)
+    virtual void sourceNeeded(unsigned, const QString &, IncludeType)
     { }
 };
 
@@ -150,9 +150,9 @@ int main(int argc, char *argv[])
     }
 }
 
-int make_depend(QCoreApplication *app)
+int make_depend(QCoreApplication *)
 {
-    QStringList todo = app->arguments();
+    QStringList todo = QCoreApplication::arguments();
     todo.removeFirst();
 
     if (todo.isEmpty())

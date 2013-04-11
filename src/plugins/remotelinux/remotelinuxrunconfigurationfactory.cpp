@@ -39,7 +39,6 @@
 
 #include <QFileInfo>
 #include <QString>
-#include <QStringList>
 
 using namespace ProjectExplorer;
 
@@ -106,23 +105,17 @@ QString RemoteLinuxRunConfigurationFactory::displayNameForId(const Core::Id id) 
         + tr(" (on Remote Generic Linux Host)");
 }
 
-RunConfiguration *RemoteLinuxRunConfigurationFactory::create(Target *parent, const Core::Id id)
+RunConfiguration *RemoteLinuxRunConfigurationFactory::doCreate(Target *parent, const Core::Id id)
 {
-    QTC_ASSERT(canCreate(parent, id), return 0);
     return new RemoteLinuxRunConfiguration(parent, id, pathFromId(id));
 }
 
-RunConfiguration *RemoteLinuxRunConfigurationFactory::restore(Target *parent,
-    const QVariantMap &map)
+RunConfiguration *RemoteLinuxRunConfigurationFactory::doRestore(Target *parent,
+                                                                const QVariantMap &map)
 {
-    QTC_ASSERT(canRestore(parent, map), return 0);
-    RemoteLinuxRunConfiguration *rc = new RemoteLinuxRunConfiguration(parent,
-            Core::Id(RemoteLinuxRunConfiguration::IdPrefix), QString());
-    if (rc->fromMap(map))
-        return rc;
-
-    delete rc;
-    return 0;
+    Q_UNUSED(map);
+    return new RemoteLinuxRunConfiguration(parent,
+                                           Core::Id(RemoteLinuxRunConfiguration::IdPrefix), QString());
 }
 
 RunConfiguration *RemoteLinuxRunConfigurationFactory::clone(Target *parent,

@@ -30,43 +30,32 @@
 #include "debuggermainwindow.h"
 #include "debuggercore.h"
 #include "debuggerengine.h"
+#include "debuggerrunconfigurationaspect.h"
 
 #include <utils/appmainwindow.h>
 #include <utils/styledbar.h>
 #include <utils/qtcassert.h>
-#include <utils/fancymainwindow.h>
 
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/actionmanager.h>
-#include <coreplugin/actionmanager/command.h>
-#include <coreplugin/id.h>
 #include <coreplugin/imode.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/findplaceholder.h>
 #include <coreplugin/icore.h>
-#include <coreplugin/minisplitter.h>
 #include <coreplugin/navigationwidget.h>
 #include <coreplugin/outputpane.h>
 #include <coreplugin/rightpane.h>
 
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorer.h>
-#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/runconfiguration.h>
 #include <projectexplorer/session.h>
 #include <projectexplorer/target.h>
 
 #include <QDebug>
-#include <QList>
-#include <QMap>
-#include <QPair>
-#include <QSettings>
 
 #include <QDockWidget>
-#include <QMenu>
-#include <QResizeEvent>
-#include <QStackedWidget>
 #include <QVBoxLayout>
 
 using namespace Core;
@@ -212,13 +201,14 @@ void DebuggerMainWindowPrivate::updateUiForTarget(Target *target)
 void DebuggerMainWindowPrivate::updateUiForRunConfiguration(RunConfiguration *rc)
 {
     if (m_previousRunConfiguration)
-        disconnect(m_previousRunConfiguration->debuggerAspect(), SIGNAL(debuggersChanged()),
+        disconnect(m_previousRunConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>(),
+                   SIGNAL(debuggersChanged()),
                    this, SLOT(updateUiForCurrentRunConfiguration()));
     m_previousRunConfiguration = rc;
     updateUiForCurrentRunConfiguration();
     if (!rc)
         return;
-    connect(m_previousRunConfiguration->debuggerAspect(),
+    connect(m_previousRunConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>(),
             SIGNAL(debuggersChanged()),
             SLOT(updateUiForCurrentRunConfiguration()));
 }
@@ -236,9 +226,9 @@ void DebuggerMainWindowPrivate::updateActiveLanguages()
         newLanguages = m_engineDebugLanguages;
     else {
         if (m_previousRunConfiguration) {
-            if (m_previousRunConfiguration->debuggerAspect()->useCppDebugger())
+            if (m_previousRunConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>()->useCppDebugger())
                 newLanguages |= CppLanguage;
-            if (m_previousRunConfiguration->debuggerAspect()->useQmlDebugger())
+            if (m_previousRunConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>()->useQmlDebugger())
                 newLanguages |= QmlLanguage;
         }
     }

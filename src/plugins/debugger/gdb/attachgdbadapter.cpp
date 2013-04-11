@@ -32,7 +32,6 @@
 #include "debuggerprotocol.h"
 #include "debuggerstringutils.h"
 #include "debuggerstartparameters.h"
-#include "procinterrupt.h"
 
 #include <utils/qtcassert.h>
 
@@ -59,6 +58,12 @@ void GdbAttachEngine::setupEngine()
 {
     QTC_ASSERT(state() == EngineSetupRequested, qDebug() << state());
     showMessage(_("TRYING TO START ADAPTER"));
+
+    if (!startParameters().workingDirectory.isEmpty())
+        m_gdbProc.setWorkingDirectory(startParameters().workingDirectory);
+    if (startParameters().environment.size())
+        m_gdbProc.setEnvironment(startParameters().environment.toStringList());
+
     startGdb();
 }
 

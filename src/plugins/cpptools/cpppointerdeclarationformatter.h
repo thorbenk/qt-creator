@@ -31,14 +31,9 @@
 #define CPPPOINTERDECLARATIONFORMATTER_H
 
 #include "cpptools_global.h"
+#include "cpprefactoringchanges.h"
 
-#include <AST.h>
-#include <ASTVisitor.h>
-#include <Overview.h>
-#include <Symbols.h>
-
-#include <cpptools/cpprefactoringchanges.h>
-#include <utils/changeset.h>
+#include <cplusplus/Overview.h>
 
 namespace CppTools {
 

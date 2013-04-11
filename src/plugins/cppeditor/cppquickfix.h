@@ -31,12 +31,10 @@
 #define CPPQUICKFIX_H
 
 #include "cppeditor_global.h"
+
 #include <texteditor/quickfix.h>
 
-namespace CPlusPlus {
-class CppModelManagerInterface;
-class Snapshot;
-}
+namespace CPlusPlus { class Snapshot; }
 
 namespace CppEditor {
 namespace Internal { class CppQuickFixAssistInterface; }

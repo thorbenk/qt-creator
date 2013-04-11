@@ -29,8 +29,6 @@
 
 #include "projectwelcomepage.h"
 
-#include "projectexplorerconstants.h"
-
 #include <utils/stringutils.h>
 
 #include <QDeclarativeEngine>
@@ -38,6 +36,8 @@
 #include <QFileInfo>
 #include <QDir>
 
+#include <coreplugin/icore.h>
+#include <coreplugin/dialogs/iwizard.h>
 #include <projectexplorer/session.h>
 #include <projectexplorer/projectexplorer.h>
 #include <sessiondialog.h>
@@ -243,6 +243,17 @@ void ProjectWelcomePage::reloadWelcomeScreenData()
         m_sessionModel->resetSessions();
     if (m_projectModel)
         m_projectModel->resetProjects();
+}
+
+void ProjectWelcomePage::newProject()
+{
+    Core::ICore::showNewItemDialog(tr("New Project"),
+                                   Core::IWizard::wizardsOfKind(Core::IWizard::ProjectWizard));
+}
+
+void ProjectWelcomePage::openProject()
+{
+     ProjectExplorerPlugin::instance()->openOpenProjectDialog();
 }
 
 } // namespace Internal

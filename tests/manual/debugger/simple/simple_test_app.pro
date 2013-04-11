@@ -10,7 +10,7 @@ QT += network
 QT += script
 QT += xml
 
-contains(QT_CONFIG, webkit) {
+contains(QT_CONFIG, webkit)|!isEmpty(QT.webkit.name) {
     QT += webkit
     greaterThan(QT_MAJOR_VERSION, 4) {
         QT += webkitwidgets
@@ -46,5 +46,6 @@ exists($$QMAKE_INCDIR_QT/QtCore/private/qobject_p.h):DEFINES += USE_PRIVATE
 exists(/usr/include/boost/optional.hpp): DEFINES += USE_BOOST
 exists(/usr/include/eigen2/Eigen/Core): DEFINES += USE_EIGEN
 
+win32-msvc*:DEFINES += _CRT_SECURE_NO_WARNINGS
 # Use for semi-automated testing
 #DEFINES += USE_AUTORUN=1

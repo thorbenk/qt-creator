@@ -30,12 +30,11 @@
 #include "basevcseditorfactory.h"
 #include "vcsbaseeditor.h"
 
-#include <coreplugin/editormanager/editormanager.h>
-#include <texteditor/fontsettings.h>
 #include <texteditor/texteditoractionhandler.h>
 #include <texteditor/texteditorsettings.h>
 
 #include <QCoreApplication>
+#include <QStringList>
 
 /*!
     \class VcsBase::BaseVCSEditorFactory
@@ -62,7 +61,7 @@ public:
 
 BaseVcsEditorFactoryPrivate::BaseVcsEditorFactoryPrivate(const VcsBaseEditorParameters *t) :
     m_type(t),
-    m_id(QByteArray(t->id)),
+    m_id(t->id),
     m_mimeTypes(QStringList(QLatin1String(t->mimeType))),
     m_editorHandler(new TextEditor::TextEditorActionHandler(t->context))
 {

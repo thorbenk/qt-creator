@@ -31,7 +31,6 @@
 
 #include "utils/qtcassert.h"
 
-#include <QByteArray>
 #include <QDebug>
 #include <QFileInfo>
 
@@ -59,6 +58,18 @@ QDebug operator<<(QDebug d, const BreakpointModelId &id)
 {
     d << qPrintable(id.toString());
     return d;
+}
+
+BreakpointModelId::BreakpointModelId(const QByteArray &ba)
+{
+    int pos = ba.indexOf('\'');
+    if (pos == -1) {
+        m_majorPart = ba.toUShort();
+        m_minorPart = 0;
+    } else {
+        m_majorPart = ba.left(pos).toUShort();
+        m_minorPart = ba.mid(pos + 1).toUShort();
+    }
 }
 
 QByteArray BreakpointModelId::toByteArray() const
@@ -240,7 +251,8 @@ bool BreakpointParameters::isValid() const
         break;
     case WatchpointAtExpression:
         return !expression.isEmpty();
-    case UnknownType:
+    case UnknownBreakpointType:
+    case LastBreakpointType:
         return false;
     }
     return true;
@@ -316,10 +328,10 @@ QString BreakpointParameters::toString() const
     case BreakpointAtMain:
     case BreakpointAtFork:
     case BreakpointAtExec:
-    //case BreakpointAtVFork:
     case BreakpointAtSysCall:
     case BreakpointAtJavaScriptThrow:
-    case UnknownType:
+    case UnknownBreakpointType:
+    case LastBreakpointType:
         break;
     }
     ts << (enabled ? " [enabled]" : " [disabled]");

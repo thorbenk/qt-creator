@@ -29,16 +29,11 @@
 
 #include "statusbarmanager.h"
 
-#include "coreconstants.h"
 #include "mainwindow.h"
 #include "statusbarwidget.h"
 
-#include <coreplugin/actionmanager/actionmanager.h>
-#include <coreplugin/actionmanager/command.h>
-#include <aggregation/aggregate.h>
 #include <extensionsystem/pluginmanager.h>
 
-#include <QSettings>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QStatusBar>
@@ -46,20 +41,31 @@
 using namespace Core;
 using namespace Core::Internal;
 
+static QWidget *createWidget(QWidget *parent = 0)
+{
+    QWidget *w = new QWidget(parent);
+    w->setLayout(new QHBoxLayout);
+    w->setVisible(true);
+    w->layout()->setMargin(0);
+    return w;
+}
+
 StatusBarManager::StatusBarManager(MainWindow *mainWnd)
   : QObject(mainWnd),
     m_mainWnd(mainWnd)
 {
-    for (int i = 0; i <= StatusBarWidget::Last; ++i) {
-        QWidget *w = new QWidget();
-        m_mainWnd->statusBar()->insertPermanentWidget(i, w);
-        w->setLayout(new QHBoxLayout);
-        w->setVisible(true);
-        w->layout()->setMargin(0);
+    QStatusBar *bar = m_mainWnd->statusBar();
+    for (int i = 0; i <= StatusBarWidget::LastLeftAligned; ++i) {
+        QWidget *w = createWidget(bar);
+        bar->insertPermanentWidget(i, w);
         m_statusBarWidgets.append(w);
     }
-    m_mainWnd->statusBar()->insertPermanentWidget(StatusBarWidget::Last+1,
+    m_mainWnd->statusBar()->insertPermanentWidget(StatusBarWidget::LastLeftAligned + 1,
                                                   new QLabel(), 1);
+    QWidget *rightCornerWidget = createWidget(bar);
+    m_mainWnd->statusBar()->insertPermanentWidget(StatusBarWidget::LastLeftAligned + 2,
+                                                  rightCornerWidget);
+    m_statusBarWidgets.append(rightCornerWidget);
 }
 
 StatusBarManager::~StatusBarManager()

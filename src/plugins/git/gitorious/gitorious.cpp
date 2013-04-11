@@ -30,7 +30,6 @@
 #include "gitorious.h"
 
 #include <QDebug>
-#include <QCoreApplication>
 #include <QXmlStreamReader>
 #include <QSettings>
 
@@ -358,11 +357,6 @@ void GitoriousProjectReader::readUnknownElement(QXmlStreamReader &reader)
 
 // --- Gitorious
 
-Gitorious::Gitorious() :
-    m_networkManager(0)
-{
-}
-
 Gitorious &Gitorious::instance()
 {
     static Gitorious gitorious;
@@ -524,9 +518,7 @@ void Gitorious::slotReplyFinished()
 // dispatch. Use host name in case an entry is removed in-between
 QNetworkReply *Gitorious::createRequest(const QUrl &url, int protocol, int hostIndex, int page)
 {
-    if (!m_networkManager)
-        m_networkManager = new Utils::NetworkAccessManager(this);
-    QNetworkReply *reply = m_networkManager->get(QNetworkRequest(url));
+    QNetworkReply *reply = Utils::NetworkAccessManager::instance()->get(QNetworkRequest(url));
     connect(reply, SIGNAL(finished()), this, SLOT(slotReplyFinished()));
     reply->setProperty(protocolPropertyC, QVariant(protocol));
     reply->setProperty(hostNamePropertyC, QVariant(hostName(hostIndex)));

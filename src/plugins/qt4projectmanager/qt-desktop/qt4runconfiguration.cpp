@@ -29,39 +29,24 @@
 
 #include "qt4runconfiguration.h"
 
-#include "../makestep.h"
 #include "../qt4nodes.h"
 #include "../qt4project.h"
 #include "../qt4buildconfiguration.h"
-#include "../qt4projectmanagerconstants.h"
-#include "../qmakestep.h"
 
 #include <coreplugin/coreconstants.h>
-#include <coreplugin/icore.h>
-#include <coreplugin/messagemanager.h>
-#include <coreplugin/variablemanager.h>
-#include <coreplugin/idocument.h>
-#include <coreplugin/helpmanager.h>
-#include <projectexplorer/buildstep.h>
 #include <projectexplorer/environmentwidget.h>
 #include <projectexplorer/target.h>
-#include <projectexplorer/projectexplorerconstants.h>
-#include <utils/qtcassert.h>
 #include <utils/qtcprocess.h>
 #include <utils/pathchooser.h>
 #include <utils/detailswidget.h>
 #include <utils/stringutils.h>
 #include <utils/persistentsettings.h>
-#include <qtsupport/customexecutablerunconfiguration.h>
 #include <qtsupport/qtoutputformatter.h>
 #include <qtsupport/qtsupportconstants.h>
-#include <qtsupport/baseqtversion.h>
-#include <qtsupport/profilereader.h>
 #include <qtsupport/qtkitinformation.h>
 #include <utils/hostosinfo.h>
 
 #include <QFormLayout>
-#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QCheckBox>
@@ -77,23 +62,19 @@ using Utils::PersistentSettingsReader;
 using Utils::PersistentSettingsWriter;
 
 namespace {
-const char * const QT4_RC_PREFIX("Qt4ProjectManager.Qt4RunConfiguration:");
 
-const char * const COMMAND_LINE_ARGUMENTS_KEY("Qt4ProjectManager.Qt4RunConfiguration.CommandLineArguments");
-const char * const PRO_FILE_KEY("Qt4ProjectManager.Qt4RunConfiguration.ProFile");
-const char * const USE_TERMINAL_KEY("Qt4ProjectManager.Qt4RunConfiguration.UseTerminal");
-const char * const USE_DYLD_IMAGE_SUFFIX_KEY("Qt4ProjectManager.Qt4RunConfiguration.UseDyldImageSuffix");
-const char * const USER_ENVIRONMENT_CHANGES_KEY("Qt4ProjectManager.Qt4RunConfiguration.UserEnvironmentChanges");
-const char * const BASE_ENVIRONMENT_BASE_KEY("Qt4ProjectManager.Qt4RunConfiguration.BaseEnvironmentBase");
-const char * const USER_WORKING_DIRECTORY_KEY("Qt4ProjectManager.Qt4RunConfiguration.UserWorkingDirectory");
+const char QT4_RC_PREFIX[] = "Qt4ProjectManager.Qt4RunConfiguration:";
+const char COMMAND_LINE_ARGUMENTS_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.CommandLineArguments";
+const char PRO_FILE_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.ProFile";
+const char USE_TERMINAL_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.UseTerminal";
+const char USE_DYLD_IMAGE_SUFFIX_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.UseDyldImageSuffix";
+const char USER_ENVIRONMENT_CHANGES_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.UserEnvironmentChanges";
+const char BASE_ENVIRONMENT_BASE_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.BaseEnvironmentBase";
+const char USER_WORKING_DIRECTORY_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.UserWorkingDirectory";
 
 QString pathFromId(Core::Id id)
 {
-    QString idstr = id.toString();
-    const QString prefix = QLatin1String(QT4_RC_PREFIX);
-    if (!idstr.startsWith(prefix))
-        return QString();
-    return idstr.mid(prefix.size());
+    return id.suffixAfter(QT4_RC_PREFIX);
 }
 
 } // namespace
@@ -692,18 +673,12 @@ QString Qt4RunConfiguration::proFilePath() const
 
 QString Qt4RunConfiguration::dumperLibrary() const
 {
-    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target()->kit());
-    if (version)
-        return version->gdbDebuggingHelperLibrary();
-    return QString();
+    return QtSupport::QtKitInformation::dumperLibrary(target()->kit());
 }
 
 QStringList Qt4RunConfiguration::dumperLibraryLocations() const
 {
-    QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target()->kit());
-    if (version)
-        return version->debuggingHelperLibraryLocations();
-    return QStringList();
+    return QtSupport::QtKitInformation::dumperLibraryLocations(target()->kit());
 }
 
 QString Qt4RunConfiguration::defaultDisplayName()
@@ -754,11 +729,8 @@ bool Qt4RunConfigurationFactory::canCreate(ProjectExplorer::Target *parent, cons
     return project->hasApplicationProFile(pathFromId(id));
 }
 
-ProjectExplorer::RunConfiguration *Qt4RunConfigurationFactory::create(ProjectExplorer::Target *parent, const Core::Id id)
+ProjectExplorer::RunConfiguration *Qt4RunConfigurationFactory::doCreate(ProjectExplorer::Target *parent, const Core::Id id)
 {
-    if (!canCreate(parent, id))
-        return 0;
-
     Qt4RunConfiguration *rc = new Qt4RunConfiguration(parent, id);
     QList<Qt4ProFileNode *> profiles = static_cast<Qt4Project *>(parent->project())->applicationProFiles();
     foreach (Qt4ProFileNode *node, profiles) {
@@ -779,16 +751,10 @@ bool Qt4RunConfigurationFactory::canRestore(ProjectExplorer::Target *parent, con
     return ProjectExplorer::idFromMap(map).toString().startsWith(QLatin1String(QT4_RC_PREFIX));
 }
 
-ProjectExplorer::RunConfiguration *Qt4RunConfigurationFactory::restore(ProjectExplorer::Target *parent, const QVariantMap &map)
+ProjectExplorer::RunConfiguration *Qt4RunConfigurationFactory::doRestore(ProjectExplorer::Target *parent,
+                                                                         const QVariantMap &map)
 {
-    if (!canRestore(parent, map))
-        return 0;
-    Qt4RunConfiguration *rc = new Qt4RunConfiguration(parent, ProjectExplorer::idFromMap(map));
-    if (rc->fromMap(map))
-        return rc;
-
-    delete rc;
-    return 0;
+    return new Qt4RunConfiguration(parent, ProjectExplorer::idFromMap(map));
 }
 
 bool Qt4RunConfigurationFactory::canClone(ProjectExplorer::Target *parent, ProjectExplorer::RunConfiguration *source) const

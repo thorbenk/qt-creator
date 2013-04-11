@@ -31,6 +31,8 @@ QtcPlugin {
         ]
     }
 
+    cpp.frameworks: qbs.targetOS === "mac" ? ["AppKit"] : undefined
+
     files: [
         "basefilewizard.cpp",
         "basefilewizard.h",
@@ -185,6 +187,9 @@ QtcPlugin {
         "dialogs/openwithdialog.ui",
         "dialogs/promptoverwritedialog.cpp",
         "dialogs/promptoverwritedialog.h",
+        "dialogs/readonlyfilesdialog.cpp",
+        "dialogs/readonlyfilesdialog.h",
+        "dialogs/readonlyfilesdialog.ui",
         "dialogs/saveitemsdialog.cpp",
         "dialogs/saveitemsdialog.h",
         "dialogs/saveitemsdialog.ui",
@@ -234,8 +239,10 @@ QtcPlugin {
     }
 
     Group {
-        condition: qbs.targetOS == "macx"
+        condition: qbs.targetOS == "mac"
         files: [
+            "macfullscreen.h",
+            "macfullscreen.mm",
             "progressmanager/progressmanager_mac.mm",
         ]
     }

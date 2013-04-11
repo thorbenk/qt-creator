@@ -28,34 +28,16 @@
 ****************************************************************************/
 
 #include "cppeditor.h"
+
 #include "cppeditorconstants.h"
 #include "cppplugin.h"
 #include "cpphighlighter.h"
 #include "cppautocompleter.h"
 #include "cppquickfixassistant.h"
 
-#include <AST.h>
-#include <Control.h>
-#include <Token.h>
-#include <Scope.h>
-#include <Symbols.h>
-#include <Names.h>
-#include <CoreTypes.h>
-#include <Literals.h>
-#include <ASTVisitor.h>
-#include <SymbolVisitor.h>
-#include <TranslationUnit.h>
-#include <cplusplus/ASTPath.h>
-#include <cpptools/ModelManagerInterface.h>
-#include <cplusplus/ExpressionUnderCursor.h>
-#include <cplusplus/TypeOfExpression.h>
-#include <cplusplus/Overview.h>
-#include <cplusplus/OverviewModel.h>
-#include <cplusplus/SimpleLexer.h>
-#include <cplusplus/MatchingText.h>
-#include <cplusplus/BackwardsScanner.h>
-#include <cplusplus/FastPreprocessor.h>
-
+#include <coreplugin/actionmanager/actioncontainer.h>
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/icore.h>
 #include <cpptools/cpptoolsplugin.h>
 #include <cpptools/cpptoolsconstants.h>
 #include <cpptools/cppchecksymbols.h>
@@ -64,55 +46,36 @@
 #include <cpptools/cpphighlightingsupport.h>
 #include <cpptools/cpplocalsymbols.h>
 #include <cpptools/cppqtstyleindenter.h>
-#include <cpptools/cppcodestylesettings.h>
-#include <cpptools/cpprefactoringchanges.h>
 #include <cpptools/cpptoolsreuse.h>
 #include <cpptools/doxygengenerator.h>
 #include <cpptools/cpptoolssettings.h>
 #include <cpptools/symbolfinder.h>
-
-#include <coreplugin/icore.h>
-#include <coreplugin/actionmanager/actionmanager.h>
-#include <coreplugin/actionmanager/actioncontainer.h>
-#include <coreplugin/actionmanager/command.h>
-#include <coreplugin/id.h>
-#include <coreplugin/editormanager/ieditor.h>
-#include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/mimedatabase.h>
-#include <utils/qtcassert.h>
-#include <extensionsystem/pluginmanager.h>
-#include <projectexplorer/projectexplorerconstants.h>
 #include <texteditor/basetextdocument.h>
 #include <texteditor/basetextdocumentlayout.h>
-#include <texteditor/fontsettings.h>
-#include <texteditor/tabsettings.h>
-#include <texteditor/texteditorconstants.h>
-#include <texteditor/refactoroverlay.h>
-#include <texteditor/semantichighlighter.h>
-#include <texteditor/codeassist/basicproposalitemlistmodel.h>
 #include <texteditor/codeassist/basicproposalitem.h>
+#include <texteditor/codeassist/basicproposalitemlistmodel.h>
 #include <texteditor/codeassist/genericproposal.h>
+#include <texteditor/fontsettings.h>
+#include <texteditor/refactoroverlay.h>
+
+#include <utils/qtcassert.h>
+
+#include <cplusplus/ASTPath.h>
+#include <cplusplus/ExpressionUnderCursor.h>
+#include <cplusplus/OverviewModel.h>
+#include <cplusplus/BackwardsScanner.h>
 
 #include <QDebug>
-#include <QTime>
 #include <QTimer>
 #include <QPointer>
-#include <QStack>
-#include <QSettings>
 #include <QSignalMapper>
 #include <QAction>
-#include <QApplication>
 #include <QHeaderView>
-#include <QLayout>
 #include <QMenu>
-#include <QShortcut>
 #include <QTextEdit>
 #include <QComboBox>
-#include <QToolBar>
 #include <QTreeView>
 #include <QSortFilterProxyModel>
-
-#include <sstream>
 
 enum {
     UPDATE_OUTLINE_INTERVAL = 500,
@@ -1281,7 +1244,7 @@ void CPPEditorWidget::finishHighlightSymbolUsages()
 
     if (m_modelManager)
         m_modelManager->setExtraDiagnostics(m_lastSemanticInfo.doc->fileName(),
-                                            CPlusPlus::CppModelManagerInterface::CppSemanticsDiagnostic,
+                                            CppTools::CppModelManagerInterface::CppSemanticsDiagnostic,
                                             m_lastSemanticInfo.doc->diagnosticMessages());
 }
 
@@ -2650,4 +2613,4 @@ void CPPEditorWidget::onCommentsSettingsChanged(const CppTools::CommentsSettings
     m_commentsSettings = settings;
 }
 
-#include "cppeditor.moc"
+#include <cppeditor.moc>

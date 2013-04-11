@@ -37,19 +37,15 @@
 #include "target.h"
 #include "project.h"
 
-#include <coreplugin/coreconstants.h>
 #include <extensionsystem/pluginmanager.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/buildmanager.h>
 #include <utils/qtcassert.h>
 
-#include <QPair>
 #include <QVariant>
 #include <QAction>
-#include <QButtonGroup>
 #include <QComboBox>
 #include <QGridLayout>
-#include <QHeaderView>
 #include <QInputDialog>
 #include <QLabel>
 #include <QMenu>
@@ -555,9 +551,8 @@ QString RunSettingsWidget::uniqueRCName(const QString &name)
 
 void RunSettingsWidget::addRunControlWidgets()
 {
-    foreach (IRunControlFactory *f, ExtensionSystem::PluginManager::getObjects<IRunControlFactory>()) {
-        ProjectExplorer::RunConfigWidget *rcw =
-            f->createConfigurationWidget(m_target->activeRunConfiguration());
+    foreach (IRunConfigurationAspect *aspect, m_target->activeRunConfiguration()->extraAspects()) {
+        ProjectExplorer::RunConfigWidget *rcw = aspect->createConfigurationWidget();
         if (rcw)
             addSubWidget(rcw);
     }

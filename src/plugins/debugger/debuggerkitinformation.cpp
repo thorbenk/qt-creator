@@ -40,7 +40,6 @@
 #include <utils/qtcassert.h>
 
 #include <QDir>
-#include <QPair>
 
 using namespace ProjectExplorer;
 using namespace Utils;
@@ -158,6 +157,9 @@ unsigned int DebuggerKitInformation::priority() const
 
 DebuggerKitInformation::DebuggerItem DebuggerKitInformation::autoDetectItem(const Kit *k)
 {
+    if (DebuggerKitInformation::isValidDebugger(k))
+        return DebuggerKitInformation::debuggerItem(k);
+
     DebuggerItem result;
     const ToolChain *tc = ToolChainKitInformation::toolChain(k);
     Abi abi = Abi::hostAbi();
@@ -203,8 +205,7 @@ DebuggerKitInformation::DebuggerItem DebuggerKitInformation::autoDetectItem(cons
 void DebuggerKitInformation::setup(Kit *k)
 {
     QTC_ASSERT(ToolChainManager::instance()->isLoaded(), return);
-    if (!isValidDebugger(k))
-        setDebuggerItem(k, autoDetectItem(k));
+    setDebuggerItem(k, autoDetectItem(k));
 }
 
 // Check the configuration errors and return a flag mask. Provide a quick check and
@@ -294,6 +295,8 @@ static const char binaryKeyC[] = "Binary";
 DebuggerKitInformation::DebuggerItem DebuggerKitInformation::variantToItem(const QVariant &v)
 {
     DebuggerItem result;
+    if (v.isNull())
+        return result;
     if (v.type() == QVariant::String) { // Convert legacy config items, remove later.
         const QString binary = v.toString();
         result.binary = Utils::FileName::fromString(binary);

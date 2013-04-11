@@ -29,15 +29,14 @@
 
 #include "mobileappwizard.h"
 
-#include "mobileappwizardpages.h"
 #include "mobileapp.h"
 #include "targetsetuppage.h"
 #include "qt4projectmanagerconstants.h"
 
 #include <projectexplorer/projectexplorerconstants.h>
-#include <projectexplorer/task.h>
 
 #include <qtsupport/qtsupportconstants.h>
+#include <qtsupport/baseqtversion.h>
 
 #include <QCoreApplication>
 #include <QIcon>

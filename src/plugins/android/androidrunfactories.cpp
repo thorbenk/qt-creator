@@ -52,16 +52,11 @@ using namespace Qt4ProjectManager;
 namespace Android {
 namespace Internal {
 
-#define ANDROID_PREFIX "Qt4ProjectManager.AndroidRunConfiguration"
-static const char ANDROID_RC_ID_PREFIX[] = ANDROID_PREFIX ":";
+static const char ANDROID_RC_ID_PREFIX[] = "Qt4ProjectManager.AndroidRunConfiguration:";
 
 static QString pathFromId(const Core::Id id)
 {
-    QString pathStr = id.toString();
-    const QString prefix = QLatin1String(ANDROID_RC_ID_PREFIX);
-    if (!pathStr.startsWith(prefix))
-        return QString();
-    return pathStr.mid(prefix.size());
+    return id.suffixAfter(ANDROID_RC_ID_PREFIX);
 }
 
 AndroidRunConfigurationFactory::AndroidRunConfigurationFactory(QObject *parent)
@@ -81,8 +76,7 @@ bool AndroidRunConfigurationFactory::canRestore(Target *parent, const QVariantMa
 {
     if (!canHandle(parent))
         return false;
-    QString id = ProjectExplorer::idFromMap(map).toString();
-    return id.startsWith(QLatin1String(ANDROID_RC_ID_PREFIX));
+    return ProjectExplorer::idFromMap(map).name().startsWith(ANDROID_RC_ID_PREFIX);
 }
 
 bool AndroidRunConfigurationFactory::canClone(Target *parent, RunConfiguration *source) const
@@ -108,25 +102,16 @@ QString AndroidRunConfigurationFactory::displayNameForId(const Core::Id id) cons
     return QFileInfo(pathFromId(id)).completeBaseName();
 }
 
-RunConfiguration *AndroidRunConfigurationFactory::create(Target *parent, const Core::Id id)
+RunConfiguration *AndroidRunConfigurationFactory::doCreate(Target *parent, const Core::Id id)
 {
-    if (!canCreate(parent, id))
-        return 0;
     return new AndroidRunConfiguration(parent, id, pathFromId(id));
 }
 
-RunConfiguration *AndroidRunConfigurationFactory::restore(Target *parent,
-    const QVariantMap &map)
+RunConfiguration *AndroidRunConfigurationFactory::doRestore(Target *parent,
+                                                            const QVariantMap &map)
 {
-    if (!canRestore(parent, map))
-        return 0;
     Core::Id id = ProjectExplorer::idFromMap(map);
-    AndroidRunConfiguration *rc = new AndroidRunConfiguration(parent, id, pathFromId(id));
-    if (rc->fromMap(map))
-        return rc;
-
-    delete rc;
-    return 0;
+    return new AndroidRunConfiguration(parent, id, pathFromId(id));
 }
 
 RunConfiguration *AndroidRunConfigurationFactory::clone(Target *parent, RunConfiguration *source)

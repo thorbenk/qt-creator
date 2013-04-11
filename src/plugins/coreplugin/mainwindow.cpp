@@ -35,7 +35,6 @@
 #include "icore.h"
 #include "coreconstants.h"
 #include "editormanager.h"
-#include "externaltool.h"
 #include "toolsettings.h"
 #include "mimetypesettings.h"
 #include "fancytabwidget.h"
@@ -55,7 +54,6 @@
 #include "progressview.h"
 #include "shortcutsettings.h"
 #include "vcsmanager.h"
-#include "variablechooser.h"
 #include "scriptmanager_p.h"
 #include "settingsdialog.h"
 #include "variablemanager.h"
@@ -67,8 +65,6 @@
 #include "rightpane.h"
 #include "editormanager/ieditorfactory.h"
 #include "statusbarwidget.h"
-#include "basefilewizard.h"
-#include "ioutputpane.h"
 #include "externaltoolmanager.h"
 #include "editormanager/systemeditor.h"
 
@@ -83,7 +79,6 @@
 #include <coreplugin/settingsdatabase.h>
 #include <utils/historycompleter.h>
 #include <utils/hostosinfo.h>
-#include <utils/pathchooser.h>
 #include <utils/stylehelper.h>
 #include <utils/stringutils.h>
 #include <extensionsystem/pluginmanager.h>
@@ -92,20 +87,16 @@
 #include <QFileInfo>
 #include <QSettings>
 #include <QTimer>
-#include <QtPlugin>
 #include <QUrl>
 #include <QDir>
-#include <QFile>
 #include <QMimeData>
 
 #include <QApplication>
 #include <QCloseEvent>
 #include <QMenu>
-#include <QPixmap>
 #include <QPrinter>
 #include <QShortcut>
 #include <QStatusBar>
-#include <QWizard>
 #include <QToolButton>
 #include <QMessageBox>
 #include <QMenuBar>
@@ -212,13 +203,15 @@ MainWindow::MainWindow() :
 
     m_modeStack = new FancyTabWidget(this);
     m_modeManager = new ModeManager(this, m_modeStack);
-    m_modeManager->addWidget(m_progressManager->progressView());
     m_statusBarManager = new StatusBarManager(this);
     m_messageManager = new MessageManager;
     m_editorManager = new EditorManager(this);
     m_editorManager->hide();
     m_externalToolManager = new ExternalToolManager();
     setCentralWidget(m_modeStack);
+
+    m_progressManager->progressView()->setParent(this);
+    m_progressManager->progressView()->setReferenceWidget(m_modeStack->statusBar());
 
     connect(QApplication::instance(), SIGNAL(focusChanged(QWidget*,QWidget*)),
             this, SLOT(updateFocusWidget(QWidget*,QWidget*)));
@@ -307,10 +300,10 @@ MainWindow::~MainWindow()
 
     delete m_editorManager;
     m_editorManager = 0;
-    delete m_statusBarManager;
-    m_statusBarManager = 0;
     delete m_progressManager;
     m_progressManager = 0;
+    delete m_statusBarManager;
+    m_statusBarManager = 0;
     ExtensionSystem::PluginManager::removeObject(m_coreImpl);
     delete m_coreImpl;
     m_coreImpl = 0;
@@ -337,7 +330,7 @@ bool MainWindow::init(QString *errorMessage)
     ExtensionSystem::PluginManager::addObject(m_coreImpl);
     m_statusBarManager->init();
     m_modeManager->init();
-    m_progressManager->init();
+    m_progressManager->init(); // needs the status bar manager
 
     ExtensionSystem::PluginManager::addObject(m_generalSettings);
     ExtensionSystem::PluginManager::addObject(m_shortcutSettings);

@@ -36,7 +36,6 @@
 #include "threaddata.h" // For ThreadId.
 
 #include <QObject>
-#include <QStringList>
 
 QT_BEGIN_NAMESPACE
 class QDebug;
@@ -299,6 +298,7 @@ protected:
 
     virtual void notifyEngineRequestRemoteSetup();
     public:
+    virtual void notifyEngineRemoteServerRunning(const QByteArray &, int pid);
     virtual void notifyEngineRemoteSetupDone(int gdbServerPort, int qmlPort);
     virtual void notifyEngineRemoteSetupFailed(const QString &message);
 

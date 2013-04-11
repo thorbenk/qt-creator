@@ -31,18 +31,17 @@
 
 #include "debuggerstartparameters.h"
 #include "debuggeractions.h"
-#include "debuggerconstants.h"
 #include "debuggerinternalconstants.h"
 #include "debuggercore.h"
 #include "debuggerdialogs.h"
 #include "debuggerengine.h"
 #include "debuggermainwindow.h"
 #include "debuggerrunner.h"
+#include "debuggerrunconfigurationaspect.h"
 #include "debuggerruncontrolfactory.h"
 #include "debuggerstringutils.h"
 #include "debuggerkitinformation.h"
 #include "memoryagent.h"
-#include "breakpoint.h"
 #include "breakhandler.h"
 #include "breakwindow.h"
 #include "disassemblerlines.h"
@@ -71,45 +70,27 @@
 
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
-#include <coreplugin/actionmanager/command.h>
-#include <coreplugin/id.h>
 #include <coreplugin/imode.h>
 #include <coreplugin/coreconstants.h>
-#include <coreplugin/dialogs/ioptionspage.h>
-#include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/findplaceholder.h>
-#include <coreplugin/icontext.h>
 #include <coreplugin/icore.h>
-#include <coreplugin/icorelistener.h>
 #include <coreplugin/messagemanager.h>
-#include <coreplugin/minisplitter.h>
 #include <coreplugin/modemanager.h>
 
 #include <cppeditor/cppeditorconstants.h>
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 
-#include <extensionsystem/pluginmanager.h>
 #include <extensionsystem/invoker.h>
 
-#include <projectexplorer/abi.h>
 #include <projectexplorer/localapplicationrunconfiguration.h>
-#include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/buildmanager.h>
+#include <projectexplorer/toolchain.h>
+#include <projectexplorer/devicesupport/deviceprocesslist.h>
 #include <projectexplorer/devicesupport/deviceprocessesdialog.h>
-#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorersettings.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/session.h>
-#include <projectexplorer/kitchooser.h>
-#include <projectexplorer/kitinformation.h>
-#include <projectexplorer/kitmanager.h>
 #include <projectexplorer/target.h>
-#include <projectexplorer/toolchain.h>
-#include <projectexplorer/toolchainmanager.h>
-#include <projectexplorer/devicesupport/deviceprocesslist.h>
-
-#include <qtsupport/qtsupportconstants.h>
 
 #include <texteditor/basetexteditor.h>
 #include <texteditor/fontsettings.h>
@@ -117,26 +98,18 @@
 
 #include <utils/hostosinfo.h>
 #include <utils/qtcassert.h>
-#include <utils/savedaction.h>
 #include <utils/styledbar.h>
 #include <utils/proxyaction.h>
 #include <utils/statuslabel.h>
-#include <utils/fileutils.h>
 #ifdef Q_OS_WIN
 #  include <utils/winutils.h>
 #endif
 
-#include <QComboBox>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QInputDialog>
-#include <QMenu>
 #include <QMessageBox>
-#include <QPushButton>
-#include <QTemporaryFile>
 #include <QTextBlock>
-#include <QTextCursor>
-#include <QTimer>
 #include <QToolButton>
 #include <QtPlugin>
 #include <QTreeWidget>
@@ -506,7 +479,7 @@ bool DummyEngine::hasCapability(unsigned cap) const
     QTC_ASSERT(activeRc, return 0);
 
     // This is a non-started Cdb or Gdb engine:
-    if (activeRc->debuggerAspect()->useCppDebugger())
+    if (activeRc->extraAspect<Debugger::DebuggerRunConfigurationAspect>()->useCppDebugger())
         return cap & (WatchpointByAddressCapability
                | BreakConditionCapability
                | TracePointCapability
@@ -1515,7 +1488,7 @@ void DebuggerPluginPrivate::parseCommandLineArguments()
         errorMessage = tr("Error evaluating command line arguments: %1")
             .arg(errorMessage);
         qWarning("%s\n", qPrintable(errorMessage));
-        Core::MessageManager::instance()->printToOutputPanePopup(errorMessage);
+        Core::MessageManager::instance()->printToOutputPane(errorMessage, Core::MessageManager::NoModeSwitch);
     }
     if (!m_scheduledStarts.isEmpty())
         QTimer::singleShot(0, this, SLOT(runScheduled()));
@@ -1618,7 +1591,9 @@ void DebuggerPluginPrivate::attachCore()
 {
     AttachCoreDialog dlg(mainWindow());
 
-    dlg.setKitId(Id::fromSetting(configValue(_("LastExternalKit"))));
+    const QString lastExternalKit = configValue(_("LastExternalKit")).toString();
+    if (!lastExternalKit.isEmpty())
+        dlg.setKitId(Id::fromString(lastExternalKit));
     dlg.setLocalExecutableFile(configValue(_("LastExternalExecutableFile")).toString());
     dlg.setLocalCoreFile(configValue(_("LastLocalCoreFile")).toString());
     dlg.setRemoteCoreFile(configValue(_("LastRemoteCoreFile")).toString());
@@ -1777,7 +1752,7 @@ void DebuggerPluginPrivate::attachToQmlPort()
     Kit *kit = dlg.kit();
     QTC_ASSERT(kit && fillParameters(&sp, kit), return);
     setConfigValue(_("LastQmlServerPort"), dlg.port());
-    setConfigValue(_("LastProfile"), kit->id().toString());
+    setConfigValue(_("LastProfile"), kit->id().toSetting());
 
     sp.qmlServerAddress = sp.connParams.host;
     sp.qmlServerPort = dlg.port();
@@ -2514,7 +2489,7 @@ void DebuggerPluginPrivate::coreShutdown()
 const CPlusPlus::Snapshot &DebuggerPluginPrivate::cppCodeModelSnapshot() const
 {
     if (m_codeModelSnapshot.isEmpty() && action(UseCodeModel)->isChecked())
-        m_codeModelSnapshot = CPlusPlus::CppModelManagerInterface::instance()->snapshot();
+        m_codeModelSnapshot = CppTools::CppModelManagerInterface::instance()->snapshot();
     return m_codeModelSnapshot;
 }
 

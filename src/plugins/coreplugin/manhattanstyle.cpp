@@ -31,36 +31,26 @@
 
 #include "styleanimator.h"
 
-#include <QLibrary>
-
 #include <coreplugin/coreconstants.h>
 
 #include <utils/hostosinfo.h>
-#include <utils/qtcassert.h>
 #include <utils/stylehelper.h>
 
 #include <utils/fancymainwindow.h>
 
 #include <QApplication>
 #include <QComboBox>
-#include <QDialogButtonBox>
 #include <QDockWidget>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenuBar>
 #include <QPainter>
 #include <QPixmap>
-#include <QPixmapCache>
-#include <QPushButton>
-#include <QScrollArea>
-#include <QSplitter>
 #include <QStatusBar>
 #include <QStyleFactory>
 #include <QStyleOption>
 #include <QToolBar>
-#include <QTreeView>
 #include <QToolButton>
-#include <QAbstractItemView>
 
 // We define a currently unused state for indicating animations
 const QStyle::State State_Animating = QStyle::State(0x00000040);
@@ -518,12 +508,8 @@ void ManhattanStyle::drawPrimitive(PrimitiveElement element, const QStyleOption 
     case PE_PanelStatusBar:
         {
             painter->save();
-            QLinearGradient grad(option->rect.topLeft(), QPoint(rect.center().x(), rect.bottom()));
-            QColor startColor = Utils::StyleHelper::shadowColor().darker(164);
-            QColor endColor = Utils::StyleHelper::baseColor().darker(130);
-            grad.setColorAt(0, startColor);
-            grad.setColorAt(1, endColor);
-            painter->fillRect(option->rect, grad);
+            QLinearGradient grad = Utils::StyleHelper::statusBarGradient(rect);
+            painter->fillRect(rect, grad);
             painter->setPen(QColor(255, 255, 255, 60));
             painter->drawLine(rect.topLeft() + QPoint(0,1),
                               rect.topRight()+ QPoint(0,1));

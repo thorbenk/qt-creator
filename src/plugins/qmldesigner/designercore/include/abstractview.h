@@ -42,6 +42,7 @@
 
 QT_BEGIN_NAMESPACE
 class QStyle;
+class QToolButton;
 QT_END_NAMESPACE
 
 namespace QmlDesigner {
@@ -58,7 +59,35 @@ class QmlModelView;
 class NodeInstanceView;
 class RewriterView;
 
-struct WidgetInfo {
+class WidgetInfo {
+
+public:
+    class ToolBarWidgetFactoryInterface {
+    public:
+        ToolBarWidgetFactoryInterface()
+        {}
+
+        virtual QList<QToolButton*> createToolBarWidgets() = 0;
+
+        virtual ~ToolBarWidgetFactoryInterface()
+        {}
+    };
+
+    template <class T>
+    class ToolBarWidgetDefaultFactory : public ToolBarWidgetFactoryInterface {
+    public:
+        ToolBarWidgetDefaultFactory(T *t ) : m_t(t)
+        {}
+
+        QList<QToolButton*> createToolBarWidgets()
+        {
+            return m_t->createToolBarWidgets();
+        }
+
+    private:
+        T * m_t;
+    };
+
     enum PlacementHint {
         NoPane,
         LeftPane,
@@ -68,13 +97,19 @@ struct WidgetInfo {
         CentralPane // not used
     };
 
+    WidgetInfo()
+        : widget(0),
+          toolBarWidgetFactory(0)
+    {
+    }
+
     QString uniqueId;
     QString tabName;
     QWidget *widget;
     int placementPriority;
     PlacementHint placementHint;
+    ToolBarWidgetFactoryInterface *toolBarWidgetFactory;
 };
-
 
 class QMLDESIGNERCORE_EXPORT AbstractView : public QObject
 {
@@ -154,6 +189,7 @@ public:
     virtual void propertiesRemoved(const QList<AbstractProperty>& propertyList) = 0;
     virtual void variantPropertiesChanged(const QList<VariantProperty>& propertyList, PropertyChangeFlags propertyChange) = 0;
     virtual void bindingPropertiesChanged(const QList<BindingProperty>& propertyList, PropertyChangeFlags propertyChange) = 0;
+    virtual void signalHandlerPropertiesChanged(const QVector<SignalHandlerProperty>& propertyList, PropertyChangeFlags propertyChange) = 0;
     virtual void rootNodeTypeChanged(const QString &type, int majorVersion, int minorVersion) = 0;
 
     virtual void instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &propertyList) = 0;
@@ -205,6 +241,7 @@ protected:
     void setModel(Model * model);
     void removeModel();
     static WidgetInfo createWidgetInfo(QWidget *widget = 0,
+                                       WidgetInfo::ToolBarWidgetFactoryInterface *toolBarWidgetFactory = 0,
                                        const QString &uniqueId = QString(),
                                        WidgetInfo::PlacementHint placementHint = WidgetInfo::NoPane,
                                        int placementPriority = 0,

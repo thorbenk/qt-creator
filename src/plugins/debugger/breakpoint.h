@@ -30,8 +30,6 @@
 #ifndef DEBUGGER_BREAKPOINT_H
 #define DEBUGGER_BREAKPOINT_H
 
-#include <QDebug>
-#include <QList>
 #include <QMetaType>
 #include <QString>
 
@@ -122,9 +120,11 @@ QDebug operator<<(QDebug d, const BreakpointResponseId &id);
 //////////////////////////////////////////////////////////////////
 
 //! \enum Debugger::Internal::BreakpointType
+
+// Note: Keep synchronized with similar definitions in bridge.py
 enum BreakpointType
 {
-    UnknownType,
+    UnknownBreakpointType,
     BreakpointByFileAndLine,
     BreakpointByFunction,
     BreakpointByAddress,
@@ -133,12 +133,12 @@ enum BreakpointType
     BreakpointAtMain,
     BreakpointAtFork,
     BreakpointAtExec,
-    //BreakpointAtVFork,
     BreakpointAtSysCall,
     WatchpointAtAddress,
     WatchpointAtExpression,
     BreakpointOnQmlSignalEmit,
-    BreakpointAtJavaScriptThrow
+    BreakpointAtJavaScriptThrow,
+    LastBreakpointType
 };
 
 //! \enum Debugger::Internal::BreakpointState
@@ -202,7 +202,7 @@ inline void operator|=(BreakpointParts &p, BreakpointParts r)
 class BreakpointParameters
 {
 public:
-    explicit BreakpointParameters(BreakpointType = UnknownType);
+    explicit BreakpointParameters(BreakpointType = UnknownBreakpointType);
     BreakpointParts differencesTo(const BreakpointParameters &rhs) const;
     bool isValid() const;
     bool equals(const BreakpointParameters &rhs) const;

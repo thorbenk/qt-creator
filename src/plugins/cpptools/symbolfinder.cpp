@@ -33,16 +33,11 @@
 
 #include "symbolfinder.h"
 
-#include <Symbols.h>
-#include <Names.h>
-#include <Literals.h>
-#include <SymbolVisitor.h>
-#include <Control.h>
-#include <LookupContext.h>
-
-#include <QDebug>
+#include <cplusplus/LookupContext.h>
 
 #include <utils/qtcassert.h>
+
+#include <QDebug>
 
 #include <algorithm>
 #include <utility>

@@ -32,10 +32,10 @@
 
 #include "qmlconsoleitemmodel.h"
 #include "qmlconsolemodel.h"
-#include "qmlconsolemanager.h"
 
 #include <QStyledItemDelegate>
-#include <QTextLayout>
+
+QT_FORWARD_DECLARE_CLASS(QTextLayout)
 
 namespace QmlJSTools {
 namespace Internal {

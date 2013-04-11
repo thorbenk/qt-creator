@@ -1,8 +1,4 @@
-TEMPLATE = lib
-TARGET = HelloWorld
-
 include(../../qtcreatorplugin.pri)
-include(../../plugins/coreplugin/coreplugin.pri)
 
 HEADERS += helloworldplugin.h \
     helloworldwindow.h

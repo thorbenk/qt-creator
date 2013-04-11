@@ -33,9 +33,6 @@
 #include "cpptools_global.h"
 #include "cppsemanticinfo.h"
 
-#include <cplusplus/CppDocument.h>
-#include <ASTfwd.h>
-
 namespace CppTools {
 
 class CPPTOOLS_EXPORT LocalSymbols

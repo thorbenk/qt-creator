@@ -106,7 +106,11 @@ bool NavigatorView::hasWidget() const
 
 WidgetInfo NavigatorView::widgetInfo()
 {
-    return createWidgetInfo(m_widget.data(), QLatin1String("Navigator"), WidgetInfo::LeftPane, 0);
+    return createWidgetInfo(m_widget.data(),
+                            new WidgetInfo::ToolBarWidgetDefaultFactory<NavigatorWidget>(m_widget.data()),
+                            QLatin1String("Navigator"),
+                            WidgetInfo::LeftPane,
+                            0);
 }
 
 void NavigatorView::modelAttached(Model *model)
@@ -155,6 +159,11 @@ void NavigatorView::variantPropertiesChanged(const QList<VariantProperty> & /*pr
 }
 
 void NavigatorView::bindingPropertiesChanged(const QList<BindingProperty> & /*propertyList*/, PropertyChangeFlags /*propertyChange*/)
+{
+}
+
+void NavigatorView::signalHandlerPropertiesChanged(const QVector<SignalHandlerProperty> & /*propertyList*/,
+                                                   AbstractView::PropertyChangeFlags /*propertyChange*/)
 {
 }
 

@@ -139,7 +139,7 @@ def getQtInformationForBuildSettings(kitCount, alreadyOnProjectsBuildSettings=Fa
     qtLibPath = getQtInformationByQMakeCall(qtDir, QtInformation.QT_LIBPATH)
     qtBinPath = getQtInformationByQMakeCall(qtDir, QtInformation.QT_BINPATH)
     if afterSwitchTo:
-        if ViewConstants.WELCOME <= afterSwitchTo <= ViewConstans.LAST_AVAILABLE:
+        if ViewConstants.WELCOME <= afterSwitchTo <= ViewConstants.LAST_AVAILABLE:
             switchViewTo(afterSwitchTo)
         else:
             test.warning("Don't know where you trying to switch to (%s)" % afterSwitchTo)
@@ -194,7 +194,7 @@ def __selectTreeItemOnBuildAndRun__(treeViewOrWidget, itemText, isRegex=False):
                 or itemText == dumpedItem):
                 found = True
                 item = ".".join([str(section.data().toString()),
-                                 dumpedItem.replace(".", "\\.")])
+                                 dumpedItem.replace(".", "\\.").replace("_", "\\_")])
                 clickItem(treeViewOrWidget, item, 5, 5, 0, Qt.LeftButton)
                 break
         if found:

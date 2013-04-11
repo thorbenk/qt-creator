@@ -28,7 +28,6 @@
 ****************************************************************************/
 
 #include "breakwindow.h"
-#include "debuggerinternalconstants.h"
 #include "breakhandler.h"
 #include "debuggerengine.h"
 #include "debuggeractions.h"
@@ -38,28 +37,18 @@
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
 
-#include <QAction>
-#include <QApplication>
-#include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
-#include <QDebug>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QHBoxLayout>
-#include <QHeaderView>
-#include <QIntValidator>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
-#include <QSpacerItem>
 #include <QSpinBox>
 #include <QTextEdit>
-#include <QVariant>
-#include <QVBoxLayout>
 
 namespace Debugger {
 namespace Internal {
@@ -147,7 +136,7 @@ private:
 };
 
 BreakpointDialog::BreakpointDialog(BreakpointModelId id, QWidget *parent)
-    : QDialog(parent), m_enabledParts(~0), m_previousType(UnknownType),
+    : QDialog(parent), m_enabledParts(~0), m_previousType(UnknownBreakpointType),
       m_firstTypeChange(true)
 {
     setWindowTitle(tr("Edit Breakpoint Properties"));
@@ -169,7 +158,8 @@ BreakpointDialog::BreakpointDialog(BreakpointModelId id, QWidget *parent)
           << tr("Break on data access at address given by expression")
           << tr("Break on QML signal emit")
           << tr("Break when JavaScript exception is thrown");
-    QTC_ASSERT(types.size() == BreakpointAtJavaScriptThrow, return);
+    // We don't list UnknownBreakpointType, so 1 less:
+    QTC_CHECK(types.size() + 1 == LastBreakpointType);
     m_comboBoxType = new QComboBox(groupBoxBasic);
     m_comboBoxType->setMaxVisibleItems(20);
     m_comboBoxType->addItems(types);
@@ -523,7 +513,8 @@ void BreakpointDialog::typeChanged(int)
     m_previousType = newType;
     // Save current state.
     switch (previousType) {
-    case UnknownType:
+    case UnknownBreakpointType:
+    case LastBreakpointType:
         break;
     case BreakpointByFileAndLine:
         getParts(FileAndLinePart|ModulePart|AllConditionParts|TracePointPart, &m_savedParameters);
@@ -553,7 +544,8 @@ void BreakpointDialog::typeChanged(int)
 
     // Enable and set up new state from saved values.
     switch (newType) {
-    case UnknownType:
+    case UnknownBreakpointType:
+    case LastBreakpointType:
         break;
     case BreakpointByFileAndLine:
         setParts(FileAndLinePart|AllConditionParts|ModulePart|TracePointPart, m_savedParameters);

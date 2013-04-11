@@ -34,11 +34,6 @@
 
 #include "vcsbase/vcsbaseplugin.h"
 
-#include <coreplugin/editormanager/ieditorfactory.h>
-#include <extensionsystem/iplugin.h>
-
-#include <QObject>
-#include <QProcess>
 #include <QStringList>
 #include <QPointer>
 #include <QPair>
@@ -51,6 +46,7 @@ class QFileInfo;
 QT_END_NAMESPACE
 
 namespace Core {
+class IEditor;
 class IEditorFactory;
 class Command;
 class Context;
@@ -63,12 +59,16 @@ class ParameterAction;
 namespace Locator {
     class CommandLocator;
 }
+namespace Gerrit {
+namespace Internal {
+class GerritPlugin;
+}
+}
 namespace Git {
 namespace Internal {
 
 class GitVersionControl;
 class GitClient;
-class ChangeSelectionDialog;
 class GitSubmitEditor;
 class CommitData;
 class StashDialog;
@@ -117,19 +117,18 @@ private slots:
     void undoUnstagedFileChanges();
     void resetRepository();
     void startRebase();
-    void startRevertCommit();
-    void startCherryPickCommit();
+    void startChangeRelatedAction();
     void stageFile();
     void unstageFile();
     void gitkForCurrentFile();
     void gitkForCurrentFolder();
     void cleanProject();
     void cleanRepository();
+    void updateSubmodules();
     void applyCurrentFilePatch();
     void promptApplyPatch();
     void gitClientMemberFuncRepositoryAction();
 
-    void showCommit();
     void startAmendCommit();
     void stash();
     void stashSnapshot();
@@ -201,22 +200,21 @@ private:
     Locator::CommandLocator *m_commandLocator;
     QAction *m_createRepositoryAction;
 
-    QAction *m_showAction;
-
     QAction *m_submitCurrentAction;
     QAction *m_diffSelectedFilesAction;
     QAction *m_undoAction;
     QAction *m_redoAction;
     QAction *m_menuAction;
     QAction *m_repositoryBrowserAction;
+    QAction *m_submoduleUpdateAction;
 
     QVector<Utils::ParameterAction *> m_fileActions;
     QVector<Utils::ParameterAction *> m_projectActions;
     QVector<QAction *> m_repositoryActions;
     Utils::ParameterAction *m_applyCurrentFilePatchAction;
+    Gerrit::Internal::GerritPlugin *m_gerritPlugin;
 
     GitClient                   *m_gitClient;
-    ChangeSelectionDialog       *m_changeSelectionDialog;
     QPointer<StashDialog>       m_stashDialog;
     QPointer<BranchDialog>      m_branchDialog;
     QPointer<RemoteDialog>      m_remoteDialog;

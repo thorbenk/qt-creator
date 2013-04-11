@@ -30,58 +30,33 @@
 #include "futureprogress.h"
 #include "progressbar.h"
 
-#include <QFutureWatcher>
-#include <QTimer>
-#include <QCoreApplication>
-#include <QPropertyAnimation>
-#include <QSequentialAnimationGroup>
-
-#include <QColor>
-#include <QVBoxLayout>
-#include <QMenu>
-#include <QProgressBar>
-#include <QHBoxLayout>
-#include <QPainter>
-#include <QMouseEvent>
 #include <utils/stylehelper.h>
+
+#include <QCoreApplication>
+#include <QFutureWatcher>
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
+#include <QPainter>
+#include <QSequentialAnimationGroup>
+#include <QTimer>
+
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QMouseEvent>
 
 const int notificationTimeout = 8000;
 const int shortNotificationTimeout = 1000;
 
 namespace Core {
-namespace Internal {
 
-class FadeWidgetHack : public QWidget
+class FutureProgressPrivate : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(float opacity READ opacity WRITE setOpacity)
+
+public slots:
+    void fadeAway();
+
 public:
-    FadeWidgetHack(QWidget *parent):QWidget(parent), m_opacity(0){
-        setAttribute(Qt::WA_TransparentForMouseEvents);
-    }
-    void paintEvent(QPaintEvent *);
-
-    void setOpacity(float o) { m_opacity = o; update(); }
-    float opacity() const { return m_opacity; }
-
-private:
-    float m_opacity;
-};
-
-void FadeWidgetHack::paintEvent(QPaintEvent *)
-{
-    if (m_opacity == 0)
-        return;
-
-    QPainter p(this);
-    p.setOpacity(m_opacity);
-    if (m_opacity > 0)
-        Utils::StyleHelper::verticalGradient(&p, rect(), rect());
-}
-
-} // namespace Internal
-
-struct FutureProgressPrivate {
     explicit FutureProgressPrivate(FutureProgress *q);
 
     void tryToFadeAway();
@@ -90,18 +65,20 @@ struct FutureProgressPrivate {
     Internal::ProgressBar *m_progress;
     QWidget *m_widget;
     QHBoxLayout *m_widgetLayout;
+    QWidget *m_statusBarWidget;
     QString m_type;
     FutureProgress::KeepOnFinishType m_keep;
     bool m_waitingForUserInteraction;
-    Internal::FadeWidgetHack *m_faderWidget;
     FutureProgress *m_q;
+    bool m_fadeStarting;
     bool m_isFading;
 };
 
 FutureProgressPrivate::FutureProgressPrivate(FutureProgress *q) :
     m_progress(new Internal::ProgressBar), m_widget(0), m_widgetLayout(new QHBoxLayout),
+    m_statusBarWidget(0),
     m_keep(FutureProgress::HideOnFinish), m_waitingForUserInteraction(false),
-    m_faderWidget(new Internal::FadeWidgetHack(q)), m_q(q), m_isFading(false)
+    m_q(q), m_fadeStarting(false), m_isFading(false)
 {
 }
 
@@ -234,9 +211,9 @@ void FutureProgress::setStarted()
 bool FutureProgress::eventFilter(QObject *, QEvent *e)
 {
     if (d->m_keep != KeepOnFinish && d->m_waitingForUserInteraction
-        && (e->type() == QEvent::MouseMove || e->type() == QEvent::KeyPress)) {
+            && (e->type() == QEvent::MouseMove || e->type() == QEvent::KeyPress)) {
         qApp->removeEventFilter(this);
-        QTimer::singleShot(notificationTimeout, this, SLOT(fadeAway()));
+        QTimer::singleShot(notificationTimeout, d, SLOT(fadeAway()));
     }
     return false;
 }
@@ -247,17 +224,19 @@ void FutureProgress::setFinished()
 
     d->m_progress->setFinished(true);
 
-    if (d->m_watcher.future().isCanceled())
+    if (d->m_watcher.future().isCanceled()) {
         d->m_progress->setError(true);
-    else
+        emit hasErrorChanged();
+    } else {
         d->m_progress->setError(false);
+    }
     emit finished();
     d->tryToFadeAway();
 }
 
 void FutureProgressPrivate::tryToFadeAway()
 {
-    if (m_isFading)
+    if (m_fadeStarting)
         return;
     if (m_keep == FutureProgress::KeepOnFinishTillUserInteraction
             || (m_keep == FutureProgress::HideOnFinish && m_progress->hasError())) {
@@ -265,10 +244,10 @@ void FutureProgressPrivate::tryToFadeAway()
         //eventfilter is needed to get user interaction
         //events to start QTimer::singleShot later
         qApp->installEventFilter(m_q);
-        m_isFading = true;
+        m_fadeStarting = true;
     } else if (m_keep == FutureProgress::HideOnFinish) {
-        QTimer::singleShot(shortNotificationTimeout, m_q, SLOT(fadeAway()));
-        m_isFading = true;
+        QTimer::singleShot(shortNotificationTimeout, this, SLOT(fadeAway()));
+        m_fadeStarting = true;
     }
 }
 
@@ -317,9 +296,11 @@ void FutureProgress::mousePressEvent(QMouseEvent *event)
     QWidget::mousePressEvent(event);
 }
 
-void FutureProgress::resizeEvent(QResizeEvent *)
+void FutureProgress::paintEvent(QPaintEvent *)
 {
-    d->m_faderWidget->setGeometry(rect());
+    QPainter p(this);
+    QLinearGradient grad = Utils::StyleHelper::statusBarGradient(rect());
+    p.fillRect(rect(), grad);
 }
 
 /*!
@@ -329,25 +310,6 @@ void FutureProgress::resizeEvent(QResizeEvent *)
 bool FutureProgress::hasError() const
 {
     return d->m_progress->hasError();
-}
-
-void FutureProgress::fadeAway()
-{
-    d->m_faderWidget->raise();
-    QSequentialAnimationGroup *group = new QSequentialAnimationGroup(this);
-    QPropertyAnimation *animation = new QPropertyAnimation(d->m_faderWidget, "opacity");
-    animation->setDuration(600);
-    animation->setEndValue(1.0);
-    group->addAnimation(animation);
-    animation = new QPropertyAnimation(this, "maximumHeight");
-    animation->setDuration(120);
-    animation->setEasingCurve(QEasingCurve::InCurve);
-    animation->setStartValue(sizeHint().height());
-    animation->setEndValue(0.0);
-    group->addAnimation(animation);
-    group->start(QAbstractAnimation::DeleteWhenStopped);
-
-    connect(group, SIGNAL(finished()), this, SIGNAL(removeMe()));
 }
 
 void FutureProgress::setType(const QString &type)
@@ -379,6 +341,55 @@ bool FutureProgress::keepOnFinish() const
 QWidget *FutureProgress::widget() const
 {
     return d->m_widget;
+}
+
+void FutureProgress::setStatusBarWidget(QWidget *widget)
+{
+    if (widget == d->m_statusBarWidget)
+        return;
+    delete d->m_statusBarWidget;
+    d->m_statusBarWidget = widget;
+    emit statusBarWidgetChanged();
+}
+
+QWidget *FutureProgress::statusBarWidget() const
+{
+    return d->m_statusBarWidget;
+}
+
+bool FutureProgress::isFading() const
+{
+    return d->m_isFading;
+}
+
+QSize FutureProgress::sizeHint() const
+{
+    return QSize(100, minimumHeight());
+}
+
+void FutureProgressPrivate::fadeAway()
+{
+    m_isFading = true;
+
+    QGraphicsOpacityEffect *opacityEffect = new QGraphicsOpacityEffect;
+    opacityEffect->setOpacity(1.);
+    m_q->setGraphicsEffect(opacityEffect);
+
+    QSequentialAnimationGroup *group = new QSequentialAnimationGroup(this);
+    QPropertyAnimation *animation = new QPropertyAnimation(opacityEffect, "opacity");
+    animation->setDuration(Utils::StyleHelper::progressFadeAnimationDuration);
+    animation->setEndValue(0.);
+    group->addAnimation(animation);
+    animation = new QPropertyAnimation(m_q, "maximumHeight");
+    animation->setDuration(120);
+    animation->setEasingCurve(QEasingCurve::InCurve);
+    animation->setStartValue(m_q->sizeHint().height());
+    animation->setEndValue(0.0);
+    group->addAnimation(animation);
+
+    connect(group, SIGNAL(finished()), m_q, SIGNAL(removeMe()));
+    group->start(QAbstractAnimation::DeleteWhenStopped);
+    emit m_q->fadeStarted();
 }
 
 } // namespace Core

@@ -31,6 +31,7 @@
 #include "analyzersettings.h"
 
 #include "analyzermanager.h"
+#include "analyzerrunconfigwidget.h"
 #include "ianalyzertool.h"
 #include "analyzerplugin.h"
 #include "analyzeroptionspage.h"
@@ -54,7 +55,7 @@ AnalyzerSettings::AnalyzerSettings(QObject *parent)
 {
 }
 
-AnalyzerSettings::AnalyzerSettings(AnalyzerSettings *other)
+AnalyzerSettings::AnalyzerSettings(const AnalyzerSettings *other)
 {
     Q_UNUSED(other);
 }
@@ -168,7 +169,7 @@ AnalyzerRunConfigurationAspect::AnalyzerRunConfigurationAspect()
     resetCustomToGlobalSettings();
 }
 
-AnalyzerRunConfigurationAspect::AnalyzerRunConfigurationAspect(AnalyzerRunConfigurationAspect *other)
+AnalyzerRunConfigurationAspect::AnalyzerRunConfigurationAspect(const AnalyzerRunConfigurationAspect *other)
     : AnalyzerSettings(other), m_useGlobalSettings(other->m_useGlobalSettings)
 {
 
@@ -204,6 +205,13 @@ QVariantMap AnalyzerRunConfigurationAspect::toMap() const
     return map;
 }
 
+AnalyzerRunConfigurationAspect *AnalyzerRunConfigurationAspect::clone(
+        ProjectExplorer::RunConfiguration *parent) const
+{
+    Q_UNUSED(parent)
+    return new AnalyzerRunConfigurationAspect(this);
+}
+
 void AnalyzerRunConfigurationAspect::setUsingGlobalSettings(bool value)
 {
     if (value == m_useGlobalSettings)
@@ -219,6 +227,13 @@ void AnalyzerRunConfigurationAspect::resetCustomToGlobalSettings()
 {
     AnalyzerGlobalSettings *gs = AnalyzerGlobalSettings::instance();
     AnalyzerSettings::fromMap(gs->toMap(), &m_customConfigurations);
+}
+
+ProjectExplorer::RunConfigWidget *AnalyzerRunConfigurationAspect::createConfigurationWidget()
+{
+    AnalyzerRunConfigWidget *ret = new AnalyzerRunConfigWidget;
+    ret->setRunConfigurationAspect(this);
+    return ret;
 }
 
 } // namespace Analyzer

@@ -94,6 +94,8 @@ defineReplace(stripSrcDir) {
 
 } # qt5
 
+!isEmpty(BUILD_TESTS):TEST = 1
+
 isEmpty(TEST):CONFIG(debug, debug|release) {
     !debug_and_release|build_pass {
         TEST = 1
@@ -162,7 +164,7 @@ LIBS += -L$$IDE_LIBRARY_PATH
     DEFINES += IDE_LIBRARY_BASENAME=\\\"$$IDE_LIBRARY_BASENAME\\\"
 }
 
-DEFINES += QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_ASCII
+DEFINES += QT_CREATOR QT_NO_CAST_TO_ASCII QT_NO_CAST_FROM_ASCII
 !macx:DEFINES += QT_USE_FAST_OPERATOR_PLUS QT_USE_FAST_CONCATENATION
 
 unix {
@@ -189,3 +191,31 @@ qt:greaterThan(QT_MAJOR_VERSION, 4) {
 
 QBSFILE = $$replace(_PRO_FILE_, \\.pro$, .qbs)
 exists($$QBSFILE):OTHER_FILES += $$QBSFILE
+
+# recursively resolve plugin deps
+done_plugins =
+for(ever) {
+    isEmpty(QTC_PLUGIN_DEPENDS): \
+        break()
+    done_plugins += $$QTC_PLUGIN_DEPENDS
+    for(dep, QTC_PLUGIN_DEPENDS) {
+        include($$PWD/src/plugins/$$dep/$${dep}_dependencies.pri)
+        LIBS += -l$$qtLibraryName($$QTC_PLUGIN_NAME)
+    }
+    QTC_PLUGIN_DEPENDS = $$unique(QTC_PLUGIN_DEPENDS)
+    QTC_PLUGIN_DEPENDS -= $$unique(done_plugins)
+}
+
+# recursively resolve library deps
+done_libs =
+for(ever) {
+    isEmpty(QTC_LIB_DEPENDS): \
+        break()
+    done_libs += $$QTC_LIB_DEPENDS
+    for(dep, QTC_LIB_DEPENDS) {
+        include($$PWD/src/libs/$$dep/$${dep}_dependencies.pri)
+        LIBS += -l$$qtLibraryName($$QTC_LIB_NAME)
+    }
+    QTC_LIB_DEPENDS = $$unique(QTC_LIB_DEPENDS)
+    QTC_LIB_DEPENDS -= $$unique(done_libs)
+}
