@@ -42,9 +42,9 @@ namespace Internal {
 
 QPair<bool, QStringList> precompile(const PCHInfo::Ptr &pchInfo)
 {
-    qDebug() << "*** Precompiling" << pchInfo->inputFileName()
-             << "into" << pchInfo->fileName()
-             << "with options" << pchInfo->options();
+//    qDebug() << "*** Precompiling" << pchInfo->inputFileName()
+//             << "into" << pchInfo->fileName()
+//             << "with options" << pchInfo->options();
 
     bool ok = false;
 

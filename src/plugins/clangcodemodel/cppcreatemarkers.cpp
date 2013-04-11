@@ -38,7 +38,7 @@
 
 #include <QDebug>
 
-//#define DEBUG_TIMING
+#undef DEBUG_TIMING
 
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
@@ -64,19 +64,19 @@ CreateMarkers::CreateMarkers(SemanticMarker::Ptr semanticMarker,
                              FastIndexer *fastIndexer,
                              const Internal::PCHInfo::Ptr &pchInfo)
     : m_marker(semanticMarker)
+    , m_pchInfo(pchInfo)
     , m_fileName(fileName)
     , m_options(options)
     , m_firstLine(firstLine)
     , m_lastLine(lastLine)
     , m_fastIndexer(fastIndexer)
-    , m_pchInfo(pchInfo)
 {
     Q_ASSERT(!semanticMarker.isNull());
 
     m_flushRequested = false;
     m_flushLine = 0;
 
-    m_unsavedFiles = Utils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::instance()->workingCopy());
+    m_unsavedFiles = Utils::createUnsavedFiles(CppModelManagerInterface::instance()->workingCopy());
 }
 
 CreateMarkers::~CreateMarkers()
@@ -90,7 +90,7 @@ void CreateMarkers::run()
 
 #ifdef DEBUG_TIMING
     qDebug() << "*** Highlighting from" << m_firstLine << "to" << m_lastLine << "of" << m_fileName;
-    qDebug() << "***** Options: " << m_options.join(" ");
+    qDebug() << "***** Options: " << m_options.join(QLatin1String(" "));
     QTime t; t.start();
 #endif // DEBUG_TIMING
 
@@ -136,7 +136,7 @@ void CreateMarkers::run()
     if (m_fastIndexer)
         m_fastIndexer->indexNow(m_marker->unit());
 
-#ifdef DEBUG_TIMING
+#if defined(DEBUG_TIMING) && defined(CLANG_INDEXING)
     qDebug() << "*** Fast re-indexing took" << t.elapsed() << "ms in total.";
 #endif // DEBUG_TIMING
 }

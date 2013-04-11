@@ -1,18 +1,11 @@
-TEMPLATE = lib
-TARGET = ClangCodeModel
-
 include(../../qtcreatorplugin.pri)
-include(../../plugins/coreplugin/coreplugin.pri)
-include(../../libs/utils/utils.pri)
-include(../../plugins/cpptools/cpptools.pri)
-include(../../plugins/texteditor/texteditor.pri)
 include(clang_installation.pri)
 
 message("Building with Clang from $$LLVM_INSTALL_DIR")
 
 LIBS += $$LLVM_LIBS
 INCLUDEPATH += $$LLVM_INCLUDEPATH
-DEFINES += CLANG_LIBRARY
+DEFINES += CLANGCODEMODEL_LIBRARY
 
 macx: QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
 

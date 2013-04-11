@@ -29,7 +29,7 @@
 
 #include "clangcompletion.h"
 #include "clangutils.h"
-#include <cpptools/ModelManagerInterface.h>
+#include "pchmanager.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/idocument.h>
@@ -43,6 +43,7 @@
 #include <cppeditor/cppeditorconstants.h>
 
 #include <cpptools/cppdoxygen.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 
 #include <texteditor/basetexteditor.h>
 #include <texteditor/convenience.h>
@@ -58,7 +59,6 @@
 #include <QDirIterator>
 #include <QTextCursor>
 #include <QTextDocument>
-#include "pchmanager.h"
 
 #undef DEBUG_TIMING
 
@@ -199,12 +199,12 @@ public:
         Q_UNUSED(project);
 
         QString fileName = editor()->document()->fileName();
-        CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
-        QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+        CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
+        QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
         QStringList includePaths, frameworkPaths, options;
         PCHInfo::Ptr pchInfo;
         if (!parts.isEmpty()) {
-            const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
+            const ProjectPart::Ptr part = parts.at(0);
             options = ClangCodeModel::Utils::createClangOptions(part, fileName);
             pchInfo = PCHManager::instance()->pchInfo(part);
             if (!pchInfo.isNull())

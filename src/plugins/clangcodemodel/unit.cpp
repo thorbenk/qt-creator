@@ -232,11 +232,6 @@ void Unit::parse()
                                               unsaved.files(),
                                               unsaved.count(),
                                               m_data->m_managOptions);
-
-#ifdef DEBUG_UNIT_COUNT
-    if (m_data->m_tu)
-        qDebug() << "# translation units:" << (unitDataCount.fetchAndAddOrdered(1) + 1);
-#endif // DEBUG_UNIT_COUNT
 }
 
 void Unit::reparse()

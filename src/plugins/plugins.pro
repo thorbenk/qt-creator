@@ -48,6 +48,12 @@ SUBDIRS   = \
     todo \
     qnx
 
+# prefer qmake variable set on command line over env var
+isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
+!isEmpty(LLVM_INSTALL_DIR) {
+    SUBDIRS += clangcodemodel
+}
+
 exists(../shared/qbs/qbs.pro): \
     SUBDIRS += \
         qbsprojectmanager
@@ -106,12 +112,3 @@ plugin_pythoneditor.subdir = pythoneditor
 plugin_pythoneditor.depends = plugin_coreplugin
 plugin_pythoneditor.depends += plugin_cpptools
 plugin_pythoneditor.depends += plugin_texteditor
-
-# prefer qmake variable set on command line over env var
-isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
-!isEmpty(LLVM_INSTALL_DIR) {
-    SUBDIRS += plugin_clangcodemodel
-    plugin_clangcodemodel.subdir = clangcodemodel
-    plugin_clangcodemodel.depends = plugin_coreplugin
-    plugin_clangcodemodel.depends += plugin_cpptools
-}

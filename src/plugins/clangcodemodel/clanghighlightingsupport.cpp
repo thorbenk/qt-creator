@@ -133,11 +133,11 @@ QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFutur
     int lastLine = ed->document()->blockCount();
 
     const QString fileName = editor()->document()->fileName();
-    CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
-    QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+    CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
+    QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
     QStringList options;
     PCHInfo::Ptr pchInfo;
-    foreach (const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part, parts) {
+    foreach (const ProjectPart::Ptr &part, parts) {
         options = Utils::createClangOptions(part, fileName);
         pchInfo = PCHManager::instance()->pchInfo(part);
         if (!pchInfo.isNull())
@@ -146,7 +146,6 @@ QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFutur
             break;
     }
 
-    //### FIXME: the range is way too big.. can't we just update the visible lines?
     CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker,
                                                          fileName, options,
                                                          firstLine, lastLine,

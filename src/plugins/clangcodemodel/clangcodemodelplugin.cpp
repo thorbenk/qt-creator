@@ -71,7 +71,7 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 
 #ifdef CLANG_COMPLETION
     m_completionAssistProvider.reset(new ClangCompletionAssistProvider);
-    CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(m_completionAssistProvider.data());
+    CppTools::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(m_completionAssistProvider.data());
 #endif // CLANG_COMPLETION
 
     PCHManager *pchManager = new PCHManager(this);
@@ -80,7 +80,8 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 #ifdef CLANG_INDEXING
     m_indexer.reset(new ClangIndexer);
     fastIndexer = m_indexer.data();
-    CPlusPlus::CppModelManagerInterface::instance()->setIndexingSupport(m_indexer->indexingSupport());
+    CppTools::CppModelManagerInterface::instance()->setIndexingSupport(m_indexer->indexingSupport());
+#endif // CLANG_INDEXING
 
     // wire up the pch manager
     ProjectExplorer::ProjectExplorerPlugin *pe =
@@ -88,15 +89,12 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
     ProjectExplorer::SessionManager *session = pe->session();
     connect(session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
             pchManager, SLOT(onAboutToRemoveProject(ProjectExplorer::Project*)));
-    connect(CPlusPlus::CppModelManagerInterface::instance(), SIGNAL(projectPartsUpdated(ProjectExplorer::Project*)),
+    connect(CppTools::CppModelManagerInterface::instance(), SIGNAL(projectPartsUpdated(ProjectExplorer::Project*)),
             pchManager, SLOT(onProjectPartsUpdated(ProjectExplorer::Project*)));
-#else // !CLANG_INDEXING
-    Q_UNUSED(pchManager);
-#endif // CLANG_INDEXING
 
 #ifdef CLANG_HIGHLIGHTING
     m_highlightingFactory.reset(new ClangHighlightingSupportFactory(fastIndexer));
-    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory.data());
+    CppTools::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory.data());
 #else // !CLANG_HIGHLIGHTING
     Q_UNUSED(fastIndexer);
 #endif // CLANG_HIGHLIGHTING
@@ -110,9 +108,9 @@ void ClangCodeModelPlugin::extensionsInitialized()
 
 ExtensionSystem::IPlugin::ShutdownFlag ClangCodeModelPlugin::aboutToShutdown()
 {
-    CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(0);
-    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(0);
-    CPlusPlus::CppModelManagerInterface::instance()->setIndexingSupport(0);
+    CppTools::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(0);
+    CppTools::CppModelManagerInterface::instance()->setHighlightingSupportFactory(0);
+    CppTools::CppModelManagerInterface::instance()->setIndexingSupport(0);
 
     return ExtensionSystem::IPlugin::aboutToShutdown();
 }

@@ -32,7 +32,7 @@
 
 #include <qglobal.h>
 
-#if defined(CLANG_LIBRARY)
+#if defined(CLANGCODEMODEL_LIBRARY)
 #  define CLANG_EXPORT Q_DECL_EXPORT
 #else
 #  define CLANG_EXPORT Q_DECL_IMPORT

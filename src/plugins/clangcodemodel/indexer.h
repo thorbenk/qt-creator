@@ -34,7 +34,7 @@
 #include "symbol.h"
 #include "unit.h"
 
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -55,7 +55,7 @@ class CLANG_EXPORT Indexer : public QObject
     Q_OBJECT
 
 public:
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+    typedef CppTools::ProjectPart ProjectPart;
 
 public:
     Indexer(QObject *parent = 0);

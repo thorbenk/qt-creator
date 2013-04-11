@@ -49,6 +49,7 @@ class CreateMarkers:
         public QFutureInterface<TextEditor::SemanticHighlighter::Result>
 {
     Q_OBJECT
+    Q_DISABLE_COPY(CreateMarkers)
 
 public:
     virtual ~CreateMarkers();
