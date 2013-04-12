@@ -22,8 +22,6 @@ unix {
     LLVM_LIBDIR = $$system($$LLVM_CONFIG --libdir)
     isEmpty(LLVM_LIBDIR):LLVM_LIBDIR=$$LLVM_INSTALL_DIR/lib
 
-    LLVM_LIBS = -L$$LLVM_LIBDIR
-
     exists ($${LLVM_LIBDIR}/libclang.*) {
         #message("LLVM was build with autotools")
         CLANG_LIB = clang
@@ -32,9 +30,17 @@ unix {
             #message("LLVM was build with CMake")
             CLANG_LIB = libclang
         } else {
-            error("Cannot find Clang shared library!")
+            exists ($${LLVM_INSTALL_DIR}/lib/libclang.*) {
+                #message("libclang placed separately from LLVM")
+                CLANG_LIB = clang
+                LLVM_LIBDIR = $${LLVM_INSTALL_DIR}/lib
+                LLVM_INCLUDEPATH=$${LLVM_INSTALL_DIR}/include
+            } else {
+                error("Cannot find Clang shared library!")
+            }
         }
     }
 
+    LLVM_LIBS = -L$${LLVM_LIBDIR}
     LLVM_LIBS += -l$${CLANG_LIB}
 }

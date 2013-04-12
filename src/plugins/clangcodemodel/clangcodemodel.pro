@@ -7,7 +7,7 @@ LIBS += $$LLVM_LIBS
 INCLUDEPATH += $$LLVM_INCLUDEPATH
 DEFINES += CLANGCODEMODEL_LIBRARY
 
-macx: QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
+unix:QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
 
 contains(DEFINES, CLANG_COMPLETION) {
     HEADERS += clangcompletion.h clangcompleter.h completionproposalsbuilder.h
