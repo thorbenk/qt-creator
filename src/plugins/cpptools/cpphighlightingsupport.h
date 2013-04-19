@@ -57,7 +57,8 @@ public:
         LabelUse,
         MacroUse,
         FunctionUse,
-        PseudoKeywordUse
+        PseudoKeywordUse,
+        StringUse
     };
 
 public:

@@ -121,7 +121,7 @@ ClangHighlightingSupport::~ClangHighlightingSupport()
 {
 }
 
-QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFuture(
+QFuture<TextEditor::HighlightingResult> ClangHighlightingSupport::highlightingFuture(
         const CPlusPlus::Document::Ptr &doc,
         const CPlusPlus::Snapshot &snapshot) const
 {

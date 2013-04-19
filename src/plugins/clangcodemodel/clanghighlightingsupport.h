@@ -64,8 +64,8 @@ public:
     ClangHighlightingSupport(TextEditor::ITextEditor *textEditor, Internal::FastIndexer *fastIndexer);
     ~ClangHighlightingSupport();
 
-    virtual QFuture<Use> highlightingFuture(const CPlusPlus::Document::Ptr &doc,
-                                            const CPlusPlus::Snapshot &snapshot) const;
+    virtual QFuture<TextEditor::HighlightingResult> highlightingFuture(
+            const CPlusPlus::Document::Ptr &doc, const CPlusPlus::Snapshot &snapshot) const;
 
 private:
     Internal::FastIndexer *m_fastIndexer;

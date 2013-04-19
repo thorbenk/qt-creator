@@ -46,7 +46,7 @@ namespace ClangCodeModel {
 class CreateMarkers:
         public QObject,
         public QRunnable,
-        public QFutureInterface<TextEditor::SemanticHighlighter::Result>
+        public QFutureInterface<TextEditor::HighlightingResult>
 {
     Q_OBJECT
     Q_DISABLE_COPY(CreateMarkers)
@@ -56,7 +56,7 @@ public:
 
     virtual void run();
 
-    typedef TextEditor::SemanticHighlighter::Result SourceMarker;
+    typedef TextEditor::HighlightingResult SourceMarker;
 
     typedef QFuture<SourceMarker> Future;
 
