@@ -158,8 +158,6 @@ public:
     BaseTextEditor *editor() const;
     ITextMarkable *markableInterface() const;
 
-    QChar characterAt(int pos) const;
-
     void print(QPrinter *);
 
     void setSuggestedFileName(const QString &suggestedFileName);
@@ -279,6 +277,7 @@ public slots:
     void fold();
     void unfold();
     void selectEncoding();
+    void updateTextCodecLabel();
 
     void gotoBlockStart();
     void gotoBlockEnd();
@@ -361,7 +360,8 @@ protected:
     virtual QString lineNumber(int blockNumber) const;
     virtual int lineNumberTopPositionOffset(int blockNumber) const;
     virtual int lineNumberDigits() const;
-
+    virtual bool selectionVisible(int blockNumber) const;
+    virtual bool replacementVisible(int blockNumber) const;
     static QString msgTextTooLarge(quint64 size);
 
 private:
@@ -403,6 +403,7 @@ public:
     virtual void extraAreaLeaveEvent(QEvent *);
     virtual void extraAreaContextMenuEvent(QContextMenuEvent *);
     virtual void extraAreaMouseEvent(QMouseEvent *);
+    void updateFoldingHighlight(const QPoint &pos);
 
     const TabSettings &tabSettings() const;
     void setLanguageSettingsId(Core::Id settingsId);
@@ -618,8 +619,7 @@ public:
     friend class BaseTextEditorWidget;
     BaseTextEditorWidget *editorWidget() const { return e; }
 
-    // EditorInterface
-    //QWidget *widget() { return e; }
+    // IEditor
     Core::IDocument * document() { return e->editorDocument(); }
     bool createNew(const QString &contents) { return e->createNew(contents); }
     bool open(QString *errorString, const QString &fileName, const QString &realFileName) { return e->open(errorString, fileName, realFileName); }
@@ -634,7 +634,6 @@ public:
     void insertExtraToolBarWidget(Side side, QWidget *widget);
 
     // ITextEditor
-    int find(const QString &string) const;
     int currentLine() const;
     int currentColumn() const;
     void gotoLine(int line, int column = 0) { e->gotoLine(line, column); }
@@ -647,10 +646,7 @@ public:
     { e->convertPosition(pos, line, column); }
     QRect cursorRect(int pos = -1) const;
 
-    QString contents() const;
     QString selectedText() const;
-    QString textAt(int pos, int length) const;
-    inline QChar characterAt(int pos) const { return e->characterAt(pos); }
 
     inline ITextMarkable *markableInterface() { return e->markableInterface(); }
 
@@ -667,8 +663,12 @@ public:
     void setCursorPosition(int pos);
     void select(int toPos);
     const Utils::CommentDefinition* commentDefinition() const;
+
 private slots:
     void updateCursorPosition();
+    void openGotoLocator();
+    void setFileEncodingLabelVisible(bool visible);
+    void setFileEncodingLabelText(const QString &text);
 
 private:
     BaseTextEditorWidget *e;
@@ -676,6 +676,8 @@ private:
     QWidget *m_stretchWidget;
     QAction *m_cursorPositionLabelAction;
     Utils::LineColumnLabel *m_cursorPositionLabel;
+    QAction *m_fileEncodingLabelAction;
+    Utils::LineColumnLabel *m_fileEncodingLabel;
 };
 
 } // namespace TextEditor

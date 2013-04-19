@@ -30,12 +30,13 @@
 #include "qmlprojectruncontrol.h"
 #include "qmlprojectrunconfiguration.h"
 #include <debugger/debuggerrunconfigurationaspect.h>
+#include <projectexplorer/environmentaspect.h>
+#include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorer.h>
 #include <utils/qtcprocess.h>
-#include <utils/tcpportsgatherer.h>
 
 #include <debugger/debuggerrunner.h>
 #include <debugger/debuggerplugin.h>
@@ -44,6 +45,8 @@
 #include <qtsupport/qmlobservertool.h>
 
 #include <qmlprojectmanager/qmlprojectplugin.h>
+
+#include <QTcpServer>
 
 using namespace ProjectExplorer;
 
@@ -54,7 +57,9 @@ namespace Internal {
 QmlProjectRunControl::QmlProjectRunControl(QmlProjectRunConfiguration *runConfiguration, RunMode mode)
     : RunControl(runConfiguration, mode)
 {
-    m_applicationLauncher.setEnvironment(runConfiguration->environment());
+    EnvironmentAspect *environment = runConfiguration->extraAspect<EnvironmentAspect>();
+    if (environment)
+        m_applicationLauncher.setEnvironment(environment->environment());
     m_applicationLauncher.setWorkingDirectory(runConfiguration->workingDirectory());
 
     if (mode == NormalRunMode)
@@ -195,32 +200,35 @@ QString QmlProjectRunControlFactory::displayName() const
 RunControl *QmlProjectRunControlFactory::createDebugRunControl(QmlProjectRunConfiguration *runConfig, QString *errorMessage)
 {
     Debugger::DebuggerStartParameters params;
-    Debugger::DebuggerRunConfigurationAspect *aspect
+
+    Debugger::DebuggerRunConfigurationAspect *debugger
             = runConfig->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+    QTC_ASSERT(debugger, return 0);
+    EnvironmentAspect *environment = runConfig->extraAspect<EnvironmentAspect>();
+
     params.startMode = Debugger::StartInternal;
     params.executable = runConfig->observerPath();
     params.processArgs = runConfig->viewerArguments();
     params.workingDirectory = runConfig->workingDirectory();
-    params.environment = runConfig->environment();
+    if (environment)
+        params.environment = environment->environment();
     params.displayName = runConfig->displayName();
     params.projectSourceDirectory = runConfig->target()->project()->projectDirectory();
     params.projectSourceFiles = runConfig->target()->project()->files(Project::ExcludeGeneratedFiles);
-    if (aspect->useQmlDebugger()) {
+    if (debugger->useQmlDebugger()) {
         const ProjectExplorer::IDevice::ConstPtr device =
                 DeviceKitInformation::device(runConfig->target()->kit());
-        params.qmlServerAddress = QLatin1String("127.0.0.1");
         QTC_ASSERT(device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE, return 0);
-        Utils::TcpPortsGatherer portsGatherer;
-        portsGatherer.update(QAbstractSocket::UnknownNetworkLayerProtocol);
-        Utils::PortList portList = device->freePorts();
-        int freePort = portsGatherer.getNextFreePort(&portList);
-        if (freePort == -1) {
+        QTcpServer server;
+        const bool canListen = server.listen(QHostAddress::LocalHost)
+                || server.listen(QHostAddress::LocalHostIPv6);
+        if (!canListen) {
             if (errorMessage)
-                *errorMessage = tr("Not enough free ports for QML debugging. Increase the "
-                                   "port range for Desktop device in Device settings.");
+                *errorMessage = tr("Not enough free ports for QML debugging. ");
             return 0;
         }
-        params.qmlServerPort = freePort;
+        params.qmlServerAddress = server.serverAddress().toString();
+        params.qmlServerPort = server.serverPort();
         params.languages |= Debugger::QmlLanguage;
 
         // Makes sure that all bindings go through the JavaScript engine, so that
@@ -233,7 +241,7 @@ RunControl *QmlProjectRunControlFactory::createDebugRunControl(QmlProjectRunConf
                                   QString::fromLatin1("-qmljsdebugger=port:%1,block").arg(
                                       params.qmlServerPort));
     }
-    if (aspect->useCppDebugger())
+    if (debugger->useCppDebugger())
         params.languages |= Debugger::CppLanguage;
 
     if (params.executable.isEmpty()) {

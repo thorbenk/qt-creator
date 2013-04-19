@@ -60,7 +60,7 @@ static void addNames(const Name *name, QList<const Name *> *names, bool addAllNa
     else if (const QualifiedNameId *q = name->asQualifiedNameId()) {
         addNames(q->base(), names);
         addNames(q->name(), names, addAllNames);
-    } else if (addAllNames || name->isNameId() || name->isTemplateNameId()) {
+    } else if (addAllNames || name->isNameId() || name->isTemplateNameId() || name->isAnonymousNameId()) {
         names->append(name);
     }
 }
@@ -336,8 +336,14 @@ QList<LookupItem> LookupContext::lookup(const Name *name, Scope *scope) const
         if (name->identifier() != 0 && scope->isBlock()) {
             bindings()->lookupInScope(name, scope, &candidates, /*templateId = */ 0, /*binding=*/ 0);
 
-            if (! candidates.isEmpty())
-                break; // it's a local.
+            if (! candidates.isEmpty()) {
+                // it's a local.
+                //for qualified it can be outside of the local scope
+                if (name->isQualifiedNameId())
+                    continue;
+                else
+                    break;
+            }
 
             for (unsigned i = 0; i < scope->memberCount(); ++i) {
                 if (UsingNamespaceDirective *u = scope->memberAt(i)->asUsingNamespaceDirective()) {
@@ -353,8 +359,14 @@ QList<LookupItem> LookupContext::lookup(const Name *name, Scope *scope) const
         } else if (Function *fun = scope->asFunction()) {
             bindings()->lookupInScope(name, fun, &candidates, /*templateId = */ 0, /*binding=*/ 0);
 
-            if (! candidates.isEmpty())
-                break; // it's an argument or a template parameter.
+            if (! candidates.isEmpty()) {
+                // it's an argument or a template parameter.
+                //for qualified it can be outside of the local scope
+                if (name->isQualifiedNameId())
+                    continue;
+                else
+                    break;
+            }
 
             if (fun->name() && fun->name()->isQualifiedNameId()) {
                 if (ClassOrNamespace *binding = bindings()->lookupType(fun)) {
@@ -380,8 +392,14 @@ QList<LookupItem> LookupContext::lookup(const Name *name, Scope *scope) const
         } else if (Template *templ = scope->asTemplate()) {
             bindings()->lookupInScope(name, templ, &candidates, /*templateId = */ 0, /*binding=*/ 0);
 
-            if (! candidates.isEmpty())
-                return candidates;  // it's a template parameter.
+            if (! candidates.isEmpty()) {
+                // it's a template parameter.
+                //for qualified it can be outside of the local scope
+                if (name->isQualifiedNameId())
+                    continue;
+                else
+                    break;
+            }
 
         } else if (scope->asNamespace()
                    || scope->asClass()
@@ -624,7 +642,8 @@ void CreateBindings::lookupInScope(const Name *name, Scope *scope,
 
             if (s->asNamespaceAlias() && binding) {
                 ClassOrNamespace *targetNamespaceBinding = binding->lookupType(name);
-                if (targetNamespaceBinding && targetNamespaceBinding->symbols().size() == 1) {
+                //there can be many namespace definitions
+                if (targetNamespaceBinding && targetNamespaceBinding->symbols().size() > 0) {
                     Symbol *resolvedSymbol = targetNamespaceBinding->symbols().first();
                     item.setType(resolvedSymbol->type()); // override the type
                 }
@@ -697,7 +716,7 @@ ClassOrNamespace *ClassOrNamespace::lookupType_helper(const Name *name,
     } else if (! processed->contains(this)) {
         processed->insert(this);
 
-        if (name->isNameId() || name->isTemplateNameId()) {
+        if (name->isNameId() || name->isTemplateNameId() || name->isAnonymousNameId()) {
             flush();
 
             foreach (Symbol *s, symbols()) {
@@ -779,9 +798,25 @@ ClassOrNamespace *ClassOrNamespace::findSpecializationWithPointer(const Template
 ClassOrNamespace *ClassOrNamespace::nestedType(const Name *name, ClassOrNamespace *origin)
 {
     Q_ASSERT(name != 0);
-    Q_ASSERT(name->isNameId() || name->isTemplateNameId());
+    Q_ASSERT(name->isNameId() || name->isTemplateNameId() || name->isAnonymousNameId());
 
     const_cast<ClassOrNamespace *>(this)->flush();
+
+    const AnonymousNameId *anonymousNameId = name->asAnonymousNameId();
+    if (anonymousNameId) {
+        QHash<const AnonymousNameId *, ClassOrNamespace *>::const_iterator cit
+                = _anonymouses.find(anonymousNameId);
+        if (cit != _anonymouses.end()) {
+            return cit.value();
+        } else {
+            ClassOrNamespace *newAnonymous = _factory->allocClassOrNamespace(this);
+#ifdef DEBUG_LOOKUP
+            newAnonymous->_name = anonymousNameId;
+#endif // DEBUG_LOOKUP
+            _anonymouses[anonymousNameId] = newAnonymous;
+            return newAnonymous;
+        }
+    }
 
     Table::const_iterator it = _classOrNamespaces.find(name);
     if (it == _classOrNamespaces.end())
@@ -917,6 +952,7 @@ ClassOrNamespace *ClassOrNamespace::nestedType(const Name *name, ClassOrNamespac
 
                 foreach (Symbol *s, reference->symbols()) {
                     Symbol *clone = cloner.symbol(s, &subst);
+                    clone->setScope(s->scope());
                     instantiation->_symbols.append(clone);
 #ifdef DEBUG_LOOKUP
                     Overview oo;oo.showFunctionSignatures = true;
@@ -1070,6 +1106,7 @@ void ClassOrNamespace::NestedClassInstantiator::instantiate(ClassOrNamespace *en
 
             foreach (Symbol *s, nestedClassOrNamespace->_symbols) {
                 Symbol *clone = _cloner.symbol(s, &_subst);
+                clone->setScope(s->scope());
                 nestedClassOrNamespaceInstantiation->_symbols.append(clone);
             }
         }
@@ -1107,29 +1144,26 @@ bool ClassOrNamespace::NestedClassInstantiator::isInstantiateNestedClassNeeded(c
 bool ClassOrNamespace::NestedClassInstantiator::containsTemplateType(Declaration *declaration) const
 {
     Type *memberType = declaration->type().type();
-    NamedType *memberNamedType = findMemberNamedType(memberType);
-    if (memberNamedType) {
-        const Name *name = memberNamedType->name();
-        if (_subst.contains(name))
-            return true;
-    }
-    return false;
+    NamedType *namedType = findNamedType(memberType);
+    return namedType && _subst.contains(namedType->name());
 }
 
-bool ClassOrNamespace::NestedClassInstantiator::containsTemplateType(Function * /*function*/) const
+bool ClassOrNamespace::NestedClassInstantiator::containsTemplateType(Function *function) const
 {
-    //TODO: make implementation
-    return false;
+    Type *returnType = function->returnType().type();
+    NamedType *namedType = findNamedType(returnType);
+    return namedType && _subst.contains(namedType->name());
+    //TODO: in future we will need also check function arguments, for now returned value is enough
 }
 
-NamedType *ClassOrNamespace::NestedClassInstantiator::findMemberNamedType(Type *memberType) const
+NamedType *ClassOrNamespace::NestedClassInstantiator::findNamedType(Type *memberType) const
 {
     if (NamedType *namedType = memberType->asNamedType())
         return namedType;
     else if (PointerType *pointerType = memberType->asPointerType())
-        return findMemberNamedType(pointerType->elementType().type());
+        return findNamedType(pointerType->elementType().type());
     else if (ReferenceType *referenceType = memberType->asReferenceType())
-        return findMemberNamedType(referenceType->elementType().type());
+        return findNamedType(referenceType->elementType().type());
 
     return 0;
 }
@@ -1183,7 +1217,7 @@ ClassOrNamespace *ClassOrNamespace::findOrCreateType(const Name *name, ClassOrNa
 
         return findOrCreateType(q->base(), origin)->findOrCreateType(q->name(), origin);
 
-    } else if (name->isNameId() || name->isTemplateNameId()) {
+    } else if (name->isNameId() || name->isTemplateNameId() || name->isAnonymousNameId()) {
         ClassOrNamespace *e = nestedType(name, origin);
 
         if (! e) {
@@ -1452,7 +1486,7 @@ bool CreateBindings::visit(NamespaceAlias *a)
         return false;
 
     } else if (ClassOrNamespace *e = _currentClassOrNamespace->lookupType(a->namespaceName())) {
-        if (a->name()->isNameId() || a->name()->isTemplateNameId())
+        if (a->name()->isNameId() || a->name()->isTemplateNameId() || a->name()->isAnonymousNameId())
             _currentClassOrNamespace->addNestedType(a->name(), e);
 
     } else if (false) {

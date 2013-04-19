@@ -7,8 +7,11 @@ HEADERS += projectexplorer.h \
     abiwidget.h \
     ansifilterparser.h \
     clangparser.h \
+    environmentaspect.h \
+    environmentaspectwidget.h \
     gcctoolchain.h \
     localapplicationrunconfiguration.h \
+    localenvironmentaspect.h \
     projectexplorer_export.h \
     projectwindow.h \
     removetaskhandler.h \
@@ -132,8 +135,11 @@ SOURCES += projectexplorer.cpp \
     abiwidget.cpp \
     ansifilterparser.cpp \
     clangparser.cpp \
+    environmentaspect.cpp \
+    environmentaspectwidget.cpp \
     gcctoolchain.cpp \
     localapplicationrunconfiguration.cpp \
+    localenvironmentaspect.cpp \
     projectwindow.cpp \
     removetaskhandler.cpp \
     kit.cpp \

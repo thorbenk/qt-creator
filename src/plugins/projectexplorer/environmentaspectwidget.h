@@ -27,47 +27,57 @@
 **
 ****************************************************************************/
 
+#ifndef ENVIRONMENTASPECTWIDGET_H
+#define ENVIRONMENTASPECTWIDGET_H
 
-import HelperWidgets 1.0
-import Bauhaus 1.0
+#include "projectexplorer_export.h"
 
-GroupBox {
-    caption: "Combo Box"
-    layout: VerticalLayout {
+#include "environmentaspect.h"
+#include "runconfiguration.h"
 
-        ColorGroupBox {
-            text:  qsTr("Text")
-            toolTip:  qsTr("The text shown on the combobox")
-            finished: finishedNotify
-            backendColor: backendValues.textColor
-        }
+#include <utils/environment.h>
 
-        QWidget {
-            layout: HorizontalLayout {
-                Label {
-                    text: qsTr("Tool tip")
-                    toolTip: qsTr("The tool tip shown for the combobox.")
-                }
-                LineEdit {
-                    backendValue: backendValues.tooltip
-                    baseStateFlag: isBaseState
-                }
-            }
-        }
+#include <QList>
+#include <QVariantMap>
 
-        QWidget {
-            layout: HorizontalLayout {
-                Label {
-                    text: qsTr("Focus on press")
-                    toolTip: "Determines whether the combobox gets focus if pressed."
-                }
-                CheckBox {
-                    text: backendValues.activeFocusOnPress.value
-                    backendValue: backendValues.activeFocusOnPress
-                    baseStateFlag: isBaseState
-                    checkable: true
-                }
-            }
-        }
-    }
-}
+QT_BEGIN_NAMESPACE
+class QComboBox;
+QT_END_NAMESPACE
+
+namespace Utils { class DetailsWidget; }
+
+namespace ProjectExplorer {
+
+class EnvironmentWidget;
+
+class PROJECTEXPLORER_EXPORT EnvironmentAspectWidget : public RunConfigWidget
+{
+    Q_OBJECT
+
+public:
+    EnvironmentAspectWidget(EnvironmentAspect *aspect, QWidget *additionalWidget = 0);
+
+    QString displayName() const;
+    virtual EnvironmentAspect *aspect() const;
+
+    QWidget *additionalWidget() const;
+
+private slots:
+    void baseEnvironmentSelected(int idx);
+    void changeBaseEnvironment();
+    void userChangesEdited();
+    void changeUserChanges(QList<Utils::EnvironmentItem> changes);
+
+private:
+    EnvironmentAspect *m_aspect;
+    bool m_ignoreChange;
+
+    QWidget *m_additionalWidget;
+    QComboBox *m_baseEnvironmentComboBox;
+    Utils::DetailsWidget *m_detailsContainer;
+    ProjectExplorer::EnvironmentWidget *m_environmentWidget;
+};
+
+} // namespace ProjectExplorer
+
+#endif // ENVIRONMENTASPECTWIDGET_H

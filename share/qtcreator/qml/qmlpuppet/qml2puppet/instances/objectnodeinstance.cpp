@@ -54,6 +54,17 @@
 #include <private/qqmltimer_p.h>
 #include <private/qqmlengine_p.h>
 
+static bool isPropertyBlackListed(const QmlDesigner::PropertyName &propertyName)
+{
+    if (propertyName.contains(".") && propertyName.contains("__"))
+        return true;
+
+    if (propertyName.count(".") > 1)
+        return true;
+
+    return false;
+}
+
 namespace QmlDesigner {
 namespace Internal {
 
@@ -420,6 +431,10 @@ QVariant ObjectNodeInstance::fixResourcePaths(const QVariant &value)
     return value;
 }
 
+void ObjectNodeInstance::updateDirtyNodeRecursive()
+{
+}
+
 void ObjectNodeInstance::setPropertyVariant(const PropertyName &name, const QVariant &value)
 {
     QQmlProperty property(object(), name, context());
@@ -534,6 +549,9 @@ void ObjectNodeInstance::refreshProperty(const PropertyName &name)
 
 bool ObjectNodeInstance::hasBindingForProperty(const PropertyName &name, bool *hasChanged) const
 {
+    if (isPropertyBlackListed(name))
+        return false;
+
     QQmlProperty property(object(), name, context());
 
     bool hasBinding = QQmlPropertyPrivate::binding(property);
@@ -602,6 +620,9 @@ QVariant ObjectNodeInstance::property(const PropertyName &name) const
 
     // TODO: handle model nodes
 
+    if (isPropertyBlackListed(name))
+        return QVariant();
+
     QQmlProperty property(object(), name, context());
     if (property.property().isEnumType()) {
         QVariant value = property.read();
@@ -664,6 +685,9 @@ PropertyNameList ObjectNodeInstance::propertyNames() const
 
 QString ObjectNodeInstance::instanceType(const PropertyName &name) const
 {
+    if (isPropertyBlackListed(name))
+        return QLatin1String("undefined");
+
     QQmlProperty property(object(), name, context());
     if (!property.isValid())
         return QLatin1String("undefined");
@@ -783,7 +807,13 @@ static void disableTiledBackingStore(QObject *object)
     Q_UNUSED(object);
 }
 
-PropertyNameList propertyNameForWritableProperties(QObject *object, const PropertyName &baseName = PropertyName(), QObjectList *inspectedObjects = new QObjectList())
+static void addToPropertyNameListIfNotBlackListed(PropertyNameList *propertyNameList, const PropertyName &propertyName)
+{
+    if (!isPropertyBlackListed(propertyName))
+        propertyNameList->append(propertyName);
+}
+
+PropertyNameList propertyNameListForWritableProperties(QObject *object, const PropertyName &baseName = PropertyName(), QObjectList *inspectedObjects = new QObjectList())
 {
     PropertyNameList propertyNameList;
 
@@ -800,16 +830,16 @@ PropertyNameList propertyNameForWritableProperties(QObject *object, const Proper
             if (declarativeProperty.name() != "parent") {
                 QObject *childObject = QQmlMetaType::toQObject(declarativeProperty.read());
                 if (childObject)
-                    propertyNameList.append(propertyNameForWritableProperties(childObject, baseName +  PropertyName(metaProperty.name()) + '.', inspectedObjects));
+                    propertyNameList.append(propertyNameListForWritableProperties(childObject, baseName +  PropertyName(metaProperty.name()) + '.', inspectedObjects));
             }
         } else if (QQmlValueTypeFactory::valueType(metaProperty.userType())) {
             QQmlValueType *valueType = QQmlValueTypeFactory::valueType(metaProperty.userType());
             valueType->setValue(metaProperty.read(object));
-            propertyNameList.append(propertyNameForWritableProperties(valueType, baseName +  PropertyName(metaProperty.name()) + '.', inspectedObjects));
+            propertyNameList.append(propertyNameListForWritableProperties(valueType, baseName +  PropertyName(metaProperty.name()) + '.', inspectedObjects));
         }
 
         if (metaProperty.isReadable() && metaProperty.isWritable()) {
-            propertyNameList.append(baseName + PropertyName(metaProperty.name()));
+            addToPropertyNameListIfNotBlackListed(&propertyNameList, baseName + PropertyName(metaProperty.name()));
         }
     }
 
@@ -821,7 +851,7 @@ static void fixResourcePathsForObject(QObject *object)
     if (qgetenv("QMLDESIGNER_RC_PATHS").isEmpty())
         return;
 
-    PropertyNameList propertyNameList = propertyNameForWritableProperties(object);
+    PropertyNameList propertyNameList = propertyNameListForWritableProperties(object);
 
     foreach (const PropertyName &propertyName, propertyNameList) {
         QQmlProperty property(object, propertyName, QQmlEngine::contextForObject(object));
@@ -1037,7 +1067,7 @@ void ObjectNodeInstance::deactivateState()
 
 void ObjectNodeInstance::populateResetHashes()
 {
-    PropertyNameList propertyNameList = propertyNameForWritableProperties(object());
+    PropertyNameList propertyNameList = propertyNameListForWritableProperties(object());
 
     foreach (const PropertyName &propertyName, propertyNameList) {
         QQmlProperty property(object(), propertyName, QQmlEngine::contextForObject(object()));
@@ -1071,11 +1101,12 @@ void ObjectNodeInstance::setResetValue(const PropertyName &propertyName, const Q
     m_resetValueHash.insert(propertyName, value);
 }
 
-void ObjectNodeInstance::paint(QPainter * /*painter*/)
+QImage ObjectNodeInstance::renderImage() const
 {
+    return QImage();
 }
 
-QImage ObjectNodeInstance::renderImage() const
+QImage ObjectNodeInstance::renderPreviewImage(const QSize & /*previewImageSize*/) const
 {
     return QImage();
 }
@@ -1091,8 +1122,14 @@ QObject *ObjectNodeInstance::parent() const
 QObject *parentObject(QObject *object)
 {
     QQuickItem *quickItem = qobject_cast<QQuickItem*>(object);
-    if (quickItem)
+    if (quickItem && quickItem->parentItem()) {
+
+        //QQuickRootItem is used by Window and we want to return the Window as parent
+        if (strcmp(quickItem->metaObject()->className(), "QQuickRootItem"))
+            return object->parent();
+
         return quickItem->parentItem();
+    }
 
     return object->parent();
 }

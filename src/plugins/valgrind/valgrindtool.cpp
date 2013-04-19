@@ -32,10 +32,15 @@
 #include <remotelinux/remotelinuxrunconfiguration.h>
 
 #include <debugger/debuggerrunconfigurationaspect.h>
+#include <projectexplorer/environmentaspect.h>
 #include <projectexplorer/localapplicationrunconfiguration.h>
 #include <projectexplorer/kitinformation.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/target.h>
+
+#include <utils/qtcassert.h>
+
+#include <QTcpServer>
 
 using namespace ProjectExplorer;
 using namespace RemoteLinux;
@@ -62,14 +67,22 @@ Analyzer::AnalyzerStartParameters ValgrindTool::createStartParameters(
     sp.displayName = runConfiguration->displayName();
     if (LocalApplicationRunConfiguration *rc1 =
             qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)) {
-        sp.startMode = Analyzer::StartLocal;
-        sp.environment = rc1->environment();
+        ProjectExplorer::EnvironmentAspect *aspect
+                = runConfiguration->extraAspect<ProjectExplorer::EnvironmentAspect>();
+        if (aspect)
+            sp.environment = aspect->environment();
         sp.workingDirectory = rc1->workingDirectory();
         sp.debuggee = rc1->executable();
         sp.debuggeeArgs = rc1->commandLineArguments();
-        sp.connParams.host = QLatin1String("localhost");
-        sp.connParams.port = rc1->extraAspect<Debugger::DebuggerRunConfigurationAspect>()
-                ->qmlDebugServerPort();
+        const ProjectExplorer::IDevice::ConstPtr device =
+                ProjectExplorer::DeviceKitInformation::device(runConfiguration->target()->kit());
+        QTC_ASSERT(device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE, return sp);
+        QTcpServer server;
+        if (!server.listen(QHostAddress::LocalHost) || !server.listen(QHostAddress::LocalHostIPv6))
+            return sp;
+        sp.connParams.host = server.serverAddress().toString();
+        sp.connParams.port = server.serverPort();
+        sp.startMode = Analyzer::StartLocal;
     } else if (RemoteLinuxRunConfiguration *rc2 =
                qobject_cast<RemoteLinuxRunConfiguration *>(runConfiguration)) {
         sp.startMode = Analyzer::StartRemote;

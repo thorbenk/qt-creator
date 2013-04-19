@@ -86,13 +86,13 @@ static const FileTypeDataStorage fileTypeDataStorage[] = {
       ":/qt4projectmanager/images/sources.png" },
     { ProjectExplorer::FormType,
       QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "Forms"),
-      ":/qt4projectmanager/images/forms.png" },
+      ":/qtsupport/images/forms.png" },
     { ProjectExplorer::ResourceType,
       QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "Resources"),
-      ":/qt4projectmanager/images/qt_qrc.png" },
+      ":/qtsupport/images/qt_qrc.png" },
     { ProjectExplorer::QMLType,
       QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "QML"),
-      ":/qt4projectmanager/images/qml.png" },
+      ":/qtsupport/images/qml.png" },
     { ProjectExplorer::UnknownFileType,
       QT_TRANSLATE_NOOP("Qt4ProjectManager::Qt4PriFileNode", "Other files"),
       ":/qt4projectmanager/images/unknown.png" }
@@ -146,7 +146,7 @@ Qt4NodeStaticData::Qt4NodeStaticData()
                                                                desc, folderIcon));
     }
     // Project icon
-    const QIcon projectBaseIcon(QLatin1String(":/qt4projectmanager/images/qt_project.png"));
+    const QIcon projectBaseIcon(QLatin1String(":/qtsupport/images/qt_project.png"));
     const QPixmap projectPixmap = Core::FileIconProvider::overlayIcon(QStyle::SP_DirIcon,
                                                                       projectBaseIcon,
                                                                       desiredSize);
@@ -1346,16 +1346,6 @@ const Qt4ProFileNode *Qt4ProFileNode::findProFileFor(const QString &fileName) co
     return 0;
 }
 
-TargetInformation Qt4ProFileNode::targetInformation(const QString &fileName) const
-{
-    TargetInformation result;
-    const Qt4ProFileNode *qt4ProFileNode = findProFileFor(fileName);
-    if (!qt4ProFileNode)
-        return result;
-
-    return qt4ProFileNode->targetInformation();
-}
-
 QString Qt4ProFileNode::makefile() const
 {
     return singleVariableValue(Makefile);
@@ -1911,6 +1901,7 @@ void Qt4ProFileNode::applyEvaluate(EvalResult evalResult, bool async)
         newVarValues[ObjectExt] = m_readerExact->values(QLatin1String("QMAKE_EXT_OBJ"));
         newVarValues[ObjectsDir] = m_readerExact->values(QLatin1String("OBJECTS_DIR"));
         newVarValues[VersionVar] = m_readerExact->values(QLatin1String("VERSION"));
+        newVarValues[TargetExtVar] = m_readerExact->values(QLatin1String("TARGET_EXT"));
         newVarValues[TargetVersionExtVar]
                 = m_readerExact->values(QLatin1String("TARGET_VERSION_EXT"));
         newVarValues[StaticLibExtensionVar] = m_readerExact->values(QLatin1String("QMAKE_EXTENSION_STATICLIB"));
@@ -2079,10 +2070,9 @@ TargetInformation Qt4ProFileNode::targetInformation(QtSupport::ProFileReader *re
 
     QtSupport::ProFileReader *readerBP = 0;
     QStringList builds = reader->values(QLatin1String("BUILDS"));
-    QString buildTarget;
     if (!builds.isEmpty()) {
         QString build = builds.first();
-        buildTarget = reader->value(build + QLatin1String(".target"));
+        result.buildTarget = reader->value(build + QLatin1String(".target"));
 
         QHash<QString, QStringList> basevars;
         QStringList basecfgs = reader->values(build + QLatin1String(".CONFIG"));
@@ -2113,48 +2103,15 @@ TargetInformation Qt4ProFileNode::targetInformation(QtSupport::ProFileReader *re
 
     // BUILD DIR
     result.buildDir = buildDir();
-    const QString baseDir = result.buildDir;
-    // qDebug() << "base build dir is:"<<baseDir;
 
-    QString destDir;
-    if (reader->contains(QLatin1String("DESTDIR"))) {
-        destDir = reader->value(QLatin1String("DESTDIR"));
-        bool workingDirIsBaseDir = false;
-        if (destDir == buildTarget) // special case for "debug" or "release"
-            workingDirIsBaseDir = true;
-
-        if (QDir::isRelativePath(destDir))
-            destDir = baseDir + QLatin1Char('/') + destDir;
-
-        if (workingDirIsBaseDir)
-            result.workingDir = baseDir;
-        else
-            result.workingDir = destDir;
-    } else {
-        destDir = baseDir;
-        result.workingDir = baseDir;
-    }
+    if (reader->contains(QLatin1String("DESTDIR")))
+        result.destDir = reader->value(QLatin1String("DESTDIR"));
 
     // Target
     result.target = reader->value(QLatin1String("TARGET"));
     if (result.target.isEmpty())
         result.target = QFileInfo(m_projectFilePath).baseName();
 
-    if (Utils::HostOsInfo::isMacHost()
-            && reader->values(QLatin1String("CONFIG")).contains(QLatin1String("app_bundle"))) {
-        const QString infix = QLatin1Char('/') + result.target
-                + QLatin1String(".app/Contents/MacOS");
-        result.workingDir += infix;
-        destDir += infix;
-    }
-
-    result.workingDir = QDir::cleanPath(result.workingDir);
-
-    /// should this really be in this method?
-    result.executable = QDir::cleanPath(destDir + QLatin1Char('/') + result.target);
-    //qDebug() << "##### updateTarget sets:" << result.workingDir << result.executable;
-
-    Utils::HostOsInfo::appendExecutableSuffix(result.executable);
     result.valid = true;
 
     if (readerBP)
@@ -2234,7 +2191,7 @@ QString Qt4ProFileNode::buildDir(Qt4BuildConfiguration *bc) const
         bc = static_cast<Qt4BuildConfiguration *>(m_project->activeTarget()->activeBuildConfiguration());
     if (!bc)
         return QString();
-    return QDir(bc->buildDirectory()).absoluteFilePath(relativeDir);
+    return QDir::cleanPath(QDir(bc->buildDirectory()).absoluteFilePath(relativeDir));
 }
 
 void Qt4ProFileNode::updateCodeModelSupportFromBuild()

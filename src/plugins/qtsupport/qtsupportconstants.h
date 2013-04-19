@@ -51,6 +51,7 @@ const char FEATURE_QMLPROJECT[] = "QtSupport.Wizards.FeatureQtQuickProject";
 const char FEATURE_QT_QUICK_1[] = "QtSupport.Wizards.FeatureQtQuick.1";
 const char FEATURE_QT_QUICK_1_1[] = "QtSupport.Wizards.FeatureQtQuick.1.1";
 const char FEATURE_QT_QUICK_2[] = "QtSupport.Wizards.FeatureQtQuick.2";
+const char FEATURE_QT_QUICK_CONTROLS[] = "QtSupport.Wizards.FeatureQtQuick.Controls";
 const char FEATURE_QT_WEBKIT[] = "QtSupport.Wizards.FeatureQtWebkit";
 const char FEATURE_QT_CONSOLE[] = "QtSupport.Wizards.FeatureQtConsole";
 const char FEATURE_QTQUICK_COMPONENTS_MEEGO[] = "QtSupport.Wizards.FeatureQtQuickComponentsMeego";
@@ -76,6 +77,8 @@ const char ANDROID_PLATFORM_TR[] = QT_TRANSLATE_NOOP("QtSupport", "Android");
 // both the qt4projectmanager and the qmlprojectmanager do have qt quick wizards
 // so we define the icon here
 const char QML_WIZARD_ICON[] = ":/qmlproject/images/qml_wizard.png";
+
+const char ICON_QT_PROJECT[] = ":/qtsupport/images/qt_project.png";
 
 } // namepsace Constants
 } // namepsace QtSupport

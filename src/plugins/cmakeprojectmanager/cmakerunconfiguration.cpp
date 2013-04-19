@@ -36,7 +36,7 @@
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/helpmanager.h>
 #include <qtsupport/qtkitinformation.h>
-#include <projectexplorer/environmentwidget.h>
+#include <projectexplorer/environmentaspect.h>
 #include <projectexplorer/target.h>
 
 #include <utils/pathchooser.h>
@@ -63,8 +63,6 @@ const char USER_WORKING_DIRECTORY_KEY[] = "CMakeProjectManager.CMakeRunConfigura
 const char USE_TERMINAL_KEY[] = "CMakeProjectManager.CMakeRunConfiguration.UseTerminal";
 const char TITLE_KEY[] = "CMakeProjectManager.CMakeRunConfiguation.Title";
 const char ARGUMENTS_KEY[] = "CMakeProjectManager.CMakeRunConfiguration.Arguments";
-const char USER_ENVIRONMENT_CHANGES_KEY[] = "CMakeProjectManager.CMakeRunConfiguration.UserEnvironmentChanges";
-const char BASE_ENVIRONMENT_BASE_KEY[] = "CMakeProjectManager.BaseEnvironmentBase";
 
 } // namespace
 
@@ -75,7 +73,6 @@ CMakeRunConfiguration::CMakeRunConfiguration(ProjectExplorer::Target *parent, Co
     m_buildTarget(target),
     m_workingDirectory(workingDirectory),
     m_title(title),
-    m_baseEnvironmentBase(CMakeRunConfiguration::BuildEnvironmentBase),
     m_enabled(true)
 {
     ctor();
@@ -89,8 +86,6 @@ CMakeRunConfiguration::CMakeRunConfiguration(ProjectExplorer::Target *parent, CM
     m_userWorkingDirectory(source->m_userWorkingDirectory),
     m_title(source->m_title),
     m_arguments(source->m_arguments),
-    m_userEnvironmentChanges(source->m_userEnvironmentChanges),
-    m_baseEnvironmentBase(source->m_baseEnvironmentBase),
     m_enabled(source->m_enabled)
 {
     ctor();
@@ -103,8 +98,6 @@ CMakeRunConfiguration::~CMakeRunConfiguration()
 void CMakeRunConfiguration::ctor()
 {
     setDefaultDisplayName(defaultDisplayName());
-    connect(target(), SIGNAL(environmentChanged()),
-            this, SIGNAL(baseEnvironmentChanged()));
 }
 
 QString CMakeRunConfiguration::executable() const
@@ -124,7 +117,9 @@ void CMakeRunConfiguration::setRunMode(RunMode runMode)
 
 QString CMakeRunConfiguration::workingDirectory() const
 {
-    return QDir::cleanPath(environment().expandVariables(
+    ProjectExplorer::EnvironmentAspect *aspect = extraAspect<ProjectExplorer::EnvironmentAspect>();
+    QTC_ASSERT(aspect, return QString());
+    return QDir::cleanPath(aspect->environment().expandVariables(
                 Utils::expandMacros(baseWorkingDirectory(), macroExpander())));
 }
 
@@ -180,8 +175,6 @@ QVariantMap CMakeRunConfiguration::toMap() const
     map.insert(QLatin1String(USE_TERMINAL_KEY), m_runMode == Console);
     map.insert(QLatin1String(TITLE_KEY), m_title);
     map.insert(QLatin1String(ARGUMENTS_KEY), m_arguments);
-    map.insert(QLatin1String(USER_ENVIRONMENT_CHANGES_KEY), Utils::EnvironmentItem::toStringList(m_userEnvironmentChanges));
-    map.insert(QLatin1String(BASE_ENVIRONMENT_BASE_KEY), m_baseEnvironmentBase);
 
     return map;
 }
@@ -192,8 +185,6 @@ bool CMakeRunConfiguration::fromMap(const QVariantMap &map)
     m_runMode = map.value(QLatin1String(USE_TERMINAL_KEY)).toBool() ? Console : Gui;
     m_title = map.value(QLatin1String(TITLE_KEY)).toString();
     m_arguments = map.value(QLatin1String(ARGUMENTS_KEY)).toString();
-    m_userEnvironmentChanges = Utils::EnvironmentItem::fromStringList(map.value(QLatin1String(USER_ENVIRONMENT_CHANGES_KEY)).toStringList());
-    m_baseEnvironmentBase = static_cast<BaseEnvironmentBase>(map.value(QLatin1String(BASE_ENVIRONMENT_BASE_KEY), static_cast<int>(CMakeRunConfiguration::BuildEnvironmentBase)).toInt());
 
     return RunConfiguration::fromMap(map);
 }
@@ -223,64 +214,6 @@ QString CMakeRunConfiguration::dumperLibrary() const
 QStringList CMakeRunConfiguration::dumperLibraryLocations() const
 {
     return QtSupport::QtKitInformation::dumperLibraryLocations(target()->kit());
-}
-
-Utils::Environment CMakeRunConfiguration::baseEnvironment() const
-{
-    Utils::Environment env;
-    if (m_baseEnvironmentBase == CMakeRunConfiguration::CleanEnvironmentBase) {
-        // Nothing
-    } else  if (m_baseEnvironmentBase == CMakeRunConfiguration::SystemEnvironmentBase) {
-        env = Utils::Environment::systemEnvironment();
-    } else  if (m_baseEnvironmentBase == CMakeRunConfiguration::BuildEnvironmentBase) {
-        env = activeBuildConfiguration()->environment();
-    }
-    return env;
-}
-
-QString CMakeRunConfiguration::baseEnvironmentText() const
-{
-    if (m_baseEnvironmentBase == CMakeRunConfiguration::CleanEnvironmentBase) {
-        return tr("Clean Environment");
-    } else  if (m_baseEnvironmentBase == CMakeRunConfiguration::SystemEnvironmentBase) {
-        return tr("System Environment");
-    } else  if (m_baseEnvironmentBase == CMakeRunConfiguration::BuildEnvironmentBase) {
-        return tr("Build Environment");
-    }
-    return QString();
-}
-
-void CMakeRunConfiguration::setBaseEnvironmentBase(BaseEnvironmentBase env)
-{
-    if (m_baseEnvironmentBase == env)
-        return;
-    m_baseEnvironmentBase = env;
-    emit baseEnvironmentChanged();
-}
-
-CMakeRunConfiguration::BaseEnvironmentBase CMakeRunConfiguration::baseEnvironmentBase() const
-{
-    return m_baseEnvironmentBase;
-}
-
-Utils::Environment CMakeRunConfiguration::environment() const
-{
-    Utils::Environment env = baseEnvironment();
-    env.modify(userEnvironmentChanges());
-    return env;
-}
-
-QList<Utils::EnvironmentItem> CMakeRunConfiguration::userEnvironmentChanges() const
-{
-    return m_userEnvironmentChanges;
-}
-
-void CMakeRunConfiguration::setUserEnvironmentChanges(const QList<Utils::EnvironmentItem> &diff)
-{
-    if (m_userEnvironmentChanges != diff) {
-        m_userEnvironmentChanges = diff;
-        emit userEnvironmentChangesChanged(diff);
-    }
 }
 
 void CMakeRunConfiguration::setEnabled(bool b)
@@ -321,6 +254,12 @@ CMakeRunConfigurationWidget::CMakeRunConfigurationWidget(CMakeRunConfiguration *
     m_workingDirectoryEdit->setExpectedKind(Utils::PathChooser::Directory);
     m_workingDirectoryEdit->setBaseDirectory(m_cmakeRunConfiguration->target()->project()->projectDirectory());
     m_workingDirectoryEdit->setPath(m_cmakeRunConfiguration->baseWorkingDirectory());
+    ProjectExplorer::EnvironmentAspect *aspect
+            = m_cmakeRunConfiguration->extraAspect<ProjectExplorer::EnvironmentAspect>();
+    if (aspect) {
+        connect(aspect, SIGNAL(environmentChanged()), this, SLOT(environmentWasChanged()));
+        environmentWasChanged();
+    }
     m_workingDirectoryEdit->setPromptDialogTitle(tr("Select Working Directory"));
 
     QToolButton *resetButton = new QToolButton();
@@ -347,37 +286,6 @@ CMakeRunConfigurationWidget::CMakeRunConfigurationWidget(CMakeRunConfiguration *
     vbx->setMargin(0);;
     vbx->addWidget(m_detailsContainer);
 
-    QLabel *environmentLabel = new QLabel(this);
-    environmentLabel->setText(tr("Run Environment"));
-    QFont f = environmentLabel->font();
-    f.setBold(true);
-    f.setPointSizeF(f.pointSizeF() *1.2);
-    environmentLabel->setFont(f);
-    vbx->addWidget(environmentLabel);
-
-    QWidget *baseEnvironmentWidget = new QWidget;
-    QHBoxLayout *baseEnvironmentLayout = new QHBoxLayout(baseEnvironmentWidget);
-    baseEnvironmentLayout->setMargin(0);
-    QLabel *label = new QLabel(tr("Base environment for this runconfiguration:"), this);
-    baseEnvironmentLayout->addWidget(label);
-    m_baseEnvironmentComboBox = new QComboBox(this);
-    m_baseEnvironmentComboBox->addItems(QStringList()
-                                        << tr("Clean Environment")
-                                        << tr("System Environment")
-                                        << tr("Build Environment"));
-    m_baseEnvironmentComboBox->setCurrentIndex(m_cmakeRunConfiguration->baseEnvironmentBase());
-    connect(m_baseEnvironmentComboBox, SIGNAL(currentIndexChanged(int)),
-            this, SLOT(baseEnvironmentComboBoxChanged(int)));
-    baseEnvironmentLayout->addWidget(m_baseEnvironmentComboBox);
-    baseEnvironmentLayout->addStretch(10);
-
-    m_environmentWidget = new ProjectExplorer::EnvironmentWidget(this, baseEnvironmentWidget);
-    m_environmentWidget->setBaseEnvironment(m_cmakeRunConfiguration->baseEnvironment());
-    m_environmentWidget->setBaseEnvironmentText(m_cmakeRunConfiguration->baseEnvironmentText());
-    m_environmentWidget->setUserChanges(m_cmakeRunConfiguration->userEnvironmentChanges());
-
-    vbx->addWidget(m_environmentWidget);
-
     connect(m_workingDirectoryEdit, SIGNAL(changed(QString)),
             this, SLOT(setWorkingDirectory()));
 
@@ -387,15 +295,8 @@ CMakeRunConfigurationWidget::CMakeRunConfigurationWidget(CMakeRunConfiguration *
     connect(runInTerminal, SIGNAL(toggled(bool)),
             this, SLOT(runInTerminalToggled(bool)));
 
-    connect(m_environmentWidget, SIGNAL(userChangesChanged()),
-            this, SLOT(userChangesChanged()));
-
     connect(m_cmakeRunConfiguration, SIGNAL(baseWorkingDirectoryChanged(QString)),
             this, SLOT(workingDirectoryChanged(QString)));
-    connect(m_cmakeRunConfiguration, SIGNAL(baseEnvironmentChanged()),
-            this, SLOT(baseEnvironmentChanged()));
-    connect(m_cmakeRunConfiguration, SIGNAL(userEnvironmentChangesChanged(QList<Utils::EnvironmentItem>)),
-            this, SLOT(userEnvironmentChangesChanged()));
 
     setEnabled(m_cmakeRunConfiguration->isEnabled());
 }
@@ -431,36 +332,13 @@ void CMakeRunConfigurationWidget::runInTerminalToggled(bool toggled)
                                                 : ProjectExplorer::LocalApplicationRunConfiguration::Gui);
 }
 
-void CMakeRunConfigurationWidget::userChangesChanged()
+void CMakeRunConfigurationWidget::environmentWasChanged()
 {
-    m_cmakeRunConfiguration->setUserEnvironmentChanges(m_environmentWidget->userChanges());
+    ProjectExplorer::EnvironmentAspect *aspect
+            = m_cmakeRunConfiguration->extraAspect<ProjectExplorer::EnvironmentAspect>();
+    QTC_ASSERT(aspect, return);
+    m_workingDirectoryEdit->setEnvironment(aspect->environment());
 }
-
-void CMakeRunConfigurationWidget::baseEnvironmentComboBoxChanged(int index)
-{
-    m_ignoreChange = true;
-    m_cmakeRunConfiguration->setBaseEnvironmentBase(CMakeRunConfiguration::BaseEnvironmentBase(index));
-
-    m_environmentWidget->setBaseEnvironment(m_cmakeRunConfiguration->baseEnvironment());
-    m_environmentWidget->setBaseEnvironmentText(m_cmakeRunConfiguration->baseEnvironmentText());
-    m_ignoreChange = false;
-}
-
-void CMakeRunConfigurationWidget::baseEnvironmentChanged()
-{
-    if (m_ignoreChange)
-        return;
-
-    m_baseEnvironmentComboBox->setCurrentIndex(m_cmakeRunConfiguration->baseEnvironmentBase());
-    m_environmentWidget->setBaseEnvironment(m_cmakeRunConfiguration->baseEnvironment());
-    m_environmentWidget->setBaseEnvironmentText(m_cmakeRunConfiguration->baseEnvironmentText());
-}
-
-void CMakeRunConfigurationWidget::userEnvironmentChangesChanged()
-{
-    m_environmentWidget->setUserChanges(m_cmakeRunConfiguration->userEnvironmentChanges());
-}
-
 void CMakeRunConfigurationWidget::setArguments(const QString &args)
 {
     m_cmakeRunConfiguration->setCommandLineArguments(args);

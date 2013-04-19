@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
-#ifndef CPPPLUGIN_H
-#define CPPPLUGIN_H
+#ifndef CPPEDITORPLUGIN_H
+#define CPPEDITORPLUGIN_H
 
 #include <coreplugin/editormanager/ieditorfactory.h>
 
@@ -50,16 +50,16 @@ class CPPEditorWidget;
 class CppQuickFixCollector;
 class CppQuickFixAssistProvider;
 
-class CppPlugin : public ExtensionSystem::IPlugin
+class CppEditorPlugin : public ExtensionSystem::IPlugin
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtCreatorPlugin" FILE "CppEditor.json")
 
 public:
-    CppPlugin();
-    ~CppPlugin();
+    CppEditorPlugin();
+    ~CppEditorPlugin();
 
-    static CppPlugin *instance();
+    static CppEditorPlugin *instance();
 
     bool initialize(const QStringList &arguments, QString *errorMessage = 0);
     void extensionsInitialized();
@@ -126,10 +126,30 @@ private slots:
     void test_quickfix_InsertDefFromDecl_headerSource_namespace2();
     void test_quickfix_InsertDefFromDecl_freeFunction();
 
+    void test_quickfix_InsertDeclFromDef();
+
     void test_quickfix_AddIncludeForUndefinedIdentifier_normal();
     void test_quickfix_AddIncludeForUndefinedIdentifier_noinclude();
     void test_quickfix_AddIncludeForUndefinedIdentifier_noincludeComment01();
     void test_quickfix_AddIncludeForUndefinedIdentifier_noincludeComment02();
+
+    void test_quickfix_MoveFuncDefOutside_MemberFuncToCpp();
+    void test_quickfix_MoveFuncDefOutside_MemberFuncOutside();
+    void test_quickfix_MoveFuncDefOutside_MemberFuncToCppNS();
+    void test_quickfix_MoveFuncDefOutside_MemberFuncToCppNSUsing();
+    void test_quickfix_MoveFuncDefOutside_MemberFuncOutsideWithNs();
+    void test_quickfix_MoveFuncDefOutside_FreeFuncToCpp();
+    void test_quickfix_MoveFuncDefOutside_FreeFuncToCppNS();
+    void test_quickfix_MoveFuncDefOutside_CtorWithInitialization();
+
+    void test_quickfix_MoveFuncDefToDecl_MemberFunc();
+    void test_quickfix_MoveFuncDefToDecl_MemberFuncOutside();
+    void test_quickfix_MoveFuncDefToDecl_MemberFuncToCppNS();
+    void test_quickfix_MoveFuncDefToDecl_MemberFuncToCppNSUsing();
+    void test_quickfix_MoveFuncDefToDecl_MemberFuncOutsideWithNs();
+    void test_quickfix_MoveFuncDefToDecl_FreeFuncToCpp();
+    void test_quickfix_MoveFuncDefToDecl_FreeFuncToCppNS();
+    void test_quickfix_MoveFuncDefToDecl_CtorWithInitialization();
 
     // The following tests depend on the projects that are loaded on startup
     // and will be skipped in case no projects are loaded.
@@ -150,7 +170,7 @@ private:
     void writeSettings();
     void readSettings();
 
-    static CppPlugin *m_instance;
+    static CppEditorPlugin *m_instance;
 
     TextEditor::TextEditorActionHandler *m_actionHandler;
     bool m_sortedOutline;
@@ -169,7 +189,7 @@ class CppEditorFactory : public Core::IEditorFactory
     Q_OBJECT
 
 public:
-    CppEditorFactory(CppPlugin *owner);
+    CppEditorFactory(CppEditorPlugin *owner);
 
     // IEditorFactory
     QStringList mimeTypes() const;
@@ -178,11 +198,11 @@ public:
     QString displayName() const;
 
 private:
-    CppPlugin *m_owner;
+    CppEditorPlugin *m_owner;
     QStringList m_mimeTypes;
 };
 
 } // namespace Internal
 } // namespace CppEditor
 
-#endif // CPPPLUGIN_H
+#endif // CPPEDITORPLUGIN_H

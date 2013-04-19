@@ -53,15 +53,19 @@ public:
     virtual RunMode runMode() const = 0;
     virtual QString workingDirectory() const = 0;
     virtual QString commandLineArguments() const = 0;
-    virtual Utils::Environment environment() const = 0;
     virtual QString dumperLibrary() const = 0;
     virtual QStringList dumperLibraryLocations() const = 0;
+
+    virtual void addToBaseEnvironment(Utils::Environment &env) const;
 
 protected:
     explicit LocalApplicationRunConfiguration(Target *target, const Core::Id id);
     explicit LocalApplicationRunConfiguration(Target *target, LocalApplicationRunConfiguration *rc);
 
     Utils::AbstractMacroExpander *macroExpander() const;
+
+private:
+    void ctor();
 };
 
 } // namespace ProjectExplorer

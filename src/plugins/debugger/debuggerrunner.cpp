@@ -47,6 +47,7 @@
 #endif
 
 #include <projectexplorer/localapplicationrunconfiguration.h> // For LocalApplication*
+#include <projectexplorer/environmentaspect.h> // For the environment
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorer.h>
@@ -55,11 +56,10 @@
 
 #include <utils/qtcassert.h>
 #include <utils/qtcprocess.h>
-#include <utils/portlist.h>
-#include <utils/tcpportsgatherer.h>
 #include <coreplugin/icore.h>
 
 #include <QErrorMessage>
+#include <QTcpServer>
 
 using namespace Debugger::Internal;
 using namespace ProjectExplorer;
@@ -337,6 +337,8 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
     LocalApplicationRunConfiguration *rc =
             qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration);
     QTC_ASSERT(rc, return sp);
+    EnvironmentAspect *environment = rc->extraAspect<ProjectExplorer::EnvironmentAspect>();
+    QTC_ASSERT(environment, return sp);
     if (!rc->ensureConfigured(errorMessage))
         return sp;
 
@@ -344,7 +346,7 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
     Kit *kit = target ? target->kit() : KitManager::instance()->defaultKit();
     if (!fillParameters(&sp, kit, errorMessage))
         return sp;
-    sp.environment = rc->environment();
+    sp.environment = environment->environment();
     sp.workingDirectory = rc->workingDirectory();
 
 #if defined(Q_OS_WIN)
@@ -370,30 +372,27 @@ static DebuggerStartParameters localStartParameters(RunConfiguration *runConfigu
         }
     }
 
-    DebuggerRunConfigurationAspect *aspect
+    DebuggerRunConfigurationAspect *debugger
             = runConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
-    sp.multiProcess = aspect->useMultiProcess();
+    sp.multiProcess = debugger->useMultiProcess();
 
-    if (aspect->useCppDebugger())
+    if (debugger->useCppDebugger())
         sp.languages |= CppLanguage;
 
-    if (aspect->useQmlDebugger()) {
+    if (debugger->useQmlDebugger()) {
         const ProjectExplorer::IDevice::ConstPtr device =
                 DeviceKitInformation::device(runConfiguration->target()->kit());
-        sp.qmlServerAddress = _("127.0.0.1");
         QTC_ASSERT(device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE, return sp);
-        TcpPortsGatherer portsGatherer;
-        portsGatherer.update(QAbstractSocket::UnknownNetworkLayerProtocol);
-        Utils::PortList portList = device->freePorts();
-        int freePort = portsGatherer.getNextFreePort(&portList);
-        if (freePort == -1) {
+        QTcpServer server;
+        const bool canListen = server.listen(QHostAddress::LocalHost)
+                || server.listen(QHostAddress::LocalHostIPv6);
+        if (!canListen) {
             if (errorMessage)
-                *errorMessage = DebuggerPlugin::tr("Not enough free ports for QML debugging. "
-                                                   "Increase the port range for Desktop device in "
-                                                   "Device settings.");
+                *errorMessage = DebuggerPlugin::tr("Not enough free ports for QML debugging. ");
             return sp;
         }
-        sp.qmlServerPort = freePort;
+        sp.qmlServerAddress = server.serverAddress().toString();
+        sp.qmlServerPort = server.serverPort();
         sp.languages |= QmlLanguage;
 
         // Makes sure that all bindings go through the JavaScript engine, so that
@@ -473,9 +472,9 @@ DebuggerRunControl *DebuggerRunControlFactory::doCreate
     (const DebuggerStartParameters &sp0, RunConfiguration *rc, QString *errorMessage)
 {
     TaskHub *th = ProjectExplorerPlugin::instance()->taskHub();
-    th->clearTasks(Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_DEBUGINFO));
-    th->clearTasks(Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_TEST));
-    th->clearTasks(Core::Id(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME));
+    th->clearTasks(Debugger::Constants::TASK_CATEGORY_DEBUGGER_DEBUGINFO);
+    th->clearTasks(Debugger::Constants::TASK_CATEGORY_DEBUGGER_TEST);
+    th->clearTasks(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME);
 
     DebuggerStartParameters sp = sp0;
     if (!debuggerCore()->boolSetting(AutoEnrichParameters)) {
@@ -487,8 +486,6 @@ DebuggerRunControl *DebuggerRunControlFactory::doCreate
             sp.debugSourceLocation.append(base + QLatin1String("qt5base/src/corelib"));
             sp.debugSourceLocation.append(base + QLatin1String("qt5base/src/gui"));
             sp.debugSourceLocation.append(base + QLatin1String("qt5base/src/network"));
-            sp.debugSourceLocation.append(base + QLatin1String("qt5base/src/v8"));
-            sp.debugSourceLocation.append(base + QLatin1String("qt5declarative/src/qml"));
         }
     }
 

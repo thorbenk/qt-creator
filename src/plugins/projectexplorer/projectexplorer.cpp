@@ -1488,7 +1488,7 @@ static inline QStringList projectFileGlobs()
         if (const Core::MimeType mimeType = mimeDatabase->findByType(ipm->mimeType())) {
             const QList<Core::MimeGlobPattern> patterns = mimeType.globPatterns();
             if (!patterns.isEmpty())
-                result.push_back(patterns.front().regExp().pattern());
+                result.push_back(patterns.front().pattern());
         }
     }
     return result;
@@ -1685,12 +1685,12 @@ void ProjectExplorerPlugin::showRunErrorMessage(const QString &errorMessage)
 void ProjectExplorerPlugin::startRunControl(RunControl *runControl, RunMode runMode)
 {
     d->m_outputPane->createNewOutputWindow(runControl);
-    if (runMode == NormalRunMode && d->m_projectExplorerSettings.showRunOutput)
-        d->m_outputPane->popup(Core::IOutputPane::NoModeSwitch);
-    if ((runMode == DebugRunMode || runMode == DebugRunModeWithBreakOnMain)
-            && d->m_projectExplorerSettings.showDebugOutput)
-        d->m_outputPane->popup(Core::IOutputPane::NoModeSwitch);
+    d->m_outputPane->flash(); // one flash for starting
     d->m_outputPane->showTabFor(runControl);
+    bool popup = (runMode == NormalRunMode && d->m_projectExplorerSettings.showRunOutput)
+            || ((runMode == DebugRunMode || runMode == DebugRunModeWithBreakOnMain)
+                && d->m_projectExplorerSettings.showDebugOutput);
+    d->m_outputPane->setBehaviorOnOutput(runControl, popup ? AppOutputPane::Popup : AppOutputPane::Flash);
     connect(runControl, SIGNAL(finished()), this, SLOT(runControlFinished()));
     runControl->start();
     emit updateRunActions();
@@ -1807,7 +1807,6 @@ void ProjectExplorerPlugin::setCurrent(Project *project, QString filePath, Node 
         projectChanged = true;
     }
     d->m_currentProject = project;
-    updateContext();
 
     if (!node && Core::EditorManager::currentEditor()) {
         connect(Core::EditorManager::currentEditor(), SIGNAL(changed()),
@@ -1828,6 +1827,7 @@ void ProjectExplorerPlugin::setCurrent(Project *project, QString filePath, Node 
     }
 
     Core::DocumentManager::setCurrentFile(filePath);
+    updateContext();
 }
 
 void ProjectExplorerPlugin::updateActions()
@@ -3016,7 +3016,7 @@ QStringList ProjectExplorerPlugin::projectFilePatterns()
     foreach (const IProjectManager *pm, allProjectManagers())
         if (const Core::MimeType mt = mdb->findByType(pm->mimeType()))
             foreach (const Core::MimeGlobPattern &gp, mt.globPatterns())
-                patterns += gp.regExp().pattern();
+                patterns.append(gp.pattern());
     return patterns;
 }
 

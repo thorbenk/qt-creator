@@ -81,6 +81,7 @@ public:
 
     qbs::BuildJob *build(const qbs::BuildOptions &opts);
     qbs::CleanJob *clean(const qbs::CleanOptions &opts);
+    qbs::InstallJob *install(const qbs::InstallOptions &opts);
 
     static ProjectExplorer::FileType fileTypeFor(const QSet<QString> &tags);
 
@@ -89,6 +90,9 @@ public:
     bool hasParseResult() const;
 
     Utils::FileName defaultBuildDirectory() const;
+
+    const qbs::Project *qbsProject() const;
+    const qbs::ProjectData *qbsProjectData() const;
 
 public slots:
     void invalidate();

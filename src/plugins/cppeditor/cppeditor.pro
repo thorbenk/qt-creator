@@ -1,45 +1,39 @@
 DEFINES += CPPEDITOR_LIBRARY
 include(../../qtcreatorplugin.pri)
-HEADERS += cppplugin.h \
-    cppeditor.h \
-    cpphighlighter.h \
-    cpphoverhandler.h \
-    cppfilewizard.h \
+HEADERS += cppeditorplugin.h \
+    cppautocompleter.h \
+    cppclasswizard.h \
     cppeditorconstants.h \
     cppeditorenums.h \
     cppeditor_global.h \
-    cppclasswizard.h \
-    cppoutline.h \
-    cppinsertdecldef.h \
-    cpptypehierarchy.h \
+    cppeditor.h \
     cppelementevaluator.h \
-    cppautocompleter.h \
-    cppcompleteswitch.h \
-    cppsnippetprovider.h \
-    cppinsertqtpropertymembers.h \
+    cppfilewizard.h \
+    cppfunctiondecldeflink.h \
+    cpphighlighter.h \
+    cpphoverhandler.h \
+    cppoutline.h \
     cppquickfixassistant.h \
-    cppquickfix.h \
     cppquickfixes.h \
-    cppfunctiondecldeflink.h
+    cppquickfix.h \
+    cppsnippetprovider.h \
+    cpptypehierarchy.h
 
-SOURCES += cppplugin.cpp \
+SOURCES += cppeditorplugin.cpp \
+    cppautocompleter.cpp \
+    cppclasswizard.cpp \
     cppeditor.cpp \
+    cppelementevaluator.cpp \
+    cppfilewizard.cpp \
+    cppfunctiondecldeflink.cpp \
     cpphighlighter.cpp \
     cpphoverhandler.cpp \
-    cppfilewizard.cpp \
-    cppclasswizard.cpp \
-    cppquickfixes.cpp \
     cppoutline.cpp \
-    cppinsertdecldef.cpp \
-    cpptypehierarchy.cpp \
-    cppelementevaluator.cpp \
-    cppautocompleter.cpp \
-    cppcompleteswitch.cpp \
-    cppsnippetprovider.cpp \
-    cppinsertqtpropertymembers.cpp \
     cppquickfixassistant.cpp \
     cppquickfix.cpp \
-    cppfunctiondecldeflink.cpp
+    cppquickfixes.cpp \
+    cppsnippetprovider.cpp \
+    cpptypehierarchy.cpp
 
 RESOURCES += cppeditor.qrc
 OTHER_FILES += CppEditor.mimetypes.xml

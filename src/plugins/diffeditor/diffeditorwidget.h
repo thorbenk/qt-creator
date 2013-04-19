@@ -81,11 +81,9 @@ struct RowData {
 };
 
 struct ChunkData {
-    ChunkData() : skippedLinesBefore(0), leftOffset(0), rightOffset(0) {}
+    ChunkData() : alwaysShown(true) {}
     QList<RowData> rows;
-    int skippedLinesBefore; // info for text
-    int leftOffset;
-    int rightOffset;
+    bool alwaysShown;
     // <absolute position in the file, absolute position in the file>
     QMap<int, int> changedLeftPositions; // counting from the beginning of the chunk
     QMap<int, int> changedRightPositions; // counting from the beginning of the chunk
@@ -96,7 +94,6 @@ struct FileData {
     FileData() {}
     FileData(const ChunkData &chunkData) { chunks.append(chunkData); }
     QList<ChunkData> chunks;
-    QList<int> chunkOffset;
     QString text;
 };
 
@@ -127,6 +124,8 @@ protected:
 private slots:
     void leftSliderChanged();
     void rightSliderChanged();
+    void leftDocumentSizeChanged();
+    void rightDocumentSizeChanged();
 
 private:
     bool isWhitespace(const QChar &c) const;
@@ -139,6 +138,7 @@ private:
     ChunkData calculateOriginalData(const QList<Diff> &diffList) const;
     FileData calculateContextData(const ChunkData &originalData) const;
     void showDiff();
+    void synchronizeFoldings(DiffViewEditorWidget *source, DiffViewEditorWidget *destination);
 
     DiffViewEditorWidget *m_leftEditor;
     DiffViewEditorWidget *m_rightEditor;
@@ -150,8 +150,8 @@ private:
 
     ChunkData m_originalChunkData;
     FileData m_contextFileData;
-    int m_leftSafePosHack;
-    int m_rightSafePosHack;
+
+    bool m_foldingBlocker;
 };
 
 } // namespace DiffEditor

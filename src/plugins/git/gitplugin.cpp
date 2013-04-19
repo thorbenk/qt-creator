@@ -125,7 +125,7 @@ using namespace Git::Internal;
 GitPlugin *GitPlugin::m_instance = 0;
 
 GitPlugin::GitPlugin() :
-    VcsBase::VcsBasePlugin(Git::Constants::GITSUBMITEDITOR_ID),
+    VcsBase::VcsBasePlugin(),
     m_commandLocator(0),
     m_submitCurrentAction(0),
     m_diffSelectedFilesAction(0),
@@ -708,14 +708,7 @@ void GitPlugin::resetRepository()
     LogChangeDialog dialog(true);
     dialog.setWindowTitle(tr("Undo Changes to %1").arg(QDir::toNativeSeparators(topLevel)));
     if (dialog.runDialog(topLevel))
-        switch (dialog.resetType()) {
-        case HardReset:
-            m_gitClient->hardReset(topLevel, dialog.commit());
-            break;
-        case SoftReset:
-            m_gitClient->softReset(topLevel, dialog.commit());
-            break;
-        }
+        m_gitClient->reset(topLevel, dialog.resetFlag(), dialog.commit());
 }
 
 void GitPlugin::startRebase()
@@ -724,7 +717,7 @@ void GitPlugin::startRebase()
     if (workingDirectory.isEmpty() || !m_gitClient->canRebase(workingDirectory))
         return;
     GitClient::StashGuard stashGuard(workingDirectory, QLatin1String("Rebase-i"));
-    if (stashGuard.stashingFailed(true))
+    if (stashGuard.stashingFailed())
         return;
     stashGuard.preventPop();
     LogChangeDialog dialog(false);
@@ -778,7 +771,7 @@ void GitPlugin::startChangeRelatedAction()
     }
 
     GitClient::StashGuard stashGuard(workingDirectory, command);
-    if (stashGuard.stashingFailed(true))
+    if (stashGuard.stashingFailed())
         return;
 
     if (!(m_gitClient->*commandFunction)(workingDirectory, change))
@@ -850,7 +843,7 @@ void GitPlugin::startCommit()
 
 void GitPlugin::startCommit(bool amend)
 {
-    if (VcsBase::VcsBaseSubmitEditor::raiseSubmitEditor())
+    if (raiseSubmitEditor())
         return;
     if (isCommitEditorOpen()) {
         VcsBase::VcsBaseOutputWindow::instance()->appendWarning(tr("Another submit is currently being executed."));
@@ -911,6 +904,7 @@ Core::IEditor *GitPlugin::openSubmitEditor(const QString &fileName, const Commit
                                                 Core::EditorManager::ModeSwitch);
     GitSubmitEditor *submitEditor = qobject_cast<GitSubmitEditor*>(editor);
     QTC_ASSERT(submitEditor, return 0);
+    setSubmitEditor(submitEditor);
     // The actions are for some reason enabled by the context switching
     // mechanism. Disable them correctly.
     submitEditor->registerActions(m_undoAction, m_redoAction, m_submitCurrentAction, m_diffSelectedFilesAction);
@@ -931,14 +925,14 @@ void GitPlugin::submitCurrentLog()
     Core::ICore::editorManager()->closeEditor();
 }
 
-bool GitPlugin::submitEditorAboutToClose(VcsBase::VcsBaseSubmitEditor *submitEditor)
+bool GitPlugin::submitEditorAboutToClose()
 {
     if (!isCommitEditorOpen())
         return false;
-    Core::IDocument *editorDocument = submitEditor->document();
-    const GitSubmitEditor *editor = qobject_cast<GitSubmitEditor *>(submitEditor);
-    if (!editorDocument || !editor)
-        return true;
+    GitSubmitEditor *editor = qobject_cast<GitSubmitEditor *>(submitEditor());
+    QTC_ASSERT(editor, return true);
+    Core::IDocument *editorDocument = editor->document();
+    QTC_ASSERT(editorDocument, return true);
     // Submit editor closing. Make it write out the commit message
     // and retrieve files
     const QFileInfo editorFile(editorDocument->fileName());
@@ -1009,8 +1003,9 @@ void GitPlugin::pull()
         }
     }
 
-    GitClient::StashGuard stashGuard(topLevel, QLatin1String("Pull"));
-    if (stashGuard.stashingFailed(false) || (rebase && (stashGuard.result() == GitClient::NotStashed)))
+    GitClient::StashGuard stashGuard(topLevel, QLatin1String("Pull"),
+                                     rebase ? Default : AllowUnstashed);
+    if (stashGuard.stashingFailed())
         return;
     if (!m_gitClient->synchronousPull(topLevel, rebase))
         stashGuard.preventPop();
@@ -1137,8 +1132,8 @@ void GitPlugin::promptApplyPatch()
 void GitPlugin::applyPatch(const QString &workingDirectory, QString file)
 {
     // Ensure user has been notified about pending changes
-    GitClient::StashGuard stashGuard(workingDirectory, QLatin1String("Apply-Patch"));
-    if (stashGuard.stashingFailed(false))
+    GitClient::StashGuard stashGuard(workingDirectory, QLatin1String("Apply-Patch"), AllowUnstashed);
+    if (stashGuard.stashingFailed())
         return;
     // Prompt for file
     if (file.isEmpty()) {
@@ -1168,7 +1163,7 @@ void GitPlugin::stash()
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasTopLevel(), return);
     QString id;
-    gitClient()->ensureStash(state.topLevel(), QString(), false, &id);
+    gitClient()->ensureStash(state.topLevel(), QString(), NoPrompt, &id);
     if (!id.isEmpty() && m_stashDialog)
         m_stashDialog->refresh(state.topLevel(), true);
 }

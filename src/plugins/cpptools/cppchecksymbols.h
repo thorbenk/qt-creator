@@ -31,6 +31,7 @@
 #define CPLUSPLUSCHECKSYMBOLS_H
 
 #include "cpptools_global.h"
+#include "cpphighlightingsupport.h"
 #include "cppsemanticinfo.h"
 
 #include <cplusplus/TypeOfExpression.h>
@@ -55,17 +56,17 @@ template class Q_DECL_IMPORT QFutureInterface<CppEditor::Internal::SemanticInfo:
 class CPPTOOLS_EXPORT CheckSymbols:
         protected CPlusPlus::ASTVisitor,
         public QRunnable,
-        public QFutureInterface<TextEditor::SemanticHighlighter::Result>
+        public QFutureInterface<TextEditor::HighlightingResult>
 {
 public:
     virtual ~CheckSymbols();
 
-    typedef TextEditor::SemanticHighlighter::Result Use;
-    typedef CppTools::SemanticInfo::UseKind UseKind;
+    typedef TextEditor::HighlightingResult Result;
+    typedef CppHighlightingSupport::Kind Kind;
 
     virtual void run();
 
-    typedef QFuture<Use> Future;
+    typedef QFuture<Result> Future;
 
     Future start()
     {
@@ -78,14 +79,14 @@ public:
 
     static Future go(CPlusPlus::Document::Ptr doc,
                      const CPlusPlus::LookupContext &context,
-                     const QList<Use> &macroUses);
+                     const QList<Result> &macroUses);
 
-    static QMap<int, QVector<Use> > chunks(const QFuture<Use> &future, int from, int to)
+    static QMap<int, QVector<Result> > chunks(const QFuture<Result> &future, int from, int to)
     {
-        QMap<int, QVector<Use> > chunks;
+        QMap<int, QVector<Result> > chunks;
 
         for (int i = from; i < to; ++i) {
-            const Use use = future.resultAt(i);
+            const Result use = future.resultAt(i);
             if (use.isInvalid())
                 continue;
 
@@ -102,7 +103,7 @@ protected:
 
     CheckSymbols(CPlusPlus::Document::Ptr doc,
                  const CPlusPlus::LookupContext &context,
-                 const QList<Use> &macroUses);
+                 const QList<Result> &otherUses);
 
     bool hasVirtualDestructor(CPlusPlus::Class *klass) const;
     bool hasVirtualDestructor(CPlusPlus::ClassOrNamespace *binding) const;
@@ -121,9 +122,9 @@ protected:
     void checkName(CPlusPlus::NameAST *ast, CPlusPlus::Scope *scope = 0);
     CPlusPlus::ClassOrNamespace *checkNestedName(CPlusPlus::QualifiedNameAST *ast);
 
-    void addUse(const Use &use);
-    void addUse(unsigned tokenIndex, UseKind kind);
-    void addUse(CPlusPlus::NameAST *name, UseKind kind);
+    void addUse(const Result &use);
+    void addUse(unsigned tokenIndex, Kind kind);
+    void addUse(CPlusPlus::NameAST *name, Kind kind);
 
     void addType(CPlusPlus::ClassOrNamespace *b, CPlusPlus::NameAST *ast);
 
@@ -177,6 +178,8 @@ protected:
     void flush();
 
 private:
+    bool isConstructorDeclaration(CPlusPlus::Symbol *declaration);
+
     CPlusPlus::Document::Ptr _doc;
     CPlusPlus::LookupContext _context;
     CPlusPlus::TypeOfExpression typeOfExpression;
@@ -186,10 +189,10 @@ private:
     QSet<QByteArray> _potentialFunctions;
     QSet<QByteArray> _potentialStatics;
     QList<CPlusPlus::AST *> _astStack;
-    QVector<Use> _usages;
+    QVector<Result> _usages;
     int _chunkSize;
     unsigned _lineOfLastUsage;
-    QList<Use> _macroUses;
+    QList<Result> _macroUses;
 };
 
 } // namespace CppTools

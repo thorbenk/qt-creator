@@ -37,8 +37,12 @@
 #include <debugger/debuggerrunconfigurationaspect.h>
 #include <utils/qtcassert.h>
 #include <coreplugin/helpmanager.h>
+#include <projectexplorer/projectexplorerconstants.h>
+#include <projectexplorer/kitinformation.h>
+#include <projectexplorer/target.h>
 #include <qmlprojectmanager/qmlprojectrunconfiguration.h>
 #include <qmlprojectmanager/qmlprojectplugin.h>
+#include <projectexplorer/environmentaspect.h>
 #include <projectexplorer/localapplicationruncontrol.h>
 #include <projectexplorer/localapplicationrunconfiguration.h>
 #include <qmldebug/qmloutputparser.h>
@@ -47,6 +51,7 @@
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QTimer>
+#include <QTcpServer>
 
 using namespace Analyzer;
 using namespace ProjectExplorer;
@@ -84,33 +89,43 @@ QmlProfilerEngine::QmlProfilerEnginePrivate::createRunner(ProjectExplorer::RunCo
     AbstractQmlProfilerRunner *runner = 0;
     if (!runConfiguration) // attaching
         return 0;
-    Debugger::DebuggerRunConfigurationAspect *aspect
+    Debugger::DebuggerRunConfigurationAspect *debugger
             = runConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
-    if (QmlProjectManager::QmlProjectRunConfiguration *rc1 =
-            qobject_cast<QmlProjectManager::QmlProjectRunConfiguration *>(runConfiguration)) {
-        // This is a "plain" .qmlproject.
-        LocalQmlProfilerRunner::Configuration conf;
-        conf.executable = rc1->observerPath();
-        conf.executableArguments = rc1->viewerArguments();
-        conf.workingDirectory = rc1->workingDirectory();
-        conf.environment = rc1->environment();
-        conf.port = aspect->qmlDebugServerPort();
-        runner = new LocalQmlProfilerRunner(conf, parent);
-    } else if (LocalApplicationRunConfiguration *rc2 =
-            qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)) {
-        // FIXME: Check.
-        LocalQmlProfilerRunner::Configuration conf;
-        conf.executable = rc2->executable();
-        conf.executableArguments = rc2->commandLineArguments();
-        conf.workingDirectory = rc2->workingDirectory();
-        conf.environment = rc2->environment();
-        conf.port = aspect->qmlDebugServerPort();
-        runner = new LocalQmlProfilerRunner(conf, parent);
-    } else if (RemoteLinux::RemoteLinuxRunConfiguration *rmConfig =
+    QTC_ASSERT(debugger, return 0);
+    ProjectExplorer::EnvironmentAspect *environment
+            = runConfiguration->extraAspect<ProjectExplorer::EnvironmentAspect>();
+    QTC_ASSERT(environment, return 0);
+
+    if (RemoteLinux::RemoteLinuxRunConfiguration *rmConfig =
             qobject_cast<RemoteLinux::RemoteLinuxRunConfiguration *>(runConfiguration)) {
         runner = new RemoteLinuxQmlProfilerRunner(rmConfig, parent);
     } else {
-        QTC_CHECK(false);
+        LocalQmlProfilerRunner::Configuration conf;
+        if (QmlProjectManager::QmlProjectRunConfiguration *rc1 =
+                qobject_cast<QmlProjectManager::QmlProjectRunConfiguration *>(runConfiguration)) {
+            // This is a "plain" .qmlproject.
+            conf.executable = rc1->observerPath();
+            conf.executableArguments = rc1->viewerArguments();
+            conf.workingDirectory = rc1->workingDirectory();
+            conf.environment = environment->environment();
+        } else if (LocalApplicationRunConfiguration *rc2 =
+                   qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)) {
+            // FIXME: Check.
+            conf.executable = rc2->executable();
+            conf.executableArguments = rc2->commandLineArguments();
+            conf.workingDirectory = rc2->workingDirectory();
+            conf.environment = environment->environment();
+        } else {
+            QTC_CHECK(false);
+        }
+        const ProjectExplorer::IDevice::ConstPtr device =
+                ProjectExplorer::DeviceKitInformation::device(runConfiguration->target()->kit());
+        QTC_ASSERT(device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE, return 0);
+        QTcpServer server;
+        if (!server.listen(QHostAddress::LocalHost) || !server.listen(QHostAddress::LocalHostIPv6))
+            return 0;
+        conf.port = server.serverPort();
+        runner = new LocalQmlProfilerRunner(conf, parent);
     }
     return runner;
 }
@@ -136,8 +151,6 @@ QmlProfilerEngine::QmlProfilerEngine(IAnalyzerTool *tool,
     d->m_outputParser.setNoOutputText(ApplicationLauncher::msgWinCannotRetrieveDebuggingOutput());
     connect(&d->m_outputParser, SIGNAL(waitingForConnectionOnPort(quint16)),
             this, SLOT(processIsRunning(quint16)));
-    connect(&d->m_outputParser, SIGNAL(waitingForConnectionViaOst()),
-            this, SLOT(processIsRunning()));
     connect(&d->m_outputParser, SIGNAL(noOutputMessage()),
             this, SLOT(processIsRunning()));
     connect(&d->m_outputParser, SIGNAL(errorMessage(QString)),

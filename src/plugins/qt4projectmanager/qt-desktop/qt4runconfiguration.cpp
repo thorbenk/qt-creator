@@ -34,7 +34,7 @@
 #include "../qt4buildconfiguration.h"
 
 #include <coreplugin/coreconstants.h>
-#include <projectexplorer/environmentwidget.h>
+#include <projectexplorer/localenvironmentaspect.h>
 #include <projectexplorer/target.h>
 #include <utils/qtcprocess.h>
 #include <utils/pathchooser.h>
@@ -68,8 +68,6 @@ const char COMMAND_LINE_ARGUMENTS_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration
 const char PRO_FILE_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.ProFile";
 const char USE_TERMINAL_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.UseTerminal";
 const char USE_DYLD_IMAGE_SUFFIX_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.UseDyldImageSuffix";
-const char USER_ENVIRONMENT_CHANGES_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.UserEnvironmentChanges";
-const char BASE_ENVIRONMENT_BASE_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.BaseEnvironmentBase";
 const char USER_WORKING_DIRECTORY_KEY[] = "Qt4ProjectManager.Qt4RunConfiguration.UserWorkingDirectory";
 
 QString pathFromId(Core::Id id)
@@ -87,8 +85,7 @@ Qt4RunConfiguration::Qt4RunConfiguration(ProjectExplorer::Target *parent, Core::
     LocalApplicationRunConfiguration(parent, id),
     m_proFilePath(pathFromId(id)),
     m_runMode(Gui),
-    m_isUsingDyldImageSuffix(false),
-    m_baseEnvironmentBase(Qt4RunConfiguration::BuildEnvironmentBase)
+    m_isUsingDyldImageSuffix(false)
 {
     Qt4Project *project = static_cast<Qt4Project *>(parent->project());
     m_parseSuccess = project->validParse(m_proFilePath);
@@ -104,8 +101,6 @@ Qt4RunConfiguration::Qt4RunConfiguration(ProjectExplorer::Target *parent, Qt4Run
     m_runMode(source->m_runMode),
     m_isUsingDyldImageSuffix(source->m_isUsingDyldImageSuffix),
     m_userWorkingDirectory(source->m_userWorkingDirectory),
-    m_userEnvironmentChanges(source->m_userEnvironmentChanges),
-    m_baseEnvironmentBase(source->m_baseEnvironmentBase),
     m_parseSuccess(source->m_parseSuccess),
     m_parseInProgress(source->m_parseInProgress)
 {
@@ -134,11 +129,15 @@ QString Qt4RunConfiguration::disabledReason() const
 
 void Qt4RunConfiguration::proFileUpdated(Qt4ProjectManager::Qt4ProFileNode *pro, bool success, bool parseInProgress)
 {
+    ProjectExplorer::LocalEnvironmentAspect *aspect
+            = extraAspect<ProjectExplorer::LocalEnvironmentAspect>();
+    QTC_ASSERT(aspect, return);
+
     if (m_proFilePath != pro->path()) {
         if (!parseInProgress) {
             // We depend on all .pro files for the LD_LIBRARY_PATH so we emit a signal for all .pro files
             // This can be optimized by checking whether LD_LIBRARY_PATH changed
-            emit baseEnvironmentChanged();
+            aspect->buildEnvironmentHasChanged();
         }
         return;
     }
@@ -152,7 +151,7 @@ void Qt4RunConfiguration::proFileUpdated(Qt4ProjectManager::Qt4ProFileNode *pro,
 
     if (!parseInProgress) {
         emit effectiveTargetInformationChanged();
-        emit baseEnvironmentChanged();
+        aspect->buildEnvironmentHasChanged();
     }
 }
 
@@ -163,8 +162,6 @@ void Qt4RunConfiguration::ctor()
     QtSupport::BaseQtVersion *version = QtSupport::QtKitInformation::qtVersion(target()->kit());
     m_forcedGuiMode = (version && version->type() == QLatin1String(QtSupport::Constants::SIMULATORQT));
 
-    connect(target(), SIGNAL(environmentChanged()),
-            this, SIGNAL(baseEnvironmentChanged()));
     connect(target()->project(), SIGNAL(proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)),
             this, SLOT(proFileUpdated(Qt4ProjectManager::Qt4ProFileNode*,bool,bool)));
     connect(target(), SIGNAL(kitChanged()),
@@ -225,7 +222,12 @@ Qt4RunConfigurationWidget::Qt4RunConfigurationWidget(Qt4RunConfiguration *qt4Run
     m_workingDirectoryEdit->setExpectedKind(Utils::PathChooser::Directory);
     m_workingDirectoryEdit->setPath(m_qt4RunConfiguration->baseWorkingDirectory());
     m_workingDirectoryEdit->setBaseDirectory(m_qt4RunConfiguration->target()->project()->projectDirectory());
-    m_workingDirectoryEdit->setEnvironment(m_qt4RunConfiguration->environment());
+    ProjectExplorer::EnvironmentAspect *aspect
+            = qt4RunConfiguration->extraAspect<ProjectExplorer::EnvironmentAspect>();
+    if (aspect) {
+        connect(aspect, SIGNAL(environmentChanged()), this, SLOT(environmentWasChanged()));
+        environmentWasChanged();
+    }
     m_workingDirectoryEdit->setPromptDialogTitle(tr("Select Working Directory"));
 
     QToolButton *resetButton = new QToolButton(this);
@@ -260,37 +262,6 @@ Qt4RunConfigurationWidget::Qt4RunConfigurationWidget(Qt4RunConfiguration *qt4Run
                 this, SLOT(usingDyldImageSuffixToggled(bool)));
     }
 
-    QLabel *environmentLabel = new QLabel(this);
-    environmentLabel->setText(tr("Run Environment"));
-    QFont f = environmentLabel->font();
-    f.setBold(true);
-    f.setPointSizeF(f.pointSizeF() *1.2);
-    environmentLabel->setFont(f);
-    vboxTopLayout->addWidget(environmentLabel);
-
-    QWidget *baseEnvironmentWidget = new QWidget(this);
-    QHBoxLayout *baseEnvironmentLayout = new QHBoxLayout(baseEnvironmentWidget);
-    baseEnvironmentLayout->setMargin(0);
-    QLabel *label = new QLabel(tr("Base environment for this run configuration:"), this);
-    baseEnvironmentLayout->addWidget(label);
-    m_baseEnvironmentComboBox = new QComboBox(this);
-    m_baseEnvironmentComboBox->addItems(QStringList()
-                                        << tr("Clean Environment")
-                                        << tr("System Environment")
-                                        << tr("Build Environment"));
-    m_baseEnvironmentComboBox->setCurrentIndex(qt4RunConfiguration->baseEnvironmentBase());
-    connect(m_baseEnvironmentComboBox, SIGNAL(currentIndexChanged(int)),
-            this, SLOT(baseEnvironmentSelected(int)));
-    baseEnvironmentLayout->addWidget(m_baseEnvironmentComboBox);
-    baseEnvironmentLayout->addStretch(10);
-
-    m_environmentWidget = new ProjectExplorer::EnvironmentWidget(this, baseEnvironmentWidget);
-    m_environmentWidget->setBaseEnvironment(m_qt4RunConfiguration->baseEnvironment());
-    m_environmentWidget->setBaseEnvironmentText(m_qt4RunConfiguration->baseEnvironmentText());
-    m_environmentWidget->setUserChanges(m_qt4RunConfiguration->userEnvironmentChanges());
-    m_environmentWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    vboxTopLayout->addWidget(m_environmentWidget);
-
     runConfigurationEnabledChange();
 
     connect(m_workingDirectoryEdit, SIGNAL(changed(QString)),
@@ -306,9 +277,6 @@ Qt4RunConfigurationWidget::Qt4RunConfigurationWidget(Qt4RunConfiguration *qt4Run
     connect(m_useQvfbCheck, SIGNAL(toggled(bool)),
             this, SLOT(qvfbToggled(bool)));
 
-    connect(m_environmentWidget, SIGNAL(userChangesChanged()),
-            this, SLOT(userChangesEdited()));
-
     connect(qt4RunConfiguration, SIGNAL(baseWorkingDirectoryChanged(QString)),
             this, SLOT(workingDirectoryChanged(QString)));
 
@@ -321,12 +289,6 @@ Qt4RunConfigurationWidget::Qt4RunConfigurationWidget(Qt4RunConfiguration *qt4Run
     connect(qt4RunConfiguration, SIGNAL(effectiveTargetInformationChanged()),
             this, SLOT(effectiveTargetInformationChanged()), Qt::QueuedConnection);
 
-    connect(qt4RunConfiguration, SIGNAL(userEnvironmentChangesChanged(QList<Utils::EnvironmentItem>)),
-            this, SLOT(userEnvironmentChangesChanged(QList<Utils::EnvironmentItem>)));
-
-    connect(qt4RunConfiguration, SIGNAL(baseEnvironmentChanged()),
-            this, SLOT(baseEnvironmentChanged()));
-
     connect(qt4RunConfiguration, SIGNAL(enabledChanged()),
             this, SLOT(runConfigurationEnabledChange()));
 }
@@ -335,45 +297,17 @@ Qt4RunConfigurationWidget::~Qt4RunConfigurationWidget()
 {
 }
 
-void Qt4RunConfigurationWidget::baseEnvironmentSelected(int index)
+void Qt4RunConfigurationWidget::environmentWasChanged()
 {
-    m_ignoreChange = true;
-    m_qt4RunConfiguration->setBaseEnvironmentBase(Qt4RunConfiguration::BaseEnvironmentBase(index));
-
-    m_environmentWidget->setBaseEnvironment(m_qt4RunConfiguration->baseEnvironment());
-    m_environmentWidget->setBaseEnvironmentText(m_qt4RunConfiguration->baseEnvironmentText());
-    m_ignoreChange = false;
-}
-
-void Qt4RunConfigurationWidget::baseEnvironmentChanged()
-{
-    if (m_ignoreChange)
-        return;
-
-    m_baseEnvironmentComboBox->setCurrentIndex(m_qt4RunConfiguration->baseEnvironmentBase());
-    m_environmentWidget->setBaseEnvironment(m_qt4RunConfiguration->baseEnvironment());
-    m_environmentWidget->setBaseEnvironmentText(m_qt4RunConfiguration->baseEnvironmentText());
-}
-
-void Qt4RunConfigurationWidget::userEnvironmentChangesChanged(const QList<Utils::EnvironmentItem> &userChanges)
-{
-    if (m_ignoreChange)
-        return;
-    m_environmentWidget->setUserChanges(userChanges);
-}
-
-void Qt4RunConfigurationWidget::userChangesEdited()
-{
-    m_ignoreChange = true;
-    m_qt4RunConfiguration->setUserEnvironmentChanges(m_environmentWidget->userChanges());
-    m_ignoreChange = false;
+    ProjectExplorer::EnvironmentAspect *aspect
+            = m_qt4RunConfiguration->extraAspect<ProjectExplorer::EnvironmentAspect>();
+    QTC_ASSERT(aspect, return);
+    m_workingDirectoryEdit->setEnvironment(aspect->environment());
 }
 
 void Qt4RunConfigurationWidget::runConfigurationEnabledChange()
 {
     bool enabled = m_qt4RunConfiguration->isEnabled();
-    m_detailsContainer->setEnabled(enabled);
-    m_environmentWidget->setEnabled(enabled);
     m_disabledIcon->setVisible(!enabled);
     m_disabledReason->setVisible(!enabled);
     m_disabledReason->setText(m_qt4RunConfiguration->disabledReason());
@@ -487,8 +421,6 @@ QVariantMap Qt4RunConfiguration::toMap() const
     map.insert(QLatin1String(PRO_FILE_KEY), projectDir.relativeFilePath(m_proFilePath));
     map.insert(QLatin1String(USE_TERMINAL_KEY), m_runMode == Console);
     map.insert(QLatin1String(USE_DYLD_IMAGE_SUFFIX_KEY), m_isUsingDyldImageSuffix);
-    map.insert(QLatin1String(USER_ENVIRONMENT_CHANGES_KEY), Utils::EnvironmentItem::toStringList(m_userEnvironmentChanges));
-    map.insert(QLatin1String(BASE_ENVIRONMENT_BASE_KEY), m_baseEnvironmentBase);
     map.insert(QLatin1String(USER_WORKING_DIRECTORY_KEY), m_userWorkingDirectory);
     return map;
 }
@@ -503,9 +435,6 @@ bool Qt4RunConfiguration::fromMap(const QVariantMap &map)
 
     m_userWorkingDirectory = map.value(QLatin1String(USER_WORKING_DIRECTORY_KEY)).toString();
 
-    m_userEnvironmentChanges = Utils::EnvironmentItem::fromStringList(map.value(QLatin1String(USER_ENVIRONMENT_CHANGES_KEY)).toStringList());
-    m_baseEnvironmentBase = static_cast<BaseEnvironmentBase>(map.value(QLatin1String(BASE_ENVIRONMENT_BASE_KEY), static_cast<int>(Qt4RunConfiguration::BuildEnvironmentBase)).toInt());
-
     m_parseSuccess = static_cast<Qt4Project *>(target()->project())->validParse(m_proFilePath);
     m_parseInProgress = static_cast<Qt4Project *>(target()->project())->parseInProgress(m_proFilePath);
 
@@ -515,10 +444,8 @@ bool Qt4RunConfiguration::fromMap(const QVariantMap &map)
 QString Qt4RunConfiguration::executable() const
 {
     Qt4Project *pro = static_cast<Qt4Project *>(target()->project());
-    TargetInformation ti = pro->rootQt4ProjectNode()->targetInformation(m_proFilePath);
-    if (!ti.valid)
-        return QString();
-    return ti.executable;
+    const Qt4ProFileNode *node = pro->rootQt4ProjectNode()->findProFileFor(m_proFilePath);
+    return extractWorkingDirAndExecutable(node).second;
 }
 
 LocalApplicationRunConfiguration::RunMode Qt4RunConfiguration::runMode() const
@@ -546,7 +473,10 @@ void Qt4RunConfiguration::setUsingDyldImageSuffix(bool state)
 
 QString Qt4RunConfiguration::workingDirectory() const
 {
-    return QDir::cleanPath(environment().expandVariables(
+    ProjectExplorer::EnvironmentAspect *aspect
+            = extraAspect<ProjectExplorer::EnvironmentAspect>();
+    QTC_ASSERT(aspect, baseWorkingDirectory());
+    return QDir::cleanPath(aspect->environment().expandVariables(
                 Utils::expandMacros(baseWorkingDirectory(), macroExpander())));
 }
 
@@ -558,10 +488,8 @@ QString Qt4RunConfiguration::baseWorkingDirectory() const
 
     // else what the pro file reader tells us
     Qt4Project *pro = static_cast<Qt4Project *>(target()->project());
-    TargetInformation ti = pro->rootQt4ProjectNode()->targetInformation(m_proFilePath);
-    if (!ti.valid)
-        return QString();
-    return ti.workingDir;
+    const Qt4ProFileNode *node = pro->rootQt4ProjectNode()->findProFileFor(m_proFilePath);
+    return extractWorkingDirAndExecutable(node).first;
 }
 
 QString Qt4RunConfiguration::commandLineArguments() const
@@ -574,28 +502,31 @@ QString Qt4RunConfiguration::rawCommandLineArguments() const
     return m_commandLineArguments;
 }
 
-QString Qt4RunConfiguration::baseEnvironmentText() const
+void Qt4RunConfiguration::setBaseWorkingDirectory(const QString &wd)
 {
-    if (m_baseEnvironmentBase == Qt4RunConfiguration::CleanEnvironmentBase)
-        return tr("Clean Environment");
-    else  if (m_baseEnvironmentBase == Qt4RunConfiguration::SystemEnvironmentBase)
-        return tr("System Environment");
-    else  if (m_baseEnvironmentBase == Qt4RunConfiguration::BuildEnvironmentBase)
-        return tr("Build Environment");
-    return QString();
+    const QString &oldWorkingDirectory = workingDirectory();
+
+    m_userWorkingDirectory = wd;
+
+    const QString &newWorkingDirectory = workingDirectory();
+    if (oldWorkingDirectory != newWorkingDirectory)
+        emit baseWorkingDirectoryChanged(newWorkingDirectory);
 }
 
-Utils::Environment Qt4RunConfiguration::baseEnvironment() const
+void Qt4RunConfiguration::setCommandLineArguments(const QString &argumentsString)
 {
-    Utils::Environment env;
-    if (m_baseEnvironmentBase == Qt4RunConfiguration::CleanEnvironmentBase) {
-        // Nothing
-    } else  if (m_baseEnvironmentBase == Qt4RunConfiguration::SystemEnvironmentBase) {
-        env = Utils::Environment::systemEnvironment();
-    } else  if (m_baseEnvironmentBase == Qt4RunConfiguration::BuildEnvironmentBase
-                && target()->activeBuildConfiguration()) {
-        env = target()->activeBuildConfiguration()->environment();
-    }
+    m_commandLineArguments = argumentsString;
+    emit commandLineArgumentsChanged(argumentsString);
+}
+
+void Qt4RunConfiguration::setRunMode(RunMode runMode)
+{
+    m_runMode = runMode;
+    emit runModeChanged(runMode);
+}
+
+void Qt4RunConfiguration::addToBaseEnvironment(Utils::Environment &env) const
+{
     if (m_isUsingDyldImageSuffix)
         env.set(QLatin1String("DYLD_IMAGE_SUFFIX"), QLatin1String("_debug"));
 
@@ -620,50 +551,6 @@ Utils::Environment Qt4RunConfiguration::baseEnvironment() const
     QtSupport::BaseQtVersion *qtVersion = QtSupport::QtKitInformation::qtVersion(target()->kit());
     if (qtVersion)
         env.prependOrSetLibrarySearchPath(qtVersion->qmakeProperty("QT_INSTALL_LIBS"));
-    return env;
-}
-
-Utils::Environment Qt4RunConfiguration::environment() const
-{
-    Utils::Environment env = baseEnvironment();
-    env.modify(userEnvironmentChanges());
-    return env;
-}
-
-QList<Utils::EnvironmentItem> Qt4RunConfiguration::userEnvironmentChanges() const
-{
-    return m_userEnvironmentChanges;
-}
-
-void Qt4RunConfiguration::setUserEnvironmentChanges(const QList<Utils::EnvironmentItem> &diff)
-{
-    if (m_userEnvironmentChanges != diff) {
-        m_userEnvironmentChanges = diff;
-        emit userEnvironmentChangesChanged(diff);
-    }
-}
-
-void Qt4RunConfiguration::setBaseWorkingDirectory(const QString &wd)
-{
-    const QString &oldWorkingDirectory = workingDirectory();
-
-    m_userWorkingDirectory = wd;
-
-    const QString &newWorkingDirectory = workingDirectory();
-    if (oldWorkingDirectory != newWorkingDirectory)
-        emit baseWorkingDirectoryChanged(newWorkingDirectory);
-}
-
-void Qt4RunConfiguration::setCommandLineArguments(const QString &argumentsString)
-{
-    m_commandLineArguments = argumentsString;
-    emit commandLineArgumentsChanged(argumentsString);
-}
-
-void Qt4RunConfiguration::setRunMode(RunMode runMode)
-{
-    m_runMode = runMode;
-    emit runModeChanged(runMode);
 }
 
 QString Qt4RunConfiguration::proFilePath() const
@@ -691,22 +578,52 @@ QString Qt4RunConfiguration::defaultDisplayName()
     return defaultName;
 }
 
-void Qt4RunConfiguration::setBaseEnvironmentBase(BaseEnvironmentBase env)
-{
-    if (m_baseEnvironmentBase == env)
-        return;
-    m_baseEnvironmentBase = env;
-    emit baseEnvironmentChanged();
-}
-
-Qt4RunConfiguration::BaseEnvironmentBase Qt4RunConfiguration::baseEnvironmentBase() const
-{
-    return m_baseEnvironmentBase;
-}
-
 Utils::OutputFormatter *Qt4RunConfiguration::createOutputFormatter() const
 {
     return new QtSupport::QtOutputFormatter(target()->project());
+}
+
+QPair<QString, QString> Qt4RunConfiguration::extractWorkingDirAndExecutable(const Qt4ProFileNode *node) const
+{
+    if (!node)
+        return qMakePair(QString(), QString());
+    TargetInformation ti = node->targetInformation();
+    if (!ti.valid)
+        return qMakePair(QString(), QString());
+
+    const QStringList &config = node->variableValue(ConfigVar);
+
+    QString destDir = ti.destDir;
+    QString workingDir;
+    if (!destDir.isEmpty()) {
+        bool workingDirIsBaseDir = false;
+        if (destDir == ti.buildTarget) {
+            workingDirIsBaseDir = true;
+        }
+        if (QDir::isRelativePath(destDir))
+            destDir = QDir::cleanPath(ti.buildDir + QLatin1Char('/') + destDir);
+
+        if (workingDirIsBaseDir)
+            workingDir = ti.buildDir;
+        else
+            workingDir = destDir;
+    } else {
+        destDir = ti.buildDir;
+        workingDir = ti.buildDir;
+    }
+
+    if (Utils::HostOsInfo::isMacHost()
+            && config.contains(QLatin1String("app_bundle"))) {
+        const QString infix = QLatin1Char('/') + ti.target
+                + QLatin1String(".app/Contents/MacOS");
+        workingDir += infix;
+        destDir += infix;
+    }
+
+    QString executable = QDir::cleanPath(destDir + QLatin1Char('/') + ti.target);
+    executable = Utils::HostOsInfo::withExecutableSuffix(executable);
+    //qDebug() << "##### Qt4RunConfiguration::extractWorkingDirAndExecutable:" workingDir << executable;
+    return qMakePair(workingDir, executable);
 }
 
 ///

@@ -60,7 +60,7 @@ QbsCleanStep::QbsCleanStep(ProjectExplorer::BuildStepList *bsl) :
     ProjectExplorer::BuildStep(bsl, Core::Id(Constants::QBS_CLEANSTEP_ID)),
     m_job(0), m_showCompilerOutput(true), m_parser(0)
 {
-    setDisplayName(tr("Qbs clean"));
+    setDisplayName(tr("Qbs Clean"));
 }
 
 QbsCleanStep::QbsCleanStep(ProjectExplorer::BuildStepList *bsl, const QbsCleanStep *other) :
@@ -72,8 +72,10 @@ QbsCleanStep::QbsCleanStep(ProjectExplorer::BuildStepList *bsl, const QbsCleanSt
 QbsCleanStep::~QbsCleanStep()
 {
     cancel();
-    m_job->deleteLater();
-    m_job = 0;
+    if (m_job) {
+        m_job->deleteLater();
+        m_job = 0;
+    }
 }
 
 bool QbsCleanStep::init()
@@ -264,7 +266,6 @@ QbsCleanStepConfigWidget::QbsCleanStepConfigWidget(QbsCleanStep *step) :
             this, SLOT(changeCleanAll(bool)));
     connect(m_ui->dryRunCheckBox, SIGNAL(toggled(bool)), this, SLOT(changeDryRun(bool)));
     connect(m_ui->keepGoingCheckBox, SIGNAL(toggled(bool)), this, SLOT(changeKeepGoing(bool)));
-    connect(m_ui->jobSpinBox, SIGNAL(valueChanged(int)), this, SLOT(changeJobCount(int)));
 
     updateState();
 }
@@ -284,17 +285,12 @@ void QbsCleanStepConfigWidget::updateState()
     m_ui->cleanAllCheckBox->setChecked(m_step->cleanAll());
     m_ui->dryRunCheckBox->setChecked(m_step->dryRun());
     m_ui->keepGoingCheckBox->setChecked(m_step->keepGoing());
-    m_ui->jobSpinBox->setValue(m_step->maxJobs());
-
-    qbs::BuildOptions defaultOptions;
 
     QString command = QLatin1String("qbs clean ");
     if (m_step->dryRun())
-        command += QLatin1String("--dryRun ");
+        command += QLatin1String("--dry-run ");
     if (m_step->keepGoing())
-        command += QLatin1String("--keepGoing ");
-    if (m_step->maxJobs() != defaultOptions.maxJobCount)
-        command += QString::fromLatin1("--jobs %1 ").arg(m_step->maxJobs());
+        command += QLatin1String("--keep-going ");
     if (m_step->cleanAll())
         command += QLatin1String(" --all-artifacts");
 
@@ -344,7 +340,7 @@ QList<Core::Id> QbsCleanStepFactory::availableCreationIds(ProjectExplorer::Build
 QString QbsCleanStepFactory::displayNameForId(const Core::Id id) const
 {
     if (id == Core::Id(Constants::QBS_CLEANSTEP_ID))
-        return tr("Qbs");
+        return tr("Qbs Clean");
     return QString();
 }
 

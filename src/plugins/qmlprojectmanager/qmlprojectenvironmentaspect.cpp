@@ -27,24 +27,45 @@
 **
 ****************************************************************************/
 
-#ifndef CPPCOMPLETESWITCH_H
-#define CPPCOMPLETESWITCH_H
+#include "qmlprojectenvironmentaspect.h"
 
-#include "cppquickfix.h"
+#include <utils/qtcassert.h>
 
-namespace CppEditor {
-namespace Internal {
+namespace QmlProjectManager {
 
-/*!
-  Adds missing case statements for "switch (enumVariable)"
- */
-class CompleteSwitchCaseStatement: public CppQuickFixFactory
+// --------------------------------------------------------------------
+// QmlProjectEnvironmentAspect:
+// --------------------------------------------------------------------
+
+QList<int> QmlProjectEnvironmentAspect::possibleBaseEnvironments() const
 {
-public:
-    void match(const CppQuickFixInterface &interface, TextEditor::QuickFixOperations &result);
-};
+    return QList<int>() << static_cast<int>(SystemEnvironmentBase);
+}
 
-} // namespace Internal
-} // namespace CppEditor
+QString QmlProjectEnvironmentAspect::baseEnvironmentDisplayName(int base) const
+{
+    if (base == static_cast<int>(SystemEnvironmentBase))
+        return tr("System Environment");
+    return QString();
+}
 
-#endif // CPPCOMPLETESWITCH_H
+Utils::Environment QmlProjectManager::QmlProjectEnvironmentAspect::baseEnvironment() const
+{
+    return Utils::Environment::systemEnvironment();
+}
+
+QmlProjectEnvironmentAspect::QmlProjectEnvironmentAspect(ProjectExplorer::RunConfiguration *rc) :
+    ProjectExplorer::EnvironmentAspect(rc)
+{ }
+
+QmlProjectEnvironmentAspect *QmlProjectEnvironmentAspect::clone(ProjectExplorer::RunConfiguration *parent) const
+{
+    return new QmlProjectEnvironmentAspect(this, parent);
+}
+
+QmlProjectEnvironmentAspect::QmlProjectEnvironmentAspect(const QmlProjectManager::QmlProjectEnvironmentAspect *other,
+                                                         ProjectExplorer::RunConfiguration *parent) :
+    ProjectExplorer::EnvironmentAspect(other, parent)
+{ }
+
+} // namespace QmlProjectManager

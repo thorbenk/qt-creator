@@ -30,7 +30,7 @@
 #include "cppeditor.h"
 
 #include "cppeditorconstants.h"
-#include "cppplugin.h"
+#include "cppeditorplugin.h"
 #include "cpphighlighter.h"
 #include "cppautocompleter.h"
 #include "cppquickfixassistant.h"
@@ -283,6 +283,7 @@ struct CanonicalSymbol
         : editor(editor), info(info)
     {
         typeOfExpression.init(info.doc, info.snapshot);
+        typeOfExpression.setExpandTemplates(true);
     }
 
     const LookupContext &context() const
@@ -658,7 +659,7 @@ void CPPEditorWidget::createToolBar(CPPEditor *editor)
 
     m_outlineModel = new OverviewModel(this);
     m_proxyModel = new OverviewProxyModel(m_outlineModel, this);
-    if (CppPlugin::instance()->sortedOutline())
+    if (CppEditorPlugin::instance()->sortedOutline())
         m_proxyModel->sort(0, Qt::AscendingOrder);
     else
         m_proxyModel->sort(-1, Qt::AscendingOrder); // don't sort yet, but set column for sortedOutline()
@@ -670,7 +671,8 @@ void CPPEditorWidget::createToolBar(CPPEditor *editor)
     m_sortAction = new QAction(tr("Sort Alphabetically"), m_outlineCombo);
     m_sortAction->setCheckable(true);
     m_sortAction->setChecked(sortedOutline());
-    connect(m_sortAction, SIGNAL(toggled(bool)), CppPlugin::instance(), SLOT(setSortedOutline(bool)));
+    connect(m_sortAction, SIGNAL(toggled(bool)),
+            CppEditorPlugin::instance(), SLOT(setSortedOutline(bool)));
     m_outlineCombo->addAction(m_sortAction);
 
     m_updateOutlineTimer = new QTimer(this);
@@ -1480,10 +1482,10 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
     const Snapshot &snapshot = m_modelManager->snapshot();
 
     QTextCursor tc = cursor;
-    QChar ch = characterAt(tc.position());
+    QChar ch = document()->characterAt(tc.position());
     while (ch.isLetterOrNumber() || ch == QLatin1Char('_')) {
         tc.movePosition(QTextCursor::NextCharacter);
-        ch = characterAt(tc.position());
+        ch = document()->characterAt(tc.position());
     }
 
     // Initially try to macth decl/def. For this we need the semantic doc with the AST.
@@ -1491,9 +1493,9 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
             && m_lastSemanticInfo.doc->translationUnit()
             && m_lastSemanticInfo.doc->translationUnit()->ast()) {
         int pos = tc.position();
-        while (characterAt(pos).isSpace())
+        while (document()->characterAt(pos).isSpace())
             ++pos;
-        if (characterAt(pos) == QLatin1Char('(')) {
+        if (document()->characterAt(pos) == QLatin1Char('(')) {
             link = attemptFuncDeclDef(cursor, m_lastSemanticInfo.doc, snapshot);
             if (link.hasValidLinkText())
                 return link;
@@ -1624,7 +1626,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor,
     QString expression = expressionUnderCursor(tc);
 
     for (int pos = tc.position();; ++pos) {
-        const QChar ch = characterAt(pos);
+        const QChar ch = document()->characterAt(pos);
         if (ch.isSpace())
             continue;
         else {
@@ -1786,7 +1788,7 @@ void CPPEditorWidget::contextMenuEvent(QContextMenuEvent *e)
             createAssistInterface(TextEditor::QuickFix, TextEditor::ExplicitlyInvoked);
         if (interface) {
             QScopedPointer<TextEditor::IAssistProcessor> processor(
-                        CppPlugin::instance()->quickFixProvider()->createProcessor());
+                        CppEditorPlugin::instance()->quickFixProvider()->createProcessor());
             QScopedPointer<TextEditor::IAssistProposal> proposal(processor->perform(interface));
             if (!proposal.isNull()) {
                 TextEditor::BasicProposalItemListModel *model =
@@ -1910,7 +1912,7 @@ Core::IEditor *CPPEditor::duplicate(QWidget *parent)
 {
     CPPEditorWidget *newEditor = new CPPEditorWidget(parent);
     newEditor->duplicateFrom(editorWidget());
-    CppPlugin::instance()->initializeEditor(newEditor);
+    CppEditorPlugin::instance()->initializeEditor(newEditor);
     return newEditor->editor();
 }
 
@@ -1948,23 +1950,24 @@ void CPPEditorWidget::setFontSettings(const TextEditor::FontSettings &fs)
     m_occurrencesUnusedFormat.clearForeground();
     m_occurrencesUnusedFormat.setToolTip(tr("Unused variable"));
     m_occurrenceRenameFormat = fs.toTextCharFormat(TextEditor::C_OCCURRENCES_RENAME);
-    m_semanticHighlightFormatMap[SemanticInfo::TypeUse] =
+
+    m_semanticHighlightFormatMap[CppHighlightingSupport::TypeUse] =
             fs.toTextCharFormat(TextEditor::C_TYPE);
-    m_semanticHighlightFormatMap[SemanticInfo::LocalUse] =
+    m_semanticHighlightFormatMap[CppHighlightingSupport::LocalUse] =
             fs.toTextCharFormat(TextEditor::C_LOCAL);
-    m_semanticHighlightFormatMap[SemanticInfo::FieldUse] =
+    m_semanticHighlightFormatMap[CppHighlightingSupport::FieldUse] =
             fs.toTextCharFormat(TextEditor::C_FIELD);
-    m_semanticHighlightFormatMap[SemanticInfo::EnumerationUse] =
+    m_semanticHighlightFormatMap[CppHighlightingSupport::EnumerationUse] =
             fs.toTextCharFormat(TextEditor::C_ENUMERATION);
-    m_semanticHighlightFormatMap[SemanticInfo::VirtualMethodUse] =
+    m_semanticHighlightFormatMap[CppHighlightingSupport::VirtualMethodUse] =
             fs.toTextCharFormat(TextEditor::C_VIRTUAL_METHOD);
-    m_semanticHighlightFormatMap[SemanticInfo::LabelUse] =
+    m_semanticHighlightFormatMap[CppHighlightingSupport::LabelUse] =
             fs.toTextCharFormat(TextEditor::C_LABEL);
-    m_semanticHighlightFormatMap[SemanticInfo::MacroUse] =
+    m_semanticHighlightFormatMap[CppHighlightingSupport::MacroUse] =
             fs.toTextCharFormat(TextEditor::C_PREPROCESSOR);
-    m_semanticHighlightFormatMap[SemanticInfo::FunctionUse] =
+    m_semanticHighlightFormatMap[CppHighlightingSupport::FunctionUse] =
             fs.toTextCharFormat(TextEditor::C_FUNCTION);
-    m_semanticHighlightFormatMap[SemanticInfo::PseudoKeywordUse] =
+    m_semanticHighlightFormatMap[CppHighlightingSupport::PseudoKeywordUse] =
             fs.toTextCharFormat(TextEditor::C_KEYWORD);
     m_semanticHighlightFormatMap[SemanticInfo::StringUse] =
             fs.toTextCharFormat(TextEditor::C_STRING);
@@ -2114,15 +2117,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
                 }
             }
         }
-
-#if 0 // ### TODO: enable objc semantic highlighting
-        setExtraSelections(ObjCSelection, createSelections(document(),
-                                                           semanticInfo.objcKeywords,
-                                                           m_keywordFormat));
-#endif
     }
-
-
 
     setExtraSelections(UnusedSymbolSelection, unusedSelections);
 
@@ -2137,100 +2132,6 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
     // schedule a check for a decl/def link
     updateFunctionDeclDefLink();
 }
-
-namespace {
-
-class FindObjCKeywords: public ASTVisitor
-{
-public:
-    FindObjCKeywords(TranslationUnit *unit)
-        : ASTVisitor(unit)
-    {}
-
-    QList<SemanticInfo::Use> operator()()
-    {
-        _keywords.clear();
-        accept(translationUnit()->ast());
-        return _keywords;
-    }
-
-    virtual bool visit(ObjCClassDeclarationAST *ast)
-    {
-        addToken(ast->interface_token);
-        addToken(ast->implementation_token);
-        addToken(ast->end_token);
-        return true;
-    }
-
-    virtual bool visit(ObjCClassForwardDeclarationAST *ast)
-    { addToken(ast->class_token); return true; }
-
-    virtual bool visit(ObjCProtocolDeclarationAST *ast)
-    { addToken(ast->protocol_token); addToken(ast->end_token); return true; }
-
-    virtual bool visit(ObjCProtocolForwardDeclarationAST *ast)
-    { addToken(ast->protocol_token); return true; }
-
-    virtual bool visit(ObjCProtocolExpressionAST *ast)
-    { addToken(ast->protocol_token); return true; }
-
-    virtual bool visit(ObjCTypeNameAST *) { return true; }
-
-    virtual bool visit(ObjCEncodeExpressionAST *ast)
-    { addToken(ast->encode_token); return true; }
-
-    virtual bool visit(ObjCSelectorExpressionAST *ast)
-    { addToken(ast->selector_token); return true; }
-
-    virtual bool visit(ObjCVisibilityDeclarationAST *ast)
-    { addToken(ast->visibility_token); return true; }
-
-    virtual bool visit(ObjCPropertyAttributeAST *ast)
-    {
-        const Identifier *attrId = identifier(ast->attribute_identifier_token);
-        if (attrId == control()->objcAssignId()
-                || attrId == control()->objcCopyId()
-                || attrId == control()->objcGetterId()
-                || attrId == control()->objcNonatomicId()
-                || attrId == control()->objcReadonlyId()
-                || attrId == control()->objcReadwriteId()
-                || attrId == control()->objcRetainId()
-                || attrId == control()->objcSetterId())
-            addToken(ast->attribute_identifier_token);
-        return true;
-    }
-
-    virtual bool visit(ObjCPropertyDeclarationAST *ast)
-    { addToken(ast->property_token); return true; }
-
-    virtual bool visit(ObjCSynthesizedPropertiesDeclarationAST *ast)
-    { addToken(ast->synthesized_token); return true; }
-
-    virtual bool visit(ObjCDynamicPropertiesDeclarationAST *ast)
-    { addToken(ast->dynamic_token); return true; }
-
-    virtual bool visit(ObjCFastEnumerationAST *ast)
-    { addToken(ast->for_token); addToken(ast->in_token); return true; }
-
-    virtual bool visit(ObjCSynchronizedStatementAST *ast)
-    { addToken(ast->synchronized_token); return true; }
-
-protected:
-    void addToken(unsigned token)
-    {
-        if (token) {
-            SemanticInfo::Use use;
-            getTokenStartPosition(token, &use.line, &use.column);
-            use.length = tokenAt(token).length();
-            _keywords.append(use);
-        }
-    }
-
-private:
-    QList<SemanticInfo::Use> _keywords;
-};
-
-} // anonymous namespace
 
 SemanticHighlighter::Source CPPEditorWidget::currentSource(bool force)
 {
@@ -2327,7 +2228,6 @@ SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
             && m_lastSemanticInfo.doc->fileName() == source.fileName) {
         semanticInfo.snapshot = m_lastSemanticInfo.snapshot; // ### TODO: use the new snapshot.
         semanticInfo.doc = m_lastSemanticInfo.doc;
-        semanticInfo.objcKeywords = m_lastSemanticInfo.objcKeywords;
     }
     m_mutex.unlock();
 
@@ -2338,13 +2238,6 @@ SemanticInfo SemanticHighlighter::semanticInfo(const Source &source)
             doc->control()->setTopLevelDeclarationProcessor(this);
             doc->check();
             semanticInfo.doc = doc;
-
-#if 0
-            if (TranslationUnit *unit = doc->translationUnit()) {
-                FindObjCKeywords findObjCKeywords(unit); // ### remove me
-                objcKeywords = findObjCKeywords();
-            }
-#endif
         }
     }
 
@@ -2597,9 +2490,9 @@ bool CPPEditorWidget::handleDocumentationComment(QKeyEvent *e)
 bool CPPEditorWidget::isStartOfDoxygenComment(const QTextCursor &cursor) const
 {
     const int pos = cursor.position();
-    QString comment = QString(characterAt(pos - 3))
-            + characterAt(pos - 2)
-            + characterAt(pos - 1);
+    QString comment = QString(document()->characterAt(pos - 3))
+            + document()->characterAt(pos - 2)
+            + document()->characterAt(pos - 1);
 
     if ((comment == QLatin1String("/**"))
             || (comment == QLatin1String("/*!"))

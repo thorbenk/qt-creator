@@ -31,6 +31,7 @@
 #include "qmlproject.h"
 #include "qmlprojectmanagerconstants.h"
 #include "qmlprojectrunconfigurationwidget.h"
+#include "qmlprojectenvironmentaspect.h"
 #include <coreplugin/mimedatabase.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
@@ -69,8 +70,7 @@ QmlProjectRunConfiguration::QmlProjectRunConfiguration(ProjectExplorer::Target *
     ProjectExplorer::RunConfiguration(parent, source),
     m_scriptFile(source->m_scriptFile),
     m_qmlViewerArgs(source->m_qmlViewerArgs),
-    m_isEnabled(source->m_isEnabled),
-    m_userEnvironmentChanges(source->m_userEnvironmentChanges)
+    m_isEnabled(source->m_isEnabled)
 {
     ctor();
 }
@@ -101,10 +101,8 @@ void QmlProjectRunConfiguration::ctor()
         setDisplayName(tr("QML Scene", "QMLRunConfiguration display name."));
     else
         setDisplayName(tr("QML Viewer", "QMLRunConfiguration display name."));
-}
 
-QmlProjectRunConfiguration::~QmlProjectRunConfiguration()
-{
+    addExtraAspect(new QmlProjectEnvironmentAspect(this));
 }
 
 QString QmlProjectRunConfiguration::viewerPath() const
@@ -241,13 +239,6 @@ void QmlProjectRunConfiguration::setScriptSource(MainScriptSource source,
         m_configurationWidget.data()->updateFileComboBox();
 }
 
-Utils::Environment QmlProjectRunConfiguration::environment() const
-{
-    Utils::Environment env = baseEnvironment();
-    env.modify(userEnvironmentChanges());
-    return env;
-}
-
 ProjectExplorer::Abi QmlProjectRunConfiguration::abi() const
 {
     ProjectExplorer::Abi hostAbi = ProjectExplorer::Abi::hostAbi();
@@ -261,8 +252,6 @@ QVariantMap QmlProjectRunConfiguration::toMap() const
 
     map.insert(QLatin1String(Constants::QML_VIEWER_ARGUMENTS_KEY), m_qmlViewerArgs);
     map.insert(QLatin1String(Constants::QML_MAINSCRIPT_KEY),  m_scriptFile);
-    map.insert(QLatin1String(Constants::USER_ENVIRONMENT_CHANGES_KEY),
-               Utils::EnvironmentItem::toStringList(m_userEnvironmentChanges));
     return map;
 }
 
@@ -270,8 +259,6 @@ bool QmlProjectRunConfiguration::fromMap(const QVariantMap &map)
 {
     m_qmlViewerArgs = map.value(QLatin1String(Constants::QML_VIEWER_ARGUMENTS_KEY)).toString();
     m_scriptFile = map.value(QLatin1String(Constants::QML_MAINSCRIPT_KEY), QLatin1String(M_CURRENT_FILE)).toString();
-    m_userEnvironmentChanges = Utils::EnvironmentItem::fromStringList(
-                map.value(QLatin1String(Constants::USER_ENVIRONMENT_CHANGES_KEY)).toStringList());
 
     if (m_scriptFile == QLatin1String(M_CURRENT_FILE))
         setScriptSource(FileInEditor);
@@ -340,28 +327,6 @@ bool QmlProjectRunConfiguration::isValidVersion(QtSupport::BaseQtVersion *versio
         return true;
     }
     return false;
-}
-
-Utils::Environment QmlProjectRunConfiguration::baseEnvironment() const
-{
-    Utils::Environment env;
-    if (qtVersion())
-        env = qtVersion()->qmlToolsEnvironment();
-    return env;
-}
-
-void QmlProjectRunConfiguration::setUserEnvironmentChanges(const QList<Utils::EnvironmentItem> &diff)
-{
-    if (m_userEnvironmentChanges != diff) {
-        m_userEnvironmentChanges = diff;
-        if (m_configurationWidget)
-            m_configurationWidget.data()->userEnvironmentChangesChanged();
-    }
-}
-
-QList<Utils::EnvironmentItem> QmlProjectRunConfiguration::userEnvironmentChanges() const
-{
-    return m_userEnvironmentChanges;
 }
 
 } // namespace QmlProjectManager

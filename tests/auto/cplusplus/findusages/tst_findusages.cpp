@@ -94,6 +94,10 @@ private Q_SLOTS:
 
     // templates
     void instantiateTemplateWithNestedClass();
+    void operatorAsteriskOfNestedClassOfTemplateClass_QTCREATORBUG9006();
+    void operatorArrowOfNestedClassOfTemplateClass_QTCREATORBUG9005();
+    void anonymousClass_QTCREATORBUG8963();
+
 };
 
 void tst_FindUsages::inlineMethod()
@@ -441,6 +445,138 @@ void tst_FindUsages::instantiateTemplateWithNestedClass()
 
     FindUsages findUsages(src, doc, snapshot);
     findUsages(barDeclaration);
+    QCOMPARE(findUsages.usages().size(), 2);
+}
+
+void tst_FindUsages::operatorAsteriskOfNestedClassOfTemplateClass_QTCREATORBUG9006()
+{
+    const QByteArray src = "\n"
+            "struct Foo { int foo; };\n"
+            "\n"
+            "template<class T>\n"
+            "struct Outer\n"
+            "{\n"
+            "  struct Nested\n"
+            "  {\n"
+            "    const T &operator*() { return t; }\n"
+            "    T t;\n"
+            "  };\n"
+            "};\n"
+            "\n"
+            "void bug()\n"
+            "{\n"
+            "  Outer<Foo>::Nested nested;\n"
+            "  (*nested).foo;\n"
+            "}\n"
+            ;
+
+    Document::Ptr doc = Document::create("operatorAsteriskOfNestedClassOfTemplateClass_QTCREATORBUG9006");
+    doc->setUtf8Source(src);
+    doc->parse();
+    doc->check();
+
+    QVERIFY(doc->diagnosticMessages().isEmpty());
+    QCOMPARE(doc->globalSymbolCount(), 3U);
+    Snapshot snapshot;
+    snapshot.insert(doc);
+
+    Class *classFoo = doc->globalSymbolAt(0)->asClass();
+    QVERIFY(classFoo);
+    QCOMPARE(classFoo->memberCount(), 1U);
+    Declaration *fooDeclaration = classFoo->memberAt(0)->asDeclaration();
+    QVERIFY(fooDeclaration);
+    QCOMPARE(fooDeclaration->name()->identifier()->chars(), "foo");
+
+    FindUsages findUsages(src, doc, snapshot);
+    findUsages(fooDeclaration);
+
+    QCOMPARE(findUsages.usages().size(), 2);
+}
+
+void tst_FindUsages::anonymousClass_QTCREATORBUG8963()
+{
+    const QByteArray src =
+            "typedef enum {\n"
+            " FIRST\n"
+            "} isNotInt;\n"
+            "typedef struct {\n"
+            " int isint;\n"
+            " int isNotInt;\n"
+            "} Struct;\n"
+            "void foo()\n"
+            "{\n"
+            " Struct s;\n"
+            " s.isint;\n"
+            " s.isNotInt;\n"
+            " FIRST;\n"
+            "}\n"
+            ;
+
+    Document::Ptr doc = Document::create("anonymousClass_QTCREATORBUG8963");
+    doc->setUtf8Source(src);
+    doc->parse();
+    doc->check();
+
+    QVERIFY(doc->diagnosticMessages().isEmpty());
+    QCOMPARE(doc->globalSymbolCount(), 5U);
+
+    Snapshot snapshot;
+    snapshot.insert(doc);
+
+    Class *structSymbol = doc->globalSymbolAt(2)->asClass();
+    QVERIFY(structSymbol);
+    QCOMPARE(structSymbol->memberCount(), 2U);
+    Declaration *isNotIntDeclaration = structSymbol->memberAt(1)->asDeclaration();
+    QVERIFY(isNotIntDeclaration);
+    QCOMPARE(isNotIntDeclaration->name()->identifier()->chars(), "isNotInt");
+
+    FindUsages findUsages(src, doc, snapshot);
+    findUsages(isNotIntDeclaration);
+
+    QCOMPARE(findUsages.usages().size(), 2);
+}
+
+void tst_FindUsages::operatorArrowOfNestedClassOfTemplateClass_QTCREATORBUG9005()
+{
+    const QByteArray src = "\n"
+            "struct Foo { int foo; };\n"
+            "\n"
+            "template<class T>\n"
+            "struct Outer\n"
+            "{\n"
+            "  struct Nested\n"
+            "  {\n"
+            "    T *operator->() { return 0; }\n"
+            "  };\n"
+            "};\n"
+            "\n"
+            "void bug()\n"
+            "{\n"
+            "  Outer<Foo>::Nested nested;\n"
+            "  nested->foo;\n"
+            "}\n"
+            ;
+
+    Document::Ptr doc = Document::create("operatorArrowOfNestedClassOfTemplateClass_QTCREATORBUG9005");
+    doc->setUtf8Source(src);
+    doc->parse();
+    doc->check();
+
+    QVERIFY(doc->diagnosticMessages().isEmpty());
+    QCOMPARE(doc->globalSymbolCount(), 3U);
+
+    Snapshot snapshot;
+    snapshot.insert(doc);
+
+    Class *classFoo = doc->globalSymbolAt(0)->asClass();
+    QVERIFY(classFoo);
+    QCOMPARE(classFoo->memberCount(), 1U);
+    Declaration *fooDeclaration = classFoo->memberAt(0)->asDeclaration();
+    QVERIFY(fooDeclaration);
+    QCOMPARE(fooDeclaration->name()->identifier()->chars(), "foo");
+
+    FindUsages findUsages(src, doc, snapshot);
+    findUsages(fooDeclaration);
     QCOMPARE(findUsages.usages().size(), 2);
 }
 

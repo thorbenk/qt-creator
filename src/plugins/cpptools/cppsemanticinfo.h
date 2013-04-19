@@ -43,20 +43,7 @@ namespace CppTools {
 class CPPTOOLS_EXPORT SemanticInfo
 {
 public:
-    enum UseKind {
-        Unknown = 0,
-        TypeUse,
-        LocalUse,
-        FieldUse,
-        EnumerationUse,
-        VirtualMethodUse,
-        LabelUse,
-        MacroUse,
-        FunctionUse,
-        PseudoKeywordUse,
-        StringUse
-    };
-    typedef TextEditor::SemanticHighlighter::Result Use;
+    typedef TextEditor::HighlightingResult Use;
 
     typedef QHash<CPlusPlus::Symbol *, QList<Use> > LocalUseMap;
     typedef QHashIterator<CPlusPlus::Symbol *, QList<Use> > LocalUseIterator;
@@ -68,7 +55,6 @@ public:
     CPlusPlus::Snapshot snapshot;
     CPlusPlus::Document::Ptr doc;
     LocalUseMap localUses;
-    QList<Use> objcKeywords;
 };
 
 } // namespace CppTools

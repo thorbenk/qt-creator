@@ -342,12 +342,10 @@ bool CppPreprocessor::checkFile(const QString &absoluteFilePath) const
 QString CppPreprocessor::resolveFile(const QString &fileName, IncludeType type)
 {
     if (type == IncludeGlobal) {
-        QString fn = m_fileNameCache.value(fileName);
-
-        if (! fn.isEmpty())
-            return fn;
-
-        fn = resolveFile_helper(fileName, type);
+        QHash<QString, QString>::ConstIterator it = m_fileNameCache.find(fileName);
+        if (it != m_fileNameCache.end())
+            return it.value();
+        const QString fn = resolveFile_helper(fileName, type);
         m_fileNameCache.insert(fileName, fn);
         return fn;
     }
@@ -970,10 +968,16 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
 
         foreach (const ProjectInfo &projectInfo, m_projects) {
             foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts()) {
-                foreach (const ProjectFile &cxxFile, projectPart->files)
+                foreach (const ProjectFile &cxxFile, projectPart->files) {
                     m_srcToProjectPart[cxxFile.path].append(projectPart);
+                    foreach (const QString &fileName, m_snapshot.allIncludesForDocument(cxxFile.path))
+                        m_snapshot.remove(fileName);
+                    m_snapshot.remove(cxxFile.path);
+                }
             }
         }
+
+        m_snapshot.remove(configurationFileName());
     }
 
     if (!qgetenv("QTCREATOR_DUMP_PROJECT_INFO").isEmpty())

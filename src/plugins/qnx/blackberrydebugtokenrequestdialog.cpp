@@ -31,6 +31,7 @@
 
 #include "blackberrydebugtokenrequestdialog.h"
 #include "blackberrydebugtokenrequester.h"
+#include "blackberrydeviceinformation.h"
 #include "blackberryconfiguration.h"
 #include "blackberrycertificate.h"
 #include "ui_blackberrydebugtokenrequestdialog.h"
@@ -46,12 +47,13 @@ BlackBerryDebugTokenRequestDialog::BlackBerryDebugTokenRequestDialog(
         QWidget *parent, Qt::WindowFlags f) :
     QDialog(parent, f),
     m_ui(new Ui_BlackBerryDebugTokenRequestDialog),
-    m_requester(new BlackBerryDebugTokenRequester)
+    m_requester(new BlackBerryDebugTokenRequester(this)),
+    m_deviceInfo(new BlackBerryDeviceInformation(this))
 {
     m_ui->setupUi(this);
     m_ui->progressBar->hide();
     m_ui->status->clear();
-    m_ui->debugTokenPath->setExpectedKind(Utils::PathChooser::Any);
+    m_ui->debugTokenPath->setExpectedKind(Utils::PathChooser::SaveFile);
     m_ui->debugTokenPath->setPromptDialogTitle(tr("Request Debug Token"));
     m_ui->debugTokenPath->setPromptDialogFilter(tr("BAR Files (*.bar)"));
 
@@ -67,8 +69,12 @@ BlackBerryDebugTokenRequestDialog::BlackBerryDebugTokenRequestDialog(
             this, SLOT(requestDebugToken()));
     connect(m_ui->debugTokenPath, SIGNAL(changed(QString)),
             this, SLOT(validate()));
+    connect(m_ui->debugTokenPath, SIGNAL(beforeBrowsing()),
+            this, SLOT(setDefaultPath()));
     connect(m_ui->debugTokenPath, SIGNAL(editingFinished()),
             this, SLOT(appendExtension()));
+    connect(m_ui->debugTokenPath, SIGNAL(editingFinished()),
+            this, SLOT(expandPath()));
     connect(m_ui->keystorePassword, SIGNAL(textChanged(QString)),
             this, SLOT(validate()));
     connect(m_ui->cskPassword, SIGNAL(textChanged(QString)),
@@ -79,11 +85,24 @@ BlackBerryDebugTokenRequestDialog::BlackBerryDebugTokenRequestDialog(
             this, SLOT(checkBoxChanged(int)));
     connect(m_requester, SIGNAL(finished(int)),
             this, SLOT(debugTokenArrived(int)));
+    connect(m_deviceInfo, SIGNAL(finished(int)),
+            this, SLOT(setDevicePin(int)));
+}
+
+BlackBerryDebugTokenRequestDialog::~BlackBerryDebugTokenRequestDialog()
+{
+    delete m_ui;
 }
 
 QString BlackBerryDebugTokenRequestDialog::debugToken() const
 {
     return m_ui->debugTokenPath->path();
+}
+
+void BlackBerryDebugTokenRequestDialog::setTargetDetails(const QString &deviceIp, const QString &password)
+{
+    m_ui->devicePin->setPlaceholderText(tr("Requesting Device PIN..."));
+    m_deviceInfo->setDeviceTarget(deviceIp, password);
 }
 
 void BlackBerryDebugTokenRequestDialog::validate()
@@ -133,14 +152,45 @@ void BlackBerryDebugTokenRequestDialog::requestDebugToken()
             m_ui->keystorePassword->text(), m_ui->devicePin->text());
 }
 
+void BlackBerryDebugTokenRequestDialog::setDefaultPath()
+{
+    const QString path = m_ui->debugTokenPath->path();
+    const QString defaultFileName = QLatin1String("/debugToken.bar");
+
+    if (path.isEmpty()) {
+        m_ui->debugTokenPath->setPath(QDir::homePath() + defaultFileName);
+        return;
+    }
+
+    const QFileInfo fileInfo(path);
+
+    if (fileInfo.isDir())
+        m_ui->debugTokenPath->setPath(path + defaultFileName);
+}
+
 void BlackBerryDebugTokenRequestDialog::appendExtension()
 {
     QString path = m_ui->debugTokenPath->path();
+
+    if (path.isEmpty())
+        return;
 
     if (!path.endsWith(QLatin1String(".bar"))) {
         path += QLatin1String(".bar");
         m_ui->debugTokenPath->setPath(path);
     }
+}
+
+void BlackBerryDebugTokenRequestDialog::expandPath()
+{
+    const QString path = m_ui->debugTokenPath->path();
+
+    if (path.isEmpty() || path.startsWith(QLatin1String("/")))
+            return;
+
+    const QFileInfo fileInfo(path);
+
+    m_ui->debugTokenPath->setPath(fileInfo.absoluteFilePath());
 }
 
 void BlackBerryDebugTokenRequestDialog::checkBoxChanged(int state)
@@ -187,6 +237,9 @@ void BlackBerryDebugTokenRequestDialog::debugTokenArrived(int status)
     case BlackBerryDebugTokenRequester::InferiorProcessWriteError:
         errorString += tr("Failed to communicate with the inferior process.");
         break;
+    case BlackBerryDebugTokenRequester::NotYetRegistered:
+        errorString += tr("Not yet registered to request debug tokens.");
+        break;
     case BlackBerryDebugTokenRequester::UnknownError:
         errorString += tr("An unknwon error has occurred.");
         break;
@@ -195,6 +248,19 @@ void BlackBerryDebugTokenRequestDialog::debugTokenArrived(int status)
     QMessageBox::critical(this, tr("Error"), errorString);
 
     setBusy(false);
+}
+
+void BlackBerryDebugTokenRequestDialog::setDevicePin(int status)
+{
+    m_ui->devicePin->setPlaceholderText(QString());
+    if (status != BlackBerryDeviceInformation::Success)
+        return;
+
+    const QString devicePin = m_deviceInfo->devicePin();
+    if (devicePin.isEmpty())
+        return;
+
+    m_ui->devicePin->setText(devicePin);
 }
 
 void BlackBerryDebugTokenRequestDialog::setBusy(bool busy)

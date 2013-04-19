@@ -32,6 +32,7 @@
 #include "qbsbuildconfiguration.h"
 #include "qbsbuildstep.h"
 #include "qbscleanstep.h"
+#include "qbsinstallstep.h"
 #include "qbsproject.h"
 #include "qbsprojectmanager.h"
 #include "qbsprojectmanagerconstants.h"
@@ -39,12 +40,14 @@
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/icore.h>
+#include <coreplugin/fileiconprovider.h>
 #include <coreplugin/mimedatabase.h>
 #include <projectexplorer/buildmanager.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/target.h>
+#include <qtsupport/qtsupportconstants.h>
 #include <utils/qtcassert.h>
 
 #include <QAction>
@@ -70,11 +73,16 @@ bool QbsProjectManagerPlugin::initialize(const QStringList &arguments, QString *
 
     Q_UNUSED(arguments);
 
+    Core::FileIconProvider::instance()
+            ->registerIconOverlayForSuffix(QIcon(QLatin1String(QtSupport::Constants::ICON_QT_PROJECT)),
+                                           QLatin1String("qbs"));
+
     //create and register objects
     addAutoReleasedObject(m_manager);
     addAutoReleasedObject(new QbsBuildConfigurationFactory);
     addAutoReleasedObject(new QbsBuildStepFactory);
     addAutoReleasedObject(new QbsCleanStepFactory);
+    addAutoReleasedObject(new QbsInstallStepFactory);
 
     //menus
     // Build Menu:

@@ -712,8 +712,6 @@ Qt4BuildConfiguration *Qt4BuildConfiguration::setup(Target *t, QString defaultDi
                                                     QString additionalArguments, QString directory,
                                                     bool importing)
 {
-    bool debug = qmakeBuildConfiguration & BaseQtVersion::DebugBuild;
-
     // Add the build configuration.
     Qt4BuildConfiguration *bc = new Qt4BuildConfiguration(t);
     bc->setDefaultDisplayName(defaultDisplayName);
@@ -741,10 +739,6 @@ Qt4BuildConfiguration *Qt4BuildConfiguration::setup(Target *t, QString defaultDi
         qmakeStep->setUserArguments(additionalArguments);
     if (importing)
         qmakeStep->setLinkQmlDebuggingLibrary(enableQmlDebugger);
-
-    // Set some options for qmake and make.
-    if (qmakeBuildConfiguration & BaseQtVersion::BuildAll) // debug_and_release => explicit targets
-        makeStep->setUserArguments(debug ? QLatin1String("debug") : QLatin1String("release"));
 
     bc->setQMakeBuildConfiguration(qmakeBuildConfiguration);
 

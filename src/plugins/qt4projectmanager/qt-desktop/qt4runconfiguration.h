@@ -34,7 +34,6 @@
 
 #include <projectexplorer/localapplicationrunconfiguration.h>
 
-#include <utils/environment.h>
 
 #include <QStringList>
 #include <QLabel>
@@ -52,15 +51,12 @@ class PathChooser;
 class DetailsWidget;
 }
 
-namespace ProjectExplorer {
-    class EnvironmentWidget;
-}
-
 namespace Qt4ProjectManager {
 
 class Qt4Project;
 class Qt4ProFileNode;
 class Qt4PriFileNode;
+struct TargetInformation;
 
 namespace Internal {
 class Qt4RunConfigurationFactory;
@@ -85,7 +81,6 @@ public:
     bool forcedGuiMode() const;
     virtual QString workingDirectory() const;
     virtual QString commandLineArguments() const;
-    virtual Utils::Environment environment() const;
     QString dumperLibrary() const;
     QStringList dumperLibraryLocations() const;
 
@@ -99,13 +94,14 @@ public:
     Utils::OutputFormatter *createOutputFormatter() const;
 
     void setRunMode(RunMode runMode);
+
+    void addToBaseEnvironment(Utils::Environment &env) const;
+
 signals:
     void commandLineArgumentsChanged(const QString&);
     void baseWorkingDirectoryChanged(const QString&);
     void runModeChanged(ProjectExplorer::LocalApplicationRunConfiguration::RunMode runMode);
     void usingDyldImageSuffixChanged(bool);
-    void baseEnvironmentChanged();
-    void userEnvironmentChangesChanged(const QList<Utils::EnvironmentItem> &diff);
 
     // Note: These signals might not get emitted for every change!
     void effectiveTargetInformationChanged();
@@ -119,23 +115,14 @@ protected:
     virtual bool fromMap(const QVariantMap &map);
 
 private:
+    QPair<QString, QString> extractWorkingDirAndExecutable(const Qt4ProFileNode *node) const;
     void setBaseWorkingDirectory(const QString &workingDirectory);
     QString baseWorkingDirectory() const;
     void setCommandLineArguments(const QString &argumentsString);
     QString rawCommandLineArguments() const;
-    enum BaseEnvironmentBase { CleanEnvironmentBase = 0,
-                               SystemEnvironmentBase = 1,
-                               BuildEnvironmentBase  = 2 };
     QString defaultDisplayName();
-    void setBaseEnvironmentBase(BaseEnvironmentBase env);
-    BaseEnvironmentBase baseEnvironmentBase() const;
 
     void ctor();
-
-    Utils::Environment baseEnvironment() const;
-    QString baseEnvironmentText() const;
-    void setUserEnvironmentChanges(const QList<Utils::EnvironmentItem> &diff);
-    QList<Utils::EnvironmentItem> userEnvironmentChanges() const;
 
     void updateTarget();
     QString m_commandLineArguments;
@@ -147,8 +134,6 @@ private:
     bool m_userSetName;
     bool m_isUsingDyldImageSuffix;
     QString m_userWorkingDirectory;
-    QList<Utils::EnvironmentItem> m_userEnvironmentChanges;
-    BaseEnvironmentBase m_baseEnvironmentBase;
     bool m_parseSuccess;
     bool m_parseInProgress;
 };
@@ -170,20 +155,17 @@ private slots:
     void workDirectoryEdited();
     void workingDirectoryReseted();
     void argumentsEdited(const QString &arguments);
-    void userChangesEdited();
+    void environmentWasChanged();
 
     void workingDirectoryChanged(const QString &workingDirectory);
     void commandLineArgumentsChanged(const QString &args);
     void runModeChanged(ProjectExplorer::LocalApplicationRunConfiguration::RunMode runMode);
-    void userEnvironmentChangesChanged(const QList<Utils::EnvironmentItem> &userChanges);
-    void baseEnvironmentChanged();
 
     void effectiveTargetInformationChanged();
     void termToggled(bool);
     void qvfbToggled(bool);
     void usingDyldImageSuffixToggled(bool);
     void usingDyldImageSuffixChanged(bool);
-    void baseEnvironmentSelected(int index);
 
 private:
     Qt4RunConfiguration *m_qt4RunConfiguration;
@@ -197,10 +179,7 @@ private:
     QCheckBox *m_useQvfbCheck;
     QCheckBox *m_usingDyldImageSuffix;
     QLineEdit *m_qmlDebugPort;
-
-    QComboBox *m_baseEnvironmentComboBox;
     Utils::DetailsWidget *m_detailsContainer;
-    ProjectExplorer::EnvironmentWidget *m_environmentWidget;
     bool m_isShown;
 };
 

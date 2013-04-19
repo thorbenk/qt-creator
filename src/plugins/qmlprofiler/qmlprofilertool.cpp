@@ -48,10 +48,12 @@
 #include <utils/fancymainwindow.h>
 #include <utils/fileinprojectfinder.h>
 #include <utils/qtcassert.h>
+#include <projectexplorer/environmentaspect.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/project.h>
 #include <projectexplorer/target.h>
 #include <projectexplorer/session.h>
+#include <projectexplorer/kitinformation.h>
 #include <projectexplorer/localapplicationrunconfiguration.h>
 #include <texteditor/itexteditor.h>
 
@@ -82,6 +84,7 @@
 #include <QMenu>
 #include <QTimer>
 #include <QTime>
+#include <QTcpServer>
 
 using namespace Core;
 using namespace Core::Constants;
@@ -299,31 +302,30 @@ AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration 
     Q_UNUSED(mode);
 
     AnalyzerStartParameters sp;
-    sp.startMode = StartQml; // FIXME: The parameter struct is not needed/not used.
-
-    Debugger::DebuggerRunConfigurationAspect *aspect
+    ProjectExplorer::EnvironmentAspect *environment
+            = runConfiguration->extraAspect<ProjectExplorer::EnvironmentAspect>();
+    Debugger::DebuggerRunConfigurationAspect *debugger
             = runConfiguration->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+    QTC_ASSERT(debugger, return sp);
 
     // FIXME: This is only used to communicate the connParams settings.
     if (QmlProjectRunConfiguration *rc1 =
             qobject_cast<QmlProjectRunConfiguration *>(runConfiguration)) {
         // This is a "plain" .qmlproject.
-        sp.environment = rc1->environment();
+        if (environment)
+            sp.environment = environment->environment();
         sp.workingDirectory = rc1->workingDirectory();
         sp.debuggee = rc1->observerPath();
         sp.debuggeeArgs = rc1->viewerArguments();
         sp.displayName = rc1->displayName();
-        sp.connParams.host = QLatin1String("localhost");
-        sp.connParams.port = aspect->qmlDebugServerPort();
     } else if (LocalApplicationRunConfiguration *rc2 =
             qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration)) {
-        sp.environment = rc2->environment();
+        if (environment)
+            sp.environment = environment->environment();
         sp.workingDirectory = rc2->workingDirectory();
         sp.debuggee = rc2->executable();
         sp.debuggeeArgs = rc2->commandLineArguments();
         sp.displayName = rc2->displayName();
-        sp.connParams.host = QLatin1String("localhost");
-        sp.connParams.port = aspect->qmlDebugServerPort();
     } else if (RemoteLinux::RemoteLinuxRunConfiguration *rc3 =
             qobject_cast<RemoteLinux::RemoteLinuxRunConfiguration *>(runConfiguration)) {
         sp.debuggee = rc3->remoteExecutableFilePath();
@@ -336,6 +338,16 @@ AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration 
         // What could that be?
         QTC_ASSERT(false, return sp);
     }
+    const ProjectExplorer::IDevice::ConstPtr device =
+            ProjectExplorer::DeviceKitInformation::device(runConfiguration->target()->kit());
+    if (device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE) {
+        QTcpServer server;
+        if (!server.listen(QHostAddress::LocalHost) || !server.listen(QHostAddress::LocalHostIPv6))
+            return sp;
+        sp.connParams.host = server.serverAddress().toString();
+        sp.connParams.port = server.serverPort();
+    }
+    sp.startMode = StartQml;
     return sp;
 }
 

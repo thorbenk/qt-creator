@@ -34,6 +34,8 @@
 
 #include <api/projectdata.h>
 
+#include <QIcon>
+
 namespace qbs { class Project; }
 
 namespace QbsProjectManager {
@@ -63,6 +65,8 @@ private:
 // ---------------------------------------------------------------------------
 // QbsBaseProjectNode:
 // ---------------------------------------------------------------------------
+
+class QbsGroupNode;
 
 class QbsBaseProjectNode : public ProjectExplorer::ProjectNode
 {
@@ -94,6 +98,9 @@ public:
                      const QString &newFilePath);
 
     QList<ProjectExplorer::RunConfiguration *> runConfigurationsFor(Node *node);
+
+private:
+    friend class QbsGroupNode;
 };
 
 // --------------------------------------------------------------------
@@ -105,17 +112,26 @@ class QbsGroupNode : public QbsBaseProjectNode
     Q_OBJECT
 
 public:
-    QbsGroupNode(const qbs::GroupData *grp);
+    QbsGroupNode(const qbs::GroupData *grp, const QString &productPath);
 
     bool isEnabled() const;
-    void setGroup(const qbs::GroupData *group);
+    void setGroup(const qbs::GroupData *group, const QString &productPath);
     const qbs::GroupData *group() const { return m_group; }
 
+    QString productPath() const;
+
+    static void setGroup(QbsBaseProjectNode *root, const qbs::GroupData *group,
+                         const QString &productPath, QList<Node *> keepers);
+
 private:
-    void setupFolders(ProjectExplorer::FolderNode *root, FileTreeNode *node,
-                      ProjectExplorer::FileNode *keep = 0);
+    static void setupFolders(QbsBaseProjectNode *topLevel, FolderNode *root, FileTreeNode *node,
+                             const QString &baseDirPath,
+                             QList<ProjectExplorer::Node *> keepers = QList<ProjectExplorer::Node *>());
 
     const qbs::GroupData *m_group;
+    QString m_productPath;
+
+    static QIcon m_groupIcon;
 };
 
 // --------------------------------------------------------------------
@@ -138,6 +154,7 @@ private:
     QbsGroupNode *findGroupNode(const QString &name);
 
     const qbs::ProductData *m_product;
+    static QIcon m_productIcon;
 };
 
 // ---------------------------------------------------------------------------
@@ -162,6 +179,7 @@ private:
 
     const qbs::Project *m_project;
     const qbs::ProjectData *m_projectData;
+    static QIcon m_projectIcon;
 };
 } // namespace Internal
 } // namespace QbsProjectManager

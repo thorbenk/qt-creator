@@ -43,6 +43,7 @@ namespace Internal {
 
 class Ui_BlackBerryDebugTokenRequestDialog;
 class BlackBerryDebugTokenRequester;
+class BlackBerryDeviceInformation;
 
 class BlackBerryDebugTokenRequestDialog : public QDialog
 {
@@ -51,15 +52,20 @@ Q_OBJECT
 public:
     explicit BlackBerryDebugTokenRequestDialog(QWidget *parent = 0,
             Qt::WindowFlags f = 0);
+    ~BlackBerryDebugTokenRequestDialog();
 
     QString debugToken() const;
+    void setTargetDetails(const QString &deviceIp, const QString &password);
 
 private slots:
     void validate();
     void requestDebugToken();
+    void setDefaultPath();
     void appendExtension();
+    void expandPath();
     void checkBoxChanged(int state);
     void debugTokenArrived(int status);
+    void setDevicePin(int status);
 
 private:
     void setBusy(bool busy);
@@ -68,6 +74,7 @@ private:
     Ui_BlackBerryDebugTokenRequestDialog *m_ui;
 
     BlackBerryDebugTokenRequester *m_requester;
+    BlackBerryDeviceInformation *m_deviceInfo;
 
     QPushButton *m_cancelButton;
     QPushButton *m_okButton;

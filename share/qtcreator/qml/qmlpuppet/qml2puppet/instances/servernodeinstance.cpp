@@ -40,6 +40,7 @@
 #include "debugoutputcommand.h"
 
 #include "quickitemnodeinstance.h"
+#include "quickwindownodeinstance.h"
 
 #include "nodeinstanceserver.h"
 #include "instancecontainer.h"
@@ -108,18 +109,14 @@ ServerNodeInstance &ServerNodeInstance::operator=(const ServerNodeInstance &othe
     return *this;
 }
 
-/*!
-\brief Paints the NodeInstance with this painter.
-\param painter used QPainter
-*/
-void ServerNodeInstance::paint(QPainter *painter)
-{
-    m_nodeInstance->paint(painter);
-}
-
 QImage ServerNodeInstance::renderImage() const
 {
     return m_nodeInstance->renderImage();
+}
+
+QImage ServerNodeInstance::renderPreviewImage(const QSize &previewImageSize) const
+{
+    return m_nodeInstance->renderPreviewImage(previewImageSize);
 }
 
 bool ServerNodeInstance::isRootNodeInstance() const
@@ -151,6 +148,16 @@ bool ServerNodeInstance::isSubclassOf(QObject *object, const QByteArray &superTy
 void ServerNodeInstance::setNodeSource(const QString &source)
 {
     m_nodeInstance->setNodeSource(source);
+}
+
+bool ServerNodeInstance::holdsQuickItem() const
+{
+    return m_nodeInstance->isQuickItem();
+}
+
+void ServerNodeInstance::updateDirtyNodeRecursive()
+{
+    m_nodeInstance->updateDirtyNodeRecursive();
 }
 
 bool ServerNodeInstance::isSubclassOf(const QString &superTypeName) const
@@ -188,6 +195,8 @@ Internal::ObjectNodeInstance::Pointer ServerNodeInstance::createInstance(QObject
         instance = Internal::QmlTransitionNodeInstance::create(objectToBeWrapped);
     else if (isSubclassOf(objectToBeWrapped, "QQuickBehavior"))
         instance = Internal::BehaviorNodeInstance::create(objectToBeWrapped);
+    else if (isSubclassOf(objectToBeWrapped, "QQuickWindow"))
+        instance = Internal::QuickWindowNodeInstance::create(objectToBeWrapped);
     else if (isSubclassOf(objectToBeWrapped, "QObject"))
         instance = Internal::ObjectNodeInstance::create(objectToBeWrapped);
     else
@@ -551,13 +560,6 @@ QObject *ServerNodeInstance::internalObject() const
 
     return m_nodeInstance->object();
 }
-
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
-QQuickItem *ServerNodeInstance::internalSGItem() const
-{
-    return qobject_cast<QQuickItem*>(internalObject());
-}
-#endif
 
 void ServerNodeInstance::activateState()
 {

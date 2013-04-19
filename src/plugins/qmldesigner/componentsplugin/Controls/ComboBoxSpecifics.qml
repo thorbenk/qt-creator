@@ -27,39 +27,40 @@
 **
 ****************************************************************************/
 
-#ifndef CPPINSERTDECLDEF_H
-#define CPPINSERTDECLDEF_H
 
-#include "cppquickfix.h"
+import HelperWidgets 1.0
+import Bauhaus 1.0
 
-namespace CppEditor {
-namespace Internal {
+GroupBox {
+    caption: "Combo Box"
+    layout: VerticalLayout {
 
-class InsertDeclFromDef: public CppQuickFixFactory
-{
-public:
-    void match(const CppQuickFixInterface &interface, TextEditor::QuickFixOperations &result);
-};
+        QWidget {
+            layout: HorizontalLayout {
+                Label {
+                    text: qsTr("Tool tip")
+                    toolTip: qsTr("The tool tip shown for the combobox.")
+                }
+                LineEdit {
+                    backendValue: backendValues.tooltip
+                    baseStateFlag: isBaseState
+                }
+            }
+        }
 
-class InsertDefFromDecl: public CppQuickFixFactory
-{
-public:
-    void match(const CppQuickFixInterface &interface, TextEditor::QuickFixOperations &result);
-};
-
-class ExtractFunction : public CppQuickFixFactory
-{
-public:
-    void match(const CppQuickFixInterface &interface, TextEditor::QuickFixOperations &result);
-};
-
-class GenerateGetterSetter : public CppQuickFixFactory
-{
-public:
-    void match(const CppQuickFixInterface &interface, TextEditor::QuickFixOperations &result);
-};
-
-} // namespace Internal
-} // namespace CppEditor
-
-#endif // CPPINSERTDECLDEF_H
+        QWidget {
+            layout: HorizontalLayout {
+                Label {
+                    text: qsTr("Focus on press")
+                    toolTip: "Determines whether the combobox gets focus if pressed."
+                }
+                CheckBox {
+                    text: backendValues.activeFocusOnPress.value
+                    backendValue: backendValues.activeFocusOnPress
+                    baseStateFlag: isBaseState
+                    checkable: true
+                }
+            }
+        }
+    }
+}

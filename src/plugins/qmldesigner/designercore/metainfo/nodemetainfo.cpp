@@ -593,7 +593,7 @@ const QmlJS::CppComponentValue *NodeMetaInfoPrivate::getCppComponentValue() cons
             return cppValue;
     }
 
-    return 0;
+    return value_cast<CppComponentValue>(getObjectValue());
 }
 
 const QmlJS::ObjectValue *NodeMetaInfoPrivate::getObjectValue() const
@@ -778,8 +778,18 @@ static QString getUnqualifiedName(const QString &name)
 {
     const QStringList nameComponents = name.split('.');
     if (nameComponents.size() < 2)
-        return QString();
+        return name;
     return nameComponents.last();
+}
+
+static QString getPackage(const QString &name)
+{
+    QStringList nameComponents = name.split('.');
+    if (nameComponents.size() < 2)
+        return QString();
+    nameComponents.removeLast();
+
+    return nameComponents.join(QLatin1String("."));
 }
 
 bool NodeMetaInfoPrivate::cleverCheckType(const QString &otherType) const
@@ -790,13 +800,9 @@ bool NodeMetaInfoPrivate::cleverCheckType(const QString &otherType) const
     if (isFileComponent())
         return false;
 
-    QStringList split = otherType.split('.');
-    QString package;
-    QString typeName = otherType;
-    if (split.count() > 1) {
-        package = split.first();
-        typeName = split.at(1);
-    }
+    const QString typeName = getUnqualifiedName(otherType);
+    const QString package = getPackage(otherType);
+
     if (cppPackageName() == package)
         return QString(package + '.' + typeName) == cppPackageName() + '.' + getUnqualifiedName(qualfiedTypeName());
 
@@ -1127,6 +1133,11 @@ bool NodeMetaInfo::propertyIsListProperty(const PropertyName &propertyName) cons
 bool NodeMetaInfo::propertyIsEnumType(const PropertyName &propertyName) const
 {
     return m_privateData->isPropertyEnum(propertyName);
+}
+
+bool NodeMetaInfo::propertyIsPrivate(const PropertyName &propertyName) const
+{
+    return propertyName.startsWith("__");
 }
 
 QString NodeMetaInfo::propertyEnumScope(const PropertyName &propertyName) const

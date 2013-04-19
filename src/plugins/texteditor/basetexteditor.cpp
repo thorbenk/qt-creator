@@ -54,6 +54,7 @@
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/coreconstants.h>
+#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/infobar.h>
 #include <coreplugin/manhattanstyle.h>
 #include <find/basetextfind.h>
@@ -540,10 +541,16 @@ void BaseTextEditorWidget::selectEncoding()
     case CodecSelector::Save:
         doc->setCodec(codecSelector.selectedCodec());
         Core::EditorManager::instance()->saveEditor(editor());
+        updateTextCodecLabel();
         break;
     case CodecSelector::Cancel:
         break;
     }
+}
+
+void BaseTextEditorWidget::updateTextCodecLabel()
+{
+    editor()->setFileEncodingLabelText(QString::fromLatin1(d->m_document->codec()->name()));
 }
 
 QString BaseTextEditorWidget::msgTextTooLarge(quint64 size)
@@ -583,6 +590,13 @@ bool BaseTextEditorWidget::open(QString *errorString, const QString &fileName, c
     if (d->m_document->open(errorString, fileName, realFileName)) {
         moveCursor(QTextCursor::Start);
         updateCannotDecodeInfo();
+        if (editor()->m_fileEncodingLabel) {
+            connect(editor()->m_fileEncodingLabel, SIGNAL(clicked()), this,
+                    SLOT(selectEncoding()), Qt::UniqueConnection);
+            connect(d->m_document->document(), SIGNAL(modificationChanged(bool)), this,
+                    SLOT(updateTextCodecLabel()), Qt::UniqueConnection);
+            updateTextCodecLabel();
+        }
         return true;
     }
     return false;
@@ -693,7 +707,7 @@ void BaseTextEditorWidget::editorContentsChange(int position, int charsRemoved, 
     if (doc->isRedoAvailable())
         emit editor()->contentsChangedBecauseOfUndo();
 
-    if (charsAdded != 0 && characterAt(position + charsAdded - 1).isPrint())
+    if (charsAdded != 0 && document()->characterAt(position + charsAdded - 1).isPrint())
         d->m_assistRelevantContentAdded = true;
 }
 
@@ -1227,7 +1241,7 @@ bool BaseTextEditorWidget::camelCaseLeft(QTextCursor &cursor, QTextCursor::MoveM
         return false;
 
     forever {
-        QChar c = characterAt(cursor.position());
+        QChar c = document()->characterAt(cursor.position());
         Input input = Input_other;
         if (c.isUpper())
             input = Input_U;
@@ -1334,7 +1348,7 @@ bool BaseTextEditorWidget::camelCaseRight(QTextCursor &cursor, QTextCursor::Move
     };
 
     forever {
-        QChar c = characterAt(cursor.position());
+        QChar c = document()->characterAt(cursor.position());
         Input input = Input_other;
         if (c.isUpper())
             input = Input_U;
@@ -2087,7 +2101,7 @@ void BaseTextEditorWidget::gotoLine(int line, int column)
             cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, column);
         } else {
             int pos = cursor.position();
-            while (characterAt(pos).category() == QChar::Separator_Space) {
+            while (document()->characterAt(pos).category() == QChar::Separator_Space) {
                 ++pos;
             }
             cursor.setPosition(pos);
@@ -2132,11 +2146,6 @@ int BaseTextEditorWidget::position(ITextEditor::PositionOperation posOp, int at)
 void BaseTextEditorWidget::convertPosition(int pos, int *line, int *column) const
 {
     Convenience::convertPosition(document(), pos, line, column);
-}
-
-QChar BaseTextEditorWidget::characterAt(int pos) const
-{
-    return document()->characterAt(pos);
 }
 
 bool BaseTextEditorWidget::event(QEvent *e)
@@ -2745,7 +2754,7 @@ QTextBlock BaseTextEditorWidget::foldedBlockAt(const QPoint &pos, QRect *box) co
 
     while (block.isValid() && top <= viewportHeight) {
         QTextBlock nextBlock = block.next();
-        if (block.isVisible() && bottom >= 0) {
+        if (block.isVisible() && bottom >= 0 && replacementVisible(block.blockNumber())) {
             if (nextBlock.isValid() && !nextBlock.isVisible()) {
                 QTextLayout *layout = block.layout();
                 QTextLine line = layout->lineAt(layout->lineCount()-1);
@@ -3293,8 +3302,10 @@ void BaseTextEditorWidget::paintEvent(QPaintEvent *e)
                     if ((hasMainSelection && i == context.selections.size()-1)
                         || (o.format.foreground().style() == Qt::NoBrush
                         && o.format.underlineStyle() != QTextCharFormat::NoUnderline
-                        && o.format.background() == Qt::NoBrush))
-                        prioritySelections.append(o);
+                        && o.format.background() == Qt::NoBrush)) {
+                        if (selectionVisible(block.blockNumber()))
+                            prioritySelections.append(o);
+                    }
                     else
                         selections.append(o);
                 }
@@ -3484,7 +3495,6 @@ void BaseTextEditorWidget::paintEvent(QPaintEvent *e)
     int selectionStart = cursor.selectionStart();
     int selectionEnd = cursor.selectionEnd();
 
-
     while (block.isValid() && top <= e->rect().bottom()) {
         QTextBlock nextBlock = block.next();
         QTextBlock nextVisibleBlock = nextBlock;
@@ -3531,7 +3541,7 @@ void BaseTextEditorWidget::paintEvent(QPaintEvent *e)
                 }
             }
 
-            if (nextBlock.isValid() && !nextBlock.isVisible()) {
+            if (nextBlock.isValid() && !nextBlock.isVisible() && replacementVisible(block.blockNumber())) {
 
                 bool selectThis = (hasSelection
                                    && nextBlock.position() >= selectionStart
@@ -4407,6 +4417,28 @@ void BaseTextEditorWidget::extraAreaContextMenuEvent(QContextMenuEvent *e)
     }
 }
 
+void BaseTextEditorWidget::updateFoldingHighlight(const QPoint &pos)
+{
+    if (!d->m_codeFoldingVisible)
+        return;
+
+    QTextCursor cursor = cursorForPosition(QPoint(0, pos.y()));
+
+    // Update which folder marker is highlighted
+    const int highlightBlockNumber = d->extraAreaHighlightFoldedBlockNumber;
+    d->extraAreaHighlightFoldedBlockNumber = -1;
+
+    if (pos.x() > extraArea()->width() - foldBoxWidth(fontMetrics())) {
+        d->extraAreaHighlightFoldedBlockNumber = cursor.blockNumber();
+    } else if (d->m_displaySettings.m_highlightBlocks) {
+        QTextCursor cursor = textCursor();
+        d->extraAreaHighlightFoldedBlockNumber = cursor.blockNumber();
+    }
+
+    if (highlightBlockNumber != d->extraAreaHighlightFoldedBlockNumber)
+        d->m_highlightBlocksTimer->start(d->m_highlightBlocksInfo.isEmpty() ? 120 : 0);
+}
+
 void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
 {
     QTextCursor cursor = cursorForPosition(QPoint(0, e->pos().y()));
@@ -4416,21 +4448,9 @@ void BaseTextEditorWidget::extraAreaMouseEvent(QMouseEvent *e)
     const bool inMarkArea = e->pos().x() <= markWidth && e->pos().x() >= 0;
 
     if (d->m_codeFoldingVisible
-        && e->type() == QEvent::MouseMove && e->buttons() == 0) { // mouse tracking
-        // Update which folder marker is highlighted
-        const int highlightBlockNumber = d->extraAreaHighlightFoldedBlockNumber;
-        d->extraAreaHighlightFoldedBlockNumber = -1;
-
-        if (e->pos().x() > extraArea()->width() - foldBoxWidth(fontMetrics())) {
-            d->extraAreaHighlightFoldedBlockNumber = cursor.blockNumber();
-        } else if (d->m_displaySettings.m_highlightBlocks) {
-            QTextCursor cursor = textCursor();
-            d->extraAreaHighlightFoldedBlockNumber = cursor.blockNumber();
-        }
-
-        if (highlightBlockNumber != d->extraAreaHighlightFoldedBlockNumber)
-            d->m_highlightBlocksTimer->start(d->m_highlightBlocksInfo.isEmpty() ? 120 : 0);
-        }
+            && e->type() == QEvent::MouseMove && e->buttons() == 0) { // mouse tracking
+        updateFoldingHighlight(e->pos());
+    }
 
     // Set whether the mouse cursor is a hand or normal arrow
     if (e->type() == QEvent::MouseMove) {
@@ -4727,14 +4747,14 @@ void BaseTextEditorWidget::handleHomeKey(bool anchor)
 
     const int initpos = cursor.position();
     int pos = cursor.block().position();
-    QChar character = characterAt(pos);
+    QChar character = document()->characterAt(pos);
     const QLatin1Char tab = QLatin1Char('\t');
 
     while (character == tab || character.category() == QChar::Separator_Space) {
         ++pos;
         if (pos == initpos)
             break;
-        character = characterAt(pos);
+        character = document()->characterAt(pos);
     }
 
     // Go to the start of the block when we're already at the start of the text
@@ -4809,7 +4829,7 @@ void BaseTextEditorWidget::handleBackspaceKey()
             }
         }
     } else if (typingSettings.m_smartBackspaceBehavior == TypingSettings::BackspaceUnindents) {
-        const QChar &c = characterAt(pos - 1);
+        const QChar &c = document()->characterAt(pos - 1);
         if (!(c == QLatin1Char(' ') || c == QLatin1Char('\t'))) {
             if (cursorWithinSnippet)
                 cursor.beginEditBlock();
@@ -5216,7 +5236,7 @@ void BaseTextEditorWidget::_q_matchParentheses()
         QPalette pal;
         pal.setBrush(QPalette::Text, d->m_matchFormat.foreground());
         pal.setBrush(QPalette::Base, d->m_matchFormat.background());
-        d->m_animator->setData(font(), pal, characterAt(d->m_animator->position()));
+        d->m_animator->setData(font(), pal, document()->characterAt(d->m_animator->position()));
         connect(d->m_animator, SIGNAL(updateRequest(int,QPointF,QRectF)),
                 this, SLOT(_q_animateUpdate(int,QPointF,QRectF)));
     }
@@ -5749,6 +5769,7 @@ void BaseTextEditorWidget::setDisplaySettings(const DisplaySettings &ds)
     setHighlightCurrentLine(ds.m_highlightCurrentLine);
     setRevisionsVisible(ds.m_markTextChanges);
     setCenterOnScroll(ds.m_centerCursorOnScroll);
+    editor()->setFileEncodingLabelVisible(ds.m_displayFileEncoding);
 
     if (d->m_displaySettings.m_visualizeWhitespace != ds.m_visualizeWhitespace) {
         if (SyntaxHighlighter *highlighter = baseTextDocument()->syntaxHighlighter())
@@ -6196,6 +6217,18 @@ int BaseTextEditorWidget::lineNumberDigits() const
     return digits;
 }
 
+bool BaseTextEditorWidget::selectionVisible(int blockNumber) const
+{
+    Q_UNUSED(blockNumber);
+    return true;
+}
+
+bool BaseTextEditorWidget::replacementVisible(int blockNumber) const
+{
+    Q_UNUSED(blockNumber)
+    return true;
+}
+
 void BaseTextEditorWidget::appendMenuActionsFromContext(QMenu *menu, const Core::Id menuContextId)
 {
     Core::ActionContainer *mcontext = Core::ActionManager::actionContainer(menuContextId);
@@ -6253,6 +6286,9 @@ BaseTextEditor::BaseTextEditor(BaseTextEditorWidget *editor)
     const int spacing = editor->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing) / 2;
     m_cursorPositionLabel->setContentsMargins(spacing, 0, spacing, 0);
 
+    m_fileEncodingLabel = new Utils::LineColumnLabel;
+    m_fileEncodingLabel->setContentsMargins(spacing, 0, spacing, 0);
+
     m_stretchWidget = new QWidget;
     m_stretchWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
@@ -6260,8 +6296,11 @@ BaseTextEditor::BaseTextEditor(BaseTextEditorWidget *editor)
     m_toolBar->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
     m_toolBar->addWidget(m_stretchWidget);
     m_cursorPositionLabelAction = m_toolBar->addWidget(m_cursorPositionLabel);
+    m_fileEncodingLabelAction = m_toolBar->addWidget(m_fileEncodingLabel);
 
+    setFileEncodingLabelVisible(editor->displaySettings().m_displayFileEncoding);
     connect(editor, SIGNAL(cursorPositionChanged()), this, SLOT(updateCursorPosition()));
+    connect(m_cursorPositionLabel, SIGNAL(clicked()), this, SLOT(openGotoLocator()));
 }
 
 BaseTextEditor::~BaseTextEditor()
@@ -6288,11 +6327,6 @@ void BaseTextEditor::insertExtraToolBarWidget(BaseTextEditor::Side side,
         m_toolBar->insertWidget(m_cursorPositionLabelAction, widget);
     else
         m_toolBar->insertWidget(m_toolBar->actions().first(), widget);
-}
-
-int BaseTextEditor::find(const QString &) const
-{
-    return 0;
 }
 
 int BaseTextEditor::currentLine() const
@@ -6326,21 +6360,11 @@ QRect BaseTextEditor::cursorRect(int pos) const
     return result;
 }
 
-QString BaseTextEditor::contents() const
-{
-    return e->toPlainText();
-}
-
 QString BaseTextEditor::selectedText() const
 {
     if (e->textCursor().hasSelection())
         return e->textCursor().selectedText();
     return QString();
-}
-
-QString BaseTextEditor::textAt(int pos, int length) const
-{
-    return Convenience::textAt(e->textCursor(), pos, length);
 }
 
 void BaseTextEditor::remove(int length)
@@ -6397,11 +6421,31 @@ void BaseTextEditor::updateCursorPosition()
 
 }
 
+void BaseTextEditor::openGotoLocator()
+{
+    Core::EditorManager::activateEditor(this, Core::EditorManager::IgnoreNavigationHistory);
+    if (Core::Command *cmd = Core::ActionManager::command(Core::Constants::GOTO)) {
+        if (QAction *act = cmd->action()) {
+            act->trigger();
+        }
+    }
+}
+
+void BaseTextEditor::setFileEncodingLabelVisible(bool visible)
+{
+    m_fileEncodingLabelAction->setVisible(visible);
+}
+
+void BaseTextEditor::setFileEncodingLabelText(const QString &text)
+{
+    m_fileEncodingLabel->setText(text, text);
+}
+
 QString BaseTextEditor::contextHelpId() const
 {
     if (m_contextHelpId.isEmpty())
         emit const_cast<BaseTextEditor*>(this)->contextHelpIdRequested(e->editor(),
-                                                                               e->textCursor().position());
+                                                                       e->textCursor().position());
     return m_contextHelpId;
 }
 

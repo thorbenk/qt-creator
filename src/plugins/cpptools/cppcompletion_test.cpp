@@ -1796,3 +1796,89 @@ void CppToolsPlugin::test_completion_typedef_using_templates2()
     QVERIFY(completions.contains(QLatin1String("Foo")));
     QVERIFY(completions.contains(QLatin1String("bar")));
 }
+
+void CppToolsPlugin::test_completion_namespace_alias_with_many_namespace_declarations()
+{
+    TestData data;
+    data.srcText =
+            "namespace NS1\n"
+            "{\n"
+            "namespace NS2\n"
+            "{\n"
+            "struct Foo1\n"
+            "{\n"
+            "    int bar1;\n"
+            "};\n"
+            "}\n"
+            "}\n"
+            "namespace NS1\n"
+            "{\n"
+            "namespace NS2\n"
+            "{\n"
+            "struct Foo2\n"
+            "{\n"
+            "    int bar2;\n"
+            "};\n"
+            "}\n"
+            "}\n"
+            "namespace NS = NS1::NS2;\n"
+            "int main()\n"
+            "{\n"
+            "    @\n"
+            "    // padding so we get the scope right\n"
+            "}\n"
+            ;
+    setup(&data);
+
+    Utils::ChangeSet change;
+    QString txt = QLatin1String("NS::");
+    change.insert(data.pos, txt);
+    QTextCursor cursor(data.doc);
+    change.apply(&cursor);
+    data.pos += txt.length();
+
+    QStringList completions = getCompletions(data);
+
+    QCOMPARE(completions.size(), 2);
+    QVERIFY(completions.contains(QLatin1String("Foo1")));
+    QVERIFY(completions.contains(QLatin1String("Foo2")));
+}
+
+void CppToolsPlugin::test_completion_QTCREATORBUG9098()
+{
+    TestData data;
+    data.srcText =
+            "template <typename T>\n"
+            "class B\n"
+            "{\n"
+            "public:\n"
+            "    C<T> c;\n"
+            "};\n"
+            "template <typename T>\n"
+            "class A\n"
+            "{\n"
+            "public:\n"
+            "    B<T> b;\n"
+            "    void fun()\n"
+            "    {\n"
+            "       @\n"
+            "       // padding so we get the scope right\n"
+            "    }\n"
+            "};\n"
+
+            ;
+    setup(&data);
+
+    Utils::ChangeSet change;
+    QString txt = QLatin1String("b.");
+    change.insert(data.pos, txt);
+    QTextCursor cursor(data.doc);
+    change.apply(&cursor);
+    data.pos += txt.length();
+
+    QStringList completions = getCompletions(data);
+
+    QCOMPARE(completions.size(), 2);
+    QVERIFY(completions.contains(QLatin1String("c")));
+    QVERIFY(completions.contains(QLatin1String("B")));
+}

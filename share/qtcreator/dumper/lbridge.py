@@ -1,13 +1,57 @@
-import json
+
+import inspect
+import os
+#import traceback
+
+cdbLoaded = False
+lldbLoaded = False
+gdbLoaded = False
+
+#######################################################################
+#
+# Helpers
+#
+#######################################################################
+
+currentDir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+#print "DIR: %s " % currentDir
+
+def warn(message):
+    print "XXX: %s\n" % message.encode("latin1")
+
+PointerCode = None
+ArrayCode = None
+StructCode = None
+UnionCode = None
+EnumCode = None
+FlagsCode = None
+FunctionCode = None
+IntCode = None
+FloatCode = None
+VoidCode = None
+SetCode = None
+RangeCode = None
+StringCode = None
+BitStringCode = None
+ErrorTypeCode = None
+MethodCode = None
+MethodPointerCode = None
+MemberPointerCode = None
+ReferenceCode = None
+CharCode = None
+BoolCode = None
+ComplexCode = None
+TypedefCode = None
+NamespaceCode = None
+SimpleValueCode = None # LLDB only
 
 
 #warn("LOADING LLDB")
 
 # Data members
-SimpleValueCode, \
-StructCode, \
-PointerCode \
-    = range(3)
+SimpleValueCode = 100
+StructCode = 101
+PointerCode = 102
 
 # Breakpoints. Keep synchronized with BreakpointType in breakpoint.h
 UnknownType = 0
@@ -25,9 +69,6 @@ WatchpointAtExpression = 12
 BreakpointOnQmlSignalEmit = 13
 BreakpointAtJavaScriptThrow = 14
 
-
-def dumpJson(stuff):
-    warn("%s" % json.dumps(stuff, sort_keys=True, indent=4, separators=(',', ': ')))
 
 def registerCommand(name, func):
     pass
@@ -53,6 +94,9 @@ class Type:
     def unqualified(self):
         return self
 
+    def strip_typedefs(self):
+        return self
+
 class Value:
     def __init__(self, var):
         self.raw = var
@@ -64,20 +108,19 @@ class Value:
     def __str__(self):
         return str(self.raw.value)
 
+    def __getitem__(self, name):
+        return None if self.raw is None else  self.raw.GetChildMemberWithName(name)
+
     def fields(self):
         return [Value(self.raw.GetChildAtIndex(i)) for i in range(self.raw.num_children)]
 
-currentThread = None
-currentFrame = None
+def currentFrame():
+    currentThread = lldb.process.GetThreadAtIndex(0)
+    return currentThread.GetFrameAtIndex(0)
 
 def listOfLocals(varList):
-    global currentThread
-    global currentFrame
-
     items = []
-    currentThread = lldb.process.GetThreadAtIndex(0)
-    currentFrame = currentThread.GetFrameAtIndex(0)
-    for var in currentFrame.variables:
+    for var in currentFrame().variables:
         item = LocalItem()
         item.iname = "local." + var.name
         item.name = var.name
@@ -118,7 +161,7 @@ def threadsData(options):
         result += ",file=\"%s\"" % frame.line_entry.file
         result += "}},"
 
-    result += "],current-thread-id=\"%s\"}" % lldb.process.selected_thread.id
+    result += "],current-thread-id=\"%s\"}," % lldb.process.selected_thread.id
     return result
 
 # See lldb.StateType
@@ -135,9 +178,9 @@ def locationData(options):
     return "location={file=\"%s\",line=\"%s\",addr=\"%s\"}," \
         % (frame.line_entry.file, frame.line_entry.line, frame.pc)
 
-def stackData(options):
+def stackData(options, threadId):
     try:
-        thread = lldb.process.GetThreadById(options["threadid"])
+        thread = lldb.process.GetThreadById(threadId)
     except:
         thread = lldb.process.GetThreadAtIndex(0)
     result = "stack={frames=["
@@ -154,29 +197,6 @@ def stackData(options):
 
     hasmore = "0"
     result += "],hasmore=\"%s\"}, " % hasmore
-    return result
-
-def parseOptions(optionstring):
-    options = {}
-    for opt in optionstring.split(","):
-        try:
-            key, value = opt.split(":")
-            options[key] = value
-        except:
-            pass
-    return options
-
-def updateData(parts, localsOptions, stackOptions, threadOptions):
-    result = "result={";
-    if parts & 1:
-        result += bb(localsOptions) + ","
-    if parts & 2:
-        result += stackData(parseOptions(stackOptions))
-    if parts & 4:
-        result += threadsData(parseOptions(threadOptions))
-    result += stateData({})
-    result += locationData({})
-    result += "}"
     return result
 
 def listModules():
@@ -237,16 +257,13 @@ def onBreak():
     result = "*stopped,frame={....}"
     print result
 
-def handleBreakpoints(stuff):
-    todo = json.loads(stuff)
-    #dumpJson(todo)
+def handleBreakpoints(options, toAdd, toChange, toRemove):
     #target = lldb.debugger.CreateTargetWithFileAndArch (exe, lldb.LLDB_ARCH_DEFAULT)
     target = lldb.debugger.GetTargetAtIndex(0)
-    #target = lldb.target
 
     result = "result={bkpts={added=["
 
-    for bp in todo["add"]:
+    for bp in toAdd:
         bpType = bp["type"]
         if bpType == BreakpointByFileAndLine:
             bpNew = target.BreakpointCreateByLocation(str(bp["file"]), int(bp["line"]))
@@ -263,14 +280,14 @@ def handleBreakpoints(stuff):
         #"breakpoint command add 1 -o \"import time; print time.asctime()\"
         #cmd = "script print(11111111)"
         cmd = "continue"
-        lldb.debugger.HandleCommand(
-            "breakpoint command add -o 'script onBreak()' %s" % bpNew.GetID())
+        #lldb.debugger.HandleCommand(
+        #    "breakpoint command add -o 'script onBreak()' %s" % bpNew.GetID())
 
         result += dumpBreakpoint(bpNew, bp["modelid"])
 
     result += "],changed=["
 
-    for bp in todo["change"]:
+    for bp in toChange:
         bpChange = target.FindBreakpointByID(int(bp["lldbid"]))
         bpChange.SetIgnoreCount(int(bp["ignorecount"]))
         bpChange.SetCondition(str(bp["condition"]))
@@ -280,125 +297,127 @@ def handleBreakpoints(stuff):
 
     result += "],removed=["
 
-    for bp in todo["remove"]:
+    for bp in toRemove:
         bpDead = target.BreakpointDelete(int(bp["lldbid"]))
         result += "{modelid=\"%s\"}" % bp["modelid"]
 
     result += "]}}"
     return result
 
-def doSync(func):
-    lldb.debugger.SetAsync(False)
-    func()
-    lldb.debugger.SetAsync(True)
-
-def createReport():
+def createStoppedReport(options):
     result = "result={"
-    result += stackData({'threadid': lldb.process.selected_thread.id})
+    result += bb(options["locals"]) + ","
+    result += stackData(options["stack"], lldb.process.selected_thread.id)
     result += threadsData({})
     result += stateData({})
     result += locationData({})
+    result += "token=\"%s\"," % options["token"]
     result += "}"
     return result
 
-def executeNext():
-    doSync(lldb.thread.StepOver)
-    return createReport()
+def createRunReport(options):
+    result = "result={"
+    #result += stateData({})
+    result += "state=\"running\","
+    result += "token=\"%s\"," % options["token"]
+    result += "}"
+    return result
 
-def executeNextI():
-    doSync(lldb.thread.StepOver)
-    return createReport()
+def createReport(options):
+    return createStoppedReport(options)
 
-def executeStep():
-    doSync(lldb.thread.Step)
-    return createReport()
+def executeNext(options):
+    lldb.thread.StepOver()
+    return createRunReport(options)
 
-def executeStepI():
-    doSync(lldb.thread.StepInstOver)
-    return createReport()
+def executeNextI(options):
+    lldb.thread.StepOver()
+    return createRunReport(options)
 
-def executeStepOut():
-    doSync(lldb.thread.StepOut)
-    return createReport()
+def executeStep(options):
+    lldb.thread.StepInto()
+    return createRunReport(options)
 
-def executeRunToLine():
-    return "result={error={msg='Not implemented'}}"
+def executeStepI(options):
+    lldb.thread.StepInstOver()
+    return createRunReport(options)
 
-def executeJumpToLine():
-    return "result={error={msg='Not implemented'}}"
+def executeStepOut(options):
+    #lldb.thread.StepOutOfFrame(None)
+    msg = lldb.debugger.HandleCommand("thread step-out")
+    # Currently results in
+    # "Couldn't find thread plan to implement step type"
+    return createRunReport(options)
 
-def continueInferior():
-    #lldb.debugger.HandleCommand("process continue")
+def executeRunToLine(options, file, line):
+    lldb.thread.StepOverUntil(file, line)
+    return createRunReport(options)
+
+def executeJumpToLine(options):
+    return "result={error={msg='Not implemented'},state='stopped'}"
+
+def continueInferior(options):
     lldb.process.Continue()
-    return "result={state='running'}"
+    return "result={state=\"running\"}"
 
-def interruptInferior():
-    lldb.debugger.SetAsync(False)
+def interruptInferior(options):
     lldb.process.Stop()
-    #lldb.process.SendAsyncInterrupt()
-    lldb.debugger.SetAsync(True)
-    return createReport()
+    return "result={state=\"interrupting\"}"
 
-def setupInferior(fileName):
-    lldb.debugger.HandleCommand("target create '%s'" % fileName)
+def setupInferior(options, fileName):
+    msg = lldb.debugger.HandleCommand("target create '%s'" % fileName)
+    return "result={state=\"inferiorsetupok\",msg=\"%s\"}" % msg
 
-def runEngine():
-    lldb.debugger.HandleCommand("process launch")
+def runEngine(options):
+    msg = lldb.debugger.HandleCommand("process launch")
+    return "result={state=\"enginerunok\",msg=\"%s\"}" % msg
 
-def activateFrame(frame):
+def activateFrame(options, frame):
     lldb.debugger.HandleCommand("frame select " + frame)
+    return createStoppedReport(options)
 
-def selectThread(thread):
+def selectThread(options, thread):
     lldb.debugger.HandleCommand("thread select " + thread)
+    return createStoppedReport(options)
 
-def requestModuleSymbols(frame):
+def requestModuleSymbols(options, frame):
     lldb.debugger.HandleCommand("target module list " + frame)
 
+def executeDebuggerCommand(options, command):
+    msg = lldb.debugger.HandleCommand(command)
+    result = "result={"
+    result += bb(options["locals"]) + ","
+    result += stackData(options["stack"], lldb.process.selected_thread.id)
+    result += threadsData({})
+    result += stateData({})
+    result += locationData({})
+    result += "token=\"%s\"," % options["token"]
+    result += "msg=\"%s\"" % msg
+    result += "}"
+    return result
 
 
-#SBEvent data;
-#while (!stop) {
-#if (self->m_listener.WaitForEvent(UINT32_MAX, data)) {
-#   if (data.getType() == SBProcess::eBroadcastBitStateChanged &&
-#m_process.GetStateFromEvent (data) == eStateStopped) {
-#     SBThread th = m_process.GetSelectedThread();
-#     if (th.GetStopReason() == eStopReasonBreakpoint) {
-#       // th.GetStopReasonDataAtIndex(0) should have the breakpoint id
-#     }
-#   }
+lldb.debugger.HandleCommand("settings set auto-confirm on")
+#lldb.debugger.HandleCommand("settings set interpreter.prompt-on-quit off")
+lldb.debugger.HandleCommand("settings set frame-format ''")
+lldb.debugger.HandleCommand("settings set thread-format ''")
 
-lldb.debugger.HandleCommand("setting set auto-confirm on")
-lldb.debugger.HandleCommand("setting set interpreter.prompt-on-quit off")
+execfile(os.path.join(currentDir, "dumper.py"))
+execfile(os.path.join(currentDir, "qttypes.py"))
 
-if False:
-    # default:
-    # frame-format (string) = "frame #${frame.index}: ${frame.pc}
-    # { ${module.file.basename}{`${function.name-with-args}${function.pc-offset}}}
-    # { at ${line.file.basename}:${line.number}}\n"
-    lldb.debugger.HandleCommand("settings set frame-format frame=\{"
-                + "index='${frame.index}',"
-                + "pc='${frame.pc}',"
-                + "module='${module.file.basename}',"
-                #+ "function='${function.name-with-args}',"
-                + "function='${function.name}',"
-                + "pcoffset='${function.pc-offset}',"
-                + "file='${line.file.basename}',"
-                + "line='${line.number}'"
-                + "\},")
+def importPlainDumpers(args):
+    pass
 
+def bbsetup(args = ''):
+    global qqDumpers, qqFormats, qqEditable
+    typeCache = {}
 
-    # default:
-    # "thread #${thread.index}: tid = ${thread.id}{, ${frame.pc}}
-    # { ${module.file.basename}{`${function.name-with-args}${function.pc-offset}}}
-    # { at ${line.file.basename}:${line.number}}
-    # {, stop reason = ${thread.stop-reason}}{\nReturn value: ${thread.return-value}}\n"
-    lldb.debugger.HandleCommand("settings set thread-format thread=\{"
-                + "index='${thread.index}',"
-                + "tid='${thread.id}',"
-                + "framepc='${frame.pc}',"
-                + "module='${module.file.basename}',"
-                + "function='${function.name}',"
-                + "pcoffset='${function.pc-offset}',"
-                + "stopreason='${thread.stop-reason}'"
-                #+ "returnvalue='${thread.return-value}'"
-                + "\},")
+    items = globals()
+    for key in items:
+        registerDumper(items[key])
+
+bbsetup()
+
+lldbLoaded = True
+
+print "result={state=\"enginesetupok\",dumpers=\"%s\"}" % qqDumpers.keys()
