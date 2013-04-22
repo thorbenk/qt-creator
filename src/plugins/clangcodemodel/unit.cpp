@@ -68,7 +68,7 @@ public:
     QByteArray m_fileName;
     QStringList m_compOptions;
     SharedClangOptions m_sharedCompOptions;
-    unsigned m_managOptions;
+    unsigned m_managementOptions;
     UnsavedFiles m_unsaved;
     QDateTime m_timeStamp;
 };
@@ -82,6 +82,7 @@ using namespace ClangCodeModel::Internal;
 UnitData::UnitData()
     : m_index(0)
     , m_tu(0)
+    , m_managementOptions(0)
 {
 }
 
@@ -89,6 +90,7 @@ UnitData::UnitData(const QString &fileName)
     : m_index(clang_createIndex(/*excludeDeclsFromPCH*/ 1, /*displayDiagnostics*/ 0))
     , m_tu(0)
     , m_fileName(fileName.toUtf8())
+    , m_managementOptions(0)
 {
 }
 
@@ -106,7 +108,7 @@ void UnitData::swap(UnitData *other)
     qSwap(m_fileName, other->m_fileName);
     qSwap(m_compOptions, other->m_compOptions);
     qSwap(m_sharedCompOptions, other->m_sharedCompOptions);
-    qSwap(m_managOptions, other->m_managOptions);
+    qSwap(m_managementOptions, other->m_managementOptions);
     qSwap(m_unsaved, other->m_unsaved);
     qSwap(m_timeStamp, other->m_timeStamp);
 }
@@ -194,12 +196,12 @@ void Unit::setUnsavedFiles(const UnsavedFiles &unsavedFiles)
 
 unsigned Unit::managementOptions() const
 {
-    return m_data->m_managOptions;
+    return m_data->m_managementOptions;
 }
 
 void Unit::setManagementOptions(unsigned managementOptions)
 {
-    m_data->m_managOptions = managementOptions;
+    m_data->m_managementOptions = managementOptions;
 }
 
 bool Unit::isUnique() const
@@ -231,7 +233,7 @@ void Unit::parse()
                                               m_data->m_sharedCompOptions.size(),
                                               unsaved.files(),
                                               unsaved.count(),
-                                              m_data->m_managOptions);
+                                              m_data->m_managementOptions);
 }
 
 void Unit::reparse()
@@ -292,9 +294,7 @@ CXSourceLocation Unit::getLocation(const CXFile &file, unsigned line, unsigned c
 void Unit::codeCompleteAt(unsigned line, unsigned column, ScopedCXCodeCompleteResults &results)
 {
     unsigned flags = clang_defaultCodeCompleteOptions();
-#if defined(CINDEX_VERSION) && (CINDEX_VERSION > 6)
-    // Although clang 3.2 introduced this, it seems to be slightly unstable, so
-    // require at least 3.3.
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION > 5)
     flags |= CXCodeComplete_IncludeBriefComments;
 #endif
 

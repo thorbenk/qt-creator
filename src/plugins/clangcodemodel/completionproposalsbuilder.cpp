@@ -88,10 +88,10 @@ void CompletionProposalsBuilder::operator ()(const CXCompletionResult &cxResult)
 {
     resetWithResult(cxResult);
 
-#if defined(CINDEX_VERSION) // since clang 3.2
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION > 5)
     const QString brief = Internal::getQString(clang_getCompletionBriefComment(cxResult.CompletionString));
     if (!brief.isEmpty())
-        m_comment += QLatin1String("<b>@brief</b> ") + Qt::escape(brief);
+        m_comment += QLatin1String("<b>Brief:</b> ") + Qt::escape(brief);
 #endif
 
     if (m_resultAvailability == CodeCompletionResult::Deprecated) {
