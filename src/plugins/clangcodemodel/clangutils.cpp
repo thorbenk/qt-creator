@@ -137,7 +137,6 @@ QStringList createClangOptions(const ProjectPart::Ptr &pPart, ProjectFile::Kind 
     QList<QByteArray> defines = pPart->defines.split('\n');
 
     result << QLatin1String("-nostdinc");
-    result << QLatin1String("-nobuiltininc");
 
     foreach (QByteArray def, defines) {
         if (def.isEmpty())
