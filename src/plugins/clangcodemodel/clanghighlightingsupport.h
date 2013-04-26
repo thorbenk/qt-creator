@@ -64,6 +64,12 @@ public:
     ClangHighlightingSupport(TextEditor::ITextEditor *textEditor, Internal::FastIndexer *fastIndexer);
     ~ClangHighlightingSupport();
 
+    virtual bool requiresSemanticInfo() const
+    { return false; }
+
+    virtual bool hightlighterHandlesDiagnostics() const
+    { return true; }
+
     virtual QFuture<TextEditor::HighlightingResult> highlightingFuture(
             const CPlusPlus::Document::Ptr &doc, const CPlusPlus::Snapshot &snapshot) const;
 
@@ -83,9 +89,6 @@ public:
     virtual ~ClangHighlightingSupportFactory();
 
     virtual CppTools::CppHighlightingSupport *highlightingSupport(TextEditor::ITextEditor *editor);
-
-    virtual bool hightlighterHandlesDiagnostics() const
-    { return true; }
 
 private:
     Internal::FastIndexer *m_fastIndexer;
