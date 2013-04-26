@@ -345,6 +345,12 @@ QmlEngine::~QmlEngine()
     Core::EditorManager::instance()->closeEditors(editorsToClose);
 }
 
+void QmlEngine::notifyInferiorSetupOk()
+{
+    emit aboutToNotifyInferiorSetupOk();
+    DebuggerEngine::notifyInferiorSetupOk();
+}
+
 void QmlEngine::setupInferior()
 {
     QTC_ASSERT(state() == InferiorSetupRequested, qDebug() << state());
@@ -519,8 +525,7 @@ void QmlEngine::showMessage(const QString &msg, int channel, int timeout) const
 void QmlEngine::gotoLocation(const Location &location)
 {
     const QString fileName = location.fileName();
-    // TODO: QUrl::isLocalFile() once we depend on Qt 4.8
-    if (QUrl(fileName).scheme().compare(QLatin1String("file"), Qt::CaseInsensitive) == 0) {
+    if (QUrl(fileName).isLocalFile()) {
         // internal file from source files -> show generated .js
         QTC_ASSERT(m_sourceDocuments.contains(fileName), return);
         Core::IEditor *editor = 0;
@@ -618,6 +623,25 @@ void QmlEngine::notifyEngineRemoteSetupFailed(const QString &message)
             tr("Application startup failed: %1").arg(message));
 
     notifyEngineSetupFailed();
+}
+
+void QmlEngine::notifyEngineRemoteServerRunning(const QByteArray &serverChannel, int pid)
+{
+    bool ok = false;
+    quint16 qmlPort = serverChannel.toUInt(&ok);
+    if (ok)
+        startParameters().qmlServerPort = qmlPort;
+    else
+        qWarning() << tr("QML debugging port not set! Unable to convert %1 to unsigned int.").arg(QString::fromLatin1(serverChannel));
+
+    DebuggerEngine::notifyEngineRemoteServerRunning(serverChannel, pid);
+    notifyEngineSetupOk();
+
+    // The remote setup can take a while especially with mixed debugging.
+    // Just waiting for 8 seconds is not enough. Increase the timeout
+    // to 60 s
+    // In case we get an output the m_outputParser will start the connection.
+    m_noDebugOutputTimer.setInterval(60000);
 }
 
 void QmlEngine::shutdownInferior()
@@ -1333,7 +1357,7 @@ WatchTreeView *QmlEngine::inspectorTreeView() const
 {
     DebuggerMainWindow *dw = qobject_cast<DebuggerMainWindow *>(debuggerCore()->mainWindow());
     LocalsAndExpressionsWindow *leW = qobject_cast<LocalsAndExpressionsWindow *>(
-                dw->dockWidget(QLatin1String(Constants::DOCKWIDGET_WATCHERS))->widget());
+                dw->dockWidget(_(DOCKWIDGET_WATCHERS))->widget());
     WatchWindow *inspectorWindow = qobject_cast<WatchWindow *>(leW->inspectorWidget());
     return qobject_cast<WatchTreeView *>(inspectorWindow->treeView());
 }

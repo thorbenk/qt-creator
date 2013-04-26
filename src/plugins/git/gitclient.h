@@ -90,6 +90,9 @@ public:
     enum StashResult { StashUnchanged, StashCanceled, StashFailed,
                        Stashed, NotStashed /* User did not want it */ };
 
+    enum CommandInProgress { NoCommand, Revert, CherryPick,
+                             Rebase, Merge, RebaseMerge };
+
     class StashGuard
     {
     public:
@@ -195,8 +198,7 @@ public:
 
     QMap<QString,QString> synchronousRemotesList(const QString &workingDirectory,
                                                  QString *errorMessage = 0);
-    QMap<QString,QString> synchronousSubmoduleList(const QString &workingDirectory,
-                                                   QString *errorMessage = 0);
+    QMap<QString,QString> synchronousSubmoduleList(const QString &workingDirectory);
     bool synchronousShow(const QString &workingDirectory, const QString &id,
                               QString *output, QString *errorMessage);
 
@@ -232,8 +234,8 @@ public:
     bool synchronousRebase(const QString &workingDirectory,
                            const QString &baseBranch,
                            const QString &topicBranch = QString());
-    bool revertCommit(const QString &workingDirectory, const QString &commit);
-    bool cherryPickCommit(const QString &workingDirectory, const QString &commit);
+    bool synchronousRevert(const QString &workingDirectory, const QString &commit);
+    bool synchronousCherryPick(const QString &workingDirectory, const QString &commit);
     void interactiveRebase(const QString &workingDirectory, const QString &commit);
     void synchronousAbortCommand(const QString &workingDir, const QString &abortCommand);
 
@@ -276,6 +278,9 @@ public:
                            StatusMode mode,
                            QString *output = 0,
                            QString *errorMessage = 0);
+
+    CommandInProgress checkCommandInProgress(const QString &workingDirectory);
+    CommandInProgress checkCommandInProgressInGitDir(const QString &gitDir);
 
     void continueCommandIfNeeded(const QString &workingDirectory);
     void continuePreviousGitCommand(const QString &workingDirectory, const QString &msgBoxTitle, QString msgBoxText,

@@ -42,6 +42,7 @@
 
 #include "debuggeractions.h"
 #include "debuggercore.h"
+#include "debuggermainwindow.h"
 #include "debuggerplugin.h"
 #include "debuggerprotocol.h"
 #include "debuggerstringutils.h"
@@ -2479,6 +2480,8 @@ void GdbEngine::updateResponse(BreakpointResponse &response, const GdbMi &bkpt)
         } else if (child.hasName("pending")) {
             // Any content here would be interesting only if we did accept
             // spontaneously appearing breakpoints (user using gdb commands).
+            if (file.isEmpty())
+                file = child.data();
             response.pending = true;
         } else if (child.hasName("at")) {
             // Happens with gdb 6.4 symbianelf.
@@ -2540,6 +2543,16 @@ QString GdbEngine::breakLocation(const QString &file) const
     return where;
 }
 
+BreakpointPathUsage GdbEngine::defaultEngineBreakpointPathUsage() const
+{
+    // e.g. MinGW gdb 70200 (part of Nokia Qt SDK)
+    // fails to set breakpoints with absolute paths if
+    // the source path isn't canonical
+    if (m_gdbVersion < 70300)
+        return BreakpointUseShortPath;
+    return BreakpointUseFullPath;
+}
+
 QByteArray GdbEngine::breakpointLocation(BreakpointModelId id)
 {
     BreakHandler *handler = breakHandler();
@@ -2559,7 +2572,11 @@ QByteArray GdbEngine::breakpointLocation(BreakpointModelId id)
     if (data.type == BreakpointByAddress)
         return addressSpec(data.address);
 
-    const QString fileName = data.pathUsage == BreakpointUseFullPath
+    BreakpointPathUsage usage = data.pathUsage;
+    if (usage == BreakpointPathUsageEngineDefault)
+        usage = defaultEngineBreakpointPathUsage();
+
+    const QString fileName = usage == BreakpointUseFullPath
         ? data.fileName : breakLocation(data.fileName);
     // The argument is simply a C-quoted version of the argument to the
     // non-MI "break" command, including the "original" quoting it wants.
@@ -2570,8 +2587,14 @@ QByteArray GdbEngine::breakpointLocation(BreakpointModelId id)
 QByteArray GdbEngine::breakpointLocation2(BreakpointModelId id)
 {
     BreakHandler *handler = breakHandler();
+
     const BreakpointParameters &data = handler->breakpointData(id);
-    const QString fileName = data.pathUsage == BreakpointUseFullPath
+
+    BreakpointPathUsage usage = data.pathUsage;
+    if (usage == BreakpointPathUsageEngineDefault)
+        usage = defaultEngineBreakpointPathUsage();
+
+    const QString fileName = usage == BreakpointUseFullPath
         ? data.fileName : breakLocation(data.fileName);
     return  GdbMi::escapeCString(fileName.toLocal8Bit()) + ':'
         + QByteArray::number(data.lineNumber);
@@ -3831,7 +3854,7 @@ void GdbEngine::handleMakeSnapshot(const GdbResponse &response)
 
 void GdbEngine::reloadRegisters()
 {
-    if (!debuggerCore()->isDockVisible(_(Constants::DOCKWIDGET_REGISTER)))
+    if (!debuggerCore()->isDockVisible(_(DOCKWIDGET_REGISTER)))
         return;
 
     if (state() != InferiorStopOk && state() != InferiorUnrunnable)

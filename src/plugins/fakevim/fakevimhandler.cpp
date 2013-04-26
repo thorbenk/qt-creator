@@ -1794,6 +1794,7 @@ public:
     QStack<State> m_undo;
     QStack<State> m_redo;
     State m_undoState;
+    int m_lastUndoSteps;
 
     // extra data for '.'
     void replay(const QString &text);
@@ -1957,6 +1958,7 @@ FakeVimHandler::Private::Private(FakeVimHandler *parent, QWidget *widget)
     if (editor()) {
         connect(EDITOR(document()), SIGNAL(contentsChanged()), SLOT(onContentsChanged()));
         connect(EDITOR(document()), SIGNAL(undoCommandAdded()), SLOT(onUndoCommandAdded()));
+        m_lastUndoSteps = document()->availableUndoSteps();
     }
     //new Highlighter(document(), &pythonRules);
     init();
@@ -2234,6 +2236,7 @@ void FakeVimHandler::Private::exportSelection()
             setAnchorAndPosition(anc, pos + 1);
 
         if (m_visualMode == VisualBlockMode) {
+            commitCursor();
             emit q->requestSetBlockSelection(false);
             emit q->requestSetBlockSelection(true);
         } else if (m_visualMode == VisualLineMode) {
@@ -2375,10 +2378,7 @@ void FakeVimHandler::Private::restoreWidget(int tabSize)
     EDITOR(setTabStopWidth(charWidth * tabSize));
     m_visualMode = NoVisualMode;
     // Force "ordinary" cursor.
-    m_mode = InsertMode;
-    m_submode = NoSubMode;
-    m_subsubmode = NoSubSubMode;
-    updateCursorShape();
+    EDITOR(setOverwriteMode(false));
     updateSelection();
     updateHighlights();
 }
@@ -3935,6 +3935,7 @@ bool FakeVimHandler::Private::handleNoSubMode(const Input &input)
             setCursorPosition(m_lastVisualModeInverted ? to : from);
             setAnchor();
             setCursorPosition(m_lastVisualModeInverted ? from : to);
+            setTargetColumn();
         }
     } else if (input.is('v')) {
         toggleVisualMode(VisualCharMode);
@@ -6535,7 +6536,7 @@ void FakeVimHandler::Private::insertText(QTextCursor &tc, const QString &text)
           passEventToEditor(event);
       }
 
-      updateCursorShape();
+      tc = m_cursor;
       m_cursor = oldTc;
   } else {
       tc.insertText(text);
@@ -6795,8 +6796,11 @@ bool FakeVimHandler::Private::passEventToEditor(QEvent &event)
     removeEventFilter();
 
     commitCursor();
+
     EDITOR(setOverwriteMode(false));
+    emit q->requestSetBlockSelection(false);
     bool accepted = QApplication::sendEvent(editor(), &event);
+    updateCursorShape();
 
     installEventFilter();
 
@@ -7090,17 +7094,37 @@ void FakeVimHandler::Private::onContentsChanged()
 {
     if (!document()->isUndoAvailable())
         m_undo.clear();
-    else if (m_editBlockLevel == 0 && !m_undo.isEmpty() && !isInsertMode())
-        m_undo.push(State()); // Save undo state for external change.
+
+    const int undoSteps = document()->availableUndoSteps();
+
+    if (m_editBlockLevel == 0) {
+        // Break undo/redo stacks on external undo/redo.
+        if (m_lastUndoSteps > undoSteps && !m_undo.isEmpty()) {
+            if ((--m_undo.top().revisions) <= 0)
+                m_undo.pop();
+            m_redo.push(State());
+        } else if (m_lastUndoSteps < undoSteps && !m_redo.isEmpty()) {
+            if ((--m_redo.top().revisions) <= 0)
+                m_redo.pop();
+            m_undo.push(State());
+        }
+    }
+
+    m_lastUndoSteps = undoSteps;
 }
 
 void FakeVimHandler::Private::onUndoCommandAdded()
 {
     m_redo.clear();
-    if (m_editBlockLevel == 0 && !m_undo.isEmpty() && isInsertMode())
-        ++m_undo.top().revisions;
-    else
-        ++m_undoState.revisions;
+    // Remember chage so it can be correctly undone/redone with undo/redo commands.
+    if (m_editBlockLevel == 0 && !m_undo.isEmpty()) {
+        if (isInsertMode())
+            ++m_undo.top().revisions; // External change in insert mode (auto-completion etc.)
+        else
+            m_undo.push(State()); // External change while FakeVim disabled.
+    } else if (m_editBlockLevel > 0) {
+        ++m_undoState.revisions; // Document revision increased in our edit block.
+    }
 }
 
 char FakeVimHandler::Private::currentModeCode() const
@@ -7133,8 +7157,8 @@ void FakeVimHandler::Private::undoRedo(bool undo)
     ++m_editBlockLevel;
 
     // Do undo/redo [count] times to reach previous revision.
-    int count = m_undoState.isValid() ? m_undoState.revisions
-                                      : state.isValid() ? state.revisions : 1;
+    int count = qMax(1, m_undoState.isValid() ? m_undoState.revisions
+                                              : state.revisions);
     while (count-- > 0) {
         if (undo)
             EDITOR(undo());
@@ -7164,11 +7188,11 @@ void FakeVimHandler::Private::undoRedo(bool undo)
         setMark(QLatin1Char('`'), lastPos);
         setCursorPosition(m_lastChangePosition);
         setAnchor();
-        stack2.push(state);
     } else {
         updateFirstVisibleLine();
         m_cursor = EDITOR(textCursor());
     }
+    stack2.push(state);
 
     setTargetColumn();
     if (atEndOfLine())

@@ -69,13 +69,17 @@ struct EditLocation {
     QVariant state;
 };
 
+class SplitterOrView;
+
 class EditorView : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit EditorView(QWidget *parent = 0);
+    explicit EditorView(SplitterOrView *parentSplitterOrView, QWidget *parent = 0);
     virtual ~EditorView();
+
+    SplitterOrView *parentSplitterOrView() const;
 
     int editorCount() const;
     void addEditor(IEditor *editor);
@@ -97,6 +101,7 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *);
+    void mousePressEvent(QMouseEvent *e);
 
 private slots:
     void closeView();
@@ -106,10 +111,14 @@ private slots:
     void closeSplit();
 
 private:
+    friend class SplitterOrView; // for setParentSplitterOrView
+    void setParentSplitterOrView(SplitterOrView *splitterOrView);
+
     void updateNavigatorActions();
     void updateToolBar(IEditor *editor);
     void checkProjectLoaded(IEditor *editor);
 
+    SplitterOrView *m_parentSplitterOrView;
     EditorToolBar *m_toolBar;
 
     QStackedWidget *m_container;
@@ -172,22 +181,15 @@ public:
     QByteArray saveState() const;
     void restoreState(const QByteArray &);
 
-    SplitterOrView *findView(Core::IEditor *editor);
-    SplitterOrView *findView(EditorView *view);
-    SplitterOrView *findFirstView();
-    SplitterOrView *findEmptyView();
-    SplitterOrView *findSplitter(Core::IEditor *editor);
+    EditorView *findFirstView();
     SplitterOrView *findSplitter(SplitterOrView *child);
 
-    SplitterOrView *findNextView(SplitterOrView *view);
+    EditorView *findNextView(EditorView *view);
 
     QSize sizeHint() const { return minimumSizeHint(); }
     QSize minimumSizeHint() const;
 
     void unsplitAll();
-
-protected:
-    void mousePressEvent(QMouseEvent *e);
 
 private:
     void unsplitAll_helper();

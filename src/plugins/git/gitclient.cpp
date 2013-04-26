@@ -1264,6 +1264,20 @@ QString GitClient::synchronousTopic(const QString &workingDirectory)
     if (!branch.isEmpty())
         return data.topic = branch;
 
+    switch (checkCommandInProgressInGitDir(gitDir)) {
+    case Rebase:
+    case RebaseMerge:
+        return data.topic = tr("Rebasing");
+    case Revert:
+        return data.topic = tr("Reverting");
+    case CherryPick:
+        return data.topic = tr("Cherry Picking");
+    case Merge:
+        return data.topic = tr("Merging");
+    default:
+        break;
+    }
+
     // Detached HEAD, try a tag or remote branch
     QStringList references;
     if (!synchronousHeadRefs(workingDirectory, &references))
@@ -1560,33 +1574,22 @@ QMap<QString,QString> GitClient::synchronousRemotesList(const QString &workingDi
     return result;
 }
 
-QMap<QString,QString> GitClient::synchronousSubmoduleList(const QString &workingDirectory,
-                                                          QString *errorMessage)
+// function returns submodules in format path=url
+QMap<QString,QString> GitClient::synchronousSubmoduleList(const QString &workingDirectory)
 {
-    QStringList args;
     QMap<QString,QString> result;
-    args << QLatin1String("config") << QLatin1String("-l");
-    QByteArray outputText;
-    QByteArray errorText;
-    const bool rc = fullySynchronousGit(workingDirectory, args, &outputText, &errorText);
-    if (!rc) {
-        QString message = msgCannotRun(QLatin1String("git config -l"), workingDirectory, commandOutputFromLocal8Bit(errorText));
-
-        if (errorMessage)
-            *errorMessage = message;
-        else
-            outputWindow()->append(message);
+    if (!QFile::exists(workingDirectory + QLatin1String("/.gitmodules")))
         return result;
+
+    QSettings gitmodulesFile(workingDirectory + QLatin1String("/.gitmodules"), QSettings::IniFormat);
+
+    foreach (const QString &submoduleGroup, gitmodulesFile.childGroups()) {
+        gitmodulesFile.beginGroup(submoduleGroup);
+        result.insertMulti(gitmodulesFile.value(QLatin1String("path")).toString(),
+                           gitmodulesFile.value(QLatin1String("url")).toString());
+        gitmodulesFile.endGroup();
     }
 
-    QStringList outputList = commandOutputLinesFromLocal8Bit(outputText);
-    QString urlKey = QLatin1String(".url=");
-    foreach (const QString& line, outputList) {
-        if (line.startsWith(QLatin1String("submodule."))) {
-            result.insertMulti(line.mid(10, line.indexOf(urlKey) - 10),
-                               line.mid(line.indexOf(urlKey, 10) + 5));
-        }
-    }
     return result;
 }
 
@@ -1892,24 +1895,50 @@ GitClient::StatusResult GitClient::gitStatus(const QString &workingDirectory, St
     return StatusUnchanged;
 }
 
+GitClient::CommandInProgress GitClient::checkCommandInProgressInGitDir(const QString &gitDir)
+{
+    if (QFile::exists(gitDir + QLatin1String("/MERGE_HEAD")))
+        return Merge;
+    else if (QFile::exists(gitDir + QLatin1String("/rebase-apply/rebasing")))
+        return Rebase;
+    else if (QFile::exists(gitDir + QLatin1String("/rebase-merge")))
+        return RebaseMerge;
+    else if (QFile::exists(gitDir + QLatin1String("/REVERT_HEAD")))
+        return Revert;
+    else if (QFile::exists(gitDir + QLatin1String("/CHERRY_PICK_HEAD")))
+        return CherryPick;
+    else
+        return NoCommand;
+}
+
+GitClient::CommandInProgress GitClient::checkCommandInProgress(const QString &workingDirectory)
+{
+    return checkCommandInProgressInGitDir(findGitDirForRepository(workingDirectory));
+}
+
 void GitClient::continueCommandIfNeeded(const QString &workingDirectory)
 {
-    QString gitDir = findGitDirForRepository(workingDirectory);
-
-    if (QFile::exists(gitDir + QLatin1String("/rebase-apply/rebasing"))) {
+    switch (checkCommandInProgress(workingDirectory)) {
+    case Rebase:
         continuePreviousGitCommand(workingDirectory, tr("Continue Rebase"),
                 tr("Continue rebase?"), tr("Continue"), QLatin1String("rebase"));
-    } else if (QFile::exists(gitDir + QLatin1String("/rebase-merge"))) {
+        break;
+    case RebaseMerge:
         continuePreviousGitCommand(workingDirectory, tr("Continue Rebase"),
                 tr("Continue rebase?"), tr("Continue"), QLatin1String("rebase"), false);
-    } else if (QFile::exists(gitDir + QLatin1String("/REVERT_HEAD"))) {
+        break;
+    case Revert:
         continuePreviousGitCommand(workingDirectory, tr("Continue Revert"),
                 tr("You need to commit changes to finish revert.\nCommit now?"),
                 tr("Commit"), QLatin1String("revert"));
-    } else if (QFile::exists(gitDir + QLatin1String("/CHERRY_PICK_HEAD"))) {
+        break;
+    case CherryPick:
         continuePreviousGitCommand(workingDirectory, tr("Continue Cherry-Picking"),
                 tr("You need to commit changes to finish cherry-picking.\nCommit now?"),
                 tr("Commit"), QLatin1String("cherry-pick"));
+        break;
+    default:
+        break;
     }
 }
 
@@ -2568,7 +2597,7 @@ bool GitClient::synchronousRebase(const QString &workingDirectory, const QString
     return executeAndHandleConflicts(workingDirectory, arguments, command);
 }
 
-bool GitClient::revertCommit(const QString &workingDirectory, const QString &commit)
+bool GitClient::synchronousRevert(const QString &workingDirectory, const QString &commit)
 {
     QStringList arguments;
     QString command = QLatin1String("revert");
@@ -2577,7 +2606,7 @@ bool GitClient::revertCommit(const QString &workingDirectory, const QString &com
     return executeAndHandleConflicts(workingDirectory, arguments, command);
 }
 
-bool GitClient::cherryPickCommit(const QString &workingDirectory, const QString &commit)
+bool GitClient::synchronousCherryPick(const QString &workingDirectory, const QString &commit)
 {
     QStringList arguments;
     QString command = QLatin1String("cherry-pick");

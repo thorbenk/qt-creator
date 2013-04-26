@@ -1199,6 +1199,8 @@ static KnownType knownClassTypeHelper(const std::string &type,
             return KT_QMatrix;
         if (!type.compare(qPos, 7, "QRegExp"))
             return KT_QRegExp;
+        if (!type.compare(qPos, 7, "QPixmap"))
+            return KT_QPixmap;
         break;
     case 8:
         if (!type.compare(qPos, 8, "QVariant"))
@@ -2104,6 +2106,36 @@ static bool dumpQDateTime(const SymbolGroupValue &v, std::wostream &str)
     return true;
 }
 
+static bool dumpQPixmap(const SymbolGroupValue &v, std::wostream &str)
+{
+    const SymbolGroupValue pixmapSharedData = v["data"]["d"];
+    if (!pixmapSharedData.isValid())
+        return false;
+    ULONG64 addr = pixmapSharedData.pointerValue();
+
+    if (addr) {
+        const unsigned int width =
+                SymbolGroupValue::readIntValue(v.context().dataspaces,
+                                               addr += SymbolGroupValue::pointerSize(),
+                                               SymbolGroupValue::intSize(), 0);
+        const unsigned int height =
+                SymbolGroupValue::readIntValue(v.context().dataspaces,
+                                               addr += SymbolGroupValue::intSize(),
+                                               SymbolGroupValue::intSize(), 0);
+        const unsigned int depth =
+                SymbolGroupValue::readIntValue(v.context().dataspaces,
+                                               addr += SymbolGroupValue::intSize(),
+                                               SymbolGroupValue::intSize(), 0);
+
+        if (width && height) {
+            str << width << L'x' << height << L", depth: " << depth;
+            return true;
+        }
+    }
+    str << L"<null>";
+    return true;
+}
+
 static bool dumpQImage(const SymbolGroupValue &v, std::wostream &str, MemoryHandle **memoryHandle)
 {
     struct CreatorImageHeader { // Header for image display as edit format, followed by data.
@@ -2441,8 +2473,15 @@ static bool dumpQVariant(const SymbolGroupValue &v, std::wostream &str, void **s
         break;
     case 10: // String
         str << L"(QString) ";
-        if (const SymbolGroupValue sv = dataV.typeCast(qtInfo.prependQtCoreModule("QString *").c_str()))
-            dumpQString(sv, str);
+        if (const SymbolGroupValue sv = dataV.typeCast(qtInfo.prependQtCoreModule("QString *").c_str())) {
+            if (!dumpQString(sv, str)) {
+                // HACK:
+                // In some rare cases the the AddSymbol can't create a node with a given module name,
+                // but is able to add the symbol without any modulename.
+                if (const SymbolGroupValue svc = dataV.typeCast("QString *"))
+                    dumpQString(svc, str);
+            }
+        }
         break;
     case 11: //StringList: Dump container size
         str << L"(QStringList) ";
@@ -2523,6 +2562,11 @@ static bool dumpQVariant(const SymbolGroupValue &v, std::wostream &str, void **s
         str << L"(QPointF) ";
         if (const SymbolGroupValue sv = dataV["shared"]["ptr"].pointerTypeCast(qtInfo.prependQtCoreModule("QPointF *").c_str()))
             dumpQPoint_F(sv, str);
+        break;
+    case 65: // QPixmap
+        str << L"(QPixmap) ";
+        if (const SymbolGroupValue sv = qVariantCast(dataV, qtInfo.prependQtGuiModule("QPixmap").c_str()))
+            dumpQPixmap(sv, str);
         break;
     default:
         str << L"Type " << typeId;
@@ -2667,6 +2711,9 @@ unsigned dumpSimpleType(SymbolGroupNode  *n, const SymbolGroupValueContext &ctx,
     case KT_QLine:
     case KT_QLineF:
         rc = dumpQLine_F(v, str) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
+        break;
+    case KT_QPixmap:
+        rc = dumpQPixmap(v, str) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
         break;
     case KT_QImage:
         rc = dumpQImage(v, str, memoryHandleIn) ? SymbolGroupNode::SimpleDumperOk : SymbolGroupNode::SimpleDumperFailed;
