@@ -30,6 +30,8 @@
 #include "clangutils.h"
 #include "cppcreatemarkers.h"
 
+#include <cplusplus/CppDocument.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <utils/runextensions.h>
 
 #include <QCoreApplication>
@@ -105,15 +107,29 @@ void CreateMarkers::run()
 
     m_pchInfo.clear();
 
+    typedef CPlusPlus::Document::DiagnosticMessage OtherDiagnostic;
+    QList<OtherDiagnostic> msgs;
     QList<ClangCodeModel::Diagnostic> diagnostics;
     foreach (const ClangCodeModel::Diagnostic &d, m_marker->diagnostics()) {
 #ifdef DEBUG_TIMING
         qDebug() << d.severityAsString() << d.location() << d.spelling();
 #endif // DEBUG_TIMING
-        if (d.location().fileName() == m_marker->fileName())
-            diagnostics.append(d);
+        if (d.location().fileName() != m_marker->fileName())
+            continue;
+
+        int level;
+        switch (d.severity()) {
+        case Diagnostic::Fatal: level = OtherDiagnostic::Fatal; break;
+        case Diagnostic::Error: level = OtherDiagnostic::Error; break;
+        case Diagnostic::Warning: level = OtherDiagnostic::Warning; break;
+        default: continue;
+        }
+        msgs.append(OtherDiagnostic(level, d.location().fileName(), d.location().line(),
+                                    d.location().column(), d.spelling(), d.length()));
     }
-    emit diagnosticsReady(diagnostics);
+    static const QString key = QLatin1String("ClangCodeModel.Diagnostics");
+    CppTools::CppModelManagerInterface::instance()->setExtraDiagnostics(m_marker->fileName(),
+                                                                        key, msgs);
 
     if (isCanceled())
         return;

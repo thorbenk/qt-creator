@@ -191,7 +191,7 @@ void CppEditorSupport::recalculateSemanticInfoDetached(bool force)
     m_futureSemanticInfo = QtConcurrent::run<CppEditorSupport, void>(
                 &CppEditorSupport::recalculateSemanticInfoDetached_helper, this, source);
 
-    if (force && !m_highlightingSupport->requiresSemanticInfo())
+    if (force && m_highlightingSupport && !m_highlightingSupport->requiresSemanticInfo())
         startHighlighting();
 }
 
@@ -212,7 +212,7 @@ void CppEditorSupport::updateDocumentNow()
     } else {
         m_updateDocumentTimer->stop();
 
-        if (!m_highlightingSupport->requiresSemanticInfo()) {
+        if (m_highlightingSupport && !m_highlightingSupport->requiresSemanticInfo()) {
             startHighlighting();
         }
 

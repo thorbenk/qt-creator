@@ -79,9 +79,6 @@ public:
     void addUse(const SourceMarker &marker);
     void flush();
 
-signals:
-    void diagnosticsReady(const QList<ClangCodeModel::Diagnostic> &diagnostics);
-
 protected:
     CreateMarkers(ClangCodeModel::SemanticMarker::Ptr semanticMarker,
                   const QString &fileName, const QStringList &options,
