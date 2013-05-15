@@ -115,7 +115,7 @@ equals(TEST, 1) {
 FORMS += $$PWD/clangprojectsettingspropertiespage.ui
 
 macx {
-    LIBCLANG_VERSION=3.2
+    LIBCLANG_VERSION=3.3
     POSTL = install_name_tool -change "@executable_path/../lib/libclang.$${LIBCLANG_VERSION}.dylib" "$$LLVM_INSTALL_DIR/lib/libclang.$${LIBCLANG_VERSION}.dylib" "\"$${DESTDIR}/lib$${TARGET}.dylib\"" $$escape_expand(\\n\\t)
     !isEmpty(QMAKE_POST_LINK):QMAKE_POST_LINK = $$escape_expand(\\n\\t)$$QMAKE_POST_LINK
     QMAKE_POST_LINK = $$POSTL $$QMAKE_POST_LINK
