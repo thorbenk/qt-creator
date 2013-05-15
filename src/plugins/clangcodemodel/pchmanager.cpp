@@ -103,12 +103,14 @@ void PCHManager::setPCHInfo(const QList<ProjectPart::Ptr> &projectParts,
         m_activePCHFiles[pPart] = pchInfo;
 
     if (pchInfo) {
-        if (msgs.first)
-            emit pchMessage(tr("Successfully generated PCH file \"%1\".").arg(
-                                pchInfo->fileName()), Core::MessageManager::Silent);
-        else
+        if (msgs.first) {
+            if (!pchInfo->fileName().isEmpty())
+                emit pchMessage(tr("Successfully generated PCH file \"%1\".").arg(
+                                    pchInfo->fileName()), Core::MessageManager::Silent);
+        } else {
             emit pchMessage(tr("Failed to generate PCH file \"%1\".").arg(
                                 pchInfo->fileName()), Core::MessageManager::Silent);
+        }
         if (!msgs.second.isEmpty())
             emit pchMessage(msgs.second.join(QLatin1String("\n")), Core::MessageManager::Flash);
     }
