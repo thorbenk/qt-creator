@@ -40,6 +40,7 @@
 #define Q_EMIT
 #define emit
 #define Q_CLASSINFO(name, value)
+#define Q_PLUGIN_METADATA(x)
 #define Q_INTERFACES(x)
 #define Q_PROPERTY(text)
 #define Q_PRIVATE_PROPERTY(d, text)
@@ -55,6 +56,5 @@ public: \
     static const QMetaObject staticMetaObject; \
 private:
 
-#define METHOD(a) a
-#define SIGNAL(a) a
-#define SLOT(a) a
+#define SIGNAL(a) #a
+#define SLOT(a) #a
