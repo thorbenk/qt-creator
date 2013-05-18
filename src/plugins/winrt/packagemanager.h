@@ -63,6 +63,13 @@ public:
         DevelopmentMode = 0x1
     };
 
+    enum Error {
+        NoError,
+        UnknownError,
+        Canceled,
+        DeveloperLicenseRequired
+    };
+
     explicit PackageManager(QObject *parent = 0);
     ~PackageManager();
 
@@ -74,21 +81,25 @@ public:
 
     bool operationInProgress() const;
 
+    static void launchDeveloperRegistration();
+
 signals:
     void packageAdded(const QString &manifestFile);
-    void packageAddFailed(const QString &manifestFile, const QString &message);
+    void packageAddFailed(const QString &manifestFile, const QString &message, PackageManager::Error error);
     void packageRemoved(const QString &fullName);
-    void packageRemovalFailed(const QString &fullName, const QString &message);
+    void packageRemovalFailed(const QString &fullName, const QString &message, PackageManager::Error error);
 
 private:
     friend class PackageManagerPrivate;
 
     PackageManagerPrivate *d;
 };
+Q_DECLARE_METATYPE(PackageManager::Error)
 
 } // namespace Internal
 } // namespace WinRt
 
 Q_DECLARE_METATYPE(WinRt::Internal::WinRtPackagePtr)
+
 
 #endif // WINRT_INTERNAL_PACKAGEMANAGER_H

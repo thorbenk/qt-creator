@@ -61,12 +61,12 @@ WinRtSelectAppDialog::WinRtSelectAppDialog(QWidget *parent)
 {
     connect(m_packageManager, SIGNAL(packageRemoved(QString)),
             this, SLOT(packageRemoved(QString)));
-    connect(m_packageManager, SIGNAL(packageRemovalFailed(QString,QString)),
+    connect(m_packageManager, SIGNAL(packageRemovalFailed(QString,QString,PackageManager::Error)),
             this, SLOT(packageRemovalFailed(QString,QString)));
     connect(m_packageManager, SIGNAL(packageAdded(QString)),
             this, SLOT(packageAdded(QString)));
-    connect(m_packageManager, SIGNAL(packageAddFailed(QString,QString)),
-            this, SLOT(packageAddFailed(QString,QString)));
+    connect(m_packageManager, SIGNAL(packageAddFailed(QString,QString,PackageManager::Error)),
+            this, SLOT(packageAddFailed(QString,QString,PackageManager::Error)));
 
     m_ui->setupUi(this);
     m_ui->table->setUniformRowHeights(true);
@@ -173,11 +173,20 @@ void WinRtSelectAppDialog::packageAdded(const QString &)
     refresh();
 }
 
-void WinRtSelectAppDialog::packageAddFailed(const QString &manifestFile, const QString &message)
+void WinRtSelectAppDialog::packageAddFailed(const QString &manifestFile, const QString &message, PackageManager::Error error)
 {
     setEnabled(true);
     QApplication::restoreOverrideCursor();
-    QMessageBox::warning(this, tr("Error Adding \"%1\"").arg(manifestFile), message);
+
+    if (error == PackageManager::DeveloperLicenseRequired) {
+        QString prompt = message + QLatin1String("\n\n")
+                + tr("\nWould you like to launch the developer registration tool?");
+        if (QMessageBox::question(this, tr("Error: Developer License Required"),
+                                  prompt) == QMessageBox::Yes)
+            PackageManager::launchDeveloperRegistration();
+    } else {
+        QMessageBox::warning(this, tr("Package Registration Error").arg(manifestFile), message);
+    }
 }
 
 void WinRtSelectAppDialog::contextMenuEvent(QContextMenuEvent *e)

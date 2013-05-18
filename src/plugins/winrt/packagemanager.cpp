@@ -44,6 +44,7 @@
 #  include <windows.foundation.collections.h>
 #  include <windows.system.userprofile.h>
 #  include <sddl.h>
+#  include <shellapi.h>
 
 using namespace Microsoft::WRL;
 using namespace ABI::Windows;
@@ -101,34 +102,45 @@ static IUriRuntimeClass *createUriRunTimeClass(const QString &url, QString *erro
     return result;
 }
 
-static bool evaluateDeploymentResult(AsyncDeployOperationProgress  *asyncInfo,
-                                     ABI::Windows::Foundation::AsyncStatus status,
-                                     QString *errorMessage)
+static PackageManager::Error evaluateDeploymentResult(
+        AsyncDeployOperationProgress  *asyncInfo,
+        ABI::Windows::Foundation::AsyncStatus status,
+        QString *errorMessage)
 {
-    bool ok = true;
+    PackageManager::Error error = PackageManager::NoError;
     errorMessage->clear();
     switch (status) {
     case ABI::Windows::Foundation::AsyncStatus::Started:
     case ABI::Windows::Foundation::AsyncStatus::Completed:
         break;
     case ABI::Windows::Foundation::AsyncStatus::Canceled:
-        ok = false; // Should not occur, deployment cannot be canceled.
+        error = PackageManager::Canceled; // Should not occur, deployment cannot be canceled.
         *errorMessage = PackageManager::tr("Operation canceled.");
         break;
     case ABI::Windows::Foundation::AsyncStatus::Error: {
-        ok = false;
+        error = PackageManager::UnknownError;
         ABI::Windows::Management::Deployment::IDeploymentResult *result;
         if (SUCCEEDED(asyncInfo->GetResults(&result))) {
             HSTRING hError;
             if (SUCCEEDED(result->get_ErrorText(&hError)))
                 *errorMessage = hStringToQString(hError);
+            HRESULT errorCode;
+            if (SUCCEEDED(result->get_ExtendedErrorCode(&errorCode))) {
+                switch (HRESULT_CODE(errorCode)) {
+                case ERROR_INSTALL_POLICY_FAILURE:
+                    error = PackageManager::DeveloperLicenseRequired;
+                    break;
+                default:
+                    break; // TODO: handle more error cases
+                }
+            }
         }
         if (errorMessage->isEmpty())
             *errorMessage = PackageManager::tr("Unknown error.");
     }
         break;
     }
-    return ok;
+    return error;
 }
 
 // ---------- PackageManagerPrivate
@@ -332,16 +344,16 @@ bool PackageManager::startAddPackage(const QString &manifestFile,
 HRESULT PackageManagerPrivate::packageAdded(AsyncDeployOperationProgress  *asyncInfo, ABI::Windows::Foundation::AsyncStatus status)
 {
     QString errorMessage;
-    const bool ok = evaluateDeploymentResult(asyncInfo, status, &errorMessage);
+    const PackageManager::Error error = evaluateDeploymentResult(asyncInfo, status, &errorMessage);
     const ProgressManifestHash::Iterator it = pendingInstalls.find(asyncInfo);
     if (it == pendingInstalls.end()) {
         qWarning("%s: asyncInfo not found", Q_FUNC_INFO);
         return S_OK;
     }
-    if (ok) {
+    if (error == PackageManager::NoError) {
         emit q->packageAdded(it.value());
     } else {
-        emit q->packageAddFailed(it.value(), errorMessage);
+        emit q->packageAddFailed(it.value(), errorMessage, error);
     }
     pendingInstalls.erase(it);
     return S_OK;
@@ -372,16 +384,16 @@ bool PackageManager::startRemovePackage(const QString &fullName, QString *errorM
 HRESULT PackageManagerPrivate::packageRemoved(AsyncDeployOperationProgress  *asyncInfo, ABI::Windows::Foundation::AsyncStatus status)
 {
     QString errorMessage;
-    const bool ok = evaluateDeploymentResult(asyncInfo, status, &errorMessage);
+    const PackageManager::Error error = evaluateDeploymentResult(asyncInfo, status, &errorMessage);
     const ProgressNameHash::Iterator it = pendingRemoves.find(asyncInfo);
     if (it == pendingRemoves.end()) {
         qWarning("%s: asyncInfo not found", Q_FUNC_INFO);
         return S_OK;
     }
-    if (ok) {
+    if (error == PackageManager::NoError) {
         emit q->packageRemoved(it.value());
     } else {
-        emit q->packageRemovalFailed(it.value(), errorMessage);
+        emit q->packageRemovalFailed(it.value(), errorMessage, error);
     }
     pendingRemoves.erase(it);
     return S_OK;
@@ -390,6 +402,18 @@ HRESULT PackageManagerPrivate::packageRemoved(AsyncDeployOperationProgress  *asy
 bool PackageManager::operationInProgress() const
 {
     return !d->pendingInstalls.isEmpty() || !d->pendingRemoves.isEmpty();
+}
+
+void PackageManager::launchDeveloperRegistration()
+{
+    // Must run elevated, so we use the native API
+    SHELLEXECUTEINFO shExecInfo;
+    shExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+    shExecInfo.lpVerb = L"runas";
+    shExecInfo.lpFile = L"powershell";
+    shExecInfo.lpParameters = L"-windowstyle hidden -command show-windowsdeveloperlicenseregistration";
+    shExecInfo.nShow = SW_MINIMIZE;
+    ShellExecuteEx(&shExecInfo);
 }
 
 #else // defined(_MSC_VER) && _MSC_VER >= 1700
@@ -425,6 +449,10 @@ bool PackageManager::startRemovePackage(const QString &, QString *)
 bool PackageManager::operationInProgress() const
 {
     return false;
+}
+
+void PackageManager::launchDeveloperRegistration()
+{
 }
 
 #endif // !defined(_MSC_VER) && _MSC_VER >= 1700

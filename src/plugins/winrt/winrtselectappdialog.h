@@ -38,9 +38,10 @@ class QPushButton;
 class QSortFilterProxyModel;
 QT_END_NAMESPACE
 
+#include "packagemanager.h"
+
 namespace WinRt {
 namespace Internal {
-class PackageManager;
 namespace Ui {
 class WinRtSelectAppDialog;
 }
@@ -66,7 +67,7 @@ private slots:
     void currentIndexChanged();
     void refresh();
     void packageAdded(const QString &manifestFile);
-    void packageAddFailed(const QString &manifestFile, const QString &message);
+    void packageAddFailed(const QString &manifestFile, const QString &message, PackageManager::Error error);
     void packageRemoved(const QString &fullName);
     void packageRemovalFailed(const QString &fullName, const QString &message);
     void addPackage();

@@ -29,7 +29,7 @@ SOURCES += \
 
 DEFINES += WINRT_LIBRARY
 
-win32-msvc2012:LIBS += -lruntimeobject -ladvapi32
+win32-msvc2012:LIBS += -lruntimeobject -ladvapi32 -lshell32
 
 FORMS += \
     winrtrunconfigurationwidget.ui \

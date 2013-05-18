@@ -29,6 +29,7 @@
 
 #include "winrtplugin.h"
 #include "winrtrunfactories.h"
+#include "packagemanager.h"
 
 #include <QtPlugin>
 #include <QSysInfo>
@@ -39,6 +40,7 @@ namespace Internal {
 WinRtPlugin::WinRtPlugin() //: m_registerAction(new QAction(tr("Register Appx Package")))
 {
     setObjectName(QLatin1String("WinRtPlugin"));
+    qRegisterMetaType<PackageManager::Error>();
 }
 
 WinRtPlugin::~WinRtPlugin()
