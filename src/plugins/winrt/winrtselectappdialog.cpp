@@ -158,8 +158,10 @@ void WinRtSelectAppDialog::addPackage()
     if (m_packageManager->startAddPackage(manifestFile,
                                           PackageManager::DevelopmentMode,
                                           &errorMessage)) {
-        QApplication::setOverrideCursor(Qt::BusyCursor);
-        setEnabled(false);
+        if (m_packageManager->operationInProgress()) {
+            QApplication::setOverrideCursor(Qt::BusyCursor);
+            setEnabled(false);
+        }
     } else {
         QMessageBox::warning(this, tr("Failed to Start Adding Package"),
                              errorMessage);
@@ -185,7 +187,7 @@ void WinRtSelectAppDialog::packageAddFailed(const QString &manifestFile, const Q
                                   prompt) == QMessageBox::Yes)
             PackageManager::launchDeveloperRegistration();
     } else {
-        QMessageBox::warning(this, tr("Package Registration Error").arg(manifestFile), message);
+        QMessageBox::warning(this, tr("Package Registration Error"), message);
     }
 }
 
@@ -216,8 +218,10 @@ void WinRtSelectAppDialog::contextMenuEvent(QContextMenuEvent *e)
             return;
         QString errorMessage;
         if (m_packageManager->startRemovePackage(package->fullName, &errorMessage)) {
-            QApplication::setOverrideCursor(Qt::BusyCursor);
-            setEnabled(false);
+            if (m_packageManager->operationInProgress()) {
+                QApplication::setOverrideCursor(Qt::BusyCursor);
+                setEnabled(false);
+            }
         } else {
             QMessageBox::warning(this, tr("Failed to Start Package Removal"),
                                  errorMessage);
