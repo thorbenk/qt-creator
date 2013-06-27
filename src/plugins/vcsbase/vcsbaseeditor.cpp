@@ -89,7 +89,8 @@ namespace VcsBase {
 /*!
     \class VcsBase::DiffChunk
 
-    \brief A diff chunk consisting of file name and chunk data.
+    \brief The DiffChunk class provides a diff chunk consisting of file name
+    and chunk data.
 */
 
 bool DiffChunk::isValid() const
@@ -132,7 +133,8 @@ namespace VcsBase {
 /*!
     \class VcsBase::VcsBaseEditor
 
-    \brief An editor with no support for duplicates.
+    \brief The VcsBaseEditor class implements an editor with no support for
+    duplicates.
 
     Creates a browse combo in the toolbar for diff output.
     It also mirrors the signals of the VcsBaseEditor since the editor
@@ -145,8 +147,6 @@ class VcsBaseEditor : public TextEditor::BaseTextEditor
 public:
     VcsBaseEditor(VcsBaseEditorWidget *, const VcsBaseEditorParameters *type);
 
-    bool duplicateSupported() const { return false; }
-    Core::IEditor *duplicate(QWidget * /*parent*/) { return 0; }
     Core::Id id() const { return m_id; }
 
     bool isTemporary() const { return m_temporary; }
@@ -175,7 +175,8 @@ VcsBaseEditor::VcsBaseEditor(VcsBaseEditorWidget *widget,
 namespace Internal {
 
 /*! \class AbstractTextCursorHandler
- *  \brief Provides an interface to handle the contents under a text cursor inside an editor
+ *  \brief The AbstractTextCursorHandler class provides an interface to handle
+ *  the contents under a text cursor inside an editor.
  */
 class AbstractTextCursorHandler : public QObject
 {
@@ -240,7 +241,8 @@ QTextCursor AbstractTextCursorHandler::currentCursor() const
 }
 
 /*! \class ChangeTextCursorHandler
- *  \brief Provides a handler for VCS change identifiers
+ *  \brief The ChangeTextCursorHandler class provides a handler for VCS change
+ *  identifiers.
  */
 class ChangeTextCursorHandler : public AbstractTextCursorHandler
 {
@@ -299,14 +301,6 @@ void ChangeTextCursorHandler::fillContextMenu(QMenu *menu, EditorContentType typ
 {
     VcsBaseEditorWidget *widget = editorWidget();
     switch (type) {
-    case LogOutput: { // Describe current / Annotate file of current
-        menu->addSeparator();
-        menu->addAction(createCopyRevisionAction(m_currentChange));
-        menu->addAction(createDescribeAction(m_currentChange));
-        if (widget->isFileLogAnnotateEnabled())
-            menu->addAction(createAnnotateAction(m_currentChange, false));
-        break;
-    }
     case AnnotateOutput: { // Describe current / annotate previous
         bool currentValid = widget->isValidRevision(m_currentChange);
         menu->addSeparator();
@@ -323,7 +317,12 @@ void ChangeTextCursorHandler::fillContextMenu(QMenu *menu, EditorContentType typ
         }
         break;
     }
-    default:
+    default: // Describe current / Annotate file of current
+        menu->addSeparator();
+        menu->addAction(createCopyRevisionAction(m_currentChange));
+        menu->addAction(createDescribeAction(m_currentChange));
+        if (widget->isFileLogAnnotateEnabled())
+            menu->addAction(createAnnotateAction(m_currentChange, false));
         break;
     }
     widget->addChangeActions(menu, m_currentChange);
@@ -373,7 +372,8 @@ QAction *ChangeTextCursorHandler::createCopyRevisionAction(const QString &change
 }
 
 /*! \class UrlTextCursorHandler
- *  \brief Provides a handler for URL like http://qt-project.org/
+ *  \brief The UrlTextCursorHandler class provides a handler for URLs, such as
+ *  http://qt-project.org/.
  *
  *  The URL pattern can be redefined in sub-classes with setUrlPattern(), by default the pattern
  *  works for hyper-text URL
@@ -512,7 +512,8 @@ QAction *UrlTextCursorHandler::createCopyUrlAction(const QString &text) const
 }
 
 /*! \class EmailTextCursorHandler
- *  \brief Provides a handler for email addresses
+ *  \brief The EmailTextCursorHandler class provides a handler for email
+ *  addresses.
  */
 class EmailTextCursorHandler : public UrlTextCursorHandler
 {
@@ -623,10 +624,13 @@ QComboBox *VcsBaseEditorWidgetPrivate::entriesComboBox()
 } // namespace Internal
 
 /*!
-    \struct VcsBase::VcsBaseEditorParameters
+    \class VcsBase::VcsBaseEditorParameters
 
-    \brief Helper struct used to parametrize an editor with mime type, context
-    and id. The extension is currently only a suggestion when running
+    \brief The VcsBaseEditorParameters class is a helper class used to
+    parametrize an editor with MIME type, context
+    and id.
+
+    The extension is currently only a suggestion when running
     VCS commands with redirection.
 
     \sa VcsBase::VcsBaseEditorWidget, VcsBase::BaseVcsEditorFactory, VcsBase::EditorContentType
@@ -635,7 +639,8 @@ QComboBox *VcsBaseEditorWidgetPrivate::entriesComboBox()
 /*!
     \class VcsBase::VcsBaseEditorWidget
 
-    \brief Base class for editors showing version control system output
+    \brief The VcsBaseEditorWidget class is the base class for editors showing
+    version control system output
     of the type enumerated by EditorContentType.
 
     The source property should contain the file or directory the log
@@ -665,11 +670,23 @@ void VcsBaseEditorWidget::setLogEntryPattern(const QRegExp &pattern)
     d->m_logEntryPattern = pattern;
 }
 
+bool VcsBaseEditorWidget::supportChangeLinks() const
+{
+    switch (d->m_parameters->type) {
+    case LogOutput:
+    case AnnotateOutput:
+        return true;
+    default:
+        return false;
+    }
+}
+
 void VcsBaseEditorWidget::init()
 {
     d->m_editor = editor();
     switch (d->m_parameters->type) {
-    case RegularCommandOutput:
+    case OtherContent:
+        break;
     case LogOutput:
         connect(d->entriesComboBox(), SIGNAL(activated(int)), this, SLOT(slotJumpToEntry(int)));
         connect(this, SIGNAL(textChanged()), this, SLOT(slotPopulateLogBrowser()));
@@ -911,17 +928,13 @@ void VcsBaseEditorWidget::contextMenuEvent(QContextMenuEvent *e)
 {
     QPointer<QMenu> menu = createStandardContextMenu();
     // 'click on change-interaction'
-    switch (d->m_parameters->type) {
-    case LogOutput:
-    case AnnotateOutput: {
+    if (supportChangeLinks()) {
         const QTextCursor cursor = cursorForPosition(e->pos());
-        Internal::AbstractTextCursorHandler *handler = d->findTextCursorHandler(cursor);
-        if (handler != 0)
+        if (Internal::AbstractTextCursorHandler *handler = d->findTextCursorHandler(cursor))
             handler->fillContextMenu(menu, d->m_parameters->type);
-        // Fall-through for log (might have diff)
-        if (d->m_parameters->type != LogOutput)
-            break;
     }
+    switch (d->m_parameters->type) {
+    case LogOutput: // log might have diff
     case DiffOutput: {
         menu->addSeparator();
         connect(menu->addAction(tr("Send to CodePaster...")), SIGNAL(triggered()),
@@ -964,7 +977,7 @@ void VcsBaseEditorWidget::mouseMoveEvent(QMouseEvent *e)
     bool overrideCursor = false;
     Qt::CursorShape cursorShape;
 
-    if (d->m_parameters->type == LogOutput || d->m_parameters->type == AnnotateOutput) {
+    if (supportChangeLinks()) {
         // Link emulation behaviour for 'click on change-interaction'
         const QTextCursor cursor = cursorForPosition(e->pos());
         Internal::AbstractTextCursorHandler *handler = d->findTextCursorHandler(cursor);
@@ -988,7 +1001,7 @@ void VcsBaseEditorWidget::mouseReleaseEvent(QMouseEvent *e)
 {
     const bool wasDragging = d->m_mouseDragging;
     d->m_mouseDragging = false;
-    if (!wasDragging && (d->m_parameters->type == LogOutput || d->m_parameters->type == AnnotateOutput)) {
+    if (!wasDragging && supportChangeLinks()) {
         if (e->button() == Qt::LeftButton &&!(e->modifiers() & Qt::ShiftModifier)) {
             const QTextCursor cursor = cursorForPosition(e->pos());
             Internal::AbstractTextCursorHandler *handler = d->findTextCursorHandler(cursor);
@@ -1112,7 +1125,7 @@ void VcsBaseEditorWidget::jumpToChangeFromDiff(QTextCursor cursor)
     if (!exists)
         return;
 
-    Core::IEditor *ed = Core::EditorManager::openEditor(fileName, Core::Id(), Core::EditorManager::ModeSwitch);
+    Core::IEditor *ed = Core::EditorManager::openEditor(fileName);
     if (TextEditor::ITextEditor *editor = qobject_cast<TextEditor::ITextEditor *>(ed))
         editor->gotoLine(chunkStart + lineCount);
 }

@@ -133,7 +133,14 @@
       <item row="1" column="3" colspan="2">
        <widget class="QCheckBox" name="showTagsCheckBox">
         <property name="text">
-         <string>Show Tags in Branches Dialog</string>
+         <string>Show tags in Branches dialog</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="3">
+       <widget class="QCheckBox" name="useDiffEditorCheckBox">
+        <property name="text">
+         <string>Show diff side-by-side</string>
         </property>
        </widget>
       </item>
@@ -162,7 +169,7 @@
    <item>
     <widget class="QGroupBox" name="repBrowserGroupBox">
      <property name="title">
-      <string>Repository browser</string>
+      <string>Repository Browser</string>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>

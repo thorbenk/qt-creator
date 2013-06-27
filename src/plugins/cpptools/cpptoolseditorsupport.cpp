@@ -31,6 +31,9 @@
 #include "cppmodelmanager.h"
 #include "cpplocalsymbols.h"
 
+#include <coreplugin/editormanager/editormanager.h>
+
+#include <utils/qtcassert.h>
 #include <utils/runextensions.h>
 
 #include <QList>
@@ -111,6 +114,7 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager, BaseTextEditor
     , m_updateDocumentInterval(UpdateDocumentDefaultInterval)
     , m_revision(0)
     , m_cachedContentsEditorRevision(-1)
+    , m_fileIsBeingReloaded(false)
     , m_initialized(false)
     , m_lastHighlightRevision(0)
     , m_highlightingSupport(modelManager->highlightingSupport(textEditor))
@@ -118,7 +122,7 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager, BaseTextEditor
     connect(m_modelManager, SIGNAL(documentUpdated(CPlusPlus::Document::Ptr)),
             this, SLOT(onDocumentUpdated(CPlusPlus::Document::Ptr)));
 
-    if (m_highlightingSupport->requiresSemanticInfo()) {
+    if (m_highlightingSupport && m_highlightingSupport->requiresSemanticInfo()) {
         connect(this, SIGNAL(semanticInfoUpdated(CppTools::SemanticInfo)),
                 this, SLOT(startHighlighting()));
     }
@@ -137,11 +141,25 @@ CppEditorSupport::CppEditorSupport(CppModelManager *modelManager, BaseTextEditor
     connect(m_textEditor, SIGNAL(contentsChanged()), this, SLOT(updateDocument()));
     connect(this, SIGNAL(diagnosticsChanged()), this, SLOT(onDiagnosticsChanged()));
 
+    connect(m_textEditor->document(), SIGNAL(mimeTypeChanged()),
+            this, SLOT(onMimeTypeChanged()));
+
+    connect(m_textEditor->document(), SIGNAL(aboutToReload()),
+            this, SLOT(onAboutToReload()));
+    connect(m_textEditor->document(), SIGNAL(reloadFinished(bool)),
+            this, SLOT(onReloadFinished()));
+
     updateDocument();
 }
 
 CppEditorSupport::~CppEditorSupport()
-{ }
+{
+    m_highlighter.cancel();
+    m_futureSemanticInfo.cancel();
+
+    m_highlighter.waitForFinished();
+    m_futureSemanticInfo.waitForFinished();
+}
 
 QString CppEditorSupport::fileName() const
 {
@@ -151,7 +169,7 @@ QString CppEditorSupport::fileName() const
 QString CppEditorSupport::contents() const
 {
     const int editorRev = editorRevision();
-    if (m_cachedContentsEditorRevision != editorRev) {
+    if (m_cachedContentsEditorRevision != editorRev && !m_fileIsBeingReloaded) {
         m_cachedContentsEditorRevision = editorRev;
         m_cachedContents = m_textEditor->textDocument()->contents();
     }
@@ -175,6 +193,11 @@ void CppEditorSupport::setExtraDiagnostics(const QString &key,
     emit diagnosticsChanged();
 }
 
+bool CppEditorSupport::initialized()
+{
+    return m_initialized;
+}
+
 SemanticInfo CppEditorSupport::recalculateSemanticInfo(bool emitSignalWhenFinished)
 {
     m_futureSemanticInfo.cancel();
@@ -186,6 +209,11 @@ SemanticInfo CppEditorSupport::recalculateSemanticInfo(bool emitSignalWhenFinish
 
 void CppEditorSupport::recalculateSemanticInfoDetached(bool force)
 {
+    // Block premature calculation caused by CppEditorPlugin::currentEditorChanged
+    // when the editor is created.
+    if (!m_initialized)
+        return;
+
     m_futureSemanticInfo.cancel();
     SemanticInfo::Source source = currentSource(force);
     m_futureSemanticInfo = QtConcurrent::run<CppEditorSupport, void>(
@@ -212,9 +240,11 @@ void CppEditorSupport::updateDocumentNow()
     } else {
         m_updateDocumentTimer->stop();
 
-        if (m_highlightingSupport && !m_highlightingSupport->requiresSemanticInfo()) {
+        if (m_fileIsBeingReloaded)
+            return;
+
+        if (m_highlightingSupport && !m_highlightingSupport->requiresSemanticInfo())
             startHighlighting();
-        }
 
         const QStringList sourceFiles(m_textEditor->document()->fileName());
         m_documentParser = m_modelManager->updateSourceFiles(sourceFiles);
@@ -265,7 +295,9 @@ void CppEditorSupport::startHighlighting()
     if (!m_highlightingSupport)
         return;
 
-    if (!m_textEditor->widget()->isVisible())
+    // Start highlighting only if the editor is or would be visible
+    // (in case another mode is active) in the edit mode.
+    if (!Core::EditorManager::instance()->visibleEditors().contains(m_textEditor))
         return;
 
     if (m_highlightingSupport->requiresSemanticInfo()) {
@@ -290,13 +322,13 @@ void CppEditorSupport::startHighlighting()
 
         m_highlighter = m_highlightingSupport->highlightingFuture(doc, snapshot);
         m_lastHighlightRevision = revision;
-        emit highlighterStarted(m_highlighter, m_lastHighlightRevision);
+        emit highlighterStarted(&m_highlighter, m_lastHighlightRevision);
     } else {
         static const Document::Ptr dummyDoc;
         static const Snapshot dummySnapshot;
         m_highlighter = m_highlightingSupport->highlightingFuture(dummyDoc, dummySnapshot);
         m_lastHighlightRevision = editorRevision();
-        emit highlighterStarted(m_highlighter, m_lastHighlightRevision);
+        emit highlighterStarted(&m_highlighter, m_lastHighlightRevision);
     }
 }
 
@@ -422,6 +454,8 @@ void CppEditorSupport::recalculateSemanticInfoNow(const SemanticInfo::Source &so
                 doc->control()->setTopLevelDeclarationProcessor(processor);
             doc->check();
             semanticInfo.doc = doc;
+        } else {
+            return;
         }
     }
 
@@ -463,4 +497,33 @@ void CppEditorSupport::recalculateSemanticInfoDetached_helper(QFutureInterface<v
 
     TLDProc tldProc(future);
     recalculateSemanticInfoNow(source, true, &tldProc);
+}
+
+void CppEditorSupport::onMimeTypeChanged()
+{
+    m_highlighter.cancel();
+    m_highlighter.waitForFinished();
+
+    m_highlightingSupport.reset(m_modelManager->highlightingSupport(m_textEditor));
+
+    disconnect(this, SIGNAL(semanticInfoUpdated(CppTools::SemanticInfo)),
+               this, SLOT(startHighlighting()));
+    if (m_highlightingSupport && m_highlightingSupport->requiresSemanticInfo())
+        connect(this, SIGNAL(semanticInfoUpdated(CppTools::SemanticInfo)),
+                this, SLOT(startHighlighting()));
+
+    updateDocumentNow();
+}
+
+void CppEditorSupport::onAboutToReload()
+{
+    QTC_CHECK(!m_fileIsBeingReloaded);
+    m_fileIsBeingReloaded = true;
+}
+
+void CppEditorSupport::onReloadFinished()
+{
+    QTC_CHECK(m_fileIsBeingReloaded);
+    m_fileIsBeingReloaded = false;
+    updateDocument();
 }

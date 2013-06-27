@@ -39,7 +39,7 @@ using namespace QmlJS::AST;
 
 /*!
     \class QmlJS::Document
-    \brief A Qml or JavaScript document.
+    \brief The Document class creates a QML or JavaScript document.
     \sa Snapshot
 
     Documents are usually created by the ModelManagerInterface
@@ -57,7 +57,7 @@ using namespace QmlJS::AST;
 
 /*!
     \class QmlJS::LibraryInfo
-    \brief A Qml library.
+    \brief The LibraryInfo class creates a QML library.
     \sa Snapshot
 
     A LibraryInfo is created when the ModelManagerInterface finds
@@ -71,10 +71,9 @@ using namespace QmlJS::AST;
 
 /*!
     \class QmlJS::Snapshot
-    \brief A set of Document::Ptr and LibraryInfo instances.
+    \brief The Snapshot class holds and offers access to a set of
+    Document::Ptr and LibraryInfo instances.
     \sa Document LibraryInfo
-
-    A Snapshot holds and offers access to a set of Document and LibraryInfo instances.
 
     Usually Snapshots are copies of the snapshot maintained and updated by the
     ModelManagerInterface that updates its instance as parsing
@@ -113,6 +112,22 @@ bool Document::isFullySupportedLanguage(Document::Language language)
         break;
     }
     return false;
+}
+
+bool Document::isQmlLikeOrJsLanguage(Document::Language language)
+{
+    switch (language) {
+    case QmlLanguage:
+    case QmlQtQuick1Language:
+    case QmlQtQuick2Language:
+    case QmlQbsLanguage:
+    case QmlProjectLanguage:
+    case QmlTypeInfoLanguage:
+    case JavaScriptLanguage:
+        return true;
+    default:
+        return false;
+    }
 }
 
 Document::Document(const QString &fileName, Language language)

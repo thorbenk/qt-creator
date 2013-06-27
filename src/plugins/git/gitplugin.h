@@ -113,6 +113,7 @@ private slots:
     void logFile();
     void blameFile();
     void logProject();
+    void logRepository();
     void undoFileChanges(bool revertStaging = true);
     void undoUnstagedFileChanges();
     void resetRepository();
@@ -130,6 +131,7 @@ private slots:
     void gitClientMemberFuncRepositoryAction();
 
     void startAmendCommit();
+    void startFixupCommit();
     void stash();
     void stashSnapshot();
     void branchList();
@@ -140,6 +142,7 @@ private slots:
     void push();
     void startMergeTool();
     void continueOrAbortCommand();
+    void updateContinueAndAbortCommands();
 
 #ifdef WITH_TESTS
     void testStatusParsing_data();
@@ -188,19 +191,17 @@ private:
                                            const Core::Context &context,
                                            bool addToLocator, GitClientMemberFunc);
 
-    void updateContinueAndAbortCommands();
     void updateRepositoryBrowserAction();
     bool isCommitEditorOpen() const;
-    Core::IEditor *openSubmitEditor(const QString &fileName, const CommitData &cd, bool amend);
+    Core::IEditor *openSubmitEditor(const QString &fileName, const CommitData &cd);
     void cleanCommitMessageFile();
     void cleanRepository(const QString &directory);
     void applyPatch(const QString &workingDirectory, QString file = QString());
-    void startCommit(bool amend);
+    void startCommit(CommitType commitType);
     void updateVersionWarning();
 
     static GitPlugin *m_instance;
     Locator::CommandLocator *m_commandLocator;
-    QAction *m_createRepositoryAction;
 
     QAction *m_submitCurrentAction;
     QAction *m_diffSelectedFilesAction;
@@ -217,6 +218,8 @@ private:
     QAction *m_continueRebaseAction;
     QAction *m_continueCherryPickAction;
     QAction *m_continueRevertAction;
+    QAction *m_fixupCommitAction;
+    QAction *m_interactiveRebaseAction;
 
     QVector<Utils::ParameterAction *> m_fileActions;
     QVector<Utils::ParameterAction *> m_projectActions;
@@ -230,7 +233,6 @@ private:
     QPointer<RemoteDialog>      m_remoteDialog;
     QString                     m_submitRepository;
     QString                     m_commitMessageFileName;
-    QString                     m_commitAmendSHA1;
     bool                        m_submitActionTriggered;
 
     GitSettings m_settings;

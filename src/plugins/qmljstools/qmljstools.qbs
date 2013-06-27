@@ -17,10 +17,10 @@ QtcPlugin {
     Depends { name: "QmlDebug" }
     Depends { name: "QtSupport" }
 
-    Depends { name: "cpp" }
     cpp.includePaths: base.concat("../../libs/3rdparty")
 
     files: [
+        "QmlJSTools.mimetypes.xml",
         "qmljsbundleprovider.cpp",
         "qmljsbundleprovider.h",
         "qmljscodestylepreferencesfactory.cpp",
@@ -74,11 +74,12 @@ QtcPlugin {
     ]
 
     Group {
+        name: "Tests"
         condition: Defaults.testsEnabled(qbs)
         files: ["qmljstools_test.cpp"]
     }
 
-    ProductModule {
+    Export {
         Depends { name: "CppTools" }
         Depends { name: "QmlDebug" }
     }

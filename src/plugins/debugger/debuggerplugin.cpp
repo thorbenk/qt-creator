@@ -92,6 +92,8 @@
 #include <projectexplorer/session.h>
 #include <projectexplorer/target.h>
 
+#include <android/androidconstants.h>
+
 #include <texteditor/basetexteditor.h>
 #include <texteditor/fontsettings.h>
 #include <texteditor/texteditorsettings.h>
@@ -152,7 +154,7 @@
 /*!
     \class Debugger::DebuggerEngine
 
-    \brief Base class of a debugger engine.
+    \brief The DebuggerEngine class is the base class of a debugger engine.
 
     Note: the Debugger process itself and any helper processes like
     gdbserver are referred to as 'Engine', whereas the debugged process
@@ -320,7 +322,8 @@ sg1: }
 
 /*!
     \class Debugger::Internal::GdbEngine
-    \brief Implementation of Debugger::Engine driving a gdb executable.
+    \brief The GdbEngine class implements Debugger::Engine driving a GDB
+    executable.
 
     GdbEngine specific startup. All happens in EngineSetupRequested state:
 
@@ -506,7 +509,6 @@ public:
         setIcon(QIcon(QLatin1String(":/fancyactionbar/images/mode_Debug.png")));
         setPriority(85);
         setId(MODE_DEBUG);
-        setType(CC::MODE_EDIT_TYPE);
     }
 
     ~DebugMode()
@@ -602,7 +604,7 @@ private:
     const char m_wordWidth;
 };
 
-bool fillParameters(DebuggerStartParameters *sp, const Kit *kit /* = 0 */, QString *errorMessage /* = 0 */)
+bool fillParameters(DebuggerStartParameters *sp, const Kit *kit, QString *errorMessage /* = 0 */)
 {
     if (!kit) {
         // This code can only be reached when starting via the command line
@@ -665,7 +667,9 @@ bool fillParameters(DebuggerStartParameters *sp, const Kit *kit /* = 0 */, QStri
     IDevice::ConstPtr device = DeviceKitInformation::device(kit);
     if (device) {
         sp->connParams = device->sshParameters();
-        sp->remoteChannel = sp->connParams.host + QLatin1Char(':') + QString::number(sp->connParams.port);
+        // Could have been set from command line.
+        if (sp->remoteChannel.isEmpty())
+            sp->remoteChannel = sp->connParams.host + QLatin1Char(':') + QString::number(sp->connParams.port);
     }
     return true;
 }
@@ -950,10 +954,6 @@ public slots:
     void testRunProject(const DebuggerStartParameters &sp, const TestCallBack &cb);
     void testRunControlFinished();
 
-    void testPythonDumpers1();
-    void testPythonDumpers2();
-    void testPythonDumpers3();
-
     void testStateMachine1();
     void testStateMachine2();
     void testStateMachine3();
@@ -1189,6 +1189,7 @@ public slots:
     SavedAction *action(int code) const;
     bool boolSetting(int code) const;
     QString stringSetting(int code) const;
+    QStringList stringListSetting(int code) const;
 
     void showModuleSymbols(const QString &moduleName, const Symbols &symbols);
     void showModuleSections(const QString &moduleName, const Sections &sections);
@@ -1543,6 +1544,11 @@ void DebuggerPluginPrivate::onCurrentProjectChanged(Project *project)
             }
         }
     }
+
+    // If we have a running debugger, don't touch it.
+    if (m_snapshotHandler->size())
+        return;
+
     // No corresponding debugger found. So we are ready to start one.
     m_interruptAction->setEnabled(false);
     m_continueAction->setEnabled(false);
@@ -1754,7 +1760,16 @@ void DebuggerPluginPrivate::attachToQmlPort()
     setConfigValue(_("LastQmlServerPort"), dlg.port());
     setConfigValue(_("LastProfile"), kit->id().toSetting());
 
-    sp.qmlServerAddress = sp.connParams.host;
+    IDevice::ConstPtr device = DeviceKitInformation::device(kit);
+    if (device) {
+        sp.connParams = device->sshParameters();
+        if (device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE
+                || device->type() == Android::Constants::ANDROID_DEVICE_TYPE) {
+            sp.qmlServerAddress = QLatin1String("localhost");
+        } else {
+            sp.qmlServerAddress = sp.connParams.host;
+        }
+    }
     sp.qmlServerPort = dlg.port();
     sp.startMode = AttachToRemoteProcess;
     sp.closeMode = KillAtClose;
@@ -1775,7 +1790,10 @@ void DebuggerPluginPrivate::attachToQmlPort()
     foreach (Project *project, projects)
         sourceFiles << project->files(Project::ExcludeGeneratedFiles);
 
+    sp.projectSourceDirectory =
+            !projects.isEmpty() ? projects.first()->projectDirectory() : QString();
     sp.projectSourceFiles = sourceFiles;
+    sp.sysRoot = SysRootKitInformation::sysRoot(kit).toString();
     DebuggerRunControlFactory::createAndScheduleRun(sp);
 }
 
@@ -1791,7 +1809,8 @@ void DebuggerPluginPrivate::startRemoteEngine()
     sp.connParams.password = dlg.password();
 
     sp.connParams.timeout = 5;
-    sp.connParams.authenticationType = QSsh::SshConnectionParameters::AuthenticationByPassword;
+    sp.connParams.authenticationType
+            = QSsh::SshConnectionParameters::AuthenticationTypeTryAllPasswordBasedMethods;
     sp.connParams.port = 22;
     sp.connParams.options = QSsh::SshIgnoreDefaultProxy;
 
@@ -2447,7 +2466,6 @@ void DebuggerPluginPrivate::sessionLoaded()
 
 void DebuggerPluginPrivate::aboutToUnloadSession()
 {
-    m_breakHandler->removeSessionData();
     m_toolTipManager->sessionAboutToChange();
 }
 
@@ -3294,6 +3312,11 @@ QString DebuggerPluginPrivate::stringSetting(int code) const
     return m_debuggerSettings->item(code)->value().toString();
 }
 
+QStringList DebuggerPluginPrivate::stringListSetting(int code) const
+{
+    return m_debuggerSettings->item(code)->value().toStringList();
+}
+
 void DebuggerPluginPrivate::showModuleSymbols(const QString &moduleName,
     const Symbols &symbols)
 {
@@ -3437,11 +3460,6 @@ void DebuggerPlugin::extensionsInitialized()
     theDebuggerCore->extensionsInitialized();
 }
 
-bool DebuggerPlugin::isActiveDebugLanguage(int language)
-{
-    return theDebuggerCore->isActiveDebugLanguage(language);
-}
-
 DebuggerMainWindow *DebuggerPlugin::mainWindow()
 {
     return theDebuggerCore->m_mainWindow;
@@ -3551,40 +3569,6 @@ void DebuggerPluginPrivate::testFinished()
     QVERIFY(m_testSuccess);
 }
 
-///////////////////////////////////////////////////////////////////////////
-
-void DebuggerPlugin::testPythonDumpers()
-{
-    theDebuggerCore->testPythonDumpers1();
-}
-
-void DebuggerPluginPrivate::testPythonDumpers1()
-{
-    m_testSuccess = true;
-    QString proFile = ICore::resourcePath()
-#ifndef Q_OS_MAC
-        + QLatin1String("/../..")
-#endif
-        + QLatin1String("/tests/manual/debugger/simple/simple.pro");
-    testLoadProject(proFile, TestCallBack(this,  "testPythonDumpers2"));
-    QVERIFY(m_testSuccess);
-    QTestEventLoop::instance().enterLoop(20);
-}
-
-void DebuggerPluginPrivate::testPythonDumpers2()
-{
-    DebuggerStartParameters sp;
-    fillParameters(&sp, currentKit());
-    sp.executable = activeLocalRunConfiguration()->executable();
-    testRunProject(sp, TestCallBack(this, "testPythonDumpers3"));
-}
-
-void DebuggerPluginPrivate::testPythonDumpers3()
-{
-    testUnloadProject();
-    testFinished();
-}
-
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -3596,8 +3580,10 @@ void DebuggerPlugin::testStateMachine()
 void DebuggerPluginPrivate::testStateMachine1()
 {
     m_testSuccess = true;
-    QString proFile = ICore::resourcePath()
-        + QLatin1String("/../../tests/manual/debugger/simple/simple.pro");
+    QString proFile = ICore::resourcePath();
+    if (Utils::HostOsInfo::isMacHost())
+        proFile += QLatin1String("/../..");
+    proFile += QLatin1String("/../../tests/manual/debugger/simple/simple.pro");
     testLoadProject(proFile, TestCallBack(this,  "testStateMachine2"));
     QVERIFY(m_testSuccess);
     QTestEventLoop::instance().enterLoop(20);

@@ -80,6 +80,7 @@ public:
     virtual ~EditorView();
 
     SplitterOrView *parentSplitterOrView() const;
+    EditorView *findNextView();
 
     int editorCount() const;
     void addEditor(IEditor *editor);
@@ -99,15 +100,19 @@ public:
     void setCloseSplitEnabled(bool enable);
     void setCloseSplitIcon(const QIcon &icon);
 
+    static void updateEditorHistory(IEditor *editor, QList<EditLocation> &history);
+
 protected:
     void paintEvent(QPaintEvent *);
     void mousePressEvent(QMouseEvent *e);
+    void focusInEvent(QFocusEvent *);
 
 private slots:
     void closeView();
     void listSelectionActivated(int index);
     void splitHorizontally();
     void splitVertically();
+    void splitNewWindow();
     void closeSplit();
 
 private:
@@ -158,7 +163,6 @@ class SplitterOrView  : public QWidget
 {
     Q_OBJECT
 public:
-    explicit SplitterOrView(OpenEditorsModel *model); // creates a root splitter
     explicit SplitterOrView(Core::IEditor *editor = 0);
     ~SplitterOrView();
 
@@ -166,9 +170,8 @@ public:
     void unsplit();
 
     inline bool isView() const { return m_view != 0; }
-    inline bool isRoot() const { return m_isRoot; }
-
     inline bool isSplitter() const { return m_splitter != 0; }
+
     inline Core::IEditor *editor() const { return m_view ? m_view->currentEditor() : 0; }
     inline QList<Core::IEditor *> editors() const { return m_view ? m_view->editors() : QList<Core::IEditor*>(); }
     inline bool hasEditor(Core::IEditor *editor) const { return m_view && m_view->hasEditor(editor); }
@@ -182,9 +185,7 @@ public:
     void restoreState(const QByteArray &);
 
     EditorView *findFirstView();
-    SplitterOrView *findSplitter(SplitterOrView *child);
-
-    EditorView *findNextView(EditorView *view);
+    SplitterOrView *findParentSplitter() const;
 
     QSize sizeHint() const { return minimumSizeHint(); }
     QSize minimumSizeHint() const;
@@ -193,8 +194,6 @@ public:
 
 private:
     void unsplitAll_helper();
-    SplitterOrView *findNextView_helper(SplitterOrView *view, bool *found);
-    bool m_isRoot;
     QStackedLayout *m_layout;
     EditorView *m_view;
     QSplitter *m_splitter;

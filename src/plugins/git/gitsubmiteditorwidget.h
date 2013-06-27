@@ -31,8 +31,13 @@
 #define GITSUBMITEDITORWIDGET_H
 
 #include "ui_gitsubmitpanel.h"
+#include "gitsettings.h"
 
+#include <texteditor/syntaxhighlighter.h>
 #include <vcsbase/submiteditorwidget.h>
+
+#include <QRegExp>
+#include <QSyntaxHighlighter>
 
 QT_BEGIN_NAMESPACE
 class QValidator;
@@ -43,6 +48,7 @@ namespace Internal {
 
 struct GitSubmitEditorPanelInfo;
 struct GitSubmitEditorPanelData;
+class LogChangeWidget;
 
 /* Submit editor widget with 2 additional panes:
  * 1) Info with branch, description, etc
@@ -62,11 +68,17 @@ public:
     GitSubmitEditorPanelData panelData() const;
     void setPanelData(const GitSubmitEditorPanelData &data);
     void setPanelInfo(const GitSubmitEditorPanelInfo &info);
+    QString amendSHA1() const;
     void setHasUnmerged(bool e);
+    void initialize(CommitType commitType, const QString &repository);
+    void refreshLog(const QString &repository);
 
 protected:
     bool canSubmit() const;
     QString cleanupDescription(const QString &) const;
+
+signals:
+    void show(const QString &commit);
 
 private slots:
     void authorInformationChanged();
@@ -75,12 +87,14 @@ private:
     bool emailIsValid() const;
 
     QWidget *m_gitSubmitPanel;
+    LogChangeWidget *m_logChangeWidget;
     Ui::GitSubmitPanel m_gitSubmitPanelUi;
     QValidator *m_emailValidator;
     bool m_hasUnmerged;
+    bool m_isInitialized;
 };
 
 } // namespace Internal
-} // namespace Perforce
+} // namespace Git
 
 #endif // GITSUBMITEDITORWIDGET_H

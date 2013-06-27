@@ -5,14 +5,13 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "RemoteLinux"
 
-    Depends { name: "cpp" }
     Depends { name: "Qt.widgets" }
+    Depends { name: "AnalyzerBase" }
     Depends { name: "Core" }
     Depends { name: "Debugger" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "QtSupport" }
     Depends { name: "QtcSsh" }
-    cpp.defines: base.concat("REMOTELINUX_LIBRARY")
 
     files: [
         "abstractpackagingstep.cpp",
@@ -21,6 +20,8 @@ QtcPlugin {
         "abstractremotelinuxdeployservice.h",
         "abstractremotelinuxdeploystep.cpp",
         "abstractremotelinuxdeploystep.h",
+        "abstractremotelinuxrunsupport.cpp",
+        "abstractremotelinuxrunsupport.h",
         "abstractuploadandinstallpackageservice.cpp",
         "abstractuploadandinstallpackageservice.h",
         "embeddedlinuxqtversion.cpp",
@@ -57,6 +58,8 @@ QtcPlugin {
         "remotelinux.qrc",
         "remotelinux_constants.h",
         "remotelinux_export.h",
+        "remotelinuxanalyzesupport.cpp",
+        "remotelinuxanalyzesupport.h",
         "remotelinuxcheckforfreediskspaceservice.cpp",
         "remotelinuxcheckforfreediskspaceservice.h",
         "remotelinuxcheckforfreediskspacestep.cpp",
@@ -110,7 +113,8 @@ QtcPlugin {
         "images/embeddedtarget.png",
     ]
 
-    ProductModule {
+    Export {
+        Depends { name: "AnalyzerBase" }
         Depends { name: "Core" }
         Depends { name: "QtcSsh" }
     }

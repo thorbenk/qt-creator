@@ -23,7 +23,8 @@
 #include "ASTMatcher.h"
 #include "MemoryPool.h"
 
-#include <cassert>
+#include "cppassert.h"
+
 #include <algorithm>
 
 
@@ -42,7 +43,7 @@ AST::AST()
 { }
 
 AST::~AST()
-{ assert(0); }
+{ CPP_CHECK(0); }
 
 void AST::accept(ASTVisitor *visitor)
 {
@@ -4418,8 +4419,9 @@ unsigned AliasDeclarationAST::firstToken() const
 {
     if (using_token)
         return using_token;
-    if (identifier_token)
-        return identifier_token;
+    if (name)
+        if (unsigned candidate = name->firstToken())
+            return candidate;
     if (equal_token)
         return equal_token;
     if (typeId)
@@ -4440,8 +4442,9 @@ unsigned AliasDeclarationAST::lastToken() const
             return candidate;
     if (equal_token)
         return equal_token + 1;
-    if (identifier_token)
-        return identifier_token + 1;
+    if (name)
+        if (unsigned candidate = name->lastToken())
+            return candidate;
     if (using_token)
         return using_token + 1;
     return 1;

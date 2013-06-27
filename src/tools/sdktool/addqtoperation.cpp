@@ -154,7 +154,7 @@ int AddQtOperation::execute() const
 
     QVariantMap result = addQt(map, m_id, m_displayName, m_type, m_qmake, m_extra);
 
-    if (map.isEmpty() || result == map)
+    if (result.isEmpty() || result == map)
         return -2;
 
     return save(result, QLatin1String("qtversions")) ? 0 : -3;
@@ -165,7 +165,7 @@ bool AddQtOperation::test() const
 {
     QVariantMap map = initializeQtVersions();
 
-    if (!map.count() == 1
+    if (map.count() != 1
             || !map.contains(QLatin1String(VERSION))
             || map.value(QLatin1String(VERSION)).toInt() != 1)
         return false;

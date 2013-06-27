@@ -126,7 +126,6 @@ QList<ServerNodeInstance>  NodeInstanceServer::createInstances(const QVector<Ins
 void NodeInstanceServer::createInstances(const CreateInstancesCommand &command)
 {
     createInstances(command.instances());
-    refreshBindings();
     startRenderTimer();
 }
 
@@ -321,8 +320,6 @@ void NodeInstanceServer::completeComponent(const CompleteComponentCommand &comma
         }
     }
 
-    refreshBindings();
-
     startRenderTimer();
 }
 
@@ -478,8 +475,13 @@ QList<ServerNodeInstance>  NodeInstanceServer::setupInstances(const CreateSceneC
         setInstanceAuxiliaryData(container);
     }
 
-    foreach (ServerNodeInstance instance, instanceList)
+
+    QListIterator<ServerNodeInstance> instanceListIterator(instanceList);
+    instanceListIterator.toBack();
+    while (instanceListIterator.hasPrevious()) {
+        ServerNodeInstance instance = instanceListIterator.previous();
         instance.doComponentComplete();
+    }
 
     return instanceList;
 }
@@ -887,7 +889,10 @@ static QVector<InformationContainer> createInformationVector(const QList<ServerN
         informationVector.append(InformationContainer(instance.instanceId(), SceneTransform, instance.sceneTransform()));
         informationVector.append(InformationContainer(instance.instanceId(), Size, instance.size()));
         informationVector.append(InformationContainer(instance.instanceId(), BoundingRect, instance.boundingRect()));
+        informationVector.append(InformationContainer(instance.instanceId(), ContentItemBoundingRect, instance.contentItemBoundingRect()));
         informationVector.append(InformationContainer(instance.instanceId(), Transform, instance.transform()));
+        informationVector.append(InformationContainer(instance.instanceId(), ContentTransform, instance.contentTransform()));
+        informationVector.append(InformationContainer(instance.instanceId(), ContentItemTransform, instance.contentItemTransform()));
         informationVector.append(InformationContainer(instance.instanceId(), HasContent, instance.hasContent()));
         informationVector.append(InformationContainer(instance.instanceId(), IsMovable, instance.isMovable()));
         informationVector.append(InformationContainer(instance.instanceId(), IsResizable, instance.isResizable()));

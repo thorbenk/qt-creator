@@ -36,10 +36,12 @@
 #include <QApplication>
 
 /*!
-    \class VcsBase::CheckoutProgressWizardPage
+    \class VcsBase::Internal::CheckoutProgressWizardPage
 
-    \brief Page showing the progress of an initial project checkout. Turns complete when the job
-           succeeds.
+    \brief The CheckoutProgressWizardPage implements a page showing the
+    progress of an initial project checkout.
+
+    Turns complete when the job succeeds.
 
     \sa VcsBase::BaseCheckoutWizard
 */
@@ -122,18 +124,6 @@ void CheckoutProgressWizardPage::terminate()
 bool CheckoutProgressWizardPage::isComplete() const
 {
     return m_state == Succeeded;
-}
-
-void CheckoutProgressWizardPage::changeEvent(QEvent *e)
-{
-    QWizardPage::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        ui->retranslateUi(this);
-        break;
-    default:
-        break;
-    }
 }
 
 } // namespace Internal

@@ -1,3 +1,32 @@
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
+
 import __builtin__
 import re
 
@@ -17,7 +46,7 @@ def openQmakeProject(projectPath, targets=Targets.desktopTargetClasses(), fromWe
     if fromWelcome:
         mouseClick(waitForObject(":OpenProject_QStyleItem"), 5, 5, 0, Qt.LeftButton)
         if not platform.system() == "Darwin":
-            waitFor("waitForObject(':fileNameEdit_QLineEdit').focus == True")
+            waitFor("waitForObject(':fileNameEdit_QLineEdit', 1000).focus == True", 3000)
     else:
         invokeMenuItem("File", "Open File or Project...")
     selectFromFileDialog(projectPath)
@@ -48,8 +77,7 @@ def openCmakeProject(projectPath, buildDir):
     generatorText = "Unix Generator (Desktop 474 GCC)"
     if "win32-" in mkspec:
         generatorName = {"win32-g++" : "MinGW Generator (Desktop 474 GCC)",
-                         "win32-msvc2008" : "NMake Generator (Desktop 474 MSVC2008)",
-                         "win32-msvc2010" : "NMake Generator (Desktop 474 MSVC2010)"}
+                         "win32-msvc2010" : "NMake Generator (Desktop 480 MSVC2010)"}
         if mkspec in generatorName:
             generatorText = generatorName[mkspec]
     index = generatorCombo.findText(generatorText)
@@ -175,7 +203,7 @@ def createProject_Qt_GUI(path, projectName, checks = True):
         expectedFiles.extend(__sortFilenamesOSDependent__(["main.cpp", cpp_file, h_file, ui_file, pro_file]))
     __createProjectHandleLastPage__(expectedFiles)
 
-    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 20000)
+    progressBarWait(20000)
     __verifyFileCreation__(path, expectedFiles)
     return checkedTargets
 
@@ -199,7 +227,7 @@ def createProject_Qt_Console(path, projectName, checks = True):
         expectedFiles.extend(__sortFilenamesOSDependent__([cpp_file, pro_file]))
     __createProjectHandleLastPage__(expectedFiles)
 
-    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 10000)
+    progressBarWait(10000)
     __verifyFileCreation__(path, expectedFiles)
     return checkedTargets
 
@@ -224,7 +252,7 @@ def createNewQtQuickApplication(workingDir, projectName = None, templateFile = N
     clickButton(nextButton)
     __createProjectHandleLastPage__()
 
-    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 10000)
+    progressBarWait(10000)
     return checkedTargets, projectName
 
 def createNewQtQuickUI(workingDir):
@@ -243,7 +271,7 @@ def createNewQmlExtension(workingDir):
     checkedTargets = __chooseTargets__(Targets.DESKTOP_474_GCC, available)
     nextButton = waitForObject(":Next_QPushButton")
     clickButton(nextButton)
-    nameLineEd = waitForObject("{buddy={type='QLabel' text='Object Class-name:' unnamed='1' visible='1'} "
+    nameLineEd = waitForObject("{buddy={type='QLabel' text='Object class-name:' unnamed='1' visible='1'} "
                                "type='QLineEdit' unnamed='1' visible='1'}")
     replaceEditorContent(nameLineEd, "TestItem")
     uriLineEd = waitForObject("{buddy={type='QLabel' text='URI:' unnamed='1' visible='1'} "
@@ -266,7 +294,7 @@ def __chooseTargets__(targets=Targets.DESKTOP_474_GCC, availableTargets=None,
                      Targets.EMBEDDED_LINUX, Targets.SIMULATOR, Targets.HARMATTAN]
         if platform.system() in ('Windows', 'Microsoft'):
             available.remove(Targets.EMBEDDED_LINUX)
-            available.append(Targets.DESKTOP_474_MSVC2008)
+            available.append(Targets.DESKTOP_480_MSVC2010)
     if isMaddeDisabled:
         for target in filter(lambda x: x in available,
                              (Targets.MAEMO5, Targets.HARMATTAN)):
@@ -304,7 +332,7 @@ def runAndCloseApp(withHookInto=False, executable=None, port=None, function=None
     overrideInstallLazySignalHandler()
     installLazySignalHandler("{type='ProjectExplorer::ApplicationLauncher'}", "processStarted()", "__handleProcessStarted__")
     installLazySignalHandler("{type='ProjectExplorer::ApplicationLauncher'}", "processExited(int)", "__handleProcessExited__")
-    runButton = waitForObject("{type='Core::Internal::FancyToolButton' text='Run' visible='1'}")
+    runButton = waitForObject(":*Qt Creator.Run_Core::Internal::FancyToolButton")
     clickButton(runButton)
     if sType != SubprocessType.QT_QUICK_UI:
         waitForSignal("{type='ProjectExplorer::BuildManager' unnamed='1'}", "buildQueueFinished(bool)", 300000)
@@ -388,8 +416,7 @@ def __closeSubprocessByHookingInto__(executable, port, function, sType, userDefT
             switchViewTo(ViewConstants.EDIT)
             global processStarted
             processStarted = False
-            runButton = waitForObject("{type='Core::Internal::FancyToolButton' text='Run' "
-                                      "visible='1'}")
+            runButton = waitForObject(":*Qt Creator.Run_Core::Internal::FancyToolButton")
             clickButton(runButton)
             if not waitFor("processStarted == True", 10000):
                 test.fatal("Something seems to be really wrong.", "Application output:"
@@ -458,7 +485,7 @@ def __getSupportedPlatforms__(text, getAsStrings=False):
             if platform.system() in ("Linux", "Darwin"):
                 result.append(Targets.EMBEDDED_LINUX)
             elif platform.system() in ('Windows', 'Microsoft'):
-                result.append(Targets.DESKTOP_474_MSVC2008)
+                result.append(Targets.DESKTOP_480_MSVC2010)
         if 'MeeGo/Harmattan' in supports:
             result.append(Targets.HARMATTAN)
         if 'Maemo/Fremantle' in supports:
@@ -470,7 +497,7 @@ def __getSupportedPlatforms__(text, getAsStrings=False):
         result = [Targets.DESKTOP_474_GCC, Targets.DESKTOP_501_DEFAULT, Targets.MAEMO5,
                   Targets.SIMULATOR, Targets.HARMATTAN]
         if platform.system() in ('Windows', 'Microsoft'):
-            result.append(Targets.DESKTOP_474_MSVC2008)
+            result.append(Targets.DESKTOP_480_MSVC2010)
     else:
         test.warning("Returning None (__getSupportedPlatforms__())",
                      "Parsed text: '%s'" % text)

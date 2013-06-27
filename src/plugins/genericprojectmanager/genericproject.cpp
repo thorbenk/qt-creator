@@ -70,10 +70,7 @@ GenericProject::GenericProject(Manager *manager, const QString &fileName)
       m_fileName(fileName)
 {
     setProjectContext(Context(GenericProjectManager::Constants::PROJECTCONTEXT));
-    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
-    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
-    setProjectLanguages(pl);
-
+    setProjectLanguages(Context(ProjectExplorer::Constants::LANG_CXX));
 
     QFileInfo fileInfo(m_fileName);
     QDir dir = fileInfo.dir();
@@ -254,15 +251,8 @@ void GenericProject::refresh(RefreshOptions options)
         Kit *k = activeTarget() ? activeTarget()->kit() : KitManager::instance()->defaultKit();
         if (ToolChain *tc = ToolChainKitInformation::toolChain(k)) {
             QStringList cxxflags; // FIXME: Can we do better?
-            part->defines = tc->predefinedMacros(cxxflags);
-            part->defines += '\n';
-
-            foreach (const HeaderPath &headerPath, tc->systemHeaderPaths(cxxflags, SysRootKitInformation::sysRoot(k))) {
-                if (headerPath.kind() == HeaderPath::FrameworkHeaderPath)
-                    part->frameworkPaths.append(headerPath.path());
-                else
-                    part->includePaths.append(headerPath.path());
-            }
+            part->evaluateToolchain(tc, cxxflags, cxxflags,
+                                    SysRootKitInformation::sysRoot(k));
         }
 
         part->includePaths += allIncludePaths();
@@ -296,7 +286,8 @@ void GenericProject::refresh(RefreshOptions options)
         setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !part->files.isEmpty());
 
         modelManager->updateProjectInfo(pinfo);
-        m_codeModelFuture = modelManager->updateSourceFiles(filesToUpdate);
+        m_codeModelFuture = modelManager->updateSourceFiles(filesToUpdate,
+            CppTools::CppModelManagerInterface::ForcedProgressNotification);
     }
 }
 

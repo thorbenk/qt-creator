@@ -75,33 +75,23 @@ using namespace Utils;
 
 static const VcsBaseEditorParameters editorParameters[] = {
 {
-    RegularCommandOutput, //type
-    Constants::COMMANDLOG_ID, // id
-    Constants::COMMANDLOG_DISPLAY_NAME, // display name
-    Constants::COMMANDLOG, // context
-    Constants::COMMANDAPP, // mime type
-    Constants::COMMANDEXT}, //extension
-
-{   LogOutput,
+    LogOutput,
     Constants::FILELOG_ID,
     Constants::FILELOG_DISPLAY_NAME,
     Constants::FILELOG,
-    Constants::LOGAPP,
-    Constants::LOGEXT},
+    Constants::LOGAPP},
 
 {   AnnotateOutput,
     Constants::ANNOTATELOG_ID,
     Constants::ANNOTATELOG_DISPLAY_NAME,
     Constants::ANNOTATELOG,
-    Constants::ANNOTATEAPP,
-    Constants::ANNOTATEEXT},
+    Constants::ANNOTATEAPP},
 
 {   DiffOutput,
     Constants::DIFFLOG_ID,
     Constants::DIFFLOG_DISPLAY_NAME,
     Constants::DIFFLOG,
-    Constants::DIFFAPP,
-    Constants::DIFFEXT}
+    Constants::DIFFAPP}
 };
 
 static const VcsBaseSubmitEditorParameters submitEditorParameters = {
@@ -191,7 +181,7 @@ void MercurialPlugin::createMenu()
     // Create menu item for Mercurial
     mercurialContainer = Core::ActionManager::createMenu(Core::Id("Mercurial.MercurialMenu"));
     QMenu *menu = mercurialContainer->menu();
-    menu->setTitle(tr("Mercurial"));
+    menu->setTitle(tr("Me&rcurial"));
 
     createFileActions(context);
     mercurialContainer->addSeparator(context);
@@ -277,9 +267,12 @@ void MercurialPlugin::addCurrentFile()
 
 void MercurialPlugin::annotateCurrentFile()
 {
+    int currentLine = -1;
+    if (Core::IEditor *editor = Core::EditorManager::currentEditor())
+        currentLine = editor->currentLine();
     const VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasFile(), return);
-    m_client->annotate(state.currentFileTopLevel(), state.relativeCurrentFile());
+    m_client->annotate(state.currentFileTopLevel(), state.relativeCurrentFile(), QString(), currentLine);
 }
 
 void MercurialPlugin::diffCurrentFile()
@@ -568,8 +561,7 @@ void MercurialPlugin::showCommitWidget(const QList<VcsBaseClient::StatusItem> &s
     }
 
     Core::IEditor *editor = Core::EditorManager::openEditor(saver.fileName(),
-                                                            Constants::COMMIT_ID,
-                                                            Core::EditorManager::ModeSwitch);
+                                                            Constants::COMMIT_ID);
     if (!editor) {
         outputWindow->appendError(tr("Unable to create an editor for the commit."));
         return;
@@ -717,7 +709,7 @@ void MercurialPlugin::testDiffFileResolving_data()
 
 void MercurialPlugin::testDiffFileResolving()
 {
-    MercurialEditor editor(editorParameters + 3, 0);
+    MercurialEditor editor(editorParameters + 2, 0);
     editor.testDiffFileResolving();
 }
 
@@ -738,7 +730,7 @@ void MercurialPlugin::testLogResolving()
                 "date:        Sat Jan 19 04:08:16 2013 +0100\n"
                 "summary:     test-rebase: add another test for rebase with multiple roots\n"
                 );
-    MercurialEditor editor(editorParameters + 1, 0);
+    MercurialEditor editor(editorParameters, 0);
     editor.testLogResolving(data, "18473:692cbda1eb50", "18472:37100f30590f");
 }
 #endif

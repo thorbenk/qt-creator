@@ -32,6 +32,7 @@
 #include "qmakeevaluator_p.h"
 #include "qmakeglobals.h"
 #include "qmakeparser.h"
+#include "qmakevfs.h"
 #include "ioutils.h"
 
 #include <qbytearray.h>
@@ -269,45 +270,17 @@ quoteValue(const ProString &val)
     return ret;
 }
 
-static bool
-doWriteFile(const QString &name, QIODevice::OpenMode mode, const QString &contents, QString *errStr)
-{
-    QByteArray bytes = contents.toLocal8Bit();
-    QFile cfile(name);
-    if (!(mode & QIODevice::Append) && cfile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        if (cfile.readAll() == bytes)
-            return true;
-        cfile.close();
-    }
-    if (!cfile.open(mode | QIODevice::WriteOnly | QIODevice::Text)) {
-        *errStr = cfile.errorString();
-        return false;
-    }
-    cfile.write(bytes);
-    cfile.close();
-    if (cfile.error() != QFile::NoError) {
-        *errStr = cfile.errorString();
-        return false;
-    }
-    return true;
-}
-
 QMakeEvaluator::VisitReturn
 QMakeEvaluator::writeFile(const QString &ctx, const QString &fn, QIODevice::OpenMode mode,
                           const QString &contents)
 {
-    QFileInfo qfi(fn);
-    if (!QDir::current().mkpath(qfi.path())) {
-        evalError(fL1S("Cannot create %1directory %2.")
-                  .arg(ctx, QDir::toNativeSeparators(qfi.path())));
-        return ReturnFalse;
-    }
     QString errStr;
-    if (!doWriteFile(qfi.filePath(), mode, contents, &errStr)) {
+    if (!m_vfs->writeFile(fn, mode, contents, &errStr)) {
         evalError(fL1S("Cannot write %1file %2: %3.")
-                  .arg(ctx, QDir::toNativeSeparators(qfi.filePath()), errStr));
+                  .arg(ctx, QDir::toNativeSeparators(fn), errStr));
         return ReturnFalse;
     }
+    m_parser->discardFileFromCache(fn);
     return ReturnTrue;
 }
 
@@ -331,6 +304,7 @@ void QMakeEvaluator::runProcess(QProcess *proc, const QString &command) const
 
 QByteArray QMakeEvaluator::getCommandOutput(const QString &args) const
 {
+    QByteArray out;
 #ifndef QT_BOOTSTRAPPED
     QProcess proc;
     runProcess(&proc, args);
@@ -345,9 +319,12 @@ QByteArray QMakeEvaluator::getCommandOutput(const QString &args) const
         m_handler->message(QMakeHandler::EvalError, QString::fromLocal8Bit(errout));
     }
 # endif
-    return proc.readAllStandardOutput();
+    out = proc.readAllStandardOutput();
+# ifdef Q_OS_WIN
+    // FIXME: Qt's line end conversion on sequential files should really be fixed
+    out.replace("\r\n", "\n");
+# endif
 #else
-    QByteArray out;
     if (FILE *proc = QT_POPEN(QString(QLatin1String("cd ")
                                + IoUtils::shellQuote(QDir::toNativeSeparators(currentDirectory()))
                                + QLatin1String(" && ") + args).toLocal8Bit().constData(), "r")) {
@@ -360,8 +337,8 @@ QByteArray QMakeEvaluator::getCommandOutput(const QString &args) const
         }
         QT_PCLOSE(proc);
     }
-    return out;
 #endif
+    return out;
 }
 
 void QMakeEvaluator::populateDeps(
@@ -388,22 +365,12 @@ void QMakeEvaluator::populateDeps(
 }
 
 ProStringList QMakeEvaluator::evaluateBuiltinExpand(
-        const ProKey &func, const ProStringList &args)
+        int func_t, const ProKey &func, const ProStringList &args)
 {
     ProStringList ret;
 
     traceMsg("calling built-in $$%s(%s)", dbgKey(func), dbgSepStrList(args));
 
-    ExpandFunc func_t = ExpandFunc(statics.expands.value(func));
-    if (func_t == 0) {
-        const QString &fn = func.toQString(m_tmp1);
-        const QString &lfn = fn.toLower();
-        if (!fn.isSharedWith(lfn)) {
-            func_t = ExpandFunc(statics.expands.value(ProKey(lfn)));
-            if (func_t)
-                deprecationWarning(fL1S("Using uppercased builtin functions is deprecated."));
-        }
-    }
     switch (func_t) {
     case E_BASENAME:
     case E_DIRNAME:
@@ -460,8 +427,7 @@ ProStringList QMakeEvaluator::evaluateBuiltinExpand(
             QString tmp = args.at(0).toQString(m_tmp1);
             for (int i = 1; i < args.count(); ++i)
                 tmp = tmp.arg(args.at(i).toQString(m_tmp2));
-            // Note: this depends on split_value_list() making a deep copy
-            ret = split_value_list(tmp);
+            ret << ProString(tmp);
         }
         break;
     case E_FORMAT_NUMBER:
@@ -554,7 +520,7 @@ ProStringList QMakeEvaluator::evaluateBuiltinExpand(
                         src = s;
                         break;
                     }
-                ret = split_value_list(before + var.join(glue) + after, src);
+                ret << ProString(before + var.join(glue) + after).setSource(src);
             }
         }
         break;
@@ -682,7 +648,7 @@ ProStringList QMakeEvaluator::evaluateBuiltinExpand(
             ProValueMap vars;
             QString fn = resolvePath(m_option->expandEnvVars(args.at(0).toQString(m_tmp1)));
             fn.detach();
-            if (evaluateFileInto(fn, &vars, LoadProOnly))
+            if (evaluateFileInto(fn, &vars, LoadProOnly) == ReturnTrue)
                 ret = vars.value(map(args.at(1)));
         }
         break;
@@ -1024,10 +990,6 @@ ProStringList QMakeEvaluator::evaluateBuiltinExpand(
             ret << (rstr.isSharedWith(m_tmp1) ? args.at(0) : ProString(rstr).setSource(args.at(0)));
         }
         break;
-    case E_INVALID:
-        evalError(fL1S("'%1' is not a recognized replace function.")
-                  .arg(func.toQString(m_tmp1)));
-        break;
     default:
         evalError(fL1S("Function '%1' is not implemented.").arg(func.toQString(m_tmp1)));
         break;
@@ -1037,11 +999,10 @@ ProStringList QMakeEvaluator::evaluateBuiltinExpand(
 }
 
 QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
-        const ProKey &function, const ProStringList &args)
+        int func_t, const ProKey &function, const ProStringList &args)
 {
     traceMsg("calling built-in %s(%s)", dbgKey(function), dbgSepStrList(args));
 
-    TestFunc func_t = (TestFunc)statics.functions.value(function);
     switch (func_t) {
     case T_DEFINED: {
         if (args.count() < 1 || args.count() > 2) {
@@ -1097,8 +1058,9 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
             ProValueMap vars;
             QString fn = resolvePath(m_option->expandEnvVars(args.at(0).toQString(m_tmp1)));
             fn.detach();
-            if (!evaluateFileInto(fn, &vars, LoadProOnly))
-                return ReturnFalse;
+            VisitReturn ok = evaluateFileInto(fn, &vars, LoadProOnly);
+            if (ok != ReturnTrue)
+                return ok;
             if (args.count() == 2)
                 return returnBool(vars.contains(map(args.at(1))));
             QRegExp regx;
@@ -1116,11 +1078,11 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
             }
         }
         return ReturnFalse;
-#ifdef PROEVALUATOR_FULL
     case T_REQUIRES:
+#ifdef PROEVALUATOR_FULL
         checkRequirements(args);
-        return ReturnFalse; // Another qmake breakage
 #endif
+        return ReturnFalse; // Another qmake breakage
     case T_EVAL: {
             VisitReturn ret = ReturnFalse;
             ProFile *pro = m_parser->parsedProBlock(args.join(statics.field_sep),
@@ -1307,12 +1269,12 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
         }
         QString fn = resolvePath(m_option->expandEnvVars(args.at(0).toQString(m_tmp1)));
         fn.detach();
-        bool ok;
+        VisitReturn ok;
         if (parseInto.isEmpty()) {
             ok = evaluateFileChecked(fn, QMakeHandler::EvalIncludeFile, LoadProOnly | flags);
         } else {
             ProValueMap symbols;
-            if ((ok = evaluateFileInto(fn, &symbols, LoadAll | flags))) {
+            if ((ok = evaluateFileInto(fn, &symbols, LoadAll | flags)) == ReturnTrue) {
                 ProValueMap newMap;
                 for (ProValueMap::ConstIterator
                         it = m_valuemapStack.top().constBegin(),
@@ -1333,7 +1295,9 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
                 m_valuemapStack.top() = newMap;
             }
         }
-        return returnBool(ok || (flags & LoadSilent));
+        if (ok == ReturnFalse && (flags & LoadSilent))
+            ok = ReturnTrue;
+        return ok;
     }
     case T_LOAD: {
         bool ignore_error = false;
@@ -1343,8 +1307,11 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
             evalError(fL1S("load(feature) requires one or two arguments."));
             return ReturnFalse;
         }
-        return returnBool(evaluateFeatureFile(m_option->expandEnvVars(args.at(0).toQString()),
-                                              ignore_error) || ignore_error);
+        VisitReturn ok = evaluateFeatureFile(m_option->expandEnvVars(args.at(0).toQString()),
+                                             ignore_error);
+        if (ok == ReturnFalse && ignore_error)
+            ok = ReturnTrue;
+        return ok;
     }
     case T_DEBUG: {
 #ifdef PROEVALUATOR_DEBUG
@@ -1382,14 +1349,14 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
         }
         return (func_t == T_ERROR && !m_cumulative) ? ReturnError : ReturnTrue;
     }
-#ifdef PROEVALUATOR_FULL
     case T_SYSTEM: {
-        if (m_cumulative) // Anything else would be insanity
-            return ReturnFalse;
         if (args.count() != 1) {
             evalError(fL1S("system(exec) requires one argument."));
             return ReturnFalse;
         }
+#ifdef PROEVALUATOR_FULL
+        if (m_cumulative) // Anything else would be insanity
+            return ReturnFalse;
 #ifndef QT_BOOTSTRAPPED
         QProcess proc;
         proc.setProcessChannelMode(QProcess::ForwardedChannels);
@@ -1400,8 +1367,10 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
                                   + IoUtils::shellQuote(QDir::toNativeSeparators(currentDirectory()))
                                   + QLatin1String(" && ") + args.at(0)).toLocal8Bit().constData()) == 0);
 #endif
-    }
+#else
+        return ReturnTrue;
 #endif
+    }
     case T_ISEMPTY: {
         if (args.count() != 1) {
             evalError(fL1S("isEmpty(var) requires one argument."));
@@ -1416,6 +1385,9 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
         }
         const QString &file = resolvePath(m_option->expandEnvVars(args.at(0).toQString(m_tmp1)));
 
+        // Don't use VFS here:
+        // - it supports neither listing nor even directories
+        // - it's unlikely that somebody would test for files they created themselves
         if (IoUtils::exists(file))
             return ReturnTrue;
         int slsh = file.lastIndexOf(QLatin1Char('/'));
@@ -1428,17 +1400,18 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
 
         return ReturnFalse;
     }
-#ifdef PROEVALUATOR_FULL
     case T_MKPATH: {
         if (args.count() != 1) {
             evalError(fL1S("mkpath(file) requires one argument."));
             return ReturnFalse;
         }
+#ifdef PROEVALUATOR_FULL
         const QString &fn = resolvePath(args.at(0).toQString(m_tmp1));
         if (!QDir::current().mkpath(fn)) {
             evalError(fL1S("Cannot create directory %1.").arg(QDir::toNativeSeparators(fn)));
             return ReturnFalse;
         }
+#endif
         return ReturnTrue;
     }
     case T_WRITE_FILE: {
@@ -1463,6 +1436,7 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
             evalError(fL1S("touch(file, reffile) requires two arguments."));
             return ReturnFalse;
         }
+#ifdef PROEVALUATOR_FULL
         const QString &tfn = resolvePath(args.at(0).toQString(m_tmp1));
         const QString &rfn = resolvePath(args.at(1).toQString(m_tmp2));
 #ifdef Q_OS_UNIX
@@ -1498,6 +1472,7 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
         }
         SetFileTime(wHand, 0, 0, &ft);
         CloseHandle(wHand);
+#endif
 #endif
         return ReturnTrue;
     }
@@ -1632,11 +1607,6 @@ QMakeEvaluator::VisitReturn QMakeEvaluator::evaluateBuiltinConditional(
         }
         return writeFile(fL1S("cache "), fn, QIODevice::Append, varstr);
     }
-#endif
-    case T_INVALID:
-        evalError(fL1S("'%1' is not a recognized test function.")
-                  .arg(function.toQString(m_tmp1)));
-        return ReturnFalse;
     default:
         evalError(fL1S("Function '%1' is not implemented.").arg(function.toQString(m_tmp1)));
         return ReturnFalse;

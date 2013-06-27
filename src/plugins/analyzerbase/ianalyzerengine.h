@@ -83,6 +83,12 @@ public:
     IAnalyzerTool *tool() const { return m_tool; }
     StartMode mode() const { return m_sp.startMode; }
 
+    virtual void notifyRemoteSetupDone(quint16) {}
+    virtual void notifyRemoteFinished(bool) {}
+
+public slots:
+    virtual void logApplicationMessage(const QString &, Utils::OutputFormat) {}
+
 signals:
     /// Should be emitted when the debuggee outputted something.
     void outputReceived(const QString &, Utils::OutputFormat format);

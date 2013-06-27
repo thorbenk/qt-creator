@@ -33,6 +33,8 @@ SOURCES += qnxplugin.cpp \
     qnxdeviceconfigurationwizardpages.cpp \
     qnxrunconfiguration.cpp \
     qnxruncontrolfactory.cpp \
+    qnxabstractrunsupport.cpp \
+    qnxanalyzesupport.cpp \
     qnxdebugsupport.cpp \
     qnxdeploystepfactory.cpp \
     qnxdeployconfigurationfactory.cpp \
@@ -77,7 +79,21 @@ SOURCES += qnxplugin.cpp \
     blackberrydeviceconnection.cpp \
     blackberrydeviceconnectionmanager.cpp \
     blackberrydeviceinformation.cpp \
-    blackberrysshkeysgenerator.cpp
+    blackberrysshkeysgenerator.cpp \
+    blackberryprocessparser.cpp \
+    blackberrysigningpasswordsdialog.cpp \
+    bardescriptoreditorpackageinformationwidget.cpp \
+    bardescriptoreditorauthorinformationwidget.cpp \
+    bardescriptoreditorentrypointwidget.cpp \
+    bardescriptoreditorgeneralwidget.cpp \
+    bardescriptoreditorpermissionswidget.cpp \
+    bardescriptoreditorenvironmentwidget.cpp \
+    bardescriptoreditorassetswidget.cpp \
+    bardescriptoreditorabstractpanelwidget.cpp \
+    blackberrysetupwizard.cpp \
+    blackberrysetupwizardpages.cpp \
+    blackberryutils.cpp \
+    qnxdevicetester.cpp
 
 HEADERS += qnxplugin.h\
     qnxconstants.h \
@@ -110,6 +126,8 @@ HEADERS += qnxplugin.h\
     qnxdeviceconfigurationwizardpages.h \
     qnxrunconfiguration.h \
     qnxruncontrolfactory.h \
+    qnxabstractrunsupport.h \
+    qnxanalyzesupport.h \
     qnxdebugsupport.h \
     qnxdeploystepfactory.h \
     qnxdeployconfigurationfactory.h \
@@ -154,7 +172,21 @@ HEADERS += qnxplugin.h\
     blackberrydeviceconnection.h \
     blackberrydeviceconnectionmanager.h \
     blackberrydeviceinformation.h \
-    blackberrysshkeysgenerator.h
+    blackberrysshkeysgenerator.h \
+    blackberryprocessparser.h \
+    blackberrysigningpasswordsdialog.h \
+    bardescriptoreditorpackageinformationwidget.h \
+    bardescriptoreditorauthorinformationwidget.h \
+    bardescriptoreditorentrypointwidget.h \
+    bardescriptoreditorgeneralwidget.h \
+    bardescriptoreditorpermissionswidget.h \
+    bardescriptoreditorenvironmentwidget.h \
+    bardescriptoreditorassetswidget.h \
+    bardescriptoreditorabstractpanelwidget.h \
+    blackberrysetupwizard.h \
+    blackberrysetupwizardpages.h \
+    blackberryutils.h \
+    qnxdevicetester.h
 
 FORMS += \
     blackberrydeviceconfigurationwizardsetuppage.ui \
@@ -164,12 +196,23 @@ FORMS += \
     blackberrydeviceconfigurationwidget.ui \
     qnxbaseqtconfigwidget.ui \
     blackberryndksettingswidget.ui \
-    bardescriptoreditorwidget.ui \
     blackberrykeyswidget.ui \
     blackberryregisterkeydialog.ui \
     blackberryimportcertificatedialog.ui \
     blackberrycreatecertificatedialog.ui \
-    blackberrydebugtokenrequestdialog.ui
+    blackberrydebugtokenrequestdialog.ui \
+    blackberrycreatepackagestepconfigwidget.ui \
+    blackberrysigningpasswordsdialog.ui \
+    bardescriptoreditorpackageinformationwidget.ui \
+    bardescriptoreditorauthorinformationwidget.ui \
+    bardescriptoreditorentrypointwidget.ui \
+    bardescriptoreditorgeneralwidget.ui \
+    bardescriptoreditorpermissionswidget.ui \
+    bardescriptoreditorenvironmentwidget.ui \
+    bardescriptoreditorassetswidget.ui \
+    blackberrysetupwizardkeyspage.ui \
+    blackberrysetupwizarddevicepage.ui \
+    blackberrysetupwizardfinishpage.ui
 
 include(../../private_headers.pri)
 

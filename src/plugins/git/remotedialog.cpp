@@ -159,7 +159,8 @@ void RemoteDialog::removeRemote()
     const QString remoteName = m_remoteModel->remoteName(row);
     if (QMessageBox::question(this, tr("Delete Remote"),
                               tr("Would you like to delete the remote \"%1\"?").arg(remoteName),
-                              QMessageBox::Yes|QMessageBox::No, QMessageBox::Yes) == QMessageBox::Yes) {
+                              QMessageBox::Yes | QMessageBox::No,
+                              QMessageBox::Yes) == QMessageBox::Yes) {
         m_remoteModel->removeRemote(row);
     }
 }
@@ -172,7 +173,7 @@ void RemoteDialog::pushToRemote()
 
     const int row = indexList.at(0).row();
     const QString remoteName = m_remoteModel->remoteName(row);
-    m_remoteModel->client()->synchronousPush(m_remoteModel->workingDirectory(),
+    m_remoteModel->client()->push(m_remoteModel->workingDirectory(),
                                              QStringList() << remoteName);
 }
 
@@ -184,7 +185,7 @@ void RemoteDialog::fetchFromRemote()
 
     int row = indexList.at(0).row();
     const QString remoteName = m_remoteModel->remoteName(row);
-    m_remoteModel->client()->synchronousFetch(m_remoteModel->workingDirectory(), remoteName);
+    m_remoteModel->client()->fetch(m_remoteModel->workingDirectory(), remoteName);
 }
 
 void RemoteDialog::updateButtonState()
@@ -196,18 +197,6 @@ void RemoteDialog::updateButtonState()
     m_ui->fetchButton->setEnabled(haveSelection);
     m_ui->pushButton->setEnabled(haveSelection);
     m_ui->removeButton->setEnabled(haveSelection);
-}
-
-void RemoteDialog::changeEvent(QEvent *e)
-{
-    QDialog::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        m_ui->retranslateUi(this);
-        break;
-    default:
-        break;
-    }
 }
 
 } // namespace Internal

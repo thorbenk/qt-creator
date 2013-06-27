@@ -42,9 +42,9 @@ namespace Utils {
 
 /*! \class Utils::FileUtils
 
-  \brief File- and directory-related convenience functions.
+  \brief The FileUtils class contains file and directory related convenience
+  functions.
 
-  File- and directory-related convenience functions.
 */
 
 /*!
@@ -373,10 +373,12 @@ bool FileSaver::finalize()
         return FileSaverBase::finalize();
 
     SaveFile *sf = static_cast<SaveFile *>(m_file);
-    if (m_hasError)
-        sf->rollback();
-    else
+    if (m_hasError) {
+        if (sf->isOpen())
+            sf->rollback();
+    } else {
         setResult(sf->commit());
+    }
     delete sf;
     m_file = 0;
     return !m_hasError;
@@ -409,7 +411,7 @@ TempFileSaver::~TempFileSaver()
 
 /*! \class Utils::FileName
 
-    \brief A light-weight convenience class for filenames
+    \brief The FileName class is a light-weight convenience class for filenames.
 
     On windows filenames are compared case insensitively.
 */

@@ -116,8 +116,7 @@ QmlItemNode QmlModelView::createQmlItemNodeFromImage(const QString &imageName, c
 
         foreach (const Import &import, model()->imports()) {
             if (import.isLibraryImport()
-                && import.url() == newImport.url()
-                && import.version() == newImport.version()) {
+                && import.url() == newImport.url()) {
                 // reuse this import
                 newImport = import;
                 break;
@@ -233,7 +232,7 @@ QmlItemNode QmlModelView::createQmlItemNode(const ItemLibraryEntry &itemLibraryE
             QPlainTextEdit textEdit;
 
 
-            textEdit.setPlainText(Utils::FileReader::fetchQrc(itemLibraryEntry.qml()));
+            textEdit.setPlainText(itemLibraryEntry.qmlSource());
             NotIndentingTextEditModifier modifier(&textEdit);
 
             QScopedPointer<RewriterView> rewriterView(new RewriterView(RewriterView::Amend, 0));

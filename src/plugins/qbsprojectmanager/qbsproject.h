@@ -39,10 +39,10 @@
 #include <projectexplorer/projectnodes.h>
 #include <projectexplorer/task.h>
 
+#include <utils/environment.h>
+
 #include <QFuture>
-// <debug>
 #include <QTimer>
-// </debug>
 #include <QVariantMap>
 
 namespace qbs {
@@ -79,7 +79,7 @@ public:
 
     QStringList files(FilesMode fileMode) const;
 
-    qbs::BuildJob *build(const qbs::BuildOptions &opts);
+    qbs::BuildJob *build(const qbs::BuildOptions &opts, QStringList products = QStringList());
     qbs::CleanJob *clean(const qbs::CleanOptions &opts);
     qbs::InstallJob *install(const qbs::InstallOptions &opts);
 
@@ -92,11 +92,15 @@ public:
     Utils::FileName defaultBuildDirectory() const;
 
     const qbs::Project *qbsProject() const;
-    const qbs::ProjectData *qbsProjectData() const;
+    const qbs::ProjectData qbsProjectData() const;
+
+    bool needsSpecialDeployment() const;
 
 public slots:
     void invalidate();
     void parseCurrentBuildConfiguration();
+    void delayParsing();
+    void delayForcedParsing();
 
 signals:
     void projectParsingStarted();
@@ -114,31 +118,32 @@ private slots:
 private:
     bool fromMap(const QVariantMap &map);
 
-    void parse(const QVariantMap &config, const QString &dir = QString());
+    void parse(const QVariantMap &config, const Utils::Environment &env, const QString &dir);
 
-    void generateErrors(const qbs::Error &e);
+    void generateErrors(const qbs::ErrorInfo &e);
     void prepareForParsing();
-    void updateDocuments(const qbs::ProjectData *prj);
-    void updateCppCodeModel(const qbs::ProjectData *prj);
-    void updateQmlJsCodeModel(const qbs::ProjectData *prj);
+    void updateDocuments(const QSet<QString> &files);
+    void updateCppCodeModel(const qbs::ProjectData &prj);
+    void updateQmlJsCodeModel(const qbs::ProjectData &prj);
     QString qbsBuildDir() const;
 
     QbsManager *const m_manager;
     const QString m_projectName;
     const QString m_fileName;
     QSet<Core::IDocument *> m_qbsDocuments;
-    QbsProjectNode *const m_rootProjectNode;
+    QbsProjectNode *m_rootProjectNode;
 
     qbs::SetupProjectJob *m_qbsSetupProjectJob;
-    QVariantMap m_qbsBuildConfig;
-    QString m_qbsBuildRoot;
 
     QFutureInterface<void> *m_qbsUpdateFutureInterface;
     int m_currentProgressBase;
+    bool m_forceParsing;
 
     QFuture<void> m_codeModelFuture;
 
     QbsBuildConfiguration *m_currentBc;
+
+    QTimer m_parsingDelay;
 };
 
 } // namespace Internal

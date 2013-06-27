@@ -1,29 +1,59 @@
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
+
 import re
 
 def handleDebuggerWarnings(config, isMsvcBuild=False):
     if isMsvcBuild:
         try:
-            popup = waitForObject("{text?='<html><head/><body>*' type='QLabel' unnamed='1' visible='1' window=':Symbol Server_Utils::CheckableMessageBox'}", 10000)
+            popup = waitForObject("{name='msgLabel' text?='<html><head/><body>*' type='QLabel' visible='1' window=':Dialog_Debugger::Internal::SymbolPathsDialog'}", 10000)
             symServerNotConfiged = ("<html><head/><body><p>The debugger is not configured to use the public "
-                                    "<a href=\"http://support.microsoft.com/kb/311503\">Microsoft Symbol Server</a>. "
+                                    "Microsoft Symbol Server.<br/>"
                                     "This is recommended for retrieval of the symbols of the operating system libraries.</p>"
-                                    "<p><i>Note:</i> A fast internet connection is required for this to work smoothly. "
-                                    "Also, a delay might occur when connecting for the first time.</p>"
-                                    "<p>Would you like to set it up?</p></body></html>")
+                                    "<p><span style=\" font-style:italic;\">Note:</span> It is recommended, that if you use the Microsoft Symbol Server, "
+                                    "to also use a local symbol cache.<br/>"
+                                    "A fast internet connection is required for this to work smoothly,<br/>"
+                                    "and a delay might occur when connecting for the first time and caching the symbols.</p>"
+                                    "<p>What would you like to set up?</p></body></html>")
             if popup.text == symServerNotConfiged:
                 test.log("Creator warned about the debugger not being configured to use the public Microsoft Symbol Server.")
             else:
                 test.warning("Creator showed an unexpected warning: " + str(popup.text))
-            clickButton(waitForObject("{text='No' type='QPushButton' unnamed='1' visible='1' window=':Symbol Server_Utils::CheckableMessageBox'}", 10000))
+            clickButton(waitForObject("{text='Cancel' type='QPushButton' unnamed='1' visible='1' window=':Dialog_Debugger::Internal::SymbolPathsDialog'}", 10000))
         except LookupError:
             pass # No warning. Fine.
-    else:
-        if "Release" in config and not platform.system() in ("Darwin", "Microsoft", "Windows"):
-            message = waitForObject("{container=':Qt Creator.DebugModeWidget_QSplitter' name='qt_msgbox_label' type='QLabel' visible='1'}")
-            messageText = str(message.text)
-            test.verify(messageText.startswith('This does not seem to be a "Debug" build.\nSetting breakpoints by file name and line number may fail.'),
-                        "Got warning: %s" % messageText)
-            clickButton("{container=':Qt Creator.DebugModeWidget_QSplitter' text='OK' type='QPushButton' unnamed='1' visible='1'}")
+    if "Release" in config and (isMsvcBuild or platform.system() == "Linux"):
+        message = waitForObject("{container=':Qt Creator.DebugModeWidget_QSplitter' name='qt_msgbox_label' type='QLabel' visible='1'}")
+        messageText = str(message.text)
+        test.verify(messageText.startswith('This does not seem to be a "Debug" build.\nSetting breakpoints by file name and line number may fail.'),
+                    "Got warning: %s" % messageText)
+        clickButton("{container=':Qt Creator.DebugModeWidget_QSplitter' text='OK' type='QPushButton' unnamed='1' visible='1'}")
 
 def takeDebuggerLog():
     invokeMenuItem("Window", "Views", "Debugger Log")
@@ -219,3 +249,16 @@ def verifyBreakPoint(bpToVerify):
     else:
         test.fatal("Expected a dict for bpToVerify - got '%s'" % className(bpToVerify))
     return False
+
+# this function removes the compiled qml-debug library from QtSDK (only necessary for Qt < 4.8)
+def removeQmlDebugFolderIfExists():
+    paths = [os.path.join(sdkPath, "Desktop", "Qt", "474", "gcc", "qtc-qmldbg"),
+             os.path.join(sdkPath, "Desktop", "Qt", "4.7.4", "mingw", "qtc-qmldbg"),
+             os.path.join(sdkPath, "Desktop", "Qt", "4.7.4", "msvc2008", "qtc-qmldbg")
+             ]
+    for path in paths:
+        if os.path.exists(path):
+            try:
+                shutil.rmtree(path)
+            except:
+                test.warning("Error while removing '%s'" % path)

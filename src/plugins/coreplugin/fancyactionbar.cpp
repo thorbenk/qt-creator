@@ -52,15 +52,8 @@ using namespace Internal;
 FancyToolButton::FancyToolButton(QWidget *parent)
     : QToolButton(parent), m_fader(0)
 {
-    m_hasForceVisible = false;
     setAttribute(Qt::WA_Hover, true);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-}
-
-void FancyToolButton::forceVisible(bool visible)
-{
-    m_hasForceVisible = true;
-    setVisible(visible);
 }
 
 bool FancyToolButton::event(QEvent *e)
@@ -175,8 +168,6 @@ void FancyToolButton::paintEvent(QPaintEvent *event)
         painter.drawLine(rect().topLeft() - QPoint(0,1), rect().topRight() - QPoint(0,1));
         painter.restore();
     }
-    QPixmap borderPixmap;
-    QMargins margins;
 
     QRect iconRect(0, 0, Core::Constants::TARGET_ICON_SIZE, Core::Constants::TARGET_ICON_SIZE);
     // draw popup texts
@@ -304,10 +295,8 @@ void FancyToolButton::actionChanged()
 {
     // the default action changed in some way, e.g. it might got hidden
     // since we inherit a tool button we won't get invisible, so do this here
-    if (!m_hasForceVisible) {
-        if (QAction* action = defaultAction())
-            setVisible(action->isVisible());
-    }
+    if (QAction* action = defaultAction())
+        setVisible(action->isVisible());
 }
 
 FancyActionBar::FancyActionBar(QWidget *parent)

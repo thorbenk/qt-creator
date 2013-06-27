@@ -33,7 +33,8 @@ using namespace CPlusPlus;
 
 /*!
     \class Client
-    \brief A notification interface for for C++ preprocessor.
+    \brief The Client class implements a notification interface for the
+    C++ preprocessor.
 */
 
 /*!
@@ -43,7 +44,7 @@ using namespace CPlusPlus;
 */
 
 /*!
-    \fn void Client::passedMacroDefinitionCheck(unsigned offset, const Macro &macro)
+    \fn void Client::passedMacroDefinitionCheck(unsigned offset, unsigned line, const Macro &macro)
 
     Called when the preprocessor checks whether a macro is defined or not and the
     result is positive.
@@ -52,7 +53,7 @@ using namespace CPlusPlus;
 */
 
 /*!
-    \fn void Client::failedMacroDefinitionCheck(unsigned offset, const QByteArray &name)
+    \fn void Client::failedMacroDefinitionCheck(unsigned offset, const ByteArrayRef &name)
 
     Called when the preprocessor checks whether a macro is defined or not and the
     result is negative.
@@ -61,10 +62,12 @@ using namespace CPlusPlus;
 */
 
 /*!
-    \fn void Client::startExpandingMacro(unsigned offset, const Macro &macro, const QByteArray &originalText, bool inCondition = false, const QVector<MacroArgumentReference> &actuals = QVector<MacroArgumentReference>())
-
-    Called when starting to expand a macro. The parameter \a inCondition indicates whether the
-    expansion is happening inside a preprocessor conditional.
+    \fn void Client::startExpandingMacro(unsigned offset,
+                                   unsigned line,
+                                   const Macro &macro,
+                                   const QVector<MacroArgumentReference> &actuals
+                                            = QVector<MacroArgumentReference>())
+    Called when starting to expand a macro.
 
     \sa stopExpandingMacro()
 */

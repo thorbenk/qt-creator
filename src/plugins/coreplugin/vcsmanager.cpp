@@ -31,6 +31,12 @@
 #include "iversioncontrol.h"
 #include "icore.h"
 #include "documentmanager.h"
+#include "editormanager.h"
+#include "ieditor.h"
+#include "idocument.h"
+#include "infobar.h"
+
+#include <vcsbase/vcsbaseconstants.h>
 
 #include <extensionsystem/pluginmanager.h>
 #include <utils/qtcassert.h>
@@ -74,6 +80,9 @@ public:
         QString topLevel;
     };
 
+    VcsManagerPrivate() : m_unconfiguredVcs(0)
+    { }
+
     ~VcsManagerPrivate()
     {
         qDeleteAll(m_vcsInfoList);
@@ -104,6 +113,11 @@ public:
                 break;
         }
         return result;
+    }
+
+    void clearCache()
+    {
+        m_cachedMatches.clear();
     }
 
     void resetCache(const QString &dir)
@@ -160,6 +174,7 @@ public:
 
     QMap<QString, VcsInfo *> m_cachedMatches;
     QList<VcsInfo *> m_vcsInfoList;
+    IVersionControl *m_unconfiguredVcs;
 };
 
 VcsManager::VcsManager(QObject *parent) :
@@ -258,7 +273,34 @@ IVersionControl* VcsManager::findVersionControlForDirectory(const QString &input
     // return result
     if (topLevelDirectory)
         *topLevelDirectory = allThatCanManage.first().first;
-    return allThatCanManage.first().second;
+    IVersionControl *versionControl = allThatCanManage.first().second;
+    const bool isVcsConfigured = versionControl->isConfigured();
+    if (!isVcsConfigured || d->m_unconfiguredVcs) {
+        Id vcsWarning("VcsNotConfiguredWarning");
+        IDocument *curDocument = 0;
+        if (IEditor *curEditor = EditorManager::currentEditor())
+            curDocument = curEditor->document();
+        if (isVcsConfigured) {
+            if (curDocument && d->m_unconfiguredVcs == versionControl) {
+                curDocument->infoBar()->removeInfo(vcsWarning);
+                d->m_unconfiguredVcs = 0;
+            }
+            return versionControl;
+        } else {
+            InfoBar *infoBar = curDocument->infoBar();
+            if (infoBar->canInfoBeAdded(vcsWarning)) {
+                InfoBarEntry info(vcsWarning,
+                                  tr("%1 repository was detected but %1 is not configured.")
+                                  .arg(versionControl->displayName()),
+                                  InfoBarEntry::GlobalSuppressionEnabled);
+                d->m_unconfiguredVcs = versionControl;
+                info.setCustomButtonInfo(tr("Configure"), this, SLOT(configureVcs()));
+                infoBar->addInfo(info);
+            }
+            return 0;
+        }
+    }
+    return versionControl;
 }
 
 QStringList VcsManager::repositories(const IVersionControl *vc) const
@@ -377,6 +419,26 @@ void VcsManager::promptToAdd(const QString &directory, const QStringList &fileNa
                                  VcsManager::msgToAddToVcsFailed(notAddedToVc, vc));
         }
     }
+}
+
+void VcsManager::emitRepositoryChanged(const QString &repository)
+{
+    emit repositoryChanged(repository);
+}
+
+void VcsManager::clearVersionControlCache()
+{
+    QStringList repoList = d->m_cachedMatches.keys();
+    d->clearCache();
+    foreach (const QString &repo, repoList)
+        emit repositoryChanged(repo);
+}
+
+void VcsManager::configureVcs()
+{
+    QTC_ASSERT(d->m_unconfiguredVcs, return);
+    ICore::showOptionsDialog(Id(VcsBase::Constants::VCS_SETTINGS_CATEGORY),
+                             d->m_unconfiguredVcs->id());
 }
 
 } // namespace Core

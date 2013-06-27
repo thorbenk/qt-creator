@@ -45,7 +45,9 @@ HEADERS += completionsettingspage.h \
     cppindexingsupport.h \
     builtinindexingsupport.h \
     cpppointerdeclarationformatter.h \
-    cppprojectfile.h
+    cppprojectfile.h \
+    cpppreprocessor.h \
+    includeutils.h
 
 SOURCES += completionsettingspage.cpp \
     cppclassesfilter.cpp \
@@ -89,7 +91,9 @@ SOURCES += completionsettingspage.cpp \
     cppindexingsupport.cpp \
     builtinindexingsupport.cpp \
     cpppointerdeclarationformatter.cpp \
-    cppprojectfile.cpp
+    cppprojectfile.cpp \
+    cpppreprocessor.cpp \
+    includeutils.cpp
 
 FORMS += completionsettingspage.ui \
     cppfilesettingspage.ui \

@@ -76,6 +76,10 @@ QDebug operator<<(QDebug d, const GitSubmitEditorPanelData &data)
     return d;
 }
 
+CommitData::CommitData(CommitType type) : commitType(type)
+{
+}
+
 void CommitData::clear()
 {
     panelInfo.clear();
@@ -132,8 +136,8 @@ bool CommitData::checkLine(const QString &stateInfo, const QString &file)
     if (xState == UnknownFileState || yState == UnknownFileState)
         return false;
 
-    bool isMerge = (xState == UnmergedFile || yState == UnmergedFile ||
-                    ((xState == yState) && (xState == AddedFile || xState == DeletedFile)));
+    bool isMerge = (xState == UnmergedFile || yState == UnmergedFile
+                    || ((xState == yState) && (xState == AddedFile || xState == DeletedFile)));
     if (isMerge) {
         if (xState == yState) {
             if (xState == UnmergedFile)

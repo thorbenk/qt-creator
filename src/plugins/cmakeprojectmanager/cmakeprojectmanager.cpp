@@ -115,6 +115,9 @@ void CMakeManager::runCMake(ProjectExplorer::Project *project)
     if (!cmakeProject || !cmakeProject->activeTarget() || !cmakeProject->activeTarget()->activeBuildConfiguration())
         return;
 
+    if (!ProjectExplorer::ProjectExplorerPlugin::instance()->saveModifiedFiles())
+        return;
+
     CMakeBuildConfiguration *bc
             = static_cast<CMakeBuildConfiguration *>(cmakeProject->activeTarget()->activeBuildConfiguration());
 
@@ -126,8 +129,13 @@ void CMakeManager::runCMake(ProjectExplorer::Project *project)
 
 ProjectExplorer::Project *CMakeManager::openProject(const QString &fileName, QString *errorString)
 {
-    Q_UNUSED(errorString)
-    // TODO check whether this project is already opened
+    if (!QFileInfo(fileName).isFile()) {
+        if (errorString)
+            *errorString = tr("Failed opening project '%1': Project is not a file")
+                .arg(fileName);
+        return 0;
+    }
+
     return new CMakeProject(this, fileName);
 }
 
@@ -279,8 +287,7 @@ CMakeSettingsPage::~CMakeSettingsPage()
 
 QString CMakeSettingsPage::findCmakeExecutable() const
 {
-    Utils::Environment env = Utils::Environment::systemEnvironment();
-    return env.searchInPath(QLatin1String("cmake"));
+    return Utils::Environment::systemEnvironment().searchInPath(QLatin1String("cmake"));
 }
 
 QWidget *CMakeSettingsPage::createPage(QWidget *parent)

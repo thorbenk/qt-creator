@@ -6,7 +6,6 @@ DEFINES += \
 HEADERS += \
 glsleditor.h \
 glsleditor_global.h \
-glsleditoractionhandler.h \
 glsleditorconstants.h \
 glsleditoreditable.h \
 glsleditorfactory.h \
@@ -21,7 +20,6 @@ glslhoverhandler.h \
 
 SOURCES += \
 glsleditor.cpp \
-glsleditoractionhandler.cpp \
 glsleditoreditable.cpp \
 glsleditorfactory.cpp \
 glsleditorplugin.cpp \
@@ -33,5 +31,4 @@ glslhoverhandler.cpp \
     glslcompletionassist.cpp \
     reuse.cpp
 
-OTHER_FILES += GLSLEditor.mimetypes.xml
 RESOURCES += glsleditor.qrc

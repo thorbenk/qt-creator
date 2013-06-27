@@ -30,6 +30,10 @@
 #include "msvcparser.h"
 #include "projectexplorerconstants.h"
 
+#ifdef Q_OS_WIN
+#include <utils/winutils.h>
+#endif
+
 static const char FILE_POS_PATTERN[] = "(cl|LINK|.+) : ";
 static const char ERROR_PATTERN[] = "[A-Z]+\\d\\d\\d\\d ?:";
 
@@ -53,7 +57,12 @@ static QPair<Utils::FileName, int> parseFileName(const QString &input)
             }
         }
     }
-    return qMakePair(Utils::FileName::fromUserInput(fileName), linenumber);
+#ifdef Q_OS_WIN
+    const QString normalized = Utils::normalizePathName(fileName);
+#else
+    const QString normalized = fileName;
+#endif
+    return qMakePair(Utils::FileName::fromUserInput(normalized), linenumber);
 }
 
 using namespace ProjectExplorer;
@@ -67,11 +76,6 @@ MsvcParser::MsvcParser()
     m_compileRegExp.setMinimal(true);
     m_additionalInfoRegExp.setPattern(QString::fromLatin1("^        (.*)\\((\\d+)\\) : (.*)$"));
     m_additionalInfoRegExp.setMinimal(true);
-}
-
-MsvcParser::~MsvcParser()
-{
-    sendQueuedTask();
 }
 
 void MsvcParser::stdOutput(const QString &line)
@@ -141,7 +145,7 @@ void MsvcParser::stdError(const QString &line)
 
 bool MsvcParser::processCompileLine(const QString &line)
 {
-    sendQueuedTask();
+    doFlush();
 
     if (m_compileRegExp.indexIn(line) > -1) {
         QPair<Utils::FileName, int> position = parseFileName( m_compileRegExp.cap(1));
@@ -159,13 +163,14 @@ bool MsvcParser::processCompileLine(const QString &line)
     return false;
 }
 
-void MsvcParser::sendQueuedTask()
+void MsvcParser::doFlush()
 {
     if (m_lastTask.isNull())
         return;
 
-    addTask(m_lastTask);
-    m_lastTask = Task();
+    Task t = m_lastTask;
+    m_lastTask.clear();
+    emit addTask(t);
 }
 
 // Unit tests:

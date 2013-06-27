@@ -32,8 +32,6 @@
 
 #include "qmldesignercorelib_global.h"
 
-#include <QMultiHash>
-#include <QString>
 #include <QStringList>
 #include <QSharedPointer>
 
@@ -63,7 +61,7 @@ class QMLDESIGNERCORE_EXPORT MetaInfo
     friend class QmlDesigner::Internal::ModelPrivate;
     friend class QmlDesigner::Internal::MetaInfoReader;
     friend class QmlDesigner::Internal::SubComponentManagerPrivate;
-    friend bool operator==(const MetaInfo &, const MetaInfo &);
+    friend QMLDESIGNERCORE_EXPORT bool operator==(const MetaInfo &, const MetaInfo &);
 
 public:
     MetaInfo(const MetaInfo &metaInfo);

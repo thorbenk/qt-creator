@@ -82,6 +82,8 @@ private slots:
     void test_codegen_definition_first_member();
     void test_codegen_definition_last_member();
     void test_codegen_definition_middle_member();
+    void test_codegen_definition_middle_member_surrounded_by_undefined();
+    void test_codegen_definition_member_specific_file();
 
     void test_completion_forward_declarations_present();
     void test_completion_inside_parentheses_c_style_conversion();
@@ -113,8 +115,17 @@ private slots:
     void test_completion_instantiate_template_with_default_argument_type();
     void test_completion_instantiate_template_with_default_argument_type_as_template();
     void test_completion_member_access_operator_1();
-    void test_completion_typedef_of_type_and_replace_access_operator();
-    void test_completion_typedef_of_pointer_of_type_and_replace_access_operator();
+
+    void test_completion_typedef_of_type_and_decl_of_type_no_replace_access_operator();
+    void test_completion_typedef_of_pointer_and_decl_of_pointer_no_replace_access_operator();
+    void test_completion_typedef_of_type_and_decl_of_pointer_replace_access_operator();
+    void test_completion_typedef_of_pointer_and_decl_of_type_replace_access_operator();
+
+    void test_completion_predecl_typedef_of_type_and_decl_of_pointer_replace_access_operator();
+    void test_completion_predecl_typedef_of_type_and_decl_type_no_replace_access_operator();
+    void test_completion_predecl_typedef_of_pointer_and_decl_of_pointer_no_replace_access_operator();
+    void test_completion_predecl_typedef_of_pointer_and_decl_of_type_replace_access_operator();
+
     void test_completion_typedef_of_pointer();
     void test_completion_typedef_of_pointer_inside_function();
     void test_completion_typedef_is_inside_function_before_declaration_block();
@@ -124,6 +135,26 @@ private slots:
     void test_completion_typedef_using_templates2();
     void test_completion_namespace_alias_with_many_namespace_declarations();
     void test_completion_QTCREATORBUG9098();
+    void test_completion_type_and_using_declaration();
+    void test_completion_type_and_using_declaration_data();
+    void test_completion_instantiate_template_with_anonymous_class();
+    void test_completion_instantiate_template_function();
+    void test_completion_crash_cloning_template_class_QTCREATORBUG9329();
+    void test_completion_recursive_auto_declarations1_QTCREATORBUG9503();
+    void test_completion_recursive_auto_declarations2_QTCREATORBUG9503();
+    void test_completion_recursive_typedefs_declarations1();
+    void test_completion_recursive_typedefs_declarations2();
+    void test_completion_recursive_using_declarations1();
+    void test_completion_recursive_using_declarations2();
+    void test_completion_recursive_using_typedef_declarations();
+
+    void test_completion_class_declaration_inside_function_or_block_QTCREATORBUG3620();
+    void test_completion_class_declaration_inside_function_or_block_QTCREATORBUG3620_data();
+    void test_completion_namespace_alias_inside_function_or_block_QTCREATORBUG166();
+    void test_completion_namespace_alias_inside_function_or_block_QTCREATORBUG166_data();
+    void test_completion_class_declaration_inside_function_or_block_QTCREATORBUG3620_static_member();
+    void test_completion_enum_inside_block_inside_function_QTCREATORBUG5456();
+    void test_completion_enum_inside_function_QTCREATORBUG5456();
 
     void test_format_pointerdeclaration_in_simpledeclarations();
     void test_format_pointerdeclaration_in_simpledeclarations_data();
@@ -138,7 +169,8 @@ private slots:
 
     void test_modelmanager_paths();
     void test_modelmanager_framework_headers();
-    void test_modelmanager_refresh();
+    void test_modelmanager_refresh_1();
+    void test_modelmanager_refresh_2();
 
 private:
     void test_completion();

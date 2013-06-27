@@ -8,12 +8,9 @@ QtcPlugin {
     Depends { name: "Qt.widgets" }
     Depends { name: "Core" }
     Depends { name: "CppTools" }
-    Depends { name: "RemoteLinux" }
     Depends { name: "ProjectExplorer" }
+    Depends { name: "QtcSsh" }
     Depends { name: "TextEditor" }
-
-    Depends { name: "cpp" }
-    cpp.defines: base.concat("ANALYZER_LIBRARY")
 
     files: [
         "analyzerbase.qrc",
@@ -47,7 +44,7 @@ QtcPlugin {
         "images/analyzer_start_small.png",
     ]
 
-    ProductModule {
+    Export {
         Depends { name: "CPlusPlus" }
     }
 }

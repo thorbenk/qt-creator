@@ -3,7 +3,6 @@ DEFINES += QMLPROFILER_LIBRARY
 QT += network script declarative
 
 include(../../qtcreatorplugin.pri)
-include(qmlprofiler_dependencies.pri)
 include(canvas/canvas.pri)
 
 SOURCES += \
@@ -12,7 +11,6 @@ SOURCES += \
     qmlprofilerengine.cpp \
     qmlprofilerattachdialog.cpp \
     localqmlprofilerrunner.cpp \
-    remotelinuxqmlprofilerrunner.cpp \
     qmlprofilereventview.cpp \
     qmlprofilerdetailsrewriter.cpp \
     qmlprofilertraceview.cpp \
@@ -33,7 +31,6 @@ HEADERS += \
     qmlprofilerattachdialog.h \
     abstractqmlprofilerrunner.h \
     localqmlprofilerrunner.h \
-    remotelinuxqmlprofilerrunner.h \
     qmlprofilereventview.h \
     qmlprofilerdetailsrewriter.h \
     qmlprofilertraceview.h \
@@ -59,6 +56,3 @@ OTHER_FILES += \
     qml/SelectionRange.qml \
     qml/SelectionRangeDetails.qml \
     qml/Overview.qml
-
-FORMS += \
-    qmlprofilerattachdialog.ui

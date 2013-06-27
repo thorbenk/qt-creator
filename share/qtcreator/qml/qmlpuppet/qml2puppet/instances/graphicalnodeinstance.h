@@ -1,6 +1,8 @@
 #ifndef QMLDESIGNER_GRAPHICALNODEINSTANCE_H
 #define QMLDESIGNER_GRAPHICALNODEINSTANCE_H
 
+#include <QtGlobal>
+
 #include "objectnodeinstance.h"
 
 #include <designersupport.h>
@@ -23,6 +25,7 @@ public:
 
     QRectF boundingRect() const;
     QTransform customTransform() const;
+    QTransform contentTransform() const Q_DECL_OVERRIDE;
     QTransform sceneTransform() const;
     double opacity() const;
     double rotation() const;
@@ -37,7 +40,7 @@ public:
 
     QList<ServerNodeInstance> childItems() const;
 
-    void updateDirtyNodeRecursive();
+    void updateAllDirtyNodesRecursive();
     static void createEffectItem(bool createEffectItem);
 
     int penWidth() const;
@@ -61,8 +64,8 @@ protected:
     void setHasContent(bool hasContent);
     DesignerSupport *designerSupport() const;
     Qt5NodeInstanceServer *qt5NodeInstanceServer() const;
-    void updateDirtyNodeRecursive(QQuickItem *parentItem) const;
-    void updateAllDirtyNodeRecursive(QQuickItem *parentItem) const;
+    void updateDirtyNodesRecursive(QQuickItem *parentItem) const;
+    void updateAllDirtyNodesRecursive(QQuickItem *parentItem) const;
     QRectF boundingRectWithStepChilds(QQuickItem *parentItem) const;
     void resetHorizontal();
     void resetVertical();

@@ -32,11 +32,14 @@
 #include "watchutils.h"
 
 #include <cplusplus/CppRewriter.h>
-#include <projectexplorer/abstractmsvctoolchain.h>
 #include <utils/environment.h>
+#include <utils/qtcprocess.h>
+#include <utils/fileutils.h>
+#include <utils/synchronousprocess.h>
+
+#include "temporarydir.h"
 
 #include <QtTest>
-#include "temporarydir.h"
 
 #if  QT_VERSION >= 0x050000
 #define MSKIP_SINGLE(x) QSKIP(x)
@@ -47,6 +50,98 @@
 using namespace Debugger;
 using namespace Utils;
 using namespace Internal;
+
+// Copied from abstractmsvctoolchain.cpp to avoid plugin dependency.
+
+static bool generateEnvironmentSettings(Utils::Environment &env,
+                                        const QString &batchFile,
+                                        const QString &batchArgs,
+                                        QMap<QString, QString> &envPairs)
+{
+    // Create a temporary file name for the output. Use a temporary file here
+    // as I don't know another way to do this in Qt...
+    // Note, can't just use a QTemporaryFile all the way through as it remains open
+    // internally so it can't be streamed to later.
+    QString tempOutFile;
+    QTemporaryFile* pVarsTempFile = new QTemporaryFile(QDir::tempPath() + QLatin1String("/XXXXXX.txt"));
+    pVarsTempFile->setAutoRemove(false);
+    pVarsTempFile->open();
+    pVarsTempFile->close();
+    tempOutFile = pVarsTempFile->fileName();
+    delete pVarsTempFile;
+
+    // Create a batch file to create and save the env settings
+    Utils::TempFileSaver saver(QDir::tempPath() + QLatin1String("/XXXXXX.bat"));
+
+    QByteArray call = "call ";
+    call += Utils::QtcProcess::quoteArg(batchFile).toLocal8Bit();
+    if (!batchArgs.isEmpty()) {
+        call += ' ';
+        call += batchArgs.toLocal8Bit();
+    }
+    saver.write(call + "\r\n");
+
+    const QByteArray redirect = "set > " + Utils::QtcProcess::quoteArg(
+                                    QDir::toNativeSeparators(tempOutFile)).toLocal8Bit() + "\r\n";
+    saver.write(redirect);
+    if (!saver.finalize()) {
+        qWarning("%s: %s", Q_FUNC_INFO, qPrintable(saver.errorString()));
+        return false;
+    }
+
+    Utils::QtcProcess run;
+    // As of WinSDK 7.1, there is logic preventing the path from being set
+    // correctly if "ORIGINALPATH" is already set. That can cause problems
+    // if Creator is launched within a session set up by setenv.cmd.
+    env.unset(QLatin1String("ORIGINALPATH"));
+    run.setEnvironment(env);
+    const QString cmdPath = QString::fromLocal8Bit(qgetenv("COMSPEC"));
+    // Windows SDK setup scripts require command line switches for environment expansion.
+    QString cmdArguments = QLatin1String(" /E:ON /V:ON /c \"");
+    cmdArguments += QDir::toNativeSeparators(saver.fileName());
+    cmdArguments += QLatin1Char('"');
+    run.setCommand(cmdPath, cmdArguments);
+    run.start();
+
+    if (!run.waitForStarted()) {
+        qWarning("%s: Unable to run '%s': %s", Q_FUNC_INFO, qPrintable(batchFile),
+                 qPrintable(run.errorString()));
+        return false;
+    }
+    if (!run.waitForFinished()) {
+        qWarning("%s: Timeout running '%s'", Q_FUNC_INFO, qPrintable(batchFile));
+        Utils::SynchronousProcess::stopProcess(run);
+        return false;
+    }
+    // The SDK/MSVC scripts do not return exit codes != 0. Check on stdout.
+    const QByteArray stdOut = run.readAllStandardOutput();
+    if (!stdOut.isEmpty() && (stdOut.contains("Unknown") || stdOut.contains("Error")))
+        qWarning("%s: '%s' reports:\n%s", Q_FUNC_INFO, call.constData(), stdOut.constData());
+
+    //
+    // Now parse the file to get the environment settings
+    QFile varsFile(tempOutFile);
+    if (!varsFile.open(QIODevice::ReadOnly))
+        return false;
+
+    QRegExp regexp(QLatin1String("(\\w*)=(.*)"));
+    while (!varsFile.atEnd()) {
+        const QString line = QString::fromLocal8Bit(varsFile.readLine()).trimmed();
+        if (regexp.exactMatch(line)) {
+            const QString varName = regexp.cap(1);
+            const QString varValue = regexp.cap(2);
+
+            if (!varValue.isEmpty())
+                envPairs.insert(varName, varValue);
+        }
+    }
+
+    // Tidy up and remove the file
+    varsFile.close();
+    varsFile.remove();
+
+    return true;
+}
 
 static QByteArray noValue = "\001";
 
@@ -237,10 +332,30 @@ struct Cxx11Profile : public Profile
     Cxx11Profile() : Profile("QMAKE_CXXFLAGS += -std=c++0x") {}
 };
 
+struct GdbOnly {};
+struct LldbOnly {};
+
 struct GdbVersion
 {
     // Minimum and maximum are inclusive.
     GdbVersion(int minimum = 0, int maximum = 0)
+    {
+        if (minimum && !maximum)
+            maximum = minimum;
+        if (maximum == 0)
+            maximum = INT_MAX;
+
+        max = maximum;
+        min = minimum;
+    }
+    int min;
+    int max;
+};
+
+struct LldbVersion
+{
+    // Minimum and maximum are inclusive.
+    LldbVersion(int minimum = 0, int maximum = 0)
     {
         if (minimum && !maximum)
             maximum = minimum;
@@ -262,11 +377,14 @@ struct GuiProfile {};
 
 struct DataBase
 {
-    DataBase() : useQt(false), forceC(false), neededGdbVersion() {}
+    DataBase() : useQt(false), forceC(false), gdbOnly(false), lldbOnly(false) {}
 
     mutable bool useQt;
     mutable bool forceC;
+    mutable bool gdbOnly;
+    mutable bool lldbOnly;
     mutable GdbVersion neededGdbVersion;
+    mutable LldbVersion neededLldbVersion;
 };
 
 class Data : public DataBase
@@ -294,6 +412,24 @@ public:
     const Data &operator%(const GdbVersion &gdbVersion) const
     {
         neededGdbVersion = gdbVersion;
+        return *this;
+    }
+
+    const Data &operator%(const LldbVersion &lldbVersion) const
+    {
+        neededLldbVersion = lldbVersion;
+        return *this;
+    }
+
+    const Data &operator%(const LldbOnly &) const
+    {
+        lldbOnly = true;
+        return *this;
+    }
+
+    const Data &operator%(const GdbOnly &) const
+    {
+        gdbOnly = true;
         return *this;
     }
 
@@ -349,7 +485,7 @@ struct TempStuff
 {
     TempStuff() : buildTemp(QLatin1String("qt_tst_dumpers_"))
     {
-        buildPath = buildTemp.path();
+        buildPath = QDir::currentPath() + QLatin1Char('/')  + buildTemp.path();
         buildTemp.setAutoRemove(false);
         QVERIFY(!buildPath.isEmpty());
     }
@@ -376,7 +512,7 @@ public:
     tst_Dumpers()
     {
         t = 0;
-        m_keepTemp = false;
+        m_keepTemp = true;
         m_gdbVersion = 0;
         m_gdbBuildVersion = 0;
         m_lldbVersion = 0;
@@ -408,17 +544,19 @@ private:
 
 void tst_Dumpers::initTestCase()
 {
-    m_debuggerBinary = qgetenv("QTC_DEBUGGER_PATH");
+    m_debuggerBinary = qgetenv("QTC_DEBUGGER_PATH_FOR_TEST");
+
     if (m_debuggerBinary.isEmpty())
         m_debuggerBinary = "gdb";
 
     m_debuggerEngine = DumpTestGdbEngine;
     if (m_debuggerBinary.endsWith("cdb.exe"))
         m_debuggerEngine = DumpTestCdbEngine;
-    if (m_debuggerBinary.endsWith("lldb") || m_debuggerBinary.contains("/lldb-"))
+
+    if (m_debuggerBinary.endsWith("lldb"))
         m_debuggerEngine = DumpTestLldbEngine;
 
-    m_qmakeBinary = qgetenv("QTC_QMAKE_PATH");
+    m_qmakeBinary = qgetenv("QTC_QMAKE_PATH_FOR_TEST");
     if (m_qmakeBinary.isEmpty())
         m_qmakeBinary = "qmake";
 
@@ -437,6 +575,7 @@ void tst_Dumpers::initTestCase()
         //qDebug() << "stdout: " << output;
         m_usePython = !output.contains("Python scripting is not supported in this copy of GDB");
         qDebug() << (m_usePython ? "Python is available" : "Python is not available");
+        qDebug() << "Dumper dir: " << DUMPERDIR;
 
         QString version = QString::fromLocal8Bit(output);
         int pos1 = version.indexOf(QLatin1String("&\"show version\\n"));
@@ -452,9 +591,7 @@ void tst_Dumpers::initTestCase()
     } else if (m_debuggerEngine == DumpTestCdbEngine) {
         QByteArray envBat = qgetenv("QTC_MSVC_ENV_BAT");
         QMap <QString, QString> envPairs;
-        QVERIFY(ProjectExplorer::Internal::AbstractMsvcToolChain::generateEnvironmentSettings(
-                    utilsEnv, QString::fromLatin1(envBat), QString(), envPairs));
-
+        QVERIFY(generateEnvironmentSettings(utilsEnv, QString::fromLatin1(envBat), QString(), envPairs));
         for (QMap<QString,QString>::const_iterator envIt = envPairs.begin(); envIt!=envPairs.end(); ++envIt)
                 utilsEnv.set(envIt.key(), envIt.value());
 
@@ -466,15 +603,20 @@ void tst_Dumpers::initTestCase()
     } else if (m_debuggerEngine == DumpTestLldbEngine) {
         m_usePython = true;
         QProcess debugger;
-        debugger.start(QString::fromLatin1(m_debuggerBinary + " -v"));
+        QString cmd = QString::fromUtf8(m_debuggerBinary + " -v");
+        debugger.start(cmd);
         bool ok = debugger.waitForFinished(2000);
         QVERIFY(ok);
         QByteArray output = debugger.readAllStandardOutput();
         output += debugger.readAllStandardError();
         output = output.trimmed();
         // Should be something like LLDB-178
-        m_lldbVersion = output.mid(5).toInt();
-        qDebug() << "Lldb version " << output << m_lldbVersion;
+        QByteArray ba = output.mid(output.indexOf('-') + 1);
+        int pos = ba.indexOf('.');
+        if (pos >= 0)
+            ba = ba.left(pos);
+        m_lldbVersion = ba.toInt();
+        qDebug() << "Lldb version " << output << ba << m_lldbVersion;
         QVERIFY(m_lldbVersion);
     }
     m_env = utilsEnv.toProcessEnvironment();
@@ -501,9 +643,26 @@ void tst_Dumpers::dumper()
 
     if (m_debuggerEngine == DumpTestGdbEngine) {
         if (data.neededGdbVersion.min > m_gdbVersion)
-            MSKIP_SINGLE("Need minimum GDB version " + QByteArray::number(data.neededGdbVersion.min));
+            MSKIP_SINGLE("Need minimum GDB version "
+                + QByteArray::number(data.neededGdbVersion.min));
         if (data.neededGdbVersion.max < m_gdbVersion)
-            MSKIP_SINGLE("Need maximum GDB version " + QByteArray::number(data.neededGdbVersion.max));
+            MSKIP_SINGLE("Need maximum GDB version "
+                + QByteArray::number(data.neededGdbVersion.max));
+    } else {
+        if (data.gdbOnly)
+            MSKIP_SINGLE("Test is GDB specific");
+    }
+
+    if (m_debuggerEngine == DumpTestLldbEngine) {
+        if (data.neededLldbVersion.min > m_gdbVersion)
+            MSKIP_SINGLE("Need minimum LLDB version "
+                + QByteArray::number(data.neededLldbVersion.min));
+        if (data.neededLldbVersion.max < m_gdbVersion)
+            MSKIP_SINGLE("Need maximum LLDB version "
+                + QByteArray::number(data.neededLldbVersion.max));
+    } else {
+        if (data.lldbOnly)
+            MSKIP_SINGLE("Test is LLDB specific");
     }
 
     QString cmd;
@@ -517,6 +676,7 @@ void tst_Dumpers::dumper()
     proFile.write("SOURCES = ");
     proFile.write(mainFile);
     proFile.write("\nTARGET = doit\n");
+    proFile.write("\nCONFIG -= app_bundle\n");
     proFile.write("\nCONFIG -= release\n");
     proFile.write("\nCONFIG += debug\n");
     if (data.useQt)
@@ -593,10 +753,12 @@ void tst_Dumpers::dumper()
         expanded += iname;
     }
 
-    QByteArray cmds;
+    QByteArray exe;
     QStringList args;
+    QByteArray cmds;
 
     if (m_debuggerEngine == DumpTestGdbEngine) {
+        exe = m_debuggerBinary;
         args << QLatin1String("-i")
              << QLatin1String("mi")
              << QLatin1String("-quiet")
@@ -627,6 +789,7 @@ void tst_Dumpers::dumper()
         cmds += "quit\n";
 
     } else if (m_debuggerEngine == DumpTestCdbEngine) {
+        exe = m_debuggerBinary;
         args << QLatin1String("-aqtcreatorcdbext.dll")
              << QLatin1String("-lines")
              << QLatin1String("-G")
@@ -646,15 +809,16 @@ void tst_Dumpers::dumper()
             sortediNames << QString::fromLatin1(iName);
         sortediNames.sort();
         foreach (QString iName, sortediNames)
-            cmds += "!qtcreatorcdbext.locals -t " + QByteArray::number(++token) + " -c 0 " + iName.toLatin1() + "\n";
+            cmds += "!qtcreatorcdbext.locals -t " + QByteArray::number(++token)
+                    + " -c 0 " + iName.toLatin1() + "\n";
         cmds += "q\n";
     } else if (m_debuggerEngine == DumpTestLldbEngine) {
-        cmds = "script execfile('" + dumperDir + "/lbridge.py')\n"
-               "run\n"
-               "up\n"
-               "script print('@%sS@%s@' % ('N', qtNamespace()))\n"
-               "script bb('options:fancy,autoderef,dyntype vars: expanded:" + expanded + " typeformats:')\n"
-               "quit\n";
+        exe = "python";
+        args << QLatin1String(dumperDir + "/lbridge.py")
+             << QString::fromUtf8(m_debuggerBinary)
+             << t->buildPath + QLatin1String("/doit")
+             << QString::fromUtf8(expanded);
+        //qDebug() << exe.constData() << ' ' << qPrintable(args.join(QLatin1Char(' ')));
     }
 
     t->input = cmds;
@@ -662,7 +826,7 @@ void tst_Dumpers::dumper()
     QProcess debugger;
     debugger.setProcessEnvironment(m_env);
     debugger.setWorkingDirectory(t->buildPath);
-    debugger.start(QString::fromLatin1(m_debuggerBinary), args);
+    debugger.start(QString::fromLatin1(exe), args);
     QVERIFY(debugger.waitForStarted());
     debugger.write(cmds);
     QVERIFY(debugger.waitForFinished());
@@ -699,6 +863,21 @@ void tst_Dumpers::dumper()
         if (context.nameSpace == "::")
             context.nameSpace.clear();
         contents.replace("\\\"", "\"");
+    } else if (m_debuggerEngine == DumpTestLldbEngine) {
+        //qDebug() << "GOT OUTPUT: " << output;
+        QVERIFY(output.startsWith("data="));
+        contents = output;
+
+        //int posNameSpaceStart = output.indexOf("@NS@");
+        //QVERIFY(posNameSpaceStart != -1);
+        //posNameSpaceStart += sizeof("@NS@") - 1;
+        //int posNameSpaceEnd = output.indexOf("@", posNameSpaceStart);
+        //QVERIFY(posNameSpaceEnd != -1);
+        //context.nameSpace = output.mid(posNameSpaceStart, posNameSpaceEnd - posNameSpaceStart);
+        //qDebug() << "FOUND NS: " << context.nameSpace;
+        if (context.nameSpace == "::")
+            context.nameSpace.clear();
+        contents.replace("\\\"", "\"");
     } else {
         const QByteArray locals = "|locals|";
         int pos1 = output.indexOf(locals);
@@ -717,17 +896,17 @@ void tst_Dumpers::dumper()
     }
 
     GdbMi actual;
-    actual.fromStringMultiple(contents);
+    actual.fromString(contents);
     WatchData local;
     local.iname = "local";
 
     QList<WatchData> list;
     foreach (const GdbMi &child, actual.children()) {
         WatchData dummy;
-        dummy.iname = child.findChild("iname").data();
-        dummy.name = QLatin1String(child.findChild("name").data());
+        dummy.iname = child["iname"].data();
+        dummy.name = QLatin1String(child["name"].data());
         if (dummy.iname == "local.qtversion")
-            context.qtVersion = child.findChild("value").data().toInt();
+            context.qtVersion = child["value"].toInt();
         else
             parseWatchData(expandedINames, dummy, child, &list);
     }
@@ -748,7 +927,8 @@ void tst_Dumpers::dumper()
             if (!check.expectedValue.matches(item.value, context)) {
                 qDebug() << "INAME         : " << item.iname;
                 qDebug() << "VALUE ACTUAL  : " << item.value << toHex(item.value);
-                qDebug() << "VALUE EXPECTED: " << check.expectedValue.value << toHex(check.expectedValue.value);
+                qDebug() << "VALUE EXPECTED: "
+                    << check.expectedValue.value << toHex(check.expectedValue.value);
                 ok = false;
             }
             if (!check.expectedType.matches(item.type, context)) {
@@ -772,8 +952,11 @@ void tst_Dumpers::dumper()
         qDebug() << "EXPANDED     : " << expanded;
         ok = false;
     }
-    if (!ok)
+    if (!ok) {
         qDebug() << "CONTENTS     : " << contents;
+        qDebug() << "Qt VERSION   : "
+            << qPrintable(QString::number(context.qtVersion, 16));
+    }
     QVERIFY(ok);
     t->buildTemp.setAutoRemove(m_keepTemp);
 }
@@ -873,9 +1056,9 @@ void tst_Dumpers::dumper_data()
 
     QTest::newRow("QByteArray3")
             << Data("#include <QByteArray>\n",
-                    "const char *str1 = \"\356\";\n"
-                    "const char *str2 = \"\xee\";\n"
-                    "const char *str3 = \"\\ee\";\n"
+                    "const char *str1 = \"\\356\";\n"
+                    "const char *str2 = \"\\xee\";\n"
+                    "const char *str3 = \"\\\\ee\";\n"
                     "QByteArray buf1(str1);\n"
                     "QByteArray buf2(str2);\n"
                     "QByteArray buf3(str3);\n"
@@ -1866,8 +2049,8 @@ void tst_Dumpers::dumper_data()
                     "QPointF s0, s;\n"
                     "s = QPointF(100, 200);\n")
                % CoreProfile()
-               % Check("s0", "(0, 0)", "@QPointF")
-               % Check("s", "(100, 200)", "@QPointF");
+               % Check("s0", "(0.0, 0.0)", "@QPointF")
+               % Check("s", "(100.0, 200.0)", "@QPointF");
 
     QTest::newRow("QRect")
             << Data("#include <QRect>\n"
@@ -2561,6 +2744,18 @@ void tst_Dumpers::dumper_data()
                % Check("v", "<2 items>", "std::vector<std::string>")
                % Check("v.0", "[0]", "\"foo\"", "std::string");
 
+    QTest::newRow("StdVector0")
+            << Data("#include <vector>\n",
+                    "std::vector<double> v0, v;\n"
+                    "v.push_back(1);\n"
+                    "v.push_back(0);\n"
+                    "v.push_back(2);\n")
+               % Check("v0", "<0 items>", "std::vector<double>")
+               % Check("v", "<3 items>", "std::vector<double>")
+               % Check("v.0", "[0]", "1", "double")
+               % Check("v.1", "[1]", "0", "double")
+               % Check("v.2", "[2]", "2", "double");
+
     QTest::newRow("StdVector1")
             << Data("#include <vector>\n",
                     "std::vector<int *> v0, v;\n"
@@ -3093,86 +3288,72 @@ void tst_Dumpers::dumper_data()
                % Check("variant.data.1", "[1]", "2", "int")
                % Check("variant.data.2", "[2]", "3", "int");
 
-//    QTest::newRow("QVariantList")
-//                                  << Data(
-//        "QVariantList vl;\n"
-//        " % Check("vl <0 items> QVariantList");\n"
-//        "// Continue");\n"
-//        "vl.append(QVariant(1));\n"
-//        "vl.append(QVariant(2));\n"
-//        "vl.append(QVariant("Some String"));\n"
-//        "vl.append(QVariant(21));\n"
-//        "vl.append(QVariant(22));\n"
-//        "vl.append(QVariant("2Some String"));\n"
-//         % Check("vl <6 items> QVariantList");
-//         % CheckType("vl.0 QVariant (int)");
-//         % CheckType("vl.2 QVariant (QString)");
+    QTest::newRow("QVariantList")
+            << Data("#include <QVariantList>\n",
+                    "QVariantList vl;\n"
+                    "vl.append(QVariant(1));\n"
+                    "vl.append(QVariant(2));\n"
+                    "vl.append(QVariant(\"Some String\"));\n"
+                    "vl.append(QVariant(21));\n"
+                    "vl.append(QVariant(22));\n"
+                    "vl.append(QVariant(\"2Some String\"));\n")
+         % Check("vl", "<6 items>", "@QVariantList")
+         % CheckType("vl.0", "[0]", "@QVariant (int)")
+         % CheckType("vl.2", "[2]", "@QVariant (QString)");
 
-//    QTest::newRow("QVariantMap")
-//                                      << Data(
-//        "QVariantMap vm;\n"
-//         % Check("vm <0 items> QVariantMap");
-//        "// Continue");\n"
-//        "vm["a"] = QVariant(1);\n"
-//        "vm["b"] = QVariant(2);\n"
-//        "vm["c"] = QVariant("Some String");\n"
-//        "vm["d"] = QVariant(21);\n"
-//        "vm["e"] = QVariant(22);\n"
-//        "vm["f"] = QVariant("2Some String");\n"
-//         % Check("vm <6 items> QVariantMap");
-//         % Check("vm.0   QMapNode<QString, QVariant>");
-//         % Check("vm.0.key "a" QString");
-//         % Check("vm.0.value 1 QVariant (int)");
-//         % Check("vm.5   QMapNode<QString, QVariant>");
-//         % Check("vm.5.key "f" QString");
-//         % Check("vm.5.value "2Some String" QVariant (QString)");
+    QTest::newRow("QVariantMap")
+            << Data("#include <QVariantMap>\n",
+                    "QVariantMap vm;\n"
+                    "vm[\"a\"] = QVariant(1);\n"
+                    "vm[\"b\"] = QVariant(2);\n"
+                    "vm[\"c\"] = QVariant(\"Some String\");\n"
+                    "vm[\"d\"] = QVariant(21);\n"
+                    "vm[\"e\"] = QVariant(22);\n"
+                    "vm[\"f\"] = QVariant(\"2Some String\");\n")
+         % Check("vm", "<6 items>", "@QVariantMap")
+         % Check("vm.0", "[0]", "", "@QMapNode<@QString, @QVariant>")
+         % Check("vm.0.key", Value4("\"a\""), "@QString")
+         % Check("vm.0.value", Value4("1"), "@QVariant (int)")
+         % Check("vm.0.key", Value5("\"b\""), "@QString")
+         % Check("vm.0.value", Value5("2"), "@QVariant (int)")
+         % Check("vm.5", "[5]", "", "@QMapNode<@QString, @QVariant>")
+         % Check("vm.5.key", Value4("\"f\""), "@QString")
+         % Check("vm.5.value", Value4("\"2Some String\""), "@QVariant (@QString)")
+         % Check("vm.5.key", Value5("\"f\""), "@QString")
+         % Check("vm.5.value", Value5("\"2Some String\""), "@QVariant (@QString)");
 
-//    QTest::newRow("QVectorIntBig")
-//          << Data(
-//        // This tests the display of a big vector");
-//        QVector<int> vec(10000);
-//        for (int i = 0; i != vec.size(); ++i)
-//            vec[i] = i * i;
-//         % Check("vec <10000 items> QVector<int>");
-//         % Check("vec.0", "0", "int");
-//         % Check("vec.1999", "3996001", "int");
-//        // Continue");
+    QTest::newRow("QVectorIntBig")
+            << Data("#include <QVector>\n",
+                   "QVector<int> vec(10000);\n"
+                   "for (int i = 0; i != vec.size(); ++i)\n"
+                   "     vec[i] = i * i;\n")
+         % Check("vec", "<10000 items>", "@QVector<int>")
+         % Check("vec.0", "[0]", "0", "int")
+         % Check("vec.1999", "[1999]", "3996001", "int");
 
-//        // step over
-//        // check that the display updates in reasonable time
-//        vec[1] = 1;
-//        vec[2] = 2;
-//        vec.append(1);
-//        vec.append(1);
-//         % Check("vec <10002 items> QVector<int>");
-//         % Check("vec.1", "1", "int");
-//         % Check("vec.2", "2", "int");
+    QTest::newRow("QVectorFoo")
+            << Data("#include <QVector>\n" + fooData,
+                    "QVector<Foo> vec;\n"
+                    "vec.append(1);\n"
+                    "vec.append(2);\n")
+         % Check("vec", "<2 items>", "@QVector<Foo>")
+         % Check("vec.0", "[0]", "", "Foo")
+         % Check("vec.0.a", "1", "int")
+         % Check("vec.1", "[1]", "", "Foo")
+         % Check("vec.1.a", "2", "int");
 
-//    QTest::newRow("QVectorFoo")
-//                 << Data(
-//        // This tests the display of a vector of pointers to custom structs");\n"
-//        "QVector<Foo> vec;\n"
-//         % Check("vec <0 items> QVector<Foo>");
-//        // Continue");\n"
-//        // step over, check display");\n"
-//        "vec.append(1);\n"
-//        "vec.append(2);\n"
-//         % Check("vec <2 items> QVector<Foo>");
-//         % Check("vec.0", "Foo");
-//         % Check("vec.0.a", "1", "int");
-//         % Check("vec.1", "Foo");
-//         % Check("vec.1.a", "2", "int");
+    QTest::newRow("QVectorFooTypedef")
+            << Data("#include <QVector>\n" + fooData +
+                    "typedef QVector<Foo> FooVector;\n",
+                    "FooVector vec;\n"
+                    "vec.append(1);\n"
+                    "vec.append(2);\n")
+         % Check("vec", "<2 items>", "@FooVector")
+         % Check("vec.0", "[0]", "", "Foo")
+         % Check("vec.0.a", "1", "int")
+         % Check("vec.1", "[1]", "", "Foo")
+         % Check("vec.1.a", "2", "int");
 
-//    typedef QVector<Foo> FooVector;
-
-//    QTest::newRow("QVectorFooTypedef")
-//                 << Data(
-//    {
-//        "FooVector vec;\n"
-//        "vec.append(Foo(2));\n"
-//        "vec.append(Foo(3));\n"
-//        unused(&vec);
-//    }
 
 //    QTest::newRow("QVectorFooStar")
 //                     << Data(
@@ -3567,26 +3748,17 @@ void tst_Dumpers::dumper_data()
 //         % Check("t1", "0", "basic::myType1");
 //         % Check("t2", "0", "basic::myType2");
 
-//    QTest::newRow("Struct")
-//                  << Data(
-//    "Foo f(2);\n"
-//    "f.doit();\n"
-//    "f.doit();\n"
-//    "f.doit();\n"
-//         % Check("f", "Foo");
-//         % Check("f.a", "5", "int");
-//         % Check("f.b", "2", "int");
+    QTest::newRow("Struct")
+            << Data(fooData, "Foo f(3);\n")
+               % Check("f", "", "Foo")
+               % Check("f.a", "3", "int")
+               % Check("f.b", "2", "int");
 
-//    QTest::newRow("Union")
-//                  << Data(
-//    "union U\n"
-//    "{\n"
-//    "  int a;\n"
-//    "  int b;\n"
-//    "} u;\n"
-//         % Check("u", "basic::U");
-//         % Check("u.a", "int");
-//         % Check("u.b", "int");
+    QTest::newRow("Union")
+            << Data("union U { int a; int b; };", "U u;")
+               % Check("u", "", "U")
+               % CheckType("u.a", "int")
+               % CheckType("u.b", "int");
 
 //    QTest::newRow("TypeFormats")
 //                  << Data(
@@ -3676,31 +3848,29 @@ void tst_Dumpers::dumper_data()
                % CheckType("b1", "DerivedClass") // autoderef
                % CheckType("b2", "DerivedClass &");
 
-//    QTest::newRow("LongEvaluation1")
-//                  << Data(
-//        "QDateTime time = QDateTime::currentDateTime();\n"
-//        "const int N = 10000;\n"
-//        "QDateTime bigv[N];\n"
-//        "for (int i = 0; i < 10000; ++i) {\n"
-//        "    bigv[i] = time;\n"
-//        "    time = time.addDays(1);\n"
-//        "}\n"
-//         % Check("N", "10000", "int");
-//         % CheckType("bigv QDateTime [10000]");
-//         % Check("bigv.0", "QDateTime");
-//         % Check("bigv.9999", "QDateTime");
-//         % Check("time", "QDateTime");
+    QTest::newRow("LongEvaluation1")
+            << Data("#include <QDateTime>",
+                    "QDateTime time = QDateTime::currentDateTime();\n"
+                    "const int N = 10000;\n"
+                    "QDateTime bigv[N];\n"
+                    "for (int i = 0; i < 10000; ++i) {\n"
+                    "    bigv[i] = time;\n"
+                    "    time = time.addDays(1);\n"
+                    "}\n")
+             % Check("N", "10000", "int")
+             % CheckType("bigv", "@QDateTime [10000]")
+             % CheckType("bigv.0", "[0]", "@QDateTime")
+             % CheckType("bigv.9999", "[9999]", "@QDateTime");
 
-//    QTest::newRow("LongEvaluation2")
-//                  << Data(
-//        "const int N = 10000;\n"
-//        "int bigv[N];\n"
-//        "for (int i = 0; i < 10000; ++i)\n"
-//        "    bigv[i] = i;\n"
-//         % Check("N", "10000", "int");
-//         % CheckType("bigv int [10000]");
-//         % Check("bigv.0", "0", "int");
-//         % Check("bigv.9999", "9999", "int");
+    QTest::newRow("LongEvaluation2")
+            << Data("const int N = 10000;\n"
+                    "int bigv[N];\n"
+                    "for (int i = 0; i < 10000; ++i)\n"
+                    "    bigv[i] = i;\n")
+             % Check("N", "10000", "int")
+             % CheckType("bigv", "int [10000]")
+             % Check("bigv.0", "[0]", "0", "int")
+             % Check("bigv.9999", "[9999]", "9999", "int");
 
 //    QTest::newRow("Fork")
 //                  << Data(
@@ -3713,53 +3883,50 @@ void tst_Dumpers::dumper_data()
 //         % Check("proc  QProcess");
 
 
-//    QTest::newRow("FunctionPointer")
-//                  << Data(
-//        "int testFunctionPointerHelper(int x) { return x; }\n"
-//        "typedef int (*func_t)(int);\n"
-//        "func_t f = testFunctionPointerHelper;\n"
-//        "int a = f(43);\n"
-//         % Check("f", "basic::func_t");
+    QTest::newRow("FunctionPointer")
+            << Data("int testFunctionPointerHelper(int x) { return x; }\n"
+                    "typedef int (*func_t)(int);\n",
+                    "func_t f = testFunctionPointerHelper;\n"
+                    "int a = f(43);\n")
+             % CheckType("f", "func_t");
 
-//    QByteArray dataClass = "struct Class
-//    "{\n"
-//    "    Class() : a(34) {}\n"
-//    "    int testFunctionPointerHelper(int x) { return x; }\n"
-//    "    int a;\n"
-//    "};\n"
 
-//    QTest::newRow("MemberFunctionPointer")
-//                  << Data(
+    QByteArray dataClass = "struct Class\n"
+                           "{\n"
+                           "    Class() : a(34) {}\n"
+                           "    int testFunctionPointerHelper(int x) { return x; }\n"
+                           "    int a;\n"
+                           "};\n";
 
-//        "Class x;\n"
-//        "typedef int (Class::*func_t)(int);\n"
-//        "func_t f = &Class::testFunctionPointerHelper;\n"
-//        "int a = (x.*f)(43);\n"
-//         % Check("f", "basic::func_t");
+    QTest::newRow("MemberFunctionPointer")
+            << Data(dataClass  + "Class x;\n"
+                    "typedef int (Class::*func_t)(int);\n",
+                    "func_t f = &Class::testFunctionPointerHelper;\n"
+                    "int a = (x.*f)(43);\n")
+             % CheckType("f", "func_t");
 
-//    QTest::newRow("MemberPointer")
-//                  << Data(
-//        Class x;\n"
-//        typedef int (Class::*member_t);\n"
-//        member_t m = &Class::a;\n"
-//        int a = x.*m;\n"
-//         % Check("m", "basic::member_t");\n"
-//        // Continue");\n"
 
-//         % Check("there's a valid display for m");
+    QTest::newRow("MemberPointer")
+            << Data(dataClass  + "Class x;\n"
+                    "typedef int (Class::*member_t);\n",
+                    "member_t m = &Class::a;\n"
+                    "int a = x.*m;\n")
+             % CheckType("m", "member_t");
 
-//    QTest::newRow("PassByReferenceHelper(Foo &f)
-//         % CheckType("f Foo &");\n"
-//         % Check("f.a", "12", "int");\n"
-//        // Continue");\n"
-//        ++f.a;\n"
-//         % CheckType("f Foo &");\n"
-//         % Check("f.a", "13", "int");\n"
+//  QTest::newRow("PassByReferenceHelper")
+//          << Data(fooData
+//      (Foo &f)
+//       % CheckType("f Foo &");\n"
+//       % Check("f.a", "12", "int");\n"
+//      // Continue");\n"
+//      ++f.a;\n"
+//       % CheckType("f Foo &");\n"
+//       % Check("f.a", "13", "int");\n"
 
-//    QTest::newRow("PassByReference")
-//                  << Data(
-//        "Foo f(12);\n"
-//        "testPassByReferenceHelper(f);\n"
+//  QTest::newRow("PassByReference")
+//                << Data(
+//      "Foo f(12);\n"
+//      "testPassByReferenceHelper(f);\n"
 
     QTest::newRow("BigInt")
             << Data("#include <QString>\n"
@@ -3794,8 +3961,8 @@ void tst_Dumpers::dumper_data()
                % Check("n@2", "1", "int");
 
 
-    QTest::newRow("RValueReference")
-            << Data("#include <utility>\n"
+    const Data rvalueData = Data(
+                    "#include <utility>\n"
                     "struct X { X() : a(2), b(3) {} int a, b; };\n"
                     "X testRValueReferenceHelper1() { return X(); }\n"
                     "X testRValueReferenceHelper2(X &&x) { return x; }\n",
@@ -3807,12 +3974,23 @@ void tst_Dumpers::dumper_data()
                     "X y3 = testRValueReferenceHelper2(testRValueReferenceHelper1());\n"
                     "unused(&x1, &x2, &x3, &y1, &y2, &y3);\n")
                % Cxx11Profile()
-               % Check("x1", "", "X &")
-               % Check("x2", "", "X &")
-               % Check("x3", "", "X &")
                % Check("y1", "", "X")
                % Check("y2", "", "X")
                % Check("y3", "", "X");
+
+    QTest::newRow("RValueReferenceGdb")
+            << Data(rvalueData)
+               % GdbOnly()
+               % Check("x1", "", "X &")
+               % Check("x2", "", "X &")
+               % Check("x3", "", "X &");
+
+    QTest::newRow("RValueReferenceLldb")
+            << Data(rvalueData)
+               % LldbOnly()
+               % Check("x1", "", "X &&")
+               % Check("x2", "", "X &&")
+               % Check("x3", "", "X &&");
 
     QTest::newRow("SSE")
             << Data("#include <xmmintrin.h>\n"
@@ -3833,124 +4011,93 @@ void tst_Dumpers::dumper_data()
                % Check("sseB", "", "__m128");
 
 
-//namespace qscript {
+    QTest::newRow("BoostOptional1")
+            << Data("#include <boost/optional.hpp>\n",
+                    "boost::optional<int> i0, i1;\n"
+                    "i1 = 1;\n"
+                    "unused(&i0, &i1);\n")
+             % Check("i0", "<uninitialized>", "boost::optional<int>")
+             % Check("i1", "1", "boost::optional<int>");
 
-//    QTest::newRow("QScript")
-//                  << Data(
-//"        QScriptEngine engine;n"
-//"        QDateTime date = QDateTime::currentDateTime();n"
-//"        QScriptValue s;n"
-//"n"
-//"         % Check("engine  QScriptEngine");n"
-//"         % Check("s", "(invalid)", "QScriptValue");n"
-//"         % Check("x1 <not accessible> QString");n"
-//"        // Continue");n"
-//"        s = QScriptValue(33);n"
-//"        int x = s.toInt32();n"
-//"n"
-//"        s = QScriptValue(QString("34"));n"
-//"        QString x1 = s.toString();n"
-//"n"
-//"        s = engine.newVariant(QVariant(43));n"
-//"        QVariant v = s.toVariant();n"
-//"n"
-//"        s = engine.newVariant(QVariant(43.0));n"
-//"        s = engine.newVariant(QVariant(QString("sss")));n"
-//"        s = engine.newDate(date);n"
-//"        date = s.toDateTime();n"
-//"        s.setProperty("a", QScriptValue());n"
-//"        QScriptValue d = s.data();n"
-//         % Check("d", "(invalid)", "QScriptValue");
-//         % Check("v 43 QVariant (int)");
-//         % Check("x", "33", "int");
-//         % Check("x1 "34" QString");
+    QTest::newRow("BoostOptional2")
+            << Data("#include <QStringList>\n"
+                    "#include <boost/optional.hpp>\n",
+                    "boost::optional<QStringList> sl0, sl;\n"
+                    "sl = (QStringList() << \"xxx\" << \"yyy\");\n"
+                    "sl.get().append(\"zzz\");\n")
+             % Check("sl", "<3 items>", "boost::optional<QStringList>");
 
+    QTest::newRow("BoostSharedPtr")
+            << Data("#include <QStringList>\n"
+                    "#include <boost/shared_ptr.hpp>\n",
+                    "boost::shared_ptr<int> s;\n"
+                    "boost::shared_ptr<int> i(new int(43));\n"
+                    "boost::shared_ptr<int> j = i;\n"
+                    "boost::shared_ptr<QStringList> sl(new QStringList(QStringList() << \"HUH!\"));\n")
+             % Check("s", "(null)", "boost::shared_ptr<int>")
+             % Check("i", "43", "boost::shared_ptr<int>")
+             % Check("j", "43", "boost::shared_ptr<int>")
+             % Check("sl", "", " boost::shared_ptr<@QStringList>")
+             % Check("sl.data", "<1 items>", "@QStringList");
 
-//    QTest::newRow("WTFString")
-//                  << Data(
-//        "QWebPage p;
-//         % Check("p", "QWebPage");
+    QTest::newRow("BoostGregorianDate")
+            << Data("#include <boost/date_time.hpp>\n"
+                    "#include <boost/date_time/gregorian/gregorian.hpp>\n",
+                    "using namespace boost;\n"
+                    "using namespace gregorian;\n"
+                    "date d(2005, Nov, 29);\n"
+                    "date d0 = d;\n"
+                    "date d1 = d += months(1);\n"
+                    "date d2 = d += months(1);\n"
+                    "// snap-to-end-of-month behavior kicks in:\n"
+                    "date d3 = d += months(1);\n"
+                    "// Also end of the month (expected in boost)\n"
+                    "date d4 = d += months(1);\n"
+                    "// Not where we started (expected in boost)\n"
+                    "date d5 = d -= months(4);\n")
+             % Check("d0", "Tue Nov 29 2005", "boost::gregorian::date")
+             % Check("d1", "Thu Dec 29 2005", "boost::gregorian::date")
+             % Check("d2", "Sun Jan 29 2006", "boost::gregorian::date")
+             % Check("d3", "Tue Feb 28 2006", "boost::gregorian::date")
+             % Check("d4", "Fri Mar 31 2006", "boost::gregorian::date")
+             % Check("d5", "Wed Nov 30 2005", "boost::gregorian::date");
 
-//    QTest::newRow("BoostOptional1")
-//                  << Data(
-//        "boost::optional<int> i0, i;
-//        "i = 1;
-//         % Check("i0", "<uninitialized>", "boost::optional<int>");
-//         % Check("i", "1", "boost::optional<int>");
+    QTest::newRow("BoostPosixTimeTimeDuration")
+            << Data("#include <boost/date_time.hpp>\n"
+                    "#include <boost/date_time/gregorian/gregorian.hpp>\n"
+                    "#include <boost/date_time/posix_time/posix_time.hpp>\n",
+                    "using namespace boost;\n"
+                    "using namespace posix_time;\n"
+                    "time_duration d1(1, 0, 0);\n"
+                    "time_duration d2(0, 1, 0);\n"
+                    "time_duration d3(0, 0, 1);\n")
+             % Check("d1", "01:00:00", "boost::posix_time::time_duration")
+             % Check("d2", "00:01:00", "boost::posix_time::time_duration")
+             % Check("d3", "00:00:01", "boost::posix_time::time_duration");
 
-//    QTest::newRow("BoostOptional2")
-//                  << Data(
-//        "boost::optional<QStringList> sl0, sl;\n"
-//        "sl = (QStringList() << "xxx" << "yyy");\n"
-//        "sl.get().append("zzz");\n"
-//         % Check("sl", "<uninitialized>", "boost::optional<QStringList>");
-//         % Check("sl <3 items> boost::optional<QStringList>");
+    QTest::newRow("BoostBimap")
+            << Data("#include <boost/bimap.hpp>\n",
+                    "typedef boost::bimap<int, int> B;\n"
+                    "B b;\n"
+                    "b.left.insert(B::left_value_type(1, 2));\n"
+                    "B::left_const_iterator it = b.left.begin();\n"
+                    "int l = it->first;\n"
+                    "int r = it->second;\n")
+             % Check("b", "<1 items>", "B");
 
-//    QTest::newRow("BoostSharedPtr")
-//                  << Data(
-//        "boost::shared_ptr<int> s;\n"
-//        "boost::shared_ptr<int> i(new int(43));\n"
-//        "boost::shared_ptr<int> j = i;\n"
-//        "boost::shared_ptr<QStringList> sl(new QStringList(QStringList() << "HUH!"));
-//         % Check("s", "(null)", "boost::shared_ptr<int>");
-//         % Check("i", "43", "boost::shared_ptr<int>");
-//         % Check("j", "43", "boost::shared_ptr<int>");
-//         % Check("sl  boost::shared_ptr<QStringList>");
-//         % Check("sl.data <1 items> QStringList
-
-//    QTest::newRow("BoostGregorianDate")
-//                  << Data(
-//        "using namespace boost;\n"
-//        "using namespace gregorian;\n"
-//        "date d(2005, Nov, 29);\n"
-//        "d += months(1);\n"
-//        "d += months(1);\n"
-//        "// snap-to-end-of-month behavior kicks in:\n"
-//        "d += months(1);\n"
-//        "// Also end of the month (expected in boost)\n"
-//        "d += months(1);\n"
-//        "// Not where we started (expected in boost)\n"
-//        "d -= months(4);\n"
-//         % Check("d Tue Nov 29 2005 boost::gregorian::date");
-//         % Check("d Thu Dec 29 2005 boost::gregorian::date");
-//         % Check("d Sun Jan 29 2006 boost::gregorian::date");
-//         % Check("d Tue Feb 28 2006 boost::gregorian::date");
-//         % Check("d Fri Mar 31 2006 boost::gregorian::date");
-//         % Check("d Wed Nov 30 2005 boost::gregorian::date");
-
-//    QTest::newRow("BoostPosixTimeTimeDuration")
-//                  << Data(
-//        "using namespace boost;\n"
-//        "using namespace posix_time;\n"
-//        "time_duration d1(1, 0, 0);\n"
-//        "time_duration d2(0, 1, 0);\n"
-//        "time_duration d3(0, 0, 1);\n"
-//         % Check("d1", "01:00:00", "boost::posix_time::time_duration");
-//         % Check("d2", "00:01:00", "boost::posix_time::time_duration");
-//         % Check("d3", "00:00:01", "boost::posix_time::time_duration");
-
-//    QTest::newRow("BoostBimap")
-//                  << Data(
-//        "typedef boost::bimap<int, int> B;\n"
-//        "B b;\n"
-//        "b.left.insert(B::left_value_type(1, 2));\n"
-//        "B::left_const_iterator it = b.left.begin();\n"
-//        "int l = it->first;\n"
-//        "int r = it->second;\n"
-//         % Check("b <0 items> boost::B");
-//         % Check("b <1 items> boost::B");
-
-//    QTest::newRow("BoostPosixTimePtime")
-//                  << Data(
-//        "using namespace boost;\n"
-//        "using namespace gregorian;\n"
-//        "using namespace posix_time;\n"
-//        "ptime p1(date(2002, 1, 10), time_duration(1, 0, 0));\n"
-//        "ptime p2(date(2002, 1, 10), time_duration(0, 0, 0));\n"
-//        "ptime p3(date(1970, 1, 1), time_duration(0, 0, 0));\n"
-//         % Check("p1 Thu Jan 10 01:00:00 2002 boost::posix_time::ptime");
-//         % Check("p2 Thu Jan 10 00:00:00 2002 boost::posix_time::ptime");
-//         % Check("p3 Thu Jan 1 00:00:00 1970 boost::posix_time::ptime");
+    QTest::newRow("BoostPosixTimePtime")
+            << Data("#include <boost/date_time.hpp>\n"
+                    "#include <boost/date_time/gregorian/gregorian.hpp>\n"
+                    "#include <boost/date_time/posix_time/posix_time.hpp>\n"
+                    "using namespace boost;\n"
+                    "using namespace gregorian;\n"
+                    "using namespace posix_time;\n",
+                    "ptime p1(date(2002, 1, 10), time_duration(1, 0, 0));\n"
+                    "ptime p2(date(2002, 1, 10), time_duration(0, 0, 0));\n"
+                    "ptime p3(date(1970, 1, 1), time_duration(0, 0, 0));\n")
+             % Check("p1", "Thu Jan 10 01:00:00 2002", "boost::posix_time::ptime")
+             % Check("p2", "Thu Jan 10 00:00:00 2002", "boost::posix_time::ptime")
+             % Check("p3", "Thu Jan 1 00:00:00 1970", "boost::posix_time::ptime");
 
 
 
@@ -4193,8 +4340,6 @@ void tst_Dumpers::dumper_data()
 //         % Check("m.1.second.2 "3" std::string");
 
 
-//    // http://codepaster.europe.nokia.com/?id=42895
-
 //    QTest::newRow("42895()
 //    "void g(int c, int d)\n"
 //    "{\n"
@@ -4241,23 +4386,23 @@ void tst_Dumpers::dumper_data()
 //         % Check("file.@1.@1.@1 "A file" QObject");
 
 
-//namespace bug6858 {
-
-//    class MyFile : public QFile\n"
-//    {\n"
-//    public:\n"
-//        MyFile(const QString &fileName)\n"
-//            : QFile(fileName) {}\n"
-//    };\n"
-
-//    QTest::newRow("6858")
-//                                  << Data(
-//        MyFile file("/tmp/tt");\n"
-//        file.setObjectName("Another file");\n"
-//        QFile *pfile = &file;\n"
-//         % Check("pfile  bug6858::MyFile");
-//         % Check("pfile.@1 "/tmp/tt" QFile");
-//         % Check("pfile.@1.@1.@1 "Another file" QObject");
+#if 0
+    QTest::newRow("bug6858")
+            << Data("#include <QFile>\n"
+                    "#include <QString>\n"
+                    "class MyFile : public QFile\n"
+                    "{\n"
+                    "public:\n"
+                    "    MyFile(const QString &fileName)\n"
+                    "        : QFile(fileName) {}\n"
+                    "};\n",
+                    "MyFile file(\"/tmp/tt\");\n"
+                    "file.setObjectName(\"Another file\");\n"
+                    "QFile *pfile = &file;\n")
+         % Check("pfile", "\"Another file\"", "MyFile")
+         % Check("pfile.@1", "\"/tmp/tt\"", "@QFile")
+         % Check("pfile.@1.@1", "\"Another file\"", "@QObject");
+#endif
 
 //namespace bug6863 {
 

@@ -4,14 +4,13 @@ import "../QtcLibrary.qbs" as QtcLibrary
 QtcLibrary {
     name: "zeroconf"
 
-    Depends { name: "cpp" }
     Depends { name: "Qt.network" }
     cpp.includePaths: base.concat(".")
 
     cpp.defines: {
         var list = base;
         list.push("ZEROCONF_LIBRARY");
-        if (qbs.targetOS === "linux") {
+        if (qbs.targetOS.contains("linux")) {
             list.push(
                 "_GNU_SOURCE",
                 "HAVE_IPV6",
@@ -24,7 +23,7 @@ QtcLibrary {
     }
 
     Properties {
-        condition: qbs.targetOS == "windows"
+        condition: qbs.targetOS.contains("windows")
         cpp.dynamicLibraries:  "ws2_32"
     }
 

@@ -37,16 +37,31 @@
 namespace Qnx {
 namespace Internal {
 
+namespace Ui {
+class BlackBerryCreatePackageStepConfigWidget;
+}
+
+class BlackBerryCreatePackageStep;
+
 class BlackBerryCreatePackageStepConfigWidget : public ProjectExplorer::BuildStepConfigWidget
 {
     Q_OBJECT
 public:
-    explicit BlackBerryCreatePackageStepConfigWidget();
+    explicit BlackBerryCreatePackageStepConfigWidget(BlackBerryCreatePackageStep *step);
+    ~BlackBerryCreatePackageStepConfigWidget();
 
     QString displayName() const;
     QString summaryText() const;
 
     bool showWidget() const;
+
+private slots:
+    void setPackageMode(bool signPackagesChecked);
+    void showPasswords(bool show);
+
+private:
+    BlackBerryCreatePackageStep *m_step;
+    Ui::BlackBerryCreatePackageStepConfigWidget *m_ui;
 };
 
 } // namespace Internal

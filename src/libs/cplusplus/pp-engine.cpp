@@ -1001,6 +1001,8 @@ bool Preprocessor::handleIdentifier(PPToken *tk)
         bool hasMatchingArgs = false;
         if (hasArgs) {
             const int expectedArgCount = macro->formals().size();
+            if (macro->isVariadic() && allArgTks.size() == expectedArgCount - 1)
+                allArgTks.push_back(QVector<PPToken>());
             const int actualArgCount = allArgTks.size();
             if (expectedArgCount == actualArgCount
                     || (macro->isVariadic() && actualArgCount > expectedArgCount - 1)
@@ -1046,7 +1048,7 @@ bool Preprocessor::handleIdentifier(PPToken *tk)
                                           argRefs);
         }
 
-        if (!handleFunctionLikeMacro(tk, macro, body, allArgTks, baseLine)) {
+        if (!handleFunctionLikeMacro(macro, body, allArgTks, baseLine)) {
             if (m_client && !idTk.expanded())
                 m_client->stopExpandingMacro(idTk.offset, *macro);
             return false;
@@ -1117,8 +1119,7 @@ bool Preprocessor::handleIdentifier(PPToken *tk)
     return true;
 }
 
-bool Preprocessor::handleFunctionLikeMacro(PPToken *tk,
-                                           const Macro *macro,
+bool Preprocessor::handleFunctionLikeMacro(const Macro *macro,
                                            QVector<PPToken> &body,
                                            const QVector<QVector<PPToken> > &actuals,
                                            unsigned baseLine)
@@ -1217,9 +1218,6 @@ bool Preprocessor::handleFunctionLikeMacro(PPToken *tk,
     // The "new" body.
     body = expanded;
     body.squeeze();
-
-    // Next token to be lexed after the expansion.
-    pushToken(tk);
 
     return true;
 }
@@ -1330,19 +1328,6 @@ void Preprocessor::synchronizeOutputLines(const PPToken &tk, bool forceLine)
     adjustForCommentOrStringNewlines(&m_env->currentLine, tk);
 }
 
-void Preprocessor::removeTrailingOutputLines()
-{
-    QByteArray &buffer = currentOutputBuffer();
-    int i = buffer.size() - 1;
-    while (i >= 0 && buffer.at(i) == '\n')
-        --i;
-    const int mightChop = buffer.size() - i - 1;
-    if (mightChop > 1) {
-        // Keep one new line at end.
-        buffer.chop(mightChop - 1);
-    }
-}
-
 std::size_t Preprocessor::computeDistance(const Preprocessor::PPToken &tk, bool forceTillLine)
 {
     // Find previous non-space character or line begin.
@@ -1448,8 +1433,6 @@ void Preprocessor::preprocess(const QString &fileName, const QByteArray &source,
 
     } while (tk.isNot(T_EOF_SYMBOL));
 
-    removeTrailingOutputLines();
-
     if (includeGuardMacroName) {
         if (m_state.m_includeGuardState == State::IncludeGuardState_AfterDefine
                 || m_state.m_includeGuardState == State::IncludeGuardState_AfterEndif)
@@ -1492,9 +1475,9 @@ bool Preprocessor::collectActualArguments(PPToken *tk, QVector<QVector<PPToken> 
         actuals->append(tokens);
     }
 
-    if (tk->is(T_RPAREN))
-        lex(tk);
-    //###TODO: else error message
+    if (!tk->is(T_RPAREN)) {
+        //###TODO: else error message
+    }
     return true;
 }
 
@@ -1913,8 +1896,6 @@ void Preprocessor::handleEndIfDirective(PPToken *tk, const PPToken &poundToken)
 
 void Preprocessor::handleIfDefDirective(bool checkUndefined, PPToken *tk)
 {
-    static const QByteArray qCreatorRun("Q_CREATOR_RUN");
-
     lex(tk); // consume "ifdef" token
     if (tk->is(T_IDENTIFIER)) {
         if (checkUndefined && m_state.m_ifLevel == 0)
@@ -1934,8 +1915,6 @@ void Preprocessor::handleIfDefDirective(bool checkUndefined, PPToken *tk)
                 }
             }
         } else if (m_env->isBuiltinMacro(macroName)) {
-            value = true;
-        } else if (macroName == qCreatorRun) {
             value = true;
         }
 

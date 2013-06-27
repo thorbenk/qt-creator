@@ -326,7 +326,8 @@ void PluginDumper::qmlPluginTypeDumpDone(int exitCode)
     QString warning;
     CppQmlTypesLoader::BuiltinObjects objectsList;
     QList<ModuleApiInfo> moduleApis;
-    CppQmlTypesLoader::parseQmlTypeDescriptions(output, &objectsList, &moduleApis, &error, &warning);
+    CppQmlTypesLoader::parseQmlTypeDescriptions(output, &objectsList, &moduleApis, &error, &warning,
+                                                QLatin1String("<dump of ") + libraryPath + QLatin1String(">"));
     if (exitCode == 0) {
         if (!error.isEmpty()) {
             libraryInfo.setPluginTypeInfoStatus(LibraryInfo::DumpError,
@@ -397,7 +398,7 @@ void PluginDumper::loadQmltypesFile(const QStringList &qmltypesFilePaths,
         QString warning;
         CppQmlTypesLoader::BuiltinObjects newObjects;
         QList<ModuleApiInfo> newModuleApis;
-        CppQmlTypesLoader::parseQmlTypeDescriptions(reader.data(), &newObjects, &newModuleApis, &error, &warning);
+        CppQmlTypesLoader::parseQmlTypeDescriptions(reader.data(), &newObjects, &newModuleApis, &error, &warning, qmltypesFilePath);
         if (!error.isEmpty()) {
             errors += tr("Failed to parse '%1'.\nError: %2").arg(qmltypesFilePath, error);
         } else {
@@ -473,6 +474,8 @@ void PluginDumper::dump(const Plugin &plugin)
         if (ComponentVersion(plugin.importVersion).isValid())
             args << plugin.importVersion;
     } else {
+        if (info.qmlDumpHasRelocatableFlag)
+            args << QLatin1String("-relocatable");
         args << plugin.importUri;
         args << plugin.importVersion;
         args << plugin.importPath;

@@ -61,34 +61,21 @@ public:
     static QString applicationName(ProjectExplorer::Target *target);
     static bool setApplicationName(ProjectExplorer::Target *target, const QString &name);
 
-    static QStringList permissions(ProjectExplorer::Target *target);
-    static bool setPermissions(ProjectExplorer::Target *target, const QStringList &permissions);
-
     static QString intentName(ProjectExplorer::Target *target);
     static QString activityName(ProjectExplorer::Target *target);
-
-    static int versionCode(ProjectExplorer::Target *target);
-    static bool setVersionCode(ProjectExplorer::Target *target, int version);
-    static QString versionName(ProjectExplorer::Target *target);
-    static bool setVersionName(ProjectExplorer::Target *target, const QString &version);
-
-    static QIcon highDpiIcon(ProjectExplorer::Target *target);
-    static bool setHighDpiIcon(ProjectExplorer::Target *target, const QString &iconFilePath);
-    static QIcon mediumDpiIcon(ProjectExplorer::Target *target);
-    static bool setMediumDpiIcon(ProjectExplorer::Target *target, const QString &iconFilePath);
-    static QIcon lowDpiIcon(ProjectExplorer::Target *target);
-    static bool setLowDpiIcon(ProjectExplorer::Target *target, const QString &iconFilePath);
-    static bool ensureIconAttribute(ProjectExplorer::Target *target);
 
     static QStringList availableTargetApplications(ProjectExplorer::Target *target);
     static QString targetApplication(ProjectExplorer::Target *target);
     static bool setTargetApplication(ProjectExplorer::Target *target, const QString &name);
     static QString targetApplicationPath(ProjectExplorer::Target *target);
 
-    static bool setUseLocalLibs(ProjectExplorer::Target *target, bool useLocalLibs, int deviceAPILevel);
+    static bool updateDeploymentSettings(ProjectExplorer::Target *target);
+    static bool bundleQt(ProjectExplorer::Target *target);
 
     static QString targetSDK(ProjectExplorer::Target *target);
     static bool setTargetSDK(ProjectExplorer::Target *target, const QString &sdk);
+
+    static QString targetArch(ProjectExplorer::Target *target);
 
     static Utils::FileName dirPath(ProjectExplorer::Target *target);
     static Utils::FileName manifestPath(ProjectExplorer::Target *target);
@@ -103,9 +90,10 @@ public:
                              const QString &name = QString());
 
     static Utils::FileName localLibsRulesFilePath(ProjectExplorer::Target *target);
-    static QString loadLocalLibs(ProjectExplorer::Target *target, int apiLevel);
-    static QString loadLocalJars(ProjectExplorer::Target *target, int apiLevel);
-    static QString loadLocalJarsInitClasses(ProjectExplorer::Target *target, int apiLevel);
+    static QString loadLocalLibs(ProjectExplorer::Target *target, int apiLevel = -1);
+    static QString loadLocalJars(ProjectExplorer::Target *target, int apiLevel = -1);
+    static QString loadLocalBundledFiles(ProjectExplorer::Target *target, int apiLevel = -1);
+    static QString loadLocalJarsInitClasses(ProjectExplorer::Target *target, int apiLevel = -1);
 
     class Library
     {
@@ -123,11 +111,17 @@ public:
     static QStringList qtLibs(ProjectExplorer::Target *target);
     static bool setQtLibs(ProjectExplorer::Target *target, const QStringList &libs);
 
+    static bool setBundledInLib(ProjectExplorer::Target *target,
+                                const QStringList &fileList);
+    static bool setBundledInAssets(ProjectExplorer::Target *target,
+                                   const QStringList &fileList);
+
     static QStringList availablePrebundledLibs(ProjectExplorer::Target *target);
     static QStringList prebundledLibs(ProjectExplorer::Target *target);
     static bool setPrebundledLibs(ProjectExplorer::Target *target, const QStringList &libs);
 
     static QString libGnuStl(const QString &arch, const QString &ndkToolChainVersion);
+    static QString libraryPrefix();
 
 private:
     static void raiseError(const QString &reason);
@@ -143,19 +137,11 @@ private:
     enum ItemType
     {
         Lib,
-        Jar
+        Jar,
+        BundledFile,
+        BundledJar
     };
     static QString loadLocal(ProjectExplorer::Target *target, int apiLevel, ItemType item, const QString &attribute=QLatin1String("file"));
-
-    enum IconType
-    {
-        HighDPI,
-        MediumDPI,
-        LowDPI
-    };
-    static QString iconPath(ProjectExplorer::Target *target, IconType type);
-    static QIcon icon(ProjectExplorer::Target *target, IconType type);
-    static bool setIcon(ProjectExplorer::Target *target, IconType type, const QString &iconFileName);
 
     static QStringList dependencies(const Utils::FileName &readelfPath, const QString &lib);
     static int setLibraryLevel(const QString &library, LibrariesMap &mapLibs);

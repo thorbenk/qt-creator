@@ -36,13 +36,13 @@ SOURCES += cppeditorplugin.cpp \
     cpptypehierarchy.cpp
 
 RESOURCES += cppeditor.qrc
-OTHER_FILES += CppEditor.mimetypes.xml
 
 equals(TEST, 1) {
     SOURCES += \
         cppquickfix_test.cpp \
         cppdoxygen_test.cpp \
-        fileandtokenactions_test.cpp
+        fileandtokenactions_test.cpp \
+        followsymbol_switchmethoddecldef_test.cpp
 
     DEFINES += SRCDIR=\\\"$$PWD\\\"
 }

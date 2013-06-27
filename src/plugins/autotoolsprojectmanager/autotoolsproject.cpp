@@ -79,9 +79,7 @@ AutotoolsProject::AutotoolsProject(AutotoolsManager *manager, const QString &fil
     m_makefileParserThread(0)
 {
     setProjectContext(Core::Context(Constants::PROJECT_CONTEXT));
-    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
-    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
-    setProjectLanguages(pl);
+    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
 
     const QFileInfo fileInfo(m_fileName);
     m_projectName = fileInfo.absoluteDir().dirName();
@@ -408,55 +406,35 @@ void AutotoolsProject::updateCppCodeModel()
 {
     CppTools::CppModelManagerInterface *modelManager =
         CppTools::CppModelManagerInterface::instance();
-
     if (!modelManager)
         return;
 
-    QStringList allIncludePaths = m_makefileParserThread->includePaths();
-    QStringList allFrameworkPaths;
-    QByteArray macros;
+    const QStringList cflags = m_makefileParserThread->cflags();
+    QStringList cxxflags = m_makefileParserThread->cxxflags();
+    if (cxxflags.isEmpty())
+        cxxflags = cflags;
 
-    QStringList cxxflags; // FIXME: Autotools should be able to do better than this!
+    CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
+    pinfo.clearProjectParts();
+    CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
 
     if (activeTarget()) {
         ProjectExplorer::Kit *k = activeTarget()->kit();
         ToolChain *tc = ProjectExplorer::ToolChainKitInformation::toolChain(k);
-        if (tc) {
-            const QList<HeaderPath> allHeaderPaths = tc->systemHeaderPaths(cxxflags,
-                                                                           SysRootKitInformation::sysRoot(k));
-            foreach (const HeaderPath &headerPath, allHeaderPaths) {
-                if (headerPath.kind() == HeaderPath::FrameworkHeaderPath)
-                    allFrameworkPaths.append(headerPath.path());
-                else
-                    allIncludePaths.append(headerPath.path());
-            }
-            macros = tc->predefinedMacros(cxxflags);
-            macros += '\n';
-        }
+        part->evaluateToolchain(tc, cxxflags, cflags,
+                                SysRootKitInformation::sysRoot(k));
     }
 
-    CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelManager->projectInfo(this);
+    foreach (const QString &file, m_files)
+        part->files << CppTools::ProjectFile(file, CppTools::ProjectFile::CXXSource);
 
-    const bool update = (pinfo.includePaths() != allIncludePaths)
-            || (pinfo.sourceFiles() != m_files)
-            || (pinfo.defines() != macros)
-            || (pinfo.frameworkPaths() != allFrameworkPaths);
-    if (update) {
-        pinfo.clearProjectParts();
-        CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
-        part->includePaths = allIncludePaths;
-        foreach (const QString &file, m_files)
-            part->files << CppTools::ProjectFile(file, CppTools::ProjectFile::CXXSource);
+    part->includePaths += m_makefileParserThread->includePaths();
+    part->defines += m_makefileParserThread->defines();
+    pinfo.appendProjectPart(part);
 
-        part->defines = macros;
-        part->frameworkPaths = allFrameworkPaths;
-        part->cVersion = CppTools::ProjectPart::C99;
-        part->cxxVersion = CppTools::ProjectPart::CXX11;
-        pinfo.appendProjectPart(part);
+    modelManager->updateProjectInfo(pinfo);
+    modelManager->updateSourceFiles(m_files,
+                                    CppTools::CppModelManagerInterface::ForcedProgressNotification);
 
-        modelManager->updateProjectInfo(pinfo);
-        modelManager->updateSourceFiles(m_files);
-
-        setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !part->files.isEmpty());
-    }
+    setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !part->files.isEmpty());
 }

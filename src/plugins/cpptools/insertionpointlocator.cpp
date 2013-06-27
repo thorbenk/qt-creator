@@ -42,33 +42,6 @@ using namespace CppTools;
 
 namespace {
 
-static QString generate(InsertionPointLocator::AccessSpec xsSpec)
-{
-    switch (xsSpec) {
-    default:
-    case InsertionPointLocator::Public:
-        return QLatin1String("public:\n");
-
-    case InsertionPointLocator::Protected:
-        return QLatin1String("protected:\n");
-
-    case InsertionPointLocator::Private:
-        return QLatin1String("private:\n");
-
-    case InsertionPointLocator::PublicSlot:
-        return QLatin1String("public slots:\n");
-
-    case InsertionPointLocator::ProtectedSlot:
-        return QLatin1String("protected slots:\n");
-
-    case InsertionPointLocator::PrivateSlot:
-        return QLatin1String("private slots:\n");
-
-    case InsertionPointLocator::Signals:
-        return QLatin1String("signals:\n");
-    }
-}
-
 static int ordering(InsertionPointLocator::AccessSpec xsSpec)
 {
     static QList<InsertionPointLocator::AccessSpec> order = QList<InsertionPointLocator::AccessSpec>()
@@ -161,7 +134,7 @@ protected:
         if (needsLeadingEmptyLine)
             prefix += QLatin1String("\n");
         if (needsPrefix)
-            prefix += generate(_xsSpec);
+            prefix += InsertionPointLocator::accessSpecToString(_xsSpec);
 
         QString suffix;
         if (needsSuffix)
@@ -299,6 +272,33 @@ InsertionLocation::InsertionLocation(const QString &fileName,
     , m_column(column)
 {}
 
+QString InsertionPointLocator::accessSpecToString(InsertionPointLocator::AccessSpec xsSpec)
+{
+    switch (xsSpec) {
+    default:
+    case InsertionPointLocator::Public:
+        return QLatin1String("public:\n");
+
+    case InsertionPointLocator::Protected:
+        return QLatin1String("protected:\n");
+
+    case InsertionPointLocator::Private:
+        return QLatin1String("private:\n");
+
+    case InsertionPointLocator::PublicSlot:
+        return QLatin1String("public slots:\n");
+
+    case InsertionPointLocator::ProtectedSlot:
+        return QLatin1String("protected slots:\n");
+
+    case InsertionPointLocator::PrivateSlot:
+        return QLatin1String("private slots:\n");
+
+    case InsertionPointLocator::Signals:
+        return QLatin1String("signals:\n");
+    }
+}
+
 InsertionPointLocator::InsertionPointLocator(const CppRefactoringChanges &refactoringChanges)
     : m_refactoringChanges(refactoringChanges)
 {
@@ -363,7 +363,7 @@ public:
         : ASTVisitor(translationUnit)
     {}
 
-    void operator()(Declaration *decl, unsigned *line, unsigned *column)
+    void operator()(Symbol *decl, unsigned *line, unsigned *column)
     {
         // default to end of file
         _bestToken.maybeSet(-1, translationUnit()->ast()->lastToken());
@@ -470,7 +470,9 @@ static Declaration *isNonVirtualFunctionDeclaration(Symbol *s)
     return declaration;
 }
 
-static InsertionLocation nextToSurroundingDefinitions(Declaration *declaration, const CppRefactoringChanges &changes)
+static InsertionLocation nextToSurroundingDefinitions(Symbol *declaration,
+                                                      const CppRefactoringChanges &changes,
+                                                      const QString& destinationFile)
 {
     InsertionLocation noResult;
     Class *klass = declaration->enclosingClass();
@@ -489,85 +491,91 @@ static InsertionLocation nextToSurroundingDefinitions(Declaration *declaration, 
     if (declIndex == -1)
         return noResult;
 
-    // scan preceding declarations for a function declaration
+    // scan preceding declarations for a function declaration (and see if it is defined)
+    CppTools::SymbolFinder symbolFinder;
+    Function *definitionFunction = 0;
     QString prefix, suffix;
     Declaration *surroundingFunctionDecl = 0;
     for (int i = declIndex - 1; i >= 0; --i) {
         Symbol *s = klass->memberAt(i);
         surroundingFunctionDecl = isNonVirtualFunctionDeclaration(s);
-        if (surroundingFunctionDecl) {
-            prefix = QLatin1String("\n\n");
-            break;
+        if (!surroundingFunctionDecl)
+            continue;
+        if ((definitionFunction = symbolFinder.findMatchingDefinition(surroundingFunctionDecl,
+                                                                      changes.snapshot())))
+        {
+            if (destinationFile.isEmpty() || destinationFile == QString::fromUtf8(
+                        definitionFunction->fileName(), definitionFunction->fileNameLength())) {
+                prefix = QLatin1String("\n\n");
+                break;
+            }
+            definitionFunction = 0;
         }
     }
-    if (!surroundingFunctionDecl) {
+    if (!definitionFunction) {
         // try to find one below
         for (unsigned i = declIndex + 1; i < klass->memberCount(); ++i) {
             Symbol *s = klass->memberAt(i);
             surroundingFunctionDecl = isNonVirtualFunctionDeclaration(s);
-            if (surroundingFunctionDecl) {
-                suffix = QLatin1String("\n\n");
-                break;
+            if (!surroundingFunctionDecl)
+                continue;
+            if ((definitionFunction = symbolFinder.findMatchingDefinition(surroundingFunctionDecl,
+                                                                          changes.snapshot())))
+            {
+                if (destinationFile.isEmpty() || destinationFile == QString::fromUtf8(
+                            definitionFunction->fileName(), definitionFunction->fileNameLength())) {
+                    suffix = QLatin1String("\n\n");
+                    break;
+                }
+                definitionFunction = 0;
             }
         }
-        if (!surroundingFunctionDecl)
-            return noResult;
     }
 
-    // find the declaration's definition
-    CppTools::SymbolFinder symbolFinder;
-    Symbol *definition = symbolFinder.findMatchingDefinition(surroundingFunctionDecl,
-                                                             changes.snapshot());
-    if (!definition)
+    if (!definitionFunction)
         return noResult;
 
     unsigned line, column;
     if (suffix.isEmpty()) {
-        Function *definitionFunction = definition->asFunction();
-        if (!definitionFunction)
-            return noResult;
-
-        Document::Ptr targetDoc = changes.snapshot().document(QString::fromUtf8(definition->fileName()));
+        Document::Ptr targetDoc = changes.snapshot().document(QString::fromUtf8(definitionFunction->fileName()));
         if (!targetDoc)
             return noResult;
 
         targetDoc->translationUnit()->getPosition(definitionFunction->endOffset(), &line, &column);
     } else {
         // we don't have an offset to the start of the function definition, so we need to manually find it...
-        CppRefactoringFilePtr targetFile = changes.file(QString::fromUtf8(definition->fileName()));
+        CppRefactoringFilePtr targetFile = changes.file(QString::fromUtf8(definitionFunction->fileName()));
         if (!targetFile->isValid())
             return noResult;
 
         FindFunctionDefinition finder(targetFile->cppDocument()->translationUnit());
-        FunctionDefinitionAST *functionDefinition = finder(definition->line(), definition->column());
+        FunctionDefinitionAST *functionDefinition = finder(definitionFunction->line(), definitionFunction->column());
         if (!functionDefinition)
             return noResult;
 
         targetFile->cppDocument()->translationUnit()->getTokenStartPosition(functionDefinition->firstToken(), &line, &column);
     }
 
-    return InsertionLocation(QString::fromUtf8(definition->fileName()), prefix, suffix, line, column);
+    return InsertionLocation(QString::fromUtf8(definitionFunction->fileName()), prefix, suffix, line, column);
 }
 
-QList<InsertionLocation> InsertionPointLocator::methodDefinition(
-    Declaration *declaration) const
+QList<InsertionLocation> InsertionPointLocator::methodDefinition(Symbol *declaration,
+                                                                 bool useSymbolFinder,
+                                                                 const QString &destinationFile) const
 {
     QList<InsertionLocation> result;
     if (!declaration)
         return result;
 
-    CppTools::SymbolFinder symbolFinder;
-    if (Symbol *s = symbolFinder.findMatchingDefinition(declaration,
-                                                        m_refactoringChanges.snapshot(),
-                                                        true)) {
-        if (Function *f = s->asFunction()) {
-            if (f->isConst() == declaration->type().isConst()
-                    && f->isVolatile() == declaration->type().isVolatile())
-                return result;
-        }
+    if (useSymbolFinder) {
+        CppTools::SymbolFinder symbolFinder;
+        if (symbolFinder.findMatchingDefinition(declaration, m_refactoringChanges.snapshot(), true))
+            return result;
     }
 
-    const InsertionLocation location = nextToSurroundingDefinitions(declaration, m_refactoringChanges);
+    const InsertionLocation location = nextToSurroundingDefinitions(declaration,
+                                                                    m_refactoringChanges,
+                                                                    destinationFile);
     if (location.isValid()) {
         result += location;
         return result;

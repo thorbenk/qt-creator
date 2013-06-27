@@ -62,6 +62,9 @@ const char ANDROIDQT[] = "Qt4ProjectManager.QtVersion.Android";
 
 const char ANDROID_DEVICE_TYPE[] = "Android.Device.Type";
 const char ANDROID_DEVICE_ID[] = "Android Device";
+const char ANDROID_MANIFEST_MIME_TYPE[] = "application/vnd.google.android.android_manifest";
+const char ANDROID_MANIFEST_EDITOR_ID[] = "Android.AndroidManifestEditor.Id";
+const char ANDROID_MANIFEST_EDITOR_CONTEXT[] = "Android.AndroidManifestEditor.Id";
 } // namespace Constants;
 } // namespace Android
 

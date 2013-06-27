@@ -128,13 +128,13 @@ static inline QList<QStandardItem *> headerEntry(const QString &h)
 static inline QList<QStandardItem *> repositoryEntry(const GitoriousRepository &r)
 {
     QStandardItem *nameItem = new QStandardItem(r.name);
-    nameItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
+    nameItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
     nameItem->setData(QVariant(RepositoryType), TypeRole);
     QStandardItem *ownerItem = new QStandardItem(r.owner);
-    ownerItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
+    ownerItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
     ownerItem->setData(QVariant(RepositoryType), TypeRole);
     QStandardItem *descriptionItem = new QStandardItem;
-    descriptionItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
+    descriptionItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
     descriptionItem->setData(QVariant(RepositoryType), TypeRole);
     QList<QStandardItem *> rc;
     rc << nameItem << ownerItem << descriptionItem;
@@ -182,7 +182,10 @@ void GitoriousRepositoryWizardPage::initializePage()
     // Select first
     if (firstEntry) {
         const QModelIndex filterIndex = m_filterModel->mapFromSource(m_model->indexFromItem(firstEntry));
-        ui->repositoryTreeView->selectionModel()->setCurrentIndex(filterIndex, QItemSelectionModel::Select|QItemSelectionModel::Current|QItemSelectionModel::Rows);
+        ui->repositoryTreeView->selectionModel()->setCurrentIndex(filterIndex,
+                    QItemSelectionModel::Select
+                    | QItemSelectionModel::Current
+                    | QItemSelectionModel::Rows);
     }
     ui->repositoryTreeView->setFocus();
 }
@@ -235,18 +238,6 @@ QUrl GitoriousRepositoryWizardPage::repositoryURL() const
 bool GitoriousRepositoryWizardPage::isComplete() const
 {
     return m_valid;
-}
-
-void GitoriousRepositoryWizardPage::changeEvent(QEvent *e)
-{
-    QWizardPage::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        ui->retranslateUi(this);
-        break;
-    default:
-        break;
-    }
 }
 
 } // namespace Internal

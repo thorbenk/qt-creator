@@ -139,10 +139,10 @@ MainWindow::MainWindow() :
     m_modeManager(0),
     m_mimeDatabase(new MimeDatabase),
     m_helpManager(new HelpManager),
+    m_modeStack(new FancyTabWidget(this)),
     m_navigationWidget(0),
     m_rightPaneWidget(0),
     m_versionDialog(0),
-    m_activeContext(0),
     m_generalSettings(new GeneralSettings),
     m_shortcutSettings(new ShortcutSettings),
     m_toolSettings(new ToolSettings),
@@ -195,14 +195,14 @@ MainWindow::MainWindow() :
     setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
     setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
 
+    m_modeManager = new ModeManager(this, m_modeStack);
+
     registerDefaultContainers();
     registerDefaultActions();
 
     m_navigationWidget = new NavigationWidget(m_toggleSideBarAction);
     m_rightPaneWidget = new RightPaneWidget();
 
-    m_modeStack = new FancyTabWidget(this);
-    m_modeManager = new ModeManager(this, m_modeStack);
     m_statusBarManager = new StatusBarManager(this);
     m_messageManager = new MessageManager;
     m_editorManager = new EditorManager(this);
@@ -449,15 +449,14 @@ void MainWindow::openDelayedFiles()
 {
     if (m_filesToOpenDelayed.isEmpty())
         return;
-    activateWindow();
-    raise();
+    raiseWindow();
     openFiles(m_filesToOpenDelayed, ICore::SwitchMode);
     m_filesToOpenDelayed.clear();
 }
 
 IContext *MainWindow::currentContextObject() const
 {
-    return m_activeContext;
+    return m_activeContext.isEmpty() ? 0 : m_activeContext.first();
 }
 
 QStatusBar *MainWindow::statusBar() const
@@ -728,6 +727,12 @@ void MainWindow::registerDefaultActions()
     mwindow->addAction(cmd, Constants::G_WINDOW_VIEWS);
     m_toggleSideBarAction->setEnabled(false);
 
+    // Show Mode Selector Action
+    m_toggleModeSelectorAction = new QAction(tr("Show Mode Selector"), this);
+    m_toggleModeSelectorAction->setCheckable(true);
+    cmd = ActionManager::registerAction(m_toggleModeSelectorAction, Constants::TOGGLE_MODE_SELECTOR, globalContext);
+    connect(m_toggleModeSelectorAction, SIGNAL(triggered(bool)), ModeManager::instance(), SLOT(setModeSelectorVisible(bool)));
+    mwindow->addAction(cmd, Constants::G_WINDOW_VIEWS);
 
 #if defined(Q_OS_MAC)
     const QString fullScreenActionText(tr("Enter Full Screen"));
@@ -856,8 +861,6 @@ IDocument *MainWindow::openFiles(const QStringList &fileNames, ICore::OpenFilesF
             }
         } else {
             QFlags<EditorManager::OpenEditorFlag> emFlags;
-            if (flags & ICore::SwitchMode)
-                emFlags = EditorManager::ModeSwitch;
             if (flags & ICore::CanContainLineNumbers)
                 emFlags |=  EditorManager::CanContainLineNumber;
             IEditor *editor = EditorManager::openEditor(absoluteFilePath, Id(), emFlags);
@@ -1000,7 +1003,7 @@ void MainWindow::openFileWith()
         if (isExternal)
             EditorManager::openExternalEditor(fileName, editorId);
         else
-            EditorManager::openEditor(fileName, editorId, Core::EditorManager::ModeSwitch);
+            EditorManager::openEditor(fileName, editorId);
     }
 }
 
@@ -1088,8 +1091,8 @@ void MainWindow::removeContextObject(IContext *context)
         return;
 
     m_contextWidgets.remove(widget);
-    if (m_activeContext == context)
-        updateContextObject(0);
+    if (m_activeContext.removeAll(context) > 0)
+        updateContextObject(m_activeContext);
 }
 
 void MainWindow::changeEvent(QEvent *e)
@@ -1123,46 +1126,39 @@ void MainWindow::updateFocusWidget(QWidget *old, QWidget *now)
     if (qobject_cast<QMenuBar*>(now) || qobject_cast<QMenu*>(now))
         return;
 
-    IContext *newContext = 0;
+    QList<IContext *> newContext;
     if (QWidget *p = qApp->focusWidget()) {
         IContext *context = 0;
         while (p) {
             context = m_contextWidgets.value(p);
-            if (context) {
-                newContext = context;
-                break;
-            }
+            if (context)
+                newContext.append(context);
             p = p->parentWidget();
         }
     }
 
     // ignore toplevels that define no context, like popups without parent
-    if (newContext || qApp->focusWidget() == focusWidget())
+    if (!newContext.isEmpty() || qApp->focusWidget() == focusWidget())
         updateContextObject(newContext);
 }
 
-void MainWindow::updateContextObject(IContext *context)
+void MainWindow::updateContextObject(const QList<IContext *> &context)
 {
-    if (context == m_activeContext)
-        return;
     emit m_coreImpl->contextAboutToChange(context);
     m_activeContext = context;
     updateContext();
-    if (debugMainWindow)
-        qDebug() << "new context object =" << context << (context ? context->widget() : 0)
-                 << (context ? context->widget()->metaObject()->className() : 0);
-}
-
-void MainWindow::resetContext()
-{
-    updateContextObject(0);
+    if (debugMainWindow) {
+        qDebug() << "new context objects =" << context;
+        foreach (IContext *c, context)
+            qDebug() << (c ? c->widget() : 0) << (c ? c->widget()->metaObject()->className() : 0);
+    }
 }
 
 void MainWindow::aboutToShutdown()
 {
     disconnect(QApplication::instance(), SIGNAL(focusChanged(QWidget*,QWidget*)),
                this, SLOT(updateFocusWidget(QWidget*,QWidget*)));
-    m_activeContext = 0;
+    m_activeContext.clear();
     hide();
 }
 
@@ -1170,6 +1166,7 @@ static const char settingsGroup[] = "MainWindow";
 static const char colorKey[] = "Color";
 static const char windowGeometryKey[] = "WindowGeometry";
 static const char windowStateKey[] = "WindowState";
+static const char modeSelectorVisibleKey[] = "ModeSelectorVisible";
 
 void MainWindow::readSettings()
 {
@@ -1189,6 +1186,10 @@ void MainWindow::readSettings()
         resize(1008, 700); // size without window decoration
     restoreState(m_settings->value(QLatin1String(windowStateKey)).toByteArray());
 
+    bool modeSelectorVisible = m_settings->value(QLatin1String(modeSelectorVisibleKey), true).toBool();
+    ModeManager::instance()->setModeSelectorVisible(modeSelectorVisible);
+    m_toggleModeSelectorAction->setChecked(modeSelectorVisible);
+
     m_settings->endGroup();
 
     m_editorManager->readSettings();
@@ -1205,6 +1206,7 @@ void MainWindow::writeSettings()
 
     m_settings->setValue(QLatin1String(windowGeometryKey), saveGeometry());
     m_settings->setValue(QLatin1String(windowStateKey), saveState());
+    m_settings->setValue(QLatin1String(modeSelectorVisibleKey), ModeManager::isModeSelectorVisible());
 
     m_settings->endGroup();
 
@@ -1240,8 +1242,8 @@ void MainWindow::updateContext()
 {
     Context contexts;
 
-    if (m_activeContext)
-        contexts.add(m_activeContext->context());
+    foreach (IContext *context, m_activeContext)
+        contexts.add(context->context());
 
     contexts.add(m_additionalContexts);
 
@@ -1285,7 +1287,7 @@ void MainWindow::openRecentFile()
 {
     if (const QAction *action = qobject_cast<const QAction*>(sender())) {
         const DocumentManager::RecentFile file = action->data().value<DocumentManager::RecentFile>();
-        EditorManager::openEditor(file.first, file.second, EditorManager::ModeSwitch);
+        EditorManager::openEditor(file.first, file.second);
     }
 }
 

@@ -19,7 +19,6 @@ QtcPlugin {
     Depends { name: "QmlJS" }
     Depends { name: "QmlJSTools" }
 
-    Depends { name: "cpp" }
 
     cpp.includePaths: base.concat([
         qbs_source_dir + "/src",
@@ -36,7 +35,7 @@ QtcPlugin {
     cpp.rpaths: base.concat([qbs_build_dir + "/lib"])
     cpp.dynamicLibraries: {
         var libs = []
-        if (qbs.targetOS === "windows") {
+        if (qbs.targetOS.contains("windows")) {
             libs.push("shell32")
             if (qbs.enableDebugCode)
                 libs.push("qbscored")
@@ -59,6 +58,8 @@ QtcPlugin {
         "qbscleanstep.cpp",
         "qbscleanstep.h",
         "qbscleanstepconfigwidget.ui",
+        "qbsdeployconfigurationfactory.cpp",
+        "qbsdeployconfigurationfactory.h",
         "qbsinstallstep.cpp",
         "qbsinstallstep.h",
         "qbsinstallstepconfigwidget.ui",
@@ -78,9 +79,12 @@ QtcPlugin {
         "qbsprojectmanagerconstants.h",
         "qbsprojectmanagerplugin.cpp",
         "qbsprojectmanagerplugin.h",
+        "qbspropertylineedit.cpp",
+        "qbspropertylineedit.h",
+        "qbsrunconfiguration.cpp",
+        "qbsrunconfiguration.h",
         "qbsstep.cpp",
-        "qbsstep.h",
-        "qbsstepconfigwidget.ui"
+        "qbsstep.h"
     ]
 }
 

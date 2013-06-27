@@ -10,6 +10,7 @@ QtcPlugin {
     Depends { name: "TextEditor" }
     Depends { name: "Find" }
     Depends { name: "VcsBase" }
+    Depends { name: "DiffEditor" }
     Depends { name: "Locator" }
 
     files: [
@@ -40,6 +41,8 @@ QtcPlugin {
         "gitconstants.h",
         "giteditor.cpp",
         "giteditor.h",
+        "githighlighters.cpp",
+        "githighlighters.h",
         "gitplugin.cpp",
         "gitplugin.h",
         "gitsettings.cpp",
@@ -72,6 +75,7 @@ QtcPlugin {
     ]
 
     Group {
+        name: "Gitorious"
         prefix: "gitorious/"
         files: [
             "gitorious.cpp",
@@ -95,6 +99,7 @@ QtcPlugin {
     }
 
     Group {
+        name: "Gerrit"
         prefix: "gerrit/"
         files: [
             "gerritdialog.cpp",

@@ -32,23 +32,16 @@
 #include <qmldesignerconstants.h>
 
 #include "model.h"
-#include "metainfo.h"
 #include "metainforeader.h"
 
 #include <utils/hostosinfo.h>
 
 #include <QDir>
-#include <QMetaType>
 #include <QMessageBox>
 #include <QUrl>
 
-#include <qmljs/qmljsevaluate.h>
-#include <qmljs/qmljsinterpreter.h>
-#include <qmljs/qmljscontext.h>
 #include <qmljs/qmljslink.h>
 #include <qmljs/parser/qmljsast_p.h>
-#include <qmljs/qmljsscopebuilder.h>
-#include <qmljs/qmljsscopechain.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
 
 enum { debug = false };
@@ -74,6 +67,8 @@ static inline QStringList importPaths() {
         paths = QString::fromUtf8(envImportPath)
                 .split(Utils::HostOsInfo::pathListSeparator(), QString::SkipEmptyParts);
     }
+
+    paths.append(QmlJS::ModelManagerInterface::instance()->importPaths());
 
     return paths;
 }
@@ -106,7 +101,7 @@ static inline bool checkIfDerivedFromItem(const QString &fileName)
 
     snapshot.insert(document);
 
-    QmlJS::Link link(snapshot, QStringList(), QmlJS::ModelManagerInterface::instance()->builtins(document));
+    QmlJS::Link link(snapshot, modelManager->importPaths(), QmlJS::ModelManagerInterface::instance()->builtins(document));
 
     QList<QmlJS::DiagnosticMessage> diagnosticLinkMessages;
     QmlJS::ContextPtr context = link(document, &diagnosticLinkMessages);
@@ -121,15 +116,7 @@ static inline bool checkIfDerivedFromItem(const QString &fileName)
     if (!definition)
         return false;
 
-    QString fullTypeName;
-    for (QmlJS::AST::UiQualifiedId *iter = definition->qualifiedTypeNameId; iter; iter = iter->next)
-        if (!iter->name.isEmpty())
-            fullTypeName += iter->name.toString() + QLatin1Char('.');
-
-    if (fullTypeName.endsWith(QLatin1Char('.')))
-        fullTypeName.chop(1);
-
-    const QmlJS::ObjectValue *objectValue = context->lookupType(document.data(), fullTypeName.split('.'));
+    const QmlJS::ObjectValue *objectValue = context->lookupType(document.data(), definition->qualifiedTypeNameId);
 
     QList<const QmlJS::ObjectValue *> prototypes = QmlJS::PrototypeIterator(objectValue, context).all();
 
@@ -225,10 +212,11 @@ void SubComponentManager::parseDirectories()
                 parseDirectory(dirInfo.canonicalFilePath(), true, dirInfo.baseName().toUtf8());
         } else {
             QString url = import.url();
+            url.replace(QLatin1Char('.'), QLatin1Char('/'));
+            QFileInfo dirInfo = QFileInfo(url);
             foreach (const QString &path, importPaths()) {
-                url.replace(QLatin1Char('.'), QLatin1Char('/'));
-                url  = path + QLatin1Char('/') + url;
-                QFileInfo dirInfo = QFileInfo(url);
+                QString fullUrl  = path + QLatin1Char('/') + url;
+                dirInfo = QFileInfo(fullUrl);
                 if (dirInfo.exists() && dirInfo.isDir()) {
                     //### todo full qualified names QString nameSpace = import.uri();
                     parseDirectory(dirInfo.canonicalFilePath(), false);

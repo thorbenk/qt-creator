@@ -176,28 +176,14 @@ QString Qt4Manager::mimeType() const
 
 ProjectExplorer::Project *Qt4Manager::openProject(const QString &fileName, QString *errorString)
 {
-    // TODO Make all file paths relative & remove this hack
-    // We convert the path to an absolute one here because qt4project.cpp
-    // && profileevaluator use absolute/canonical file paths all over the place
-    // Correct fix would be to remove these calls ...
-    QString canonicalFilePath = QFileInfo(fileName).canonicalFilePath();
-
-    if (canonicalFilePath.isEmpty()) {
+    if (!QFileInfo(fileName).isFile()) {
         if (errorString)
-         *errorString = tr("Failed opening project '%1': Project file does not exist").arg(QDir::toNativeSeparators(fileName));
+            *errorString = tr("Failed opening project '%1': Project is not a file")
+                .arg(fileName);
         return 0;
     }
 
-    foreach (ProjectExplorer::Project *pi, projectExplorer()->session()->projects()) {
-        if (canonicalFilePath == pi->document()->fileName()) {
-            if (errorString)
-                *errorString = tr("Failed opening project '%1': Project already open").arg(QDir::toNativeSeparators(canonicalFilePath));
-            return 0;
-        }
-    }
-
-    Qt4Project *pro = new Qt4Project(this, canonicalFilePath);
-    return pro;
+    return new Qt4Project(this, fileName);
 }
 
 ProjectExplorer::ProjectExplorerPlugin *Qt4Manager::projectExplorer() const
@@ -261,7 +247,8 @@ void Qt4Manager::addLibrary(const QString &fileName, ProFileEditorWidget *editor
         editable = editor->editor();
     } else {
         editable = qobject_cast<TextEditor::BaseTextEditor *>
-                (Core::EditorManager::openEditor(fileName, Qt4ProjectManager::Constants::PROFILE_EDITOR_ID));
+                (Core::EditorManager::openEditor(fileName, Qt4ProjectManager::Constants::PROFILE_EDITOR_ID,
+                                                 Core::EditorManager::DoNotMakeVisible));
     }
     if (!editable)
         return;
@@ -337,27 +324,49 @@ void Qt4Manager::buildFileContextMenu()
     handleSubDirContextMenu(BUILD, true);
 }
 
+void Qt4Manager::buildFile()
+{
+    if (Core::IEditor *currentEditor = Core::EditorManager::currentEditor()) {
+        QString file = currentEditor->document()->fileName();
+        ProjectExplorer::SessionManager *session = projectExplorer()->session();
+        ProjectExplorer::FileNode *node  = qobject_cast<FileNode *>(session->nodeForFile(file));
+        ProjectExplorer::Project *project = session->projectForFile(file);
+
+        if (project && node)
+            handleSubDirContextMenu(BUILD, true, project, node->projectNode(), node);
+
+    }
+}
+
 void Qt4Manager::handleSubDirContextMenu(Qt4Manager::Action action, bool isFileBuild)
 {
-    Qt4Project *qt4pro = qobject_cast<Qt4Project *>(m_contextProject);
+    handleSubDirContextMenu(action, isFileBuild, m_contextProject, m_contextNode, m_contextFile);
+}
+
+void Qt4Manager::handleSubDirContextMenu(Qt4Manager::Action action, bool isFileBuild,
+                                         ProjectExplorer::Project *contextProject,
+                                         ProjectExplorer::Node *contextNode,
+                                         ProjectExplorer::FileNode *contextFile)
+{
+    Qt4Project *qt4pro = qobject_cast<Qt4Project *>(contextProject);
     QTC_ASSERT(qt4pro, return);
 
     if (!qt4pro->activeTarget() ||
         !qt4pro->activeTarget()->activeBuildConfiguration())
     return;
 
-    if (!m_contextNode || !m_contextFile)
+    if (!contextNode || !contextFile)
         isFileBuild = false;
     Qt4BuildConfiguration *bc = qobject_cast<Qt4BuildConfiguration *>(qt4pro->activeTarget()->activeBuildConfiguration());
     if (!bc)
         return;
 
-    if (m_contextNode != 0 && (m_contextNode != qt4pro->rootProjectNode() || isFileBuild))
-        if (Qt4ProFileNode *profile = qobject_cast<Qt4ProFileNode *>(m_contextNode))
+    if (contextNode != 0 && (contextNode != qt4pro->rootProjectNode() || isFileBuild))
+        if (Qt4ProFileNode *profile = qobject_cast<Qt4ProFileNode *>(contextNode))
             bc->setSubNodeBuild(profile);
 
     if (isFileBuild)
-        bc->setFileNodeBuild(m_contextFile);
+        bc->setFileNodeBuild(contextFile);
     if (projectExplorer()->saveModifiedFiles()) {
         const Core::Id buildStep = Core::Id(ProjectExplorer::Constants::BUILDSTEPS_BUILD);
         const Core::Id cleanStep = Core::Id(ProjectExplorer::Constants::BUILDSTEPS_CLEAN);

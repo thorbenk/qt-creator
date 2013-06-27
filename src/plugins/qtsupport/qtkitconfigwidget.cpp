@@ -44,8 +44,8 @@
 namespace QtSupport {
 namespace Internal {
 
-QtKitConfigWidget::QtKitConfigWidget(ProjectExplorer::Kit *k) :
-    KitConfigWidget(k)
+QtKitConfigWidget::QtKitConfigWidget(ProjectExplorer::Kit *k, bool sticky) :
+    KitConfigWidget(k, sticky)
 {
     m_combo = new QComboBox;
     m_combo->addItem(tr("None"), -1);
@@ -60,6 +60,8 @@ QtKitConfigWidget::QtKitConfigWidget(ProjectExplorer::Kit *k) :
     m_manageButton = new QPushButton(tr("Manage..."));
 
     refresh();
+    m_combo->setToolTip(toolTip());
+
     connect(m_combo, SIGNAL(currentIndexChanged(int)), this, SLOT(currentWasChanged(int)));
 
     connect(mgr, SIGNAL(qtVersionsChanged(QList<int>,QList<int>,QList<int>)),

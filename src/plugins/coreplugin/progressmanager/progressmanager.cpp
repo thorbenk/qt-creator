@@ -51,6 +51,10 @@
 #include <QStyle>
 #include <QStyleOption>
 #include <QTimer>
+#include <QVariant>
+
+static const char kSettingsGroup[] = "Progress";
+static const char kDetailsPinned[] = "DetailsPinned";
 
 using namespace Core;
 using namespace Core::Internal;
@@ -283,8 +287,18 @@ ProgressManagerPrivate::~ProgressManagerPrivate()
     cleanup();
 }
 
+void ProgressManagerPrivate::readSettings()
+{
+    QSettings *settings = ICore::settings();
+    settings->beginGroup(QLatin1String(kSettingsGroup));
+    m_progressViewPinned = settings->value(QLatin1String(kDetailsPinned), true).toBool();
+    settings->endGroup();
+}
+
 void ProgressManagerPrivate::init()
 {
+    readSettings();
+
     m_statusBarWidgetContainer = new Core::StatusBarWidget;
     m_statusBarWidget = new QWidget;
     QHBoxLayout *layout = new QHBoxLayout(m_statusBarWidget);
@@ -312,7 +326,7 @@ void ProgressManagerPrivate::init()
     ExtensionSystem::PluginManager::addObject(m_statusBarWidgetContainer);
     m_statusBarWidget->installEventFilter(this);
 
-    QAction *toggleProgressView = new QAction(tr("Toggle progress details"), this);
+    QAction *toggleProgressView = new QAction(tr("Toggle Progress Details"), this);
     toggleProgressView->setCheckable(true);
     toggleProgressView->setChecked(m_progressViewPinned);
     // we have to set an transparent icon to prevent the tool button to show text
@@ -480,16 +494,17 @@ void ProgressManagerPrivate::updateSummaryProgressBar()
 
     m_summaryProgressBar->setFinished(false);
     QMapIterator<QFutureWatcher<void> *, QString> it(m_runningTasks);
-    int range = 0;
+    static const int TASK_RANGE = 100;
     int value = 0;
     while (it.hasNext()) {
         it.next();
         QFutureWatcher<void> *watcher = it.key();
         int min = watcher->progressMinimum();
-        range += watcher->progressMaximum() - min;
-        value += watcher->progressValue() - min;
+        int range = watcher->progressMaximum() - min;
+        if (range > 0)
+            value += TASK_RANGE * (watcher->progressValue() - min) / range;
     }
-    m_summaryProgressBar->setRange(0, range);
+    m_summaryProgressBar->setRange(0, TASK_RANGE * m_runningTasks.size());
     m_summaryProgressBar->setValue(value);
 }
 
@@ -658,6 +673,11 @@ void ProgressManagerPrivate::progressDetailsToggled(bool checked)
 {
     m_progressViewPinned = checked;
     updateVisibility();
+
+    QSettings *settings = ICore::settings();
+    settings->beginGroup(QLatin1String(kSettingsGroup));
+    settings->setValue(QLatin1String(kDetailsPinned), m_progressViewPinned);
+    settings->endGroup();
 }
 
 ToggleButton::ToggleButton(QWidget *parent)

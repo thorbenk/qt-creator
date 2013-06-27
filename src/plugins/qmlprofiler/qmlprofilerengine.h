@@ -50,6 +50,9 @@ public:
     void registerProfilerStateManager( QmlProfilerStateManager *profilerState );
 
     static void showNonmodalWarning(const QString &warningMsg);
+
+    void notifyRemoteSetupDone(quint16 port);
+
 signals:
     void processRunning(quint16 port);
     void timeUpdate();
@@ -59,7 +62,7 @@ public slots:
     void stop();
 
 private slots:
-    void processEnded();
+    void notifyRemoteFinished(bool success = true);
 
     void cancelProcess();
     void logApplicationMessage(const QString &msg, Utils::OutputFormat format);

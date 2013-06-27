@@ -30,13 +30,13 @@
 #ifndef CDBOPTIONSPAGE_H
 #define CDBOPTIONSPAGE_H
 
-#include "cdboptions.h"
-
 #include <coreplugin/dialogs/ioptionspage.h>
+#include <utils/savedaction.h>
 #include "ui_cdboptionspagewidget.h"
 
 #include <QPointer>
 #include <QSharedPointer>
+#include <QStringList>
 #include <QDialog>
 
 QT_BEGIN_NAMESPACE
@@ -50,6 +50,7 @@ namespace Debugger {
 namespace Internal {
 
 class CdbSymbolPathListEditor;
+class CdbPathsPageWidget;
 
 // Widget displaying a list of break events for the 'sxe' command
 // with a checkbox to enable 'break' and optionally a QLineEdit for
@@ -72,50 +73,25 @@ private:
     QList<QLineEdit*> m_lineEdits;
 };
 
-class CdbPathDialog : public QDialog
-{
-    Q_OBJECT
-public:
-    enum Mode {
-        SymbolPaths,
-        SourcePaths
-    };
-
-    explicit CdbPathDialog(QWidget *parent, Mode mode);
-
-    QStringList paths() const;
-    void setPaths(const QStringList &paths);
-
-private:
-    Utils::PathListEditor *m_pathListEditor;
-};
-
 class CdbOptionsPageWidget : public QWidget
 {
     Q_OBJECT
 
 public:
     explicit CdbOptionsPageWidget(QWidget *parent);
-
-    void setOptions(CdbOptions &o);
-    CdbOptions options() const;
-
+    QStringList breakEvents() const;
     QString searchKeywords() const;
 
-private slots:
-    void showSymbolPathDialog();
-    void showSourcePathDialog();
+    Utils::SavedActionSet group;
 
 private:
-    void setSymbolPaths(const QStringList &);
-    void setSourcePaths(const QStringList &);
-
     inline QString path() const;
+
 
     Ui::CdbOptionsPageWidget m_ui;
     CdbBreakEventWidget *m_breakEventWidget;
-    QStringList m_symbolPaths;
-    QStringList m_sourcePaths;
+    CdbSymbolPathListEditor *m_symbolPathListEditor;
+    Utils::PathListEditor *m_sourcePathListEditor;
 };
 
 class CdbOptionsPage : public Core::IOptionsPage
@@ -126,21 +102,38 @@ public:
     explicit CdbOptionsPage();
     virtual ~CdbOptionsPage();
 
-    static CdbOptionsPage *instance();
-
     // IOptionsPage
     QWidget *createPage(QWidget *parent);
     void apply();
     void finish();
     bool matches(const QString &) const;
 
-    QSharedPointer<CdbOptions> options() const { return m_options; }
+    static const char *crtDbgReport;
 
 private:
-    static CdbOptionsPage *m_instance;
-    const QSharedPointer<CdbOptions> m_options;
+    Utils::SavedActionSet group;
     QPointer<CdbOptionsPageWidget> m_widget;
     QString m_searchKeywords;
+};
+
+class CdbPathsPage : public Core::IOptionsPage
+{
+    Q_OBJECT
+
+public:
+    explicit CdbPathsPage();
+    virtual ~CdbPathsPage();
+
+    static CdbPathsPage *instance();
+
+    // IOptionsPage
+    QWidget *createPage(QWidget *parent);
+    void apply();
+    void finish();
+    bool matches(const QString &searchKeyWord) const;
+
+private:
+    QPointer<CdbPathsPageWidget> m_widget;
 };
 
 } // namespace Internal

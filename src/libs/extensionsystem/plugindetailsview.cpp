@@ -35,7 +35,8 @@
 
 /*!
     \class ExtensionSystem::PluginDetailsView
-    \brief Widget that displays the contents of a PluginSpec.
+    \brief The PluginDetailsView class implements a widget that displays the
+    contents of a PluginSpec.
 
     Can be used for integration in the application that
     uses the plugin manager.
@@ -46,7 +47,6 @@
 using namespace ExtensionSystem;
 
 /*!
-    \fn PluginDetailsView::PluginDetailsView(QWidget *parent)
     Constructs a new view with given \a parent widget.
 */
 PluginDetailsView::PluginDetailsView(QWidget *parent)
@@ -57,7 +57,6 @@ PluginDetailsView::PluginDetailsView(QWidget *parent)
 }
 
 /*!
-    \fn PluginDetailsView::~PluginDetailsView()
     \internal
 */
 PluginDetailsView::~PluginDetailsView()
@@ -66,7 +65,6 @@ PluginDetailsView::~PluginDetailsView()
 }
 
 /*!
-    \fn void PluginDetailsView::update(PluginSpec *spec)
     Reads the given \a spec and displays its values
     in this PluginDetailsView.
 */

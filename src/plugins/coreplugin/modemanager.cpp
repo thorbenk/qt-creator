@@ -73,6 +73,7 @@ struct ModeManagerPrivate
     Context m_addedContexts;
     int m_oldCurrent;
     bool m_saveSettingsOnModeChange;
+    bool m_modeSelectorVisible;
 };
 
 static ModeManagerPrivate *d;
@@ -100,6 +101,8 @@ ModeManager::ModeManager(Internal::MainWindow *mainWindow,
     d->m_actionBar = new Internal::FancyActionBar(modeStack);
     d->m_modeStack->addCornerWidget(d->m_actionBar);
     d->m_saveSettingsOnModeChange = false;
+    d->m_modeSelectorVisible = true;
+    d->m_modeStack->setSelectionWidgetVisible(d->m_modeSelectorVisible);
 
     connect(d->m_modeStack, SIGNAL(currentAboutToShow(int)), SLOT(currentTabAboutToChange(int)));
     connect(d->m_modeStack, SIGNAL(currentChanged(int)), SLOT(currentTabChanged(int)));
@@ -147,24 +150,10 @@ IMode *ModeManager::mode(Id id)
     return 0;
 }
 
-void ModeManager::activateModeType(Id type)
-{
-    if (currentMode() && currentMode()->type() == type)
-        return;
-    int index = -1;
-    for (int i = 0; i < d->m_modes.count(); ++i) {
-        if (d->m_modes.at(i)->type() == type) {
-            index = i;
-            break;
-        }
-    }
-    if (index != -1)
-        d->m_modeStack->setCurrentIndex(index);
-}
-
 void ModeManager::slotActivateMode(int id)
 {
     m_instance->activateMode(Id::fromUniqueIdentifier(id));
+    ICore::raiseWindow(d->m_modeStack);
 }
 
 void ModeManager::activateMode(Id id)
@@ -329,16 +318,22 @@ void ModeManager::setFocusToCurrentMode()
     QWidget *widget = mode->widget();
     if (widget) {
         QWidget *focusWidget = widget->focusWidget();
-        if (focusWidget)
-            focusWidget->setFocus();
-        else
-            widget->setFocus();
+        if (!focusWidget)
+            focusWidget = widget;
+        focusWidget->setFocus();
+        ICore::raiseWindow(focusWidget);
     }
 }
 
-void ModeManager::setModeBarHidden(bool hidden)
+void ModeManager::setModeSelectorVisible(bool visible)
 {
-    d->m_modeStack->setSelectionWidgetHidden(hidden);
+    d->m_modeSelectorVisible = visible;
+    d->m_modeStack->setSelectionWidgetVisible(visible);
+}
+
+bool ModeManager::isModeSelectorVisible()
+{
+    return d->m_modeSelectorVisible;
 }
 
 ModeManager *ModeManager::instance()

@@ -33,10 +33,14 @@
 #include "gitplugin.h"
 #include "gitclient.h"
 #include "gitsettings.h"
+#include "gitsubmiteditorwidget.h"
+#include "gitconstants.h"
+#include "githighlighters.h"
 
 #include <utils/qtcassert.h>
 #include <vcsbase/vcsbaseoutputwindow.h>
-#include <QDebug>
+#include <texteditor/basetextdocument.h>
+
 #include <QFileInfo>
 #include <QRegExp>
 #include <QSet>
@@ -179,8 +183,10 @@ void GitEditor::setPlainTextDataFiltered(const QByteArray &a)
         break;
     }
     case VcsBase::DiffOutput: {
+        if (array.isEmpty())
+            array = QByteArray("No difference to HEAD");
         const QFileInfo fi(source());
-        const QString workingDirectory = fi.absolutePath();
+        const QString workingDirectory = fi.isDir() ? fi.absoluteFilePath() : fi.absolutePath();
         QByteArray precedes, follows;
         if (array.startsWith("commit ")) { // show
             int lastHeaderLine = array.indexOf("\n\n") + 1;
@@ -223,6 +229,28 @@ void GitEditor::revertChange()
     GitPlugin::instance()->gitClient()->synchronousRevert(workingDirectory, m_currentChange);
 }
 
+void GitEditor::init()
+{
+    VcsBase::VcsBaseEditorWidget::init();
+    Core::Id editorId = editor()->id();
+    if (editorId == Git::Constants::GIT_COMMIT_TEXT_EDITOR_ID)
+        new GitSubmitHighlighter(baseTextDocument().data());
+    else if (editorId == Git::Constants::GIT_REBASE_EDITOR_ID)
+        new GitRebaseHighlighter(baseTextDocument().data());
+}
+
+bool GitEditor::open(QString *errorString, const QString &fileName, const QString &realFileName)
+{
+    bool res = VcsBaseEditorWidget::open(errorString, fileName, realFileName);
+    Core::Id editorId = editor()->id();
+    if (editorId == Git::Constants::GIT_COMMIT_TEXT_EDITOR_ID
+            || editorId == Git::Constants::GIT_REBASE_EDITOR_ID) {
+        QFileInfo fi(fileName);
+        setSource(fi.absolutePath());
+    }
+    return res;
+}
+
 QString GitEditor::decorateVersion(const QString &revision) const
 {
     const QFileInfo fi(source());
@@ -256,8 +284,10 @@ bool GitEditor::isValidRevision(const QString &revision) const
 void GitEditor::addChangeActions(QMenu *menu, const QString &change)
 {
     m_currentChange = change;
-    menu->addAction(tr("Cherry-Pick Change %1").arg(change), this, SLOT(cherryPickChange()));
-    menu->addAction(tr("Revert Change %1").arg(change), this, SLOT(revertChange()));
+    if (contentType() != VcsBase::OtherContent) {
+        menu->addAction(tr("Cherry-Pick Change %1").arg(change), this, SLOT(cherryPickChange()));
+        menu->addAction(tr("Revert Change %1").arg(change), this, SLOT(revertChange()));
+    }
 }
 
 QString GitEditor::revisionSubject(const QTextBlock &inBlock) const
@@ -270,6 +300,13 @@ QString GitEditor::revisionSubject(const QTextBlock &inBlock) const
         }
     }
     return QString();
+}
+
+bool GitEditor::supportChangeLinks() const
+{
+    return VcsBaseEditorWidget::supportChangeLinks()
+            || (editor()->id() == Git::Constants::GIT_COMMIT_TEXT_EDITOR_ID)
+            || (editor()->id() == Git::Constants::GIT_REBASE_EDITOR_ID);
 }
 
 } // namespace Internal

@@ -31,8 +31,6 @@
 
 #include "model.h"
 #include "model_p.h"
-#include "nodeproperty.h"
-#include "bindingproperty.h"
 #include "internalnode_p.h"
 #include <qmlmodelview.h>
 
@@ -42,7 +40,8 @@ namespace QmlDesigner {
 /*!
 \class QmlDesigner::AbstractView
 \ingroup CoreModel
-\brief An abstract interface views and editors can implement to be notified about model changes.
+\brief The AbstractView class provides an abstract interface that views and
+editors can implement to be notified about model changes.
 
 \see QmlDesigner::WidgetQueryView, QmlDesigner::NodeInstanceView
 */

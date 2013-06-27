@@ -175,6 +175,15 @@ protected:
     virtual bool visit(Block *symbol)
     { return process(symbol); }
 
+    virtual bool visit(Template *symbol)
+    {
+        if (Symbol *decl = symbol->declaration()) {
+            if (decl->isFunction() || decl->isClass())
+                return process(symbol);
+        }
+        return true;
+    }
+
     // Objective-C
     virtual bool visit(ObjCBaseClass *) { return false; }
     virtual bool visit(ObjCBaseProtocol *) { return false; }
@@ -333,15 +342,15 @@ QStringList Document::includedFiles() const
 {
     QStringList files;
     foreach (const Include &i, _includes)
-        files.append(i.fileName());
+        files.append(i.resolvedFileName());
     files.removeDuplicates();
     return files;
 }
 
 // This assumes to be called with a QDir::cleanPath cleaned fileName.
-void Document::addIncludeFile(const QString &fileName, unsigned line)
+void Document::addIncludeFile(const Document::Include &include)
 {
-    _includes.append(Include(fileName, line));
+    _includes.append(include);
 }
 
 void Document::appendMacro(const Macro &macro)
@@ -373,13 +382,15 @@ void Document::addUndefinedMacroUse(const QByteArray &name, unsigned offset)
 
 /*!
     \class Document::MacroUse
-    \brief Represents the usage of a macro in a \l {Document}.
+    \brief The MacroUse class represents the usage of a macro in a
+    \l {Document}.
     \sa Document::UndefinedMacroUse
 */
 
 /*!
     \class Document::UndefinedMacroUse
-    \brief Represents a macro that was looked up, but not found.
+    \brief The UndefinedMacroUse class represents a macro that was looked for,
+    but not found.
 
     Holds data about the reference to a macro in an \tt{#ifdef} or \tt{#ifndef}
     or argument to the \tt{defined} operator inside an \tt{#if} or \tt{#elif} that does
@@ -454,6 +465,57 @@ Namespace *Document::globalNamespace() const
 void Document::setGlobalNamespace(Namespace *globalNamespace)
 {
     _globalNamespace = globalNamespace;
+}
+
+/*!
+ * Extract the function name including scope at the given position.
+ *
+ * Note that a function (scope) starts at the name of that function, not at the return type. The
+ * implication is that this method will return an empty string when the line/column is on the
+ * return type.
+ *
+ * \param line the line number, starting with line 1
+ * \param column the column number, starting with column 1
+ */
+QString Document::functionAt(int line, int column) const
+{
+    if (line < 1 || column < 1)
+        return QString();
+
+    CPlusPlus::Symbol *symbol = lastVisibleSymbolAt(line, column);
+    if (!symbol)
+        return QString();
+
+    // Find the enclosing function scope (which might be several levels up, or we might be standing
+    // on it)
+    Scope *scope;
+    if (symbol->isScope())
+        scope = symbol->asScope();
+    else
+        scope = symbol->enclosingScope();
+
+    while (scope && !scope->isFunction() )
+        scope = scope->enclosingScope();
+
+    if (!scope)
+        return QString();
+
+    // We found the function scope, extract its name.
+    const Overview o;
+    QString rc = o.prettyName(scope->name());
+
+    // Prepend namespace "Foo::Foo::foo()" up to empty root namespace
+    for (const Symbol *owner = scope->enclosingNamespace();
+         owner; owner = owner->enclosingNamespace()) {
+        const QString name = o.prettyName(owner->name());
+        if (name.isEmpty()) {
+            break;
+        } else {
+            rc.prepend(QLatin1String("::"));
+            rc.prepend(name);
+        }
+    }
+    return rc;
 }
 
 Scope *Document::scopeAt(unsigned line, unsigned column)

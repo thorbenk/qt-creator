@@ -67,7 +67,7 @@ using namespace ProjectExplorer::Internal;
 /*!
      \class ProjectExplorer::SessionManager
 
-     \brief Session management.
+     \brief The SessionManager class manages sessions.
 
      TODO the interface of this class is not really great.
      The implementation suffers that all the functions from the
@@ -373,8 +373,6 @@ bool SessionManager::save()
 }
 
 /*!
-  \fn bool SessionManager::closeAllProjects()
-
   Closes all projects
   */
 void SessionManager::closeAllProjects()
@@ -671,6 +669,18 @@ bool SessionManager::renameSession(const QString &original, const QString &newNa
     if (original == activeSession())
         loadSession(newName);
     return deleteSession(original);
+}
+
+
+/*!
+    \brief Shows a dialog asking the user to confirm deleting the session \p session
+*/
+bool SessionManager::confirmSessionDelete(const QString &session)
+{
+    return QMessageBox::question(Core::ICore::mainWindow(),
+                                 tr("Delete Session"),
+                                 tr("Delete session %1?").arg(session),
+                                 QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes;
 }
 
 /*!

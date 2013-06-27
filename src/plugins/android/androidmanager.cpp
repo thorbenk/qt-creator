@@ -62,6 +62,7 @@ namespace {
     const QLatin1String AndroidLibsFileName("/res/values/libs.xml");
     const QLatin1String AndroidStringsFileName("/res/values/strings.xml");
     const QLatin1String AndroidDefaultPropertiesName("project.properties");
+    const QLatin1String AndroidLibraryPrefix("--Managed_by_Qt_Creator--");
 
     QString cleanPackageName(QString packageName)
     {
@@ -70,6 +71,50 @@ namespace {
         for (int i = 0; i < packageName.length(); ++i)
             if (!legalChars.exactMatch(packageName.mid(i, 1)))
                 packageName[i] = QLatin1Char('_');
+
+        static QStringList keywords;
+        if (keywords.isEmpty())
+            keywords << QLatin1String("abstract") << QLatin1String("continue") << QLatin1String("for")
+                     << QLatin1String("new") << QLatin1String("switch") << QLatin1String("assert")
+                     << QLatin1String("default") << QLatin1String("if") << QLatin1String("package")
+                     << QLatin1String("synchronized") << QLatin1String("boolean") << QLatin1String("do")
+                     << QLatin1String("goto") << QLatin1String("private") << QLatin1String("this")
+                     << QLatin1String("break") << QLatin1String("double") << QLatin1String("implements")
+                     << QLatin1String("protected") << QLatin1String("throw") << QLatin1String("byte")
+                     << QLatin1String("else") << QLatin1String("import") << QLatin1String("public")
+                     << QLatin1String("throws") << QLatin1String("case") << QLatin1String("enum")
+                     << QLatin1String("instanceof") << QLatin1String("return") << QLatin1String("transient")
+                     << QLatin1String("catch") << QLatin1String("extends") << QLatin1String("int")
+                     << QLatin1String("short") << QLatin1String("try") << QLatin1String("char")
+                     << QLatin1String("final") << QLatin1String("interface") << QLatin1String("static")
+                     << QLatin1String("void") << QLatin1String("class") << QLatin1String("finally")
+                     << QLatin1String("long") << QLatin1String("strictfp") << QLatin1String("volatile")
+                     << QLatin1String("const") << QLatin1String("float") << QLatin1String("native")
+                     << QLatin1String("super") << QLatin1String("while");
+
+        // No keywords
+        int index = -1;
+        while (index != packageName.length()) {
+            int next = packageName.indexOf(QLatin1Char('.'), index + 1);
+            if (next == -1)
+                next = packageName.length();
+            QString word = packageName.mid(index + 1, next - index - 1);
+            if (!word.isEmpty()) {
+                QChar c = word[0];
+                if (c >= QChar(QLatin1Char('0')) && c<= QChar(QLatin1Char('9'))) {
+                    packageName.insert(index + 1, QLatin1Char('_'));
+                    index = next + 1;
+                    continue;
+                }
+            }
+            if (keywords.contains(word)) {
+                packageName.insert(next, QLatin1String("_"));
+                index = next + 1;
+            } else {
+                index = next;
+            }
+        }
+
 
         return packageName;
     }
@@ -137,41 +182,6 @@ bool AndroidManager::setApplicationName(ProjectExplorer::Target *target, const Q
     return saveXmlFile(target, doc, path);
 }
 
-QStringList AndroidManager::permissions(ProjectExplorer::Target *target)
-{
-    QStringList per;
-    QDomDocument doc;
-    if (!openManifest(target, doc))
-        return per;
-    QDomElement permissionElem = doc.documentElement().firstChildElement(QLatin1String("uses-permission"));
-    while (!permissionElem.isNull()) {
-        per << permissionElem.attribute(QLatin1String("android:name"));
-        permissionElem = permissionElem.nextSiblingElement(QLatin1String("uses-permission"));
-    }
-    return per;
-}
-
-bool AndroidManager::setPermissions(ProjectExplorer::Target *target, const QStringList &permissions)
-{
-    QDomDocument doc;
-    if (!openManifest(target, doc))
-        return false;
-    QDomElement docElement = doc.documentElement();
-    QDomElement permissionElem = docElement.firstChildElement(QLatin1String("uses-permission"));
-    while (!permissionElem.isNull()) {
-        docElement.removeChild(permissionElem);
-        permissionElem = docElement.firstChildElement(QLatin1String("uses-permission"));
-    }
-
-    foreach (const QString &permission, permissions ) {
-        permissionElem = doc.createElement(QLatin1String("uses-permission"));
-        permissionElem.setAttribute(QLatin1String("android:name"), permission);
-        docElement.appendChild(permissionElem);
-    }
-
-    return saveManifest(target, doc);
-}
-
 QString AndroidManager::intentName(ProjectExplorer::Target *target)
 {
     return packageName(target) + QLatin1Char('/') + activityName(target);
@@ -186,56 +196,12 @@ QString AndroidManager::activityName(ProjectExplorer::Target *target)
     return activityElem.attribute(QLatin1String("android:name"));
 }
 
-int AndroidManager::versionCode(ProjectExplorer::Target *target)
-{
-    QDomDocument doc;
-    if (!openManifest(target, doc))
-        return 0;
-    QDomElement manifestElem = doc.documentElement();
-    return manifestElem.attribute(QLatin1String("android:versionCode")).toInt();
-}
-
-bool AndroidManager::setVersionCode(ProjectExplorer::Target *target, int version)
-{
-    QDomDocument doc;
-    if (!openManifest(target, doc))
-        return false;
-    QDomElement manifestElem = doc.documentElement();
-    manifestElem.setAttribute(QLatin1String("android:versionCode"), version);
-    return saveManifest(target, doc);
-}
-
-QString AndroidManager::versionName(ProjectExplorer::Target *target)
-{
-    QDomDocument doc;
-    if (!openManifest(target, doc))
-        return QString();
-    QDomElement manifestElem = doc.documentElement();
-    return manifestElem.attribute(QLatin1String("android:versionName"));
-}
-
-bool AndroidManager::setVersionName(ProjectExplorer::Target *target, const QString &version)
-{
-    QDomDocument doc;
-    if (!openManifest(target, doc))
-        return false;
-    QDomElement manifestElem = doc.documentElement();
-    manifestElem.setAttribute(QLatin1String("android:versionName"), version);
-    return saveManifest(target, doc);
-}
-
-bool AndroidManager::ensureIconAttribute(ProjectExplorer::Target *target)
-{
-    QDomDocument doc;
-    if (!openManifest(target, doc))
-        return false;
-    QDomElement applicationElem = doc.documentElement().firstChildElement(QLatin1String("application"));
-    applicationElem.setAttribute(QLatin1String("android:icon"), QLatin1String("@drawable/icon"));
-    return saveManifest(target, doc);
-}
-
 QString AndroidManager::targetSDK(ProjectExplorer::Target *target)
 {
+    QVariant v = target->namedSettings(QLatin1String("AndroidManager.TargetSdk"));
+    if (v.isValid())
+        return v.toString();
+
     QString fallback = QLatin1String("android-8");
     if (QtSupport::BaseQtVersion *qt = QtSupport::QtKitInformation::qtVersion(target->kit()))
         if (qt->qtVersion() >= QtSupport::QtVersionNumber(5, 0, 0))
@@ -243,6 +209,7 @@ QString AndroidManager::targetSDK(ProjectExplorer::Target *target)
 
     if (!createAndroidTemplatesIfNecessary(target))
         return AndroidConfigurations::instance().bestMatch(fallback);
+
     QFile file(defaultPropertiesPath(target).toString());
     if (!file.open(QIODevice::ReadOnly))
         return AndroidConfigurations::instance().bestMatch(fallback);
@@ -257,40 +224,19 @@ QString AndroidManager::targetSDK(ProjectExplorer::Target *target)
 bool AndroidManager::setTargetSDK(ProjectExplorer::Target *target, const QString &sdk)
 {
     updateTarget(target, sdk, applicationName(target));
+    target->setNamedSettings(QLatin1String("AndroidManager.TargetSdk"), sdk);
     return true;
 }
 
-QIcon AndroidManager::highDpiIcon(ProjectExplorer::Target *target)
+QString AndroidManager::targetArch(ProjectExplorer::Target *target)
 {
-    return icon(target, HighDPI);
-}
-
-bool AndroidManager::setHighDpiIcon(ProjectExplorer::Target *target, const QString &iconFilePath)
-{
-    return ensureIconAttribute(target) &&
-            setIcon(target, HighDPI, iconFilePath);
-}
-
-QIcon AndroidManager::mediumDpiIcon(ProjectExplorer::Target *target)
-{
-    return icon(target, MediumDPI);
-}
-
-bool AndroidManager::setMediumDpiIcon(ProjectExplorer::Target *target, const QString &iconFilePath)
-{
-    return ensureIconAttribute(target) &&
-            setIcon(target, MediumDPI, iconFilePath);
-}
-
-QIcon AndroidManager::lowDpiIcon(ProjectExplorer::Target *target)
-{
-    return icon(target, LowDPI);
-}
-
-bool AndroidManager::setLowDpiIcon(ProjectExplorer::Target *target, const QString &iconFilePath)
-{
-    return ensureIconAttribute(target) &&
-            setIcon(target, LowDPI, iconFilePath);
+    Qt4ProjectManager::Qt4Project *pro = qobject_cast<Qt4ProjectManager::Qt4Project *>(target->project());
+    if (!pro)
+        return QString();
+    Qt4ProjectManager::Qt4ProFileNode *node = pro->rootQt4ProjectNode();
+    if (!node)
+        return QString();
+    return node->singleVariableValue(Qt4ProjectManager::AndroidArchVar);
 }
 
 Utils::FileName AndroidManager::dirPath(ProjectExplorer::Target *target)
@@ -367,7 +313,19 @@ QString AndroidManager::targetApplication(ProjectExplorer::Target *target)
     return QString();
 }
 
-bool AndroidManager::setUseLocalLibs(ProjectExplorer::Target *target, bool useLocalLibs, int deviceAPILevel)
+bool AndroidManager::bundleQt(ProjectExplorer::Target *target)
+{
+    ProjectExplorer::RunConfiguration *runConfiguration = target->activeRunConfiguration();
+    AndroidRunConfiguration *androidRunConfiguration = qobject_cast<AndroidRunConfiguration *>(runConfiguration);
+    if (androidRunConfiguration != 0) {
+        AndroidDeployStep *deployStep = androidRunConfiguration->deployStep();
+        return deployStep->deployAction() == AndroidDeployStep::BundleLibraries;
+    }
+
+    return false;
+}
+
+bool AndroidManager::updateDeploymentSettings(ProjectExplorer::Target *target)
 {
     // For Qt 4, the "use local libs" options is handled by passing command line arguments to the
     // app, so no need to alter the AndroidManifest.xml
@@ -375,19 +333,33 @@ bool AndroidManager::setUseLocalLibs(ProjectExplorer::Target *target, bool useLo
     if (baseQtVersion == 0 || baseQtVersion->qtVersion() < QtSupport::QtVersionNumber(5,0,0))
         return true;
 
+    ProjectExplorer::RunConfiguration *runConfiguration = target->activeRunConfiguration();
+    AndroidRunConfiguration *androidRunConfiguration = qobject_cast<AndroidRunConfiguration *>(runConfiguration);
+    if (androidRunConfiguration == 0)
+        return false;
+
+    AndroidDeployStep *deployStep = androidRunConfiguration->deployStep();
+    AndroidDeployStep::AndroidDeployAction deployAction = deployStep->deployAction();
+    bool useLocalLibs = deployAction == AndroidDeployStep::DeployLocal
+            || deployAction == AndroidDeployStep::BundleLibraries;
+    bool bundleQtLibs = deployAction == AndroidDeployStep::BundleLibraries;
+
     QDomDocument doc;
     if (!openManifest(target, doc))
         return false;
 
     QDomElement metadataElem = doc.documentElement().firstChildElement(QLatin1String("application")).firstChildElement(QLatin1String("activity")).firstChildElement(QLatin1String("meta-data"));
 
+    // ### Passes -1 for API level, which means it won't work with setups that require
+    // library selection based on API level. Use the old approach (command line argument)
+    // in these cases. Hence the Qt version > 4 condition at the beginning of this function.
     QString localLibs;
     QString localJars;
     QString staticInitClasses;
     if (useLocalLibs) {
-        localLibs = loadLocalLibs(target, deviceAPILevel);
-        localJars = loadLocalJars(target, deviceAPILevel);
-        staticInitClasses = loadLocalJarsInitClasses(target, deviceAPILevel);
+        localLibs = loadLocalLibs(target, -1);
+        localJars = loadLocalJars(target, -1);
+        staticInitClasses = loadLocalJarsInitClasses(target, -1);
     }
 
     bool changedManifest = false;
@@ -410,6 +382,11 @@ bool AndroidManager::setUseLocalLibs(ProjectExplorer::Target *target, bool useLo
         } else if (metadataElem.attribute(QLatin1String("android:name")) == QLatin1String("android.app.static_init_classes")) {
             if (metadataElem.attribute(QLatin1String("android:value")) != staticInitClasses) {
                 metadataElem.setAttribute(QLatin1String("android:value"), staticInitClasses);
+                changedManifest = true;
+            }
+        } else if (metadataElem.attribute(QLatin1String("android:name")) == QLatin1String("android.app.bundle_local_qt_libs")) {
+            if (metadataElem.attribute(QLatin1String("android:value")).toInt() != int(bundleQtLibs)) {
+                metadataElem.setAttribute(QLatin1String("android:value"), int(bundleQtLibs));
                 changedManifest = true;
             }
         }
@@ -573,9 +550,14 @@ void AndroidManager::updateTarget(ProjectExplorer::Target *target, const QString
 {
     QString androidDir = dirPath(target).toString();
 
+    Utils::Environment env = Utils::Environment::systemEnvironment();
+    QString javaHome = AndroidConfigurations::instance().config().openJDKLocation.toString();
+    if (!javaHome.isEmpty())
+        env.set(QLatin1String("JAVA_HOME"), javaHome);
     // clean previous build
     QProcess androidProc;
     androidProc.setWorkingDirectory(androidDir);
+    androidProc.setProcessEnvironment(env.toProcessEnvironment());
     androidProc.start(AndroidConfigurations::instance().antToolPath().toString(),
                       QStringList() << QLatin1String("clean"));
     if (!androidProc.waitForFinished(-1))
@@ -595,19 +577,20 @@ void AndroidManager::updateTarget(ProjectExplorer::Target *target, const QString
         bool modified = false;
         bool comment = false;
         for (int i = 0; i < lines.size(); i++) {
-            if (lines[i].contains("@ANDROID-")) {
-                commentLines = targetSDKNumber < lines[i].mid(lines[i].lastIndexOf('-') + 1).toInt();
+            QByteArray trimmed = lines[i].trimmed();
+            if (trimmed.contains("@ANDROID-")) {
+                commentLines = targetSDKNumber < trimmed.mid(trimmed.lastIndexOf('-') + 1).toInt();
                 comment = !comment;
                 continue;
             }
             if (!comment)
                 continue;
             if (commentLines) {
-                if (!lines[i].trimmed().startsWith("//QtCreator")) {
+                if (!trimmed.startsWith("//QtCreator")) {
                     lines[i] = "//QtCreator " + lines[i];
                     modified = true;
                 }
-            } else { if (lines[i].trimmed().startsWith("//QtCreator")) {
+            } else { if (trimmed.startsWith("//QtCreator")) {
                     lines[i] = lines[i].mid(12);
                     modified = true;
                 }
@@ -647,14 +630,21 @@ QString AndroidManager::loadLocalLibs(ProjectExplorer::Target *target, int apiLe
     return loadLocal(target, apiLevel, Lib);
 }
 
+QString AndroidManager::loadLocalBundledFiles(ProjectExplorer::Target *target, int apiLevel)
+{
+    return loadLocal(target, apiLevel, BundledFile);
+}
+
 QString AndroidManager::loadLocalJars(ProjectExplorer::Target *target, int apiLevel)
 {
-    return loadLocal(target, apiLevel, Jar);
+    ItemType type = bundleQt(target) ? BundledJar : Jar;
+    return loadLocal(target, apiLevel, type);
 }
 
 QString AndroidManager::loadLocalJarsInitClasses(ProjectExplorer::Target *target, int apiLevel)
 {
-    return loadLocal(target, apiLevel, Jar, QLatin1String("initClass"));
+    ItemType type = bundleQt(target) ? BundledJar : Jar;
+    return loadLocal(target, apiLevel, type, QLatin1String("initClass"));
 }
 
 QVector<AndroidManager::Library> AndroidManager::availableQtLibsWithDependencies(ProjectExplorer::Target *target)
@@ -754,6 +744,16 @@ bool AndroidManager::setQtLibs(ProjectExplorer::Target *target, const QStringLis
     return setLibsXml(target, libs, QLatin1String("qt_libs"));
 }
 
+bool AndroidManager::setBundledInAssets(ProjectExplorer::Target *target, const QStringList &fileList)
+{
+    return setLibsXml(target, fileList, QLatin1String("bundled_in_assets"));
+}
+
+bool AndroidManager::setBundledInLib(ProjectExplorer::Target *target, const QStringList &fileList)
+{
+    return setLibsXml(target, fileList, QLatin1String("bundled_in_lib"));
+}
+
 QStringList AndroidManager::availablePrebundledLibs(ProjectExplorer::Target *target)
 {
     QStringList libs;
@@ -763,7 +763,7 @@ QStringList AndroidManager::availablePrebundledLibs(ProjectExplorer::Target *tar
 
     foreach (Qt4ProjectManager::Qt4ProFileNode *node, qt4Project->allProFiles())
         if (node->projectType() == Qt4ProjectManager::LibraryTemplate)
-            libs << QLatin1String("lib") + node->targetInformation().target + QLatin1String(".so");
+            libs << node->targetInformation().target;
     return libs;
 }
 
@@ -797,7 +797,9 @@ QString AndroidManager::loadLocal(ProjectExplorer::Target *target, int apiLevel,
     QString itemType;
     if (item == Lib)
         itemType = QLatin1String("lib");
-    else
+    else if (item == BundledFile)
+        itemType = QLatin1String("bundled");
+    else // Jar or BundledJar
         itemType = QLatin1String("jar");
 
     QString localLibs;
@@ -839,16 +841,24 @@ QString AndroidManager::loadLocal(ProjectExplorer::Target *target, int apiLevel,
             if (libs.contains(element.attribute(QLatin1String("name")))) {
                 QDomElement libElement = element.firstChildElement(QLatin1String("depends")).firstChildElement(itemType);
                 while (!libElement.isNull()) {
-                    if (libElement.hasAttribute(attribute)) {
-                        QString dependencyLib = libElement.attribute(attribute).arg(apiLevel);
-                        if (!dependencyLibs.contains(dependencyLib))
-                            dependencyLibs << dependencyLib;
-                    }
+                    if (libElement.attribute(QLatin1String("bundling")).toInt() == (item == BundledJar ? 1 : 0)) {
+                        if (libElement.hasAttribute(attribute)) {
+                            QString dependencyLib = libElement.attribute(attribute).arg(apiLevel);
+                            if (libElement.hasAttribute(QLatin1String("extends"))) {
+                                const QString extends = libElement.attribute(QLatin1String("extends"));
+                                if (libs.contains(extends)) {
+                                    dependencyLibs << dependencyLib;
+                                }
+                            } else if (!dependencyLibs.contains(dependencyLib)) {
+                                dependencyLibs << dependencyLib;
+                            }
+                        }
 
-                    if (libElement.hasAttribute(QLatin1String("replaces"))) {
-                        QString replacedLib = libElement.attribute(QLatin1String("replaces")).arg(apiLevel);
-                        if (!replacedLibs.contains(replacedLib))
-                            replacedLibs << replacedLib;
+                        if (libElement.hasAttribute(QLatin1String("replaces"))) {
+                            QString replacedLib = libElement.attribute(QLatin1String("replaces")).arg(apiLevel);
+                            if (!replacedLibs.contains(replacedLib))
+                                replacedLibs << replacedLib;
+                        }
                     }
 
                     libElement = libElement.nextSiblingElement(itemType);
@@ -915,20 +925,6 @@ bool AndroidManager::saveManifest(ProjectExplorer::Target *target, QDomDocument 
     return saveXmlFile(target, doc, manifestPath(target));
 }
 
-QString AndroidManager::iconPath(ProjectExplorer::Target *target, AndroidManager::IconType type)
-{
-    switch (type) {
-    case HighDPI:
-        return dirPath(target).appendPath(QLatin1String("res/drawable-hdpi/icon.png")).toString();
-    case MediumDPI:
-        return dirPath(target).appendPath(QLatin1String("res/drawable-mdpi/icon.png")).toString();
-    case LowDPI:
-        return dirPath(target).appendPath(QLatin1String("res/drawable-ldpi/icon.png")).toString();
-    default:
-        return QString();
-    }
-}
-
 QStringList AndroidManager::libsXml(ProjectExplorer::Target *target, const QString &tag)
 {
     QStringList libs;
@@ -974,23 +970,6 @@ bool AndroidManager::setLibsXml(ProjectExplorer::Target *target, const QStringLi
     return false;
 }
 
-
-QIcon AndroidManager::icon(ProjectExplorer::Target *target, IconType type)
-{
-    return QIcon(iconPath(target, type));
-}
-
-bool AndroidManager::setIcon(ProjectExplorer::Target *target, IconType type, const QString &iconFileName)
-{
-    if (!QFileInfo(iconFileName).exists())
-        return false;
-
-    const QString path = iconPath(target, type);
-    QFile::remove(path);
-    QDir dir;
-    dir.mkpath(QFileInfo(path).absolutePath());
-    return QFile::copy(iconFileName, path);
-}
 
 QStringList AndroidManager::dependencies(const Utils::FileName &readelfPath, const QString &lib)
 {
@@ -1054,6 +1033,11 @@ QString AndroidManager::libGnuStl(const QString &arch, const QString &ndkToolCha
             + ndkToolChainVersion + QLatin1String("/libs/")
             + arch
             + QLatin1String("/libgnustl_shared.so");
+}
+
+QString AndroidManager::libraryPrefix()
+{
+    return AndroidLibraryPrefix;
 }
 
 } // namespace Internal

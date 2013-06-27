@@ -30,6 +30,12 @@
 ****************************************************************************/
 
 #include "qnxdeviceconfiguration.h"
+#include "qnxdevicetester.h"
+
+#include <projectexplorer/devicesupport/sshdeviceprocesslist.h>
+
+#include <QRegExp>
+#include <QStringList>
 
 using namespace Qnx;
 using namespace Qnx::Internal;
@@ -85,6 +91,51 @@ class QnxPortsGatheringMethod : public ProjectExplorer::PortsGatheringMethod
     }
 };
 
+class QnxDeviceProcessList : public ProjectExplorer::SshDeviceProcessList
+{
+public:
+    QnxDeviceProcessList(const ProjectExplorer::IDevice::ConstPtr &device, QObject *parent)
+        : SshDeviceProcessList(device, parent)
+    {
+    }
+
+private:
+    QString listProcessesCommandLine() const
+    {
+        return QLatin1String("pidin -F \"%a %A '/%n'\"");
+    }
+
+    QList<ProjectExplorer::DeviceProcess> buildProcessList(const QString &listProcessesReply) const
+    {
+        QList<ProjectExplorer::DeviceProcess> processes;
+        QStringList lines = listProcessesReply.split(QLatin1Char('\n'));
+        if (lines.isEmpty())
+            return processes;
+
+        lines.pop_front(); // drop headers
+        QRegExp re(QLatin1String("\\s*(\\d+)\\s+(.*)'(.*)'"));
+
+        foreach (const QString& line, lines) {
+            if (re.exactMatch(line)) {
+                const QStringList captures = re.capturedTexts();
+                if (captures.size() == 4) {
+                    const int pid = captures[1].toInt();
+                    const QString args = captures[2];
+                    const QString exe = captures[3];
+                    ProjectExplorer::DeviceProcess deviceProcess;
+                    deviceProcess.pid = pid;
+                    deviceProcess.exe = exe.trimmed();
+                    deviceProcess.cmdLine = args.trimmed();
+                    processes.append(deviceProcess);
+                }
+            }
+        }
+
+        qSort(processes);
+        return processes;
+    }
+};
+
 QnxDeviceConfiguration::QnxDeviceConfiguration()
     : RemoteLinux::LinuxDevice()
 {
@@ -129,4 +180,14 @@ ProjectExplorer::DeviceProcessSupport::Ptr QnxDeviceConfiguration::processSuppor
 ProjectExplorer::PortsGatheringMethod::Ptr QnxDeviceConfiguration::portsGatheringMethod() const
 {
     return ProjectExplorer::PortsGatheringMethod::Ptr(new QnxPortsGatheringMethod);
+}
+
+ProjectExplorer::DeviceProcessList *QnxDeviceConfiguration::createProcessListModel(QObject *parent) const
+{
+    return new QnxDeviceProcessList(sharedFromThis(), parent);
+}
+
+RemoteLinux::AbstractLinuxDeviceTester *QnxDeviceConfiguration::createDeviceTester() const
+{
+    return new QnxDeviceTester;
 }

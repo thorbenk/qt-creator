@@ -31,6 +31,7 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/progressmanager/progressmanager.h>
+#include <coreplugin/vcsmanager.h>
 #include <utils/synchronousprocess.h>
 
 #include <QDebug>
@@ -80,6 +81,7 @@ public:
     QVariant m_cookie;
     bool m_unixTerminalDisabled;
     int m_defaultTimeout;
+    bool m_expectChanges;
 
     QList<Job> m_jobs;
     Command::TerminationReportMode m_reportTerminationMode;
@@ -96,6 +98,7 @@ CommandPrivate::CommandPrivate(const QString &binary,
     m_environment(environment),
     m_unixTerminalDisabled(false),
     m_defaultTimeout(10),
+    m_expectChanges(false),
     m_reportTerminationMode(Command::NoReport),
     m_lastExecSuccess(false),
     m_lastExecExitCode(-1)
@@ -168,6 +171,16 @@ bool Command::unixTerminalDisabled() const
 void Command::setUnixTerminalDisabled(bool e)
 {
     d->m_unixTerminalDisabled = e;
+}
+
+bool Command::expectChanges() const
+{
+    return d->m_expectChanges;
+}
+
+void Command::setExpectChanges(bool e)
+{
+    d->m_expectChanges = e;
 }
 
 void Command::addJob(const QStringList &arguments)
@@ -271,27 +284,25 @@ void Command::run()
         }
     }
 
-    // Special hack: Always produce output for diff
-    if (ok && stdOut.isEmpty() && d->m_jobs.front().arguments.at(0) == QLatin1String("diff")) {
-        stdOut += "No difference to HEAD";
-    } else {
-        // @TODO: Remove, see below
-        if (ok && d->m_jobs.front().arguments.at(0) == QLatin1String("status"))
-            removeColorCodes(&stdOut);
-    }
+    if (ok && d->m_jobs.front().arguments.at(0) == QLatin1String("status"))
+        removeColorCodes(&stdOut);
 
     d->m_lastExecSuccess = ok;
     d->m_lastExecExitCode = exitCode;
 
-    if (ok && !stdOut.isEmpty())
+    if (ok)
         emit outputData(stdOut);
 
     if (!error.isEmpty())
         emit errorText(error);
 
     emit finished(ok, exitCode, cookie());
-    if (ok)
+    if (ok) {
         emit success(cookie());
+        if (d->m_expectChanges)
+            Core::ICore::vcsManager()->emitRepositoryChanged(d->m_workingDirectory);
+    }
+
     // As it is used asynchronously, we need to delete ourselves
     this->deleteLater();
 }

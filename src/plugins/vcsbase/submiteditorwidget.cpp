@@ -50,7 +50,8 @@ enum { defaultLineWidth = 72 };
 /*!
     \class VcsBase::SubmitEditorWidget
 
-    \brief Presents a VCS commit message in a text editor and a
+    \brief The SubmitEditorWidget class presents a VCS commit message in a text
+    editor and a
      checkable list of modified files in a list window.
 
     The user can delete files from the list by unchecking them or diff the selection
@@ -517,21 +518,15 @@ QString SubmitEditorWidget::cleanupDescription(const QString &input) const
     return input;
 }
 
-void SubmitEditorWidget::changeEvent(QEvent *e)
-{
-    QWidget::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        d->m_ui.retranslateUi(this);
-        break;
-    default:
-        break;
-    }
-}
-
 void SubmitEditorWidget::insertTopWidget(QWidget *w)
 {
     d->m_ui.vboxLayout->insertWidget(0, w);
+}
+
+void SubmitEditorWidget::hideDescription()
+{
+    d->m_ui.descriptionBox->hide();
+    setDescriptionMandatory(false);
 }
 
 void SubmitEditorWidget::descriptionTextChanged()
@@ -568,9 +563,7 @@ void SubmitEditorWidget::addSubmitFieldWidget(SubmitFieldWidget *f)
         QHBoxLayout *outerLayout = new QHBoxLayout;
         outerLayout->addLayout(d->m_fieldLayout);
         outerLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Ignored));
-        QBoxLayout *descrLayout = qobject_cast<QBoxLayout*>(d->m_ui.descriptionBox->layout());
-        Q_ASSERT(descrLayout);
-        descrLayout->addLayout(outerLayout);
+        d->m_ui.descriptionLayout->addLayout(outerLayout);
     }
     d->m_fieldLayout->addWidget(f);
     d->m_fieldWidgets.push_back(f);

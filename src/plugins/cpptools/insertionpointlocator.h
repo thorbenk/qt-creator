@@ -89,6 +89,7 @@ public:
         ProtectedSlot = Protected | SlotBit,
         PrivateSlot   = Private   | SlotBit
     };
+    static QString accessSpecToString(InsertionPointLocator::AccessSpec xsSpec);
 
 public:
     InsertionPointLocator(const CppRefactoringChanges &refactoringChanges);
@@ -97,7 +98,9 @@ public:
                                                const CPlusPlus::Class *clazz,
                                                AccessSpec xsSpec) const;
 
-    QList<InsertionLocation> methodDefinition(CPlusPlus::Declaration *declaration) const;
+    QList<InsertionLocation> methodDefinition(CPlusPlus::Symbol *declaration,
+                                              bool useSymbolFinder = true,
+                                              const QString &destinationFile = QString()) const;
 
 private:
     CppRefactoringChanges m_refactoringChanges;

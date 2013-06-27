@@ -113,7 +113,10 @@ QString BaseTextDocument::mimeType() const
 
 void BaseTextDocument::setMimeType(const QString &mt)
 {
-    d->m_mimeType = mt;
+    if (d->m_mimeType != mt) {
+        d->m_mimeType = mt;
+        emit mimeTypeChanged();
+    }
 }
 
 void BaseTextDocument::setTypingSettings(const TypingSettings &typingSettings)
@@ -412,8 +415,7 @@ bool BaseTextDocument::reload(QString *errorString)
 
     if (documentLayout)
         documentLayout->documentReloaded(marks); // readds text marks
-    if (success)
-        emit reloaded();
+    emit reloadFinished(success);
     return success;
 }
 

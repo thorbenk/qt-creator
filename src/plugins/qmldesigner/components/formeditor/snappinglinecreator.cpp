@@ -29,10 +29,10 @@
 
 #include "snappinglinecreator.h"
 
-#include <QGraphicsItem>
-#include "onedimensionalcluster.h"
 #include "formeditoritem.h"
 #include "formeditorview.h"
+
+#include <QtDebug>
 
 namespace QmlDesigner {
 
@@ -42,10 +42,10 @@ SnappingLineCreator::SnappingLineCreator(FormEditorItem *formEditorItem)
     m_bottomOffset(formEditorItem->formEditorView()->spacing()),
     m_leftOffset(formEditorItem->formEditorView()->spacing()),
     m_rightOffset(formEditorItem->formEditorView()->spacing()),
-    m_topMargin(formEditorItem->formEditorView()->margins()),
-    m_bottomMargin(formEditorItem->formEditorView()->margins()),
-    m_leftMargin(formEditorItem->formEditorView()->margins()),
-    m_rightMargin(formEditorItem->formEditorView()->margins())
+    m_topPadding(formEditorItem->formEditorView()->containerPadding()),
+    m_bottomPadding(formEditorItem->formEditorView()->containerPadding()),
+    m_leftPadding(formEditorItem->formEditorView()->containerPadding()),
+    m_rightPadding(formEditorItem->formEditorView()->containerPadding())
 {
     Q_ASSERT(m_formEditorItem);
 }
@@ -97,7 +97,7 @@ void SnappingLineCreator::generateLines(const QList<FormEditorItem*> &exceptionL
                                                                                             m_formEditorItem->qmlItemNode().instanceBoundingRect());
 
         addLines(containerBoundingRectInTransformationSpace, m_formEditorItem);
-        containerBoundingRectInTransformationSpace.adjust(m_leftMargin, m_topMargin, -m_rightMargin, -m_rightMargin);
+        containerBoundingRectInTransformationSpace.adjust(m_leftPadding, m_topPadding, -m_rightPadding, -m_rightPadding);
         addLines(containerBoundingRectInTransformationSpace, m_formEditorItem);
     }
 
@@ -119,12 +119,20 @@ void SnappingLineCreator::generateLines(const QList<FormEditorItem*> &exceptionL
     }
 }
 
-void SnappingLineCreator::setMargins(double margin)
+void SnappingLineCreator::setContainerPaddingByGloablPadding(double containerPadding)
 {
-    m_topMargin = margin;
-    m_bottomMargin = margin;
-    m_leftMargin = margin;
-    m_rightMargin = margin;
+    m_topPadding = containerPadding;
+    m_bottomPadding = containerPadding;
+    m_leftPadding = containerPadding;
+    m_rightPadding = containerPadding;
+}
+
+void SnappingLineCreator::setContainerPaddingByContentItem(const QRectF &contentRectangle, const QRectF &itemBoundingRectangle)
+{
+    m_topPadding = contentRectangle.top() - itemBoundingRectangle.top();
+    m_bottomPadding = itemBoundingRectangle.bottom() - contentRectangle.bottom();
+    m_leftPadding = contentRectangle.left() - itemBoundingRectangle.left();
+    m_rightPadding = itemBoundingRectangle.right() - contentRectangle.right();
 }
 
 void SnappingLineCreator::setSpacing(double spacing)
@@ -136,10 +144,11 @@ void SnappingLineCreator::setSpacing(double spacing)
 }
 
 void SnappingLineCreator::update(const QList<FormEditorItem*> &exceptionList,
-                                 FormEditorItem *transformationSpaceItem)
+                                 FormEditorItem *transformationSpaceItem,
+                                 FormEditorItem *containerFormEditorItem)
 {
     clearLines();
-    setMargins(m_formEditorItem->formEditorView()->margins());
+    setContainerPaddingItem(containerFormEditorItem);
     setSpacing(m_formEditorItem->formEditorView()->spacing());
     generateLines(exceptionList, transformationSpaceItem);
 }
@@ -192,6 +201,17 @@ SnapLineMap SnappingLineCreator::leftOffsets() const
 SnapLineMap SnappingLineCreator::rightOffsets() const
 {
     return m_rightOffsetMap;
+}
+
+void SnappingLineCreator::setContainerPaddingItem(FormEditorItem *transformationSpaceItem)
+{
+    QmlItemNode containerItemNode = transformationSpaceItem->qmlItemNode();
+    QRectF contentRect = containerItemNode.instanceContentItemBoundingRect();
+
+    if (contentRect.isValid())
+        setContainerPaddingByContentItem(contentRect, containerItemNode.instanceBoundingRect());
+    else
+        setContainerPaddingByGloablPadding(m_formEditorItem->formEditorView()->containerPadding());
 }
 
 }

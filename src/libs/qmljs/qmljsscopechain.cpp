@@ -30,12 +30,14 @@
 #include "qmljsscopechain.h"
 #include "qmljsbind.h"
 #include "qmljsevaluate.h"
+#include "qmljsmodelmanagerinterface.h"
 
 using namespace QmlJS;
 
 /*!
     \class QmlJS::ScopeChain
-    \brief Describes the scopes used for global lookup in a specific location.
+    \brief The ScopeChain class describes the scopes used for global lookup in
+    a specific location.
     \sa Document Context ScopeBuilder
 
     A ScopeChain is used to perform global lookup with the lookup() method and
@@ -310,7 +312,10 @@ void ScopeChain::initializeRootScope()
         if (!m_document->bind()->isJsLibrary()) {
             foreach (Document::Ptr otherDoc, snapshot) {
                 foreach (const ImportInfo &import, otherDoc->bind()->imports()) {
-                    if (import.type() == ImportInfo::FileImport && m_document->fileName() == import.path()) {
+                    if ((import.type() == ImportInfo::FileImport && m_document->fileName() == import.path())
+                            || (import.type() == ImportInfo::QrcFileImport
+                                && ModelManagerInterface::instance()->filesAtQrcPath(import.path())
+                                .contains(m_document->fileName()))) {
                         QmlComponentChain *component = new QmlComponentChain(otherDoc);
                         componentScopes.insert(otherDoc.data(), component);
                         chain->addInstantiatingComponent(component);

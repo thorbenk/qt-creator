@@ -79,7 +79,7 @@ namespace Internal {
 enum FetchMode
 {
     FetchDisplay,
-    FetchApply,
+    FetchCherryPick,
     FetchCheckout
 };
 
@@ -106,28 +106,23 @@ private slots:
     void processReadyReadStandardOutput();
 
 private:
-    // State enumeration. It starts in 'FetchState' and then
-    // branches to 'WritePatchFileState', 'CherryPickState'
-    // or 'CheckoutState' depending on FetchMode.
     enum State
     {
-        FetchState, // Fetch patch
-        WritePatchFileState, // Write patch to a file
+        FetchState,
         DoneState,
         ErrorState
     };
 
     void handleError(const QString &message);
-    void startWritePatchFile();
+    void show();
     void cherryPick();
+    void checkout();
 
     const QSharedPointer<GerritChange> m_change;
     const QString m_repository;
     const FetchMode m_fetchMode;
     const QString m_git;
     const QSharedPointer<GerritParameters> m_parameters;
-    QScopedPointer<QTemporaryFile> m_patchFile;
-    QString m_patchFileName;
     State m_state;
     QProcess m_process;
     QFutureInterface<void> m_progress;
@@ -154,6 +149,9 @@ FetchContext::FetchContext(const QSharedPointer<GerritChange> &change,
     connect(&m_process, SIGNAL(readyReadStandardOutput()),
             this, SLOT(processReadyReadStandardOutput()));
     m_process.setWorkingDirectory(repository);
+    m_process.setProcessEnvironment(Git::Internal::GitPlugin::instance()->
+                                    gitClient()->processEnvironment());
+    m_process.closeWriteChannel();
 }
 
 FetchContext::~FetchContext()
@@ -189,54 +187,18 @@ void FetchContext::processFinished(int exitCode, QProcess::ExitStatus es)
         handleError(tr("%1 returned %2.").arg(m_git).arg(exitCode));
         return;
     }
-    switch (m_state) {
-    case DoneState:
-    case ErrorState:
-        break;
-    case FetchState:
+    if (m_state == FetchState) {
         m_progress.setProgressValue(m_progress.progressValue() + 1);
-        switch (m_fetchMode) {
-        case FetchDisplay:
-            m_state = WritePatchFileState;
-            startWritePatchFile();
-            break;
-        case FetchApply:
-        case FetchCheckout:
-            if (m_fetchMode == FetchApply) {
-                cherryPick();
-            } else {
-                Git::Internal::GitPlugin::instance()->gitClient()->synchronousCheckout(
-                            m_repository, QLatin1String("FETCH_HEAD"));
-            }
-            m_progress.reportFinished();
-            m_state = DoneState;
-            deleteLater();
-            break;
-        } // switch (m_fetchMode)
-        break;
-    case WritePatchFileState:
-        switch (m_fetchMode) {
-        case FetchDisplay: {
-            m_patchFileName = m_patchFile->fileName();
-            m_patchFile->close();
-            m_patchFile.reset();
-            m_state = DoneState;
-            m_progress.reportFinished();
-            QString title = QString(QLatin1String("Gerrit patch %1/%2"))
-                    .arg(m_change->number).arg(m_change->currentPatchSet.patchSetNumber);
-            Core::IEditor *editor = Core::EditorManager::openEditor(
-                            m_patchFileName, Git::Constants::GIT_DIFF_EDITOR_ID);
-            VcsBase::VcsBaseEditorWidget *vcsEditor = VcsBase::VcsBaseEditorWidget::getVcsBaseEditor(editor);
-            vcsEditor->setDiffBaseDirectory(m_repository);
-            vcsEditor->setForceReadOnly(true);
-            vcsEditor->setDisplayName(title);
-            deleteLater();
-            break;
-        }
-        default:
-            break;
-        }
-        break;
+        if (m_fetchMode == FetchDisplay)
+            show();
+        else if (m_fetchMode == FetchCherryPick)
+            cherryPick();
+        else if (m_fetchMode == FetchCheckout)
+            checkout();
+
+        m_progress.reportFinished();
+        m_state = DoneState;
+        deleteLater();
     }
 }
 
@@ -253,10 +215,7 @@ void FetchContext::processReadyReadStandardError()
 void FetchContext::processReadyReadStandardOutput()
 {
     const QByteArray output = m_process.readAllStandardOutput();
-    if (m_state == WritePatchFileState)
-        m_patchFile->write(output);
-    else
-        VcsBase::VcsBaseOutputWindow::instance()->append(QString::fromLocal8Bit(output));
+    VcsBase::VcsBaseOutputWindow::instance()->append(QString::fromLocal8Bit(output));
 }
 
 void FetchContext::handleError(const QString &e)
@@ -277,41 +236,29 @@ void FetchContext::processError(QProcess::ProcessError e)
         VcsBase::VcsBaseOutputWindow::instance()->appendError(msg);
 }
 
-void FetchContext::startWritePatchFile()
+void FetchContext::show()
 {
-    // Fetch to file in temporary folder.
-    QString tempPattern = QDir::tempPath();
-    if (!tempPattern.endsWith(QLatin1Char('/')))
-        tempPattern += QLatin1Char('/');
-    tempPattern += QLatin1String("gerrit_") + QString::number(m_change->number)
-            + QLatin1Char('_')
-            + QString::number(m_change->currentPatchSet.patchSetNumber)
-            + QLatin1String("XXXXXX.patch");
-    m_patchFile.reset(new QTemporaryFile(tempPattern));
-    m_patchFile->setAutoRemove(false);
-    if (!m_patchFile->open()) {
-        handleError(tr("Error writing to temporary file."));
-        return;
-    }
-    VcsBase::VcsBaseOutputWindow::instance()->append(tr("Writing %1...").arg(m_patchFile->fileName()));
-    QStringList args;
-    args << QLatin1String("format-patch") << QLatin1String("-1")
-         << QLatin1String("--stdout") << QLatin1String("FETCH_HEAD");
-    VcsBase::VcsBaseOutputWindow::instance()->appendCommand(m_repository, m_git, args);
-    if (debug)
-        qDebug() << m_git << args;
-    m_process.start(m_git, args);
-    m_process.closeWriteChannel();
+    const QString title = QString::number(m_change->number) + QLatin1Char('/')
+            + QString::number(m_change->currentPatchSet.patchSetNumber);
+    Git::Internal::GitPlugin::instance()->gitClient()->show(
+                m_repository, QLatin1String("FETCH_HEAD"), QStringList(), title);
 }
 
 void FetchContext::cherryPick()
 {
     // Point user to errors.
-    VcsBase::VcsBaseOutputWindow::instance()->popup(Core::IOutputPane::ModeSwitch | Core::IOutputPane::WithFocus);
-    VcsBase::VcsBaseOutputWindow::instance()->append(tr("Cherry-picking %1...").arg(m_patchFileName));
+    VcsBase::VcsBaseOutputWindow::instance()->popup(Core::IOutputPane::ModeSwitch
+                                                  | Core::IOutputPane::WithFocus);
     Git::Internal::GitPlugin::instance()->gitClient()->synchronousCherryPick(
                 m_repository, QLatin1String("FETCH_HEAD"));
 }
+
+void FetchContext::checkout()
+{
+    Git::Internal::GitPlugin::instance()->gitClient()->synchronousCheckout(
+                m_repository, QLatin1String("FETCH_HEAD"));
+}
+
 
 GerritPlugin::GerritPlugin(QObject *parent)
     : QObject(parent)
@@ -329,11 +276,11 @@ bool GerritPlugin::initialize(Core::ActionContainer *ac)
 
     QAction *openViewAction = new QAction(tr("Gerrit..."), this);
 
-    Core::Command *command =
+    m_gerritCommand =
         Core::ActionManager::registerAction(openViewAction, Constants::GERRIT_OPEN_VIEW,
                            Core::Context(Core::Constants::C_GLOBAL));
     connect(openViewAction, SIGNAL(triggered()), this, SLOT(openView()));
-    ac->addAction(command);
+    ac->addAction(m_gerritCommand);
 
     QAction *pushAction = new QAction(tr("Push to Gerrit..."), this);
 
@@ -356,6 +303,7 @@ void GerritPlugin::updateActions(bool hasTopLevel)
 
 void GerritPlugin::addToLocator(Locator::CommandLocator *locator)
 {
+    locator->appendCommand(m_gerritCommand);
     locator->appendCommand(m_pushToGerritPair.second);
 }
 
@@ -363,29 +311,48 @@ void GerritPlugin::push()
 {
     const QString topLevel = Git::Internal::GitPlugin::instance()->currentState().topLevel();
 
-    QPointer<GerritPushDialog> dialog = new GerritPushDialog(topLevel, Core::ICore::mainWindow());
+    // QScopedPointer is required to delete the dialog when leaving the function
+    GerritPushDialog dialog(topLevel, m_reviewers, Core::ICore::mainWindow());
 
-    if (!dialog->localChangesFound()) {
-        QMessageBox::critical(Core::ICore::mainWindow(), tr("No Local Changes"),
-                              tr("Change from HEAD appears to be in remote branch already. Aborting."));
+    if (!dialog.localChangesFound())
+        return;
+
+    if (!dialog.valid()) {
+        QMessageBox::warning(Core::ICore::mainWindow(), tr("Initialization Failed"),
+                              tr("Failed to initialize dialog. Aborting."));
         return;
     }
 
-    if (dialog->exec() == QDialog::Rejected)
-        return;
-
-    if (dialog.isNull())
+    if (dialog.exec() == QDialog::Rejected)
         return;
 
     QStringList args;
 
-    args << dialog->selectedRemoteName();
-    args << QLatin1String("HEAD:refs/") + dialog->selectedPushType() +
-            QLatin1Char('/') + dialog->selectedRemoteBranchName();
+    m_reviewers = dialog.reviewers();
+    const QStringList reviewers = m_reviewers.split(QLatin1Char(','),
+                                                            QString::SkipEmptyParts);
+    if (!reviewers.isEmpty()) {
+        QString reviewersFlag(QLatin1String("--receive-pack=git receive-pack"));
+        foreach (const QString &reviewer, reviewers) {
+            const QString name = reviewer.trimmed();
+            if (!name.isEmpty())
+                reviewersFlag += QString::fromLatin1(" --reviewer=") + name;
+        }
+        args << reviewersFlag;
+    }
 
-    Git::Internal::GitPlugin::instance()->gitClient()->synchronousPush(topLevel, args);
+    args << dialog.selectedRemoteName();
+    QString target = dialog.selectedCommit();
+    if (target.isEmpty())
+        target = QLatin1String("HEAD");
+    target += QLatin1String(":refs/") + dialog.selectedPushType() +
+            QLatin1Char('/') + dialog.selectedRemoteBranchName();
+    const QString topic = dialog.selectedTopic();
+    if (!topic.isEmpty())
+        target += QLatin1Char('/') + topic;
+    args << target;
 
-    delete dialog;
+    Git::Internal::GitPlugin::instance()->gitClient()->push(topLevel, args);
 }
 
 // Open or raise the Gerrit dialog window.
@@ -401,8 +368,8 @@ void GerritPlugin::openView()
         gd->setModal(false);
         connect(gd, SIGNAL(fetchDisplay(QSharedPointer<Gerrit::Internal::GerritChange>)),
                 this, SLOT(fetchDisplay(QSharedPointer<Gerrit::Internal::GerritChange>)));
-        connect(gd, SIGNAL(fetchApply(QSharedPointer<Gerrit::Internal::GerritChange>)),
-                this, SLOT(fetchApply(QSharedPointer<Gerrit::Internal::GerritChange>)));
+        connect(gd, SIGNAL(fetchCherryPick(QSharedPointer<Gerrit::Internal::GerritChange>)),
+                this, SLOT(fetchCherryPick(QSharedPointer<Gerrit::Internal::GerritChange>)));
         connect(gd, SIGNAL(fetchCheckout(QSharedPointer<Gerrit::Internal::GerritChange>)),
                 this, SLOT(fetchCheckout(QSharedPointer<Gerrit::Internal::GerritChange>)));
         connect(this, SIGNAL(fetchStarted(QSharedPointer<Gerrit::Internal::GerritChange>)),
@@ -440,9 +407,9 @@ void GerritPlugin::fetchDisplay(const QSharedPointer<Gerrit::Internal::GerritCha
     fetch(change, FetchDisplay);
 }
 
-void GerritPlugin::fetchApply(const QSharedPointer<Gerrit::Internal::GerritChange> &change)
+void GerritPlugin::fetchCherryPick(const QSharedPointer<Gerrit::Internal::GerritChange> &change)
 {
-    fetch(change, FetchApply);
+    fetch(change, FetchCherryPick);
 }
 
 void GerritPlugin::fetchCheckout(const QSharedPointer<Gerrit::Internal::GerritChange> &change)
@@ -480,28 +447,26 @@ void GerritPlugin::fetch(const QSharedPointer<Gerrit::Internal::GerritChange> &c
                 }
             }
 
-            if (!verifiedRepository && QFile::exists(repository + QLatin1String("/.gitmodules"))) {
-                QMap<QString,QString> submodules = gitClient->synchronousSubmoduleList(repository);
-
-                QMap<QString,QString>::const_iterator i = submodules.constBegin();
-                while (i != submodules.constEnd()) {
-                    QString remote = i.value();
+            if (!verifiedRepository) {
+                Git::Internal::SubmoduleDataMap submodules = gitClient->submoduleList(repository);
+                foreach (const Git::Internal::SubmoduleData &submoduleData, submodules) {
+                    QString remote = submoduleData.url;
                     if (remote.endsWith(QLatin1String(".git")))
                         remote.chop(4);
                     if (remote.contains(m_parameters->host) && remote.endsWith(change->project)
-                            && QFile::exists(repository + QLatin1Char('/') + i.key())) {
-                        repository = QDir::cleanPath(repository + QLatin1Char('/') + i.key());
+                            && QFile::exists(repository + QLatin1Char('/') + submoduleData.dir)) {
+                        repository = QDir::cleanPath(repository + QLatin1Char('/')
+                                                     + submoduleData.dir);
                         verifiedRepository = true;
                         break;
                     }
-                    ++i;
                 }
             }
 
             if (!verifiedRepository) {
                 QMessageBox::StandardButton answer = QMessageBox::question(
-                            Core::ICore::mainWindow(), tr("Remote not Verified"),
-                            tr("Change host: %1\nand project: %2\n\nwere not verified among remotes"
+                            Core::ICore::mainWindow(), tr("Remote Not Verified"),
+                            tr("Change host %1\nand project %2\n\nwere not verified among remotes"
                                " in %3. Select different folder?")
                             .arg(m_parameters->host,
                                  change->project,

@@ -238,11 +238,7 @@
     debugging) or runs a separate process (e.g. when using GDB server
     on embedded Linux). The host side typically
     consists of \QC itself, often with the help of an external process, such as
-    \if defined(qcmanual)
     GDB or CDB.
-    \else
-    GDB.
-    \endif
 
     While this setup might look daunting, it is mostly invisible to
     the user of \QC. To start debugging on a remote target with the
@@ -726,15 +722,17 @@
     attach it to a running process, specify the process ID as a parameter for
     the \c {-debug} option. To examine a core file, specify the file name.
     \QC executes all the necessary steps, such as searching for
-    the binary that belongs to a core file.
+    the binary that belongs to a core file. To connect to a debug server,
+    specify the server location and port number.
 
     For example:
 
     \list
 
         \li  \c {C:\qtcreator\bin>qtcreator -debug 2000}
-
-        \li  \c {C:\qtcreator\bin>qtcreator -debug core.2000}
+        \li  \c {C:\qtcreator\bin>qtcreator -debug core=core.2000}
+        \li  \c {C:\qtcreator\bin>qtcreator -debug some.exe,core=core}
+        \li  \c {C:\qtcreator\bin>qtcreator -debug server=some.dot.com:4251}
 
     \endlist
 
@@ -1322,7 +1320,7 @@
     existing process or use the \gui {Run in terminal} option in \QC.
 
     The reasons for this are described in
-    \l{https://wiki.ubuntu.com/SecurityTeam/Roadmap/KernelHardening#ptrace%20Protection}
+    \l{http://wiki.ubuntu.com/SecurityTeam/Roadmap/KernelHardening#ptrace%20Protection}
     {KernelHardening}.
 
     However, the usefulness of this security measure seems dubious,

@@ -32,6 +32,7 @@
 #include <utils/qtcassert.h>
 
 #include <QByteArray>
+#include <QDataStream>
 #include <QHash>
 #include <QVariant>
 
@@ -42,8 +43,8 @@ namespace Core {
 /*!
     \class Core::Id
 
-    \brief The class Id encapsulates an identifier that is unique
-    within a specific running Qt Creator process.
+    \brief The Id class encapsulates an identifier that is unique
+    within a specific running \QC process.
 
     \c{Core::Id} is used as facility to identify objects of interest
     in a more typesafe and faster manner than a plain \c QString or
@@ -134,7 +135,7 @@ static int theId(const QByteArray &ba)
 }
 
 /*!
-    \fn Core::Id(int uid)
+    \fn Core::Id::Id(int uid)
 
     \brief Constructs an id given a UID.
 

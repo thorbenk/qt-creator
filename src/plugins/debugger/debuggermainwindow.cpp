@@ -270,10 +270,10 @@ DebuggerMainWindow::~DebuggerMainWindow()
 void DebuggerMainWindow::setCurrentEngine(DebuggerEngine *engine)
 {
     if (d->m_engine)
-        disconnect(d->m_engine, SIGNAL(raiseWindow()), this, SLOT(raiseDebuggerWindow()));
+        disconnect(d->m_engine, SIGNAL(raiseWindow()), ICore::appMainWindow(), SLOT(raiseWindow()));
     d->m_engine = engine;
     if (d->m_engine)
-        connect(d->m_engine, SIGNAL(raiseWindow()), this, SLOT(raiseDebuggerWindow()));
+        connect(d->m_engine, SIGNAL(raiseWindow()), ICore::appMainWindow(), SLOT(raiseWindow()));
 }
 
 DebuggerLanguages DebuggerMainWindow::activeDebugLanguages() const
@@ -552,8 +552,6 @@ QWidget *DebuggerMainWindow::createContents(IMode *mode)
 void DebuggerMainWindow::writeSettings() const
 {
     QSettings *settings = ICore::settings();
-    QTC_ASSERT(settings, return);
-
     settings->beginGroup(QLatin1String("DebugMode.CppMode"));
     QHashIterator<QString, QVariant> it(d->m_dockWidgetActiveStateCpp);
     while (it.hasNext()) {
@@ -571,18 +569,9 @@ void DebuggerMainWindow::writeSettings() const
     settings->endGroup();
 }
 
-void DebuggerMainWindow::raiseDebuggerWindow()
-{
-    Utils::AppMainWindow *appMainWindow = qobject_cast<Utils::AppMainWindow*>(ICore::mainWindow());
-    QTC_ASSERT(appMainWindow, return);
-    appMainWindow->raiseWindow();
-}
-
 void DebuggerMainWindow::readSettings()
 {
     QSettings *settings = ICore::settings();
-    QTC_ASSERT(settings, return);
-
     d->m_dockWidgetActiveStateCpp.clear();
     d->m_dockWidgetActiveStateQmlCpp.clear();
 

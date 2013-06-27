@@ -14,11 +14,12 @@ DynamicLibrary {
             return ["-Wl,-s"]
     }
     cpp.installNamePrefix: "@rpath/PlugIns/"
-    cpp.rpaths: qbs.targetOS == "mac" ? ["@loader_path/..", "@executable_path/.."]
-                                      : ["$ORIGIN", "$ORIGIN/.."]
+    cpp.rpaths: qbs.targetOS.contains("mac")
+            ? ["@loader_path/..", "@executable_path/.."]
+            : ["$ORIGIN", "$ORIGIN/.."]
     cpp.includePaths: [ ".", ".." ]
 
-    ProductModule {
+    Export {
         Depends { name: "cpp" }
         cpp.includePaths: [ "." ]
     }

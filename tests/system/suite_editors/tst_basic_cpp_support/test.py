@@ -1,3 +1,32 @@
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
+
 source("../../shared/qtcreator.py")
 
 def main():
@@ -17,11 +46,11 @@ def main():
     if not startedWithoutPluginError():
         return
     overrideInstallLazySignalHandler()
-    installLazySignalHandler(":Qt Creator_CppEditor::Internal::CPPEditorWidget", "textChanged()",
+    # used simplified object to omit the visible property - causes Squish problem here otherwise
+    installLazySignalHandler("{type='CppEditor::Internal::CPPEditorWidget'}", "textChanged()",
                              "__handleTextChanged__")
-    prepareForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)")
     openQmakeProject(proFile)
-    waitForSignal("{type='CppTools::Internal::CppModelManager' unnamed='1'}", "sourceFilesRefreshed(QStringList)", 20000)
+    progressBarWait(20000)
     selectFromLocator("dummy.cpp")
 
 ##   Waiting for a solution from Froglogic to make the below work.
@@ -39,7 +68,7 @@ def main():
 #    Creator will show you the declaration of the variable.
 
     if platform.system() == "Darwin":
-        JIRA.performWorkaroundIfStillOpen(8735, JIRA.Bug.CREATOR, cppwindow)
+        JIRA.performWorkaroundForBug(8735, JIRA.Bug.CREATOR, cppwindow)
 
     type(cppwindow, "<Ctrl+F>")
     type(waitForObject(":*Qt Creator.findEdit_Utils::FilterLineEdit"), "    xi")
@@ -92,6 +121,13 @@ def __typeAndWaitForAction__(editor, keyCombination):
     textChanged = False
     cursorPos = editor.textCursor().position()
     type(editor, keyCombination)
-    waitFor("textChanged or editor.textCursor().position() != cursorPos", 2000)
-    if not (textChanged or editor.textCursor().position()!=cursorPos):
+    waitFor("textChanged or cppEditorPositionChanged(cursorPos)", 2000)
+    if not (textChanged or cppEditorPositionChanged(cursorPos)):
         test.warning("Waiting timed out...")
+
+def cppEditorPositionChanged(origPos):
+    try:
+        editor = waitForObject(":Qt Creator_CppEditor::Internal::CPPEditorWidget", 500)
+        return editor.textCursor().position() != origPos
+    except:
+        return False

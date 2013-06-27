@@ -38,62 +38,66 @@
 namespace Gerrit {
 namespace Internal {
 
-GerritPushDialog::GerritPushDialog(const QString &workingDir, QWidget *parent) :
+GerritPushDialog::GerritPushDialog(const QString &workingDir, const QString &reviewerList, QWidget *parent) :
     QDialog(parent),
     m_workingDir(workingDir),
     m_ui(new Ui::GerritPushDialog),
-    m_remoteBranches(new QMap<QString,QString>()),
-    m_localChangesFound(true)
+    m_localChangesFound(false),
+    m_valid(false)
 {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
     m_ui->setupUi(this);
-    m_ui->repositoryLabel->setText(tr("Local Repository: %1").arg(
+    m_ui->repositoryLabel->setText(tr("<b>Local repository:</b> %1").arg(
                                        QDir::toNativeSeparators(workingDir)));
+
+    if (!m_ui->commitView->init(workingDir, QString(), false))
+        return;
+
+    QString earliestCommit = m_ui->commitView->earliestCommit();
+    if (earliestCommit.isEmpty())
+        return;
+
+    m_localChangesFound = true;
 
     Git::Internal::GitClient *gitClient = Git::Internal::GitPlugin::instance()->gitClient();
     QString output;
     QString error;
     QStringList args;
-
-    args << QLatin1String("--no-color") << QLatin1String("--format=%P")
-         << QLatin1String("HEAD") << QLatin1String("--not")<< QLatin1String("--remotes");
-
-    if (!gitClient->synchronousLog(m_workingDir, args, &output) || output.isEmpty())
-        reject();
-
-    output.chop(1);
-    if (output.isEmpty()) {
-        output = QLatin1String("HEAD");
-        m_localChangesFound = false;
-    } else {
-        output = output.mid(output.lastIndexOf(QLatin1Char('\n')) + 1);
-    }
-
-    args.clear();
-    args << QLatin1String("--remotes") << QLatin1String("--contains") << output;
+    args << QLatin1String("-r") << QLatin1String("--contains")
+         << earliestCommit + QLatin1Char('^');
 
     if (!gitClient->synchronousBranchCmd(m_workingDir, args, &output, &error))
-        reject();
+        return;
 
     QString head = QLatin1String("/HEAD");
     QStringList refs = output.split(QLatin1Char('\n'));
+    QString remoteTrackingBranch = gitClient->synchronousTrackingBranch(m_workingDir);
+    QString remoteBranch;
     foreach (const QString &reference, refs) {
-        if (reference.contains(head) || reference.isEmpty())
+        const QString ref = reference.trimmed();
+        if (ref.contains(head) || ref.isEmpty())
             continue;
 
-        m_suggestedRemoteName = reference.left(reference.indexOf(QLatin1Char('/'))).trimmed();
-        m_suggestedRemoteBranch = reference.mid(reference.indexOf(QLatin1Char('/')) + 1).trimmed();
-        break;
+        remoteBranch = ref;
+
+        // Prefer remote tracking branch if it exists and contains the latest remote commit
+        if (ref == remoteTrackingBranch)
+            break;
+    }
+
+    if (!remoteBranch.isEmpty()) {
+        m_suggestedRemoteName = remoteBranch.left(remoteBranch.indexOf(QLatin1Char('/')));
+        m_suggestedRemoteBranch = remoteBranch.mid(remoteBranch.indexOf(QLatin1Char('/')) + 1);
     }
 
     output.clear();
     error.clear();
     args.clear();
 
-    args << QLatin1String("--remotes");
+    args << QLatin1String("-r");
 
     if (!gitClient->synchronousBranchCmd(m_workingDir, args, &output, &error))
-        reject();
+        return;
 
     refs.clear();
     refs = output.split(QLatin1String("\n"));
@@ -102,12 +106,12 @@ GerritPushDialog::GerritPushDialog(const QString &workingDir, QWidget *parent) :
             continue;
 
         int refBranchIndex = reference.indexOf(QLatin1Char('/'));
-        m_remoteBranches->insertMulti(reference.left(refBranchIndex).trimmed(),
+        m_remoteBranches.insertMulti(reference.left(refBranchIndex).trimmed(),
                                      reference.mid(refBranchIndex + 1).trimmed());
     }
 
     int currIndex = 0;
-    QStringList remotes = m_remoteBranches->keys();
+    QStringList remotes = m_remoteBranches.keys();
     remotes.removeDuplicates();
     foreach (const QString &remote, remotes) {
         m_ui->remoteComboBox->addItem(remote);
@@ -115,22 +119,30 @@ GerritPushDialog::GerritPushDialog(const QString &workingDir, QWidget *parent) :
             m_ui->remoteComboBox->setCurrentIndex(currIndex);
         ++currIndex;
     }
-    if (m_ui->remoteComboBox->count() < 1)
-        reject();
-
-    m_ui->remoteComboBox->setEnabled(m_ui->remoteComboBox->count() != 1);
-
-    connect(m_ui->remoteComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(setRemoteBranches()));
+    const int remoteCount = m_ui->remoteComboBox->count();
+    if (remoteCount < 1) {
+        return;
+    } else if (remoteCount == 1) {
+        m_ui->remoteLabel->hide();
+        m_ui->remoteComboBox->hide();
+    } else {
+        connect(m_ui->remoteComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(setRemoteBranches()));
+    }
     connect(m_ui->branchComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(setChangeRange()));
     setRemoteBranches();
+    m_ui->reviewersLineEdit->setText(reviewerList);
+    m_valid = true;
 }
 
 GerritPushDialog::~GerritPushDialog()
 {
     delete m_ui;
-    delete m_remoteBranches;
 }
 
+QString GerritPushDialog::selectedCommit() const
+{
+    return m_ui->commitView->commit();
+}
 
 QString GerritPushDialog::calculateChangeRange()
 {
@@ -165,13 +177,20 @@ bool GerritPushDialog::localChangesFound() const
     return m_localChangesFound;
 }
 
+bool GerritPushDialog::valid() const
+{
+    return m_valid;
+}
+
 void GerritPushDialog::setRemoteBranches()
 {
+    bool blocked = m_ui->branchComboBox->blockSignals(true);
     m_ui->branchComboBox->clear();
 
-    QMap<QString, QString>::const_iterator it;
     int i = 0;
-    for (it = m_remoteBranches->constBegin(); it != m_remoteBranches->constEnd(); ++it) {
+    for (RemoteBranchesMap::const_iterator it = m_remoteBranches.constBegin(),
+         end = m_remoteBranches.constEnd();
+         it != end; ++it) {
         if (it.key() == selectedRemoteName()) {
             m_ui->branchComboBox->addItem(it.value());
             if (it.value() == m_suggestedRemoteBranch)
@@ -180,6 +199,7 @@ void GerritPushDialog::setRemoteBranches()
         }
     }
     setChangeRange();
+    m_ui->branchComboBox->blockSignals(blocked);
 }
 
 QString GerritPushDialog::selectedRemoteName() const
@@ -194,7 +214,17 @@ QString GerritPushDialog::selectedRemoteBranchName() const
 
 QString GerritPushDialog::selectedPushType() const
 {
-    return m_ui->publicRadioButton->isChecked() ? QLatin1String("for") : QLatin1String("draft");
+    return m_ui->draftCheckBox->isChecked() ? QLatin1String("draft") : QLatin1String("for");
+}
+
+QString GerritPushDialog::selectedTopic() const
+{
+    return m_ui->topicLineEdit->text().trimmed();
+}
+
+QString GerritPushDialog::reviewers() const
+{
+    return m_ui->reviewersLineEdit->text();
 }
 
 } // namespace Internal

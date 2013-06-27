@@ -38,12 +38,13 @@
 namespace Qt4ProjectManager {
 namespace Internal {
 
-QmakeKitConfigWidget::QmakeKitConfigWidget(ProjectExplorer::Kit *k) :
-    ProjectExplorer::KitConfigWidget(k),
+QmakeKitConfigWidget::QmakeKitConfigWidget(ProjectExplorer::Kit *k, bool sticky) :
+    ProjectExplorer::KitConfigWidget(k, sticky),
     m_lineEdit(new QLineEdit),
     m_ignoreChange(false)
 {
     refresh(); // set up everything according to kit
+    m_lineEdit->setToolTip(toolTip());
     connect(m_lineEdit, SIGNAL(textEdited(QString)), this, SLOT(mkspecWasChanged(QString)));
 }
 

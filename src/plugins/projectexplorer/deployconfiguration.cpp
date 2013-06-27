@@ -240,15 +240,16 @@ DeployConfigurationFactory *DeployConfigurationFactory::find(Target *parent, con
     return 0;
 }
 
-DeployConfigurationFactory *DeployConfigurationFactory::find(Target *parent)
+QList<DeployConfigurationFactory *> DeployConfigurationFactory::find(Target *parent)
 {
+    QList<DeployConfigurationFactory *> result;
     QList<DeployConfigurationFactory *> factories
             = ExtensionSystem::PluginManager::instance()->getObjects<DeployConfigurationFactory>();
     foreach (DeployConfigurationFactory *factory, factories) {
         if (!factory->availableCreationIds(parent).isEmpty())
-            return factory;
+            result << factory;
     }
-    return 0;
+    return result;
 }
 
 DeployConfigurationFactory *DeployConfigurationFactory::find(Target *parent, DeployConfiguration *dc)
@@ -264,7 +265,7 @@ DeployConfigurationFactory *DeployConfigurationFactory::find(Target *parent, Dep
 
 bool DeployConfigurationFactory::canHandle(Target *parent) const
 {
-    if (!parent->project()->supportsKit(parent->kit()))
+    if (!parent->project()->supportsKit(parent->kit()) || parent->project()->needsSpecialDeployment())
         return false;
     return DeviceTypeKitInformation::deviceTypeId(parent->kit()) == Constants::DESKTOP_DEVICE_TYPE;
 }

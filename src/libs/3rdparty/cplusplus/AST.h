@@ -47,7 +47,7 @@ public:
         if (value)
             return value->firstToken();
 
-        // ### assert(0);
+        // ### CPP_CHECK(0);
         return 0;
     }
 
@@ -58,7 +58,7 @@ public:
         if (lv)
             return lv->lastToken();
 
-        // ### assert(0);
+        // ### CPP_CHECK(0);
         return 0;
     }
 
@@ -2432,18 +2432,22 @@ class CPLUSPLUS_EXPORT AliasDeclarationAST: public DeclarationAST
 {
 public:
     unsigned using_token;
-    unsigned identifier_token;
+    NameAST *name;
     unsigned equal_token;
     TypeIdAST *typeId;
     unsigned semicolon_token;
 
+public: // annotations
+    Declaration *symbol;
+
 public:
     AliasDeclarationAST()
         : using_token(0)
-        , identifier_token(0)
+        , name(0)
         , equal_token(0)
         , typeId(0)
         , semicolon_token(0)
+        , symbol(0)
     {}
 
     virtual AliasDeclarationAST *asAliasDeclaration() { return this; }

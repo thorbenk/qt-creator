@@ -18,7 +18,6 @@ QtcPlugin {
     ])
 
     files: [
-        "TextEditor.mimetypes.xml",
         "autocompleter.cpp",
         "autocompleter.h",
         "basefilefind.cpp",
@@ -149,6 +148,7 @@ QtcPlugin {
     ]
 
     Group {
+        name: "CodeAssist"
         prefix: "codeassist/"
         files: [
             "assistenums.h",
@@ -188,7 +188,6 @@ QtcPlugin {
             "ifunctionhintproposalmodel.h",
             "igenericproposalmodel.cpp",
             "igenericproposalmodel.h",
-            "ikeywords.h",
             "keywordscompletionassist.cpp",
             "keywordscompletionassist.h",
             "quickfixassistprocessor.cpp",
@@ -201,6 +200,7 @@ QtcPlugin {
     }
 
     Group {
+        name: "GenericHighlighter"
         prefix: "generichighlighter/"
         files: [
             "context.cpp",
@@ -213,7 +213,6 @@ QtcPlugin {
             "highlightdefinition.h",
             "highlightdefinitionhandler.cpp",
             "highlightdefinitionhandler.h",
-            "highlightdefinitionmetadata.cpp",
             "highlightdefinitionmetadata.h",
             "highlighter.cpp",
             "highlighter.h",
@@ -245,6 +244,7 @@ QtcPlugin {
     }
 
     Group {
+        name: "Snippets"
         prefix: "snippets/"
         files: [
             "isnippetprovider.cpp",
@@ -268,7 +268,7 @@ QtcPlugin {
         ]
     }
 
-    ProductModule {
+    Export {
         Depends { name: "Find" }
         Depends { name: "Locator" }
     }

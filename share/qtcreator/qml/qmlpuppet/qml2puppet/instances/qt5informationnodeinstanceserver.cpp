@@ -85,6 +85,29 @@ void Qt5InformationNodeInstanceServer::token(const TokenCommand &command)
     startRenderTimer();
 }
 
+bool Qt5InformationNodeInstanceServer::isDirtyRecursiveForNonInstanceItems(QQuickItem *item) const
+{
+    static DesignerSupport::DirtyType informationsDirty = DesignerSupport::DirtyType(DesignerSupport::TransformUpdateMask
+                                                                              | DesignerSupport::ContentUpdateMask
+                                                                              | DesignerSupport::Visible
+                                                                              | DesignerSupport::ZValue
+                                                                              | DesignerSupport::OpacityValue);
+
+    if (DesignerSupport::isDirty(item, informationsDirty))
+        return true;
+
+    foreach (QQuickItem *childItem, item->childItems()) {
+        if (!hasInstanceForObject(childItem)) {
+            if (DesignerSupport::isDirty(childItem, informationsDirty))
+                return true;
+            else if (isDirtyRecursiveForNonInstanceItems(childItem))
+                return true;
+        }
+    }
+
+    return false;
+}
+
 void Qt5InformationNodeInstanceServer::collectItemChangesAndSendChangeCommands()
 {
     static bool inFunction = false;
@@ -95,19 +118,13 @@ void Qt5InformationNodeInstanceServer::collectItemChangesAndSendChangeCommands()
 
         QSet<ServerNodeInstance> informationChangedInstanceSet;
         QVector<InstancePropertyPair> propertyChangedList;
-        bool adjustSceneRect = false;
 
         if (quickView()) {
             foreach (QQuickItem *item, allItems()) {
                 if (item && hasInstanceForObject(item)) {
                     ServerNodeInstance instance = instanceForObject(item);
 
-                    DesignerSupport::DirtyType informationsDirty = DesignerSupport::DirtyType(DesignerSupport::TransformUpdateMask
-                                                                                              | DesignerSupport::ContentUpdateMask
-                                                                                              | DesignerSupport::Visible
-                                                                                              | DesignerSupport::ZValue
-                                                                                              | DesignerSupport::OpacityValue);
-                    if (DesignerSupport::isDirty(item, informationsDirty))
+                    if (isDirtyRecursiveForNonInstanceItems(item))
                         informationChangedInstanceSet.insert(instance);
 
 
@@ -115,11 +132,6 @@ void Qt5InformationNodeInstanceServer::collectItemChangesAndSendChangeCommands()
                         m_parentChangedSet.insert(instance);
                         informationChangedInstanceSet.insert(instance);
                     }
-//                    if (d->geometryChanged) {
-//                        if (instance.isRootNodeInstance())
-//                            declarativeView()->scene()->setSceneRect(item->boundingRect());
-//                    }
-
                 }
             }
 
@@ -128,9 +140,6 @@ void Qt5InformationNodeInstanceServer::collectItemChangesAndSendChangeCommands()
                 const QString propertyName = property.second;
 
                 if (instance.isValid()) {
-                    if (instance.isRootNodeInstance() && (propertyName == "width" || propertyName == "height"))
-                        adjustSceneRect = true;
-
                     if (propertyName.contains("anchors"))
                         informationChangedInstanceSet.insert(instance);
 
@@ -153,13 +162,6 @@ void Qt5InformationNodeInstanceServer::collectItemChangesAndSendChangeCommands()
                 sendChildrenChangedCommand(m_parentChangedSet.toList());
                 m_parentChangedSet.clear();
             }
-
-//            if (adjustSceneRect) {
-//                QRectF boundingRect = rootNodeInstance().boundingRect();
-//                if (boundingRect.isValid()) {
-//                    declarativeView()->setSceneRect(boundingRect);
-//                }
-//            }
 
             if (!m_completedComponentList.isEmpty()) {
                 nodeInstanceClient()->componentCompleted(createComponentCompletedCommand(m_completedComponentList));

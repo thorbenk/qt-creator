@@ -97,15 +97,17 @@ static const char *belongingClassName(const CPlusPlus::Function *function)
 }
 
 /*!
-    \struct VcsBase::VcsBaseSubmitEditorParameters
+    \class VcsBase::VcsBaseSubmitEditorParameters
 
-    \brief Utility struct to parametrize a VcsBaseSubmitEditor.
+    \brief The VcsBaseSubmitEditorParameters class is a utility class
+    to parametrize a VcsBaseSubmitEditor.
 */
 
 /*!
     \class  VcsBase::VcsBaseSubmitEditor
 
-    \brief Base class for a submit editor based on the SubmitEditorWidget.
+    \brief The VcsBaseSubmitEditor class is the base class for a submit editor
+    based on the SubmitEditorWidget.
 
     Presents the commit message in a text editor and an
     checkable list of modified files in a list window. The user can delete
@@ -400,16 +402,6 @@ void VcsBaseSubmitEditor::setCheckScriptWorkingDirectory(const QString &s)
     d->m_checkScriptWorkingDirectory = s;
 }
 
-bool VcsBaseSubmitEditor::duplicateSupported() const
-{
-    return false;
-}
-
-Core::IEditor *VcsBaseSubmitEditor::duplicate(QWidget * /*parent*/)
-{
-    return 0;
-}
-
 Core::Id VcsBaseSubmitEditor::id() const
 {
     return d->m_parameters->id;
@@ -445,16 +437,6 @@ QWidget *VcsBaseSubmitEditor::toolBar()
     // Create
     d->m_toolWidget = createToolBar(d->m_widget, d->m_submitAction, d->m_diffAction);
     return d->m_toolWidget;
-}
-
-QByteArray VcsBaseSubmitEditor::saveState() const
-{
-    return QByteArray();
-}
-
-bool VcsBaseSubmitEditor::restoreState(const QByteArray &/*state*/)
-{
-    return true;
 }
 
 QStringList VcsBaseSubmitEditor::checkedFiles() const
@@ -593,8 +575,7 @@ VcsBaseSubmitEditor::PromptSubmitResult
 {
     SubmitEditorWidget *submitWidget = static_cast<SubmitEditorWidget *>(this->widget());
 
-    Core::EditorManager::activateEditor(
-                this, Core::EditorManager::IgnoreNavigationHistory | Core::EditorManager::ModeSwitch);
+    Core::EditorManager::activateEditor(this, Core::EditorManager::IgnoreNavigationHistory);
 
     QString errorMessage;
     QMessageBox::StandardButton answer = QMessageBox::Yes;

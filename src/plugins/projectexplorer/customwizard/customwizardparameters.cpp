@@ -156,7 +156,8 @@ CustomWizardFile::CustomWizardFile() :
 
 /*!
     \class ProjectExplorer::CustomWizardValidationRule
-    \brief A custom wizard validation rule based on JavaScript-expressions over
+    \brief The CustomWizardValidationRule class provides a custom wizard
+    validation rule based on JavaScript-expressions over
     the field placeholders.
 
     Placeholder replacement is performed on the condition and it is evaluated
@@ -561,7 +562,8 @@ static inline QString languageSetting()
 
 /*!
     \class ProjectExplorer::Internal::GeneratorScriptArgument
-    \brief Argument to a custom wizard generator script.
+    \brief The GeneratorScriptArgument class provides an argument to a custom
+    wizard generator script.
 
     Contains placeholders to be replaced by field values or file names
     as in \c '--class-name=%ClassName%' or \c '--description=%Description%'.
@@ -850,14 +852,13 @@ bool replaceFieldHelper(ValueStringTransformation transform,
         int nextPos = s->indexOf(delimiter, pos + 1);
         if (nextPos == -1)
             break;
-        nextPos++; // Point past 2nd delimiter
-        if (nextPos == pos + 2) {
+        if (nextPos == pos + 1) {
             pos = nextPos; // Skip '%%'
             continue;
         }
         // Evaluate field specification for modifiers
         // "%field:l%"
-        QString fieldSpec = s->mid(pos + 1, nextPos - pos - 2);
+        QString fieldSpec = s->mid(pos + 1, nextPos - pos - 1);
         const int fieldSpecSize = fieldSpec.size();
         char modifier = '\0';
         if (fieldSpecSize >= 3 && fieldSpec.at(fieldSpecSize - 2) == modifierDelimiter) {
@@ -895,7 +896,7 @@ bool replaceFieldHelper(ValueStringTransformation transform,
         if (!replacement.isEmpty())
             nonEmptyReplacements = true;
         // Apply transformation to empty values as well.
-        s->replace(pos, nextPos - pos, transform(replacement));
+        s->replace(pos, nextPos - pos + 1, transform(replacement));
         nonEmptyReplacements = true;
         pos += replacement.size();
     }

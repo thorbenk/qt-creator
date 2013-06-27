@@ -11,7 +11,6 @@ QtcPlugin {
     Depends { name: "TextEditor" }
     Depends { name: "QmlJS" }
 
-    Depends { name: "cpp" }
     cpp.includePaths: base.concat([
         "../../shared",
         "../../shared/proparser"
@@ -28,6 +27,7 @@ QtcPlugin {
     ])
 
     Group {
+        name: "Shared"
         prefix: "../../shared/proparser/"
         files: [
             "ioutils.cpp",
@@ -48,6 +48,8 @@ QtcPlugin {
             "qmakeglobals.h",
             "qmakeparser.cpp",
             "qmakeparser.h",
+            "qmakevfs.cpp",
+            "qmakevfs.h",
         ]
     }
 
@@ -106,11 +108,9 @@ QtcPlugin {
         "images/qml.png",
         "images/qt_project.png",
         "images/qt_qrc.png",
-        "QtSupport.mimetypes.xml",
     ]
 
-
-    ProductModule {
+    Export {
         Depends { name: "cpp" }
         cpp.includePaths: "../../shared"
         cpp.defines: [

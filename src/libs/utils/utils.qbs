@@ -7,7 +7,7 @@ QtcLibrary {
     cpp.defines: base.concat("QTCREATOR_UTILS_LIB")
 
     Properties {
-        condition: qbs.targetOS == "windows"
+        condition: qbs.targetOS.contains("windows")
         cpp.dynamicLibraries: [
             "user32",
             "iphlpapi",
@@ -15,11 +15,10 @@ QtcLibrary {
         ]
     }
     Properties {
-        condition: qbs.targetPlatform.indexOf("unix") != -1 && qbs.targetOS != "mac"
+        condition: qbs.targetOS.contains("unix") && !qbs.targetOS.contains("mac")
         cpp.dynamicLibraries: ["X11"]
     }
 
-    Depends { name: "cpp" }
     Depends { name: "Qt"; submodules: ["widgets", "network", "script", "concurrent"] }
     Depends { name: "app_version_header" }
 
@@ -182,6 +181,7 @@ QtcLibrary {
     ]
 
     Group {
+        name: "Tooltip"
         prefix: "tooltip/"
         files: [
             "effects.h",
@@ -196,7 +196,8 @@ QtcLibrary {
     }
 
     Group {
-        condition: qbs.targetOS == "windows"
+        name: "WindowsUtils"
+        condition: qbs.targetOS.contains("windows")
         files: [
             "consoleprocess_win.cpp",
             "winutils.cpp",
@@ -205,17 +206,15 @@ QtcLibrary {
     }
 
     Group {
-        condition: qbs.targetPlatform.indexOf("unix") != -1
+        name: "ConsoleProcess_unix"
+        condition: qbs.targetOS.contains("unix")
         files: [
             "consoleprocess_unix.cpp",
         ]
     }
 
-    ProductModule {
-        // ### [ remove, once qbs supports merging of ProductModule items in derived products
-        Depends { name: "cpp" }
+    Export {
         cpp.includePaths: [ ".." ]
-        // ### ]
         Depends { name: "Qt"; submodules: ["concurrent", "widgets" ] }
     }
 }

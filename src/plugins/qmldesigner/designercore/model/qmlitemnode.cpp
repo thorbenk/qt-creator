@@ -30,21 +30,14 @@
 #include "qmlitemnode.h"
 #include <metainfo.h>
 #include "qmlchangeset.h"
-#include "variantproperty.h"
-#include "nodeproperty.h"
 #include "nodelistproperty.h"
-#include "nodeinstance.h"
 #include "qmlanchors.h"
 #include "invalidmodelnodeexception.h"
-#include "rewritertransaction.h"
 #include "qmlmodelview.h"
-#include "mathutils.h"
 
 namespace QmlDesigner {
 
-namespace {
-
-bool isItemOrWindow(const ModelNode &modelNode)
+bool QmlItemNode::isItemOrWindow(const ModelNode &modelNode)
 {
     if (modelNode.metaInfo().isSubclassOf("QtQuick.Item", -1, -1))
         return true;
@@ -53,8 +46,6 @@ bool isItemOrWindow(const ModelNode &modelNode)
         return true;
 
     return false;
-}
-
 }
 
 bool QmlItemNode::isValid() const
@@ -244,14 +235,34 @@ QRectF QmlItemNode::instancePaintedBoundingRect() const
     return nodeInstance().boundingRect();
 }
 
+QRectF QmlItemNode::instanceContentItemBoundingRect() const
+{
+    return nodeInstance().contentItemBoundingRect();
+}
+
 QTransform  QmlItemNode::instanceTransform() const
 {
     return nodeInstance().transform();
 }
 
+QTransform QmlItemNode::instanceTransformWithContentTransform() const
+{
+    return nodeInstance().transform() * nodeInstance().contentTransform();
+}
+
+QTransform QmlItemNode::instanceTransformWithContentItemTransform() const
+{
+    return nodeInstance().transform() * nodeInstance().contentItemTransform();
+}
+
 QTransform QmlItemNode::instanceSceneTransform() const
 {
     return nodeInstance().sceneTransform();
+}
+
+QTransform QmlItemNode::instanceSceneContentItemTransform() const
+{
+    return nodeInstance().sceneTransform() * nodeInstance().contentItemTransform();
 }
 
 QPointF QmlItemNode::instanceScenePosition() const

@@ -35,7 +35,8 @@
 /*!
     \class VcsBase::BaseCheckoutWizardPage
 
-    \brief Base class for a parameter page of a checkout wizard.
+    \brief The BaseCheckoutWizardPage class is the base class for a parameter
+    page of a checkout wizard.
 
     Lets the user specify the repository, a checkout directory and
     the path. Contains a virtual to derive the checkout directory
@@ -228,18 +229,6 @@ void BaseCheckoutWizardPage::slotDirectoryEdited()
 {
     d->m_directoryEdited = true;
     slotChanged();
-}
-
-void BaseCheckoutWizardPage::changeEvent(QEvent *e)
-{
-    QWizardPage::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        d->ui.retranslateUi(this);
-        break;
-    default:
-        break;
-    }
 }
 
 bool BaseCheckoutWizardPage::isComplete() const

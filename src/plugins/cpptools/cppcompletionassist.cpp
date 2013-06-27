@@ -28,8 +28,8 @@
 ****************************************************************************/
 
 #include "cppcompletionassist.h"
-
 #include "cppmodelmanager.h"
+#include "cpptoolsconstants.h"
 #include "cppdoxygen.h"
 
 #include <coreplugin/icore.h>
@@ -1430,6 +1430,14 @@ bool CppCompletionAssistProcessor::completeScope(const QList<CPlusPlus::LookupIt
                 break;
             }
 
+            // it can be class defined inside a block
+            if (classTy->enclosingScope()->isBlock()) {
+                if (ClassOrNamespace *b = context.lookupType(classTy->name(), classTy->enclosingScope())) {
+                    completeClass(b);
+                    break;
+                }
+            }
+
         } else if (Namespace *nsTy = ty->asNamespaceType()) {
             if (ClassOrNamespace *b = context.lookupType(nsTy)) {
                 completeNamespace(b);
@@ -1445,10 +1453,22 @@ bool CppCompletionAssistProcessor::completeScope(const QList<CPlusPlus::LookupIt
             }
 
         } else if (Enum *e = ty->asEnumType()) {
+            // it can be class defined inside a block
+            if (e->enclosingScope()->isBlock()) {
+                if (ClassOrNamespace *b = context.lookupType(e)) {
+                    Block *block = e->enclosingScope()->asBlock();
+                    if (ClassOrNamespace *bb = b->findBlock(block)) {
+                        completeNamespace(bb);
+                        break;
+                    }
+                }
+            }
+
             if (ClassOrNamespace *b = context.lookupType(e)) {
                 completeNamespace(b);
                 break;
             }
+
         }
     }
 
@@ -1692,7 +1712,7 @@ void CppCompletionAssistProcessor::addMacros_helper(const CPlusPlus::Snapshot &s
     processed->insert(doc->fileName());
 
     foreach (const Document::Include &i, doc->includes()) {
-        addMacros_helper(snapshot, i.fileName(), processed, definedMacros);
+        addMacros_helper(snapshot, i.resolvedFileName(), processed, definedMacros);
     }
 
     foreach (const Macro &macro, doc->definedMacros()) {
@@ -1768,7 +1788,7 @@ bool CppCompletionAssistProcessor::completeConstructorOrFunction(const QList<CPl
     }
 
     if (functions.isEmpty()) {
-        const Name *functionCallOp = context.control()->operatorNameId(OperatorNameId::FunctionCallOp);
+        const Name *functionCallOp = context.bindings()->control()->operatorNameId(OperatorNameId::FunctionCallOp);
 
         foreach (const LookupItem &result, results) {
             FullySpecifiedType ty = result.type().simplified();
@@ -1863,7 +1883,7 @@ bool CppCompletionAssistProcessor::completeConstructorOrFunction(const QList<CPl
                     targetCoN = context.globalNamespace();
                 UseMinimalNames q(targetCoN);
                 env.enter(&q);
-                Control *control = context.control().data();
+                Control *control = context.bindings()->control().data();
 
                 // set up signature autocompletion
                 foreach (Function *f, functions) {

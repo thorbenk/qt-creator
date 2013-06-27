@@ -59,6 +59,8 @@ private slots:
     void revertChange();
 
 private:
+    void init();
+    bool open(QString *errorString, const QString &fileName, const QString &realFileName);
     QSet<QString> annotationChanges() const;
     QString changeUnderCursor(const QTextCursor &) const;
     VcsBase::BaseAnnotationHighlighter *createAnnotationHighlighter(const QSet<QString> &changes, const QColor &bg) const;
@@ -67,6 +69,7 @@ private:
     bool isValidRevision(const QString &revision) const;
     void addChangeActions(QMenu *menu, const QString &change);
     QString revisionSubject(const QTextBlock &inBlock) const;
+    bool supportChangeLinks() const;
 
     mutable QRegExp m_changeNumberPattern;
     QString m_currentChange;

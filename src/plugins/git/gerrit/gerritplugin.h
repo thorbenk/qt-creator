@@ -70,7 +70,7 @@ public:
 
 public slots:
     void fetchDisplay(const QSharedPointer<Gerrit::Internal::GerritChange> &change);
-    void fetchApply(const QSharedPointer<Gerrit::Internal::GerritChange> &change);
+    void fetchCherryPick(const QSharedPointer<Gerrit::Internal::GerritChange> &change);
     void fetchCheckout(const QSharedPointer<Gerrit::Internal::GerritChange> &change);
     void updateActions(bool hasTopLevel);
 
@@ -88,7 +88,9 @@ private:
 
     QSharedPointer<GerritParameters> m_parameters;
     QPointer<GerritDialog> m_dialog;
+    Core::Command *m_gerritCommand;
     ActionCommandPair m_pushToGerritPair;
+    QString m_reviewers;
 };
 
 } // namespace Internal

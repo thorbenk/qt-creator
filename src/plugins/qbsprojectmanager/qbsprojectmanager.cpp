@@ -54,6 +54,8 @@ const char PROFILES_PREFIX[] = "profiles.";
 
 // Qt related settings:
 const char QTCORE_BINPATH[] = ".Qt.core.binPath";
+const char QTCORE_BUILDVARIANT[] = ".Qt.core.buildVariant";
+const char QTCORE_DOCPATH[] = ".Qt.core.docPath";
 const char QTCORE_INCPATH[] = ".Qt.core.incPath";
 const char QTCORE_LIBPATH[] = ".Qt.core.libPath";
 const char QTCORE_VERSION[] = ".Qt.core.version";
@@ -67,6 +69,7 @@ const char QTCORE_FRAMEWORKBUILD[] = ".Qt.core.frameworkBuild";
 const char QBS_TARGETOS[] = ".qbs.targetOS";
 const char QBS_SYSROOT[] = ".qbs.sysroot";
 const char QBS_ARCHITECTURE[] = ".qbs.architecture";
+const char QBS_ENDIANNESS[] = ".qbs.endianness";
 const char QBS_TOOLCHAIN[] = ".qbs.toolchain";
 const char CPP_TOOLCHAINPATH[] = ".cpp.toolchainInstallPath";
 const char CPP_COMPILERNAME[] = ".cpp.compilerName";
@@ -93,12 +96,15 @@ QbsManager::QbsManager(Internal::QbsProjectManagerPlugin *plugin) :
     int level = qbs::LoggerWarning;
     const QString levelEnv = QString::fromLocal8Bit(qgetenv("QBS_LOG_LEVEL"));
     if (!levelEnv.isEmpty()) {
-        int tmp = levelEnv.toInt();
-        if (tmp < static_cast<int>(qbs::LoggerMinLevel))
-            tmp = static_cast<int>(qbs::LoggerMinLevel);
-        if (tmp > static_cast<int>(qbs::LoggerMaxLevel))
-            tmp = static_cast<int>(qbs::LoggerMaxLevel);
-        level = tmp;
+        bool ok = false;
+        int tmp = levelEnv.toInt(&ok);
+        if (ok) {
+            if (tmp < static_cast<int>(qbs::LoggerMinLevel))
+                tmp = static_cast<int>(qbs::LoggerMinLevel);
+            if (tmp > static_cast<int>(qbs::LoggerMaxLevel))
+                tmp = static_cast<int>(qbs::LoggerMaxLevel);
+            level = tmp;
+        }
     }
     m_logSink->setLogLevel(static_cast<qbs::LoggerLevel>(level));
 }
@@ -115,9 +121,13 @@ QString QbsManager::mimeType() const
 
 ProjectExplorer::Project *QbsManager::openProject(const QString &fileName, QString *errorString)
 {
-    Q_UNUSED(errorString);
+    if (!QFileInfo(fileName).isFile()) {
+        if (errorString)
+            *errorString = tr("Failed opening project '%1': Project is not a file")
+                .arg(fileName);
+        return 0;
+    }
 
-    // FIXME: This is way too simplistic!
     return new Internal::QbsProject(this, fileName);
 }
 
@@ -203,13 +213,23 @@ void QbsManager::addProfileFromKit(const ProjectExplorer::Kit *k)
     QtSupport::BaseQtVersion *qt = QtSupport::QtKitInformation::qtVersion(k);
     if (qt) {
         data.insert(QLatin1String(QTCORE_BINPATH), qt->binPath().toUserOutput());
+        QStringList builds;
+        if (qt->hasDebugBuild())
+            builds << QLatin1String("debug");
+        if (qt->hasReleaseBuild())
+            builds << QLatin1String("release");
+        data.insert(QLatin1String(QTCORE_BUILDVARIANT), builds);
+        data.insert(QLatin1String(QTCORE_DOCPATH), qt->docsPath().toUserOutput());
         data.insert(QLatin1String(QTCORE_INCPATH), qt->headerPath().toUserOutput());
         data.insert(QLatin1String(QTCORE_LIBPATH), qt->libraryPath().toUserOutput());
-        data.insert(QLatin1String(QTCORE_MKSPEC), qt->mkspecsPath().toUserOutput());
+        Utils::FileName mkspecPath = qt->mkspecsPath();
+        mkspecPath.appendPath(qt->mkspec().toString());
+        data.insert(QLatin1String(QTCORE_MKSPEC), mkspecPath.toUserOutput());
         data.insert(QLatin1String(QTCORE_NAMESPACE), qt->qtNamespace());
         data.insert(QLatin1String(QTCORE_LIBINFIX), qt->qtLibInfix());
         data.insert(QLatin1String(QTCORE_VERSION), qt->qtVersionString());
-        data.insert(QLatin1String(QTCORE_FRAMEWORKBUILD), qt->isFrameworkBuild());
+        if (qt->isFrameworkBuild())
+            data.insert(QLatin1String(QTCORE_FRAMEWORKBUILD), true);
     }
 
     if (ProjectExplorer::SysRootKitInformation::hasSysRoot(k))
@@ -224,6 +244,11 @@ void QbsManager::addProfileFromKit(const ProjectExplorer::Kit *k)
             architecture.append(QLatin1String("_64"));
         data.insert(QLatin1String(QBS_ARCHITECTURE), architecture);
 
+        if (targetAbi.endianness() == ProjectExplorer::Abi::BigEndian)
+            data.insert(QLatin1String(QBS_ENDIANNESS), QLatin1String("big"));
+        else
+            data.insert(QLatin1String(QBS_ENDIANNESS), QLatin1String("little"));
+
         if (targetAbi.os() == ProjectExplorer::Abi::WindowsOS) {
             data.insert(QLatin1String(QBS_TARGETOS), QLatin1String("windows"));
             data.insert(QLatin1String(QBS_TOOLCHAIN),
@@ -234,7 +259,14 @@ void QbsManager::addProfileFromKit(const ProjectExplorer::Kit *k)
             data.insert(QLatin1String(QBS_TOOLCHAIN), QLatin1String("gcc"));
         } else if (targetAbi.os() == ProjectExplorer::Abi::LinuxOS) {
             data.insert(QLatin1String(QBS_TARGETOS), QLatin1String("linux"));
-            data.insert(QLatin1String(QBS_TOOLCHAIN), QLatin1String("gcc"));
+            if (tc->type() != QLatin1String("clang")) {
+                data.insert(QLatin1String(QBS_TOOLCHAIN), QLatin1String("gcc"));
+            } else {
+                data.insert(QLatin1String(QBS_TOOLCHAIN),
+                            QStringList() << QLatin1String("clang")
+                            << QLatin1String("llvm")
+                            << QLatin1String("gcc"));
+            }
         }
         Utils::FileName cxx = tc->compilerCommand();
         data.insert(QLatin1String(CPP_TOOLCHAINPATH), cxx.toFileInfo().absolutePath());

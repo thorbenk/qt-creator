@@ -34,30 +34,22 @@
 #include "filemanager/objectlengthcalculator.h"
 #include "filemanager/qmlrefactoring.h"
 #include "filemanager/qmlwarningdialog.h"
-#include "rewriteaction.h"
 #include "nodeproperty.h"
 #include "propertyparser.h"
-#include "textmodifier.h"
 #include "rewriterview.h"
 #include "variantproperty.h"
 #include "signalhandlerproperty.h"
 #include "nodemetainfo.h"
-#include "qmldesignercorelib_global.h"
 
-#include <languageutils/componentversion.h>
 #include <qmljs/qmljsevaluate.h>
-#include <qmljs/qmljsinterpreter.h>
-#include <qmljs/qmljscontext.h>
 #include <qmljs/qmljslink.h>
-#include <qmljs/qmljsscopebuilder.h>
-#include <qmljs/qmljsscopechain.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/qmljscheck.h>
 #include <qmljs/qmljsutils.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
+#include <qmljs/qmljsqrcparser.h>
 
 #include <QSet>
-#include <QMessageBox>
 #include <QDir>
 
 using namespace LanguageUtils;
@@ -371,8 +363,15 @@ public:
             } else if (importInfo.isValid() && importInfo.type() == ImportInfo::DirectoryImport) {
                 QString path = importInfo.path();
                 QDir dir(m_doc->path());
+                // should probably try to make it relatve to some import path, not to the document path
                 QString relativeDir = dir.relativeFilePath(path);
                 QString name = relativeDir.replace(QLatin1Char('/'), QLatin1Char('.'));
+                if (!name.isEmpty())
+                    typeName.prepend(name + QLatin1Char('.'));
+            } else if (importInfo.isValid() && importInfo.type() == ImportInfo::QrcDirectoryImport) {
+                QString path = QrcParser::normalizedQrcDirectoryPath(importInfo.path());
+                path = path.mid(1, path.size() - ((path.size() > 1) ? 2 : 1));
+                const QString name = path.replace(QLatin1Char('/'), QLatin1Char('.'));
                 if (!name.isEmpty())
                     typeName.prepend(name + QLatin1Char('.'));
             }
@@ -786,7 +785,7 @@ bool TextToModelMerger::load(const QString &data, DifferenceHandler &differenceH
             check.enableMessage(StaticAnalysis::WarnImperativeCodeNotEditableInVisualDesigner);
             check.enableMessage(StaticAnalysis::WarnUnsupportedTypeInVisualDesigner);
             check.enableMessage(StaticAnalysis::WarnReferenceToParentItemNotSupportedByVisualDesigner);
-            check.enableMessage(StaticAnalysis::WarnUndefinedValueForVisualDesigner);
+            //## triggers too often ## check.enableMessage(StaticAnalysis::WarnUndefinedValueForVisualDesigner);
             check.enableMessage(StaticAnalysis::WarnStatesOnlyInRootItemForVisualDesigner);
 
             foreach (const StaticAnalysis::Message &message, check()) {
@@ -802,7 +801,7 @@ bool TextToModelMerger::load(const QString &data, DifferenceHandler &differenceH
                 return false;
             }
 
-            if (!warnings.isEmpty() && differenceHandler.isValidator()) {
+            if (!warnings.isEmpty() && differenceHandler.isValidator() && !m_rewriterView->inErrorState()) {
 
                 QString title = QCoreApplication::translate("QmlDesigner::TextToModelMerger", "This .qml file contains features "
                                                             "which are not supported by Qt Quick Designer");

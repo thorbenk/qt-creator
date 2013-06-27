@@ -46,7 +46,8 @@ typedef Utils::ChangeSet::Range Range;
 /*!
     \class CppTools::PointerDeclarationFormatter
 
-    \brief Rewrite pointer or reference declarations accordingly to an Overview.
+    \brief The PointerDeclarationFormatter class rewrites pointer or reference
+    declarations to an Overview.
 
     The following constructs are supported:
     \list
@@ -110,7 +111,8 @@ private:
     };
 
     void processIfWhileForStatement(ExpressionAST *expression, Symbol *symbol);
-    void checkAndRewrite(Symbol *symbol, TokenRange range, unsigned charactersToRemove = 0);
+    void checkAndRewrite(DeclaratorAST *declarator, Symbol *symbol, TokenRange range,
+                         unsigned charactersToRemove = 0);
     QString rewriteDeclaration(FullySpecifiedType type, const Name *name) const;
     void printCandidate(AST *ast);
 

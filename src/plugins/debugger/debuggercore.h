@@ -71,8 +71,7 @@ class GlobalDebuggerOptions;
 enum TestCases
 {
     // Gdb
-    TestNoBoundsOfCurrentFunction = 1,
-    TestPythonDumpers
+    TestNoBoundsOfCurrentFunction = 1
 };
 
 class DebuggerCore : public QObject
@@ -123,6 +122,7 @@ public:
     virtual Utils::SavedAction *action(int code) const = 0;
     virtual bool boolSetting(int code) const = 0;
     virtual QString stringSetting(int code) const = 0;
+    virtual QStringList stringListSetting(int code) const = 0;
     virtual void setThreads(const QStringList &list, int index) = 0;
 
     virtual DebuggerToolTipManager *toolTipManager() const = 0;

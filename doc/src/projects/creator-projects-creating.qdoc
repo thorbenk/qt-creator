@@ -98,7 +98,6 @@
 
         \list
 
-            \if defined(qcmanual)
             \li Qt GUI Application
 
                 Use \QD forms to design a Qt widget based user interface for the
@@ -110,7 +109,6 @@
                 mobile devices and C++ to implement the application logic.
                 Select this template to develop for devices that support only
                 Qt 4.6.x
-            \endif
 
             \li Qt Quick Application (Built-in Types)
 
@@ -146,6 +144,14 @@
                 them. You do not need to have the development environment
                 installed on your computer to create and run this type of
                 projects
+
+            \li Qt Quick 2 UI with Controls
+
+                Uses a single QML file that contains the main view and that
+                imports the Qt Quick Controls. You can view the UI in the QML
+                Scene and you need not build it. This project requires that
+                you have installed the Qt Quick Controls for your Qt version
+                (5.1 or later)
 
         \endlist
 
@@ -195,6 +201,12 @@
 
                 Subprojects that enable you to structure your qmake projects as
                 a tree hierarchy
+
+            \li Code Snippet
+
+                Creates a qmake project from a code snippet. When fixing bug
+                reports that contain a code snippet, you can place the code
+                snippet into a project to compile and check it.
 
         \endlist
 
@@ -263,18 +275,14 @@
 
             C++ class, source, or header files that you can use to write the
             application logic in both Qt Quick projects and
-            \if defined(qcmanual)
             Qt widget based projects
-            \endif
 
         \li Qt
 
         \list
 
-            \if defined(qcmanual)
             \li \QD forms and \QD form classes, which specify parts of user
                 interfaces in Qt widget based projects
-            \endif
 
         \li Qt resource files, which allow you to store binary files in the
             application executable
@@ -306,6 +314,11 @@
                 not intend to save
 
         \endlist
+
+        \li Python
+
+            Python class and source files that you can use to create Python
+            classes and scripts with UTF-8 encoding.
 
     \endlist
 
@@ -405,8 +418,7 @@
         \li  \l{Opening Projects}
         \li  \l{Adding Libraries to Projects}
         \li  \l{Adding New Custom Wizards}
-        \li  \l{Setting Up a CMake Project}
-        \li  \l{Setting Up a Generic Project}
+        \li  \l{Using Other Build Systems}
     \endlist
 
 */

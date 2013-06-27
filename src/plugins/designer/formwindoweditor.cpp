@@ -215,16 +215,6 @@ void FormWindowEditor::setDisplayName(const QString &title)
     emit changed();
 }
 
-bool FormWindowEditor::duplicateSupported() const
-{
-    return false;
-}
-
-Core::IEditor *FormWindowEditor::duplicate(QWidget *)
-{
-    return 0;
-}
-
 QByteArray FormWindowEditor::saveState() const
 {
     return d->m_textEditor.saveState();
@@ -269,9 +259,9 @@ TextEditor::PlainTextEditor *FormWindowEditor::textEditor()
     return &d->m_textEditor;
 }
 
-Core::Id FormWindowEditor::preferredModeType() const
+bool FormWindowEditor::isDesignModePreferred() const
 {
-    return Core::Id(Core::Constants::MODE_DESIGN_TYPE);
+    return true;
 }
 
 } // namespace Designer

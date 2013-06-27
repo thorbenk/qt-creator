@@ -9,13 +9,11 @@ QtcPlugin {
     Depends { name: "TextEditor" }
     Depends { name: "ProjectExplorer" }
     Depends { name: "Find" }
-    Depends { name: "cpp" }
     Depends { name: "Qt.widgets" }
     Depends { name: "CppTools" }
     Depends { name: "CPlusPlus" }
 
     files: [
-        "VcsBase.mimetypes.xml",
         "baseannotationhighlighter.cpp",
         "baseannotationhighlighter.h",
         "basecheckoutwizard.cpp",

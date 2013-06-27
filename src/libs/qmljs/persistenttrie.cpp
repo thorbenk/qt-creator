@@ -30,7 +30,8 @@
 /*!
   \class QmlJS::PersistentTrie::Trie
 
-  \brief Implements a trie that is persistent (not on disk but in memory).
+  \brief The Trie class implements a trie that is
+  persistent (not on disk but in memory).
 
   This means that several versions can coexist, as adding an element
   is non destructive, and as much as possible is shared.
@@ -642,8 +643,6 @@ Trie Trie::replaceF(const QHash<QString, QString> &replacements) const
 }
 
 /*!
-  \fn int matchStrength(const QString &searchStr, const QString &str)
-
   Returns a number defining how well the serachStr matches str.
 
   Quite simplistic, looks only at the first match, and prefers contiguos
@@ -692,8 +691,6 @@ public:
 }
 
 /*!
-  \fn QStringList matchingStrengthSort(const QString &searchStr, QStringList &res)
-
   returns a number defining the matching strength of res to the given searchStr
 */
 QStringList matchStrengthSort(const QString &searchStr, QStringList &res)

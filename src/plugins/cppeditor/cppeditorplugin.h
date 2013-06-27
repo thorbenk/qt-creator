@@ -93,6 +93,37 @@ private slots:
 #ifdef WITH_TESTS
 private slots:
     // The following tests expect that no projects are loaded on start-up.
+    void test_SwitchMethodDeclarationDefinition_fromFunctionDeclarationSymbol();
+    void test_SwitchMethodDeclarationDefinition_fromFunctionDefinitionSymbol();
+    void test_SwitchMethodDeclarationDefinition_fromFunctionBody();
+    void test_SwitchMethodDeclarationDefinition_fromReturnType();
+
+    void test_FollowSymbolUnderCursor_globalVarFromFunction();
+    void test_FollowSymbolUnderCursor_funLocalVarHidesClassMember();
+    void test_FollowSymbolUnderCursor_funLocalVarHidesNamespaceMemberIntroducedByUsingDirective();
+    void test_FollowSymbolUnderCursor_loopLocalVarHidesOuterScopeVariable1();
+    void test_FollowSymbolUnderCursor_loopLocalVarHidesOuterScopeVariable2();
+    void test_FollowSymbolUnderCursor_subsequentDefinedClassMember();
+    void test_FollowSymbolUnderCursor_classMemberHidesOuterTypeDef();
+    void test_FollowSymbolUnderCursor_globalVarFromEnum();
+    void test_FollowSymbolUnderCursor_selfInitialization();
+    void test_FollowSymbolUnderCursor_pointerToClassInClassDefinition();
+    void test_FollowSymbolUnderCursor_previouslyDefinedMemberFromArrayDefinition();
+    void test_FollowSymbolUnderCursor_outerStaticMemberVariableFromInsideSubclass();
+    void test_FollowSymbolUnderCursor_memberVariableFollowingDotOperator();
+    void test_FollowSymbolUnderCursor_memberVariableFollowingArrowOperator();
+    void test_FollowSymbolUnderCursor_staticMemberVariableFollowingScopeOperator();
+    void test_FollowSymbolUnderCursor_staticMemberVariableFollowingDotOperator();
+    void test_FollowSymbolUnderCursor_staticMemberVariableFollowingArrowOperator();
+    void test_FollowSymbolUnderCursor_previouslyDefinedEnumValueFromInsideEnum();
+    void test_FollowSymbolUnderCursor_nsMemberHidesNsMemberIntroducedByUsingDirective();
+    void test_FollowSymbolUnderCursor_baseClassFunctionIntroducedByUsingDeclaration();
+    void test_FollowSymbolUnderCursor_funWithSameNameAsBaseClassFunIntroducedByUsingDeclaration();
+    void test_FollowSymbolUnderCursor_funLocalVarHidesOuterClass();
+    void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_globalNamespace();
+    void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_namespace();
+    void test_FollowSymbolUnderCursor_using_QTCREATORBUG7903_insideFunction();
+
     void test_doxygen_comments_qt_style();
     void test_doxygen_comments_qt_style_continuation();
     void test_doxygen_comments_java_style();
@@ -105,6 +136,8 @@ private slots:
     void test_doxygen_comments_cpp_styleA_corner_case();
 
     void test_quickfix_GenerateGetterSetter_basicGetterWithPrefix();
+    void test_quickfix_GenerateGetterSetter_basicGetterWithPrefixAndNamespace();
+    void test_quickfix_GenerateGetterSetter_basicGetterWithPrefixAndNamespaceToCpp();
     void test_quickfix_GenerateGetterSetter_basicGetterWithoutPrefix();
     void test_quickfix_GenerateGetterSetter_customType();
     void test_quickfix_GenerateGetterSetter_constMember();
@@ -120,27 +153,55 @@ private slots:
     void test_quickfix_ReformatPointerDeclaration();
 
     void test_quickfix_InsertDefFromDecl_basic();
+    void test_quickfix_InsertDefFromDecl_afterClass();
     void test_quickfix_InsertDefFromDecl_headerSource_basic1();
     void test_quickfix_InsertDefFromDecl_headerSource_basic2();
     void test_quickfix_InsertDefFromDecl_headerSource_namespace1();
     void test_quickfix_InsertDefFromDecl_headerSource_namespace2();
     void test_quickfix_InsertDefFromDecl_freeFunction();
+    void test_quickfix_InsertDefFromDecl_insideClass();
+    void test_quickfix_InsertDefFromDecl_notTriggeringWhenDefinitionExists();
+    void test_quickfix_InsertDefFromDecl_notTriggeringStatement();
+    void test_quickfix_InsertDefFromDecl_findRightImplementationFile();
 
     void test_quickfix_InsertDeclFromDef();
 
+    void test_quickfix_AddIncludeForUndefinedIdentifier_detectIncludeGroupsByNewLines();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_detectIncludeGroupsByIncludeDir();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_detectIncludeGroupsByIncludeType();
     void test_quickfix_AddIncludeForUndefinedIdentifier_normal();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_ignoremoc();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_sortingTop();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_sortingMiddle();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_sortingBottom();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_appendToUnsorted();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_firstLocalIncludeAtFront();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_firstGlobalIncludeAtBack();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_preferGroupWithLongerMatchingPrefix();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_newGroupIfOnlyDifferentIncludeDirs();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_mixedDirsSorted();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_mixedDirsUnsorted();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_mixedIncludeTypes1();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_mixedIncludeTypes2();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_mixedIncludeTypes3();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_mixedIncludeTypes4();
     void test_quickfix_AddIncludeForUndefinedIdentifier_noinclude();
-    void test_quickfix_AddIncludeForUndefinedIdentifier_noincludeComment01();
-    void test_quickfix_AddIncludeForUndefinedIdentifier_noincludeComment02();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_veryFirstIncludeCppStyleCommentOnTop();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_veryFirstIncludeCStyleCommentOnTop();
+    void test_quickfix_AddIncludeForUndefinedIdentifier_checkQSomethingInQtIncludePaths();
 
     void test_quickfix_MoveFuncDefOutside_MemberFuncToCpp();
-    void test_quickfix_MoveFuncDefOutside_MemberFuncOutside();
+    void test_quickfix_MoveFuncDefOutside_MemberFuncToCppInsideNS();
+    void test_quickfix_MoveFuncDefOutside_MemberFuncOutside1();
+    void test_quickfix_MoveFuncDefOutside_MemberFuncOutside2();
     void test_quickfix_MoveFuncDefOutside_MemberFuncToCppNS();
     void test_quickfix_MoveFuncDefOutside_MemberFuncToCppNSUsing();
     void test_quickfix_MoveFuncDefOutside_MemberFuncOutsideWithNs();
     void test_quickfix_MoveFuncDefOutside_FreeFuncToCpp();
     void test_quickfix_MoveFuncDefOutside_FreeFuncToCppNS();
-    void test_quickfix_MoveFuncDefOutside_CtorWithInitialization();
+    void test_quickfix_MoveFuncDefOutside_CtorWithInitialization1();
+    void test_quickfix_MoveFuncDefOutside_CtorWithInitialization2();
+    void test_quickfix_MoveFuncDefOutside_afterClass();
 
     void test_quickfix_MoveFuncDefToDecl_MemberFunc();
     void test_quickfix_MoveFuncDefToDecl_MemberFuncOutside();
@@ -150,6 +211,36 @@ private slots:
     void test_quickfix_MoveFuncDefToDecl_FreeFuncToCpp();
     void test_quickfix_MoveFuncDefToDecl_FreeFuncToCppNS();
     void test_quickfix_MoveFuncDefToDecl_CtorWithInitialization();
+
+    void test_quickfix_AssignToLocalVariable_freeFunction();
+    void test_quickfix_AssignToLocalVariable_memberFunction();
+    void test_quickfix_AssignToLocalVariable_staticMemberFunction();
+    void test_quickfix_AssignToLocalVariable_newExpression();
+    void test_quickfix_AssignToLocalVariable_templates();
+    void test_quickfix_AssignToLocalVariable_noInitializationList();
+    void test_quickfix_AssignToLocalVariable_noVoidFunction();
+    void test_quickfix_AssignToLocalVariable_noVoidMemberFunction();
+    void test_quickfix_AssignToLocalVariable_noVoidStaticMemberFunction();
+    void test_quickfix_AssignToLocalVariable_noFunctionInExpression();
+    void test_quickfix_AssignToLocalVariable_noFunctionInFunction();
+    void test_quickfix_AssignToLocalVariable_noReturnClass1();
+    void test_quickfix_AssignToLocalVariable_noReturnClass2();
+    void test_quickfix_AssignToLocalVariable_noReturnFunc1();
+    void test_quickfix_AssignToLocalVariable_noReturnFunc2();
+    void test_quickfix_AssignToLocalVariable_noSignatureMatch();
+
+    void test_quickfix_InsertVirtualMethods_onlyDecl();
+    void test_quickfix_InsertVirtualMethods_onlyDeclWithoutVirtual();
+    void test_quickfix_InsertVirtualMethods_Access();
+    void test_quickfix_InsertVirtualMethods_Superclass();
+    void test_quickfix_InsertVirtualMethods_SuperclassOverride();
+    void test_quickfix_InsertVirtualMethods_PureVirtualOnlyDecl();
+    void test_quickfix_InsertVirtualMethods_PureVirtualInside();
+    void test_quickfix_InsertVirtualMethods_inside();
+    void test_quickfix_InsertVirtualMethods_outside();
+    void test_quickfix_InsertVirtualMethods_implementationFile();
+    void test_quickfix_InsertVirtualMethods_notrigger_allImplemented();
+    void test_quickfix_InsertVirtualMethods_BaseClassInNamespace();
 
     // The following tests depend on the projects that are loaded on startup
     // and will be skipped in case no projects are loaded.

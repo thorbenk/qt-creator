@@ -33,9 +33,7 @@
 #include "abstractformeditortool.h"
 #include "movemanipulator.h"
 #include "selectionindicator.h"
-#include "resizeindicator.h"
 
-#include <QHash>
 #include <QObject>
 #include <QScopedPointer>
 
@@ -118,7 +116,8 @@ private:
     QList<Import> missingImportList(const ItemLibraryEntry &itemLibraryEntry);
 
     void begin(QPointF scenePos);
-    void end(QPointF scenePos);
+    void end();
+    void end(Snapper::Snapping useSnapping);
     void move(QPointF scenePos);
 
     MoveManipulator m_moveManipulator;

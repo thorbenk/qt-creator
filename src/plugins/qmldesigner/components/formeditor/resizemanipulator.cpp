@@ -33,7 +33,6 @@
 #include "formeditorscene.h"
 #include "qmlanchors.h"
 #include <QDebug>
-#include <model.h>
 #include "mathutils.h"
 
 #include <limits>
@@ -78,8 +77,9 @@ void ResizeManipulator::begin(const QPointF &/*beginPoint*/)
     if (m_resizeController.isValid()) {
         m_isActive = true;
         m_beginBoundingRect = m_resizeController.formEditorItem()->qmlItemNode().instanceBoundingRect();
-        m_beginToSceneTransform = m_resizeController.formEditorItem()->qmlItemNode().instanceSceneTransform();
-        m_beginFromSceneTransform = m_beginToSceneTransform.inverted();
+        m_beginFromContentItemToSceneTransform = m_resizeController.formEditorItem()->qmlItemNode().instanceSceneContentItemTransform();
+        m_beginFromSceneToContentItemTransform = m_beginFromContentItemToSceneTransform.inverted();
+        m_beginFromItemToSceneTransform = m_resizeController.formEditorItem()->qmlItemNode().instanceSceneTransform();
         m_beginToParentTransform = m_resizeController.formEditorItem()->qmlItemNode().instanceTransform();
         m_rewriterTransaction = m_view->beginRewriterTransaction();
         m_snapper.updateSnappingLines(m_resizeController.formEditorItem());
@@ -100,14 +100,14 @@ void ResizeManipulator::begin(const QPointF &/*beginPoint*/)
 //    return QSizeF(sizeAsPoint.x(), sizeAsPoint.y());
 //}
 
-void ResizeManipulator::update(const QPointF& updatePoint, Snapping useSnapping)
+void ResizeManipulator::update(const QPointF& updatePoint, Snapper::Snapping useSnapping)
 {
     const double minimumWidth = 0.0;
     const double minimumHeight = 0.0;
 
     deleteSnapLines();
 
-    bool snap = useSnapping == UseSnapping || useSnapping == UseSnappingAndAnchoring;
+    bool snap = useSnapping == Snapper::UseSnapping || useSnapping == Snapper::UseSnappingAndAnchoring;
 
     if (m_resizeController.isValid()) {
 
@@ -117,7 +117,7 @@ void ResizeManipulator::update(const QPointF& updatePoint, Snapping useSnapping)
         if (!containerItem)
             return;
 
-        QPointF updatePointInLocalSpace = m_beginFromSceneTransform.map(updatePoint);
+        QPointF updatePointInLocalSpace = m_beginFromSceneToContentItemTransform.map(updatePoint);
         QmlAnchors anchors(formEditorItem->qmlItemNode().anchors());
 
         QRectF boundingRect(m_beginBoundingRect);
@@ -373,12 +373,19 @@ void ResizeManipulator::update(const QPointF& updatePoint, Snapping useSnapping)
         if (snap)
             m_graphicsLineList = m_snapper.generateSnappingLines(boundingRect,
                                                                  m_layerItem.data(),
-                                                                 m_beginToSceneTransform);
+                                                                 m_beginFromItemToSceneTransform);
     }
 }
 
-void ResizeManipulator::end()
+void ResizeManipulator::end(Snapper::Snapping useSnapping)
 {
+    if (useSnapping == Snapper::UseSnappingAndAnchoring) {
+        deleteSnapLines();
+        m_snapper.setTransformtionSpaceFormEditorItem(m_snapper.containerFormEditorItem());
+        m_snapper.updateSnappingLines(m_resizeController.formEditorItem());
+        m_snapper.adjustAnchoringOfItem(m_resizeController.formEditorItem());
+    }
+
     m_isActive = false;
     m_rewriterTransaction.commit();
     clear();
@@ -478,8 +485,9 @@ void ResizeManipulator::clear()
 
     deleteSnapLines();
     m_beginBoundingRect = QRectF();
-    m_beginFromSceneTransform = QTransform();
-    m_beginToSceneTransform = QTransform();
+    m_beginFromSceneToContentItemTransform = QTransform();
+    m_beginFromContentItemToSceneTransform = QTransform();
+    m_beginFromItemToSceneTransform = QTransform();
     m_beginToParentTransform = QTransform();
     m_beginTopMargin = 0.0;
     m_beginLeftMargin = 0.0;

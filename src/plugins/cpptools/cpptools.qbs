@@ -105,10 +105,15 @@ QtcPlugin {
         "uicodecompletionsupport.cpp",
         "uicodecompletionsupport.h",
         "builtinindexingsupport.cpp",
-        "builtinindexingsupport.h"
+        "builtinindexingsupport.h",
+        "cpppreprocessor.cpp",
+        "cpppreprocessor.h",
+        "includeutils.cpp",
+        "includeutils.h"
     ]
 
     Group {
+        name: "Tests"
         condition: Defaults.testsEnabled(qbs)
         files: [
             "cppcodegen_test.cpp",
@@ -121,7 +126,7 @@ QtcPlugin {
         cpp.defines: outer.concat(['SRCDIR="' + FileInfo.path(filePath) + '"'])
     }
 
-    ProductModule {
+    Export {
         Depends { name: "CPlusPlus" }
     }
 }

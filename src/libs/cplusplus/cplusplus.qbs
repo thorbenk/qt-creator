@@ -11,10 +11,10 @@ QtcLibrary {
     ])
     cpp.optimization: "fast"
 
-    Depends { name: "cpp" }
     Depends { name: "Qt.widgets" }
 
     Group {
+        name: "ThirdPartyCPlusPlus"
         prefix: "../3rdparty/cplusplus/"
         files: [
             "AST.cpp",
@@ -168,8 +168,7 @@ QtcLibrary {
         "images/var_prot.png",
     ]
 
-    ProductModule {
-        Depends { name: "cpp" }
+    Export {
         cpp.includePaths: [
             "../3rdparty"
         ]

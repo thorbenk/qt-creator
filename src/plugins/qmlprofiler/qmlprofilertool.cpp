@@ -57,8 +57,7 @@
 #include <projectexplorer/localapplicationrunconfiguration.h>
 #include <texteditor/itexteditor.h>
 
-#include <remotelinux/remotelinuxrunconfiguration.h>
-#include <remotelinux/linuxdevice.h>
+#include <android/androidconstants.h>
 
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/editormanager/editormanager.h>
@@ -95,7 +94,6 @@ using namespace QmlProfiler::Constants;
 using namespace QmlDebug;
 using namespace ProjectExplorer;
 using namespace QmlProjectManager;
-using namespace RemoteLinux;
 
 class QmlProfilerTool::QmlProfilerToolPrivate
 {
@@ -282,7 +280,6 @@ IAnalyzerEngine *QmlProfilerTool::createEngine(const AnalyzerStartParameters &sp
 bool QmlProfilerTool::canRun(RunConfiguration *runConfiguration, RunMode mode) const
 {
     if (qobject_cast<QmlProjectRunConfiguration *>(runConfiguration)
-            || qobject_cast<RemoteLinuxRunConfiguration *>(runConfiguration)
             || qobject_cast<LocalApplicationRunConfiguration *>(runConfiguration))
         return mode == runMode();
     return false;
@@ -326,16 +323,6 @@ AnalyzerStartParameters QmlProfilerTool::createStartParameters(RunConfiguration 
         sp.debuggee = rc2->executable();
         sp.debuggeeArgs = rc2->commandLineArguments();
         sp.displayName = rc2->displayName();
-    } else if (RemoteLinux::RemoteLinuxRunConfiguration *rc3 =
-            qobject_cast<RemoteLinux::RemoteLinuxRunConfiguration *>(runConfiguration)) {
-        sp.debuggee = rc3->remoteExecutableFilePath();
-        sp.debuggeeArgs = rc3->arguments();
-        sp.connParams = ProjectExplorer::DeviceKitInformation::device(rc3->target()->kit())->sshParameters();
-        sp.analyzerCmdPrefix = rc3->commandPrefix();
-        sp.displayName = rc3->displayName();
-        sp.sysroot = sysroot(rc3);
-        sp.analyzerHost = sp.connParams.host;
-        sp.analyzerPort = sp.connParams.port;
     } else {
         // What could that be?
         QTC_ASSERT(false, return sp);
@@ -519,42 +506,46 @@ static void startRemoteTool(IAnalyzerTool *tool, StartMode mode)
 {
     Q_UNUSED(tool);
 
-    QString host;
+    Id kitId;
     quint16 port;
-    QString sysroot;
+    Kit *kit = 0;
 
     {
         QSettings *settings = ICore::settings();
 
-        host = settings->value(QLatin1String("AnalyzerQmlAttachDialog/host"), QLatin1String("localhost")).toString();
-        port = settings->value(QLatin1String("AnalyzerQmlAttachDialog/port"), 3768).toInt();
-        sysroot = settings->value(QLatin1String("AnalyzerQmlAttachDialog/sysroot")).toString();
+        kitId = Id::fromSetting(settings->value(QLatin1String("AnalyzerQmlAttachDialog/kitId")));
+        port = settings->value(QLatin1String("AnalyzerQmlAttachDialog/port"), 3768).toUInt();
 
         QmlProfilerAttachDialog dialog;
 
-        dialog.setAddress(host);
+        dialog.setKitId(kitId);
         dialog.setPort(port);
-        dialog.setSysroot(sysroot);
 
         if (dialog.exec() != QDialog::Accepted)
             return;
 
-        host = dialog.address();
+        kit = dialog.kit();
         port = dialog.port();
-        sysroot = dialog.sysroot();
 
-        settings->setValue(QLatin1String("AnalyzerQmlAttachDialog/host"), host);
+        settings->setValue(QLatin1String("AnalyzerQmlAttachDialog/kitId"), kit->id().toSetting());
         settings->setValue(QLatin1String("AnalyzerQmlAttachDialog/port"), port);
-        settings->setValue(QLatin1String("AnalyzerQmlAttachDialog/sysroot"), sysroot);
     }
 
     AnalyzerStartParameters sp;
     sp.toolId = tool->id();
     sp.startMode = mode;
-    sp.connParams.host = host;
-    sp.connParams.port = port;
-    sp.sysroot = sysroot;
-    sp.analyzerHost = host;
+
+    IDevice::ConstPtr device = DeviceKitInformation::device(kit);
+    if (device) {
+        sp.connParams = device->sshParameters();
+        if (device->type() == ProjectExplorer::Constants::DESKTOP_DEVICE_TYPE
+                || device->type() == Android::Constants::ANDROID_DEVICE_TYPE) {
+            sp.analyzerHost = QLatin1String("localhost");
+        } else {
+            sp.analyzerHost = sp.connParams.host;
+        }
+    }
+    sp.sysroot = SysRootKitInformation::sysRoot(kit).toString();
     sp.analyzerPort = port;
 
     AnalyzerRunControl *rc = new AnalyzerRunControl(tool, sp, 0);

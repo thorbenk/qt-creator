@@ -51,9 +51,9 @@ class BlackBerryKeysWidget : public QWidget
 {
     Q_OBJECT
 public:
-   explicit BlackBerryKeysWidget(QWidget *parent = 0);
+    explicit BlackBerryKeysWidget(QWidget *parent = 0);
 
-   void apply();
+    void apply();
 
 private slots:
     void registerKey();
@@ -67,8 +67,6 @@ private slots:
 
 private:
     void updateRegisterSection();
-
-    bool hasRegisteredKey() const;
 
     QString dataDir() const;
     QString cskFilePath() const;

@@ -115,11 +115,22 @@ enum DebuggerActionCode
 
     RegisterForPostMortem,
 
+    // Cdb
+    CdbAdditionalArguments,
+    CdbSymbolPaths,
+    CdbSourcePaths,
+    CdbBreakEvents,
+    CdbBreakOnCrtDbgReport,
+    UseCdbConsole,
+    CdbBreakPointCorrection,
+    IgnoreFirstChanceAccessViolation,
+
     // Gdb
     LoadGdbInit,
     LoadGdbDumpers,
     AttemptQuickStart,
     GdbStartupCommands,
+    GdbCustomDumperCommands,
     GdbPostAttachCommands,
     GdbWatchdogTimeout,
     AutoEnrichParameters,

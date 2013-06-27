@@ -40,7 +40,8 @@
 /*!
     \class ProjectExplorer::Internal::ProjectWizardPage
 
-    \brief Wizard page showing projects and version control to add new files to.
+    \brief The ProjectWizardPage class provides a wizard page showing projects
+    and version control to add new files to.
 
     \sa ProjectExplorer::Internal::ProjectFileWizardExtension
 */
@@ -125,18 +126,6 @@ int ProjectWizardPage::versionControlIndex() const
 void ProjectWizardPage::setVersionControlIndex(int idx)
 {
     m_ui->addToVersionControlComboBox->setCurrentIndex(idx);
-}
-
-void ProjectWizardPage::changeEvent(QEvent *e)
-{
-    QWizardPage::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        m_ui->retranslateUi(this);
-        break;
-    default:
-        break;
-    }
 }
 
 // Alphabetically, and files in sub-directories first

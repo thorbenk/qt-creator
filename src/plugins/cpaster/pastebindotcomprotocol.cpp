@@ -97,6 +97,19 @@ static inline QByteArray format(Protocol::ContentType ct)
     return format;
 }
 
+// According to documentation, Pastebin.com accepts only fixed expiry specifications:
+// N = Never, 10M = 10 Minutes, 1H = 1 Hour, 1D = 1 Day, 1W = 1 Week, 2W = 2 Weeks, 1M = 1 Month,
+// however, 1W and 2W do not work.
+
+static inline QByteArray expirySpecification(int expiryDays)
+{
+    if (expiryDays <= 1)
+        return QByteArray("1D");
+    if (expiryDays <= 31)
+        return QByteArray("1M");
+    return QByteArray("N");
+}
+
 void PasteBinDotComProtocol::paste(const QString &text,
                                    ContentType ct, int expiryDays,
                                    const QString &username,
@@ -111,8 +124,8 @@ void PasteBinDotComProtocol::paste(const QString &text,
     QByteArray pasteData = API_KEY;
     pasteData += "api_option=paste&";
     pasteData += "api_paste_expire_date=";
-    pasteData += QByteArray::number(expiryDays);
-    pasteData += "D&";
+    pasteData += expirySpecification(expiryDays);
+    pasteData += '&';
     pasteData += format(ct);
     pasteData += "api_paste_name=";
     pasteData += QUrl::toPercentEncoding(username);
@@ -304,12 +317,21 @@ static inline ParseState nextClosingState(ParseState current, const QStringRef &
    return ParseError;
 }
 
-static inline QStringList parseLists(QIODevice *io)
+static inline QStringList parseLists(QIODevice *io, QString *errorMessage)
 {
     enum { maxEntries = 200 }; // Limit the archive, which can grow quite large.
 
     QStringList rc;
-    QXmlStreamReader reader(io);
+    // Read answer and delete part up to the main table since the input form has
+    // parts that can no longer be parsed using XML parsers (<input type="text" x-webkit-speech />)
+    QByteArray data = io->readAll();
+    const int tablePos = data.indexOf("<table class=\"maintable\" cellspacing=\"0\">");
+    if (tablePos < 0) {
+        *errorMessage = QLatin1String("Could not locate beginning of table.");
+        return rc;
+    }
+    data.remove(0, tablePos);
+    QXmlStreamReader reader(data);
     ParseState state = OutSideTable;
     int tableRow = 0;
     int tableColumn = 0;
@@ -397,6 +419,8 @@ static inline QStringList parseLists(QIODevice *io)
             break;
         } // switch reader state
     }
+    if (reader.hasError())
+        *errorMessage = QString::fromLatin1("Error at line %1:%2").arg(reader.lineNumber()).arg(reader.errorString());
     return rc;
 }
 
@@ -407,7 +431,10 @@ void PasteBinDotComProtocol::listFinished()
         if (debug)
             qDebug() << "listFinished: error" << m_listReply->errorString();
     } else {
-        QStringList list = parseLists(m_listReply);
+        QString errorMessage;
+        const QStringList list = parseLists(m_listReply, &errorMessage);
+        if (list.isEmpty())
+            qWarning().nospace() << "Failed to read list from " << PASTEBIN_BASE <<  ':' << errorMessage;
         emit listDone(name(), list);
         if (debug)
             qDebug() << list;

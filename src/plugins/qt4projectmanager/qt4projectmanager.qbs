@@ -16,7 +16,6 @@ QtcPlugin {
     Depends { name: "TextEditor" }
     Depends { name: "QmlJSTools" }
 
-    Depends { name: "cpp" }
     cpp.includePaths: base.concat([
         "customwidgetwizard",
         "../../shared",
@@ -27,7 +26,6 @@ QtcPlugin {
     ]
 
     files: [
-        "Qt4ProjectManager.mimetypes.xml",
         "addlibrarywizard.cpp",
         "addlibrarywizard.h",
         "buildconfigurationinfo.h",
@@ -161,8 +159,6 @@ QtcPlugin {
         "wizards/librarywizarddialog.h",
         "wizards/mobileapp.cpp",
         "wizards/mobileapp.h",
-        "wizards/mobileappwizard.cpp",
-        "wizards/mobileappwizard.h",
         "wizards/mobileappwizardgenericoptionspage.ui",
         "wizards/mobileappwizardharmattanoptionspage.ui",
         "wizards/mobileappwizardmaemooptionspage.ui",

@@ -70,4 +70,3 @@ FORMS += commonsettingspage.ui \
     basecheckoutwizardpage.ui \
     cleandialog.ui \
     submiteditorwidget.ui
-

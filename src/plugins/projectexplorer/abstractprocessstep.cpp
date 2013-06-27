@@ -45,7 +45,8 @@ using namespace ProjectExplorer;
 /*!
     \class ProjectExplorer::AbstractProcessStep
 
-    \brief A convenience class, which can be used as a base class instead of BuildStep.
+    \brief The AbstractProcessStep class is a convenience class that can be
+    used as a base class instead of BuildStep.
 
     It should be used as a base class if your buildstep just needs to run a process.
 
@@ -88,7 +89,7 @@ using namespace ProjectExplorer;
 AbstractProcessStep::AbstractProcessStep(BuildStepList *bsl, const Core::Id id) :
     BuildStep(bsl, id), m_timer(0), m_futureInterface(0),
     m_ignoreReturnValue(false), m_process(0),
-    m_outputParserChain(0)
+    m_outputParserChain(0), m_skipFlush(false)
 {
 }
 
@@ -96,7 +97,7 @@ AbstractProcessStep::AbstractProcessStep(BuildStepList *bsl,
                                          AbstractProcessStep *bs) :
     BuildStep(bsl, bs), m_timer(0), m_futureInterface(0),
     m_ignoreReturnValue(bs->m_ignoreReturnValue),
-    m_process(0), m_outputParserChain(0)
+    m_process(0), m_outputParserChain(0), m_skipFlush(false)
 {
 }
 
@@ -261,6 +262,9 @@ void AbstractProcessStep::processStarted()
 
 void AbstractProcessStep::processFinished(int exitCode, QProcess::ExitStatus status)
 {
+    if (m_outputParserChain)
+        m_outputParserChain->flush();
+
     QString command = QDir::toNativeSeparators(m_param.effectiveCommand());
     if (status == QProcess::NormalExit && exitCode == 0) {
         emit addOutput(tr("The process \"%1\" exited normally.").arg(command),
@@ -366,6 +370,13 @@ void AbstractProcessStep::taskAdded(const ProjectExplorer::Task &task)
     // the buildstep anyway:
     if (m_ignoreReturnValue)
         return;
+
+    // flush out any pending tasks before proceeding:
+    if (!m_skipFlush && m_outputParserChain) {
+        m_skipFlush = true;
+        m_outputParserChain->flush();
+        m_skipFlush = false;
+    }
 
     Task editable(task);
     QString filePath = task.file.toString();

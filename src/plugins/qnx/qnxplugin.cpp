@@ -54,6 +54,8 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/mimedatabase.h>
+#include <projectexplorer/projectexplorer.h>
+#include <projectexplorer/taskhub.h>
 
 #include <QtPlugin>
 
@@ -104,7 +106,7 @@ bool QNXPlugin::initialize(const QStringList &arguments, QString *errorString)
     barDescriptorMimeType.setSubClassesOf(QStringList() << QLatin1String("application/xml"));
 
     if (!Core::ICore::mimeDatabase()->addMimeType(barDescriptorMimeType)) {
-        *errorString = tr("Could not add mime-type for bar-descriptor.xml editor");
+        *errorString = tr("Could not add mime-type for bar-descriptor.xml editor.");
         return false;
     }
     addAutoReleasedObject(new BarDescriptorEditorFactory);
@@ -114,6 +116,8 @@ bool QNXPlugin::initialize(const QStringList &arguments, QString *errorString)
 
 void QNXPlugin::extensionsInitialized()
 {
+    ProjectExplorer::ProjectExplorerPlugin::instance()->taskHub()->addCategory(Constants::QNX_TASK_CATEGORY_BARDESCRIPTOR,
+                                                                               tr("Bar Descriptor"));
 }
 
 ExtensionSystem::IPlugin::ShutdownFlag QNXPlugin::aboutToShutdown()

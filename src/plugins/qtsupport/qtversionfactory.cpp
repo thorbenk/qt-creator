@@ -31,6 +31,8 @@
 #include "profilereader.h"
 #include "baseqtversion.h"
 
+#include <proparser/qmakevfs.h>
+
 #include <extensionsystem/pluginmanager.h>
 #include <utils/environment.h>
 
@@ -56,17 +58,18 @@ bool sortByPriority(QtVersionFactory *a, QtVersionFactory *b)
 BaseQtVersion *QtVersionFactory::createQtVersionFromQMakePath(const Utils::FileName &qmakePath, bool isAutoDetected, const QString &autoDetectionSource, QString *error)
 {
     QHash<QString, QString> versionInfo;
-    Utils::Environment env = Utils::Environment::systemEnvironment();
-    if (!BaseQtVersion::queryQMakeVariables(qmakePath, env, &versionInfo, error))
+    if (!BaseQtVersion::queryQMakeVariables(qmakePath, Utils::Environment::systemEnvironment(),
+                                            &versionInfo, error))
         return 0;
     Utils::FileName mkspec = BaseQtVersion::mkspecFromVersionInfo(versionInfo);
 
+    QMakeVfs vfs;
     ProFileGlobals globals;
     globals.setProperties(versionInfo);
     ProMessageHandler msgHandler(true);
     ProFileCacheManager::instance()->incRefCount();
-    QMakeParser parser(ProFileCacheManager::instance()->cache(), &msgHandler);
-    ProFileEvaluator evaluator(&globals, &parser, &msgHandler);
+    QMakeParser parser(ProFileCacheManager::instance()->cache(), &vfs, &msgHandler);
+    ProFileEvaluator evaluator(&globals, &parser, &vfs, &msgHandler);
     evaluator.loadNamedSpec(mkspec.toString(), false);
 
     QList<QtVersionFactory *> factories = ExtensionSystem::PluginManager::getObjects<QtVersionFactory>();
