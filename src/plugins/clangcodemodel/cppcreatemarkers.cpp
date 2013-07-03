@@ -127,19 +127,28 @@ void CreateMarkers::run()
         msgs.append(OtherDiagnostic(level, d.location().fileName(), d.location().line(),
                                     d.location().column(), d.spelling(), d.length()));
     }
+    if (isCanceled()) {
+        reportFinished();
+        return;
+    }
+
     static const QString key = QLatin1String("ClangCodeModel.Diagnostics");
     CppTools::CppModelManagerInterface::instance()->setExtraDiagnostics(m_marker->fileName(),
                                                                         key, msgs);
 
-    if (isCanceled())
+    if (isCanceled()) {
+        reportFinished();
         return;
+    }
 
     QList<ClangCodeModel::SourceMarker> markers = m_marker->sourceMarkersInRange(m_firstLine, m_lastLine);
     foreach (const ClangCodeModel::SourceMarker &m, markers)
         addUse(SourceMarker(m.location().line(), m.location().column(), m.length(), m.kind()));
 
-    if (isCanceled())
+    if (isCanceled()) {
+        reportFinished();
         return;
+    }
 
     flush();
     reportFinished();
