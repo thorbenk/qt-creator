@@ -39,7 +39,8 @@
 namespace Qnx {
 namespace Internal {
 
-struct BarDescriptorAsset {
+class BarDescriptorAsset {
+public:
     QString source;
     QString destination;
     bool entry;

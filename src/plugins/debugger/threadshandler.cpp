@@ -54,7 +54,7 @@ void mergeThreadData(ThreadData &data, const ThreadData &other)
         data.frameLevel = other.frameLevel;
     if (!other.function.isEmpty())
         data.function = other.function;
-    if (!other.address)
+    if (other.address)
         data.address = other.address;
     if (!other.module.isEmpty())
         data.module = other.module;
@@ -116,13 +116,17 @@ static QString threadToolTip(const ThreadData &thread)
 ///////////////////////////////////////////////////////////////////////
 
 /*!
-    \struct Debugger::Internal::ThreadData
-    \brief A structure containing information about a single thread
+    \class Debugger::Internal::ThreadData
+    \internal
+    \brief  The ThreadData class contains information
+            about a single thread.
 */
 
 /*!
     \class Debugger::Internal::ThreadsHandler
-    \brief A model to represent the running threads in a QTreeView or ComboBox
+    \internal
+    \brief  The ThreadsHandler class provides a model to
+            represent the running threads in a QTreeView or ComboBox.
 */
 
 ThreadsHandler::ThreadsHandler()
@@ -424,30 +428,28 @@ void ThreadsHandler::updateThreads(const GdbMi &data)
     }
 
     ThreadId currentId;
-    const GdbMi current = data.findChild("current-thread-id");
+    const GdbMi current = data["current-thread-id"];
     if (current.isValid())
         currentId = ThreadId(current.data().toLongLong());
 
-    const QList<GdbMi> items = data.findChild("threads").children();
+    const QList<GdbMi> items = data["threads"].children();
     const int n = items.size();
     for (int index = 0; index != n; ++index) {
-        bool ok = false;
         const GdbMi item = items.at(index);
-        const GdbMi frame = item.findChild("frame");
+        const GdbMi frame = item["frame"];
         ThreadData thread;
-        thread.id = ThreadId(item.findChild("id").data().toInt());
-        thread.targetId = QString::fromLatin1(item.findChild("target-id").data());
-        thread.details = QString::fromLatin1(item.findChild("details").data());
-        thread.core = QString::fromLatin1(item.findChild("core").data());
-        thread.state = QString::fromLatin1(item.findChild("state").data());
-        thread.address = frame.findChild("addr").data().toULongLong(&ok, 0);
-        thread.function = QString::fromLatin1(frame.findChild("func").data());
-        thread.fileName = QString::fromLatin1(frame.findChild("fullname").data());
-        thread.lineNumber = frame.findChild("line").data().toInt();
-        thread.module = QString::fromLocal8Bit(frame.findChild("from").data());
+        thread.id = ThreadId(item["id"].toInt());
+        thread.targetId = item["target-id"].toLatin1();
+        thread.details = item["details"].toLatin1();
+        thread.core = item["core"].toLatin1();
+        thread.state = item["state"].toLatin1();
+        thread.address = frame["addr"].toAddress();
+        thread.function = frame["func"].toLatin1();
+        thread.fileName = frame["fullname"].toLatin1();
+        thread.lineNumber = frame["line"].toInt();
+        thread.module = QString::fromLocal8Bit(frame["from"].data());
         thread.stopped = true;
-        // Non-GDB (Cdb2) output name here.
-        thread.name = QString::fromLatin1(frame.findChild("name").data());
+        thread.name = item["name"].toLatin1();
         if (thread.state == QLatin1String("running"))
             thread.stopped = false;
         if (thread.id == currentId)

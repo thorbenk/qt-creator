@@ -42,6 +42,7 @@ namespace QbsProjectManager {
 namespace Internal {
 
 class FileTreeNode;
+class QbsProject;
 class QbsProjectFile;
 
 // ----------------------------------------------------------------------
@@ -57,6 +58,10 @@ public:
     int line() const { return m_line; }
 
     void setLine(int l);
+
+    QString displayName() const;
+
+    bool update(const qbs::CodeLocation &loc);
 
 private:
     int m_line;
@@ -115,20 +120,20 @@ public:
     QbsGroupNode(const qbs::GroupData *grp, const QString &productPath);
 
     bool isEnabled() const;
-    void setGroup(const qbs::GroupData *group, const QString &productPath);
-    const qbs::GroupData *group() const { return m_group; }
+    void updateQbsGroupData(const qbs::GroupData *grp, const QString &productPath,
+                            bool productWasEnabled, bool productIsEnabled);
+
+    const qbs::GroupData *qbsGroupData() const { return m_qbsGroupData; }
 
     QString productPath() const;
 
-    static void setGroup(QbsBaseProjectNode *root, const qbs::GroupData *group,
-                         const QString &productPath, QList<Node *> keepers);
+    static void setupFiles(QbsBaseProjectNode *root, const QStringList &files,
+                           const QString &productPath, bool updateExisting);
 
 private:
-    static void setupFolders(QbsBaseProjectNode *topLevel, FolderNode *root, FileTreeNode *node,
-                             const QString &baseDirPath,
-                             QList<ProjectExplorer::Node *> keepers = QList<ProjectExplorer::Node *>());
-
-    const qbs::GroupData *m_group;
+    static void setupFolder(ProjectExplorer::FolderNode *folder,
+                            const FileTreeNode *subFileTree, const QString &baseDir, bool updateExisting);
+    const qbs::GroupData *m_qbsGroupData;
     QString m_productPath;
 
     static QIcon m_groupIcon;
@@ -143,17 +148,19 @@ class QbsProductNode : public QbsBaseProjectNode
     Q_OBJECT
 
 public:
-    explicit QbsProductNode(const qbs::ProductData *prd);
+    explicit QbsProductNode(const qbs::ProductData &prd);
 
     bool isEnabled() const;
 
-    void setProduct(const qbs::ProductData *prd);
-    const qbs::ProductData *product() const { return m_product; }
+    void setQbsProductData(const qbs::ProductData prd);
+    const qbs::ProductData qbsProductData() const { return m_qbsProductData; }
+
+    QList<ProjectExplorer::RunConfiguration *> runConfigurationsFor(Node *node);
 
 private:
     QbsGroupNode *findGroupNode(const QString &name);
 
-    const qbs::ProductData *m_product;
+    qbs::ProductData m_qbsProductData;
     static QIcon m_productIcon;
 };
 
@@ -166,19 +173,27 @@ class QbsProjectNode : public QbsBaseProjectNode
     Q_OBJECT
 
 public:
-    explicit QbsProjectNode(const QString &projectFile);
+    explicit QbsProjectNode(QbsProject *project);
+    explicit QbsProjectNode(const QString &path);
     ~QbsProjectNode();
 
     void update(const qbs::Project *prj);
+    void update(const qbs::ProjectData &prjData);
 
-    const qbs::Project *project() const;
-    const qbs::ProjectData *projectData() const;
+    QbsProject *project() const;
+    const qbs::Project *qbsProject() const;
+    const qbs::ProjectData qbsProjectData() const;
 
 private:
-    QbsProductNode *findProductNode(const QString &name);
+    void ctor();
 
-    const qbs::Project *m_project;
-    const qbs::ProjectData *m_projectData;
+    QbsProductNode *findProductNode(const QString &name);
+    QbsProjectNode *findProjectNode(const QString &name);
+
+    QbsProject *m_project;
+
+    const qbs::Project *m_qbsProject;
+    qbs::ProjectData m_qbsProjectData;
     static QIcon m_projectIcon;
 };
 } // namespace Internal

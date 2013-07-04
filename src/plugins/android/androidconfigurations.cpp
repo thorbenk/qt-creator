@@ -81,6 +81,7 @@ namespace {
     const QLatin1String OpenJDKLocationKey("OpenJDKLocation");
     const QLatin1String KeystoreLocationKey("KeystoreLocation");
     const QLatin1String AutomaticKitCreationKey("AutomatiKitCreation");
+    const QLatin1String MakeExtraSearchDirectory("MakeExtraSearchDirectory");
     const QLatin1String PartitionSizeKey("PartitionSize");
     const QLatin1String ToolchainHostKey("ToolchainHost");
     const QLatin1String ArmToolchainPrefix("arm-linux-androideabi");
@@ -156,6 +157,11 @@ AndroidConfig::AndroidConfig(const QSettings &settings)
     keystoreLocation = FileName::fromString(settings.value(KeystoreLocationKey).toString());
     toolchainHost = settings.value(ToolchainHostKey).toString();
     automaticKitCreation = settings.value(AutomaticKitCreationKey, true).toBool();
+    QString extraDirectory = settings.value(MakeExtraSearchDirectory).toString();
+    if (extraDirectory.isEmpty())
+        makeExtraSearchDirectories = QStringList();
+    else
+        makeExtraSearchDirectories << extraDirectory;
 
     PersistentSettingsReader reader;
     if (reader.load(FileName::fromString(sdkSettingsFileName()))
@@ -170,6 +176,11 @@ AndroidConfig::AndroidConfig(const QSettings &settings)
         QVariant v = reader.restoreValue(AutomaticKitCreationKey);
         if (v.isValid())
             automaticKitCreation = v.toBool();
+        QString extraDirectory = reader.restoreValue(MakeExtraSearchDirectory).toString();
+        if (extraDirectory.isEmpty())
+            makeExtraSearchDirectories = QStringList();
+        else
+            makeExtraSearchDirectories << extraDirectory;
         // persistent settings
     }
 
@@ -195,6 +206,9 @@ void AndroidConfig::save(QSettings &settings) const
     settings.setValue(PartitionSizeKey, partitionSize);
     settings.setValue(AutomaticKitCreationKey, automaticKitCreation);
     settings.setValue(ToolchainHostKey, toolchainHost);
+    settings.setValue(MakeExtraSearchDirectory,
+                      makeExtraSearchDirectories.isEmpty() ? QString()
+                                                           : makeExtraSearchDirectories.at(0));
 }
 
 void AndroidConfigurations::setConfig(const AndroidConfig &devConfigs)
@@ -364,12 +378,12 @@ FileName AndroidConfigurations::zipalignPath() const
     return path.appendPath(QLatin1String("tools/zipalign" QTC_HOST_EXE_SUFFIX));
 }
 
-QString AndroidConfigurations::getDeployDeviceSerialNumber(int *apiLevel) const
+QString AndroidConfigurations::getDeployDeviceSerialNumber(int *apiLevel, const QString &abi) const
 {
     QVector<AndroidDeviceInfo> devices = connectedDevices();
 
     foreach (AndroidDeviceInfo device, devices) {
-        if (device.sdk >= *apiLevel) {
+        if (device.sdk >= *apiLevel && device.cpuABI.contains(abi)) {
             *apiLevel = device.sdk;
             return device.serialNumber;
         }
@@ -407,6 +421,7 @@ QVector<AndroidDeviceInfo> AndroidConfigurations::connectedDevices(int apiLevel)
 
         dev.serialNumber = serialNo;
         dev.sdk = getSDKVersion(dev.serialNumber);
+        dev.cpuABI = getAbis(dev.serialNumber);
         if (apiLevel != -1 && dev.sdk != apiLevel)
             continue;
         devices.push_back(dev);
@@ -496,7 +511,7 @@ QVector<AndroidDeviceInfo> AndroidConfigurations::androidVirtualDevices() const
             if (line.contains(QLatin1String("Target:")))
                 dev.sdk = line.mid(line.lastIndexOf(QLatin1Char(' '))).remove(QLatin1Char(')')).toInt();
             if (line.contains(QLatin1String("ABI:")))
-                dev.cpuABI = line.mid(line.lastIndexOf(QLatin1Char(' '))).trimmed();
+                dev.cpuABI = QStringList() << line.mid(line.lastIndexOf(QLatin1Char(' '))).trimmed();
         }
         devices.push_back(dev);
     }
@@ -590,6 +605,33 @@ int AndroidConfigurations::getSDKVersion(const QString &device) const
     return adbProc.readAll().trimmed().toInt();
 }
 
+QStringList AndroidConfigurations::getAbis(const QString &device) const
+{
+    QStringList result;
+    int i = 1;
+    while (true) {
+        QStringList arguments = AndroidDeviceInfo::adbSelector(device);
+        arguments << QLatin1String("shell") << QLatin1String("getprop");
+        if (i == 1)
+            arguments << QLatin1String("ro.product.cpu.abi");
+        else
+            arguments << QString::fromLatin1("ro.product.cpu.abi%1").arg(i);
+
+        QProcess adbProc;
+        adbProc.start(adbToolPath().toString(), arguments);
+        if (!adbProc.waitForFinished(-1)) {
+            adbProc.kill();
+            return result;
+        }
+        QString abi = QString::fromLocal8Bit(adbProc.readAll().trimmed());
+        if (abi.isEmpty())
+            break;
+        result << abi;
+        ++i;
+    }
+    return result;
+}
+
 QString AndroidConfigurations::bestMatch(const QString &targetAPI) const
 {
     int target = targetAPI.mid(targetAPI.lastIndexOf(QLatin1Char('-')) + 1).toInt();
@@ -598,6 +640,11 @@ QString AndroidConfigurations::bestMatch(const QString &targetAPI) const
             return QString::fromLatin1("android-%1").arg(apiLevel);
     }
     return QLatin1String("android-8");
+}
+
+QStringList AndroidConfigurations::makeExtraSearchDirectories() const
+{
+    return m_config.makeExtraSearchDirectories;
 }
 
 bool equalKits(Kit *a, Kit *b)
@@ -732,6 +779,7 @@ AndroidConfigurations::AndroidConfigurations(QObject *parent)
 
 void AndroidConfigurations::load()
 {
+    bool saveSettings = false;
     QSettings *settings = Core::ICore::instance()->settings();
     settings->beginGroup(SettingsGroup);
     m_config = AndroidConfig(*settings);
@@ -740,11 +788,61 @@ void AndroidConfigurations::load()
         Utils::Environment env = Utils::Environment::systemEnvironment();
         QString location = env.searchInPath(QLatin1String("ant"));
         QFileInfo fi(location);
-        if (fi.exists() && fi.isExecutable() && !fi.isDir())
+        if (fi.exists() && fi.isExecutable() && !fi.isDir()) {
             m_config.antLocation = Utils::FileName::fromString(location);
+            saveSettings = true;
+        }
+    }
+
+    if (m_config.openJDKLocation.isEmpty()) {
+        Utils::Environment env = Utils::Environment::systemEnvironment();
+        QString location = env.searchInPath(QLatin1String("javac"));
+        QFileInfo fi(location);
+        if (fi.exists() && fi.isExecutable() && !fi.isDir()) {
+            QDir parentDirectory = fi.canonicalPath();
+            parentDirectory.cdUp(); // one up from bin
+            m_config.openJDKLocation = Utils::FileName::fromString(parentDirectory.absolutePath());
+            saveSettings = true;
+        } else if (Utils::HostOsInfo::isWindowsHost()) {
+            QSettings settings(QLatin1String("HKEY_LOCAL_MACHINE\\SOFTWARE\\Javasoft\\Java Development Kit"), QSettings::NativeFormat);
+            QStringList allVersions = settings.childGroups();
+            QString javaHome;
+            int major = -1;
+            int minor = -1;
+            foreach (const QString &version, allVersions) {
+                QStringList parts = version.split(QLatin1String("."));
+                if (parts.size() != 2) // not interested in 1.7.0_u21
+                    continue;
+                bool okMajor, okMinor;
+                int tmpMajor = parts.at(0).toInt(&okMajor);
+                int tmpMinor = parts.at(1).toInt(&okMinor);
+                if (!okMajor || !okMinor)
+                    continue;
+                if (tmpMajor > major
+                        || (tmpMajor == major
+                            && tmpMinor > minor)) {
+                    settings.beginGroup(version);
+                    QString tmpJavaHome = settings.value(QLatin1String("JavaHome")).toString();
+                    settings.endGroup();
+                    if (!QFileInfo(tmpJavaHome).exists())
+                        continue;
+
+                    major = tmpMajor;
+                    minor = tmpMinor;
+                    javaHome = tmpJavaHome;
+                }
+            }
+            if (!javaHome.isEmpty()) {
+                m_config.openJDKLocation = Utils::FileName::fromString(javaHome);
+                saveSettings = true;
+            }
+        }
     }
 
     settings->endGroup();
+
+    if (saveSettings)
+        save();
 }
 
 void AndroidConfigurations::updateAndroidDevice()

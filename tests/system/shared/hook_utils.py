@@ -1,10 +1,39 @@
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
+
 import re
 
 # this function modifies all necessary run settings to make it possible to hook into
 # the application compiled by Creator
 def modifyRunSettingsForHookInto(projectName, kitCount, port):
     prepareBuildSettings(kitCount, 0)
-    # this uses the defaultQtVersion currently
+    # this uses the default Qt version which Creator activates when opening the project
     switchViewTo(ViewConstants.PROJECTS)
     switchToBuildOrRunSettingsFor(kitCount, 0, ProjectSettings.BUILD)
     qtVersion, mkspec, qtBinPath, qtLibPath = getQtInformationForBuildSettings(kitCount, True)
@@ -17,9 +46,7 @@ def modifyRunSettingsForHookInto(projectName, kitCount, port):
     switchToBuildOrRunSettingsFor(kitCount, 0, ProjectSettings.RUN)
     result = __configureCustomExecutable__(projectName, port, mkspec, qtVersion)
     if result:
-        clickButton(waitForObject("{window=':Qt Creator_Core::Internal::MainWindow' text='Details' "
-                                  "type='Utils::DetailsButton' unnamed='1' visible='1' "
-                                  "leftWidget={type='QLabel' text~='Us(e|ing) <b>Build Environment</b>' unnamed='1' visible='1'}}"))
+        ensureChecked(":RunSettingsEnvironmentDetails_Utils::DetailsButton")
         envVarsTableView = waitForObject("{type='QTableView' visible='1' unnamed='1'}")
         model = envVarsTableView.model()
         changingVars = []
@@ -41,16 +68,22 @@ def modifyRunSettingsForHookInto(projectName, kitCount, port):
                     changingVars.append("SQUISH_LIBQTDIR=%s" % replacement)
                 else:
                     changingVars.append(varName)
-                    #test.log("Unsetting %s for run" % varName)
-        clickButton(waitForObject("{text='Batch Edit...' type='QPushButton' unnamed='1' visible='1' "
-                                  "window=':Qt Creator_Core::Internal::MainWindow'}"))
-        editor = waitForObject("{type='TextEditor::SnippetEditorWidget' unnamed='1' visible='1' "
-                               "window=':Edit Environment_ProjectExplorer::EnvironmentItemsDialog'}")
-        typeLines(editor, changingVars)
-        clickButton(waitForObject("{text='OK' type='QPushButton' unnamed='1' visible='1' "
-                                  "window=':Edit Environment_ProjectExplorer::EnvironmentItemsDialog'}"))
+        batchEditRunEnvironment(kitCount, 0, changingVars, True)
     switchViewTo(ViewConstants.EDIT)
     return result
+
+def batchEditRunEnvironment(kitCount, currentTarget, modifications, alreadyOnRunSettings=False):
+    if not alreadyOnRunSettings:
+        switchViewTo(ViewConstants.PROJECTS)
+        switchToBuildOrRunSettingsFor(kitCount, currentTarget, ProjectSettings.RUN)
+    ensureChecked(":RunSettingsEnvironmentDetails_Utils::DetailsButton")
+    clickButton(waitForObject("{text='Batch Edit...' type='QPushButton' unnamed='1' visible='1' "
+                              "window=':Qt Creator_Core::Internal::MainWindow'}"))
+    editor = waitForObject("{type='TextEditor::SnippetEditorWidget' unnamed='1' visible='1' "
+                           "window=':Edit Environment_ProjectExplorer::EnvironmentItemsDialog'}")
+    typeLines(editor, modifications)
+    clickButton(waitForObject("{text='OK' type='QPushButton' unnamed='1' visible='1' "
+                              "window=':Edit Environment_ProjectExplorer::EnvironmentItemsDialog'}"))
 
 def modifyRunSettingsForHookIntoQtQuickUI(kitCount, workingDir, projectName, port):
     switchViewTo(ViewConstants.PROJECTS)
@@ -81,9 +114,7 @@ def modifyRunSettingsForHookIntoQtQuickUI(kitCount, workingDir, projectName, por
                               "unnamed='1' visible='1'}")
     clickButton(addRunConfig)
     activateItem(waitForObject("{type='QMenu' visible='1' unnamed='1'}"), "Custom Executable")
-    exePathChooser = waitForObject("{buddy={window=':Qt Creator_Core::Internal::MainWindow' "
-                                   "text='Command:' type='QLabel' unnamed='1' visible='1'} "
-                                   "type='Utils::PathChooser' unnamed='1' visible='1'}")
+    exePathChooser = waitForObject(":Executable:_Utils::PathChooser")
     exeLineEd = getChildByClass(exePathChooser, "Utils::BaseValidatingLineEdit")
     argLineEd = waitForObject("{buddy={window=':Qt Creator_Core::Internal::MainWindow' "
                               "type='QLabel' text='Arguments:' visible='1'} type='QLineEdit' "
@@ -202,8 +233,7 @@ def __configureCustomExecutable__(projectName, port, mkspec, qmakeVersion):
     clickButton(addButton)
     addMenu = addButton.menu()
     activateItem(waitForObjectItem(objectMap.realName(addMenu), 'Custom Executable'))
-    exePathChooser = waitForObject("{buddy={window=':Qt Creator_Core::Internal::MainWindow' text='Command:' type='QLabel' unnamed='1' visible='1'} "
-                                   "type='Utils::PathChooser' unnamed='1' visible='1'}", 2000)
+    exePathChooser = waitForObject(":Executable:_Utils::PathChooser", 2000)
     exeLineEd = getChildByClass(exePathChooser, "Utils::BaseValidatingLineEdit")
     argLineEd = waitForObject("{buddy={window=':Qt Creator_Core::Internal::MainWindow' "
                               "type='QLabel' text='Arguments:' visible='1'} type='QLineEdit' "

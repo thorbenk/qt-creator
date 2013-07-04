@@ -147,6 +147,8 @@ public:
     {
 #if 1
         m_recordedIncludes.append(Include(includedFileName, mode, line));
+        Q_UNUSED(m_env);
+        Q_UNUSED(m_includeDepth);
 #else
         Q_UNUSED(line);
 
@@ -318,6 +320,7 @@ private:
 private slots:
     void va_args();
     void named_va_args();
+    void extra_va_args();
     void defined();
     void defined_data();
     void empty_macro_args();
@@ -350,6 +353,8 @@ private slots:
     void skip_unknown_directives_data();
     void include_guard();
     void include_guard_data();
+    void empty_trailing_lines();
+    void empty_trailing_lines_data();
 };
 
 // Remove all #... lines, and 'simplify' string, to allow easily comparing the result
@@ -412,6 +417,23 @@ void tst_Preprocessor::named_va_args()
 
     preprocessed = preprocessed.simplified();
     QCOMPARE(simplified(preprocessed), QString("int f();int f(int a);int f(int a,int b);"));
+}
+
+void tst_Preprocessor::extra_va_args()
+{
+    Client *client = 0; // no client.
+    Environment env;
+
+    Preprocessor preprocess(client, &env);
+    QByteArray preprocessed = preprocess.run(QLatin1String("<stdin>"),
+                                                "#define foo(ret, ...) ret f(__VA_ARGS__);\n"
+                                                "\nfoo(int)\n"
+                                                "\nfoo(float,int b)\n"
+                                                "\nfoo(long,int b,int c)\n",
+                                             true, false);
+
+    preprocessed = preprocessed.simplified();
+    QCOMPARE(simplified(preprocessed), QString("int f();float f(int b);long f(int b,int c);"));
 }
 
 void tst_Preprocessor::empty_macro_args()
@@ -800,6 +822,8 @@ void tst_Preprocessor::comparisons_data()
         << "reserved.1.cpp" << "reserved.1.out.cpp" << "";
     QTest::newRow("recursive 1")
         << "recursive.1.cpp" << "recursive.1.out.cpp" << "";
+    QTest::newRow("recursive 2")
+        << "recursive.2.cpp" << "recursive.2.out.cpp" << "";
     QTest::newRow("macro_pounder_fn")
         << "macro_pounder_fn.c" << "" << "";
     QTest::newRow("macro_expand")
@@ -1487,7 +1511,13 @@ void tst_Preprocessor::skip_unknown_directives_data()
                "# 10 \"file.cpp\"\n"
                "# ()\n"
                "#\n";
-    expected = "# 1 \"<stdin>\"\n";
+    expected =
+            "# 1 \"<stdin>\"\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            ;
     QTest::newRow("case 1") << original << expected;
 }
 
@@ -1573,6 +1603,74 @@ void tst_Preprocessor::include_guard_data()
                                      ;
 }
 
+void tst_Preprocessor::empty_trailing_lines()
+{
+    compare_input_output();
+}
+
+void tst_Preprocessor::empty_trailing_lines_data()
+{
+    // Test if the number of lines at the end of a file is correct. This is important to make the
+    // EOF token for the end up at the correct line.
+
+    QTest::addColumn<QByteArray>("input");
+    QTest::addColumn<QByteArray>("output");
+
+    QByteArray original;
+    QByteArray expected;
+
+    original =
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            ;
+    expected = "# 1 \"<stdin>\"\n" + original;
+    QTest::newRow("9 empty lines") << original << expected;
+
+    original =
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            ;
+    expected =
+            "# 1 \"<stdin>\"\n"
+            "# 11 \"<stdin>\"\n"
+            ;
+    QTest::newRow("11 empty lines") << original << expected;
+
+    original =
+            "#include <something>\n"
+            ;
+    expected =
+            "# 1 \"<stdin>\"\n"
+            "\n"
+            ;
+    QTest::newRow("1 include") << original << expected;
+
+    original =
+            "#include <something>\n"
+            "\n"
+            ;
+    expected =
+            "# 1 \"<stdin>\"\n"
+            "\n"
+            "\n"
+            ;
+    QTest::newRow("1 empty line with 1 include") << original << expected;
+}
+
 void tst_Preprocessor::compare_input_output(bool keepComments)
 {
     QFETCH(QByteArray, input);
@@ -1582,7 +1680,7 @@ void tst_Preprocessor::compare_input_output(bool keepComments)
     Preprocessor preprocess(0, &env);
     preprocess.setKeepComments(keepComments);
     QByteArray prep = preprocess.run(QLatin1String("<stdin>"), input);
-    QCOMPARE(output, prep);
+    QCOMPARE(prep.constData(), output.constData());
 }
 
 QTEST_APPLESS_MAIN(tst_Preprocessor)

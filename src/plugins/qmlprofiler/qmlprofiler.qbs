@@ -20,7 +20,6 @@ QtcPlugin {
     Depends { name: "QmlJSTools" }
     Depends { name: "CPlusPlus" }
 
-    Depends { name: "cpp" }
     cpp.includePaths: base.concat("canvas")
 
     files: [
@@ -30,7 +29,6 @@ QtcPlugin {
         "qmlprofiler_global.h",
         "qmlprofilerattachdialog.cpp",
         "qmlprofilerattachdialog.h",
-        "qmlprofilerattachdialog.ui",
         "qmlprofilerclientmanager.cpp",
         "qmlprofilerclientmanager.h",
         "qmlprofilerconstants.h",
@@ -56,8 +54,6 @@ QtcPlugin {
         "qmlprofilerviewmanager.h",
         "qv8profilerdatamodel.cpp",
         "qv8profilerdatamodel.h",
-        "remotelinuxqmlprofilerrunner.cpp",
-        "remotelinuxqmlprofilerrunner.h",
         "timelinerenderer.cpp",
         "timelinerenderer.h",
         "canvas/qdeclarativecanvas.cpp",
@@ -77,7 +73,6 @@ QtcPlugin {
         "qml/RangeMover.qml",
         "qml/SelectionRange.qml",
         "qml/SelectionRangeDetails.qml",
-        "qml/StatusDisplay.qml",
         "qml/TimeDisplay.qml",
         "qml/TimeMarks.qml",
         "qml/qmlprofiler.qrc",

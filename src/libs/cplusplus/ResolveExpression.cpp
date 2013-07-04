@@ -77,11 +77,13 @@ static QList<_Tp> removeDuplicates(const QList<_Tp> &results)
 /////////////////////////////////////////////////////////////////////
 // ResolveExpression
 /////////////////////////////////////////////////////////////////////
-ResolveExpression::ResolveExpression(const LookupContext &context)
+ResolveExpression::ResolveExpression(const LookupContext &context,
+                                     const QSet<const Declaration *> &autoDeclarationsBeingResolved)
     : ASTVisitor(context.expressionDocument()->translationUnit()),
       _scope(0),
       _context(context),
       bind(context.expressionDocument()->translationUnit()),
+      _autoDeclarationsBeingResolved(autoDeclarationsBeingResolved),
       _reference(false)
 { }
 
@@ -521,6 +523,10 @@ bool ResolveExpression::visit(SimpleNameAST *ast)
             if (!decl)
                 continue;
 
+            // Stop on recursive auto declarations
+            if (_autoDeclarationsBeingResolved.contains(decl))
+                continue;
+
             const StringLiteral *initializationString = decl->getInitializer();
             if (initializationString == 0)
                 continue;
@@ -535,7 +541,8 @@ bool ResolveExpression::visit(SimpleNameAST *ast)
 
             TypeOfExpression exprTyper;
             Document::Ptr doc = _context.snapshot().document(QString::fromLocal8Bit(decl->fileName()));
-            exprTyper.init(doc, _context.snapshot(), _context.bindings());
+            exprTyper.init(doc, _context.snapshot(), _context.bindings(),
+                           QSet<const Declaration* >(_autoDeclarationsBeingResolved) << decl);
 
             Document::Ptr exprDoc =
                     documentForExpression(exprTyper.preprocessedExpression(initializer));
@@ -545,8 +552,8 @@ bool ResolveExpression::visit(SimpleNameAST *ast)
             if (deduceAuto._block)
                 continue;
 
-            const QList<LookupItem> &typeItems =
-                    exprTyper(extractExpressionAST(exprDoc), exprDoc, decl->enclosingScope());
+            const QList<LookupItem> &typeItems = exprTyper(extractExpressionAST(exprDoc), exprDoc,
+                                                           decl->enclosingScope());
             if (typeItems.empty())
                 continue;
 
@@ -697,6 +704,14 @@ bool ResolveExpression::visit(CallAST *ast)
             // Constructor call
             FullySpecifiedType ctorTy = control()->namedType(classTy->name());
             addResult(ctorTy, scope);
+        } else if (Template *templateTy = ty->asTemplateType()) {
+            // template function
+            if (Symbol *declaration = templateTy->declaration()) {
+                if (Function *funTy = declaration->asFunction()) {
+                    if (maybeValidPrototype(funTy, actualArgumentCount))
+                        addResult(funTy->returnType().simplified(), scope);
+                }
+            }
         }
     }
 
@@ -938,6 +953,18 @@ private:
     ClassOrNamespace *_binding;
 };
 
+static bool isTypeTypedefed(const FullySpecifiedType &originalTy,
+                            const FullySpecifiedType &typedefedTy)
+{
+    return ! originalTy.isEqualTo(typedefedTy);
+}
+
+static bool areOriginalAndTypedefedTypePointer(const FullySpecifiedType &originalTy,
+                                               const FullySpecifiedType &typedefedTy)
+{
+    return originalTy->isPointerType() && typedefedTy->isPointerType();
+}
+
 ClassOrNamespace *ResolveExpression::baseExpression(const QList<LookupItem> &baseResults,
                                                     int accessOp,
                                                     bool *replacedDotOperator) const
@@ -1027,23 +1054,12 @@ ClassOrNamespace *ResolveExpression::baseExpression(const QList<LookupItem> &bas
             }
         } else if (accessOp == T_DOT) {
             if (replacedDotOperator) {
-                *replacedDotOperator = originalType->isPointerType() || ty->isPointerType();
-                // replace . with ->
-                if (PointerType *ptrTy = originalType->asPointerType()) {
-                    // case when original type is a pointer and
-                    // typedef is for type
-                    // e.g.:
-                    // typedef S SType;
-                    // SType *p;
-                    ty = ptrTy->elementType();
-                }
-                else if (PointerType *ptrTy = ty->asPointerType()) {
-                    // case when original type is a type and
-                    // typedef is for pointer of type
-                    // e.g.:
-                    // typedef S* SPTR;
-                    // SPTR p;
-                    ty = ptrTy->elementType();
+                if (! isTypeTypedefed(originalType, ty)
+                        || ! areOriginalAndTypedefedTypePointer(originalType, ty)) {
+                    *replacedDotOperator = originalType->isPointerType() || ty->isPointerType();
+                    if (PointerType *ptrTy = ty->asPointerType()) {
+                        ty = ptrTy->elementType();
+                    }
                 }
             }
 

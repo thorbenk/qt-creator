@@ -42,7 +42,7 @@
 #include <QFileSystemWatcher>
 #include <QPixmapCache>
 #include <QQuickItem>
-
+#include <QQmlParserStatus>
 #include <QTextDocument>
 #include <QLibraryInfo>
 
@@ -153,31 +153,10 @@ void ObjectNodeInstance::setNodeInstanceServer(NodeInstanceServer *server)
     m_nodeInstanceServer = server;
 }
 
-static bool hasPropertiesWitoutNotifications(const QMetaObject *metaObject)
-{
-    for (int propertyIndex = QObject::staticMetaObject.propertyCount(); propertyIndex < metaObject->propertyCount(); propertyIndex++) {
-        if (!metaObject->property(propertyIndex).hasNotifySignal())
-            return true;
-    }
-
-    return false;
-}
-
 void ObjectNodeInstance::initializePropertyWatcher(const ObjectNodeInstance::Pointer &objectNodeInstance)
 {
-    const QMetaObject *metaObject = objectNodeInstance->object()->metaObject();
     m_metaObject = NodeInstanceMetaObject::createNodeInstanceMetaObject(objectNodeInstance, nodeInstanceServer()->engine());
-    for (int propertyIndex = QObject::staticMetaObject.propertyCount(); propertyIndex < metaObject->propertyCount(); propertyIndex++) {
-        if (QQmlMetaType::isQObject(metaObject->property(propertyIndex).userType())) {
-            QObject *propertyObject = QQmlMetaType::toQObject(metaObject->property(propertyIndex).read(objectNodeInstance->object()));
-            if (propertyObject && hasPropertiesWitoutNotifications(propertyObject->metaObject())) {
-                NodeInstanceMetaObject::createNodeInstanceMetaObject(objectNodeInstance,
-                                                                          propertyObject,
-                                                                          metaObject->property(propertyIndex).name(),
-                                                                          nodeInstanceServer()->engine());
-            }
-        }
-    }
+    m_signalSpy.setObjectNodeInstance(objectNodeInstance);
 }
 
 void ObjectNodeInstance::initialize(const ObjectNodeInstance::Pointer &objectNodeInstance)
@@ -243,7 +222,17 @@ QTransform ObjectNodeInstance::transform() const
     return QTransform();
 }
 
+QTransform ObjectNodeInstance::contentTransform() const
+{
+    return QTransform();
+}
+
 QTransform ObjectNodeInstance::customTransform() const
+{
+    return QTransform();
+}
+
+QTransform ObjectNodeInstance::contentItemTransform() const
 {
     return QTransform();
 }
@@ -376,6 +365,9 @@ void ObjectNodeInstance::addToNewProperty(QObject *object, QObject *newParent, c
 {
     QQmlProperty property(newParent, newParentProperty, context());
 
+    if (object)
+        object->setParent(newParent);
+
     if (isList(property)) {
         QQmlListReference list = qvariant_cast<QQmlListReference>(property.read());
 
@@ -388,11 +380,6 @@ void ObjectNodeInstance::addToNewProperty(QObject *object, QObject *newParent, c
     } else if (isObject(property)) {
         property.write(objectToVariant(object));
     }
-
-    QQuickItem *quickItem = qobject_cast<QQuickItem*>(object);
-
-    if (object && !(quickItem && quickItem->parentItem()))
-        object->setParent(newParent);
 
     Q_ASSERT(objectToVariant(object).isValid());
 }
@@ -472,7 +459,7 @@ QVariant ObjectNodeInstance::fixResourcePaths(const QVariant &value)
     return value;
 }
 
-void ObjectNodeInstance::updateDirtyNodeRecursive()
+void ObjectNodeInstance::updateAllDirtyNodesRecursive()
 {
 }
 
@@ -1059,6 +1046,11 @@ QObject *ObjectNodeInstance::object() const
         return 0;
 }
 
+QQuickItem *ObjectNodeInstance::contentItem() const
+{
+    return 0;
+}
+
 bool ObjectNodeInstance::hasContent() const
 {
     return false;
@@ -1172,7 +1164,7 @@ QObject *ObjectNodeInstance::parent() const
     return object()->parent();
 }
 
-QObject *parentObject(QObject *object)
+QObject *ObjectNodeInstance::parentObject(QObject *object)
 {
     QQuickItem *quickItem = qobject_cast<QQuickItem*>(object);
     if (quickItem && quickItem->parentItem()) {
@@ -1185,6 +1177,38 @@ QObject *parentObject(QObject *object)
     }
 
     return object->parent();
+}
+
+void ObjectNodeInstance::doComponentCompleteRecursive(QObject *object, NodeInstanceServer *nodeInstanceServer)
+{
+    if (object) {
+        QQuickItem *item = qobject_cast<QQuickItem*>(object);
+
+        if (item && DesignerSupport::isComponentComplete(item))
+            return;
+
+        QList<QObject*> childList = object->children();
+
+        if (item) {
+            foreach (QQuickItem *childItem, item->childItems()) {
+                if (!childList.contains(childItem))
+                    childList.append(childItem);
+            }
+        }
+
+        foreach (QObject *child, childList) {
+            if (!nodeInstanceServer->hasInstanceForObject(child))
+                doComponentCompleteRecursive(child, nodeInstanceServer);
+        }
+
+        if (item) {
+            static_cast<QQmlParserStatus*>(item)->componentComplete();
+        } else {
+            QQmlParserStatus *qmlParserStatus = dynamic_cast< QQmlParserStatus*>(object);
+            if (qmlParserStatus)
+                qmlParserStatus->componentComplete();
+        }
+    }
 }
 
 ObjectNodeInstance::Pointer ObjectNodeInstance::parentInstance() const
@@ -1205,7 +1229,12 @@ ObjectNodeInstance::Pointer ObjectNodeInstance::parentInstance() const
 
 QRectF ObjectNodeInstance::boundingRect() const
 {
-    return QRect();
+    return QRectF();
+}
+
+QRectF ObjectNodeInstance::contentItemBoundingBox() const
+{
+    return QRectF();
 }
 
 QPointF ObjectNodeInstance::position() const
@@ -1250,7 +1279,7 @@ bool ObjectNodeInstance::resetStateProperty(const ObjectNodeInstance::Pointer &/
 
 void ObjectNodeInstance::doComponentComplete()
 {
-
+    doComponentCompleteRecursive(object(), nodeInstanceServer());
 }
 
 bool ObjectNodeInstance::isRootNodeInstance() const

@@ -69,8 +69,8 @@ namespace CodePaster {
 
 /*!
    \class CodePaster::CodePasterService
-   \brief Service registered with PluginManager providing CodePaster
-          post() functionality.
+   \brief The CodePasterService class is a service registered with PluginManager
+   that provides CodePaster \c post() functionality.
 
    \sa ExtensionSystem::PluginManager::getObjectByClassName, ExtensionSystem::invoke
    \sa VcsBase::VcsBaseEditorWidget
@@ -380,7 +380,7 @@ void CodepasterPlugin::finishFetch(const QString &titleDescription,
     const QString fileName = saver.fileName();
     m_fetchedSnippets.push_back(fileName);
     // Open editor with title.
-    Core::IEditor *editor = EditorManager::openEditor(fileName, Core::Id(), EditorManager::ModeSwitch);
+    Core::IEditor *editor = EditorManager::openEditor(fileName);
     QTC_ASSERT(editor, return);
     editor->setDisplayName(titleDescription);
 }

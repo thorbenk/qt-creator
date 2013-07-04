@@ -34,11 +34,12 @@
 #include "ui_projectexplorersettingspage.h"
 
 #include <QPointer>
+#include <QUuid>
 
 namespace ProjectExplorer {
 namespace Internal {
 
-struct ProjectExplorerSettings;
+class ProjectExplorerSettings;
 
 // Documentation inside.
 class ProjectExplorerSettingsWidget : public QWidget {
@@ -47,7 +48,7 @@ public:
     explicit ProjectExplorerSettingsWidget(QWidget *parent = 0);
 
     ProjectExplorerSettings settings() const;
-    void setSettings(const ProjectExplorerSettings  &s) const;
+    void setSettings(const ProjectExplorerSettings  &s);
 
     QString projectsDirectory() const;
     void setProjectsDirectory(const QString &pd);
@@ -70,6 +71,7 @@ private:
 
     Ui::ProjectExplorerSettingsPageUi m_ui;
     mutable QString m_searchKeywords;
+    QUuid m_environmentId;
 };
 
 class ProjectExplorerSettingsPage : public Core::IOptionsPage

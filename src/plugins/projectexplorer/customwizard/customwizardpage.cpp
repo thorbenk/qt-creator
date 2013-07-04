@@ -58,8 +58,9 @@ namespace Internal {
 
 /*!
     \class ProjectExplorer::Internal::TextFieldComboBox
-    \brief  A non-editable combo for text editing purposes that plays
-    with QWizard::registerField (providing a settable 'text' property).
+    \brief The TextFieldComboBox class is a non-editable combo box for text
+    editing purposes that plays with \c QWizard::registerField (providing a
+    settable 'text' property).
 
     Allows for a separation of values to be used for wizard fields replacement
     and display texts.
@@ -110,7 +111,8 @@ QString TextFieldComboBox::valueAt(int i) const
 
 /*!
     \class ProjectExplorer::Internal::TextFieldCheckBox
-    \brief A Checkbox that plays with QWizard::registerField.
+    \brief The TextFieldCheckBox class is a aheckbox that plays with
+    \c QWizard::registerField.
 
     Provides a settable 'text' property containing predefined strings for 'true'/'false').
 
@@ -141,7 +143,8 @@ void TextFieldCheckBox::slotStateChanged(int cs)
 
 /*!
     \class ProjectExplorer::Internal::CustomWizardFieldPage
-    \brief A simple custom wizard page presenting the fields to be used
+    \brief The CustomWizardFieldPage class is a simple custom wizard page
+    presenting the fields to be used
     as page 2 of a BaseProjectWizardDialog if there are any fields.
 
     Uses the 'field' functionality of QWizard.
@@ -153,8 +156,8 @@ void TextFieldCheckBox::slotStateChanged(int cs)
     \sa ProjectExplorer::CustomWizard
 */
 
-CustomWizardFieldPage::LineEditData::LineEditData(QLineEdit* le, const QString &defText) :
-    lineEdit(le), defaultText(defText)
+CustomWizardFieldPage::LineEditData::LineEditData(QLineEdit* le, const QString &defText, const QString &pText) :
+    lineEdit(le), defaultText(defText), placeholderText(pText)
 {
 }
 
@@ -294,6 +297,8 @@ QWidget *CustomWizardFieldPage::registerComboBox(const QString &fieldName,
         combo->setCurrentIndex(currentIndex);
     } while (false);
     registerField(fieldName, combo, "text", SIGNAL(text4Changed(QString)));
+    // Connect to completeChanged() for derived classes that reimplement isComplete()
+    connect(combo, SIGNAL(text4Changed(QString)), SIGNAL(completeChanged()));
     return combo;
 } // QComboBox
 
@@ -305,7 +310,9 @@ QWidget *CustomWizardFieldPage::registerTextEdit(const QString &fieldName,
     // pasting from Bug tracker, etc.
     const bool acceptRichText = field.controlAttributes.value(QLatin1String("acceptRichText")) == QLatin1String("true");
     textEdit->setAcceptRichText(acceptRichText);
-    registerField(fieldName, textEdit, "plainText", SIGNAL(textChanged(QString)));
+    // Connect to completeChanged() for derived classes that reimplement isComplete()
+    registerField(fieldName, textEdit, "plainText", SIGNAL(textChanged()));
+    connect(textEdit, SIGNAL(textChanged()), SIGNAL(completeChanged()));
     const QString defaultText = field.controlAttributes.value(QLatin1String("defaulttext"));
     m_textEdits.push_back(TextEditData(textEdit, defaultText));
     return textEdit;
@@ -330,6 +337,8 @@ QWidget *CustomWizardFieldPage::registerPathChooser(const QString &fieldName,
         pathChooser->setExpectedKind(Utils::PathChooser::Any);
 
     registerField(fieldName, pathChooser, "path", SIGNAL(changed(QString)));
+    // Connect to completeChanged() for derived classes that reimplement isComplete()
+    connect(pathChooser, SIGNAL(changed(QString)), SIGNAL(completeChanged()));
     const QString defaultText = field.controlAttributes.value(QLatin1String("defaulttext"));
     m_pathChoosers.push_back(PathChooserData(pathChooser, defaultText));
     return pathChooser;
@@ -351,6 +360,8 @@ QWidget *CustomWizardFieldPage::registerCheckBox(const QString &fieldName,
     if (falseTextIt != field.controlAttributes.constEnd()) // Also set empty texts
         checkBox->setFalseText(falseTextIt.value());
     registerField(fieldName, checkBox, "text", SIGNAL(textChanged(QString)));
+    // Connect to completeChanged() for derived classes that reimplement isComplete()
+    connect(checkBox, SIGNAL(textChanged(QString)), SIGNAL(completeChanged()));
     return checkBox;
 }
 
@@ -368,9 +379,12 @@ QWidget *CustomWizardFieldPage::registerLineEdit(const QString &fieldName,
             qWarning("Invalid custom wizard field validator regular expression %s.", qPrintable(validationRegExp));
     }
     registerField(fieldName, lineEdit, "text", SIGNAL(textEdited(QString)));
+    // Connect to completeChanged() for derived classes that reimplement isComplete()
+    connect(lineEdit, SIGNAL(textEdited(QString)), SIGNAL(completeChanged()));
 
     const QString defaultText = field.controlAttributes.value(QLatin1String("defaulttext"));
-    m_lineEdits.push_back(LineEditData(lineEdit, defaultText));
+    const QString placeholderText = field.controlAttributes.value(QLatin1String("placeholdertext"));
+    m_lineEdits.push_back(LineEditData(lineEdit, defaultText, placeholderText));
     return lineEdit;
 }
 
@@ -386,6 +400,8 @@ void CustomWizardFieldPage::initializePage()
             CustomWizardContext::replaceFields(m_context->baseReplacements, &defaultText);
             led.lineEdit->setText(defaultText);
         }
+        if (!led.placeholderText.isEmpty())
+            led.lineEdit->setPlaceholderText(led.placeholderText);
     }
     foreach (const TextEditData &ted, m_textEdits) {
         if (!ted.userChange.isNull()) {
@@ -521,7 +537,7 @@ void CustomWizardPage::setPath(const QString &path)
 
 bool CustomWizardPage::isComplete() const
 {
-    return m_pathChooser->isValid();
+    return m_pathChooser->isValid() && CustomWizardFieldPage::isComplete();
 }
 
 } // namespace Internal

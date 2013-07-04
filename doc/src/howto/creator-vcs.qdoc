@@ -63,7 +63,7 @@
         \row
             \li Subversion
             \li \l{http://subversion.apache.org/}
-            \li
+            \li Subversion version 1.6.17 and later
     \endtable
 
     \section1 Setting Up Version Control Systems
@@ -191,6 +191,11 @@
 
     \image qtcreator-vcs-diff.png
 
+    With Git, the diff is displayed side-by-side in a \l{Comparing Files}
+    {diff editor} by default. To use the old diff view instead, select
+    \gui Tools > \gui Options > \gui {Version Control} > \gui Git, and deselect
+    the \gui {Show diff side-by-side} option.
+
     \section2 Viewing Versioning History and Change Details
 
     Display the versioning history of a file by selecting \gui{Log}
@@ -256,12 +261,12 @@
     \list
 
         \li \gui Git > \gui {Current File} > \gui{Undo Unstaged Changes} reverts
-            all changes and resets the working directory to the state of the
+            all changes and resets the current file to the state of the
             index.
 
         \li \gui Git > \gui {Current File} > \gui {Undo Uncommitted Changes}
             reverts all changes, discarding the
-            index. This returns your working copy to the state it was in right
+            index. This returns the current file to the state it was in right
             after the last commit.
 
         \li \gui Git > \gui {Local Repository} > \gui Reset opens a dialog
@@ -380,13 +385,19 @@
     select \gui Tools > \gui Git > \gui {Local Repository} > \gui Clean to clean
     the repository.
 
-    To show commits, select \gui Tools > \gui Git > \gui {Show Commit} and
-    select a commit to view. Enter the SHA-1 or reference of the commit in the
-    \gui Change field.
-
     To apply latest changes to the last commit, select \gui Tools > \gui Git >
     \gui {Local Repository} > \gui {Amend Last Commit}. You can also edit the
     commit message.
+
+    To amend an earlier comment in a series of related commits, select
+    \gui Tools > \gui Git > \gui {Local Repository} >
+    \gui {Fixup Previous Commit}. This operation is done using interactive
+    rebase. In case of conflicts, a merge tool is suggested.
+
+    To change a series of commits in the local repository, select \gui Tools >
+    \gui Git > \gui {Local Repository} > \gui {Interactive Rebase}. You can
+    reorder or discard commits, squash them into a single commit, or edit the
+    commit messages.
 
     The following sections describe how to manage local and remote branches,
     apply patches, and use stashes.
@@ -414,6 +425,9 @@
         \row
             \li \gui{Remove}
             \li Remove a local branch. You cannot delete remote branches.
+        \row
+            \li \gui Rename
+            \li Rename a local branch.
         \row
             \li \gui{Checkout}
             \li Check out the selected branch and make it current. You can stash
@@ -457,12 +471,20 @@
     display or delete them, select \gui Stashes.
 
     To save a snapshot of your current work under a name for later reference,
-    select \gui {Stash Snapshot}. The working copy is unchanged. For example, if
+    select \gui {Take Snapshot}. The working copy is unchanged. For example, if
     you want to try something and find out later that it does not work, you can
     discard the changes and return to the state of the snapshot.
 
     To remove a single stashed state from the stash list and apply it on top of
     the current working tree state, select \gui {Stash Pop}.
+
+    \section3 Applying Actions to Commits
+
+    To browse a directory or the commit history and to apply actions on the
+    commits, select \gui Tools > \gui Git > \gui {Actions on Commits}. You can
+    checkout, revert, or cherry-pick commits or view them in the diff editor.
+
+    \image creator-git-commit-actions.png "Select a Git Commit dialog"
 
     \section3 Working with Remote Repositories
 
@@ -487,6 +509,9 @@
             \li Menu Item
             \li Description
         \row
+            \li \gui{Refresh}
+            \li Refresh the list of remote repositories.
+        \row
             \li \gui{Add}
             \li Add a new remote repository.
         \row
@@ -494,11 +519,12 @@
             \li Fetch all the branches and change information from a remote
                 repository.
         \row
+            \li \gui Push
+            \li Push committed changes to the remote repository.
+        \row
             \li \gui{Remove}
             \li Remove a remote repository.
-        \row
-            \li \gui{Refresh}
-            \li Refresh the list of remote repositories.
+
     \endtable
 
     \section4 Using Git with Subversion
@@ -519,15 +545,19 @@
 
     \image qtcreator-gerrit-options.png
 
-    You can see the same information about each change as in the Gerrit
-    web interface.
+    To push committed changes to Gerrit, select \gui Tools > \gui Git >
+    \gui {Remote Repository} > \gui {Push to Gerrit}.
+
+    To view the same information about each change as in the Gerrit
+    web interface, select \gui Tools > \gui Git > \gui {Remote Repository} >
+    \gui Gerrit.
 
     \image qtcreator-gerrit.png
 
-    To view details of the selected change, select \gui Diff.
+    To view details of the selected change, select \gui Show.
 
-    To apply the selected change to the top of your local repository, select
-    \gui Apply. To remove the change after testing it, select \gui Tools >
+    To cherry-pick the selected change to the local repository, select
+    \gui {Cherry Pick}. To remove the change after testing it, select \gui Tools >
     \gui Git > \gui {Local Repository} > \gui Reset. In the
     \gui {Undo Changes to} dialog, select the
     state to reset the working directory to, and then select \gui OK.

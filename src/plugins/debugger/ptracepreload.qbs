@@ -3,14 +3,13 @@ import "../../libs/QtcLibrary.qbs" as QtcLibrary
 
 QtcLibrary {
     name: "ptracepreload"
-    condition: qbs.targetOS == "linux"
+    condition: qbs.targetOS.contains("linux")
 
     cpp.dynamicLibraries: [
         "dl",
         "c"
     ]
 
-    Depends { name: "cpp" }
 
     files: [
         "ptracepreload.c",

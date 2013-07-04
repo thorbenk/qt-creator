@@ -74,29 +74,21 @@
 
 static const VcsBase::VcsBaseEditorParameters editorParameters[] = {
 {
-    VcsBase::RegularCommandOutput,
-    Perforce::Constants::PERFORCE_COMMANDLOG_EDITOR_ID,
-    Perforce::Constants::PERFORCE_COMMANDLOG_EDITOR_DISPLAY_NAME,
-    Perforce::Constants::PERFORCE_COMMANDLOG_EDITOR_CONTEXT,
-    "application/vnd.nokia.text.scs_commandlog",
-    "scslog"},
-{   VcsBase::LogOutput,
+    VcsBase::LogOutput,
     Perforce::Constants::PERFORCE_LOG_EDITOR_ID,
     Perforce::Constants::PERFORCE_LOG_EDITOR_DISPLAY_NAME,
     Perforce::Constants::PERFORCE_LOG_EDITOR_CONTEXT,
-    "application/vnd.nokia.text.scs_filelog",
-    "scsfilelog"},
+    "text/vnd.qtcreator.p4.log"},
 {    VcsBase::AnnotateOutput,
      Perforce::Constants::PERFORCE_ANNOTATION_EDITOR_ID,
      Perforce::Constants::PERFORCE_ANNOTATION_EDITOR_DISPLAY_NAME,
      Perforce::Constants::PERFORCE_ANNOTATION_EDITOR_CONTEXT,
-    "application/vnd.nokia.text.scs_annotation",
-    "scsannotate"},
+    "text/vnd.qtcreator.p4.annotation"},
 {   VcsBase::DiffOutput,
     Perforce::Constants::PERFORCE_DIFF_EDITOR_ID,
     Perforce::Constants::PERFORCE_DIFF_EDITOR_DISPLAY_NAME,
     Perforce::Constants::PERFORCE_DIFF_EDITOR_CONTEXT,
-    "text/x-patch","diff"}
+    "text/x-patch"}
 };
 
 // Utility to find a parameter set by type
@@ -657,8 +649,7 @@ void PerforcePlugin::startSubmitProject()
 
 Core::IEditor *PerforcePlugin::openPerforceSubmitEditor(const QString &fileName, const QStringList &depotFileNames)
 {
-    Core::IEditor *editor = Core::EditorManager::openEditor(fileName, Constants::PERFORCE_SUBMIT_EDITOR_ID,
-                                                      Core::EditorManager::ModeSwitch);
+    Core::IEditor *editor = Core::EditorManager::openEditor(fileName, Constants::PERFORCE_SUBMIT_EDITOR_ID);
     PerforceSubmitEditor *submitEditor = static_cast<PerforceSubmitEditor*>(editor);
     setSubmitEditor(submitEditor);
     submitEditor->restrictToProjectFiles(depotFileNames);
@@ -1188,7 +1179,7 @@ Core::IEditor *PerforcePlugin::showOutputInEditor(const QString &title, const QS
     if (codec)
         e->setCodec(codec);
     Core::IEditor *ie = e->editor();
-    Core::EditorManager::activateEditor(ie, Core::EditorManager::ModeSwitch);
+    Core::EditorManager::activateEditor(ie);
     return ie;
 }
 
@@ -1270,7 +1261,7 @@ void PerforcePlugin::p4Diff(const PerforceDiffParameters &p)
 
     if (existingEditor) {
         existingEditor->createNew(result.stdOut);
-        Core::EditorManager::activateEditor(existingEditor, Core::EditorManager::ModeSwitch);
+        Core::EditorManager::activateEditor(existingEditor);
         return;
     }
     // Create new editor
@@ -1538,7 +1529,7 @@ void PerforcePlugin::testLogResolving()
                 "\n"
                 "        Comment\n"
                 );
-    PerforceEditor editor(editorParameters + 1, 0);
+    PerforceEditor editor(editorParameters, 0);
     editor.testLogResolving(data, "12345", "12344");
 }
 #endif

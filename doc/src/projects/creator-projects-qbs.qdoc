@@ -26,8 +26,8 @@
 
     The Qt Build Suite (Qbs) and the Qbs plugin are still experimental, and
     therefore, you must first enable the plugin manually. If you build \QC
-    yourself from our git repository, you also need to fetch the Qbs submodule to
-    get Qbs support. See \l{Enabling the Qbs Plugin} below.
+    yourself from our Git repository, you also need to fetch the Qbs submodule
+    to get Qbs support.
 
     To use Qbs to build a project, you must create a .qbs file for the project.
     For more information, see the
@@ -66,15 +66,6 @@
         \li Select the .qbs file for your project.
 
             \image creator-qbs-project.png
-
-        \li Select \gui Build > \gui {Build Project} to build the executable, so
-            that you can specify it in the run settings of the project.
-
-        \li Select \gui Projects > \gui {Run}, and specify the executable in the
-            \gui Command field. This allows you to run it directly from \QC.
-            This will happen automatically in a future release.
-
-            \image creator-run-settings-qbs.png
 
         \li Click the
             \inlineimage qtcreator-run.png

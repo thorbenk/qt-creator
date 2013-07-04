@@ -116,29 +116,26 @@ static const char CMD_ID_REPOSITORYUPDATE[]   = "CVS.RepositoryUpdate";
 
 static const VcsBaseEditorParameters editorParameters[] = {
 {
-    RegularCommandOutput,
+    OtherContent,
     "CVS Command Log Editor", // id
     QT_TRANSLATE_NOOP("VCS", "CVS Command Log Editor"), // display name
     "CVS Command Log Editor", // context
-    "application/vnd.nokia.text.scs_cvs_commandlog",
-    "scslog"},
+    "text/vnd.qtcreator.cvs.commandlog"},
 {   LogOutput,
     "CVS File Log Editor",   // id
     QT_TRANSLATE_NOOP("VCS", "CVS File Log Editor"),   // display name
     "CVS File Log Editor",   // context
-    "application/vnd.nokia.text.scs_cvs_filelog",
-    "scsfilelog"},
+    "text/vnd.qtcreator.cvs.log"},
 {    AnnotateOutput,
     "CVS Annotation Editor",  // id
     QT_TRANSLATE_NOOP("VCS", "CVS Annotation Editor"),  // display name
     "CVS Annotation Editor",  // context
-    "application/vnd.nokia.text.scs_cvs_annotation",
-    "scsannotate"},
+    "text/vnd.qtcreator.cvs.annotation"},
 {   DiffOutput,
     "CVS Diff Editor",  // id
     QT_TRANSLATE_NOOP("VCS", "CVS Diff Editor"),  // display name
     "CVS Diff Editor",  // context
-    "text/x-patch","diff"}
+    "text/x-patch"}
 };
 
 // Utility to find a parameter set by type
@@ -236,8 +233,7 @@ bool CvsPlugin::initialize(const QStringList &arguments, QString *errorMessage)
     if (!ICore::mimeDatabase()->addMimeTypes(QLatin1String(":/trolltech.cvs/CVS.mimetypes.xml"), errorMessage))
         return false;
 
-    if (QSettings *settings = ICore::settings())
-        m_settings.fromSettings(settings);
+    m_settings.fromSettings(ICore::settings());
 
     addAutoReleasedObject(new SettingsPage);
 
@@ -596,7 +592,7 @@ void CvsPlugin::cvsDiff(const CvsDiffParameters &p)
     const QString tag = VcsBaseEditorWidget::editorTag(DiffOutput, p.workingDir, p.files);
     if (IEditor *existingEditor = VcsBaseEditorWidget::locateEditorByTag(tag)) {
         existingEditor->createNew(output);
-        EditorManager::activateEditor(existingEditor, EditorManager::ModeSwitch);
+        EditorManager::activateEditor(existingEditor);
         setDiffBaseDirectory(existingEditor, p.workingDir);
         return;
     }
@@ -619,8 +615,7 @@ void CvsPlugin::cvsDiff(const CvsDiffParameters &p)
 
 CvsSubmitEditor *CvsPlugin::openCVSSubmitEditor(const QString &fileName)
 {
-    IEditor *editor = EditorManager::openEditor(fileName, Constants::CVSCOMMITEDITOR_ID,
-                                                EditorManager::ModeSwitch);
+    IEditor *editor = EditorManager::openEditor(fileName, Constants::CVSCOMMITEDITOR_ID);
     CvsSubmitEditor *submitEditor = qobject_cast<CvsSubmitEditor*>(editor);
     QTC_CHECK(submitEditor);
     submitEditor->registerActions(m_submitUndoAction, m_submitRedoAction, m_submitCurrentLogAction, m_submitDiffAction);
@@ -865,7 +860,7 @@ void CvsPlugin::filelog(const QString &workingDir,
     const QString tag = VcsBaseEditorWidget::editorTag(LogOutput, workingDir, files);
     if (Core::IEditor *editor = VcsBaseEditorWidget::locateEditorByTag(tag)) {
         editor->createNew(response.stdOut);
-        Core::EditorManager::activateEditor(editor, Core::EditorManager::ModeSwitch);
+        Core::EditorManager::activateEditor(editor);
     } else {
         const QString title = QString::fromLatin1("cvs log %1").arg(id);
         Core::IEditor *newEditor = showOutputInEditor(title, response.stdOut, LogOutput, source, codec);
@@ -1008,7 +1003,7 @@ void CvsPlugin::annotate(const QString &workingDir, const QString &file,
     if (IEditor *editor = VcsBaseEditorWidget::locateEditorByTag(tag)) {
         editor->createNew(response.stdOut);
         VcsBaseEditorWidget::gotoLineOfEditor(editor, lineNumber);
-        EditorManager::activateEditor(editor, EditorManager::ModeSwitch);
+        EditorManager::activateEditor(editor);
     } else {
         const QString title = QString::fromLatin1("cvs annotate %1").arg(id);
         IEditor *newEditor = showOutputInEditor(title, response.stdOut, AnnotateOutput, source, codec);
@@ -1025,7 +1020,7 @@ bool CvsPlugin::status(const QString &topLevel, const QStringList &files, const 
             runCvs(topLevel, args, m_settings.timeOutMS(), 0);
     const bool ok = response.result == CvsResponse::Ok;
     if (ok)
-        showOutputInEditor(title, response.stdOut, RegularCommandOutput, topLevel, 0);
+        showOutputInEditor(title, response.stdOut, OtherContent, topLevel, 0);
     return ok;
 }
 
@@ -1203,7 +1198,7 @@ bool CvsPlugin::describe(const QString &repositoryPath,
     const QString commitId = entries.front().revisions.front().commitId;
     if (IEditor *editor = VcsBaseEditorWidget::locateEditorByTag(commitId)) {
         editor->createNew(output);
-        EditorManager::activateEditor(editor, EditorManager::ModeSwitch);
+        EditorManager::activateEditor(editor);
         setDiffBaseDirectory(editor, repositoryPath);
     } else {
         const QString title = QString::fromLatin1("cvs describe %1").arg(commitId);
@@ -1289,7 +1284,7 @@ IEditor *CvsPlugin::showOutputInEditor(const QString& title, const QString &outp
     if (codec)
         e->setCodec(codec);
     IEditor *ie = e->editor();
-    EditorManager::activateEditor(ie, EditorManager::ModeSwitch);
+    EditorManager::activateEditor(ie);
     return ie;
 }
 
@@ -1302,8 +1297,7 @@ void CvsPlugin::setSettings(const CvsSettings &s)
 {
     if (s != m_settings) {
         m_settings = s;
-        if (QSettings *settings = ICore::settings())
-            m_settings.toSettings(settings);
+        m_settings.toSettings(ICore::settings());
         cvsVersionControl()->emitConfigurationChanged();
     }
 }

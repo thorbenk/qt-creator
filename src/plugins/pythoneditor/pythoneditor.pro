@@ -1,11 +1,7 @@
 include(../../qtcreatorplugin.pri)
-include(pythoneditor_dependencies.pri)
 
 DEFINES += \
-    PYEDITOR_LIBRARY
-
-OTHER_FILES += PythonEditor.pluginspec.in \
-    pythoneditor.mimetypes.xml
+    PYTHONEDITOR_LIBRARY
 
 RESOURCES += \
     pythoneditorplugin.qrc

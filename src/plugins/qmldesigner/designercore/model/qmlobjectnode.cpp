@@ -34,7 +34,6 @@
 #include "nodeproperty.h"
 #include <invalidmodelnodeexception.h>
 #include "qmlmodelview.h"
-#include "nodeinstanceview.h"
 #include "nodeinstance.h"
 #include "nodemetainfo.h"
 #include "bindingproperty.h"
@@ -174,6 +173,34 @@ QVariant QmlObjectNode::modelValue(const PropertyName &name) const
         return modelNode().variantProperty(name).value();
 
     return propertyChanges.modelNode().variantProperty(name).value();
+}
+
+bool QmlObjectNode::isTranslatableText(const PropertyName &name) const
+{
+    if (modelNode().metaInfo().isValid() && modelNode().metaInfo().hasProperty(name))
+        if (modelNode().metaInfo().propertyTypeName(name) == "QString" || modelNode().metaInfo().propertyTypeName(name) == "string") {
+            if (modelNode().hasBindingProperty(name)) {
+                static QRegExp regularExpressionPatter("qsTr\\((\".*\")\\)");
+                return regularExpressionPatter.exactMatch(modelNode().bindingProperty(name).expression());
+            }
+
+            return false;
+        }
+
+    return false;
+}
+
+QString QmlObjectNode::stripedTranslatableText(const PropertyName &name) const
+{
+    if (modelNode().hasBindingProperty(name)) {
+        static QRegExp regularExpressionPatter("qsTr\\(\"(.*)\"\\)");
+        if (regularExpressionPatter.exactMatch(modelNode().bindingProperty(name).expression()))
+            return regularExpressionPatter.cap(1);
+    } else {
+        return modelNode().variantProperty(name).value().toString();
+    }
+
+    return QString();
 }
 
 QString QmlObjectNode::expression(const PropertyName &name) const
@@ -388,6 +415,11 @@ QVariant QmlObjectNode::instanceValue(const ModelNode &modelNode, const Property
     return modelView->instanceForModelNode(modelNode).property(name);
 }
 
+QString QmlObjectNode::generateTranslatableText(const QString &text)
+{
+    return QString("qsTr(\"%1\")").arg(text);
+}
+
 TypeName QmlObjectNode::instanceType(const PropertyName &name) const
 {
     return nodeInstance().instanceType(name);
@@ -412,6 +444,11 @@ QmlObjectNode QmlObjectNode::nodeForInstance(const NodeInstance &instance) const
     return QmlObjectNode(ModelNode(instance.modelNode(), qmlModelView()));
 }
 
+QmlItemNode QmlObjectNode::itemForInstance(const NodeInstance &instance) const
+{
+    return QmlItemNode(ModelNode(instance.modelNode(), qmlModelView()));
+}
+
 bool QmlObjectNode::hasNodeParent() const
 {
     return modelNode().hasParentProperty();
@@ -420,6 +457,13 @@ bool QmlObjectNode::hasNodeParent() const
 bool QmlObjectNode::hasInstanceParent() const
 {
     return nodeInstance().parentId() >= 0 && qmlModelView()->nodeInstanceView()->hasInstanceForId(nodeInstance().parentId());
+}
+
+bool QmlObjectNode::hasInstanceParentItem() const
+{
+    return nodeInstance().parentId() >= 0
+            && qmlModelView()->nodeInstanceView()->hasInstanceForId(nodeInstance().parentId())
+            && QmlItemNode::isItemOrWindow(qmlModelView()->modelNodeForInternalId(nodeInstance().parentId()));
 }
 
 
@@ -434,6 +478,14 @@ QmlObjectNode QmlObjectNode::instanceParent() const
         return nodeForInstance(qmlModelView()->nodeInstanceView()->instanceForId(nodeInstance().parentId()));
 
     return QmlObjectNode();
+}
+
+QmlItemNode QmlObjectNode::instanceParentItem() const
+{
+    if (hasInstanceParentItem())
+        return itemForInstance(qmlModelView()->nodeInstanceView()->instanceForId(nodeInstance().parentId()));
+
+    return QmlItemNode();
 }
 
 void QmlObjectNode::setId(const QString &id)

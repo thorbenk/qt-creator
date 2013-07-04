@@ -35,7 +35,8 @@
 /*!
     \class Utils::ProjectIntroPage
 
-    \brief Standard wizard page for a project, letting the user choose name
+    \brief The ProjectIntroPage class is the standard wizard page for a project,
+    letting the user choose its name
     and path.
 
     Looks similar to FileWizardPage, but provides additional
@@ -136,18 +137,6 @@ QString ProjectIntroPage::description() const
 void ProjectIntroPage::setDescription(const QString &description)
 {
     d->m_ui.descriptionLabel->setText(description);
-}
-
-void ProjectIntroPage::changeEvent(QEvent *e)
-{
-    QWizardPage::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        d->m_ui.retranslateUi(this);
-        break;
-    default:
-        break;
-    }
 }
 
 bool ProjectIntroPage::isComplete() const

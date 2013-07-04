@@ -10,6 +10,8 @@ QtcPlugin {
     Depends { name: "Qt4ProjectManager" }
     Depends { name: "Debugger" }
     Depends { name: "QtSupport" }
+    Depends { name: "TextEditor" }
+    Depends { name: "AnalyzerBase" }
     Depends { name: "Qt"; submodules: ["widgets", "xml", "network"] }
 
     property bool enable: false
@@ -20,6 +22,8 @@ QtcPlugin {
     files: [
         "addnewavddialog.ui",
         "android.qrc",
+        "androidanalyzesupport.cpp",
+        "androidanalyzesupport.h",
         "androidconfigurations.cpp",
         "androidconfigurations.h",
         "androidconstants.h",
@@ -46,6 +50,14 @@ QtcPlugin {
         "androidglobal.h",
         "androidmanager.cpp",
         "androidmanager.h",
+        "androidmanifestdocument.cpp",
+        "androidmanifestdocument.h",
+        "androidmanifesteditor.cpp",
+        "androidmanifesteditor.h",
+        "androidmanifesteditorfactory.cpp",
+        "androidmanifesteditorfactory.h",
+        "androidmanifesteditorwidget.cpp",
+        "androidmanifesteditorwidget.h",
         "androidpackagecreationfactory.cpp",
         "androidpackagecreationfactory.h",
         "androidpackagecreationstep.cpp",
@@ -71,6 +83,8 @@ QtcPlugin {
         "androidrunfactories.h",
         "androidrunner.cpp",
         "androidrunner.h",
+        "androidrunsupport.cpp",
+        "androidrunsupport.h",
         "androidsettingspage.cpp",
         "androidsettingspage.h",
         "androidsettingswidget.cpp",

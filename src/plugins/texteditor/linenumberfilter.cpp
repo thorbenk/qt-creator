@@ -30,8 +30,9 @@
 #include "linenumberfilter.h"
 #include "itexteditor.h"
 
-#include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/coreconstants.h>
+#include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/icore.h>
 #include <coreplugin/modemanager.h>
 
 #include <QMetaType>
@@ -96,8 +97,7 @@ void LineNumberFilter::accept(FilterEntry selection) const
             data.first = currLine;
         }
         editor->gotoLine(data.first, data.second);
-        editor->widget()->setFocus();
-        Core::ModeManager::activateModeType(Id(Core::Constants::MODE_EDIT_TYPE));
+        Core::EditorManager::activateEditor(editor);
     }
 }
 

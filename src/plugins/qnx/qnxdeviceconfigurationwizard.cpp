@@ -38,7 +38,6 @@
 #include <projectexplorer/devicesupport/deviceusedportsgatherer.h>
 #include <remotelinux/genericlinuxdeviceconfigurationwizardpages.h>
 #include <remotelinux/linuxdevicetestdialog.h>
-#include <remotelinux/linuxdevicetester.h>
 #include <utils/portlist.h>
 
 using namespace ProjectExplorer;
@@ -67,7 +66,7 @@ IDevice::Ptr QnxDeviceConfigurationWizard::device()
     sshParams.port = 22;
     sshParams.timeout = 10;
     sshParams.authenticationType = m_setupPage->authenticationType();
-    if (sshParams.authenticationType == QSsh::SshConnectionParameters::AuthenticationByPassword)
+    if (sshParams.authenticationType == QSsh::SshConnectionParameters::AuthenticationTypePassword)
         sshParams.password = m_setupPage->password();
     else
         sshParams.privateKeyFile = m_setupPage->privateKeyFilePath();
@@ -77,8 +76,7 @@ IDevice::Ptr QnxDeviceConfigurationWizard::device()
     device->setSshParameters(sshParams);
     device->setFreePorts(Utils::PortList::fromString(QLatin1String("10000-10100")));
 
-    RemoteLinux::GenericLinuxDeviceTester *devTester = new RemoteLinux::GenericLinuxDeviceTester(this);
-    RemoteLinux::LinuxDeviceTestDialog dlg(device, devTester, this);
+    RemoteLinux::LinuxDeviceTestDialog dlg(device, device->createDeviceTester(), this);
     dlg.exec();
 
     return device;

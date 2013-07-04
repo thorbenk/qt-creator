@@ -139,8 +139,8 @@
 /*!
     \class ProjectExplorer::ProjectExplorerPlugin
 
-    \brief ProjectExplorerPlugin with static accessor and utility functions to obtain
-    current project, open projects, etc.
+    \brief The ProjectExplorerPlugin class contains static accessor and utility
+    functions to obtain the current project, open projects, and so on.
 */
 
 namespace {
@@ -265,7 +265,6 @@ public:
         setIcon(QIcon(QLatin1String(":/fancyactionbar/images/mode_Project.png")));
         setPriority(Constants::P_MODE_SESSION);
         setId(Constants::MODE_SESSION);
-        setType(Core::Id());
         setContextHelpId(QLatin1String("Managing Projects"));
     }
 };
@@ -934,7 +933,7 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     d->m_projectExplorerSettings.maxAppOutputLines =
             s->value(QLatin1String("ProjectExplorer/Settings/MaxAppOutputLines"), 100000).toInt();
     d->m_projectExplorerSettings.environmentId =
-            QUuid(s->value(QLatin1String("ProjectExplorer/Settings/EnvironmentId")).toString());
+            QUuid(s->value(QLatin1String("ProjectExplorer/Settings/EnvironmentId")).toByteArray());
     if (d->m_projectExplorerSettings.environmentId.isNull())
         d->m_projectExplorerSettings.environmentId = QUuid::createUuid();
 
@@ -1274,37 +1273,35 @@ void ProjectExplorerPlugin::savePersistentSettings()
     }
 
     QSettings *s = Core::ICore::settings();
-    if (s) {
-        s->setValue(QLatin1String("ProjectExplorer/StartupSession"), d->m_session->activeSession());
-        s->remove(QLatin1String("ProjectExplorer/RecentProjects/Files"));
+    s->setValue(QLatin1String("ProjectExplorer/StartupSession"), d->m_session->activeSession());
+    s->remove(QLatin1String("ProjectExplorer/RecentProjects/Files"));
 
-        QStringList fileNames;
-        QStringList displayNames;
-        QList<QPair<QString, QString> >::const_iterator it, end;
-        end = d->m_recentProjects.constEnd();
-        for (it = d->m_recentProjects.constBegin(); it != end; ++it) {
-            fileNames << (*it).first;
-            displayNames << (*it).second;
-        }
-
-        s->setValue(QLatin1String("ProjectExplorer/RecentProjects/FileNames"), fileNames);
-        s->setValue(QLatin1String("ProjectExplorer/RecentProjects/DisplayNames"), displayNames);
-
-        s->setValue(QLatin1String("ProjectExplorer/Settings/BuildBeforeDeploy"), d->m_projectExplorerSettings.buildBeforeDeploy);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/DeployBeforeRun"), d->m_projectExplorerSettings.deployBeforeRun);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/SaveBeforeBuild"), d->m_projectExplorerSettings.saveBeforeBuild);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/ShowCompilerOutput"), d->m_projectExplorerSettings.showCompilerOutput);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/ShowRunOutput"), d->m_projectExplorerSettings.showRunOutput);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/ShowDebugOutput"), d->m_projectExplorerSettings.showDebugOutput);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/CleanOldAppOutput"), d->m_projectExplorerSettings.cleanOldAppOutput);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/MergeStdErrAndStdOut"), d->m_projectExplorerSettings.mergeStdErrAndStdOut);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/WrapAppOutput"), d->m_projectExplorerSettings.wrapAppOutput);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/UseJom"), d->m_projectExplorerSettings.useJom);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/AutoRestoreLastSession"), d->m_projectExplorerSettings.autorestoreLastSession);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/PromptToStopRunControl"), d->m_projectExplorerSettings.prompToStopRunControl);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/MaxAppOutputLines"), d->m_projectExplorerSettings.maxAppOutputLines);
-        s->setValue(QLatin1String("ProjectExplorer/Settings/EnvironmentId"), d->m_projectExplorerSettings.environmentId.toString());
+    QStringList fileNames;
+    QStringList displayNames;
+    QList<QPair<QString, QString> >::const_iterator it, end;
+    end = d->m_recentProjects.constEnd();
+    for (it = d->m_recentProjects.constBegin(); it != end; ++it) {
+        fileNames << (*it).first;
+        displayNames << (*it).second;
     }
+
+    s->setValue(QLatin1String("ProjectExplorer/RecentProjects/FileNames"), fileNames);
+    s->setValue(QLatin1String("ProjectExplorer/RecentProjects/DisplayNames"), displayNames);
+
+    s->setValue(QLatin1String("ProjectExplorer/Settings/BuildBeforeDeploy"), d->m_projectExplorerSettings.buildBeforeDeploy);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/DeployBeforeRun"), d->m_projectExplorerSettings.deployBeforeRun);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/SaveBeforeBuild"), d->m_projectExplorerSettings.saveBeforeBuild);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/ShowCompilerOutput"), d->m_projectExplorerSettings.showCompilerOutput);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/ShowRunOutput"), d->m_projectExplorerSettings.showRunOutput);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/ShowDebugOutput"), d->m_projectExplorerSettings.showDebugOutput);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/CleanOldAppOutput"), d->m_projectExplorerSettings.cleanOldAppOutput);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/MergeStdErrAndStdOut"), d->m_projectExplorerSettings.mergeStdErrAndStdOut);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/WrapAppOutput"), d->m_projectExplorerSettings.wrapAppOutput);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/UseJom"), d->m_projectExplorerSettings.useJom);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/AutoRestoreLastSession"), d->m_projectExplorerSettings.autorestoreLastSession);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/PromptToStopRunControl"), d->m_projectExplorerSettings.prompToStopRunControl);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/MaxAppOutputLines"), d->m_projectExplorerSettings.maxAppOutputLines);
+    s->setValue(QLatin1String("ProjectExplorer/Settings/EnvironmentId"), d->m_projectExplorerSettings.environmentId.toByteArray());
 }
 
 void ProjectExplorerPlugin::openProjectWelcomePage(const QString &fileName)
@@ -1334,6 +1331,16 @@ static inline QList<IProjectManager*> allProjectManagers()
     return ExtensionSystem::PluginManager::getObjects<IProjectManager>();
 }
 
+static void appendError(QString *errorString, const QString &error)
+{
+    if (!errorString || error.isEmpty())
+        return;
+
+    if (!errorString->isEmpty())
+        errorString->append(QLatin1Char('\n'));
+    errorString->append(error);
+}
+
 QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileNames, QString *errorString)
 {
     if (debug)
@@ -1343,11 +1350,29 @@ QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileName
 
     QList<Project*> openedPro;
     foreach (const QString &fileName, fileNames) {
+        QTC_ASSERT(!fileName.isEmpty(), continue);
+
+        QFileInfo fi = QFileInfo(fileName);
+        QString canonicalFilePath = fi.canonicalFilePath();
+        bool found = false;
+        foreach (ProjectExplorer::Project *pi, session()->projects()) {
+            if (canonicalFilePath == pi->document()->fileName()) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            appendError(errorString, tr("Failed opening project '%1': Project already open")
+                        .arg(QDir::toNativeSeparators(fileName)));
+            d->m_session->reportProjectLoadingProgress();
+            continue;
+        }
+
         if (const Core::MimeType mt = Core::ICore::mimeDatabase()->findByFile(QFileInfo(fileName))) {
             foreach (IProjectManager *manager, projectManagers) {
                 if (manager->mimeType() == mt.type()) {
                     QString tmp;
-                    if (Project *pro = manager->openProject(fileName, &tmp)) {
+                    if (Project *pro = manager->openProject(canonicalFilePath, &tmp)) {
                         if (pro->restoreSettings()) {
                             connect(pro, SIGNAL(fileListChanged()), this, SIGNAL(fileListChanged()));
                             d->m_session->addProject(pro);
@@ -1359,16 +1384,13 @@ QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileName
                             delete pro;
                         }
                     }
-                    if (errorString) {
-                        if (!errorString->isEmpty() && !tmp.isEmpty())
-                            errorString->append(QLatin1Char('\n'));
-                        errorString->append(tmp);
-                    }
-                    d->m_session->reportProjectLoadingProgress();
+                    if (!tmp.isEmpty())
+                        appendError(errorString, tmp);
                     break;
                 }
             }
         }
+        d->m_session->reportProjectLoadingProgress();
     }
     updateActions();
 
@@ -1499,8 +1521,6 @@ static inline QStringList projectFileGlobs()
 }
 
 /*!
-    \fn void ProjectExplorerPlugin::restoreSession()
-
     This method is connected to the ICore::coreOpened signal.  If
     there was no session explicitly loaded, it creates an empty new
     default session and puts the list of recent projects and sessions
@@ -1909,7 +1929,18 @@ void ProjectExplorerPlugin::updateActions()
 
     d->m_cancelBuildAction->setEnabled(d->m_buildManager->isBuilding());
 
-    d->m_publishAction->setEnabled(!d->m_session->projects().isEmpty());
+    bool canPublish = false;
+    if (project) {
+        const QList<IPublishingWizardFactory *> &factories
+                = ExtensionSystem::PluginManager::getObjects<IPublishingWizardFactory>();
+        foreach (const IPublishingWizardFactory *const factory, factories) {
+            if (factory->canCreateWizard(project)) {
+                canPublish = true;
+                break;
+            }
+        }
+    }
+    d->m_publishAction->setEnabled(canPublish);
 
     d->m_projectSelectorAction->setEnabled(!session()->projects().isEmpty());
     d->m_projectSelectorActionMenu->setEnabled(!session()->projects().isEmpty());
@@ -2850,7 +2881,7 @@ void ProjectExplorerPlugin::removeProject()
 void ProjectExplorerPlugin::openFile()
 {
     QTC_ASSERT(d->m_currentNode, return);
-    Core::EditorManager::openEditor(d->m_currentNode->path(), Core::Id(), Core::EditorManager::ModeSwitch);
+    Core::EditorManager::openEditor(d->m_currentNode->path());
 }
 
 void ProjectExplorerPlugin::searchOnFileSystem()
@@ -3004,6 +3035,8 @@ void ProjectExplorerPlugin::setSession(QAction *action)
 
 void ProjectExplorerPlugin::setProjectExplorerSettings(const Internal::ProjectExplorerSettings &pes)
 {
+    QTC_ASSERT(d->m_projectExplorerSettings.environmentId == pes.environmentId, return);
+
     if (d->m_projectExplorerSettings == pes)
         return;
     d->m_projectExplorerSettings = pes;

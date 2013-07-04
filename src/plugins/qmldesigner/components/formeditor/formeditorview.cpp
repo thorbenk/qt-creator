@@ -33,29 +33,20 @@
 #include "resizetool.h"
 #include "dragtool.h"
 #include "formeditorwidget.h"
-#include "formeditornodeinstanceview.h"
 #include "formeditoritem.h"
 #include "formeditorscene.h"
-#include "toolbox.h"
 #include "abstractcustomtool.h"
 
 #include <designmodecontext.h>
-#include <rewritertransaction.h>
 #include <modelnode.h>
-#include <itemlibraryinfo.h>
-#include <metainfo.h>
 #include <model.h>
-#include <QApplication>
 #include <QDebug>
 #include <QPair>
 #include <QString>
-#include <QDir>
-#include <QAction>
 #include <QTimer>
 #include <zoomaction.h>
 #include <nodeabstractproperty.h>
 #include <nodelistproperty.h>
-#include <commondefines.h>
 
 #include <coreplugin/icore.h>
 
@@ -565,9 +556,9 @@ void FormEditorView::rewriterEndTransaction()
     m_transactionCounter--;
 }
 
-double FormEditorView::margins() const
+double FormEditorView::containerPadding() const
 {
-    return m_formEditorWidget->margins();
+    return m_formEditorWidget->containerPadding();
 }
 
 double FormEditorView::spacing() const

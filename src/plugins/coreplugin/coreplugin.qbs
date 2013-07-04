@@ -25,13 +25,13 @@ QtcPlugin {
     ])
 
     cpp.dynamicLibraries: {
-        if (qbs.targetOS == "windows") return [
+        if (qbs.targetOS.contains("windows")) return [
             "ole32",
             "user32"
         ]
     }
 
-    cpp.frameworks: qbs.targetOS === "mac" ? ["AppKit"] : undefined
+    cpp.frameworks: qbs.targetOS.contains("mac") ? ["AppKit"] : undefined
 
     files: [
         "basefilewizard.cpp",
@@ -232,14 +232,16 @@ QtcPlugin {
     ]
 
     Group {
-        condition: qbs.targetOS == "windows"
+        name: "ProgressManager_win"
+        condition: qbs.targetOS.contains("windows")
         files: [
             "progressmanager/progressmanager_win.cpp",
         ]
     }
 
     Group {
-        condition: qbs.targetOS == "mac"
+        name: "ProgressManager_mac"
+        condition: qbs.targetOS.contains("mac")
         files: [
             "macfullscreen.h",
             "macfullscreen.mm",
@@ -248,14 +250,14 @@ QtcPlugin {
     }
 
     Group {
-        condition: qbs.targetPlatform.indexOf("unix") != -1 && qbs.targetOS != "mac"
+        name: "ProgressManager_x11"
+        condition: qbs.targetOS.contains("unix") && !qbs.targetOS.contains("mac")
         files: [
             "progressmanager/progressmanager_x11.cpp",
         ]
     }
 
-    ProductModule {
-        Depends { name: "cpp" }
+    Export {
         Depends { name: "Aggregation" }
         Depends { name: "Utils" }
     }

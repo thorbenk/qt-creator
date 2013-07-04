@@ -70,34 +70,23 @@ using namespace Bazaar::Internal;
 using namespace Bazaar;
 
 static const VcsBase::VcsBaseEditorParameters editorParameters[] = {
-    {
-        VcsBase::RegularCommandOutput, //type
-        Constants::COMMANDLOG_ID, // id
-        Constants::COMMANDLOG_DISPLAY_NAME, // display name
-        Constants::COMMANDLOG, // context
-        Constants::COMMANDAPP, // mime type
-        Constants::COMMANDEXT}, //extension
-
-    {   VcsBase::LogOutput,
-        Constants::FILELOG_ID,
-        Constants::FILELOG_DISPLAY_NAME,
-        Constants::FILELOG,
-        Constants::LOGAPP,
-        Constants::LOGEXT},
+    {   VcsBase::LogOutput, // type
+        Constants::FILELOG_ID, // id
+        Constants::FILELOG_DISPLAY_NAME, // display name
+        Constants::FILELOG, // context
+        Constants::LOGAPP}, // mime type
 
     {    VcsBase::AnnotateOutput,
          Constants::ANNOTATELOG_ID,
          Constants::ANNOTATELOG_DISPLAY_NAME,
          Constants::ANNOTATELOG,
-         Constants::ANNOTATEAPP,
-         Constants::ANNOTATEEXT},
+         Constants::ANNOTATEAPP},
 
     {   VcsBase::DiffOutput,
         Constants::DIFFLOG_ID,
         Constants::DIFFLOG_DISPLAY_NAME,
         Constants::DIFFLOG,
-        Constants::DIFFAPP,
-        Constants::DIFFEXT}
+        Constants::DIFFAPP}
 };
 
 static const VcsBase::VcsBaseSubmitEditorParameters submitEditorParameters = {
@@ -551,9 +540,7 @@ void BazaarPlugin::showCommitWidget(const QList<VcsBase::VcsBaseClient::StatusIt
         return;
     }
 
-    Core::IEditor *editor = Core::EditorManager::openEditor(saver.fileName(),
-                                                            Constants::COMMIT_ID,
-                                                            Core::EditorManager::ModeSwitch);
+    Core::IEditor *editor = Core::EditorManager::openEditor(saver.fileName(), Constants::COMMIT_ID);
     if (!editor) {
         outputWindow->appendError(tr("Unable to create an editor for the commit."));
         return;
@@ -617,7 +604,7 @@ void BazaarPlugin::testDiffFileResolving_data()
 
 void BazaarPlugin::testDiffFileResolving()
 {
-    BazaarEditor editor(editorParameters + 3, 0);
+    BazaarEditor editor(editorParameters + 2, 0);
     editor.testDiffFileResolving();
 }
 
@@ -641,7 +628,7 @@ void BazaarPlugin::testLogResolving()
                 "  (gz) Set approved revision and vote \"Approve\" when using lp-propose\n"
                 "   --approve (Jonathan Lange)\n"
                 );
-    BazaarEditor editor(editorParameters + 1, 0);
+    BazaarEditor editor(editorParameters, 0);
     editor.testLogResolving(data, "6572", "6571");
 }
 #endif

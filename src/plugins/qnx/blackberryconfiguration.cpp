@@ -115,7 +115,7 @@ bool BlackBerryConfiguration::refresh()
         if (!simulatorGdbPath.toFileInfo().exists())
             errorMessage += QLatin1Char('\n') + tr("- No GDB debugger found for BB10 Simulator.");
 
-        QMessageBox::warning(0, tr("Cannot Setup BB10 Configuration"),
+        QMessageBox::warning(0, tr("Cannot Set up BB10 Configuration"),
                              errorMessage, QMessageBox::Ok);
         return false;
     }
@@ -130,7 +130,7 @@ bool BlackBerryConfiguration::refresh()
 
 void BlackBerryConfiguration::loadCertificates()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
 
     settings->beginGroup(SettingsGroup);
     settings->beginGroup(CertificateGroup);
@@ -157,7 +157,7 @@ void BlackBerryConfiguration::loadCertificates()
 
 void BlackBerryConfiguration::loadNdkSettings()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
 
     settings->beginGroup(SettingsGroup);
     setNdkPath(settings->value(NDKLocationKey).toString());
@@ -166,7 +166,7 @@ void BlackBerryConfiguration::loadNdkSettings()
 
 void BlackBerryConfiguration::saveCertificates()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
 
     settings->beginGroup(SettingsGroup);
     settings->beginGroup(CertificateGroup);
@@ -193,7 +193,7 @@ void BlackBerryConfiguration::saveNdkSettings()
     if (m_config.ndkPath.isEmpty())
         return;
 
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(SettingsGroup);
     settings->setValue(NDKLocationKey, m_config.ndkPath);
     settings->endGroup();
@@ -255,18 +255,34 @@ void BlackBerryConfiguration::syncCertificates(QList<BlackBerryCertificate*> cer
     m_config.activeCertificate = activeCertificate;
 
     foreach (BlackBerryCertificate *cert, m_config.certificates) {
-        if (!certificates.contains(cert)) {
-            m_config.certificates.removeAll(cert);
-            delete cert;
-        }
+        if (!certificates.contains(cert))
+            removeCertificate(cert);
     }
 
-    foreach (BlackBerryCertificate *cert, certificates) {
-        if (!m_config.certificates.contains(cert)) {
-            cert->setParent(this);
-            m_config.certificates << cert;
-        }
-    }
+    foreach (BlackBerryCertificate *cert, certificates)
+        addCertificate(cert);
+}
+
+void BlackBerryConfiguration::addCertificate(BlackBerryCertificate *certificate)
+{
+    if (m_config.certificates.contains(certificate))
+        return;
+
+    if (m_config.certificates.isEmpty())
+        m_config.activeCertificate = certificate;
+
+    certificate->setParent(this);
+    m_config.certificates << certificate;
+}
+
+void BlackBerryConfiguration::removeCertificate(BlackBerryCertificate *certificate)
+{
+    if (m_config.activeCertificate == certificate)
+        m_config.activeCertificate = 0;
+
+    m_config.certificates.removeAll(certificate);
+
+    delete certificate;
 }
 
 QList<BlackBerryCertificate*> BlackBerryConfiguration::certificates() const
@@ -288,14 +304,14 @@ QtSupport::BaseQtVersion *BlackBerryConfiguration::createQtVersion()
     QtSupport::BaseQtVersion *version = QtSupport::QtVersionManager::instance()->qtVersionForQMakeBinary(m_config.qmakeBinaryFile);
     if (version) {
         QMessageBox::warning(0, tr("Qt Version Already Known"),
-                             tr("This Qt version was already registered"), QMessageBox::Ok);
+                             tr("This Qt version was already registered."), QMessageBox::Ok);
         return version;
     }
 
     version = new BlackBerryQtVersion(QnxUtils::cpudirToArch(cpuDir), m_config.qmakeBinaryFile, false, QString(), m_config.ndkPath);
     if (!version) {
-        QMessageBox::warning(0, tr("Invalid Qt version"),
-                             tr("Unable to add BlackBerry Qt version"), QMessageBox::Ok);
+        QMessageBox::warning(0, tr("Invalid Qt Version"),
+                             tr("Unable to add BlackBerry Qt version."), QMessageBox::Ok);
         return 0;
     }
 
@@ -312,7 +328,7 @@ ProjectExplorer::GccToolChain *BlackBerryConfiguration::createGccToolChain()
     foreach (ProjectExplorer::ToolChain* tc, ProjectExplorer::ToolChainManager::instance()->toolChains()) {
         if (tc->compilerCommand() == m_config.gccCompiler) {
             QMessageBox::warning(0, tr("Compiler Already Known"),
-                                 tr("This Compiler was already registered"), QMessageBox::Ok);
+                                 tr("This compiler was already registered."), QMessageBox::Ok);
             return dynamic_cast<ProjectExplorer::GccToolChain*>(tc);
         }
     }
@@ -339,7 +355,7 @@ ProjectExplorer::Kit *BlackBerryConfiguration::createKit(QnxArchitecture arch, Q
                  && Debugger::DebuggerKitInformation::debuggerCommand(kit) == m_config.simulatorDebuger)
                     || (arch == ArmLeV7 && Debugger::DebuggerKitInformation::debuggerCommand(kit) == m_config.deviceDebuger)) {
                 QMessageBox::warning(0, tr("Kit Already Known"),
-                                     tr("This Kit was already registered"), QMessageBox::Ok);
+                                     tr("This kit was already registered."), QMessageBox::Ok);
                 return kit;
             }
         }
@@ -379,7 +395,7 @@ void BlackBerryConfiguration::saveSettings()
 
 void BlackBerryConfiguration::clearNdkSettings()
 {
-    QSettings *settings = Core::ICore::instance()->settings();
+    QSettings *settings = Core::ICore::settings();
     settings->beginGroup(SettingsGroup);
     settings->remove(NDKLocationKey);
     settings->endGroup();
@@ -432,43 +448,24 @@ Utils::FileName BlackBerryConfiguration::sysRoot() const
     return m_config.sysRoot;
 }
 
-QString BlackBerryConfiguration::dataDirPath() const
-{
-    const QString homeDir = QDir::homePath();
-
-    if (Utils::HostOsInfo::isMacHost())
-        return homeDir + QLatin1String("/Library/Research in Motion");
-
-    if (Utils::HostOsInfo::isAnyUnixHost())
-        return homeDir + QLatin1String("/.rim");
-
-#if defined(Q_OS_WIN)
-    if (Utils::HostOsInfo::isWindowsHost()) {
-        // needed because QSysInfo::windowsVersion() is not available on other
-        // platforms.
-        if (QSysInfo::windowsVersion() == QSysInfo::WV_XP)
-            return homeDir
-                + QLatin1String("/Local Settings/Application Data/Research In Motion");
-        return homeDir + QLatin1String("/AppData/Local/Research in Motion");
-    }
-#endif
-
-    return QString();
-}
-
 QString BlackBerryConfiguration::barsignerCskPath() const
 {
-    return dataDirPath() + QLatin1String("/barsigner.csk");
+    return QnxUtils::dataDirPath() + QLatin1String("/barsigner.csk");
 }
 
 QString BlackBerryConfiguration::barsignerDbPath() const
 {
-    return dataDirPath() + QLatin1String("/barsigner.db");
+    return QnxUtils::dataDirPath() + QLatin1String("/barsigner.db");
 }
 
 QString BlackBerryConfiguration::defaultKeystorePath() const
 {
-    return dataDirPath() + QLatin1String("/author.p12");
+    return QnxUtils::dataDirPath() + QLatin1String("/author.p12");
+}
+
+QString BlackBerryConfiguration::defaultDebugTokenPath() const
+{
+    return QnxUtils::dataDirPath() + QLatin1String("/debugtoken.bar");
 }
 
 // TODO: QnxUtils::parseEnvFile() and qnxEnv() to return Util::Enviroment instead(?)

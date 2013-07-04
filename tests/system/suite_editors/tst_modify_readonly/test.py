@@ -1,3 +1,32 @@
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
+
 source("../../shared/qtcreator.py")
 
 def main():
@@ -61,11 +90,6 @@ def testModifyFile(fileName, editor, line, expectWarning):
 def testSaveChangesAndMakeWritable(modifiedFiles, readOnlyFiles):
     saveDlgStr = ("{name='Core__Internal__SaveItemsDialog' type='Core::Internal::SaveItemsDialog' "
                   "visible='1' windowTitle='Save Changes'}")
-    readOnlyMBoxStr = ("{type='QMessageBox' unnamed='1' visible='1' text~='The file <i>.+</i> "
-                       "is read only\.'}")
-    cannotResetStr = ("{text='Cannot set permissions to writable.' type='QMessageBox' "
-                      "unnamed='1' visible='1'}")
-    filePattern = re.compile('The file <i>(.+)</i> is read only\.')
     try:
         waitForObject(saveDlgStr)
     except:
@@ -76,45 +100,36 @@ def testSaveChangesAndMakeWritable(modifiedFiles, readOnlyFiles):
     checkUnsavedChangesContains(treeWidget.model(), modifiedFiles)
     clickButton(waitForObject("{text='Save All' type='QPushButton' unnamed='1' visible='1' "
                               "window=%s}" % saveDlgStr))
-    # iterating over the number of modified files (order is unpredictable)
-    for i in range(len(modifiedFiles)):
-        try:
-            currentText = str(waitForObject(readOnlyMBoxStr, 3000).text)
-            currentFile = filePattern.match(currentText).group(1)
-            clickButton(waitForObject("{text='Make Writable' type='QPushButton' unnamed='1' "
-                                      "visible='1' window=%s}" % readOnlyMBoxStr))
-            try:
-                if not waitFor('__checkForMsgBoxOrQuit__(cannotResetStr)', 3000):
-                    raise Exception('Unexpected messagebox did not appear (EXPECTED!).')
-                # should not be possible
-                test.fail("Could not reset file '%s' to writable state." % currentFile)
-                clickButton("{text='OK' type='QPushButton' window=%s}" % cannotResetStr)
-            except:
-                if isWritable(currentFile):
-                    if currentFile in readOnlyFiles:
-                        test.passes("File '%s' reset to writable state and saved." % currentFile)
-                        readOnlyFiles.remove(currentFile)
-                    else:
-                        test.fatal("Creator states file '%s' is read-only - but supposed to be "
-                                   "writable." % currentFile)
-                else:
-                    test.fail("Creator states file '%s' had been made writable - "
-                              "but it's still read only." % currentFile)
-        except:
-            if len(readOnlyFiles) != 0:
-                test.fail("Missing QMessageBox about a read only file.")
-    if not test.compare(len(readOnlyFiles), 0,
-                    "Checking whether all files have been handled correctly."):
-        try:
-            invokeMenuItem("File", "Exit")
-            waitForObject(saveDlgStr)
-            clickButton(waitForObject("{text='Do not Save' type='QPushButton' unnamed='1' "
-                                      "visible='1' window=%s}" % saveDlgStr))
-        except:
-            pass
-
-def __checkForMsgBoxOrQuit__(crs):
-    return currentApplicationContext().isRunning and object.exists(crs)
+    try:
+        filesTree = waitForObject("{name='treeWidget' type='QTreeWidget' visible='1' "
+                                  "window=':WritePermissions_Core::Internal::ReadOnlyFilesDialog'}")
+        items = map(os.path.expanduser, map(os.path.join, dumpItems(filesTree.model(), column=4),
+                                            dumpItems(filesTree.model(), column=3)))
+        difference = set(readOnlyFiles) ^ set(items)
+        test.verify(len(difference) == 0, "Verifying whether all modified files without write "
+                    "permission are listed.")
+        clickButton("{text='Change Permission' type='QPushButton' visible='1' unnamed='1' "
+                    "window=':WritePermissions_Core::Internal::ReadOnlyFilesDialog'}")
+    except:
+        test.fatal("Missing dialog regarding missing permission on read only files.")
+    exitCanceled = False
+    try:
+        mBoxStr = "{type='QMessageBox' unnamed='1' visible='1' text?='*Could not save the files.'}"
+        msgBox = waitForObject(mBoxStr, 3000)
+        test.fatal("Creator failed to set permissions.", str(msgBox.text))
+        exitCanceled = True
+        clickButton(waitForObject("{text='OK' type='QPushButton' unnamed='1' visible='1' "
+                                  "window=%s}" % mBoxStr))
+    except:
+        for current in readOnlyFiles:
+            test.verify(isWritable(current),
+                        "Checking whether Creator made '%s' writable again." % current)
+    if exitCanceled:
+        invokeMenuItem("File", "Exit")
+        test.log("Exiting without saving.")
+        waitForObject(saveDlgStr)
+        clickButton(waitForObject("{text='Do not Save' type='QPushButton' unnamed='1' "
+                                  "visible='1' window=%s}" % saveDlgStr))
 
 def checkOpenDocumentsContains(itemName):
     openDocsTreeViewModel = waitForObject(":OpenDocuments_Widget").model()
@@ -133,9 +148,6 @@ def checkUnsavedChangesContains(model, filePaths):
                                                              dumpItems(model, column=0)))
     test.compare(set(foundItems), set(filePaths),
                  "Verifying whether modified (unsaved) files do match expected.")
-
-def simpleFileName(navigatorFileName):
-    return ".".join(navigatorFileName.split(".")[-2:]).replace("\\","")
 
 def cleanup():
     global testFolder

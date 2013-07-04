@@ -1,4 +1,32 @@
 #!/usr/bin/env python
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
 
 import os
 import sys
@@ -8,6 +36,8 @@ from toolfunctions import checkDirectory
 from toolfunctions import getFileContent
 
 objMap = None
+lastToken = [None, None]
+stopTokens = ('OP', 'NAME', 'NUMBER', 'ENDMARKER')
 
 def parseCommandLine():
     global directory, onlyRemovable, fileType
@@ -44,12 +74,32 @@ def getFileSuffix():
                     'Tcl':'.tcl', 'Ruby':'.rb'}
     return fileSuffixes.get(fileType, None)
 
+def handleStringsWithTrailingBackSlash(origStr):
+    try:
+        while True:
+            index = origStr.index("\\\n")
+            origStr = origStr[:index] + origStr[index+2:].lstrip()
+    except:
+        return origStr
+
 def handle_token(tokenType, token, (startRow, startCol), (endRow, endCol), line):
-    global useCounts
+    global useCounts, lastToken, stopTokens
+
     if tokenize.tok_name[tokenType] == 'STRING':
-        for obj in useCounts:
-           useCounts[obj] += str(token).count("'%s'" % obj)
-           useCounts[obj] += str(token).count('"%s"' % obj)
+        # concatenate strings followed directly by other strings
+        if lastToken[0] == 'STRING':
+            token = "'" + lastToken[1][1:-1] + str(token)[1:-1] + "'"
+        # store the new string as lastToken after removing potential trailing backslashes
+        # (including their following indentation)
+        lastToken = ['STRING' , handleStringsWithTrailingBackSlash(str(token))]
+    # if a stop token occurs check the potential string before it
+    elif tokenize.tok_name[tokenType] in stopTokens:
+        if lastToken[0] == 'STRING':
+            for obj in useCounts:
+                useCounts[obj] += lastToken[1].count("'%s'" % obj)
+                useCounts[obj] += lastToken[1].count('"%s"' % obj)
+        # store the stop token as lastToken
+        lastToken = [tokenize.tok_name[tokenType], str(token)]
 
 def findUsages():
     global directory, objMap

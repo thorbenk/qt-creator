@@ -44,7 +44,7 @@ class InformationChangedCommand
 
 public:
     InformationChangedCommand();
-    InformationChangedCommand(const QVector<InformationContainer> &informationVector);
+    explicit InformationChangedCommand(const QVector<InformationContainer> &informationVector);
 
     QVector<InformationContainer> informations() const;
 
@@ -54,7 +54,6 @@ private:
 
 QDataStream &operator<<(QDataStream &out, const InformationChangedCommand &command);
 QDataStream &operator>>(QDataStream &in, InformationChangedCommand &command);
-QDebug operator<<(QDebug debug, const InformationChangedCommand &command);
 
 } // namespace QmlDesigner
 

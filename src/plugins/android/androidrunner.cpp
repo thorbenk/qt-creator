@@ -49,19 +49,23 @@ namespace Internal {
 
 typedef QLatin1String _;
 
-AndroidRunner::AndroidRunner(QObject *parent, AndroidRunConfiguration *runConfig, bool debuggingMode)
+AndroidRunner::AndroidRunner(QObject *parent,
+                             AndroidRunConfiguration *runConfig,
+                             ProjectExplorer::RunMode runMode)
     : QThread(parent)
 {
     m_wasStarted = false;
     Debugger::DebuggerRunConfigurationAspect *aspect
             = runConfig->extraAspect<Debugger::DebuggerRunConfigurationAspect>();
+    const bool debuggingMode = runMode == ProjectExplorer::DebugRunMode;
     m_useCppDebugger = debuggingMode && aspect->useCppDebugger();
     m_useQmlDebugger = debuggingMode && aspect->useQmlDebugger();
     QString channel = runConfig->remoteChannel();
     QTC_CHECK(channel.startsWith(QLatin1Char(':')));
     m_localGdbServerPort = channel.mid(1).toUShort();
     QTC_CHECK(m_localGdbServerPort);
-    if (m_useQmlDebugger) {
+    m_useQmlProfiler = runMode == ProjectExplorer::QmlProfilerRunMode;
+    if (m_useQmlDebugger || m_useQmlProfiler) {
         QTcpServer server;
         QTC_ASSERT(server.listen(QHostAddress::LocalHost)
                    || server.listen(QHostAddress::LocalHostIPv6),
@@ -70,7 +74,9 @@ AndroidRunner::AndroidRunner(QObject *parent, AndroidRunConfiguration *runConfig
     }
     ProjectExplorer::Target *target = runConfig->target();
     AndroidDeployStep *ds = runConfig->deployStep();
-    if ((m_useLocalQtLibs = ds->useLocalQtLibs())) {
+    m_useLocalQtLibs = ds->deployAction() == AndroidDeployStep::DeployLocal
+            || ds->deployAction() == AndroidDeployStep::BundleLibraries;
+    if (m_useLocalQtLibs) {
         m_localLibs = AndroidManager::loadLocalLibs(target, ds->deviceAPILevel());
         m_localJars = AndroidManager::loadLocalJars(target, ds->deviceAPILevel());
         m_localJarsInitClasses = AndroidManager::loadLocalJarsInitClasses(target, ds->deviceAPILevel());
@@ -94,6 +100,8 @@ AndroidRunner::AndroidRunner(QObject *parent, AndroidRunConfiguration *runConfig
     psProc.waitForFinished();
     QByteArray which = psProc.readAll();
     m_isBusyBox = which.startsWith("busybox");
+
+    m_checkPIDTimer.setInterval(1000);
 
     connect(&m_adbLogcatProcess, SIGNAL(readyReadStandardOutput()), SLOT(logcatReadStandardOutput()));
     connect(&m_adbLogcatProcess, SIGNAL(readyReadStandardError()), SLOT(logcatReadStandardError()));
@@ -148,8 +156,10 @@ void AndroidRunner::checkPID()
         return;
     QByteArray psOut = runPs();
     m_processPID = extractPid(m_packageName, psOut);
-    if (m_processPID == -1)
+    if (m_processPID == -1) {
+        m_checkPIDTimer.stop();
         emit remoteProcessFinished(tr("\n\n'%1' died.").arg(m_packageName));
+    }
 }
 
 void AndroidRunner::forceStop()
@@ -180,7 +190,6 @@ void AndroidRunner::start()
 {
     m_adbLogcatProcess.start(m_adb, selector() << _("logcat"));
     m_wasStarted = false;
-    m_checkPIDTimer.start(1000); // check if the application is alive every 1 seconds
     QtConcurrent::run(this, &AndroidRunner::asyncStart);
 }
 
@@ -220,7 +229,8 @@ void AndroidRunner::asyncStart()
         args << _("-e") << _("gdbserver_command") << m_gdbserverCommand;
         args << _("-e") << _("gdbserver_socket") << m_gdbserverSocket;
     }
-    if (m_useQmlDebugger) {
+
+    if (m_useQmlDebugger || m_useQmlProfiler) {
         // currently forward to same port on device and host
         const QString port = QString::fromLatin1("tcp:%1").arg(m_qmlPort);
         QProcess adb;
@@ -293,6 +303,8 @@ void AndroidRunner::asyncStart()
         return;
     }
 
+    QMetaObject::invokeMethod(&m_checkPIDTimer, "start");
+
     m_wasStarted = true;
     if (m_useCppDebugger) {
         // This will be funneled to the engine to actually start and attach
@@ -304,6 +316,8 @@ void AndroidRunner::asyncStart()
         // gdb. Afterwards this ends up in handleRemoteDebuggerRunning() below.
         QByteArray serverChannel = QByteArray::number(m_qmlPort);
         emit remoteServerRunning(serverChannel, m_processPID);
+    } else if (m_useQmlProfiler) {
+        emit remoteProcessStarted(m_qmlPort);
     } else {
         // Start without debugging.
         emit remoteProcessStarted(-1, -1);

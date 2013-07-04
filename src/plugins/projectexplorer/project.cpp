@@ -45,7 +45,7 @@
 /*!
     \class ProjectExplorer::Project
 
-    \brief A project.
+    \brief The Project class implements a project node in the project explorer.
 */
 
 /*!
@@ -464,6 +464,11 @@ void Project::configureAsExampleProject(const QStringList &platforms)
 }
 
 bool Project::supportsNoTargetPanel() const
+{
+    return false;
+}
+
+bool Project::needsSpecialDeployment() const
 {
     return false;
 }

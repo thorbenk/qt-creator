@@ -31,12 +31,10 @@
 #include "formeditorview.h"
 #include "formeditorwidget.h"
 #include "formeditoritem.h"
-#include "movemanipulator.h"
 #include "qmldesignerplugin.h"
 #include "designersettings.h"
 
 
-#include <metainfo.h>
 #include <QGraphicsSceneDragDropEvent>
 
 #include <QEvent>
@@ -44,13 +42,9 @@
 #include <QGraphicsSceneHoverEvent>
 #include <QGraphicsView>
 
-#include <QApplication>
 #include <QDebug>
 #include <QList>
 
-#include "formeditornodeinstanceview.h"
-
-#include "resizehandleitem.h"
 
 
 
@@ -139,7 +133,7 @@ bool FormEditorScene::hasItemForQmlItemNode(const QmlItemNode &qmlItemNode) cons
 
 void FormEditorScene::removeItemFromHash(FormEditorItem *item)
 {
-   m_qmlItemNodeItemHash.remove(item->qmlItemNode());
+    m_qmlItemNodeItemHash.remove(item->qmlItemNode());
 }
 
 
@@ -167,6 +161,7 @@ void FormEditorScene::synchronizeTransformation(const QmlItemNode &qmlItemNode)
 {
     FormEditorItem *item = itemForQmlItemNode(qmlItemNode);
     item->updateGeometry();
+    item->update();
 
     if (qmlItemNode.isRootNode()) {
         formLayerItem()->update();
@@ -322,7 +317,7 @@ void FormEditorScene::keyReleaseEvent(QKeyEvent *keyEvent)
 
 FormEditorView *FormEditorScene::editorView() const
 {
-   return m_editorView;
+    return m_editorView;
 }
 
 LayerItem* FormEditorScene::manipulatorLayerItem() const

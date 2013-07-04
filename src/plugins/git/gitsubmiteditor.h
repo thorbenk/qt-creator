@@ -30,6 +30,8 @@
 #ifndef GITSUBMITEDITOR_H
 #define GITSUBMITEDITOR_H
 
+#include "gitsettings.h" // CommitType
+
 #include <vcsbase/vcsbasesubmiteditor.h>
 
 #include <QStringList>
@@ -52,13 +54,15 @@ public:
     explicit GitSubmitEditor(const VcsBase::VcsBaseSubmitEditorParameters *parameters, QWidget *parent);
 
     void setCommitData(const CommitData &);
-    void setAmend(bool amend);
     GitSubmitEditorPanelData panelData() const;
     bool forceClose() const { return m_forceClose; }
+    CommitType commitType() const { return m_commitType; }
+    QString amendSHA1() const;
 
 signals:
     void diff(const QStringList &unstagedFiles, const QStringList &stagedFiles);
     void merge(const QStringList &unmergedFiles);
+    void show(const QString &workingDirectory, const QString &commit);
 
 protected:
     QByteArray fileContents() const;
@@ -66,13 +70,16 @@ protected:
 
 private slots:
     void slotDiffSelected(const QList<int> &rows);
+    void showCommit(const QString &commit);
 
 private:
     inline GitSubmitEditorWidget *submitEditorWidget();
+    inline const GitSubmitEditorWidget *submitEditorWidget() const;
 
     VcsBase::SubmitFileModel *m_model;
     QString m_commitEncoding;
-    bool m_amend;
+    CommitType m_commitType;
+    QString m_amendSHA1;
     bool m_forceClose;
     QString m_workingDirectory;
 };

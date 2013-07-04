@@ -387,7 +387,6 @@ protected:
     bool m_isQnxGdb;
     bool m_hasBreakpointNotifications;
     bool m_hasPython;
-    bool m_hasInferiorThreadList;
 
 private: ////////// Inferior Management //////////
 
@@ -456,7 +455,6 @@ private: ////////// View & Data Stuff //////////
     void handleInfoLine(const GdbResponse &response);
     void extractDataFromInfoBreak(const QString &output, BreakpointModelId);
     void updateResponse(BreakpointResponse &response, const GdbMi &bkpt);
-    BreakpointPathUsage defaultEngineBreakpointPathUsage() const;
     QByteArray breakpointLocation(BreakpointModelId id); // For gdb/MI.
     QByteArray breakpointLocation2(BreakpointModelId id); // For gdb/CLI fallback.
     QString breakLocation(const QString &file) const;
@@ -515,7 +513,6 @@ private: ////////// View & Data Stuff //////////
     //void handleFetchDisassemblerByMiPointPlain(const GdbResponse &response);
     //void handleFetchDisassemblerByMiRangeMixed(const GdbResponse &response);
     //void handleFetchDisassemblerByMiRangePlain(const GdbResponse &response);
-    void handleDisassemblerCheck(const GdbResponse &response);
     void handleBreakOnQFatal(const GdbResponse &response);
     DisassemblerLines parseDisassembler(const GdbResponse &response);
     DisassemblerLines parseCliDisassembler(const QByteArray &response);

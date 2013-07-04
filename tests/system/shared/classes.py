@@ -1,3 +1,32 @@
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
+
 import operator
 
 # for easier re-usage (because Python hasn't an enum type)
@@ -7,14 +36,14 @@ class Targets:
     MAEMO5 = 4
     HARMATTAN = 8
     EMBEDDED_LINUX = 16
-    DESKTOP_474_MSVC2008 = 32
+    DESKTOP_480_MSVC2010 = 32
     DESKTOP_501_DEFAULT = 64
 
     @staticmethod
     def desktopTargetClasses():
         desktopTargets = Targets.DESKTOP_474_GCC | Targets.DESKTOP_501_DEFAULT
         if platform.system() in ('Windows', 'Microsoft'):
-            desktopTargets |= Targets.DESKTOP_474_MSVC2008
+            desktopTargets |= Targets.DESKTOP_480_MSVC2010
         return desktopTargets
 
     @staticmethod
@@ -29,8 +58,8 @@ class Targets:
             return "Harmattan"
         elif target == Targets.EMBEDDED_LINUX:
             return "Embedded Linux"
-        elif target == Targets.DESKTOP_474_MSVC2008:
-            return "Desktop 474 MSVC2008"
+        elif target == Targets.DESKTOP_480_MSVC2010:
+            return "Desktop 480 MSVC2010"
         elif target == Targets.DESKTOP_501_DEFAULT:
             return "Desktop 501 default"
         else:
@@ -49,7 +78,7 @@ class Targets:
     @staticmethod
     def intToArray(targets):
         available = [Targets.DESKTOP_474_GCC, Targets.SIMULATOR, Targets.MAEMO5, Targets.HARMATTAN,
-                     Targets.EMBEDDED_LINUX, Targets.DESKTOP_474_MSVC2008,
+                     Targets.EMBEDDED_LINUX, Targets.DESKTOP_480_MSVC2010,
                      Targets.DESKTOP_501_DEFAULT]
         return filter(lambda x: x & targets == x, available)
 

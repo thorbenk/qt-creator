@@ -49,12 +49,14 @@ public:
     ~AndroidDeployStepWidget();
 
 private slots:
-    void resetAction();
+    void setMinistro();
     void setDeployLocalQtLibs();
+    void setBundleQtLibs();
+
     void setQASIPackagePath();
-    void useLocalQtLibsStateChanged(int);
     void cleanLibsOnDevice();
 
+    void deployOptionsChanged();
 private:
     virtual QString summaryText() const;
     virtual QString displayName() const;

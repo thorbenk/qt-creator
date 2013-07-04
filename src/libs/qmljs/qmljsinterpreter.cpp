@@ -35,10 +35,12 @@
 #include "qmljstypedescriptionreader.h"
 #include "qmljsvalueowner.h"
 #include "qmljscontext.h"
+#include "qmljsmodelmanagerinterface.h"
 #include "parser/qmljsast_p.h"
 
 #include <utils/qtcassert.h>
 
+#include <QApplication>
 #include <QFile>
 #include <QDir>
 #include <QString>
@@ -51,7 +53,8 @@ using namespace QmlJS::AST;
 
 /*!
     \class QmlJS::Value
-    \brief Abstract base class for the result of a JS expression.
+    \brief The Value class is an abstract base class for the result of a
+    JS expression.
     \sa Evaluate ValueOwner ValueVisitor
 
     A Value represents a category of JavaScript values, such as number
@@ -1253,7 +1256,8 @@ CppQmlTypesLoader::BuiltinObjects CppQmlTypesLoader::loadQmlTypes(const QFileInf
             QByteArray contents = file.readAll();
             file.close();
 
-            parseQmlTypeDescriptions(contents, &newObjects, 0, &error, &warning);
+
+            parseQmlTypeDescriptions(contents, &newObjects, 0, &error, &warning, qmlTypeFile.absoluteFilePath());
         } else {
             error = file.errorString();
         }
@@ -1272,15 +1276,28 @@ CppQmlTypesLoader::BuiltinObjects CppQmlTypesLoader::loadQmlTypes(const QFileInf
     return newObjects;
 }
 
-void CppQmlTypesLoader::parseQmlTypeDescriptions(const QByteArray &xml,
+void CppQmlTypesLoader::parseQmlTypeDescriptions(const QByteArray &contents,
                                                  BuiltinObjects *newObjects,
                                                  QList<ModuleApiInfo> *newModuleApis,
                                                  QString *errorMessage,
-                                                 QString *warningMessage)
+                                                 QString *warningMessage, const QString &fileName)
 {
+    if (!contents.isEmpty()) {
+        unsigned char c = contents.at(0);
+        switch (c) {
+        case 0xfe:
+        case 0xef:
+        case 0xff:
+        case 0xee:
+        case 0x00:
+            qWarning() << QApplication::translate("CppQmlTypesLoader", "%1 seems not to be encoded in UTF8 or has a BOM.").arg(fileName);
+        default: break;
+        }
+    }
+
     errorMessage->clear();
     warningMessage->clear();
-    TypeDescriptionReader reader(QString::fromUtf8(xml));
+    TypeDescriptionReader reader(QString::fromUtf8(contents));
     if (!reader(newObjects, newModuleApis)) {
         if (reader.errorMessage().isEmpty())
             *errorMessage = QLatin1String("unknown error");
@@ -2092,13 +2109,19 @@ ImportInfo ImportInfo::pathImport(const QString &docPath, const QString &path,
         importFileInfo = QFileInfo(docPath + QDir::separator() + path);
     info._path = importFileInfo.absoluteFilePath();
 
-    if (importFileInfo.isFile())
+    if (importFileInfo.isFile()) {
         info._type = FileImport;
-    else if (importFileInfo.isDir())
+    } else if (importFileInfo.isDir()) {
         info._type = DirectoryImport;
-    else
+    } else if (path.startsWith(QLatin1String("qrc:"))) {
+        info._path = path;
+        if (ModelManagerInterface::instance()->filesAtQrcPath(info.path()).isEmpty())
+            info._type = QrcDirectoryImport;
+        else
+            info._type = QrcFileImport;
+    } else {
         info._type = UnknownFileImport;
-
+    }
     info._version = version;
     info._as = as;
     info._ast = ast;
@@ -2177,7 +2200,7 @@ const Value *TypeScope::lookupMember(const QString &name, const Context *context
         const ImportInfo &info = i.info;
 
         // JS import has no types
-        if (info.type() == ImportInfo::FileImport)
+        if (info.type() == ImportInfo::FileImport || info.type() == ImportInfo::QrcFileImport)
             continue;
 
         if (!info.as().isEmpty()) {
@@ -2207,7 +2230,7 @@ void TypeScope::processMembers(MemberProcessor *processor) const
         const ImportInfo &info = i.info;
 
         // JS import has no types
-        if (info.type() == ImportInfo::FileImport)
+        if (info.type() == ImportInfo::FileImport || info.type() == ImportInfo::QrcFileImport)
             continue;
 
         if (!info.as().isEmpty())
@@ -2234,7 +2257,7 @@ const Value *JSImportScope::lookupMember(const QString &name, const Context *,
         const ImportInfo &info = i.info;
 
         // JS imports are always: import "somefile.js" as Foo
-        if (info.type() != ImportInfo::FileImport)
+        if (info.type() != ImportInfo::FileImport && info.type() != ImportInfo::QrcFileImport)
             continue;
 
         if (info.as() == name) {
@@ -2257,7 +2280,7 @@ void JSImportScope::processMembers(MemberProcessor *processor) const
         const ObjectValue *import = i.object;
         const ImportInfo &info = i.info;
 
-        if (info.type() == ImportInfo::FileImport)
+        if (info.type() == ImportInfo::FileImport || info.type() == ImportInfo::QrcFileImport)
             processor->processProperty(info.as(), import);
     }
 }
@@ -2314,7 +2337,7 @@ ImportInfo Imports::info(const QString &name, const Context *context) const
             continue;
         }
 
-        if (info.type() == ImportInfo::FileImport) {
+        if (info.type() == ImportInfo::FileImport || info.type() == ImportInfo::QrcFileImport) {
             if (import->className() == firstId)
                 return info;
         } else {
@@ -2334,7 +2357,7 @@ QString Imports::nameForImportedObject(const ObjectValue *value, const Context *
         const ObjectValue *import = i.object;
         const ImportInfo &info = i.info;
 
-        if (info.type() == ImportInfo::FileImport) {
+        if (info.type() == ImportInfo::FileImport || info.type() == ImportInfo::QrcFileImport) {
             if (import == value)
                 return import->className();
         } else {

@@ -36,7 +36,7 @@ unsigned int Task::s_nextId = 1;
 
 /*!
     \class  ProjectExplorer::Task
-    \brief Build issue (warning or error).
+    \brief The Task class represents a build issue (warning or error).
     \sa ProjectExplorer::TaskHub
 */
 
@@ -58,6 +58,17 @@ void Task::addMark(TextEditor::BaseTextMark *mark)
 
 bool Task::isNull() const
 { return taskId == 0; }
+
+void Task::clear()
+{
+    taskId = 0;
+    description.clear();
+    file = Utils::FileName();
+    line = -1;
+    movedLine = -1;
+    category = Core::Id();
+    type = Task::Unknown;
+}
 
 //
 // functions

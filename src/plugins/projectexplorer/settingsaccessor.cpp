@@ -404,6 +404,24 @@ public:
     QVariantMap update(Project *project, const QVariantMap &map);
 };
 
+// Version 13 reflects the move of environment settings from LocalApplicationRunConfiguration
+// into the EnvironmentAspect
+class Version13Handler : public UserFileVersionHandler
+{
+public:
+    int userFileVersion() const
+    {
+         return 13;
+    }
+
+    QString displayUserFileVersion() const
+    {
+        return QLatin1String("2.8");
+    }
+
+    QVariantMap update(Project *project, const QVariantMap &map);
+};
+
 } // namespace
 
 //
@@ -494,6 +512,8 @@ SettingsAccessor::SettingsAccessor(Project *project) :
     addVersionHandler(new Version9Handler);
     addVersionHandler(new Version10Handler);
     addVersionHandler(new Version11Handler);
+    addVersionHandler(new Version12Handler);
+    addVersionHandler(new Version13Handler);
 }
 
 SettingsAccessor::~SettingsAccessor()
@@ -689,7 +709,7 @@ QStringList SettingsAccessor::findSettingsFiles(const QString &suffix) const
     return result;
 }
 
-QByteArray SettingsAccessor::creatorId() const
+QByteArray SettingsAccessor::creatorId()
 {
     return ProjectExplorerPlugin::instance()->projectExplorerSettings().environmentId.toByteArray();
 }
@@ -997,8 +1017,7 @@ bool SettingsAccessor::FileAccessor::writeFile(const SettingsData *settings) con
     data.insert(QLatin1String(VERSION_KEY), m_accessor->m_lastVersion + 1);
 
     if (m_environmentSpecific)
-        data.insert(QLatin1String(ENVIRONMENT_ID_KEY),
-                    ProjectExplorerPlugin::instance()->projectExplorerSettings().environmentId.toString());
+        data.insert(QLatin1String(ENVIRONMENT_ID_KEY), SettingsAccessor::creatorId());
     return m_writer->save(data, Core::ICore::mainWindow());
 }
 
@@ -2452,10 +2471,9 @@ QVariantMap Version11Handler::update(Project *project, const QVariantMap &map)
             QVariantMap debugger;
             QString mkspec;
             if (m_toolChainExtras.contains(origTcId)) {
-                Utils::Environment env = Utils::Environment::systemEnvironment();
                 debuggerPath = m_toolChainExtras.value(origTcId).m_debugger;
                 if (!debuggerPath.isEmpty() && !QFileInfo(debuggerPath).isAbsolute())
-                    debuggerPath = env.searchInPath(debuggerPath);
+                    debuggerPath = Utils::Environment::systemEnvironment().searchInPath(debuggerPath);
                 if (debuggerPath.contains(QLatin1String("cdb")))
                     debuggerEngine = 4; // CDB
                 mkspec = m_toolChainExtras.value(origTcId).m_mkspec;
@@ -2724,6 +2742,24 @@ QVariantMap Version12Handler::update(Project *project, const QVariantMap &map)
                  || it.key() == QLatin1String("ProjectExplorer.CustomExecutableRunConfiguration.BaseEnvironmentBase")
                  || it.key() == QLatin1String("Qt4ProjectManager.MaemoRunConfiguration.BaseEnvironmentBase"))
             result.insert(QLatin1String("PE.BaseEnvironmentBase"), it.value());
+        else
+            result.insert(it.key(), it.value());
+    }
+    return result;
+}
+
+QVariantMap Version13Handler::update(Project *project, const QVariantMap &map)
+{
+    QVariantMap result;
+    QMapIterator<QString, QVariant> it(map);
+    while (it.hasNext()) {
+        it.next();
+        if (it.value().type() == QVariant::Map)
+            result.insert(it.key(), update(project, it.value().toMap()));
+        else if (it.key() == QLatin1String("PE.UserEnvironmentChanges"))
+            result.insert(QLatin1String("PE.EnvironmentAspect.Changes"), it.value());
+        else if (it.key() == QLatin1String("PE.BaseEnvironmentBase"))
+            result.insert(QLatin1String("PE.EnvironmentAspect.Base"), it.value());
         else
             result.insert(it.key(), it.value());
     }

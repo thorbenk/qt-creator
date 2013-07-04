@@ -30,18 +30,11 @@
 #ifndef REMOTELINUXDEBUGSUPPORT_H
 #define REMOTELINUXDEBUGSUPPORT_H
 
-#include "remotelinux_export.h"
-
-#include <QObject>
+#include "abstractremotelinuxrunsupport.h"
 
 namespace Debugger {
 class DebuggerEngine;
 class DebuggerStartParameters;
-}
-
-namespace ProjectExplorer {
-class DeviceApplicationHelperAction;
-class RunConfiguration;
 }
 
 namespace RemoteLinux {
@@ -49,37 +42,33 @@ class RemoteLinuxRunConfiguration;
 
 namespace Internal { class LinuxDeviceDebugSupportPrivate; }
 
-class REMOTELINUX_EXPORT LinuxDeviceDebugSupport : public QObject
+class REMOTELINUX_EXPORT LinuxDeviceDebugSupport : public AbstractRemoteLinuxRunSupport
 {
     Q_OBJECT
 public:
     static Debugger::DebuggerStartParameters startParameters(const RemoteLinuxRunConfiguration *runConfig);
 
-    LinuxDeviceDebugSupport(ProjectExplorer::RunConfiguration *runConfig,
+    LinuxDeviceDebugSupport(RemoteLinuxRunConfiguration *runConfig,
             Debugger::DebuggerEngine *engine);
     ~LinuxDeviceDebugSupport();
 
-    void setApplicationRunnerPreRunAction(ProjectExplorer::DeviceApplicationHelperAction *action);
-    void setApplicationRunnerPostRunAction(ProjectExplorer::DeviceApplicationHelperAction *action);
+protected:
+    void startExecution();
+    void handleAdapterSetupFailed(const QString &error);
+    void handleAdapterSetupDone();
 
 private slots:
     void handleRemoteSetupRequested();
     void handleAppRunnerError(const QString &error);
-    void startExecution();
-    void handleDebuggingFinished();
     void handleRemoteOutput(const QByteArray &output);
     void handleRemoteErrorOutput(const QByteArray &output);
-    void handleProgressReport(const QString &progressOutput);
-    void handleRemoteProcessStarted();
     void handleAppRunnerFinished(bool success);
-    void handlePortsGathererError(const QString &message);
-    void handlePortListReady();
+    void handleProgressReport(const QString &progressOutput);
+
+    void handleRemoteProcessStarted();
+    void handleDebuggingFinished();
 
 private:
-    void handleAdapterSetupFailed(const QString &error);
-    void handleAdapterSetupDone();
-    void setFinished();
-    bool setPort(int &port);
     void showMessage(const QString &msg, int channel);
 
     Internal::LinuxDeviceDebugSupportPrivate * const d;

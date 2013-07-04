@@ -63,6 +63,7 @@ const char DC_COUNT_KEY[] = "ProjectExplorer.Target.DeployConfigurationCount";
 const char ACTIVE_RC_KEY[] = "ProjectExplorer.Target.ActiveRunConfiguration";
 const char RC_KEY_PREFIX[] = "ProjectExplorer.Target.RunConfiguration.";
 const char RC_COUNT_KEY[] = "ProjectExplorer.Target.RunConfigurationCount";
+const char PLUGIN_SETTINGS_KEY[] = "ProjectExplorer.Target.PluginSettings";
 
 } // namespace
 
@@ -92,6 +93,7 @@ public:
     RunConfiguration* m_activeRunConfiguration;
     DeploymentData m_deploymentData;
     BuildTargetInfoList m_appTargets;
+    QVariantMap m_pluginSettings;
 
     QPixmap m_connectedPixmap;
     QPixmap m_readyToUsePixmap;
@@ -517,6 +519,8 @@ QVariantMap Target::toMap() const
     for (int i = 0; i < rcs.size(); ++i)
         map.insert(QString::fromLatin1(RC_KEY_PREFIX) + QString::number(i), rcs.at(i)->toMap());
 
+    map.insert(QLatin1String(PLUGIN_SETTINGS_KEY), d->m_pluginSettings);
+
     return map;
 }
 
@@ -541,12 +545,16 @@ void Target::updateDefaultBuildConfigurations()
 
 void Target::updateDefaultDeployConfigurations()
 {
-    DeployConfigurationFactory *dcFactory = DeployConfigurationFactory::find(this);
-    if (!dcFactory) {
+    QList<DeployConfigurationFactory *> dcFactories = DeployConfigurationFactory::find(this);
+    if (dcFactories.isEmpty()) {
         qWarning("No deployment configuration factory found for target id '%s'.", qPrintable(id().toString()));
         return;
     }
-    QList<Core::Id> dcIds = dcFactory->availableCreationIds(this);
+
+    QList<Core::Id> dcIds;
+    foreach (DeployConfigurationFactory *dcFactory, dcFactories)
+        dcIds.append(dcFactory->availableCreationIds(this));
+
     QList<DeployConfiguration *> dcList = deployConfigurations();
 
     foreach (DeployConfiguration *dc, dcList) {
@@ -557,12 +565,14 @@ void Target::updateDefaultDeployConfigurations()
     }
 
     foreach (Core::Id id, dcIds) {
-        if (!dcFactory->canCreate(this, id))
-            continue;
-        DeployConfiguration *dc = dcFactory->create(this, id);
-        if (dc) {
-            QTC_CHECK(dc->id() == id);
-            addDeployConfiguration(dc);
+        foreach (DeployConfigurationFactory *dcFactory, dcFactories) {
+            if (dcFactory->canCreate(this, id)) {
+                DeployConfiguration *dc = dcFactory->create(this, id);
+                if (dc) {
+                    QTC_CHECK(dc->id() == id);
+                    addDeployConfiguration(dc);
+                }
+            }
         }
     }
 }
@@ -583,7 +593,7 @@ void Target::updateDefaultRunConfigurations()
 
     // sort existing RCs into configured/unconfigured.
     foreach (RunConfiguration *rc, runConfigurations()) {
-        if (!rc->isConfigured() && rc != activeRunConfiguration())
+        if (!rc->isConfigured())
             existingUnconfigured << rc;
         else
             existingConfigured << rc;
@@ -648,8 +658,10 @@ void Target::updateDefaultRunConfigurations()
     }
 
     // Do actual changes:
-    foreach (RunConfiguration *rc, toRemove)
+    foreach (RunConfiguration *rc, toRemove) {
         removeRunConfiguration(rc);
+        existingConfigured.removeOne(rc); // make sure to also remove them from existingConfigured!
+    }
 
     if (removeExistingUnconfigured) {
         foreach (RunConfiguration *rc, existingUnconfigured)
@@ -661,6 +673,37 @@ void Target::updateDefaultRunConfigurations()
         addRunConfiguration(rc);
     foreach (RunConfiguration *rc, newUnconfigured)
         addRunConfiguration(rc);
+
+    // Make sure a configured RC is active:
+    if (activeRunConfiguration() && !activeRunConfiguration()->isConfigured()) {
+        if (!existingConfigured.isEmpty())
+            setActiveRunConfiguration(existingConfigured.at(0));
+        else if (!newConfigured.isEmpty()) {
+            RunConfiguration *selected = newConfigured.at(0);
+            // Try to find a runconfiguration that matches the project name. That is a good
+            // candidate for something to run initially.
+            foreach (RunConfiguration *rc, newConfigured) {
+                if (rc->displayName() == project()->displayName()) {
+                    selected = rc;
+                    break;
+                }
+            }
+            setActiveRunConfiguration(selected);
+        }
+    }
+}
+
+QVariant Target::namedSettings(const QString &name) const
+{
+    return d->m_pluginSettings.value(name);
+}
+
+void Target::setNamedSettings(const QString &name, const QVariant &value)
+{
+    if (value.isNull())
+        d->m_pluginSettings.remove(name);
+    else
+        d->m_pluginSettings.insert(name, value);
 }
 
 static QString formatToolTip(const IDevice::DeviceInfo &input)
@@ -823,6 +866,9 @@ bool Target::fromMap(const QVariantMap &map)
         if (i == activeConfiguration)
             setActiveRunConfiguration(rc);
     }
+
+    if (map.contains(QLatin1String(PLUGIN_SETTINGS_KEY)))
+        d->m_pluginSettings = map.value(QLatin1String(PLUGIN_SETTINGS_KEY)).toMap();
 
     return true;
 }

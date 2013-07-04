@@ -34,6 +34,7 @@
 #include "cppprojectfile.h"
 
 #include <cplusplus/CppDocument.h>
+#include <projectexplorer/toolchain.h>
 
 #include <QObject>
 #include <QHash>
@@ -45,6 +46,7 @@ namespace Core { class IEditor; }
 namespace CPlusPlus { class LookupContext; }
 namespace ProjectExplorer { class Project; }
 namespace TextEditor { class BaseTextEditor; }
+namespace Utils { class FileName; }
 
 namespace CppTools {
 class AbstractEditorSupport;
@@ -58,12 +60,12 @@ class CppIndexingSupport;
 class CPPTOOLS_EXPORT ProjectPart
 {
 public:
-    ProjectPart()
-        : cVersion(C89)
-        , cxxVersion(CXX11)
-        , cxxExtensions(NoExtensions)
-        , qtVersion(UnknownQt)
-    {}
+    ProjectPart();
+
+    void evaluateToolchain(const ProjectExplorer::ToolChain *tc,
+                           const QStringList &cxxflags,
+                           const QStringList &cflags,
+                           const Utils::FileName &sysRoot);
 
 public:
     enum CVersion {
@@ -105,6 +107,8 @@ public: //attributes
     CXXVersion cxxVersion;
     CXXExtensions cxxExtensions;
     QtVersion qtVersion;
+    ProjectExplorer::ToolChain::WarningFlags cWarningFlags;
+    ProjectExplorer::ToolChain::WarningFlags cxxWarningFlags;
 };
 
 class CPPTOOLS_EXPORT CppModelManagerInterface : public QObject
@@ -112,6 +116,12 @@ class CPPTOOLS_EXPORT CppModelManagerInterface : public QObject
     Q_OBJECT
 
 public:
+
+    // Documented in source file.
+     enum ProgressNotificationMode {
+        ForcedProgressNotification,
+        ReservedProgressNotification
+    };
 
     class CPPTOOLS_EXPORT ProjectInfo
     {
@@ -208,9 +218,12 @@ public:
     virtual void updateProjectInfo(const ProjectInfo &pinfo) = 0;
     virtual QList<ProjectPart::Ptr> projectPart(const QString &fileName) const = 0;
 
+    virtual QStringList includePaths() = 0;
+
     virtual void addEditorSupport(CppTools::AbstractEditorSupport *editorSupport) = 0;
     virtual void removeEditorSupport(CppTools::AbstractEditorSupport *editorSupport) = 0;
     virtual CppEditorSupport *cppEditorSupport(TextEditor::BaseTextEditor *editor) = 0;
+    virtual void deleteEditorSupport(TextEditor::BaseTextEditor *textEditor) = 0;
 
     virtual QList<int> references(CPlusPlus::Symbol *symbol,
                                   const CPlusPlus::LookupContext &context) = 0;
@@ -244,8 +257,10 @@ Q_SIGNALS:
     void projectPartsUpdated(ProjectExplorer::Project *project);
 
 public Q_SLOTS:
+
     virtual void updateModifiedSourceFiles() = 0;
-    virtual QFuture<void> updateSourceFiles(const QStringList &sourceFiles) = 0;
+    virtual QFuture<void> updateSourceFiles(const QStringList &sourceFiles,
+        ProgressNotificationMode mode = ReservedProgressNotification) = 0;
     virtual void GC() = 0;
 };
 

@@ -9,19 +9,16 @@ QtcPlugin {
     Depends { name: "Core" }
     Depends { name: "TextEditor" }
     Depends { name: "CppTools" }
-    Depends { name: "cpp" }
-
-    cpp.defines: base.concat(["PYEDITOR_LIBRARY"])
+    Depends { name: "QtSupport" }
+    Depends { name: "ProjectExplorer" }
 
     files: [
         "pythoneditor.cpp",
         "pythoneditor.h",
-        "pythoneditor.mimetypes.xml",
         "pythoneditor_global.h",
         "pythoneditorconstants.h",
         "pythoneditorfactory.cpp",
         "pythoneditorfactory.h",
-        "pythoneditorfeatures.h",
         "pythoneditorplugin.cpp",
         "pythoneditorplugin.h",
         "pythoneditorplugin.qrc",

@@ -1,3 +1,32 @@
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
+
 import tempfile
 
 def neededFilePresent(path):
@@ -65,7 +94,8 @@ def selectFromCombo(objectSpec, itemName):
     else:
         mouseClick(object, 5, 5, 0, Qt.LeftButton)
         mouseClick(waitForObjectItem(object, itemName.replace(".", "\\.")), 5, 5, 0, Qt.LeftButton)
-        waitFor("str(object.currentText)==itemName", 5000)
+        test.verify(waitFor("str(object.currentText)==itemName", 5000),
+                    "Switched combo item to '%s'" % itemName)
         return True
 
 def selectFromLocator(filter, itemName = None):
@@ -246,6 +276,7 @@ def selectFromFileDialog(fileName, waitForFile=False):
         pName = os.path.dirname(os.path.abspath(fileName)) + os.sep
         waitForObject("{name='QFileDialog' type='QFileDialog' visible='1'}")
         pathLine = waitForObject("{name='fileNameEdit' type='QLineEdit' visible='1'}")
+        snooze(1)
         replaceEditorContent(pathLine, pName)
         clickButton(waitForObject("{text='Open' type='QPushButton'}"))
         waitFor("str(pathLine.text)==''")
@@ -257,14 +288,15 @@ def selectFromFileDialog(fileName, waitForFile=False):
         if not waitFor("str(fileCombo.currentText) in fileName", 5000):
             test.fail("%s could not be opened in time." % fileName)
 
-# add qt.qch from SDK path
-def addHelpDocumentationFromSDK():
+# add Qt documentations from given paths
+# param which a list/tuple of the paths to the qch files to be added
+def addHelpDocumentation(which):
     global sdkPath
     invokeMenuItem("Tools", "Options...")
     waitForObjectItem(":Options_QListView", "Help")
     clickItem(":Options_QListView", "Help", 14, 15, 0, Qt.LeftButton)
     waitForObject("{container=':Options.qt_tabwidget_tabbar_QTabBar' type='TabItem' text='Documentation'}")
-    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Documentation")
+    clickOnTab(":Options.qt_tabwidget_tabbar_QTabBar", "Documentation")
     # get rid of all docs already registered
     listWidget = waitForObject("{type='QListWidget' name='docsListWidget' visible='1'}")
     if listWidget.count > 0:
@@ -272,8 +304,9 @@ def addHelpDocumentationFromSDK():
         mouseClick(listWidget, rect.x+5, rect.y+5, 0, Qt.LeftButton)
         type(listWidget, "<Ctrl+A>")
         mouseClick(waitForObject("{type='QPushButton' name='removeButton' visible='1'}"), 5, 5, 0, Qt.LeftButton)
-    clickButton(waitForObject("{type='QPushButton' name='addButton' visible='1' text='Add...'}"))
-    selectFromFileDialog("%s/Documentation/qt.qch" % sdkPath)
+    for qch in which:
+        clickButton(waitForObject("{type='QPushButton' name='addButton' visible='1' text='Add...'}"))
+        selectFromFileDialog(qch)
     clickButton(waitForObject(":Options.OK_QPushButton"))
 
 def verifyOutput(string, substring, outputFrom, outputIn):
@@ -455,7 +488,7 @@ def iterateQtVersions(keepOptionsOpen=False, alreadyOnOptionsDialog=False,
         invokeMenuItem("Tools", "Options...")
     waitForObjectItem(":Options_QListView", "Build & Run")
     clickItem(":Options_QListView", "Build & Run", 14, 15, 0, Qt.LeftButton)
-    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Qt Versions")
+    clickOnTab(":Options.qt_tabwidget_tabbar_QTabBar", "Qt Versions")
     pattern = re.compile("Qt version (?P<version>.*?) for (?P<target>.*)")
     treeWidget = waitForObject(":QtSupport__Internal__QtVersionManager.qtdirList_QTreeWidget")
     root = treeWidget.invisibleRootItem()
@@ -516,7 +549,7 @@ def iterateKits(keepOptionsOpen=False, alreadyOnOptionsDialog=False,
         invokeMenuItem("Tools", "Options...")
     waitForObjectItem(":Options_QListView", "Build & Run")
     clickItem(":Options_QListView", "Build & Run", 14, 15, 0, Qt.LeftButton)
-    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Kits")
+    clickOnTab(":Options.qt_tabwidget_tabbar_QTabBar", "Kits")
     treeView = waitForObject(":Kits_Or_Compilers_QTreeView")
     model = treeView.model()
     test.compare(model.rowCount(), 2, "Verifying expected target section count")
@@ -559,7 +592,7 @@ def setAlwaysStartFullHelp():
     invokeMenuItem("Tools", "Options...")
     waitForObjectItem(":Options_QListView", "Help")
     clickItem(":Options_QListView", "Help", 5, 5, 0, Qt.LeftButton)
-    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "General")
+    clickOnTab(":Options.qt_tabwidget_tabbar_QTabBar", "General")
     selectFromCombo(":Startup.contextHelpComboBox_QComboBox", "Always Start Full Help")
     clickButton(waitForObject(":Options.OK_QPushButton"))
 
@@ -609,6 +642,27 @@ def checkIfObjectExists(name, shouldExist = True, timeout = 3000, verboseOnFail 
     return result
 
 # wait for progress bar(s) to appear and disappear
-def progressBarWait():
-    checkIfObjectExists("{type='Core::Internal::ProgressBar' unnamed='1'}", True, 2000)
-    checkIfObjectExists("{type='Core::Internal::ProgressBar' unnamed='1'}", False, 60000)
+def progressBarWait(timeout=60000):
+    if not checkIfObjectExists(":Qt Creator_Core::Internal::ProgressBar", True, 6000):
+        test.warning("progressBarWait() timed out when waiting for ProgressBar.",
+                     "This may lead to unforeseen behavior. Consider increasing the timeout.")
+    checkIfObjectExists(":Qt Creator_Core::Internal::ProgressBar", False, timeout)
+
+def readFile(filename):
+    f = open(filename, "r")
+    content = f.read()
+    f.close()
+    return content
+
+def simpleFileName(navigatorFileName):
+    return ".".join(navigatorFileName.split(".")[-2:]).replace("\\","")
+
+def clickOnTab(tabBarStr, tabText, timeout=5000):
+    if platform.system() == 'Darwin':
+        if not waitFor("object.exists(tabBarStr)", timeout):
+            raise LookupError("Could not find QTabBar: %s" % objectMap.realName(tabBarStr))
+        tabBar = findObject(tabBarStr)
+        if not tabBar.visible:
+            test.log("Using workaround for Mac.")
+            setWindowState(tabBar, WindowState.Normal)
+    clickTab(waitForObject(tabBarStr, timeout), tabText)

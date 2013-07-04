@@ -38,6 +38,17 @@
 namespace Debugger {
 namespace Internal {
 
+uchar fromhex(uchar c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'z')
+        return 10 + c - 'a';
+    if (c >= 'A' && c <= 'Z')
+        return 10 + c - 'A';
+    return -1;
+}
+
 void skipCommas(const char *&from, const char *to)
 {
     while (*from == ',' && from != to)
@@ -120,6 +131,26 @@ QByteArray GdbMi::parseCString(const char *&from, const char *to)
                 case 'v': *dst++ = '\v'; break;
                 case '"': *dst++ = '"'; break;
                 case '\\': *dst++ = '\\'; break;
+                case 'x': {
+                        c = *src++;
+                        int chars = 0;
+                        uchar prod = 0;
+                        while (true) {
+                            uchar val = fromhex(c);
+                            if (val == uchar(-1))
+                                break;
+                            prod = prod * 16 + val;
+                            if (++chars == 3 || src == end)
+                                break;
+                            c = *src++;
+                        }
+                        if (!chars) {
+                            qDebug() << "MI Parse Error, unrecognized hex escape";
+                            return QByteArray();
+                        }
+                        *dst++ = prod;
+                        break;
+                    }
                 default:
                     {
                         int chars = 0;
@@ -331,9 +362,9 @@ void GdbMi::fromStringMultiple(const QByteArray &ba)
     parseTuple_helper(from, to);
 }
 
-GdbMi GdbMi::findChild(const char *name) const
+GdbMi GdbMi::operator[](const char *name) const
 {
-    for (int i = 0; i < m_children.size(); ++i)
+    for (int i = 0, n = m_children.size(); i < n; ++i)
         if (m_children.at(i).m_name == name)
             return m_children.at(i);
     return GdbMi();
@@ -392,12 +423,25 @@ void extractGdbVersion(const QString &msg,
 {
     const QChar dot(QLatin1Char('.'));
 
+    const bool ignoreParenthesisContent = msg.contains(QLatin1String("rubenvb"));
+    const QChar parOpen(QLatin1Char('('));
+    const QChar parClose(QLatin1Char(')'));
+
     QString cleaned;
     QString build;
     bool inClean = true;
+    bool inParenthesis = false;
     foreach (QChar c, msg) {
         if (inClean && !cleaned.isEmpty() && c != dot && (c.isPunct() || c.isSpace()))
             inClean = false;
+        if (ignoreParenthesisContent) {
+            if (!inParenthesis && c == parOpen)
+                inParenthesis = true;
+            if (inParenthesis && c == parClose)
+                inParenthesis = false;
+            if (inParenthesis)
+                continue;
+        }
         if (inClean) {
             if (c.isDigit())
                 cleaned.append(c);

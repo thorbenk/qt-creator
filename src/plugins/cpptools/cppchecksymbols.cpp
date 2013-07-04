@@ -100,7 +100,7 @@ protected:
             processed->insert(doc->globalNamespace());
 
             foreach (const Document::Include &i, doc->includes())
-                process(_snapshot.document(i.fileName()), processed);
+                process(_snapshot.document(i.resolvedFileName()), processed);
 
             _mainDocument = (doc == _doc); // ### improve
             accept(doc->globalNamespace());
@@ -407,6 +407,14 @@ Scope *CheckSymbols::enclosingScope() const
         } else if (FunctionDefinitionAST *funDef = ast->asFunctionDefinition()) {
             if (funDef->symbol)
                 return funDef->symbol;
+
+        } else if (TemplateDeclarationAST *templateDeclaration = ast->asTemplateDeclaration()) {
+            if (DeclarationAST *decl = templateDeclaration->declaration) {
+                if (FunctionDefinitionAST *funDef = decl->asFunctionDefinition()) {
+                    if (funDef->symbol)
+                        return funDef->symbol;
+                }
+            }
 
         } else if (CompoundStatementAST *blockStmt = ast->asCompoundStatement()) {
             if (blockStmt->symbol)
@@ -869,7 +877,12 @@ ClassOrNamespace *CheckSymbols::checkNestedName(QualifiedNameAST *ast)
 
                 const Name *name = class_or_namespace_name->name;
                 binding = _context.lookupType(name, enclosingScope());
-                addType(binding, class_or_namespace_name);
+                if (binding)
+                    addType(binding, class_or_namespace_name);
+                else
+                    // for the case when we use template parameter as qualifier
+                    // e.g.: template <typename T> void fun() { T::type type; }
+                    accept(nested_name_specifier->class_or_namespace_name);
 
                 for (it = it->next; it; it = it->next) {
                     NestedNameSpecifierAST *nested_name_specifier = it->value;

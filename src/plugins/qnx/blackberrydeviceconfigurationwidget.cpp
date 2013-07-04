@@ -33,8 +33,10 @@
 #include "blackberrydebugtokenuploader.h"
 #include "blackberrydebugtokenrequestdialog.h"
 #include "ui_blackberrydeviceconfigurationwidget.h"
+#include "blackberryconfiguration.h"
 #include "blackberrydeviceconnectionmanager.h"
 #include "qnxconstants.h"
+#include "qnxutils.h"
 
 #include <ssh/sshconnection.h>
 #include <texteditor/texteditorsettings.h>
@@ -44,6 +46,8 @@
 
 #include <QProgressDialog>
 #include <QMessageBox>
+#include <QFileInfo>
+#include <QDir>
 #include <QAbstractButton>
 
 using namespace ProjectExplorer;
@@ -69,14 +73,19 @@ BlackBerryDeviceConfigurationWidget::BlackBerryDeviceConfigurationWidget(const I
     connect(ui->debugToken, SIGNAL(browsingFinished()), this, SLOT(debugTokenEditingFinished()));
     connect(uploader, SIGNAL(finished(int)), this, SLOT(uploadFinished(int)));
 
-    connect(BlackBerryDeviceConnectionManager::instance(), SIGNAL(connectionOutput(Core::Id, QString)),
-            this, SLOT(appendConnectionLog(Core::Id, QString)));
+    connect(BlackBerryDeviceConnectionManager::instance(), SIGNAL(connectionOutput(Core::Id,QString)),
+            this, SLOT(appendConnectionLog(Core::Id,QString)));
     connect(BlackBerryDeviceConnectionManager::instance(), SIGNAL(deviceAboutToConnect(Core::Id)),
             this, SLOT(clearConnectionLog(Core::Id)));
 
     ui->debugToken->addButton(tr("Request"), this, SLOT(requestDebugToken()));
     ui->debugToken->addButton(tr("Upload"), this, SLOT(uploadDebugToken()));
     uploadButton = ui->debugToken->buttonAtIndex(2);
+
+    QString debugTokenBrowsePath = QnxUtils::dataDirPath();
+    if (!QFileInfo(debugTokenBrowsePath).exists())
+        debugTokenBrowsePath = QDir::homePath();
+    ui->debugToken->setInitialBrowsePathBackup(debugTokenBrowsePath);
 
     initGui();
 }
@@ -136,6 +145,12 @@ void BlackBerryDeviceConfigurationWidget::requestDebugToken()
 
 void BlackBerryDeviceConfigurationWidget::uploadDebugToken()
 {
+    // check the debug token path before even laucnhing the uploader process
+    if (!QFileInfo(ui->pwdLineEdit->text()).exists()) {
+        QMessageBox::critical(this, tr("Error"), tr("Invalid debug token path."));
+        return;
+    }
+
     progressDialog->show();
 
     uploader->uploadDebugToken(ui->debugToken->path(),

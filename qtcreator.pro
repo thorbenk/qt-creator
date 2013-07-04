@@ -17,8 +17,16 @@ unix:!macx:!isEmpty(copydata):SUBDIRS += bin
 
 OTHER_FILES += dist/copyright_template.txt \
     $$files(dist/changes-*) \
-    qtcreator.qbp \
-    qbs/pluginspec/pluginspec.qbs
+    qtcreator.qbs \
+    qbs/pluginspec/pluginspec.qbs \
+    $$files(dist/installer/ifw/config/config-*) \
+    dist/installer/ifw/packages/org.qtproject.qtcreator/meta/package.xml.in \
+    dist/installer/ifw/packages/org.qtproject.qtcreator.application/meta/installscript.qs \
+    dist/installer/ifw/packages/org.qtproject.qtcreator.application/meta/package.xml.in \
+    dist/installer/ifw/packages/org.qtproject.qtcreator.application/meta/license.txt \
+    $$files(scripts/*.py) \
+    $$files(scripts/*.sh) \
+    $$files(scripts/*.pl)
 
 qmake_cache = $$targetPath($$IDE_BUILD_TREE/.qmake.cache)
 !equals(QMAKE_HOST.os, Windows) {
@@ -38,6 +46,8 @@ exists(src/shared/qbs/qbs.pro) {
     system("echo CONFIG += qbs_no_dev_install >> $$qmake_cache")
 }
 
+_QMAKE_CACHE_ = $$qmake_cache # Qt 4 support prevents us from using cache(), so tell Qt 5 about the cache
+
 contains(QT_ARCH, i386): ARCHITECTURE = x86
 else: ARCHITECTURE = $$QT_ARCH
 
@@ -48,11 +58,14 @@ else: PLATFORM = "unknown"
 
 PATTERN = $${PLATFORM}$(INSTALL_EDITION)-$${QTCREATOR_VERSION}$(INSTALL_POSTFIX)
 
+macx:INSTALLER_NAME = "qt-creator-$${QTCREATOR_VERSION}"
+else:INSTALLER_NAME = "qt-creator-$${PATTERN}"
+
 macx {
     APPBUNDLE = "$$OUT_PWD/bin/Qt Creator.app"
     BINDIST_SOURCE = "$$OUT_PWD/bin/Qt Creator.app"
     BINDIST_INSTALLER_SOURCE = $$BINDIST_SOURCE
-    deployqt.commands = $$PWD/scripts/deployqtHelper_mac.sh \"$${APPBUNDLE}\" \"$$[QT_INSTALL_TRANSLATIONS]\" \"$$[QT_INSTALL_PLUGINS]\"
+    deployqt.commands = $$PWD/scripts/deployqtHelper_mac.sh \"$${APPBUNDLE}\" \"$$[QT_INSTALL_TRANSLATIONS]\" \"$$[QT_INSTALL_PLUGINS]\" \"$$[QT_INSTALL_IMPORTS]\" \"$$[QT_INSTALL_QML]\"
     codesign.commands = codesign -s \"$(SIGNING_IDENTITY)\" $(SIGNING_FLAGS) \"$${APPBUNDLE}\"
     dmg.commands = $$PWD/scripts/makedmg.sh $$OUT_PWD/bin qt-creator-$${PATTERN}.dmg
     dmg.depends = deployqt
@@ -81,7 +94,18 @@ bindist.commands = 7z a -mx9 $$OUT_PWD/qt-creator-$${PATTERN}.7z \"$$BINDIST_SOU
 bindist_installer.depends = deployqt
 bindist_installer.commands = 7z a -mx9 $${INSTALLER_ARCHIVE} \"$$BINDIST_INSTALLER_SOURCE\"
 installer.depends = bindist_installer
-installer.commands = $$PWD/scripts/packageIfw.py -i \"$(IFW_PATH)\" -v $${QTCREATOR_VERSION} -a \"$${INSTALLER_ARCHIVE}\" "qt-creator-$${PATTERN}"
+installer.commands = $$PWD/scripts/packageIfw.py -i \"$(IFW_PATH)\" -v $${QTCREATOR_VERSION} -a \"$${INSTALLER_ARCHIVE}\" "$$INSTALLER_NAME"
+
+macx {
+    # this should be very temporary:
+    MENU_NIB = $$(MENU_NIB_FILE)
+    isEmpty(MENU_NIB): MENU_NIB = "FATAT_SET_MENU_NIB_FILE_ENV"
+    copy_menu_nib_installer.commands = cp -R \"$$MENU_NIB\" \"$${INSTALLER_NAME}.app/Contents/Resources\"
+
+    codesign_installer.commands = codesign -s \"$(SIGNING_IDENTITY)\" $(SIGNING_FLAGS) \"$${INSTALLER_NAME}.app\"
+    dmg_installer.commands = hdiutil create -srcfolder "$${INSTALLER_NAME}.app" -volname \"Qt Creator\" -format UDBZ "qt-creator-$${PATTERN}-installer.dmg" -ov -scrub -stretch 2g
+    QMAKE_EXTRA_TARGETS += codesign_installer dmg_installer copy_menu_nib_installer
+}
 
 win32 {
     deployqt.commands ~= s,/,\\\\,g

@@ -16,10 +16,7 @@ QtcPlugin {
     Depends { name: "QmlEditorWidgets" }
     Depends { name: "CPlusPlus" }
 
-    Depends { name: "cpp" }
-
     files: [
-        "QmlJSEditor.mimetypes.xml",
         "jsfilewizard.cpp",
         "jsfilewizard.h",
         "qmlexpressionundercursor.cpp",
@@ -39,8 +36,6 @@ QtcPlugin {
         "qmljseditor.h",
         "qmljseditor.qrc",
         "qmljseditor_global.h",
-        "qmljseditoractionhandler.cpp",
-        "qmljseditoractionhandler.h",
         "qmljseditorconstants.h",
         "qmljseditoreditable.cpp",
         "qmljseditoreditable.h",
@@ -87,7 +82,7 @@ QtcPlugin {
         "images/qmlfile.png",
     ]
 
-    ProductModule {
+    Export {
         Depends { name: "QmlJSTools" }
     }
 }

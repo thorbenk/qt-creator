@@ -31,6 +31,7 @@
 
 #include <utils/qtcassert.h>
 #include <utils/pathchooser.h>
+#include <utils/pathlisteditor.h>
 
 #include <QDebug>
 #include <QSettings>
@@ -190,8 +191,6 @@ QString SavedAction::toString() const
 }
 
 /*!
-    \fn QAction *SavedAction::updatedAction(const QString &text)
-
     Adjust the \c text() of the underlying action.
 
     This can be used to update the item shortly before e.g. a menu is shown.
@@ -313,6 +312,8 @@ void SavedAction::connectWidget(QWidget *widget, ApplyMode applyMode)
     } else if (QTextEdit *textEdit = qobject_cast<QTextEdit *>(widget)) {
         textEdit->setPlainText(m_value.toString());
         connect(textEdit, SIGNAL(textChanged()), this, SLOT(textEditTextChanged()));
+    } else if (PathListEditor *editor = qobject_cast<PathListEditor *>(widget)) {
+        editor->setPathList(m_value.toStringList());
     } else {
         qDebug() << "Cannot connect widget " << widget << toString();
     }
@@ -342,6 +343,8 @@ void SavedAction::apply(QSettings *s)
         setValue(groupBox->isChecked());
     else if (const QTextEdit *textEdit = qobject_cast<QTextEdit *>(m_widget))
         setValue(textEdit->toPlainText());
+    else if (const PathListEditor *editor = qobject_cast<PathListEditor *>(m_widget))
+        setValue(editor->pathList());
     if (s)
        writeSettings(s);
 }

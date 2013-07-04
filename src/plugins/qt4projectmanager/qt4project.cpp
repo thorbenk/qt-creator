@@ -46,6 +46,7 @@
 #include <coreplugin/documentmanager.h>
 #include <cpptools/cppmodelmanagerinterface.h>
 #include <qmljstools/qmljsmodelmanager.h>
+#include <projectexplorer/buildmanager.h>
 #include <projectexplorer/buildtargetinfo.h>
 #include <projectexplorer/deploymentdata.h>
 #include <projectexplorer/toolchain.h>
@@ -53,6 +54,7 @@
 #include <projectexplorer/target.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/projectmacroexpander.h>
+#include <proparser/qmakevfs.h>
 #include <qtsupport/profilereader.h>
 #include <qtsupport/qtkitinformation.h>
 
@@ -344,6 +346,7 @@ Qt4Project::Qt4Project(Qt4Manager *manager, const QString& fileName) :
     m_nodesWatcher(new Internal::Qt4NodesWatcher(this)),
     m_fileInfo(new Qt4ProjectFile(fileName, this)),
     m_projectFiles(new Qt4ProjectFiles),
+    m_qmakeVfs(new QMakeVfs),
     m_qmakeGlobals(0),
     m_asyncUpdateFutureInterface(0),
     m_pendingEvaluateFuturesCount(0),
@@ -353,13 +356,15 @@ Qt4Project::Qt4Project(Qt4Manager *manager, const QString& fileName) :
     m_activeTarget(0)
 {
     setProjectContext(Core::Context(Qt4ProjectManager::Constants::PROJECT_ID));
-    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
-    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
-    setProjectLanguages(pl);
+    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
 
     m_asyncUpdateTimer.setSingleShot(true);
     m_asyncUpdateTimer.setInterval(3000);
     connect(&m_asyncUpdateTimer, SIGNAL(timeout()), this, SLOT(asyncUpdate()));
+
+    connect(ProjectExplorerPlugin::instance()->buildManager(),
+            SIGNAL(buildQueueFinished(bool)),
+            SLOT(buildFinished(bool)));
 }
 
 Qt4Project::~Qt4Project()
@@ -367,6 +372,7 @@ Qt4Project::~Qt4Project()
     m_codeModelFuture.cancel();
     m_asyncUpdateState = ShuttingDown;
     m_manager->unregisterProject(this);
+    delete m_qmakeVfs;
     delete m_projectFiles;
     m_cancelEvaluate = true;
     // Deleting the root node triggers a few things, make sure rootProjectNode
@@ -515,13 +521,11 @@ void Qt4Project::updateCppCodeModel()
 
     Kit *k = 0;
     QtSupport::BaseQtVersion *qtVersion = 0;
-    ToolChain *tc = 0;
     if (ProjectExplorer::Target *target = activeTarget())
         k = target->kit();
     else
         k = KitManager::instance()->defaultKit();
     qtVersion = QtSupport::QtKitInformation::qtVersion(k);
-    tc = ToolChainKitInformation::toolChain(k);
 
     CppTools::CppModelManagerInterface *modelmanager =
         CppTools::CppModelManagerInterface::instance();
@@ -552,46 +556,35 @@ void Qt4Project::updateCppCodeModel()
             part->qtVersion = ProjectPart::NoQt;
 
         const QStringList cxxflags = pro->variableValue(CppFlagsVar);
+        part->evaluateToolchain(ToolChainKitInformation::toolChain(k),
+                                cxxflags,
+                                cxxflags,
+                                SysRootKitInformation::sysRoot(k));
 
         // part->defines
-        if (tc)
-            part->defines = tc->predefinedMacros(cxxflags);
         part->defines += pro->cxxDefines();
 
-        // part->includePaths
+        // part->includePaths, part->frameworkPaths
         part->includePaths.append(pro->variableValue(IncludePathVar));
 
-        QList<HeaderPath> headers;
-        if (tc)
-            headers = tc->systemHeaderPaths(cxxflags, SysRootKitInformation::sysRoot(k));
-        if (qtVersion)
-            headers.append(qtVersion->systemHeaderPathes(k));
-
-        foreach (const HeaderPath &headerPath, headers) {
-            if (headerPath.kind() == HeaderPath::FrameworkHeaderPath)
-                part->frameworkPaths.append(headerPath.path());
-            else
-                part->includePaths.append(headerPath.path());
-        }
-
         if (qtVersion) {
+            foreach (const HeaderPath &header, qtVersion->systemHeaderPathes(k)) {
+                if (header.kind() == HeaderPath::FrameworkHeaderPath)
+                    part->frameworkPaths.append(header.path());
+                else
+                    part->includePaths.append(header.path());
+            }
             if (!qtVersion->frameworkInstallPath().isEmpty())
                 part->frameworkPaths.append(qtVersion->frameworkInstallPath());
-
         }
+
         if (Qt4ProFileNode *node = rootQt4ProjectNode())
             part->includePaths.append(node->resolvedMkspecPath());
 
         // part->precompiledHeaders
         part->precompiledHeaders.append(pro->variableValue(PrecompiledHeaderVar));
 
-        // part->language
-        if (tc)
-            part->cxxVersion = (tc->compilerFlags(cxxflags) == ToolChain::STD_CXX11)
-                    ? ProjectPart::CXX11 : ProjectPart::CXX98;
-        else
-            part->cxxVersion = ProjectPart::CXX11;
-
+        // part->files
         foreach (const QString &file, pro->variableValue(CppSourceVar)) {
             allFiles << file;
             part->files << ProjectFile(file, ProjectFile::CXXSource);
@@ -622,7 +615,8 @@ void Qt4Project::updateCppCodeModel()
     setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !allFiles.isEmpty());
 
     modelmanager->updateProjectInfo(pinfo);
-    m_codeModelFuture = modelmanager->updateSourceFiles(allFiles);
+    m_codeModelFuture = modelmanager->updateSourceFiles(allFiles,
+        CppTools::CppModelManagerInterface::ForcedProgressNotification);
 }
 
 void Qt4Project::updateQmlJSCodeModel()
@@ -642,16 +636,28 @@ void Qt4Project::updateQmlJSCodeModel()
     bool hasQmlLib = false;
     foreach (Qt4ProFileNode *node, proFiles) {
         projectInfo.importPaths.append(node->variableValue(QmlImportPathVar));
+        projectInfo.activeResourceFiles.append(node->variableValue(ExactResourceVar));
+        projectInfo.allResourceFiles.append(node->variableValue(ResourceVar));
         if (!hasQmlLib) {
             QStringList qtLibs = node->variableValue(QtVar);
             hasQmlLib = qtLibs.contains(QLatin1String("declarative")) ||
                     qtLibs.contains(QLatin1String("qml")) ||
                     qtLibs.contains(QLatin1String("quick"));
-            break;
         }
     }
 
+    // If the project directory has a pro/pri file that includes a qml or quick or declarative
+    // library then chances of the project being a QML project is quite high.
+    // This assumption fails when there are no QDeclarativeEngine/QDeclarativeView (QtQuick 1)
+    // or QQmlEngine/QQuickView (QtQuick 2) instances.
+    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
+    if (hasQmlLib)
+        pl.add(ProjectExplorer::Constants::LANG_QMLJS);
+    setProjectLanguages(pl);
+
     projectInfo.importPaths.removeDuplicates();
+    projectInfo.activeResourceFiles.removeDuplicates();
+    projectInfo.allResourceFiles.removeDuplicates();
 
     setProjectLanguage(ProjectExplorer::Constants::LANG_QMLJS, !projectInfo.sourceFiles.isEmpty());
 
@@ -850,6 +856,9 @@ void Qt4Project::asyncUpdate()
 {
     if (debug)
         qDebug()<<"async update, timer expired, doing now";
+
+    m_qmakeVfs->invalidateCache();
+
     Q_ASSERT(!m_asyncUpdateFutureInterface);
     m_asyncUpdateFutureInterface = new QFutureInterface<void>();
 
@@ -878,6 +887,12 @@ void Qt4Project::asyncUpdate()
     if (debug)
         qDebug()<<"  Setting state to AsyncUpdateInProgress";
     m_asyncUpdateState = AsyncUpdateInProgress;
+}
+
+void Qt4Project::buildFinished(bool success)
+{
+    if (success)
+        m_qmakeVfs->invalidateContents();
 }
 
 ProjectExplorer::IProjectManager *Qt4Project::projectManager() const
@@ -1005,7 +1020,7 @@ QtSupport::ProFileReader *Qt4Project::createProFileReader(const Qt4ProFileNode *
     }
     ++m_qmakeGlobalsRefCnt;
 
-    QtSupport::ProFileReader *reader = new QtSupport::ProFileReader(m_qmakeGlobals);
+    QtSupport::ProFileReader *reader = new QtSupport::ProFileReader(m_qmakeGlobals, m_qmakeVfs);
 
     reader->setOutputDir(qt4ProFileNode->buildDir());
 
@@ -1197,7 +1212,7 @@ void Qt4Project::unwatchFolders(const QStringList &l, Qt4PriFileNode *node)
 // All the folder have a trailing slash!
 
 namespace {
-   bool debugCFW = false;
+    bool debugCFW = false;
 }
 
 CentralizedFolderWatcher::CentralizedFolderWatcher(QObject *parent) : QObject(parent)

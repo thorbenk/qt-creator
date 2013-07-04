@@ -33,7 +33,8 @@
 /*!
   \class Utils::FileWizardPage
 
-  \brief Standard wizard page for a single file letting the user choose name
+  \brief The FileWizardPage class is a standard wizard page for a single file
+  letting the user choose name
   and path.
 
   The name and path labels can be changed. By default they are simply "Name:"
@@ -90,18 +91,6 @@ void FileWizardPage::setPath(const QString &path)
 void FileWizardPage::setFileName(const QString &name)
 {
     d->m_ui.nameLineEdit->setText(name);
-}
-
-void FileWizardPage::changeEvent(QEvent *e)
-{
-    QWizardPage::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        d->m_ui.retranslateUi(this);
-        break;
-    default:
-        break;
-    }
 }
 
 bool FileWizardPage::isComplete() const

@@ -28,8 +28,8 @@
 ****************************************************************************/
 
 #include "symbolsfindfilter.h"
-
 #include "cppmodelmanager.h"
+#include "cpptoolsconstants.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/progressmanager/futureprogress.h>
@@ -187,9 +187,9 @@ void SymbolsFindFilter::openEditor(const Find::SearchResultItem &item)
     if (!item.userData.canConvert<ModelItemInfo>())
         return;
     ModelItemInfo info = item.userData.value<ModelItemInfo>();
-    TextEditor::BaseTextEditorWidget::openEditorAt(info.fileName,
-                                             info.line,
-                                             info.column);
+    Core::EditorManager::openEditorAt(info.fileName,
+                                      info.line,
+                                      info.column);
 }
 
 QWidget *SymbolsFindFilter::createConfigWidget()

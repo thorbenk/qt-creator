@@ -10,17 +10,26 @@ QtcPlugin {
     Depends { name: "TextEditor" }
     Depends { name: "Find" }
 
-    Depends { name: "cpp" }
 
     files: [
+        "diffeditor.cpp",
+        "diffeditor.h",
+        "diffeditor_global.h",
+        "diffeditorconstants.h",
+        "diffeditorfactory.cpp",
+        "diffeditorfactory.h",
+        "diffeditorfile.cpp",
+        "diffeditorfile.h",
         "diffeditorplugin.cpp",
         "diffeditorplugin.h",
-        "differ.cpp",
-        "differ.h",
         "diffeditorwidget.cpp",
         "diffeditorwidget.h",
-        "diffeditorconstants.h",
-        "diffeditor_global.h",
+        "differ.cpp",
+        "differ.h",
+        "diffshoweditor.cpp",
+        "diffshoweditor.h",
+        "diffshoweditorfactory.cpp",
+        "diffshoweditorfactory.h",
     ]
 }
 

@@ -58,7 +58,8 @@ QDebug operator<<(QDebug d, const TextFileFormat &format)
 /*!
     \class Utils::TextFileFormat
 
-    \brief Describes the format of a text file and provides autodetection.
+    \brief The TextFileFormat class describes the format of a text file and
+    provides autodetection.
 
     The format comprises
     \list
@@ -289,13 +290,11 @@ bool TextFileFormat::writeFile(const QString &fileName, QString plainText, QStri
     }
 
     Utils::FileSaver saver(fileName, fileMode);
-    if (saver.hasError()) {
-        *errorString = saver.errorString();
-        return false;
+    if (!saver.hasError()) {
+        if (hasUtf8Bom && codec->name() == "UTF-8")
+            saver.write("\xef\xbb\xbf", 3);
+        saver.write(codec->fromUnicode(plainText));
     }
-    if (hasUtf8Bom && codec->name() == "UTF-8")
-        saver.write("\xef\xbb\xbf", 3);
-    saver.write(codec->fromUnicode(plainText));
     const bool ok = saver.finalize(errorString);
     if (debug)
         qDebug().nospace() << Q_FUNC_INFO << fileName << ' ' << *this <<  ' ' << plainText.size()

@@ -55,8 +55,8 @@ namespace Internal {
 // SysRootInformationConfigWidget:
 // --------------------------------------------------------------------------
 
-SysRootInformationConfigWidget::SysRootInformationConfigWidget(Kit *k) :
-    KitConfigWidget(k),
+SysRootInformationConfigWidget::SysRootInformationConfigWidget(Kit *k, bool sticky) :
+    KitConfigWidget(k, sticky),
     m_ignoreChange(false)
 {
     m_chooser = new Utils::PathChooser;
@@ -84,7 +84,7 @@ void SysRootInformationConfigWidget::refresh()
 
 void SysRootInformationConfigWidget::makeReadOnly()
 {
-    m_chooser->setEnabled(false);
+    m_chooser->setReadOnly(true);
 }
 
 QWidget *SysRootInformationConfigWidget::mainWidget() const
@@ -108,13 +108,14 @@ void SysRootInformationConfigWidget::pathWasChanged()
 // ToolChainInformationConfigWidget:
 // --------------------------------------------------------------------------
 
-ToolChainInformationConfigWidget::ToolChainInformationConfigWidget(Kit *k) :
-    KitConfigWidget(k), m_isReadOnly(false)
+ToolChainInformationConfigWidget::ToolChainInformationConfigWidget(Kit *k, bool sticky) :
+    KitConfigWidget(k, sticky), m_isReadOnly(false)
 {
     ToolChainManager *tcm = ToolChainManager::instance();
 
     m_comboBox = new QComboBox;
     m_comboBox->setEnabled(false);
+    m_comboBox->setToolTip(toolTip());
 
     foreach (ToolChain *tc, tcm->toolChains())
         toolChainAdded(tc);
@@ -232,8 +233,8 @@ int ToolChainInformationConfigWidget::indexOf(const ToolChain *tc)
 // DeviceTypeInformationConfigWidget:
 // --------------------------------------------------------------------------
 
-DeviceTypeInformationConfigWidget::DeviceTypeInformationConfigWidget(Kit *workingCopy) :
-    KitConfigWidget(workingCopy), m_isReadOnly(false), m_comboBox(new QComboBox)
+DeviceTypeInformationConfigWidget::DeviceTypeInformationConfigWidget(Kit *workingCopy, bool sticky) :
+    KitConfigWidget(workingCopy, sticky), m_isReadOnly(false), m_comboBox(new QComboBox)
 {
     QList<IDeviceFactory *> factories
             = ExtensionSystem::PluginManager::instance()->getObjects<IDeviceFactory>();
@@ -241,6 +242,8 @@ DeviceTypeInformationConfigWidget::DeviceTypeInformationConfigWidget(Kit *workin
         foreach (Core::Id id, factory->availableCreationIds())
             m_comboBox->addItem(factory->displayNameForId(id), id.uniqueIdentifier());
     }
+
+    m_comboBox->setToolTip(toolTip());
 
     refresh();
     connect(m_comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(currentTypeChanged(int)));
@@ -289,8 +292,8 @@ void DeviceTypeInformationConfigWidget::currentTypeChanged(int idx)
 // DeviceInformationConfigWidget:
 // --------------------------------------------------------------------------
 
-DeviceInformationConfigWidget::DeviceInformationConfigWidget(Kit *workingCopy) :
-    KitConfigWidget(workingCopy),
+DeviceInformationConfigWidget::DeviceInformationConfigWidget(Kit *workingCopy, bool sticky) :
+    KitConfigWidget(workingCopy, sticky),
     m_isReadOnly(false),
     m_ignoreChange(false),
     m_comboBox(new QComboBox),
@@ -301,6 +304,8 @@ DeviceInformationConfigWidget::DeviceInformationConfigWidget(Kit *workingCopy) :
     m_manageButton = new QPushButton(tr("Manage"));
 
     refresh();
+    m_comboBox->setToolTip(toolTip());
+
     connect(m_model, SIGNAL(modelAboutToBeReset()), SLOT(modelAboutToReset()));
     connect(m_model, SIGNAL(modelReset()), SLOT(modelReset()));
     connect(m_comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(currentDeviceChanged()));

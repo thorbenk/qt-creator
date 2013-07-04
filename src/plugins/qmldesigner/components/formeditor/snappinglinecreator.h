@@ -48,7 +48,8 @@ public:
     SnappingLineCreator(FormEditorItem *formEditorItem);
 
     void update(const QList<FormEditorItem*> &exceptionList,
-                FormEditorItem *transformationSpaceItem);
+                FormEditorItem *transformationSpaceItem,
+                FormEditorItem *containerFormEditorItem);
 
 
     SnapLineMap topLines() const;
@@ -63,7 +64,9 @@ public:
     SnapLineMap leftOffsets() const;
     SnapLineMap rightOffsets() const;
 
-    void setMargins(double margin);
+    void setContainerPaddingItem(FormEditorItem *transformationSpaceItem);
+    void setContainerPaddingByGloablPadding(double containerPadding);
+    void setContainerPaddingByContentItem(const QRectF &contentRectangle, const QRectF &itemBoundingRectangle);
     void setSpacing(double spacing);
 
 protected:
@@ -92,10 +95,10 @@ private:
     double m_bottomOffset;
     double m_leftOffset;
     double m_rightOffset;
-    double m_topMargin;
-    double m_bottomMargin;
-    double m_leftMargin;
-    double m_rightMargin;
+    double m_topPadding;
+    double m_bottomPadding;
+    double m_leftPadding;
+    double m_rightPadding;
 };
 
 }

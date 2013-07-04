@@ -81,8 +81,6 @@ private:
     void cleanup() const;
     void setBusy(bool busy);
 
-    QString getCsjAuthor(const QString &fileName) const;
-
     Ui_BlackBerryRegisterKeyDialog *m_ui;
 
     BlackBerryCsjRegistrar *m_registrar;

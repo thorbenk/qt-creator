@@ -1,3 +1,32 @@
+#############################################################################
+##
+## Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+## Contact: http://www.qt-project.org/legal
+##
+## This file is part of Qt Creator.
+##
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and Digia.  For licensing terms and
+## conditions see http://qt.digia.com/licensing.  For further information
+## use the contact form at http://qt.digia.com/contact-us.
+##
+## GNU Lesser General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU Lesser
+## General Public License version 2.1 as published by the Free Software
+## Foundation and appearing in the file LICENSE.LGPL included in the
+## packaging of this file.  Please review the following information to
+## ensure the GNU Lesser General Public License version 2.1 requirements
+## will be met: http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+##
+## In addition, as a special exception, Digia gives you certain additional
+## rights.  These rights are described in the Digia Qt LGPL Exception
+## version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+##
+#############################################################################
+
 import re;
 
 # this function switches the MainWindow of creator to the specified view
@@ -155,7 +184,7 @@ def getQtInformationForQmlProject():
     invokeMenuItem("Tools", "Options...")
     waitForObjectItem(":Options_QListView", "Build & Run")
     clickItem(":Options_QListView", "Build & Run", 14, 15, 0, Qt.LeftButton)
-    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Kits")
+    clickOnTab(":Options.qt_tabwidget_tabbar_QTabBar", "Kits")
     targetsTreeView = waitForObject(":Kits_Or_Compilers_QTreeView")
     if not __selectTreeItemOnBuildAndRun__(targetsTreeView, "%s(\s\(default\))?" % kit, True):
         test.fatal("Found no matching kit - this shouldn't happen.")
@@ -163,7 +192,7 @@ def getQtInformationForQmlProject():
         return None, None, None, None
     qtVersionStr = str(waitForObject(":Kits_QtVersion_QComboBox").currentText)
     test.log("Kit '%s' uses Qt Version '%s'" % (kit, qtVersionStr))
-    clickTab(waitForObject(":Options.qt_tabwidget_tabbar_QTabBar"), "Qt Versions")
+    clickOnTab(":Options.qt_tabwidget_tabbar_QTabBar", "Qt Versions")
     treeWidget = waitForObject(":QtSupport__Internal__QtVersionManager.qtdirList_QTreeWidget")
     if not __selectTreeItemOnBuildAndRun__(treeWidget, qtVersionStr):
         test.fatal("Found no matching Qt Version for kit - this shouldn't happen.")

@@ -191,6 +191,16 @@ private slots:
     void test_checksymbols_AnonymousClass();
     void test_checksymbols_AnonymousClass_insideNamespace();
     void test_checksymbols_AnonymousClass_QTCREATORBUG8963();
+    void test_checksymbols_highlightingTypeWhenUsingNamespaceClass_QTCREATORBUG7903_globalNamespace();
+    void test_checksymbols_highlightingTypeWhenUsingNamespaceClass_QTCREATORBUG7903_namespace();
+    void test_checksymbols_highlightingTypeWhenUsingNamespaceClass_QTCREATORBUG7903_insideFunction();
+    void test_checksymbols_crashWhenUsingNamespaceClass_QTCREATORBUG9323_globalNamespace();
+    void test_checksymbols_highlightingUsedTemplateFunctionParameter_QTCREATORBUG6861();
+    void test_checksymbols_crashWhenUsingNamespaceClass_QTCREATORBUG9323_namespace();
+    void test_checksymbols_crashWhenUsingNamespaceClass_QTCREATORBUG9323_insideFunction();
+    void test_alias_decl_QTCREATORBUG9386();
+    void test_completion_enum_inside_block_inside_function_QTCREATORBUG5456();
+    void test_completion_enum_inside_function_QTCREATORBUG5456();
 };
 
 void tst_CheckSymbols::test_checksymbols_TypeUse()
@@ -1563,6 +1573,250 @@ void tst_CheckSymbols::test_checksymbols_AnonymousClass_QTCREATORBUG8963()
             << Use(12, 7, 8, CppHighlightingSupport::FieldUse)
             << Use(13, 5, 5, CppHighlightingSupport::EnumerationUse)
                ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_checksymbols_highlightingTypeWhenUsingNamespaceClass_QTCREATORBUG7903_globalNamespace()
+{
+    const QByteArray source =
+            "namespace NS {\n"
+            "class Foo {};\n"
+            "}\n"
+            "using NS::Foo;\n"
+            "void fun()\n"
+            "{\n"
+            "    Foo foo;\n"
+            "}\n"
+            ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 11, 2, CppHighlightingSupport::TypeUse)
+            << Use(2, 7, 3, CppHighlightingSupport::TypeUse)
+            << Use(4, 7, 2, CppHighlightingSupport::TypeUse)
+            << Use(4, 11, 3, CppHighlightingSupport::TypeUse)
+            << Use(5, 6, 3, CppHighlightingSupport::FunctionUse)
+            << Use(7, 5, 3, CppHighlightingSupport::TypeUse)
+            << Use(7, 9, 3, CppHighlightingSupport::LocalUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_checksymbols_highlightingTypeWhenUsingNamespaceClass_QTCREATORBUG7903_namespace()
+{
+    const QByteArray source =
+            "namespace NS {\n"
+            "class Foo {};\n"
+            "}\n"
+            "namespace NS1 {\n"
+            "using NS::Foo;\n"
+            "void fun()\n"
+            "{\n"
+            "    Foo foo;\n"
+            "}\n"
+            "}\n"
+            ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 11, 2, CppHighlightingSupport::TypeUse)
+            << Use(2, 7, 3, CppHighlightingSupport::TypeUse)
+            << Use(4, 11, 3, CppHighlightingSupport::TypeUse)
+            << Use(5, 7, 2, CppHighlightingSupport::TypeUse)
+            << Use(5, 11, 3, CppHighlightingSupport::TypeUse)
+            << Use(6, 6, 3, CppHighlightingSupport::FunctionUse)
+            << Use(8, 5, 3, CppHighlightingSupport::TypeUse)
+            << Use(8, 9, 3, CppHighlightingSupport::LocalUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_checksymbols_highlightingTypeWhenUsingNamespaceClass_QTCREATORBUG7903_insideFunction()
+{
+    const QByteArray source =
+            "namespace NS {\n"
+            "class Foo {};\n"
+            "}\n"
+            "void fun()\n"
+            "{\n"
+            "    using NS::Foo;\n"
+            "    Foo foo;\n"
+            "}\n"
+            ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 11, 2, CppHighlightingSupport::TypeUse)
+            << Use(2, 7, 3, CppHighlightingSupport::TypeUse)
+            << Use(4, 6, 3, CppHighlightingSupport::FunctionUse)
+            << Use(6, 11, 2, CppHighlightingSupport::TypeUse)
+            << Use(6, 15, 3, CppHighlightingSupport::TypeUse)
+            << Use(7, 5, 3, CppHighlightingSupport::TypeUse)
+            << Use(7, 9, 3, CppHighlightingSupport::LocalUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_checksymbols_crashWhenUsingNamespaceClass_QTCREATORBUG9323_globalNamespace()
+{
+    const QByteArray source =
+            "namespace NS {\n"
+            "class Foo {};\n"
+            "}\n"
+            "using ::;\n"
+            "void fun()\n"
+            "{\n"
+            "    Foo foo;\n"
+            "}\n"
+            ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 11, 2, CppHighlightingSupport::TypeUse)
+            << Use(2, 7, 3, CppHighlightingSupport::TypeUse)
+            << Use(5, 6, 3, CppHighlightingSupport::FunctionUse)
+            << Use(7, 9, 3, CppHighlightingSupport::LocalUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_checksymbols_crashWhenUsingNamespaceClass_QTCREATORBUG9323_namespace()
+{
+    const QByteArray source =
+            "namespace NS {\n"
+            "class Foo {};\n"
+            "}\n"
+            "namespace NS1 {\n"
+            "using ::;\n"
+            "void fun()\n"
+            "{\n"
+            "    Foo foo;\n"
+            "}\n"
+            "}\n"
+            ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 11, 2, CppHighlightingSupport::TypeUse)
+            << Use(2, 7, 3, CppHighlightingSupport::TypeUse)
+            << Use(4, 11, 3, CppHighlightingSupport::TypeUse)
+            << Use(6, 6, 3, CppHighlightingSupport::FunctionUse)
+            << Use(8, 9, 3, CppHighlightingSupport::LocalUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_checksymbols_crashWhenUsingNamespaceClass_QTCREATORBUG9323_insideFunction()
+{
+    const QByteArray source =
+            "namespace NS {\n"
+            "class Foo {};\n"
+            "}\n"
+            "void fun()\n"
+            "{\n"
+            "    using ::;\n"
+            "    Foo foo;\n"
+            "}\n"
+            ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 11, 2, CppHighlightingSupport::TypeUse)
+            << Use(2, 7, 3, CppHighlightingSupport::TypeUse)
+            << Use(4, 6, 3, CppHighlightingSupport::FunctionUse)
+            << Use(7, 9, 3, CppHighlightingSupport::LocalUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_alias_decl_QTCREATORBUG9386()
+{
+    const QByteArray source =
+            "using wobble = int;\n"
+            "wobble cobble = 1;\n"
+            ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 7, 6, CppHighlightingSupport::TypeUse)
+            << Use(2, 1, 6, CppHighlightingSupport::TypeUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_checksymbols_highlightingUsedTemplateFunctionParameter_QTCREATORBUG6861()
+{
+    const QByteArray source =
+            "template<class TEMP>\n"
+            "TEMP \n"
+            "foo(TEMP in)\n"
+            "{\n"
+            "    typename TEMP::type type;\n"
+            "}\n"
+           ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 16, 4, CppHighlightingSupport::TypeUse)
+            << Use(2, 1, 4, CppHighlightingSupport::TypeUse)
+            << Use(3, 1, 3, CppHighlightingSupport::FunctionUse)
+            << Use(3, 5, 4, CppHighlightingSupport::TypeUse)
+            << Use(3, 10, 2, CppHighlightingSupport::LocalUse)
+            << Use(5, 14, 4, CppHighlightingSupport::TypeUse)
+            << Use(5, 20, 4, CppHighlightingSupport::TypeUse)
+            << Use(5, 25, 4, CppHighlightingSupport::LocalUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+
+void tst_CheckSymbols::test_completion_enum_inside_block_inside_function_QTCREATORBUG5456()
+{
+    const QByteArray source =
+            "void foo()\n"
+            "{\n"
+            "   {\n"
+            "       enum E { e1, e2, e3 };\n"
+            "       E e = e1;\n"
+            "   }\n"
+            "}\n"
+           ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 6, 3, CppHighlightingSupport::FunctionUse)
+            << Use(4, 13, 1, CppHighlightingSupport::TypeUse)
+            << Use(4, 17, 2, CppHighlightingSupport::EnumerationUse)
+            << Use(4, 21, 2, CppHighlightingSupport::EnumerationUse)
+            << Use(4, 25, 2, CppHighlightingSupport::EnumerationUse)
+            << Use(5, 8, 1, CppHighlightingSupport::TypeUse)
+            << Use(5, 10, 1, CppHighlightingSupport::LocalUse)
+            << Use(5, 14, 2, CppHighlightingSupport::EnumerationUse)
+            ;
+
+    TestData::check(source, expectedUses);
+}
+
+void tst_CheckSymbols::test_completion_enum_inside_function_QTCREATORBUG5456()
+{
+    const QByteArray source =
+            "void foo()\n"
+            "{\n"
+            "   enum E { e1, e2, e3 };\n"
+            "   E e = e1;\n"
+            "}\n"
+            ;
+
+    const QList<Use> expectedUses = QList<Use>()
+            << Use(1, 6, 3, CppHighlightingSupport::FunctionUse)
+            << Use(3, 9, 1, CppHighlightingSupport::TypeUse)
+            << Use(3, 13, 2, CppHighlightingSupport::EnumerationUse)
+            << Use(3, 17, 2, CppHighlightingSupport::EnumerationUse)
+            << Use(3, 21, 2, CppHighlightingSupport::EnumerationUse)
+            << Use(4, 4, 1, CppHighlightingSupport::TypeUse)
+            << Use(4, 6, 1, CppHighlightingSupport::LocalUse)
+            << Use(4, 10, 2, CppHighlightingSupport::EnumerationUse)
+            ;
 
     TestData::check(source, expectedUses);
 }

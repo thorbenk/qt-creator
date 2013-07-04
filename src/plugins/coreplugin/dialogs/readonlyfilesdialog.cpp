@@ -94,7 +94,7 @@ ReadOnlyFilesDialogPrivate::ReadOnlyFilesDialogPrivate(IDocument *document, bool
     , document(document)
     , mixedText(ReadOnlyFilesDialog::tr("Mixed"))
     , makeWritableText(ReadOnlyFilesDialog::tr("Make Writable"))
-    , versionControlOpenText(ReadOnlyFilesDialog::tr("Open With VCS"))
+    , versionControlOpenText(ReadOnlyFilesDialog::tr("Open with VCS"))
     , saveAsText(ReadOnlyFilesDialog::tr("Save As"))
 {}
 
@@ -106,7 +106,8 @@ ReadOnlyFilesDialogPrivate::~ReadOnlyFilesDialogPrivate()
 
 /*!
  * \class ReadOnlyFilesDialog
- * \brief Dialog to show a set of files which are classified as not writable.
+ * \brief The ReadOnlyFilesDialog class implements a dialog to show a set of
+ * files that are classified as not writable.
  *
  * Automatically checks which operations are allowed to make the file writable. These operations
  * are Make Writable which tries to set the file permissions in the file system,
@@ -193,7 +194,7 @@ void ReadOnlyFilesDialog::promptFailWarning(const QStringList &files, ReadOnlyRe
         case RO_OpenVCS: {
             if (IVersionControl *vc = d->versionControls[file]) {
                 const QString openText = vc->vcsOpenText().remove(QLatin1Char('&'));
-                title = tr("Failed To: %1 File").arg(openText);
+                title = tr("Failed to %1 File").arg(openText);
                 message = tr("%1 file %2 from version control system %3 failed.\n")
                         .arg(openText)
                         .arg(QDir::toNativeSeparators(file))
@@ -225,7 +226,7 @@ void ReadOnlyFilesDialog::promptFailWarning(const QStringList &files, ReadOnlyRe
             break;
         }
     } else {
-        title = tr("Could Not Change Permissions On Some Files");
+        title = tr("Could Not Change Permissions on Some Files");
         message = d->failWarning;
         message += tr("\nSee details for a complete list of files.");
         details = files.join(QLatin1String("\n"));
@@ -248,7 +249,7 @@ int ReadOnlyFilesDialog::exec()
     if (QDialog::exec() != QDialog::Accepted)
         return RO_Cancel;
 
-    ReadOnlyResult result;
+    ReadOnlyResult result = RO_Cancel;
     QStringList failedToMakeWritable;
     foreach (ReadOnlyFilesDialogPrivate::ButtonGroupForFile buttengroup, d->buttonGroups) {
         result = static_cast<ReadOnlyResult>(buttengroup.group->checkedId());
@@ -313,7 +314,7 @@ void ReadOnlyFilesDialog::setAll(int index)
         return;
 
     // Get the selected type from the select all combo box.
-    ReadOnlyFilesTreeColumn type;
+    ReadOnlyFilesTreeColumn type = NumberOfColumns;
     if (index == d->setAllIndexForOperation[MakeWritable])
         type = MakeWritable;
     else if (index == d->setAllIndexForOperation[OpenWithVCS])
@@ -434,8 +435,8 @@ void ReadOnlyFilesDialog::initDialog(const QStringList &fileNames)
         ui->setAllLabel->setVisible(false);
         ui->verticalLayout->removeItem(ui->setAllLayout);
         if (d->useVCS)
-            ui->msgLabel->setText(tr("The following files are not checked out by now.\n"
-                                     "Do you want to check out these files now?"));
+            ui->msgLabel->setText(tr("The following files are not checked out yet.\n"
+                                     "Do you want to check them out now?"));
         return;
     }
 

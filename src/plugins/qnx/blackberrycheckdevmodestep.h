@@ -48,17 +48,12 @@ public:
     bool init();
     ProjectExplorer::BuildStepConfigWidget *createConfigWidget();
 
-    void stdOutput(const QString &line);
-    void stdError(const QString &line);
-
 protected:
     BlackBerryCheckDevModeStep(ProjectExplorer::BuildStepList *bsl, BlackBerryCheckDevModeStep *bs);
 
     void processStarted(const ProjectExplorer::ProcessParameters &params);
 
 private:
-    void handleErrorOutput(const QString &line);
-
     QString password() const;
 };
 

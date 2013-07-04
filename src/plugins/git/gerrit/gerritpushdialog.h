@@ -31,6 +31,7 @@
 #define GERRITPUSHDIALOG_H
 
 #include <QDialog>
+#include <QMultiMap>
 
 namespace Gerrit {
 namespace Internal {
@@ -44,29 +45,37 @@ class GerritPushDialog : public QDialog
     Q_OBJECT
 
 public:
-    GerritPushDialog(const QString &workingDir, QWidget *parent = 0);
+    GerritPushDialog(const QString &workingDir, const QString &reviewerList, QWidget *parent);
     ~GerritPushDialog();
 
+    QString selectedCommit() const;
     QString selectedRemoteName() const;
     QString selectedRemoteBranchName() const;
     QString selectedPushType() const;
+    QString selectedTopic() const;
+    QString reviewers() const;
     bool localChangesFound() const;
+    bool valid() const;
 
 private slots:
     void setChangeRange();
     void setRemoteBranches();
 
 private:
+    typedef QMultiMap<QString, QString> RemoteBranchesMap;
+
     QString calculateChangeRange();
     QString m_workingDir;
     QString m_suggestedRemoteName;
     QString m_suggestedRemoteBranch;
     Ui::GerritPushDialog *m_ui;
-    QMap<QString,QString> *m_remoteBranches;
+    RemoteBranchesMap m_remoteBranches;
     bool m_localChangesFound;
+    bool m_valid;
 };
 
 
 } // namespace Internal
 } // namespace Gerrit
+
 #endif // GERRITPUSHDIALOG_H

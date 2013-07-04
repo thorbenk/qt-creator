@@ -50,8 +50,10 @@ public:
 
     bool hasNodeParent() const;
     bool hasInstanceParent() const;
+    bool hasInstanceParentItem() const;
     void setParentProperty(const NodeAbstractProperty &parentProeprty);
     QmlObjectNode instanceParent() const;
+    QmlItemNode instanceParentItem() const;
 
     void setId(const QString &id);
     QString id() const;
@@ -72,6 +74,8 @@ public:
     bool instanceHasBinding(const PropertyName &name) const;
     bool propertyAffectedByCurrentState(const PropertyName &name) const;
     QVariant modelValue(const PropertyName &name) const;
+    bool isTranslatableText(const PropertyName &name) const;
+    QString stripedTranslatableText(const PropertyName &name) const;
     QString expression(const PropertyName &name) const;
     bool isInBaseState() const;
     QmlPropertyChanges propertyChangeForCurrentState() const;
@@ -98,9 +102,12 @@ public:
 
     static  QVariant instanceValue(const ModelNode &modelNode, const PropertyName &name);
 
+    static QString generateTranslatableText(const QString& text);
+
 protected:
     NodeInstance nodeInstance() const;
     QmlObjectNode nodeForInstance(const NodeInstance &instance) const;
+    QmlItemNode itemForInstance(const NodeInstance &instance) const;
 
 protected:
     QList<QmlModelState> allDefinedStates() const;

@@ -52,6 +52,24 @@ QObject *QuickWindowNodeInstance::parent() const
     return 0;
 }
 
+QImage QuickWindowNodeInstance::renderImage() const
+{
+    /*
+     Since the content item transucient
+     we just fill an image with the window color
+     */
+
+    QRectF renderBoundingRect = boundingRect();
+
+    QImage renderImage(renderBoundingRect.size().toSize(), QImage::Format_ARGB32_Premultiplied);
+
+    QPalette palette;
+
+    renderImage.fill(palette.color(QPalette::Window).rgba());
+
+    return renderImage;
+}
+
 QuickWindowNodeInstance::Pointer QuickWindowNodeInstance::create(QObject *object)
 {
     QQuickWindow *quickWindow = qobject_cast<QQuickWindow*>(object);
@@ -70,7 +88,6 @@ QuickWindowNodeInstance::Pointer QuickWindowNodeInstance::create(QObject *object
     QQuickItemPrivate *privateItem = static_cast<QQuickItemPrivate*>(QObjectPrivate::get(quickWindow->contentItem()));
 
     if (privateItem->window) {
-        qDebug() << "removing from window";
         if (!privateItem->parentItem)
             QQuickWindowPrivate::get(privateItem->window)->parentlessItems.remove(quickWindow->contentItem());
         privateItem->derefWindow();

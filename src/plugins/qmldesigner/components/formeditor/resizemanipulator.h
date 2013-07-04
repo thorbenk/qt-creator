@@ -44,12 +44,6 @@ class Model;
 class ResizeManipulator
 {
 public:
-    enum Snapping {
-        UseSnapping,
-        UseSnappingAndAnchoring,
-        NoSnapping
-    };
-
     ResizeManipulator(LayerItem *layerItem, FormEditorView *view);
     ~ResizeManipulator();
 
@@ -57,8 +51,8 @@ public:
     void removeHandle();
 
     void begin(const QPointF& beginPoint);
-    void update(const QPointF& updatePoint, Snapping useSnapping);
-    void end();
+    void update(const QPointF& updatePoint, Snapper::Snapping useSnapping);
+    void end(Snapper::Snapping useSnapping);
 
     void moveBy(double deltaX, double deltaY);
 
@@ -78,8 +72,9 @@ private:
     QWeakPointer<FormEditorView> m_view;
     QList<QGraphicsItem*> m_graphicsLineList;
     ResizeController m_resizeController; // hold the controller so that the handle cant be deleted
-    QTransform m_beginFromSceneTransform;
-    QTransform m_beginToSceneTransform;
+    QTransform m_beginFromSceneToContentItemTransform;
+    QTransform m_beginFromContentItemToSceneTransform;
+    QTransform m_beginFromItemToSceneTransform;
     QTransform m_beginToParentTransform;
     QRectF m_beginBoundingRect;
     QPointF m_beginBottomRightPoint;

@@ -33,6 +33,7 @@
 #include "Macro.h"
 
 #include <cplusplus/CPlusPlusForwardDeclarations.h>
+#include <cplusplus/PreprocessorClient.h>
 
 #include <QSharedPointer>
 #include <QDateTime>
@@ -75,9 +76,6 @@ public:
 
     QString fileName() const;
 
-    QStringList includedFiles() const;
-    void addIncludeFile(const QString &fileName, unsigned line);
-
     void appendMacro(const Macro &macro);
     void addMacroUse(const Macro &macro, unsigned offset, unsigned length,
                      unsigned beginLine,
@@ -99,6 +97,7 @@ public:
     QList<Macro> definedMacros() const
     { return _definedMacros; }
 
+    QString functionAt(int line, int column) const;
     Symbol *lastVisibleSymbolAt(unsigned line, unsigned column = 0) const;
     Scope *scopeAt(unsigned line, unsigned column = 0);
 
@@ -232,22 +231,31 @@ public:
     };
 
     class Include {
-        QString _fileName;
+        QString _resolvedFileName;
+        QString _unresolvedFileName;
         unsigned _line;
+        Client::IncludeType _type;
 
     public:
-        Include(const QString &fileName, unsigned line)
-            : _fileName(fileName), _line(line)
+        Include(const QString &unresolvedFileName, const QString &resolvedFileName, unsigned line,
+                Client::IncludeType type)
+            : _resolvedFileName(resolvedFileName)
+            , _unresolvedFileName(unresolvedFileName)
+            , _line(line)
+            , _type(type)
         { }
 
-        QString fileName() const
-        { return _fileName; }
+        QString resolvedFileName() const
+        { return _resolvedFileName; }
+
+        QString unresolvedFileName() const
+        { return _unresolvedFileName; }
 
         unsigned line() const
         { return _line; }
 
-        bool resolved() const
-        { return QFileInfo(_fileName).isAbsolute(); }
+        Client::IncludeType type() const
+        { return _type; }
     };
 
     class MacroUse: public Block {
@@ -300,6 +308,9 @@ public:
             return _name;
         }
     };
+
+    QStringList includedFiles() const;
+    void addIncludeFile(const Include &include);
 
     QList<Include> includes() const
     { return _includes; }

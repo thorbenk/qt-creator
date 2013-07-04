@@ -5,10 +5,9 @@ QtcTool {
     name: "qtcreator_process_stub"
     consoleApplication: true
 
-    Depends { name: "cpp" }
 
     files: {
-        if (qbs.targetOS == "windows") {
+        if (qbs.targetOS.contains("windows")) {
             return [ "process_stub_win.c" ]
         } else {
             return [ "process_stub_unix.c" ]
@@ -16,7 +15,7 @@ QtcTool {
     }
 
     cpp.dynamicLibraries: {
-        if (qbs.targetOS == "windows") {
+        if (qbs.targetOS.contains("windows")) {
             return [ "shell32" ]
         }
     }

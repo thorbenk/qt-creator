@@ -32,6 +32,7 @@
 
 #include "nodeinstanceserver.h"
 #include "nodeinstancemetaobject.h"
+#include "nodeinstancesignalspy.h"
 
 #include <QPainter>
 #include <QSharedPointer>
@@ -43,6 +44,7 @@ class QQmlContext;
 class QQmlEngine;
 class QQmlProperty;
 class QQmlAbstractBinding;
+class QQuickItem;
 QT_END_NAMESPACE
 
 namespace QmlDesigner {
@@ -103,11 +105,14 @@ public:
     virtual bool equalGraphicsItem(QGraphicsItem *item) const;
 
     virtual QRectF boundingRect() const;
+    virtual QRectF contentItemBoundingBox() const;
 
     virtual QPointF position() const;
     virtual QSizeF size() const;
     virtual QTransform transform() const;
+    virtual QTransform contentTransform() const;
     virtual QTransform customTransform() const;
+    virtual QTransform contentItemTransform() const;
     virtual QTransform sceneTransform() const;
     virtual double opacity() const;
 
@@ -151,6 +156,7 @@ public:
     void setResetValue(const PropertyName &propertyName, const QVariant &value);
 
     QObject *object() const;
+    virtual QQuickItem *contentItem() const;
 
     virtual bool hasContent() const;
     virtual bool isResizable() const;
@@ -180,7 +186,7 @@ public:
 
     static QVariant fixResourcePaths(const QVariant &value);
 
-    virtual void updateDirtyNodeRecursive();
+    virtual void updateAllDirtyNodesRecursive();
 
 protected:
     explicit ObjectNodeInstance(QObject *object);
@@ -189,6 +195,8 @@ protected:
     void addToNewProperty(QObject *object, QObject *newParent, const PropertyName &newParentProperty);
     void deleteObjectsInList(const QQmlProperty &metaProperty);
     QVariant convertSpecialCharacter(const QVariant& value) const;
+    static QObject *parentObject(QObject *object);
+    static void doComponentCompleteRecursive(QObject *object, NodeInstanceServer *nodeInstanceServer);
 
 private:
     QHash<PropertyName, QVariant> m_resetValueHash;
@@ -202,6 +210,7 @@ private:
 
     QPointer<QObject> m_object;
     NodeInstanceMetaObject *m_metaObject;
+    NodeInstanceSignalSpy m_signalSpy;
     qint32 m_instanceId;
     bool m_deleteHeldInstance;
     bool m_isInLayoutable;

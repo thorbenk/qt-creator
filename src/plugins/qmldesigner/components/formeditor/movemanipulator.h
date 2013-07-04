@@ -32,12 +32,10 @@
 
 #include <QWeakPointer>
 #include <QGraphicsItem>
-#include <QGraphicsLineItem>
 #include <QHash>
 #include <QPointF>
 #include <QRectF>
 
-#include "controlelement.h"
 #include "formeditoritem.h"
 #include "rewritertransaction.h"
 #include "snapper.h"
@@ -51,12 +49,6 @@ class Model;
 class MoveManipulator
 {
 public:
-    enum Snapping {
-        UseSnapping,
-        UseSnappingAndAnchoring,
-        NoSnapping
-    };
-
     enum State {
         UseActualState,
         UseBaseState
@@ -70,9 +62,10 @@ public:
     void synchronizeParent(const QList<FormEditorItem*> &itemList, const ModelNode &parentNode);
 
     void begin(const QPointF& beginPoint);
-    void update(const QPointF& updatePoint, Snapping useSnapping, State stateToBeManipulated = UseActualState);
+    void update(const QPointF& updatePoint, Snapper::Snapping useSnapping, State stateToBeManipulated = UseActualState);
     void reparentTo(FormEditorItem *newParent);
-    void end(const QPointF& endPoint);
+    void end();
+    void end(Snapper::Snapping useSnapping);
 
     void moveBy(double deltaX, double deltaY);
 
@@ -92,24 +85,26 @@ protected:
 
     void deleteSnapLines();
 
-    QHash<FormEditorItem*, QRectF> tanslatedBoundingRects(const QHash<FormEditorItem*, QRectF> &boundingRectHash, const QPointF& offset);
+    QHash<FormEditorItem*, QRectF> tanslatedBoundingRects(const QHash<FormEditorItem*, QRectF> &boundingRectHash,
+                                                          const QPointF& offset,
+                                                          const QTransform &transform);
     QPointF calculateBoundingRectMovementOffset(const QPointF& updatePoint);
     QRectF boundingRect(FormEditorItem* item, const QPointF& updatePoint);
 
     void generateSnappingLines(const QHash<FormEditorItem*, QRectF> &boundingRectHash);
-    void updateHashes();
 
     bool itemsCanReparented() const;
 
     void setPosition(QmlItemNode itemNode, const QPointF &position);
+
+    void adjustAnchoringOfItem(FormEditorItem *item);
 
 private:
     Snapper m_snapper;
     QWeakPointer<LayerItem> m_layerItem;
     QWeakPointer<FormEditorView> m_view;
     QList<FormEditorItem*> m_itemList;
-    QHash<FormEditorItem*, QRectF> m_beginItemRectHash;
-    QHash<FormEditorItem*, QPointF> m_beginPositionHash;
+    QHash<FormEditorItem*, QRectF> m_beginItemRectInSceneSpaceHash;
     QHash<FormEditorItem*, QPointF> m_beginPositionInSceneSpaceHash;
     QPointF m_beginPoint;
     QHash<FormEditorItem*, double> m_beginTopMarginHash;

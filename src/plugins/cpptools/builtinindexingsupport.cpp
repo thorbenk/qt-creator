@@ -1,6 +1,7 @@
 #include "builtinindexingsupport.h"
 
 #include "cppmodelmanager.h"
+#include "cpppreprocessor.h"
 #include "searchsymbols.h"
 #include "cpptoolsconstants.h"
 #include "cppprojectfile.h"
@@ -162,7 +163,8 @@ BuiltinIndexingSupport::BuiltinIndexingSupport()
 BuiltinIndexingSupport::~BuiltinIndexingSupport()
 {}
 
-QFuture<void> BuiltinIndexingSupport::refreshSourceFiles(const QStringList &sourceFiles)
+QFuture<void> BuiltinIndexingSupport::refreshSourceFiles(const QStringList &sourceFiles,
+    CppModelManagerInterface::ProgressNotificationMode mode)
 {
     CppModelManager *mgr = CppModelManager::instance();
     const WorkingCopy workingCopy = mgr->workingCopy();
@@ -188,7 +190,7 @@ QFuture<void> BuiltinIndexingSupport::refreshSourceFiles(const QStringList &sour
 
     m_synchronizer.addFuture(result);
 
-    if (sourceFiles.count() > 1) {
+    if (mode == CppModelManagerInterface::ForcedProgressNotification || sourceFiles.count() > 1) {
         Core::ICore::progressManager()->addTask(result,
                                                 QCoreApplication::translate("CppTools::Internal::BuiltinIndexingSupport", "Parsing"),
                                                 QLatin1String(CppTools::Constants::TASK_INDEX));

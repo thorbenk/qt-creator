@@ -44,14 +44,14 @@
 
 #include <QFileInfo>
 
+// --------------------------------------------------------------------
+// Constants:
+// --------------------------------------------------------------------
+
 static const char QBS_INSTALL_ROOT[] = "Qbs.InstallRoot";
 static const char QBS_REMOVE_FIRST[] = "Qbs.RemoveFirst";
 static const char QBS_DRY_RUN[] = "Qbs.DryRun";
 static const char QBS_KEEP_GOING[] = "Qbs.DryKeepGoing";
-
-// --------------------------------------------------------------------
-// Constants:
-// --------------------------------------------------------------------
 
 namespace QbsProjectManager {
 namespace Internal {
@@ -126,34 +126,34 @@ void QbsInstallStep::cancel()
 
 QString QbsInstallStep::installRoot() const
 {
-    if (!m_qbsInstallOptions.installRoot.isEmpty())
-        return m_qbsInstallOptions.installRoot;
+    if (!m_qbsInstallOptions.installRoot().isEmpty())
+        return m_qbsInstallOptions.installRoot();
 
     return qbs::InstallOptions::defaultInstallRoot();
 }
 
 QString QbsInstallStep::absoluteInstallRoot() const
 {
-    const qbs::ProjectData *data = static_cast<QbsProject *>(project())->qbsProjectData();
+    const qbs::ProjectData data = static_cast<QbsProject *>(project())->qbsProjectData();
     QString path = installRoot();
-    if (data)
-        path = QDir(data->buildDirectory()).absoluteFilePath(path);
+    if (data.isValid() && !data.buildDirectory().isEmpty() && !path.isEmpty())
+        path = QDir(data.buildDirectory()).absoluteFilePath(path);
     return path;
 }
 
 bool QbsInstallStep::removeFirst() const
 {
-    return m_qbsInstallOptions.removeFirst;
+    return m_qbsInstallOptions.removeExistingInstallation();
 }
 
 bool QbsInstallStep::dryRun() const
 {
-    return m_qbsInstallOptions.dryRun;
+    return m_qbsInstallOptions.dryRun();
 }
 
 bool QbsInstallStep::keepGoing() const
 {
-    return m_qbsInstallOptions.keepGoing;
+    return m_qbsInstallOptions.keepGoing();
 }
 
 bool QbsInstallStep::fromMap(const QVariantMap &map)
@@ -162,9 +162,9 @@ bool QbsInstallStep::fromMap(const QVariantMap &map)
         return false;
 
     setInstallRoot(map.value(QLatin1String(QBS_INSTALL_ROOT)).toString());
-    m_qbsInstallOptions.removeFirst = map.value(QLatin1String(QBS_REMOVE_FIRST), false).toBool();
-    m_qbsInstallOptions.dryRun = map.value(QLatin1String(QBS_DRY_RUN), false).toBool();
-    m_qbsInstallOptions.keepGoing = map.value(QLatin1String(QBS_KEEP_GOING), false).toBool();
+    m_qbsInstallOptions.setRemoveExistingInstallation(map.value(QLatin1String(QBS_REMOVE_FIRST), false).toBool());
+    m_qbsInstallOptions.setDryRun(map.value(QLatin1String(QBS_DRY_RUN), false).toBool());
+    m_qbsInstallOptions.setKeepGoing(map.value(QLatin1String(QBS_KEEP_GOING), false).toBool());
 
     return true;
 }
@@ -172,20 +172,25 @@ bool QbsInstallStep::fromMap(const QVariantMap &map)
 QVariantMap QbsInstallStep::toMap() const
 {
     QVariantMap map = ProjectExplorer::BuildStep::toMap();
-    map.insert(QLatin1String(QBS_INSTALL_ROOT), m_qbsInstallOptions.installRoot);
-    map.insert(QLatin1String(QBS_REMOVE_FIRST), m_qbsInstallOptions.removeFirst);
-    map.insert(QLatin1String(QBS_DRY_RUN), m_qbsInstallOptions.dryRun);
-    map.insert(QLatin1String(QBS_KEEP_GOING), m_qbsInstallOptions.keepGoing);
+    map.insert(QLatin1String(QBS_INSTALL_ROOT), m_qbsInstallOptions.installRoot());
+    map.insert(QLatin1String(QBS_REMOVE_FIRST), m_qbsInstallOptions.removeExistingInstallation());
+    map.insert(QLatin1String(QBS_DRY_RUN), m_qbsInstallOptions.dryRun());
+    map.insert(QLatin1String(QBS_KEEP_GOING), m_qbsInstallOptions.keepGoing());
 
     return map;
+}
+
+qbs::InstallOptions QbsInstallStep::installOptions() const
+{
+    return m_qbsInstallOptions;
 }
 
 void QbsInstallStep::installDone(bool success)
 {
     // Report errors:
-    foreach (const qbs::ErrorData &data, m_job->error().entries()) {
-        createTaskAndOutput(ProjectExplorer::Task::Error, data.description(),
-                            data.codeLocation().fileName, data.codeLocation().line);
+    foreach (const qbs::ErrorItem &item, m_job->error().items()) {
+        createTaskAndOutput(ProjectExplorer::Task::Error, item.description(),
+                            item.codeLocation().fileName(), item.codeLocation().line());
     }
 
     QTC_ASSERT(m_fi, return);
@@ -222,33 +227,33 @@ void QbsInstallStep::createTaskAndOutput(ProjectExplorer::Task::TaskType type,
 
 void QbsInstallStep::setInstallRoot(const QString &ir)
 {
-    if (m_qbsInstallOptions.installRoot == ir)
+    if (m_qbsInstallOptions.installRoot() == ir)
         return;
-    m_qbsInstallOptions.installRoot = ir;
+    m_qbsInstallOptions.installRoot() = ir;
     emit changed();
 }
 
 void QbsInstallStep::setRemoveFirst(bool rf)
 {
-    if (m_qbsInstallOptions.removeFirst == rf)
+    if (m_qbsInstallOptions.removeExistingInstallation() == rf)
         return;
-    m_qbsInstallOptions.removeFirst = rf;
+    m_qbsInstallOptions.setRemoveExistingInstallation(rf);
     emit changed();
 }
 
 void QbsInstallStep::setDryRun(bool dr)
 {
-    if (m_qbsInstallOptions.dryRun == dr)
+    if (m_qbsInstallOptions.dryRun() == dr)
         return;
-    m_qbsInstallOptions.dryRun = dr;
+    m_qbsInstallOptions.setDryRun(dr);
     emit changed();
 }
 
 void QbsInstallStep::setKeepGoing(bool kg)
 {
-    if (m_qbsInstallOptions.keepGoing == kg)
+    if (m_qbsInstallOptions.keepGoing() == kg)
         return;
-    m_qbsInstallOptions.keepGoing = kg;
+    m_qbsInstallOptions.setKeepGoing(kg);
     emit changed();
 }
 
@@ -301,9 +306,9 @@ void QbsInstallStepConfigWidget::updateState()
         m_ui->keepGoingCheckBox->setChecked(m_step->keepGoing());
     }
 
-    const qbs::ProjectData *data = static_cast<QbsProject *>(m_step->project())->qbsProjectData();
-    if (data)
-        m_ui->installRootChooser->setBaseDirectory(data->buildDirectory());
+    const qbs::ProjectData data = static_cast<QbsProject *>(m_step->project())->qbsProjectData();
+    if (data.isValid())
+        m_ui->installRootChooser->setBaseDirectory(data.buildDirectory());
 
     QString command = QLatin1String("qbs install ");
     if (m_step->dryRun())
@@ -358,28 +363,30 @@ QbsInstallStepFactory::QbsInstallStepFactory(QObject *parent) :
 QList<Core::Id> QbsInstallStepFactory::availableCreationIds(ProjectExplorer::BuildStepList *parent) const
 {
     if (parent->id() == ProjectExplorer::Constants::BUILDSTEPS_DEPLOY
-            && qobject_cast<ProjectExplorer::DeployConfiguration *>(parent->parent()))
+            && qobject_cast<ProjectExplorer::DeployConfiguration *>(parent->parent())
+            && qobject_cast<QbsProject *>(parent->target()->project()))
         return QList<Core::Id>() << Core::Id(Constants::QBS_INSTALLSTEP_ID);
     return QList<Core::Id>();
 }
 
-QString QbsInstallStepFactory::displayNameForId(Core::Id id) const
+QString QbsInstallStepFactory::displayNameForId(const Core::Id id) const
 {
     if (id == Core::Id(Constants::QBS_INSTALLSTEP_ID))
         return tr("Qbs Install");
     return QString();
 }
 
-bool QbsInstallStepFactory::canCreate(ProjectExplorer::BuildStepList *parent, Core::Id id) const
+bool QbsInstallStepFactory::canCreate(ProjectExplorer::BuildStepList *parent, const Core::Id id) const
 {
     if (parent->id() != Core::Id(ProjectExplorer::Constants::BUILDSTEPS_DEPLOY)
-            || !qobject_cast<ProjectExplorer::DeployConfiguration *>(parent->parent()))
+            || !qobject_cast<ProjectExplorer::DeployConfiguration *>(parent->parent())
+            || !qobject_cast<QbsProject *>(parent->target()->project()))
         return false;
     return id == Core::Id(Constants::QBS_INSTALLSTEP_ID);
 }
 
 ProjectExplorer::BuildStep *QbsInstallStepFactory::create(ProjectExplorer::BuildStepList *parent,
-                                                          Core::Id id)
+                                                          const Core::Id id)
 {
     if (!canCreate(parent, id))
         return 0;

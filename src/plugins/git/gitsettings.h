@@ -35,12 +35,20 @@
 namespace Git {
 namespace Internal {
 
+enum CommitType
+{
+    SimpleCommit,
+    AmendCommit,
+    FixupCommit
+};
+
 // Todo: Add user name and password?
 class GitSettings : public VcsBase::VcsBaseClientSettings
 {
 public:
     GitSettings();
 
+    static const QLatin1String useDiffEditorKey;
     static const QLatin1String pullRebaseKey;
     static const QLatin1String showTagsKey;
     static const QLatin1String omitAnnotationDateKey;
@@ -52,6 +60,7 @@ public:
     static const QLatin1String gitkOptionsKey;
     static const QLatin1String logDiffKey;
     static const QLatin1String repositoryBrowserCmd;
+    static const QLatin1String graphLogKey;
 
     QString gitBinaryPath(bool *ok = 0, QString *errorMessage = 0) const;
 

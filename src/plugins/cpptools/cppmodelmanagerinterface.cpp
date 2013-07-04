@@ -29,9 +29,25 @@
 
 #include "cppmodelmanagerinterface.h"
 
+#include <projectexplorer/toolchain.h>
+#include <projectexplorer/headerpath.h>
 #include <cplusplus/pp-engine.h>
 
 #include <QtCore/QSet>
+
+/*!
+    \enum CppTools::CppModelManagerInterface::ProgressNotificationMode
+
+    This enum type specifies whether a progress bar notification should be
+    shown if more than one file is requested to update via
+    CppModelManagerInterface::updateSourceFiles().
+
+    \value ForcedProgressNotification
+           Notify regardless of the number of files requested for update.
+
+    \value ReservedProgressNotification
+           Notify only if more than one file is requested for update.
+*/
 
 /*!
     \enum CppTools::CppModelManagerInterface::QtVersion
@@ -48,6 +64,74 @@
 */
 
 using namespace CppTools;
+using namespace ProjectExplorer;
+
+ProjectPart::ProjectPart()
+    : cVersion(C89)
+    , cxxVersion(CXX11)
+    , cxxExtensions(NoExtensions)
+    , qtVersion(UnknownQt)
+    , cWarningFlags(ProjectExplorer::ToolChain::WarningsDefault)
+    , cxxWarningFlags(ProjectExplorer::ToolChain::WarningsDefault)
+{
+}
+
+/**
+ * @brief Retrieves info from concrete compiler using it's flags.
+ * @param tc Either nullptr or toolchain for project's active target.
+ * @param cxxflags C++ or Objective-C++ flags.
+ * @param cflags C or ObjectiveC flags if possible, \a cxxflags otherwise.
+ */
+void ProjectPart::evaluateToolchain(const ToolChain *tc,
+                                    const QStringList &cxxflags,
+                                    const QStringList &cflags,
+                                    const Utils::FileName &sysRoot)
+{
+    if (!tc)
+        return;
+    ToolChain::CompilerFlags cxx = tc->compilerFlags(cxxflags);
+    ToolChain::CompilerFlags c = (cxxflags == cflags)
+            ? cxx : tc->compilerFlags(cflags);
+
+    if (c & ToolChain::StandardC11)
+        cVersion = C11;
+    else if (c & ToolChain::StandardC99)
+        cVersion = C99;
+    else
+        cVersion = C89;
+
+    if (cxx & ToolChain::StandardCxx11)
+        cxxVersion = CXX11;
+    else
+        cxxVersion = CXX98;
+
+    if (cxx & ToolChain::BorlandExtensions)
+        cxxExtensions |= BorlandExtensions;
+    if (cxx & ToolChain::GnuExtensions)
+        cxxExtensions |= GnuExtensions;
+    if (cxx & ToolChain::MicrosoftExtensions)
+        cxxExtensions |= MicrosoftExtensions;
+    if (cxx & ToolChain::OpenMP)
+        cxxExtensions |= OpenMP;
+
+    cWarningFlags = tc->warningFlags(cflags);
+    cxxWarningFlags = tc->warningFlags(cxxflags);
+
+    QList<HeaderPath> headers = tc->systemHeaderPaths(cxxflags, sysRoot);
+    foreach (const HeaderPath &header, headers)
+        if (header.kind() == HeaderPath::FrameworkHeaderPath)
+            frameworkPaths << header.path();
+        else
+            includePaths << header.path();
+
+    QByteArray macros = tc->predefinedMacros(cxxflags);
+    if (!macros.isEmpty()) {
+        if (!defines.isEmpty())
+            defines += '\n';
+        defines += macros;
+        defines += '\n';
+    }
+}
 
 static CppModelManagerInterface *g_instance = 0;
 

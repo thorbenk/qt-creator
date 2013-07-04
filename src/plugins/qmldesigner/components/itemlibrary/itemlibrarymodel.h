@@ -32,7 +32,6 @@
 
 #include <QMap>
 #include <QIcon>
-#include <QVariant>
 #include <QScriptEngine>
 #include <private/qdeclarativelistmodel_p.h>
 
@@ -145,6 +144,7 @@ public slots:
     int getItemSectionIndex(int itemLibId);
     int getSectionLibId(int itemLibId);
     bool isItemVisible(int itemLibId);
+    void setExpanded(bool, const QString &section);
 
 signals:
     void qmlModelChanged();

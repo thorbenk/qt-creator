@@ -33,8 +33,8 @@ using namespace TextEditor;
 
 /*!
     \class TextEditor::IAssistInterface
-    \brief The IAssistInterface class acts as an interface for providing access to the document
-    from which a proposal is computed.
+    \brief The IAssistInterface class acts as an interface for providing access
+    to the document from which a proposal is computed.
     \ingroup CodeAssist
 
     This interface existis in order to avoid a direct dependency on the text editor. This is
@@ -75,13 +75,13 @@ IAssistInterface::~IAssistInterface()
 */
 
 /*!
-    \fn const Core::IDocument *TextEditor::IAssistInterface::file() const
+    \fn QString TextEditor::IAssistInterface::fileName() const
 
     Returns the file associated.
 */
 
 /*!
-    \fn QTextDocument *TextEditor::IAssistInterface::document() const
+    \fn QTextDocument *TextEditor::IAssistInterface::textDocument() const
     Returns the document.
 */
 

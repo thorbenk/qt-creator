@@ -1,7 +1,7 @@
 project     = "QtCreator"
 description = "Qt Creator Manual"
 
-headerdirs = 
+headerdirs =
 sourcedirs = $SRCDIR/src
 imagedirs = $SRCDIR/images $SRCDIR/templates/images
 outputdir = $OUTDIR
@@ -34,3 +34,6 @@ qhp.QtCreator.subprojects.manual.type = manual
 
 macro.see                       = "\\sa"
 macro.function                  = "\\fn"
+
+navigation.landingpage = "Qt Creator Manual"
+buildversion = "Qt Creator Manual $QTC_VERSION"

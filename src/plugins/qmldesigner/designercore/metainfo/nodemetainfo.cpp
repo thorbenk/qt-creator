@@ -29,24 +29,17 @@
 
 #include "nodemetainfo.h"
 #include "model.h"
-#include "invalidargumentexception.h"
 
 #include "metainfo.h"
 #include <rewriterview.h>
 #include <propertyparser.h>
 
 #include <QDir>
-#include <QSharedData>
 #include <QDebug>
-#include <QIcon>
 
-#include <qmljs/qmljsdocument.h>
-#include <qmljs/qmljscontext.h>
-#include <qmljs/qmljsbind.h>
 #include <qmljs/qmljsscopechain.h>
 #include <qmljs/parser/qmljsast_p.h>
 #include <qmljs/qmljsmodelmanagerinterface.h>
-#include <languageutils/fakemetaobject.h>
 
 namespace QmlDesigner {
 
@@ -84,7 +77,7 @@ using namespace QmlJS;
 
 typedef QPair<PropertyName, TypeName> PropertyInfo;
 
-QList<PropertyInfo> getObjectTypes(const ObjectValue *ov, const ContextPtr &context, bool local = false);
+QList<PropertyInfo> getObjectTypes(const ObjectValue *ov, const ContextPtr &context, bool local = false, int rec = 0);
 
 static TypeName resolveTypeName(const ASTPropertyReference *ref, const ContextPtr &context,  QList<PropertyInfo> &dotProperties)
 {
@@ -226,13 +219,16 @@ QStringList prototypes(const ObjectValue *ov, const ContextPtr &context, bool ve
     return list;
 }
 
-QList<PropertyInfo> getQmlTypes(const CppComponentValue *objectValue, const ContextPtr &context, bool local = false)
+QList<PropertyInfo> getQmlTypes(const CppComponentValue *objectValue, const ContextPtr &context, bool local = false, int rec = 0)
 {
     QList<PropertyInfo> propertyList;
 
     if (!objectValue)
         return propertyList;
     if (objectValue->className().isEmpty())
+        return propertyList;
+
+    if (rec > 2)
         return propertyList;
 
     PropertyMemberProcessor processor(context);
@@ -246,7 +242,7 @@ QList<PropertyInfo> getQmlTypes(const CppComponentValue *objectValue, const Cont
             //dot property
             const CppComponentValue * qmlValue = value_cast<CppComponentValue>(objectValue->lookupMember(name, context));
             if (qmlValue) {
-                QList<PropertyInfo> dotProperties = getQmlTypes(qmlValue, context);
+                QList<PropertyInfo> dotProperties = getQmlTypes(qmlValue, context, false, rec + 1);
                 foreach (const PropertyInfo &propertyInfo, dotProperties) {
                     PropertyName dotName = propertyInfo.first;
                     TypeName type = propertyInfo.second;
@@ -258,7 +254,7 @@ QList<PropertyInfo> getQmlTypes(const CppComponentValue *objectValue, const Cont
         if (isValueType(objectValue->propertyType(name))) {
             const ObjectValue *dotObjectValue = value_cast<ObjectValue>(objectValue->lookupMember(name, context));
             if (dotObjectValue) {
-                QList<PropertyInfo> dotProperties = getObjectTypes(dotObjectValue, context);
+                QList<PropertyInfo> dotProperties = getObjectTypes(dotObjectValue, context, false, rec + 1);
                 foreach (const PropertyInfo &propertyInfo, dotProperties) {
                     PropertyName dotName = propertyInfo.first;
                     TypeName type = propertyInfo.second;
@@ -279,9 +275,9 @@ QList<PropertyInfo> getQmlTypes(const CppComponentValue *objectValue, const Cont
         const CppComponentValue * qmlObjectValue = value_cast<CppComponentValue>(prototype);
 
         if (qmlObjectValue)
-            propertyList.append(getQmlTypes(qmlObjectValue, context));
+            propertyList.append(getQmlTypes(qmlObjectValue, context, false, rec));
         else
-            propertyList.append(getObjectTypes(prototype, context));
+            propertyList.append(getObjectTypes(prototype, context, false, rec));
     }
 
     return propertyList;
@@ -327,13 +323,16 @@ QList<PropertyInfo> getTypes(const ObjectValue *objectValue, const ContextPtr &c
     return propertyList;
 }
 
-QList<PropertyInfo> getObjectTypes(const ObjectValue *objectValue, const ContextPtr &context, bool local)
+QList<PropertyInfo> getObjectTypes(const ObjectValue *objectValue, const ContextPtr &context, bool local, int rec)
 {
     QList<PropertyInfo> propertyList;
 
     if (!objectValue)
         return propertyList;
     if (objectValue->className().isEmpty())
+        return propertyList;
+
+    if (rec > 2)
         return propertyList;
 
     PropertyMemberProcessor processor(context);
@@ -350,9 +349,9 @@ QList<PropertyInfo> getObjectTypes(const ObjectValue *objectValue, const Context
         const CppComponentValue * qmlObjectValue = value_cast<CppComponentValue>(prototype);
 
         if (qmlObjectValue)
-            propertyList.append(getQmlTypes(qmlObjectValue, context));
+            propertyList.append(getQmlTypes(qmlObjectValue, context, local, rec));
         else
-            propertyList.append(getObjectTypes(prototype, context));
+            propertyList.append(getObjectTypes(prototype, context, local, rec));
     }
 
     return propertyList;
@@ -568,11 +567,6 @@ const QmlJS::CppComponentValue *NodeMetaInfoPrivate::getCppComponentValue() cons
         return 0;
     const TypeName type = nameComponents.last();
 
-    // maybe 'type' is a cpp name
-    const QmlJS::CppComponentValue *value = context()->valueOwner()->cppQmlTypes().objectByCppName(type);
-    if (value)
-        return value;
-
     TypeName module;
     for (int i = 0; i < nameComponents.size() - 1; ++i) {
         if (i != 0)
@@ -580,7 +574,7 @@ const QmlJS::CppComponentValue *NodeMetaInfoPrivate::getCppComponentValue() cons
         module += nameComponents.at(i);
     }
 
-    // otherwise get the qml object value that's available in the document
+    // get the qml object value that's available in the document
     foreach (const QmlJS::Import &import, context()->imports(document())->all()) {
         if (import.info.path() != QString::fromUtf8(module))
             continue;
@@ -593,7 +587,14 @@ const QmlJS::CppComponentValue *NodeMetaInfoPrivate::getCppComponentValue() cons
             return cppValue;
     }
 
-    return value_cast<CppComponentValue>(getObjectValue());
+    const QmlJS::CppComponentValue *value = value_cast<CppComponentValue>(getObjectValue());
+    if (value)
+        return value;
+
+    // maybe 'type' is a cpp name
+    const QmlJS::CppComponentValue *cppValue = context()->valueOwner()->cppQmlTypes().objectByCppName(type);
+
+    return cppValue;
 }
 
 const QmlJS::ObjectValue *NodeMetaInfoPrivate::getObjectValue() const
@@ -1020,8 +1021,19 @@ void NodeMetaInfoPrivate::setupPrototypes()
                 description.className = qmlValue->moduleName().toUtf8() + '.' + description.className;
             m_prototypes.append(description);
         } else {
-            if (context()->lookupType(document(), QStringList() << ov->className()))
+            if (context()->lookupType(document(), QStringList() << ov->className())) {
+                const Imports *allImports = context()->imports(document());
+                ImportInfo importInfo = allImports->info(description.className, context().data());
+
+                if (importInfo.isValid()) {
+                    QString uri = importInfo.name();
+                    uri.replace(QLatin1String(","), QLatin1String("."));
+                    if (!uri.isEmpty())
+                        description.className = QString(uri + QString::fromLatin1(".") + QString::fromLatin1(description.className)).toLatin1();
+                }
+
                 m_prototypes.append(description);
+            }
         }
     }
 }
@@ -1280,11 +1292,11 @@ void NodeMetaInfo::clearCache()
     Internal::NodeMetaInfoPrivate::clearCache();
 }
 
-bool NodeMetaInfo::isPositioner() const
+bool NodeMetaInfo::isLayoutable() const
 {
     if (majorVersion() < 2)
         return isSubclassOf("<cpp>.QDeclarativeBasePositioner", -1, -1);
-    return isSubclassOf("QtQuick.Positioner", -1, -1);
+    return isSubclassOf("QtQuick.Positioner", -1, -1) || isSubclassOf("QtQuick.Layouts.Layout", -1, -1);
 }
 
 } // namespace QmlDesigner

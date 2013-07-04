@@ -45,6 +45,7 @@
 
 #include <utils/qtcassert.h>
 #include <utils/savedaction.h>
+#include <utils/fancylineedit.h>
 
 #include <QDebug>
 #include <QMetaProperty>
@@ -102,8 +103,9 @@ public:
         }
 
         // Standard line edits for the rest.
-        QLineEdit *lineEdit = new QLineEdit(parent);
+        Utils::FancyLineEdit *lineEdit = new Utils::FancyLineEdit(parent);
         lineEdit->setFrame(false);
+        lineEdit->setHistoryCompleter(QLatin1String("WatchItems"));
         return lineEdit;
     }
 
@@ -232,9 +234,9 @@ static int memberVariableRecursion(const QAbstractItemModel *model,
     return childCount;
 }
 
-/*!
-    \fn variableMemoryMarkup()
+typedef QList<MemoryMarkup> MemoryMarkupList;
 
+/*!
     \brief Creates markup for a variable in the memory view.
 
     Marks the visible children with alternating colors in the parent, that is, for
@@ -272,9 +274,6 @@ static int memberVariableRecursion(const QAbstractItemModel *model,
 
     \sa Debugger::Internal::MemoryViewWidget
 */
-
-typedef QList<MemoryMarkup> MemoryMarkupList;
-
 static MemoryMarkupList
     variableMemoryMarkup(const QAbstractItemModel *model,
                          const QModelIndex &modelIndex,

@@ -56,7 +56,6 @@ public:
     FormEditorWidget(FormEditorView *view);
 
     ZoomAction *zoomAction() const;
-    QAction *transformToolAction() const;
     QAction *showBoundingRectAction() const;
     QAction *selectOnlyContentItemsAction() const;
     QAction *snappingAction() const;
@@ -66,7 +65,7 @@ public:
     ToolBox *toolBox() const;
 
     double spacing() const;
-    double margins() const;
+    double containerPadding() const;
 
     QString contextHelpId() const;
 

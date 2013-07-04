@@ -54,8 +54,8 @@ static const char debuggingToolsWikiLinkC[] = "http://qt-project.org/wiki/Qt_Cre
 // DebuggerKitConfigWidget:
 // -----------------------------------------------------------------------
 
-DebuggerKitConfigWidget::DebuggerKitConfigWidget(ProjectExplorer::Kit *workingCopy)
-  : KitConfigWidget(workingCopy),
+DebuggerKitConfigWidget::DebuggerKitConfigWidget(ProjectExplorer::Kit *workingCopy, bool sticky)
+  : KitConfigWidget(workingCopy, sticky),
     m_main(new QWidget),
     m_label(new Utils::ElidingLabel(m_main)),
     m_autoDetectButton(new QPushButton(tr("Auto-detect"))),
@@ -95,6 +95,7 @@ QString DebuggerKitConfigWidget::displayName() const
 void DebuggerKitConfigWidget::makeReadOnly()
 {
     m_editButton->setEnabled(false);
+    m_autoDetectButton->setEnabled(false);
 }
 
 void DebuggerKitConfigWidget::refresh()
@@ -149,6 +150,7 @@ DebuggerKitConfigDialog::DebuggerKitConfigDialog(QWidget *parent)
 
     QLabel *binaryLabel = new QLabel(tr("&Binary:"));
     m_chooser->setExpectedKind(Utils::PathChooser::ExistingCommand);
+    m_chooser->setMinimumWidth(400);
     binaryLabel->setBuddy(m_chooser);
     formLayout->addRow(binaryLabel, m_chooser);
     layout->addLayout(formLayout);

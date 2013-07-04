@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
+#include "cpptoolsconstants.h"
 #include "cpptoolsplugin.h"
-
 #include "cppfilesettingspage.h"
 #include "cppcodestylesettingspage.h"
 #include "cppclassesfilter.h"
@@ -166,7 +166,7 @@ void CppToolsPlugin::switchHeaderSourceInNextSplit()
     QString otherFile = correspondingHeaderOrSource(
                 Core::EditorManager::currentEditor()->document()->fileName());
     if (!otherFile.isEmpty())
-        Core::EditorManager::openEditorInNextSplit(otherFile);
+        Core::EditorManager::openEditor(otherFile, Core::Id(), Core::EditorManager::OpenInOtherSplit);
 }
 
 static QStringList findFilesInProject(const QString &name,

@@ -119,9 +119,9 @@ private slots:
 
 protected:
     virtual QString cleanupDescription(const QString &) const;
-    virtual void changeEvent(QEvent *e);
     virtual QString commitName() const;
     void insertTopWidget(QWidget *w);
+    void hideDescription();
 
 protected slots:
     void descriptionTextChanged();

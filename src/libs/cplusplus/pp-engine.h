@@ -205,8 +205,7 @@ private:
     void lex(PPToken *tk);
     void skipPreprocesorDirective(PPToken *tk);
     bool handleIdentifier(PPToken *tk);
-    bool handleFunctionLikeMacro(PPToken *tk,
-                                 const Macro *macro,
+    bool handleFunctionLikeMacro(const Macro *macro,
                                  QVector<PPToken> &body,
                                  const QVector<QVector<PPToken> > &actuals,
                                  unsigned lineRef);
@@ -237,7 +236,6 @@ private:
     void maybeStartOutputLine();
     void generateOutputLineMarker(unsigned lineno);
     void synchronizeOutputLines(const PPToken &tk, bool forceLine = false);
-    void removeTrailingOutputLines();
 
     void enforceSpacing(const PPToken &tk, bool forceSpacing = false);
     static std::size_t computeDistance(const PPToken &tk, bool forceTillLine = false);

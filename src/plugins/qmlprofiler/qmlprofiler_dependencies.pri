@@ -3,9 +3,11 @@ QTC_LIB_DEPENDS += \
     qmldebug \
     extensionsystem
 QTC_PLUGIN_DEPENDS += \
-    coreplugin \
     analyzerbase \
+    coreplugin \
+    debugger \
+    projectexplorer \
     qmlprojectmanager \
-    qt4projectmanager \
     qmljstools \
-    remotelinux
+    qtsupport \
+    texteditor

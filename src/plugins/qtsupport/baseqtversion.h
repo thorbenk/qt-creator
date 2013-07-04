@@ -121,7 +121,9 @@ public:
 
     // Returns the PREFIX, BINPREFIX, DOCPREFIX and similar information
     QHash<QString,QString> versionInfo() const;
-    static QString qmakeProperty(const QHash<QString,QString> &versionInfo, const QByteArray &name);
+    enum PropertyVariant { PropertyVariantGet, PropertyVariantSrc };
+    static QString qmakeProperty(const QHash<QString,QString> &versionInfo, const QByteArray &name,
+                                 PropertyVariant variant = PropertyVariantGet);
     QString qmakeProperty(const QByteArray &name) const;
     virtual void addToEnvironment(const ProjectExplorer::Kit *k, Utils::Environment &env) const;
     virtual Utils::Environment qmakeRunEnvironment() const;
@@ -184,6 +186,11 @@ public:
     static Utils::FileName mkspecDirectoryFromVersionInfo(const QHash<QString, QString> &versionInfo);
     static Utils::FileName mkspecFromVersionInfo(const QHash<QString, QString> &versionInfo);
 
+    static bool isQmlDebuggingSupported(ProjectExplorer::Kit *k, QString *reason = 0);
+    bool isQmlDebuggingSupported(QString *reason = 0) const;
+    static void buildDebuggingHelper(ProjectExplorer::Kit *k, int tools);
+    void buildDebuggingHelper(ProjectExplorer::ToolChain *tc, int tools);
+
     virtual bool supportsBinaryDebuggingHelper() const;
     virtual QString gdbDebuggingHelperLibrary() const;
     virtual QString qmlDebuggingHelperLibrary(bool debugVersion) const;
@@ -193,6 +200,7 @@ public:
 
     virtual bool hasGdbDebuggingHelper() const;
     virtual bool hasQmlDump() const;
+    virtual bool hasQmlDumpWithRelocatableFlag() const;
     virtual bool needsQmlDump() const;
     virtual bool hasQmlDebuggingLibrary() const;
     virtual bool needsQmlDebuggingLibrary() const;
@@ -213,6 +221,7 @@ public:
     virtual QList<ProjectExplorer::Task> validateKit(const ProjectExplorer::Kit *k);
 
     Utils::FileName headerPath() const;
+    Utils::FileName docsPath() const;
     Utils::FileName libraryPath() const;
     Utils::FileName binPath() const;
     Utils::FileName mkspecsPath() const;
@@ -220,6 +229,9 @@ public:
     QString qtNamespace() const;
     QString qtLibInfix() const;
     bool isFrameworkBuild() const;
+    // Note: A Qt version can have both a debug and a release built at the same time!
+    bool hasDebugBuild() const;
+    bool hasReleaseBuild() const;
 
 protected:
     BaseQtVersion();

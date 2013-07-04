@@ -17,7 +17,6 @@ QtcPlugin {
     Depends { name: "QmlDebug" }
     Depends { name: "QtcSsh" }
 
-    Depends { name: "cpp" }
     cpp.includePaths: base.concat([
         "shared",
         "lldblib",
@@ -30,6 +29,7 @@ QtcPlugin {
     ]
 
     Group {
+        name: "Tests"
         condition: Defaults.testsEnabled(qbs)
         qbs.install: true
         qbs.installDir: "tests/manual/debugger/simple/"
@@ -149,8 +149,6 @@ QtcPlugin {
         "cdb/bytearrayinputstream.h",
         "cdb/cdbengine.cpp",
         "cdb/cdbengine.h",
-        "cdb/cdboptions.cpp",
-        "cdb/cdboptions.h",
         "cdb/cdboptionspage.cpp",
         "cdb/cdboptionspage.h",
         "cdb/cdboptionspagewidget.ui",
@@ -263,10 +261,14 @@ QtcPlugin {
         "shared/hostutils.h",
         "shared/peutils.cpp",
         "shared/peutils.h",
+        "shared/symbolpathsdialog.ui",
+        "shared/symbolpathsdialog.cpp",
+        "shared/symbolpathsdialog.h",
     ]
 
     Group {
-        condition: qbs.targetOS == "windows"
+        name: "RegistryAccess"
+        condition: qbs.targetOS.contains("windows")
         prefix: "../../shared/registryaccess/"
         files: [
             "registryaccess.cpp",
@@ -275,7 +277,8 @@ QtcPlugin {
     }
 
     Group {
-        condition: qbs.targetOS == "windows"
+        name: "RegisterPostMortem"
+        condition: qbs.targetOS.contains("windows")
         files: [
             "registerpostmortemaction.cpp",
             "registerpostmortemaction.h",
@@ -283,7 +286,8 @@ QtcPlugin {
     }
 
     Group {
-        condition: qbs.targetOS == "mac"
+        name: "LLDBOptions"
+        condition: qbs.targetOS.contains("mac")
         files: [
             "lldblib/lldboptionspage.cpp",
             "lldblib/lldboptionspage.h",
@@ -292,7 +296,7 @@ QtcPlugin {
     }
 
     Properties {
-        condition: qbs.targetOS == "windows"
+        condition: qbs.targetOS.contains("windows")
         cpp.dynamicLibraries: [
             "advapi32",
             "ole32",
@@ -300,7 +304,7 @@ QtcPlugin {
         ]
     }
 
-    ProductModule {
+    Export {
         Depends { name: "cpp" }
         Depends { name: "QtcSsh" }
         cpp.includePaths: ["."]

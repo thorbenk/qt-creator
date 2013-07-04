@@ -59,12 +59,15 @@ public:
     bool isValid() const;
     void makeInvalid();
     QRectF boundingRect() const;
+    QRectF contentItemBoundingRect() const;
     bool hasContent() const;
     bool isAnchoredBySibling() const;
     bool isAnchoredByChildren() const;
     bool isMovable() const;
     bool isResizable() const;
     QTransform transform() const;
+    QTransform contentTransform() const;
+    QTransform contentItemTransform() const;
     QTransform sceneTransform() const;
     bool isInLayoutable() const;
     QPointF position() const;
@@ -92,7 +95,10 @@ protected:
 
     InformationName setInformationSize(const QSizeF &size);
     InformationName setInformationBoundingRect(const QRectF &rectangle);
+    InformationName setInformationContentItemBoundingRect(const QRectF &rectangle);
     InformationName setInformationTransform(const QTransform &transform);
+    InformationName setInformationContentTransform(const QTransform &contentTransform);
+    InformationName setInformationContentItemTransform(const QTransform &contentItemTransform);
     InformationName setInformationPenWith(int penWidth);
     InformationName setInformationPosition(const QPointF &position);
     InformationName setInformationIsInLayoutable(bool isInLayoutable);

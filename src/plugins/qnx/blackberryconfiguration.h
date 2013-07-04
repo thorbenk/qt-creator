@@ -83,13 +83,15 @@ public:
     QString targetName() const;
     QString barsignerCskPath() const;
     QString barsignerDbPath() const;
-    QString dataDirPath() const;
     QString defaultKeystorePath() const;
+    QString defaultDebugTokenPath() const;
     void loadSettings();
     void clearNdkSettings();
     void cleanNdkConfiguration();
     void syncCertificates(QList<BlackBerryCertificate*> certificates,
             BlackBerryCertificate *activeCertificate);
+    void addCertificate(BlackBerryCertificate *certificate);
+    void removeCertificate(BlackBerryCertificate *certificate);
 
     QList<BlackBerryCertificate*> certificates() const;
     BlackBerryCertificate *activeCertificate();

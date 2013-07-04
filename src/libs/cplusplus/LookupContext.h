@@ -81,7 +81,9 @@ public:
     QList<LookupItem> find(const Name *name);
 
     ClassOrNamespace *lookupType(const Name *name);
+    ClassOrNamespace *lookupType(const Name *name, Block *block);
     ClassOrNamespace *findType(const Name *name);
+    ClassOrNamespace *findBlock(Block *block);
 
     Symbol *lookupInScope(const QList<const Name *> &fullName);
 
@@ -126,6 +128,7 @@ private:
     QList<Symbol *> _symbols;
     QList<ClassOrNamespace *> _usings;
     Table _classOrNamespaces;
+    QHash<Block *, ClassOrNamespace *> _blocks;
     QList<Enum *> _enums;
     QList<Symbol *> _todo;
     QSharedPointer<Control> _control;
@@ -177,7 +180,7 @@ class CPLUSPLUS_EXPORT CreateBindings: protected SymbolVisitor
     Q_DISABLE_COPY(CreateBindings)
 
 public:
-    CreateBindings(Document::Ptr thisDocument, const Snapshot &snapshot, QSharedPointer<Control> control);
+    CreateBindings(Document::Ptr thisDocument, const Snapshot &snapshot);
     virtual ~CreateBindings();
 
     /// Returns the binding for the global namespace.
@@ -191,7 +194,8 @@ public:
 
     /// Returns the Control that must be used to create temporary symbols.
     /// \internal
-    QSharedPointer<Control> control() const;
+    QSharedPointer<Control> control() const
+    { return _control; }
 
     bool expandTemplates() const
     { return _expandTemplates; }
@@ -237,7 +241,9 @@ protected:
     virtual bool visit(ForwardClassDeclaration *klass);
     virtual bool visit(Enum *e);
     virtual bool visit(Declaration *decl);
-    virtual bool visit(Function *);
+    virtual bool visit(Function *function);
+    virtual bool visit(Block *block);
+
     virtual bool visit(BaseClass *b);
     virtual bool visit(UsingNamespaceDirective *u);
     virtual bool visit(UsingDeclaration *u);
@@ -252,6 +258,9 @@ protected:
     virtual bool visit(ObjCMethod *);
 
 private:
+    Symbol *instantiateTemplateFunction(const TemplateNameId *instantiation,
+                                        Template *specialization) const;
+
     Snapshot _snapshot;
     QSharedPointer<Control> _control;
     QSet<Namespace *> _processed;
@@ -285,7 +294,9 @@ public:
 
     QList<LookupItem> lookup(const Name *name, Scope *scope) const;
     ClassOrNamespace *lookupType(const Name *name, Scope *scope,
-                                 ClassOrNamespace* enclosingTemplateInstantiation = 0) const;
+                                 ClassOrNamespace* enclosingTemplateInstantiation = 0,
+                                 QSet<const Declaration *> typedefsBeingResolved
+                                    = QSet<const Declaration *>()) const;
     ClassOrNamespace *lookupType(Symbol *symbol,
                                  ClassOrNamespace* enclosingTemplateInstantiation = 0) const;
     ClassOrNamespace *lookupParent(Symbol *symbol) const;
@@ -295,8 +306,6 @@ public:
 
     /// \internal
     void setBindings(QSharedPointer<CreateBindings> bindings);
-
-    QSharedPointer<Control> control() const; // ### deprecate
 
     static QList<const Name *> fullyQualifiedName(Symbol *symbol);
     static QList<const Name *> path(Symbol *symbol);
@@ -311,6 +320,8 @@ public:
     }
 
 private:
+    QList<LookupItem> lookupByUsing(const Name *name, Scope *scope) const;
+
     // The current expression.
     Document::Ptr _expressionDocument;
 
@@ -322,8 +333,6 @@ private:
 
     // Bindings
     mutable QSharedPointer<CreateBindings> _bindings;
-
-    QSharedPointer<Control> _control;
 
     bool m_expandTemplates;
 };

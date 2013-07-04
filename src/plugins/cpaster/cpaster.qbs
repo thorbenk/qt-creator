@@ -9,7 +9,6 @@ QtcPlugin {
     Depends { name: "Core" }
     Depends { name: "TextEditor" }
 
-    Depends { name: "cpp" }
     cpp.includePaths: base.concat("../../shared/cpaster")
 
     files: [
@@ -52,6 +51,7 @@ QtcPlugin {
     ]
 
     Group {
+        name: "Shared"
         prefix: "../../shared/cpaster/"
         files: [
             "cgi.cpp",

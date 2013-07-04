@@ -71,9 +71,8 @@
     definition files as the primary location.
 
     When you open a file for editing and the editor cannot find the highlight
-    definition for it, an alert appears. You can turn off the alerts. You can
-    also specify patterns for ignoring files. The editor will not alert you if
-    highlight definitions for the ignored files are not found.
+    definition for it, an alert appears. To suppress the alerts, you can specify
+    patterns for ignoring files.
 
     To download highlight definition files:
 
@@ -103,8 +102,8 @@
             definition files on your system, or click \gui Browse to locate
             them in the file system yourself.
 
-        \li In the \gui {Ignored file patterns} field, specify file patterns.
-            You will not receive alerts if the highlight definitions for the
+        \li In the \gui {Ignored file patterns} field, specify file patterns to
+            suppress alerts if the highlight definitions for the
             specified files are not found.
 
         \li Click \gui OK to save your changes.
@@ -890,8 +889,10 @@
     \endlist
 
     To configure the server, select \gui{Tools} > \gui{Options} >
-    \gui{Code Pasting}. In \gui CodePaster, specify the host name of the
-    CodePaster service. In \gui Fileshare, specify the path to a shared
+    \gui{Code Pasting} > \gui CodePaster. In the \gui Server field, specify the
+    host name of the CodePaster service.
+
+    Select \gui Fileshare to specify the path to a shared
     network drive. The code snippets are copied to the drive as simple files.
     You have to delete obsolete files from the drive manually.
 
@@ -902,6 +903,10 @@
 
     To fetch a snippet of code from the server, select \gui{Tools} >
     \gui{Code Pasting} > \gui{Fetch Snippet} or press \key{Alt+C,Alt+F}.
+
+    To fetch content from a URL on a CodePaster service, select \gui{Tools} >
+    \gui{Code Pasting} > \gui{Fetch from URL}. The content is opened in the code
+    editor.
 
     \note To use \gui{Pastebin.Com}, configure the domain
     prefix in \gui{Tools} > \gui{Options} > \gui{Code Pasting} >
@@ -923,13 +928,15 @@
     \contentspage index.html
     \previouspage creator-editor-codepasting.html
     \page creator-macros.html
-    \nextpage creator-finding-overview.html
+    \nextpage creator-diff-editor.html
 
     \title Using Text Editing Macros
 
     To record a text editing macro, select \gui {Tools > Macros > Record Macro}
     or press \key {Alt+(}. To stop recording, select \gui {Tools > Macros >
     Stop Recording Macro} or press \key {Alt+)}.
+
+    \note The macro recorder does not support code completion.
 
     To play the last macro, select \gui {Tools > Macros > Play Last Macro} or
     press \key {Alt+R}.
@@ -1104,8 +1111,8 @@
 
     \image qtcreator-indentation.png "Text Editor Behavior options"
 
-    To specify different settings for a particular project, select \gui {Projects >
-    Editor Settings}.
+    To specify different settings for a particular project, select \gui Projects
+    > \gui Editor.
 
     You can specify how to interpret the \key Tab and \key Backspace key
     presses and how to align continuation lines.
@@ -1297,8 +1304,7 @@
 
     \section1 Advanced Search
 
-    To search through projects, files on a file system or the currently open
-    file:
+    To search through projects, files on a file system or currently open files:
 
     \list 1
 
@@ -1325,6 +1331,8 @@
                     matching the defined file pattern in the selected directory.
 
                 \li \gui{Current File} searches only the current file.
+
+                \li \gui {Open Documents} searches all open files.
 
             \endlist
 
@@ -1758,11 +1766,56 @@
             \li  Adds the matching #include statement for a forward-declared class or struct
             \li  Forward-declared class or struct
         \row
-            \li  Add Definition in 'filename'
-            \li  Inserts a definition stub for a function declaration in the
-            implementation file. The definition is placed after that of the
-            preceding declaration. Qualified names are minimized when possible,
-            instead of always being fully expanded.
+            \li  Add Definition in ...
+            \li  Inserts a definition stub for a function declaration either in the header file
+            (inside or outside the class) or in the implementation file. For free functions, inserts
+            the definition after the declaration of the function or in the implementation file.
+            Qualified names are minimized when possible, instead of always being fully expanded.
+            For example, rewrites
+
+    \code
+    Class Foo {
+        void bar();
+    };
+    \endcode
+
+    as (inside class)
+
+    \code
+    Class Foo {
+        void bar() {
+
+        }
+    };
+    \endcode
+
+    as (outside class)
+
+    \code
+    Class Foo {
+        void bar();
+    };
+
+    void Foo::bar()
+    {
+
+    }
+    \endcode
+
+    as (in implementation file)
+
+    \code
+    // Header file
+    Class Foo {
+        void bar();
+    };
+
+    // Implementation file
+    void Foo::bar()
+    {
+
+    }
+    \endcode
 
             \li  Method name
         \row
@@ -1863,7 +1916,7 @@
             \li  Creates getter and setter member functions for member variables.
             \li  Member variable in class definition
         \row
-            \li Move function definition
+            \li Move Function Definition
             \li Moves a function definition to the implementation file, outside the class or back to its declaration. For example, rewrites:
 
     \code
@@ -1889,6 +1942,42 @@
     \endcode
 
             \li Function signature
+        \row
+            \li Assign to Local Variable
+            \li Adds a local variable which stores the return value of a function call or a new expression. For example, rewrites:
+
+    \code
+    QString s;
+    s.loLatin1();
+    \endcode
+    as
+    \code
+    QString s;
+    QByteArray latin1 = s.toLatin1();
+    \endcode
+    and
+    \code
+    new Foo;
+    \endcode
+    as
+    \code
+    Foo * localFoo = new Foo;
+    \endcode
+
+            \li Function call or class name
+        \row
+            \li Insert (Pure) Virtual Functions
+            \li Select an insertion mode:
+            \list
+                \li Insert only declarations.
+                \li Insert declarations and the corresponding definitions inside the class.
+                \li Insert declarations and the corresponding definitions outside the class.
+                \li Insert declarations and the corresponding definitions in the implementation file
+                (only if an implementation file exists).
+            \endlist
+            \image qtcreator-refactoring-virtual-function-dialog.png
+
+            \li Class or base class name
 
     \endtable
 
@@ -1963,10 +2052,23 @@
     \title Searching with the Locator
 
     You can find the locator in the bottom left of the \QC window.
-    To activate the locator, press \key Ctrl+K (\key Cmd+K on Mac OS X) or
-    select \gui Tools > \gui Locate.
 
     \image qtcreator-locator.png
+
+    To activate the locator:
+
+    \list
+
+        \li Press \key Ctrl+K (\key Cmd+K on Mac OS X).
+
+        \li Select \gui Tools > \gui Locate.
+
+        \li Select \gui Edit > \gui {Go to Line}.
+
+        \li Click the line and column indicator on the
+            \l{Using the Editor Toolbar}{editor toolbar}.
+
+    \endlist
 
     To edit the currently open project's main.cpp file using the locator:
 
@@ -2027,7 +2129,8 @@
 
         \li Locating class and method definitions in the current document
 
-        \li Locating a specific line in the document displayed in your editor
+        \li Locating a specific line and column in the document displayed in
+            your editor
 
         \li Opening help topics, including Qt documentation
 
@@ -2067,7 +2170,7 @@
 
     \list
 
-        \li Going to a line in the current file (l).
+        \li Going to a line and column in the current file (l).
 
         \li Going to an open file (o).
 

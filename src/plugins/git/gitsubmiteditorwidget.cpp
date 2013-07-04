@@ -27,97 +27,31 @@
 **
 ****************************************************************************/
 
-#include "gitsubmiteditorwidget.h"
 #include "commitdata.h"
-
-#include <texteditor/texteditorsettings.h>
-#include <texteditor/fontsettings.h>
-#include <utils/qtcassert.h>
+#include "gitsubmiteditorwidget.h"
+#include "githighlighters.h"
+#include "logchangedialog.h"
 
 #include <QRegExpValidator>
-#include <QSyntaxHighlighter>
 #include <QTextEdit>
 
-#include <QDebug>
 #include <QDir>
+#include <QGroupBox>
 #include <QRegExp>
+#include <QVBoxLayout>
 
 namespace Git {
 namespace Internal {
-
-// Retrieve the comment char format from the text editor.
-static QTextCharFormat commentFormat()
-{
-    const TextEditor::FontSettings settings = TextEditor::TextEditorSettings::instance()->fontSettings();
-    return settings.toTextCharFormat(TextEditor::C_COMMENT);
-}
-
-// Highlighter for git submit messages. Make the first line bold, indicates
-// comments as such (retrieving the format from the text editor) and marks up
-// keywords (words in front of a colon as in 'Task: <bla>').
-
-class GitSubmitHighlighter : QSyntaxHighlighter {
-public:
-    explicit GitSubmitHighlighter(QTextEdit *parent);
-    void highlightBlock(const QString &text);
-
-private:
-    enum State { Header, Comment, Other };
-    const QTextCharFormat m_commentFormat;
-    QRegExp m_keywordPattern;
-    const QChar m_hashChar;
-};
-
-GitSubmitHighlighter::GitSubmitHighlighter(QTextEdit * parent) :
-    QSyntaxHighlighter(parent),
-    m_commentFormat(commentFormat()),
-    m_keywordPattern(QLatin1String("^\\w+:")),
-    m_hashChar(QLatin1Char('#'))
-{
-    QTC_CHECK(m_keywordPattern.isValid());
-}
-
-void GitSubmitHighlighter::highlightBlock(const QString &text)
-{
-    // figure out current state
-    State state = Other;
-    const QTextBlock block = currentBlock();
-    if (block.position() == 0) {
-        state = Header;
-    } else {
-        if (text.startsWith(m_hashChar))
-            state = Comment;
-    }
-    // Apply format.
-    switch (state) {
-    case Header: {
-            QTextCharFormat charFormat = format(0);
-            charFormat.setFontWeight(QFont::Bold);
-            setFormat(0, text.size(), charFormat);
-    }
-        break;
-    case Comment:
-        setFormat(0, text.size(), m_commentFormat);
-        break;
-    case Other:
-        // Format key words ("Task:") italic
-        if (m_keywordPattern.indexIn(text, 0, QRegExp::CaretAtZero) == 0) {
-            QTextCharFormat charFormat = format(0);
-            charFormat.setFontItalic(true);
-            setFormat(0, m_keywordPattern.matchedLength(), charFormat);
-        }
-        break;
-    }
-}
 
 // ------------------
 GitSubmitEditorWidget::GitSubmitEditorWidget(QWidget *parent) :
     VcsBase::SubmitEditorWidget(parent),
     m_gitSubmitPanel(new QWidget),
-    m_hasUnmerged(false)
+    m_logChangeWidget(0),
+    m_hasUnmerged(false),
+    m_isInitialized(false)
 {
     m_gitSubmitPanelUi.setupUi(m_gitSubmitPanel);
-    insertTopWidget(m_gitSubmitPanel);
     new GitSubmitHighlighter(descriptionEdit());
 
     m_emailValidator = new QRegExpValidator(QRegExp(QLatin1String("[^@ ]+@[^@ ]+\\.[a-zA-Z]+")), this);
@@ -138,9 +72,40 @@ void GitSubmitEditorWidget::setPanelInfo(const GitSubmitEditorPanelInfo &info)
         m_gitSubmitPanelUi.branchLabel->setText(info.branch);
 }
 
+QString GitSubmitEditorWidget::amendSHA1() const
+{
+    return m_logChangeWidget ? m_logChangeWidget->commit() : QString();
+}
+
 void GitSubmitEditorWidget::setHasUnmerged(bool e)
 {
     m_hasUnmerged = e;
+}
+
+void GitSubmitEditorWidget::initialize(CommitType commitType, const QString &repository)
+{
+    if (m_isInitialized)
+        return;
+    m_isInitialized = true;
+    if (commitType == FixupCommit) {
+        QGroupBox *logChangeGroupBox = new QGroupBox(tr("Select Change"));
+        QVBoxLayout *logChangeLayout = new QVBoxLayout;
+        logChangeGroupBox->setLayout(logChangeLayout);
+        m_logChangeWidget = new LogChangeWidget;
+        m_logChangeWidget->init(repository, QString(), false);
+        connect(m_logChangeWidget, SIGNAL(doubleClicked(QString)), this, SIGNAL(show(QString)));
+        logChangeLayout->addWidget(m_logChangeWidget);
+        insertTopWidget(logChangeGroupBox);
+        m_gitSubmitPanelUi.editGroup->hide();
+        hideDescription();
+    }
+    insertTopWidget(m_gitSubmitPanel);
+}
+
+void GitSubmitEditorWidget::refreshLog(const QString &repository)
+{
+    if (m_logChangeWidget)
+        m_logChangeWidget->init(repository, QString(), false);
 }
 
 GitSubmitEditorPanelData GitSubmitEditorWidget::panelData() const
@@ -198,7 +163,7 @@ void GitSubmitEditorWidget::authorInformationChanged()
     m_gitSubmitPanelUi.invalidEmailLabel->
             setVisible(!emailIsValid() && !bothEmpty);
 
-   updateSubmitAction();
+    updateSubmitAction();
 }
 
 bool GitSubmitEditorWidget::emailIsValid() const

@@ -109,10 +109,7 @@ CMakeProject::CMakeProject(CMakeManager *manager, const QString &fileName)
       m_lastEditor(0)
 {
     setProjectContext(Core::Context(CMakeProjectManager::Constants::PROJECTCONTEXT));
-    Core::Context pl(ProjectExplorer::Constants::LANG_CXX);
-    pl.add(ProjectExplorer::Constants::LANG_QMLJS);
-    setProjectLanguages(pl);
-
+    setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
 
     m_file = new CMakeFile(this, fileName);
 
@@ -314,11 +311,6 @@ bool CMakeProject::parseCMakeLists()
         return true;
     }
 
-    QStringList allIncludePaths;
-    // This explicitly adds -I. to the include paths
-    allIncludePaths.append(projectDirectory());
-    allIncludePaths.append(cbpparser.includeFiles());
-
     QStringList cxxflags;
     bool found = false;
     foreach (const CMakeBuildTarget &buildTarget, m_buildTargets) {
@@ -374,51 +366,37 @@ bool CMakeProject::parseCMakeLists()
         }
     }
 
-    QByteArray allDefines;
-    allDefines.append(tc->predefinedMacros(cxxflags));
-    allDefines.append(cbpparser.defines());
-
-    QStringList allFrameworkPaths;
-    QList<ProjectExplorer::HeaderPath> allHeaderPaths;
-    allHeaderPaths = tc->systemHeaderPaths(cxxflags, SysRootKitInformation::sysRoot(k));
-    foreach (const ProjectExplorer::HeaderPath &headerPath, allHeaderPaths) {
-        if (headerPath.kind() == ProjectExplorer::HeaderPath::FrameworkHeaderPath)
-            allFrameworkPaths.append(headerPath.path());
-        else
-            allIncludePaths.append(headerPath.path());
-    }
-
     CppTools::CppModelManagerInterface *modelmanager =
             CppTools::CppModelManagerInterface::instance();
     if (modelmanager) {
         CppTools::CppModelManagerInterface::ProjectInfo pinfo = modelmanager->projectInfo(this);
-        if (pinfo.includePaths() != allIncludePaths
-                || pinfo.sourceFiles() != m_files
-                || pinfo.defines() != allDefines
-                || pinfo.frameworkPaths() != allFrameworkPaths)  {
-            pinfo.clearProjectParts();
-            CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
-            part->includePaths = allIncludePaths;
-            CppTools::ProjectFileAdder adder(part->files);
-            foreach (const QString &file, m_files)
-                adder.maybeAdd(file);
-            part->defines = allDefines;
-            part->frameworkPaths = allFrameworkPaths;
-            part->cVersion = CppTools::ProjectPart::C99;
-            if (tc)
-                part->cxxVersion = tc->compilerFlags(cxxflags) == ToolChain::STD_CXX11
-                        ? CppTools::ProjectPart::CXX11
-                        : CppTools::ProjectPart::CXX98;
-            else
-                part->cxxVersion = CppTools::ProjectPart::CXX11;
-            pinfo.appendProjectPart(part);
-            modelmanager->updateProjectInfo(pinfo);
-            m_codeModelFuture.cancel();
-            m_codeModelFuture = modelmanager->updateSourceFiles(m_files);
+        pinfo.clearProjectParts();
 
-            setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !part->files.isEmpty());
-        }
+        CppTools::ProjectPart::Ptr part(new CppTools::ProjectPart);
+
+        part->evaluateToolchain(tc,
+                                cxxflags,
+                                cxxflags,
+                                SysRootKitInformation::sysRoot(k));
+
+        // This explicitly adds -I. to the include paths
+        part->includePaths += projectDirectory();
+        part->includePaths += cbpparser.includeFiles();
+        part->defines += cbpparser.defines();
+
+        CppTools::ProjectFileAdder adder(part->files);
+        foreach (const QString &file, m_files)
+            adder.maybeAdd(file);
+
+        pinfo.appendProjectPart(part);
+        modelmanager->updateProjectInfo(pinfo);
+        m_codeModelFuture.cancel();
+        m_codeModelFuture = modelmanager->updateSourceFiles(m_files,
+            CppTools::CppModelManagerInterface::ForcedProgressNotification);
+
+        setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !part->files.isEmpty());
     }
+
     emit buildTargetsChanged();
     emit fileListChanged();
 
@@ -1034,6 +1012,8 @@ void CMakeBuildSettingsWidget::openChangeBuildDirectoryDialog()
 
 void CMakeBuildSettingsWidget::runCMake()
 {
+    if (!ProjectExplorer::ProjectExplorerPlugin::instance()->saveModifiedFiles())
+        return;
     CMakeProject *project = static_cast<CMakeProject *>(m_buildConfiguration->target()->project());
     CMakeOpenProjectWizard copw(project->projectManager(),
                                 CMakeOpenProjectWizard::WantToUpdate,

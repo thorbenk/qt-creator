@@ -35,7 +35,7 @@
 using namespace ProjectExplorer;
 
 // opt. drive letter + filename: (2 brackets)
-static const char FILE_PATTERN[] = "(<command[ -]line>|([A-Za-z]:)?[^:]+\\.[^:]+):";
+static const char FILE_PATTERN[] = "(<command[ -]line>|([A-Za-z]:)?[^:]+):";
 static const char COMMAND_PATTERN[] = "^(.*[\\\\/])?([a-z0-9]+-[a-z0-9]+-[a-z0-9]+-)?(gcc|g\\+\\+)(-[0-9\\.]+)?(\\.exe)?: ";
 
 GccParser::GccParser()
@@ -60,11 +60,6 @@ GccParser::GccParser()
     appendOutputParser(new LdParser);
 }
 
-GccParser::~GccParser()
-{
-    emitTask();
-}
-
 void GccParser::stdError(const QString &line)
 {
     QString lne = rightTrimmed(line);
@@ -79,11 +74,11 @@ void GccParser::stdError(const QString &line)
     // Handle misc issues:
     if (lne.startsWith(QLatin1String("ERROR:")) ||
         lne == QLatin1String("* cpp failed")) {
-        newTask(Task::Error,
-                lne /* description */,
-                Utils::FileName() /* filename */,
-                -1 /* linenumber */,
-                Core::Id(Constants::TASK_CATEGORY_COMPILE));
+        newTask(Task(Task::Error,
+                     lne /* description */,
+                     Utils::FileName() /* filename */,
+                     -1 /* linenumber */,
+                     Core::Id(Constants::TASK_CATEGORY_COMPILE)));
         return;
     } else if (m_regExpGccNames.indexIn(lne) > -1) {
         QString description = lne.mid(m_regExpGccNames.matchedLength());
@@ -121,44 +116,40 @@ void GccParser::stdError(const QString &line)
         newTask(task);
         return;
     } else if (m_regExpIncluded.indexIn(lne) > -1) {
-        newTask(Task::Unknown,
-                lne.trimmed() /* description */,
-                Utils::FileName::fromUserInput(m_regExpIncluded.cap(1)) /* filename */,
-                m_regExpIncluded.cap(3).toInt() /* linenumber */,
-                Core::Id(Constants::TASK_CATEGORY_COMPILE));
+        newTask(Task(Task::Unknown,
+                     lne.trimmed() /* description */,
+                     Utils::FileName::fromUserInput(m_regExpIncluded.cap(1)) /* filename */,
+                     m_regExpIncluded.cap(3).toInt() /* linenumber */,
+                     Core::Id(Constants::TASK_CATEGORY_COMPILE)));
         return;
     } else if (lne.startsWith(QLatin1Char(' '))) {
         amendDescription(lne, true);
         return;
     }
 
-    emitTask();
+    doFlush();
     IOutputParser::stdError(line);
 }
 
 void GccParser::stdOutput(const QString &line)
 {
-    emitTask();
+    doFlush();
     IOutputParser::stdOutput(line);
 }
 
 void GccParser::newTask(const Task &task)
 {
-    emitTask();
+    doFlush();
     m_currentTask = task;
 }
 
-void GccParser::newTask(Task::TaskType type_, const QString &description_,
-                          const Utils::FileName &file_, int line_, const Core::Id &category_)
+void GccParser::doFlush()
 {
-    newTask(Task(type_, description_, file_, line_, category_));
-}
-
-void GccParser::emitTask()
-{
-    if (!m_currentTask.isNull())
-        emit addTask(m_currentTask);
-    m_currentTask = Task();
+    if (m_currentTask.isNull())
+        return;
+    Task t = m_currentTask;
+    m_currentTask.clear();
+    emit addTask(t);
 }
 
 void GccParser::amendDescription(const QString &desc, bool monospaced)
@@ -782,6 +773,37 @@ void ProjectExplorerPlugin::testGccOutputParsers_data()
                                       "                         ^"),
                         Utils::FileName::fromUserInput(QLatin1String(".uic/ui_pluginerrorview.h")), 14,
                         categoryCompile))
+            << QString();
+
+    QTest::newRow("qtcreatorbug-9195")
+            << QString::fromLatin1("In file included from /usr/include/qt4/QtCore/QString:1:0,\n"
+                                   "                 from main.cpp:3:\n"
+                                   "/usr/include/qt4/QtCore/qstring.h: In function 'void foo()':\n"
+                                   "/usr/include/qt4/QtCore/qstring.h:597:5: error: 'QString::QString(const char*)' is private\n"
+                                   "main.cpp:7:22: error: within this context")
+            << OutputParserTester::STDERR
+            << QString() << QString()
+            << ( QList<ProjectExplorer::Task>()
+                << Task(Task::Unknown,
+                        QLatin1String("In file included from /usr/include/qt4/QtCore/QString:1:0,"),
+                        Utils::FileName::fromUserInput(QLatin1String("/usr/include/qt4/QtCore/QString")), 1,
+                        categoryCompile)
+                 << Task(Task::Unknown,
+                         QLatin1String("from main.cpp:3:"),
+                         Utils::FileName::fromUserInput(QLatin1String("main.cpp")), 3,
+                         categoryCompile)
+                 << Task(Task::Unknown,
+                         QLatin1String("In function 'void foo()':"),
+                         Utils::FileName::fromUserInput(QLatin1String("/usr/include/qt4/QtCore/qstring.h")), -1,
+                         categoryCompile)
+                << Task(Task::Error,
+                        QLatin1String("'QString::QString(const char*)' is private"),
+                        Utils::FileName::fromUserInput(QLatin1String("/usr/include/qt4/QtCore/qstring.h")), 597,
+                        categoryCompile)
+                 << Task(Task::Error,
+                         QLatin1String("within this context"),
+                         Utils::FileName::fromUserInput(QLatin1String("main.cpp")), 7,
+                         categoryCompile))
             << QString();
 
 }

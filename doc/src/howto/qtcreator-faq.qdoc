@@ -98,11 +98,9 @@
     \b {Has a reported issue been addressed?}
 
     You can look up any issue in the
-    \l{https://bugreports.qt-project.org/}{Qt bug tracker}.
+    \l{http://bugreports.qt-project.org/}{Qt bug tracker}.
 
-    \if defined(qcmanual)
     \include widgets/creator-faq-qtdesigner.qdocinc
-    \endif
 
     \section1 Help Questions
 

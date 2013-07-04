@@ -12,6 +12,8 @@
 #include <private/qquicktextinput_p.h>
 #include <private/qquicktextedit_p.h>
 
+#include <designersupport.h>
+
 namespace QmlDesigner {
 namespace Internal {
 
@@ -101,12 +103,9 @@ void GraphicalNodeInstance::createEffectItem(bool createEffectItem)
     s_createEffectItem = createEffectItem;
 }
 
-void GraphicalNodeInstance::updateDirtyNodeRecursive()
+void GraphicalNodeInstance::updateAllDirtyNodesRecursive()
 {
-    foreach (QQuickItem *childItem, quickItem()->childItems())
-            updateDirtyNodeRecursive(childItem);
-
-    DesignerSupport::updateDirtyNode(quickItem());
+    updateAllDirtyNodesRecursive(quickItem());
 }
 
 GraphicalNodeInstance::~GraphicalNodeInstance()
@@ -115,33 +114,31 @@ GraphicalNodeInstance::~GraphicalNodeInstance()
         designerSupport()->derefFromEffectItem(quickItem());
 }
 
-void GraphicalNodeInstance::updateDirtyNodeRecursive(QQuickItem *parentItem) const
+void GraphicalNodeInstance::updateDirtyNodesRecursive(QQuickItem *parentItem) const
 {
     foreach (QQuickItem *childItem, parentItem->childItems()) {
         if (!nodeInstanceServer()->hasInstanceForObject(childItem))
-            updateDirtyNodeRecursive(childItem);
+            updateDirtyNodesRecursive(childItem);
     }
 
     DesignerSupport::updateDirtyNode(parentItem);
 }
 
-void GraphicalNodeInstance::updateAllDirtyNodeRecursive(QQuickItem *parentItem) const
+void GraphicalNodeInstance::updateAllDirtyNodesRecursive(QQuickItem *parentItem) const
 {
     foreach (QQuickItem *childItem, parentItem->childItems())
-            updateDirtyNodeRecursive(childItem);
+            updateAllDirtyNodesRecursive(childItem);
 
     DesignerSupport::updateDirtyNode(parentItem);
 }
 
 QImage GraphicalNodeInstance::renderImage() const
 {
-    updateDirtyNodeRecursive(quickItem());
+    updateDirtyNodesRecursive(quickItem());
 
-    QRectF boundingRect = boundingRectWithStepChilds(quickItem());
+    QRectF renderBoundingRect = boundingRect();
 
-    QImage renderImage = designerSupport()->renderImageForItem(quickItem(), boundingRect, boundingRect.size().toSize());
-
-    renderImage = renderImage.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    QImage renderImage = designerSupport()->renderImageForItem(quickItem(), renderBoundingRect, renderBoundingRect.size().toSize());
 
     return renderImage;
 }
@@ -179,6 +176,22 @@ QPointF GraphicalNodeInstance::position() const
 QTransform GraphicalNodeInstance::customTransform() const
 {
     return QTransform();
+}
+
+static QTransform contentTransformForItem(QQuickItem *item, NodeInstanceServer *nodeInstanceServer)
+{
+    QTransform contentTransform;
+    if (item->parentItem() && !nodeInstanceServer->hasInstanceForObject(item->parentItem())) {
+        contentTransform = DesignerSupport::parentTransform(item->parentItem());
+        return contentTransformForItem(item->parentItem(), nodeInstanceServer) * contentTransform;
+    }
+
+    return contentTransform;
+}
+
+QTransform GraphicalNodeInstance::contentTransform() const
+{
+    return contentTransformForItem(quickItem(), nodeInstanceServer());
 }
 
 QTransform GraphicalNodeInstance::sceneTransform() const
@@ -238,13 +251,13 @@ static inline bool isRectangleSane(const QRectF &rect)
     return rect.isValid() && (rect.width() < 10000) && (rect.height() < 10000);
 }
 
-QRectF GraphicalNodeInstance::boundingRectWithStepChilds(QQuickItem *parentItem) const
+QRectF GraphicalNodeInstance::boundingRectWithStepChilds(QQuickItem *item) const
 {
-    QRectF boundingRect = parentItem->boundingRect();
+    QRectF boundingRect = item->boundingRect();
 
-    foreach (QQuickItem *childItem, parentItem->childItems()) {
+    foreach (QQuickItem *childItem, item->childItems()) {
         if (!nodeInstanceServer()->hasInstanceForObject(childItem)) {
-            QRectF transformedRect = childItem->mapRectToItem(parentItem, boundingRectWithStepChilds(childItem));
+            QRectF transformedRect = childItem->mapRectToItem(item, boundingRectWithStepChilds(childItem));
             if (isRectangleSane(transformedRect))
                 boundingRect = boundingRect.united(transformedRect);
         }
@@ -458,26 +471,16 @@ QPair<PropertyName, ServerNodeInstance> GraphicalNodeInstance::anchor(const Prop
     QObject *targetObject = nameObjectPair.second;
     PropertyName targetName = nameObjectPair.first.toUtf8();
 
-    if (targetObject && nodeInstanceServer()->hasInstanceForObject(targetObject)) {
-        return qMakePair(targetName, nodeInstanceServer()->instanceForObject(targetObject));
-    } else {
-        return ObjectNodeInstance::anchor(name);
+    while (targetObject) {
+        if (nodeInstanceServer()->hasInstanceForObject(targetObject))
+            return qMakePair(targetName, nodeInstanceServer()->instanceForObject(targetObject));
+        else
+            targetObject = parentObject(targetObject);
     }
+
+    return ObjectNodeInstance::anchor(name);
+
 }
-
-static void doComponentCompleteRecursive(QQuickItem *item)
-{
-    if (item) {
-        if (DesignerSupport::isComponentComplete(item))
-            return;
-
-        foreach (QQuickItem *childItem, item->childItems())
-            doComponentCompleteRecursive(childItem);
-
-        static_cast<QQmlParserStatus*>(item)->componentComplete();
-    }
-}
-
 
 static void disableTextCursor(QQuickItem *item)
 {
@@ -495,9 +498,13 @@ static void disableTextCursor(QQuickItem *item)
 
 void GraphicalNodeInstance::doComponentComplete()
 {
-    doComponentCompleteRecursive(quickItem());
+    doComponentCompleteRecursive(quickItem(), nodeInstanceServer());
 
     disableTextCursor(quickItem());
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 1, 0))
+    DesignerSupport::emitComponentCompleteSignalForAttachedProperty(quickItem());
+#endif
 
     quickItem()->update();
 }

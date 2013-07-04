@@ -30,10 +30,7 @@
 #include "metainforeader.h"
 #include "metainfo.h"
 
-#include <propertyparser.h>
-#include <QXmlStreamReader>
 #include <QString>
-#include <QFile>
 #include <QFileInfo>
 #include <QDebug>
 #include <QIcon>
@@ -255,7 +252,7 @@ void MetaInfoReader::readPropertyProperty(const QString &name, const QVariant &v
 void MetaInfoReader::readQmlSourceProperty(const QString &name, const QVariant &value)
 {
     if (name == QLatin1String("source")) {
-        m_currentEntry.setQml(value.toString());
+        m_currentEntry.setQml(absoluteFilePathForDocument(value.toString()));
     } else {
         addError(tr("Unknown property for QmlSource %1").arg(name), currentSourceLocation());
         setParserState(Error);

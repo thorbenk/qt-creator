@@ -5,7 +5,6 @@ import "../QtcPlugin.qbs" as QtcPlugin
 QtcPlugin {
     name: "QmlProjectManager"
 
-    Depends { name: "cpp" }
     Depends { name: "Qt"; submodules: ["widgets", "declarative"] }
     Depends { name: "Core" }
     Depends { name: "ProjectExplorer" }
@@ -16,14 +15,12 @@ QtcPlugin {
     Depends { name: "Debugger" }
     Depends { name: "QtSupport" }
     Depends { name: "app_version_header" }
-    cpp.defines: base.concat("QMLPROJECTMANAGER_LIBRARY")
 
     files: [
         "qmlapp.cpp",
         "qmlapp.h",
         "qmlapplicationwizard.cpp",
         "qmlapplicationwizard.h",
-        "QmlProject.mimetypes.xml",
         "qmlproject.cpp",
         "qmlproject.h",
         "qmlproject.qrc",

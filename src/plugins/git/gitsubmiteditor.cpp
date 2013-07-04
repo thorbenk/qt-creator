@@ -61,7 +61,8 @@ public:
             for (; j < source->rowCount(); ++j) {
                 CommitData::StateFilePair sourceStateFile = gitSource->stateFilePair(j);
                 if (stateFile == sourceStateFile) {
-                    setChecked(i, source->checked(j));
+                    if (isCheckable(i) && source->isCheckable(j))
+                        setChecked(i, source->checked(j));
                     break;
                 } else if (stateFile < sourceStateFile) {
                     break;
@@ -85,10 +86,11 @@ private:
 GitSubmitEditor::GitSubmitEditor(const VcsBase::VcsBaseSubmitEditorParameters *parameters, QWidget *parent) :
     VcsBaseSubmitEditor(parameters, new GitSubmitEditorWidget(parent)),
     m_model(0),
-    m_amend(false),
+    m_commitType(SimpleCommit),
     m_forceClose(false)
 {
     connect(this, SIGNAL(diffSelectedFiles(QList<int>)), this, SLOT(slotDiffSelected(QList<int>)));
+    connect(submitEditorWidget(), SIGNAL(show(QString)), this, SLOT(showCommit(QString)));
 }
 
 GitSubmitEditorWidget *GitSubmitEditor::submitEditorWidget()
@@ -96,15 +98,25 @@ GitSubmitEditorWidget *GitSubmitEditor::submitEditorWidget()
     return static_cast<GitSubmitEditorWidget *>(widget());
 }
 
+const GitSubmitEditorWidget *GitSubmitEditor::submitEditorWidget() const
+{
+    return static_cast<GitSubmitEditorWidget *>(widget());
+}
+
 void GitSubmitEditor::setCommitData(const CommitData &d)
 {
+    m_commitEncoding = d.commitEncoding;
+    m_workingDirectory = d.panelInfo.repository;
+    m_commitType = d.commitType;
+    m_amendSHA1 = d.amendSHA1;
+
     GitSubmitEditorWidget *w = submitEditorWidget();
+    w->initialize(m_commitType, m_workingDirectory);
     w->setPanelData(d.panelData);
     w->setPanelInfo(d.panelInfo);
     w->setHasUnmerged(false);
 
-    m_commitEncoding = d.commitEncoding;
-    m_workingDirectory = d.panelInfo.repository;
+    setEmptyFileListEnabled(m_commitType == AmendCommit); // Allow for just correcting the message
 
     m_model = new GitSubmitFileModel(this);
     if (!d.files.isEmpty()) {
@@ -126,12 +138,6 @@ void GitSubmitEditor::setCommitData(const CommitData &d)
         }
     }
     setFileModel(m_model, d.panelInfo.repository);
-}
-
-void GitSubmitEditor::setAmend(bool amend)
-{
-    m_amend = amend;
-    setEmptyFileListEnabled(amend); // Allow for just correcting the message
 }
 
 void GitSubmitEditor::slotDiffSelected(const QList<int> &rows)
@@ -156,15 +162,22 @@ void GitSubmitEditor::slotDiffSelected(const QList<int> &rows)
         emit merge(unmergedFiles);
 }
 
+void GitSubmitEditor::showCommit(const QString &commit)
+{
+    if (!m_workingDirectory.isEmpty())
+        emit show(m_workingDirectory, commit);
+}
+
 void GitSubmitEditor::updateFileModel()
 {
     if (m_workingDirectory.isEmpty())
         return;
     GitClient *client = GitPlugin::instance()->gitClient();
     QString errorMessage, commitTemplate;
-    CommitData data;
-    if (client->getCommitData(m_workingDirectory, m_amend, &commitTemplate, &data, &errorMessage)) {
+    CommitData data(m_commitType);
+    if (client->getCommitData(m_workingDirectory, &commitTemplate, data, &errorMessage)) {
         setCommitData(data);
+        submitEditorWidget()->refreshLog(m_workingDirectory);
     } else {
         VcsBase::VcsBaseOutputWindow::instance()->append(errorMessage);
         m_forceClose = true;
@@ -174,12 +187,18 @@ void GitSubmitEditor::updateFileModel()
 
 GitSubmitEditorPanelData GitSubmitEditor::panelData() const
 {
-    return const_cast<GitSubmitEditor*>(this)->submitEditorWidget()->panelData();
+    return submitEditorWidget()->panelData();
+}
+
+QString GitSubmitEditor::amendSHA1() const
+{
+    QString commit = submitEditorWidget()->amendSHA1();
+    return commit.isEmpty() ? m_amendSHA1 : commit;
 }
 
 QByteArray GitSubmitEditor::fileContents() const
 {
-    const QString& text = const_cast<GitSubmitEditor*>(this)->submitEditorWidget()->descriptionText();
+    const QString &text = submitEditorWidget()->descriptionText();
 
     if (!m_commitEncoding.isEmpty()) {
         // Do the encoding convert, When use user-defined encoding

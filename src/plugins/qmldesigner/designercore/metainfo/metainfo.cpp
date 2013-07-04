@@ -29,10 +29,7 @@
 
 #include "metainfo.h"
 
-#include "abstractproperty.h"
 #include "modelnode.h"
-#include "invalidmodelnodeexception.h"
-#include "invalidargumentexception.h"
 #include "metainforeader.h"
 #include "iwidgetplugin.h"
 
@@ -41,7 +38,6 @@
 
 #include <QDebug>
 #include <QMessageBox>
-#include <QPair>
 #include <QtAlgorithms>
 
 enum {
@@ -140,7 +136,8 @@ QStringList MetaInfo::s_pluginDirs;
 /*!
 \class QmlDesigner::MetaInfo
 \ingroup CoreModel
-\brief The MetaInfo class provides meta information about qml types and properties.
+\brief The MetaInfo class provides meta information about QML types and
+properties.
 */
 
 /*!

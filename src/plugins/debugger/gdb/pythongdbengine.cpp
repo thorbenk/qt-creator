@@ -119,8 +119,6 @@ void GdbEngine::updateLocalsPython(const UpdateParameters &params)
         options += "partial,";
     if (params.tooltipOnly)
         options += "tooltiponly,";
-    if (isAutoTestRunning())
-        options += "autotest,";
     options.chop(1);
 
     QByteArray resultVar;
@@ -148,7 +146,7 @@ void GdbEngine::handleStackFramePython(const GdbResponse &response)
         }
         GdbMi all;
         all.fromStringMultiple(out);
-        GdbMi data = all.findChild("data");
+        GdbMi data = all["data"];
 
         WatchHandler *handler = watchHandler();
         QList<WatchData> list;
@@ -161,23 +159,23 @@ void GdbEngine::handleStackFramePython(const GdbResponse &response)
 
         foreach (const GdbMi &child, data.children()) {
             WatchData dummy;
-            dummy.iname = child.findChild("iname").data();
-            GdbMi wname = child.findChild("wname");
+            dummy.iname = child["iname"].data();
+            GdbMi wname = child["wname"];
             if (wname.isValid()) {
                 // Happens (only) for watched expressions. They are encoded as
                 // base64 encoded 8 bit data, without quotes
                 dummy.name = decodeData(wname.data(), Base64Encoded8Bit);
                 dummy.exp = dummy.name.toUtf8();
             } else {
-                dummy.name = _(child.findChild("name").data());
+                dummy.name = _(child["name"].data());
             }
             parseWatchData(handler->expandedINames(), dummy, child, &list);
         }
-        const GdbMi typeInfo = all.findChild("typeinfo");
+        const GdbMi typeInfo = all["typeinfo"];
         if (typeInfo.type() == GdbMi::List) {
             foreach (const GdbMi &s, typeInfo.children()) {
-                const GdbMi name = s.findChild("name");
-                const GdbMi size = s.findChild("size");
+                const GdbMi name = s["name"];
+                const GdbMi size = s["size"];
                 if (name.isValid() && size.isValid())
                     m_typeInfoCache.insert(QByteArray::fromBase64(name.data()),
                                            TypeInfo(size.data().toUInt()));

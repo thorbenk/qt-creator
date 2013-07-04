@@ -105,12 +105,6 @@ const char SB_OPENPAGES[] = "OpenPages";
 
 #define IMAGEPATH ":/help/images/"
 
-static QString docPath()
-{
-    return QLatin1String(Utils::HostOsInfo::isMacHost()
-                         ? "/../Resources/doc/" : "/../share/doc/qtcreator/");
-}
-
 using namespace Core;
 
 static QToolButton *toolButton(QAction *action)
@@ -389,16 +383,8 @@ bool HelpPlugin::initialize(const QStringList &arguments, QString *error)
 void HelpPlugin::extensionsInitialized()
 {
     QStringList filesToRegister;
-    // Explicitly register qml.qch if located in creator directory. This is only
-    // needed for the creator-qml package, were we want to ship the documentation
-    // without a qt development version. TODO: is this still really needed, remove
-    const QString &appPath = QCoreApplication::applicationDirPath();
-    filesToRegister.append(QDir::cleanPath(QDir::cleanPath(appPath
-        + docPath() + QLatin1String("qml.qch"))));
-
     // we might need to register creators inbuild help
-    filesToRegister.append(QDir::cleanPath(appPath
-        + docPath() + QLatin1String("qtcreator.qch")));
+    filesToRegister.append(ICore::documentationPath() + QLatin1String("/qtcreator.qch"));
     Core::HelpManager::instance()->registerDocumentation(filesToRegister);
 }
 
@@ -729,9 +715,10 @@ void HelpPlugin::showExternalWindow()
     doSetupIfNeeded();
     m_externalWindow->show();
     connectExternalHelpWindow();
-    m_externalWindow->activateWindow();
     if (firstTime)
-        Core::ICore::mainWindow()->activateWindow();
+        Core::ICore::raiseWindow(Core::ICore::mainWindow());
+    else
+        Core::ICore::raiseWindow(m_externalWindow);
 }
 
 void HelpPlugin::modeChanged(Core::IMode *mode, Core::IMode *old)

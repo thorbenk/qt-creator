@@ -37,6 +37,7 @@
 #include "headerpath.h"
 
 #include <utils/fileutils.h>
+#include <QStringList>
 
 namespace ProjectExplorer {
 
@@ -83,6 +84,10 @@ public:
 
     void setCompilerCommand(const Utils::FileName &);
     Utils::FileName compilerCommand() const;
+    void setPlatformCodeGenFlags(const QStringList &);
+    QStringList platformCodeGenFlags() const;
+    void setPlatformLinkerFlags(const QStringList &);
+    QStringList platformLinkerFlags() const;
 
     ToolChain *clone() const;
 
@@ -92,6 +97,7 @@ protected:
     GccToolChain(const GccToolChain &);
 
     virtual QString defaultDisplayName() const;
+    virtual CompilerFlags defaultCompilerFlags() const;
 
     virtual QList<Abi> detectSupportedAbis() const;
     virtual QString detectVersion() const;
@@ -121,6 +127,8 @@ private:
     void updateSupportedAbis() const;
 
     Utils::FileName m_compilerCommand;
+    QStringList m_platformCodeGenFlags;
+    QStringList m_platformLinkerFlags;
 
     Abi m_targetAbi;
     mutable QList<Abi> m_supportedAbis;
@@ -142,6 +150,7 @@ public:
     QString typeDisplayName() const;
     QString makeCommand(const Utils::Environment &environment) const;
 
+    CompilerFlags compilerFlags(const QStringList &cxxflags) const;
     WarningFlags warningFlags(const QStringList &cflags) const;
 
     IOutputParser *outputParser() const;
@@ -149,6 +158,9 @@ public:
     ToolChain *clone() const;
 
     QList<Utils::FileName> suggestedMkspecList() const;
+
+protected:
+    virtual CompilerFlags defaultCompilerFlags() const;
 
 private:
     ClangToolChain(bool autodetect);
@@ -189,6 +201,7 @@ public:
     QString type() const;
     QString typeDisplayName() const;
 
+    CompilerFlags compilerFlags(const QStringList &cxxflags) const;
     IOutputParser *outputParser() const;
 
     ToolChain *clone() const;

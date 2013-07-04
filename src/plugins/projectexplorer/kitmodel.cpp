@@ -60,7 +60,7 @@ public:
         widget = KitManager::instance()->createConfigWidget(k);
         if (widget) {
             if (k && k->isAutoDetected())
-                widget->makeReadOnly();
+                widget->makeStickySubWidgetsReadOnly();
             widget->setVisible(false);
         }
     }

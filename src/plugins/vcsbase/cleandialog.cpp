@@ -144,7 +144,8 @@ CleanDialogPrivate::CleanDialogPrivate() :
 /*!
     \class VcsBase::CleanDialog
 
-    \brief File selector dialog for files not under version control.
+    \brief The CleanDialog class provides a file selector dialog for files not
+    under version control.
 
     Completely clean a directory under version control
     from all files that are not under version control based on a list
@@ -279,7 +280,7 @@ void CleanDialog::slotDoubleClicked(const QModelIndex &index)
     if (const QStandardItem *item = d->m_filesModel->itemFromIndex(index))
         if (!item->data(Internal::isDirectoryRole).toBool()) {
             const QString fname = item->data(Internal::fileNameRole).toString();
-            Core::EditorManager::openEditor(fname, Core::Id(), Core::EditorManager::ModeSwitch);
+            Core::EditorManager::openEditor(fname);
     }
 }
 
@@ -305,18 +306,6 @@ void CleanDialog::updateSelectAllCheckBox()
             }
         }
         d->ui.selectAllCheckBox->setChecked(checked);
-    }
-}
-
-void CleanDialog::changeEvent(QEvent *e)
-{
-    QDialog::changeEvent(e);
-    switch (e->type()) {
-    case QEvent::LanguageChange:
-        d->ui.retranslateUi(this);
-        break;
-    default:
-        break;
     }
 }
 

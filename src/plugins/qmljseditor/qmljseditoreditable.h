@@ -37,19 +37,19 @@
 namespace QmlJSEditor {
 class QmlJSTextEditorWidget;
 
-class QMLJSEDITOR_EXPORT QmlJSEditorEditable : public TextEditor::BaseTextEditor
+class QMLJSEDITOR_EXPORT QmlJSEditor : public TextEditor::BaseTextEditor
 {
     Q_OBJECT
 
 public:
-    explicit QmlJSEditorEditable(QmlJSTextEditorWidget *);
+    explicit QmlJSEditor(QmlJSTextEditorWidget *);
 
     bool duplicateSupported() const { return true; }
     Core::IEditor *duplicate(QWidget *parent);
     Core::Id id() const;
     bool isTemporary() const { return false; }
     bool open(QString *errorString, const QString &fileName, const QString &realFileName);
-    Core::Id preferredModeType() const;
+    bool isDesignModePreferred() const;
     void setTextCodec(QTextCodec *codec, TextCodecReason = TextCodecOtherReason);
 
     const Utils::CommentDefinition *commentDefinition() const;

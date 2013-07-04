@@ -38,6 +38,7 @@
 namespace TextEditor {
 class BaseTextEditorWidget;
 class SnippetEditorWidget;
+class FontSettings;
 }
 
 QT_BEGIN_NAMESPACE
@@ -52,83 +53,80 @@ QT_END_NAMESPACE
 namespace DiffEditor {
 
 class DiffViewEditorWidget;
-
-struct TextLineData {
-    enum TextLineType {
-        TextLine,
-        Separator,
-        Invalid
-    };
-    TextLineData() : textLineType(Invalid) {}
-    TextLineData(const QString &txt) : textLineType(TextLine), text(txt) {}
-    TextLineData(TextLineType t) : textLineType(t) {}
-    TextLineType textLineType;
-    QString text;
-};
-
-struct RowData {
-    RowData() : equal(true) {}
-    RowData(const TextLineData &l)
-        : leftLine(l), rightLine(l), equal(true) {}
-    RowData(const TextLineData &l, const TextLineData &r, bool e = false)
-        : leftLine(l), rightLine(r), equal(e) {}
-    TextLineData leftLine;
-    TextLineData rightLine;
-    bool equal; // true if left and right lines are equal, taking whitespaces into account (or both invalid)
-};
-
-struct ChunkData {
-    ChunkData() : contextChunk(false) {}
-    QList<RowData> rows;
-    bool contextChunk;
-    // <absolute position in the file, absolute position in the file>
-    QMap<int, int> changedLeftPositions; // counting from the beginning of the chunk
-    QMap<int, int> changedRightPositions; // counting from the beginning of the chunk
-};
-
-struct FileData {
-    FileData() {}
-    FileData(const ChunkData &chunkData) { chunks.append(chunkData); }
-    QList<ChunkData> chunks;
-};
-
-struct DiffData {
-    QList<FileData> files;
-};
+struct TextLineData;
+struct ChunkData;
+struct FileData;
 
 class DIFFEDITOR_EXPORT DiffEditorWidget : public QWidget
 {
     Q_OBJECT
 public:
+    struct DiffFileInfo {
+        DiffFileInfo() {}
+        DiffFileInfo(const QString &file) : fileName(file) {}
+        DiffFileInfo(const QString &file, const QString &type) : fileName(file), typeInfo(type) {}
+        QString fileName;
+        QString typeInfo;
+    };
+
+    struct DiffFilesContents {
+        DiffFileInfo leftFileInfo;
+        QString leftText;
+        DiffFileInfo rightFileInfo;
+        QString rightText;
+    };
+
     DiffEditorWidget(QWidget *parent = 0);
     ~DiffEditorWidget();
 
-    void setDiff(const QString &leftText, const QString &rightText);
+    void clear();
+    void clear(const QString &message);
+    void setDiff(const QList<DiffFilesContents> &diffFileList, const QString &workingDirectory = QString());
     QTextCodec *codec() const;
+
+#ifdef WITH_TESTS
+    void testAssemblyRows();
+#endif // WITH_TESTS
 
 public slots:
     void setContextLinesNumber(int lines);
     void setIgnoreWhitespaces(bool ignore);
+    void setHorizontalScrollBarSynchronization(bool on);
+    void navigateToDiffFile(int diffFileIndex);
+
+signals:
+    void navigatedToDiffFile(int diffFileIndex);
 
 protected:
     TextEditor::SnippetEditorWidget *leftEditor() const;
     TextEditor::SnippetEditorWidget *rightEditor() const;
 
 private slots:
-    void leftSliderChanged();
-    void rightSliderChanged();
+    void setFontSettings(const TextEditor::FontSettings &fontSettings);
+    void leftVSliderChanged();
+    void rightVSliderChanged();
+    void leftHSliderChanged();
+    void rightHSliderChanged();
+    void leftCursorPositionChanged();
+    void rightCursorPositionChanged();
     void leftDocumentSizeChanged();
     void rightDocumentSizeChanged();
 
 private:
-    void setDiff(const QList<Diff> &diffList);
+    struct DiffList {
+        DiffFileInfo leftFileInfo;
+        DiffFileInfo rightFileInfo;
+        QList<Diff> diffList;
+    };
+
+    void setDiff(const QList<DiffList> &diffList);
     bool isWhitespace(const QChar &c) const;
     bool isWhitespace(const Diff &diff) const;
     bool isEqual(const QList<Diff> &diffList, int diffNumber) const;
     QList<QTextEdit::ExtraSelection> colorPositions(const QTextCharFormat &format,
             QTextCursor &cursor,
             const QMap<int, int> &positions) const;
-    void colorDiff(const FileData &fileData);
+    void colorDiff(const QList<FileData> &fileDataList);
     QList<TextLineData> assemblyRows(const QStringList &lines,
                                                        const QMap<int, int> &lineSpans,
                                                        const QMap<int, int> &changedPositions,
@@ -142,14 +140,21 @@ private:
     DiffViewEditorWidget *m_rightEditor;
     QSplitter *m_splitter;
 
-    QList<Diff> m_diffList;
+    QList<DiffList> m_diffList; // list of original outputs from differ
+    QList<ChunkData> m_originalChunkData; // one big chunk for every file, ignoreWhitespaces taken into account
+    QList<FileData> m_contextFileData; // ultimate data to be shown, contextLinesNumber taken into account
     int m_contextLinesNumber;
     bool m_ignoreWhitespaces;
-
-    ChunkData m_originalChunkData;
-    FileData m_contextFileData;
+    bool m_syncScrollBars;
 
     bool m_foldingBlocker;
+
+    QTextCharFormat m_fileLineFormat;
+    QTextCharFormat m_chunkLineFormat;
+    QTextCharFormat m_leftLineFormat;
+    QTextCharFormat m_leftCharFormat;
+    QTextCharFormat m_rightLineFormat;
+    QTextCharFormat m_rightCharFormat;
 };
 
 } // namespace DiffEditor

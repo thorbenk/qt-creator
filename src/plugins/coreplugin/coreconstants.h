@@ -98,6 +98,7 @@ const char EXIT[]                  = "QtCreator.Exit";
 
 const char OPTIONS[]               = "QtCreator.Options";
 const char TOGGLE_SIDEBAR[]        = "QtCreator.ToggleSidebar";
+const char TOGGLE_MODE_SELECTOR[]  = "QtCreator.ToggleModeSelector";
 const char TOGGLE_FULLSCREEN[]     = "QtCreator.ToggleFullScreen";
 
 const char MINIMIZE_WINDOW[]       = "QtCreator.MinimizeWindow";
@@ -105,9 +106,10 @@ const char ZOOM_WINDOW[]           = "QtCreator.ZoomWindow";
 
 const char SPLIT[]                 = "QtCreator.Split";
 const char SPLIT_SIDE_BY_SIDE[]    = "QtCreator.SplitSideBySide";
+const char SPLIT_NEW_WINDOW[]      = "QtCreator.SplitNewWindow";
 const char REMOVE_CURRENT_SPLIT[]  = "QtCreator.RemoveCurrentSplit";
 const char REMOVE_ALL_SPLITS[]     = "QtCreator.RemoveAllSplits";
-const char GOTO_OTHER_SPLIT[]      = "QtCreator.GotoOtherSplit";
+const char GOTO_NEXT_SPLIT[]      = "QtCreator.GotoOtherSplit";
 const char CLOSE[]                 = "QtCreator.Close";
 const char CLOSE_ALTERNATIVE[]     = "QtCreator.Close_Alternative"; // temporary, see QTCREATORBUG-72
 const char CLOSEALL[]              = "QtCreator.CloseAll";
@@ -192,6 +194,7 @@ const char ICON_CLEAR[]              = ":/core/images/clear.png";
 const char ICON_RESET[]              = ":/core/images/reset.png";
 const char ICON_MAGNIFIER[]          = ":/core/images/magnifier.png";
 const char ICON_TOGGLE_SIDEBAR[]     = ":/core/images/sidebaricon.png";
+const char ICON_TOGGLE_TOPBAR[]      = ":/core/images/topbaricon.png";
 const char ICON_CLOSE_DOCUMENT[]     = ":/core/images/button_close.png";
 const char ICON_CLOSE[]              = ":/core/images/closebutton.png";
 const char ICON_CLOSE_DARK[]         = ":/core/images/darkclosebutton.png";

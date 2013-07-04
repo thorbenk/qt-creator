@@ -13,12 +13,10 @@ QtcPlugin {
     Depends { name: "CPlusPlus" }
     Depends { name: "TextEditor" }
     Depends { name: "ProjectExplorer" }
-    Depends { name: "cpp" }
 
     cpp.includePaths: base.concat("../../libs/3rdparty")
 
     files: [
-        "CppEditor.mimetypes.xml",
         "cppautocompleter.cpp",
         "cppautocompleter.h",
         "cppclasswizard.cpp",
@@ -56,11 +54,13 @@ QtcPlugin {
     ]
 
     Group {
+        name: "Tests"
         condition: Defaults.testsEnabled(qbs)
         files: [
             "cppdoxygen_test.cpp",
             "cppquickfix_test.cpp",
             "fileandtokenactions_test.cpp",
+            "followsymbol_switchmethoddecldef_test.cpp"
         ]
 
         cpp.defines: outer.concat(['SRCDIR="' + FileInfo.path(filePath) + '"'])

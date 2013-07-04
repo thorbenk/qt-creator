@@ -82,17 +82,26 @@ void AndroidDeployStep::ctor()
     //: AndroidDeployStep default display name
     setDefaultDisplayName(tr("Deploy to Android device"));
     m_deployAction = NoDeploy;
-    m_useLocalQtLibs = false;
+
+    QtSupport::BaseQtVersion *qt = QtSupport::QtKitInformation::qtVersion(target()->kit());
+    m_bundleQtAvailable = qt && qt->qtVersion() >= QtSupport::QtVersionNumber(5, 0, 0);
+    if (m_bundleQtAvailable)
+        m_deployAction = BundleLibraries;
+
+
+    connect(ProjectExplorer::KitManager::instance(), SIGNAL(kitUpdated(ProjectExplorer::Kit*)),
+            this, SLOT(kitUpdated(ProjectExplorer::Kit *)));
 }
 
 bool AndroidDeployStep::init()
 {
     m_packageName = AndroidManager::packageName(target());
     const QString targetSDK = AndroidManager::targetSDK(target());
+    const QString targetArch = AndroidManager::targetArch(target());
 
     writeOutput(tr("Please wait, searching for a suitable device for target:%1.").arg(targetSDK));
     m_deviceAPILevel = targetSDK.mid(targetSDK.indexOf(QLatin1Char('-')) + 1).toInt();
-    m_deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&m_deviceAPILevel);
+    m_deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&m_deviceAPILevel, targetArch);
     if (!m_deviceSerialNumber.length()) {
         m_deviceSerialNumber.clear();
         raiseError(tr("Cannot deploy: no devices or emulators found for your package."));
@@ -113,7 +122,6 @@ bool AndroidDeployStep::init()
     m_apkPathDebug = AndroidManager::apkPath(target(), AndroidManager::DebugBuild).toString();
     m_apkPathRelease = AndroidManager::apkPath(target(), AndroidManager::ReleaseBuildSigned).toString();
     m_buildDirectory = static_cast<Qt4Project *>(target()->project())->rootQt4ProjectNode()->buildDir();
-    m_runQASIPackagePath = m_QASIPackagePath;
     m_runDeployAction = m_deployAction;
     ToolChain *tc = ToolChainKitInformation::toolChain(target()->kit());
     if (!tc || tc->type() != QLatin1String(Constants::ANDROID_TOOLCHAIN_TYPE)) {
@@ -143,24 +151,31 @@ AndroidDeployStep::AndroidDeployAction AndroidDeployStep::deployAction()
     return m_deployAction;
 }
 
-bool AndroidDeployStep::useLocalQtLibs()
-{
-    return m_useLocalQtLibs;
-}
-
 bool AndroidDeployStep::fromMap(const QVariantMap &map)
 {
-    m_useLocalQtLibs = map.value(QLatin1String(USE_LOCAL_QT_KEY), false).toBool();
     m_deployAction = AndroidDeployAction(map.value(QLatin1String(DEPLOY_ACTION_KEY), NoDeploy).toInt());
+    QVariant useLocalQt = map.value(QLatin1String(USE_LOCAL_QT_KEY));
+    if (useLocalQt.isValid()) { // old settings
+        if (useLocalQt.toBool() && m_deployAction == NoDeploy)
+            m_deployAction = BundleLibraries;
+    }
+
     if (m_deployAction == InstallQASI)
         m_deployAction = NoDeploy;
+    QtSupport::BaseQtVersion *qtVersion
+            = QtSupport::QtKitInformation::qtVersion(target()->kit());
+    if (m_deployAction == BundleLibraries)
+        if (!qtVersion || qtVersion->qtVersion() < QtSupport::QtVersionNumber(5, 0, 0))
+            m_deployAction = NoDeploy; // the kit changed to a non qt5 kit
+
+    m_bundleQtAvailable = qtVersion && qtVersion->qtVersion() >= QtSupport::QtVersionNumber(5, 0, 0);
+
     return ProjectExplorer::BuildStep::fromMap(map);
 }
 
 QVariantMap AndroidDeployStep::toMap() const
 {
     QVariantMap map = ProjectExplorer::BuildStep::toMap();
-    map.insert(QLatin1String(USE_LOCAL_QT_KEY), m_useLocalQtLibs);
     map.insert(QLatin1String(DEPLOY_ACTION_KEY), m_deployAction);
     return map;
 }
@@ -168,9 +183,10 @@ QVariantMap AndroidDeployStep::toMap() const
 void AndroidDeployStep::cleanLibsOnDevice()
 {
     const QString targetSDK = AndroidManager::targetSDK(target());
+    const QString targetArch = AndroidManager::targetArch(target());
 
     int deviceAPILevel = targetSDK.mid(targetSDK.indexOf(QLatin1Char('-')) + 1).toInt();
-    QString deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&deviceAPILevel);
+    QString deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&deviceAPILevel, targetArch);
     if (!deviceSerialNumber.length()) {
         Core::MessageManager::instance()->printToOutputPane(tr("Could not run adb. No device found."), Core::MessageManager::NoModeSwitch);
         return;
@@ -178,43 +194,79 @@ void AndroidDeployStep::cleanLibsOnDevice()
     QProcess *process = new QProcess(this);
     QStringList arguments = AndroidDeviceInfo::adbSelector(deviceSerialNumber);
     arguments << QLatin1String("shell") << QLatin1String("rm") << QLatin1String("-r") << QLatin1String("/data/local/tmp/qt");
-    connect(process, SIGNAL(finished(int)), this, SLOT(cleanLibsFinished()));
+    connect(process, SIGNAL(finished(int)), this, SLOT(processFinished()));
     const QString adb = AndroidConfigurations::instance().adbToolPath().toString();
     Core::MessageManager::instance()->printToOutputPane(adb + QLatin1String(" ")
                                                         + arguments.join(QLatin1String(" ")),
                                                         Core::MessageManager::NoModeSwitch);
     process->start(adb, arguments);
+    if (!process->waitForStarted(500))
+        delete process;
 }
 
-void AndroidDeployStep::cleanLibsFinished()
+void AndroidDeployStep::processFinished()
 {
     QProcess *process = qobject_cast<QProcess *>(sender());
-    if (!process)
-        return;
+    QTC_ASSERT(process, return);
     Core::MessageManager::instance()->printToOutputPane(QString::fromLocal8Bit(process->readAll()), Core::MessageManager::NoModeSwitch);
     Core::MessageManager::instance()->printToOutputPane(tr("adb finished with exit code %1.").arg(process->exitCode()),
                                                         Core::MessageManager::NoModeSwitch);
+    process->deleteLater();
+}
+
+void AndroidDeployStep::kitUpdated(Kit *kit)
+{
+    if (kit != target()->kit())
+        return;
+    QtSupport::BaseQtVersion *qtVersion
+            = QtSupport::QtKitInformation::qtVersion(target()->kit());
+
+    bool newBundleQtAvailable = qtVersion && qtVersion->qtVersion() >= QtSupport::QtVersionNumber(5, 0, 0);
+    if (m_bundleQtAvailable != newBundleQtAvailable) {
+        m_bundleQtAvailable = newBundleQtAvailable;
+
+        if (!m_bundleQtAvailable && m_deployAction == BundleLibraries)
+            m_deployAction = NoDeploy; // the kit changed to a non qt5 kit
+
+        emit deployOptionsChanged();
+    }
+}
+
+void AndroidDeployStep::installQASIPackage(const QString &packagePath)
+{
+    const QString targetArch = AndroidManager::targetArch(target());
+    const QString targetSDK = AndroidManager::targetSDK(target());
+    int deviceAPILevel = targetSDK.mid(targetSDK.indexOf(QLatin1Char('-')) + 1).toInt();
+    QString deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&deviceAPILevel, targetArch);
+    if (!deviceSerialNumber.length()) {
+        Core::MessageManager::instance()->printToOutputPane(tr("Could not run adb. No device found."), Core::MessageManager::NoModeSwitch);
+        return;
+    }
+
+    QProcess *process = new QProcess(this);
+    QStringList arguments = AndroidDeviceInfo::adbSelector(deviceSerialNumber);
+    arguments << QLatin1String("install") << QLatin1String("-r ") << packagePath;
+
+    connect(process, SIGNAL(finished(int)), this, SLOT(processFinished()));
+    const QString adb = AndroidConfigurations::instance().adbToolPath().toString();
+    Core::MessageManager::instance()->printToOutputPane(adb + QLatin1String(" ")
+                                                        + arguments.join(QLatin1String(" ")),
+                                                        Core::MessageManager::NoModeSwitch);
+    process->start(adb, arguments);
+    if (!process->waitForFinished(500))
+        delete process;
+}
+
+bool AndroidDeployStep::bundleQtOptionAvailable()
+{
+    return m_bundleQtAvailable;
 }
 
 void AndroidDeployStep::setDeployAction(AndroidDeployStep::AndroidDeployAction deploy)
 {
     m_deployAction = deploy;
-}
 
-void AndroidDeployStep::setDeployQASIPackagePath(const QString &package)
-{
-    m_QASIPackagePath = package;
-    m_deployAction = InstallQASI;
-}
-
-void AndroidDeployStep::setUseLocalQtLibs(bool useLocal)
-{
-    m_useLocalQtLibs = useLocal;
-
-    // ### Passes -1 for API level, which means it won't work with setups that require
-    // library selection based on API level. Use the old approach (command line argument)
-    // in these cases.
-    AndroidManager::setUseLocalLibs(target(), useLocal, -1);
+    AndroidManager::updateDeploymentSettings(target());
 }
 
 bool AndroidDeployStep::runCommand(QProcess *buildProc,
@@ -447,17 +499,6 @@ bool AndroidDeployStep::deployPackage()
         AndroidPackageCreationStep::removeDirectory(tempPath);
     }
 
-    if (m_runDeployAction == InstallQASI) {
-        if (!runCommand(deployProc, AndroidConfigurations::instance().adbToolPath().toString(),
-                        AndroidDeviceInfo::adbSelector(m_deviceSerialNumber)
-                        << QLatin1String("install") << QLatin1String("-r ") << m_runQASIPackagePath)) {
-            raiseError(tr("Qt Android smart installer installation failed"));
-            disconnect(deployProc, 0, this, 0);
-            deployProc->deleteLater();
-            return false;
-        }
-        emit resetDelopyAction();
-    }
     deployProc->setWorkingDirectory(m_androidDirPath.toString());
 
     writeOutput(tr("Installing package onto %1.").arg(m_deviceSerialNumber));

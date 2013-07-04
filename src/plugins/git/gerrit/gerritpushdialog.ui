@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>306</width>
-    <height>304</height>
+    <width>600</width>
+    <height>520</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -31,73 +31,121 @@
      <item>
       <widget class="QLabel" name="repositoryLabel">
        <property name="text">
-        <string>Local Repository:</string>
+        <string>&lt;b&gt;Local repository:&lt;/b&gt;</string>
        </property>
       </widget>
      </item>
     </layout>
    </item>
    <item>
-    <widget class="QGroupBox" name="pushTypeGroupBox">
+    <widget class="QGroupBox" name="destinationGroupBox">
      <property name="title">
-      <string>Push Type:</string>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
-      <item>
-       <widget class="QRadioButton" name="publicRadioButton">
-        <property name="text">
-         <string>Public</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="draftRadioButton">
-        <property name="text">
-         <string>Draft</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="remoteGroupBox">
-     <property name="title">
-      <string>Remote Branch:</string>
+      <string>Destination:</string>
      </property>
      <layout class="QFormLayout" name="formLayout">
-      <item row="1" column="1">
-       <widget class="QComboBox" name="remoteComboBox"/>
-      </item>
+      <property name="fieldGrowthPolicy">
+       <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+      </property>
       <item row="1" column="0">
        <widget class="QLabel" name="remoteLabel">
         <property name="text">
-         <string>Remote Name:</string>
+         <string>R&amp;emote:</string>
+        </property>
+        <property name="buddy">
+         <cstring>remoteComboBox</cstring>
         </property>
        </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="remoteComboBox"/>
       </item>
       <item row="2" column="0">
        <widget class="QLabel" name="branchLabel">
         <property name="text">
-         <string>Branch Name:</string>
+         <string>&amp;Branch:</string>
+        </property>
+        <property name="buddy">
+         <cstring>branchComboBox</cstring>
         </property>
        </widget>
       </item>
       <item row="2" column="1">
        <widget class="QComboBox" name="branchComboBox"/>
       </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="topicLabel">
+        <property name="text">
+         <string>&amp;Topic:</string>
+        </property>
+        <property name="buddy">
+         <cstring>topicLineEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="topicLineEdit"/>
+      </item>
+      <item row="4" column="0">
+       <widget class="QCheckBox" name="draftCheckBox">
+        <property name="text">
+         <string>&amp;Draft</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="QLabel" name="infoLabel">
+        <property name="text">
+         <string>Number of commits</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="infoLabel">
-     <property name="text">
-      <string>Number of commits</string>
+    <widget class="QGroupBox" name="commitGroupBox">
+     <property name="title">
+      <string>&amp;Push up to commit:</string>
      </property>
+     <layout class="QVBoxLayout" name="commitLayout">
+      <item>
+       <widget class="Git::Internal::LogChangeWidget" name="commitView">
+        <property name="toolTip">
+         <string>Pushes the selected commit and all dependent commits.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
+   </item>
+   <item>
+    <layout class="QFormLayout" name="reveiwersLayout">
+     <item row="0" column="0">
+      <widget class="QLabel" name="reviewersLabel">
+       <property name="font">
+        <font>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>&amp;Reviewers:</string>
+       </property>
+       <property name="buddy">
+        <cstring>reviewersLineEdit</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="reviewersLineEdit">
+       <property name="toolTip">
+        <string>Comma-separated list of reviewers.
+
+Partial names can be used if they are unambiguous.</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <spacer name="verticalSpacer">
@@ -124,6 +172,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>Git::Internal::LogChangeWidget</class>
+   <extends>QTreeView</extends>
+   <header location="global">git/logchangedialog.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>

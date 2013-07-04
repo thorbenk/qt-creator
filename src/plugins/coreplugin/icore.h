@@ -43,6 +43,9 @@ class QWidget;
 template <class T> class QList;
 QT_END_NAMESPACE
 
+namespace Utils {
+class AppMainWindow;
+}
 
 namespace Core {
 class IWizard;
@@ -109,9 +112,16 @@ public:
 
     static QString resourcePath();
     static QString userResourcePath();
+    static QString documentationPath();
+
+    static QString versionString();
+    static QString buildCompatibilityString();
 
     static QWidget *mainWindow();
+    static Utils::AppMainWindow *appMainWindow();
     static QStatusBar *statusBar();
+    /* Raises and activates the window for the widget. This contains workarounds for X11. */
+    static void raiseWindow(QWidget *widget);
 
     static IContext *currentContextObject();
     // Adds and removes additional active contexts, these contexts are appended
@@ -140,8 +150,8 @@ signals:
     void saveSettingsRequested();
     void optionsDialogRequested();
     void coreAboutToClose();
-    void contextAboutToChange(Core::IContext *context);
-    void contextChanged(Core::IContext *context, const Core::Context &additionalContexts);
+    void contextAboutToChange(const QList<Core::IContext *> &context);
+    void contextChanged(const QList<Core::IContext *> &context, const Core::Context &additionalContexts);
 };
 
 } // namespace Core

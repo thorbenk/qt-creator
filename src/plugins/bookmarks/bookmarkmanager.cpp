@@ -39,10 +39,11 @@
 #include <coreplugin/actionmanager/command.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/session.h>
-#include <texteditor/basetexteditor.h>
+#include <texteditor/itexteditor.h>
 #include <utils/tooltip/tooltip.h>
 #include <utils/tooltip/tipcontents.h>
 #include <utils/qtcassert.h>
+#include <utils/checkablemessagebox.h>
 
 #include <QDebug>
 #include <QDir>
@@ -237,15 +238,18 @@ void BookmarkView::contextMenuEvent(QContextMenuEvent *event)
     QMenu menu;
     QAction *moveUp = menu.addAction(tr("Move Up"));
     QAction *moveDown = menu.addAction(tr("Move Down"));
-    QAction *remove = menu.addAction(tr("&Remove"));
-    QAction *removeAll = menu.addAction(tr("Remove All"));
     QAction *editNote = menu.addAction(tr("Edit Note"));
+    menu.addSeparator();
+    QAction *remove = menu.addAction(tr("&Remove"));
+    menu.addSeparator();
+    QAction *removeAll = menu.addAction(tr("Remove All"));
 
     m_contextMenuIndex = indexAt(event->pos());
     if (!m_contextMenuIndex.isValid()) {
         moveUp->setEnabled(false);
         moveDown->setEnabled(false);
         remove->setEnabled(false);
+        editNote->setEnabled(false);
     }
 
     if (model()->rowCount() == 0)
@@ -276,10 +280,23 @@ void BookmarkView::removeBookmark(const QModelIndex& index)
     m_manager->removeBookmark(bm);
 }
 
-// The perforcemance of this function could be greatly improved.
-//
 void BookmarkView::removeAll()
 {
+    const QString key = QLatin1String("Bookmarks.DontAskAgain");
+    QSettings *settings = ICore::settings();
+    bool checked = settings->value(key).toBool();
+    if (!checked) {
+        if (Utils::CheckableMessageBox::question(this,
+                tr("Remove All Bookmarks"),
+                tr("Are you sure you want to remove all bookmarks from all files in the current session?"),
+                tr("Do not &ask again."),
+                &checked, QDialogButtonBox::Yes | QDialogButtonBox::No, QDialogButtonBox::No)
+                    != QDialogButtonBox::Yes)
+            return;
+        settings->setValue(key, checked);
+    }
+
+    // The performance of this function could be greatly improved.
     while (m_manager->rowCount()) {
         QModelIndex index = m_manager->index(0, 0);
         removeBookmark(index);
@@ -323,7 +340,7 @@ BookmarkManager::BookmarkManager() :
     m_bookmarkIcon(QLatin1String(":/bookmarks/images/bookmark.png")),
     m_selectionModel(new QItemSelectionModel(this, this))
 {
-    connect(Core::ICore::instance(), SIGNAL(contextChanged(Core::IContext*,Core::Context)),
+    connect(Core::ICore::instance(), SIGNAL(contextChanged(QList<Core::IContext*>,Core::Context)),
             this, SLOT(updateActionStatus()));
 
     connect(ProjectExplorerPlugin::instance()->session(), SIGNAL(sessionLoaded(QString)),
@@ -507,8 +524,8 @@ Bookmark *BookmarkManager::bookmarkForIndex(const QModelIndex &index)
 bool BookmarkManager::gotoBookmark(Bookmark *bookmark)
 {
     using namespace TextEditor;
-    if (ITextEditor *editor = qobject_cast<ITextEditor *>(BaseTextEditorWidget::openEditorAt(bookmark->filePath(),
-                                                                                             bookmark->lineNumber()))) {
+    if (ITextEditor *editor = qobject_cast<ITextEditor *>(EditorManager::openEditorAt(bookmark->filePath(),
+                                                                                      bookmark->lineNumber()))) {
         return (editor->currentLine() == bookmark->lineNumber());
     }
     return false;

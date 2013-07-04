@@ -35,6 +35,7 @@
 namespace Git {
 namespace Internal {
 
+const QLatin1String GitSettings::useDiffEditorKey("UseDiffEditor");
 const QLatin1String GitSettings::pullRebaseKey("PullRebase");
 const QLatin1String GitSettings::showTagsKey("ShowTags");
 const QLatin1String GitSettings::omitAnnotationDateKey("OmitAnnotationDate");
@@ -46,6 +47,7 @@ const QLatin1String GitSettings::showPrettyFormatKey("DiffPrettyFormat");
 const QLatin1String GitSettings::gitkOptionsKey("GitKOptions");
 const QLatin1String GitSettings::logDiffKey("LogDiff");
 const QLatin1String GitSettings::repositoryBrowserCmd("RepositoryBrowserCmd");
+const QLatin1String GitSettings::graphLogKey("GraphLog");
 
 GitSettings::GitSettings()
 {
@@ -53,17 +55,19 @@ GitSettings::GitSettings()
 
     declareKey(binaryPathKey, QLatin1String("git"));
     declareKey(timeoutKey, Utils::HostOsInfo::isWindowsHost() ? 60 : 30);
+    declareKey(useDiffEditorKey, true);
     declareKey(pullRebaseKey, false);
     declareKey(showTagsKey, false);
     declareKey(omitAnnotationDateKey, false);
     declareKey(ignoreSpaceChangesInDiffKey, true);
     declareKey(ignoreSpaceChangesInBlameKey, true);
     declareKey(diffPatienceKey, true);
-    declareKey(winSetHomeEnvironmentKey, false);
+    declareKey(winSetHomeEnvironmentKey, true);
     declareKey(gitkOptionsKey, QString());
     declareKey(showPrettyFormatKey, 2);
     declareKey(logDiffKey, false);
     declareKey(repositoryBrowserCmd, QString());
+    declareKey(graphLogKey, false);
 }
 
 QString GitSettings::gitBinaryPath(bool *ok, QString *errorMessage) const

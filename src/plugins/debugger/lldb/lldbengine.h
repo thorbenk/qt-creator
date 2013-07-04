@@ -31,10 +31,14 @@
 #define DEBUGGER_LLDBENGINE
 
 #include "debuggerengine.h"
+#include "disassembleragent.h"
+#include "memoryagent.h"
 
+#include <QPointer>
 #include <QProcess>
-#include <QStack>
 #include <QQueue>
+#include <QMap>
+#include <QStack>
 #include <QVariant>
 
 
@@ -44,7 +48,8 @@ namespace Internal {
 class WatchData;
 class GdbMi;
 
-/* A debugger engine for using the lldb command line debugger.
+/* A debugger engine interfacing the LLDB debugger
+ * using its Python interface.
  */
 
 class LldbEngine : public DebuggerEngine
@@ -56,6 +61,32 @@ public:
     ~LldbEngine();
 
 private:
+    // Convenience struct to build up backend commands.
+    struct Command
+    {
+        Command() {}
+        Command(const char *f) : function(f) {}
+
+        const Command &arg(const char *name, int value) const;
+        const Command &arg(const char *name, qlonglong value) const;
+        const Command &arg(const char *name, qulonglong value) const;
+        const Command &arg(const char *name, const QString &value) const;
+        const Command &arg(const char *name, const QByteArray &value) const;
+        const Command &arg(const char *name, const char *value) const;
+        const Command &beginList(const char *name = 0) const;
+        void endList() const;
+        const Command &beginGroup(const char *name = 0) const;
+        void endGroup() const;
+
+        static QByteArray toData(const QList<QByteArray> &value);
+        static QByteArray toData(const QHash<QByteArray, QByteArray> &value);
+
+        QByteArray function;
+        mutable QByteArray args;
+        private:
+        const Command &argHelper(const char *name, const QByteArray &value) const;
+    };
+
     // DebuggerEngine implementation
     void executeStep();
     void executeStepOut();
@@ -66,7 +97,6 @@ private:
     void setupEngine();
     void setupInferior();
     void runEngine();
-    void runEngine2();
     void shutdownInferior();
     void shutdownEngine();
 
@@ -85,7 +115,7 @@ private:
 
     bool acceptsBreakpoint(BreakpointModelId id) const;
     void attemptBreakpointSynchronization();
-    bool attemptBreakpointSynchronizationHelper(QByteArray *command);
+    bool attemptBreakpointSynchronizationHelper(Command *command);
 
     void assignValueInDebugger(const WatchData *data,
         const QString &expr, const QVariant &value);
@@ -95,15 +125,21 @@ private:
     void loadAllSymbols();
     void requestModuleSymbols(const QString &moduleName);
     void reloadModules();
-    void reloadRegisters() {}
+    void reloadRegisters();
     void reloadSourceFiles() {}
     void reloadFullStack() {}
+    void fetchDisassembler(Internal::DisassemblerAgent *);
+    void refreshDisassembly(const GdbMi &data);
 
     bool supportsThreads() const { return true; }
     bool isSynchronous() const { return true; }
     void updateWatchData(const WatchData &data, const WatchUpdateFlags &flags);
+    void requestUpdateWatchers();
+    void setRegisterValue(int regnr, const QString &value);
 
-    void performContinuation();
+    void fetchMemory(Internal::MemoryAgent *, QObject *, quint64 addr, quint64 length);
+    void changeMemory(Internal::MemoryAgent *, QObject *, quint64 addr, const QByteArray &data);
+    void refreshMemory(const GdbMi &data);
 
 signals:
     void outputReady(const QByteArray &data);
@@ -117,28 +153,25 @@ private:
     Q_SLOT void readLldbStandardOutput();
     Q_SLOT void readLldbStandardError();
     Q_SLOT void handleResponse(const QByteArray &data);
+    Q_SLOT void runEngine2();
+    Q_SLOT void updateAll();
+    Q_SLOT void updateLocals();
     void refreshAll(const GdbMi &all);
     void refreshThreads(const GdbMi &threads);
     void refreshStack(const GdbMi &stack);
+    void refreshRegisters(const GdbMi &registers);
     void refreshLocals(const GdbMi &vars);
     void refreshTypeInfo(const GdbMi &typeInfo);
     void refreshState(const GdbMi &state);
     void refreshLocation(const GdbMi &location);
     void refreshModules(const GdbMi &modules);
+    void refreshSymbols(const GdbMi &symbols);
+    void refreshOutput(const GdbMi &output);
     void refreshBreakpoints(const GdbMi &bkpts);
-
-    void updateAll();
+    void runContinuation(const GdbMi &data);
 
     typedef void (LldbEngine::*LldbCommandContinuation)();
 
-    struct LldbCommand
-    {
-        LldbCommand() : token(0) {}
-        QByteArray command;
-        int token;
-    };
-
-    QByteArray currentOptions() const;
     void handleStop(const QByteArray &response);
     void handleListLocals(const QByteArray &response);
     void handleListModules(const QByteArray &response);
@@ -150,18 +183,20 @@ private:
 
     void handleChildren(const WatchData &data0, const GdbMi &item,
         QList<WatchData> *list);
-    void runSimpleCommand(const QByteArray &command);
-    void runCommand(const QByteArray &function,
-        const QByteArray &extraArgs = QByteArray());
-    GdbMi parseResultFromString(QByteArray out);
 
-    QQueue<LldbCommand> m_commands;
-    QStack<LldbCommandContinuation> m_continuations;
+    void runCommand(const Command &cmd);
 
     QByteArray m_inbuffer;
     QString m_scriptFileName;
     QProcess m_lldbProc;
-    QString m_lldb;
+    QString m_lldbCmd;
+
+    // FIXME: Make generic.
+    int m_lastAgentId;
+    int m_lastToken;
+    QMap<QPointer<DisassemblerAgent>, int> m_disassemblerAgents;
+    QMap<QPointer<MemoryAgent>, int> m_memoryAgents;
+    QHash<int, QPointer<QObject> > m_memoryAgentTokens;
 };
 
 } // namespace Internal

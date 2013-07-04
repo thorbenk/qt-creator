@@ -74,9 +74,6 @@ public:
     virtual QString displayName() const;
     virtual void setDisplayName(const QString &title);
 
-    virtual bool duplicateSupported() const;
-    virtual IEditor *duplicate(QWidget *parent);
-
     virtual QByteArray saveState() const;
     virtual bool restoreState(const QByteArray &state);
 
@@ -84,7 +81,7 @@ public:
 
     virtual QWidget *toolBar();
 
-    virtual Core::Id preferredModeType() const;
+    virtual bool isDesignModePreferred() const;
 
     // For uic code model support
     QString contents() const;

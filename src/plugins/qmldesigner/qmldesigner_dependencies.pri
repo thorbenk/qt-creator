@@ -7,6 +7,19 @@ QTC_PLUGIN_DEPENDS += \
     coreplugin \
     texteditor \
     qmljseditor \
-    qt4projectmanager \
-    qmlprojectmanager \
+    qtsupport \
     projectexplorer
+INCLUDEPATH *= \
+    $$PWD \
+    $$PWD/../../../share/qtcreator/qml/qmlpuppet/interfaces \
+    $$PWD/designercore \
+    $$PWD/designercore/include \
+    $$PWD/components/componentcore \
+    $$PWD/components/formeditor \
+    $$PWD/components/itemlibrary \
+    $$PWD/components/navigator \
+    $$PWD/components/propertyeditor \
+    $$PWD/components/stateseditor \
+    $$PWD/components/debugview \
+    $$PWD/components/integration \
+    $$PWD/components/logger

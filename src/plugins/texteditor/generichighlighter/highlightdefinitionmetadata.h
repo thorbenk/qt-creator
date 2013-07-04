@@ -30,8 +30,6 @@
 #ifndef HIGHLIGHTDEFINITIONMETADATA_H
 #define HIGHLIGHTDEFINITIONMETADATA_H
 
-#include <QString>
-#include <QLatin1String>
 #include <QStringList>
 #include <QUrl>
 
@@ -41,48 +39,17 @@ namespace Internal {
 class HighlightDefinitionMetaData
 {
 public:
-    HighlightDefinitionMetaData();
+    HighlightDefinitionMetaData() : priority(0) {}
 
-    void setPriority(const int priority);
-    int priority() const;
-
-    void setId(const QString &id);
-    const QString &id() const;
-
-    void setName(const QString &name);
-    const QString &name() const;
-
-    void setVersion(const QString &version);
-    const QString &version() const;
-
-    void setFileName(const QString &fileName);
-    const QString &fileName() const;
-
-    void setPatterns(const QStringList &patterns);
-    const QStringList &patterns() const;
-
-    void setMimeTypes(const QStringList &mimeTypes);
-    const QStringList &mimeTypes() const;
-
-    void setUrl(const QUrl &url);
-    const QUrl &url() const;
-
-    static const QLatin1String kPriority;
-    static const QLatin1String kName;
-    static const QLatin1String kExtensions;
-    static const QLatin1String kMimeType;
-    static const QLatin1String kVersion;
-    static const QLatin1String kUrl;
-
-private:
-    int m_priority;
-    QString m_id;
-    QString m_name;
-    QString m_version;
-    QString m_fileName;
-    QStringList m_patterns;
-    QStringList m_mimeTypes;
-    QUrl m_url;
+public:
+    int priority;
+    QString id;
+    QString name;
+    QString version;
+    QString fileName;
+    QStringList patterns;
+    QStringList mimeTypes;
+    QUrl url;
 };
 
 } // namespace Internal

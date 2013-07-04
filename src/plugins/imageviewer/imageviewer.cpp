@@ -163,38 +163,6 @@ void ImageViewer::setDisplayName(const QString &title)
     emit changed();
 }
 
-bool ImageViewer::duplicateSupported() const
-{
-    return false;
-}
-
-Core::IEditor *ImageViewer::duplicate(QWidget *parent)
-{
-    Q_UNUSED(parent);
-    return 0;
-}
-
-QByteArray ImageViewer::saveState() const
-{
-    return QByteArray();
-}
-
-bool ImageViewer::restoreState(const QByteArray &state)
-{
-    Q_UNUSED(state);
-    return true;
-}
-
-int ImageViewer::currentLine() const
-{
-    return 0;
-}
-
-int ImageViewer::currentColumn() const
-{
-    return 0;
-}
-
 bool ImageViewer::isTemporary() const
 {
     return false;
@@ -218,6 +186,12 @@ void ImageViewer::scaleFactorUpdate(qreal factor)
     const QString info = QString::number(factor * 100, 'f', 2) + QLatin1Char('%');
     d->ui_toolbar.labelInfo->setText(info);
 }
+
+/*!
+    Tries to change the \a button icon to the icon specified by \a name
+    from the current theme. Returns \c true if icon is updated, \c false
+    otherwise.
+*/
 
 bool ImageViewer::updateButtonIconByTheme(QAbstractButton *button, const QString &name)
 {

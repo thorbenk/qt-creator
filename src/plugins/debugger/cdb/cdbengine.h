@@ -47,7 +47,6 @@ namespace Internal {
 class DisassemblerAgent;
 struct CdbBuiltinCommand;
 struct CdbExtensionCommand;
-struct CdbOptions;
 struct MemoryViewCookie;
 class ByteArrayInputStream;
 class GdbMi;
@@ -57,8 +56,6 @@ class CdbEngine : public Debugger::DebuggerEngine
     Q_OBJECT
 
 public:
-    typedef QSharedPointer<CdbOptions> OptionsPtr;
-
     enum CommandFlags { QuietCommand = 0x1 };
     // Flag bits for a sequence of commands
     enum CommandSequenceFlags {
@@ -74,7 +71,7 @@ public:
     typedef void (CdbEngine::*BuiltinCommandHandler)(const CdbBuiltinCommandPtr &);
     typedef void (CdbEngine::*ExtensionCommandHandler)(const CdbExtensionCommandPtr &);
 
-    CdbEngine(const DebuggerStartParameters &sp, const OptionsPtr &options);
+    CdbEngine(const DebuggerStartParameters &sp);
     ~CdbEngine();
 
     // Factory function that returns 0 if the debug engine library cannot be found.
@@ -151,6 +148,7 @@ private slots:
 
     void postCommandSequence(unsigned mask);
     void operateByInstructionTriggered(bool);
+    void verboseLogTriggered(bool);
 
     void consoleStubError(const QString &);
     void consoleStubProcessStarted();
@@ -177,7 +175,8 @@ private:
     enum ParseStackResultFlags // Flags returned by parseStackTrace
     {
         ParseStackStepInto = 1, // Need to execute a step, hit on a call frame in "Step into"
-        ParseStackStepOut = 2 // Need to step out, hit on a frame without debug information
+        ParseStackStepOut = 2, // Need to step out, hit on a frame without debug information
+        ParseStackWow64 = 3 // Hit on a frame with 32bit emulation, switch debugger to 32 bit mode
     };
 
 
@@ -201,6 +200,7 @@ private:
     inline bool isCdbProcessRunning() const { return m_process.state() != QProcess::NotRunning; }
     bool canInterruptInferior() const;
     void syncOperateByInstruction(bool operateByInstruction);
+    void syncVerboseLog(bool verboseLog);
     void postWidgetAtCommand();
     void handleCustomSpecialStop(const QVariant &v);
     void postFetchMemory(const MemoryViewCookie &c);
@@ -219,6 +219,9 @@ private:
     void handleExpression(const CdbExtensionCommandPtr &);
     void handleResolveSymbol(const CdbBuiltinCommandPtr &command);
     void handleResolveSymbol(const QList<quint64> &addresses, const QVariant &cookie);
+    void handleCheckWow64(const CdbBuiltinCommandPtr &cmd);
+    void ensureUsing32BitStackInWow64(const CdbBuiltinCommandPtr &cmd);
+    void handleSwitchWow64Stack(const CdbBuiltinCommandPtr &cmd);
     void jumpToAddress(quint64 address);
 
     // Extension commands
@@ -243,7 +246,6 @@ private:
 
     const QByteArray m_creatorExtPrefix;
     const QByteArray m_tokenPrefix;
-    const OptionsPtr m_options;
 
     QProcess m_process;
     QScopedPointer<Utils::ConsoleProcess> m_consoleStub;
@@ -260,9 +262,17 @@ private:
     const QByteArray m_extensionCommandPrefixBA; //!< Library name used as prefix
     bool m_operateByInstructionPending; //!< Creator operate by instruction action changed.
     bool m_operateByInstruction;
+    bool m_verboseLogPending; //!< Creator verbose log action changed.
+    bool m_verboseLog;
     bool m_notifyEngineShutdownOnTermination;
     bool m_hasDebuggee;
     bool m_cdbIs64Bit;
+    enum Wow64State {
+        wow64Uninitialized,
+        noWow64Stack,
+        wow64Stack32Bit,
+        wow64Stack64Bit
+    } m_wow64State;
     QTime m_logTime;
     mutable int m_elapsedLogTime;
     QByteArray m_extensionMessageBuffer;

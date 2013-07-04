@@ -68,6 +68,8 @@ public:
     int maxJobs() const;
     QString buildVariant() const;
 
+    bool isQmlDebuggingEnabled() const;
+
     bool fromMap(const QVariantMap &map);
     QVariantMap toMap() const;
 
@@ -79,7 +81,6 @@ private slots:
     void buildingDone(bool success);
     void handleTaskStarted(const QString &desciption, int max);
     void handleProgress(int value);
-    void handleWarningReport(const qbs::Error &error);
     void handleCommandDescriptionReport(const QString &highlight, const QString &message);
     void handleProcessResultReport(const qbs::ProcessResult &result);
 
@@ -96,7 +97,10 @@ private:
 
     QVariantMap m_qbsConfiguration;
     qbs::BuildOptions m_qbsBuildOptions;
+
+    // Temporary data:
     QStringList m_changedFiles;
+    QStringList m_products;
 
     QFutureInterface<bool> *m_fi;
     qbs::BuildJob *m_job;
@@ -118,17 +122,25 @@ public:
 
 private slots:
     void updateState();
+    void updateQmlDebuggingOption();
+    void updatePropertyEdit(const QVariantMap &data);
 
     void changeBuildVariant(int);
     void changeDryRun(bool dr);
     void changeKeepGoing(bool kg);
     void changeJobCount(int count);
+    void changeProperties();
+
+    // QML debugging:
+    void linkQmlDebuggingLibraryChecked(bool checked);
+    void buildQmlDebuggingHelper();
 
 private:
     Ui::QbsBuildStepConfigWidget *m_ui;
 
     QbsBuildStep *m_step;
     QString m_summary;
+    bool m_ignoreChange;
 };
 
 

@@ -29,15 +29,15 @@
 
 #include "abstractformeditortool.h"
 #include "formeditorview.h"
+#include "formeditorwidget.h"
 
 #include <modelnodecontextmenu.h>
 
-#include <coreplugin/editormanager/editormanager.h>
-
 #include <QDebug>
 #include <QGraphicsSceneDragDropEvent>
+#include <QMimeData>
 #include <nodemetainfo.h>
-#include <nodeproperty.h>
+#include <QAction>
 
 namespace QmlDesigner {
 
@@ -209,16 +209,34 @@ void AbstractFormEditorTool::mouseReleaseEvent(const QList<QGraphicsItem*> & /*i
     }
 }
 
-void AbstractFormEditorTool::mouseDoubleClickEvent(const QList<QGraphicsItem*> &itemList, QGraphicsSceneMouseEvent *)
+void AbstractFormEditorTool::mouseDoubleClickEvent(const QList<QGraphicsItem*> &itemList, QGraphicsSceneMouseEvent *event)
 {
-    FormEditorItem *formEditorItem = topFormEditorItem(itemList);
-    if (formEditorItem)
-        view()->changeToCustomTool(formEditorItem->qmlItemNode().modelNode());
+    if (event->button() == Qt::LeftButton) {
+        FormEditorItem *formEditorItem = topFormEditorItem(itemList);
+        if (formEditorItem)
+            view()->changeToCustomTool(formEditorItem->qmlItemNode().modelNode());
+    }
 }
 
 void AbstractFormEditorTool::showContextMenu(QGraphicsSceneMouseEvent *event)
 {
     ModelNodeContextMenu::showContextMenu(view(), event->screenPos(), event->scenePos().toPoint(), true);
+}
+
+Snapper::Snapping AbstractFormEditorTool::generateUseSnapping(Qt::KeyboardModifiers keyboardModifier) const
+{
+    bool shouldSnapping = view()->formEditorWidget()->snappingAction()->isChecked();
+    bool shouldSnappingAndAnchoring = view()->formEditorWidget()->snappingAndAnchoringAction()->isChecked();
+
+    Snapper::Snapping useSnapping = Snapper::NoSnapping;
+    if (keyboardModifier.testFlag(Qt::ControlModifier) != (shouldSnapping || shouldSnappingAndAnchoring)) {
+        if (shouldSnappingAndAnchoring)
+            useSnapping = Snapper::UseSnappingAndAnchoring;
+        else
+            useSnapping = Snapper::UseSnapping;
+    }
+
+    return useSnapping;
 }
 
 void AbstractFormEditorTool::clear()

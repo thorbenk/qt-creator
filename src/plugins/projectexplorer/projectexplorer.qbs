@@ -13,7 +13,6 @@ QtcPlugin {
     Depends { name: "TextEditor" }
     Depends { name: "QtcSsh" }
 
-    Depends { name: "cpp" }
     cpp.defines: base.concat("QTC_CPU=X86Architecture")
     cpp.includePaths: base.concat([
         "customwizard",
@@ -252,6 +251,8 @@ QtcPlugin {
         "devicesupport/desktopdevicefactory.h",
         "devicesupport/deviceapplicationrunner.cpp",
         "devicesupport/deviceapplicationrunner.h",
+        "devicesupport/devicecheckbuildstep.cpp",
+        "devicesupport/devicecheckbuildstep.h",
         "devicesupport/devicefactoryselectiondialog.cpp",
         "devicesupport/devicefactoryselectiondialog.h",
         "devicesupport/devicefactoryselectiondialog.ui",
@@ -320,8 +321,6 @@ QtcPlugin {
         "images/targetleftbutton.png",
         "images/targetpanel_bottom.png",
         "images/targetpanel_gradient.png",
-        "images/targetremovebutton.png",
-        "images/targetremovebuttondark.png",
         "images/targetrightbutton.png",
         "images/targetrunselected.png",
         "images/targetseparatorbackground.png",
@@ -334,7 +333,8 @@ QtcPlugin {
     ]
 
     Group {
-        condition: qbs.targetOS == "windows" || Defaults.testsEnabled(qbs)
+        name: "WindowsToolChains"
+        condition: qbs.targetOS.contains("windows") || Defaults.testsEnabled(qbs)
         files: [
            "abstractmsvctoolchain.cpp",
            "abstractmsvctoolchain.h",
@@ -350,11 +350,12 @@ QtcPlugin {
     }
 
     Group {
+        name: "Tests"
         condition: Defaults.testsEnabled(qbs)
         files: ["outputparser_test.h", "outputparser_test.cpp"]
     }
 
-    ProductModule {
+    Export {
         Depends { name: "Qt.network" }
     }
 }
