@@ -26,37 +26,39 @@
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ****************************************************************************/
+#ifndef DEVICETESTDIALOG_H
+#define DEVICETESTDIALOG_H
 
-#ifndef QTUICODEMODELSUPPORT_H
-#define QTUICODEMODELSUPPORT_H
+#include "idevice.h"
 
-#include <cpptools/uicodecompletionsupport.h>
+#include <QDialog>
 
-namespace CPlusPlus {
-class CppModelManagerInterface;
-}
-
-namespace Qt4ProjectManager {
-class Qt4Project;
+namespace ProjectExplorer {
 namespace Internal {
 
-class Qt4UiCodeModelSupport : public CppTools::UiCodeModelSupport
+class DeviceTestDialog : public QDialog
 {
     Q_OBJECT
+
 public:
-    Qt4UiCodeModelSupport(CppTools::CppModelManagerInterface *modelmanager,
-                          Qt4Project *project,
-                          const QString &sourceFile,
-                          const QString &uiHeaderFile);
-    virtual ~Qt4UiCodeModelSupport();
-protected:
-    virtual QString uicCommand() const;
-    virtual QStringList environment() const;
+    DeviceTestDialog(const IDevice::ConstPtr &deviceConfiguration, QWidget *parent = 0);
+    ~DeviceTestDialog();
+
+    void reject();
+
+private slots:
+    void handleProgressMessage(const QString &message);
+    void handleErrorMessage(const QString &message);
+    void handleTestFinished(ProjectExplorer::DeviceTester::TestResult result);
+
 private:
-    Qt4Project *m_project;
+    void addText(const QString &text, const QString &color, bool bold);
+
+    class DeviceTestDialogPrivate;
+    DeviceTestDialogPrivate * const d;
 };
 
+} // namespace Internal
+} // namespace ProjectExplorer
 
-} // Internal
-} // Qt4ProjectManager
-#endif // QTUICODEMODELSUPPORT_H
+#endif // Include guard.

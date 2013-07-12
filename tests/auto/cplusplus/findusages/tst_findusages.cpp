@@ -75,6 +75,9 @@ class tst_FindUsages: public QObject
 {
     Q_OBJECT
 
+private:
+    void dump(const QList<Usage> &usages) const;
+
 private Q_SLOTS:
     void inlineMethod();
     void lambdaCaptureByValue();
@@ -104,7 +107,22 @@ private Q_SLOTS:
     void using_insideGlobalNamespace();
     void using_insideNamespace();
     void using_insideFunction();
+    void templatedFunction_QTCREATORBUG9749();
 };
+
+void tst_FindUsages::dump(const QList<Usage> &usages) const
+{
+    QTextStream err(stderr, QIODevice::WriteOnly);
+    err << "DEBUG  : " << usages.size() << " usages:" << endl;
+    foreach (const Usage &usage, usages) {
+        err << "DEBUG  : "
+            << usage.path << ":"
+            << usage.line << ":"
+            << usage.col << ":"
+            << usage.len << ":"
+            << usage.lineText << endl;
+    }
+}
 
 void tst_FindUsages::inlineMethod()
 {
@@ -782,7 +800,7 @@ void tst_FindUsages::templateClass_className()
 
     FindUsages findUsages(src, doc, snapshot);
     findUsages(classTS);
-    QCOMPARE(findUsages.usages().size(), 6);
+    QCOMPARE(findUsages.usages().size(), 7);
 }
 
 void tst_FindUsages::templateFunctionParameters()
@@ -816,6 +834,36 @@ void tst_FindUsages::templateFunctionParameters()
     FindUsages findUsages(src, doc, snapshot);
     findUsages(templArgument);
     QCOMPARE(findUsages.usages().size(), 4);
+}
+
+void tst_FindUsages::templatedFunction_QTCREATORBUG9749()
+{
+    const QByteArray src = "\n"
+            "template <class IntType> char *reformatInteger(IntType value, int format) {}\n"
+            "void func(int code, int format) {\n"
+            "  reformatInteger(code, format);"
+            "}\n"
+            ;
+
+    Document::Ptr doc = Document::create("templatedFunction_QTCREATORBUG9749");
+    doc->setUtf8Source(src);
+    doc->parse();
+    doc->check();
+
+    QVERIFY(doc->diagnosticMessages().isEmpty());
+    QCOMPARE(doc->globalSymbolCount(), 2U);
+
+    Snapshot snapshot;
+    snapshot.insert(doc);
+
+    Template *funcTempl = doc->globalSymbolAt(0)->asTemplate();
+    QVERIFY(funcTempl);
+    QCOMPARE(funcTempl->memberCount(), 2U);
+    Function *func = funcTempl->memberAt(1)->asFunction();
+
+    FindUsages findUsages(src, doc, snapshot);
+    findUsages(func);
+    QCOMPARE(findUsages.usages().size(), 2);
 }
 
 QTEST_APPLESS_MAIN(tst_FindUsages)

@@ -183,6 +183,7 @@ VcsBaseSubmitEditor::VcsBaseSubmitEditor(const VcsBaseSubmitEditorParameters *pa
 {
     setContext(Core::Context(parameters->context));
     setWidget(d->m_widget);
+    document()->setDisplayName(QCoreApplication::translate("VCS", d->m_parameters->displayName));
 
     // Message font according to settings
     const TextEditor::FontSettings fs = TextEditor::TextEditorSettings::instance()->fontSettings();
@@ -369,7 +370,7 @@ bool VcsBaseSubmitEditor::open(QString *errorString, const QString &fileName, co
     if (!createNew(text))
         return false;
 
-    d->m_file->setFileName(QFileInfo(fileName).absoluteFilePath());
+    d->m_file->setFilePath(QFileInfo(fileName).absoluteFilePath());
     d->m_file->setModified(fileName != realFileName);
     return true;
 }
@@ -377,19 +378,6 @@ bool VcsBaseSubmitEditor::open(QString *errorString, const QString &fileName, co
 Core::IDocument *VcsBaseSubmitEditor::document()
 {
     return d->m_file;
-}
-
-QString VcsBaseSubmitEditor::displayName() const
-{
-    if (d->m_displayName.isEmpty())
-        d->m_displayName = QCoreApplication::translate("VCS", d->m_parameters->displayName);
-    return d->m_displayName;
-}
-
-void VcsBaseSubmitEditor::setDisplayName(const QString &title)
-{
-    d->m_displayName = title;
-    emit changed();
 }
 
 QString VcsBaseSubmitEditor::checkScriptWorkingDirectory() const
@@ -529,7 +517,7 @@ void VcsBaseSubmitEditor::slotDiffSelectedVcsFiles(const QList<int> &rawList)
 
 bool VcsBaseSubmitEditor::save(QString *errorString, const QString &fileName, bool autoSave)
 {
-    const QString fName = fileName.isEmpty() ? d->m_file->fileName() : fileName;
+    const QString fName = fileName.isEmpty() ? d->m_file->filePath() : fileName;
     Utils::FileSaver saver(fName, QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text);
     saver.write(fileContents());
     if (!saver.finalize(errorString))
@@ -537,7 +525,7 @@ bool VcsBaseSubmitEditor::save(QString *errorString, const QString &fileName, bo
     if (autoSave)
         return true;
     const QFileInfo fi(fName);
-    d->m_file->setFileName(fi.absoluteFilePath());
+    d->m_file->setFilePath(fi.absoluteFilePath());
     d->m_file->setModified(false);
     return true;
 }

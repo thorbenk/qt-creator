@@ -578,7 +578,7 @@ void MercurialPlugin::showCommitWidget(const QList<VcsBaseClient::StatusItem> &s
 
     const QString msg = tr("Commit changes for \"%1\".").
                         arg(QDir::toNativeSeparators(m_submitRepository));
-    commitEditor->setDisplayName(msg);
+    commitEditor->document()->setDisplayName(msg);
 
     QString branch = m_client->branchQuerySync(m_submitRepository);
     commitEditor->setFields(m_submitRepository, branch,
@@ -630,7 +630,7 @@ bool MercurialPlugin::submitEditorAboutToClose()
         QStringList extraOptions;
         if (!commitEditor->committerInfo().isEmpty())
             extraOptions << QLatin1String("-u") << commitEditor->committerInfo();
-        m_client->commit(m_submitRepository, files, editorFile->fileName(),
+        m_client->commit(m_submitRepository, files, editorFile->filePath(),
                          extraOptions);
     }
     return true;

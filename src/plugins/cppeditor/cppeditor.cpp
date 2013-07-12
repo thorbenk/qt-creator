@@ -641,9 +641,9 @@ void CPPEditorWidget::createToolBar(CPPEditor *editor)
     connect(m_outlineCombo, SIGNAL(activated(int)), this, SLOT(jumpToOutlineElement(int)));
     connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(updateOutlineIndex()));
     connect(m_outlineCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(updateOutlineToolTip()));
-    connect(document(), SIGNAL(contentsChange(int,int,int)),
-            this, SLOT(onContentsChanged(int,int,int)));
 
+    // set up slots to document changes
+    updateContentsChangedSignal();
     connect(editorDocument(), SIGNAL(changed()), this, SLOT(updateFileName()));
 
     // set up function declaration - definition link
@@ -1047,7 +1047,7 @@ bool CPPEditorWidget::sortedOutline() const
 void CPPEditorWidget::updateOutlineNow()
 {
     const Snapshot snapshot = m_modelManager->snapshot();
-    Document::Ptr document = snapshot.document(editorDocument()->fileName());
+    Document::Ptr document = snapshot.document(editorDocument()->filePath());
 
     if (!document)
         return;
@@ -1509,7 +1509,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor, boo
     }
 
     // Now we prefer the doc from the snapshot with macros expanded.
-    Document::Ptr doc = snapshot.document(editorDocument()->fileName());
+    Document::Ptr doc = snapshot.document(editorDocument()->filePath());
     if (!doc) {
         doc = m_lastSemanticInfo.doc;
         if (!doc)
@@ -1603,7 +1603,7 @@ CPPEditorWidget::Link CPPEditorWidget::findLinkAt(const QTextCursor &cursor, boo
         foreach (const LookupItem &r, resolvedSymbols) {
             if (Symbol *d = r.declaration()) {
                 if (d->isDeclaration() || d->isFunction()) {
-                    if (editorDocument()->fileName() == QString::fromUtf8(d->fileName(), d->fileNameLength())) {
+                    if (editorDocument()->filePath() == QString::fromUtf8(d->fileName(), d->fileNameLength())) {
                         if (unsigned(lineNumber) == d->line() && unsigned(positionInBlock) >= d->column()) { // ### TODO: check the end
                             result = r; // take the symbol under cursor.
                             break;
@@ -1873,6 +1873,8 @@ Core::IEditor *CPPEditor::duplicate(QWidget *parent)
 {
     CPPEditorWidget *newEditor = new CPPEditorWidget(parent);
     newEditor->duplicateFrom(editorWidget());
+    // A new QTextDocument was set, so update our signal/slot connection to the new document
+    newEditor->updateContentsChangedSignal();
     CppEditorPlugin::instance()->initializeEditor(newEditor);
     return newEditor->editor();
 }
@@ -2041,7 +2043,7 @@ void CPPEditorWidget::updateSemanticInfo(const SemanticInfo &semanticInfo)
 
     // We can use the semanticInfo's snapshot (and avoid locking), but not its
     // document, since it doesn't contain expanded macros.
-    LookupContext context(semanticInfo.snapshot.document(editorDocument()->fileName()),
+    LookupContext context(semanticInfo.snapshot.document(editorDocument()->filePath()),
                           semanticInfo.snapshot);
 
     SemanticInfo::LocalUseIterator it(semanticInfo.localUses);
@@ -2221,6 +2223,12 @@ void CPPEditorWidget::applyDeclDefLinkChanges(bool jumpToMatch)
     m_declDefLink->apply(this, jumpToMatch);
     abortDeclDefLink();
     updateFunctionDeclDefLink();
+}
+
+void CPPEditorWidget::updateContentsChangedSignal()
+{
+    connect(document(), SIGNAL(contentsChange(int,int,int)),
+            this, SLOT(onContentsChanged(int,int,int)));
 }
 
 void CPPEditorWidget::abortDeclDefLink()

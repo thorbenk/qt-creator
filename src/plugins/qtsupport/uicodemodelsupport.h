@@ -27,51 +27,61 @@
 **
 ****************************************************************************/
 
-#ifndef SCRIPTMANAGER_H
-#define SCRIPTMANAGER_H
+#ifndef UICODEMODELSUPPORT_H
+#define UICODEMODELSUPPORT_H
 
-#include <coreplugin/core_global.h>
+#include "qtsupport_global.h"
 
-#include <QObject>
-#include <QString>
-#include <QSharedPointer>
+#include <cpptools/abstracteditorsupport.h>
 
-QT_BEGIN_NAMESPACE
-class QScriptEngine;
-QT_END_NAMESPACE
+#include <QDateTime>
+#include <QProcess>
 
-namespace Core {
+namespace CPlusPlus { class CppModelManagerInterface; }
+namespace ProjectExplorer { class Project; }
 
-/* Script Manager.
- * Provides a script engine that is initialized with
- * Qt Creator's interfaces and allows for running scripts.
- * @{todo} Should it actually manage script files, too? */
+namespace QtSupport {
 
-class CORE_EXPORT ScriptManager : public QObject
+class QTSUPPORT_EXPORT UiCodeModelSupport : public CppTools::AbstractEditorSupport
 {
     Q_OBJECT
+
 public:
-    typedef QSharedPointer<QScriptEngine> QScriptEnginePtr;
+    UiCodeModelSupport(CppTools::CppModelManagerInterface *modelmanager,
+                       ProjectExplorer::Project *project,
+                       const QString &sourceFile,
+                       const QString &uiHeaderFile);
+    ~UiCodeModelSupport();
 
-    // A stack frame as returned by a failed invocation (exception)
-    // fileName may be empty. lineNumber can be 0 for the top frame (goof-up?).
-    struct StackFrame {
-        QString function;
-        QString fileName;
-        int lineNumber;
-    };
-    typedef QList<StackFrame> Stack;
+    void setFileName(const QString &name);
+    void setSourceName(const QString &name);
+    QByteArray contents() const;
+    QString fileName() const;
+    void updateFromEditor(const QString &formEditorContents);
+    void updateFromBuild();
 
-    ScriptManager(QObject *parent = 0) : QObject(parent) {}
-    virtual ~ScriptManager() { }
+private:
+    QString uicCommand() const;
+    QStringList environment() const;
 
-    // Run a script
-    virtual bool runScript(const QString &script, QString *errorMessage, Stack *errorStack) = 0;
-    virtual bool runScript(const QString &script, QString *errorMessage) = 0;
+private slots:
+    bool finishProcess() const;
 
-    virtual QScriptEnginePtr scriptEngine() = 0;
+private:
+    ProjectExplorer::Project *m_project;
+    enum State { BARE, RUNNING, FINISHED };
+
+    void init() const;
+    bool runUic(const QString &ui) const;
+    mutable QProcess m_process;
+    QString m_sourceName;
+    QString m_fileName;
+    mutable State m_state;
+    mutable QByteArray m_contents;
+    mutable QDateTime m_cacheTime;
+    static QList<UiCodeModelSupport *> m_waitingForStart;
 };
 
-} // namespace Core
+} // QtSupport
 
-#endif // SCRIPTMANAGER_H
+#endif // UICODEMODELSUPPORT_H

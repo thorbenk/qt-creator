@@ -177,10 +177,12 @@ public:
     IVersionControl *m_unconfiguredVcs;
 };
 
+static VcsManagerPrivate *d;
+
 VcsManager::VcsManager(QObject *parent) :
-   QObject(parent),
-   d(new VcsManagerPrivate)
+   QObject(parent)
 {
+    d = new VcsManagerPrivate;
 }
 
 // ---- VCSManager:
@@ -277,9 +279,7 @@ IVersionControl* VcsManager::findVersionControlForDirectory(const QString &input
     const bool isVcsConfigured = versionControl->isConfigured();
     if (!isVcsConfigured || d->m_unconfiguredVcs) {
         Id vcsWarning("VcsNotConfiguredWarning");
-        IDocument *curDocument = 0;
-        if (IEditor *curEditor = EditorManager::currentEditor())
-            curDocument = curEditor->document();
+        IDocument *curDocument = EditorManager::currentDocument();
         if (isVcsConfigured) {
             if (curDocument && d->m_unconfiguredVcs == versionControl) {
                 curDocument->infoBar()->removeInfo(vcsWarning);
@@ -287,8 +287,8 @@ IVersionControl* VcsManager::findVersionControlForDirectory(const QString &input
             }
             return versionControl;
         } else {
-            InfoBar *infoBar = curDocument->infoBar();
-            if (infoBar->canInfoBeAdded(vcsWarning)) {
+            InfoBar *infoBar = curDocument ? curDocument->infoBar() : 0;
+            if (infoBar && infoBar->canInfoBeAdded(vcsWarning)) {
                 InfoBarEntry info(vcsWarning,
                                   tr("%1 repository was detected but %1 is not configured.")
                                   .arg(versionControl->displayName()),

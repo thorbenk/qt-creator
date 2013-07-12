@@ -34,6 +34,13 @@
 #include <QFile>
 #include <QFileInfo>
 
+/*!
+    \fn QString Core::IDocument::filePath() const
+    Returns the absolute path of the file that this document refers to. May be empty for
+    non-file documents.
+    \sa setFilePath()
+*/
+
 namespace Core {
 
 IDocument::IDocument(QObject *parent) : QObject(parent), m_infoBar(0), m_hasWriteWarning(false), m_restored(false)
@@ -66,9 +73,9 @@ bool IDocument::shouldAutoSave() const
 
 bool IDocument::isFileReadOnly() const
 {
-    if (fileName().isEmpty())
+    if (filePath().isEmpty())
         return false;
-    return !QFileInfo(fileName()).isWritable();
+    return !QFileInfo(filePath()).isWritable();
 }
 
 bool IDocument::autoSave(QString *errorString, const QString &fileName)
@@ -108,6 +115,49 @@ InfoBar *IDocument::infoBar()
     if (!m_infoBar)
         m_infoBar = new InfoBar;
     return m_infoBar;
+}
+
+/*!
+    Set absolute file path for this file to \a filePath. Can be empty.
+    The default implementation sets the file name and sends filePathChanged() and changed()
+    signals. Can be reimplemented by subclasses to do more.
+    \sa filePath()
+*/
+void IDocument::setFilePath(const QString &filePath)
+{
+    if (m_filePath == filePath)
+        return;
+    QString oldName = m_filePath;
+    m_filePath = filePath;
+    emit filePathChanged(oldName, m_filePath);
+    emit changed();
+}
+
+/*!
+    Returns the string to display for this document, e.g. in the open document combo box
+    and pane.
+    \sa setDisplayName()
+*/
+QString IDocument::displayName() const
+{
+    if (!m_displayName.isEmpty())
+        return m_displayName;
+    return QFileInfo(m_filePath).fileName();
+}
+
+/*!
+    Sets the string that is displayed for this document, e.g. in the open document combo box
+    and pane, to \a name. Defaults to the file name of the file path for this document.
+    You can reset the display name to the default by passing an empty string.
+    \sa displayName()
+    \sa filePath()
+ */
+void IDocument::setDisplayName(const QString &name)
+{
+    if (name == m_displayName)
+        return;
+    m_displayName = name;
+    emit changed();
 }
 
 } // namespace Core

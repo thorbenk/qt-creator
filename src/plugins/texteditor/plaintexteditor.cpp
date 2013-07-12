@@ -69,7 +69,6 @@ PlainTextEditorWidget::PlainTextEditorWidget(QWidget *parent)
     setIndenter(new NormalIndenter); // Currently only "normal" indentation is supported.
 
     setMimeType(QLatin1String(TextEditor::Constants::C_TEXTEDITOR_MIMETYPE_TEXT));
-    setDisplayName(tr(Core::Constants::K_DEFAULT_TEXT_EDITOR_DISPLAY_NAME));
 
     m_commentDefinition.clearCommentStyles();
 
@@ -134,7 +133,7 @@ void PlainTextEditorWidget::configure()
 {
     Core::MimeType mimeType;
     if (editorDocument())
-        mimeType = Core::ICore::mimeDatabase()->findByFile(editorDocument()->fileName());
+        mimeType = Core::ICore::mimeDatabase()->findByFile(editorDocument()->filePath());
     configure(mimeType);
 }
 
@@ -175,7 +174,7 @@ void PlainTextEditorWidget::configure(const Core::MimeType &mimeType)
                 setCodeFoldingSupported(true);
             }
         } else if (editorDocument()) {
-            const QString &fileName = editorDocument()->fileName();
+            const QString &fileName = editorDocument()->filePath();
             if (TextEditorSettings::instance()->highlighterSettings().isIgnoredFilePattern(fileName))
                 m_isMissingSyntaxDefinition = false;
         }

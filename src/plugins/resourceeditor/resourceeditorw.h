@@ -55,18 +55,22 @@ public:
 
     //IDocument
     bool save(QString *errorString, const QString &fileName, bool autoSave);
-    QString fileName() const;
     bool shouldAutoSave() const;
     bool isModified() const;
     bool isSaveAsAllowed() const;
     bool reload(QString *errorString, ReloadFlag flag, ChangeType type);
     QString defaultPath() const;
     QString suggestedFileName() const;
-    virtual QString mimeType() const;
-    virtual void rename(const QString &newName);
+    QString mimeType() const;
+    void setFilePath(const QString &newName);
+    void setBlockDirtyChanged(bool value);
+
+public slots:
+    void dirtyChanged(bool);
 
 private:
     const QString m_mimeType;
+    bool m_blockDirtyChanged;
     ResourceEditorW *m_parent;
 };
 
@@ -85,15 +89,12 @@ public:
     bool open(QString *errorString, const QString &fileName, const QString &realFileName);
     Core::IDocument *document() { return m_resourceDocument; }
     Core::Id id() const;
-    QString displayName() const { return m_displayName; }
-    void setDisplayName(const QString &title) { m_displayName = title; emit changed(); }
     QWidget *toolBar();
 
     void setSuggestedFileName(const QString &fileName);
     bool isTemporary() const { return false; }
 
 private slots:
-    void dirtyChanged(bool);
     void onUndoStackChanged(bool canUndo, bool canRedo);
     void setShouldAutoSave(bool sad = true) { m_shouldAutoSave = sad; }
     void showContextMenu(const QPoint &globalPoint, const QString &fileName);
@@ -111,7 +112,6 @@ private:
     ResourceEditorDocument *m_resourceDocument;
     ResourceEditorPlugin *m_plugin;
     bool m_shouldAutoSave;
-    bool m_diskIo;
     QMenu *m_contextMenu;
     QMenu *m_openWithMenu;
     QString m_currentFileName;

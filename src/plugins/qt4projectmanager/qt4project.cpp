@@ -120,8 +120,6 @@ public:
     Qt4ProjectFile(const QString &filePath, QObject *parent = 0);
 
     bool save(QString *errorString, const QString &fileName, bool autoSave);
-    QString fileName() const;
-    virtual void rename(const QString &newName);
 
     QString defaultPath() const;
     QString suggestedFileName() const;
@@ -135,7 +133,6 @@ public:
 
 private:
     const QString m_mimeType;
-    QString m_filePath;
 };
 
 /// Watches folders for Qt4PriFile nodes
@@ -146,7 +143,7 @@ class CentralizedFolderWatcher : public QObject
 {
     Q_OBJECT
 public:
-    CentralizedFolderWatcher(QObject *parent);
+    CentralizedFolderWatcher(Qt4Project *parent);
     ~CentralizedFolderWatcher();
     void watchFolders(const QList<QString> &folders, Qt4ProjectManager::Qt4PriFileNode *node);
     void unwatchFolders(const QList<QString> &folders, Qt4ProjectManager::Qt4PriFileNode *node);
@@ -157,6 +154,7 @@ private slots:
     void delayedFolderChanged(const QString &folder);
 
 private:
+    Qt4Project *m_project;
     QSet<QString> recursiveDirs(const QString &folder);
     QFileSystemWatcher m_watcher;
     QMultiMap<QString, Qt4ProjectManager::Qt4PriFileNode *> m_map;
@@ -269,27 +267,15 @@ void ProjectFilesVisitor::visitFolderNode(FolderNode *folderNode)
 namespace Internal {
 Qt4ProjectFile::Qt4ProjectFile(const QString &filePath, QObject *parent)
     : Core::IDocument(parent),
-      m_mimeType(QLatin1String(Qt4ProjectManager::Constants::PROFILE_MIMETYPE)),
-      m_filePath(filePath)
+      m_mimeType(QLatin1String(Qt4ProjectManager::Constants::PROFILE_MIMETYPE))
 {
+    setFilePath(filePath);
 }
 
 bool Qt4ProjectFile::save(QString *, const QString &, bool)
 {
     // This is never used
     return false;
-}
-
-void Qt4ProjectFile::rename(const QString &newName)
-{
-    // Can't happen
-    Q_UNUSED(newName);
-    Q_ASSERT(false);
-}
-
-QString Qt4ProjectFile::fileName() const
-{
-    return m_filePath;
 }
 
 QString Qt4ProjectFile::defaultPath() const
@@ -397,7 +383,7 @@ void Qt4Project::updateFileList()
 bool Qt4Project::setupTarget(ProjectExplorer::Target *t)
 {
     QList<BuildConfigurationInfo> infoList
-            = Qt4BuildConfigurationFactory::availableBuildConfigurations(t->kit(), m_fileInfo->fileName());
+            = Qt4BuildConfigurationFactory::availableBuildConfigurations(t->kit(), m_fileInfo->filePath());
     setupTarget(t, infoList);
     return true;
 }
@@ -437,7 +423,7 @@ bool Qt4Project::fromMap(const QVariantMap &map)
 
     m_manager->registerProject(this);
 
-    m_rootProjectNode = new Qt4ProFileNode(this, m_fileInfo->fileName(), this);
+    m_rootProjectNode = new Qt4ProFileNode(this, m_fileInfo->filePath(), this);
     m_rootProjectNode->registerWatcher(m_nodesWatcher);
 
     update();
@@ -465,7 +451,7 @@ bool Qt4Project::fromMap(const QVariantMap &map)
     QtQuickApp qtQuickApp;
     const Html5App html5App;
 
-    foreach (Qt4ProFileNode *node, applicationProFiles()) {
+    foreach (Qt4ProFileNode *node, applicationProFiles(Qt4Project::ExactAndCumulativeParse)) {
         const QString path = node->path();
 
         qtQuickApp.setComponentSet(QtQuickApp::QtQuick10Components);
@@ -684,8 +670,8 @@ void Qt4Project::update()
 
 void Qt4Project::updateRunConfigurations()
 {
-    foreach (Target *t, targets())
-        t->updateDefaultRunConfigurations();
+    if (activeTarget())
+        activeTarget()->updateDefaultRunConfigurations();
 }
 
 void Qt4Project::scheduleAsyncUpdate(Qt4ProFileNode *node)
@@ -915,7 +901,7 @@ bool Qt4Project::supportsKit(Kit *k, QString *errorMessage) const
 
 QString Qt4Project::displayName() const
 {
-    return QFileInfo(document()->fileName()).completeBaseName();
+    return QFileInfo(document()->filePath()).completeBaseName();
 }
 
 Core::Id Qt4Project::id() const
@@ -1036,7 +1022,7 @@ void Qt4Project::destroyProFileReader(QtSupport::ProFileReader *reader)
 {
     delete reader;
     if (!--m_qmakeGlobalsRefCnt) {
-        QString dir = QFileInfo(m_fileInfo->fileName()).absolutePath();
+        QString dir = QFileInfo(m_fileInfo->filePath()).absolutePath();
         if (!dir.endsWith(QLatin1Char('/')))
             dir += QLatin1Char('/');
         QtSupport::ProFileCacheManager::instance()->discardFiles(dir);
@@ -1073,44 +1059,46 @@ bool Qt4Project::parseInProgress(const QString &proFilePath) const
     return node && node->parseInProgress();
 }
 
-void Qt4Project::collectAllfProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node)
+void Qt4Project::collectAllfProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node, Parsing parse)
 {
-    list.append(node);
+    if (parse == ExactAndCumulativeParse || node->includedInExactParse())
+        list.append(node);
     foreach (ProjectNode *n, node->subProjectNodes()) {
         Qt4ProFileNode *qt4ProFileNode = qobject_cast<Qt4ProFileNode *>(n);
         if (qt4ProFileNode)
-            collectAllfProFiles(list, qt4ProFileNode);
+            collectAllfProFiles(list, qt4ProFileNode, parse);
     }
 }
 
-void Qt4Project::collectApplicationProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node)
+void Qt4Project::collectApplicationProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node, Parsing parse)
 {
     if (node->projectType() == ApplicationTemplate
         || node->projectType() == ScriptTemplate) {
-        list.append(node);
+        if (parse == ExactAndCumulativeParse || node->includedInExactParse())
+            list.append(node);
     }
     foreach (ProjectNode *n, node->subProjectNodes()) {
         Qt4ProFileNode *qt4ProFileNode = qobject_cast<Qt4ProFileNode *>(n);
         if (qt4ProFileNode)
-            collectApplicationProFiles(list, qt4ProFileNode);
+            collectApplicationProFiles(list, qt4ProFileNode, parse);
     }
 }
 
-QList<Qt4ProFileNode *> Qt4Project::allProFiles() const
+QList<Qt4ProFileNode *> Qt4Project::allProFiles(Parsing parse) const
 {
     QList<Qt4ProFileNode *> list;
     if (!rootProjectNode())
         return list;
-    collectAllfProFiles(list, rootQt4ProjectNode());
+    collectAllfProFiles(list, rootQt4ProjectNode(), parse);
     return list;
 }
 
-QList<Qt4ProFileNode *> Qt4Project::applicationProFiles() const
+QList<Qt4ProFileNode *> Qt4Project::applicationProFiles(Parsing parse) const
 {
     QList<Qt4ProFileNode *> list;
     if (!rootProjectNode())
         return list;
-    collectApplicationProFiles(list, rootQt4ProjectNode());
+    collectApplicationProFiles(list, rootQt4ProjectNode(), parse);
     return list;
 }
 
@@ -1126,10 +1114,10 @@ bool Qt4Project::hasApplicationProFile(const QString &path) const
     return false;
 }
 
-QStringList Qt4Project::applicationProFilePathes(const QString &prepend) const
+QStringList Qt4Project::applicationProFilePathes(const QString &prepend, Parsing parse) const
 {
     QStringList proFiles;
-    foreach (Qt4ProFileNode *node, applicationProFiles())
+    foreach (Qt4ProFileNode *node, applicationProFiles(parse))
         proFiles.append(prepend + node->path());
     return proFiles;
 }
@@ -1215,7 +1203,8 @@ namespace {
     bool debugCFW = false;
 }
 
-CentralizedFolderWatcher::CentralizedFolderWatcher(QObject *parent) : QObject(parent)
+CentralizedFolderWatcher::CentralizedFolderWatcher(Qt4Project *parent)
+    : QObject(parent), m_project(parent)
 {
     m_compressTimer.setSingleShot(true);
     m_compressTimer.setInterval(200);
@@ -1337,12 +1326,19 @@ void CentralizedFolderWatcher::delayedFolderChanged(const QString &folder)
 
     QString dir = folder;
     const QChar slash = QLatin1Char('/');
+    bool newOrRemovedFiles = false;
     while (true) {
         if (!dir.endsWith(slash))
             dir.append(slash);
         QList<Qt4ProjectManager::Qt4PriFileNode *> nodes = m_map.values(dir);
-        foreach (Qt4ProjectManager::Qt4PriFileNode *node, nodes) {
-            node->folderChanged(folder);
+        if (!nodes.isEmpty()) {
+            // Collect all the files
+            QSet<Utils::FileName> newFiles;
+            newFiles += Qt4PriFileNode::recursiveEnumerate(folder);
+            foreach (Qt4ProjectManager::Qt4PriFileNode *node, nodes) {
+                newOrRemovedFiles = newOrRemovedFiles
+                        || node->folderChanged(folder, newFiles);
+            }
         }
 
         // Chop off last part, and break if there's nothing to chop off
@@ -1356,7 +1352,6 @@ void CentralizedFolderWatcher::delayedFolderChanged(const QString &folder)
             break;
         dir.truncate(index + 1);
     }
-
 
     QString folderWithSlash = folder;
     if (!folder.endsWith(slash))
@@ -1373,6 +1368,11 @@ void CentralizedFolderWatcher::delayedFolderChanged(const QString &folder)
         if (!tmp.isEmpty())
             m_watcher.addPaths(tmp.toList());
         m_recursiveWatchedFolders += tmp;
+    }
+
+    if (newOrRemovedFiles) {
+        m_project->updateFileList();
+        m_project->updateCodeModels();
     }
 }
 
@@ -1392,7 +1392,7 @@ void Qt4Project::configureAsExampleProject(const QStringList &platforms)
             continue;
 
         QList<BuildConfigurationInfo> infoList
-                = Qt4BuildConfigurationFactory::availableBuildConfigurations(k, document()->fileName());
+                = Qt4BuildConfigurationFactory::availableBuildConfigurations(k, document()->filePath());
         if (infoList.isEmpty())
             continue;
         addTarget(createTarget(k, infoList));

@@ -64,12 +64,13 @@ public:
     bool refresh(const QString &workingDirectory, QString *errorMessage);
 
     void renameBranch(const QString &oldName, const QString &newName);
+    void renameTag(const QString &oldName, const QString &newName);
 
     QString workingDirectory() const;
     GitClient *client() const;
 
     QModelIndex currentBranch() const;
-    QString branchName(const QModelIndex &idx) const;
+    QString fullName(const QModelIndex &idx, bool includePrefix = false) const;
     QStringList localBranchNames() const;
     QString sha(const QModelIndex &idx) const;
     bool isLocal(const QModelIndex &idx) const;
@@ -77,15 +78,18 @@ public:
     bool isTag(const QModelIndex &idx) const;
 
     void removeBranch(const QModelIndex &idx);
+    void removeTag(const QModelIndex &idx);
     void checkoutBranch(const QModelIndex &idx);
     bool branchIsMerged(const QModelIndex &idx);
     QModelIndex addBranch(const QString &name, bool track, const QModelIndex &trackedBranch);
+    void setRemoteTracking(const QModelIndex &trackingIndex);
 
 private:
     void parseOutputLine(const QString &line);
     void setCurrentBranch();
     BranchNode *indexToNode(const QModelIndex &index) const;
     QModelIndex nodeToIndex(BranchNode *node) const;
+    void removeNode(const QModelIndex &idx);
 
     QString toolTip(const QString &sha) const;
 

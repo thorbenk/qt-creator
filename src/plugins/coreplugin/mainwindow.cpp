@@ -48,13 +48,11 @@
 #include "mimedatabase.h"
 #include "newdialog.h"
 #include "outputpanemanager.h"
-#include "outputpane.h"
 #include "plugindialog.h"
 #include "progressmanager_p.h"
 #include "progressview.h"
 #include "shortcutsettings.h"
 #include "vcsmanager.h"
-#include "scriptmanager_p.h"
 #include "settingsdialog.h"
 #include "variablemanager.h"
 #include "versiondialog.h"
@@ -73,7 +71,6 @@
 #endif
 
 #include <app/app_version.h>
-#include <coreplugin/findplaceholder.h>
 #include <coreplugin/icorelistener.h>
 #include <coreplugin/inavigationwidgetfactory.h>
 #include <coreplugin/settingsdatabase.h>
@@ -132,7 +129,6 @@ MainWindow::MainWindow() :
     m_editorManager(0),
     m_externalToolManager(0),
     m_progressManager(new ProgressManagerPrivate()),
-    m_scriptManager(new ScriptManagerPrivate(this)),
     m_variableManager(new VariableManager),
     m_vcsManager(new VcsManager),
     m_statusBarManager(0),
@@ -318,6 +314,8 @@ MainWindow::~MainWindow()
 
     delete m_helpManager;
     m_helpManager = 0;
+    delete m_variableManager;
+    m_variableManager = 0;
 }
 
 bool MainWindow::init(QString *errorMessage)
@@ -357,7 +355,7 @@ void MainWindow::extensionsInitialized()
     m_navigationWidget->setFactories(ExtensionSystem::PluginManager::getObjects<INavigationWidgetFactory>());
 
     // reading the shortcut settings must be done after all shortcuts have been registered
-    m_actionManager->d->initialize();
+    m_actionManager->initialize();
 
     readSettings();
     updateContext();
@@ -877,48 +875,7 @@ IDocument *MainWindow::openFiles(const QStringList &fileNames, ICore::OpenFilesF
 
 void MainWindow::setFocusToEditor()
 {
-    bool focusWasMovedToEditor = false;
-
-    // give focus to the editor if we have one
-    if (IEditor *editor = EditorManager::currentEditor()) {
-        if (qApp->focusWidget() != editor->widget()->focusWidget()) {
-            QWidget *w = editor->widget()->focusWidget();
-            if (!w)
-                w = editor->widget();
-            w->setFocus();
-            focusWasMovedToEditor = w->hasFocus();
-        }
-    }
-
-    // check for some maximized pane which we want to unmaximize
-    if (OutputPanePlaceHolder::getCurrent()
-        && OutputPanePlaceHolder::getCurrent()->isVisible()
-        && OutputPanePlaceHolder::getCurrent()->isMaximized()) {
-        OutputPanePlaceHolder::getCurrent()->unmaximize();
-        return;
-    }
-
-    if (focusWasMovedToEditor)
-        return;
-
-    // check for some visible bar which we want to hide
-    bool stuffVisible =
-            (FindToolBarPlaceHolder::getCurrent() &&
-             FindToolBarPlaceHolder::getCurrent()->isVisible())
-            || (OutputPanePlaceHolder::getCurrent() &&
-                OutputPanePlaceHolder::getCurrent()->isVisible())
-            || (RightPanePlaceHolder::current() &&
-                RightPanePlaceHolder::current()->isVisible());
-    if (stuffVisible) {
-        if (FindToolBarPlaceHolder::getCurrent())
-            FindToolBarPlaceHolder::getCurrent()->hide();
-        OutputPaneManager::instance()->slotHide();
-        RightPaneWidget::instance()->setShown(false);
-        return;
-    }
-
-    // switch to edit mode if necessary
-    ModeManager::activateMode(Id(Constants::MODE_EDIT));
+    m_editorManager->doEscapeKeyFocusMoveMagic();
 }
 
 void MainWindow::showNewItemDialog(const QString &title,
@@ -1040,14 +997,9 @@ ProgressManager *MainWindow::progressManager() const
     return m_progressManager;
 }
 
-ScriptManager *MainWindow::scriptManager() const
-{
-     return m_scriptManager;
-}
-
 VariableManager *MainWindow::variableManager() const
 {
-     return m_variableManager.data();
+     return m_variableManager;
 }
 
 ModeManager *MainWindow::modeManager() const
@@ -1211,7 +1163,7 @@ void MainWindow::writeSettings()
     m_settings->endGroup();
 
     DocumentManager::saveSettings();
-    m_actionManager->d->saveSettings(m_settings);
+    m_actionManager->saveSettings(m_settings);
     m_editorManager->saveSettings();
     m_navigationWidget->saveSettings(m_settings);
 }
@@ -1254,7 +1206,7 @@ void MainWindow::updateContext()
             uniquecontexts.add(id);
     }
 
-    m_actionManager->d->setContext(uniquecontexts);
+    m_actionManager->setContext(uniquecontexts);
     emit m_coreImpl->contextChanged(m_activeContext, m_additionalContexts);
 }
 

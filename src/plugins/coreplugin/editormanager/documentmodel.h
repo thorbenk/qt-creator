@@ -27,8 +27,8 @@
 **
 ****************************************************************************/
 
-#ifndef OPENEDITORSMODEL_H
-#define OPENEDITORSMODEL_H
+#ifndef DOCUMENTMODEL_H
+#define DOCUMENTMODEL_H
 
 #include "../core_global.h"
 #include "../id.h"
@@ -39,17 +39,17 @@ QT_FORWARD_DECLARE_CLASS(QIcon)
 
 namespace Core {
 
-struct OpenEditorsModelPrivate;
+struct DocumentModelPrivate;
 class IEditor;
 class IDocument;
 
-class CORE_EXPORT OpenEditorsModel : public QAbstractItemModel
+class CORE_EXPORT DocumentModel : public QAbstractItemModel
 {
     Q_OBJECT
 
 public:
-    explicit OpenEditorsModel(QObject *parent);
-    virtual ~OpenEditorsModel();
+    explicit DocumentModel(QObject *parent);
+    virtual ~DocumentModel();
 
     QIcon lockedIcon() const;
     QIcon unlockedIcon() const;
@@ -60,13 +60,9 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     QModelIndex index(int row, int column = 0, const QModelIndex &parent = QModelIndex()) const;
 
-    void addEditor(IEditor *editor, bool isDuplicate = false);
-    void addRestoredEditor(const QString &fileName, const QString &displayName, const Id &id);
-    QModelIndex firstRestoredEditor() const;
-
     struct CORE_EXPORT Entry {
         Entry();
-        IEditor *editor;
+        IDocument *document;
         QString fileName() const;
         QString displayName() const;
         Id id() const;
@@ -74,39 +70,39 @@ public:
         QString m_displayName;
         Id m_id;
     };
-    QList<Entry> entries() const;
 
-    IEditor *editorAt(int row) const;
+    Entry *documentAtRow(int row) const;
+    int rowOfDocument(IDocument *document) const;
 
-    void removeEditor(IEditor *editor);
-    void removeEditor(const QModelIndex &index);
-    void removeEditor(const QString &fileName);
+    int documentCount() const;
+    QList<Entry *> documents() const;
+    int indexOfDocument(IDocument *document) const;
+    QList<IDocument *> openedDocuments() const;
 
-    void removeAllRestoredEditors();
-    void emitDataChanged(IEditor *editor);
+    QList<IEditor *> editorsForDocument(IDocument *document) const;
+    QList<IEditor *> editorsForDocuments(const QList<IDocument *> &documents) const;
+    QList<IEditor *> oneEditorForEachOpenedDocument() const;
 
-    QList<IEditor *> editors() const;
-    QList<Entry> restoredEditors() const;
-    bool isDuplicate(IEditor *editor) const;
-    QList<IEditor *> duplicatesFor(IEditor *editor) const;
-    IEditor *originalForDuplicate(IEditor *duplicate) const;
-    void makeOriginal(IEditor *duplicate);
-    QModelIndex indexOf(IEditor *editor) const;
-
-    QString displayNameForDocument(IDocument *document) const;
+    // editor manager related methods, nobody else should call it
+    void addEditor(IEditor *editor, bool *isNewDocument);
+    void addRestoredDocument(const QString &fileName, const QString &displayName, const Id &id);
+    Entry *firstRestoredDocument() const;
+    void removeEditor(IEditor *editor, bool *lastOneForDocument);
+    void removeDocument(const QString &fileName);
+    void removeEntry(Entry *entry);
+    void removeAllRestoredDocuments();
 
 private slots:
     void itemChanged();
 
 private:
-    void addEntry(const Entry &entry);
-    int findEditor(IEditor *editor) const;
-    int findFileName(const QString &filename) const;
-    void removeEditor(int idx);
+    void addEntry(Entry *entry);
+    int indexofFileName(const QString &filename) const;
+    void removeDocument(int idx);
 
-    OpenEditorsModelPrivate *d;
+    DocumentModelPrivate *d;
 };
 
 } // namespace Core
 
-#endif // OPENEDITORSMODEL_H
+#endif // DOCUMENTMODEL_H

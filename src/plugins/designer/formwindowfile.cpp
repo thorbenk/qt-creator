@@ -52,7 +52,8 @@ FormWindowFile::FormWindowFile(QDesignerFormWindowInterface *form, QObject *pare
   : Core::TextDocument(parent),
     m_mimeType(QLatin1String(Designer::Constants::FORM_MIMETYPE)),
     m_shouldAutoSave(false),
-    m_formWindow(form)
+    m_formWindow(form),
+    m_isModified(false)
 {
     // Designer needs UTF-8 regardless of settings.
     setCodec(QTextCodec::codecForName("UTF-8"));
@@ -60,11 +61,12 @@ FormWindowFile::FormWindowFile(QDesignerFormWindowInterface *form, QObject *pare
             this, SLOT(slotFormWindowRemoved(QDesignerFormWindowInterface*)));
     connect(m_formWindow->commandHistory(), SIGNAL(indexChanged(int)),
             this, SLOT(setShouldAutoSave()));
+    connect(m_formWindow, SIGNAL(changed()), SLOT(updateIsModified()));
 }
 
 bool FormWindowFile::save(QString *errorString, const QString &name, bool autoSave)
 {
-    const QString actualName = name.isEmpty() ? fileName() : name;
+    const QString actualName = name.isEmpty() ? filePath() : name;
 
     if (Designer::Constants::Internal::debug)
         qDebug() << Q_FUNC_INFO << name << "->" << actualName;
@@ -94,31 +96,26 @@ bool FormWindowFile::save(QString *errorString, const QString &name, bool autoSa
         return false;
     }
 
-    const QString oldFileName = m_fileName;
-    m_fileName = fi.absoluteFilePath();
-    emit setDisplayName(fi.fileName());
     m_formWindow->setDirty(false);
-    emit fileNameChanged(oldFileName, m_fileName);
+    setFilePath(fi.absoluteFilePath());
     emit changed();
-    emit saved();
 
     return true;
 }
 
-void FormWindowFile::rename(const QString &newName)
+void FormWindowFile::setFilePath(const QString &newName)
 {
     m_formWindow->setFileName(newName);
-    QFileInfo fi(newName);
-    const QString oldFileName = m_fileName;
-    m_fileName = fi.absoluteFilePath();
-    emit setDisplayName(fi.fileName());
-    emit fileNameChanged(oldFileName, m_fileName);
-    emit changed();
+    IDocument::setFilePath(newName);
 }
 
-QString FormWindowFile::fileName() const
+void FormWindowFile::updateIsModified()
 {
-    return m_fileName;
+    bool value = m_formWindow && m_formWindow->isDirty();
+    if (value == m_isModified)
+        return;
+    m_isModified = value;
+    emit changed();
 }
 
 bool FormWindowFile::shouldAutoSave() const
@@ -144,7 +141,7 @@ bool FormWindowFile::reload(QString *errorString, ReloadFlag flag, ChangeType ty
         emit changed();
     } else {
         emit aboutToReload();
-        emit reload(errorString, m_fileName);
+        emit reload(errorString, filePath());
         const bool success = errorString->isEmpty();
         emit reloadFinished(success);
         return success;
@@ -157,12 +154,12 @@ QString FormWindowFile::defaultPath() const
     return QString();
 }
 
-void FormWindowFile::setSuggestedFileName(const QString &fileName)
+void FormWindowFile::setSuggestedFileName(const QString &fn)
 {
     if (Designer::Constants::Internal::debug)
-        qDebug() << Q_FUNC_INFO << m_fileName << fileName;
+        qDebug() << Q_FUNC_INFO << filePath() << fn;
 
-    m_suggestedName = fileName;
+    m_suggestedName = fn;
 }
 
 QString FormWindowFile::suggestedFileName() const
@@ -175,16 +172,11 @@ QString FormWindowFile::mimeType() const
     return m_mimeType;
 }
 
-bool FormWindowFile::writeFile(const QString &fileName, QString *errorString) const
+bool FormWindowFile::writeFile(const QString &fn, QString *errorString) const
 {
     if (Designer::Constants::Internal::debug)
-        qDebug() << Q_FUNC_INFO << m_fileName << fileName;
-    return write(fileName, format(), m_formWindow->contents(), errorString);
-}
-
-void FormWindowFile::setFileName(const QString &fname)
-{
-    m_fileName = fname;
+        qDebug() << Q_FUNC_INFO << filePath() << fn;
+    return write(fn, format(), m_formWindow->contents(), errorString);
 }
 
 QDesignerFormWindowInterface *FormWindowFile::formWindow() const

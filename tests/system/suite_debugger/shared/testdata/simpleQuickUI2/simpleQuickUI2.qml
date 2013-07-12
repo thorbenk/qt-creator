@@ -26,42 +26,25 @@
 ** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
 **
 ****************************************************************************/
-#ifndef LINUXDEVICETESTDIALOG_H
-#define LINUXDEVICETESTDIALOG_H
 
-#include "linuxdevicetester.h"
-#include "remotelinux_export.h"
+import QtQuick 2.0
 
-#include <QDialog>
+Rectangle {
+    width: 360
+    height: 360
+    Rectangle {
+        width: 100; height: 100
+        anchors.centerIn: parent
+        color: "red"
+    }
+    Rectangle {
+        width: 50; height: 50
+        anchors.centerIn: parent
+        color: "green"
+    }
+    Text {
+        anchors.centerIn: parent
+        text: "Check"
+    }
+}
 
-namespace RemoteLinux {
-namespace Internal {
-class LinuxDeviceTestDialogPrivate;
-} // namespace Internal
-
-class REMOTELINUX_EXPORT LinuxDeviceTestDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    // Note: The dialog takes ownership of deviceTester
-    LinuxDeviceTestDialog(const ProjectExplorer::IDevice::ConstPtr &deviceConfiguration,
-        AbstractLinuxDeviceTester * deviceTester, QWidget *parent = 0);
-    ~LinuxDeviceTestDialog();
-
-    void reject();
-
-private slots:
-    void handleProgressMessage(const QString &message);
-    void handleErrorMessage(const QString &message);
-    void handleTestFinished(RemoteLinux::AbstractLinuxDeviceTester::TestResult result);
-
-private:
-    void addText(const QString &text, const QString &color, bool bold);
-
-    Internal::LinuxDeviceTestDialogPrivate * const d;
-};
-
-} // namespace RemoteLinux
-
-#endif // LINUXDEVICETESTDIALOG_H

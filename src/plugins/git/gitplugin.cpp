@@ -634,6 +634,12 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
     // --------------
     gitToolsMenu->addSeparator(globalcontext);
 
+    createRepositoryAction(gitToolsMenu, tr("Git Gui"), Core::Id("Git.GitGui"),
+                           globalcontext, true, SLOT(gitGui()));
+
+    // --------------
+    gitToolsMenu->addSeparator(globalcontext);
+
     m_repositoryBrowserAction
             = createRepositoryAction(gitToolsMenu,
                                      tr("Repository Browser"), Core::Id("Git.LaunchRepositoryBrowser"),
@@ -689,6 +695,8 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
 
     connect(Core::ICore::vcsManager(), SIGNAL(repositoryChanged(QString)),
             this, SLOT(updateContinueAndAbortCommands()));
+    connect(Core::ICore::vcsManager(), SIGNAL(repositoryChanged(QString)),
+            this, SLOT(updateBranches(QString)), Qt::QueuedConnection);
 
     if (!Core::ICore::mimeDatabase()->addMimeTypes(QLatin1String(RC_GIT_MIME_XML), errorMessage))
         return false;
@@ -709,7 +717,7 @@ GitVersionControl *GitPlugin::gitVersionControl() const
 
 void GitPlugin::submitEditorDiff(const QStringList &unstaged, const QStringList &staged)
 {
-    m_gitClient->diff(m_submitRepository, QStringList(), unstaged, staged);
+    m_gitClient->diff(m_submitRepository, unstaged, staged);
 }
 
 void GitPlugin::submitEditorMerge(const QStringList &unmerged)
@@ -729,21 +737,21 @@ void GitPlugin::diffCurrentFile()
 {
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasFile(), return);
-    m_gitClient->diff(state.currentFileTopLevel(), QStringList(), state.relativeCurrentFile());
+    m_gitClient->diff(state.currentFileTopLevel(), state.relativeCurrentFile());
 }
 
 void GitPlugin::diffCurrentProject()
 {
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasProject(), return);
-    m_gitClient->diff(state.currentProjectTopLevel(), QStringList(), state.relativeCurrentProject());
+    m_gitClient->diff(state.currentProjectTopLevel(), state.relativeCurrentProject());
 }
 
 void GitPlugin::diffRepository()
 {
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasTopLevel(), return);
-    m_gitClient->diff(state.topLevel(), QStringList(), QStringList());
+    m_gitClient->diff(state.topLevel(), QStringList());
 }
 
 void GitPlugin::logFile()
@@ -851,27 +859,22 @@ void GitPlugin::startChangeRelatedAction()
 
     if (!ensureAllDocumentsSaved())
         return;
-    QString command;
     bool (GitClient::*commandFunction)(const QString&, const QString&);
     switch (dialog.command()) {
     case CherryPick:
-        command = QLatin1String("Cherry-pick");
         commandFunction = &GitClient::synchronousCherryPick;
         break;
     case Revert:
-        command = QLatin1String("Revert");
         commandFunction = &GitClient::synchronousRevert;
         break;
     case Checkout:
-        command =  QLatin1String("Checkout");
+        if (!m_gitClient->beginStashScope(workingDirectory, QLatin1String("Checkout")))
+            return;
         commandFunction = &GitClient::synchronousCheckout;
         break;
     default:
         return;
     }
-
-    if (!m_gitClient->beginStashScope(workingDirectory, command))
-        return;
 
     (m_gitClient->*commandFunction)(workingDirectory, change);
 }
@@ -925,6 +928,13 @@ void GitPlugin::gitkForCurrentFolder()
         folderName = folderName.remove(0, dir.absolutePath().length() + 1);
         m_gitClient->launchGitK(dir.absolutePath(), folderName);
     }
+}
+
+void GitPlugin::gitGui()
+{
+    const VcsBase::VcsBasePluginState state = currentState();
+    QTC_ASSERT(state.hasTopLevel(), return);
+    m_gitClient->launchGitGui(state.topLevel());
 }
 
 void GitPlugin::startAmendCommit()
@@ -983,10 +993,7 @@ void GitPlugin::updateVersionWarning()
     unsigned version = m_gitClient->gitVersion();
     if (!version || version >= minimumRequiredVersion)
         return;
-    Core::IEditor *curEditor = Core::EditorManager::currentEditor();
-    if (!curEditor)
-        return;
-    Core::IDocument *curDocument = curEditor->document();
+    Core::IDocument *curDocument = Core::EditorManager::currentDocument();
     if (!curDocument)
         return;
     Core::InfoBar *infoBar = curDocument->infoBar();
@@ -1021,7 +1028,7 @@ Core::IEditor *GitPlugin::openSubmitEditor(const QString &fileName, const Commit
     default:
         title = tr("Git Commit");
     }
-    submitEditor->setDisplayName(title);
+    submitEditor->document()->setDisplayName(title);
     connect(submitEditor, SIGNAL(diff(QStringList,QStringList)), this, SLOT(submitEditorDiff(QStringList,QStringList)));
     connect(submitEditor, SIGNAL(merge(QStringList)), this, SLOT(submitEditorMerge(QStringList)));
     connect(submitEditor, SIGNAL(show(QString,QString)), m_gitClient, SLOT(show(QString,QString)));
@@ -1045,7 +1052,7 @@ bool GitPlugin::submitEditorAboutToClose()
     QTC_ASSERT(editorDocument, return true);
     // Submit editor closing. Make it write out the commit message
     // and retrieve files
-    const QFileInfo editorFile(editorDocument->fileName());
+    const QFileInfo editorFile(editorDocument->filePath());
     const QFileInfo changeFile(m_commitMessageFileName);
     // Paranoia!
     if (editorFile.absoluteFilePath() != changeFile.absoluteFilePath())
@@ -1113,7 +1120,7 @@ void GitPlugin::pull()
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasTopLevel(), return);
     QString topLevel = state.topLevel();
-    bool rebase = m_gitClient->settings()->boolValue(GitSettings::pullRebaseKey);
+    bool rebase = m_settings.boolValue(GitSettings::pullRebaseKey);
 
     if (!rebase) {
         QString currentBranch = m_gitClient->synchronousCurrentLocalBranch(topLevel);
@@ -1427,10 +1434,16 @@ void GitPlugin::updateContinueAndAbortCommands()
     }
 }
 
+void GitPlugin::updateBranches(const QString &repository)
+{
+    if (m_branchDialog && m_branchDialog->isVisible())
+        m_branchDialog->refreshIfSame(repository);
+}
+
 void GitPlugin::updateRepositoryBrowserAction()
 {
     const bool repositoryEnabled = currentState().hasTopLevel();
-    const bool hasRepositoryBrowserCmd = !settings().stringValue(GitSettings::repositoryBrowserCmd).isEmpty();
+    const bool hasRepositoryBrowserCmd = !m_settings.stringValue(GitSettings::repositoryBrowserCmd).isEmpty();
     m_repositoryBrowserAction->setEnabled(repositoryEnabled && hasRepositoryBrowserCmd);
 }
 

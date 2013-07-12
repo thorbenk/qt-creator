@@ -207,7 +207,7 @@ StateListener::StateListener(QObject *parent) :
 {
     connect(Core::ICore::editorManager(), SIGNAL(currentEditorChanged(Core::IEditor*)),
             this, SLOT(slotStateChanged()));
-    connect(Core::ICore::editorManager(), SIGNAL(currentEditorStateChanged(Core::IEditor*)),
+    connect(Core::ICore::editorManager(), SIGNAL(currentDocumentStateChanged()),
             this, SLOT(slotStateChanged()));
     connect(Core::ICore::vcsManager(), SIGNAL(repositoryChanged(QString)),
             this, SLOT(slotStateChanged()));
@@ -221,7 +221,7 @@ static inline QString displayNameOfEditor(const QString &fileName)
 {
     const QList<Core::IEditor*> editors = Core::EditorManager::instance()->editorsForFileName(fileName);
     if (!editors.isEmpty())
-        return editors.front()->displayName();
+        return editors.front()->document()->displayName();
     return QString();
 }
 
@@ -233,11 +233,11 @@ void StateListener::slotStateChanged()
     // temporary path prefix or does the file contains a hash, indicating a project
     // folder?
     State state;
-    Core::IEditor *currentEditor = Core::EditorManager::currentEditor();
-    if (!currentEditor || !currentEditor->document())
+    Core::IDocument *currentDocument = Core::EditorManager::currentDocument();
+    if (!currentDocument)
         state.currentFile.clear();
     else
-        state.currentFile = currentEditor->document()->fileName();
+        state.currentFile = currentDocument->filePath();
     QScopedPointer<QFileInfo> currentFileInfo; // Instantiate QFileInfo only once if required.
     if (!state.currentFile.isEmpty()) {
         const bool isTempFile = state.currentFile.startsWith(QDir::tempPath());
@@ -290,8 +290,10 @@ void StateListener::slotStateChanged()
     }
     // Assemble state and emit signal.
     Core::IVersionControl *vc = state.currentFile.isEmpty() ? projectControl : fileControl;
-    if (!vc) // Need a repository to patch
-        state.clearPatchFile();
+    if (!vc) {
+        state.clearPatchFile(); // Need a repository to patch
+        Core::EditorManager::setWindowTitleVcsTopic(QString());
+    }
     if (debug)
         qDebug() << state << (vc ? vc->displayName() : QString(QLatin1String("No version control")));
     emit stateChanged(state, vc);
@@ -581,6 +583,7 @@ void VcsBasePlugin::slotStateChanged(const VcsBase::Internal::State &newInternal
         if (!d->m_state.equals(newInternalState)) {
             d->m_state.setState(newInternalState);
             updateActions(VcsEnabled);
+            Core::EditorManager::setWindowTitleVcsTopic(vc->vcsTopic(d->m_state.topLevel()));
         }
     } else {
         // Some other VCS plugin or state changed: Reset us to empty state.
@@ -646,7 +649,7 @@ void VcsBasePlugin::createRepository()
     // Find current starting directory
     QString directory;
     if (const ProjectExplorer::Project *currentProject = ProjectExplorer::ProjectExplorerPlugin::currentProject())
-        directory = QFileInfo(currentProject->document()->fileName()).absolutePath();
+        directory = QFileInfo(currentProject->document()->filePath()).absolutePath();
     // Prompt for a directory that is not under version control yet
     QWidget *mw = Core::ICore::mainWindow();
     do {
@@ -951,7 +954,7 @@ SynchronousProcessResponse VcsBasePlugin::runVcs(const QString &workingDir,
         process.setProcessEnvironment(env);
         process.setTimeout(timeOutMS);
         if (outputCodec)
-            process.setStdOutCodec(outputCodec);
+            process.setCodec(outputCodec);
 
         // Suppress terminal on UNIX for ssh prompts if it is configured.
         if (sshPromptConfigured && (flags & SshPasswordPrompt))
@@ -1037,7 +1040,12 @@ bool VcsBasePlugin::runFullySynchronous(const QString &workingDirectory,
     // if (flags & ExpectRepoChanges)
     //    Core::DocumentManager::unexpectDirectoryChange(workingDirectory);
 
-    return process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0;
+    if (process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0) {
+        if (flags & ExpectRepoChanges)
+            Core::ICore::vcsManager()->emitRepositoryChanged(workingDirectory);
+        return true;
+    }
+    return false;
 }
 
 bool VcsBasePlugin::runPatch(const QByteArray &input, const QString &workingDirectory,
@@ -1056,7 +1064,7 @@ bool VcsBasePlugin::runPatch(const QByteArray &input, const QString &workingDire
     QStringList args(QLatin1String("-p") + QString::number(strip));
     if (reverse)
         args << QLatin1String("-R");
-    ow->appendCommand(QString(), patch, args);
+    ow->appendCommand(workingDirectory, patch, args);
     patchProcess.start(patch, args);
     if (!patchProcess.waitForStarted()) {
         ow->appendError(tr("Unable to launch '%1': %2").arg(patch, patchProcess.errorString()));

@@ -71,9 +71,9 @@ static const char *qt4FileTypes[] = {
 };
 
 // Test for form editor (loosely coupled)
-static inline bool isFormWindowEditor(const QObject *o)
+static inline bool isFormWindowDocument(const QObject *o)
 {
-    return o && !qstrcmp(o->metaObject()->className(), "Designer::FormWindowEditor");
+    return o && !qstrcmp(o->metaObject()->className(), "Designer::Internal::FormWindowFile");
 }
 
 // Return contents of form editor (loosely coupled)
@@ -126,13 +126,13 @@ void Qt4Manager::init()
 void Qt4Manager::editorChanged(Core::IEditor *editor)
 {
     // Handle old editor
-    if (isFormWindowEditor(m_lastEditor)) {
-        disconnect(m_lastEditor, SIGNAL(changed()), this, SLOT(uiEditorContentsChanged()));
+    if (m_lastEditor && isFormWindowDocument(m_lastEditor->document())) {
+        disconnect(m_lastEditor->document(), SIGNAL(changed()), this, SLOT(uiDocumentContentsChanged()));
 
         if (m_dirty) {
             const QString contents = formWindowEditorContents(m_lastEditor);
             foreach (Qt4Project *project, m_projects)
-                project->rootQt4ProjectNode()->updateCodeModelSupportFromEditor(m_lastEditor->document()->fileName(), contents);
+                project->rootQt4ProjectNode()->updateCodeModelSupportFromEditor(m_lastEditor->document()->filePath(), contents);
             m_dirty = false;
         }
     }
@@ -140,8 +140,8 @@ void Qt4Manager::editorChanged(Core::IEditor *editor)
     m_lastEditor = editor;
 
     // Handle new editor
-    if (isFormWindowEditor(m_lastEditor))
-        connect(m_lastEditor, SIGNAL(changed()), this, SLOT(uiEditorContentsChanged()));
+    if (m_lastEditor && isFormWindowDocument(m_lastEditor->document()))
+        connect(m_lastEditor->document(), SIGNAL(changed()), this, SLOT(uiDocumentContentsChanged()));
 }
 
 void Qt4Manager::editorAboutToClose(Core::IEditor *editor)
@@ -149,12 +149,12 @@ void Qt4Manager::editorAboutToClose(Core::IEditor *editor)
     if (m_lastEditor == editor) {
         // Oh no our editor is going to be closed
         // get the content first
-        if (isFormWindowEditor(m_lastEditor)) {
-            disconnect(m_lastEditor, SIGNAL(changed()), this, SLOT(uiEditorContentsChanged()));
+        if (isFormWindowDocument(m_lastEditor->document())) {
+            disconnect(m_lastEditor->document(), SIGNAL(changed()), this, SLOT(uiDocumentContentsChanged()));
             if (m_dirty) {
                 const QString contents = formWindowEditorContents(m_lastEditor);
                 foreach (Qt4Project *project, m_projects)
-                    project->rootQt4ProjectNode()->updateCodeModelSupportFromEditor(m_lastEditor->document()->fileName(), contents);
+                    project->rootQt4ProjectNode()->updateCodeModelSupportFromEditor(m_lastEditor->document()->filePath(), contents);
                 m_dirty = false;
             }
         }
@@ -162,10 +162,10 @@ void Qt4Manager::editorAboutToClose(Core::IEditor *editor)
     }
 }
 
-void Qt4Manager::uiEditorContentsChanged()
+void Qt4Manager::uiDocumentContentsChanged()
 {
     // cast sender, get filename
-    if (!m_dirty && isFormWindowEditor(sender()))
+    if (!m_dirty && isFormWindowDocument(sender()))
         m_dirty = true;
 }
 
@@ -226,7 +226,7 @@ void Qt4Manager::addLibrary()
     ProFileEditorWidget *editor =
         qobject_cast<ProFileEditorWidget*>(Core::EditorManager::currentEditor()->widget());
     if (editor)
-        addLibrary(editor->editorDocument()->fileName(), editor);
+        addLibrary(editor->editorDocument()->filePath(), editor);
 }
 
 void Qt4Manager::addLibraryContextMenu()
@@ -326,8 +326,8 @@ void Qt4Manager::buildFileContextMenu()
 
 void Qt4Manager::buildFile()
 {
-    if (Core::IEditor *currentEditor = Core::EditorManager::currentEditor()) {
-        QString file = currentEditor->document()->fileName();
+    if (Core::IDocument *currentDocument= Core::EditorManager::currentDocument()) {
+        QString file = currentDocument->filePath();
         ProjectExplorer::SessionManager *session = projectExplorer()->session();
         ProjectExplorer::FileNode *node  = qobject_cast<FileNode *>(session->nodeForFile(file));
         ProjectExplorer::Project *project = session->projectForFile(file);

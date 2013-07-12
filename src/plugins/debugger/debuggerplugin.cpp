@@ -686,7 +686,7 @@ static bool currentTextEditorPosition(ContextData *data)
         return false;
     const IDocument *document = textEditor->document();
     QTC_ASSERT(document, return false);
-    data->fileName = document->fileName();
+    data->fileName = document->filePath();
     if (textEditor->property("DisassemblerView").toBool()) {
         int lineNumber = textEditor->currentLine();
         QString line = textEditor->textDocument()->contents()
@@ -1253,6 +1253,7 @@ public:
     QIcon m_locationMarkIcon;
 
     StatusLabel *m_statusLabel;
+    QMenu *m_viewMenu;
     QComboBox *m_threadBox;
 
     BaseWindow *m_breakWindow;
@@ -1677,7 +1678,7 @@ void DebuggerPluginPrivate::attachToProcess(bool startServerOnly)
         DebuggerKitChooser::RemoteDebugging : DebuggerKitChooser::LocalDebugging;
     DebuggerKitChooser *kitChooser = new DebuggerKitChooser(mode);
     DeviceProcessesDialog *dlg = new DeviceProcessesDialog(kitChooser, mainWindow());
-    dlg->addAcceptButton(DeviceProcessesDialog::tr("&Attach to Process"));
+    dlg->addAcceptButton(ProjectExplorer::DeviceProcessesDialog::tr("&Attach to Process"));
     dlg->showAllDevices();
     if (dlg->exec() == QDialog::Rejected) {
         delete dlg;
@@ -1861,7 +1862,7 @@ void DebuggerPluginPrivate::requestContextMenu(ITextEditor *editor,
     bool contextUsable = true;
 
     BreakpointModelId id = BreakpointModelId();
-    const QString fileName = editor->document()->fileName();
+    const QString fileName = editor->document()->filePath();
     if (editor->property("DisassemblerView").toBool()) {
         args.fileName = fileName;
         QString line = editor->textDocument()->contents()
@@ -1874,7 +1875,7 @@ void DebuggerPluginPrivate::requestContextMenu(ITextEditor *editor,
         id = breakHandler()->findSimilarBreakpoint(needle);
         contextUsable = args.address != 0;
     } else {
-        args.fileName = editor->document()->fileName();
+        args.fileName = editor->document()->filePath();
         id = breakHandler()
             ->findBreakpointByFileAndLine(args.fileName, lineNumber);
         if (!id)
@@ -1983,7 +1984,7 @@ void DebuggerPluginPrivate::toggleBreakpoint()
         quint64 address = DisassemblerLine::addressFromDisassemblyLine(line);
         toggleBreakpointByAddress(address);
     } else if (lineNumber >= 0) {
-        toggleBreakpointByFileAndLine(textEditor->document()->fileName(), lineNumber);
+        toggleBreakpointByFileAndLine(textEditor->document()->filePath(), lineNumber);
     }
 }
 
@@ -2040,7 +2041,7 @@ void DebuggerPluginPrivate::requestMark(ITextEditor *editor,
         quint64 address = DisassemblerLine::addressFromDisassemblyLine(line);
         toggleBreakpointByAddress(address);
     } else if (editor->document()) {
-        toggleBreakpointByFileAndLine(editor->document()->fileName(), lineNumber);
+        toggleBreakpointByFileAndLine(editor->document()->filePath(), lineNumber);
     }
 }
 
@@ -2118,29 +2119,26 @@ void DebuggerPluginPrivate::cleanupViews()
     if (!boolSetting(CloseBuffersOnExit))
         return;
 
-    EditorManager *editorManager = EditorManager::instance();
-    QTC_ASSERT(editorManager, return);
-    QList<IEditor *> toClose;
-    foreach (IEditor *editor, editorManager->openedEditors()) {
-        if (editor->property(Constants::OPENED_BY_DEBUGGER).toBool()) {
-            IDocument *doc = editor->document();
+    QList<IDocument *> toClose;
+    foreach (IDocument *document, EditorManager::documentModel()->openedDocuments()) {
+        if (document->property(Constants::OPENED_BY_DEBUGGER).toBool()) {
             bool keepIt = true;
-            if (editor->property(Constants::OPENED_WITH_DISASSEMBLY).toBool())
+            if (document->property(Constants::OPENED_WITH_DISASSEMBLY).toBool())
                 keepIt = false;
-            else if (doc->isModified())
+            else if (document->isModified())
                 keepIt = true;
-            else if (doc->fileName().contains(_("qeventdispatcher")))
+            else if (document->filePath().contains(_("qeventdispatcher")))
                 keepIt = false;
             else
-                keepIt = (editor == EditorManager::currentEditor());
+                keepIt = (document == EditorManager::currentDocument());
 
             if (keepIt)
-                editor->setProperty(Constants::OPENED_BY_DEBUGGER, false);
+                document->setProperty(Constants::OPENED_BY_DEBUGGER, false);
             else
-                toClose.append(editor);
+                toClose.append(document);
         }
     }
-    editorManager->closeEditors(toClose);
+    EditorManager::closeDocuments(toClose);
 }
 
 void DebuggerPluginPrivate::setBusyCursor(bool busy)
@@ -3261,7 +3259,7 @@ void DebuggerPluginPrivate::extensionsInitialized()
 
     m_mainWindow->setToolBar(CppLanguage, toolbarContainer);
 
-    QWidget *qmlToolbar = new QWidget;
+    QWidget *qmlToolbar = new QWidget(m_mainWindow);
     hbox = new QHBoxLayout(qmlToolbar);
     hbox->setMargin(0);
     hbox->setSpacing(0);
@@ -3506,7 +3504,7 @@ void DebuggerPluginPrivate::testProjectLoaded(Project *project)
 
 void DebuggerPluginPrivate::testProjectEvaluated()
 {
-    QString fileName = m_testProject->document()->fileName();
+    QString fileName = m_testProject->document()->filePath();
     QVERIFY(!fileName.isEmpty());
     qWarning("Project %s loaded", qPrintable(fileName));
     connect(ProjectExplorerPlugin::instance()->buildManager(),

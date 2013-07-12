@@ -31,7 +31,7 @@
 #include "editormanager.h"
 #include "icore.h"
 #include "minisplitter.h"
-#include "openeditorsmodel.h"
+#include "documentmodel.h"
 
 #include <coreplugin/editortoolbar.h>
 #include <coreplugin/coreconstants.h>
@@ -112,6 +112,11 @@ EditorView::EditorView(SplitterOrView *parentSplitterOrView, QWidget *parent) :
         tl->addWidget(m_statusHLine);
         tl->addWidget(m_statusWidget);
     }
+
+    // for the case of no document selected
+    QWidget *empty = new QWidget;
+    m_container->addWidget(empty);
+    m_widgetEditorMap.insert(empty, 0);
 
     updateNavigatorActions();
 }
@@ -204,7 +209,7 @@ void EditorView::updateEditorHistory(IEditor *editor, QList<EditLocation> &histo
 
     EditLocation location;
     location.document = document;
-    location.fileName = document->fileName();
+    location.fileName = document->filePath();
     location.id = editor->id();
     location.state = QVariant(state);
 
@@ -225,7 +230,7 @@ void EditorView::paintEvent(QPaintEvent *)
     if (editorView != this)
         return;
 
-    if (editorCount() > 0)
+    if (m_container->currentIndex() != 0) // so a document is selected
         return;
 
     // Discreet indication where an editor would be if there is none
@@ -291,15 +296,15 @@ void EditorView::removeEditor(IEditor *editor)
 
 IEditor *EditorView::currentEditor() const
 {
-    if (m_container->count() > 0)
+    if (m_editors.count() > 0)
         return m_widgetEditorMap.value(m_container->currentWidget());
     return 0;
 }
 
 void EditorView::listSelectionActivated(int index)
 {
-    QAbstractItemModel *model = EditorManager::instance()->openedEditorsModel();
-    EditorManager::instance()->activateEditorForIndex(this, model->index(index, 0));
+    EditorManager::instance()->activateEditorForEntry(
+                this, EditorManager::documentModel()->documentAtRow(index));
 }
 
 void EditorView::splitHorizontally()
@@ -337,11 +342,11 @@ void EditorView::setParentSplitterOrView(SplitterOrView *splitterOrView)
 
 void EditorView::setCurrentEditor(IEditor *editor)
 {
-    if (!editor || m_container->count() <= 0
-        || m_container->indexOf(editor->widget()) == -1) {
-        m_toolBar->updateEditorStatus(0);
+    if (!editor || m_container->indexOf(editor->widget()) == -1) {
+        QTC_CHECK(!editor);
+        m_toolBar->setCurrentEditor(0);
         m_infoBarDisplay->setInfoBar(0);
-        QTC_CHECK(m_container->count() == 0);
+        m_container->setCurrentIndex(0);
         return;
     }
 
@@ -360,12 +365,12 @@ void EditorView::setCurrentEditor(IEditor *editor)
 
 int EditorView::editorCount() const
 {
-    return m_container->count();
+    return m_editors.size();
 }
 
 QList<IEditor *> EditorView::editors() const
 {
-    return m_widgetEditorMap.values();
+    return m_editors;
 }
 
 void EditorView::updateEditorHistory(IEditor *editor)
@@ -395,7 +400,7 @@ void EditorView::addCurrentPositionToNavigationHistory(IEditor *editor, const QB
 
     EditLocation location;
     location.document = document;
-    location.fileName = document->fileName();
+    location.fileName = document->filePath();
     location.id = editor->id();
     location.state = QVariant(state);
     m_currentNavigationHistoryPosition = qMin(m_currentNavigationHistoryPosition, m_navigationHistory.size()); // paranoia
@@ -450,7 +455,7 @@ void EditorView::updateCurrentPositionInNavigationHistory()
         location = &m_navigationHistory[m_navigationHistory.size()-1];
     }
     location->document = document;
-    location->fileName = document->fileName();
+    location->fileName = document->filePath();
     location->id = editor->id();
     location->state = QVariant(editor->saveState());
 }
@@ -514,6 +519,17 @@ SplitterOrView::SplitterOrView(Core::IEditor *editor)
     m_view = new EditorView(this);
     if (editor)
         m_view->addEditor(editor);
+    m_splitter = 0;
+    m_layout->addWidget(m_view);
+}
+
+SplitterOrView::SplitterOrView(EditorView *view)
+{
+    QTC_CHECK(view);
+    m_layout = new QStackedLayout(this);
+    m_layout->setSizeConstraint(QLayout::SetNoConstraint);
+    m_view = view;
+    m_view->setParentSplitterOrView(this);
     m_splitter = 0;
     m_layout->addWidget(m_view);
 }
@@ -591,34 +607,22 @@ void SplitterOrView::split(Qt::Orientation orientation)
     m_splitter = new MiniSplitter(this);
     m_splitter->setOrientation(orientation);
     m_layout->addWidget(m_splitter);
+    m_layout->removeWidget(m_view);
+    EditorView *editorView = m_view;
+    m_view = 0;
     EditorManager *em = ICore::editorManager();
-    Core::IEditor *e = m_view->currentEditor();
+    Core::IEditor *e = editorView->currentEditor();
 
     SplitterOrView *view = 0;
     SplitterOrView *otherView = 0;
-    if (e) {
-
-        foreach (IEditor *editor, m_view->editors())
-            m_view->removeEditor(editor);
-
-        m_splitter->addWidget((view = new SplitterOrView(e)));
-        if (e->duplicateSupported()) {
-            Core::IEditor *duplicate = em->duplicateEditor(e);
-            m_splitter->addWidget((otherView = new SplitterOrView(duplicate)));
-        } else {
-            m_splitter->addWidget((otherView = new SplitterOrView()));
-        }
-    } else {
-        m_splitter->addWidget((view = new SplitterOrView()));
-        m_splitter->addWidget((otherView = new SplitterOrView()));
-    }
+    Core::IEditor *duplicate = e && e->duplicateSupported() ? em->duplicateEditor(e) : 0;
+    m_splitter->addWidget((view = new SplitterOrView(duplicate)));
+    m_splitter->addWidget((otherView = new SplitterOrView(editorView)));
 
     m_layout->setCurrentWidget(m_splitter);
 
-    view->view()->copyNavigationHistoryFrom(m_view);
-    view->view()->setCurrentEditor(view->view()->currentEditor());
-    otherView->view()->copyNavigationHistoryFrom(m_view);
-    otherView->view()->setCurrentEditor(otherView->view()->currentEditor());
+    view->view()->copyNavigationHistoryFrom(editorView);
+    view->view()->setCurrentEditor(duplicate);
 
     if (orientation == Qt::Horizontal) {
         view->view()->setCloseSplitIcon(QIcon(QLatin1String(Constants::ICON_CLOSE_SPLIT_LEFT)));
@@ -628,16 +632,10 @@ void SplitterOrView::split(Qt::Orientation orientation)
         otherView->view()->setCloseSplitIcon(QIcon(QLatin1String(Constants::ICON_CLOSE_SPLIT_BOTTOM)));
     }
 
-    if (m_view) {
-        em->emptyView(m_view);
-        delete m_view;
-        m_view = 0;
-    }
-
     if (e)
-        em->activateEditor(view->view(), e);
+        em->activateEditor(otherView->view(), e);
     else
-        em->setCurrentView(view->view());
+        em->setCurrentView(otherView->view());
 }
 
 void SplitterOrView::unsplitAll()
@@ -739,11 +737,11 @@ QByteArray SplitterOrView::saveState() const
         IEditor* e = editor();
 
         // don't save state of temporary or ad-hoc editors
-        if (e && (e->isTemporary() || e->document()->fileName().isEmpty())) {
+        if (e && (e->isTemporary() || e->document()->filePath().isEmpty())) {
             // look for another editor that is more suited
             e = 0;
             foreach (IEditor *otherEditor, editors()) {
-                if (!otherEditor->isTemporary() && !otherEditor->document()->fileName().isEmpty()) {
+                if (!otherEditor->isTemporary() && !otherEditor->document()->filePath().isEmpty()) {
                     e = otherEditor;
                     break;
                 }
@@ -754,10 +752,10 @@ QByteArray SplitterOrView::saveState() const
             stream << QByteArray("empty");
         } else if (e == EditorManager::currentEditor()) {
             stream << QByteArray("currenteditor")
-                    << e->document()->fileName() << e->id().toString() << e->saveState();
+                    << e->document()->filePath() << e->id().toString() << e->saveState();
         } else {
             stream << QByteArray("editor")
-                    << e->document()->fileName() << e->id().toString() << e->saveState();
+                    << e->document()->filePath() << e->id().toString() << e->saveState();
         }
     }
     return bytes;
@@ -788,9 +786,9 @@ void SplitterOrView::restoreState(const QByteArray &state)
                                     | Core::EditorManager::DoNotChangeCurrentEditor);
 
         if (!e) {
-            QModelIndex idx = em->openedEditorsModel()->firstRestoredEditor();
-            if (idx.isValid())
-                em->activateEditorForIndex(view(), idx, Core::EditorManager::IgnoreNavigationHistory
+            DocumentModel::Entry *entry = EditorManager::documentModel()->firstRestoredDocument();
+            if (entry)
+                em->activateEditorForEntry(view(), entry, Core::EditorManager::IgnoreNavigationHistory
                                     | Core::EditorManager::DoNotChangeCurrentEditor);
         }
 

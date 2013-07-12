@@ -1020,12 +1020,10 @@ void ProjectExplorerPlugin::loadAction()
 
     // for your special convenience, we preselect a pro file if it is
     // the current file
-    if (Core::IEditor *editor = Core::EditorManager::currentEditor()) {
-        if (const Core::IDocument *document= editor->document()) {
-            const QString fn = document->fileName();
-            const bool isProject = d->m_profileMimeTypes.contains(document->mimeType());
-            dir = isProject ? fn : QFileInfo(fn).absolutePath();
-        }
+    if (const Core::IDocument *document = Core::EditorManager::currentDocument()) {
+        const QString fn = document->filePath();
+        const bool isProject = d->m_profileMimeTypes.contains(document->mimeType());
+        dir = isProject ? fn : QFileInfo(fn).absolutePath();
     }
 
     QString filename = QFileDialog::getOpenFileName(0, tr("Load Project"),
@@ -1062,7 +1060,7 @@ void ProjectExplorerPlugin::unloadProject()
 
     Core::IDocument *document = d->m_currentProject->document();
 
-    if (!document || document->fileName().isEmpty()) //nothing to save?
+    if (!document || document->filePath().isEmpty()) //nothing to save?
         return;
 
     QList<Core::IDocument*> documentsToSave;
@@ -1076,7 +1074,7 @@ void ProjectExplorerPlugin::unloadProject()
     if (!success)
         return;
 
-    addToRecentProjects(document->fileName(), d->m_currentProject->displayName());
+    addToRecentProjects(document->filePath(), d->m_currentProject->displayName());
     unloadProject(d->m_currentProject);
 }
 
@@ -1159,7 +1157,7 @@ void ProjectExplorerPlugin::updateVariable(const QByteArray &variable)
         if (Project *project = currentProject()) {
             projectName = project->displayName();
             if (Core::IDocument *doc = project->document())
-                projectFilePath = doc->fileName();
+                projectFilePath = doc->filePath();
             if (Target *target = project->activeTarget()) {
                 kit = target->kit();
                 if (BuildConfiguration *buildConfiguration = target->activeBuildConfiguration()) {
@@ -1356,7 +1354,7 @@ QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileName
         QString canonicalFilePath = fi.canonicalFilePath();
         bool found = false;
         foreach (ProjectExplorer::Project *pi, session()->projects()) {
-            if (canonicalFilePath == pi->document()->fileName()) {
+            if (canonicalFilePath == pi->document()->filePath()) {
                 found = true;
                 break;
             }
@@ -1668,7 +1666,7 @@ void ProjectExplorerPlugin::buildStateChanged(Project * pro)
 {
     if (debug) {
         qDebug() << "buildStateChanged";
-        qDebug() << pro->document()->fileName() << "isBuilding()" << d->m_buildManager->isBuilding(pro);
+        qDebug() << pro->document()->filePath() << "isBuilding()" << d->m_buildManager->isBuilding(pro);
     }
     Q_UNUSED(pro)
     updateActions();
@@ -1754,11 +1752,8 @@ void ProjectExplorerPlugin::buildQueueFinished(bool success)
 
 void ProjectExplorerPlugin::updateExternalFileWarning()
 {
-    Core::IEditor *editor = qobject_cast<Core::IEditor *>(sender());
-    if (!editor || editor->isTemporary())
-        return;
-    Core::IDocument *document = editor->document();
-    if (!document)
+    Core::IDocument *document = qobject_cast<Core::IDocument *>(sender());
+    if (!document || document->filePath().isEmpty())
         return;
     Core::InfoBar *infoBar = document->infoBar();
     Core::Id externalFileId(EXTERNAL_FILE_WARNING);
@@ -1768,9 +1763,7 @@ void ProjectExplorerPlugin::updateExternalFileWarning()
     }
     if (!d->m_currentProject || !infoBar->canInfoBeAdded(externalFileId))
         return;
-    Utils::FileName fileName = Utils::FileName::fromString(document->fileName());
-    if (fileName.isEmpty())
-        return;
+    Utils::FileName fileName = Utils::FileName::fromString(document->filePath());
     Utils::FileName projectDir = Utils::FileName::fromString(d->m_currentProject->projectDirectory());
     if (projectDir.isEmpty() || fileName.isChildOf(projectDir))
         return;
@@ -1832,9 +1825,9 @@ void ProjectExplorerPlugin::setCurrent(Project *project, QString filePath, Node 
     }
     d->m_currentProject = project;
 
-    if (!node && Core::EditorManager::currentEditor()) {
-        connect(Core::EditorManager::currentEditor(), SIGNAL(changed()),
-                this, SLOT(updateExternalFileWarning()));
+    if (!node && Core::EditorManager::currentDocument()) {
+        connect(Core::EditorManager::currentDocument(), SIGNAL(changed()),
+                this, SLOT(updateExternalFileWarning()), Qt::UniqueConnection);
     }
     if (projectChanged || d->m_currentNode != node) {
         d->m_currentNode = node;
@@ -1955,7 +1948,7 @@ void ProjectExplorerPlugin::updateActions()
 QStringList ProjectExplorerPlugin::allFilesWithDependencies(Project *pro)
 {
     if (debug)
-        qDebug() << "ProjectExplorerPlugin::allFilesWithDependencies(" << pro->document()->fileName() << ")";
+        qDebug() << "ProjectExplorerPlugin::allFilesWithDependencies(" << pro->document()->filePath() << ")";
 
     QStringList filesToSave;
     foreach (Project *p, d->m_session->projectOrder(pro)) {
@@ -2363,7 +2356,7 @@ void ProjectExplorerPlugin::projectRemoved(ProjectExplorer::Project * pro)
 
 void ProjectExplorerPlugin::projectDisplayNameChanged(Project *pro)
 {
-    addToRecentProjects(pro->document()->fileName(), pro->displayName());
+    addToRecentProjects(pro->document()->filePath(), pro->displayName());
     updateActions();
 }
 
@@ -2844,16 +2837,9 @@ void ProjectExplorerPlugin::addExistingFiles(ProjectNode *projectNode, const QSt
 
     const QString dir = directoryFor(projectNode);
     QStringList fileNames = filePaths;
-    QHash<FileType, QString> fileTypeToFiles;
-    foreach (const QString &fileName, fileNames) {
-        FileType fileType = typeForFileName(Core::ICore::mimeDatabase(), QFileInfo(fileName));
-        fileTypeToFiles.insertMulti(fileType, fileName);
-    }
-
     QStringList notAdded;
-    foreach (const FileType type, fileTypeToFiles.uniqueKeys()) {
-        projectNode->addFiles(type, fileTypeToFiles.values(type), &notAdded);
-    }
+    projectNode->addFiles(fileNames, &notAdded);
+
     if (!notAdded.isEmpty()) {
         QString message = tr("Could not add following files to project %1:\n").arg(projectNode->displayName());
         QString files = notAdded.join(QString(QLatin1Char('\n')));
@@ -2919,7 +2905,7 @@ void ProjectExplorerPlugin::removeFile()
         ProjectNode *projectNode = fileNode->projectNode();
         Q_ASSERT(projectNode);
 
-        if (!projectNode->removeFiles(fileNode->fileType(), QStringList(filePath))) {
+        if (!projectNode->removeFiles(QStringList(filePath))) {
             QMessageBox::warning(Core::ICore::mainWindow(), tr("Removing File Failed"),
                                  tr("Could not remove file %1 from project %2.").arg(filePath).arg(projectNode->displayName()));
             return;
@@ -2947,7 +2933,7 @@ void ProjectExplorerPlugin::deleteFile()
     ProjectNode *projectNode = fileNode->projectNode();
     QTC_ASSERT(projectNode, return);
 
-    projectNode->deleteFiles(fileNode->fileType(), QStringList(filePath));
+    projectNode->deleteFiles(QStringList(filePath));
 
     Core::DocumentManager::expectFileChange(filePath);
     if (Core::IVersionControl *vc =
@@ -2988,7 +2974,7 @@ void ProjectExplorerPlugin::renameFile(Node *node, const QString &to)
     if (Core::FileUtils::renameFile(orgFilePath, newFilePath)) {
         // Tell the project plugin about rename
         ProjectNode *projectNode = fileNode->projectNode();
-        if (!projectNode->renameFile(fileNode->fileType(), orgFilePath, newFilePath)) {
+        if (!projectNode->renameFile(orgFilePath, newFilePath)) {
             QMessageBox::warning(Core::ICore::mainWindow(), tr("Project Editing Failed"),
                                  tr("The file %1 was renamed to %2, but the project file %3 could not be automatically changed.")
                                  .arg(orgFilePath)

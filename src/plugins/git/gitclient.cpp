@@ -76,7 +76,8 @@
 static const char GIT_DIRECTORY[] = ".git";
 static const char graphLogFormatC[] = "%h %d %an %s %ci";
 static const char HEAD[] = "HEAD";
-
+static const char noColorOption[] = "--no-color";
+static const char decorateOption[] = "--decorate";
 
 namespace Git {
 namespace Internal {
@@ -118,8 +119,8 @@ public:
 
     // index -> working tree
     void diffFile(const QString &fileName);
-    // stagedFileNames - files in index, diff will compare the state in HEAD to the one in the index
-    // unstagedFileNames - diff will compare the state in the index to the one in the working tree
+    // stagedFileNames:   HEAD -> index
+    // unstagedFileNames: index -> working tree
     void diffFiles(const QStringList &stagedFileNames, const QStringList &unstagedFileNames);
     // index -> working tree
     void diffProjects(const QStringList &projectPaths);
@@ -191,7 +192,7 @@ GitDiffHandler::GitDiffHandler(DiffEditor::DiffEditor *editor,
 void GitDiffHandler::diffFile(const QString &fileName)
 {
     m_requestedRevisionRange = RevisionRange(
-                Revision(Other, QLatin1String(HEAD)),
+                Revision(Index),
                 Revision(WorkingTree));
 
     collectFilesList(QStringList() << QLatin1String("--") << fileName);
@@ -201,7 +202,7 @@ void GitDiffHandler::diffFiles(const QStringList &stagedFileNames, const QString
 {
     RevisionRange stagedRange = RevisionRange(
                 Revision(Other, QLatin1String(HEAD)),
-                Revision(WorkingTree));
+                Revision(Index));
     RevisionRange unstagedRange = RevisionRange(
                 Revision(Index),
                 Revision(WorkingTree));
@@ -219,7 +220,7 @@ void GitDiffHandler::diffFiles(const QStringList &stagedFileNames, const QString
 void GitDiffHandler::diffProjects(const QStringList &projectPaths)
 {
     m_requestedRevisionRange = RevisionRange(
-                Revision(Other, QLatin1String(HEAD)),
+                Revision(Index),
                 Revision(WorkingTree));
 
     collectFilesList(QStringList() << QLatin1String("--") << projectPaths);
@@ -228,7 +229,7 @@ void GitDiffHandler::diffProjects(const QStringList &projectPaths)
 void GitDiffHandler::diffRepository()
 {
     m_requestedRevisionRange = RevisionRange(
-                Revision(Other, QLatin1String(HEAD)),
+                Revision(Index),
                 Revision(WorkingTree));
 
     collectFilesList(QStringList());
@@ -254,23 +255,27 @@ void GitDiffHandler::show(const QString &id)
 
 void GitDiffHandler::collectShowDescription(const QString &id)
 {
+    if (m_editor.isNull())
+        return;
     m_editor->clear(m_waitMessage);
     VcsBase::Command *command = new VcsBase::Command(m_gitPath, m_workingDirectory, m_processEnvironment);
     connect(command, SIGNAL(outputData(QByteArray)), this, SLOT(slotShowDescriptionReceived(QByteArray)));
     QStringList arguments;
-    arguments << QLatin1String("show") << QLatin1String("-s") << QLatin1String("--format=fuller") << id;
+    arguments << QLatin1String("show") << QLatin1String("-s") << QLatin1String("--format=fuller")
+              << QLatin1String(noColorOption) << QLatin1String(decorateOption) << id;
     command->addJob(arguments, m_timeout);
     command->execute();
 }
 
 void GitDiffHandler::slotShowDescriptionReceived(const QByteArray &data)
 {
+    if (m_editor.isNull())
+        return;
     const QString description = m_editor->editorWidget()->codec()->toUnicode(data).remove(QLatin1Char('\r'));
 
     DiffEditor::DiffShowEditor *editor = qobject_cast<DiffEditor::DiffShowEditor *>(m_editor);
-    if (editor) {
+    if (editor)
         editor->setDescription(description);
-    }
 
     collectFilesList(QStringList()
                      << m_requestedRevisionRange.begin.id
@@ -279,6 +284,8 @@ void GitDiffHandler::slotShowDescriptionReceived(const QByteArray &data)
 
 void GitDiffHandler::collectFilesList(const QStringList &additionalArguments)
 {
+    if (m_editor.isNull())
+        return;
     m_editor->clear(m_waitMessage);
     VcsBase::Command *command = new VcsBase::Command(m_gitPath, m_workingDirectory, m_processEnvironment);
     connect(command, SIGNAL(outputData(QByteArray)), this, SLOT(slotFileListReceived(QByteArray)));
@@ -477,21 +484,26 @@ class GitCommitDiffArgumentsWidget : public BaseGitDiffArgumentsWidget
 
 public:
     GitCommitDiffArgumentsWidget(Git::Internal::GitClient *client, const QString &directory,
-                                 const QStringList &args, const QStringList &unstaged,
-                                 const QStringList &staged) :
-        BaseGitDiffArgumentsWidget(client, directory, args),
-        m_unstagedFileNames(unstaged),
-        m_stagedFileNames(staged)
-    { }
+                                 const QStringList &unstaged, const QStringList &staged) :
+        BaseGitDiffArgumentsWidget(client, directory, QStringList())
+    {
+        setFileNames(unstaged, staged);
+    }
+
+    void setFileNames(const QStringList &unstaged, const QStringList &staged)
+    {
+        m_unstagedFileNames = unstaged;
+        m_stagedFileNames = staged;
+    }
 
     void executeCommand()
     {
-        m_client->diff(m_workingDirectory, arguments(), m_unstagedFileNames, m_stagedFileNames);
+        m_client->diff(m_workingDirectory, m_unstagedFileNames, m_stagedFileNames);
     }
 
 private:
-    const QStringList m_unstagedFileNames;
-    const QStringList m_stagedFileNames;
+    QStringList m_unstagedFileNames;
+    QStringList m_stagedFileNames;
 };
 
 class GitFileDiffArgumentsWidget : public BaseGitDiffArgumentsWidget
@@ -499,14 +511,14 @@ class GitFileDiffArgumentsWidget : public BaseGitDiffArgumentsWidget
     Q_OBJECT
 public:
     GitFileDiffArgumentsWidget(Git::Internal::GitClient *client, const QString &directory,
-                               const QStringList &args, const QString &file) :
-        BaseGitDiffArgumentsWidget(client, directory, args),
+                               const QString &file) :
+        BaseGitDiffArgumentsWidget(client, directory, QStringList()),
         m_fileName(file)
     { }
 
     void executeCommand()
     {
-        m_client->diff(m_workingDirectory, arguments(), m_fileName);
+        m_client->diff(m_workingDirectory, m_fileName);
     }
 
 private:
@@ -525,7 +537,7 @@ public:
 
     void executeCommand()
     {
-        m_client->diffBranch(m_workingDirectory, arguments(), m_branchName);
+        m_client->diffBranch(m_workingDirectory, baseArguments(), m_branchName);
     }
 
 private:
@@ -560,7 +572,7 @@ public:
 
     void executeCommand()
     {
-        m_client->show(m_workingDirectory, m_id, arguments());
+        m_client->show(m_workingDirectory, m_id, baseArguments());
     }
 
 private:
@@ -605,7 +617,7 @@ public:
         int line = -1;
         if (m_editor)
             line = m_editor->lineNumberOfCurrentEditor();
-        m_client->blame(m_workingDirectory, arguments(), m_fileName, m_revision, line);
+        m_client->blame(m_workingDirectory, baseArguments(), m_fileName, m_revision, line);
     }
 
 private:
@@ -629,9 +641,9 @@ public:
         BaseGitDiffArgumentsWidget(client, directory, args),
         m_client(client),
         m_workingDirectory(directory),
-        m_enableAnnotationContextMenu(enableAnnotationContextMenu),
-        m_fileNames(fileNames)
+        m_enableAnnotationContextMenu(enableAnnotationContextMenu)
     {
+        QTC_ASSERT(!directory.isEmpty(), return);
         QToolButton *diffButton = addToggleButton(QLatin1String("--patch"), tr("Show Diff"),
                                               tr("Show difference."));
         mapSetting(diffButton, m_client->settings()->boolPointer(GitSettings::logDiffKey));
@@ -645,11 +657,17 @@ public:
         QToolButton *graphButton = addToggleButton(graphArguments, tr("Graph"),
                                               tr("Show textual graph log."));
         mapSetting(graphButton, m_client->settings()->boolPointer(GitSettings::graphLogKey));
+        setFileNames(fileNames);
+    }
+
+    void setFileNames(const QStringList &fileNames)
+    {
+        m_fileNames = fileNames;
     }
 
     void executeCommand()
     {
-        m_client->log(m_workingDirectory, m_fileNames, m_enableAnnotationContextMenu, arguments());
+        m_client->log(m_workingDirectory, m_fileNames, m_enableAnnotationContextMenu, baseArguments());
     }
 
 private:
@@ -764,9 +782,15 @@ static inline QString msgParseFilesFailed()
 
 static inline QString currentDocumentPath()
 {
-    if (Core::IEditor *editor = Core::EditorManager::currentEditor())
-        return QFileInfo(editor->document()->fileName()).path();
+    if (Core::IDocument *document= Core::EditorManager::currentDocument())
+        return QFileInfo(document->filePath()).path();
     return QString();
+}
+
+static inline QStringList statusArguments()
+{
+    return QStringList() << QLatin1String("-c") << QLatin1String("color.status=false")
+                         << QLatin1String("status");
 }
 
 // ---------------- GitClient
@@ -789,9 +813,6 @@ GitClient::GitClient(GitSettings *settings) :
 GitClient::~GitClient()
 {
 }
-
-const char *GitClient::noColorOption = "--no-color";
-const char *GitClient::decorateOption = "--decorate";
 
 QString GitClient::findRepositoryForDirectory(const QString &dir)
 {
@@ -913,7 +934,6 @@ VcsBase::VcsBaseEditorWidget *GitClient::createVcsEditor(const Core::Id &id,
 }
 
 void GitClient::diff(const QString &workingDirectory,
-                     const QStringList &diffArgs,
                      const QStringList &unstagedFileNames,
                      const QStringList &stagedFileNames)
 {
@@ -946,7 +966,7 @@ void GitClient::diff(const QString &workingDirectory,
         VcsBase::VcsBaseEditorWidget *editor = findExistingVCSEditor("originalFileName", workingDirectory);
         if (!editor) {
             GitCommitDiffArgumentsWidget *argWidget =
-                    new GitCommitDiffArgumentsWidget(this, workingDirectory, diffArgs,
+                    new GitCommitDiffArgumentsWidget(this, workingDirectory,
                                                      unstagedFileNames, stagedFileNames);
 
             editor = createVcsEditor(editorId, title,
@@ -955,6 +975,7 @@ void GitClient::diff(const QString &workingDirectory,
         }
 
         GitCommitDiffArgumentsWidget *argWidget = qobject_cast<GitCommitDiffArgumentsWidget *>(editor->configurationWidget());
+        argWidget->setFileNames(unstagedFileNames, stagedFileNames);
         QStringList userDiffArgs = argWidget->arguments();
         editor->setDiffBaseDirectory(workingDirectory);
 
@@ -984,7 +1005,7 @@ void GitClient::diff(const QString &workingDirectory,
             if (!stagedFileNames.empty()) {
                 QStringList arguments(cmdArgs);
                 arguments << userDiffArgs;
-                arguments << QLatin1String("--cached") << diffArgs << QLatin1String("--") << stagedFileNames;
+                arguments << QLatin1String("--cached") << QLatin1String("--") << stagedFileNames;
                 outputWindow()->appendCommand(workingDirectory, binary, arguments);
                 command->addJob(arguments, timeout);
             }
@@ -994,7 +1015,6 @@ void GitClient::diff(const QString &workingDirectory,
 }
 
 void GitClient::diff(const QString &workingDirectory,
-                     const QStringList &diffArgs,
                      const QString &fileName)
 {
     const QString title = tr("Git Diff \"%1\"").arg(fileName);
@@ -1018,7 +1038,7 @@ void GitClient::diff(const QString &workingDirectory,
         VcsBase::VcsBaseEditorWidget *editor = findExistingVCSEditor("originalFileName", sourceFile);
         if (!editor) {
             GitFileDiffArgumentsWidget *argWidget =
-                    new GitFileDiffArgumentsWidget(this, workingDirectory, diffArgs, fileName);
+                    new GitFileDiffArgumentsWidget(this, workingDirectory, fileName);
 
             editor = createVcsEditor(editorId, title, sourceFile, CodecSource, "originalFileName", sourceFile, argWidget);
             connect(editor, SIGNAL(diffChunkReverted(VcsBase::DiffChunk)), argWidget, SLOT(executeCommand()));
@@ -1084,8 +1104,7 @@ void GitClient::merge(const QString &workingDirectory, const QStringList &unmerg
 
 void GitClient::status(const QString &workingDirectory)
 {
-    // @TODO: Use "--no-color" once it is supported
-    QStringList statusArgs(QLatin1String("status"));
+    QStringList statusArgs = statusArguments();
     statusArgs << QLatin1String("-u");
     VcsBase::VcsBaseOutputWindow *outwin = outputWindow();
     outwin->setRepository(workingDirectory);
@@ -1119,6 +1138,8 @@ void GitClient::log(const QString &workingDirectory, const QStringList &fileName
          arguments << QLatin1String("-n") << QString::number(logCount);
 
     GitLogArgumentsWidget *argWidget = qobject_cast<GitLogArgumentsWidget *>(editor->configurationWidget());
+    argWidget->setBaseArguments(args);
+    argWidget->setFileNames(fileNames);
     QStringList userArgs = argWidget->arguments();
 
     arguments.append(userArgs);
@@ -1266,7 +1287,8 @@ bool GitClient::synchronousCheckout(const QString &workingDirectory,
     QByteArray errorText;
     QStringList arguments;
     arguments << QLatin1String("checkout") << ref;
-    const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText);
+    const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText,
+                                        VcsBasePlugin::ExpectRepoChanges);
     const QString output = commandOutputFromLocal8Bit(outputText);
     outputWindow()->append(output);
     if (!rc) {
@@ -1307,7 +1329,7 @@ bool GitClient::synchronousLog(const QString &workingDirectory, const QStringLis
     QByteArray outputText;
     QByteArray errorText;
     QStringList allArguments;
-    allArguments << QLatin1String("log") << QLatin1String(GitClient::noColorOption);
+    allArguments << QLatin1String("log") << QLatin1String(noColorOption);
     allArguments.append(arguments);
     const bool rc = fullySynchronousGit(workingDirectory, allArguments, &outputText, &errorText);
     if (rc) {
@@ -1777,6 +1799,17 @@ void GitClient::synchronousTagsForCommit(const QString &workingDirectory, const 
     }
 }
 
+bool GitClient::isRemoteCommit(const QString &workingDirectory, const QString &commit)
+{
+    QStringList arguments;
+    QByteArray outputText;
+    arguments << QLatin1String("branch") << QLatin1String("-r")
+              << QLatin1String("--contains") << commit;
+    fullySynchronousGit(workingDirectory, arguments, &outputText, 0,
+                        VcsBasePlugin::SuppressCommandLogging);
+    return !outputText.isEmpty();
+}
+
 // Format an entry in a one-liner for selection list using git log.
 QString GitClient::synchronousShortDescription(const QString &workingDirectory, const QString &revision,
                                             const QString &format)
@@ -1785,7 +1818,7 @@ QString GitClient::synchronousShortDescription(const QString &workingDirectory, 
     QByteArray outputTextData;
     QByteArray errorText;
     QStringList arguments;
-    arguments << QLatin1String("log") << QLatin1String(GitClient::noColorOption)
+    arguments << QLatin1String("log") << QLatin1String(noColorOption)
               << (QLatin1String("--pretty=format:") + format)
               << QLatin1String("--max-count=1") << revision;
     const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputTextData, &errorText);
@@ -1926,6 +1959,21 @@ bool GitClient::synchronousBranchCmd(const QString &workingDirectory, QStringLis
     *output = commandOutputFromLocal8Bit(outputText);
     if (!rc) {
         *errorMessage = msgCannotRun(QLatin1String("git branch"), workingDirectory, commandOutputFromLocal8Bit(errorText));
+        return false;
+    }
+    return true;
+}
+
+bool GitClient::synchronousTagCmd(const QString &workingDirectory, QStringList tagArgs, QString *output, QString *errorMessage)
+{
+    tagArgs.push_front(QLatin1String("tag"));
+    QByteArray outputText;
+    QByteArray errorText;
+    const bool rc = fullySynchronousGit(workingDirectory, tagArgs, &outputText, &errorText);
+    *output = commandOutputFromLocal8Bit(outputText);
+    if (!rc) {
+        *errorMessage = msgCannotRun(QLatin1String("git tag"), workingDirectory,
+                                     commandOutputFromLocal8Bit(errorText));
         return false;
     }
     return true;
@@ -2247,12 +2295,12 @@ bool GitClient::isValidRevision(const QString &revision) const
 Utils::SynchronousProcessResponse GitClient::synchronousGit(const QString &workingDirectory,
                                                             const QStringList &gitArguments,
                                                             unsigned flags,
-                                                            QTextCodec *stdOutCodec)
+                                                            QTextCodec *outputCodec)
 {
     return VcsBasePlugin::runVcs(workingDirectory, gitBinaryPath(), gitArguments,
                                  settings()->intValue(GitSettings::timeoutKey) * 1000,
                                  processEnvironment(),
-                                 flags, stdOutCodec);
+                                 flags, outputCodec);
 }
 
 bool GitClient::fullySynchronousGit(const QString &workingDirectory,
@@ -2326,6 +2374,11 @@ void GitClient::finishSubmoduleUpdate()
     m_updatedSubmodules.clear();
 }
 
+void GitClient::fetchFinished(const QVariant &cookie)
+{
+    GitPlugin::instance()->updateBranches(cookie.toString());
+}
+
 // Trim a git status file spec: "modified:    foo .cpp" -> "modified: foo .cpp"
 static inline QString trimFileSpecification(QString fileSpec)
 {
@@ -2348,7 +2401,7 @@ GitClient::StatusResult GitClient::gitStatus(const QString &workingDirectory, St
     QByteArray outputText;
     QByteArray errorText;
 
-    QStringList statusArgs(QLatin1String("status"));
+    QStringList statusArgs = statusArguments();
     if (mode & NoUntracked)
         statusArgs << QLatin1String("--untracked-files=no");
     else
@@ -2571,6 +2624,19 @@ bool GitClient::tryLauchingGitK(const QProcessEnvironment &env,
     return success;
 }
 
+bool GitClient::launchGitGui(const QString &workingDirectory) {
+    bool success;
+    QString gitBinary = gitBinaryPath(&success);
+    if (success)
+        success = QProcess::startDetached(gitBinary, QStringList(QLatin1String("gui")),
+                                          workingDirectory);
+
+    if (!success)
+        outputWindow()->appendError(tr("Cannot launch git gui"));
+
+    return success;
+}
+
 QString GitClient::gitBinaryPath(bool *ok, QString *errorMessage) const
 {
     return settings()->gitBinaryPath(ok, errorMessage);
@@ -2685,8 +2751,11 @@ bool GitClient::getCommitData(const QString &workingDirectory,
         QString templateFilename = gitDirectory.absoluteFilePath(QLatin1String("MERGE_MSG"));
         if (!QFile::exists(templateFilename))
             templateFilename = gitDirectory.absoluteFilePath(QLatin1String("SQUASH_MSG"));
-        if (!QFile::exists(templateFilename))
-            templateFilename = readConfigValue(workingDirectory, QLatin1String("commit.template"));
+        if (!QFile::exists(templateFilename)) {
+            Utils::FileName templateName = Utils::FileName::fromUserInput(
+                        readConfigValue(workingDirectory, QLatin1String("commit.template")));
+            templateFilename = templateName.toString();
+        }
         if (!templateFilename.isEmpty()) {
             // Make relative to repository
             const QFileInfo templateFileInfo(templateFilename);
@@ -2922,7 +2991,9 @@ void GitClient::fetch(const QString &workingDirectory, const QString &remote)
 {
     QStringList arguments(QLatin1String("fetch"));
     arguments << (remote.isEmpty() ? QLatin1String("--all") : remote);
-    executeGit(workingDirectory, arguments, 0, true);
+    VcsBase::Command *command = executeGit(workingDirectory, arguments, 0, true);
+    command->setCookie(workingDirectory);
+    connect(command, SIGNAL(success(QVariant)), this, SLOT(fetchFinished(QVariant)));
 }
 
 bool GitClient::executeAndHandleConflicts(const QString &workingDirectory,
@@ -2998,6 +3069,26 @@ QString GitClient::synchronousTrackingBranch(const QString &workingDirectory, co
     if (rBranch.isEmpty())
         return QString();
     return remote + QLatin1Char('/') + rBranch;
+}
+
+bool GitClient::synchronousSetTrackingBranch(const QString &workingDirectory,
+                                             const QString &branch, const QString &tracking)
+{
+    QByteArray outputText;
+    QByteArray errorText;
+    QStringList arguments;
+    arguments << QLatin1String("branch");
+    if (gitVersion() >= 0x010800)
+        arguments << (QLatin1String("--set-upstream-to=") + tracking) << branch;
+    else
+        arguments << QLatin1String("--set-upstream") << branch << tracking;
+    const bool rc = fullySynchronousGit(workingDirectory, arguments, &outputText, &errorText);
+    if (!rc) {
+        const QString errorMessage = tr("Cannot set tracking branch: %1")
+                                     .arg(commandOutputFromLocal8Bit(errorText));
+        outputWindow()->appendError(errorMessage);
+    }
+    return rc;
 }
 
 void GitClient::handleMergeConflicts(const QString &workingDir, const QString &commit,
@@ -3114,7 +3205,11 @@ void GitClient::rebase(const QString &workingDirectory, const QString &baseBranc
 bool GitClient::synchronousRevert(const QString &workingDirectory, const QString &commit)
 {
     QStringList arguments;
-    QString command = QLatin1String("revert");
+    const QString command = QLatin1String("revert");
+    // Do not stash if --continue or --abort is given as the commit
+    if (!commit.startsWith(QLatin1Char('-')) && !beginStashScope(workingDirectory, command))
+        return false;
+
     arguments << command << QLatin1String("--no-edit") << commit;
 
     return executeAndHandleConflicts(workingDirectory, arguments, command);
@@ -3122,9 +3217,16 @@ bool GitClient::synchronousRevert(const QString &workingDirectory, const QString
 
 bool GitClient::synchronousCherryPick(const QString &workingDirectory, const QString &commit)
 {
-    QStringList arguments;
-    QString command = QLatin1String("cherry-pick");
-    arguments << command << commit;
+    const QString command = QLatin1String("cherry-pick");
+    // "commit" might be --continue or --abort
+    const bool isRealCommit = !commit.startsWith(QLatin1Char('-'));
+    if (isRealCommit && !beginStashScope(workingDirectory, command))
+        return false;
+
+    QStringList arguments(command);
+    if (isRealCommit && isRemoteCommit(workingDirectory, commit))
+        arguments << QLatin1String("-x");
+    arguments << commit;
 
     return executeAndHandleConflicts(workingDirectory, arguments, command);
 }

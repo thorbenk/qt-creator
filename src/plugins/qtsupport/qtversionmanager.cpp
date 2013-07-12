@@ -33,9 +33,7 @@
 #include "qtversionfactory.h"
 #include "baseqtversion.h"
 #include "qtfeatureprovider.h"
-
-// only for legay restore
-#include <projectexplorer/gcctoolchain.h>
+#include "qtsupportconstants.h"
 
 #include <qtsupport/debugginghelper.h>
 
@@ -74,20 +72,6 @@ static const char QTVERSION_LEGACY_FILENAME[] = "/qtversion.xml"; // TODO: pre 2
 static const char QtVersionsSectionName[] = "QtVersions";
 
 enum { debug = 0 };
-
-template<class T>
-static T *createToolChain(const QString &id)
-{
-    QList<ProjectExplorer::ToolChainFactory *> factories =
-            ExtensionSystem::PluginManager::getObjects<ProjectExplorer::ToolChainFactory>();
-    foreach (ProjectExplorer::ToolChainFactory *f, factories) {
-       if (f->id() == id) {
-           Q_ASSERT(f->canCreate());
-           return static_cast<T *>(f->create());
-       }
-    }
-    return 0;
-}
 
 static Utils::FileName globalSettingsFileName()
 {
@@ -309,7 +293,9 @@ void QtVersionManager::updateFromInstaller(bool emitSignal)
                 if (debug)
                     qDebug() << " Qt version found with same autodetection source" << autoDetectionSource << " => Migrating id:" << id;
                 m_versions.remove(id);
-                qtversionMap[QLatin1String("Id")] = id;
+                qtversionMap[QLatin1String(Constants::QTVERSIONID)] = id;
+                qtversionMap[QLatin1String(Constants::QTVERSIONNAME)] = v->displayName();
+                delete v;
 
                 if (BaseQtVersion *qtv = factory->restore(type, qtversionMap)) {
                     Q_ASSERT(qtv->isAutodetected());

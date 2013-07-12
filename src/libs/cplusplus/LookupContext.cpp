@@ -344,7 +344,6 @@ ClassOrNamespace *LookupContext::lookupType(const Name *name, Scope *scope,
                             }
                         }
                     }
-
                 }
             }
         }
@@ -1233,7 +1232,8 @@ void ClassOrNamespace::NestedClassInstantiator::instantiate(ClassOrNamespace *en
 
             foreach (Symbol *s, nestedClassOrNamespace->_symbols) {
                 Symbol *clone = _cloner.symbol(s, &_subst);
-                clone->setScope(s->scope());
+                if (!clone->enclosingScope()) // Not from the cache but just cloned.
+                    clone->setScope(s->enclosingScope());
                 nestedClassOrNamespaceInstantiation->_symbols.append(clone);
             }
         }

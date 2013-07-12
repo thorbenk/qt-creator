@@ -1,5 +1,5 @@
 import qbs.base 1.0
-import qbs.fileinfo as FileInfo
+import qbs.FileInfo
 
 import "../QtcPlugin.qbs" as QtcPlugin
 import "../../../qbs/defaults.js" as Defaults
@@ -102,8 +102,6 @@ QtcPlugin {
         "symbolsfindfilter.h",
         "typehierarchybuilder.cpp",
         "typehierarchybuilder.h",
-        "uicodecompletionsupport.cpp",
-        "uicodecompletionsupport.h",
         "builtinindexingsupport.cpp",
         "builtinindexingsupport.h",
         "cpppreprocessor.cpp",

@@ -142,7 +142,7 @@ Core::Id QbsProject::id() const
 Core::IDocument *QbsProject::document() const
 {
     foreach (Core::IDocument *doc, m_qbsDocuments) {
-        if (doc->fileName() == m_fileName)
+        if (doc->filePath() == m_fileName)
             return doc;
     }
     QTC_ASSERT(false, return 0);
@@ -392,6 +392,10 @@ void QbsProject::parse(const QVariantMap &config, const Utils::Environment &env,
 {
     QTC_ASSERT(!dir.isNull(), return);
 
+    // Clear buildsystem related tasks:
+    ProjectExplorer::ProjectExplorerPlugin::instance()->taskHub()
+            ->clearTasks(ProjectExplorer::Constants::TASK_CATEGORY_BUILDSYSTEM);
+
     qbs::SetupProjectParameters params;
     params.setBuildConfiguration(config);
     qbs::ErrorInfo err = params.expandBuildConfiguration(m_manager->settings());
@@ -472,7 +476,7 @@ void QbsProject::updateDocuments(const QSet<QString> &files)
     QTC_ASSERT(!newFiles.isEmpty(), newFiles << m_fileName);
     QSet<QString> oldFiles;
     foreach (Core::IDocument *doc, m_qbsDocuments)
-        oldFiles.insert(doc->fileName());
+        oldFiles.insert(doc->filePath());
 
     QSet<QString> filesToAdd = newFiles;
     filesToAdd.subtract(oldFiles);
@@ -481,7 +485,7 @@ void QbsProject::updateDocuments(const QSet<QString> &files)
 
     QSet<Core::IDocument *> currentDocuments = m_qbsDocuments;
     foreach (Core::IDocument *doc, currentDocuments) {
-        if (filesToRemove.contains(doc->fileName())) {
+        if (filesToRemove.contains(doc->filePath())) {
             m_qbsDocuments.remove(doc);
             delete doc;
         }

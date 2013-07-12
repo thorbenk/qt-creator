@@ -66,7 +66,7 @@ QList<FilterEntry> OpenDocumentsFilter::matchesFor(QFutureInterface<Locator::Fil
     QRegExp regexp(pattern, Qt::CaseInsensitive, QRegExp::Wildcard);
     if (!regexp.isValid())
         return value;
-    foreach (const OpenEditorsModel::Entry &editorEntry, m_editors) {
+    foreach (const DocumentModel::Entry &editorEntry, m_editors) {
         if (future.isCanceled())
             break;
         QString fileName = editorEntry.fileName();
@@ -87,14 +87,14 @@ QList<FilterEntry> OpenDocumentsFilter::matchesFor(QFutureInterface<Locator::Fil
 void OpenDocumentsFilter::refreshInternally()
 {
     m_editors.clear();
-    foreach (IEditor *editor, m_editorManager->openedEditors()) {
-        OpenEditorsModel::Entry entry;
-        // don't work on IEditor directly, since that will be useless with split windows
-        entry.m_displayName = editor->displayName();
-        entry.m_fileName = editor->document()->fileName();
+    foreach (DocumentModel::Entry *e, EditorManager::documentModel()->documents()) {
+        DocumentModel::Entry entry;
+        // create copy with only the information relevant to use
+        // to avoid model deleting entries behind our back
+        entry.m_displayName = e->displayName();
+        entry.m_fileName = e->fileName();
         m_editors.append(entry);
     }
-    m_editors += m_editorManager->openedEditorsModel()->restoredEditors();
 }
 
 void OpenDocumentsFilter::refresh(QFutureInterface<void> &future)

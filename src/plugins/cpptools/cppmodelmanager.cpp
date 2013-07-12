@@ -377,7 +377,7 @@ void CppModelManager::dumpModelManagerConfiguration()
     // Tons of debug output...
     qDebug()<<"========= CppModelManager::dumpModelManagerConfiguration ======";
     foreach (const ProjectInfo &pinfo, m_projects) {
-        qDebug()<<" for project:"<< pinfo.project().data()->document()->fileName();
+        qDebug()<<" for project:"<< pinfo.project().data()->document()->filePath();
         foreach (const ProjectPart::Ptr &part, pinfo.projectParts()) {
             qDebug() << "=== part ===";
             const char* cVersion;
@@ -556,23 +556,31 @@ void CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
             return;
 
         ProjectExplorer::Project *project = pinfo.project().data();
-        m_projects.insert(project, pinfo);
-        m_dirty = true;
-
-        m_srcToProjectPart.clear();
-
-        foreach (const ProjectInfo &projectInfo, m_projects) {
-            foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts()) {
+        ProjectInfo oldProjectInfo = m_projects.value(project);
+        if (oldProjectInfo.isValid()) {
+            foreach (const ProjectPart::Ptr &projectPart, oldProjectInfo.projectParts()) {
                 foreach (const ProjectFile &cxxFile, projectPart->files) {
-                    m_srcToProjectPart[cxxFile.path].append(projectPart);
-                    foreach (const QString &fileName, m_snapshot.allIncludesForDocument(cxxFile.path))
+                    foreach (const QString &fileName,
+                             m_snapshot.allIncludesForDocument(cxxFile.path)) {
                         m_snapshot.remove(fileName);
+                    }
                     m_snapshot.remove(cxxFile.path);
                 }
             }
         }
-
         m_snapshot.remove(configurationFileName());
+
+        m_projects.insert(project, pinfo);
+        m_dirty = true;
+
+        m_srcToProjectPart.clear();
+        foreach (const ProjectInfo &projectInfo, m_projects) {
+            foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts()) {
+                foreach (const ProjectFile &cxxFile, projectPart->files) {
+                    m_srcToProjectPart[cxxFile.path].append(projectPart);
+                }
+            }
+        }
     }
 
     if (!qgetenv("QTCREATOR_DUMP_PROJECT_INFO").isEmpty())
@@ -607,9 +615,14 @@ void CppModelManager::deleteEditorSupport(TextEditor::BaseTextEditor *textEditor
     if (!isCppEditor(textEditor))
         return;
 
-    QMutexLocker locker(&m_editorSupportMutex);
-    CppEditorSupport *editorSupport = m_editorSupport.value(textEditor, 0);
-    m_editorSupport.remove(textEditor);
+    CppEditorSupport *editorSupport;
+
+    { // only lock the operations on m_editorSupport
+        QMutexLocker locker(&m_editorSupportMutex);
+        editorSupport = m_editorSupport.value(textEditor, 0);
+        m_editorSupport.remove(textEditor);
+    }
+
     delete editorSupport;
 }
 

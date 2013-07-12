@@ -32,6 +32,8 @@
 
 #include "../core_global.h"
 
+#include "documentmodel.h"
+
 #include <coreplugin/id.h>
 #include <coreplugin/idocument.h> // enumerations
 
@@ -40,7 +42,6 @@
 #include <QMenu>
 
 QT_BEGIN_NAMESPACE
-class QModelIndex;
 QT_END_NAMESPACE
 
 namespace Core {
@@ -63,18 +64,13 @@ enum MakeWritableResult {
     Failed
 };
 
-struct EditorManagerPrivate;
-class OpenEditorsModel;
-
 namespace Internal {
-class OpenEditorsWindow;
-class EditorView;
-class SplitterOrView;
-
 class EditorClosingCoreListener;
+class EditorView;
+class MainWindow;
 class OpenEditorsViewFactory;
-
-
+class OpenEditorsWindow;
+class SplitterOrView;
 } // namespace Internal
 
 class CORE_EXPORT EditorManagerPlaceHolder : public QWidget
@@ -99,9 +95,6 @@ public:
     typedef QList<IEditorFactory *> EditorFactoryList;
     typedef QList<IExternalEditor *> ExternalEditorList;
 
-    explicit EditorManager(QWidget *parent);
-    virtual ~EditorManager();
-    void init();
     static EditorManager *instance();
 
     static EditorToolBar *createToolBar(QWidget *parent = 0);
@@ -133,19 +126,21 @@ public:
     QList<IEditor *> editorsForFileName(const QString &filename) const;
     QList<IEditor *> editorsForDocument(IDocument *document) const;
 
+    static IDocument *currentDocument();
     static IEditor *currentEditor();
     QList<IEditor *> visibleEditors() const;
     QList<IEditor*> openedEditors() const;
 
     static void activateEditor(IEditor *editor, OpenEditorFlags flags = 0);
-    void activateEditorForIndex(const QModelIndex &index, OpenEditorFlags = 0);
+    void activateEditorForEntry(DocumentModel::Entry *entry, OpenEditorFlags flags = 0);
+    IEditor *activateEditorForDocument(IDocument *document, OpenEditorFlags flags = 0);
     IEditor *activateEditorForDocument(Internal::EditorView *view, IDocument *document, OpenEditorFlags flags = 0);
 
-    OpenEditorsModel *openedEditorsModel() const;
-    void closeEditor(const QModelIndex &index);
-    void closeOtherEditors(IEditor *editor);
+    static DocumentModel *documentModel();
+    static void closeDocuments(const QList<IDocument *> &documents, bool askAboutModifiedEditors = true);
+    void closeEditor(DocumentModel::Entry *entry);
+    void closeOtherEditors(IDocument *document);
 
-    QList<IEditor*> editorsForDocuments(QList<IDocument *> documents) const;
     void addCurrentPositionToNavigationHistory(IEditor *editor = 0, const QByteArray &saveState = QByteArray());
     void cutForwardNavigationHistory();
 
@@ -190,12 +185,15 @@ public:
     void setWindowTitleAddition(const QString &addition);
     QString windowTitleAddition() const;
 
-    void addSaveAndCloseEditorActions(QMenu *contextMenu, const QModelIndex &editorIndex);
-    void addNativeDirActions(QMenu *contextMenu, const QModelIndex &editorIndex);
+    static void setWindowTitleVcsTopic(const QString &topic);
+    static QString windowTitleVcsTopic();
+
+    void addSaveAndCloseEditorActions(QMenu *contextMenu, DocumentModel::Entry *entry);
+    void addNativeDirActions(QMenu *contextMenu, DocumentModel::Entry *entry);
 
 signals:
     void currentEditorChanged(Core::IEditor *editor);
-    void currentEditorStateChanged(Core::IEditor *editor);
+    void currentDocumentStateChanged();
     void editorCreated(Core::IEditor *editor, const QString &fileName);
     void editorOpened(Core::IEditor *editor);
     void editorAboutToClose(Core::IEditor *editor);
@@ -207,9 +205,10 @@ public slots:
     bool saveDocument(Core::IDocument *documentParam = 0);
     bool saveDocumentAs(Core::IDocument *documentParam = 0);
     void revertToSaved();
-    void revertToSaved(Core::IEditor *editor);
+    void revertToSaved(IDocument *document);
     void closeEditor();
     void closeOtherEditors();
+    void doEscapeKeyFocusMoveMagic();
 
 private slots:
     void gotoNextDocHistory();
@@ -219,7 +218,7 @@ private slots:
     void makeCurrentEditorWritable();
     void vcsOpenCurrentEditor();
     void updateWindowTitle();
-    void handleEditorStateChange();
+    void handleDocumentStateChange();
     void updateVariable(const QByteArray &variable);
     void autoSave();
 
@@ -250,9 +249,12 @@ public slots:
     void gotoOtherSplit();
 
 private:
-    QList<IDocument *> documentsForEditors(QList<IEditor *> editors) const;
+    explicit EditorManager(QWidget *parent);
+    virtual ~EditorManager();
+    void init();
+
     static IEditor *createEditor(const Id &id = Id(), const QString &fileName = QString());
-    void addEditor(IEditor *editor, bool isDuplicate = false);
+    void addEditor(IEditor *editor);
     void removeEditor(IEditor *editor);
 
     void restoreEditorState(IEditor *editor);
@@ -260,7 +262,7 @@ private:
     IEditor *placeEditor(Internal::EditorView *view, IEditor *editor);
     IEditor *duplicateEditor(IEditor *editor);
     IEditor *activateEditor(Internal::EditorView *view, IEditor *editor, OpenEditorFlags flags = 0);
-    void activateEditorForIndex(Internal::EditorView *view, const QModelIndex &index, OpenEditorFlags = 0);
+    void activateEditorForEntry(Internal::EditorView *view, DocumentModel::Entry *entry, OpenEditorFlags flags = 0);
     void activateView(Internal::EditorView *view);
     IEditor *openEditor(Internal::EditorView *view, const QString &fileName,
         const Id &id = Id(), OpenEditorFlags flags = 0, bool *newEditor = 0);
@@ -272,7 +274,6 @@ private:
     static Internal::SplitterOrView *findRoot(const Internal::EditorView *view, int *rootIndex = 0);
 
     void closeEditor(IEditor *editor);
-    void closeDuplicate(IEditor *editor);
     void closeView(Internal::EditorView *view);
     void emptyView(Internal::EditorView *view);
     static void splitNewWindow(Internal::EditorView *view);
@@ -281,11 +282,9 @@ private:
     void updateAutoSave();
     void setCloseSplitEnabled(Internal::SplitterOrView *splitterOrView, bool enable);
     void updateMakeWritableWarning();
-    QString fileNameForEditor(IEditor *editor);
-    void setupSaveActions(IEditor *editor, QAction *saveAction, QAction *saveAsAction, QAction *revertToSavedAction);
+    void setupSaveActions(IDocument *document, QAction *saveAction, QAction *saveAsAction, QAction *revertToSavedAction);
 
-    EditorManagerPrivate *d;
-
+    friend class Core::Internal::MainWindow;
     friend class Core::Internal::SplitterOrView;
     friend class Core::Internal::EditorView;
     friend class Core::EditorToolBar;

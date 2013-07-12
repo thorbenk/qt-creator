@@ -98,9 +98,11 @@ bool DiffChunk::isValid() const
     return !fileName.isEmpty() && !chunk.isEmpty();
 }
 
-QByteArray DiffChunk::asPatch() const
+QByteArray DiffChunk::asPatch(const QString &workingDirectory) const
 {
-    const QByteArray fileNameBA = QFile::encodeName(fileName);
+    QString relativeFile = workingDirectory.isEmpty() ?
+                fileName : QDir(workingDirectory).relativeFilePath(fileName);
+    const QByteArray fileNameBA = QFile::encodeName(relativeFile);
     QByteArray rc = "--- ";
     rc += fileNameBA;
     rc += "\n+++ ";
@@ -1076,8 +1078,11 @@ static inline bool checkChunkLine(const QString &line, int *modifiedLineNumber, 
         return false;
     const int lineNumberPos = plusPos + 1;
     const int commaPos = line.indexOf(QLatin1Char(','), lineNumberPos);
-    if (commaPos == -1 || commaPos > endPos)
-        return false;
+    if (commaPos == -1 || commaPos > endPos) {
+        // Git submodule appears as "@@ -1 +1 @@"
+        *modifiedLineNumber = 1;
+        return true;
+    }
     const QString lineNumberStr = line.mid(lineNumberPos, commaPos - lineNumberPos);
     bool ok;
     *modifiedLineNumber = lineNumberStr.toInt(&ok);
@@ -1157,7 +1162,7 @@ DiffChunk VcsBaseEditorWidget::diffChunk(QTextCursor cursor) const
         unicode.append(QLatin1Char('\n'));
     for (block = block.next() ; block.isValid() ; block = block.next()) {
         const QString line = block.text();
-        if (checkChunkLine(line, &chunkStart)) {
+        if (checkChunkLine(line, &chunkStart) || d->m_diffFilePattern.indexIn(line) == 0) {
             break;
         } else {
             unicode += line;
@@ -1251,7 +1256,7 @@ static QTextCodec *findProjectCodec(const QString &dir)
         const ProjectList::const_iterator pcend = projects.constEnd();
         for (ProjectList::const_iterator it = projects.constBegin(); it != pcend; ++it)
             if (const Core::IDocument *document = (*it)->document())
-                if (document->fileName().startsWith(dir)) {
+                if (document->filePath().startsWith(dir)) {
                     QTextCodec *codec = (*it)->editorConfiguration()->textCodec();
                     return codec;
                 }
@@ -1297,7 +1302,7 @@ int VcsBaseEditorWidget::lineNumberOfCurrentEditor(const QString &currentFile)
         return -1;
     if (!currentFile.isEmpty()) {
         const Core::IDocument *idocument  = ed->document();
-        if (!idocument || idocument->fileName() != currentFile)
+        if (!idocument || idocument->filePath() != currentFile)
             return -1;
     }
     const TextEditor::BaseTextEditor *eda = qobject_cast<const TextEditor::BaseTextEditor *>(ed);
@@ -1466,7 +1471,8 @@ bool VcsBaseEditorWidget::canApplyDiffChunk(const DiffChunk &dc) const
 // (passing '-R' for revert), assuming we got absolute paths from the VCS plugins.
 bool VcsBaseEditorWidget::applyDiffChunk(const DiffChunk &dc, bool revert) const
 {
-    return VcsBasePlugin::runPatch(dc.asPatch(), QString(), 0, revert);
+    return VcsBasePlugin::runPatch(dc.asPatch(d->m_diffBaseDirectory),
+                                   d->m_diffBaseDirectory, 0, revert);
 }
 
 QString VcsBaseEditorWidget::fileNameFromDiffSpecification(const QTextBlock &inBlock) const

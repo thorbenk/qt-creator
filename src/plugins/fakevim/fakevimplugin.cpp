@@ -41,7 +41,7 @@
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/dialogs/ioptionspage.h>
 #include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/editormanager/openeditorsmodel.h>
+#include <coreplugin/editormanager/documentmodel.h>
 #include <coreplugin/documentmanager.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/idocument.h>
@@ -1662,7 +1662,7 @@ void FakeVimPluginPrivate::editorOpened(IEditor *editor)
     connect(ICore::instance(), SIGNAL(saveSettingsRequested()),
         SLOT(writeSettings()));
 
-    handler->setCurrentFileName(editor->document()->fileName());
+    handler->setCurrentFileName(editor->document()->filePath());
     handler->installEventFilter();
 
     // pop up the bar
@@ -1773,7 +1773,7 @@ void FakeVimPluginPrivate::handleExCommand(bool *handled, const ExCommand &cmd)
         // :w[rite]
         IEditor *editor = m_editorToHandler.key(handler);
         const QString fileName = handler->currentFileName();
-        if (editor && editor->document()->fileName() == fileName) {
+        if (editor && editor->document()->filePath() == fileName) {
             // Handle that as a special case for nicer interaction with core
             DocumentManager::saveDocument(editor->document());
             // Check result by reading back.
@@ -1997,21 +1997,20 @@ void FakeVimPluginPrivate::highlightMatches(const QString &needle)
 
 int FakeVimPluginPrivate::currentFile() const
 {
-    OpenEditorsModel *model = EditorManager::instance()->openedEditorsModel();
     IEditor *editor = EditorManager::currentEditor();
-    return model->indexOf(editor).row();
+    if (!editor)
+        return -1;
+    return EditorManager::documentModel()->indexOfDocument(editor->document());
 }
 
 void FakeVimPluginPrivate::switchToFile(int n)
 {
-    EditorManager *editorManager = ICore::editorManager();
-    OpenEditorsModel *model = editorManager->openedEditorsModel();
-    int size = model->rowCount();
+    int size = EditorManager::documentModel()->documentCount();
     QTC_ASSERT(size, return);
     n = n % size;
     if (n < 0)
         n += size;
-    editorManager->activateEditorForIndex(model->index(n, 0));
+    EditorManager::instance()->activateEditorForEntry(EditorManager::documentModel()->documents().at(n));
 }
 
 ExCommandMap &FakeVimExCommandsPage::exCommandMap()

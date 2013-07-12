@@ -141,7 +141,6 @@ LIBS  *= -lole32 \
 }
 include(cdb/cdb.pri)
 include(gdb/gdb.pri)
-include(script/script.pri)
 include(pdb/pdb.pri)
 include(lldb/lldb.pri)
 include(lldblib/lldbhost.pri)
@@ -157,7 +156,7 @@ equals(TEST, 1):!isEmpty(copydata) {
     else: OUTPUT_DIR = $$IDE_BUILD_TREE/$$TEST_DIR
     testfile.target = $$OUTPUT_DIR/$$basename(INPUT_FILE)
     testfile.depends = $$INPUT_FILE
-    win32 {
+    win32:isEmpty(QMAKE_SH) {
         INPUT_FILE ~= s,/,\\\\,g
         OUTPUT_DIR ~= s,/,\\\\,g
     } else {

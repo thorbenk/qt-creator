@@ -69,6 +69,7 @@ void ImageWidget::setImage(const QImage &image)
 {
     setFixedSize(image.size() + QSize(2, 2));
     m_image = image;
+    update();
 }
 
 void ImageWidget::mousePressEvent(QMouseEvent *ev)
@@ -139,7 +140,7 @@ static void openImageViewer(const QImage &image)
         temporaryFile.close();
     }
     if (Core::IEditor *e = Core::EditorManager::instance()->openEditor(fileName))
-        e->setProperty(Debugger::Constants::OPENED_BY_DEBUGGER, QVariant(true));
+        e->document()->setProperty(Debugger::Constants::OPENED_BY_DEBUGGER, QVariant(true));
 }
 
 void ImageViewer::contextMenuEvent(QContextMenuEvent *ev)

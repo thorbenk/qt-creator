@@ -33,7 +33,7 @@
 #include <utils/filesearch.h>
 #include <coreplugin/icore.h>
 #include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/editormanager/openeditorsmodel.h>
+#include <coreplugin/editormanager/documentmodel.h>
 
 #include <QSettings>
 
@@ -67,9 +67,9 @@ Utils::FileIterator *FindInOpenFiles::files(const QStringList &nameFilters,
     QMap<QString, QTextCodec *> openEditorEncodings = ITextEditor::openedTextEditorsEncodings();
     QStringList fileNames;
     QList<QTextCodec *> codecs;
-    foreach (const Core::OpenEditorsModel::Entry &entry,
-             Core::EditorManager::instance()->openedEditorsModel()->entries()) {
-        QString fileName = entry.fileName();
+    foreach (Core::DocumentModel::Entry *entry,
+             Core::EditorManager::documentModel()->documents()) {
+        QString fileName = entry->fileName();
         if (!fileName.isEmpty()) {
             fileNames.append(fileName);
             QTextCodec *codec = openEditorEncodings.value(fileName);
@@ -100,7 +100,7 @@ QString FindInOpenFiles::toolTip() const
 
 bool FindInOpenFiles::isEnabled() const
 {
-    return Core::EditorManager::instance()->openedEditors().count() > 0;
+    return Core::EditorManager::documentModel()->documentCount() > 0;
 }
 
 void FindInOpenFiles::writeSettings(QSettings *settings)

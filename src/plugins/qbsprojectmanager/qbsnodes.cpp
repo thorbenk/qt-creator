@@ -286,32 +286,28 @@ bool QbsBaseProjectNode::removeSubProjects(const QStringList &proFilePaths)
     return false;
 }
 
-bool QbsBaseProjectNode::addFiles(const ProjectExplorer::FileType fileType, const QStringList &filePaths, QStringList *notAdded)
+bool QbsBaseProjectNode::addFiles(const QStringList &filePaths, QStringList *notAdded)
 {
-    Q_UNUSED(fileType);
     Q_UNUSED(filePaths);
     Q_UNUSED(notAdded);
     return false;
 }
 
-bool QbsBaseProjectNode::removeFiles(const ProjectExplorer::FileType fileType, const QStringList &filePaths, QStringList *notRemoved)
+bool QbsBaseProjectNode::removeFiles(const QStringList &filePaths, QStringList *notRemoved)
 {
-    Q_UNUSED(fileType);
     Q_UNUSED(filePaths);
     Q_UNUSED(notRemoved);
     return false;
 }
 
-bool QbsBaseProjectNode::deleteFiles(const ProjectExplorer::FileType fileType, const QStringList &filePaths)
+bool QbsBaseProjectNode::deleteFiles(const QStringList &filePaths)
 {
-    Q_UNUSED(fileType);
     Q_UNUSED(filePaths);
     return false;
 }
 
-bool QbsBaseProjectNode::renameFile(const ProjectExplorer::FileType fileType, const QString &filePath, const QString &newFilePath)
+bool QbsBaseProjectNode::renameFile(const QString &filePath, const QString &newFilePath)
 {
-    Q_UNUSED(fileType);
     Q_UNUSED(filePath);
     Q_UNUSED(newFilePath);
     return false;
@@ -489,7 +485,7 @@ void QbsProductNode::setQbsProductData(const qbs::ProductData prd)
     if (m_qbsProductData == prd)
         return;
 
-    bool productWasEnabled = m_qbsProductData.isEnabled();
+    bool productWasEnabled = m_qbsProductData.isValid() && m_qbsProductData.isEnabled();
     bool productIsEnabled = prd.isEnabled();
     bool updateExisting = productWasEnabled != productIsEnabled;
 
@@ -570,7 +566,7 @@ QbsGroupNode *QbsProductNode::findGroupNode(const QString &name)
 // --------------------------------------------------------------------
 
 QbsProjectNode::QbsProjectNode(QbsProject *project) :
-    QbsBaseProjectNode(project->document()->fileName()),
+    QbsBaseProjectNode(project->document()->filePath()),
     m_project(project), m_qbsProject(0)
 {
     ctor();
@@ -624,7 +620,10 @@ void QbsProjectNode::update(const qbs::ProjectData &prjData)
         }
     }
 
-    setDisplayName(prjData.name());
+    if (!prjData.name().isEmpty())
+        setDisplayName(prjData.name());
+    else
+        setDisplayName(m_project->displayName());
 
     removeProjectNodes(toRemove);
     addProjectNodes(toAdd);

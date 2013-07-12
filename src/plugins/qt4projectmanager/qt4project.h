@@ -93,10 +93,11 @@ public:
     virtual QStringList files(FilesMode fileMode) const;
     virtual QString generatedUiHeader(const QString &formFile) const;
 
-    QList<Qt4ProFileNode *> allProFiles() const;
-    QList<Qt4ProFileNode *> applicationProFiles() const;
+    enum Parsing {ExactParse, ExactAndCumulativeParse };
+    QList<Qt4ProFileNode *> allProFiles(Parsing parse = ExactParse) const;
+    QList<Qt4ProFileNode *> applicationProFiles(Parsing parse = ExactParse) const;
     bool hasApplicationProFile(const QString &path) const;
-    QStringList applicationProFilePathes(const QString &prepend = QString()) const;
+    QStringList applicationProFilePathes(const QString &prepend = QString(), Parsing parse = ExactParse) const;
 
     void notifyChanged(const QString &name);
 
@@ -170,14 +171,12 @@ private:
     void updateCppCodeModel();
     void updateQmlJSCodeModel();
 
-    static void collectAllfProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node);
-    static void collectApplicationProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node);
+    static void collectAllfProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node, Parsing parse);
+    static void collectApplicationProFiles(QList<Qt4ProFileNode *> &list, Qt4ProFileNode *node, Parsing parse);
     static void findProFile(const QString& fileName, Qt4ProFileNode *root, QList<Qt4ProFileNode *> &list);
     static bool hasSubNode(Qt4PriFileNode *root, const QString &path);
 
     static bool equalFileList(const QStringList &a, const QStringList &b);
-
-    static QString qmakeVarName(ProjectExplorer::FileType type);
 
     void updateBuildSystemData();
     void collectData(const Qt4ProFileNode *node, ProjectExplorer::DeploymentData &deploymentData);

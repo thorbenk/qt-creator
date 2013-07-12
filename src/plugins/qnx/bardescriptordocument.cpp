@@ -94,8 +94,7 @@ bool BarDescriptorDocument::open(QString *errorString, const QString &fileName) 
     if (read(fileName, &contents, errorString) != Utils::TextFileFormat::ReadSuccess)
         return false;
 
-    m_fileName = fileName;
-    m_editorWidget->editor()->setDisplayName(QFileInfo(fileName).fileName());
+    setFilePath(fileName);
 
     bool result = loadContent(contents);
 
@@ -105,12 +104,12 @@ bool BarDescriptorDocument::open(QString *errorString, const QString &fileName) 
     return result;
 }
 
-bool BarDescriptorDocument::save(QString *errorString, const QString &fileName, bool autoSave)
+bool BarDescriptorDocument::save(QString *errorString, const QString &fn, bool autoSave)
 {
     QTC_ASSERT(!autoSave, return false);
-    QTC_ASSERT(fileName.isEmpty(), return false);
+    QTC_ASSERT(fn.isEmpty(), return false);
 
-    bool result = write(m_fileName, xmlSource(), errorString);
+    bool result = write(filePath(), xmlSource(), errorString);
     if (!result)
         return false;
 
@@ -119,20 +118,15 @@ bool BarDescriptorDocument::save(QString *errorString, const QString &fileName, 
     return true;
 }
 
-QString BarDescriptorDocument::fileName() const
-{
-    return m_fileName;
-}
-
 QString BarDescriptorDocument::defaultPath() const
 {
-    QFileInfo fi(fileName());
+    QFileInfo fi(filePath());
     return fi.absolutePath();
 }
 
 QString BarDescriptorDocument::suggestedFileName() const
 {
-    QFileInfo fi(fileName());
+    QFileInfo fi(filePath());
     return fi.fileName();
 }
 
@@ -172,16 +166,7 @@ bool BarDescriptorDocument::reload(QString *errorString, Core::IDocument::Reload
     if (flag == Core::IDocument::FlagIgnore)
         return true;
 
-    return open(errorString, m_fileName);
-}
-
-void BarDescriptorDocument::rename(const QString &newName)
-{
-    const QString oldFilename = m_fileName;
-    m_fileName = newName;
-    m_editorWidget->editor()->setDisplayName(QFileInfo(m_fileName).fileName());
-    emit fileNameChanged(oldFilename, newName);
-    emit changed();
+    return open(errorString, filePath());
 }
 
 QString BarDescriptorDocument::xmlSource() const

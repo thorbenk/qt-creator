@@ -19,7 +19,6 @@ HEADERS += completionsettingspage.h \
     cppfindreferences.h \
     cppcodeformatter.h \
     symbolsfindfilter.h \
-    uicodecompletionsupport.h \
     insertionpointlocator.h \
     cpprefactoringchanges.h \
     abstracteditorsupport.h \
@@ -66,7 +65,6 @@ SOURCES += completionsettingspage.cpp \
     cppfindreferences.cpp \
     cppcodeformatter.cpp \
     symbolsfindfilter.cpp \
-    uicodecompletionsupport.cpp \
     insertionpointlocator.cpp \
     cpprefactoringchanges.cpp \
     cppcompletionassist.cpp \

@@ -716,7 +716,7 @@ QByteArray SettingsAccessor::creatorId()
 
 QString SettingsAccessor::defaultFileName(const QString &suffix) const
 {
-    return project()->document()->fileName() + suffix;
+    return project()->document()->filePath() + suffix;
 }
 
 int SettingsAccessor::currentVersion() const
@@ -734,7 +734,7 @@ void SettingsAccessor::backupUserFile() const
     // Do we need to do a backup?
     const QString origName = oldSettings.fileName().toString();
     QString backupName = origName;
-    if (oldSettings.environmentId() != creatorId())
+    if (!oldSettings.environmentId().isEmpty() && oldSettings.environmentId() != creatorId())
         backupName += QLatin1String(".") + QString::fromLatin1(oldSettings.environmentId()).mid(1, 7);
     if (oldSettings.version() != currentVersion()) {
         if (m_handlers.contains(oldSettings.version()))
@@ -774,7 +774,7 @@ SettingsAccessor::SettingsData SettingsAccessor::readUserSettings() const
                                     "<p>All settings files were either too new or too "
                                     "old to be read.</p>"),
             QMessageBox::Ok);
-    } else if (result.environmentId() != creatorId()) {
+    } else if (!result.environmentId().isEmpty() && result.environmentId() != creatorId()) {
         // Wrong environment!
         QMessageBox msgBox(
             QMessageBox::Question,
@@ -819,7 +819,7 @@ SettingsAccessor::SettingsData SettingsAccessor::readUserSettings() const
 SettingsAccessor::SettingsData SettingsAccessor::readSharedSettings() const
 {
     SettingsData sharedSettings;
-    QString fn = project()->document()->fileName() + m_sharedFileAcessor.suffix();
+    QString fn = project()->document()->filePath() + m_sharedFileAcessor.suffix();
     sharedSettings.m_fileName = Utils::FileName::fromString(fn);
 
     if (!m_sharedFileAcessor.readFile(&sharedSettings))
@@ -873,7 +873,7 @@ SettingsAccessor::SettingsData SettingsAccessor::findBestSettings(const QStringL
             continue;
         }
 
-        if (!tmp.environmentId().isEmpty() && tmp.environmentId() == creatorId()) {
+        if (tmp.environmentId().isEmpty() || tmp.environmentId() == creatorId()) {
             if (tmp.version() > newestMatching.version())
                 newestMatching = tmp;
         } else {

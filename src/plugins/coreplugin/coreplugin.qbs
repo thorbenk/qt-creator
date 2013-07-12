@@ -20,7 +20,6 @@ QtcPlugin {
         "dialogs",
         "editormanager",
         "progressmanager",
-        "scriptmanager",
         "actionmanager"
     ])
 
@@ -31,7 +30,7 @@ QtcPlugin {
         ]
     }
 
-    cpp.frameworks: qbs.targetOS.contains("mac") ? ["AppKit"] : undefined
+    cpp.frameworks: qbs.targetOS.contains("osx") ? ["AppKit"] : undefined
 
     files: [
         "basefilewizard.cpp",
@@ -208,8 +207,8 @@ QtcPlugin {
         "editormanager/ieditorfactory.h",
         "editormanager/iexternaleditor.cpp",
         "editormanager/iexternaleditor.h",
-        "editormanager/openeditorsmodel.cpp",
-        "editormanager/openeditorsmodel.h",
+        "editormanager/documentmodel.cpp",
+        "editormanager/documentmodel.h",
         "editormanager/openeditorsview.cpp",
         "editormanager/openeditorsview.h",
         "editormanager/openeditorswindow.cpp",
@@ -225,10 +224,6 @@ QtcPlugin {
         "progressmanager/progressmanager_p.h",
         "progressmanager/progressview.cpp",
         "progressmanager/progressview.h",
-        "scriptmanager/metatypedeclarations.h",
-        "scriptmanager/scriptmanager.cpp",
-        "scriptmanager/scriptmanager.h",
-        "scriptmanager/scriptmanager_p.h",
     ]
 
     Group {
@@ -241,7 +236,7 @@ QtcPlugin {
 
     Group {
         name: "ProgressManager_mac"
-        condition: qbs.targetOS.contains("mac")
+        condition: qbs.targetOS.contains("osx")
         files: [
             "macfullscreen.h",
             "macfullscreen.mm",
@@ -251,7 +246,7 @@ QtcPlugin {
 
     Group {
         name: "ProgressManager_x11"
-        condition: qbs.targetOS.contains("unix") && !qbs.targetOS.contains("mac")
+        condition: qbs.targetOS.contains("unix") && !qbs.targetOS.contains("osx")
         files: [
             "progressmanager/progressmanager_x11.cpp",
         ]

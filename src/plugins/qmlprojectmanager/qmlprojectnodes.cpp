@@ -41,11 +41,11 @@ namespace QmlProjectManager {
 namespace Internal {
 
 QmlProjectNode::QmlProjectNode(QmlProject *project, Core::IDocument *projectFile)
-    : ProjectExplorer::ProjectNode(QFileInfo(projectFile->fileName()).absoluteFilePath()),
+    : ProjectExplorer::ProjectNode(QFileInfo(projectFile->filePath()).absoluteFilePath()),
       m_project(project),
       m_projectFile(projectFile)
 {
-    setDisplayName(QFileInfo(projectFile->fileName()).completeBaseName());
+    setDisplayName(QFileInfo(projectFile->filePath()).completeBaseName());
     // make overlay
     const QSize desiredSize = QSize(16, 16);
     const QIcon projectBaseIcon(QLatin1String(":/qmlproject/images/qmlfolder.png"));
@@ -62,7 +62,7 @@ Core::IDocument *QmlProjectNode::projectFile() const
 { return m_projectFile; }
 
 QString QmlProjectNode::projectFilePath() const
-{ return m_projectFile->fileName(); }
+{ return m_projectFile->filePath(); }
 
 void QmlProjectNode::refresh()
 {
@@ -198,26 +198,22 @@ bool QmlProjectNode::removeSubProjects(const QStringList &proFilePaths)
     return false;
 }
 
-bool QmlProjectNode::addFiles(const ProjectExplorer::FileType /*fileType*/,
-                              const QStringList &filePaths, QStringList * /*notAdded*/)
+bool QmlProjectNode::addFiles(const QStringList &filePaths, QStringList * /*notAdded*/)
 {
     return m_project->addFiles(filePaths);
 }
 
-bool QmlProjectNode::removeFiles(const ProjectExplorer::FileType /*fileType*/,
-                                 const QStringList & /*filePaths*/, QStringList * /*notRemoved*/)
+bool QmlProjectNode::removeFiles(const QStringList & /*filePaths*/, QStringList * /*notRemoved*/)
 {
     return false;
 }
 
-bool QmlProjectNode::deleteFiles(const ProjectExplorer::FileType /*fileType*/,
-                                 const QStringList & /*filePaths*/)
+bool QmlProjectNode::deleteFiles(const QStringList & /*filePaths*/)
 {
     return true;
 }
 
-bool QmlProjectNode::renameFile(const ProjectExplorer::FileType /*fileType*/,
-                                    const QString & /*filePath*/, const QString & /*newFilePath*/)
+bool QmlProjectNode::renameFile(const QString & /*filePath*/, const QString & /*newFilePath*/)
 {
     return true;
 }

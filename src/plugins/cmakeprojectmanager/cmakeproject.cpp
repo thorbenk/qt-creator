@@ -35,7 +35,6 @@
 #include "cmakerunconfiguration.h"
 #include "makestep.h"
 #include "cmakeopenprojectwizard.h"
-#include "cmakeuicodemodelsupport.h"
 
 #include <projectexplorer/projectexplorerconstants.h>
 #include <projectexplorer/projectexplorer.h>
@@ -51,6 +50,7 @@
 #include <qtsupport/customexecutablerunconfiguration.h>
 #include <qtsupport/baseqtversion.h>
 #include <qtsupport/qtkitinformation.h>
+#include <qtsupport/uicodemodelsupport.h>
 #include <cpptools/cppmodelmanagerinterface.h>
 #include <extensionsystem/pluginmanager.h>
 #include <utils/qtcassert.h>
@@ -85,9 +85,9 @@ using namespace ProjectExplorer;
 // Who sets up the environment for cl.exe ? INCLUDEPATH and so on
 
 // Test for form editor (loosely coupled)
-static inline bool isFormWindowEditor(const QObject *o)
+static inline bool isFormWindowDocument(const QObject *o)
 {
-    return o && !qstrcmp(o->metaObject()->className(), "Designer::FormWindowEditor");
+    return o && !qstrcmp(o->metaObject()->className(), "Designer::Internal::FormWindowFile");
 }
 
 // Return contents of form editor (loosely coupled)
@@ -105,11 +105,13 @@ CMakeProject::CMakeProject(CMakeManager *manager, const QString &fileName)
     : m_manager(manager),
       m_activeTarget(0),
       m_fileName(fileName),
-      m_rootNode(new CMakeProjectNode(m_fileName)),
+      m_rootNode(new CMakeProjectNode(fileName)),
       m_lastEditor(0)
 {
     setProjectContext(Core::Context(CMakeProjectManager::Constants::PROJECTCONTEXT));
     setProjectLanguages(Core::Context(ProjectExplorer::Constants::LANG_CXX));
+
+    m_projectName = QFileInfo(fileName).absoluteDir().dirName();
 
     m_file = new CMakeFile(this, fileName);
 
@@ -122,7 +124,7 @@ CMakeProject::~CMakeProject()
     // Remove CodeModel support
     CppTools::CppModelManagerInterface *modelManager
             = CppTools::CppModelManagerInterface::instance();
-    QMap<QString, CMakeUiCodeModelSupport *>::const_iterator it, end;
+    QMap<QString, QtSupport::UiCodeModelSupport *>::const_iterator it, end;
     it = m_uiCodeModelSupport.constBegin();
     end = m_uiCodeModelSupport.constEnd();
     for (; it!=end; ++it) {
@@ -219,9 +221,9 @@ bool CMakeProject::parseCMakeLists()
     }
 
     CMakeBuildConfiguration *activeBC = static_cast<CMakeBuildConfiguration *>(activeTarget()->activeBuildConfiguration());
-    foreach (Core::IEditor *editor, Core::EditorManager::instance()->openedEditors())
-        if (isProjectFile(editor->document()->fileName()))
-            editor->document()->infoBar()->removeInfo(Core::Id("CMakeEditor.RunCMake"));
+    foreach (Core::IDocument *document, Core::EditorManager::documentModel()->openedDocuments())
+        if (isProjectFile(document->filePath()))
+            document->infoBar()->removeInfo(Core::Id("CMakeEditor.RunCMake"));
 
     // Find cbp file
     QString cbpFile = CMakeManager::findCbpFile(activeBC->buildDirectory());
@@ -286,20 +288,6 @@ bool CMakeProject::parseCMakeLists()
 //            qDebug()<<"";
 //        }
 
-
-    // TOOD this code ain't very pretty ...
-    m_uicCommand.clear();
-    QFile cmakeCache(activeBC->buildDirectory() + QLatin1String("/CMakeCache.txt"));
-    cmakeCache.open(QIODevice::ReadOnly);
-    while (!cmakeCache.atEnd()) {
-        QByteArray line = cmakeCache.readLine();
-        if (line.startsWith("QT_UIC_EXECUTABLE")) {
-            if (int pos = line.indexOf('='))
-                m_uicCommand = QString::fromLocal8Bit(line.mid(pos + 1).trimmed());
-            break;
-        }
-    }
-    cmakeCache.close();
 
     createUiCodeModelSupport();
 
@@ -690,11 +678,6 @@ CMakeBuildTarget CMakeProject::buildTargetForTitle(const QString &title)
     return CMakeBuildTarget();
 }
 
-QString CMakeProject::uicCommand() const
-{
-    return m_uicCommand;
-}
-
 QString CMakeProject::uiHeaderFile(const QString &uiFile)
 {
     QFileInfo fi(uiFile);
@@ -792,7 +775,7 @@ void CMakeProject::createUiCodeModelSupport()
             = CppTools::CppModelManagerInterface::instance();
 
     // First move all to
-    QMap<QString, CMakeUiCodeModelSupport *> oldCodeModelSupport;
+    QMap<QString, QtSupport::UiCodeModelSupport *> oldCodeModelSupport;
     oldCodeModelSupport = m_uiCodeModelSupport;
     m_uiCodeModelSupport.clear();
 
@@ -801,17 +784,17 @@ void CMakeProject::createUiCodeModelSupport()
         if (uiFile.endsWith(QLatin1String(".ui"))) {
             // UI file, not convert to
             QString uiHeaderFilePath = uiHeaderFile(uiFile);
-            QMap<QString, CMakeUiCodeModelSupport *>::iterator it
+            QMap<QString, QtSupport::UiCodeModelSupport *>::iterator it
                     = oldCodeModelSupport.find(uiFile);
             if (it != oldCodeModelSupport.end()) {
                 //                qDebug()<<"updated old codemodelsupport";
-                CMakeUiCodeModelSupport *cms = it.value();
+                QtSupport::UiCodeModelSupport *cms = it.value();
                 cms->setFileName(uiHeaderFilePath);
                 m_uiCodeModelSupport.insert(it.key(), cms);
                 oldCodeModelSupport.erase(it);
             } else {
                 //                qDebug()<<"adding new codemodelsupport";
-                CMakeUiCodeModelSupport *cms = new CMakeUiCodeModelSupport(modelManager, this, uiFile, uiHeaderFilePath);
+                QtSupport::UiCodeModelSupport *cms = new QtSupport::UiCodeModelSupport(modelManager, this, uiFile, uiHeaderFilePath);
                 m_uiCodeModelSupport.insert(uiFile, cms);
                 modelManager->addEditorSupport(cms);
             }
@@ -819,7 +802,7 @@ void CMakeProject::createUiCodeModelSupport()
     }
 
     // Remove old
-    QMap<QString, CMakeUiCodeModelSupport *>::const_iterator it, end;
+    QMap<QString, QtSupport::UiCodeModelSupport *>::const_iterator it, end;
     end = oldCodeModelSupport.constEnd();
     for (it = oldCodeModelSupport.constBegin(); it!=end; ++it) {
         modelManager->removeEditorSupport(it.value());
@@ -830,7 +813,7 @@ void CMakeProject::createUiCodeModelSupport()
 void CMakeProject::updateCodeModelSupportFromEditor(const QString &uiFileName,
                                                     const QString &contents)
 {
-    const QMap<QString, CMakeUiCodeModelSupport *>::const_iterator it =
+    const QMap<QString, QtSupport::UiCodeModelSupport *>::const_iterator it =
             m_uiCodeModelSupport.constFind(uiFileName);
     if (it != m_uiCodeModelSupport.constEnd())
         it.value()->updateFromEditor(contents);
@@ -839,11 +822,11 @@ void CMakeProject::updateCodeModelSupportFromEditor(const QString &uiFileName,
 void CMakeProject::editorChanged(Core::IEditor *editor)
 {
     // Handle old editor
-    if (isFormWindowEditor(m_lastEditor)) {
-        disconnect(m_lastEditor, SIGNAL(changed()), this, SLOT(uiEditorContentsChanged()));
+    if (m_lastEditor && isFormWindowDocument(m_lastEditor->document())) {
+        disconnect(m_lastEditor->document(), SIGNAL(changed()), this, SLOT(uiDocumentContentsChanged()));
         if (m_dirtyUic) {
             const QString contents =  formWindowEditorContents(m_lastEditor);
-            updateCodeModelSupportFromEditor(m_lastEditor->document()->fileName(), contents);
+            updateCodeModelSupportFromEditor(m_lastEditor->document()->filePath(), contents);
             m_dirtyUic = false;
         }
     }
@@ -851,8 +834,8 @@ void CMakeProject::editorChanged(Core::IEditor *editor)
     m_lastEditor = editor;
 
     // Handle new editor
-    if (isFormWindowEditor(editor))
-        connect(editor, SIGNAL(changed()), this, SLOT(uiEditorContentsChanged()));
+    if (editor && isFormWindowDocument(editor->document()))
+        connect(editor->document(), SIGNAL(changed()), this, SLOT(uiDocumentContentsChanged()));
 }
 
 void CMakeProject::editorAboutToClose(Core::IEditor *editor)
@@ -860,11 +843,11 @@ void CMakeProject::editorAboutToClose(Core::IEditor *editor)
     if (m_lastEditor == editor) {
         // Oh no our editor is going to be closed
         // get the content first
-        if (isFormWindowEditor(m_lastEditor)) {
-            disconnect(m_lastEditor, SIGNAL(changed()), this, SLOT(uiEditorContentsChanged()));
+        if (isFormWindowDocument(m_lastEditor->document())) {
+            disconnect(m_lastEditor->document(), SIGNAL(changed()), this, SLOT(uiDocumentContentsChanged()));
             if (m_dirtyUic) {
                 const QString contents = formWindowEditorContents(m_lastEditor);
-                updateCodeModelSupportFromEditor(m_lastEditor->document()->fileName(), contents);
+                updateCodeModelSupportFromEditor(m_lastEditor->document()->filePath(), contents);
                 m_dirtyUic = false;
             }
         }
@@ -872,10 +855,10 @@ void CMakeProject::editorAboutToClose(Core::IEditor *editor)
     }
 }
 
-void CMakeProject::uiEditorContentsChanged()
+void CMakeProject::uiDocumentContentsChanged()
 {
     // cast sender, get filename
-    if (!m_dirtyUic && isFormWindowEditor(sender()))
+    if (!m_dirtyUic && isFormWindowDocument(sender()))
         m_dirtyUic = true;
 }
 
@@ -883,7 +866,7 @@ void CMakeProject::buildStateChanged(ProjectExplorer::Project *project)
 {
     if (project == this) {
         if (!ProjectExplorer::ProjectExplorerPlugin::instance()->buildManager()->isBuilding(this)) {
-            QMap<QString, CMakeUiCodeModelSupport *>::const_iterator it, end;
+            QMap<QString, QtSupport::UiCodeModelSupport *>::const_iterator it, end;
             end = m_uiCodeModelSupport.constEnd();
             for (it = m_uiCodeModelSupport.constBegin(); it != end; ++it) {
                 it.value()->updateFromBuild();
@@ -895,9 +878,9 @@ void CMakeProject::buildStateChanged(ProjectExplorer::Project *project)
 // CMakeFile
 
 CMakeFile::CMakeFile(CMakeProject *parent, QString fileName)
-    : Core::IDocument(parent), m_project(parent), m_fileName(fileName)
+    : Core::IDocument(parent), m_project(parent)
 {
-
+    setFilePath(fileName);
 }
 
 bool CMakeFile::save(QString *errorString, const QString &fileName, bool autoSave)
@@ -908,11 +891,6 @@ bool CMakeFile::save(QString *errorString, const QString &fileName, bool autoSav
     Q_UNUSED(fileName)
     Q_UNUSED(autoSave)
     return false;
-}
-
-QString CMakeFile::fileName() const
-{
-    return m_fileName;
 }
 
 QString CMakeFile::defaultPath() const
@@ -939,13 +917,6 @@ bool CMakeFile::isModified() const
 bool CMakeFile::isSaveAsAllowed() const
 {
     return false;
-}
-
-void CMakeFile::rename(const QString &newName)
-{
-    Q_ASSERT(false);
-    Q_UNUSED(newName);
-    // Can't happen....
 }
 
 Core::IDocument::ReloadBehavior CMakeFile::reloadBehavior(ChangeTrigger state, ChangeType type) const

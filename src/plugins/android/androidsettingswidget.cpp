@@ -75,7 +75,7 @@ QVariant AvdModel::data(const QModelIndex &index, int role) const
         case 1:
             return QString::fromLatin1("API %1").arg(m_list[index.row()].sdk);
         case 2:
-            return m_list[index.row()].cpuABI;
+            return m_list[index.row()].cpuAbi;
     }
     return QVariant();
 }
@@ -186,8 +186,13 @@ bool AndroidSettingsWidget::checkSDK(const Utils::FileName &location)
             || (!androidExe.appendPath(QLatin1String("/tools/android" QTC_HOST_EXE_SUFFIX)).toFileInfo().exists()
                 && !androidBat.appendPath(QLatin1String("/tools/android" ANDROID_BAT_SUFFIX)).toFileInfo().exists())
             || !emulator.appendPath(QLatin1String("/tools/emulator" QTC_HOST_EXE_SUFFIX)).toFileInfo().exists()) {
-        QMessageBox::critical(this, tr("Android SDK Folder"), tr("\"%1\" does not seem to be an Android SDK top folder.").arg(location.toUserOutput()));
+        m_ui->sdkWarningIconLabel->setVisible(true);
+        m_ui->sdkWarningLabel->setVisible(true);
+        m_ui->sdkWarningLabel->setText(tr("\"%1\" does not seem to be an Android SDK top folder.").arg(location.toUserOutput()));
         return false;
+    } else {
+        m_ui->sdkWarningIconLabel->setVisible(false);
+        m_ui->sdkWarningLabel->setVisible(false);
     }
     return true;
 }
@@ -372,7 +377,7 @@ void AndroidSettingsWidget::browseAntLocation()
 void AndroidSettingsWidget::browseOpenJDKLocation()
 {
     Utils::FileName openJDKPath = AndroidConfigurations::instance().openJDKPath();
-    Utils::FileName file = Utils::FileName::fromString(QFileDialog::getOpenFileName(this, tr("Select OpenJDK Path"), openJDKPath.toString()));
+    Utils::FileName file = Utils::FileName::fromString(QFileDialog::getExistingDirectory(this, tr("Select OpenJDK Path"), openJDKPath.toString()));
     if (file.isEmpty())
         return;
     m_ui->OpenJDKLocationLineEdit->setText(file.toUserOutput());

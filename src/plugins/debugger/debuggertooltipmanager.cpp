@@ -36,6 +36,7 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/coreconstants.h>
+#include <coreplugin/editormanager/documentmodel.h>
 #include <texteditor/basetexteditor.h>
 
 #include <utils/tooltip/tooltip.h>
@@ -192,7 +193,7 @@ public:
     explicit DebuggerToolTipEditor(IEditor *ie = 0);
     bool isValid() const { return textEditor && baseTextEditor && document; }
     operator bool() const { return isValid(); }
-    QString fileName() const { return document ? document->fileName() : QString(); }
+    QString fileName() const { return document ? document->filePath() : QString(); }
 
     static DebuggerToolTipEditor currentToolTipEditor();
 
@@ -535,7 +536,7 @@ DebuggerToolTipContext DebuggerToolTipContext::fromEditor(IEditor *ie, int pos)
     DebuggerToolTipContext rc;
     if (const IDocument *document = ie->document()) {
         if (const ITextEditor *te = qobject_cast<const ITextEditor *>(ie)) {
-            rc.fileName = document->fileName();
+            rc.fileName = document->filePath();
             rc.position = pos;
             te->convertPosition(pos, &rc.line, &rc.column);
         }
@@ -1372,7 +1373,8 @@ void DebuggerToolTipManager::debugModeEntered()
                 this, SLOT(slotUpdateVisibleToolTips()));
         connect(em, SIGNAL(editorOpened(Core::IEditor*)),
                 this, SLOT(slotEditorOpened(Core::IEditor*)));
-        foreach (IEditor *e, em->openedEditors())
+        DocumentModel *documentModel = EditorManager::documentModel();
+        foreach (IEditor *e, documentModel->editorsForDocuments(documentModel->openedDocuments()))
             slotEditorOpened(e);
         // Position tooltips delayed once all the editor placeholder layouting is done.
         if (!m_tooltips.isEmpty())
@@ -1391,15 +1393,14 @@ void DebuggerToolTipManager::leavingDebugMode()
         hide();
         if (QWidget *topLevel = ICore::mainWindow()->topLevelWidget())
             topLevel->removeEventFilter(this);
-        if (EditorManager *em = EditorManager::instance()) {
-            foreach (IEditor *e, em->openedEditors()) {
-                if (DebuggerToolTipEditor toolTipEditor = DebuggerToolTipEditor(e)) {
-                    toolTipEditor.baseTextEditor->verticalScrollBar()->disconnect(this);
-                    toolTipEditor.textEditor->disconnect(this);
-                }
+        DocumentModel *documentModel = EditorManager::documentModel();
+        foreach (IEditor *e, documentModel->editorsForDocuments(documentModel->openedDocuments())) {
+            if (DebuggerToolTipEditor toolTipEditor = DebuggerToolTipEditor(e)) {
+                toolTipEditor.baseTextEditor->verticalScrollBar()->disconnect(this);
+                toolTipEditor.textEditor->disconnect(this);
             }
-            em->disconnect(this);
         }
+        EditorManager::instance()->disconnect(this);
         m_lastToolTipEditor = 0;
         m_lastToolTipPoint = QPoint(-1, -1);
     }

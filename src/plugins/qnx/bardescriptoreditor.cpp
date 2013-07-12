@@ -104,20 +104,6 @@ Core::Id BarDescriptorEditor::id() const
     return Constants::QNX_BAR_DESCRIPTOR_EDITOR_ID;
 }
 
-QString BarDescriptorEditor::displayName() const
-{
-    return m_displayName;
-}
-
-void BarDescriptorEditor::setDisplayName(const QString &title)
-{
-    if (title == m_displayName)
-        return;
-
-    m_displayName = title;
-    emit changed();
-}
-
 bool BarDescriptorEditor::isTemporary() const
 {
     return false;
@@ -163,7 +149,7 @@ void BarDescriptorEditor::setActivePage(BarDescriptorEditor::EditorPage page)
         QString errorMsg;
         int errorLine;
         if (!m_file->loadContent(editorWidget->xmlSource(), &errorMsg, &errorLine)) {
-            const ProjectExplorer::Task task(ProjectExplorer::Task::Error, errorMsg, Utils::FileName::fromString(m_file->fileName()),
+            const ProjectExplorer::Task task(ProjectExplorer::Task::Error, errorMsg, Utils::FileName::fromString(m_file->filePath()),
                                        errorLine, Constants::QNX_TASK_CATEGORY_BARDESCRIPTOR);
             taskHub()->addTask(task);
             taskHub()->requestPopup();

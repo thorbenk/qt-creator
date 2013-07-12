@@ -137,9 +137,9 @@ public:
     QString findRepositoryForDirectory(const QString &dir);
     QString findGitDirForRepository(const QString &repositoryDir) const;
 
-    void diff(const QString &workingDirectory, const QStringList &diffArgs, const QString &fileName);
-    void diff(const QString &workingDirectory, const QStringList &diffArgs,
-              const QStringList &unstagedFileNames, const QStringList &stagedFileNames= QStringList());
+    void diff(const QString &workingDirectory, const QString &fileName);
+    void diff(const QString &workingDirectory, const QStringList &unstagedFileNames,
+              const QStringList &stagedFileNames = QStringList());
     void diffBranch(const QString &workingDirectory,
                     const QStringList &diffArgs,
                     const QString &branchName);
@@ -200,6 +200,8 @@ public:
                                 QString *errorMessage = 0);
     bool synchronousBranchCmd(const QString &workingDirectory, QStringList branchArgs,
                               QString *output, QString *errorMessage);
+    bool synchronousTagCmd(const QString &workingDirectory, QStringList tagArgs,
+                           QString *output, QString *errorMessage);
     bool synchronousForEachRefCmd(const QString &workingDirectory, QStringList args,
                                QString *output, QString *errorMessage);
     bool synchronousRemoteCmd(const QString &workingDirectory, QStringList remoteArgs,
@@ -233,6 +235,7 @@ public:
     QString synchronousTopRevision(const QString &workingDirectory, QString *errorMessage = 0);
     void synchronousTagsForCommit(const QString &workingDirectory, const QString &revision,
                                   QByteArray &precedes, QByteArray &follows);
+    bool isRemoteCommit(const QString &workingDirectory, const QString &commit);
 
     bool cloneRepository(const QString &directory, const QByteArray &url);
     QString vcsGetRepositoryURL(const QString &directory);
@@ -248,6 +251,9 @@ public:
     void synchronousAbortCommand(const QString &workingDir, const QString &abortCommand);
     QString synchronousTrackingBranch(const QString &workingDirectory,
                                       const QString &branch = QString());
+    bool synchronousSetTrackingBranch(const QString &workingDirectory,
+                                      const QString &branch,
+                                      const QString &tracking);
 
     // git svn support (asynchronous).
     void synchronousSubversionFetch(const QString &workingDirectory);
@@ -295,6 +301,7 @@ public:
 
     void launchGitK(const QString &workingDirectory, const QString &fileName);
     void launchGitK(const QString &workingDirectory) { launchGitK(workingDirectory, QString()); }
+    bool launchGitGui(const QString &workingDirectory);
 
     void launchRepositoryBrowser(const QString &workingDirectory);
 
@@ -313,9 +320,6 @@ public:
     static QString msgNoChangedFiles();
     static QString msgNoCommits(bool includeRemote);
 
-    static const char *noColorOption;
-    static const char *decorateOption;
-
 public slots:
     void show(const QString &source, const QString &id,
               const QStringList &args = QStringList(), const QString &name = QString());
@@ -326,6 +330,7 @@ private slots:
     void appendOutputData(const QByteArray &data) const;
     void appendOutputDataSilently(const QByteArray &data) const;
     void finishSubmoduleUpdate();
+    void fetchFinished(const QVariant &cookie);
 
 private:
     QTextCodec *getSourceCodec(const QString &file) const;

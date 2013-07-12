@@ -1,5 +1,6 @@
 import qbs.base 1.0
-import qbs.fileinfo as FileInfo
+import qbs.TextFile
+import qbs.FileInfo
 
 Module {
     Depends { id: qtcore; name: "Qt.core" }
@@ -18,11 +19,6 @@ Module {
             var cmd = new JavaScriptCommand();
             cmd.description = "prepare " + FileInfo.fileName(output.fileName);
             cmd.highlight = "codegen";
-            cmd.ide_version_major = project.ide_version_major;
-            cmd.ide_version_minor = project.ide_version_minor;
-            cmd.ide_version_release = project.ide_version_release;
-            cmd.qtcreator_version = cmd.ide_version_major + '.' + cmd.ide_version_minor + '.' + cmd.ide_version_release;
-
             cmd.pluginspecreplacements = product.pluginspecreplacements;
             cmd.plugin_depends = [];
             var deps = product.dependencies;
@@ -45,16 +41,17 @@ Module {
                 // replace quoted quotes
                 all = all.replace(/\\\"/g, '"');
                 // replace config vars
-                vars['QTCREATOR_VERSION'] = qtcreator_version;
-                vars['IDE_VERSION_MAJOR'] = ide_version_major;
-                vars['IDE_VERSION_MINOR'] = ide_version_minor;
-                vars['IDE_VERSION_RELEASE'] = ide_version_release;
+                vars['QTCREATOR_VERSION'] = project.qtcreator_version;
+                vars['QTCREATOR_COMPAT_VERSION'] = project.qtcreator_compat_version;
+                vars['IDE_VERSION_MAJOR'] = project.ide_version_major;
+                vars['IDE_VERSION_MINOR'] = project.ide_version_minor;
+                vars['IDE_VERSION_RELEASE'] = project.ide_version_release;
                 var deplist = ["<dependencyList>"];
                 for (i in plugin_depends) {
-                    deplist.push("        <dependency name=\"" + plugin_depends[i] + "\" version=\"" + qtcreator_version + "\"/>");
+                    deplist.push("        <dependency name=\"" + plugin_depends[i] + "\" version=\"" + project.qtcreator_version + "\"/>");
                 }
                 for (i in plugin_recommends) {
-                    deplist.push("        <dependency name=\"" + plugin_recommends[i] + "\" version=\"" + qtcreator_version + "\" type=\"optional\"/>");
+                    deplist.push("        <dependency name=\"" + plugin_recommends[i] + "\" version=\"" + project.qtcreator_version + "\" type=\"optional\"/>");
                 }
                 deplist.push("    </dependencyList>");
                 vars['dependencyList'] = deplist.join("\n");
@@ -83,7 +80,7 @@ Module {
         }
 
         prepare: {
-            var xslFile = project.path + "/src/pluginjsonmetadata.xsl";
+            var xslFile = project.path + "/../pluginjsonmetadata.xsl"; // project is "Plugins"
             var xmlPatternsPath = product.moduleProperty("Qt/core", "binPath") + "/xmlpatterns";
             var args = [
                 "-no-format",

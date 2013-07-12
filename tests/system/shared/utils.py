@@ -642,10 +642,11 @@ def checkIfObjectExists(name, shouldExist = True, timeout = 3000, verboseOnFail 
     return result
 
 # wait for progress bar(s) to appear and disappear
-def progressBarWait(timeout=60000):
+def progressBarWait(timeout=60000, warn=True):
     if not checkIfObjectExists(":Qt Creator_Core::Internal::ProgressBar", True, 6000):
-        test.warning("progressBarWait() timed out when waiting for ProgressBar.",
-                     "This may lead to unforeseen behavior. Consider increasing the timeout.")
+        if warn:
+            test.warning("progressBarWait() timed out when waiting for ProgressBar.",
+                         "This may lead to unforeseen behavior. Consider increasing the timeout.")
     checkIfObjectExists(":Qt Creator_Core::Internal::ProgressBar", False, timeout)
 
 def readFile(filename):
@@ -666,3 +667,12 @@ def clickOnTab(tabBarStr, tabText, timeout=5000):
             test.log("Using workaround for Mac.")
             setWindowState(tabBar, WindowState.Normal)
     clickTab(waitForObject(tabBarStr, timeout), tabText)
+
+# constructs a string holding the properties for a QModelIndex
+# param property a string holding additional properties including their values
+#       ATTENTION! use single quotes for values (e.g. "text='Text'", "text='Text' occurrence='2'")
+# param container the container (str) to be used for this QModelIndex
+def getQModelIndexStr(property, container):
+    if (container.startswith(":")):
+        container = "'%s'" % container
+    return ("{column='0' container=%s %s type='QModelIndex'}" % (container, property))

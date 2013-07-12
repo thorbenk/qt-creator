@@ -99,9 +99,18 @@ bool AndroidDeployStep::init()
     const QString targetSDK = AndroidManager::targetSDK(target());
     const QString targetArch = AndroidManager::targetArch(target());
 
-    writeOutput(tr("Please wait, searching for a suitable device for target:%1.").arg(targetSDK));
+    writeOutput(tr("Please wait, searching for a suitable device for target:%1, ABI:%2").arg(targetSDK).arg(targetArch));
     m_deviceAPILevel = targetSDK.mid(targetSDK.indexOf(QLatin1Char('-')) + 1).toInt();
-    m_deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&m_deviceAPILevel, targetArch);
+    QString error;
+    m_deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&m_deviceAPILevel, targetArch, &error);
+    if (!error.isEmpty())
+        writeOutput(error);
+
+    if (m_deviceSerialNumber.isEmpty()) {
+        writeOutput(tr("Falling back to android virtual machine device."));
+        m_deviceSerialNumber = AndroidConfigurations::instance().startAVD(&m_deviceAPILevel);
+    }
+
     if (!m_deviceSerialNumber.length()) {
         m_deviceSerialNumber.clear();
         raiseError(tr("Cannot deploy: no devices or emulators found for your package."));
@@ -187,6 +196,8 @@ void AndroidDeployStep::cleanLibsOnDevice()
 
     int deviceAPILevel = targetSDK.mid(targetSDK.indexOf(QLatin1Char('-')) + 1).toInt();
     QString deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&deviceAPILevel, targetArch);
+    if (deviceSerialNumber.isEmpty())
+        deviceSerialNumber = AndroidConfigurations::instance().startAVD(&deviceAPILevel);
     if (!deviceSerialNumber.length()) {
         Core::MessageManager::instance()->printToOutputPane(tr("Could not run adb. No device found."), Core::MessageManager::NoModeSwitch);
         return;
@@ -238,6 +249,8 @@ void AndroidDeployStep::installQASIPackage(const QString &packagePath)
     const QString targetSDK = AndroidManager::targetSDK(target());
     int deviceAPILevel = targetSDK.mid(targetSDK.indexOf(QLatin1Char('-')) + 1).toInt();
     QString deviceSerialNumber = AndroidConfigurations::instance().getDeployDeviceSerialNumber(&deviceAPILevel, targetArch);
+    if (deviceSerialNumber.isEmpty())
+        deviceSerialNumber = AndroidConfigurations::instance().startAVD(&deviceAPILevel);
     if (!deviceSerialNumber.length()) {
         Core::MessageManager::instance()->printToOutputPane(tr("Could not run adb. No device found."), Core::MessageManager::NoModeSwitch);
         return;

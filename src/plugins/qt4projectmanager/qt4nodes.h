@@ -34,6 +34,7 @@
 
 #include <coreplugin/idocument.h>
 #include <projectexplorer/projectnodes.h>
+#include <qtsupport/uicodemodelsupport.h>
 
 #include <QHash>
 #include <QStringList>
@@ -126,7 +127,6 @@ using ProjectExplorer::ProjectFileType;
 using ProjectExplorer::FileType;
 
 namespace Internal {
-class Qt4UiCodeModelSupport;
 class Qt4PriFile;
 struct InternalNode;
 }
@@ -153,16 +153,12 @@ public:
     bool addSubProjects(const QStringList &proFilePaths);
     bool removeSubProjects(const QStringList &proFilePaths);
 
-    bool addFiles(const FileType fileType, const QStringList &filePaths,
-                  QStringList *notAdded = 0);
-    bool removeFiles(const FileType fileType, const QStringList &filePaths,
-                     QStringList *notRemoved = 0);
-    bool deleteFiles(const FileType fileType,
-                     const QStringList &filePaths);
-    bool renameFile(const FileType fileType,
-                    const QString &filePath, const QString &newFilePath);
+    bool addFiles(const QStringList &filePaths, QStringList *notAdded = 0);
+    bool removeFiles(const QStringList &filePaths, QStringList *notRemoved = 0);
+    bool deleteFiles(const QStringList &filePaths);
+    bool renameFile(const QString &filePath, const QString &newFilePath);
 
-    void folderChanged(const QString &changedFolder);
+    bool folderChanged(const QString &changedFolder, const QSet<Utils::FileName> &newFiles);
 
     bool deploysFolder(const QString &folder) const;
     QList<ProjectExplorer::RunConfiguration *> runConfigurationsFor(Node *node);
@@ -172,9 +168,11 @@ public:
     // Set by parent
     bool includedInExactParse() const;
 
+    static QSet<Utils::FileName> recursiveEnumerate(const QString &folder);
 protected:
     void setIncludedInExactParse(bool b);
-    static QStringList varNames(FileType type);
+    static QStringList varNames(ProjectExplorer::FileType type);
+    static QStringList varNames(const QString &mimeType);
     static QStringList dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative, QtSupport::BaseQtVersion *qtVersion);
     static QSet<Utils::FileName> filterFilesProVariables(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
     static QSet<Utils::FileName> filterFilesRecursiveEnumerata(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
@@ -184,7 +182,7 @@ protected:
         RemoveFromProFile
     };
 
-    void changeFiles(const FileType fileType,
+    void changeFiles(const QString &mimeType,
                      const QStringList &filePaths,
                      QStringList *notChanged,
                      ChangeType change);
@@ -206,7 +204,7 @@ private:
     QString m_projectFilePath;
     QString m_projectDir;
 
-    QMap<QString, Internal::Qt4UiCodeModelSupport *> m_uiCodeModelSupport;
+    QMap<QString, QtSupport::UiCodeModelSupport *> m_uiCodeModelSupport;
     Internal::Qt4PriFile *m_qt4PriFile;
 
     // Memory is cheap...
@@ -229,8 +227,6 @@ class Qt4PriFile : public Core::IDocument
 public:
     Qt4PriFile(Qt4PriFileNode *qt4PriFile);
     virtual bool save(QString *errorString, const QString &fileName, bool autoSave);
-    virtual QString fileName() const;
-    virtual void rename(const QString &newName);
 
     virtual QString defaultPath() const;
     virtual QString suggestedFileName() const;
