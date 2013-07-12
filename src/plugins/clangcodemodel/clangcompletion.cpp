@@ -198,7 +198,7 @@ public:
             int position, TextEditor::AssistReason reason) const {
         Q_UNUSED(project);
 
-        QString fileName = editor()->document()->fileName();
+        QString fileName = editor()->document()->filePath();
         CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
         QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
         QStringList includePaths, frameworkPaths, options;
@@ -215,7 +215,7 @@ public:
 
         return new ClangCodeModel::ClangCompletionAssistInterface(
                     m_clangCompletionWrapper,
-                    document, position, editor()->document()->fileName(), reason,
+                    document, position, editor()->document()->filePath(), reason,
                     options, includePaths, frameworkPaths, pchInfo);
     }
 

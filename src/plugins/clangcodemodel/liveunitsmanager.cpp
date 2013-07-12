@@ -82,10 +82,10 @@ Unit LiveUnitsManager::unit(const QString &fileName)
 
 void LiveUnitsManager::editorOpened(Core::IEditor *editor)
 {
-    requestTracking(editor->document()->fileName());
+    requestTracking(editor->document()->filePath());
 }
 
 void LiveUnitsManager::editorAboutToClose(Core::IEditor *editor)
 {
-    cancelTrackingRequest(editor->document()->fileName());
+    cancelTrackingRequest(editor->document()->filePath());
 }

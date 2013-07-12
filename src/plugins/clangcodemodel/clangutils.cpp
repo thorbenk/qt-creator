@@ -69,7 +69,7 @@ UnsavedFiles createUnsavedFiles(CppModelManagerInterface::WorkingCopy workingCop
     ICore *core = ICore::instance(); // FIXME
     QSet<QString> openFiles;
     foreach (IEditor *editor, core->editorManager()->openedEditors())
-        openFiles.insert(editor->document()->fileName());
+        openFiles.insert(editor->document()->filePath());
 
     UnsavedFiles result;
     QHashIterator<QString, QPair<QString, unsigned> > wcIter = workingCopy.iterator();

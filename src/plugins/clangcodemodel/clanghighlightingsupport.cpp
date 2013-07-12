@@ -64,7 +64,7 @@ QFuture<TextEditor::HighlightingResult> ClangHighlightingSupport::highlightingFu
     int firstLine = 1;
     int lastLine = ed->document()->blockCount();
 
-    const QString fileName = editor()->document()->fileName();
+    const QString fileName = editor()->document()->filePath();
     CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
     QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
     QStringList options;
