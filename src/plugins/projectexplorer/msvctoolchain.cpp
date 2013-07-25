@@ -588,8 +588,28 @@ QList<ToolChain *> MsvcToolChainFactory::autoDetect()
                                                      findAbiOfMsvc(MsvcToolChain::VS, MsvcToolChain::ia64, vsName),
                                                      vcvarsAllbat, QLatin1String("x86_ia64"), true));
             }
+
         } else {
             qWarning("Unable to find MSVC setup script %s in version %d", qPrintable(vcvarsAllbat), version);
+        }
+
+        // Detect Phone SDKs
+        if (version >= 11) {
+            const QString phonePath = path += QLatin1String("/WPSDK/WP80");
+            const QString vcvarsPhoneAllbat = phonePath + QLatin1String("/vcvarsphoneall.bat");
+            const QString vsPhoneName = vsName + QLatin1String(" for Windows Phone");
+            if (QFileInfo(vcvarsPhoneAllbat).isFile()) {
+                if (QFileInfo(phonePath + QLatin1String("/bin/vcvarsphonex86.bat")).isFile())
+                    results.append(new MsvcToolChain(generateDisplayName(vsPhoneName, MsvcToolChain::VS, MsvcToolChain::x86),
+                                                     findAbiOfMsvc(MsvcToolChain::VS, MsvcToolChain::x86, vsName),
+                                                     vcvarsPhoneAllbat, QLatin1String("x86"), true));
+
+                if (QFileInfo(phonePath + QLatin1String("/bin/x86_arm/vcvarsphonex86_arm.bat")).isFile())
+                    results.append(new MsvcToolChain(generateDisplayName(vsPhoneName, MsvcToolChain::VS, MsvcToolChain::arm),
+                                                     findAbiOfMsvc(MsvcToolChain::VS, MsvcToolChain::arm, vsName),
+                                                     vcvarsPhoneAllbat, QLatin1String("x86_arm"), true));
+
+            }
         }
     }
 
