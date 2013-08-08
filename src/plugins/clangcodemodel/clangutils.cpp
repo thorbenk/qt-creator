@@ -31,9 +31,9 @@
 
 #include <clang-c/Index.h>
 
-#include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/editormanager/ieditor.h>
+#include <coreplugin/documentmanager.h>
 #include <coreplugin/icore.h>
+#include <coreplugin/idocument.h>
 
 #include <QFile>
 #include <QSet>
@@ -66,17 +66,16 @@ UnsavedFiles createUnsavedFiles(CppModelManagerInterface::WorkingCopy workingCop
     // TODO: change the modelmanager to hold one working copy, and amend it every time we ask for one.
     // TODO: Reason: the UnsavedFile needs a QByteArray.
 
-    ICore *core = ICore::instance(); // FIXME
-    QSet<QString> openFiles;
-    foreach (IEditor *editor, core->editorManager()->openedEditors())
-        openFiles.insert(editor->document()->filePath());
+    QSet<QString> modifiedFiles;
+    foreach (IDocument *doc, Core::DocumentManager::modifiedDocuments())
+        modifiedFiles.insert(doc->filePath());
 
     UnsavedFiles result;
     QHashIterator<QString, QPair<QString, unsigned> > wcIter = workingCopy.iterator();
     while (wcIter.hasNext()) {
         wcIter.next();
         const QString &fileName = wcIter.key();
-        if (openFiles.contains(fileName) && QFile(fileName).exists())
+        if (modifiedFiles.contains(fileName) && QFile(fileName).exists())
             result.insert(fileName, wcIter.value().first.toUtf8());
     }
 
