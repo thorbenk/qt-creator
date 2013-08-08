@@ -34,7 +34,7 @@
 #include "editorwidget.h"
 #include "editordata.h"
 #include "qtcreatorintegration.h"
-#include "designerxmleditor.h"
+#include "designerxmleditorwidget.h"
 #include "designercontext.h"
 #include "resourcehandler.h"
 #include <widgethost.h>
@@ -710,12 +710,12 @@ EditorData FormEditorW::createEditor(QWidget *parent)
     qdesigner_internal::FormWindowBase::setupDefaultAction(form);
 #endif
     data.widgetHost = new SharedTools::WidgetHost( /* parent */ 0, form);
-    DesignerXmlEditor *xmlEditor = new DesignerXmlEditor(form, parent);
+    DesignerXmlEditorWidget *xmlEditor = new DesignerXmlEditorWidget(form, parent);
     TextEditor::TextEditorSettings::instance()->initializeEditor(xmlEditor);
     data.formWindowEditor = xmlEditor->designerEditor();
     connect(data.widgetHost, SIGNAL(formWindowSizeChanged(int,int)),
             xmlEditor, SIGNAL(changed()));
-    connect(data.formWindowEditor->document(), SIGNAL(changed()),
+    connect(data.formWindowEditor->document(), SIGNAL(filePathChanged(QString,QString)),
             resourceHandler, SLOT(updateResources()));
     m_editorWidget->add(data);
 

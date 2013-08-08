@@ -202,15 +202,15 @@ Class *isMemberFunction(const LookupContext &context, Function *function)
     QTC_ASSERT(function, return 0);
 
     Scope *enclosingScope = function->enclosingScope();
-    while (! (enclosingScope->isNamespace() || enclosingScope->isClass()))
+    while (!(enclosingScope->isNamespace() || enclosingScope->isClass()))
         enclosingScope = enclosingScope->enclosingScope();
     QTC_ASSERT(enclosingScope != 0, return 0);
 
     const Name *functionName = function->name();
-    if (! functionName)
+    if (!functionName)
         return 0; // anonymous function names are not valid c++
 
-    if (! functionName->isQualifiedNameId())
+    if (!functionName->isQualifiedNameId())
         return 0; // trying to add a declaration for a global function
 
     const QualifiedNameId *q = functionName->asQualifiedNameId();
@@ -287,8 +287,10 @@ public:
         // check for ! before parentheses
         if (nested && priority - 2 >= 0) {
             negation = interface->path()[priority - 2]->asUnaryExpression();
-            if (negation && ! interface->currentFile()->tokenAt(negation->unary_op_token).is(T_EXCLAIM))
+            if (negation
+                    && !interface->currentFile()->tokenAt(negation->unary_op_token).is(T_EXCLAIM)) {
                 negation = 0;
+            }
         }
     }
 
@@ -335,9 +337,9 @@ void InverseLogicalComparison::match(const CppQuickFixInterface &interface,
     const QList<AST *> &path = interface->path();
     int index = path.size() - 1;
     BinaryExpressionAST *binary = path.at(index)->asBinaryExpression();
-    if (! binary)
+    if (!binary)
         return;
-    if (! interface->isCursorOn(binary->binary_op_token))
+    if (!interface->isCursorOn(binary->binary_op_token))
         return;
 
     Kind invertToken;
@@ -398,7 +400,7 @@ public:
         ChangeSet changes;
         changes.flip(currentFile->range(binary->left_expression),
                      currentFile->range(binary->right_expression));
-        if (! replacement.isEmpty())
+        if (!replacement.isEmpty())
             changes.replace(currentFile->range(binary->binary_op_token), replacement);
 
         currentFile->setChangeSet(changes);
@@ -419,9 +421,9 @@ void FlipLogicalOperands::match(const CppQuickFixInterface &interface, QuickFixO
 
     int index = path.size() - 1;
     BinaryExpressionAST *binary = path.at(index)->asBinaryExpression();
-    if (! binary)
+    if (!binary)
         return;
-    if (! interface->isCursorOn(binary->binary_op_token))
+    if (!interface->isCursorOn(binary->binary_op_token))
         return;
 
     Kind flipToken;
@@ -513,10 +515,10 @@ void RewriteLogicalAnd::match(const CppQuickFixInterface &interface, QuickFixOpe
             break;
     }
 
-    if (! expression)
+    if (!expression)
         return;
 
-    if (! interface->isCursorOn(expression->binary_op_token))
+    if (!interface->isCursorOn(expression->binary_op_token))
         return;
 
     QSharedPointer<RewriteLogicalAndOp> op(new RewriteLogicalAndOp(interface));
@@ -534,10 +536,10 @@ void RewriteLogicalAnd::match(const CppQuickFixInterface &interface, QuickFixOpe
 
 bool SplitSimpleDeclaration::checkDeclaration(SimpleDeclarationAST *declaration)
 {
-    if (! declaration->semicolon_token)
+    if (!declaration->semicolon_token)
         return false;
 
-    if (! declaration->decl_specifier_list)
+    if (!declaration->decl_specifier_list)
         return false;
 
     for (SpecifierListAST *it = declaration->decl_specifier_list; it; it = it->next) {
@@ -550,10 +552,10 @@ bool SplitSimpleDeclaration::checkDeclaration(SimpleDeclarationAST *declaration)
             return false;
     }
 
-    if (! declaration->declarator_list)
+    if (!declaration->declarator_list)
         return false;
 
-    else if (! declaration->declarator_list->next)
+    else if (!declaration->declarator_list->next)
         return false;
 
     return true;
@@ -624,10 +626,9 @@ void SplitSimpleDeclaration::match(const CppQuickFixInterface &interface,
     for (int index = path.size() - 1; index != -1; --index) {
         AST *node = path.at(index);
 
-        if (CoreDeclaratorAST *coreDecl = node->asCoreDeclarator())
+        if (CoreDeclaratorAST *coreDecl = node->asCoreDeclarator()) {
             core_declarator = coreDecl;
-
-        else if (SimpleDeclarationAST *simpleDecl = node->asSimpleDeclaration()) {
+        } else if (SimpleDeclarationAST *simpleDecl = node->asSimpleDeclaration()) {
             if (checkDeclaration(simpleDecl)) {
                 SimpleDeclarationAST *declaration = simpleDecl;
 
@@ -698,7 +699,7 @@ void AddBracesToIf::match(const CppQuickFixInterface &interface, QuickFixOperati
     int index = path.size() - 1;
     IfStatementAST *ifStatement = path.at(index)->asIfStatement();
     if (ifStatement && interface->isCursorOn(ifStatement->if_token) && ifStatement->statement
-        && ! ifStatement->statement->asCompoundStatement()) {
+        && !ifStatement->statement->asCompoundStatement()) {
         result.append(QuickFixOperation::Ptr(
             new AddBracesToIfOp(interface, index, ifStatement->statement)));
         return;
@@ -710,7 +711,7 @@ void AddBracesToIf::match(const CppQuickFixInterface &interface, QuickFixOperati
         IfStatementAST *ifStatement = path.at(index)->asIfStatement();
         if (ifStatement && ifStatement->statement
             && interface->isCursorOn(ifStatement->statement)
-            && ! ifStatement->statement->asCompoundStatement()) {
+            && !ifStatement->statement->asCompoundStatement()) {
             result.append(QuickFixOperation::Ptr(
                 new AddBracesToIfOp(interface, index, ifStatement->statement)));
             return;
@@ -776,7 +777,7 @@ void MoveDeclarationOutOfIf::match(const CppQuickFixInterface &interface,
             if (statement->match(op->pattern, &op->matcher) && op->condition->declarator) {
                 DeclaratorAST *declarator = op->condition->declarator;
                 op->core = declarator->core_declarator;
-                if (! op->core)
+                if (!op->core)
                     return;
 
                 if (interface->isCursorOn(op->core)) {
@@ -847,13 +848,13 @@ void MoveDeclarationOutOfWhile::match(const CppQuickFixInterface &interface,
                 DeclaratorAST *declarator = op->condition->declarator;
                 op->core = declarator->core_declarator;
 
-                if (! op->core)
+                if (!op->core)
                     return;
 
-                if (! declarator->equal_token)
+                if (!declarator->equal_token)
                     return;
 
-                if (! declarator->initializer)
+                if (!declarator->initializer)
                     return;
 
                 if (interface->isCursorOn(op->core)) {
@@ -962,20 +963,20 @@ void SplitIfStatement::match(const CppQuickFixInterface &interface, QuickFixOper
         }
     }
 
-    if (! pattern || ! pattern->statement)
+    if (!pattern || !pattern->statement)
         return;
 
     unsigned splitKind = 0;
     for (++index; index < path.size(); ++index) {
         AST *node = path.at(index);
         BinaryExpressionAST *condition = node->asBinaryExpression();
-        if (! condition)
+        if (!condition)
             return;
 
         Token binaryToken = interface->currentFile()->tokenAt(condition->binary_op_token);
 
         // only accept a chain of ||s or &&s - no mixing
-        if (! splitKind) {
+        if (!splitKind) {
             splitKind = binaryToken.kind();
             if (splitKind != T_AMPER_AMPER && splitKind != T_PIPE_PIPE)
                 return;
@@ -1412,7 +1413,7 @@ void ConvertNumericLiteral::match(const CppQuickFixInterface &interface, QuickFi
 
     NumericLiteralAST *literal = path.last()->asNumericLiteral();
 
-    if (! literal)
+    if (!literal)
         return;
 
     Token token = file->tokenAt(literal->asNumericLiteral()->literal_token);
@@ -1550,7 +1551,7 @@ public:
                 } else if (headerFileInfo.fileName().at(0).isUpper()) {
                     best = c;
                     // and continue
-                } else if (! best.isEmpty()) {
+                } else if (!best.isEmpty()) {
                     if (c.count(QLatin1Char('/')) < best.count(QLatin1Char('/')))
                         best = c;
                 }
@@ -1575,7 +1576,7 @@ public:
 
                 foreach (const LookupItem &r,
                          interface->context().lookup(name, interface->semanticInfo().doc->scopeAt(line, column))) {
-                    if (! r.declaration())
+                    if (!r.declaration())
                         continue;
                     else if (ForwardClassDeclaration *fwd = r.declaration()->asForwardClassDeclaration())
                         fwdClass = fwd;
@@ -1651,7 +1652,7 @@ public:
                                  scope,
                                  TypeOfExpression::Preprocess);
 
-        if (! result.isEmpty()) {
+        if (!result.isEmpty()) {
             SubstitutionEnvironment env;
             env.setContext(assistInterface()->context());
             env.switchScope(result.first().scope());
@@ -1666,7 +1667,7 @@ public:
 
             Overview oo = CppCodeStyleSettings::currentProjectCodeStyleOverview();
             QString ty = oo.prettyType(tn, simpleNameAST->name);
-            if (! ty.isEmpty()) {
+            if (!ty.isEmpty()) {
                 ChangeSet changes;
                 changes.replace(currentFile->startOf(binaryAST),
                                 currentFile->endOf(simpleNameAST),
@@ -1700,17 +1701,17 @@ void AddLocalDeclaration::match(const CppQuickFixInterface &interface, QuickFixO
                     const QList<LookupItem> results = interface->context().lookup(nameAST->name, file->scopeAt(nameAST->firstToken()));
                     Declaration *decl = 0;
                     foreach (const LookupItem &r, results) {
-                        if (! r.declaration())
+                        if (!r.declaration())
                             continue;
-                        else if (Declaration *d = r.declaration()->asDeclaration()) {
-                            if (! d->type()->isFunctionType()) {
+                        if (Declaration *d = r.declaration()->asDeclaration()) {
+                            if (!d->type()->isFunctionType()) {
                                 decl = d;
                                 break;
                             }
                         }
                     }
 
-                    if (! decl) {
+                    if (!decl) {
                         result.append(QuickFixOperation::Ptr(
                             new AddLocalDeclarationOp(interface, index, binary, nameAST)));
                         return;
@@ -2083,25 +2084,25 @@ public:
         for (int i = astPathList.size() - 1; i >= 0; --i) {
             AST *ast = astPathList.at(i);
 
-            if (! m_hasSimpleDeclaration && ast->asSimpleDeclaration()) {
+            if (!m_hasSimpleDeclaration && ast->asSimpleDeclaration()) {
                 m_hasSimpleDeclaration = true;
                 filtered.append(ast);
-            } else if (! m_hasFunctionDefinition && ast->asFunctionDefinition()) {
+            } else if (!m_hasFunctionDefinition && ast->asFunctionDefinition()) {
                 m_hasFunctionDefinition = true;
                 filtered.append(ast);
-            } else if (! m_hasParameterDeclaration && ast->asParameterDeclaration()) {
+            } else if (!m_hasParameterDeclaration && ast->asParameterDeclaration()) {
                 m_hasParameterDeclaration = true;
                 filtered.append(ast);
-            } else if (! m_hasIfStatement && ast->asIfStatement()) {
+            } else if (!m_hasIfStatement && ast->asIfStatement()) {
                 m_hasIfStatement = true;
                 filtered.append(ast);
-            } else if (! m_hasWhileStatement && ast->asWhileStatement()) {
+            } else if (!m_hasWhileStatement && ast->asWhileStatement()) {
                 m_hasWhileStatement = true;
                 filtered.append(ast);
-            } else if (! m_hasForStatement && ast->asForStatement()) {
+            } else if (!m_hasForStatement && ast->asForStatement()) {
                 m_hasForStatement = true;
                 filtered.append(ast);
-            } else if (! m_hasForeachStatement && ast->asForeachStatement()) {
+            } else if (!m_hasForeachStatement && ast->asForeachStatement()) {
                 m_hasForeachStatement = true;
                 filtered.append(ast);
             }
@@ -2143,7 +2144,7 @@ void ReformatPointerDeclaration::match(const CppQuickFixInterface &interface,
         // ctrl-a and there is an empty line in the end, then the cursor is not on
         // any AST and therefore no quick fix will be triggered.
         change = formatter.format(file->cppDocument()->translationUnit()->ast());
-        if (! change.isEmpty()) {
+        if (!change.isEmpty()) {
             result.append(QuickFixOperation::Ptr(
                 new ReformatPointerDeclarationOp(interface, change)));
         }
@@ -2152,7 +2153,7 @@ void ReformatPointerDeclaration::match(const CppQuickFixInterface &interface,
             = ReformatPointerDeclarationASTPathResultsFilter().filter(path);
         foreach (AST *ast, suitableASTs) {
             change = formatter.format(ast);
-            if (! change.isEmpty()) {
+            if (!change.isEmpty()) {
                 result.append(QuickFixOperation::Ptr(
                     new ReformatPointerDeclarationOp(interface, change)));
                 return;
@@ -2593,8 +2594,8 @@ public:
                            m_loc.prefix().count(QLatin1String("\n")) + 2);
             c.movePosition(QTextCursor::EndOfLine);
             if (m_defpos == DefPosImplementationFile) {
-                if (BaseTextEditorWidget *editor = refactoring.editorForFile(m_loc.fileName()))
-                    editor->setTextCursor(c);
+                if (targetFile->editor())
+                    targetFile->editor()->setTextCursor(c);
             } else {
                 assistInterface()->editor()->setTextCursor(c);
             }
@@ -2621,7 +2622,7 @@ void InsertDefFromDecl::match(const CppQuickFixInterface &interface, QuickFixOpe
         if (SimpleDeclarationAST *simpleDecl = node->asSimpleDeclaration()) {
             if (idx > 0 && path.at(idx - 1)->asStatement())
                 return;
-            if (simpleDecl->symbols && ! simpleDecl->symbols->next) {
+            if (simpleDecl->symbols && !simpleDecl->symbols->next) {
                 if (Symbol *symbol = simpleDecl->symbols->value) {
                     if (Declaration *decl = symbol->asDeclaration()) {
                         if (Function *func = decl->type()->asFunctionType()) {
@@ -4078,8 +4079,7 @@ void MoveFuncDefToDecl::match(const CppQuickFixInterface &interface, QuickFixOpe
             if (!declText.isEmpty())
                 break;
         }
-    }
-    else if (Namespace *matchingNamespace = isNamespaceFunction(interface->context(), func)) {
+    } else if (Namespace *matchingNamespace = isNamespaceFunction(interface->context(), func)) {
         // Dealing with free functions
         bool isHeaderFile = false;
         declFileName = correspondingHeaderOrSource(interface->fileName(), &isHeaderFile);
@@ -4615,7 +4615,7 @@ public:
         const LookupContext targetContext(headerFile->cppDocument(), assistInterface()->snapshot());
 
         const Class *targetClass = m_classAST->symbol;
-        ClassOrNamespace *targetCoN = targetContext.lookupType(targetClass->scope());
+        ClassOrNamespace *targetCoN = targetContext.lookupType(targetClass->enclosingScope());
         if (!targetCoN)
             targetCoN = targetContext.globalNamespace();
         UseMinimalNames useMinimalNames(targetCoN);

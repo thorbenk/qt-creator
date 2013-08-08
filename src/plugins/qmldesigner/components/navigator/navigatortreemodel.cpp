@@ -34,11 +34,12 @@
 #include <nodeproperty.h>
 #include <variantproperty.h>
 #include <metainfo.h>
-#include <qmlmodelview.h>
+#include <abstractview.h>
 #include <rewriterview.h>
 #include <invalididexception.h>
 #include <rewritingexception.h>
 #include <modelnodecontextmenu.h>
+#include <qmlitemnode.h>
 
 #include <QMimeData>
 #include <QMessageBox>
@@ -47,11 +48,11 @@
 
 static inline void setScenePos(const QmlDesigner::ModelNode &modelNode,const QPointF &pos)
 {
-    QmlDesigner::QmlItemNode parentNode = modelNode.parentProperty().parentQmlObjectNode().toQmlItemNode();
-    if (parentNode.isValid()) {
+    if (modelNode.hasParentProperty() && QmlDesigner::QmlItemNode::isValidQmlItemNode(modelNode.parentProperty().parentModelNode())) {
+        QmlDesigner::QmlItemNode parentNode = modelNode.parentProperty().parentQmlObjectNode().toQmlItemNode();
         QPointF localPos = parentNode.instanceSceneTransform().inverted().map(pos);
-        modelNode.variantProperty("x") = localPos.toPoint().x();
-        modelNode.variantProperty("y") = localPos.toPoint().y();
+        modelNode.variantProperty("x").setValue(localPos.toPoint().x());
+        modelNode.variantProperty("y").setValue(localPos.toPoint().y());
     }
 }
 
@@ -149,8 +150,7 @@ bool NavigatorTreeModel::dropMimeData(const QMimeData *data,
             return false;
         targetIndex -= visibleProperties(parentNode).count();
         parentPropertyName = parentNode.metaInfo().defaultPropertyName();
-    }
-    else {
+    } else {
         parentItemIndex = parentIndex.parent();
         parentPropertyName = parentIndex.data(Qt::DisplayRole).toByteArray();
     }
@@ -295,8 +295,7 @@ void NavigatorTreeModel::updateItemRowOrder(const NodeListProperty &listProperty
             parentIdItem = parentRow.idItem;
             newRow += visibleProperties(listProperty.parentModelNode()).count();
         }
-    }
-    else {
+    } else {
         parentIdItem = itemRow.idItem->parent();
     }
     Q_ASSERT(parentIdItem);
@@ -382,7 +381,7 @@ NavigatorTreeModel::ItemRow NavigatorTreeModel::itemRowForNode(const ModelNode &
     return m_nodeItemHash.value(node);
 }
 
-void NavigatorTreeModel::setView(QmlModelView *view)
+void NavigatorTreeModel::setView(AbstractView *view)
 {
     m_view = view;
     m_hiddenProperties.clear();

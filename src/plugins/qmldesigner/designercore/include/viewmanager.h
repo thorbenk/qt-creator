@@ -41,6 +41,7 @@
 #include <propertyeditor.h>
 #include <componentview.h>
 #include <debugview.h>
+#include <QWidgetAction>
 
 namespace QmlDesigner {
 
@@ -56,7 +57,7 @@ public:
     ViewManager();
     ~ViewManager();
 
-    void attachRewriterView(TextModifier *textModifier);
+    void attachRewriterView();
     void detachRewriterView();
 
     void attachComponentView();
@@ -79,12 +80,14 @@ public:
     void disableWidgets();
     void enableWidgets();
 
-    void pushFileOnCrambleBar(const QString &fileName);
+    void pushFileOnCrumbleBar(const QString &fileName);
     void pushInFileComponentOnCrambleBar(const QString &componentId);
+
     void nextFileIsCalledInternally();
 
-    //used by DesignDocument ### find a better solution
-    QmlModelView *qmlModelView();
+    NodeInstanceView *nodeInstanceView();
+
+    QWidgetAction *componentViewAction();
 
 private: // functions
     Q_DISABLE_COPY(ViewManager)

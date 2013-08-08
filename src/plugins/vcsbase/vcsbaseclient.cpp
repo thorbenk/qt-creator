@@ -67,9 +67,9 @@ Q_DECLARE_METATYPE(QVariant)
 
 inline Core::IEditor *locateEditor(const char *property, const QString &entry)
 {
-    foreach (Core::IEditor *ed, Core::ICore::editorManager()->openedEditors())
-        if (ed->document()->property(property).toString() == entry)
-            return ed;
+    foreach (Core::IDocument *document, Core::EditorManager::documentModel()->openedDocuments())
+        if (document->property(property).toString() == entry)
+            return Core::EditorManager::documentModel()->editorsForDocument(document).first();
     return 0;
 }
 
@@ -89,7 +89,7 @@ class VcsBaseClientPrivate
 public:
     VcsBaseClientPrivate(VcsBaseClient *client, VcsBaseClientSettings *settings);
 
-    void statusParser(QByteArray data);
+    void statusParser(const QString &text);
     void annotateRevision(QString source, QString change, int lineNumber);
     void saveSettings();
 
@@ -110,11 +110,11 @@ VcsBaseClientPrivate::VcsBaseClientPrivate(VcsBaseClient *client, VcsBaseClientS
 {
 }
 
-void VcsBaseClientPrivate::statusParser(QByteArray data)
+void VcsBaseClientPrivate::statusParser(const QString &text)
 {
     QList<VcsBaseClient::StatusItem> lineInfoList;
 
-    QStringList rawStatusList = QTextCodec::codecForLocale()->toUnicode(data).split(QLatin1Char('\n'));
+    QStringList rawStatusList = text.split(QLatin1Char('\n'));
 
     foreach (const QString &string, rawStatusList) {
         const VcsBaseClient::StatusItem lineInfo = m_client->parseStatusLine(string);
@@ -189,9 +189,8 @@ bool VcsBaseClient::synchronousCreateRepository(const QString &workingDirectory,
     QByteArray outputData;
     if (!vcsFullySynchronousExec(workingDirectory, args, &outputData))
         return false;
-    QString output = QString::fromLocal8Bit(outputData);
-    output.remove(QLatin1Char('\r'));
-    ::vcsOutputWindow()->append(output);
+    ::vcsOutputWindow()->append(
+                Utils::SynchronousProcess::normalizeNewlines(QString::fromLocal8Bit(outputData)));
 
     resetCachedVcsInfo(workingDirectory);
 
@@ -436,7 +435,7 @@ void VcsBaseClient::emitParsedStatus(const QString &repository, const QStringLis
     QStringList args(vcsCommandString(StatusCommand));
     args << extraOptions;
     Command *cmd = createCommand(repository);
-    connect(cmd, SIGNAL(outputData(QByteArray)), this, SLOT(statusParser(QByteArray)));
+    connect(cmd, SIGNAL(output(QString)), this, SLOT(statusParser(QString)));
     enqueueJob(cmd, args);
 }
 
@@ -560,11 +559,11 @@ VcsBase::VcsBaseEditorWidget *VcsBaseClient::createVcsEditor(Core::Id kind, QStr
     const QString progressMsg = tr("Working...");
     if (outputEditor) {
         // Exists already
-        outputEditor->createNew(progressMsg);
+        outputEditor->document()->setContents(progressMsg.toUtf8());
         baseEditor = VcsBase::VcsBaseEditorWidget::getVcsBaseEditor(outputEditor);
         QTC_ASSERT(baseEditor, return 0);
     } else {
-        outputEditor = Core::EditorManager::openEditorWithContents(kind, &title, progressMsg);
+        outputEditor = Core::EditorManager::openEditorWithContents(kind, &title, progressMsg.toUtf8());
         outputEditor->document()->setProperty(registerDynamicProperty, dynamicPropertyValue);
         baseEditor = VcsBase::VcsBaseEditorWidget::getVcsBaseEditor(outputEditor);
         connect(baseEditor, SIGNAL(annotateRevisionRequested(QString,QString,int)),
@@ -598,17 +597,14 @@ Command *VcsBaseClient::createCommand(const QString &workingDirectory,
         d->bindCommandToEditor(cmd, editor);
     if (mode == VcsWindowOutputBind) {
         if (editor) { // assume that the commands output is the important thing
-            connect(cmd, SIGNAL(outputData(QByteArray)),
-                    ::vcsOutputWindow(), SLOT(appendDataSilently(QByteArray)));
+            connect(cmd, SIGNAL(output(QString)),
+                    ::vcsOutputWindow(), SLOT(appendSilently(QString)));
+        } else {
+            connect(cmd, SIGNAL(output(QString)),
+                    ::vcsOutputWindow(), SLOT(append(QString)));
         }
-        else {
-            connect(cmd, SIGNAL(outputData(QByteArray)),
-                    ::vcsOutputWindow(), SLOT(appendData(QByteArray)));
-        }
-    }
-    else if (editor) {
-        connect(cmd, SIGNAL(outputData(QByteArray)),
-                editor, SLOT(setPlainTextData(QByteArray)));
+    } else if (editor) {
+        connect(cmd, SIGNAL(output(QString)), editor, SLOT(setPlainText(QString)));
     }
 
     if (::vcsOutputWindow())

@@ -32,7 +32,7 @@
 
 #include <qmldesignercorelib_global.h>
 #include "abstractdesigneraction.h"
-#include "qmlmodelview.h"
+#include "abstractview.h"
 
 namespace QmlDesigner {
 
@@ -46,7 +46,7 @@ public:
     static QList<AbstractDesignerAction* > designerActions();
 
     static void createDefaultDesignerActions();
-    static QmlModelView *view();
+    static AbstractView *view();
 
 protected:
     static DesignerActionManager *instance();

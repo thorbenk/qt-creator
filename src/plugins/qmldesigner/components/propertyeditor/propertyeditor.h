@@ -30,7 +30,7 @@
 #ifndef PROPERTYEDITOR_H
 #define PROPERTYEDITOR_H
 
-#include <qmlmodelview.h>
+#include <abstractview.h>
 #include <declarativewidgetview.h>
 #include <QHash>
 #include <QStackedWidget>
@@ -55,7 +55,7 @@ class PropertyEditorTransaction;
 class CollapseButton;
 class StackedWidget;
 
-class PropertyEditor: public QmlModelView
+class PropertyEditor: public AbstractView
 {
     Q_OBJECT
 
@@ -107,8 +107,25 @@ public:
     void scriptFunctionsChanged(const ModelNode &node, const QStringList &scriptFunctionList) QTC_OVERRIDE;
 
     void resetView();
-    void actualStateChanged(const ModelNode &node) QTC_OVERRIDE;
+    void currentStateChanged(const ModelNode &node) QTC_OVERRIDE;
     void instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &propertyList) QTC_OVERRIDE;
+
+    void nodeCreated(const ModelNode &createdNode) QTC_OVERRIDE;
+    void nodeRemoved(const ModelNode &removedNode, const NodeAbstractProperty &parentProperty, PropertyChangeFlags propertyChange) QTC_OVERRIDE;
+    void nodeAboutToBeReparented(const ModelNode &node, const NodeAbstractProperty &newPropertyParent, const NodeAbstractProperty &oldPropertyParent, PropertyChangeFlags propertyChange) QTC_OVERRIDE;
+    void nodeReparented(const ModelNode &node, const NodeAbstractProperty &newPropertyParent, const NodeAbstractProperty &oldPropertyParent, PropertyChangeFlags propertyChange) QTC_OVERRIDE;
+    void propertiesAboutToBeRemoved(const QList<AbstractProperty> &propertyList) QTC_OVERRIDE;
+    void rootNodeTypeChanged(const QString &type, int majorVersion, int minorVersion) QTC_OVERRIDE;
+    void instancesCompleted(const QVector<ModelNode> &completedNodeList) QTC_OVERRIDE;
+    void instancesRenderImageChanged(const QVector<ModelNode> &nodeList) QTC_OVERRIDE;
+    void instancesPreviewImageChanged(const QVector<ModelNode> &nodeList) QTC_OVERRIDE;
+    void instancesChildrenChanged(const QVector<ModelNode> &nodeList) QTC_OVERRIDE;
+    void instancesToken(const QString &tokenName, int tokenNumber, const QVector<ModelNode> &nodeVector) QTC_OVERRIDE;
+    void nodeSourceChanged(const ModelNode &modelNode, const QString &newNodeSource) QTC_OVERRIDE;
+    void rewriterBeginTransaction() QTC_OVERRIDE;
+    void rewriterEndTransaction() QTC_OVERRIDE;
+    void nodeOrderChanged(const NodeListProperty &listProperty, const ModelNode &movedNode, int oldIndex) QTC_OVERRIDE;
+    void importsChanged(const QList<Import> &addedImports, const QList<Import> &removedImports) QTC_OVERRIDE;
 
 protected:
     void timerEvent(QTimerEvent *event);

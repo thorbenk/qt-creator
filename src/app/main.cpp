@@ -400,12 +400,11 @@ int main(int argc, char **argv)
         QNetworkProxy proxy(QNetworkProxy::HttpProxy, proxyUrl.host(),
                             proxyUrl.port(), proxyUrl.userName(), proxyUrl.password());
         QNetworkProxy::setApplicationProxy(proxy);
-    }
 # if defined(Q_OS_MAC) // unix and mac
-    else {
+    } else {
         QNetworkProxyFactory::setUseSystemConfiguration(true);
-    }
 # endif
+    }
 #else // windows
     QNetworkProxyFactory::setUseSystemConfiguration(true);
 #endif
@@ -517,12 +516,6 @@ int main(int argc, char **argv)
     QObject::connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
     // shutdown plugin manager on the exit
     QObject::connect(&app, SIGNAL(aboutToQuit()), &pluginManager, SLOT(shutdown()));
-
-#ifdef WITH_TESTS
-    // Do this after the event loop has started
-    if (PluginManager::testRunRequested())
-        QTimer::singleShot(100, &pluginManager, SLOT(startTests()));
-#endif
 
     const int r = app.exec();
     cleanupCrashHandler();

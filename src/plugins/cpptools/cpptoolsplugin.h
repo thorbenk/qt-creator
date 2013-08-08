@@ -156,12 +156,25 @@ private slots:
     void test_completion_enum_inside_block_inside_function_QTCREATORBUG5456();
     void test_completion_enum_inside_function_QTCREATORBUG5456();
 
+    void test_completion_template_parameter_defined_inside_scope_of_declaration_QTCREATORBUG9169_1();
+    void test_completion_template_parameter_defined_inside_scope_of_declaration_QTCREATORBUG9169_2();
+    void test_completion_template_parameter_defined_inside_scope_of_declaration_QTCREATORBUG8852_1();
+    void test_completion_template_parameter_defined_inside_scope_of_declaration_QTCREATORBUG8852_2();
+    void test_completion_template_parameter_defined_inside_scope_of_declaration_QTCREATORBUG8852_3();
+
     //lambda
     void test_completion_lambdaCalls_1();
     void test_completion_lambdaCalls_2();
     void test_completion_lambdaCalls_3();
     void test_completion_lambdaCalls_4();
     void test_completion_lambdaCalls_5();
+
+    void test_completion_local_type_and_member_1();
+    void test_completion_local_type_and_member_2();
+    void test_completion_local_type_and_member_3();
+    void test_completion_local_type_and_member_4();
+    void test_completion_local_type_and_member_5();
+    void test_completion_local_type_and_member_6();
 
     void test_format_pointerdeclaration_in_simpledeclarations();
     void test_format_pointerdeclaration_in_simpledeclarations_data();
@@ -174,12 +187,14 @@ private slots:
     void test_format_pointerdeclaration_macros();
     void test_format_pointerdeclaration_macros_data();
 
-    void test_modelmanager_paths();
+    void test_modelmanager_paths_are_clean();
     void test_modelmanager_framework_headers();
-    void test_modelmanager_refresh_1();
-    void test_modelmanager_refresh_2();
+    void test_modelmanager_refresh_also_includes_of_project_files();
+    void test_modelmanager_refresh_several_times();
+    void test_modelmanager_refresh_test_for_changes();
     void test_modelmanager_snapshot_after_two_projects();
     void test_modelmanager_extraeditorsupport_uiFiles();
+    void test_modelmanager_gc_if_last_cppeditor_closed();
 
 private:
     void test_completion();

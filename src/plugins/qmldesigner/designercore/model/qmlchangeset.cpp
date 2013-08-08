@@ -30,7 +30,7 @@
 #include "qmlchangeset.h"
 #include "bindingproperty.h"
 #include "variantproperty.h"
-#include "qmlmodelview.h"
+#include "abstractview.h"
 #include <metainfo.h>
 
 namespace QmlDesigner {
@@ -50,19 +50,29 @@ void QmlModelStateOperation::setTarget(const ModelNode &target)
 
 bool QmlPropertyChanges::isValid() const
 {
-    return QmlModelNodeFacade::isValid() && modelNode().metaInfo().isSubclassOf("QtQuick.PropertyChanges", -1, -1);
+    return isValidQmlPropertyChanges(modelNode());
+}
+
+bool QmlPropertyChanges::isValidQmlPropertyChanges(const ModelNode &modelNode)
+{
+    return isValidQmlModelNodeFacade(modelNode) && modelNode.metaInfo().isSubclassOf("QtQuick.PropertyChanges", -1, -1);
 }
 
 bool QmlModelStateOperation::isValid() const
 {
-    return QmlModelNodeFacade::isValid() && (
-                modelNode().metaInfo().isSubclassOf("<cpp>.QDeclarative1StateOperation", -1, -1)
-                || modelNode().metaInfo().isSubclassOf("<cpp>.QQuickStateOperation", -1, -1));
+    return isValidQmlModelStateOperation(modelNode());
+}
+
+bool QmlModelStateOperation::isValidQmlModelStateOperation(const ModelNode &modelNode)
+{
+    return isValidQmlModelNodeFacade(modelNode)
+            && (modelNode.metaInfo().isSubclassOf("<cpp>.QDeclarative1StateOperation", -1, -1)
+                || modelNode.metaInfo().isSubclassOf("<cpp>.QQuickStateOperation", -1, -1));
 }
 
 void QmlPropertyChanges::removeProperty(const PropertyName &name)
 {
-    RewriterTransaction transaction(qmlModelView()->beginRewriterTransaction());
+    RewriterTransaction transaction(view()->beginRewriterTransaction());
     if (name == "name")
         return;
     modelNode().removeProperty(name);

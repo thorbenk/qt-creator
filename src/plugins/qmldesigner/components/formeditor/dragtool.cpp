@@ -152,7 +152,7 @@ void DragTool::createQmlItemNode(const ItemLibraryEntry &itemLibraryEntry, QmlIt
     FormEditorItem *parentItem = scene()->itemForQmlItemNode(parentNode);
     QPointF pos = parentItem->mapFromScene(scenePos);
 
-    m_dragNode = view()->createQmlItemNode(itemLibraryEntry, pos, parentNode);
+    m_dragNode = QmlItemNode::createQmlItemNode(view(), itemLibraryEntry, pos, parentNode);
 
     Q_ASSERT(m_dragNode.modelNode().isValid());
 
@@ -171,7 +171,7 @@ void DragTool::createQmlItemNodeFromImage(const QString &imageName, QmlItemNode 
     FormEditorItem *parentItem = scene()->itemForQmlItemNode(parentNode);
     QPointF pos = parentItem->mapFromScene(scenePos);
 
-    m_dragNode = view()->createQmlItemNodeFromImage(imageName, pos, parentNode);
+    m_dragNode = QmlItemNode::createQmlItemNodeFromImage(view(), imageName, pos, parentNode);
 
     QList<QmlItemNode> nodeList;
     nodeList.append(m_dragNode);
@@ -285,7 +285,7 @@ void DragTool::dropEvent(QGraphicsSceneDragDropEvent * event)
         if (m_dragNode.isValid()) {
             QList<QmlItemNode> nodeList;
             nodeList.append(m_dragNode);
-            view()->setSelectedQmlItemNodes(nodeList);
+            view()->setSelectedModelNodes(toModelNodeList(nodeList));
         }
         m_dragNode = ModelNode();
         view()->changeToSelectionTool();
@@ -345,7 +345,7 @@ void DragTool::dragLeaveEvent(QGraphicsSceneDragDropEvent * event)
 
         QmlDesignerItemLibraryDragAndDrop::CustomDragAndDrop::show();
         QList<QmlItemNode> nodeList;
-        view()->setSelectedQmlItemNodes(nodeList);
+        view()->setSelectedModelNodes(toModelNodeList(nodeList));
         view()->changeToSelectionTool();
     }
 }

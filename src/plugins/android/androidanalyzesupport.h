@@ -31,11 +31,9 @@
 #define ANDROIDANALYZESUPPORT_H
 
 #include "androidrunsupport.h"
+#include <qmldebug/qmloutputparser.h>
 
-namespace Analyzer {
-class IAnalyzerEngine;
-class AnalyzerRunControl;
-}
+namespace Analyzer { class AnalyzerRunControl; }
 namespace ProjectExplorer { class RunControl; }
 
 namespace Android {
@@ -50,8 +48,7 @@ class AndroidAnalyzeSupport : public AndroidRunSupport
 
 public:
     static ProjectExplorer::RunControl *createAnalyzeRunControl(AndroidRunConfiguration *runConfig,
-                                                                ProjectExplorer::RunMode runMode,
-                                                                QString *errorMessage);
+                                                                ProjectExplorer::RunMode runMode);
 
     AndroidAnalyzeSupport(AndroidRunConfiguration *runConfig,
         Analyzer::AnalyzerRunControl *runControl);
@@ -62,8 +59,12 @@ private slots:
     void handleRemoteOutput(const QByteArray &output);
     void handleRemoteErrorOutput(const QByteArray &output);
 
+    void remoteIsRunning();
+
 private:
-    Analyzer::IAnalyzerEngine *m_engine;
+    Analyzer::AnalyzerRunControl *m_runControl;
+    QmlDebug::QmlOutputParser m_outputParser;
+    int m_qmlPort;
 };
 
 } // namespace Internal

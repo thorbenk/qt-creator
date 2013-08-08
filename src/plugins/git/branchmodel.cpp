@@ -95,6 +95,8 @@ public:
         BranchNode *rn = rootNode();
         if (rn->isLeaf())
             return false;
+        if (root >= rn->children.count())
+            return false;
         return childOf(rn->children.at(root));
     }
 
@@ -200,8 +202,6 @@ BranchModel::BranchModel(GitClient *client, QObject *parent) :
     // Abuse the sha field for ref prefix
     m_rootNode->append(new BranchNode(tr("Local Branches"), QLatin1String("refs/heads")));
     m_rootNode->append(new BranchNode(tr("Remote Branches"), QLatin1String("refs/remotes")));
-    if (m_client->settings()->boolValue(GitSettings::showTagsKey))
-        m_rootNode->append(new BranchNode(tr("Tags"), QLatin1String("refs/tags")));
 }
 
 BranchModel::~BranchModel()
@@ -333,6 +333,8 @@ void BranchModel::clear()
     foreach (BranchNode *root, m_rootNode->children)
         while (root->count())
             delete root->children.takeLast();
+    if (hasTags())
+        m_rootNode->children.takeLast();
 
     m_currentBranch = 0;
 }
@@ -359,7 +361,7 @@ bool BranchModel::refresh(const QString &workingDirectory, QString *errorMessage
         parseOutputLine(l);
 
     if (m_currentBranch) {
-        if (m_currentBranch->parent == m_rootNode->children[0])
+        if (m_currentBranch->parent == m_rootNode->children.at(LocalBranches))
             m_currentBranch = 0;
         setCurrentBranch();
     }
@@ -375,7 +377,7 @@ void BranchModel::setCurrentBranch()
     if (currentBranch.isEmpty())
         return;
 
-    BranchNode *local = m_rootNode->children.at(0);
+    BranchNode *local = m_rootNode->children.at(LocalBranches);
     int pos = 0;
     for (pos = 0; pos < local->count(); ++pos) {
         if (local->children.at(pos)->name == currentBranch) {
@@ -444,7 +446,7 @@ QStringList BranchModel::localBranchNames() const
     if (!m_rootNode || !m_rootNode->count())
         return QStringList();
 
-    return m_rootNode->children.at(0)->childrenNames();
+    return m_rootNode->children.at(LocalBranches)->childrenNames();
 }
 
 QString BranchModel::sha(const QModelIndex &idx) const
@@ -453,6 +455,11 @@ QString BranchModel::sha(const QModelIndex &idx) const
         return QString();
     BranchNode *node = indexToNode(idx);
     return node->sha;
+}
+
+bool BranchModel::hasTags() const
+{
+    return m_rootNode->children.count() > Tags;
 }
 
 bool BranchModel::isLocal(const QModelIndex &idx) const
@@ -473,7 +480,7 @@ bool BranchModel::isLeaf(const QModelIndex &idx) const
 
 bool BranchModel::isTag(const QModelIndex &idx) const
 {
-    if (!idx.isValid())
+    if (!idx.isValid() || !hasTags())
         return false;
     return indexToNode(idx)->isTag();
 }
@@ -581,7 +588,7 @@ QModelIndex BranchModel::addBranch(const QString &name, bool track, const QModel
         return QModelIndex();
     }
 
-    BranchNode *local = m_rootNode->children.at(0);
+    BranchNode *local = m_rootNode->children.at(LocalBranches);
     const int slash = name.indexOf(QLatin1Char('/'));
     const QString leafName = slash == -1 ? name : name.mid(slash + 1);
     bool added = false;
@@ -638,14 +645,17 @@ void BranchModel::parseOutputLine(const QString &line)
     nameParts.removeFirst(); // remove refs...
 
     BranchNode *root = 0;
-    if (nameParts.first() == QLatin1String("heads"))
-        root = m_rootNode->children.at(0); // Insert the local designator
-    else if (nameParts.first() == QLatin1String("remotes"))
-        root = m_rootNode->children.at(1);
-    else if (showTags && nameParts.first() == QLatin1String("tags"))
-        root = m_rootNode->children.at(2);
-    else
+    if (nameParts.first() == QLatin1String("heads")) {
+        root = m_rootNode->children.at(LocalBranches);
+    } else if (nameParts.first() == QLatin1String("remotes")) {
+        root = m_rootNode->children.at(RemoteBranches);
+    } else if (showTags && nameParts.first() == QLatin1String("tags")) {
+        if (!hasTags()) // Tags is missing, add it
+            m_rootNode->append(new BranchNode(tr("Tags"), QLatin1String("refs/tags")));
+        root = m_rootNode->children.at(Tags);
+    } else {
         return;
+    }
 
     nameParts.removeFirst();
 

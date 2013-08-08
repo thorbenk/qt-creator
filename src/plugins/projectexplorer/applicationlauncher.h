@@ -71,11 +71,10 @@ public:
 signals:
     void appendMessage(const QString &message, Utils::OutputFormat format);
     void processStarted();
-    void processExited(int exitCode);
+    void processExited(int exitCode, QProcess::ExitStatus);
     void bringToForegroundRequested(qint64 pid);
 
 private slots:
-    void processStopped();
     void guiProcessError();
     void consoleProcessError(const QString &error);
     void readStandardOutput();

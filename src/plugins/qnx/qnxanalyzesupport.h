@@ -34,8 +34,9 @@
 
 #include <projectexplorer/projectexplorerconstants.h>
 #include <utils/outputformat.h>
+#include <qmldebug/qmloutputparser.h>
 
-namespace Analyzer { class IAnalyzerEngine; }
+namespace Analyzer { class AnalyzerRunControl; }
 
 namespace Qnx {
 namespace Internal {
@@ -46,7 +47,7 @@ class QnxAnalyzeSupport : public QnxAbstractRunSupport
 {
     Q_OBJECT
 public:
-    QnxAnalyzeSupport(QnxRunConfiguration *runConfig, Analyzer::IAnalyzerEngine *engine);
+    QnxAnalyzeSupport(QnxRunConfiguration *runConfig, Analyzer::AnalyzerRunControl *engine);
 
 public slots:
     void handleProfilingFinished();
@@ -54,17 +55,19 @@ public slots:
 private slots:
     void handleAdapterSetupRequested();
 
-    void handleRemoteProcessStarted();
     void handleRemoteProcessFinished(bool success);
     void handleProgressReport(const QString &progressOutput);
     void handleRemoteOutput(const QByteArray &output);
     void handleError(const QString &error);
 
+    void remoteIsRunning();
+
 private:
     void startExecution();
     void showMessage(const QString &, Utils::OutputFormat);
 
-    Analyzer::IAnalyzerEngine *m_engine;
+    Analyzer::AnalyzerRunControl *m_runControl;
+    QmlDebug::QmlOutputParser m_outputParser;
     int m_qmlPort;
 };
 

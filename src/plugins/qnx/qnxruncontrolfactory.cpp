@@ -48,6 +48,7 @@
 #include <analyzerbase/analyzerstartparameters.h>
 #include <analyzerbase/analyzermanager.h>
 #include <analyzerbase/analyzerruncontrol.h>
+#include <analyzerbase/ianalyzertool.h>
 #include <projectexplorer/environmentaspect.h>
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/project.h>
@@ -62,7 +63,7 @@ using namespace ProjectExplorer;
 using namespace Qnx;
 using namespace Qnx::Internal;
 
-DebuggerStartParameters createStartParameters(const QnxRunConfiguration *runConfig)
+static DebuggerStartParameters createDebuggerStartParameters(const QnxRunConfiguration *runConfig)
 {
     DebuggerStartParameters params;
     Target *target = runConfig->target();
@@ -113,7 +114,7 @@ DebuggerStartParameters createStartParameters(const QnxRunConfiguration *runConf
     return params;
 }
 
-AnalyzerStartParameters createAnalyzerStartParameters(const QnxRunConfiguration *runConfig, RunMode mode)
+static AnalyzerStartParameters createAnalyzerStartParameters(const QnxRunConfiguration *runConfig, RunMode mode)
 {
     AnalyzerStartParameters params;
     Target *target = runConfig->target();
@@ -124,7 +125,7 @@ AnalyzerStartParameters createAnalyzerStartParameters(const QnxRunConfiguration 
         return params;
 
     if (mode == QmlProfilerRunMode)
-        params.startMode = StartQmlRemote;
+        params.startMode = StartLocal;
     params.debuggee = runConfig->remoteExecutableFilePath();
     params.debuggeeArgs = runConfig->arguments();
     params.connParams = DeviceKitInformation::device(runConfig->target()->kit())->sshParameters();
@@ -177,7 +178,7 @@ RunControl *QnxRunControlFactory::create(RunConfiguration *runConfig, RunMode mo
     case NormalRunMode:
         return new QnxRunControl(rc);
     case DebugRunMode: {
-        const DebuggerStartParameters params = createStartParameters(rc);
+        const DebuggerStartParameters params = createDebuggerStartParameters(rc);
         DebuggerRunControl * const runControl = DebuggerPlugin::createDebugger(params, rc, errorMessage);
         if (!runControl)
             return 0;
@@ -188,15 +189,9 @@ RunControl *QnxRunControlFactory::create(RunConfiguration *runConfig, RunMode mo
         return runControl;
     }
     case QmlProfilerRunMode: {
-        IAnalyzerTool *tool = AnalyzerManager::toolFromRunMode(mode);
-        if (!tool) {
-            if (errorMessage)
-                *errorMessage = tr("No analyzer tool selected.");
-            return 0;
-        }
         const AnalyzerStartParameters params = createAnalyzerStartParameters(rc, mode);
-        AnalyzerRunControl * const runControl = new AnalyzerRunControl(tool, params, runConfig);
-        QnxAnalyzeSupport * const analyzeSupport = new QnxAnalyzeSupport(rc, runControl->engine());
+        AnalyzerRunControl *runControl = AnalyzerManager::createRunControl(params, runConfig);
+        QnxAnalyzeSupport * const analyzeSupport = new QnxAnalyzeSupport(rc, runControl);
         connect(runControl, SIGNAL(finished()), analyzeSupport, SLOT(handleProfilingFinished()));
         return runControl;
     }

@@ -119,12 +119,6 @@ ImageViewer::~ImageViewer()
     delete d;
 }
 
-bool ImageViewer::createNew(const QString &contents)
-{
-    Q_UNUSED(contents)
-    return false;
-}
-
 bool ImageViewer::open(QString *errorString, const QString &fileName, const QString &realFileName)
 {
     if (!d->imageView->openFile(realFileName)) {
@@ -146,11 +140,6 @@ Core::IDocument *ImageViewer::document()
 Core::Id ImageViewer::id() const
 {
     return Core::Id(Constants::IMAGEVIEWER_ID);
-}
-
-bool ImageViewer::isTemporary() const
-{
-    return false;
 }
 
 QWidget *ImageViewer::toolBar()

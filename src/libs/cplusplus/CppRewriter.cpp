@@ -129,9 +129,9 @@ public:
         virtual void visit(NamedType *type)
         {
             FullySpecifiedType ty = rewrite->env->apply(type->name(), rewrite);
-            if (! ty->isUndefinedType())
+            if (! ty->isUndefinedType()) {
                 temps.append(ty);
-            else {
+            } else {
                 const Name *name = rewrite->rewriteName(type->name());
                 temps.append(control()->namedType(name));
             }
@@ -158,7 +158,7 @@ public:
 
                 // the copy() call above set the scope to 'type'
                 // reset it to 0 before adding addMember to avoid assert
-                newArg->resetScope();
+                newArg->resetEnclosingScope();
                 funTy->addMember(newArg);
             }
 

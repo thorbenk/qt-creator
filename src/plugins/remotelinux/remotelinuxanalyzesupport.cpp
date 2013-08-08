@@ -31,7 +31,7 @@
 
 #include "remotelinuxrunconfiguration.h"
 
-#include <analyzerbase/ianalyzerengine.h>
+#include <analyzerbase/analyzerruncontrol.h>
 
 #include <projectexplorer/buildconfiguration.h>
 #include <projectexplorer/project.h>
@@ -41,6 +41,7 @@
 #include <projectexplorer/kitinformation.h>
 
 #include <utils/qtcassert.h>
+#include <qmldebug/qmloutputparser.h>
 
 #include <QPointer>
 
@@ -54,16 +55,18 @@ namespace Internal {
 class RemoteLinuxAnalyzeSupportPrivate
 {
 public:
-    RemoteLinuxAnalyzeSupportPrivate(IAnalyzerEngine *engine, RunMode runMode)
-        : engine(engine),
+    RemoteLinuxAnalyzeSupportPrivate(AnalyzerRunControl *rc, RunMode runMode)
+        : runControl(rc),
           qmlProfiling(runMode == QmlProfilerRunMode),
           qmlPort(-1)
     {
     }
 
-    const QPointer<IAnalyzerEngine> engine;
+    const QPointer<AnalyzerRunControl> runControl;
     bool qmlProfiling;
     int qmlPort;
+
+    QmlDebug::QmlOutputParser outputParser;
 };
 
 } // namespace Internal
@@ -75,27 +78,26 @@ AnalyzerStartParameters RemoteLinuxAnalyzeSupport::startParameters(const RemoteL
 {
     AnalyzerStartParameters params;
     if (runMode == QmlProfilerRunMode)
-        params.startMode = StartQmlRemote;
-    params.debuggee = runConfig->remoteExecutableFilePath();
-    params.debuggeeArgs = runConfig->arguments();
+        params.startMode = StartLocal;
+    params.runMode = runMode;
     params.connParams = DeviceKitInformation::device(runConfig->target()->kit())->sshParameters();
     params.analyzerCmdPrefix = runConfig->commandPrefix();
     params.displayName = runConfig->displayName();
     params.sysroot = SysRootKitInformation::sysRoot(runConfig->target()->kit()).toString();
     params.analyzerHost = params.connParams.host;
-    params.analyzerPort = params.connParams.port;
 
     return params;
 }
 
 RemoteLinuxAnalyzeSupport::RemoteLinuxAnalyzeSupport(RemoteLinuxRunConfiguration *runConfig,
-                                                     IAnalyzerEngine *engine, RunMode runMode)
+                                                     AnalyzerRunControl *engine, RunMode runMode)
     : AbstractRemoteLinuxRunSupport(runConfig, engine),
       d(new RemoteLinuxAnalyzeSupportPrivate(engine, runMode))
 {
-    connect(d->engine, SIGNAL(starting(const Analyzer::IAnalyzerEngine*)),
+    connect(d->runControl, SIGNAL(starting(const Analyzer::AnalyzerRunControl*)),
             SLOT(handleRemoteSetupRequested()));
-    connect(d->engine, SIGNAL(finished()), SLOT(handleProfilingFinished()));
+    connect(&d->outputParser, SIGNAL(waitingForConnectionOnPort(quint16)),
+            SLOT(remoteIsRunning()));
 }
 
 RemoteLinuxAnalyzeSupport::~RemoteLinuxAnalyzeSupport()
@@ -105,8 +107,9 @@ RemoteLinuxAnalyzeSupport::~RemoteLinuxAnalyzeSupport()
 
 void RemoteLinuxAnalyzeSupport::showMessage(const QString &msg, Utils::OutputFormat format)
 {
-    if (state() != Inactive && d->engine)
-        d->engine->logApplicationMessage(msg, format);
+    if (state() != Inactive && d->runControl)
+        d->runControl->logApplicationMessage(msg, format);
+    d->outputParser.processOutput(msg);
 }
 
 void RemoteLinuxAnalyzeSupport::handleRemoteSetupRequested()
@@ -121,25 +124,26 @@ void RemoteLinuxAnalyzeSupport::startExecution()
 {
     QTC_ASSERT(state() == GatheringPorts, return);
 
-    if (d->qmlProfiling && !setPort(d->qmlPort))
-            return;
+    // Currently we support only QML profiling
+    QTC_ASSERT(d->qmlProfiling, return);
+
+    if (!setPort(d->qmlPort))
+        return;
 
     setState(StartingRunner);
 
     DeviceApplicationRunner *runner = appRunner();
     connect(runner, SIGNAL(remoteStderr(QByteArray)), SLOT(handleRemoteErrorOutput(QByteArray)));
     connect(runner, SIGNAL(remoteStdout(QByteArray)), SLOT(handleRemoteOutput(QByteArray)));
-    if (d->qmlProfiling)
-        connect(runner, SIGNAL(remoteProcessStarted()), SLOT(handleRemoteProcessStarted()));
-    QString args = arguments();
-    if (d->qmlProfiling)
-        args += QString::fromLocal8Bit(" -qmljsdebugger=port:%1,block").arg(d->qmlPort);
-    const QString remoteCommandLine = d->qmlProfiling
-        ? QString::fromLatin1("%1 %2 %3").arg(commandPrefix()).arg(remoteFilePath()).arg(args)
-        : QString();
+    connect(runner, SIGNAL(remoteProcessStarted()), SLOT(handleRemoteProcessStarted()));
     connect(runner, SIGNAL(finished(bool)), SLOT(handleAppRunnerFinished(bool)));
     connect(runner, SIGNAL(reportProgress(QString)), SLOT(handleProgressReport(QString)));
     connect(runner, SIGNAL(reportError(QString)), SLOT(handleAppRunnerError(QString)));
+
+    const QString args = arguments()
+            + QString::fromLocal8Bit(" -qmljsdebugger=port:%1,block").arg(d->qmlPort);
+    const QString remoteCommandLine =
+            QString::fromLatin1("%1 %2 %3").arg(commandPrefix()).arg(remoteFilePath()).arg(args);
     runner->start(device(), remoteCommandLine.toUtf8());
 }
 
@@ -153,13 +157,21 @@ void RemoteLinuxAnalyzeSupport::handleAppRunnerError(const QString &error)
 
 void RemoteLinuxAnalyzeSupport::handleAppRunnerFinished(bool success)
 {
+    // reset needs to be called first to ensure that the correct state is set.
+    reset();
     if (!success)
         showMessage(tr("Failure running remote process."), Utils::NormalMessageFormat);
+    d->runControl->notifyRemoteFinished(success);
 }
 
 void RemoteLinuxAnalyzeSupport::handleProfilingFinished()
 {
     setFinished();
+}
+
+void RemoteLinuxAnalyzeSupport::remoteIsRunning()
+{
+    d->runControl->notifyRemoteSetupDone(d->qmlPort);
 }
 
 void RemoteLinuxAnalyzeSupport::handleRemoteOutput(const QByteArray &output)
@@ -173,7 +185,7 @@ void RemoteLinuxAnalyzeSupport::handleRemoteErrorOutput(const QByteArray &output
 {
     QTC_ASSERT(state() != GatheringPorts, return);
 
-    if (!d->engine)
+    if (!d->runControl)
         return;
 
     showMessage(QString::fromUtf8(output), Utils::StdErrFormat);
@@ -188,12 +200,6 @@ void RemoteLinuxAnalyzeSupport::handleAdapterSetupFailed(const QString &error)
 {
     AbstractRemoteLinuxRunSupport::handleAdapterSetupFailed(error);
     showMessage(tr("Initial setup failed: %1").arg(error), Utils::NormalMessageFormat);
-}
-
-void RemoteLinuxAnalyzeSupport::handleAdapterSetupDone()
-{
-    AbstractRemoteLinuxRunSupport::handleAdapterSetupDone();
-    d->engine->notifyRemoteSetupDone(d->qmlPort);
 }
 
 void RemoteLinuxAnalyzeSupport::handleRemoteProcessStarted()

@@ -136,7 +136,6 @@ public:
 
     // EditorInterface
     Core::IDocument *editorDocument() const;
-    bool createNew(const QString &contents);
     virtual bool open(QString *errorString, const QString &fileName, const QString &realFileName);
     QByteArray saveState() const;
     bool restoreState(const QByteArray &state);
@@ -212,9 +211,6 @@ public:
     void setActionHack(QObject *hack);
     QObject *actionHack() const;
 
-    void setTextCodec(QTextCodec *codec);
-    QTextCodec *textCodec() const;
-
     void setReadOnly(bool b);
 
     void setTextCursor(const QTextCursor &cursor);
@@ -242,6 +238,8 @@ public:
     virtual IAssistInterface *createAssistInterface(AssistKind assistKind,
                                                     AssistReason assistReason) const;
     QMimeData *duplicateMimeData(const QMimeData *source) const;
+
+    static QString msgTextTooLarge(quint64 size);
 
 public slots:
     virtual void copy();
@@ -352,7 +350,6 @@ protected:
     virtual bool selectionVisible(int blockNumber) const;
     virtual bool replacementVisible(int blockNumber) const;
     virtual QColor replacementPenColor(int blockNumber) const;
-    static QString msgTextTooLarge(quint64 size);
 
 private:
     void maybeSelectLine();
@@ -612,7 +609,6 @@ public:
 
     // IEditor
     Core::IDocument *document() { return m_editorWidget->editorDocument(); }
-    bool createNew(const QString &contents) { return m_editorWidget->createNew(contents); }
     bool open(QString *errorString, const QString &fileName, const QString &realFileName);
 
     QByteArray saveState() const { return m_editorWidget->saveState(); }
@@ -640,9 +636,6 @@ public:
     ITextMarkable *markableInterface() { return m_editorWidget->markableInterface(); }
 
     QString contextHelpId() const; // from IContext
-
-    void setTextCodec(QTextCodec *codec, TextCodecReason = TextCodecOtherReason) { m_editorWidget->setTextCodec(codec); }
-    QTextCodec *textCodec() const { return m_editorWidget->textCodec(); }
 
     // ITextEditor
     void remove(int length);

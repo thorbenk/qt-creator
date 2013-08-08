@@ -1405,11 +1405,11 @@ bool DebuggerPluginPrivate::parseArgument(QStringList::const_iterator &it,
                 QString key = arg.section(QLatin1Char('='), 0, 0);
                 QString val = arg.section(QLatin1Char('='), 1, 1);
                 if (val.isEmpty()) {
-                    if (key.isEmpty())
+                    if (key.isEmpty()) {
                         continue;
-                    else if (sp.executable.isEmpty())
+                    } else if (sp.executable.isEmpty()) {
                         sp.executable = key;
-                    else {
+                    } else {
                         *errorMessage = DebuggerPlugin::tr("Only one executable allowed!");
                         return false;
                     }
@@ -1419,15 +1419,13 @@ bool DebuggerPluginPrivate::parseArgument(QStringList::const_iterator &it,
                     sp.remoteChannel = val;
                     sp.displayName = tr("Remote: \"%1\"").arg(sp.remoteChannel);
                     sp.startMessage = tr("Attaching to remote server %1.").arg(sp.remoteChannel);
-                }
-                else if (key == QLatin1String("core")) {
+                } else if (key == QLatin1String("core")) {
                     sp.startMode = AttachCore;
                     sp.closeMode = DetachAtClose;
                     sp.coreFile = val;
                     sp.displayName = tr("Core file \"%1\"").arg(sp.coreFile);
                     sp.startMessage = tr("Attaching to core file %1.").arg(sp.coreFile);
-                }
-                else if (key == QLatin1String("kit")) {
+                } else if (key == QLatin1String("kit")) {
                     kit = KitManager::instance()->find(Id::fromString(val));
                 }
             }
@@ -2530,7 +2528,7 @@ void DebuggerPluginPrivate::openTextEditor(const QString &titlePattern0,
         return;
     QString titlePattern = titlePattern0;
     IEditor *editor = EditorManager::openEditorWithContents(
-        CC::K_DEFAULT_TEXT_EDITOR_ID, &titlePattern, contents);
+        CC::K_DEFAULT_TEXT_EDITOR_ID, &titlePattern, contents.toUtf8());
     QTC_ASSERT(editor, return);
     EditorManager::activateEditor(editor, EditorManager::IgnoreNavigationHistory);
 }
@@ -3504,7 +3502,7 @@ void DebuggerPluginPrivate::testProjectLoaded(Project *project)
 
 void DebuggerPluginPrivate::testProjectEvaluated()
 {
-    QString fileName = m_testProject->document()->filePath();
+    QString fileName = m_testProject->projectFilePath();
     QVERIFY(!fileName.isEmpty());
     qWarning("Project %s loaded", qPrintable(fileName));
     connect(ProjectExplorerPlugin::instance()->buildManager(),

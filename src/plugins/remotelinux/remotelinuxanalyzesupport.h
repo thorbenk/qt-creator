@@ -37,7 +37,7 @@
 
 namespace Analyzer {
 class AnalyzerStartParameters;
-class IAnalyzerEngine;
+class AnalyzerRunControl;
 }
 
 namespace RemoteLinux {
@@ -53,13 +53,12 @@ public:
                                                              ProjectExplorer::RunMode runMode);
 
     RemoteLinuxAnalyzeSupport(RemoteLinuxRunConfiguration *runConfig,
-            Analyzer::IAnalyzerEngine *engine, ProjectExplorer::RunMode runMode);
+            Analyzer::AnalyzerRunControl *engine, ProjectExplorer::RunMode runMode);
     ~RemoteLinuxAnalyzeSupport();
 
 protected:
     void startExecution();
     void handleAdapterSetupFailed(const QString &error);
-    void handleAdapterSetupDone();
 
 private slots:
     void handleRemoteSetupRequested();
@@ -71,6 +70,8 @@ private slots:
 
     void handleRemoteProcessStarted();
     void handleProfilingFinished();
+
+    void remoteIsRunning();
 
 private:
     void showMessage(const QString &, Utils::OutputFormat);

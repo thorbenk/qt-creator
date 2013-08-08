@@ -39,15 +39,10 @@ class QActionGroup;
 class QToolBar;
 QT_END_NAMESPACE
 
-namespace ProjectExplorer {
-    class TaskHub;
-}
-
 namespace Qnx {
 namespace Internal {
 
 class BarDescriptorDocument;
-
 class BarDescriptorEditorWidget;
 
 class BarDescriptorEditor : public Core::IEditor
@@ -63,11 +58,9 @@ public:
 
     explicit BarDescriptorEditor(BarDescriptorEditorWidget *editorWidget);
 
-    bool createNew(const QString &contents = QString());
     bool open(QString *errorString, const QString &fileName, const QString &realFileName);
     Core::IDocument *document();
     Core::Id id() const;
-    bool isTemporary() const;
     QWidget *toolBar();
 
     EditorPage activePage() const;
@@ -76,8 +69,6 @@ private slots:
     void changeEditorPage(QAction *action);
 
 private:
-    ProjectExplorer::TaskHub *taskHub();
-
     void setActivePage(EditorPage page);
 
     BarDescriptorDocument *m_file;

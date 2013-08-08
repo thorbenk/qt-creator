@@ -160,13 +160,11 @@ void CppHighlighter::highlightBlock(const QString &text)
                 onlyHighlightComments = true;
             }
 
-        } else if (tk.is(T_NUMERIC_LITERAL))
+        } else if (tk.is(T_NUMERIC_LITERAL)) {
             setFormat(tk.begin(), tk.length(), m_formats[CppNumberFormat]);
-
-        else if (tk.isStringLiteral() || tk.isCharLiteral())
+        } else if (tk.isStringLiteral() || tk.isCharLiteral()) {
             highlightLine(text, tk.begin(), tk.length(), m_formats[CppStringFormat]);
-
-        else if (tk.isComment()) {
+        } else if (tk.isComment()) {
             const int startPosition = initialState ? previousTokenEnd : tk.begin();
             if (tk.is(T_COMMENT) || tk.is(T_CPP_COMMENT))
                 highlightLine(text, startPosition, tk.end() - startPosition, m_formats[CppCommentFormat]);
@@ -177,8 +175,8 @@ void CppHighlighter::highlightBlock(const QString &text)
             // we need to insert a close comment parenthesis, if
             //  - the line starts in a C Comment (initalState != 0)
             //  - the first token of the line is a T_COMMENT (i == 0 && tk.is(T_COMMENT))
-            //  - is not a continuation line (tokens.size() > 1 || ! state)
-            if (initialState && i == 0 && (tokens.size() > 1 || ! state)) {
+            //  - is not a continuation line (tokens.size() > 1 || !state)
+            if (initialState && i == 0 && (tokens.size() > 1 || !state)) {
                 --braceDepth;
                 // unless we are at the end of the block, we reduce the folding indent
                 if (i == tokens.size()-1)
@@ -192,18 +190,15 @@ void CppHighlighter::highlightBlock(const QString &text)
                 initialState = 0;
             }
 
-        } else if (tk.isKeyword() || CppTools::isQtKeyword(text.midRef(tk.begin(), tk.length())) || tk.isObjCAtKeyword())
+        } else if (tk.isKeyword() || CppTools::isQtKeyword(text.midRef(tk.begin(), tk.length())) || tk.isObjCAtKeyword()) {
             setFormat(tk.begin(), tk.length(), m_formats[CppKeywordFormat]);
-
-        else if (tk.isOperator())
+        } else if (tk.isOperator()) {
             setFormat(tk.begin(), tk.length(), m_formats[CppOperatorFormat]);
-
-        else if (i == 0 && tokens.size() > 1 && tk.is(T_IDENTIFIER) && tokens.at(1).is(T_COLON))
+        } else if (i == 0 && tokens.size() > 1 && tk.is(T_IDENTIFIER) && tokens.at(1).is(T_COLON)) {
             setFormat(tk.begin(), tk.length(), m_formats[CppLabelFormat]);
-
-        else if (tk.is(T_IDENTIFIER))
+        } else if (tk.is(T_IDENTIFIER)) {
             highlightWord(text.midRef(tk.begin(), tk.length()), tk.begin(), tk.length());
-
+        }
     }
 
     // mark the trailing white spaces
@@ -211,7 +206,7 @@ void CppHighlighter::highlightBlock(const QString &text)
     if (text.length() > lastTokenEnd)
         highlightLine(text, lastTokenEnd, text.length() - lastTokenEnd, m_formats[CppVisualWhitespace]);
 
-    if (! initialState && state && ! tokens.isEmpty()) {
+    if (!initialState && state && !tokens.isEmpty()) {
         parentheses.append(Parenthesis(Parenthesis::Opened, QLatin1Char('+'),
                                        tokens.last().begin()));
         ++braceDepth;
@@ -361,7 +356,7 @@ void CppHighlighter::highlightWord(QStringRef word, int position, int length)
             || (word.at(1) == QLatin1Char('T') && word.at(2) == QLatin1Char('_'))) { // QT_
             for (int i = 1; i < word.length(); ++i) {
                 const QChar &ch = word.at(i);
-                if (! (ch.isUpper() || ch == QLatin1Char('_')))
+                if (!(ch.isUpper() || ch == QLatin1Char('_')))
                     return;
             }
 
@@ -380,7 +375,7 @@ void CppHighlighter::highlightDoxygenComment(const QString &text, int position, 
     const QTextCharFormat &format = m_formats[CppDoxygenCommentFormat];
     const QTextCharFormat &kwFormat = m_formats[CppDoxygenTagFormat];
 
-    while (! it->isNull()) {
+    while (!it->isNull()) {
         if (it->unicode() == QLatin1Char('\\') ||
             it->unicode() == QLatin1Char('@')) {
             ++it;

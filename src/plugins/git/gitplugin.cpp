@@ -744,7 +744,9 @@ void GitPlugin::diffCurrentProject()
 {
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasProject(), return);
-    m_gitClient->diff(state.currentProjectTopLevel(), state.relativeCurrentProject());
+    const QString relativeProject = state.relativeCurrentProject();
+    m_gitClient->diff(state.currentProjectTopLevel(),
+                      relativeProject.isEmpty() ? QStringList() : QStringList(relativeProject));
 }
 
 void GitPlugin::diffRepository()
@@ -758,7 +760,7 @@ void GitPlugin::logFile()
 {
     const VcsBase::VcsBasePluginState state = currentState();
     QTC_ASSERT(state.hasFile(), return);
-    m_gitClient->log(state.currentFileTopLevel(), QStringList(state.relativeCurrentFile()), true);
+    m_gitClient->log(state.currentFileTopLevel(), state.relativeCurrentFile(), true);
 }
 
 void GitPlugin::blameFile()
@@ -920,9 +922,9 @@ void GitPlugin::gitkForCurrentFolder()
      *
      */
     QDir dir(state.currentFileDirectory());
-    if (QFileInfo(dir,QLatin1String(".git")).exists() || dir.cd(QLatin1String(".git")))
+    if (QFileInfo(dir,QLatin1String(".git")).exists() || dir.cd(QLatin1String(".git"))) {
         m_gitClient->launchGitK(state.currentFileDirectory());
-    else {
+    } else {
         QString folderName = dir.absolutePath();
         dir.cdUp();
         folderName = folderName.remove(0, dir.absolutePath().length() + 1);
@@ -1250,16 +1252,11 @@ void GitPlugin::updateSubmodules()
 // If the file is modified in an editor, make sure it is saved.
 static bool ensureFileSaved(const QString &fileName)
 {
-    const QList<Core::IEditor*> editors = Core::EditorManager::instance()->editorsForFileName(fileName);
-    if (editors.isEmpty())
-        return true;
-    Core::IDocument *document = editors.front()->document();
+    Core::IDocument *document = Core::EditorManager::documentModel()->documentForFilePath(fileName);
     if (!document || !document->isModified())
         return true;
     bool canceled;
-    QList<Core::IDocument *> documents;
-    documents << document;
-    Core::DocumentManager::saveModifiedDocuments(documents, &canceled);
+    Core::DocumentManager::saveModifiedDocuments(QList<Core::IDocument *>() << document, &canceled);
     return !canceled;
 }
 

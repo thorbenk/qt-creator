@@ -115,21 +115,16 @@ public:
                                  const Id &editorId = Id(), OpenEditorFlags flags = 0,
                                  bool *newEditor = 0);
     static IEditor *openEditorWithContents(const Id &editorId,
-        QString *titlePattern = 0, const QString &contents = QString());
+        QString *titlePattern = 0, const QByteArray &contents = QByteArray());
 
     static bool openExternalEditor(const QString &fileName, const Id &editorId);
 
     QStringList getOpenFileNames() const;
     Id getOpenWithEditorId(const QString &fileName, bool *isExternalEditor = 0) const;
 
-    bool hasEditor(const QString &fileName) const;
-    QList<IEditor *> editorsForFileName(const QString &filename) const;
-    QList<IEditor *> editorsForDocument(IDocument *document) const;
-
     static IDocument *currentDocument();
     static IEditor *currentEditor();
     QList<IEditor *> visibleEditors() const;
-    QList<IEditor*> openedEditors() const;
 
     static void activateEditor(IEditor *editor, OpenEditorFlags flags = 0);
     void activateEditorForEntry(DocumentModel::Entry *entry, OpenEditorFlags flags = 0);
@@ -137,7 +132,7 @@ public:
     IEditor *activateEditorForDocument(Internal::EditorView *view, IDocument *document, OpenEditorFlags flags = 0);
 
     static DocumentModel *documentModel();
-    static void closeDocuments(const QList<IDocument *> &documents, bool askAboutModifiedEditors = true);
+    static bool closeDocuments(const QList<IDocument *> &documents, bool askAboutModifiedEditors = true);
     void closeEditor(DocumentModel::Entry *entry);
     void closeOtherEditors(IDocument *document);
 
@@ -147,6 +142,7 @@ public:
     bool saveEditor(IEditor *editor);
 
     bool closeEditors(const QList<IEditor *> &editorsToClose, bool askAboutModifiedEditors = true);
+    void closeEditor(IEditor *editor, bool askAboutModifiedEditors = true);
 
     MakeWritableResult makeFileWritable(IDocument *document);
 
@@ -273,11 +269,10 @@ private:
     static Internal::EditorView *viewForEditor(IEditor *editor);
     static Internal::SplitterOrView *findRoot(const Internal::EditorView *view, int *rootIndex = 0);
 
-    void closeEditor(IEditor *editor);
     void closeView(Internal::EditorView *view);
     void emptyView(Internal::EditorView *view);
     static void splitNewWindow(Internal::EditorView *view);
-    IEditor *pickUnusedEditor() const;
+    IEditor *pickUnusedEditor(Internal::EditorView **foundView = 0) const;
     void addDocumentToRecentFiles(IDocument *document);
     void updateAutoSave();
     void setCloseSplitEnabled(Internal::SplitterOrView *splitterOrView, bool enable);

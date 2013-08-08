@@ -476,7 +476,7 @@ void Bind::enumerator(EnumeratorAST *ast, Enum *symbol)
         e->setType(control()->integerType(IntegerType::Int)); // ### introduce IntegerType::Enumerator
 
         if (ExpressionAST *expr = ast->expression)
-            e->setConstantValue(asStringLiteral(expr->firstToken(), expr->lastToken(), false));
+            e->setConstantValue(asStringLiteral(expr->firstToken(), expr->lastToken()));
 
         symbol->addMember(e);
     }
@@ -1137,13 +1137,12 @@ FullySpecifiedType Bind::trailingReturnType(TrailingReturnTypeAST *ast, const Fu
     return type;
 }
 
-const StringLiteral *Bind::asStringLiteral(unsigned firstToken, unsigned lastToken,
-                                           bool addWhitespace)
+const StringLiteral *Bind::asStringLiteral(unsigned firstToken, unsigned lastToken)
 {
     std::string buffer;
     for (unsigned index = firstToken; index != lastToken; ++index) {
         const Token &tk = tokenAt(index);
-        if (addWhitespace && (tk.whitespace() || tk.newline()))
+        if (index != firstToken && (tk.whitespace() || tk.newline()))
             buffer += ' ';
         buffer += tk.spell();
     }
@@ -1862,7 +1861,7 @@ bool Bind::visit(SimpleDeclarationAST *ast)
         setDeclSpecifiers(decl, type);
 
         if (Function *fun = decl->type()->asFunctionType()) {
-            fun->setScope(_scope);
+            fun->setEnclosingScope(_scope);
             fun->setSourceLocation(sourceLocation, translationUnit());
 
             setDeclSpecifiers(fun, type);
@@ -3017,17 +3016,9 @@ bool Bind::visit(EnumSpecifierAST *ast)
         this->enumerator(it->value, e);
     }
 
-    if (ast->stray_comma_token /* && ! translationUnit()->cxx0xEnabled()*/) {
-        const Token &tk = tokenAt(ast->stray_comma_token);
-        if (! tk.generated())
-            translationUnit()->warning(ast->stray_comma_token,
-                                       "commas at the end of enumerator lists are a C++0x-specific feature");
-    }
-
     (void) switchScope(previousScope);
     return false;
 }
-
 
 // PtrOperatorAST
 bool Bind::visit(PointerToMemberAST *ast)

@@ -2941,7 +2941,7 @@ def qdump__CPlusPlus__Internal__PPToken(d, value):
     offset = int(value["offset"])
     #warn("size: %s, alloc: %s, offset: %s, length: %s, data: %s"
     #    % (size, alloc, offset, length, data))
-    d.putValue(encodeCharArray(data + offset, 100, length),
+    d.putValue(d.readRawMemory(data + offset, min(100, length)),
         Hex2EncodedLatin1)
     d.putPlainChildren(value)
 
@@ -3197,3 +3197,20 @@ if False:
         d.putPlainChildren(value)
 
 
+def qdump__KDSoapValue1(d, value):
+    inner = value["d"]["d"].dereference()
+    d.putStringValue(inner["m_name"])
+    if d.isExpanded():
+        with Children(d):
+            d.putFields(inner)
+
+def indirect(value):
+    return value.cast(lookupType("char*"))
+
+def qdump__KDSoapValue(d, value):
+    p = (value.cast(lookupType("char*")) + 4).dereference().cast(lookupType("QString"))
+    d.putStringValue(p)
+    if d.isExpanded():
+        with Children(d):
+            data = value["d"]["d"].dereference()
+            d.putFields(data)

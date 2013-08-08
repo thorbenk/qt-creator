@@ -454,6 +454,79 @@ void FakeVimPlugin::test_vim_movement()
     data.setText("abc def");
     KEYS("}", "abc de" X "f");
     KEYS("{", X "abc def");
+
+    // bracket movement commands
+    data.setText(
+         "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    KEYS("]]",
+         "void a()" N
+         X "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    KEYS("]]",
+         "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         X "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    KEYS("2[[",
+         X "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    KEYS("4]]",
+         "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         X "");
+
+    KEYS("2[]",
+         "void a()" N
+         "{" N
+         X "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    KEYS("][",
+         "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         X "}" N
+         "");
+
+    KEYS("][",
+         "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         X "");
 }
 
 void FakeVimPlugin::test_vim_insert()
@@ -809,6 +882,61 @@ void FakeVimPlugin::test_vim_delete()
     data.setText("abc" N "def");
     KEYS("2lvox", "a" X "b" N "def");
     KEYS("vlox", "a" X "def");
+
+    // bracket movement command
+    data.setText(
+         "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    KEYS("d]]",
+         X "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    KEYS("u",
+         X "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    // When ]] is used after an operator, then also stops below a '}' in the first column.
+    KEYS("jd]]",
+         "void a()" N
+         X "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    KEYS("u",
+         "void a()" N
+         X "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         "");
+
+    // do nothing on failed movement
+    KEYS("Gd5[[",
+         "void a()" N
+         "{" N
+         "}" N "" N "int b()" N
+         "{ return 0; }" N "" N "int c()" N
+         "{ return 0;" N
+         "}" N
+         X "");
 }
 
 void FakeVimPlugin::test_vim_delete_inner_word()
@@ -3292,8 +3420,16 @@ void FakeVimPlugin::test_vim_qtcreator()
          "");
 
     // Record long insert mode.
-    KEYS("qb" "4s" "bool" "<down>" "Q_<insert>ASSERT" "<down><down>" "<insert><bs>2"
-         "<c-o>2w<delete>1" "<c-o>:s/true/false<cr><esc>" "q",
+    KEYS("qb"
+         "4s" "bool" // 1
+         "<down>"
+         "Q_<insert>ASSERT" // 2
+         "<down><down>"
+         "<insert><bs>2" // 3
+         "<c-o>2w"
+         "<delete>1" // 4
+         "<c-o>:s/true/false<cr><esc>" // 5
+         "q",
          "bool f(int arg1, int arg2 = 0) {" N
          "    Q_ASSERT(arg1 >= 0);" N
          "    if (arg1 > 0) return true;" N
@@ -3301,35 +3437,35 @@ void FakeVimPlugin::test_vim_qtcreator()
          "}" N
          "");
 
-    KEYS("u",
+    KEYS("u", // 5
          "bool f(int arg1, int arg2 = 0) {" N
          "    Q_ASSERT(arg1 >= 0);" N
          "    if (arg1 > 0) return true;" N
          X "    if (arg2 > 1) return true;" N
          "}" N
          "");
-    KEYS("u",
+    KEYS("u", // 4
          "bool f(int arg1, int arg2 = 0) {" N
          "    Q_ASSERT(arg1 >= 0);" N
          "    if (arg1 > 0) return true;" N
          "    if (arg2 > " X "0) return true;" N
          "}" N
          "");
-    KEYS("u",
+    KEYS("u", // 3
          "bool f(int arg1, int arg2 = 0) {" N
          "    Q_ASSERT(arg1 >= 0);" N
          "    if (arg1 > 0) return true;" N
          "    if (arg1" X " > 0) return true;" N
          "}" N
          "");
-    KEYS("u",
+    KEYS("u", // 2
          "bool f(int arg1, int arg2 = 0) {" N
          "    " X "assert(arg1 >= 0);" N
          "    if (arg1 > 0) return true;" N
          "    if (arg1 > 0) return true;" N
          "}" N
          "");
-    KEYS("u",
+    KEYS("u", // 1
          X "void f(int arg1, int arg2 = 0) {" N
          "    assert(arg1 >= 0);" N
          "    if (arg1 > 0) return true;" N
@@ -3372,6 +3508,30 @@ void FakeVimPlugin::test_vim_qtcreator()
          "    Q_ASSERT(arg1 >= 0);" N
          "    if (arg1 > 0) return true;" N
          "    if (arg2 > 1) return false;" N
+         "}" N
+         "");
+
+    // Macros
+    data.setText(
+         "void f(int arg1) {" N
+         "}" N
+         "");
+    KEYS("2o" "#ifdef HAS_FEATURE<cr>doSomething();<cr>"
+         "#else<cr>"
+         "doSomethingElse<bs><bs><bs><bs>2();<cr>"
+         "#endif"
+         "<esc>",
+         "void f(int arg1) {" N
+         "#ifdef HAS_FEATURE" N
+         "    doSomething();" N
+         "#else" N
+         "    doSomething2();" N
+         "#endif" N
+         "#ifdef HAS_FEATURE" N
+         "    doSomething();" N
+         "#else" N
+         "    doSomething2();" N
+         "#endi" X "f" N
          "}" N
          "");
 }

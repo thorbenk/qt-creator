@@ -56,7 +56,7 @@ namespace QmlDesigner {
 
 namespace  Internal {
 
-DebugView::DebugView(QObject *parent) : QmlModelView(parent),
+DebugView::DebugView(QObject *parent) : AbstractView(parent),
     m_debugViewWidget(new DebugViewWidget)
 {
 }
@@ -70,13 +70,13 @@ void DebugView::modelAttached(Model *model)
     log(tr("Model attached"), tr("FileName %1").arg(model->fileUrl().toLocalFile()));
     m_debugViewWidget->setDebugViewEnabled(isDebugViewEnabled());
     qDebug() << "enabled: " << isDebugViewEnabled();
-    QmlModelView::modelAttached(model);
+    AbstractView::modelAttached(model);
 }
 
 void DebugView::modelAboutToBeDetached(Model *model)
 {
     log(tr("Model detached"), tr("FileName %1").arg(model->fileUrl().toLocalFile()));
-    QmlModelView::modelAboutToBeDetached(model);
+    AbstractView::modelAboutToBeDetached(model);
 }
 
 void DebugView::importsChanged(const QList<Import> &addedImports, const QList<Import> &removedImports)
@@ -369,6 +369,31 @@ void DebugView::nodeSourceChanged(const ModelNode &modelNode, const QString &new
 
         log(tr("Node Source Changed:"), string);
     }
+}
+
+void DebugView::nodeRemoved(const ModelNode &/*removedNode*/, const NodeAbstractProperty &/*parentProperty*/, AbstractView::PropertyChangeFlags /*propertyChange*/)
+{
+
+}
+
+void DebugView::nodeAboutToBeReparented(const ModelNode &/*node*/, const NodeAbstractProperty &/*newPropertyParent*/, const NodeAbstractProperty &/*oldPropertyParent*/, AbstractView::PropertyChangeFlags /*propertyChange*/)
+{
+
+}
+
+void DebugView::instancesToken(const QString &/*tokenName*/, int /*tokenNumber*/, const QVector<ModelNode> &/*nodeVector*/)
+{
+
+}
+
+void DebugView::currentStateChanged(const ModelNode &/*node*/)
+{
+
+}
+
+void DebugView::nodeOrderChanged(const NodeListProperty &/*listProperty*/, const ModelNode &/*movedNode*/, int /*oldIndex*/)
+{
+
 }
 
 void DebugView::log(const QString &title, const QString &message, bool highlight)

@@ -82,12 +82,6 @@ BarDescriptorEditor::BarDescriptorEditor(BarDescriptorEditorWidget *editorWidget
     generalAction->setChecked(true);
 }
 
-bool BarDescriptorEditor::createNew(const QString &contents)
-{
-    Q_UNUSED(contents);
-    return false;
-}
-
 bool BarDescriptorEditor::open(QString *errorString, const QString &fileName, const QString &realFileName)
 {
     QTC_ASSERT(fileName == realFileName, return false);
@@ -102,11 +96,6 @@ Core::IDocument *BarDescriptorEditor::document()
 Core::Id BarDescriptorEditor::id() const
 {
     return Constants::QNX_BAR_DESCRIPTOR_EDITOR_ID;
-}
-
-bool BarDescriptorEditor::isTemporary() const
-{
-    return false;
 }
 
 QWidget *BarDescriptorEditor::toolBar()
@@ -127,13 +116,9 @@ void BarDescriptorEditor::changeEditorPage(QAction *action)
     setActivePage(static_cast<EditorPage>(action->data().toInt()));
 }
 
-ProjectExplorer::TaskHub *BarDescriptorEditor::taskHub()
-{
-    return ProjectExplorer::ProjectExplorerPlugin::instance()->taskHub();
-}
-
 void BarDescriptorEditor::setActivePage(BarDescriptorEditor::EditorPage page)
 {
+    ProjectExplorer::TaskHub *taskHub = ProjectExplorer::ProjectExplorerPlugin::taskHub();
     BarDescriptorEditorWidget *editorWidget = qobject_cast<BarDescriptorEditorWidget *>(widget());
     QTC_ASSERT(editorWidget, return);
 
@@ -145,14 +130,14 @@ void BarDescriptorEditor::setActivePage(BarDescriptorEditor::EditorPage page)
     if (page == Source) {
         editorWidget->setXmlSource(m_file->xmlSource());
     } else if (prevPage == Source) {
-        taskHub()->clearTasks(Constants::QNX_TASK_CATEGORY_BARDESCRIPTOR);
+        taskHub->clearTasks(Constants::QNX_TASK_CATEGORY_BARDESCRIPTOR);
         QString errorMsg;
         int errorLine;
         if (!m_file->loadContent(editorWidget->xmlSource(), &errorMsg, &errorLine)) {
             const ProjectExplorer::Task task(ProjectExplorer::Task::Error, errorMsg, Utils::FileName::fromString(m_file->filePath()),
                                        errorLine, Constants::QNX_TASK_CATEGORY_BARDESCRIPTOR);
-            taskHub()->addTask(task);
-            taskHub()->requestPopup();
+            taskHub->addTask(task);
+            taskHub->requestPopup();
 
             foreach (QAction *action, m_actionGroup->actions())
                 if (action->data().toInt() == Source)

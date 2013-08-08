@@ -84,7 +84,7 @@ bool AbstractFormEditorTool::topItemIsMovable(const QList<QGraphicsItem*> & item
         return false;
 
     FormEditorItem *formEditorItem = FormEditorItem::fromQGraphicsItem(firstSelectableItem);
-    QList<QmlItemNode> selectedNodes = view()->selectedQmlItemNodes();
+    QList<ModelNode> selectedNodes = view()->selectedModelNodes();
 
     if (formEditorItem != 0
        && selectedNodes.contains(formEditorItem->qmlItemNode()))
@@ -96,7 +96,7 @@ bool AbstractFormEditorTool::topItemIsMovable(const QList<QGraphicsItem*> & item
 
 bool AbstractFormEditorTool::topSelectedItemIsMovable(const QList<QGraphicsItem*> &itemList)
 {
-    QList<QmlItemNode> selectedNodes = view()->selectedQmlItemNodes();
+    QList<ModelNode> selectedNodes = view()->selectedModelNodes();
 
     foreach (QGraphicsItem *item, itemList) {
         FormEditorItem *formEditorItem = FormEditorItem::fromQGraphicsItem(item);
@@ -104,7 +104,7 @@ bool AbstractFormEditorTool::topSelectedItemIsMovable(const QList<QGraphicsItem*
             && selectedNodes.contains(formEditorItem->qmlItemNode())
             && formEditorItem->qmlItemNode().instanceIsMovable()
             && !formEditorItem->qmlItemNode().instanceIsInLayoutable()
-            && (formEditorItem->qmlItemNode().hasShowContent()))
+            && (formEditorItem->qmlItemNode().instanceHasShowContent()))
             return true;
     }
 
@@ -142,7 +142,7 @@ FormEditorItem *AbstractFormEditorTool::topMovableFormEditorItem(const QList<QGr
     foreach (QGraphicsItem *item, itemList) {
         FormEditorItem *formEditorItem = FormEditorItem::fromQGraphicsItem(item);
         if (formEditorItem
-           && (formEditorItem->qmlItemNode().hasShowContent()))
+           && (formEditorItem->qmlItemNode().instanceHasShowContent()))
             return formEditorItem;
     }
 
@@ -213,8 +213,10 @@ void AbstractFormEditorTool::mouseDoubleClickEvent(const QList<QGraphicsItem*> &
 {
     if (event->button() == Qt::LeftButton) {
         FormEditorItem *formEditorItem = topFormEditorItem(itemList);
-        if (formEditorItem)
-            view()->changeToCustomTool(formEditorItem->qmlItemNode().modelNode());
+        if (formEditorItem) {
+            view()->setSelectedModelNode(formEditorItem->qmlItemNode().modelNode());
+            view()->changeToCustomTool();
+        }
     }
 }
 

@@ -129,7 +129,7 @@ private:
         virtual void visit(Function *funTy)
         {
             Function *fun = control()->newFunction(/*sourceLocation=*/ 0, funTy->name());
-            fun->setScope(funTy->enclosingScope());
+            fun->setEnclosingScope(funTy->enclosingScope());
             fun->setConst(funTy->isConst());
             fun->setVolatile(funTy->isVolatile());
             fun->setVirtual(funTy->isVirtual());
@@ -264,7 +264,7 @@ private:
             if (! name)
                 return name;
 
-            else if (const Identifier *nameId = name->asNameId()) {
+            if (const Identifier *nameId = name->asNameId()) {
                 const Identifier *id = control()->identifier(nameId->chars(), nameId->size());
                 return id;
 

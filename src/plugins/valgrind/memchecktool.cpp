@@ -179,7 +179,7 @@ static void initKindFilterAction(QAction *action, const QList<int> &kinds)
 }
 
 MemcheckTool::MemcheckTool(QObject *parent)
-  : ValgrindTool(parent)
+  : IAnalyzerTool(parent)
 {
     m_settings = 0;
     m_errorModel = 0;
@@ -295,11 +295,6 @@ QString MemcheckTool::description() const
 {
     return tr("Valgrind Analyze Memory uses the \"memcheck\" tool to find "
               "memory leaks");
-}
-
-AbstractAnalyzerSubConfig *MemcheckTool::createGlobalSettings()
-{
-    return new ValgrindGlobalSettings();
 }
 
 AbstractAnalyzerSubConfig *MemcheckTool::createProjectSettings()
@@ -445,31 +440,25 @@ QWidget *MemcheckTool::createWidgets()
     return widget;
 }
 
-IAnalyzerEngine *MemcheckTool::createEngine(const AnalyzerStartParameters &sp,
+AnalyzerRunControl *MemcheckTool::createRunControl(const AnalyzerStartParameters &sp,
                                             RunConfiguration *runConfiguration)
 {
     m_frameFinder->setFiles(runConfiguration ? runConfiguration->target()
         ->project()->files(Project::AllFiles) : QStringList());
 
-    MemcheckEngine *engine = new MemcheckEngine(this, sp, runConfiguration);
+    MemcheckRunControl *engine = new MemcheckRunControl(sp, runConfiguration);
 
-    connect(engine, SIGNAL(starting(const Analyzer::IAnalyzerEngine*)),
-            this, SLOT(engineStarting(const Analyzer::IAnalyzerEngine*)));
+    connect(engine, SIGNAL(starting(const Analyzer::AnalyzerRunControl*)),
+            this, SLOT(engineStarting(const Analyzer::AnalyzerRunControl*)));
     connect(engine, SIGNAL(parserError(Valgrind::XmlProtocol::Error)),
             this, SLOT(parserError(Valgrind::XmlProtocol::Error)));
     connect(engine, SIGNAL(internalParserError(QString)),
             this, SLOT(internalParserError(QString)));
     connect(engine, SIGNAL(finished()), this, SLOT(finished()));
-    AnalyzerManager::showStatusMessage(AnalyzerManager::msgToolStarted(displayName()));
     return engine;
 }
 
-void MemcheckTool::startTool(StartMode mode)
-{
-    ValgrindPlugin::startValgrindTool(this, mode);
-}
-
-void MemcheckTool::engineStarting(const IAnalyzerEngine *engine)
+void MemcheckTool::engineStarting(const AnalyzerRunControl *engine)
 {
     setBusyCursor(true);
     clearErrorView();
@@ -478,7 +467,7 @@ void MemcheckTool::engineStarting(const IAnalyzerEngine *engine)
     if (RunConfiguration *rc = engine->runConfiguration())
         dir = rc->target()->project()->projectDirectory() + QDir::separator();
 
-    const MemcheckEngine *mEngine = dynamic_cast<const MemcheckEngine *>(engine);
+    const MemcheckRunControl *mEngine = dynamic_cast<const MemcheckRunControl *>(engine);
     QTC_ASSERT(mEngine, return);
     const QString name = QFileInfo(mEngine->executable()).fileName();
 
@@ -550,11 +539,14 @@ void MemcheckTool::updateErrorFilter()
 
 void MemcheckTool::finished()
 {
-    const int n = m_errorModel->rowCount();
-    m_goBack->setEnabled(n > 1);
-    m_goNext->setEnabled(n > 1);
-    const QString msg = AnalyzerManager::msgToolFinished(displayName(), n);
-    AnalyzerManager::showStatusMessage(msg);
+    const int issuesFound = m_errorModel->rowCount();
+    m_goBack->setEnabled(issuesFound > 1);
+    m_goNext->setEnabled(issuesFound > 1);
+    AnalyzerManager::showStatusMessage((issuesFound > 0
+        ? AnalyzerManager::tr("Tool \"%1\" finished, %n issues were found.", 0, issuesFound)
+        : AnalyzerManager::tr("Tool \"%1\" finished, no issues were found."))
+            .arg(displayName()));
+
     setBusyCursor(false);
 }
 

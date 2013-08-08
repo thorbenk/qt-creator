@@ -9,6 +9,7 @@ QtcPlugin {
     Depends { name: "Core" }
     Depends { name: "Debugger" }
     Depends { name: "ProjectExplorer" }
+    Depends { name: "QmlDebug" }
     Depends { name: "QtSupport" }
     Depends { name: "Qt4ProjectManager" }
     Depends { name: "RemoteLinux" }
@@ -65,6 +66,8 @@ QtcPlugin {
         "blackberrycheckdevmodestepconfigwidget.h",
         "blackberrycheckdevmodestepfactory.cpp",
         "blackberrycheckdevmodestepfactory.h",
+        "blackberryconfigurationmanager.cpp",
+        "blackberryconfigurationmanager.h",
         "blackberrycreatepackagestep.cpp",
         "blackberrycreatepackagestep.h",
         "blackberrycreatepackagestepconfigwidget.cpp",

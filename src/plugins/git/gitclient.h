@@ -109,15 +109,15 @@ public:
         enum StashResult { StashUnchanged, StashCanceled, StashFailed,
                            Stashed, NotStashed /* User did not want it */ };
 
-        bool init(const QString &workingDirectory, const QString &keyword, StashFlag flag = Default);
+        bool init(const QString &workingDirectory, const QString &command, StashFlag flag = Default);
         bool stashingFailed() const;
         void end();
         StashResult result() const { return m_stashResult; }
         QString stashMessage() const { return m_message; }
 
     private:
-        void stashPrompt(const QString &keyword, const QString &statusOutput, QString *errorMessage);
-        void executeStash(const QString &keyword, QString *errorMessage);
+        void stashPrompt(const QString &command, const QString &statusOutput, QString *errorMessage);
+        void executeStash(const QString &command, QString *errorMessage);
 
         StashResult m_stashResult;
         QString m_message;
@@ -146,7 +146,7 @@ public:
     void merge(const QString &workingDirectory, const QStringList &unmergedFileNames = QStringList());
 
     void status(const QString &workingDirectory);
-    void log(const QString &workingDirectory, const QStringList &fileNames = QStringList(),
+    void log(const QString &workingDirectory, const QString &fileName = QString(),
              bool enableAnnotationContextMenu = false, const QStringList &args = QStringList());
     void blame(const QString &workingDirectory, const QStringList &args, const QString &fileName,
                const QString &revision = QString(), int lineNumber = -1);
@@ -203,7 +203,7 @@ public:
     bool synchronousTagCmd(const QString &workingDirectory, QStringList tagArgs,
                            QString *output, QString *errorMessage);
     bool synchronousForEachRefCmd(const QString &workingDirectory, QStringList args,
-                               QString *output, QString *errorMessage);
+                               QString *output, QString *errorMessage = 0);
     bool synchronousRemoteCmd(const QString &workingDirectory, QStringList remoteArgs,
                               QString *output, QString *errorMessage);
 
@@ -234,7 +234,7 @@ public:
     QString synchronousTopic(const QString &workingDirectory);
     QString synchronousTopRevision(const QString &workingDirectory, QString *errorMessage = 0);
     void synchronousTagsForCommit(const QString &workingDirectory, const QString &revision,
-                                  QByteArray &precedes, QByteArray &follows);
+                                  QString &precedes, QString &follows);
     bool isRemoteCommit(const QString &workingDirectory, const QString &commit);
 
     bool cloneRepository(const QString &directory, const QByteArray &url);
@@ -311,7 +311,7 @@ public:
 
     QProcessEnvironment processEnvironment() const;
 
-    bool beginStashScope(const QString &workingDirectory, const QString &keyword, StashFlag flag = Default);
+    bool beginStashScope(const QString &workingDirectory, const QString &command, StashFlag flag = Default);
     StashInfo &stashInfo(const QString &workingDirectory);
     void endStashScope(const QString &workingDirectory);
     bool isValidRevision(const QString &revision) const;
@@ -327,8 +327,8 @@ public slots:
 
 private slots:
     void slotBlameRevisionRequested(const QString &source, QString change, int lineNumber);
-    void appendOutputData(const QByteArray &data) const;
-    void appendOutputDataSilently(const QByteArray &data) const;
+    void appendOutput(const QString &text) const;
+    void appendOutputSilently(const QString &text) const;
     void finishSubmoduleUpdate();
     void fetchFinished(const QVariant &cookie);
 

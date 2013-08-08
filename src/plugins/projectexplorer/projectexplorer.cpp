@@ -334,7 +334,6 @@ bool ProjectExplorerPlugin::initialize(const QStringList &arguments, QString *er
     addAutoReleasedObject(new Internal::DesktopDeviceFactory);
 
     d->m_kitManager = new KitManager; // register before ToolChainManager
-    new DeviceManager; // Create DeviceManager singleton
     d->m_toolChainManager = new ToolChainManager;
 
     // Register KitInformation:
@@ -1354,7 +1353,7 @@ QList<Project *> ProjectExplorerPlugin::openProjects(const QStringList &fileName
         QString canonicalFilePath = fi.canonicalFilePath();
         bool found = false;
         foreach (ProjectExplorer::Project *pi, session()->projects()) {
-            if (canonicalFilePath == pi->document()->filePath()) {
+            if (canonicalFilePath == pi->projectFilePath()) {
                 found = true;
                 break;
             }
@@ -1657,9 +1656,9 @@ BuildManager *ProjectExplorerPlugin::buildManager() const
     return d->m_buildManager;
 }
 
-TaskHub *ProjectExplorerPlugin::taskHub() const
+TaskHub *ProjectExplorerPlugin::taskHub()
 {
-    return d->m_taskHub;
+    return m_instance->d->m_taskHub;
 }
 
 void ProjectExplorerPlugin::buildStateChanged(Project * pro)
@@ -1948,7 +1947,7 @@ void ProjectExplorerPlugin::updateActions()
 QStringList ProjectExplorerPlugin::allFilesWithDependencies(Project *pro)
 {
     if (debug)
-        qDebug() << "ProjectExplorerPlugin::allFilesWithDependencies(" << pro->document()->filePath() << ")";
+        qDebug() << "ProjectExplorerPlugin::allFilesWithDependencies(" << pro->projectFilePath() << ")";
 
     QStringList filesToSave;
     foreach (Project *p, d->m_session->projectOrder(pro)) {
@@ -2356,7 +2355,7 @@ void ProjectExplorerPlugin::projectRemoved(ProjectExplorer::Project * pro)
 
 void ProjectExplorerPlugin::projectDisplayNameChanged(Project *pro)
 {
-    addToRecentProjects(pro->document()->filePath(), pro->displayName());
+    addToRecentProjects(pro->projectFilePath(), pro->displayName());
     updateActions();
 }
 

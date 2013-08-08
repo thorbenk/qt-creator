@@ -184,7 +184,7 @@ void setupPropertyEditorValue(const PropertyName &name, QDeclarativePropertyMap 
 
 }
 
-void createPropertyEditorValue(const QmlObjectNode &fxObjectNode, const PropertyName &name, const QVariant &value, QDeclarativePropertyMap *propertyMap, PropertyEditor *propertyEditor)
+void createPropertyEditorValue(const QmlObjectNode &qmlObjectNode, const PropertyName &name, const QVariant &value, QDeclarativePropertyMap *propertyMap, PropertyEditor *propertyEditor)
 {
     PropertyName propertyName(name);
     propertyName.replace('.', '_');
@@ -196,55 +196,55 @@ void createPropertyEditorValue(const QmlObjectNode &fxObjectNode, const Property
         propertyMap->insert(QString::fromUtf8(propertyName), QVariant::fromValue(valueObject));
     }
     valueObject->setName(name);
-    valueObject->setModelNode(fxObjectNode);
+    valueObject->setModelNode(qmlObjectNode);
 
-    if (fxObjectNode.propertyAffectedByCurrentState(name) && !(fxObjectNode.modelNode().property(name).isBindingProperty()))
-        valueObject->setValue(fxObjectNode.modelValue(name));
+    if (qmlObjectNode.propertyAffectedByCurrentState(name) && !(qmlObjectNode.modelNode().property(name).isBindingProperty()))
+        valueObject->setValue(qmlObjectNode.modelValue(name));
 
     else
         valueObject->setValue(value);
 
     if (propertyName != "id" &&
-        fxObjectNode.currentState().isBaseState() &&
-        fxObjectNode.modelNode().property(propertyName).isBindingProperty()) {
-        valueObject->setExpression(fxObjectNode.modelNode().bindingProperty(propertyName).expression());
+        qmlObjectNode.currentState().isBaseState() &&
+        qmlObjectNode.modelNode().property(propertyName).isBindingProperty()) {
+        valueObject->setExpression(qmlObjectNode.modelNode().bindingProperty(propertyName).expression());
     } else {
-        valueObject->setExpression(fxObjectNode.instanceValue(name).toString());
+        valueObject->setExpression(qmlObjectNode.instanceValue(name).toString());
     }
 }
 
-void PropertyEditor::NodeType::setValue(const QmlObjectNode & fxObjectNode, const PropertyName &name, const QVariant &value)
+void PropertyEditor::NodeType::setValue(const QmlObjectNode & qmlObjectNode, const PropertyName &name, const QVariant &value)
 {
     PropertyName propertyName = name;
     propertyName.replace('.', '_');
     PropertyEditorValue *propertyValue = qobject_cast<PropertyEditorValue*>(variantToQObject(m_backendValuesPropertyMap.value(propertyName)));
     if (propertyValue) {
         propertyValue->setValue(value);
-        if (!fxObjectNode.hasBindingProperty(name))
+        if (!qmlObjectNode.hasBindingProperty(name))
             propertyValue->setExpression(value.toString());
         else
-            propertyValue->setExpression(fxObjectNode.expression(name));
+            propertyValue->setExpression(qmlObjectNode.expression(name));
     }
 }
 
-void PropertyEditor::NodeType::setup(const QmlObjectNode &fxObjectNode, const QString &stateName, const QUrl &qmlSpecificsFile, PropertyEditor *propertyEditor)
+void PropertyEditor::NodeType::setup(const QmlObjectNode &qmlObjectNode, const QString &stateName, const QUrl &qmlSpecificsFile, PropertyEditor *propertyEditor)
 {
-    if (!fxObjectNode.isValid())
+    if (!qmlObjectNode.isValid())
         return;
 
     QDeclarativeContext *ctxt = m_view->rootContext();
 
-    if (fxObjectNode.isValid()) {
-        foreach (const PropertyName &propertyName, fxObjectNode.modelNode().metaInfo().propertyNames())
-            createPropertyEditorValue(fxObjectNode, propertyName, fxObjectNode.instanceValue(propertyName), &m_backendValuesPropertyMap, propertyEditor);
+    if (qmlObjectNode.isValid()) {
+        foreach (const PropertyName &propertyName, qmlObjectNode.modelNode().metaInfo().propertyNames())
+            createPropertyEditorValue(qmlObjectNode, propertyName, qmlObjectNode.instanceValue(propertyName), &m_backendValuesPropertyMap, propertyEditor);
 
         // className
         PropertyEditorValue *valueObject = qobject_cast<PropertyEditorValue*>(variantToQObject(m_backendValuesPropertyMap.value("className")));
         if (!valueObject)
             valueObject = new PropertyEditorValue(&m_backendValuesPropertyMap);
         valueObject->setName("className");
-        valueObject->setModelNode(fxObjectNode.modelNode());
-        valueObject->setValue(fxObjectNode.modelNode().simplifiedTypeName());
+        valueObject->setModelNode(qmlObjectNode.modelNode());
+        valueObject->setValue(qmlObjectNode.modelNode().simplifiedTypeName());
         QObject::connect(valueObject, SIGNAL(valueChanged(QString,QVariant)), &m_backendValuesPropertyMap, SIGNAL(valueChanged(QString,QVariant)));
         m_backendValuesPropertyMap.insert("className", QVariant::fromValue(valueObject));
 
@@ -253,12 +253,12 @@ void PropertyEditor::NodeType::setup(const QmlObjectNode &fxObjectNode, const QS
         if (!valueObject)
             valueObject = new PropertyEditorValue(&m_backendValuesPropertyMap);
         valueObject->setName("id");
-        valueObject->setValue(fxObjectNode.id());
+        valueObject->setValue(qmlObjectNode.id());
         QObject::connect(valueObject, SIGNAL(valueChanged(QString,QVariant)), &m_backendValuesPropertyMap, SIGNAL(valueChanged(QString,QVariant)));
         m_backendValuesPropertyMap.insert("id", QVariant::fromValue(valueObject));
 
         // anchors
-        m_backendAnchorBinding.setup(QmlItemNode(fxObjectNode.modelNode()));
+        m_backendAnchorBinding.setup(QmlItemNode(qmlObjectNode.modelNode()));
 
         ctxt->setContextProperty("anchorBackend", &m_backendAnchorBinding);
 
@@ -267,16 +267,16 @@ void PropertyEditor::NodeType::setup(const QmlObjectNode &fxObjectNode, const QS
         m_contextObject->setSpecificsUrl(qmlSpecificsFile);
 
         m_contextObject->setStateName(stateName);
-        if (!fxObjectNode.isValid())
+        if (!qmlObjectNode.isValid())
             return;
-        ctxt->setContextProperty("propertyCount", QVariant(fxObjectNode.modelNode().properties().count()));
+        ctxt->setContextProperty("propertyCount", QVariant(qmlObjectNode.modelNode().properties().count()));
 
-        m_contextObject->setIsBaseState(fxObjectNode.isInBaseState());
+        m_contextObject->setIsBaseState(qmlObjectNode.isInBaseState());
         m_contextObject->setSelectionChanged(false);
 
         m_contextObject->setSelectionChanged(false);
 
-        NodeMetaInfo metaInfo = fxObjectNode.modelNode().metaInfo();
+        NodeMetaInfo metaInfo = qmlObjectNode.modelNode().metaInfo();
 
         if (metaInfo.isValid()) {
             m_contextObject->setMajorVersion(metaInfo.majorVersion());
@@ -333,7 +333,7 @@ void PropertyEditor::NodeType::initialSetup(const TypeName &typeName, const QUrl
 }
 
 PropertyEditor::PropertyEditor(QWidget *parent) :
-        QmlModelView(parent),
+        AbstractView(parent),
         m_parent(parent),
         m_updateShortcut(0),
         m_timerId(0),
@@ -473,12 +473,12 @@ void PropertyEditor::changeValue(const QString &name)
     if (value ==0)
         return;
 
-    QmlObjectNode fxObjectNode(m_selectedNode);
+    QmlObjectNode qmlObjectNode(m_selectedNode);
 
     QVariant castedValue;
 
-    if (fxObjectNode.modelNode().metaInfo().isValid() && fxObjectNode.modelNode().metaInfo().hasProperty(propertyName)) {
-        castedValue = fxObjectNode.modelNode().metaInfo().propertyCastedValue(propertyName, value->value());
+    if (qmlObjectNode.modelNode().metaInfo().isValid() && qmlObjectNode.modelNode().metaInfo().hasProperty(propertyName)) {
+        castedValue = qmlObjectNode.modelNode().metaInfo().propertyCastedValue(propertyName, value->value());
     } else {
         qWarning() << "PropertyEditor:" <<propertyName << "cannot be casted (metainfo)";
         return ;
@@ -489,9 +489,9 @@ void PropertyEditor::changeValue(const QString &name)
         return ;
     }
 
-    if (fxObjectNode.modelNode().metaInfo().isValid() && fxObjectNode.modelNode().metaInfo().hasProperty(propertyName))
-        if (fxObjectNode.modelNode().metaInfo().propertyTypeName(propertyName) == "QUrl"
-                || fxObjectNode.modelNode().metaInfo().propertyTypeName(propertyName) == "url") { //turn absolute local file paths into relative paths
+    if (qmlObjectNode.modelNode().metaInfo().isValid() && qmlObjectNode.modelNode().metaInfo().hasProperty(propertyName))
+        if (qmlObjectNode.modelNode().metaInfo().propertyTypeName(propertyName) == "QUrl"
+                || qmlObjectNode.modelNode().metaInfo().propertyTypeName(propertyName) == "url") { //turn absolute local file paths into relative paths
             QString filePath = castedValue.toUrl().toString();
         if (QFileInfo(filePath).exists() && QFileInfo(filePath).isAbsolute()) {
             QDir fileDir(QFileInfo(model()->fileUrl().toLocalFile()).absolutePath());
@@ -508,11 +508,11 @@ void PropertyEditor::changeValue(const QString &name)
 
         try {
             if (!value->value().isValid()) { //reset
-                fxObjectNode.removeProperty(propertyName);
+                qmlObjectNode.removeProperty(propertyName);
             } else {
                 if (castedValue.isValid() && !castedValue.isNull()) {
                     m_locked = true;
-                    fxObjectNode.setVariantProperty(propertyName, castedValue);
+                    qmlObjectNode.setVariantProperty(propertyName, castedValue);
                     m_locked = false;
                 }
             }
@@ -538,38 +538,38 @@ void PropertyEditor::changeExpression(const QString &propertyName)
         PropertyName underscoreName(name);
         underscoreName.replace('.', '_');
 
-        QmlObjectNode fxObjectNode(m_selectedNode);
+        QmlObjectNode qmlObjectNode(m_selectedNode);
         PropertyEditorValue *value = qobject_cast<PropertyEditorValue*>(variantToQObject(m_currentType->m_backendValuesPropertyMap.value(underscoreName)));
 
-        if (fxObjectNode.modelNode().metaInfo().isValid() && fxObjectNode.modelNode().metaInfo().hasProperty(name)) {
-            if (fxObjectNode.modelNode().metaInfo().propertyTypeName(name) == "QColor") {
+        if (qmlObjectNode.modelNode().metaInfo().isValid() && qmlObjectNode.modelNode().metaInfo().hasProperty(name)) {
+            if (qmlObjectNode.modelNode().metaInfo().propertyTypeName(name) == "QColor") {
                 if (QColor(value->expression().remove('"')).isValid()) {
-                    fxObjectNode.setVariantProperty(name, QColor(value->expression().remove('"')));
+                    qmlObjectNode.setVariantProperty(name, QColor(value->expression().remove('"')));
                     transaction.commit(); //committing in the try block
                     return;
                 }
-            } else if (fxObjectNode.modelNode().metaInfo().propertyTypeName(name) == "bool") {
+            } else if (qmlObjectNode.modelNode().metaInfo().propertyTypeName(name) == "bool") {
                 if (value->expression().compare("false", Qt::CaseInsensitive) == 0 || value->expression().compare("true", Qt::CaseInsensitive) == 0) {
                     if (value->expression().compare("true", Qt::CaseInsensitive) == 0)
-                        fxObjectNode.setVariantProperty(name, true);
+                        qmlObjectNode.setVariantProperty(name, true);
                     else
-                        fxObjectNode.setVariantProperty(name, false);
+                        qmlObjectNode.setVariantProperty(name, false);
                     transaction.commit(); //committing in the try block
                     return;
                 }
-            } else if (fxObjectNode.modelNode().metaInfo().propertyTypeName(name) == "int") {
+            } else if (qmlObjectNode.modelNode().metaInfo().propertyTypeName(name) == "int") {
                 bool ok;
                 int intValue = value->expression().toInt(&ok);
                 if (ok) {
-                    fxObjectNode.setVariantProperty(name, intValue);
+                    qmlObjectNode.setVariantProperty(name, intValue);
                     transaction.commit(); //committing in the try block
                     return;
                 }
-            } else if (fxObjectNode.modelNode().metaInfo().propertyTypeName(name) == "qreal") {
+            } else if (qmlObjectNode.modelNode().metaInfo().propertyTypeName(name) == "qreal") {
                 bool ok;
                 qreal realValue = value->expression().toFloat(&ok);
                 if (ok) {
-                    fxObjectNode.setVariantProperty(name, realValue);
+                    qmlObjectNode.setVariantProperty(name, realValue);
                     transaction.commit(); //committing in the try block
                     return;
                 }
@@ -584,8 +584,8 @@ void PropertyEditor::changeExpression(const QString &propertyName)
         if (value->expression().isEmpty())
             return;
 
-        if (fxObjectNode.expression(name) != value->expression() || !fxObjectNode.propertyAffectedByCurrentState(name))
-            fxObjectNode.setBindingProperty(name, value->expression());
+        if (qmlObjectNode.expression(name) != value->expression() || !qmlObjectNode.propertyAffectedByCurrentState(name))
+            qmlObjectNode.setBindingProperty(name, value->expression());
 
         transaction.commit(); //committing in the try block
     }
@@ -738,19 +738,21 @@ void PropertyEditor::resetView()
 
     NodeType *type = m_typeHash.value(qmlFile.toString());
 
+    QString currentStateName = currentState().isBaseState() ? currentState().name() : QLatin1String("invalid state");
+
     if (!type) {
         type = new NodeType(this);
 
         m_stackedWidget->addWidget(type->m_view);
         m_typeHash.insert(qmlFile.toString(), type);
 
-        QmlObjectNode fxObjectNode;
+        QmlObjectNode qmlObjectNode;
         if (m_selectedNode.isValid()) {
-            fxObjectNode = QmlObjectNode(m_selectedNode);
-            Q_ASSERT(fxObjectNode.isValid());
+            qmlObjectNode = QmlObjectNode(m_selectedNode);
+            Q_ASSERT(qmlObjectNode.isValid());
         }
         QDeclarativeContext *ctxt = type->m_view->rootContext();
-        type->setup(fxObjectNode, currentState().name(), qmlSpecificsFile, this);
+        type->setup(qmlObjectNode, currentStateName, qmlSpecificsFile, this);
         ctxt->setContextProperty("finishedNotify", QVariant(false));
         if (specificQmlData.isEmpty())
             type->m_contextObject->setSpecificQmlData(specificQmlData);
@@ -768,7 +770,6 @@ void PropertyEditor::resetView()
         ctxt->setContextProperty("finishedNotify", QVariant(false));
         if (specificQmlData.isEmpty())
             type->m_contextObject->setSpecificQmlData(specificQmlData);
-        QString currentStateName = currentState().isValid() ? currentState().name() : QLatin1String("invalid state");
         type->setup(qmlObjectNode, currentStateName, qmlSpecificsFile, this);
         type->m_contextObject->setGlobalBaseUrl(qmlFile);
         type->m_contextObject->setSpecificQmlData(specificQmlData);
@@ -807,14 +808,13 @@ void PropertyEditor::selectedNodesChanged(const QList<ModelNode> &selectedNodeLi
 
 void PropertyEditor::nodeAboutToBeRemoved(const ModelNode &removedNode)
 {
-    QmlModelView::nodeAboutToBeRemoved(removedNode);
     if (m_selectedNode.isValid() && removedNode.isValid() && m_selectedNode == removedNode)
         select(m_selectedNode.parentProperty().parentModelNode());
 }
 
 void PropertyEditor::modelAttached(Model *model)
 {
-    QmlModelView::modelAttached(model);
+    AbstractView::modelAttached(model);
 
     if (debug)
         qDebug() << Q_FUNC_INFO;
@@ -834,7 +834,7 @@ void PropertyEditor::modelAttached(Model *model)
 
 void PropertyEditor::modelAboutToBeDetached(Model *model)
 {
-    QmlModelView::modelAboutToBeDetached(model);
+    AbstractView::modelAboutToBeDetached(model);
     m_currentType->m_propertyEditorTransaction->end();
 
     resetView();
@@ -843,8 +843,6 @@ void PropertyEditor::modelAboutToBeDetached(Model *model)
 
 void PropertyEditor::propertiesRemoved(const QList<AbstractProperty>& propertyList)
 {
-    QmlModelView::propertiesRemoved(propertyList);
-
     if (!m_selectedNode.isValid())
         return;
 
@@ -862,10 +860,8 @@ void PropertyEditor::propertiesRemoved(const QList<AbstractProperty>& propertyLi
 }
 
 
-void PropertyEditor::variantPropertiesChanged(const QList<VariantProperty>& propertyList, PropertyChangeFlags propertyChange)
+void PropertyEditor::variantPropertiesChanged(const QList<VariantProperty>& propertyList, PropertyChangeFlags /*propertyChange*/)
 {
-
-    QmlModelView::variantPropertiesChanged(propertyList, propertyChange);
 
     if (!m_selectedNode.isValid())
         return;
@@ -885,10 +881,8 @@ void PropertyEditor::variantPropertiesChanged(const QList<VariantProperty>& prop
     }
 }
 
-void PropertyEditor::bindingPropertiesChanged(const QList<BindingProperty>& propertyList, PropertyChangeFlags propertyChange)
+void PropertyEditor::bindingPropertiesChanged(const QList<BindingProperty>& propertyList, PropertyChangeFlags /*propertyChange*/)
 {
-    QmlModelView::bindingPropertiesChanged(propertyList, propertyChange);
-
     if (!m_selectedNode.isValid())
         return;
 
@@ -928,10 +922,8 @@ void PropertyEditor::instanceInformationsChange(const QMultiHash<ModelNode, Info
     m_locked = false;
 }
 
-void PropertyEditor::nodeIdChanged(const ModelNode& node, const QString& newId, const QString& oldId)
+void PropertyEditor::nodeIdChanged(const ModelNode& node, const QString& newId, const QString& /*oldId*/)
 {
-    QmlModelView::nodeIdChanged(node, newId, oldId);
-
     if (!m_selectedNode.isValid())
         return;
 
@@ -945,9 +937,8 @@ void PropertyEditor::nodeIdChanged(const ModelNode& node, const QString& newId, 
     }
 }
 
-void PropertyEditor::scriptFunctionsChanged(const ModelNode &node, const QStringList &scriptFunctionList)
+void PropertyEditor::scriptFunctionsChanged(const ModelNode &/*node*/, const QStringList &/*scriptFunctionList*/)
 {
-    QmlModelView::scriptFunctionsChanged(node, scriptFunctionList);
 }
 
 void PropertyEditor::select(const ModelNode &node)
@@ -970,9 +961,8 @@ WidgetInfo PropertyEditor::widgetInfo()
     return createWidgetInfo(m_stackedWidget, 0, QLatin1String("Properties"), WidgetInfo::RightPane, 0);
 }
 
-void PropertyEditor::actualStateChanged(const ModelNode &node)
+void PropertyEditor::currentStateChanged(const ModelNode &node)
 {
-    QmlModelView::actualStateChanged(node);
     QmlModelState newQmlModelState(node);
     Q_ASSERT(newQmlModelState.isValid());
     if (debug)
@@ -1008,10 +998,90 @@ void PropertyEditor::instancePropertyChange(const QList<QPair<ModelNode, Propert
 
 }
 
-void PropertyEditor::setValue(const QmlObjectNode &fxObjectNode, const PropertyName &name, const QVariant &value)
+void PropertyEditor::nodeCreated(const ModelNode &/*createdNode*/)
+{
+
+}
+
+void PropertyEditor::nodeRemoved(const ModelNode &/*removedNode*/, const NodeAbstractProperty &/*parentProperty*/, AbstractView::PropertyChangeFlags /*propertyChange*/)
+{
+
+}
+
+void PropertyEditor::nodeAboutToBeReparented(const ModelNode &/*node*/, const NodeAbstractProperty &/*newPropertyParent*/, const NodeAbstractProperty &/*oldPropertyParent*/, AbstractView::PropertyChangeFlags /*propertyChange*/)
+{
+
+}
+
+void PropertyEditor::nodeReparented(const ModelNode &/*node*/, const NodeAbstractProperty &/*newPropertyParent*/, const NodeAbstractProperty &/*oldPropertyParent*/, AbstractView::PropertyChangeFlags /*propertyChange*/)
+{
+
+}
+
+void PropertyEditor::propertiesAboutToBeRemoved(const QList<AbstractProperty> &/*propertyList*/)
+{
+
+}
+
+void PropertyEditor::rootNodeTypeChanged(const QString &/*type*/, int /*majorVersion*/, int /*minorVersion*/)
+{
+    // TODO: we should react to this case
+}
+
+void PropertyEditor::instancesCompleted(const QVector<ModelNode> &/*completedNodeList*/)
+{
+
+}
+
+void PropertyEditor::instancesRenderImageChanged(const QVector<ModelNode> &/*nodeList*/)
+{
+
+}
+
+void PropertyEditor::instancesPreviewImageChanged(const QVector<ModelNode> &/*nodeList*/)
+{
+
+}
+
+void PropertyEditor::instancesChildrenChanged(const QVector<ModelNode> &/*nodeList*/)
+{
+
+}
+
+void PropertyEditor::instancesToken(const QString &/*tokenName*/, int /*tokenNumber*/, const QVector<ModelNode> &/*nodeVector*/)
+{
+
+}
+
+void PropertyEditor::nodeSourceChanged(const ModelNode &/*modelNode*/, const QString &/*newNodeSource*/)
+{
+
+}
+
+void PropertyEditor::rewriterBeginTransaction()
+{
+
+}
+
+void PropertyEditor::rewriterEndTransaction()
+{
+
+}
+
+void PropertyEditor::nodeOrderChanged(const NodeListProperty &/*listProperty*/, const ModelNode &/*movedNode*/, int /*oldIndex*/)
+{
+
+}
+
+void PropertyEditor::importsChanged(const QList<Import> &/*addedImports*/, const QList<Import> &/*removedImports*/)
+{
+
+}
+
+void PropertyEditor::setValue(const QmlObjectNode &qmlObjectNode, const PropertyName &name, const QVariant &value)
 {
     m_locked = true;
-    m_currentType->setValue(fxObjectNode, name, value);
+    m_currentType->setValue(qmlObjectNode, name, value);
     m_locked = false;
 }
 

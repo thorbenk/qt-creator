@@ -77,10 +77,10 @@ All the manipulation functions are generating undo commands internally.
 /*! \brief internal constructor
 
 */
-ModelNode::ModelNode(const InternalNodePointer &internalNode, Model *model, AbstractView *view):
+ModelNode::ModelNode(const InternalNodePointer &internalNode, Model *model, const AbstractView *view):
         m_internalNode(internalNode),
         m_model(model),
-        m_view(view)
+        m_view(const_cast<AbstractView*>(view))
 {
     Q_ASSERT(!m_model || m_view);
 }
@@ -125,19 +125,6 @@ ModelNode::~ModelNode()
 {
 }
 
-QString ModelNode::generateNewId() const
-{
-    int counter = 1;
-    QString newId = QString("%1%2").arg(QString::fromUtf8(simplifiedTypeName()).toLower()).arg(counter);
-
-    while (view()->hasId(newId)) {
-        counter += 1;
-        newId = QString("%1%2").arg(QString::fromUtf8(simplifiedTypeName()).toLower()).arg(counter);
-    }
-
-    return newId;
-}
-
 /*! \brief returns the name of node which is a short cut to a property like objectName
 \return name of the node
 */
@@ -152,7 +139,7 @@ QString ModelNode::id() const
 QString ModelNode::validId()
 {
     if (id().isEmpty())
-        setId(generateNewId());
+        setId(view()->generateNewId(QString::fromUtf8(simplifiedTypeName())));
 
     return id();
 }
@@ -231,54 +218,6 @@ int ModelNode::majorVersion() const
     }
     return m_internalNode->majorVersion();
 }
-
-int getMajorVersionFromImport(Model *model)
-{
-    foreach (const Import &import, model->imports()) {
-        if (import.isLibraryImport() && import.url() == QLatin1String("QtQuick")) {
-            const QString versionString = import.version();
-            if (versionString.contains(QLatin1String("."))) {
-                const QString majorVersionString = versionString.split(QLatin1String(".")).first();
-                return majorVersionString.toInt();
-            }
-        }
-    }
-
-    return -1;
-}
-
-int getMajorVersionFromNode(const ModelNode &modelNode)
-{
-    if (modelNode.metaInfo().isValid()) {
-        if (modelNode.type() == "QtQuick.QtObject" || modelNode.type() == "QtQuick.Item")
-            return modelNode.majorVersion();
-
-        foreach (const NodeMetaInfo &superClass,  modelNode.metaInfo().superClasses()) {
-            if (modelNode.type() == "QtQuick.QtObject" || modelNode.type() == "QtQuick.Item")
-                return superClass.majorVersion();
-        }
-    }
-
-    return 1; //default
-}
-
-/*! \brief major number of the QtQuick version used
-\return major number of QtQuickVersion
-*/
-int ModelNode::majorQtQuickVersion() const
-{
-    if (!isValid()) {
-        Q_ASSERT_X(isValid(), Q_FUNC_INFO, "model node is invalid");
-        throw InvalidModelNodeException(__LINE__, __FUNCTION__, __FILE__);
-    }
-
-    int majorVersionFromImport = getMajorVersionFromImport(model());
-    if (majorVersionFromImport >= 0)
-        return majorVersionFromImport;
-
-    return getMajorVersionFromNode(*this);
-}
-
 
 /*! \return the short-hand type name of the node. */
 TypeName ModelNode::simplifiedTypeName() const
@@ -475,7 +414,12 @@ NodeAbstractProperty ModelNode::nodeAbstractProperty(const PropertyName &name) c
      if (!isValid())
         throw InvalidModelNodeException(__LINE__, __FUNCTION__, __FILE__);
 
-    return NodeAbstractProperty(name, m_internalNode, model(), view());
+     return NodeAbstractProperty(name, m_internalNode, model(), view());
+}
+
+NodeAbstractProperty ModelNode::defaultNodeAbstractProperty() const
+{
+    return nodeAbstractProperty(metaInfo().defaultPropertyName());
 }
 
 
@@ -785,6 +729,16 @@ const NodeMetaInfo ModelNode::metaInfo() const
     return NodeMetaInfo(model()->metaInfoProxyModel(), type(), majorVersion(), minorVersion());
 }
 
+bool ModelNode::hasMetaInfo() const
+{
+    if (!isValid()) {
+        Q_ASSERT_X(isValid(), Q_FUNC_INFO, "model node is invalid");
+        throw InvalidModelNodeException(__LINE__, __FUNCTION__, __FILE__);
+    }
+
+    return model()->hasNodeMetaInfo(type(), majorVersion(), minorVersion());
+}
+
 /*! \brief has a node the selection of the model
 \return true if the node his selection
 */
@@ -847,6 +801,11 @@ bool ModelNode::hasBindingProperty(const PropertyName &name) const
 bool ModelNode::hasNodeAbstracProperty(const PropertyName &name) const
 {
     return hasProperty(name) && internalNode()->property(name)->isNodeAbstractProperty();
+}
+
+bool ModelNode::hasDefaultNodeAbstracProperty() const
+{
+    return hasProperty(metaInfo().defaultPropertyName()) && internalNode()->property(metaInfo().defaultPropertyName())->isNodeAbstractProperty();
 }
 
 bool ModelNode::hasNodeProperty(const PropertyName &name) const
@@ -1023,6 +982,28 @@ ModelNode::NodeSourceType ModelNode::nodeSourceType() const
 
     return static_cast<ModelNode::NodeSourceType>(internalNode()->nodeSourceType());
 
+}
+
+bool ModelNode::isComponent() const
+{
+    if (!isValid())
+        throw InvalidModelNodeException(__LINE__, __FUNCTION__, __FILE__);
+
+    if (metaInfo().isFileComponent())
+        return true;
+
+    if (nodeSourceType() == ModelNode::NodeWithComponentSource)
+        return true;
+
+    if (metaInfo().isView() && hasNodeProperty("delegate")) {
+        if (nodeProperty("delegate").modelNode().metaInfo().isFileComponent())
+            return true;
+
+        if (nodeProperty("delegate").modelNode().nodeSourceType() == ModelNode::NodeWithComponentSource)
+            return true;
+    }
+
+    return false;
 }
 
 }

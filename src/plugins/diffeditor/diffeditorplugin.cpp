@@ -45,7 +45,6 @@
 #include <coreplugin/editormanager/editormanager.h>
 
 namespace DiffEditor {
-
 namespace Internal {
 
 DiffEditorPlugin::DiffEditorPlugin()
@@ -103,7 +102,7 @@ void DiffEditorPlugin::diff()
     //: Editor title
     QString title = tr("Diff \"%1\", \"%2\"").arg(fileName1).arg(fileName2);
     DiffEditor *editor = qobject_cast<DiffEditor *>
-            (Core::EditorManager::openEditorWithContents(editorId, &title, QString()));
+            (Core::EditorManager::openEditorWithContents(editorId, &title));
 
     if (!editor)
         return;

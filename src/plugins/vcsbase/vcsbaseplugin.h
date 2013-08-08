@@ -94,9 +94,9 @@ public:
     QString currentProjectName() const;
     QString currentProjectTopLevel() const;
     /* Convenience: Returns project path relative to top level if it
-     * differs from top level (else empty()) as an argument list to do
+     * differs from top level (else empty string) as an argument list to do
      * eg a 'vcs diff <args>' */
-    QStringList relativeCurrentProject() const;
+    QString relativeCurrentProject() const;
 
     // Top level directory for actions on the top level. Preferably
     // the file one.
@@ -166,7 +166,8 @@ public:
         ForceCLocale = 0x80,            // Force C-locale for commands whose output is parsed.
         FullySynchronously = 0x100,     // Suppress local event loop (in case UI actions are
                                         // triggered by file watchers).
-        ExpectRepoChanges = 0x200       // Expect changes in repository by the command
+        ExpectRepoChanges = 0x200,      // Expect changes in repository by the command
+        SilentOutput = 0x400            // With ShowStdOutInLogWindow - append output silently
     };
 
     static Utils::SynchronousProcessResponse runVcs(const QString &workingDir,

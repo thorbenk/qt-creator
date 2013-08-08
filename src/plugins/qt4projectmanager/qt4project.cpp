@@ -57,6 +57,7 @@
 #include <proparser/qmakevfs.h>
 #include <qtsupport/profilereader.h>
 #include <qtsupport/qtkitinformation.h>
+#include <qtsupport/uicodemodelsupport.h>
 
 #include <QDebug>
 #include <QDir>
@@ -107,6 +108,7 @@ void updateBoilerPlateCodeFiles(const AbstractMobileApp *app, const QString &pro
         }
     }
 }
+
 } // namespace
 
 namespace Qt4ProjectManager {
@@ -532,6 +534,7 @@ void Qt4Project::updateCppCodeModel()
             qtVersionForPart = ProjectPart::Qt5;
     }
 
+    QHash<QString, QString> uiCodeModelData;
     QStringList allFiles;
     foreach (Qt4ProFileNode *pro, proFiles) {
         ProjectPart::Ptr part(new ProjectPart);
@@ -579,16 +582,22 @@ void Qt4Project::updateCppCodeModel()
             allFiles << file;
             part->files << ProjectFile(file, ProjectFile::CXXHeader);
         }
-        foreach (const QString &file, pro->uiFiles()) {
-            allFiles << file;
-            part->files << ProjectFile(file, ProjectFile::CXXHeader);
+
+        // Ui Files:
+        QHash<QString, QString> uiData = pro->uiFiles();
+        for (QHash<QString, QString>::const_iterator i = uiData.constBegin(); i != uiData.constEnd(); ++i) {
+            allFiles << i.value();
+            part->files << ProjectFile(i.value(), ProjectFile::CXXHeader);
         }
+        uiCodeModelData.unite(uiData);
 
         part->files.prepend(ProjectFile(CppTools::CppModelManagerInterface::configurationFileName(),
                                         ProjectFile::CXXSource));
         foreach (const QString &file, pro->variableValue(ObjCSourceVar)) {
             allFiles << file;
-            part->files << ProjectFile(file, ProjectFile::ObjCSource);
+            // Although the enum constant is called ObjCSourceVar, it actually is ObjC++ source
+            // code, as qmake does not handle C (and ObjC).
+            part->files << ProjectFile(file, ProjectFile::ObjCXXSource);
         }
         foreach (const QString &file, pro->variableValue(ObjCHeaderVar)) {
             allFiles << file;
@@ -600,9 +609,10 @@ void Qt4Project::updateCppCodeModel()
 
     setProjectLanguage(ProjectExplorer::Constants::LANG_CXX, !allFiles.isEmpty());
 
-    modelmanager->updateProjectInfo(pinfo);
-    m_codeModelFuture = modelmanager->updateSourceFiles(allFiles,
-        CppTools::CppModelManagerInterface::ForcedProgressNotification);
+    // Also update Ui Code Model Support:
+    QtSupport::UiCodeModelManager::update(this, uiCodeModelData);
+
+    m_codeModelFuture = modelmanager->updateProjectInfo(pinfo);
 }
 
 void Qt4Project::updateQmlJSCodeModel()
@@ -901,7 +911,7 @@ bool Qt4Project::supportsKit(Kit *k, QString *errorMessage) const
 
 QString Qt4Project::displayName() const
 {
-    return QFileInfo(document()->filePath()).completeBaseName();
+    return QFileInfo(projectFilePath()).completeBaseName();
 }
 
 Core::Id Qt4Project::id() const
@@ -1392,7 +1402,7 @@ void Qt4Project::configureAsExampleProject(const QStringList &platforms)
             continue;
 
         QList<BuildConfigurationInfo> infoList
-                = Qt4BuildConfigurationFactory::availableBuildConfigurations(k, document()->filePath());
+                = Qt4BuildConfigurationFactory::availableBuildConfigurations(k, projectFilePath());
         if (infoList.isEmpty())
             continue;
         addTarget(createTarget(k, infoList));

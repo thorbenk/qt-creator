@@ -50,6 +50,12 @@ public:
     bool initialize(const QStringList &arguments, QString *errorMessage);
 
     void extensionsInitialized();
+
+private slots:
+#ifdef WITH_TESTS
+    void testCMakeParser_data();
+    void testCMakeParser();
+#endif
 };
 
 } // namespace Internal

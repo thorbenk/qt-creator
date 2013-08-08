@@ -95,6 +95,7 @@
 using namespace Analyzer;
 using namespace Core;
 using namespace Valgrind::Callgrind;
+using namespace ProjectExplorer;
 
 namespace Valgrind {
 namespace Internal {
@@ -117,7 +118,7 @@ public:
     void doClear(bool clearParseData);
     void updateEventCombo();
 
-    IAnalyzerEngine *createEngine(const AnalyzerStartParameters &sp,
+    AnalyzerRunControl *createRunControl(const AnalyzerStartParameters &sp,
         ProjectExplorer::RunConfiguration *runConfiguration = 0);
 
 signals:
@@ -162,8 +163,8 @@ public slots:
     void visualisationFunctionSelected(const Valgrind::Callgrind::Function *function);
     void showParserResults(const Valgrind::Callgrind::ParseData *data);
 
-    void takeParserData(CallgrindEngine *engine);
-    void engineStarting(const Analyzer::IAnalyzerEngine *);
+    void takeParserData(CallgrindRunControl *rc);
+    void engineStarting(const Analyzer::AnalyzerRunControl *);
     void engineFinished();
 
     void editorOpened(Core::IEditor *);
@@ -209,8 +210,13 @@ public:
     QAction *m_showCostsOfFunctionAction;
 
     QString m_toggleCollectFunction;
-    ValgrindGlobalSettings *m_settings; // Not owned
 };
+
+
+static ValgrindGlobalSettings *globalSettings()
+{
+    return AnalyzerGlobalSettings::instance()->subConfig<ValgrindGlobalSettings>();
+}
 
 
 CallgrindToolPrivate::CallgrindToolPrivate(CallgrindTool *parent)
@@ -237,7 +243,6 @@ CallgrindToolPrivate::CallgrindToolPrivate(CallgrindTool *parent)
     , m_resetAction(0)
     , m_pauseAction(0)
     , m_showCostsOfFunctionAction(0)
-    , m_settings(0)
 {
     m_updateTimer->setInterval(200);
     m_updateTimer->setSingleShot(true);
@@ -247,8 +252,6 @@ CallgrindToolPrivate::CallgrindToolPrivate(CallgrindTool *parent)
     m_proxyModel->setSortCaseSensitivity(Qt::CaseInsensitive);
     m_proxyModel->setFilterKeyColumn(DataModel::NameColumn);
     m_proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
-
-    m_settings = AnalyzerGlobalSettings::instance()->subConfig<ValgrindGlobalSettings>();
 
     connect(m_stackBrowser, SIGNAL(currentChanged()), SLOT(stackBrowserChanged()));
     connect(m_updateTimer, SIGNAL(timeout()), SLOT(updateFilterString()));
@@ -396,8 +399,8 @@ void CallgrindToolPrivate::updateCostFormat()
         m_calleesView->setCostFormat(format);
         m_callersView->setCostFormat(format);
     }
-    if (m_settings)
-        m_settings->setCostFormat(format);
+    if (ValgrindGlobalSettings *settings = globalSettings())
+        settings->setCostFormat(format);
 }
 
 void CallgrindToolPrivate::handleFilterProjectCosts()
@@ -408,8 +411,7 @@ void CallgrindToolPrivate::handleFilterProjectCosts()
     if (m_filterProjectCosts->isChecked()) {
         const QString projectDir = pro->projectDirectory();
         m_proxyModel->setFilterBaseDir(projectDir);
-    }
-    else {
+    } else {
         m_proxyModel->setFilterBaseDir(QString());
     }
 }
@@ -500,7 +502,7 @@ static QToolButton *createToolButton(QAction *action)
 }
 
 CallgrindTool::CallgrindTool(QObject *parent)
-    : ValgrindTool(parent)
+    : IAnalyzerTool(parent)
 {
     d = new CallgrindToolPrivate(this);
     setObjectName(QLatin1String("CallgrindTool"));
@@ -519,9 +521,9 @@ Core::Id CallgrindTool::id() const
     return Core::Id("Callgrind");
 }
 
-ProjectExplorer::RunMode CallgrindTool::runMode() const
+RunMode CallgrindTool::runMode() const
 {
-    return ProjectExplorer::CallgrindRunMode;
+    return CallgrindRunMode;
 }
 
 QString CallgrindTool::displayName() const
@@ -564,38 +566,36 @@ void CallgrindTool::extensionsInitialized()
     }
 }
 
-IAnalyzerEngine *CallgrindTool::createEngine(const AnalyzerStartParameters &sp,
-    ProjectExplorer::RunConfiguration *runConfiguration)
+AnalyzerRunControl *CallgrindTool::createRunControl(const AnalyzerStartParameters &sp,
+    RunConfiguration *runConfiguration)
 {
-    return d->createEngine(sp, runConfiguration);
+    return d->createRunControl(sp, runConfiguration);
 }
 
-IAnalyzerEngine *CallgrindToolPrivate::createEngine(const AnalyzerStartParameters &sp,
-    ProjectExplorer::RunConfiguration *runConfiguration)
+AnalyzerRunControl *CallgrindToolPrivate::createRunControl(const AnalyzerStartParameters &sp,
+    RunConfiguration *runConfiguration)
 {
-    CallgrindEngine *engine = new CallgrindEngine(q, sp, runConfiguration);
+    CallgrindRunControl *rc = new CallgrindRunControl(sp, runConfiguration);
 
-    connect(engine, SIGNAL(parserDataReady(CallgrindEngine*)),
-            SLOT(takeParserData(CallgrindEngine*)));
-    connect(engine, SIGNAL(starting(const Analyzer::IAnalyzerEngine*)),
-            SLOT(engineStarting(const Analyzer::IAnalyzerEngine*)));
-    connect(engine, SIGNAL(finished()),
+    connect(rc, SIGNAL(parserDataReady(CallgrindRunControl*)),
+            SLOT(takeParserData(CallgrindRunControl*)));
+    connect(rc, SIGNAL(starting(const Analyzer::AnalyzerRunControl*)),
+            SLOT(engineStarting(const Analyzer::AnalyzerRunControl*)));
+    connect(rc, SIGNAL(finished()),
             SLOT(engineFinished()));
 
-    connect(this, SIGNAL(dumpRequested()), engine, SLOT(dump()));
-    connect(this, SIGNAL(resetRequested()), engine, SLOT(reset()));
-    connect(this, SIGNAL(pauseToggled(bool)), engine, SLOT(setPaused(bool)));
+    connect(this, SIGNAL(dumpRequested()), rc, SLOT(dump()));
+    connect(this, SIGNAL(resetRequested()), rc, SLOT(reset()));
+    connect(this, SIGNAL(pauseToggled(bool)), rc, SLOT(setPaused(bool)));
 
-    // initialize engine
-    engine->setPaused(m_pauseAction->isChecked());
+    // initialize run control
+    rc->setPaused(m_pauseAction->isChecked());
 
     // we may want to toggle collect for one function only in this run
-    engine->setToggleCollectFunction(m_toggleCollectFunction);
+    rc->setToggleCollectFunction(m_toggleCollectFunction);
     m_toggleCollectFunction.clear();
 
-    AnalyzerManager::showStatusMessage(AnalyzerManager::msgToolStarted(q->displayName()));
-
-    QTC_ASSERT(m_visualisation, return engine);
+    QTC_ASSERT(m_visualisation, return rc);
 
     // apply project settings
     if (runConfiguration) {
@@ -607,12 +607,12 @@ IAnalyzerEngine *CallgrindToolPrivate::createEngine(const AnalyzerStartParameter
             }
         }
     }
-    return engine;
+    return rc;
 }
 
 void CallgrindTool::startTool(StartMode mode)
 {
-    ValgrindPlugin::startValgrindTool(this, mode);
+    IAnalyzerTool::startTool(mode);
     d->setBusyCursor(true);
 }
 
@@ -800,13 +800,16 @@ QWidget *CallgrindToolPrivate::createWidgets()
     layout->addWidget(button);
     }
 
+
+    ValgrindGlobalSettings *settings = globalSettings();
+
     // cycle detection
     //action = new QAction(QLatin1String("Cycle Detection"), this); ///FIXME: icon
     action = new QAction(QLatin1String("O"), this); ///FIXME: icon
     action->setToolTip(tr("Enable cycle detection to properly handle recursive or circular function calls."));
     action->setCheckable(true);
     connect(action, SIGNAL(toggled(bool)), m_dataModel, SLOT(enableCycleDetection(bool)));
-    connect(action, SIGNAL(toggled(bool)), m_settings, SLOT(setDetectCycles(bool)));
+    connect(action, SIGNAL(toggled(bool)), settings, SLOT(setDetectCycles(bool)));
     layout->addWidget(createToolButton(action));
     m_cycleDetection = action;
 
@@ -815,7 +818,7 @@ QWidget *CallgrindToolPrivate::createWidgets()
     action->setToolTip(tr("This removes template parameter lists when displaying function names."));
     action->setCheckable(true);
     connect(action, SIGNAL(toggled(bool)), m_dataModel, SLOT(setShortenTemplates(bool)));
-    connect(action, SIGNAL(toggled(bool)), m_settings, SLOT(setShortenTemplates(bool)));
+    connect(action, SIGNAL(toggled(bool)), settings, SLOT(setShortenTemplates(bool)));
     layout->addWidget(createToolButton(action));
     m_shortenTemplates = action;
 
@@ -836,8 +839,8 @@ QWidget *CallgrindToolPrivate::createWidgets()
     layout->addWidget(filter);
     m_searchFilter = filter;
 
-    setCostFormat(m_settings->costFormat());
-    enableCycleDetection(m_settings->detectCycles());
+    setCostFormat(settings->costFormat());
+    enableCycleDetection(settings->detectCycles());
 
     layout->addWidget(new Utils::StyledSeparator);
     layout->addStretch();
@@ -851,7 +854,7 @@ void CallgrindToolPrivate::clearTextMarks()
     m_textMarks.clear();
 }
 
-void CallgrindToolPrivate::engineStarting(const Analyzer::IAnalyzerEngine *)
+void CallgrindToolPrivate::engineStarting(const Analyzer::AnalyzerRunControl *)
 {
     // enable/disable actions
     m_resetAction->setEnabled(true);
@@ -948,8 +951,8 @@ void CallgrindToolPrivate::handleShowCostsOfFunction()
 
     m_toggleCollectFunction = qualifiedFunctionName + QLatin1String("()");
 
-    AnalyzerManager::selectTool(q, StartMode(StartLocal));
-    AnalyzerManager::startTool(q, StartMode(StartLocal));
+    AnalyzerManager::selectTool(q, StartLocal);
+    AnalyzerManager::startTool();
 }
 
 void CallgrindToolPrivate::slotRequestDump()
@@ -959,9 +962,9 @@ void CallgrindToolPrivate::slotRequestDump()
     dumpRequested();
 }
 
-void CallgrindToolPrivate::takeParserData(CallgrindEngine *engine)
+void CallgrindToolPrivate::takeParserData(CallgrindRunControl *rc)
 {
-    ParseData *data = engine->takeParserData();
+    ParseData *data = rc->takeParserData();
     showParserResults(data);
 
     if (!data)

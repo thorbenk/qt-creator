@@ -102,7 +102,7 @@ void NodeInstanceClientProxy::initializeCapturedStream(const QString &fileName)
     bool inputStreamCanBeOpened = m_inputIoDevice->open(QIODevice::ReadOnly);
     if (!inputStreamCanBeOpened) {
         qDebug() << "Input stream file cannot be opened: " << fileName;
-        QCoreApplication::exit(-1);
+        exit(-1);
     }
 
     if (QCoreApplication::arguments().count() == 3) {
@@ -111,14 +111,14 @@ void NodeInstanceClientProxy::initializeCapturedStream(const QString &fileName)
         bool outputStreamCanBeOpened = m_outputIoDevice->open(QIODevice::WriteOnly);
         if (!outputStreamCanBeOpened) {
             qDebug() << "Output stream file cannot be opened";
-            QCoreApplication::exit(-1);
+            exit(-1);
         }
     } else if (QCoreApplication::arguments().count() == 4) {
         m_controlStream.setFileName(QCoreApplication::arguments().at(3));
         bool controlStreamCanBeOpened = m_controlStream.open(QIODevice::ReadOnly);
         if (!controlStreamCanBeOpened) {
             qDebug() << "Control stream file cannot be opened";
-            QCoreApplication::exit(-1);
+            exit(-1);
         }
     }
 
@@ -141,7 +141,7 @@ bool compareCommands(const QVariant &command, const QVariant &controlCommand)
             return command.value<InformationChangedCommand>() == controlCommand.value<InformationChangedCommand>();
         else if (command.userType() == valuesChangedCommandType)
             return command.value<ValuesChangedCommand>() == controlCommand.value<ValuesChangedCommand>();
-        else if (command.userType() == pixmapChangedCommandType)
+         else if (command.userType() == pixmapChangedCommandType)
             return command.value<PixmapChangedCommand>() == controlCommand.value<PixmapChangedCommand>();
         else if (command.userType() == childrenChangedCommandType)
             return command.value<ChildrenChangedCommand>() == controlCommand.value<ChildrenChangedCommand>();
@@ -170,7 +170,7 @@ void NodeInstanceClientProxy::writeCommand(const QVariant &command)
 
         if (!compareCommands(command, controlCommand)) {
             qDebug() << "Commands differ!";
-            QCoreApplication::exit(-1);
+            exit(-1);
         }
     } else if (m_outputIoDevice) {
         QByteArray block;
@@ -427,9 +427,9 @@ void NodeInstanceClientProxy::dispatchCommand(const QVariant &command)
     static const int tokenCommandType = QMetaType::type("TokenCommand");
     static const int endPuppetCommandType = QMetaType::type("EndPuppetCommand");
 
-    if (command.userType() ==  createInstancesCommandType) {
+    if (command.userType() ==  createInstancesCommandType)
         createInstances(command.value<CreateInstancesCommand>());
-    } else if (command.userType() ==  changeFileUrlCommandType)
+    else if (command.userType() ==  changeFileUrlCommandType)
         changeFileUrl(command.value<ChangeFileUrlCommand>());
     else if (command.userType() ==  createSceneCommandType)
         createScene(command.value<CreateSceneCommand>());
@@ -464,7 +464,8 @@ void NodeInstanceClientProxy::dispatchCommand(const QVariant &command)
     else if (command.userType() == synchronizeCommandType) {
         SynchronizeCommand synchronizeCommand = command.value<SynchronizeCommand>();
         m_synchronizeId = synchronizeCommand.synchronizeId();
-    } else
+    } else {
         Q_ASSERT(false);
+    }
 }
 } // namespace QmlDesigner

@@ -31,18 +31,13 @@
 #ifndef MEMCHECKTOOL_H
 #define MEMCHECKTOOL_H
 
-#include "valgrindtool.h"
+#include <analyzerbase/ianalyzertool.h>
 
 #include <QSortFilterProxyModel>
-#include <QSharedPointer>
 
 QT_BEGIN_NAMESPACE
-class QItemSelection;
-class QTreeView;
 class QModelIndex;
 class QAction;
-class QSpinBox;
-class QCheckBox;
 class QMenu;
 QT_END_NAMESPACE
 
@@ -82,7 +77,7 @@ private:
     bool m_filterExternalIssues;
 };
 
-class MemcheckTool : public ValgrindTool
+class MemcheckTool : public Analyzer::IAnalyzerTool
 {
     Q_OBJECT
 
@@ -95,14 +90,13 @@ public:
     QString description() const;
 
     // Create the valgrind settings (for all valgrind tools)
-    Analyzer::AbstractAnalyzerSubConfig *createGlobalSettings();
     Analyzer::AbstractAnalyzerSubConfig *createProjectSettings();
 
 private slots:
     void settingsDestroyed(QObject *settings);
     void maybeActiveRunConfigurationChanged();
 
-    void engineStarting(const Analyzer::IAnalyzerEngine *engine);
+    void engineStarting(const Analyzer::AnalyzerRunControl *engine);
     void finished();
 
     void parserError(const Valgrind::XmlProtocol::Error &error);
@@ -116,9 +110,8 @@ private:
     QWidget *createWidgets();
     void setBusyCursor(bool busy);
 
-    Analyzer::IAnalyzerEngine *createEngine(const Analyzer::AnalyzerStartParameters &sp,
+    Analyzer::AnalyzerRunControl *createRunControl(const Analyzer::AnalyzerStartParameters &sp,
                                ProjectExplorer::RunConfiguration *runConfiguration = 0);
-    void startTool(Analyzer::StartMode mode);
 
     void clearErrorView();
 

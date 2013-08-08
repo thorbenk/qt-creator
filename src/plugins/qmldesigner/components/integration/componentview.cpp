@@ -139,8 +139,9 @@ void ComponentView::searchForComponentAndAddToList(const ModelNode &node)
                 m_standardItemModel->appendRow(item);
             } else {
                 QString description;
-                ModelNode parentNode = node.parentProperty().parentModelNode();
-                if (parentNode.isValid()) {
+                if (node.hasParentProperty()) {
+                    ModelNode parentNode = node.parentProperty().parentModelNode();
+
                     if (parentNode.id().isEmpty())
                         description = parentNode.simplifiedTypeName() + QLatin1Char(' ');
                     else
@@ -201,7 +202,7 @@ void ComponentView::nodeSourceChanged(const ModelNode &, const QString & /*newNo
 
 void ComponentView::rewriterBeginTransaction() {}
 void ComponentView::rewriterEndTransaction() {}
-void ComponentView::actualStateChanged(const ModelNode &/*node*/) {}
+void ComponentView::currentStateChanged(const ModelNode &/*node*/) {}
 void ComponentView::selectedNodesChanged(const QList<ModelNode> &/*selectedNodeList*/,
                                   const QList<ModelNode> &/*lastSelectedNodeList*/) {}
 

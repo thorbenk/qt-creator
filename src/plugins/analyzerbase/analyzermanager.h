@@ -43,16 +43,14 @@ class QDockWidget;
 class QAction;
 QT_END_NAMESPACE
 
-namespace Utils {
-class FancyMainWindow;
-}
+namespace Utils { class FancyMainWindow; }
+namespace ProjectExplorer { class RunConfiguration; }
 
 namespace Analyzer {
 
-typedef QList<StartMode> StartModes;
-
 class IAnalyzerTool;
-class AnalyzerManagerPrivate;
+class AnalyzerRunControl;
+class AnalyzerStartParameters;
 
 
 // FIXME: Merge with AnalyzerPlugin.
@@ -67,9 +65,8 @@ public:
     static void extensionsInitialized();
     static void shutdown();
 
-    // Register a tool and initialize it.
-    static void addTool(IAnalyzerTool *tool, const StartModes &mode);
-    static IAnalyzerTool *toolFromRunMode(ProjectExplorer::RunMode runMode);
+    // Register a tool for a given start mode.
+    static void addTool(IAnalyzerTool *tool, StartMode mode);
 
     // Dockwidgets are registered to the main window.
     static QDockWidget *createDockWidget(IAnalyzerTool *tool, const QString &title,
@@ -78,18 +75,12 @@ public:
     static Utils::FancyMainWindow *mainWindow();
 
     static void showMode();
-    static IAnalyzerTool *currentSelectedTool();
     static QList<IAnalyzerTool *> tools();
     static void selectTool(IAnalyzerTool *tool, StartMode mode);
-    static void startTool(IAnalyzerTool *tool, StartMode mode);
+    static void startTool();
     static void stopTool();
 
     // Convenience functions.
-    static void startLocalTool(IAnalyzerTool *tool);
-
-    static QString msgToolStarted(const QString &name);
-    static QString msgToolFinished(const QString &name, int issuesFound);
-
     static void showStatusMessage(const QString &message, int timeoutMS = 10000);
     static void showPermanentStatusMessage(const QString &message);
 
@@ -97,9 +88,8 @@ public:
     static void handleToolFinished();
     static QAction *stopAction();
 
-private:
-    friend class AnalyzerManagerPrivate;
-    AnalyzerManagerPrivate *const d;
+    static AnalyzerRunControl *createRunControl(const AnalyzerStartParameters &sp,
+        ProjectExplorer::RunConfiguration *runConfiguration);
 };
 
 } // namespace Analyzer

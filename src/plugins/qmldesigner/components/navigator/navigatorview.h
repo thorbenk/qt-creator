@@ -30,7 +30,7 @@
 #ifndef NAVIGATORVIEW_H
 #define NAVIGATORVIEW_H
 
-#include <qmlmodelview.h>
+#include <abstractview.h>
 
 #include <QWeakPointer>
 
@@ -48,7 +48,7 @@ class NavigatorTreeModel;
 class IconCheckboxItemDelegate;
 class IdItemDelegate;
 
-class NavigatorView : public QmlModelView
+class NavigatorView : public AbstractView
 {
     Q_OBJECT
 
@@ -96,7 +96,9 @@ public:
     void rewriterBeginTransaction() QTC_OVERRIDE;
     void rewriterEndTransaction() QTC_OVERRIDE;
 
-    void actualStateChanged(const ModelNode &node) QTC_OVERRIDE;
+    void currentStateChanged(const ModelNode &node) QTC_OVERRIDE;
+
+    void instancesToken(const QString &tokenName, int tokenNumber, const QVector<ModelNode> &nodeVector) QTC_OVERRIDE;
 
 private slots:
 //    void handleChangedItem(QStandardItem * item);

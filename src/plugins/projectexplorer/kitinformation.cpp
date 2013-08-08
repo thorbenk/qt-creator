@@ -113,6 +113,11 @@ void SysRootKitInformation::setSysRoot(Kit *k, const Utils::FileName &v)
     k->setValue(Core::Id(SYSROOT_INFORMATION), v.toString());
 }
 
+void SysRootKitInformation::makeSticky(Kit *k)
+{
+    k->makeSticky(SYSROOT_INFORMATION);
+}
+
 // --------------------------------------------------------------------------
 // ToolChainInformation:
 // --------------------------------------------------------------------------
@@ -248,6 +253,11 @@ QString ToolChainKitInformation::msgNoToolChainInTarget()
     return tr("No compiler set in kit.");
 }
 
+void ToolChainKitInformation::makeSticky(Kit *k)
+{
+    k->makeSticky(TOOLCHAIN_INFORMATION);
+}
+
 void ToolChainKitInformation::kitsWereLoaded()
 {
     foreach (Kit *k, KitManager::instance()->kits())
@@ -318,7 +328,7 @@ KitInformation::ItemList DeviceTypeKitInformation::toUserOutput(const Kit *k) co
     QString typeDisplayName = tr("Unknown device type");
     if (type.isValid()) {
         QList<IDeviceFactory *> factories
-                = ExtensionSystem::PluginManager::instance()->getObjects<IDeviceFactory>();
+                = ExtensionSystem::PluginManager::getObjects<IDeviceFactory>();
         foreach (IDeviceFactory *factory, factories) {
             if (factory->availableCreationIds().contains(type)) {
                 typeDisplayName = factory->displayNameForId(type);
@@ -337,6 +347,11 @@ const Core::Id DeviceTypeKitInformation::deviceTypeId(const Kit *k)
 void DeviceTypeKitInformation::setDeviceTypeId(Kit *k, Core::Id type)
 {
     k->setValue(DEVICETYPE_INFORMATION, type.toSetting());
+}
+
+void DeviceTypeKitInformation::makeSticky(Kit *k)
+{
+    k->makeSticky(DEVICETYPE_INFORMATION);
 }
 
 // --------------------------------------------------------------------------
@@ -441,13 +456,18 @@ void DeviceKitInformation::setDeviceId(Kit *k, const Core::Id id)
     k->setValue(DEVICE_INFORMATION, id.toSetting());
 }
 
+void DeviceKitInformation::makeSticky(Kit *k)
+{
+    k->makeSticky(DEVICE_INFORMATION);
+}
+
 void DeviceKitInformation::kitsWereLoaded()
 {
     foreach (Kit *k, KitManager::instance()->kits())
         fix(k);
 
     DeviceManager *dm = DeviceManager::instance();
-    connect(dm, SIGNAL(deviceListChanged()), this, SLOT(devicesChanged()));
+    connect(dm, SIGNAL(deviceListReplaced()), this, SLOT(devicesChanged()));
     connect(dm, SIGNAL(deviceAdded(Core::Id)), this, SLOT(devicesChanged()));
     connect(dm, SIGNAL(deviceRemoved(Core::Id)), this, SLOT(devicesChanged()));
     connect(dm, SIGNAL(deviceUpdated(Core::Id)), this, SLOT(deviceUpdated(Core::Id)));

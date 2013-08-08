@@ -178,7 +178,7 @@ void FormEditorWidget::changeRootItemHeight(const QString &heighText)
 
 void FormEditorWidget::resetNodeInstanceView()
 {
-    m_formEditorView->setCurrentState(m_formEditorView->baseState());
+    m_formEditorView->setCurrentStateNode(m_formEditorView->rootModelNode());
     m_formEditorView->emitCustomNotification(QLatin1String("reset QmlPuppet"));
 }
 
@@ -228,11 +228,6 @@ void FormEditorWidget::centerScene()
 void FormEditorWidget::setFocus()
 {
     m_graphicsView->setFocus(Qt::OtherFocusReason);
-}
-
-FormEditorCrumbleBar *FormEditorWidget::formEditorCrumbleBar() const
-{
-    return toolBox()->formEditorCrumbleBar();
 }
 
 ZoomAction *FormEditorWidget::zoomAction() const

@@ -41,6 +41,8 @@
 #include <variantproperty.h>
 #include <nodelistproperty.h>
 
+#include <qmlitemnode.h>
+
 namespace QmlDesigner {
 
 /**
@@ -48,7 +50,7 @@ namespace QmlDesigner {
   the current state is the base state, we render the base state + all other states.
   */
 StatesEditorView::StatesEditorView(QObject *parent) :
-        QmlModelView(parent),
+        AbstractView(parent),
         m_statesEditorModel(new StatesEditorModel(this)),
         m_statesEditorWidget(new StatesEditorWidget(this, m_statesEditorModel.data())),
         m_lastIndex(-1)
@@ -60,6 +62,71 @@ StatesEditorView::StatesEditorView(QObject *parent) :
 WidgetInfo StatesEditorView::widgetInfo()
 {
     return createWidgetInfo(m_statesEditorWidget.data(), 0, "StatesEditor", WidgetInfo::TopPane, 0, tr("States Editor"));
+}
+
+void StatesEditorView::nodeCreated(const ModelNode &/*createdNode*/)
+{
+
+}
+
+void StatesEditorView::propertiesAboutToBeRemoved(const QList<AbstractProperty> &/*propertyList*/)
+{
+
+}
+
+void StatesEditorView::rootNodeTypeChanged(const QString &/*type*/, int /*majorVersion*/, int /*minorVersion*/)
+{
+
+}
+
+void StatesEditorView::instancePropertyChange(const QList<QPair<ModelNode, PropertyName> > &/*propertyList*/)
+{
+
+}
+
+void StatesEditorView::instancesCompleted(const QVector<ModelNode> &/*completedNodeList*/)
+{
+
+}
+
+void StatesEditorView::instanceInformationsChange(const QMultiHash<ModelNode, InformationName> &/*informationChangeHash*/)
+{
+
+}
+
+void StatesEditorView::instancesRenderImageChanged(const QVector<ModelNode> &/*nodeList*/)
+{
+
+}
+
+void StatesEditorView::instancesChildrenChanged(const QVector<ModelNode> &/*nodeList*/)
+{
+
+}
+
+void StatesEditorView::instancesToken(const QString &/*tokenName*/, int /*tokenNumber*/, const QVector<ModelNode> &/*nodeVector*/)
+{
+
+}
+
+void StatesEditorView::nodeSourceChanged(const ModelNode &/*modelNode*/, const QString &/*newNodeSource*/)
+{
+
+}
+
+void StatesEditorView::rewriterBeginTransaction()
+{
+
+}
+
+void StatesEditorView::rewriterEndTransaction()
+{
+
+}
+
+void StatesEditorView::importsChanged(const QList<Import> &/*addedImports*/, const QList<Import> &/*removedImports*/)
+{
+
 }
 
 void StatesEditorView::removeState(int nodeId)
@@ -115,7 +182,7 @@ void StatesEditorView::createNewState()
 void StatesEditorView::addState()
 {
     // can happen when root node is e.g. a ListModel
-    if (!rootQmlItemNode().isValid())
+    if (!QmlItemNode::isValidQmlItemNode(rootModelNode()))
         return;
 
     QStringList modelStateNames = rootStateGroup().names();
@@ -178,6 +245,25 @@ void StatesEditorView::duplicateCurrentState()
     setCurrentState(newState);
 }
 
+void StatesEditorView::setCurrentState(const QmlModelState &state)
+{
+    if (!model() && !state.isValid())
+        return;
+
+    if (currentStateNode() != state.modelNode())
+        setCurrentStateNode(state.modelNode());
+}
+
+QmlModelState StatesEditorView::baseState() const
+{
+    return QmlModelState::createBaseState(this);
+}
+
+QmlModelStateGroup StatesEditorView::rootStateGroup() const
+{
+    return QmlModelStateGroup(rootModelNode());
+}
+
 bool StatesEditorView::validStateName(const QString &name) const
 {
     if (name == tr("base state"))
@@ -215,11 +301,11 @@ void StatesEditorView::renameState(int nodeId, const QString &newName)
 
 void StatesEditorView::modelAttached(Model *model)
 {
-    if (model == QmlModelView::model())
+    if (model == AbstractView::model())
         return;
 
     Q_ASSERT(model);
-    QmlModelView::modelAttached(model);
+    AbstractView::modelAttached(model);
 
     if (m_statesEditorWidget)
         m_statesEditorWidget->setNodeInstanceView(nodeInstanceView());
@@ -229,7 +315,7 @@ void StatesEditorView::modelAttached(Model *model)
 
 void StatesEditorView::modelAboutToBeDetached(Model *model)
 {
-    QmlModelView::modelAboutToBeDetached(model);
+    AbstractView::modelAboutToBeDetached(model);
     resetModel();
 }
 
@@ -292,7 +378,7 @@ void StatesEditorView::nodeOrderChanged(const NodeListProperty &listProperty, co
         resetModel();
 }
 
-void StatesEditorView::actualStateChanged(const ModelNode &node)
+void StatesEditorView::currentStateChanged(const ModelNode &node)
 {
     QmlModelState newQmlModelState(node);
 
@@ -300,7 +386,6 @@ void StatesEditorView::actualStateChanged(const ModelNode &node)
         m_statesEditorWidget->setCurrentStateInternalId(0);
     else
         m_statesEditorWidget->setCurrentStateInternalId(newQmlModelState.modelNode().internalId());
-    QmlModelView::actualStateChanged(node);
 }
 
 void StatesEditorView::instancesPreviewImageChanged(const QVector<ModelNode> &nodeList)
@@ -324,10 +409,8 @@ void StatesEditorView::instancesPreviewImageChanged(const QVector<ModelNode> &no
         m_statesEditorModel->updateState(minimumIndex, maximumIndex);
 }
 
-void StatesEditorView::scriptFunctionsChanged(const ModelNode &node, const QStringList &scriptFunctionList)
+void StatesEditorView::scriptFunctionsChanged(const ModelNode &/*node*/, const QStringList &/*scriptFunctionList*/)
 {
-
-    QmlModelView::scriptFunctionsChanged(node, scriptFunctionList);
 }
 
 void StatesEditorView::nodeIdChanged(const ModelNode &/*node*/, const QString &/*newId*/, const QString &/*oldId*/)

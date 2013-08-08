@@ -32,7 +32,8 @@
 #include "model.h"
 #include "model_p.h"
 #include "internalnode_p.h"
-#include <qmlmodelview.h>
+#include "nodeinstanceview.h"
+#include <qmlstate.h>
 
 namespace QmlDesigner {
 
@@ -299,12 +300,27 @@ void AbstractView::setSelectedModelNodes(const QList<ModelNode> &selectedNodeLis
     model()->d->setSelectedNodes(toInternalNodeList(selectedNodeList));
 }
 
+void AbstractView::setSelectedModelNode(const ModelNode &modelNode)
+{
+    setSelectedModelNodes(QList<ModelNode>() << modelNode);
+}
+
 /*!
 \brief clears the selection
 */
 void AbstractView::clearSelectedModelNodes()
 {
     model()->d->clearSelectedNodes();
+}
+
+bool AbstractView::hasSelectedModelNodes() const
+{
+    return !model()->d->selectedNodes().isEmpty();
+}
+
+bool AbstractView::hasSingleSelectedModelNode() const
+{
+    return model()->d->selectedNodes().count() == 1;
 }
 
 /*!
@@ -314,6 +330,22 @@ void AbstractView::clearSelectedModelNodes()
 QList<ModelNode> AbstractView::selectedModelNodes() const
 {
     return toModelNodeList(model()->d->selectedNodes());
+}
+
+ModelNode AbstractView::firstSelectedModelNode() const
+{
+    if (hasSelectedModelNodes())
+        return ModelNode(model()->d->selectedNodes().first(), model(), this);
+
+    return ModelNode();
+}
+
+ModelNode AbstractView::singleSelectedModelNode() const
+{
+    if (hasSingleSelectedModelNode())
+        return ModelNode(model()->d->selectedNodes().first(), model(), this);
+
+    return ModelNode();
 }
 
 /*!
@@ -344,6 +376,20 @@ bool AbstractView::hasId(const QString &id) const
     return model()->d->hasId(id);
 }
 
+QString AbstractView::generateNewId(const QString prefixName) const
+{
+    int counter = 1;
+
+    QString newId = QString("%1%2").arg(prefixName.toLower()).arg(counter);
+
+    while (hasId(newId)) {
+        counter += 1;
+        newId = QString("%1%2").arg(prefixName.toLower()).arg(counter);
+    }
+
+    return newId;
+}
+
 ModelNode AbstractView::modelNodeForInternalId(qint32 internalId)
 {
      return ModelNode(model()->d->nodeForInternalId(internalId), model(), this);
@@ -352,11 +398,6 @@ ModelNode AbstractView::modelNodeForInternalId(qint32 internalId)
 bool AbstractView::hasModelNodeForInternalId(qint32 internalId) const
 {
     return model()->d->hasNodeForInternalId(internalId);
-}
-
-QmlModelView *AbstractView::toQmlModelView()
-{
-    return qobject_cast<QmlModelView*>(this);
 }
 
 NodeInstanceView *AbstractView::nodeInstanceView() const
@@ -475,11 +516,11 @@ void AbstractView::emitRewriterEndTransaction()
         model()->d->notifyRewriterEndTransaction();
 }
 
-void AbstractView::setAcutalStateNode(const ModelNode &node)
+void AbstractView::setCurrentStateNode(const ModelNode &node)
 {
     Internal::WriteLocker locker(m_model.data());
     if (model())
-        model()->d->notifyActualStateChanged(node);
+        model()->d->notifyCurrentStateChanged(node);
 }
 
 void AbstractView::changeRootNodeType(const TypeName &type, int majorVersion, int minorVersion)
@@ -489,12 +530,56 @@ void AbstractView::changeRootNodeType(const TypeName &type, int majorVersion, in
     m_model.data()->d->changeRootNodeType(type, majorVersion, minorVersion);
 }
 
-ModelNode AbstractView::actualStateNode() const
+ModelNode AbstractView::currentStateNode() const
 {
     if (model())
-        return ModelNode(m_model.data()->d->actualStateNode(), m_model.data(), const_cast<AbstractView*>(this));
+        return ModelNode(m_model.data()->d->currentStateNode(), m_model.data(), const_cast<AbstractView*>(this));
 
     return ModelNode();
+}
+
+QmlModelState AbstractView::currentState() const
+{
+    return QmlModelState(currentStateNode());
+}
+
+static int getMajorVersionFromImport(const Model *model)
+{
+    foreach (const Import &import, model->imports()) {
+        if (import.isLibraryImport() && import.url() == QLatin1String("QtQuick")) {
+            const QString versionString = import.version();
+            if (versionString.contains(QLatin1String("."))) {
+                const QString majorVersionString = versionString.split(QLatin1String(".")).first();
+                return majorVersionString.toInt();
+            }
+        }
+    }
+
+    return -1;
+}
+
+static int getMajorVersionFromNode(const ModelNode &modelNode)
+{
+    if (modelNode.metaInfo().isValid()) {
+        if (modelNode.type() == "QtQuick.QtObject" || modelNode.type() == "QtQuick.Item")
+            return modelNode.majorVersion();
+
+        foreach (const NodeMetaInfo &superClass,  modelNode.metaInfo().superClasses()) {
+            if (modelNode.type() == "QtQuick.QtObject" || modelNode.type() == "QtQuick.Item")
+                return superClass.majorVersion();
+        }
+    }
+
+    return 1; //default
+}
+
+int AbstractView::majorQtQuickVersion() const
+{
+    int majorVersionFromImport = getMajorVersionFromImport(model());
+    if (majorVersionFromImport >= 0)
+        return majorVersionFromImport;
+
+    return getMajorVersionFromNode(rootModelNode());
 }
 
 } // namespace QmlDesigner

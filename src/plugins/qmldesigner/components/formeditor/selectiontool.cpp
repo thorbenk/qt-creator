@@ -151,7 +151,7 @@ void SelectionTool::hoverMoveEvent(const QList<QGraphicsItem*> &itemList,
             && formEditorItem->qmlItemNode().isValid()
             && !formEditorItem->qmlItemNode().instanceIsInLayoutable()
             && formEditorItem->qmlItemNode().instanceIsMovable()
-            && (formEditorItem->qmlItemNode().hasShowContent() || !m_selectOnlyContentItems))
+            && (formEditorItem->qmlItemNode().instanceHasShowContent() || !m_selectOnlyContentItems))
         {
             topSelectableItem = formEditorItem;
             break;
@@ -164,9 +164,9 @@ void SelectionTool::hoverMoveEvent(const QList<QGraphicsItem*> &itemList,
 void SelectionTool::mouseReleaseEvent(const QList<QGraphicsItem*> &itemList,
                                       QGraphicsSceneMouseEvent *event)
 {
-    if (m_singleSelectionManipulator.isActive())
+    if (m_singleSelectionManipulator.isActive()) {
         m_singleSelectionManipulator.end(event->scenePos());
-    else if (m_rubberbandSelectionManipulator.isActive()) {
+    } else if (m_rubberbandSelectionManipulator.isActive()) {
 
         QPointF mouseMovementVector = m_rubberbandSelectionManipulator.beginPoint() - event->scenePos();
         if (mouseMovementVector.toPoint().manhattanLength() < s_startDragDistance) {

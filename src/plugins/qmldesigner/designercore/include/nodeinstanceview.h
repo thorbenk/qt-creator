@@ -119,11 +119,11 @@ public:
     void rewriterBeginTransaction() QTC_OVERRIDE;
     void rewriterEndTransaction() QTC_OVERRIDE;
 
-    void actualStateChanged(const ModelNode &node);
+    void currentStateChanged(const ModelNode &node);
 
     QList<NodeInstance> instances() const;
-    NodeInstance instanceForNode(const ModelNode &node) const ;
-    bool hasInstanceForNode(const ModelNode &node) const;
+    NodeInstance instanceForModelNode(const ModelNode &node) const ;
+    bool hasInstanceForModelNode(const ModelNode &node) const;
 
     NodeInstance instanceForId(qint32 id);
     bool hasInstanceForId(qint32 id);

@@ -292,7 +292,7 @@ QmlEngine::QmlEngine(const DebuggerStartParameters &startParameters, DebuggerEng
 
 
     connect(&m_applicationLauncher,
-        SIGNAL(processExited(int)),
+        SIGNAL(processExited(int, QProcess::ExitStatus)),
         SLOT(disconnected()));
     connect(&m_applicationLauncher,
         SIGNAL(appendMessage(QString,Utils::OutputFormat)),
@@ -413,17 +413,23 @@ void QmlEngine::beginConnection(quint16 port)
     if (host.isEmpty())
         host = QLatin1String("localhost");
 
-    if (port > 0) {
-        QTC_ASSERT(startParameters().connParams.port == 0
-                   || startParameters().connParams.port == port,
-                   qWarning() << "Port " << port << "from application output does not match"
-                   << startParameters().connParams.port << "from start parameters.");
-        m_adapter.beginConnectionTcp(host, port);
-        return;
-    }
-    // no port from application output, use the one from start parameters ...
-    m_adapter.beginConnectionTcp(host, startParameters().qmlServerPort);
+    /*
+     * Let plugin-specific code override the port printed by the application. This is necessary
+     * in the case of port forwarding, when the port the application listens on is not the same that
+     * we want to connect to.
+     * NOTE: It is still necessary to wait for the output in that case, because otherwise we cannot
+     * be sure that the port is already open. The usual method of trying to connect repeatedly
+     * will not work, because the intermediate port is already open. So the connection
+     * will be accepted on that port but the forwarding to the target port will fail and
+     * the connection will be closed again (instead of returning the "connection refused"
+     * error that we expect).
+     */
+    if (startParameters().qmlServerPort > 0)
+        port = startParameters().qmlServerPort;
+
+    m_adapter.beginConnectionTcp(host, port);
 }
+
 
 void QmlEngine::connectionStartupFailed()
 {
@@ -591,7 +597,7 @@ void QmlEngine::startApplicationLauncher()
 void QmlEngine::stopApplicationLauncher()
 {
     if (m_applicationLauncher.isRunning()) {
-        disconnect(&m_applicationLauncher, SIGNAL(processExited(int)),
+        disconnect(&m_applicationLauncher, SIGNAL(processExited(int,QProcess::ExitStatus)),
                    this, SLOT(disconnected()));
         m_applicationLauncher.stop();
     }
@@ -656,6 +662,9 @@ void QmlEngine::shutdownInferior()
 
 void QmlEngine::shutdownEngine()
 {
+    if (m_adapter.activeDebuggerClient())
+        m_adapter.activeDebuggerClient()->resetSession();
+
     if (qmlConsoleManager())
         qmlConsoleManager()->setScriptEvaluator(0);
     m_noDebugOutputTimer.stop();

@@ -43,7 +43,11 @@
 
 namespace Core {
 
-IDocument::IDocument(QObject *parent) : QObject(parent), m_infoBar(0), m_hasWriteWarning(false), m_restored(false)
+IDocument::IDocument(QObject *parent) : QObject(parent),
+    m_temporary(false),
+    m_infoBar(0),
+    m_hasWriteWarning(false),
+    m_restored(false)
 {
 }
 
@@ -51,6 +55,18 @@ IDocument::~IDocument()
 {
     removeAutoSaveFile();
     delete m_infoBar;
+}
+
+/*!
+    Used for example by EditorManager::openEditorWithContents() to set the contents
+    of this document.
+    Returns if setting the contents was successful.
+    The base implementation does nothing and returns false.
+*/
+bool IDocument::setContents(const QByteArray &contents)
+{
+    Q_UNUSED(contents)
+    return false;
 }
 
 IDocument::ReloadBehavior IDocument::reloadBehavior(ChangeTrigger state, ChangeType type) const
@@ -76,6 +92,25 @@ bool IDocument::isFileReadOnly() const
     if (filePath().isEmpty())
         return false;
     return !QFileInfo(filePath()).isWritable();
+}
+
+/*!
+    Returns if the document is a temporary that should for example not be considered
+    when saving/restoring the session state, recent files, etc. Defaults to false.
+    \sa setTemporary()
+*/
+bool IDocument::isTemporary() const
+{
+    return m_temporary;
+}
+
+/*!
+    Sets if the document is \a temporary.
+    \sa isTemporary()
+*/
+void IDocument::setTemporary(bool temporary)
+{
+    m_temporary = temporary;
 }
 
 bool IDocument::autoSave(QString *errorString, const QString &fileName)

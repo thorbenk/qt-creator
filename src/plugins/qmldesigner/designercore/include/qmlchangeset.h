@@ -44,6 +44,7 @@ public:
     ModelNode target() const;
     void setTarget(const ModelNode &target);
     bool isValid() const;
+    static bool isValidQmlModelStateOperation(const ModelNode &modelNode);
 };
 
 
@@ -53,6 +54,7 @@ public:
     QmlPropertyChanges() : QmlModelStateOperation() {}
     QmlPropertyChanges(const ModelNode &modelNode) : QmlModelStateOperation(modelNode) {}
     bool isValid() const;
+    static bool isValidQmlPropertyChanges(const ModelNode &modelNode);
     void removeProperty(const PropertyName &name);
 };
 

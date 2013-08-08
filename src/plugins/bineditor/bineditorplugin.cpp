@@ -37,7 +37,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QDebug>
 #include <QRegExp>
 #include <QVariant>
 
@@ -74,6 +73,7 @@ public:
     {
         m_widget = widget;
         m_incrementalStartPos = m_contPos = -1;
+        m_incrementalWrappedState = false;
     }
 
     bool supportsReplace() const { return false; }
@@ -88,6 +88,7 @@ public:
     void resetIncrementalSearch()
     {
         m_incrementalStartPos = m_contPos = -1;
+        m_incrementalWrappedState = false;
     }
 
     virtual void highlightAll(const QString &txt, Find::FindFlags findFlags)
@@ -100,14 +101,25 @@ public:
         m_widget->highlightSearchResults(QByteArray());
     }
 
-    int find(const QByteArray &pattern, int pos, Find::FindFlags findFlags)
+    int find(const QByteArray &pattern, int pos, Find::FindFlags findFlags, bool *wrapped)
     {
+        if (wrapped)
+            *wrapped = false;
         if (pattern.isEmpty()) {
             m_widget->setCursorPosition(pos);
             return pos;
         }
 
-        return m_widget->find(pattern, pos, Find::textDocumentFlagsForFindFlags(findFlags));
+        int res = m_widget->find(pattern, pos, Find::textDocumentFlagsForFindFlags(findFlags));
+        if (res < 0) {
+            pos = (findFlags & Find::FindBackward) ? -1 : 0;
+            res = m_widget->find(pattern, pos, Find::textDocumentFlagsForFindFlags(findFlags));
+            if (res < 0)
+                return res;
+            if (wrapped)
+                *wrapped = true;
+        }
+        return res;
     }
 
     Result findIncremental(const QString &txt, Find::FindFlags findFlags) {
@@ -119,7 +131,12 @@ public:
             m_incrementalStartPos = m_widget->selectionStart();
         if (m_contPos == -1)
             m_contPos = m_incrementalStartPos;
-        int found = find(pattern, m_contPos, findFlags);
+        bool wrapped;
+        int found = find(pattern, m_contPos, findFlags, &wrapped);
+        if (wrapped != m_incrementalWrappedState && (found >= 0)) {
+            m_incrementalWrappedState = wrapped;
+            showWrapIndicator(m_widget);
+        }
         Result result;
         if (found >= 0) {
             result = Found;
@@ -148,7 +165,10 @@ public:
             if (findFlags & Find::FindBackward)
                 m_contPos = m_widget->selectionStart()-1;
         }
-        int found = find(pattern, m_contPos, findFlags);
+        bool wrapped;
+        int found = find(pattern, m_contPos, findFlags, &wrapped);
+        if (wrapped)
+            showWrapIndicator(m_widget);
         Result result;
         if (found >= 0) {
             result = Found;
@@ -172,6 +192,7 @@ private:
     BinEditorWidget *m_widget;
     int m_incrementalStartPos;
     int m_contPos; // Only valid if last result was NotYetFound.
+    bool m_incrementalWrappedState;
     QByteArray m_lastPattern;
 };
 
@@ -193,6 +214,14 @@ public:
 
     QString mimeType() const {
         return QLatin1String(Constants::C_BINEDITOR_MIMETYPE);
+    }
+
+    bool setContents(const QByteArray &contents)
+    {
+        if (!contents.isEmpty())
+            return false;
+        m_widget->clear();
+        return true;
     }
 
     bool save(QString *errorString, const QString &fn, bool autoSave)
@@ -270,11 +299,12 @@ public:
 
     QString suggestedFileName() const { return QString(); }
 
-    bool isModified() const { return m_widget->isMemoryView() ? false : m_widget->isModified(); }
+    bool isModified() const { return isTemporary()/*e.g. memory view*/ ? false
+                                                                       : m_widget->isModified(); }
 
     bool isFileReadOnly() const {
         const QString fn = filePath();
-        if (m_widget->isMemoryView() || fn.isEmpty())
+        if (fn.isEmpty())
             return false;
         const QFileInfo fi(fn);
         return !fi.isWritable();
@@ -341,11 +371,6 @@ public:
         delete m_widget;
     }
 
-    bool createNew(const QString & /* contents */ = QString()) {
-        m_widget->clear();
-        m_file->setFilePath(QString());
-        return true;
-    }
     bool open(QString *errorString, const QString &fileName, const QString &realFileName) {
         QTC_ASSERT(fileName == realFileName, return false); // The bineditor can do no autosaving
         return m_file->open(errorString, fileName);
@@ -354,8 +379,6 @@ public:
     Core::Id id() const { return Core::Id(Core::Constants::K_DEFAULT_BINARY_EDITOR_ID); }
 
     QWidget *toolBar() { return m_toolBar; }
-
-    bool isTemporary() const { return m_widget->isMemoryView(); }
 
 private slots:
     void updateCursorPosition(int position) {
@@ -379,19 +402,11 @@ private:
 ///////////////////////////////// BinEditorFactory //////////////////////////////////
 
 BinEditorFactory::BinEditorFactory(BinEditorPlugin *owner) :
-    m_mimeTypes(QLatin1String(Constants::C_BINEDITOR_MIMETYPE)),
     m_owner(owner)
 {
-}
-
-Core::Id BinEditorFactory::id() const
-{
-    return Core::Id(Core::Constants::K_DEFAULT_BINARY_EDITOR_ID);
-}
-
-QString BinEditorFactory::displayName() const
-{
-    return qApp->translate("OpenWith::Editors", Constants::C_BINEDITOR_DISPLAY_NAME);
+    setId(Core::Constants::K_DEFAULT_BINARY_EDITOR_ID);
+    setDisplayName(qApp->translate("OpenWith::Editors", Constants::C_BINEDITOR_DISPLAY_NAME));
+    addMimeType(Constants::C_BINEDITOR_MIMETYPE);
 }
 
 Core::IEditor *BinEditorFactory::createEditor(QWidget *parent)
@@ -403,10 +418,6 @@ Core::IEditor *BinEditorFactory::createEditor(QWidget *parent)
     return editor;
 }
 
-QStringList BinEditorFactory::mimeTypes() const
-{
-    return m_mimeTypes;
-}
 
 /*!
    \class BINEditor::BinEditorWidgetFactory

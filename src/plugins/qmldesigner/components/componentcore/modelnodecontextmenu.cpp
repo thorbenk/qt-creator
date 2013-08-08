@@ -37,7 +37,7 @@
 
 namespace QmlDesigner {
 
-ModelNodeContextMenu::ModelNodeContextMenu(QmlModelView *view) :
+ModelNodeContextMenu::ModelNodeContextMenu(AbstractView *view) :
     m_selectionContext(view)
 {
 }
@@ -94,7 +94,7 @@ void ModelNodeContextMenu::execute(const QPoint &position, bool selectionMenuBoo
     QMenu* mainMenu = new QMenu();
 
     m_selectionContext.setShowSelectionTools(selectionMenuBool);
-    m_selectionContext.setScenePos(m_scenePos);
+    m_selectionContext.setScenePosition(m_scenePos);
 
 
      QSet<AbstractDesignerAction* > factories =
@@ -111,7 +111,7 @@ void ModelNodeContextMenu::setScenePos(const QPoint &position)
     m_scenePos = position;
 }
 
-void ModelNodeContextMenu::showContextMenu(QmlModelView *view,
+void ModelNodeContextMenu::showContextMenu(AbstractView *view,
                                            const QPoint &globalPosition,
                                            const QPoint &scenePosition,
                                            bool showSelection)

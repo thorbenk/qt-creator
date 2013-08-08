@@ -219,9 +219,9 @@ StateListener::StateListener(QObject *parent) :
 
 static inline QString displayNameOfEditor(const QString &fileName)
 {
-    const QList<Core::IEditor*> editors = Core::EditorManager::instance()->editorsForFileName(fileName);
-    if (!editors.isEmpty())
-        return editors.front()->document()->displayName();
+    Core::IDocument *document = Core::EditorManager::documentModel()->documentForFilePath(fileName);
+    if (document)
+        return document->displayName();
     return QString();
 }
 
@@ -234,10 +234,19 @@ void StateListener::slotStateChanged()
     // folder?
     State state;
     Core::IDocument *currentDocument = Core::EditorManager::currentDocument();
-    if (!currentDocument)
+    if (!currentDocument) {
         state.currentFile.clear();
-    else
+    } else {
         state.currentFile = currentDocument->filePath();
+        if (state.currentFile.isEmpty()) {
+            const QList<Core::IEditor *> editors =
+                    Core::EditorManager::documentModel()->editorsForDocument(currentDocument);
+            if (!editors.isEmpty()) {
+                if (QWidget *editorWidget = editors.first()->widget())
+                    state.currentFile = editorWidget->property("source").toString();
+            }
+        }
+    }
     QScopedPointer<QFileInfo> currentFileInfo; // Instantiate QFileInfo only once if required.
     if (!state.currentFile.isEmpty()) {
         const bool isTempFile = state.currentFile.startsWith(QDir::tempPath());
@@ -266,7 +275,9 @@ void StateListener::slotStateChanged()
     if (!state.currentFile.isEmpty()) {
         if (currentFileInfo.isNull())
             currentFileInfo.reset(new QFileInfo(state.currentFile));
-        state.currentFileDirectory = currentFileInfo->absolutePath();
+        state.currentFileDirectory =
+                currentFileInfo->isDir() ? currentFileInfo->absoluteFilePath() :
+                                           currentFileInfo->absolutePath();
         state.currentFileName = currentFileInfo->fileName();
         fileControl = vcsManager->findVersionControlForDirectory(state.currentFileDirectory,
                                                                  &state.currentFileTopLevel);
@@ -393,13 +404,12 @@ QString VcsBasePluginState::currentProjectTopLevel() const
     return data->m_state.currentProjectTopLevel;
 }
 
-QStringList VcsBasePluginState::relativeCurrentProject() const
+QString VcsBasePluginState::relativeCurrentProject() const
 {
-    QStringList rc;
-    QTC_ASSERT(hasProject(), return rc);
+    QTC_ASSERT(hasProject(), return QString());
     if (data->m_state.currentProjectTopLevel != data->m_state.currentProjectPath)
-        rc.append(QDir(data->m_state.currentProjectTopLevel).relativeFilePath(data->m_state.currentProjectPath));
-    return rc;
+        return QDir(data->m_state.currentProjectTopLevel).relativeFilePath(data->m_state.currentProjectPath);
+    return QString();
 }
 
 bool VcsBasePluginState::hasTopLevel() const
@@ -852,16 +862,21 @@ static SynchronousProcessResponse runVcsFullySynchronously(const QString &workin
                                                             &stdOut, &stdErr, true);
 
     if (!stdErr.isEmpty()) {
-        response.stdErr = QString::fromLocal8Bit(stdErr).remove(QLatin1Char('\r'));
+        response.stdErr = Utils::SynchronousProcess::normalizeNewlines(
+                    outputCodec ? outputCodec->toUnicode(stdErr) : QString::fromLocal8Bit(stdErr));
         if (!(flags & VcsBasePlugin::SuppressStdErrInLogWindow))
             outputWindow->append(response.stdErr);
     }
 
     if (!stdOut.isEmpty()) {
-        response.stdOut = (outputCodec ? outputCodec->toUnicode(stdOut) : QString::fromLocal8Bit(stdOut))
-                          .remove(QLatin1Char('\r'));
-        if (flags & VcsBasePlugin::ShowStdOutInLogWindow)
-            outputWindow->append(response.stdOut);
+        response.stdOut = Utils::SynchronousProcess::normalizeNewlines(
+                    outputCodec ? outputCodec->toUnicode(stdOut) : QString::fromLocal8Bit(stdOut));
+        if (flags & VcsBasePlugin::ShowStdOutInLogWindow) {
+            if (flags & VcsBasePlugin::SilentOutput)
+                outputWindow->appendSilently(response.stdOut);
+            else
+                outputWindow->append(response.stdOut);
+        }
     }
 
     // Result

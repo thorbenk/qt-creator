@@ -7,18 +7,8 @@ Product {
     property string provider: 'QtProject'
     property var pluginspecreplacements
     property var pluginRecommends: []
-    targetName: {
-        // see PluginSpecPrivate::loadLibrary()
-        if (qbs.debugInformation) {
-            switch (qbs.targetOS) {
-            case "windows":
-                return name + "d";
-            case "mac":
-                return name + "_debug";
-            }
-        }
-        return name;
-    }
+
+    targetName: Defaults.qtLibraryName(qbs, name)
 
     Depends { name: "ExtensionSystem" }
     Depends { name: "pluginspec" }
@@ -33,7 +23,7 @@ Product {
     cpp.rpaths: qbs.targetOS.contains("osx") ? ["@loader_path/../..", "@executable_path/.."]
                                       : ["$ORIGIN", "$ORIGIN/..", "$ORIGIN/../.."]
     cpp.linkerFlags: {
-        if (qbs.buildVariant == "release" && (qbs.toolchain == "gcc" || qbs.toolchain == "mingw"))
+        if (qbs.buildVariant == "release" && (qbs.toolchain.contains("gcc") || qbs.toolchain.contains("mingw")))
             return ["-Wl,-s"]
     }
     cpp.includePaths: [ ".", ".." ]

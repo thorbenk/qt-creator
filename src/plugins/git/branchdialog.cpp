@@ -69,6 +69,7 @@ BranchDialog::BranchDialog(QWidget *parent) :
     connect(m_ui->logButton, SIGNAL(clicked()), this, SLOT(log()));
     connect(m_ui->mergeButton, SIGNAL(clicked()), this, SLOT(merge()));
     connect(m_ui->rebaseButton, SIGNAL(clicked()), this, SLOT(rebase()));
+    connect(m_ui->cherryPickButton, SIGNAL(clicked()), this, SLOT(cherryPick()));
     connect(m_ui->trackButton, SIGNAL(clicked()), this, SLOT(setRemoteTracking()));
 
     m_ui->branchView->setModel(m_model);
@@ -123,6 +124,7 @@ void BranchDialog::enableButtons()
     m_ui->checkoutButton->setEnabled(hasActions && !currentSelected);
     m_ui->rebaseButton->setEnabled(hasActions && !currentSelected);
     m_ui->mergeButton->setEnabled(hasActions && !currentSelected);
+    m_ui->cherryPickButton->setEnabled(hasActions && !currentSelected);
     m_ui->trackButton->setEnabled(hasActions && currentLocal && !currentSelected && !isTag);
 }
 
@@ -198,15 +200,17 @@ void BranchDialog::checkout()
         m_model->checkoutBranch(idx);
     } else if (branchCheckoutDialog.exec() == QDialog::Accepted && m_model) {
 
-        QString stashMessage;
-        if (branchCheckoutDialog.makeStashOfCurrentBranch()
-                || branchCheckoutDialog.moveLocalChangesToNextBranch()) {
-
-            if (!gitClient->beginStashScope(m_repository, currentBranch + QLatin1String("-AutoStash"), NoPrompt))
+        if (branchCheckoutDialog.makeStashOfCurrentBranch()) {
+            if (!gitClient->executeSynchronousStash(m_repository,
+                            currentBranch + QLatin1String("-AutoStash"))) {
                 return;
-            stashMessage = gitClient->stashInfo(m_repository).stashMessage();
+            }
+        } else if (branchCheckoutDialog.moveLocalChangesToNextBranch()) {
+            if (!gitClient->beginStashScope(m_repository, QLatin1String("Checkout"), NoPrompt))
+                return;
         } else if (branchCheckoutDialog.discardLocalChanges()) {
-            gitClient->synchronousReset(m_repository);
+            if (!gitClient->synchronousReset(m_repository))
+                return;
         }
 
         m_model->checkoutBranch(idx);
@@ -220,7 +224,7 @@ void BranchDialog::checkout()
             }
         }
 
-        if (!stashMessage.isEmpty() && branchCheckoutDialog.moveLocalChangesToNextBranch())
+        if (branchCheckoutDialog.moveLocalChangesToNextBranch())
             gitClient->endStashScope(m_repository);
         else if (branchCheckoutDialog.popStashOfNextBranch())
             gitClient->synchronousStashRestore(m_repository, stashName, true);
@@ -240,12 +244,13 @@ void BranchDialog::remove()
 
     const bool isTag = m_model->isTag(selected);
     const bool wasMerged = isTag ? true : m_model->branchIsMerged(selected);
-    QString message = tr("Would you like to delete the %1 '%2'?");
+    QString message;
     if (isTag)
-        message = message.arg(tr("tag"));
+        message = tr("Would you like to delete the tag '%1'?").arg(branchName);
+    else if (wasMerged)
+        message = tr("Would you like to delete the branch '%1'?").arg(branchName);
     else
-        message = message.arg(wasMerged ? tr("branch") : tr("<b>unmerged</b> branch"));
-    message = message.arg(branchName);
+        message = tr("Would you like to delete the <b>unmerged</b> branch '%1'?").arg(branchName);
 
     if (QMessageBox::question(this, isTag ? tr("Delete Tag") : tr("Delete Branch"),
                               message, QMessageBox::Yes | QMessageBox::No,
@@ -310,7 +315,7 @@ void BranchDialog::log()
     if (branchName.isEmpty())
         return;
     // Do not pass working dir by reference since it might change
-    GitPlugin::instance()->gitClient()->log(QString(m_repository), QStringList(), false, QStringList(branchName));
+    GitPlugin::instance()->gitClient()->log(QString(m_repository), QString(), false, QStringList(branchName));
 }
 
 void BranchDialog::merge()
@@ -333,6 +338,15 @@ void BranchDialog::rebase()
     GitClient *client = GitPlugin::instance()->gitClient();
     if (client->beginStashScope(m_repository, QLatin1String("rebase")))
         client->rebase(m_repository, baseBranch);
+}
+
+void BranchDialog::cherryPick()
+{
+    QModelIndex idx = selectedIndex();
+    QTC_CHECK(idx != m_model->currentBranch()); // otherwise the button would not be enabled!
+
+    const QString branch = m_model->fullName(idx, true);
+    GitPlugin::instance()->gitClient()->synchronousCherryPick(m_repository, branch);
 }
 
 void BranchDialog::setRemoteTracking()

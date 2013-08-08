@@ -151,23 +151,18 @@ public:
 
     Core::Id id() const { return m_id; }
 
-    bool isTemporary() const { return m_temporary; }
-    void setTemporary(bool t) { m_temporary = t; }
-
 signals:
     void describeRequested(const QString &source, const QString &change);
     void annotateRevisionRequested(const QString &source, const QString &change, int line);
 
 private:
     Core::Id m_id;
-    bool m_temporary;
 };
 
 VcsBaseEditor::VcsBaseEditor(VcsBaseEditorWidget *widget,
                              const VcsBaseEditorParameters *type)  :
     BaseTextEditor(widget),
-    m_id(type->id),
-    m_temporary(false)
+    m_id(type->id)
 {
     setContext(Core::Context(type->context, TextEditor::Constants::C_TEXTEDITOR));
 }
@@ -725,7 +720,7 @@ void VcsBaseEditorWidget::setForceReadOnly(bool b)
     VcsBaseEditor *eda = qobject_cast<VcsBaseEditor *>(editor());
     QTC_ASSERT(eda != 0, return);
     setReadOnly(b);
-    eda->setTemporary(b);
+    eda->document()->setTemporary(b);
 }
 
 QString VcsBaseEditorWidget::source() const
@@ -1169,17 +1164,17 @@ DiffChunk VcsBaseEditorWidget::diffChunk(QTextCursor cursor) const
             unicode += QLatin1Char('\n');
         }
     }
-    const QTextCodec *cd = textCodec();
+    const QTextCodec *cd = baseTextDocument()->codec();
     rc.chunk = cd ? cd->fromUnicode(unicode) : unicode.toLocal8Bit();
     return rc;
 }
 
-void VcsBaseEditorWidget::setPlainTextData(const QByteArray &data)
+void VcsBaseEditorWidget::setPlainText(const QString &text)
 {
-    if (data.size() > Core::EditorManager::maxTextFileSize())
-        setPlainText(msgTextTooLarge(data.size()));
+    if (text.size() > Core::EditorManager::maxTextFileSize())
+        TextEditor::BaseTextEditorWidget::setPlainText(msgTextTooLarge(text.size()));
     else
-        setPlainText(codec()->toUnicode(data));
+        TextEditor::BaseTextEditorWidget::setPlainText(text);
 }
 
 void VcsBaseEditorWidget::reportCommandFinished(bool ok, int exitCode, const QVariant &data)
@@ -1231,17 +1226,9 @@ const VcsBaseEditorParameters *VcsBaseEditorWidget::findType(const VcsBaseEditor
 // Find the codec used for a file querying the editor.
 static QTextCodec *findFileCodec(const QString &source)
 {
-    typedef QList<Core::IEditor *> EditorList;
-
-    const EditorList editors = Core::EditorManager::instance()->editorsForFileName(source);
-    if (!editors.empty()) {
-        const EditorList::const_iterator ecend =  editors.constEnd();
-        for (EditorList::const_iterator it = editors.constBegin(); it != ecend; ++it)
-            if (const TextEditor::BaseTextEditor *be = qobject_cast<const TextEditor::BaseTextEditor *>(*it)) {
-                QTextCodec *codec = be->editorWidget()->textCodec();
-                return codec;
-            }
-    }
+    Core::IDocument *document = Core::EditorManager::documentModel()->documentForFilePath(source);
+    if (Core::TextDocument *textDocument = qobject_cast<Core::TextDocument *>(document))
+        return const_cast<QTextCodec *>(textDocument->codec());
     return 0;
 }
 
@@ -1565,20 +1552,17 @@ static const char tagPropertyC[] = "_q_VcsBaseEditorTag";
 
 void VcsBaseEditorWidget::tagEditor(Core::IEditor *e, const QString &tag)
 {
-    e->setProperty(tagPropertyC, QVariant(tag));
+    e->document()->setProperty(tagPropertyC, QVariant(tag));
 }
 
 Core::IEditor* VcsBaseEditorWidget::locateEditorByTag(const QString &tag)
 {
-    Core::IEditor *rc = 0;
-    foreach (Core::IEditor *ed, Core::EditorManager::instance()->openedEditors()) {
-        const QVariant tagPropertyValue = ed->property(tagPropertyC);
-        if (tagPropertyValue.type() == QVariant::String && tagPropertyValue.toString() == tag) {
-            rc = ed;
-            break;
-        }
+    foreach (Core::IDocument *document, Core::EditorManager::documentModel()->openedDocuments()) {
+        const QVariant tagPropertyValue = document->property(tagPropertyC);
+        if (tagPropertyValue.type() == QVariant::String && tagPropertyValue.toString() == tag)
+            return Core::EditorManager::documentModel()->editorsForDocument(document).first();
     }
-    return rc;
+    return 0;
 }
 
 } // namespace VcsBase

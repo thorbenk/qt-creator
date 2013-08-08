@@ -170,8 +170,10 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
        connect(m_qmlPuppetEditorProcess.data(), SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(processFinished(int,QProcess::ExitStatus)));
        connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), m_qmlPuppetEditorProcess.data(), SLOT(kill()));
        bool fowardQmlpuppetOutput = !qgetenv("FORWARD_QMLPUPPET_OUTPUT").isEmpty();
-       if (fowardQmlpuppetOutput)
-           m_qmlPuppetEditorProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+       if (fowardQmlpuppetOutput) {
+           m_qmlPuppetEditorProcess->setProcessChannelMode(QProcess::MergedChannels);
+           connect(m_qmlPuppetEditorProcess.data(), SIGNAL(readyRead()), this, SLOT(printEditorProcessOutput()));
+       }
        m_qmlPuppetEditorProcess->start(applicationPath, QStringList() << socketToken << "editormode" << "-graphicssystem raster");
 
        if (runModus == NormalModus) {
@@ -180,8 +182,10 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
            m_qmlPuppetPreviewProcess->setObjectName("PreviewProcess");
            connect(m_qmlPuppetPreviewProcess.data(), SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(processFinished(int,QProcess::ExitStatus)));
            connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), m_qmlPuppetPreviewProcess.data(), SLOT(kill()));
-           if (fowardQmlpuppetOutput)
-               m_qmlPuppetPreviewProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+           if (fowardQmlpuppetOutput) {
+               m_qmlPuppetPreviewProcess->setProcessChannelMode(QProcess::MergedChannels);
+               connect(m_qmlPuppetPreviewProcess.data(), SIGNAL(readyRead()), this, SLOT(printPreviewProcessOutput()));
+           }
            m_qmlPuppetPreviewProcess->start(applicationPath, QStringList() << socketToken << "previewmode" << "-graphicssystem raster");
 
            m_qmlPuppetRenderProcess = new QProcess;
@@ -189,8 +193,10 @@ NodeInstanceServerProxy::NodeInstanceServerProxy(NodeInstanceView *nodeInstanceV
            m_qmlPuppetRenderProcess->setObjectName("RenderProcess");
            connect(m_qmlPuppetRenderProcess.data(), SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(processFinished(int,QProcess::ExitStatus)));
            connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), m_qmlPuppetRenderProcess.data(), SLOT(kill()));
-           if (fowardQmlpuppetOutput)
-               m_qmlPuppetRenderProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+           if (fowardQmlpuppetOutput) {
+               m_qmlPuppetRenderProcess->setProcessChannelMode(QProcess::MergedChannels);
+               connect(m_qmlPuppetRenderProcess.data(), SIGNAL(readyRead()), this, SLOT(printRenderProcessOutput()));
+           }
            m_qmlPuppetRenderProcess->start(applicationPath, QStringList() << socketToken << "rendermode" << "-graphicssystem raster");
 
        }
@@ -288,23 +294,23 @@ void NodeInstanceServerProxy::dispatchCommand(const QVariant &command)
     static const int tokenCommandType = QMetaType::type("TokenCommand");
     static const int debugOutputCommandType = QMetaType::type("DebugOutputCommand");
 
-    if (command.userType() ==  informationChangedCommandType)
+    if (command.userType() ==  informationChangedCommandType) {
         nodeInstanceClient()->informationChanged(command.value<InformationChangedCommand>());
-    else if (command.userType() ==  valuesChangedCommandType)
+    } else if (command.userType() ==  valuesChangedCommandType) {
         nodeInstanceClient()->valuesChanged(command.value<ValuesChangedCommand>());
-    else if (command.userType() ==  pixmapChangedCommandType)
+    } else if (command.userType() ==  pixmapChangedCommandType) {
         nodeInstanceClient()->pixmapChanged(command.value<PixmapChangedCommand>());
-    else if (command.userType() == childrenChangedCommandType)
+    } else if (command.userType() == childrenChangedCommandType) {
         nodeInstanceClient()->childrenChanged(command.value<ChildrenChangedCommand>());
-    else if (command.userType() == statePreviewImageChangedCommandType)
+    } else if (command.userType() == statePreviewImageChangedCommandType) {
         nodeInstanceClient()->statePreviewImagesChanged(command.value<StatePreviewImageChangedCommand>());
-    else if (command.userType() == componentCompletedCommandType)
+    } else if (command.userType() == componentCompletedCommandType) {
         nodeInstanceClient()->componentCompleted(command.value<ComponentCompletedCommand>());
-    else if (command.userType() == tokenCommandType)
+    } else if (command.userType() == tokenCommandType) {
         nodeInstanceClient()->token(command.value<TokenCommand>());
-    else if (command.userType() == debugOutputCommandType)
+    } else if (command.userType() == debugOutputCommandType) {
         nodeInstanceClient()->debugOutput(command.value<DebugOutputCommand>());
-    else if (command.userType() == synchronizeCommandType) {
+    } else if (command.userType() == synchronizeCommandType) {
         SynchronizeCommand synchronizeCommand = command.value<SynchronizeCommand>();
         m_synchronizeId = synchronizeCommand.synchronizeId();
     }  else
@@ -393,8 +399,8 @@ void NodeInstanceServerProxy::processFinished(int /*exitCode*/, QProcess::ExitSt
     if (m_captureFileForTest.isOpen()) {
         m_captureFileForTest.close();
         m_captureFileForTest.remove();
-        QMessageBox::warning(0, tr("Qml Puppet crashes"), tr("Your are recording a Puppet stream and the puppet crashes. "
-                                                             "It is recommended to reopen the Qml Designer and start again."));
+        QMessageBox::warning(0, tr("QML Puppet Crashed"), tr("Your are recording a Puppet stream and the puppet crashed. "
+                                                             "It is recommended to reopen the QML Designer and start again."));
     }
 
 
@@ -521,6 +527,37 @@ void NodeInstanceServerProxy::readThirdDataStream()
     foreach (const QVariant &command, commandList) {
         dispatchCommand(command);
     }
+}
+
+void NodeInstanceServerProxy::printEditorProcessOutput()
+{
+    while (m_qmlPuppetEditorProcess->canReadLine()) {
+        QByteArray line = m_qmlPuppetEditorProcess->readLine();
+        line.chop(1);
+        qDebug().nospace() << "Editor Puppet: " << qPrintable(line);
+    }
+    qDebug() << "\n";
+}
+
+void NodeInstanceServerProxy::printPreviewProcessOutput()
+{
+    while (m_qmlPuppetPreviewProcess->canReadLine()) {
+        QByteArray line = m_qmlPuppetPreviewProcess->readLine();
+        line.chop(1);
+        qDebug().nospace() << "Preview Puppet: " << qPrintable(line);
+    }
+    qDebug() << "\n";
+}
+
+void NodeInstanceServerProxy::printRenderProcessOutput()
+{
+    while (m_qmlPuppetRenderProcess->canReadLine()) {
+        QByteArray line = m_qmlPuppetRenderProcess->readLine();
+        line.chop(1);
+        qDebug().nospace() << "Render Puppet: " << qPrintable(line);
+    }
+
+    qDebug() << "\n";
 }
 
 QString NodeInstanceServerProxy::qmlPuppetApplicationName() const

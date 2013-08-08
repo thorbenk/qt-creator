@@ -46,7 +46,8 @@ SUBDIRS   = \
     madde \
     valgrind \
     todo \
-    qnx
+    qnx \
+    clearcase
 
 # prefer qmake variable set on command line over env var
 isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=$$(LLVM_INSTALL_DIR)
@@ -66,10 +67,6 @@ isEmpty(IDE_PACKAGE_MODE) {
     SUBDIRS += \
         updateinfo
 }
-
-!macx: \
-    SUBDIRS += \
-        clearcase
 
 contains(QT_CONFIG, declarative)|!isEmpty(QT.declarative.name) {
     SUBDIRS += \

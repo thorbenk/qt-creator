@@ -47,7 +47,6 @@ public:
     IEditor(QObject *parent = 0) : IContext(parent) {}
     virtual ~IEditor() {}
 
-    virtual bool createNew(const QString &contents = QString()) = 0;
     virtual bool open(QString *errorString, const QString &fileName, const QString &realFileName) = 0;
     virtual IDocument *document() = 0;
     virtual Core::Id id() const = 0;
@@ -61,8 +60,6 @@ public:
     virtual int currentLine() const { return 0; }
     virtual int currentColumn() const { return 0; }
     virtual void gotoLine(int line, int column = 0) { Q_UNUSED(line) Q_UNUSED(column) }
-
-    virtual bool isTemporary() const = 0;
 
     virtual QWidget *toolBar() = 0;
 

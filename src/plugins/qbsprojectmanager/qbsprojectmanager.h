@@ -34,9 +34,13 @@
 
 #include <projectexplorer/iprojectmanager.h>
 
-#include <qbs.h>
+namespace qbs {
+class Settings;
+class Preferences;
+} // namespace qbs
 
 #include <QString>
+#include <QVariantMap>
 
 namespace ProjectExplorer {
 class Kit;
@@ -51,6 +55,8 @@ class QbsLogSink;
 class QbsProject;
 class QbsProjectManagerPlugin;
 } // namespace Internal
+
+class DefaultPropertyProvider;
 
 class QbsManager : public ProjectExplorer::IProjectManager
 {
@@ -76,7 +82,6 @@ private slots:
     void pushKitsToQbs();
 
 private:
-
     void addProfile(const QString &name, const QVariantMap &data);
     void removeCreatorProfiles();
     void addProfileFromKit(const ProjectExplorer::Kit *k);
@@ -85,6 +90,8 @@ private:
     Internal::QbsLogSink *m_logSink;
     static qbs::Settings *m_settings;
     static qbs::Preferences *m_preferences;
+
+    DefaultPropertyProvider *m_defaultPropertyProvider;
 };
 
 } // namespace QbsProjectManager

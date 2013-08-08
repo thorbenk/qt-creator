@@ -149,6 +149,9 @@ Internal::TextToModelMerger *RewriterView::textToModelMerger() const
 
 void RewriterView::modelAttached(Model *model)
 {
+    if (model && model->textModifier())
+        setTextModifier(model->textModifier());
+
     AbstractView::modelAttached(model);
 
     ModelAmender differenceHandler(m_textToModelMerger.data());
@@ -439,7 +442,7 @@ void RewriterView::rewriterEndTransaction()
     }
 }
 
-void RewriterView::actualStateChanged(const ModelNode & /*node*/)
+void RewriterView::currentStateChanged(const ModelNode & /*node*/)
 {
 }
 
@@ -483,12 +486,14 @@ QString RewriterView::textModifierContent() const
 
 void RewriterView::reactivateTextMofifierChangeSignals()
 {
-    textModifier()->reactivateChangeSignals();
+    if (textModifier())
+        textModifier()->reactivateChangeSignals();
 }
 
 void RewriterView::deactivateTextMofifierChangeSignals()
 {
-    textModifier()->deactivateChangeSignals();
+    if (textModifier())
+        textModifier()->deactivateChangeSignals();
 }
 
 void RewriterView::applyModificationGroupChanges()

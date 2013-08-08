@@ -34,6 +34,7 @@
 #include "analyzerbase_global.h"
 #include "analyzerstartparameters.h"
 
+#include <coreplugin/id.h>
 #include <projectexplorer/projectexplorerconstants.h>
 
 #include <QObject>
@@ -45,7 +46,7 @@ class RunConfiguration;
 namespace Analyzer {
 
 class IAnalyzerOutputPaneAdapter;
-class IAnalyzerEngine;
+class AnalyzerRunControl;
 class AbstractAnalyzerSubConfig;
 
 
@@ -77,15 +78,6 @@ public:
     virtual QString displayName() const = 0;
     /// Returns a user readable description name for this tool.
     virtual QString description() const = 0;
-    /// Returns an id for the start action.
-    virtual Core::Id actionId(StartMode mode) const
-        { return defaultActionId(this, mode); }
-    /// Returns the menu group the start action should go to.
-    virtual Core::Id menuGroup(StartMode mode) const
-        { return defaultMenuGroup(mode); }
-    /// Returns a short user readable action name for this tool.
-    virtual QString actionName(StartMode mode) const
-        { return defaultActionName(this, mode); }
 
     /**
      * The mode in which this tool should preferably be run
@@ -101,11 +93,6 @@ public:
     };
     virtual ToolMode toolMode() const = 0;
 
-    /// Convenience implementation.
-    static Core::Id defaultMenuGroup(StartMode mode);
-    static Core::Id defaultActionId(const IAnalyzerTool *tool, StartMode mode);
-    static QString defaultActionName(const IAnalyzerTool *tool, StartMode mode);
-
     /// This gets called after all analyzation tools where initialized.
     virtual void extensionsInitialized() = 0;
 
@@ -116,28 +103,16 @@ public:
 
     /// Returns a new engine for the given start parameters.
     /// Called each time the tool is launched.
-    virtual IAnalyzerEngine *createEngine(const AnalyzerStartParameters &sp,
+    virtual AnalyzerRunControl *createRunControl(const AnalyzerStartParameters &sp,
         ProjectExplorer::RunConfiguration *runConfiguration = 0) = 0;
 
-    /// Returns true if the tool can be run
-    virtual bool canRun(ProjectExplorer::RunConfiguration *runConfiguration,
-                        ProjectExplorer::RunMode mode) const = 0;
-
-    /// Create the start parameters for the run control factory
-    virtual AnalyzerStartParameters createStartParameters(
-            ProjectExplorer::RunConfiguration *runConfiguration,
-            ProjectExplorer::RunMode mode) const = 0;
-
-    virtual void startTool(StartMode mode) = 0;
+    virtual void startTool(StartMode mode);
 
     /// Called when tools gets selected.
     virtual void toolSelected() const {}
 
     /// Called when tools gets deselected.
     virtual void toolDeselected() const {}
-
-    /// Factory method to create the global tool setting
-    virtual AbstractAnalyzerSubConfig *createGlobalSettings();
 
     /// Factory method to create the project tool setting
     virtual AbstractAnalyzerSubConfig *createProjectSettings();

@@ -35,9 +35,9 @@
 
 #include <QMetaType>
 
-#include <coreplugin/id.h>
 #include <ssh/sshconnection.h>
 #include <utils/environment.h>
+#include <projectexplorer/projectexplorerconstants.h>
 
 namespace Analyzer {
 
@@ -47,13 +47,13 @@ namespace Analyzer {
 class ANALYZER_EXPORT AnalyzerStartParameters
 {
 public:
-    AnalyzerStartParameters()
+    AnalyzerStartParameters() : analyzerPort(0)
     {}
 
     StartMode startMode;
+    ProjectExplorer::RunMode runMode;
     QSsh::SshConnectionParameters connParams;
 
-    Core::Id toolId;
     QString debuggee;
     QString debuggeeArgs;
     QString analyzerCmdPrefix;

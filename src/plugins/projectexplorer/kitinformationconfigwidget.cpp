@@ -65,6 +65,11 @@ SysRootInformationConfigWidget::SysRootInformationConfigWidget(Kit *k, bool stic
     connect(m_chooser, SIGNAL(changed(QString)), this, SLOT(pathWasChanged()));
 }
 
+SysRootInformationConfigWidget::~SysRootInformationConfigWidget()
+{
+    delete m_chooser;
+}
+
 QString SysRootInformationConfigWidget::displayName() const
 {
     return tr("Sysroot:");
@@ -73,7 +78,7 @@ QString SysRootInformationConfigWidget::displayName() const
 QString SysRootInformationConfigWidget::toolTip() const
 {
     return tr("The root directory of the system image to use.<br>"
-                  "Leave empty when building for the desktop.");
+              "Leave empty when building for the desktop.");
 }
 
 void SysRootInformationConfigWidget::refresh()
@@ -135,6 +140,12 @@ ToolChainInformationConfigWidget::ToolChainInformationConfigWidget(Kit *k, bool 
             this, SLOT(toolChainRemoved(ProjectExplorer::ToolChain*)));
     connect(tcm, SIGNAL(toolChainUpdated(ProjectExplorer::ToolChain*)),
             this, SLOT(toolChainUpdated(ProjectExplorer::ToolChain*)));
+}
+
+ToolChainInformationConfigWidget::~ToolChainInformationConfigWidget()
+{
+    delete m_comboBox;
+    delete m_manageButton;
 }
 
 QString ToolChainInformationConfigWidget::displayName() const
@@ -237,7 +248,7 @@ DeviceTypeInformationConfigWidget::DeviceTypeInformationConfigWidget(Kit *workin
     KitConfigWidget(workingCopy, sticky), m_isReadOnly(false), m_comboBox(new QComboBox)
 {
     QList<IDeviceFactory *> factories
-            = ExtensionSystem::PluginManager::instance()->getObjects<IDeviceFactory>();
+            = ExtensionSystem::PluginManager::getObjects<IDeviceFactory>();
     foreach (IDeviceFactory *factory, factories) {
         foreach (Core::Id id, factory->availableCreationIds())
             m_comboBox->addItem(factory->displayNameForId(id), id.uniqueIdentifier());
@@ -247,6 +258,11 @@ DeviceTypeInformationConfigWidget::DeviceTypeInformationConfigWidget(Kit *workin
 
     refresh();
     connect(m_comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(currentTypeChanged(int)));
+}
+
+DeviceTypeInformationConfigWidget::~DeviceTypeInformationConfigWidget()
+{
+    delete m_comboBox;
 }
 
 QWidget *DeviceTypeInformationConfigWidget::mainWidget() const
@@ -310,6 +326,13 @@ DeviceInformationConfigWidget::DeviceInformationConfigWidget(Kit *workingCopy, b
     connect(m_model, SIGNAL(modelReset()), SLOT(modelReset()));
     connect(m_comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(currentDeviceChanged()));
     connect(m_manageButton, SIGNAL(clicked()), this, SLOT(manageDevices()));
+}
+
+DeviceInformationConfigWidget::~DeviceInformationConfigWidget()
+{
+    delete m_comboBox;
+    delete m_model;
+    delete m_manageButton;
 }
 
 QWidget *DeviceInformationConfigWidget::mainWidget() const

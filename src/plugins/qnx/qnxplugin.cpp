@@ -51,11 +51,13 @@
 #include "blackberrykeyspage.h"
 #include "blackberrycheckdevmodestepfactory.h"
 #include "blackberrydeviceconnectionmanager.h"
+#include "blackberryconfigurationmanager.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/mimedatabase.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/taskhub.h>
+#include <projectexplorer/kitmanager.h>
 
 #include <QtPlugin>
 
@@ -68,6 +70,7 @@ QNXPlugin::QNXPlugin()
 QNXPlugin::~QNXPlugin()
 {
     delete BlackBerryDeviceConnectionManager::instance();
+    delete &BlackBerryConfigurationManager::instance();
 }
 
 bool QNXPlugin::initialize(const QStringList &arguments, QString *errorString)
@@ -111,12 +114,14 @@ bool QNXPlugin::initialize(const QStringList &arguments, QString *errorString)
     }
     addAutoReleasedObject(new BarDescriptorEditorFactory);
 
+    connect(ProjectExplorer::KitManager::instance(), SIGNAL(kitsLoaded()), &BlackBerryConfigurationManager::instance(), SLOT(loadSettings()));
+
     return true;
 }
 
 void QNXPlugin::extensionsInitialized()
 {
-    ProjectExplorer::ProjectExplorerPlugin::instance()->taskHub()->addCategory(Constants::QNX_TASK_CATEGORY_BARDESCRIPTOR,
+    ProjectExplorer::ProjectExplorerPlugin::taskHub()->addCategory(Constants::QNX_TASK_CATEGORY_BARDESCRIPTOR,
                                                                                tr("Bar Descriptor"));
 }
 

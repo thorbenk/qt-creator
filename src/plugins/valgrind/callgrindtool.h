@@ -30,14 +30,14 @@
 #ifndef CALLGRINDTOOL_H
 #define CALLGRINDTOOL_H
 
-#include "valgrindtool.h"
+#include <analyzerbase/ianalyzertool.h>
 
 namespace Valgrind {
 namespace Internal {
 
 class CallgrindToolPrivate;
 
-class CallgrindTool : public ValgrindTool
+class CallgrindTool : public Analyzer::IAnalyzerTool
 {
     Q_OBJECT
 
@@ -53,7 +53,7 @@ public:
 
     void extensionsInitialized();
 
-    Analyzer::IAnalyzerEngine *createEngine(const Analyzer::AnalyzerStartParameters &sp,
+    Analyzer::AnalyzerRunControl *createRunControl(const Analyzer::AnalyzerStartParameters &sp,
         ProjectExplorer::RunConfiguration *runConfiguration = 0);
     QWidget *createWidgets();
 

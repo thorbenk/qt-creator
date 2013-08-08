@@ -45,7 +45,7 @@ const char M_CONTEXT[] = "ProFileEditor.ContextMenu";
 const char PROJECT_ID[] = "Qt4.Qt4Project";
 const char PROFILE_EDITOR_ID[] = "Qt4.proFileEditor";
 const char PROFILE_EDITOR_DISPLAY_NAME[] = QT_TRANSLATE_NOOP("OpenWith::Editors", ".pro File Editor");
-const char PROFILE_MIMETYPE [] = "application/vnd.qt.qmakeprofile";
+const char PROFILE_MIMETYPE[] = "application/vnd.qt.qmakeprofile";
 const char PROINCLUDEFILE_MIMETYPE [] = "application/vnd.qt.qmakeproincludefile";
 const char PROFEATUREFILE_MIMETYPE [] = "application/vnd.qt.qmakeprofeaturefile";
 const char CPP_SOURCE_MIMETYPE[] = "text/x-c++src";
@@ -80,7 +80,6 @@ const char SHADOWBUILD_TARGETFEATURE_ID[] = "Qt4ProjectManager.TargetFeature.Sha
 // Tool chains:
 const char GCCE_TOOLCHAIN_ID[] = "Qt4ProjectManager.ToolChain.GCCE";
 const char MAEMO_TOOLCHAIN_ID[] = "Qt4ProjectManager.ToolChain.Maemo";
-const char RVCT_TOOLCHAIN_ID[] = "Qt4ProjectManager.ToolChain.RVCT";
 
 // ICONS
 const char ICON_QTQUICK_APP[] = ":/wizards/images/qtquickapp.png";

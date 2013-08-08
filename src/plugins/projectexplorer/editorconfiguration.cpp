@@ -237,7 +237,7 @@ void EditorConfiguration::configureEditor(ITextEditor *textEditor) const
     if (baseTextEditor)
         baseTextEditor->setCodeStyle(codeStyle(baseTextEditor->languageSettingsId()));
     if (!d->m_useGlobal) {
-        textEditor->setTextCodec(d->m_textCodec, ITextEditor::TextCodecFromProjectSetting);
+        textEditor->textDocument()->setCodec(d->m_textCodec);
         if (baseTextEditor)
             switchSettings(baseTextEditor);
     }
@@ -249,7 +249,8 @@ void EditorConfiguration::setUseGlobalSettings(bool use)
     d->m_defaultCodeStyle->setCurrentDelegate(d->m_useGlobal
                     ? TextEditorSettings::instance()->codeStyle() : 0);
     const SessionManager *session = ProjectExplorerPlugin::instance()->session();
-    QList<Core::IEditor *> opened = Core::EditorManager::instance()->openedEditors();
+    QList<Core::IEditor *> opened = Core::EditorManager::documentModel()->editorsForDocuments(
+                Core::EditorManager::documentModel()->openedDocuments());
     foreach (Core::IEditor *editor, opened) {
         if (BaseTextEditorWidget *baseTextEditor = qobject_cast<BaseTextEditorWidget *>(editor->widget())) {
             Project *project = session->projectForFile(editor->document()->filePath());

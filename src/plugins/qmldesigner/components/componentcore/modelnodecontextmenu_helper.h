@@ -32,6 +32,7 @@
 
 #include "modelnodeoperations.h"
 #include "defaultdesigneraction.h"
+#include "qmlitemnode.h"
 
 #include <QAction>
 #include <QMenu>
@@ -94,11 +95,6 @@ bool singleSelectionItemIsAnchored(const SelectionContext &selectionState);
 bool singleSelectionItemIsNotAnchored(const SelectionContext &selectionState);
 
 } // namespace SelectionStateFunctors
-
-
-namespace ComponentUtils {
-    void goIntoComponent(const ModelNode &modelNode);
-}
 
 class ActionTemplate : public DefaultAction
 {

@@ -159,9 +159,9 @@ void NodeInstanceView::modelAttached(Model *model)
     if (!isSkippedRootNode(rootModelNode()))
         nodeInstanceServer()->createScene(createCreateSceneCommand());
 
-    ModelNode stateNode = actualStateNode();
+    ModelNode stateNode = currentStateNode();
     if (stateNode.isValid() && stateNode.metaInfo().isSubclassOf("QtQuick.State", 1, 0)) {
-        NodeInstance newStateInstance = instanceForNode(stateNode);
+        NodeInstance newStateInstance = instanceForModelNode(stateNode);
         activateState(newStateInstance);
     }
 
@@ -203,9 +203,9 @@ void NodeInstanceView::restartProcess()
         if (!isSkippedRootNode(rootModelNode()))
             nodeInstanceServer()->createScene(createCreateSceneCommand());
 
-        ModelNode stateNode = actualStateNode();
+        ModelNode stateNode = currentStateNode();
         if (stateNode.isValid() && stateNode.metaInfo().isSubclassOf("QtQuick.State", 1, 0)) {
-            NodeInstance newStateInstance = instanceForNode(stateNode);
+            NodeInstance newStateInstance = instanceForModelNode(stateNode);
             activateState(newStateInstance);
         }
     }
@@ -335,11 +335,11 @@ void NodeInstanceView::propertiesRemoved(const QList<AbstractProperty>& /*proper
 void NodeInstanceView::removeInstanceAndSubInstances(const ModelNode &node)
 {
     foreach (const ModelNode &subNode, node.allSubModelNodes()) {
-        if (hasInstanceForNode(subNode))
+        if (hasInstanceForModelNode(subNode))
             removeInstanceNodeRelationship(subNode);
     }
 
-    if (hasInstanceForNode(node))
+    if (hasInstanceForModelNode(node))
         removeInstanceNodeRelationship(node);
 }
 
@@ -403,8 +403,8 @@ void NodeInstanceView::fileUrlChanged(const QUrl &/*oldUrl*/, const QUrl &newUrl
 
 void NodeInstanceView::nodeIdChanged(const ModelNode& node, const QString& /*newId*/, const QString& /*oldId*/)
 {
-    if (hasInstanceForNode(node)) {
-        NodeInstance instance = instanceForNode(node);
+    if (hasInstanceForModelNode(node)) {
+        NodeInstance instance = instanceForModelNode(node);
         nodeInstanceServer()->changeIds(createChangeIdsCommand(QList<NodeInstance>() << instance));
     }
 }
@@ -416,13 +416,13 @@ void NodeInstanceView::nodeOrderChanged(const NodeListProperty & listProperty,
     PropertyName propertyName = listProperty.name();
     qint32 containerInstanceId = -1;
     ModelNode containerNode = listProperty.parentModelNode();
-    if (hasInstanceForNode(containerNode))
-        containerInstanceId = instanceForNode(containerNode).instanceId();
+    if (hasInstanceForModelNode(containerNode))
+        containerInstanceId = instanceForModelNode(containerNode).instanceId();
 
     foreach (const ModelNode &node, listProperty.toModelNodeList()) {
         qint32 instanceId = -1;
-        if (hasInstanceForNode(node)) {
-            instanceId = instanceForNode(node).instanceId();
+        if (hasInstanceForModelNode(node)) {
+            instanceId = instanceForModelNode(node).instanceId();
             ReparentContainer container(instanceId, containerInstanceId, propertyName, containerInstanceId, propertyName);
             containerList.append(container);
         }
@@ -492,8 +492,8 @@ void NodeInstanceView::instancesToken(const QString &/*tokenName*/, int /*tokenN
 void NodeInstanceView::auxiliaryDataChanged(const ModelNode &node, const PropertyName &name, const QVariant &data)
 {
     if ((node.isRootNode() && (name == "width" || name == "height")) || name.endsWith(PropertyName("@NodeInstance"))) {
-        if (hasInstanceForNode(node)) {
-            NodeInstance instance = instanceForNode(node);
+        if (hasInstanceForModelNode(node)) {
+            NodeInstance instance = instanceForModelNode(node);
             QVariant value = data;
             if (value.isValid()) {
                 PropertyValueContainer container(instance.instanceId(), name, value, TypeName());
@@ -522,8 +522,8 @@ void NodeInstanceView::customNotification(const AbstractView *view, const QStrin
 
 void NodeInstanceView::nodeSourceChanged(const ModelNode &node, const QString & newNodeSource)
 {
-     if (hasInstanceForNode(node)) {
-         NodeInstance instance = instanceForNode(node);
+     if (hasInstanceForModelNode(node)) {
+         NodeInstance instance = instanceForModelNode(node);
          ChangeNodeSourceCommand changeNodeSourceCommand(instance.instanceId(), newNodeSource);
          nodeInstanceServer()->changeNodeSource(changeNodeSourceCommand);
      }
@@ -539,9 +539,9 @@ void NodeInstanceView::rewriterEndTransaction()
 
 }
 
-void NodeInstanceView::actualStateChanged(const ModelNode &node)
+void NodeInstanceView::currentStateChanged(const ModelNode &node)
 {
-    NodeInstance newStateInstance = instanceForNode(node);
+    NodeInstance newStateInstance = instanceForModelNode(node);
 
     if (newStateInstance.isValid() && node.metaInfo().isSubclassOf("QtQuick.State", 1, 0))
         nodeInstanceView()->activateState(newStateInstance);
@@ -576,7 +576,7 @@ QList<NodeInstance> NodeInstanceView::instances() const
 \returns  NodeStance for ModelNode.
 \see NodeInstance
 */
-NodeInstance NodeInstanceView::instanceForNode(const ModelNode &node) const
+NodeInstance NodeInstanceView::instanceForModelNode(const ModelNode &node) const
 {
     Q_ASSERT(node.isValid());
     Q_ASSERT(m_nodeInstanceHash.contains(node));
@@ -584,7 +584,7 @@ NodeInstance NodeInstanceView::instanceForNode(const ModelNode &node) const
     return m_nodeInstanceHash.value(node);
 }
 
-bool NodeInstanceView::hasInstanceForNode(const ModelNode &node) const
+bool NodeInstanceView::hasInstanceForModelNode(const ModelNode &node) const
 {
     return m_nodeInstanceHash.contains(node);
 }
@@ -657,7 +657,7 @@ void NodeInstanceView::insertInstanceRelationships(const NodeInstance &instance)
 void NodeInstanceView::removeInstanceNodeRelationship(const ModelNode &node)
 {
     Q_ASSERT(m_nodeInstanceHash.contains(node));
-    NodeInstance instance = instanceForNode(node);
+    NodeInstance instance = instanceForModelNode(node);
     m_nodeInstanceHash.remove(node);
     instance.makeInvalid();
 }
@@ -758,8 +758,8 @@ CreateSceneCommand NodeInstanceView::createCreateSceneCommand()
     foreach (const ModelNode &node, nodeList) {
         variantPropertyList.append(node.variantProperties());
         bindingPropertyList.append(node.bindingProperties());
-        if (node.isValid() && hasInstanceForNode(node)) {
-            NodeInstance instance = instanceForNode(node);
+        if (node.isValid() && hasInstanceForModelNode(node)) {
+            NodeInstance instance = instanceForModelNode(node);
             QHashIterator<PropertyName, QVariant> auxiliaryIterator(node.auxiliaryData());
             while (auxiliaryIterator.hasNext()) {
                 auxiliaryIterator.next();
@@ -795,7 +795,7 @@ CreateSceneCommand NodeInstanceView::createCreateSceneCommand()
     foreach (const NodeInstance &instance, instanceList) {
         if (instance.modelNode().hasParentProperty()) {
             NodeAbstractProperty parentProperty = instance.modelNode().parentProperty();
-            ReparentContainer container(instance.instanceId(), -1, PropertyName(), instanceForNode(parentProperty.parentModelNode()).instanceId(), parentProperty.name());
+            ReparentContainer container(instance.instanceId(), -1, PropertyName(), instanceForModelNode(parentProperty.parentModelNode()).instanceId(), parentProperty.name());
             reparentContainerList.append(container);
         }
     }
@@ -812,8 +812,8 @@ CreateSceneCommand NodeInstanceView::createCreateSceneCommand()
     QVector<PropertyValueContainer> valueContainerList;
     foreach (const VariantProperty &property, variantPropertyList) {
         ModelNode node = property.parentModelNode();
-        if (node.isValid() && hasInstanceForNode(node)) {
-            NodeInstance instance = instanceForNode(node);
+        if (node.isValid() && hasInstanceForModelNode(node)) {
+            NodeInstance instance = instanceForModelNode(node);
             PropertyValueContainer container(instance.instanceId(), property.name(), property.value(), property.dynamicTypeName());
             valueContainerList.append(container);
         }
@@ -822,8 +822,8 @@ CreateSceneCommand NodeInstanceView::createCreateSceneCommand()
     QVector<PropertyBindingContainer> bindingContainerList;
     foreach (const BindingProperty &property, bindingPropertyList) {
         ModelNode node = property.parentModelNode();
-        if (node.isValid() && hasInstanceForNode(node)) {
-            NodeInstance instance = instanceForNode(node);
+        if (node.isValid() && hasInstanceForModelNode(node)) {
+            NodeInstance instance = instanceForModelNode(node);
             PropertyBindingContainer container(instance.instanceId(), property.name(), property.expression(), property.dynamicTypeName());
             bindingContainerList.append(container);
         }
@@ -894,7 +894,7 @@ ReparentInstancesCommand NodeInstanceView::createReparentInstancesCommand(const 
     foreach (const NodeInstance &instance, instanceList) {
         if (instance.modelNode().hasParentProperty()) {
             NodeAbstractProperty parentProperty = instance.modelNode().parentProperty();
-            ReparentContainer container(instance.instanceId(), -1, PropertyName(), instanceForNode(parentProperty.parentModelNode()).instanceId(), parentProperty.name());
+            ReparentContainer container(instance.instanceId(), -1, PropertyName(), instanceForModelNode(parentProperty.parentModelNode()).instanceId(), parentProperty.name());
             containerList.append(container);
         }
     }
@@ -909,15 +909,15 @@ ReparentInstancesCommand NodeInstanceView::createReparentInstancesCommand(const 
     qint32 newParentInstanceId = -1;
     qint32 oldParentInstanceId = -1;
 
-    if (newPropertyParent.isValid() && hasInstanceForNode(newPropertyParent.parentModelNode()))
-        newParentInstanceId = instanceForNode(newPropertyParent.parentModelNode()).instanceId();
+    if (newPropertyParent.isValid() && hasInstanceForModelNode(newPropertyParent.parentModelNode()))
+        newParentInstanceId = instanceForModelNode(newPropertyParent.parentModelNode()).instanceId();
 
 
-    if (oldPropertyParent.isValid() && hasInstanceForNode(oldPropertyParent.parentModelNode()))
-        oldParentInstanceId = instanceForNode(oldPropertyParent.parentModelNode()).instanceId();
+    if (oldPropertyParent.isValid() && hasInstanceForModelNode(oldPropertyParent.parentModelNode()))
+        oldParentInstanceId = instanceForModelNode(oldPropertyParent.parentModelNode()).instanceId();
 
 
-    ReparentContainer container(instanceForNode(node).instanceId(), oldParentInstanceId, oldPropertyParent.name(), newParentInstanceId, newPropertyParent.name());
+    ReparentContainer container(instanceForModelNode(node).instanceId(), oldParentInstanceId, oldPropertyParent.name(), newParentInstanceId, newPropertyParent.name());
 
     containerList.append(container);
 
@@ -935,8 +935,8 @@ ChangeValuesCommand NodeInstanceView::createChangeValueCommand(const QList<Varia
 
     foreach (const VariantProperty &property, propertyList) {
         ModelNode node = property.parentModelNode();
-        if (node.isValid() && hasInstanceForNode(node)) {
-            NodeInstance instance = instanceForNode(node);
+        if (node.isValid() && hasInstanceForModelNode(node)) {
+            NodeInstance instance = instanceForModelNode(node);
             PropertyValueContainer container(instance.instanceId(), property.name(), property.value(), property.dynamicTypeName());
             containerList.append(container);
         }
@@ -952,8 +952,8 @@ ChangeBindingsCommand NodeInstanceView::createChangeBindingCommand(const QList<B
 
     foreach (const BindingProperty &property, propertyList) {
         ModelNode node = property.parentModelNode();
-        if (node.isValid() && hasInstanceForNode(node)) {
-            NodeInstance instance = instanceForNode(node);
+        if (node.isValid() && hasInstanceForModelNode(node)) {
+            NodeInstance instance = instanceForModelNode(node);
             PropertyBindingContainer container(instance.instanceId(), property.name(), property.expression(), property.dynamicTypeName());
             containerList.append(container);
         }
@@ -983,8 +983,8 @@ RemoveInstancesCommand NodeInstanceView::createRemoveInstancesCommand(const QLis
 {
     QVector<qint32> idList;
     foreach (const ModelNode &node, nodeList) {
-        if (node.isValid() && hasInstanceForNode(node)) {
-            NodeInstance instance = instanceForNode(node);
+        if (node.isValid() && hasInstanceForModelNode(node)) {
+            NodeInstance instance = instanceForModelNode(node);
 
             if (instance.instanceId() >= 0)
                 idList.append(instance.instanceId());
@@ -998,8 +998,8 @@ RemoveInstancesCommand NodeInstanceView::createRemoveInstancesCommand(const Mode
 {
     QVector<qint32> idList;
 
-    if (node.isValid() && hasInstanceForNode(node))
-        idList.append(instanceForNode(node).instanceId());
+    if (node.isValid() && hasInstanceForModelNode(node))
+        idList.append(instanceForModelNode(node).instanceId());
 
     return RemoveInstancesCommand(idList);
 }
@@ -1010,8 +1010,8 @@ RemovePropertiesCommand NodeInstanceView::createRemovePropertiesCommand(const QL
 
     foreach (const AbstractProperty &property, propertyList) {
         ModelNode node = property.parentModelNode();
-        if (node.isValid() && hasInstanceForNode(node)) {
-            NodeInstance instance = instanceForNode(node);
+        if (node.isValid() && hasInstanceForModelNode(node)) {
+            NodeInstance instance = instanceForModelNode(node);
             PropertyAbstractContainer container(instance.instanceId(), property.name(), property.dynamicTypeName());
             containerList.append(container);
         }

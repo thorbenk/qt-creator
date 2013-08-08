@@ -94,6 +94,10 @@ public:
 
 private slots:
     void initTestCase();
+
+    // line/column positions
+    void line_and_column_1();
+
     // declarations
     void gcc_attributes_1();
     void gcc_attributes_2();
@@ -155,6 +159,9 @@ private slots:
     void objc_method_attributes_1();
     void objc_selector_error_recovery_1();
     void objc_selector_error_recovery_2();
+    void objc_try_statement_1();
+    void objc_try_statement_2();
+    void objc_try_statement_3();
 
     // expressions with (square) brackets
     void normal_array_access();
@@ -1376,6 +1383,60 @@ void tst_AST::objc_selector_error_recovery_2()
     QVERIFY(ast);
 }
 
+void tst_AST::objc_try_statement_1()
+{
+    QSharedPointer<TranslationUnit> unit(
+                parseDeclaration(
+                    "\n"
+                    "void tst() {\n"
+                    "    @try {\n"
+                    "        something();\n"
+                    "    }\n"
+                    "}\n"
+                    ));
+    AST *ast = unit->ast();
+    QVERIFY(ast);
+    QCOMPARE(diag.errorCount, 0);
+}
+
+void tst_AST::objc_try_statement_2()
+{
+    QSharedPointer<TranslationUnit> unit(
+                parseDeclaration(
+                    "void tst() {\n"
+                    "    @try {\n"
+                    "        something();\n"
+                    "    } @catch (NSException *e) {\n"
+                    "        another_thing();\n"
+                    "    } @catch (UIException *e) { \n"
+                    "        one_more_thing();\n"
+                    "    } @finally {\n"
+                    "        nothing();\n"
+                    "    }\n"
+                    "}\n"
+                    ));
+    AST *ast = unit->ast();
+    QVERIFY(ast);
+    QCOMPARE(diag.errorCount, 0);
+}
+
+void tst_AST::objc_try_statement_3()
+{
+    QSharedPointer<TranslationUnit> unit(
+                parseDeclaration(
+                    "void tst() {\n"
+                    "    @try {\n"
+                    "        get_banana();\n"
+                    "    } @catch (...) {\n"
+                    "        printf(\"Oek?\");\n"
+                    "    }\n"
+                    "}\n"
+                    ));
+    AST *ast = unit->ast();
+    QVERIFY(ast);
+    QCOMPARE(diag.errorCount, 0);
+}
+
 void tst_AST::normal_array_access()
 {
     QSharedPointer<TranslationUnit> unit(parseDeclaration("\n"
@@ -1607,6 +1668,20 @@ void tst_AST::q_enum_1()
 void tst_AST::initTestCase()
 {
     control.setDiagnosticClient(&diag);
+}
+
+void tst_AST::line_and_column_1()
+{
+    QSharedPointer<TranslationUnit> unit(parseDeclaration("\n"
+                                                          "int i;\n",
+                                                          false, true));
+    unsigned line, column = 0;
+    QVERIFY(unit->ast());
+    QVERIFY(unit->tokenAt(1).is(T_INT));
+    unit->getTokenPosition(1, &line, &column);
+    QEXPECT_FAIL("", "See QTCREATORBUG-9799.", Continue);
+    QCOMPARE(line, 2U);
+    QCOMPARE(column, 1U);
 }
 
 QTEST_APPLESS_MAIN(tst_AST)

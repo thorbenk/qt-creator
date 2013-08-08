@@ -29,7 +29,7 @@
 
 #include "qnxanalyzesupport.h"
 
-#include <analyzerbase/ianalyzerengine.h>
+#include <analyzerbase/analyzerruncontrol.h>
 #include <analyzerbase/analyzerstartparameters.h>
 #include <projectexplorer/devicesupport/deviceapplicationrunner.h>
 
@@ -41,9 +41,9 @@ using namespace Qnx;
 using namespace Qnx::Internal;
 
 QnxAnalyzeSupport::QnxAnalyzeSupport(QnxRunConfiguration *runConfig,
-                                     Analyzer::IAnalyzerEngine *engine)
-    : QnxAbstractRunSupport(runConfig, engine)
-    , m_engine(engine)
+                                     Analyzer::AnalyzerRunControl *runControl)
+    : QnxAbstractRunSupport(runConfig, runControl)
+    , m_runControl(runControl)
     , m_qmlPort(-1)
 {
     const DeviceApplicationRunner *runner = appRunner();
@@ -54,8 +54,10 @@ QnxAnalyzeSupport::QnxAnalyzeSupport(QnxRunConfiguration *runConfig,
     connect(runner, SIGNAL(remoteStdout(QByteArray)), SLOT(handleRemoteOutput(QByteArray)));
     connect(runner, SIGNAL(remoteStderr(QByteArray)), SLOT(handleRemoteOutput(QByteArray)));
 
-    connect(m_engine, SIGNAL(starting(const Analyzer::IAnalyzerEngine*)),
+    connect(m_runControl, SIGNAL(starting(const Analyzer::AnalyzerRunControl*)),
             SLOT(handleAdapterSetupRequested()));
+    connect(&m_outputParser, SIGNAL(waitingForConnectionOnPort(quint16)),
+            SLOT(remoteIsRunning()));
 }
 
 void QnxAnalyzeSupport::handleAdapterSetupRequested()
@@ -76,28 +78,21 @@ void QnxAnalyzeSupport::startExecution()
 
     setState(StartingRemoteProcess);
 
-    const QString args = m_engine->startParameters().debuggeeArgs +
+    const QString args = m_runControl->startParameters().debuggeeArgs +
             QString::fromLatin1(" -qmljsdebugger=port:%1,block").arg(m_qmlPort);
     const QString command = QString::fromLatin1("%1 %2 %3").arg(commandPrefix(), executable(), args);
     appRunner()->start(device(), command.toUtf8());
 }
 
-void QnxAnalyzeSupport::handleRemoteProcessStarted()
-{
-    QnxAbstractRunSupport::handleRemoteProcessStarted();
-    if (m_engine)
-        m_engine->notifyRemoteSetupDone(m_qmlPort);
-}
-
 void QnxAnalyzeSupport::handleRemoteProcessFinished(bool success)
 {
-    if (m_engine || state() == Inactive)
+    if (m_runControl || state() == Inactive)
         return;
 
     if (!success)
         showMessage(tr("The %1 process closed unexpectedly.").arg(executable()),
                     Utils::NormalMessageFormat);
-    m_engine->notifyRemoteFinished(success);
+    m_runControl->notifyRemoteFinished(success);
 }
 
 void QnxAnalyzeSupport::handleProfilingFinished()
@@ -127,8 +122,15 @@ void QnxAnalyzeSupport::handleError(const QString &error)
     }
 }
 
+void QnxAnalyzeSupport::remoteIsRunning()
+{
+    if (m_runControl)
+        m_runControl->notifyRemoteSetupDone(m_qmlPort);
+}
+
 void QnxAnalyzeSupport::showMessage(const QString &msg, Utils::OutputFormat format)
 {
-    if (state() != Inactive && m_engine)
-        m_engine->logApplicationMessage(msg, format);
+    if (state() != Inactive && m_runControl)
+        m_runControl->logApplicationMessage(msg, format);
+    m_outputParser.processOutput(msg);
 }

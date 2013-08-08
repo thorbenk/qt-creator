@@ -39,6 +39,7 @@
 #include <utils/hostosinfo.h>
 #include <utils/synchronousprocess.h>
 #include <utils/pathchooser.h>
+#include <utils/qtcassert.h>
 #include <utils/qtcprocess.h>
 
 #include <QBuffer>
@@ -84,7 +85,7 @@ static QByteArray runGcc(const FileName &gcc, const QStringList &arguments, cons
         return QByteArray();
     }
     cpp.closeWriteChannel();
-    if (!cpp.waitForFinished()) {
+    if (!cpp.waitForFinished(10000)) {
         SynchronousProcess::stopProcess(cpp);
         qWarning("%s: Timeout running '%s'.", Q_FUNC_INFO, qPrintable(gcc.toUserOutput()));
         return QByteArray();
@@ -94,7 +95,11 @@ static QByteArray runGcc(const FileName &gcc, const QStringList &arguments, cons
         return QByteArray();
     }
 
-    return cpp.readAllStandardOutput() + '\n' + cpp.readAllStandardError();
+    QByteArray data = cpp.readAllStandardOutput();
+    if (!data.isEmpty() && !data.endsWith('\n'))
+        data.append('\n');
+    data.append(cpp.readAllStandardError());
+    return data;
 }
 
 static QByteArray gccPredefinedMacros(const FileName &gcc, const QStringList &args, const QStringList &env)
@@ -136,6 +141,8 @@ static QByteArray gccPredefinedMacros(const FileName &gcc, const QStringList &ar
     arguments << QLatin1String("-");
 
     QByteArray predefinedMacros = runGcc(gcc, arguments, env);
+    // Sanity check in case we get an error message instead of real output:
+    QTC_CHECK(predefinedMacros.startsWith("#define "));
     if (Utils::HostOsInfo::isMacHost()) {
         // Turn off flag indicating Apple's blocks support
         const QByteArray blocksDefine("#define __BLOCKS__ 1");
@@ -307,6 +314,8 @@ static QList<Abi> guessGccAbi(const FileName &path, const QStringList &env,
     QStringList arguments = extraArgs;
     arguments << QLatin1String("-dumpmachine");
     QString machine = QString::fromLocal8Bit(runGcc(path, arguments, env)).trimmed();
+    if (machine.isEmpty())
+        return QList<Abi>(); // no need to continue if running failed once...
     QByteArray macros = gccPredefinedMacros(path, QStringList(), env);
     return guessGccAbi(machine, macros);
 }

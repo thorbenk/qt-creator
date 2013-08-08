@@ -140,6 +140,7 @@ bool MercurialPlugin::initialize(const QStringList & /* arguments */, QString * 
     mercurialSettings.readSettings(core->settings());
 
     connect(m_client, SIGNAL(changed(QVariant)), versionControl(), SLOT(changed(QVariant)));
+    connect(m_client, SIGNAL(needUpdate()), this, SLOT(update()));
 
     static const char *describeSlot = SLOT(view(QString,QString));
     const int editorCount = sizeof(editorParameters)/sizeof(editorParameters[0]);
@@ -161,16 +162,16 @@ bool MercurialPlugin::initialize(const QStringList & /* arguments */, QString * 
     return true;
 }
 
-const MercurialSettings &MercurialPlugin::settings() const
+const MercurialSettings &MercurialPlugin::settings()
 {
-    return mercurialSettings;
+    return m_instance->mercurialSettings;
 }
 
 void MercurialPlugin::setSettings(const MercurialSettings &settings)
 {
-    if (settings != mercurialSettings) {
-        mercurialSettings = settings;
-        static_cast<MercurialControl *>(versionControl())->emitConfigurationChanged();
+    if (settings != m_instance->mercurialSettings) {
+        m_instance->mercurialSettings = settings;
+        static_cast<MercurialControl *>(m_instance->versionControl())->emitConfigurationChanged();
     }
 }
 

@@ -76,10 +76,8 @@ SourceAgentPrivate::SourceAgentPrivate()
 
 SourceAgentPrivate::~SourceAgentPrivate()
 {
-    if (editor) {
-        EditorManager *editorManager = EditorManager::instance();
-        editorManager->closeEditors(QList<IEditor *>() << editor);
-    }
+    if (editor)
+        EditorManager::instance()->closeEditor(editor);
     editor = 0;
     delete locationMark;
 }
@@ -115,7 +113,7 @@ void SourceAgent::setContent(const QString &filePath, const QString &content)
         d->editor = qobject_cast<ITextEditor *>(
             EditorManager::openEditorWithContents(
                 CppEditor::Constants::CPPEDITOR_ID,
-                &titlePattern, content));
+                &titlePattern, content.toUtf8()));
         QTC_ASSERT(d->editor, return);
         d->editor->document()->setProperty(Debugger::Constants::OPENED_BY_DEBUGGER, true);
 
