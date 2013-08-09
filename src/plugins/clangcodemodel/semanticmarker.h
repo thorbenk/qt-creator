@@ -36,6 +36,8 @@
 #include "sourcemarker.h"
 #include "utils.h"
 
+#include <texteditor/itexteditor.h>
+
 #include <QMutex>
 #include <QScopedPointer>
 #include <QSharedPointer>
@@ -70,6 +72,8 @@ public:
     void reparse(const Internal::UnsavedFiles &unsavedFiles);
 
     QList<Diagnostic> diagnostics() const;
+
+    QList<TextEditor::BlockRange> ifdefedOutBlocks() const;
 
     QList<SourceMarker> sourceMarkersInRange(unsigned firstLine,
                                              unsigned lastLine);

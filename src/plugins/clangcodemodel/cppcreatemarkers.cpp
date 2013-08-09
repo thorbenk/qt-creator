@@ -132,9 +132,12 @@ void CreateMarkers::run()
         return;
     }
 
+    CppModelManagerInterface *mmi = CppModelManagerInterface::instance();
     static const QString key = QLatin1String("ClangCodeModel.Diagnostics");
-    CppTools::CppModelManagerInterface::instance()->setExtraDiagnostics(m_marker->fileName(),
-                                                                        key, msgs);
+    mmi->setExtraDiagnostics(m_marker->fileName(), key, msgs);
+#if CINDEX_VERSION_MINOR >= 20
+    mmi->setIfdefedOutBlocks(m_marker->fileName(), m_marker->ifdefedOutBlocks());
+#endif
 
     if (isCanceled()) {
         reportFinished();

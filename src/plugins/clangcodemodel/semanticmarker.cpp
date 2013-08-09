@@ -169,6 +169,32 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
     return diagnostics;
 }
 
+QList<TextEditor::BlockRange> SemanticMarker::ifdefedOutBlocks() const
+{
+    QList<TextEditor::BlockRange> blocks;
+
+    if (!m_unit || !m_unit->isLoaded())
+        return blocks;
+
+#if CINDEX_VERSION_MINOR >= 20
+    CXSkippedRanges *skippedRanges = clang_getSkippedRanges(m_unit->clangTranslationUnit());
+    blocks.reserve(skippedRanges->count);
+    for (unsigned i = 0; i < skippedRanges->count; ++i) {
+        const CXSourceRange &r = skippedRanges->ranges[i];
+        const SourceLocation &spellBegin = Internal::getSpellingLocation(clang_getRangeStart(r));
+        if (spellBegin.fileName() != fileName())
+            continue;
+        const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
+        const int begin = spellBegin.offset() + 1;
+        const int end = spellEnd.offset() - spellEnd.column();
+        blocks.append(TextEditor::BlockRange(begin, end));
+    }
+    clang_disposeSkippedRanges(skippedRanges);
+#endif
+
+    return blocks;
+}
+
 namespace {
 static void add(QList<SourceMarker> &markers,
                 const CXSourceRange &extent,

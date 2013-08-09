@@ -53,6 +53,15 @@ ClangHighlightingSupport::~ClangHighlightingSupport()
 {
 }
 
+bool ClangHighlightingSupport::hightlighterHandlesIfdefedOutBlocks() const
+{
+#if CINDEX_VERSION_MINOR < 20
+    return false;
+#else
+    return true;
+#endif
+}
+
 QFuture<TextEditor::HighlightingResult> ClangHighlightingSupport::highlightingFuture(
         const CPlusPlus::Document::Ptr &doc,
         const CPlusPlus::Snapshot &snapshot) const
