@@ -76,9 +76,13 @@ QFuture<TextEditor::HighlightingResult> ClangHighlightingSupport::highlightingFu
     const QString fileName = editor()->document()->filePath();
     CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
     QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+    if (parts.isEmpty())
+        parts += modelManager->fallbackProjectPart();
     QStringList options;
     PCHInfo::Ptr pchInfo;
     foreach (const ProjectPart::Ptr &part, parts) {
+        if (part.isNull())
+            continue;
         options = Utils::createClangOptions(part, fileName);
         pchInfo = PCHManager::instance()->pchInfo(part);
         if (!pchInfo.isNull())

@@ -201,16 +201,20 @@ public:
         QString fileName = editor()->document()->filePath();
         CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
         QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+        if (parts.isEmpty())
+            parts += modelManager->fallbackProjectPart();
         QStringList includePaths, frameworkPaths, options;
         PCHInfo::Ptr pchInfo;
-        if (!parts.isEmpty()) {
-            const ProjectPart::Ptr part = parts.at(0);
+        foreach (ProjectPart::Ptr part, parts) {
+            if (part.isNull())
+                continue;
             options = ClangCodeModel::Utils::createClangOptions(part, fileName);
             pchInfo = PCHManager::instance()->pchInfo(part);
             if (!pchInfo.isNull())
                 options.append(ClangCodeModel::Utils::createPCHInclusionOptions(pchInfo->fileName()));
             includePaths = part->includePaths;
             frameworkPaths = part->frameworkPaths;
+            break;
         }
 
         return new ClangCodeModel::ClangCompletionAssistInterface(
