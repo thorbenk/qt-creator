@@ -1,8 +1,7 @@
 /****************************************************************************
 **
-** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
-** Contact: http://www.qt-project.org/legal
-** Author: Nicolas Arnaud-Cormos, KDAB (nicolas.arnaud-cormos@kdab.com)
+** Copyright (C) 2013 Andre Hartmann.
+** Contact: aha_1980@gmx.de
 **
 ** This file is part of Qt Creator.
 **
@@ -28,33 +27,48 @@
 **
 ****************************************************************************/
 
-#ifndef ANALYZER_INTERNAL_ANALYZEROPTIONSPAGE_H
-#define ANALYZER_INTERNAL_ANALYZEROPTIONSPAGE_H
+#ifndef CUSTOMPARSERCONFIGDIALOG_H
+#define CUSTOMPARSERCONFIGDIALOG_H
 
-#include <coreplugin/dialogs/ioptionspage.h>
+#include "customparser.h"
 
-namespace Analyzer {
+#include <QDialog>
 
-class AbstractAnalyzerSubConfig;
-
+namespace ProjectExplorer {
 namespace Internal {
 
-class AnalyzerOptionsPage : public Core::IOptionsPage
+namespace Ui { class CustomParserConfigDialog; }
+
+class CustomParserConfigDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit AnalyzerOptionsPage(AbstractAnalyzerSubConfig *config, QObject *parent = 0);
+    explicit CustomParserConfigDialog(QDialog *parent = 0);
+    ~CustomParserConfigDialog();
 
-    QWidget *createPage(QWidget *parent);
-    void apply();
-    void finish();
+    void setExampleSettings();
+    void setSettings(const ProjectExplorer::CustomParserSettings &settings);
+    ProjectExplorer::CustomParserSettings settings() const;
+    void setErrorPattern(const QString &errorPattern);
+    QString errorPattern() const;
+    void setFileNameCap(int fileNameCap);
+    int fileNameCap() const;
+    void setLineNumberCap(int lineNumberCap);
+    int lineNumberCap() const;
+    void setMessageCap(int messageCap);
+    int messageCap() const;
+    bool isDirty() const;
+
+private slots:
+    void changed();
 
 private:
-    AbstractAnalyzerSubConfig *m_config;
+    Ui::CustomParserConfigDialog *ui;
+    bool m_dirty;
 };
 
 } // namespace Internal
-} // namespace Analyzer
+} // namespace ProjectExplorer
 
-#endif // ANALYZER_INTERNAL_ANALYZEROPTIONSPAGE_H
+#endif // CUSTOMPARSERCONFIGDIALOG_H

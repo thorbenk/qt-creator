@@ -31,8 +31,8 @@
 #ifndef ANALYZER_INTERNAL_VALGRINDSETTINGS_H
 #define ANALYZER_INTERNAL_VALGRINDSETTINGS_H
 
-#include <analyzerbase/analyzersettings.h>
 #include "callgrindcostdelegate.h"
+#include <projectexplorer/runconfiguration.h>
 
 #include <QObject>
 #include <QString>
@@ -41,22 +41,20 @@
 namespace Valgrind {
 namespace Internal {
 
+const char ANALYZER_VALGRIND_SETTINGS[] = "Analyzer.Valgrind.Settings";
+
 /**
  * Valgrind settings shared for global and per-project.
  */
-class ValgrindBaseSettings : public Analyzer::AbstractAnalyzerSubConfig
+class ValgrindBaseSettings : public ProjectExplorer::ISettingsAspect
 {
     Q_OBJECT
 
 public:
     ValgrindBaseSettings() {}
 
-    virtual QVariantMap toMap() const;
-    virtual QVariantMap defaults() const;
-    virtual void fromMap(const QVariantMap &map);
-
-    virtual Core::Id id() const;
-    virtual QString displayName() const;
+    void toMap(QVariantMap &map) const;
+    void fromMap(const QVariantMap &map);
 
 signals:
     void changed(); // sent when multiple values have changed simulatenously (e.g. fromMap)
@@ -167,13 +165,13 @@ class ValgrindGlobalSettings : public ValgrindBaseSettings
     Q_OBJECT
 
 public:
-    ValgrindGlobalSettings() {}
+    ValgrindGlobalSettings();
 
     QWidget *createConfigWidget(QWidget *parent);
-    QVariantMap toMap() const;
-    QVariantMap defaults() const;
+    void toMap(QVariantMap &map) const;
     void fromMap(const QVariantMap &map);
-    virtual AbstractAnalyzerSubConfig *clone();
+    ISettingsAspect *create() const { return new ValgrindGlobalSettings; }
+
 
     /*
      * Global memcheck settings
@@ -190,6 +188,9 @@ public:
 
     void setLastSuppressionDialogHistory(const QStringList &history);
     QStringList lastSuppressionDialogHistory() const;
+
+    void writeSettings() const;
+    void readSettings();
 
 private:
     QStringList m_suppressionFiles;
@@ -228,10 +229,9 @@ public:
     ValgrindProjectSettings() {}
 
     QWidget *createConfigWidget(QWidget *parent);
-    QVariantMap toMap() const;
-    QVariantMap defaults() const;
+    void toMap(QVariantMap &map) const;
     void fromMap(const QVariantMap &map);
-    virtual AbstractAnalyzerSubConfig *clone();
+    ISettingsAspect *create() const { return new ValgrindProjectSettings; }
 
     /**
      * Per-project memcheck settings, saves a diff to the global suppression files list

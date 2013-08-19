@@ -32,8 +32,6 @@
 
 #include "valgrindsettings.h"
 
-#include <analyzerbase/analyzersettings.h>
-
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/taskhub.h>
 
@@ -80,7 +78,7 @@ bool MemcheckRunControl::startEngine()
     m_runner.setParser(&m_parser);
 
     // Clear about-to-be-outdated tasks.
-    ProjectExplorerPlugin::instance()->taskHub()->clearTasks(Analyzer::Constants::ANALYZERTASK_ID);
+    TaskHub::clearTasks(Analyzer::Constants::ANALYZERTASK_ID);
 
     appendMessage(tr("Analyzing memory of %1\n").arg(executable()),
                         Utils::NormalMessageFormat);
@@ -99,22 +97,21 @@ QStringList MemcheckRunControl::toolArguments() const
     QStringList arguments;
     arguments << QLatin1String("--gen-suppressions=all");
 
-    ValgrindBaseSettings *memcheckSettings = m_settings->subConfig<ValgrindBaseSettings>();
-    QTC_ASSERT(memcheckSettings, return arguments);
+    QTC_ASSERT(m_settings, return arguments);
 
-    if (memcheckSettings->trackOrigins())
+    if (m_settings->trackOrigins())
         arguments << QLatin1String("--track-origins=yes");
 
-    foreach (const QString &file, memcheckSettings->suppressionFiles())
+    foreach (const QString &file, m_settings->suppressionFiles())
         arguments << QString::fromLatin1("--suppressions=%1").arg(file);
 
-    arguments << QString::fromLatin1("--num-callers=%1").arg(memcheckSettings->numCallers());
+    arguments << QString::fromLatin1("--num-callers=%1").arg(m_settings->numCallers());
     return arguments;
 }
 
 QStringList MemcheckRunControl::suppressionFiles() const
 {
-    return m_settings->subConfig<ValgrindBaseSettings>()->suppressionFiles();
+    return m_settings->suppressionFiles();
 }
 
 void MemcheckRunControl::status(const Status &status)
@@ -145,10 +142,9 @@ void MemcheckRunControl::receiveLogMessage(const QByteArray &b)
         line = suppressionError.cap(2).toInt();
     }
 
-    TaskHub *hub = ProjectExplorerPlugin::instance()->taskHub();
-    hub->addTask(Task(Task::Error, error, Utils::FileName::fromUserInput(file), line,
-                      Analyzer::Constants::ANALYZERTASK_ID));
-    hub->requestPopup();
+    TaskHub::addTask(Task(Task::Error, error, Utils::FileName::fromUserInput(file), line,
+                          Analyzer::Constants::ANALYZERTASK_ID));
+    TaskHub::requestPopup();
 }
 
 } // namespace Internal

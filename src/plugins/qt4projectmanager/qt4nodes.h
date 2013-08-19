@@ -172,7 +172,8 @@ public:
 protected:
     void setIncludedInExactParse(bool b);
     static QStringList varNames(ProjectExplorer::FileType type);
-    static QStringList varNames(const QString &mimeType);
+    static QStringList varNamesForRemoving();
+    static QString varNameForAdding(const QString &mimeType);
     static QStringList dynamicVarNames(QtSupport::ProFileReader *readerExact, QtSupport::ProFileReader *readerCumulative, QtSupport::BaseQtVersion *qtVersion);
     static QSet<Utils::FileName> filterFilesProVariables(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
     static QSet<Utils::FileName> filterFilesRecursiveEnumerata(ProjectExplorer::FileType fileType, const QSet<Utils::FileName> &files);
@@ -426,7 +427,7 @@ private:
     QString mocDirPath(QtSupport::ProFileReader *reader) const;
     QStringList includePaths(QtSupport::ProFileReader *reader) const;
     QStringList libDirectories(QtSupport::ProFileReader *reader) const;
-    QStringList subDirsPaths(QtSupport::ProFileReader *reader, QStringList *subProjectsNotToDeploy = 0) const;
+    QStringList subDirsPaths(QtSupport::ProFileReader *reader, QStringList *subProjectsNotToDeploy, bool silent) const;
 
     TargetInformation targetInformation(QtSupport::ProFileReader *reader) const;
     void setupInstallsList(const QtSupport::ProFileReader *reader);

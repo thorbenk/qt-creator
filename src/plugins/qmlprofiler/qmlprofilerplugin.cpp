@@ -31,15 +31,26 @@
 #include "qmlprofilerruncontrolfactory.h"
 
 #include "qmlprofilertool.h"
+#include "abstracttimelinemodel.h"
 
 #include <analyzerbase/analyzermanager.h>
+#include <extensionsystem/pluginmanager.h>
 
 #include <QtPlugin>
 
 using namespace Analyzer;
-using namespace QmlProfiler::Internal;
+
+namespace QmlProfiler {
+namespace Internal {
+
+class QmlProfilerAction : public AnalyzerAction
+{
+public:
+    QmlProfilerAction() {}
+};
 
 bool QmlProfilerPlugin::debugOutput = false;
+QmlProfilerPlugin *QmlProfilerPlugin::instance = 0;
 
 bool QmlProfilerPlugin::initialize(const QStringList &arguments, QString *errorString)
 {
@@ -47,19 +58,40 @@ bool QmlProfilerPlugin::initialize(const QStringList &arguments, QString *errorS
     Q_UNUSED(errorString)
 
     IAnalyzerTool *tool = new QmlProfilerTool(this);
-    AnalyzerManager::addTool(tool, StartLocal);
-    AnalyzerManager::addTool(tool, StartRemote);
+
+    QmlProfilerAction *action = 0;
+
+    QString description = QmlProfilerTool::tr(
+        "The QML Profiler can be used to find performance bottlenecks in "
+        "applications using QML.");
+
+    action = new QmlProfilerAction;
+    action->setId("QmlProfiler.Local");
+    action->setTool(tool);
+    action->setText(tr("QML Profiler"));
+    action->setToolTip(description);
+    action->setStartMode(StartLocal);
+    action->setMenuGroup(Constants::G_ANALYZER_TOOLS);
+    AnalyzerManager::addAction(action);
+
+    action = new QmlProfilerAction;
+    action->setId("QmlProfiler.Remote");
+    action->setTool(tool);
+    action->setText(tr("QML Profiler (External)"));
+    action->setToolTip(description);
+    action->setStartMode(StartRemote);
+    action->setMenuGroup(Constants::G_ANALYZER_REMOTE_TOOLS);
+    AnalyzerManager::addAction(action);
 
     addAutoReleasedObject(new QmlProfilerRunControlFactory());
+    QmlProfilerPlugin::instance = this;
 
     return true;
 }
 
 void QmlProfilerPlugin::extensionsInitialized()
 {
-    // Retrieve objects from the plugin manager's object pool.
-    // "In the extensionsInitialized method, a plugin can be sure that all
-    //  plugins that depend on it are completely initialized."
+    timelineModels = ExtensionSystem::PluginManager::getObjects<AbstractTimelineModel>();
 }
 
 ExtensionSystem::IPlugin::ShutdownFlag QmlProfilerPlugin::aboutToShutdown()
@@ -70,5 +102,12 @@ ExtensionSystem::IPlugin::ShutdownFlag QmlProfilerPlugin::aboutToShutdown()
     return SynchronousShutdown;
 }
 
-Q_EXPORT_PLUGIN(QmlProfilerPlugin)
+QList<AbstractTimelineModel *> QmlProfilerPlugin::getModels() const
+{
+    return timelineModels;
+}
 
+} // namespace Internal
+} // namespace QmlProfiler
+
+Q_EXPORT_PLUGIN(QmlProfiler::Internal::QmlProfilerPlugin)

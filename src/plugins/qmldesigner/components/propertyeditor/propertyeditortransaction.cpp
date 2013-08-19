@@ -34,7 +34,7 @@
 
 namespace QmlDesigner {
 
-PropertyEditorTransaction::PropertyEditorTransaction(QmlDesigner::PropertyEditor *propertyEditor) : QObject(propertyEditor), m_propertyEditor(propertyEditor), m_timerId(-1)
+PropertyEditorTransaction::PropertyEditorTransaction(QmlDesigner::PropertyEditorView *propertyEditor) : QObject(propertyEditor), m_propertyEditor(propertyEditor), m_timerId(-1)
 {
 }
 

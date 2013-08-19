@@ -37,6 +37,10 @@
 namespace Valgrind {
 namespace Internal {
 
+class ValgrindGlobalSettings;
+class MemcheckTool;
+class CallgrindTool;
+
 class ValgrindPlugin : public ExtensionSystem::IPlugin
 {
     Q_OBJECT
@@ -44,9 +48,16 @@ class ValgrindPlugin : public ExtensionSystem::IPlugin
 
 public:
     ValgrindPlugin() {}
+    ~ValgrindPlugin();
 
-    virtual bool initialize(const QStringList &arguments, QString *errorString);
-    virtual void extensionsInitialized() {}
+    bool initialize(const QStringList &arguments, QString *errorString);
+    void extensionsInitialized();
+
+    static ValgrindGlobalSettings *globalSettings();
+
+private:
+    MemcheckTool *m_memcheckTool;
+    CallgrindTool *m_callgrindTool;
 };
 
 } // namespace Internal

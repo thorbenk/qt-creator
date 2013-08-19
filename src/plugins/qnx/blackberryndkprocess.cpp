@@ -53,25 +53,32 @@ BlackBerryNdkProcess::BlackBerryNdkProcess(const QString &command, QObject *pare
             this, SLOT(processError(QProcess::ProcessError)));
 }
 
-QString BlackBerryNdkProcess::command() const
+const QString BlackBerryNdkProcess::resolveNdkToolPath(const QString &tool)
 {
-    QString command;
+    QString toolPath;
     QMultiMap<QString, QString> qnxEnv = BlackBerryConfigurationManager::instance().defaultQnxEnv();
     if (!qnxEnv.isEmpty()) {
-        command = qnxEnv.value(QLatin1String("QNX_HOST"))
-                + (QLatin1String("/usr/bin/")) + m_command;
+        toolPath = qnxEnv.value(QLatin1String("QNX_HOST"))
+                + (QLatin1String("/usr/bin/")) + tool;
 
         if (Utils::HostOsInfo::isWindowsHost())
-            command += QLatin1String(".bat");
+            toolPath += QLatin1String(".bat");
     }
 
-    return command;
+    return toolPath;
+}
+
+QString BlackBerryNdkProcess::command() const
+{
+    return resolveNdkToolPath(m_command);
 }
 
 void BlackBerryNdkProcess::start(const QStringList &arguments)
 {
     if (m_process->state() != QProcess::NotRunning)
         return;
+
+    resetResults();
 
     m_process->start(command(), arguments);
 }
@@ -148,6 +155,10 @@ int BlackBerryNdkProcess::errorLineToReturnStatus(const QString &line) const
 void BlackBerryNdkProcess::processData(const QString &line)
 {
     Q_UNUSED(line);
+}
+
+void BlackBerryNdkProcess::resetResults()
+{
 }
 
 } // namespace Internal

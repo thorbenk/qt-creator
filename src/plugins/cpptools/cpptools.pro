@@ -99,6 +99,7 @@ FORMS += completionsettingspage.ui \
 
 equals(TEST, 1) {
     SOURCES += \
+        cpppreprocessertesthelper.cpp \
         cppcodegen_test.cpp \
         cppcompletion_test.cpp \
         cppmodelmanager_test.cpp \
@@ -106,6 +107,7 @@ equals(TEST, 1) {
         cpppointerdeclarationformatter_test.cpp
 
     HEADERS += \
+        cpppreprocessertesthelper.h \
         modelmanagertesthelper.h
 
     DEFINES += SRCDIR=\\\"$$PWD\\\"

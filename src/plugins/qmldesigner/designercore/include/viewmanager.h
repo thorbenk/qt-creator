@@ -38,9 +38,10 @@
 #include <navigatorview.h>
 #include <stateseditorview.h>
 #include <formeditorview.h>
-#include <propertyeditor.h>
+#include <propertyeditorview.h>
 #include <componentview.h>
 #include <debugview.h>
+#include <importmanagerview.h>
 #include <QWidgetAction>
 
 namespace QmlDesigner {
@@ -81,8 +82,7 @@ public:
     void enableWidgets();
 
     void pushFileOnCrumbleBar(const QString &fileName);
-    void pushInFileComponentOnCrambleBar(const QString &componentId);
-
+    void pushInFileComponentOnCrumbleBar(const ModelNode &modelNode);
     void nextFileIsCalledInternally();
 
     NodeInstanceView *nodeInstanceView();
@@ -112,7 +112,7 @@ private: // variables
     FormEditorView m_formEditorView;
     ItemLibraryView m_itemLibraryView;
     NavigatorView m_navigatorView;
-    PropertyEditor m_propertyEditorView;
+    PropertyEditorView m_propertyEditorView;
     StatesEditorView m_statesEditorView;
     NodeInstanceView m_nodeInstanceView;
 

@@ -94,7 +94,8 @@ SOURCES += qnxplugin.cpp \
     blackberrysetupwizardpages.cpp \
     blackberryutils.cpp \
     qnxdevicetester.cpp \
-    blackberryconfigurationmanager.cpp
+    blackberryconfigurationmanager.cpp \
+    blackberrydevicelistdetector.cpp
 
 HEADERS += qnxplugin.h\
     qnxconstants.h \
@@ -188,12 +189,12 @@ HEADERS += qnxplugin.h\
     blackberrysetupwizardpages.h \
     blackberryutils.h \
     qnxdevicetester.h \
-    blackberryconfigurationmanager.h
+    blackberryconfigurationmanager.h \
+    blackberrydevicelistdetector.h
 
 FORMS += \
     blackberrydeviceconfigurationwizardsetuppage.ui \
     blackberryrunconfigurationwidget.ui \
-    blackberrydeviceconfigurationwizardsshkeypage.ui \
     blackberrydeployconfigurationwidget.ui \
     blackberrydeviceconfigurationwidget.ui \
     qnxbaseqtconfigwidget.ui \
@@ -214,7 +215,9 @@ FORMS += \
     bardescriptoreditorassetswidget.ui \
     blackberrysetupwizardkeyspage.ui \
     blackberrysetupwizarddevicepage.ui \
-    blackberrysetupwizardfinishpage.ui
+    blackberrysetupwizardfinishpage.ui \
+    blackberrydeviceconfigurationwizardconfigpage.ui \
+    blackberrydeviceconfigurationwizardquerypage.ui
 
 include(../../private_headers.pri)
 

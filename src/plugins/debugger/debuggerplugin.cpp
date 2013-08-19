@@ -83,6 +83,7 @@
 
 #include <projectexplorer/localapplicationrunconfiguration.h>
 #include <projectexplorer/buildmanager.h>
+#include <projectexplorer/taskhub.h>
 #include <projectexplorer/toolchain.h>
 #include <projectexplorer/devicesupport/deviceprocesslist.h>
 #include <projectexplorer/devicesupport/deviceprocessesdialog.h>
@@ -527,7 +528,7 @@ public:
 
 static QString executableForPid(qint64 pid)
 {
-    foreach (const DeviceProcess &p, DeviceProcessList::localProcesses())
+    foreach (const DeviceProcessItem &p, DeviceProcessList::localProcesses())
         if (p.pid == pid)
             return p.exe;
     return QString();
@@ -1504,6 +1505,13 @@ bool DebuggerPluginPrivate::initialize(const QStringList &arguments,
     // Cpp/Qml ui setup
     m_mainWindow = new DebuggerMainWindow;
 
+    TaskHub::addCategory(Debugger::Constants::TASK_CATEGORY_DEBUGGER_DEBUGINFO,
+                         tr("Debug Information"));
+    TaskHub::addCategory(Debugger::Constants::TASK_CATEGORY_DEBUGGER_TEST,
+                         tr("Debugger Test"));
+    TaskHub::addCategory(Debugger::Constants::TASK_CATEGORY_DEBUGGER_RUNTIME,
+                         tr("Debugger Runtime"));
+
     return true;
 }
 
@@ -1688,7 +1696,7 @@ void DebuggerPluginPrivate::attachToProcess(bool startServerOnly)
     QTC_ASSERT(kit, return);
     IDevice::ConstPtr device = DeviceKitInformation::device(kit);
     QTC_ASSERT(device, return);
-    DeviceProcess process = dlg->currentProcess();
+    DeviceProcessItem process = dlg->currentProcess();
     if (process.pid == 0) {
         QMessageBox::warning(mainWindow(), tr("Warning"),
             tr("Cannot attach to process with PID 0"));
@@ -2066,15 +2074,15 @@ void DebuggerPluginPrivate::connectEngine(DebuggerEngine *engine)
         m_currentEngine->resetLocation();
     m_currentEngine = engine;
 
-    m_localsWindow->setModel(engine->localsModel());
+    m_localsWindow->setModel(engine->watchModel());
     m_modulesWindow->setModel(engine->modulesModel());
     m_registerWindow->setModel(engine->registerModel());
-    m_returnWindow->setModel(engine->returnModel());
+    m_returnWindow->setModel(engine->watchModel());
     m_sourceFilesWindow->setModel(engine->sourceFilesModel());
     m_stackWindow->setModel(engine->stackModel());
     m_threadsWindow->setModel(engine->threadsModel());
-    m_watchersWindow->setModel(engine->watchersModel());
-    m_inspectorWindow->setModel(engine->inspectorModel());
+    m_watchersWindow->setModel(engine->watchModel());
+    m_inspectorWindow->setModel(engine->watchModel());
 
     engine->watchHandler()->rebuildModel();
 

@@ -47,20 +47,14 @@
 #include <valgrind/valgrindsettings.h>
 
 #include <analyzerbase/analyzermanager.h>
-#include <analyzerbase/analyzersettings.h>
 #include <analyzerbase/analyzerutils.h>
 #include <analyzerbase/analyzerconstants.h>
 
-#include <coreplugin/actionmanager/actioncontainer.h>
-#include <coreplugin/actionmanager/actionmanager.h>
-#include <coreplugin/actionmanager/command.h>
 #include <coreplugin/coreconstants.h>
-#include <coreplugin/icontext.h>
 #include <coreplugin/icore.h>
 
 #include <cplusplus/LookupContext.h>
 #include <cplusplus/Overview.h>
-#include <cppeditor/cppeditorconstants.h>
 #include <extensionsystem/iplugin.h>
 #include <texteditor/itexteditor.h>
 
@@ -207,16 +201,9 @@ public:
     QAction *m_dumpAction;
     QAction *m_resetAction;
     QAction *m_pauseAction;
-    QAction *m_showCostsOfFunctionAction;
 
     QString m_toggleCollectFunction;
 };
-
-
-static ValgrindGlobalSettings *globalSettings()
-{
-    return AnalyzerGlobalSettings::instance()->subConfig<ValgrindGlobalSettings>();
-}
 
 
 CallgrindToolPrivate::CallgrindToolPrivate(CallgrindTool *parent)
@@ -242,7 +229,6 @@ CallgrindToolPrivate::CallgrindToolPrivate(CallgrindTool *parent)
     , m_dumpAction(0)
     , m_resetAction(0)
     , m_pauseAction(0)
-    , m_showCostsOfFunctionAction(0)
 {
     m_updateTimer->setInterval(200);
     m_updateTimer->setSingleShot(true);
@@ -399,7 +385,7 @@ void CallgrindToolPrivate::updateCostFormat()
         m_calleesView->setCostFormat(format);
         m_callersView->setCostFormat(format);
     }
-    if (ValgrindGlobalSettings *settings = globalSettings())
+    if (ValgrindGlobalSettings *settings = ValgrindPlugin::globalSettings())
         settings->setCostFormat(format);
 }
 
@@ -502,7 +488,7 @@ static QToolButton *createToolButton(QAction *action)
 }
 
 CallgrindTool::CallgrindTool(QObject *parent)
-    : IAnalyzerTool(parent)
+    : ValgrindTool(parent)
 {
     d = new CallgrindToolPrivate(this);
     setObjectName(QLatin1String("CallgrindTool"));
@@ -516,54 +502,14 @@ CallgrindTool::~CallgrindTool()
     delete d;
 }
 
-Core::Id CallgrindTool::id() const
-{
-    return Core::Id("Callgrind");
-}
-
 RunMode CallgrindTool::runMode() const
 {
     return CallgrindRunMode;
 }
 
-QString CallgrindTool::displayName() const
-{
-    return tr("Valgrind Function Profiler");
-}
-
-QString CallgrindTool::description() const
-{
-    return tr("Valgrind Profile uses the \"callgrind\" tool to "
-              "record function calls when a program runs.");
-}
-
 IAnalyzerTool::ToolMode CallgrindTool::toolMode() const
 {
     return ReleaseMode;
-}
-
-void CallgrindTool::extensionsInitialized()
-{
-    Core::Context analyzerContext = Core::Context(Analyzer::Constants::C_ANALYZEMODE);
-
-    // check if there is a CppEditor context menu, if true, add our own context menu actions
-    if (Core::ActionContainer *editorContextMenu =
-            Core::ActionManager::actionContainer(CppEditor::Constants::M_CONTEXT)) {
-        QAction *action = 0;
-        Core::Command *cmd = 0;
-
-        editorContextMenu->addSeparator(analyzerContext);
-
-        action = new QAction(tr("Profile Costs of this Function and its Callees"), this);
-        action->setIcon(QIcon(QLatin1String(Analyzer::Constants::ANALYZER_CONTROL_START_ICON)));
-        connect(action, SIGNAL(triggered()), d, SLOT(handleShowCostsOfFunction()));
-        cmd = Core::ActionManager::registerAction(action, "Analyzer.Callgrind.ShowCostsOfFunction",
-            analyzerContext);
-        editorContextMenu->addAction(cmd);
-        cmd->setAttribute(Core::Command::CA_Hide);
-        cmd->setAttribute(Core::Command::CA_NonConfigurable);
-        d->m_showCostsOfFunctionAction = action;
-    }
 }
 
 AnalyzerRunControl *CallgrindTool::createRunControl(const AnalyzerStartParameters &sp,
@@ -599,8 +545,8 @@ AnalyzerRunControl *CallgrindToolPrivate::createRunControl(const AnalyzerStartPa
 
     // apply project settings
     if (runConfiguration) {
-        if (const AnalyzerRunConfigurationAspect *analyzerSettings = runConfiguration->extraAspect<AnalyzerRunConfigurationAspect>()) {
-            if (const ValgrindProjectSettings *settings = analyzerSettings->subConfig<ValgrindProjectSettings>()) {
+        if (IRunConfigurationAspect *analyzerAspect = runConfiguration->extraAspect(ANALYZER_VALGRIND_SETTINGS)) {
+            if (const ValgrindBaseSettings *settings = qobject_cast<ValgrindBaseSettings *>(analyzerAspect->currentSettings())) {
                 m_visualisation->setMinimumInclusiveCostRatio(settings->visualisationMinimumInclusiveCostRatio() / 100.0);
                 m_proxyModel->setMinimumInclusiveCostRatio(settings->minimumInclusiveCostRatio() / 100.0);
                 m_dataModel->setVerboseToolTipsEnabled(settings->enableEventToolTips());
@@ -612,8 +558,13 @@ AnalyzerRunControl *CallgrindToolPrivate::createRunControl(const AnalyzerStartPa
 
 void CallgrindTool::startTool(StartMode mode)
 {
-    IAnalyzerTool::startTool(mode);
+    ValgrindTool::startTool(mode);
     d->setBusyCursor(true);
+}
+
+void CallgrindTool::handleShowCostsOfFunction()
+{
+   d->handleShowCostsOfFunction();
 }
 
 QWidget *CallgrindTool::createWidgets()
@@ -801,7 +752,7 @@ QWidget *CallgrindToolPrivate::createWidgets()
     }
 
 
-    ValgrindGlobalSettings *settings = globalSettings();
+    ValgrindGlobalSettings *settings = ValgrindPlugin::globalSettings();
 
     // cycle detection
     //action = new QAction(QLatin1String("Cycle Detection"), this); ///FIXME: icon

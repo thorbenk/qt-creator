@@ -31,7 +31,7 @@
 #ifndef MEMCHECKTOOL_H
 #define MEMCHECKTOOL_H
 
-#include <analyzerbase/ianalyzertool.h>
+#include "valgrindtool.h"
 
 #include <QSortFilterProxyModel>
 
@@ -48,15 +48,12 @@ class Error;
 }
 }
 
-namespace Analyzer {
-class AnalyzerSettings;
-}
-
 namespace Valgrind {
 namespace Internal {
 
-class MemcheckErrorView;
 class FrameFinder;
+class MemcheckErrorView;
+class ValgrindBaseSettings;
 
 class MemcheckErrorFilterProxyModel : public QSortFilterProxyModel
 {
@@ -77,20 +74,14 @@ private:
     bool m_filterExternalIssues;
 };
 
-class MemcheckTool : public Analyzer::IAnalyzerTool
+class MemcheckTool : public ValgrindTool
 {
     Q_OBJECT
 
 public:
     MemcheckTool(QObject *parent);
 
-    Core::Id id() const;
     ProjectExplorer::RunMode runMode() const;
-    QString displayName() const;
-    QString description() const;
-
-    // Create the valgrind settings (for all valgrind tools)
-    Analyzer::AbstractAnalyzerSubConfig *createProjectSettings();
 
 private slots:
     void settingsDestroyed(QObject *settings);
@@ -106,7 +97,6 @@ private slots:
 
 private:
     ToolMode toolMode() const;
-    void extensionsInitialized() {}
     QWidget *createWidgets();
     void setBusyCursor(bool busy);
 
@@ -116,7 +106,7 @@ private:
     void clearErrorView();
 
 private:
-    Analyzer::AnalyzerSettings *m_settings;
+    ValgrindBaseSettings *m_settings;
     QMenu *m_filterMenu;
 
     FrameFinder *m_frameFinder;

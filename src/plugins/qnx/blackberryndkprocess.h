@@ -56,6 +56,13 @@ public:
         UserStatus
     };
 
+    /**
+     * @brief Resolves full path to an NDK cmd-line tool.
+     * @return a full-path to the NDK cmd-line tool;
+     *         or empty QString when no default QNX configuration is found.
+     */
+    static const QString resolveNdkToolPath(const QString &tool);
+
 signals:
     void finished(int status);
 
@@ -74,6 +81,7 @@ private slots:
 private:
     int errorLineToReturnStatus(const QString &line) const;
     virtual void processData(const QString &line);
+    virtual void resetResults();
 
     QProcess *m_process;
 

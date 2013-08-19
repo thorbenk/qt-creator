@@ -49,6 +49,7 @@ namespace ProjectExplorer { class RunConfiguration; }
 namespace Analyzer {
 
 class IAnalyzerTool;
+class AnalyzerAction;
 class AnalyzerRunControl;
 class AnalyzerStartParameters;
 
@@ -62,11 +63,10 @@ public:
     explicit AnalyzerManager(QObject *parent);
     ~AnalyzerManager();
 
-    static void extensionsInitialized();
     static void shutdown();
 
     // Register a tool for a given start mode.
-    static void addTool(IAnalyzerTool *tool, StartMode mode);
+    static void addAction(AnalyzerAction *action);
 
     // Dockwidgets are registered to the main window.
     static QDockWidget *createDockWidget(IAnalyzerTool *tool, const QString &title,
@@ -75,7 +75,6 @@ public:
     static Utils::FancyMainWindow *mainWindow();
 
     static void showMode();
-    static QList<IAnalyzerTool *> tools();
     static void selectTool(IAnalyzerTool *tool, StartMode mode);
     static void startTool();
     static void stopTool();

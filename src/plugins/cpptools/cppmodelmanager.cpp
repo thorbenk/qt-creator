@@ -172,12 +172,11 @@ static const char pp_configuration[] =
     "#define __inline inline\n"
     "#define __forceinline inline\n";
 
-void CppModelManager::updateModifiedSourceFiles()
+QStringList CppModelManager::timeStampModifiedFiles(const QList<Document::Ptr> documentsToCheck)
 {
-    const Snapshot snapshot = this->snapshot();
     QStringList sourceFiles;
 
-    foreach (const Document::Ptr doc, snapshot) {
+    foreach (const Document::Ptr doc, documentsToCheck) {
         const QDateTime lastModified = doc->lastModified();
 
         if (!lastModified.isNull()) {
@@ -188,7 +187,18 @@ void CppModelManager::updateModifiedSourceFiles()
         }
     }
 
-    updateSourceFiles(sourceFiles);
+    return sourceFiles;
+}
+
+void CppModelManager::updateModifiedSourceFiles()
+{
+    const Snapshot snapshot = this->snapshot();
+    QList<Document::Ptr> documentsToCheck;
+    foreach (const Document::Ptr document, snapshot)
+        documentsToCheck << document;
+
+    const QStringList filesToUpdate = timeStampModifiedFiles(documentsToCheck);
+    updateSourceFiles(filesToUpdate);
 }
 
 /*!
@@ -233,12 +243,19 @@ CppModelManager::CppModelManager(QObject *parent)
     ProjectExplorer::ProjectExplorerPlugin *pe = ProjectExplorer::ProjectExplorerPlugin::instance();
     QTC_ASSERT(pe, return);
 
+    m_delayedGcTimer = new QTimer(this);
+    m_delayedGcTimer->setSingleShot(true);
+    connect(m_delayedGcTimer, SIGNAL(timeout()), this, SLOT(GC()));
+
     ProjectExplorer::SessionManager *session = pe->session();
     connect(session, SIGNAL(projectAdded(ProjectExplorer::Project*)),
             this, SLOT(onProjectAdded(ProjectExplorer::Project*)));
 
     connect(session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
             this, SLOT(onAboutToRemoveProject(ProjectExplorer::Project*)));
+
+    connect(session, SIGNAL(aboutToLoadSession(QString)),
+            this, SLOT(onAboutToLoadSession()));
 
     connect(session, SIGNAL(aboutToUnloadSession(QString)),
             this, SLOT(onAboutToUnloadSession()));
@@ -481,7 +498,7 @@ void CppModelManager::deleteCppEditorSupport(TextEditor::BaseTextEditor *textEdi
     ++numberOfClosedEditors;
     if (numberOfOpenEditors == 0 || numberOfClosedEditors == 5) {
         numberOfClosedEditors = 0;
-        GC();
+        delayedGC();
     }
 }
 
@@ -577,39 +594,155 @@ CppModelManager::ProjectInfo CppModelManager::projectInfo(ProjectExplorer::Proje
     return m_projectToProjectsInfo.value(project, ProjectInfo(project));
 }
 
-QFuture<void> CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
+/// \brief Remove all files and their includes (recursively) of given ProjectInfo from the snapshot.
+void CppModelManager::removeProjectInfoFilesAndIncludesFromSnapshot(const ProjectInfo &projectInfo)
 {
-    if (!pinfo.isValid())
+    if (!projectInfo.isValid())
+        return;
+
+    QMutexLocker snapshotLocker(&m_snapshotMutex);
+    foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts()) {
+        foreach (const ProjectFile &cxxFile, projectPart->files) {
+            foreach (const QString &fileName, m_snapshot.allIncludesForDocument(cxxFile.path))
+                m_snapshot.remove(fileName);
+            m_snapshot.remove(cxxFile.path);
+        }
+    }
+}
+
+/// \brief Remove all given files from the snapshot.
+void CppModelManager::removeFilesFromSnapshot(const QSet<QString> &filesToRemove)
+{
+    QMutexLocker snapshotLocker(&m_snapshotMutex);
+    QSetIterator<QString> i(filesToRemove);
+    while (i.hasNext())
+        m_snapshot.remove(i.next());
+}
+
+class ProjectInfoComparer
+{
+public:
+    ProjectInfoComparer(const CppModelManager::ProjectInfo &oldProjectInfo,
+                        const CppModelManager::ProjectInfo &newProjectInfo)
+        : m_old(oldProjectInfo)
+        , m_oldSourceFiles(oldProjectInfo.sourceFiles().toSet())
+        , m_new(newProjectInfo)
+        , m_newSourceFiles(newProjectInfo.sourceFiles().toSet())
+    {}
+
+    bool definesChanged() const
+    {
+        return m_new.defines() != m_old.defines();
+    }
+
+    bool configurationChanged() const
+    {
+        return definesChanged()
+            || m_new.includePaths() != m_old.includePaths()
+            || m_new.frameworkPaths() != m_old.frameworkPaths();
+    }
+
+    bool nothingChanged() const
+    {
+        return !configurationChanged() && m_new.sourceFiles() == m_old.sourceFiles();
+    }
+
+    QSet<QString> addedFiles() const
+    {
+        QSet<QString> addedFilesSet = m_newSourceFiles;
+        addedFilesSet.subtract(m_oldSourceFiles);
+        return addedFilesSet;
+    }
+
+    QSet<QString> removedFiles() const
+    {
+        QSet<QString> removedFilesSet = m_oldSourceFiles;
+        removedFilesSet.subtract(m_newSourceFiles);
+        return removedFilesSet;
+    }
+
+    /// Returns a list of common files that have a changed timestamp.
+    QSet<QString> timeStampModifiedFiles(const Snapshot &snapshot) const
+    {
+        QSet<QString> commonSourceFiles = m_newSourceFiles;
+        commonSourceFiles.intersect(m_oldSourceFiles);
+
+        QList<Document::Ptr> documentsToCheck;
+        QSetIterator<QString> i(commonSourceFiles);
+        while (i.hasNext()) {
+            const QString file = i.next();
+            if (Document::Ptr document = snapshot.document(file))
+                documentsToCheck << document;
+        }
+
+        return CppModelManager::timeStampModifiedFiles(documentsToCheck).toSet();
+    }
+
+private:
+    const CppModelManager::ProjectInfo &m_old;
+    const QSet<QString> m_oldSourceFiles;
+
+    const CppModelManager::ProjectInfo &m_new;
+    const QSet<QString> m_newSourceFiles;
+};
+
+QFuture<void> CppModelManager::updateProjectInfo(const ProjectInfo &newProjectInfo)
+{
+    if (!newProjectInfo.isValid())
         return QFuture<void>();
 
-    { // Only hold the mutex for a limited scope, so the dumping afterwards does not deadlock.
-        QMutexLocker locker(&m_projectMutex);
+    QStringList filesToReindex;
+    bool filesRemoved = false;
 
-        ProjectExplorer::Project *project = pinfo.project().data();
+    { // Only hold the mutex for a limited scope, so the dumping afterwards does not deadlock.
+        QMutexLocker projectLocker(&m_projectMutex);
+
+        ProjectExplorer::Project *project = newProjectInfo.project().data();
+        const QStringList newSourceFiles = newProjectInfo.sourceFiles();
+
+        // Check if we can avoid a full reindexing
         ProjectInfo oldProjectInfo = m_projectToProjectsInfo.value(project);
         if (oldProjectInfo.isValid()) {
-            if (pinfo.defines() == oldProjectInfo.defines()
-                    && pinfo.includePaths() == oldProjectInfo.includePaths()
-                    && pinfo.frameworkPaths() == oldProjectInfo.frameworkPaths()
-                    && pinfo.sourceFiles() == oldProjectInfo.sourceFiles()) {
+            ProjectInfoComparer comparer(oldProjectInfo, newProjectInfo);
+            if (comparer.nothingChanged())
                 return QFuture<void>();
-            }
 
-            foreach (const ProjectPart::Ptr &projectPart, oldProjectInfo.projectParts()) {
-                foreach (const ProjectFile &cxxFile, projectPart->files) {
-                    foreach (const QString &fileName,
-                             m_snapshot.allIncludesForDocument(cxxFile.path)) {
-                        m_snapshot.remove(fileName);
-                    }
-                    m_snapshot.remove(cxxFile.path);
+            // If the project configuration changed, do a full reindexing
+            if (comparer.configurationChanged()) {
+                removeProjectInfoFilesAndIncludesFromSnapshot(oldProjectInfo);
+                filesToReindex << newSourceFiles;
+
+                // The "configuration file" includes all defines and therefore should be updated
+                if (comparer.definesChanged()) {
+                    QMutexLocker snapshotLocker(&m_snapshotMutex);
+                    m_snapshot.remove(configurationFileName());
                 }
+
+            // Otherwise check for added and modified files
+            } else {
+                const QSet<QString> addedFiles = comparer.addedFiles();
+                filesToReindex << addedFiles.toList();
+
+                const QSet<QString> modifiedFiles = comparer.timeStampModifiedFiles(snapshot());
+                filesToReindex << modifiedFiles.toList();
             }
+
+            // Announce and purge the removed files from the snapshot
+            const QSet<QString> removedFiles = comparer.removedFiles();
+            if (!removedFiles.isEmpty()) {
+                filesRemoved = true;
+                emit aboutToRemoveFiles(removedFiles.toList());
+                removeFilesFromSnapshot(removedFiles);
+            }
+
+        // A new project was opened/created, do a full indexing
+        } else {
+            filesToReindex << newSourceFiles;
         }
-        m_snapshot.remove(configurationFileName());
 
-        m_projectToProjectsInfo.insert(project, pinfo);
+        // Update Project/ProjectInfo and File/ProjectPart table
         m_dirty = true;
-
+        m_projectToProjectsInfo.insert(project, newProjectInfo);
         m_fileToProjectParts.clear();
         foreach (const ProjectInfo &projectInfo, m_projectToProjectsInfo) {
             foreach (const ProjectPart::Ptr &projectPart, projectInfo.projectParts()) {
@@ -618,14 +751,21 @@ QFuture<void> CppModelManager::updateProjectInfo(const ProjectInfo &pinfo)
                 }
             }
         }
-    }
 
+    } // Mutex scope
+
+    // If requested, dump everything we got
     if (!qgetenv("QTCREATOR_DUMP_PROJECT_INFO").isEmpty())
         dumpModelManagerConfiguration();
 
-    emit projectPartsUpdated(pinfo.project().data());
+    // Remove files from snapshot that are not reachable any more
+    if (filesRemoved)
+        GC();
 
-    return updateSourceFiles(pinfo.sourceFiles(), ForcedProgressNotification);
+    emit projectPartsUpdated(newProjectInfo.project().data());
+
+    // Trigger reindexing
+    return updateSourceFiles(filesToReindex, ForcedProgressNotification);
 }
 
 QList<ProjectPart::Ptr> CppModelManager::projectPart(const QString &fileName) const
@@ -663,6 +803,11 @@ void CppModelManager::onProjectAdded(ProjectExplorer::Project *)
     m_dirty = true;
 }
 
+void CppModelManager::delayedGC()
+{
+    m_delayedGcTimer->start(500);
+}
+
 void CppModelManager::onAboutToRemoveProject(ProjectExplorer::Project *project)
 {
     do {
@@ -671,6 +816,13 @@ void CppModelManager::onAboutToRemoveProject(ProjectExplorer::Project *project)
         m_projectToProjectsInfo.remove(project);
     } while (0);
 
+    delayedGC();
+}
+
+void CppModelManager::onAboutToLoadSession()
+{
+    if (m_delayedGcTimer->isActive())
+        m_delayedGcTimer->stop();
     GC();
 }
 
@@ -683,8 +835,6 @@ void CppModelManager::onAboutToUnloadSession()
         m_projectToProjectsInfo.clear();
         m_dirty = true;
     } while (0);
-
-    GC();
 }
 
 void CppModelManager::onCoreAboutToClose()
@@ -697,9 +847,28 @@ void CppModelManager::GC()
     if (!m_enableGC)
         return;
 
-    const Snapshot currentSnapshot = snapshot();
+    // Collect files of CppEditorSupport and AbstractEditorSupport.
+    QStringList filesInEditorSupports;
+    QList<CppEditorSupport *> cppEditorSupports;
+    {
+        QMutexLocker locker(&m_cppEditorSupportsMutex);
+        cppEditorSupports = m_cppEditorSupports.values();
+    }
+    foreach (const CppEditorSupport *cppEditorSupport, cppEditorSupports)
+        filesInEditorSupports << cppEditorSupport->fileName();
+
+    QSetIterator<AbstractEditorSupport *> jt(m_extraEditorSupports);
+    while (jt.hasNext()) {
+        AbstractEditorSupport *abstractEditorSupport = jt.next();
+        filesInEditorSupports << abstractEditorSupport->fileName();
+    }
+
+    Snapshot currentSnapshot = snapshot();
     QSet<QString> reachableFiles;
-    QStringList todo = projectFiles();
+    // The configuration file is part of the project files, which is just fine.
+    // If single files are open, without any project, then there is no need to
+    // keep the configuration file around.
+    QStringList todo = filesInEditorSupports + projectFiles();
 
     // Collect all files that are reachable from the project files
     while (!todo.isEmpty()) {
@@ -729,6 +898,7 @@ void CppModelManager::GC()
     // Announce removing files and replace the snapshot
     emit aboutToRemoveFiles(notReachableFiles);
     replaceSnapshot(newSnapshot);
+    emit gcFinished();
 }
 
 void CppModelManager::finishedRefreshingSourceFiles(const QStringList &files)
@@ -795,6 +965,24 @@ void CppModelManager::setExtraDiagnostics(const QString &fileName,
     foreach (CppEditorSupport *editorSupport, cppEditorSupports) {
         if (editorSupport->fileName() == fileName) {
             editorSupport->setExtraDiagnostics(kind, diagnostics);
+            break;
+        }
+    }
+}
+
+void CppModelManager::setIfdefedOutBlocks(const QString &fileName,
+                                          const QList<TextEditor::BlockRange> &ifdeffedOutBlocks)
+{
+    QList<CppEditorSupport *> cppEditorSupports;
+
+    {
+        QMutexLocker locker(&m_cppEditorSupportsMutex);
+        cppEditorSupports = m_cppEditorSupports.values();
+    }
+
+    foreach (CppEditorSupport *editorSupport, cppEditorSupports) {
+        if (editorSupport->fileName() == fileName) {
+            editorSupport->setIfdefedOutBlocks(ifdeffedOutBlocks);
             break;
         }
     }

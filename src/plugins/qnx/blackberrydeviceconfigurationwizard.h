@@ -32,16 +32,14 @@
 #ifndef QNX_INTERNAL_BLACKBERRYDEVICECONFIGURATIONWIZARD_H
 #define QNX_INTERNAL_BLACKBERRYDEVICECONFIGURATIONWIZARD_H
 
+#include "blackberrydeviceconfigurationwizardpages.h"
+
 #include <QWizard>
 
 #include <projectexplorer/devicesupport/idevice.h>
 
 namespace Qnx {
 namespace Internal {
-
-class BlackBerryDeviceConfigurationWizardSetupPage;
-class BlackBerryDeviceConfigurationWizardSshKeyPage;
-class BlackBerryDeviceConfigurationWizardFinalPage;
 
 class BlackBerryDeviceConfigurationWizard : public QWizard
 {
@@ -54,13 +52,17 @@ public:
 private:
     enum PageId {
         SetupPageId,
-        SshKeyPageId,
+        QueryPageId,
+        ConfigPageId,
         FinalPageId
     };
 
     BlackBerryDeviceConfigurationWizardSetupPage *m_setupPage;
-    BlackBerryDeviceConfigurationWizardSshKeyPage *m_sshKeyPage;
+    BlackBerryDeviceConfigurationWizardQueryPage *m_queryPage;
+    BlackBerryDeviceConfigurationWizardConfigPage *m_configPage;
     BlackBerryDeviceConfigurationWizardFinalPage *m_finalPage;
+
+    BlackBerryDeviceConfigurationWizardHolder m_holder;
 };
 
 } // namespace Internal

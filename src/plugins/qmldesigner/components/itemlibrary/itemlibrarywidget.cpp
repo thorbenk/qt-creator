@@ -50,7 +50,6 @@
 #include <QApplication>
 
 #include <QDeclarativeItem>
-#include <private/qdeclarativeengine_p.h>
 
 
 namespace QmlDesigner {
@@ -67,6 +66,8 @@ ItemLibraryWidget::ItemLibraryWidget(QWidget *parent) :
     m_resourcesView(new Internal::ItemLibraryTreeView(this)),
     m_filterFlag(QtBasic)
 {
+    Internal::registerQmlTypes();
+
     setWindowTitle(tr("Library", "Title of library view"));
 
     /* create Items view and its model */
@@ -75,7 +76,7 @@ ItemLibraryWidget::ItemLibraryWidget(QWidget *parent) :
     m_itemsView->setAcceptDrops(false);
     m_itemsView->setFocusPolicy(Qt::ClickFocus);
     m_itemsView->setResizeMode(QDeclarativeView::SizeRootObjectToView);
-    m_itemLibraryModel = new Internal::ItemLibraryModel(QDeclarativeEnginePrivate::getScriptEngine(m_itemsView->engine()), this);
+    m_itemLibraryModel = new Internal::ItemLibraryModel(this);
     m_itemLibraryModel->setItemIconSize(m_itemIconSize);
 
     QDeclarativeContext *rootContext = m_itemsView->rootContext();
@@ -110,14 +111,17 @@ ItemLibraryWidget::ItemLibraryWidget(QWidget *parent) :
     QTabBar *tabBar = new QTabBar(this);
     tabBar->addTab(tr("QML Types", "Title of library QML types view"));
     tabBar->addTab(tr("Resources", "Title of library resources view"));
+    tabBar->addTab(tr("Imports", "Title of library imports view"));
     tabBar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    connect(tabBar, SIGNAL(currentChanged(int)), this, SLOT(setCurrentIndexOfStackedWidget(int)));
+    connect(tabBar, SIGNAL(currentChanged(int)), this, SLOT(updateSearch()));
 
-    m_lineEdit = new Utils::FilterLineEdit(this);
-    m_lineEdit->setObjectName(QLatin1String("itemLibrarySearchInput"));
-    m_lineEdit->setPlaceholderText(tr("<Filter>", "Library search input hint text"));
-    m_lineEdit->setDragEnabled(false);
-    m_lineEdit->setMinimumWidth(75);
-    m_lineEdit->setTextMargins(0, 0, 20, 0);
+    m_filterLineEdit = new Utils::FilterLineEdit(this);
+    m_filterLineEdit->setObjectName(QLatin1String("itemLibrarySearchInput"));
+    m_filterLineEdit->setPlaceholderText(tr("<Filter>", "Library search input hint text"));
+    m_filterLineEdit->setDragEnabled(false);
+    m_filterLineEdit->setMinimumWidth(75);
+    m_filterLineEdit->setTextMargins(0, 0, 20, 0);
     QWidget *lineEditFrame = new QWidget(this);
     lineEditFrame->setObjectName(QLatin1String("itemLibrarySearchInputFrame"));
     QGridLayout *lineEditLayout = new QGridLayout(lineEditFrame);
@@ -125,17 +129,13 @@ ItemLibraryWidget::ItemLibraryWidget(QWidget *parent) :
     lineEditLayout->setSpacing(0);
     lineEditLayout->addItem(new QSpacerItem(5, 3, QSizePolicy::Fixed, QSizePolicy::Fixed), 0, 0, 1, 3);
     lineEditLayout->addItem(new QSpacerItem(5, 5, QSizePolicy::Fixed, QSizePolicy::Fixed), 1, 0);
-    lineEditLayout->addWidget(m_lineEdit.data(), 1, 1, 1, 1);
+    lineEditLayout->addWidget(m_filterLineEdit.data(), 1, 1, 1, 1);
     lineEditLayout->addItem(new QSpacerItem(5, 5, QSizePolicy::Fixed, QSizePolicy::Fixed), 1, 2);
-    connect(m_lineEdit.data(), SIGNAL(filterChanged(QString)), this, SLOT(setSearchFilter(QString)));
+    connect(m_filterLineEdit.data(), SIGNAL(filterChanged(QString)), this, SLOT(setSearchFilter(QString)));
 
     m_stackedWidget = new QStackedWidget(this);
     m_stackedWidget->addWidget(m_itemsView.data());
     m_stackedWidget->addWidget(m_resourcesView.data());
-    connect(tabBar, SIGNAL(currentChanged(int)),
-            m_stackedWidget.data(), SLOT(setCurrentIndex(int)));
-    connect(tabBar, SIGNAL(currentChanged(int)),
-            this, SLOT(updateSearch()));
 
     QWidget *spacer = new QWidget(this);
     spacer->setObjectName(QLatin1String("itemLibrarySearchInputSpacer"));
@@ -154,8 +154,7 @@ ItemLibraryWidget::ItemLibraryWidget(QWidget *parent) :
 
     /* style sheets */
     setStyleSheet(QLatin1String(Utils::FileReader::fetchQrc(":/qmldesigner/stylesheet.css")));
-    m_resourcesView->setStyleSheet(
-            QLatin1String(Utils::FileReader::fetchQrc(":/qmldesigner/scrollbar.css")));
+    m_resourcesView->setStyleSheet(QLatin1String(Utils::FileReader::fetchQrc(":/qmldesigner/scrollbar.css")));
 }
 
 void ItemLibraryWidget::setItemLibraryInfo(ItemLibraryInfo *itemLibraryInfo)
@@ -189,6 +188,11 @@ void ItemLibraryWidget::updateImports()
     }
 
     setImportFilter(filter);
+}
+
+void ItemLibraryWidget::setImportsWidget(QWidget *importsWidget)
+{
+    m_stackedWidget->addWidget(importsWidget);
 }
 
 QList<QToolButton *> ItemLibraryWidget::createToolBarWidgets()
@@ -281,6 +285,16 @@ void ItemLibraryWidget::emitImportChecked()
     emit meegoChecked(meegoImport);
 }
 
+void ItemLibraryWidget::setCurrentIndexOfStackedWidget(int index)
+{
+    if (index == 2)
+        m_filterLineEdit->setVisible(false);
+    else
+        m_filterLineEdit->setVisible(true);
+
+    m_stackedWidget->setCurrentIndex(index);
+}
+
 void ItemLibraryWidget::setImportFilter(FilterChangeFlag flag)
 {
     return;
@@ -339,7 +353,7 @@ void ItemLibraryWidget::updateModel()
 
 void ItemLibraryWidget::updateSearch()
 {
-    setSearchFilter(m_lineEdit->text());
+    setSearchFilter(m_filterLineEdit->text());
 }
 
 void ItemLibraryWidget::setResourcePath(const QString &resourcePath)

@@ -693,6 +693,17 @@ void FakeVimPlugin::test_vim_fFtT()
     KEYS("2F(", "123()456" N "a(b" X "(c)d)e");
     KEYS("l2F(", "123()456" N "a" X "(b(c)d)e");
     KEYS("F(", "123()456" N "a" X "(b(c)d)e");
+
+    data.setText("abc def" N "ghi " X "jkl");
+    KEYS("vFgx", "abc def" N X "kl");
+    KEYS("u", "abc def" N X "ghi jkl");
+    KEYS("tk", "abc def" N "ghi " X "jkl");
+    KEYS("dTg", "abc def" N "g" X "jkl");
+    INTEGRITY(false);
+    KEYS("u", "abc def" N "g" X "hi jkl");
+    KEYS("f .", "abc def" N "g" X " jkl");
+    KEYS("u", "abc def" N "g" X "hi jkl");
+    KEYS("rg$;", "abc def" N "gg" X "i jkl");
 }
 
 void FakeVimPlugin::test_vim_transform_numbers()
@@ -2503,6 +2514,21 @@ void FakeVimPlugin::test_map()
     KEYS("f<space>", "abc" N "x " X " z" N "def");
     KEYS("t<space>", "abc" N "x " X " z" N "def");
     data.doCommand("unmap <SPACE>");
+
+    // operator-pending mappings
+    data.setText("abc def" N "ghi jkl");
+    data.doCommand("omap <SPACE> aw");
+    KEYS("c<space>X<esc>", X "Xdef" N "ghi jkl");
+    data.doCommand("onoremap <SPACE> iwX");
+    KEYS("c<space>Y<esc>", "X" X "Y" N "ghi jkl");
+    data.doCommand("ono <SPACE> l");
+    KEYS("d<space>", X "X" N "ghi jkl");
+    data.doCommand("unmap <SPACE>");
+
+    data.setText("abc def" N "ghi jkl");
+    data.doCommand("onoremap iwwX 3iwX Y");
+    KEYS("ciwwX Z<esc>", "X Y " X "Z" N "ghi jkl");
+    data.doCommand("unmap <SPACE>X");
 }
 
 void FakeVimPlugin::test_vim_command_cc()

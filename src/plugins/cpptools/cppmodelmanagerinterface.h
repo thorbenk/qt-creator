@@ -46,7 +46,7 @@
 namespace Core { class IEditor; }
 namespace CPlusPlus { class LookupContext; }
 namespace ProjectExplorer { class Project; }
-namespace TextEditor { class BaseTextEditor; }
+namespace TextEditor { class BaseTextEditor; class BlockRange; }
 namespace Utils { class FileName; }
 
 namespace CppTools {
@@ -238,6 +238,8 @@ public:
 
     virtual void setExtraDiagnostics(const QString &fileName, const QString &kind,
                                      const QList<CPlusPlus::Document::DiagnosticMessage> &diagnostics) = 0;
+    virtual void setIfdefedOutBlocks(const QString &fileName,
+                                     const QList<TextEditor::BlockRange> &ifdeffedOutBlocks) = 0;
 
     virtual CppTools::CppCompletionSupport *completionSupport(Core::IEditor *editor) const = 0;
     virtual void setCppCompletionAssistProvider(CppTools::CppCompletionAssistProvider *completionAssistProvider) = 0;
@@ -249,6 +251,9 @@ public:
     virtual CppTools::CppIndexingSupport *indexingSupport() = 0;
 
 signals:
+    /// Project data might be locked while this is emitted.
+    void aboutToRemoveFiles(const QStringList &files);
+
     void documentUpdated(CPlusPlus::Document::Ptr doc);
     void sourceFilesRefreshed(const QStringList &files);
 
@@ -258,9 +263,11 @@ signals:
     void projectPartsUpdated(ProjectExplorer::Project *project);
 
 public slots:
-    virtual void updateModifiedSourceFiles() = 0;
+    // Documented in source file.
     virtual QFuture<void> updateSourceFiles(const QStringList &sourceFiles,
         ProgressNotificationMode mode = ReservedProgressNotification) = 0;
+
+    virtual void updateModifiedSourceFiles() = 0;
     virtual void GC() = 0;
 };
 

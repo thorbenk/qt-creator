@@ -104,8 +104,10 @@ void ViewManager::detachViewsExceptRewriterAndComponetView()
     currentModel()->detachView(&m_itemLibraryView);
     currentModel()->detachView(&m_statesEditorView);
     currentModel()->detachView(&m_propertyEditorView);
+
     if (m_debugView.isAttached())
         currentModel()->detachView(&m_debugView);
+
     currentModel()->setNodeInstanceView(0);
 }
 
@@ -143,6 +145,7 @@ void ViewManager::attachViewsExceptRewriterAndComponetView()
 {
     if (QmlDesignerPlugin::instance()->settings().enableDebugView)
         currentModel()->attachView(&m_debugView);
+
     attachNodeInstanceView();
     currentModel()->attachView(&m_formEditorView);
     currentModel()->attachView(&m_navigatorView);
@@ -213,10 +216,9 @@ void ViewManager::pushFileOnCrumbleBar(const QString &fileName)
     crumbleBar()->pushFile(fileName);
 }
 
-void ViewManager::pushInFileComponentOnCrambleBar(const QString &componentId)
-
+void ViewManager::pushInFileComponentOnCrumbleBar(const ModelNode &modelNode)
 {
-    crumbleBar()->pushInFileComponent(componentId);
+    crumbleBar()->pushInFileComponent(modelNode);
 }
 
 void ViewManager::nextFileIsCalledInternally()

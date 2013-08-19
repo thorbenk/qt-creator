@@ -62,6 +62,18 @@ void BlackBerryDeviceInformation::setDeviceTarget(const QString &deviceIp, const
     start(arguments);
 }
 
+void BlackBerryDeviceInformation::resetResults()
+{
+    m_devicePin.clear();
+    m_deviceOS.clear();
+    m_hardwareId.clear();
+    m_debugTokenAuthor.clear();
+    m_scmBundle.clear();
+    m_hostName.clear();
+    m_debugTokenValid = false;
+    m_isSimulator = false;
+}
+
 QString BlackBerryDeviceInformation::devicePin() const
 {
     return m_devicePin;
@@ -77,14 +89,57 @@ QString BlackBerryDeviceInformation::hardwareId() const
     return m_hardwareId;
 }
 
+QString BlackBerryDeviceInformation::debugTokenAuthor() const
+{
+    return m_debugTokenAuthor;
+}
+
+QString BlackBerryDeviceInformation::scmBundle() const
+{
+    return m_scmBundle;
+}
+
+QString BlackBerryDeviceInformation::hostName() const
+{
+    return m_hostName;
+}
+
+bool BlackBerryDeviceInformation::debugTokenValid() const
+{
+    return m_debugTokenValid;
+}
+
+bool BlackBerryDeviceInformation::isSimulator() const
+{
+    return m_isSimulator;
+}
+
 void BlackBerryDeviceInformation::processData(const QString &line)
 {
-    if (line.startsWith(QLatin1String("devicepin::")))
-        m_devicePin = line.split(QLatin1String("::0x")).at(1).trimmed();
-    else if (line.startsWith(QLatin1String("device_os::")))
-        m_deviceOS = line.split(QLatin1String("::")).at(1).trimmed();
-    else if (line.startsWith(QLatin1String("hardwareid::")))
-        m_hardwareId = line.split(QLatin1String("::")).at(1).trimmed();
+    static const QString devicepin = QLatin1String("devicepin::0x");
+    static const QString device_os = QLatin1String("device_os::");
+    static const QString hardwareid = QLatin1String("hardwareid::");
+    static const QString debug_token_author = QLatin1String("debug_token_author::");
+    static const QString debug_token_valid = QLatin1String("debug_token_valid:b:");
+    static const QString simulator = QLatin1String("simulator:b:");
+    static const QString scmbundle = QLatin1String("scmbundle::");
+    static const QString hostname = QLatin1String("hostname::");
+    if (line.startsWith(devicepin))
+        m_devicePin = line.mid(devicepin.size()).trimmed();
+    else if (line.startsWith(device_os))
+        m_deviceOS = line.mid(device_os.size()).trimmed();
+    else if (line.startsWith(hardwareid))
+        m_hardwareId = line.mid(hardwareid.size()).trimmed();
+    else if (line.startsWith(debug_token_author))
+        m_debugTokenAuthor = line.mid(debug_token_author.size()).trimmed();
+    else if (line.startsWith(debug_token_valid))
+        m_debugTokenValid = line.mid(debug_token_valid.size()).trimmed() == QLatin1String("true");
+    else if (line.startsWith(simulator))
+        m_isSimulator = line.mid(simulator.size()).trimmed() == QLatin1String("true");
+    else if (line.startsWith(scmbundle))
+        m_scmBundle = line.mid(scmbundle.size()).trimmed();
+    else if (line.startsWith(hostname))
+        m_hostName = line.mid(hostname.size()).trimmed();
 }
 
 } // namespace Internal

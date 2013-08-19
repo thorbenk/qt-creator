@@ -1325,6 +1325,8 @@ void FakeVimPluginPrivate::windowCommand(const QString &map, int count)
         triggerAction(Core::Constants::GOTOPREV);
     else if (key == _("S") || key == _("<C-S>"))
         triggerAction(Core::Constants::SPLIT);
+    else if (key == _("V") || key == _("<C-V>"))
+        triggerAction(Core::Constants::SPLIT_SIDE_BY_SIDE);
     else if (key == _("W") || key == _("<C-W>"))
         triggerAction(Core::Constants::GOTO_NEXT_SPLIT);
     else if (key.contains(_("RIGHT")) || key == _("L") || key == _("<S-L>"))
@@ -1985,11 +1987,12 @@ void FakeVimPluginPrivate::changeSelection(const QList<QTextEdit::ExtraSelection
 
 void FakeVimPluginPrivate::highlightMatches(const QString &needle)
 {
-    IEditor *editor = EditorManager::currentEditor();
-    QWidget *w = editor->widget();
-    Find::IFindSupport *find = Aggregation::query<Find::IFindSupport>(w);
-    if (find != 0)
-        find->highlightAll(needle, Find::FindRegularExpression | Find::FindCaseSensitively);
+    foreach (IEditor *editor, EditorManager::instance()->visibleEditors()) {
+        QWidget *w = editor->widget();
+        Find::IFindSupport *find = Aggregation::query<Find::IFindSupport>(w);
+        if (find != 0)
+            find->highlightAll(needle, Find::FindRegularExpression | Find::FindCaseSensitively);
+    }
 }
 
 int FakeVimPluginPrivate::currentFile() const

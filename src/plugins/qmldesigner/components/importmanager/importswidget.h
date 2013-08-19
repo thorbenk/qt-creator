@@ -27,58 +27,51 @@
 **
 ****************************************************************************/
 
-#ifndef DECLARATIVEWIDGETVIEW_H
-#define DECLARATIVEWIDGETVIEW_H
+#ifndef QMLDESIGNER_IMPORTSWIDGET_H
+#define QMLDESIGNER_IMPORTSWIDGET_H
+
+#include <import.h>
 
 #include <QWidget>
-#include <QUrl>
-#include <QDeclarativeEngine>
 
 QT_BEGIN_NAMESPACE
-class QDeclarativeContext;
-class QDeclarativeError;
-class QDeclarativeComponent;
+class QComboBox;
 QT_END_NAMESPACE
 
 namespace QmlDesigner {
 
-class DeclarativeWidgetView : public QWidget
+class ImportLabel;
+
+class ImportsWidget : public QWidget
 {
     Q_OBJECT
-
-    Q_PROPERTY(QUrl source READ source WRITE setSource DESIGNABLE true)
 public:
-    explicit DeclarativeWidgetView(QWidget *parent = 0);
+    explicit ImportsWidget(QWidget *parent = 0);
 
-    QUrl source() const;
-    void setSource(const QUrl&);
+    void setImports(const QList<Import> &imports);
+    void removeImports();
 
-    QDeclarativeEngine* engine();
-    QDeclarativeContext* rootContext();
+    void setPossibleImports(const QList<Import> &possibleImports);
+    void removePossibleImports();
 
-    QWidget *rootWidget() const;
-
-    enum Status { Null, Ready, Loading, Error };
-    Status status() const;
+    void setUsedImports(const QList<Import> &possibleImports);
+    void removeUsedImports();
 
 signals:
-    void statusChanged(DeclarativeWidgetView::Status);
+    void removeImport(const Import &import);
+    void addImport(const Import &import);
 
 protected:
-    void setRootWidget(QWidget *);
-    void execute();
+    void updateLayout();
 
-private Q_SLOTS:
-    void continueExecute();
+private slots:
+    void addSelectedImport(int addImportComboBoxIndex);
 
 private:
-     QScopedPointer<QWidget> m_root;
-     QUrl m_source;
-     QDeclarativeEngine m_engine;
-     QWeakPointer<QDeclarativeComponent> m_component;
-
+    QList<ImportLabel*> m_importLabels;
+    QComboBox *m_addImportComboBox;
 };
 
-} //QmlDesigner
+} // namespace QmlDesigner
 
-#endif // DECLARATIVEWIDGETVIEW_H
+#endif // QMLDESIGNER_IMPORTSWIDGET_H

@@ -34,6 +34,8 @@
 
 #include <extensionsystem/iplugin.h>
 
+#include "abstracttimelinemodel.h"
+
 namespace QmlProfiler {
 namespace Internal {
 
@@ -50,6 +52,14 @@ public:
     ShutdownFlag aboutToShutdown();
 
     static bool debugOutput;
+    static QmlProfilerPlugin *instance;
+
+    QList<AbstractTimelineModel *> getModels() const;
+
+private:
+    QList<AbstractTimelineModel*> timelineModels;
+
+
 };
 
 } // namespace Internal

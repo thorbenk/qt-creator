@@ -27,7 +27,18 @@
 **
 ****************************************************************************/
 
-#include "declarativewidgetview.h"
+#include "quickpropertyeditorview.h"
+
+#include "basiclayouts.h"
+#include "basicwidgets.h"
+#include "resetwidget.h"
+#include "qlayoutobject.h"
+#include <qmleditorwidgets/colorwidgets.h>
+#include "gradientlineqmladaptor.h"
+#include "behaviordialog.h"
+#include "fontwidget.h"
+#include "siblingcombobox.h"
+#include "originwidget.h"
 
 #include <QDeclarativeItem>
 #include <QDeclarativeEngine>
@@ -35,7 +46,7 @@
 
 namespace QmlDesigner {
 
-void DeclarativeWidgetView::execute()
+void QuickPropertyEditorView::execute()
 {
     if (m_root)
         delete m_root.data();
@@ -52,47 +63,47 @@ void DeclarativeWidgetView::execute()
     }
 }
 
-DeclarativeWidgetView::DeclarativeWidgetView(QWidget *parent) :
+QuickPropertyEditorView::QuickPropertyEditorView(QWidget *parent) :
     QWidget(parent)
 {
 }
 
-QUrl DeclarativeWidgetView::source() const
+QUrl QuickPropertyEditorView::source() const
 {
     return m_source;
 }
 
-void DeclarativeWidgetView::setSource(const QUrl& url)
+void QuickPropertyEditorView::setSource(const QUrl& url)
 {
     m_source = url;
     execute();
 }
 
-QDeclarativeEngine* DeclarativeWidgetView::engine()
+QDeclarativeEngine* QuickPropertyEditorView::engine()
 {
    return &m_engine;
 }
 
-QWidget *DeclarativeWidgetView::rootWidget() const
+QWidget *QuickPropertyEditorView::rootWidget() const
 {
     return m_root.data();
 }
 
-QDeclarativeContext* DeclarativeWidgetView::rootContext()
+QDeclarativeContext* QuickPropertyEditorView::rootContext()
 {
    return m_engine.rootContext();
 }
 
-DeclarativeWidgetView::Status DeclarativeWidgetView::status() const
+QuickPropertyEditorView::Status QuickPropertyEditorView::status() const
 {
     if (!m_component)
-        return DeclarativeWidgetView::Null;
+        return QuickPropertyEditorView::Null;
 
-    return DeclarativeWidgetView::Status(m_component->status());
+    return QuickPropertyEditorView::Status(m_component->status());
 }
 
 
-void DeclarativeWidgetView::continueExecute()
+void QuickPropertyEditorView::continueExecute()
 {
 
     disconnect(m_component.data(), SIGNAL(statusChanged(QDeclarativeComponent::Status)), this, SLOT(continueExecute()));
@@ -121,7 +132,7 @@ void DeclarativeWidgetView::continueExecute()
     emit statusChanged(status());
 }
 
-void DeclarativeWidgetView::setRootWidget(QWidget *widget)
+void QuickPropertyEditorView::setRootWidget(QWidget *widget)
 {
     if (m_root.data() == widget)
         return;
@@ -138,6 +149,26 @@ void DeclarativeWidgetView::setRootWidget(QWidget *widget)
         QSize initialSize = m_root->size();
         if (initialSize != size())
             resize(initialSize);
+    }
+}
+
+void QuickPropertyEditorView::registerQmlTypes()
+{
+
+    static bool declarativeTypesRegistered = false;
+    if (!declarativeTypesRegistered) {
+        declarativeTypesRegistered = true;
+        BasicWidgets::registerDeclarativeTypes();
+        BasicLayouts::registerDeclarativeTypes();
+        ResetWidget::registerDeclarativeType();
+        QLayoutObject::registerDeclarativeType();
+        QmlEditorWidgets::ColorWidgets::registerDeclarativeTypes();
+        BehaviorDialog::registerDeclarativeType();
+        PropertyEditorValue::registerDeclarativeTypes();
+        FontWidget::registerDeclarativeTypes();
+        SiblingComboBox::registerDeclarativeTypes();
+        OriginWidget::registerDeclarativeType();
+        GradientLineQmlAdaptor::registerDeclarativeType();
     }
 }
 

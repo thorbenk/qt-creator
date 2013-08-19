@@ -409,6 +409,11 @@ bool GitPlugin::initialize(const QStringList &arguments, QString *errorMessage)
                            SLOT(logRepository()));
 
     createRepositoryAction(localRepositoryMenu,
+                           tr("Reflog"), Core::Id("Git.ReflogRepository"),
+                           globalcontext, true,
+                           SLOT(reflogRepository()));
+
+    createRepositoryAction(localRepositoryMenu,
                            tr("Clean..."), Core::Id("Git.CleanRepository"),
                            globalcontext, true, SLOT(cleanRepository()));
 
@@ -785,6 +790,13 @@ void GitPlugin::logRepository()
     m_gitClient->log(state.topLevel());
 }
 
+void GitPlugin::reflogRepository()
+{
+    const VcsBase::VcsBasePluginState state = currentState();
+    QTC_ASSERT(state.hasTopLevel(), return);
+    m_gitClient->reflog(state.topLevel());
+}
+
 void GitPlugin::undoFileChanges(bool revertStaging)
 {
     if (!ensureAllDocumentsSaved())
@@ -969,7 +981,7 @@ void GitPlugin::startCommit(CommitType commitType)
     QString errorMessage, commitTemplate;
     CommitData data(commitType);
     if (!m_gitClient->getCommitData(state.topLevel(), &commitTemplate, data, &errorMessage)) {
-        VcsBase::VcsBaseOutputWindow::instance()->append(errorMessage);
+        VcsBase::VcsBaseOutputWindow::instance()->appendError(errorMessage);
         return;
     }
 
@@ -983,7 +995,7 @@ void GitPlugin::startCommit(CommitType commitType)
     saver.setAutoRemove(false);
     saver.write(commitTemplate.toLocal8Bit());
     if (!saver.finalize()) {
-        VcsBase::VcsBaseOutputWindow::instance()->append(saver.errorString());
+        VcsBase::VcsBaseOutputWindow::instance()->appendError(saver.errorString());
         return;
     }
     m_commitMessageFileName = saver.fileName();
@@ -1300,7 +1312,7 @@ void GitPlugin::applyPatch(const QString &workingDirectory, QString file)
         if (errorMessage.isEmpty())
             outwin->append(tr("Patch %1 successfully applied to %2").arg(file, workingDirectory));
         else
-            outwin->append(errorMessage);
+            outwin->appendError(errorMessage);
     } else {
         outwin->appendError(errorMessage);
     }

@@ -2,7 +2,6 @@
 **
 ** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
-** Author: Nicolas Arnaud-Cormos, KDAB (nicolas.arnaud-cormos@kdab.com)
 **
 ** This file is part of Qt Creator.
 **
@@ -28,37 +27,21 @@
 **
 ****************************************************************************/
 
-#include "analyzeroptionspage.h"
-#include "analyzersettings.h"
+#ifndef LOCATORSEARCHUTILS_H
+#define LOCATORSEARCHUTILS_H
 
-#include <QCoreApplication>
-#include <QDebug>
-#include <QWidget>
+#include "locator_global.h"
+#include "ilocatorfilter.h"
 
-using namespace Analyzer;
-using namespace Analyzer::Internal;
+namespace Locator {
+namespace Internal {
 
-AnalyzerOptionsPage::AnalyzerOptionsPage(AbstractAnalyzerSubConfig *config, QObject *parent) :
-    Core::IOptionsPage(parent),
-    m_config(config)
-{
-    setId(m_config->id());
-    setDisplayName(m_config->displayName());
-    setCategory("T.Analyzer");
-    setDisplayCategory(QCoreApplication::translate("Analyzer", "Analyzer"));
-    setCategoryIcon(QLatin1String(":/images/analyzer_category.png"));
-}
+void LOCATOR_EXPORT runSearch(QFutureInterface<Locator::FilterEntry> &entries,
+                              QList<ILocatorFilter *> filters,
+                              QString searchText);
 
-QWidget *AnalyzerOptionsPage::createPage(QWidget *parent)
-{
-    return m_config->createConfigWidget(parent);
-}
+} // namespace Internal
+} // namespace Locator
 
-void AnalyzerOptionsPage::apply()
-{
-    AnalyzerGlobalSettings::instance()->writeSettings();
-}
+#endif // LOCATORSEARCHUTILS_H
 
-void AnalyzerOptionsPage::finish()
-{
-}

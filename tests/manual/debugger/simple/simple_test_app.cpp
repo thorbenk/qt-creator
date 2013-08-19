@@ -1016,7 +1016,7 @@ namespace qhash {
 
 namespace qhostaddress {
 
-    void testQHostAddress()
+    void testQHostAddress1()
     {
         QHostAddress ha1(129u * 256u * 256u * 256u + 130u);
         QHostAddress ha2("127.0.0.1");
@@ -1026,6 +1026,32 @@ namespace qhostaddress {
         // Continue.
         dummyStatement(&ha1, &ha2);
     }
+
+    void testQHostAddress2()
+    {
+        QIPv6Address addr;
+        for (int i = 0; i != 16; ++i)
+            addr.c[i] = i;
+        addr.c[4] = 0;
+        addr.c[5] = 0;
+        addr.c[6] = 0;
+        addr.c[7] = 0;
+        addr.c[12] = 0;
+        addr.c[13] = 0;
+        addr.c[14] = 0;
+        addr.c[15] = 0;
+        QHostAddress ha1(addr);
+        BREAK_HERE;
+        // Continue.
+        dummyStatement(&ha1);
+    }
+
+    void testQHostAddress()
+    {
+        testQHostAddress1();
+        testQHostAddress2();
+    }
+
 
 } // namespace qhostaddress
 
@@ -6741,8 +6767,15 @@ namespace sanity {
 } // namespace sanity
 
 
+template <class X> int ffff(X x)
+{
+    return sizeof(x);
+}
+
 int main(int argc, char *argv[])
 {
+    int z = ffff(3) + ffff(2.0);
+
     #if USE_GUILIB
     QApplication app(argc, argv);
     #else

@@ -285,18 +285,11 @@ void DesignDocument::changeToInFileComponentModel(ComponentTextModifier *textMod
     viewManager().attachViewsExceptRewriterAndComponetView();
 }
 
-void DesignDocument::changeToSubComponentAndPushOnCrumblePath(const ModelNode &componentNode)
+void DesignDocument::changeToSubComponent(const ModelNode &componentNode)
 {
     if (QmlDesignerPlugin::instance()->currentDesignDocument() != this)
         return;
 
-    changeToSubComponent(componentNode);
-
-    QmlDesignerPlugin::instance()->viewManager().pushInFileComponentOnCrambleBar(componentNode.id());
-}
-
-void DesignDocument::changeToSubComponent(const ModelNode &componentNode)
-{
     if (m_inFileComponentModel)
         changeToDocumentModel();
 
@@ -304,6 +297,8 @@ void DesignDocument::changeToSubComponent(const ModelNode &componentNode)
 
     if (subComponentLoaded)
         attachRewriterToModel();
+
+    QmlDesignerPlugin::instance()->viewManager().pushInFileComponentOnCrumbleBar(componentNode);
 }
 
 void DesignDocument::attachRewriterToModel()
@@ -488,7 +483,7 @@ void DesignDocument::paste()
             targetNode = view.selectedModelNodes().first();
 
         //In case we copy and paste a selection we paste in the parent item
-        if ((view.selectedModelNodes().count() == selectedNodes.count()) && targetNode.isValid() && targetNode.parentProperty().isValid())
+        if ((view.selectedModelNodes().count() == selectedNodes.count()) && targetNode.isValid() && targetNode.hasParentProperty())
             targetNode = targetNode.parentProperty().parentModelNode();
 
         if (!targetNode.isValid())
@@ -581,7 +576,7 @@ void DesignDocument::setEditor(Core::IEditor *editor)
 {
     m_textEditor = editor;
     connect(editor->document(),
-            SIGNAL(fileNameChanged(QString,QString)),
+            SIGNAL(filePathChanged(QString,QString)),
             SLOT(updateFileName(QString,QString)));
 
     updateActiveQtVersion();

@@ -111,9 +111,7 @@ void GitSubmitEditor::setCommitData(const CommitData &d)
     m_amendSHA1 = d.amendSHA1;
 
     GitSubmitEditorWidget *w = submitEditorWidget();
-    w->initialize(m_commitType, m_workingDirectory);
-    w->setPanelData(d.panelData);
-    w->setPanelInfo(d.panelInfo);
+    w->initialize(m_commitType, m_workingDirectory, d.panelData, d.panelInfo);
     w->setHasUnmerged(false);
 
     setEmptyFileListEnabled(m_commitType == AmendCommit); // Allow for just correcting the message
@@ -179,7 +177,7 @@ void GitSubmitEditor::updateFileModel()
         setCommitData(data);
         submitEditorWidget()->refreshLog(m_workingDirectory);
     } else {
-        VcsBase::VcsBaseOutputWindow::instance()->append(errorMessage);
+        VcsBase::VcsBaseOutputWindow::instance()->appendError(errorMessage);
         m_forceClose = true;
         Core::EditorManager::instance()->closeEditor(this);
     }

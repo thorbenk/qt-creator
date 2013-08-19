@@ -39,6 +39,7 @@
 
 #include <QHash>
 #include <QMutex>
+#include <QTimer>
 
 namespace Core { class IEditor; }
 namespace TextEditor { class BaseTextEditorWidget; }
@@ -71,13 +72,12 @@ public:
 
     virtual QList<ProjectInfo> projectInfos() const;
     virtual ProjectInfo projectInfo(ProjectExplorer::Project *project) const;
-    virtual QFuture<void> updateProjectInfo(const ProjectInfo &pinfo);
+    virtual QFuture<void> updateProjectInfo(const ProjectInfo &newProjectInfo);
     virtual QList<CppTools::ProjectPart::Ptr> projectPart(const QString &fileName) const;
 
     virtual CPlusPlus::Snapshot snapshot() const;
     virtual Document::Ptr document(const QString &fileName) const;
     bool replaceDocument(Document::Ptr newDoc);
-    virtual void GC();
 
     void emitDocumentUpdated(CPlusPlus::Document::Ptr doc);
 
@@ -99,6 +99,8 @@ public:
 
     virtual void setExtraDiagnostics(const QString &fileName, const QString &key,
                                      const QList<Document::DiagnosticMessage> &diagnostics);
+    virtual void setIfdefedOutBlocks(const QString &fileName,
+                                     const QList<TextEditor::BlockRange> &ifdeffedOutBlocks);
 
     void finishedRefreshingSourceFiles(const QStringList &files);
 
@@ -141,21 +143,29 @@ public:
         return m_definedMacros;
     }
 
+    static QStringList timeStampModifiedFiles(const QList<Document::Ptr> documentsToCheck);
+
 signals:
-    void aboutToRemoveFiles(const QStringList &files);
+    void gcFinished(); // Needed for tests.
 
 public slots:
     virtual void updateModifiedSourceFiles();
+    virtual void GC();
 
 private slots:
     // This should be executed in the GUI thread.
-    void onAboutToRemoveProject(ProjectExplorer::Project *project);
+    void onAboutToLoadSession();
     void onAboutToUnloadSession();
-    void onCoreAboutToClose();
     void onProjectAdded(ProjectExplorer::Project *project);
+    void onAboutToRemoveProject(ProjectExplorer::Project *project);
+    void onCoreAboutToClose();
 
 private:
+    void delayedGC();
     void replaceSnapshot(const CPlusPlus::Snapshot &newSnapshot);
+    void removeFilesFromSnapshot(const QSet<QString> &removedFiles);
+    void removeProjectInfoFilesAndIncludesFromSnapshot(const ProjectInfo &projectInfo);
+
     WorkingCopy buildWorkingCopyList();
 
     void ensureUpdated();
@@ -207,6 +217,7 @@ private:
     CppFindReferences *m_findReferences;
 
     bool m_enableGC;
+    QTimer *m_delayedGcTimer;
 };
 
 } // namespace Internal

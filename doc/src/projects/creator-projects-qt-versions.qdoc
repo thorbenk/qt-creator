@@ -69,10 +69,22 @@
                 necessary, because the internal data structures of Qt can
                 change between versions. For more information, see
                 \l{Using Debugging Helpers}.
+            \li If the Qt version is for Blackberry or QNX, enter the path
+                to your installed Blackberry NDK or QNX SDK in the
+                \gui {Blackberry Native SDK} or \gui{QNX SDK} field respectively.
 
         \endlist
 
-    \include qnx/creator-projects-qt-version-qnx.qdocinc
+    \section2 Minimum Requirements
+    If your build of Qt is incomplete but you still want to use QMake as build
+    system, you need to ensure the following minimum requirements to be able to use that setup with \QC.
+    \list 1
+        \li qmake is an executable that understands the -query command line argument.
+        \li The bin and include directories have to exist. \QC fetches these directories by running \c{qmake -query}.
+        \li The mkspecs directory should be complete enough to parse .pro files.
+    \endlist
+
+    If your Qt version has no libQtCore.so, \QC is unable to detect the ABI.
 
 */
 

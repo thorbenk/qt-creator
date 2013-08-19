@@ -28,12 +28,14 @@
 ****************************************************************************/
 
 #include "valgrindruncontrolfactory.h"
+#include "valgrindsettings.h"
+#include "valgrindplugin.h"
 
 #include <analyzerbase/ianalyzertool.h>
 #include <analyzerbase/analyzermanager.h>
 #include <analyzerbase/analyzerstartparameters.h>
 #include <analyzerbase/analyzerruncontrol.h>
-#include <analyzerbase/analyzersettings.h>
+#include <analyzerbase/analyzerrunconfigwidget.h>
 
 #include <remotelinux/remotelinuxrunconfiguration.h>
 
@@ -106,10 +108,34 @@ RunControl *ValgrindRunControlFactory::create(RunConfiguration *runConfiguration
     return AnalyzerManager::createRunControl(sp, runConfiguration);
 }
 
+
+class ValgrindRunConfigurationAspect : public IRunConfigurationAspect
+{
+public:
+    ValgrindRunConfigurationAspect(RunConfiguration *parent)
+        : IRunConfigurationAspect(parent)
+    {
+        setProjectSettings(new ValgrindProjectSettings());
+        setGlobalSettings(ValgrindPlugin::globalSettings());
+        setId(ANALYZER_VALGRIND_SETTINGS);
+        setDisplayName(tr("Valgrind Settings"));
+    }
+
+    IRunConfigurationAspect *create(RunConfiguration *parent) const
+    {
+        return new ValgrindRunConfigurationAspect(parent);
+    }
+
+    RunConfigWidget *createConfigurationWidget()
+    {
+        return new Analyzer::AnalyzerRunConfigWidget(this);
+
+    }
+};
+
 IRunConfigurationAspect *ValgrindRunControlFactory::createRunConfigurationAspect(RunConfiguration *rc)
 {
-    Q_UNUSED(rc);
-    return new AnalyzerRunConfigurationAspect;
+    return new ValgrindRunConfigurationAspect(rc);
 }
 
 } // namespace Internal
