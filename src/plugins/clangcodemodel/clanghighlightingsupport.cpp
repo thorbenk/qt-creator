@@ -97,12 +97,3 @@ QFuture<TextEditor::HighlightingResult> ClangHighlightingSupport::highlightingFu
                                                          m_fastIndexer, pchInfo);
     return createMarkers->start();
 }
-
-ClangHighlightingSupportFactory::~ClangHighlightingSupportFactory()
-{
-}
-
-CppHighlightingSupport *ClangHighlightingSupportFactory::highlightingSupport(TextEditor::ITextEditor *editor)
-{
-    return new ClangHighlightingSupport(editor, m_fastIndexer);
-}

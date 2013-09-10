@@ -44,7 +44,8 @@ namespace ClangCodeModel {
 class ClangHighlightingSupport: public CppTools::CppHighlightingSupport
 {
 public:
-    ClangHighlightingSupport(TextEditor::ITextEditor *textEditor, Internal::FastIndexer *fastIndexer);
+    ClangHighlightingSupport(TextEditor::ITextEditor *textEditor,
+                             Internal::FastIndexer *fastIndexer);
     ~ClangHighlightingSupport();
 
     virtual bool requiresSemanticInfo() const
@@ -61,21 +62,6 @@ public:
 private:
     Internal::FastIndexer *m_fastIndexer;
     ClangCodeModel::SemanticMarker::Ptr m_semanticMarker;
-};
-
-class ClangHighlightingSupportFactory: public CppTools::CppHighlightingSupportFactory
-{
-public:
-    ClangHighlightingSupportFactory(Internal::FastIndexer *fastIndexer)
-        : m_fastIndexer(fastIndexer)
-    {}
-
-    virtual ~ClangHighlightingSupportFactory();
-
-    virtual CppTools::CppHighlightingSupport *highlightingSupport(TextEditor::ITextEditor *editor);
-
-private:
-    Internal::FastIndexer *m_fastIndexer;
 };
 
 } // namespace ClangCodeModel

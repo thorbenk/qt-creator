@@ -182,51 +182,6 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
     return result;
 }
 
-class ClangCompletionSupport: public CppTools::CppCompletionSupport
-{
-public:
-    ClangCompletionSupport(TextEditor::ITextEditor *editor)
-        : CppCompletionSupport(editor)
-        , m_clangCompletionWrapper(new ClangCodeModel::ClangCompleter)
-    {}
-
-    ~ClangCompletionSupport()
-    {}
-
-    virtual TextEditor::IAssistInterface *createAssistInterface(
-            ProjectExplorer::Project *project, QTextDocument *document,
-            int position, TextEditor::AssistReason reason) const {
-        Q_UNUSED(project);
-
-        QString fileName = editor()->document()->filePath();
-        CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
-        QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
-        if (parts.isEmpty())
-            parts += modelManager->fallbackProjectPart();
-        QStringList includePaths, frameworkPaths, options;
-        PCHInfo::Ptr pchInfo;
-        foreach (ProjectPart::Ptr part, parts) {
-            if (part.isNull())
-                continue;
-            options = ClangCodeModel::Utils::createClangOptions(part, fileName);
-            pchInfo = PCHManager::instance()->pchInfo(part);
-            if (!pchInfo.isNull())
-                options.append(ClangCodeModel::Utils::createPCHInclusionOptions(pchInfo->fileName()));
-            includePaths = part->includePaths;
-            frameworkPaths = part->frameworkPaths;
-            break;
-        }
-
-        return new ClangCodeModel::ClangCompletionAssistInterface(
-                    m_clangCompletionWrapper,
-                    document, position, editor()->document()->filePath(), reason,
-                    options, includePaths, frameworkPaths, pchInfo);
-    }
-
-private:
-    ClangCodeModel::ClangCompleter::Ptr m_clangCompletionWrapper;
-};
-
 } // Anonymous
 
 namespace ClangCodeModel {
@@ -235,14 +190,45 @@ namespace Internal {
 // -----------------------------
 // ClangCompletionAssistProvider
 // -----------------------------
+ClangCompletionAssistProvider::ClangCompletionAssistProvider()
+    : m_clangCompletionWrapper(new ClangCodeModel::ClangCompleter)
+{
+}
+
 IAssistProcessor *ClangCompletionAssistProvider::createProcessor() const
 {
     return new ClangCompletionAssistProcessor;
 }
 
-CppCompletionSupport *ClangCompletionAssistProvider::completionSupport(ITextEditor *editor)
+IAssistInterface *ClangCompletionAssistProvider::createAssistInterface(
+        ProjectExplorer::Project *project, const QString &filePath, QTextDocument *document,
+        int position, AssistReason reason) const
 {
-    return new ClangCompletionSupport(editor);
+    Q_UNUSED(project);
+
+    QString fileName = filePath;
+    CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
+    QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+    if (parts.isEmpty())
+        parts += modelManager->fallbackProjectPart();
+    QStringList includePaths, frameworkPaths, options;
+    PCHInfo::Ptr pchInfo;
+    foreach (ProjectPart::Ptr part, parts) {
+        if (part.isNull())
+            continue;
+        options = ClangCodeModel::Utils::createClangOptions(part, fileName);
+        pchInfo = PCHManager::instance()->pchInfo(part);
+        if (!pchInfo.isNull())
+            options.append(ClangCodeModel::Utils::createPCHInclusionOptions(pchInfo->fileName()));
+        includePaths = part->includePaths;
+        frameworkPaths = part->frameworkPaths;
+        break;
+    }
+
+    return new ClangCodeModel::ClangCompletionAssistInterface(
+                m_clangCompletionWrapper,
+                document, position, fileName, reason,
+                options, includePaths, frameworkPaths, pchInfo);
 }
 
 // ------------------------
@@ -1152,8 +1138,7 @@ bool ClangCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
     if (!includePaths.contains(currentFilePath))
         includePaths.append(currentFilePath);
 
-    const Core::MimeType mimeType =
-            Core::ICore::instance()->mimeDatabase()->findByType(QLatin1String("text/x-c++hdr"));
+    const Core::MimeType mimeType = Core::MimeDatabase::findByType(QLatin1String("text/x-c++hdr"));
     const QStringList suffixes = mimeType.suffixes();
 
     foreach (const QString &includePath, includePaths) {

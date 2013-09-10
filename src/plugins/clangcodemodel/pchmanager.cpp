@@ -50,9 +50,9 @@ PCHManager::PCHManager(QObject *parent)
     Q_ASSERT(!m_instance);
     m_instance = this;
 
-    Core::MessageManager *msgMgr = Core::MessageManager::instance();
+    QObject *msgMgr = Core::MessageManager::instance();
     connect(this, SIGNAL(pchMessage(QString, Core::MessageManager::PrintToOutputPaneFlags)),
-            msgMgr, SLOT(printToOutputPane(QString, Core::MessageManager::PrintToOutputPaneFlags)));
+            msgMgr, SLOT(write(QString, Core::MessageManager::PrintToOutputPaneFlags)));
 
     connect(&m_pchGenerationWatcher, SIGNAL(finished()),
             this, SLOT(updateActivePCHFiles()));
@@ -162,9 +162,7 @@ void PCHManager::updatePchInfo(ClangProjectSettings *cps,
                                              cps->customPchFile(),
                                              projectParts);
     m_pchGenerationWatcher.setFuture(future);
-    Core::ICore::instance()->progressManager()->addTask(future,
-                                                        tr("Precompiling..."),
-                                                        QLatin1String("Key.Tmp.Precompiling"));
+    Core::ProgressManager::addTask(future, tr("Precompiling..."), "Key.Tmp.Precompiling");
 }
 
 namespace {
@@ -225,19 +223,18 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
 
 //    qDebug() << "switching to" << pchUsage;
 
-    Core::MessageManager *msgMgr = Core::MessageManager::instance();
-
     if (pchUsage == ClangProjectSettings::PchUse_None
             || (pchUsage == ClangProjectSettings::PchUse_Custom && customPchFile.isEmpty())) {
         future.setProgressRange(0, 2);
-        msgMgr->printToOutputPane(QLatin1String("updatePchInfo: switching to none"),
-                Core::MessageManager::Silent);
+        Core::MessageManager::write(QLatin1String("updatePchInfo: switching to none"),
+                                    Core::MessageManager::Silent);
         PCHInfo::Ptr emptyPch = PCHInfo::createEmpty();
         pchManager->setPCHInfo(projectParts, emptyPch, qMakePair(true, QStringList()));
         future.setProgressValue(1);
     } else if (pchUsage == ClangProjectSettings::PchUse_BuildSystem_Fuzzy) {
-        msgMgr->printToOutputPane(QLatin1String("updatePchInfo: switching to build system (fuzzy)"),
-                                  Core::MessageManager::Silent);
+        Core::MessageManager::write(
+                    QLatin1String("updatePchInfo: switching to build system (fuzzy)"),
+                    Core::MessageManager::Silent);
         QHash<QString, QSet<QString> > includes, frameworks;
         QHash<QString, QSet<QByteArray> > definesPerPCH;
         QHash<QString, bool> objc;
@@ -325,8 +322,9 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
     } else if (pchUsage == ClangProjectSettings::PchUse_BuildSystem_Exact) {
         future.setProgressRange(0, projectParts.size() + 1);
         future.setProgressValue(0);
-        msgMgr->printToOutputPane(QLatin1String("updatePchInfo: switching to build system (exact)"),
-                                  Core::MessageManager::Silent);
+        Core::MessageManager::write(
+                    QLatin1String("updatePchInfo: switching to build system (exact)"),
+                    Core::MessageManager::Silent);
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             if (future.isCanceled())
                 return;
@@ -353,8 +351,9 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
     } else if (pchUsage == ClangProjectSettings::PchUse_Custom) {
         future.setProgressRange(0, 2);
         future.setProgressValue(0);
-        msgMgr->printToOutputPane(QLatin1String("updatePchInfo: switching to custom") + customPchFile,
-                                  Core::MessageManager::Silent);
+        Core::MessageManager::write(
+                    QLatin1String("updatePchInfo: switching to custom") + customPchFile,
+                    Core::MessageManager::Silent);
 
         QSet<QString> includes, frameworks;
         bool objc = false;

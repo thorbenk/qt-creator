@@ -30,15 +30,8 @@
 #ifndef CLANGPLUGIN_H
 #define CLANGPLUGIN_H
 
+#include "clangmodelmanagersupport.h"
 #include "liveunitsmanager.h"
-
-#ifdef CLANG_HIGHLIGHTING
-#  include "clanghighlightingsupport.h"
-#endif // CLANG_HIGHLIGHTING
-
-#ifdef CLANG_COMPLETION
-#  include "clangcompletion.h"
-#endif // CLANG_COMPLETION
 
 #ifdef CLANG_INDEXING
 #  include "clangindexer.h"
@@ -55,18 +48,13 @@ class ClangCodeModelPlugin: public ExtensionSystem::IPlugin
     Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtCreatorPlugin" FILE "ClangCodeModel.json")
 
 public:
-    ClangCodeModelPlugin();
-
     bool initialize(const QStringList &arguments, QString *errorMessage);
 
     void extensionsInitialized();
 
-    virtual ShutdownFlag aboutToShutdown();
-
 private:
     LiveUnitsManager m_liveUnitsManager;
-    QScopedPointer<ClangCompletionAssistProvider> m_completionAssistProvider;
-    QScopedPointer<ClangHighlightingSupportFactory> m_highlightingFactory;
+    QScopedPointer<ModelManagerSupport> m_modelManagerSupport;
 #ifdef CLANG_INDEXING
     QScopedPointer<ClangIndexer> m_indexer;
 #endif // CLANG_INDEXING

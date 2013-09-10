@@ -49,12 +49,6 @@
 namespace ClangCodeModel {
 namespace Internal {
 
-ClangCodeModelPlugin::ClangCodeModelPlugin()
-    : m_completionAssistProvider(0)
-    , m_highlightingFactory(0)
-{
-}
-
 bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *errorMessage)
 {
     Q_UNUSED(arguments)
@@ -64,15 +58,10 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 
     ClangCodeModel::Internal::initializeClang();
 
-    connect(Core::ICore::editorManager(), SIGNAL(editorAboutToClose(Core::IEditor*)),
+    connect(Core::EditorManager::instance(), SIGNAL(editorAboutToClose(Core::IEditor*)),
             &m_liveUnitsManager, SLOT(editorAboutToClose(Core::IEditor*)));
-    connect(Core::ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor*)),
+    connect(Core::EditorManager::instance(), SIGNAL(editorOpened(Core::IEditor*)),
             &m_liveUnitsManager, SLOT(editorOpened(Core::IEditor*)));
-
-#ifdef CLANG_COMPLETION
-    m_completionAssistProvider.reset(new ClangCompletionAssistProvider);
-    CppTools::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(m_completionAssistProvider.data());
-#endif // CLANG_COMPLETION
 
     PCHManager *pchManager = new PCHManager(this);
     FastIndexer *fastIndexer = 0;
@@ -84,35 +73,21 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 #endif // CLANG_INDEXING
 
     // wire up the pch manager
-    ProjectExplorer::ProjectExplorerPlugin *pe =
-       ProjectExplorer::ProjectExplorerPlugin::instance();
-    ProjectExplorer::SessionManager *session = pe->session();
+    QObject *session = ProjectExplorer::SessionManager::instance();
     connect(session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
             pchManager, SLOT(onAboutToRemoveProject(ProjectExplorer::Project*)));
     connect(CppTools::CppModelManagerInterface::instance(), SIGNAL(projectPartsUpdated(ProjectExplorer::Project*)),
             pchManager, SLOT(onProjectPartsUpdated(ProjectExplorer::Project*)));
 
-#ifdef CLANG_HIGHLIGHTING
-    m_highlightingFactory.reset(new ClangHighlightingSupportFactory(fastIndexer));
-    CppTools::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory.data());
-#else // !CLANG_HIGHLIGHTING
-    Q_UNUSED(fastIndexer);
-#endif // CLANG_HIGHLIGHTING
+    m_modelManagerSupport.reset(new ModelManagerSupport(fastIndexer));
+    CppTools::CppModelManagerInterface::instance()->addModelManagerSupport(
+                m_modelManagerSupport.data());
 
     return true;
 }
 
 void ClangCodeModelPlugin::extensionsInitialized()
 {
-}
-
-ExtensionSystem::IPlugin::ShutdownFlag ClangCodeModelPlugin::aboutToShutdown()
-{
-    CppTools::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(0);
-    CppTools::CppModelManagerInterface::instance()->setHighlightingSupportFactory(0);
-    CppTools::CppModelManagerInterface::instance()->setIndexingSupport(0);
-
-    return ExtensionSystem::IPlugin::aboutToShutdown();
 }
 
 } // namespace Internal

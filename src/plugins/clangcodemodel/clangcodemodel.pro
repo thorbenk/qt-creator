@@ -42,7 +42,8 @@ SOURCES += \
     $$PWD/pchmanager.cpp \
     $$PWD/clangprojectsettings.cpp \
     $$PWD/clangprojectsettingspropertiespage.cpp \
-    $$PWD/raii/scopedclangoptions.cpp
+    $$PWD/raii/scopedclangoptions.cpp \
+    $$PWD/clangmodelmanagersupport.cpp
 
 HEADERS += \
     $$PWD/clangcodemodelplugin.h \
@@ -64,7 +65,8 @@ HEADERS += \
     $$PWD/pchmanager.h \
     $$PWD/clangprojectsettings.h \
     $$PWD/clangprojectsettingspropertiespage.h \
-    $$PWD/raii/scopedclangoptions.h
+    $$PWD/raii/scopedclangoptions.h \
+    $$PWD/clangmodelmanagersupport.h
 
 contains(DEFINES, CLANG_INDEXING) {
     HEADERS += \

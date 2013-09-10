@@ -52,8 +52,15 @@ class ClangAssistProposalModel;
 class ClangCompletionAssistProvider : public CppTools::CppCompletionAssistProvider
 {
 public:
+    ClangCompletionAssistProvider();
+
     virtual TextEditor::IAssistProcessor *createProcessor() const;
-    virtual CppTools::CppCompletionSupport *completionSupport(TextEditor::ITextEditor *editor);
+    virtual TextEditor::IAssistInterface *createAssistInterface(
+            ProjectExplorer::Project *project, const QString &filePath, QTextDocument *document,
+            int position, TextEditor::AssistReason reason) const;
+
+private:
+    ClangCodeModel::ClangCompleter::Ptr m_clangCompletionWrapper;
 };
 
 } // namespace Internal

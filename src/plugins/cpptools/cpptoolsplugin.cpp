@@ -38,7 +38,6 @@
 #include "cpplocatorfilter.h"
 #include "symbolsfindfilter.h"
 #include "cpptoolssettings.h"
-#include "cppctordtorfilter.h"
 #include "cpptoolsreuse.h"
 #include "cppprojectfile.h"
 #include "cpplocatordata.h"
